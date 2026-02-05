@@ -70,12 +70,12 @@ std::optional<SmallVector<int64_t>> extractConstantIntegers(Value value) {
 
 /// Create a dense constant tensor
 Value createConstantTensor(PatternRewriter &rewriter, Location loc,
-                           ArrayRef<int64_t> values, Type elementType) {
+    ArrayRef<int64_t> values, Type elementType) {
   auto tensorType =
       RankedTensorType::get({static_cast<int64_t>(values.size())}, elementType);
   auto denseAttr = DenseElementsAttr::get(tensorType, values);
-  return rewriter.create<mlir::ONNXConstantOp>(
-      loc, tensorType, mlir::ValueRange{},
+  return rewriter.create<mlir::ONNXConstantOp>(loc, tensorType,
+      mlir::ValueRange{},
       mlir::ArrayRef<mlir::NamedAttribute>{
           rewriter.getNamedAttr("value", denseAttr)});
 }
@@ -84,8 +84,8 @@ Value createConstantTensor(PatternRewriter &rewriter, Location loc,
 struct StandardizeSlicePattern : public OpRewritePattern<mlir::ONNXSliceOp> {
   using OpRewritePattern<mlir::ONNXSliceOp>::OpRewritePattern;
   /// matchAndRewrite SliceOp
-  LogicalResult matchAndRewrite(mlir::ONNXSliceOp sliceOp,
-                                PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      mlir::ONNXSliceOp sliceOp, PatternRewriter &rewriter) const override {
     Location loc = sliceOp.getLoc();
 
     // Get input shape
@@ -193,9 +193,8 @@ struct StandardizeSlicePattern : public OpRewritePattern<mlir::ONNXSliceOp> {
     Value newAxes = createConstantTensor(rewriter, loc, allAxes, int64Type);
 
     // Create standardized Slice operation
-    auto newSliceOp =
-        rewriter.create<ONNXSliceOp>(loc, sliceOp.getType(), sliceOp.getData(),
-                                     newStarts, newEnds, newAxes, newSteps);
+    auto newSliceOp = rewriter.create<ONNXSliceOp>(loc, sliceOp.getType(),
+        sliceOp.getData(), newStarts, newEnds, newAxes, newSteps);
 
     rewriter.replaceOp(sliceOp, newSliceOp.getOutput());
 
@@ -208,8 +207,8 @@ struct ConvertGatherToSlicePattern
     : public OpRewritePattern<mlir::ONNXGatherOp> {
   using OpRewritePattern<mlir::ONNXGatherOp>::OpRewritePattern;
   /// matchAndRewrite GatherOp
-  LogicalResult matchAndRewrite(mlir::ONNXGatherOp gatherOp,
-                                PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      mlir::ONNXGatherOp gatherOp, PatternRewriter &rewriter) const override {
     Location loc = gatherOp.getLoc();
 
     // Get input shape
@@ -281,13 +280,13 @@ struct ConvertGatherToSlicePattern
           rewriter.getI64Type());
       auto shapeAttr =
           DenseElementsAttr::get(shapeType, gatherOutputType.getShape());
-      auto shapeConst = rewriter.create<mlir::ONNXConstantOp>(
-          loc, shapeType, mlir::ValueRange{},
+      auto shapeConst = rewriter.create<mlir::ONNXConstantOp>(loc, shapeType,
+          mlir::ValueRange{},
           mlir::ArrayRef<mlir::NamedAttribute>{
               rewriter.getNamedAttr("value", shapeAttr)});
 
-      auto reshapeOp = rewriter.create<ONNXReshapeOp>(
-          loc, gatherOutputType, sliceOp.getResult(), shapeConst,
+      auto reshapeOp = rewriter.create<ONNXReshapeOp>(loc, gatherOutputType,
+          sliceOp.getResult(), shapeConst,
           /*allowzero=*/0);
       rewriter.replaceOp(gatherOp, reshapeOp.getResult());
     } else {

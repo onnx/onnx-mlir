@@ -53,8 +53,8 @@ bool isIdentityPermutation(ArrayRef<int64_t> perm) {
 }
 
 /// Compose two permutations: result[i] = perm1[perm2[i]]
-SmallVector<int64_t> composePermutations(ArrayRef<int64_t> perm1,
-                                         ArrayRef<int64_t> perm2) {
+SmallVector<int64_t> composePermutations(
+    ArrayRef<int64_t> perm1, ArrayRef<int64_t> perm2) {
   assert(perm1.size() == perm2.size() && "Permutation size mismatch");
   SmallVector<int64_t> result(perm1.size());
   for (size_t i = 0; i < perm1.size(); ++i) {
@@ -64,11 +64,11 @@ SmallVector<int64_t> composePermutations(ArrayRef<int64_t> perm1,
 }
 
 /// Apply permutation to shape: result[i] = shape[perm[i]]
-SmallVector<int64_t> permuteShape(ArrayRef<int64_t> shape,
-                                  ArrayRef<int64_t> perm) {
+SmallVector<int64_t> permuteShape(
+    ArrayRef<int64_t> shape, ArrayRef<int64_t> perm) {
   // Validate that permutation indices are within bounds
-  assert(perm.size() == shape.size() &&
-         "Permutation size must match shape size");
+  assert(
+      perm.size() == shape.size() && "Permutation size must match shape size");
   for (int64_t idx : perm) {
     assert(idx >= 0 && static_cast<size_t>(idx) < shape.size() &&
            "Permutation index out of bounds");
@@ -112,8 +112,8 @@ SmallVector<int64_t> expandShape(ArrayRef<int64_t> shape, size_t targetSize) {
 }
 
 /// Get permutation from ONNX Transpose operation
-std::optional<SmallVector<int64_t>>
-getTransposePermutation(ONNXTransposeOp transposeOp) {
+std::optional<SmallVector<int64_t>> getTransposePermutation(
+    ONNXTransposeOp transposeOp) {
   auto permAttr = transposeOp.getPermAttr();
   if (!permAttr)
     return std::nullopt;
@@ -132,8 +132,8 @@ getTransposePermutation(ONNXTransposeOp transposeOp) {
 struct EliminateIdentityTranspose : public OpRewritePattern<ONNXTransposeOp> {
   using OpRewritePattern<ONNXTransposeOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXTransposeOp op,
-                                PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXTransposeOp op, PatternRewriter &rewriter) const override {
     auto perm = getTransposePermutation(op);
     if (!perm || !isIdentityPermutation(*perm))
       return failure();
@@ -152,8 +152,8 @@ struct EliminateIdentityTranspose : public OpRewritePattern<ONNXTransposeOp> {
 struct FuseConsecutiveTransposes : public OpRewritePattern<ONNXTransposeOp> {
   using OpRewritePattern<ONNXTransposeOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXTransposeOp op,
-                                PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXTransposeOp op, PatternRewriter &rewriter) const override {
     auto prevTranspose = op.getOperand().getDefiningOp<ONNXTransposeOp>();
     if (!prevTranspose)
       return failure();
@@ -214,9 +214,9 @@ struct FuseConsecutiveTransposes : public OpRewritePattern<ONNXTransposeOp> {
               rewriter.create<ONNXConstantOp>(op.getLoc(), Attribute(), zpAttr);
 
           // Create QuantizeLinear op
-          rewriter.replaceOpWithNewOp<ONNXQuantizeLinearOp>(
-              op, outputType, prevTranspose.getOperand(),
-              scaleConst.getResult(), zpConst.getResult(),
+          rewriter.replaceOpWithNewOp<ONNXQuantizeLinearOp>(op, outputType,
+              prevTranspose.getOperand(), scaleConst.getResult(),
+              zpConst.getResult(),
               /*axis=*/IntegerAttr(), /*saturate=*/IntegerAttr(),
               /*block_size=*/IntegerAttr());
 
@@ -253,9 +253,9 @@ struct FuseConsecutiveTransposes : public OpRewritePattern<ONNXTransposeOp> {
               rewriter.create<ONNXConstantOp>(op.getLoc(), Attribute(), zpAttr);
 
           // Create DequantizeLinear op
-          rewriter.replaceOpWithNewOp<ONNXDequantizeLinearOp>(
-              op, outputType, prevTranspose.getOperand(),
-              scaleConst.getResult(), zpConst.getResult(),
+          rewriter.replaceOpWithNewOp<ONNXDequantizeLinearOp>(op, outputType,
+              prevTranspose.getOperand(), scaleConst.getResult(),
+              zpConst.getResult(),
               /*axis=*/IntegerAttr(), /*block_size=*/IntegerAttr());
 
           return success();
@@ -267,9 +267,8 @@ struct FuseConsecutiveTransposes : public OpRewritePattern<ONNXTransposeOp> {
 
       rewriter.replaceOp(op, prevTranspose.getOperand());
     } else {
-      rewriter.replaceOpWithNewOp<ONNXTransposeOp>(
-          op, op.getType(), prevTranspose.getOperand(),
-          rewriter.getI64ArrayAttr(composedPerm));
+      rewriter.replaceOpWithNewOp<ONNXTransposeOp>(op, op.getType(),
+          prevTranspose.getOperand(), rewriter.getI64ArrayAttr(composedPerm));
     }
 
     return success();
@@ -291,8 +290,8 @@ struct FuseConsecutiveTransposes : public OpRewritePattern<ONNXTransposeOp> {
 struct MoveTransposeThroughReshape : public OpRewritePattern<ONNXReshapeOp> {
   using OpRewritePattern<ONNXReshapeOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXReshapeOp reshapeOp,
-                                PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXReshapeOp reshapeOp, PatternRewriter &rewriter) const override {
     // Match pattern: Transpose → Reshape
     auto transposeOp = reshapeOp.getData().getDefiningOp<ONNXTransposeOp>();
     if (!transposeOp)
@@ -318,8 +317,8 @@ struct MoveTransposeThroughReshape : public OpRewritePattern<ONNXReshapeOp> {
     // Check if reshape is "factorizable" - only splits/merges within
     // each transposed dimension (no cross-dimension data mixing)
     SmallVector<SmallVector<int64_t>> dimGroups;
-    if (!isSafeToSwapTransposeReshape(transposeOutputShape, reshapeOutputShape,
-                                      dimGroups))
+    if (!isSafeToSwapTransposeReshape(
+            transposeOutputShape, reshapeOutputShape, dimGroups))
       return failure();
 
     LLVM_DEBUG(llvm::dbgs()
@@ -337,21 +336,19 @@ struct MoveTransposeThroughReshape : public OpRewritePattern<ONNXReshapeOp> {
         {static_cast<int64_t>(newReshapeShape.size())}, rewriter.getI64Type());
     auto newReshapeShapeAttr = DenseElementsAttr::get(
         newReshapeShapeType, ArrayRef<int64_t>(newReshapeShape));
-    auto newShapeConst = rewriter.create<ONNXConstantOp>(
-        reshapeOp.getLoc(), newReshapeShapeType, Attribute(),
-        newReshapeShapeAttr, nullptr, nullptr, nullptr, nullptr, nullptr,
-        nullptr);
+    auto newShapeConst = rewriter.create<ONNXConstantOp>(reshapeOp.getLoc(),
+        newReshapeShapeType, Attribute(), newReshapeShapeAttr, nullptr, nullptr,
+        nullptr, nullptr, nullptr, nullptr);
 
     auto newReshapeType = RankedTensorType::get(
         newReshapeShape, transposeInputType.getElementType());
-    auto newReshape = rewriter.create<ONNXReshapeOp>(
-        transposeOp.getLoc(), newReshapeType, transposeOp.getData(),
-        newShapeConst.getResult(), reshapeOp.getAllowzeroAttr());
+    auto newReshape = rewriter.create<ONNXReshapeOp>(transposeOp.getLoc(),
+        newReshapeType, transposeOp.getData(), newShapeConst.getResult(),
+        reshapeOp.getAllowzeroAttr());
 
     // Create new Transpose (after reshape)
-    rewriter.replaceOpWithNewOp<ONNXTransposeOp>(
-        reshapeOp, reshapeOp.getType(), newReshape.getResult(),
-        rewriter.getI64ArrayAttr(newPerm));
+    rewriter.replaceOpWithNewOp<ONNXTransposeOp>(reshapeOp, reshapeOp.getType(),
+        newReshape.getResult(), rewriter.getI64ArrayAttr(newPerm));
 
     return success();
   }
@@ -532,9 +529,9 @@ private:
   // After applying the new reshape, we have a tensor where each original
   // dimension may be split into multiple sub-dimensions. We need to compute
   // the permutation that achieves the same final layout.
-  [[nodiscard]] static SmallVector<int64_t>
-  computeAdjustedPermutation(const SmallVector<SmallVector<int64_t>> &dimGroups,
-                             ArrayRef<int64_t> perm) {
+  [[nodiscard]] static SmallVector<int64_t> computeAdjustedPermutation(
+      const SmallVector<SmallVector<int64_t>> &dimGroups,
+      ArrayRef<int64_t> perm) {
     SmallVector<int64_t> newPerm;
     auto invPerm = inversePermutation(perm);
 
@@ -584,8 +581,8 @@ template <typename UnaryOp>
 struct PushTransposeThroughUnaryOp : public OpRewritePattern<UnaryOp> {
   using OpRewritePattern<UnaryOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(UnaryOp op,
-                                PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      UnaryOp op, PatternRewriter &rewriter) const override {
     auto transposeOp =
         op.getOperand().template getDefiningOp<ONNXTransposeOp>();
     if (!transposeOp)
@@ -605,8 +602,8 @@ struct PushTransposeThroughUnaryOp : public OpRewritePattern<UnaryOp> {
     LLVM_DEBUG(llvm::dbgs() << "Pushing transpose through "
                             << op->getName().getStringRef() << "\n");
 
-    auto newOp = rewriter.create<UnaryOp>(op.getLoc(), newOutputType,
-                                          transposeOp.getOperand());
+    auto newOp = rewriter.create<UnaryOp>(
+        op.getLoc(), newOutputType, transposeOp.getOperand());
 
     for (auto namedAttr : op->getAttrs()) {
       newOp->setAttr(namedAttr.getName(), namedAttr.getValue());
@@ -626,8 +623,8 @@ struct PushTransposeThroughUnaryOp : public OpRewritePattern<UnaryOp> {
 struct PushTransposeThroughClip : public OpRewritePattern<ONNXClipOp> {
   using OpRewritePattern<ONNXClipOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXClipOp op,
-                                PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXClipOp op, PatternRewriter &rewriter) const override {
     // ONNXClipOp has input, min, max operands
     auto transposeOp = op.getOperand(0).getDefiningOp<ONNXTransposeOp>();
     if (!transposeOp)
@@ -646,9 +643,8 @@ struct PushTransposeThroughClip : public OpRewritePattern<ONNXClipOp> {
 
     LLVM_DEBUG(llvm::dbgs() << "Pushing transpose through Clip\n");
 
-    auto newOp = rewriter.create<ONNXClipOp>(
-        op.getLoc(), newOutputType, transposeOp.getOperand(), op.getOperand(1),
-        op.getOperand(2));
+    auto newOp = rewriter.create<ONNXClipOp>(op.getLoc(), newOutputType,
+        transposeOp.getOperand(), op.getOperand(1), op.getOperand(2));
 
     rewriter.replaceOpWithNewOp<ONNXTransposeOp>(
         op, op.getType(), newOp.getResult(), rewriter.getI64ArrayAttr(*perm));
@@ -666,8 +662,8 @@ struct PushTransposeThroughHardSigmoid
     : public OpRewritePattern<ONNXHardSigmoidOp> {
   using OpRewritePattern<ONNXHardSigmoidOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXHardSigmoidOp op,
-                                PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXHardSigmoidOp op, PatternRewriter &rewriter) const override {
     // ONNXHardSigmoidOp has a single input operand
     auto transposeOp = op.getX().getDefiningOp<ONNXTransposeOp>();
     if (!transposeOp)
@@ -687,9 +683,8 @@ struct PushTransposeThroughHardSigmoid
     LLVM_DEBUG(llvm::dbgs() << "Pushing transpose through HardSigmoid"
                             << "\n");
 
-    auto newOp = rewriter.create<ONNXHardSigmoidOp>(
-        op.getLoc(), newOutputType, transposeOp.getOperand(), op.getAlphaAttr(),
-        op.getBetaAttr());
+    auto newOp = rewriter.create<ONNXHardSigmoidOp>(op.getLoc(), newOutputType,
+        transposeOp.getOperand(), op.getAlphaAttr(), op.getBetaAttr());
 
     rewriter.replaceOpWithNewOp<ONNXTransposeOp>(
         op, op.getType(), newOp.getResult(), rewriter.getI64ArrayAttr(*perm));
@@ -707,8 +702,8 @@ template <typename QDQOp>
 struct PushTransposeThroughQDQ : public OpRewritePattern<QDQOp> {
   using OpRewritePattern<QDQOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(QDQOp op,
-                                PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      QDQOp op, PatternRewriter &rewriter) const override {
     auto transposeOp =
         op->getOperand(0).template getDefiningOp<ONNXTransposeOp>();
     if (!transposeOp)
@@ -733,8 +728,8 @@ struct PushTransposeThroughQDQ : public OpRewritePattern<QDQOp> {
       operands.push_back(op->getOperand(i));
     }
 
-    auto newOp = rewriter.create<QDQOp>(op.getLoc(), newOutputType, operands,
-                                        op->getAttrs());
+    auto newOp = rewriter.create<QDQOp>(
+        op.getLoc(), newOutputType, operands, op->getAttrs());
 
     rewriter.replaceOpWithNewOp<ONNXTransposeOp>(
         op, op.getType(), newOp.getResult(), rewriter.getI64ArrayAttr(*perm));
@@ -752,8 +747,8 @@ template <typename BinaryOp>
 struct FuseBinaryOpTransposes : public OpRewritePattern<BinaryOp> {
   using OpRewritePattern<BinaryOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(BinaryOp op,
-                                PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      BinaryOp op, PatternRewriter &rewriter) const override {
     if (op->getNumOperands() < 2)
       return failure();
 
@@ -781,16 +776,14 @@ struct FuseBinaryOpTransposes : public OpRewritePattern<BinaryOp> {
                             << op->getName().getStringRef() << "\n");
 
     auto newOp = rewriter.create<BinaryOp>(op.getLoc(), newOutputType,
-                                           lhsTranspose.getOperand(),
-                                           rhsTranspose.getOperand());
+        lhsTranspose.getOperand(), rhsTranspose.getOperand());
 
     for (auto namedAttr : op->getAttrs()) {
       newOp->setAttr(namedAttr.getName(), namedAttr.getValue());
     }
 
-    rewriter.replaceOpWithNewOp<ONNXTransposeOp>(
-        op, op.getType(), newOp.getResult(),
-        rewriter.getI64ArrayAttr(*lhsPerm));
+    rewriter.replaceOpWithNewOp<ONNXTransposeOp>(op, op.getType(),
+        newOp.getResult(), rewriter.getI64ArrayAttr(*lhsPerm));
 
     return success();
   }
@@ -806,8 +799,8 @@ template <typename BinaryOp>
 struct FuseTransposeImmuneBinaryOp : public OpRewritePattern<BinaryOp> {
   using OpRewritePattern<BinaryOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(BinaryOp op,
-                                PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      BinaryOp op, PatternRewriter &rewriter) const override {
     if (op->getNumOperands() < 2)
       return failure();
 
@@ -878,15 +871,15 @@ struct FuseTransposeImmuneBinaryOp : public OpRewritePattern<BinaryOp> {
           {static_cast<int64_t>(newShape.size())}, rewriter.getI64Type());
       auto shapeAttr =
           DenseElementsAttr::get(shapeType, ArrayRef<int64_t>(newShape));
-      auto shapeConst = rewriter.create<ONNXConstantOp>(
-          op.getLoc(), shapeType, Attribute(), shapeAttr, nullptr, nullptr,
-          nullptr, nullptr, nullptr, nullptr);
+      auto shapeConst =
+          rewriter.create<ONNXConstantOp>(op.getLoc(), shapeType, Attribute(),
+              shapeAttr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
 
       auto allowzeroAttr =
           rewriter.getIntegerAttr(rewriter.getIntegerType(64, true), 0);
-      auto reshapeOp = rewriter.create<ONNXReshapeOp>(
-          op.getLoc(), newType, otherOperand,
-          /*shape=*/shapeConst.getResult(), /*allowzero=*/allowzeroAttr);
+      auto reshapeOp =
+          rewriter.create<ONNXReshapeOp>(op.getLoc(), newType, otherOperand,
+              /*shape=*/shapeConst.getResult(), /*allowzero=*/allowzeroAttr);
 
       reshapedOperand = reshapeOp.getResult();
     }
@@ -924,8 +917,8 @@ template <typename BinaryOp>
 struct PushTransposeThroughBinaryWithConst : public OpRewritePattern<BinaryOp> {
   using OpRewritePattern<BinaryOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(BinaryOp op,
-                                PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      BinaryOp op, PatternRewriter &rewriter) const override {
     if (op->getNumOperands() < 2)
       return failure();
 
@@ -1047,9 +1040,9 @@ struct PushTransposeThroughBinaryWithConst : public OpRewritePattern<BinaryOp> {
       auto newDenseAttr = DenseElementsAttr::get(
           denseAttrType, denseAttr.getSplatValue<Attribute>());
       auto newConstType = RankedTensorType::get(newConstShape, origElementType);
-      auto newConstOp = rewriter.create<ONNXConstantOp>(
-          constantOp.getLoc(), newConstType, Attribute(), newDenseAttr, nullptr,
-          nullptr, nullptr, nullptr, nullptr, nullptr);
+      auto newConstOp = rewriter.create<ONNXConstantOp>(constantOp.getLoc(),
+          newConstType, Attribute(), newDenseAttr, nullptr, nullptr, nullptr,
+          nullptr, nullptr, nullptr);
 
       auto outputType = mlir::cast<RankedTensorType>(op.getType());
       auto newOutputShape = permuteShape(outputType.getShape(), invPerm);
@@ -1078,7 +1071,7 @@ struct PushTransposeThroughBinaryWithConst : public OpRewritePattern<BinaryOp> {
       // Handle float32
       // Use ArrayRef for safe access without pointer arithmetic
       ArrayRef<float> floatData(reinterpret_cast<const float *>(rawData.data()),
-                                static_cast<size_t>(numElements));
+          static_cast<size_t>(numElements));
       for (int64_t newLinearIdx = 0; newLinearIdx < numElements;
            ++newLinearIdx) {
         // Convert linear index to multi-dimensional index in new space
@@ -1138,7 +1131,7 @@ struct PushTransposeThroughBinaryWithConst : public OpRewritePattern<BinaryOp> {
       // Handle int8/uint8 (quantized types)
       // Use ArrayRef for safe access without pointer arithmetic
       ArrayRef<int8_t> intData(reinterpret_cast<const int8_t *>(rawData.data()),
-                               static_cast<size_t>(numElements));
+          static_cast<size_t>(numElements));
       for (int64_t newLinearIdx = 0; newLinearIdx < numElements;
            ++newLinearIdx) {
         // Convert linear index to multi-dimensional index in new space
@@ -1187,9 +1180,9 @@ struct PushTransposeThroughBinaryWithConst : public OpRewritePattern<BinaryOp> {
 
     // Create the constant with the final type (including quantization)
     auto newConstType = RankedTensorType::get(newConstShape, origElementType);
-    auto newConstOp = rewriter.create<ONNXConstantOp>(
-        constantOp.getLoc(), newConstType, Attribute(), newDenseAttr, nullptr,
-        nullptr, nullptr, nullptr, nullptr, nullptr);
+    auto newConstOp = rewriter.create<ONNXConstantOp>(constantOp.getLoc(),
+        newConstType, Attribute(), newDenseAttr, nullptr, nullptr, nullptr,
+        nullptr, nullptr, nullptr);
 
     // Create new binary op with untransposed input and transposed constant
     auto outputType = mlir::cast<RankedTensorType>(op.getType());
@@ -1226,8 +1219,8 @@ struct PushTransposeThroughBinaryWithConst : public OpRewritePattern<BinaryOp> {
 struct FoldConstDQTranspose : public OpRewritePattern<ONNXTransposeOp> {
   using OpRewritePattern<ONNXTransposeOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXTransposeOp transposeOp,
-                                PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXTransposeOp transposeOp, PatternRewriter &rewriter) const override {
     // Match pattern: transpose(dequantize(const))
     auto dqOp = transposeOp.getData().getDefiningOp<ONNXDequantizeLinearOp>();
     if (!dqOp)
@@ -1324,8 +1317,8 @@ struct FoldConstDQTranspose : public OpRewritePattern<ONNXTransposeOp> {
       stride *= constShape[i];
     }
 
-    int64_t numElements = std::accumulate(constShape.begin(), constShape.end(),
-                                          1LL, std::multiplies<int64_t>());
+    int64_t numElements = std::accumulate(
+        constShape.begin(), constShape.end(), 1LL, std::multiplies<int64_t>());
 
     SmallVector<Attribute> newValues;
     newValues.reserve(numElements);
@@ -1343,7 +1336,7 @@ struct FoldConstDQTranspose : public OpRewritePattern<ONNXTransposeOp> {
 
     if (workingElementType.isF32()) {
       ArrayRef<float> floatData(reinterpret_cast<const float *>(rawData.data()),
-                                static_cast<size_t>(numElements));
+          static_cast<size_t>(numElements));
       for (int64_t newLinearIdx = 0; newLinearIdx < numElements;
            ++newLinearIdx) {
         SmallVector<int64_t> newIndices(newConstShape.size());
@@ -1371,8 +1364,8 @@ struct FoldConstDQTranspose : public OpRewritePattern<ONNXTransposeOp> {
                workingElementType.isInteger(32) ||
                workingElementType.isInteger(64)) {
       unsigned bitWidth = workingElementType.getIntOrFloatBitWidth();
-      ArrayRef<int8_t> intData(reinterpret_cast<const int8_t *>(rawData.data()),
-                               rawData.size());
+      ArrayRef<int8_t> intData(
+          reinterpret_cast<const int8_t *>(rawData.data()), rawData.size());
 
       for (int64_t newLinearIdx = 0; newLinearIdx < numElements;
            ++newLinearIdx) {
@@ -1409,8 +1402,8 @@ struct FoldConstDQTranspose : public OpRewritePattern<ONNXTransposeOp> {
               *reinterpret_cast<const int64_t *>(&intData[byteOffset]));
         }
 
-        newValues.push_back(rewriter.getIntegerAttr(workingElementType,
-                                                    APInt(bitWidth, rawValue)));
+        newValues.push_back(rewriter.getIntegerAttr(
+            workingElementType, APInt(bitWidth, rawValue)));
       }
     } else {
       return failure();
@@ -1425,9 +1418,9 @@ struct FoldConstDQTranspose : public OpRewritePattern<ONNXTransposeOp> {
 
     auto newDenseAttr = DenseElementsAttr::get(denseAttrType, newValues);
     auto newConstType = RankedTensorType::get(newConstShape, origElementType);
-    auto newConstOp = rewriter.create<ONNXConstantOp>(
-        constOp.getLoc(), newConstType, Attribute(), newDenseAttr, nullptr,
-        nullptr, nullptr, nullptr, nullptr, nullptr);
+    auto newConstOp = rewriter.create<ONNXConstantOp>(constOp.getLoc(),
+        newConstType, Attribute(), newDenseAttr, nullptr, nullptr, nullptr,
+        nullptr, nullptr, nullptr);
 
     // Scale was already validated earlier
     Value newScale = dqOp.getXScale();
@@ -1435,9 +1428,8 @@ struct FoldConstDQTranspose : public OpRewritePattern<ONNXTransposeOp> {
 
     auto transposeOutputType =
         mlir::cast<RankedTensorType>(transposeOp.getType());
-    auto newDqOp = rewriter.create<ONNXDequantizeLinearOp>(
-        dqOp.getLoc(), transposeOutputType, newConstOp.getResult(), newScale,
-        newZeroPoint);
+    auto newDqOp = rewriter.create<ONNXDequantizeLinearOp>(dqOp.getLoc(),
+        transposeOutputType, newConstOp.getResult(), newScale, newZeroPoint);
 
     for (auto namedAttr : dqOp->getAttrs()) {
       if (namedAttr.getName().strref() != "axis")
@@ -1446,7 +1438,7 @@ struct FoldConstDQTranspose : public OpRewritePattern<ONNXTransposeOp> {
 
     auto axisAttr =
         IntegerAttr::get(rewriter.getIntegerType(64, /*isSigned=*/true),
-                         APInt(64, static_cast<uint64_t>(newAxis)));
+            APInt(64, static_cast<uint64_t>(newAxis)));
     newDqOp->setAttr(rewriter.getStringAttr("axis"), axisAttr);
 
     rewriter.replaceOp(transposeOp, newDqOp.getResult());
@@ -1462,8 +1454,8 @@ struct FoldConstDQTranspose : public OpRewritePattern<ONNXTransposeOp> {
 struct PushTransposeThroughWhere : public OpRewritePattern<ONNXWhereOp> {
   using OpRewritePattern<ONNXWhereOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXWhereOp op,
-                                PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXWhereOp op, PatternRewriter &rewriter) const override {
     auto xTranspose = op.getX().getDefiningOp<ONNXTransposeOp>();
     auto yTranspose = op.getY().getDefiningOp<ONNXTransposeOp>();
 
@@ -1494,13 +1486,11 @@ struct PushTransposeThroughWhere : public OpRewritePattern<ONNXWhereOp> {
       }
     }
 
-    auto newWhere = rewriter.create<ONNXWhereOp>(
-        op.getLoc(), newOutputType, newCondition, xTranspose.getOperand(),
-        yTranspose.getOperand());
+    auto newWhere = rewriter.create<ONNXWhereOp>(op.getLoc(), newOutputType,
+        newCondition, xTranspose.getOperand(), yTranspose.getOperand());
 
-    rewriter.replaceOpWithNewOp<ONNXTransposeOp>(
-        op, op.getType(), newWhere.getResult(),
-        rewriter.getI64ArrayAttr(*xPerm));
+    rewriter.replaceOpWithNewOp<ONNXTransposeOp>(op, op.getType(),
+        newWhere.getResult(), rewriter.getI64ArrayAttr(*xPerm));
 
     return success();
   }
@@ -1517,8 +1507,8 @@ struct PushTransposeThroughVariadicWithConst
     : public OpRewritePattern<VariadicOp> {
   using OpRewritePattern<VariadicOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(VariadicOp op,
-                                PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      VariadicOp op, PatternRewriter &rewriter) const override {
     SmallVector<Value> transposeInputs;
     SmallVector<Value> constantInputs;
     SmallVector<Value> otherInputs;
@@ -1582,15 +1572,14 @@ struct PushTransposeThroughVariadicWithConst
               {static_cast<int64_t>(newShape.size())}, rewriter.getI64Type());
           auto shapeAttr =
               DenseElementsAttr::get(shapeType, ArrayRef<int64_t>(newShape));
-          auto shapeConst = rewriter.create<ONNXConstantOp>(
-              op.getLoc(), shapeType, Attribute(), shapeAttr, nullptr, nullptr,
-              nullptr, nullptr, nullptr, nullptr);
+          auto shapeConst = rewriter.create<ONNXConstantOp>(op.getLoc(),
+              shapeType, Attribute(), shapeAttr, nullptr, nullptr, nullptr,
+              nullptr, nullptr, nullptr);
 
           auto allowzeroAttr =
               rewriter.getIntegerAttr(rewriter.getIntegerType(64, true), 0);
-          auto reshapeOp = rewriter.create<ONNXReshapeOp>(
-              op.getLoc(), newType, constValue, shapeConst.getResult(),
-              allowzeroAttr);
+          auto reshapeOp = rewriter.create<ONNXReshapeOp>(op.getLoc(), newType,
+              constValue, shapeConst.getResult(), allowzeroAttr);
 
           newInputs.push_back(reshapeOp.getResult());
         }
@@ -1609,9 +1598,8 @@ struct PushTransposeThroughVariadicWithConst
     auto newOp =
         rewriter.create<VariadicOp>(op.getLoc(), newOutputType, newInputs);
 
-    rewriter.replaceOpWithNewOp<ONNXTransposeOp>(
-        op, op.getType(), newOp.getResult(),
-        rewriter.getI64ArrayAttr(firstPerm));
+    rewriter.replaceOpWithNewOp<ONNXTransposeOp>(op, op.getType(),
+        newOp.getResult(), rewriter.getI64ArrayAttr(firstPerm));
 
     return success();
   }
@@ -1746,20 +1734,19 @@ struct ONNXTransposeOptimizationPass
     // Count transpose ops after
     int transposeCountAfter = 0;
     function.walk([&](ONNXTransposeOp /*op*/) { transposeCountAfter++; });
-    LLVM_DEBUG(llvm::dbgs()
-               << "Transpose ops after: " << transposeCountAfter << "\n");
+    LLVM_DEBUG(
+        llvm::dbgs() << "Transpose ops after: " << transposeCountAfter << "\n");
     LLVM_DEBUG(llvm::dbgs() << "Eliminated/fused: "
                             << (transposeCountBefore - transposeCountAfter)
                             << " transposes\n");
-    LLVM_DEBUG(llvm::dbgs()
-               << "=== ONNX Transpose Fusion Pass Completed ===\n");
+    LLVM_DEBUG(
+        llvm::dbgs() << "=== ONNX Transpose Fusion Pass Completed ===\n");
   }
 };
 
 } // namespace onnx_mlir
 
 // Factory function to create the pass
-std::unique_ptr<mlir::Pass>
-onnx_mlir::createONNXTransposeOptimizationPass() {
+std::unique_ptr<mlir::Pass> onnx_mlir::createONNXTransposeOptimizationPass() {
   return std::make_unique<onnx_mlir::ONNXTransposeOptimizationPass>();
 }

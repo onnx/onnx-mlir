@@ -12,6 +12,7 @@ add_onnx_mlir_executable(onnx-mlir-opt
   OMCompilerDialects
   OMCompilerOptions
   OMCompilerPasses
+  OMDisposableGarbageCollector
   OMAccelerator
   OMVersion
   MLIRAffineTransforms

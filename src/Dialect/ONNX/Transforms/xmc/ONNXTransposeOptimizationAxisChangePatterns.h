@@ -17,12 +17,12 @@
 #ifndef ONNX_MLIR_ONNXTRANSPOSEOPTIMIZATIONAXISCHANGEPATTERNS_H
 #define ONNX_MLIR_ONNXTRANSPOSEOPTIMIZATIONAXISCHANGEPATTERNS_H
 
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/Support/Debug.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/PatternMatch.h"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "onnx-transpose-optimization"
 
@@ -59,8 +59,7 @@ struct AxisAttributeTransformer {
   /// Transform the operation's attributes based on the transpose permutation.
   /// Returns success() if transformation succeeds, failure() otherwise.
   static LogicalResult transformAttributes(OpType /*op*/,
-                                           PatternRewriter & /*rewriter*/,
-                                           ArrayRef<int64_t> /*perm*/) {
+      PatternRewriter & /*rewriter*/, ArrayRef<int64_t> /*perm*/) {
     // Default: no transformation needed
     return success();
   }
@@ -69,10 +68,9 @@ struct AxisAttributeTransformer {
   /// For operations that change the rank (e.g., Squeeze, Reduce with
   /// keepdims=0), this method computes the new permutation to apply after the
   /// operation. Returns an empty vector for operations that don't change rank.
-  static SmallVector<int64_t>
-  getAdjustedPermutation(OpType /*op*/, ArrayRef<int64_t> /*perm*/,
-                         ArrayRef<int64_t> /*inputShape*/,
-                         ArrayRef<int64_t> /*outputShape*/) {
+  static SmallVector<int64_t> getAdjustedPermutation(OpType /*op*/,
+      ArrayRef<int64_t> /*perm*/, ArrayRef<int64_t> /*inputShape*/,
+      ArrayRef<int64_t> /*outputShape*/) {
     // Default: no rank change, return empty vector
     return SmallVector<int64_t>();
   }
@@ -83,15 +81,13 @@ struct AxisAttributeTransformer {
 //===----------------------------------------------------------------------===//
 
 /// Helper function to transform reduction operation attributes
-LogicalResult transformReductionAttributes(Operation *op,
-                                           PatternRewriter &rewriter,
-                                           ArrayRef<int64_t> perm);
+LogicalResult transformReductionAttributes(
+    Operation *op, PatternRewriter &rewriter, ArrayRef<int64_t> perm);
 
 /// Helper function to compute adjusted permutation for reduction operations
-SmallVector<int64_t>
-getReductionAdjustedPermutation(Operation *op, ArrayRef<int64_t> perm,
-                                ArrayRef<int64_t> inputShape,
-                                ArrayRef<int64_t> outputShape);
+SmallVector<int64_t> getReductionAdjustedPermutation(Operation *op,
+    ArrayRef<int64_t> perm, ArrayRef<int64_t> inputShape,
+    ArrayRef<int64_t> outputShape);
 
 //===----------------------------------------------------------------------===//
 // AxisAttributeTransformer Specializations
@@ -100,14 +96,12 @@ getReductionAdjustedPermutation(Operation *op, ArrayRef<int64_t> perm,
 // ONNXPadOp - Transform pads attribute
 template <>
 struct AxisAttributeTransformer<ONNXPadOp> {
-  static LogicalResult transformAttributes(ONNXPadOp op,
-                                           PatternRewriter &rewriter,
-                                           ArrayRef<int64_t> perm);
+  static LogicalResult transformAttributes(
+      ONNXPadOp op, PatternRewriter &rewriter, ArrayRef<int64_t> perm);
 
-  static SmallVector<int64_t>
-  getAdjustedPermutation(ONNXPadOp /*op*/, ArrayRef<int64_t> /*perm*/,
-                         ArrayRef<int64_t> /*inputShape*/,
-                         ArrayRef<int64_t> /*outputShape*/) {
+  static SmallVector<int64_t> getAdjustedPermutation(ONNXPadOp /*op*/,
+      ArrayRef<int64_t> /*perm*/, ArrayRef<int64_t> /*inputShape*/,
+      ArrayRef<int64_t> /*outputShape*/) {
     return SmallVector<int64_t>(); // No rank change
   }
 };
@@ -115,14 +109,12 @@ struct AxisAttributeTransformer<ONNXPadOp> {
 // ONNXSliceOp - Transform starts, ends, axes, steps attributes
 template <>
 struct AxisAttributeTransformer<ONNXSliceOp> {
-  static LogicalResult transformAttributes(ONNXSliceOp op,
-                                           PatternRewriter &rewriter,
-                                           ArrayRef<int64_t> perm);
+  static LogicalResult transformAttributes(
+      ONNXSliceOp op, PatternRewriter &rewriter, ArrayRef<int64_t> perm);
 
-  static SmallVector<int64_t>
-  getAdjustedPermutation(ONNXSliceOp /*op*/, ArrayRef<int64_t> /*perm*/,
-                         ArrayRef<int64_t> /*inputShape*/,
-                         ArrayRef<int64_t> /*outputShape*/) {
+  static SmallVector<int64_t> getAdjustedPermutation(ONNXSliceOp /*op*/,
+      ArrayRef<int64_t> /*perm*/, ArrayRef<int64_t> /*inputShape*/,
+      ArrayRef<int64_t> /*outputShape*/) {
     return SmallVector<int64_t>(); // No rank change
   }
 };
@@ -130,14 +122,12 @@ struct AxisAttributeTransformer<ONNXSliceOp> {
 // ONNXExpandOp - Transform shape attribute
 template <>
 struct AxisAttributeTransformer<ONNXExpandOp> {
-  static LogicalResult transformAttributes(ONNXExpandOp op,
-                                           PatternRewriter &rewriter,
-                                           ArrayRef<int64_t> perm);
+  static LogicalResult transformAttributes(
+      ONNXExpandOp op, PatternRewriter &rewriter, ArrayRef<int64_t> perm);
 
-  static SmallVector<int64_t>
-  getAdjustedPermutation(ONNXExpandOp /*op*/, ArrayRef<int64_t> /*perm*/,
-                         ArrayRef<int64_t> /*inputShape*/,
-                         ArrayRef<int64_t> /*outputShape*/) {
+  static SmallVector<int64_t> getAdjustedPermutation(ONNXExpandOp /*op*/,
+      ArrayRef<int64_t> /*perm*/, ArrayRef<int64_t> /*inputShape*/,
+      ArrayRef<int64_t> /*outputShape*/) {
     return SmallVector<int64_t>(); // No rank change
   }
 };
@@ -145,14 +135,12 @@ struct AxisAttributeTransformer<ONNXExpandOp> {
 // ONNXTileOp - Transform repeats attribute
 template <>
 struct AxisAttributeTransformer<ONNXTileOp> {
-  static LogicalResult transformAttributes(ONNXTileOp op,
-                                           PatternRewriter &rewriter,
-                                           ArrayRef<int64_t> perm);
+  static LogicalResult transformAttributes(
+      ONNXTileOp op, PatternRewriter &rewriter, ArrayRef<int64_t> perm);
 
-  static SmallVector<int64_t>
-  getAdjustedPermutation(ONNXTileOp /*op*/, ArrayRef<int64_t> /*perm*/,
-                         ArrayRef<int64_t> /*inputShape*/,
-                         ArrayRef<int64_t> /*outputShape*/) {
+  static SmallVector<int64_t> getAdjustedPermutation(ONNXTileOp /*op*/,
+      ArrayRef<int64_t> /*perm*/, ArrayRef<int64_t> /*inputShape*/,
+      ArrayRef<int64_t> /*outputShape*/) {
     return SmallVector<int64_t>(); // No rank change
   }
 };
@@ -160,96 +148,84 @@ struct AxisAttributeTransformer<ONNXTileOp> {
 // ONNXSqueezeOp - Transform axes attribute and compute adjusted permutation
 template <>
 struct AxisAttributeTransformer<ONNXSqueezeOp> {
-  static LogicalResult transformAttributes(ONNXSqueezeOp op,
-                                           PatternRewriter &rewriter,
-                                           ArrayRef<int64_t> perm);
+  static LogicalResult transformAttributes(
+      ONNXSqueezeOp op, PatternRewriter &rewriter, ArrayRef<int64_t> perm);
 
-  static SmallVector<int64_t>
-  getAdjustedPermutation(ONNXSqueezeOp op, ArrayRef<int64_t> perm,
-                         ArrayRef<int64_t> inputShape,
-                         ArrayRef<int64_t> outputShape);
+  static SmallVector<int64_t> getAdjustedPermutation(ONNXSqueezeOp op,
+      ArrayRef<int64_t> perm, ArrayRef<int64_t> inputShape,
+      ArrayRef<int64_t> outputShape);
 };
 
 // ONNXArgMaxOp - Transform axis attribute and compute adjusted permutation
 template <>
 struct AxisAttributeTransformer<ONNXArgMaxOp> {
-  static LogicalResult transformAttributes(ONNXArgMaxOp op,
-                                           PatternRewriter &rewriter,
-                                           ArrayRef<int64_t> perm);
+  static LogicalResult transformAttributes(
+      ONNXArgMaxOp op, PatternRewriter &rewriter, ArrayRef<int64_t> perm);
 
-  static SmallVector<int64_t>
-  getAdjustedPermutation(ONNXArgMaxOp op, ArrayRef<int64_t> perm,
-                         ArrayRef<int64_t> inputShape,
-                         ArrayRef<int64_t> outputShape);
+  static SmallVector<int64_t> getAdjustedPermutation(ONNXArgMaxOp op,
+      ArrayRef<int64_t> perm, ArrayRef<int64_t> inputShape,
+      ArrayRef<int64_t> outputShape);
 };
 
 // Reduction Operations - Transform axes attribute and compute adjusted
 // permutation
 template <>
 struct AxisAttributeTransformer<ONNXReduceMeanOp> {
-  static LogicalResult transformAttributes(ONNXReduceMeanOp op,
-                                           PatternRewriter &rewriter,
-                                           ArrayRef<int64_t> perm) {
+  static LogicalResult transformAttributes(
+      ONNXReduceMeanOp op, PatternRewriter &rewriter, ArrayRef<int64_t> perm) {
     return transformReductionAttributes(op.getOperation(), rewriter, perm);
   }
 
-  static SmallVector<int64_t>
-  getAdjustedPermutation(ONNXReduceMeanOp op, ArrayRef<int64_t> perm,
-                         ArrayRef<int64_t> inputShape,
-                         ArrayRef<int64_t> outputShape) {
-    return getReductionAdjustedPermutation(op.getOperation(), perm, inputShape,
-                                           outputShape);
+  static SmallVector<int64_t> getAdjustedPermutation(ONNXReduceMeanOp op,
+      ArrayRef<int64_t> perm, ArrayRef<int64_t> inputShape,
+      ArrayRef<int64_t> outputShape) {
+    return getReductionAdjustedPermutation(
+        op.getOperation(), perm, inputShape, outputShape);
   }
 };
 
 template <>
 struct AxisAttributeTransformer<ONNXReduceMaxOp> {
-  static LogicalResult transformAttributes(ONNXReduceMaxOp op,
-                                           PatternRewriter &rewriter,
-                                           ArrayRef<int64_t> perm) {
+  static LogicalResult transformAttributes(
+      ONNXReduceMaxOp op, PatternRewriter &rewriter, ArrayRef<int64_t> perm) {
     return transformReductionAttributes(op.getOperation(), rewriter, perm);
   }
 
-  static SmallVector<int64_t>
-  getAdjustedPermutation(ONNXReduceMaxOp op, ArrayRef<int64_t> perm,
-                         ArrayRef<int64_t> inputShape,
-                         ArrayRef<int64_t> outputShape) {
-    return getReductionAdjustedPermutation(op.getOperation(), perm, inputShape,
-                                           outputShape);
+  static SmallVector<int64_t> getAdjustedPermutation(ONNXReduceMaxOp op,
+      ArrayRef<int64_t> perm, ArrayRef<int64_t> inputShape,
+      ArrayRef<int64_t> outputShape) {
+    return getReductionAdjustedPermutation(
+        op.getOperation(), perm, inputShape, outputShape);
   }
 };
 
 template <>
 struct AxisAttributeTransformer<ONNXReduceMinOp> {
-  static LogicalResult transformAttributes(ONNXReduceMinOp op,
-                                           PatternRewriter &rewriter,
-                                           ArrayRef<int64_t> perm) {
+  static LogicalResult transformAttributes(
+      ONNXReduceMinOp op, PatternRewriter &rewriter, ArrayRef<int64_t> perm) {
     return transformReductionAttributes(op.getOperation(), rewriter, perm);
   }
 
-  static SmallVector<int64_t>
-  getAdjustedPermutation(ONNXReduceMinOp op, ArrayRef<int64_t> perm,
-                         ArrayRef<int64_t> inputShape,
-                         ArrayRef<int64_t> outputShape) {
-    return getReductionAdjustedPermutation(op.getOperation(), perm, inputShape,
-                                           outputShape);
+  static SmallVector<int64_t> getAdjustedPermutation(ONNXReduceMinOp op,
+      ArrayRef<int64_t> perm, ArrayRef<int64_t> inputShape,
+      ArrayRef<int64_t> outputShape) {
+    return getReductionAdjustedPermutation(
+        op.getOperation(), perm, inputShape, outputShape);
   }
 };
 
 template <>
 struct AxisAttributeTransformer<ONNXReduceSumOp> {
-  static LogicalResult transformAttributes(ONNXReduceSumOp op,
-                                           PatternRewriter &rewriter,
-                                           ArrayRef<int64_t> perm) {
+  static LogicalResult transformAttributes(
+      ONNXReduceSumOp op, PatternRewriter &rewriter, ArrayRef<int64_t> perm) {
     return transformReductionAttributes(op.getOperation(), rewriter, perm);
   }
 
-  static SmallVector<int64_t>
-  getAdjustedPermutation(ONNXReduceSumOp op, ArrayRef<int64_t> perm,
-                         ArrayRef<int64_t> inputShape,
-                         ArrayRef<int64_t> outputShape) {
-    return getReductionAdjustedPermutation(op.getOperation(), perm, inputShape,
-                                           outputShape);
+  static SmallVector<int64_t> getAdjustedPermutation(ONNXReduceSumOp op,
+      ArrayRef<int64_t> perm, ArrayRef<int64_t> inputShape,
+      ArrayRef<int64_t> outputShape) {
+    return getReductionAdjustedPermutation(
+        op.getOperation(), perm, inputShape, outputShape);
   }
 };
 
@@ -268,8 +244,8 @@ template <typename OpType>
 struct PushTransposeThroughAxisOp : public OpRewritePattern<OpType> {
   using OpRewritePattern<OpType>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(OpType op,
-                                PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      OpType op, PatternRewriter &rewriter) const override {
     // Get the first input operand (data input)
     Value input;
     if constexpr (std::is_same_v<OpType, ONNXSqueezeOp> ||
@@ -366,8 +342,7 @@ struct PushTransposeThroughAxisOp : public OpRewritePattern<OpType> {
 
     // The final transpose should produce the exact same output as the original
     // operation Use the original output type directly
-    auto newTransposeOp = rewriter.create<ONNXTransposeOp>(
-        op.getLoc(),
+    auto newTransposeOp = rewriter.create<ONNXTransposeOp>(op.getLoc(),
         outputType, // Use original output type - transformation is semantically
                     // equivalent
         newOp.getResult(), rewriter.getI64ArrayAttr(newPerm));
@@ -392,8 +367,8 @@ struct PushTransposeThroughAxisOp : public OpRewritePattern<OpType> {
 struct PushTransposeThroughConcat : public OpRewritePattern<ONNXConcatOp> {
   using OpRewritePattern<ONNXConcatOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXConcatOp concatOp,
-                                PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXConcatOp concatOp, PatternRewriter &rewriter) const override {
     // Get all input operands
     auto inputs = concatOp.getInputs();
     if (inputs.empty())
@@ -468,8 +443,8 @@ struct PushTransposeThroughConcat : public OpRewritePattern<ONNXConcatOp> {
         mlir::dyn_cast<RankedTensorType>(transposeOps[0].getData().getType());
     if (!firstInputType)
       return failure(); // Unranked tensor - cannot optimize
-    newConcatShape.assign(firstInputType.getShape().begin(),
-                          firstInputType.getShape().end());
+    newConcatShape.assign(
+        firstInputType.getShape().begin(), firstInputType.getShape().end());
 
     // Compute concatenated dimension size
     int64_t concatDimSize = 0;
@@ -501,8 +476,8 @@ struct PushTransposeThroughConcat : public OpRewritePattern<ONNXConcatOp> {
         concatOp.getLoc(), newConcatType, newInputs, newAxisAttr);
 
     // Create transpose after concat
-    auto newTransposeOp = rewriter.create<ONNXTransposeOp>(
-        concatOp.getLoc(), originalConcatOutputType, newConcatOp.getResult(),
+    auto newTransposeOp = rewriter.create<ONNXTransposeOp>(concatOp.getLoc(),
+        originalConcatOutputType, newConcatOp.getResult(),
         rewriter.getI64ArrayAttr(firstPerm));
 
     // Replace the original concat with the new transpose

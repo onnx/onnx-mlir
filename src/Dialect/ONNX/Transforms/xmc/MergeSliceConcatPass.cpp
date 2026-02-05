@@ -26,10 +26,10 @@ namespace {
 // Templated helper to reorder 1D parameter data (e.g., InstanceNorm scale/bias)
 template <typename T>
 Value reorderParameterData(PatternRewriter &rewriter, Location loc,
-    DenseElementsAttr denseAttr, RankedTensorType paramType, Type actualDataType,
-    const SmallVector<int64_t> &channelReorderMap) {
-  SmallVector<T> originalData(denseAttr.getValues<T>().begin(),
-      denseAttr.getValues<T>().end());
+    DenseElementsAttr denseAttr, RankedTensorType paramType,
+    Type actualDataType, const SmallVector<int64_t> &channelReorderMap) {
+  SmallVector<T> originalData(
+      denseAttr.getValues<T>().begin(), denseAttr.getValues<T>().end());
 
   SmallVector<T> reorderedData;
   for (int64_t newIdx : channelReorderMap) {
@@ -121,8 +121,8 @@ struct SliceInfo {
 struct MergeSliceConcatInstanceNormConv : public OpRewritePattern<ONNXConvOp> {
   using OpRewritePattern<ONNXConvOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXConvOp convOp,
-      PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXConvOp convOp, PatternRewriter &rewriter) const override {
     // Check if conv input comes from InstanceNorm
     auto instanceNormOp =
         convOp.getX().getDefiningOp<ONNXInstanceNormalizationOp>();
@@ -146,14 +146,14 @@ struct MergeSliceConcatInstanceNormConv : public OpRewritePattern<ONNXConvOp> {
     bool isNCHW = (concatAxis == 1);
     bool isNHWC = (concatAxis == 3);
     if (!isNCHW && !isNHWC)
-      return rewriter.notifyMatchFailure(
-          convOp,
-          "concat axis is not channel axis (expected 1 for NCHW or 3 for NHWC)");
+      return rewriter.notifyMatchFailure(convOp,
+          "concat axis is not channel axis (expected 1 for NCHW or 3 "
+          "for NHWC)");
 
     auto concatInputs = concatOp.getInputs();
     if (concatInputs.size() < 2)
-      return rewriter.notifyMatchFailure(convOp,
-          "concat has less than 2 inputs");
+      return rewriter.notifyMatchFailure(
+          convOp, "concat has less than 2 inputs");
 
     SmallVector<SliceInfo> sliceInfos;
     Value commonInput;
@@ -219,8 +219,8 @@ struct MergeSliceConcatInstanceNormConv : public OpRewritePattern<ONNXConvOp> {
     for (size_t i = 0; i < sliceInfos.size(); ++i) {
       sortedIndices.push_back({sliceInfos[i].beginChannel, i});
     }
-    llvm::sort(sortedIndices,
-        [](auto &a, auto &b) { return a.first < b.first; });
+    llvm::sort(
+        sortedIndices, [](auto &a, auto &b) { return a.first < b.first; });
 
     SmallVector<int64_t> channelReorderMap;
     for (auto [beginCh, sliceIdx] : sortedIndices) {
@@ -252,8 +252,8 @@ struct MergeSliceConcatInstanceNormConv : public OpRewritePattern<ONNXConvOp> {
 
       // Use templated helper function for type-specific reordering
       if (actualDataType.isF32()) {
-        return reorderParameterData<float>(rewriter, constOp.getLoc(), denseAttr,
-            paramType, actualDataType, channelReorderMap);
+        return reorderParameterData<float>(rewriter, constOp.getLoc(),
+            denseAttr, paramType, actualDataType, channelReorderMap);
       } else if (actualDataType.isUnsignedInteger(8)) {
         return reorderParameterData<uint8_t>(rewriter, constOp.getLoc(),
             denseAttr, paramType, actualDataType, channelReorderMap);
@@ -279,8 +279,8 @@ struct MergeSliceConcatInstanceNormConv : public OpRewritePattern<ONNXConvOp> {
 
     // Create new InstanceNorm with original input
     auto newInstanceNorm = rewriter.create<ONNXInstanceNormalizationOp>(
-        instanceNormOp.getLoc(), instanceNormOp.getType(), commonInput, newScale,
-        newBias, instanceNormOp.getEpsilonAttr());
+        instanceNormOp.getLoc(), instanceNormOp.getType(), commonInput,
+        newScale, newBias, instanceNormOp.getEpsilonAttr());
 
     // Now reorder conv weights
     auto weightsOp = convOp.getW().getDefiningOp<ONNXConstantOp>();
@@ -350,11 +350,12 @@ struct MergeSliceConcatInstanceNormConv : public OpRewritePattern<ONNXConvOp> {
           /*value_ints=*/ArrayAttr(), /*value_string=*/StringAttr(),
           /*value_strings=*/ArrayAttr());
 
-      auto newConv = rewriter.create<ONNXConvOp>(convOp.getLoc(),
-          convOp.getType(), newInstanceNorm.getResult(), newWeightsOp.getResult(),
-          convOp.getB(), convOp.getAutoPadAttr(), convOp.getDilationsAttr(),
-          convOp.getGroupAttr(), convOp.getKernelShapeAttr(),
-          convOp.getPadsAttr(), convOp.getStridesAttr());
+      auto newConv =
+          rewriter.create<ONNXConvOp>(convOp.getLoc(), convOp.getType(),
+              newInstanceNorm.getResult(), newWeightsOp.getResult(),
+              convOp.getB(), convOp.getAutoPadAttr(), convOp.getDilationsAttr(),
+              convOp.getGroupAttr(), convOp.getKernelShapeAttr(),
+              convOp.getPadsAttr(), convOp.getStridesAttr());
 
       rewriter.replaceOp(convOp, newConv.getResult());
 
@@ -381,7 +382,8 @@ struct MergeSliceConcatInstanceNormConv : public OpRewritePattern<ONNXConvOp> {
           channelReorderMap, outChannels, inChannels, kernelH, kernelW, isNCHW);
       return createNewConv(reorderedData);
     } else if (actualDataType.isUnsignedInteger(8)) {
-      SmallVector<uint8_t> originalData(weightsData.getValues<uint8_t>().begin(),
+      SmallVector<uint8_t> originalData(
+          weightsData.getValues<uint8_t>().begin(),
           weightsData.getValues<uint8_t>().end());
       auto reorderedData = reorderConvWeightData<uint8_t>(originalData,
           channelReorderMap, outChannels, inChannels, kernelH, kernelW, isNCHW);
@@ -400,15 +402,16 @@ struct MergeSliceConcatInstanceNormConv : public OpRewritePattern<ONNXConvOp> {
           channelReorderMap, outChannels, inChannels, kernelH, kernelW, isNCHW);
       return createNewConv(reorderedData);
     } else if (actualDataType.isSignedInteger(16)) {
-      SmallVector<int16_t> originalData(weightsData.getValues<int16_t>().begin(),
+      SmallVector<int16_t> originalData(
+          weightsData.getValues<int16_t>().begin(),
           weightsData.getValues<int16_t>().end());
       auto reorderedData = reorderConvWeightData<int16_t>(originalData,
           channelReorderMap, outChannels, inChannels, kernelH, kernelW, isNCHW);
       return createNewConv(reorderedData);
     }
 
-    return rewriter.notifyMatchFailure(
-        convOp, "unsupported weight data type (expected f32, u8, i8, u16, or i16)");
+    return rewriter.notifyMatchFailure(convOp,
+        "unsupported weight data type (expected f32, u8, i8, u16, or i16)");
   }
 };
 
@@ -420,7 +423,8 @@ struct MergeSliceConcatPass
     : public PassWrapper<MergeSliceConcatPass, OperationPass<func::FuncOp>> {
   StringRef getArgument() const override { return "merge-slice-concat"; }
   StringRef getDescription() const override {
-    return "Merge Slice-Concat patterns with downstream ops like InstanceNorm and Conv";
+    return "Merge Slice-Concat patterns with downstream ops like InstanceNorm "
+           "and Conv";
   }
 
   void runOnOperation() override {

@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt -onnx-hybrid-transform="canonicalization=true constant-propagation=true decomposition=true enable-convtranspose=false enable-convtranspose-1d-phased=false enable-convtranspose-phased=true enable-instancenorm-decompose=true enable-split-to-slice-decompose=false max-num-rewrites-multiplier=2.000000e-01 max-num-rewrites-offset=20 quark-quantized-ops-legalization=true recompose-layernorm-by-transpose=true recomposition=true shape-inference=true" %s | FileCheck %s
+// RUN: onnx-mlir-opt -onnx-hybrid-transform="canonicalization=true constant-propagation=true decomposition=true enable-convtranspose=false enable-convtranspose-1d-phased=false enable-convtranspose-phased=true enable-instancenorm-decompose=true enable-split-to-slice-decompose=false max-num-rewrites-multiplier=2.000000e-01 max-num-rewrites-offset=20 quark-quantized-ops-legalization=true recomposition=true shape-inference=true" %s | FileCheck %s
 
 // Illustrates the interaction between 
 

@@ -296,8 +296,8 @@ func.func @test_resize_scales_to_channel_last(%arg0: tensor<1x3x4x4xf32>) -> ten
   } : (tensor<1x3x4x4xf32>, none, tensor<4xf32>, none) -> tensor<1x3x8x8xf32>
   onnx.Return %0 : tensor<1x3x8x8xf32>
 
+  // CHECK: [[SCALES_PERMUTED:%.+]] = onnx.Constant dense<[1.000000e+00, 2.000000e+00, 2.000000e+00, 1.000000e+00]> : tensor<4xf32>
   // CHECK: [[INPUT_CHANNEL_LAST:%.+]] = "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]} : (tensor<1x3x4x4xf32>) -> tensor<1x4x4x3xf32>
-  // CHECK: [[SCALES_PERMUTED:%.+]] = "onnx.Gather"
   // CHECK: [[RESIZE_CHANNEL_LAST:%.+]] = "onnx.XFEResize"([[INPUT_CHANNEL_LAST]], %{{.*}}, [[SCALES_PERMUTED]], %{{.*}}) {{{.*}}coordinate_transformation_mode = "half_pixel"{{.*}}mode = "nearest", nearest_mode = "round_prefer_floor"{{.*}}}
   // CHECK: [[OUTPUT_NCHW:%.+]] = "onnx.Transpose"([[RESIZE_CHANNEL_LAST]]) {perm = [0, 3, 1, 2]}
   // CHECK: onnx.Return [[OUTPUT_NCHW]] : tensor<1x3x8x8xf32>
@@ -316,8 +316,8 @@ func.func @test_resize_sizes_to_channel_last(%arg0: tensor<1x3x4x4xf32>) -> tens
   } : (tensor<1x3x4x4xf32>, none, none, tensor<4xi64>) -> tensor<1x3x8x8xf32>
   onnx.Return %0 : tensor<1x3x8x8xf32>
 
+  // CHECK: [[SIZES_PERMUTED:%.+]] = onnx.Constant dense<[1, 8, 8, 3]> : tensor<4xi64>
   // CHECK: [[INPUT_CHANNEL_LAST:%.+]] = "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]} : (tensor<1x3x4x4xf32>) -> tensor<1x4x4x3xf32>
-  // CHECK: [[SIZES_PERMUTED:%.+]] = "onnx.Gather"
   // CHECK: [[RESIZE_CHANNEL_LAST:%.+]] = "onnx.XFEResize"([[INPUT_CHANNEL_LAST]], %{{.*}}, %{{.*}}, [[SIZES_PERMUTED]]) {{{.*}}coordinate_transformation_mode = "half_pixel"{{.*}}mode = "linear"{{.*}}}
   // CHECK: [[OUTPUT_NCHW:%.+]] = "onnx.Transpose"([[RESIZE_CHANNEL_LAST]]) {perm = [0, 3, 1, 2]}
   // CHECK: onnx.Return [[OUTPUT_NCHW]] : tensor<1x3x8x8xf32>
@@ -337,8 +337,8 @@ func.func @test_resize_downsample_to_channel_last(%arg0: tensor<1x64x32x32xf32>)
   } : (tensor<1x64x32x32xf32>, none, tensor<4xf32>, none) -> tensor<1x64x16x16xf32>
   onnx.Return %0 : tensor<1x64x16x16xf32>
 
+  // CHECK: [[SCALES_PERMUTED:%.+]] = onnx.Constant dense<[1.000000e+00, 5.000000e-01, 5.000000e-01, 1.000000e+00]> : tensor<4xf32>
   // CHECK: [[INPUT_CHANNEL_LAST:%.+]] = "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]} : (tensor<1x64x32x32xf32>) -> tensor<1x32x32x64xf32>
-  // CHECK: [[SCALES_PERMUTED:%.+]] = "onnx.Gather"
   // CHECK: [[RESIZE_CHANNEL_LAST:%.+]] = "onnx.XFEResize"([[INPUT_CHANNEL_LAST]], %{{.*}}, [[SCALES_PERMUTED]], %{{.*}}) {{{.*}}coordinate_transformation_mode = "asymmetric"{{.*}}mode = "nearest", nearest_mode = "floor"{{.*}}}
   // CHECK: [[OUTPUT_NCHW:%.+]] = "onnx.Transpose"([[RESIZE_CHANNEL_LAST]]) {perm = [0, 3, 1, 2]}
   // CHECK: onnx.Return [[OUTPUT_NCHW]] : tensor<1x64x16x16xf32>

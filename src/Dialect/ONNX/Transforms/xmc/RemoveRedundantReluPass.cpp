@@ -20,8 +20,8 @@ namespace {
 struct RemoveRedundantReluPattern : public OpRewritePattern<ONNXReluOp> {
   using OpRewritePattern<ONNXReluOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXReluOp reluOp,
-      PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXReluOp reluOp, PatternRewriter &rewriter) const override {
     Value inputVal = reluOp.getX();
     auto prevRelu = inputVal.getDefiningOp<ONNXReluOp>();
     if (!prevRelu)
@@ -97,4 +97,3 @@ std::unique_ptr<mlir::Pass> createRemoveRedundantReluPass() {
 }
 
 } // namespace onnx_mlir
-

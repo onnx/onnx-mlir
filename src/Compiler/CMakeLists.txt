@@ -104,6 +104,9 @@ add_onnx_mlir_library(OMOnnxToMlirPasses
 
   LINK_LIBS PRIVATE
   OMHybridTransform
+  OMInstrument
+  OMInstrumentONNX
+  OMOpTransform
   OMONNXStandardFuncReturnPass
   OMONNXSimplifyShapeRelatedOps
   OMDisposableGarbageCollector

@@ -41,8 +41,8 @@ static llvm::SmallVector<int64_t> getShape(mlir::Value value) {
   auto shapedType = mlir::dyn_cast<mlir::ShapedType>(value.getType());
   if (!shapedType || !shapedType.hasRank())
     return {};
-  return llvm::SmallVector<int64_t>(shapedType.getShape().begin(),
-                                    shapedType.getShape().end());
+  return llvm::SmallVector<int64_t>(
+      shapedType.getShape().begin(), shapedType.getShape().end());
 }
 
 /// Get element type from a value
@@ -66,8 +66,8 @@ static bool getQuantParams(mlir::Type type, double &scale, int64_t &zeroPoint) {
 }
 
 /// Extract scale and zero point from the element type of a value.
-static bool getQuantParamsFromValue(mlir::Value value, double &scale,
-                                    int64_t &zeroPoint) {
+static bool getQuantParamsFromValue(
+    mlir::Value value, double &scale, int64_t &zeroPoint) {
   auto elemType = getElementType(value);
   if (!elemType)
     return false;
@@ -108,8 +108,8 @@ static bool sliceQuantParamsMatch(mlir::ONNXSliceOp sliceOp) {
 }
 
 /// Try to extract constant integer array from a Value
-static bool getConstantIntArray(mlir::Value value,
-                                llvm::SmallVector<int64_t> &result) {
+static bool getConstantIntArray(
+    mlir::Value value, llvm::SmallVector<int64_t> &result) {
   auto defOp = value.getDefiningOp<mlir::ONNXConstantOp>();
   if (!defOp)
     return false;
@@ -130,8 +130,8 @@ static bool getConstantIntArray(mlir::Value value,
 }
 
 /// Extract float data from constant op
-static bool getConstantFloatData(mlir::ONNXConstantOp constOp,
-                                 llvm::SmallVector<float> &result) {
+static bool getConstantFloatData(
+    mlir::ONNXConstantOp constOp, llvm::SmallVector<float> &result) {
   auto valueAttr = constOp.getValueAttr();
   if (!valueAttr)
     return false;
@@ -148,8 +148,8 @@ static bool getConstantFloatData(mlir::ONNXConstantOp constOp,
 }
 
 /// Extract integer data from constant op (for int8/uint8 quantized weights)
-static bool getConstantIntData(mlir::ONNXConstantOp constOp,
-                               llvm::SmallVector<int64_t> &result) {
+static bool getConstantIntData(
+    mlir::ONNXConstantOp constOp, llvm::SmallVector<int64_t> &result) {
   auto valueAttr = constOp.getValueAttr();
   if (!valueAttr)
     return false;
@@ -174,10 +174,9 @@ static bool isQuantizedType(mlir::Type type) {
 }
 
 /// Slice integer weight data for channel selection
-static llvm::SmallVector<int64_t>
-sliceIntWeightData(llvm::ArrayRef<int64_t> originalData,
-                   llvm::ArrayRef<int64_t> originalShape, int64_t beginChannel,
-                   int64_t endChannel, int64_t strideChannel) {
+static llvm::SmallVector<int64_t> sliceIntWeightData(
+    llvm::ArrayRef<int64_t> originalData, llvm::ArrayRef<int64_t> originalShape,
+    int64_t beginChannel, int64_t endChannel, int64_t strideChannel) {
   int64_t elementsPerFilter = 1;
   for (size_t i = 1; i < originalShape.size(); ++i) {
     elementsPerFilter *= originalShape[i];
@@ -204,10 +203,8 @@ sliceIntWeightData(llvm::ArrayRef<int64_t> originalData,
 
 /// Create a constant tensor from integer data with quantized type
 static mlir::Value createConstantFromIntData(mlir::PatternRewriter &rewriter,
-                                             mlir::Location loc,
-                                             llvm::ArrayRef<int64_t> shape,
-                                             llvm::ArrayRef<int64_t> data,
-                                             mlir::Type elementType) {
+    mlir::Location loc, llvm::ArrayRef<int64_t> shape,
+    llvm::ArrayRef<int64_t> data, mlir::Type elementType) {
   // Get the storage type from quantized type if needed
   mlir::Type storageType = elementType;
   if (auto quantType =
@@ -227,35 +224,32 @@ static mlir::Value createConstantFromIntData(mlir::PatternRewriter &rewriter,
 
   auto denseAttr =
       mlir::DenseIntElementsAttr::get(storageTensorType, apIntData);
-  return rewriter.create<mlir::ONNXConstantOp>(
-      loc, tensorType, mlir::ValueRange{},
+  return rewriter.create<mlir::ONNXConstantOp>(loc, tensorType,
+      mlir::ValueRange{},
       mlir::ArrayRef<mlir::NamedAttribute>{
           rewriter.getNamedAttr("value", denseAttr)});
 }
 
 /// Create a constant tensor from float data
 static mlir::Value createConstantFromFloatData(mlir::PatternRewriter &rewriter,
-                                               mlir::Location loc,
-                                               llvm::ArrayRef<int64_t> shape,
-                                               llvm::ArrayRef<float> data,
-                                               mlir::Type elementType) {
+    mlir::Location loc, llvm::ArrayRef<int64_t> shape,
+    llvm::ArrayRef<float> data, mlir::Type elementType) {
   auto tensorType = mlir::RankedTensorType::get(shape, elementType);
   auto denseAttr = mlir::DenseElementsAttr::get(tensorType, data);
-  return rewriter.create<mlir::ONNXConstantOp>(
-      loc, tensorType, mlir::ValueRange{},
+  return rewriter.create<mlir::ONNXConstantOp>(loc, tensorType,
+      mlir::ValueRange{},
       mlir::ArrayRef<mlir::NamedAttribute>{
           rewriter.getNamedAttr("value", denseAttr)});
 }
 
 /// Create a constant i64 tensor
 static mlir::Value createConstantI64Array(mlir::PatternRewriter &rewriter,
-                                          mlir::Location loc,
-                                          llvm::ArrayRef<int64_t> values) {
+    mlir::Location loc, llvm::ArrayRef<int64_t> values) {
   auto tensorType = mlir::RankedTensorType::get(
       {static_cast<int64_t>(values.size())}, rewriter.getI64Type());
   auto denseAttr = mlir::DenseIntElementsAttr::get(tensorType, values);
-  return rewriter.create<mlir::ONNXConstantOp>(
-      loc, tensorType, mlir::ValueRange{},
+  return rewriter.create<mlir::ONNXConstantOp>(loc, tensorType,
+      mlir::ValueRange{},
       mlir::ArrayRef<mlir::NamedAttribute>{
           rewriter.getNamedAttr("value", denseAttr)});
 }
@@ -270,10 +264,9 @@ static bool isNonGroupedConv(mlir::ONNXConvOp convOp) {
 
 /// Slice weight tensor for channel selection
 /// Weight shape: [output_channels, input_channels/group, kH, kW]
-static llvm::SmallVector<float>
-sliceWeightData(llvm::ArrayRef<float> originalData,
-                llvm::ArrayRef<int64_t> originalShape, int64_t beginChannel,
-                int64_t endChannel, int64_t strideChannel) {
+static llvm::SmallVector<float> sliceWeightData(
+    llvm::ArrayRef<float> originalData, llvm::ArrayRef<int64_t> originalShape,
+    int64_t beginChannel, int64_t endChannel, int64_t strideChannel) {
 
   int64_t elementsPerFilter = 1;
   for (size_t i = 1; i < originalShape.size(); ++i) {
@@ -303,9 +296,9 @@ sliceWeightData(llvm::ArrayRef<float> originalData,
 
 /// Slice bias tensor for channel selection (float version)
 /// Bias shape: [output_channels]
-static llvm::SmallVector<float>
-sliceBiasData(llvm::ArrayRef<float> originalData, int64_t beginChannel,
-              int64_t endChannel, int64_t strideChannel) {
+static llvm::SmallVector<float> sliceBiasData(
+    llvm::ArrayRef<float> originalData, int64_t beginChannel,
+    int64_t endChannel, int64_t strideChannel) {
 
   llvm::SmallVector<float> result;
 
@@ -324,9 +317,9 @@ sliceBiasData(llvm::ArrayRef<float> originalData, int64_t beginChannel,
 
 /// Slice bias tensor for channel selection (integer version for quantized bias)
 /// Bias shape: [output_channels]
-static llvm::SmallVector<int64_t>
-sliceIntBiasData(llvm::ArrayRef<int64_t> originalData, int64_t beginChannel,
-                 int64_t endChannel, int64_t strideChannel) {
+static llvm::SmallVector<int64_t> sliceIntBiasData(
+    llvm::ArrayRef<int64_t> originalData, int64_t beginChannel,
+    int64_t endChannel, int64_t strideChannel) {
 
   llvm::SmallVector<int64_t> result;
 
@@ -344,8 +337,8 @@ sliceIntBiasData(llvm::ArrayRef<int64_t> originalData, int64_t beginChannel,
 }
 
 /// Calculate number of output channels after slicing
-static int64_t calculateSlicedChannels(int64_t begin, int64_t end,
-                                       int64_t stride) {
+static int64_t calculateSlicedChannels(
+    int64_t begin, int64_t end, int64_t stride) {
   if (stride > 0) {
     return (end - begin + stride - 1) / stride;
   } else if (stride < 0) {
@@ -356,8 +349,8 @@ static int64_t calculateSlicedChannels(int64_t begin, int64_t end,
 
 /// Check if slice affects spatial (H/W) dimensions
 static bool hasSpatialSlice(llvm::ArrayRef<int64_t> inputShape,
-                            llvm::ArrayRef<int64_t> outputShape,
-                            [[maybe_unused]] llvm::ArrayRef<int64_t> steps) {
+    llvm::ArrayRef<int64_t> outputShape,
+    [[maybe_unused]] llvm::ArrayRef<int64_t> steps) {
   // Check spatial dimensions (H, W are typically at indices 2, 3)
   for (size_t i = 2; i < inputShape.size(); ++i) {
     if (inputShape[i] != outputShape[i])
@@ -378,8 +371,7 @@ static bool spatialStridesAreOne(llvm::ArrayRef<int64_t> steps) {
 
 /// Check if batch dimension is unchanged
 static bool batchUnchanged(llvm::ArrayRef<int64_t> inputShape,
-                           llvm::ArrayRef<int64_t> outputShape,
-                           llvm::ArrayRef<int64_t> steps) {
+    llvm::ArrayRef<int64_t> outputShape, llvm::ArrayRef<int64_t> steps) {
   if (inputShape[0] != outputShape[0])
     return false;
   if (!steps.empty() && steps[0] != 1)
@@ -389,10 +381,9 @@ static bool batchUnchanged(llvm::ArrayRef<int64_t> inputShape,
 
 /// Get conv attributes as vectors
 static bool getConvAttributes(mlir::ONNXConvOp convOp,
-                              llvm::SmallVector<int64_t> &strides,
-                              llvm::SmallVector<int64_t> &pads,
-                              llvm::SmallVector<int64_t> &dilations,
-                              llvm::SmallVector<int64_t> &kernelShape) {
+    llvm::SmallVector<int64_t> &strides, llvm::SmallVector<int64_t> &pads,
+    llvm::SmallVector<int64_t> &dilations,
+    llvm::SmallVector<int64_t> &kernelShape) {
   // Get strides (default [1, 1])
   if (auto stridesAttr = convOp.getStridesAttr()) {
     for (mlir::Attribute s : stridesAttr.getValue())
@@ -520,12 +511,11 @@ static SpatialSliceParams calculateSpatialSliceParams(
 }
 
 /// Create a Slice operation
-static mlir::Value
-createSliceOp(mlir::PatternRewriter &rewriter, mlir::Location loc,
-              mlir::Value input, llvm::ArrayRef<int64_t> starts,
-              llvm::ArrayRef<int64_t> ends, llvm::ArrayRef<int64_t> axes,
-              llvm::ArrayRef<int64_t> steps,
-              mlir::RankedTensorType referenceType = nullptr) {
+static mlir::Value createSliceOp(mlir::PatternRewriter &rewriter,
+    mlir::Location loc, mlir::Value input, llvm::ArrayRef<int64_t> starts,
+    llvm::ArrayRef<int64_t> ends, llvm::ArrayRef<int64_t> axes,
+    llvm::ArrayRef<int64_t> steps,
+    mlir::RankedTensorType referenceType = nullptr) {
 
   auto inputType = mlir::cast<mlir::RankedTensorType>(input.getType());
   auto inputShape = getShape(input);
@@ -555,8 +545,8 @@ createSliceOp(mlir::PatternRewriter &rewriter, mlir::Location loc,
   mlir::Value axesConst = createConstantI64Array(rewriter, loc, axes);
   mlir::Value stepsConst = createConstantI64Array(rewriter, loc, steps);
 
-  return rewriter.create<mlir::ONNXSliceOp>(loc, outputType, input, startsConst,
-                                            endsConst, axesConst, stepsConst);
+  return rewriter.create<mlir::ONNXSliceOp>(
+      loc, outputType, input, startsConst, endsConst, axesConst, stepsConst);
 }
 
 //===----------------------------------------------------------------------===//
@@ -567,9 +557,8 @@ struct TransferConvSliceToConvPattern
     : public mlir::OpRewritePattern<mlir::ONNXSliceOp> {
   using OpRewritePattern<mlir::ONNXSliceOp>::OpRewritePattern;
 
-  mlir::LogicalResult
-  matchAndRewrite(mlir::ONNXSliceOp sliceOp,
-                  mlir::PatternRewriter &rewriter) const override {
+  mlir::LogicalResult matchAndRewrite(mlir::ONNXSliceOp sliceOp,
+      mlir::PatternRewriter &rewriter) const override {
     mlir::Location loc = sliceOp.getLoc();
 
     // Check if input is from a Conv operation
@@ -677,21 +666,18 @@ struct TransferConvSliceToConvPattern
       llvm::SmallVector<int64_t> outputEndHW = {fullEnds[2], fullEnds[3]};
 
       // Calculate which input region we need
-      auto spatialParams = calculateSpatialSliceParams(
-          convInputShape, outputBeginHW, outputEndHW, strides, pads, dilations,
-          kernelShape);
+      auto spatialParams = calculateSpatialSliceParams(convInputShape,
+          outputBeginHW, outputEndHW, strides, pads, dilations, kernelShape);
 
       // Create slice on conv input to select the required region
       // Slice format: [N_start, C_start, H_start, W_start], [N_end, C_end,
       // H_end, W_end]
-      llvm::SmallVector<int64_t> inputSliceStarts = {
-          0, // N - keep all batches
+      llvm::SmallVector<int64_t> inputSliceStarts = {0, // N - keep all batches
           0, // C - keep all input channels
           spatialParams.inputBeginH, spatialParams.inputBeginW};
       llvm::SmallVector<int64_t> inputSliceEnds = {convInputShape[0], // N
-                                                   convInputShape[1], // C
-                                                   spatialParams.inputEndH,
-                                                   spatialParams.inputEndW};
+          convInputShape[1],                                          // C
+          spatialParams.inputEndH, spatialParams.inputEndW};
       llvm::SmallVector<int64_t> inputSliceAxes = {0, 1, 2, 3};
       llvm::SmallVector<int64_t> inputSliceSteps = {1, 1, 1, 1};
 
@@ -703,15 +689,14 @@ struct TransferConvSliceToConvPattern
 
         // Create slice using convOp.getY().getType() for encoding
         // (similar to how gather->slice uses gatherOp.getType())
-        convInput = createSliceOp(
-            rewriter, loc, convInput, inputSliceStarts, inputSliceEnds,
-            inputSliceAxes, inputSliceSteps,
+        convInput = createSliceOp(rewriter, loc, convInput, inputSliceStarts,
+            inputSliceEnds, inputSliceAxes, inputSliceSteps,
             mlir::cast<mlir::RankedTensorType>(convOp.getY().getType()));
       }
 
       // Update padding for the new conv
       newPads = {spatialParams.newPadTop, spatialParams.newPadLeft,
-                 spatialParams.newPadBottom, spatialParams.newPadRight};
+          spatialParams.newPadBottom, spatialParams.newPadRight};
     }
 
     //===--------------------------------------------------------------------===//
@@ -751,14 +736,12 @@ struct TransferConvSliceToConvPattern
           return mlir::failure();
 
         // Slice integer weight data
-        auto slicedWeightData =
-            sliceIntWeightData(weightDataInt, weightShape, channelBegin,
-                               channelEnd, channelStride);
+        auto slicedWeightData = sliceIntWeightData(weightDataInt, weightShape,
+            channelBegin, channelEnd, channelStride);
 
         // Create new quantized weights constant (preserves quantization type)
         newWeights = createConstantFromIntData(rewriter, loc, newWeightShape,
-                                               slicedWeightData,
-                                               getElementType(weights));
+            slicedWeightData, getElementType(weights));
       } else {
         // Handle float weights
         llvm::SmallVector<float> weightData;
@@ -771,8 +754,7 @@ struct TransferConvSliceToConvPattern
 
         // Create new float weights constant
         newWeights = createConstantFromFloatData(rewriter, loc, newWeightShape,
-                                                 slicedWeightData,
-                                                 getElementType(weights));
+            slicedWeightData, getElementType(weights));
       }
 
       // Handle bias if present
@@ -787,23 +769,21 @@ struct TransferConvSliceToConvPattern
             // Handle quantized bias (int32 with quant.uniform type)
             llvm::SmallVector<int64_t> biasDataInt;
             if (getConstantIntData(biasConstOp, biasDataInt)) {
-              auto slicedBiasData = sliceIntBiasData(biasDataInt, channelBegin,
-                                                     channelEnd, channelStride);
+              auto slicedBiasData = sliceIntBiasData(
+                  biasDataInt, channelBegin, channelEnd, channelStride);
 
-              newBias = createConstantFromIntData(
-                  rewriter, loc, newBiasShape, slicedBiasData,
-                  getElementType(convOp.getB()));
+              newBias = createConstantFromIntData(rewriter, loc, newBiasShape,
+                  slicedBiasData, getElementType(convOp.getB()));
             }
           } else {
             // Handle float bias
             llvm::SmallVector<float> biasData;
             if (getConstantFloatData(biasConstOp, biasData)) {
-              auto slicedBiasData = sliceBiasData(biasData, channelBegin,
-                                                  channelEnd, channelStride);
+              auto slicedBiasData = sliceBiasData(
+                  biasData, channelBegin, channelEnd, channelStride);
 
-              newBias = createConstantFromFloatData(
-                  rewriter, loc, newBiasShape, slicedBiasData,
-                  getElementType(convOp.getB()));
+              newBias = createConstantFromFloatData(rewriter, loc, newBiasShape,
+                  slicedBiasData, getElementType(convOp.getB()));
             }
           }
         }
@@ -827,8 +807,7 @@ struct TransferConvSliceToConvPattern
     auto newPadsAttr = rewriter.getI64ArrayAttr(newPads);
 
     // Create new Conv operation
-    auto newConvOp = rewriter.create<mlir::ONNXConvOp>(
-        loc, newConvOutputType,
+    auto newConvOp = rewriter.create<mlir::ONNXConvOp>(loc, newConvOutputType,
         convInput,  // Possibly sliced input (for spatial slice)
         newWeights, // Possibly sliced weights (for channel slice)
         newBias,    // Possibly sliced bias (for channel slice)
@@ -855,7 +834,7 @@ namespace onnx_mlir {
 
 struct TransferConvSliceToConvPass
     : public PassWrapper<TransferConvSliceToConvPass,
-                         OperationPass<func::FuncOp>> {
+          OperationPass<func::FuncOp>> {
   StringRef getArgument() const override {
     return "transfer-conv-slice-to-conv";
   }

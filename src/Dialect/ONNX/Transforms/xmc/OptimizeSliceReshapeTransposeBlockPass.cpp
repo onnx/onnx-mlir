@@ -48,8 +48,8 @@ Type getElementType(Type type) {
 }
 
 /// Create a constant op with the given int64 values
-Value createConstantI64Array(PatternRewriter &rewriter, Location loc,
-    ArrayRef<int64_t> values) {
+Value createConstantI64Array(
+    PatternRewriter &rewriter, Location loc, ArrayRef<int64_t> values) {
   MLIRContext *ctx = rewriter.getContext();
   auto tensorType = RankedTensorType::get(
       {static_cast<int64_t>(values.size())}, IntegerType::get(ctx, 64));
@@ -58,8 +58,8 @@ Value createConstantI64Array(PatternRewriter &rewriter, Location loc,
 }
 
 /// Check if the transpose order matches expected pattern
-bool isExpectedTransposeOrder(ArrayAttr permAttr,
-    ArrayRef<int64_t> expectedOrder) {
+bool isExpectedTransposeOrder(
+    ArrayAttr permAttr, ArrayRef<int64_t> expectedOrder) {
   if (!permAttr || permAttr.size() != expectedOrder.size())
     return false;
 
@@ -82,8 +82,8 @@ struct MatchedPattern {
 
 /// Try to match the MHA Slice-Reshape-Transpose pattern starting from a
 /// transpose
-LogicalResult matchPattern(ONNXTransposeOp transposeOp,
-    MatchedPattern &pattern) {
+LogicalResult matchPattern(
+    ONNXTransposeOp transposeOp, MatchedPattern &pattern) {
   // Check transpose order - must be {0, 2, 1, 3}
   auto permAttr = transposeOp.getPermAttr();
   if (!isExpectedTransposeOrder(permAttr, {0, 2, 1, 3})) {
@@ -169,8 +169,8 @@ class OptimizeSliceReshapeTransposeMHAPattern
 public:
   using OpRewritePattern<ONNXTransposeOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXTransposeOp transposeOp,
-      PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXTransposeOp transposeOp, PatternRewriter &rewriter) const override {
     // Try to match the pattern
     MatchedPattern pattern;
     if (failed(matchPattern(transposeOp, pattern))) {
@@ -193,8 +193,8 @@ public:
     auto &reshapeShape = pattern.reshapeShape;
 
     int64_t headDim = reshapeShape[3];
-    SmallVector<int64_t> newReshapeShape = {inputShape[0], inputShape[1],
-        inputShape[2] / headDim, headDim};
+    SmallVector<int64_t> newReshapeShape = {
+        inputShape[0], inputShape[1], inputShape[2] / headDim, headDim};
 
     // Set insertion point before the first slice
     rewriter.setInsertionPoint(pattern.slices[0]);
@@ -207,8 +207,8 @@ public:
         createConstantI64Array(rewriter, loc, newReshapeShape);
 
     // Create the new reshape op
-    auto newReshapeOp = rewriter.create<ONNXReshapeOp>(loc, newReshapeType,
-        pattern.commonInput, newReshapeShapeConst);
+    auto newReshapeOp = rewriter.create<ONNXReshapeOp>(
+        loc, newReshapeType, pattern.commonInput, newReshapeShapeConst);
 
     // Create new transpose with order {0, 2, 1, 3}
     SmallVector<int64_t> newTransposeShape = {newReshapeShape[0],
@@ -216,9 +216,9 @@ public:
     auto newTransposeType =
         RankedTensorType::get(newTransposeShape, elementType);
 
-    auto newTransposeOp = rewriter.create<ONNXTransposeOp>(loc,
-        newTransposeType, newReshapeOp.getResult(),
-        rewriter.getI64ArrayAttr({0, 2, 1, 3}));
+    auto newTransposeOp =
+        rewriter.create<ONNXTransposeOp>(loc, newTransposeType,
+            newReshapeOp.getResult(), rewriter.getI64ArrayAttr({0, 2, 1, 3}));
 
     // Calculate slice parameters for the 3 slices
     // Assuming slices divide the second dimension (num_heads dimension after
@@ -313,4 +313,3 @@ std::unique_ptr<mlir::Pass> createOptimizeSliceReshapeTransposeBlockPass() {
 }
 
 } // namespace onnx_mlir
-
