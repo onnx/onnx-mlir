@@ -45,7 +45,7 @@ module attributes {llvm.data_layout = "E-m:e-i1:8:16-i8:8:16-i64:64-f128:64-v128
 // CHECK:           [[VAR_13_:%.+]] = "onnx.Relu"([[VAR_12_]]) {device = "nnpa", onnx_node_name = "ReLU114"} : (tensor<1x16x14x14xf32>) -> tensor<1x16x14x14xf32>
 // CHECK:           [[VAR_14_:%.+]] = "onnx.MaxPoolSingleOut"([[VAR_13_]]) <{auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [3, 3], pads = [0, 0, 0, 0], storage_order = 0 : si64, strides = [3, 3]}> {device = "nnpa", onnx_node_name = "Pooling160"} : (tensor<1x16x14x14xf32>) -> tensor<1x16x4x4xf32>
 // CHECK:           [[VAR_15_:%.+]] = "onnx.Reshape"([[VAR_14_]], [[VAR_5_]]) <{allowzero = 0 : si64}> {onnx_node_name = "Times212_reshape0"} : (tensor<1x16x4x4xf32>, tensor<2xi64>) -> tensor<1x256xf32>
-// CHECK:           [[VAR_16_:%.+]] = "onnx.Gemm"([[VAR_15_]], [[VAR_8_]], [[VAR_7_]]) <{alpha = 1.000000e+00 : f32, beta = 1.000000e+00 : f32, transA = 0 : si64, transB = 0 : si64}> {device = "nnpa"} : (tensor<1x256xf32>, tensor<256x10xf32>, tensor<1x10xf32>) -> tensor<1x10xf32>
+// CHECK:           [[VAR_16_:%.+]] = "onnx.Gemm"([[VAR_15_]], [[VAR_8_]], [[VAR_7_]]) <{alpha = 1.000000e+00 : f32, beta = 1.000000e+00 : f32, transA = 0 : si64, transB = 0 : si64}> {device = "cpu"} : (tensor<1x256xf32>, tensor<256x10xf32>, tensor<1x10xf32>) -> tensor<1x10xf32>
 // CHECK:           return [[VAR_16_]] : tensor<1x10xf32>
 // CHECK:         }
 // CHECK:         "onnx.EntryPoint"() <{func = @mnist}> : () -> ()
