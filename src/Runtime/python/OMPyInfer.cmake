@@ -6,40 +6,22 @@ file(GENERATE
   INPUT ${CMAKE_CURRENT_SOURCE_DIR}/PyRuntime.py
   )
 
-file(GENERATE
-  OUTPUT ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/PyCompileAndRuntime.py
-  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/PyCompileAndRuntime.py
-  )
+# Control source code for float type definition.
+# ToFix: the current implementation is using llvm.
+add_compile_definitions(ENABLE_PYRUNTIME_LIGHT)
+add_onnx_mlir_library(OMPyExecutionSessionBase
+  PyExecutionSessionBase.cpp
 
-  add_compile_definitions(ENABLE_PYRUNTIME_LIGHT)
-  add_onnx_mlir_library(OMPyExecutionSessionBase
-    PyExecutionSessionBase.cpp
+  EXCLUDE_FROM_OM_LIBS
 
-    EXCLUDE_FROM_OM_LIBS
-
-    LINK_LIBS PUBLIC
-    OMExecutionSession
-    # ToFix: OMMlirUtilities used for float16 is temporarily excluded because
-    # it need some support from LLVM.
-    #OMMlirUtilities
-    pybind11::embed
-    pybind11::python_link_helper
-  )
-
-# Refer to onnx-mlir/CMakeList.txt
-# Since PyExecutionSessionBase include onnx/onnx_pb.h, absl lib may be needed.
-# Another solution is to simply add onnx into link library, which was tested 
-# and proven. This solution seems more elegant to me.
-# However, not sure whether it is too much to link onnx to PyRuntimeC, though
-# third_party/onnx is built in both normal and light-weight driver
-#if (absl_FOUND)
-#  message(STATUS "absl found and add it the dependent library for OMPyExecutionSessionBase")
-#  target_link_libraries(OMPyExecutionSessionBase PUBLIC
-#    absl::log_internal_check_op
-#    absl::log_internal_message
-#    absl::status
-#    )
-#endif()
+  LINK_LIBS PUBLIC
+  OMExecutionSession
+  # ToFix: OMMlirUtilities used for float16 is temporarily excluded because
+  # it need some support from LLVM.
+  #OMMlirUtilities
+  pybind11::embed
+  pybind11::python_link_helper
+)
 
 if(MSVC)
   target_link_libraries(OMPyExecutionSessionBase

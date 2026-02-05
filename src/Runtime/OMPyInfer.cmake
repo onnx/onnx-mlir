@@ -3,8 +3,6 @@
 add_subdirectory(python)
 
 add_onnx_mlir_library(OMTensorUtils
-	#OMExternalConstant.cpp
-	#OMIndexLookup.cpp
   OMInstrument.cpp
   OMTensor.cpp
   OMTensorList.cpp
@@ -31,6 +29,7 @@ add_onnx_mlir_library(OMExecutionSession
 
   LINK_LIBS PUBLIC
   OMTensorUtils
+  # Needed?
   OMSmallFPConversion
   )
 set_target_properties(OMExecutionSession
@@ -47,4 +46,3 @@ if(WIN32)
 else()
   target_link_libraries(OMExecutionSession PRIVATE dl)
 endif()
-
