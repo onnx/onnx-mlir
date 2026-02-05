@@ -1,11 +1,11 @@
-
 # SPDX-License-Identifier: Apache-2.0
 
-# Light-weight runtime driver supports only python currently
-if (NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
+# Check whether the build is for a tool (sub-project for now)
+# Otherwise, continue with default onnx-mlir project
+choose_build_target()
+
 add_subdirectory(jni)
 add_subdirectory(omp)
-endif()
 add_subdirectory(python)
 
 # TODO: should add for each accelerator its subdirectory that implements InitAccel##name
