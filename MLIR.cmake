@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
-if (NOT DEFINED ONNX_MLIR_TARGET_TO_BUILD)
+if (DEFINED ONNX_MLIR_TARGET_TO_BUILD)
   # These functions are defined in llvm_project.
   # Define a dummy function for projects not using llvm_project.
   # If needed, the definition from llvm_project can be copied.
