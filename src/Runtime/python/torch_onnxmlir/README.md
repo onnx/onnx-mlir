@@ -60,9 +60,11 @@ For more information about `torch.compile`, see its [document](https://docs.pyto
 ## Installation
 
 ### Install from local directory
-First create the source of the package.
-In onnx-mlir/build, `cmake --build . --target OMCreateTorchONNXMLIRPackage`
-At top of onnx-mlir: `pip3 install -e src/Runtime/python/torch_onnxmlir`
+```bash
+$ cd onnx-mlir/build
+$ cmake --build . --target OMCreateTorchONNXMLIRPackage
+$ pip3 install -e src/Runtime/python/torch_onnxmlir
+```
 
 ### Install from repo
 After the package is uploaded to pip server, you can install with 'pip3 install torch_onnxmlir`
