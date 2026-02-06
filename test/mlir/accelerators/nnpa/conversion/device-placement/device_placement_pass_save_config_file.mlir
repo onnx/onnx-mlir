@@ -1,4 +1,4 @@
-// RUN: cfg_file=$(dirname %s)/save-cfg.json && onnx-mlir-opt --device-placement=save-config-file=$cfg_file --nnpa-placement-heuristic=QualifyingOps  --march=z16 --maccel=NNPA --split-input-file %s && cat $cfg_file | FileCheck %s && rm $cfg_file
+// RUN: cfg_file=$(dirname %s)/save-cfg.json && onnx-mlir-opt --device-placement="use-qualifying save-config-file=$cfg_file" --nnpa-placement-heuristic=QualifyingOps  --march=z16 --maccel=NNPA --split-input-file %s && cat $cfg_file | FileCheck %s && rm $cfg_file
 
 // -----
 

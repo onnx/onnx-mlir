@@ -1,10 +1,10 @@
-// RUN: cfg_file=$(dirname %s)/load-cfg-all-on-cpu.json && onnx-mlir-opt --device-placement=load-config-file=$cfg_file --nnpa-placement-heuristic=QualifyingOps  --march=z16 --maccel=NNPA --split-input-file %s | FileCheck %s --check-prefix=ALL-ON-CPU
+// RUN: cfg_file=$(dirname %s)/load-cfg-all-on-cpu.json && onnx-mlir-opt --device-placement="use-qualifying load-config-file=$cfg_file" --march=z16 --maccel=NNPA --split-input-file %s | FileCheck %s --check-prefix=ALL-ON-CPU
 
-// RUN: cfg_file=$(dirname %s)/load-cfg-all-relu-on-cpu.json && onnx-mlir-opt --device-placement=load-config-file=$cfg_file --nnpa-placement-heuristic=QualifyingOps  --march=z16 --maccel=NNPA --split-input-file %s | FileCheck %s --check-prefix=ALL-RELU-ON-CPU
+// RUN: cfg_file=$(dirname %s)/load-cfg-all-relu-on-cpu.json && onnx-mlir-opt --device-placement="use-qualifying lload-config-file=$cfg_file" --march=z16 --maccel=NNPA --split-input-file %s | FileCheck %s --check-prefix=ALL-RELU-ON-CPU
 
-// RUN: cfg_file=$(dirname %s)/load-cfg-not-match-relu.json && onnx-mlir-opt --device-placement=load-config-file=$cfg_file --nnpa-placement-heuristic=QualifyingOps  --march=z16 --maccel=NNPA --split-input-file %s | FileCheck %s --check-prefix=NOT-MATCH-RELU
+// RUN: cfg_file=$(dirname %s)/load-cfg-not-match-relu.json && onnx-mlir-opt --device-placement="use-qualifying lload-config-file=$cfg_file" --march=z16 --maccel=NNPA --split-input-file %s | FileCheck %s --check-prefix=NOT-MATCH-RELU
 
-// RUN: cfg_file=$(dirname %s)/load-cfg-overlapping-condition.json && onnx-mlir-opt --device-placement=load-config-file=$cfg_file --nnpa-placement-heuristic=QualifyingOps  --march=z16 --maccel=NNPA --split-input-file %s | FileCheck %s --check-prefix=OVERLAPPING
+// RUN: cfg_file=$(dirname %s)/load-cfg-overlapping-condition.json && onnx-mlir-opt --device-placement="use-qualifying lload-config-file=$cfg_file" --march=z16 --maccel=NNPA --split-input-file %s | FileCheck %s --check-prefix=OVERLAPPING
 
 // -----
 

@@ -91,7 +91,11 @@ struct DevicePlacementPass
   Option<bool> useFasterOps{*this, "use-faster",
       llvm::cl::desc("Enable FasterOps NNPAPlacementHeuristic"),
       llvm::cl::init(false)};
-  // Method to override placement using useXXX flags
+  Option<bool> useQualifyingOps{*this, "use-qualifying",
+      llvm::cl::desc("Enable QualifyingOps NNPAPlacementHeuristic"),
+      llvm::cl::init(false)};
+
+  // Method to override placement using use-XXX flags
   void initPlacementHeuristic() {
     if (useMuchFasterWithStickOps)
       placementHeuristic = MuchFasterOpsWSU;
@@ -99,6 +103,8 @@ struct DevicePlacementPass
       placementHeuristic = FasterOpsWSU;
     else if (useFasterOps)
       placementHeuristic = FasterOps;
+    else if (useQualifyingOps)
+      placementHeuristic = QualifyingOps;
   }
 
   void runOnOperation() final;
@@ -201,18 +207,20 @@ void DevicePlacementPass::runOnOperation() {
       legalizedOps1, llvm::set_intersection(legalizedOps2, legalizedOps3));
 
   initPlacementHeuristic();
-  if (placementHeuristic == QualifyingOps)
+
+  if (placementHeuristic == QualifyingOps) {
     PlaceAllLegalOpsOnNNPA(context, ops, cpuOps);
-  else if (placementHeuristic == FasterOps)
+  } else if (placementHeuristic == FasterOps) {
     PlaceBeneficialOpsOnNNPA(context, ops, &dimAnalysis, cpuOps);
-  else if (placementHeuristic == FasterOpsWSU)
+  } else if (placementHeuristic == FasterOpsWSU) {
     PlaceBeneficialOpsOnNNPAWithStickUnstick(context, module, ops, &dimAnalysis,
         cpuOps, /*min factor*/ 1.1, /*significant CPU Factor*/ 2.0,
         /*significant NNPA Factor*/ 2.0);
-  else if (placementHeuristic == MuchFasterOpsWSU)
+  } else if (placementHeuristic == MuchFasterOpsWSU) {
     PlaceBeneficialOpsOnNNPAWithStickUnstick(context, module, ops, &dimAnalysis,
         cpuOps, /*min factor*/ 3.0, /*significant CPU Factor*/ 2.0,
         /*significant NNPA Factor*/ 8.0);
+  }
 
   // Create a JSON configuration file if required.
   if (!saveConfigFile.empty()) {
