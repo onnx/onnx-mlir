@@ -28,8 +28,8 @@ static bool isReshapePairIntermediateOp(Operation *op) {
 struct RemovePairedReshapePattern : public OpRewritePattern<ONNXReshapeOp> {
   using OpRewritePattern<ONNXReshapeOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXReshapeOp reshape1,
-      PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXReshapeOp reshape1, PatternRewriter &rewriter) const override {
     if (!reshape1->hasOneUse())
       return failure();
 
@@ -97,11 +97,10 @@ struct RemovePairsAndMoveDownReshapePass
 
     GreedyRewriteConfig config;
     config.maxIterations = 10;
-    config.useTopDownTraversal = false;
+    config.useTopDownTraversal = true;
 
-    if (failed(
-            applyPatternsAndFoldGreedily(getOperation(), std::move(patterns),
-                config)))
+    if (failed(applyPatternsAndFoldGreedily(
+            getOperation(), std::move(patterns), config)))
       signalPassFailure();
   }
 };
@@ -111,4 +110,3 @@ std::unique_ptr<mlir::Pass> createRemovePairsAndMoveDownReshapePass() {
 }
 
 } // namespace onnx_mlir
-
