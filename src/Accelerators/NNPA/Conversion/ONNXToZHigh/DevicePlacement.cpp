@@ -236,6 +236,9 @@ void DevicePlacementPass::runOnOperation() {
                         .getValue()
                         .str()
                   : "";
+          fprintf(stderr, "hi alex: op\n");
+          op->dump();
+          fprintf(stderr, "got string for device %s\n\n", deviceStr.c_str());
           jsonObj->insert({DEVICE_ATTRIBUTE, deviceStr});
         });
   }
