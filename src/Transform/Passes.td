@@ -4,7 +4,35 @@
 include "mlir/Pass/PassBase.td"
 include "mlir/Rewrite/PassUtil.td"
 
-def BufferOMPLoopHoisting : Pass<"buffer-omploop-hoisting", "func::FuncOp"> {
+def ProcessKrnlParallelClausePass : Pass<"process-krnl-parallel-clause", "func::FuncOp"> {
+  let summary = "Migrate info from Krnl Parallel Clause into OpenMP Parallel operation.";
+  let description = [{
+    Migrate info from Krnl Parallel Clause into OpenMP Parallel operation.
+  }];
+}
+
+def ProcessScfParallelPrivatePass : Pass<"scf-parallel-private", "func::FuncOp"> {
+  let summary = "Process scf parallel for op to support private variables.";
+  let description = [{
+    Process scf parallel for op to support private variables.
+  }];
+}
+
+def InstrumentPass : Pass<"instrument", "func::FuncOp"> {
+  let summary = "instrument on ops.";
+  let description = [{
+    instrument on ops.
+  }];
+}
+
+def InstrumentCleanupPass : Pass<"instrument-cleanup", "func::FuncOp"> {
+  let summary = "instrument cleanup on ops.";
+  let description = [{
+    instrument cleanup on ops.
+  }];
+}
+
+def BufferOMPLoopHoistingPass : Pass<"buffer-omploop-hoisting", "func::FuncOp"> {
   let summary = "Hoist buffer(alloc and dealloc) for omp loops";
   let description = [{
     This pass hoists buffer alloc/dealloc from omp worksharing loop
@@ -40,5 +68,6 @@ def BufferOMPLoopHoisting : Pass<"buffer-omploop-hoisting", "func::FuncOp"> {
     and createConvertBufferizationToMemRefPass() have been called.
   }];
 }
+
 
 #endif
