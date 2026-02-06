@@ -23,6 +23,7 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Interfaces/CallInterfaces.h"
 #include "mlir/Pass/Pass.h"
+#include "mlir/Transforms/Passes.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -38,12 +39,14 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
+#define GEN_PASS_DEF_INSTRUMENTPASS
+#include "src/Transform/Passes.h.inc"
+
 /*!
  * This pass insert KrnlInstrumentOp before and after each ops
  */
 
-class InstrumentPass
-    : public mlir::PassWrapper<InstrumentPass, OperationPass<func::FuncOp>> {
+class InstrumentPass : public impl::InstrumentPassBase<InstrumentPass> {
 
 public:
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(InstrumentPass)
@@ -72,7 +75,7 @@ public:
 
   InstrumentPass() : allowedOps(/*emptyIsNone*/ true){};
   InstrumentPass(const InstrumentPass &pass)
-      : mlir::PassWrapper<InstrumentPass, OperationPass<func::FuncOp>>(),
+      : impl::InstrumentPassBase<InstrumentPass>(),
         allowedOps(/*emptyIsNone*/ true) {}
   InstrumentPass(const std::string &ops, unsigned actions)
       : allowedOps(/*emptyIsNone*/ true) {
@@ -181,11 +184,16 @@ public:
 /*!
  * Create an instrumentation pass.
  */
-std::unique_ptr<mlir::Pass> onnx_mlir::createInstrumentPass() {
+namespace onnx_mlir {
+// Below is defined by GEN_PASS_DEF in onnx_mlir namespace
+/*
+std::unique_ptr<mlir::Pass> createInstrument() {
   return std::make_unique<InstrumentPass>();
 }
+*/
 
-std::unique_ptr<mlir::Pass> onnx_mlir::createInstrumentPass(
+std::unique_ptr<mlir::Pass> createInstrumentPass(
     const std::string &ops, unsigned actions) {
   return std::make_unique<InstrumentPass>(ops, actions);
 }
+} // namespace onnx_mlir
