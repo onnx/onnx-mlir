@@ -1,6 +1,6 @@
 // 2 passes to device placement, because I could not add the needed "" for space with the use of $var inside a RUN command.
 // So place first, and second pass to save. This problem is only for lit tests.
-// RUN: cfg_file=$(dirname %s)/save-cfg.json && onnx-mlir-opt --device-placement=use-qualifying --device-placement=save-config-file=$cfg_file --nnpa-placement-heuristic=QualifyingOps  --march=z16 --maccel=NNPA --split-input-file %s && cat $cfg_file | FileCheck %s && rm $cfg_file
+// RUN: cfg_file=$(dirname %s)/save-cfg.json && onnx-mlir-opt --device-placement=use-qualifying --device-placement=save-config-file=$cfg_file --march=z16 --maccel=NNPA --split-input-file %s && cat $cfg_file | FileCheck %s && rm $cfg_file
 
 // -----
 
