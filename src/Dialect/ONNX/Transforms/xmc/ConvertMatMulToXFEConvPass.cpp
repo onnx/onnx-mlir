@@ -70,7 +70,8 @@ ConvShapes computeConvShapes(
   return shapes;
 }
 
-/// Helper function to transfer onnx_node_name attribute from source to target op
+/// Helper function to transfer onnx_node_name attribute from source to target
+/// op
 void transferOnnxNodeName(Operation *sourceOp, Operation *targetOp) {
   if (!sourceOp || !targetOp)
     return;
@@ -248,8 +249,7 @@ struct GemmToXFEConvPattern : public OpRewritePattern<ONNXGemmOp> {
     auto bShape = bType.getShape();
 
     // GEMM shape: A [M, K], B [K, N] -> output [M, N]
-    if (aShape.size() < 2 || bShape.size() < 2 ||
-        aShape.back() != bShape[0]) {
+    if (aShape.size() < 2 || bShape.size() < 2 || aShape.back() != bShape[0]) {
       return failure();
     }
 
@@ -274,8 +274,8 @@ struct GemmToXFEConvPattern : public OpRewritePattern<ONNXGemmOp> {
         RankedTensorType::get(convShapes.inputShape, elementType);
     auto shapeConst1 =
         createShapeConstant(rewriter, loc, convShapes.inputShape);
-    Value reshape1Output = rewriter.create<ONNXReshapeOp>(
-        loc, reshape1OutputType, A, shapeConst1);
+    Value reshape1Output =
+        rewriter.create<ONNXReshapeOp>(loc, reshape1OutputType, A, shapeConst1);
 
     // Format weight: [K, N] -> transpose to [N, K] -> reshape to [N, 1, 1, K]
     auto bElementType = bType.getElementType();
@@ -291,11 +291,11 @@ struct GemmToXFEConvPattern : public OpRewritePattern<ONNXGemmOp> {
     }
 
     // Transpose [K, N] -> [N, K]
-    auto transposedBType = RankedTensorType::get(
-        {bShape[1], bShape[0]}, bElementType);
+    auto transposedBType =
+        RankedTensorType::get({bShape[1], bShape[0]}, bElementType);
     auto permAttr = rewriter.getI64ArrayAttr({1, 0});
-    Value transposedB = rewriter.create<ONNXTransposeOp>(
-        loc, transposedBType, B, permAttr);
+    Value transposedB =
+        rewriter.create<ONNXTransposeOp>(loc, transposedBType, B, permAttr);
 
     // Reshape to [N, 1, 1, K] for XFEConv
     Value convWeight = rewriter.create<ONNXReshapeOp>(
@@ -338,8 +338,8 @@ struct GemmToXFEConvPattern : public OpRewritePattern<ONNXGemmOp> {
 
     // Create XFEConv operation
     auto convOp = rewriter.create<XFEConvOp>(loc, convOutputType,
-        reshape1Output, convWeight, bias, autoPadAttr, dilationsAttr,
-        groupAttr, kernelShapeAttr, padsAttr, stridesAttr);
+        reshape1Output, convWeight, bias, autoPadAttr, dilationsAttr, groupAttr,
+        kernelShapeAttr, padsAttr, stridesAttr);
 
     // Transfer onnx_node_name attribute from GEMM to XFEConv
     transferOnnxNodeName(gemmOp, convOp);
