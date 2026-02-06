@@ -12,6 +12,7 @@
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 #include "src/Pass/Passes.hpp"
 
 #include "llvm/ADT/SmallVector.h"
@@ -431,7 +432,11 @@ struct MergeSliceConcatPass
     MLIRContext *context = &getContext();
     RewritePatternSet patterns(context);
     patterns.add<MergeSliceConcatInstanceNormConv>(context);
-    if (failed(applyPatternsGreedily(getOperation(), std::move(patterns)))) {
+    ResultNamesUpdater rnUpdater;
+    GreedyRewriteConfig config;
+    config.listener = &rnUpdater;
+    if (failed(
+            applyPatternsGreedily(getOperation(), std::move(patterns), config))) {
       signalPassFailure();
     }
   }

@@ -8,6 +8,7 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 #include "src/Pass/Passes.hpp"
 
 #include "llvm/Support/Debug.h"
@@ -106,7 +107,11 @@ struct CombineTransposePairPass : public PassWrapper<CombineTransposePairPass,
     MLIRContext *context = &getContext();
     RewritePatternSet patterns(context);
     patterns.add<CombineTransposePairPattern>(context);
-    if (failed(applyPatternsGreedily(getOperation(), std::move(patterns)))) {
+    ResultNamesUpdater rnUpdater;
+    GreedyRewriteConfig config;
+    config.listener = &rnUpdater;
+    if (failed(
+            applyPatternsGreedily(getOperation(), std::move(patterns), config))) {
       signalPassFailure();
     }
   }

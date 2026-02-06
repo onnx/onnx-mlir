@@ -12,6 +12,7 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 
 #include "llvm/ADT/SmallVector.h"
 
@@ -318,7 +319,11 @@ struct StandardizeSliceOpsPass
     patterns.add<StandardizeSlicePattern>(context);
     patterns.add<ConvertGatherToSlicePattern>(context);
 
-    if (failed(applyPatternsGreedily(getOperation(), std::move(patterns)))) {
+    ResultNamesUpdater rnUpdater;
+    GreedyRewriteConfig config;
+    config.listener = &rnUpdater;
+    if (failed(
+            applyPatternsGreedily(getOperation(), std::move(patterns), config))) {
       signalPassFailure();
     }
   }

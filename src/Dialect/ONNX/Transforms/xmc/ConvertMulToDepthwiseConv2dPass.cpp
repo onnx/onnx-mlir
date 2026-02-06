@@ -9,6 +9,7 @@
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 #include "src/Pass/Passes.hpp"
 
 #include "llvm/ADT/SmallVector.h"
@@ -409,7 +410,11 @@ struct ConvertMulToDepthwiseConv2dPass
     patterns.add<MulReluToDepthwiseConvPattern>(context);
 
     // Apply patterns greedily
-    if (failed(applyPatternsGreedily(getOperation(), std::move(patterns)))) {
+    ResultNamesUpdater rnUpdater;
+    GreedyRewriteConfig config;
+    config.listener = &rnUpdater;
+    if (failed(
+            applyPatternsGreedily(getOperation(), std::move(patterns), config))) {
       signalPassFailure();
     }
   }

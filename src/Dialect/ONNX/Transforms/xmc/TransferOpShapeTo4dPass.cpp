@@ -438,6 +438,8 @@ struct TransferOpShapeTo4dPass
 
     GreedyRewriteConfig config;
     config.strictMode = GreedyRewriteStrictness::ExistingAndNewOps;
+    ResultNamesUpdater rnUpdater;
+    config.listener = &rnUpdater;
 
     ResultNamesUpdater rnUpdater;
     config.listener = &rnUpdater;
