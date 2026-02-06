@@ -98,7 +98,6 @@ RUN git clone -b v${PROTOBUF_VERSION} --recursive ${PROTOBUF_URL} ${PROTOBUF_DIR
     # -DCMAKE_CXX_STANDARD=17 (or higher) which is required by protobuf
     && CC=clang CXX=clang++ \
        cmake -DCMAKE_INSTALL_LIBDIR=lib \
-             -DCMAKE_CXX_STANDARD=20 \
              -DBUILD_SHARED_LIBS=ON \
              -Dprotobuf_BUILD_TESTS=OFF .. \
     && make -j${NPROC} install && ldconfig \
@@ -121,7 +120,7 @@ RUN git clone -b v${PROTOBUF_VERSION} --recursive ${PROTOBUF_URL} ${PROTOBUF_DIR
     && CC=clang CXX=clang++ bazel fetch --nobuild --repo=@rules_buf \
     && sed -i -e 's/\["arm64", "amd64"\]/\["arm64", "amd64", "s390x"\]/g' \
            ${HOME}/.cache/bazel/_bazel_root/*/external/rules_buf~/buf/internal/toolchain.bzl \
-    && CC=clang CXX=clang++ bazel build --cxxopt=-std=c++20 //python/dist:binary_wheel \
+    && CC=clang CXX=clang++ bazel build //python/dist:binary_wheel \
     && pip3 install bazel-bin/python/dist/protobuf-*.whl --prefix=/usr \
     && cd .. && rm -rf ${PROTOBUF_DIR} ${HOME}/.cache
 
