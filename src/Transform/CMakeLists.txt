@@ -30,4 +30,6 @@ add_onnx_mlir_library(OMInstrument
   OMKrnlOps
   MLIRPass
   OMOptionUtils
+  OMOpTransform
+  OMInstrumentONNX
   )
