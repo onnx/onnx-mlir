@@ -1,6 +1,6 @@
 // Copyright (C) 2025 - 2026 Advanced Micro Devices, Inc. All rights reserved.
 //
-// RUN: onnx-mlir-opt --split-input-file --replace-adjacent-ops %s | FileCheck %s
+// RUN: onnx-mlir-opt --split-input-file --replace-adjacent-ops --cse %s | FileCheck %s
 
 // Test 1: Merge nested concat operations on same axis.
 func.func @test_merge_nested_concat(%arg0: tensor<1x2x3x4xf32>, %arg1: tensor<1x2x3x4xf32>,
@@ -37,10 +37,10 @@ func.func @test_split_duplicate_inputs(%arg0: tensor<1x2x3x4xf32>) -> tensor<1x2
 }
 // Pass inserts onnx.Shape + onnx.Reshape (dynamic-safe) for duplicates.
 // Order of inserted reshapes is not guaranteed; use DAG.
-// CHECK-DAG: %[[S0:.*]] = "onnx.Shape"(%arg0) {start = 0 : si64} : (tensor<1x2x3x4xf32>) -> tensor<?xi64>
-// CHECK-DAG: %[[R0:.*]] = "onnx.Reshape"(%arg0, %[[S0]]) {allowzero = 0 : si64, duplicate_input = true} : (tensor<1x2x3x4xf32>, tensor<?xi64>) -> tensor<1x2x3x4xf32>
-// CHECK-DAG: %[[S1:.*]] = "onnx.Shape"(%arg0) {start = 0 : si64} : (tensor<1x2x3x4xf32>) -> tensor<?xi64>
-// CHECK-DAG: %[[R1:.*]] = "onnx.Reshape"(%arg0, %[[S1]]) {allowzero = 0 : si64, duplicate_input = true} : (tensor<1x2x3x4xf32>, tensor<?xi64>) -> tensor<1x2x3x4xf32>
+// Note: with `--cse`, identical onnx.Shape ops may be merged; don't require two.
+// CHECK-DAG: %[[S:.*]] = "onnx.Shape"(%arg0) {start = 0 : si64} : (tensor<1x2x3x4xf32>) -> tensor<?xi64>
+// CHECK-DAG: %[[R0:.*]] = "onnx.Reshape"(%arg0, %{{.*}}) {allowzero = 0 : si64, duplicate_input = true, duplicate_input_id = {{[0-9]+}} : i64} : (tensor<1x2x3x4xf32>, tensor<?xi64>) -> tensor<1x2x3x4xf32>
+// CHECK-DAG: %[[R1:.*]] = "onnx.Reshape"(%arg0, %{{.*}}) {allowzero = 0 : si64, duplicate_input = true, duplicate_input_id = {{[0-9]+}} : i64} : (tensor<1x2x3x4xf32>, tensor<?xi64>) -> tensor<1x2x3x4xf32>
 // CHECK: %[[CONCAT:.*]] = "onnx.Concat"(%arg0, %{{.*}}, %{{.*}}) {axis = 3 : si64}
 
 // -----
@@ -52,6 +52,6 @@ func.func @test_split_duplicate_add(%arg0: tensor<1x2x3x4xf32>) -> tensor<1x2x3x
   return %0 : tensor<1x2x3x4xf32>
 }
 // CHECK: %[[S:.*]] = "onnx.Shape"(%arg0) {start = 0 : si64} : (tensor<1x2x3x4xf32>) -> tensor<?xi64>
-// CHECK: %[[R:.*]] = "onnx.Reshape"(%arg0, %[[S]]) {allowzero = 0 : si64, duplicate_input = true} : (tensor<1x2x3x4xf32>, tensor<?xi64>) -> tensor<1x2x3x4xf32>
+// CHECK: %[[R:.*]] = "onnx.Reshape"(%arg0, %[[S]]) {allowzero = 0 : si64, duplicate_input = true, duplicate_input_id = {{[0-9]+}} : i64} : (tensor<1x2x3x4xf32>, tensor<?xi64>) -> tensor<1x2x3x4xf32>
 // CHECK: %[[ADD:.*]] = "onnx.Add"(%arg0, %[[R]]) : (tensor<1x2x3x4xf32>, tensor<1x2x3x4xf32>) -> tensor<1x2x3x4xf32>
 

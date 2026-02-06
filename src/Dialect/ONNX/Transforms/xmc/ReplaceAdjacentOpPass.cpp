@@ -15,6 +15,8 @@
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/SmallVector.h"
 
+#include <atomic>
+
 using namespace mlir;
 
 namespace {
@@ -156,7 +158,14 @@ static Value insertIdentityReshapeAfterProducer(
     reshapeState.addAttribute("allowzero", rewriter.getIntegerAttr(si64Ty, 0));
     Operation *reshapeOp = rewriter.create(reshapeState);
 
+    // This transformation exists to break duplicate SSA uses for backends that
+    // require distinct input edges (XCompiler parity). Guard against later CSE
+    // merging the inserted no-op reshapes back together by giving each inserted
+    // reshape a unique id.
+    static std::atomic<int64_t> nextId{0};
     reshapeOp->setAttr("duplicate_input", rewriter.getBoolAttr(true));
+    reshapeOp->setAttr(
+        "duplicate_input_id", rewriter.getI64IntegerAttr(nextId++));
     return reshapeOp->getResult(0);
   }
 
