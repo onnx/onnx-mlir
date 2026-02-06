@@ -70,6 +70,21 @@ ConvShapes computeConvShapes(
   return shapes;
 }
 
+/// Helper function to transfer onnx_node_name attribute from source to target op
+void transferOnnxNodeName(Operation *sourceOp, Operation *targetOp) {
+  if (!sourceOp || !targetOp)
+    return;
+
+  // Get onnx_node_name from source operation
+  auto onnxNodeName =
+      sourceOp->getAttrOfType<mlir::StringAttr>("onnx_node_name");
+
+  // If source has onnx_node_name, set it on target
+  if (onnxNodeName && !onnxNodeName.getValue().empty()) {
+    targetOp->setAttr("onnx_node_name", onnxNodeName);
+  }
+}
+
 /// Helper function to create a shape constant for ONNX Reshape
 Value createShapeConstant(
     PatternRewriter &rewriter, Location loc, ArrayRef<int64_t> shape) {
@@ -175,6 +190,9 @@ struct MatMulToXFEConvPattern : public OpRewritePattern<ONNXMatMulOp> {
         reshape1Output, convWeight, noneBias, autoPadAttr, dilationsAttr,
         groupAttr, kernelShapeAttr, padsAttr, stridesAttr);
 
+    // Transfer onnx_node_name attribute from MatMul to XFEConv
+    transferOnnxNodeName(matMulOp, convOp);
+
     // Create second Reshape: [M, H/H', W/W', C_out] -> [D1, D2, ..., Dn, N]
     // Original output shape: [D1, D2, ..., Dn, N]
     SmallVector<int64_t> outputShape;
@@ -194,6 +212,151 @@ struct MatMulToXFEConvPattern : public OpRewritePattern<ONNXMatMulOp> {
   }
 };
 
+/// Pattern to convert GEMM to Reshape -> XFEConv -> Reshape
+/// GEMM: Y = alpha * (A^T if transA) * (B^T if transB) + beta * C
+/// For simplicity, we handle the case where transA=false, transB=false
+struct GemmToXFEConvPattern : public OpRewritePattern<ONNXGemmOp> {
+  using OpRewritePattern<ONNXGemmOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXGemmOp gemmOp, PatternRewriter &rewriter) const override {
+    auto loc = gemmOp.getLoc();
+
+    // Get inputs
+    Value A = gemmOp.getA();
+    Value B = gemmOp.getB();
+    Value C = gemmOp.getC(); // Optional bias
+
+    // Get types
+    auto aType = dyn_cast<RankedTensorType>(A.getType());
+    auto bType = dyn_cast<RankedTensorType>(B.getType());
+
+    if (!aType || !bType || !aType.hasStaticShape() ||
+        !bType.hasStaticShape()) {
+      return failure();
+    }
+
+    // For now, only handle the case where transA=false and transB=false
+    // TODO: Handle transposed cases
+    int64_t transA = gemmOp.getTransA();
+    int64_t transB = gemmOp.getTransB();
+    if (transA != 0 || transB != 0) {
+      return failure();
+    }
+
+    auto aShape = aType.getShape();
+    auto bShape = bType.getShape();
+
+    // GEMM shape: A [M, K], B [K, N] -> output [M, N]
+    if (aShape.size() < 2 || bShape.size() < 2 ||
+        aShape.back() != bShape[0]) {
+      return failure();
+    }
+
+    // Handle alpha: if alpha != 1.0, we need to scale the weight
+    // For now, only handle alpha = 1.0
+    // TODO: Handle alpha != 1.0 by scaling the weight
+    float alpha = gemmOp.getAlpha().convertToFloat();
+    if (alpha != 1.0f) {
+      return failure(); // TODO: Handle non-unit alpha
+    }
+
+    // Compute convolution shapes
+    // Treat A as input [M, K] -> reshape to [M, 1, 1, K]
+    // Treat B as weight [K, N] -> reshape to [N, 1, 1, K]
+    ConvShapes convShapes = computeConvShapes(aShape, bShape);
+
+    // Get element type (preserve quantization type)
+    Type elementType = aType.getElementType();
+
+    // Create first Reshape: [M, K] -> [M, 1, 1, K]
+    auto reshape1OutputType =
+        RankedTensorType::get(convShapes.inputShape, elementType);
+    auto shapeConst1 =
+        createShapeConstant(rewriter, loc, convShapes.inputShape);
+    Value reshape1Output = rewriter.create<ONNXReshapeOp>(
+        loc, reshape1OutputType, A, shapeConst1);
+
+    // Format weight: [K, N] -> transpose to [N, K] -> reshape to [N, 1, 1, K]
+    auto bElementType = bType.getElementType();
+    auto convWeightType =
+        RankedTensorType::get(convShapes.weightShape, bElementType);
+    auto weightShapeConst =
+        createShapeConstant(rewriter, loc, convShapes.weightShape);
+
+    // Require B to be a 2D constant so we can safely transpose it
+    auto bConstOp = B.getDefiningOp<ONNXConstantOp>();
+    if (!bConstOp || bShape.size() != 2) {
+      return failure();
+    }
+
+    // Transpose [K, N] -> [N, K]
+    auto transposedBType = RankedTensorType::get(
+        {bShape[1], bShape[0]}, bElementType);
+    auto permAttr = rewriter.getI64ArrayAttr({1, 0});
+    Value transposedB = rewriter.create<ONNXTransposeOp>(
+        loc, transposedBType, B, permAttr);
+
+    // Reshape to [N, 1, 1, K] for XFEConv
+    Value convWeight = rewriter.create<ONNXReshapeOp>(
+        loc, convWeightType, transposedB, weightShapeConst);
+
+    // Create XFEConv
+    int64_t outputH = convShapes.inputShape[1] / convShapes.stride[0];
+    int64_t outputW = convShapes.inputShape[2] / convShapes.stride[1];
+    SmallVector<int64_t> convOutputShape = {
+        convShapes.inputShape[0], outputH, outputW, convShapes.weightShape[0]};
+
+    auto convOutputType = RankedTensorType::get(convOutputShape, elementType);
+
+    // Create attributes for XFEConv
+    auto autoPadAttr = rewriter.getStringAttr("NOTSET");
+    auto stridesAttr = rewriter.getI64ArrayAttr(convShapes.stride);
+    auto kernelShapeAttr = rewriter.getI64ArrayAttr(
+        {convShapes.weightShape[1], convShapes.weightShape[2]});
+    auto padsAttr = rewriter.getI64ArrayAttr({0, 0, 0, 0});
+    auto dilationsAttr = rewriter.getI64ArrayAttr({1, 1});
+    auto groupAttr =
+        rewriter.getIntegerAttr(rewriter.getIntegerType(64, /*isSigned=*/true),
+            APInt(64, 1, /*isSigned=*/true));
+
+    // Handle bias: if C is provided and beta != 0, use it as bias
+    // Otherwise use none
+    onnx_mlir::OnnxBuilder onnxBuilder(rewriter, loc);
+    Value bias;
+    float beta = gemmOp.getBeta().convertToFloat();
+    if (isa<NoneType>(C.getType()) || beta == 0.0f) {
+      bias = onnxBuilder.none();
+    } else {
+      // For beta != 1.0, we would need to scale C
+      // For now, only handle beta = 1.0
+      if (beta != 1.0f) {
+        return failure(); // TODO: Handle non-unit beta
+      }
+      bias = C;
+    }
+
+    // Create XFEConv operation
+    auto convOp = rewriter.create<XFEConvOp>(loc, convOutputType,
+        reshape1Output, convWeight, bias, autoPadAttr, dilationsAttr,
+        groupAttr, kernelShapeAttr, padsAttr, stridesAttr);
+
+    // Transfer onnx_node_name attribute from GEMM to XFEConv
+    transferOnnxNodeName(gemmOp, convOp);
+
+    // Create second Reshape: [M, H/H', W/W', C_out] -> [M, N]
+    SmallVector<int64_t> outputShape = {aShape[0], bShape[1]};
+    auto reshape2OutputType = RankedTensorType::get(outputShape, elementType);
+    auto shapeConst2 = createShapeConstant(rewriter, loc, outputShape);
+    Value reshape2Output = rewriter.create<ONNXReshapeOp>(
+        loc, reshape2OutputType, convOp.getResult(), shapeConst2);
+
+    // Replace GEMM with the final Reshape output
+    rewriter.replaceOp(gemmOp, reshape2Output);
+    return success();
+  }
+};
+
 } // namespace
 
 namespace onnx_mlir {
@@ -205,7 +368,7 @@ struct ConvertMatMulToXFEConvPass
     return "convert-matmul-to-xfe-conv";
   }
   StringRef getDescription() const override {
-    return "Convert MatMul operations to XFEConv operations";
+    return "Convert MatMul and GEMM operations to XFEConv operations";
   }
 
   void runOnOperation() override {
@@ -214,8 +377,9 @@ struct ConvertMatMulToXFEConvPass
 
     RewritePatternSet patterns(context);
 
-    // Add pattern
+    // Add patterns
     patterns.add<MatMulToXFEConvPattern>(context);
+    patterns.add<GemmToXFEConvPattern>(context);
 
     // Apply patterns greedily
     if (failed(applyPatternsGreedily(func, std::move(patterns)))) {

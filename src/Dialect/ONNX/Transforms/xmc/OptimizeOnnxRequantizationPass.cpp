@@ -15,23 +15,76 @@ using namespace mlir;
 
 namespace {
 
-/// Extract quantization parameters from a quant.uniform type
-std::optional<std::pair<double, int64_t>> getQuantParams(Type type) {
+/// Structure to hold quantization parameters for both per-tensor and per-channel
+struct QuantParams {
+  bool isPerChannel = false;
+  // Per-tensor params
+  double scale = 0.0;
+  int64_t zeroPoint = 0;
+  // Per-channel params
+  SmallVector<double> scales;
+  SmallVector<int64_t> zeroPoints;
+  int32_t quantizedDimension = 0;
+
+  bool operator==(const QuantParams &other) const {
+    if (isPerChannel != other.isPerChannel)
+      return false;
+    if (isPerChannel) {
+      if (quantizedDimension != other.quantizedDimension)
+        return false;
+      if (scales.size() != other.scales.size())
+        return false;
+      for (size_t i = 0; i < scales.size(); ++i) {
+        if (std::abs(scales[i] - other.scales[i]) > 1e-6)
+          return false;
+        if (zeroPoints[i] != other.zeroPoints[i])
+          return false;
+      }
+      return true;
+    }
+    return std::abs(scale - other.scale) < 1e-6 && zeroPoint == other.zeroPoint;
+  }
+
+  bool operator!=(const QuantParams &other) const { return !(*this == other); }
+};
+
+/// Extract quantization parameters from a quant.uniform type (per-tensor or
+/// per-channel)
+std::optional<QuantParams> getQuantParams(Type type) {
   auto tensorType = dyn_cast<RankedTensorType>(type);
   if (!tensorType)
     return std::nullopt;
 
-  auto quantType =
-      dyn_cast<quant::UniformQuantizedType>(tensorType.getElementType());
-  if (!quantType)
-    return std::nullopt;
+  Type elementType = tensorType.getElementType();
 
-  return std::make_pair(quantType.getScale(), quantType.getZeroPoint());
+  // Try per-tensor quantization first
+  if (auto quantType = dyn_cast<quant::UniformQuantizedType>(elementType)) {
+    QuantParams params;
+    params.isPerChannel = false;
+    params.scale = quantType.getScale();
+    params.zeroPoint = quantType.getZeroPoint();
+    return params;
+  }
+
+  // Try per-channel quantization
+  if (auto quantType =
+          dyn_cast<quant::UniformQuantizedPerAxisType>(elementType)) {
+    QuantParams params;
+    params.isPerChannel = true;
+    params.quantizedDimension = quantType.getQuantizedDimension();
+    params.scales.assign(quantType.getScales().begin(),
+        quantType.getScales().end());
+    params.zeroPoints.assign(quantType.getZeroPoints().begin(),
+        quantType.getZeroPoints().end());
+    return params;
+  }
+
+  return std::nullopt;
 }
 
-/// Create a new tensor type with updated quantization parameters
-RankedTensorType updateQuantParams(RankedTensorType tensorType, double newScale,
-    int64_t newZeroPoint, MLIRContext * /*ctx*/) {
+/// Create a new tensor type with updated quantization parameters (per-tensor)
+RankedTensorType updateQuantParamsPerTensor(RankedTensorType tensorType,
+    double newScale, int64_t newZeroPoint, MLIRContext * /*ctx*/) {
   auto oldQuantType =
       dyn_cast<quant::UniformQuantizedType>(tensorType.getElementType());
   if (!oldQuantType)
@@ -45,37 +98,72 @@ RankedTensorType updateQuantParams(RankedTensorType tensorType, double newScale,
   return RankedTensorType::get(tensorType.getShape(), newQuantType);
 }
 
+/// Create a new tensor type with updated quantization parameters (per-channel)
+RankedTensorType updateQuantParamsPerChannel(RankedTensorType tensorType,
+    ArrayRef<double> newScales, ArrayRef<int64_t> newZeroPoints,
+    int32_t quantizedDimension, MLIRContext * /*ctx*/) {
+  auto oldQuantType =
+      dyn_cast<quant::UniformQuantizedPerAxisType>(tensorType.getElementType());
+  if (!oldQuantType)
+    return tensorType;
+
+  auto newQuantType = quant::UniformQuantizedPerAxisType::get(
+      oldQuantType.getFlags(), oldQuantType.getStorageType(),
+      oldQuantType.getExpressedType(), newScales, newZeroPoints,
+      quantizedDimension, oldQuantType.getStorageTypeMin(),
+      oldQuantType.getStorageTypeMax());
+
+  return RankedTensorType::get(tensorType.getShape(), newQuantType);
+}
+
+/// Create a new tensor type with updated quantization parameters (unified)
+RankedTensorType updateQuantParams(RankedTensorType tensorType,
+    const QuantParams &newParams, MLIRContext *ctx) {
+  if (newParams.isPerChannel) {
+    return updateQuantParamsPerChannel(tensorType, newParams.scales,
+        newParams.zeroPoints, newParams.quantizedDimension, ctx);
+  }
+  return updateQuantParamsPerTensor(
+      tensorType, newParams.scale, newParams.zeroPoint, ctx);
+}
+
 /// Pattern for ONNX operations that don't change quantization semantics
-/// (e.g., Reshape, Transpose, Slice)
+/// (e.g., Reshape, Transpose, Slice, DepthToSpace, SpaceToDepth)
 template <typename OpTy>
 struct OnnxRequantizationOptimizationPattern : public OpRewritePattern<OpTy> {
   using OpRewritePattern<OpTy>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(
       OpTy op, PatternRewriter &rewriter) const override {
+    // Get input value - use getOperand(0) which works for all single-input ops
+
+    ::mlir::Value inputValue = op->getOperand(0);
+
     // Get input and output types
-    auto inputType = dyn_cast<RankedTensorType>(op.getData().getType());
+    auto inputType = dyn_cast<RankedTensorType>(inputValue.getType());
     auto outputType = dyn_cast<RankedTensorType>(op.getResult().getType());
 
     if (!inputType || !outputType)
       return rewriter.notifyMatchFailure(op, "Not ranked tensor types");
 
-    // Extract quantization parameters
+    // Extract quantization parameters (supports both per-tensor and per-channel)
     auto inputQuant = getQuantParams(inputType);
     auto outputQuant = getQuantParams(outputType);
 
     if (!inputQuant || !outputQuant)
       return rewriter.notifyMatchFailure(op, "Not quantized types");
 
-    auto [inputScale, inputZp] = *inputQuant;
-    auto [outputScale, outputZp] = *outputQuant;
+    // Check if quantization types are compatible (both per-tensor or both
+    // per-channel)
+    if (inputQuant->isPerChannel != outputQuant->isPerChannel)
+      return rewriter.notifyMatchFailure(
+          op, "Incompatible quantization types (per-tensor vs per-channel)");
 
     // Check if requantization is happening
-    if (std::abs(inputScale - outputScale) < 1e-6 && inputZp == outputZp)
+    if (*inputQuant == *outputQuant)
       return rewriter.notifyMatchFailure(op, "No requantization detected");
 
     // Get parent operation
-    Value inputValue = op.getData();
     Operation *parentOp = inputValue.getDefiningOp();
 
     if (!parentOp)
@@ -85,20 +173,11 @@ struct OnnxRequantizationOptimizationPattern : public OpRewritePattern<OpTy> {
     if (!inputValue.hasOneUse())
       return rewriter.notifyMatchFailure(op, "Parent has multiple uses");
 
-    auto parentResultType = dyn_cast<RankedTensorType>(inputValue.getType());
-    if (!parentResultType)
-      return rewriter.notifyMatchFailure(op, "Parent result not ranked tensor");
-
     // Update parent's output type to match current op's output quantization
-    auto newParentResultType = updateQuantParams(
-        parentResultType, outputScale, outputZp, rewriter.getContext());
+    // Note: inputType is already verified to be RankedTensorType above
+    auto newParentResultType =
+        updateQuantParams(inputType, *outputQuant, rewriter.getContext());
     inputValue.setType(newParentResultType);
-
-    // Update current op's input type to match output quantization
-    // Note: newInputType is not used directly, but the type update propagates
-    // through the graph
-    (void)updateQuantParams(
-        inputType, outputScale, outputZp, rewriter.getContext());
 
     // Recreate the operation with updated input type
     SmallVector<Type> newResultTypes = {outputType};
@@ -123,12 +202,11 @@ OnnxRequantizationOptimizationPattern<ONNXConcatOp>::matchAndRewrite(
   if (!outputType)
     return rewriter.notifyMatchFailure(op, "Output not ranked tensor type");
 
-  // Extract output quantization parameters
+  // Extract output quantization parameters (supports both per-tensor and
+  // per-channel)
   auto outputQuant = getQuantParams(outputType);
   if (!outputQuant)
     return rewriter.notifyMatchFailure(op, "Output not quantized");
-
-  auto [outputScale, outputZp] = *outputQuant;
 
   // Check all inputs for requantization opportunities
   bool hasRequantization = false;
@@ -145,10 +223,12 @@ OnnxRequantizationOptimizationPattern<ONNXConcatOp>::matchAndRewrite(
     if (!inputQuant)
       continue;
 
-    auto [inputScale, inputZp] = *inputQuant;
+    // Skip incompatible quantization types
+    if (inputQuant->isPerChannel != outputQuant->isPerChannel)
+      continue;
 
     // Check if requantization is happening
-    if (std::abs(inputScale - outputScale) > 1e-6 || inputZp != outputZp) {
+    if (*inputQuant != *outputQuant) {
       hasRequantization = true;
       break;
     }
@@ -168,10 +248,12 @@ OnnxRequantizationOptimizationPattern<ONNXConcatOp>::matchAndRewrite(
     if (!inputQuant)
       continue;
 
-    auto [inputScale, inputZp] = *inputQuant;
+    // Skip incompatible quantization types
+    if (inputQuant->isPerChannel != outputQuant->isPerChannel)
+      continue;
 
     // Skip if already matches output quantization
-    if (std::abs(inputScale - outputScale) < 1e-6 && inputZp == outputZp)
+    if (*inputQuant == *outputQuant)
       continue;
 
     // Get parent operation
@@ -188,8 +270,8 @@ OnnxRequantizationOptimizationPattern<ONNXConcatOp>::matchAndRewrite(
       continue;
 
     // Update parent's output type to match Concat's output quantization
-    auto newParentResultType = updateQuantParams(
-        parentResultType, outputScale, outputZp, rewriter.getContext());
+    auto newParentResultType =
+        updateQuantParams(parentResultType, *outputQuant, rewriter.getContext());
     inputValue.setType(newParentResultType);
     anyUpdated = true;
   }
@@ -235,6 +317,9 @@ struct OptimizeOnnxRequantizationPass
         context);
     patterns.add<OnnxRequantizationOptimizationPattern<ONNXSliceOp>>(context);
     patterns.add<OnnxRequantizationOptimizationPattern<ONNXConcatOp>>(context);
+    patterns.add<OnnxRequantizationOptimizationPattern<ONNXDepthToSpaceOp>>(context);
+    patterns.add<OnnxRequantizationOptimizationPattern<ONNXSpaceToDepthOp>>(context);
+
 
     if (failed(applyPatternsGreedily(getOperation(), std::move(patterns))))
       signalPassFailure();

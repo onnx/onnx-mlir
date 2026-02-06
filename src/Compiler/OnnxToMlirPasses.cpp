@@ -10,6 +10,8 @@ using namespace mlir;
 namespace onnx_mlir {
 
 void addXmcMlirPasses(mlir::PassManager &pm, OnnxToMlirOptions opts) {
+  pm.addNestedPass<func::FuncOp>(
+      onnx_mlir::createOptimizeOnnxRequantizationPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createQuantTypesPass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createConvertInstanceNormToGroupNormPass());
@@ -23,8 +25,6 @@ void addXmcMlirPasses(mlir::PassManager &pm, OnnxToMlirOptions opts) {
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createTransferReduceMeanSumToConvPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createRemoveRedundantReluPass());
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createOptimizeOnnxRequantizationPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createStandardizeSliceOpsPass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createMergeContinuousStridedSlicePass());
