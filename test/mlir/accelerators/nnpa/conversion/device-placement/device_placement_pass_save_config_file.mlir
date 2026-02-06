@@ -1,4 +1,6 @@
-// RUN: cfg_file=$(dirname %s)/save-cfg.json && onnx-mlir-opt --device-placement=save-config-file=$cfg_file --march=z16 --maccel=NNPA --split-input-file %s && cat $cfg_file | FileCheck %s && rm $cfg_file
+// RUN: cfg_file=$(dirname %s)/save-cfg.json && onnx-mlir-opt --device-placement=save-config-file=$cfg_file --nnpa-placement-heuristic=QualifyingOps  --march=z16 --maccel=NNPA --split-input-file %s && cat $cfg_file | FileCheck %s && rm $cfg_file
+
+// -----
 
 func.func @test_save_config_file(%arg0: tensor<?x?x?xf32>) -> tensor<?x?x?xf32> {
   %0 = "onnx.Relu"(%arg0) {onnx_node_name = "Relu_0"} : (tensor<?x?x?xf32>) -> tensor<?x?x?xf32>
