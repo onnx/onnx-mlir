@@ -119,6 +119,13 @@ void registerOMPasses(int optLevel) {
     return createStandardizeSliceOpsPass();
   });
 
+  mlir::registerPass(
+      []() -> std::unique_ptr<mlir::Pass> { return createConvWithBiasPass(); });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createRemoveRedundantReshapePass();
+  });
+
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createConvertXFEConvToDepthwiseConvPass();
   });
