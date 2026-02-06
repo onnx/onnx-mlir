@@ -112,7 +112,7 @@ RUN git clone -b v${PROTOBUF_VERSION} --recursive ${PROTOBUF_URL} ${PROTOBUF_DIR
     && export CARGO_BAZEL_REPIN=true \
     && CC=clang CXX=clang++ bazel fetch //python/dist:binary_wheel \
     && sed -i -e 's/\["arm64", "amd64"\]/\["arm64", "amd64", "s390x"\]/g' \
-           ${HOME}/.cache/bazel/_bazel_root/*/external/rules_buf/buf/internal/toolchain.bzl \
+           ${HOME}/.cache/bazel/_bazel_root/*/external/rules_buf~/buf/internal/toolchain.bzl \
     && CC=clang CXX=clang++ bazel build //python/dist:binary_wheel \
     && pip3 install bazel-bin/python/dist/protobuf-${PROTOBUF_VERSION}-*.whl --prefix=/usr \
     && cd .. && rm -rf ${PROTOBUF_DIR} ${HOME}/.cache
