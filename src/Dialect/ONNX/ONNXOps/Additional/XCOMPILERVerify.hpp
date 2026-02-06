@@ -17,4 +17,7 @@ namespace mlir {
 // Verify for FusedEltwise
 LogicalResult XCOMPILERFusedEltwiseOpVerify(Operation *op);
 
+// Verify for DepthwiseConv
+LogicalResult XCOMPILERDepthwiseConvOpVerify(Operation *op);
+
 } // namespace mlir

@@ -217,6 +217,7 @@ dialect_op_version_map_["ai.onnx.preview.training"]["Adam"] = {1};
 dialect_op_version_map_["ai.onnx.preview.training"]["Gradient"] = {1};
 dialect_op_version_map_["ai.onnx.preview.training"]["Momentum"] = {1};
 dialect_op_version_map_["com.amd.xcompiler"]["FusedEltwise"] = {1};
+dialect_op_version_map_["com.amd.xcompiler"]["DepthwiseConv"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["MatMulBias"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["Conv"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["AveragePool"] = {1};
@@ -226,8 +227,10 @@ dialect_op_version_map_["com.amd.xfe"]["GlobalMaxPool"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["InstanceNormalization"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["DepthToSpace"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["SpaceToDepth"] = {1};
+dialect_op_version_map_["com.amd.xfe"]["Resize"] = {1};
 dialect_op_version_map_["com.amd.quark"]["BFPQuantizeDequantize"] = {1};
 dialect_op_version_map_["com.amd.xcompiler"]["FusedEltwise"] = {1};
+dialect_op_version_map_["com.amd.xcompiler"]["DepthwiseConv"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["MatMulBias"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["Conv"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["AveragePool"] = {1};
@@ -237,6 +240,7 @@ dialect_op_version_map_["com.amd.xfe"]["GlobalMaxPool"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["InstanceNormalization"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["DepthToSpace"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["SpaceToDepth"] = {1};
+dialect_op_version_map_["com.amd.xfe"]["Resize"] = {1};
 import_handler_map_[""]["Abs"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAbsOp>;
 import_handler_map_[""]["Acos"] = 
@@ -729,6 +733,8 @@ import_handler_map_["ai.onnx.preview.training"]["Gradient"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGradientOp>;
 import_handler_map_["ai.onnx.preview.training"]["Momentum"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXMomentumOp>;
+import_handler_map_["com.amd.xcompiler"]["DepthwiseConv"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XCOMPILERDepthwiseConvOp>;
 import_handler_map_["com.amd.xcompiler"]["FusedEltwise"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XCOMPILERFusedEltwiseOp>;
 import_handler_map_["com.amd.xfe"]["MatMulBias"] = 
@@ -737,6 +743,8 @@ import_handler_map_["com.amd.quark"]["BFPQuantizeDequantize"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::AMDQuarkBFPQuantizeDequantizeOp>;
 import_handler_map_["com.amd.xcompiler"]["FusedEltwise"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XCOMPILERFusedEltwiseOp>;
+import_handler_map_["com.amd.xcompiler"]["DepthwiseConv"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XCOMPILERDepthwiseConvOp>;
 import_handler_map_["com.amd.xfe"]["MatMulBias"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEMatMulBiasOp>;
 import_handler_map_["com.amd.xfe"]["Conv"] = 
@@ -755,6 +763,8 @@ import_handler_map_["com.amd.xfe"]["DepthToSpace"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEDepthToSpaceOp>;
 import_handler_map_["com.amd.xfe"]["SpaceToDepth"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFESpaceToDepthOp>;
+import_handler_map_["com.amd.xfe"]["Resize"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEResizeOp>;
 dialect_op_opsets_map_[""]["Abs"] = {13, 6, 1};
 dialect_op_opsets_map_[""]["Acos"] = {22, 7};
 dialect_op_opsets_map_[""]["Acosh"] = {22, 9};
@@ -976,6 +986,7 @@ dialect_op_opsets_map_["ai.onnx.preview.training"]["Adagrad"] = {1};
 dialect_op_opsets_map_["ai.onnx.preview.training"]["Adam"] = {1};
 dialect_op_opsets_map_["ai.onnx.preview.training"]["Gradient"] = {1};
 dialect_op_opsets_map_["ai.onnx.preview.training"]["Momentum"] = {1};
+dialect_op_opsets_map_["com.amd.xcompiler"]["DepthwiseConv"] = {1};
 dialect_op_opsets_map_["com.amd.xcompiler"]["FusedEltwise"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["AveragePool"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["Conv"] = {1};
@@ -985,9 +996,11 @@ dialect_op_opsets_map_["com.amd.xfe"]["GlobalMaxPool"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["InstanceNormalization"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["MatMulBias"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["MaxPool"] = {1};
+dialect_op_opsets_map_["com.amd.xfe"]["Resize"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["SpaceToDepth"] = {1};
 dialect_op_opsets_map_["com.amd.quark"]["BFPQuantizeDequantize"] = {1};
 dialect_op_opsets_map_["com.amd.xcompiler"]["FusedEltwise"] = {1};
+dialect_op_opsets_map_["com.amd.xcompiler"]["DepthwiseConv"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["MatMulBias"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["Conv"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["AveragePool"] = {1};
@@ -997,3 +1010,4 @@ dialect_op_opsets_map_["com.amd.xfe"]["GlobalMaxPool"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["InstanceNormalization"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["DepthToSpace"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["SpaceToDepth"] = {1};
+dialect_op_opsets_map_["com.amd.xfe"]["Resize"] = {1};

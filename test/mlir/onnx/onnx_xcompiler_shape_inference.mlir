@@ -1,7 +1,7 @@
 // RUN: onnx-mlir-opt --shape-inference %s -split-input-file | FileCheck %s
 
 //===----------------------------------------------------------------------===//
-/// Shape inference tests for XCOMPILER Operations  
+/// Shape inference tests for XCOMPILER Operations
 /// Domain: com.amd.xcompiler
 //===----------------------------------------------------------------------===//
 
@@ -133,3 +133,155 @@ func.func @test_XCOMPILER_fused_eltwise_single_input(%arg0: tensor<1x64x28x28xi8
   // CHECK: onnx.Return [[RES]] : tensor<1x64x28x28xi8>
 }
 
+// -----
+
+//===----------------------------------------------------------------------===//
+/// XCOMPILER DepthwiseConv Tests (Depthwise Separable Convolution - NHWC layout)
+/// Supports both 2D (4D tensors) and 3D (5D tensors)
+/// Weight format: OHWI [C, kH, kW, 1] for 2D, [C, kD, kH, kW, 1] for 3D
+//===----------------------------------------------------------------------===//
+
+// COM: Test basic 2D depthwise conv with 3x3 kernel, no padding (NHWC layout)
+// Input: [N=1, H=28, W=28, C=64], Weight OHWI: [C=64, kH=3, kW=3, M=1]
+// Output: [N=1, H=26, W=26, C=64]
+func.func @test_XCOMPILER_depthwise_conv_basic(%arg0: tensor<1x28x28x64xi8>, %arg1: tensor<64x3x3x1xi8>) -> tensor<*xi8> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.XCOMPILERDepthwiseConv"(%arg0, %arg1, %none) {
+    kernel_shape = [3, 3],
+    auto_pad = "NOTSET"
+  } : (tensor<1x28x28x64xi8>, tensor<64x3x3x1xi8>, none) -> tensor<*xi8>
+  onnx.Return %0 : tensor<*xi8>
+
+  // CHECK-LABEL: test_XCOMPILER_depthwise_conv_basic
+  // CHECK: [[RES:%.+]] = "onnx.XCOMPILERDepthwiseConv"(%arg0, %arg1, %0) {{.*}} -> tensor<1x26x26x64xi8>
+  // CHECK: onnx.Return [[RES]] : tensor<1x26x26x64xi8>
+}
+
+// -----
+
+// COM: Test 2D depthwise conv with explicit padding (NHWC layout)
+// Input: [N=1, H=14, W=14, C=32], Weight OHWI: [C=32, kH=3, kW=3, M=1]
+// Pads: [1,1,1,1] -> Output: [N=1, H=14, W=14, C=32] (same size)
+func.func @test_XCOMPILER_depthwise_conv_with_padding(%arg0: tensor<1x14x14x32xi8>, %arg1: tensor<32x3x3x1xi8>) -> tensor<*xi8> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.XCOMPILERDepthwiseConv"(%arg0, %arg1, %none) {
+    kernel_shape = [3, 3],
+    pads = [1, 1, 1, 1],
+    auto_pad = "NOTSET"
+  } : (tensor<1x14x14x32xi8>, tensor<32x3x3x1xi8>, none) -> tensor<*xi8>
+  onnx.Return %0 : tensor<*xi8>
+
+  // CHECK-LABEL: test_XCOMPILER_depthwise_conv_with_padding
+  // CHECK: [[RES:%.+]] = "onnx.XCOMPILERDepthwiseConv"(%arg0, %arg1, %0) {{.*}} -> tensor<1x14x14x32xi8>
+  // CHECK: onnx.Return [[RES]] : tensor<1x14x14x32xi8>
+}
+
+// -----
+
+// COM: Test 2D depthwise conv with stride 2 (NHWC layout)
+// Input: [N=1, H=28, W=28, C=64], Weight OHWI: [C=64, kH=3, kW=3, M=1]
+// Stride: [2,2], Pads: [1,1,1,1] -> Output: [N=1, H=14, W=14, C=64]
+func.func @test_XCOMPILER_depthwise_conv_stride2(%arg0: tensor<1x28x28x64xi8>, %arg1: tensor<64x3x3x1xi8>) -> tensor<*xi8> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.XCOMPILERDepthwiseConv"(%arg0, %arg1, %none) {
+    kernel_shape = [3, 3],
+    strides = [2, 2],
+    pads = [1, 1, 1, 1],
+    auto_pad = "NOTSET"
+  } : (tensor<1x28x28x64xi8>, tensor<64x3x3x1xi8>, none) -> tensor<*xi8>
+  onnx.Return %0 : tensor<*xi8>
+
+  // CHECK-LABEL: test_XCOMPILER_depthwise_conv_stride2
+  // CHECK: [[RES:%.+]] = "onnx.XCOMPILERDepthwiseConv"(%arg0, %arg1, %0) {{.*}} -> tensor<1x14x14x64xi8>
+  // CHECK: onnx.Return [[RES]] : tensor<1x14x14x64xi8>
+}
+
+// -----
+
+// COM: Test 2D depthwise conv with bias (NHWC layout)
+// Input: [N=1, H=32, W=32, C=16], Weight OHWI: [C=16, kH=5, kW=5, M=1], Bias: [16]
+// Output: [N=1, H=28, W=28, C=16]
+func.func @test_XCOMPILER_depthwise_conv_with_bias(%arg0: tensor<1x32x32x16xi8>, %arg1: tensor<16x5x5x1xi8>, %arg2: tensor<16xi8>) -> tensor<*xi8> {
+  %0 = "onnx.XCOMPILERDepthwiseConv"(%arg0, %arg1, %arg2) {
+    kernel_shape = [5, 5],
+    auto_pad = "NOTSET"
+  } : (tensor<1x32x32x16xi8>, tensor<16x5x5x1xi8>, tensor<16xi8>) -> tensor<*xi8>
+  onnx.Return %0 : tensor<*xi8>
+
+  // CHECK-LABEL: test_XCOMPILER_depthwise_conv_with_bias
+  // CHECK: [[RES:%.+]] = "onnx.XCOMPILERDepthwiseConv"(%arg0, %arg1, %arg2) {{.*}} -> tensor<1x28x28x16xi8>
+  // CHECK: onnx.Return [[RES]] : tensor<1x28x28x16xi8>
+}
+
+// -----
+
+// COM: Test 2D depthwise conv with SAME_UPPER padding (NHWC layout)
+// Input: [N=1, H=28, W=28, C=64], auto_pad: SAME_UPPER
+// Output: [N=1, H=28, W=28, C=64] (same spatial size)
+func.func @test_XCOMPILER_depthwise_conv_same_pad(%arg0: tensor<1x28x28x64xi8>, %arg1: tensor<64x3x3x1xi8>) -> tensor<*xi8> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.XCOMPILERDepthwiseConv"(%arg0, %arg1, %none) {
+    kernel_shape = [3, 3],
+    auto_pad = "SAME_UPPER"
+  } : (tensor<1x28x28x64xi8>, tensor<64x3x3x1xi8>, none) -> tensor<*xi8>
+  onnx.Return %0 : tensor<*xi8>
+
+  // CHECK-LABEL: test_XCOMPILER_depthwise_conv_same_pad
+  // CHECK: [[RES:%.+]] = "onnx.XCOMPILERDepthwiseConv"(%arg0, %arg1, %0) {{.*}} -> tensor<1x28x28x64xi8>
+  // CHECK: onnx.Return [[RES]] : tensor<1x28x28x64xi8>
+}
+
+// -----
+
+// COM: Test 2D depthwise conv with dilation (NHWC layout)
+// Input: [N=1, H=28, W=28, C=32], Kernel: 3x3, Dilation: [2, 2]
+// Effective kernel: 5x5, Output: [N=1, H=24, W=24, C=32]
+func.func @test_XCOMPILER_depthwise_conv_dilated(%arg0: tensor<1x28x28x32xi8>, %arg1: tensor<32x3x3x1xi8>) -> tensor<*xi8> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.XCOMPILERDepthwiseConv"(%arg0, %arg1, %none) {
+    kernel_shape = [3, 3],
+    dilations = [2, 2],
+    auto_pad = "NOTSET"
+  } : (tensor<1x28x28x32xi8>, tensor<32x3x3x1xi8>, none) -> tensor<*xi8>
+  onnx.Return %0 : tensor<*xi8>
+
+  // CHECK-LABEL: test_XCOMPILER_depthwise_conv_dilated
+  // CHECK: [[RES:%.+]] = "onnx.XCOMPILERDepthwiseConv"(%arg0, %arg1, %0) {{.*}} -> tensor<1x24x24x32xi8>
+  // CHECK: onnx.Return [[RES]] : tensor<1x24x24x32xi8>
+}
+
+// -----
+
+// COM: Test 3D depthwise conv (5D tensors, NDHWC layout)
+// Input: [N=1, D=16, H=32, W=32, C=32], Weight OHWI: [C=32, kD=3, kH=3, kW=3, M=1]
+// Output: [N=1, D=14, H=30, W=30, C=32]
+func.func @test_XCOMPILER_depthwise_conv3d_basic(%arg0: tensor<1x16x32x32x32xi8>, %arg1: tensor<32x3x3x3x1xi8>) -> tensor<*xi8> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.XCOMPILERDepthwiseConv"(%arg0, %arg1, %none) {
+    kernel_shape = [3, 3, 3],
+    auto_pad = "NOTSET"
+  } : (tensor<1x16x32x32x32xi8>, tensor<32x3x3x3x1xi8>, none) -> tensor<*xi8>
+  onnx.Return %0 : tensor<*xi8>
+
+  // CHECK-LABEL: test_XCOMPILER_depthwise_conv3d_basic
+  // CHECK: [[RES:%.+]] = "onnx.XCOMPILERDepthwiseConv"(%arg0, %arg1, %0) {{.*}} -> tensor<1x14x30x30x32xi8>
+  // CHECK: onnx.Return [[RES]] : tensor<1x14x30x30x32xi8>
+}
+
+// -----
+
+// COM: Test 3D depthwise conv with SAME_UPPER padding (NDHWC layout)
+// Input: [N=1, D=8, H=16, W=16, C=64], auto_pad: SAME_UPPER
+// Output: [N=1, D=8, H=16, W=16, C=64]
+func.func @test_XCOMPILER_depthwise_conv3d_same_pad(%arg0: tensor<1x8x16x16x64xi8>, %arg1: tensor<64x3x3x3x1xi8>) -> tensor<*xi8> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.XCOMPILERDepthwiseConv"(%arg0, %arg1, %none) {
+    kernel_shape = [3, 3, 3],
+    auto_pad = "SAME_UPPER"
+  } : (tensor<1x8x16x16x64xi8>, tensor<64x3x3x3x1xi8>, none) -> tensor<*xi8>
+  onnx.Return %0 : tensor<*xi8>
+
+  // CHECK-LABEL: test_XCOMPILER_depthwise_conv3d_same_pad
+  // CHECK: [[RES:%.+]] = "onnx.XCOMPILERDepthwiseConv"(%arg0, %arg1, %0) {{.*}} -> tensor<1x8x16x16x64xi8>
+  // CHECK: onnx.Return [[RES]] : tensor<1x8x16x16x64xi8>
+}
