@@ -86,8 +86,6 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
     && cargo install cargo-bazel --version ${CARGO_BAZEL_VERSION}
 
 # Install protobuf
-# v33.5 includes the bzlmod fix for rules_python version bug
-# (commit fa9ceb3d4f3fbb1542059d931bf4151a0bee316c)
 ARG PROTOBUF_VERSION=33.5
 ARG PROTOBUF_URL=https://github.com/protocolbuffers/protobuf.git
 ARG PROTOBUF_DIR=protobuf
@@ -104,12 +102,21 @@ RUN git clone -b v${PROTOBUF_VERSION} --recursive ${PROTOBUF_URL} ${PROTOBUF_DIR
              -Dprotobuf_BUILD_TESTS=OFF .. \
     && make -j${NPROC} install && ldconfig \
     && cd .. \
-    # New version of python protobuf can no longer be built with setup.py.
-    # Must use bazel to build. protobuf v6.31.1 is the first version using
-    # rules_rust 0.56.0 which has s390x support. rules_buf still needs a
-    # small patch.
+    # New version of python protobuf can no longer be built with setup.py
+    # and must be built with bazel.
+    #
+    # v31.1 is the first version using rules_rust 0.56.0 which has s390x
+    # support.
+    # v33.5 includes the bzlmod fix for rules_python version bug
+    # (commit fa9ceb3d4f3fbb1542059d931bf4151a0bee316c).
+    #
+    # MODULE.bazel needs to be patched to bump rules_python to 1.8.0
+    # since s390x no longer has python 3.8 interpreter.
+    # rules_buf needs to be patched to support s390x arch.
     && export CARGO_BAZEL_GENERATOR_URL=file:///root/.cargo/bin/cargo-bazel \
     && export CARGO_BAZEL_REPIN=true \
+    && sed -i -e 's/"rules_python", version = "1.6.0"/"rules_python", version = "1.8.0"/g'
+           MODULE.bazel \
     && CC=clang CXX=clang++ bazel fetch //python/dist:binary_wheel \
     && sed -i -e 's/\["arm64", "amd64"\]/\["arm64", "amd64", "s390x"\]/g' \
            ${HOME}/.cache/bazel/_bazel_root/*/external/rules_buf~/buf/internal/toolchain.bzl \
