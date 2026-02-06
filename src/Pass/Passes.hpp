@@ -62,6 +62,8 @@ std::unique_ptr<mlir::Pass> createConstPropONNXToONNXPass();
 std::unique_ptr<mlir::Pass> createQDQCanonicalizePass(
     bool removeBinary = false, bool removeQDQAroundOps = false);
 
+std::unique_ptr<mlir::Pass> createONNXCSEPass();
+
 std::unique_ptr<mlir::Pass> createQuantTypesPass();
 
 /// Pass for instrument the ops in specific stage.
