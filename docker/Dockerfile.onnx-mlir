@@ -96,11 +96,11 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
                   make ninja-build python3 && \
           rm -rf /var/lib/apt/lists/*; \
        elif [ "${distro}" = "rhel" ] || [ "${distro}" = "fedora" ]; then \
-          pip3 uninstall -q -y Cython pybind11 pytest pytest-xdist \
+          pip3 uninstall -q -y Cython pytest pytest-xdist \
                typing-extensions && \
           yum remove -q -y \
               adwaita-icon-theme autoconf automake cmake file \
-              git libtool ninja-build python3 && \
+              git libtool ninja-build && \
           rm -rf /var/cache/dnf/*; \
        fi \
     && rm -rf /tmp/* /usr/bin/python ${HOME}/.cache \
