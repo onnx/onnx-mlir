@@ -15,8 +15,10 @@ module {
   }
   // CHECK-LABEL: func.func @test_scale_1d
   // CHECK: onnx.Reshape{{.*}} -> tensor<1x1x16x64x!quant.uniform<i8:f32, 1.000000e-01>>
+  // CHECK: onnx.Transpose{{.*}}perm = [0, 3, 2, 1]
   // CHECK: onnx.Reshape{{.*}} -> tensor<64x1x1x1xf32>
-  // CHECK: onnx.Conv{{.*}}group = 1{{.*}}kernel_shape = [1, 1]{{.*}}pads = [0, 0, 0, 0]{{.*}}strides = [1, 1]
+  // CHECK: onnx.Conv{{.*}}group = 64{{.*}}kernel_shape = [1, 1]{{.*}}pads = [0, 0, 0, 0]{{.*}}strides = [1, 1]
+  // CHECK: onnx.Transpose{{.*}}perm = [0, 3, 2, 1]
   // CHECK: onnx.Reshape{{.*}} -> tensor<1x16x64x!quant.uniform<i8:f32, 1.000000e-01>>
 
   //===--------------------------------------------------------------------===//
@@ -33,8 +35,10 @@ module {
   }
   // CHECK-LABEL: func.func @test_scale_with_relu
   // CHECK: onnx.Reshape{{.*}} -> tensor<1x1x32x128x!quant.uniform<i8:f32, 5.000000e-02>>
+  // CHECK: onnx.Transpose{{.*}}perm = [0, 3, 2, 1]
   // CHECK: onnx.Reshape{{.*}} -> tensor<128x1x1x1xf32>
-  // CHECK: onnx.Conv{{.*}}group = 1{{.*}}kernel_shape = [1, 1]
+  // CHECK: onnx.Conv{{.*}}group = 128{{.*}}kernel_shape = [1, 1]
+  // CHECK: onnx.Transpose{{.*}}perm = [0, 3, 2, 1]
   // CHECK: onnx.Relu
   // CHECK: onnx.Reshape{{.*}} -> tensor<1x32x128x!quant.uniform<i8:f32, 5.000000e-02>>
 
@@ -50,8 +54,10 @@ module {
   }
   // CHECK-LABEL: func.func @test_scale_2d
   // CHECK: onnx.Reshape{{.*}} -> tensor<1x1x8x256x!quant.uniform<i8:f32, 1.000000e-01>>
+  // CHECK: onnx.Transpose{{.*}}perm = [0, 3, 2, 1]
   // CHECK: onnx.Reshape{{.*}} -> tensor<256x1x1x1xf32>
-  // CHECK: onnx.Conv{{.*}}group = 1{{.*}}kernel_shape = [1, 1]{{.*}}pads = [0, 0, 0, 0]{{.*}}strides = [1, 1]
+  // CHECK: onnx.Conv{{.*}}group = 256{{.*}}kernel_shape = [1, 1]{{.*}}pads = [0, 0, 0, 0]{{.*}}strides = [1, 1]
+  // CHECK: onnx.Transpose{{.*}}perm = [0, 3, 2, 1]
   // CHECK: onnx.Reshape{{.*}} -> tensor<8x256x!quant.uniform<i8:f32, 1.000000e-01>>
 
   //===--------------------------------------------------------------------===//
@@ -65,7 +71,9 @@ module {
     return %0 : tensor<1x16x32x64x!quant.uniform<i8:f32, 0.1:0>>
   }
   // CHECK-LABEL: func.func @test_scale_4d
+  // CHECK: onnx.Transpose{{.*}}perm = [0, 3, 2, 1]
   // CHECK: onnx.Reshape{{.*}} -> tensor<64x1x1x1xf32>
-  // CHECK: onnx.Conv{{.*}}group = 16{{.*}}kernel_shape = [1, 1]{{.*}}pads = [0, 0, 0, 0]{{.*}}strides = [1, 1]
+  // CHECK: onnx.Conv{{.*}}group = 64{{.*}}kernel_shape = [1, 1]{{.*}}pads = [0, 0, 0, 0]{{.*}}strides = [1, 1]
+  // CHECK: onnx.Transpose{{.*}}perm = [0, 3, 2, 1]
   // CHECK: onnx.Reshape{{.*}} -> tensor<1x16x32x64x!quant.uniform<i8:f32, 1.000000e-01>>
 }

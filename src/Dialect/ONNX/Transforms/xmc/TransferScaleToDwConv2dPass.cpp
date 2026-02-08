@@ -23,6 +23,7 @@
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "transfer-scale-to-dwconv2d"
 
@@ -101,17 +102,12 @@ Value reshapeOutputToOriginal(PatternRewriter &rewriter, Location loc, Value inp
 }
 
 /// Reshape 1D weight [C] to 4D for ONNX DepthwiseConv2D
-/// [C] → [C, 1, 1, 1] (ONNX Conv format: [C_out, C_in/group, kH, kW])
-/// Note: Reference uses [1,1,1,C] for XIR depthwise-conv2d, but ONNX Conv needs [C,1,1,1]
+/// [C] → [C, 1, 1, 1] (ONNX Conv format: [M, C/group, kH, kW] with M=C, group=C)
 Value reshapeWeightTo4D(PatternRewriter &rewriter, Location loc, Value weight) {
   auto weightType = cast<RankedTensorType>(weight.getType());
   auto weightShape = weightType.getShape();
-
-  if (weightShape.size() == 4) {
-    return weight; // Already 4D
-  }
-
-  // [C] → [C, 1, 1, 1] for ONNX Conv
+  // Caller ensures weight is 1D (scale from Mul).
+  // [C] → [C, 1, 1, 1] for depthwise Conv
   llvm::SmallVector<int64_t> newShape = {weightShape[0], 1, 1, 1};
 
   auto newType = RankedTensorType::get(newShape, weightType.getElementType());
@@ -119,6 +115,22 @@ Value reshapeWeightTo4D(PatternRewriter &rewriter, Location loc, Value weight) {
 
   return rewriter.create<ONNXReshapeOp>(loc, newType, weight, shapeConst)
       .getReshaped();
+}
+
+/// Transpose 4D with perm (0,3,2,1): (a,b,c,d) ↔ (a,d,c,b). Self-inverse; used
+/// before Conv (last→channel) and after (channel→last) for NCHW depthwise Conv.
+Value transpose4DPerm0312(PatternRewriter &rewriter, Location loc, Value input) {
+  auto inputType = cast<RankedTensorType>(input.getType());
+  auto shape = inputType.getShape();
+  if (shape.size() != 4)
+    return input;
+
+  llvm::SmallVector<int64_t> outShape = {shape[0], shape[3], shape[2], shape[1]};
+  auto outType = RankedTensorType::get(outShape, inputType.getElementType());
+  return rewriter
+      .create<ONNXTransposeOp>(loc, outType, input,
+          rewriter.getI64ArrayAttr({0, 3, 2, 1}))
+      .getTransposed();
 }
 
 /// Create activation op with 4D output type
@@ -167,8 +179,10 @@ struct ScaleToDwConv2dPattern : public OpRewritePattern<ONNXMulOp> {
 
     // Check if scale is a constant
     auto scaleDefOp = scale.getDefiningOp();
-    if (!scaleDefOp || !isa<ONNXConstantOp>(scaleDefOp))
+    if (!scaleDefOp || !isa<ONNXConstantOp>(scaleDefOp)) {
+      LLVM_DEBUG(llvm::dbgs() << "SKIP: scale is not a constant\n");
       return failure();
+    }
 
     // Get types
     auto inputType = dyn_cast<RankedTensorType>(input.getType());
@@ -194,6 +208,10 @@ struct ScaleToDwConv2dPattern : public OpRewritePattern<ONNXMulOp> {
     if (scaleShape[0] != inputShape[inputRank - 1])
       return failure();
 
+    LLVM_DEBUG(llvm::dbgs() << "Matched Mul: input rank " << inputRank
+                            << ", scale size " << scaleShape[0]
+                            << ", converting to DepthwiseConv2D\n");
+
     // Check for following activation
     Operation *activationOp = getFollowingActivation(mulOp);
 
@@ -203,40 +221,36 @@ struct ScaleToDwConv2dPattern : public OpRewritePattern<ONNXMulOp> {
                      : mulOp.getResult().getType());
     auto outputShape = outputType.getShape();
 
-    // Reshape input to 4D
+    // Reshape input to 4D (prepend 1s if needed)
     Value reshapedInput = reshapeInputTo4D(rewriter, loc, input);
 
-    // Reshape scale to 4D weight format [1, 1, 1, C]
+    // Transpose so scaled (last) dimension becomes channel: (a,b,c,d) → (a,d,c,b)
+    Value transposedInput = transpose4DPerm0312(rewriter, loc, reshapedInput);
+
+    // Reshape scale to depthwise weight [C, 1, 1, 1] with C = scaleShape[0]
     Value reshapedWeight = reshapeWeightTo4D(rewriter, loc, scale);
 
-    // Check for bias (reference lines 206-209)
-    // In ONNX, Mul doesn't have bias, but could be extended for Mul+Add fusion
     onnx_mlir::OnnxBuilder onnxBuilder(rewriter, loc);
     Value bias = onnxBuilder.none();
 
-    // Create DepthwiseConv2D with kernel=1x1, stride=1x1, pad=0
     auto si64Type = IntegerType::get(rewriter.getContext(), 64, IntegerType::Signed);
     auto dwConv2dOutputType = UnrankedTensorType::get(inputType.getElementType());
-
-    // Get channel count for group parameter (depthwise = input_channels)
-    // Channels are at dimension 1 in NCHW 4D tensor
-    auto reshapedInputType = cast<RankedTensorType>(reshapedInput.getType());
-    int64_t channels = reshapedInputType.getShape()[1];
+    int64_t numChannels = scaleShape[0]; // depthwise: groups = number of channels
 
     auto dwConvOp = rewriter.create<ONNXConvOp>(loc, dwConv2dOutputType,
-        reshapedInput, reshapedWeight, bias,
+        transposedInput, reshapedWeight, bias,
         /*auto_pad=*/rewriter.getStringAttr("NOTSET"),
         /*dilations=*/rewriter.getI64ArrayAttr({1, 1}),
-        /*group=*/IntegerAttr::get(si64Type, channels), // Depthwise
+        /*group=*/IntegerAttr::get(si64Type, numChannels),
         /*kernel_shape=*/rewriter.getI64ArrayAttr({1, 1}),
         /*pads=*/rewriter.getI64ArrayAttr({0, 0, 0, 0}),
         /*strides=*/rewriter.getI64ArrayAttr({1, 1}));
 
-    // Infer the output shape
     if (failed(dwConvOp.inferShapes([](Region &) {})))
       return failure();
 
-    Value result = dwConvOp.getResult();
+    // Transpose back: (a,d,c,b) → (a,b,c,d)
+    Value result = transpose4DPerm0312(rewriter, loc, dwConvOp.getResult());
 
     // Apply activation if present
     if (activationOp) {
@@ -254,6 +268,7 @@ struct ScaleToDwConv2dPattern : public OpRewritePattern<ONNXMulOp> {
       rewriter.replaceOp(mulOp, finalOutput);
     }
 
+    LLVM_DEBUG(llvm::dbgs() << "SUCCESS: Replaced Mul with DepthwiseConv2D\n");
     return success();
   }
 };
