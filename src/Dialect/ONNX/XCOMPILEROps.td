@@ -14,6 +14,43 @@ include "mlir/Interfaces/CallInterfaces.td"
 include "mlir/IR/SymbolInterfaces.td"
 include "src/IR/AttrBase.td"
 
+def XCOMPILERDepthwiseConvOp:ONNX_Op<"XCOMPILERDepthwiseConv",
+  [Pure, OpVersionTrait<1>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "DepthwiseConv operation";
+  let description = [{
+  Quantized depthwise separable convolution with NHWC layout supporting both 2D and 3D inputs. Weight uses OHWI format (consistent with XFEConv). Each input channel is convolved with its own set of filters (group = input_channels). This is more computationally efficient than standard convolution. For 2D: input shape is [N, H, W, C], weight shape is [C, kH, kW, 1]. For 3D: input shape is [N, D, H, W, C], weight shape is [C, kD, kH, kW, 1]. Attributes: kernel_shape specifies the filter dimensions; strides specifies the stride along each spatial axis; pads specifies the padding for beginning and ending along each spatial axis; dilations specifies the dilation along each spatial axis; auto_pad specifies the padding type (NOTSET, SAME_UPPER, SAME_LOWER, VALID).
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[quant_QuantizedType]>]>:$X,
+    AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[quant_QuantizedType]>]>:$W,
+    AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[quant_QuantizedType]>, NoneType]>:$B,
+    DefaultValuedStrAttr<StrAttr, "NOTSET">:$auto_pad,
+    OptionalAttr<I64ArrayAttr>:$dilations,
+    I64ArrayAttr:$kernel_shape,
+    OptionalAttr<I64ArrayAttr>:$pads,
+    OptionalAttr<I64ArrayAttr>:$strides);
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[quant_QuantizedType]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {30};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      // TODO: Implement specific shape helper for this custom op
+      // For now, returning nullptr - shape inference will use default behavior
+      return nullptr;
+    }
+  }];
+  let hasVerifier = 1;
+}
+
 def XCOMPILERFusedEltwiseOp:ONNX_Op<"XCOMPILERFusedEltwise",
   [Pure, OpVersionTrait<1>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "FusedEltwise operation";

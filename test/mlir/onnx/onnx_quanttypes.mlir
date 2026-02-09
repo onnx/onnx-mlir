@@ -91,6 +91,7 @@ func.func @unequal_qdq(%arg0: tensor<1x128x768xi16>) -> tensor<1x128x768xi16> {
 // CHECK-NEXT: onnx.Gelu
 // CHECK-NEXT: quant.scast
 
+
 func.func @multiuse_constant(%arg0: tensor<1x128x128xf32>) -> tensor<1x128x128xf32> {
   %0 = onnx.Constant dense<35166> : tensor<i16>
   %1 = onnx.Constant dense<2.13029256E-4> : tensor<f32>
@@ -122,3 +123,22 @@ func.func @multiuse_constant(%arg0: tensor<1x128x128xf32>) -> tensor<1x128x128xf
 // CHECK-SAME: tensor<128x128x!quant.uniform<u8:f32, 0.0043040169402956963:137>>
 // CHECK: quant.scast [[CONST]]
 // CHECK-SAME: tensor<128x128x!quant.uniform<u8:f32, 6.7978078277519671E-7:41309>>
+
+
+func.func @channelwise_quantization(%arg0: tensor<1x128x128xi16>) -> tensor<1x128x128xi16> {
+  %0 = onnx.Constant dense<-30370> : tensor<128xi16>
+  %1 = onnx.Constant dense<2.13029256E-4> : tensor<128xf32>
+  %2 = onnx.Constant dense<137> : tensor<128xi16>
+  %3 = onnx.Constant dense<0.00430401694> : tensor<128xf32>
+  %4 = "onnx.DequantizeLinear"(%arg0, %1, %0) {axis = 2 : si64, block_size = 0 : si64} : (tensor<1x128x128xi16>, tensor<128xf32>, tensor<128xi16>) -> tensor<1x128x128xf32>
+  %5 = "onnx.Gelu"(%4) {approximate = "none"} : (tensor<1x128x128xf32>) -> tensor<1x128x128xf32>
+  %6 = "onnx.QuantizeLinear"(%5, %3, %2) {axis = 2 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x128x128xf32>, tensor<128xf32>, tensor<128xi16>) -> tensor<1x128x128xi16>
+  return %6 : tensor<1x128x128xi16>
+}
+
+// CHECK-LABEL: @channelwise_quantization
+// CHECK: quant.scast
+// CHECK-NEXT: onnx.Gelu
+// CHECK-SAME: (tensor<1x128x128x!quant.uniform<u16:f32:2
+// CHECK-SAME: -> tensor<1x128x128x!quant.uniform<u16:f32:2
+// CHECK-NEXT: quant.scast

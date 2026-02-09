@@ -242,8 +242,7 @@ struct RecomposeLayerNormFromDivPattern : public OpRewritePattern<DivOperator> {
       [[maybe_unused]] MatchDivArgs &&m) {
     return reportFailure("RMS missing norm, div, reciprocal or pow op");
   }
-  template <>
-  bool matchLastOperator<ONNXDivOp>(ONNXDivOp divOp, MatchDivArgs &&m) {
+  static bool matchLastOperator(ONNXDivOp divOp, MatchDivArgs &&m) {
     // Matched norm = d / stdDev.
     // %norm = "onnx.Div"(%d, %stdDev)
     // %normScaled = "onnx.Mul"(%norm, %scale)
@@ -257,8 +256,7 @@ struct RecomposeLayerNormFromDivPattern : public OpRewritePattern<DivOperator> {
       return reportFailure("RMS missing std dev (via div), sqrt op");
     return true;
   }
-  template <>
-  bool matchLastOperator<ONNXMulOp>(ONNXMulOp mulOp, MatchDivArgs &&m) {
+  static bool matchLastOperator(ONNXMulOp mulOp, MatchDivArgs &&m) {
     using namespace onnx_mlir;
     // Matched norm = d * (invStdDev).
     // %Norm = "onnx.Mul"(%d, %InvStdDev)
@@ -353,8 +351,7 @@ struct RecomposeLayerNormFromDivPattern : public OpRewritePattern<DivOperator> {
     }
     return true;
   }
-  template <>
-  bool matchLastOperator<ONNXPowOp>(ONNXPowOp powInputOp, MatchDivArgs &&m) {
+  static bool matchLastOperator(ONNXPowOp powInputOp, MatchDivArgs &&m) {
     using namespace onnx_mlir;
     // The following pattern is now matched
     // %invStdDev = "onnx.Pow"(%varEps, %negHalf)
@@ -452,17 +449,16 @@ struct RecomposeLayerNormFromDivPattern : public OpRewritePattern<DivOperator> {
     Operation *dSubOp = nullptr;
     Operation *powOp = nullptr;
 
-    if (!matchLastOperator<DivOperator>(
-            LayerNormOp, MatchDivArgs{.isdRecipOp = &isdRecipOp,
-                             .nDivOp = &nDivOp,
-                             .nMulOp = &nMulOp,
-                             .powOp = &powOp,
-                             .sdSqrtOp = &sdSqrtOp,
-                             .veAddOp = &veAddOp,
-                             .d = d,
-                             .invStdDev = invStdDev,
-                             .stdDev = stdDev,
-                             .varEps = varEps})) {
+    if (!matchLastOperator(LayerNormOp, MatchDivArgs{.isdRecipOp = &isdRecipOp,
+                                            .nDivOp = &nDivOp,
+                                            .nMulOp = &nMulOp,
+                                            .powOp = &powOp,
+                                            .sdSqrtOp = &sdSqrtOp,
+                                            .veAddOp = &veAddOp,
+                                            .d = d,
+                                            .invStdDev = invStdDev,
+                                            .stdDev = stdDev,
+                                            .varEps = varEps})) {
       return reportFailure("First operator could not be matched");
     }
 

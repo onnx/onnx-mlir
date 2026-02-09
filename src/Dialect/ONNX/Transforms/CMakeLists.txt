@@ -84,11 +84,17 @@ add_onnx_mlir_library(OMONNXRewrite
   xmc/MergeBatchnormToConvPass.cpp
   xmc/BatchReductionToReshapeReductionPass.cpp
   xmc/RemoveRedundantReluPass.cpp
+  xmc/OptimizeOnnxRequantizationPass.cpp
+  xmc/SplitGroupConvPass.cpp
+  xmc/ConvertMatMulToXFEConvPass.cpp
   xmc/ReplaceNDimTransposePass.cpp
   xmc/TransferOpShapeTo4dPass.cpp
   xmc/TransferOp1dToOp2dPass.cpp
   xmc/ONNXTransposeOptimizationPass.cpp
   xmc/ONNXTransposeOptimizationAxisChangePatterns.cpp
+  xmc/ConvWithBiasPass.cpp
+  xmc/RemoveRedundantReshapePass.cpp
+  xmc/ConvertXFEConvToDepthwiseConvPass.cpp
 
   DEPENDS
   OMONNXDecomposeIncGen

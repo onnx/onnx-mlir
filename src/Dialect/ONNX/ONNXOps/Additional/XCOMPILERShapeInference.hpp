@@ -18,4 +18,8 @@ namespace mlir {
 LogicalResult XCOMPILERFusedEltwiseOpShapeInference(
     Operation *op, std::function<void(Region &)> doShapeInference);
 
+// Shape inference for DepthwiseConv
+LogicalResult XCOMPILERDepthwiseConvOpShapeInference(
+    Operation *op, std::function<void(Region &)> doShapeInference);
+
 } // namespace mlir
