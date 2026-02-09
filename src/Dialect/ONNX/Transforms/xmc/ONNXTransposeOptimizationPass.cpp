@@ -318,7 +318,7 @@ struct MoveTransposeThroughReshape : public OpRewritePattern<ONNXReshapeOp> {
     // each transposed dimension (no cross-dimension data mixing)
     SmallVector<SmallVector<int64_t>> dimGroups;
     if (!isSafeToSwapTransposeReshape(
-            transposeOutputShape, reshapeOutputShape, dimGroups))
+            transposeOutputShape, reshapeOutputShape, dimGroups, *perm))
       return failure();
 
     LLVM_DEBUG(llvm::dbgs()
@@ -363,10 +363,11 @@ private:
 
   // Check if reshape only splits/merges within each dimension
   // Returns true if safe, and populates dimGroups with the factorization
+  // perm: the transpose permutation (perm[output_dim] = input_dim)
   static bool isSafeToSwapTransposeReshape(
       ArrayRef<int64_t> transposeOutputShape,
       ArrayRef<int64_t> reshapeOutputShape,
-      SmallVector<SmallVector<int64_t>> &outDimGroups) {
+      SmallVector<SmallVector<int64_t>> &outDimGroups, ArrayRef<int64_t> perm) {
     outDimGroups.clear();
 
     // Check for dynamic dimensions
@@ -446,6 +447,46 @@ private:
 
         if (accumulatedSize != reshapeSize)
           return false; // Can't merge cleanly
+
+        // FIX: When merging dimensions, we need to ensure that the merged
+        // transpose output dimensions correspond to consecutive AND ascending
+        // input dimensions. This is because reshape merges in memory order,
+        // and if the input dims are not consecutive/ascending, the data will
+        // be incorrectly reordered.
+        //
+        // For merge to be safe, the input dims (perm[i] for each merged output
+        // dim i) must be consecutive (e.g., [2,3,4]) AND in ascending order.
+        if (transposeIdx - startIdx > 1) {
+          // Collect input dims for the merged output dims
+          SmallVector<int64_t> inputDims;
+          for (size_t i = startIdx; i < transposeIdx; ++i) {
+            inputDims.push_back(perm[i]);
+          }
+
+          // Check 1: Input dims must be in ascending order in the perm
+          // (meaning they appear in memory order in the output)
+          for (size_t i = 1; i < inputDims.size(); ++i) {
+            if (inputDims[i] <= inputDims[i - 1]) {
+              LLVM_DEBUG(llvm::dbgs()
+                         << "Rejecting merge: input dims not ascending (["
+                         << inputDims[i - 1] << "," << inputDims[i] << "])\n");
+              return false;
+            }
+          }
+
+          // Check 2: Input dims must be consecutive (no gaps)
+          for (size_t i = 1; i < inputDims.size(); ++i) {
+            if (inputDims[i] != inputDims[i - 1] + 1) {
+              LLVM_DEBUG(llvm::dbgs()
+                         << "Rejecting merge: input dims not consecutive (["
+                         << inputDims[i - 1] << "," << inputDims[i] << "])\n");
+              return false;
+            }
+          }
+
+          LLVM_DEBUG(llvm::dbgs() << "Merge of " << (transposeIdx - startIdx)
+                                  << " dims is safe (consecutive ascending)\n");
+        }
 
         // Record merge: multiple transpose dims map to single reshape dim
         // We use negative values to indicate merged dimensions
@@ -728,8 +769,34 @@ struct PushTransposeThroughQDQ : public OpRewritePattern<QDQOp> {
       operands.push_back(op->getOperand(i));
     }
 
-    auto newOp = rewriter.create<QDQOp>(
-        op.getLoc(), newOutputType, operands, op->getAttrs());
+    // FIX: Transform axis attribute for per-channel quantization
+    // When pushing transpose through QDQ, the axis must be transformed
+    SmallVector<NamedAttribute> newAttrs;
+    for (auto attr : op->getAttrs()) {
+      if (attr.getName() == "axis") {
+        if (auto axisAttr = mlir::dyn_cast<IntegerAttr>(attr.getValue())) {
+          int64_t oldAxis = axisAttr.getValue().getSExtValue();
+          int64_t rank = static_cast<int64_t>(perm->size());
+          if (oldAxis < 0)
+            oldAxis += rank;
+          if (oldAxis >= 0 && oldAxis < rank) {
+            // Transform axis: newAxis = perm[oldAxis]
+            int64_t newAxis = (*perm)[oldAxis];
+            // ONNX dialect expects si64 (signed 64-bit) for axis attribute
+            auto si64Type = rewriter.getIntegerType(64, /*isSigned=*/true);
+            newAttrs.push_back(rewriter.getNamedAttr(
+                "axis", IntegerAttr::get(si64Type, newAxis)));
+            LLVM_DEBUG(llvm::dbgs() << "Transformed QDQ axis: " << oldAxis
+                                    << " -> " << newAxis << "\n");
+            continue;
+          }
+        }
+      }
+      newAttrs.push_back(attr);
+    }
+
+    auto newOp =
+        rewriter.create<QDQOp>(op.getLoc(), newOutputType, operands, newAttrs);
 
     rewriter.replaceOpWithNewOp<ONNXTransposeOp>(
         op, op.getType(), newOp.getResult(), rewriter.getI64ArrayAttr(*perm));
