@@ -294,7 +294,12 @@ def ONNXLayoutTransformOp:ONNX_Op<"LayoutTransform", [Pure,
 
 //===----------------------------------------------------------------------===//
 // NoneOp.
-def ONNXNoneOp : ONNX_Op<"NoValue", [ConstantLike, Pure]> {
+// Note: Do NOT mark this op as ConstantLike. It is a sentinel for "no value"
+// and does not behave like a regular foldable constant tensor. Marking it
+// ConstantLike causes MLIR's generic constant matchers (m_Constant) to assert
+// when folding fails. Keeping only Pure here avoids those issues while still
+// allowing ONNX to model optional inputs.
+def ONNXNoneOp : ONNX_Op<"NoValue", [Pure]> {
   let summary = "An operation representing the absence of a value.";
   let description = [{
     This operation can be used to represent the absence of a value. It is typically
@@ -312,6 +317,9 @@ def ONNXNoneOp : ONNX_Op<"NoValue", [ConstantLike, Pure]> {
   let arguments = (ins UnitAttr:$value);
   let results = (outs NoneType:$none_val);
 
+  // Keep a simple folder (returning the attribute) but do NOT mark this op as
+  // ConstantLike. This avoids triggering generic m_Constant matchers while
+  // still allowing specialized folds if needed.
   let hasFolder = 1;
   let builders = [
     OpBuilder<(ins),[{
