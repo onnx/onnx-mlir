@@ -74,3 +74,70 @@
   max_input: 2
   min_output: 1
   max_output: 1
+
+# ==============================================================================
+# DepthwiseConv: Depthwise separable convolution (supports 2D and 3D) - NHWC layout
+# ==============================================================================
+- name: DepthwiseConv
+  domain: com.amd.xcompiler
+  since_version: 1
+  support_level: COMMON
+  description: 'Quantized depthwise separable convolution with NHWC layout supporting both 2D and 3D inputs. Weight uses OHWI format (consistent with XFEConv). Each input channel is convolved with its own set of filters (group = input_channels). This is more computationally efficient than standard convolution. For 2D: input shape is [N, H, W, C], weight shape is [C, kH, kW, 1]. For 3D: input shape is [N, D, H, W, C], weight shape is [C, kD, kH, kW, 1]. Attributes: kernel_shape specifies the filter dimensions; strides specifies the stride along each spatial axis; pads specifies the padding for beginning and ending along each spatial axis; dilations specifies the dilation along each spatial axis; auto_pad specifies the padding type (NOTSET, SAME_UPPER, SAME_LOWER, VALID).'
+  meta_attributes:
+  - onnx_opset: 1
+  - verify: True
+  - fold: False
+  inputs:
+  - name: X
+    description: Input tensor of shape [N, H, W, C] for 2D or [N, D, H, W, C] for 3D (NHWC layout)
+    type_str: T
+  - name: W
+    description: Weight tensor in OHWI format [C, kH, kW, 1] for 2D or [C, kD, kH, kW, 1] for 3D where C is the number of input channels
+    type_str: T
+  - name: B
+    description: Optional bias tensor of shape [C]
+    type_str: T_or_None
+  outputs:
+  - name: Y
+    description: Output tensor
+    type_str: T
+  attributes:
+  - name: kernel_shape
+    description: The shape of the convolution kernel. For 2D [kH, kW], for 3D [kD, kH, kW].
+    type: list(int)
+    required: true
+  - name: strides
+    description: Stride along each spatial axis. For 2D [sH, sW], for 3D [sD, sH, sW]. Defaults to 1 for each spatial axis.
+    type: list(int)
+  - name: pads
+    description: Padding for the beginning and ending along each spatial axis. For 2D [pad_top, pad_left, pad_bottom, pad_right], for 3D [pad_d_begin, pad_h_begin, pad_w_begin, pad_d_end, pad_h_end, pad_w_end]. Defaults to 0 for each.
+    type: list(int)
+  - name: dilations
+    description: Dilation value along each spatial axis. For 2D [dH, dW], for 3D [dD, dH, dW]. Defaults to 1 for each spatial axis.
+    type: list(int)
+  - name: auto_pad
+    description: Auto padding mode (NOTSET, SAME_UPPER, SAME_LOWER, VALID). Defaults to NOTSET.
+    type: string
+    default_value: NOTSET
+  type_constraints:
+  - type_param: T
+    description: Constrain input and output types to quantized tensor types.
+    allowed_types:
+    - tensor(uint8)
+    - tensor(uint16)
+    - tensor(int8)
+    - tensor(int16)
+    - tensor(quant_QuantizedType)
+  - type_param: T_or_None
+    description: Constrain to all types in T plus NoneType.
+    allowed_types:
+    - tensor(uint8)
+    - tensor(uint16)
+    - tensor(int8)
+    - tensor(int16)
+    - tensor(quant_QuantizedType)
+    - NoneType
+  min_input: 2
+  max_input: 3
+  min_output: 1
+  max_output: 1

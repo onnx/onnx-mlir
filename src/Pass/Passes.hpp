@@ -120,6 +120,12 @@ std::unique_ptr<mlir::Pass> createRemoveContinuousTransposeWithReshapePass();
 /// Pass for transferring Resize Linear operations to depthwise convolutions.
 std::unique_ptr<mlir::Pass> createTransferResizeLinearToDwConv();
 
+/// Pass for fusing Add(Conv(A, X, none), constant) -> Conv(A, X, bias).
+std::unique_ptr<mlir::Pass> createConvWithBiasPass();
+
+/// Pass for removing redundant reshape operations around element-wise ops.
+std::unique_ptr<mlir::Pass> createRemoveRedundantReshapePass();
+
 /// Pass for lowering Reduce operations to Pool operations.
 std::unique_ptr<mlir::Pass> createLowerReduceToPoolPass();
 
@@ -155,6 +161,10 @@ std::unique_ptr<mlir::Pass> createTransferOp3dToOp2dPass();
 
 /// Pass for transferring pool-fix operations to downsample-fix operations.
 std::unique_ptr<mlir::Pass> createTransferPoolFixToDownsampleFixPass();
+
+/// Pass for converting XFEConv to XCOMPILERDepthwiseConv when group ==
+/// input_channels.
+std::unique_ptr<mlir::Pass> createConvertXFEConvToDepthwiseConvPass();
 
 /// Pass for splitting depthwise conv2d with channel_multiplier > 1.
 std::unique_ptr<mlir::Pass>
@@ -205,6 +215,15 @@ std::unique_ptr<mlir::Pass> createBatchReductionToReshapeReductionPass();
 
 /// Pass for deleting redundant Relu chains (XMC).
 std::unique_ptr<mlir::Pass> createRemoveRedundantReluPass();
+
+/// Pass for optimizing requantization in ONNX operations (XMC).
+std::unique_ptr<mlir::Pass> createOptimizeOnnxRequantizationPass();
+
+/// Pass for splitting group convolutions (XMC).
+std::unique_ptr<mlir::Pass> createSplitGroupConvPass();
+
+/// Pass for converting MatMul to XFEConv (XMC).
+std::unique_ptr<mlir::Pass> createConvertMatMulToXFEConvPass();
 
 /// Pass for model-specific transpose decomposition (XMC).
 std::unique_ptr<mlir::Pass> createReplaceNDimTransposePass();

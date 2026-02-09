@@ -21,7 +21,6 @@ struct OnnxToMlirOptions {
   bool enableRemoveBinary = false;
   bool enableFusePadIntoAvgpool = false;
   bool enableXMCPasses = false;
-  bool enableRecomposeLayernormByTranspose = false;
   bool enableSplitToSliceDecompose = false;
 
   bool disableRecomposeOption = false;
