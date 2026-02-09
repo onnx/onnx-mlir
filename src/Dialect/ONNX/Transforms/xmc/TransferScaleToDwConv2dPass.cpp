@@ -38,13 +38,14 @@ namespace {
 //===----------------------------------------------------------------------===//
 
 /// Create a shape constant for ONNX Reshape
-Value createShapeConstant(PatternRewriter &rewriter, Location loc,
-    llvm::ArrayRef<int64_t> shape) {
+Value createShapeConstant(
+    PatternRewriter &rewriter, Location loc, llvm::ArrayRef<int64_t> shape) {
   onnx_mlir::OnnxBuilder onnxBuilder(rewriter, loc);
   return onnxBuilder.constantInt64(shape);
 }
 
-/// Check if operation is a supported activation (relu, leaky-relu, prelu, relu6)
+/// Check if operation is a supported activation (relu, leaky-relu, prelu,
+/// relu6)
 bool isActivationOp(Operation *op) {
   if (!op)
     return false;
@@ -94,8 +95,8 @@ Value reshapeInputTo4D(PatternRewriter &rewriter, Location loc, Value input) {
 }
 
 /// Reshape 4D tensor back to original output shape
-Value reshapeOutputToOriginal(PatternRewriter &rewriter, Location loc, Value input,
-    llvm::ArrayRef<int64_t> outputShape, Type elementType) {
+Value reshapeOutputToOriginal(PatternRewriter &rewriter, Location loc,
+    Value input, llvm::ArrayRef<int64_t> outputShape, Type elementType) {
   auto newType = RankedTensorType::get(outputShape, elementType);
   auto shapeConst = createShapeConstant(rewriter, loc, outputShape);
 
@@ -104,7 +105,8 @@ Value reshapeOutputToOriginal(PatternRewriter &rewriter, Location loc, Value inp
 }
 
 /// Reshape 1D weight [C] to 4D for ONNX DepthwiseConv2D
-/// [C] → [C, 1, 1, 1] (ONNX Conv format: [M, C/group, kH, kW] with M=C, group=C)
+/// [C] → [C, 1, 1, 1] (ONNX Conv format: [M, C/group, kH, kW] with M=C,
+/// group=C)
 Value reshapeWeightTo4D(PatternRewriter &rewriter, Location loc, Value weight) {
   auto weightType = cast<RankedTensorType>(weight.getType());
   auto weightShape = weightType.getShape();
@@ -140,8 +142,8 @@ Value createActivation4D(PatternRewriter &rewriter, Location loc,
   }
   if (auto leakyReluOp = dyn_cast<ONNXLeakyReluOp>(originalActivation)) {
     return rewriter
-        .create<ONNXLeakyReluOp>(loc, outputType, input4D,
-            leakyReluOp.getAlphaAttr())
+        .create<ONNXLeakyReluOp>(
+            loc, outputType, input4D, leakyReluOp.getAlphaAttr())
         .getResult();
   }
   if (auto preluOp = dyn_cast<ONNXPReluOp>(originalActivation)) {
@@ -151,8 +153,8 @@ Value createActivation4D(PatternRewriter &rewriter, Location loc,
   }
   if (auto clipOp = dyn_cast<ONNXClipOp>(originalActivation)) {
     return rewriter
-        .create<ONNXClipOp>(loc, outputType, input4D, clipOp.getMin(),
-            clipOp.getMax())
+        .create<ONNXClipOp>(
+            loc, outputType, input4D, clipOp.getMin(), clipOp.getMax())
         .getResult();
   }
 
@@ -166,8 +168,8 @@ Value createActivation4D(PatternRewriter &rewriter, Location loc,
 struct ScaleToDwConv2dPattern : public OpRewritePattern<ONNXMulOp> {
   using OpRewritePattern<ONNXMulOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXMulOp mulOp,
-      PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXMulOp mulOp, PatternRewriter &rewriter) const override {
     Location loc = mulOp.getLoc();
 
     // Get operands (Mul is commutative: scale may be getA() or getB())
@@ -187,7 +189,7 @@ struct ScaleToDwConv2dPattern : public OpRewritePattern<ONNXMulOp> {
     // Get types
     auto inputType = dyn_cast<RankedTensorType>(input.getType());
     auto scaleType = dyn_cast<RankedTensorType>(scale.getType());
-    
+
     if (!inputType || !scaleType)
       return failure();
 
@@ -208,9 +210,9 @@ struct ScaleToDwConv2dPattern : public OpRewritePattern<ONNXMulOp> {
     if (scaleShape[0] != inputShape[inputRank - 1])
       return failure();
 
-    LLVM_DEBUG(llvm::dbgs() << "Matched Mul: input rank " << inputRank
-                            << ", scale size " << scaleShape[0]
-                            << ", converting to DepthwiseConv2D\n");
+    LLVM_DEBUG(llvm::dbgs()
+               << "Matched Mul: input rank " << inputRank << ", scale size "
+               << scaleShape[0] << ", converting to DepthwiseConv2D\n");
 
     // Check for following activation
     Operation *activationOp = getFollowingActivation(mulOp);
@@ -230,16 +232,17 @@ struct ScaleToDwConv2dPattern : public OpRewritePattern<ONNXMulOp> {
     onnx_mlir::OnnxBuilder onnxBuilder(rewriter, loc);
     Value bias = onnxBuilder.none();
 
-    int64_t numChannels = scaleShape[0]; // depthwise: groups = number of channels
+    int64_t numChannels =
+        scaleShape[0]; // depthwise: groups = number of channels
     auto reshapedInputType = cast<RankedTensorType>(reshapedInput.getType());
-    auto convOutputType = RankedTensorType::get(reshapedInputType.getShape(),
-        outputType.getElementType());
+    auto convOutputType = RankedTensorType::get(
+        reshapedInputType.getShape(), outputType.getElementType());
 
     auto autoPadAttr = rewriter.getStringAttr("NOTSET");
     auto dilationsAttr = rewriter.getI64ArrayAttr({1, 1});
-    auto groupAttr = rewriter.getIntegerAttr(
-        rewriter.getIntegerType(64, /*isSigned=*/true),
-        APInt(64, numChannels, /*isSigned=*/true));
+    auto groupAttr =
+        rewriter.getIntegerAttr(rewriter.getIntegerType(64, /*isSigned=*/true),
+            APInt(64, numChannels, /*isSigned=*/true));
     auto kernelShapeAttr = rewriter.getI64ArrayAttr({1, 1});
     auto padsAttr = rewriter.getI64ArrayAttr({0, 0, 0, 0});
     auto stridesAttr = rewriter.getI64ArrayAttr({1, 1});
@@ -258,8 +261,8 @@ struct ScaleToDwConv2dPattern : public OpRewritePattern<ONNXMulOp> {
     }
 
     // Reshape output back to original shape
-    Value finalOutput = reshapeOutputToOriginal(rewriter, loc, result,
-        outputShape, outputType.getElementType());
+    Value finalOutput = reshapeOutputToOriginal(
+        rewriter, loc, result, outputShape, outputType.getElementType());
 
     // Replace operation
     if (activationOp) {
@@ -285,8 +288,11 @@ namespace onnx_mlir {
 /// This converts element-wise Scale (implemented as Mul with constant) to
 /// DepthwiseConv2D by inserting reshape operations before and after.
 struct TransferScaleToDwConv2dPass
-    : public PassWrapper<TransferScaleToDwConv2dPass, OperationPass<func::FuncOp>> {
-  StringRef getArgument() const override { return "transfer-scale-to-dwconv2d"; }
+    : public PassWrapper<TransferScaleToDwConv2dPass,
+          OperationPass<func::FuncOp>> {
+  StringRef getArgument() const override {
+    return "transfer-scale-to-dwconv2d";
+  }
   StringRef getDescription() const override {
     return "Convert Scale operations to DepthwiseConv2D operations";
   }
@@ -303,7 +309,6 @@ struct TransferScaleToDwConv2dPass
     config.strictMode = GreedyRewriteStrictness::ExistingAndNewOps;
 
     ResultNamesUpdater rnUpdater;
-    GreedyRewriteConfig config;
     config.listener = &rnUpdater;
     if (failed(applyPatternsGreedily(
             getOperation(), std::move(patterns), config))) {
