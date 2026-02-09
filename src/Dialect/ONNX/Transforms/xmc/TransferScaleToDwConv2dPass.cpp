@@ -21,6 +21,7 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
 
+#include "llvm/ADT/APInt.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Debug.h"
@@ -117,20 +118,15 @@ Value reshapeWeightTo4D(PatternRewriter &rewriter, Location loc, Value weight) {
       .getReshaped();
 }
 
-/// Transpose 4D with perm (0,3,2,1): (a,b,c,d) ↔ (a,d,c,b). Self-inverse; used
-/// before Conv (last→channel) and after (channel→last) for NCHW depthwise Conv.
-Value transpose4DPerm0312(PatternRewriter &rewriter, Location loc, Value input) {
-  auto inputType = cast<RankedTensorType>(input.getType());
-  auto shape = inputType.getShape();
-  if (shape.size() != 4)
-    return input;
-
-  llvm::SmallVector<int64_t> outShape = {shape[0], shape[3], shape[2], shape[1]};
-  auto outType = RankedTensorType::get(outShape, inputType.getElementType());
-  return rewriter
-      .create<ONNXTransposeOp>(loc, outType, input,
-          rewriter.getI64ArrayAttr({0, 3, 2, 1}))
-      .getTransposed();
+/// Transfer onnx_node_name attribute from source to target op
+void transferOnnxNodeName(Operation *sourceOp, Operation *targetOp) {
+  if (!sourceOp || !targetOp)
+    return;
+  auto onnxNodeName =
+      sourceOp->getAttrOfType<mlir::StringAttr>("onnx_node_name");
+  if (onnxNodeName && !onnxNodeName.getValue().empty()) {
+    targetOp->setAttr("onnx_node_name", onnxNodeName);
+  }
 }
 
 /// Create activation op with 4D output type
@@ -221,36 +217,36 @@ struct ScaleToDwConv2dPattern : public OpRewritePattern<ONNXMulOp> {
                      : mulOp.getResult().getType());
     auto outputShape = outputType.getShape();
 
-    // Reshape input to 4D (prepend 1s if needed)
+    // Reshape input to 4D NHWC (prepend 1s if needed); no transpose needed
     Value reshapedInput = reshapeInputTo4D(rewriter, loc, input);
 
-    // Transpose so scaled (last) dimension becomes channel: (a,b,c,d) → (a,d,c,b)
-    Value transposedInput = transpose4DPerm0312(rewriter, loc, reshapedInput);
-
-    // Reshape scale to depthwise weight [C, 1, 1, 1] with C = scaleShape[0]
+    // Reshape scale to depthwise weight [C, 1, 1, 1] for XFEConv (NHWC)
     Value reshapedWeight = reshapeWeightTo4D(rewriter, loc, scale);
 
     onnx_mlir::OnnxBuilder onnxBuilder(rewriter, loc);
     Value bias = onnxBuilder.none();
 
-    auto si64Type = IntegerType::get(rewriter.getContext(), 64, IntegerType::Signed);
-    auto dwConv2dOutputType = UnrankedTensorType::get(inputType.getElementType());
     int64_t numChannels = scaleShape[0]; // depthwise: groups = number of channels
+    auto reshapedInputType = cast<RankedTensorType>(reshapedInput.getType());
+    auto convOutputType = RankedTensorType::get(reshapedInputType.getShape(),
+        outputType.getElementType());
 
-    auto dwConvOp = rewriter.create<ONNXConvOp>(loc, dwConv2dOutputType,
-        transposedInput, reshapedWeight, bias,
-        /*auto_pad=*/rewriter.getStringAttr("NOTSET"),
-        /*dilations=*/rewriter.getI64ArrayAttr({1, 1}),
-        /*group=*/IntegerAttr::get(si64Type, numChannels),
-        /*kernel_shape=*/rewriter.getI64ArrayAttr({1, 1}),
-        /*pads=*/rewriter.getI64ArrayAttr({0, 0, 0, 0}),
-        /*strides=*/rewriter.getI64ArrayAttr({1, 1}));
+    auto autoPadAttr = rewriter.getStringAttr("NOTSET");
+    auto dilationsAttr = rewriter.getI64ArrayAttr({1, 1});
+    auto groupAttr = rewriter.getIntegerAttr(
+        rewriter.getIntegerType(64, /*isSigned=*/true),
+        APInt(64, numChannels, /*isSigned=*/true));
+    auto kernelShapeAttr = rewriter.getI64ArrayAttr({1, 1});
+    auto padsAttr = rewriter.getI64ArrayAttr({0, 0, 0, 0});
+    auto stridesAttr = rewriter.getI64ArrayAttr({1, 1});
 
-    if (failed(dwConvOp.inferShapes([](Region &) {})))
-      return failure();
+    auto dwConvOp = rewriter.create<XFEConvOp>(loc, convOutputType,
+        reshapedInput, reshapedWeight, bias, autoPadAttr, dilationsAttr,
+        groupAttr, kernelShapeAttr, padsAttr, stridesAttr);
 
-    // Transpose back: (a,d,c,b) → (a,b,c,d)
-    Value result = transpose4DPerm0312(rewriter, loc, dwConvOp.getResult());
+    transferOnnxNodeName(mulOp, dwConvOp);
+
+    Value result = dwConvOp.getResult();
 
     // Apply activation if present
     if (activationOp) {
