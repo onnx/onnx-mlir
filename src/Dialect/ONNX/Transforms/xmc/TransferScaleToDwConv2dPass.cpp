@@ -64,8 +64,7 @@ Operation *getFollowingActivation(Operation *op) {
   return nullptr;
 }
 
-/// Reshape ND tensor to 4D tensor for ONNX DepthwiseConv2D
-/// Prepends 1s to the front like reference implementation (lines 163-168)
+/// Reshape ND tensor to 4D by prepending ones.
 /// [d1, d2, ...] → [1, 1, ..., d1, d2, ...]
 Value reshapeInputTo4D(PatternRewriter &rewriter, Location loc, Value input) {
   auto inputType = cast<RankedTensorType>(input.getType());
@@ -77,8 +76,7 @@ Value reshapeInputTo4D(PatternRewriter &rewriter, Location loc, Value input) {
     return input;
   }
 
-  // Prepend (4 - rank) ones, then append all original dimensions
-  // Reference: lines 163-168
+  // Prepend (4 - rank) ones, then append original dimensions.
   llvm::SmallVector<int64_t> newShape;
   for (int64_t i = 0; i < 4 - rank; i++) {
     newShape.push_back(1);
@@ -104,14 +102,11 @@ Value reshapeOutputToOriginal(PatternRewriter &rewriter, Location loc,
       .getReshaped();
 }
 
-/// Reshape 1D weight [C] to 4D for ONNX DepthwiseConv2D
-/// [C] → [C, 1, 1, 1] (ONNX Conv format: [M, C/group, kH, kW] with M=C,
-/// group=C)
+/// Reshape 1D weight [C] to 4D for xfe.Conv: [C] → [C, 1, 1, 1] (NHWC depthwise).
 Value reshapeWeightTo4D(PatternRewriter &rewriter, Location loc, Value weight) {
   auto weightType = cast<RankedTensorType>(weight.getType());
   auto weightShape = weightType.getShape();
-  // Caller ensures weight is 1D (scale from Mul).
-  // [C] → [C, 1, 1, 1] for depthwise Conv
+  // Caller ensures weight is 1D (scale from Mul). [C] → [C, 1, 1, 1].
   llvm::SmallVector<int64_t> newShape = {weightShape[0], 1, 1, 1};
 
   auto newType = RankedTensorType::get(newShape, weightType.getElementType());
@@ -223,7 +218,7 @@ struct ScaleToDwConv2dPattern : public OpRewritePattern<ONNXMulOp> {
                      : mulOp.getResult().getType());
     auto outputShape = outputType.getShape();
 
-    // Reshape input to 4D NHWC (prepend 1s if needed); no transpose needed
+    // Reshape input to 4D (prepend 1s if needed).
     Value reshapedInput = reshapeInputTo4D(rewriter, loc, input);
 
     // Reshape scale to depthwise weight [C, 1, 1, 1] for XFEConv (NHWC)
@@ -271,7 +266,7 @@ struct ScaleToDwConv2dPattern : public OpRewritePattern<ONNXMulOp> {
       rewriter.replaceOp(mulOp, finalOutput);
     }
 
-    LLVM_DEBUG(llvm::dbgs() << "SUCCESS: Replaced Mul with DepthwiseConv2D\n");
+    LLVM_DEBUG(llvm::dbgs() << "SUCCESS: Replaced Mul with xfe.Conv\n");
     return success();
   }
 };
