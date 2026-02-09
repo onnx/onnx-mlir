@@ -12,6 +12,7 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 #include "src/Pass/Passes.hpp"
 
 #include "llvm/ADT/SmallVector.h"
@@ -98,9 +99,11 @@ SmallVector<int64_t> integerDecomposition(int64_t n) {
   return factors;
 }
 
-/// Check if all inputs are already 4D with batch=1
+/// Check if all tensor inputs are already 4D with batch=1 (optional/none inputs ignored)
 bool allInputsAlready4D(ArrayRef<Value> inputs) {
   return std::all_of(inputs.begin(), inputs.end(), [](Value input) {
+    if (isa<NoneType>(input.getType()))
+      return true;
     auto shape = getShapeFromType(input.getType());
     return shape.size() == 4 && shape.front() == 1;
   });
@@ -242,11 +245,16 @@ public:
   LogicalResult matchAndRewrite(
       OpTy op, PatternRewriter &rewriter) const override {
     LLVM_DEBUG(llvm::dbgs() << "Trying to match " << op->getName() << "\n");
-    
+
     auto outputShape = getShapeFromType(op.getResult().getType());
     Type elementType = getElementType(op.getResult().getType());
 
     if (outputShape.empty() || !elementType) {
+      return failure();
+    }
+
+    // Skip if output is already 4D with batch=1 
+    if (outputShape.size() == 4 && outputShape.front() == 1) {
       return failure();
     }
 
@@ -280,7 +288,6 @@ public:
     SmallVector<int64_t> outputShape4D =
         computeBroadcastAware4DShape(outputShape, broadcastDims);
     if (outputShape4D.empty()) {
-      // Cannot compute 4D shape (dynamic dimensions or size mismatch)
       return failure();
     }
 
@@ -288,25 +295,18 @@ public:
     SmallVector<Value> reshapedInputs;
     for (size_t i = 0; i < inputs.size(); ++i) {
       Value input = inputs[i];
+      // Optional inputs (e.g. type none) pass through as-is.
+      if (isa<NoneType>(input.getType())) {
+        reshapedInputs.push_back(input);
+        continue;
+      }
       auto inputShape = getShapeFromType(input.getType());
       Type inputElementType = getElementType(input.getType());
 
-      // Handle scalar inputs (rank-0 tensors) or scalar-like ([1])
-      if (inputShape.empty() || (inputShape.size() == 1 && inputShape[0] == 1)) {
-        if (!inputElementType) {
-          return failure();
-        }
-        LLVM_DEBUG(llvm::dbgs() << "Input " << i 
-                                << " is scalar or scalar-like, reshaping to [1,1,1,1]\n");
-        
-        // Reshape scalar to [1,1,1,1] for 4D compatibility
-        SmallVector<int64_t> scalarShape4D = {1, 1, 1, 1};
-        auto inputReshapeType =
-            RankedTensorType::get(scalarShape4D, inputElementType);
-        Value shapeConst = createConstantI64Array(rewriter, loc, scalarShape4D);
-        auto reshapeOp = rewriter.create<ONNXReshapeOp>(
-            loc, inputReshapeType, input, shapeConst);
-        reshapedInputs.push_back(reshapeOp.getResult());
+      // If input shape differs from output shape (e.g. scalar for broadcast), pass through as-is.
+      if (inputShape.size() != outputShape.size() ||
+          !std::equal(inputShape.begin(), inputShape.end(), outputShape.begin())) {
+        reshapedInputs.push_back(input);
         continue;
       }
 
@@ -318,7 +318,6 @@ public:
           computeBroadcastAware4DShape(inputShape, broadcastDims);
 
       if (inputShape4D.empty()) {
-        // Cannot compute 4D shape for non-scalar input (dynamic dimensions or size mismatch)
         LLVM_DEBUG(llvm::dbgs() << "SKIP: Cannot compute 4D shape for input " << i << "\n");
         return failure();
       }
@@ -351,7 +350,7 @@ public:
         loc, outputReshapeType, newOp->getResult(0), outputShapeConst);
 
     rewriter.replaceOp(op, outputReshapeOp.getResult());
-    LLVM_DEBUG(llvm::dbgs() << "SUCCESS: Transformed " << op->getName() 
+    LLVM_DEBUG(llvm::dbgs() << "SUCCESS: Transformed " << op->getName()
                             << " to 4D\n");
     return success();
   }
@@ -392,11 +391,13 @@ struct TransferOpShapeTo4dPass
     patterns.add<TransferEltwiseTo4DPattern<ONNXLeakyReluOp>>(ctx);
     patterns.add<TransferEltwiseTo4DPattern<ONNXEluOp>>(ctx);
     patterns.add<TransferEltwiseTo4DPattern<ONNXNegOp>>(ctx);
-    patterns.add<TransferEltwiseTo4DPattern<ONNXClipOp>>(ctx);
 
     GreedyRewriteConfig config;
     config.strictMode = GreedyRewriteStrictness::ExistingAndNewOps;
 
+    ResultNamesUpdater rnUpdater;
+    GreedyRewriteConfig config;
+    config.listener = &rnUpdater;
     if (failed(applyPatternsGreedily(
             getOperation(), std::move(patterns), config))) {
       signalPassFailure();
