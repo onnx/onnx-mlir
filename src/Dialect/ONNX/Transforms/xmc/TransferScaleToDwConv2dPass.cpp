@@ -19,6 +19,7 @@
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 #include "src/Pass/Passes.hpp"
 
 #include "llvm/ADT/APInt.h"
@@ -169,14 +170,17 @@ struct ScaleToDwConv2dPattern : public OpRewritePattern<ONNXMulOp> {
       PatternRewriter &rewriter) const override {
     Location loc = mulOp.getLoc();
 
-    // Get operands
-    Value input = mulOp.getA();
-    Value scale = mulOp.getB();
-
-    // Check if scale is a constant
-    auto scaleDefOp = scale.getDefiningOp();
-    if (!scaleDefOp || !isa<ONNXConstantOp>(scaleDefOp)) {
-      LLVM_DEBUG(llvm::dbgs() << "SKIP: scale is not a constant\n");
+    // Get operands (Mul is commutative: scale may be getA() or getB())
+    Value input;
+    Value scale;
+    if (mulOp.getA().getDefiningOp<ONNXConstantOp>()) {
+      scale = mulOp.getA();
+      input = mulOp.getB();
+    } else if (mulOp.getB().getDefiningOp<ONNXConstantOp>()) {
+      scale = mulOp.getB();
+      input = mulOp.getA();
+    } else {
+      LLVM_DEBUG(llvm::dbgs() << "SKIP: neither operand is a constant\n");
       return failure();
     }
 
@@ -298,6 +302,9 @@ struct TransferScaleToDwConv2dPass
     GreedyRewriteConfig config;
     config.strictMode = GreedyRewriteStrictness::ExistingAndNewOps;
 
+    ResultNamesUpdater rnUpdater;
+    GreedyRewriteConfig config;
+    config.listener = &rnUpdater;
     if (failed(applyPatternsGreedily(
             getOperation(), std::move(patterns), config))) {
       signalPassFailure();
