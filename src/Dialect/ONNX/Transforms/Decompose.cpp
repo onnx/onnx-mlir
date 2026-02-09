@@ -38,6 +38,7 @@
 
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/ElementsAttrHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
@@ -3521,6 +3522,242 @@ struct MicrosoftRotaryEmbedding : public CustomOpToOnnxOps {
   };
 };
 
+// Converts Microsoft.MatmulNBits to onnx.DequantizeLinear and onnx.MatMul
+//   A    B  scales zps       A      B  scales zps
+//   │    │     │    │        │      │     │    │
+//   │    │     │    │      fp32    ui8  fp32  ui8
+// fp32  ui8  fp32  ui8       │      │     │    │
+//   │    │     │    │        │      ▼     ▼    ▼
+//   └─┐  │     │  ┌─┘        │   ┌────────────────┐
+//     ▼  ▼     ▼  ▼          │   │                │
+//   ┌───────────────┐        │   │DequantizeLinear│
+//   │               │        │   │                │
+//   │  MatmulNBits  │   =►   │   └────────┬───────┘
+//   │               │        │            │
+//   └───────┬───────┘        │          fp32
+//           │                └───────┐    │
+//           │                        ▼    ▼
+//         fp32                     ┌────────┐
+//           │                      │ Matmul │
+//           ▼                      └────┬───┘
+//                                       │
+//                                     fp32
+//                                       │
+//                                       ▼
+// Here, A is an ifm and B, scales, and zps are constants.
+// The decomposition first unpacks the B and zps constants. Then, it dequantizes
+// the the unpacked B matrix using DequantizeLinear. This dequantized B matrix
+// is transposed and finally passed to a Matmul where it gets multiplied with
+// the A matrix.
+struct MicrosoftMatmulNBits : public CustomOpToOnnxOps {
+  MicrosoftMatmulNBits(MLIRContext *ctx, PatternBenefit b = 1)
+      : CustomOpToOnnxOps(ctx, MicrosoftDomainName, "MatmulNBits", b) {}
+
+  // Unpacks a uint8 constant where the values are actually n-bit values packed
+  // as uint8s.
+  static Value unpackValue(onnx_mlir::OnnxBuilder &b,
+      SmallVector<Value> &toCheck, ONNXConstantOp constOp, int64_t bits,
+      int64_t N, int64_t allBlocksSize, int64_t targetSize) {
+    auto uint8Type = b.getBuilder().getIntegerType(8, false);
+
+    DenseElementsAttr values;
+    if (isa<DisposableElementsAttr>(constOp.getValueAttr())) {
+      auto disposable = cast<DisposableElementsAttr>(constOp.getValueAttr());
+      values = disposable.toDenseElementsAttr();
+    } else {
+      values = cast<DenseElementsAttr>(constOp.getValueAttr());
+    }
+    const int64_t numElements = N * allBlocksSize;
+    assert(values.getNumElements() == numElements);
+
+    SmallVector<int64_t> packedValues;
+    packedValues.reserve(numElements);
+    for (APInt v : values.getValues<APInt>())
+      packedValues.push_back(v.getSExtValue());
+
+    // Perform the unpacking:
+    // bits = 2: 1xuint8 0bAABBCCDD => 4xuint8 0bAA 0bBB 0bCC 0bDD
+    // bits = 4: 1xuint8 0bAAAABBBB => 2xuint8 0bAAAA 0bBBBB
+    SmallVector<uint8_t> unpackedValues;
+    unpackedValues.reserve(numElements * 8 / bits);
+    const uint8_t mask = (1 << bits) - 1;
+    for (int64_t i = 0; i < numElements; i++) {
+      for (int64_t j = 0; j < 8 / bits; j++) {
+        uint8_t value = uint8_t(packedValues[i] >> (j * bits)) & mask;
+        unpackedValues.push_back(value);
+      }
+    }
+
+    SmallVector<int64_t> unpackedShape({1, N, allBlocksSize * 8 / bits});
+    RankedTensorType unpackedType =
+        RankedTensorType::get({1, N, allBlocksSize * 8 / bits}, uint8Type);
+    Value unpackedValue = b.constant(DenseElementsAttr::get(
+        unpackedType, ArrayRef<uint8_t>(unpackedValues)));
+    toCheck.push_back(unpackedValue);
+
+    // We need to slice to compensate for the ceil function in the shapes of the
+    // inputs.
+    // For unpacking B, if K is not divisible by block_size,
+    //   then allBlocksSize > K, and so we need to slice
+    // For unpacking zps, if K * bits is not divisible by 8 * block_size,
+    //   then allBlocksSize > numBlocks, and so we need to slice
+    if (targetSize != allBlocksSize * 8 / bits) {
+      Value starts = b.constantInt64({0});
+      Value ends = b.constantInt64({targetSize});
+      Value axes = b.constantInt64({2});
+      Value steps = b.constantInt64({1});
+      RankedTensorType sliceType =
+          RankedTensorType::get({1, N, targetSize}, uint8Type);
+      unpackedValue =
+          b.slice(sliceType, unpackedValue, starts, ends, axes, steps);
+      toCheck.push_back(starts);
+      toCheck.push_back(ends);
+      toCheck.push_back(axes);
+      toCheck.push_back(steps);
+      toCheck.push_back(unpackedValue);
+    }
+
+    return unpackedValue;
+  }
+
+  LogicalResult matchAndRewriteImpl(
+      ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
+
+    const Location loc = customOp.getLoc();
+
+    const int64_t numIn = customOp.getNumOperands();
+    assert((numIn >= 3 && numIn <= 6) && "expects 3..6 inputs");
+    const int64_t numOut = customOp.getNumResults();
+    assert((numOut == 1) && "expects 1 outputs");
+
+    Value aMat = customOp.getOperand(0);
+    Value bMat = customOp.getOperand(1);
+    Value scales = customOp.getOperand(2);
+
+    Value zeroPoints;
+    if (numIn > 3)
+      zeroPoints = customOp.getOperand(3);
+
+    // 4th input g_idx is deprecated
+
+    Value bias;
+    if (numIn > 5)
+      bias = customOp.getOperand(5);
+
+    auto KAttr = customOp->getAttrOfType<IntegerAttr>("K");
+    const int64_t K = KAttr.getSInt();
+    auto NAttr = customOp->getAttrOfType<IntegerAttr>("N");
+    const int64_t N = NAttr.getSInt();
+
+    auto blockSizeAttr = customOp->getAttrOfType<IntegerAttr>("block_size");
+    const int64_t blockSize = blockSizeAttr.getSInt();
+
+    // B matrix should be: N x ceil(K / block_size) x (block_size * 8 / bits)
+    if (!isa<ShapedType>(bMat.getType()))
+      return rewriter.notifyMatchFailure(
+          customOp, "expected 'B' input to have shaped type");
+    auto bType = cast<ShapedType>(bMat.getType());
+    if (!bType.hasStaticShape())
+      return rewriter.notifyMatchFailure(
+          customOp, "expected 'B' input to have static type");
+    assert(bType.getRank() == 3 && "B input must have rank 3");
+    assert(bType.getElementType().isUnsignedInteger(8) &&
+           "B must be uint8 tensor");
+
+    auto uint8Type = bType.getElementType();
+    if (zeroPoints && !onnx_mlir::isNoneValue(zeroPoints))
+      assert(getElementTypeOrSelf(zeroPoints.getType()) == uint8Type &&
+             "zero_points must be uint8 tensor");
+
+    if (!customOp->hasAttrOfType<IntegerAttr>("bits"))
+      return rewriter.notifyMatchFailure(customOp, "expected 'bits' attribute");
+
+    auto bitsAttr = customOp->getAttrOfType<IntegerAttr>("bits");
+    const int64_t bits = bitsAttr.getSInt();
+    // Other bits values are not supported by the Microsoft spec
+    assert((bits == 2 || bits == 4 || bits == 8) &&
+           "expected bits to be 2, 4, or 8");
+
+    onnx_mlir::OnnxBuilder b(rewriter, loc);
+    SmallVector<Value> toCheck;
+
+    // number of blocks that the K dim is divided into = ceil(K / blockSize)
+    const int64_t numBlocks = (K + blockSize - 1) / blockSize;
+    // number of uint8 values in a block
+    const int64_t packedBlockSize = (blockSize * bits) / 8;
+    ONNXConstantOp constBOp = dyn_cast<ONNXConstantOp>(bMat.getDefiningOp());
+    if (!constBOp && constBOp->hasAttr("value"))
+      return rewriter.notifyMatchFailure(
+          customOp, "expected 'B' input to be a constant");
+    Value unpackedB = unpackValue(
+        b, toCheck, constBOp, bits, N, numBlocks * packedBlockSize, K);
+
+    // zero_points should be: N x ceil((K * bits) / (8 * block_size))
+    //  i.e. N x numBlocks as packed uint8s
+    Value unpackedZP;
+    if (zeroPoints && !onnx_mlir::isNoneValue(zeroPoints)) {
+      ONNXConstantOp constZPOp =
+          dyn_cast<ONNXConstantOp>(zeroPoints.getDefiningOp());
+      if (!constZPOp && constZPOp->hasAttr("value"))
+        return rewriter.notifyMatchFailure(
+            customOp, "expected 'zero_points' input to be a constant");
+      // ceil((K / blockSize) * (bits / 8))
+      const int64_t zpPackedBlocksSize =
+          (K * bits + 8 * blockSize - 1) / (8 * blockSize);
+      unpackedZP = unpackValue(
+          b, toCheck, constZPOp, bits, N, zpPackedBlocksSize, numBlocks);
+    } else {
+      unpackedZP = b.none();
+      toCheck.push_back(unpackedZP);
+    }
+
+    // The scales constant should have shape: N x ceil(K / block_size)
+    // For onnx.DequantizeLinear, it needs to have the same shape as zero_points
+    SmallVector<int64_t> newScalesShape({1, N, numBlocks});
+    Value reshapeScalesConst = b.constantInt64(newScalesShape);
+    toCheck.push_back(reshapeScalesConst);
+
+    auto reshapeScalesType =
+        RankedTensorType::get(newScalesShape, getElementTypeOrSelf(scales));
+    Value reshapeScales =
+        b.reshape(reshapeScalesType, scales, reshapeScalesConst);
+    toCheck.push_back(reshapeScales);
+
+    // Dequantize the unpacked B matrix from uint8 to fp32
+    auto dqType =
+        RankedTensorType::get({1, N, K}, getElementTypeOrSelf(aMat.getType()));
+    auto dq = rewriter.create<ONNXDequantizeLinearOp>(
+        loc, dqType, unpackedB, reshapeScales, unpackedZP);
+    dq.setBlockSize(blockSize);
+    dq.setAxis(-1);
+    toCheck.push_back(dq);
+
+    // Transpose the dequantized B matrix to the shape: 1 x K x N
+    auto transposeBType =
+        RankedTensorType::get({1, K, N}, getElementTypeOrSelf(aMat.getType()));
+    Value transposeB =
+        b.transpose(transposeBType, dq, rewriter.getI64ArrayAttr({0, 2, 1}));
+    toCheck.push_back(transposeB);
+
+    // Matmul A x B : (1 x M x K),  (1 x K x N) => (1 x M x N)
+    Value mm = b.matmul(customOp.getResultTypes()[0], aMat, transposeB, false);
+    toCheck.push_back(mm);
+    if (bias) {
+      mm = b.add(mm, bias);
+      toCheck.push_back(mm);
+    }
+
+    if (failed(verifyOpsErasingOnError(toCheck, rewriter))) {
+      return rewriter.notifyMatchFailure(
+          customOp, "Decomposition failed verification");
+    }
+
+    rewriter.replaceOp(customOp, mm);
+
+    return success();
+  }
+};
+
 template <typename OpToCreate>
 struct CustomOpMicrosoftToSingleOnnxOp : public CustomOpToOnnxOps {
   CustomOpMicrosoftToSingleOnnxOp(MLIRContext *context,
@@ -4142,6 +4379,7 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
   patterns.insert<MicrosoftSkipSimplifiedLayerNorm>(context);
   patterns.insert<MicrosoftGroupQueryAttention>(context);
   patterns.insert<MicrosoftRotaryEmbedding>(context);
+  patterns.insert<MicrosoftMatmulNBits>(context);
   patterns.insert<DecomposeSlicePadPattern>(context);
   patterns.insert<DecomposeScatterNDPattern>(context);
   patterns.insert<SoftmaxCrossEntropyPattern>(context);
