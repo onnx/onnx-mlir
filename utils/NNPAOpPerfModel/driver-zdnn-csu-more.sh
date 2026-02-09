@@ -56,8 +56,8 @@ function run_experiment { # (option, e2, e1)
     done
 }
 
-opt_csu=" -O3 ${arch} -maccel=NNPA -profile-ir=ZHigh -disable-compiler-stick-unstick=false"
-opt_zdnn="-O3 ${arch} -maccel=NNPA -profile-ir=ZHigh -disable-compiler-stick-unstick=true"
+opt_csu=" -O3 ${arch} -maccel=NNPA -profile-ir=ZHigh -disable-compiler-stick-unstick=false -nnpa-placement-heuristic=QualifyingOps"
+opt_zdnn="-O3 ${arch} -maccel=NNPA -profile-ir=ZHigh -disable-compiler-stick-unstick=true -nnpa-placement-heuristic=QualifyingOps"
 
 # Compiler stick/unstick
 for ee2 in 1 4 8 16 32 48 64 128 256 384 512 768 1024 2048 3072 4096

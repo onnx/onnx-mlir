@@ -2,11 +2,9 @@
 
 // RUN: cfg_file=$(dirname %s)/load-cfg-all-matmul-on-cpu.json && onnx-mlir-opt --device-placement=load-config-file=$cfg_file --march=z16 --maccel=NNPA --split-input-file %s | FileCheck %s --check-prefix=ALL-RELU-ON-CPU
 
-// RUN: cfg_file=$(dirname %s)/load-cfg-not-match-relu.json && onnx-mlir-opt --device-placement=load-config-file=$cfg_file --march=z16 --maccel=NNPA --split-input-file %s | FileCheck %s --check-prefix=NOT-MATCH-RELU
+// RUN: cfg_file=$(dirname %s)/load-cfg-not-match-matmul.json && onnx-mlir-opt --device-placement=load-config-file=$cfg_file --march=z16 --maccel=NNPA --split-input-file %s | FileCheck %s --check-prefix=NOT-MATCH-RELU
 
 // RUN: cfg_file=$(dirname %s)/load-cfg-overlapping-condition.json && onnx-mlir-opt --device-placement=load-config-file=$cfg_file --march=z16 --maccel=NNPA --split-input-file %s | FileCheck %s --check-prefix=OVERLAPPING
-
-// -----
 
 func.func @test_load_config_file_all_on_cpu(%arg0: tensor<?x?x?xf32>) -> tensor<?x?x?xf32> {
   %0 = "onnx.MatMul"(%arg0,%arg0) {onnx_node_name = "MatMul_0"} : (tensor<?x?x?xf32>, tensor<?x?x?xf32>) -> tensor<?x?x?xf32>
