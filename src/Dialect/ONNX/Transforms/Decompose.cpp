@@ -4252,6 +4252,7 @@ struct DecomposeONNXToONNXPass
       bool enableConvTransposeDecomposeToPhasedConv = false,
       bool enableConvTranspose1dDecomposeToPhasedConv = false,
       bool enableInstanceNormDecompose = true,
+      bool enableMatmulNBitsDecompose = false,
       bool enableSplitToSliceDecompose = false) {
     this->target = target;
     this->enableConvTransposeDecompose = enableConvTransposeDecompose;
@@ -4260,6 +4261,7 @@ struct DecomposeONNXToONNXPass
     this->enableConvTranspose1dDecomposeToPhasedConv =
         enableConvTranspose1dDecomposeToPhasedConv;
     this->enableInstanceNormDecompose = enableInstanceNormDecompose;
+    this->enableMatmulNBitsDecompose = enableMatmulNBitsDecompose;
     this->enableSplitToSliceDecompose = enableSplitToSliceDecompose;
   }
 
@@ -4273,6 +4275,8 @@ struct DecomposeONNXToONNXPass
         pass.enableConvTransposeDecomposeToPhasedConv.getValue();
     this->enableInstanceNormDecompose =
         pass.enableInstanceNormDecompose.getValue();
+    this->enableMatmulNBitsDecompose =
+        pass.enableMatmulNBitsDecompose.getValue();
     this->enableSplitToSliceDecompose =
         pass.enableSplitToSliceDecompose.getValue();
   }
@@ -4310,6 +4314,11 @@ struct DecomposeONNXToONNXPass
                      "LayerNormalization"),
       ::llvm::cl::init(true)};
 
+  Option<bool> enableMatmulNBitsDecompose{*this, "enable-matmulnbits-decompose",
+      llvm::cl::desc("Enable decomposition of Microsoft MatmulNBits to "
+                     "dequantize linear and matmul ops"),
+      ::llvm::cl::init(false)};
+
   Option<bool> enableSplitToSliceDecompose{*this, "enable-split-to-slice",
       llvm::cl::desc("Enable decomposition of Split to Slice operations"),
       ::llvm::cl::init(false)};
@@ -4327,7 +4336,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   onnx_mlir::getDecomposeONNXToONNXPatterns(patterns,
       enableConvTransposeDecompose, enableConvTransposeDecomposeToPhasedConv,
       enableConvTranspose1dDecomposeToPhasedConv, enableInstanceNormDecompose,
-      enableSplitToSliceDecompose);
+      enableMatmulNBitsDecompose, enableSplitToSliceDecompose);
   patterns.insert<ReplaceCastLikeByCastPattern>(context);
 
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
@@ -4348,7 +4357,8 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
     mlir::RewritePatternSet &patterns, bool enableConvTransposeDecompose,
     bool enableConvTransposeDecomposeToPhasedConv,
     bool enableConvTranspose1dDecomposeToPhasedConv,
-    bool enableInstanceNormDecompose, bool enableSplitToSliceDecompose) {
+    bool enableInstanceNormDecompose, bool enableMatmulNBitsDecompose,
+    bool enableSplitToSliceDecompose) {
   MLIRContext *context = patterns.getContext();
   populateWithGenerated(patterns);
   if (enableConvTransposeDecompose)
@@ -4379,7 +4389,8 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
   patterns.insert<MicrosoftSkipSimplifiedLayerNorm>(context);
   patterns.insert<MicrosoftGroupQueryAttention>(context);
   patterns.insert<MicrosoftRotaryEmbedding>(context);
-  patterns.insert<MicrosoftMatmulNBits>(context);
+  if (enableMatmulNBitsDecompose)
+    patterns.insert<MicrosoftMatmulNBits>(context);
   patterns.insert<DecomposeSlicePadPattern>(context);
   patterns.insert<DecomposeScatterNDPattern>(context);
   patterns.insert<SoftmaxCrossEntropyPattern>(context);
@@ -4404,9 +4415,10 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createDecomposeONNXToONNXPass(
     const std::string &target, bool enableConvTransposeDecompose,
     bool enableConvTransposeDecomposeToPhasedConv,
     bool enableConvTranspose1dDecomposeToPhasedConv,
-    bool enableInstanceNormDecompose, bool enableSplitToSliceDecompose) {
+    bool enableInstanceNormDecompose, bool enableMatmulNBitsDecompose,
+    bool enableSplitToSliceDecompose) {
   return std::make_unique<DecomposeONNXToONNXPass>(target,
       enableConvTransposeDecompose, enableConvTransposeDecomposeToPhasedConv,
       enableConvTranspose1dDecomposeToPhasedConv, enableInstanceNormDecompose,
-      enableSplitToSliceDecompose);
+      enableMatmulNBitsDecompose, enableSplitToSliceDecompose);
 }
