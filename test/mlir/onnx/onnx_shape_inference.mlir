@@ -1159,6 +1159,18 @@ func.func @test_concat_4(%arg0 : tensor<?x1x?xf32>, %arg1 : tensor<?x3x32xf32>, 
 
 // -----
 
+func.func @test_concat_5_same_input(%arg0 : tensor<?x3x32xf32>) -> tensor<*xf32> {
+  %1 = "onnx.Concat"(%arg0, %arg0) { axis = -1 : si64} : (tensor<?x3x32xf32>, tensor<?x3x32xf32>)  -> tensor<*xf32>
+  "onnx.Return"(%1) : (tensor<*xf32>) -> ()
+// CHECK-LABEL:  func.func @test_concat_5_same_input
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x3x32xf32>) -> tensor<?x3x64xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Concat"([[PARAM_0_]], [[PARAM_0_]]) <{axis = 2 : si64}> : (tensor<?x3x32xf32>, tensor<?x3x32xf32>) -> tensor<?x3x64xf32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<?x3x64xf32>
+// CHECK:         }
+}
+
+// -----
+
 func.func @test_rnn_all_results(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x3x2xf32>, %arg2: tensor<1x3x3xf32>) -> tensor<*xf32> {
   %cst = "onnx.NoValue"() {value} : () -> none
   %Y, %Y_h = "onnx.RNN"(%arg0, %arg1, %arg2, %cst, %cst, %cst) {hidden_size = 3 : si64} : (tensor<4x3x2xf32>, tensor<1x3x2xf32>, tensor<1x3x3xf32>, none, none, none) -> (tensor<*xf32>, tensor<*xf32>)
@@ -2989,10 +3001,10 @@ func.func @test_resize1(%arg0 : tensor<3x4x5x6xf32>) -> tensor<*xf32> {
 
   // CHECK-LABEL: @test_resize1
   // CHECK-SAME: ([[ARG:%.+]]: tensor<3x4x5x6xf32>) -> tensor<3x4x10x12xf32> {
+  // CHECK: [[R0:%.+]] = onnx.Constant dense<[1.000000e+00, 1.000000e+00, 2.000000e+00, 2.000000e+00]> : tensor<4xf32>
+  // CHECK: [[R1:%.+]] = onnx.Constant dense<[0.000000e+00, 0.000000e+00, 0.000000e+00, 0.000000e+00, 1.000000e+00, 1.000000e+00, 1.000000e+00, 1.000000e+00]> : tensor<8xf32>
   // CHECK: [[CST:%.+]] = "onnx.NoValue"() <{value}> : () -> none
-  // CHECK: [[R0:%.+]] = onnx.Constant dense<[0.000000e+00, 0.000000e+00, 0.000000e+00, 0.000000e+00, 1.000000e+00, 1.000000e+00, 1.000000e+00, 1.000000e+00]> : tensor<8xf32>
-  // CHECK: [[R1:%.+]] = onnx.Constant dense<[1.000000e+00, 1.000000e+00, 2.000000e+00, 2.000000e+00]> : tensor<4xf32>
-  // CHECK: [[R2:%.+]] = "onnx.Resize"([[ARG]], [[R0]], [[R1]], [[CST]]) <{antialias = 0 : si64, coordinate_transformation_mode = "asymmetric", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, keep_aspect_ratio_policy = "stretch", mode = "nearest", nearest_mode = "floor"}> {onnx_node_name = "Resize1"} : (tensor<3x4x5x6xf32>, tensor<8xf32>, tensor<4xf32>, none) -> tensor<3x4x10x12xf32>
+  // CHECK: [[R2:%.+]] = "onnx.Resize"([[ARG]], [[R1]], [[R0]], [[CST]]) <{antialias = 0 : si64, coordinate_transformation_mode = "asymmetric", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, keep_aspect_ratio_policy = "stretch", mode = "nearest", nearest_mode = "floor"}> {onnx_node_name = "Resize1"} : (tensor<3x4x5x6xf32>, tensor<8xf32>, tensor<4xf32>, none) -> tensor<3x4x10x12xf32>
 }
 
 // -----
@@ -3006,10 +3018,10 @@ func.func @test_resize_scales_floor(%arg0 : tensor<3x4x5x6xf32>) -> tensor<*xf32
 
   // CHECK-LABEL: @test_resize_scales_floor
   // CHECK-SAME: ([[ARG:%.+]]: tensor<3x4x5x6xf32>) -> tensor<3x4x10x9xf32> {
+  // CHECK: [[R0:%.+]] = onnx.Constant dense<[1.000000e+00, 1.000000e+00, 2.000000e+00, 1.510000e+00]> : tensor<4xf32>
+  // CHECK: [[R1:%.+]] = onnx.Constant dense<[0.000000e+00, 0.000000e+00, 0.000000e+00, 0.000000e+00, 1.000000e+00, 1.000000e+00, 1.000000e+00, 1.000000e+00]> : tensor<8xf32>
   // CHECK: [[CST:%.+]] = "onnx.NoValue"() <{value}> : () -> none
-  // CHECK: [[R0:%.+]] = onnx.Constant dense<[0.000000e+00, 0.000000e+00, 0.000000e+00, 0.000000e+00, 1.000000e+00, 1.000000e+00, 1.000000e+00, 1.000000e+00]> : tensor<8xf32>
-  // CHECK: [[R1:%.+]] = onnx.Constant dense<[1.000000e+00, 1.000000e+00, 2.000000e+00, 1.510000e+00]> : tensor<4xf32>
-  // CHECK: [[R2:%.+]] = "onnx.Resize"([[ARG]], [[R0]], [[R1]], [[CST]]) <{antialias = 0 : si64, coordinate_transformation_mode = "asymmetric", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, keep_aspect_ratio_policy = "stretch", mode = "nearest", nearest_mode = "floor"}> {onnx_node_name = "Resize1"} : (tensor<3x4x5x6xf32>, tensor<8xf32>, tensor<4xf32>, none) -> tensor<3x4x10x9xf32>
+  // CHECK: [[R2:%.+]] = "onnx.Resize"([[ARG]], [[R1]], [[R0]], [[CST]]) <{antialias = 0 : si64, coordinate_transformation_mode = "asymmetric", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, keep_aspect_ratio_policy = "stretch", mode = "nearest", nearest_mode = "floor"}> {onnx_node_name = "Resize1"} : (tensor<3x4x5x6xf32>, tensor<8xf32>, tensor<4xf32>, none) -> tensor<3x4x10x9xf32>
 }
 
 // -----

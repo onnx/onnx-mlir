@@ -1,5 +1,18 @@
 # SPDX-License-Identifier: Apache-2.0
 
+add_onnx_mlir_library(OMSmallFPConversion
+  SmallFPConversion.c
+  )
+set_target_properties(OMSmallFPConversion
+  PROPERTIES
+  LANGUAGE C
+  )
+
+# The rest contains extra dependence and should not be included
+if (ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
+  return()
+endif()
+
 add_onnx_mlir_library(OMDiagnostic
   Diagnostic.cpp
 
@@ -33,12 +46,4 @@ add_onnx_mlir_library(OMMlirUtilities
   LINK_LIBS PUBLIC
   OMSmallFPConversion
   MLIRIR
-  )
-
-add_onnx_mlir_library(OMSmallFPConversion
-  SmallFPConversion.c
-  )
-set_target_properties(OMSmallFPConversion
-  PROPERTIES
-  LANGUAGE C
   )

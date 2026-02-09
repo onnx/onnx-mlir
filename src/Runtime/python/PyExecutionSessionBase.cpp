@@ -23,7 +23,8 @@
 #include "src/Support/SuppressWarnings.h"
 
 SUPPRESS_WARNINGS_PUSH
-#include "onnx/onnx_pb.h"
+// #include "onnx/onnx_pb.h"
+#include "src/Runtime/python/TensorProto.hpp"
 SUPPRESS_WARNINGS_POP
 
 #include "PyExecutionSessionBase.hpp"
@@ -392,6 +393,14 @@ std::string PyExecutionSessionBase::reportPythonError(
   errStr << "Execution session: encountered python error `" << errorStr << "'."
          << std::endl;
   return errStr.str();
+}
+
+// =============================================================================
+// Instrumentation reporting
+void PyExecutionSessionBase::pyPrintInstrumentation() {
+  TIMING_INIT_START(print_instrumentation);
+  printInstrumentation();
+  TIMING_STOP_PRINT(print_instrumentation);
 }
 
 } // namespace onnx_mlir

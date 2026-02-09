@@ -191,7 +191,8 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
 
   // Profiling ZHighIR.
   unsigned instrumentActions = instrumentControlBits;
-  if (profileIR == onnx_mlir::ProfileIRs::ZHigh) {
+  if (profileIR == onnx_mlir::ProfileIRs::ZHigh ||
+      profileIRWithSig == onnx_mlir::ProfileIRs::ZHigh) {
     assert(instrumentStage == onnx_mlir::InstrumentStages::ZHigh &&
            "expected set to this");
     instrumentOps = "onnx.*,zhigh.*";
@@ -202,13 +203,14 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
     // --InstrumentReportMemory option.
     instrumentActions |= (1 << 3) - 1;
     // Also enable instrumentation of signatures.
-    instrumentSignatures = "onnx.*,zhigh.*";
+    if (profileIRWithSig == onnx_mlir::ProfileIRs::ZHigh)
+      instrumentSignatures = "onnx.*,zhigh.*";
   }
 
   // Insert an instrumentation after lowering onnx to zhigh to get profiling /
   // signatures for onnx and zhigh ops. Keep this pass at the end of this
-  // function. Add createInstrument (timing) second so that it will guarantee
-  // not to include timing of the signature printing.
+  // function. Add createInstrumentPass (timing) second so that it will
+  // guarantee not to include timing of the signature printing.
   if (hasSignatureInstrumentation(onnx_mlir::InstrumentStages::ZHigh))
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentONNXSignaturePass(
         instrumentSignatures, instrumentOnnxNode));

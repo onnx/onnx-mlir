@@ -44,22 +44,13 @@
 #include "src/Runtime/OMTensorHelper.hpp"
 #endif
 
-#ifndef ENABLE_PYRUNTIME_LIGHT
 #include "src/Support/SmallFPConversion.h"
-#endif
 
 #if defined(__APPLE__) || defined(__MVS__)
 // __errno_location() is called from krnl::emitErrNo() to set errno in
-// generated llvm IR, but it somehow doesn't come out of the box on MacOS or MVS.
+// generated llvm IR, but it somehow doesn't come out of the box on MacOS or
+// MVS.
 int *__errno_location(void) { return &errno; }
-#endif
-
-#ifdef ENABLE_PYRUNTIME_LIGHT
-// The implementation depends on src/Utility and llvm. Will be solved in
-// another PR. Here are just dummy definitions for compilation
-float om_f16_to_f32(uint16_t a) { return (float)0; }
-
-uint16_t om_f32_to_f16(uint16_t a) { return (uint16_t)0; }
 #endif
 
 #define OM_DRIVER_TIMING 1
@@ -598,8 +589,9 @@ static void printData(FILE *fout, const OMTensor *tensor) {
 }
 
 /* Defined in OMInstrument.inc, return stdout or the FILE handle to where
- * instrumentation should be printed. */
-FILE *getInstrumentFile();
+ * instrumentation should be printed. Return 0 when we should not print
+ * instrumentation. */
+FILE *getInstrumentFile(bool withPrintStartReport);
 
 /* Print a string and possibly some info about a tensor. With `%d`, we print the
 tensor data; with `s`, we print an extended signature; with `t`, we print the
@@ -618,7 +610,9 @@ void omTensorPrint(const char *msg, const OMTensor *tensor) {
   /* Check if this is an instrumentation print, in which case we use the
    * instrument file instead of stdout. */
   if (len >= 2 && msg[0] == '%' && msg[1] == 'i') {
-    fout = getInstrumentFile();
+    fout = getInstrumentFile(
+        /*Will print here, force print of start buffer*/ true);
+    assert(fout && "expected a file handle");
     /* Skip format. */
     msg += 2;
     len -= 2;

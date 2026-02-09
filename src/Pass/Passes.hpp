@@ -58,11 +58,15 @@ void configureConstPropONNXToONNXPass(bool roundFPToInt, int expansionBound,
 std::unique_ptr<mlir::Pass> createConstPropONNXToONNXPass();
 
 /// Pass for instrument the ops in specific stage.
-std::unique_ptr<mlir::Pass> createInstrumentPass();
+#define GEN_PASS_DECL_INSTRUMENTPASS
+#include "src/Transform/Passes.h.inc"
+// GEN_PASS_DEF method only adds default constructor only,
+// we add custom constructor with multi positional argument explicitly
 std::unique_ptr<mlir::Pass> createInstrumentPass(
     const std::string &ops, unsigned actions);
 /// Pass for instrument cleanup.
-std::unique_ptr<mlir::Pass> createInstrumentCleanupPass();
+#define GEN_PASS_DECL_INSTRUMENTCLEANUPPASS
+#include "src/Transform/Passes.h.inc"
 
 /// Passes for instrumenting the ONNX ops to print their operand type
 /// signatures at runtime.
@@ -97,8 +101,10 @@ std::unique_ptr<mlir::Pass> createLowerToKrnlPass(bool enableTiling,
 void configureOnnxToKrnlLoweringPass(bool reportOnParallel,
     bool parallelIsEnabled, std::string specificParallelOps, bool reportOnSimd,
     bool simdIsEnabled);
-std::unique_ptr<mlir::Pass> createProcessScfParallelPrivatePass();
-std::unique_ptr<mlir::Pass> createProcessKrnlParallelClausePass();
+#define GEN_PASS_DECL_PROCESSSCFPARALLELPRIVATEPASS
+#include "src/Transform/Passes.h.inc"
+#define GEN_PASS_DECL_PROCESSKRNLPARALLELCLAUSEPASS
+#include "src/Transform/Passes.h.inc"
 
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
 /// Add pass for lowering to Stablehlo IR.
@@ -118,7 +124,9 @@ std::unique_ptr<mlir::Pass> createConvertKrnlToAffinePass(bool parallelEnabled);
 std::unique_ptr<mlir::Pass> createConvertSeqToMemrefPass();
 
 /// Pass for lowering krnl.region operation.
-std::unique_ptr<mlir::Pass> createLowerKrnlRegionPass();
+// separate krnl pass into different .td
+#define GEN_PASS_DECL_LOWERKRNLREGIONPASS
+#include "src/Transform/PassesKrnl.h.inc"
 
 /// Pass for lowering Krnl dialect to LLVM dialect.
 std::unique_ptr<mlir::Pass> createConvertKrnlToLLVMPass();
@@ -142,15 +150,21 @@ std::unique_ptr<mlir::Pass> createConvertONNXToLinalg(
 // For buffer omploop hoisting pass, it is crateBufferOMPLoopHoisting()
 // This function is the only globally visible function for the pass, and
 // is defined at the end of the pass implementation file.
-#define GEN_PASS_DECL_BUFFEROMPLOOPHOISTING
+#define GEN_PASS_DECL_BUFFEROMPLOOPHOISTINGPASS
 #include "src/Transform/Passes.h.inc"
 
 // The function registerTransformsPasses() is generated from Passes.td and used
 // to register th pass for onnx-mlir-opt. Different Passes.td will generate the
 // same name function. They have to be put into different name space to be
 // distinguished.
+// Note: GEN_PASS_REGISTRATION includes are done in RegisterPasses.cpp to avoid
+// build order issues with generated files.
+
+// pass registration for krnl namespace
+namespace krnl {
 #define GEN_PASS_REGISTRATION
-#include "src/Transform/Passes.h.inc"
+#include "src/Transform/PassesKrnl.h.inc"
+} // namespace krnl
 
 } // namespace onnx_mlir
 
