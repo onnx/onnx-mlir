@@ -39,15 +39,15 @@ my_option = {
 opt_mod = torch.compile(mod, backend="onnxmlir", options=my_option)
 ```
 
-Several complete test examples are provided in [torch_onnxmlir/tests](https://github.com/onnx/onnx-mlir/blob/main/src/Runtime/python/torch_onnxmlir/tests).
+Several examples are provided in [torch_onnxmlir/tests](https://github.com/onnx/onnx-mlir/blob/main/src/Runtime/python/torch_onnxmlir/tests).
 
-## Caching the exported model and compiled library
+## Caching the exported models and compiled libraries
 
 To avoid recompling models, the backend caches compiled models in the folder `${HOME}/.cache`. Users can change the cache folder by setting an environment variable, i.e, `TORCHONNXMLIR_CACHE_DIR=path_to_cache_folder`.
 
 # Use compiler container inside another container <a name="containers"></a>
 You may run your torch env with a container. When you want to use onnx-mlir to compile the model, you need run the compiler container inside your torch container. The way to do this is to mount your directories correctly.
-1. No matter whether you execute "docker run" inside a container or not, the source directory has to be the path on the host. To keep code simpile, I always keep the source and destination directory in the mount parameter the same. Otherwise, a mapping has to be passed into a docker run to convert the path when a docker run command is executed inside a container.
+1. No matter whether you execute "docker run" inside a container or not, the source directory has to be the path on the host. To keep code simpler, I always keep the source and destination directory in the mount parameter the same. Otherwise, a mapping has to be passed into a docker run to convert the path when a docker run command is executed inside a container.
 2. Mount all the necessary directories: the docker configuration path, and the system temporary directory, as well as your working directory. 
 
 Here is my script to start my torch container:
@@ -64,7 +64,4 @@ docker run -it --rm\
 Inside the iteractive docker run, the previous script can be used to build and install the torch_onnxmlir package.
 
 Then a test case, e.g. mytest.py,  can be run with command `python mytest.py`
-
-
-
 

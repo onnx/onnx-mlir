@@ -57,6 +57,10 @@ print(opt_mod(input1, input2))
 
 For more information about `torch.compile`, see its [document](https://docs.pytorch.org/docs/stable/generated/torch.compile.html).
 
+## Caching the exported models and compiled libraries
+
+To avoid recompling models, the backend caches compiled models in the folder `${HOME}/.cache`. Users can change the cache folder by setting an environment variable, i.e, `TORCHONNXMLIR_CACHE_DIR=path_to_cache_folder`.
+
 ## Installation
 
 ### Install from local directory
