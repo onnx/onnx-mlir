@@ -113,14 +113,24 @@ RUN git clone -b v${PROTOBUF_VERSION} --recursive ${PROTOBUF_URL} ${PROTOBUF_DIR
     # MODULE.bazel needs to be patched to bump rules_python to 1.8.0
     # since s390x no longer has python 3.8 interpreter.
     # rules_buf needs to be patched to support s390x arch.
+    #
+    # clang-18 crashes when compiling absl/time/duration.cc but works
+    # fine when running under cmake. This is because cmake and bazel
+    # are using different optimization levels. Override compiler options
+    # for duration.cc with --host_per_file_copt since abseil is being
+    # built as a tool dependency. If abseil is being built as a target
+    # dependency, we would use --per_file_copt instead.
     && export CARGO_BAZEL_GENERATOR_URL=file:///root/.cargo/bin/cargo-bazel \
     && export CARGO_BAZEL_REPIN=true \
     && sed -i -e 's/"rules_python", version = "1.6.0"/"rules_python", version = "1.8.0"/g' \
            MODULE.bazel \
-    && CC=clang CXX=clang++ bazel fetch --nobuild --repo=@rules_buf \
+    && CC=clang CXX=clang++ \
+       bazel fetch --nobuild --repo=@rules_buf \
     && sed -i -e 's/\["arm64", "amd64"\]/\["arm64", "amd64", "s390x"\]/g' \
            ${HOME}/.cache/bazel/_bazel_root/*/external/rules_buf~/buf/internal/toolchain.bzl \
-    && CC=clang CXX=clang++ bazel build //python/dist:binary_wheel \
+    && CC=clang CXX=clang++ \
+       bazel build --host_per_file_copt=".*/absl/time/duration.cc@-O0" \
+                   //python/dist:binary_wheel \
     && pip3 install bazel-bin/python/dist/protobuf-*.whl --prefix=/usr \
     && cd .. && rm -rf ${PROTOBUF_DIR} ${HOME}/.cache
 
