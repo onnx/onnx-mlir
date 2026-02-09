@@ -20,7 +20,7 @@ def XFEAveragePoolOp:ONNX_Op<"XFEAveragePool",
   let description = [{
   AveragePool with channel-last layout (channels innermost). Applies average pooling with input/output tensors in channel-last format. Supports N-D input tensors.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[quant_QuantizedType]>]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[quant_QuantizedType]>]>:$X,
     DefaultValuedStrAttr<StrAttr, "NOTSET">:$auto_pad,
     OptionalAttr<SI64Attr>:$ceil_mode,
     OptionalAttr<SI64Attr>:$count_include_pad,
@@ -57,7 +57,7 @@ def XFEConvOp:ONNX_Op<"XFEConv",
   let description = [{
   Convolution operator with channel-last layout (channels innermost). Similar to ONNX Conv but expects input/output tensors in channel-last format instead of NCHW.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[quant_QuantizedType]>]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[quant_QuantizedType]>]>:$X,
     AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[quant_QuantizedType]>]>:$W,
     Optional<AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[I32]>, TensorOf<[quant_QuantizedType]>, NoneType]>>:$B,
     DefaultValuedStrAttr<StrAttr, "NOTSET">:$auto_pad,
@@ -66,7 +66,7 @@ def XFEConvOp:ONNX_Op<"XFEConv",
     OptionalAttr<I64ArrayAttr>:$kernel_shape,
     OptionalAttr<I64ArrayAttr>:$pads,
     OptionalAttr<I64ArrayAttr>:$strides);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[quant_QuantizedType]>]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[quant_QuantizedType]>]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 3;
@@ -95,7 +95,7 @@ def XFEConvTransposeOp:ONNX_Op<"XFEConvTranspose",
   let description = [{
   Transpose convolution operator with channel-last layout (channels innermost). Similar to ONNX ConvTranspose but expects input/output tensors in channel-last format instead of NCHW.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[quant_QuantizedType]>]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[quant_QuantizedType]>]>:$X,
     AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[quant_QuantizedType]>]>:$W,
     Optional<AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[I32]>, TensorOf<[quant_QuantizedType]>, NoneType]>>:$B,
     DefaultValuedStrAttr<StrAttr, "NOTSET">:$auto_pad,
@@ -106,7 +106,7 @@ def XFEConvTransposeOp:ONNX_Op<"XFEConvTranspose",
     OptionalAttr<I64ArrayAttr>:$output_shape,
     OptionalAttr<I64ArrayAttr>:$pads,
     OptionalAttr<I64ArrayAttr>:$strides);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[quant_QuantizedType]>]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[quant_QuantizedType]>]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 3;
@@ -167,8 +167,8 @@ def XFEGlobalAveragePoolOp:ONNX_Op<"XFEGlobalAveragePool",
   let description = [{
   GlobalAveragePool with channel-last layout (channels innermost). Applies average pooling across all spatial dimensions with input/output tensors in channel-last format. Equivalent to AveragePoolChannelLast with kernel size equal to the spatial dimensions. Supports N-D input tensors.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[quant_QuantizedType]>]>:$X);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[quant_QuantizedType]>]>:$Y);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[quant_QuantizedType]>]>:$X);
+  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[quant_QuantizedType]>]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -197,8 +197,8 @@ def XFEGlobalMaxPoolOp:ONNX_Op<"XFEGlobalMaxPool",
   let description = [{
   GlobalMaxPool with channel-last layout (channels innermost). Applies max pooling across all spatial dimensions with input/output tensors in channel-last format. Equivalent to MaxPoolChannelLast with kernel size equal to the spatial dimensions. Supports N-D input tensors.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[quant_QuantizedType]>]>:$X);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[quant_QuantizedType]>]>:$Y);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[quant_QuantizedType]>]>:$X);
+  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[quant_QuantizedType]>]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -227,11 +227,11 @@ def XFEInstanceNormalizationOp:ONNX_Op<"XFEInstanceNormalization",
   let description = [{
   Instance normalization with channel-last layout (channels innermost). Carries out instance normalization with input/output tensors in channel-last format instead of NCHW. Formula: y = scale * (x - mean) / sqrt(variance + epsilon) + B, where mean and variance are computed per instance per channel.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[quant_QuantizedType]>]>:$input,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[quant_QuantizedType]>]>:$scale,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[quant_QuantizedType]>]>:$B,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[quant_QuantizedType]>]>:$input,
+    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[quant_QuantizedType]>]>:$scale,
+    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[quant_QuantizedType]>]>:$B,
     DefaultValuedAttr<F32Attr, "1e-05">:$epsilon);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[quant_QuantizedType]>]>:$output);
+  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[quant_QuantizedType]>]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 3;
@@ -292,7 +292,7 @@ def XFEMaxPoolOp:ONNX_Op<"XFEMaxPool",
   let description = [{
   MaxPool with channel-last layout (channels innermost). Applies max pooling with input/output tensors in channel-last format. Supports N-D input tensors.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[quant_QuantizedType]>]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[quant_QuantizedType]>]>:$X,
     DefaultValuedStrAttr<StrAttr, "NOTSET">:$auto_pad,
     OptionalAttr<SI64Attr>:$ceil_mode,
     OptionalAttr<I64ArrayAttr>:$dilations,
@@ -300,7 +300,7 @@ def XFEMaxPoolOp:ONNX_Op<"XFEMaxPool",
     OptionalAttr<I64ArrayAttr>:$pads,
     OptionalAttr<SI64Attr>:$storage_order,
     OptionalAttr<I64ArrayAttr>:$strides);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[quant_QuantizedType]>]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[quant_QuantizedType]>]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
