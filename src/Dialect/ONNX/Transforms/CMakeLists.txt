@@ -120,3 +120,14 @@ add_onnx_mlir_library(OMReplaceOpWithItsOperand
   OMONNXOps
   MLIRPass
   )
+
+add_onnx_mlir_library(OMRemoveSameONNXDim
+  RemoveSameONNXDim.cpp
+
+  INCLUDE_DIRS PUBLIC
+  ${ONNX_MLIR_SRC_ROOT}/include
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  MLIRPass
+  )
