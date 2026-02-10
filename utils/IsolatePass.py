@@ -70,7 +70,7 @@ def get_args():
     )
     parser.add_argument(
         "-c",
-        "--comment",
+        "--comments",
         action="store_true",
         help="Add useful comments to the printed listing: use-count for each def; values for scalar constant.",
     )
