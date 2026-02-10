@@ -86,14 +86,10 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
     && cargo install cargo-bazel --version ${CARGO_BAZEL_VERSION}
 
 # Install protobuf
-ARG PROTOBUF_VERSION=33.5
+ARG PROTOBUF_VERSION=31.1
 ARG PROTOBUF_URL=https://github.com/protocolbuffers/protobuf.git
 ARG PROTOBUF_DIR=protobuf
 RUN git clone -b v${PROTOBUF_VERSION} --recursive ${PROTOBUF_URL} ${PROTOBUF_DIR} \
-    # Fix protoc-gen-upb_minitable_stage0 segfault in
-    # _upb_DefPool_SetPlatform on s390x until upstreamed
-    && sed -i -Ez 's/(.*\n)([[:blank:]]*if \(_upb_Decoder_Reserve\(d, arr, 1\)\) \{)/\1    _upb_Decoder_MungeInt32\(\&elem\);\n\2/' ${PROTOBUF_DIR}/upb/wire/decode.c \
-    && sed -i 'N; /} else {\n        _upb_Decoder_Munge(field, val);/ { s/^/        _upb_Decoder_MungeInt32(val);\n/; b }; P; D' ${PROTOBUF_DIR}/upb/wire/decode.c \
     && mkdir -p ${PROTOBUF_DIR}/build \
     && cd ${PROTOBUF_DIR}/build \
     # Must specify -Dprotobuf_BUILD_TESTS=OFF otherwise find_package(absl)
@@ -124,16 +120,16 @@ RUN git clone -b v${PROTOBUF_VERSION} --recursive ${PROTOBUF_URL} ${PROTOBUF_DIR
     # for duration.cc with --host_per_file_copt since abseil is being
     # built as a tool dependency. If abseil is being built as a target
     # dependency, we would use --per_file_copt instead.
+    #
+    # After fixing all the v33.5 bugs on s390x, it turns out it has known
+    # compatibility problems and also causes onnx (and others) to segfault.
+    # So staying with v31.1 for now.
+    && sed -i -e "/strip_prefix = \"rules_buf-0.3.0\"/a \    patch_cmds = [\n        \x27\x27\x27sed -i -e \x27s|\\\\\\\\[\"arm64\", \"amd64\"\\\\\\\\]|\\\\\\\\[\"arm64\", \"amd64\", \"s390x\"\\\\\\\\]|g\x27 buf/internal/toolchain.bzl\x27\x27\x27,\n    ]," WORKSPACE \
     && export CARGO_BAZEL_GENERATOR_URL=file:///root/.cargo/bin/cargo-bazel \
     && export CARGO_BAZEL_REPIN=true \
-    && sed -i -e 's/"rules_python", version = "1.6.0"/"rules_python", version = "1.8.0"/g' \
-           MODULE.bazel \
     && CC=clang CXX=clang++ \
-       bazel fetch --nobuild --repo=@rules_buf \
-    && sed -i -e 's/\["arm64", "amd64"\]/\["arm64", "amd64", "s390x"\]/g' \
-           ${HOME}/.cache/bazel/_bazel_root/*/external/rules_buf~/buf/internal/toolchain.bzl \
-    && CC=clang CXX=clang++ \
-       bazel build --host_per_file_copt=".*/absl/time/duration.cc@-O0" \
+       bazel build --noenable_bzlmod \
+                   --host_per_file_copt=".*/absl/time/duration.cc@-O0" \
                    //python/dist:binary_wheel \
     && pip3 install bazel-bin/python/dist/protobuf-*.whl --prefix=/usr \
     && cd .. && rm -rf ${PROTOBUF_DIR} ${HOME}/.cache
