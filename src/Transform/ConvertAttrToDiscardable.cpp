@@ -2,14 +2,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------- SetDiscardableAttr.cpp - Set Discardable Attributes --------===//
+//===-- ConvertAttrToDiscardable.cpp - Convert Attributes to Discardable -===//
 //
 // Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file implements a pass that sets discardable attributes on operations
-// based on the provided attribute names.
+// This file implements a pass that converts attributes to discardable form
+// by prefixing them with '_.', based on the provided attribute names.
 //
 //===----------------------------------------------------------------------===//
 
@@ -24,31 +24,31 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-#define GEN_PASS_DEF_SETDISCARDABLEATTR
+#define GEN_PASS_DEF_CONVERTATTRTODISCARDABLE
 #include "src/Transform/Passes.h.inc"
 
 /*!
- * This pass sets discardable attributes on operations
+ * This pass converts attributes to discardable form
  */
 
-class SetDiscardableAttr : public impl::SetDiscardableAttrBase<SetDiscardableAttr> {
+class ConvertAttrToDiscardable : public impl::ConvertAttrToDiscardableBase<ConvertAttrToDiscardable> {
 
 public:
-  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(SetDiscardableAttr)
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ConvertAttrToDiscardable)
 
-  SetDiscardableAttr() = default;
+  ConvertAttrToDiscardable() = default;
 
-  SetDiscardableAttr(const SetDiscardableAttr &pass)
-      : impl::SetDiscardableAttrBase<SetDiscardableAttr>() {}
+  ConvertAttrToDiscardable(const ConvertAttrToDiscardable &pass)
+      : impl::ConvertAttrToDiscardableBase<ConvertAttrToDiscardable>() {}
 
-  SetDiscardableAttr(const std::vector<std::string> &names) {
+  ConvertAttrToDiscardable(const std::vector<std::string> &names) {
     this->attrNames = names;
   }
 
-  StringRef getArgument() const override { return "set-discardable-attr"; }
+  StringRef getArgument() const override { return "convert-attr-to-discardable"; }
 
   StringRef getDescription() const override {
-    return "Set discardable attributes on operations";
+    return "Convert attributes to discardable form";
   }
 
   void runOnOperation() override {
@@ -69,13 +69,11 @@ public:
           // Get the existing attribute
           Attribute attr = op->getAttr(attrName);
 
-          // Set it as a discardable attribute (prefixed with "_.")
           // Remove the original non-discardable version
           op->removeAttr(attrName);
 
-          // Add as discardable (with "_." prefix)
-          std::string discardableName = "_." + attrName;
-          op->setAttr(discardableName, attr);
+          // Set as a discardable attribute (automatically prefixed with "_.")
+          op->setDiscardableAttr(attrName, attr);
         }
       }
     });
@@ -85,17 +83,17 @@ public:
 } // namespace onnx_mlir
 
 /*!
- * Create a SetDiscardableAttr pass.
+ * Create a ConvertAttrToDiscardable pass.
  */
 namespace onnx_mlir {
 
-std::unique_ptr<mlir::Pass> createSetDiscardableAttrPass() {
-  return std::make_unique<SetDiscardableAttr>();
+std::unique_ptr<mlir::Pass> createConvertAttrToDiscardablePass() {
+  return std::make_unique<ConvertAttrToDiscardable>();
 }
 
-std::unique_ptr<mlir::Pass> createSetDiscardableAttrPass(
+std::unique_ptr<mlir::Pass> createConvertAttrToDiscardablePass(
     const std::vector<std::string> &attrNames) {
-  return std::make_unique<SetDiscardableAttr>(attrNames);
+  return std::make_unique<ConvertAttrToDiscardable>(attrNames);
 }
 
 } // namespace onnx_mlir

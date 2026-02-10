@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --set-discardable-attr --attr-names=onnx_node_name --cse %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --convert-attr-to-discardable --attr-names=onnx_node_name --cse %s -split-input-file | FileCheck %s
 
 // COM: Test that CSE can eliminate duplicate operations after converting to discardable attributes
 // COM: Two Sqrt operations with same input but different onnx_node_name should be merged by CSE
@@ -17,7 +17,7 @@ func.func @test_cse_with_discardable_attr(%arg0: tensor<10x10xf32>) -> tensor<10
 
 // -----
 
-// RUN: onnx-mlir-opt --set-discardable-attr --attr-names=onnx_node_name --cse %s -split-input-file | FileCheck %s --check-prefix=NOCSE
+// RUN: onnx-mlir-opt --convert-attr-to-discardable --attr-names=onnx_node_name --cse %s -split-input-file | FileCheck %s --check-prefix=NOCSE
 
 // COM: Test that CSE does NOT eliminate operations with non-discardable attributes
 // COM: Two Sqrt operations with different unknown_attr should NOT be merged by CSE

@@ -67,8 +67,8 @@ add_onnx_mlir_library(BufferOMPLoopHoist
   OMOptionUtils
   )
 
-add_onnx_mlir_library(OMSetDiscardableAttr
-  SetDiscardableAttr.cpp
+add_onnx_mlir_library(OMConvertAttrToDiscardable
+  ConvertAttrToDiscardable.cpp
 
   DEPENDS
   OMTransformsPassIncGen
