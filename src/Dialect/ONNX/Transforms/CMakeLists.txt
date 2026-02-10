@@ -90,6 +90,7 @@ add_onnx_mlir_library(OMONNXRewrite
   xmc/ReplaceNDimTransposePass.cpp
   xmc/TransferOpShapeTo4dPass.cpp
   xmc/TransferOp1dToOp2dPass.cpp
+  xmc/TransferScaleToDwConv2dPass.cpp
   xmc/ONNXTransposeOptimizationPass.cpp
   xmc/ONNXTransposeOptimizationAxisChangePatterns.cpp
   xmc/ConvWithBiasPass.cpp
