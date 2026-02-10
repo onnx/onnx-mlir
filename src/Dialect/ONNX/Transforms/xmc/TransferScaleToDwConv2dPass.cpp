@@ -102,7 +102,8 @@ Value reshapeOutputToOriginal(PatternRewriter &rewriter, Location loc,
       .getReshaped();
 }
 
-/// Reshape 1D weight [C] to 4D for xfe.Conv: [C] → [C, 1, 1, 1] (NHWC depthwise).
+/// Reshape 1D weight [C] to 4D for xfe.Conv: [C] → [C, 1, 1, 1] (NHWC
+/// depthwise).
 Value reshapeWeightTo4D(PatternRewriter &rewriter, Location loc, Value weight) {
   auto weightType = cast<RankedTensorType>(weight.getType());
   auto weightShape = weightType.getShape();
