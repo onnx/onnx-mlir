@@ -26,8 +26,8 @@ namespace {
 struct MergeNestedConcatPattern : public OpRewritePattern<ONNXConcatOp> {
   using OpRewritePattern<ONNXConcatOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXConcatOp concatOp,
-      PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXConcatOp concatOp, PatternRewriter &rewriter) const override {
     auto axisAttr = concatOp.getAxis();
     if (!axisAttr)
       return rewriter.notifyMatchFailure(concatOp, "No axis attribute");
@@ -200,8 +200,8 @@ struct SplitDuplicateInputsPattern : public RewritePattern {
 
       valueList.push_back(uniqueInput);
       for (unsigned i = 1; i < count; i++) {
-        Value reshapeResult = insertIdentityReshapeAfterProducer(rewriter,
-            uniqueInput);
+        Value reshapeResult =
+            insertIdentityReshapeAfterProducer(rewriter, uniqueInput);
         if (!reshapeResult)
           return failure();
         valueList.push_back(reshapeResult);
@@ -258,4 +258,3 @@ std::unique_ptr<mlir::Pass> createReplaceAdjacentOpPass() {
 }
 
 } // namespace onnx_mlir
-

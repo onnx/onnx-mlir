@@ -31,16 +31,16 @@ static bool isFixMatch(ONNXConcatOp concatOp) {
   if (!outputType)
     return false;
 
-  auto outputQType = dyn_cast<quant::UniformQuantizedType>(
-      outputType.getElementType());
+  auto outputQType =
+      dyn_cast<quant::UniformQuantizedType>(outputType.getElementType());
 
   for (Value input : concatOp.getInputs()) {
     auto inputType = dyn_cast<ShapedType>(input.getType());
     if (!inputType)
       return false;
 
-    auto inputQType = dyn_cast<quant::UniformQuantizedType>(
-        inputType.getElementType());
+    auto inputQType =
+        dyn_cast<quant::UniformQuantizedType>(inputType.getElementType());
 
     if (outputQType && inputQType) {
       if (outputQType.getScale() != inputQType.getScale() ||
@@ -54,8 +54,8 @@ static bool isFixMatch(ONNXConcatOp concatOp) {
 }
 
 // Create new input list: [innerConcatOutput] + (outerInputs - innerInputs)
-static SmallVector<Value> createNewConcatInputs(ValueRange outerInputs,
-    ValueRange innerInputs, Value innerConcatOutput) {
+static SmallVector<Value> createNewConcatInputs(
+    ValueRange outerInputs, ValueRange innerInputs, Value innerConcatOutput) {
   SmallVector<Value> newInputs;
   newInputs.push_back(innerConcatOutput);
 
@@ -70,8 +70,8 @@ static SmallVector<Value> createNewConcatInputs(ValueRange outerInputs,
 struct ReplaceContainedConcatPattern : public OpRewritePattern<ONNXConcatOp> {
   using OpRewritePattern<ONNXConcatOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXConcatOp innerConcatOp,
-      PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXConcatOp innerConcatOp, PatternRewriter &rewriter) const override {
     if (!isFixMatch(innerConcatOp))
       return failure();
 
@@ -131,8 +131,8 @@ struct ReplaceContainedConcatPattern : public OpRewritePattern<ONNXConcatOp> {
       auto si64Type =
           IntegerType::get(rewriter.getContext(), 64, IntegerType::Signed);
       auto axisAttr = IntegerAttr::get(si64Type, innerAxis);
-      auto newConcatOp = rewriter.create<ONNXConcatOp>(outerConcatOp.getLoc(),
-          outerConcatOp.getType(), newInputs, axisAttr);
+      auto newConcatOp = rewriter.create<ONNXConcatOp>(
+          outerConcatOp.getLoc(), outerConcatOp.getType(), newInputs, axisAttr);
 
       rewriter.replaceOp(outerConcatOp, newConcatOp.getResult());
       return success();
@@ -146,8 +146,9 @@ struct ReplaceContainedConcatPattern : public OpRewritePattern<ONNXConcatOp> {
 
 namespace onnx_mlir {
 
-struct ReplaceContainedConcatPass : public PassWrapper<ReplaceContainedConcatPass,
-                                     OperationPass<func::FuncOp>> {
+struct ReplaceContainedConcatPass
+    : public PassWrapper<ReplaceContainedConcatPass,
+          OperationPass<func::FuncOp>> {
   StringRef getArgument() const override { return "replace-contained-concat"; }
   StringRef getDescription() const override {
     return "Optimize concat operations by reusing subset concat results";
@@ -162,9 +163,8 @@ struct ReplaceContainedConcatPass : public PassWrapper<ReplaceContainedConcatPas
     config.maxIterations = 10;
     config.useTopDownTraversal = false;
 
-    if (failed(
-            applyPatternsAndFoldGreedily(getOperation(), std::move(patterns),
-                config))) {
+    if (failed(applyPatternsAndFoldGreedily(
+            getOperation(), std::move(patterns), config))) {
       signalPassFailure();
     }
   }
@@ -175,4 +175,3 @@ std::unique_ptr<mlir::Pass> createReplaceContainedConcatPass() {
 }
 
 } // namespace onnx_mlir
-

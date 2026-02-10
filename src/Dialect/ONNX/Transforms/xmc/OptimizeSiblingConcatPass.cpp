@@ -21,9 +21,8 @@ namespace {
 /// Create a dense constant tensor<i64> (1D) suitable for ONNX Slice parameters.
 static Value createI64ConstTensor(PatternRewriter &rewriter, Location loc,
     const llvm::ArrayRef<int64_t> &values) {
-  auto tensorType =
-      RankedTensorType::get({static_cast<int64_t>(values.size())},
-          rewriter.getI64Type());
+  auto tensorType = RankedTensorType::get(
+      {static_cast<int64_t>(values.size())}, rewriter.getI64Type());
   auto denseAttr = DenseElementsAttr::get(tensorType, values);
   return rewriter.create<ONNXConstantOp>(loc, tensorType,
       /*sparse_value=*/Attribute(),
@@ -54,8 +53,8 @@ static bool checkEliminationOpportunity(ONNXConcatOp concatOp) {
 struct OptimizeSiblingConcatPattern : public OpRewritePattern<ONNXConcatOp> {
   using OpRewritePattern<ONNXConcatOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXConcatOp concatOp,
-      PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXConcatOp concatOp, PatternRewriter &rewriter) const override {
     Location loc = concatOp.getLoc();
 
     auto inputs = concatOp.getInputs();
@@ -184,12 +183,12 @@ struct OptimizeSiblingConcatPattern : public OpRewritePattern<ONNXConcatOp> {
 
     SmallVector<int64_t> begin1{0, 0, 0, 0};
     begin1[axis] = input1AxisSize;
-    SmallVector<int64_t> end1(targetOutTy.getShape().begin(),
-        targetOutTy.getShape().end());
+    SmallVector<int64_t> end1(
+        targetOutTy.getShape().begin(), targetOutTy.getShape().end());
 
     SmallVector<int64_t> begin2{0, 0, 0, 0};
-    SmallVector<int64_t> end2(targetOutTy.getShape().begin(),
-        targetOutTy.getShape().end());
+    SmallVector<int64_t> end2(
+        targetOutTy.getShape().begin(), targetOutTy.getShape().end());
     end2[axis] = input1AxisSize;
 
     Value starts1 = createI64ConstTensor(rewriter, loc, begin1);
@@ -199,10 +198,10 @@ struct OptimizeSiblingConcatPattern : public OpRewritePattern<ONNXConcatOp> {
     Value starts2 = createI64ConstTensor(rewriter, loc, begin2);
     Value ends2 = createI64ConstTensor(rewriter, loc, end2);
 
-    auto slice1 = rewriter.create<ONNXSliceOp>(loc, in0Ty,
-        swappedConcat.getResult(), starts1, ends1, axes, steps);
-    auto slice2 = rewriter.create<ONNXSliceOp>(loc, in1Ty,
-        swappedConcat.getResult(), starts2, ends2, axes, steps);
+    auto slice1 = rewriter.create<ONNXSliceOp>(
+        loc, in0Ty, swappedConcat.getResult(), starts1, ends1, axes, steps);
+    auto slice2 = rewriter.create<ONNXSliceOp>(
+        loc, in1Ty, swappedConcat.getResult(), starts2, ends2, axes, steps);
 
     auto reconcat = rewriter.create<ONNXConcatOp>(loc, targetOutTy,
         ValueRange{slice1.getOutput(), slice2.getOutput()}, axisAttr);
@@ -216,9 +215,8 @@ struct OptimizeSiblingConcatPattern : public OpRewritePattern<ONNXConcatOp> {
 
 namespace onnx_mlir {
 
-struct OptimizeSiblingConcatPass
-    : public PassWrapper<OptimizeSiblingConcatPass,
-          OperationPass<func::FuncOp>> {
+struct OptimizeSiblingConcatPass : public PassWrapper<OptimizeSiblingConcatPass,
+                                       OperationPass<func::FuncOp>> {
   StringRef getArgument() const override { return "optimize-sibling-concat"; }
   StringRef getDescription() const override {
     return "Optimize sibling 2-input concat ops that share one input by "
@@ -235,9 +233,8 @@ struct OptimizeSiblingConcatPass
     config.maxIterations = 10;
     config.useTopDownTraversal = false;
 
-    if (failed(
-            applyPatternsAndFoldGreedily(getOperation(), std::move(patterns),
-                config)))
+    if (failed(applyPatternsAndFoldGreedily(
+            getOperation(), std::move(patterns), config)))
       signalPassFailure();
   }
 };
@@ -247,4 +244,3 @@ std::unique_ptr<mlir::Pass> createOptimizeSiblingConcatPass() {
 }
 
 } // namespace onnx_mlir
-

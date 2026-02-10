@@ -2,9 +2,9 @@
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Quant/IR/QuantTypes.h"
-#include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
@@ -184,8 +184,7 @@ struct TransferSpaceToDepthToConv2dPattern : public RewritePattern {
           RankedTensorType::get(biasShape, rewriter.getI8Type());
       auto biasAttr = DenseIntElementsAttr::get(
           biasAttrType, llvm::ArrayRef<int8_t>(biasData));
-      biasConst =
-          createOnnxConstant(rewriter, loc, biasTensorType, biasAttr);
+      biasConst = createOnnxConstant(rewriter, loc, biasTensorType, biasAttr);
     } else {
       // Non-quant fallback: bias matches input element type (zeros).
       Type inputElemTy = inputType.getElementType();
