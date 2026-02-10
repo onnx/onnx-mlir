@@ -72,6 +72,12 @@ void addXmcMlirPasses(mlir::PassManager &pm, OnnxToMlirOptions opts) {
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createTransferOpShapeTo4dPass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createBatchReductionToReshapeReductionPass());
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceAdjacentOpPass());
+  pm.addNestedPass<func::FuncOp>(
+      onnx_mlir::createRemovePairsAndMoveDownReshapePass());
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceContainedConcatPass());
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createOptimizeSiblingConcatPass());
+
   pm.addNestedPass<func::FuncOp>(mlir::createCanonicalizerPass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createReplaceHsigmoidAndHswishPass());
