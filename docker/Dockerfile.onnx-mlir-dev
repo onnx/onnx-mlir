@@ -27,7 +27,8 @@ RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
     # /usr/lib)
     # ubi9 doesn't have this problem and --prefix=/usr will install
     # into /usr/lib64 (default is /usr/lib)
-    && CC=clang CXX=clang++ CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib" \
+    && CC=clang CXX=clang++ \
+       CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib -DONNX_GEN_PB_TYPE_STUBS=OFF" \
        python3 -m pip install . --prefix=/usr
 
 ARG NPROC=4
