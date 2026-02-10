@@ -12,6 +12,7 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 #include "src/Pass/Passes.hpp"
 
 #include "llvm/ADT/SmallVector.h"
@@ -59,11 +60,17 @@ Value createConstantI64Array(
 }
 
 /// Multiply all dimensions except those specified in excludeDims
+/// Returns -1 if any dimension is dynamic (< 0)
 int64_t mulWithoutDims(
     ArrayRef<int64_t> shape, const std::set<int64_t> &excludeDims) {
   int64_t result = 1;
   for (size_t i = 0; i < shape.size(); ++i) {
     if (excludeDims.find(i) == excludeDims.end()) {
+      if (shape[i] < 0) {
+        LLVM_DEBUG(llvm::dbgs() << "Dynamic dimension at index " << i
+                                << ", cannot compute static product\n");
+        return -1; // Signal error - dynamic dimension encountered
+      }
       result *= shape[i];
     }
   }
@@ -72,6 +79,12 @@ int64_t mulWithoutDims(
 
 /// Simple integer decomposition into prime factors
 SmallVector<int64_t> integerDecomposition(int64_t n) {
+  if (n <= 0) {
+    LLVM_DEBUG(llvm::dbgs() << "ERROR: Invalid input to integerDecomposition: "
+                            << n << " (must be > 0)\n");
+    return {1};
+  }
+
   SmallVector<int64_t> factors;
   for (int64_t d = 2; d * d <= n; ++d) {
     while (n % d == 0) {
@@ -82,29 +95,52 @@ SmallVector<int64_t> integerDecomposition(int64_t n) {
   if (n > 1) {
     factors.push_back(n);
   }
+
   return factors;
 }
 
-/// Check if all inputs are already 4D with batch=1
+/// Check if all tensor inputs are already 4D with batch=1 (optional/none inputs
+/// ignored)
 bool allInputsAlready4D(ArrayRef<Value> inputs) {
   return std::all_of(inputs.begin(), inputs.end(), [](Value input) {
+    if (isa<NoneType>(input.getType()))
+      return true;
     auto shape = getShapeFromType(input.getType());
     return shape.size() == 4 && shape.front() == 1;
   });
 }
 
 /// Detect which dimensions differ between inputs and output (broadcast dims)
-/// Matches original: assumes same rank, uses input's shape.size() for loop
+/// Returns empty set and sets hasError=true if rank mismatch detected
 std::set<int64_t> detectBroadcastDims(
-    ArrayRef<Value> inputs, ArrayRef<int64_t> outputShape) {
+    ArrayRef<Value> inputs, ArrayRef<int64_t> outputShape, bool &hasError) {
   std::set<int64_t> broadcastDims;
+  hasError = false;
 
-  for (Value input : inputs) {
+  for (size_t inputIdx = 0; inputIdx < inputs.size(); ++inputIdx) {
+    Value input = inputs[inputIdx];
     auto inputShape = getShapeFromType(input.getType());
+
+    // Skip scalars (rank-0 tensors) or unknown shapes - they don't contribute
+    // to broadcast detection
     if (inputShape.empty())
       continue;
 
-    // Original assumes same size - use input's size for loop bound
+    // Skip scalar-like tensors (e.g., [1]) - treat them as broadcastable
+    // scalars
+    if (inputShape.size() == 1 && inputShape[0] == 1)
+      continue;
+
+    // Rank mismatch is an error - cannot reliably detect broadcast dims
+    if (inputShape.size() != outputShape.size()) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "Rank mismatch: Input " << inputIdx << " rank ("
+                 << inputShape.size() << ") != output rank ("
+                 << outputShape.size() << "), cannot handle\n");
+      hasError = true;
+      return {};
+    }
+
     for (size_t idx = 0; idx < inputShape.size(); ++idx) {
       if (inputShape[idx] != outputShape[idx]) {
         broadcastDims.insert(idx);
@@ -117,7 +153,7 @@ std::set<int64_t> detectBroadcastDims(
 
 /// Compute broadcast-aware 4D shape for an input tensor
 /// Takes into account which dimensions are broadcast dimensions
-/// Returns empty vector if input should be kept unchanged
+/// Returns empty vector on error (dynamic dimensions or size mismatch)
 SmallVector<int64_t> computeBroadcastAware4DShape(
     ArrayRef<int64_t> inputShape, const std::set<int64_t> &broadcastDims) {
   SmallVector<int64_t> shape(inputShape.begin(), inputShape.end());
@@ -140,6 +176,11 @@ SmallVector<int64_t> computeBroadcastAware4DShape(
     C = shape.back();
     int64_t remainder =
         mulWithoutDims(shape, {static_cast<int64_t>(shapeSize - 1)});
+    if (remainder < 0) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "Cannot compute 4D shape: dynamic dimensions present\n");
+      return {}; // Return empty to signal error
+    }
     double hCandidate = std::ceil(std::sqrt(static_cast<double>(remainder)));
     auto factors = integerDecomposition(remainder);
     std::sort(factors.begin(), factors.end());
@@ -159,10 +200,21 @@ SmallVector<int64_t> computeBroadcastAware4DShape(
       // Broadcast at dim 0
       H = shape[0];
       W = mulWithoutDims(shape, {0, shapeSize - 1});
+      if (W < 0) {
+        LLVM_DEBUG(llvm::dbgs()
+                   << "Cannot compute 4D shape: dynamic dimensions present\n");
+        return {}; // Return empty to signal error
+      }
       C = shape.back();
     } else {
       // Broadcast at middle dimension
       for (int64_t idx = 0; idx < shapeSize; ++idx) {
+        if (shape[idx] < 0) {
+          LLVM_DEBUG(llvm::dbgs()
+                     << "Cannot compute 4D shape: dynamic dimension at index "
+                     << idx << "\n");
+          return {}; // Return empty to signal error
+        }
         if (idx < curDim) {
           H *= shape[idx];
         } else if (idx == curDim) {
@@ -172,6 +224,19 @@ SmallVector<int64_t> computeBroadcastAware4DShape(
         }
       }
     }
+  }
+
+  // Verify product matches original
+  int64_t original_size = 1;
+  for (auto dim : shape) {
+    original_size *= dim;
+  }
+  int64_t new_size = N * H * W * C;
+  if (original_size != new_size) {
+    LLVM_DEBUG(llvm::dbgs() << "Size mismatch! Original=" << original_size
+                            << ", New=" << new_size
+                            << " - transformation would be incorrect\n");
+    return {}; // Signal error - don't create invalid IR
   }
 
   return {N, H, W, C};
@@ -188,10 +253,17 @@ public:
 
   LogicalResult matchAndRewrite(
       OpTy op, PatternRewriter &rewriter) const override {
+    LLVM_DEBUG(llvm::dbgs() << "Trying to match " << op->getName() << "\n");
+
     auto outputShape = getShapeFromType(op.getResult().getType());
     Type elementType = getElementType(op.getResult().getType());
 
     if (outputShape.empty() || !elementType) {
+      return failure();
+    }
+
+    // Skip if output is already 4D with batch=1
+    if (outputShape.size() == 4 && outputShape.front() == 1) {
       return failure();
     }
 
@@ -205,10 +277,20 @@ public:
     }
 
     // Detect broadcast dimensions
-    std::set<int64_t> broadcastDims = detectBroadcastDims(inputs, outputShape);
+    bool hasError = false;
+    std::set<int64_t> broadcastDims =
+        detectBroadcastDims(inputs, outputShape, hasError);
+    if (hasError) {
+      LLVM_DEBUG(
+          llvm::dbgs()
+          << "SKIP: Cannot detect broadcast dims due to rank mismatch\n");
+      return failure();
+    }
 
     // Guard: current logic only supports at most one broadcast dimension.
     if (broadcastDims.size() > 1) {
+      LLVM_DEBUG(llvm::dbgs() << "SKIP: More than 1 broadcast dimension ("
+                              << broadcastDims.size() << ")\n");
       return failure();
     }
 
@@ -218,24 +300,31 @@ public:
     SmallVector<int64_t> outputShape4D =
         computeBroadcastAware4DShape(outputShape, broadcastDims);
     if (outputShape4D.empty()) {
-      // Cannot handle this broadcast pattern (>1 broadcast dims)
-      return failure();
-    }
-
-    // If output shape is unchanged, skip
-    if (outputShape4D.size() == outputShape.size() &&
-        std::equal(
-            outputShape4D.begin(), outputShape4D.end(), outputShape.begin())) {
       return failure();
     }
 
     // Reshape all inputs to their respective 4D shapes
     SmallVector<Value> reshapedInputs;
-    for (Value input : inputs) {
+    for (size_t i = 0; i < inputs.size(); ++i) {
+      Value input = inputs[i];
+      // Optional inputs (e.g. type none) pass through as-is.
+      if (isa<NoneType>(input.getType())) {
+        reshapedInputs.push_back(input);
+        continue;
+      }
       auto inputShape = getShapeFromType(input.getType());
       Type inputElementType = getElementType(input.getType());
 
-      if (inputShape.empty() || !inputElementType) {
+      // If input shape differs from output shape (e.g. scalar for broadcast),
+      // pass through as-is.
+      if (inputShape.size() != outputShape.size() ||
+          !std::equal(
+              inputShape.begin(), inputShape.end(), outputShape.begin())) {
+        reshapedInputs.push_back(input);
+        continue;
+      }
+
+      if (!inputElementType) {
         return failure();
       }
 
@@ -243,9 +332,9 @@ public:
           computeBroadcastAware4DShape(inputShape, broadcastDims);
 
       if (inputShape4D.empty()) {
-        // Cannot reshape this input (>1 broadcast dims) - keep unchanged
-        reshapedInputs.push_back(input);
-        continue;
+        LLVM_DEBUG(llvm::dbgs()
+                   << "SKIP: Cannot compute 4D shape for input " << i << "\n");
+        return failure();
       }
 
       // Check if reshape is actually needed
@@ -276,6 +365,8 @@ public:
         loc, outputReshapeType, newOp->getResult(0), outputShapeConst);
 
     rewriter.replaceOp(op, outputReshapeOp.getResult());
+    LLVM_DEBUG(
+        llvm::dbgs() << "SUCCESS: Transformed " << op->getName() << " to 4D\n");
     return success();
   }
 };
@@ -315,11 +406,12 @@ struct TransferOpShapeTo4dPass
     patterns.add<TransferEltwiseTo4DPattern<ONNXLeakyReluOp>>(ctx);
     patterns.add<TransferEltwiseTo4DPattern<ONNXEluOp>>(ctx);
     patterns.add<TransferEltwiseTo4DPattern<ONNXNegOp>>(ctx);
-    patterns.add<TransferEltwiseTo4DPattern<ONNXClipOp>>(ctx);
 
     GreedyRewriteConfig config;
     config.strictMode = GreedyRewriteStrictness::ExistingAndNewOps;
 
+    ResultNamesUpdater rnUpdater;
+    config.listener = &rnUpdater;
     if (failed(applyPatternsGreedily(
             getOperation(), std::move(patterns), config))) {
       signalPassFailure();

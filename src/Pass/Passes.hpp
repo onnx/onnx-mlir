@@ -194,7 +194,19 @@ std::unique_ptr<mlir::Pass> createTransfer5dStridedSliceTo4d();
 /// Pass for transferring SpaceToDepth patterns to Conv2D.
 std::unique_ptr<mlir::Pass> createTransferSpaceToDepthToConv2dPass();
 
-/// Pass for merging BatchNormalization parameters into Conv (XMC).
+/// Pass for merging nested concats and splitting duplicate inputs.
+std::unique_ptr<mlir::Pass> createReplaceAdjacentOpPass();
+
+/// Pass for optimizing contained concat patterns.
+std::unique_ptr<mlir::Pass> createReplaceContainedConcatPass();
+
+/// Pass for optimizing sibling concats by swapping and slicing.
+std::unique_ptr<mlir::Pass> createOptimizeSiblingConcatPass();
+
+/// Pass for removing paired reshapes across small qlinear chains.
+std::unique_ptr<mlir::Pass> createRemovePairsAndMoveDownReshapePass();
+
+/// Pass for merging BatchNormalization parameters into Conv.
 std::unique_ptr<mlir::Pass> createMergeBatchnormToConvPass();
 
 /// Pass for converting batch ReduceSum operations to reshape-optimized
@@ -221,6 +233,9 @@ std::unique_ptr<mlir::Pass> createTransferOpShapeTo4dPass();
 
 /// Pass for transferring 1D operations to 2D operations.
 std::unique_ptr<mlir::Pass> createTransferOp1dToOp2dPass();
+
+/// Pass for transferring Scale operations to DepthwiseConv2D operations.
+std::unique_ptr<mlir::Pass> createTransferScaleToDwConv2dPass();
 
 /// Pass for verifying Onnx ops before lowering to Krnl
 std::unique_ptr<mlir::Pass> createONNXPreKrnlVerifyPass();

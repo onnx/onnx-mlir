@@ -27,10 +27,9 @@ func.func @test_add_3d_same_shape(%arg0: tensor<2x3x4x!qtype1>, %arg1: tensor<2x
 
 // ============================================================================
 // Test 2: Element-wise Mul with broadcasting - 3D x scalar broadcast
-// Input1: [2,3,4], Input2: [1] (scalar broadcast)
+// Input1: [2,3,4] (same as output) -> reshaped to [1,2,3,4]
+// Input2: [1] (scalar, shape != output) -> passed through as-is 
 // Output: [2,3,4] -> [1,2,3,4]
-// Input1 reshaped to [1,2,3,4], Input2 reshaped to [1,1,1,1]
-// Verifies quant type is preserved through reshape and mul with broadcast
 // ============================================================================
 func.func @test_mul_broadcast_scalar(%arg0: tensor<2x3x4x!qtype3>, %arg1: tensor<1x!qtype3>) -> tensor<2x3x4x!qtype3> {
   %0 = "onnx.Mul"(%arg0, %arg1) : (tensor<2x3x4x!qtype3>, tensor<1x!qtype3>) -> tensor<2x3x4x!qtype3>
@@ -39,10 +38,8 @@ func.func @test_mul_broadcast_scalar(%arg0: tensor<2x3x4x!qtype3>, %arg1: tensor
 // CHECK-LABEL: func.func @test_mul_broadcast_scalar
 // CHECK-DAG: %[[OUT_SHAPE:.*]] = onnx.Constant dense<[2, 3, 4]> : tensor<3xi64>
 // CHECK-DAG: %[[SHAPE4D:.*]] = onnx.Constant dense<[1, 2, 3, 4]> : tensor<4xi64>
-// CHECK-DAG: %[[SCALAR_SHAPE:.*]] = onnx.Constant dense<1> : tensor<4xi64>
 // CHECK: %[[R1:.*]] = "onnx.Reshape"(%arg0, %[[SHAPE4D]]) {{.*}} : (tensor<2x3x4x!quant.uniform<i16:f32, 1.250000e-01>>, tensor<4xi64>) -> tensor<1x2x3x4x!quant.uniform<i16:f32, 1.250000e-01>>
-// CHECK: %[[R2:.*]] = "onnx.Reshape"(%arg1, %[[SCALAR_SHAPE]]) {{.*}} : (tensor<1x!quant.uniform<i16:f32, 1.250000e-01>>, tensor<4xi64>) -> tensor<1x1x1x1x!quant.uniform<i16:f32, 1.250000e-01>>
-// CHECK: %[[MUL:.*]] = "onnx.Mul"(%[[R1]], %[[R2]]) : (tensor<1x2x3x4x!quant.uniform<i16:f32, 1.250000e-01>>, tensor<1x1x1x1x!quant.uniform<i16:f32, 1.250000e-01>>) -> tensor<1x2x3x4x!quant.uniform<i16:f32, 1.250000e-01>>
+// CHECK: %[[MUL:.*]] = "onnx.Mul"(%[[R1]], %arg1) : (tensor<1x2x3x4x!quant.uniform<i16:f32, 1.250000e-01>>, tensor<1x!quant.uniform<i16:f32, 1.250000e-01>>) -> tensor<1x2x3x4x!quant.uniform<i16:f32, 1.250000e-01>>
 // CHECK: %[[OUT:.*]] = "onnx.Reshape"(%[[MUL]], %[[OUT_SHAPE]]) {{.*}} : (tensor<1x2x3x4x!quant.uniform<i16:f32, 1.250000e-01>>, tensor<3xi64>) -> tensor<2x3x4x!quant.uniform<i16:f32, 1.250000e-01>>
 // CHECK: return %[[OUT]]
 
