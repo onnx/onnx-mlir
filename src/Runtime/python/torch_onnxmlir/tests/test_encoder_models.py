@@ -4,13 +4,13 @@ import logging
 import time
 
 from transformers import AutoModel, AutoTokenizer
-import torch_onnxmlir 
+import torch_onnxmlir
 
 logging.basicConfig(level=logging.INFO)  # Or INFO, WARNING, etc.
 
 # model_path = "google-bert/bert-base-uncased"
 model_path = "ibm-granite/granite-embedding-30m-english"
-#model_path = "ibm-granite/granite-embedding-278m-multilingual"
+# model_path = "ibm-granite/granite-embedding-278m-multilingual"
 model = AutoModel.from_pretrained(model_path)
 tokenizer = AutoTokenizer.from_pretrained(model_path)
 
@@ -53,20 +53,20 @@ print("text2: (padding to 256)", text2)
 
 start = time.time()
 emb1 = get_cls_embedding(text1_tok)
-print(f"[pytorch-cpu], embedding text1 took", (time.time() - start)*1000, "ms")
+print(f"[pytorch-cpu], embedding text1 took", (time.time() - start) * 1000, "ms")
 
 start = time.time()
 emb2 = get_cls_embedding(text2_tok)
-print(f"[pytorch-cpu], embedding text2 took", (time.time() - start)*1000, "ms")
+print(f"[pytorch-cpu], embedding text2 took", (time.time() - start) * 1000, "ms")
 similarity = torch.nn.functional.cosine_similarity(emb1, emb2)
 
 start = time.time()
 emb1_onnxmlir = get_cls_embedding_onnxmlir(text1_tok)
-print(f"[onnxmlir-zaiu], embedding text1 took", (time.time() - start)*1000, "ms")
+print(f"[onnxmlir-zaiu], embedding text1 took", (time.time() - start) * 1000, "ms")
 
 start = time.time()
 emb2_onnxmlir = get_cls_embedding_onnxmlir(text2_tok)
-print(f"[onnxmlir-zaiu], embedding text2 took", (time.time() - start)*1000, "ms")
+print(f"[onnxmlir-zaiu], embedding text2 took", (time.time() - start) * 1000, "ms")
 
 similarity_onnxmlir = torch.nn.functional.cosine_similarity(
     emb1_onnxmlir, emb2_onnxmlir
