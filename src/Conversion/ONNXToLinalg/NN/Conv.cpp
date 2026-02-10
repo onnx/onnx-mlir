@@ -17,7 +17,6 @@
 //   - dilation > 1
 //   - bias
 //   - group > 1
-//   - dynamic shapes
 //
 //===----------------------------------------------------------------------===//
 
@@ -28,12 +27,61 @@
 #include "mlir/Transforms/DialectConversion.h"
 
 #include "src/Conversion/ONNXToLinalg/ONNXToLinalgCommon.hpp"
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
+#include "src/Dialect/Mlir/IndexExprBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
 
 namespace onnx_mlir {
+
+// IndexExprBuilder for Linalg conversion
+// Uses tensor.dim to get dynamic shape values
+struct IndexExprBuilderForLinalg : IndexExprBuilder {
+  IndexExprBuilderForLinalg(mlir::Location loc) : IndexExprBuilder(loc) {}
+  IndexExprBuilderForLinalg(mlir::OpBuilder &b, mlir::Location loc)
+      : IndexExprBuilder(b, loc) {}
+  IndexExprBuilderForLinalg(const DialectBuilder &db) : IndexExprBuilder(db) {}
+  virtual ~IndexExprBuilderForLinalg() {}
+
+  ElementsAttr getConst(Value value) override {
+    // Try to get constant from ONNX operations
+    if (auto constOp = value.getDefiningOp<ONNXConstantOp>()) {
+      if (constOp.getValue().has_value())
+        return mlir::dyn_cast<DenseElementsAttr>(constOp.getValueAttr());
+    }
+    // Try to get constant from arith operations
+    if (auto constOp = value.getDefiningOp<arith::ConstantOp>()) {
+      return mlir::dyn_cast<DenseElementsAttr>(constOp.getValue());
+    }
+    return nullptr;
+  }
+
+  Value getVal(Value intArrayVal, uint64_t i) override {
+    // For Linalg, we can extract values from tensor using tensor.extract
+    // This is a simplified version - may need enhancement for complex cases
+    MathBuilder createMath(*this);
+    Value index = createMath.constantIndex(i);
+    Type elemType = getElementTypeOrSelf(intArrayVal.getType());
+    if (!mlir::isa<IndexType>(elemType)) {
+      // Cast to index if needed
+      Value extracted =
+          tensor::ExtractOp::create(b(), loc(), intArrayVal, ValueRange{index});
+      return createMath.castToIndex(extracted);
+    }
+    return tensor::ExtractOp::create(
+        b(), loc(), intArrayVal, ValueRange{index});
+  }
+
+  Value getShapeVal(Value tensorOrMemrefValue, uint64_t i) override {
+    // Use tensor.dim to get dynamic dimension
+    MathBuilder createMath(*this);
+    Value dimIndex = createMath.constantIndex(i);
+    return tensor::DimOp::create(b(), loc(), tensorOrMemrefValue, dimIndex);
+  }
+};
 
 struct ONNXConvOpLoweringToLinalg : public OpRewritePattern<ONNXConvOp> {
   ONNXConvOpLoweringToLinalg(
@@ -143,13 +191,52 @@ struct ONNXConvOpLoweringToLinalg : public OpRewritePattern<ONNXConvOp> {
           convOp, "expected ranked output tensor type");
     }
 
-    // For now, use static shapes from the output type
-    // TODO: Handle dynamic shapes properly with ShapeHelper
-    ArrayRef<int64_t> outputShape = outputTensorType.getShape();
+    // Use ShapeHelper to compute output shape (supports dynamic shapes)
+    IndexExprScope scope(&rewriter, loc);
+    IndexExprBuilderForLinalg createLinalgIE(rewriter, loc);
+    ValueRange operands = adaptor.getOperands();
+    ONNXConvOpShapeHelper shapeHelper(
+        convOp.getOperation(), operands, &createLinalgIE);
+    if (failed(shapeHelper.computeShape())) {
+      return rewriter.notifyMatchFailure(
+          convOp, "failed to compute output shape");
+    }
 
-    // Create initialization tensor
-    Value emptyTensor = tensor::EmptyOp::create(
-        rewriter, loc, outputShape, outputTensorType.getElementType());
+    // Get output dimensions from ShapeHelper
+    DimsExpr outputDims = shapeHelper.getOutputDims();
+    uint64_t outputRank = outputDims.size();
+
+    // Extract dynamic sizes for tensor.empty
+    SmallVector<Value> dynamicSizes;
+    for (uint64_t i = 0; i < outputRank; ++i) {
+      if (outputTensorType.isDynamicDim(i)) {
+        dynamicSizes.push_back(outputDims[i].getValue());
+      }
+    }
+
+    // Create initialization tensor with dynamic shape support
+    Value emptyTensor;
+    if (dynamicSizes.empty()) {
+      // Static shape case
+      ArrayRef<int64_t> outputShape = outputTensorType.getShape();
+      emptyTensor = tensor::EmptyOp::create(
+          rewriter, loc, outputShape, outputTensorType.getElementType());
+    } else {
+      // Dynamic shape case - use tensor.empty with dynamic sizes
+      // tensor::EmptyOp::create can accept dynamic sizes as additional operands
+      SmallVector<OpFoldResult> mixedSizes;
+      uint64_t dynamicIdx = 0;
+      for (uint64_t i = 0; i < outputRank; ++i) {
+        if (outputTensorType.isDynamicDim(i)) {
+          mixedSizes.push_back(dynamicSizes[dynamicIdx++]);
+        } else {
+          mixedSizes.push_back(
+              rewriter.getIndexAttr(outputTensorType.getDimSize(i)));
+        }
+      }
+      emptyTensor = tensor::EmptyOp::create(
+          rewriter, loc, mixedSizes, outputTensorType.getElementType());
+    }
 
     // Create zero constant for initialization
     Value zero = arith::ConstantOp::create(rewriter, loc,
