@@ -301,8 +301,11 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
         pm.addPass(zlow::createZLowRewritePass());
         // Late generation of code for stick/unstick, needed to be after a
         // ZLowRewrite pass.
-        if (!nnpaDisableCompilerStickUnstick)
-          pm.addPass(zlow::createZLowStickExpansionPass(enableParallel));
+        bool expansion = !nnpaDisableCompilerStickUnstick;
+        bool allocNormalization = isCompatibleWithNNPALevel(NNPALevel::M15);
+        if (expansion || allocNormalization)
+          pm.addPass(zlow::createZLowStickOptimizationPass(
+              expansion, allocNormalization, enableParallel));
         pm.addPass(mlir::createCanonicalizerPass());
         // Normalize MemRefs.
         normalizeMemRefsPasses(pm);
