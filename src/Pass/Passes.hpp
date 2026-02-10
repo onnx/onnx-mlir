@@ -234,6 +234,9 @@ std::unique_ptr<mlir::Pass> createTransferOpShapeTo4dPass();
 /// Pass for transferring 1D operations to 2D operations.
 std::unique_ptr<mlir::Pass> createTransferOp1dToOp2dPass();
 
+/// Pass for transferring Scale operations to DepthwiseConv2D operations.
+std::unique_ptr<mlir::Pass> createTransferScaleToDwConv2dPass();
+
 /// Pass for verifying Onnx ops before lowering to Krnl
 std::unique_ptr<mlir::Pass> createONNXPreKrnlVerifyPass();
 
