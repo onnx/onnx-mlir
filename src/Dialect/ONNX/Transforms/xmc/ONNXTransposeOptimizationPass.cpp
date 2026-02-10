@@ -63,20 +63,29 @@ SmallVector<int64_t> composePermutations(
   return result;
 }
 
-/// Apply permutation to shape: result[i] = shape[perm[i]]
+/// Apply permutation to shape: result[i] = shape[perm[i]].
+/// If shape has fewer dimensions than perm, it is left-padded with 1s
+/// (matching ONNX right-aligned broadcast semantics) before permuting.
 SmallVector<int64_t> permuteShape(
     ArrayRef<int64_t> shape, ArrayRef<int64_t> perm) {
-  // Validate that permutation indices are within bounds
-  assert(
-      perm.size() == shape.size() && "Permutation size must match shape size");
+  ArrayRef<int64_t> workShape = shape;
+  SmallVector<int64_t> expanded;
+  if (shape.size() < perm.size()) {
+    // Left-pad with 1s to match perm rank.
+    expanded.resize(perm.size() - shape.size(), 1);
+    expanded.append(shape.begin(), shape.end());
+    workShape = expanded;
+  }
+  assert(perm.size() == workShape.size() &&
+         "Permutation size must match shape size");
   for (int64_t idx : perm) {
-    assert(idx >= 0 && static_cast<size_t>(idx) < shape.size() &&
+    assert(idx >= 0 && static_cast<size_t>(idx) < workShape.size() &&
            "Permutation index out of bounds");
   }
 
   SmallVector<int64_t> result(perm.size());
   for (size_t i = 0; i < perm.size(); ++i) {
-    result[i] = shape[perm[i]];
+    result[i] = workShape[perm[i]];
   }
   return result;
 }
@@ -1038,6 +1047,19 @@ struct PushTransposeThroughBinaryWithConst : public OpRewritePattern<BinaryOp> {
     if (isTransposeImmune(constType.getShape()))
       return failure();
 
+    // Handle rank mismatch: expand constant shape by prepending 1s
+    // (matches ONNX right-aligned broadcast semantics).
+    SmallVector<int64_t> constShape(
+        constType.getShape().begin(), constType.getShape().end());
+    if (constShape.size() < perm->size()) {
+      size_t diff = perm->size() - constShape.size();
+      SmallVector<int64_t> expanded(diff, 1);
+      expanded.append(constShape.begin(), constShape.end());
+      constShape = expanded;
+    } else if (constShape.size() > perm->size()) {
+      return failure();
+    }
+
     // Get the constant's value attribute
     auto valueAttr = constantOp.getValueAttr();
     if (!valueAttr)
@@ -1051,8 +1073,7 @@ struct PushTransposeThroughBinaryWithConst : public OpRewritePattern<BinaryOp> {
                << "Pushing transpose through binary op with constant "
                << op->getName().getStringRef() << "\n");
 
-    // Transpose the constant's data
-    auto constShape = constType.getShape();
+    // Transpose the constant's data (using possibly expanded shape)
     auto invPerm = inversePermutation(*perm);
     auto newConstShape = permuteShape(constShape, invPerm);
 
@@ -1619,12 +1640,24 @@ struct PushTransposeThroughVariadicWithConst
     for (auto constValue : constantInputs) {
       auto constType = mlir::cast<RankedTensorType>(constValue.getType());
 
+      // Handle rank mismatch: expand constant shape by prepending 1s
+      SmallVector<int64_t> cShape(
+          constType.getShape().begin(), constType.getShape().end());
+      if (cShape.size() < firstPerm.size()) {
+        size_t diff = firstPerm.size() - cShape.size();
+        SmallVector<int64_t> expanded(diff, 1);
+        expanded.append(cShape.begin(), cShape.end());
+        cShape = expanded;
+      } else if (cShape.size() > firstPerm.size()) {
+        return failure();
+      }
+
       // Check if transpose-immune
-      if (isTransposeImmune(constType.getShape())) {
+      if (isTransposeImmune(cShape)) {
         // For transpose-immune shapes (e.g. 1x1x1x1), permutation doesn't
         // change shape
         auto invPerm = inversePermutation(firstPerm);
-        auto newShape = permuteShape(constType.getShape(), invPerm);
+        auto newShape = permuteShape(cShape, invPerm);
 
         // Only create Reshape if shape actually changes (it won't for 1x1x1x1)
         if (newShape == constType.getShape()) {
