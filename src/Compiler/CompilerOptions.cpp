@@ -106,8 +106,9 @@ bool verify_diagnostics;                               // onnx-mlir-opt only
 bool verify_passes;                                    // onnx-mlir-opt only
 bool allowUnregisteredDialects;                        // onnx-mlir-opt only
 
-bool useLinalgPath;    // onnx-mlir only
-std::string linalgOps; // common for both onnx-mlir and onnx-mlir-opt
+bool useLinalgPath;                            // onnx-mlir only
+std::string linalgOps;                         // common for both onnx-mlir and onnx-mlir-opt
+std::vector<std::string> discardableAttrs;     // onnx-mlir only
 
 // Category for common options shared between onnx-mlir and onnx-mlir-opt.
 llvm::cl::OptionCategory OnnxMlirCommonOptions("common options",
@@ -748,6 +749,17 @@ static llvm::cl::opt<bool, true> disableConstantPropOpt("disable-constant-prop",
                    "Set to 'true' to disable Constant Propagation."),
     llvm::cl::location(disableConstantProp), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::list<std::string, std::vector<std::string>>
+    discardableAttrsOpt("discardable-attrs",
+        llvm::cl::desc("Specify attribute names to mark as discardable.\n"
+                       "Discardable attributes are prefixed with '_.' and can be "
+                       "safely removed without affecting semantics.\n"
+                       "Multiple attribute names can be specified.\n"
+                       "Default: onnx_node_name"),
+        llvm::cl::location(discardableAttrs),
+        llvm::cl::list_init<std::string>({"onnx_node_name"}),
+        llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<uint64_t, true> compilation_num_threads("j",
     llvm::cl::desc("Use <int> threads for compilation. The default value is "

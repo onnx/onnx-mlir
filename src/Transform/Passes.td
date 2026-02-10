@@ -69,5 +69,17 @@ def BufferOMPLoopHoistingPass : Pass<"buffer-omploop-hoisting", "func::FuncOp"> 
   }];
 }
 
+def SetDiscardableAttr : Pass<"set-discardable-attr"> {
+  let summary = "Set discardable attributes on operations";
+  let description = [{
+    This pass sets discardable attributes on operations based on
+    the provided attribute names.
+  }];
+
+  let options = [
+    ListOption<"attrNames", "attr-names", "std::string",
+               "List of attribute names to mark as discardable">
+  ];
+}
 
 #endif

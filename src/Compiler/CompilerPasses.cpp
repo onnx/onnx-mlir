@@ -247,6 +247,10 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
     addLinalgToAffinePasses(pm);
   }
 
+  // Set discardable attributes if specified
+  if (!discardableAttrs.empty())
+    pm.addPass(onnx_mlir::createSetDiscardableAttrPass(discardableAttrs));
+
   if (enableCSE)
     // Eliminate common sub-expressions before lowering to Krnl.
     // TODO: enable this by default when we make sure it works flawlessly.

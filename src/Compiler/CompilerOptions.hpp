@@ -149,6 +149,7 @@ extern bool enableBoundCheck;                                 // onnx-mlir only
 extern bool debugTestCompilerOpt;                             // onnx-mlir only
 extern bool useLinalgPath;                                    // onnx-mlir only
 extern std::string linalgOps; // common for both onnx-mlir and onnx-mlir-opt
+extern std::vector<std::string> discardableAttrs;             // onnx-mlir only
 
 extern bool split_input_file;          // onnx-mlir-opt only
 extern bool verify_diagnostics;        // onnx-mlir-opt only
