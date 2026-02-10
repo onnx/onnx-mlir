@@ -118,6 +118,8 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
   // Lowering ONNX to ZHigh.
   pm.addPass(onnx_mlir::createONNXToZHighPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
+  // Remove onnx.Dim operations that refer to the same dynamid dimension.
+  pm.addPass(onnx_mlir::createRemoveSameONNXDimPass());
 
   // There are more opportunities for const propagation once all zhigh ops were
   // generated.
