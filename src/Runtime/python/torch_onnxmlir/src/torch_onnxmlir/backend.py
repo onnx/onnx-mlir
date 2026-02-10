@@ -552,7 +552,7 @@ class TorchONNXMLIR:
         old_files = [base + ".onnx", base + ".constants.bin", base + ".so"]
         for f in old_files:
             if os.path.exists(f):
-                os.remove(old_onnx_file)
+                os.remove(f)
 
 
 # Alternative interface to minic the usage of torch.compile
