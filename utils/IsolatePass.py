@@ -16,13 +16,18 @@ import argparse
 import os
 import re
 
-# global variables
-pass_name_to_id = {}
-id_to_pass_name = []
+# Global variables.
+
+# Id is the entry number in the array. Each entry contains a string with all of
+# #the code associated with that pass
 pass_listing = []
-debug = 0
+# Map the name to the id that has it. Value is a list a pass can be called several times.
+pass_name_to_id = {}
+# Map the id to the pass name that represented it.
+id_to_pass_name = []
 # Max length of a single line. If there are very long constants, truncate them.
 max_line_length = 800
+debug = 0
 
 
 def get_args():
@@ -62,6 +67,12 @@ def get_args():
         action="store_true",
         help="List the name of every passes. Default on when missing the -p or -n options.",
     )
+    parser.add_argument(
+        "-u",
+        "--use-count",
+        action="store_true",
+        help="For each value defined, append its use count (aka how many times it was used).",
+    )
     return parser.parse_args()
 
 
@@ -69,6 +80,12 @@ def usage(error_message):
     print("Error:", error_message)
     print("Use -h / --help for more information.")
     exit(1)
+
+
+###########################################################
+# Scan listing
+
+# Fill pass_name_to_id, id_to_pass_name, pass_listing
 
 
 def extract_ir_pass_name(text):
@@ -135,6 +152,11 @@ def scan_listing(filename, print_list_name):
         raise
 
 
+###########################################################
+# Locate the pass, namely return the id associated with what we are
+# looking for. Id will point to a string in pass_listing.
+
+
 def locate_pass(name, num):
     global pass_name_to_id, pass_listing
 
@@ -168,8 +190,99 @@ def locate_pass(name, num):
     return ids[0]
 
 
+###########################################################
+# Optionally annotate each def by its number of uses
+
+from collections import Counter
+
+# Matches SSA values like %0, %res_12, %xyz.$tmp
+SSA_RE = re.compile(r"%[A-Za-z0-9_.$]+")
+
+
+def split_lhs_rhs_strip_comment(line: str):
+    """Return (lhs, rhs) after stripping '//' comments.
+    If '=' not present, lhs == '' and rhs == (comment-stripped line).
+    """
+    # Drop '//' comments
+    line = line.split("//", 1)[0]
+    if "=" not in line:
+        return "", line
+    lhs, rhs = line.split("=", 1)
+    return lhs, rhs
+
+
+def collect_outputs(mlir_text: str):
+    """Collect names defined on the LHS of '=' (i.e., operation results)."""
+    outputs = set()
+    for line in mlir_text.splitlines():
+        lhs, _ = split_lhs_rhs_strip_comment(line)
+        if lhs:
+            for name in SSA_RE.findall(lhs):
+                outputs.add(name)
+    return outputs
+
+
+def count_output_uses(mlir_text: str):
+    """Return a dict { '%name': use_count } for every SSA defined as '%x = ...'.
+
+    Counts only RHS occurrences (and lines without '=') so definitions aren't counted.
+    Includes outputs with 0 uses.
+    """
+    outputs = collect_outputs(mlir_text)
+    counts = Counter({name: 0 for name in outputs})
+    for line in mlir_text.splitlines():
+        lhs, rhs = split_lhs_rhs_strip_comment(line)
+        # Count only the RHS (or the whole line if there's no '=')
+        scan = rhs  # rhs already equals full line when lhs == ''
+        for name in SSA_RE.findall(scan):
+            if name in outputs:
+                counts[name] += 1
+    return dict(counts)
+
+
+def split_comment(line: str):
+    """Split a line into (code, comment) where comment includes the leading '//' if present."""
+    if "//" in line:
+        code, comment = line.split("//", 1)
+        return code, "//" + comment
+    return line, ""
+
+
+def annotate_mlir_with_use_counts(mlir_text: str, use_counts: dict[str, int]) -> str:
+    """
+    Return a new MLIR text where each SSA result defined on a line is annotated as '%x/N'
+    on the LHS of '=', where N is the use count from `use_counts`.
+
+    Non-definition lines are left unchanged. Comments are preserved.
+    """
+    out_lines = []
+    for line in mlir_text.splitlines():
+        code, comment = split_comment(line)
+        if "=" not in code:
+            # Not a definition line—pass through unchanged
+            out_lines.append(line)
+            continue
+        lhs, rhs = code.split("=", 1)
+        # Replace each SSA name in the LHS with '%name/N'
+        def _add_count(m: re.Match) -> str:
+            name = m.group(0)
+            return f"{name}/{use_counts.get(name, 0)}"
+        annotated_lhs = SSA_RE.sub(_add_count, lhs)
+        # Reassemble, preserving spacing and comments
+        new_line = f"{annotated_lhs}={rhs}{comment}"
+        out_lines.append(new_line)
+    # Preserve trailing newline behavior similar to input
+    return "\n".join(out_lines) + ("\n" if mlir_text.endswith("\n") else "")
+
+
+###########################################################
+# Print the pass that the user is interested in.
+
+
 def print_pass(filename, id, after, pass_name=None):
     global pass_name_to_id, id_to_pass_name, pass_listing
+
+    # We may want to print a pass after the one pointed by id.
     n = 0
     if after:
         if re.fullmatch(r"[+-]?\d+", after) is not None:
@@ -200,13 +313,18 @@ def print_pass(filename, id, after, pass_name=None):
         else:
             message += f" with name {pass_name}"
     message += f' from file "{filename}".'
-    print(f"{message}\n\n", pass_listing[id], f"\n\n{message}")
+    # Actual printing
+    mlir_text = pass_listing[id]
+    if args.use_count:
+        use_counts = count_output_uses(mlir_text)
+        mlir_text = annotate_mlir_with_use_counts(mlir_text, use_counts)
+    print(f"{message}\n\n", mlir_text, f"\n\n{message}")
 
 
 # Process arguments
 args = get_args()
 if args.input == None:
-    usage("missing file namem")
+    usage("missing file name")
 if args.pass_name == None and args.num == None:
     args.list_passes = True
 
