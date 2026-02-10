@@ -52,7 +52,7 @@ func.func @test_quantized_mul_prelu(%arg0: tensor<1x8x16x16x!quant.uniform<i8:f3
   return %prelu : tensor<1x8x16x16x!quant.uniform<i8:f32, 0.03:0>>
 
   // CHECK: "onnx.Mul"(%arg0, %arg1)
-  // CHECK: "onnx.PRelu"(%{{.*}}, %slope)
+  // CHECK: "onnx.PRelu"(%{{.*}}, %{{.*}})
   // CHECK-NOT: "onnx.XCOMPILERFusedEltwise"
 }
 
@@ -77,8 +77,8 @@ func.func @test_quantized_sub_relu(%arg0: tensor<1x4x8x8x!quant.uniform<u8:f32, 
   // CHECK: "onnx.XCOMPILERFusedEltwise"(%arg0, %arg1)
   // CHECK-SAME: nonlinear = "RELU"
   // CHECK-SAME: type = "SUB"
-  // CHECK-NOT: onnx.Sub
-  // CHECK-NOT: onnx.Relu
+  // CHECK-NOT: "onnx.Sub"
+  // CHECK-NOT: "onnx.Relu"
 }
 
 // -----
@@ -105,8 +105,8 @@ func.func @test_quantized_add_leakyrelu(%arg0: tensor<1x16x32x32x!quant.uniform<
   // CHECK-SAME: prelu_in = 26 : si64
   // CHECK-SAME: prelu_shift = 8 : si64
   // CHECK-SAME: type = "ADD"
-  // CHECK-NOT: onnx.Add
-  // CHECK-NOT: onnx.LeakyRelu
+  // CHECK-NOT: "onnx.Add"
+  // CHECK-NOT: "onnx.LeakyRelu"
 }
 
 // -----
@@ -130,7 +130,7 @@ func.func @test_quantized_div_prelu(%arg0: tensor<1x8x8x8x!quant.uniform<i8:f32,
   return %prelu : tensor<1x8x8x8x!quant.uniform<i8:f32, 0.05:-5>>
 
   // CHECK: "onnx.Div"(%arg0, %arg1)
-  // CHECK: "onnx.PRelu"(%{{.*}}, %slope)
+  // CHECK: "onnx.PRelu"(%{{.*}}, %{{.*}})
   // CHECK-NOT: "onnx.XCOMPILERFusedEltwise"
 }
 
@@ -205,7 +205,7 @@ func.func @test_bf16_add_relu(%arg0: tensor<1x32x64x64xf32>,
 
 // -----
 // Test Pattern 3: BFloat16 with PReLU
-// CHECK-LABEL: func @test_bf16_add_prelu
+// CHECK-LABEL: func.func @test_bf16_add_prelu
 func.func @test_bf16_add_prelu(%arg0: tensor<1x16x32x32xf32>,
                                 %arg1: tensor<1x16x32x32xf32>,
                                 %slope: tensor<16xf32>)
@@ -222,13 +222,13 @@ func.func @test_bf16_add_prelu(%arg0: tensor<1x16x32x32xf32>,
   return %prelu : tensor<1x16x32x32x!quant.uniform<i8:f32, 0.02:0>>
 
   // CHECK: %[[ADD:.*]] = "onnx.Add"(%arg0, %arg1) {{.*}} -> tensor<1x16x32x32xf32>
-  // CHECK: %[[PRELU:.*]] = "onnx.PRelu"(%[[ADD]], %arg2)
+  // CHECK: %[[PRELU:.*]] = "onnx.PRelu"(%[[ADD]], %{{.*}})
   // CHECK: return %[[PRELU]]
 }
 
 // -----
 // Test Pattern 3: BFloat16 with LeakyReLU
-// CHECK-LABEL: func @test_bf16_add_leakyrelu
+// CHECK-LABEL: func.func @test_bf16_add_leakyrelu
 func.func @test_bf16_add_leakyrelu(%arg0: tensor<1x8x16x16xf32>,
                                     %arg1: tensor<1x8x16x16xf32>)
     -> tensor<1x8x16x16x!quant.uniform<i8:f32, 0.01:0>> {
@@ -252,7 +252,7 @@ func.func @test_bf16_add_leakyrelu(%arg0: tensor<1x8x16x16xf32>,
 // Test Pattern 4: Post-Quantized ReLU (IPU Strix) - Add -> ReLU
 // RUN: onnx-mlir-opt --replace-qdq-eltwise="enable-ipu-strix=true" %s | FileCheck %s --check-prefix=STRIX
 // Both operations are float but should stay quantized
-// STRIX-LABEL: func @test_strix_add_relu
+// STRIX-LABEL: func.func @test_strix_add_relu
 func.func @test_strix_add_relu(%arg0: tensor<1x16x28x28xf32>,
                                 %arg1: tensor<1x16x28x28xf32>)
     -> tensor<1x16x28x28xf32> {
@@ -274,7 +274,7 @@ func.func @test_strix_add_relu(%arg0: tensor<1x16x28x28xf32>,
 
 // -----
 // Test Pattern 4: Post-Quantized ReLU (IPU Strix) - Mul -> ReLU
-// STRIX-LABEL: func @test_strix_mul_relu
+// STRIX-LABEL: func.func @test_strix_mul_relu
 func.func @test_strix_mul_relu(%arg0: tensor<1x8x14x14xf32>,
                                 %arg1: tensor<1x8x14x14xf32>)
     -> tensor<1x8x14x14xf32> {
@@ -296,7 +296,7 @@ func.func @test_strix_mul_relu(%arg0: tensor<1x8x14x14xf32>,
 
 // -----
 // Test: Operations with matching quantization parameters
-// CHECK-LABEL: func @test_matching_quantization
+// CHECK-LABEL: func.func @test_matching_quantization
 func.func @test_matching_quantization(%arg0: tensor<1x8x8x8x!quant.uniform<u8:f32, 0.1:128>>,
                                        %arg1: tensor<1x8x8x8x!quant.uniform<u8:f32, 0.1:128>>)
     -> tensor<1x8x8x8x!quant.uniform<u8:f32, 0.1:128>> {
@@ -315,7 +315,7 @@ func.func @test_matching_quantization(%arg0: tensor<1x8x8x8x!quant.uniform<u8:f3
 
 // -----
 // Test: Multiple fusions in same function
-// CHECK-LABEL: func @test_multiple_fusions
+// CHECK-LABEL: func.func @test_multiple_fusions
 func.func @test_multiple_fusions(
     %arg0: tensor<1x16x32x32x!quant.uniform<u8:f32, 0.08:128>>,
     %arg1: tensor<1x16x32x32x!quant.uniform<u8:f32, 0.08:128>>,

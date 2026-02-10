@@ -53,6 +53,14 @@ static std::pair<int64_t, int64_t> getLeakyReluAlphaToPreluFactor(float alpha) {
   return {M, N};
 }
 
+// XCOMPILERFusedEltwise requires signed i64 attrs (si64) for prelu_in/shift.
+static IntegerAttr getSI64Attr(PatternRewriter &rewriter, int64_t value) {
+  MLIRContext *ctx = rewriter.getContext();
+  auto si64 =
+      IntegerType::get(ctx, 64, IntegerType::SignednessSemantics::Signed);
+  return rewriter.getIntegerAttr(si64, value);
+}
+
 // Check if type is quantized
 bool isQuantizedType(Type type) {
   if (auto tensorType = mlir::dyn_cast<RankedTensorType>(type)) {
@@ -164,8 +172,8 @@ struct FuseQuantizedEltwiseActivation : public OpRewritePattern<ActivationOp> {
       // Convert to fixed-point representation (M, N)
       float alpha = alphaAttr.getValue().convertToFloat();
       auto [M, N] = getLeakyReluAlphaToPreluFactor(alpha);
-      preluInAttr = rewriter.getI64IntegerAttr(M);
-      preluShiftAttr = rewriter.getI64IntegerAttr(N);
+      preluInAttr = getSI64Attr(rewriter, M);
+      preluShiftAttr = getSI64Attr(rewriter, N);
     } else {
       // NOTE: XCOMPILERFusedEltwise does not model PReLU slope.
       return rewriter.notifyMatchFailure(
@@ -388,6 +396,8 @@ struct ReplaceQDQEltwisePass
     //========================================================================
 
     patterns.add<FuseBF16IntermediateActivation<ONNXAddOp, ONNXReluOp>>(
+        context);
+    patterns.add<FuseBF16IntermediateActivation<ONNXAddOp, ONNXPReluOp>>(
         context);
     patterns.add<FuseBF16IntermediateActivation<ONNXAddOp, ONNXLeakyReluOp>>(
         context);
