@@ -302,20 +302,6 @@ struct ElementWiseBinaryOpImpl<ONNXModOp, int64_t, EnableNotBool<int64_t>> {
 };
 
 template <>
-struct ElementWiseBinaryOpImpl<ONNXModOp, uint64_t, EnableNotBool<uint64_t>> {
-  static uint64_t eval(uint64_t lhs, uint64_t rhs) {
-    // The original calculation for mod
-    uint64_t mod = lhs % rhs;
-    // Handle the case when one of the int values are negative
-    // If both int values are positive or multiples of each other, we can
-    // calculate as normal
-    if ((mod != 0) && ((lhs < 0) ^ (rhs < 0)))
-      return (mod + rhs);
-    return mod;
-  }
-};
-
-template <>
 struct ElementWiseBinaryOpImpl<ONNXModOp, double, EnableNotBool<double>> {
   static double eval(double lhs, double rhs) {
     // Rounding to match the results of the backend tests

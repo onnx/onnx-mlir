@@ -3546,7 +3546,7 @@ struct MicrosoftRotaryEmbedding : public CustomOpToOnnxOps {
 //                                       ▼
 // Here, A is an ifm and B, scales, and zps are constants.
 // The decomposition first unpacks the B and zps constants. Then, it dequantizes
-// the the unpacked B matrix using DequantizeLinear. This dequantized B matrix
+// the unpacked B matrix using DequantizeLinear. This dequantized B matrix
 // is transposed and finally passed to a Matmul where it gets multiplied with
 // the A matrix.
 struct MicrosoftMatmulNBits : public CustomOpToOnnxOps {
@@ -3561,8 +3561,8 @@ struct MicrosoftMatmulNBits : public CustomOpToOnnxOps {
     auto uint8Type = b.getBuilder().getIntegerType(8, false);
 
     DenseElementsAttr values;
-    if (isa<DisposableElementsAttr>(constOp.getValueAttr())) {
-      auto disposable = cast<DisposableElementsAttr>(constOp.getValueAttr());
+    if (auto disposable =
+            dyn_cast<DisposableElementsAttr>(constOp.getValueAttr())) {
       values = disposable.toDenseElementsAttr();
     } else {
       values = cast<DenseElementsAttr>(constOp.getValueAttr());
