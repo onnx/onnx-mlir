@@ -329,12 +329,146 @@ func.func @test_quantized_clip_no_activation(
   return %clip : tensor<1x4x8x8x!quant.uniform<i8:f32, 0.01:0>>
 
   // CHECK: %[[NOVAL:.*]] = "onnx.NoValue"()
-  // CHECK: %[[FUSED:.*]] = "onnx.XCOMPILERFusedEltwise"(%arg0, %[[NOVAL]])
-  // CHECK-SAME: clip_max = 127 : si64
-  // CHECK-SAME: clip_min = -128 : si64
-  // CHECK-SAME: nonlinear = "NONE"
-  // CHECK-SAME: type = "CLIP"
+  // CHECK: %[[FUSED:.*]] = "onnx.XCOMPILERFusedEltwise"(%arg0, %[[NOVAL]]){{.*}}clip_max = 127 : si64{{.*}}clip_min = -128 : si64{{.*}}nonlinear = "NONE"{{.*}}type = "CLIP"
   // CHECK: return %[[FUSED]]
+}
+
+// -----
+// Test Pattern 1: Exp (no activation) -> fused EXP
+// CHECK-LABEL: func.func @test_quantized_exp_no_activation
+func.func @test_quantized_exp_no_activation(
+    %arg0: tensor<1x8x8x8x!quant.uniform<u8:f32, 0.02:128>>)
+    -> tensor<1x8x8x8x!quant.uniform<u8:f32, 0.02:128>> {
+  %exp = "onnx.Exp"(%arg0) :
+      (tensor<1x8x8x8x!quant.uniform<u8:f32, 0.02:128>>)
+      -> tensor<1x8x8x8x!quant.uniform<u8:f32, 0.02:128>>
+  return %exp : tensor<1x8x8x8x!quant.uniform<u8:f32, 0.02:128>>
+
+  // CHECK: %[[NOVAL:.*]] = "onnx.NoValue"()
+  // CHECK: %[[FUSED:.*]] = "onnx.XCOMPILERFusedEltwise"(%arg0, %[[NOVAL]])
+  // CHECK-SAME: nonlinear = "NONE"
+  // CHECK-SAME: type = "EXP"
+  // CHECK: return %[[FUSED]]
+}
+
+// -----
+// Test Pattern 1: Elu (no activation) -> fused ELU
+// CHECK-LABEL: func.func @test_quantized_elu_no_activation
+func.func @test_quantized_elu_no_activation(
+    %arg0: tensor<1x8x8x8x!quant.uniform<u8:f32, 0.02:128>>)
+    -> tensor<1x8x8x8x!quant.uniform<u8:f32, 0.02:128>> {
+  %elu = "onnx.Elu"(%arg0) :
+      (tensor<1x8x8x8x!quant.uniform<u8:f32, 0.02:128>>)
+      -> tensor<1x8x8x8x!quant.uniform<u8:f32, 0.02:128>>
+  return %elu : tensor<1x8x8x8x!quant.uniform<u8:f32, 0.02:128>>
+
+  // CHECK: %[[NOVAL:.*]] = "onnx.NoValue"()
+  // CHECK: %[[FUSED:.*]] = "onnx.XCOMPILERFusedEltwise"(%arg0, %[[NOVAL]])
+  // CHECK-SAME: nonlinear = "NONE"
+  // CHECK-SAME: type = "ELU"
+  // CHECK: return %[[FUSED]]
+}
+
+// -----
+// Test Pattern 1: Sin (no activation) -> fused SIN
+// CHECK-LABEL: func.func @test_quantized_sin_no_activation
+func.func @test_quantized_sin_no_activation(
+    %arg0: tensor<1x8x8x8x!quant.uniform<u8:f32, 0.02:128>>)
+    -> tensor<1x8x8x8x!quant.uniform<u8:f32, 0.02:128>> {
+  %sin = "onnx.Sin"(%arg0) :
+      (tensor<1x8x8x8x!quant.uniform<u8:f32, 0.02:128>>)
+      -> tensor<1x8x8x8x!quant.uniform<u8:f32, 0.02:128>>
+  return %sin : tensor<1x8x8x8x!quant.uniform<u8:f32, 0.02:128>>
+
+  // CHECK: %[[NOVAL:.*]] = "onnx.NoValue"()
+  // CHECK: %[[FUSED:.*]] = "onnx.XCOMPILERFusedEltwise"(%arg0, %[[NOVAL]])
+  // CHECK-SAME: nonlinear = "NONE"
+  // CHECK-SAME: type = "SIN"
+  // CHECK: return %[[FUSED]]
+}
+
+// -----
+// Test Pattern 1: Cos (no activation) -> fused COS
+// CHECK-LABEL: func.func @test_quantized_cos_no_activation
+func.func @test_quantized_cos_no_activation(
+    %arg0: tensor<1x8x8x8x!quant.uniform<u8:f32, 0.02:128>>)
+    -> tensor<1x8x8x8x!quant.uniform<u8:f32, 0.02:128>> {
+  %cos = "onnx.Cos"(%arg0) :
+      (tensor<1x8x8x8x!quant.uniform<u8:f32, 0.02:128>>)
+      -> tensor<1x8x8x8x!quant.uniform<u8:f32, 0.02:128>>
+  return %cos : tensor<1x8x8x8x!quant.uniform<u8:f32, 0.02:128>>
+
+  // CHECK: %[[NOVAL:.*]] = "onnx.NoValue"()
+  // CHECK: %[[FUSED:.*]] = "onnx.XCOMPILERFusedEltwise"(%arg0, %[[NOVAL]])
+  // CHECK-SAME: nonlinear = "NONE"
+  // CHECK-SAME: type = "COS"
+  // CHECK: return %[[FUSED]]
+}
+
+// -----
+// Test: Pattern 1 + Pattern 2 in same function
+//  - Exp (no activation) should fuse with nonlinear="NONE", type="EXP"
+//  - Add + Relu should fuse with nonlinear="RELU", type="ADD"
+// CHECK-LABEL: func.func @test_pattern1_and_pattern2
+func.func @test_pattern1_and_pattern2(
+    %arg0: tensor<1x8x8x8x!quant.uniform<u8:f32, 0.02:128>>,
+    %arg1: tensor<1x16x32x32x!quant.uniform<u8:f32, 0.08:128>>,
+    %arg2: tensor<1x16x32x32x!quant.uniform<u8:f32, 0.08:128>>)
+    -> (tensor<1x8x8x8x!quant.uniform<u8:f32, 0.02:128>>,
+        tensor<1x16x32x32x!quant.uniform<u8:f32, 0.08:128>>) {
+  %exp = "onnx.Exp"(%arg0) :
+      (tensor<1x8x8x8x!quant.uniform<u8:f32, 0.02:128>>)
+      -> tensor<1x8x8x8x!quant.uniform<u8:f32, 0.02:128>>
+
+  %add = "onnx.Add"(%arg1, %arg2) :
+      (tensor<1x16x32x32x!quant.uniform<u8:f32, 0.08:128>>,
+       tensor<1x16x32x32x!quant.uniform<u8:f32, 0.08:128>>)
+      -> tensor<1x16x32x32x!quant.uniform<u8:f32, 0.08:128>>
+  %relu = "onnx.Relu"(%add) :
+      (tensor<1x16x32x32x!quant.uniform<u8:f32, 0.08:128>>)
+      -> tensor<1x16x32x32x!quant.uniform<u8:f32, 0.08:128>>
+
+  return %exp, %relu :
+      tensor<1x8x8x8x!quant.uniform<u8:f32, 0.02:128>>,
+      tensor<1x16x32x32x!quant.uniform<u8:f32, 0.08:128>>
+
+  // CHECK-DAG: %[[NOVAL:.*]] = "onnx.NoValue"()
+  // CHECK-DAG: %[[EXP:.*]] = "onnx.XCOMPILERFusedEltwise"(%arg0, %[[NOVAL]]){{.*}}nonlinear = "NONE"{{.*}}type = "EXP"
+  // CHECK-DAG: %[[ADDRELU:.*]] = "onnx.XCOMPILERFusedEltwise"(%arg1, %arg2){{.*}}nonlinear = "RELU"{{.*}}type = "ADD"
+  // CHECK: return %[[EXP]], %[[ADDRELU]]
+}
+
+// -----
+// Test: Pattern 1 (CLIP) + Pattern 2 in same function
+// CHECK-LABEL: func.func @test_pattern1_clip_and_pattern2
+func.func @test_pattern1_clip_and_pattern2(
+    %arg0: tensor<1x4x8x8x!quant.uniform<i8:f32, 0.01:0>>,
+    %arg1: tensor<1x4x8x8x!quant.uniform<u8:f32, 0.1:128>>,
+    %arg2: tensor<1x4x8x8x!quant.uniform<u8:f32, 0.1:128>>)
+    -> (tensor<1x4x8x8x!quant.uniform<i8:f32, 0.01:0>>,
+        tensor<1x4x8x8x!quant.uniform<u8:f32, 0.1:128>>) {
+  %cmin = "onnx.Constant"() {value = dense<-128> : tensor<i64>} : () -> tensor<i64>
+  %cmax = "onnx.Constant"() {value = dense<127> : tensor<i64>} : () -> tensor<i64>
+  %clip = "onnx.Clip"(%arg0, %cmin, %cmax) :
+      (tensor<1x4x8x8x!quant.uniform<i8:f32, 0.01:0>>, tensor<i64>, tensor<i64>)
+      -> tensor<1x4x8x8x!quant.uniform<i8:f32, 0.01:0>>
+
+  %sub = "onnx.Sub"(%arg1, %arg2) :
+      (tensor<1x4x8x8x!quant.uniform<u8:f32, 0.1:128>>,
+       tensor<1x4x8x8x!quant.uniform<u8:f32, 0.1:128>>)
+      -> tensor<1x4x8x8x!quant.uniform<u8:f32, 0.1:128>>
+  %relu = "onnx.Relu"(%sub) :
+      (tensor<1x4x8x8x!quant.uniform<u8:f32, 0.1:128>>)
+      -> tensor<1x4x8x8x!quant.uniform<u8:f32, 0.1:128>>
+
+  return %clip, %relu :
+      tensor<1x4x8x8x!quant.uniform<i8:f32, 0.01:0>>,
+      tensor<1x4x8x8x!quant.uniform<u8:f32, 0.1:128>>
+
+  // CHECK-DAG: %[[NOVAL:.*]] = "onnx.NoValue"()
+  // CHECK-DAG: %[[CLIP:.*]] = "onnx.XCOMPILERFusedEltwise"(%arg0, %[[NOVAL]]){{.*}}clip_max = 127 : si64{{.*}}clip_min = -128 : si64{{.*}}nonlinear = "NONE"{{.*}}type = "CLIP"
+  // CHECK-DAG: %[[SUBRELU:.*]] = "onnx.XCOMPILERFusedEltwise"(%arg1, %arg2){{.*}}nonlinear = "RELU"{{.*}}type = "SUB"
+  // CHECK: return %[[CLIP]], %[[SUBRELU]]
 }
 
 // -----

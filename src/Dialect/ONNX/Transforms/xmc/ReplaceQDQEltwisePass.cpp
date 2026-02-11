@@ -2,15 +2,19 @@
 //
 // Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 //
-// This pass performs advanced fusion patterns on element-wise operations that
-// already have quantized types (after quant-types pass). It does NOT perform
-// basic Q/DQ fusion (Pattern 1) as that's handled by quant-types pass.
+// This pass performs fusion patterns on element-wise operations that already
+// have quantized types (after quant-types pass). It runs after quant-types, so
+// it matches quantized ONNX ops (no explicit QuantizeLinear/DequantizeLinear).
 //
 // Patterns supported:
-// 2. Element-wise with Activation Fusion (12 combinations)
-//    - 4 binary ops (Add, Mul, Sub, Div) × 3 activations (ReLU, PReLU,
-//    LeakyReLU)
-//    - Creates XFE QLinearEltwise ops with fused operation and activation
+// 1. Element-wise (no activation)
+//    - Quantized eltwise ops are replaced by onnx.XCOMPILERFusedEltwise with
+//      nonlinear="NONE".
+//    - Clip is supported via a dedicated pattern that converts constant min/max
+//      operands into clip_min/clip_max attributes.
+// 2. Element-wise + activation fusion
+//    - Quantized binary eltwise ops (Add/Mul/Sub/Div) followed by Relu or
+//      LeakyRelu are fused into a single onnx.XCOMPILERFusedEltwise.
 // 3. BFloat16 with ReLU (4 combinations)
 // 4. Post-Quantized ReLU for IPU Strix (2 combinations)
 //
@@ -27,6 +31,7 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 #include "src/Pass/Passes.hpp"
 
 #include "llvm/Support/Debug.h"
@@ -184,8 +189,7 @@ struct FuseQuantizedEltwiseWithoutActivation
     // XCOMPILERFusedEltwise).
     for (Operation *user : eltwiseOp.getResult().getUsers())
       if (isa<ONNXReluOp, ONNXLeakyReluOp, ONNXPReluOp>(user))
-        return rewriter.notifyMatchFailure(
-            eltwiseOp, "feeds activation op");
+        return rewriter.notifyMatchFailure(eltwiseOp, "feeds activation op");
 
     StringRef opType = getEltwiseTypeString<EltwiseOp>();
     if (opType.empty())
@@ -220,7 +224,8 @@ struct FuseQuantizedEltwiseWithoutActivation
 // Pattern 1b: Quantized Clip fusion (no activation).
 // onnx.Clip(input, min, max) -> onnx.XCOMPILERFusedEltwise(type="CLIP")
 // Clip min/max are operands but fused op expects clip_min/clip_max attrs.
-struct FuseQuantizedClipWithoutActivation : public OpRewritePattern<ONNXClipOp> {
+struct FuseQuantizedClipWithoutActivation
+    : public OpRewritePattern<ONNXClipOp> {
   using OpRewritePattern<ONNXClipOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(
@@ -343,10 +348,10 @@ struct FuseQuantizedEltwiseActivation : public OpRewritePattern<ActivationOp> {
       return rewriter.notifyMatchFailure(
           activationOp, "activation output not quantized");
 
-    LLVM_DEBUG(
-        llvm::dbgs()
-        << "Fusing quantized eltwise+activation into onnx.XCOMPILERFusedEltwise: "
-        << eltwiseOp->getName() << " + " << activationOp->getName() << "\n");
+    LLVM_DEBUG(llvm::dbgs() << "Fusing quantized eltwise+activation into "
+                               "onnx.XCOMPILERFusedEltwise: "
+                            << eltwiseOp->getName() << " + "
+                            << activationOp->getName() << "\n");
 
     // Determine operation type
     StringRef opType = getEltwiseTypeString<EltwiseOp>();
@@ -503,10 +508,17 @@ struct FusePostQuantizedReLUStrix : public OpRewritePattern<ONNXReluOp> {
     if (!enableIPUStrix)
       return rewriter.notifyMatchFailure(reluOp, "IPU Strix not enabled");
 
+    // If already marked, don't keep rewriting forever.
+    if (reluOp->hasAttr("strix_keep_quantized"))
+      return rewriter.notifyMatchFailure(reluOp, "already marked");
+
     // Match: Eltwise -> ReLU where both could be quantized with matching params
     auto eltwiseOp = reluOp.getX().template getDefiningOp<EltwiseOp>();
     if (!eltwiseOp)
       return rewriter.notifyMatchFailure(reluOp, "input not from eltwise");
+
+    if (eltwiseOp->hasAttr("strix_keep_quantized"))
+      return rewriter.notifyMatchFailure(reluOp, "eltwise already marked");
 
     // Check if both are currently float but should be quantized
     if (!isFloat32Type(eltwiseOp.getResult().getType()))
@@ -521,9 +533,13 @@ struct FusePostQuantizedReLUStrix : public OpRewritePattern<ONNXReluOp> {
                             << eltwiseOp->getName() << " -> ReLU\n");
 
     // Add an attribute to signal this should stay quantized through the
-    // pipeline
-    reluOp->setAttr("strix_keep_quantized", rewriter.getBoolAttr(true));
-    eltwiseOp->setAttr("strix_keep_quantized", rewriter.getBoolAttr(true));
+    // pipeline.
+    rewriter.modifyOpInPlace(reluOp, [&] {
+      reluOp->setAttr("strix_keep_quantized", rewriter.getBoolAttr(true));
+    });
+    rewriter.modifyOpInPlace(eltwiseOp, [&] {
+      eltwiseOp->setAttr("strix_keep_quantized", rewriter.getBoolAttr(true));
+    });
 
     return success();
   }
@@ -538,7 +554,8 @@ struct ReplaceQDQEltwisePass
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ReplaceQDQEltwisePass)
 
   ReplaceQDQEltwisePass() = default;
-  ReplaceQDQEltwisePass(const ReplaceQDQEltwisePass &pass) : PassWrapper(pass) {}
+  ReplaceQDQEltwisePass(const ReplaceQDQEltwisePass &pass)
+      : PassWrapper(pass) {}
 
   StringRef getArgument() const override { return "replace-qdq-eltwise"; }
   StringRef getDescription() const override {
@@ -575,7 +592,8 @@ struct ReplaceQDQEltwisePass
     patterns.add<FuseQuantizedEltwiseWithoutActivation<ONNXSinOp>>(context);
     patterns.add<FuseQuantizedEltwiseWithoutActivation<ONNXCosOp>>(context);
     patterns.add<FuseQuantizedEltwiseWithoutActivation<ONNXAbsOp>>(context);
-    patterns.add<FuseQuantizedEltwiseWithoutActivation<ONNXSoftplusOp>>(context);
+    patterns.add<FuseQuantizedEltwiseWithoutActivation<ONNXSoftplusOp>>(
+        context);
     patterns.add<FuseQuantizedClipWithoutActivation>(context);
 
     //========================================================================
@@ -640,6 +658,9 @@ struct ReplaceQDQEltwisePass
     GreedyRewriteConfig config;
     config.useTopDownTraversal = true;
     config.maxIterations = 10;
+
+    onnx_mlir::ResultNamesUpdater rnUpdater;
+    config.listener = &rnUpdater;
 
     if (failed(applyPatternsAndFoldGreedily(
             function, std::move(patterns), config))) {
