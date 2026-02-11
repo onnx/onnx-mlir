@@ -134,8 +134,11 @@ RUN git clone -b v${PROTOBUF_VERSION} --recursive ${PROTOBUF_URL} ${PROTOBUF_DIR
     && sed -i -e 's/"rules_python", version = "1.6.0"/"rules_python", version = "1.8.0"/g' \
            MODULE.bazel \
     && printf "\n\
-single_version_override(\n\
+archive_override(\n\
     module_name = \"rules_buf\",\n\
+    integrity = \"sha256-Hr64Q/CaYr0E3ptAjEOgdZd1yc+cBjp7OG1wzuf3DIs=\",\n\
+    strip_prefix = \"rules_buf-0.3.0\",\n\
+    urls = [ \"https://github.com/bufbuild/rules_buf/archive/refs/tags/v0.3.0.zip\", ],\n\
     patch_cmds = [\n\
         '''sed -i -e 's|\\\\\\\\[\"arm64\", \"amd64\"\\\\\\\\]|\\\\\\\\[\"arm64\", \"amd64\", \"s390x\"\\\\\\\\]|g' buf/internal/toolchain.bzl''',\n\
     ],\n\
