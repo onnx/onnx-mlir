@@ -97,6 +97,180 @@ bool isFloat32Type(Type type) {
   return type.isF32();
 }
 
+// Forward declare for use in Pattern 1 templates.
+template <typename EltwiseOp>
+static llvm::StringRef getEltwiseTypeString();
+
+// Extract a scalar constant and convert to int64 (for CLIP attrs).
+static std::optional<int64_t> getConstScalarI64(Value v) {
+  if (!v || isa<NoneType>(v.getType()))
+    return std::nullopt;
+
+  auto cst = v.getDefiningOp<ONNXConstantOp>();
+  if (!cst)
+    return std::nullopt;
+
+  auto elementsAttr = dyn_cast_or_null<ElementsAttr>(cst.getValueAttr());
+  if (!elementsAttr)
+    return std::nullopt;
+
+  // Splat scalar fast-path.
+  if (elementsAttr.isSplat()) {
+    Type et = elementsAttr.getElementType();
+    if (isa<FloatType>(et)) {
+      APFloat apf = elementsAttr.getSplatValue<APFloat>();
+      return static_cast<int64_t>(std::llround(apf.convertToDouble()));
+    }
+    if (auto it = dyn_cast<IntegerType>(et)) {
+      APInt api = elementsAttr.getSplatValue<APInt>();
+      return static_cast<int64_t>(
+          it.isUnsigned() ? api.getZExtValue() : api.getSExtValue());
+    }
+    return std::nullopt;
+  }
+
+  // Non-splat: accept single element only.
+  auto shapedTy = dyn_cast<ShapedType>(elementsAttr.getType());
+  if (!shapedTy || !shapedTy.hasStaticShape() || shapedTy.getNumElements() != 1)
+    return std::nullopt;
+
+  Attribute firstAttr = *elementsAttr.getValues<Attribute>().begin();
+  if (auto f = dyn_cast<FloatAttr>(firstAttr))
+    return static_cast<int64_t>(std::llround(f.getValueAsDouble()));
+  if (auto i = dyn_cast<IntegerAttr>(firstAttr))
+    return static_cast<int64_t>(i.getInt());
+  return std::nullopt;
+}
+
+//===----------------------------------------------------------------------===//
+// Pattern 1: Basic Quantized Element-wise (No Activation)
+// Eltwise_Op(quantized) -> Result(quantized)
+// Creates: Single onnx.XCOMPILERFusedEltwise with nonlinear="NONE".
+// This is the post-quant-types equivalent of the original XCompiler
+// dq->eltwise->q template when there is no activation in between.
+//===----------------------------------------------------------------------===//
+
+template <typename EltwiseOp>
+struct FuseQuantizedEltwiseWithoutActivation
+    : public OpRewritePattern<EltwiseOp> {
+  using OpRewritePattern<EltwiseOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      EltwiseOp eltwiseOp, PatternRewriter &rewriter) const override {
+    // Handle unary and binary eltwise ops.
+    Value a = nullptr, b = nullptr;
+    bool isUnary = false;
+    if (eltwiseOp->getNumOperands() == 1) {
+      a = eltwiseOp->getOperand(0);
+      isUnary = true;
+    } else if (eltwiseOp->getNumOperands() == 2) {
+      a = eltwiseOp->getOperand(0);
+      b = eltwiseOp->getOperand(1);
+    } else {
+      return rewriter.notifyMatchFailure(
+          eltwiseOp, "eltwise op is not unary/binary");
+    }
+
+    // Require quantized operands and result (same as other patterns).
+    if (!a || !isQuantizedType(a.getType()) ||
+        (!isUnary && !isQuantizedType(b.getType())) ||
+        !isQuantizedType(eltwiseOp.getResult().getType()))
+      return rewriter.notifyMatchFailure(
+          eltwiseOp, "operands/result are not quantized");
+
+    // If this eltwise feeds an activation (ReLU/LeakyReLU/PReLU), don't fuse
+    // here. Either Pattern 2 will fuse it (ReLU/LeakyReLU) or we want to keep
+    // the original eltwise op intact (PReLU is not modeled by
+    // XCOMPILERFusedEltwise).
+    for (Operation *user : eltwiseOp.getResult().getUsers())
+      if (isa<ONNXReluOp, ONNXLeakyReluOp, ONNXPReluOp>(user))
+        return rewriter.notifyMatchFailure(
+            eltwiseOp, "feeds activation op");
+
+    StringRef opType = getEltwiseTypeString<EltwiseOp>();
+    if (opType.empty())
+      return rewriter.notifyMatchFailure(eltwiseOp, "unsupported eltwise op");
+
+    LLVM_DEBUG(llvm::dbgs()
+               << "Fusing quantized eltwise into onnx.XCOMPILERFusedEltwise: "
+               << eltwiseOp->getName() << "\n");
+
+    // Only create IR (e.g. onnx.NoValue) after we know we will rewrite.
+    if (isUnary)
+      b = rewriter.create<ONNXNoneOp>(eltwiseOp.getLoc()).getResult();
+
+    auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(eltwiseOp.getLoc(),
+        eltwiseOp.getType(), // result type (quantized)
+        a, b,
+        /*clip_max=*/IntegerAttr(),
+        /*clip_min=*/IntegerAttr(),
+        /*leakyrelu_alpha=*/FloatAttr(),
+        /*nonlinear=*/rewriter.getStringAttr("NONE"),
+        /*nonlinear_in_scales=*/FloatAttr(),
+        /*nonlinear_in_zeropoints=*/IntegerAttr(),
+        /*prelu_in=*/IntegerAttr(),
+        /*prelu_shift=*/IntegerAttr(),
+        /*type=*/rewriter.getStringAttr(opType));
+
+    rewriter.replaceOp(eltwiseOp, fusedOp.getResult());
+    return success();
+  }
+};
+
+// Pattern 1b: Quantized Clip fusion (no activation).
+// onnx.Clip(input, min, max) -> onnx.XCOMPILERFusedEltwise(type="CLIP")
+// Clip min/max are operands but fused op expects clip_min/clip_max attrs.
+struct FuseQuantizedClipWithoutActivation : public OpRewritePattern<ONNXClipOp> {
+  using OpRewritePattern<ONNXClipOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXClipOp clipOp, PatternRewriter &rewriter) const override {
+    if (!isQuantizedType(clipOp.getOutput().getType()) ||
+        !isQuantizedType(clipOp.getInput().getType()))
+      return rewriter.notifyMatchFailure(clipOp, "clip not quantized");
+
+    // Keep consistent with "no activation" intent.
+    for (Operation *user : clipOp.getOutput().getUsers())
+      if (isa<ONNXReluOp, ONNXLeakyReluOp, ONNXPReluOp>(user))
+        return rewriter.notifyMatchFailure(clipOp, "feeds activation op");
+
+    // Only fuse if min/max are absent or constant scalars, and at least one is
+    // present.
+    IntegerAttr clipMinAttr, clipMaxAttr;
+    if (auto mn = getConstScalarI64(clipOp.getMin()))
+      clipMinAttr = getSI64Attr(rewriter, *mn);
+    else if (clipOp.getMin() && !isa<NoneType>(clipOp.getMin().getType()))
+      return rewriter.notifyMatchFailure(clipOp, "min not constant/none");
+
+    if (auto mx = getConstScalarI64(clipOp.getMax()))
+      clipMaxAttr = getSI64Attr(rewriter, *mx);
+    else if (clipOp.getMax() && !isa<NoneType>(clipOp.getMax().getType()))
+      return rewriter.notifyMatchFailure(clipOp, "max not constant/none");
+
+    if (!clipMinAttr && !clipMaxAttr)
+      return rewriter.notifyMatchFailure(
+          clipOp, "no constant clip bounds to materialize");
+
+    Value noneB = rewriter.create<ONNXNoneOp>(clipOp.getLoc()).getResult();
+
+    auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(clipOp.getLoc(),
+        clipOp.getType(), // result type (quantized)
+        clipOp.getInput(), noneB,
+        /*clip_max=*/clipMaxAttr,
+        /*clip_min=*/clipMinAttr,
+        /*leakyrelu_alpha=*/FloatAttr(),
+        /*nonlinear=*/rewriter.getStringAttr("NONE"),
+        /*nonlinear_in_scales=*/FloatAttr(),
+        /*nonlinear_in_zeropoints=*/IntegerAttr(),
+        /*prelu_in=*/IntegerAttr(),
+        /*prelu_shift=*/IntegerAttr(),
+        /*type=*/rewriter.getStringAttr("CLIP"));
+
+    rewriter.replaceOp(clipOp, fusedOp.getResult());
+    return success();
+  }
+};
+
 //===----------------------------------------------------------------------===//
 // Pattern 2: Element-wise with Activation Fusion
 // Eltwise_Op(quantized) -> Activation -> Result(quantized)
@@ -113,6 +287,30 @@ static llvm::StringRef getEltwiseTypeString() {
     return "SUB";
   else if constexpr (std::is_same_v<EltwiseOp, ONNXDivOp>)
     return "DIV";
+  else if constexpr (std::is_same_v<EltwiseOp, ONNXMaxOp>)
+    return "MAX";
+  else if constexpr (std::is_same_v<EltwiseOp, ONNXMinOp>)
+    return "MIN";
+  else if constexpr (std::is_same_v<EltwiseOp, ONNXSqrtOp>)
+    return "SQRT";
+  else if constexpr (std::is_same_v<EltwiseOp, ONNXNegOp>)
+    return "NEG";
+  else if constexpr (std::is_same_v<EltwiseOp, ONNXTanhOp>)
+    return "TANH";
+  else if constexpr (std::is_same_v<EltwiseOp, ONNXExpOp>)
+    return "EXP";
+  else if constexpr (std::is_same_v<EltwiseOp, ONNXEluOp>)
+    return "ELU";
+  else if constexpr (std::is_same_v<EltwiseOp, ONNXGeluOp>)
+    return "GELU";
+  else if constexpr (std::is_same_v<EltwiseOp, ONNXSinOp>)
+    return "SIN";
+  else if constexpr (std::is_same_v<EltwiseOp, ONNXCosOp>)
+    return "COS";
+  else if constexpr (std::is_same_v<EltwiseOp, ONNXAbsOp>)
+    return "ABS";
+  else if constexpr (std::is_same_v<EltwiseOp, ONNXSoftplusOp>)
+    return "SOFTPLUS";
   else
     return "";
 }
@@ -357,6 +555,28 @@ struct ReplaceQDQEltwisePass
     MLIRContext *context = &getContext();
 
     RewritePatternSet patterns(context);
+
+    //========================================================================
+    // Pattern 1: Basic quantized eltwise (no activation).
+    //========================================================================
+
+    patterns.add<FuseQuantizedEltwiseWithoutActivation<ONNXAddOp>>(context);
+    patterns.add<FuseQuantizedEltwiseWithoutActivation<ONNXMulOp>>(context);
+    patterns.add<FuseQuantizedEltwiseWithoutActivation<ONNXSubOp>>(context);
+    patterns.add<FuseQuantizedEltwiseWithoutActivation<ONNXDivOp>>(context);
+    patterns.add<FuseQuantizedEltwiseWithoutActivation<ONNXMaxOp>>(context);
+    patterns.add<FuseQuantizedEltwiseWithoutActivation<ONNXMinOp>>(context);
+    patterns.add<FuseQuantizedEltwiseWithoutActivation<ONNXSqrtOp>>(context);
+    patterns.add<FuseQuantizedEltwiseWithoutActivation<ONNXNegOp>>(context);
+    patterns.add<FuseQuantizedEltwiseWithoutActivation<ONNXTanhOp>>(context);
+    patterns.add<FuseQuantizedEltwiseWithoutActivation<ONNXExpOp>>(context);
+    patterns.add<FuseQuantizedEltwiseWithoutActivation<ONNXEluOp>>(context);
+    patterns.add<FuseQuantizedEltwiseWithoutActivation<ONNXGeluOp>>(context);
+    patterns.add<FuseQuantizedEltwiseWithoutActivation<ONNXSinOp>>(context);
+    patterns.add<FuseQuantizedEltwiseWithoutActivation<ONNXCosOp>>(context);
+    patterns.add<FuseQuantizedEltwiseWithoutActivation<ONNXAbsOp>>(context);
+    patterns.add<FuseQuantizedEltwiseWithoutActivation<ONNXSoftplusOp>>(context);
+    patterns.add<FuseQuantizedClipWithoutActivation>(context);
 
     //========================================================================
     // Pattern 2: Element-wise with Activation Fusion (12 combinations)

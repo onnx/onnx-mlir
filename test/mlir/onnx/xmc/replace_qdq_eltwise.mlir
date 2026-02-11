@@ -309,8 +309,32 @@ func.func @test_matching_quantization(%arg0: tensor<1x8x8x8x!quant.uniform<u8:f3
 
   return %add : tensor<1x8x8x8x!quant.uniform<u8:f32, 0.1:128>>
 
-  // CHECK: %[[ADD:.*]] = "onnx.Add"(%arg0, %arg1)
-  // CHECK: return %[[ADD]]
+  // CHECK: %[[FUSED:.*]] = "onnx.XCOMPILERFusedEltwise"(%arg0, %arg1)
+  // CHECK-SAME: nonlinear = "NONE"
+  // CHECK-SAME: type = "ADD"
+  // CHECK: return %[[FUSED]]
+}
+
+// -----
+// Test Pattern 1: Clip (no activation) -> fused CLIP
+// CHECK-LABEL: func.func @test_quantized_clip_no_activation
+func.func @test_quantized_clip_no_activation(
+    %arg0: tensor<1x4x8x8x!quant.uniform<i8:f32, 0.01:0>>)
+    -> tensor<1x4x8x8x!quant.uniform<i8:f32, 0.01:0>> {
+  %cmin = "onnx.Constant"() {value = dense<-128> : tensor<i64>} : () -> tensor<i64>
+  %cmax = "onnx.Constant"() {value = dense<127> : tensor<i64>} : () -> tensor<i64>
+  %clip = "onnx.Clip"(%arg0, %cmin, %cmax) :
+      (tensor<1x4x8x8x!quant.uniform<i8:f32, 0.01:0>>, tensor<i64>, tensor<i64>)
+      -> tensor<1x4x8x8x!quant.uniform<i8:f32, 0.01:0>>
+  return %clip : tensor<1x4x8x8x!quant.uniform<i8:f32, 0.01:0>>
+
+  // CHECK: %[[NOVAL:.*]] = "onnx.NoValue"()
+  // CHECK: %[[FUSED:.*]] = "onnx.XCOMPILERFusedEltwise"(%arg0, %[[NOVAL]])
+  // CHECK-SAME: clip_max = 127 : si64
+  // CHECK-SAME: clip_min = -128 : si64
+  // CHECK-SAME: nonlinear = "NONE"
+  // CHECK-SAME: type = "CLIP"
+  // CHECK: return %[[FUSED]]
 }
 
 // -----
