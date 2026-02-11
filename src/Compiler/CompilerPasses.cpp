@@ -253,7 +253,8 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
   // Convert attributes to discardable form if specified
   if (!discardableAttrs.empty()) {
     onnx_mlir::ConvertAttrToDiscardableOptions options;
-    llvm::SmallVector<std::string, 4> attrNames(discardableAttrs.begin(), discardableAttrs.end());
+    llvm::SmallVector<std::string, 4> attrNames(
+        discardableAttrs.begin(), discardableAttrs.end());
     options.attrNames = std::move(attrNames);
     pm.addPass(onnx_mlir::createConvertAttrToDiscardable(options));
   }

@@ -56,7 +56,6 @@ public:
           // Remove the original non-discardable version
           op->removeAttr(attrName);
 
-
           // Since the CSE does not ignore the discardable attribute,
           // the attribute is simply removed for current implementation.
           // Set as a discardable attribute
