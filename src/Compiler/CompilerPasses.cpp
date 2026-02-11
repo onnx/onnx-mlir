@@ -177,6 +177,9 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
   }
 
+  // Remove onnx.Dim operations that refer to the same dynamid dimension.
+  pm.addPass(onnx_mlir::createRemoveSameONNXDimPass());
+
   // Replace ONNXReturnOp with func::ReturnOp.
   pm.addPass(onnx_mlir::createStandardFuncReturnPass());
 

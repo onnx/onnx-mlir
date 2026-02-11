@@ -49,6 +49,8 @@ std::unique_ptr<mlir::Pass> createConvOptONNXToONNXPass(
 std::unique_ptr<mlir::Pass> createReplaceOpWithItsOperandPass(
     std::vector<std::string> nodeNameRegexList);
 
+std::unique_ptr<mlir::Pass> createRemoveSameONNXDimPass();
+
 std::unique_ptr<mlir::Pass> createShapeInferencePass();
 
 // To configure ConstPropONNXToONNXPass at program start.
