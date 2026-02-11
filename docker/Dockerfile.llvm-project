@@ -47,7 +47,9 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
               file java-21-devel gcc gcc-c++ git libtool make ncurses-devel \
               ninja-build python3 python3-devel python3-pip python3-setuptools \
               python3-wheel tzdata-java unzip which zip zlib-devel && \
-          # Use same versions as those in ubuntu:noble
+          # Upgrade setuptools to avoid UNKNOWN wheel when building onnx
+          # Use same package versions as those in ubuntu:noble
+          pip3 install -q setuptools --upgrade && \
           pip3 install -q \
                Cython pytest==7.4.4 numpy==1.26.4 pytest-xdist==3.4.0 \
                typing-extensions==4.10.0 && \
