@@ -427,7 +427,7 @@ def print_pass(filename, id, after, pass_name=None):
     message += f' from file "{filename}".'
     # Actual printing
     mlir_text = pass_listing[id]
-    if args.comment:
+    if args.comments:
         use_counts = count_output_uses(mlir_text)
         mlir_text = annotate_mlir_with_use_counts(mlir_text, use_counts)
         mlir_text = annotate_constant_uses_with_values(mlir_text)
