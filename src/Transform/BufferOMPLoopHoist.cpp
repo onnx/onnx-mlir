@@ -147,9 +147,12 @@ void BufferOMPLoopHoistingPass::runOnOperation() {
 } // namespace
 
 namespace onnx_mlir {
+#define GEN_PASS_DECL_BUFFEROMPLOOPHOISTINGPASS
+#include "src/Transform/Passes.h.inc"
+
 // This function will be used outside to insert this pass to pass manager.
 // Since it is a pass in onnx-mlir project, name space onnx_mlir is used.
-std::unique_ptr<Pass> createBufferOMPLoopHoistingPass() {
-  return std::make_unique<BufferOMPLoopHoistingPass>();
+std::unique_ptr<Pass> createBufferOMPLoopHoisting() {
+  return createBufferOMPLoopHoistingPass();
 };
 } // namespace onnx_mlir

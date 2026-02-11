@@ -146,14 +146,15 @@ std::unique_ptr<mlir::Pass> createConvertONNXToTOSAPass();
 std::unique_ptr<mlir::Pass> createConvertONNXToLinalg();
 std::unique_ptr<mlir::Pass> createConvertONNXToLinalg(
     const std::string &linalgOps, bool useLinalgPath);
+std::unique_ptr<mlir::Pass> createBufferOMPLoopHoisting();
 
 // Get the function that creates the pass for pass manager.
 // This function has the name of createPassName(), created from Passes.td.
 // For buffer omploop hoisting pass, it is crateBufferOMPLoopHoisting()
 // This function is the only globally visible function for the pass, and
 // is defined at the end of the pass implementation file.
-#define GEN_PASS_DECL_BUFFEROMPLOOPHOISTINGPASS
-#include "src/Transform/Passes.h.inc"
+//#define GEN_PASS_DECL_BUFFEROMPLOOPHOISTINGPASS
+//#include "src/Transform/Passes.h.inc"
 
 // The function registerTransformsPasses() is generated from Passes.td and used
 // to register th pass for onnx-mlir-opt. Different Passes.td will generate the
