@@ -2261,8 +2261,6 @@ func.func @test_split_relu_movement_not_all_equal(%arg0: tensor<1x8x2xf32>) -> (
 
 // -----
 
-// -----
-
 func.func @test_split_leakyrelu_movement(%arg0: tensor<1x8x2xf32>) -> (tensor<1x2x2xf32>, tensor<1x3x2xf32>, tensor<1x3x2xf32>) {
   %cst = onnx.Constant dense<[2, 3, 3]> : tensor<3xi64>
   %0:3 = "onnx.Split"(%arg0, %cst) {axis = 1 : si64} : (tensor<1x8x2xf32>, tensor<3xi64>) -> (tensor<1x2x2xf32>, tensor<1x3x2xf32>, tensor<1x3x2xf32>)
@@ -2453,4 +2451,3 @@ func.func @group_norm5d_v21(%arg0: tensor<3x4x6x8x16xf32>, %arg1: tensor<4xf32>,
 // CHECK:           onnx.Return [[VAR_11_]] : tensor<3x4x6x8x16xf32>
 // CHECK:         }
 }
-

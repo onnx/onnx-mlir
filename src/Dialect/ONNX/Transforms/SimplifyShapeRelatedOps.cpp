@@ -1,4 +1,3 @@
-#include "src/Compiler/CompilerOptions.hpp" // hi alex
 /*
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -550,10 +549,7 @@ void SimplifyShapeRelatedOpsPass::topDownShapeSimplification(
 
   // Pass the dimensions through operations of interest.
   patterns.insert<onnx_mlir::PassThroughCastPattern>(context);
-  if (onnx_mlir::debugTestCompilerOpt) { // hi alex
   patterns.insert<onnx_mlir::SliceConcatNoOpPattern>(context);
-  }
-
   patterns.insert<onnx_mlir::PassThroughConcatPattern>(context);
   patterns.insert<onnx_mlir::PassThroughGatherPattern>(context);
   patterns.insert<onnx_mlir::PassThroughSlicePattern>(context);
