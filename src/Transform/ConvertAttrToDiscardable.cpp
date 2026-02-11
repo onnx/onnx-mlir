@@ -31,29 +31,13 @@ namespace onnx_mlir {
  * This pass converts attributes to discardable form
  */
 
-class ConvertAttrToDiscardable : public impl::ConvertAttrToDiscardableBase<ConvertAttrToDiscardable> {
+class ConvertAttrToDiscardable
+    : public impl::ConvertAttrToDiscardableBase<ConvertAttrToDiscardable> {
+  using Base::Base; // Inherit generated constructors (so options get wired)
 
 public:
-  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ConvertAttrToDiscardable)
-
-  ConvertAttrToDiscardable() = default;
-
-  ConvertAttrToDiscardable(const ConvertAttrToDiscardable &pass)
-      : impl::ConvertAttrToDiscardableBase<ConvertAttrToDiscardable>() {}
-
-  ConvertAttrToDiscardable(const std::vector<std::string> &names) {
-    this->attrNames = names;
-  }
-
-  StringRef getArgument() const override { return "convert-attr-to-discardable"; }
-
-  StringRef getDescription() const override {
-    return "Convert attributes to discardable form";
-  }
-
   void runOnOperation() override {
     Operation *rootOp = getOperation();
-    MLIRContext *context = rootOp->getContext();
 
     // Early return if no attribute names provided
     if (attrNames.empty()) {
@@ -72,28 +56,15 @@ public:
           // Remove the original non-discardable version
           op->removeAttr(attrName);
 
-          // Set as a discardable attribute (automatically prefixed with "_.")
-          op->setDiscardableAttr(attrName, attr);
+
+          // Since the CSE does not ignore the discardable attribute,
+          // the attribute is simply removed for current implementation.
+          // Set as a discardable attribute
+          // op->setDiscardableAttr(attrName, attr);
         }
       }
     });
   }
 };
-
-} // namespace onnx_mlir
-
-/*!
- * Create a ConvertAttrToDiscardable pass.
- */
-namespace onnx_mlir {
-
-std::unique_ptr<mlir::Pass> createConvertAttrToDiscardablePass() {
-  return std::make_unique<ConvertAttrToDiscardable>();
-}
-
-std::unique_ptr<mlir::Pass> createConvertAttrToDiscardablePass(
-    const std::vector<std::string> &attrNames) {
-  return std::make_unique<ConvertAttrToDiscardable>(attrNames);
-}
 
 } // namespace onnx_mlir

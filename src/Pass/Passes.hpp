@@ -156,9 +156,6 @@ std::unique_ptr<mlir::Pass> createConvertONNXToLinalg(
 /// Pass for converting attributes to discardable form.
 #define GEN_PASS_DECL_CONVERTATTRTODISCARDABLE
 #include "src/Transform/Passes.h.inc"
-// Custom constructor with attribute names parameter
-std::unique_ptr<mlir::Pass> createConvertAttrToDiscardablePass(
-    const std::vector<std::string> &attrNames);
 
 // The function registerTransformsPasses() is generated from Passes.td and used
 // to register th pass for onnx-mlir-opt. Different Passes.td will generate the
