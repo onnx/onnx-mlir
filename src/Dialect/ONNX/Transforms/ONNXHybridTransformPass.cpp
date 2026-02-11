@@ -118,6 +118,11 @@ struct ONNXHybridTransformPass
                      "LayerNormalization"),
       ::llvm::cl::init(true)};
 
+  Option<bool> enableMatmulNBitsDecompose{*this, "enable-matmulnbits-decompose",
+      llvm::cl::desc("Enable decomposition of Microsoft MatmulNBits to "
+                     "dequantize linear and matmul ops"),
+      ::llvm::cl::init(false)};
+
   Option<bool> enableSplitToSliceDecompose{*this,
       "enable-split-to-slice-decompose",
       llvm::cl::desc("Enable decomposition of Split to Slice"),
@@ -130,7 +135,8 @@ struct ONNXHybridTransformPass
       bool enableConvTransposeDecompose,
       bool enableConvTransposeDecomposeToPhasedConv,
       bool enableConvTranspose1dDecomposeToPhasedConv,
-      bool enableInstanceNormDecompose, bool enableSplitToSliceDecompose) {
+      bool enableInstanceNormDecompose, bool enableMatmulNBitsDecompose,
+      bool enableSplitToSliceDecompose) {
     this->recomposition = enableRecomposition;
     this->quarkQuantizedOpsLegalization = enableQuarkQuantizedOpsLegalization;
     this->enableConvTransposeDecompose = enableConvTransposeDecompose;
@@ -139,6 +145,7 @@ struct ONNXHybridTransformPass
     this->enableConvTranspose1dDecomposeToPhasedConv =
         enableConvTranspose1dDecomposeToPhasedConv;
     this->enableInstanceNormDecompose = enableInstanceNormDecompose;
+    this->enableMatmulNBitsDecompose = enableMatmulNBitsDecompose;
     this->enableSplitToSliceDecompose = enableSplitToSliceDecompose;
   }
 
@@ -188,7 +195,8 @@ struct ONNXHybridTransformPass
           enableConvTransposeDecompose,
           enableConvTransposeDecomposeToPhasedConv,
           enableConvTranspose1dDecomposeToPhasedConv,
-          enableInstanceNormDecompose, enableSplitToSliceDecompose);
+          enableInstanceNormDecompose, enableMatmulNBitsDecompose,
+          enableSplitToSliceDecompose);
     }
 
     if (recomposition) {
@@ -234,10 +242,11 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createONNXHybridTransformPass(
     bool enableConvTransposeDecompose,
     bool enableConvTransposeDecomposeToPhasedConv,
     bool enableConvTranspose1dDecomposeToPhasedConv,
-    bool enableInstanceNormDecompose, bool enableSplitToSliceDecompose) {
+    bool enableInstanceNormDecompose, bool enableMatmulNBitsDecompose,
+    bool enableSplitToSliceDecompose) {
   return std::make_unique<ONNXHybridTransformPass>(enableRecomposition,
       enableQuarkQuantizedOpsLegalization, enableConvTransposeDecompose,
       enableConvTransposeDecomposeToPhasedConv,
       enableConvTranspose1dDecomposeToPhasedConv, enableInstanceNormDecompose,
-      enableSplitToSliceDecompose);
+      enableMatmulNBitsDecompose, enableSplitToSliceDecompose);
 }
