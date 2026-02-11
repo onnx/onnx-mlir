@@ -86,22 +86,32 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
     && cargo install cargo-bazel --version ${CARGO_BAZEL_VERSION}
 
 # Install protobuf
-ARG PROTOBUF_VERSION=31.1
+ARG PROTOBUF_VERSION=33.5
 ARG PROTOBUF_URL=https://github.com/protocolbuffers/protobuf.git
 ARG PROTOBUF_DIR=protobuf
 RUN git clone -b v${PROTOBUF_VERSION} --recursive ${PROTOBUF_URL} ${PROTOBUF_DIR} \
+    #
+    # Fix protoc-gen-upb_minitable_stage0 segfault in
+    # _upb_DefPool_SetPlatform on s390x until upstreamed
+    #
+    && sed -i -Ez 's/(.*\n)([[:blank:]]*if \(_upb_Decoder_Reserve\(d, arr, 1\)\) \{)/\1    _upb_Decoder_MungeInt32\(\&elem\);\n\2/' ${PROTOBUF_DIR}/upb/wire/decode.c \
+    && sed -i 'N; /} else {\n        _upb_Decoder_Munge(field, val);/ { s/^/        _upb_Decoder_MungeInt32(val);\n/; b }; P; D' ${PROTOBUF_DIR}/upb/wire/decode.c \
+    #
     && mkdir -p ${PROTOBUF_DIR}/build \
     && cd ${PROTOBUF_DIR}/build \
+    #
     # Must specify -Dprotobuf_BUILD_TESTS=OFF otherwise find_package(absl)
     # in onnx will fail due to missing protobuf::gmock target
     # If clang default C++ standard is lower than 17, you must specify
     # -DCMAKE_CXX_STANDARD=17 (or higher) which is required by protobuf
+    #
     && CC=clang CXX=clang++ \
        cmake -DCMAKE_INSTALL_LIBDIR=lib \
              -DBUILD_SHARED_LIBS=ON \
              -Dprotobuf_BUILD_TESTS=OFF .. \
     && make -j${NPROC} install && ldconfig \
     && cd .. \
+    #
     # New version of python protobuf can no longer be built with setup.py
     # and must be built with bazel.
     #
@@ -111,8 +121,8 @@ RUN git clone -b v${PROTOBUF_VERSION} --recursive ${PROTOBUF_URL} ${PROTOBUF_DIR
     # (commit fa9ceb3d4f3fbb1542059d931bf4151a0bee316c).
     #
     # MODULE.bazel needs to be patched to bump rules_python to 1.8.0
-    # since s390x no longer has python 3.8 interpreter.
-    # rules_buf needs to be patched to support s390x arch.
+    # since s390x no longer has python 3.8 interpreter. And rules_buf
+    # needs to be patched to support s390x arch.
     #
     # clang-18 crashes on s390x when compiling absl/time/duration.cc under
     # bazel but works fine under cmake. This is because cmake and bazel
@@ -121,15 +131,19 @@ RUN git clone -b v${PROTOBUF_VERSION} --recursive ${PROTOBUF_URL} ${PROTOBUF_DIR
     # built as a tool dependency. If abseil is being built as a target
     # dependency, we would use --per_file_copt instead.
     #
-    # After fixing all the v33.5 bugs on s390x, it turns out it has known
-    # compatibility problems and also causes onnx (and others) to segfault.
-    # So staying with v31.1 for now.
-    && sed -i -e "/strip_prefix = \"rules_buf-0.3.0\"/a \    patch_cmds = [\n        \x27\x27\x27sed -i -e \x27s|\\\\\\\\[\"arm64\", \"amd64\"\\\\\\\\]|\\\\\\\\[\"arm64\", \"amd64\", \"s390x\"\\\\\\\\]|g\x27 buf/internal/toolchain.bzl\x27\x27\x27,\n    ]," WORKSPACE \
+    && sed -i -e 's/"rules_python", version = "1.6.0"/"rules_python", version = "1.8.0"/g' \
+           MODULE.bazel \
+    && printf "\n\
+single_version_override(\n\
+    module_name = \"rules_buf\",\n\
+    patch_cmds = [\n\
+        '''sed -i -e 's|\\\\\\\\[\"arm64\", \"amd64\"\\\\\\\\]|\\\\\\\\[\"arm64\", \"amd64\", \"s390x\"\\\\\\\\]|g' buf/internal/toolchain.bzl''',\n\
+    ],\n\
+)" >> MODULE.bazel \
     && export CARGO_BAZEL_GENERATOR_URL=file:///root/.cargo/bin/cargo-bazel \
     && export CARGO_BAZEL_REPIN=true \
     && CC=clang CXX=clang++ \
-       bazel build --noenable_bzlmod \
-                   --host_per_file_copt=".*/absl/time/duration.cc@-O0" \
+       bazel build --host_per_file_copt=".*/absl/time/duration.cc@-O0" \
                    //python/dist:binary_wheel \
     && pip3 install bazel-bin/python/dist/protobuf-*.whl --prefix=/usr \
     && cd .. && rm -rf ${PROTOBUF_DIR} ${HOME}/.cache

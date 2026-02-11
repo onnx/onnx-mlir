@@ -16,20 +16,26 @@ COPY . onnx-mlir
 # Setup onnx
 RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
     && cd ${ONNX_ROOT} \
+    #
     # Require patching until upstreamed
+    #
     && sed -i -e 's/target_link_libraries(onnx PUBLIC onnx_proto)/target_link_libraries(onnx PUBLIC onnx_proto PUBLIC ${protobuf_ABSL_USED_TARGETS})/g' \
            -e '/absl::log_initialize/a \
           absl::log_internal_check_op\
           absl::log_internal_message\
           absl::log_internal_nullguard' CMakeLists.txt \
+    #
     # To avoid the "externally managed environment" error on ubuntu,
     # use --prefix=/usr to install into /usr/local/lib (default is
     # /usr/lib)
     # ubi9 doesn't have this problem and --prefix=/usr will install
     # into /usr/lib64 (default is /usr/lib)
-    && CC=clang CXX=clang++ \
-       CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib -DONNX_GEN_PB_TYPE_STUBS=OFF" \
-       python3 -m pip install . --prefix=/usr
+    #
+    # Must specify --no-build-isolation to avoid protoc-gen-mypy.py
+    # segfault on s390x
+    #
+    && CC=clang CXX=clang++ CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib" \
+       python3 -m pip install . --prefix=/usr --no-build-isolation
 
 ARG NPROC=4
 ARG ACCEL=NNPA
