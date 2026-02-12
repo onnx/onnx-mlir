@@ -118,6 +118,8 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
   // Lowering ONNX to ZHigh.
   pm.addPass(onnx_mlir::createONNXToZHighPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
+  // Remove onnx.Dim operations that refer to the same dynamid dimension.
+  pm.addPass(onnx_mlir::createRemoveSameONNXDimPass());
 
   // There are more opportunities for const propagation once all zhigh ops were
   // generated.
@@ -301,8 +303,11 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
         pm.addPass(zlow::createZLowRewritePass());
         // Late generation of code for stick/unstick, needed to be after a
         // ZLowRewrite pass.
-        if (!nnpaDisableCompilerStickUnstick)
-          pm.addPass(zlow::createZLowStickExpansionPass(enableParallel));
+        bool expansion = !nnpaDisableCompilerStickUnstick;
+        bool allocNormalization = isCompatibleWithNNPALevel(NNPALevel::M15);
+        if (expansion || allocNormalization)
+          pm.addPass(zlow::createZLowStickOptimizationPass(
+              expansion, allocNormalization, enableParallel));
         pm.addPass(mlir::createCanonicalizerPass());
         // Normalize MemRefs.
         normalizeMemRefsPasses(pm);
