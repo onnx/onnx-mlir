@@ -7,6 +7,7 @@ add_public_tablegen_target(OMONNXToLinalgPassIncGen)
 add_onnx_mlir_library(OMONNXToLinalg
   ConvertONNXToLinalg.cpp
   Math/MatMul.cpp
+  NN/Conv.cpp
   ONNXBufferizableOpInterface.cpp
 
   DEPENDS
