@@ -39,7 +39,7 @@ RUN if [ "$(uname -m)" = "s390x" ]; then \
       cd ${WORK_DIR}/onnx-mlir && \
       rm -rf build-light && mkdir -p build-light && cd build-light && \
       cmake -DCMAKE_BUILD_TYPE=Debug \
-            -DONNX_MLIR_ENABLE_PYRUNTIME_LIGHT=ON \
+            -DONNX_MLIR_TARGET_TO_BUILD=OMPyInfer \
             .. &&\
       cmake --build . && \
       cd .. && rm -rf build-light; \
