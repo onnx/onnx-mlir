@@ -2198,6 +2198,76 @@ struct RemoveGroupNormPattern2
 };
 
 // =============================================================================
+// Rewrite pattern for ONNXSliceOp
+// =============================================================================
+
+/// Simplify ONNXSliceOp(concat) that extracts exactly one value. Notably, we
+/// don't care about the type here as sometimes dims are casted to float for use
+/// in computations.
+// clang-format off
+/*
+    %257/1 = "onnx.Concat"(%2=1.000000e+00, %5=1.200000e+01, %256, %4=6.400000e+01) <{axis = 0 : si64}> {onnx_node_name = "/encoder/layer.0/attention/self/Cast-/encoder/layer.0/attention/self/Slice-/encoder/layer.0/attention/self/Shape_2_91"} : (tensor<1xf32>, tensor<1xf32>, tensor<1xf32>, tensor<1xf32>) -> tensor<4xf32>
+    %258/1 = "onnx.Slice"(%257, %9=-1, %8=9223372036854775807, %7=0, %6=1) {onnx_node_name = "/encoder/layer.0/attention/self/Cast-/encoder/layer.0/attention/self/Slice_39"} : (tensor<4xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1xf32>
+
+  Slice isolate the constant 64.000, this pattern will substitute %258
+  by that constant, and further propagate it.
+*/
+// clang-format on
+
+struct SliceConcatNoOpPattern : public OpRewritePattern<ONNXSliceOp> {
+public:
+  using OpRewritePattern<ONNXSliceOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(
+      ONNXSliceOp sliceOp, PatternRewriter &rewriter) const override {
+    // Get basic op info.
+    Value input = sliceOp.getData();
+    if (!hasShapeAndRank(input))
+      return failure();
+    int64_t inputRank = getRank(input.getType());
+    Value starts = sliceOp.getStarts();
+    Value output = sliceOp.getOutput();
+
+    // Input has rank 1 from a concat, output is a scalar.
+    if (inputRank > 1)
+      return failure();
+    ONNXConcatOp concatOp = input.getDefiningOp<ONNXConcatOp>();
+    if (!concatOp)
+      return failure();
+
+    if (!isScalarTensor(output))
+      return failure();
+
+    // We have a scalar output, now only care about the start value of splice.
+    if (!definedBy<ONNXConstantOp>(starts))
+      return failure();
+
+    // Get starts, ends, axes and steps via ShapeHelper.
+    ONNXSliceOpShapeHelper shapeHelper(sliceOp.getOperation(), {});
+    if (failed(shapeHelper.computeShape())) {
+      sliceOp.emitError("Failed to scan " + ONNXSliceOp::getOperationName() +
+                        " parameters successfully");
+      return failure();
+    }
+
+    // Compute indices of interest.
+    int64_t start = shapeHelper.starts[0].getLiteral();
+    ValueRange concatInputs = concatOp.getInputs();
+    // For simplicity, expect all concat inputs to be scalar up to including
+    // "start". Could be smarter but it seems that most slice-related concat
+    // comes from dims that are built by list of scalars.
+    for (int64_t i = 0; i <= start; ++i) {
+      if (!isScalarTensor(concatInputs[i]))
+        return failure();
+    }
+
+    // Replace the slice by that "start" concat input.
+    Value newOutput = concatInputs[start];
+    rewriter.replaceOp(sliceOp, newOutput);
+    return success();
+  }
+};
+
+// =============================================================================
 // Rewrite pattern for ONNXTransposeOp
 // =============================================================================
 
@@ -2549,6 +2619,13 @@ void ONNXShapeOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<ShapeToConstantPattern>(context);
 }
+
+/// on the ONNXSliceOp.
+void ONNXSliceOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<SliceConcatNoOpPattern>(context);
+}
+
 
 /// on the ONNXSubOp.
 void ONNXSubOp::getCanonicalizationPatterns(

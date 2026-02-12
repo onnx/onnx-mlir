@@ -2451,3 +2451,29 @@ func.func @group_norm5d_v21(%arg0: tensor<3x4x6x8x16xf32>, %arg1: tensor<4xf32>,
 // CHECK:           onnx.Return [[VAR_11_]] : tensor<3x4x6x8x16xf32>
 // CHECK:         }
 }
+
+// -----
+
+func.func @splice_concat_nop(%arg0: tensor<1x12x?x64xf32> {onnx.name = "x"}) -> (tensor<1x12x?x64xf32> {onnx.name = "y"}) {
+  %0 = onnx.Constant dense<1.000000e+00> : tensor<1xf32>
+  %1 = onnx.Constant dense<6.400000e+01> : tensor<1xf32>
+  %2 = onnx.Constant dense<1.200000e+01> : tensor<1xf32>
+  %3 = onnx.Constant dense<1> : tensor<1xi64>
+  %4 = onnx.Constant dense<0> : tensor<1xi64>
+  %5 = onnx.Constant dense<9223372036854775807> : tensor<1xi64>
+  %6 = onnx.Constant dense<-1> : tensor<1xi64>
+  %7 = "onnx.Dim"(%arg0) <{axis = 2 : si64}> : (tensor<1x12x?x64xf32>) -> tensor<1xi64>
+  %8 = "onnx.Cast"(%7) <{saturate = 1 : si64, to = f32}> : (tensor<1xi64>) -> tensor<1xf32>
+  %9 = "onnx.Concat"(%0, %2, %8, %1) <{axis = 0 : si64}> : (tensor<1xf32>, tensor<1xf32>, tensor<1xf32>, tensor<1xf32>) -> tensor<4xf32>
+  %10 = "onnx.Slice"(%9, %6, %5, %4, %3) : (tensor<4xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1xf32>
+  %11 = "onnx.Add"(%arg0, %10) : (tensor<1x12x?x64xf32>, tensor<1xf32>) -> tensor<1x12x?x64xf32>
+  return %11 : tensor<1x12x?x64xf32>
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @splice_concat_nop
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x12x?x64xf32> {onnx.name = "x"}) -> (tensor<1x12x?x64xf32> {onnx.name = "y"}) {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<6.400000e+01> : tensor<1xf32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Add"([[PARAM_0_]], [[VAR_0_]]) : (tensor<1x12x?x64xf32>, tensor<1xf32>) -> tensor<1x12x?x64xf32>
+// CHECK:           return [[VAR_1_]] : tensor<1x12x?x64xf32>
+// CHECK:         }
+}
