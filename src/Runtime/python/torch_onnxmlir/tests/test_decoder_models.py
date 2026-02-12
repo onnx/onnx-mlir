@@ -1,3 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+
+##################### test_decoder_models.py ###################################
+#
+# Copyright 2026 The IBM Research Authors.
+#
+################################################################################
+
 # Usage: MODEL=granite4 && OMP_NUM_THREADS=6 TORCHONNXMLIR_CACHE_DIR=./cache_${MODEL} python ./generate.py ${MODEL} 2>&1 | tee ${MODEL}.log
 
 import sys

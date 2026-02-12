@@ -1,4 +1,11 @@
 # Command to run: OMP_NUM_THREADS=6 python test_bert.py
+
+##################### test_encoder_models.py ###################################
+#
+# Copyright 2026 The IBM Research Authors.
+#
+################################################################################
+
 import torch
 import logging
 import time
