@@ -1,8 +1,18 @@
-#ifdef __cplusplus
-#include <cassert>
-#else
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+//===-- OMUnique.c - OMTopK C Implementation --===//
+//
+// Copyright 2025 The IBM Research Authors.
+//
+// =============================================================================
+//
+// This file contains C implementation of OMUnique.
+//
+//===----------------------------------------------------------------------===//
+
 #include <assert.h>
-#endif
 
 #ifndef __USE_GNU
 #define __USE_GNU
@@ -13,9 +23,6 @@
 
 #include "onnx-mlir/Runtime/OMTensor.h"
 #include "onnx-mlir/Runtime/OnnxDataType.h"
-#ifdef __cplusplus
-#include "src/Runtime/OMTensorHelper.hpp"
-#endif
 
 //
 // Table for managing sliced elements

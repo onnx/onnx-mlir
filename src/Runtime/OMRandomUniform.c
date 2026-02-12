@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----OMRandomUniform.inc - OMRandomUniform C/C++ Implementation//------===//
+//===----OMRandomUniform.c - OMRandomUniform C Implementation -------------===//
 //
 // Copyright 2025 The IBM Research Authors.
 //
@@ -16,10 +16,6 @@
 #include <math.h>
 #include <stdlib.h>
 
-#ifdef __cplusplus
-#include <random>
-#endif
-
 //===----------------------------------------------------------------------===//
 // Float32 version
 //===----------------------------------------------------------------------===//
@@ -27,21 +23,11 @@ OMTensor *run_uniform_random_f32(
     OMTensor *output_tensor, float low, float high, float seed) {
   float *output_ptr = (float *)omTensorGetDataPtr(output_tensor);
   int64_t num_elements = omTensorGetNumElems(output_tensor);
-
-#ifdef __cplusplus
-  std::default_random_engine generator;
-  generator.seed(static_cast<unsigned int>(seed));
-  std::uniform_real_distribution<float> distribution(low, high);
-  for (int64_t i = 0; i < num_elements; ++i)
-    output_ptr[i] = distribution(generator);
-#else
   srand((unsigned int)seed);
   for (int64_t i = 0; i < num_elements; ++i) {
     float r = (float)rand() / ((float)RAND_MAX + 1.0f);
     output_ptr[i] = low + r * (high - low);
   }
-#endif
-
   return output_tensor;
 }
 
@@ -52,21 +38,11 @@ OMTensor *run_uniform_random_f64(
     OMTensor *output_tensor, double low, double high, double seed) {
   double *output_ptr = (double *)omTensorGetDataPtr(output_tensor);
   int64_t num_elements = omTensorGetNumElems(output_tensor);
-
-#ifdef __cplusplus
-  std::default_random_engine generator;
-  generator.seed(static_cast<unsigned int>(seed));
-  std::uniform_real_distribution<double> distribution(low, high);
-  for (int64_t i = 0; i < num_elements; ++i)
-    output_ptr[i] = distribution(generator);
-#else
   srand((unsigned int)seed);
   for (int64_t i = 0; i < num_elements; ++i) {
     double r = (double)rand() / ((double)RAND_MAX + 1.0);
     output_ptr[i] = low + r * (high - low);
   }
-#endif
-
   return output_tensor;
 }
 

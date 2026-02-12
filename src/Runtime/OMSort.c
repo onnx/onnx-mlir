@@ -2,23 +2,19 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-- OMSort.inc - OMSort C/C++ Implementation --===//
+//===-- OMSort.c - OMSort C Implementation --------------------------------===//
 //
 // Copyright 2023-2025 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file contains C/C++ implementation of OMSort.
+// This file contains C implementation of OMSort.
 //
 //===----------------------------------------------------------------------===//
 
 #include "OMSort.h"
 
-#ifdef __cplusplus
-#include <cassert>
-#else
 #include <assert.h>
-#endif
 
 #ifndef __USE_GNU
 #define __USE_GNU
@@ -29,9 +25,6 @@
 
 #include "onnx-mlir/Runtime/OMTensor.h"
 #include "onnx-mlir/Runtime/OnnxDataType.h"
-#ifdef __cplusplus
-#include "src/Runtime/OMTensorHelper.hpp"
-#endif
 
 #include "src/Support/SmallFPConversion.h"
 
@@ -131,7 +124,6 @@ declare_compare_function(Float16, uint16_t, Descending, LoadF16AsF32)
 #endif
 // clang-format on
 
-
 //
 // Custom quick sort function for environments not suppirting qsort_r (e.g. zos)
 //
@@ -141,8 +133,8 @@ declare_compare_function(Float16, uint16_t, Descending, LoadF16AsF32)
     (a) = (b);                                                                 \
     (b) = tmp;                                                                 \
   } while (0)
-// stack for index (uint64_t)
-typedef struct indexStack {
+    // stack for index (uint64_t)
+    typedef struct indexStack {
   uint64_t *stackData;
   int64_t stackSize;
   int64_t stackTop;
@@ -174,11 +166,11 @@ typedef struct indexStack {
     assert((stack).stackTop >= 0);                                             \
     fprintf(stderr, "Stack: [");                                               \
     for (int64_t i = 0; (i + 1) < (stack).stackTop; i += 2) {                  \
-      fprintf(                                                                 \
-          stderr, "<%ld:%ld>, ", (stack).stackData[i], (stack).stackData[i + 1]);\
+      fprintf(stderr, "<%ld:%ld>, ", (stack).stackData[i],                     \
+          (stack).stackData[i + 1]);                                           \
     }                                                                          \
-    fprintf(                                                                   \
-        stderr, "] (Top=%ld,Size=%ld)\n", (stack).stackTop, (stack).stackSize);\
+    fprintf(stderr, "] (Top=%ld,Size=%ld)\n", (stack).stackTop,                \
+        (stack).stackSize);                                                    \
     fflush(stderr);                                                            \
   } while (0)
 

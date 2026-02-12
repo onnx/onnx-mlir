@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===--- OMInstrument.inc - C/C++ Neutral Instrumentation Implementation---===//
+//===--- OMInstrument.c - C Neutral Instrumentation Implementation -------===//
 //
 // Copyright 2019-2025 The IBM Research Authors.
 //
@@ -12,17 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifdef __cplusplus
-#include <cassert>
-#include <map>
-#include <numeric>
-#include <random>
-#include <string>
-#include <typeinfo>
-#include <vector>
-#else
 #include <assert.h>
-#endif
 
 #if defined(__APPLE__) || defined(__MVS__)
 #include <stdlib.h>
@@ -36,10 +26,6 @@
 
 #include "onnx-mlir/Compiler/OMCompilerRuntimeTypes.h"
 #include "onnx-mlir/Runtime/OMInstrument.h"
-
-#ifdef __cplusplus
-using namespace onnx_mlir;
-#endif
 
 // Define global time variables.
 #ifdef _WIN32
