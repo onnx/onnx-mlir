@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-- OMUnique.c - OMTopK C Implementation --===//
+//===-- OMUnique.c - OMUnique C Implementation ---------------------------===//
 //
 // Copyright 2025 The IBM Research Authors.
 //
@@ -39,7 +39,7 @@ typedef struct sliceTable {
   uint64_t *countsPtr;
 } sliceTable;
 
-void sliceTableInit(sliceTable *table, OM_DATA_TYPE dataType, uint64_t sorted,
+static void sliceTableInit(sliceTable *table, OM_DATA_TYPE dataType, uint64_t sorted,
     uint64_t numberOfElementsInSlice, uint64_t maxNumberOfSlices,
     void *sliceDataPtr, uint64_t *indicesPtr, uint64_t *inverseIndicesPtr,
     uint64_t *countsPtr) {
@@ -55,7 +55,7 @@ void sliceTableInit(sliceTable *table, OM_DATA_TYPE dataType, uint64_t sorted,
 }
 
 #ifdef _DEBUG_SLICE_TABLE
-void sliceTablePrint(sliceTable *table) {
+static void sliceTablePrint(sliceTable *table) {
   printf(
       "sliceTablePrint: dataType=%d, sorted=%ld, numberOfElementsInSlice=%ld, "
       "numberOfSlices=%ld, maxNumberOfSlices=%ld, sliceTable = [\n",
@@ -85,7 +85,7 @@ void sliceTablePrint(sliceTable *table) {
 #endif
 
 // Check if the first argument is less than the second one
-int isLessNum(void *arg1, void *arg2, OM_DATA_TYPE dataType) {
+static int isLessNum(void *arg1, void *arg2, OM_DATA_TYPE dataType) {
   switch (dataType) {
   case ONNX_TYPE_FLOAT:
     return *((float *)arg1) < *((float *)arg2);
@@ -120,7 +120,7 @@ int isLessNum(void *arg1, void *arg2, OM_DATA_TYPE dataType) {
 }
 
 // Check if
-int isLessSlice(
+static int isLessSlice(
     void *elem1, void *elem2, uint64_t elemSize, OM_DATA_TYPE dataType) {
   uint64_t dataSize = OM_DATA_TYPE_SIZE[dataType];
   int64_t elemNum = elemSize / dataSize;
@@ -139,10 +139,10 @@ int isLessSlice(
 // according to the given axis if the axis attr is given. This function gets
 // slice data according to the specified slice axis(sliceAxis), and fills them
 // to the specified pointer. Slice data's shape is the following.
-// - Input data: [x, y, z] (asumming sliceAxis= 1, the "y" axis is the slice.)
+// - Input data: [x, y, z] (asuming sliceAxis= 1, the "y" axis is the slice.)
 // - Sliced data: [x, z, count] (s.t. count is number of unique slice shape)
 //
-void getSliceData(const OMTensor *inputTensor, int64_t sliceAxis,
+static void getSliceData(const OMTensor *inputTensor, int64_t sliceAxis,
     int64_t idxInSliceAxis, void *sliceData) {
   const int64_t inputRank = omTensorGetRank(inputTensor);
   const int64_t *inputShape = omTensorGetShape(inputTensor);
@@ -193,18 +193,18 @@ void getSliceData(const OMTensor *inputTensor, int64_t sliceAxis,
 
 //
 // "sliceTableRegister" registers (1) a given slice returned by getSliceData
-// if// the axis attr is given or (2) a single element if the axis atter is not
+// if// the axis attr is given or (2) a single element if the axis attr is not
 // given.  It compares the current slice with all of the registered slices to
 // investigate an identical slice is registered or not, and returns a bool if
 // it is found or not.  If the sorted attr is given, this function keeps
 // slices in sorted order. Otherwise it keeps them in the coming order.
 // This function also generates outputs of onnx.Unique, such as indices,
-// inverse_indeces and counts. However it does not generate Y if the axis
+// inverse_indices and counts. However it does not generate Y if the axis
 // attr is specified, since this function simply keeps registered slices in
 // the table. The output Y is generated from input Tensor, indices and axis
 // in another function.
 //
-int sliceTableRegister(sliceTable *table, void *slice, uint64_t off) {
+static int sliceTableRegister(sliceTable *table, void *slice, uint64_t off) {
   uint64_t dataSize = OM_DATA_TYPE_SIZE[table->dataType];
   char *sliceDataPtr = (char *)table->sliceDataPtr;
   uint64_t sliceSizeInBytes = table->numberOfElementsInSlice * dataSize;
@@ -262,7 +262,7 @@ int sliceTableRegister(sliceTable *table, void *slice, uint64_t off) {
 // If the axis attr is not given, sliceTableRegister generates the output Y
 //  directly, since the output is a simple array of unique elements.
 //
-void produceY(const OMTensor *inputTensor, OMTensor *indices, int64_t sliceAxis,
+static void produceY(const OMTensor *inputTensor, OMTensor *indices, int64_t sliceAxis,
     OMTensor *Y) {
   const int64_t inputRank = omTensorGetRank(inputTensor);
   assert(inputRank <= 6 && "input rank should be 6 or less");

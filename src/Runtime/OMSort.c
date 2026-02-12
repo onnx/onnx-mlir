@@ -33,7 +33,7 @@
 //
 // Data-type-specific compare functions are used here for performance reason.
 // As background, the performance of this sort function is important for the
-// whole model performance (e.g. the dominant part of the Yolov3 model).
+// whole model performance (e.g. the dominant part of the Yolo v3 model).
 // If we use data-type-general compare function, including switch statements
 // to check the data type in the compare function, the switch statements are
 // executed in the sort and compare loops, we can avoid this overhead by
@@ -125,7 +125,7 @@ declare_compare_function(Float16, uint16_t, Descending, LoadF16AsF32)
 // clang-format on
 
 //
-// Custom quick sort function for environments not suppirting qsort_r (e.g. zos)
+// Custom quick sort function for environments not supporting qsort_r (e.g. zos)
 //
 #define SWAP_INDEX(a, b)                                                       \
   do {                                                                         \
@@ -182,7 +182,7 @@ static int64_t log2u(uint64_t n) {
   return b;
 }
 
-// Quick sort patition function
+// Quick sort partition function
 static int64_t quick_sort_partition(void *dataPtr, uint64_t *idx,
     compareFunctionType compFunc, int64_t begin, int64_t end) {
 
@@ -217,7 +217,7 @@ void quick_sort_custom(void *base, size_t dataNum, size_t dataSize,
     compareFunctionType compFunc, void *dataPtr) {
 #endif
   uint64_t *idx = (uint64_t *)base;
-  // Calculate the theoritical maximum stack size for index
+  // Calculate the theoretical maximum stack size for index
   int64_t stackSize = (log2u(dataNum + 1) + 2) * 2;
   indexStack stack;
   STACK_INIT(stack, stackSize);
@@ -233,7 +233,7 @@ void quick_sort_custom(void *base, size_t dataNum, size_t dataSize,
     if (begin < end) {
       int64_t pivotIdx =
           quick_sort_partition(dataPtr, idx, compFunc, begin, end);
-      // To limit the stack size, push larger partion at first
+      // To limit the stack size, push larger partition at first
       if ((pivotIdx - begin) > (end - pivotIdx)) {
         if (begin < pivotIdx - 1)
           STACK_PUSH(stack, begin, pivotIdx - 1);
@@ -346,7 +346,7 @@ void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
   // Use standard quick sort in libc
   sortFunctionType *sortFunc = qsort_r;
 #else // for environments not supporting quick sort
-  sortFunctionType *sortFunc = quick_sort_custom; // custum quick sort
+  sortFunctionType *sortFunc = quick_sort_custom; // custom quick sort
 #endif
   // To support input Tensor with various ranks in a uniform way.
   // If the input rank < 6, upgrade the rank to 6 virtually without changing

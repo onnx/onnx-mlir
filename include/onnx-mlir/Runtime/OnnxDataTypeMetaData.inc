@@ -1,6 +1,15 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  */
+// ====-- OnnxDataTypeMetaData.inc ----------------------------------------===//
+//
+// Copyright 2025 The IBM Research Authors.
+//
+// =============================================================================
+//
+// This file contains macro definition for Onnx Mlir Meta Data Type info.
+//
+//===----------------------------------------------------------------------===//
 
 #if defined(OM_TYPE_METADATA_DEF)
 // clang-format off
