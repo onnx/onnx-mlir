@@ -2626,7 +2626,6 @@ void ONNXSliceOp::getCanonicalizationPatterns(
   results.insert<SliceConcatNoOpPattern>(context);
 }
 
-
 /// on the ONNXSubOp.
 void ONNXSubOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
