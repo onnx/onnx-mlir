@@ -1,3 +1,6 @@
+// hi alex
+#if 0
+
 #ifdef __cplusplus
 #include <cassert>
 #else
@@ -20,3 +23,4 @@
 void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
     int64_t inputAxis, uint64_t sorted, OMTensor *Y, OMTensor *indices,
     OMTensor *inverse_indices, OMTensor *counts);
+#endif
