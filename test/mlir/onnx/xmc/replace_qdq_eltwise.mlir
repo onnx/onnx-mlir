@@ -150,10 +150,9 @@ func.func @test_quantized_tanh_relu(%arg0: tensor<1x16x16x16x!quant.uniform<u8:f
 
   return %relu : tensor<1x16x16x16x!quant.uniform<u8:f32, 0.02:128>>
 
-  // Pattern doesn't apply to unary ops (Tanh requires 2 operands for QLinearEltwise)
-  // CHECK: %[[TANH:.*]] = "onnx.Tanh"(%arg0)
-  // CHECK: %[[RELU:.*]] = "onnx.Relu"(%[[TANH]])
-  // CHECK: return %[[RELU]]
+  // CHECK: %[[NOVAL:.*]] = "onnx.NoValue"() {value} : () -> none
+  // CHECK: %[[FUSED:.*]] = "onnx.XCOMPILERFusedEltwise"(%arg0, %[[NOVAL]]) {{.*}}nonlinear = "RELU"{{.*}}type = "TANH"
+  // CHECK: return %[[FUSED]]
 }
 
 // -----
@@ -172,10 +171,9 @@ func.func @test_quantized_sqrt_relu(%arg0: tensor<1x32x32x32x!quant.uniform<i8:f
 
   return %relu : tensor<1x32x32x32x!quant.uniform<i8:f32, 0.01:0>>
 
-  // Pattern doesn't apply to unary ops (Sqrt requires 2 operands for QLinearEltwise)
-  // CHECK: %[[SQRT:.*]] = "onnx.Sqrt"(%arg0)
-  // CHECK: %[[RELU:.*]] = "onnx.Relu"(%[[SQRT]])
-  // CHECK: return %[[RELU]]
+  // CHECK: %[[NOVAL:.*]] = "onnx.NoValue"() {value} : () -> none
+  // CHECK: %[[FUSED:.*]] = "onnx.XCOMPILERFusedEltwise"(%arg0, %[[NOVAL]]) {{.*}}nonlinear = "RELU"{{.*}}type = "SQRT"
+  // CHECK: return %[[FUSED]]
 }
 
 // -----

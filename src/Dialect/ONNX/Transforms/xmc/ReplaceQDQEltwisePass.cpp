@@ -332,6 +332,20 @@ struct FuseQuantizedEltwiseActivation : public OpRewritePattern<ActivationOp> {
       return rewriter.notifyMatchFailure(
           activationOp, "input not from eltwise operation");
 
+    // Handle unary and binary eltwise ops.
+    Value a = nullptr, b = nullptr;
+    bool isUnary = false;
+    if (eltwiseOp->getNumOperands() == 1) {
+      a = eltwiseOp->getOperand(0);
+      isUnary = true;
+    } else if (eltwiseOp->getNumOperands() == 2) {
+      a = eltwiseOp->getOperand(0);
+      b = eltwiseOp->getOperand(1);
+    } else {
+      return rewriter.notifyMatchFailure(
+          activationOp, "eltwise op is not unary/binary");
+    }
+
     // Check that eltwise inputs and output are quantized
     if (!isQuantizedType(eltwiseOp.getResult().getType()))
       return rewriter.notifyMatchFailure(
@@ -383,9 +397,13 @@ struct FuseQuantizedEltwiseActivation : public OpRewritePattern<ActivationOp> {
           activationOp, "unsupported activation for fused op");
     }
 
+    // Only create IR (e.g. onnx.NoValue) after we know we will rewrite.
+    if (isUnary)
+      b = rewriter.create<ONNXNoneOp>(eltwiseOp.getLoc()).getResult();
+
     auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(eltwiseOp.getLoc(),
         activationOp.getType(), // Result type (quantized)
-        eltwiseOp.getOperand(0), eltwiseOp.getOperand(1),
+        a, b,
         /*clip_max=*/IntegerAttr(),
         /*clip_min=*/IntegerAttr(),
         /*leakyrelu_alpha=*/alphaAttr,
@@ -597,8 +615,7 @@ struct ReplaceQDQEltwisePass
     patterns.add<FuseQuantizedClipWithoutActivation>(context);
 
     //========================================================================
-    // Pattern 2: Element-wise with Activation Fusion (12 combinations)
-    // 4 binary eltwise ops × 3 activation ops = 12 combinations
+    // Pattern 2: Element-wise with Activation Fusion.
     //========================================================================
 
     // Add + Activations (2 combinations)
@@ -625,8 +642,15 @@ struct ReplaceQDQEltwisePass
     patterns.add<FuseQuantizedEltwiseActivation<ONNXDivOp, ONNXLeakyReluOp>>(
         context);
 
-    // NOTE: Unary ops (Tanh, Sqrt) are NOT supported by XFE QLinearEltwise
-    // which requires 2 operands (A and B). Unary ops remain separate.
+    // Unary ops + activations.
+    patterns.add<FuseQuantizedEltwiseActivation<ONNXTanhOp, ONNXReluOp>>(
+        context);
+    patterns.add<FuseQuantizedEltwiseActivation<ONNXTanhOp, ONNXLeakyReluOp>>(
+        context);
+    patterns.add<FuseQuantizedEltwiseActivation<ONNXSqrtOp, ONNXReluOp>>(
+        context);
+    patterns.add<FuseQuantizedEltwiseActivation<ONNXSqrtOp, ONNXLeakyReluOp>>(
+        context);
 
     //========================================================================
     // Pattern 3: BFloat16 with Activation (4 combinations)
