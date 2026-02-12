@@ -2,13 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------- OMIndexLookup.inc - OMIndexLookup C/C++ Implementation -------===//
+//===------- OMIndexLookup.c.  - OMIndexLookup C/ Implementation ----------===//
 //
 // Copyright 2021 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file contains C/C++ implementation of the OMIndexLookup functions.
+// This file contains C implementation of the OMIndexLookup functions.
 //
 //===----------------------------------------------------------------------===//
 
@@ -43,12 +43,8 @@ static inline uint32_t hash_int64(uint32_t hval, int64_t val) {
 /// table described by the arrays \p G and \p V. The arrays length is given by
 /// \p dictSize. The index returned is valid if the string \p str provided is
 /// garanteed to be in the dictionary described by \p G and \p V.
-#ifdef __cplusplus
-extern "C"
-#endif
-    uint64_t
-    find_index_str(const char *str, const int32_t G[], const int32_t V[],
-        int32_t dictSize) {
+uint64_t find_index_str(
+    const char *str, const int32_t G[], const int32_t V[], int32_t dictSize) {
   assert(str && G && V && dictSize > 0);
   int32_t d = G[hash_string(0, str) % dictSize];
   int64_t index = (d < 0) ? V[-d - 1] : V[hash_string(d, str) % dictSize];
@@ -60,12 +56,8 @@ extern "C"
 /// table described by the arrays \p G and \p V. The arrays length is given by
 /// \p dictSize. The index returned is valid if the value provided \p val is
 /// garanteed to be in the 'dictionary' described by \p G and \p V.
-#ifdef __cplusplus
-extern "C"
-#endif
-    uint64_t
-    find_index_i64(
-        int64_t val, const int32_t G[], const int32_t V[], int32_t dictSize) {
+uint64_t find_index_i64(
+    int64_t val, const int32_t G[], const int32_t V[], int32_t dictSize) {
   assert(G && V && dictSize > 0);
   int32_t d = G[hash_int64(0, val) % dictSize];
   int64_t index = (d < 0) ? V[-d - 1] : V[hash_int64(d, val) % dictSize];

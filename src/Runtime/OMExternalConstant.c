@@ -2,13 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-- OMExternalConstant.inc - OMExternalConstant C/C++ Implementation --===//
+//===-- OMExternalConstant.c   - OMExternalConstant C Implementation -----===//
 //
 // Copyright 2023 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file contains C/C++ neutral implementation of OMExternalConstant.
+// This file contains C implementation of OMExternalConstant.
 //
 //===----------------------------------------------------------------------===//
 

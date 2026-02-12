@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---------- OMResize.inc - OMTensor C/C++ Implementation ----------===//
+//===---------- OMResize.c - OMTensor C Implementation -------------------===//
 //
 // Copyright 2022-2023 The IBM Research Authors.
 //
@@ -11,12 +11,8 @@
 // This file contains the implementation of ONNXResizeOp runtime support.
 //
 //===----------------------------------------------------------------------===//
-#ifdef __cplusplus
-#include <cassert>
-#else
-#include <assert.h>
-#endif
 
+#include <assert.h>
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -43,7 +39,7 @@ static void nearest_coeffs(float ratio, float coeffs_buffer[2], int mode) {
     break;
   case 1: // round_prefer_ceil
     coeffs_buffer[0] = ratio < 0.5 ? 1 : 0;
-    coeffs_buffer[1] = ratio >= 0.5 ? 1: 0;
+    coeffs_buffer[1] = ratio >= 0.5 ? 1 : 0;
     break;
   case 2: // floor
     coeffs_buffer[0] = 1;
@@ -316,9 +312,8 @@ static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
 // The parameters that are not used are commented out.
 // I, Tong Chen, forgot why only the default value for them are used.
 // ToFix: add the support for other value if needed
-void Resize_Scales(
-    OMTensor *output, OMTensor *data, OMTensor *scales, char *mode_str,
-    char *nearest_mode) {
+void Resize_Scales(OMTensor *output, OMTensor *data, OMTensor *scales,
+    char *mode_str, char *nearest_mode) {
   Coeff_Func_t coeffs_f = NULL;
   int coeffs_n = 0;
   if (strcmp(mode_str, "nearest") == 0) {
@@ -333,7 +328,7 @@ void Resize_Scales(
   } else {
     assert(0 && "Resize runtime: unsupported mode");
   }
-  
+
   interpolate_nd_OMTensor(
       /*OMTensor */ output,
       /*OMTensor */ data,
@@ -348,9 +343,8 @@ void Resize_Scales(
       /*exclude */ 0);
 }
 
-void Resize_Size(
-    OMTensor *output, OMTensor *data, OMTensor *size, char *mode_str,
-    char *nearest_mode) {
+void Resize_Size(OMTensor *output, OMTensor *data, OMTensor *size,
+    char *mode_str, char *nearest_mode) {
   Coeff_Func_t coeffs_f = NULL;
   int coeffs_n = 0;
   if (strcmp(mode_str, "nearest") == 0) {

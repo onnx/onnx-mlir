@@ -2,13 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-- OMTopK.inc - OMTopK C/C++ Implementation --===//
+//===-- OMTopK.c - OMTopK C Implementation -------------------------------===//
 //
 // Copyright 2025 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file contains C/C++ implementation of OMTopK.
+// This file contains C implementation of OMTopK.
 //
 //===----------------------------------------------------------------------===//
 
@@ -16,21 +16,13 @@
 // and the prototypes for getCompareFunction() and omTensorSort().
 #include "OMSort.h" // Provides OMTensor, OnnxDataType, and function typedefs
 
-#ifdef __cplusplus
-#include <cassert>
-#else
 #include <assert.h>
-#endif
 
 #ifndef __USE_GNU
-#define __USE_GNU 
+#define __USE_GNU
 #endif
-#include <stdlib.h> // For qsort_r
 #include <stdint.h> // For uint64_t, int64_t
-
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <stdlib.h> // For qsort_r
 
 /* =========================================================================
  *
@@ -55,7 +47,7 @@ static void heap_sift_down(uint64_t *heap, int64_t start, int64_t end,
     int (*compare)(const void *, const void *, void *),
 #endif
     void *data) {
-  
+
   int64_t root = start;
   while ((root * 2 + 1) <= end) { // While root has at least one child
     int64_t child = root * 2 + 1;
@@ -161,24 +153,23 @@ void omTensorTopK(OMTensor *orderTensor, const OMTensor *inputTensor,
   // 2. Get the loop comparator.
   // This checks if a new element is "better" than the heap root.
   // This uses the correct ascending direction.
-  compareFunctionType *loopCompare =
-      getCompareFunction(ascending, dataType);
+  compareFunctionType *loopCompare = getCompareFunction(ascending, dataType);
 
   // 3. Get the final sort comparator (same as loop).
   compareFunctionType *sortCompare = loopCompare;
 
   uint64_t datasize = OM_DATA_TYPE_SIZE[dataType];
 
-  // Get the standard C sort function
-  #if defined(__APPLE__)
-    sortFunctionType *sortFunc = qsort_r;
-  #elif defined(_MSC_VER)
-    sortFunctionType *sortFunc = qsort_s;
-  #elif defined(__linux) || defined(__linux__) || defined(linux)
-    sortFunctionType *sortFunc = qsort_r;
-  #else
-    sortFunctionType *sortFunc = quick_sort_custom;
-  #endif
+// Get the standard C sort function
+#if defined(__APPLE__)
+  sortFunctionType *sortFunc = qsort_r;
+#elif defined(_MSC_VER)
+  sortFunctionType *sortFunc = qsort_s;
+#elif defined(__linux) || defined(__linux__) || defined(linux)
+  sortFunctionType *sortFunc = qsort_r;
+#else
+  sortFunctionType *sortFunc = quick_sort_custom;
+#endif
 
   // Iterate over all 1D slices of the tensor
   int64_t shape[6] = {1, 1, 1, 1, 1, 1};
@@ -198,12 +189,13 @@ void omTensorTopK(OMTensor *orderTensor, const OMTensor *inputTensor,
                            dim4 * strides[4];
             void *data = ((char *)dataPtr) + datasize * off;
             uint64_t *idx = order + off;
-            
+
             // --- Stable TopK Logic (Partial Heapsort) ---
 
             // STEP 1: Build the initial K-heap using the heap comparator.
-            // This builds a Min-Heap (for TopK-Largest) or Max-Heap (for TopK-Smallest).
-            // The root (idx[0]) is the "worst" item in the K-set.
+            // This builds a Min-Heap (for TopK-Largest) or Max-Heap (for
+            // TopK-Smallest). The root (idx[0]) is the "worst" item in the
+            // K-set.
             make_heap(idx, k, heapCompare, data);
 
             // STEP 2: Iterate through the remaining N-K elements.
@@ -220,20 +212,19 @@ void omTensorTopK(OMTensor *orderTensor, const OMTensor *inputTensor,
               // replace the root and sift down.
               if (comparison < 0) {
                 swap_indices(&idx[0], &idx[i]);
-                // Sift down using the heap comparator to maintain the heap property.
+                // Sift down using the heap comparator to maintain the heap
+                // property.
                 heap_sift_down(idx, 0, k - 1, heapCompare, data);
               }
             }
 
             // STEP 3: Sort only the final K elements, if "sorted" is not 0.
             if (sorted != 0) {
-              #if defined(__APPLE__)
-                sortFunc((void *)idx, k, sizeof(uint64_t), data,
-                    sortCompare);
-              #else
-                sortFunc((void *)idx, k, sizeof(uint64_t), sortCompare,
-                    data);
-              #endif
+#if defined(__APPLE__)
+              sortFunc((void *)idx, k, sizeof(uint64_t), data, sortCompare);
+#else
+              sortFunc((void *)idx, k, sizeof(uint64_t), sortCompare, data);
+#endif
             }
           }
         }
@@ -241,11 +232,3 @@ void omTensorTopK(OMTensor *orderTensor, const OMTensor *inputTensor,
     }
   }
 }
-
-#ifdef __cplusplus
-} // extern "C"
-#endif
-
-
-
-
