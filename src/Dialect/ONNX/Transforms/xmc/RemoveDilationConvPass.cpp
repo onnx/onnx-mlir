@@ -150,17 +150,18 @@ struct RemoveDilationConv : public OpRewritePattern<ONNXConvOp> {
     int64_t new_kernel = org_kernel + (org_kernel - 1) * (dilation - 1);
 
     // Expand weights with dilation (NCHW layout)
-    auto expandedWeightsAttr = expandDilatedWeightsNCHW(
-        originalWeightsAttr, originalShape, dilation);
+    auto expandedWeightsAttr =
+        expandDilatedWeightsNCHW(originalWeightsAttr, originalShape, dilation);
 
     auto valueAttr = rewriter.getNamedAttr("value", expandedWeightsAttr);
 
     // Create the result type for the constant op using the original element
-    // type (which preserves quantized type info like !quant.uniform<i8:f32,...>)
-    // The DenseElementsAttr uses the storage type internally, but the op's
-    // result type must have the full quantized type for onnx.Conv compatibility.
-    SmallVector<int64_t> expandedShape = {originalShape[0], originalShape[1],
-        new_kernel, new_kernel};
+    // type (which preserves quantized type info like
+    // !quant.uniform<i8:f32,...>) The DenseElementsAttr uses the storage type
+    // internally, but the op's result type must have the full quantized type
+    // for onnx.Conv compatibility.
+    SmallVector<int64_t> expandedShape = {
+        originalShape[0], originalShape[1], new_kernel, new_kernel};
     auto newWeightsResultType =
         RankedTensorType::get(expandedShape, weightsType.getElementType());
     auto newWeightsConst = rewriter.create<ONNXConstantOp>(loc,

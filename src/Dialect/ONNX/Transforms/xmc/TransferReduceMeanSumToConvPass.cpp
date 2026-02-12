@@ -91,10 +91,10 @@ mlir::Value createConstantTensor(mlir::PatternRewriter &rewriter,
       int64_t zp = uniformQType.getZeroPoint();
       intValue = static_cast<int64_t>(std::round(value / scale)) + zp;
       // Clamp to storage range
-      intValue =
-          std::max(intValue, static_cast<int64_t>(uniformQType.getStorageTypeMin()));
-      intValue =
-          std::min(intValue, static_cast<int64_t>(uniformQType.getStorageTypeMax()));
+      intValue = std::max(
+          intValue, static_cast<int64_t>(uniformQType.getStorageTypeMin()));
+      intValue = std::min(
+          intValue, static_cast<int64_t>(uniformQType.getStorageTypeMax()));
     }
 
     unsigned bitWidth = storageType.getIntOrFloatBitWidth();
@@ -447,8 +447,7 @@ struct ReduceMeanMulToConvPattern : public OpRewritePattern<ONNXMulOp> {
     float mulConstant;
     mlir::Type constElemType = denseAttr.getElementType();
     if (mlir::isa<mlir::FloatType>(constElemType)) {
-      mulConstant =
-          denseAttr.getSplatValue<mlir::APFloat>().convertToFloat();
+      mulConstant = denseAttr.getSplatValue<mlir::APFloat>().convertToFloat();
     } else if (constElemType.isIntOrIndex()) {
       mulConstant = static_cast<float>(
           denseAttr.getSplatValue<mlir::APInt>().getSExtValue());

@@ -48,8 +48,7 @@ bool shapesEqual(ArrayRef<int64_t> shape1, ArrayRef<int64_t> shape2) {
 /// Expand constant data by repeating it to fill the target size.
 /// Used to expand InstanceNorm scale/bias to GroupNorm scale/bias.
 template <typename T>
-SmallVector<T> expandConstantData(
-    ArrayRef<T> original, int64_t targetSize) {
+SmallVector<T> expandConstantData(ArrayRef<T> original, int64_t targetSize) {
   SmallVector<T> expanded;
   expanded.reserve(targetSize);
   while (static_cast<int64_t>(expanded.size()) < targetSize) {
