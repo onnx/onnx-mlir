@@ -37,7 +37,7 @@ ARG TEST_MARCH
 # Current test is just for build. Package creation and test run may come later.
 RUN if [ "$(uname -m)" = "s390x" ]; then \
       cd ${WORK_DIR}/onnx-mlir && \
-      rm -rf build-lightt && mkdir -p build-light && cd build-light && \
+      rm -rf build-light && mkdir -p build-light && cd build-light && \
       cmake -DCMAKE_BUILD_TYPE=Debug \
             -DONNX_MLIR_TARGET_TO_BUILD=OMPyInfer \
             .. &&\
