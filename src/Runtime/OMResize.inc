@@ -2,14 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---------- OMResize.cpp - OMTensor C/C++ Implementation ----------===//
+//===---------- OMResize.inc - OMTensor C/C++ Implementation ----------===//
 //
 // Copyright 2022-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file contains C/C++ neutral implementation of OMTensorList data
-// structures and helper functions.
+// This file contains the implementation of ONNXResizeOp runtime support.
 //
 //===----------------------------------------------------------------------===//
 #ifdef __cplusplus

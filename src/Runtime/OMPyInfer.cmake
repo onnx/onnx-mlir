@@ -2,15 +2,20 @@
 
 add_subdirectory(python)
 
+# Assumption here is that CRuntime is included in the .so. We may want to revisit this.
 add_onnx_mlir_library(OMTensorUtils
-  OMInstrument.cpp
+  # hi alex 
+  # OMInstrument.cpp
   OMTensor.cpp
   OMTensorList.cpp
-  OnnxDataType.cpp
+  # hi alex, to be investigated
+  # OnnxDataType.cpp
   ${ONNX_MLIR_SRC_ROOT}/src/Support/SmallFPConversion.c
 
   DEPENDS 
   AcceleratorsInc
+
+  LINK_LIBS PUBLIC
 
   EXCLUDE_FROM_OM_LIBS
 
