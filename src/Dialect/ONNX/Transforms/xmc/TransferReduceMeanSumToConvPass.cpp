@@ -1,6 +1,7 @@
 // Copyright (C) 2022 - 2025 Advanced Micro Devices, Inc. All rights reserved.
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Quant/IR/QuantTypes.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/PatternMatch.h"
@@ -11,6 +12,7 @@
 
 #include "llvm/ADT/SmallVector.h"
 
+#include <cmath>
 #include <numeric>
 
 using namespace mlir;
@@ -51,19 +53,65 @@ bool isChannelWiseReduction(llvm::ArrayRef<int64_t> axes, int64_t rank) {
   return axis == 1; // NCHW: channel is at index 1
 }
 
-/// Create constant tensor with given shape and value
+/// Create constant tensor with given shape and value.
+/// Supports float, integer, and quantized element types.
+/// For quantized types, the float value is quantized using the type's
+/// scale and zero_point, and stored using the integer storage type.
 mlir::Value createConstantTensor(mlir::PatternRewriter &rewriter,
     mlir::Location loc, llvm::ArrayRef<int64_t> shape, float value,
     mlir::Type elementType) {
   int64_t numElements = std::accumulate(
       shape.begin(), shape.end(), 1LL, std::multiplies<int64_t>());
-  llvm::SmallVector<float> values(numElements, value);
 
-  auto tensorType = mlir::RankedTensorType::get(shape, elementType);
-  auto denseAttr =
-      mlir::DenseElementsAttr::get(tensorType, llvm::ArrayRef<float>(values));
+  // Determine storage type (for quantized types, this is the underlying int)
+  mlir::Type storageType = elementType;
+  if (auto quantType = mlir::dyn_cast<mlir::quant::QuantizedType>(elementType))
+    storageType = quantType.getStorageType();
 
-  return rewriter.create<mlir::ONNXConstantOp>(loc, tensorType,
+  // Result type uses the full element type (including quantization info)
+  auto resultType = mlir::RankedTensorType::get(shape, elementType);
+  // Storage tensor type uses the storage type for DenseElementsAttr
+  auto storageTensorType = mlir::RankedTensorType::get(shape, storageType);
+
+  mlir::Attribute denseAttr;
+
+  if (mlir::isa<mlir::FloatType>(storageType)) {
+    // Float path
+    llvm::SmallVector<float> values(numElements, value);
+    denseAttr = mlir::DenseElementsAttr::get(
+        storageTensorType, llvm::ArrayRef<float>(values));
+  } else {
+    // Integer/quantized path
+    int64_t intValue = static_cast<int64_t>(std::round(value));
+
+    // For quantized types, convert float value to quantized integer
+    if (auto uniformQType =
+            mlir::dyn_cast<mlir::quant::UniformQuantizedType>(elementType)) {
+      double scale = uniformQType.getScale();
+      int64_t zp = uniformQType.getZeroPoint();
+      intValue = static_cast<int64_t>(std::round(value / scale)) + zp;
+      // Clamp to storage range
+      intValue =
+          std::max(intValue, static_cast<int64_t>(uniformQType.getStorageTypeMin()));
+      intValue =
+          std::min(intValue, static_cast<int64_t>(uniformQType.getStorageTypeMax()));
+    }
+
+    unsigned bitWidth = storageType.getIntOrFloatBitWidth();
+    // Determine signedness: signless/signed integers and signed quantized types
+    // use signed representation; unsigned integers and unsigned quantized types
+    // use unsigned representation.
+    bool isSigned = !storageType.isUnsignedInteger();
+    llvm::SmallVector<mlir::APInt> apIntData;
+    apIntData.reserve(numElements);
+    for (int64_t i = 0; i < numElements; ++i)
+      apIntData.push_back(
+          mlir::APInt(bitWidth, static_cast<uint64_t>(intValue), isSigned));
+
+    denseAttr = mlir::DenseIntElementsAttr::get(storageTensorType, apIntData);
+  }
+
+  return rewriter.create<mlir::ONNXConstantOp>(loc, resultType,
       mlir::ValueRange{},
       mlir::ArrayRef<mlir::NamedAttribute>{
           rewriter.getNamedAttr("value", denseAttr)});
@@ -395,8 +443,19 @@ struct ReduceMeanMulToConvPattern : public OpRewritePattern<ONNXMulOp> {
     if (!denseAttr || !denseAttr.isSplat())
       return mlir::failure();
 
-    float mulConstant =
-        denseAttr.getSplatValue<mlir::APFloat>().convertToFloat();
+    // Extract the constant multiplier value as float
+    float mulConstant;
+    mlir::Type constElemType = denseAttr.getElementType();
+    if (mlir::isa<mlir::FloatType>(constElemType)) {
+      mulConstant =
+          denseAttr.getSplatValue<mlir::APFloat>().convertToFloat();
+    } else if (constElemType.isIntOrIndex()) {
+      mulConstant = static_cast<float>(
+          denseAttr.getSplatValue<mlir::APInt>().getSExtValue());
+    } else {
+      // Unsupported element type for constant extraction
+      return mlir::failure();
+    }
 
     // Get input info
     mlir::Value input = reduceMean.getData();
