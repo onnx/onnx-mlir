@@ -315,12 +315,41 @@ public:
       auto inputShape = getShapeFromType(input.getType());
       Type inputElementType = getElementType(input.getType());
 
-      // If input shape differs from output shape (e.g. scalar for broadcast),
-      // pass through as-is.
-      if (inputShape.size() != outputShape.size() ||
-          !std::equal(
-              inputShape.begin(), inputShape.end(), outputShape.begin())) {
+      // If input shape differs from output shape (broadcast input), compute a
+      // broadcast-compatible 4D shape using the same dimension mapping.
+      // E.g. if output [1024,6,64,64] → [1,1024,384,64] with broadcastDims={0},
+      // then broadcast input [1,6,64,64] → [1,1,384,64] so broadcasting is
+      // preserved.
+      if (inputShape.size() != outputShape.size()) {
+        // Rank mismatch - cannot safely reshape, pass through as-is
         reshapedInputs.push_back(input);
+        continue;
+      }
+      if (!std::equal(
+              inputShape.begin(), inputShape.end(), outputShape.begin())) {
+        SmallVector<int64_t> inputShape4D =
+            computeBroadcastAware4DShape(inputShape, broadcastDims);
+        if (inputShape4D.empty()) {
+          LLVM_DEBUG(llvm::dbgs()
+                     << "SKIP: Cannot compute broadcast-compatible 4D shape "
+                        "for input "
+                     << i << "\n");
+          return failure();
+        }
+        // Check if reshape is actually needed
+        if (inputShape4D.size() == inputShape.size() &&
+            std::equal(
+                inputShape4D.begin(), inputShape4D.end(), inputShape.begin())) {
+          reshapedInputs.push_back(input);
+        } else {
+          auto inputReshapeType =
+              RankedTensorType::get(inputShape4D, inputElementType);
+          Value shapeConst =
+              createConstantI64Array(rewriter, loc, inputShape4D);
+          auto reshapeOp = rewriter.create<ONNXReshapeOp>(
+              loc, inputReshapeType, input, shapeConst);
+          reshapedInputs.push_back(reshapeOp.getResult());
+        }
         continue;
       }
 
