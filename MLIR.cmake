@@ -1,10 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
-if (ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
-  # This function is defined in llvm_project.
-  # Define a dummy function for PYRUNTIME_LIGHT.
+if (DEFINED ONNX_MLIR_TARGET_TO_BUILD)
+  # These functions are defined in llvm_project.
+  # Define a dummy function for projects not using llvm_project.
   # If needed, the definition from llvm_project can be copied.
+  # Should use if (NOT DEFINED MLIR_DIR) in future
   function(llvm_update_compile_flags name)
+  endfunction()
+  function(llvm_map_components_to_libnames)
   endfunction()
 else()
   # Must unset LLVM_DIR in cache. Otherwise, when MLIR_DIR changes LLVM_DIR

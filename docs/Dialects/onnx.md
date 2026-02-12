@@ -738,7 +738,7 @@ implementations (even if a seed is specified).
 
 Traits: `AlwaysSpeculatableImplTrait`
 
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ResultTypeInferenceOpInterface`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
 Effects: `MemoryEffects::Effect{}`
 
@@ -994,7 +994,7 @@ See documentation of the Cast operator for further details.
 
 Traits: `AlwaysSpeculatableImplTrait`
 
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ResultTypeInferenceOpInterface`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
 Effects: `MemoryEffects::Effect{}`
 
@@ -2734,7 +2734,7 @@ TensorProto message and be valid as an output type.
 
 Traits: `AlwaysSpeculatableImplTrait`
 
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ResultTypeInferenceOpInterface`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
 Effects: `MemoryEffects::Effect{}`
 
@@ -5877,7 +5877,7 @@ Example:
 
 This operation is not part of the standard and was added to assist onnx-mlir.
 
-Traits: `AlwaysSpeculatableImplTrait`, `ConstantLike`
+Traits: `AlwaysSpeculatableImplTrait`
 
 Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`
 
@@ -9355,7 +9355,7 @@ Construct an empty tensor sequence, with given data type.
 
 Traits: `AlwaysSpeculatableImplTrait`
 
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ResultTypeInferenceOpInterface`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
 Effects: `MemoryEffects::Effect{}`
 
