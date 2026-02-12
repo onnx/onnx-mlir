@@ -40,7 +40,7 @@ const int i = 1;
 
 #define XOR(a, b) (!(a) != !(b))
 
-void checkEndianness(const char constPackIsLE) {
+static void checkEndianness(const char constPackIsLE) {
   if (XOR(IS_SYSTEM_LE(), constPackIsLE)) {
     fprintf(stderr, "Constant pack is stored in a byte order that is not "
                     "native to this current system.");
