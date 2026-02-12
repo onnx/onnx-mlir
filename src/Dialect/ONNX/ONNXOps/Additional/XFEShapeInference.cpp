@@ -17,16 +17,26 @@ namespace mlir {
 // Reused by Conv and Pooling operations
 //===----------------------------------------------------------------------===//
 
-// Compute output spatial dimension for channel-last operations
-// Formula: output = floor((input + pad_before + pad_after - ((kernel - 1) *
-// dilation + 1)) / stride) + 1
+// Compute output spatial dimension for channel-last operations.
+// When ceilMode == false (default):
+//   output = floor((input + pad_before + pad_after - effectiveKernel) / stride)
+//   + 1
+// When ceilMode == true:
+//   output = ceil((input + pad_before + pad_after - effectiveKernel) / stride)
+//   + 1
 static int64_t computeChannelLastSpatialDim(int64_t inputDim, int64_t kernelDim,
-    int64_t padBefore, int64_t padAfter, int64_t stride, int64_t dilation) {
+    int64_t padBefore, int64_t padAfter, int64_t stride, int64_t dilation,
+    bool ceilMode = false) {
   if (inputDim == ShapedType::kDynamic || kernelDim == ShapedType::kDynamic)
     return ShapedType::kDynamic;
 
   int64_t effectiveKernel = (kernelDim - 1) * dilation + 1;
-  return ((inputDim + padBefore + padAfter - effectiveKernel) / stride) + 1;
+  int64_t numerator = inputDim + padBefore + padAfter - effectiveKernel;
+  if (ceilMode) {
+    // Ceiling division: ceil(a/b) = (a + b - 1) / b for positive a, b
+    return ((numerator + stride - 1) / stride) + 1;
+  }
+  return (numerator / stride) + 1;
 }
 
 //===----------------------------------------------------------------------===//
@@ -334,6 +344,11 @@ LogicalResult XFEAveragePoolOpShapeInference(
     }
   }
 
+  // Get ceil_mode (default 0 = floor mode)
+  bool ceilMode = false;
+  if (auto ceilModeAttr = poolOp.getCeilModeAttr())
+    ceilMode = ceilModeAttr.getValue().getSExtValue() != 0;
+
   // Compute output spatial dimensions (no dilation for average pool)
   SmallVector<int64_t, 6> outputShape;
   outputShape.push_back(N); // batch
@@ -346,7 +361,7 @@ LogicalResult XFEAveragePoolOpShapeInference(
     int64_t stride = strides[i];
 
     int64_t outputDim = computeChannelLastSpatialDim(
-        inputDim, kernelDim, padBegin, padEnd, stride, 1);
+        inputDim, kernelDim, padBegin, padEnd, stride, 1, ceilMode);
     outputShape.push_back(outputDim);
   }
 
@@ -428,7 +443,12 @@ LogicalResult XFEMaxPoolOpShapeInference(
     }
   }
 
-  // Compute output spatial dimensions with dilations
+  // Get ceil_mode (default 0 = floor mode)
+  bool ceilMode = false;
+  if (auto ceilModeAttr = poolOp.getCeilModeAttr())
+    ceilMode = ceilModeAttr.getValue().getSExtValue() != 0;
+
+  // Compute output spatial dimensions with dilations and ceil_mode
   SmallVector<int64_t, 6> outputShape;
   outputShape.push_back(N); // batch
 
@@ -441,7 +461,7 @@ LogicalResult XFEMaxPoolOpShapeInference(
     int64_t dilation = dilations[i];
 
     int64_t outputDim = computeChannelLastSpatialDim(
-        inputDim, kernelDim, padBegin, padEnd, stride, dilation);
+        inputDim, kernelDim, padBegin, padEnd, stride, dilation, ceilMode);
     outputShape.push_back(outputDim);
   }
 
