@@ -344,10 +344,11 @@ def replaceONNXMaxPattern : Pat<
 //                                 (ZHighInvSqrtOp (ZHighStickOp %X))
 //===----------------------------------------------------------------------===//
 def replaceDiv1SqrtPattern : Pat<
-  (ONNXDivOp $a, (ONNXSqrtOp $x)),
+  (ONNXDivOp:$divOp $a, (ONNXSqrtOp:$sqrtOp $x)),
   (ZHighUnstickOp (ZHighInvSqrtOp (ZHighStickOp:$s_x $x, (NoneLayoutAttr), (GetDefaultSaturation)),
                                (returnType $s_x))),
-  [(IsCompatibleWithNNPALevelArch15),(IsConstOfOnes:$a),(IsFloatType:$a)]
+  [(IsCompatibleWithNNPALevelArch15),(IsConstOfOnes:$a),(IsFloatType:$a),
+   (OpIsBigEnoughForNNPA:$sqrtOp),(OpIsBigEnoughForNNPA:$divOp)]
 >;
 
 //===----------------------------------------------------------------------===//
@@ -355,10 +356,10 @@ def replaceDiv1SqrtPattern : Pat<
 //                                   (ZHighInvSqrtOp (ZHighStickOp %X))
 //===----------------------------------------------------------------------===//
 def replaceReciprocalSqrtPattern : Pat<
-  (ONNXReciprocalOp (ONNXSqrtOp $x)),
+  (ONNXReciprocalOp (ONNXSqrtOp:$sqrtOp $x)),
   (ZHighUnstickOp (ZHighInvSqrtOp (ZHighStickOp:$s_x $x, (NoneLayoutAttr), (GetDefaultSaturation)),
                                    (returnType $s_x))),
-  [(IsCompatibleWithNNPALevelArch15)]
+  [(IsCompatibleWithNNPALevelArch15), (OpIsBigEnoughForNNPA:$sqrtOp)]
 >;
 
 //===----------------------------------------------------------------------===//
