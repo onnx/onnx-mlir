@@ -107,8 +107,12 @@ void configureOnnxToKrnlLoweringPass(bool reportOnParallel,
 #include "src/Transform/Passes.h.inc"
 #define GEN_PASS_DECL_PROCESSKRNLPARALLELCLAUSEPASS
 #include "src/Transform/Passes.h.inc"
-#define GEN_PASS_DECL_BUFFEROMPLOOPHOISTINGPASS
-#include "src/Transform/Passes.h.inc"
+
+// For BufferOmpLoopHoistingPass, GEM_PASS_DECL can be used since the interface
+// remains the same
+// #define GEN_PASS_DECL_BUFFEROMPLOOPHOISTINGPASS
+// #include "src/Transform/Passes.h.inc"
+std::unique_ptr<mlir::Pass> createBufferOMPLoopHoistingPass();
 
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
 /// Add pass for lowering to Stablehlo IR.
