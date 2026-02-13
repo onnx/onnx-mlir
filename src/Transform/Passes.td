@@ -23,6 +23,26 @@ def InstrumentPass : Pass<"instrument", "func::FuncOp"> {
   let description = [{
     instrument on ops.
   }];
+  let options = [
+    Option<"instrumentOps", "instrument-ops", "::std::string",
+            /*default=*/"\"\"", [{Specify regex for ops to be instrumented:\n"
+                                "\"NONE\" or \"\" for no instrument,\n"
+                                "\"regex1,regex2, ...\" for the specified ops.\n"
+                                "e.g. \"onnx.,zhigh.\" for onnx and zhigh ops.\n"
+                                "e.g. \"onnx.Conv\" for onnx Conv ops.\n}]>,
+
+    Option<"instrumentBefore", "instrument-before", "bool",
+            /*default=*/"false", "insert instrument before op">,
+
+    Option<"instrumentAfter", "instrument-after", "bool",
+            /*default=*/"false", "insert instrument after op">,
+
+    Option<"reportTime", "report-time", "bool",
+            /*default=*/"false", "instrument runtime reports time usage">,
+
+    Option<"reportMemory", "report-memory", "bool",
+            /*default=*/"false", "instrument runtime reports memory usage">
+  ];
 }
 
 def InstrumentCleanupPass : Pass<"instrument-cleanup", "func::FuncOp"> {
