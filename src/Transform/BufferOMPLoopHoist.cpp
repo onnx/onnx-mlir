@@ -7,8 +7,6 @@
 #include "mlir/IR/Operation.h"
 #include "mlir/Interfaces/LoopLikeInterface.h"
 
-#include "src/Pass/Passes.hpp"
-
 #define DEBUG_TYPE "buffer-omploop-hoisting"
 
 using namespace mlir;
@@ -160,7 +158,9 @@ namespace onnx_mlir {
 // Reasons to wrap it with a new function:
 // * name space management. The implementation by Passes.h.inc should be in
 // an isolated name space.
-// * argument management.  
+// * argument management. The table gen create constructor with the PassOption.
+// You may pass the members in PassOption directly as parameter without
+// create PassOption by user. 
 std::unique_ptr<Pass> createBufferOMPLoopHoisting() {
   return createBufferOMPLoopHoistingPass();
 };
