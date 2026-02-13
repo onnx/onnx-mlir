@@ -1,3 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+
+##################### test_decoder_models.py ###################################
+#
+# Copyright 2026 The IBM Research Authors.
+#
+################################################################################
+
 # Usage: MODEL=granite4 && OMP_NUM_THREADS=6 TORCHONNXMLIR_CACHE_DIR=./cache_${MODEL} python ./generate.py ${MODEL} 2>&1 | tee ${MODEL}.log
 
 import sys
@@ -10,13 +18,13 @@ from transformers import (
     TextStreamer,
 )
 
-import onnxmlirtorch
+import torch_onnxmlir
 import logging
 
 # logging.basicConfig(level=logging.INFO)  # Or INFO, WARNING, etc.
 
-onnxmlirtorch.config.session_cache_limit = 200
-onnxmlirtorch.config.same_hash_size = 0
+torch_onnxmlir.config.session_cache_limit = 200
+torch_onnxmlir.config.same_hash_size = 0
 
 model_name = sys.argv[1]
 if model_name == "gpt2":

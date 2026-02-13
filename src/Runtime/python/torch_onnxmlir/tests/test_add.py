@@ -1,3 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+
+##################### test_add.py ##############################################
+#
+# Copyright 2026 The IBM Research Authors.
+#
+################################################################################
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -17,7 +25,7 @@ mod = AddModel()
 
 logging.basicConfig(level=logging.INFO)  # Or INFO, WARNING, etc.
 
-import onnxmlirtorch
+import torch_onnxmlir
 
 my_option = {
     "compiler_image_name": None,

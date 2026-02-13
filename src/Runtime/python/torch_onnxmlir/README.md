@@ -2,7 +2,7 @@ This package provides an onnxmlir-based compiler backend for torch.compile().
 
 ## Usage
 Let's start with a simple torch model:
-```
+```python
 import torch
 import torch.nn as nn
 
@@ -24,11 +24,13 @@ print(opt_mod(input1, input2))
 
 ```
 
-With onnxmlirtorch package, `torch.compile()` can be rewritten as follows:
-```
+With torch_onnxmlir package, `torch.compile()` can be rewritten as follows:
+```python
 import torch
 import torch.nn as nn
-import onnxmlirtorch
+
+# Import torch_onnxmlir to use onnxmlir backend.
+import torch_onnxmlir
 
 class AddModel(nn.Module):
     def __init__(self):
@@ -39,7 +41,7 @@ class AddModel(nn.Module):
 
 mod = AddModel()
 
-# Compile the model using onnxmlir backend in the onnxmlirtorch package.
+# Compile the model using onnxmlir backend in the torch_onnxmlir package.
 om_option = {
     "compiler_image_name": None,
     "compile_options": "-O3",
@@ -55,14 +57,19 @@ print(opt_mod(input1, input2))
 
 For more information about `torch.compile`, see its [document](https://docs.pytorch.org/docs/stable/generated/torch.compile.html).
 
+## Caching the exported models and compiled libraries
+
+To avoid recompling models, the backend caches compiled models in the folder `${HOME}/.cache`. Users can change the cache folder by setting an environment variable, i.e, `TORCHONNXMLIR_CACHE_DIR=path_to_cache_folder`.
+
 ## Installation
 
-
 ### Install from local directory
-First create the source of the package.
-In onnx-mlir/build, `cmake --build . --target OMCreateONNXMLIRTorchPackage`
-At top of onnx-mlir: `pip3 install -e src/Runtime/python/onnxmlirtorch`
+```bash
+$ cd onnx-mlir/build
+$ cmake --build . --target OMCreateTorchONNXMLIRPackage
+$ pip3 install -e src/Runtime/python/torch_onnxmlir
+```
 
 ### Install from repo
-After the package is uploaded to pip server, you can install with 'pip3 install onnxmlirtorch`
+After the package is uploaded to pip server, you can install with 'pip3 install torch_onnxmlir`
 
