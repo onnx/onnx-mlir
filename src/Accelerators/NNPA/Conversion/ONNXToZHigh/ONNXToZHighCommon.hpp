@@ -97,7 +97,7 @@ void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
     // If not CPU, check if the op is legal for NNPA.
     bool isLegalForNNPA = false;
 
-    // All inputs are scalar, do not use NNPA.
+    // Operations whose inputs are small, do not use NNPA.
     if (isTooSmallOpForNNPA(genericOp))
       return true;
 

@@ -571,16 +571,6 @@ bool isSuitableForZDNN<ONNXReluOp>(
   return true;
 }
 
-/// Check legality for ONNXReciprocal.
-template <>
-bool isSuitableForZDNN<ONNXReciprocalOp>(
-    ONNXReciprocalOp op, const DimAnalysis *dimAnalysis) {
-  // Just here to make the build of the legality function for rewriting
-  // reciprocal(sqrt) pattern succeeded.
-  llvm_unreachable("No t used");
-  return false;
-}
-
 /// Check legality for ONNXGelu.
 template <>
 bool isSuitableForZDNN<ONNXGeluOp>(
