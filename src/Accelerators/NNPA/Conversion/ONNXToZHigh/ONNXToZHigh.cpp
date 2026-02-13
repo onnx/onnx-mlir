@@ -1657,6 +1657,20 @@ void getONNXToZHighMultipleOpPatterns(RewritePatternSet &patterns) {
   getShapeInferencePatterns(patterns);
 }
 
+void getONNXToZHighMultipleOpDynamicallyLegal(
+    ConversionTarget *target, const DimAnalysis *dimAnalysis) {
+  // For Div(sqrt(x))
+  addDynamicallyLegalOpFor<ONNXDivOp>(target, dimAnalysis,
+      [](ONNXDivOp op, const DimAnalysis *dimAnalysis) { return false; });
+  addDynamicallyLegalOpFor<ONNXLogOp>(target, dimAnalysis,
+      [](ONNXLogOp op, const DimAnalysis *dimAnalysis) { return false; });
+  // For Reciprocal(sqrt(x))
+  addDynamicallyLegalOpFor<ONNXReciprocalOp>(target, dimAnalysis,
+      [](ONNXReciprocalOp op, const DimAnalysis *dimAnalysis) {
+        return false;
+      });
+}
+
 void ONNXToZHighLoweringPass::runOnOperation() {
   ModuleOp module = getOperation();
 
@@ -1684,16 +1698,20 @@ void ONNXToZHighLoweringPass::runOnOperation() {
   // The lowering of such combinations should be done before the lowering of
   // a single ONNX Op, because the single op lowering might have conditions that
   // prohibit the combined ops lowering happened.
+  onnx_mlir::DimAnalysis dimAnalysis1(module);
+  dimAnalysis1.analyze();
   RewritePatternSet combinedPatterns(&getContext());
   onnx_mlir::getONNXToZHighMultipleOpPatterns(combinedPatterns);
+  getONNXToZHighMultipleOpDynamicallyLegal(&target, &dimAnalysis1);
 
   // It's ok to fail.
-  (void)applyPatternsGreedily(module, std::move(combinedPatterns));
+  (void)applyPartialConversion(module, target, std::move(combinedPatterns));
+  // (void)applyPatternsGreedily(module, std::move(combinedPatterns));
 
   // Run the unknown dimension analysis to help check equality of unknown
   // dimensions at compile time.
-  onnx_mlir::DimAnalysis dimAnalysis(module);
-  dimAnalysis.analyze();
+  onnx_mlir::DimAnalysis dimAnalysis2(module);
+  dimAnalysis2.analyze();
 
   // Single ONNX to ZHigh operation lowering.
   RewritePatternSet patterns(&getContext());
@@ -1707,7 +1725,7 @@ void ONNXToZHighLoweringPass::runOnOperation() {
   // ONNX ops to ZHigh dialect under specific conditions.
   // When adding a new op, need to implement a method, i.e. isSuitableForZDNN,
   // for the op in ONNXLegalityCheck.cpp.
-  getONNXToZHighOneOpDynamicallyLegal(&target, &dimAnalysis);
+  getONNXToZHighOneOpDynamicallyLegal(&target, &dimAnalysis2);
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`

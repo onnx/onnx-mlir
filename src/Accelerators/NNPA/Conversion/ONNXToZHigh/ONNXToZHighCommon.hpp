@@ -66,6 +66,12 @@ void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
 
     // If not CPU, check if the op is legal for NNPA.
     bool isLegalForNNPA = false;
+
+    // All inputs are scalar, do not use NNPA.
+    if (llvm::all_of(genericOp->getOperands(),
+            [](mlir::Value v) { return isScalarTensor(v); }))
+      return true;
+
     if (checkLegalityFn)
       isLegalForNNPA = !checkLegalityFn(op, dimAnalysis);
     else {
