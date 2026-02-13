@@ -20,15 +20,16 @@ namespace buffer_omp_loop_hoisting {
  */
 #define GEN_PASS_DEF_BUFFEROMPLOOPHOISTINGPASS
 #include "src/Transform/Passes.h.inc"
-}
-}
+} // namespace buffer_omp_loop_hoisting
+} // namespace onnx_mlir
 
 using namespace onnx_mlir;
 using namespace onnx_mlir::buffer_omp_loop_hoisting;
 
 namespace {
 struct BufferOMPLoopHoistingPass
-    : public buffer_omp_loop_hoisting::impl::BufferOMPLoopHoistingPassBase<BufferOMPLoopHoistingPass> {
+    : public buffer_omp_loop_hoisting::impl::BufferOMPLoopHoistingPassBase<
+          BufferOMPLoopHoistingPass> {
   void runOnOperation() override;
 };
 
@@ -156,12 +157,12 @@ namespace onnx_mlir {
 // Since it is a pass in onnx-mlir project, name space onnx_mlir is used.
 // The Passes.td already generated createBufferOMPLoopHoistingPass().
 // Reasons to wrap it with a new function:
-// * name space management. The implementation by Passes.h.inc should be in
+// * name space management. The implementation by Passes.h.inc is included in
 // an isolated name space.
 // * argument management. The table gen create constructor with the PassOption.
 // You may pass the members in PassOption directly as parameter without
-// create PassOption by user. 
-std::unique_ptr<Pass> createBufferOMPLoopHoisting() {
-  return createBufferOMPLoopHoistingPass();
+// create PassOption by user.
+std::unique_ptr<Pass> createBufferOMPLoopHoistingPass() {
+  return buffer_omp_loop_hoisting::createBufferOMPLoopHoistingPass();
 };
 } // namespace onnx_mlir
