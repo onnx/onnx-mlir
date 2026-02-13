@@ -39,10 +39,10 @@ typedef struct sliceTable {
   uint64_t *countsPtr;
 } sliceTable;
 
-static void sliceTableInit(sliceTable *table, OM_DATA_TYPE dataType, uint64_t sorted,
-    uint64_t numberOfElementsInSlice, uint64_t maxNumberOfSlices,
-    void *sliceDataPtr, uint64_t *indicesPtr, uint64_t *inverseIndicesPtr,
-    uint64_t *countsPtr) {
+static void sliceTableInit(sliceTable *table, OM_DATA_TYPE dataType,
+    uint64_t sorted, uint64_t numberOfElementsInSlice,
+    uint64_t maxNumberOfSlices, void *sliceDataPtr, uint64_t *indicesPtr,
+    uint64_t *inverseIndicesPtr, uint64_t *countsPtr) {
   table->dataType = dataType;
   table->sorted = sorted;
   table->numberOfElementsInSlice = numberOfElementsInSlice;
@@ -262,8 +262,8 @@ static int sliceTableRegister(sliceTable *table, void *slice, uint64_t off) {
 // If the axis attr is not given, sliceTableRegister generates the output Y
 //  directly, since the output is a simple array of unique elements.
 //
-static void produceY(const OMTensor *inputTensor, OMTensor *indices, int64_t sliceAxis,
-    OMTensor *Y) {
+static void produceY(const OMTensor *inputTensor, OMTensor *indices,
+    int64_t sliceAxis, OMTensor *Y) {
   const int64_t inputRank = omTensorGetRank(inputTensor);
   assert(inputRank <= 6 && "input rank should be 6 or less");
   assert(sliceAxis < inputRank && "sliceAxis should be less than input rank");
