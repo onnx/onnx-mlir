@@ -18,7 +18,7 @@ quant_log=res/quant_${date}.log
 dlfloat_log=res/dlfloat_${date}.log
 csv_file=res/test_matmul_dlfloat16_int8_${date}.csv
 
-compile_args="-O3 -mcpu=z17 -maccel=NNPA -profile-ir=ZHigh"
+compile_args="-O3 -mcpu=z17 -maccel=NNPA -profile-ir=ZHigh -nnpa-placement-heuristic=QualifyingOps"
 dims=(128 256 512 1024 2048 3072 4096)
 #dims=(512 1024)
 

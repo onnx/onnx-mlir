@@ -3,6 +3,10 @@
     {
       "device": "cpu",
       "node_type":"onnx.Sigmoid"
+    },
+    {
+      "device": "nnpa",
+      "node_type":"onnx.MatMul"
     }
   ],
   "quantization": [

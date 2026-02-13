@@ -18,12 +18,15 @@ arch="z17"
 
 # unary ops
 ./driver-nnpa.sh relu Relu ${arch}
+./driver-nnpa.sh sqrt Sqrt ${arch}
+./driver-nnpa.sh leakyrelu LeakyRelu ${arch}
 ./driver-nnpa.sh gelu Gelu ${arch}
 ./driver-nnpa.sh tanh Tanh ${arch}
 ./driver-nnpa.sh sigmoid Sigmoid ${arch}
 ./driver-nnpa.sh softmax Softmax ${arch}
 ./driver-nnpa.sh exp Exp ${arch}
 ./driver-nnpa.sh log Log ${arch}
+
 
 # power
 ./driver-nnpa.sh pow-2 Mul ${arch}

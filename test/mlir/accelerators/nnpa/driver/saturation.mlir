@@ -1,9 +1,11 @@
-// RUN: onnx-mlir --march=z16 --maccel=NNPA --EmitZHighIR --nnpa-disable-saturation --printIR %s | FileCheck --check-prefix=ZHIGH_OFF %s
-// RUN: onnx-mlir --march=z16 --maccel=NNPA --EmitZHighIR --printIR %s | FileCheck --check-prefix=ZHIGH_ON %s
-// RUN: onnx-mlir --march=z16 --maccel=NNPA --EmitZLowIR --nnpa-disable-saturation --printIR %s | FileCheck --check-prefix=ZLOW_OFF %s
-// RUN: onnx-mlir --march=z16 --maccel=NNPA --EmitZLowIR --printIR %s | FileCheck --check-prefix=ZLOW_ON %s
-// RUN: onnx-mlir --march=z16 --maccel=NNPA --EmitMLIR --nnpa-disable-saturation --printIR %s | FileCheck --check-prefix=COMPILER_STICK_OFF %s
-// RUN: onnx-mlir --march=z16 --maccel=NNPA --EmitMLIR --printIR %s | FileCheck --check-prefix=COMPILER_STICK_ON %s
+// RUN: onnx-mlir --march=z16 --maccel=NNPA --EmitZHighIR --nnpa-placement-heuristic=QualifyingOps --nnpa-disable-saturation --printIR %s | FileCheck --check-prefix=ZHIGH_OFF %s
+// RUN: onnx-mlir --march=z16 --maccel=NNPA --EmitZHighIR --nnpa-placement-heuristic=QualifyingOps --printIR %s | FileCheck --check-prefix=ZHIGH_ON %s
+// RUN: onnx-mlir --march=z16 --maccel=NNPA --EmitZLowIR --nnpa-placement-heuristic=QualifyingOps --nnpa-disable-saturation --printIR %s | FileCheck --check-prefix=ZLOW_OFF %s
+// RUN: onnx-mlir --march=z16 --maccel=NNPA --EmitZLowIR --nnpa-placement-heuristic=QualifyingOps --printIR %s | FileCheck --check-prefix=ZLOW_ON %s
+// RUN: onnx-mlir --march=z16 --maccel=NNPA --EmitMLIR --nnpa-placement-heuristic=QualifyingOps --nnpa-disable-saturation --printIR %s | FileCheck --check-prefix=COMPILER_STICK_OFF %s
+// RUN: onnx-mlir --march=z16 --maccel=NNPA --EmitMLIR --nnpa-placement-heuristic=QualifyingOps --printIR %s | FileCheck --check-prefix=COMPILER_STICK_ON %s
+
+// -----
 
 // COM: for each case, check saturation ON and OFF.
 

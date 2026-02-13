@@ -2,7 +2,7 @@
   "device_placement": [
     {
       "device": "cpu",
-      "node_type": "onnx.Relu",
+      "node_type": "onnx.MatMul",
       "onnx_node_name": ".*"
     }
   ]
