@@ -38,6 +38,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "onnx-mlir/Runtime/OMInstrument.h"
 #include "onnx-mlir/Runtime/OMTensor.h"
 
 #ifdef __cplusplus
@@ -591,7 +592,8 @@ static void printData(FILE *fout, const OMTensor *tensor) {
 /* Defined in OMInstrument.inc, return stdout or the FILE handle to where
  * instrumentation should be printed. Return 0 when we should not print
  * instrumentation. */
-FILE *getInstrumentFile(bool withPrintStartReport);
+// hi alex
+// FILE *getInstrumentFile(bool withPrintStartReport);
 
 /* Print a string and possibly some info about a tensor. With `%d`, we print the
 tensor data; with `s`, we print an extended signature; with `t`, we print the
