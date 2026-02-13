@@ -14,7 +14,7 @@ import os
 import importlib
 import pkgutil
 
-if __package__ == "onnxmlir" or __package__ == "onnxmlirtorch":
+if __package__ == "onnxmlir" or __package__ == "torch_onnxmlir":
     loader = pkgutil.get_loader(__package__)
     PyRuntimeC_module = os.path.join(
         os.path.dirname(loader.get_filename(__package__)), "libs"

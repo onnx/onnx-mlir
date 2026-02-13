@@ -1,3 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+
+##################### test_relu.py #############################################
+#
+# Copyright 2026 The IBM Research Authors.
+#
+################################################################################
+
 import numpy as np
 import torch
 
@@ -30,7 +38,7 @@ print(opt_mod(input))
 """
 
 
-import onnxmlirtorch
+import torch_onnxmlir
 
 my_option = {
     "compiler_image_name": None,

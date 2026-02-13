@@ -1,14 +1,16 @@
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
 [project]
-name = "onnxmlirtorch"
+name = "torch_onnxmlir"
 version = "0.1.0"
 authors = [
   { name="Tong Chen", email="chentong@us.ibm.com" },
   { name="Alexandre Eichenberger", email="alexe@us.ibm.com" },
+  { name="Tung D. Le", email="tung@jp.ibm.com" },
 ]
-description = "Python driver to compile/run torch model with onnx-mlir"
+description = "A compiler backend in pytorch that uses onnx-mlir"
 readme = "README.md"
 requires-python = ">=3.9"
 classifiers = [
@@ -19,7 +21,8 @@ classifiers = [
 dependences = [
     "numpy",
     "docker",
-    "torch",
+    "onnxscript>=0.5.7",
+    "torch>=2.10.0",
 ]
 
 [project.urls]
