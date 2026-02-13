@@ -129,4 +129,13 @@ void configureONNXToZHighLoweringPass(bool optReportNNPAUnsupportedOps,
   }
 }
 
+bool isTooSmallOpForNNPA(mlir::Operation *op) {
+  if (!op)
+    return false;
+  // Operation whose all inputs are scalar.
+  bool scalarOp = llvm::all_of(
+      op->getOperands(), [](mlir::Value v) { return isScalarTensor(v); });
+  return scalarOp;
+}
+
 } // namespace onnx_mlir
