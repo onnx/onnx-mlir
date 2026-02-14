@@ -106,6 +106,37 @@ ONNX_MLIR_LABELS = [
 ]
 
 
+def resolve_and_override_cpu_arch_from_docker():
+    """Detect the Docker daemon/host architecture and, if different from the
+    current cpu_arch, override it so we pull/build the correct arch images."""
+    global cpu_arch
+    try:
+        info = docker_api.info()
+        arch = info.get("Architecture", "").lower()
+        # Map common Docker Architecture values to cpu_arch tag names used by our registry
+        arch_map = {
+            "x86_64": "amd64",  # Docker daemon reports x86_64, but platform needs amd64
+            "amd64": "amd64",
+            "aarch64": "arm64",
+            "arm64": "arm64",
+            "s390x": "s390x",
+            "ppc64le": "ppc64le",
+        }
+        detected = arch_map.get(arch, arch)
+        if detected and cpu_arch != detected:
+            logging.info(
+                "Docker daemon reports Architecture=%s, overriding cpu_arch '%s' -> '%s'",
+                arch,
+                cpu_arch,
+                detected,
+            )
+            cpu_arch = detected
+    except Exception as e:
+        logging.warning(
+            "Could not detect Docker daemon architecture to resolve cpu_arch: %s", e
+        )
+
+
 def strtobool(s: str) -> bool:
     """Reimplement strtobool per PEP 632 and python 3.12 deprecation."""
 
