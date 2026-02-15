@@ -252,3 +252,132 @@ func.func @multiple_depthwise_convs(%arg0: tensor<1x56x56x64x!quant.uniform<i8:f
 // CHECK-NOT: onnx.XFEConv
 // CHECK: onnx.XCOMPILERDepthwiseConv
 // CHECK: onnx.XCOMPILERDepthwiseConv
+
+// -----
+
+// =============================================================================
+// Test 10: Float 2D depthwise conv (f32) - SHOULD CONVERT
+// =============================================================================
+// CHECK-LABEL: @depthwise_conv2d_f32
+func.func @depthwise_conv2d_f32(%arg0: tensor<1x56x56x64xf32>) -> tensor<1x54x54x64xf32> {
+    // Weight in OHWI format: [C_out=64, kH=3, kW=3, C_in/group=1]
+    %weights = onnx.Constant {value = dense<1.0> : tensor<64x3x3x1xf32>} : tensor<64x3x3x1xf32>
+    %none = "onnx.NoValue"() {value} : () -> none
+
+    %conv = "onnx.XFEConv"(%arg0, %weights, %none) {
+        auto_pad = "NOTSET",
+        dilations = [1, 1],
+        group = 64 : si64,
+        kernel_shape = [3, 3],
+        pads = [0, 0, 0, 0],
+        strides = [1, 1]
+    } : (tensor<1x56x56x64xf32>, tensor<64x3x3x1xf32>, none) -> tensor<1x54x54x64xf32>
+
+    return %conv : tensor<1x54x54x64xf32>
+}
+// CHECK-NOT: onnx.XFEConv
+// CHECK: onnx.XCOMPILERDepthwiseConv
+// CHECK-SAME: kernel_shape = [3, 3]
+
+// -----
+
+// =============================================================================
+// Test 11: Float 2D depthwise conv with bias (f32) - SHOULD CONVERT
+// =============================================================================
+// CHECK-LABEL: @depthwise_conv2d_f32_with_bias
+func.func @depthwise_conv2d_f32_with_bias(%arg0: tensor<1x28x28x32xf32>) -> tensor<1x28x28x32xf32> {
+    // Weight in OHWI format: [C_out=32, kH=3, kW=3, C_in/group=1]
+    %weights = onnx.Constant {value = dense<1.0> : tensor<32x3x3x1xf32>} : tensor<32x3x3x1xf32>
+    %bias = onnx.Constant {value = dense<0.0> : tensor<32xf32>} : tensor<32xf32>
+
+    %conv = "onnx.XFEConv"(%arg0, %weights, %bias) {
+        auto_pad = "SAME_UPPER",
+        dilations = [1, 1],
+        group = 32 : si64,
+        kernel_shape = [3, 3],
+        pads = [1, 1, 1, 1],
+        strides = [1, 1]
+    } : (tensor<1x28x28x32xf32>, tensor<32x3x3x1xf32>, tensor<32xf32>) -> tensor<1x28x28x32xf32>
+
+    return %conv : tensor<1x28x28x32xf32>
+}
+// CHECK-NOT: onnx.XFEConv
+// CHECK: onnx.XCOMPILERDepthwiseConv
+// CHECK-SAME: auto_pad = "SAME_UPPER"
+
+// -----
+
+// =============================================================================
+// Test 12: Float 2D depthwise conv with strides (f16) - SHOULD CONVERT
+// =============================================================================
+// CHECK-LABEL: @depthwise_conv2d_f16_strided
+func.func @depthwise_conv2d_f16_strided(%arg0: tensor<1x112x112x64xf16>) -> tensor<1x56x56x64xf16> {
+    // Weight in OHWI format: [C_out=64, kH=3, kW=3, C_in/group=1]
+    %weights = onnx.Constant {value = dense<1.0> : tensor<64x3x3x1xf16>} : tensor<64x3x3x1xf16>
+    %none = "onnx.NoValue"() {value} : () -> none
+
+    %conv = "onnx.XFEConv"(%arg0, %weights, %none) {
+        auto_pad = "SAME_UPPER",
+        dilations = [1, 1],
+        group = 64 : si64,
+        kernel_shape = [3, 3],
+        pads = [0, 0, 1, 1],
+        strides = [2, 2]
+    } : (tensor<1x112x112x64xf16>, tensor<64x3x3x1xf16>, none) -> tensor<1x56x56x64xf16>
+
+    return %conv : tensor<1x56x56x64xf16>
+}
+// CHECK-NOT: onnx.XFEConv
+// CHECK: onnx.XCOMPILERDepthwiseConv
+// CHECK-SAME: strides = [2, 2]
+
+// -----
+
+// =============================================================================
+// Test 13: Float 3D depthwise conv (f32) - SHOULD CONVERT
+// =============================================================================
+// CHECK-LABEL: @depthwise_conv3d_f32
+func.func @depthwise_conv3d_f32(%arg0: tensor<1x16x32x32x32xf32>) -> tensor<1x14x30x30x32xf32> {
+    // Weight in ODHWI format: [C_out=32, kD=3, kH=3, kW=3, C_in/group=1]
+    %weights = onnx.Constant {value = dense<1.0> : tensor<32x3x3x3x1xf32>} : tensor<32x3x3x3x1xf32>
+    %none = "onnx.NoValue"() {value} : () -> none
+
+    %conv = "onnx.XFEConv"(%arg0, %weights, %none) {
+        auto_pad = "NOTSET",
+        dilations = [1, 1, 1],
+        group = 32 : si64,
+        kernel_shape = [3, 3, 3],
+        pads = [0, 0, 0, 0, 0, 0],
+        strides = [1, 1, 1]
+    } : (tensor<1x16x32x32x32xf32>, tensor<32x3x3x3x1xf32>, none) -> tensor<1x14x30x30x32xf32>
+
+    return %conv : tensor<1x14x30x30x32xf32>
+}
+// CHECK-NOT: onnx.XFEConv
+// CHECK: onnx.XCOMPILERDepthwiseConv
+// CHECK-SAME: kernel_shape = [3, 3, 3]
+
+// -----
+
+// =============================================================================
+// Test 14: Float regular conv (group = 1, f32) - SHOULD NOT CONVERT
+// =============================================================================
+// CHECK-LABEL: @regular_conv_f32_not_depthwise
+func.func @regular_conv_f32_not_depthwise(%arg0: tensor<1x56x56x3xf32>) -> tensor<1x56x56x64xf32> {
+    // Weight in OHWI format: [C_out=64, kH=3, kW=3, C_in/group=3]
+    %weights = onnx.Constant {value = dense<1.0> : tensor<64x3x3x3xf32>} : tensor<64x3x3x3xf32>
+    %none = "onnx.NoValue"() {value} : () -> none
+
+    %conv = "onnx.XFEConv"(%arg0, %weights, %none) {
+        auto_pad = "SAME_UPPER",
+        dilations = [1, 1],
+        group = 1 : si64,
+        kernel_shape = [3, 3],
+        pads = [1, 1, 1, 1],
+        strides = [1, 1]
+    } : (tensor<1x56x56x3xf32>, tensor<64x3x3x3xf32>, none) -> tensor<1x56x56x64xf32>
+
+    return %conv : tensor<1x56x56x64xf32>
+}
+// CHECK-NOT: onnx.XCOMPILERDepthwiseConv
+// CHECK: onnx.XFEConv
