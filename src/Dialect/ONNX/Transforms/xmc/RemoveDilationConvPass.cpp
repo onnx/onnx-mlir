@@ -11,6 +11,7 @@
 
 #include "llvm/ADT/SmallVector.h"
 
+#include <cstring>
 #include <vector>
 
 using namespace mlir;
@@ -25,6 +26,10 @@ namespace {
 // Input weights shape: [out_channels, in_channels, kH, kW] (NCHW format)
 // Output weights shape: [out_channels, in_channels, kH', kW'] where kH' and kW'
 // are expanded
+// Supports all element types (float, integer, quantized) via raw byte access.
+// Returns a DenseElementsAttr with the storage element type (e.g., i8 for
+// quantized). The caller is responsible for setting the correct quantized type
+// on the ONNXConstantOp result.
 mlir::DenseElementsAttr expandDilatedWeightsNCHW(
     mlir::DenseElementsAttr weightsAttr, llvm::ArrayRef<int64_t> originalShape,
     int64_t dilation) {
@@ -38,42 +43,46 @@ mlir::DenseElementsAttr expandDilatedWeightsNCHW(
   int64_t new_h = org_h + (org_h - 1) * (dilation - 1);
   int64_t new_w = org_w + (org_w - 1) * (dilation - 1);
 
-  // Extract original weights as float
-  auto weightsValues = weightsAttr.getValues<float>();
-  std::vector<float> originalWeights(
-      weightsValues.begin(), weightsValues.end());
+  // Get element bit width from the storage type in DenseElementsAttr
+  Type storageType = weightsAttr.getElementType();
+  unsigned bitWidth = storageType.getIntOrFloatBitWidth();
+  unsigned byteWidth = (bitWidth + 7) / 8;
 
-  // Create expanded weights initialized to zero
-  std::vector<float> expandedWeights(
-      out_channels * in_channels * new_h * new_w, 0.0f);
+  int64_t totalElements = out_channels * in_channels * new_h * new_w;
+
+  // Create expanded weights buffer initialized to zero
+  std::vector<char> expandedData(totalElements * byteWidth, 0);
+
+  // Get raw data from the original weights
+  auto rawData = weightsAttr.getRawData();
 
   // Copy weights with dilation spacing
   // Layout: [out_channels, in_channels, kH, kW]
   for (int64_t oc = 0; oc < out_channels; ++oc) {
     for (int64_t ic = 0; ic < in_channels; ++ic) {
-      for (int64_t kh = 0; kh < new_h; ++kh) {
-        for (int64_t kw = 0; kw < new_w; ++kw) {
-          // Only copy at positions divisible by dilation
-          if ((kh % dilation == 0) && (kw % dilation == 0)) {
-            // Memory layout: [out_channels][in_channels][kH][kW]
-            int64_t src_idx = oc * in_channels * org_h * org_w +
-                              ic * org_h * org_w + (kh / dilation) * org_w +
-                              (kw / dilation);
-            int64_t dst_idx = oc * in_channels * new_h * new_w +
-                              ic * new_h * new_w + kh * new_w + kw;
-            expandedWeights[dst_idx] = originalWeights[src_idx];
-          }
+      for (int64_t oh = 0; oh < org_h; ++oh) {
+        for (int64_t ow = 0; ow < org_w; ++ow) {
+          int64_t src_idx = oc * in_channels * org_h * org_w +
+                            ic * org_h * org_w + oh * org_w + ow;
+          int64_t dst_h = oh * dilation;
+          int64_t dst_w = ow * dilation;
+          int64_t dst_idx = oc * in_channels * new_h * new_w +
+                            ic * new_h * new_w + dst_h * new_w + dst_w;
+          std::memcpy(&expandedData[dst_idx * byteWidth],
+              &rawData.data()[src_idx * byteWidth], byteWidth);
         }
       }
     }
   }
 
   // Create new shape and tensor (NCHW)
+  // DenseElementsAttr must use the storage type (e.g., i8), not the quantized
+  // type, because getFromRawBuffer internally calls getIntOrFloatBitWidth()
+  // which doesn't support quantized types.
   SmallVector<int64_t> newShape = {out_channels, in_channels, new_h, new_w};
-  auto tensorType =
-      RankedTensorType::get(newShape, weightsAttr.getElementType());
-  return mlir::DenseElementsAttr::get(
-      tensorType, llvm::ArrayRef(expandedWeights));
+  auto tensorType = RankedTensorType::get(newShape, storageType);
+  return mlir::DenseElementsAttr::getFromRawBuffer(
+      tensorType, llvm::ArrayRef<char>(expandedData));
 }
 
 //===----------------------------------------------------------------------===//
@@ -146,10 +155,17 @@ struct RemoveDilationConv : public OpRewritePattern<ONNXConvOp> {
 
     auto valueAttr = rewriter.getNamedAttr("value", expandedWeightsAttr);
 
-    // Create new constant with expanded weights [out_channels, in_channels,
-    // new_h, new_w]
+    // Create the result type for the constant op using the original element
+    // type (which preserves quantized type info like
+    // !quant.uniform<i8:f32,...>) The DenseElementsAttr uses the storage type
+    // internally, but the op's result type must have the full quantized type
+    // for onnx.Conv compatibility.
+    SmallVector<int64_t> expandedShape = {
+        originalShape[0], originalShape[1], new_kernel, new_kernel};
+    auto newWeightsResultType =
+        RankedTensorType::get(expandedShape, weightsType.getElementType());
     auto newWeightsConst = rewriter.create<ONNXConstantOp>(loc,
-        expandedWeightsAttr.getType(), mlir::ValueRange{},
+        newWeightsResultType, mlir::ValueRange{},
         mlir::ArrayRef<mlir::NamedAttribute>{valueAttr});
 
     // Get the output type from original conv to ensure shape compatibility

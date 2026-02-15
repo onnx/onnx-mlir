@@ -1,6 +1,7 @@
 // Copyright (C) 2022 - 2025 Advanced Micro Devices, Inc. All rights reserved.
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Quant/IR/QuantTypes.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/PatternMatch.h"
@@ -12,6 +13,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Debug.h"
 
+#include <cstring>
 #include <optional>
 
 using namespace mlir;
@@ -25,7 +27,7 @@ namespace {
 //===----------------------------------------------------------------------===//
 
 /// Get the static shape from a tensor type, returns nullopt if dynamic.
-static std::optional<SmallVector<int64_t>> getStaticShape(Type type) {
+std::optional<SmallVector<int64_t>> getStaticShape(Type type) {
   auto tensorType = mlir::dyn_cast<RankedTensorType>(type);
   if (!tensorType || !tensorType.hasStaticShape())
     return std::nullopt;
@@ -33,7 +35,7 @@ static std::optional<SmallVector<int64_t>> getStaticShape(Type type) {
 }
 
 /// Check if two shapes are equal.
-static bool shapesEqual(ArrayRef<int64_t> shape1, ArrayRef<int64_t> shape2) {
+bool shapesEqual(ArrayRef<int64_t> shape1, ArrayRef<int64_t> shape2) {
   if (shape1.size() != shape2.size())
     return false;
   for (size_t i = 0; i < shape1.size(); ++i) {
@@ -46,8 +48,7 @@ static bool shapesEqual(ArrayRef<int64_t> shape1, ArrayRef<int64_t> shape2) {
 /// Expand constant data by repeating it to fill the target size.
 /// Used to expand InstanceNorm scale/bias to GroupNorm scale/bias.
 template <typename T>
-static SmallVector<T> expandConstantData(
-    ArrayRef<T> original, int64_t targetSize) {
+SmallVector<T> expandConstantData(ArrayRef<T> original, int64_t targetSize) {
   SmallVector<T> expanded;
   expanded.reserve(targetSize);
   while (static_cast<int64_t>(expanded.size()) < targetSize) {
@@ -58,7 +59,7 @@ static SmallVector<T> expandConstantData(
 
 /// Extract constant data from an ONNX constant op.
 template <typename T>
-static std::optional<SmallVector<T>> getConstantData(Value value) {
+std::optional<SmallVector<T>> getConstantData(Value value) {
   auto constOp = value.getDefiningOp<ONNXConstantOp>();
   if (!constOp)
     return std::nullopt;
@@ -75,7 +76,8 @@ static std::optional<SmallVector<T>> getConstantData(Value value) {
 }
 
 /// Create an expanded constant by repeating the original constant data.
-static Value createExpandedConstant(PatternRewriter &rewriter, Location loc,
+/// Supports float, integer, and quantized element types via raw byte access.
+Value createExpandedConstant(PatternRewriter &rewriter, Location loc,
     Value originalConst, int64_t targetSize, int64_t /*originalSize*/) {
   // Try to get the constant op
   auto constOp = originalConst.getDefiningOp<ONNXConstantOp>();
@@ -87,39 +89,39 @@ static Value createExpandedConstant(PatternRewriter &rewriter, Location loc,
   if (!attr)
     return nullptr;
 
-  auto elementType = attr.getElementType();
+  // Get the original element type from the Value (preserves quantized type)
+  auto origType = mlir::cast<ShapedType>(originalConst.getType());
+  Type origElemType = origType.getElementType();
 
-  // Expand the data based on element type
-  DenseElementsAttr newAttr;
-  if (elementType.isF32()) {
-    auto data = getConstantData<float>(constOp.getResult());
-    if (!data)
-      return nullptr;
-    auto expanded = expandConstantData<float>(*data, targetSize);
-    auto tensorType = RankedTensorType::get({targetSize}, elementType);
-    newAttr = DenseElementsAttr::get(tensorType, ArrayRef<float>(expanded));
-  } else if (elementType.isInteger(8)) {
-    auto data = getConstantData<int8_t>(constOp.getResult());
-    if (!data)
-      return nullptr;
-    auto expanded = expandConstantData<int8_t>(*data, targetSize);
-    auto tensorType = RankedTensorType::get({targetSize}, elementType);
-    newAttr = DenseElementsAttr::get(tensorType, ArrayRef<int8_t>(expanded));
-  } else if (elementType.isInteger(32)) {
-    auto data = getConstantData<int32_t>(constOp.getResult());
-    if (!data)
-      return nullptr;
-    auto expanded = expandConstantData<int32_t>(*data, targetSize);
-    auto tensorType = RankedTensorType::get({targetSize}, elementType);
-    newAttr = DenseElementsAttr::get(tensorType, ArrayRef<int32_t>(expanded));
-  } else {
-    LLVM_DEBUG(
-        llvm::dbgs() << "Unsupported element type for constant expansion\n");
-    return nullptr;
+  // Get storage type for DenseElementsAttr (i8 for quantized, same for others)
+  Type storageType = attr.getElementType();
+
+  unsigned bitWidth = storageType.getIntOrFloatBitWidth();
+  unsigned byteWidth = (bitWidth + 7) / 8;
+
+  // Get raw data from original constant
+  auto rawData = attr.getRawData();
+  int64_t origNumElements = attr.getNumElements();
+
+  // Expand data by repeating (same logic as expandConstantData)
+  std::vector<char> expandedData(targetSize * byteWidth, 0);
+
+  for (int64_t i = 0; i < targetSize; ++i) {
+    int64_t srcIdx = i % origNumElements;
+    std::memcpy(&expandedData[i * byteWidth],
+        &rawData.data()[srcIdx * byteWidth], byteWidth);
   }
 
+  // Create DenseElementsAttr with storage type
+  auto storageTensorType = RankedTensorType::get({targetSize}, storageType);
+  auto newAttr = DenseElementsAttr::getFromRawBuffer(
+      storageTensorType, ArrayRef<char>(expandedData));
+
+  // Result type uses the original element type (preserves quantized info)
+  auto resultType = RankedTensorType::get({targetSize}, origElemType);
+
   // Create new constant op with expanded data
-  return rewriter.create<ONNXConstantOp>(loc, newAttr.getType(),
+  return rewriter.create<ONNXConstantOp>(loc, resultType,
       /*sparse_value=*/Attribute(),
       /*value=*/newAttr,
       /*value_float=*/FloatAttr(),

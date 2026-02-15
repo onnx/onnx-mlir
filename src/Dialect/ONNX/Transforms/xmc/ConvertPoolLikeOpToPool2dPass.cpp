@@ -6,6 +6,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Quant/IR/QuantTypes.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/PatternMatch.h"
@@ -629,12 +630,45 @@ struct LowerReduceSumToAvgPoolPattern
     Value result = avgPoolOp.getResult();
 
     // Multiply by count to convert avg to sum
+    // Handle float, integer, and quantized element types
     auto multiplier = static_cast<float>(reductionCount);
-    auto multiplierType = RankedTensorType::get({}, inputType.getElementType());
-    auto multiplierAttr = DenseElementsAttr::get(multiplierType,
-        rewriter.getFloatAttr(inputType.getElementType(), multiplier));
+    Type elemType = inputType.getElementType();
 
-    auto multiplierConst = rewriter.create<ONNXConstantOp>(loc, multiplierType,
+    // Get storage type (for quantized types, this is the underlying int type)
+    Type storageType = elemType;
+    if (auto quantType = dyn_cast<quant::QuantizedType>(elemType))
+      storageType = quantType.getStorageType();
+
+    auto resultConstType = RankedTensorType::get({}, elemType);
+    auto storageConstType = RankedTensorType::get({}, storageType);
+
+    DenseElementsAttr multiplierAttr;
+    if (isa<FloatType>(storageType)) {
+      multiplierAttr = DenseElementsAttr::get(
+          storageConstType, rewriter.getFloatAttr(storageType, multiplier));
+    } else {
+      // Integer/quantized: compute the quantized integer value
+      int64_t intValue = static_cast<int64_t>(std::round(multiplier));
+      if (auto uniformQType = dyn_cast<quant::UniformQuantizedType>(elemType)) {
+        double scale = uniformQType.getScale();
+        int64_t zp = uniformQType.getZeroPoint();
+        intValue = static_cast<int64_t>(std::round(multiplier / scale)) + zp;
+        intValue = std::max(
+            intValue, static_cast<int64_t>(uniformQType.getStorageTypeMin()));
+        intValue = std::min(
+            intValue, static_cast<int64_t>(uniformQType.getStorageTypeMax()));
+      }
+      unsigned bitWidth = storageType.getIntOrFloatBitWidth();
+      // Use isSigned=false to avoid APInt assertion; the bit pattern is what
+      // matters, and DenseIntElementsAttr stores raw bits regardless of
+      // signedness. Mask to bitWidth to ensure valid N-bit unsigned value.
+      uint64_t maskedValue =
+          static_cast<uint64_t>(intValue) & ((1ULL << bitWidth) - 1);
+      multiplierAttr = DenseIntElementsAttr::get(
+          storageConstType, ArrayRef<APInt>{APInt(bitWidth, maskedValue)});
+    }
+
+    auto multiplierConst = rewriter.create<ONNXConstantOp>(loc, resultConstType,
         Attribute(), multiplierAttr, FloatAttr(), ArrayAttr(), IntegerAttr(),
         ArrayAttr(), StringAttr(), ArrayAttr());
 
