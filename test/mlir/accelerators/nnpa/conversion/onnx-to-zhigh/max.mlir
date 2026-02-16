@@ -64,3 +64,16 @@ func.func @test_exceed_limit_max(%arg0 : tensor<32769x10xf32>, %arg1 : tensor<32
 // CHECK-LABEL:  func @test_exceed_limit_max
 // CHECK:        "onnx.Max"
 }
+
+// -----
+
+func.func @test_max_scalar(%arg0 : tensor<1xf32>, %arg1 : tensor<1xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Max"(%arg0, %arg1) : (tensor<1xf32>, tensor<1xf32>) -> tensor<*xf32>
+  "func.return"(%0) : (tensor<*xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_max_scalar
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1xf32>, [[PARAM_1_:%.+]]: tensor<1xf32>) -> tensor<1xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Max"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<1xf32>, tensor<1xf32>) -> tensor<1xf32>
+// CHECK:           return [[VAR_0_]] : tensor<1xf32>
+// CHECK:         }
+}

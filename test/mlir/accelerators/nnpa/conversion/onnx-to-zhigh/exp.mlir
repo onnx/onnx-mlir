@@ -35,3 +35,17 @@ func.func @test_exceed_limit_exp(%arg0 : tensor<32769x10xf32>) -> tensor<*xf32> 
 // CHECK-LABEL:  func @test_exceed_limit_exp
 // CHECK:        "onnx.Exp"
 }
+
+// -----
+
+func.func @test_scalar_exp(%arg0 : tensor<1xf32>) -> tensor<1xf32> {
+  %x = "onnx.Exp"(%arg0) : (tensor<1xf32>) -> tensor<1xf32>
+  "func.return"(%x) : (tensor<1xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_scalar_exp
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1xf32>) -> tensor<1xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Exp"([[PARAM_0_]]) : (tensor<1xf32>) -> tensor<1xf32>
+// CHECK:           return [[VAR_0_]] : tensor<1xf32>
+// CHECK:         }
+}
+

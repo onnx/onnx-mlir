@@ -40,3 +40,15 @@ func.func @test_leakyrelu_default(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
 // CHECK:         }
 }
 
+// -----
+
+func.func @test_leakyrelu_scalar(%arg0 : tensor<1xf32>) -> tensor<*xf32> {
+  %0 = "onnx.LeakyRelu"(%arg0) : (tensor<1xf32>) -> tensor<*xf32>
+  "func.return"(%0) : (tensor<*xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_leakyrelu_scalar
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1xf32>) -> tensor<1xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.LeakyRelu"([[PARAM_0_]]) <{alpha = 0.00999999977 : f32}> : (tensor<1xf32>) -> tensor<1xf32>
+// CHECK:           return [[VAR_0_]] : tensor<1xf32>
+// CHECK:         }
+}
