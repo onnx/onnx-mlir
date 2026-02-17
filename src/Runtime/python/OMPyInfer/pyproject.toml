@@ -1,0 +1,39 @@
+# IBM Confidential
+# © Copyright IBM Corp. 2025
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+[project]
+name = "OMPyInfer"
+version = "5.0.0"
+authors = [
+  { name="Tong Chen", email="chentong@us.ibm.com" },
+  { name="Sunny Anand", email="sunny.anand79@ibm.com" },
+]
+description = "Python driver to run inference on onnx model compiled with zdlc"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "Apache-2.0"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: POSIX :: Linux",
+]
+
+dependencies = [
+    "numpy"
+]
+
+[project.urls]
+Homepage = "https://github.ibm.com/zosdev/OMPyInfer"
+Issues = "https://github.ibm.com/zdosdev/OMPyInfer/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/OMPyInfer"]
+
+[tool.hatch.build]
+include = [
+  "src/OMPyInfer/libs/*"
+]
+
+
