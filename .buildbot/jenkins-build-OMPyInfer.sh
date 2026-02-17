@@ -1,0 +1,6 @@
+echo "Start build OMPyInfer..."
+if [ "$(uname -m)" = "s390x" ]; then 
+  echo "this is s360 machine"
+else
+  echo "this is NOT s360 machine"
+fi
