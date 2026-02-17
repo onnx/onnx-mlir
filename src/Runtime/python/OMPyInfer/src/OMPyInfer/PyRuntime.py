@@ -4,11 +4,15 @@
 import numpy as np
 import sys
 import os
-import importlib
-#import pkgutil
-#loader = pkgutil.get_loader(__package__)
+
+# Depreciate code for python >= 3.14
+# Can be deleted after test on older python version
+# import importlib
+# import pkgutil
+# loader = pkgutil.get_loader(__package__)
+
 import importlib.util
-# Replace: loader = pkgutil.get_loader('my_module')
+
 spec = importlib.util.find_spec(__package__)
 loader = spec.loader
 PyRuntimeC_module = os.path.join(

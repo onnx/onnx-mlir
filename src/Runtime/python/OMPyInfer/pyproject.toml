@@ -6,7 +6,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 [project]
 name = "OMPyInfer"
-version = "5.0.0"
+version = "1.0.0"
 authors = [
   { name="Tong Chen", email="chentong@us.ibm.com" },
   { name="Sunny Anand", email="sunny.anand79@ibm.com" },
