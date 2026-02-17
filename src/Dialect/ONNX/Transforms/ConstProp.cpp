@@ -13,6 +13,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Quant/IR/QuantTypes.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/TypeUtilities.h"
@@ -118,7 +119,14 @@ ElementsAttr getConstValueElements(Value constValue) {
 // Creates ONNXConstantOp with the location from replacingValue.
 Value createReplacingConstantOp(
     PatternRewriter &rewriter, Value replacingValue, ElementsAttr elements) {
-  return OnnxBuilder(rewriter, replacingValue.getLoc()).constant(elements);
+  mlir::Value result =
+      OnnxBuilder(rewriter, replacingValue.getLoc()).constant(elements);
+
+  auto tensorType = cast<mlir::TensorType>(replacingValue.getType());
+  if (isa<mlir::quant::QuantizedType>(tensorType.getElementType()))
+    result.setType(replacingValue.getType());
+
+  return result;
 }
 
 // Helper to restrict specialization to non-bool types.
