@@ -1,10 +1,11 @@
-
 # SPDX-License-Identifier: Apache-2.0
 
-if (NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
+# Check whether the build is for a tool (sub-project for now)
+# Otherwise, continue with default onnx-mlir project
+choose_build_target()
+
 add_subdirectory(jni)
 add_subdirectory(omp)
-endif()
 add_subdirectory(python)
 
 # TODO: should add for each accelerator its subdirectory that implements InitAccel##name
@@ -71,8 +72,6 @@ set_target_properties(OMTensorUtils
   POSITION_INDEPENDENT_CODE TRUE
   )
 
-if (ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
-add_compile_definitions(ENABLE_PYRUNTIME_LIGHT)
 add_onnx_mlir_library(OMExecutionSession
   ExecutionSession.cpp
 
@@ -80,22 +79,19 @@ add_onnx_mlir_library(OMExecutionSession
 
   LINK_LIBS PUBLIC
   OMTensorUtils
+  OMSmallFPConversion
   )
-else()
-add_onnx_mlir_library(OMExecutionSession
-  ExecutionSession.cpp
-
-  EXCLUDE_FROM_OM_LIBS
-
-  LINK_LIBS PUBLIC
-  OMTensorUtils
-  LLVMSupport
-  absl::log_internal_check_op
-  absl::log_internal_message
-  absl::status
-  )
-endif()
 set_target_properties(OMExecutionSession
   PROPERTIES
   POSITION_INDEPENDENT_CODE TRUE
   )
+
+# For linux, the dynamic library (dl) is used directly, while for Windows,
+# LLVMSupport is used for locks when dynamic library is loaded. 
+if(WIN32)
+  target_link_libraries(OMExecutionSession PRIVATE 
+    LLVMSupport
+  )
+else()
+  target_link_libraries(OMExecutionSession PRIVATE dl)
+endif()

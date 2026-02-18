@@ -539,7 +539,7 @@ private:
           inputDimParams.emplace_back(inputDimParamsFromOption[inputIndex]);
         else if (!inputDimParamsFromOptionForAllArgs.empty())
           inputDimParams.emplace_back(inputDimParamsFromOptionForAllArgs);
-        else if (!dimParams.empty())
+        else
           inputDimParams.emplace_back(dimParams);
 
         argTypes.emplace_back(argTy);
@@ -1507,10 +1507,10 @@ private:
       SmallVector<NamedAttribute, 2> argAttrs;
       for (size_t k = 0; k < funcAttrsToMove.size(); ++k) {
         if (i < funcAttrsToMove[k].size()) {
-          auto name = mlir::cast<StringAttr>(funcAttrsToMove[k].getValue()[i]);
-          if (name) {
+          auto v = mlir::cast<StringAttr>(funcAttrsToMove[k].getValue()[i]);
+          if (v && !v.getValue().empty()) {
             NamedAttribute namedAttr =
-                builder_.getNamedAttr(argAttrNames[k], name);
+                builder_.getNamedAttr(argAttrNames[k], v);
             argAttrs.emplace_back(namedAttr);
           }
         }

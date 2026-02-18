@@ -15,14 +15,20 @@
 import argparse
 import os
 import re
+from collections import Counter
 
-# global variables
-pass_name_to_id = {}
-id_to_pass_name = []
+# Global variables.
+
+# Id is the entry number in the array. Each entry contains a string with all of
+# #the code associated with that pass
 pass_listing = []
-debug = 0
+# Map the name to the id that has it. Value is a list a pass can be called several times.
+pass_name_to_id = {}
+# Map the id to the pass name that represented it.
+id_to_pass_name = []
 # Max length of a single line. If there are very long constants, truncate them.
 max_line_length = 800
+debug = 0
 
 
 def get_args():
@@ -62,6 +68,12 @@ def get_args():
         action="store_true",
         help="List the name of every passes. Default on when missing the -p or -n options.",
     )
+    parser.add_argument(
+        "-c",
+        "--comments",
+        action="store_true",
+        help="Add useful comments to the printed listing: use-count for each def; values for scalar constant.",
+    )
     return parser.parse_args()
 
 
@@ -69,6 +81,12 @@ def usage(error_message):
     print("Error:", error_message)
     print("Use -h / --help for more information.")
     exit(1)
+
+
+###########################################################
+# Scan listing
+
+# Fill pass_name_to_id, id_to_pass_name, pass_listing
 
 
 def extract_ir_pass_name(text):
@@ -135,6 +153,11 @@ def scan_listing(filename, print_list_name):
         raise
 
 
+###########################################################
+# Locate the pass, namely return the id associated with what we are
+# looking for. Id will point to a string in pass_listing.
+
+
 def locate_pass(name, num):
     global pass_name_to_id, pass_listing
 
@@ -168,8 +191,210 @@ def locate_pass(name, num):
     return ids[0]
 
 
+###########################################################
+# Optionally annotate each def by its number of uses
+
+# Matches SSA values like %0, %res_12, %xyz.$tmp
+SSA_RE = re.compile(r"%[A-Za-z0-9_.$]+")
+
+
+def split_lhs_rhs_strip_comment(line: str):
+    """Return (lhs, rhs) after stripping '//' comments.
+    If '=' not present, lhs == '' and rhs == (comment-stripped line).
+    """
+    # Drop '//' comments
+    line = line.split("//", 1)[0]
+    if "=" not in line:
+        return "", line
+    lhs, rhs = line.split("=", 1)
+    return lhs, rhs
+
+
+def split_comment(line: str):
+    """Split a line into (code, comment) where comment includes the leading '//' if present."""
+    if "//" in line:
+        code, comment = line.split("//", 1)
+        return code, "//" + comment
+    return line, ""
+
+
+def collect_outputs(mlir_text: str):
+    """Collect names defined on the LHS of '=' (i.e., operation results)."""
+    outputs = set()
+    for line in mlir_text.splitlines():
+        lhs, _ = split_lhs_rhs_strip_comment(line)
+        if lhs:
+            for name in SSA_RE.findall(lhs):
+                outputs.add(name)
+    return outputs
+
+
+def count_output_uses(mlir_text: str):
+    """Return a dict { '%name': use_count } for every SSA defined as '%x = ...'.
+
+    Counts only RHS occurrences (and lines without '=') so definitions aren't counted.
+    Includes outputs with 0 uses.
+    """
+    outputs = collect_outputs(mlir_text)
+    counts = Counter({name: 0 for name in outputs})
+    for line in mlir_text.splitlines():
+        lhs, rhs = split_lhs_rhs_strip_comment(line)
+        # Count only the RHS (or the whole line if there's no '=')
+        scan = rhs  # rhs already equals full line when lhs == ''
+        for name in SSA_RE.findall(scan):
+            if name in outputs:
+                counts[name] += 1
+    return dict(counts)
+
+
+def annotate_mlir_with_use_counts(mlir_text: str, use_counts: dict[str, int]) -> str:
+    """
+    Return a new MLIR text where each SSA result defined on a line is annotated as '%x/N'
+    on the LHS of '=', where N is the use count from `use_counts`.
+
+    Non-definition lines are left unchanged. Comments are preserved.
+    """
+    out_lines = []
+    for line in mlir_text.splitlines():
+        code, comment = split_comment(line)
+        if "=" not in code:
+            # Not a definition line—pass through unchanged
+            out_lines.append(line)
+            continue
+        lhs, rhs = code.split("=", 1)
+
+        # Replace each SSA name in the LHS with '%name/N'
+        def _add_count(m: re.Match) -> str:
+            name = m.group(0)
+            return f"{name}/{use_counts.get(name, 0)}"
+
+        annotated_lhs = SSA_RE.sub(_add_count, lhs)
+        # Reassemble, preserving spacing and comments
+        new_line = f"{annotated_lhs}={rhs}{comment}"
+        out_lines.append(new_line)
+    # Preserve trailing newline behavior similar to input
+    return "\n".join(out_lines) + ("\n" if mlir_text.endswith("\n") else "")
+
+
+###########################################################
+# Optionally annotate each use of a constant by its value.
+
+DENSE_PAYLOAD_RE = re.compile(r"dense<([^>]+)>\s*:\s*tensor<([^>]+)>", re.IGNORECASE)
+
+
+def is_rank0_or_size1_tensor(type_inner: str) -> bool:
+    """
+    Given the inner part of tensor<...> (i.e., what's inside the angle brackets),
+    return True if it is a rank-0 tensor (just a type like 'f32'/'i64') or a
+    rank-1 size-1 tensor (e.g., '1xf32', '1xi64').
+    """
+    inner = type_inner.strip()
+    # Rank-0: just a scalar type token, no 'x'
+    if "x" not in inner and "[" not in inner and "]" not in inner:
+        return True
+    # Rank-1 size-1: '1x<type>'
+    m = re.match(r"^\s*1x([A-Za-z0-9_<>:?$\-\[\]]+)\s*$", inner)
+    return m is not None
+
+
+def extract_onnx_dense_scalar(rhs: str) -> str | None:
+    """
+    Return the scalar-like value string if RHS contains:
+      onnx.Constant ... dense<...> : tensor<...>
+    and the tensor type is rank-0 or rank-1 size-1.
+    Otherwise return None.
+    """
+    m = DENSE_PAYLOAD_RE.search(rhs)
+    if not m:
+        return None
+    payload = m.group(1).strip()  # e.g., '64', '1.0', '[1, -1, 12, 64]'
+    tensor_inner = m.group(2).strip()  # e.g., '1xi64', 'f32', '4xi64'
+    if not is_rank0_or_size1_tensor(tensor_inner):
+        return None
+    # Reject vector/array payloads like '[1, -1, 12, 64]'
+    if payload.startswith("[") and payload.endswith("]"):
+        return None
+    return payload
+
+
+def collect_onnx_dense_scalar_constants(mlir_text: str) -> dict[str, str]:
+    """
+    Collect { '%name': '<value>' } for onnx.Constant with dense<...> payloads
+    when the type is rank-0 or size-1 tensor.
+    """
+    const_vals: dict[str, str] = {}
+    for line in mlir_text.splitlines():
+        lhs, rhs = split_lhs_rhs_strip_comment(line)
+        if not lhs:
+            continue
+        # Quick pre filter for 'onnx.Constant' and 'dense<'
+        if "onnx.Constant" not in rhs or "dense<" not in rhs:
+            continue
+        value = extract_onnx_dense_scalar(rhs)
+        if value is None:
+            continue
+        for name in SSA_RE.findall(lhs):
+            const_vals[name] = value
+    return const_vals
+
+
+def _annotate_scalar_constant_uses_in_code_segment(
+    code: str, const_vals: dict[str, str]
+) -> str:
+    """Append '/<value>' to each SSA *use* that is a scalar constant."""
+
+    def repl(m: re.Match) -> str:
+        name = m.group(0)
+        if name in const_vals:
+            return f"{name}={const_vals[name]}"
+        return name
+
+    return SSA_RE.sub(repl, code)
+
+
+def annotate_constant_uses_with_values(mlir_text: str) -> str:
+    """
+    Annotate each *use* of a constant discovered by collect_onnx_dense_scalar_constants
+    by appending '/<value>' after the SSA name.
+
+    - LHS (definitions) are not modified.
+    - RHS (and lines without '=') get '%c' -> '%c/<value>' for constants.
+    - Comments are preserved.
+    """
+    const_vals = collect_onnx_dense_scalar_constants(mlir_text)
+
+    out_lines = []
+    for line in mlir_text.splitlines():
+        code, comment = split_comment(line)
+
+        if "=" in code:
+            lhs, rhs = code.split("=", 1)
+            # Do NOT change LHS (definitions); only annotate RHS uses
+            annotated_rhs = _annotate_scalar_constant_uses_in_code_segment(
+                rhs, const_vals
+            )
+            new_line = f"{lhs}={annotated_rhs}{comment}"
+            out_lines.append(new_line)
+        else:
+            # No definition; annotate whole line for constant uses
+            annotated = (
+                _annotate_scalar_constant_uses_in_code_segment(code, const_vals)
+                + comment
+            )
+            out_lines.append(annotated)
+
+    # Preserve trailing newline behavior similar to input
+    return "\n".join(out_lines) + ("\n" if mlir_text.endswith("\n") else "")
+
+
+###########################################################
+# Print the pass that the user is interested in.
+
+
 def print_pass(filename, id, after, pass_name=None):
     global pass_name_to_id, id_to_pass_name, pass_listing
+
+    # We may want to print a pass after the one pointed by id.
     n = 0
     if after:
         if re.fullmatch(r"[+-]?\d+", after) is not None:
@@ -200,13 +425,19 @@ def print_pass(filename, id, after, pass_name=None):
         else:
             message += f" with name {pass_name}"
     message += f' from file "{filename}".'
-    print(f"{message}\n\n", pass_listing[id], f"\n\n{message}")
+    # Actual printing
+    mlir_text = pass_listing[id]
+    if args.comments:
+        use_counts = count_output_uses(mlir_text)
+        mlir_text = annotate_mlir_with_use_counts(mlir_text, use_counts)
+        mlir_text = annotate_constant_uses_with_values(mlir_text)
+    print(f"{message}\n\n", mlir_text, f"\n\n{message}")
 
 
 # Process arguments
 args = get_args()
 if args.input == None:
-    usage("missing file namem")
+    usage("missing file name")
 if args.pass_name == None and args.num == None:
     args.list_passes = True
 

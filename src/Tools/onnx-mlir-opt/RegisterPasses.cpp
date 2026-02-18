@@ -47,6 +47,16 @@
 #include "mlir/Dialect/SCF/Transforms/Passes.h"
 
 using namespace mlir;
+using namespace onnx_mlir;
+
+// Include generated pass registration functions
+// These must be included after using namespace declarations so that
+// the generated code can find the pass creation functions in the onnx_mlir
+// namespace
+#define GEN_PASS_REGISTRATION
+#include "src/Transform/Passes.h.inc"
+#define GEN_PASS_REGISTRATION
+#include "src/Conversion/ONNXToLinalg/Passes.h.inc"
 
 namespace onnx_mlir {
 
@@ -145,6 +155,10 @@ void registerOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createRemoveSameONNXDimPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createStandardFuncReturnPass();
   });
 
@@ -154,10 +168,6 @@ void registerOMPasses(int optLevel) {
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createConvertONNXToTOSAPass();
-  });
-
-  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return createConvertONNXToLinalg();
   });
 
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
@@ -174,7 +184,14 @@ void registerMLIRPasses() {
   // Passes from MLIR project
   mlir::registerTransformsPasses();
   // Passes created from onnx-mlir/src/Transform/Passes.td
-  onnx_mlir::registerTransformsPasses();
+  // Note: registerTransformsPasses() is generated as an inline function in
+  // global namespace Use :: prefix to avoid conflict with
+  // mlir::registerTransformsPasses()
+  ::registerTransformsPasses();
+  // Passes created from onnx-mlir/src/Conversion/ONNXToLinalg/Passes.td
+  // Note: registerONNXToLinalgPasses() is generated as an inline function in
+  // global namespace
+  ::registerONNXToLinalgPasses();
 
   affine::registerAffinePasses();
   func::registerFuncPasses();

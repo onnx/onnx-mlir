@@ -118,6 +118,8 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
   // Lowering ONNX to ZHigh.
   pm.addPass(onnx_mlir::createONNXToZHighPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
+  // Remove onnx.Dim operations that refer to the same dynamid dimension.
+  pm.addPass(onnx_mlir::createRemoveSameONNXDimPass());
 
   // There are more opportunities for const propagation once all zhigh ops were
   // generated.
@@ -191,7 +193,8 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
 
   // Profiling ZHighIR.
   unsigned instrumentActions = instrumentControlBits;
-  if (profileIR == onnx_mlir::ProfileIRs::ZHigh) {
+  if (profileIR == onnx_mlir::ProfileIRs::ZHigh ||
+      profileIRWithSig == onnx_mlir::ProfileIRs::ZHigh) {
     assert(instrumentStage == onnx_mlir::InstrumentStages::ZHigh &&
            "expected set to this");
     instrumentOps = "onnx.*,zhigh.*";
@@ -202,13 +205,14 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
     // --InstrumentReportMemory option.
     instrumentActions |= (1 << 3) - 1;
     // Also enable instrumentation of signatures.
-    instrumentSignatures = "onnx.*,zhigh.*";
+    if (profileIRWithSig == onnx_mlir::ProfileIRs::ZHigh)
+      instrumentSignatures = "onnx.*,zhigh.*";
   }
 
   // Insert an instrumentation after lowering onnx to zhigh to get profiling /
   // signatures for onnx and zhigh ops. Keep this pass at the end of this
-  // function. Add createInstrument (timing) second so that it will guarantee
-  // not to include timing of the signature printing.
+  // function. Add createInstrumentPass (timing) second so that it will
+  // guarantee not to include timing of the signature printing.
   if (hasSignatureInstrumentation(onnx_mlir::InstrumentStages::ZHigh))
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentONNXSignaturePass(
         instrumentSignatures, instrumentOnnxNode));
@@ -299,8 +303,11 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
         pm.addPass(zlow::createZLowRewritePass());
         // Late generation of code for stick/unstick, needed to be after a
         // ZLowRewrite pass.
-        if (!nnpaDisableCompilerStickUnstick)
-          pm.addPass(zlow::createZLowStickExpansionPass(enableParallel));
+        bool expansion = !nnpaDisableCompilerStickUnstick;
+        bool allocNormalization = isCompatibleWithNNPALevel(NNPALevel::M15);
+        if (expansion || allocNormalization)
+          pm.addPass(zlow::createZLowStickOptimizationPass(
+              expansion, allocNormalization, enableParallel));
         pm.addPass(mlir::createCanonicalizerPass());
         // Normalize MemRefs.
         normalizeMemRefsPasses(pm);

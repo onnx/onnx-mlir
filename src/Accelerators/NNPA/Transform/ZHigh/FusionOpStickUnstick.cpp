@@ -676,30 +676,38 @@ public:
       return notifyFailure(layoutTransform, nullptr,
           "Compiler unsupported innermost dim (static, mod 64)");
 
-    // Look for a permute.
+    // Look for a reshape split.
     resultVal = layoutTransform.getOutput();
     std::string msg;
     Operation *reshapeSplitOp = usedOnlyBy<ONNXReshapeOp>(resultVal);
+    bool reshapeMayBeMerge = false;
     if (reshapeSplitOp) {
       ONNXReshapeOp reshapeSplit = mlir::cast<ONNXReshapeOp>(reshapeSplitOp);
-      if (!locateReshapeSplit(
-              reshapeSplit, reshapeSplitAxis, reshapeSplitFactor, msg))
-        return notifyFailure(layoutTransform, reshapeSplitOp, msg);
-      resultVal = reshapeSplit.getReshaped();
+      if (locateReshapeSplit(
+              reshapeSplit, reshapeSplitAxis, reshapeSplitFactor, msg)) {
+        resultVal = reshapeSplit.getReshaped();
+      } else {
+        reshapeMayBeMerge = true; // Maybe a merge.
+        reshapeSplitOp = nullptr; // Negate the reshape as we don't have one.
+      }
     }
 
-    // Check transpose.
-    Operation *transposeOp = usedOnlyBy<ONNXTransposeOp>(resultVal);
-    if (transposeOp) {
-      ONNXTransposeOp transpose = mlir::cast<ONNXTransposeOp>(transposeOp);
-      transposePattern = transpose.getPerm();
-      if (!transposePattern.has_value())
-        return notifyFailure(layoutTransform, transposeOp,
-            "Last dim is transposed (default pattern)");
-      if (!doesTransposeLeaveInnermostInPlace(transposePattern.value()))
-        return notifyFailure(
-            layoutTransform, transposeOp, "Last dim is transposed");
-      resultVal = transpose.getTransposed();
+    Operation *transposeOp = nullptr;
+    if (!reshapeMayBeMerge) {
+      // Check transpose if we got a split; if we may have potentially a merge,
+      // we cannot accommodate a transpose.
+      transposeOp = usedOnlyBy<ONNXTransposeOp>(resultVal);
+      if (transposeOp) {
+        ONNXTransposeOp transpose = mlir::cast<ONNXTransposeOp>(transposeOp);
+        transposePattern = transpose.getPerm();
+        if (!transposePattern.has_value())
+          return notifyFailure(layoutTransform, transposeOp,
+              "Last dim is transposed (default pattern)");
+        if (!doesTransposeLeaveInnermostInPlace(transposePattern.value()))
+          return notifyFailure(
+              layoutTransform, transposeOp, "Last dim is transposed");
+        resultVal = transpose.getTransposed();
+      }
     }
 
     // Check reshape merge.

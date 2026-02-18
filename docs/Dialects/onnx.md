@@ -5907,7 +5907,7 @@ Example:
 
 This operation is not part of the standard and was added to assist onnx-mlir.
 
-Traits: `AlwaysSpeculatableImplTrait`, `ConstantLike`
+Traits: `AlwaysSpeculatableImplTrait`
 
 Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`
 

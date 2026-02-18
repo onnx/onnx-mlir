@@ -25,6 +25,7 @@ from collections import deque
 
 import numpy as np
 import torch
+from torch.export import Dim
 from torch._inductor.codecache import (
     _ident,
     extract_tensor_metadata_for_cache_key,
@@ -38,7 +39,7 @@ from torch._subclasses.fake_tensor import (
 
 from .onnxmlirdocker import InferenceSession
 from .sessioncache import SessionCache, CacheValue
-from . import config
+from . import config, fx_utils
 
 """
 This file provides an onnx-mlir compiler backend for torch.compile().
@@ -51,7 +52,7 @@ or using "onnxmlir" as the backend name:
 Below is one example of running a bert model using onnx-mlir backend.
 ```python
 import torch
-import onnxmlirtorch
+import torch_onnxmlir
 from transformers import AutoModel, AutoTokenizer
 
 model_path = "ibm-granite/granite-embedding-30m-english"
@@ -83,9 +84,36 @@ logger = logging.getLogger(__name__)
 # An instance to cache onnx_mlir session so that there is no need to recompile the same model.
 global_session_cache = SessionCache(config.session_cache_limit)
 
+global_uncompilable_graphs = set()
+
+
+def has_unsupported_onnx_ops(gm: torch.fx.GraphModule):
+    # Detect unsupported ops. Add unsupported ops here.
+    return False
+
+
+def eager_forward_fn(gm: torch.fx.GraphModule):
+    stable_gm = torch.fx.GraphModule(gm, gm.graph)
+    stable_gm.eval()
+
+    # Ensure we don't re-enter Dynamo.
+    @torch._dynamo.disable
+    def run(*args):
+        with torch.no_grad():
+            start = time.perf_counter()
+            results = stable_gm(*args)
+            logger.info(f"Eager mode took {(time.perf_counter() - start)*1000} ms")
+            return results
+
+    return run
+
 
 # Backend function for torch.compile.
 def onnxmlir_backend(gm: torch.fx.GraphModule, *args, **kwargs):
+    # Switch back to the eager mode if the graph has unsupported onnx ops.
+    if has_unsupported_onnx_ops(gm):
+        return eager_forward_fn(gm)
+
     # Options provided at torch.compile will determine how the torch model
     # is exported, compiled and run.
     # The args and kwargs are inputs provided at inference, namely call to
@@ -94,8 +122,8 @@ def onnxmlir_backend(gm: torch.fx.GraphModule, *args, **kwargs):
 
     # Backend to export, compile and run inference of model with onnxmlir.
     def onnxmlir_forward_fn(*args, **kwargs):
-        onnxmlirtorch_object = ONNXMLIRTorch(gm, *args, options=onnxmlir_options)
-        return onnxmlirtorch_object(*args)
+        torch_onnxmlir_object = TorchONNXMLIR(gm, *args, options=onnxmlir_options)
+        return torch_onnxmlir_object(*args)
 
     return onnxmlir_forward_fn
 
@@ -224,11 +252,15 @@ def generate_hash_key(
     return key
 
 
-class ONNXMLIRTorch:
+class TorchONNXMLIR:
     def __init__(self, gm: torch.fx.GraphModule, *args, **kwargs):
+        global global_uncompilable_graphs
         # Input graph module.
         self.gm = gm
         self.gm.eval()
+
+        # Indice of the actual example inputs if the graph's signature is changed.
+        self.example_inputs_indices = None
 
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f"Original graph module {self.gm}")
@@ -259,19 +291,19 @@ class ONNXMLIRTorch:
 
         if need_rewrite:
             # Rewrite the graph for exporting to onnx.
-            (
-                self.example_inputs_indices,
-                removed_example_inputs_indices,
-                placeholders_to_replace,
-            ) = self.rewrite_gm_for_export(*args)
+            self.example_inputs_indices = self.rewrite_gm_for_export(*args)
             self.cache_key = generate_hash_key(self.gm, kwargs["options"])
             self.gm.meta["om_hash"] = self.cache_key
+            self.gm.meta["om_example_inputs_indices"] = self.example_inputs_indices
 
         # Cache the rewritten graph module.
         assert self.cache_key, "cache key does not exist"
         self.cached_session = global_session_cache.get(self.cache_key)
         if self.cached_session:
             self.example_inputs_indices = self.cached_session.example_inputs_indices
+        elif self.cache_key in global_uncompilable_graphs:
+            self.example_inputs_indices = self.gm.meta["om_example_inputs_indices"]
+        assert self.example_inputs_indices, "example_inputs_indices is None"
 
         # Touch the code to materialize before exporting.
         _ = self.gm.code
@@ -295,8 +327,12 @@ class ONNXMLIRTorch:
         return self.forward(*tensor_example_inputs)
 
     def forward(self, *example_inputs):
+        global global_uncompilable_graphs
         if self.cached_session is None:
-            logger.info("Export and compile the model.")
+            if self.cache_key in global_uncompilable_graphs:
+                logger.info("Found the uncompilable model. Switch to the eager mode")
+                return eager_forward_fn(self.gm)(*example_inputs)
+
             # When there is no cached compiled lib, export the torch model
             # to an onnx model and compile it to a .so file.
             # Since the session is connected to a .so file, we have to make
@@ -313,7 +349,13 @@ class ONNXMLIRTorch:
             self.cleanup_onnxmlir_files(tag_id)
 
             # Export the graph module to onnx.
-            self.export_gm_to_onnx(example_inputs)
+            # If failed, use the graph as it is without compilation.
+            logger.info("Export and compile the model.")
+            succeeded = self.export_gm_to_onnx(example_inputs)
+            if not succeeded:
+                logger.info("Failed to export the model. Switch to the eager mode.")
+                global_uncompilable_graphs.add(self.cache_key)
+                return eager_forward_fn(self.gm)(*example_inputs)
 
             # Create a session for compiling and running the onnx model.
             sess = self.create_onnxmlir_session()
@@ -346,17 +388,18 @@ class ONNXMLIRTorch:
         for i in self.example_inputs_indices:
             x = example_inputs[i]
             if isinstance(x, int):
-                tensor_inputs.append(torch.tensor(x, dtype=torch.int64))
+                tensor_inputs.append(torch.tensor(x, dtype=torch.int64).reshape((1,)))
             elif isinstance(x, torch.Tensor):
                 tensor_inputs.append(x)
             else:
                 raise ValueError("Unsupported input type. Consider to support it")
         return tuple(tensor_inputs)
 
-    def get_dynamic_shapes_for_export(self) -> ([str], dict[str, dict[int, str]]):
+    def build_dynamic_shapes_for_export(self) -> ([str], dict[str, dict[int, str]]):
         """
         This computes a dictionary of dynamic shapes to be used in torch.export.
         """
+        dim_tables = {}
         dynamic_shapes = {}
         input_names = []
         for node in self.gm.graph.nodes:
@@ -376,75 +419,53 @@ class ONNXMLIRTorch:
             if isinstance(input_arg, torch.SymInt) or isinstance(
                 input_arg, torch.nn.Parameter
             ):
-                dynamic_shapes[input_name] = None
+                dynamic_shapes[input_name] = {}
                 continue
             # Get dynamic dimensions from dynamic input tensors.
             dynamic_dims = {}
             for dim_idx, dim_size in enumerate(input_arg.shape):
                 if isinstance(dim_size, torch.SymInt):
                     if not str(dim_size).isdigit():
-                        dynamic_dims[dim_idx] = "dim" + str(dim_size)
-            if dynamic_dims:
-                dynamic_shapes[input_name] = dynamic_dims
-            else:
-                dynamic_shapes[input_name] = None
+                        dim_str = "dim" + str(dim_size)
+                        if dim_str in dim_tables:
+                            dim = dim_tables[dim_str]
+                        else:
+                            dim = Dim(dim_str)
+                            dim_tables[dim_str] = dim
+                        dynamic_dims[dim_idx] = dim
+            dynamic_shapes[input_name] = dynamic_dims
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f"dynamic_shapes: {dynamic_shapes}")
         return input_names, dynamic_shapes
 
     def rewrite_gm_for_export(self, *example_inputs):
+        n_ph_0 = len([n for n in self.gm.graph.nodes if n.op == "placeholder"])
+
         # Freeze scalar constant arguments that are typically parameters, e.g.,
         # epsilon value, from the config file of the model and they are constants.
-        example_inputs_indices, removed_example_inputs, constant_values = (
-            self.extract_scalar_constant_args(example_inputs)
-        )
+        constant_values = self.extract_scalar_constant_args(example_inputs)
+        self.gm = fx_utils.freeze_scalar_constant_args(self.gm, constant_values)
 
-        self.freeze_scalar_constant_args(constant_values)
         # Since onnx does not support scalar inputs, symbolic integer arguments
         # are converted to tensor arguments.
-        placeholders_to_replace = self.convert_symint_args_to_tensors()
-        # After rewriting the argument list of the graph module, we maintain
-        # a list of un-removed arguments that are used in forward for passing
-        # correct example inputs to the rewritten graph module.
-        return example_inputs_indices, removed_example_inputs, placeholders_to_replace
+        self.gm = fx_utils.convert_symint_args_to_tensors(self.gm)
+        # Rewrite ops related to symbolic integers, e.g. torch.sym_sum.
+        self.gm = fx_utils.rewrite_torch_sym_sum(self.gm)
 
-    def convert_symint_args_to_tensors(self):
-        # Important note: do not cast SymInt to int by int(SymInt)
-        # since that concretizes symbolic dimensions in related Tensors.
+        # Make sure that previous transformations did not change the number of placeholders.
+        n_ph_1 = len([n for n in self.gm.graph.nodes if n.op == "placeholder"])
+        assert n_ph_0 == n_ph_1, "The number of placeholders was changed"
 
-        graph = self.gm.graph
-        placeholders_to_replace = []
+        # Remove unused placeholders in one shot to get a consitent example_inputs_indices.
+        self.gm, example_inputs_indices = fx_utils.remove_unused_placeholders(self.gm)
 
-        # First pass: collect SymInt placeholders.
-        for node in graph.nodes:
-            if node.op == "placeholder" and node.type in [int, torch.SymInt]:
-                new_name = f"{node.name}_tensor"
-                with graph.inserting_before(node):
-                    new_node = graph.placeholder(new_name)
-                    new_node.meta = node.meta
-                    new_node.meta["tensor_meta"] = {"shape": [1], "dtype": torch.int64}
-                    if node.type is int:
-                        new_node.meta["example_value"] = torch.tensor(
-                            [value], dtype=torch.int64
-                        )
-                    new_node.type = torch.Tensor
-                placeholders_to_replace.append((node, new_node))
-
-        # Second pass: replace uses with .item() calls.
-        for old_node, new_node in placeholders_to_replace:
-            for user in list(old_node.users):
-                with graph.inserting_before(user):
-                    item_node = graph.call_method("item", args=(new_node,))
-                    user.replace_input_with(old_node, item_node)
-            graph.erase_node(old_node)
-
-        if placeholders_to_replace:
-            self.gm.graph.lint()
-            self.gm.recompile()
-
-        return placeholders_to_replace
+        return example_inputs_indices
 
     def extract_scalar_constant_args(self, example_inputs: tuple):
+        """
+        Extract scalar float constant arguments that are typically parameters, e.g.,
+        epsilon value, from the config file of the model and they are constants.
+        """
         graph = self.gm.graph
         placeholder_nodes = [n for n in graph.nodes if n.op == "placeholder"]
         input_names = [n.name for n in placeholder_nodes]
@@ -453,117 +474,70 @@ class ONNXMLIRTorch:
         name_to_value = dict(zip(input_names, example_inputs))
 
         # Detect scalar constants by this pattern: placeholder -> .item().
-        scalar_constants = []
         name_to_use_nodes = {}
         for node in placeholder_nodes:
             input_arg = node.meta["example_value"]
             # Not a tensor.
             if not isinstance(input_arg, torch.Tensor):
                 continue
+            # Not a float.
+            if input_arg.dtype not in [torch.float32, torch.float64]:
+                continue
             # Not a scalar.
             if input_arg.ndim != 0:
                 continue
             # Pattern: placeholder -> .item().
             uses = [n for n in graph.nodes if node in n.all_input_nodes]
-            item_nodes = [
-                n for n in uses if n.op == "call_method" and n.target == "item"
-            ]
+            item_nodes = [n for n in uses if fx_utils._is_item_of_tensor(n)]
             if not item_nodes:
                 continue
             item_node = item_nodes[0]
             item_uses = [n for n in graph.nodes if item_node in n.all_input_nodes]
             other_uses = [n for n in uses if n != item_node]
             if item_uses and not other_uses:
-                scalar_constants.append(node.name)
                 name_to_use_nodes[node.name] = item_nodes
 
         # Build constant_values dict.
         constant_values = {
             name: (name_to_value[name], name_to_use_nodes[name])
-            for name in scalar_constants
+            for name in name_to_use_nodes.keys()
             if name in name_to_value
         }
 
-        # Keep lists of indices of example inputs that are removed and not removed.
-        example_inputs_indices = []
-        removed_example_inputs_indices = []
-        for i, name in enumerate(name_to_value.keys()):
-            if name not in scalar_constants:
-                example_inputs_indices.append(i)
-            else:
-                removed_example_inputs_indices.append(i)
-        return example_inputs_indices, removed_example_inputs_indices, constant_values
-
-    def freeze_scalar_constant_args(self, constant_values: dict):
-        if logger.isEnabledFor(logging.DEBUG):
-            logger.debug(
-                f"freeze_scalar_constant_args, constant_values: {constant_values}"
-            )
-
-        if not constant_values:
-            return
-
-        graph = self.gm.graph
-        placeholder_nodes = [n for n in graph.nodes if n.op == "placeholder"]
-        name_to_node = {n.name: n for n in placeholder_nodes}
-
-        for name, value_use_nodes in constant_values.items():
-            value, use_nodes = value_use_nodes
-            if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(f"freeze_scalar_constant_args, {name}, {value}")
-            if name not in name_to_node:
-                continue
-            node = name_to_node[name]
-
-            # Register scalar or tensor.
-            if isinstance(value, torch.Tensor):
-                self.gm.register_buffer(name, value)
-            else:
-                setattr(self.gm, name, value)
-
-            # Insert get_attr node.
-            with graph.inserting_before(node):
-                get_attr_node = graph.get_attr(name)
-
-            # Replace all uses of the placeholder with get_attr.
-            for use_node in use_nodes:
-                new_args = []
-                for arg in use_node.args:
-                    new_args.append(get_attr_node if arg == node else arg)
-                use_node.args = tuple(new_args)
-
-                # Remove .item() calls if they follow the pattern.
-                if use_node.op == "call_method" and use_node.target == "item":
-                    if logger.isEnabledFor(logging.DEBUG):
-                        logger.debug(
-                            f"freeze_scalar_constant_args, replace {use_node} by {value}"
-                        )
-                    # Replace the .item() node with the scalar directly.
-                    scalar_value = (
-                        value.item() if isinstance(value, torch.Tensor) else value
-                    )
-                    use_node.replace_all_uses_with(scalar_value)
-                    graph.erase_node(use_node)
-            if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(f"freeze_scalar_constant_args, {name}, {value} END")
-
-            graph.erase_node(node)
-
-        graph.lint()
-        self.gm.recompile()
-        return self.gm
+        return constant_values
 
     def export_gm_to_onnx(self, example_inputs):
         model_name = self.default_model_name + str(self.tag) + ".onnx"
         self.onnx_model = os.path.join(self.workdir.name, model_name)
-        input_names, dynamic_shapes = self.get_dynamic_shapes_for_export()
-        torch.onnx.export(
-            self.gm,
-            example_inputs,
-            self.onnx_model,
-            input_names=input_names,
-            dynamic_shapes=dynamic_shapes,
-        )
+        input_names, dynamic_shapes = self.build_dynamic_shapes_for_export()
+
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Fx Graph for exporting to onnx: {self.gm}")
+
+        succeeded = False
+        try:
+            torch.onnx.export(
+                self.gm,
+                example_inputs,
+                self.onnx_model,
+                input_names=input_names,
+                dynamic_shapes=dynamic_shapes,
+                dynamo=True,
+                # dynamic_axes=dynamic_shapes,
+                # dynamo=False,
+                report=False,
+            )
+            succeeded = True
+        except torch.onnx.errors.UnsupportedOperatorError as e:
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f"ONNX export unsupported: {e}")
+                logger.debug(f"Fx Graph: {self.gm}")
+        except Exception as e:
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f"ONNX export failure: {e}")
+                logger.debug(f"Fx Graph: {self.gm}")
+
+        return succeeded
 
     def create_onnxmlir_session(self) -> InferenceSession:
         # Return a session to compile and run the onnx model.
@@ -578,34 +552,9 @@ class ONNXMLIRTorch:
         old_files = [base + ".onnx", base + ".constants.bin", base + ".so"]
         for f in old_files:
             if os.path.exists(f):
-                os.remove(old_onnx_file)
+                os.remove(f)
 
 
 # Alternative interface to minic the usage of torch.compile
 def compile(torch_model, *args, **kwargs):
-    return ONNXMLIRTorch(torch_model, *args, **kwargs)
-
-
-def print_parameters(model, args, kwargs, outputs):
-    print("------------ Begin ---------")
-    fn = model.forward
-    if fn is not None:
-        signature = inspect.signature(fn)
-        for param_name, param in signature.parameters.items():
-            print(f"Parameter name: {param_name}")
-    print(
-        f"number of input parameters of forward call: args {len(args)}, kwargs {len(kwargs)}"
-    )
-    # Print out each parameter.
-    # ToFix: save them into file
-    print("args")
-    for arg in args:
-        print(arg)
-    print("kwargs")
-    for key, value in kwargs.items():
-        print(f"{key} : {value}")
-    print("------------ End ---------\n")
-
-
-def interceptForward(model):
-    model.register_forward_hook(print_parameters, with_kwargs=True)
+    return TorchONNXMLIR(torch_model, *args, **kwargs)

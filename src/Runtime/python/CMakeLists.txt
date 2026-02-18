@@ -32,10 +32,28 @@ else()
 
     LINK_LIBS PUBLIC
     OMExecutionSession
+    # ToFix: OMMlirUtilities used for float16 is temporarily excluded because
+    # it need some support from LLVM.
+    #OMMlirUtilities
     pybind11::embed
     pybind11::python_link_helper
   )
 endif()
+
+# Refer to onnx-mlir/CMakeList.txt
+# Since PyExecutionSessionBase include onnx/onnx_pb.h, absl lib may be needed.
+# Another solution is to simply add onnx into link library, which was tested 
+# and proven. This solution seems more elegant to me.
+# However, not sure whether it is too much to link onnx to PyRuntimeC, though
+# third_party/onnx is built in both normal and light-weight driver
+#if (absl_FOUND)
+#  message(STATUS "absl found and add it the dependent library for OMPyExecutionSessionBase")
+#  target_link_libraries(OMPyExecutionSessionBase PUBLIC
+#    absl::log_internal_check_op
+#    absl::log_internal_message
+#    absl::status
+#    )
+#endif()
 
 if(MSVC)
   target_link_libraries(OMPyExecutionSessionBase
@@ -45,14 +63,6 @@ endif()
 set_target_properties(OMPyExecutionSessionBase
   PROPERTIES
   POSITION_INDEPENDENT_CODE TRUE
-  )
-target_compile_definitions(OMPyExecutionSessionBase
-  PRIVATE
-  $<TARGET_PROPERTY:onnx,COMPILE_DEFINITIONS>
-  )
-target_include_directories(OMPyExecutionSessionBase
-  PRIVATE
-  $<TARGET_PROPERTY:onnx,INCLUDE_DIRECTORIES>
   )
 
 # When running on ubi8 image, shared lib backend tests fail with
@@ -83,19 +93,10 @@ target_include_directories(OMPyExecutionSessionBase
 # which we add back through target_compile_definitions and
 # target_include_directories.
 pybind11_add_module(PyRuntimeC PyExecutionSession.cpp)
-add_dependencies(PyRuntimeC onnx)
 target_compile_options(PyRuntimeC
   PRIVATE
   $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-frtti -fexceptions>
   $<$<CXX_COMPILER_ID:MSVC>:/EHsc /GR>
-  )
-target_compile_definitions(PyRuntimeC
-  PRIVATE
-  $<TARGET_PROPERTY:onnx,COMPILE_DEFINITIONS>
-  )
-target_include_directories(PyRuntimeC
-  PRIVATE
-  $<TARGET_PROPERTY:onnx,INCLUDE_DIRECTORIES>
   )
 target_link_libraries(PyRuntimeC
   PRIVATE
@@ -118,13 +119,13 @@ add_custom_target(OMCreatePyRuntimePackage
         DEPENDS PyRuntimeC
      )
 
-# Target to prepare onnxmlirtorch package
-file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/onnxmlirtorch/src/onnxmlirtorch/libs)
-add_custom_target(OMCreateONNXMLIRTorchPackage
-        COMMAND cp -r ${CMAKE_CURRENT_SOURCE_DIR}/onnxmlirtorch ${CMAKE_CURRENT_BINARY_DIR}
-        COMMAND cp ${ONNX_MLIR_BIN_ROOT}/${CMAKE_BUILD_TYPE}/lib/PyRuntimeC.*.so ${CMAKE_CURRENT_BINARY_DIR}/onnxmlirtorch/src/onnxmlirtorch/libs
-        COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/onnxmlirdocker.py ${CMAKE_CURRENT_BINARY_DIR}/onnxmlirtorch/src/onnxmlirtorch
-        COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/PyRuntime.py ${CMAKE_CURRENT_BINARY_DIR}/onnxmlirtorch/src/onnxmlirtorch
+# Target to prepare torch_onnxmlir package
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/torch_onnxmlir/src/torch_onnxmlir/libs)
+add_custom_target(OMCreateTorchONNXMLIRPackage
+        COMMAND cp -r ${CMAKE_CURRENT_SOURCE_DIR}/torch_onnxmlir ${CMAKE_CURRENT_BINARY_DIR}
+        COMMAND cp ${ONNX_MLIR_BIN_ROOT}/${CMAKE_BUILD_TYPE}/lib/PyRuntimeC.*.so ${CMAKE_CURRENT_BINARY_DIR}/torch_onnxmlir/src/torch_onnxmlir/libs
+        COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/onnxmlirdocker.py ${CMAKE_CURRENT_BINARY_DIR}/torch_onnxmlir/src/torch_onnxmlir
+        COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/PyRuntime.py ${CMAKE_CURRENT_BINARY_DIR}/torch_onnxmlir/src/torch_onnxmlir
         DEPENDS PyRuntimeC
      )
 
