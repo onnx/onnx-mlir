@@ -33,7 +33,11 @@ RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
     #
     # Must specify --no-build-isolation to avoid protoc-gen-mypy.py
     # segfault on s390x
+    # 
+    # Use upgrade setuptools to latest which accepts plain string license
+    # format.
     #
+    && python3 -m pip install --prefix=/usr --upgrade setuptools \
     && CC=clang CXX=clang++ CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib" \
        python3 -m pip install . --prefix=/usr --no-build-isolation
 
