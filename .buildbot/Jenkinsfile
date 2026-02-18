@@ -253,7 +253,12 @@ def call() {
         when { not { environment name: 'GITHUB_PR_ACTION',
                      value: 'closed' } }
         steps {
-          sh "${JENKINS_BUILD_OMPYINFER}"
+          sh '''
+            echo "Build OMPyInfer"
+            set -euo pipefail
+            chmod +x ${JENKINS_BUILD_OMPYINFER}
+            ${JENKINS_BUILD_OMPYINFER}
+          '''
         }
       }
 
