@@ -26,8 +26,8 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
-
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 #include "src/Pass/Passes.hpp"
 
 using namespace mlir;
@@ -190,6 +190,8 @@ struct ConvertSCastPairToRequantizePass
     patterns.add<ConvertSCastPairToRequantizePattern>(context);
 
     GreedyRewriteConfig config;
+    ResultNamesUpdater rnUpdater;
+    config.listener = &rnUpdater;
     config.strictMode = GreedyRewriteStrictness::ExistingAndNewOps;
     if (failed(applyPatternsGreedily(
             getOperation(), std::move(patterns), config))) {
