@@ -31,9 +31,9 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/Support/Debug.h"
 
+#include "mlir/Dialect/Quant/IR/QuantTypes.h"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
-#include "mlir/Dialect/Quant/IR/QuantTypes.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
@@ -107,8 +107,7 @@ Value createWeightTranspose(PatternRewriter &rewriter, Location loc,
 // Helper function to remap per-channel quantization axis after transpose.
 // Given a permutation, update the quantized dimension in the element type.
 Type remapPerAxisQuantType(Type elementType, ArrayRef<int64_t> perm) {
-  auto perAxisType =
-      dyn_cast<quant::UniformQuantizedPerAxisType>(elementType);
+  auto perAxisType = dyn_cast<quant::UniformQuantizedPerAxisType>(elementType);
   if (!perAxisType)
     return elementType; // not per-axis, nothing to do
 
