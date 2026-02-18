@@ -49,6 +49,8 @@ ARG TEST_MARCH
 RUN if [ "$(uname -m)" = "s390x" ]; then \
       cd ${WORK_DIR}/onnx-mlir && \
       rm -rf build-light && mkdir -p build-light && cd build-light && \
+      python -m venv .venv && \
+      source .venv/bin/activate && \
       cmake -DCMAKE_BUILD_TYPE=Debug \
             -DONNX_MLIR_TARGET_TO_BUILD=OMPyInfer .. && \
       cmake --build . --parallel ${NPROC} && \
