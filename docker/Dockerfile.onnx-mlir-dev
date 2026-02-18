@@ -35,9 +35,11 @@ RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
     # segfault on s390x
     # 
     # Use upgrade setuptools to latest which accepts plain string license
-    # format.
+    # format. Update packaging to latest to avoid the "ERROR: Could not 
+    # find a version that satisfies the requirement packaging>=24.2" error
+    # on ubi9 and ubuntu noble.
     #
-    && python3 -m pip install --prefix=/usr --upgrade setuptools \
+    && python3 -m pip install --prefix=/usr "packaging>=24.2" --upgrade setuptools \
     && CC=clang CXX=clang++ CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib" \
        python3 -m pip install . --prefix=/usr --no-build-isolation
 
