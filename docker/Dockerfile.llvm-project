@@ -44,9 +44,12 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
           yum update -q -y && \
           yum install -q -y \
               autoconf automake ca-certificates clang cmake diffutils \
-              file java-21-devel gcc gcc-c++ git libtool make ncurses-devel \
-              ninja-build python3 python3-devel python3-pip python3-setuptools \
-              python3-wheel tzdata-java unzip which zip zlib-devel && \
+              file java-21-devel gcc gcc-c++ git libtool make ncurses-devel ninja-build \
+              # FIX: Use python3.11 instead of python39 to satisfy ONNX >= 3.10 requirement
+              python3.11 python3.11-devel python3.11-pip python3.11-setuptools python3.11-wheel \
+              tzdata-java unzip which zip zlib-devel && \
+          # Ensure python3.11 is the default python3
+          alternatives --set python3 /usr/bin/python3.11 && \
           # Upgrade setuptools to avoid UNKNOWN wheel when building onnx
           # Use same package versions as those in ubuntu:noble
           pip3 install -q setuptools --upgrade && \
