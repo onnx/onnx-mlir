@@ -1205,7 +1205,7 @@ struct PushTransposeThroughBinaryWithConst : public OpRewritePattern<BinaryOp> {
       ArrayRef<float> floatData(reinterpret_cast<const float *>(rawData.data()),
           static_cast<size_t>(numElements));
       for (int64_t newLinearIdx = 0; newLinearIdx < numElements;
-          ++newLinearIdx) {
+           ++newLinearIdx) {
         // Convert linear index to multi-dimensional index in new space
         SmallVector<int64_t> newIndices(newConstShape.size());
         int64_t remaining = newLinearIdx;
@@ -1237,7 +1237,7 @@ struct PushTransposeThroughBinaryWithConst : public OpRewritePattern<BinaryOp> {
           reinterpret_cast<const int64_t *>(rawData.data()),
           static_cast<size_t>(numElements));
       for (int64_t newLinearIdx = 0; newLinearIdx < numElements;
-          ++newLinearIdx) {
+           ++newLinearIdx) {
         SmallVector<int64_t> newIndices(newConstShape.size());
         int64_t remaining = newLinearIdx;
         for (int i = newConstShape.size() - 1; i >= 0; --i) {
@@ -1265,7 +1265,7 @@ struct PushTransposeThroughBinaryWithConst : public OpRewritePattern<BinaryOp> {
       ArrayRef<int8_t> intData(reinterpret_cast<const int8_t *>(rawData.data()),
           static_cast<size_t>(numElements));
       for (int64_t newLinearIdx = 0; newLinearIdx < numElements;
-          ++newLinearIdx) {
+           ++newLinearIdx) {
         // Convert linear index to multi-dimensional index in new space
         SmallVector<int64_t> newIndices(newConstShape.size());
         int64_t remaining = newLinearIdx;
@@ -1470,7 +1470,7 @@ struct FoldConstDQTranspose : public OpRewritePattern<ONNXTransposeOp> {
       ArrayRef<float> floatData(reinterpret_cast<const float *>(rawData.data()),
           static_cast<size_t>(numElements));
       for (int64_t newLinearIdx = 0; newLinearIdx < numElements;
-          ++newLinearIdx) {
+           ++newLinearIdx) {
         SmallVector<int64_t> newIndices(newConstShape.size());
         int64_t remaining = newLinearIdx;
         for (int i = newConstShape.size() - 1; i >= 0; --i) {
@@ -1500,7 +1500,7 @@ struct FoldConstDQTranspose : public OpRewritePattern<ONNXTransposeOp> {
           reinterpret_cast<const int8_t *>(rawData.data()), rawData.size());
 
       for (int64_t newLinearIdx = 0; newLinearIdx < numElements;
-          ++newLinearIdx) {
+           ++newLinearIdx) {
         SmallVector<int64_t> newIndices(newConstShape.size());
         int64_t remaining = newLinearIdx;
         for (int i = newConstShape.size() - 1; i >= 0; --i) {
