@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
+# There is subdirectory python for OMPyInfer or not is the same
 add_subdirectory(python)
 
 add_onnx_mlir_library(OMTensorUtils

@@ -112,6 +112,7 @@ install(TARGETS PyRuntimeC
 add_custom_target(OMCreateOMPyInferPackage
         COMMAND rm -rf ${CMAKE_CURRENT_BINARY_DIR}/OMPyInfer
         COMMAND cp -r ${CMAKE_CURRENT_SOURCE_DIR}/OMPyInfer ${CMAKE_CURRENT_BINARY_DIR}
+        COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/OMPyInfer/src/OMPyInfer/libs
         COMMAND cp ${ONNX_MLIR_BIN_ROOT}/${CMAKE_BUILD_TYPE}/lib/PyRuntimeC.*.so ${CMAKE_CURRENT_BINARY_DIR}/OMPyInfer/src/OMPyInfer/libs
         DEPENDS PyRuntimeC
      )

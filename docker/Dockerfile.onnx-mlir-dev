@@ -42,14 +42,17 @@ ARG ACCEL=NNPA
 ARG TEST_NOFLOAT16
 ARG TEST_MARCH
 
-# Build PyRuntime Light test for s390x only
-# Current test is just for build. Package creation and test run may come later.
+# Build Python Inference Driver test for s390x only
+# The package contains only pre-compiled model binary for s380x.
+# ToFix: move this test after compiler has been built and compile the onnx model
+# with the newly built onnx-mlir for all platform.
 RUN if [ "$(uname -m)" = "s390x" ]; then \
       cd ${WORK_DIR}/onnx-mlir && \
       rm -rf build-light && mkdir -p build-light && cd build-light && \
       cmake -DCMAKE_BUILD_TYPE=Debug \
             -DONNX_MLIR_TARGET_TO_BUILD=OMPyInfer .. && \
       cmake --build . --parallel ${NPROC} && \
+      cmake --build . --target OMTestOMPyInferPackage && \
       cd .. && rm -rf build-light; \
     fi
 
