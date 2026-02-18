@@ -83,10 +83,9 @@ static void resetLocalState() {
   instrumentReportDisabled = false;
   instrumentReportTimeDisabled = false;
   instrumentReportMemoryDisabled = false;
-  instrumentCounter = 0; // For ticks; default without time/mem errors.
-  psErrorCount = 0;      // For counting memory errors.
-                         // For string processing
-  FILE *fout = 0;        // For file output; none: undef; stdout.
+  instrumentCounter = 0;
+  psErrorCount = 0;
+  fout = 0;
   startReportPrinted = false;
   bufferIndex = 0;
 }
