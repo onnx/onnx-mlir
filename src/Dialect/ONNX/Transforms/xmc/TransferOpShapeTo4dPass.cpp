@@ -441,8 +441,6 @@ struct TransferOpShapeTo4dPass
     ResultNamesUpdater rnUpdater;
     config.listener = &rnUpdater;
 
-    ResultNamesUpdater rnUpdater;
-    config.listener = &rnUpdater;
     if (failed(applyPatternsGreedily(
             getOperation(), std::move(patterns), config))) {
       signalPassFailure();

@@ -288,9 +288,9 @@ struct TransferONNXXFEPoolToDownsamplePattern
 
     LLVM_DEBUG(llvm::dbgs()
                << "Converting " << getPoolName()
-               << " to ONNX_XFE_Resize (nearest): " << "kernel=[" << kernel[0]
-               << ", " << kernel[1] << "] " << "stride=[" << stride[0] << ", "
-               << stride[1] << "]\n");
+               << " to ONNX_XFE_Resize (nearest): "
+               << "kernel=[" << kernel[0] << ", " << kernel[1] << "] "
+               << "stride=[" << stride[0] << ", " << stride[1] << "]\n");
 
     // Create constants for resize op (channel-last format)
     ArrayRef<int64_t> inputShape = inputType.getShape();

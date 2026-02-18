@@ -731,7 +731,8 @@ struct PushTransposeThroughHardSigmoid
     auto newOutputType =
         RankedTensorType::get(newOutputShape, outputType.getElementType());
 
-    LLVM_DEBUG(llvm::dbgs() << "Pushing transpose through HardSigmoid" << "\n");
+    LLVM_DEBUG(llvm::dbgs() << "Pushing transpose through HardSigmoid"
+                            << "\n");
 
     auto newOp = rewriter.create<ONNXHardSigmoidOp>(op.getLoc(), newOutputType,
         transposeOp.getOperand(), op.getAlphaAttr(), op.getBetaAttr());
