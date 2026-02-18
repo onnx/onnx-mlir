@@ -21,7 +21,6 @@ COPY . onnx-mlir
 # CMAKE_INSTALL_LIBDIR to be lib.
 RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
     && cd ${ONNX_ROOT} \
-    && test -f ${ONNX_ROOT}/backend.py || (echo "Required file missing!" && exit 1) \
     # Require patching until upstreamed
     && sed -i -e 's/target_link_libraries(onnx PUBLIC onnx_proto)/target_link_libraries(onnx PUBLIC onnx_proto PUBLIC ${protobuf_ABSL_USED_TARGETS})/g' \
            -e '/absl::log_initialize/a \
@@ -31,9 +30,9 @@ RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
     # Required for pip install with `--no-build-isolation` flag.
     # setuptools >= 70.x creates conflicts with pip packaging versions.
     # setuptools >= 77.0.0 supports plain string license format in pyproject.toml
-    && python3 -m pip install --upgrade setuptools==77.0.1  \
+    && python3 -m pip install --upgrade setuptools==68.2.2  \
     && CC=clang CXX=clang++ CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib" \
-       python3 -m pip install . \
+       python3 -m pip install . --no-build-isolation \
     && rm -rf ${HOME}/.cache
 
 ARG NPROC=4

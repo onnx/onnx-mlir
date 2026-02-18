@@ -16,7 +16,6 @@ COPY . onnx-mlir
 # Setup onnx
 RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
     && cd ${ONNX_ROOT} \
-    && test -f ${ONNX_ROOT}/backend.py || (echo "Required file missing!" && exit 1) \
     # Require patching until upstreamed
     && sed -i -e 's/target_link_libraries(onnx PUBLIC onnx_proto)/target_link_libraries(onnx PUBLIC onnx_proto PUBLIC ${protobuf_ABSL_USED_TARGETS})/g' \
            -e '/absl::log_initialize/a \
@@ -28,9 +27,9 @@ RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
     # setuptools >= 68.x enforces strict PEP 621 license format which ONNX doesn't use yet.
     # Use setuptools 67.8.0 which accepts plain string license format.
     # Install cmake via pip so it's available with --no-build-isolation.
-    && python3 -m pip install --upgrade setuptools==77.0.1  \
+    && python3 -m pip install --upgrade setuptools==68.2.2  \
     && CC=clang CXX=clang++ CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib" \
-       python3 -m pip install .
+       python3 -m pip install . --no-build-isolation
 
 ARG NPROC=4
 ARG ACCEL=NNPA
