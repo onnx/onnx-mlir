@@ -16,6 +16,7 @@
 #define ONNX_MLIR_COMPILER_UTILS_H
 
 #include "onnx-mlir/Compiler/OMCompilerTypes.h"
+#include "src/Compiler/Command.h"
 
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/OwningOpRef.h"
@@ -48,22 +49,6 @@ extern uint64_t TOTAL_COMPILE_PHASE;
     else                                                                       \
       TOTAL_COMPILE_PHASE = 3;                                                 \
   }
-
-struct Command {
-
-  std::string _path;
-  std::vector<std::string> _args;
-
-  Command(std::string exePath)
-      : _path(std::move(exePath)),
-        _args({llvm::sys::path::filename(_path).str()}) {}
-
-  Command &appendStr(const std::string &arg);
-  Command &appendStrOpt(const std::optional<std::string> &arg);
-  Command &appendList(const std::vector<std::string> &args);
-  Command &resetArgs();
-  int exec(std::string wdir = "") const;
-};
 
 void showCompilePhase(std::string msg);
 

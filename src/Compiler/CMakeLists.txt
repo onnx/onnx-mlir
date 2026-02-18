@@ -152,6 +152,7 @@ target_compile_definitions(OMVersion PUBLIC ${DEFINITIONS})
 set_property(SOURCE CompilerUtils.cpp APPEND PROPERTY COMPILE_DEFINITIONS ${DEFINITIONS})
 
 add_onnx_mlir_library(OMCompilerUtils
+  Command.cpp
   CompilerUtils.cpp
   HeapReporter.cpp
 

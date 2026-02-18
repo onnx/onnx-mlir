@@ -114,82 +114,6 @@ static bool keepFiles(KeepFilesOfType preserve) {
   return false;
 }
 
-// Append a single string argument.
-Command &Command::appendStr(const std::string &arg) {
-  if (arg.size() > 0)
-    _args.emplace_back(arg);
-  return *this;
-}
-
-// Append a single optional string argument.
-Command &Command::appendStrOpt(const std::optional<std::string> &arg) {
-  if (arg.has_value())
-    _args.emplace_back(arg.value());
-  return *this;
-}
-
-// Append a list of string arguments.
-Command &Command::appendList(const std::vector<std::string> &args) {
-  _args.insert(_args.end(), args.begin(), args.end());
-  return *this;
-}
-
-// Reset arguments.
-Command &Command::resetArgs() {
-  auto exeFileName = _args.front();
-  _args.clear();
-  _args.emplace_back(exeFileName);
-  return *this;
-}
-
-// Execute command in current work directory.
-//
-// If the optional wdir is specified, the command will be executed
-// in the specified work directory. Current work directory is
-// restored after the command is executed.
-//
-// Return 0 on success, error value otherwise.
-int Command::exec(std::string wdir) const {
-  auto argsRef = std::vector<llvm::StringRef>(_args.begin(), _args.end());
-
-  // If a work directory is specified, save the current work directory
-  // and switch into it. Note that if wdir is empty, new_wdir will be
-  // cur_wdir.
-  llvm::SmallString<8> cur_wdir;
-  llvm::SmallString<8> new_wdir(wdir);
-  llvm::sys::fs::current_path(cur_wdir);
-  llvm::sys::path::make_absolute(cur_wdir, new_wdir);
-  std::error_code ec = llvm::sys::fs::set_current_path(new_wdir);
-  if (ec.value()) {
-    llvm::errs() << llvm::StringRef(new_wdir).str() << ": " << ec.message()
-                 << "\n";
-    return ec.value();
-  }
-
-  if (VerboseOutput)
-    llvm::outs() << "[" << llvm::StringRef(new_wdir).str() << "] " << _path
-                 << ": " << llvm::join(argsRef, " ") << "\n";
-
-  std::string errMsg;
-  int rc = llvm::sys::ExecuteAndWait(_path, llvm::ArrayRef(argsRef),
-      /*Env=*/{},
-      /*Redirects=*/{},
-      /*SecondsToWait=*/0, /*MemoryLimit=*/0, &errMsg);
-
-  if (rc != 0) {
-    llvm::errs() << llvm::join(argsRef, " ") << "\n"
-                 << "Error message: " << errMsg << "\n"
-                 << "Program path: " << _path << "\n"
-                 << "Command execution failed."
-                 << "\n";
-    return rc;
-  }
-
-  // Restore saved work directory.
-  llvm::sys::fs::set_current_path(cur_wdir);
-  return 0;
-}
-
 void showCompilePhase(std::string msg) {
   time_t rawTime = 0;
   struct tm *timeInfo;
@@ -462,7 +386,7 @@ static int genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
 
   // Use the LLVM's 'opt' command to optimize the bitcode.
   std::string optPath = getToolPath("opt");
-  Command optBitcode(/*exePath=*/optPath);
+  Command optBitcode(/*exePath=*/optPath, VerboseOutput);
   setXoptOption({"--code-model", modelSizeStr[modelSize]});
   int rc = optBitcode
                .appendStr(getOptimizationLevelUniqueOption(
@@ -486,7 +410,7 @@ static int genModelObject(
   showCompilePhase(msg);
   auto objectTiming = rootTimingScope.nest("[onnx-mlir] " + msg);
   std::string llcPath = getToolPath("llc");
-  Command llvmToObj(/*exePath=*/llcPath);
+  Command llvmToObj(/*exePath=*/llcPath, VerboseOutput);
   setXllcOption({"--code-model", modelSizeStr[modelSize]});
   int rc = llvmToObj
                .appendStr(getOptimizationLevelUniqueOption(
@@ -510,7 +434,7 @@ static int genJniObject(const mlir::OwningOpRef<ModuleOp> &module,
   std::string msg = "Generating JNI Object";
   showCompilePhase(msg);
   auto jniTiming = rootTimingScope.nest("[onnx-mlir] " + msg);
-  Command ar(/*exePath=*/getToolPath("ar", true));
+  Command ar(/*exePath=*/getToolPath("ar", true), VerboseOutput);
   int rc = ar.appendStr("x")
                // old version of ar does not support --output so comment out
                // for now and use the optional wdir for exec() to get around
@@ -564,7 +488,7 @@ static int genSharedLib(std::string sharedLibNameWithExt,
 #endif
 #endif
 
-  Command link(getToolPath("cxx", true));
+  Command link(getToolPath("cxx", true), VerboseOutput);
   int rc = link.appendList(opts)
                .appendList(objs)
                .appendList(outputOpt)
@@ -594,7 +518,7 @@ static int genJniJar(const mlir::OwningOpRef<ModuleOp> &module,
                  << "\n";
 
   // Add shared library to model jar.
-  Command jar(getToolPath("jar", true));
+  Command jar(getToolPath("jar", true), VerboseOutput);
   int rc =
       jar.appendStr("uf")
           .appendStr(modelJniJarPath)

@@ -107,7 +107,7 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
     onnxMlirPath = envDir.value() + "/onnx-mlir";
   else
     onnxMlirPath = getToolPath("onnx-mlir");
-  Command onnxMlirCompile(onnxMlirPath);
+  Command onnxMlirCompile(onnxMlirPath, VerboseOutput);
   // Add flags and input flag.
   onnxMlirCompile.appendList(flagVect);
   std::string inputFilenameStr(inputFilename);
