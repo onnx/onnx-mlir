@@ -96,29 +96,38 @@ Value createExpandedConstant(PatternRewriter &rewriter, Location loc,
   // Get storage type for DenseElementsAttr (i8 for quantized, same for others)
   Type storageType = attr.getElementType();
 
-  unsigned bitWidth = storageType.getIntOrFloatBitWidth();
-  unsigned byteWidth = (bitWidth + 7) / 8;
-
-  // Get raw data from original constant
-  auto rawData = attr.getRawData();
-  int64_t origNumElements = attr.getNumElements();
-
-  // Expand data by repeating (same logic as expandConstantData)
-  std::vector<char> expandedData(targetSize * byteWidth, 0);
-
-  for (int64_t i = 0; i < targetSize; ++i) {
-    int64_t srcIdx = i % origNumElements;
-    std::memcpy(&expandedData[i * byteWidth],
-        &rawData.data()[srcIdx * byteWidth], byteWidth);
-  }
-
-  // Create DenseElementsAttr with storage type
   auto storageTensorType = RankedTensorType::get({targetSize}, storageType);
-  auto newAttr = DenseElementsAttr::getFromRawBuffer(
-      storageTensorType, ArrayRef<char>(expandedData));
 
   // Result type uses the original element type (preserves quantized info)
   auto resultType = RankedTensorType::get({targetSize}, origElemType);
+
+  DenseElementsAttr newAttr;
+  if (attr.isSplat()) {
+    // For splat attributes, repeating the same value produces another splat.
+    newAttr = DenseElementsAttr::get(
+        storageTensorType, attr.getSplatValue<Attribute>());
+  } else {
+    // For non-splat attributes, iterate and copy each element
+    unsigned bitWidth = storageType.getIntOrFloatBitWidth();
+    unsigned byteWidth = (bitWidth + 7) / 8;
+
+    // Get raw data from original constant
+    auto rawData = attr.getRawData();
+    int64_t origNumElements = attr.getNumElements();
+
+    // Expand data by repeating (same logic as expandConstantData)
+    std::vector<char> expandedData(targetSize * byteWidth, 0);
+
+    for (int64_t i = 0; i < targetSize; ++i) {
+      int64_t srcIdx = i % origNumElements;
+      std::memcpy(&expandedData[i * byteWidth],
+          &rawData.data()[srcIdx * byteWidth], byteWidth);
+    }
+
+    // Create DenseElementsAttr with storage type
+    newAttr = DenseElementsAttr::getFromRawBuffer(
+        storageTensorType, ArrayRef<char>(expandedData));
+  }
 
   // Create new constant op with expanded data
   return rewriter.create<ONNXConstantOp>(loc, resultType,
