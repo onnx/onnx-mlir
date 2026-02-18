@@ -32,6 +32,12 @@ LogicalResult XCOMPILERDepthwiseConvOp::inferShapes(
       this->getOperation(), doShapeInference);
 }
 
+LogicalResult XCOMPILERRequantizeOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  return XCOMPILERRequantizeOpShapeInference(
+      this->getOperation(), doShapeInference);
+}
+
 // ============================================================
 // Verify
 // ============================================================
@@ -42,4 +48,8 @@ LogicalResult XCOMPILERFusedEltwiseOp::verify() {
 
 LogicalResult XCOMPILERDepthwiseConvOp::verify() {
   return XCOMPILERDepthwiseConvOpVerify(this->getOperation());
+}
+
+LogicalResult XCOMPILERRequantizeOp::verify() {
+  return XCOMPILERRequantizeOpVerify(this->getOperation());
 }

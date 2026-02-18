@@ -160,4 +160,67 @@ LogicalResult XCOMPILERDepthwiseConvOpVerify(Operation *op) {
   return success();
 }
 
+LogicalResult XCOMPILERRequantizeOpVerify(Operation *op) {
+  auto requantizeOp = dyn_cast<XCOMPILERRequantizeOp>(op);
+  if (!requantizeOp)
+    return failure();
+
+  // Verify a_scale and a_zero_point have the same number of elements
+  auto aScale = requantizeOp.getAScale();
+  auto aZeroPoint = requantizeOp.getAZeroPoint();
+  if (aScale.size() != aZeroPoint.size())
+    return op->emitOpError("a_scale (")
+           << aScale.size() << " elements) and a_zero_point ("
+           << aZeroPoint.size()
+           << " elements) must have the same number of elements";
+
+  // Verify y_scale and y_zero_point have the same number of elements
+  auto yScale = requantizeOp.getYScale();
+  auto yZeroPoint = requantizeOp.getYZeroPoint();
+  if (yScale.size() != yZeroPoint.size())
+    return op->emitOpError("y_scale (")
+           << yScale.size() << " elements) and y_zero_point ("
+           << yZeroPoint.size()
+           << " elements) must have the same number of elements";
+
+  // Verify scales are not empty
+  if (aScale.empty())
+    return op->emitOpError("a_scale must have at least one element");
+  if (yScale.empty())
+    return op->emitOpError("y_scale must have at least one element");
+
+  // Verify input and output shapes match (if both are ranked)
+  Value X = requantizeOp.getX();
+  Value Y = requantizeOp.getY();
+  auto xType = dyn_cast<ShapedType>(X.getType());
+  auto yType = dyn_cast<ShapedType>(Y.getType());
+  if (xType && yType && xType.hasRank() && yType.hasRank()) {
+    if (xType.getRank() != yType.getRank())
+      return op->emitOpError("input rank (")
+             << xType.getRank() << ") must match output rank ("
+             << yType.getRank() << ")";
+
+    for (int64_t i = 0; i < xType.getRank(); ++i) {
+      if (!xType.isDynamicDim(i) && !yType.isDynamicDim(i) &&
+          xType.getDimSize(i) != yType.getDimSize(i))
+        return op->emitOpError("input and output shapes must match, "
+                               "but differ at dimension ")
+               << i << ": " << xType.getDimSize(i) << " vs "
+               << yType.getDimSize(i);
+    }
+  }
+
+  // Verify per-tensor vs per-channel consistency:
+  // a_scale and y_scale should either both be size 1 (per-tensor)
+  // or both be > 1 (per-channel)
+  bool inputPerChannel = aScale.size() > 1;
+  bool outputPerChannel = yScale.size() > 1;
+  if (inputPerChannel != outputPerChannel)
+    return op->emitOpError(
+        "input and output quantization must both be per-tensor "
+        "or both be per-channel");
+
+  return success();
+}
+
 } // namespace mlir

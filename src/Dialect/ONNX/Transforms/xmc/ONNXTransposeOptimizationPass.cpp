@@ -11,6 +11,7 @@
 #include "ONNXTransposeOptimizationAxisChangePatterns.h"
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Quant/IR/Quant.h"
 #include "mlir/Dialect/Quant/IR/QuantTypes.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"
@@ -815,6 +816,49 @@ struct PushTransposeThroughQDQ : public OpRewritePattern<QDQOp> {
 };
 
 //===----------------------------------------------------------------------===//
+// Pattern 4b: Push Transpose Through quant.scast
+// Rule: scast(transpose(x)) -> transpose(scast(x))
+// quant.scast is a pure type-cast (quantized <-> storage) that doesn't
+// change data layout, so transpose can be pushed through it.
+//===----------------------------------------------------------------------===//
+
+struct PushTransposeThroughSCast
+    : public OpRewritePattern<quant::StorageCastOp> {
+  using OpRewritePattern<quant::StorageCastOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      quant::StorageCastOp op, PatternRewriter &rewriter) const override {
+    auto transposeOp = op.getOperand().getDefiningOp<ONNXTransposeOp>();
+    if (!transposeOp)
+      return failure();
+
+    auto perm = getTransposePermutation(transposeOp);
+    if (!perm)
+      return failure();
+
+    auto outputType = mlir::cast<RankedTensorType>(op.getType());
+
+    // Compute the pre-transpose output shape
+    auto newOutputShape =
+        permuteShape(outputType.getShape(), inversePermutation(*perm));
+    auto newOutputType =
+        RankedTensorType::get(newOutputShape, outputType.getElementType());
+
+    LLVM_DEBUG(llvm::dbgs() << "Pushing transpose through quant.scast\n");
+
+    // Create scast before transpose: scast(transpose_input)
+    auto newSCast = rewriter.create<quant::StorageCastOp>(
+        op.getLoc(), newOutputType, transposeOp.getOperand());
+
+    // Create transpose after scast
+    rewriter.replaceOpWithNewOp<ONNXTransposeOp>(op, op.getType(),
+        newSCast.getResult(), rewriter.getI64ArrayAttr(*perm));
+
+    return success();
+  }
+};
+
+//===----------------------------------------------------------------------===//
 // Pattern 5: Fuse Binary Operations with Both Inputs Transposed (8 ops)
 // Rule: binop(transpose(x, p), transpose(y, p)) -> transpose(binop(x, y), p)
 //===----------------------------------------------------------------------===//
@@ -1161,7 +1205,7 @@ struct PushTransposeThroughBinaryWithConst : public OpRewritePattern<BinaryOp> {
       ArrayRef<float> floatData(reinterpret_cast<const float *>(rawData.data()),
           static_cast<size_t>(numElements));
       for (int64_t newLinearIdx = 0; newLinearIdx < numElements;
-           ++newLinearIdx) {
+          ++newLinearIdx) {
         // Convert linear index to multi-dimensional index in new space
         SmallVector<int64_t> newIndices(newConstShape.size());
         int64_t remaining = newLinearIdx;
@@ -1193,7 +1237,7 @@ struct PushTransposeThroughBinaryWithConst : public OpRewritePattern<BinaryOp> {
           reinterpret_cast<const int64_t *>(rawData.data()),
           static_cast<size_t>(numElements));
       for (int64_t newLinearIdx = 0; newLinearIdx < numElements;
-           ++newLinearIdx) {
+          ++newLinearIdx) {
         SmallVector<int64_t> newIndices(newConstShape.size());
         int64_t remaining = newLinearIdx;
         for (int i = newConstShape.size() - 1; i >= 0; --i) {
@@ -1221,7 +1265,7 @@ struct PushTransposeThroughBinaryWithConst : public OpRewritePattern<BinaryOp> {
       ArrayRef<int8_t> intData(reinterpret_cast<const int8_t *>(rawData.data()),
           static_cast<size_t>(numElements));
       for (int64_t newLinearIdx = 0; newLinearIdx < numElements;
-           ++newLinearIdx) {
+          ++newLinearIdx) {
         // Convert linear index to multi-dimensional index in new space
         SmallVector<int64_t> newIndices(newConstShape.size());
         int64_t remaining = newLinearIdx;
@@ -1426,7 +1470,7 @@ struct FoldConstDQTranspose : public OpRewritePattern<ONNXTransposeOp> {
       ArrayRef<float> floatData(reinterpret_cast<const float *>(rawData.data()),
           static_cast<size_t>(numElements));
       for (int64_t newLinearIdx = 0; newLinearIdx < numElements;
-           ++newLinearIdx) {
+          ++newLinearIdx) {
         SmallVector<int64_t> newIndices(newConstShape.size());
         int64_t remaining = newLinearIdx;
         for (int i = newConstShape.size() - 1; i >= 0; --i) {
@@ -1456,7 +1500,7 @@ struct FoldConstDQTranspose : public OpRewritePattern<ONNXTransposeOp> {
           reinterpret_cast<const int8_t *>(rawData.data()), rawData.size());
 
       for (int64_t newLinearIdx = 0; newLinearIdx < numElements;
-           ++newLinearIdx) {
+          ++newLinearIdx) {
         SmallVector<int64_t> newIndices(newConstShape.size());
         int64_t remaining = newLinearIdx;
         for (int i = newConstShape.size() - 1; i >= 0; --i) {
@@ -1775,6 +1819,7 @@ struct ONNXTransposeOptimizationPass
 
     patterns.add<PushTransposeThroughQDQ<ONNXQuantizeLinearOp>>(context);
     patterns.add<PushTransposeThroughQDQ<ONNXDequantizeLinearOp>>(context);
+    patterns.add<PushTransposeThroughSCast>(context);
     patterns.add<FoldConstDQTranspose>(context);
 
     patterns.add<FuseBinaryOpTransposes<ONNXAddOp>>(context);

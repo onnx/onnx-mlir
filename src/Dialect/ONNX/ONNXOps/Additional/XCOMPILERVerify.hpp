@@ -20,4 +20,7 @@ LogicalResult XCOMPILERFusedEltwiseOpVerify(Operation *op);
 // Verify for DepthwiseConv
 LogicalResult XCOMPILERDepthwiseConvOpVerify(Operation *op);
 
+// Verify for Requantize
+LogicalResult XCOMPILERRequantizeOpVerify(Operation *op);
+
 } // namespace mlir
