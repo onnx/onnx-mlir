@@ -9,6 +9,7 @@
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 #include "src/Pass/Passes.hpp"
 
 #include "llvm/ADT/SmallVector.h"
@@ -24,7 +25,63 @@ Value createShapeConstant(
   return onnxBuilder.constantInt64(shape);
 }
 
-/// Check if a value is a constant with specific shape requirements
+/// Expand scalar weight to match input channels and create conv weight
+/// directly with shape [C, 1, 1, 1]
+Value expandScalarWeight(PatternRewriter &rewriter, Location loc, Value weight,
+    int64_t targetChannels, Type elementType) {
+  auto weightConstOp = weight.getDefiningOp<ONNXConstantOp>();
+  if (!weightConstOp)
+    return nullptr;
+
+  auto valueAttr = weightConstOp.getValueAttr();
+
+  if (auto denseAttr = dyn_cast<DenseElementsAttr>(valueAttr)) {
+    // Get scalar value and replicate for each channel
+    llvm::SmallVector<Attribute> values;
+    for (int64_t i = 0; i < targetChannels; ++i) {
+      values.push_back(*denseAttr.value_begin<Attribute>());
+    }
+
+    // Create constant directly with conv weight shape [C, 1, 1, 1]
+    llvm::SmallVector<int64_t, 4> convWeightShape = {targetChannels, 1, 1, 1};
+    auto convWeightType = RankedTensorType::get(convWeightShape, elementType);
+    auto expandedAttr = DenseElementsAttr::get(convWeightType, values);
+
+    onnx_mlir::OnnxBuilder onnxBuilder(rewriter, loc);
+    return onnxBuilder.constant(expandedAttr);
+  }
+
+  return nullptr; // Failed
+}
+
+/// Check if bias is per-channel (not per-pixel) for NCHW format.
+/// Valid bias shapes: [C], [1, C, 1, 1], or scalar [1]
+bool isPerChannelBias(Value bias, int64_t inputChannels) {
+  auto biasType = dyn_cast<RankedTensorType>(bias.getType());
+  if (!biasType)
+    return false;
+
+  auto biasShape = biasType.getShape();
+
+  // Scalar bias [1] - valid
+  if (biasShape.size() == 1 && biasShape[0] == 1)
+    return true;
+
+  // Per-channel bias [C] - valid
+  if (biasShape.size() == 1 && biasShape[0] == inputChannels)
+    return true;
+
+  // NCHW broadcast shape [1, C, 1, 1] - valid
+  if (biasShape.size() == 4 && biasShape[0] == 1 &&
+      biasShape[1] == inputChannels && biasShape[2] == 1 && biasShape[3] == 1)
+    return true;
+
+  // Any other shape (e.g., [H, W], [1, C, H, W]) is per-pixel - invalid
+  return false;
+}
+
+/// Check if a value is a constant with specific shape requirements for
+/// conversion to depthwise conv. Only handles 4D NCHW tensors.
 bool isValidConstantWeight(Value weight, Value input) {
   auto weightType = dyn_cast<RankedTensorType>(weight.getType());
   auto inputType = dyn_cast<RankedTensorType>(input.getType());
@@ -39,13 +96,14 @@ bool isValidConstantWeight(Value weight, Value input) {
   if (weightShape.size() != 1)
     return false;
 
-  // Check input dimension <= 4
-  if (inputShape.size() > 4)
+  // Only support exactly 4D input (NCHW format)
+  if (inputShape.size() != 4)
     return false;
 
-  // Check last dimension matches or weight is scalar
-  auto inputLastDim = inputShape[inputShape.size() - 1];
-  return (inputLastDim == weightShape[0] || weightShape[0] == 1);
+  // For NCHW format, channels are at index 1
+  // Weight size must match channel dimension or be 1 (scalar broadcast)
+  int64_t inputChannels = inputShape[1];
+  return (inputChannels == weightShape[0] || weightShape[0] == 1);
 }
 
 /// Pattern to convert Mul to DepthwiseConv (without bias, without relu)
@@ -94,36 +152,15 @@ struct MulToDepthwiseConvPattern : public OpRewritePattern<ONNXMulOp> {
     auto weightShape = weightType.getShape();
 
     // Prepare shapes for depthwise conv
-    llvm::SmallVector<int64_t, 4> newInputShape;
     llvm::SmallVector<int64_t, 4> newWeightShape;
 
-    // Ensure input is 4D (NHWC)
-    if (inputShape.size() < 4) {
-      // Pad with 1s at the beginning to make it 4D
-      newInputShape.resize(4, 1);
-      for (size_t i = 0; i < inputShape.size(); i++) {
-        newInputShape[4 - inputShape.size() + i] = inputShape[i];
-      }
-
-      // Insert reshape
-      auto newInputType =
-          RankedTensorType::get(newInputShape, inputType.getElementType());
-      auto shapeConst = createShapeConstant(rewriter, loc, newInputShape);
-      input =
-          rewriter.create<ONNXReshapeOp>(loc, newInputType, input, shapeConst);
-    } else {
-      newInputShape =
-          llvm::SmallVector<int64_t, 4>(inputShape.begin(), inputShape.end());
-    }
-
-    // Extract channels from last dimension (NHWC format - Mul broadcasts 1D
-    // weights to last dim)
-    int64_t C = newInputShape[newInputShape.size() - 1];
+    // Input is already validated to be 4D NCHW format by isValidConstantWeight
+    // Extract channels from index 1 (NCHW format: [N, C, H, W])
+    int64_t inputChannel = inputShape[1];
 
     // Create weight tensor for depthwise conv: [M, C/group, kH, kW]
     // For depthwise conv: M = C, C/group = 1, kH = kW = 1
     // So weight shape = [C, 1, 1, 1]
-    int64_t inputChannel = C;
     newWeightShape = {inputChannel, 1, 1, 1};
 
     // Expand weight if needed
@@ -166,7 +203,7 @@ struct MulToDepthwiseConvPattern : public OpRewritePattern<ONNXMulOp> {
 
     // Conv output will be in NCHW format (same as input)
     auto convOutputType =
-        RankedTensorType::get(newInputShape, inputType.getElementType());
+        RankedTensorType::get(inputShape, inputType.getElementType());
 
     // Create Conv op (DepthwiseConv is Conv with group=channels)
     auto convOp = rewriter.create<ONNXConvOp>(loc, convOutputType, input,
@@ -233,17 +270,20 @@ struct MulAddToDepthwiseConvPattern : public OpRewritePattern<ONNXAddOp> {
     auto inputType = cast<RankedTensorType>(input.getType());
     auto inputShape = inputType.getShape();
 
-    // For bias pattern, only support 4D input currently
+    // For bias pattern, only support 4D input (validated by
+    // isValidConstantWeight)
     if (inputShape.size() != 4)
       return failure();
 
-    // Extract channels from last dimension (NHWC format)
-    int64_t C = inputShape[inputShape.size() - 1];
+    // Extract channels from index 1 (NCHW format: [N, C, H, W])
+    int64_t inputChannel = inputShape[1];
+
+    // Check bias is per-channel broadcast, not per-pixel
+    if (!isPerChannelBias(bias, inputChannel))
+      return failure();
 
     // Similar to above, create depthwise conv with bias
     auto weightType = cast<RankedTensorType>(weight.getType());
-
-    int64_t inputChannel = C;
     // Weight shape for depthwise conv: [M, C/group, kH, kW] = [inputChannel, 1,
     // 1, 1]
     llvm::SmallVector<int64_t, 4> newWeightShape = {inputChannel, 1, 1, 1};
@@ -320,27 +360,12 @@ struct MulReluToDepthwiseConvPattern : public OpRewritePattern<ONNXReluOp> {
     auto weightType = cast<RankedTensorType>(weight.getType());
     auto inputShape = inputType.getShape();
 
-    // Prepare for depthwise conv
-    llvm::SmallVector<int64_t, 4> newInputShape;
-    if (inputShape.size() < 4) {
-      newInputShape.resize(4, 1);
-      for (size_t i = 0; i < inputShape.size(); i++) {
-        newInputShape[4 - inputShape.size() + i] = inputShape[i];
-      }
-      auto newInputType =
-          RankedTensorType::get(newInputShape, inputType.getElementType());
-      auto shapeConst = createShapeConstant(rewriter, loc, newInputShape);
-      input =
-          rewriter.create<ONNXReshapeOp>(loc, newInputType, input, shapeConst);
-    } else {
-      newInputShape =
-          llvm::SmallVector<int64_t, 4>(inputShape.begin(), inputShape.end());
-    }
+    // Only support 4D input (NCHW format) - validated by isValidConstantWeight
+    if (inputShape.size() != 4)
+      return failure();
 
-    // Extract channels from last dimension (NHWC format)
-    int64_t C = newInputShape[newInputShape.size() - 1];
-
-    int64_t inputChannel = C;
+    // Extract channels from index 1 (NCHW format: [N, C, H, W])
+    int64_t inputChannel = inputShape[1];
     // Weight shape for depthwise conv: [M, C/group, kH, kW] = [inputChannel, 1,
     // 1, 1]
     llvm::SmallVector<int64_t, 4> newWeightShape = {inputChannel, 1, 1, 1};
@@ -366,7 +391,7 @@ struct MulReluToDepthwiseConvPattern : public OpRewritePattern<ONNXReluOp> {
 
     // Conv output will be in NCHW format (same as input)
     auto convOutputType =
-        RankedTensorType::get(newInputShape, inputType.getElementType());
+        RankedTensorType::get(inputShape, inputType.getElementType());
     auto convOp = rewriter.create<ONNXConvOp>(loc, convOutputType, input,
         newWeight, noneBias,
         /*auto_pad=*/rewriter.getStringAttr("NOTSET"),
@@ -409,7 +434,11 @@ struct ConvertMulToDepthwiseConv2dPass
     patterns.add<MulReluToDepthwiseConvPattern>(context);
 
     // Apply patterns greedily
-    if (failed(applyPatternsGreedily(getOperation(), std::move(patterns)))) {
+    ResultNamesUpdater rnUpdater;
+    GreedyRewriteConfig config;
+    config.listener = &rnUpdater;
+    if (failed(applyPatternsGreedily(
+            getOperation(), std::move(patterns), config))) {
       signalPassFailure();
     }
   }

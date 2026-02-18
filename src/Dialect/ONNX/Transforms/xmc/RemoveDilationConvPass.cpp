@@ -8,6 +8,7 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 
 #include "llvm/ADT/SmallVector.h"
 
@@ -62,8 +63,11 @@ mlir::DenseElementsAttr expandDilatedWeightsNCHW(
     for (int64_t ic = 0; ic < in_channels; ++ic) {
       for (int64_t oh = 0; oh < org_h; ++oh) {
         for (int64_t ow = 0; ow < org_w; ++ow) {
-          int64_t src_idx = oc * in_channels * org_h * org_w +
-                            ic * org_h * org_w + oh * org_w + ow;
+          // For splat, rawData contains only one element at index 0
+          int64_t src_idx = weightsAttr.isSplat()
+                                ? 0
+                                : (oc * in_channels * org_h * org_w +
+                                      ic * org_h * org_w + oh * org_w + ow);
           int64_t dst_h = oh * dilation;
           int64_t dst_w = ow * dilation;
           int64_t dst_idx = oc * in_channels * new_h * new_w +
@@ -217,6 +221,8 @@ struct RemoveDilationConvPass
 
     GreedyRewriteConfig config;
     config.strictMode = GreedyRewriteStrictness::ExistingAndNewOps;
+    ResultNamesUpdater rnUpdater;
+    config.listener = &rnUpdater;
     if (failed(applyPatternsGreedily(
             getOperation(), std::move(patterns), config))) {
       signalPassFailure();

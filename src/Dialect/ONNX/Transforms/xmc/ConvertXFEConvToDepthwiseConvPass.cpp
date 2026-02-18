@@ -15,11 +15,19 @@
 //   2. group == number of input channels (C)
 //   3. Weight shape has channel multiplier == 1 (depthwise)
 //
-// Both XFEConv and XCOMPILERDepthwiseConv use NHWC layout:
+// XFEConv uses NHWC layout with OHWI weights:
 //   - Input X: [N, H, W, C] for 2D or [N, D, H, W, C] for 3D
-//   - Weight W: [kH, kW, C, 1] for 2D or [kD, kH, kW, C, 1] for 3D
+//   - Weight W: [C_out, kH, kW, C_in/group] (OHWI) for 2D
+//               [C_out, kD, kH, kW, C_in/group] (ODHWI) for 3D
 //   - Bias B: [C] (optional)
 //   - Output Y: [N, outH, outW, C] for 2D or [N, outD, outH, outW, C] for 3D
+//
+// XCOMPILERDepthwiseConv uses IHWO weight format for downstream XIR:
+//   - Weight W: [C_in/group, kH, kW, C_out] (IHWO) for 2D
+//
+// This pass physically transposes the constant weight data from OHWI → IHWO
+// during the conversion so that the downstream XFEToXIR pass does not need
+// to introduce an additional transpose op.
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -29,6 +37,8 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
 #include <iostream>
 
 using namespace mlir;
@@ -176,11 +186,57 @@ struct ConvertXFEConvToDepthwiseConvPattern
     auto padsAttr = convOp.getPadsAttr();
     auto dilationsAttr = convOp.getDilationsAttr();
 
-    // Create the DepthwiseConv operation
+    // Physically transpose weight constant data from OHWI to IHWO.
+    // This avoids inserting a runtime transpose op.
+    auto wType = mlir::dyn_cast<RankedTensorType>(W.getType());
+    if (!wType || !wType.hasRank())
+      return failure();
+    auto wShape = wType.getShape();
+    int64_t wRank = wType.getRank();
+
+    SmallVector<int64_t> newWShape;
+    SmallVector<int64_t> perm;
+    if (wRank == 4) {
+      // 2D: OHWI {O,H,W,I} → IHWO {I,H,W,O} = perm {3,1,2,0}
+      newWShape = {wShape[3], wShape[1], wShape[2], wShape[0]};
+      perm = {3, 1, 2, 0};
+    } else if (wRank == 5) {
+      // 3D: ODHWI {O,D,H,W,I} → IDHWO {I,D,H,W,O} = perm {4,1,2,3,0}
+      newWShape = {wShape[4], wShape[1], wShape[2], wShape[3], wShape[0]};
+      perm = {4, 1, 2, 3, 0};
+    } else {
+      return failure();
+    }
+
+    // Get the weight's constant ElementsAttr
+    ElementsAttr wElements = onnx_mlir::getElementAttributeFromONNXValue(W);
+    if (!wElements)
+      return failure(); // Weight must be a constant
+
+    // Use OnnxElementsAttrBuilder to transpose the constant data in-place
+    SmallVector<uint64_t> permU64(perm.begin(), perm.end());
+    onnx_mlir::OnnxElementsAttrBuilder elemBuilder(rewriter.getContext());
+    ElementsAttr transposedElements = elemBuilder.transpose(wElements, permU64);
+    // Convert to DenseElementsAttr to avoid DisposableElementsAttr
+    DenseElementsAttr transposedDense =
+        elemBuilder.toDenseElementsAttr(transposedElements);
+
+    // Create new constant with transposed data
+    auto newWConst =
+        rewriter.create<ONNXConstantOp>(loc, Attribute(), transposedDense);
+
+    // Preserve the original element type (including quant type) with
+    // the new IHWO shape. The DenseElementsAttr uses storage types
+    // (e.g. i8) but the value flowing through the graph may carry a
+    // quant type (e.g. !quant.uniform<i8:f32, ...>).
+    auto newWType = RankedTensorType::get(newWShape, wType.getElementType());
+    newWConst.getResult().setType(newWType);
+
+    // Create the DepthwiseConv operation with IHWO weights
     auto depthwiseConv = rewriter.create<XCOMPILERDepthwiseConvOp>(loc,
         convOp.getResult().getType(), // Output type
         X,                            // Input
-        W,                            // Weights
+        newWConst,                    // Weights (IHWO, data transposed)
         B,                            // Bias (optional)
         autoPadAttr,                  // auto_pad
         dilationsAttr,                // dilations

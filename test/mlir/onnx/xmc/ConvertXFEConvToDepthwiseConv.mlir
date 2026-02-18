@@ -26,6 +26,8 @@ func.func @depthwise_conv2d_basic(%arg0: tensor<1x56x56x64x!quant.uniform<i8:f32
     return %conv : tensor<1x54x54x64x!quant.uniform<i8:f32, 0.1:0>>
 }
 // CHECK-NOT: onnx.XFEConv
+// Weight should be transposed from OHWI [64,3,3,1] to IHWO [1,3,3,64]
+// CHECK: onnx.Constant {{.*}} tensor<1x3x3x64xi8>
 // CHECK: onnx.XCOMPILERDepthwiseConv
 // CHECK-SAME: kernel_shape = [3, 3]
 
@@ -52,6 +54,8 @@ func.func @depthwise_conv2d_with_bias(%arg0: tensor<1x28x28x32x!quant.uniform<i8
     return %conv : tensor<1x28x28x32x!quant.uniform<i8:f32, 0.1:0>>
 }
 // CHECK-NOT: onnx.XFEConv
+// Weight should be transposed from OHWI [32,3,3,1] to IHWO [1,3,3,32]
+// CHECK: onnx.Constant {{.*}} tensor<1x3x3x32xi8>
 // CHECK: onnx.XCOMPILERDepthwiseConv
 // CHECK-SAME: auto_pad = "SAME_UPPER"
 
@@ -78,6 +82,8 @@ func.func @depthwise_conv2d_strided(%arg0: tensor<1x112x112x64x!quant.uniform<u8
     return %conv : tensor<1x56x56x64x!quant.uniform<u8:f32, 0.1:128>>
 }
 // CHECK-NOT: onnx.XFEConv
+// Weight should be transposed from OHWI [64,3,3,1] to IHWO [1,3,3,64]
+// CHECK: onnx.Constant {{.*}} tensor<1x3x3x64xi8>
 // CHECK: onnx.XCOMPILERDepthwiseConv
 // CHECK-SAME: strides = [2, 2]
 
@@ -104,6 +110,8 @@ func.func @depthwise_conv2d_dilated(%arg0: tensor<1x64x64x128x!quant.uniform<i8:
     return %conv : tensor<1x60x60x128x!quant.uniform<i8:f32, 0.1:0>>
 }
 // CHECK-NOT: onnx.XFEConv
+// Weight should be transposed from OHWI [128,3,3,1] to IHWO [1,3,3,128]
+// CHECK: onnx.Constant {{.*}} tensor<1x3x3x128xi8>
 // CHECK: onnx.XCOMPILERDepthwiseConv
 // CHECK-SAME: dilations = [2, 2]
 
@@ -186,6 +194,8 @@ func.func @depthwise_conv3d_basic(%arg0: tensor<1x16x32x32x32x!quant.uniform<i8:
     return %conv : tensor<1x14x30x30x32x!quant.uniform<i8:f32, 0.1:0>>
 }
 // CHECK-NOT: onnx.XFEConv
+// Weight should be transposed from ODHWI [32,3,3,3,1] to IDHWO [1,3,3,3,32]
+// CHECK: onnx.Constant {{.*}} tensor<1x3x3x3x32xi8>
 // CHECK: onnx.XCOMPILERDepthwiseConv
 // CHECK-SAME: kernel_shape = [3, 3, 3]
 
@@ -212,6 +222,8 @@ func.func @depthwise_conv2d_5x5_kernel(%arg0: tensor<1x28x28x96x!quant.uniform<i
     return %conv : tensor<1x28x28x96x!quant.uniform<i8:f32, 0.1:0>>
 }
 // CHECK-NOT: onnx.XFEConv
+// Weight should be transposed from OHWI [96,5,5,1] to IHWO [1,5,5,96]
+// CHECK: onnx.Constant {{.*}} tensor<1x5x5x96xi8>
 // CHECK: onnx.XCOMPILERDepthwiseConv
 // CHECK-SAME: kernel_shape = [5, 5]
 
@@ -250,8 +262,12 @@ func.func @multiple_depthwise_convs(%arg0: tensor<1x56x56x64x!quant.uniform<i8:f
     return %conv2 : tensor<1x56x56x64x!quant.uniform<i8:f32, 0.1:0>>
 }
 // CHECK-NOT: onnx.XFEConv
+// Both weights transposed from OHWI [64,3,3,1] to IHWO [1,3,3,64]
+// CHECK: onnx.Constant {{.*}} tensor<1x3x3x64xi8>
 // CHECK: onnx.XCOMPILERDepthwiseConv
 // CHECK: onnx.XCOMPILERDepthwiseConv
+
+
 
 // -----
 
@@ -276,6 +292,8 @@ func.func @depthwise_conv2d_f32(%arg0: tensor<1x56x56x64xf32>) -> tensor<1x54x54
     return %conv : tensor<1x54x54x64xf32>
 }
 // CHECK-NOT: onnx.XFEConv
+// Weight should be transposed from OHWI [64,3,3,1] to IHWO [1,3,3,64]
+// CHECK: onnx.Constant {{.*}} tensor<1x3x3x64xf32>
 // CHECK: onnx.XCOMPILERDepthwiseConv
 // CHECK-SAME: kernel_shape = [3, 3]
 
@@ -302,6 +320,8 @@ func.func @depthwise_conv2d_f32_with_bias(%arg0: tensor<1x28x28x32xf32>) -> tens
     return %conv : tensor<1x28x28x32xf32>
 }
 // CHECK-NOT: onnx.XFEConv
+// Weight should be transposed from OHWI [32,3,3,1] to IHWO [1,3,3,32]
+// CHECK: onnx.Constant {{.*}} tensor<1x3x3x32xf32>
 // CHECK: onnx.XCOMPILERDepthwiseConv
 // CHECK-SAME: auto_pad = "SAME_UPPER"
 
@@ -328,6 +348,8 @@ func.func @depthwise_conv2d_f16_strided(%arg0: tensor<1x112x112x64xf16>) -> tens
     return %conv : tensor<1x56x56x64xf16>
 }
 // CHECK-NOT: onnx.XFEConv
+// Weight should be transposed from OHWI [64,3,3,1] to IHWO [1,3,3,64]
+// CHECK: onnx.Constant {{.*}} tensor<1x3x3x64xf16>
 // CHECK: onnx.XCOMPILERDepthwiseConv
 // CHECK-SAME: strides = [2, 2]
 
@@ -354,6 +376,8 @@ func.func @depthwise_conv3d_f32(%arg0: tensor<1x16x32x32x32xf32>) -> tensor<1x14
     return %conv : tensor<1x14x30x30x32xf32>
 }
 // CHECK-NOT: onnx.XFEConv
+// Weight should be transposed from ODHWI [32,3,3,3,1] to IDHWO [1,3,3,3,32]
+// CHECK: onnx.Constant {{.*}} tensor<1x3x3x3x32xf32>
 // CHECK: onnx.XCOMPILERDepthwiseConv
 // CHECK-SAME: kernel_shape = [3, 3, 3]
 
@@ -381,3 +405,4 @@ func.func @regular_conv_f32_not_depthwise(%arg0: tensor<1x56x56x3xf32>) -> tenso
 }
 // CHECK-NOT: onnx.XCOMPILERDepthwiseConv
 // CHECK: onnx.XFEConv
+

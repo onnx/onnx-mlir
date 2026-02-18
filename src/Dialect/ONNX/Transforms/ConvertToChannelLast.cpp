@@ -31,8 +31,10 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/Support/Debug.h"
 
+#include "mlir/Dialect/Quant/IR/QuantTypes.h"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
+
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
@@ -102,6 +104,32 @@ Value createWeightTranspose(PatternRewriter &rewriter, Location loc,
       loc, transposedType, weight, rewriter.getI64ArrayAttr(perm));
 }
 
+// Helper function to remap per-channel quantization axis after transpose.
+// Given a permutation, update the quantized dimension in the element type.
+Type remapPerAxisQuantType(Type elementType, ArrayRef<int64_t> perm) {
+  auto perAxisType = dyn_cast<quant::UniformQuantizedPerAxisType>(elementType);
+  if (!perAxisType)
+    return elementType; // not per-axis, nothing to do
+
+  int32_t oldAxis = perAxisType.getQuantizedDimension();
+  // Find the new position: after transpose, input dim oldAxis ends up at
+  // position i where perm[i] == oldAxis.
+  int32_t newAxis = oldAxis;
+  for (int64_t i = 0, e = perm.size(); i < e; ++i) {
+    if (perm[i] == oldAxis) {
+      newAxis = static_cast<int32_t>(i);
+      break;
+    }
+  }
+  if (newAxis == oldAxis)
+    return elementType; // unchanged
+
+  return quant::UniformQuantizedPerAxisType::get(perAxisType.getFlags(),
+      perAxisType.getStorageType(), perAxisType.getExpressedType(),
+      perAxisType.getScales(), perAxisType.getZeroPoints(), newAxis,
+      perAxisType.getStorageTypeMin(), perAxisType.getStorageTypeMax());
+}
+
 // Helper function to create weight transpose for ConvTranspose
 // ConvTranspose: IOHW -> OHWI (permutation [1, 2, 3, ..., N-1, 0])
 // Swaps I and O, keeps spatial dimensions, moves I to last
@@ -119,8 +147,11 @@ Value createConvTransposeWeightTranspose(PatternRewriter &rewriter,
     transposedShape.push_back(weightType.getDimSize(p));
   }
 
+  // Remap per-channel quant axis to match the new layout after transpose
+  Type transposedElementType =
+      remapPerAxisQuantType(weightType.getElementType(), perm);
   auto transposedType =
-      RankedTensorType::get(transposedShape, weightType.getElementType());
+      RankedTensorType::get(transposedShape, transposedElementType);
   return rewriter.create<ONNXTransposeOp>(
       loc, transposedType, weight, rewriter.getI64ArrayAttr(perm));
 }

@@ -23,6 +23,7 @@
 
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 #include "src/Pass/Passes.hpp"
 
 #include "llvm/ADT/APInt.h"
@@ -1869,6 +1870,8 @@ struct ONNXTransposeOptimizationPass
     GreedyRewriteConfig config;
     config.maxIterations = maxIterations;
     config.useTopDownTraversal = true;
+    ResultNamesUpdater rnUpdater;
+    config.listener = &rnUpdater;
 
     if (failed(applyPatternsGreedily(function, std::move(patterns), config))) {
       LLVM_DEBUG(llvm::dbgs() << "Pattern application failed!\n");
