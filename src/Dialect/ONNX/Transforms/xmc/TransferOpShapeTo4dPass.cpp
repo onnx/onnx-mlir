@@ -435,6 +435,9 @@ struct TransferOpShapeTo4dPass
     patterns.add<TransferEltwiseTo4DPattern<ONNXLeakyReluOp>>(ctx);
     patterns.add<TransferEltwiseTo4DPattern<ONNXEluOp>>(ctx);
     patterns.add<TransferEltwiseTo4DPattern<ONNXNegOp>>(ctx);
+    patterns.add<TransferEltwiseTo4DPattern<ONNXErfOp>>(ctx);
+    patterns.add<TransferEltwiseTo4DPattern<ONNXSigmoidOp>>(ctx);
+    patterns.add<TransferEltwiseTo4DPattern<ONNXPowOp>>(ctx);
 
     GreedyRewriteConfig config;
     config.strictMode = GreedyRewriteStrictness::ExistingAndNewOps;
