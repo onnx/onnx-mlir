@@ -255,7 +255,6 @@ def call() {
         steps {
           sh '''
             echo "Build OMPyInfer"
-            set -euo pipefail
             chmod +x ${JENKINS_BUILD_OMPYINFER}
             ${JENKINS_BUILD_OMPYINFER}
           '''
