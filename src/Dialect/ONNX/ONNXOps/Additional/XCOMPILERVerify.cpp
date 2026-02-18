@@ -74,30 +74,29 @@ LogicalResult XCOMPILERDepthwiseConvOpVerify(Operation *op) {
   bool is3D = (xRank == 5);
   size_t numSpatialDims = is3D ? 3 : 2;
 
-  // Verify weight W has correct rank for OHWI layout (consistent with XFEConv)
-  // 2D: [C, kH, kW, 1], 3D: [C, kD, kH, kW, 1]
+  // Verify weight W has correct rank for IHWO layout
+  // (transposed from OHWI by ConvertXFEConvToDepthwiseConvPass)
+  // 2D: [1, kH, kW, C], 3D: [1, kD, kH, kW, C]
   Value W = convOp.getW();
   if (auto wType = mlir::dyn_cast<ShapedType>(W.getType())) {
     if (wType.hasRank()) {
       int64_t expectedWRank =
-          numSpatialDims + 2; // C + spatial dims + multiplier
+          numSpatialDims + 2; // multiplier + spatial dims + C
       if (wType.getRank() != expectedWRank)
         return op->emitOpError("weight W must be ")
                << expectedWRank << "D tensor for " << (is3D ? "3D" : "2D")
                << " convolution, got rank " << wType.getRank();
 
-      // For depthwise conv with OHWI, last dimension (C_in/group) should be 1
-      int64_t multiplierIdx = wType.getRank() - 1;
-      if (!wType.isDynamicDim(multiplierIdx) &&
-          wType.getDimSize(multiplierIdx) != 1)
+      // For depthwise conv with IHWO, first dimension (C_in/group) should be 1
+      if (!wType.isDynamicDim(0) && wType.getDimSize(0) != 1)
         return op->emitOpError(
-                   "depthwise conv weight channel multiplier (last dim) should "
-                   "be 1, got ")
-               << wType.getDimSize(multiplierIdx);
+                   "depthwise conv weight channel multiplier (first dim) "
+                   "should be 1, got ")
+               << wType.getDimSize(0);
 
-      // Verify input channels match weight output channels (first dim in OHWI
-      // weight)
-      int64_t wChannelIdx = 0; // C_out is first dimension in OHWI format
+      // Verify input channels match weight output channels (last dim in IHWO)
+      int64_t wChannelIdx =
+          wType.getRank() - 1; // C_out is last dimension in IHWO format
       if (inputChannels != ShapedType::kDynamic &&
           !wType.isDynamicDim(wChannelIdx)) {
         if (inputChannels != wType.getDimSize(wChannelIdx))
