@@ -116,6 +116,8 @@ add_custom_target(OMCreateOMPyInferPackage
         DEPENDS PyRuntimeC
      )
 
+# Target to run OMPyInfer package with newly built PyRuntimeC, not the new
+# model.so yet.
 add_custom_target(OMTestOMPyInferPackage
         COMMAND pip uninstall -y OMPyInfer 
         COMMAND pip install -e ${CMAKE_CURRENT_BINARY_DIR}/OMPyInfer
@@ -123,7 +125,6 @@ add_custom_target(OMTestOMPyInferPackage
         DEPENDS OMCreateOMPyInferPackage
      )
 
-# Target to prepare onnxmlir package
 # Target to prepare onnxmlir package
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/onnxmlir/src/onnxmlir/libs)
 
