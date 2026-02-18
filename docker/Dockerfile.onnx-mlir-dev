@@ -39,7 +39,7 @@ RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
     # find a version that satisfies the requirement packaging>=24.2" error
     # on ubi9 and ubuntu noble.
     #
-    && python3 -m pip install --prefix=/usr "packaging>=24.2" --upgrade setuptools \
+    && python3 -m pip install --prefix=/usr --ignore-installed "packaging>=24.2" --upgrade setuptools \
     && CC=clang CXX=clang++ CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib" \
        python3 -m pip install . --prefix=/usr --no-build-isolation
 
