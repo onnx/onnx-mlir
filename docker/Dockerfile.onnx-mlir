@@ -107,7 +107,7 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
                   make ninja-build python3 && \
           rm -rf /var/lib/apt/lists/*; \
        elif [ "${distro}" = "rhel" ] || [ "${distro}" = "fedora" ]; then \
-          pip3 uninstall -q -y \
+          python3 -m pip uninstall -q -y \
                Cython pytest pytest-xdist typing-extensions && \
           yum remove -q -y \
               autoconf automake cmake file git libtool ninja-build && \
