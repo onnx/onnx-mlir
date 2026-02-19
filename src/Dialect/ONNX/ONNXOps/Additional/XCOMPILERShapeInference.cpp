@@ -169,4 +169,19 @@ LogicalResult XCOMPILERDepthwiseConvOpShapeInference(
   return success();
 }
 
+LogicalResult XCOMPILERRequantizeOpShapeInference(
+    Operation *op, std::function<void(Region &)> doShapeInference) {
+  auto requantizeOp = dyn_cast<XCOMPILERRequantizeOp>(op);
+  if (!requantizeOp)
+    return failure();
+
+  // Requantize: output shape is identical to input shape
+  Value X = requantizeOp.getX();
+  if (!hasShapeAndRank(X))
+    return success();
+
+  requantizeOp.getResult().setType(X.getType());
+  return success();
+}
+
 } // namespace mlir

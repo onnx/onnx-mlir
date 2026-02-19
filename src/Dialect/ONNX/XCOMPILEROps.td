@@ -91,3 +91,37 @@ def XCOMPILERFusedEltwiseOp:ONNX_Op<"XCOMPILERFusedEltwise",
   let hasVerifier = 1;
 }
 
+def XCOMPILERRequantizeOp:ONNX_Op<"XCOMPILERRequantize",
+  [Pure, OpVersionTrait<1>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "Requantize operation";
+  let description = [{
+  Converts a quantized tensor from one quantization scheme (scale_in, zero_point_in) to another (scale_out, zero_point_out) without going through floating-point intermediate representation. Mathematical definition: q_out = round((q_in - zp_in) * (s_in / s_out)) + zp_out. This is a single fused operation that conceptually dequantizes and requantizes, all done in integer arithmetic with scaling factors. Attributes: a_scale and a_zero_point define the input quantization parameters; y_scale and y_zero_point define the output quantization parameters.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[quant_QuantizedType]>]>:$X,
+    F32ArrayAttr:$a_scale,
+    I64ArrayAttr:$a_zero_point,
+    F32ArrayAttr:$y_scale,
+    I64ArrayAttr:$y_zero_point);
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[quant_QuantizedType]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {30};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      // TODO: Implement specific shape helper for this custom op
+      // For now, returning nullptr - shape inference will use default behavior
+      return nullptr;
+    }
+  }];
+  let hasVerifier = 1;
+}
+
