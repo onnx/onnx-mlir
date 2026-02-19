@@ -59,11 +59,13 @@ struct RemoveRedundantReluPattern : public OpRewritePattern<ONNXReluOp> {
 
     tailRelu.getResult().replaceAllUsesWith(newRelu.getResult());
 
-    // Erase the old chain from tail backwards.
+    // Erase only ops that are now dead (no uses). Intermediate Relus in the
+    // chain may have other uses and must not be erased.
     auto cur = tailRelu;
     while (true) {
       auto prev = cur.getX().getDefiningOp<ONNXReluOp>();
-      rewriter.eraseOp(cur);
+      if (cur->use_empty())
+        rewriter.eraseOp(cur);
       if (!prev)
         break;
       cur = prev;

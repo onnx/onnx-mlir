@@ -202,9 +202,11 @@ struct SplitDuplicateInputsPattern : public RewritePattern {
       for (unsigned i = 1; i < count; i++) {
         Value reshapeResult =
             insertIdentityReshapeAfterProducer(rewriter, uniqueInput);
+        // Non-tensor types (e.g. none) cannot be reshaped; reuse same value.
         if (!reshapeResult)
-          return failure();
-        valueList.push_back(reshapeResult);
+          valueList.push_back(uniqueInput);
+        else
+          valueList.push_back(reshapeResult);
       }
     }
 
@@ -218,6 +220,19 @@ struct SplitDuplicateInputsPattern : public RewritePattern {
       orderedInputs.push_back(candidates.front());
       candidates.erase(candidates.begin());
     }
+
+    // Skip if we didn't actually split any operand (all duplicates were
+    // non-tensor). Otherwise we'd replace the op with an identical one and
+    // the greedy rewriter would loop forever.
+    bool changed = false;
+    for (size_t i = 0; i < orderedInputs.size(); ++i) {
+      if (orderedInputs[i] != op->getOperand(i)) {
+        changed = true;
+        break;
+      }
+    }
+    if (!changed)
+      return failure();
 
     OperationState state(op->getLoc(), op->getName());
     state.addOperands(orderedInputs);
