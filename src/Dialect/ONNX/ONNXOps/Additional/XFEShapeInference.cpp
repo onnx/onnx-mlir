@@ -108,6 +108,7 @@ LogicalResult XFEConvOpShapeInference(
   auto stridesAttr = convOp.getStrides();
   auto padsAttr = convOp.getPads();
   auto dilationsAttr = convOp.getDilations();
+  StringRef autoPad = convOp.getAutoPad();
 
   // Default values (all 1s for strides/dilations, 0s for pads)
   SmallVector<int64_t, 4> strides(numSpatialDims, 1);
@@ -148,13 +149,24 @@ LogicalResult XFEConvOpShapeInference(
     int64_t inputDim = xShape[i + 1]; // spatial dimension from input (NHWC)
     int64_t kernelDim =
         wShape[i + 1]; // kernel size from weight (OHWI: skip O, then H,W,...)
-    int64_t padBegin = pads[i];
-    int64_t padEnd = pads[numSpatialDims + i];
     int64_t stride = strides[i];
-    int64_t dilation = dilations[i];
 
-    int64_t outputDim = computeChannelLastSpatialDim(
-        inputDim, kernelDim, padBegin, padEnd, stride, dilation);
+    int64_t outputDim;
+    if (inputDim == ShapedType::kDynamic) {
+      outputDim = ShapedType::kDynamic;
+    } else if (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER") {
+      outputDim = (inputDim + stride - 1) / stride;
+    } else if (autoPad == "VALID") {
+      int64_t dilation = dilations[i];
+      int64_t effectiveKernel = (kernelDim - 1) * dilation + 1;
+      outputDim = (inputDim - effectiveKernel) / stride + 1;
+    } else {
+      int64_t padBegin = pads[i];
+      int64_t padEnd = pads[numSpatialDims + i];
+      int64_t dilation = dilations[i];
+      outputDim = computeChannelLastSpatialDim(
+          inputDim, kernelDim, padBegin, padEnd, stride, dilation);
+    }
     outputShape.push_back(outputDim);
   }
 
@@ -194,7 +206,7 @@ LogicalResult XFEConvTransposeOpShapeInference(
   auto wShape = wType.getShape();
 
   // X is channel-last (NHWC): [N, spatial_dims..., C_in]
-  // W is OHWI: [C_out, spatial_dims..., C_in/group]
+  // W after channel-last conversion: [C_out/group, spatial_dims..., C_in]
   if (xShape.size() < 3 || wShape.size() < 3 || xShape.size() != wShape.size())
     return op->emitError(
         "ConvTransposeChannelLast requires matching rank tensors with "
@@ -203,13 +215,17 @@ LogicalResult XFEConvTransposeOpShapeInference(
   int64_t rank = xShape.size();
   int64_t numSpatialDims = rank - 2; // exclude batch and channel
   int64_t N = xShape[0];             // batch
-  int64_t C_out = wShape[0]; // output channels (first dimension in OHWI)
+  // Weight layout after channel-last conversion is [C_out/group, kH, kW, C_in].
+  // For grouped ConvTranspose, actual output channels = wShape[0] * group.
+  int64_t group = convTransposeOp.getGroup();
+  int64_t C_out = wShape[0] * group;
 
   // Get attributes
   auto stridesAttr = convTransposeOp.getStrides();
   auto padsAttr = convTransposeOp.getPads();
   auto dilationsAttr = convTransposeOp.getDilations();
   auto outputPaddingAttr = convTransposeOp.getOutputPadding();
+  StringRef autoPad = convTransposeOp.getAutoPad();
 
   // Default values
   SmallVector<int64_t, 4> strides(numSpatialDims, 1);
@@ -250,8 +266,6 @@ LogicalResult XFEConvTransposeOpShapeInference(
   }
 
   // Compute output spatial dimensions for ConvTranspose
-  // Formula: output_dim = (input_dim - 1) * stride - 2 * pad + (kernel - 1) *
-  // dilation + 1 + output_padding
   SmallVector<int64_t, 6> outputShape;
   outputShape.push_back(N); // batch
 
@@ -259,14 +273,22 @@ LogicalResult XFEConvTransposeOpShapeInference(
     int64_t inputDim = xShape[i + 1]; // spatial dimension from input (NHWC)
     int64_t kernelDim =
         wShape[i + 1]; // kernel size from weight (OHWI: skip O, then H,W,...)
-    int64_t padBegin = pads[i];
-    int64_t padEnd = pads[numSpatialDims + i];
     int64_t stride = strides[i];
-    int64_t dilation = dilations[i];
-    int64_t outPad = outputPadding[i];
 
     int64_t outputDim = ShapedType::kDynamic;
-    if (inputDim != ShapedType::kDynamic && kernelDim != ShapedType::kDynamic) {
+    if (inputDim == ShapedType::kDynamic || kernelDim == ShapedType::kDynamic) {
+      outputDim = ShapedType::kDynamic;
+    } else if (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER") {
+      // For ConvTranspose with SAME padding: output = input * stride
+      outputDim = inputDim * stride;
+    } else {
+      // NOTSET/VALID: use explicit pads
+      // output = (input - 1) * stride - padBegin - padEnd +
+      //          effectiveKernel + outputPadding
+      int64_t padBegin = pads[i];
+      int64_t padEnd = pads[numSpatialDims + i];
+      int64_t dilation = dilations[i];
+      int64_t outPad = outputPadding[i];
       int64_t effectiveKernel = (kernelDim - 1) * dilation + 1;
       outputDim = (inputDim - 1) * stride - padBegin - padEnd +
                   effectiveKernel + outPad;
@@ -316,6 +338,7 @@ LogicalResult XFEAveragePoolOpShapeInference(
   auto kernelShapeAttr = poolOp.getKernelShape();
   auto stridesAttr = poolOp.getStrides();
   auto padsAttr = poolOp.getPads();
+  StringRef autoPad = poolOp.getAutoPad();
 
   // Extract kernel shape (required attribute)
   if (!kernelShapeAttr.has_value() ||
@@ -356,12 +379,21 @@ LogicalResult XFEAveragePoolOpShapeInference(
   for (int64_t i = 0; i < numSpatialDims; ++i) {
     int64_t inputDim = xShape[i + 1];
     int64_t kernelDim = kernels[i];
-    int64_t padBegin = pads[i];
-    int64_t padEnd = pads[numSpatialDims + i];
     int64_t stride = strides[i];
 
-    int64_t outputDim = computeChannelLastSpatialDim(
-        inputDim, kernelDim, padBegin, padEnd, stride, 1, ceilMode);
+    int64_t outputDim;
+    if (inputDim == ShapedType::kDynamic) {
+      outputDim = ShapedType::kDynamic;
+    } else if (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER") {
+      outputDim = (inputDim + stride - 1) / stride;
+    } else if (autoPad == "VALID") {
+      outputDim = (inputDim - kernelDim) / stride + 1;
+    } else {
+      int64_t padBegin = pads[i];
+      int64_t padEnd = pads[numSpatialDims + i];
+      outputDim = computeChannelLastSpatialDim(
+          inputDim, kernelDim, padBegin, padEnd, stride, 1, ceilMode);
+    }
     outputShape.push_back(outputDim);
   }
 
@@ -406,6 +438,7 @@ LogicalResult XFEMaxPoolOpShapeInference(
   auto stridesAttr = poolOp.getStrides();
   auto padsAttr = poolOp.getPads();
   auto dilationsAttr = poolOp.getDilations();
+  StringRef autoPad = poolOp.getAutoPad();
 
   // Extract kernel shape (required attribute)
   if (!kernelShapeAttr.has_value() ||
@@ -455,13 +488,24 @@ LogicalResult XFEMaxPoolOpShapeInference(
   for (int64_t i = 0; i < numSpatialDims; ++i) {
     int64_t inputDim = xShape[i + 1];
     int64_t kernelDim = kernels[i];
-    int64_t padBegin = pads[i];
-    int64_t padEnd = pads[numSpatialDims + i];
     int64_t stride = strides[i];
-    int64_t dilation = dilations[i];
 
-    int64_t outputDim = computeChannelLastSpatialDim(
-        inputDim, kernelDim, padBegin, padEnd, stride, dilation, ceilMode);
+    int64_t outputDim;
+    if (inputDim == ShapedType::kDynamic) {
+      outputDim = ShapedType::kDynamic;
+    } else if (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER") {
+      outputDim = (inputDim + stride - 1) / stride;
+    } else if (autoPad == "VALID") {
+      int64_t dilation = dilations[i];
+      int64_t effectiveKernel = (kernelDim - 1) * dilation + 1;
+      outputDim = (inputDim - effectiveKernel) / stride + 1;
+    } else {
+      int64_t padBegin = pads[i];
+      int64_t padEnd = pads[numSpatialDims + i];
+      int64_t dilation = dilations[i];
+      outputDim = computeChannelLastSpatialDim(
+          inputDim, kernelDim, padBegin, padEnd, stride, dilation, ceilMode);
+    }
     outputShape.push_back(outputDim);
   }
 
