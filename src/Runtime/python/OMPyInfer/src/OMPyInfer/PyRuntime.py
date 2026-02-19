@@ -29,6 +29,9 @@ except ImportError:
     )
 
 
+# This file is similar to src/Runtime/python/PyRuntime.py
+# Only real difference is how to locate the PyRuntimeC*.so and the two will
+# be merged
 class OMExecutionSession(OMExecutionSession_):
     def run(self, inputs):
         # Prepare arguments to call sess.run
