@@ -70,7 +70,6 @@ bool JsonConfigObject::loadFromFile(const std::string &filePath) {
   return true;
 }
 
-
 bool JsonConfigObject::empty() const {
   return !jsonObject || jsonObject->empty();
 }
@@ -153,8 +152,7 @@ void JsonConfigObject::applyConfigToOps(llvm::ArrayRef<mlir::Operation *> ops,
                 ? op->getAttrOfType<mlir::StringAttr>("onnx_node_name")
                       .getValue()
                 : "";
-        if (!std::regex_match(
-                opNodeName.str(), std::regex(nodeName->str())))
+        if (!std::regex_match(opNodeName.str(), std::regex(nodeName->str())))
           continue;
       }
 

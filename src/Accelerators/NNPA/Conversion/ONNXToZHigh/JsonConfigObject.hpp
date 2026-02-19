@@ -19,9 +19,9 @@
 #include <memory>
 #include <string>
 
+#include "mlir/IR/Operation.h"
 #include "llvm/ADT/STLFunctionalExtras.h"
 #include "llvm/Support/JSON.h"
-#include "mlir/IR/Operation.h"
 
 using namespace mlir;
 
@@ -41,7 +41,6 @@ public:
   /// @param filePath Path to the JSON file to load
   /// @return true if successful, false otherwise
   bool loadFromFile(const std::string &filePath);
-
 
   /// Check if the config object is empty.
   /// @return true if empty, false otherwise
@@ -67,7 +66,6 @@ public:
   void dump(unsigned indent = 2) const;
 
   /// Apply configuration from a JSON array to operations using a callback.
-  /// This method has the same signature as NNPAJsonConfig::loadConfigFromFile
   /// @param ops Array of operations to process
   /// @param arrayKey The key of the JSON array containing configuration rules
   /// @param updateAttrFn Callback function to update operation attributes

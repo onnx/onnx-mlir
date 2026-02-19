@@ -51,7 +51,8 @@ struct GenerateConfigFilePass
   }
 
   Option<std::string> outputConfigFile{*this, "output-config-file",
-      llvm::cl::desc("Path to save the generated configuration file in JSON format"),
+      llvm::cl::desc(
+          "Path to save the generated configuration file in JSON format"),
       llvm::cl::init("")};
 
   void runOnOperation() final;
@@ -89,10 +90,10 @@ void GenerateConfigFilePass::runOnOperation() {
   });
 
   if (!outputConfigFile.empty()) {
-    // Save device placement information to a json file by adding to the existing
-    // json file an json object of key DEVICE_PLACEMENT_KEY.
-    // Each value in the object is added a pair (DEVICE_ATTRIBUTE, value) that
-    // denotes the value of DEVICE_ATTRIBUTE in the operation.
+    // Save device placement information to a json file by adding to the
+    // existing json file an json object of key DEVICE_PLACEMENT_KEY. Each value
+    // in the object is added a pair (DEVICE_ATTRIBUTE, value) that denotes the
+    // value of DEVICE_ATTRIBUTE in the operation.
     NNPAJsonConfig deviceCfg(DEVICE_PLACEMENT_KEY);
     deviceCfg.saveConfigToFile(
         ops, outputConfigFile, [&](llvm::json::Object *jsonObj, Operation *op) {

@@ -175,8 +175,8 @@ void DevicePlacementPass::runOnOperation() {
     configObject->applyConfigToOps(ops, DEVICE_PLACEMENT_KEY,
         [&](llvm::json::Object *jsonObj, mlir::Operation *op) {
           StringRef device = jsonObj->getString(DEVICE_ATTRIBUTE).value();
-          op->setAttr(DEVICE_ATTRIBUTE,
-              StringAttr::get(module.getContext(), device));
+          op->setAttr(
+              DEVICE_ATTRIBUTE, StringAttr::get(module.getContext(), device));
         });
   }
 
@@ -231,10 +231,10 @@ void DevicePlacementPass::runOnOperation() {
 
   // Create a JSON configuration file if required.
   if (!saveConfigFile.empty()) {
-    // Save device placement information to a json file by adding to the existing
-    // json file an json object of key DEVICE_PLACEMENT_KEY.
-    // Each value in the object is added a pair (DEVICE_ATTRIBUTE, value) that
-    // denotes the value of DEVICE_ATTRIBUTE in the operation.
+    // Save device placement information to a json file by adding to the
+    // existing json file an json object of key DEVICE_PLACEMENT_KEY. Each value
+    // in the object is added a pair (DEVICE_ATTRIBUTE, value) that denotes the
+    // value of DEVICE_ATTRIBUTE in the operation.
     NNPAJsonConfig saveCfg(DEVICE_PLACEMENT_KEY);
     saveCfg.saveConfigToFile(
         ops, saveConfigFile, [&](llvm::json::Object *jsonObj, Operation *op) {
