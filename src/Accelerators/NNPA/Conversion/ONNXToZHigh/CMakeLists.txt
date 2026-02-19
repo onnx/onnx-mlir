@@ -78,6 +78,17 @@ add_onnx_mlir_library(OMDevicePlacement
   ${NNPA_INCLUDE_PATH}
   )
 
+add_onnx_mlir_library(OMNNPAGenerateConfigFile
+  GenerateConfigFile.cpp
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  OMNNPAJSONConfig
+
+  ACCEL_INCLUDE_DIRS PRIVATE
+  ${NNPA_INCLUDE_PATH}
+  )
+
 add_onnx_mlir_library(OMNNPAQuantOpSelection
   QuantOpSelection.cpp
 
@@ -92,6 +103,7 @@ add_onnx_mlir_library(OMNNPAQuantOpSelection
 
 add_onnx_mlir_library(OMNNPAJSONConfig
   JsonConfigFile.cpp
+  JsonConfigObject.cpp
 
   LINK_LIBS PUBLIC
   MLIRIR
