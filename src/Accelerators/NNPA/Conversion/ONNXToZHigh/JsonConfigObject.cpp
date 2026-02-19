@@ -75,14 +75,6 @@ bool JsonConfigObject::empty() const {
   return !jsonObject || jsonObject->empty();
 }
 
-const llvm::json::Object *JsonConfigObject::getJsonObject() const {
-  return jsonObject.get();
-}
-
-llvm::json::Object *JsonConfigObject::getJsonObject() {
-  return jsonObject.get();
-}
-
 llvm::json::Array *JsonConfigObject::getArray(llvm::StringRef key) {
   if (!jsonObject)
     return nullptr;
@@ -95,42 +87,11 @@ const llvm::json::Array *JsonConfigObject::getArray(llvm::StringRef key) const {
   return jsonObject->getArray(key);
 }
 
-llvm::json::Object *JsonConfigObject::getObject(llvm::StringRef key) {
-  if (!jsonObject)
-    return nullptr;
-  return jsonObject->getObject(key);
-}
-
-const llvm::json::Object *JsonConfigObject::getObject(
-    llvm::StringRef key) const {
-  if (!jsonObject)
-    return nullptr;
-  return jsonObject->getObject(key);
-}
-
 std::optional<llvm::StringRef> JsonConfigObject::getString(
     llvm::StringRef key) const {
   if (!jsonObject)
     return std::nullopt;
   return jsonObject->getString(key);
-}
-
-void JsonConfigObject::set(llvm::StringRef key, llvm::json::Value value) {
-  if (!jsonObject)
-    jsonObject = std::make_unique<llvm::json::Object>();
-  (*jsonObject)[key] = std::move(value);
-}
-
-bool JsonConfigObject::remove(llvm::StringRef key) {
-  if (!jsonObject)
-    return false;
-  return jsonObject->erase(key);
-}
-
-void JsonConfigObject::clear() {
-  if (jsonObject)
-    jsonObject->clear();
-  filePath.clear();
 }
 
 void JsonConfigObject::dump(unsigned indent) const {
