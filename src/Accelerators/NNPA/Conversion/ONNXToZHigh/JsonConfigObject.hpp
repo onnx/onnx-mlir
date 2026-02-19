@@ -42,10 +42,6 @@ public:
   /// @return true if successful, false otherwise
   bool loadFromFile(const std::string &filePath);
 
-  /// Save JSON content to a file.
-  /// @param filePath Path to the JSON file to save
-  /// @return true if successful, false otherwise
-  bool saveToFile(const std::string &filePath) const;
 
   /// Check if the config object is empty.
   /// @return true if empty, false otherwise

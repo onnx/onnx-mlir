@@ -19,7 +19,6 @@
 
 #include "mlir/IR/BuiltinAttributes.h"
 #include "llvm/ADT/SetOperations.h"
-#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -71,31 +70,6 @@ bool JsonConfigObject::loadFromFile(const std::string &filePath) {
   return true;
 }
 
-bool JsonConfigObject::saveToFile(const std::string &filePath) const {
-  if (!jsonObject) {
-    llvm::errs() << "Error: Cannot save empty JSON object\n";
-    return false;
-  }
-
-  // Open the file for writing.
-  std::error_code EC;
-  llvm::raw_fd_ostream fileOS(
-      filePath, EC, llvm::sys::fs::CreationDisposition::CD_CreateAlways);
-
-  if (EC) {
-    llvm::errs() << "Error: Could not open file for writing: " << filePath
-                 << "\n";
-    llvm::errs() << "Error message: " << EC.message() << "\n";
-    return false;
-  }
-
-  // Write JSON with pretty formatting.
-  llvm::json::OStream jsonOS(fileOS, /*IndentSize=*/2);
-  jsonOS.value(llvm::json::Value(llvm::json::Object(*jsonObject)));
-  jsonOS.flush();
-
-  return true;
-}
 
 bool JsonConfigObject::empty() const {
   return !jsonObject || jsonObject->empty();
