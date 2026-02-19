@@ -1240,3 +1240,57 @@ func.func @test_multiuse_xfeconv_residual_realistic(%arg0: tensor<1x64x64x40x!qu
   %4 = "onnx.Add"(%0, %3) : (tensor<1x40x64x64x!quant.uniform<u8:f32, 6.250000e-02>>, tensor<1x40x64x64x!quant.uniform<u8:f32, 6.250000e-02>>) -> tensor<1x40x64x64x!quant.uniform<u8:f32, 1.250000e-01>>
   return %4, %1 : tensor<1x40x64x64x!quant.uniform<u8:f32, 1.250000e-01>>, tensor<1x64x64x40x!quant.uniform<u8:f32, 6.250000e-02>>
 }
+
+// -----
+// ==========================================================================
+// Push Transpose Through quant.scast Tests
+// Rule: scast(transpose(x)) -> transpose(scast(x))
+// ==========================================================================
+
+// Test: Push transpose through scast (quantized -> storage)
+// CHECK-LABEL: func @test_push_transpose_through_scast_to_storage
+func.func @test_push_transpose_through_scast_to_storage(%arg0: tensor<1x3x4x4x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<1x4x4x3xi8> {
+  // CHECK: quant.scast %arg0 : tensor<1x3x4x4x!quant.uniform<i8:f32, 5.000000e-02>> to tensor<1x3x4x4xi8>
+  // CHECK: "onnx.Transpose"
+  // CHECK-SAME: perm = [0, 2, 3, 1]
+  %0 = "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]} : (tensor<1x3x4x4x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<1x4x4x3x!quant.uniform<i8:f32, 0.05:0>>
+  %1 = quant.scast %0 : tensor<1x4x4x3x!quant.uniform<i8:f32, 0.05:0>> to tensor<1x4x4x3xi8>
+  return %1 : tensor<1x4x4x3xi8>
+}
+
+// -----
+
+// Test: Push transpose through scast (storage -> quantized)
+// CHECK-LABEL: func @test_push_transpose_through_scast_to_quant
+func.func @test_push_transpose_through_scast_to_quant(%arg0: tensor<1x3x4x4xi8>) -> tensor<1x4x4x3x!quant.uniform<i8:f32, 0.05:0>> {
+  // CHECK: quant.scast %arg0 : tensor<1x3x4x4xi8> to tensor<1x3x4x4x!quant.uniform<i8:f32, 5.000000e-02>>
+  // CHECK: "onnx.Transpose"
+  // CHECK-SAME: perm = [0, 2, 3, 1]
+  %0 = "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]} : (tensor<1x3x4x4xi8>) -> tensor<1x4x4x3xi8>
+  %1 = quant.scast %0 : tensor<1x4x4x3xi8> to tensor<1x4x4x3x!quant.uniform<i8:f32, 0.05:0>>
+  return %1 : tensor<1x4x4x3x!quant.uniform<i8:f32, 0.05:0>>
+}
+
+// -----
+
+// Test: Push transpose through scast with unsigned quantized type
+// CHECK-LABEL: func @test_push_transpose_through_scast_u8
+func.func @test_push_transpose_through_scast_u8(%arg0: tensor<1x32x7x7x!quant.uniform<u8:f32, 0.00842:128>>) -> tensor<1x7x7x32xi8> {
+  // CHECK: quant.scast %arg0 : tensor<1x32x7x7x!quant.uniform<u8:f32, 8.420000e-03:128>> to tensor<1x32x7x7xi8>
+  // CHECK: "onnx.Transpose"
+  // CHECK-SAME: perm = [0, 2, 3, 1]
+  %0 = "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]} : (tensor<1x32x7x7x!quant.uniform<u8:f32, 0.00842:128>>) -> tensor<1x7x7x32x!quant.uniform<u8:f32, 0.00842:128>>
+  %1 = quant.scast %0 : tensor<1x7x7x32x!quant.uniform<u8:f32, 0.00842:128>> to tensor<1x7x7x32xi8>
+  return %1 : tensor<1x7x7x32xi8>
+}
+
+// -----
+
+// Test: scast without transpose input should NOT be modified
+// CHECK-LABEL: func @test_no_push_scast_without_transpose
+func.func @test_no_push_scast_without_transpose(%arg0: tensor<1x3x4x4x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<1x3x4x4xi8> {
+  // CHECK-NOT: onnx.Transpose
+  // CHECK: quant.scast %arg0
+  %0 = quant.scast %arg0 : tensor<1x3x4x4x!quant.uniform<i8:f32, 0.05:0>> to tensor<1x3x4x4xi8>
+  return %0 : tensor<1x3x4x4xi8>
+}

@@ -74,30 +74,29 @@ LogicalResult XCOMPILERDepthwiseConvOpVerify(Operation *op) {
   bool is3D = (xRank == 5);
   size_t numSpatialDims = is3D ? 3 : 2;
 
-  // Verify weight W has correct rank for OHWI layout (consistent with XFEConv)
-  // 2D: [C, kH, kW, 1], 3D: [C, kD, kH, kW, 1]
+  // Verify weight W has correct rank for IHWO layout
+  // (transposed from OHWI by ConvertXFEConvToDepthwiseConvPass)
+  // 2D: [1, kH, kW, C], 3D: [1, kD, kH, kW, C]
   Value W = convOp.getW();
   if (auto wType = mlir::dyn_cast<ShapedType>(W.getType())) {
     if (wType.hasRank()) {
       int64_t expectedWRank =
-          numSpatialDims + 2; // C + spatial dims + multiplier
+          numSpatialDims + 2; // multiplier + spatial dims + C
       if (wType.getRank() != expectedWRank)
         return op->emitOpError("weight W must be ")
                << expectedWRank << "D tensor for " << (is3D ? "3D" : "2D")
                << " convolution, got rank " << wType.getRank();
 
-      // For depthwise conv with OHWI, last dimension (C_in/group) should be 1
-      int64_t multiplierIdx = wType.getRank() - 1;
-      if (!wType.isDynamicDim(multiplierIdx) &&
-          wType.getDimSize(multiplierIdx) != 1)
+      // For depthwise conv with IHWO, first dimension (C_in/group) should be 1
+      if (!wType.isDynamicDim(0) && wType.getDimSize(0) != 1)
         return op->emitOpError(
-                   "depthwise conv weight channel multiplier (last dim) should "
-                   "be 1, got ")
-               << wType.getDimSize(multiplierIdx);
+                   "depthwise conv weight channel multiplier (first dim) "
+                   "should be 1, got ")
+               << wType.getDimSize(0);
 
-      // Verify input channels match weight output channels (first dim in OHWI
-      // weight)
-      int64_t wChannelIdx = 0; // C_out is first dimension in OHWI format
+      // Verify input channels match weight output channels (last dim in IHWO)
+      int64_t wChannelIdx =
+          wType.getRank() - 1; // C_out is last dimension in IHWO format
       if (inputChannels != ShapedType::kDynamic &&
           !wType.isDynamicDim(wChannelIdx)) {
         if (inputChannels != wType.getDimSize(wChannelIdx))
@@ -156,6 +155,69 @@ LogicalResult XCOMPILERDepthwiseConvOpVerify(Operation *op) {
     return op->emitOpError("auto_pad must be one of NOTSET, SAME_UPPER, "
                            "SAME_LOWER, VALID, got '")
            << autoPad << "'";
+
+  return success();
+}
+
+LogicalResult XCOMPILERRequantizeOpVerify(Operation *op) {
+  auto requantizeOp = dyn_cast<XCOMPILERRequantizeOp>(op);
+  if (!requantizeOp)
+    return failure();
+
+  // Verify a_scale and a_zero_point have the same number of elements
+  auto aScale = requantizeOp.getAScale();
+  auto aZeroPoint = requantizeOp.getAZeroPoint();
+  if (aScale.size() != aZeroPoint.size())
+    return op->emitOpError("a_scale (")
+           << aScale.size() << " elements) and a_zero_point ("
+           << aZeroPoint.size()
+           << " elements) must have the same number of elements";
+
+  // Verify y_scale and y_zero_point have the same number of elements
+  auto yScale = requantizeOp.getYScale();
+  auto yZeroPoint = requantizeOp.getYZeroPoint();
+  if (yScale.size() != yZeroPoint.size())
+    return op->emitOpError("y_scale (")
+           << yScale.size() << " elements) and y_zero_point ("
+           << yZeroPoint.size()
+           << " elements) must have the same number of elements";
+
+  // Verify scales are not empty
+  if (aScale.empty())
+    return op->emitOpError("a_scale must have at least one element");
+  if (yScale.empty())
+    return op->emitOpError("y_scale must have at least one element");
+
+  // Verify input and output shapes match (if both are ranked)
+  Value X = requantizeOp.getX();
+  Value Y = requantizeOp.getY();
+  auto xType = dyn_cast<ShapedType>(X.getType());
+  auto yType = dyn_cast<ShapedType>(Y.getType());
+  if (xType && yType && xType.hasRank() && yType.hasRank()) {
+    if (xType.getRank() != yType.getRank())
+      return op->emitOpError("input rank (")
+             << xType.getRank() << ") must match output rank ("
+             << yType.getRank() << ")";
+
+    for (int64_t i = 0; i < xType.getRank(); ++i) {
+      if (!xType.isDynamicDim(i) && !yType.isDynamicDim(i) &&
+          xType.getDimSize(i) != yType.getDimSize(i))
+        return op->emitOpError("input and output shapes must match, "
+                               "but differ at dimension ")
+               << i << ": " << xType.getDimSize(i) << " vs "
+               << yType.getDimSize(i);
+    }
+  }
+
+  // Verify per-tensor vs per-channel consistency:
+  // a_scale and y_scale should either both be size 1 (per-tensor)
+  // or both be > 1 (per-channel)
+  bool inputPerChannel = aScale.size() > 1;
+  bool outputPerChannel = yScale.size() > 1;
+  if (inputPerChannel != outputPerChannel)
+    return op->emitOpError(
+        "input and output quantization must both be per-tensor "
+        "or both be per-channel");
 
   return success();
 }

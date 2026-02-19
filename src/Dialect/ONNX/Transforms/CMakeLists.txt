@@ -90,6 +90,7 @@ add_onnx_mlir_library(OMONNXRewrite
   xmc/BatchReductionToReshapeReductionPass.cpp
   xmc/RemoveRedundantReluPass.cpp
   xmc/OptimizeOnnxRequantizationPass.cpp
+  xmc/ConvertSCastPairToRequantizePass.cpp
   xmc/SplitGroupConvPass.cpp
   xmc/ConvertMatMulToXFEConvPass.cpp
   xmc/ReplaceNDimTransposePass.cpp

@@ -149,3 +149,54 @@
   max_input: 3
   min_output: 1
   max_output: 1
+
+# ==============================================================================
+# Requantize: Convert quantized tensor between quantization schemes
+# ==============================================================================
+- name: Requantize
+  domain: com.amd.xcompiler
+  since_version: 1
+  support_level: COMMON
+  description: 'Converts a quantized tensor from one quantization scheme (scale_in, zero_point_in) to another (scale_out, zero_point_out) without going through floating-point intermediate representation. Mathematical definition: q_out = round((q_in - zp_in) * (s_in / s_out)) + zp_out. This is a single fused operation that conceptually dequantizes and requantizes, all done in integer arithmetic with scaling factors. Attributes: a_scale and a_zero_point define the input quantization parameters; y_scale and y_zero_point define the output quantization parameters.'
+  meta_attributes:
+  - onnx_opset: 1
+  - verify: True
+  - fold: False
+  inputs:
+  - name: X
+    description: Input quantized tensor
+    type_str: T
+  outputs:
+  - name: Y
+    description: Output requantized tensor
+    type_str: T
+  attributes:
+  - name: a_scale
+    description: Input quantization scale(s). Per-tensor uses a single value, per-channel uses a vector.
+    type: list(float)
+    required: true
+  - name: a_zero_point
+    description: Input quantization zero point(s). Per-tensor uses a single value, per-channel uses a vector.
+    type: list(int)
+    required: true
+  - name: y_scale
+    description: Output quantization scale(s). Per-tensor uses a single value, per-channel uses a vector.
+    type: list(float)
+    required: true
+  - name: y_zero_point
+    description: Output quantization zero point(s). Per-tensor uses a single value, per-channel uses a vector.
+    type: list(int)
+    required: true
+  type_constraints:
+  - type_param: T
+    description: Constrain input and output types to integer and quantized tensor types.
+    allowed_types:
+    - tensor(uint8)
+    - tensor(uint16)
+    - tensor(int8)
+    - tensor(int16)
+    - tensor(quant_QuantizedType)
+  min_input: 1
+  max_input: 1
+  min_output: 1
+  max_output: 1
