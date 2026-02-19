@@ -9,7 +9,7 @@
 using namespace mlir;
 namespace onnx_mlir {
 
-void addXmcMlirPasses(mlir::PassManager &pm, OnnxToMlirOptions opts) {
+void addXmcMlirPasses(mlir::OpPassManager &pm, OnnxToMlirOptions opts) {
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createOptimizeOnnxRequantizationPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createQuantTypesPass());
