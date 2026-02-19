@@ -37,7 +37,7 @@ JsonConfigObject::JsonConfigObject()
 JsonConfigObject::~JsonConfigObject() = default;
 
 bool JsonConfigObject::loadFromFile(const std::string &filePath) {
-  // Try to load the file
+  // Try to load the file.
   auto bufferOrError = llvm::MemoryBuffer::getFile(
       filePath, /*bool IsText=*/true, /*RequiresNullTerminator=*/false);
 
@@ -46,7 +46,7 @@ bool JsonConfigObject::loadFromFile(const std::string &filePath) {
     return false;
   }
 
-  // Parse the JSON content
+  // Parse the JSON content.
   auto jsonOrError = llvm::json::parse(bufferOrError.get()->getBuffer());
   if (!jsonOrError) {
     llvm::errs() << "Error: Failed to parse JSON from file: " << filePath
@@ -56,7 +56,7 @@ bool JsonConfigObject::loadFromFile(const std::string &filePath) {
     return false;
   }
 
-  // Extract the JSON object
+  // Extract the JSON object.
   llvm::json::Object *parsedObject = jsonOrError->getAsObject();
   if (!parsedObject) {
     llvm::errs() << "Error: JSON root is not an object in file: " << filePath
@@ -64,7 +64,7 @@ bool JsonConfigObject::loadFromFile(const std::string &filePath) {
     return false;
   }
 
-  // Store the parsed JSON object
+  // Store the parsed JSON object.
   jsonObject = std::make_unique<llvm::json::Object>(std::move(*parsedObject));
   this->filePath = filePath;
 
@@ -77,7 +77,7 @@ bool JsonConfigObject::saveToFile(const std::string &filePath) const {
     return false;
   }
 
-  // Open the file for writing
+  // Open the file for writing.
   std::error_code EC;
   llvm::raw_fd_ostream fileOS(
       filePath, EC, llvm::sys::fs::CreationDisposition::CD_CreateAlways);
@@ -89,7 +89,7 @@ bool JsonConfigObject::saveToFile(const std::string &filePath) const {
     return false;
   }
 
-  // Write JSON with pretty formatting
+  // Write JSON with pretty formatting.
   llvm::json::OStream jsonOS(fileOS, /*IndentSize=*/2);
   jsonOS.value(llvm::json::Value(llvm::json::Object(*jsonObject)));
   jsonOS.flush();
@@ -171,7 +171,7 @@ void JsonConfigObject::dump(unsigned indent) const {
   }
   llvm::outs() << ":\n";
 
-  // Use LLVM's JSON pretty printer
+  // Use LLVM's JSON pretty printer.
   llvm::json::OStream jsonOS(llvm::outs(), indent);
   jsonOS.value(llvm::json::Value(llvm::json::Object(*jsonObject)));
   llvm::outs() << "\n";
@@ -184,15 +184,15 @@ void JsonConfigObject::applyConfigToOps(llvm::ArrayRef<mlir::Operation *> ops,
   if (!jsonObject || jsonObject->empty())
     return;
 
-  // Get the JSON array for the specified key
+  // Get the JSON array for the specified key.
   llvm::json::Array *jsonArr = getArray(arrayKey);
   if (!jsonArr || jsonArr->empty())
     return;
 
-  // Collect operations to work on
+  // Collect operations to work on.
   llvm::DenseSet<mlir::Operation *> workingOps(ops.begin(), ops.end());
 
-  // Process each configuration rule in the JSON array
+  // Process each configuration rule in the JSON array.
   for (llvm::json::Value &v : *jsonArr) {
     llvm::json::Object *vobj = v.getAsObject();
     if (!vobj)
@@ -206,12 +206,12 @@ void JsonConfigObject::applyConfigToOps(llvm::ArrayRef<mlir::Operation *> ops,
 
     llvm::DenseSet<mlir::Operation *> updatedOps;
     for (mlir::Operation *op : workingOps) {
-      // Match node type using regex
+      // Match node type using regex.
       llvm::StringRef opNodeType = op->getName().getStringRef();
       if (!std::regex_match(opNodeType.str(), std::regex(nodeType->str())))
         continue;
 
-      // Match node name if specified
+      // Match node name if specified.
       if (nodeName.has_value()) {
         llvm::StringRef opNodeName =
             op->getAttrOfType<mlir::StringAttr>("onnx_node_name")
@@ -223,12 +223,12 @@ void JsonConfigObject::applyConfigToOps(llvm::ArrayRef<mlir::Operation *> ops,
           continue;
       }
 
-      // Apply the callback function when all conditions are satisfied
+      // Apply the callback function when all conditions are satisfied.
       updateAttrFn(vobj, op);
       updatedOps.insert(op);
     }
 
-    // Remove updated ops from working set to avoid processing them again
+    // Remove updated ops from working set to avoid processing them again.
     workingOps = llvm::set_difference(workingOps, updatedOps);
   }
 }
