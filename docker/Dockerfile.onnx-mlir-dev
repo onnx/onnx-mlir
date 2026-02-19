@@ -42,19 +42,19 @@ ARG ACCEL=NNPA
 ARG TEST_NOFLOAT16
 ARG TEST_MARCH
 
-# Build Python Inference Driver test for s390x only
-# The package contains only pre-compiled model binary for s380x.
+# Build Python Inference Driver, OMPyInfer.
 # ToFix: move this test after compiler has been built and compile the onnx model
 # with the newly built onnx-mlir for all platform.
+# The driver could be tested with
+#     "cmake --build . --target OMTestOMPyInferPackage"
+# Issue: venv is needed to installed OMPyInfer package, and venv requires some
+# more installation. Delay the test.
 RUN if [ "$(uname -m)" = "s390x" ]; then \
       cd ${WORK_DIR}/onnx-mlir && \
       rm -rf build-light && mkdir -p build-light && cd build-light && \
-      python -m venv .venv && \
-      source .venv/bin/activate && \
       cmake -DCMAKE_BUILD_TYPE=Debug \
             -DONNX_MLIR_TARGET_TO_BUILD=OMPyInfer .. && \
       cmake --build . --parallel ${NPROC} && \
-      cmake --build . --target OMTestOMPyInferPackage && \
       cd .. && rm -rf build-light; \
     fi
 
