@@ -25,6 +25,12 @@
 
 namespace onnx_mlir {
 
+// Global NNPA configuration object.
+static JsonConfigObject globalNNPAConfig;
+
+// Accessor function to get the global config object.
+JsonConfigObject &getGlobalNNPAConfig() { return globalNNPAConfig; }
+
 JsonConfigObject::JsonConfigObject()
     : jsonObject(std::make_unique<llvm::json::Object>()), filePath("") {}
 

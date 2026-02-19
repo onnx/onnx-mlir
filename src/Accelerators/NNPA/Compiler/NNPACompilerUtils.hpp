@@ -21,12 +21,6 @@
 
 namespace onnx_mlir {
 
-// Forward declaration.
-class JsonConfigObject;
-
-// Get the global NNPA configuration object.
-JsonConfigObject &getGlobalNNPAConfig();
-
 void addMemoryPooling(mlir::PassManager &pm);
 
 void addONNXToZHighPasses(mlir::PassManager &pm);

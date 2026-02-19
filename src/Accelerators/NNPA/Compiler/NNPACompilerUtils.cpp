@@ -49,12 +49,6 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-// Global JSON configuration object for NNPA.
-static JsonConfigObject globalNNPAConfig;
-
-// Accessor function to get the global config object.
-JsonConfigObject &getGlobalNNPAConfig() { return globalNNPAConfig; }
-
 void configurePassesNNPA() {
   // z16 does not support for hardware saturation.
   // So, force its usage to compiler generated sticks.
@@ -244,7 +238,7 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
     std::string outputNameNoExt) {
   // Load JSON configuration file if specified.
   if (!nnpaLoadConfigFile.empty()) {
-    if (!globalNNPAConfig.loadFromFile(nnpaLoadConfigFile)) {
+    if (!getGlobalNNPAConfig().loadFromFile(nnpaLoadConfigFile)) {
       llvm::errs() << "Warning: Failed to load NNPA config file: "
                    << nnpaLoadConfigFile << "\n";
       llvm::errs() << "Continuing with default configuration.\n";

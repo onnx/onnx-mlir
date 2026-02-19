@@ -123,6 +123,9 @@ private:
   std::string filePath;
 };
 
+/// Get the global NNPA configuration object.
+JsonConfigObject &getGlobalNNPAConfig();
+
 } // namespace onnx_mlir
 
 #endif // ONNX_MLIR_JSON_CONFIG_OBJECT_H
