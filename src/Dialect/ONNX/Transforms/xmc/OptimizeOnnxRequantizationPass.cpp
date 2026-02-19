@@ -7,293 +7,256 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
-
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 #include "src/Pass/Passes.hpp"
 
 using namespace mlir;
 
 namespace {
 
-/// Structure to hold quantization parameters for both per-tensor and
-/// per-channel
-struct QuantParams {
-  bool isPerChannel = false;
-  // Per-tensor params
-  double scale = 0.0;
-  int64_t zeroPoint = 0;
-  // Per-channel params
-  SmallVector<double> scales;
-  SmallVector<int64_t> zeroPoints;
-  int32_t quantizedDimension = 0;
-
-  bool operator==(const QuantParams &other) const {
-    if (isPerChannel != other.isPerChannel)
-      return false;
-    if (isPerChannel) {
-      if (quantizedDimension != other.quantizedDimension)
-        return false;
-      if (scales.size() != other.scales.size())
-        return false;
-      for (size_t i = 0; i < scales.size(); ++i) {
-        if (std::abs(scales[i] - other.scales[i]) > 1e-6)
-          return false;
-        if (zeroPoints[i] != other.zeroPoints[i])
-          return false;
-      }
-      return true;
-    }
-    return std::abs(scale - other.scale) < 1e-6 && zeroPoint == other.zeroPoint;
-  }
-
-  bool operator!=(const QuantParams &other) const { return !(*this == other); }
-};
-
-/// Extract quantization parameters from a quant.uniform type (per-tensor or
-/// per-channel)
-std::optional<QuantParams> getQuantParams(Type type) {
+/// Check if a type has a quantized element type
+bool isQuantizedType(Type type) {
   auto tensorType = dyn_cast<RankedTensorType>(type);
   if (!tensorType)
-    return std::nullopt;
-
-  Type elementType = tensorType.getElementType();
-
-  // Try per-tensor quantization first
-  if (auto quantType = dyn_cast<quant::UniformQuantizedType>(elementType)) {
-    QuantParams params;
-    params.isPerChannel = false;
-    params.scale = quantType.getScale();
-    params.zeroPoint = quantType.getZeroPoint();
-    return params;
-  }
-
-  // Try per-channel quantization
-  if (auto quantType =
-          dyn_cast<quant::UniformQuantizedPerAxisType>(elementType)) {
-    QuantParams params;
-    params.isPerChannel = true;
-    params.quantizedDimension = quantType.getQuantizedDimension();
-    params.scales.assign(
-        quantType.getScales().begin(), quantType.getScales().end());
-    params.zeroPoints.assign(
-        quantType.getZeroPoints().begin(), quantType.getZeroPoints().end());
-    return params;
-  }
-
-  return std::nullopt;
+    return false;
+  return isa<quant::QuantizedType>(tensorType.getElementType());
 }
 
-/// Create a new tensor type with updated quantization parameters (per-tensor)
-RankedTensorType updateQuantParamsPerTensor(RankedTensorType tensorType,
-    double newScale, int64_t newZeroPoint, MLIRContext * /*ctx*/) {
-  auto oldQuantType =
-      dyn_cast<quant::UniformQuantizedType>(tensorType.getElementType());
-  if (!oldQuantType)
-    return tensorType;
-
-  auto newQuantType = quant::UniformQuantizedType::get(oldQuantType.getFlags(),
-      oldQuantType.getStorageType(), oldQuantType.getExpressedType(), newScale,
-      newZeroPoint, oldQuantType.getStorageTypeMin(),
-      oldQuantType.getStorageTypeMax());
-
-  return RankedTensorType::get(tensorType.getShape(), newQuantType);
-}
-
-/// Create a new tensor type with updated quantization parameters (per-channel)
-RankedTensorType updateQuantParamsPerChannel(RankedTensorType tensorType,
-    ArrayRef<double> newScales, ArrayRef<int64_t> newZeroPoints,
-    int32_t quantizedDimension, MLIRContext * /*ctx*/) {
-  auto oldQuantType =
-      dyn_cast<quant::UniformQuantizedPerAxisType>(tensorType.getElementType());
-  if (!oldQuantType)
-    return tensorType;
-
-  auto newQuantType =
-      quant::UniformQuantizedPerAxisType::get(oldQuantType.getFlags(),
-          oldQuantType.getStorageType(), oldQuantType.getExpressedType(),
-          newScales, newZeroPoints, quantizedDimension,
-          oldQuantType.getStorageTypeMin(), oldQuantType.getStorageTypeMax());
-
-  return RankedTensorType::get(tensorType.getShape(), newQuantType);
-}
-
-/// Create a new tensor type with updated quantization parameters (unified)
-RankedTensorType updateQuantParams(RankedTensorType tensorType,
-    const QuantParams &newParams, MLIRContext *ctx) {
-  if (newParams.isPerChannel) {
-    return updateQuantParamsPerChannel(tensorType, newParams.scales,
-        newParams.zeroPoints, newParams.quantizedDimension, ctx);
-  }
-  return updateQuantParamsPerTensor(
-      tensorType, newParams.scale, newParams.zeroPoint, ctx);
-}
-
-/// Pattern for ONNX operations that don't change quantization semantics
-/// (e.g., Reshape, Transpose, Slice, DepthToSpace, SpaceToDepth)
+/// Pattern for Q(parent) -> DQ(parent) -> op -> Q(output) patterns
+/// Optimizes by updating only DQ(parent) to use Q(output)'s scale/zp.
+/// Q(parent) is left unchanged, preserving the original quantization.
+/// The DQ now dequantizes using the output's parameters, which means
+/// the data-movement op and Q(output) will use matching parameters.
+///
+/// Before: Q(s1,zp1) -> DQ(s1,zp1) -> Reshape -> Q(s2,zp2)
+/// After:  Q(s1,zp1) -> DQ(s2,zp2) -> Reshape -> Q(s2,zp2)
+///
+/// The DQ(s2,zp2) effectively performs the requantization: it interprets
+/// Q(parent)'s integer output using the new scale/zp, producing f32 values
+/// that when re-quantized by Q(output) with the same s2/zp2 yield the
+/// correct result.
 template <typename OpTy>
-struct OnnxRequantizationOptimizationPattern : public OpRewritePattern<OpTy> {
+struct OnnxQDQRequantizationOptimizationPattern
+    : public OpRewritePattern<OpTy> {
   using OpRewritePattern<OpTy>::OpRewritePattern;
-
   LogicalResult matchAndRewrite(
       OpTy op, PatternRewriter &rewriter) const override {
-    // Get input value - use getOperand(0) which works for all single-input ops
-
+    // Get input value from op (should be f32, not quantized)
     ::mlir::Value inputValue = op->getOperand(0);
 
-    // Get input and output types
-    auto inputType = dyn_cast<RankedTensorType>(inputValue.getType());
-    auto outputType = dyn_cast<RankedTensorType>(op.getResult().getType());
-
-    if (!inputType || !outputType)
-      return rewriter.notifyMatchFailure(op, "Not ranked tensor types");
-
-    // Extract quantization parameters (supports both per-tensor and
-    // per-channel)
-    auto inputQuant = getQuantParams(inputType);
-    auto outputQuant = getQuantParams(outputType);
-
-    if (!inputQuant || !outputQuant)
-      return rewriter.notifyMatchFailure(op, "Not quantized types");
-
-    // Check if quantization types are compatible (both per-tensor or both
-    // per-channel)
-    if (inputQuant->isPerChannel != outputQuant->isPerChannel)
+    // Verify op input is f32 (not quantized)
+    auto inputType =
+        ::mlir::dyn_cast<::mlir::RankedTensorType>(inputValue.getType());
+    if (!inputType)
+      return rewriter.notifyMatchFailure(op, "Op input not ranked tensor");
+    if (isQuantizedType(inputType))
       return rewriter.notifyMatchFailure(
-          op, "Incompatible quantization types (per-tensor vs per-channel)");
+          op, "Op input should be f32, not quantized");
+
+    // Trace backwards to find DQ operation
+    auto dqOpTyped = inputValue.getDefiningOp<::mlir::ONNXDequantizeLinearOp>();
+    if (!dqOpTyped)
+      return rewriter.notifyMatchFailure(op, "Input not from DequantizeLinear");
+    if (!inputValue.hasOneUse())
+      return rewriter.notifyMatchFailure(op, "DQ has multiple uses");
+
+    // Get DQ's quantized input
+    ::mlir::Value dqInput = dqOpTyped->getOperand(0);
+
+    // Trace forwards to find output Q operation
+    ::mlir::Value opResult = op.getResult();
+    auto outputType =
+        ::mlir::dyn_cast<::mlir::RankedTensorType>(opResult.getType());
+    if (!outputType)
+      return rewriter.notifyMatchFailure(op, "Op output not ranked tensor");
+    if (isQuantizedType(outputType))
+      return rewriter.notifyMatchFailure(
+          op, "Op output should be f32, not quantized");
+    if (!opResult.hasOneUse())
+      return rewriter.notifyMatchFailure(op, "Op result has multiple uses");
+
+    auto qOutputOpTyped = ::mlir::dyn_cast<::mlir::ONNXQuantizeLinearOp>(
+        *opResult.getUsers().begin());
+    if (!qOutputOpTyped)
+      return rewriter.notifyMatchFailure(
+          op, "Op output not consumed by QuantizeLinear");
+
+    // Get DQ(parent)'s and Q(output)'s scale/zp operands
+    ::mlir::Value dqScaleVal = dqOpTyped->getOperand(1);
+    ::mlir::Value dqZpVal = dqOpTyped->getOperand(2);
+    ::mlir::Value qOutputScaleVal = qOutputOpTyped->getOperand(1);
+    ::mlir::Value qOutputZpVal = qOutputOpTyped->getOperand(2);
 
     // Check if requantization is happening
-    if (*inputQuant == *outputQuant)
+    if (dqScaleVal == qOutputScaleVal && dqZpVal == qOutputZpVal)
       return rewriter.notifyMatchFailure(op, "No requantization detected");
 
-    // Get parent operation
-    Operation *parentOp = inputValue.getDefiningOp();
+    // Only modify DQ: recreate it with Q(output)'s scale/zp
+    // Q(parent) stays unchanged
+    auto dqOutputType =
+        ::mlir::dyn_cast<::mlir::RankedTensorType>(inputValue.getType());
+    if (!dqOutputType)
+      return rewriter.notifyMatchFailure(op, "DQ output not ranked tensor");
 
-    if (!parentOp)
-      return rewriter.notifyMatchFailure(op, "No parent operation");
+    auto newDQOp = rewriter.create<::mlir::ONNXDequantizeLinearOp>(
+        dqOpTyped->getLoc(), ::mlir::SmallVector<::mlir::Type>{dqOutputType},
+        ::mlir::SmallVector<::mlir::Value>{
+            dqInput, qOutputScaleVal, qOutputZpVal},
+        dqOpTyped->getAttrs());
 
-    // Check single use constraint
-    if (!inputValue.hasOneUse())
-      return rewriter.notifyMatchFailure(op, "Parent has multiple uses");
+    // Recreate the data-movement op with new DQ output
+    ::mlir::SmallVector<::mlir::Value> newOpOperands(op->getOperands());
+    newOpOperands[0] = newDQOp.getResult();
+    auto newOp = rewriter.create<OpTy>(op->getLoc(),
+        ::mlir::SmallVector<::mlir::Type>{outputType}, newOpOperands,
+        op->getAttrs());
 
-    // Update parent's output type to match current op's output quantization
-    // Note: inputType is already verified to be RankedTensorType above
-    auto newParentResultType =
-        updateQuantParams(inputType, *outputQuant, rewriter.getContext());
-    inputValue.setType(newParentResultType);
+    // Recreate Q(output) with the new op result (same scale/zp)
+    auto qOutputResultType = ::mlir::dyn_cast<::mlir::RankedTensorType>(
+        qOutputOpTyped->getResult(0).getType());
+    if (!qOutputResultType)
+      return rewriter.notifyMatchFailure(
+          op, "Q(output) result not ranked tensor");
 
-    // Recreate the operation with updated input type
-    SmallVector<Type> newResultTypes = {outputType};
-    SmallVector<Value> newOperands = op->getOperands();
+    auto newQOutputOp =
+        rewriter.create<::mlir::ONNXQuantizeLinearOp>(qOutputOpTyped->getLoc(),
+            ::mlir::SmallVector<::mlir::Type>{qOutputResultType},
+            ::mlir::SmallVector<::mlir::Value>{
+                newOp.getResult(), qOutputScaleVal, qOutputZpVal},
+            qOutputOpTyped->getAttrs());
 
-    auto newOp = rewriter.create<OpTy>(
-        op->getLoc(), newResultTypes, newOperands, op->getAttrs());
-
+    // Replace old operations (Q(parent) is NOT replaced)
+    rewriter.replaceOp(qOutputOpTyped, newQOutputOp);
     rewriter.replaceOp(op, newOp);
+    rewriter.replaceOp(dqOpTyped, newDQOp);
 
-    return success();
+    return ::mlir::success();
   }
 };
-
 /// Specialization for Concat operation (multiple inputs)
 template <>
-LogicalResult
-OnnxRequantizationOptimizationPattern<ONNXConcatOp>::matchAndRewrite(
-    ONNXConcatOp op, PatternRewriter &rewriter) const {
-  // Get output type
-  auto outputType = dyn_cast<RankedTensorType>(op.getResult().getType());
+::mlir::LogicalResult
+OnnxQDQRequantizationOptimizationPattern<::mlir::ONNXConcatOp>::matchAndRewrite(
+    ::mlir::ONNXConcatOp op, ::mlir::PatternRewriter &rewriter) const {
+  // Trace forwards to find output Q operation
+  ::mlir::Value opResult = op.getResult();
+
+  // Verify op output is f32 (not quantized)
+  auto outputType =
+      ::mlir::dyn_cast<::mlir::RankedTensorType>(opResult.getType());
   if (!outputType)
-    return rewriter.notifyMatchFailure(op, "Output not ranked tensor type");
+    return rewriter.notifyMatchFailure(op, "Op output not ranked tensor");
 
-  // Extract output quantization parameters (supports both per-tensor and
-  // per-channel)
-  auto outputQuant = getQuantParams(outputType);
-  if (!outputQuant)
-    return rewriter.notifyMatchFailure(op, "Output not quantized");
+  // Check that op output is NOT quantized (should be f32)
+  if (isQuantizedType(outputType))
+    return rewriter.notifyMatchFailure(
+        op, "Op output should be f32, not quantized");
 
-  // Check all inputs for requantization opportunities
-  bool hasRequantization = false;
-  SmallVector<Value> inputValues;
+  if (!opResult.hasOneUse())
+    return rewriter.notifyMatchFailure(op, "Op result has multiple uses");
 
-  for (auto input : op.getInputs()) {
-    inputValues.push_back(input);
+  ::mlir::Operation *qOutputOp = *opResult.getUsers().begin();
+  auto qOutputOpTyped =
+      ::mlir::dyn_cast<::mlir::ONNXQuantizeLinearOp>(qOutputOp);
+  if (!qOutputOpTyped)
+    return rewriter.notifyMatchFailure(
+        op, "Op output not consumed by QuantizeLinear");
 
-    auto inputType = dyn_cast<RankedTensorType>(input.getType());
-    if (!inputType)
-      continue;
+  // Get Q(output)'s operands for scale and zero_point
+  ::mlir::Value qOutputScaleVal = qOutputOpTyped->getOperand(1);
+  ::mlir::Value qOutputZpVal = qOutputOpTyped->getOperand(2);
 
-    auto inputQuant = getQuantParams(inputType);
-    if (!inputQuant)
-      continue;
-
-    // Skip incompatible quantization types
-    if (inputQuant->isPerChannel != outputQuant->isPerChannel)
-      continue;
-
-    // Check if requantization is happening
-    if (*inputQuant != *outputQuant) {
-      hasRequantization = true;
-      break;
-    }
-  }
-
-  if (!hasRequantization)
-    return rewriter.notifyMatchFailure(op, "No requantization detected");
-
-  // Process each input and update parent operations
+  // Process each input: only modify DQ, leave Q(parent) unchanged
   bool anyUpdated = false;
-  for (auto inputValue : inputValues) {
-    auto inputType = dyn_cast<RankedTensorType>(inputValue.getType());
-    if (!inputType)
-      continue;
+  ::mlir::SmallVector<::mlir::Value> newInputs;
 
-    auto inputQuant = getQuantParams(inputType);
-    if (!inputQuant)
+  for (auto inputValue : op.getInputs()) {
+    // Verify input is f32 (not quantized)
+    auto inputType =
+        ::mlir::dyn_cast<::mlir::RankedTensorType>(inputValue.getType());
+    if (!inputType || isQuantizedType(inputType)) {
+      newInputs.push_back(inputValue);
       continue;
+    }
 
-    // Skip incompatible quantization types
-    if (inputQuant->isPerChannel != outputQuant->isPerChannel)
+    // Trace backwards to find DQ operation
+    auto dqOpTyped = inputValue.getDefiningOp<::mlir::ONNXDequantizeLinearOp>();
+    if (!dqOpTyped || !inputValue.hasOneUse()) {
+      newInputs.push_back(inputValue);
       continue;
+    }
 
-    // Skip if already matches output quantization
-    if (*inputQuant == *outputQuant)
+    // Get DQ's scale/zp and compare with Q(output)'s
+    ::mlir::Value dqScaleVal = dqOpTyped->getOperand(1);
+    ::mlir::Value dqZpVal = dqOpTyped->getOperand(2);
+
+    // No requantization needed if DQ already uses the same params
+    if (dqScaleVal == qOutputScaleVal && dqZpVal == qOutputZpVal) {
+      newInputs.push_back(inputValue);
       continue;
+    }
 
-    // Get parent operation
-    Operation *parentOp = inputValue.getDefiningOp();
-    if (!parentOp)
+    // Get DQ's quantized input (from Q(parent) — left unchanged)
+    ::mlir::Value dqInput = dqOpTyped->getOperand(0);
+
+    // DQ output type remains f32
+    auto dqOutputType =
+        ::mlir::dyn_cast<::mlir::RankedTensorType>(inputValue.getType());
+    if (!dqOutputType) {
+      newInputs.push_back(inputValue);
       continue;
+    }
 
-    // Check single use constraint
-    if (!inputValue.hasOneUse())
-      continue;
+    // Recreate only DQ with Q(output)'s scale/zp; Q(parent) stays unchanged
+    auto newDQOp = rewriter.create<::mlir::ONNXDequantizeLinearOp>(
+        dqOpTyped->getLoc(), ::mlir::SmallVector<::mlir::Type>{dqOutputType},
+        ::mlir::SmallVector<::mlir::Value>{
+            dqInput, qOutputScaleVal, qOutputZpVal},
+        dqOpTyped->getAttrs());
 
-    auto parentResultType = dyn_cast<RankedTensorType>(inputValue.getType());
-    if (!parentResultType)
-      continue;
-
-    // Update parent's output type to match Concat's output quantization
-    auto newParentResultType = updateQuantParams(
-        parentResultType, *outputQuant, rewriter.getContext());
-    inputValue.setType(newParentResultType);
+    newInputs.push_back(newDQOp.getResult());
+    rewriter.replaceOp(dqOpTyped, newDQOp);
     anyUpdated = true;
   }
 
   if (!anyUpdated)
+    return rewriter.notifyMatchFailure(op, "No Q/DQ pairs could be updated");
+
+  // Recreate Concat with updated inputs
+  ::mlir::SmallVector<::mlir::Type> newResultTypes = {outputType};
+
+  auto newOp = rewriter.create<::mlir::ONNXConcatOp>(
+      op->getLoc(), newResultTypes, newInputs, op->getAttrs());
+
+  // Update Q(output) to use the new Concat result
+  // Keep Q(output)'s original output type (regular tensor, not quantized)
+  auto qOutputResultType = ::mlir::dyn_cast<::mlir::RankedTensorType>(
+      qOutputOpTyped->getResult(0).getType());
+  if (!qOutputResultType)
     return rewriter.notifyMatchFailure(
-        op, "No parent operations could be updated");
+        op, "Q(output) result not ranked tensor");
 
-  // Recreate Concat with updated input types
-  SmallVector<Type> newResultTypes = {outputType};
-  SmallVector<Value> newOperands(op.getInputs().begin(), op.getInputs().end());
+  // Check that Q(output) result is NOT quantized (should be regular tensor
+  // like ui8)
+  if (isQuantizedType(qOutputResultType))
+    return rewriter.notifyMatchFailure(
+        op, "Q(output) result should be regular tensor, not quantized");
 
-  auto newOp = rewriter.create<ONNXConcatOp>(
-      op->getLoc(), newResultTypes, newOperands, op->getAttrs());
+  ::mlir::SmallVector<::mlir::Type> newQOutputResultTypes = {qOutputResultType};
+  ::mlir::SmallVector<::mlir::Value> newQOutputOperands = {
+      newOp.getResult(), qOutputScaleVal, qOutputZpVal};
 
+  auto newQOutputOp = rewriter.create<::mlir::ONNXQuantizeLinearOp>(
+      qOutputOpTyped->getLoc(), newQOutputResultTypes, newQOutputOperands,
+      qOutputOpTyped->getAttrs());
+
+  // Replace old operations
+  rewriter.replaceOp(qOutputOpTyped, newQOutputOp);
   rewriter.replaceOp(op, newOp);
 
-  return success();
+  return ::mlir::success();
 }
-
 } // namespace
 
 namespace onnx_mlir {
@@ -313,18 +276,30 @@ struct OptimizeOnnxRequantizationPass
     MLIRContext *context = &getContext();
     RewritePatternSet patterns(context);
 
-    // Register patterns for Reshape, Transpose, Slice, and Concat
-    patterns.add<OnnxRequantizationOptimizationPattern<ONNXReshapeOp>>(context);
-    patterns.add<OnnxRequantizationOptimizationPattern<ONNXTransposeOp>>(
-        context);
-    patterns.add<OnnxRequantizationOptimizationPattern<ONNXSliceOp>>(context);
-    patterns.add<OnnxRequantizationOptimizationPattern<ONNXConcatOp>>(context);
-    patterns.add<OnnxRequantizationOptimizationPattern<ONNXDepthToSpaceOp>>(
-        context);
-    patterns.add<OnnxRequantizationOptimizationPattern<ONNXSpaceToDepthOp>>(
-        context);
+    patterns
+        .add<OnnxQDQRequantizationOptimizationPattern<::mlir::ONNXReshapeOp>>(
+            patterns.getContext());
+    patterns
+        .add<OnnxQDQRequantizationOptimizationPattern<::mlir::ONNXTransposeOp>>(
+            patterns.getContext());
+    patterns.add<OnnxQDQRequantizationOptimizationPattern<::mlir::ONNXSliceOp>>(
+        patterns.getContext());
+    patterns.add<
+        OnnxQDQRequantizationOptimizationPattern<::mlir::ONNXDepthToSpaceOp>>(
+        patterns.getContext());
+    patterns.add<
+        OnnxQDQRequantizationOptimizationPattern<::mlir::ONNXSpaceToDepthOp>>(
+        patterns.getContext());
+    patterns
+        .add<OnnxQDQRequantizationOptimizationPattern<::mlir::ONNXConcatOp>>(
+            patterns.getContext());
+    GreedyRewriteConfig config;
+    config.strictMode = GreedyRewriteStrictness::ExistingAndNewOps;
+    ResultNamesUpdater rnUpdater;
+    config.listener = &rnUpdater;
 
-    if (failed(applyPatternsGreedily(getOperation(), std::move(patterns))))
+    if (failed(
+            applyPatternsGreedily(getOperation(), std::move(patterns), config)))
       signalPassFailure();
   }
 };

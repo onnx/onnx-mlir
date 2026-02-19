@@ -14,6 +14,7 @@
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 #include "src/Pass/Passes.hpp"
 
 #include <cassert>
@@ -1127,7 +1128,11 @@ struct MergeStridedSliceConcatConvPass
     patterns.add<MergeStridedSliceConcatTransposeConv>(context);
     patterns.add<MergeStridedSliceConcatConvPureNCHW>(context);
 
-    if (failed(applyPatternsGreedily(getOperation(), std::move(patterns)))) {
+    ResultNamesUpdater rnUpdater;
+    GreedyRewriteConfig config;
+    config.listener = &rnUpdater;
+    if (failed(applyPatternsGreedily(
+            getOperation(), std::move(patterns), config))) {
       return signalPassFailure();
     }
   }

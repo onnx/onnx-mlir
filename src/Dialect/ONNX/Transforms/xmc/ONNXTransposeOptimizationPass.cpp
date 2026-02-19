@@ -11,6 +11,7 @@
 #include "ONNXTransposeOptimizationAxisChangePatterns.h"
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Quant/IR/Quant.h"
 #include "mlir/Dialect/Quant/IR/QuantTypes.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"
@@ -22,6 +23,7 @@
 
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 #include "src/Pass/Passes.hpp"
 
 #include "llvm/ADT/APInt.h"
@@ -809,6 +811,49 @@ struct PushTransposeThroughQDQ : public OpRewritePattern<QDQOp> {
 
     rewriter.replaceOpWithNewOp<ONNXTransposeOp>(
         op, op.getType(), newOp.getResult(), rewriter.getI64ArrayAttr(*perm));
+
+    return success();
+  }
+};
+
+//===----------------------------------------------------------------------===//
+// Pattern 4b: Push Transpose Through quant.scast
+// Rule: scast(transpose(x)) -> transpose(scast(x))
+// quant.scast is a pure type-cast (quantized <-> storage) that doesn't
+// change data layout, so transpose can be pushed through it.
+//===----------------------------------------------------------------------===//
+
+struct PushTransposeThroughSCast
+    : public OpRewritePattern<quant::StorageCastOp> {
+  using OpRewritePattern<quant::StorageCastOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      quant::StorageCastOp op, PatternRewriter &rewriter) const override {
+    auto transposeOp = op.getOperand().getDefiningOp<ONNXTransposeOp>();
+    if (!transposeOp)
+      return failure();
+
+    auto perm = getTransposePermutation(transposeOp);
+    if (!perm)
+      return failure();
+
+    auto outputType = mlir::cast<RankedTensorType>(op.getType());
+
+    // Compute the pre-transpose output shape
+    auto newOutputShape =
+        permuteShape(outputType.getShape(), inversePermutation(*perm));
+    auto newOutputType =
+        RankedTensorType::get(newOutputShape, outputType.getElementType());
+
+    LLVM_DEBUG(llvm::dbgs() << "Pushing transpose through quant.scast\n");
+
+    // Create scast before transpose: scast(transpose_input)
+    auto newSCast = rewriter.create<quant::StorageCastOp>(
+        op.getLoc(), newOutputType, transposeOp.getOperand());
+
+    // Create transpose after scast
+    rewriter.replaceOpWithNewOp<ONNXTransposeOp>(op, op.getType(),
+        newSCast.getResult(), rewriter.getI64ArrayAttr(*perm));
 
     return success();
   }
@@ -1775,6 +1820,7 @@ struct ONNXTransposeOptimizationPass
 
     patterns.add<PushTransposeThroughQDQ<ONNXQuantizeLinearOp>>(context);
     patterns.add<PushTransposeThroughQDQ<ONNXDequantizeLinearOp>>(context);
+    patterns.add<PushTransposeThroughSCast>(context);
     patterns.add<FoldConstDQTranspose>(context);
 
     patterns.add<FuseBinaryOpTransposes<ONNXAddOp>>(context);
@@ -1824,6 +1870,8 @@ struct ONNXTransposeOptimizationPass
     GreedyRewriteConfig config;
     config.maxIterations = maxIterations;
     config.useTopDownTraversal = true;
+    ResultNamesUpdater rnUpdater;
+    config.listener = &rnUpdater;
 
     if (failed(applyPatternsGreedily(function, std::move(patterns), config))) {
       LLVM_DEBUG(llvm::dbgs() << "Pattern application failed!\n");

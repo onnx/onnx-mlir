@@ -438,9 +438,9 @@ struct TransferOpShapeTo4dPass
 
     GreedyRewriteConfig config;
     config.strictMode = GreedyRewriteStrictness::ExistingAndNewOps;
-
     ResultNamesUpdater rnUpdater;
     config.listener = &rnUpdater;
+
     if (failed(applyPatternsGreedily(
             getOperation(), std::move(patterns), config))) {
       signalPassFailure();

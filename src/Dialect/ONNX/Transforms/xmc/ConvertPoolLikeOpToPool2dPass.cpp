@@ -14,6 +14,7 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/SmallVector.h"
@@ -716,6 +717,8 @@ struct LowerReduceToPoolPass
 
     GreedyRewriteConfig config;
     config.maxIterations = 3;
+    ResultNamesUpdater rnUpdater;
+    config.listener = &rnUpdater;
 
     if (failed(applyPatternsGreedily(
             getOperation(), std::move(patterns), config))) {

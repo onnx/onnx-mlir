@@ -22,4 +22,8 @@ LogicalResult XCOMPILERFusedEltwiseOpShapeInference(
 LogicalResult XCOMPILERDepthwiseConvOpShapeInference(
     Operation *op, std::function<void(Region &)> doShapeInference);
 
+// Shape inference for Requantize
+LogicalResult XCOMPILERRequantizeOpShapeInference(
+    Operation *op, std::function<void(Region &)> doShapeInference);
+
 } // namespace mlir

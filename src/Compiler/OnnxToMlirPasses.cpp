@@ -85,6 +85,8 @@ void addXmcMlirPasses(mlir::PassManager &pm, OnnxToMlirOptions opts) {
       onnx_mlir::createReplaceHsigmoidAndHswishPass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createConvertXFEConvToDepthwiseConvPass());
+  pm.addNestedPass<func::FuncOp>(
+      onnx_mlir::createConvertSCastPairToRequantizePass());
 }
 
 void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
