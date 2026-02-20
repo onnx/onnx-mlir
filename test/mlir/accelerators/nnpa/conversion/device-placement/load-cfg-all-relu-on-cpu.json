@@ -1,9 +1,15 @@
 {
-  "device_placement": [
+  "ops_config": [
     {
-      "device": "cpu",
-      "node_type": "onnx.Relu",
-      "onnx_node_name": ".*"
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "onnx_node_name": ".*"
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
     }
   ]
 }

@@ -102,7 +102,6 @@ add_onnx_mlir_library(OMNNPAQuantOpSelection
   )
 
 add_onnx_mlir_library(OMNNPAJSONConfig
-  JsonConfigFile.cpp
   JsonConfigObject.cpp
 
   LINK_LIBS PUBLIC

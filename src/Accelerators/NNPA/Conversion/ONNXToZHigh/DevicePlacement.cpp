@@ -33,7 +33,6 @@
 
 #include "src/Accelerators/NNPA/Compiler/NNPACompilerUtils.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/DevicePlacementHeuristic.hpp"
-#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/JsonConfigFile.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/JsonConfigObject.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHigh.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
@@ -171,12 +170,13 @@ void DevicePlacementPass::runOnOperation() {
   // Cost model and user configuration file go here if it's given.
   // Use the configObject pointer which points to either local or global config.
   if (configObject && !configObject->empty()) {
-    // Use the reusable applyConfigToOps method.
-    configObject->applyConfigToOps(ops, DEVICE_PLACEMENT_KEY,
-        [&](llvm::json::Object *jsonObj, mlir::Operation *op) {
-          StringRef device = jsonObj->getString(DEVICE_ATTRIBUTE).value();
-          op->setAttr(
-              DEVICE_ATTRIBUTE, StringAttr::get(module.getContext(), device));
+    // Apply unified format configuration with ops_config.
+    configObject->applyConfigToOps(ops,
+        [&](llvm::json::Object *rewriteObj, mlir::Operation *op) {
+          if (auto device = rewriteObj->getString("device")) {
+            op->setAttr(DEVICE_ATTRIBUTE,
+                StringAttr::get(module.getContext(), *device));
+          }
         });
   }
 
@@ -231,20 +231,31 @@ void DevicePlacementPass::runOnOperation() {
 
   // Create a JSON configuration file if required.
   if (!saveConfigFile.empty()) {
-    // Save device placement information to a json file by adding to the
-    // existing json file an json object of key DEVICE_PLACEMENT_KEY. Each value
-    // in the object is added a pair (DEVICE_ATTRIBUTE, value) that denotes the
-    // value of DEVICE_ATTRIBUTE in the operation.
-    NNPAJsonConfig saveCfg(DEVICE_PLACEMENT_KEY);
-    saveCfg.saveConfigToFile(
-        ops, saveConfigFile, [&](llvm::json::Object *jsonObj, Operation *op) {
-          std::string deviceStr =
-              op->getAttrOfType<mlir::StringAttr>(DEVICE_ATTRIBUTE)
-                  ? op->getAttrOfType<mlir::StringAttr>(DEVICE_ATTRIBUTE)
-                        .getValue()
-                        .str()
-                  : "";
-          jsonObj->insert({DEVICE_ATTRIBUTE, deviceStr});
+    configObject->writeOpsConfig(ops, saveConfigFile,
+        [&](mlir::Operation *op, llvm::json::Object &match,
+            llvm::json::Object &rewrite) -> bool {
+          auto deviceAttr = op->getAttrOfType<mlir::StringAttr>(DEVICE_ATTRIBUTE);
+          if (!deviceAttr)
+            return false;
+
+          std::string deviceStr = deviceAttr.getValue().str();
+          if (deviceStr.empty())
+            return false;
+
+          // Add node_type to match.
+          std::string nodeType = op->getName().getStringRef().str();
+          match["node_type"] = nodeType;
+
+          // Add onnx_node_name to match if present.
+          if (auto nodeNameAttr =
+                  op->getAttrOfType<mlir::StringAttr>("onnx_node_name")) {
+            match["onnx_node_name"] = nodeNameAttr.getValue().str();
+          }
+
+          // Add device to rewrite.
+          rewrite["device"] = deviceStr;
+
+          return true;
         });
   }
 }

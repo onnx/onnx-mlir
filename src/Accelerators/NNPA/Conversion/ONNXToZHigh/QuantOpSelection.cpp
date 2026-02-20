@@ -19,7 +19,6 @@
 #include "llvm/Support/JSON.h"
 
 #include "src/Accelerators/NNPA/Compiler/NNPACompilerUtils.hpp"
-#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/JsonConfigFile.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/JsonConfigObject.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -117,12 +116,13 @@ void QuantOpSelectionPass::runOnOperation() {
   // Cost model and user configuration file go here if it's given.
   // Use the configObject pointer which points to either local or global config.
   if (configObject && !configObject->empty()) {
-    // Use the reusable applyConfigToOps method.
-    configObject->applyConfigToOps(ops, QUANTIZATION_KEY,
-        [&](llvm::json::Object *jsonObj, mlir::Operation *op) {
-          bool quantize = jsonObj->getBoolean(QUANT_ATTRIBUTE).value();
-          op->setAttr(
-              QUANT_ATTRIBUTE, BoolAttr::get(module.getContext(), quantize));
+    // Apply unified format configuration with ops_config.
+    configObject->applyConfigToOps(ops,
+        [&](llvm::json::Object *rewriteObj, mlir::Operation *op) {
+          if (auto quantize = rewriteObj->getBoolean("quantize")) {
+            op->setAttr(QUANT_ATTRIBUTE,
+                BoolAttr::get(module.getContext(), *quantize));
+          }
         });
   }
 
@@ -136,16 +136,27 @@ void QuantOpSelectionPass::runOnOperation() {
 
   // Create a JSON configuration file if required.
   if (!saveConfigFile.empty()) {
-    // Save quantization information to a json file by adding to the existing
-    // json file an json object of key QUANTIZATION_KEY.
-    // Each value in the object is added a pair (QUANT_ATTRIBUTE, value) that
-    // denotes the value of QUANT_ATTRIBUTE in the operation.
-    NNPAJsonConfig cfg(QUANTIZATION_KEY);
-    cfg.saveConfigToFile(
-        ops, saveConfigFile, [&](llvm::json::Object *jsonObj, Operation *op) {
-          BoolAttr attr = op->getAttrOfType<mlir::BoolAttr>(QUANT_ATTRIBUTE);
-          if (attr)
-            jsonObj->insert({QUANT_ATTRIBUTE, attr.getValue()});
+    configObject->writeOpsConfig(ops, saveConfigFile,
+        [&](mlir::Operation *op, llvm::json::Object &match,
+            llvm::json::Object &rewrite) -> bool {
+          BoolAttr quantAttr = op->getAttrOfType<mlir::BoolAttr>(QUANT_ATTRIBUTE);
+          if (!quantAttr)
+            return false;
+
+          // Add node_type to match.
+          std::string nodeType = op->getName().getStringRef().str();
+          match["node_type"] = nodeType;
+
+          // Add onnx_node_name to match if present.
+          if (auto nodeNameAttr =
+                  op->getAttrOfType<mlir::StringAttr>("onnx_node_name")) {
+            match["onnx_node_name"] = nodeNameAttr.getValue().str();
+          }
+
+          // Add quantize to rewrite.
+          rewrite["quantize"] = quantAttr.getValue();
+
+          return true;
         });
   }
 }

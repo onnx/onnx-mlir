@@ -29,6 +29,37 @@ namespace onnx_mlir {
 
 /// A C++ object that stores JSON configuration data loaded from a file.
 /// Provides methods to load, access, modify, and save JSON data.
+///
+/// The JSON configuration uses a unified format with the following structure:
+/// @code{.json}
+/// {
+///   "ops_config": [
+///     {
+///       "pattern": {
+///         "match": {
+///           "node_type": "onnx.MatMul",
+///           "onnx_node_name": "MatMul_1"
+///         },
+///         "rewrite": {
+///           "device": "nnpa",
+///           "quantize": true
+///         }
+///       }
+///     }
+///   ]
+/// }
+/// @endcode
+///
+/// The "match" section specifies criteria for selecting operations:
+/// - "node_type": Operation type (supports regex patterns like "onnx.*")
+/// - "onnx_node_name": Optional operation name (supports regex patterns)
+///
+/// The "rewrite" section specifies attributes to apply to matched operations:
+/// - "device": Device placement ("cpu", "nnpa", or empty string)
+/// - "quantize": Boolean flag for quantization (true/false)
+///
+/// Multiple configurations can be specified in the "ops_config" array.
+/// Configurations are processed in order, and the first matching pattern wins.
 class JsonConfigObject {
 public:
   /// Constructor - creates an empty JSON config object.
@@ -65,14 +96,27 @@ public:
   /// @param indent Indentation size for pretty printing (default: 2)
   void dump(unsigned indent = 2) const;
 
-  /// Apply configuration from a JSON array to operations using a callback.
+  /// Apply configuration from unified format to operations using a callback.
+  /// This method handles the "ops_config" format where each config has
+  /// "pattern.matching" (criteria) and "pattern.rewrite" (attributes) sections.
   /// @param ops Array of operations to process
-  /// @param arrayKey The key of the JSON array containing configuration rules
   /// @param updateAttrFn Callback function to update operation attributes
+  ///                     with the rewrite object
   void applyConfigToOps(llvm::ArrayRef<mlir::Operation *> ops,
-      llvm::StringRef arrayKey,
       mlir::function_ref<void(llvm::json::Object *, mlir::Operation *)>
           updateAttrFn);
+
+  /// Write operations configuration to a JSON file in unified format.
+  /// @param ops Array of operations to save
+  /// @param filePath Path to the output JSON file
+  /// @param buildConfigFn Callback to build match and rewrite objects for each op
+  ///                      Returns true if the operation should be included
+  /// @return true if successful, false otherwise
+  bool writeOpsConfig(llvm::ArrayRef<mlir::Operation *> ops,
+      const std::string &filePath,
+      mlir::function_ref<bool(mlir::Operation *, llvm::json::Object &match,
+          llvm::json::Object &rewrite)>
+          buildConfigFn);
 
 private:
   /// The underlying JSON object.

@@ -20,7 +20,6 @@
 #include "llvm/Support/JSON.h"
 
 #include "src/Accelerators/NNPA/Compiler/NNPACompilerUtils.hpp"
-#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/JsonConfigFile.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/JsonConfigObject.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -90,32 +89,39 @@ void GenerateConfigFilePass::runOnOperation() {
   });
 
   if (!outputConfigFile.empty()) {
-    // Save device placement information to a json file by adding to the
-    // existing json file an json object of key DEVICE_PLACEMENT_KEY. Each value
-    // in the object is added a pair (DEVICE_ATTRIBUTE, value) that denotes the
-    // value of DEVICE_ATTRIBUTE in the operation.
-    NNPAJsonConfig deviceCfg(DEVICE_PLACEMENT_KEY);
-    deviceCfg.saveConfigToFile(
-        ops, outputConfigFile, [&](llvm::json::Object *jsonObj, Operation *op) {
-          std::string deviceStr =
-              op->getAttrOfType<mlir::StringAttr>(DEVICE_ATTRIBUTE)
-                  ? op->getAttrOfType<mlir::StringAttr>(DEVICE_ATTRIBUTE)
-                        .getValue()
-                        .str()
-                  : "";
-          jsonObj->insert({DEVICE_ATTRIBUTE, deviceStr});
-        });
+    JsonConfigObject configObj;
+    configObj.writeOpsConfig(ops, outputConfigFile,
+        [&](mlir::Operation *op, llvm::json::Object &match,
+            llvm::json::Object &rewrite) -> bool {
+          bool hasConfig = false;
 
-    // Save quantization information to a json file by adding to the existing
-    // json file an json object of key QUANTIZATION_KEY.
-    // Each value in the object is added a pair (QUANT_ATTRIBUTE, value) that
-    // denotes the value of QUANT_ATTRIBUTE in the operation.
-    NNPAJsonConfig quantCfg(QUANTIZATION_KEY);
-    quantCfg.saveConfigToFile(
-        ops, outputConfigFile, [&](llvm::json::Object *jsonObj, Operation *op) {
-          BoolAttr attr = op->getAttrOfType<mlir::BoolAttr>(QUANT_ATTRIBUTE);
-          if (attr)
-            jsonObj->insert({QUANT_ATTRIBUTE, attr.getValue()});
+          // Add node_type to match.
+          std::string nodeType = op->getName().getStringRef().str();
+          match["node_type"] = nodeType;
+
+          // Add onnx_node_name to match if present.
+          if (auto nodeNameAttr =
+                  op->getAttrOfType<mlir::StringAttr>("onnx_node_name")) {
+            match["onnx_node_name"] = nodeNameAttr.getValue().str();
+          }
+
+          // Add device to rewrite if present.
+          if (auto deviceAttr =
+                  op->getAttrOfType<mlir::StringAttr>(DEVICE_ATTRIBUTE)) {
+            std::string deviceStr = deviceAttr.getValue().str();
+            if (!deviceStr.empty()) {
+              rewrite["device"] = deviceStr;
+              hasConfig = true;
+            }
+          }
+
+          // Add quantize to rewrite if present.
+          if (auto quantAttr = op->getAttrOfType<mlir::BoolAttr>(QUANT_ATTRIBUTE)) {
+            rewrite["quantize"] = quantAttr.getValue();
+            hasConfig = true;
+          }
+
+          return hasConfig;
         });
   }
 }

@@ -1,19 +1,35 @@
 {
-  "device_placement": [
+  "ops_config": [
     {
-      "device": "cpu",
-      "node_type":"onnx.Sigmoid"
-    }
-  ],
-  "quantization": [
-    {
-      "quantize": true,
-      "node_type":"onnx.MatMul",
-      "onnx_node_name":"MatMul_1"
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Sigmoid"
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
     },
     {
-      "quantize": false,
-      "node_type":"onnx.MatMul"
+      "pattern": {
+        "match": {
+          "node_type": "onnx.MatMul",
+          "onnx_node_name": "MatMul_1"
+        },
+        "rewrite": {
+          "quantize": true
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.MatMul"
+        },
+        "rewrite": {
+          "quantize": false
+        }
+      }
     }
   ]
 }
