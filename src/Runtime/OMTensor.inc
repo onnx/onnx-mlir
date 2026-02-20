@@ -38,6 +38,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "onnx-mlir/Runtime/OMInstrument.h"
 #include "onnx-mlir/Runtime/OMTensor.h"
 
 #ifdef __cplusplus
@@ -590,8 +591,9 @@ static void printData(FILE *fout, const OMTensor *tensor) {
 
 /* Defined in OMInstrument.inc, return stdout or the FILE handle to where
  * instrumentation should be printed. Return 0 when we should not print
- * instrumentation. */
-FILE *getInstrumentFile(bool withPrintStartReport);
+ * instrumentation.
+ * FILE *getInstrumentFile(bool withPrintStartReport);
+ */
 
 /* Print a string and possibly some info about a tensor. With `%d`, we print the
 tensor data; with `s`, we print an extended signature; with `t`, we print the
@@ -610,9 +612,23 @@ void omTensorPrint(const char *msg, const OMTensor *tensor) {
   /* Check if this is an instrumentation print, in which case we use the
    * instrument file instead of stdout. */
   if (len >= 2 && msg[0] == '%' && msg[1] == 'i') {
+#ifndef __cplusplus
+    // When not embedded in the Cruntime statically linked with the model, we
+    // don't have access to the getInstrumentFile version that uses the proper
+    // local state. And the user should never make calls that uses the %i
+    // interface to begin with, as it is reserved for profiling info generated
+    // by the compiler in the .so. So we are using the fact here that we only
+    // compile in C for what is linked with the model, and in C++ for what is
+    // part of the runtime not linked with the model. Alternatively, I could use
+    // weak links so that a default weak implementation would returns fout, and
+    // the strong (C version) comes from the instrumentation library.
+
+    // Alternatively, we could use a flag that indicates: compile for support of
+    // the model vs of the exec runtime.
     fout = getInstrumentFile(
         /*Will print here, force print of start buffer*/ true);
     assert(fout && "expected a file handle");
+#endif
     /* Skip format. */
     msg += 2;
     len -= 2;
