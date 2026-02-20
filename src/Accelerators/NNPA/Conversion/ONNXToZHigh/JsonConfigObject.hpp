@@ -130,9 +130,9 @@ public:
   static constexpr const char *QUANTIZE_KEY = "quantize";
 
   // Attributes in the operations.
-  static constexpr const char* ONNX_NODE_NAME_ATTR = ONNX_NODE_NAME_KEY;
-  static constexpr const char* DEVICE_ATTR = DEVICE_KEY;
-  static constexpr const char* QUANTIZE_ATTR = QUANTIZE_KEY;
+  static constexpr const char *ONNX_NODE_NAME_ATTR = ONNX_NODE_NAME_KEY;
+  static constexpr const char *DEVICE_ATTR = DEVICE_KEY;
+  static constexpr const char *QUANTIZE_ATTR = QUANTIZE_KEY;
 
 private:
   /// The underlying JSON object.
