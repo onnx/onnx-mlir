@@ -69,5 +69,17 @@ def BufferOMPLoopHoistingPass : Pass<"buffer-omploop-hoisting", "func::FuncOp"> 
   }];
 }
 
+def ConvertAttrToDiscardable : Pass<"convert-attr-to-discardable"> {
+  let summary = "Convert attributes to discardable form";
+  let description = [{
+    This pass converts specified attributes to discardable form by
+    prefixing them with '_.', based on the provided attribute names.
+  }];
+
+  let options = [
+    ListOption<"attrNames", "attr-names", "std::string",
+               "List of attribute names to mark as discardable">
+  ];
+}
 
 #endif

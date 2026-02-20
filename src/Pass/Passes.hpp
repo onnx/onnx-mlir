@@ -155,6 +155,10 @@ std::unique_ptr<mlir::Pass> createConvertONNXToLinalg(
 #define GEN_PASS_DECL_BUFFEROMPLOOPHOISTINGPASS
 #include "src/Transform/Passes.h.inc"
 
+/// Pass for converting attributes to discardable form.
+#define GEN_PASS_DECL_CONVERTATTRTODISCARDABLE
+#include "src/Transform/Passes.h.inc"
+
 // The function registerTransformsPasses() is generated from Passes.td and used
 // to register th pass for onnx-mlir-opt. Different Passes.td will generate the
 // same name function. They have to be put into different name space to be
