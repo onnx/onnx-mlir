@@ -30,7 +30,7 @@ namespace onnx_mlir {
 /// A C++ object that stores JSON configuration data loaded from a file.
 /// Provides methods to load, access, modify, and save JSON data.
 ///
-/// The JSON configuration uses a unified format with the following structure:
+/// The JSON configuration uses a format with the following structure:
 /// @code{.json}
 /// {
 ///   "ops_config": [
@@ -96,7 +96,7 @@ public:
   /// @param indent Indentation size for pretty printing (default: 2)
   void dump(unsigned indent = 2) const;
 
-  /// Apply configuration from unified format to operations using a callback.
+  /// Apply configuration from a json file to operations using a callback.
   /// This method handles the "ops_config" format where each config has
   /// "pattern.matching" (criteria) and "pattern.rewrite" (attributes) sections.
   /// @param ops Array of operations to process
@@ -106,7 +106,7 @@ public:
       mlir::function_ref<void(llvm::json::Object *, mlir::Operation *)>
           updateAttrFn);
 
-  /// Write operations configuration to a JSON file in unified format.
+  /// Write operations configuration to a JSON file.
   /// @param ops Array of operations to save
   /// @param filePath Path to the output JSON file
   /// @param buildConfigFn Callback to build match and rewrite objects for each
@@ -119,7 +119,7 @@ public:
           llvm::json::Object &rewrite)>
           buildConfigFn);
 
-  // JSON key constants for the unified configuration format.
+  // JSON key constants for configuration.
   static constexpr const char *OPS_CONFIG_KEY = "ops_config";
   static constexpr const char *PATTERN_KEY = "pattern";
   static constexpr const char *MATCH_KEY = "match";
@@ -128,6 +128,11 @@ public:
   static constexpr const char *ONNX_NODE_NAME_KEY = "onnx_node_name";
   static constexpr const char *DEVICE_KEY = "device";
   static constexpr const char *QUANTIZE_KEY = "quantize";
+
+  // Attributes in the operations.
+  static constexpr const char* ONNX_NODE_NAME_ATTR = ONNX_NODE_NAME_KEY;
+  static constexpr const char* DEVICE_ATTR = DEVICE_KEY;
+  static constexpr const char* QUANTIZE_ATTR = QUANTIZE_KEY;
 
 private:
   /// The underlying JSON object.

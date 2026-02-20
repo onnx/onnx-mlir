@@ -18,9 +18,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/JSON.h"
 
-#include "src/Accelerators/NNPA/Compiler/NNPACompilerUtils.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/JsonConfigObject.hpp"
-#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
 
@@ -113,13 +111,13 @@ void QuantOpSelectionPass::runOnOperation() {
   // Cost model and user configuration file go here if it's given.
   // Use the configObject pointer which points to either local or global config.
   if (configObject && !configObject->empty()) {
-    // Apply unified format configuration with ops_config.
+    // Apply configuration with ops_config.
     configObject->applyConfigToOps(
         ops, [&](llvm::json::Object *rewriteObj, mlir::Operation *op) {
           if (auto quantize =
                   rewriteObj->getBoolean(JsonConfigObject::QUANTIZE_KEY)) {
-            op->setAttr(
-                QUANT_ATTRIBUTE, BoolAttr::get(module.getContext(), *quantize));
+            op->setAttr(JsonConfigObject::QUANTIZE_ATTR,
+                BoolAttr::get(module.getContext(), *quantize));
           }
         });
   }
@@ -137,8 +135,8 @@ void QuantOpSelectionPass::runOnOperation() {
     configObject->writeOpsConfig(ops, saveConfigFile,
         [&](mlir::Operation *op, llvm::json::Object &match,
             llvm::json::Object &rewrite) -> bool {
-          BoolAttr quantAttr =
-              op->getAttrOfType<mlir::BoolAttr>(QUANT_ATTRIBUTE);
+          BoolAttr quantAttr = op->getAttrOfType<mlir::BoolAttr>(
+              JsonConfigObject::QUANTIZE_ATTR);
           if (!quantAttr)
             return false;
           // Add quantize to rewrite.

@@ -94,7 +94,6 @@ add_onnx_mlir_library(OMNNPAQuantOpSelection
 
   LINK_LIBS PUBLIC
   OMONNXOps
-  OMONNXToZHigh
   OMNNPAJSONConfig
 
   ACCEL_INCLUDE_DIRS PRIVATE

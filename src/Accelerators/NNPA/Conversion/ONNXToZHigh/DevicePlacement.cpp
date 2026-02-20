@@ -167,12 +167,12 @@ void DevicePlacementPass::runOnOperation() {
   // Cost model and user configuration file go here if it's given.
   // Use the configObject pointer which points to either local or global config.
   if (configObject && !configObject->empty()) {
-    // Apply unified format configuration with ops_config.
+    // Apply configuration with ops_config.
     configObject->applyConfigToOps(ops, [&](llvm::json::Object *rewriteObj,
                                             mlir::Operation *op) {
       if (auto device = rewriteObj->getString(JsonConfigObject::DEVICE_KEY)) {
-        op->setAttr(
-            DEVICE_ATTRIBUTE, StringAttr::get(module.getContext(), *device));
+        op->setAttr(JsonConfigObject::DEVICE_ATTR,
+            StringAttr::get(module.getContext(), *device));
       }
     });
   }
@@ -231,8 +231,8 @@ void DevicePlacementPass::runOnOperation() {
     configObject->writeOpsConfig(ops, saveConfigFile,
         [&](mlir::Operation *op, llvm::json::Object &match,
             llvm::json::Object &rewrite) -> bool {
-          auto deviceAttr =
-              op->getAttrOfType<mlir::StringAttr>(DEVICE_ATTRIBUTE);
+          auto deviceAttr = op->getAttrOfType<mlir::StringAttr>(
+              JsonConfigObject::DEVICE_ATTR);
           if (!deviceAttr)
             return false;
           std::string deviceStr = deviceAttr.getValue().str();

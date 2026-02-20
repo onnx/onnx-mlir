@@ -13,14 +13,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/JsonConfigObject.hpp"
-
 #include <regex>
 
 #include "mlir/IR/BuiltinAttributes.h"
 #include "llvm/ADT/SetOperations.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
+
+#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/JsonConfigObject.hpp"
 
 namespace onnx_mlir {
 
@@ -163,8 +163,8 @@ void JsonConfigObject::applyConfigToOps(llvm::ArrayRef<mlir::Operation *> ops,
       // Match node name if specified.
       if (nodeName.has_value()) {
         llvm::StringRef opNodeName =
-            op->getAttrOfType<mlir::StringAttr>("onnx_node_name")
-                ? op->getAttrOfType<mlir::StringAttr>("onnx_node_name")
+            op->getAttrOfType<mlir::StringAttr>(ONNX_NODE_NAME_ATTR)
+                ? op->getAttrOfType<mlir::StringAttr>(ONNX_NODE_NAME_ATTR)
                       .getValue()
                 : "";
         if (!std::regex_match(opNodeName.str(), std::regex(nodeName->str())))
@@ -203,7 +203,7 @@ bool JsonConfigObject::writeOpsConfig(llvm::ArrayRef<mlir::Operation *> ops,
 
     // Add onnx_node_name to match if present.
     if (auto nodeNameAttr =
-            op->getAttrOfType<mlir::StringAttr>("onnx_node_name")) {
+            op->getAttrOfType<mlir::StringAttr>(ONNX_NODE_NAME_ATTR)) {
       match[JsonConfigObject::ONNX_NODE_NAME_KEY] =
           nodeNameAttr.getValue().str();
     }
