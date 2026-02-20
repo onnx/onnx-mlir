@@ -51,36 +51,15 @@ class InstrumentPass : public impl::InstrumentPassBase<InstrumentPass> {
 public:
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(InstrumentPass)
 
-  Option<std::string> instrumentOps{*this, "instrument-ops",
-      llvm::cl::desc("Specify regex for ops to be instrumented:\n"
-                     "\"NONE\" or \"\" for no instrument,\n"
-                     "\"regex1,regex2, ...\" for the specified ops.\n"
-                     "e.g. \"onnx.,zhigh.\" for onnx and zhigh ops.\n"
-                     "e.g. \"onnx.Conv\" for onnx Conv ops.\n"),
-      llvm::cl::init("")};
-
-  Option<bool> instrumentBefore{*this, "instrument-before",
-      llvm::cl::desc("insert instrument before op"), llvm::cl::init(false)};
-
-  Option<bool> instrumentAfter{*this, "instrument-after",
-      llvm::cl::desc("insert instrument after op"), llvm::cl::init(false)};
-
-  Option<bool> reportTime{*this, "report-time",
-      llvm::cl::desc("instrument runtime reports time usage"),
-      llvm::cl::init(false)};
-
-  Option<bool> reportMemory{*this, "report-memory",
-      llvm::cl::desc("instrument runtime reports memory usage"),
-      llvm::cl::init(false)};
-
   InstrumentPass() : allowedOps(/*emptyIsNone*/ true){};
   InstrumentPass(const InstrumentPass &pass)
       : impl::InstrumentPassBase<InstrumentPass>(),
         allowedOps(/*emptyIsNone*/ true) {}
-  InstrumentPass(const std::string &ops, unsigned actions)
-      : allowedOps(/*emptyIsNone*/ true) {
-    this->instrumentOps = ops;
-    unsigned long long tag = actions;
+  InstrumentPass(const InstrumentPassOptions &options)
+      : impl::InstrumentPassBase<InstrumentPass>(options),
+        allowedOps(/*emptyIsNone*/ true) {
+    this->instrumentOps = options.instrumentOps;
+    unsigned long long tag = options.actions;
     this->instrumentBefore = IS_INSTRUMENT_BEFORE_OP(tag);
     this->instrumentAfter = IS_INSTRUMENT_AFTER_OP(tag);
     this->reportTime = IS_INSTRUMENT_REPORT_TIME(tag);
@@ -91,10 +70,6 @@ private:
   EnableByRegexOption allowedOps;
 
 public:
-  StringRef getArgument() const override { return "instrument"; }
-
-  StringRef getDescription() const override { return "instrument on ops."; }
-
   // merge all action options into a bitset
   // used to create tags for instrumentation ops
   uint64_t actions() const {
@@ -179,21 +154,4 @@ public:
     });
   }
 };
-} // namespace onnx_mlir
-
-/*!
- * Create an instrumentation pass.
- */
-namespace onnx_mlir {
-// Below is defined by GEN_PASS_DEF in onnx_mlir namespace
-/*
-std::unique_ptr<mlir::Pass> createInstrument() {
-  return std::make_unique<InstrumentPass>();
-}
-*/
-
-std::unique_ptr<mlir::Pass> createInstrumentPass(
-    const std::string &ops, unsigned actions) {
-  return std::make_unique<InstrumentPass>(ops, actions);
-}
 } // namespace onnx_mlir
