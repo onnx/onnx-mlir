@@ -98,6 +98,7 @@ std::vector<std::string> reportHeapBefore; // onnx-mlir only
 std::vector<std::string> reportHeapAfter;  // onnx-mlir only
 std::string modelTag;                      // onnx-mlir only
 bool enableConvOptPass;                    // onnx-mlir only
+bool enableXMCPasses;                      // onnx-mlir only
 bool disableConstantProp;                  // onnx-mlir only
 std::vector<std::string> extraLibPaths;    // onnx-mlir only
 std::vector<std::string> extraLibs;        // onnx-mlir only
@@ -771,6 +772,11 @@ static llvm::cl::opt<std::string, true> modelTagOpt("tag",
 static llvm::cl::opt<bool, true> enableConvOptPassOpt("enable-conv-opt-pass",
     llvm::cl::desc("Enable the ConvOptPass. Default is true."),
     llvm::cl::location(enableConvOptPass), llvm::cl::init(true),
+    llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<bool, true> enableXMCPassesOpt("enable-xmc-passes",
+    llvm::cl::desc("Enable XMC xcompiler passes. Default is false."),
+    llvm::cl::location(enableXMCPasses), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<bool, true> disableConstantPropOpt("disable-constant-prop",

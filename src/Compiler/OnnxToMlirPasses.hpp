@@ -6,6 +6,7 @@
 
 namespace mlir {
 class ModuleOp;
+class OpPassManager;
 class PassManager;
 } // namespace mlir
 
@@ -43,7 +44,7 @@ struct OnnxToMlirOptions {
 void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
     bool donotScrubDisposableElementsAttr = false, OnnxToMlirOptions opts = {});
 
-void addXmcMlirPasses(mlir::PassManager &pm, OnnxToMlirOptions opts = {});
+void addXmcMlirPasses(mlir::OpPassManager &pm, OnnxToMlirOptions opts = {});
 } // namespace onnx_mlir
 
 #endif
