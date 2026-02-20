@@ -123,6 +123,10 @@ def compile_model(model, emit):
         command_list.append("--mtriple=" + args.mtriple)
     if args.maccel:
         command_list.append("--maccel=" + args.maccel)
+        # We need to disable NNPA cost/benefit model in backend tests because of
+        # the very small data sizes used. Add it here so that any compilation
+        # targeting NNPA disable it
+        command_list.append("--nnpa-placement-heuristic=QualifyingOps")
     if args.input_verification:
         command_list.append("--verifyInputTensors=")
     if args.converter or name in variables.test_need_converter:

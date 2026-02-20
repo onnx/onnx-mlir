@@ -81,16 +81,21 @@ void processDim(Value oper, int64_t &e4, int64_t &e3, int64_t &e2, int64_t &e1,
     LLVM_DEBUG(msg += " E4+: assume size 1 for dynamic dims.");
   }
   if (e3 == ShapedType::kDynamic) {
-    e3 = 1; // Assume small.
-    LLVM_DEBUG(msg += " E3=1: dyn, assume size 1.");
+    if (operRank > 3) {
+      e3 = 128; // not outermost rank, assume 128.
+      LLVM_DEBUG(msg += " E3=1: dyn, assume size 128.");
+    } else {
+      e3 = 1; // Assume small.
+      LLVM_DEBUG(msg += " E3=1: dyn, assume size 1.");
+    }
   }
   if (e2 == ShapedType::kDynamic) {
-    e2 = 32; // Assume full.
-    LLVM_DEBUG(msg += " E2=32: dyn, assume full tile.");
+    e2 = 128; // Assume full.
+    LLVM_DEBUG(msg += " E2=32: dyn, assume 4x full tile.");
   }
   if (e1 == ShapedType::kDynamic) {
-    e1 = 64; // Assume full.
-    LLVM_DEBUG(msg += " E1=64: dyn, assume full tile.");
+    e1 = 128; // Assume full.
+    LLVM_DEBUG(msg += " E1=64: dyn, assume 2x full tile.");
   }
 }
 
@@ -150,15 +155,34 @@ void estimateTimeForMatMulOp(Operation *op, Value a, Value b, bool aTransposed,
   LLVM_DEBUG(msg = "");
   // Assume the broadcast B dim of the matmul will be small.
   if (aBDynamic) {
-    LLVM_DEBUG(msg += " B+ for input A: assume size 1 for dynamic dims.");
+    if (aRank > 3) {
+      aB *= 128;
+      LLVM_DEBUG(
+          msg +=
+          " B+ for input A: assume size 128 for dynamic dims with rank>3.");
+    } else {
+      LLVM_DEBUG(msg += " B+ for input A: assume size 1 for dynamic dims.");
+    }
   }
   if (bBDynamic) {
-    LLVM_DEBUG(msg += " B+ for input B: assume size 1 for dynamic dims.");
+    if (bRank > 3) {
+      bB *= 128;
+      LLVM_DEBUG(
+          msg +=
+          " B+ for input B: assume size 128 for dynamic dims with rank>3.");
+    } else {
+      LLVM_DEBUG(msg += " B+ for input B: assume size 1 for dynamic dims.");
+    }
   }
   if (N == ShapedType::kDynamic) {
-    // Assume the N dim of the matmul will be small.
-    N = 1;
-    LLVM_DEBUG(msg += " N=1: empty because dyn.");
+    // Assume the N dim of the matmul will be small, unless its a rank3+ vector.
+    if (aRank > 2) {
+      N = 128;
+      LLVM_DEBUG(msg += " N=128: because dyn (rank>2).");
+    } else {
+      N = 1;
+      LLVM_DEBUG(msg += " N=1: empty because dyn.");
+    }
   }
   if (M == ShapedType::kDynamic) {
     // Assume the dynamic lower dim of the matmul will be large enough.
@@ -213,10 +237,10 @@ void estimateTimeForMatMulOp(Operation *op, Value a, Value b, bool aTransposed,
     nnpaEstimatedTime = estimatedTimeForNNPA_MatMul_3ds(B, N, M, K);
     cpuEstimatedTime = estimatedTimeForCPU_MatMul_3ds(B, N, M, K);
     LLVM_DEBUG(llvm::dbgs()
-               << "  Estimated times for op " << op->getName() << " with dim ("
-               << B << ", " << N << ", " << M << ", " << K << "): nnpa "
-               << nnpaEstimatedTime << ", cpu " << cpuEstimatedTime << "."
-               << msg.c_str() << "\n");
+               << "  Estimated times for matmul op " << op->getName()
+               << " with dim (" << B << ", " << N << ", " << M << ", " << K
+               << "): nnpa " << nnpaEstimatedTime << ", cpu "
+               << cpuEstimatedTime << "." << msg.c_str() << "\n");
 
     return;
   }
@@ -325,6 +349,15 @@ void estimateTimeForOp<ONNXGeluOp>(ONNXGeluOp op,
 }
 
 template <>
+void estimateTimeForOp<ONNXLeakyReluOp>(ONNXLeakyReluOp op,
+    const DimAnalysis *dimAnalysis, double &cpuEstimatedTime,
+    double &nnpaEstimatedTime) {
+  estimateTimeForElementwiseOp(op.getOperation(), op.getOperand(), dimAnalysis,
+      estimatedTimeForCPU_LeakyRelu_3ds, estimatedTimeForNNPA_LeakyRelu_3ds,
+      cpuEstimatedTime, nnpaEstimatedTime);
+}
+
+template <>
 void estimateTimeForOp<ONNXLogOp>(ONNXLogOp op, const DimAnalysis *dimAnalysis,
     double &cpuEstimatedTime, double &nnpaEstimatedTime) {
   estimateTimeForElementwiseOp(op.getOperation(), op.getOperand(), dimAnalysis,
@@ -356,6 +389,15 @@ void estimateTimeForOp<ONNXSoftmaxOp>(ONNXSoftmaxOp op,
     double &nnpaEstimatedTime) {
   estimateTimeForElementwiseOp(op.getOperation(), op.getOperand(), dimAnalysis,
       estimatedTimeForCPU_Softmax_3ds, estimatedTimeForNNPA_Softmax_3ds,
+      cpuEstimatedTime, nnpaEstimatedTime);
+}
+
+template <>
+void estimateTimeForOp<ONNXSqrtOp>(ONNXSqrtOp op,
+    const DimAnalysis *dimAnalysis, double &cpuEstimatedTime,
+    double &nnpaEstimatedTime) {
+  estimateTimeForElementwiseOp(op.getOperation(), op.getOperand(), dimAnalysis,
+      estimatedTimeForCPU_Sqrt_3ds, estimatedTimeForNNPA_Sqrt_3ds,
       cpuEstimatedTime, nnpaEstimatedTime);
 }
 
@@ -464,6 +506,9 @@ bool estimateTimeForOpWithModel(Operation *op, const DimAnalysis *dimAnalysis,
     estimateTimeForOp(expOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
   else if (auto geluOp = mlir::dyn_cast<ONNXGeluOp>(op))
     estimateTimeForOp(geluOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
+  else if (auto leakyReluOp = mlir::dyn_cast<ONNXLeakyReluOp>(op))
+    estimateTimeForOp(
+        leakyReluOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
   else if (auto logOp = mlir::dyn_cast<ONNXLogOp>(op))
     estimateTimeForOp(logOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
   else if (auto reluOp = mlir::dyn_cast<ONNXReluOp>(op))
@@ -474,6 +519,8 @@ bool estimateTimeForOpWithModel(Operation *op, const DimAnalysis *dimAnalysis,
   else if (auto softmaxOp = mlir::dyn_cast<ONNXSoftmaxOp>(op))
     estimateTimeForOp(
         softmaxOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
+  else if (auto sqrtOp = mlir::dyn_cast<ONNXSqrtOp>(op))
+    estimateTimeForOp(sqrtOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
   else if (auto tanhOp = mlir::dyn_cast<ONNXTanhOp>(op))
     estimateTimeForOp(tanhOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
   // Reduce

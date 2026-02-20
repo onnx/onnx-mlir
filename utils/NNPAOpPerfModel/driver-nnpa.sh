@@ -129,45 +129,46 @@ fi
 # NNPA
 if  [ -z "${skipNNPA}" ]
 then
+    nnpa_options="-maccel=NNPA -profile-ir=ZHigh -nnpa-placement-heuristic=QualifyingOps"
     if [ "${name}" == "matmul_bcast23" ]
     then
         #matmul with bcast23
         # skip the e2=256
-        run_matmul3d_experiment "-O3 ${arch} -maccel=NNPA -profile-ir=ZHigh" "16"  "32" "1"
-        run_matmul3d_experiment "-O3 ${arch} -maccel=NNPA -profile-ir=ZHigh" "16"  "64" "1"
-        run_matmul3d_experiment "-O3 ${arch} -maccel=NNPA -profile-ir=ZHigh" "16"  "128" "1"
-        run_matmul3d_experiment "-O3 ${arch} -maccel=NNPA -profile-ir=ZHigh" "32"  "32" "1"
-        run_matmul3d_experiment "-O3 ${arch} -maccel=NNPA -profile-ir=ZHigh" "32"  "64" "1"
-        run_matmul3d_experiment "-O3 ${arch} -maccel=NNPA -profile-ir=ZHigh" "32"  "128" "1"
-        run_matmul3d_experiment "-O3 ${arch} -maccel=NNPA -profile-ir=ZHigh" "64"  "32" "1"
-        run_matmul3d_experiment "-O3 ${arch} -maccel=NNPA -profile-ir=ZHigh" "64"  "64" "1"
-        run_matmul3d_experiment "-O3 ${arch} -maccel=NNPA -profile-ir=ZHigh" "64"  "128" "1"
+        run_matmul3d_experiment "-O3 ${arch} $nnpa_options" "16"  "32" "1"
+        run_matmul3d_experiment "-O3 ${arch} $nnpa_options" "16"  "64" "1"
+        run_matmul3d_experiment "-O3 ${arch} $nnpa_options" "16"  "128" "1"
+        run_matmul3d_experiment "-O3 ${arch} $nnpa_options" "32"  "32" "1"
+        run_matmul3d_experiment "-O3 ${arch} $nnpa_options" "32"  "64" "1"
+        run_matmul3d_experiment "-O3 ${arch} $nnpa_options" "32"  "128" "1"
+        run_matmul3d_experiment "-O3 ${arch} $nnpa_options" "64"  "32" "1"
+        run_matmul3d_experiment "-O3 ${arch} $nnpa_options" "64"  "64" "1"
+        run_matmul3d_experiment "-O3 ${arch} $nnpa_options" "64"  "128" "1"
     elif [ "${name}" == "matmul_3d" ]
     then
         # stacked matmul
-        run_matmul3d_experiment "-O3 ${arch} -maccel=NNPA -profile-ir=ZHigh" "16"  "32" "0"
-        run_matmul3d_experiment "-O3 ${arch} -maccel=NNPA -profile-ir=ZHigh" "16"  "64" "0"
-        run_matmul3d_experiment "-O3 ${arch} -maccel=NNPA -profile-ir=ZHigh" "16"  "128" "0"
-        run_matmul3d_experiment "-O3 ${arch} -maccel=NNPA -profile-ir=ZHigh" "32"  "32" "0"
-        run_matmul3d_experiment "-O3 ${arch} -maccel=NNPA -profile-ir=ZHigh" "32"  "64" "0"
-        run_matmul3d_experiment "-O3 ${arch} -maccel=NNPA -profile-ir=ZHigh" "32"  "128" "0"
-        run_matmul3d_experiment "-O3 ${arch} -maccel=NNPA -profile-ir=ZHigh" "64"  "32" "0"
-        run_matmul3d_experiment "-O3 ${arch} -maccel=NNPA -profile-ir=ZHigh" "64"  "64" "0"
-        run_matmul3d_experiment "-O3 ${arch} -maccel=NNPA -profile-ir=ZHigh" "64"  "128" "0"
+        run_matmul3d_experiment "-O3 ${arch} $nnpa_options" "16"  "32" "0"
+        run_matmul3d_experiment "-O3 ${arch} $nnpa_options" "16"  "64" "0"
+        run_matmul3d_experiment "-O3 ${arch} $nnpa_options" "16"  "128" "0"
+        run_matmul3d_experiment "-O3 ${arch} $nnpa_options" "32"  "32" "0"
+        run_matmul3d_experiment "-O3 ${arch} $nnpa_options" "32"  "64" "0"
+        run_matmul3d_experiment "-O3 ${arch} $nnpa_options" "32"  "128" "0"
+        run_matmul3d_experiment "-O3 ${arch} $nnpa_options" "64"  "32" "0"
+        run_matmul3d_experiment "-O3 ${arch} $nnpa_options" "64"  "64" "0"
+        run_matmul3d_experiment "-O3 ${arch} $nnpa_options" "64"  "128" "0"
     else
         # normal operations
-        run_experiment "-O3 ${arch} -maccel=NNPA -profile-ir=ZHigh" "16"  "32"
-        run_experiment "-O3 ${arch} -maccel=NNPA -profile-ir=ZHigh" "16"  "64"
-        run_experiment "-O3 ${arch} -maccel=NNPA -profile-ir=ZHigh" "16"  "128"
-        run_experiment "-O3 ${arch} -maccel=NNPA -profile-ir=ZHigh" "16"  "256"
-        run_experiment "-O3 ${arch} -maccel=NNPA -profile-ir=ZHigh" "32"  "32"
-        run_experiment "-O3 ${arch} -maccel=NNPA -profile-ir=ZHigh" "32"  "64"
-        run_experiment "-O3 ${arch} -maccel=NNPA -profile-ir=ZHigh" "32"  "128"
-        run_experiment "-O3 ${arch} -maccel=NNPA -profile-ir=ZHigh" "32"  "256"
-        run_experiment "-O3 ${arch} -maccel=NNPA -profile-ir=ZHigh" "64"  "32"
-        run_experiment "-O3 ${arch} -maccel=NNPA -profile-ir=ZHigh" "64"  "64"
-        run_experiment "-O3 ${arch} -maccel=NNPA -profile-ir=ZHigh" "64"  "128"
-        run_experiment "-O3 ${arch} -maccel=NNPA -profile-ir=ZHigh" "64"  "256"
+        run_experiment "-O3 ${arch} $nnpa_options" "16"  "32"
+        run_experiment "-O3 ${arch} $nnpa_options" "16"  "64"
+        run_experiment "-O3 ${arch} $nnpa_options" "16"  "128"
+        run_experiment "-O3 ${arch} $nnpa_options" "16"  "256"
+        run_experiment "-O3 ${arch} $nnpa_options" "32"  "32"
+        run_experiment "-O3 ${arch} $nnpa_options" "32"  "64"
+        run_experiment "-O3 ${arch} $nnpa_options" "32"  "128"
+        run_experiment "-O3 ${arch} $nnpa_options" "32"  "256"
+        run_experiment "-O3 ${arch} $nnpa_options" "64"  "32"
+        run_experiment "-O3 ${arch} $nnpa_options" "64"  "64"
+        run_experiment "-O3 ${arch} $nnpa_options" "64"  "128"
+        run_experiment "-O3 ${arch} $nnpa_options" "64"  "256"
     fi
 else
     echo "skip NNPA"

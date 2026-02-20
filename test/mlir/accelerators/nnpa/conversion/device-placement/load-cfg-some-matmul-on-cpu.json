@@ -2,11 +2,11 @@
   "device_placement": [
     {
       "device": "cpu",
-      "node_type": "Relu",
-      "onnx_node_name": "Relu_(1|2)"
+      "node_type": "onnx.MatMul",
+      "onnx_node_name": "MatMul_(1|2)"
     },
     {
-      "device": "cpu",
+      "device": "nnpa",
       "node_type": "onnx.Sigmoid",
       "onnx_node_name": "Sigmoid_0"
     }

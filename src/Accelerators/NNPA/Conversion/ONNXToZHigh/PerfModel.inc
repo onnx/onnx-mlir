@@ -6,6 +6,10 @@
 //
 // Copyright 2025 The IBM Research Authors.
 //
+// File where we generate code that converts calls to the ones of a specific
+// architecture. For example,
+// defines estimatedTimeForCPU_Log_3ds as a call to either
+// arch14_estimatedTimeForCPU_Log_3ds or arch15_estimatedTimeForCPU_Log_3ds.
 // =============================================================================
 
 // Include machine specific model.
@@ -67,6 +71,8 @@ ESTIMATE_TIME_FOR3(Div_3ds)
 ESTIMATE_TIME_FOR3(Exp_3ds)
 MISSING_ESTIMATE3(Gelu_3ds, arch14)
 ESTIMATE_TIME_FOR3(Gelu_3ds)
+MISSING_ESTIMATE3(LeakyRelu_3ds, arch14)
+ESTIMATE_TIME_FOR3(LeakyRelu_3ds)
 ESTIMATE_TIME_FOR3(Log_3ds)
 ESTIMATE_TIME_FOR4(MatMul_3ds)
 // Skipping the special handling of broadcast in matmul for now.
@@ -83,5 +89,7 @@ ESTIMATE_TIME_FOR3(ReduceMean_4d)
 ESTIMATE_TIME_FOR3(Relu_3ds)
 ESTIMATE_TIME_FOR3(Sigmoid_3ds)
 ESTIMATE_TIME_FOR3(Softmax_3ds)
+MISSING_ESTIMATE3(Sqrt_3ds, arch14)
+ESTIMATE_TIME_FOR3(Sqrt_3ds)
 ESTIMATE_TIME_FOR3(Sub_3ds)
 ESTIMATE_TIME_FOR3(Tanh_3ds)
