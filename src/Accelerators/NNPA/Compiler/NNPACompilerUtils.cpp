@@ -33,6 +33,7 @@
 #include "src/Accelerators/NNPA/Compiler/NNPACompilerOptions.hpp"
 #include "src/Accelerators/NNPA/Compiler/NNPACompilerUtils.hpp"
 #include "src/Accelerators/NNPA/Compiler/ZHighDisposableGarbageCollector.hpp"
+#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/JsonConfigObject.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
@@ -235,6 +236,25 @@ void normalizeMemRefsPasses(mlir::PassManager &pm) {
 void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
     mlir::PassManager &pm, EmissionTargetType &emissionTarget,
     std::string outputNameNoExt) {
+  // Load JSON configuration file if specified.
+  if (!nnpaLoadConfigFile.empty()) {
+    if (!getGlobalNNPAConfig().loadFromFile(nnpaLoadConfigFile)) {
+      llvm::errs() << "Warning: Failed to load NNPA config file: "
+                   << nnpaLoadConfigFile << "\n";
+      llvm::errs() << "Continuing with default configuration.\n";
+    } else {
+      llvm::outs() << "Successfully loaded NNPA config from: "
+                   << nnpaLoadConfigFile << "\n";
+    }
+  }
+
+  // Empty the save json config file if it exists.
+  if (!nnpaSaveConfigFile.empty()) {
+    std::error_code EC;
+    llvm::raw_fd_ostream OS(nnpaSaveConfigFile, EC, llvm::sys::fs::OF_None);
+    OS.close();
+  }
+
   // TODO: Develop and use determineInputIRLevel for NNPA
   // InputIRLevelType inputIRLevel = determineInputIRLevel(module);
 
@@ -249,12 +269,6 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
 
   // Override pass configurations.
   configurePasses();
-  // Empty the save json config file if it exists.
-  if (!nnpaSaveConfigFile.empty()) {
-    std::error_code EC;
-    llvm::raw_fd_ostream OS(nnpaSaveConfigFile, EC, llvm::sys::fs::OF_None);
-    OS.close();
-  }
 
   // LLVM_DEBUG(llvm::dbgs() << "Adding NNPA passes" << std::endl;);
   if (emissionTarget >= EmitONNXIR) {
@@ -263,10 +277,9 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
             pm.getContext()));
     addONNXToMLIRPasses(pm, /*target CPU*/ maccel.empty(),
         /*donotScrubDisposableElementsAttr*/ true);
-    pm.addPass(onnx_mlir::createDevicePlacementPass(
-        nnpaLoadConfigFile, nnpaSaveConfigFile, nnpaPlacementHeuristic));
-    pm.addPass(onnx_mlir::createQuantOpSelectionPass(
-        nnpaLoadConfigFile, nnpaSaveConfigFile));
+    pm.addPass(onnx_mlir::createDevicePlacementPass(nnpaPlacementHeuristic));
+    pm.addPass(onnx_mlir::createQuantOpSelectionPass());
+    pm.addPass(onnx_mlir::createGenerateConfigFilePass(nnpaSaveConfigFile));
   }
 
   if (emissionTarget >= EmitMLIR) {

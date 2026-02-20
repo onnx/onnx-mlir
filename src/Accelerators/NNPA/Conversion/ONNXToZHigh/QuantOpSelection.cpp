@@ -18,7 +18,9 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/JSON.h"
 
+#include "src/Accelerators/NNPA/Compiler/NNPACompilerUtils.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/JsonConfigFile.hpp"
+#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/JsonConfigObject.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
@@ -67,6 +69,11 @@ private:
   // Use vector to keep the order deterministic.
   SmallVector<Operation *, 32> ops;
 
+  // JSON configuration object - either points to global or local instance.
+  JsonConfigObject *configObject;
+  // Local config object storage (only used when loadConfigFile is provided).
+  std::unique_ptr<JsonConfigObject> localConfigObject;
+
   // JSON keys.
   std::string QUANTIZATION_KEY = "quantization";
 
@@ -91,14 +98,27 @@ void QuantOpSelectionPass::runOnOperation() {
       ops.emplace_back(op);
   });
 
-  // Cost model and user configuration file go here if it's given.
-  // (Reserved for cost model and user configuration file)
-  NNPAJsonConfig cfg(QUANTIZATION_KEY);
+  // Initialize configObject pointer based on loadConfigFile.
+  // Note: This must be done here, not in constructor, because loadConfigFile
+  // is an Option that gets initialized by MLIR after constructor runs.
   if (!loadConfigFile.empty()) {
-    // Match and update operations using the json object of key QUANTIZATION_KEY
-    // in the json file by setting attribute QUANT_ATTRIBUTE for the operations.
-    // The value of QUANT_ATTRIBUTE is from the json file.
-    cfg.loadConfigFromFile(ops, loadConfigFile,
+    // Create a local config object and load from the specified file.
+    localConfigObject = std::make_unique<JsonConfigObject>();
+    if (!localConfigObject->loadFromFile(loadConfigFile)) {
+      llvm::errs() << "Warning: Failed to load config file: " << loadConfigFile
+                   << "\n";
+    }
+    configObject = localConfigObject.get();
+  } else {
+    // Use the global configuration object.
+    configObject = &getGlobalNNPAConfig();
+  }
+
+  // Cost model and user configuration file go here if it's given.
+  // Use the configObject pointer which points to either local or global config.
+  if (configObject && !configObject->empty()) {
+    // Use the reusable applyConfigToOps method.
+    configObject->applyConfigToOps(ops, QUANTIZATION_KEY,
         [&](llvm::json::Object *jsonObj, mlir::Operation *op) {
           bool quantize = jsonObj->getBoolean(QUANT_ATTRIBUTE).value();
           op->setAttr(
@@ -120,6 +140,7 @@ void QuantOpSelectionPass::runOnOperation() {
     // json file an json object of key QUANTIZATION_KEY.
     // Each value in the object is added a pair (QUANT_ATTRIBUTE, value) that
     // denotes the value of QUANT_ATTRIBUTE in the operation.
+    NNPAJsonConfig cfg(QUANTIZATION_KEY);
     cfg.saveConfigToFile(
         ops, saveConfigFile, [&](llvm::json::Object *jsonObj, Operation *op) {
           BoolAttr attr = op->getAttrOfType<mlir::BoolAttr>(QUANT_ATTRIBUTE);

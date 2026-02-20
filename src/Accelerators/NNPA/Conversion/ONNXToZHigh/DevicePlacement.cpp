@@ -31,8 +31,10 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/JSON.h"
 
+#include "src/Accelerators/NNPA/Compiler/NNPACompilerUtils.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/DevicePlacementHeuristic.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/JsonConfigFile.hpp"
+#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/JsonConfigObject.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHigh.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/RewriteONNXForZHigh.hpp"
@@ -52,13 +54,15 @@ struct DevicePlacementPass
 
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(DevicePlacementPass)
 
-  DevicePlacementPass() = default;
+  DevicePlacementPass() : configObject(nullptr) {}
   DevicePlacementPass(const DevicePlacementPass &pass)
-      : PassWrapper<DevicePlacementPass, OperationPass<ModuleOp>>() {
+      : PassWrapper<DevicePlacementPass, OperationPass<ModuleOp>>(),
+        configObject(nullptr) {
     this->placementHeuristic = QualifyingOps;
   }
   DevicePlacementPass(std::string loadConfigFile, std::string saveConfigFile,
-      NNPAPlacementHeuristic placementHeuristic) {
+      NNPAPlacementHeuristic placementHeuristic)
+      : configObject(nullptr) {
     this->loadConfigFile = loadConfigFile;
     this->saveConfigFile = saveConfigFile;
     this->placementHeuristic = placementHeuristic;
@@ -110,6 +114,11 @@ private:
   // Use vector to keep the order deterministic.
   SmallVector<Operation *, 32> ops;
 
+  // JSON configuration object - either points to global or local instance.
+  JsonConfigObject *configObject;
+  // Local config object storage (only used when loadConfigFile is provided).
+  std::unique_ptr<JsonConfigObject> localConfigObject;
+
   // JSON keys.
   std::string DEVICE_PLACEMENT_KEY = "device_placement";
 
@@ -143,15 +152,27 @@ void DevicePlacementPass::runOnOperation() {
       ops.emplace_back(op);
   });
 
-  // Cost model and user configuration file go here if it's given.
-  // (Reserved for cost model and user configuration file)
-  NNPAJsonConfig cfg(DEVICE_PLACEMENT_KEY);
+  // Initialize configObject pointer based on loadConfigFile.
+  // Note: This must be done here, not in constructor, because loadConfigFile
+  // is an Option that gets initialized by MLIR after constructor runs.
   if (!loadConfigFile.empty()) {
-    // Match and update operations using the json object of key
-    // DEVICE_PLACEMENT_KEY in the json file by setting attribute
-    // DEVICE_ATTRIBUTE for the operations. The value of DEVICE_ATTRIBUTE is
-    // from the json file.
-    cfg.loadConfigFromFile(ops, loadConfigFile,
+    // Create a local config object and load from the specified file.
+    localConfigObject = std::make_unique<JsonConfigObject>();
+    if (!localConfigObject->loadFromFile(loadConfigFile)) {
+      llvm::errs() << "Warning: Failed to load config file: " << loadConfigFile
+                   << "\n";
+    }
+    configObject = localConfigObject.get();
+  } else {
+    // Use the global configuration object.
+    configObject = &getGlobalNNPAConfig();
+  }
+
+  // Cost model and user configuration file go here if it's given.
+  // Use the configObject pointer which points to either local or global config.
+  if (configObject && !configObject->empty()) {
+    // Use the reusable applyConfigToOps method.
+    configObject->applyConfigToOps(ops, DEVICE_PLACEMENT_KEY,
         [&](llvm::json::Object *jsonObj, mlir::Operation *op) {
           StringRef device = jsonObj->getString(DEVICE_ATTRIBUTE).value();
           op->setAttr(
@@ -210,11 +231,12 @@ void DevicePlacementPass::runOnOperation() {
 
   // Create a JSON configuration file if required.
   if (!saveConfigFile.empty()) {
-    // Save quantization information to a json file by adding to the existing
-    // json file an json object of key DEVICE_PLACEMENT_KEY.
-    // Each value in the object is added a pair (DEVICE_ATTRIBUTE, value) that
-    // denotes the value of DEVICE_ATTRIBUTE in the operation.
-    cfg.saveConfigToFile(
+    // Save device placement information to a json file by adding to the
+    // existing json file an json object of key DEVICE_PLACEMENT_KEY. Each value
+    // in the object is added a pair (DEVICE_ATTRIBUTE, value) that denotes the
+    // value of DEVICE_ATTRIBUTE in the operation.
+    NNPAJsonConfig saveCfg(DEVICE_PLACEMENT_KEY);
+    saveCfg.saveConfigToFile(
         ops, saveConfigFile, [&](llvm::json::Object *jsonObj, Operation *op) {
           std::string deviceStr =
               op->getAttrOfType<mlir::StringAttr>(DEVICE_ATTRIBUTE)
@@ -236,6 +258,11 @@ namespace onnx_mlir {
  */
 std::unique_ptr<mlir::Pass> createDevicePlacementPass() {
   return std::make_unique<DevicePlacementPass>();
+}
+
+std::unique_ptr<mlir::Pass> createDevicePlacementPass(
+    NNPAPlacementHeuristic placementHeuristic) {
+  return std::make_unique<DevicePlacementPass>("", "", placementHeuristic);
 }
 
 std::unique_ptr<mlir::Pass> createDevicePlacementPass(
