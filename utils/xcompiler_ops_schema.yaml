@@ -52,6 +52,13 @@
   - name: nonlinear_in_zeropoints
     description: Quantization zero points for the input of the nonlinear activation.
     type: int
+  - name: mul_y
+    description: Optional scale factor for Sigmoid+Mul fusion (e.g. qlinear-hsigmoid with mul_y).
+    type: float
+  - name: enable_lut_sigmoid
+    description: When true, use LUT-based sigmoid for QLINEARSIGMOID.
+    type: bool
+    default_value: false
   type_constraints:
   - type_param: T
     description: Constrain input and output types to all numeric tensor types.

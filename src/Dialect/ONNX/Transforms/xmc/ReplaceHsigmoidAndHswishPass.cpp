@@ -94,7 +94,9 @@ struct ReplaceQuantizedHardSigmoidPattern
         noneOp.getResult(), // B - none for unary op
         /*clip_max=*/IntegerAttr(),
         /*clip_min=*/IntegerAttr(),
+        /*enable_lut_sigmoid=*/rewriter.getBoolAttr(false),
         /*leakyrelu_alpha=*/FloatAttr(),
+        /*mul_y=*/FloatAttr(),
         /*nonlinear=*/rewriter.getStringAttr("NONE"),
         /*nonlinear_in_scales=*/FloatAttr(),
         /*nonlinear_in_zeropoints=*/IntegerAttr(),
