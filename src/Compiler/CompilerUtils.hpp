@@ -16,7 +16,7 @@
 #define ONNX_MLIR_COMPILER_UTILS_H
 
 #include "onnx-mlir/Compiler/OMCompilerTypes.h"
-#include "src/Compiler/Command.h"
+#include "src/Compiler/Command.hpp"
 
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/OwningOpRef.h"

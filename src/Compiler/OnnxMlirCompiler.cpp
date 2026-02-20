@@ -22,6 +22,8 @@ namespace onnx_mlir {
 // Derive the name; base name is either given by a "-o" option, or is taken as
 // the model name. The extention depends on the target; e.g. -EmitLib will
 // generate a .so, other targets may generate a .mlir.
+
+//hi alex, deprecate for getOutputFilename 
 static std::string deriveOutputFileName(
     std::vector<std::string> &flagVect, std::string inputFilename) {
   // Get output file name.
