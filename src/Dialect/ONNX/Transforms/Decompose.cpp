@@ -1053,6 +1053,32 @@ struct SumToAddPattern : public OpRewritePattern<ONNXSumOp> {
   }
 };
 
+// This pattern is a temporary solution to fix the bug in onnx model conversion.
+// An onnx model with dtype=float16 can be converted to float32 with a python
+// script. However, the CastOp inside the model may not be converted.
+// This transformation blindly change CastOp(input, to=f16) to
+// CastOp(input, to=f32)
+struct CastF16ToF32Pattern : public OpRewritePattern<ONNXCastOp> {
+  using OpRewritePattern<ONNXCastOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXCastOp castOp, PatternRewriter &rewriter) const final {
+    auto loc = castOp.getLoc();
+    onnx_mlir::OnnxBuilder create(rewriter, loc);
+
+    if (castOp.getTo().isF16()) {
+      Type f32Type = rewriter.getF32Type();
+      castOp.setTo(f32Type);
+      // UnrankedTensor is used because shape will be propagated by shape infer
+      Type newOutputType = UnrankedTensorType::get(f32Type);
+      Value output = castOp.getOutput();
+      output.setType(newOutputType);
+    }
+
+    return success();
+  }
+};
+
 // =============================================================================
 // Pattern for replacing CastLikeOp by CastOp.
 // =============================================================================
@@ -1243,6 +1269,11 @@ void DecomposeONNXToONNXPass::runOnOperation() {
     return !onnx_mlir::canSequenceAtBeReplaced(op.getResult());
   });
 
+  if (onnx_mlir::enableForceF32Cast) {
+    target.addDynamicallyLegalOp<ONNXCastOp>(
+        [](ONNXCastOp op) { return !op.getTo().isF16(); });
+  }
+
   // Rewrite ONNXConstantOp with scalar values into the one using ElementAttrs.
   target.addDynamicallyLegalOp<ONNXConstantOp>([](ONNXConstantOp op) {
     return !(op.getValueFloatAttr() || op.getValueFloatsAttr() ||
@@ -1300,6 +1331,8 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
   patterns.insert<CustomOpFuseMatMulPattern>(context);
   patterns.insert<SoftmaxCrossEntropyPattern>(context);
   patterns.insert<SumToAddPattern>(context);
+  if (enableForceF32Cast)
+    patterns.insert<CastF16ToF32Pattern>(context);
 
   if (!onnx_mlir::decomposeOpsInONNX.empty()) {
     for (const auto &op : onnx_mlir::decomposeOpsInONNX) {

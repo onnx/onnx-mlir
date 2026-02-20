@@ -48,6 +48,7 @@ bool disableQuantZeroPoint;                            // common for both
 bool enableKrnlBufferReuse;                            // common for both
 bool enableSafeCodeGen;                                // common for both
 bool disableMemRefPrefetch;                            // common for both
+bool enableForceF32Cast;                               // common for both
 uint64_t compilationNumThreads;                        // common for both
 std::vector<std::string> decomposeOpsInONNX;           // common for both
 std::string shapeInformationUB;                        // common for both
@@ -305,6 +306,18 @@ static llvm::cl::opt<bool, true> disableMemRefPrefetchOpt(
     llvm::cl::desc("Disable generation of memref.prefetch (default=false).\n"
                    "Set to 'true' if you want to disable prefetch."),
     llvm::cl::location(disableMemRefPrefetch), llvm::cl::init(true),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<bool, true> enableForceF32CastOpt("enable-force-f32-cast",
+    llvm::cl::desc(
+        "Enable the transformace of cast from F16 to F32 (default=false).\n"
+        "Set to 'true' if you want to enable the transformation.\n"
+        "This transformation is a temporary solution for the error for CastOp "
+        "when a float16 onnx model is converted to float32 with "
+        "utils/convertF16ToF32.py. Some of the ONNXCastOp in the model "
+        "are not converted. The transformation blindly changes the to() "
+        "TypeAttr from F16 to F32"),
+    llvm::cl::location(enableForceF32Cast), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
 static llvm::cl::list<std::string, std::vector<std::string>>

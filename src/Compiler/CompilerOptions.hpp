@@ -94,6 +94,7 @@ extern bool enableKrnlBufferReuse;                            // common for both
 extern bool enableSafeCodeGen;                                // common for both
 extern bool disableMemRefPrefetch;                            // common for both
 extern uint64_t compilationNumThreads;                        // common for both
+extern bool enableForceF32Cast;                               // common for both
 extern std::vector<std::string> decomposeOpsInONNX;           // common for both
 extern EmissionTargetType emissionTarget;                     // onnx-mlir only
 extern bool invokeOnnxVersionConverter;                       // onnx-mlir only
