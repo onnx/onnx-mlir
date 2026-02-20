@@ -1,5 +1,4 @@
-# IBM Confidential
-# © Copyright IBM Corp. 2025
+# SPDX-License-Identifier: Apache-2.0
 
 [build-system]
 requires = ["hatchling"]
@@ -25,8 +24,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.ibm.com/zosdev/OMPyInfer"
-Issues = "https://github.ibm.com/zdosdev/OMPyInfer/issues"
+Homepage = "https://github.com/onnx/onnx-mlir"
+Issues = "https://github.com/onnx/onnx-mlir/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/OMPyInfer"]
