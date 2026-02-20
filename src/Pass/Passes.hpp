@@ -140,7 +140,8 @@ std::unique_ptr<mlir::Pass> createRemoveUselessQLinearPoolPass();
 /// Pass for replacing quantized HardSigmoid with XCOMPILERFusedEltwise.
 std::unique_ptr<mlir::Pass> createReplaceHsigmoidAndHswishPass();
 
-/// Pass for replacing quantized Sigmoid with XCOMPILERFusedEltwise QLINEARSIGMOID.
+/// Pass for replacing quantized Sigmoid with XCOMPILERFusedEltwise
+/// QLINEARSIGMOID.
 std::unique_ptr<mlir::Pass> createReplaceQDQSigmoidPass();
 
 /// Pass for transferring ReduceMean/Sum operations to Conv operations.
