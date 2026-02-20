@@ -248,13 +248,6 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
     }
   }
 
-  // Empty the save json config file if it exists.
-  if (!nnpaSaveConfigFile.empty()) {
-    std::error_code EC;
-    llvm::raw_fd_ostream OS(nnpaSaveConfigFile, EC, llvm::sys::fs::OF_None);
-    OS.close();
-  }
-
   // TODO: Develop and use determineInputIRLevel for NNPA
   // InputIRLevelType inputIRLevel = determineInputIRLevel(module);
 
@@ -279,7 +272,14 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
         /*donotScrubDisposableElementsAttr*/ true);
     pm.addPass(onnx_mlir::createDevicePlacementPass(nnpaPlacementHeuristic));
     pm.addPass(onnx_mlir::createQuantOpSelectionPass());
-    pm.addPass(onnx_mlir::createGenerateConfigFilePass(nnpaSaveConfigFile));
+    // Save the current config to a file if required.
+    if (!nnpaSaveConfigFile.empty()) {
+      // Empty the save json config file if it exists.
+      std::error_code EC;
+      llvm::raw_fd_ostream OS(nnpaSaveConfigFile, EC, llvm::sys::fs::OF_None);
+      OS.close();
+      pm.addPass(onnx_mlir::createGenerateConfigFilePass(nnpaSaveConfigFile));
+    }
   }
 
   if (emissionTarget >= EmitMLIR) {
