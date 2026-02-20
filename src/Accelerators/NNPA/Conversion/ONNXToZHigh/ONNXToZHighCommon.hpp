@@ -123,5 +123,11 @@ mlir::FloatAttr getScalarF32AttrFromConstant(mlir::Value v);
 mlir::Value getDynShape(
     mlir::Location loc, mlir::PatternRewriter &rewriter, mlir::Value x);
 
+// Placement related calls
+bool isMappedToDevice(mlir::Operation *op);
+bool isMappedToCPU(mlir::Operation *op);
+bool isMappedToNNPA(mlir::Operation *op);
+bool isNNPAFriendlyOp(mlir::Operation *op);
+
 } // namespace onnx_mlir
 #endif
