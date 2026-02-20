@@ -39,6 +39,10 @@ RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
     # Must specify --no-build-isolation to avoid protoc-gen-mypy.py
     # segfault on s390x
     #
+    # Use upgrade setuptools to latest which accepts plain string license
+    # format.
+    #
+    && python3 -m pip install --upgrade --ignore-installed "packaging>=24.2" --prefix=/usr setuptools \
     && CC=clang CXX=clang++ CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib" \
        python3 -m pip install . --prefix=/usr --no-build-isolation \
     && rm -rf ${HOME}/.cache
@@ -103,7 +107,7 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
                   make ninja-build python3 && \
           rm -rf /var/lib/apt/lists/*; \
        elif [ "${distro}" = "rhel" ] || [ "${distro}" = "fedora" ]; then \
-          pip3 uninstall -q -y \
+          python3 -m pip uninstall -q -y \
                Cython pytest pytest-xdist typing-extensions && \
           yum remove -q -y \
               autoconf automake cmake file git libtool ninja-build && \
