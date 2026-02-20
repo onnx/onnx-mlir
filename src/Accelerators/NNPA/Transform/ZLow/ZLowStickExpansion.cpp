@@ -12,6 +12,9 @@
 // to stick / unstick with explict code to perform the transformation, when
 // applicable.
 //
+// This pass also boost the alignment of zlow.stick inputs to 4k when stick are
+// sent to NNPA for march=M15.
+//
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Support/Debug.h"
@@ -26,6 +29,7 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Accelerators/NNPA/Conversion/ZHighToZLow/ProcessStickData.hpp"
+#include "src/Accelerators/NNPA/Conversion/ZHighToZLow/ZHighToZLow.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/ShapeHelper.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
@@ -50,20 +54,61 @@
 
 using namespace mlir;
 
+// Ensure that alignment is a multiple of gAlignment.
+static LogicalResult setAlignOfAlloc(memref::AllocOp allocOp) {
+  auto alignmentAttr = allocOp.getAlignment();
+  int64_t align = alignmentAttr ? alignmentAttr.value() : 1;
+  if (align != 0 && align % gAlignment == 0) {
+    LLVM_DEBUG(llvm::dbgs() << "  alloc is properly aligned\n");
+    return failure();
+  }
+  align = align < 1 ? 1 : align; // Avoid negative number.
+  align = ((align + gAlignment - 1) / gAlignment) * gAlignment;
+  LLVM_DEBUG(llvm::dbgs() << "  alloc not aligned ->" << align << "\n");
+  ::std::optional<uint64_t> attrValue(align);
+  allocOp.setAlignment(attrValue);
+  return success();
+}
+
 namespace onnx_mlir {
 namespace zlow {
 
 using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder,
     MathBuilder, MemRefBuilder, VectorBuilder, AffineBuilder, SCFBuilder>;
 
+// Resize the alignment of the allocate that is the output to Unstick Op, which
+// is beneficial for unstick operations that executes on the NNPA accelerator of
+// march = arch15.
+class UnstickOutputAllocPattern : public OpRewritePattern<ZLowUnstickOp> {
+public:
+  UnstickOutputAllocPattern(MLIRContext *context)
+      : OpRewritePattern<ZLowUnstickOp>(context, 1) {}
+
+  using OpRewritePattern<ZLowUnstickOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(
+      ZLowUnstickOp unstickOp, PatternRewriter &rewriter) const override {
+    return resizeAllocOfUnstickOutput(unstickOp);
+  }
+
+  // Shared functions with other classes in this file.
+  static LogicalResult resizeAllocOfUnstickOutput(ZLowUnstickOp unstickOp) {
+    memref::AllocOp allocOfOutputOp =
+        unstickOp.getOut().getDefiningOp<memref::AllocOp>();
+    assert(allocOfOutputOp && "unstick output should always be allocated");
+    return setAlignOfAlloc(allocOfOutputOp);
+  }
+};
+
 /// Expand unstick operation to compiler generated code for suitable patterns,
 /// aka all but the 1D and 2DS data layouts at this time.
 class UnstickExpansionPattern : public OpRewritePattern<ZLowUnstickOp> {
 public:
-  UnstickExpansionPattern(MLIRContext *context, bool enableParallelism = false)
+  UnstickExpansionPattern(MLIRContext *context, bool enableAllocNormalization,
+      bool enableParallelism)
       : OpRewritePattern<ZLowUnstickOp>(context, 1),
+        enableAllocNormalization(enableAllocNormalization),
         enableParallel(enableParallelism) {}
-
+  bool enableAllocNormalization = true;
   bool enableParallel = true;
 
   using OpRewritePattern<ZLowUnstickOp>::OpRewritePattern;
@@ -79,7 +124,10 @@ public:
     if (zhigh::supportedLayoutForCompilerGeneratedStickUnstick(layout)) {
       return generateUnstickCodeNoBuffer(rewriter, unstickOp);
     }
-    // Otherwise, we don't replace and keep the zdnn call.
+    // Otherwise, we don't replace and keep the zdnn call. Normalize alloc if
+    // necessary.
+    if (enableAllocNormalization)
+      return UnstickOutputAllocPattern::resizeAllocOfUnstickOutput(unstickOp);
     return failure();
   }
 
@@ -124,14 +172,43 @@ public:
   }
 };
 
-/// Expand stick operation to compiler generated code for suitable patterns, aka
-/// all but the 1D and 2DS data layouts at this time.
+// Resize the alignment of the allocate that is the input to Stick Op, which is
+// beneficial for stick operations that executes on the NNPA accelerator of
+// march = arch15.
+class StickInputAllocPattern : public OpRewritePattern<ZLowStickOp> {
+public:
+  StickInputAllocPattern(MLIRContext *context)
+      : OpRewritePattern<ZLowStickOp>(context, 1) {}
+
+  using OpRewritePattern<ZLowStickOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(
+      ZLowStickOp stickOp, PatternRewriter &rewriter) const override {
+    return resizeAllocOfStickInput(stickOp);
+  }
+
+  // Shared functions with other classes in this file.
+  static LogicalResult resizeAllocOfStickInput(ZLowStickOp stickOp) {
+    memref::AllocOp allocOfXOp =
+        stickOp.getX().getDefiningOp<memref::AllocOp>();
+    if (!allocOfXOp) {
+      LLVM_DEBUG(llvm::dbgs() << "  stick input had no alloc (parameter)\n");
+      return failure();
+    }
+    return setAlignOfAlloc(allocOfXOp);
+  }
+};
+
+/// Expand stick operation to compiler generated code for suitable patterns,
+/// aka all but the 1D and 2DS data layouts at this time.
 class StickExpansionPattern : public OpRewritePattern<ZLowStickOp> {
 public:
-  StickExpansionPattern(MLIRContext *context, bool enableParallelism = false)
+  StickExpansionPattern(MLIRContext *context, bool enableAllocNormalization,
+      bool enableParallelism)
       : OpRewritePattern<ZLowStickOp>(context, 1),
+        enableAllocNormalization(enableAllocNormalization),
         enableParallel(enableParallelism) {}
 
+  bool enableAllocNormalization = true;
   bool enableParallel = true;
 
   using OpRewritePattern<ZLowStickOp>::OpRewritePattern;
@@ -149,13 +226,16 @@ public:
     if (zhigh::supportedLayoutForCompilerGeneratedStickUnstick(layout)) {
       return generateStickCodeNoBuffer(rewriter, stickOp);
     }
-    // Otherwise, we don't replace and keep the zdnn call.
+    // Otherwise, we don't replace and keep the zdnn call. Normalize alloc if
+    // necessary.
+    if (enableAllocNormalization)
+      return StickInputAllocPattern::resizeAllocOfStickInput(stickOp);
     return failure();
   }
 
   // Version without buffer, more like zdnn.
-  // The only requirement for this code to generate the proper code is that E1
-  // is been sticked by 64.
+  // The only requirement for this code to generate the proper code is that
+  // E1 is been sticked by 64.
   LogicalResult generateStickCodeNoBuffer(
       PatternRewriter &rewriter, ZLowStickOp stickOp) const {
     Operation *op = stickOp.getOperation();
@@ -209,8 +289,8 @@ public:
     // If outputDims[E1] is constant and < 64, then T1 is 1 (ok), and we can
     // iterate over fewer values in the SIMD loop.
     IndexExpr simdLoopUB = lit64;
-    // Unrolling of SIMD loop: tried 2 and 8, 4 was best. Max is a const as we
-    // allocate array of that max size.
+    // Unrolling of SIMD loop: tried 2 and 8, 4 was best. Max is a const as
+    // we allocate array of that max size.
     const int64_t maxUnrollVL = 4;
     int64_t unrollVL = maxUnrollVL;
     if (outputDims[E1].isLiteral()) {
@@ -238,10 +318,10 @@ public:
           loopDefs, lbs, ubs, 0, rank, {}, /*min iter for going parallel*/ 8);
     }
 
-    // Compute max tiles. It is actually not easy to compute the max number of
-    // tiles. Since we don't allocate, it is just a "view", we only need to
-    // index by the "tile size", it is sufficient to assume 2 or more. Tiles are
-    // 64 elements.
+    // Compute max tiles. It is actually not easy to compute the max number
+    // of tiles. Since we don't allocate, it is just a "view", we only need
+    // to index by the "tile size", it is sufficient to assume 2 or more.
+    // Tiles are 64 elements.
     IndexExpr T = LitIE(2);
     DimsExpr reallocTileDims = {T, lit64};
     Value allocAsTx64 = create.mem.reinterpretCast(alloc, reallocTileDims);
@@ -327,20 +407,32 @@ public:
 /*!
  *  Function pass that optimizes ZLowIR.
  */
-class ZLowStickExpansionPass
-    : public PassWrapper<ZLowStickExpansionPass, OperationPass<func::FuncOp>> {
+class ZLowStickOptimizationPass : public PassWrapper<ZLowStickOptimizationPass,
+                                      OperationPass<func::FuncOp>> {
 
 public:
-  ZLowStickExpansionPass(bool enableParallel)
-      : PassWrapper<ZLowStickExpansionPass, OperationPass<func::FuncOp>>(),
-        enableParallel(enableParallel) {}
+  ZLowStickOptimizationPass() = default;
+  ZLowStickOptimizationPass(const ZLowStickOptimizationPass &pass)
+      : PassWrapper<ZLowStickOptimizationPass, OperationPass<func::FuncOp>>() {}
+  ZLowStickOptimizationPass(bool enableStickExpansion,
+      bool enableAllocNormalization, bool enableParallel) {
+    this->enableStickExpansion = enableStickExpansion;
+    this->enableAllocNormalization = enableAllocNormalization;
+    this->enableParallel = enableParallel;
+  }
 
-  bool enableParallel;
+  Option<bool> enableStickExpansion{*this, "enable-stick-expansion",
+      llvm::cl::desc("Enable stick expansion"), llvm::cl::init(true)};
+  Option<bool> enableAllocNormalization{*this, "enable-alloc-normalization",
+      llvm::cl::desc("enable allocation alignment normalization"),
+      llvm::cl::init(false)};
+  Option<bool> enableParallel{*this, "enable-parallel",
+      llvm::cl::desc("Enable parallelization"), llvm::cl::init(false)};
 
   StringRef getArgument() const override { return "zlow-stick-expansion"; }
 
   StringRef getDescription() const override {
-    return "ZLow Stick/Unstick Ops expansion pass.";
+    return "ZLow Stick/Unstick Ops optimization pass.";
   }
 
   void runOnOperation() override {
@@ -348,16 +440,25 @@ public:
 
     ConversionTarget target(getContext());
     RewritePatternSet patterns(&getContext());
-    patterns.insert<StickExpansionPattern>(&getContext(), enableParallel);
-    patterns.insert<UnstickExpansionPattern>(&getContext(), enableParallel);
-
+    if (enableStickExpansion) {
+      // Stick expansion also performs normalization to 4k of allocs.
+      patterns.insert<StickExpansionPattern>(
+          &getContext(), enableAllocNormalization, enableParallel);
+      patterns.insert<UnstickExpansionPattern>(
+          &getContext(), enableAllocNormalization, enableParallel);
+    } else {
+      patterns.insert<UnstickOutputAllocPattern>(&getContext());
+      patterns.insert<StickInputAllocPattern>(&getContext());
+    }
     if (failed(applyPatternsGreedily(function, std::move(patterns))))
       return signalPassFailure();
   }
 };
 
-std::unique_ptr<Pass> createZLowStickExpansionPass(bool enableParallel) {
-  return std::make_unique<ZLowStickExpansionPass>(enableParallel);
+std::unique_ptr<Pass> createZLowStickOptimizationPass(bool enableStickExpansion,
+    bool enableAllocNormalization, bool enableParallel) {
+  return std::make_unique<ZLowStickOptimizationPass>(
+      enableStickExpansion, enableAllocNormalization, enableParallel);
 }
 
 } // namespace zlow

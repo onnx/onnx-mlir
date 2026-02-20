@@ -1,3 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+
+##################### test_container_nnpa.py ###################################
+#
+# Copyright 2026 The IBM Research Authors.
+#
+################################################################################
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -13,7 +21,7 @@ class AddModel(nn.Module):
 
 mod = AddModel()
 
-import onnxmlirtorch
+import torch_onnxmlir
 
 # Use the default compiler container image to compile
 # --verifyInputTensors is for debug purpose

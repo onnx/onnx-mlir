@@ -5,13 +5,13 @@ cmake_minimum_required(VERSION 3.20.0)
 
 project(onnx-mlir)
 
+# Configurate cmake
+
+# General options
 option(ONNX_MLIR_BUILD_TESTS "Build ONNX-MLIR test executables. If OFF, just generate build targets." ON)
 option(ONNX_MLIR_CCACHE_BUILD "Set to ON for a ccache enabled build." OFF)
-option(ONNX_MLIR_ENABLE_STABLEHLO "Enable StableHLO support." ON)
 option(ONNX_MLIR_ENABLE_WERROR "Enable warnings as errors." OFF)
 option(ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS "Suppress warning in third_party code." ON)
-option(ONNX_MLIR_ENABLE_JAVA "Set to ON for building the Java runtime, tools, and tests" ON)
-option(ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT "Set to ON for building Python driver of running the compiled model without llvm-project." OFF)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -74,11 +74,27 @@ set(ONNX_MLIR_INCLUDE_PATH ${CMAKE_INCLUDE_OUTPUT_DIRECTORY})
 set(ONNX_MLIR_VENDOR ${PACKAGE_VENDOR} CACHE STRING
   "Vendor-specific text for showing with version information.")
 
-if(NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
-  include(CTest)
-  include(ExternalProject)
-endif()
+# This file contained general cmake set up and special mlir-related functions 
+# ToFix: split it later
+# Currently, it is control by variables.
 include(MLIR.cmake)
+
+macro(choose_build_target)
+# Check whether the build is for a tool (sub-project for now)
+  if (DEFINED ONNX_MLIR_TARGET_TO_BUILD)
+    include(${ONNX_MLIR_TARGET_TO_BUILD}.cmake)
+    return()
+  endif()
+# Otherwise, continue with default onnx-mlir project
+endmacro()
+
+choose_build_target()
+
+option(ONNX_MLIR_ENABLE_STABLEHLO "Enable StableHLO support." ON)
+option(ONNX_MLIR_ENABLE_JAVA "Set to ON for building the Java runtime, tools, and tests" ON)
+
+include(CTest)
+include(ExternalProject)
 
 # MLIR.cmake calls find_package(MLIR) which sets LLVM_MINIMUM_PYTHON_VERSION
 if (WIN32)
@@ -91,9 +107,7 @@ endif()
 find_package(Python3 ${LLVM_MINIMUM_PYTHON_VERSION} REQUIRED COMPONENTS Interpreter Development)
 
 # absl is needed by llvm and onnx 
-if(NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
-  find_package(absl REQUIRED)
-endif()
+find_package(absl REQUIRED)
 
 if(ONNX_MLIR_ENABLE_JAVA)
   # On MacOS, find_package for Java and JNI doesn't work if JAVA_INCLUDE_PATH

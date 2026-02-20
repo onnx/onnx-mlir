@@ -1,3 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+
+##################### test_container_add.py ####################################
+#
+# Copyright 2026 The IBM Research Authors.
+#
+################################################################################
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -17,7 +25,7 @@ mod = AddModel()
 """
 #  PyTorch code
 
-opt_mod = torch.ompile(mod)
+opt_mod = torch.compile(mod)
 
 input1=torch.randn(2)
 
@@ -28,9 +36,15 @@ print(opt_mod(input1, input2))
 """
 
 
-import onnxmlirtorch
+import torch_onnxmlir
 
-opt_mod = onnxmlirtorch.interceptForward(mod)
+# Use the default compiler container image to compile
+# --verifyInputTensors is for debug purpose
+my_option = {
+    "compile_options": "--verifyInputTensors",
+}
+
+opt_mod = torch.compile(mod, backend="onnxmlir", options=my_option)
 
 # First inference
 input = torch.randn(2)
@@ -44,23 +58,6 @@ input2 = torch.randn(3)
 output1 = opt_mod(input1, input2)
 print("output: ", output1)
 
-input7 = torch.randn(4)
-output = opt_mod(input7, input7)
-print(output)
-
 input3 = torch.randn(2)
 output2 = opt_mod(input3, input3)
 print("output: ", output2)
-
-input4 = torch.randn(5)
-input44 = torch.randn(5)
-output = opt_mod(input4, input4)
-print(output)
-
-input5 = torch.randn(3)
-output = opt_mod(input5, input5)
-print(output)
-
-input6 = torch.randn(2)
-output = opt_mod(input6, input6)
-print(output)
