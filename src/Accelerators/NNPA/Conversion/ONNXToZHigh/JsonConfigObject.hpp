@@ -109,7 +109,8 @@ public:
   /// Write operations configuration to a JSON file in unified format.
   /// @param ops Array of operations to save
   /// @param filePath Path to the output JSON file
-  /// @param buildConfigFn Callback to build match and rewrite objects for each op
+  /// @param buildConfigFn Callback to build match and rewrite objects for each
+  /// op
   ///                      Returns true if the operation should be included
   /// @return true if successful, false otherwise
   bool writeOpsConfig(llvm::ArrayRef<mlir::Operation *> ops,

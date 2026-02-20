@@ -111,10 +111,9 @@ void JsonConfigObject::dump(unsigned indent) const {
   llvm::outs() << "\n";
 }
 
-void JsonConfigObject::applyConfigToOps(
-    llvm::ArrayRef<mlir::Operation *> ops,
-    mlir::function_ref<void(llvm::json::Object *rewriteObj,
-        mlir::Operation *op)>
+void JsonConfigObject::applyConfigToOps(llvm::ArrayRef<mlir::Operation *> ops,
+    mlir::function_ref<void(
+        llvm::json::Object *rewriteObj, mlir::Operation *op)>
         updateAttrFn) {
   if (!jsonObject || jsonObject->empty())
     return;
@@ -146,7 +145,8 @@ void JsonConfigObject::applyConfigToOps(
       continue;
 
     // Extract match criteria.
-    std::optional<llvm::StringRef> nodeType = matchObj->getString(NODE_TYPE_KEY);
+    std::optional<llvm::StringRef> nodeType =
+        matchObj->getString(NODE_TYPE_KEY);
     std::optional<llvm::StringRef> nodeName =
         matchObj->getString(ONNX_NODE_NAME_KEY);
 
@@ -204,7 +204,8 @@ bool JsonConfigObject::writeOpsConfig(llvm::ArrayRef<mlir::Operation *> ops,
     // Add onnx_node_name to match if present.
     if (auto nodeNameAttr =
             op->getAttrOfType<mlir::StringAttr>("onnx_node_name")) {
-      match[JsonConfigObject::ONNX_NODE_NAME_KEY] = nodeNameAttr.getValue().str();
+      match[JsonConfigObject::ONNX_NODE_NAME_KEY] =
+          nodeNameAttr.getValue().str();
     }
 
     // Build the pattern structure.
@@ -238,4 +239,3 @@ bool JsonConfigObject::writeOpsConfig(llvm::ArrayRef<mlir::Operation *> ops,
 }
 
 } // namespace onnx_mlir
-

@@ -168,13 +168,13 @@ void DevicePlacementPass::runOnOperation() {
   // Use the configObject pointer which points to either local or global config.
   if (configObject && !configObject->empty()) {
     // Apply unified format configuration with ops_config.
-    configObject->applyConfigToOps(ops,
-        [&](llvm::json::Object *rewriteObj, mlir::Operation *op) {
-          if (auto device = rewriteObj->getString(JsonConfigObject::DEVICE_KEY)) {
-            op->setAttr(DEVICE_ATTRIBUTE,
-                StringAttr::get(module.getContext(), *device));
-          }
-        });
+    configObject->applyConfigToOps(ops, [&](llvm::json::Object *rewriteObj,
+                                            mlir::Operation *op) {
+      if (auto device = rewriteObj->getString(JsonConfigObject::DEVICE_KEY)) {
+        op->setAttr(
+            DEVICE_ATTRIBUTE, StringAttr::get(module.getContext(), *device));
+      }
+    });
   }
 
   // Run patterns that converts ONNX to ZHigh with analysis mode to collect
@@ -231,7 +231,8 @@ void DevicePlacementPass::runOnOperation() {
     configObject->writeOpsConfig(ops, saveConfigFile,
         [&](mlir::Operation *op, llvm::json::Object &match,
             llvm::json::Object &rewrite) -> bool {
-          auto deviceAttr = op->getAttrOfType<mlir::StringAttr>(DEVICE_ATTRIBUTE);
+          auto deviceAttr =
+              op->getAttrOfType<mlir::StringAttr>(DEVICE_ATTRIBUTE);
           if (!deviceAttr)
             return false;
           std::string deviceStr = deviceAttr.getValue().str();
