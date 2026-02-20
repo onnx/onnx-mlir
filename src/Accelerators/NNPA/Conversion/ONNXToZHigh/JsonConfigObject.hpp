@@ -118,6 +118,16 @@ public:
           llvm::json::Object &rewrite)>
           buildConfigFn);
 
+  // JSON key constants for the unified configuration format.
+  static constexpr const char *OPS_CONFIG_KEY = "ops_config";
+  static constexpr const char *PATTERN_KEY = "pattern";
+  static constexpr const char *MATCH_KEY = "match";
+  static constexpr const char *REWRITE_KEY = "rewrite";
+  static constexpr const char *NODE_TYPE_KEY = "node_type";
+  static constexpr const char *ONNX_NODE_NAME_KEY = "onnx_node_name";
+  static constexpr const char *DEVICE_KEY = "device";
+  static constexpr const char *QUANTIZE_KEY = "quantize";
+
 private:
   /// The underlying JSON object.
   std::unique_ptr<llvm::json::Object> jsonObject;

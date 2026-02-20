@@ -120,7 +120,7 @@ void JsonConfigObject::applyConfigToOps(
     return;
 
   // Get the ops_config array.
-  llvm::json::Array *opConfigsArr = getArray("ops_config");
+  llvm::json::Array *opConfigsArr = getArray(OPS_CONFIG_KEY);
   if (!opConfigsArr || opConfigsArr->empty())
     return;
 
@@ -134,21 +134,21 @@ void JsonConfigObject::applyConfigToOps(
       continue;
 
     // Get the pattern object.
-    llvm::json::Object *patternObj = configObj->getObject("pattern");
+    llvm::json::Object *patternObj = configObj->getObject(PATTERN_KEY);
     if (!patternObj)
       continue;
 
     // Get match and rewrite objects.
-    llvm::json::Object *matchObj = patternObj->getObject("match");
-    llvm::json::Object *rewriteObj = patternObj->getObject("rewrite");
+    llvm::json::Object *matchObj = patternObj->getObject(MATCH_KEY);
+    llvm::json::Object *rewriteObj = patternObj->getObject(REWRITE_KEY);
 
     if (!matchObj || !rewriteObj)
       continue;
 
     // Extract match criteria.
-    std::optional<llvm::StringRef> nodeType = matchObj->getString("node_type");
+    std::optional<llvm::StringRef> nodeType = matchObj->getString(NODE_TYPE_KEY);
     std::optional<llvm::StringRef> nodeName =
-        matchObj->getString("onnx_node_name");
+        matchObj->getString(ONNX_NODE_NAME_KEY);
 
     if (!nodeType)
       continue;
@@ -197,13 +197,23 @@ bool JsonConfigObject::writeOpsConfig(llvm::ArrayRef<mlir::Operation *> ops,
     if (!buildConfigFn(op, match, rewrite))
       continue;
 
+    // Add node_type to match.
+    std::string nodeType = op->getName().getStringRef().str();
+    match[JsonConfigObject::NODE_TYPE_KEY] = nodeType;
+
+    // Add onnx_node_name to match if present.
+    if (auto nodeNameAttr =
+            op->getAttrOfType<mlir::StringAttr>("onnx_node_name")) {
+      match[JsonConfigObject::ONNX_NODE_NAME_KEY] = nodeNameAttr.getValue().str();
+    }
+
     // Build the pattern structure.
     llvm::json::Object pattern;
-    pattern["match"] = std::move(match);
-    pattern["rewrite"] = std::move(rewrite);
+    pattern[MATCH_KEY] = std::move(match);
+    pattern[REWRITE_KEY] = std::move(rewrite);
 
     llvm::json::Object config;
-    config["pattern"] = std::move(pattern);
+    config[PATTERN_KEY] = std::move(pattern);
 
     opConfigsArray.push_back(std::move(config));
   }
@@ -218,7 +228,7 @@ bool JsonConfigObject::writeOpsConfig(llvm::ArrayRef<mlir::Operation *> ops,
   }
 
   llvm::json::Object rootObj;
-  rootObj["ops_config"] = std::move(opConfigsArray);
+  rootObj[OPS_CONFIG_KEY] = std::move(opConfigsArray);
 
   llvm::json::OStream jsonOS(outFile, 2);
   jsonOS.value(llvm::json::Value(std::move(rootObj)));

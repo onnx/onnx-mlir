@@ -118,9 +118,6 @@ private:
   // Local config object storage (only used when loadConfigFile is provided).
   std::unique_ptr<JsonConfigObject> localConfigObject;
 
-  // JSON keys.
-  std::string DEVICE_PLACEMENT_KEY = "device_placement";
-
   // Exclude these operations from device placement.
   bool isExcludedOp(Operation *op) {
     if (op->getDialect()->getNamespace() != ONNXDialect::getDialectNamespace())
@@ -173,7 +170,7 @@ void DevicePlacementPass::runOnOperation() {
     // Apply unified format configuration with ops_config.
     configObject->applyConfigToOps(ops,
         [&](llvm::json::Object *rewriteObj, mlir::Operation *op) {
-          if (auto device = rewriteObj->getString("device")) {
+          if (auto device = rewriteObj->getString(JsonConfigObject::DEVICE_KEY)) {
             op->setAttr(DEVICE_ATTRIBUTE,
                 StringAttr::get(module.getContext(), *device));
           }
@@ -237,24 +234,11 @@ void DevicePlacementPass::runOnOperation() {
           auto deviceAttr = op->getAttrOfType<mlir::StringAttr>(DEVICE_ATTRIBUTE);
           if (!deviceAttr)
             return false;
-
           std::string deviceStr = deviceAttr.getValue().str();
           if (deviceStr.empty())
             return false;
-
-          // Add node_type to match.
-          std::string nodeType = op->getName().getStringRef().str();
-          match["node_type"] = nodeType;
-
-          // Add onnx_node_name to match if present.
-          if (auto nodeNameAttr =
-                  op->getAttrOfType<mlir::StringAttr>("onnx_node_name")) {
-            match["onnx_node_name"] = nodeNameAttr.getValue().str();
-          }
-
           // Add device to rewrite.
-          rewrite["device"] = deviceStr;
-
+          rewrite[JsonConfigObject::DEVICE_KEY] = deviceStr;
           return true;
         });
   }

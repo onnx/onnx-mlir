@@ -73,9 +73,6 @@ private:
   // Local config object storage (only used when loadConfigFile is provided).
   std::unique_ptr<JsonConfigObject> localConfigObject;
 
-  // JSON keys.
-  std::string QUANTIZATION_KEY = "quantization";
-
   // Exclude these operations from quantization.
   bool isExcludedOp(Operation *op) {
     if (op->getDialect()->getNamespace() != ONNXDialect::getDialectNamespace())
@@ -117,11 +114,12 @@ void QuantOpSelectionPass::runOnOperation() {
   // Use the configObject pointer which points to either local or global config.
   if (configObject && !configObject->empty()) {
     // Apply unified format configuration with ops_config.
-    configObject->applyConfigToOps(ops,
-        [&](llvm::json::Object *rewriteObj, mlir::Operation *op) {
-          if (auto quantize = rewriteObj->getBoolean("quantize")) {
-            op->setAttr(QUANT_ATTRIBUTE,
-                BoolAttr::get(module.getContext(), *quantize));
+    configObject->applyConfigToOps(
+        ops, [&](llvm::json::Object *rewriteObj, mlir::Operation *op) {
+          if (auto quantize =
+                  rewriteObj->getBoolean(JsonConfigObject::QUANTIZE_KEY)) {
+            op->setAttr(
+                QUANT_ATTRIBUTE, BoolAttr::get(module.getContext(), *quantize));
           }
         });
   }
@@ -139,23 +137,12 @@ void QuantOpSelectionPass::runOnOperation() {
     configObject->writeOpsConfig(ops, saveConfigFile,
         [&](mlir::Operation *op, llvm::json::Object &match,
             llvm::json::Object &rewrite) -> bool {
-          BoolAttr quantAttr = op->getAttrOfType<mlir::BoolAttr>(QUANT_ATTRIBUTE);
+          BoolAttr quantAttr =
+              op->getAttrOfType<mlir::BoolAttr>(QUANT_ATTRIBUTE);
           if (!quantAttr)
             return false;
-
-          // Add node_type to match.
-          std::string nodeType = op->getName().getStringRef().str();
-          match["node_type"] = nodeType;
-
-          // Add onnx_node_name to match if present.
-          if (auto nodeNameAttr =
-                  op->getAttrOfType<mlir::StringAttr>("onnx_node_name")) {
-            match["onnx_node_name"] = nodeNameAttr.getValue().str();
-          }
-
           // Add quantize to rewrite.
-          rewrite["quantize"] = quantAttr.getValue();
-
+          rewrite[JsonConfigObject::QUANTIZE_KEY] = quantAttr.getValue();
           return true;
         });
   }

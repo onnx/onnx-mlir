@@ -95,29 +95,20 @@ void GenerateConfigFilePass::runOnOperation() {
             llvm::json::Object &rewrite) -> bool {
           bool hasConfig = false;
 
-          // Add node_type to match.
-          std::string nodeType = op->getName().getStringRef().str();
-          match["node_type"] = nodeType;
-
-          // Add onnx_node_name to match if present.
-          if (auto nodeNameAttr =
-                  op->getAttrOfType<mlir::StringAttr>("onnx_node_name")) {
-            match["onnx_node_name"] = nodeNameAttr.getValue().str();
-          }
-
           // Add device to rewrite if present.
           if (auto deviceAttr =
                   op->getAttrOfType<mlir::StringAttr>(DEVICE_ATTRIBUTE)) {
             std::string deviceStr = deviceAttr.getValue().str();
             if (!deviceStr.empty()) {
-              rewrite["device"] = deviceStr;
+              rewrite[JsonConfigObject::DEVICE_KEY] = deviceStr;
               hasConfig = true;
             }
           }
 
           // Add quantize to rewrite if present.
-          if (auto quantAttr = op->getAttrOfType<mlir::BoolAttr>(QUANT_ATTRIBUTE)) {
-            rewrite["quantize"] = quantAttr.getValue();
+          if (auto quantAttr =
+                  op->getAttrOfType<mlir::BoolAttr>(QUANT_ATTRIBUTE)) {
+            rewrite[JsonConfigObject::QUANTIZE_KEY] = quantAttr.getValue();
             hasConfig = true;
           }
 
