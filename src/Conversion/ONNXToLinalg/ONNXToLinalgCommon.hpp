@@ -34,17 +34,15 @@ namespace onnx_mlir {
 // --use-linalg-path is enabled.
 // Note: When convert-onnx-to-linalg pass is explicitly run (e.g., via
 // onnx-mlir-opt), we default to converting operations if no options are set.
-inline bool shouldConvertToLinalg(
-    mlir::Operation *op, const std::string &linalgOps, bool useLinalgPath) {
-  // When convert-onnx-to-linalg pass is explicitly run (e.g., via
-  // onnx-mlir-opt), we default to converting all operations unless linalgOps
-  // is explicitly set
-  if (linalgOps.empty()) {
-    // If linalgOps is not specified, check useLinalgPath flag
-    // If useLinalgPath is true, convert all operations to Linalg
-    // Otherwise, default to true for onnx-mlir-opt usage (when pass is
-    // explicitly run) Note: In onnx-mlir-opt, useLinalgPath may not be
-    // initialized, so we default to true
+// The linalgOpsMatcher parameter should be a pointer to an EnableByRegexOption
+// instance that is thread-safe (each pattern instance should have its own).
+// Note: linalgOpsMatcher is non-const because isEnabled() modifies internal
+// cache.
+inline bool shouldConvertToLinalg(mlir::Operation *op,
+    EnableByRegexOption *linalgOpsMatcher, bool useLinalgPath) {
+  // When linalgOpsMatcher is null or empty, default to converting all
+  // operations
+  if (!linalgOpsMatcher) {
     return true;
   }
 
