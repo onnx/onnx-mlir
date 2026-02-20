@@ -64,3 +64,17 @@ func.func @test_exceed_limit_div(%arg0 : tensor<32769x10xf32>, %arg1 : tensor<32
 // CHECK-LABEL:  func @test_exceed_limit_div
 // CHECK:        "onnx.Div"
 }
+
+// -----
+
+func.func @test_scalar_div(%arg0 : tensor<1xf32>, %arg1 : tensor<1xf32>) -> tensor<1xf32> {
+  %x = "onnx.Div"(%arg0, %arg1) : (tensor<1xf32>, tensor<1xf32>) -> tensor<1xf32>
+  "func.return"(%x) : (tensor<1xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_scalar_div
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1xf32>, [[PARAM_1_:%.+]]: tensor<1xf32>) -> tensor<1xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Div"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<1xf32>, tensor<1xf32>) -> tensor<1xf32>
+// CHECK:           return [[VAR_0_]] : tensor<1xf32>
+// CHECK:         }
+}
+

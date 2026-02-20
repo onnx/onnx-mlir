@@ -64,3 +64,16 @@ func.func @test_exceed_limit_min(%arg0 : tensor<32769x10xf32>, %arg1 : tensor<32
 // CHECK-LABEL:  func @test_exceed_limit_min
 // CHECK:        "onnx.Min"
 }
+
+// -----
+
+func.func @test_min_scalar(%arg0 : tensor<1xf32>, %arg1 : tensor<1xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Min"(%arg0, %arg1) : (tensor<1xf32>, tensor<1xf32>) -> tensor<*xf32>
+  "func.return"(%0) : (tensor<*xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_min_scalar
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1xf32>, [[PARAM_1_:%.+]]: tensor<1xf32>) -> tensor<1xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Min"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<1xf32>, tensor<1xf32>) -> tensor<1xf32>
+// CHECK:           return [[VAR_0_]] : tensor<1xf32>
+// CHECK:         }
+}

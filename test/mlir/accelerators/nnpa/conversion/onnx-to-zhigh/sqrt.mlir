@@ -25,3 +25,17 @@ func.func @test_exceed_limit_sqrt(%arg0 : tensor<2097152x10xf32>) -> tensor<*xf3
 // CHECK-LABEL:  func @test_exceed_limit_sqrt
 // CHECK:        "onnx.Sqrt"
 }
+
+// -----
+
+func.func @test_salar_sqrt(%arg0 : tensor<1xf32>) -> tensor<1xf32> {
+  %x = "onnx.Sqrt"(%arg0) : (tensor<1xf32>) -> tensor<1xf32>
+  "func.return"(%x) : (tensor<1xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_salar_sqrt
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1xf32>) -> tensor<1xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Sqrt"([[PARAM_0_]]) : (tensor<1xf32>) -> tensor<1xf32>
+// CHECK:           return [[VAR_0_]] : tensor<1xf32>
+// CHECK:         }
+}
+

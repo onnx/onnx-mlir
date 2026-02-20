@@ -58,4 +58,6 @@ def ACT_RELUAttr: NativeCodeCall<"$_builder.getStringAttr(\"ACT_RELU\")">;
 
 def GetTypeOf : NativeCodeCall<"$0.getType()" >;
 
+def OpIsBigEnoughForNNPA: Constraint<CPred<"!isTooSmallOpForNNPA($_self.getDefiningOp())">>;
+
 #endif // ONNX_TO_ZHIGH_COMMON

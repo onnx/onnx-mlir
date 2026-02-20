@@ -43,6 +43,36 @@ struct ONNXToZHighLoweringConfiguration {
   };
 };
 
+/// Get transposed tensor by using a permutation array.
+mlir::Value emitONNXTranspose(mlir::Location loc,
+    mlir::PatternRewriter &rewriter, mlir::Value x,
+    mlir::ArrayRef<int64_t> perms);
+
+/// Get transposed tensor by using a permutation array and a result type.
+mlir::Value emitONNXTransposeWithType(mlir::Location loc,
+    mlir::PatternRewriter &rewriter, mlir::Type transposedType, mlir::Value x,
+    mlir::ArrayRef<int64_t> perms);
+
+/// Split a tensor along an axis in which each chunk has a size of
+/// NNPAGetMaxForDim and the last chuck can be smaller.
+mlir::ValueRange splitAlongAxis(
+    onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> &create,
+    mlir::Value X, int64_t axis);
+
+// Check if a value is a constant tensor of a single f32 value or not.
+bool isF32ScalarConstantTensor(mlir::Value v);
+
+// Get FloatAttr from a constant tensor of a single f32 value.
+mlir::FloatAttr getScalarF32AttrFromConstant(mlir::Value v);
+
+// Emit ONNX Concat to store the shape of the input x.
+mlir::Value getDynShape(
+    mlir::Location loc, mlir::PatternRewriter &rewriter, mlir::Value x);
+
+// Check if an operation is too small for NNPA, e.g. operation witl all scalar
+// tensors.
+bool isTooSmallOpForNNPA(mlir::Operation *op);
+
 template <typename OP_TYPE>
 void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
     const onnx_mlir::DimAnalysis *dimAnalysis,
@@ -66,6 +96,11 @@ void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
 
     // If not CPU, check if the op is legal for NNPA.
     bool isLegalForNNPA = false;
+
+    // Operations whose inputs are small, do not use NNPA.
+    if (isTooSmallOpForNNPA(genericOp))
+      return true;
+
     if (checkLegalityFn)
       isLegalForNNPA = !checkLegalityFn(op, dimAnalysis);
     else {
@@ -96,32 +131,6 @@ void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
     return !isLegalForNNPA;
   });
 }
-
-/// Get transposed tensor by using a permutation array.
-mlir::Value emitONNXTranspose(mlir::Location loc,
-    mlir::PatternRewriter &rewriter, mlir::Value x,
-    mlir::ArrayRef<int64_t> perms);
-
-/// Get transposed tensor by using a permutation array and a result type.
-mlir::Value emitONNXTransposeWithType(mlir::Location loc,
-    mlir::PatternRewriter &rewriter, mlir::Type transposedType, mlir::Value x,
-    mlir::ArrayRef<int64_t> perms);
-
-/// Split a tensor along an axis in which each chunk has a size of
-/// NNPAGetMaxForDim and the last chuck can be smaller.
-mlir::ValueRange splitAlongAxis(
-    onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> &create,
-    mlir::Value X, int64_t axis);
-
-// Check if a value is a constant tensor of a single f32 value or not.
-bool isF32ScalarConstantTensor(mlir::Value v);
-
-// Get FloatAttr from a constant tensor of a single f32 value.
-mlir::FloatAttr getScalarF32AttrFromConstant(mlir::Value v);
-
-// Emit ONNX Concat to store the shape of the input x.
-mlir::Value getDynShape(
-    mlir::Location loc, mlir::PatternRewriter &rewriter, mlir::Value x);
 
 } // namespace onnx_mlir
 #endif

@@ -70,3 +70,16 @@ func.func @test_exceed_limit_reducemean_v13(%arg0 : tensor<32769x3x5x7xf32>) -> 
 // CHECK-LABEL:  func @test_exceed_limit_reducemean_v13
 // CHECK:        "onnx.ReduceMeanV13"
 }
+
+// -----
+
+func.func @test_reduce_mean_scalar(%arg0 : tensor<1xf32>) -> tensor<*xf32> {
+   %0 ="onnx.ReduceMeanV13"(%arg0) { axes = [0] } : (tensor<1xf32>)-> tensor<*xf32>
+   "func.return"(%0) : (tensor<*xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_reduce_mean_scalar
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1xf32>) -> tensor<1xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.ReduceMeanV13"([[PARAM_0_]]) <{axes = [0], keepdims = 1 : si64}> : (tensor<1xf32>) -> tensor<1xf32>
+// CHECK:           return [[VAR_0_]] : tensor<1xf32>
+// CHECK:         }
+}
