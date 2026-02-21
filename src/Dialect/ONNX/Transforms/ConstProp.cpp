@@ -525,6 +525,10 @@ Value ConstPropElementwiseUnary(
   Type replacingElemType =
       mlir::cast<ShapedType>(replacingValue.getType()).getElementType();
 
+  if (auto quantType =
+          mlir::dyn_cast<mlir::quant::QuantizedType>(replacingElemType))
+    replacingElemType = quantType.getStorageType();
+
   ElementsAttr constElements = getConstValueElements(constValue);
   assert(replacingElemType == constElements.getElementType() &&
          "all element-wise unary ops preserve element type");
