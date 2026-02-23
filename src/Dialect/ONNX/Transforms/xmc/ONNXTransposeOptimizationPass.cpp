@@ -20,7 +20,6 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
-
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
@@ -839,11 +838,12 @@ struct PushTransposeThroughSCast
 
     auto outputType = mlir::cast<RankedTensorType>(op.getType());
 
-    // Compute the pre-transpose output shape
-    auto newOutputShape =
-        permuteShape(outputType.getShape(), inversePermutation(*perm));
-    auto newOutputType =
-        RankedTensorType::get(newOutputShape, outputType.getElementType());
+    // The new scast takes the transpose's input directly, so its output must
+    // have the same shape as that input (scast only changes the element type).
+    auto inputType =
+        mlir::cast<RankedTensorType>(transposeOp.getOperand().getType());
+    auto newOutputType = RankedTensorType::get(
+        inputType.getShape(), outputType.getElementType());
 
     LLVM_DEBUG(llvm::dbgs() << "Pushing transpose through quant.scast\n");
 
