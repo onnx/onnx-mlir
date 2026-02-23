@@ -20,11 +20,11 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
-
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 #include "src/Pass/Passes.hpp"
+#include <iostream>
 
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/SmallVector.h"
@@ -839,11 +839,12 @@ struct PushTransposeThroughSCast
 
     auto outputType = mlir::cast<RankedTensorType>(op.getType());
 
-    // Compute the pre-transpose output shape
-    auto newOutputShape =
-        permuteShape(outputType.getShape(), inversePermutation(*perm));
-    auto newOutputType =
-        RankedTensorType::get(newOutputShape, outputType.getElementType());
+    // The new scast takes the transpose's input directly, so its output must
+    // have the same shape as that input (scast only changes the element type).
+    auto inputType =
+        mlir::cast<RankedTensorType>(transposeOp.getOperand().getType());
+    auto newOutputType = RankedTensorType::get(
+        inputType.getShape(), outputType.getElementType());
 
     LLVM_DEBUG(llvm::dbgs() << "Pushing transpose through quant.scast\n");
 
@@ -1206,7 +1207,7 @@ struct PushTransposeThroughBinaryWithConst : public OpRewritePattern<BinaryOp> {
       ArrayRef<float> floatData(reinterpret_cast<const float *>(rawData.data()),
           static_cast<size_t>(numElements));
       for (int64_t newLinearIdx = 0; newLinearIdx < numElements;
-           ++newLinearIdx) {
+          ++newLinearIdx) {
         // Convert linear index to multi-dimensional index in new space
         SmallVector<int64_t> newIndices(newConstShape.size());
         int64_t remaining = newLinearIdx;
@@ -1238,7 +1239,7 @@ struct PushTransposeThroughBinaryWithConst : public OpRewritePattern<BinaryOp> {
           reinterpret_cast<const int64_t *>(rawData.data()),
           static_cast<size_t>(numElements));
       for (int64_t newLinearIdx = 0; newLinearIdx < numElements;
-           ++newLinearIdx) {
+          ++newLinearIdx) {
         SmallVector<int64_t> newIndices(newConstShape.size());
         int64_t remaining = newLinearIdx;
         for (int i = newConstShape.size() - 1; i >= 0; --i) {
@@ -1266,7 +1267,7 @@ struct PushTransposeThroughBinaryWithConst : public OpRewritePattern<BinaryOp> {
       ArrayRef<int8_t> intData(reinterpret_cast<const int8_t *>(rawData.data()),
           static_cast<size_t>(numElements));
       for (int64_t newLinearIdx = 0; newLinearIdx < numElements;
-           ++newLinearIdx) {
+          ++newLinearIdx) {
         // Convert linear index to multi-dimensional index in new space
         SmallVector<int64_t> newIndices(newConstShape.size());
         int64_t remaining = newLinearIdx;
@@ -1471,7 +1472,7 @@ struct FoldConstDQTranspose : public OpRewritePattern<ONNXTransposeOp> {
       ArrayRef<float> floatData(reinterpret_cast<const float *>(rawData.data()),
           static_cast<size_t>(numElements));
       for (int64_t newLinearIdx = 0; newLinearIdx < numElements;
-           ++newLinearIdx) {
+          ++newLinearIdx) {
         SmallVector<int64_t> newIndices(newConstShape.size());
         int64_t remaining = newLinearIdx;
         for (int i = newConstShape.size() - 1; i >= 0; --i) {
@@ -1501,7 +1502,7 @@ struct FoldConstDQTranspose : public OpRewritePattern<ONNXTransposeOp> {
           reinterpret_cast<const int8_t *>(rawData.data()), rawData.size());
 
       for (int64_t newLinearIdx = 0; newLinearIdx < numElements;
-           ++newLinearIdx) {
+          ++newLinearIdx) {
         SmallVector<int64_t> newIndices(newConstShape.size());
         int64_t remaining = newLinearIdx;
         for (int i = newConstShape.size() - 1; i >= 0; --i) {
