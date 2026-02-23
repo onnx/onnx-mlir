@@ -98,11 +98,61 @@ bool omMMapBinaryFile(
   }
 
 #ifdef __MVS__
-  void *tempAddr = mmap(0, size, PROT_READ, __MAP_MEGA, fd, 0);
+  // z/OS has different memory constraints for mmap usage, 
+  // to avoid certain system configurations for large constant sizes,
+  // use malloc + read for large files
+  #define MAX_MMAP_SIZE (1024LL * 1024LL * 1024LL)
+  void *tempAddr;
+  bool usedMalloc = false;
+  
+  if (size > MAX_MMAP_SIZE) {
+    // Allocate memory and read file in chunks
+    tempAddr = malloc(size);
+    if (!tempAddr) {
+      fprintf(stderr, "Error allocating %lld bytes: %s\n",
+              (long long)size, strerror(errno));
+      close(fd);
+      if (basePath)
+        free(filePath);
+      return false;
+    }
+    usedMalloc = true;
+    
+    // Read file in 1GB chunks
+    int64_t remaining = size;
+    int64_t offset = 0;
+    char *destPtr = (char *)tempAddr;
+    
+    while (remaining > 0) {
+      int64_t chunkSize = (remaining > MAX_MMAP_SIZE) ? MAX_MMAP_SIZE : remaining;
+      ssize_t bytesRead = read(fd, destPtr + offset, chunkSize);
+      
+      if (bytesRead != chunkSize) {
+        fprintf(stderr, "Error reading %s at offset %lld: %s\n",
+                fname, (long long)offset, strerror(errno));
+        free(tempAddr);
+        close(fd);
+        if (basePath)
+          free(filePath);
+        return false;
+      }
+      
+      offset += chunkSize;
+      remaining -= chunkSize;
+    }
+  } else {
+    // Use mmap for files <= 1GB
+    tempAddr = mmap(0, size, PROT_READ, __MAP_MEGA, fd, 0);
+    if (tempAddr == MAP_FAILED) {
+      fprintf(stderr, "Error while mmapping %s: %s\n", fname, strerror(errno));
+      close(fd);
+      if (basePath)
+        free(filePath);
+      return false;
+    }
+  }
 #else
   void *tempAddr = mmap(0, size, PROT_READ, MAP_SHARED, fd, 0);
-#endif
-
   if (tempAddr == MAP_FAILED) {
     fprintf(stderr, "Error while mmapping %s: %s\n", fname, strerror(errno));
     close(fd);
@@ -110,14 +160,20 @@ bool omMMapBinaryFile(
       free(filePath);
     return false;
   }
+#endif
 
   /* Prepare to compare-and-swap to setup the shared constAddr.
    * If we fail, another thread beat us so free our mmap.
    */
 #ifdef __MVS__
   void *expected = NULL;
-  if (cds((cds_t *)&expected, (cds_t *)&constAddr[0], *(cds_t *)&tempAddr))
-    munmap(tempAddr, size);
+  if (cds((cds_t *)&expected, (cds_t *)&constAddr[0], *(cds_t *)&tempAddr)) {
+    // Clean up based on allocation method
+    if (usedMalloc)
+      free(tempAddr);
+    else
+      munmap(tempAddr, size);
+  }
 #else
   if (!__sync_bool_compare_and_swap(&constAddr[0], NULL, tempAddr))
     munmap(tempAddr, size);
