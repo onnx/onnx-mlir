@@ -85,45 +85,67 @@ LogicalResult XFEResizeOp::inferShapes(
 // ============================================================
 
 LogicalResult XFEMatMulBiasOp::verify() {
-  return XFEMatMulBiasOpVerify(this->getOperation());
+  if (failed(XFEMatMulBiasOpVerify(this->getOperation())))
+    return failure();
+  return XFEChannelWiseQuantizationVerify(this->getOperation());
 }
 
 LogicalResult XFEConvOp::verify() {
-  return XFEConvOpVerify(this->getOperation());
+  if (failed(XFEConvOpVerify(this->getOperation())))
+    return failure();
+  return XFEChannelWiseQuantizationVerify(this->getOperation());
 }
 
 LogicalResult XFEConvTransposeOp::verify() {
-  return XFEConvTransposeOpVerify(this->getOperation());
+  if (failed(XFEConvTransposeOpVerify(this->getOperation())))
+    return failure();
+  return XFEChannelWiseQuantizationVerify(this->getOperation());
 }
 
 LogicalResult XFEAveragePoolOp::verify() {
-  return XFEAveragePoolOpVerify(this->getOperation());
+  if (failed(XFEAveragePoolOpVerify(this->getOperation())))
+    return failure();
+  return XFEChannelWiseQuantizationVerify(this->getOperation());
 }
 
 LogicalResult XFEMaxPoolOp::verify() {
-  return XFEMaxPoolOpVerify(this->getOperation());
+  if (failed(XFEMaxPoolOpVerify(this->getOperation())))
+    return failure();
+  return XFEChannelWiseQuantizationVerify(this->getOperation());
 }
 
 LogicalResult XFEGlobalAveragePoolOp::verify() {
-  return XFEGlobalAveragePoolOpVerify(this->getOperation());
+  if (failed(XFEGlobalAveragePoolOpVerify(this->getOperation())))
+    return failure();
+  return XFEChannelWiseQuantizationVerify(this->getOperation());
 }
 
 LogicalResult XFEGlobalMaxPoolOp::verify() {
-  return XFEGlobalMaxPoolOpVerify(this->getOperation());
+  if (failed(XFEGlobalMaxPoolOpVerify(this->getOperation())))
+    return failure();
+  return XFEChannelWiseQuantizationVerify(this->getOperation());
 }
 
 LogicalResult XFEInstanceNormalizationOp::verify() {
-  return XFEInstanceNormalizationOpVerify(this->getOperation());
+  if (failed(XFEInstanceNormalizationOpVerify(this->getOperation())))
+    return failure();
+  return XFEChannelWiseQuantizationVerify(this->getOperation());
 }
 
 LogicalResult XFEDepthToSpaceOp::verify() {
-  return XFEDepthToSpaceOpVerify(this->getOperation());
+  if (failed(XFEDepthToSpaceOpVerify(this->getOperation())))
+    return failure();
+  return XFEChannelWiseQuantizationVerify(this->getOperation());
 }
 
 LogicalResult XFESpaceToDepthOp::verify() {
-  return XFESpaceToDepthOpVerify(this->getOperation());
+  if (failed(XFESpaceToDepthOpVerify(this->getOperation())))
+    return failure();
+  return XFEChannelWiseQuantizationVerify(this->getOperation());
 }
 
 LogicalResult XFEResizeOp::verify() {
-  return XFEResizeOpVerify(this->getOperation());
+  if (failed(XFEResizeOpVerify(this->getOperation())))
+    return failure();
+  return XFEChannelWiseQuantizationVerify(this->getOperation());
 }
