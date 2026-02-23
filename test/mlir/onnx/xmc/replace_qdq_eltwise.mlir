@@ -404,6 +404,155 @@ func.func @test_quantized_cos_no_activation(
 }
 
 // -----
+// Test Pattern 1: Mod (no activation) -> fused MOD
+// CHECK-LABEL: func.func @test_quantized_mod_no_activation
+func.func @test_quantized_mod_no_activation(
+    %arg0: tensor<1x4x8x8x!quant.uniform<u8:f32, 0.1:128>>,
+    %arg1: tensor<1x4x8x8x!quant.uniform<u8:f32, 0.1:128>>)
+    -> tensor<1x4x8x8x!quant.uniform<u8:f32, 0.1:128>> {
+  %mod = "onnx.Mod"(%arg0, %arg1) :
+      (tensor<1x4x8x8x!quant.uniform<u8:f32, 0.1:128>>,
+       tensor<1x4x8x8x!quant.uniform<u8:f32, 0.1:128>>)
+      -> tensor<1x4x8x8x!quant.uniform<u8:f32, 0.1:128>>
+  return %mod : tensor<1x4x8x8x!quant.uniform<u8:f32, 0.1:128>>
+
+  // CHECK: "onnx.XCOMPILERFusedEltwise"(%arg0, %arg1)
+  // CHECK-SAME: nonlinear = "NONE"
+  // CHECK-SAME: type = "MOD"
+  // CHECK-NOT: onnx.Mod
+}
+
+// -----
+// Test Pattern 1: Standalone Relu (no preceding eltwise) -> fused RELU
+// CHECK-LABEL: func.func @test_quantized_relu_standalone
+func.func @test_quantized_relu_standalone(
+    %arg0: tensor<1x8x8x8x!quant.uniform<u8:f32, 0.02:128>>)
+    -> tensor<1x8x8x8x!quant.uniform<u8:f32, 0.02:128>> {
+  %relu = "onnx.Relu"(%arg0) :
+      (tensor<1x8x8x8x!quant.uniform<u8:f32, 0.02:128>>)
+      -> tensor<1x8x8x8x!quant.uniform<u8:f32, 0.02:128>>
+  return %relu : tensor<1x8x8x8x!quant.uniform<u8:f32, 0.02:128>>
+
+  // CHECK: %[[NOVAL:.*]] = "onnx.NoValue"()
+  // CHECK: %[[FUSED:.*]] = "onnx.XCOMPILERFusedEltwise"(%arg0, %[[NOVAL]])
+  // CHECK-SAME: nonlinear = "NONE"
+  // CHECK-SAME: type = "RELU"
+  // CHECK: return %[[FUSED]]
+}
+
+// -----
+// Test Pattern 1: Standalone LeakyRelu (no preceding eltwise) -> fused LEAKYRELU
+// CHECK-LABEL: func.func @test_quantized_leakyrelu_standalone
+func.func @test_quantized_leakyrelu_standalone(
+    %arg0: tensor<1x8x8x8x!quant.uniform<u8:f32, 0.02:128>>)
+    -> tensor<1x8x8x8x!quant.uniform<u8:f32, 0.02:128>> {
+  %leaky = "onnx.LeakyRelu"(%arg0) {alpha = 0.01 : f32} :
+      (tensor<1x8x8x8x!quant.uniform<u8:f32, 0.02:128>>)
+      -> tensor<1x8x8x8x!quant.uniform<u8:f32, 0.02:128>>
+  return %leaky : tensor<1x8x8x8x!quant.uniform<u8:f32, 0.02:128>>
+
+  // CHECK: %[[NOVAL:.*]] = "onnx.NoValue"()
+  // CHECK: %[[FUSED:.*]] = "onnx.XCOMPILERFusedEltwise"(%arg0, %[[NOVAL]])
+  // CHECK-SAME: leakyrelu_alpha = {{[0-9.e+-]+}} : f32
+  // CHECK-SAME: nonlinear = "LEAKYRELU"
+  // CHECK-SAME: prelu_in = 3 : si64
+  // CHECK-SAME: prelu_shift = 8 : si64
+  // CHECK-SAME: type = "LEAKYRELU"
+  // CHECK: return %[[FUSED]]
+}
+
+// -----
+// Test Pattern 1: Equal - quantized inputs, bool output (standard ONNX).
+// Pass does not fuse (result not quantized); op remains.
+// CHECK-LABEL: func.func @test_quantized_equal_no_activation
+func.func @test_quantized_equal_no_activation(
+    %arg0: tensor<1x4x4x4x!quant.uniform<u8:f32, 0.1:128>>,
+    %arg1: tensor<1x4x4x4x!quant.uniform<u8:f32, 0.1:128>>)
+    -> tensor<1x4x4x4xi1> {
+  %eq = "onnx.Equal"(%arg0, %arg1) :
+      (tensor<1x4x4x4x!quant.uniform<u8:f32, 0.1:128>>,
+       tensor<1x4x4x4x!quant.uniform<u8:f32, 0.1:128>>)
+      -> tensor<1x4x4x4xi1>
+  return %eq : tensor<1x4x4x4xi1>
+
+  // Result is bool, so pass does not fuse (requires quantized result).
+  // CHECK: "onnx.Equal"(%arg0, %arg1)
+  // CHECK: return
+}
+
+// -----
+// Test Pattern 1: Less - quantized inputs, bool output (standard ONNX).
+// Pass does not fuse (result not quantized); op remains.
+// CHECK-LABEL: func.func @test_quantized_less_no_activation
+func.func @test_quantized_less_no_activation(
+    %arg0: tensor<1x4x4x4x!quant.uniform<u8:f32, 0.1:128>>,
+    %arg1: tensor<1x4x4x4x!quant.uniform<u8:f32, 0.1:128>>)
+    -> tensor<1x4x4x4xi1> {
+  %less = "onnx.Less"(%arg0, %arg1) :
+      (tensor<1x4x4x4x!quant.uniform<u8:f32, 0.1:128>>,
+       tensor<1x4x4x4x!quant.uniform<u8:f32, 0.1:128>>)
+      -> tensor<1x4x4x4xi1>
+  return %less : tensor<1x4x4x4xi1>
+
+  // CHECK: "onnx.Less"(%arg0, %arg1)
+  // CHECK: return
+}
+
+// -----
+// Test Pattern 1: Greater - quantized inputs, bool output (standard ONNX).
+// Pass does not fuse (result not quantized); op remains.
+// CHECK-LABEL: func.func @test_quantized_greater_no_activation
+func.func @test_quantized_greater_no_activation(
+    %arg0: tensor<1x4x4x4x!quant.uniform<u8:f32, 0.1:128>>,
+    %arg1: tensor<1x4x4x4x!quant.uniform<u8:f32, 0.1:128>>)
+    -> tensor<1x4x4x4xi1> {
+  %greater = "onnx.Greater"(%arg0, %arg1) :
+      (tensor<1x4x4x4x!quant.uniform<u8:f32, 0.1:128>>,
+       tensor<1x4x4x4x!quant.uniform<u8:f32, 0.1:128>>)
+      -> tensor<1x4x4x4xi1>
+  return %greater : tensor<1x4x4x4xi1>
+
+  // CHECK: "onnx.Greater"(%arg0, %arg1)
+  // CHECK: return
+}
+
+// -----
+// Test Pattern 1: LessOrEqual - quantized inputs, bool output (standard ONNX).
+// Pass does not fuse (result not quantized); op remains.
+// CHECK-LABEL: func.func @test_quantized_less_or_equal_no_activation
+func.func @test_quantized_less_or_equal_no_activation(
+    %arg0: tensor<1x4x4x4x!quant.uniform<u8:f32, 0.1:128>>,
+    %arg1: tensor<1x4x4x4x!quant.uniform<u8:f32, 0.1:128>>)
+    -> tensor<1x4x4x4xi1> {
+  %le = "onnx.LessOrEqual"(%arg0, %arg1) :
+      (tensor<1x4x4x4x!quant.uniform<u8:f32, 0.1:128>>,
+       tensor<1x4x4x4x!quant.uniform<u8:f32, 0.1:128>>)
+      -> tensor<1x4x4x4xi1>
+  return %le : tensor<1x4x4x4xi1>
+
+  // CHECK: "onnx.LessOrEqual"(%arg0, %arg1)
+  // CHECK: return
+}
+
+// -----
+// Test Pattern 1: GreaterOrEqual - quantized inputs, bool output (standard ONNX).
+// Pass does not fuse (result not quantized); op remains.
+// CHECK-LABEL: func.func @test_quantized_greater_or_equal_no_activation
+func.func @test_quantized_greater_or_equal_no_activation(
+    %arg0: tensor<1x4x4x4x!quant.uniform<u8:f32, 0.1:128>>,
+    %arg1: tensor<1x4x4x4x!quant.uniform<u8:f32, 0.1:128>>)
+    -> tensor<1x4x4x4xi1> {
+  %ge = "onnx.GreaterOrEqual"(%arg0, %arg1) :
+      (tensor<1x4x4x4x!quant.uniform<u8:f32, 0.1:128>>,
+       tensor<1x4x4x4x!quant.uniform<u8:f32, 0.1:128>>)
+      -> tensor<1x4x4x4xi1>
+  return %ge : tensor<1x4x4x4xi1>
+
+  // CHECK: "onnx.GreaterOrEqual"(%arg0, %arg1)
+  // CHECK: return
+}
+
+// -----
 // Test: Pattern 1 + Pattern 2 in same function
 //  - Exp (no activation) should fuse with nonlinear="NONE", type="EXP"
 //  - Add + Relu should fuse with nonlinear="RELU", type="ADD"
