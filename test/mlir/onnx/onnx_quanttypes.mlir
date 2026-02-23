@@ -30,11 +30,11 @@ func.func @matmul_add(%arg0: tensor<1x128x768xf32>) -> tensor<1x128x768xf32> {
 // CHECK: onnx.QuantizeLinear
 // CHECK-SAME: (tensor<1x128x768xf32>, tensor<f32>, tensor<i16>) -> tensor<1x128x768xi16>
 // CHECK-NEXT: quant.scast
-// CHECK-SAME: tensor<1x128x768xi16> to tensor<1x128x768x!quant.uniform<i16:f32, 2.1302925597410649E-4:35166>>
+// CHECK-SAME: tensor<1x128x768xi16> to tensor<1x128x768x!quant.uniform<i16:f32, 2.1302925597410649E-4:-30370>>
 // CHECK-NEXT: onnx.MatMul
-// CHECK-SAME: (tensor<1x128x768x!quant.uniform<i16:f32, 2.1302925597410649E-4:35166>>, tensor<768x768x!quant.uniform<i8:f32, 0.0043040169402956963:137>>) -> tensor<1x128x768x!quant.uniform<i16:f32, 2.0635200780816376E-4:31929>>
+// CHECK-SAME: (tensor<1x128x768x!quant.uniform<i16:f32, 2.1302925597410649E-4:-30370>>, tensor<768x768x!quant.uniform<i8:f32, 0.0043040169402956963:-119>>) -> tensor<1x128x768x!quant.uniform<i16:f32, 2.0635200780816376E-4:31929>>
 // CHECK-NEXT: onnx.Add
-// CHECK-SAME: (tensor<768x!quant.uniform<i16:f32, 6.7978078277519671E-7:41309>>, tensor<1x128x768x!quant.uniform<i16:f32, 2.0635200780816376E-4:31929>>) -> tensor<1x128x768x!quant.uniform<i16:f32, 2.0647853671107441E-4:31907>>
+// CHECK-SAME: (tensor<768x!quant.uniform<i16:f32, 6.7978078277519671E-7:-24227>>, tensor<1x128x768x!quant.uniform<i16:f32, 2.0635200780816376E-4:31929>>) -> tensor<1x128x768x!quant.uniform<i16:f32, 2.0647853671107441E-4:31907>>
 // CHECK-NEXT: quant.scast
 // CHECK-SAME: tensor<1x128x768x!quant.uniform<i16:f32, 2.0647853671107441E-4:31907>> to tensor<1x128x768xi16>
 // CHECK-NEXT: onnx.DequantizeLinear
@@ -60,11 +60,11 @@ func.func @no_boundary_qdq(%arg0: tensor<1x128x768xi16>) -> tensor<1x128x768xi16
 
 // CHECK-LABEL: @no_boundary_qdq
 // CHECK: onnx.Constant
-// CHECK-SAME: tensor<768x768x!quant.uniform<i8:f32, 0.0043040169402956963:137>>
+// CHECK-SAME: tensor<768x768x!quant.uniform<i8:f32, 0.0043040169402956963:-119>>
 // CHECK-NEXT: quant.scast
-// CHECK-SAME: tensor<1x128x768xi16> to tensor<1x128x768x!quant.uniform<i16:f32, 2.1302925597410649E-4:35166>>
+// CHECK-SAME: tensor<1x128x768xi16> to tensor<1x128x768x!quant.uniform<i16:f32, 2.1302925597410649E-4:-30370>>
 // CHECK-NEXT: onnx.MatMul
-// CHECK-SAME: (tensor<1x128x768x!quant.uniform<i16:f32, 2.1302925597410649E-4:35166>>, tensor<768x768x!quant.uniform<i8:f32, 0.0043040169402956963:137>>) -> tensor<1x128x768x!quant.uniform<i16:f32, 2.0635200780816376E-4:31929>>
+// CHECK-SAME: (tensor<1x128x768x!quant.uniform<i16:f32, 2.1302925597410649E-4:-30370>>, tensor<768x768x!quant.uniform<i8:f32, 0.0043040169402956963:-119>>) -> tensor<1x128x768x!quant.uniform<i16:f32, 2.0635200780816376E-4:31929>>
 // CHECK-NEXT: quant.scast
 // CHECK-SAME: tensor<1x128x768x!quant.uniform<i16:f32, 2.0635200780816376E-4:31929>> to tensor<1x128x768xi16>
 
@@ -120,9 +120,9 @@ func.func @multiuse_constant(%arg0: tensor<1x128x128xf32>) -> tensor<1x128x128xf
 // CHECK-LABEL: @multiuse_constant
 // CHECK: [[CONST:%[0-9]+]] = onnx.Constant dense_resource<__elided__> : tensor<128x128xi8>
 // CHECK: quant.scast [[CONST]]
-// CHECK-SAME: tensor<128x128x!quant.uniform<i8:f32, 0.0043040169402956963:137>>
+// CHECK-SAME: tensor<128x128x!quant.uniform<i8:f32, 0.0043040169402956963:-119>>
 // CHECK: quant.scast [[CONST]]
-// CHECK-SAME: tensor<128x128x!quant.uniform<i8:f32, 6.7978078277519671E-7:41309>>
+// CHECK-SAME: tensor<128x128x!quant.uniform<i8:f32, 6.7978078277519671E-7:-24227>>
 
 
 func.func @channelwise_quantization(%arg0: tensor<1x128x128xi16>) -> tensor<1x128x128xi16> {
