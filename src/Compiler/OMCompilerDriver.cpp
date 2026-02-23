@@ -28,7 +28,29 @@ extern int64_t omCompile(const std::string &inputFilename,
     const std::string &flags, std::string &outputFilename,
     std::string &errorMessage) {
 
-  std::string onnxMlirPath = "onnx-mlir";
+  // Determine onnx-mlir executable path
+  std::string onnxMlirPath;
+  const char *envDir = "";
+#if 0 // hi alex
+  envDir = std::getenv("ONNX_MLIR_HOME");
+#endif
+
+#ifdef _WIN32
+  // Windows: look for onnx-mlir.exe
+  if (envDir && fs::exists(envDir)) {
+    onnxMlirPath = std::string(envDir) + "\\bin\\onnx-mlir.exe";
+  } else {
+    onnxMlirPath = "onnx-mlir.exe";
+  }
+#else
+  // Unix/Linux/macOS: look for onnx-mlir
+  if (envDir && fs::exists(envDir)) {
+    onnxMlirPath = std::string(envDir) + "/bin/onnx-mlir";
+  } else {
+    onnxMlirPath = "onnx-mlir";
+  }
+#endif
+
   onnx_mlir::Command compile(onnxMlirPath, /*verbose*/ true);
   std::vector<std::string> flagVect = onnx_mlir::parseFlags(flags);
   compile.appendList(flagVect);

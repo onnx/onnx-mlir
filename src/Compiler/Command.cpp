@@ -13,9 +13,14 @@
 
 #include "src/Compiler/Command.hpp"
 #include <filesystem>
+#include <sstream>
+
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <sys/wait.h>
 #include <unistd.h>
-#include <unordered_set>
+#endif
 
 namespace fs = std::filesystem;
 using namespace onnx_mlir;
@@ -88,7 +93,6 @@ Command &Command::resetArgs() {
   if (args.empty()) {
     throw CommandException("No arguments to reset");
   }
-
   std::string exeName = args[0];
   args.clear();
   args.push_back(exeName);
@@ -99,7 +103,6 @@ Command &Command::resetArgs() {
 Command &Command::print(FILE *fp, const std::string &wdir) {
   if (!fp)
     fp = stderr;
-
   fprintf(fp, "[%s] %s:", wdir.empty() ? "" : wdir.c_str(), path.c_str());
   for (const auto &arg : args) {
     fprintf(fp, " ");
@@ -109,15 +112,13 @@ Command &Command::print(FILE *fp, const std::string &wdir) {
   return *this;
 }
 
-// Execute command
+// Execute command - Platform-specific implementations
 int Command::exec(const std::string &wdir) {
   // Get current working directory
   fs::path curWdir = fs::current_path();
-
   // Determine new working directory
   fs::path newWdir;
   bool requestedNewDir = !wdir.empty();
-
   if (requestedNewDir) {
     newWdir = fs::path(wdir);
     if (newWdir.is_relative()) {
@@ -125,11 +126,6 @@ int Command::exec(const std::string &wdir) {
     }
   } else {
     newWdir = curWdir;
-  }
-
-  // Print command if verbose
-  if (verbose) {
-    print(stdout, newWdir.string());
   }
 
   // Change directory if requested
@@ -141,6 +137,75 @@ int Command::exec(const std::string &wdir) {
           "Failed to change directory to: " + newWdir.string());
     }
   }
+  // Print command if verbose
+  if (verbose)
+    print(stdout, newWdir.string());
+
+#ifdef _WIN32
+  // Windows implementation using CreateProcess
+
+  // Build command line string
+  std::string cmdLine;
+  for (size_t i = 0; i < args.size(); ++i) {
+    if (i > 0)
+      cmdLine += " ";
+
+    // Quote arguments with spaces
+    bool needQuotes = args[i].find(' ') != std::string::npos;
+    if (needQuotes)
+      cmdLine += "\"";
+    cmdLine += args[i];
+    if (needQuotes)
+      cmdLine += "\"";
+  }
+
+  STARTUPINFOA si = {sizeof(si)};
+  PROCESS_INFORMATION pi;
+
+  // CreateProcess modifies the command line, so we need a writable copy
+  std::vector<char> cmdLineBuf(cmdLine.begin(), cmdLine.end());
+  cmdLineBuf.push_back('\0');
+
+  if (!CreateProcessA(path.c_str(), // Application name
+          cmdLineBuf.data(),        // Command line
+          NULL,                     // Process security attributes
+          NULL,                     // Thread security attributes
+          FALSE,                    // Inherit handles
+          0,                        // Creation flags
+          NULL,                     // Environment
+          NULL,                     // Current directory (already changed)
+          &si,                      // Startup info
+          &pi)) {                   // Process information
+
+    if (requestedNewDir)
+      fs::current_path(curWdir);
+    throw CommandException("CreateProcess failed");
+  }
+
+  // Wait for process to complete
+  WaitForSingleObject(pi.hProcess, INFINITE);
+
+  // Get exit code
+  DWORD exitCode;
+  GetExitCodeProcess(pi.hProcess, &exitCode);
+
+  // Clean up handles
+  CloseHandle(pi.hProcess);
+  CloseHandle(pi.hThread);
+
+  // Restore working directory
+  if (requestedNewDir) {
+    try {
+      fs::current_path(curWdir);
+    } catch (const fs::filesystem_error &e) {
+      throw CommandException("Failed to restore directory");
+    }
+  }
+
+  return static_cast<int>(exitCode);
+
+#else
+  // Unix/Linux implementation using fork/exec
 
   // Prepare arguments array (NULL-terminated for execvp)
   std::vector<char *> execArgs;
@@ -182,4 +247,5 @@ int Command::exec(const std::string &wdir) {
   }
 
   throw CommandException("Command execution failed");
+#endif
 }
