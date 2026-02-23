@@ -133,6 +133,7 @@ extern std::vector<std::string> reportHeapBefore; // onnx-mlir only
 extern std::vector<std::string> reportHeapAfter;  // onnx-mlir only
 extern std::string modelTag;                      // onnx-mlir only
 extern bool enableConvOptPass;                    // onnx-mlir only
+extern bool enableXMCPasses;                      // onnx-mlir only
 extern bool disableConstantProp;                  // onnx-mlir only
 extern std::vector<std::string> extraLibPaths;    // onnx-mlir only
 extern std::vector<std::string> extraLibs;        // onnx-mlir only
