@@ -168,7 +168,6 @@ add_onnx_mlir_library(OMCompilerDriverUtils
 
 
 add_onnx_mlir_library(OMCompilerUtils
-  Command.cpp
   CompilerUtils.cpp
   HeapReporter.cpp
 

@@ -19,6 +19,8 @@
 
 using namespace onnx_mlir;
 
+namespace onnx_mlir {
+
 std::vector<std::string> parseFlags(const std::string &flags) {
   std::vector<std::string> flagVect;
   std::istringstream iss(flags);
@@ -57,7 +59,7 @@ static std::string getOutputBasenameFromFlags(const std::string &inputFilename,
   return outputBasename;
 }
 
-static onnx_mlir::EmissionTargetType getEmissionTargetFromFlags(
+static EmissionTargetType getEmissionTargetFromFlags(
     const std::string &inputFilename,
     const std::vector<std::string> &flagVect) {
   // Get Emit target (approximate, enough to get output name). There are many
@@ -69,36 +71,36 @@ static onnx_mlir::EmissionTargetType getEmissionTargetFromFlags(
   for (int i = 0; i < num; ++i) {
     if (flagVect[i].find("-Emit") == 0 || flagVect[i].find("--Emit") == 0) {
       if (flagVect[i].find("Lib") <= 6)
-        return onnx_mlir::EmissionTargetType::EmitLib;
+        return EmissionTargetType::EmitLib;
       else if (flagVect[i].find("JNI") <= 6)
-        return onnx_mlir::EmissionTargetType::EmitJNI;
+        return EmissionTargetType::EmitJNI;
       else if (flagVect[i].find("Obj") <= 6)
-        return onnx_mlir::EmissionTargetType::EmitObj;
+        return EmissionTargetType::EmitObj;
       else // There are many other targets, all of the MLIR type.
-        return onnx_mlir::EmissionTargetType::EmitMLIR;
+        return EmissionTargetType::EmitMLIR;
     }
   }
   // Default is EmitLib.
-  return onnx_mlir::EmissionTargetType::EmitLib;
+  return EmissionTargetType::EmitLib;
 }
 
 std::string getTargetFilename(
-    const std::string &outputBasename, onnx_mlir::EmissionTargetType target) {
+    const std::string &outputBasename, EmissionTargetType target) {
   switch (target) {
 
 #ifdef _WIN32
-  case onnx_mlir::EmitObj:
+  case EmitObj:
     return outputBasename + ".obj";
-  case onnx_mlir::EmitLib:
+  case EmitLib:
     return outputBasename + ".dll";
 #else
-  case onnx_mlir::EmitObj:
+  case EmitObj:
     return outputBasename + ".o";
-  case onnx_mlir::EmitLib:
+  case EmitLib:
     return outputBasename + ".so";
 #endif
 
-  case onnx_mlir::EmitJNI:
+  case EmitJNI:
     return outputBasename + ".jar";
   default:
     return outputBasename + ".onnx.mlir";
@@ -109,7 +111,9 @@ std::string getOutputFilename(const std::string &inputFilename,
     const std::vector<std::string> &flagVect) {
   std::string outputBasename =
       getOutputBasenameFromFlags(inputFilename, flagVect);
-  onnx_mlir::EmissionTargetType targetType =
+  EmissionTargetType targetType =
       getEmissionTargetFromFlags(inputFilename, flagVect);
-  return onnx_mlir::getTargetFilename(outputBasename, targetType);
+  return getTargetFilename(outputBasename, targetType);
 }
+
+} // namespace onnx_mlir

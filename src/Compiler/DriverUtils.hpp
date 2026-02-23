@@ -13,8 +13,8 @@
 // for onnx-mlir/include.
 //===----------------------------------------------------------------------===//
 
-#ifndef DRIVER_UTIL_H
-#define DRIVER_UTIL_H
+#ifndef ONNX_MLIR_DRIVER_UTILS_H
+#define ONNX_MLIR_DRIVER_UTILS_H
 
 #include <string>
 #include <vector>
@@ -22,14 +22,15 @@
 #include "include/onnx-mlir/Compiler/OMCompilerTypes.h"
 
 namespace onnx_mlir {
+
 std::vector<std::string> parseFlags(const std::string &flags);
 
 std::string getOutputFilename(
     const std::string &inputFileName, const std::vector<std::string> &flagVect);
 
 std::string getTargetFilename(
-    const std::string &filenameNoExt, onnx_mlir::EmissionTargetType target);
+    const std::string &outputBasename, EmissionTargetType target);
 
 } // namespace onnx_mlir
 
-#endif // DRIVER_UTIL_H
+#endif // ONNX_MLIR_DRIVER_UTILS_H
