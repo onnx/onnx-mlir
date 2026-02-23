@@ -91,7 +91,8 @@ static XCOMPILERFusedEltwiseOp createQLinearSigmoidOp(PatternRewriter &rewriter,
 }
 
 /// Replace Sigmoid -> Mul(const) (quantized) with XCOMPILERFusedEltwise
-/// QLINEARSIGMOID with mul_y set from the constant. (Registration commented out.)
+/// QLINEARSIGMOID with mul_y set from the constant. (Registration commented
+/// out.)
 struct ReplaceQuantizedSigmoidMulPattern : public OpRewritePattern<ONNXMulOp> {
   ReplaceQuantizedSigmoidMulPattern(MLIRContext *ctx, bool enableLutSigmoid)
       : OpRewritePattern<ONNXMulOp>(ctx), enableLutSigmoid(enableLutSigmoid) {}
@@ -159,7 +160,7 @@ struct ReplaceQDQSigmoidPass
     MLIRContext *ctx = &getContext();
     RewritePatternSet patterns(ctx);
     // Simple sigmoid pattern moved to replace-qdq-eltwise pass.
-    //to do: enable these advancedpatterns as when required
+    // to do: enable these advancedpatterns as when required
     // patterns.add<ReplaceQuantizedSigmoidPattern>(ctx, enableLutSigmoid);
     // patterns.add<ReplaceQuantizedSigmoidMulPattern>(ctx, enableLutSigmoid);
     if (failed(applyPatternsGreedily(getOperation(), std::move(patterns))))

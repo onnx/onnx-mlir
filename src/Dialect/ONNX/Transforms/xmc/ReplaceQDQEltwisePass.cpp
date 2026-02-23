@@ -89,7 +89,7 @@ static bool isInputFromPattern2Eltwise(Value v) {
   if (!def)
     return false;
   return isa<ONNXAddOp, ONNXSubOp, ONNXMulOp, ONNXDivOp, ONNXTanhOp,
-              ONNXSqrtOp>(def);
+      ONNXSqrtOp>(def);
 }
 
 // Check if type is quantized
@@ -211,7 +211,8 @@ struct FuseQuantizedEltwiseWithoutActivation
 
     // Standalone Relu/LeakyRelu: do not fuse here if input is from an eltwise
     // that Pattern 2 can fuse with us (Add/Sub/Mul/Div/Tanh/Sqrt+Activation).
-    if (isUnary && (isa<ONNXReluOp, ONNXLeakyReluOp>(eltwiseOp.getOperation())) &&
+    if (isUnary &&
+        (isa<ONNXReluOp, ONNXLeakyReluOp>(eltwiseOp.getOperation())) &&
         isInputFromPattern2Eltwise(a))
       return rewriter.notifyMatchFailure(
           eltwiseOp, "eltwise+activation fused by Pattern 2");
@@ -238,7 +239,8 @@ struct FuseQuantizedEltwiseWithoutActivation
 
     auto [leakyAlpha, preluIn, preluShift] =
         getLeakyReluAttrsIfApplicable(eltwiseOp.getOperation(), rewriter);
-    // Verifier requires nonlinear=LEAKYRELU when leakyrelu_alpha/prelu_* are set.
+    // Verifier requires nonlinear=LEAKYRELU when leakyrelu_alpha/prelu_* are
+    // set.
     StringRef nonlinear = leakyAlpha ? "LEAKYRELU" : "NONE";
 
     auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(eltwiseOp.getLoc(),
