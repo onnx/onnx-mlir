@@ -374,6 +374,8 @@ static llvm::StringRef getEltwiseTypeString() {
     return "RELU";
   else if constexpr (std::is_same_v<EltwiseOp, ONNXLeakyReluOp>)
     return "LEAKYRELU";
+  else if constexpr (std::is_same_v<EltwiseOp, ONNXSigmoidOp>)
+    return "QLINEARSIGMOID";
   else
     return "";
 }
@@ -684,6 +686,7 @@ struct ReplaceQDQEltwisePass
     patterns.add<FuseQuantizedEltwiseWithoutActivation<ONNXLeakyReluOp>>(
         context);
     patterns.add<FuseQuantizedClipWithoutActivation>(context);
+    patterns.add<FuseQuantizedEltwiseWithoutActivation<ONNXSigmoidOp>>(context);
 
     //========================================================================
     // Pattern 2: Element-wise with Activation Fusion.

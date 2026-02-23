@@ -4,9 +4,9 @@
 // XCOMPILERFusedEltwise ops (QLINEARSIGMOID), matching the behavior of the
 // XCompiler ReplaceQDQSigmoidPass.
 //
-// Patterns:
-// 1. Sigmoid with quantized in/out -> XCOMPILERFusedEltwise type=QLINEARSIGMOID
-// 2. Sigmoid -> Mul(const) with quantized types -> same with mul_y attribute
+// Patterns (registrations currently commented out):
+// 1. Sigmoid with quantized in/out -> moved to replace-qdq-eltwise pass.
+// 2. Sigmoid -> Mul(const) with quantized types -> same with mul_y (commented).
 // 3. HardSigmoid is handled by replace-hsigmoid-and-hswish pass.
 //
 // Pass option: enable_lut_sigmoid sets the enable_lut_sigmoid attribute on
@@ -90,42 +90,8 @@ static XCOMPILERFusedEltwiseOp createQLinearSigmoidOp(PatternRewriter &rewriter,
       /*type=*/rewriter.getStringAttr("QLINEARSIGMOID"));
 }
 
-/// Replace quantized Sigmoid with XCOMPILERFusedEltwise type =
-/// "QLINEARSIGMOID".
-struct ReplaceQuantizedSigmoidPattern : public OpRewritePattern<ONNXSigmoidOp> {
-  ReplaceQuantizedSigmoidPattern(MLIRContext *ctx, bool enableLutSigmoid)
-      : OpRewritePattern<ONNXSigmoidOp>(ctx),
-        enableLutSigmoid(enableLutSigmoid) {}
-  LogicalResult matchAndRewrite(
-      ONNXSigmoidOp sigmoidOp, PatternRewriter &rewriter) const override {
-    LLVM_DEBUG(llvm::dbgs()
-               << "replace-qdq-sigmoid: Trying to match " << sigmoidOp << "\n");
-
-    Value input = sigmoidOp.getX();
-    Type outputType = sigmoidOp.getResult().getType();
-
-    if (failed(requireQuantizedType(input.getType())))
-      return rewriter.notifyMatchFailure(
-          sigmoidOp, "Sigmoid input is not quantized");
-    if (failed(requireQuantizedType(outputType)))
-      return rewriter.notifyMatchFailure(
-          sigmoidOp, "Sigmoid output is not quantized");
-
-    Location loc = sigmoidOp.getLoc();
-    auto noneOp =
-        rewriter.create<ONNXNoneOp>(loc, rewriter.getNoneType(), true);
-
-    auto fusedEltwiseOp = createQLinearSigmoidOp(rewriter, loc, outputType,
-        input, noneOp.getResult(), /*mulY=*/std::nullopt, enableLutSigmoid);
-
-    rewriter.replaceOp(sigmoidOp, fusedEltwiseOp.getResult());
-    return success();
-  }
-  bool enableLutSigmoid;
-};
-
 /// Replace Sigmoid -> Mul(const) (quantized) with XCOMPILERFusedEltwise
-/// QLINEARSIGMOID with mul_y set from the constant.
+/// QLINEARSIGMOID with mul_y set from the constant. (Registration commented out.)
 struct ReplaceQuantizedSigmoidMulPattern : public OpRewritePattern<ONNXMulOp> {
   ReplaceQuantizedSigmoidMulPattern(MLIRContext *ctx, bool enableLutSigmoid)
       : OpRewritePattern<ONNXMulOp>(ctx), enableLutSigmoid(enableLutSigmoid) {}
@@ -192,8 +158,10 @@ struct ReplaceQDQSigmoidPass
   void runOnOperation() override {
     MLIRContext *ctx = &getContext();
     RewritePatternSet patterns(ctx);
-    patterns.add<ReplaceQuantizedSigmoidPattern>(ctx, enableLutSigmoid);
-    patterns.add<ReplaceQuantizedSigmoidMulPattern>(ctx, enableLutSigmoid);
+    // Simple sigmoid pattern moved to replace-qdq-eltwise pass.
+    //to do: enable these advancedpatterns as when required
+    // patterns.add<ReplaceQuantizedSigmoidPattern>(ctx, enableLutSigmoid);
+    // patterns.add<ReplaceQuantizedSigmoidMulPattern>(ctx, enableLutSigmoid);
     if (failed(applyPatternsGreedily(getOperation(), std::move(patterns))))
       signalPassFailure();
   }

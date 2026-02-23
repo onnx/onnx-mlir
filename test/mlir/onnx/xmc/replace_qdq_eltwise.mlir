@@ -462,6 +462,41 @@ func.func @test_quantized_leakyrelu_standalone(
 }
 
 // -----
+// Test Pattern 1: Quantized Sigmoid  -> fused QLINEARSIGMOID
+// (moved from replace-qdq-sigmoid; simple case handled by replace-qdq-eltwise.)
+// CHECK-LABEL: func.func @test_quantized_sigmoid
+func.func @test_quantized_sigmoid(%arg0: tensor<1x16x32x32x!quant.uniform<u8:f32, 0.08:128>>)
+    -> tensor<1x16x32x32x!quant.uniform<u8:f32, 0.00392157:0>> {
+
+  %0 = "onnx.Sigmoid"(%arg0) :
+      (tensor<1x16x32x32x!quant.uniform<u8:f32, 0.08:128>>)
+      -> tensor<1x16x32x32x!quant.uniform<u8:f32, 0.00392157:0>>
+
+  return %0 : tensor<1x16x32x32x!quant.uniform<u8:f32, 0.00392157:0>>
+
+  // CHECK-NOT: "onnx.Sigmoid"
+  // CHECK: %[[NONE:.*]] = "onnx.NoValue"
+  // CHECK: %[[FUSED:.*]] = "onnx.XCOMPILERFusedEltwise"(%arg0, %[[NONE]])
+  // CHECK-SAME: nonlinear = "NONE"
+  // CHECK-SAME: type = "QLINEARSIGMOID"
+  // CHECK: return %[[FUSED]]
+}
+
+// -----
+// Negative: non-quantized Sigmoid is not replaced by replace-qdq-eltwise
+// CHECK-LABEL: func.func @test_sigmoid_float_not_replaced
+func.func @test_sigmoid_float_not_replaced(%arg0: tensor<1x8x8xf32>) -> tensor<1x8x8xf32> {
+
+  %0 = "onnx.Sigmoid"(%arg0) :
+      (tensor<1x8x8xf32>) -> tensor<1x8x8xf32>
+
+  return %0 : tensor<1x8x8xf32>
+
+  // CHECK: "onnx.Sigmoid"(%arg0)
+  // CHECK-NOT: "onnx.XCOMPILERFusedEltwise"
+}
+
+// -----
 // Test Pattern 1: Equal - quantized inputs, bool output (standard ONNX).
 // Pass does not fuse (result not quantized); op remains.
 // CHECK-LABEL: func.func @test_quantized_equal_no_activation
