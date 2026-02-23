@@ -151,6 +151,22 @@ list(APPEND DEFINITIONS "PRODUCT_ID=\"${PRODUCT_ID}\"")
 target_compile_definitions(OMVersion PUBLIC ${DEFINITIONS})
 set_property(SOURCE CompilerUtils.cpp APPEND PROPERTY COMPILE_DEFINITIONS ${DEFINITIONS})
 
+add_onnx_mlir_library(OMCompilerDriverUtils
+  Command.cpp
+  DriverUtils.cpp
+
+  EXCLUDE_FROM_OM_LIBS
+
+  INCLUDE_DIRS PRIVATE
+  ${FILE_GENERATE_DIR}
+
+  INCLUDE_DIRS PUBLIC
+  ${ONNX_MLIR_SRC_ROOT}/include
+
+  LINK_LIBS PUBLIC
+  )
+
+
 add_onnx_mlir_library(OMCompilerUtils
   Command.cpp
   CompilerUtils.cpp
@@ -171,6 +187,7 @@ add_onnx_mlir_library(OMCompilerUtils
 
   LINK_LIBS PUBLIC
   OMCompilerDialects
+  OMCompilerDriverUtils
   OMCompilerPasses
   OMAccelerator
   OMVersion

@@ -4,7 +4,10 @@
 
 //===----------- Command.hpp - Create exec commands -----------------------===//
 //
-// This file contains C++ code to create exec commands.
+// Copyright 2026 The IBM Research Authors.
+//
+// This file contains C++ code to create exec commands. This file should include
+// no dependences to ONNX-MLIR / MLIR / LLVM files.
 //
 //===----------------------------------------------------------------------===//
 
@@ -15,6 +18,8 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+
+namespace onnx_mlir {
 
 // Exception class
 class CommandException : public std::runtime_error {
@@ -67,5 +72,6 @@ public:
   // Execute command
   int exec(const std::string &wdir = "");
 };
+} // namespace onnx_mlir
 
 #endif // COMMAND_H

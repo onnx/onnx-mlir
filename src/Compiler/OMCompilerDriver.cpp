@@ -1,5 +1,17 @@
-// OMCompilerDriver.cpp
-// Compile program using onnx-mlir, free of LLVM dependences.
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+//===----------- OMCompilerDriver.cpp - compiler driver  -----------------===//
+//
+//
+// Copyright 2026 The IBM Research Authors.
+//
+// This file contains C++ code to compile onnx files using onnx-mlir.
+//
+// This file should not include any ONNX-MLIR / MLIR / LLVM dependences except
+// for onnx-mlir/include.
+//===----------------------------------------------------------------------===//
 
 #include "src/Compiler/OMCompilerDriver.hpp"
 
@@ -9,6 +21,7 @@
 #include "src/Compiler/Command.hpp"
 #include "src/Compiler/DriverUtils.hpp"
 
+using onnx_mlir_compiler_driver;
 namespace fs = std::filesystem;
 
 extern int64_t omCompile(const std::string &inputFilename,
@@ -16,14 +29,8 @@ extern int64_t omCompile(const std::string &inputFilename,
     std::string &errorMessage) {
 
   std::string onnxMlirPath = "onnx-mlir";
-#if 0
-  const char *envDir = std::getenv("ONNX_MLIR_HOME");
-  if (envDir && fs::exists(envDir))
-    onnxMlirPath = std::string(envDir) + "/bin/" + onnxMlirPath;
-#endif
-
-  Command compile(onnxMlirPath, /*verbose*/ true);
-  std::vector<std::string> flagVect = parseFlags(flags);
+  onnx_mlir::Command compile(onnxMlirPath, /*verbose*/ true);
+  std::vector<std::string> flagVect = onnx_mlir::parseFlags(flags);
   compile.appendList(flagVect);
   compile.appendStr(inputFilename);
   compile.print();
@@ -34,10 +41,11 @@ extern int64_t omCompile(const std::string &inputFilename,
     return rc;
   }
   errorMessage = "";
-  outputFilename = getOutputFilename(inputFilename, flagVect);
+  outputFilename = onnx_mlir::getOutputFilename(inputFilename, flagVect);
   return 0;
 }
 
+#if 0
 // clang++ ../src/Compiler/OMCompilerDriver.cpp ../src/Compiler/Command.cpp -I
 // /Users/alexe/OM/onnx-mlir  -o alextest
 int main() {
@@ -55,3 +63,4 @@ int main() {
 
   return results;
 }
+#endif

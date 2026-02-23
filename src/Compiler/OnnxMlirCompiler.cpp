@@ -8,10 +8,12 @@
 // from the OnnxMlirCompiler library
 //
 //===----------------------------------------------------------------------===//
+// hi alex, deprecate this file
 
 #include "include/OnnxMlirCompiler.h"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
+#include "src/Compiler/DriverUtils.hpp"
 #include "llvm/Support/FileSystem.h"
 
 using namespace mlir;
@@ -23,7 +25,8 @@ namespace onnx_mlir {
 // the model name. The extention depends on the target; e.g. -EmitLib will
 // generate a .so, other targets may generate a .mlir.
 
-//hi alex, deprecate for getOutputFilename 
+// hi alex, deprecate for getOutputFilename
+#if 0 // hi alex
 static std::string deriveOutputFileName(
     std::vector<std::string> &flagVect, std::string inputFilename) {
   // Get output file name.
@@ -69,7 +72,10 @@ static std::string deriveOutputFileName(
   // Derive output file name from base and emission target.
   return getTargetFilename(outputBasename, emissionTarget);
 }
+#endif
 
+// deprecate
+#if 0 
 static std::vector<std::string> parseFlags(const char *flags) {
   std::vector<std::string> flagVect;
   const char *str = flags;
@@ -87,6 +93,7 @@ static std::vector<std::string> parseFlags(const char *flags) {
   } while (*str);
   return flagVect;
 }
+#endif
 
 extern "C" {
 
@@ -127,7 +134,7 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
   }
   // Success.
   if (outputFilename) {
-    std::string name = deriveOutputFileName(flagVect, inputFilenameStr);
+    std::string name = getOutputFilename(inputFilenameStr, flagVect);
     *outputFilename = strdup(name.c_str());
   }
   return CompilerSuccess;
@@ -170,7 +177,7 @@ ONNX_MLIR_EXPORT char *omCompileOutputFileName(
     const char *inputFilename, const char *flags) {
   std::vector<std::string> flagVect = parseFlags(flags);
   std::string inputFilenameStr(inputFilename);
-  std::string name = deriveOutputFileName(flagVect, inputFilenameStr);
+  std::string name = getOutputFilename(inputFilenameStr, flagVect);
   return strdup(name.c_str());
 }
 

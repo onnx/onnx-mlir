@@ -1,6 +1,23 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+//===----------- DriverUtils.cpp - Utils for compiler driver  -------------===//
+//
+//
+// Copyright 2026 The IBM Research Authors.
+//
+// This file contains C++ code to create exec commands.
+//
+// This file should not include any ONNX-MLIR / MLIR / LLVM dependences except
+// for onnx-mlir/include.
+//===----------------------------------------------------------------------===//
+
 #include "src/Compiler/DriverUtils.hpp"
 
 #include <sstream>
+
+using namespace onnx_mlir;
 
 std::vector<std::string> parseFlags(const std::string &flags) {
   std::vector<std::string> flagVect;
@@ -23,7 +40,8 @@ static std::string getOutputBasenameFromFlags(const std::string &inputFilename,
         outputBasename = flagVect[i].substr(3);
         break;
       } else
-        fprintf(stderr, "Parsing `-o=` option, expected a name. Use default.\n");
+        fprintf(
+            stderr, "Parsing `-o=` option, expected a name. Use default.\n");
     } else if (flagVect[i].find("-o") == 0) {
       if (i < num - 1) {
         outputBasename = flagVect[i + 1];
@@ -64,7 +82,7 @@ static onnx_mlir::EmissionTargetType getEmissionTargetFromFlags(
   return onnx_mlir::EmissionTargetType::EmitLib;
 }
 
-std::string getOutputFilename(
+std::string getTargetFilename(
     const std::string &outputBasename, onnx_mlir::EmissionTargetType target) {
   switch (target) {
 
@@ -93,5 +111,5 @@ std::string getOutputFilename(const std::string &inputFilename,
       getOutputBasenameFromFlags(inputFilename, flagVect);
   onnx_mlir::EmissionTargetType targetType =
       getEmissionTargetFromFlags(inputFilename, flagVect);
-  return getOutputFilename(outputBasename, targetType);
+  return onnx_mlir::getTargetFilename(outputBasename, targetType);
 }

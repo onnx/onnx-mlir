@@ -49,9 +49,9 @@
 #include "src/Compiler/CompilerDialects.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerPasses.hpp"
+#include "src/Compiler/DriverUtils.hpp"
 #include "src/Compiler/HeapReporter.hpp"
 #include "src/Version/Version.hpp"
-
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -296,6 +296,7 @@ static void tailorLLVMIR(llvm::Module &llvmModule) {
 // depending on the underlying machine and/or operating system.
 
 // hi alex, deprecate
+#if 0
 std::string getTargetFilename(
     const std::string filenameNoExt, EmissionTargetType target) {
   switch (target) {
@@ -322,6 +323,7 @@ std::string getTargetFilename(
   }
   llvm_unreachable("all cases should be handled in switch");
 }
+#endif
 
 // Write LLVM optimized bitcode.
 // Returns 0 on success, error code on failure.

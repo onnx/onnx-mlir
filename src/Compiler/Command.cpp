@@ -4,7 +4,10 @@
 
 //===----------- Command.cpp - Create exec commands -----------------------===//
 //
-// This file contains C++ implementation to create exec commands.
+// Copyright 2026 The IBM Research Authors.
+//
+// This file contains C++ code to create exec commands. This file should include
+// no dependences to ONNX-MLIR / MLIR / LLVM files.
 //
 //===----------------------------------------------------------------------===//
 
@@ -15,6 +18,7 @@
 #include <unordered_set>
 
 namespace fs = std::filesystem;
+using namespace onnx_mlir;
 
 // Helper to get basename from path
 std::string Command::getBasename(const std::string &path) {
