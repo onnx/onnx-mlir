@@ -333,7 +333,7 @@ void registerOMPasses(int optLevel) {
   mlir::registerPass(createQuantTypesPass);
 
   mlir::PassPipelineRegistration<>("xmc-passes", "Run all XMC xcompiler passes",
-      [](mlir::OpPassManager &pm) { addXmcMlirPasses(pm); });
+      [](mlir::PassManager &pm) { addXmcMlirPasses(pm); });
 
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {

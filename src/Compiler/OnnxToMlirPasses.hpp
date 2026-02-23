@@ -5,8 +5,6 @@
 #include <string>
 
 namespace mlir {
-class ModuleOp;
-class OpPassManager;
 class PassManager;
 } // namespace mlir
 
@@ -22,7 +20,7 @@ struct OnnxToMlirOptions {
   bool enableRemoveDqQAroundOp = false;
   bool enableRemoveBinary = false;
   bool enableFusePadIntoAvgpool = false;
-  bool enableXMCPasses = false;
+  bool enableXMCPasses = true;
   bool enableSplitToSliceDecompose = false;
 
   bool disableRecomposeOption = false;
@@ -39,12 +37,22 @@ struct OnnxToMlirOptions {
   std::string instrumentOnnxNode = "NONE";
   ProfileIRs profileIR = ProfileIRs::None;
   InstrumentStages instrumentStage = InstrumentStages::Onnx;
+
+  // XMC debug options: add PassInstrumentation for timing, change detection,
+  // and optional MLIR dump after each XMC pass. Enabled by default so both
+  // onnx-mlir.exe and vaiml-lite-cli get debug info without extra config.
+  bool dumpMlirAfterEachXmcPass = true;
+  std::string xmcOutputDir = ".";
 };
 
 void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
     bool donotScrubDisposableElementsAttr = false, OnnxToMlirOptions opts = {});
 
-void addXmcMlirPasses(mlir::OpPassManager &pm, OnnxToMlirOptions opts = {});
+/// Add all XMC passes to a PassManager. When dumpMlirAfterEachXmcPass is true,
+/// a PassInstrumentation is attached for timing, change detection, and MLIR
+/// dumping — no separate "debug runner" is needed.
+void addXmcMlirPasses(mlir::PassManager &pm, OnnxToMlirOptions opts = {});
+
 } // namespace onnx_mlir
 
 #endif
