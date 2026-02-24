@@ -65,6 +65,9 @@ std::variant<quant::QuantizedType, StringLiteral> getQuantType(QDQOp op) {
     ();
   }
 
+  if (auto qType = dyn_cast<quant::QuantizedType>(expressedType))
+    return qType;
+
   bool isSigned =
       storageType.isSignedInteger() || storageType.isSignlessInteger();
 
