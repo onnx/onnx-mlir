@@ -112,6 +112,7 @@ def call() {
       JENKINS_STOP_PREVIOUS_BUILD="${JENKINS_SCRIPT_DIR}/jenkins-stop-previous-build.py"
       JENKINS_BUILD_LLVM_PROJECT="${JENKINS_SCRIPT_DIR}/jenkins-build-llvm-project.py"
       JENKINS_BUILD_ONNX_MLIR="${JENKINS_SCRIPT_DIR}/jenkins-build-onnx-mlir.py"
+      JENKINS_BUILD_OMPYINFER="${JENKINS_SCRIPT_DIR}/jenkins-build-OMPyInfer.sh"
       JENKINS_VERIFY_USER_IMAGE="${JENKINS_SCRIPT_DIR}/jenkins-verify-user-image.py"
       JENKINS_PUBLISH_DOCKER_IMAGES="${JENKINS_SCRIPT_DIR}/jenkins-publish-docker-images.py"
       JENKINS_CHECK_MODEL_ZOO="${JENKINS_SCRIPT_DIR}/jenkins-check-model-zoo.py"
@@ -245,6 +246,18 @@ def call() {
               sh "${JENKINS_CHECK_MODEL_ZOO}"
             }
           }
+        }
+      }
+
+      stage('Build OMPyInfer') {
+        when { not { environment name: 'GITHUB_PR_ACTION',
+                     value: 'closed' } }
+        steps {
+          sh '''
+            echo "Build OMPyInfer"
+            chmod +x ${JENKINS_BUILD_OMPYINFER}
+            ${JENKINS_BUILD_OMPYINFER}
+          '''
         }
       }
 

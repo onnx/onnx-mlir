@@ -4,7 +4,7 @@
 
 //===-------- QuantOpSelection.cpp - Select Ops for Quantization ----------===//
 //
-// Copyright 2025 The IBM Research Authors.
+// Copyright 2025-2026 The IBM Research Authors.
 //
 // =============================================================================
 //

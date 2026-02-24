@@ -50,12 +50,12 @@ Detailed instructions are provided below.
 
 <!-- Keep list below in sync with docs/Prerequisite.md. -->
 ```
-python >= 3.8
-gcc >= 6.4
-protobuf >= 4.21.12
-cmake >= 3.13.4
-make >= 4.2.1 or ninja >= 1.10.2
-java >= 1.11 (optional)
+python >= 3.9
+clang >= 18.1.3
+protobuf >= 33.5
+cmake >= 3.20.0
+make >= 4.3 or ninja >= 1.10.2
+java >= 21 (optional)
 ```
 
 All the `PyPi` package dependencies and their appropriate versions are captured in [requirements.txt](requirements.txt).
