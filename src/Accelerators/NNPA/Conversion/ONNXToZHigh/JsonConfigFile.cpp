@@ -19,49 +19,6 @@ static llvm::ExitOnError ExitOnErr;
 NNPAJsonConfig::NNPAJsonConfig(std::string featureKey)
     : featureKey(featureKey) {}
 
-void NNPAJsonConfig::loadConfigFromFile(llvm::ArrayRef<Operation *> ops,
-    std::string file,
-    function_ref<void(llvm::json::Object *jsonObj, Operation *op)>
-        updateAttrFn) {
-  auto Buf = ExitOnErr(
-      errorOrToExpected(llvm::MemoryBuffer::getFile(file, /*bool IsText=*/true,
-          /*RequiresNullTerminator=*/false)));
-  auto jsonFile = ExitOnErr(llvm::json::parse(Buf->getBuffer()));
-  llvm::json::Object *jsonContent = jsonFile.getAsObject();
-  llvm::json::Array *jsonArr = jsonContent->getArray(featureKey);
-  if (!jsonArr || jsonArr->empty())
-    return;
-
-  // Collect operations to work on.
-  OpSetType workingOps(ops.begin(), ops.end());
-  // Go over operations in the JSON and find matched operation in the IR.
-  for (llvm::json::Value v : *jsonArr) {
-    llvm::json::Object *vobj = v.getAsObject();
-    StringRef nodeType = vobj->getString(NODE_TYPE_KEY).value();
-    std::optional<StringRef> nodeName = vobj->getString(ONNX_NODE_NAME_KEY);
-    OpSetType updatedOps;
-    for (Operation *op : workingOps) {
-      // Match node type.
-      StringRef opNodeType = op->getName().getStringRef();
-      if (!std::regex_match(opNodeType.str(), std::regex(nodeType.str())))
-        continue;
-      // Match node name.
-      StringRef opNodeName =
-          op->getAttrOfType<mlir::StringAttr>(ONNX_NODE_NAME_KEY).getValue();
-      if (nodeName.has_value() && !std::regex_match(opNodeName.str(),
-                                      std::regex(nodeName.value().str())))
-        continue;
-      // Set attribute when all conditions are satisfied.
-      updateAttrFn(vobj, op);
-      // Do not update this operation in the future.
-      updatedOps.insert(op);
-    }
-    // To reduce complexity, once an operation is assigned the quantize
-    // attribute, we remove it from the set workingOps.
-    workingOps = llvm::set_difference(workingOps, updatedOps);
-  }
-}
-
 void NNPAJsonConfig::saveConfigToFile(llvm::ArrayRef<Operation *> ops,
     std::string file,
     function_ref<void(llvm::json::Object *jsonObj, Operation *op)> updateFn) {
