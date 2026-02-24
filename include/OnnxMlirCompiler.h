@@ -41,6 +41,9 @@ extern "C" {
 namespace onnx_mlir {
 #endif
 
+#if 0 // hi alex
+// hi alex, should deprecate in favor of OMCompilerDriver.hpp
+
 /*!
  *  C interface to compile an onnx model from a file via onnx-mlir command.
  *  This interface is thread safe, and does not take any flags from the
@@ -72,6 +75,8 @@ namespace onnx_mlir {
  */
 ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
     const char *flags, char **outputFilename, char **errorMessage);
+
+#endif
 
 /*!
  *  Compile an onnx model from an ONNX protobuf array. This method is not thread

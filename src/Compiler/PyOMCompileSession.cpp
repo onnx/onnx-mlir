@@ -2,6 +2,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+// hi alex, to deprecate
+
 //===----- PyOMCompileSession.hpp - PyOMCompileSession Implementation
 //-----===//
 //
@@ -30,6 +32,7 @@ SUPPRESS_WARNINGS_POP
 
 namespace onnx_mlir {
 int64_t PyOMCompileSession::pyCompileFromFile(std::string flags) {
+#if 0 // hi alex, deprecated
   if (this->inputFileName.empty()) {
     errorMessage =
         "No OMCompileSession was created with the input file name specified.";
@@ -53,6 +56,10 @@ int64_t PyOMCompileSession::pyCompileFromFile(std::string flags) {
   }
   free(outputName);
   free(errorMsg);
+#else
+  assert(false && "deprecated");
+  rc = -1;
+#endif
   return rc;
 }
 

@@ -29,60 +29,57 @@ namespace onnx_mlir {
 PyOMCompileExecutionSession::PyOMCompileExecutionSession(
     std::string inputFileName, std::string flags, bool defaultEntryPoint,
     bool reuseCompiledModel)
-    : onnx_mlir::PyExecutionSessionBase() /* constructor without Init */ {
+    : onnx_mlir::PyExecutionSessionBase() /* constructor without Init */,
+      compilerSession() /* constructor without compilation */ {
   // First compile the onnx file.
-  this->inputFileName = inputFileName;
-  if (this->inputFileName.empty())
+  if (inputFileName.empty())
     throw std::runtime_error(reportLibraryOpeningError(inputFileName));
 
-  char *outputName = nullptr;
-  char *errorMsg = nullptr;
+  // See if we can reuse a compilation (no check on model or flag
+  // equivalencies).
   if (reuseCompiledModel) {
-    // see if there is a model to reuse.
-    outputName = omCompileOutputFileName(inputFileName.c_str(), flags.c_str());
-    FILE *file = fopen(outputName, "r");
-    if (file)
-      // File exists, we are ok.
-      fclose(file);
-    else
-      // File does not exist, cannot reuse compilation.
-      reuseCompiledModel = false;
-  }
-  if (!reuseCompiledModel) {
-    int64_t rc;
-    rc = omCompileFromFile(
-        inputFileName.c_str(), flags.c_str(), &outputName, &errorMsg);
-    if (rc != 0) {
-      // Compilation failure: save error message.
-      errorMessage = std::string(errorMsg);
-      // Empty output file name.
-      this->outputFileName = std::string();
-      free(outputName);
-      free(errorMsg);
-      throw std::runtime_error(reportCompilerError(errorMessage));
+    bool fileExist = false;
+    std::string outputName =
+        CompilerSession::getOutputFilename(inputFileName, flags);
+    if (!outputName.empty()) {
+      FILE *file = fopen(outputName.c_str(), "r");
+      if (file) {
+        // File exists, we are ok.
+        fileExist = true;
+        fclose(file);
+      }
+      // Reuse if file exists.
+      reuseCompiledModel = fileExist;
     }
   }
-  // Compilation success: save output file name.
-  this->outputFileName = std::string(outputName);
-  errorMessage = std::string();
-  // Get the model tag from the compile flags.
-  char *modelTag = omCompileModelTag(flags.c_str());
-  // Now that we have a .so, initialize execution session.
-  Init(this->outputFileName, modelTag, defaultEntryPoint);
-  free(outputName);
-  free(modelTag);
-  free(errorMsg);
+  // Must compile?
+  if (!reuseCompiledModel) {
+    try {
+      compilerSession.compile(inputFileName, flags);
+    } catch (const onnx_mlir::CompilerSessionException &error) {
+      errorMessage = "error during compiler session: ";
+      errorMessage += error.what();
+      std::cerr << errorMessage << std::endl;
+      throw std::runtime_error(reportCompilerError(errorMessage));
+    }
+    // Now that we have a .so, initialize execution session.
+    Init(compilerSession.getOutputFilename(), compilerSession.getModelTag(),
+        defaultEntryPoint);
+  }
 }
 
 // =============================================================================
 // Custom getters
 
-int64_t PyOMCompileExecutionSession::pyGetCompiledResult() { return rc; }
-
-std::string PyOMCompileExecutionSession::pyGetCompiledFileName() {
-  return outputFileName;
+int64_t PyOMCompileExecutionSession::pyGetCompiledResult() {
+  return compilerSession.success();
 }
 
+std::string PyOMCompileExecutionSession::pyGetCompiledFileName() {
+  return compilerSession.getOutputFilename();
+}
+
+// hi alex: Discontinued, should use exception handling.
 std::string PyOMCompileExecutionSession::pyGetErrorMessage() {
   return errorMessage;
 }

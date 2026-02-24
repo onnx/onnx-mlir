@@ -86,8 +86,9 @@ add_onnx_mlir_executable(OMRuntimeCppTest
   ${ONNX_MLIR_SRC_ROOT}/include
 
   LINK_LIBS PRIVATE
-  OMCompiler
+
   OMExecutionSession
+  OMCompilerSession
   )
 
 set_output_directory(OMRuntimeCppTest BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR} LIBRARY_DIR ${CMAKE_CURRENT_BINARY_DIR})

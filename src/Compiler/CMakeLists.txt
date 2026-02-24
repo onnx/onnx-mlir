@@ -151,7 +151,7 @@ list(APPEND DEFINITIONS "PRODUCT_ID=\"${PRODUCT_ID}\"")
 target_compile_definitions(OMVersion PUBLIC ${DEFINITIONS})
 set_property(SOURCE CompilerUtils.cpp APPEND PROPERTY COMPILE_DEFINITIONS ${DEFINITIONS})
 
-add_onnx_mlir_library(OMCompilerDriverUtils
+add_onnx_mlir_library(OMCompilerSessionUtils
   Command.cpp
   DriverUtils.cpp
 
@@ -166,6 +166,20 @@ add_onnx_mlir_library(OMCompilerDriverUtils
   LINK_LIBS PUBLIC
   )
 
+  add_onnx_mlir_library(OMCompilerSession
+  OMCompilerSession.cpp
+
+  EXCLUDE_FROM_OM_LIBS
+
+  INCLUDE_DIRS PRIVATE
+  ${FILE_GENERATE_DIR}
+
+  INCLUDE_DIRS PUBLIC
+  ${ONNX_MLIR_SRC_ROOT}/include
+
+  LINK_LIBS PRIVATE
+  OMCompilerSessionUtils
+  )
 
 add_onnx_mlir_library(OMCompilerUtils
   CompilerUtils.cpp
@@ -186,7 +200,7 @@ add_onnx_mlir_library(OMCompilerUtils
 
   LINK_LIBS PUBLIC
   OMCompilerDialects
-  OMCompilerDriverUtils
+  OMCompilerSessionUtils
   OMCompilerPasses
   OMAccelerator
   OMVersion
@@ -240,6 +254,7 @@ if(OPENMP_INCLUDE_DIR)
   add_dependencies(OMCompilerUtils ompruntime)
 endif()
 
+# hi alex, should be deprecated.
 add_onnx_mlir_library(OMCompiler
   OnnxMlirCompiler.cpp
 

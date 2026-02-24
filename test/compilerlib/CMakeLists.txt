@@ -10,4 +10,5 @@ add_onnx_mlir_executable(CompilerLibTest
 
   LINK_LIBS PRIVATE
   OMCompiler
+  OMCompilerSession
   )

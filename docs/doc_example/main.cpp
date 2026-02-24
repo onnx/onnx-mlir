@@ -1,9 +1,12 @@
 #include <errno.h>
 #include <iostream>
 
+#if 0
 #include <OnnxMlirCompiler.h>
 #include <OnnxMlirRuntime.h>
+#endif
 
+#include "src/Compiler/OMCompilerSession.hpp"
 #include "src/Runtime/ExecutionSession.hpp"
 
 // Read the arguments from the command line and return a std::string
@@ -16,34 +19,25 @@ std::string readArgs(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-  // Read compiler options from command line and compile the doc example into a
-  // model library.
-  char *errorMessage = nullptr;
-  char *compiledFilename = nullptr;
+  // Read compiler options from command line.
   std::string flags = readArgs(argc, argv);
   flags += "-o add_cpp_interface";
-  std::cout << "Compile with options \"" << flags << "\"\n";
-  int rc = onnx_mlir::omCompileFromFile(
-      "add.onnx", flags.c_str(), &compiledFilename, &errorMessage);
-  if (rc != onnx_mlir::CompilerSuccess) {
-    std::cerr << "Failed to compile add.onnx with error code " << rc;
-    if (errorMessage)
-      std::cerr << " and message \"" << errorMessage << "\"";
-    std::cerr << "." << std::endl;
-    free(compiledFilename);
-    free(errorMessage);
-    return rc;
+  // And compile the doc example into a model library.
+  onnx_mlir::CompilerSession compilerSession;
+  try {
+    compilerSession.compile("add.onnx", flags);
+  } catch (const onnx_mlir::CompilerSessionException &error) {
+    std::cerr << "error during compiler session: " << error.what() << std::endl;
+    return 1;
   }
-  std::string libFilename(compiledFilename);
-  std::cout << "Compiled succeeded with results in file: " << libFilename
-            << std::endl;
-  free(compiledFilename);
-  free(errorMessage);
+  std::cout << "Compiled succeeded with results in file: "
+            << compilerSession.getOutputFilename() << std::endl;
 
   // Prepare the execution session.
   onnx_mlir::ExecutionSession *session;
   try {
-    session = new onnx_mlir::ExecutionSession("./" + libFilename);
+    session = new onnx_mlir::ExecutionSession(
+        /*"./" + */ compilerSession.getOutputFilename());
   } catch (const std::runtime_error &error) {
     std::cerr << "error while creating execution session: " << error.what()
               << " and errno " << errno << std::endl;

@@ -97,6 +97,7 @@ static std::vector<std::string> parseFlags(const char *flags) {
 
 extern "C" {
 
+#if 0 // hi alex
 ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
     const char *flags, char **outputFilename, char **errorMessage) {
   // Ensure known values in filename and error message if provided.
@@ -139,6 +140,7 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
   }
   return CompilerSuccess;
 }
+#endif
 
 ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
     int64_t bufferSize, const char *outputBaseName,

@@ -3,6 +3,7 @@
  */
 
 #include "OnnxMlirCompiler.h"
+#include "src/Compiler/OMCompilerSession.hpp"
 #include <assert.h>
 #include <fstream>
 #include <iostream>
@@ -83,11 +84,22 @@ int main(int argc, char *argv[]) {
   if (compileFromFile) {
     // Add output file option to command line.
     flags += "-o " + outputBaseName;
-    // Compile.
+// Compile.
+#if 1 // hi alex
+    onnx_mlir::CompilerSession compilerSession;
+    try {
+      compilerSession.compile(testFileName, flags);
+    } catch (const onnx_mlir::CompilerSessionException &error) {
+      std::cerr << "error during compiler session: " << error.what()
+                << std::endl;
+      retVal = 1;
+    }
+#else
     retVal = onnx_mlir::omCompileFromFile(
         testFileName.c_str(), flags.c_str(), &compiledFilename, &errorMessage);
     if (retVal != CompilerSuccess && errorMessage != nullptr)
       std::cerr << errorMessage;
+#endif
   } else {
     std::ifstream inFile(
         testFileName, std::ios_base::in | std::ios_base::binary);
