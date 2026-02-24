@@ -4,7 +4,7 @@
 
 //===---------- JsonConfigObject.hpp - JSON Config Object ----------------===//
 //
-// Copyright 2025 The IBM Research Authors.
+// Copyright 2ej025 The IBM Research Authors.
 //
 // =============================================================================
 //
