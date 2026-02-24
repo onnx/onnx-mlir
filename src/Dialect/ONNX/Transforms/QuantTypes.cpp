@@ -72,9 +72,8 @@ std::variant<quant::QuantizedType, StringLiteral> getQuantType(QDQOp op) {
     return quant::UniformQuantizedType::get(isSigned, storageType,
         expressedType,
         scale.template getSplatValue<APFloat>().convertToDouble(),
-        storageType.isSignedInteger()
-            ? zeropoint.template getSplatValue<APInt>().getSExtValue()
-            : zeropoint.template getSplatValue<APInt>().getZExtValue(),
+        isSigned ? zeropoint.template getSplatValue<APInt>().getSExtValue()
+                 : zeropoint.template getSplatValue<APInt>().getZExtValue(),
         quant::QuantizedType::getDefaultMinimumForInteger(
             isSigned, storageType.getIntOrFloatBitWidth()),
         quant::QuantizedType::getDefaultMaximumForInteger(
@@ -85,9 +84,8 @@ std::variant<quant::QuantizedType, StringLiteral> getQuantType(QDQOp op) {
         [](APFloat apFloat) { return apFloat.convertToDouble(); });
     SmallVector<int64_t> zeropoints(zeropoint.getNumElements());
     llvm::transform(zeropoint.template getValues<APInt>(), zeropoints.begin(),
-        [storageType](APInt apInt) {
-          return storageType.isSignedInteger() ? apInt.getSExtValue()
-                                               : apInt.getZExtValue();
+        [isSigned](APInt apInt) {
+          return isSigned ? apInt.getSExtValue() : apInt.getZExtValue();
         });
     return quant::UniformQuantizedPerAxisType::get(isSigned, storageType,
         expressedType, scales, zeropoints, op.getAxis(),
