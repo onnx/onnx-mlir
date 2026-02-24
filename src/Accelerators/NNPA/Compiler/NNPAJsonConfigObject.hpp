@@ -17,8 +17,8 @@
 #define ONNX_MLIR_NNPA_JSON_CONFIG_OBJECT_H
 
 #include "mlir/IR/Operation.h"
-#include "llvm/ADT/STLFunctionalExtras.h"
 #include "src/Compiler/JsonConfigObject.hpp"
+#include "llvm/ADT/STLFunctionalExtras.h"
 
 using namespace mlir;
 

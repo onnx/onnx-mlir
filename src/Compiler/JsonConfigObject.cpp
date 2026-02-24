@@ -116,13 +116,11 @@ std::optional<std::string> JsonConfigObject::getCompileOptions() const {
   return std::nullopt;
 }
 
-
 void JsonConfigObject::setCompileOptions(const std::string &options) {
   if (jsonObject) {
     (*jsonObject)["compile_options"] = options;
   }
 }
-
 
 void JsonConfigObject::dump(unsigned indent) const {
   if (!jsonObject || jsonObject->empty()) {

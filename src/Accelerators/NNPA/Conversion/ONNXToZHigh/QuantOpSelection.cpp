@@ -143,7 +143,7 @@ void QuantOpSelectionPass::runOnOperation() {
           rewrite[NNPAJsonConfigObject::QUANTIZE_KEY] = quantAttr.getValue();
           return true;
         });
-    
+
     // Store the configuration to file.
     configObject->storeToFile(saveConfigFile);
   }

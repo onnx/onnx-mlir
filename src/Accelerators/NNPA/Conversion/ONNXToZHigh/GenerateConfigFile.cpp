@@ -89,7 +89,7 @@ void GenerateConfigFilePass::runOnOperation() {
 
   if (!outputConfigFile.empty()) {
     NNPAJsonConfigObject configObj;
-    
+
     configObj.writeOpsConfig(ops,
         [&](mlir::Operation *op, llvm::json::Object &match,
             llvm::json::Object &rewrite) -> bool {
@@ -114,7 +114,7 @@ void GenerateConfigFilePass::runOnOperation() {
 
           return hasConfig;
         });
-    
+
     // Store the configuration to file.
     configObj.storeToFile(outputConfigFile);
   }

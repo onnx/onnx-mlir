@@ -112,8 +112,7 @@ void NNPAJsonConfigObject::applyConfigToOps(
   }
 }
 
-void NNPAJsonConfigObject::writeOpsConfig(
-    llvm::ArrayRef<mlir::Operation *> ops,
+void NNPAJsonConfigObject::writeOpsConfig(llvm::ArrayRef<mlir::Operation *> ops,
     mlir::function_ref<bool(mlir::Operation *, llvm::json::Object &match,
         llvm::json::Object &rewrite)>
         buildConfigFn) {

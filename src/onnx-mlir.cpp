@@ -45,8 +45,8 @@ int main(int argc, char *argv[]) {
   }
 
   // Temporary parse to extract config-file option.
-  if (!llvm::cl::ParseCommandLineOptions(argc, argv, "", &llvm::errs(),
-          nullptr, customEnvFlags.c_str())) {
+  if (!llvm::cl::ParseCommandLineOptions(
+          argc, argv, "", &llvm::errs(), nullptr, customEnvFlags.c_str())) {
     llvm::errs() << "Failed to parse options\n";
     return 1;
   }

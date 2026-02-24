@@ -32,8 +32,8 @@
 #include "llvm/Support/JSON.h"
 
 #include "src/Accelerators/NNPA/Compiler/NNPACompilerUtils.hpp"
-#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/DevicePlacementHeuristic.hpp"
 #include "src/Accelerators/NNPA/Compiler/NNPAJsonConfigObject.hpp"
+#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/DevicePlacementHeuristic.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHigh.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/RewriteONNXForZHigh.hpp"
@@ -168,13 +168,14 @@ void DevicePlacementPass::runOnOperation() {
   // Use the configObject pointer which points to either local or global config.
   if (configObject && !configObject->empty()) {
     // Apply configuration with ops_config.
-    configObject->applyConfigToOps(ops, [&](llvm::json::Object *rewriteObj,
-                                            mlir::Operation *op) {
-      if (auto device = rewriteObj->getString(NNPAJsonConfigObject::DEVICE_KEY)) {
-        op->setAttr(NNPAJsonConfigObject::DEVICE_ATTR,
-            StringAttr::get(module.getContext(), *device));
-      }
-    });
+    configObject->applyConfigToOps(
+        ops, [&](llvm::json::Object *rewriteObj, mlir::Operation *op) {
+          if (auto device =
+                  rewriteObj->getString(NNPAJsonConfigObject::DEVICE_KEY)) {
+            op->setAttr(NNPAJsonConfigObject::DEVICE_ATTR,
+                StringAttr::get(module.getContext(), *device));
+          }
+        });
   }
 
   // Run patterns that converts ONNX to ZHigh with analysis mode to collect
@@ -242,7 +243,7 @@ void DevicePlacementPass::runOnOperation() {
           rewrite[NNPAJsonConfigObject::DEVICE_KEY] = deviceStr;
           return true;
         });
-    
+
     // Store the configuration to file.
     configObject->storeToFile(saveConfigFile);
   }
