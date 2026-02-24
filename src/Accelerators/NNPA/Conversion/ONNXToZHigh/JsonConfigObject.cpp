@@ -4,7 +4,7 @@
 
 //===---------- JsonConfigObject.cpp - JSON Config Object ----------------===//
 //
-// Copyright 2025 The IBM Research Authors.
+// Copyright 2026 The IBM Research Authors.
 //
 // =============================================================================
 //

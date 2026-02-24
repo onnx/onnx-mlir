@@ -4,7 +4,7 @@
 
 //===-------- DevicePlacement.cpp - Device Placement for NNPA -------------===//
 //
-// Copyright 2023 The IBM Research Authors.
+// Copyright 2023-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
