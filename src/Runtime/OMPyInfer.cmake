@@ -3,8 +3,8 @@
 # There is subdirectory python for OMPyInfer or not is the same
 add_subdirectory(python)
 
+# Assumption here is that CRuntime is included in the .so. We may want to revisit this.
 add_onnx_mlir_library(OMTensorUtils
-  OMInstrument.cpp
   OMTensor.cpp
   OMTensorList.cpp
   OnnxDataType.cpp
@@ -12,6 +12,8 @@ add_onnx_mlir_library(OMTensorUtils
 
   DEPENDS 
   AcceleratorsInc
+
+  LINK_LIBS PUBLIC
 
   EXCLUDE_FROM_OM_LIBS
 
