@@ -587,6 +587,9 @@ LogicalResult XFEInstanceNormalizationOpShapeInference(
   SmallVector<int64_t, 6> outputShape(inputShape.begin(), inputShape.end());
 
   Type elementType = inputType.getElementType();
+  if (auto existingType = dyn_cast<ShapedType>(normOp.getResult().getType())) {
+    elementType = existingType.getElementType();
+  }
   auto resultType = RankedTensorType::get(outputShape, elementType);
   normOp.getResult().setType(resultType);
 
