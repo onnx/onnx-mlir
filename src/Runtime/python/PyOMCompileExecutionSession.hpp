@@ -24,8 +24,8 @@ namespace py = pybind11;
 
 #include "OnnxMlirCompiler.h"
 #include "PyExecutionSessionBase.hpp"
-#include "src/Runtime/ExecutionSession.hpp"
 #include "src/Compiler/OMCompilerSession.hpp"
+#include "src/Runtime/ExecutionSession.hpp"
 
 namespace onnx_mlir {
 
@@ -35,7 +35,7 @@ public:
       bool defaultEntryPoint = true, bool reuseCompiledModel = true);
   std::string pyGetCompiledFileName();
   std::string pyGetErrorMessage(); // TODO: May not be needed.
-  int64_t pyGetCompiledResult(); // TODO: May not be needed.
+  int64_t pyGetCompiledResult();   // TODO: May not be needed.
 
 private:
   onnx_mlir::CompilerSession compilerSession;
