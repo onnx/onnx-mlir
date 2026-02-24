@@ -15,10 +15,13 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/TargetParser/Host.h"
 
+#include <sstream>
+
 #include "ExternalUtil.hpp"
 #include "onnx-mlir/Compiler/OMCompilerRuntimeTypes.h"
 #include "onnx-mlir/Compiler/OMCompilerTypes.h"
 #include "src/Compiler/CompilerOptions.hpp"
+#include "src/Compiler/JsonConfigObject.hpp"
 
 #define DEBUG_TYPE "compiler_options"
 
@@ -108,6 +111,9 @@ bool allowUnregisteredDialects;                        // onnx-mlir-opt only
 
 bool useLinalgPath;    // onnx-mlir only
 std::string linalgOps; // common for both onnx-mlir and onnx-mlir-opt
+std::string configFile; // onnx-mlir only
+std::string saveConfigFile; // onnx-mlir only
+
 
 // Category for common options shared between onnx-mlir and onnx-mlir-opt.
 llvm::cl::OptionCategory OnnxMlirCommonOptions("common options",
@@ -770,6 +776,19 @@ static llvm::cl::list<std::string, std::vector<std::string>> extraLibsOpt("l",
                    "Each lib can be specified with one extra-libs."),
     llvm::cl::location(extraLibs), llvm::cl::Prefix,
     llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<std::string, true> configFileOpt("config-file",
+    llvm::cl::desc("Path to JSON configuration file with compile options and "
+                   "other settings.\nIf not specified, looks for omconfig.json "
+                   "in the current directory."),
+    llvm::cl::value_desc("path"), llvm::cl::location(configFile),
+    llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<std::string, true> saveConfigFileOpt("save-config-file",
+    llvm::cl::desc("Save configuration such as device placement and "
+                   "quantization operations to a JSON file."),
+    llvm::cl::value_desc("path"), llvm::cl::location(saveConfigFile),
+    llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<ProfileIRs, true> profileIROpt("profile-ir",
     llvm::cl::desc("Profile operations in an IR (timing only):"),
@@ -1520,6 +1539,34 @@ bool hasSignatureInstrumentation(InstrumentStages targetInstrumentationStage) {
   // Now check if we are signature instrumenting anything.
   return (instrumentSignatures != "" && instrumentSignatures != "NONE") ||
          (instrumentOnnxNode != "" && instrumentOnnxNode != "NONE");
+}
+
+/// Load compile options from a JSON configuration file.
+/// @param configPath Path to the JSON config file
+/// @param extraArgs Vector to store extracted option strings
+/// @return true if successful, false otherwise
+bool loadCompileOptionsFromConfig(
+    const std::string &configPath, std::vector<std::string> &extraArgs) {
+  // Use JsonConfigObject to load and parse the config file
+  JsonConfigObject config;
+  if (!config.loadFromFile(configPath)) {
+    return false;
+  }
+
+  // Extract compile options if present
+  auto opts = config.getCompileOptions();
+  if (!opts) {
+    return true; // No compile_options key is OK
+  }
+
+  // Parse space-separated options
+  std::istringstream iss(*opts);
+  std::string token;
+  while (iss >> token) {
+    extraArgs.push_back(token);
+  }
+
+  return true;
 }
 
 } // namespace onnx_mlir

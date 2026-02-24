@@ -19,7 +19,8 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/JSON.h"
 
-#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/JsonConfigObject.hpp"
+#include "src/Accelerators/NNPA/Compiler/NNPAJsonConfigObject.hpp"
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
 
@@ -87,31 +88,35 @@ void GenerateConfigFilePass::runOnOperation() {
   });
 
   if (!outputConfigFile.empty()) {
-    JsonConfigObject configObj;
-    configObj.writeOpsConfig(ops, outputConfigFile,
+    NNPAJsonConfigObject configObj;
+    
+    configObj.writeOpsConfig(ops,
         [&](mlir::Operation *op, llvm::json::Object &match,
             llvm::json::Object &rewrite) -> bool {
           bool hasConfig = false;
 
           // Add device to rewrite if present.
           if (auto deviceAttr = op->getAttrOfType<mlir::StringAttr>(
-                  JsonConfigObject::DEVICE_ATTR)) {
+                  NNPAJsonConfigObject::DEVICE_ATTR)) {
             std::string deviceStr = deviceAttr.getValue().str();
             if (!deviceStr.empty()) {
-              rewrite[JsonConfigObject::DEVICE_KEY] = deviceStr;
+              rewrite[NNPAJsonConfigObject::DEVICE_KEY] = deviceStr;
               hasConfig = true;
             }
           }
 
           // Add quantize to rewrite if present.
           if (auto quantAttr = op->getAttrOfType<mlir::BoolAttr>(
-                  JsonConfigObject::QUANTIZE_ATTR)) {
-            rewrite[JsonConfigObject::QUANTIZE_KEY] = quantAttr.getValue();
+                  NNPAJsonConfigObject::QUANTIZE_ATTR)) {
+            rewrite[NNPAJsonConfigObject::QUANTIZE_KEY] = quantAttr.getValue();
             hasConfig = true;
           }
 
           return hasConfig;
         });
+    
+    // Store the configuration to file.
+    configObj.storeToFile(outputConfigFile);
   }
 }
 

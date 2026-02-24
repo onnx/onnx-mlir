@@ -2,37 +2,35 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---------- JsonConfigObject.hpp - JSON Config Object ----------------===//
+//===---------- NNPAJsonConfigObject.hpp - NNPA JSON Config ---------------===//
 //
 // Copyright 2026 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file defines a C++ object to store and manipulate JSON configuration
-// data loaded from a file.
+// This file defines an NNPA-specific extension of JsonConfigObject that adds
+// functionality for device placement and quantization configuration.
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef ONNX_MLIR_JSON_CONFIG_OBJECT_H
-#define ONNX_MLIR_JSON_CONFIG_OBJECT_H
-
-#include <memory>
-#include <string>
+#ifndef ONNX_MLIR_NNPA_JSON_CONFIG_OBJECT_H
+#define ONNX_MLIR_NNPA_JSON_CONFIG_OBJECT_H
 
 #include "mlir/IR/Operation.h"
 #include "llvm/ADT/STLFunctionalExtras.h"
-#include "llvm/Support/JSON.h"
+#include "src/Compiler/JsonConfigObject.hpp"
 
 using namespace mlir;
 
 namespace onnx_mlir {
 
-/// A C++ object that stores JSON configuration data loaded from a file.
-/// Provides methods to load, access, modify, and save JSON data.
+/// NNPA-specific extension of JsonConfigObject that handles operation
+/// configuration for device placement and quantization.
 ///
 /// The JSON configuration uses a format with the following structure:
 /// @code{.json}
 /// {
+///   "compile_options": "-O3 -march=z16",
 ///   "ops_config": [
 ///     {
 ///       "pattern": {
@@ -41,7 +39,7 @@ namespace onnx_mlir {
 ///           "onnx_node_name": "MatMul_1"
 ///         },
 ///         "rewrite": {
-///           "device": "nnpa",
+///           "device": "NNPA",
 ///           "quantize": true
 ///         }
 ///       }
@@ -55,71 +53,40 @@ namespace onnx_mlir {
 /// - "onnx_node_name": Optional operation name (supports regex patterns)
 ///
 /// The "rewrite" section specifies attributes to apply to matched operations:
-/// - "device": Device placement ("cpu", "nnpa", or empty string)
+/// - "device": Device placement ("CPU", "NNPA", or empty string)
 /// - "quantize": Boolean flag for quantization (true/false)
 ///
 /// Multiple configurations can be specified in the "ops_config" array.
 /// Configurations are processed in order, and the first matching pattern wins.
-class JsonConfigObject {
+class NNPAJsonConfigObject : public JsonConfigObject {
 public:
-  /// Constructor - creates an empty JSON config object.
-  JsonConfigObject();
+  /// Constructor - creates an empty NNPA JSON config object.
+  NNPAJsonConfigObject() = default;
 
   /// Destructor.
-  ~JsonConfigObject();
-
-  /// Load JSON content from a file.
-  /// @param filePath Path to the JSON file to load
-  /// @return true if successful, false otherwise
-  bool loadFromFile(const std::string &filePath);
-
-  /// Check if the config object is empty.
-  /// @return true if empty, false otherwise
-  bool empty() const;
-
-  /// Get a JSON array by key.
-  /// @param key The key to look up
-  /// @return Pointer to the JSON array, or nullptr if not found
-  llvm::json::Array *getArray(llvm::StringRef key);
-
-  /// Get a JSON array by key (read-only).
-  /// @param key The key to look up
-  /// @return Pointer to the JSON array, or nullptr if not found
-  const llvm::json::Array *getArray(llvm::StringRef key) const;
-
-  /// Get a string value by key.
-  /// @param key The key to look up
-  /// @return Optional string value
-  std::optional<llvm::StringRef> getString(llvm::StringRef key) const;
-
-  /// Dump the JSON content to stdout for debugging.
-  /// @param indent Indentation size for pretty printing (default: 2)
-  void dump(unsigned indent = 2) const;
+  ~NNPAJsonConfigObject() override = default;
 
   /// Apply configuration from a json file to operations using a callback.
   /// This method handles the "ops_config" format where each config has
-  /// "pattern.matching" (criteria) and "pattern.rewrite" (attributes) sections.
-  /// @param ops Array of operations to process
+  /// "pattern.match" (criteria) and "pattern.rewrite" (attributes) sections.
+  /// @param ops Array of operations to process.
   /// @param updateAttrFn Callback function to update operation attributes
-  ///                     with the rewrite object
+  ///                     with the rewrite object.
   void applyConfigToOps(llvm::ArrayRef<mlir::Operation *> ops,
       mlir::function_ref<void(llvm::json::Object *, mlir::Operation *)>
           updateAttrFn);
 
-  /// Write operations configuration to a JSON file.
-  /// @param ops Array of operations to save
-  /// @param filePath Path to the output JSON file
+  /// Build operations configuration in the JSON object.
+  /// @param ops Array of operations to process.
   /// @param buildConfigFn Callback to build match and rewrite objects for each
-  /// op
-  ///                      Returns true if the operation should be included
-  /// @return true if successful, false otherwise
-  bool writeOpsConfig(llvm::ArrayRef<mlir::Operation *> ops,
-      const std::string &filePath,
+  /// op.
+  ///                      Returns true if the operation should be included.
+  void writeOpsConfig(llvm::ArrayRef<mlir::Operation *> ops,
       mlir::function_ref<bool(mlir::Operation *, llvm::json::Object &match,
           llvm::json::Object &rewrite)>
           buildConfigFn);
 
-  // JSON key constants for configuration.
+  // JSON key constants for NNPA configuration.
   static constexpr const char *OPS_CONFIG_KEY = "ops_config";
   static constexpr const char *PATTERN_KEY = "pattern";
   static constexpr const char *MATCH_KEY = "match";
@@ -133,18 +100,11 @@ public:
   static constexpr const char *ONNX_NODE_NAME_ATTR = ONNX_NODE_NAME_KEY;
   static constexpr const char *DEVICE_ATTR = DEVICE_KEY;
   static constexpr const char *QUANTIZE_ATTR = QUANTIZE_KEY;
-
-private:
-  /// The underlying JSON object.
-  std::unique_ptr<llvm::json::Object> jsonObject;
-
-  /// The file path that was last loaded.
-  std::string filePath;
 };
 
 /// Get the global NNPA configuration object.
-JsonConfigObject &getGlobalNNPAConfig();
+NNPAJsonConfigObject &getGlobalNNPAConfig();
 
 } // namespace onnx_mlir
 
-#endif // ONNX_MLIR_JSON_CONFIG_OBJECT_H
+#endif // ONNX_MLIR_NNPA_JSON_CONFIG_OBJECT_H

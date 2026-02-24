@@ -139,6 +139,8 @@ extern std::string modelTag;                                  // onnx-mlir only
 extern bool enableConvOptPass;                                // onnx-mlir only
 extern std::vector<std::string> replaceOpWithItsOperand;      // onnx-mlir only
 extern bool disableConstantProp;                              // onnx-mlir only
+extern std::string saveConfigFile;                           // onnx-mlir only
+
 extern std::vector<std::string> extraLibPaths;                // onnx-mlir only
 extern std::vector<std::string> extraLibs;                    // onnx-mlir only
 extern ProfileIRs profileIR;                                  // onnx-mlir only
@@ -149,6 +151,7 @@ extern bool enableBoundCheck;                                 // onnx-mlir only
 extern bool debugTestCompilerOpt;                             // onnx-mlir only
 extern bool useLinalgPath;                                    // onnx-mlir only
 extern std::string linalgOps; // common for both onnx-mlir and onnx-mlir-opt
+extern std::string configFile;                                // onnx-mlir only
 
 extern bool split_input_file;          // onnx-mlir-opt only
 extern bool verify_diagnostics;        // onnx-mlir-opt only
@@ -242,6 +245,10 @@ bool hasInstrumentation(InstrumentStages targetInstrumentationStage);
 // includes the type/shape of the inputs/ouput tensors as well as possibly the
 // data values of the tensors
 bool hasSignatureInstrumentation(InstrumentStages targetInstrumentationStage);
+
+// Load compile options from a JSON configuration file
+bool loadCompileOptionsFromConfig(
+    const std::string &configPath, std::vector<std::string> &extraArgs);
 
 } // namespace onnx_mlir
 #endif

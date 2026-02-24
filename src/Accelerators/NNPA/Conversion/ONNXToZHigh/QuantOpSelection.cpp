@@ -18,7 +18,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/JSON.h"
 
-#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/JsonConfigObject.hpp"
+#include "src/Accelerators/NNPA/Compiler/NNPAJsonConfigObject.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
 
@@ -67,9 +67,9 @@ private:
   SmallVector<Operation *, 32> ops;
 
   // JSON configuration object - either points to global or local instance.
-  JsonConfigObject *configObject;
+  NNPAJsonConfigObject *configObject;
   // Local config object storage (only used when loadConfigFile is provided).
-  std::unique_ptr<JsonConfigObject> localConfigObject;
+  std::unique_ptr<NNPAJsonConfigObject> localConfigObject;
 
   // Exclude these operations from quantization.
   bool isExcludedOp(Operation *op) {
@@ -97,7 +97,7 @@ void QuantOpSelectionPass::runOnOperation() {
   // is an Option that gets initialized by MLIR after constructor runs.
   if (!loadConfigFile.empty()) {
     // Create a local config object and load from the specified file.
-    localConfigObject = std::make_unique<JsonConfigObject>();
+    localConfigObject = std::make_unique<NNPAJsonConfigObject>();
     if (!localConfigObject->loadFromFile(loadConfigFile)) {
       llvm::errs() << "Warning: Failed to load config file: " << loadConfigFile
                    << "\n";
@@ -115,8 +115,8 @@ void QuantOpSelectionPass::runOnOperation() {
     configObject->applyConfigToOps(
         ops, [&](llvm::json::Object *rewriteObj, mlir::Operation *op) {
           if (auto quantize =
-                  rewriteObj->getBoolean(JsonConfigObject::QUANTIZE_KEY)) {
-            op->setAttr(JsonConfigObject::QUANTIZE_ATTR,
+                  rewriteObj->getBoolean(NNPAJsonConfigObject::QUANTIZE_KEY)) {
+            op->setAttr(NNPAJsonConfigObject::QUANTIZE_ATTR,
                 BoolAttr::get(module.getContext(), *quantize));
           }
         });
@@ -132,17 +132,20 @@ void QuantOpSelectionPass::runOnOperation() {
 
   // Create a JSON configuration file if required.
   if (!saveConfigFile.empty()) {
-    configObject->writeOpsConfig(ops, saveConfigFile,
+    configObject->writeOpsConfig(ops,
         [&](mlir::Operation *op, llvm::json::Object &match,
             llvm::json::Object &rewrite) -> bool {
           BoolAttr quantAttr = op->getAttrOfType<mlir::BoolAttr>(
-              JsonConfigObject::QUANTIZE_ATTR);
+              NNPAJsonConfigObject::QUANTIZE_ATTR);
           if (!quantAttr)
             return false;
           // Add quantize to rewrite.
-          rewrite[JsonConfigObject::QUANTIZE_KEY] = quantAttr.getValue();
+          rewrite[NNPAJsonConfigObject::QUANTIZE_KEY] = quantAttr.getValue();
           return true;
         });
+    
+    // Store the configuration to file.
+    configObject->storeToFile(saveConfigFile);
   }
 }
 

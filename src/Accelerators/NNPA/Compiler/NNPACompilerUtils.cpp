@@ -27,13 +27,14 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
 
 #include "src/Accelerators/NNPA/Compiler/NNPACompilerOptions.hpp"
 #include "src/Accelerators/NNPA/Compiler/NNPACompilerUtils.hpp"
+#include "src/Accelerators/NNPA/Compiler/NNPAJsonConfigObject.hpp"
 #include "src/Accelerators/NNPA/Compiler/ZHighDisposableGarbageCollector.hpp"
-#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/JsonConfigObject.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
@@ -236,15 +237,14 @@ void normalizeMemRefsPasses(mlir::PassManager &pm) {
 void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
     mlir::PassManager &pm, EmissionTargetType &emissionTarget,
     std::string outputNameNoExt) {
-  // Load JSON configuration file if specified.
-  if (!nnpaLoadConfigFile.empty()) {
-    if (!getGlobalNNPAConfig().loadFromFile(nnpaLoadConfigFile)) {
-      llvm::errs() << "Warning: Failed to load NNPA config file: "
-                   << nnpaLoadConfigFile << "\n";
-      llvm::errs() << "Continuing with default configuration.\n";
-    } else {
-      llvm::outs() << "Successfully loaded NNPA config from: "
-                   << nnpaLoadConfigFile << "\n";
+  // Load JSON configuration file if specified
+  std::string generalConfigPath =
+      configFile.empty() ? "omconfig.json" : configFile;
+  if (llvm::sys::fs::exists(generalConfigPath)) {
+    JsonConfigObject &globalConfig = getGlobalNNPAConfig();
+    if (globalConfig.loadFromFile(generalConfigPath)) {
+      LLVM_DEBUG(llvm::dbgs() << "Loaded NNPA config from general config: "
+                              << generalConfigPath << "\n");
     }
   }
 
@@ -273,12 +273,12 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
     pm.addPass(onnx_mlir::createDevicePlacementPass(nnpaPlacementHeuristic));
     pm.addPass(onnx_mlir::createQuantOpSelectionPass());
     // Save the current config to a file if required.
-    if (!nnpaSaveConfigFile.empty()) {
+    if (!saveConfigFile.empty()) {
       // Empty the save json config file if it exists.
       std::error_code EC;
-      llvm::raw_fd_ostream OS(nnpaSaveConfigFile, EC, llvm::sys::fs::OF_None);
+      llvm::raw_fd_ostream OS(saveConfigFile, EC, llvm::sys::fs::OF_None);
       OS.close();
-      pm.addPass(onnx_mlir::createGenerateConfigFilePass(nnpaSaveConfigFile));
+      pm.addPass(onnx_mlir::createGenerateConfigFilePass(saveConfigFile));
     }
   }
 

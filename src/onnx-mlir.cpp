@@ -19,6 +19,7 @@
 #include "mlir/Support/Timing.h"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
+#include "src/Compiler/JsonConfigObject.hpp"
 #include "src/Version/Version.hpp"
 #include "llvm/Support/Debug.h"
 
@@ -34,19 +35,61 @@ int main(int argc, char *argv[]) {
 
   llvm::cl::SetVersionPrinter(getVersionPrinter);
 
-  // Remove unrelated options except common ones and the onnx-mlir options
+  // Remove unrelated options except common ones and the onnx-mlir options.
   removeUnrelatedOptions({&OnnxMlirCommonOptions, &OnnxMlirOptions});
 
-  if (!parseCustomEnvFlagsCommandLineOption(argc, argv, &llvm::errs()) ||
-      !llvm::cl::ParseCommandLineOptions(argc, argv,
+  // STEP 1: First parse to get --config-file option.
+  if (!parseCustomEnvFlagsCommandLineOption(argc, argv, &llvm::errs())) {
+    llvm::errs() << "Failed to parse custom env flags\n";
+    return 1;
+  }
+
+  // Temporary parse to extract config-file option.
+  if (!llvm::cl::ParseCommandLineOptions(argc, argv, "", &llvm::errs(),
+          nullptr, customEnvFlags.c_str())) {
+    llvm::errs() << "Failed to parse options\n";
+    return 1;
+  }
+
+  // STEP 2: Load config file and extract compile options.
+  std::vector<std::string> configOptions;
+  std::string configPath = configFile.empty() ? "omconfig.json" : configFile;
+
+  if (std::filesystem::exists(configPath)) {
+    if (!loadCompileOptionsFromConfig(configPath, configOptions)) {
+      llvm::errs() << "Warning: Failed to parse config file: " << configPath
+                   << "\n";
+    } else if (!configOptions.empty()) {
+      llvm::outs() << "Loaded " << configOptions.size()
+                   << " compile option(s) from " << configPath << "\n";
+    }
+  }
+
+  // STEP 3: Merge original args with config options.
+  std::vector<const char *> allArgs;
+  allArgs.push_back(argv[0]); // Program name
+
+  // Add config options first (so CLI can override).
+  for (const auto &opt : configOptions) {
+    allArgs.push_back(opt.c_str());
+  }
+
+  // Add original command line args (skip program name).
+  for (int i = 1; i < argc; ++i) {
+    allArgs.push_back(argv[i]);
+  }
+
+  // STEP 4: Final parse with merged arguments.
+  if (!llvm::cl::ParseCommandLineOptions(allArgs.size(), allArgs.data(),
           getVendorName() + " - A modular optimizer driver\n", &llvm::errs(),
           nullptr, customEnvFlags.c_str())) {
     llvm::errs() << "Failed to parse options\n";
     return 1;
   }
+
   initCompilerConfig();
 
-  // Timing manager reporting enabled via "--enable-timing" compiler flag
+  // Timing manager reporting enabled via "--enable-timing" compiler flag.
   timingManager.setEnabled(enableTiming);
   rootTimingScope = timingManager.getRootScope();
   auto setupTiming = rootTimingScope.nest("[onnx-mlir] Loading Dialects");
