@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Quant/IR/QuantTypes.h"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "llvm/ADT/Sequence.h"
 #include "llvm/ADT/SmallSet.h"
@@ -149,7 +150,13 @@ LogicalResult ONNXPadOp::verify() {
   if (!isNoneValue(getConstantValue())) {
     // Check that the constant has the same element type as the input
     ShapedType shapedConstTy = mlir::cast<ShapedType>(constTy);
-    if (dataTy.getElementType() != shapedConstTy.getElementType()) {
+    Type constElemType = shapedConstTy.getElementType();
+    if (auto qType = dyn_cast<mlir::quant::QuantizedType>(constElemType))
+      constElemType = qType.getExpressedType();
+    Type dataElemType = dataTy.getElementType();
+    if (auto qType = dyn_cast<mlir::quant::QuantizedType>(dataElemType))
+      dataElemType = qType.getExpressedType();
+    if (dataElemType != constElemType) {
       return emitOpError("Pad with constant_value that doesn't match the "
                          "element type of the input.");
     }
