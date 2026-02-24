@@ -712,7 +712,7 @@ OpsWithResultTypeInference = [
     "SequenceEmpty",
 ]
 
-FloatTypes = {"TensorOf<[F32]>", "TensorOf<[F16]>", "TensorOf<[BF16]>"}
+FloatTypes = {"TensorOf<[F32]>"}
 
 # Add an Op in this list if the Op needs result type deduction which is required
 # when writing declarative rewriting rules. Deduced type is always
