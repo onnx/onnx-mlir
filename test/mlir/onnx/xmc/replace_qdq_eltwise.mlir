@@ -478,7 +478,7 @@ func.func @test_quantized_sigmoid(%arg0: tensor<1x16x32x32x!quant.uniform<u8:f32
   // CHECK: %[[NONE:.*]] = "onnx.NoValue"
   // CHECK: %[[FUSED:.*]] = "onnx.XCOMPILERFusedEltwise"(%arg0, %[[NONE]])
   // CHECK-SAME: nonlinear = "NONE"
-  // CHECK-SAME: type = "QLINEARSIGMOID"
+  // CHECK-SAME: type = "SIGMOID"
   // CHECK: return %[[FUSED]]
 }
 
