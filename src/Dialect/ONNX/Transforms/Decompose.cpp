@@ -3325,7 +3325,7 @@ struct MicrosoftGroupQueryAttention : public CustomOpToOnnxOps {
           customOp, "input 'head_sink' not supported by onnx.Attention");
 
     auto smoothSoftmax = customOp->getAttrOfType<IntegerAttr>("smooth_softmax");
-    if (smoothSoftmax && smoothSoftmax.getSInt() != 0)
+    if (smoothSoftmax && smoothSoftmax.getSInt() > 0)
       return rewriter.notifyMatchFailure(customOp,
           "attribute 'smooth_softmax' not supported by onnx.Attention");
 
@@ -3352,11 +3352,12 @@ struct MicrosoftGroupQueryAttention : public CustomOpToOnnxOps {
     // need to split them up if this is the case.
     ONNXConstantOp splitLens;
     ONNXSplitOp split;
+    int64_t headSize;
     if (isNoneValue(key) && isNoneValue(value)) {
       int64_t totalNumHeads = qNumHeads.getSInt() + 2 * kvNumHeads.getSInt();
       // microsoft.GroupQueryAttention assumes the head_size is the same for q,
       // k and v
-      int64_t headSize = queryType.getShape()[2] / totalNumHeads;
+      headSize = queryType.getShape()[2] / totalNumHeads;
 
       SmallVector<int64_t, 3> splitLensI64 = {headSize * qNumHeads.getSInt(),
           headSize * kvNumHeads.getSInt(), headSize * kvNumHeads.getSInt()};
@@ -3382,6 +3383,8 @@ struct MicrosoftGroupQueryAttention : public CustomOpToOnnxOps {
       query = split->getOpResult(0);
       key = split->getOpResult(1);
       value = split->getOpResult(2);
+    } else {
+      headSize = queryType.getShape()[2] / qNumHeads.getSInt();
     }
 
     // If do_rotary = 1, query and key need to be passed through a rotary
@@ -3391,9 +3394,74 @@ struct MicrosoftGroupQueryAttention : public CustomOpToOnnxOps {
     ONNXRotaryEmbeddingOp ropeKey;
     if (doRotary && doRotary.getSInt() > 0) {
       assert(numIn >= 9 && !isNoneValue(cosCache) && !isNoneValue(sinCache));
-
-      if (numIn < 10 || isNoneValue(positionIds))
+      // If do_rotary = 1 and no position ids are provided, we need to slice and
+      // transform the cos and sin caches to have shape:
+      // [batch_size, sequence_length, head_size / 2].
+      if (numIn < 10 || isNoneValue(positionIds)) {
         positionIds = none;
+
+        // We need to know the past sequence length to find the total sequence
+        // length (or vice versa). We could get the total sequence length from
+        // seqlens_k, but only if this input is a constant that we can read.
+        if (isNoneValue(pastKey))
+          return rewriter.notifyMatchFailure(
+              customOp, "expected 'past_ks' input to be provided");
+        auto pastKeyType = cast<ShapedType>(pastKey.getType());
+        if (!pastKeyType.hasStaticShape())
+          return rewriter.notifyMatchFailure(
+              customOp, "expected 'past_ks' input to have static type");
+
+        // Assuming the sequence length is the same kv_sequence_length
+        int64_t seqLen = queryType.getShape()[1];
+        int64_t pastSeqLen = pastKeyType.getShape()[2];
+        int64_t totalSeqLen = pastSeqLen + seqLen;
+
+        // The slice mimics indexing the cos/sin caches using the default
+        // pos_ids: [past_seq_len..total_seq_len].
+        onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
+            rewriter, loc);
+        Value startsConst = create.onnx.constantInt64({pastSeqLen});
+        Value endsConst = create.onnx.constantInt64({totalSeqLen});
+        Value axesConst = create.onnx.constantInt64({0});
+        Value stepsConst = create.onnx.constantInt64({1});
+        toCheck.append({startsConst, endsConst, axesConst, stepsConst});
+
+        auto elementType = getElementTypeOrSelf(cosCache.getType());
+        auto cacheSlicedType =
+            RankedTensorType::get({seqLen, headSize / 2}, elementType);
+        auto cosCacheSliced = rewriter.create<ONNXSliceOp>(loc, cacheSlicedType,
+            cosCache, startsConst, endsConst, axesConst, stepsConst);
+        auto sinCacheSliced = rewriter.create<ONNXSliceOp>(loc, cacheSlicedType,
+            sinCache, startsConst, endsConst, axesConst, stepsConst);
+        toCheck.append({cosCacheSliced, sinCacheSliced});
+
+        // reshape to [1, sequence_length, head_size / 2]
+        auto cache3dType =
+            RankedTensorType::get({1, seqLen, headSize / 2}, elementType);
+        auto reshapeShapeConst =
+            create.onnx.constantInt64({1, seqLen, headSize / 2});
+        cosCache =
+            create.onnx.reshape(cache3dType, cosCacheSliced, reshapeShapeConst);
+        sinCache =
+            create.onnx.reshape(cache3dType, sinCacheSliced, reshapeShapeConst);
+        toCheck.append({reshapeShapeConst, cosCache, sinCache});
+
+        // Assume total/past sequence length is the same for every batch and
+        // broadcast the default pos_ids to get cos/sin caches with shape:
+        // [batch_size, sequence_length, head_size / 2]
+        int64_t batchSize = queryType.getShape()[0];
+        if (batchSize != 1) {
+          auto cacheBroadcastType = RankedTensorType::get(
+              {batchSize, seqLen, headSize / 2}, elementType);
+          auto broadcastShapeConst =
+              create.onnx.constantInt64({batchSize, seqLen, headSize / 2});
+          cosCache = create.onnx.expand(
+              cacheBroadcastType, cosCache, broadcastShapeConst);
+          sinCache = create.onnx.expand(
+              cacheBroadcastType, sinCache, broadcastShapeConst);
+          toCheck.append({broadcastShapeConst, cosCache, sinCache});
+        }
+      }
 
       int64_t rotaryInterleaved = 0;
       if (customOp->hasAttrOfType<IntegerAttr>("rotary_interleaved"))
