@@ -18,6 +18,7 @@
 #ifdef _WIN32
 #include <windows.h>
 #else
+#include <fcntl.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #endif
@@ -25,7 +26,18 @@
 namespace fs = std::filesystem;
 using namespace onnx_mlir;
 
-// Helper to get basename from path
+// Constructor.
+Command::Command(const std::string &exePath, bool isVerbose)
+    : path(exePath), stdFilename(""), verbose(isVerbose) {
+  if (path.empty()) {
+    throw CommandException("Empty executable path");
+  }
+
+  // Add executable name as first argument.
+  args.push_back(getBasename(path));
+}
+
+// Helper to get basename from path.
 std::string Command::getBasename(const std::string &path) {
   return fs::path(path).filename().string();
 }
@@ -59,18 +71,7 @@ void Command::printEscapedString(FILE *fp, const std::string &str) {
   }
 }
 
-// Constructor
-Command::Command(const std::string &exePath, bool isVerbose)
-    : path(exePath), verbose(isVerbose) {
-  if (path.empty()) {
-    throw CommandException("Empty executable path");
-  }
-
-  // Add executable name as first argument
-  args.push_back(getBasename(path));
-}
-
-// Append a single string argument
+// Append a single string argument.
 Command &Command::appendStr(const std::string &arg) {
   if (!arg.empty()) {
     args.push_back(arg);
@@ -78,7 +79,7 @@ Command &Command::appendStr(const std::string &arg) {
   return *this;
 }
 
-// Append a list of string arguments
+// Append a list of string arguments.
 Command &Command::appendList(const std::vector<std::string> &argList) {
   for (const auto &arg : argList) {
     if (!arg.empty()) {
@@ -99,7 +100,7 @@ Command &Command::resetArgs() {
   return *this;
 }
 
-// Print command to file handle
+// Print command to file handle.
 Command &Command::print(FILE *fp, const std::string &wdir) {
   if (!fp)
     fp = stderr;
@@ -112,11 +113,15 @@ Command &Command::print(FILE *fp, const std::string &wdir) {
   return *this;
 }
 
-// Execute command - Platform-specific implementations
+void Command::redirectExecStreams(const std::string &stdFilename) {
+  this->stdFilename = stdFilename;
+}
+
+// Execute command - Platform-specific implementations.
 int Command::exec(const std::string &wdir) {
-  // Get current working directory
+  // Get current working directory.
   fs::path curWdir = fs::current_path();
-  // Determine new working directory
+  // Determine new working directory.
   fs::path newWdir;
   bool requestedNewDir = !wdir.empty();
   if (requestedNewDir) {
@@ -128,7 +133,7 @@ int Command::exec(const std::string &wdir) {
     newWdir = curWdir;
   }
 
-  // Change directory if requested
+  // Change directory if requested.
   if (requestedNewDir) {
     try {
       fs::current_path(newWdir);
@@ -137,20 +142,20 @@ int Command::exec(const std::string &wdir) {
           "Failed to change directory to: " + newWdir.string());
     }
   }
-  // Print command if verbose
+  // Print command if verbose.
   if (verbose)
     print(stdout, newWdir.string());
 
 #ifdef _WIN32
-  // Windows implementation using CreateProcess
+  // Windows implementation using CreateProcess.
 
-  // Build command line string
+  // Build command line string.
   std::string cmdLine;
   for (size_t i = 0; i < args.size(); ++i) {
     if (i > 0)
       cmdLine += " ";
 
-    // Quote arguments with spaces
+    // Quote arguments with spaces.
     bool needQuotes = args[i].find(' ') != std::string::npos;
     if (needQuotes)
       cmdLine += "\"";
@@ -162,7 +167,7 @@ int Command::exec(const std::string &wdir) {
   STARTUPINFOA si = {sizeof(si)};
   PROCESS_INFORMATION pi;
 
-  // CreateProcess modifies the command line, so we need a writable copy
+  // CreateProcess modifies the command line, so we need a writable copy.
   std::vector<char> cmdLineBuf(cmdLine.begin(), cmdLine.end());
   cmdLineBuf.push_back('\0');
 
@@ -182,18 +187,18 @@ int Command::exec(const std::string &wdir) {
     throw CommandException("CreateProcess failed");
   }
 
-  // Wait for process to complete
+  // Wait for process to complete.
   WaitForSingleObject(pi.hProcess, INFINITE);
 
-  // Get exit code
+  // Get exit code.
   DWORD exitCode;
   GetExitCodeProcess(pi.hProcess, &exitCode);
 
-  // Clean up handles
+  // Clean up handles.
   CloseHandle(pi.hProcess);
   CloseHandle(pi.hThread);
 
-  // Restore working directory
+  // Restore working directory.
   if (requestedNewDir) {
     try {
       fs::current_path(curWdir);
@@ -205,9 +210,9 @@ int Command::exec(const std::string &wdir) {
   return static_cast<int>(exitCode);
 
 #else
-  // Unix/Linux implementation using fork/exec
+  // Unix/Linux implementation using fork/exec.
 
-  // Prepare arguments array (NULL-terminated for execvp)
+  // Prepare arguments array (NULL-terminated for execvp).
   std::vector<char *> execArgs;
   execArgs.reserve(args.size() + 1);
   for (auto &arg : args) {
@@ -215,7 +220,7 @@ int Command::exec(const std::string &wdir) {
   }
   execArgs.push_back(nullptr);
 
-  // Fork and execute
+  // Fork and execute.
   pid_t pid = fork();
   if (pid == -1) {
     if (requestedNewDir)
@@ -224,16 +229,22 @@ int Command::exec(const std::string &wdir) {
   }
 
   if (pid == 0) {
-    // Child process
+    // Child process.
+    if (!stdFilename.empty()) {
+      int fd = open(stdFilename.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+      dup2(fd, STDOUT_FILENO); // Redirect stdout.
+      dup2(fd, STDERR_FILENO); // Redirect stderr.
+      close(fd);
+    }
     execvp(path.c_str(), execArgs.data());
-    exit(127); // execvp failed
+    exit(127); // execvp failed.
   }
 
-  // Parent process
+  // Parent process.
   int status;
   waitpid(pid, &status, 0);
 
-  // Restore working directory
+  // Restore working directory.
   if (requestedNewDir) {
     try {
       fs::current_path(curWdir);

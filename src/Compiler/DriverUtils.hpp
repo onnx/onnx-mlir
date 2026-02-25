@@ -25,11 +25,15 @@ namespace onnx_mlir {
 
 std::vector<std::string> parseFlags(const std::string &flags);
 
+std::string getInputFilename(const std::vector<std::string> &flags);
+
 std::string getOutputFilename(
     const std::string &inputFileName, const std::vector<std::string> &flagVect);
 
 std::string getTargetFilename(
     const std::string &outputBasename, EmissionTargetType target);
+
+std::string getModelTag(const std::vector<std::string> &flagVect);
 
 } // namespace onnx_mlir
 

@@ -1,11 +1,6 @@
 #include <errno.h>
 #include <iostream>
 
-#if 0
-#include <OnnxMlirCompiler.h>
-#include <OnnxMlirRuntime.h>
-#endif
-
 #include "src/Compiler/OMCompilerSession.hpp"
 #include "src/Runtime/ExecutionSession.hpp"
 
@@ -21,11 +16,12 @@ std::string readArgs(int argc, char *argv[]) {
 int main(int argc, char *argv[]) {
   // Read compiler options from command line.
   std::string flags = readArgs(argc, argv);
-  flags += "-o add_cpp_interface";
+  flags += "-o add_cpp_interface -v";
   // And compile the doc example into a model library.
   onnx_mlir::CompilerSession compilerSession;
   try {
-    compilerSession.compile("add.onnx", flags);
+    // For testing: log the compile output (stderr and stdout) in compile.log.
+    compilerSession.compile("add.onnx", flags, "compile.log");
   } catch (const onnx_mlir::CompilerSessionException &error) {
     std::cerr << "error during compiler session: " << error.what() << std::endl;
     return 1;
@@ -34,9 +30,9 @@ int main(int argc, char *argv[]) {
             << compilerSession.getOutputFilename() << std::endl;
 
   // Prepare the execution session.
-  onnx_mlir::ExecutionSession *session;
+  onnx_mlir::ExecutionSession session;
   try {
-    session = new onnx_mlir::ExecutionSession(
+    session.loadModel(
         /*"./" + */ compilerSession.getOutputFilename());
   } catch (const std::runtime_error &error) {
     std::cerr << "error while creating execution session: " << error.what()
@@ -47,7 +43,7 @@ int main(int argc, char *argv[]) {
   // Get input signature and print it.
   std::string inputSignature;
   try {
-    inputSignature = session->inputSignature();
+    inputSignature = session.inputSignature();
   } catch (const std::runtime_error &error) {
     std::cerr << "error while loading input signature: " << error.what()
               << " and errno " << errno << std::endl;
@@ -73,7 +69,7 @@ int main(int argc, char *argv[]) {
   std::cout << "Start running model " << std::endl;
   OMTensorList *outputList;
   try {
-    outputList = session->run(input);
+    outputList = session.run(input);
   } catch (const std::runtime_error &error) {
     std::cerr << "error while running model: " << error.what() << " and errno "
               << errno << std::endl;
@@ -95,6 +91,5 @@ int main(int argc, char *argv[]) {
     }
   }
   std::cout << "Model verified successfully" << std::endl;
-  delete session;
   return 0;
 }

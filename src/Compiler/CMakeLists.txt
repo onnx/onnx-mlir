@@ -277,26 +277,27 @@ if (NOT BUILD_SHARED_LIBS)
   target_compile_definitions(OMCompiler PUBLIC ONNX_MLIR_BUILT_AS_STATIC)
 endif()
 
-pybind11_add_module(PyCompile PyOMCompileSession.cpp)
-add_dependencies(PyCompile onnx)
-target_compile_options(PyCompile
-  PRIVATE
-  $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-frtti -fexceptions>
-  $<$<CXX_COMPILER_ID:MSVC>:/EHsc /GR>
-  )
-target_compile_definitions(PyCompile
-  PRIVATE
-  $<TARGET_PROPERTY:onnx,COMPILE_DEFINITIONS>
-  )
-target_include_directories(PyCompile
-  PRIVATE
-  $<TARGET_PROPERTY:onnx,INCLUDE_DIRECTORIES>
-  )
-target_link_libraries(PyCompile
-  PRIVATE
-  OMCompiler
-  )
-
-install(TARGETS PyCompile
-  DESTINATION lib
-  )
+# hi alex
+# pybind11_add_module(PyCompile PyOMCompileSession.cpp)
+# add_dependencies(PyCompile onnx)
+# target_compile_options(PyCompile
+#   PRIVATE
+#   $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-frtti -fexceptions>
+#   $<$<CXX_COMPILER_ID:MSVC>:/EHsc /GR>
+#   )
+# target_compile_definitions(PyCompile
+#   PRIVATE
+#   $<TARGET_PROPERTY:onnx,COMPILE_DEFINITIONS>
+#   )
+# target_include_directories(PyCompile
+#   PRIVATE
+#   $<TARGET_PROPERTY:onnx,INCLUDE_DIRECTORIES>
+#   )
+# target_link_libraries(PyCompile
+#   PRIVATE
+#   OMCompilerSession
+#   )
+# 
+# install(TARGETS PyCompile
+#   DESTINATION lib
+#   )

@@ -2,5 +2,6 @@
 
 add_subdirectory(onnx-mlir)
 
-install(FILES OnnxMlirCompiler.h DESTINATION include)
+# hi alex
+# install(FILES OnnxMlirCompiler.h DESTINATION include)
 install(FILES OnnxMlirRuntime.h DESTINATION include)

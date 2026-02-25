@@ -175,6 +175,7 @@ ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
   return rc;
 }
 
+#if 0 // hi alex
 ONNX_MLIR_EXPORT char *omCompileOutputFileName(
     const char *inputFilename, const char *flags) {
   std::vector<std::string> flagVect = parseFlags(flags);
@@ -198,6 +199,7 @@ ONNX_MLIR_EXPORT char *omCompileModelTag(const char *flags) {
   }
   return strdup(modelTag.c_str());
 }
+#endif
 
 } // extern C
 } // namespace onnx_mlir

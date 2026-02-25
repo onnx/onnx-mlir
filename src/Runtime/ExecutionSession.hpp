@@ -61,11 +61,17 @@ using OMTensorUniquePtr = std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>;
  */
 class ExecutionSession {
 public:
+  ExecutionSession() = default;
+
   // Create an execution session using the model given in sharedLibPath.
   // This path must point to the actual file, local directory is not searched.
   ExecutionSession(std::string sharedLibPath, std::string tag = "",
       bool defaultEntryPoint = true);
   ~ExecutionSession();
+
+  // Initialization of library. Called by public constructor, or by subclasses.
+  void loadModel(std::string sharedLibPath, std::string tag = "",
+      bool defaultEntryPoint = true);
 
   // Get a NULL-terminated array of entry point names.
   // For example {"run_addition, "run_subtraction", NULL}
@@ -96,13 +102,6 @@ public:
   void printInstrumentation();
 
 protected:
-  // Constructor that build the object without initialization (for use by
-  // subclass only).
-  ExecutionSession() = default;
-
-  // Initialization of library. Called by public constructor, or by subclasses.
-  void Init(std::string sharedLibPath, std::string tag, bool defaultEntryPoint);
-
   // Error reporting processing when throwing runtime errors. Set errno as
   // appropriate.
   std::string reportInitError() const;

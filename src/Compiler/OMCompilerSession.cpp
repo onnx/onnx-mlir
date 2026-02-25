@@ -29,19 +29,27 @@ namespace onnx_mlir {
 
 CompilerSession::CompilerSession() : successfullyCompiled(false) {}
 
-CompilerSession::CompilerSession(
-    const std::string &modelPath, const std::string &flags) {
+CompilerSession::CompilerSession(const std::string &modelPath,
+    const std::string &flags, const std::string &logFilename) {
   compile(modelPath, flags);
 }
 
-void CompilerSession::compile(
-    const std::string &modelPath, const std::string &flags) {
+void CompilerSession::compile(const std::string &modelPath,
+    const std::string &flags, const std::string &logFilename) {
   // Initialize state.
   successfullyCompiled = false;
-  if (!fs::exists(modelPath)) {
+  flagVect = parseFlags(flags);
+  // When model path is given, add it to the vector of flags; otherwise locate
+  // the input model filename from the flags.
+  std::string inputFilename = modelPath;
+  if (!modelPath.empty())
+    flagVect.push_back(modelPath);
+  else
+    inputFilename = onnx_mlir::getInputFilename(flagVect);
+  if (!fs::exists(inputFilename)) {
     throw CompilerSessionException(
-        "Compilation failed: could not locate input model file \"" + modelPath +
-        "\"");
+        "Compilation failed: could not locate input model file \"" +
+        inputFilename + "\"");
   }
   // Determine onnx-mlir executable path.
 #ifdef _WIN32
@@ -50,18 +58,18 @@ void CompilerSession::compile(
   std::string onnxMlirPath = "onnx-mlir";
 #endif
   // Execute onnx-mlir command with arguments.
-  flagVect = parseFlags(flags);
   onnx_mlir::Command compile(onnxMlirPath, /*verbose*/ true);
   compile.appendList(flagVect);
-  compile.appendStr(modelPath);
   compile.print();
+  if (!logFilename.empty())
+    compile.redirectExecStreams(logFilename);
   int status = compile.exec();
   if (status != OnnxMlirCompilerErrorCodes::CompilerSuccess) {
     throw CompilerSessionException(
         "Compilation failed with error code " + std::to_string(status));
   }
   // Success, save filename of output.
-  outputFilename = onnx_mlir::getOutputFilename(modelPath, flagVect);
+  outputFilename = onnx_mlir::getOutputFilename(inputFilename, flagVect);
   successfullyCompiled = true;
 }
 
@@ -78,24 +86,19 @@ std::string CompilerSession::getModelTag() {
     throw CompilerSessionException(
         "Compiler session: has no successfully compiled model");
   }
-  std::string modelTag = "";
-  for (int i = 0; i < (int)flagVect.size(); ++i) {
-    if (flagVect[i].find("--tag=") == 0) {
-      modelTag = flagVect[i].substr(6);
-      break;
-    }
-    if (flagVect[i].find("-tag=") == 0) {
-      modelTag = flagVect[i].substr(5);
-      break;
-    }
-  }
-  return modelTag;
+  return onnx_mlir::getModelTag(flagVect);
 }
 
 /* static */ std::string CompilerSession::getOutputFilename(
     const std::string &modelPath, const std::string &flags) {
   std::vector<std::string> flagVect = parseFlags(flags);
   return onnx_mlir::getOutputFilename(modelPath, flagVect);
+}
+
+/* static */ std::string CompilerSession::getModelTag(
+    const std::string &flags) {
+  std::vector<std::string> flagVect = parseFlags(flags);
+  return onnx_mlir::getModelTag(flagVect);
 }
 
 } // namespace onnx_mlir

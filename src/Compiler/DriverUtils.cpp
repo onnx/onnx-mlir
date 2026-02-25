@@ -116,4 +116,36 @@ std::string getOutputFilename(const std::string &inputFilename,
   return getTargetFilename(outputBasename, targetType);
 }
 
+std::string getModelTag(const std::vector<std::string> &flagVect) {
+  std::string modelTag = "";
+  for (int i = 0; i < (int)flagVect.size(); ++i) {
+    if (flagVect[i].find("--tag=") == 0) {
+      modelTag = flagVect[i].substr(6);
+      break;
+    }
+    if (flagVect[i].find("-tag=") == 0) {
+      modelTag = flagVect[i].substr(5);
+      break;
+    }
+  }
+  return modelTag;
+}
+
+std::string getInputFilename(const std::vector<std::string> &flags) {
+  for (size_t i = 0; i < flags.size(); ++i) {
+    const std::string &arg = flags[i];
+    if (!arg.empty() && arg[0] == '-') {
+      continue;
+    }
+    // Check if it ends with ".c".
+    if ((arg.length() >= 4 && arg.substr(arg.length() - 4) == ".mlir") ||
+        (arg.length() >= 5 && arg.substr(arg.length() - 5) == ".onnx") ||
+        (arg.length() >= 9 && arg.substr(arg.length() - 9) == ".onnxtext")) {
+      return arg;
+    }
+  }
+  // Not found, return empty.
+  return "";
+}
+
 } // namespace onnx_mlir

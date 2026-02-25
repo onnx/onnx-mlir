@@ -18,7 +18,6 @@
 
 #include <benchmark/benchmark.h>
 
-#include "include/OnnxMlirCompiler.h"
 #include "test/modellib/ModelLib.hpp"
 #include "test/perf/PerfHelper.hpp"
 

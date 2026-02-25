@@ -46,6 +46,7 @@ public:
  *
  *  @param inputFilename File name pointing onnx model protobuf or MLIR.
  *  Name may include a path, and must include the file name and its extention.
+ *  If left empty, then the flags are expected to include the input model name.
  *
  *  @param flags A string that contains all the options provided to compile the
  *  model.
@@ -57,17 +58,15 @@ class CompilerSession {
 public:
   // Default constructor (compilation deferred to invocation of this->compile).
   CompilerSession();
-  // Constructor and compile. Trow CompilerSessionException on compiler error.
-  CompilerSession(const std::string &modelPath, const std::string &flags);
+  // Constructor that compiles model. Trow CompilerSessionException on compiler
+  // error.
+  CompilerSession(const std::string &modelPath, const std::string &flags,
+      const std::string &logFilename = {});
   ~CompilerSession() = default;
 
   // Compile. Trow CompilerSessionException on compiler error.
-  void compile(const std::string &modelPath, const std::string &flags);
-
-  // Construct output name for the given model and compiler flags. Static class
-  // method that works without attempting to compile anything.
-  static std::string getOutputFilename(
-      const std::string &modelPath, const std::string &flags);
+  void compile(const std::string &modelPath, const std::string &flags,
+      const std::string &logFilename = {});
 
   // File name of compiler generated model as compiled. Throw error if called
   // before a successfully compiled model.
@@ -77,7 +76,13 @@ public:
   // Throw error if called before a successfully compiled model.
   std::string getModelTag();
 
-  bool success() { return successfullyCompiled; }
+  bool isSuccessfullyCompiled() { return successfullyCompiled; }
+
+  // Functions to support caching, where we may want to know the output file
+  // name and/or tag before compiling.
+  static std::string getOutputFilename(
+      const std::string &modelPath, const std::string &flags);
+  static std::string getModelTag(const std::string &flags);
 
 private:
   std::vector<std::string> flagVect;

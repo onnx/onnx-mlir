@@ -56,11 +56,11 @@ int64_t PyOMCompileSession::pyCompileFromFile(std::string flags) {
   }
   free(outputName);
   free(errorMsg);
+  return rc;
 #else
   assert(false && "deprecated");
-  rc = -1;
+  return -1;
 #endif
-  return rc;
 }
 
 int64_t PyOMCompileSession::pyCompileFromArray(

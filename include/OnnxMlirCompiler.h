@@ -104,6 +104,7 @@ ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
     EmissionTargetType emissionTarget, char **outputFilename,
     char **errorMessage);
 
+#if 0 // hi alex
 /*!
  * Compute the file name of the compiled output for the given
  * emission target. User is responsible for freeing the string.
@@ -128,6 +129,7 @@ ONNX_MLIR_EXPORT char *omCompileOutputFileName(
  *  string.
  */
 ONNX_MLIR_EXPORT char *omCompileModelTag(const char *flags);
+#endif
 
 #ifdef __cplusplus
 } // namespace onnx_mlir

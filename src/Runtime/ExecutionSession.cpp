@@ -40,10 +40,10 @@ namespace onnx_mlir {
 
 ExecutionSession::ExecutionSession(
     std::string sharedLibPath, std::string tag, bool defaultEntryPoint) {
-  Init(sharedLibPath, tag, defaultEntryPoint);
+  loadModel(sharedLibPath, tag, defaultEntryPoint);
 }
 
-void ExecutionSession::Init(
+void ExecutionSession::loadModel(
     std::string sharedLibPath, std::string tag, bool defaultEntryPoint) {
   if (isInitialized)
     throw std::runtime_error(reportInitError());

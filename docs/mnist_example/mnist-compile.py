@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import numpy as np
-from PyCompile import OMCompileSession
+from PyCompiler import OMCompileSession
 
 # Load onnx model and create OMCompileSession object.
 file = "./mnist.onnx"
