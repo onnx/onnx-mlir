@@ -18,7 +18,7 @@ def XCOMPILERDepthwiseConvOp:ONNX_Op<"XCOMPILERDepthwiseConv",
   [Pure, OpVersionTrait<1>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "DepthwiseConv operation";
   let description = [{
-  Depthwise separable convolution with NHWC layout supporting both 2D and 3D inputs. Supports both quantized and non-quantized tensor types. Weight uses IHWO format [C_in/group, kH, kW, C_out] (transposed from OHWI by ConvertXFEConvToDepthwiseConvPass). Each input channel is convolved with its own set of filters (group = input_channels). This is more computationally efficient than standard convolution. For 2D: input shape is [N, H, W, C], weight shape is [1, kH, kW, C]. For 3D: input shape is [N, D, H, W, C], weight shape is [1, kD, kH, kW, C]. Attributes: kernel_shape specifies the filter dimensions; strides specifies the stride along each spatial axis; pads specifies the padding for beginning and ending along each spatial axis; dilations specifies the dilation along each spatial axis; auto_pad specifies the padding type (NOTSET, SAME_UPPER, SAME_LOWER, VALID).
+  Depthwise separable convolution with NHWC layout supporting both 2D and 3D inputs. Supports both quantized and non-quantized tensor types. Weight uses OHWI format (consistent with XFEConv). Each input channel is convolved with its own set of filters (group = input_channels). This is more computationally efficient than standard convolution. For 2D: input shape is [N, H, W, C], weight shape is [C, kH, kW, 1]. For 3D: input shape is [N, D, H, W, C], weight shape is [C, kD, kH, kW, 1]. Attributes: kernel_shape specifies the filter dimensions; strides specifies the stride along each spatial axis; pads specifies the padding for beginning and ending along each spatial axis; dilations specifies the dilation along each spatial axis; auto_pad specifies the padding type (NOTSET, SAME_UPPER, SAME_LOWER, VALID).
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[quant_QuantizedType]>, TensorOf<[quant_QuantizedType]>]>:$X,
     AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[quant_QuantizedType]>, TensorOf<[quant_QuantizedType]>]>:$W,
@@ -61,7 +61,9 @@ def XCOMPILERFusedEltwiseOp:ONNX_Op<"XCOMPILERFusedEltwise",
     AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[quant_QuantizedType]>, NoneType]>:$B,
     OptionalAttr<SI64Attr>:$clip_max,
     OptionalAttr<SI64Attr>:$clip_min,
+    DefaultValuedAttr<BoolAttr, "false">:$enable_lut_sigmoid,
     OptionalAttr<F32Attr>:$leakyrelu_alpha,
+    OptionalAttr<F32Attr>:$mul_y,
     DefaultValuedStrAttr<StrAttr, "NONE">:$nonlinear,
     OptionalAttr<F32Attr>:$nonlinear_in_scales,
     OptionalAttr<SI64Attr>:$nonlinear_in_zeropoints,

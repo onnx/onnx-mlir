@@ -68,10 +68,11 @@ struct RemovePairedReshapePattern : public OpRewritePattern<ONNXReshapeOp> {
     if (reshape1DataTy.getShape() != reshape2OutTy.getShape())
       return failure();
 
-    rewriter.replaceAllUsesWith(reshape1.getResult(), reshape1Data);
-    rewriter.replaceAllUsesWith(reshape2.getResult(), reshape2.getData());
-    rewriter.eraseOp(reshape1);
-    rewriter.eraseOp(reshape2);
+    rewriter.replaceOp(reshape1, reshape1Data);
+    rewriter.modifyOpInPlace(next, [=]() {
+      next->getResult(0).setType(reshape2->getResult(0).getType());
+    });
+    rewriter.replaceOp(reshape2, reshape2.getData());
     return success();
   }
 };
