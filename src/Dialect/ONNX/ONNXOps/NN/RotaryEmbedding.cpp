@@ -75,6 +75,12 @@ LogicalResult ONNXRotaryEmbeddingOp::verify() {
     return onnx_mlir::Diagnostic::emitOperandHasUnexpectedRankError(
         *this->getOperation(), sinCache, sinCacheType.getRank(), "2 or 3");
 
+  if ((cosCacheType.getRank() == 2 || sinCacheType.getRank() == 2) &&
+      isNoneValue(adaptor.getPositionIds())) {
+    return emitOpError(
+        "input 'position_ids' must be provided when cos and sin caches are 2D");
+  }
+
   if (!cosCacheType.hasStaticShape() || !sinCacheType.hasStaticShape())
     return success(); // Won't be able to do any more checking at this stage.
 
