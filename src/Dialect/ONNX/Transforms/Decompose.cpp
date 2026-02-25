@@ -3412,9 +3412,9 @@ struct MicrosoftGroupQueryAttention : public CustomOpToOnnxOps {
               customOp, "expected 'past_ks' input to have static type");
 
         // Assuming the sequence length is the same kv_sequence_length
-        int64_t seqLen = queryType.getShape()[1];
-        int64_t pastSeqLen = pastKeyType.getShape()[2];
-        int64_t totalSeqLen = pastSeqLen + seqLen;
+        const int64_t seqLen = queryType.getShape()[1];
+        const int64_t pastSeqLen = pastKeyType.getShape()[2];
+        const int64_t totalSeqLen = pastSeqLen + seqLen;
 
         // The slice mimics indexing the cos/sin caches using the default
         // pos_ids: [past_seq_len..total_seq_len].
