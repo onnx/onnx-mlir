@@ -3325,7 +3325,7 @@ struct MicrosoftGroupQueryAttention : public CustomOpToOnnxOps {
           customOp, "input 'head_sink' not supported by onnx.Attention");
 
     auto smoothSoftmax = customOp->getAttrOfType<IntegerAttr>("smooth_softmax");
-    if (smoothSoftmax && smoothSoftmax.getSInt() > 0)
+    if (smoothSoftmax && smoothSoftmax.getSInt() == 1)
       return rewriter.notifyMatchFailure(customOp,
           "attribute 'smooth_softmax' not supported by onnx.Attention");
 
