@@ -16,6 +16,7 @@
 #include "llvm/TargetParser/Host.h"
 
 #include <sstream>
+#include <filesystem>
 
 #include "ExternalUtil.hpp"
 #include "onnx-mlir/Compiler/OMCompilerRuntimeTypes.h"
@@ -1540,31 +1541,67 @@ bool hasSignatureInstrumentation(InstrumentStages targetInstrumentationStage) {
          (instrumentOnnxNode != "" && instrumentOnnxNode != "NONE");
 }
 
-/// Load compile options from a JSON configuration file.
-/// @param configPath Path to the JSON config file
-/// @param extraArgs Vector to store extracted option strings
-/// @return true if successful, false otherwise
+// Load options from a file given by --config-file.
+// If --config-file is not used, looling for omconfig.json in the same folder
+// as the input file.
 bool loadCompileOptionsFromConfig(
-    const std::string &configPath, std::vector<std::string> &extraArgs) {
-  // Use JsonConfigObject to load and parse the config file
-  JsonConfigObject config;
-  if (!config.loadFromFile(configPath)) {
-    return false;
+    int argc, const char *const *argv, std::vector<std::string> &extraArgs) {
+  // Get  the input filename.
+  std::string inputFileVar = "";
+  for (int i = 1; i < argc; ++i) {
+    std::string arg(argv[i]);
+    if (arg.size() > 1 && arg[0] == '-')
+      continue;
+    // First positional argument becomes the input file name.
+    if (inputFileVar.empty()) {
+      inputFileVar = arg;
+      // There is only one positional argument. Break here.
+      break;
+    }
   }
 
-  // Extract compile options if present
-  auto opts = config.getCompileOptions();
-  if (!opts) {
-    return true; // No compile_options key is OK
+  // Get the config-file value.
+  std::string configFileVar = "";
+  for (int i = 1; i < argc; ++i) {
+    std::string arg(argv[i]);
+    if (arg.find("--config-file") == 0) {
+      configFileVar = arg.substr(sizeof("--config-file"));
+    } else if (arg.find("-config-file") == 0) {
+      configFileVar = arg.substr(sizeof("-config-file"));
+    }
+    if (!configFileVar.empty())
+      break;
   }
+
+  // Construct the config file path.
+  std::filesystem::path inputPath(inputFileVar);
+  std::filesystem::path defaultConfigPath =
+      inputPath.parent_path() / "omconfig.json";
+  std::string configPath =
+      configFileVar.empty() ? defaultConfigPath.string() : configFileVar;
+  if (!std::filesystem::exists(configPath))
+    return false;
+
+  // Use JsonConfigObject to load and parse the config file.
+  JsonConfigObject config;
+  if (!config.loadFromFile(configPath))
+    return false;
+
+  // Extract compile options if present.
+  std::optional<std::string> opts = config.getCompileOptions();
+  if (!opts || !opts.has_value())
+    return false;
+  std::string optionStr = opts.value();
+  if (optionStr.empty())
+    return false;
 
   // Parse space-separated options
-  std::istringstream iss(*opts);
+  // TODO: better tokenizer.
+  std::istringstream iss(optionStr);
   std::string token;
   while (iss >> token) {
-    extraArgs.push_back(token);
+    extraArgs.emplace_back(token);
   }
-
   return true;
 }
 

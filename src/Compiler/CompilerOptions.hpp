@@ -95,6 +95,7 @@ extern bool enableSafeCodeGen;                                // common for both
 extern bool disableMemRefPrefetch;                            // common for both
 extern uint64_t compilationNumThreads;                        // common for both
 extern std::vector<std::string> decomposeOpsInONNX;           // common for both
+extern std::string linalgOps;                                 // common for both
 extern EmissionTargetType emissionTarget;                     // onnx-mlir only
 extern bool invokeOnnxVersionConverter;                       // onnx-mlir only
 extern bool preserveLocations;                                // onnx-mlir only
@@ -148,8 +149,8 @@ extern bool enableTiming;                                     // onnx-mlir only
 extern bool enableBoundCheck;                                 // onnx-mlir only
 extern bool debugTestCompilerOpt;                             // onnx-mlir only
 extern bool useLinalgPath;                                    // onnx-mlir only
-extern std::string linalgOps;  // common for both onnx-mlir and onnx-mlir-opt
-extern std::string configFile; // onnx-mlir only
+extern std::string configFile;                                // onnx-mlir only
+extern std::string saveConfigFile;                            // onnx-mlir only
 
 extern bool split_input_file;          // onnx-mlir-opt only
 extern bool verify_diagnostics;        // onnx-mlir-opt only
@@ -244,9 +245,11 @@ bool hasInstrumentation(InstrumentStages targetInstrumentationStage);
 // data values of the tensors
 bool hasSignatureInstrumentation(InstrumentStages targetInstrumentationStage);
 
-// Load compile options from a JSON configuration file
+// Load options from a file given by --config-file.
+// If --config-file is not used, looling for omconfig.json in the same folder
+// as the input file.
 bool loadCompileOptionsFromConfig(
-    const std::string &configPath, std::vector<std::string> &extraArgs);
+    int argc, const char *const *argv, std::vector<std::string> &extraArg);
 
 } // namespace onnx_mlir
 #endif

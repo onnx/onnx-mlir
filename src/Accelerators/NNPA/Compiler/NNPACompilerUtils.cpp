@@ -238,13 +238,11 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
     mlir::PassManager &pm, EmissionTargetType &emissionTarget,
     std::string outputNameNoExt) {
   // Load JSON configuration file if specified
-  std::string generalConfigPath =
-      configFile.empty() ? "omconfig.json" : configFile;
-  if (llvm::sys::fs::exists(generalConfigPath)) {
+  if (llvm::sys::fs::exists(configFile)) {
     JsonConfigObject &globalConfig = getGlobalNNPAConfig();
-    if (globalConfig.loadFromFile(generalConfigPath)) {
+    if (globalConfig.loadFromFile(configFile)) {
       LLVM_DEBUG(llvm::dbgs() << "Loaded NNPA config from general config: "
-                              << generalConfigPath << "\n");
+                              << configFile<< "\n");
     }
   }
 
