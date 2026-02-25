@@ -42,9 +42,9 @@ RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
     # Use upgrade setuptools to latest which accepts plain string license
     # format.
     #
-    && python3 -m pip install --upgrade --ignore-installed "packaging>=24.2" --prefix=/usr setuptools \
+    && pip3 install --prefix=/usr --upgrade setuptools \
     && CC=clang CXX=clang++ CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib" \
-       python3 -m pip install . --prefix=/usr --no-build-isolation \
+       pip3 install . --prefix=/usr --no-build-isolation \
     && rm -rf ${HOME}/.cache
 
 ARG NPROC=4
@@ -107,10 +107,10 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
                   make ninja-build python3 && \
           rm -rf /var/lib/apt/lists/*; \
        elif [ "${distro}" = "rhel" ] || [ "${distro}" = "fedora" ]; then \
-          python3 -m pip uninstall -q -y \
-               Cython pytest pytest-xdist typing-extensions && \
+          pip3 uninstall -q -y \
+               Cython pytest typing-extensions && \
           yum remove -q -y \
-              autoconf automake cmake file git libtool ninja-build && \
+              autoconf automake cmake file git libtool ninja-build python3.11 && \
           rm -rf /var/cache/dnf/*; \
        fi \
     && rm -rf /tmp/* /usr/bin/python ${HOME}/.cache \

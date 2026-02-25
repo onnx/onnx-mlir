@@ -31,7 +31,7 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
                   autoconf automake ca-certificates clang cmake cppcheck \
                   curl default-jdk-headless gcc g++ git libncurses-dev \
                   libtool make maven ninja-build python3 python3-dev \
-                  python3-numpy python3-pip python3-pytest-xdist \
+                  python3-numpy python3-pip \
                   python3-setuptools python3-typing-extensions \
                   unzip zip zlib1g-dev && \
           rm -rf /var/lib/apt/lists/*; \
@@ -48,18 +48,14 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
               # FIX: Use python3.11 instead of python39 to satisfy ONNX >= 3.10 requirement
               python3.11 python3.11-devel python3.11-pip python3.11-setuptools python3.11-wheel \
               tzdata-java unzip which zip zlib-devel && \
-          # Set python3.11 as the default python3
-          alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 && \
-          alternatives --set python3 /usr/bin/python3.11 && \
           # Create pip3 symlink if it doesn't exist, or update it to use python3.11
           ln -sf /usr/bin/python3.11 /usr/bin/python3 && \
-          (test -f /usr/bin/pip3.11 && ln -sf /usr/bin/pip3.11 /usr/bin/pip3 || \
-           ln -sf /usr/bin/python3 /usr/bin/pip3) && \
+          ln -sf /usr/bin/pip3.11 /usr/bin/pip3 && \
           # Upgrade setuptools to avoid UNKNOWN wheel when building onnx
           # Use same package versions as those in ubuntu:noble
-          python3 -m pip install -q setuptools --upgrade && \
-          python3 -m pip install -q \
-               Cython pytest==7.4.4 numpy==1.26.4 pytest-xdist==3.4.0 \
+          pip3 install -q setuptools --upgrade && \
+          pip3 install -q \ 
+               Cython pytest==7.4.4 numpy==1.26.4 \
                typing-extensions==4.10.0 && \
           rm -rf /var/cache/dnf/* && \
           echo -e "/usr/local/lib" > /etc/ld.so.conf.d/local.conf; \
@@ -158,7 +154,7 @@ archive_override(\n\
     && CC=clang CXX=clang++ \
        bazel build --host_per_file_copt=".*/absl/time/duration.cc@-O0" \
                    //python/dist:binary_wheel \
-    && python3 -m pip install bazel-bin/python/dist/protobuf-*.whl --prefix=/usr \
+    && pip3 install bazel-bin/python/dist/protobuf-*.whl --prefix=/usr \
     && cd .. && rm -rf ${PROTOBUF_DIR} ${HOME}/.cache
 
 # Install jsoniter
