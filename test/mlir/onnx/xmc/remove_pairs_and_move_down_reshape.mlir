@@ -12,15 +12,16 @@
 
 // CHECK-LABEL: func.func @test_remove_paired_reshape
 // CHECK-NOT: "onnx.Reshape"
-// CHECK: %[[FUSED:.*]] = "onnx.XCOMPILERFusedEltwise"(%arg0, %{{.*}}) {nonlinear = "NONE", type = "ADD"}
+// CHECK: %[[FUSED:.*]] = "onnx.XCOMPILERFusedEltwise"(%arg0, %{{.*}}) {{.*}}nonlinear = "NONE"{{.*}}type = "ADD"
 // CHECK: return %[[FUSED]]
 func.func @test_remove_paired_reshape(%arg0: tensor<1x4xui8>) -> tensor<1x4xui8> {
   %shape14 = onnx.Constant dense<[1, 4]> : tensor<2xi64>
-  %b = onnx.Constant dense<[[1, 1, 1, 1]]> : tensor<1x4xui8>
+  %shape41 = onnx.Constant dense<[4, 1]> : tensor<2xi64>
+  %b = onnx.Constant dense<[[1], [1], [1], [1]]> : tensor<4x1xui8>
 
-  %r1 = "onnx.Reshape"(%arg0, %shape14) {allowzero = 0 : si64} : (tensor<1x4xui8>, tensor<2xi64>) -> tensor<1x4xui8>
-  %fused = "onnx.XCOMPILERFusedEltwise"(%r1, %b) {type = "ADD", nonlinear = "NONE"} : (tensor<1x4xui8>, tensor<1x4xui8>) -> tensor<1x4xui8>
-  %r2 = "onnx.Reshape"(%fused, %shape14) {allowzero = 0 : si64} : (tensor<1x4xui8>, tensor<2xi64>) -> tensor<1x4xui8>
+  %r1 = "onnx.Reshape"(%arg0, %shape41) {allowzero = 0 : si64} : (tensor<1x4xui8>, tensor<2xi64>) -> tensor<4x1xui8>
+  %fused = "onnx.XCOMPILERFusedEltwise"(%r1, %b) {type = "ADD", nonlinear = "NONE"} : (tensor<4x1xui8>, tensor<4x1xui8>) -> tensor<4x1xui8>
+  %r2 = "onnx.Reshape"(%fused, %shape14) {allowzero = 0 : si64} : (tensor<4x1xui8>, tensor<2xi64>) -> tensor<1x4xui8>
   return %r2 : tensor<1x4xui8>
 }
 
@@ -46,4 +47,3 @@ func.func @test_no_remove_when_shapes_dont_match(%arg0: tensor<1x4xf32>) -> tens
   %r3 = "onnx.Reshape"(%add2, %shape14) {allowzero = 0 : si64} : (tensor<2x2xf32>, tensor<2xi64>) -> tensor<1x4xf32>
   return %r3 : tensor<1x4xf32>
 }
-

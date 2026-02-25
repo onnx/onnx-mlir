@@ -14,6 +14,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Quant/IR/QuantTypes.h"
 #include "src/Dialect/Mlir/IndexExprBuilder.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
@@ -142,8 +143,10 @@ LogicalResult ONNXBitwiseNotOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXCastOp::verify() {
-  return cast<ShapedType>(this->getResult().getType()).getElementType() ==
-                 getTo()
+  auto elemType = cast<ShapedType>(getResult().getType()).getElementType();
+  if (auto qType = dyn_cast_if_present<quant::QuantizedType>(elemType))
+    elemType = qType.getExpressedType();
+  return elemType == getTo()
              ? success()
              : emitOpError("element type does not match the 'to' attribute");
 }

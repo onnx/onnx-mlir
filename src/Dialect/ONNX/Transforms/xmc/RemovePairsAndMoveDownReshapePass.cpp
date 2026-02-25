@@ -1,5 +1,6 @@
 // Copyright (C) 2026 Advanced Micro Devices, Inc. All rights reserved.
 
+#include "ResultNamesUpdater.hpp"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
@@ -13,13 +14,6 @@
 using namespace mlir;
 
 namespace {
-
-static bool isReshapePairIntermediateOp(Operation *op) {
-  if (!op)
-    return false;
-  // Match only the XCompiler custom eltwise op.
-  return isa<XCOMPILERFusedEltwiseOp>(op);
-}
 
 /// Remove paired reshapes:
 ///   reshape1 -> (allowed ops)* -> reshape2
@@ -38,23 +32,17 @@ struct RemovePairedReshapePattern : public OpRewritePattern<ONNXReshapeOp> {
     if (!reshape1DataTy || !reshape1DataTy.hasStaticShape())
       return failure();
 
-    Operation *next = *reshape1.getResult().getUsers().begin();
+    Operation *next = *reshape1->user_begin();
     if (!next)
       return failure();
 
-    auto hasSingleLinearUse = [](Operation *op) -> bool {
-      return op && op->getNumResults() == 1 && op->getResult(0).hasOneUse();
-    };
-    if (!hasSingleLinearUse(next))
-      return failure();
-
     Operation *cursor = next;
-    while (cursor && !isa<ONNXReshapeOp>(cursor) &&
-           isReshapePairIntermediateOp(cursor)) {
-      if (!hasSingleLinearUse(cursor))
-        return failure();
-      cursor = *cursor->getResult(0).getUsers().begin();
+    while (
+        cursor && isa<XCOMPILERFusedEltwiseOp>(cursor) && cursor->hasOneUse()) {
+      cursor = *cursor->user_begin();
     }
+    if (!cursor || cursor == next)
+      return failure();
 
     auto reshape2 = dyn_cast_or_null<ONNXReshapeOp>(cursor);
     if (!reshape2)
@@ -68,10 +56,11 @@ struct RemovePairedReshapePattern : public OpRewritePattern<ONNXReshapeOp> {
     if (reshape1DataTy.getShape() != reshape2OutTy.getShape())
       return failure();
 
-    rewriter.replaceAllUsesWith(reshape1.getResult(), reshape1Data);
-    rewriter.replaceAllUsesWith(reshape2.getResult(), reshape2.getData());
-    rewriter.eraseOp(reshape1);
-    rewriter.eraseOp(reshape2);
+    rewriter.replaceOp(reshape1, reshape1Data);
+    rewriter.modifyOpInPlace(next, [=]() {
+      next->getResult(0).setType(reshape2->getResult(0).getType());
+    });
+    rewriter.replaceOp(reshape2, reshape2.getData());
     return success();
   }
 };
@@ -96,11 +85,13 @@ struct RemovePairsAndMoveDownReshapePass
     patterns.add<RemovePairedReshapePattern>(context);
 
     GreedyRewriteConfig config;
+    ResultNamesUpdater rnUpdater;
     config.maxIterations = 10;
     config.useTopDownTraversal = true;
+    config.listener = &rnUpdater;
 
-    if (failed(applyPatternsAndFoldGreedily(
-            getOperation(), std::move(patterns), config)))
+    if (failed(
+            applyPatternsGreedily(getOperation(), std::move(patterns), config)))
       signalPassFailure();
   }
 };

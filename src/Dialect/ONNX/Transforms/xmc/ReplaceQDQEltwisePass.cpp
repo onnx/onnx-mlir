@@ -66,6 +66,32 @@ static IntegerAttr getSI64Attr(PatternRewriter &rewriter, int64_t value) {
   return rewriter.getIntegerAttr(si64, value);
 }
 
+// For LeakyRelu ops, return (leakyrelu_alpha, prelu_in, prelu_shift); else
+// empty attrs. Used by Pattern 1 so LeakyRelu is handled in the generic path.
+static std::tuple<FloatAttr, IntegerAttr, IntegerAttr>
+getLeakyReluAttrsIfApplicable(Operation *op, PatternRewriter &rewriter) {
+  auto leakyOp = dyn_cast<ONNXLeakyReluOp>(op);
+  if (!leakyOp) {
+    return {FloatAttr(), IntegerAttr(), IntegerAttr()};
+  }
+  FloatAttr alphaAttr = leakyOp.getAlphaAttr();
+  float alpha = alphaAttr ? alphaAttr.getValue().convertToFloat() : 0.01f;
+  if (!alphaAttr)
+    alphaAttr = rewriter.getFloatAttr(rewriter.getF32Type(), alpha);
+  auto [M, N] = getLeakyReluAlphaToPreluFactor(alpha);
+  return {alphaAttr, getSI64Attr(rewriter, M), getSI64Attr(rewriter, N)};
+}
+
+// True if value is produced by an eltwise op that Pattern 2 fuses with Relu/
+// LeakyRelu. Pattern 1 should not fuse standalone Relu/LeakyRelu in that case.
+static bool isInputFromPattern2Eltwise(Value v) {
+  Operation *def = v.getDefiningOp();
+  if (!def)
+    return false;
+  return isa<ONNXAddOp, ONNXSubOp, ONNXMulOp, ONNXDivOp, ONNXTanhOp,
+      ONNXSqrtOp>(def);
+}
+
 // Check if type is quantized
 bool isQuantizedType(Type type) {
   if (auto tensorType = mlir::dyn_cast<RankedTensorType>(type)) {
@@ -183,6 +209,14 @@ struct FuseQuantizedEltwiseWithoutActivation
       return rewriter.notifyMatchFailure(
           eltwiseOp, "operands/result are not quantized");
 
+    // Standalone Relu/LeakyRelu: do not fuse here if input is from an eltwise
+    // that Pattern 2 can fuse with us (Add/Sub/Mul/Div/Tanh/Sqrt+Activation).
+    if (isUnary &&
+        (isa<ONNXReluOp, ONNXLeakyReluOp>(eltwiseOp.getOperation())) &&
+        isInputFromPattern2Eltwise(a))
+      return rewriter.notifyMatchFailure(
+          eltwiseOp, "eltwise+activation fused by Pattern 2");
+
     // If this eltwise feeds an activation (ReLU/LeakyReLU/PReLU), don't fuse
     // here. Either Pattern 2 will fuse it (ReLU/LeakyReLU) or we want to keep
     // the original eltwise op intact (PReLU is not modeled by
@@ -203,17 +237,25 @@ struct FuseQuantizedEltwiseWithoutActivation
     if (isUnary)
       b = rewriter.create<ONNXNoneOp>(eltwiseOp.getLoc()).getResult();
 
+    auto [leakyAlpha, preluIn, preluShift] =
+        getLeakyReluAttrsIfApplicable(eltwiseOp.getOperation(), rewriter);
+    // Verifier requires nonlinear=LEAKYRELU when leakyrelu_alpha/prelu_* are
+    // set.
+    StringRef nonlinear = leakyAlpha ? "LEAKYRELU" : "NONE";
+
     auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(eltwiseOp.getLoc(),
         eltwiseOp.getType(), // result type (quantized)
         a, b,
         /*clip_max=*/IntegerAttr(),
         /*clip_min=*/IntegerAttr(),
-        /*leakyrelu_alpha=*/FloatAttr(),
-        /*nonlinear=*/rewriter.getStringAttr("NONE"),
+        /*enable_lut_sigmoid=*/rewriter.getBoolAttr(false),
+        /*leakyrelu_alpha=*/leakyAlpha,
+        /*mul_y=*/FloatAttr(),
+        /*nonlinear=*/rewriter.getStringAttr(nonlinear),
         /*nonlinear_in_scales=*/FloatAttr(),
         /*nonlinear_in_zeropoints=*/IntegerAttr(),
-        /*prelu_in=*/IntegerAttr(),
-        /*prelu_shift=*/IntegerAttr(),
+        /*prelu_in=*/preluIn,
+        /*prelu_shift=*/preluShift,
         /*type=*/rewriter.getStringAttr(opType));
 
     rewriter.replaceOp(eltwiseOp, fusedOp.getResult());
@@ -263,7 +305,9 @@ struct FuseQuantizedClipWithoutActivation
         clipOp.getInput(), noneB,
         /*clip_max=*/clipMaxAttr,
         /*clip_min=*/clipMinAttr,
+        /*enable_lut_sigmoid=*/rewriter.getBoolAttr(false),
         /*leakyrelu_alpha=*/FloatAttr(),
+        /*mul_y=*/FloatAttr(),
         /*nonlinear=*/rewriter.getStringAttr("NONE"),
         /*nonlinear_in_scales=*/FloatAttr(),
         /*nonlinear_in_zeropoints=*/IntegerAttr(),
@@ -316,6 +360,24 @@ static llvm::StringRef getEltwiseTypeString() {
     return "ABS";
   else if constexpr (std::is_same_v<EltwiseOp, ONNXSoftplusOp>)
     return "SOFTPLUS";
+  else if constexpr (std::is_same_v<EltwiseOp, ONNXEqualOp>)
+    return "EQUAL";
+  else if constexpr (std::is_same_v<EltwiseOp, ONNXLessOp>)
+    return "LESS";
+  else if constexpr (std::is_same_v<EltwiseOp, ONNXGreaterOp>)
+    return "GREATER";
+  else if constexpr (std::is_same_v<EltwiseOp, ONNXLessOrEqualOp>)
+    return "LESS_EQUAL";
+  else if constexpr (std::is_same_v<EltwiseOp, ONNXGreaterOrEqualOp>)
+    return "GREATER_EQUAL";
+  else if constexpr (std::is_same_v<EltwiseOp, ONNXModOp>)
+    return "MOD";
+  else if constexpr (std::is_same_v<EltwiseOp, ONNXReluOp>)
+    return "RELU";
+  else if constexpr (std::is_same_v<EltwiseOp, ONNXLeakyReluOp>)
+    return "LEAKYRELU";
+  else if constexpr (std::is_same_v<EltwiseOp, ONNXSigmoidOp>)
+    return "SIGMOID";
   else
     return "";
 }
@@ -406,7 +468,9 @@ struct FuseQuantizedEltwiseActivation : public OpRewritePattern<ActivationOp> {
         a, b,
         /*clip_max=*/IntegerAttr(),
         /*clip_min=*/IntegerAttr(),
+        /*enable_lut_sigmoid=*/rewriter.getBoolAttr(false),
         /*leakyrelu_alpha=*/alphaAttr,
+        /*mul_y=*/FloatAttr(),
         /*nonlinear=*/rewriter.getStringAttr(nonlinear),
         /*nonlinear_in_scales=*/FloatAttr(),
         /*nonlinear_in_zeropoints=*/IntegerAttr(),
@@ -612,7 +676,19 @@ struct ReplaceQDQEltwisePass
     patterns.add<FuseQuantizedEltwiseWithoutActivation<ONNXAbsOp>>(context);
     patterns.add<FuseQuantizedEltwiseWithoutActivation<ONNXSoftplusOp>>(
         context);
+    patterns.add<FuseQuantizedEltwiseWithoutActivation<ONNXEqualOp>>(context);
+    patterns.add<FuseQuantizedEltwiseWithoutActivation<ONNXLessOp>>(context);
+    patterns.add<FuseQuantizedEltwiseWithoutActivation<ONNXGreaterOp>>(context);
+    patterns.add<FuseQuantizedEltwiseWithoutActivation<ONNXLessOrEqualOp>>(
+        context);
+    patterns.add<FuseQuantizedEltwiseWithoutActivation<ONNXGreaterOrEqualOp>>(
+        context);
+    patterns.add<FuseQuantizedEltwiseWithoutActivation<ONNXModOp>>(context);
+    patterns.add<FuseQuantizedEltwiseWithoutActivation<ONNXReluOp>>(context);
+    patterns.add<FuseQuantizedEltwiseWithoutActivation<ONNXLeakyReluOp>>(
+        context);
     patterns.add<FuseQuantizedClipWithoutActivation>(context);
+    patterns.add<FuseQuantizedEltwiseWithoutActivation<ONNXSigmoidOp>>(context);
 
     //========================================================================
     // Pattern 2: Element-wise with Activation Fusion.

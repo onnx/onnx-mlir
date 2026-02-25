@@ -380,10 +380,10 @@ class CustomOpSchema:
                 "list(int)": OpSchema.AttrType.INTS,
                 "list(float)": OpSchema.AttrType.FLOATS,
                 "list(string)": OpSchema.AttrType.STRINGS,
+                "bool": OpSchema.AttrType.INT,
             }
-            self.type = type_map.get(
-                attr_dict.get("type", "int"), OpSchema.AttrType.INT
-            )
+            self.type_str = attr_dict.get("type", "int")
+            self.type = type_map.get(self.type_str, OpSchema.AttrType.INT)
 
     class TypeConstraint:
         def __init__(self, tc_dict):
@@ -712,7 +712,7 @@ OpsWithResultTypeInference = [
     "SequenceEmpty",
 ]
 
-FloatTypes = {"TensorOf<[F32]>", "TensorOf<[F16]>", "TensorOf<[BF16]>"}
+FloatTypes = {"TensorOf<[F32]>"}
 
 # Add an Op in this list if the Op needs result type deduction which is required
 # when writing declarative rewriting rules. Deduced type is always
@@ -963,6 +963,8 @@ def onnx_attr_type_to_mlir_attr_type(t):
         mlir_attr_type = "StrAttr"
     elif onnx_attr_type == "strings":
         mlir_attr_type = "StrArrayAttr"
+    elif onnx_attr_type == "bool":
+        mlir_attr_type = "BoolAttr"
     elif onnx_attr_type in {"type", "type_proto"}:
         # 'type' is the attribute type used in special_attr_types,
         # 'type_proto' is Optional op's type attribute's type
@@ -983,6 +985,8 @@ def tblgen_attr_type_to_cpp_type(t):
         cpp_type = "ArrayAttr"
     elif "StrAttr" in t:
         cpp_type = "StringAttr"
+    elif "BoolAttr" in t:
+        cpp_type = "BoolAttr"
     elif "strings" in t:
         cpp_type = "ArrayAttr"
     else:
@@ -1170,7 +1174,7 @@ def get_attrs(schema):
         # Option holds either required or default value.
         elif attr.required:
             name_to_type[attr.name] = onnx_attr_type_to_mlir_attr_type(attr.type)
-        elif attr.default_value.name:
+        elif attr.default_value.name is not None:
 
             def format_value(value):  # type: (Any) -> Text
                 if isinstance(value, float):
@@ -1205,11 +1209,24 @@ def get_attrs(schema):
                 default_value = format_value(default_value)
                 default_value_str = default_value
 
-            name_to_type[attr.name] = get_attr_type_with_default(
-                attr.type, default_value_str
-            )
+            # Custom ops may use type_str (e.g. bool -> BoolAttr)
+            type_str = getattr(attr, "type_str", None)
+            if type_str == "bool":
+                default_value_str = str(default_value).lower()
+                name_to_type[attr.name] = 'DefaultValuedAttr<BoolAttr, "{}">'.format(
+                    default_value_str
+                )
+            else:
+                name_to_type[attr.name] = get_attr_type_with_default(
+                    attr.type, default_value_str
+                )
         else:
-            name_to_type[attr.name] = get_attr_type_optional(attr.type)
+            # Optional attribute; use type_str for custom ops (e.g. bool -> BoolAttr)
+            type_str = getattr(attr, "type_str", None)
+            if type_str == "bool":
+                name_to_type[attr.name] = "OptionalAttr<BoolAttr>"
+            else:
+                name_to_type[attr.name] = get_attr_type_optional(attr.type)
     return name_to_type
 
 

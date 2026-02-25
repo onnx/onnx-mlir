@@ -126,12 +126,16 @@ struct MatMulToXFEConvPattern : public OpRewritePattern<ONNXMatMulOp> {
     // Compute convolution shapes
     ConvShapes convShapes = computeConvShapes(inputShape, weightShape);
 
-    // Get element type (preserve quantization type)
-    Type elementType = inputType.getElementType();
+    // Use original op's result element type for conv and final output
+    // (preserves quantized/typed semantics). Reshape1 stays on input type
+    // (reshaping A).
+    auto resultType = cast<RankedTensorType>(matMulOp.getResult().getType());
+    Type outputElementType = resultType.getElementType();
+    Type inputElementType = inputType.getElementType();
 
     // Create first Reshape: [D1, D2, ..., Dn, K] -> [M, H, W, C]
     auto reshape1OutputType =
-        RankedTensorType::get(convShapes.inputShape, elementType);
+        RankedTensorType::get(convShapes.inputShape, inputElementType);
     auto shapeConst1 =
         createShapeConstant(rewriter, loc, convShapes.inputShape);
     Value reshape1Output = rewriter.create<ONNXReshapeOp>(
@@ -169,7 +173,8 @@ struct MatMulToXFEConvPattern : public OpRewritePattern<ONNXMatMulOp> {
     SmallVector<int64_t> convOutputShape = {
         convShapes.inputShape[0], outputH, outputW, convShapes.weightShape[0]};
 
-    auto convOutputType = RankedTensorType::get(convOutputShape, elementType);
+    auto convOutputType =
+        RankedTensorType::get(convOutputShape, outputElementType);
 
     // Create attributes for XFEConv
     auto autoPadAttr = rewriter.getStringAttr("NOTSET");
@@ -202,7 +207,8 @@ struct MatMulToXFEConvPattern : public OpRewritePattern<ONNXMatMulOp> {
     }
     outputShape.push_back(weightShape.back()); // N
 
-    auto reshape2OutputType = RankedTensorType::get(outputShape, elementType);
+    auto reshape2OutputType =
+        RankedTensorType::get(outputShape, outputElementType);
     auto shapeConst2 = createShapeConstant(rewriter, loc, outputShape);
     Value reshape2Output = rewriter.create<ONNXReshapeOp>(
         loc, reshape2OutputType, convOp.getResult(), shapeConst2);
@@ -266,12 +272,14 @@ struct GemmToXFEConvPattern : public OpRewritePattern<ONNXGemmOp> {
     // Treat B as weight [K, N] -> reshape to [N, 1, 1, K]
     ConvShapes convShapes = computeConvShapes(aShape, bShape);
 
-    // Get element type (preserve quantization type)
-    Type elementType = aType.getElementType();
+    // Use original op's result element type for conv and final output.
+    auto resultType = cast<RankedTensorType>(gemmOp.getResult().getType());
+    Type outputElementType = resultType.getElementType();
+    Type inputElementType = aType.getElementType();
 
     // Create first Reshape: [M, K] -> [M, 1, 1, K]
     auto reshape1OutputType =
-        RankedTensorType::get(convShapes.inputShape, elementType);
+        RankedTensorType::get(convShapes.inputShape, inputElementType);
     auto shapeConst1 =
         createShapeConstant(rewriter, loc, convShapes.inputShape);
     Value reshape1Output =
@@ -307,7 +315,8 @@ struct GemmToXFEConvPattern : public OpRewritePattern<ONNXGemmOp> {
     SmallVector<int64_t> convOutputShape = {
         convShapes.inputShape[0], outputH, outputW, convShapes.weightShape[0]};
 
-    auto convOutputType = RankedTensorType::get(convOutputShape, elementType);
+    auto convOutputType =
+        RankedTensorType::get(convOutputShape, outputElementType);
 
     // Create attributes for XFEConv
     auto autoPadAttr = rewriter.getStringAttr("NOTSET");
@@ -346,7 +355,8 @@ struct GemmToXFEConvPattern : public OpRewritePattern<ONNXGemmOp> {
 
     // Create second Reshape: [M, H/H', W/W', C_out] -> [M, N]
     SmallVector<int64_t> outputShape = {aShape[0], bShape[1]};
-    auto reshape2OutputType = RankedTensorType::get(outputShape, elementType);
+    auto reshape2OutputType =
+        RankedTensorType::get(outputShape, outputElementType);
     auto shapeConst2 = createShapeConstant(rewriter, loc, outputShape);
     Value reshape2Output = rewriter.create<ONNXReshapeOp>(
         loc, reshape2OutputType, convOp.getResult(), shapeConst2);
