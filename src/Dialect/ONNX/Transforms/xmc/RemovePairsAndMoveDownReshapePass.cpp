@@ -1,6 +1,6 @@
 // Copyright (C) 2026 Advanced Micro Devices, Inc. All rights reserved.
 
-#include "ResultNamesUpdater.hpp"
+#include "../ResultNamesUpdater.hpp"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
