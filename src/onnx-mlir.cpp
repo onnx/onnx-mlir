@@ -45,14 +45,11 @@ int main(int argc, char *argv[]) {
 
   // Contruct a list of all options.
   std::vector<const char *> allArgs;
-  // Program name.
-  allArgs.emplace_back(argv[0]);
-  // Options from the config file.
-  for (const auto &opt : extraArgs)
-    allArgs.emplace_back(opt.c_str());
-  // Add original command line args (skip program name).
-  for (int i = 1; i < argc; ++i)
+  for (int i = 0; i < argc; ++i)
     allArgs.emplace_back(argv[i]);
+  // Options from the config file will overwrite the existing ones.
+  for (const auto &arg: extraArgs)
+    allArgs.emplace_back(arg.c_str());
 
   if (!parseCustomEnvFlagsCommandLineOption(
           allArgs.size(), allArgs.data(), &llvm::errs()) ||

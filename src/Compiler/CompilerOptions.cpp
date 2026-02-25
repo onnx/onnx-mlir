@@ -15,8 +15,8 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/TargetParser/Host.h"
 
-#include <sstream>
 #include <filesystem>
+#include <sstream>
 
 #include "ExternalUtil.hpp"
 #include "onnx-mlir/Compiler/OMCompilerRuntimeTypes.h"
@@ -1560,6 +1560,9 @@ bool loadCompileOptionsFromConfig(
     }
   }
 
+  // VerboseOutput is not yet set, so scan ourselves.
+  bool verbose = false;
+
   // Get the config-file value.
   std::string configFileVar = "";
   for (int i = 1; i < argc; ++i) {
@@ -1568,9 +1571,9 @@ bool loadCompileOptionsFromConfig(
       configFileVar = arg.substr(sizeof("--config-file"));
     } else if (arg.find("-config-file") == 0) {
       configFileVar = arg.substr(sizeof("-config-file"));
+    } else if (arg.compare("-v") == 0) {
+      verbose = true;
     }
-    if (!configFileVar.empty())
-      break;
   }
 
   // Construct the config file path.
@@ -1582,27 +1585,16 @@ bool loadCompileOptionsFromConfig(
   if (!std::filesystem::exists(configPath))
     return false;
 
+  if (verbose)
+    printf("Config file: %s\n", configPath.c_str());
+
   // Use JsonConfigObject to load and parse the config file.
   JsonConfigObject config;
   if (!config.loadFromFile(configPath))
     return false;
 
   // Extract compile options if present.
-  std::optional<std::string> opts = config.getCompileOptions();
-  if (!opts || !opts.has_value())
-    return false;
-  std::string optionStr = opts.value();
-  if (optionStr.empty())
-    return false;
-
-  // Parse space-separated options
-  // TODO: better tokenizer.
-  std::istringstream iss(optionStr);
-  std::string token;
-  while (iss >> token) {
-    extraArgs.emplace_back(token);
-  }
-  return true;
+  return config.getCompileOptions(extraArgs);
 }
 
 } // namespace onnx_mlir

@@ -109,17 +109,16 @@ std::optional<llvm::StringRef> JsonConfigObject::getString(
   return jsonObject->getString(key);
 }
 
-std::optional<std::string> JsonConfigObject::getCompileOptions() const {
-  if (auto opts = getString("compile_options")) {
-    return opts->str();
+bool JsonConfigObject::getCompileOptions(std::vector<std::string> &args) const {
+  const llvm::json::Array *optsArr = getArray(COMPILE_OPTIONS_KEY);
+  if (!optsArr || optsArr->empty())
+    return false;
+  for (const llvm::json::Value &v : *optsArr) {
+    std::optional<llvm::StringRef> arg = v.getAsString();
+    if (arg && arg.has_value())
+      args.emplace_back(arg.value().str());
   }
-  return std::nullopt;
-}
-
-void JsonConfigObject::setCompileOptions(const std::string &options) {
-  if (jsonObject) {
-    (*jsonObject)["compile_options"] = options;
-  }
+  return true;
 }
 
 void JsonConfigObject::dump(unsigned indent) const {

@@ -67,13 +67,9 @@ public:
   /// @return Optional string value.
   std::optional<llvm::StringRef> getString(llvm::StringRef key) const;
 
-  /// Get compile options string from the config.
-  /// @return Optional string containing compile options.
-  std::optional<std::string> getCompileOptions() const;
-
-  /// Set compile options string in the config.
-  /// @param options The compile options string to set.
-  void setCompileOptions(const std::string &options);
+  /// Get compile options from the config.
+  /// @return true if successful, false otherwise.
+  bool getCompileOptions(std::vector<std::string> &args) const;
 
   /// Dump the JSON content to stdout for debugging.
   /// @param indent Indentation size for pretty printing (default: 2).
@@ -83,6 +79,8 @@ public:
   /// @return The file path string.
   const std::string &getFilePath() const { return filePath; }
 
+  // JSON key constants.
+  static constexpr const char *COMPILE_OPTIONS_KEY = "compile_options";
 protected:
   /// Get access to the underlying JSON object for derived classes.
   /// @return Pointer to the JSON object, or nullptr if not loaded.
