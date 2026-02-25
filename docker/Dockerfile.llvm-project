@@ -38,7 +38,7 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
           # "ERROR: Could not find a version that satisfies the requirement pytest-xdist" 
           # error on ubuntu noble. Use same package versions as those in rhel/fedora 
           # to avoid potential compatibility issues.
-          pip3 install -q setuptools --upgrade --prefix=/usr && \
+          pip3 install -q setuptools --upgrade && \
           pip3 install -q pytest==7.4.4 pytest-xdist==3.4.0 && \
           rm -rf /var/lib/apt/lists/*; \
        elif [ "${distro}" = "rhel" ] || [ "${distro}" = "fedora" ]; then \
