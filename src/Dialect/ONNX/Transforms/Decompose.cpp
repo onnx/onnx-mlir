@@ -4321,6 +4321,7 @@ struct DecomposeONNXToONNXPass
       bool enableConvTranspose1dDecomposeToPhasedConv = false,
       bool enableInstanceNormDecompose = true,
       bool enableMatmulNBitsDecompose = false,
+      bool enableGroupQueryAttentionDecompose = true,
       bool enableSplitToSliceDecompose = false) {
     this->target = target;
     this->enableConvTransposeDecompose = enableConvTransposeDecompose;
@@ -4330,6 +4331,8 @@ struct DecomposeONNXToONNXPass
         enableConvTranspose1dDecomposeToPhasedConv;
     this->enableInstanceNormDecompose = enableInstanceNormDecompose;
     this->enableMatmulNBitsDecompose = enableMatmulNBitsDecompose;
+    this->enableGroupQueryAttentionDecompose =
+        enableGroupQueryAttentionDecompose;
     this->enableSplitToSliceDecompose = enableSplitToSliceDecompose;
   }
 
@@ -4345,6 +4348,8 @@ struct DecomposeONNXToONNXPass
         pass.enableInstanceNormDecompose.getValue();
     this->enableMatmulNBitsDecompose =
         pass.enableMatmulNBitsDecompose.getValue();
+    this->enableGroupQueryAttentionDecompose =
+        pass.enableGroupQueryAttentionDecompose.getValue();
     this->enableSplitToSliceDecompose =
         pass.enableSplitToSliceDecompose.getValue();
   }
@@ -4387,6 +4392,12 @@ struct DecomposeONNXToONNXPass
                      "dequantize linear and matmul ops"),
       ::llvm::cl::init(false)};
 
+  Option<bool> enableGroupQueryAttentionDecompose{*this,
+      "enable-groupqueryattention-decompose",
+      llvm::cl::desc("Enable decomposition of Microsoft GroupQueryAttention to "
+                     "onnx.Attention and onnx.RotaryEmbedding ops"),
+      ::llvm::cl::init(true)};
+
   Option<bool> enableSplitToSliceDecompose{*this, "enable-split-to-slice",
       llvm::cl::desc("Enable decomposition of Split to Slice operations"),
       ::llvm::cl::init(false)};
@@ -4404,7 +4415,8 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   onnx_mlir::getDecomposeONNXToONNXPatterns(patterns,
       enableConvTransposeDecompose, enableConvTransposeDecomposeToPhasedConv,
       enableConvTranspose1dDecomposeToPhasedConv, enableInstanceNormDecompose,
-      enableMatmulNBitsDecompose, enableSplitToSliceDecompose);
+      enableMatmulNBitsDecompose, enableGroupQueryAttentionDecompose,
+      enableSplitToSliceDecompose);
   patterns.insert<ReplaceCastLikeByCastPattern>(context);
 
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
@@ -4426,7 +4438,7 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
     bool enableConvTransposeDecomposeToPhasedConv,
     bool enableConvTranspose1dDecomposeToPhasedConv,
     bool enableInstanceNormDecompose, bool enableMatmulNBitsDecompose,
-    bool enableSplitToSliceDecompose) {
+    bool enableGroupQueryAttentionDecompose, bool enableSplitToSliceDecompose) {
   MLIRContext *context = patterns.getContext();
   populateWithGenerated(patterns);
   if (enableConvTransposeDecompose)
@@ -4455,7 +4467,8 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
   patterns.insert<MicrosoftSkipLayerNorm>(context);
   patterns.insert<SimplifiedLayerNorm>(context);
   patterns.insert<MicrosoftSkipSimplifiedLayerNorm>(context);
-  patterns.insert<MicrosoftGroupQueryAttention>(context);
+  if (enableGroupQueryAttentionDecompose)
+    patterns.insert<MicrosoftGroupQueryAttention>(context);
   patterns.insert<MicrosoftRotaryEmbedding>(context);
   if (enableMatmulNBitsDecompose)
     patterns.insert<MicrosoftMatmulNBits>(context);
@@ -4484,9 +4497,10 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createDecomposeONNXToONNXPass(
     bool enableConvTransposeDecomposeToPhasedConv,
     bool enableConvTranspose1dDecomposeToPhasedConv,
     bool enableInstanceNormDecompose, bool enableMatmulNBitsDecompose,
-    bool enableSplitToSliceDecompose) {
+    bool enableGroupQueryAttentionDecompose, bool enableSplitToSliceDecompose) {
   return std::make_unique<DecomposeONNXToONNXPass>(target,
       enableConvTransposeDecompose, enableConvTransposeDecomposeToPhasedConv,
       enableConvTranspose1dDecomposeToPhasedConv, enableInstanceNormDecompose,
-      enableMatmulNBitsDecompose, enableSplitToSliceDecompose);
+      enableMatmulNBitsDecompose, enableGroupQueryAttentionDecompose,
+      enableSplitToSliceDecompose);
 }

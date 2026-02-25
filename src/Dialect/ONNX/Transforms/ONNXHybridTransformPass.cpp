@@ -123,6 +123,12 @@ struct ONNXHybridTransformPass
                      "dequantize linear and matmul ops"),
       ::llvm::cl::init(false)};
 
+  Option<bool> enableGroupQueryAttentionDecompose{*this,
+      "enable-groupqueryattention-decompose",
+      llvm::cl::desc("Enable decomposition of Microsoft GroupQueryAttention to "
+                     "onnx.Attention and onnx.RotaryEmbedding ops"),
+      ::llvm::cl::init(true)};
+
   Option<bool> enableSplitToSliceDecompose{*this,
       "enable-split-to-slice-decompose",
       llvm::cl::desc("Enable decomposition of Split to Slice"),
@@ -136,6 +142,7 @@ struct ONNXHybridTransformPass
       bool enableConvTransposeDecomposeToPhasedConv,
       bool enableConvTranspose1dDecomposeToPhasedConv,
       bool enableInstanceNormDecompose, bool enableMatmulNBitsDecompose,
+      bool enableGroupQueryAttentionDecompose,
       bool enableSplitToSliceDecompose) {
     this->recomposition = enableRecomposition;
     this->quarkQuantizedOpsLegalization = enableQuarkQuantizedOpsLegalization;
@@ -146,6 +153,8 @@ struct ONNXHybridTransformPass
         enableConvTranspose1dDecomposeToPhasedConv;
     this->enableInstanceNormDecompose = enableInstanceNormDecompose;
     this->enableMatmulNBitsDecompose = enableMatmulNBitsDecompose;
+    this->enableGroupQueryAttentionDecompose =
+        enableGroupQueryAttentionDecompose;
     this->enableSplitToSliceDecompose = enableSplitToSliceDecompose;
   }
 
@@ -196,7 +205,7 @@ struct ONNXHybridTransformPass
           enableConvTransposeDecomposeToPhasedConv,
           enableConvTranspose1dDecomposeToPhasedConv,
           enableInstanceNormDecompose, enableMatmulNBitsDecompose,
-          enableSplitToSliceDecompose);
+          enableGroupQueryAttentionDecompose, enableSplitToSliceDecompose);
     }
 
     if (recomposition) {
@@ -243,10 +252,11 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createONNXHybridTransformPass(
     bool enableConvTransposeDecomposeToPhasedConv,
     bool enableConvTranspose1dDecomposeToPhasedConv,
     bool enableInstanceNormDecompose, bool enableMatmulNBitsDecompose,
-    bool enableSplitToSliceDecompose) {
+    bool enableGroupQueryAttentionDecompose, bool enableSplitToSliceDecompose) {
   return std::make_unique<ONNXHybridTransformPass>(enableRecomposition,
       enableQuarkQuantizedOpsLegalization, enableConvTransposeDecompose,
       enableConvTransposeDecomposeToPhasedConv,
       enableConvTranspose1dDecomposeToPhasedConv, enableInstanceNormDecompose,
-      enableMatmulNBitsDecompose, enableSplitToSliceDecompose);
+      enableMatmulNBitsDecompose, enableGroupQueryAttentionDecompose,
+      enableSplitToSliceDecompose);
 }
