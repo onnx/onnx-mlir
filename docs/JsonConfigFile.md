@@ -16,6 +16,7 @@ The `onnx-mlir` compiler supports loading configuration from a JSON file, allowi
 
 ## JSON Format
 
+**Example:**
 ```json
 {
   "compile_options": ["-O3", "-march=z16", "-mcpu=z16"],
@@ -23,8 +24,8 @@ The `onnx-mlir` compiler supports loading configuration from a JSON file, allowi
     {
       "pattern": {
         "match": {
-          "node_type": "onnx.Conv",
-          "onnx_node_name": "conv1"
+          "node_type": "onnx.MatMul",
+          "onnx_node_name": "linear"
         },
         "rewrite": {
           "device": "NNPA",
@@ -148,17 +149,18 @@ Warning: Failed to parse config file: config.json
 If the config contains invalid compiler options, you'll see the standard option parsing error.
 
 ### Debugging
-To see which options were loaded from the config:
+To see which options were loaded from the config, use `-v`:
 ```bash
-onnx-mlir --config-file=config.json model.onnx
-# Output: Loaded N compile option(s) from config.json
+onnx-mlir --config-file=config.json model.onnx -v
+# Output contains the following information:
+# Config file: config.json
+# Onnx-mlir command: ./Debug/bin/onnx-mlir --config-file=config.json model.onnx -v -O2 -march=z16
 ```
 
 ## Related Documentation
 
 - [NNPA Accelerator Configuration](JsonConfigFile-NNPA.md)
 - [Compiler Options](Options.md)
-- [Building onnx-mlir](BuildOnLinuxOSX.md)
 
 ## Migration from Command Line
 
