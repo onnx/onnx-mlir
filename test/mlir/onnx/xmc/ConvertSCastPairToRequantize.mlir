@@ -8,10 +8,10 @@
 
 // Test 1: Basic per-tensor requantization (different scales)
 // CHECK-LABEL: @scast_pair_different_scale
-func.func @scast_pair_different_scale(%arg0: tensor<1x32x7x7x!quant.uniform<u8:f32, 0.0084162093698978424:128>>) -> tensor<1x32x7x7x!quant.uniform<u8:f32, 0.0084700193256139755:128>> {
-    %0 = quant.scast %arg0 : tensor<1x32x7x7x!quant.uniform<u8:f32, 0.0084162093698978424:128>> to tensor<1x32x7x7xi8>
-    %1 = quant.scast %0 : tensor<1x32x7x7xi8> to tensor<1x32x7x7x!quant.uniform<u8:f32, 0.0084700193256139755:128>>
-    return %1 : tensor<1x32x7x7x!quant.uniform<u8:f32, 0.0084700193256139755:128>>
+func.func @scast_pair_different_scale(%arg0: tensor<1x32x7x7x!quant.uniform<i8:f32, 0.0084162093698978424:0>>) -> tensor<1x32x7x7x!quant.uniform<i8:f32, 0.0084700193256139755:0>> {
+    %0 = quant.scast %arg0 : tensor<1x32x7x7x!quant.uniform<i8:f32, 0.0084162093698978424:0>> to tensor<1x32x7x7xi8>
+    %1 = quant.scast %0 : tensor<1x32x7x7xi8> to tensor<1x32x7x7x!quant.uniform<i8:f32, 0.0084700193256139755:0>>
+    return %1 : tensor<1x32x7x7x!quant.uniform<i8:f32, 0.0084700193256139755:0>>
 }
 // CHECK-NOT: quant.scast
 // CHECK: "onnx.XCOMPILERRequantize"
