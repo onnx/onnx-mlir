@@ -19,4 +19,3 @@ except ImportError:
         "You may need to set ONNX_MLIR_HOME to `onnx-mlir/build/Debug` since `make PyCompileC` "
         "outputs to `build/Debug` by default."
     )
-

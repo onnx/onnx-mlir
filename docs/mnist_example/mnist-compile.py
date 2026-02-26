@@ -4,15 +4,15 @@ import numpy as np
 from PyCompile import OMCompileSession
 
 # Load onnx model and create OMCompileSession object.
-if (True):
+if True:
     # model name given separately, works.
     model = "./mnist.onnx"
     flags = "-O3 -o mnist"
-if (False):
+if False:
     # model name given in flags, works.
     model = ""
     flags = "-O3 -o mnist ./mnist.onnx"
-if (False):
+if False:
     # no model, fails.
     model = ""
     flags = "-O3"
