@@ -29,6 +29,14 @@ namespace onnx_mlir {
 ///
 /// This is a base class that can be extended by accelerator plugins to add
 /// domain-specific functionality.
+
+/// The base JSON configuration supports the following keys:
+/// @code{.json}
+/// {
+///   "compile_options": ["-O3", "-march=z16"],
+/// }
+/// @endcode
+
 class JsonConfigObject {
 public:
   /// Constructor - creates an empty JSON config object.

@@ -30,7 +30,7 @@ namespace onnx_mlir {
 /// The JSON configuration uses a format with the following structure:
 /// @code{.json}
 /// {
-///   "compile_options": "-O3 -march=z16",
+///   "compile_options": ["-O3", "-march=z16"],
 ///   "ops_config": [
 ///     {
 ///       "pattern": {
