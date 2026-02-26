@@ -1,4 +1,3 @@
-#include <errno.h>
 #include <iostream>
 
 #include "src/Compiler/OMCompileSession.hpp"
@@ -32,22 +31,19 @@ int main(int argc, char *argv[]) {
   // Prepare the execution session.
   onnx_mlir::ExecutionSession session;
   try {
-    session.loadModel(
-        /*"./" + */ compilerSession.getOutputFilename());
-  } catch (const std::runtime_error &error) {
-    std::cerr << "error while creating execution session: " << error.what()
-              << " and errno " << errno << std::endl;
-    return errno;
+    session.loadModel(compilerSession.getOutputFilename());
+  } catch (const onnx_mlir::ExecutionSessionException &error) {
+    std::cerr << "error while creating execution session: " << error.what() << std::endl;
+    return 2;
   }
 
   // Get input signature and print it.
   std::string inputSignature;
   try {
     inputSignature = session.inputSignature();
-  } catch (const std::runtime_error &error) {
-    std::cerr << "error while loading input signature: " << error.what()
-              << " and errno " << errno << std::endl;
-    return errno;
+  } catch (const onnx_mlir::ExecutionSessionException &error) {
+    std::cerr << "error while loading input signature: " << error.what() << std::endl;
+    return 3;
   }
   std::cout << "Compiled add.onnx model has input signature: \""
             << inputSignature << "\"." << std::endl;
@@ -70,10 +66,9 @@ int main(int argc, char *argv[]) {
   OMTensorList *outputList;
   try {
     outputList = session.run(input);
-  } catch (const std::runtime_error &error) {
-    std::cerr << "error while running model: " << error.what() << " and errno "
-              << errno << std::endl;
-    return errno;
+  } catch (const onnx_mlir::ExecutionSessionException &error) {
+    std::cerr << "error while running model: " << error.what()  << std::endl;
+    return 5;
   }
   std::cout << "Finished running model " << std::endl;
 

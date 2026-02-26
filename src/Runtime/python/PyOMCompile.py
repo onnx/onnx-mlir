@@ -6,6 +6,9 @@
 #
 ################################################################################
 # Common class `PyOMCompile` called by python scripts
+#
+# Use this indirection to call PyOMCompileC in case we need to add some
+# specific python processing. None is needed at this time.
 ################################################################################
 import numpy as np
 

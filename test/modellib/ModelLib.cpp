@@ -48,7 +48,12 @@ bool ModelLibBuilder::compileAndLoad() {
   std::string libFilename =
       getTargetFilename(sharedLibBaseName, onnx_mlir::EmitLib);
   std::string modelTag = getCompilerOption(OptionKind::ModelTag);
+  try {
   exec = new ExecutionSession(libFilename, modelTag);
+  } catch (const onnx_mlir::ExecutionSessionException &error) {
+    std::cerr << error.what() << std::endl;
+    exec = nullptr;
+  }
   return exec != nullptr;
 }
 
@@ -91,7 +96,7 @@ bool ModelLibBuilder::run() {
   }
   try {
     outputs = exec->run(inputs);
-  } catch (const std::runtime_error &error) {
+  } catch (const onnx_mlir::ExecutionSessionException &error) {
     std::cerr << "error while running: " << error.what() << std::endl;
     return false;
   }

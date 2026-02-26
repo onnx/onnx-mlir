@@ -50,21 +50,23 @@ using OMTensorUniquePtr = std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>;
  * Class that supports executing compiled models.
  *
  * When the execution session does not work for known reasons, this class will
- * throw std::runtime_error errors. Errno info will provide further info about
- * the specific error that was raised.
- *
- * EFAULT when it could not load the library or a needed symbol was not found.
- * EINVAL when it expected an entry point prior to executing a specific
- * function.
- * EPERM when the model executed on a machine without a compatible
- * hardware/specialized accelerator.
+ * throw std::ExecutionSessionException errors.
  */
+
+// Exception class
+class ExecutionSessionException : public std::runtime_error {
+public:
+  explicit ExecutionSessionException(const std::string &msg)
+      : std::runtime_error(msg) {}
+};
+
 class ExecutionSession {
 public:
   ExecutionSession() = default;
 
   // Create an execution session using the model given in sharedLibPath.
   // This path must point to the actual file, local directory is not searched.
+  // Throw errors on failure.
   ExecutionSession(std::string sharedLibPath, std::string tag = "",
       bool defaultEntryPoint = true);
   ~ExecutionSession();
@@ -102,15 +104,8 @@ public:
   void printInstrumentation();
 
 protected:
-  // Error reporting processing when throwing runtime errors. Set errno as
-  // appropriate.
-  std::string reportInitError() const;
-  std::string reportLibraryOpeningError(const std::string &libraryName) const;
-  std::string reportSymbolLoadingError(const std::string &symbolName) const;
-  std::string reportUndefinedEntryPointIn(
-      const std::string &functionName) const;
+  // Error reporting processing when throwing runtime errors.
   std::string reportErrnoError() const;
-  std::string reportCompilerError(const std::string &errorMessage) const;
 
   // Track if Init was called or not.
   bool isInitialized = false;

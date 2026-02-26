@@ -52,7 +52,7 @@ PyOMCompileSession::PyOMCompileSession(std::string modelPath, std::string flags,
     } catch (const onnx_mlir::CompilerSessionException &error) {
       std::string errorMessage = error.what();
       std::cerr << errorMessage << std::endl;
-      throw std::runtime_error(errorMessage);
+      throw onnx_mlir::CompilerSessionException(errorMessage);
     }
   }
 }

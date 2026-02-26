@@ -23,6 +23,7 @@
 
 namespace onnx_mlir {
 
+// Split strings into a vector of strings separated by spaces.
 std::vector<std::string> parseFlags(const std::string &flags);
 
 // Append current working directory if filename is relative. When filename is
