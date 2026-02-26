@@ -72,19 +72,6 @@ add_onnx_mlir_library(OMDevicePlacement
   OMONNXToZHigh
   OMRewriteONNXForZHigh
   OMLayoutHelper
-  OMCompilerOptions
-  OMNNPAJSONConfig
-
-  ACCEL_INCLUDE_DIRS PRIVATE
-  ${NNPA_INCLUDE_PATH}
-  )
-
-add_onnx_mlir_library(OMNNPAGenerateConfigFile
-  GenerateConfigFile.cpp
-
-  LINK_LIBS PUBLIC
-  OMONNXOps
-  OMCompilerOptions
   OMNNPAJSONConfig
 
   ACCEL_INCLUDE_DIRS PRIVATE
@@ -96,11 +83,20 @@ add_onnx_mlir_library(OMNNPAQuantOpSelection
 
   LINK_LIBS PUBLIC
   OMONNXOps
-  OMCompilerOptions
   OMNNPAJSONConfig
 
   ACCEL_INCLUDE_DIRS PRIVATE
   ${NNPA_INCLUDE_PATH}
   )
 
+add_onnx_mlir_library(OMNNPAGenerateConfigFile
+  GenerateConfigFile.cpp
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  OMNNPAJSONConfig
+
+  ACCEL_INCLUDE_DIRS PRIVATE
+  ${NNPA_INCLUDE_PATH}
+  )
 

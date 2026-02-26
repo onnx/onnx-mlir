@@ -53,7 +53,6 @@ add_onnx_mlir_library(OMNNPACompilerUtils
   LINK_LIBS PUBLIC
   OMNNPACompilerOptions
   OMCompilerPasses
-  OMNNPAJSONConfig
 
   ACCEL_INCLUDE_DIRS PRIVATE
   ${NNPA_ONNX_MLIR_SRC_ROOT}
