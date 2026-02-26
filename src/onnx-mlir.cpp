@@ -48,7 +48,7 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < argc; ++i)
     allArgs.emplace_back(argv[i]);
   // Options from the config file will overwrite the existing ones.
-  for (const auto &arg: extraArgs)
+  for (const auto &arg : extraArgs)
     allArgs.emplace_back(arg.c_str());
 
   if (!parseCustomEnvFlagsCommandLineOption(
