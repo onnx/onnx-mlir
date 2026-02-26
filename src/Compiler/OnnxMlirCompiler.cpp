@@ -142,6 +142,7 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
 }
 #endif
 
+#if 0
 ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
     int64_t bufferSize, const char *outputBaseName,
     EmissionTargetType emissionTarget, char **outputFilename,
@@ -174,6 +175,7 @@ ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
   }
   return rc;
 }
+#endif
 
 #if 0 // hi alex
 ONNX_MLIR_EXPORT char *omCompileOutputFileName(

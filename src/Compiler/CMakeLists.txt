@@ -151,7 +151,7 @@ list(APPEND DEFINITIONS "PRODUCT_ID=\"${PRODUCT_ID}\"")
 target_compile_definitions(OMVersion PUBLIC ${DEFINITIONS})
 set_property(SOURCE CompilerUtils.cpp APPEND PROPERTY COMPILE_DEFINITIONS ${DEFINITIONS})
 
-add_onnx_mlir_library(OMCompilerSessionUtils
+add_onnx_mlir_library(OMCompileSessionUtils
   Command.cpp
   DriverUtils.cpp
 
@@ -166,8 +166,8 @@ add_onnx_mlir_library(OMCompilerSessionUtils
   LINK_LIBS PUBLIC
   )
 
-  add_onnx_mlir_library(OMCompilerSession
-  OMCompilerSession.cpp
+  add_onnx_mlir_library(OMCompileSession
+  OMCompileSession.cpp
 
   EXCLUDE_FROM_OM_LIBS
 
@@ -178,7 +178,7 @@ add_onnx_mlir_library(OMCompilerSessionUtils
   ${ONNX_MLIR_SRC_ROOT}/include
 
   LINK_LIBS PRIVATE
-  OMCompilerSessionUtils
+  OMCompileSessionUtils
   )
 
 add_onnx_mlir_library(OMCompilerUtils
@@ -200,7 +200,7 @@ add_onnx_mlir_library(OMCompilerUtils
 
   LINK_LIBS PUBLIC
   OMCompilerDialects
-  OMCompilerSessionUtils
+  OMCompileSessionUtils
   OMCompilerPasses
   OMAccelerator
   OMVersion
@@ -255,27 +255,27 @@ if(OPENMP_INCLUDE_DIR)
 endif()
 
 # hi alex, should be deprecated.
-add_onnx_mlir_library(OMCompiler
-  OnnxMlirCompiler.cpp
-
-  DEPENDS
-  OMCompilerUtils
-
-  INCLUDE_DIRS PRIVATE
-  ${FILE_GENERATE_DIR}
-
-  INCLUDE_DIRS PUBLIC
-  ${ONNX_MLIR_SRC_ROOT}/include
-
-  EXCLUDE_FROM_OM_LIBS
-
-  LINK_LIBS PRIVATE
-  OMCompilerUtils
-  )
-
-if (NOT BUILD_SHARED_LIBS)
-  target_compile_definitions(OMCompiler PUBLIC ONNX_MLIR_BUILT_AS_STATIC)
-endif()
+# add_onnx_mlir_library(OMCompiler
+#   OnnxMlirCompiler.cpp
+# 
+#   DEPENDS
+#   OMCompilerUtils
+# 
+#   INCLUDE_DIRS PRIVATE
+#   ${FILE_GENERATE_DIR}
+# 
+#   INCLUDE_DIRS PUBLIC
+#   ${ONNX_MLIR_SRC_ROOT}/include
+# 
+#   EXCLUDE_FROM_OM_LIBS
+# 
+#   LINK_LIBS PRIVATE
+#   OMCompilerUtils
+#   )
+# 
+# if (NOT BUILD_SHARED_LIBS)
+#   target_compile_definitions(OMCompiler PUBLIC ONNX_MLIR_BUILT_AS_STATIC)
+# endif()
 
 # hi alex
 # pybind11_add_module(PyCompile PyOMCompileSession.cpp)
@@ -295,7 +295,7 @@ endif()
 #   )
 # target_link_libraries(PyCompile
 #   PRIVATE
-#   OMCompilerSession
+#   OMCompileSession
 #   )
 # 
 # install(TARGETS PyCompile

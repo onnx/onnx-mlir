@@ -80,6 +80,8 @@ public:
 
   // Functions to support caching, where we may want to know the output file
   // name and/or tag before compiling.
+  static std::string getInputFilename(
+      const std::string &modelPath, const std::string &flags);
   static std::string getOutputFilename(
       const std::string &modelPath, const std::string &flags);
   static std::string getModelTag(const std::string &flags);

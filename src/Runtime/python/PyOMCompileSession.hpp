@@ -2,12 +2,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----- PyOMCompilerSession.hpp - PyOMCompilerSession Declaration ------===//
+//===----- PyOMCompileSession.hpp - PyOMCompileSession Declaration --------===//
 //
 //
 // =============================================================================
 //
-// This file contains declaration of PyOMCompilerSession class, which
+// This file contains declaration of PyOMCompileSession class, which
 // helps python programs to compile and run binary model libraries.
 //
 //===----------------------------------------------------------------------===//
@@ -21,13 +21,13 @@
 
 namespace py = pybind11;
 
-#include "src/Compiler/OMCompilerSession.hpp"
+#include "src/Compiler/OMCompileSession.hpp"
 
 namespace onnx_mlir {
 
-class PyOMCompilerSession {
+class PyOMCompileSession {
 public:
-  PyOMCompilerSession(std::string modelPath, std::string flags,
+  PyOMCompileSession(std::string modelPath, std::string flags,
       const std::string &logFilename = {}, bool reuseCompiledModel = true);
   std::string pyGetOutputFilename();
   std::string pyGetModelTag();
@@ -41,15 +41,15 @@ private:
 } // namespace onnx_mlir
 
 PYBIND11_MODULE(PyCompileC, m) {
-  m.doc() = "OMCompilerSession enables users to compile an ONNX model "
+  m.doc() = "OMCompileSession enables users to compile an ONNX model "
             "in a python script.";
-  py::class_<onnx_mlir::PyOMCompilerSession>(m, "OMCompilerSession")
+  py::class_<onnx_mlir::PyOMCompileSession>(m, "OMCompileSession")
       .def(py::init<const std::string &, const std::string &,
                const std::string &, const bool>(),
           py::arg("input_model_path"), py::arg("flags"),
           py::arg("log_filename") = "", py::arg("reuse_compiled_model") = 1)
       .def("get_output_file_name",
-          &onnx_mlir::PyOMCompilerSession::pyGetOutputFilename)
-      .def("get_model_tag", &onnx_mlir::PyOMCompilerSession::pyGetModelTag);
+          &onnx_mlir::PyOMCompileSession::pyGetOutputFilename)
+      .def("get_model_tag", &onnx_mlir::PyOMCompileSession::pyGetModelTag);
 }
 #endif

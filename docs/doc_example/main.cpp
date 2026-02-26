@@ -1,7 +1,7 @@
 #include <errno.h>
 #include <iostream>
 
-#include "src/Compiler/OMCompilerSession.hpp"
+#include "src/Compiler/OMCompileSession.hpp"
 #include "src/Runtime/ExecutionSession.hpp"
 
 // Read the arguments from the command line and return a std::string

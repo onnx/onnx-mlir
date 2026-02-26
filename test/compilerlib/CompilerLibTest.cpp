@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "src/Compiler/OMCompilerSession.hpp"
+#include "src/Compiler/OMCompileSession.hpp"
 #include <assert.h>
 #include <fstream>
 #include <iostream>

@@ -31,7 +31,8 @@ std::vector<std::string> parseFlags(const std::string &flags) {
   return flagVect;
 }
 
-static std::string getOutputBasenameFromFlags(const std::string &inputFilename,
+static std::string getOutputBasenameFromFlagsOrInputFilename(
+    const std::string &inputFilename,
     const std::vector<std::string> &flagVect) {
   // Get output file name from the flags.
   std::string outputBasename;
@@ -54,8 +55,11 @@ static std::string getOutputBasenameFromFlags(const std::string &inputFilename,
     }
   }
   // If no output file name, derive it from input file basename
-  if (outputBasename.empty())
-    outputBasename = inputFilename.substr(0, inputFilename.find_last_of("."));
+  if (outputBasename.empty()) {
+    std::string filename = getInputFilename(inputFilename, flagVect);
+    // Base name, strip
+    outputBasename = filename.substr(0, filename.find_last_of("."));
+  }
   return outputBasename;
 }
 
@@ -84,6 +88,24 @@ static EmissionTargetType getEmissionTargetFromFlags(
   return EmissionTargetType::EmitLib;
 }
 
+std::string getInputFilename(
+    const std::string &inputFileName, const std::vector<std::string> &flags) {
+  if (!inputFileName.empty())
+    return inputFileName;
+  for (size_t i = 0; i < flags.size(); ++i) {
+    const std::string &arg = flags[i];
+    if (!arg.empty() && arg[0] == '-')
+      continue;
+    // Check if it ends with ".c".
+    if ((arg.length() >= 4 && arg.substr(arg.length() - 4) == ".mlir") ||
+        (arg.length() >= 5 && arg.substr(arg.length() - 5) == ".onnx") ||
+        (arg.length() >= 9 && arg.substr(arg.length() - 9) == ".onnxtext"))
+      return arg;
+  }
+  // Not found, return empty.
+  return "";
+}
+
 std::string getTargetFilename(
     const std::string &outputBasename, EmissionTargetType target) {
   switch (target) {
@@ -110,7 +132,7 @@ std::string getTargetFilename(
 std::string getOutputFilename(const std::string &inputFilename,
     const std::vector<std::string> &flagVect) {
   std::string outputBasename =
-      getOutputBasenameFromFlags(inputFilename, flagVect);
+      getOutputBasenameFromFlagsOrInputFilename(inputFilename, flagVect);
   EmissionTargetType targetType =
       getEmissionTargetFromFlags(inputFilename, flagVect);
   return getTargetFilename(outputBasename, targetType);
@@ -129,23 +151,6 @@ std::string getModelTag(const std::vector<std::string> &flagVect) {
     }
   }
   return modelTag;
-}
-
-std::string getInputFilename(const std::vector<std::string> &flags) {
-  for (size_t i = 0; i < flags.size(); ++i) {
-    const std::string &arg = flags[i];
-    if (!arg.empty() && arg[0] == '-') {
-      continue;
-    }
-    // Check if it ends with ".c".
-    if ((arg.length() >= 4 && arg.substr(arg.length() - 4) == ".mlir") ||
-        (arg.length() >= 5 && arg.substr(arg.length() - 5) == ".onnx") ||
-        (arg.length() >= 9 && arg.substr(arg.length() - 9) == ".onnxtext")) {
-      return arg;
-    }
-  }
-  // Not found, return empty.
-  return "";
 }
 
 } // namespace onnx_mlir

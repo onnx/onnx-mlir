@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----------- OMCompilerSession.cpp - compiler driver  -----------------===//
+//===----------- OMCompileSession.cpp - compiler driver  ------------------===//
 //
 //
 // Copyright 2026 The IBM Research Authors.
@@ -13,7 +13,7 @@
 // for onnx-mlir/include.
 //===----------------------------------------------------------------------===//
 
-#include "src/Compiler/OMCompilerSession.hpp"
+#include "src/Compiler/OMCompileSession.hpp"
 
 #include <cstdlib>
 #include <filesystem>
@@ -41,11 +41,10 @@ void CompilerSession::compile(const std::string &modelPath,
   flagVect = parseFlags(flags);
   // When model path is given, add it to the vector of flags; otherwise locate
   // the input model filename from the flags.
-  std::string inputFilename = modelPath;
-  if (!modelPath.empty())
-    flagVect.push_back(modelPath);
-  else
-    inputFilename = onnx_mlir::getInputFilename(flagVect);
+  std::string inputFilename = onnx_mlir::getInputFilename(modelPath, flagVect);
+  if (inputFilename.empty())
+    throw CompilerSessionException(
+        "Compilation failed: missing input model file");
   if (!fs::exists(inputFilename)) {
     throw CompilerSessionException(
         "Compilation failed: could not locate input model file \"" +
@@ -60,6 +59,8 @@ void CompilerSession::compile(const std::string &modelPath,
   // Execute onnx-mlir command with arguments.
   onnx_mlir::Command compile(onnxMlirPath, /*verbose*/ true);
   compile.appendList(flagVect);
+  if (!modelPath.empty())
+    compile.appendStr(inputFilename);
   compile.print();
   if (!logFilename.empty())
     compile.redirectExecStreams(logFilename);
@@ -87,6 +88,16 @@ std::string CompilerSession::getModelTag() {
         "Compiler session: has no successfully compiled model");
   }
   return onnx_mlir::getModelTag(flagVect);
+}
+
+/* static */ std::string getInputFilename(
+    const std::string &modelPath, const std::string &flags) {
+  std::vector<std::string> flagVect = parseFlags(flags);
+  std::string filename = onnx_mlir::getInputFilename(modelPath, flagVect);
+  if (filename.empty())
+    throw CompilerSessionException(
+        "Compiler session: no model is provided for the compilation");
+  return filename;
 }
 
 /* static */ std::string CompilerSession::getOutputFilename(

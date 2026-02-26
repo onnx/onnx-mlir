@@ -2,12 +2,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---- PyOMCompilerSession.cpp - PyOMCompilerSession Implementation ----===//
+//===---- PyOMCompileSession.cpp - PyOMCompileSession Implementation ------===//
 //
 //
 // =============================================================================
 //
-// This file contains implementations of PyOMCompilerSession class,
+// This file contains implementations of PyOMCompileSession class,
 // which helps python programs to compile and run binary model libraries.
 //
 //===----------------------------------------------------------------------===//
@@ -18,20 +18,17 @@ SUPPRESS_WARNINGS_PUSH
 #include "onnx/onnx_pb.h"
 SUPPRESS_WARNINGS_POP
 
-#include "PyOMCompilerSession.hpp"
+#include "PyOMCompileSession.hpp"
 
 namespace onnx_mlir {
 
 // =============================================================================
 // Constructor
 
-PyOMCompilerSession::PyOMCompilerSession(std::string modelPath,
-    std::string flags, const std::string &logFilename, bool reuseCompiledModel)
+PyOMCompileSession::PyOMCompileSession(std::string modelPath, std::string flags,
+    const std::string &logFilename, bool reuseCompiledModel)
     : compilerSession() /* constructor without compilation */,
       modelPath(modelPath), flags(flags) {
-  // First compile the onnx file.
-  if (modelPath.empty())
-    throw std::runtime_error("OMCompileSession: no input model provided");
 
   // See if we can reuse a compilation (no check on model or flag
   // equivalencies).
@@ -52,9 +49,7 @@ PyOMCompilerSession::PyOMCompilerSession(std::string modelPath,
     try {
       compilerSession.compile(modelPath, flags, logFilename);
     } catch (const onnx_mlir::CompilerSessionException &error) {
-      std::string errorMessage =
-          "OMCompileSession: compilation failed with error ";
-      errorMessage += error.what();
+      std::string errorMessage = error.what();
       std::cerr << errorMessage << std::endl;
       throw std::runtime_error(errorMessage);
     }
@@ -64,11 +59,11 @@ PyOMCompilerSession::PyOMCompilerSession(std::string modelPath,
 // =============================================================================
 // Custom getters
 
-std::string PyOMCompilerSession::pyGetOutputFilename() {
+std::string PyOMCompileSession::pyGetOutputFilename() {
   return onnx_mlir::CompilerSession::getOutputFilename(modelPath, flags);
 }
 
-std::string PyOMCompilerSession::pyGetModelTag() {
+std::string PyOMCompileSession::pyGetModelTag() {
   return onnx_mlir::CompilerSession::getModelTag(flags);
 }
 

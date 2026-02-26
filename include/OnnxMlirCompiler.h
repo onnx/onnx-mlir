@@ -78,6 +78,7 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
 
 #endif
 
+#if 0
 /*!
  *  Compile an onnx model from an ONNX protobuf array. This method is not thread
  *  safe, and borrows the current compiler options currently defined in this
@@ -103,6 +104,7 @@ ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
     int64_t bufferSize, const char *outputBaseName,
     EmissionTargetType emissionTarget, char **outputFilename,
     char **errorMessage);
+#endif
 
 #if 0 // hi alex
 /*!

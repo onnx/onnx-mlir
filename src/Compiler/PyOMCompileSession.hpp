@@ -2,6 +2,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+ // hi alex, to deprecate
+ 
 //===------ PyOMCompileSession.hpp - PyOMCompileSession Declaration -------===//
 //
 // Copyright 2022 The IBM Research Authors.
