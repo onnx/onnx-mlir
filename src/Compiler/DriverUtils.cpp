@@ -15,7 +15,9 @@
 
 #include "src/Compiler/DriverUtils.hpp"
 
+#include <filesystem>
 #include <sstream>
+namespace fs = std::filesystem;
 
 using namespace onnx_mlir;
 
@@ -88,10 +90,22 @@ static EmissionTargetType getEmissionTargetFromFlags(
   return EmissionTargetType::EmitLib;
 }
 
+std::string getAbsolutePathUsingCurrentDir(const std::string &filename) {
+  if (filename.empty())
+    return filename;
+  fs::path currFilename(filename);
+  if (!currFilename.is_relative())
+    return filename;
+  // Has relative path, add current working dir.
+  fs::path curWdir = fs::current_path();
+  fs::path newFilename = curWdir / currFilename;
+  return newFilename.string();
+}
+
 std::string getInputFilename(
-    const std::string &inputFileName, const std::vector<std::string> &flags) {
-  if (!inputFileName.empty())
-    return inputFileName;
+    const std::string &inputFilename, const std::vector<std::string> &flags) {
+  if (!inputFilename.empty())
+    return inputFilename;
   for (size_t i = 0; i < flags.size(); ++i) {
     const std::string &arg = flags[i];
     if (!arg.empty() && arg[0] == '-')

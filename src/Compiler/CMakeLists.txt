@@ -151,6 +151,10 @@ list(APPEND DEFINITIONS "PRODUCT_ID=\"${PRODUCT_ID}\"")
 target_compile_definitions(OMVersion PUBLIC ${DEFINITIONS})
 set_property(SOURCE CompilerUtils.cpp APPEND PROPERTY COMPILE_DEFINITIONS ${DEFINITIONS})
 
+# This library only add MLIR/LLVM independent code that is used both in
+# onnx-mlir compiler as well as the OMCompileSession. The file listed
+# here must remain MLIR/LLVM free.
+ 
 add_onnx_mlir_library(OMCompileSessionUtils
   Command.cpp
   DriverUtils.cpp

@@ -69,8 +69,10 @@ void CompilerSession::compile(const std::string &modelPath,
     throw CompilerSessionException(
         "Compilation failed with error code " + std::to_string(status));
   }
-  // Success, save filename of output.
-  outputFilename = onnx_mlir::getOutputFilename(inputFilename, flagVect);
+  // Success, save filename of output, using an absolute path to increase
+  // success of dlopen calls..
+  std::string name = onnx_mlir::getOutputFilename(inputFilename, flagVect);
+  outputFilename = getAbsolutePathUsingCurrentDir(name);
   successfullyCompiled = true;
 }
 
@@ -103,7 +105,10 @@ std::string CompilerSession::getModelTag() {
 /* static */ std::string CompilerSession::getOutputFilename(
     const std::string &modelPath, const std::string &flags) {
   std::vector<std::string> flagVect = parseFlags(flags);
-  return onnx_mlir::getOutputFilename(modelPath, flagVect);
+  // Success, save filename of output, using an absolute path to increase
+  // success of dlopen calls..
+  std::string name = onnx_mlir::getOutputFilename(modelPath, flagVect);
+  return getAbsolutePathUsingCurrentDir(name);
 }
 
 /* static */ std::string CompilerSession::getModelTag(

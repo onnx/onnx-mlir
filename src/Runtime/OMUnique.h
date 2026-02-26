@@ -1,4 +1,13 @@
 
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+//===--------- OMUnique.h - Unique implementation --------===//
+//
+// Copyright 2014-2026 The IBM Research Authors.
+//
+
 #include "onnx-mlir/Runtime/OMTensor.h"
 // #include "onnx-mlir/Runtime/OnnxDataType.h"
 

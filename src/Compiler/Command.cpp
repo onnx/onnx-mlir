@@ -12,6 +12,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Compiler/Command.hpp"
+#include "src/Compiler/DriverUtils.hpp"
+
 #include <filesystem>
 #include <sstream>
 
@@ -121,17 +123,13 @@ void Command::redirectExecStreams(const std::string &stdFilename) {
 int Command::exec(const std::string &wdir) {
   // Get current working directory.
   fs::path curWdir = fs::current_path();
-  // Determine new working directory.
+  // Determine new working directory based on wdir.
   fs::path newWdir;
   bool requestedNewDir = !wdir.empty();
-  if (requestedNewDir) {
-    newWdir = fs::path(wdir);
-    if (newWdir.is_relative()) {
-      newWdir = curWdir / newWdir;
-    }
-  } else {
+  if (requestedNewDir)
+    newWdir = getAbsolutePathUsingCurrentDir(wdir);
+  else
     newWdir = curWdir;
-  }
 
   // Change directory if requested.
   if (requestedNewDir) {

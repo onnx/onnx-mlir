@@ -4,7 +4,7 @@
 
 //====-- ModelLib.hpp - Building Models for numerical and benchmark tests -===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2026 The IBM Research Authors.
 //
 // =============================================================================
 //

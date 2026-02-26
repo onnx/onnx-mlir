@@ -4,7 +4,7 @@
 
 //===========-- ModelLib.cpp - Helper function for building models -==========//
 //
-// Copyright 2022-2023 The IBM Research Authors.
+// Copyright 2022-2026 The IBM Research Authors.
 //
 // =============================================================================
 //

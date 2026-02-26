@@ -4,6 +4,7 @@
 
 //===----- PyOMCompileSession.hpp - PyOMCompileSession Declaration --------===//
 //
+// Copyright 2024-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -40,7 +41,7 @@ private:
 
 } // namespace onnx_mlir
 
-PYBIND11_MODULE(PyCompileC, m) {
+PYBIND11_MODULE(PyOMCompileC, m) {
   m.doc() = "OMCompileSession enables users to compile an ONNX model "
             "in a python script.";
   py::class_<onnx_mlir::PyOMCompileSession>(m, "OMCompileSession")

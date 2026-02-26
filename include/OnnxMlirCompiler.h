@@ -4,6 +4,8 @@
 
 //===------- OnnxMlirCompiler.h - ONNX-MLIR Compiler API Declarations -----===//
 //
+// Copyright 2022-2026 The IBM Research Authors.
+//
 // This file contains declaration of onnx-mlir compiler functionality
 // exported from the OnnxMlirCompiler library
 //

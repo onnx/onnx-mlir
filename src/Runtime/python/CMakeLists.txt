@@ -6,8 +6,8 @@ file(GENERATE
   )
 
 file(GENERATE
-  OUTPUT ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/PyCompile.py
-  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/PyCompile.py
+  OUTPUT ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/PyOMCompile.py
+  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/PyOMCompile.py
   )
 
 # TODO: Remove pybind11::python_link_helper after cmake version bumped to 3.16+
@@ -153,29 +153,29 @@ if(ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
   return()
 endif()
 
-pybind11_add_module(PyCompileC PyOMCompileSession.cpp)
-add_dependencies(PyCompileC onnx)
-target_compile_options(PyCompileC
+pybind11_add_module(PyOMCompileC PyOMCompileSession.cpp)
+add_dependencies(PyOMCompileC onnx)
+target_compile_options(PyOMCompileC
   PRIVATE
   $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-frtti -fexceptions>
   $<$<CXX_COMPILER_ID:MSVC>:/EHsc /GR>
   )
-target_compile_definitions(PyCompileC
+target_compile_definitions(PyOMCompileC
   PRIVATE
   $<TARGET_PROPERTY:onnx,COMPILE_DEFINITIONS>
   )
-target_include_directories(PyCompileC
+target_include_directories(PyOMCompileC
   PRIVATE
   ${ONNX_MLIR_SRC_ROOT}/include
   $<TARGET_PROPERTY:onnx,INCLUDE_DIRECTORIES>
   )
-target_link_libraries(PyCompileC
+target_link_libraries(PyOMCompileC
   PRIVATE
   OMCompileSession
   )
-llvm_update_compile_flags(PyCompileC)
+llvm_update_compile_flags(PyOMCompileC)
 
-install(TARGETS PyCompileC
+install(TARGETS PyOMCompileC
   DESTINATION lib
   )
 

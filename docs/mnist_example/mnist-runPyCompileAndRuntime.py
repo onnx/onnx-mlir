@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import numpy as np
-from PyCompile import OMCompileSession
+from PyOMCompile import OMCompileSession
 from PyRuntime import OMExecutionSession
 
 # Compile the model
