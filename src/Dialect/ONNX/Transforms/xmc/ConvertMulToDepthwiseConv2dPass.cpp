@@ -1,6 +1,7 @@
 // Copyright (C) 2025 Advanced Micro Devices, Inc. All rights reserved.
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Quant/IR/QuantTypes.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/PatternMatch.h"
@@ -26,7 +27,9 @@ Value createShapeConstant(
 }
 
 /// Expand scalar weight to match input channels and create conv weight
-/// directly with shape [C, 1, 1, 1]
+/// directly with shape [C, 1, 1, 1].
+/// For quantized types, builds DenseElementsAttr with the storage type
+/// and creates ONNXConstantOp with the quantized result type.
 Value expandScalarWeight(PatternRewriter &rewriter, Location loc, Value weight,
     int64_t targetChannels, Type elementType) {
   auto weightConstOp = weight.getDefiningOp<ONNXConstantOp>();
@@ -42,13 +45,25 @@ Value expandScalarWeight(PatternRewriter &rewriter, Location loc, Value weight,
       values.push_back(*denseAttr.value_begin<Attribute>());
     }
 
-    // Create constant directly with conv weight shape [C, 1, 1, 1]
     llvm::SmallVector<int64_t, 4> convWeightShape = {targetChannels, 1, 1, 1};
-    auto convWeightType = RankedTensorType::get(convWeightShape, elementType);
-    auto expandedAttr = DenseElementsAttr::get(convWeightType, values);
 
-    onnx_mlir::OnnxBuilder onnxBuilder(rewriter, loc);
-    return onnxBuilder.constant(expandedAttr);
+    // DenseElementsAttr requires a plain integer/float element type.
+    // For quantized types, use the storage type for the attribute data.
+    Type storageElemType = elementType;
+    if (auto qType = dyn_cast<quant::QuantizedType>(elementType))
+      storageElemType = qType.getStorageType();
+
+    auto storageType = RankedTensorType::get(convWeightShape, storageElemType);
+    auto expandedAttr = DenseElementsAttr::get(storageType, values);
+
+    // Create ONNXConstantOp with the full element type (may be quantized)
+    // on the result, while the value attribute uses the storage type.
+    auto resultType = RankedTensorType::get(convWeightShape, elementType);
+    auto valueNamedAttr = rewriter.getNamedAttr("value", expandedAttr);
+    auto newConst =
+        rewriter.create<ONNXConstantOp>(loc, resultType, mlir::ValueRange{},
+            mlir::ArrayRef<mlir::NamedAttribute>{valueNamedAttr});
+    return newConst.getResult();
   }
 
   return nullptr; // Failed
@@ -163,24 +178,16 @@ struct MulToDepthwiseConvPattern : public OpRewritePattern<ONNXMulOp> {
     // So weight shape = [C, 1, 1, 1]
     newWeightShape = {inputChannel, 1, 1, 1};
 
-    // Expand weight if needed
-    Value newWeight = weight;
+    // Expand or reshape weight as needed
+    Value newWeight;
     if (weightShape[0] == 1 && inputChannel > 1) {
-      // Need to expand weight to match input channels
-      auto weightConstOp = weight.getDefiningOp<ONNXConstantOp>();
-      if (!weightConstOp)
+      // Scalar weight: replicate value for each channel to create [C, 1, 1, 1]
+      newWeight = expandScalarWeight(
+          rewriter, loc, weight, inputChannel, weightType.getElementType());
+      if (!newWeight)
         return failure();
-
-      // Create new constant with expanded shape
-      auto newWeightType =
-          RankedTensorType::get(newWeightShape, weightType.getElementType());
-
-      // This would require accessing and expanding the constant data
-      // For now, create a reshape
-      auto shapeConst = createShapeConstant(rewriter, loc, newWeightShape);
-      newWeight = rewriter.create<ONNXReshapeOp>(
-          loc, newWeightType, weight, shapeConst);
     } else {
+      // Weight already has C elements, just reshape to [C, 1, 1, 1]
       auto newWeightType =
           RankedTensorType::get(newWeightShape, weightType.getElementType());
       auto shapeConst = createShapeConstant(rewriter, loc, newWeightShape);
@@ -284,16 +291,25 @@ struct MulAddToDepthwiseConvPattern : public OpRewritePattern<ONNXAddOp> {
 
     // Similar to above, create depthwise conv with bias
     auto weightType = cast<RankedTensorType>(weight.getType());
+    auto weightShape = weightType.getShape();
     // Weight shape for depthwise conv: [M, C/group, kH, kW] = [inputChannel, 1,
     // 1, 1]
     llvm::SmallVector<int64_t, 4> newWeightShape = {inputChannel, 1, 1, 1};
 
-    // Reshape weight
-    auto newWeightType =
-        RankedTensorType::get(newWeightShape, weightType.getElementType());
-    auto shapeConst = createShapeConstant(rewriter, loc, newWeightShape);
-    auto newWeight =
-        rewriter.create<ONNXReshapeOp>(loc, newWeightType, weight, shapeConst);
+    // Expand or reshape weight
+    Value newWeight;
+    if (weightShape[0] == 1 && inputChannel > 1) {
+      newWeight = expandScalarWeight(
+          rewriter, loc, weight, inputChannel, weightType.getElementType());
+      if (!newWeight)
+        return failure();
+    } else {
+      auto newWeightType =
+          RankedTensorType::get(newWeightShape, weightType.getElementType());
+      auto shapeConst = createShapeConstant(rewriter, loc, newWeightShape);
+      newWeight = rewriter.create<ONNXReshapeOp>(
+          loc, newWeightType, weight, shapeConst);
+    }
 
     // Create DepthwiseConv attributes
     auto kernel = rewriter.getI64ArrayAttr({1, 1});
@@ -366,15 +382,25 @@ struct MulReluToDepthwiseConvPattern : public OpRewritePattern<ONNXReluOp> {
 
     // Extract channels from index 1 (NCHW format: [N, C, H, W])
     int64_t inputChannel = inputShape[1];
+    auto weightShape = weightType.getShape();
     // Weight shape for depthwise conv: [M, C/group, kH, kW] = [inputChannel, 1,
     // 1, 1]
     llvm::SmallVector<int64_t, 4> newWeightShape = {inputChannel, 1, 1, 1};
 
-    auto newWeightType =
-        RankedTensorType::get(newWeightShape, weightType.getElementType());
-    auto shapeConst = createShapeConstant(rewriter, loc, newWeightShape);
-    auto newWeight =
-        rewriter.create<ONNXReshapeOp>(loc, newWeightType, weight, shapeConst);
+    // Expand or reshape weight
+    Value newWeight;
+    if (weightShape[0] == 1 && inputChannel > 1) {
+      newWeight = expandScalarWeight(
+          rewriter, loc, weight, inputChannel, weightType.getElementType());
+      if (!newWeight)
+        return failure();
+    } else {
+      auto newWeightType =
+          RankedTensorType::get(newWeightShape, weightType.getElementType());
+      auto shapeConst = createShapeConstant(rewriter, loc, newWeightShape);
+      newWeight = rewriter.create<ONNXReshapeOp>(
+          loc, newWeightType, weight, shapeConst);
+    }
 
     // Create DepthwiseConv
     auto kernel = rewriter.getI64ArrayAttr({1, 1});
