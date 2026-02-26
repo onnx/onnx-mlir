@@ -1,3 +1,5 @@
+<!--- SPDX-License-Identifier: Apache-2.0 -->
+
 # JSON Configuration File for onnx-mlir
 
 ## Overview
