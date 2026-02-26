@@ -34,8 +34,14 @@ JsonConfigObject::~JsonConfigObject() = default;
 
 bool JsonConfigObject::loadFromFile(const std::string &filePath) {
   if (fileIsLoaded) {
-    llvm::outs() << "JSon config file has been loaded.\n";
-    return true;
+    if (this->filePath == filePath) {
+      // Already loaded this file, silently return success.
+      return true;
+    }
+    llvm::errs() << "Warning: Config file already loaded from "
+                 << this->filePath << ", ignoring request to load " << filePath
+                 << "\n";
+    return false;
   }
 
   // Try to load the file.

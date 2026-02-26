@@ -1541,7 +1541,7 @@ bool hasSignatureInstrumentation(InstrumentStages targetInstrumentationStage) {
 }
 
 // Load options from a file given by --config-file.
-// If --config-file is not used, looling for omconfig.json in the same folder
+// If --config-file is not used, looking for omconfig.json in the same folder
 // as the input file.
 bool loadCompileOptionsFromConfig(
     int argc, const char *const *argv, std::vector<std::string> &extraArgs) {
@@ -1566,10 +1566,14 @@ bool loadCompileOptionsFromConfig(
   std::string configFileVar = "";
   for (int i = 1; i < argc; ++i) {
     std::string arg(argv[i]);
-    if (arg.find("--config-file") == 0) {
-      configFileVar = arg.substr(sizeof("--config-file"));
-    } else if (arg.find("-config-file") == 0) {
-      configFileVar = arg.substr(sizeof("-config-file"));
+    if (arg.find("--config-file=") == 0) {
+      configFileVar = arg.substr(strlen("--config-file="));
+    } else if (arg.find("--config-file") == 0 && i + 1 < argc) {
+      configFileVar = argv[++i];
+    } else if (arg.find("-config-file=") == 0) {
+      configFileVar = arg.substr(strlen("-config-file="));
+    } else if (arg.find("-config-file") == 0 && i + 1 < argc) {
+      configFileVar = argv[++i];
     } else if (arg.compare("-v") == 0) {
       verbose = true;
     }
@@ -1581,16 +1585,26 @@ bool loadCompileOptionsFromConfig(
       inputPath.parent_path() / "omconfig.json";
   std::string configPath =
       configFileVar.empty() ? defaultConfigPath.string() : configFileVar;
-  if (!std::filesystem::exists(configPath))
+  if (!std::filesystem::exists(configPath)) {
+    if (verbose && !configFileVar.empty()) {
+      // Only warn if user explicitly specified a config file.
+      llvm::errs() << "Warning: Config file not found: " << configPath << "\n";
+    }
     return false;
+  }
 
   if (verbose)
     printf("Config file: %s\n", configPath.c_str());
 
   // Use JsonConfigObject to load and parse the config file.
   JsonConfigObject &globalConfig = getGlobalOMConfig();
-  if (!globalConfig.loadFromFile(configPath))
+  if (!globalConfig.loadFromFile(configPath)) {
+    if (verbose) {
+      llvm::errs() << "Warning: Failed to load config file: " << configPath
+                   << "\n";
+    }
     return false;
+  }
 
   // Extract compile options if present.
   return globalConfig.getCompileOptions(extraArgs);

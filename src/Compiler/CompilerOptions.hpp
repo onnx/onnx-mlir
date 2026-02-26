@@ -246,7 +246,7 @@ bool hasInstrumentation(InstrumentStages targetInstrumentationStage);
 bool hasSignatureInstrumentation(InstrumentStages targetInstrumentationStage);
 
 // Load options from a file given by --config-file.
-// If --config-file is not used, looling for omconfig.json in the same folder
+// If --config-file is not used, looking for omconfig.json in the same folder
 // as the input file.
 bool loadCompileOptionsFromConfig(
     int argc, const char *const *argv, std::vector<std::string> &extraArg);

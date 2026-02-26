@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <mutex>
 #include <regex>
 
 #include "mlir/IR/BuiltinAttributes.h"
@@ -23,12 +24,18 @@
 
 namespace onnx_mlir {
 
-// Accessor function to get the global config object.
+// Accessor function to get the global config object with thread-safe
+// initialization.
 NNPAJsonConfigObject &getGlobalNNPAConfig() {
   static NNPAJsonConfigObject globalNNPAConfig;
-  if (!globalNNPAConfig.isLoaded()) {
-    globalNNPAConfig.loadFromFile(getGlobalOMConfig().getFilePath());
-  }
+  static std::once_flag initFlag;
+
+  std::call_once(initFlag, []() {
+    if (!globalNNPAConfig.isLoaded()) {
+      globalNNPAConfig.loadFromFile(getGlobalOMConfig().getFilePath());
+    }
+  });
+
   return globalNNPAConfig;
 }
 
@@ -68,16 +75,34 @@ void NNPAJsonConfigObject::applyConfigToOps(
     auto nodeType = matchObj->getString(NODE_TYPE_KEY);
     auto onnxNodeName = matchObj->getString(ONNX_NODE_NAME_KEY);
 
-    if (!nodeType)
+    if (!nodeType) {
+      llvm::errs()
+          << "Warning: Config entry missing required 'node_type' field\n";
       continue;
+    }
 
-    // Create regex patterns for matching.
-    std::regex nodeTypeRegex(nodeType->str());
+    // Create regex patterns for matching with exception handling.
+    std::regex nodeTypeRegex;
     std::regex onnxNodeNameRegex;
     bool hasNodeNamePattern = false;
-    if (onnxNodeName) {
-      onnxNodeNameRegex = std::regex(onnxNodeName->str());
-      hasNodeNamePattern = true;
+
+    try {
+      nodeTypeRegex = std::regex(nodeType->str());
+
+      if (onnxNodeName) {
+        onnxNodeNameRegex = std::regex(onnxNodeName->str());
+        hasNodeNamePattern = true;
+      }
+    } catch (const std::regex_error &e) {
+      llvm::errs() << "Error: Invalid regex pattern in config - " << e.what()
+                   << "\n";
+      if (onnxNodeName) {
+        llvm::errs() << "  node_type: " << nodeType->str()
+                     << ", onnx_node_name: " << onnxNodeName->str() << "\n";
+      } else {
+        llvm::errs() << "  node_type: " << nodeType->str() << "\n";
+      }
+      continue;
     }
 
     // Find matching operations and apply rewrite.
