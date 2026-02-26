@@ -19,14 +19,18 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include "src/Accelerators/NNPA/Compiler/NNPAJsonConfigObject.hpp"
+#include "src/Compiler/JsonConfigObject.hpp"
 
 namespace onnx_mlir {
 
-// Global NNPA configuration object.
-static NNPAJsonConfigObject globalNNPAConfig;
-
 // Accessor function to get the global config object.
-NNPAJsonConfigObject &getGlobalNNPAConfig() { return globalNNPAConfig; }
+NNPAJsonConfigObject &getGlobalNNPAConfig() {
+  static NNPAJsonConfigObject globalNNPAConfig;
+  if (!globalNNPAConfig.isLoaded()) {
+    globalNNPAConfig.loadFromFile(getGlobalOMConfig().getFilePath());
+  }
+  return globalNNPAConfig;
+}
 
 void NNPAJsonConfigObject::applyConfigToOps(
     llvm::ArrayRef<mlir::Operation *> ops,

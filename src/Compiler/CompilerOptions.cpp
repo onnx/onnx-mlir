@@ -1589,12 +1589,12 @@ bool loadCompileOptionsFromConfig(
     printf("Config file: %s\n", configPath.c_str());
 
   // Use JsonConfigObject to load and parse the config file.
-  JsonConfigObject config;
-  if (!config.loadFromFile(configPath))
+  JsonConfigObject &globalConfig = getGlobalOMConfig();
+  if (!globalConfig.loadFromFile(configPath))
     return false;
 
   // Extract compile options if present.
-  return config.getCompileOptions(extraArgs);
+  return globalConfig.getCompileOptions(extraArgs);
 }
 
 } // namespace onnx_mlir

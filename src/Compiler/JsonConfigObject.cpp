@@ -21,12 +21,23 @@
 
 namespace onnx_mlir {
 
+// Accessor function to get the global config object.
+JsonConfigObject &getGlobalOMConfig() {
+  static JsonConfigObject globalOMConfig;
+  return globalOMConfig;
+}
+
 JsonConfigObject::JsonConfigObject()
     : jsonObject(std::make_unique<llvm::json::Object>()), filePath("") {}
 
 JsonConfigObject::~JsonConfigObject() = default;
 
 bool JsonConfigObject::loadFromFile(const std::string &filePath) {
+  if (fileIsLoaded) {
+    llvm::outs() << "JSon config file has been loaded.\n";
+    return true;
+  }
+
   // Try to load the file.
   auto bufferOrError = llvm::MemoryBuffer::getFile(
       filePath, /*bool IsText=*/true, /*RequiresNullTerminator=*/false);
@@ -57,6 +68,7 @@ bool JsonConfigObject::loadFromFile(const std::string &filePath) {
   // Store the parsed JSON object.
   jsonObject = std::make_unique<llvm::json::Object>(std::move(*parsedObject));
   this->filePath = filePath;
+  this->fileIsLoaded = true;
 
   return true;
 }

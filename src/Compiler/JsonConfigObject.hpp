@@ -79,8 +79,13 @@ public:
   /// @return The file path string.
   const std::string &getFilePath() const { return filePath; }
 
+  /// Check if the config file is loaded.
+  /// @return true if loaded, false otherwise.
+  bool isLoaded() const { return fileIsLoaded; }
+
   // JSON key constants.
   static constexpr const char *COMPILE_OPTIONS_KEY = "compile_options";
+
 protected:
   /// Get access to the underlying JSON object for derived classes.
   /// @return Pointer to the JSON object, or nullptr if not loaded.
@@ -96,7 +101,13 @@ private:
 
   /// The file path that was last loaded.
   std::string filePath;
+
+  /// Track if the config file is loaded or not.
+  bool fileIsLoaded = false;
 };
+
+/// Get the global configuration object.
+JsonConfigObject &getGlobalOMConfig();
 
 } // namespace onnx_mlir
 

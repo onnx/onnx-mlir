@@ -237,15 +237,6 @@ void normalizeMemRefsPasses(mlir::PassManager &pm) {
 void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
     mlir::PassManager &pm, EmissionTargetType &emissionTarget,
     std::string outputNameNoExt) {
-  // Load JSON configuration file if specified
-  if (llvm::sys::fs::exists(configFile)) {
-    JsonConfigObject &globalConfig = getGlobalNNPAConfig();
-    if (globalConfig.loadFromFile(configFile)) {
-      LLVM_DEBUG(llvm::dbgs() << "Loaded NNPA config from general config: "
-                              << configFile<< "\n");
-    }
-  }
-
   // TODO: Develop and use determineInputIRLevel for NNPA
   // InputIRLevelType inputIRLevel = determineInputIRLevel(module);
 
