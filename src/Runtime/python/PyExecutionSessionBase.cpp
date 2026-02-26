@@ -13,6 +13,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+// TODO: base class is no longer needed, should be merged with
+// PyExecutionSession.
+
 #ifndef ENABLE_PYRUNTIME_LIGHT
 #include "src/Support/SmallFP.hpp"
 #else

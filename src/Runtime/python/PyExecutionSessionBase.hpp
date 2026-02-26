@@ -13,6 +13,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+// TODO: base class is no longer needed, should be merged with
+// PyExecutionSession.
+
 #ifndef ONNX_MLIR_PY_EXECUTION_SESSION_BASE_H
 #define ONNX_MLIR_PY_EXECUTION_SESSION_BASE_H
 
