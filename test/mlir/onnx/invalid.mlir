@@ -1032,3 +1032,19 @@ func.func @test_bfp_quant_dequant_wrong_rounding_mode(%arg0: tensor<16x32xf32>) 
   %0 = "onnx.AMDQuarkBFPQuantizeDequantizeOp"(%arg0) { rounding_mode = 4: si64 }  : (tensor<16x32xf32>) -> tensor<16x32xf32>
   return %0 : tensor<16x32xf32>
 }
+
+// -----
+
+func.func @test_bfp_quant_dequant_axis_positive_out_of_range(%arg0: tensor<16x32xf32>) -> tensor<16x32xf32> {
+  // expected-error @+1 {{'onnx.AMDQuarkBFPQuantizeDequantizeOp' op axis attribute value 2 is out of range [-2, 2)}}
+  %0 = "onnx.AMDQuarkBFPQuantizeDequantizeOp"(%arg0) { axis = 2: si64 }  : (tensor<16x32xf32>) -> tensor<16x32xf32>
+  return %0 : tensor<16x32xf32>
+}
+
+// -----
+
+func.func @test_bfp_quant_dequant_axis_negative_out_of_range(%arg0: tensor<16x32xf32>) -> tensor<16x32xf32> {
+  // expected-error @+1 {{'onnx.AMDQuarkBFPQuantizeDequantizeOp' op axis attribute value -3 is out of range [-2, 2)}}
+  %0 = "onnx.AMDQuarkBFPQuantizeDequantizeOp"(%arg0) { axis = -3: si64 }  : (tensor<16x32xf32>) -> tensor<16x32xf32>
+  return %0 : tensor<16x32xf32>
+}

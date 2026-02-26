@@ -52,6 +52,7 @@ def AMDQuarkBFPQuantizeDequantizeOp: ONNX_Op<"AMDQuarkBFPQuantizeDequantizeOp",
     [[nodiscard]] bool isMX4(bool ignoreAxis = false);
     [[nodiscard]] bool isMX6(bool ignoreAxis = false);
     [[nodiscard]] bool isMX9(bool ignoreAxis = false);
+    [[nodiscard]] std::optional<int64_t> getNormalizedAxis();
   }];
   
   let extraClassDefinition = [{  

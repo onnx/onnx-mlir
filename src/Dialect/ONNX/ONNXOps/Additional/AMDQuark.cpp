@@ -30,6 +30,14 @@ LogicalResult AMDQuarkBFPQuantizeDequantizeOp::verify() {
         "rounding half upward and 2 for rounding half to even.");
   }
 
+  if (auto rankedType = dyn_cast<RankedTensorType>(getX().getType())) {
+    const int64_t rank = rankedType.getRank();
+    const int64_t axis = getAxis();
+    if (axis < -rank || axis >= rank)
+      return emitOpError("axis attribute value ")
+             << axis << " is out of range [-" << rank << ", " << rank << ")";
+  }
+
   return success();
 }
 
@@ -48,8 +56,11 @@ struct KnownConfig {
     const KnownConfig &config, bool ignoreAxis) {
   if (op->getBfpMethod() != config.method)
     return false;
-  if (!ignoreAxis && op->getAxis() != config.axis)
-    return false;
+  if (!ignoreAxis) {
+    const auto normalizedAxis = op->getNormalizedAxis();
+    if (!normalizedAxis || *normalizedAxis != config.axis)
+      return false;
+  }
   if (op->getBitWidth() != config.bit_width)
     return false;
   if (op->getBlockSize() != config.block_size)
@@ -77,6 +88,16 @@ bool AMDQuarkBFPQuantizeDequantizeOp::isMX6(bool ignoreAxis) {
 }
 bool AMDQuarkBFPQuantizeDequantizeOp::isMX9(bool ignoreAxis) {
   return isKnownConfig(this, {"to_bfp_prime", 1, 16, 16, 2, 2, 1}, ignoreAxis);
+}
+
+std::optional<int64_t> AMDQuarkBFPQuantizeDequantizeOp::getNormalizedAxis() {
+  const int64_t axis = getAxis();
+  if (axis >= 0)
+    return axis;
+  const auto rankedType = dyn_cast<RankedTensorType>(getX().getType());
+  if (!rankedType)
+    return std::nullopt;
+  return axis + rankedType.getRank();
 }
 
 LogicalResult AMDQuarkBFPQuantizeDequantizeOp::inferShapes(
