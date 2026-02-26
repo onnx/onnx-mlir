@@ -20,7 +20,6 @@
 #include "llvm/Support/JSON.h"
 
 #include "src/Accelerators/NNPA/Compiler/NNPAJsonConfigObject.hpp"
-#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
 

@@ -56,6 +56,7 @@ uint64_t compilationNumThreads;                        // common for both
 std::vector<std::string> decomposeOpsInONNX;           // common for both
 std::string shapeInformationUB;                        // common for both
 std::string shapeInformationLB;                        // common for both
+std::string linalgOps;                                 // common for both
 EmissionTargetType emissionTarget;                     // onnx-mlir only
 bool invokeOnnxVersionConverter;                       // onnx-mlir only
 bool preserveLocations;                                // onnx-mlir only
@@ -105,15 +106,13 @@ ProfileIRs profileIRWithSig;                           // onnx-mlir only
 OptReport optReport;                                   // onnx-mlir only
 bool enableTiming;                                     // onnx-mlir only
 bool enableBoundCheck;                                 // onnx-mlir only
+bool useLinalgPath;                                    // onnx-mlir only
+std::string configFile;                                // onnx-mlir only
+std::string saveConfigFile;                            // onnx-mlir only
 bool split_input_file;                                 // onnx-mlir-opt only
 bool verify_diagnostics;                               // onnx-mlir-opt only
 bool verify_passes;                                    // onnx-mlir-opt only
 bool allowUnregisteredDialects;                        // onnx-mlir-opt only
-
-bool useLinalgPath;         // onnx-mlir only
-std::string linalgOps;      // common for both onnx-mlir and onnx-mlir-opt
-std::string configFile;     // onnx-mlir only
-std::string saveConfigFile; // onnx-mlir only
 
 // Category for common options shared between onnx-mlir and onnx-mlir-opt.
 llvm::cl::OptionCategory OnnxMlirCommonOptions("common options",
