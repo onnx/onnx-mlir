@@ -1,0 +1,29 @@
+// RUN: out=$(dirname %s)/test1 && onnx-mlir -v %s -o $out| FileCheck --check-prefix=DEFAULT_CONFIG_FILE %s && rm ${out}.so
+// RUN: out=$(dirname %s)/test2 && onnx-mlir -v --config-file=$(dirname %s)/custom-omconfig.json %s -o $out| FileCheck --check-prefix=CUSTOM_CONFIG_FILE %s && rm ${out}.so
+// RUN: out=$(dirname %s)/test3 && onnx-mlir -v -O3 %s -o $out| FileCheck --check-prefix=OVERWRITE_CONFIG_FILE %s && rm ${out}.so
+
+module {
+  func.func @main_graph(%arg0: tensor<3x4x5xf32>) -> (tensor<3x4x5xf32>) {
+    %0 = "onnx.Relu"(%arg0) : (tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
+    onnx.Return %0 : tensor<3x4x5xf32>
+  }
+  "onnx.EntryPoint"() {func = @main_graph} : () -> ()
+}
+
+// COM: Check if the driver reads the default omconfig.json in the same folder of the input model.
+// DEFAULT_CONFIG_FILE-DAG: Config file: {{.*}}omconfig.json 
+// DEFAULT_CONFIG_FILE-DAG: Onnx-mlir command: {{.*}}onnx-mlir -v {{.*}}.mlir -o {{.*}}test1 -O2 -march=z16
+// DEFAULT_CONFIG_FILE-DAG: {{.*}}opt -O2{{.*}}
+// DEFAULT_CONFIG_FILE-DAG: {{.*}}llc -O2{{.*}}
+
+// COM: Check the compile options --config-file 
+// CUSTOM_CONFIG_FILE-DAG: Config file: {{.*}}custom-omconfig.json 
+// CUSTOM_CONFIG_FILE-DAG: Onnx-mlir command: {{.*}}onnx-mlir -v --config-file={{.*}}custom-omconfig.json {{.*}}.mlir -o {{.*}}test2 -O3 -march=z16
+// CUSTOM_CONFIG_FILE-DAG: {{.*}}opt -O3{{.*}}
+// CUSTOM_CONFIG_FILE-DAG: {{.*}}llc -O3{{.*}}
+
+// COM: Check if the compile options from the config file overwrites the commandline options.
+// OVERWRITE_CONFIG_FILE-DAG: Config file: {{.*}}omconfig.json 
+// OVERWRITE_CONFIG_FILE-DAG: Onnx-mlir command: {{.*}}onnx-mlir -v {{.*}}.mlir -o {{.*}}test3 -O2 -march=z16
+// OVERWRITE_CONFIG_FILE-DAG: {{.*}}opt -O2{{.*}}
+// OVERWRITE_CONFIG_FILE-DAG: {{.*}}llc -O2{{.*}}
