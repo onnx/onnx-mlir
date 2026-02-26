@@ -7,7 +7,7 @@ func.func @test_save_config_file(%arg0: tensor<?x?xf32>) -> tensor<?x?xf32> {
   %3 = "onnx.Sigmoid"(%2) {onnx_node_name = "Sigmoid_0", device = "cpu"} : (tensor<?x?xf32>) -> tensor<?x?xf32>
   onnx.Return %3 : tensor<?x?xf32>
 
-// CHECK: "ops_config": [
+// CHECK: "nnpa_ops_config": [
 // CHECK:   {
 // CHECK:     "pattern": {
 // CHECK:       "match": {

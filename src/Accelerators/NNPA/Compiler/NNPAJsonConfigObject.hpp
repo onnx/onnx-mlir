@@ -31,7 +31,7 @@ namespace onnx_mlir {
 /// @code{.json}
 /// {
 ///   "compile_options": ["-O3", "-march=z16"],
-///   "ops_config": [
+///   "nnpa_ops_config": [
 ///     {
 ///       "pattern": {
 ///         "match": {
@@ -56,7 +56,7 @@ namespace onnx_mlir {
 /// - "device": Device placement ("CPU", "NNPA", or empty string)
 /// - "quantize": Boolean flag for quantization (true/false)
 ///
-/// Multiple configurations can be specified in the "ops_config" array.
+/// Multiple configurations can be specified in the "nnpa_ops_config" array.
 /// Configurations are processed in order, and the first matching pattern wins.
 class NNPAJsonConfigObject : public JsonConfigObject {
 public:
@@ -67,7 +67,7 @@ public:
   ~NNPAJsonConfigObject() override = default;
 
   /// Apply configuration from a json file to operations using a callback.
-  /// This method handles the "ops_config" format where each config has
+  /// This method handles the "nnpa_ops_config" format where each config has
   /// "pattern.match" (criteria) and "pattern.rewrite" (attributes) sections.
   /// @param ops Array of operations to process.
   /// @param updateAttrFn Callback function to update operation attributes
@@ -87,7 +87,7 @@ public:
           buildConfigFn);
 
   // JSON key constants for NNPA configuration.
-  static constexpr const char *OPS_CONFIG_KEY = "ops_config";
+  static constexpr const char *OPS_CONFIG_KEY = "nnpa_ops_config";
   static constexpr const char *PATTERN_KEY = "pattern";
   static constexpr const char *MATCH_KEY = "match";
   static constexpr const char *REWRITE_KEY = "rewrite";

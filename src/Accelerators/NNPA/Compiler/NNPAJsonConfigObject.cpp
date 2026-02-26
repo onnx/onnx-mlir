@@ -39,7 +39,7 @@ void NNPAJsonConfigObject::applyConfigToOps(
   if (empty())
     return;
 
-  // Get the ops_config array.
+  // Get the nnpa_ops_config array.
   llvm::json::Array *opConfigsArr = getArray(OPS_CONFIG_KEY);
   if (!opConfigsArr || opConfigsArr->empty())
     return;
@@ -47,7 +47,7 @@ void NNPAJsonConfigObject::applyConfigToOps(
   // Collect operations to work on.
   llvm::DenseSet<mlir::Operation *> workingOps(ops.begin(), ops.end());
 
-  // Process each configuration rule in the ops_config array.
+  // Process each configuration rule in the nnpa_ops_config array.
   for (llvm::json::Value &v : *opConfigsArr) {
     llvm::json::Object *configObj = v.getAsObject();
     if (!configObj)
@@ -153,7 +153,7 @@ void NNPAJsonConfigObject::writeOpsConfig(llvm::ArrayRef<mlir::Operation *> ops,
     opConfigsArray.push_back(std::move(config));
   }
 
-  // Store the ops_config array in the JSON object.
+  // Store the nnpa_ops_config array in the JSON object.
   llvm::json::Object *jsonObj = getJsonObject();
   if (jsonObj) {
     (*jsonObj)[OPS_CONFIG_KEY] = std::move(opConfigsArray);

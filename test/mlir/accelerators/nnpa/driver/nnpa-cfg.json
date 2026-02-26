@@ -1,5 +1,5 @@
 {
-  "ops_config": [
+  "nnpa_ops_config": [
     {
       "pattern": {
         "match": {

@@ -9,7 +9,7 @@ func.func @test_save_config_file(%arg0: tensor<?x?x?xf32>) -> tensor<?x?x?xf32> 
 
 // CHECK-LABEL test_save_config_file
 // CHECK: {
-// CHECK:   "ops_config": [
+// CHECK:   "nnpa_ops_config": [
 // CHECK:     {
 // CHECK:       "pattern": {
 // CHECK:         "match": {

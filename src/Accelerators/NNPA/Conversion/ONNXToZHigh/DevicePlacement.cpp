@@ -167,7 +167,7 @@ void DevicePlacementPass::runOnOperation() {
   // Cost model and user configuration file go here if it's given.
   // Use the configObject pointer which points to either local or global config.
   if (configObject && !configObject->empty()) {
-    // Apply configuration with ops_config.
+    // Apply configuration to ONNX ops.
     configObject->applyConfigToOps(
         ops, [&](llvm::json::Object *rewriteObj, mlir::Operation *op) {
           if (auto device =
