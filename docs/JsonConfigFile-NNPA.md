@@ -4,7 +4,7 @@ The compiler provides two options to allow users control how ONNX operators run 
 - `--config-file` (or `-config-file`) to load configuration settings from a JSON file.
 - `--save-config-file` to save configuration settings to a JSON file.
 
-It is common to use ONNX node names to match ONNX operators. If you're unsure about the node names in your model, you can use the `--nnpa-save-config-file` option to generate a configuration file as a starting point.
+It is common to use ONNX node names to match ONNX operators. If you're unsure about the node names in your model, you can use the `--save-config-file` option to generate a configuration file as a starting point.
 
 Alternatively, you can open the ONNX model using a visualizer like Netron to inspect the node names. Note that the actual node names used by the compiler may differ slightly from those shown in Netron due to compiler optimizations, though they are usually the same.
 

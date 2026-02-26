@@ -6,11 +6,11 @@ The `onnx-mlir` compiler supports loading configuration from a JSON file, allowi
 
 ## Features
 
-- **Compile Options**: Specify command-line options as a string in the config file
+- **Compile Options**: Specify command-line options as an array in the config file
 - **NNPA Operation Configs**: Configure device placement and quantization for specific operations
-- **Default Config**: Automatically loads `omconfig.json` from the current directory if present
+- **Default Config**: Automatically loads `omconfig.json` from the same directory as the input model if present
 - **Custom Config**: Use `--config-file` to specify a custom configuration file
-- **CLI Override**: Command-line options override config file settings
+- **Config Override**: Config file options override command-line settings
 
 ## JSON Format
 
@@ -58,7 +58,7 @@ Array of operation configuration rules for device placement and quantization whe
 
 ### Using Default Config File
 
-Create `omconfig.json` in your working directory:
+Create `omconfig.json` in the same directory as your input model:
 
 ```bash
 cat > omconfig.json << 'EOF'
@@ -77,13 +77,14 @@ onnx-mlir model.onnx
 onnx-mlir --config-file=my-config.json model.onnx
 ```
 
-### Overriding Config with CLI
+### Config File Overrides CLI Options
 
-Command-line options take precedence over config file settings:
+Config file options take precedence over command-line settings:
 
 ```bash
-# Config has -O3, but CLI overrides to -O2
-onnx-mlir --config-file=config.json -O2 model.onnx
+# CLI has -O2, but config file overrides to -O3
+onnx-mlir -O2 --config-file=config.json model.onnx
+# Result: Uses -O3 from config file
 ```
 
 ## Examples
@@ -100,7 +101,7 @@ onnx-mlir --config-file=config.json -O2 model.onnx
 
 ```json
 {
-  "compile_options": ["-O3", "-march=z16", "-mcpu=z16", "-maccel=NNPA"],
+  "compile_options": ["-O3", "-march=z16", "-maccel=NNPA"],
   "nnpa_ops_config": [
     {
       "pattern": {
@@ -127,85 +128,8 @@ onnx-mlir --config-file=config.json -O2 model.onnx
 }
 ```
 
-### Example 3: Development Build
-
-```json
-{
-  "compile_options": ["-O0", "--preserveMLIR", "--preserveLLVMIR", "--printIR"]
-}
-```
-
-### Example 4: Production Build with Parallelization
-
-```json
-{
-  "compile_options": ["-O3", "-march=z16", "--enable-parallel", "-j", "8"]
-}
-```
-
 ## NNPA Configuration
-
-The `nnpa_ops_config` section allows fine-grained control over operation placement and quantization for NNPA accelerator.
-
-### Match Criteria
-
-- **`node_type`** (required): Operation type to match (supports regex)
-  - Example: `"onnx.Conv"`, `"onnx.*"` (all ONNX ops)
-- **`onnx_node_name`** (optional): Specific operation name (supports regex)
-  - Example: `"conv1"`, `"conv.*"` (all ops starting with "conv")
-
-### Rewrite Actions
-
-- **`device`** (optional): Target device for the operation
-  - Values: `"NNPA"`, `"CPU"`, or empty string
-- **`quantize`** (optional): Enable quantization for the operation
-  - Values: `true`, `false`
-
-### Pattern Matching
-
-Patterns are processed in order, and the first matching pattern wins. Use regex for flexible matching:
-
-```json
-{
-  "nnpa_ops_config": [
-    {
-      "pattern": {
-        "match": {
-          "node_type": "onnx.Conv",
-          "onnx_node_name": "conv_layer_1"
-        },
-        "rewrite": {
-          "device": "CPU"
-        }
-      }
-    },
-    {
-      "pattern": {
-        "match": {
-          "node_type": "onnx.Conv"
-        },
-        "rewrite": {
-          "device": "NNPA",
-          "quantize": true
-        }
-      }
-    }
-  ]
-}
-```
-
-In this example, `conv_layer_1` runs on CPU, while all other Conv operations run on NNPA with quantization.
-
-## Best Practices
-
-1. **Version Control**: Store config files in version control for reproducible builds
-2. **Environment-Specific Configs**: Use different config files for development, testing, and production
-3. **Minimal Configs**: Only specify options that differ from defaults
-4. **Comments**: While JSON doesn't support comments, use descriptive file names (e.g., `config-production.json`)
-5. **Validation**: Test your config file with `--help` to verify options are parsed correctly:
-   ```bash
-   onnx-mlir --config-file=config.json --help
-   ```
+- [NNPA Accelerator Configuration](JsonConfigFile-NNPA.md)
 
 ## Troubleshooting
 
@@ -244,7 +168,7 @@ onnx-mlir -O3 -march=z16 -mcpu=z16 --enable-parallel -j 8 model.onnx
 Convert it to a config file:
 ```json
 {
-  "compile_options": ["-O3", "-march=z16", "-mcpu=z16", "--enable-parallel", "-j", "8"]
+  "compile_options": ["-O3", "-march=z16", "-mcpu=z16", "--enable-parallel", "-j 8"]
 }
 ```
 
