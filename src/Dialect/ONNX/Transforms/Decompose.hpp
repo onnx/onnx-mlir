@@ -31,6 +31,7 @@ void getDecomposeONNXToONNXPatterns(mlir::RewritePatternSet &patterns,
     bool enableConvTransposeDecomposeToPhasedConv,
     bool enableConvTranspose1dDecomposeToPhasedConv,
     bool enableInstanceNormDecompose, bool enableMatmulNBitsDecompose,
+    bool enableGroupQueryAttentionDecompose,
     bool enableSplitToSliceDecompose = false);
 
 } // namespace onnx_mlir

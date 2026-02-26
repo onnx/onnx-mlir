@@ -712,7 +712,7 @@ func.func @gqa_packed_inputs_3d(
 
 // -----
 
-func.func @gqa_packed_inputs_3d_rotary_embedding(
+func.func @gqa_packed_inputs_3d_rotary_embedding_no_position_ids(
   %qkv: tensor<1x128x6144xf32>, 
   %past_k: tensor<1x16x256x96xf32>, 
   %past_v: tensor<1x16x256x96xf32>,
@@ -731,21 +731,37 @@ func.func @gqa_packed_inputs_3d_rotary_embedding(
   }: (tensor<1x128x6144xf32>, none, none, tensor<1x16x256x96xf32>, tensor<1x16x256x96xf32>, tensor<1x1xi32>, tensor<i32>, tensor<4096x48xf32>, tensor<4096x48xf32>) -> (tensor<1x128x3072xf32>, tensor<1x16x384x96xf32>, tensor<1x16x384x96xf32>)
   return %out, %present_k, %present_v : tensor<1x128x3072xf32>, tensor<1x16x384x96xf32>, tensor<1x16x384x96xf32>
 }
-// CHECK-LABEL:   func.func @gqa_packed_inputs_3d_rotary_embedding(
+// CHECK-LABEL:   func.func @gqa_packed_inputs_3d_rotary_embedding_no_position_ids(
 // CHECK-SAME:                                                     %[[VAL_0:.*]]: tensor<1x128x6144xf32>,
 // CHECK-SAME:                                                     %[[VAL_1:.*]]: tensor<1x16x256x96xf32>, %[[VAL_2:.*]]: tensor<1x16x256x96xf32>,
-// CHECK-SAME:                                                     %[[VAL_3:.*]]: tensor<4096x48xf32>,
-// CHECK-SAME:                                                     %[[VAL_4:.*]]: tensor<4096x48xf32>) -> (tensor<1x128x3072xf32>, tensor<1x16x384x96xf32>, tensor<1x16x384x96xf32>) {
+// CHECK-SAME:                                                     %[[COS_CACHE:.*]]: tensor<4096x48xf32>,
+// CHECK-SAME:                                                     %[[SIN_CACHE:.*]]: tensor<4096x48xf32>) -> (tensor<1x128x3072xf32>, tensor<1x16x384x96xf32>, tensor<1x16x384x96xf32>) {
+
+// CHECK-DAG:       %[[START:.*]] = onnx.Constant dense<256> : tensor<1xi64>
+// CHECK-DAG:       %[[END:.*]] = onnx.Constant dense<384> : tensor<1xi64>
+// CHECK-DAG:       %[[AXES:.*]] = onnx.Constant dense<0> : tensor<1xi64>
+// CHECK-DAG:       %[[STEPS:.*]] = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK-DAG:       %[[RESHAPE_SHAPE:.*]] = onnx.Constant dense<[1, 128, 48]> : tensor<3xi64>
+
 // CHECK:           %[[VAL_5:.*]] = "onnx.NoValue"() {value} : () -> none
 // CHECK:           %[[VAL_6:.*]] = onnx.Constant dense<[3072, 1536, 1536]> : tensor<3xi64>
 // CHECK:           %[[VAL_7:.*]]:3 = "onnx.Split"(%[[VAL_0]], %[[VAL_6]]) {axis = 2 : si64} 
 // CHECK-SAME:          : (tensor<1x128x6144xf32>, tensor<3xi64>) -> (tensor<1x128x3072xf32>, tensor<1x128x1536xf32>, tensor<1x128x1536xf32>)
-// CHECK:           %[[VAL_8:.*]] = "onnx.RotaryEmbedding"(%[[VAL_7]]#0, %[[VAL_3]], %[[VAL_4]], %[[VAL_5]]) 
+
+// CHECK:           %[[COS_SLICE:.*]] = "onnx.Slice"(%[[COS_CACHE]], %[[START]], %[[END]], %[[AXES]], %[[STEPS]]) 
+// CHECK:           %[[SIN_SLICE:.*]] = "onnx.Slice"(%[[SIN_CACHE]], %[[START]], %[[END]], %[[AXES]], %[[STEPS]]) 
+
+// CHECK:           %[[COS_RESHAPE:.*]] = "onnx.Reshape"(%[[COS_SLICE]], %[[RESHAPE_SHAPE]]) 
+// CHECK:           %[[SIN_RESHAPE:.*]] = "onnx.Reshape"(%[[SIN_SLICE]], %[[RESHAPE_SHAPE]]) 
+
+// CHECK:           %[[VAL_8:.*]] = "onnx.RotaryEmbedding"(%[[VAL_7]]#0, %[[COS_RESHAPE]], %[[SIN_RESHAPE]], %[[VAL_5]]) 
 // CHECK-SAME:          {interleaved = 0 : si64, num_heads = 32 : si64, rotary_embedding_dim = 0 : si64} 
-// CHECK-SAME:          : (tensor<1x128x3072xf32>, tensor<4096x48xf32>, tensor<4096x48xf32>, none) -> tensor<1x128x3072xf32>
-// CHECK:           %[[VAL_9:.*]] = "onnx.RotaryEmbedding"(%[[VAL_7]]#1, %[[VAL_3]], %[[VAL_4]], %[[VAL_5]]) 
+// CHECK-SAME:          : (tensor<1x128x3072xf32>, tensor<1x128x48xf32>, tensor<1x128x48xf32>, none) -> tensor<1x128x3072xf32>
+
+// CHECK:           %[[VAL_9:.*]] = "onnx.RotaryEmbedding"(%[[VAL_7]]#1, %[[COS_RESHAPE]], %[[SIN_RESHAPE]], %[[VAL_5]]) 
 // CHECK-SAME:          {interleaved = 0 : si64, num_heads = 16 : si64, rotary_embedding_dim = 0 : si64} 
-// CHECK-SAME:          : (tensor<1x128x1536xf32>, tensor<4096x48xf32>, tensor<4096x48xf32>, none) -> tensor<1x128x1536xf32>
+// CHECK-SAME:          : (tensor<1x128x1536xf32>, tensor<1x128x48xf32>, tensor<1x128x48xf32>, none) -> tensor<1x128x1536xf32>
+
 // CHECK:           %[[VAL_10:.*]], %[[VAL_11:.*]], %[[VAL_12:.*]], %[[VAL_13:.*]] = "onnx.Attention"(%[[VAL_8]], %[[VAL_9]], %[[VAL_7]]#2, %[[VAL_5]], %[[VAL_1]], %[[VAL_2]]) 
 // CHECK-SAME:          {is_causal = 1 : si64, kv_num_heads = 16 : si64, q_num_heads = 32 : si64, qk_matmul_output_mode = 0 : si64, softcap = 0.000000e+00 : f32} 
 // CHECK-SAME:          : (tensor<1x128x3072xf32>, tensor<1x128x1536xf32>, tensor<1x128x1536xf32>, none, tensor<1x16x256x96xf32>, tensor<1x16x256x96xf32>) -> (tensor<1x128x3072xf32>, tensor<1x16x384x96xf32>, tensor<1x16x384x96xf32>, none)
@@ -865,6 +881,68 @@ func.func @gqa_with_scale_softcap_and_qk_output_2(
 // CHECK-SAME:          {is_causal = 1 : si64, kv_num_heads = 16 : si64, q_num_heads = 32 : si64, qk_matmul_output_mode = 3 : si64, scale = 2.000000e+00 : f32, softcap = 1.000000e+01 : f32} 
 // CHECK-SAME:          : (tensor<1x128x3072xf32>, tensor<1x128x1536xf32>, tensor<1x128x1536xf32>, none, tensor<1x16x256x96xf32>, tensor<1x16x256x96xf32>) -> (tensor<1x128x3072xf32>, tensor<1x16x384x96xf32>, tensor<1x16x384x96xf32>, tensor<1x32x128x256xf32>)
 // CHECK:           return %[[VAL_7]], %[[VAL_8]], %[[VAL_9]], %[[VAL_10]] : tensor<1x128x3072xf32>, tensor<1x16x384x96xf32>, tensor<1x16x384x96xf32>, tensor<1x32x128x256xf32>
+// CHECK:         }
+
+// -----
+
+func.func @gqa_batch4_do_rotary_no_position_ids(
+  %q: tensor<4x128x3072xf32>, 
+  %k: tensor<4x128x1536xf32>, 
+  %v: tensor<4x128x1536xf32>,
+  %past_k: tensor<4x16x256x96xf32>, 
+  %past_v: tensor<4x16x256x48xf32>,
+  %cos_cache: tensor<4096x48xf32>, 
+  %sin_cache: tensor<4096x48xf32>
+) -> (tensor<4x128x3072xf32>, tensor<4x16x384x96xf32>, tensor<4x16x384x48xf32>) {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %total_seqlen = "onnx.Constant"() {value = dense<256> : tensor<i32>} : () -> tensor<i32>
+  %seqlens = "onnx.Constant"() {value = dense<255> : tensor<4x1xi32>} : () -> tensor<4x1xi32>
+  %out, %present_k, %present_v = "onnx.Custom"(%q, %k, %v, %past_k, %past_v, %seqlens, %total_seqlen, %cos_cache, %sin_cache) {
+    domain_name = "com.microsoft",
+    function_name = "GroupQueryAttention",
+    do_rotary = 1 : si64,
+    kv_num_heads = 16 : si64,
+    num_heads = 32 : si64  
+  }: (tensor<4x128x3072xf32>, tensor<4x128x1536xf32>, tensor<4x128x1536xf32>, tensor<4x16x256x96xf32>, tensor<4x16x256x48xf32>, tensor<4x1xi32>, tensor<i32>, tensor<4096x48xf32>, tensor<4096x48xf32>) -> (tensor<4x128x3072xf32>, tensor<4x16x384x96xf32>, tensor<4x16x384x48xf32>)
+  return %out, %present_k, %present_v : tensor<4x128x3072xf32>, tensor<4x16x384x96xf32>, tensor<4x16x384x48xf32>
+}
+// CHECK-LABEL:   func.func @gqa_batch4_do_rotary_no_position_ids(
+// CHECK-SAME:                                                     %[[VAL_0:.*]]: tensor<4x128x3072xf32>,
+// CHECK-SAME:                                                     %[[VAL_1:.*]]: tensor<4x128x1536xf32>, %[[VAL_2:.*]]: tensor<4x128x1536xf32>,
+// CHECK-SAME:                                                     %[[VAL_3:.*]]: tensor<4x16x256x96xf32>,
+// CHECK-SAME:                                                     %[[VAL_4:.*]]: tensor<4x16x256x48xf32>,
+// CHECK-SAME:                                                     %[[COS_CACHE:.*]]: tensor<4096x48xf32>,
+// CHECK-SAME:                                                     %[[SIN_CACHE:.*]]: tensor<4096x48xf32>) -> (tensor<4x128x3072xf32>, tensor<4x16x384x96xf32>, tensor<4x16x384x48xf32>) {
+
+// CHECK-DAG:       %[[START:.*]] = onnx.Constant dense<256> : tensor<1xi64>
+// CHECK-DAG:       %[[END:.*]] = onnx.Constant dense<384> : tensor<1xi64>
+// CHECK-DAG:       %[[AXES:.*]] = onnx.Constant dense<0> : tensor<1xi64>
+// CHECK-DAG:       %[[STEPS:.*]] = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK-DAG:       %[[RESHAPE_SHAPE:.*]] = onnx.Constant dense<[1, 128, 48]> : tensor<3xi64>
+// CHECK-DAG:       %[[BROADCAST_SHAPE:.*]] = onnx.Constant dense<[4, 128, 48]> : tensor<3xi64>
+// CHECK-DAG:       %[[NONE:.*]] = "onnx.NoValue"() {value} : () -> none
+
+// CHECK:           %[[COS_SLICE:.*]] = "onnx.Slice"(%[[COS_CACHE]], %[[START]], %[[END]], %[[AXES]], %[[STEPS]]) 
+// CHECK:           %[[SIN_SLICE:.*]] = "onnx.Slice"(%[[SIN_CACHE]], %[[START]], %[[END]], %[[AXES]], %[[STEPS]]) 
+
+// CHECK:           %[[COS_RESHAPE:.*]] = "onnx.Reshape"(%[[COS_SLICE]], %[[RESHAPE_SHAPE]]) 
+// CHECK:           %[[SIN_RESHAPE:.*]] = "onnx.Reshape"(%[[SIN_SLICE]], %[[RESHAPE_SHAPE]]) 
+
+// CHECK:           %[[COS_BROADCAST:.*]] = "onnx.Expand"(%[[COS_RESHAPE]], %[[BROADCAST_SHAPE]]) 
+// CHECK:           %[[SIN_BROADCAST:.*]] = "onnx.Expand"(%[[SIN_RESHAPE]], %[[BROADCAST_SHAPE]]) 
+
+// CHECK:           %[[VAL_8:.*]] = "onnx.RotaryEmbedding"(%[[VAL_0]], %[[COS_BROADCAST]], %[[SIN_BROADCAST]], %[[NONE]]) 
+// CHECK-SAME:          {interleaved = 0 : si64, num_heads = 32 : si64, rotary_embedding_dim = 0 : si64} 
+// CHECK-SAME:          : (tensor<4x128x3072xf32>, tensor<4x128x48xf32>, tensor<4x128x48xf32>, none) -> tensor<4x128x3072xf32>
+
+// CHECK:           %[[VAL_9:.*]] = "onnx.RotaryEmbedding"(%[[VAL_1]], %[[COS_BROADCAST]], %[[SIN_BROADCAST]], %[[NONE]]) 
+// CHECK-SAME:          {interleaved = 0 : si64, num_heads = 16 : si64, rotary_embedding_dim = 0 : si64} 
+// CHECK-SAME:          : (tensor<4x128x1536xf32>, tensor<4x128x48xf32>, tensor<4x128x48xf32>, none) -> tensor<4x128x1536xf32>
+
+// CHECK:           %[[VAL_10:.*]], %[[VAL_11:.*]], %[[VAL_12:.*]], %[[VAL_13:.*]] = "onnx.Attention"(%[[VAL_8]], %[[VAL_9]], %[[VAL_2]], %[[NONE]], %[[VAL_3]], %[[VAL_4]]) 
+// CHECK-SAME:          {is_causal = 1 : si64, kv_num_heads = 16 : si64, q_num_heads = 32 : si64, qk_matmul_output_mode = 0 : si64, softcap = 0.000000e+00 : f32} 
+// CHECK-SAME:          : (tensor<4x128x3072xf32>, tensor<4x128x1536xf32>, tensor<4x128x1536xf32>, none, tensor<4x16x256x96xf32>, tensor<4x16x256x48xf32>) -> (tensor<4x128x3072xf32>, tensor<4x16x384x96xf32>, tensor<4x16x384x48xf32>, none)
+// CHECK:           return %[[VAL_10]], %[[VAL_11:.*]], %[[VAL_12:.*]] : tensor<4x128x3072xf32>, tensor<4x16x384x96xf32>, tensor<4x16x384x48xf32>
 // CHECK:         }
 
 // -----
