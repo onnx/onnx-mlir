@@ -16,6 +16,7 @@
 #ifndef ONNX_MLIR_COMPILER_SESSION
 #define ONNX_MLIR_COMPILER_SESSION
 
+#include <stdexcept>
 #include <string>
 #include <vector>
 
