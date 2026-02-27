@@ -1569,7 +1569,8 @@ zdnn_status transform_quantized_weights_ztensor_element_wise(
         bool no_stick2 = ((output->transformed_desc->dim2 - e2x) == 1);
 
         const int8_t *stick1 = (const int8_t *)in_buf + input_offset;
-        const int8_t *stick2 = no_stick2 ? stick1
+        const int8_t *stick2 = no_stick2
+                                   ? stick1
                                    // duplicate stick1 entries if no stick2
                                    : stick1 + output->transformed_desc->dim1;
 
