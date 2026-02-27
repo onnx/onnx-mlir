@@ -31,6 +31,7 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallSet.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
@@ -41,6 +42,13 @@
 #include "src/Support/TypeUtilities.hpp"
 
 #define DEBUG_TYPE "rewrite"
+
+static llvm::cl::opt<bool> disableBatchNormDecompose(
+    "disable-batchnorm-decompose",
+    llvm::cl::desc(
+        "Disable decomposition of BatchNormInferenceMode into Conv patterns "
+        "(default=false). Set to 'true' to keep BatchNorm as a single op."),
+    llvm::cl::init(false));
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -2980,8 +2988,10 @@ struct FusePadIntoAveragePoolPattern
 void ONNXBatchNormalizationInferenceModeOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<FuseBatchNormInferenceModeConvPattern>(context);
-  results.insert<RewriteBatchNormInferenceModeConvPattern1>(context);
-  results.insert<RewriteBatchNormInferenceModeConvPattern2>(context);
+  if (!disableBatchNormDecompose) {
+    results.insert<RewriteBatchNormInferenceModeConvPattern1>(context);
+    results.insert<RewriteBatchNormInferenceModeConvPattern2>(context);
+  }
 }
 
 /// on the ONNXAddOp.
