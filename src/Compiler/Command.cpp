@@ -235,7 +235,20 @@ int Command::exec(const std::string &wdir) {
       close(fd);
     }
     execvp(path.c_str(), execArgs.data());
-    exit(127); // execvp failed.
+    // execvp failed
+    int err = errno;
+    fprintf(stderr, "Failed in Command to execute '%s': %s (errno=%d)\n",
+        path.c_str(), strerror(err), err);
+
+    // Use specific onnx-mlir error codes
+    switch (err) {
+    case ENOENT:
+      exit(onnx_mlir::CommandNotFound);
+    case EACCES:
+      exit(onnx_mlir::CommandNotExecutable);
+    default:
+      exit(onnx_mlir::CommandExecutionFailed);
+    }
   }
 
   // Parent process.

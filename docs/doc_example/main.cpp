@@ -20,7 +20,7 @@ int main(int argc, char *argv[]) {
   onnx_mlir::CompilerSession compilerSession;
   try {
     // For testing: log the compile output (stderr and stdout) in compile.log.
-    compilerSession.compile("add.onnx", flags, "compile.log");
+    compilerSession.compile("add.onnx", flags);
   } catch (const onnx_mlir::CompilerSessionException &error) {
     std::cerr << "error during compiler session: " << error.what() << std::endl;
     return 1;
@@ -33,7 +33,8 @@ int main(int argc, char *argv[]) {
   try {
     session.loadModel(compilerSession.getOutputFilename());
   } catch (const onnx_mlir::ExecutionSessionException &error) {
-    std::cerr << "error while creating execution session: " << error.what() << std::endl;
+    std::cerr << "error while creating execution session: " << error.what()
+              << std::endl;
     return 2;
   }
 
@@ -42,7 +43,8 @@ int main(int argc, char *argv[]) {
   try {
     inputSignature = session.inputSignature();
   } catch (const onnx_mlir::ExecutionSessionException &error) {
-    std::cerr << "error while loading input signature: " << error.what() << std::endl;
+    std::cerr << "error while loading input signature: " << error.what()
+              << std::endl;
     return 3;
   }
   std::cout << "Compiled add.onnx model has input signature: \""
@@ -67,7 +69,7 @@ int main(int argc, char *argv[]) {
   try {
     outputList = session.run(input);
   } catch (const onnx_mlir::ExecutionSessionException &error) {
-    std::cerr << "error while running model: " << error.what()  << std::endl;
+    std::cerr << "error while running model: " << error.what() << std::endl;
     return 5;
   }
   std::cout << "Finished running model " << std::endl;

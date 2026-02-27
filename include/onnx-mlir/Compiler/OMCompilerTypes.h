@@ -72,6 +72,9 @@ typedef enum {
   CompilerFailureInGenJni = 11,    /* Failed to lower Jni object to Jni */
   CompilerFailureInObjToLib = 12,  /* Failed to link object to a library */
   CompilerFailure = 13,            /* Failed to compile valid input file. */
+  CommandNotFound = 14,            /* Command: Executable not found. */
+  CommandNotExecutable = 15,       /* Command: No execute permission. */
+  CommandExecutionFailed = 16,     /* Command: Other exec failure. */
 } OnnxMlirCompilerErrorCodes;
 
 #ifdef __cplusplus
