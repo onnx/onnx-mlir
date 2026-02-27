@@ -221,7 +221,7 @@ static void ProcessName(
 // =============================================================================
 // Buffer management
 
-static void inline printStartReport() {
+static inline void printStartReport() {
   if (!startReportPrinted) {
     assert(fout && "expected initialized fout for reporting");
     fprintf(fout, "==START-REPORT==\n");

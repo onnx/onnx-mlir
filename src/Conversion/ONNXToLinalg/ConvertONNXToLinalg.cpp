@@ -30,8 +30,6 @@ namespace onnx_mlir {
 // ONNX to Linalg Lowering Pass
 //===----------------------------------------------------------------------===//
 
-namespace {
-
 #define GEN_PASS_DECL_CONVERTONNXTOLINALG
 #define GEN_PASS_DEF_CONVERTONNXTOLINALG
 #include "src/Conversion/ONNXToLinalg/Passes.h.inc"
@@ -61,12 +59,6 @@ struct ConvertONNXToLinalgPass
     }
   }
 };
-
-} // namespace
-
-std::unique_ptr<Pass> createConvertONNXToLinalg() {
-  return std::make_unique<ConvertONNXToLinalgPass>();
-}
 
 std::unique_ptr<Pass> createConvertONNXToLinalg(
     const std::string &linalgOps, bool useLinalgPath) {
