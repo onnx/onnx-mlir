@@ -149,9 +149,8 @@ bool ElementsAttrBuilder::allEqual(
         if (auto disposable = mlir::dyn_cast<DisposableElementsAttr>(lhs)) {
           if (disposable.isTransformedOrCast()) {
             ArrayBuffer<WideNum> nums = disposable.getBufferAsWideNums();
-            return llvm::all_of(nums.get(), [n](WideNum m) {
-              return n.narrow<TAG>() == m.narrow<TAG>();
-            });
+            return llvm::all_of(nums.get(),
+                [n](WideNum m) { return n.narrow<TAG>() == m.narrow<TAG>(); });
           } else {
             auto values = castArrayRef<cpptype>(disposable.getBufferBytes());
             return llvm::all_of(values, nEquals);
