@@ -229,9 +229,8 @@ void DevicePlacementPass::runOnOperation() {
 
   // Create a JSON configuration file if required.
   if (!saveConfigFile.empty()) {
-    configObject->writeOpsConfig(ops,
-        [&](mlir::Operation *op, llvm::json::Object &match,
-            llvm::json::Object &rewrite) -> bool {
+    configObject->writeOpsConfig(
+        ops, [&](mlir::Operation *op, llvm::json::Object &rewrite) -> bool {
           auto deviceAttr = op->getAttrOfType<mlir::StringAttr>(
               NNPAJsonConfigObject::DEVICE_ATTR);
           if (!deviceAttr)

@@ -89,9 +89,8 @@ void GenerateConfigFilePass::runOnOperation() {
   if (!outputConfigFile.empty()) {
     NNPAJsonConfigObject configObj;
 
-    configObj.writeOpsConfig(ops,
-        [&](mlir::Operation *op, llvm::json::Object &match,
-            llvm::json::Object &rewrite) -> bool {
+    configObj.writeOpsConfig(
+        ops, [&](mlir::Operation *op, llvm::json::Object &rewrite) -> bool {
           bool hasConfig = false;
 
           // Add device to rewrite if present.

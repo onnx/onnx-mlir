@@ -78,12 +78,10 @@ public:
 
   /// Build operations configuration in the JSON object.
   /// @param ops Array of operations to process.
-  /// @param buildConfigFn Callback to build match and rewrite objects for each
-  /// op.
+  /// @param buildConfigFn Callback to build the rewrite object for each op.
   ///                      Returns true if the operation should be included.
   void writeOpsConfig(llvm::ArrayRef<mlir::Operation *> ops,
-      mlir::function_ref<bool(mlir::Operation *, llvm::json::Object &match,
-          llvm::json::Object &rewrite)>
+      mlir::function_ref<bool(mlir::Operation *, llvm::json::Object &rewrite)>
           buildConfigFn);
 
   // JSON key constants for NNPA configuration.

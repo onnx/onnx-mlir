@@ -38,7 +38,7 @@ int main(int argc, char *argv[]) {
   removeUnrelatedOptions({&OnnxMlirCommonOptions, &OnnxMlirOptions});
 
   // Load options from a file given by --config-file.
-  // If --config-file is not used, looling for omconfig.json in the same folder
+  // If --config-file is not used, looking for omconfig.json in the same folder
   // as the input file.
   std::vector<std::string> extraArgs;
   loadCompileOptionsFromConfig(argc, argv, extraArgs);

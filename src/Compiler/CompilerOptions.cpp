@@ -779,7 +779,7 @@ static llvm::cl::list<std::string, std::vector<std::string>> extraLibsOpt("l",
 static llvm::cl::opt<std::string, true> configFileOpt("config-file",
     llvm::cl::desc("Path to JSON configuration file with compile options and "
                    "other settings.\nIf not specified, looks for omconfig.json "
-                   "in the current directory."),
+                   "in the same directory as the input model."),
     llvm::cl::value_desc("path"), llvm::cl::location(configFile),
     llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
 

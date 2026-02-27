@@ -132,9 +132,8 @@ void QuantOpSelectionPass::runOnOperation() {
 
   // Create a JSON configuration file if required.
   if (!saveConfigFile.empty()) {
-    configObject->writeOpsConfig(ops,
-        [&](mlir::Operation *op, llvm::json::Object &match,
-            llvm::json::Object &rewrite) -> bool {
+    configObject->writeOpsConfig(
+        ops, [&](mlir::Operation *op, llvm::json::Object &rewrite) -> bool {
           BoolAttr quantAttr = op->getAttrOfType<mlir::BoolAttr>(
               NNPAJsonConfigObject::QUANTIZE_ATTR);
           if (!quantAttr)

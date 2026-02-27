@@ -142,18 +142,13 @@ void NNPAJsonConfigObject::applyConfigToOps(
 }
 
 void NNPAJsonConfigObject::writeOpsConfig(llvm::ArrayRef<mlir::Operation *> ops,
-    mlir::function_ref<bool(mlir::Operation *, llvm::json::Object &match,
-        llvm::json::Object &rewrite)>
+    mlir::function_ref<bool(mlir::Operation *, llvm::json::Object &rewrite)>
         buildConfigFn) {
   llvm::json::Array opConfigsArray;
 
   for (mlir::Operation *op : ops) {
     llvm::json::Object match;
     llvm::json::Object rewrite;
-
-    // Let the callback build the match and rewrite objects.
-    if (!buildConfigFn(op, match, rewrite))
-      continue;
 
     // Get the operation type.
     std::string nodeType = op->getName().getStringRef().str();
@@ -165,6 +160,10 @@ void NNPAJsonConfigObject::writeOpsConfig(llvm::ArrayRef<mlir::Operation *> ops,
       match[NNPAJsonConfigObject::ONNX_NODE_NAME_KEY] =
           nameAttr.getValue().str();
     }
+
+    // Let the callback build the rewrite object.
+    if (!buildConfigFn(op, rewrite))
+      continue;
 
     // Build the pattern object.
     llvm::json::Object pattern;
