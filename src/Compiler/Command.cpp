@@ -237,8 +237,8 @@ int Command::exec(const std::string &wdir) {
     execvp(path.c_str(), execArgs.data());
     // execvp failed
     int err = errno;
-    fprintf(stderr, "Failed in Command to execute '%s': %s (errno=%d)\n",
-        path.c_str(), strerror(err), err);
+    fprintf(stderr, "Failed in Command to execute '%s': errno=%d\n",
+        path.c_str(), err);
 
     // Use specific onnx-mlir error codes
     switch (err) {
