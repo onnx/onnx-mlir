@@ -36,6 +36,7 @@
 #include <malloc.h>
 #endif // #ifdef __APPLE__
 
+#include <stdio.h>
 #include <onnx-mlir/Compiler/OMCompilerMacros.h>
 
 #ifdef __cplusplus
@@ -69,6 +70,14 @@ OM_EXTERNAL_VISIBILITY void omInstrumentPrint();
  */
 OM_EXTERNAL_VISIBILITY void OMInstrumentPoint(
     const char *opName, int64_t tag, const char *nodeName);
+
+/**
+ * Initialize fout on the first call (as fout is statically initialized to
+ * null). If ONNX_MLIR_INSTRUMENT_FILE is defined, fout will target the value in
+ * ONNX_MLIR_INSTRUMENT_FILE. Otherwise, fout default to standard out.
+ */
+
+OM_EXTERNAL_VISIBILITY FILE *getInstrumentFile(bool withPrintStartReport);
 
 #ifdef __cplusplus
 }
