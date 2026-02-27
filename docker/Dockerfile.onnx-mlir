@@ -1,3 +1,4 @@
+# This dockerfile is built using UBI-9 image.
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE} AS onnx-mlir-test
 
@@ -29,22 +30,13 @@ RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
           absl::log_internal_check_op\
           absl::log_internal_message\
           absl::log_internal_nullguard' CMakeLists.txt \
-    #
-    # To avoid the "externally managed environment" error on ubuntu,
-    # use --prefix=/usr to install into /usr/local/lib (default is
-    # /usr/lib)
-    # ubi9 doesn't have this problem and --prefix=/usr will install
-    # into /usr/lib64 (default is /usr/lib)
+    # ubi9 doesn't have "externally managed environment" problem and 
+    # --prefix=/usr is not required to be added to pip install command.
     #
     # Must specify --no-build-isolation to avoid protoc-gen-mypy.py
     # segfault on s390x
-    #
-    # Use upgrade setuptools to latest which accepts plain string license
-    # format.
-    #
-    && pip3 install --prefix=/usr --no-build-isolation --upgrade setuptools \
     && CC=clang CXX=clang++ CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib" \
-       pip3 install . --prefix=/usr --no-build-isolation \
+       pip3 install . --no-build-isolation \
     && rm -rf ${HOME}/.cache
 
 ARG NPROC=4
