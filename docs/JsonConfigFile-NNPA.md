@@ -17,10 +17,13 @@ By using a JSON file, users can currently control two following features:
 # JSON schema description
 ## Top-level keys
 
-| Key              | Type            | Description                                              |
-| ---------------- | --------------- | -------------------------------------------------------- |
-| compile_options  | array of string | List of compiler command-line options.                   |
-| nnpa_ops_config  | array of object | List of operation configurations for device placement and quantization. |
+| Key              | Type                       | Description                                                             |
+| ---------------- | -------------------------- | ----------------------------------------------------------------------- |
+| compile_options  | array of string (optional) | List of compiler command-line options.                                  |
+| nnpa_ops_config  | array of object (optional) | List of operation configurations for device placement and quantization. |
+
+## compile_options key
+- See [JSON Config File](JsonConfigFile.md)
 
 ## nnpa_ops_config[] object fields
 
@@ -33,14 +36,14 @@ Each object in the `nnpa_ops_config` array has the following structure:
 ### pattern.match fields
 
 | Field          | Type              | Description                                                             |
-| -------------- | ----------------- | ---------------------------------------------------------               |
+| -------------- | ----------------- | ----------------------------------------------------------------------- |
 | node_type      | string            | ONNX operator type (e.g., "onnx.Relu", "onnx.*").                       |
 | onnx_node_name | string (optional) | Specific ONNX node name (via a regex) to match.                         |
 
 ### pattern.rewrite fields
 
 | Field    | Type              | Description                                                             |
-| -------- | ----------------- | ---------------------------------------------------------               |
+| -------- | ----------------- | ----------------------------------------------------------------------- |
 | device   | string (optional) | Target device for execution: "cpu", "nnpa", or ""                       |
 | quantize | boolean (optional)| Whether to apply quantization (true or false).                          |
 
@@ -348,3 +351,7 @@ This JSON configuration file is to quantize four MatMul operators in the self-at
   ]
 }
 ```
+
+# Related Documentation
+- [JSON Config File](JsonConfigFile.md)
+
