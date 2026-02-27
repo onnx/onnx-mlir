@@ -42,7 +42,7 @@ RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
     # Use upgrade setuptools to latest which accepts plain string license
     # format.
     #
-    && pip3 install --prefix=/usr --no-build-isolation --ignore-installed --upgrade setuptools packaging \
+    && pip3 install --prefix=/usr --no-build-isolation --upgrade setuptools \
     && CC=clang CXX=clang++ CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib" \
        pip3 install . --prefix=/usr --no-build-isolation \
     && rm -rf ${HOME}/.cache
