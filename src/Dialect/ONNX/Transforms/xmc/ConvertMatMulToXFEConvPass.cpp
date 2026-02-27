@@ -25,7 +25,7 @@ struct ConvShapes {
   SmallVector<int64_t> stride;      // [H', W']
 };
 
-/// Factorize integer into prime factors (matches TransferMMToConvPass)
+/// Factorize integer into prime factors
 static SmallVector<int64_t> integerDecomposition(int64_t n) {
   SmallVector<int64_t> factors;
   for (int64_t i = 2; i * i <= n; ++i) {
@@ -39,11 +39,10 @@ static SmallVector<int64_t> integerDecomposition(int64_t n) {
   return factors;
 }
 
-/// Compose factors into H*W*C with constraints (matches TransferMMToConvPass)
+/// Compose factors into H*W*C with constraints
 /// Try H first if H<=W, then W, then C
-static std::tuple<int64_t, int64_t, int64_t>
-integerComposition(ArrayRef<int64_t> factors, int64_t maxH, int64_t maxW,
-                   int64_t maxC) {
+static std::tuple<int64_t, int64_t, int64_t> integerComposition(
+    ArrayRef<int64_t> factors, int64_t maxH, int64_t maxW, int64_t maxC) {
   int64_t H = 1, W = 1, C = 1;
   for (int64_t f : factors) {
     if (H * f <= maxH && H <= W) {
@@ -59,7 +58,7 @@ integerComposition(ArrayRef<int64_t> factors, int64_t maxH, int64_t maxW,
   return {H, W, C};
 }
 
-/// Decompose K into H*W*C (matches TransferMMToConvPass decomposeK)
+/// Decompose K into H*W*C
 static std::tuple<int64_t, int64_t, int64_t> decomposeK(int64_t K) {
   auto factors = integerDecomposition(K);
 
@@ -320,8 +319,7 @@ struct GemmToXFEConvPattern : public OpRewritePattern<ONNXGemmOp> {
     int64_t N = (transB == 0) ? bShape[1] : bShape[0];
     SmallVector<int64_t> effectiveAShape = {M, K_A};
     SmallVector<int64_t> effectiveBShape = {K_B, N};
-    ConvShapes convShapes =
-        computeConvShapes(effectiveAShape, effectiveBShape);
+    ConvShapes convShapes = computeConvShapes(effectiveAShape, effectiveBShape);
 
     // Use original op's result element type for conv and final output.
     auto resultType = cast<RankedTensorType>(gemmOp.getResult().getType());
@@ -334,38 +332,17 @@ struct GemmToXFEConvPattern : public OpRewritePattern<ONNXGemmOp> {
       auto permAttr = rewriter.getI64ArrayAttr({1, 0});
       auto transposedAType =
           RankedTensorType::get({aShape[1], aShape[0]}, inputElementType);
-      effectiveA = rewriter.create<ONNXTransposeOp>(
-          loc, transposedAType, A, permAttr);
+      effectiveA =
+          rewriter.create<ONNXTransposeOp>(loc, transposedAType, A, permAttr);
     }
 
-    // When input comes from Reshape(XFEConv) and XFEConv output shape matches
-    // convShapes.inputShape, use XFEConv output directly. This avoids creating
-    // Reshape [4D]->[2D] -> Reshape [2D]->[4D] that would get folded away when
-    // two consecutive Gemms convert to 1x1 XFEConvs.
-    Value reshape1Output;
-    Operation *prevReshapeOpToErase = nullptr;
-    auto reshapeOp = effectiveA.getDefiningOp<ONNXReshapeOp>();
-    if (reshapeOp && reshapeOp->hasOneUse()) {
-      Value reshapeInput = reshapeOp.getData();
-      if (auto convOp = reshapeInput.getDefiningOp<XFEConvOp>()) {
-        auto convOutType =
-            dyn_cast<RankedTensorType>(convOp.getResult().getType());
-        if (convOutType && convOutType.hasStaticShape() &&
-            convOutType.getShape() ==
-                ArrayRef<int64_t>(convShapes.inputShape)) {
-          reshape1Output = reshapeInput;
-          prevReshapeOpToErase = reshapeOp;
-        }
-      }
-    }
-    if (!reshape1Output) {
-      auto reshape1OutputType =
-          RankedTensorType::get(convShapes.inputShape, inputElementType);
-      auto shapeConst1 =
-          createShapeConstant(rewriter, loc, convShapes.inputShape);
-      reshape1Output = rewriter.create<ONNXReshapeOp>(
-          loc, reshape1OutputType, effectiveA, shapeConst1);
-    }
+    // Create first Reshape: [M, K] -> [M, H, W, C]
+    auto reshape1OutputType =
+        RankedTensorType::get(convShapes.inputShape, inputElementType);
+    auto shapeConst1 =
+        createShapeConstant(rewriter, loc, convShapes.inputShape);
+    Value reshape1Output = rewriter.create<ONNXReshapeOp>(
+        loc, reshape1OutputType, effectiveA, shapeConst1);
 
     // Format weight: [K, N] -> transpose to [N, K] -> reshape to [N, 1, 1, K]
     // (or [N, K] -> reshape directly when transB=1)
@@ -452,11 +429,6 @@ struct GemmToXFEConvPattern : public OpRewritePattern<ONNXGemmOp> {
 
     // Replace GEMM with the final Reshape output
     rewriter.replaceOp(gemmOp, reshape2Output);
-
-    // Erase the now-dead Reshape when we bypassed it (consecutive Gemm case)
-    if (prevReshapeOpToErase)
-      rewriter.eraseOp(prevReshapeOpToErase);
-
     return success();
   }
 };
