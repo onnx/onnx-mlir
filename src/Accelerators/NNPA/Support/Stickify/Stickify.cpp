@@ -668,11 +668,8 @@ zdnn_status generate_quantized_transformed_desc(
     tfrmd_desc->format = ZDNN_FORMAT_4DWEIGHTS;
     tfrmd_desc->type = ZDNN_BINARY_INT8;
     return ZDNN_STATUS_OK;
-  default:
-    return ZDNN_INVALID_TRANSFORM_TYPE;
-    // return ZDNN_STATUS(ZDNN_INVALID_TRANSFORM_TYPE,
-    //                    "Invalid transform type: %d", transform_type);
   }
+  return ZDNN_INVALID_TRANSFORM_TYPE;
 }
 
 zdnn_status generate_transformed_desc_concatenated(
