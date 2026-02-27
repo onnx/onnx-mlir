@@ -31,7 +31,6 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallSet.h"
-#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
@@ -39,16 +38,13 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include "src/Pass/Passes.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
 #define DEBUG_TYPE "rewrite"
 
-static llvm::cl::opt<bool> disableBatchNormDecompose(
-    "disable-batchnorm-decompose",
-    llvm::cl::desc(
-        "Disable decomposition of BatchNormInferenceMode into Conv patterns "
-        "(default=false). Set to 'true' to keep BatchNorm as a single op."),
-    llvm::cl::init(false));
+// Populated by configureBatchNormCanonicalization().
+static bool disableBatchNormDecompose = false;
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -3370,3 +3366,8 @@ void ONNXWhereOp::getCanonicalizationPatterns(
 // on the ONNXDequantizeLinearOp.
 void ONNXDequantizeLinearOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {}
+
+void onnx_mlir::configureBatchNormCanonicalization(
+    bool disableBatchNormDecomposeOption) {
+  disableBatchNormDecompose = disableBatchNormDecomposeOption;
+}
