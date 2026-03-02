@@ -82,7 +82,7 @@ if args.run_models:
         raise RuntimeError(
             "Environment variable PY_LIB is not set, "
             "please set it to the folder containing "
-            "PyCompileAndRuntimeXXX.so"
+            "PyOMCompileXXX.so and PyRuntimeXXX.so"
         )
     RUNTIME_DIR = os.environ["PY_LIB"]
     sys.path.append(RUNTIME_DIR)
