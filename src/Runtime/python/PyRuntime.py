@@ -40,6 +40,41 @@ else:
 
 
 class OMExecutionSession(OMExecutionSession_):
+    # def __init__(self, model_path_or_compile_session):
+    #     """
+    #     Initialize OMExecutionSession.
+    #     
+    #     Args:
+    #         model_path_or_compile_session: Either a string path to the compiled
+    #             shared library, or an OMCompileSession instance. If an
+    #             OMCompileSession is provided, the shared library path will be
+    #             obtained from compile_session.get_output_file_name().
+    #     
+    #     Example:
+    #         # Initialize with shared library path (string)
+    #         >>> session = OMExecutionSession("model.so")
+    #         
+    #         # Initialize with compile session
+    #         >>> from PyOMCompileC import OMCompileSession
+    #         >>> compiler = OMCompileSession("model.onnx", "-O3")
+    #         >>> session = OMExecutionSession(compiler)
+    #     """
+    #     # Check if it's a string path first
+    #     if isinstance(model_path_or_compile_session, str):
+    #         # It's a string path
+    #         shared_lib_path = model_path_or_compile_session
+    #     elif hasattr(model_path_or_compile_session, 'get_output_file_name'):
+    #         # It's a compile session, get the output file name
+    #         shared_lib_path = model_path_or_compile_session.get_output_file_name()
+    #     else:
+    #         raise TypeError(
+    #             "Argument must be either a string path to the shared library "
+    #             "or an OMCompileSession instance with get_output_file_name() method."
+    #         )
+    #     
+    #     # Initialize the parent class with the shared library path
+    #     super(OMExecutionSession, self).__init__(shared_lib_path)
+    
     def run(self, inputs):
         # Prepare arguments to call sess.run
         pyrun_inputs = []

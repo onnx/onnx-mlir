@@ -77,6 +77,7 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
                                ([ "$(uname -m)" = "x86_64" ] &&  echo || \
                                ([ "$(uname -m)" = "ppc64le" ] && echo || echo)))} \
     && TEST_ARGS="-march=${TEST_MARCH}" \
+    && make -j${NPROC} install && ldconfig \
     && make check-docs \
     && make check-unittest \
     && make check-multiple-models \
@@ -93,7 +94,6 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
                -j${NPROC} \
                check-onnx-backend-numerical-nnpa; \
        fi \
-    && make -j${NPROC} install && ldconfig \
 # Clean up
     && cd ${WORK_DIR} \
     && distro=$(cat /etc/os-release|grep -Po '(?<=^ID=).*'|sed 's/\"//g') \
