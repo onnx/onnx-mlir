@@ -399,19 +399,6 @@ def softmax(x, axis_value):
     return np.exp(x) / np.sum(np.exp(x), axis=axis_value, keepdims=True)
 
 
-def execute_commands(cmds):
-    if VERBOSE:
-        print(cmds)
-    out = subprocess.Popen(cmds, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    stdout, stderr = out.communicate()
-    msg = stderr.decode("utf-8") + stdout.decode("utf-8")
-    if out.returncode == -signal.SIGSEGV:
-        return (False, "Segfault")
-    if out.returncode != 0:
-        return (False, msg)
-    return (True, msg)
-
-
 def extend_model_output(model, intermediate_outputs):
     # Run shape inference to make sure we have valid tensor value infos for all
     # intermediate tensors available
@@ -898,55 +885,31 @@ class InferenceSession:
                 )
                 exit(1)
 
+            # Import the compiler session.
+            try:
+                from PyOMCompile import OMCompileSession
+            except ImportError:
+                raise RuntimeError("Set PyOMCompile in your python env.")
             # Prepare compiler arguments.
-            if True:
-                # Import the compiler session.
-                try:
-                    from PyOMCompile import OMCompileSession
-                except ImportError:
-                    raise RuntimeError("Set PyOMCompile in your python env.")
-                # Invoke the compiler.
-                log_file = ""
-                if args.write_compile_log:
-                    log_file = (
-                        args.write_compile_log
-                        if args.write_compile_log.startswith("/")
-                        else os.path.join(os.getcwd(), args.write_compile_log)
-                    )
-                    print("  Compilation log is dumped into {}".format(log_file))
-                try:
-                    start = time.perf_counter()
-                    compiler = OMCompileSession(
-                        input_model_path,
-                        args.compile_args + " -o " + output_path,
-                        log_file_name=log_file,
-                    )
-                except RuntimeError as e:
-                    raise RuntimeError(f"Compilation failed: {e}")
+            log_file = ""
+            if args.write_compile_log:
+                log_file = (
+                    args.write_compile_log
+                    if args.write_compile_log.startswith("/")
+                    else os.path.join(os.getcwd(), args.write_compile_log)
+                )
+                print("  Compilation log is dumped into {}".format(log_file))
+            # Invoke the compiler.
+            start = time.perf_counter()
+            try:
+                compiler = OMCompileSession(
+                    input_model_path,
+                    args.compile_args + " -o " + output_path,
+                    log_file_name=log_file,
+                )
+            except RuntimeError as e:
+                raise RuntimeError(f"Compilation failed: {e}")
 
-            else:
-                command_str = [ONNX_MLIR]
-                if args.compile_args:
-                    command_str += args.compile_args.split()
-                command_str += [input_model_path]
-                command_str += ["-o", output_path]
-
-                # Compile the model.
-                start = time.perf_counter()
-                ok, msg = execute_commands(command_str)
-                # Dump the compilation log into a file.
-                if args.write_compile_log:
-                    log_file = (
-                        args.write_compile_log
-                        if args.write_compile_log.startswith("/")
-                        else os.path.join(os.getcwd(), args.write_compile_log)
-                    )
-                    print("  Compilation log is dumped into {}".format(log_file))
-                    with open(log_file, "w") as f:
-                        f.write(msg)
-                if not ok:
-                    print(msg)
-                    exit(1)
         end = time.perf_counter()
         print("  took ", end - start, " seconds.\n")
 
