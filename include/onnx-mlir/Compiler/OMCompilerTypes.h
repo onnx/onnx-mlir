@@ -4,7 +4,7 @@
 
 //===---------------- OMCompilerTypes.h - C/C++ Neutral types -------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -75,7 +75,6 @@ typedef enum {
   CommandNotFound = 14,            /* Command: Executable not found. */
   CommandNotExecutable = 15,       /* Command: No execute permission. */
   CommandExecutionFailed = 16,     /* Command: Other exec failure. */
-  DebugError = 17,                 /* not to be use, for debugging only. */
 } OnnxMlirCompilerErrorCodes;
 
 #ifdef __cplusplus

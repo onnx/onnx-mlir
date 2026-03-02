@@ -57,7 +57,7 @@ public:
 
 class CompilerSession {
 public:
-  // Default constructor (compilation deferred to invocation of this->compile).
+  // Default constructor; compilation deferred to invocation of this->compile().
   CompilerSession();
   // Constructor that compiles model. Trow CompilerSessionException on compiler
   // error.
@@ -79,8 +79,8 @@ public:
 
   bool isSuccessfullyCompiled() { return successfullyCompiled; }
 
-  // Functions to support caching, where we may want to know the output file
-  // name and/or tag before compiling.
+  // Class functions to support caching, where we may want to know the output
+  // file name and/or tag before compiling.
   static std::string getInputFilename(
       const std::string &modelPath, const std::string &flags);
   static std::string getOutputFilename(

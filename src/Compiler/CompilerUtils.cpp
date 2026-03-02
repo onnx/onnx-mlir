@@ -609,10 +609,7 @@ int processInputFile(StringRef inputFilename, mlir::MLIRContext &context,
     *errorMessage = "Invalid input file \"" + inputFilename.str() +
                     "\": Either an ONNX model (.onnx or .onnxtext or .json), "
                     "or an MLIR file (.mlir) needs to be provided.";
-    // hi alex
-    // return InvalidInputFile;
-    fprintf(stderr, "%s\n", errorMessage->c_str());
-    return DebugError;
+    return InvalidInputFile;
   }
 
   if (inputIsSTDIN || inputIsONNX || inputIsONNXText || inputIsJSON) {

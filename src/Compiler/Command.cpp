@@ -238,14 +238,19 @@ int Command::exec(const std::string &wdir) {
     }
     errno = 0;
     execvp(path.c_str(), execArgs.data());
-    // execvp failed
+    // execvp failed (in the child's environment).
     int err = errno;
     fprintf(stderr, "Failed in Command to execute '%s': errno=%d\n",
         path.c_str(), err);
 
-    // Use specific onnx-mlir error codes
+    // Use specific onnx-mlir error codes. Note that if onnx-mlir is not on the
+    // execution path, then the execvp call returns with an ENOENT error (2).
+    // This is most likely due to the fact that either the onnx-mlir library was
+    // not installed a the default place, or that the PATH environment variable
+    // does not include a path to the desired onnx-mlir bin directory.
     switch (err) {
     case ENOENT:
+      // Install and/or set PATH environemnt variable.
       exit(onnx_mlir::CommandNotFound);
     case EACCES:
       exit(onnx_mlir::CommandNotExecutable);
@@ -257,7 +262,6 @@ int Command::exec(const std::string &wdir) {
   // Parent process.
   int status;
   waitpid(pid, &status, 0);
-
   if (verbose)
     printf("end exec %s\n", path.c_str());
 
