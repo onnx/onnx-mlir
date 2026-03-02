@@ -37,4 +37,9 @@ add_onnx_mlir_executable(onnx-mlir
   OMCompilerUtils
   OMOptionUtils
   )
+
+# Ensure Python bindings are built with onnx-mlir
+# since such binding are now necessary to run, for 
+# example, RunONNXModel.py.
+add_dependencies(onnx-mlir PyRuntimeC PyOMCompileC)
   
