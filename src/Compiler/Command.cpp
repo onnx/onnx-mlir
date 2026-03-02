@@ -143,7 +143,7 @@ int Command::exec(const std::string &wdir) {
   // Print command if verbose.
   if (verbose) {
     print(stdout, newWdir.string());
-    printf("begin exec\n");
+    printf("begin exec %s\n", path.c_str());
   }
 
 #ifdef _WIN32
@@ -259,7 +259,7 @@ int Command::exec(const std::string &wdir) {
   waitpid(pid, &status, 0);
 
   if (verbose)
-    printf("end exec\n");
+    printf("end exec %s\n", path.c_str());
 
   // Restore working directory.
   if (requestedNewDir) {
