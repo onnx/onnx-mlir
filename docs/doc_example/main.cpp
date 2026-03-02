@@ -20,7 +20,7 @@ int main(int argc, char *argv[]) {
   onnx_mlir::CompilerSession compilerSession;
   try {
     // For testing: log the compile output (stderr and stdout) in compile.log.
-    compilerSession.compile("add1.onnx", flags);
+    compilerSession.compile("add.onnx", flags);
   } catch (const onnx_mlir::CompilerSessionException &error) {
     std::cerr << error.what() << std::endl;
     return 1;
