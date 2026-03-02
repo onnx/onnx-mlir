@@ -61,7 +61,7 @@ PYBIND11_MODULE(PyOMCompileC, m) {
                const std::string &, const bool>(),
           py::arg("input_model_path"),
           py::arg("flags"),
-          py::arg("log_filename") = "",
+          py::arg("log_file_name") = "",
           py::arg("reuse_compiled_model") = false,
           "Compile an ONNX model.\n\n"
           "Args:\n"
@@ -70,7 +70,7 @@ PYBIND11_MODULE(PyOMCompileC, m) {
           "    flags (str): Compilation flags as a single string.\n"
           "        Examples: '-O3', '-O3 -o output_name', '--EmitLib'.\n"
           "        All onnx-mlir command-line options are supported.\n"
-          "    log_filename (str, optional): Path to log file for compilation output.\n"
+          "    log_file_name (str, optional): Path to log file for compilation output.\n"
           "        If empty (default), output goes to stdout/stderr.\n"
           "    reuse_compiled_model (bool, optional): If True, reuse existing compiled\n"
           "        model if it exists instead of recompiling. Default: False.\n\n"

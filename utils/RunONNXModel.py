@@ -899,28 +899,53 @@ class InferenceSession:
                 exit(1)
 
             # Prepare compiler arguments.
-            command_str = [ONNX_MLIR]
-            if args.compile_args:
-                command_str += args.compile_args.split()
-            command_str += [input_model_path]
-            command_str += ["-o", output_path]
+            if True:
+                # Import the compiler session.
+                try:
+                    from PyOMCompile import OMCompileSession
+                except ImportError:
+                    raise RuntimeError("Set PyOMCompile in your python env.")
+                # Invoke the compiler.
+                log_file = ""
+                if args.write_compile_log:
+                    log_file = (
+                        args.write_compile_log
+                        if args.write_compile_log.startswith("/")
+                        else os.path.join(os.getcwd(), args.write_compile_log)
+                    )
+                    print("  Compilation log is dumped into {}".format(log_file))
+                try:
+                    compiler = OMCompileSession(
+                        input_model_path,
+                        args.compile_args + " -o " + output_path,
+                        log_file_name=log_file,
+                    )
+                except RuntimeError as e:
+                    raise RuntimeError(f"Compilation failed: {e}")
 
-            # Compile the model.
-            start = time.perf_counter()
-            ok, msg = execute_commands(command_str)
-            # Dump the compilation log into a file.
-            if args.write_compile_log:
-                log_file = (
-                    args.write_compile_log
-                    if args.write_compile_log.startswith("/")
-                    else os.path.join(os.getcwd(), args.write_compile_log)
-                )
-                print("  Compilation log is dumped into {}".format(log_file))
-                with open(log_file, "w") as f:
-                    f.write(msg)
-            if not ok:
-                print(msg)
-                exit(1)
+            else:
+                command_str = [ONNX_MLIR]
+                if args.compile_args:
+                    command_str += args.compile_args.split()
+                command_str += [input_model_path]
+                command_str += ["-o", output_path]
+
+                # Compile the model.
+                start = time.perf_counter()
+                ok, msg = execute_commands(command_str)
+                # Dump the compilation log into a file.
+                if args.write_compile_log:
+                    log_file = (
+                        args.write_compile_log
+                        if args.write_compile_log.startswith("/")
+                        else os.path.join(os.getcwd(), args.write_compile_log)
+                    )
+                    print("  Compilation log is dumped into {}".format(log_file))
+                    with open(log_file, "w") as f:
+                        f.write(msg)
+                if not ok:
+                    print(msg)
+                    exit(1)
         end = time.perf_counter()
         print("  took ", end - start, " seconds.\n")
 
