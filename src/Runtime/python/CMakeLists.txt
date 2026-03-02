@@ -172,6 +172,8 @@ target_include_directories(PyOMCompileC
 target_link_libraries(PyOMCompileC
   PRIVATE
   OMCompileSession
+  onnx
+  onnx_proto
   )
 llvm_update_compile_flags(PyOMCompileC)
 
