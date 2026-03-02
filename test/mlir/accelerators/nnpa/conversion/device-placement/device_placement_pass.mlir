@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --device-placement --march=z16 --maccel=NNPA --split-input-file %s | FileCheck %s
 
+// -----
+
 module attributes {llvm.data_layout = "E-m:e-i1:8:16-i8:8:16-i64:64-f128:64-v128:64-a:8:16-n32:64", llvm.target_triple = "s390x-ibm-linux", "onnx-mlir.symbol-postfix" = "model"} {
   func.func @mnist(%arg0: tensor<1x1x28x28xf32>) -> tensor<1x10xf32> {
     %0 = onnx.Constant dense<[-0.0822488219, -0.108868778, -0.141039595, -0.204869166, -0.17913565, -0.215438381, -0.133805066, -0.195724562, -0.268250644, -0.258212209, -0.0761560649, 0.0132841459, -0.00444464432, -0.414740831, -0.17879115, -0.0386558883]> : tensor<16xf32>
@@ -43,7 +45,7 @@ module attributes {llvm.data_layout = "E-m:e-i1:8:16-i8:8:16-i64:64-f128:64-v128
 // CHECK:           [[VAR_13_:%.+]] = "onnx.Relu"([[VAR_12_]]) {device = "nnpa", onnx_node_name = "ReLU114"} : (tensor<1x16x14x14xf32>) -> tensor<1x16x14x14xf32>
 // CHECK:           [[VAR_14_:%.+]] = "onnx.MaxPoolSingleOut"([[VAR_13_]]) <{auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [3, 3], pads = [0, 0, 0, 0], storage_order = 0 : si64, strides = [3, 3]}> {device = "nnpa", onnx_node_name = "Pooling160"} : (tensor<1x16x14x14xf32>) -> tensor<1x16x4x4xf32>
 // CHECK:           [[VAR_15_:%.+]] = "onnx.Reshape"([[VAR_14_]], [[VAR_5_]]) <{allowzero = 0 : si64}> {onnx_node_name = "Times212_reshape0"} : (tensor<1x16x4x4xf32>, tensor<2xi64>) -> tensor<1x256xf32>
-// CHECK:           [[VAR_16_:%.+]] = "onnx.Gemm"([[VAR_15_]], [[VAR_8_]], [[VAR_7_]]) <{alpha = 1.000000e+00 : f32, beta = 1.000000e+00 : f32, transA = 0 : si64, transB = 0 : si64}> {device = "nnpa"} : (tensor<1x256xf32>, tensor<256x10xf32>, tensor<1x10xf32>) -> tensor<1x10xf32>
+// CHECK:           [[VAR_16_:%.+]] = "onnx.Gemm"([[VAR_15_]], [[VAR_8_]], [[VAR_7_]]) <{alpha = 1.000000e+00 : f32, beta = 1.000000e+00 : f32, transA = 0 : si64, transB = 0 : si64}> {device = "cpu"} : (tensor<1x256xf32>, tensor<256x10xf32>, tensor<1x10xf32>) -> tensor<1x10xf32>
 // CHECK:           return [[VAR_16_]] : tensor<1x10xf32>
 // CHECK:         }
 // CHECK:         "onnx.EntryPoint"() <{func = @mnist}> : () -> ()

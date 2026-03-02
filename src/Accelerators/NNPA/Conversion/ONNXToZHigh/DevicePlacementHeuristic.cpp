@@ -36,38 +36,6 @@ using namespace onnx_mlir;
 namespace {
 
 //===----------------------------------------------------------------------===//
-// Support to classify ops.
-
-bool isMappedToDevice(Operation *op) {
-  StringAttr device = op->getAttrOfType<mlir::StringAttr>(DEVICE_ATTRIBUTE);
-  return device && !device.getValue().empty();
-}
-
-bool isMappedToCPU(Operation *op) {
-  StringAttr device = op->getAttrOfType<mlir::StringAttr>(DEVICE_ATTRIBUTE);
-  return device && device.getValue().equals_insensitive(CPU_DEVICE);
-}
-
-bool isMappedToNNPA(Operation *op) {
-  StringAttr device = op->getAttrOfType<mlir::StringAttr>(DEVICE_ATTRIBUTE);
-  return device && device.getValue().equals_insensitive(NNPA_DEVICE);
-}
-
-// Determine if op is unsuitable because its not an ONNX op of interest, or it
-// is already mapped to the CPU device.
-bool isNNPAFriendlyOp(Operation *op) {
-  if (op->getDialect()->getNamespace() != ONNXDialect::getDialectNamespace())
-    return false;
-  // These ops are NNPA unfriendly. Constants are friendly.
-  if (isa<ONNXEntryPointOp, ONNXReturnOp>(op))
-    return false;
-  // If `device` is already set to CPU, it is NNPA unfriendly
-  if (isMappedToCPU(op))
-    return false;
-  return true;
-}
-
-//===----------------------------------------------------------------------===//
 // Support functions op assignment.
 
 // Return true with a debug message reporting reason for success on NNPA.
@@ -77,8 +45,7 @@ inline bool fasterOnNNPA(Operation *op, bool significant = false) {
       llvm::dbgs() << "  Significantly faster ";
     else
       llvm::dbgs() << "  Faster ";
-    llvm::dbgs() << "on NNPA model for op:";
-    op->dump();
+    llvm::dbgs() << "on NNPA model\n";
   });
   return true;
 }
@@ -90,25 +57,18 @@ inline bool fasterOnCPU(Operation *op, bool significant = false) {
       llvm::dbgs() << "  Significantly faster ";
     else
       llvm::dbgs() << "  Faster ";
-    llvm::dbgs() << "on CPU model for op:";
-    op->dump();
+    llvm::dbgs() << "on CPU model\n";
   });
   return false;
 }
 
 inline void assignToNNPA(Operation *op, MLIRContext *context) {
-  LLVM_DEBUG({
-    llvm::dbgs() << "Assign to NNPA:";
-    op->dump();
-  });
+  LLVM_DEBUG(llvm::dbgs() << "Assign to NNPA\n");
   op->setAttr(DEVICE_ATTRIBUTE, StringAttr::get(context, NNPA_DEVICE));
 }
 
 inline void assignToCPU(Operation *op, MLIRContext *context) {
-  LLVM_DEBUG({
-    llvm::dbgs() << "Assign to CPU:";
-    op->dump();
-  });
+  LLVM_DEBUG(llvm::dbgs() << "Assign to CPU\n");
   op->setAttr(DEVICE_ATTRIBUTE, StringAttr::get(context, CPU_DEVICE));
 }
 
@@ -162,13 +122,16 @@ struct DevicePlacementWithStickUnstickCost {
     nnpaCandidateOps.clear();
     nnpaNeutralOps.clear();
     module.walk([&](Operation *op) -> WalkResult {
-      // Skip ops that are NNPA unfriendly such as ops already assigned to CPU.
+      // Skip ops that are NNPA unfriendly (i.e. not ONNX ops, ONNX ops mapped
+      // to CPU).
       if (!isNNPAFriendlyOp(op))
         return WalkResult::advance();
       // Ops that cannot/may not go on NNPA but can operate on NNPA data "for
-      // free" are included here in NNPA neutral ops.
-      // I assume here (not really true) that transpose and reshape can carry
-      // the stickified data.
+      // free" are included here in NNPA neutral ops. I assume here (not really
+      // true) that transpose and reshape can carry the stickified data. Note
+      // that an op can be part of cpuOps (because they must be running on CPU)
+      // and also be part of neutralOps (because they don't force
+      // stick/unstick).
       if (isa<ONNXConstantOp, ONNXTransposeOp, ONNXReshapeOp>(op)) {
         nnpaNeutralOps.insert(op);
         return WalkResult::advance();
@@ -176,27 +139,31 @@ struct DevicePlacementWithStickUnstickCost {
       // Skip ops that the compiler determined are not suitable for NNPA.
       if (cpuOps.contains(op))
         return WalkResult::advance();
+      // Skip ops already marked for NNPA.
+      if (isMappedToNNPA(op))
+        return WalkResult::advance();
+
       // Remaining ops can be mapped to NNPA.
       nnpaCandidateOps.insert(op);
       return WalkResult::advance();
     });
 #if DEBUG >= 2
     LLVM_DEBUG({
-      llvm::dbgs() << "\nCPU Ops:\n";
+      llvm::dbgs() << "\nCPU Ops (must run on CPU):\n";
       for (auto op : cpuOps) {
         if (isa<ONNXConstantOp, func::FuncOp>(op))
           continue;
         llvm::dbgs() << "cpu ";
         op->dump();
       }
-      llvm::dbgs() << "\nNNPA Neutral Ops:\n";
+      llvm::dbgs() << "\nNNPA Neutral Ops (does not force stick/unstick):\n";
       for (auto op : nnpaNeutralOps) {
         if (isa<ONNXConstantOp, func::FuncOp>(op))
           continue;
         llvm::dbgs() << "neutral ";
         op->dump();
       }
-      llvm::dbgs() << "\nNNPA Candidate Ops:\n";
+      llvm::dbgs() << "\nNNPA Candidate Ops (may run on zAIU):\n";
       for (auto op : nnpaCandidateOps) {
         llvm::dbgs() << "candidate ";
         op->dump();
@@ -267,17 +234,17 @@ struct DevicePlacementWithStickUnstickCost {
         TODO: If migrate X to NNPA, could attribute some benefits for having
         users that are NNPA.
       */
-      double costOfUnstickOp = estimateTimeForUnstickOp(resVal);
-      double costOfStickOp = estimateTimeForStickOp(resVal);
       if (cpuOpCount > 0) {
         // Moving this op to NNPA will cost one unstick as there are one or
         // more ops that must execute on CPU.
+        double costOfUnstickOp = estimateTimeForUnstickOp(resVal);
         LLVM_DEBUG(
             llvm::dbgs() << "      +1 unstick: " << costOfUnstickOp << "\n");
         totalCostBenefit += costOfUnstickOp;
       }
       if (nnpaOpCount > 0) {
         // Moving this op to NNPA will remove the need to stick this result
+        double costOfStickOp = estimateTimeForStickOp(resVal);
         LLVM_DEBUG(
             llvm::dbgs() << "      -1 stick: " << -costOfStickOp << "\n");
         totalCostBenefit -= costOfStickOp;
@@ -312,7 +279,8 @@ struct DevicePlacementWithStickUnstickCost {
       classifyValueUsage(inputVal, /*skip op X that we are analyzing*/ opX,
           cpuOpCount, nnpaOpCount, nnpaCandidateOpCount, nnpaNeutralOpCount);
       /*
-        Case study:
+        Case study for OP X:
+        Case 3 & 5: def is on CPU        | Case 4 & 6: def is on NNPA
         3) Op X remains on CPU           | 4) Op X remains on CPU
                   def.CPU ----.          |        def.NNPA -----.
                 /    |    \     \        |      /     |    \     \
@@ -331,14 +299,14 @@ struct DevicePlacementWithStickUnstickCost {
 
         placing X on NNPA:               |
             cost: +1 stick if first NNPA |
-            benefit:                     | -1 stick
+            benefit:                     | -1 unstick if (last) no CPU
       */
-      double costOfStickOp = estimateTimeForStickOp(inputVal);
       if (isMappedToCPU(definingOp) ||
           !(nnpaCandidateOps.contains(definingOp) ||
               nnpaNeutralOps.contains(definingOp))) {
         // Case 5.
         if (nnpaOpCount == 0) {
+          double costOfStickOp = estimateTimeForStickOp(inputVal);
           LLVM_DEBUG(llvm::dbgs() << "      def-op on cpu (case 5), +1 stick "
                                   << costOfStickOp << ".\n");
           totalCostBenefit += costOfStickOp;
@@ -346,9 +314,13 @@ struct DevicePlacementWithStickUnstickCost {
       }
       if (isMappedToNNPA(definingOp)) {
         // Case 6.
-        LLVM_DEBUG(llvm::dbgs() << "      def-op on NNPA (case 6), -1 stick "
-                                << -costOfStickOp << ".\n");
-        totalCostBenefit -= costOfStickOp;
+        if (cpuOpCount == 0) {
+          double costOfUnstickOp = estimateTimeForUnstickOp(inputVal);
+          LLVM_DEBUG(llvm::dbgs()
+                     << "      def-op on NNPA (case 6), -1 unstick "
+                     << -costOfUnstickOp << ".\n");
+          totalCostBenefit -= costOfUnstickOp;
+        }
       }
     }
     return totalCostBenefit;
@@ -367,7 +339,7 @@ struct DevicePlacementWithStickUnstickCost {
       bool &significant) {
     LLVM_DEBUG({
       llvm::dbgs()
-          << "\nTest cost-benefit with stick/unstick of CPU/NNPA for op\n";
+          << "\nTest cost-benefit with stick/unstick of CPU/NNPA for op\n  ";
       op->dump();
     });
     // Estimate time
@@ -378,23 +350,26 @@ struct DevicePlacementWithStickUnstickCost {
       double inputCostBenefit = costBenefitIncurredForInputs(op);
       nnpaTimeWithOverheads = nnpaTime + useCostBenefit + inputCostBenefit;
       LLVM_DEBUG(llvm::dbgs()
-                 << "  New estimated nnpa time with stick/unstick:"
-                 << nnpaTimeWithOverheads << " vs cpu " << cpuTime << ".\n");
+                 << "  New estimated nnpa time (" << nnpaTime
+                 << ") with stick/unstick:" << nnpaTimeWithOverheads
+                 << " vs cpu " << cpuTime << ".\n");
     } else {
       // No performance model for this operation, assume faster on NNPA;
       cpuTime = 10;
       nnpaTime = nnpaTimeWithOverheads = 1;
-      LLVM_DEBUG(llvm::dbgs() << "    no time estimate, assume NNPA better\n.");
+      LLVM_DEBUG(llvm::dbgs() << "    no time estimate, assume NNPA better\n");
     }
     if (nnpaTimeWithOverheads * minFactor <= cpuTime) {
       // For significant, don't take overheads into account as it may change
-      // depending on mapping.
+      // depending on mapping, namely use nnpaTime instead of
+      // nnpaTimeWithOverheads.
       significant =
           significantlyFaster(nnpaTime, cpuTime, significantNNPAFactor);
       return fasterOnNNPA(op, significant);
     }
     // For significant, don't take overheads into account as it may change
-    // depending on mapping.
+    // depending on mapping, , namely use nnpaTime instead of
+    // nnpaTimeWithOverheads.
     significant = significantlyFaster(cpuTime, nnpaTime, significantCPUFactor);
     return fasterOnCPU(op, significant);
   }
@@ -456,8 +431,18 @@ void PlaceBeneficialOpsOnNNPAWithStickUnstick(MLIRContext *context,
     bool last = (i == ub - 1);
     LLVM_DEBUG(llvm::dbgs() << "\n\n\nPlacement Iteration " << i << "\n\n");
     for (Operation *op : ops) {
-      if (isMappedToDevice(op))
+      if (isMappedToDevice(op)) {
+        LLVM_DEBUG({
+          if (isMappedToCPU(op))
+            llvm::dbgs() << "\nSkip as operations is mapped to cpu\n  ";
+          else if (isMappedToNNPA(op))
+            llvm::dbgs() << "\nSkip as operations is mapped to NNPA\n  ";
+          else
+            llvm_unreachable("expected CPU or NNPA only here");
+          op->dump();
+        });
         continue;
+      }
       // Op that cannot go on NNPA.
       if (cpuOps.contains(op))
         continue;

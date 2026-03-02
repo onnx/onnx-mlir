@@ -1,4 +1,4 @@
-// RUN: ccfd=$(dirname %s)/ccfd.onnx && curl -L https://github.com/IBM/ai-on-z-fraud-detection/raw/main/onnx%20models/ccf_lstm_static_tf2onnx_OS_new.onnx -o ${ccfd} && onnx-mlir --march=z17 --maccel=NNPA --disable-compiler-stick-unstick --nnpa-disable-saturation --EmitMLIR --printIR -tag="test" ${ccfd} | FileCheck %s && rm -rf ${ccfd}
+// RUN: ccfd=$(dirname %s)/ccfd.onnx && curl -L https://github.com/IBM/ai-on-z-fraud-detection/raw/main/onnx%20models/ccf_lstm_static_tf2onnx_OS_new.onnx -o ${ccfd} && onnx-mlir --march=z17 --maccel=NNPA --disable-compiler-stick-unstick --nnpa-disable-saturation --nnpa-placement-heuristic=QualifyingOps --EmitMLIR --printIR -tag="test" ${ccfd} | FileCheck %s && rm -rf ${ccfd}
 
 // -----
 

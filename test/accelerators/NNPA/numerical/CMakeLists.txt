@@ -40,8 +40,10 @@ function(add_numerical_test test_name)
   endif ()
 
   # Optimization level set by ONNX_MLIR_TEST_OPTLEVEL, defaults to 3
+  # Disable NNPA cost benefit model so that even small tensors compuations are sent
+  # to the NNPA.
   add_test(NAME ${test_name}
-    COMMAND ${test_name} -O${ONNX_MLIR_TEST_OPTLEVEL} --march=z16 --maccel=NNPA
+    COMMAND ${test_name} -O${ONNX_MLIR_TEST_OPTLEVEL} --march=z16 --maccel=NNPA --nnpa-placement-heuristic=QualifyingOps
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     )
   set_tests_properties(${test_name} PROPERTIES LABELS numerical-nnpa)

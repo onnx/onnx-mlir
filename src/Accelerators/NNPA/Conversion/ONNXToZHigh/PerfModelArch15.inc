@@ -78,6 +78,23 @@ static double arch15_estimatedTimeForNNPA_Gelu_3ds(
          3.5747990810417806e-11 * complexity2;
 }
 
+// Operation LeakyRelu_3ds: estimated times.
+static double arch15_estimatedTimeForCPU_LeakyRelu_3ds(
+    double e3, double e2, double e1) {
+  double complexity = e3 * e2 * e1;
+  // Regression for CPU with r2 = 0.9927591502177014
+  return 1.421687588512398e-07 + 1.0817953556686182e-10 * complexity;
+}
+// Operation LeakyRelu_3ds: estimated times.
+static double arch15_estimatedTimeForNNPA_LeakyRelu_3ds(
+    double e3, double e2, double e1) {
+  double complexity = e3 * ms_ceiling(e2, 2.0) * ms_ceiling(e1, 64.0);
+  double complexity2 = e3 * ms_ceiling(e2, 32.0) * ms_ceiling(e1, 64.0);
+  // Regression for NNPA with r2 = 0.9992097376478082
+  return 1.63598420569257e-06 + 2.3256987782358853e-11 * complexity +
+         2.3256987782358853e-11 * complexity2;
+}
+
 // Operation Log_3ds: estimated times.
 static double arch15_estimatedTimeForCPU_Log_3ds(
     double e3, double e2, double e1) {
@@ -315,6 +332,23 @@ static double arch15_estimatedTimeForNNPA_Softmax_3ds(
   // Regression for NNPA with r2 = 0.7698271519020907
   return -1.6582951337863099e-06 + 9.546897460120308e-10 * complexity +
          9.546897460120308e-10 * complexity2;
+}
+
+// Operation Sqrt_3ds: estimated times.
+static double arch15_estimatedTimeForCPU_Sqrt_3ds(
+    double e3, double e2, double e1) {
+  double complexity = e3 * e2 * e1;
+  // Regression for CPU with r2 = 0.9999997444067408
+  return 5.101845573917828e-07 + 1.7025150507233224e-09 * complexity;
+}
+// Operation Sqrt_3ds: estimated times.
+static double arch15_estimatedTimeForNNPA_Sqrt_3ds(
+    double e3, double e2, double e1) {
+  double complexity = e3 * ms_ceiling(e2, 2.0) * ms_ceiling(e1, 64.0);
+  double complexity2 = e3 * ms_ceiling(e2, 32.0) * ms_ceiling(e1, 64.0);
+  // Regression for NNPA with r2 = 0.9998815342680107
+  return 2.172164509330741e-06 + 5.890438783443371e-11 * complexity +
+         5.890438783443371e-11 * complexity2;
 }
 
 // Operation Stick_3ds: estimated times.
