@@ -75,6 +75,7 @@ typedef enum {
   CommandNotFound = 14,            /* Command: Executable not found. */
   CommandNotExecutable = 15,       /* Command: No execute permission. */
   CommandExecutionFailed = 16,     /* Command: Other exec failure. */
+  DebugError = 17,                 /* not to be use, for debugging only. */
 } OnnxMlirCompilerErrorCodes;
 
 #ifdef __cplusplus
