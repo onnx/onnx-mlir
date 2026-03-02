@@ -55,7 +55,7 @@ add_onnx_mlir_library(OMInstrument
 
 add_onnx_mlir_library(BufferOMPLoopHoist
   BufferOMPLoopHoist.cpp
-  
+
   DEPENDS
   OMTransformsPassIncGen
 
@@ -65,4 +65,15 @@ add_onnx_mlir_library(BufferOMPLoopHoist
   MLIRFuncDialect
   MLIRMemRefDialect
   OMOptionUtils
+  )
+
+add_onnx_mlir_library(OMConvertAttrToDiscardable
+  ConvertAttrToDiscardable.cpp
+
+  DEPENDS
+  OMTransformsPassIncGen
+
+  LINK_LIBS PUBLIC
+  MLIRPass
+  OMSupport
   )
