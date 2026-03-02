@@ -14,12 +14,11 @@ namespace onnx_mlir {
 class ONNXCSEOperationInfo : public DenseMapInfo<Operation *> {
 public:
   static unsigned getHashValue(const Operation *opC) {
-    auto *op = const_cast<Operation *>(opC);
-    auto hash = llvm::hash_combine(op->getName(), op->hashProperties());
-    for (auto operand : op->getOperands())
-      hash = llvm::hash_combine(hash, hash_value(operand));
-    hash = llvm::hash_combine(hash, op->getResultTypes());
-    return hash;
+    return OperationEquivalence::computeHash(const_cast<Operation *>(opC),
+        /*hashOperands=*/OperationEquivalence::directHashValue,
+        /*hashResults=*/OperationEquivalence::ignoreHashValue,
+        OperationEquivalence::IgnoreLocations |
+            OperationEquivalence::IgnoreDiscardableAttrs);
   }
 
   static bool isEqual(const Operation *lhsC, const Operation *rhsC) {
@@ -30,26 +29,10 @@ public:
     if (lhs == getTombstoneKey() || lhs == getEmptyKey() ||
         rhs == getTombstoneKey() || rhs == getEmptyKey())
       return false;
-
-    if (lhs->getName() != rhs->getName() ||
-        lhs->getNumOperands() != rhs->getNumOperands() ||
-        lhs->getNumResults() != rhs->getNumResults() ||
-        !lhs->getName().compareOpProperties(
-            lhs->getPropertiesStorage(), rhs->getPropertiesStorage()))
-      return false;
-
-    for (auto [lhsO, rhsO] :
-        llvm::zip(lhs->getOperands(), rhs->getOperands())) {
-      if (lhsO != rhsO)
-        return false;
-    }
-
-    for (auto [lhsR, rhsR] : llvm::zip(lhs->getResults(), rhs->getResults())) {
-      if (lhsR.getType() != rhsR.getType())
-        return false;
-    }
-
-    return true;
+    return OperationEquivalence::isEquivalentTo(const_cast<Operation *>(lhsC),
+        const_cast<Operation *>(rhsC),
+        OperationEquivalence::IgnoreLocations |
+            OperationEquivalence::IgnoreDiscardableAttrs);
   }
 };
 
@@ -74,10 +57,8 @@ public:
         if (!memInterface.hasNoEffect())
           continue;
       }
-      llvm::errs() << "Op: " << op << '\n';
-      auto foundOpIter = knownOps.find(&op);
-      if (foundOpIter != knownOps.end()) {
-        llvm::errs() << "Matched\n";
+      if (auto foundOpIter = knownOps.find(&op);
+          foundOpIter != knownOps.end()) {
         op.replaceAllUsesWith((*foundOpIter)->getResults());
         opsToErase.insert(&op);
         continue;
