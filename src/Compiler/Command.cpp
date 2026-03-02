@@ -141,10 +141,8 @@ int Command::exec(const std::string &wdir) {
     }
   }
   // Print command if verbose.
-  if (verbose) {
+  if (verbose)
     print(stdout, newWdir.string());
-    printf("begin exec %s\n", path.c_str());
-  }
 
 #ifdef _WIN32
   // Windows implementation using CreateProcess.
@@ -262,8 +260,6 @@ int Command::exec(const std::string &wdir) {
   // Parent process.
   int status;
   waitpid(pid, &status, 0);
-  if (verbose)
-    printf("end exec %s\n", path.c_str());
 
   // Restore working directory.
   if (requestedNewDir) {
