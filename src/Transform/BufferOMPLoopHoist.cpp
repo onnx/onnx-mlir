@@ -7,14 +7,12 @@
 #include "mlir/IR/Operation.h"
 #include "mlir/Interfaces/LoopLikeInterface.h"
 
-#include "src/Pass/Passes.hpp"
-
 #define DEBUG_TYPE "buffer-omploop-hoisting"
 
 using namespace mlir;
 
-namespace {
-
+namespace onnx_mlir {
+namespace buffer_omp_loop_hoisting {
 /* Include the definition of BufferOMPLoopHoistingBase from Passes.h.inc,
  * which is generated from Passes.td.
  * All the implementation of this pass is put in the anonymous name space
@@ -22,9 +20,16 @@ namespace {
  */
 #define GEN_PASS_DEF_BUFFEROMPLOOPHOISTINGPASS
 #include "src/Transform/Passes.h.inc"
+} // namespace buffer_omp_loop_hoisting
+} // namespace onnx_mlir
 
+using namespace onnx_mlir;
+using namespace onnx_mlir::buffer_omp_loop_hoisting;
+
+namespace {
 struct BufferOMPLoopHoistingPass
-    : public impl::BufferOMPLoopHoistingPassBase<BufferOMPLoopHoistingPass> {
+    : public buffer_omp_loop_hoisting::impl::BufferOMPLoopHoistingPassBase<
+          BufferOMPLoopHoistingPass> {
   void runOnOperation() override;
 };
 
@@ -147,9 +152,17 @@ void BufferOMPLoopHoistingPass::runOnOperation() {
 } // namespace
 
 namespace onnx_mlir {
+
 // This function will be used outside to insert this pass to pass manager.
 // Since it is a pass in onnx-mlir project, name space onnx_mlir is used.
+// The Passes.td already generated createBufferOMPLoopHoistingPass().
+// Reasons to wrap it with a new function:
+// * name space management. The implementation by Passes.h.inc is included in
+// an isolated name space.
+// * argument management. The table gen create constructor with the PassOption.
+// You may pass the members in PassOption directly as parameter without
+// create PassOption by user.
 std::unique_ptr<Pass> createBufferOMPLoopHoistingPass() {
-  return std::make_unique<BufferOMPLoopHoistingPass>();
+  return buffer_omp_loop_hoisting::createBufferOMPLoopHoistingPass();
 };
 } // namespace onnx_mlir
