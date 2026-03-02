@@ -103,6 +103,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   // In future, only the dynamic pass, ONNXOpTransformPass, will be used for
   // this function.
 
+  configureBatchNormCanonicalization(opts.disableBatchNormDecompose);
+
   if (!donotScrubDisposableElementsAttr)
     pm.addInstrumentation(
         std::make_unique<DisposableGarbageCollector>(pm.getContext()));
