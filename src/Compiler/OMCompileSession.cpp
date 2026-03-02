@@ -61,7 +61,6 @@ void CompilerSession::compile(const std::string &modelPath,
   compile.appendList(flagVect);
   if (!modelPath.empty())
     compile.appendStr(inputFilename);
-  compile.print();
   if (!logFilename.empty())
     compile.redirectExecStreams(logFilename);
   int status = compile.exec();
