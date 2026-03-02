@@ -915,6 +915,7 @@ class InferenceSession:
                     )
                     print("  Compilation log is dumped into {}".format(log_file))
                 try:
+                    start = time.perf_counter()
                     compiler = OMCompileSession(
                         input_model_path,
                         args.compile_args + " -o " + output_path,

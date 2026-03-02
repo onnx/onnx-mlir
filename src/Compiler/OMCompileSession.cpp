@@ -57,7 +57,7 @@ void CompilerSession::compile(const std::string &modelPath,
   std::string onnxMlirPath = "onnx-mlir";
 #endif
   // Execute onnx-mlir command with arguments.
-  onnx_mlir::Command compile(onnxMlirPath, /*verbose*/ true);
+  onnx_mlir::Command compile(onnxMlirPath);
   compile.appendList(flagVect);
   if (!modelPath.empty())
     compile.appendStr(inputFilename);
