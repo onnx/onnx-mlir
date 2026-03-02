@@ -20,9 +20,9 @@ int main(int argc, char *argv[]) {
   onnx_mlir::CompilerSession compilerSession;
   try {
     // For testing: log the compile output (stderr and stdout) in compile.log.
-    compilerSession.compile("add.onnx", flags);
+    compilerSession.compile("add1.onnx", flags);
   } catch (const onnx_mlir::CompilerSessionException &error) {
-    std::cerr << "error during compiler session: " << error.what() << std::endl;
+    std::cerr << error.what() << std::endl;
     return 1;
   }
   std::cout << "Compiled succeeded with results in file: "

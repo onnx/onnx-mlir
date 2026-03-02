@@ -17,6 +17,7 @@
 
 #include "onnx-mlir/Compiler/OMCompilerTypes.h"
 #include "src/Compiler/Command.hpp"
+#include "src/Compiler/CompilerOptions.hpp"
 
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/OwningOpRef.h"

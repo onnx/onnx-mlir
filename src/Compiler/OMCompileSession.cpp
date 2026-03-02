@@ -66,8 +66,10 @@ void CompilerSession::compile(const std::string &modelPath,
     compile.redirectExecStreams(logFilename);
   int status = compile.exec();
   if (status != OnnxMlirCompilerErrorCodes::CompilerSuccess) {
+    std::string errorMessage(
+        onnx_mlir::getOnnxMlirCompilerErrorDescription(status));
     throw CompilerSessionException(
-        "Compilation failed with error code " + std::to_string(status));
+        "Compilation failed with error code: " + errorMessage);
   }
   // Success, save filename of output, using an absolute path to increase
   // success of dlopen calls.. Below is why (according to man)

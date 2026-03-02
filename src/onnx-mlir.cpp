@@ -42,7 +42,7 @@ int main(int argc, char *argv[]) {
           getVendorName() + " - A modular optimizer driver\n", &llvm::errs(),
           nullptr, customEnvFlags.c_str())) {
     llvm::errs() << "Failed to parse options\n";
-    return 1;
+    return OnnxMlirCompilerErrorCodes::InvalidCompilerOptions;
   }
   initCompilerConfig();
 
@@ -105,7 +105,7 @@ int main(int argc, char *argv[]) {
   if (rc != 0) {
     if (!errorMessage.empty())
       llvm::errs() << errorMessage << "\n";
-    return 1;
+    return rc;
   }
   inputFileTiming.stop();
   return compileModule(module, context, outputBaseName, emissionTarget);
