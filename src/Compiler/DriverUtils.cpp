@@ -110,8 +110,8 @@ std::string getInputFilename(
     const std::string &arg = flags[i];
     if (!arg.empty() && arg[0] == '-')
       continue;
-    // Check if it ends with ".c".
-    if ((arg.length() >= 4 && arg.substr(arg.length() - 4) == ".mlir") ||
+    // Check if it ends with ".onnx, mlir, or onnxtext".
+    if ((arg.length() >= 5 && arg.substr(arg.length() - 5) == ".mlir") ||
         (arg.length() >= 5 && arg.substr(arg.length() - 5) == ".onnx") ||
         (arg.length() >= 9 && arg.substr(arg.length() - 9) == ".onnxtext"))
       return arg;
