@@ -73,8 +73,6 @@ extern llvm::cl::opt<bool> nnpaDisableCompilerStickUnstick;
 extern llvm::cl::opt<bool> nnpaEnableScalarBcastBinary;
 extern llvm::cl::opt<NNPAPlacementHeuristic> nnpaPlacementHeuristic;
 extern llvm::cl::opt<bool> profileZHighIR;
-extern llvm::cl::opt<std::string> nnpaLoadConfigFile;
-extern llvm::cl::opt<std::string> nnpaSaveConfigFile;
 extern llvm::cl::opt<bool> nnpaDisableSaturation;
 extern llvm::cl::opt<bool> nnpaUseDynamicQuantizeLinearOnCPU;
 extern llvm::cl::opt<bool> nnpaUseDynamicQuantizeLinearOnCPUForScaleOffset;
