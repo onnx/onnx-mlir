@@ -64,8 +64,8 @@ static void checkEndianness(const char constPackIsLE) {
 static bool omMallocAndReadFile(
     void **constAddr, int fd, char *fname, int64_t size) {
   #define LOADING_SENTINEL ((void*)1)
-  #define MAX_WAIT_MS 60000  // 60 seconds timeout
-  #define SLEEP_MS 10        // 10ms between checks
+  #define MAX_WAIT_MS 300000  // 300 seconds timeout
+  #define SLEEP_MS 10         // 10ms between checks
   
   // Try to claim the loading slot with sentinel
   void *expected = NULL;
@@ -143,6 +143,8 @@ static bool omMallocAndReadFile(
     offset += chunkSize;
     remaining -= chunkSize;
   }
+  
+  errno = 0;
   
   // Successfully loaded - update constAddr with real pointer
   constAddr[0] = tempAddr;
@@ -235,8 +237,6 @@ bool omMMapBinaryFile(
       munmap(tempAddr, size);
     }
   }
-  
-  #undef MAX_MMAP_SIZE
 #else
   void *tempAddr = mmap(0, size, PROT_READ, MAP_SHARED, fd, 0);
   if (tempAddr == MAP_FAILED) {
@@ -261,8 +261,6 @@ bool omMMapBinaryFile(
   close(fd);
   if (basePath)
     free(filePath);
-  
-  errno = 0;
   return true;
 }
 
