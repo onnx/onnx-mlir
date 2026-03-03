@@ -40,6 +40,8 @@
 #include <type_traits>
 #include <utility>
 
+#include <iostream>
+
 #define DEBUG_TYPE "replace-qdq-eltwise"
 
 using namespace mlir;
@@ -66,20 +68,54 @@ static IntegerAttr getSI64Attr(PatternRewriter &rewriter, int64_t value) {
   return rewriter.getIntegerAttr(si64, value);
 }
 
-// For LeakyRelu ops, return (leakyrelu_alpha, prelu_in, prelu_shift); else
-// empty attrs. Used by Pattern 1 so LeakyRelu is handled in the generic path.
-static std::tuple<FloatAttr, IntegerAttr, IntegerAttr>
-getLeakyReluAttrsIfApplicable(Operation *op, PatternRewriter &rewriter) {
-  auto leakyOp = dyn_cast<ONNXLeakyReluOp>(op);
-  if (!leakyOp) {
-    return {FloatAttr(), IntegerAttr(), IntegerAttr()};
+
+// Canonicalize activation op types following the xcompiler ReplaceQDQConvPass
+// convention. Alpha == 26/256 is the native HW leaky-relu; all other alphas
+// (including 0 from plain ReLU) are PRELU with integer mul/shift factors.
+// Returns {mappedOpType, leakyrelu_alpha, prelu_in, prelu_shift}.
+// mappedOpType is empty when no remapping is needed.
+static constexpr float kNativeLeakyReluAlpha = 26.0f / 256.0f;
+
+// ReLU on UINT8 with zero_point=0 is a no-op: unsigned values are already
+// non-negative, so clamping at zero has no effect.
+static bool isReluNoOp(Operation *op) {
+  if (!isa<ONNXReluOp>(op))
+    return false;
+  auto resultType = op->getResult(0).getType();
+  auto tensorType = mlir::dyn_cast<RankedTensorType>(resultType);
+  if (!tensorType)
+    return false;
+  auto uq = mlir::dyn_cast<mlir::quant::UniformQuantizedType>(
+      tensorType.getElementType());
+  if (!uq)
+    return false;
+  if (uq.getStorageType().isUnsignedInteger(8) && uq.getZeroPoint() == 0) {
+    std::cout << "isReluNoOp true" << std::endl;
   }
-  FloatAttr alphaAttr = leakyOp.getAlphaAttr();
-  float alpha = alphaAttr ? alphaAttr.getValue().convertToFloat() : 0.01f;
-  if (!alphaAttr)
-    alphaAttr = rewriter.getFloatAttr(rewriter.getF32Type(), alpha);
-  auto [M, N] = getLeakyReluAlphaToPreluFactor(alpha);
-  return {alphaAttr, getSI64Attr(rewriter, M), getSI64Attr(rewriter, N)};
+  return uq.getStorageType().isUnsignedInteger(8) && uq.getZeroPoint() == 0;
+}
+
+static std::tuple<StringRef, FloatAttr, IntegerAttr, IntegerAttr>
+computeActivationMapping(Operation *op, PatternRewriter &rewriter) {
+  auto mapAlpha = [&](float alpha) {
+    auto alphaAttr = rewriter.getFloatAttr(rewriter.getF32Type(), alpha);
+    auto [M, N] = getLeakyReluAlphaToPreluFactor(alpha);
+    StringRef opType =
+        (alpha == kNativeLeakyReluAlpha) ? "LEAKYRELU" : "PRELU";
+    return std::make_tuple(opType, alphaAttr, getSI64Attr(rewriter, M),
+                           getSI64Attr(rewriter, N));
+  };
+  if (isa<ONNXReluOp>(op)) {
+    if (isReluNoOp(op))
+      return {"", FloatAttr(), IntegerAttr(), IntegerAttr()};
+    return mapAlpha(0.0f);
+  }
+  if (auto leakyOp = dyn_cast<ONNXLeakyReluOp>(op)) {
+    FloatAttr alphaAttr = leakyOp.getAlphaAttr();
+    float alpha = alphaAttr ? alphaAttr.getValue().convertToFloat() : 0.01f;
+    return mapAlpha(alpha);
+  }
+  return {"", FloatAttr(), IntegerAttr(), IntegerAttr()};
 }
 
 // True if value is produced by an eltwise op that Pattern 2 fuses with Relu/
@@ -188,6 +224,7 @@ struct FuseQuantizedEltwiseWithoutActivation
 
   LogicalResult matchAndRewrite(
       EltwiseOp eltwiseOp, PatternRewriter &rewriter) const override {
+    std::cout << "FuseQuantizedEltwiseWithoutActivation" << std::endl;
     // Handle unary and binary eltwise ops.
     Value a = nullptr, b = nullptr;
     bool isUnary = false;
@@ -232,15 +269,22 @@ struct FuseQuantizedEltwiseWithoutActivation
     LLVM_DEBUG(llvm::dbgs()
                << "Fusing quantized eltwise into onnx.XCOMPILERFusedEltwise: "
                << eltwiseOp->getName() << "\n");
-
+               
+    // ReLU on UINT8 with zero_point=0 is a no-op: remove it entirely.
+    if (isUnary && isReluNoOp(eltwiseOp.getOperation())) {
+      rewriter.replaceOp(eltwiseOp, a);
+      return success();
+    }
     // Only create IR (e.g. onnx.NoValue) after we know we will rewrite.
     if (isUnary)
       b = rewriter.create<ONNXNoneOp>(eltwiseOp.getLoc()).getResult();
 
-    auto [leakyAlpha, preluIn, preluShift] =
-        getLeakyReluAttrsIfApplicable(eltwiseOp.getOperation(), rewriter);
-    // Verifier requires nonlinear=LEAKYRELU when leakyrelu_alpha/prelu_* are
-    // set.
+    auto [mappedOpType, leakyAlpha, preluIn, preluShift] =
+        computeActivationMapping(eltwiseOp.getOperation(), rewriter);
+    if (!mappedOpType.empty())
+      opType = mappedOpType;
+    
+    // Verifier requires nonlinear=="LEAKYRELU" when prelu attrs are present.
     StringRef nonlinear = leakyAlpha ? "LEAKYRELU" : "NONE";
 
     auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(eltwiseOp.getLoc(),

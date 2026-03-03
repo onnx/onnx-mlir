@@ -10,7 +10,7 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
-
+#include "mlir/Dialect/Quant/IR/QuantTypes.h"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 
@@ -818,6 +818,10 @@ struct TransferResizeLinearToDwConv
 
     auto inputType = mlir::dyn_cast<RankedTensorType>(input.getType());
     if (!inputType)
+      return failure();
+
+    // Skip if the input is quantized <E2><80><94> this pass only handles float tensors.
+    if (mlir::isa<mlir::quant::QuantizedType>(inputType.getElementType()))
       return failure();
 
     // Only handle linear/trilinear resize
