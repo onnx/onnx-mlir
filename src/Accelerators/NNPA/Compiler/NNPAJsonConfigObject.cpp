@@ -82,12 +82,12 @@ void NNPAJsonConfigObject::constructTensorInfo(
   tensorInfoObj["dims"] = std::move(dimObj);
 }
 
-bool matchNodeType(mlir::Operation *op, std::regex re) {
+bool NNPAJsonConfigObject::matchNodeType(mlir::Operation *op, std::regex re) {
   std::string opName = op->getName().getStringRef().str();
   return std::regex_match(opName, re);
 }
 
-bool matchNodeName(mlir::Operation *op, std::regex re) {
+bool NNPAJsonConfigObject::matchNodeName(mlir::Operation *op, std::regex re) {
   if (auto nameAttr =
           op->getAttrOfType<mlir::StringAttr>(ONNX_NODE_NAME_ATTR)) {
     std::string name = nameAttr.getValue().str();
@@ -170,7 +170,7 @@ void NNPAJsonConfigObject::applyConfigToOps(
         continue;
 
       // Check onnx_node_name if specified.
-      if (hasNodeNamePattern && !matchNodeName(op, nodeNameRegex))
+      if (hasNodeNamePattern && !matchNodeName(op, onnxNodeNameRegex))
         continue;
 
       // Check the tensor information.
@@ -212,13 +212,12 @@ void NNPAJsonConfigObject::writeOpsConfig(llvm::ArrayRef<mlir::Operation *> ops,
 
     // Get the operation type.
     std::string nodeType = op->getName().getStringRef().str();
-    match[NNPAJsonConfigObject::NODE_TYPE_KEY] = nodeType;
+    match[NODE_TYPE_KEY] = nodeType;
 
     // Get the onnx_node_name if present.
     if (auto nameAttr =
             op->getAttrOfType<mlir::StringAttr>(ONNX_NODE_NAME_ATTR)) {
-      match[NNPAJsonConfigObject::ONNX_NODE_NAME_KEY] =
-          nameAttr.getValue().str();
+      match[ONNX_NODE_NAME_KEY] = nameAttr.getValue().str();
     }
 
     // Get the tensor info from inputs and outputs.

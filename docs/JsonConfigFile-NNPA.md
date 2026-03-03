@@ -17,10 +17,10 @@ By using a JSON file, users can currently control two following features:
 # JSON schema description
 ## Top-level keys
 
-| Key              | Type                       | Description                                                             |
-| ---------------- | -------------------------- | ----------------------------------------------------------------------- |
-| compile_options  | array of string (optional) | List of compiler command-line options.                                  |
-| nnpa_ops_config  | array of object (optional) | List of operation configurations for device placement and quantization. |
+| Key              | Type                       | Description                                                                                       |
+| ---------------- | -------------------------- | ------------------------------------------------------------------------------------------------- |
+| compile_options  | array of string (optional) | A list of compiler command-line options that are appended to the existing command-line arguments. |
+| nnpa_ops_config  | array of object (optional) | List of operation configurations for device placement and quantization.                           |
 
 ## compile_options key
 - See [JSON Config File](JsonConfigFile.md)

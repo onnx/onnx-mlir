@@ -16,6 +16,8 @@
 #ifndef ONNX_MLIR_NNPA_JSON_CONFIG_OBJECT_H
 #define ONNX_MLIR_NNPA_JSON_CONFIG_OBJECT_H
 
+#include <regex>
+
 #include "mlir/IR/Operation.h"
 #include "src/Compiler/JsonConfigObject.hpp"
 #include "llvm/ADT/STLFunctionalExtras.h"
