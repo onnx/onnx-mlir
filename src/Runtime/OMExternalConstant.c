@@ -48,6 +48,108 @@ static void checkEndianness(const char constPackIsLE) {
   }
 }
 
+#ifdef __MVS__
+/// Load large constant file using malloc + read on z/OS.
+/// Uses sentinel-based CAS to ensure only one thread loads the file.
+///
+/// \param[in] constAddr Pointer to global variable to store the loaded address
+/// \param[in] fd Open file descriptor to read from
+/// \param[in] fname Filename for error messages
+/// \param[in] size Size in bytes to read
+///
+/// \return true on success, false on failure
+///
+/// This function is thread-safe using sentinel-based CAS.
+///
+static bool omMallocAndReadFile(
+    void **constAddr, int fd, char *fname, int64_t size) {
+  #define LOADING_SENTINEL ((void*)1)
+  #define MAX_WAIT_MS 60000  // 60 seconds timeout
+  #define SLEEP_MS 10        // 10ms between checks
+  
+  // Try to claim the loading slot with sentinel
+  void *expected = NULL;
+  if (cds((cds_t *)&expected, (cds_t *)&constAddr[0], *(cds_t *)&LOADING_SENTINEL)) {
+    // Another thread is loading or already loaded - wait for it
+    int waited_ms = 0;
+    while (constAddr[0] == LOADING_SENTINEL) {
+      if (waited_ms >= MAX_WAIT_MS) {
+        fprintf(stderr, "Timeout waiting for constant loading after %d ms\n",
+                MAX_WAIT_MS);
+        return false;
+      }
+      usleep(SLEEP_MS * 1000);  // Sleep 10ms to reduce CPU spinning
+      waited_ms += SLEEP_MS;
+    }
+    
+    // Check if the loading thread succeeded
+    if (constAddr[0] == NULL) {
+      fprintf(stderr, "Other thread failed to load constants\n");
+      return false;
+    }
+    
+    // Successfully loaded by another thread
+    return true;
+  }
+  
+  // We won the race - we're responsible for loading
+  void *tempAddr = malloc(size);
+  if (!tempAddr) {
+    fprintf(stderr, "Error allocating %lld bytes: %s\n",
+            (long long)size, strerror(errno));
+    // Reset sentinel to NULL so other threads can retry
+    constAddr[0] = NULL;
+    return false;
+  }
+  
+  // Read file in 1GB chunks, handling short reads correctly
+  #define MAX_MMAP_SIZE (1024LL * 1024LL * 1024LL)
+  int64_t remaining = size;
+  int64_t offset = 0;
+  char *destPtr = (char *)tempAddr;
+  
+  while (remaining > 0) {
+    int64_t chunkSize = (remaining > MAX_MMAP_SIZE) ? MAX_MMAP_SIZE : remaining;
+    int64_t totalRead = 0;
+    
+    // Inner loop to handle short reads (valid POSIX behavior for large reads)
+    while (totalRead < chunkSize) {
+      ssize_t bytesRead = read(fd, destPtr + offset + totalRead,
+                               chunkSize - totalRead);
+      
+      if (bytesRead < 0) {
+        // Real error
+        fprintf(stderr, "Error reading %s at offset %lld: %s\n",
+                fname, (long long)(offset + totalRead), strerror(errno));
+        free(tempAddr);
+        // Reset sentinel to NULL so other threads can retry
+        constAddr[0] = NULL;
+        return false;
+      }
+      
+      if (bytesRead == 0) {
+        // EOF - should not happen unless file is truncated
+        fprintf(stderr, "Unexpected EOF reading %s at offset %lld\n",
+                fname, (long long)(offset + totalRead));
+        free(tempAddr);
+        // Reset sentinel to NULL so other threads can retry
+        constAddr[0] = NULL;
+        return false;
+      }
+      
+      totalRead += bytesRead;
+    }
+    
+    offset += chunkSize;
+    remaining -= chunkSize;
+  }
+  
+  // Successfully loaded - update constAddr with real pointer
+  constAddr[0] = tempAddr;
+  return true;
+}
+#endif
+
 /// MMap data from a binary file into memory.
 ///
 /// \param[in] constAddr lreturned address to a global variable in the IR.
@@ -102,116 +204,21 @@ bool omMMapBinaryFile(
   // to avoid certain system configurations for large constant sizes,
   // use malloc + read for large files
   #define MAX_MMAP_SIZE (1024LL * 1024LL * 1024LL)
-  #define LOADING_SENTINEL ((void*)1)
-  #define MAX_WAIT_MS 600000  // 600 seconds timeout
-  #define SLEEP_MS 10         // 10ms between checks
-  
   void *tempAddr;
-  bool usedMalloc = false;
   
   if (size > MAX_MMAP_SIZE) {
-    // For large files, use sentinel-based CAS to ensure only one thread loads
-    void *expected = NULL;
-    if (cds((cds_t *)&expected, (cds_t *)&constAddr[0], *(cds_t *)&LOADING_SENTINEL)) {
-      // We won the race - we're responsible for loading
-      tempAddr = malloc(size);
-      if (!tempAddr) {
-        fprintf(stderr, "Error allocating %lld bytes: %s\n",
-                (long long)size, strerror(errno));
-        // Reset sentinel to NULL so other threads can retry
-        constAddr[0] = NULL;
-        close(fd);
-        if (basePath)
-          free(filePath);
-        return false;
-      }
-      usedMalloc = true;
-      
-      // Read file in 1GB chunks, handling short reads correctly
-      int64_t remaining = size;
-      int64_t offset = 0;
-      char *destPtr = (char *)tempAddr;
-      
-      while (remaining > 0) {
-        int64_t chunkSize = (remaining > MAX_MMAP_SIZE) ? MAX_MMAP_SIZE : remaining;
-        int64_t totalRead = 0;
-        
-        // Inner loop to handle short reads (valid POSIX behavior for large reads)
-        while (totalRead < chunkSize) {
-          ssize_t bytesRead = read(fd, destPtr + offset + totalRead,
-                                   chunkSize - totalRead);
-          
-          if (bytesRead < 0) {
-            // Real error
-            fprintf(stderr, "Error reading %s at offset %lld: %s\n",
-                    fname, (long long)(offset + totalRead), strerror(errno));
-            free(tempAddr);
-            // Reset sentinel to NULL so other threads can retry
-            constAddr[0] = NULL;
-            close(fd);
-            if (basePath)
-              free(filePath);
-            return false;
-          }
-          
-          if (bytesRead == 0) {
-            // EOF - should not happen unless file is truncated
-            fprintf(stderr, "Unexpected EOF reading %s at offset %lld\n",
-                    fname, (long long)(offset + totalRead));
-            free(tempAddr);
-            // Reset sentinel to NULL so other threads can retry
-            constAddr[0] = NULL;
-            close(fd);
-            if (basePath)
-              free(filePath);
-            return false;
-          }
-          
-          totalRead += bytesRead;
-        }
-        
-        offset += chunkSize;
-        remaining -= chunkSize;
-      }
-      
-      // Successfully loaded - update constAddr with real pointer
-      constAddr[0] = tempAddr;
-      close(fd);
-      if (basePath)
-        free(filePath);
-      
-      // Clear errno before returning success
+    // For large files, use malloc+read with sentinel-based CAS
+    bool success = omMallocAndReadFile(constAddr, fd, fname, size);
+    close(fd);
+    if (basePath)
+      free(filePath);
+    
+    if (success) {
       errno = 0;
-      return true;
-    } else {
-      // Another thread is loading or already loaded - wait for it
-      close(fd);
-      if (basePath)
-        free(filePath);
-      
-      int waited_ms = 0;
-      while (constAddr[0] == LOADING_SENTINEL) {
-        if (waited_ms >= MAX_WAIT_MS) {
-          fprintf(stderr, "Timeout waiting for constant loading after %d ms\n",
-                  MAX_WAIT_MS);
-          return false;
-        }
-        usleep(SLEEP_MS * 1000);  // Sleep 10ms to reduce CPU spinning
-        waited_ms += SLEEP_MS;
-      }
-      
-      // Check if the loading thread succeeded
-      if (constAddr[0] == NULL) {
-        fprintf(stderr, "Other thread failed to load constants\n");
-        return false;
-      }
-      
-      // Successfully loaded by another thread
-      errno = 0;
-      return true;
     }
+    return success;
   } else {
-    // Use mmap for files <= 1GB (standard CAS approach)
+    // Use mmap for files <= 1GB
     tempAddr = mmap(0, size, PROT_READ, __MAP_MEGA, fd, 0);
     if (tempAddr == MAP_FAILED) {
       fprintf(stderr, "Error while mmapping %s: %s\n", fname, strerror(errno));
@@ -227,14 +234,9 @@ bool omMMapBinaryFile(
       // Another thread won, clean up our mmap
       munmap(tempAddr, size);
     }
-    
-    close(fd);
-    if (basePath)
-      free(filePath);
-    
-    errno = 0;
-    return true;
   }
+  
+  #undef MAX_MMAP_SIZE
 #else
   void *tempAddr = mmap(0, size, PROT_READ, MAP_SHARED, fd, 0);
   if (tempAddr == MAP_FAILED) {
@@ -250,6 +252,7 @@ bool omMMapBinaryFile(
    */
   if (!__sync_bool_compare_and_swap(&constAddr[0], NULL, tempAddr))
     munmap(tempAddr, size);
+#endif
 
   /* Either we succeeded in setting constAddr or someone else did it.
    * Either way, constAddr is now setup. We can close our fd without
@@ -258,22 +261,9 @@ bool omMMapBinaryFile(
   close(fd);
   if (basePath)
     free(filePath);
+  
+  errno = 0;
   return true;
-#endif
-}
-#else
-  if (!__sync_bool_compare_and_swap(&constAddr[0], NULL, tempAddr))
-    munmap(tempAddr, size);
-
-  /* Either we succeeded in setting constAddr or someone else did it.
-   * Either way, constAddr is now setup. We can close our fd without
-   * invalidating the mmap.
-   */
-  close(fd);
-  if (basePath)
-    free(filePath);
-  return true;
-#endif
 }
 
 /// Return the address of a constant at a given offset.
