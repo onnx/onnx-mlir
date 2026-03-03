@@ -477,7 +477,7 @@ def BitwiseNotConstProp : NamedPat<"BitwiseNotofConst",
     (ONNXBitwiseNotOp:$bitwiseNotOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
     // To ~c
     (CreateBitwiseNotOfConst $bitwiseNotOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
+    [(IsFromDenseONNXConstantOp:$input)]>;
 
 // Constant Propagation for Abs
 def AbsConstProp : NamedPat<"AbsofConst",
@@ -485,7 +485,7 @@ def AbsConstProp : NamedPat<"AbsofConst",
     (ONNXAbsOp:$ceilOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
     // To new_c
     (CreateAbsOfConst $ceilOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
+    [(IsFromDenseONNXConstantOp:$input)]>;
 
 // Constant Propagation for Ceil
 def CeilConstProp : NamedPat<"CeilofConst",
@@ -493,7 +493,7 @@ def CeilConstProp : NamedPat<"CeilofConst",
     (ONNXCeilOp:$ceilOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
     // To new_c
     (CreateCeilOfConst $ceilOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
+    [(IsFromDenseONNXConstantOp:$input)]>;
 
 // Constant Propagation for Cos
 def CosConstProp : NamedPat<"CosofConst",
@@ -501,7 +501,7 @@ def CosConstProp : NamedPat<"CosofConst",
     (ONNXCosOp:$cosOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
     // To new_c.
     (CreateCosOfConst $cosOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
+    [(IsFromDenseONNXConstantOp:$input)]>;
 
 // Constant Propagation for Erf
 def ErfConstProp : NamedPat<"ErfofConst",
@@ -509,7 +509,7 @@ def ErfConstProp : NamedPat<"ErfofConst",
     (ONNXErfOp:$erfOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
     // To new_c.
     (CreateErfOfConst $erfOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
+    [(IsFromDenseONNXConstantOp:$input)]>;
 
 // Constant Propagation for Exp
 def ExpConstProp : NamedPat<"ExpofConst",
@@ -517,7 +517,7 @@ def ExpConstProp : NamedPat<"ExpofConst",
     (ONNXExpOp:$expOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
     // To new_c.
     (CreateExpOfConst $expOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
+    [(IsFromDenseONNXConstantOp:$input)]>;
 
 // Constant Propagation for Floor
 def FloorConstProp : NamedPat<"FloorofConst",
@@ -525,7 +525,7 @@ def FloorConstProp : NamedPat<"FloorofConst",
     (ONNXFloorOp:$floorOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
     // To new_c.
     (CreateFloorOfConst $floorOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
+    [(IsFromDenseONNXConstantOp:$input)]>;
 
 // Constant Propagation for Log
 def LogConstProp : NamedPat<"LogofConst",
@@ -533,7 +533,7 @@ def LogConstProp : NamedPat<"LogofConst",
     (ONNXLogOp:$logOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
     // To new_c.
     (CreateLogOfConst $logOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
+    [(IsFromDenseONNXConstantOp:$input)]>;
 
 // Neg of constant is simply -const
 def NegofConst : NamedPat<"NegofConst",
@@ -541,7 +541,7 @@ def NegofConst : NamedPat<"NegofConst",
     (ONNXNegOp:$negOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
     // To (-c)
     (CreateNegOfConst $negOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
+    [(IsFromDenseONNXConstantOp:$input)]>;
 
 // Not of constant is simply !const
 def NotofConst : NamedPat<"NotofConst",
@@ -549,7 +549,7 @@ def NotofConst : NamedPat<"NotofConst",
     (ONNXNotOp:$notOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
     // To !c
     (CreateNotOfConst $notOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
+    [(IsFromDenseONNXConstantOp:$input)]>;
 
 // Constant Propagation for Sin
 def SinConstProp : NamedPat<"SinofConst",
@@ -557,7 +557,7 @@ def SinConstProp : NamedPat<"SinofConst",
     (ONNXSinOp:$sinOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
     // To new_c
     (CreateSinOfConst $sinOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
+    [(IsFromDenseONNXConstantOp:$input)]>;
 
 // Constant Propagation for Sigmoid
 def SigmoidConstProp : NamedPat<"SigmoidofConst",
@@ -565,7 +565,7 @@ def SigmoidConstProp : NamedPat<"SigmoidofConst",
     (ONNXSigmoidOp:$sigmoidOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
     // To new_c
     (CreateSigmoidOfConst $sigmoidOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
+    [(IsFromDenseONNXConstantOp:$input)]>;
 
 // Constant Propagation for Reciprocal
 def ReciprocalConstProp : NamedPat<"ReciprocalofConst",
@@ -573,7 +573,7 @@ def ReciprocalConstProp : NamedPat<"ReciprocalofConst",
     (ONNXReciprocalOp:$reciprocalOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
     // To new_c
     (CreateReciprocalOfConst $reciprocalOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
+    [(IsFromDenseONNXConstantOp:$input)]>;
 
 // Constant Propagation for Round
 def RoundConstProp : NamedPat<"RoundofConst",
@@ -581,7 +581,7 @@ def RoundConstProp : NamedPat<"RoundofConst",
     (ONNXRoundOp:$roundOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
     // To new_c.
     (CreateRoundOfConst $roundOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
+    [(IsFromDenseONNXConstantOp:$input)]>;
 
 // Change a subtraction of a constant c by an addition of -c. Helpfull to combine
 // with other add optimizations.
@@ -590,7 +590,7 @@ def SubConstToNeg : NamedPat<"SubConstToNeg",
     (ONNXSubOp:$subOp $x, (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
     // To x + (-c).
     (ONNXAddOp $x, (CreateNegOfConst $input, $input)),
-    [(IsNotAConstant:$x), (IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
+    [(IsNotAConstant:$x), (IsFromDenseONNXConstantOp:$input)]>;
 
 // Constant Propagation for Sqrt
 def SqrtofConst : NamedPat<"SqrtofConst",
@@ -598,7 +598,7 @@ def SqrtofConst : NamedPat<"SqrtofConst",
     (ONNXSqrtOp:$sqrtOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
     // To sqrt(c)
     (CreateSqrtOfConst $sqrtOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
+    [(IsFromDenseONNXConstantOp:$input)]>;
 
 // Constant Propagation for Relu
 def ReluofConst : NamedPat<"ReluofConst",
@@ -606,7 +606,7 @@ def ReluofConst : NamedPat<"ReluofConst",
     (ONNXReluOp:$reluOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
     // To relu(c)
     (CreateReluOfConst $reluOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
+    [(IsFromDenseONNXConstantOp:$input)]>;
 
 // Constant Propagation for Reciprocal
 def ReciprocalOfConst : NamedPat<"ReciprocalOfConst",
@@ -614,7 +614,7 @@ def ReciprocalOfConst : NamedPat<"ReciprocalOfConst",
     (ONNXReciprocalOp:$reciprocalOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
     // To reciprocal(c)
     (CreateReciprocalOfConst $reciprocalOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
+    [(IsFromDenseONNXConstantOp:$input)]>;
 
 // Constant Propagation for Round
 def RoundofConst : NamedPat<"RoundofConst",
@@ -622,7 +622,7 @@ def RoundofConst : NamedPat<"RoundofConst",
     (ONNXRoundOp:$reluOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
     // To round_even(c)
     (CreateRoundOfConst $reluOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
+    [(IsFromDenseONNXConstantOp:$input)]>;
 
 //===----------------------------------------------------------------------===//
 // Const propagation patterns for variadic elementwise operations.
