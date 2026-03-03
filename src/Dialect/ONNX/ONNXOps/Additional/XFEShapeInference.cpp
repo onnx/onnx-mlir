@@ -194,7 +194,7 @@ LogicalResult XFEConvTransposeOpShapeInference(
   auto wShape = wType.getShape();
 
   // X is channel-last (NHWC): [N, spatial_dims..., C_in]
-  // W is OHWI: [C_out/group, spatial_dims..., C_in/group]
+  // W is OHWI: [C_out, spatial_dims..., C_in/group]
   if (xShape.size() < 3 || wShape.size() < 3 || xShape.size() != wShape.size())
     return op->emitError(
         "ConvTransposeChannelLast requires matching rank tensors with "
@@ -203,10 +203,7 @@ LogicalResult XFEConvTransposeOpShapeInference(
   int64_t rank = xShape.size();
   int64_t numSpatialDims = rank - 2; // exclude batch and channel
   int64_t N = xShape[0];             // batch
-  // Weight is OHWI where O = C_out/group.  Multiply by group to get the
-  // actual number of output channels.
-  int64_t group = convTransposeOp.getGroup();
-  int64_t C_out = wShape[0] * group;
+  int64_t C_out = wShape[0]; // output channels (first dimension in OHWI)
 
   // Get attributes
   auto stridesAttr = convTransposeOp.getStrides();

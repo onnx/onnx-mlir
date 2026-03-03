@@ -224,18 +224,20 @@ struct ConvToChannelLastPattern : public OpRewritePattern<ONNXConvOp> {
     }
 
     // Transpose output back to NCHW
-    // Derive NCHW shape from the XFE op's actual NHWC output shape to ensure
-    // consistency (shape inference accounts for auto_pad, dilations, etc.)
+    // CRITICAL: Get element type from XFEConv's ACTUAL output (after shape
+    // inference). This ensures we preserve quantized types that were set during
+    // shape inference
     auto xfeOutputType =
-        mlir::cast<RankedTensorType>(convChannelLastOp.getResult().getType());
-    auto nhwcShape = xfeOutputType.getShape();
-    SmallVector<int64_t, 4> nchwShape;
-    nchwShape.push_back(nhwcShape[0]);        // N
-    nchwShape.push_back(nhwcShape[rank - 1]); // C
-    for (int64_t i = 1; i < rank - 1; ++i)
-      nchwShape.push_back(nhwcShape[i]); // spatial dims
-    auto transposeOutputType =
-        RankedTensorType::get(nchwShape, xfeOutputType.getElementType());
+        mlir::cast<ShapedType>(convChannelLastOp.getResult().getType());
+    Type actualElementType = xfeOutputType.getElementType();
+    Type transposeOutputType;
+    if (origOutputType.hasRank()) {
+      // Use original Conv's shape but XFEConv's actual element type
+      transposeOutputType =
+          RankedTensorType::get(origOutputType.getShape(), actualElementType);
+    } else {
+      transposeOutputType = convOp.getType();
+    }
 
     Value outputNCHW = createOutputTranspose(rewriter, loc,
         convChannelLastOp.getResult(), transposeOutputType, rank);
@@ -301,17 +303,20 @@ struct ConvTransposeToChannelLastPattern
     }
 
     // Transpose output back to NCHW
-    // Derive NCHW shape from the XFE op's actual NHWC output shape
-    auto xfeOutputType = mlir::cast<RankedTensorType>(
+    // CRITICAL: Get element type from XFEConvTranspose's ACTUAL output (after
+    // shape inference)
+    auto xfeOutputType = mlir::cast<ShapedType>(
         convTransposeChannelLastOp.getResult().getType());
-    auto nhwcShape = xfeOutputType.getShape();
-    SmallVector<int64_t, 4> nchwShape;
-    nchwShape.push_back(nhwcShape[0]);        // N
-    nchwShape.push_back(nhwcShape[rank - 1]); // C
-    for (int64_t i = 1; i < rank - 1; ++i)
-      nchwShape.push_back(nhwcShape[i]); // spatial dims
-    auto transposeOutputType =
-        RankedTensorType::get(nchwShape, xfeOutputType.getElementType());
+    Type actualElementType = xfeOutputType.getElementType();
+    Type transposeOutputType;
+    if (origOutputType.hasRank()) {
+      // Use original ConvTranspose's shape but XFEConvTranspose's actual
+      // element type
+      transposeOutputType =
+          RankedTensorType::get(origOutputType.getShape(), actualElementType);
+    } else {
+      transposeOutputType = convTransposeOp.getType();
+    }
 
     Value outputNCHW = createOutputTranspose(rewriter, loc,
         convTransposeChannelLastOp.getResult(), transposeOutputType, rank);
@@ -362,17 +367,11 @@ struct AveragePoolToChannelLastPattern
     }
 
     // Transpose output back to NCHW
-    // Derive NCHW shape from the XFE op's actual NHWC output shape
+    // Get actual element type from XFEAveragePool output
     auto xfeOutputType =
-        mlir::cast<RankedTensorType>(poolChannelLastOp.getResult().getType());
-    auto nhwcShape = xfeOutputType.getShape();
-    SmallVector<int64_t, 4> nchwShape;
-    nchwShape.push_back(nhwcShape[0]);        // N
-    nchwShape.push_back(nhwcShape[rank - 1]); // C
-    for (int64_t i = 1; i < rank - 1; ++i)
-      nchwShape.push_back(nhwcShape[i]); // spatial dims
-    auto transposeOutputType =
-        RankedTensorType::get(nchwShape, xfeOutputType.getElementType());
+        mlir::cast<ShapedType>(poolChannelLastOp.getResult().getType());
+    auto transposeOutputType = RankedTensorType::get(
+        origOutputType.getShape(), xfeOutputType.getElementType());
     Value outputNCHW = createOutputTranspose(rewriter, loc,
         poolChannelLastOp.getResult(), transposeOutputType, rank);
 
@@ -421,17 +420,11 @@ struct MaxPoolToChannelLastPattern
     }
 
     // Transpose output back to NCHW
-    // Derive NCHW shape from the XFE op's actual NHWC output shape
+    // Get actual element type from XFEMaxPool output
     auto xfeOutputType =
-        mlir::cast<RankedTensorType>(poolChannelLastOp.getResult().getType());
-    auto nhwcShape = xfeOutputType.getShape();
-    SmallVector<int64_t, 4> nchwShape;
-    nchwShape.push_back(nhwcShape[0]);        // N
-    nchwShape.push_back(nhwcShape[rank - 1]); // C
-    for (int64_t i = 1; i < rank - 1; ++i)
-      nchwShape.push_back(nhwcShape[i]); // spatial dims
-    auto transposeOutputType =
-        RankedTensorType::get(nchwShape, xfeOutputType.getElementType());
+        mlir::cast<ShapedType>(poolChannelLastOp.getResult().getType());
+    auto transposeOutputType = RankedTensorType::get(
+        origOutputType.getShape(), xfeOutputType.getElementType());
     Value outputNCHW = createOutputTranspose(rewriter, loc,
         poolChannelLastOp.getResult(), transposeOutputType, rank);
 
@@ -476,17 +469,11 @@ struct GlobalAveragePoolToChannelLastPattern
     }
 
     // Transpose output back to NCHW
-    // Derive NCHW shape from the XFE op's actual NHWC output shape
+    // Get actual element type from XFEGlobalAveragePool output
     auto xfeOutputType =
-        mlir::cast<RankedTensorType>(poolChannelLastOp.getResult().getType());
-    auto nhwcShape = xfeOutputType.getShape();
-    SmallVector<int64_t, 4> nchwShape;
-    nchwShape.push_back(nhwcShape[0]);        // N
-    nchwShape.push_back(nhwcShape[rank - 1]); // C
-    for (int64_t i = 1; i < rank - 1; ++i)
-      nchwShape.push_back(nhwcShape[i]); // spatial dims
-    auto transposeOutputType =
-        RankedTensorType::get(nchwShape, xfeOutputType.getElementType());
+        mlir::cast<ShapedType>(poolChannelLastOp.getResult().getType());
+    auto transposeOutputType = RankedTensorType::get(
+        origOutputType.getShape(), xfeOutputType.getElementType());
     Value outputNCHW = createOutputTranspose(rewriter, loc,
         poolChannelLastOp.getResult(), transposeOutputType, rank);
 
@@ -531,17 +518,11 @@ struct GlobalMaxPoolToChannelLastPattern
     }
 
     // Transpose output back to NCHW
-    // Derive NCHW shape from the XFE op's actual NHWC output shape
+    // Get actual element type from XFEGlobalMaxPool output
     auto xfeOutputType =
-        mlir::cast<RankedTensorType>(poolChannelLastOp.getResult().getType());
-    auto nhwcShape = xfeOutputType.getShape();
-    SmallVector<int64_t, 4> nchwShape;
-    nchwShape.push_back(nhwcShape[0]);        // N
-    nchwShape.push_back(nhwcShape[rank - 1]); // C
-    for (int64_t i = 1; i < rank - 1; ++i)
-      nchwShape.push_back(nhwcShape[i]); // spatial dims
-    auto transposeOutputType =
-        RankedTensorType::get(nchwShape, xfeOutputType.getElementType());
+        mlir::cast<ShapedType>(poolChannelLastOp.getResult().getType());
+    auto transposeOutputType = RankedTensorType::get(
+        origOutputType.getShape(), xfeOutputType.getElementType());
     Value outputNCHW = createOutputTranspose(rewriter, loc,
         poolChannelLastOp.getResult(), transposeOutputType, rank);
 
@@ -590,17 +571,11 @@ struct InstanceNormToChannelLastPattern
     }
 
     // Transpose output back to NCHW
-    // Derive NCHW shape from the XFE op's actual NHWC output shape
+    // Get actual element type from XFEInstanceNormalization output
     auto xfeOutputType =
-        mlir::cast<RankedTensorType>(normChannelLastOp.getResult().getType());
-    auto nhwcShape = xfeOutputType.getShape();
-    SmallVector<int64_t, 4> nchwShape;
-    nchwShape.push_back(nhwcShape[0]);        // N
-    nchwShape.push_back(nhwcShape[rank - 1]); // C
-    for (int64_t i = 1; i < rank - 1; ++i)
-      nchwShape.push_back(nhwcShape[i]); // spatial dims
-    auto transposeOutputType =
-        RankedTensorType::get(nchwShape, xfeOutputType.getElementType());
+        mlir::cast<ShapedType>(normChannelLastOp.getResult().getType());
+    auto transposeOutputType = RankedTensorType::get(
+        origOutputType.getShape(), xfeOutputType.getElementType());
     Value outputNCHW = createOutputTranspose(rewriter, loc,
         normChannelLastOp.getResult(), transposeOutputType, rank);
 

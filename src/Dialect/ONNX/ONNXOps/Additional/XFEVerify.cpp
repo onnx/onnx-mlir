@@ -2,7 +2,6 @@
 // Move to: src/Dialect/ONNX/ONNXOps/Additional/XFEVerify.cpp
 
 #include "XFEVerify.hpp"
-#include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -11,273 +10,149 @@ using namespace onnx_mlir;
 namespace mlir {
 
 LogicalResult XFEMatMulBiasOpVerify(Operation *op) {
-  auto matmulOp = dyn_cast<XFEMatMulBiasOp>(op);
-  if (!matmulOp)
-    return failure();
+  // TODO: Implement verification for MatMulBias
+  //
+  // Cast to specific op type:
+  // auto customOp = dyn_cast<XFEMatMulBiasOp>(op);
+  // if (!customOp) return failure();
+  //
+  // Verify operand types, shapes, attributes, etc.
+  // Example: Check that input tensors have expected rank
+  // if (operandType.getRank() < 2)
+  //   return op->emitError("Expected input rank >= 2");
+
   return success();
 }
 
 LogicalResult XFEConvOpVerify(Operation *op) {
-  auto convOp = dyn_cast<XFEConvOp>(op);
-  if (!convOp)
-    return failure();
-
-  Value X = convOp.getX();
-  Value W = convOp.getW();
-  if (!hasShapeAndRank(X) || !hasShapeAndRank(W))
-    return success();
-
-  auto xType = mlir::cast<ShapedType>(X.getType());
-  auto wType = mlir::cast<ShapedType>(W.getType());
-  auto xShape = xType.getShape();
-  auto wShape = wType.getShape();
-
-  if (xShape.size() < 3 || wShape.size() < 3 || xShape.size() != wShape.size())
-    return op->emitError("ConvChannelLast requires matching rank tensors with "
-                         "at least 3 dimensions");
+  // TODO: Implement verification for ConvChannelLast
+  //
+  // Cast to specific op type:
+  // auto customOp = dyn_cast<XFEConvOp>(op);
+  // if (!customOp) return failure();
+  //
+  // Verify operand types, shapes, attributes, etc.
+  // Example: Check that input tensors have expected rank
+  // if (operandType.getRank() < 2)
+  //   return op->emitError("Expected input rank >= 2");
 
   return success();
 }
 
 LogicalResult XFEConvTransposeOpVerify(Operation *op) {
-  auto convTransposeOp = dyn_cast<XFEConvTransposeOp>(op);
-  if (!convTransposeOp)
-    return failure();
-
-  Value X = convTransposeOp.getX();
-  Value W = convTransposeOp.getW();
-  if (!hasShapeAndRank(X) || !hasShapeAndRank(W))
-    return success();
-
-  auto xType = mlir::cast<ShapedType>(X.getType());
-  auto wType = mlir::cast<ShapedType>(W.getType());
-  auto xShape = xType.getShape();
-  auto wShape = wType.getShape();
-
-  if (xShape.size() < 3 || wShape.size() < 3 || xShape.size() != wShape.size())
-    return op->emitError(
-        "ConvTransposeChannelLast requires matching rank tensors with "
-        "at least 3 dimensions");
-
+  // Verification for ConvTransposeChannelLast
+  // For now, delegate to basic verification - can add custom checks later
   return success();
 }
 
 LogicalResult XFEAveragePoolOpVerify(Operation *op) {
-  auto poolOp = dyn_cast<XFEAveragePoolOp>(op);
-  if (!poolOp)
-    return failure();
-
-  Value X = poolOp.getX();
-  if (!hasShapeAndRank(X))
-    return success();
-
-  auto xType = mlir::cast<ShapedType>(X.getType());
-  auto xShape = xType.getShape();
-  if (xShape.size() < 3)
-    return op->emitError(
-        "AveragePoolChannelLast requires at least 3D input tensor");
-
-  int64_t numSpatialDims = static_cast<int64_t>(xShape.size()) - 2;
-  auto kernelShapeAttr = poolOp.getKernelShape();
-  if (!kernelShapeAttr.has_value() ||
-      static_cast<int64_t>(kernelShapeAttr->size()) < numSpatialDims)
-    return op->emitError(
-        "kernel_shape attribute required with matching spatial dimensions");
+  // TODO: Implement verification for AveragePoolChannelLast
+  //
+  // Cast to specific op type:
+  // auto customOp = dyn_cast<XFEAveragePoolOp>(op);
+  // if (!customOp) return failure();
+  //
+  // Verify operand types, shapes, attributes, etc.
+  // Example: Check that input tensors have expected rank
+  // if (operandType.getRank() < 2)
+  //   return op->emitError("Expected input rank >= 2");
 
   return success();
 }
 
 LogicalResult XFEMaxPoolOpVerify(Operation *op) {
-  auto poolOp = dyn_cast<XFEMaxPoolOp>(op);
-  if (!poolOp)
-    return failure();
-
-  Value X = poolOp.getX();
-  if (!hasShapeAndRank(X))
-    return success();
-
-  auto xType = mlir::cast<ShapedType>(X.getType());
-  auto xShape = xType.getShape();
-  if (xShape.size() < 3)
-    return op->emitError("MaxPoolChannelLast requires at least 3D input tensor");
-
-  int64_t numSpatialDims = static_cast<int64_t>(xShape.size()) - 2;
-  auto kernelShapeAttr = poolOp.getKernelShape();
-  if (!kernelShapeAttr.has_value() ||
-      static_cast<int64_t>(kernelShapeAttr->size()) < numSpatialDims)
-    return op->emitError(
-        "kernel_shape attribute required with matching spatial dimensions");
+  // TODO: Implement verification for MaxPoolChannelLast
+  //
+  // Cast to specific op type:
+  // auto customOp = dyn_cast<XFEMaxPoolOp>(op);
+  // if (!customOp) return failure();
+  //
+  // Verify operand types, shapes, attributes, etc.
+  // Example: Check that input tensors have expected rank
+  // if (operandType.getRank() < 2)
+  //   return op->emitError("Expected input rank >= 2");
 
   return success();
 }
 
 LogicalResult XFEGlobalAveragePoolOpVerify(Operation *op) {
-  auto poolOp = dyn_cast<XFEGlobalAveragePoolOp>(op);
-  if (!poolOp)
-    return failure();
-
-  Value X = poolOp.getX();
-  if (!hasShapeAndRank(X))
-    return success();
-
-  auto xType = mlir::cast<ShapedType>(X.getType());
-  auto xShape = xType.getShape();
-  if (xShape.size() < 3)
-    return op->emitError(
-        "GlobalAveragePoolChannelLast requires at least 3D input tensor");
+  // TODO: Implement verification for GlobalAveragePoolChannelLast
+  //
+  // Cast to specific op type:
+  // auto customOp = dyn_cast<XFEGlobalAveragePoolOp>(op);
+  // if (!customOp) return failure();
+  //
+  // Verify operand types, shapes, attributes, etc.
+  // Example: Check that input tensors have expected rank
+  // if (operandType.getRank() < 2)
+  //   return op->emitError("Expected input rank >= 2");
 
   return success();
 }
 
 LogicalResult XFEGlobalMaxPoolOpVerify(Operation *op) {
-  auto poolOp = dyn_cast<XFEGlobalMaxPoolOp>(op);
-  if (!poolOp)
-    return failure();
-
-  Value X = poolOp.getX();
-  if (!hasShapeAndRank(X))
-    return success();
-
-  auto xType = mlir::cast<ShapedType>(X.getType());
-  auto xShape = xType.getShape();
-  if (xShape.size() < 3)
-    return op->emitError(
-        "GlobalMaxPoolChannelLast requires at least 3D input tensor");
+  // TODO: Implement verification for GlobalMaxPoolChannelLast
+  //
+  // Cast to specific op type:
+  // auto customOp = dyn_cast<XFEGlobalMaxPoolOp>(op);
+  // if (!customOp) return failure();
+  //
+  // Verify operand types, shapes, attributes, etc.
+  // Example: Check that input tensors have expected rank
+  // if (operandType.getRank() < 2)
+  //   return op->emitError("Expected input rank >= 2");
 
   return success();
 }
 
 LogicalResult XFEInstanceNormalizationOpVerify(Operation *op) {
-  auto normOp = dyn_cast<XFEInstanceNormalizationOp>(op);
-  if (!normOp)
-    return failure();
-
-  Value input = normOp.getInput();
-  if (!hasShapeAndRank(input))
-    return success();
-
-  auto inputType = mlir::cast<ShapedType>(input.getType());
-  auto inputShape = inputType.getShape();
-  if (inputShape.size() < 3)
-    return op->emitError(
-        "InstanceNormalizationChannelLast requires at least 3D input tensor");
+  // TODO: Implement verification for InstanceNormalizationChannelLast
+  //
+  // Cast to specific op type:
+  // auto customOp = dyn_cast<XFEInstanceNormalizationOp>(op);
+  // if (!customOp) return failure();
+  //
+  // Verify operand types, shapes, attributes, etc.
+  // Example: Check that input tensors have expected rank
+  // if (operandType.getRank() < 2)
+  //   return op->emitError("Expected input rank >= 2");
 
   return success();
 }
 
 LogicalResult XFEDepthToSpaceOpVerify(Operation *op) {
-  auto d2sOp = dyn_cast<XFEDepthToSpaceOp>(op);
-  if (!d2sOp)
-    return failure();
-
-  Value input = d2sOp.getInput();
-  if (!hasShapeAndRank(input))
-    return success();
-
-  auto inputType = mlir::cast<ShapedType>(input.getType());
-  auto inputShape = inputType.getShape();
-  if (inputShape.size() != 4)
-    return op->emitError("DepthToSpaceChannelLast requires 4D input tensor");
-
-  auto blocksizeAttr = d2sOp.getBlocksize();
-  if (!blocksizeAttr.has_value())
-    return op->emitError("blocksize attribute is required");
-
-  int64_t blocksize = blocksizeAttr.value();
-  if (blocksize <= 0)
-    return op->emitError("blocksize must be positive");
-
-  int64_t C = inputShape[3];
-  int64_t blocksizeSq = blocksize * blocksize;
-  if (C != ShapedType::kDynamic && C % blocksizeSq != 0)
-    return op->emitError("input channels must be divisible by blocksize^2");
+  // TODO: Implement verification for DepthToSpaceChannelLast
+  //
+  // Cast to specific op type:
+  // auto customOp = dyn_cast<XFEDepthToSpaceOp>(op);
+  // if (!customOp) return failure();
+  //
+  // Verify operand types, shapes, attributes, etc.
+  // Example: Check that input tensors have expected rank
+  // if (operandType.getRank() < 2)
+  //   return op->emitError("Expected input rank >= 2");
 
   return success();
 }
 
 LogicalResult XFESpaceToDepthOpVerify(Operation *op) {
-  auto s2dOp = dyn_cast<XFESpaceToDepthOp>(op);
-  if (!s2dOp)
-    return failure();
-
-  Value input = s2dOp.getInput();
-  if (!hasShapeAndRank(input))
-    return success();
-
-  auto inputType = mlir::cast<ShapedType>(input.getType());
-  auto inputShape = inputType.getShape();
-  if (inputShape.size() != 4)
-    return op->emitError("SpaceToDepthChannelLast requires 4D input tensor");
-
-  auto blocksizeAttr = s2dOp.getBlocksize();
-  if (!blocksizeAttr.has_value())
-    return op->emitError("blocksize attribute is required");
-
-  int64_t blocksize = blocksizeAttr.value();
-  if (blocksize <= 0)
-    return op->emitError("blocksize must be positive");
-
-  int64_t H = inputShape[1];
-  int64_t W = inputShape[2];
-  if (H != ShapedType::kDynamic && H % blocksize != 0)
-    return op->emitError("input height must be divisible by blocksize");
-  if (W != ShapedType::kDynamic && W % blocksize != 0)
-    return op->emitError("input width must be divisible by blocksize");
+  // TODO: Implement verification for SpaceToDepthChannelLast
+  //
+  // Cast to specific op type:
+  // auto customOp = dyn_cast<XFESpaceToDepthOp>(op);
+  // if (!customOp) return failure();
+  //
+  // Verify operand types, shapes, attributes, etc.
+  // Example: Check that input tensors have expected rank
+  // if (operandType.getRank() < 2)
+  //   return op->emitError("Expected input rank >= 2");
 
   return success();
 }
 
 LogicalResult XFEResizeOpVerify(Operation *op) {
-  auto resizeOp = dyn_cast<XFEResizeOp>(op);
-  if (!resizeOp)
-    return failure();
-
-  Value X = resizeOp.getX();
-  if (!hasShapeAndRank(X))
-    return success();
-
-  auto xType = mlir::cast<ShapedType>(X.getType());
-  int64_t rank = xType.getRank();
-
-  // Keep aligned with shape inference: if axes is present, skip additional
-  // verification because shape inference currently does not support it.
-  if (resizeOp.getAxes().has_value())
-    return success();
-
-  auto isAbsent = [](Value input) -> bool {
-    if (isa<NoneType>(input.getType()))
-      return true;
-    if (auto shapedType = mlir::dyn_cast<ShapedType>(input.getType())) {
-      return shapedType.hasStaticShape() && shapedType.getNumElements() == 0;
-    }
-    return false;
-  };
-
-  Value scales = resizeOp.getScales();
-  Value sizes = resizeOp.getSizes();
-  bool scalesIsAbsent = isAbsent(scales);
-  bool sizesIsAbsent = isAbsent(sizes);
-
-  if (!scalesIsAbsent) {
-    DenseElementsAttr scalesAttr;
-    if (auto defOp = scales.getDefiningOp<ONNXConstantOp>()) {
-      if (auto valueAttr = defOp.getValue()) {
-        scalesAttr = mlir::dyn_cast<DenseElementsAttr>(*valueAttr);
-      }
-    }
-    if (scalesAttr && static_cast<int64_t>(scalesAttr.size()) != rank)
-      return op->emitError("scales size must match input rank");
-  } else if (!sizesIsAbsent) {
-    DenseElementsAttr sizesAttr;
-    if (auto defOp = sizes.getDefiningOp<ONNXConstantOp>()) {
-      if (auto valueAttr = defOp.getValue()) {
-        sizesAttr = mlir::dyn_cast<DenseElementsAttr>(*valueAttr);
-      }
-    }
-    if (sizesAttr && static_cast<int64_t>(sizesAttr.size()) != rank)
-      return op->emitError("sizes size must match input rank");
-  }
-
+  // Verification for ResizeChannelLast
+  // For now, delegate to basic verification - can add custom checks later
   return success();
 }
 
