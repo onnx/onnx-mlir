@@ -1,3 +1,24 @@
+add_onnx_mlir_library(OMNNPAJSONConfig
+  NNPAJsonConfigObject.cpp
+
+  EXCLUDE_FROM_OM_LIBS
+
+  INCLUDE_DIRS PRIVATE
+  ${NNPA_SRC_ROOT}
+  ${NNPA_BIN_ROOT}
+  ${NNPA_ONNX_MLIR_SRC_ROOT}
+  ${NNPA_ONNX_MLIR_BIN_ROOT}
+
+  LINK_LIBS PUBLIC
+  MLIRIR
+  LLVMSupport
+  OMCompilerOptions
+
+  ACCEL_INCLUDE_DIRS PRIVATE
+  ${NNPA_ONNX_MLIR_SRC_ROOT}
+  ${NNPA_ONNX_MLIR_BIN_ROOT}
+  )
+
 add_onnx_mlir_library(OMNNPACompilerOptions
   NNPACompilerOptions.cpp
 

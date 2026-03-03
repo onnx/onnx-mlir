@@ -39,6 +39,7 @@ target_compile_definitions(OMVersion PUBLIC ${DEFINITIONS})
 
 add_onnx_mlir_library(OMCompilerOptions
   CompilerOptions.cpp
+  JsonConfigObject.cpp
 
   EXCLUDE_FROM_OM_LIBS
 
@@ -57,6 +58,7 @@ add_onnx_mlir_library(OMCompilerOptions
   MLIRIR
   OMAccelerator
   LLVMTargetParser
+  LLVMSupport
   )
 
 
