@@ -151,23 +151,6 @@ public:
           qOp, "Cannot convert Q input from BlockArg");
     }
 
-    // Guard against QL whose input is defined by an op that takes a float
-    // block argument. Changing the defining op's result type to quantized
-    // (via setType below) would create a type inconsistency (f32 input,
-    // quantized output) that breaks later passes like
-    // onnx-transpose-optimization.
-    if (auto defOp = qOp.getOperand(0).getDefiningOp()) {
-      if (llvm::any_of(defOp->getOperands(), [](Value v) {
-            if (!isa<BlockArgument>(v))
-              return false;
-            auto tType = dyn_cast<TensorType>(v.getType());
-            return tType && isa<FloatType>(tType.getElementType());
-          })) {
-        return rewriter.notifyMatchFailure(
-            qOp, "Cannot convert Q: input op has f32 BlockArg operand");
-      }
-    }
-
     auto qTypeErr = getQuantType(qOp);
     if (std::holds_alternative<StringLiteral>(qTypeErr))
       return rewriter.notifyMatchFailure(
