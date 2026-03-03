@@ -16,11 +16,14 @@
 #include <regex>
 
 #include "mlir/IR/BuiltinAttributes.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "llvm/ADT/SetOperations.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include "src/Accelerators/NNPA/Compiler/NNPAJsonConfigObject.hpp"
 #include "src/Compiler/JsonConfigObject.hpp"
+
+using namespace mlir;
 
 namespace onnx_mlir {
 
@@ -32,11 +35,50 @@ NNPAJsonConfigObject &getGlobalNNPAConfig() {
 
   std::call_once(initFlag, []() {
     if (!globalNNPAConfig.isLoaded()) {
-      globalNNPAConfig.loadFromFile(getGlobalOMConfig().getFilePath());
+      JsonConfigObject *globalConfig = &getGlobalOMConfig();
+      if (globalConfig->isLoaded())
+        globalNNPAConfig.loadFromFile(getGlobalOMConfig().getFilePath());
     }
   });
 
   return globalNNPAConfig;
+}
+
+void NNPAJsonConfigObject::constructTensorInfo(
+    Value v, llvm::json::Object &tensorInfoObj) {
+  // Read info from value and put them into a JSON object as follows:
+  // -1 is used for a dynamic dimension.
+  // {
+  //   "rank": 4,
+  //   "type":  "f32"
+  //   "dims": {
+  //     0: "-1",
+  //     1: "3",
+  //     2: "5",
+  //   },
+  // },
+  ShapedType tensorType = mlir::dyn_cast<ShapedType>(v.getType());
+  if (!tensorType)
+    return;
+
+  ArrayRef<int64_t> dims = tensorType.getShape();
+  // rank
+  tensorInfoObj["rank"] = std::to_string(dims.size());
+  // element type
+  Type elemTy = tensorType.getElementType();
+  std::string typeStr;
+  llvm::raw_string_ostream(typeStr) << elemTy;
+  tensorInfoObj["type"] = typeStr;
+  // dimension size
+  llvm::json::Object dimObj;
+  for (uint64_t i = 0; i < dims.size(); ++i) {
+    int64_t d = dims[i];
+    if (ShapedType::isDynamic(d))
+      dimObj[std::to_string(i)] = "-1";
+    else
+      dimObj[std::to_string(i)] = std::to_string(d);
+  }
+  tensorInfoObj["dims"] = std::move(dimObj);
 }
 
 void NNPAJsonConfigObject::applyConfigToOps(
@@ -125,6 +167,18 @@ void NNPAJsonConfigObject::applyConfigToOps(
         }
       }
 
+      // Check the tensor information.
+      // {
+      //   "rank": 4,
+      //   "type":  "f32"
+      //   "dims": {
+      //     0: ">=2",
+      //     1: "3",
+      //     2: "%32==0",
+      //     -1:"%64==0"
+      //   },
+      // },
+
       // Operation matches - apply rewrite.
       updateAttrFn(rewriteObj, op);
       matchedOps.push_back(op);
@@ -161,22 +215,26 @@ void NNPAJsonConfigObject::writeOpsConfig(llvm::ArrayRef<mlir::Operation *> ops,
           nameAttr.getValue().str();
     }
 
-    // Get the shapes of inputs and outputs.
-    //
-    // "inputs":  {
-    //    "0": {
-    //      "rank": 4,
-    //      "type":  "f32"
-    //      "dim": {
-    //        0: ">=2",
-    //        1: "3",
-    //        2: "%32==0",
-    //        -1:"%64==0"
-    //      },
-    //    },
-    // },
-    //
-    
+    // Get the tensor info from inputs and outputs.
+    if (op->getOperands().size() > 0) {
+      llvm::json::Object inputs;
+      for (uint64_t i = 0; i < op->getOperands().size(); ++i) {
+        llvm::json::Object tensorInfo;
+        constructTensorInfo(op->getOperands()[i], tensorInfo);
+        inputs[std::to_string(i)] = std::move(tensorInfo);
+      }
+      match[INPUTS_KEY] = std::move(inputs);
+    }
+    if (op->getResults().size() > 0) {
+      llvm::json::Object outputs;
+      for (uint64_t i = 0; i < op->getResults().size(); ++i) {
+        llvm::json::Object tensorInfo;
+        constructTensorInfo(op->getResults()[i], tensorInfo);
+        outputs[std::to_string(i)] = std::move(tensorInfo);
+      }
+      match[OUTPUTS_KEY] = std::move(outputs);
+    }
+
     // Let the callback build the rewrite object.
     if (!buildConfigFn(op, rewrite))
       continue;

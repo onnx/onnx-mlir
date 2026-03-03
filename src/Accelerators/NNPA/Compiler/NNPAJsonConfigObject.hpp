@@ -104,6 +104,9 @@ public:
   static constexpr const char *ONNX_NODE_NAME_ATTR = ONNX_NODE_NAME_KEY;
   static constexpr const char *DEVICE_ATTR = DEVICE_KEY;
   static constexpr const char *QUANTIZE_ATTR = QUANTIZE_KEY;
+
+private:
+  void constructTensorInfo(mlir::Value v, llvm::json::Object &tensorInfoObj);
 };
 
 /// Get the global NNPA configuration object.
