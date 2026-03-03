@@ -21,8 +21,8 @@ model_file = str(script_dir / "test_add.mlir")
 import OMPyCompile
 
 compiled_model = OMPyCompile.compile(
-    "./test_add.onnx",
-    compile_args="-O3",
+    "./test_add.mlir",
+    compile_options="-O3",
     compiler_image_name=None,
     compiler_path="/Users/chentong/Projects/onnx-mlir/build/Debug/bin/onnx-mlir",
 )
@@ -37,6 +37,6 @@ b = a + 4
 # Run inference
 import OMPyInfer
 
-sess = OMPyInfer.ExecutionSession(compiled_model)
+sess = OMPyInfer.InferenceSession(compiled_model)
 r = sess.run([a, b])
 print(r)
