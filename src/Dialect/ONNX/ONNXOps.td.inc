@@ -6161,22 +6161,22 @@ def ONNXQLinearConvOp:ONNX_Op<"QLinearConv",
   When bias is present it must be quantized using scale = input scale * weight scale and
   zero point as 0.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>]>:$x,
+  let arguments = (ins AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI16]>, TensorOf<[UI8]>]>:$x,
     AnyTypeOf<[TensorOf<[F32]>, TensorOf<[quant_QuantizedType]>]>:$x_scale,
-    AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>]>:$x_zero_point,
-    AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>]>:$w,
+    AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI16]>, TensorOf<[UI8]>]>:$x_zero_point,
+    AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI16]>, TensorOf<[UI8]>]>:$w,
     AnyTypeOf<[TensorOf<[F32]>, TensorOf<[quant_QuantizedType]>]>:$w_scale,
-    AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>]>:$w_zero_point,
+    AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI16]>, TensorOf<[UI8]>]>:$w_zero_point,
     AnyTypeOf<[TensorOf<[F32]>, TensorOf<[quant_QuantizedType]>]>:$y_scale,
-    AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>]>:$y_zero_point,
-    AnyTypeOf<[TensorOf<[I32]>, NoneType]>:$B,
+    AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI16]>, TensorOf<[UI8]>]>:$y_zero_point,
+    AnyTypeOf<[TensorOf<[I32]>, TensorOf<[UI16]>, TensorOf<[I16]>, TensorOf<[I8]>, NoneType]>:$B,
     DefaultValuedStrAttr<StrAttr, "NOTSET">:$auto_pad,
     OptionalAttr<I64ArrayAttr>:$dilations,
     DefaultValuedAttr<SI64Attr, "1">:$group,
     OptionalAttr<I64ArrayAttr>:$kernel_shape,
     OptionalAttr<I64ArrayAttr>:$pads,
     OptionalAttr<I64ArrayAttr>:$strides);
-  let results = (outs AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>]>:$y);
+  let results = (outs AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI16]>, TensorOf<[UI8]>]>:$y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 9;
@@ -6214,15 +6214,15 @@ def ONNXQLinearMatMulOp:ONNX_Op<"QLinearMatMul",
   have shape [D1, D2, M, 1] for per row quantization and shape [D1, D2, 1, K] for per column quantization.
   Production must never overflow, and accumulation may overflow if and only if in 32 bits.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>]>:$a,
+  let arguments = (ins AnyTypeOf<[TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[UI16]>, TensorOf<[UI8]>]>:$a,
     AnyTypeOf<[TensorOf<[F32]>, TensorOf<[quant_QuantizedType]>]>:$a_scale,
-    AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>]>:$a_zero_point,
-    AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>]>:$b,
+    AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[I16]>, TensorOf<[UI16]>]>:$a_zero_point,
+    AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[I16]>, TensorOf<[UI16]>]>:$b,
     AnyTypeOf<[TensorOf<[F32]>, TensorOf<[quant_QuantizedType]>]>:$b_scale,
-    AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>]>:$b_zero_point,
+    AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[I16]>, TensorOf<[UI16]>]>:$b_zero_point,
     AnyTypeOf<[TensorOf<[F32]>, TensorOf<[quant_QuantizedType]>]>:$y_scale,
-    AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>]>:$y_zero_point);
-  let results = (outs AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>]>:$y);
+    AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[I16]>, TensorOf<[UI16]>]>:$y_zero_point);
+  let results = (outs AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[I16]>, TensorOf<[UI16]>]>:$y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 8;
