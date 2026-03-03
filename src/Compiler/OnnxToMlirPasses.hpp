@@ -19,11 +19,14 @@ struct OnnxToMlirOptions {
   bool enableConvTranspose1dDecomposeToPhasedConv = false;
   bool enableInstanceNormDecompose = true;
   bool enableMatmulNBitsDecompose = false;
+  bool enableGroupQueryAttentionDecompose = true;
   bool enableRemoveDqQAroundOp = false;
   bool enableRemoveBinary = false;
   bool enableFusePadIntoAvgpool = false;
   bool enableXMCPasses = false;
   bool enableSplitToSliceDecompose = false;
+
+  bool disableBatchNormDecompose = false;
 
   bool disableRecomposeOption = false;
   bool enableONNXHybridPass = true;

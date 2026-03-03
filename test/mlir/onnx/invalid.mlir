@@ -893,55 +893,55 @@ func.func @test_random_normal_like_wrong_dtype(%arg0: tensor<1x1x28x28xf32>) -> 
 
 // -----
 
-func.func @test_rotary_embedding_missing_num_heads(%data: tensor<1x128x3072xf32>, %cos_cache: tensor<4096x48xf32>, %sin_cache: tensor<4096x48xf32>) -> tensor<*xf32> {
+func.func @test_rotary_embedding_missing_num_heads(%data: tensor<1x128x3072xf32>, %cos_cache: tensor<1x128x48xf32>, %sin_cache: tensor<1x128x48xf32>) -> tensor<*xf32> {
   %pos_ids = "onnx.NoValue"() {value} : () -> none
   // expected-error @+1 {{'onnx.RotaryEmbedding' op attribute 'num_heads' must be provided when input is a 3D tensor.}}
-  %0 = "onnx.RotaryEmbedding"(%data, %cos_cache, %sin_cache, %pos_ids) : (tensor<1x128x3072xf32>, tensor<4096x48xf32>, tensor<4096x48xf32>, none) -> tensor<*xf32>
+  %0 = "onnx.RotaryEmbedding"(%data, %cos_cache, %sin_cache, %pos_ids) : (tensor<1x128x3072xf32>, tensor<1x128x48xf32>, tensor<1x128x48xf32>, none) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 }
 
 // -----
 
-func.func @test_rotary_embedding_bad_dtype(%data: tensor<1x128x3072xi64>, %cos_cache: tensor<4096x48xi64>, %sin_cache: tensor<4096x48xi64>) -> tensor<*xi64> {
+func.func @test_rotary_embedding_bad_dtype(%data: tensor<1x128x3072xi64>, %cos_cache: tensor<1x128x48xi64>, %sin_cache: tensor<1x128x48xi64>) -> tensor<*xi64> {
   %pos_ids = "onnx.NoValue"() {value} : () -> none
   // expected-error @+1 {{'onnx.RotaryEmbedding' op operand #0 must be tensor of 32-bit float values or tensor of 16-bit float values or tensor of bfloat16 type values}}
-  %0 = "onnx.RotaryEmbedding"(%data, %cos_cache, %sin_cache, %pos_ids) : (tensor<1x128x3072xi64>, tensor<4096x48xi64>, tensor<4096x48xi64>, none) -> tensor<*xi64>
+  %0 = "onnx.RotaryEmbedding"(%data, %cos_cache, %sin_cache, %pos_ids) : (tensor<1x128x3072xi64>, tensor<1x128x48xi64>, tensor<1x128x48xi64>, none) -> tensor<*xi64>
   return %0 : tensor<*xi64>
 }
 
 // -----
 
-func.func @test_rotary_embedding_4d_odd_head_size(%data: tensor<1x32x128x95xf32>, %cos_cache: tensor<4096x48xf32>, %sin_cache: tensor<4096x48xf32>) -> tensor<*xf32> {
+func.func @test_rotary_embedding_4d_odd_head_size(%data: tensor<1x32x128x95xf32>, %cos_cache: tensor<1x128x48xf32>, %sin_cache: tensor<1x128x48xf32>) -> tensor<*xf32> {
   %pos_ids = "onnx.NoValue"() {value} : () -> none
   // expected-error @+1 {{onnx.RotaryEmbedding: operand '<block argument> of type 'tensor<1x32x128x95xf32>' at index: 0' has dimension at index 3 with value 95, value should be even}}
-  %0 = "onnx.RotaryEmbedding"(%data, %cos_cache, %sin_cache, %pos_ids) {num_heads = 32: si64} : (tensor<1x32x128x95xf32>, tensor<4096x48xf32>, tensor<4096x48xf32>, none) -> tensor<*xf32>
+  %0 = "onnx.RotaryEmbedding"(%data, %cos_cache, %sin_cache, %pos_ids) {num_heads = 32: si64} : (tensor<1x32x128x95xf32>, tensor<1x128x48xf32>, tensor<1x128x48xf32>, none) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 }
 
 // -----
 
-func.func @test_rotary_embedding_3d_odd_head_size(%data: tensor<1x128x3040xf32>, %cos_cache: tensor<4096x48xf32>, %sin_cache: tensor<4096x48xf32>) -> tensor<*xf32> {
+func.func @test_rotary_embedding_3d_odd_head_size(%data: tensor<1x128x3040xf32>, %cos_cache: tensor<1x128x48xf32>, %sin_cache: tensor<1x128x48xf32>) -> tensor<*xf32> {
   %pos_ids = "onnx.NoValue"() {value} : () -> none
   // expected-error @+1 {{onnx.RotaryEmbedding: operand '<block argument> of type 'tensor<1x128x3040xf32>' at index: 0' has dimension at index 2 with value 3040, value should be divisible by 32 * 2}}
-  %0 = "onnx.RotaryEmbedding"(%data, %cos_cache, %sin_cache, %pos_ids) {num_heads = 32: si64} : (tensor<1x128x3040xf32>, tensor<4096x48xf32>, tensor<4096x48xf32>, none) -> tensor<*xf32>
+  %0 = "onnx.RotaryEmbedding"(%data, %cos_cache, %sin_cache, %pos_ids) {num_heads = 32: si64} : (tensor<1x128x3040xf32>, tensor<1x128x48xf32>, tensor<1x128x48xf32>, none) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 }
 
 // -----
 
-func.func @test_rotary_embedding_bad_embedding_dim(%data: tensor<1x32x128x96xf32>, %cos_cache: tensor<4096x48xf32>, %sin_cache: tensor<4096x48xf32>) -> tensor<*xf32> {
+func.func @test_rotary_embedding_bad_embedding_dim(%data: tensor<1x32x128x96xf32>, %cos_cache: tensor<1x128x48xf32>, %sin_cache: tensor<1x128x48xf32>) -> tensor<*xf32> {
   %pos_ids = "onnx.NoValue"() {value} : () -> none
-  // expected-error @+1 {{onnx.RotaryEmbedding: operand '<block argument> of type 'tensor<4096x48xf32>' at index: 1' has dimension at index 1 with value 48, value should be 50}}
-  %0 = "onnx.RotaryEmbedding"(%data, %cos_cache, %sin_cache, %pos_ids) {num_heads = 32: si64, rotary_embedding_dim = 100: si64} : (tensor<1x32x128x96xf32>, tensor<4096x48xf32>, tensor<4096x48xf32>, none) -> tensor<*xf32>
+  // expected-error @+1 {{onnx.RotaryEmbedding: operand '<block argument> of type 'tensor<1x128x48xf32>' at index: 1' has dimension at index 2 with value 48, value should be 50}}
+  %0 = "onnx.RotaryEmbedding"(%data, %cos_cache, %sin_cache, %pos_ids) {num_heads = 32: si64, rotary_embedding_dim = 100: si64} : (tensor<1x32x128x96xf32>, tensor<1x128x48xf32>, tensor<1x128x48xf32>, none) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 }
 
 // -----
 
-func.func @test_rotary_embedding_bad_input_rank(%data: tensor<1x2x32x128x96xf32>, %cos_cache: tensor<4096x48xf32>, %sin_cache: tensor<4096x48xf32>) -> tensor<*xf32> {
+func.func @test_rotary_embedding_bad_input_rank(%data: tensor<1x2x32x128x96xf32>, %cos_cache: tensor<1x128x48xf32>, %sin_cache: tensor<1x128x48xf32>) -> tensor<*xf32> {
   %pos_ids = "onnx.NoValue"() {value} : () -> none
   // expected-error @+1 {{onnx.RotaryEmbedding: operand '<block argument> of type 'tensor<1x2x32x128x96xf32>' at index: 0' has rank 5, rank should be 3 or 4}}
-  %0 = "onnx.RotaryEmbedding"(%data, %cos_cache, %sin_cache, %pos_ids) {num_heads = 32: si64} : (tensor<1x2x32x128x96xf32>, tensor<4096x48xf32>, tensor<4096x48xf32>, none) -> tensor<*xf32>
+  %0 = "onnx.RotaryEmbedding"(%data, %cos_cache, %sin_cache, %pos_ids) {num_heads = 32: si64} : (tensor<1x2x32x128x96xf32>, tensor<1x128x48xf32>, tensor<1x128x48xf32>, none) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 }
 
@@ -956,15 +956,23 @@ func.func @test_rotary_embedding_bad_caches_rank(%data: tensor<1x32x128x96xf32>,
 
 // -----
 
-func.func @test_rotary_embedding_bad_num_heads(%data: tensor<1x128x3072xf32>, %cos_cache: tensor<4096x48xf32>, %sin_cache: tensor<4096x48xf32>) -> tensor<*xf32> {
+func.func @test_rotary_embedding_bad_num_heads(%data: tensor<1x128x3072xf32>, %cos_cache: tensor<1x128x48xf32>, %sin_cache: tensor<1x128x48xf32>) -> tensor<*xf32> {
   %pos_ids = "onnx.NoValue"() {value} : () -> none
   // expected-error @+1 {{onnx.RotaryEmbedding: operand '<block argument> of type 'tensor<1x128x3072xf32>' at index: 0' has dimension at index 2 with value 3072, value should be divisible by 31}}
-  %0 = "onnx.RotaryEmbedding"(%data, %cos_cache, %sin_cache, %pos_ids) {num_heads = 31: si64} : (tensor<1x128x3072xf32>, tensor<4096x48xf32>, tensor<4096x48xf32>, none) -> tensor<*xf32>
+  %0 = "onnx.RotaryEmbedding"(%data, %cos_cache, %sin_cache, %pos_ids) {num_heads = 31: si64} : (tensor<1x128x3072xf32>, tensor<1x128x48xf32>, tensor<1x128x48xf32>, none) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 }
 
 // -----
 
+func.func @test_rotary_embedding_2d_caches_no_num_heads(%data: tensor<1x128x3072xf32>, %cos_cache: tensor<4096x48xf32>, %sin_cache: tensor<4096x48xf32>) -> tensor<*xf32> {
+  %pos_ids = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{'onnx.RotaryEmbedding' op input 'position_ids' must be provided when cos and sin caches are 2D}}
+  %0 = "onnx.RotaryEmbedding"(%data, %cos_cache, %sin_cache, %pos_ids) {num_heads = 32: si64} : (tensor<1x128x3072xf32>, tensor<4096x48xf32>, tensor<4096x48xf32>, none) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+}
+
+// -----
 func.func @test_attention_bad_q_rank(%q: tensor<1x2x32x128x96xf32>, %k: tensor<1x16x128x96xf32>, %v: tensor<1x16x128x48xf32>) -> tensor<*xf32> {
   %none = "onnx.NoValue"() {value} : () -> none
   // expected-error @+1 {{onnx.Attention: operand '<block argument> of type 'tensor<1x2x32x128x96xf32>' at index: 0' has rank 5, rank should be 3 or 4}}
@@ -1022,5 +1030,21 @@ func.func @test_bfp_quant_dequant_wrong_method(%arg0: tensor<16x32xf32>) -> tens
 func.func @test_bfp_quant_dequant_wrong_rounding_mode(%arg0: tensor<16x32xf32>) -> tensor<16x32xf32> {
   // expected-error @+1 {{'onnx.AMDQuarkBFPQuantizeDequantizeOp' op invalid rounding_mode attribute value: 4. Supported values are 0 for rounding half away from zero, 1 for rounding half upward and 2 for rounding half to even.}}
   %0 = "onnx.AMDQuarkBFPQuantizeDequantizeOp"(%arg0) { rounding_mode = 4: si64 }  : (tensor<16x32xf32>) -> tensor<16x32xf32>
+  return %0 : tensor<16x32xf32>
+}
+
+// -----
+
+func.func @test_bfp_quant_dequant_axis_positive_out_of_range(%arg0: tensor<16x32xf32>) -> tensor<16x32xf32> {
+  // expected-error @+1 {{'onnx.AMDQuarkBFPQuantizeDequantizeOp' op axis attribute value 2 is out of range [-2, 2)}}
+  %0 = "onnx.AMDQuarkBFPQuantizeDequantizeOp"(%arg0) { axis = 2: si64 }  : (tensor<16x32xf32>) -> tensor<16x32xf32>
+  return %0 : tensor<16x32xf32>
+}
+
+// -----
+
+func.func @test_bfp_quant_dequant_axis_negative_out_of_range(%arg0: tensor<16x32xf32>) -> tensor<16x32xf32> {
+  // expected-error @+1 {{'onnx.AMDQuarkBFPQuantizeDequantizeOp' op axis attribute value -3 is out of range [-2, 2)}}
+  %0 = "onnx.AMDQuarkBFPQuantizeDequantizeOp"(%arg0) { axis = -3: si64 }  : (tensor<16x32xf32>) -> tensor<16x32xf32>
   return %0 : tensor<16x32xf32>
 }

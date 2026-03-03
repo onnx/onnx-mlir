@@ -4494,24 +4494,24 @@ func.func @test_slice_negative_steps_mixed_dialects(%arg0: tensor<100x200xf32>) 
 /// Test shape inference for RotaryEncoder.
 //===----------------------------------------------------------------------===//
 
-func.func @test_rotary_embedding_4d_no_pos_ids(%data: tensor<1x32x128x96xf32>, %cos_cache: tensor<4096x48xf32>, %sin_cache: tensor<4096x48xf32>) -> tensor<*xf32> {
+func.func @test_rotary_embedding_4d_no_pos_ids(%data: tensor<1x32x128x96xf32>, %cos_cache: tensor<1x128x48xf32>, %sin_cache: tensor<1x128x48xf32>) -> tensor<*xf32> {
   %pos_ids = "onnx.NoValue"() {value} : () -> none
-  %0 = "onnx.RotaryEmbedding"(%data, %cos_cache, %sin_cache, %pos_ids) {num_heads = 32: si64} : (tensor<1x32x128x96xf32>, tensor<4096x48xf32>, tensor<4096x48xf32>, none) -> tensor<*xf32>
+  %0 = "onnx.RotaryEmbedding"(%data, %cos_cache, %sin_cache, %pos_ids) {num_heads = 32: si64} : (tensor<1x32x128x96xf32>, tensor<1x128x48xf32>, tensor<1x128x48xf32>, none) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 }
 // CHECK-LABEL:  func.func @test_rotary_embedding_4d_no_pos_ids
 // CHECK:          "onnx.RotaryEmbedding"
-// CHECK-SAME:       (tensor<1x32x128x96xf32>, tensor<4096x48xf32>, tensor<4096x48xf32>, none) -> tensor<1x32x128x96xf32>
+// CHECK-SAME:       (tensor<1x32x128x96xf32>, tensor<1x128x48xf32>, tensor<1x128x48xf32>, none) -> tensor<1x32x128x96xf32>
 
 
-func.func @test_rotary_embedding_3d_no_pos_ids(%data: tensor<1x128x3072xf32>, %cos_cache: tensor<4096x48xf32>, %sin_cache: tensor<4096x48xf32>) -> tensor<*xf32> {
+func.func @test_rotary_embedding_3d_no_pos_ids(%data: tensor<1x128x3072xf32>, %cos_cache: tensor<1x128x48xf32>, %sin_cache: tensor<1x128x48xf32>) -> tensor<*xf32> {
   %pos_ids = "onnx.NoValue"() {value} : () -> none
-  %0 = "onnx.RotaryEmbedding"(%data, %cos_cache, %sin_cache, %pos_ids) {num_heads = 32: si64} : (tensor<1x128x3072xf32>, tensor<4096x48xf32>, tensor<4096x48xf32>, none) -> tensor<*xf32>
+  %0 = "onnx.RotaryEmbedding"(%data, %cos_cache, %sin_cache, %pos_ids) {num_heads = 32: si64} : (tensor<1x128x3072xf32>, tensor<1x128x48xf32>, tensor<1x128x48xf32>, none) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 }
 // CHECK-LABEL:  func.func @test_rotary_embedding_3d_no_pos_ids
 // CHECK:          "onnx.RotaryEmbedding"
-// CHECK-SAME:       (tensor<1x128x3072xf32>, tensor<4096x48xf32>, tensor<4096x48xf32>, none) -> tensor<1x128x3072xf32>
+// CHECK-SAME:       (tensor<1x128x3072xf32>, tensor<1x128x48xf32>, tensor<1x128x48xf32>, none) -> tensor<1x128x3072xf32>
 
 
 // -----
@@ -4595,3 +4595,14 @@ func.func @test_bfp_quant_dequant_bf16(%arg0: tensor<16x32xbf16>) -> tensor<*xbf
 // CHECK-LABEL:  func.func @test_bfp_quant_dequant_bf16
 // CHECK:          "onnx.AMDQuarkBFPQuantizeDequantizeOp"
 // CHECK-SAME:       (tensor<16x32xbf16>) -> tensor<16x32xbf16>
+
+// -----
+
+func.func @test_bfp_quant_dequant_negative_axis(%arg0: tensor<16x32xf32>) -> tensor<*xf32> {
+  %0 = "onnx.AMDQuarkBFPQuantizeDequantizeOp"(%arg0) { axis = -1 : si64 } : (tensor<16x32xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+}
+// CHECK-LABEL:  func.func @test_bfp_quant_dequant_negative_axis
+// CHECK:          "onnx.AMDQuarkBFPQuantizeDequantizeOp"
+// CHECK-SAME:       {axis = -1 : si64
+// CHECK-SAME:       (tensor<16x32xf32>) -> tensor<16x32xf32>
