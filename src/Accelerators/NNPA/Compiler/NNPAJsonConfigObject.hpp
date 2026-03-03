@@ -107,6 +107,8 @@ public:
 
 private:
   void constructTensorInfo(mlir::Value v, llvm::json::Object &tensorInfoObj);
+  bool matchNodeType(mlir::Operation *op, std::regex re); 
+  bool matchNodeName(mlir::Operation *op, std::regex re); 
 };
 
 /// Get the global NNPA configuration object.

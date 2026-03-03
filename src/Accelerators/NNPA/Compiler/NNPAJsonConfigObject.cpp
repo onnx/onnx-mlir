@@ -61,15 +61,16 @@ void NNPAJsonConfigObject::constructTensorInfo(
   if (!tensorType)
     return;
 
+  // Tensor information
   ArrayRef<int64_t> dims = tensorType.getShape();
-  // rank
+  // Rank
   tensorInfoObj["rank"] = std::to_string(dims.size());
-  // element type
+  // Element type
   Type elemTy = tensorType.getElementType();
   std::string typeStr;
   llvm::raw_string_ostream(typeStr) << elemTy;
   tensorInfoObj["type"] = typeStr;
-  // dimension size
+  // Dimension size
   llvm::json::Object dimObj;
   for (uint64_t i = 0; i < dims.size(); ++i) {
     int64_t d = dims[i];
@@ -79,6 +80,20 @@ void NNPAJsonConfigObject::constructTensorInfo(
       dimObj[std::to_string(i)] = std::to_string(d);
   }
   tensorInfoObj["dims"] = std::move(dimObj);
+}
+
+bool matchNodeType(mlir::Operation *op, std::regex re) {
+  std::string opName = op->getName().getStringRef().str();
+  return std::regex_match(opName, re);
+}
+
+bool matchNodeName(mlir::Operation *op, std::regex re) {
+  if (auto nameAttr =
+          op->getAttrOfType<mlir::StringAttr>(ONNX_NODE_NAME_ATTR)) {
+    std::string name = nameAttr.getValue().str();
+    return std::regex_match(name, re);
+  }
+  return false;
 }
 
 void NNPAJsonConfigObject::applyConfigToOps(
@@ -116,6 +131,8 @@ void NNPAJsonConfigObject::applyConfigToOps(
     // Extract matching criteria.
     auto nodeType = matchObj->getString(NODE_TYPE_KEY);
     auto onnxNodeName = matchObj->getString(ONNX_NODE_NAME_KEY);
+    auto inputTensors = matchObj->getString(INPUTS_KEY);
+    auto outputTensors = matchObj->getString(OUTPUTS_KEY);
 
     if (!nodeType) {
       llvm::errs()
@@ -127,10 +144,8 @@ void NNPAJsonConfigObject::applyConfigToOps(
     std::regex nodeTypeRegex;
     std::regex onnxNodeNameRegex;
     bool hasNodeNamePattern = false;
-
     try {
       nodeTypeRegex = std::regex(nodeType->str());
-
       if (onnxNodeName) {
         onnxNodeNameRegex = std::regex(onnxNodeName->str());
         hasNodeNamePattern = true;
@@ -151,21 +166,12 @@ void NNPAJsonConfigObject::applyConfigToOps(
     llvm::SmallVector<mlir::Operation *> matchedOps;
     for (mlir::Operation *op : workingOps) {
       // Check node type.
-      std::string opName = op->getName().getStringRef().str();
-      if (!std::regex_match(opName, nodeTypeRegex))
+      if (!matchNodeType(op, nodeTypeRegex))
         continue;
 
       // Check onnx_node_name if specified.
-      if (hasNodeNamePattern) {
-        if (auto nameAttr =
-                op->getAttrOfType<mlir::StringAttr>(ONNX_NODE_NAME_ATTR)) {
-          std::string name = nameAttr.getValue().str();
-          if (!std::regex_match(name, onnxNodeNameRegex))
-            continue;
-        } else {
-          continue; // No name attribute, skip.
-        }
-      }
+      if (hasNodeNamePattern && !matchNodeName(op, nodeNameRegex))
+        continue;
 
       // Check the tensor information.
       // {
