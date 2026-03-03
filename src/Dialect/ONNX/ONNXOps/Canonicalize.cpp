@@ -38,9 +38,13 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include "src/Pass/Passes.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
 #define DEBUG_TYPE "rewrite"
+
+// Populated by configureBatchNormCanonicalization().
+static bool disableBatchNormDecompose = false;
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -2980,8 +2984,10 @@ struct FusePadIntoAveragePoolPattern
 void ONNXBatchNormalizationInferenceModeOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<FuseBatchNormInferenceModeConvPattern>(context);
-  results.insert<RewriteBatchNormInferenceModeConvPattern1>(context);
-  results.insert<RewriteBatchNormInferenceModeConvPattern2>(context);
+  if (!disableBatchNormDecompose) {
+    results.insert<RewriteBatchNormInferenceModeConvPattern1>(context);
+    results.insert<RewriteBatchNormInferenceModeConvPattern2>(context);
+  }
 }
 
 /// on the ONNXAddOp.
@@ -3360,3 +3366,8 @@ void ONNXWhereOp::getCanonicalizationPatterns(
 // on the ONNXDequantizeLinearOp.
 void ONNXDequantizeLinearOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {}
+
+void onnx_mlir::configureBatchNormCanonicalization(
+    bool disableBatchNormDecomposeOption) {
+  disableBatchNormDecompose = disableBatchNormDecomposeOption;
+}

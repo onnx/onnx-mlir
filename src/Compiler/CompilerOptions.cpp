@@ -49,6 +49,7 @@ bool enableKrnlBufferReuse;                            // common for both
 bool enableConvTransposeDecomposeToPhasedConv;         // common for both
 bool enableConvTranspose1dDecomposeToPhasedConv;       // common for both
 bool enableQuarkQuantizerLegalization;                 // common for both
+bool disableBatchNormDecompose;                        // common for both
 bool enableSafeCodeGen;                                // common for both
 bool disableMemRefPrefetch;                            // common for both
 uint64_t compilationNumThreads;                        // common for both
@@ -320,6 +321,15 @@ static llvm::cl::opt<bool, true> enableQuarkQuantizerLegalizationOptionOpt(
     "enable-quark-quantizer-legalization",
     llvm::cl::desc("Enable legalization of ONNX models quantized by quark."),
     llvm::cl::location(enableQuarkQuantizerLegalization), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<bool, true> disableBatchNormDecomposeOpt(
+    "disable-batchnorm-decompose",
+    llvm::cl::desc(
+        "Disable decomposition of BatchNormInferenceMode into elementwise "
+        "patterns (default=false). Set to 'true' to keep BatchNorm as a "
+        "single op."),
+    llvm::cl::location(disableBatchNormDecompose), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
 // Options for onnx-mlir only
