@@ -161,6 +161,22 @@ void NNPAJsonConfigObject::writeOpsConfig(llvm::ArrayRef<mlir::Operation *> ops,
           nameAttr.getValue().str();
     }
 
+    // Get the shapes of inputs and outputs.
+    //
+    // "inputs":  {
+    //    "0": {
+    //      "rank": 4,
+    //      "type":  "f32"
+    //      "dim": {
+    //        0: ">=2",
+    //        1: "3",
+    //        2: "%32==0",
+    //        -1:"%64==0"
+    //      },
+    //    },
+    // },
+    //
+    
     // Let the callback build the rewrite object.
     if (!buildConfigFn(op, rewrite))
       continue;

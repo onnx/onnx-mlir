@@ -85,12 +85,18 @@ public:
           buildConfigFn);
 
   // JSON key constants for NNPA configuration.
+  // TODO: define a JSON schema file for validation.
   static constexpr const char *OPS_CONFIG_KEY = "nnpa_ops_config";
   static constexpr const char *PATTERN_KEY = "pattern";
+  // Keys inside `pattern'
   static constexpr const char *MATCH_KEY = "match";
   static constexpr const char *REWRITE_KEY = "rewrite";
+  // Keys inside `match`.
   static constexpr const char *NODE_TYPE_KEY = "node_type";
   static constexpr const char *ONNX_NODE_NAME_KEY = "onnx_node_name";
+  static constexpr const char *INPUTS_KEY = "inputs";
+  static constexpr const char *OUTPUTS_KEY = "outputs";
+  // Keys inside `rewrite`.
   static constexpr const char *DEVICE_KEY = "device";
   static constexpr const char *QUANTIZE_KEY = "quantize";
 
