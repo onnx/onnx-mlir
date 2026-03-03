@@ -32,9 +32,8 @@
 #include "llvm/Support/JSON.h"
 
 #include "src/Accelerators/NNPA/Compiler/NNPACompilerUtils.hpp"
+#include "src/Accelerators/NNPA/Compiler/NNPAJsonConfigObject.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/DevicePlacementHeuristic.hpp"
-#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/JsonConfigFile.hpp"
-#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/JsonConfigObject.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHigh.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/RewriteONNXForZHigh.hpp"
@@ -115,12 +114,9 @@ private:
   SmallVector<Operation *, 32> ops;
 
   // JSON configuration object - either points to global or local instance.
-  JsonConfigObject *configObject;
+  NNPAJsonConfigObject *configObject;
   // Local config object storage (only used when loadConfigFile is provided).
-  std::unique_ptr<JsonConfigObject> localConfigObject;
-
-  // JSON keys.
-  std::string DEVICE_PLACEMENT_KEY = "device_placement";
+  std::unique_ptr<NNPAJsonConfigObject> localConfigObject;
 
   // Exclude these operations from device placement.
   bool isExcludedOp(Operation *op) {
@@ -157,7 +153,7 @@ void DevicePlacementPass::runOnOperation() {
   // is an Option that gets initialized by MLIR after constructor runs.
   if (!loadConfigFile.empty()) {
     // Create a local config object and load from the specified file.
-    localConfigObject = std::make_unique<JsonConfigObject>();
+    localConfigObject = std::make_unique<NNPAJsonConfigObject>();
     if (!localConfigObject->loadFromFile(loadConfigFile)) {
       llvm::errs() << "Warning: Failed to load config file: " << loadConfigFile
                    << "\n";
@@ -171,12 +167,14 @@ void DevicePlacementPass::runOnOperation() {
   // Cost model and user configuration file go here if it's given.
   // Use the configObject pointer which points to either local or global config.
   if (configObject && !configObject->empty()) {
-    // Use the reusable applyConfigToOps method.
-    configObject->applyConfigToOps(ops, DEVICE_PLACEMENT_KEY,
-        [&](llvm::json::Object *jsonObj, mlir::Operation *op) {
-          StringRef device = jsonObj->getString(DEVICE_ATTRIBUTE).value();
-          op->setAttr(
-              DEVICE_ATTRIBUTE, StringAttr::get(module.getContext(), device));
+    // Apply configuration to ONNX ops.
+    configObject->applyConfigToOps(
+        ops, [&](llvm::json::Object *rewriteObj, mlir::Operation *op) {
+          if (auto device =
+                  rewriteObj->getString(NNPAJsonConfigObject::DEVICE_KEY)) {
+            op->setAttr(NNPAJsonConfigObject::DEVICE_ATTR,
+                StringAttr::get(module.getContext(), *device));
+          }
         });
   }
 
@@ -231,21 +229,22 @@ void DevicePlacementPass::runOnOperation() {
 
   // Create a JSON configuration file if required.
   if (!saveConfigFile.empty()) {
-    // Save device placement information to a json file by adding to the
-    // existing json file an json object of key DEVICE_PLACEMENT_KEY. Each value
-    // in the object is added a pair (DEVICE_ATTRIBUTE, value) that denotes the
-    // value of DEVICE_ATTRIBUTE in the operation.
-    NNPAJsonConfig saveCfg(DEVICE_PLACEMENT_KEY);
-    saveCfg.saveConfigToFile(
-        ops, saveConfigFile, [&](llvm::json::Object *jsonObj, Operation *op) {
-          std::string deviceStr =
-              op->getAttrOfType<mlir::StringAttr>(DEVICE_ATTRIBUTE)
-                  ? op->getAttrOfType<mlir::StringAttr>(DEVICE_ATTRIBUTE)
-                        .getValue()
-                        .str()
-                  : "";
-          jsonObj->insert({DEVICE_ATTRIBUTE, deviceStr});
+    configObject->writeOpsConfig(
+        ops, [&](mlir::Operation *op, llvm::json::Object &rewrite) -> bool {
+          auto deviceAttr = op->getAttrOfType<mlir::StringAttr>(
+              NNPAJsonConfigObject::DEVICE_ATTR);
+          if (!deviceAttr)
+            return false;
+          std::string deviceStr = deviceAttr.getValue().str();
+          if (deviceStr.empty())
+            return false;
+          // Add device to rewrite.
+          rewrite[NNPAJsonConfigObject::DEVICE_KEY] = deviceStr;
+          return true;
         });
+
+    // Store the configuration to file.
+    configObject->storeToFile(saveConfigFile);
   }
 }
 

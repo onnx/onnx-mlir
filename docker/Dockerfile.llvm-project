@@ -31,9 +31,18 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
                   autoconf automake ca-certificates clang cmake cppcheck \
                   curl default-jdk-headless gcc g++ git libncurses-dev \
                   libtool make maven ninja-build python3 python3-dev \
-                  python3-numpy python3-pip python3-pytest-xdist \
+                  python3-numpy python3-pip \
                   python3-setuptools python3-typing-extensions \
-                  unzip zip zlib1g-dev && \
+                  unzip zip zlib1g-dev && \       
+          # Use upgrade setuptools to latest which accepts plain string license
+          # format due to onnx. Instead of installing pytest-xdist from apt-get, install it with
+          # pip to avoid the error on ubuntu noble due to lower packaging lib version than 
+          # installed by system defaults. Use same package versions as those in rhel/fedora 
+          # to avoid potential compatibility issues via pip and in the /usr/local using the
+          # --prefix=/usr option to install in /usr/local instead of /usr which is the default
+          # for pip.
+          pip3 install -q setuptools packaging --upgrade --prefix=/usr && \
+          pip3 install -q pytest==7.4.4 pytest-xdist==3.4.0 --prefix=/usr  && \
           rm -rf /var/lib/apt/lists/*; \
        elif [ "${distro}" = "rhel" ] || [ "${distro}" = "fedora" ]; then \
           ln -sf /usr/share/zoneinfo/${TZ} /etc/localtime && \
@@ -44,13 +53,23 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
           yum update -q -y && \
           yum install -q -y \
               autoconf automake ca-certificates clang cmake diffutils \
-              file java-21-devel gcc gcc-c++ git libtool make ncurses-devel \
-              ninja-build python3 python3-devel python3-pip python3-setuptools \
-              python3-wheel tzdata-java unzip which zip zlib-devel && \
-          # Upgrade setuptools to avoid UNKNOWN wheel when building onnx
+              file java-21-devel gcc gcc-c++ git libtool make ncurses-devel ninja-build \
+              # FIX: Use python3.11 instead of python39 to satisfy ONNX >= 3.10 requirement
+              python3.11 python3.11-devel python3.11-pip python3.11-setuptools python3.11-wheel \
+              tzdata-java unzip which zip zlib-devel && \
+          # Create pip3 symlink if it doesn't exist, or update it to use python3.11
+          ln -sf /usr/bin/python3.11 /usr/bin/python3 && \
+          ln -sf /usr/bin/pip3.11 /usr/bin/pip3 && \
+          # Use upgrade setuptools to latest which accepts plain string license
+          # format due to onnx. Upgrade setuptools to avoid UNKNOWN wheel when building onnx
           # Use same package versions as those in ubuntu:noble
+          # IN UBI 9, there is no need of --prefix=/usr unlike UBUNTU due to PEP668
+          # limitations. In UBI-9 upgrading setuptools will automatically upgrade "packaging"
+          # package in the system site-packages instead of installing a new copy in /usr/local
+          # without which in Ubuntu causes issue with pytest-xdist package as it needs a higher
+          # level of packaging lib.
           pip3 install -q setuptools --upgrade && \
-          pip3 install -q \
+          pip3 install -q \ 
                Cython pytest==7.4.4 numpy==1.26.4 pytest-xdist==3.4.0 \
                typing-extensions==4.10.0 && \
           rm -rf /var/cache/dnf/* && \

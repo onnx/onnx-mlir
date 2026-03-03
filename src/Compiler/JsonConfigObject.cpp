@@ -9,26 +9,23 @@
 // =============================================================================
 //
 // This file implements a C++ object to store and manipulate JSON configuration
-// data loaded from a file.
+// data loaded from a file. This is a general-purpose utility that can be
+// extended by accelerator plugins.
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/JsonConfigObject.hpp"
-
-#include <regex>
-
-#include "mlir/IR/BuiltinAttributes.h"
-#include "llvm/ADT/SetOperations.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include "src/Compiler/JsonConfigObject.hpp"
+
 namespace onnx_mlir {
 
-// Global NNPA configuration object.
-static JsonConfigObject globalNNPAConfig;
-
 // Accessor function to get the global config object.
-JsonConfigObject &getGlobalNNPAConfig() { return globalNNPAConfig; }
+JsonConfigObject &getGlobalOMConfig() {
+  static JsonConfigObject globalOMConfig;
+  return globalOMConfig;
+}
 
 JsonConfigObject::JsonConfigObject()
     : jsonObject(std::make_unique<llvm::json::Object>()), filePath("") {}
@@ -36,6 +33,17 @@ JsonConfigObject::JsonConfigObject()
 JsonConfigObject::~JsonConfigObject() = default;
 
 bool JsonConfigObject::loadFromFile(const std::string &filePath) {
+  if (fileIsLoaded) {
+    if (this->filePath == filePath) {
+      // Already loaded this file, silently return success.
+      return true;
+    }
+    llvm::errs() << "Warning: Config file already loaded from "
+                 << this->filePath << ", ignoring request to load " << filePath
+                 << "\n";
+    return false;
+  }
+
   // Try to load the file.
   auto bufferOrError = llvm::MemoryBuffer::getFile(
       filePath, /*bool IsText=*/true, /*RequiresNullTerminator=*/false);
@@ -66,6 +74,32 @@ bool JsonConfigObject::loadFromFile(const std::string &filePath) {
   // Store the parsed JSON object.
   jsonObject = std::make_unique<llvm::json::Object>(std::move(*parsedObject));
   this->filePath = filePath;
+  this->fileIsLoaded = true;
+
+  return true;
+}
+
+bool JsonConfigObject::storeToFile(
+    const std::string &filePath, unsigned indent) const {
+  if (!jsonObject || jsonObject->empty()) {
+    llvm::errs() << "Error: Cannot store empty JSON object to file: "
+                 << filePath << "\n";
+    return false;
+  }
+
+  // Open file for writing.
+  std::error_code EC;
+  llvm::raw_fd_ostream outFile(filePath, EC);
+  if (EC) {
+    llvm::errs() << "Error: Could not open file for writing: " << filePath
+                 << "\n";
+    return false;
+  }
+
+  // Write JSON with pretty printing.
+  llvm::json::OStream jsonOS(outFile, indent);
+  jsonOS.value(llvm::json::Value(llvm::json::Object(*jsonObject)));
+  outFile << "\n";
 
   return true;
 }
@@ -93,6 +127,18 @@ std::optional<llvm::StringRef> JsonConfigObject::getString(
   return jsonObject->getString(key);
 }
 
+bool JsonConfigObject::getCompileOptions(std::vector<std::string> &args) const {
+  const llvm::json::Array *optsArr = getArray(COMPILE_OPTIONS_KEY);
+  if (!optsArr || optsArr->empty())
+    return false;
+  for (const llvm::json::Value &v : *optsArr) {
+    std::optional<llvm::StringRef> arg = v.getAsString();
+    if (arg && arg.has_value())
+      args.emplace_back(arg.value().str());
+  }
+  return true;
+}
+
 void JsonConfigObject::dump(unsigned indent) const {
   if (!jsonObject || jsonObject->empty()) {
     llvm::outs() << "JsonConfigObject is empty\n";
@@ -109,61 +155,6 @@ void JsonConfigObject::dump(unsigned indent) const {
   llvm::json::OStream jsonOS(llvm::outs(), indent);
   jsonOS.value(llvm::json::Value(llvm::json::Object(*jsonObject)));
   llvm::outs() << "\n";
-}
-
-void JsonConfigObject::applyConfigToOps(llvm::ArrayRef<mlir::Operation *> ops,
-    llvm::StringRef arrayKey,
-    llvm::function_ref<void(llvm::json::Object *jsonObj, mlir::Operation *op)>
-        updateAttrFn) {
-  if (!jsonObject || jsonObject->empty())
-    return;
-
-  // Get the JSON array for the specified key.
-  llvm::json::Array *jsonArr = getArray(arrayKey);
-  if (!jsonArr || jsonArr->empty())
-    return;
-
-  // Collect operations to work on.
-  llvm::DenseSet<mlir::Operation *> workingOps(ops.begin(), ops.end());
-
-  // Process each configuration rule in the JSON array.
-  for (llvm::json::Value &v : *jsonArr) {
-    llvm::json::Object *vobj = v.getAsObject();
-    if (!vobj)
-      continue;
-
-    std::optional<llvm::StringRef> nodeType = vobj->getString("node_type");
-    std::optional<llvm::StringRef> nodeName = vobj->getString("onnx_node_name");
-
-    if (!nodeType)
-      continue;
-
-    llvm::DenseSet<mlir::Operation *> updatedOps;
-    for (mlir::Operation *op : workingOps) {
-      // Match node type using regex.
-      llvm::StringRef opNodeType = op->getName().getStringRef();
-      if (!std::regex_match(opNodeType.str(), std::regex(nodeType->str())))
-        continue;
-
-      // Match node name if specified.
-      if (nodeName.has_value()) {
-        llvm::StringRef opNodeName =
-            op->getAttrOfType<mlir::StringAttr>("onnx_node_name")
-                ? op->getAttrOfType<mlir::StringAttr>("onnx_node_name")
-                      .getValue()
-                : "";
-        if (!std::regex_match(opNodeName.str(), std::regex(nodeName->str())))
-          continue;
-      }
-
-      // Apply the callback function when all conditions are satisfied.
-      updateAttrFn(vobj, op);
-      updatedOps.insert(op);
-    }
-
-    // Remove updated ops from working set to avoid processing them again.
-    workingOps = llvm::set_difference(workingOps, updatedOps);
-  }
 }
 
 } // namespace onnx_mlir
