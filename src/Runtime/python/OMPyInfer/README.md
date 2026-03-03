@@ -3,9 +3,6 @@
 This package provides a python driver to run inference on ONNX model compiled onnx-mlir.
 There is a helloworld example in the tests folder with the package:
 ```
-# IBM Confidential
-# © Copyright IBM Corp. 2025
-
 import numpy as np
 import OMPyInfer
 

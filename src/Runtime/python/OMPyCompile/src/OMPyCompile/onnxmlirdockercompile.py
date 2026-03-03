@@ -111,7 +111,7 @@ class CompileSession:
             self.compiled_model = os.path.join(
                 self.output_dirname, self.model_basename.removesuffix(self.model_suffix)
             )
-            self.compile_options += f"-o {self.compiled_model}"
+            self.compile_options += f" -o {self.compiled_model}"
             # Compile will automatically append .so to the -o target
             # Session need the suffix .so
             self.compiled_model += ".so"
@@ -224,16 +224,14 @@ class CompileSession:
         # Compiled library
         if self.compile_options != "":
             command_str += " " + self.compile_options
-        print(self.compile_options)
-        # command_str += " " + "-o /Users/chentong/Projects/om-backend/onnxmlir/tests/test_add"
 
-        # command_str += " --tag=" + self.compile_tag
+        command_str += " --tag=" + self.compile_tag
 
         command_str += " " + os.path.join(
             self.container_model_dirname, self.model_basename
         )
 
-        print(command_str)
+        # print(command_str)
 
         # Logically, the model directory could be mounted as read only.
         # But wrong time error occurred with "r" mode

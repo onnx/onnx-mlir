@@ -1,11 +1,10 @@
 <!--- SPDX-License-Identifier: Apache-2.0 -->
-# OMPyInfer
-This package provides a python driver to run inference on ONNX model compiled onnx-mlir.
-There is a helloworld example in the tests folder with the package:
+# OMPyCompile
+This package provides a python driver to compile a ONNX model with onnx-mlir.
+The compilation can be done with onnx-mlir compiler at local directory or in
+a container. 
+To use
 ```
-# IBM Confidential
-# © Copyright IBM Corp. 2025
-
 import numpy as np
 import OMPyInfer
 

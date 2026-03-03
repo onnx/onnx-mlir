@@ -8,18 +8,37 @@
 ################################################################################
 # Test case to compile a model with compiler container
 ################################################################################
-import numpy as np
+
+# Local model file
+from pathlib import Path
+
+script_dir = Path(__file__).resolve().parent
+model_file = str(script_dir / "test_add.mlir")
+
+# To use compiler container, the image name and compiler path in the image
+# need to be provided.
+# compile_args is the flags passed to onnx-mlir
 import OMPyCompile
 
-# Prepare input data
-a = np.arange(3 * 4 * 5, dtype=np.float32).reshape((3, 4, 5))
-b = a + 4
-
 compiled_model = OMPyCompile.compile(
-    "test_add.onnx",
-    compile_args="-O3",
+    model_file,
+    compile_options="-O3",
     container_engine="docker",
-    compiler_image_name="ghcr.io/onnxmlir/onnx-mlir-dev",
+    compiler_image_name="ghcr.io/onnxmlir/onnx-mlir-dev:latest",
     compiler_path="/workdir/onnx-mlir/build/Debug/bin/onnx-mlir",
 )
 print(compiled_model)
+
+# Prepare input data
+import numpy as np
+
+a = np.arange(3 * 4 * 5, dtype=np.float32).reshape((3, 4, 5))
+b = a + 4
+
+# Run inference
+import OMPyInfer
+
+sess = OMPyInfer.InferenceSession(compiled_model)
+
+r = sess.run([a, b])
+print(r)

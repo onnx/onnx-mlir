@@ -8,21 +8,35 @@
 ################################################################################
 # Test case to use the local compiler to compile the model
 ################################################################################
-import numpy as np
+
+# Local model file
+from pathlib import Path
+
+script_dir = Path(__file__).resolve().parent
+model_file = str(script_dir / "test_add.mlir")
+
+# When compiler_image_name is None, local compiler will be used.
+# The compiler_path is used to locate the compiler.
+# compile_args is the flags passed to onnx-mlir
 import OMPyCompile
 
-# Prepare input data
-a = np.arange(3 * 4 * 5, dtype=np.float32).reshape((3, 4, 5))
-b = a + 4
-
-# When compiler_image_name is None, local compiler will be used. The compiler_path is needed to
-# locate the compiler.
-# Alternative implementation:  use env variable ONNX_MLIR_HOME?
-# compile_args is the flags passed to onnx-mlir
-r = OMPyCompile.compile(
+compiled_model = OMPyCompile.compile(
     "./test_add.onnx",
     compile_args="-O3",
     compiler_image_name=None,
     compiler_path="/Users/chentong/Projects/onnx-mlir/build/Debug/bin/onnx-mlir",
 )
+print(compiled_model)
+
+# Prepare input data
+import numpy as np
+
+a = np.arange(3 * 4 * 5, dtype=np.float32).reshape((3, 4, 5))
+b = a + 4
+
+# Run inference
+import OMPyInfer
+
+sess = OMPyInfer.ExecutionSession(compiled_model)
+r = sess.run([a, b])
 print(r)
