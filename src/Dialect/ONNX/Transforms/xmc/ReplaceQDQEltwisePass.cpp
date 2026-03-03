@@ -461,6 +461,26 @@ struct FuseQuantizedEltwiseActivation : public OpRewritePattern<ActivationOp> {
       return rewriter.notifyMatchFailure(
           activationOp, "activation output not quantized");
 
+    // Verify scale/zp consistency between eltwise output and activation output.
+    // If they differ, there's an implicit requantization that would be lost by
+    // fusing. (Mirrors xcompiler ReplaceQDQEltwisePass line 764.)
+    {
+      auto eltwiseResultType =
+          mlir::cast<RankedTensorType>(eltwiseOp.getResult().getType());
+      auto activationResultType =
+          mlir::cast<RankedTensorType>(activationOp.getResult().getType());
+      auto eltwiseQType = mlir::dyn_cast<mlir::quant::UniformQuantizedType>(
+          eltwiseResultType.getElementType());
+      auto activationQType = mlir::dyn_cast<mlir::quant::UniformQuantizedType>(
+          activationResultType.getElementType());
+      if (eltwiseQType && activationQType &&
+          (std::fabs(eltwiseQType.getScale() - activationQType.getScale()) >
+                  1e-6 ||
+              eltwiseQType.getZeroPoint() != activationQType.getZeroPoint()))
+        return rewriter.notifyMatchFailure(activationOp,
+            "eltwise and activation have different quantization parameters");
+    }
+
     LLVM_DEBUG(llvm::dbgs() << "Fusing quantized eltwise+activation into "
                                "onnx.XCOMPILERFusedEltwise: "
                             << eltwiseOp->getName() << " + "
@@ -471,6 +491,30 @@ struct FuseQuantizedEltwiseActivation : public OpRewritePattern<ActivationOp> {
     if (opType.empty())
       return rewriter.notifyMatchFailure(
           activationOp, "unsupported eltwise op");
+
+    // ReLU on UINT8 with zero_point=0 is a no-op. Fuse the eltwise without
+    // any activation (nonlinear="NONE"), effectively dropping the ReLU.
+    if (isReluNoOp(activationOp.getOperation())) {
+      if (isUnary)
+        b = rewriter.create<ONNXNoneOp>(eltwiseOp.getLoc()).getResult();
+      auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(
+          eltwiseOp.getLoc(), activationOp.getType(), a, b,
+          /*clip_max=*/IntegerAttr(),
+          /*clip_min=*/IntegerAttr(),
+          /*enable_lut_sigmoid=*/rewriter.getBoolAttr(false),
+          /*leakyrelu_alpha=*/FloatAttr(),
+          /*mul_y=*/FloatAttr(),
+          /*nonlinear=*/rewriter.getStringAttr("NONE"),
+          /*nonlinear_in_scales=*/FloatAttr(),
+          /*nonlinear_in_zeropoints=*/IntegerAttr(),
+          /*prelu_in=*/IntegerAttr(),
+          /*prelu_shift=*/IntegerAttr(),
+          /*type=*/rewriter.getStringAttr(opType));
+      rewriter.replaceOp(activationOp, fusedOp.getResult());
+      if (eltwiseOp->use_empty())
+        rewriter.eraseOp(eltwiseOp);
+      return success();
+    }
 
     // Determine nonlinear type and collect attributes
     StringRef nonlinear;
