@@ -32,7 +32,9 @@ NNPAJsonConfigObject &getGlobalNNPAConfig() {
 
   std::call_once(initFlag, []() {
     if (!globalNNPAConfig.isLoaded()) {
-      globalNNPAConfig.loadFromFile(getGlobalOMConfig().getFilePath());
+      JsonConfigObject *globalConfig = &getGlobalOMConfig();
+      if (globalConfig->isLoaded())
+        globalNNPAConfig.loadFromFile(getGlobalOMConfig().getFilePath());
     }
   });
 
