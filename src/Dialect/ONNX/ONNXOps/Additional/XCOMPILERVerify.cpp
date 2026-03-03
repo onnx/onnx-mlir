@@ -18,7 +18,7 @@ LogicalResult XCOMPILERFusedEltwiseOpVerify(Operation *op) {
   StringRef type = fusedEltwiseOp.getType();
 
   // leakyrelu_alpha, prelu_in, prelu_shift exist only if nonlinear == LEAKYRELU
-  bool isLeakyRelu = (nonlinear == "LEAKYRELU" || type == "LEAKYRELU");
+  bool isLeakyRelu = (nonlinear == "LEAKYRELU" || type == "LEAKYRELU"|| type == "PRELU");
   if (fusedEltwiseOp.getLeakyreluAlphaAttr() && !isLeakyRelu)
     return op->emitOpError(
         "'leakyrelu_alpha' is only valid when nonlinear is LEAKYRELU");

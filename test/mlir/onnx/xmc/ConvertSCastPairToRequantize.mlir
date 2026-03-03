@@ -86,13 +86,13 @@ func.func @single_scast_no_pair(%arg0: tensor<1x32x7x7x!quant.uniform<i8:f32, 0.
 
 // -----
 
-// Test 7: scast pair where intermediate has multiple uses - should NOT convert
+// Test 7: scast pair where intermediate has multiple uses - should still convert
+// the second scast to XCOMPILERRequantize; first scast stays for the other use.
 // CHECK-LABEL: @scast_pair_multi_use
 func.func @scast_pair_multi_use(%arg0: tensor<1x32x7x7x!quant.uniform<i8:f32, 0.05:0>>) -> (tensor<1x32x7x7x!quant.uniform<i8:f32, 0.07:0>>, tensor<1x32x7x7xi8>) {
     %0 = quant.scast %arg0 : tensor<1x32x7x7x!quant.uniform<i8:f32, 0.05:0>> to tensor<1x32x7x7xi8>
     %1 = quant.scast %0 : tensor<1x32x7x7xi8> to tensor<1x32x7x7x!quant.uniform<i8:f32, 0.07:0>>
     return %1, %0 : tensor<1x32x7x7x!quant.uniform<i8:f32, 0.07:0>>, tensor<1x32x7x7xi8>
 }
-// CHECK-NOT: onnx.XCOMPILERRequantize
 // CHECK: quant.scast
-// CHECK: quant.scast
+// CHECK: "onnx.XCOMPILERRequantize"
