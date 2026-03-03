@@ -112,14 +112,44 @@ computeActivationMapping(Operation *op, PatternRewriter &rewriter) {
   return {"", FloatAttr(), IntegerAttr(), IntegerAttr()};
 }
 
-// True if value is produced by an eltwise op that Pattern 2 fuses with Relu/
-// LeakyRelu. Pattern 1 should not fuse standalone Relu/LeakyRelu in that case.
+// Check if two quantized types have matching scale and zero_point.
+static bool hasMatchingQuantParams(Type typeA, Type typeB) {
+  auto tensorA = mlir::dyn_cast<RankedTensorType>(typeA);
+  auto tensorB = mlir::dyn_cast<RankedTensorType>(typeB);
+  if (!tensorA || !tensorB)
+    return false;
+  auto qA = mlir::dyn_cast<mlir::quant::UniformQuantizedType>(
+      tensorA.getElementType());
+  auto qB = mlir::dyn_cast<mlir::quant::UniformQuantizedType>(
+      tensorB.getElementType());
+  if (!qA || !qB)
+    return false;
+  return std::fabs(qA.getScale() - qB.getScale()) <= 1e-6 &&
+         qA.getZeroPoint() == qB.getZeroPoint();
+}
+
+// True if value is produced by an eltwise op that Pattern 2 can fuse with
+// Relu/LeakyRelu. Pattern 1 should not fuse standalone Relu/LeakyRelu in that
+// case. However, if the quantization parameters between the eltwise output and
+// the activation output don't match, Pattern 2 will reject the fusion, so
+// Pattern 1 should handle it.
 static bool isInputFromPattern2Eltwise(Value v) {
   Operation *def = v.getDefiningOp();
   if (!def)
     return false;
-  return isa<ONNXAddOp, ONNXSubOp, ONNXMulOp, ONNXDivOp, ONNXTanhOp,
-      ONNXSqrtOp>(def);
+  if (!isa<ONNXAddOp, ONNXSubOp, ONNXMulOp, ONNXDivOp, ONNXTanhOp, ONNXSqrtOp>(
+          def))
+    return false;
+  // Check that the activation (user of def's result) has matching quant params.
+  // If not, Pattern 2 will reject, so don't defer.
+  for (Operation *user : def->getResult(0).getUsers()) {
+    if (isa<ONNXReluOp, ONNXLeakyReluOp>(user)) {
+      if (!hasMatchingQuantParams(
+              def->getResult(0).getType(), user->getResult(0).getType()))
+        return false;
+    }
+  }
+  return true;
 }
 
 // Check if type is quantized
@@ -463,23 +493,11 @@ struct FuseQuantizedEltwiseActivation : public OpRewritePattern<ActivationOp> {
 
     // Verify scale/zp consistency between eltwise output and activation output.
     // If they differ, there's an implicit requantization that would be lost by
-    // fusing. (Mirrors xcompiler ReplaceQDQEltwisePass line 764.)
-    {
-      auto eltwiseResultType =
-          mlir::cast<RankedTensorType>(eltwiseOp.getResult().getType());
-      auto activationResultType =
-          mlir::cast<RankedTensorType>(activationOp.getResult().getType());
-      auto eltwiseQType = mlir::dyn_cast<mlir::quant::UniformQuantizedType>(
-          eltwiseResultType.getElementType());
-      auto activationQType = mlir::dyn_cast<mlir::quant::UniformQuantizedType>(
-          activationResultType.getElementType());
-      if (eltwiseQType && activationQType &&
-          (std::fabs(eltwiseQType.getScale() - activationQType.getScale()) >
-                  1e-6 ||
-              eltwiseQType.getZeroPoint() != activationQType.getZeroPoint()))
-        return rewriter.notifyMatchFailure(activationOp,
-            "eltwise and activation have different quantization parameters");
-    }
+    // fusing.
+    if (!hasMatchingQuantParams(eltwiseOp.getResult().getType(),
+            activationOp.getResult().getType()))
+      return rewriter.notifyMatchFailure(activationOp,
+          "eltwise and activation have different quantization parameters");
 
     LLVM_DEBUG(llvm::dbgs() << "Fusing quantized eltwise+activation into "
                                "onnx.XCOMPILERFusedEltwise: "
