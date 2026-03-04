@@ -6,7 +6,7 @@ The `onnx-mlir` compiler supports loading configuration from a JSON file, allowi
 
 # Features
 
-- **Compile Options**: Specify command-line options as an array in the config file. These are **prepended** to the options provided on the command line. Thus, the options to `onnx-mlir` is `options_from_confifg_file + options_from_command_line`, meaning that the options provided on the commmand line may override the options in the config file.
+- **Compile Options**: Specify command-line options as an array in the config file. These are **prepended** to the options provided on the command line. Thus, the options to `onnx-mlir` are `options_from_confifg_file + options_from_command_line`, meaning that the options provided on the commmand line may override the options in the config file.
 - **Default Config**: Automatically loads `omconfig.json` from the same directory as the input model if present.
 - **Custom Config**: Use `--config-file` to specify a custom configuration file.
 
