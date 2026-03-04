@@ -67,11 +67,9 @@ static IntegerAttr getSI64Attr(PatternRewriter &rewriter, int64_t value) {
 }
 
 // Canonicalize activation op types following the xcompiler ReplaceQDQConvPass
-// convention. Alpha == 26/256 is the native HW leaky-relu; all other alphas
-// (including 0 from plain ReLU) are PRELU with integer mul/shift factors.
+// Canonicalize LeakyReLU op type to LEAKYRELU with alpha and prelu factors.
 // Returns {mappedOpType, leakyrelu_alpha, prelu_in, prelu_shift}.
 // mappedOpType is empty when no remapping is needed.
-static constexpr float kNativeLeakyReluAlpha = 26.0f / 256.0f;
 
 // ReLU on UINT8 with zero_point=0 is a no-op: unsigned values are already
 // non-negative, so clamping at zero has no effect.
@@ -92,22 +90,14 @@ static bool isReluNoOp(Operation *op) {
 
 static std::tuple<StringRef, FloatAttr, IntegerAttr, IntegerAttr>
 computeActivationMapping(Operation *op, PatternRewriter &rewriter) {
-  auto mapAlpha = [&](float alpha) {
-    auto alphaAttr = rewriter.getFloatAttr(rewriter.getF32Type(), alpha);
-    auto [M, N] = getLeakyReluAlphaToPreluFactor(alpha);
-    StringRef opType = (alpha == kNativeLeakyReluAlpha) ? "LEAKYRELU" : "PRELU";
-    return std::make_tuple(
-        opType, alphaAttr, getSI64Attr(rewriter, M), getSI64Attr(rewriter, N));
-  };
-  if (isa<ONNXReluOp>(op)) {
-    if (isReluNoOp(op))
-      return {"", FloatAttr(), IntegerAttr(), IntegerAttr()};
-    return mapAlpha(0.0f);
-  }
   if (auto leakyOp = dyn_cast<ONNXLeakyReluOp>(op)) {
     FloatAttr alphaAttr = leakyOp.getAlphaAttr();
     float alpha = alphaAttr ? alphaAttr.getValue().convertToFloat() : 0.01f;
-    return mapAlpha(alpha);
+    if (!alphaAttr)
+      alphaAttr = rewriter.getFloatAttr(rewriter.getF32Type(), alpha);
+    auto [M, N] = getLeakyReluAlphaToPreluFactor(alpha);
+    return {"LEAKYRELU", alphaAttr, getSI64Attr(rewriter, M),
+        getSI64Attr(rewriter, N)};
   }
   return {"", FloatAttr(), IntegerAttr(), IntegerAttr()};
 }
@@ -307,7 +297,6 @@ struct FuseQuantizedEltwiseWithoutActivation
     if (!mappedOpType.empty())
       opType = mappedOpType;
 
-    // Verifier requires nonlinear=="LEAKYRELU" when prelu attrs are present.
     StringRef nonlinear = "NONE";
 
     auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(eltwiseOp.getLoc(),
