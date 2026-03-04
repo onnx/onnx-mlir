@@ -73,7 +73,8 @@ struct ProcessKrnlParallelClauseWithoutScopePattern
         // Nevertheless, this warning attests that this might be a possibility.
         // In such case, we would get a compiler warning/error of use before
         // def.
-        MutableOperandRange mutableNumThreads = parOp.getNumThreadsVarsMutable();
+        MutableOperandRange mutableNumThreads =
+            parOp.getNumThreadsVarsMutable();
         mutableNumThreads.assign(numThreads);
       }
       if (procBind.has_value()) {
