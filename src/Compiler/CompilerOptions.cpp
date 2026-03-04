@@ -15,10 +15,14 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/TargetParser/Host.h"
 
+#include <filesystem>
+#include <sstream>
+
 #include "ExternalUtil.hpp"
 #include "onnx-mlir/Compiler/OMCompilerRuntimeTypes.h"
 #include "onnx-mlir/Compiler/OMCompilerTypes.h"
 #include "src/Compiler/CompilerOptions.hpp"
+#include "src/Compiler/JsonConfigObject.hpp"
 
 #define DEBUG_TYPE "compiler_options"
 
@@ -52,6 +56,7 @@ uint64_t compilationNumThreads;                        // common for both
 std::vector<std::string> decomposeOpsInONNX;           // common for both
 std::string shapeInformationUB;                        // common for both
 std::string shapeInformationLB;                        // common for both
+std::string linalgOps;                                 // common for both
 EmissionTargetType emissionTarget;                     // onnx-mlir only
 bool invokeOnnxVersionConverter;                       // onnx-mlir only
 bool preserveLocations;                                // onnx-mlir only
@@ -101,13 +106,13 @@ ProfileIRs profileIRWithSig;                           // onnx-mlir only
 OptReport optReport;                                   // onnx-mlir only
 bool enableTiming;                                     // onnx-mlir only
 bool enableBoundCheck;                                 // onnx-mlir only
+bool useLinalgPath;                                    // onnx-mlir only
+std::string configFile;                                // onnx-mlir only
+std::string saveConfigFile;                            // onnx-mlir only
 bool split_input_file;                                 // onnx-mlir-opt only
 bool verify_diagnostics;                               // onnx-mlir-opt only
 bool verify_passes;                                    // onnx-mlir-opt only
 bool allowUnregisteredDialects;                        // onnx-mlir-opt only
-
-bool useLinalgPath;    // onnx-mlir only
-std::string linalgOps; // common for both onnx-mlir and onnx-mlir-opt
 
 // Category for common options shared between onnx-mlir and onnx-mlir-opt.
 llvm::cl::OptionCategory OnnxMlirCommonOptions("common options",
@@ -770,6 +775,19 @@ static llvm::cl::list<std::string, std::vector<std::string>> extraLibsOpt("l",
                    "Each lib can be specified with one extra-libs."),
     llvm::cl::location(extraLibs), llvm::cl::Prefix,
     llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<std::string, true> configFileOpt("config-file",
+    llvm::cl::desc("Path to JSON configuration file with compile options and "
+                   "other settings.\nIf not specified, looks for omconfig.json "
+                   "in the same directory as the input model."),
+    llvm::cl::value_desc("path"), llvm::cl::location(configFile),
+    llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<std::string, true> saveConfigFileOpt("save-config-file",
+    llvm::cl::desc("Save configuration such as device placement and "
+                   "quantization operations to a JSON file."),
+    llvm::cl::value_desc("path"), llvm::cl::location(saveConfigFile),
+    llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<ProfileIRs, true> profileIROpt("profile-ir",
     llvm::cl::desc("Profile operations in an IR (timing only):"),
@@ -1520,6 +1538,76 @@ bool hasSignatureInstrumentation(InstrumentStages targetInstrumentationStage) {
   // Now check if we are signature instrumenting anything.
   return (instrumentSignatures != "" && instrumentSignatures != "NONE") ||
          (instrumentOnnxNode != "" && instrumentOnnxNode != "NONE");
+}
+
+// Load options from a file given by --config-file.
+// If --config-file is not used, looking for omconfig.json in the same folder
+// as the input file.
+bool loadCompileOptionsFromConfig(
+    int argc, const char *const *argv, std::vector<std::string> &extraArgs) {
+  // Get  the input filename.
+  std::string inputFileVar = "";
+  for (int i = 1; i < argc; ++i) {
+    std::string arg(argv[i]);
+    if (arg.size() > 1 && arg[0] == '-')
+      continue;
+    // First positional argument becomes the input file name.
+    if (inputFileVar.empty()) {
+      inputFileVar = arg;
+      // There is only one positional argument. Break here.
+      break;
+    }
+  }
+
+  // VerboseOutput is not yet set, so scan ourselves.
+  bool verbose = false;
+
+  // Get the config-file value.
+  std::string configFileVar = "";
+  for (int i = 1; i < argc; ++i) {
+    std::string arg(argv[i]);
+    if (arg.find("--config-file=") == 0) {
+      configFileVar = arg.substr(strlen("--config-file="));
+    } else if (arg.find("--config-file") == 0 && i + 1 < argc) {
+      configFileVar = argv[++i];
+    } else if (arg.find("-config-file=") == 0) {
+      configFileVar = arg.substr(strlen("-config-file="));
+    } else if (arg.find("-config-file") == 0 && i + 1 < argc) {
+      configFileVar = argv[++i];
+    } else if (arg.compare("-v") == 0) {
+      verbose = true;
+    }
+  }
+
+  // Construct the config file path.
+  std::filesystem::path inputPath(inputFileVar);
+  std::filesystem::path defaultConfigPath =
+      inputPath.parent_path() / "omconfig.json";
+  std::string configPath =
+      configFileVar.empty() ? defaultConfigPath.string() : configFileVar;
+  if (!std::filesystem::exists(configPath)) {
+    if (verbose && !configFileVar.empty()) {
+      // Only warn if user explicitly specified a config file.
+      llvm::errs() << "Warning: Config file not found: " << configPath << "\n";
+    }
+    return false;
+  }
+
+  if (verbose)
+    printf("Config file: %s\n", configPath.c_str());
+
+  // Use JsonConfigObject to load and parse the config file.
+  JsonConfigObject &globalConfig = getGlobalOMConfig();
+  if (!globalConfig.loadFromFile(configPath)) {
+    if (verbose) {
+      llvm::errs() << "Warning: Failed to load config file: " << configPath
+                   << "\n";
+    }
+    return false;
+  }
+
+  // Extract compile options if present.
+  return globalConfig.getCompileOptions(extraArgs);
 }
 
 } // namespace onnx_mlir

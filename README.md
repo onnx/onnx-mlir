@@ -50,10 +50,10 @@ Detailed instructions are provided below.
 
 <!-- Keep list below in sync with docs/Prerequisite.md. -->
 ```
-python >= 3.9
+python >= 3.11
 clang >= 18.1.3
 protobuf >= 33.5
-cmake >= 3.20.0
+cmake >= 3.26.0
 make >= 4.3 or ninja >= 1.10.2
 java >= 21 (optional)
 ```

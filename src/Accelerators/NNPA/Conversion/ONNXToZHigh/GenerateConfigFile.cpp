@@ -19,10 +19,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/JSON.h"
 
-#include "src/Accelerators/NNPA/Compiler/NNPACompilerUtils.hpp"
-#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/JsonConfigFile.hpp"
-#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/JsonConfigObject.hpp"
-#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
+#include "src/Accelerators/NNPA/Compiler/NNPAJsonConfigObject.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
 
@@ -90,33 +87,34 @@ void GenerateConfigFilePass::runOnOperation() {
   });
 
   if (!outputConfigFile.empty()) {
-    // Save device placement information to a json file by adding to the
-    // existing json file an json object of key DEVICE_PLACEMENT_KEY. Each value
-    // in the object is added a pair (DEVICE_ATTRIBUTE, value) that denotes the
-    // value of DEVICE_ATTRIBUTE in the operation.
-    NNPAJsonConfig deviceCfg(DEVICE_PLACEMENT_KEY);
-    deviceCfg.saveConfigToFile(
-        ops, outputConfigFile, [&](llvm::json::Object *jsonObj, Operation *op) {
-          std::string deviceStr =
-              op->getAttrOfType<mlir::StringAttr>(DEVICE_ATTRIBUTE)
-                  ? op->getAttrOfType<mlir::StringAttr>(DEVICE_ATTRIBUTE)
-                        .getValue()
-                        .str()
-                  : "";
-          jsonObj->insert({DEVICE_ATTRIBUTE, deviceStr});
+    NNPAJsonConfigObject configObj;
+
+    configObj.writeOpsConfig(
+        ops, [&](mlir::Operation *op, llvm::json::Object &rewrite) -> bool {
+          bool hasConfig = false;
+
+          // Add device to rewrite if present.
+          if (auto deviceAttr = op->getAttrOfType<mlir::StringAttr>(
+                  NNPAJsonConfigObject::DEVICE_ATTR)) {
+            std::string deviceStr = deviceAttr.getValue().str();
+            if (!deviceStr.empty()) {
+              rewrite[NNPAJsonConfigObject::DEVICE_KEY] = deviceStr;
+              hasConfig = true;
+            }
+          }
+
+          // Add quantize to rewrite if present.
+          if (auto quantAttr = op->getAttrOfType<mlir::BoolAttr>(
+                  NNPAJsonConfigObject::QUANTIZE_ATTR)) {
+            rewrite[NNPAJsonConfigObject::QUANTIZE_KEY] = quantAttr.getValue();
+            hasConfig = true;
+          }
+
+          return hasConfig;
         });
 
-    // Save quantization information to a json file by adding to the existing
-    // json file an json object of key QUANTIZATION_KEY.
-    // Each value in the object is added a pair (QUANT_ATTRIBUTE, value) that
-    // denotes the value of QUANT_ATTRIBUTE in the operation.
-    NNPAJsonConfig quantCfg(QUANTIZATION_KEY);
-    quantCfg.saveConfigToFile(
-        ops, outputConfigFile, [&](llvm::json::Object *jsonObj, Operation *op) {
-          BoolAttr attr = op->getAttrOfType<mlir::BoolAttr>(QUANT_ATTRIBUTE);
-          if (attr)
-            jsonObj->insert({QUANT_ATTRIBUTE, attr.getValue()});
-        });
+    // Store the configuration to file.
+    configObj.storeToFile(outputConfigFile);
   }
 }
 
