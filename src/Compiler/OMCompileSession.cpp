@@ -50,7 +50,7 @@ void CompilerSession::compile(const std::string &modelPath,
         "Compilation failed: could not locate input model file \"" +
         inputFilename + "\"");
   }
-  // Determine onnx-mlir executable path.
+  // Determine the onnx-mlir executable path.
 #ifdef _WIN32
   std::string onnxMlirPath = "onnx-mlir.exe";
 #else
