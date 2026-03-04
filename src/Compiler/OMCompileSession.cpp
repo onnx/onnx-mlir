@@ -52,12 +52,12 @@ void CompilerSession::compile(const std::string &modelPath,
   }
   // Determine the onnx-mlir executable path.
 #ifdef _WIN32
-  std::string onnxMlirPath = "onnx-mlir.exe";
+  std::string compilerFilename = "onnx-mlir.exe";
 #else
-  std::string onnxMlirPath = "onnx-mlir";
+  std::string compilerFilename = "onnx-mlir";
 #endif
   // Execute onnx-mlir command with arguments.
-  onnx_mlir::Command compile(onnxMlirPath, /*verbose*/ true);
+  onnx_mlir::Command compile(compilerFilename, /*verbose*/ true);
   compile.appendList(flagVect);
   if (!modelPath.empty())
     compile.appendStr(inputFilename);
