@@ -7,7 +7,8 @@
 //
 // Copyright 2026 The IBM Research Authors.
 //
-// This file contains C++ code to compile onnx files using onnx-mlir.
+// This file contains C++ code to compile onnx model files in .onnx, .mlir, or
+// .onnxtext using onnx-mlir.
 //
 // This file should not include any ONNX-MLIR / MLIR / LLVM dependences except
 // for onnx-mlir/include.
