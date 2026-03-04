@@ -59,11 +59,7 @@ public:
 class CompilerSession {
 public:
   // Default constructor; compilation deferred to invocation of this->compile().
-  CompilerSession();
-  // Constructor that compiles model. Trow CompilerSessionException on compiler
-  // error.
-  CompilerSession(const std::string &modelPath, const std::string &flags,
-      const std::string &logFilename = {});
+  CompilerSession() = default;
   ~CompilerSession() = default;
 
   // Compile. Trow CompilerSessionException on compiler error.
@@ -91,7 +87,7 @@ public:
 private:
   std::vector<std::string> flagVect;
   std::string outputFilename;
-  bool successfullyCompiled;
+  bool successfullyCompiled = false;
 };
 
 } // namespace onnx_mlir

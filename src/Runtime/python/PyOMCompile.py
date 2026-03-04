@@ -18,8 +18,8 @@ try:
     )
 except ImportError:
     raise ImportError(
-        "Looks like you did not build the PyOMCompileC target, build it by "
-        "running `make PyOMCompileC`. You may need to set ONNX_MLIR_HOME "
-        "to `onnx-mlir/build/Debug` since `make PyOMCompileC` outputs to "
-        "`build/Debug` by default."
+        "Looks like you did not build the PyOMCompileC target, build it by\n"
+        "running `make PyOMCompileC`. You may need to set PYTHONPATH to\n"
+        "include `onnx-mlir/build/Debug/lib` since `make PyOMCompileC` outputs\n"
+        "to `build/Debug` by default (or Release if building Release)."
     )

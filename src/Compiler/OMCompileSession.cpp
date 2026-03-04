@@ -28,13 +28,6 @@ namespace fs = std::filesystem;
 
 namespace onnx_mlir {
 
-CompilerSession::CompilerSession() : successfullyCompiled(false) {}
-
-CompilerSession::CompilerSession(const std::string &modelPath,
-    const std::string &flags, const std::string &logFilename) {
-  compile(modelPath, flags, logFilename);
-}
-
 void CompilerSession::compile(const std::string &modelPath,
     const std::string &flags, const std::string &logFilename) {
   // Initialize state.
