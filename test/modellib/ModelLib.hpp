@@ -24,9 +24,9 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/FileUtilities.h"
 
+#include "src/Compiler/CommandUtils.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
-#include "src/Compiler/DriverUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Runtime/ExecutionSession.hpp"
 
@@ -513,8 +513,7 @@ private:
 
 class SoftplusLibBuilder : public ModelLibBuilder {
 public:
-  SoftplusLibBuilder(
-      const std::string &modelName, const int N);
+  SoftplusLibBuilder(const std::string &modelName, const int N);
   bool build() final;
   bool prepareInputs() final;
   bool prepareInputs(float dataRangeLB, float dataRangeUB);

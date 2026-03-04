@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----------- DriverUtils.cpp - Utils for compiler driver  -------------===//
+//===----------- CommandUtils.cpp - Utils for compiler driver -------------===//
 //
 //
 // Copyright 2026 The IBM Research Authors.
@@ -13,7 +13,7 @@
 // for onnx-mlir/include.
 //===----------------------------------------------------------------------===//
 
-#include "src/Compiler/DriverUtils.hpp"
+#include "src/Compiler/CommandUtils.hpp"
 
 #include <filesystem>
 #include <sstream>
@@ -25,11 +25,57 @@ namespace onnx_mlir {
 
 std::vector<std::string> parseFlags(const std::string &flags) {
   std::vector<std::string> flagVect;
-  std::istringstream iss(flags);
-  std::string arg;
-  while (iss >> arg) {
-    flagVect.push_back(arg);
+  std::string current;
+  bool inDoubleQuote = false;
+  bool inSingleQuote = false;
+  bool escapeNext = false;
+
+  for (size_t i = 0; i < flags.length(); ++i) {
+    char c = flags[i];
+
+    if (escapeNext) {
+      // Add the escaped character literally
+      current += c;
+      escapeNext = false;
+      continue;
+    }
+
+    if (c == '\\') {
+      // Escape the next character
+      escapeNext = true;
+      continue;
+    }
+
+    if (c == '"' && !inSingleQuote) {
+      // Toggle double quote mode
+      inDoubleQuote = !inDoubleQuote;
+      continue;
+    }
+
+    if (c == '\'' && !inDoubleQuote) {
+      // Toggle single quote mode
+      inSingleQuote = !inSingleQuote;
+      continue;
+    }
+
+    if (std::isspace(c) && !inDoubleQuote && !inSingleQuote) {
+      // Space outside quotes - end current token
+      if (!current.empty()) {
+        flagVect.push_back(current);
+        current.clear();
+      }
+      continue;
+    }
+
+    // Regular character - add to current token
+    current += c;
   }
+
+  // Add the last token if any
+  if (!current.empty()) {
+    flagVect.push_back(current);
+  }
+
   return flagVect;
 }
 
@@ -110,8 +156,8 @@ std::string getInputFilename(
     const std::string &arg = flags[i];
     if (!arg.empty() && arg[0] == '-')
       continue;
-    // Check if it ends with ".c".
-    if ((arg.length() >= 4 && arg.substr(arg.length() - 4) == ".mlir") ||
+    // Check if it ends with ".onnx, mlir, or onnxtext".
+    if ((arg.length() >= 5 && arg.substr(arg.length() - 5) == ".mlir") ||
         (arg.length() >= 5 && arg.substr(arg.length() - 5) == ".onnx") ||
         (arg.length() >= 9 && arg.substr(arg.length() - 9) == ".onnxtext"))
       return arg;

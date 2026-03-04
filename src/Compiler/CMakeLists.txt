@@ -39,6 +39,7 @@ target_compile_definitions(OMVersion PUBLIC ${DEFINITIONS})
 
 add_onnx_mlir_library(OMCompilerOptions
   CompilerOptions.cpp
+  JsonConfigObject.cpp
 
   EXCLUDE_FROM_OM_LIBS
 
@@ -57,6 +58,7 @@ add_onnx_mlir_library(OMCompilerOptions
   MLIRIR
   OMAccelerator
   LLVMTargetParser
+  LLVMSupport
   )
 
 
@@ -155,9 +157,9 @@ set_property(SOURCE CompilerUtils.cpp APPEND PROPERTY COMPILE_DEFINITIONS ${DEFI
 # onnx-mlir compiler as well as the OMCompileSession. The file listed
 # here must remain MLIR/LLVM free.
  
-add_onnx_mlir_library(OMCompileSessionUtils
+add_onnx_mlir_library(OMCommandUtils
   Command.cpp
-  DriverUtils.cpp
+  CommandUtils.cpp
 
   EXCLUDE_FROM_OM_LIBS
 
@@ -182,7 +184,7 @@ add_onnx_mlir_library(OMCompileSessionUtils
   ${ONNX_MLIR_SRC_ROOT}/include
 
   LINK_LIBS PRIVATE
-  OMCompileSessionUtils
+  OMCommandUtils
   )
 
 add_onnx_mlir_library(OMCompilerUtils
@@ -204,7 +206,7 @@ add_onnx_mlir_library(OMCompilerUtils
 
   LINK_LIBS PUBLIC
   OMCompilerDialects
-  OMCompileSessionUtils
+  OMCommandUtils
   OMCompilerPasses
   OMAccelerator
   OMVersion

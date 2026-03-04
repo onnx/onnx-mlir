@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----------- DriverUtils.hpp - Utils for compiler driver  -------------===//
+//===----------- CommandUtils.hpp - Utils for compiler driver -------------===//
 //
 //
 // Copyright 2026 The IBM Research Authors.
@@ -24,6 +24,9 @@
 namespace onnx_mlir {
 
 // Split strings into a vector of strings separated by spaces.
+// Handles quoted strings (both single ' and double " quotes) so that
+// spaces inside quotes are kept together as one string in the vector.
+// Supports backslash escaping for quotes and other characters.
 std::vector<std::string> parseFlags(const std::string &flags);
 
 // Append current working directory if filename is relative. When filename is

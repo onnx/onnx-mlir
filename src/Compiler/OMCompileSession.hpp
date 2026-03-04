@@ -7,7 +7,8 @@
 //
 // Copyright 2026 The IBM Research Authors.
 //
-// This file contains C++ code to compile onnx files using onnx-mlir.
+// This file contains C++ code to compile onnx model files in .onnx, .mlir, or
+// .onnxtext using onnx-mlir.
 //
 // This file should not include any ONNX-MLIR / MLIR / LLVM dependences except
 // for onnx-mlir/include.
@@ -32,65 +33,164 @@ public:
       : std::runtime_error(msg) {}
 };
 
-/*  C++ interface to compile an onnx model from a file via onnx-mlir command.
- *  This interface is thread safe, and does not take any flags from the
- *  current environment. All flags are passed by using the flags parameter,
- *  including the "-o output-file-name" option or the "-EmitXXX" options. All
- *  options that are available to onnx-mlir are also available here.
+/**
+ * @class CompilerSession
+ * @brief C++ interface for compiling ONNX models using the onnx-mlir compiler.
  *
- *  This call rely on executing onnx-mlir compiler.
+ * This class provides a thread-safe interface to compile ONNX models from files
+ * (.onnx, .mlir, or .onnxtext formats) into various output formats such as
+ * shared libraries (.so/.dll), object files (.o/.obj), or JAR files.
  *
- *  When generating libraries or jar files, the compiler will link in
- *  lightweight runtimes / jar files. If these libraries / jar files are not in
- *  the system wide directory (typically /usr/local/lib), the user can override
- *  the default location using the ONNX_MLIR_LIBRARY_PATH environment variable.
+ * ## Thread Safety
+ * This interface is thread-safe and does not read any flags from environment
+ * variables. All compilation options must be explicitly passed via the flags
+ * parameter.
  *
- *  @param inputFilename File name pointing onnx model protobuf or MLIR.
- *  Name may include a path, and must include the file name and its extention.
- *  If left empty, then the flags are expected to include the input model name.
+ * ## Compilation Process
+ * The class invokes the onnx-mlir compiler executable to perform the actual
+ * compilation. When generating libraries or JAR files, the compiler
+ * automatically links in the required lightweight runtime libraries.
  *
- *  @param flags A string that contains all the options provided to compile the
- *  model.
+ * ## Runtime Library Location
+ * By default, runtime libraries are expected in system-wide directories
+ * (typically /usr/local/lib). To use a custom location, set the
+ * ONNX_MLIR_LIBRARY_PATH environment variable before compilation.
  *
- *  Trow CompilerSessionException on compiler error.
+ * ## Usage Example
+ * @code
+ *   CompilerSession session;
+ *   try {
+ *     session.compile("model.onnx", "-O3 -o output");
+ *     std::string outputFile = session.getOutputFilename();
+ *     std::cout << "Compiled to: " << outputFile << std::endl;
+ *   } catch (const CompilerSessionException& e) {
+ *     std::cerr << "Compilation failed: " << e.what() << std::endl;
+ *   }
+ * @endcode
+ *
+ * ## Supported Compiler Flags
+ * All flags available to the onnx-mlir command-line tool are supported:
+ * - `-o <filename>`: Specify output file name
+ * - `-EmitLib`: Generate shared library (default)
+ * - `-EmitObj`: Generate object file
+ * - `-EmitJNI`: Generate JAR file with JNI bindings
+ * - `-O0/-O1/-O2/-O3`: Optimization levels
+ * - `--tag=<name>`: Add a tag to the compiled model
+ * - And many more (see onnx-mlir documentation)
+ *
+ * @note Flags can contain quoted strings (e.g., `-o "path with
+ * spaces/model.so"`) which will be properly parsed.
  */
-
 class CompilerSession {
 public:
-  // Default constructor; compilation deferred to invocation of this->compile().
-  CompilerSession();
-  // Constructor that compiles model. Trow CompilerSessionException on compiler
-  // error.
-  CompilerSession(const std::string &modelPath, const std::string &flags,
-      const std::string &logFilename = {});
+  /**
+   * @brief Default constructor.
+   *
+   * Creates a CompilerSession object. Actual compilation is deferred until
+   * the compile() method is called.
+   */
+  CompilerSession() = default;
+
+  /**
+   * @brief Destructor.
+   */
   ~CompilerSession() = default;
 
-  // Compile. Trow CompilerSessionException on compiler error.
+  /**
+   * @brief Compile an ONNX model with specified flags.
+   *
+   * Invokes the onnx-mlir compiler to compile the input model. The method
+   * blocks until compilation completes or fails.
+   *
+   * @param modelPath Path to the input model file (.onnx, .mlir, or .onnxtext).
+   *                  Can include a directory path. If empty, the flags
+   * parameter must contain the input filename.
+   * @param flags Compilation flags as a single string (e.g., "-O3 -o output").
+   *              Supports quoted strings for paths with spaces.
+   * @param logFilename Optional path to a file where compilation logs will be
+   *                    written. If empty, logs go to stdout/stderr.
+   *
+   * @throws CompilerSessionException if compilation fails for any reason
+   *         (invalid input, compiler errors, missing dependencies, etc.)
+   */
   void compile(const std::string &modelPath, const std::string &flags,
       const std::string &logFilename = {});
 
-  // File name of compiler generated model as compiled. Throw error if called
-  // before a successfully compiled model.
+  /**
+   * @brief Get the output filename of the compiled model.
+   *
+   * Returns the absolute path to the file generated by the most recent
+   * successful compilation.
+   *
+   * @return Absolute path to the compiled output file
+   * @throws std::runtime_error if called before a successful compilation
+   */
   std::string getOutputFilename();
 
-  // Model tag for the compiler generated model as compiled by the constructor.
-  // Throw error if called before a successfully compiled model.
+  /**
+   * @brief Get the model tag of the compiled model.
+   *
+   * Returns the tag specified via the --tag flag during compilation, or an
+   * empty string if no tag was specified.
+   *
+   * @return Model tag string, or empty if no tag was set
+   * @throws std::runtime_error if called before a successful compilation
+   */
   std::string getModelTag();
 
+  /**
+   * @brief Check if the last compilation was successful.
+   *
+   * @return true if compile() completed successfully, false otherwise
+   */
   bool isSuccessfullyCompiled() { return successfullyCompiled; }
 
-  // Class functions to support caching, where we may want to know the output
-  // file name and/or tag before compiling.
+  /**
+   * @brief Static helper to extract input filename from model path and flags.
+   *
+   * Useful for determining the input file before compilation, especially when
+   * implementing caching mechanisms.
+   *
+   * @param modelPath Model path parameter (may be empty)
+   * @param flags Compilation flags string
+   * @return The input filename that would be used for compilation
+   */
   static std::string getInputFilename(
       const std::string &modelPath, const std::string &flags);
+
+  /**
+   * @brief Static helper to predict output filename from model path and flags.
+   *
+   * Determines what the output filename would be based on the input and flags,
+   * without actually performing compilation. Useful for caching and
+   * pre-checking if output already exists.
+   *
+   * @param modelPath Model path parameter (may be empty)
+   * @param flags Compilation flags string
+   * @return The output filename that would be generated
+   */
   static std::string getOutputFilename(
       const std::string &modelPath, const std::string &flags);
+
+  /**
+   * @brief Static helper to extract model tag from compilation flags.
+   *
+   * Parses the flags string to find the --tag or -tag option value.
+   *
+   * @param flags Compilation flags string
+   * @return The model tag if specified in flags, empty string otherwise
+   */
   static std::string getModelTag(const std::string &flags);
 
 private:
+  /// Parsed compilation flags as a vector of individual arguments
   std::vector<std::string> flagVect;
+
+  /// Absolute path to the output file from the last successful compilation
   std::string outputFilename;
-  bool successfullyCompiled;
+
+  /// Flag indicating whether the last compilation completed successfully
+  bool successfullyCompiled = false;
 };
 
 } // namespace onnx_mlir
