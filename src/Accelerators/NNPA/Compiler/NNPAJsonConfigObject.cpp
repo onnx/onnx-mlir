@@ -23,6 +23,7 @@
 #include "src/Accelerators/NNPA/Compiler/NNPAJsonConfigObject.hpp"
 #include "src/Compiler/JsonConfigObject.hpp"
 
+using namespace llvm;
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -45,7 +46,7 @@ NNPAJsonConfigObject &getGlobalNNPAConfig() {
 }
 
 void NNPAJsonConfigObject::constructTensorInfo(
-    Value v, llvm::json::Object &tensorInfoObj) {
+    Value v, json::Object &tensorInfoObj) {
   // Read info from value and put them into a JSON object as follows:
   // -1 is used for a dynamic dimension.
   // {
@@ -71,7 +72,7 @@ void NNPAJsonConfigObject::constructTensorInfo(
   llvm::raw_string_ostream(typeStr) << elemTy;
   tensorInfoObj["type"] = typeStr;
   // Dimension size
-  llvm::json::Object dimObj;
+  json::Object dimObj;
   for (uint64_t i = 0; i < dims.size(); ++i) {
     int64_t d = dims[i];
     if (ShapedType::isDynamic(d))
@@ -96,15 +97,23 @@ bool NNPAJsonConfigObject::matchNodeName(mlir::Operation *op, std::regex re) {
   return false;
 }
 
+bool NNPAJsonConfigObject::matchTensorInfo(Value tensor, json::Object *regObj) {
+  return true;
+}
+
+bool NNPAJsonConfigObject::matchTensorInfo(
+    ValueRange tensors, json::Object *regObj) {
+  return true;
+}
+
 void NNPAJsonConfigObject::applyConfigToOps(
     llvm::ArrayRef<mlir::Operation *> ops,
-    mlir::function_ref<void(llvm::json::Object *, mlir::Operation *)>
-        updateAttrFn) {
+    mlir::function_ref<void(json::Object *, mlir::Operation *)> updateAttrFn) {
   if (empty())
     return;
 
   // Get the nnpa_ops_config array.
-  llvm::json::Array *opConfigsArr = getArray(OPS_CONFIG_KEY);
+  json::Array *opConfigsArr = getArray(OPS_CONFIG_KEY);
   if (!opConfigsArr || opConfigsArr->empty())
     return;
 
@@ -112,29 +121,30 @@ void NNPAJsonConfigObject::applyConfigToOps(
   llvm::DenseSet<mlir::Operation *> workingOps(ops.begin(), ops.end());
 
   // Process each configuration rule in the nnpa_ops_config array.
-  for (llvm::json::Value &v : *opConfigsArr) {
-    llvm::json::Object *configObj = v.getAsObject();
+  for (json::Value &v : *opConfigsArr) {
+    json::Object *configObj = v.getAsObject();
     if (!configObj)
       continue;
 
     // Get the pattern object.
-    llvm::json::Object *patternObj = configObj->getObject(PATTERN_KEY);
+    json::Object *patternObj = configObj->getObject(PATTERN_KEY);
     if (!patternObj)
       continue;
 
     // Get the match and rewrite objects.
-    llvm::json::Object *matchObj = patternObj->getObject(MATCH_KEY);
-    llvm::json::Object *rewriteObj = patternObj->getObject(REWRITE_KEY);
+    json::Object *matchObj = patternObj->getObject(MATCH_KEY);
+    json::Object *rewriteObj = patternObj->getObject(REWRITE_KEY);
     if (!matchObj || !rewriteObj)
       continue;
 
     // Extract matching criteria.
-    auto nodeType = matchObj->getString(NODE_TYPE_KEY);
-    auto onnxNodeName = matchObj->getString(ONNX_NODE_NAME_KEY);
-    auto inputTensors = matchObj->getString(INPUTS_KEY);
-    auto outputTensors = matchObj->getString(OUTPUTS_KEY);
+    std::optional<StringRef> nodeTypeStr = matchObj->getString(NODE_TYPE_KEY);
+    std::optional<StringRef> onnxNodeNameStr =
+        matchObj->getString(ONNX_NODE_NAME_KEY);
+    json::Object *inputTensorsObj = matchObj->getObject(INPUTS_KEY);
+    json::Object *outputTensorsObj = matchObj->getObject(OUTPUTS_KEY);
 
-    if (!nodeType) {
+    if (!nodeTypeStr) {
       llvm::errs()
           << "Warning: Config entry missing required 'node_type' field\n";
       continue;
@@ -145,19 +155,19 @@ void NNPAJsonConfigObject::applyConfigToOps(
     std::regex onnxNodeNameRegex;
     bool hasNodeNamePattern = false;
     try {
-      nodeTypeRegex = std::regex(nodeType->str());
-      if (onnxNodeName) {
-        onnxNodeNameRegex = std::regex(onnxNodeName->str());
+      nodeTypeRegex = std::regex(nodeTypeStr->str());
+      if (onnxNodeNameStr) {
+        onnxNodeNameRegex = std::regex(onnxNodeNameStr->str());
         hasNodeNamePattern = true;
       }
     } catch (const std::regex_error &e) {
       llvm::errs() << "Error: Invalid regex pattern in config - " << e.what()
                    << "\n";
-      if (onnxNodeName) {
-        llvm::errs() << "  node_type: " << nodeType->str()
-                     << ", onnx_node_name: " << onnxNodeName->str() << "\n";
+      if (onnxNodeNameStr) {
+        llvm::errs() << "  node_type: " << nodeTypeStr->str()
+                     << ", onnx_node_name: " << onnxNodeNameStr->str() << "\n";
       } else {
-        llvm::errs() << "  node_type: " << nodeType->str() << "\n";
+        llvm::errs() << "  node_type: " << nodeTypeStr->str() << "\n";
       }
       continue;
     }
@@ -184,6 +194,12 @@ void NNPAJsonConfigObject::applyConfigToOps(
       //     -1:"%64==0"
       //   },
       // },
+      ValueRange inputTensors = ValueRange(op->getOperands());
+      if (!matchTensorInfo(inputTensors, inputTensorsObj))
+        continue;
+      ValueRange outputTensors = ValueRange(op->getResults());
+      if (!matchTensorInfo(outputTensors, outputTensorsObj))
+        continue;
 
       // Operation matches - apply rewrite.
       updateAttrFn(rewriteObj, op);
@@ -202,13 +218,13 @@ void NNPAJsonConfigObject::applyConfigToOps(
 }
 
 void NNPAJsonConfigObject::writeOpsConfig(llvm::ArrayRef<mlir::Operation *> ops,
-    mlir::function_ref<bool(mlir::Operation *, llvm::json::Object &rewrite)>
+    mlir::function_ref<bool(mlir::Operation *, json::Object &rewrite)>
         buildConfigFn) {
-  llvm::json::Array opConfigsArray;
+  json::Array opConfigsArray;
 
   for (mlir::Operation *op : ops) {
-    llvm::json::Object match;
-    llvm::json::Object rewrite;
+    json::Object match;
+    json::Object rewrite;
 
     // Get the operation type.
     std::string nodeType = op->getName().getStringRef().str();
@@ -222,18 +238,18 @@ void NNPAJsonConfigObject::writeOpsConfig(llvm::ArrayRef<mlir::Operation *> ops,
 
     // Get the tensor info from inputs and outputs.
     if (op->getOperands().size() > 0) {
-      llvm::json::Object inputs;
+      json::Object inputs;
       for (uint64_t i = 0; i < op->getOperands().size(); ++i) {
-        llvm::json::Object tensorInfo;
+        json::Object tensorInfo;
         constructTensorInfo(op->getOperands()[i], tensorInfo);
         inputs[std::to_string(i)] = std::move(tensorInfo);
       }
       match[INPUTS_KEY] = std::move(inputs);
     }
     if (op->getResults().size() > 0) {
-      llvm::json::Object outputs;
+      json::Object outputs;
       for (uint64_t i = 0; i < op->getResults().size(); ++i) {
-        llvm::json::Object tensorInfo;
+        json::Object tensorInfo;
         constructTensorInfo(op->getResults()[i], tensorInfo);
         outputs[std::to_string(i)] = std::move(tensorInfo);
       }
@@ -245,19 +261,19 @@ void NNPAJsonConfigObject::writeOpsConfig(llvm::ArrayRef<mlir::Operation *> ops,
       continue;
 
     // Build the pattern object.
-    llvm::json::Object pattern;
+    json::Object pattern;
     pattern[MATCH_KEY] = std::move(match);
     pattern[REWRITE_KEY] = std::move(rewrite);
 
     // Build the config object.
-    llvm::json::Object config;
+    json::Object config;
     config[PATTERN_KEY] = std::move(pattern);
 
     opConfigsArray.push_back(std::move(config));
   }
 
   // Store the nnpa_ops_config array in the JSON object.
-  llvm::json::Object *jsonObj = getJsonObject();
+  json::Object *jsonObj = getJsonObject();
   if (jsonObj) {
     (*jsonObj)[OPS_CONFIG_KEY] = std::move(opConfigsArray);
   }
