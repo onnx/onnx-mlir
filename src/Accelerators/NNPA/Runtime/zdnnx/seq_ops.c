@@ -224,7 +224,7 @@ zdnn_status zdnnx_seq_unary_elementwise(const zdnn_ztensor *input,
           if (op_type == ZDNNX_EXP_OP)
             status = zdnn_exp(&tx.data, &ty.data);
           else if (op_type == ZDNNX_GELU_OP)
-            zdnn_gelu(&tx.data, &ty.data);
+            status = zdnn_gelu(&tx.data, &ty.data);
           else if (op_type == ZDNNX_INVSQRT_OP)
             status =
                 zdnn_invsqrt(&tx.data, *(const float *)scalar_input, &ty.data);
@@ -235,7 +235,7 @@ zdnn_status zdnnx_seq_unary_elementwise(const zdnn_ztensor *input,
           else if (op_type == ZDNNX_SIGMOID_OP)
             status = zdnn_sigmoid(&tx.data, &ty.data);
           else if (op_type == ZDNNX_SQRT_OP)
-            zdnn_sqrt(&tx.data, &ty.data);
+            status = zdnn_sqrt(&tx.data, &ty.data);
           else if (op_type == ZDNNX_TANH_OP)
             status = zdnn_tanh(&tx.data, &ty.data);
           else
