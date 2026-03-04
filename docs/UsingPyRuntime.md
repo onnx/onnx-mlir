@@ -227,7 +227,7 @@ def get_output_file_name(self):
         String containing the fle name after successful compilation.
     Throw runtime exceptions on failure.
     """
-def get_model_tab(self):
+def get_model_tag(self):
     """
     Method to provide the model tag for the compiled model.
     Returns:

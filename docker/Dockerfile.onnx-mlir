@@ -1,3 +1,4 @@
+# This dockerfile is built using UBI-9 image.
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE} AS onnx-mlir-test
 
@@ -29,18 +30,13 @@ RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
           absl::log_internal_check_op\
           absl::log_internal_message\
           absl::log_internal_nullguard' CMakeLists.txt \
-    #
-    # To avoid the "externally managed environment" error on ubuntu,
-    # use --prefix=/usr to install into /usr/local/lib (default is
-    # /usr/lib)
-    # ubi9 doesn't have this problem and --prefix=/usr will install
-    # into /usr/lib64 (default is /usr/lib)
+    # ubi9 doesn't have "externally managed environment" problem and 
+    # --prefix=/usr is not required to be added to pip install command.
     #
     # Must specify --no-build-isolation to avoid protoc-gen-mypy.py
     # segfault on s390x
-    #
     && CC=clang CXX=clang++ CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib" \
-       python3 -m pip install . --prefix=/usr --no-build-isolation \
+       pip3 install . --no-build-isolation \
     && rm -rf ${HOME}/.cache
 
 ARG NPROC=4
@@ -106,7 +102,7 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
           pip3 uninstall -q -y \
                Cython pytest pytest-xdist typing-extensions && \
           yum remove -q -y \
-              autoconf automake cmake file git libtool ninja-build && \
+              autoconf automake cmake file git libtool ninja-build python3.11 && \
           rm -rf /var/cache/dnf/*; \
        fi \
     && rm -rf /tmp/* /usr/bin/python ${HOME}/.cache \

@@ -7,7 +7,8 @@
 //
 // Copyright 2026 The IBM Research Authors.
 //
-// This file contains C++ code to compile onnx files using onnx-mlir.
+// This file contains C++ code to compile onnx model files in .onnx, .mlir, or
+// .onnxtext using onnx-mlir.
 //
 // This file should not include any ONNX-MLIR / MLIR / LLVM dependences except
 // for onnx-mlir/include.
@@ -19,20 +20,13 @@
 #include <filesystem>
 
 #include "src/Compiler/Command.hpp"
-#include "src/Compiler/DriverUtils.hpp"
+#include "src/Compiler/CommandUtils.hpp"
 #include <onnx-mlir/Compiler/OMCompilerTypes.h>
 
 using namespace onnx_mlir;
 namespace fs = std::filesystem;
 
 namespace onnx_mlir {
-
-CompilerSession::CompilerSession() : successfullyCompiled(false) {}
-
-CompilerSession::CompilerSession(const std::string &modelPath,
-    const std::string &flags, const std::string &logFilename) {
-  compile(modelPath, flags);
-}
 
 void CompilerSession::compile(const std::string &modelPath,
     const std::string &flags, const std::string &logFilename) {
@@ -50,14 +44,14 @@ void CompilerSession::compile(const std::string &modelPath,
         "Compilation failed: could not locate input model file \"" +
         inputFilename + "\"");
   }
-  // Determine onnx-mlir executable path.
+  // Determine the onnx-mlir executable path.
 #ifdef _WIN32
-  std::string onnxMlirPath = "onnx-mlir.exe";
+  std::string compilerFilename = "onnx-mlir.exe";
 #else
-  std::string onnxMlirPath = "onnx-mlir";
+  std::string compilerFilename = "onnx-mlir";
 #endif
   // Execute onnx-mlir command with arguments.
-  onnx_mlir::Command compile(onnxMlirPath);
+  onnx_mlir::Command compile(compilerFilename, /*verbose*/ true);
   compile.appendList(flagVect);
   if (!modelPath.empty())
     compile.appendStr(inputFilename);

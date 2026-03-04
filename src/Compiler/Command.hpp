@@ -27,7 +27,16 @@ public:
   explicit CommandException(const std::string &msg) : std::runtime_error(msg) {}
 };
 
-// Command class.
+// Command class: it enables the user to call a binary with parameters and
+// execute this binary in a separate process using a fork/join command.
+// Parameters are added using the 'appendStr` or `appendList` functions. The
+// `exec` function will invoke the fork/join. If logging of the forked process
+// standard output/error is desired, calling `redirectExecStreams` before
+// executing the command will redirect these streams into a single common file.
+// For debugging, the `print` command emit the command to a stream (e.g. stderr)
+// without executing it.
+//
+// Exec function may generate CommandException on failure.
 class Command {
 
 public:

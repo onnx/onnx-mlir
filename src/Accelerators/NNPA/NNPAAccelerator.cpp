@@ -105,13 +105,11 @@ void NNPAAccelerator::registerDialects(mlir::DialectRegistry &registry) const {
 void NNPAAccelerator::registerPasses(int optLevel) const {
   LLVM_DEBUG(llvm::dbgs() << "Registering passes for NNPA accelerator\n");
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return onnx_mlir::createDevicePlacementPass(
-        nnpaLoadConfigFile, nnpaSaveConfigFile, nnpaPlacementHeuristic);
+    return onnx_mlir::createDevicePlacementPass("", "", nnpaPlacementHeuristic);
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return onnx_mlir::createQuantOpSelectionPass(
-        nnpaLoadConfigFile, nnpaSaveConfigFile);
+    return onnx_mlir::createQuantOpSelectionPass("", "");
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {

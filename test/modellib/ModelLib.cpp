@@ -15,8 +15,8 @@
 #include "mlir/IR/BuiltinOps.h"
 
 #include "include/OnnxMlirRuntime.h"
+#include "src/Compiler/CommandUtils.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
-#include "src/Compiler/DriverUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Runtime/OMTensorHelper.hpp"
 #include "test/modellib/ModelLib.hpp"
@@ -49,7 +49,7 @@ bool ModelLibBuilder::compileAndLoad() {
       getTargetFilename(sharedLibBaseName, onnx_mlir::EmitLib);
   std::string modelTag = getCompilerOption(OptionKind::ModelTag);
   try {
-  exec = new ExecutionSession(libFilename, modelTag);
+    exec = new ExecutionSession(libFilename, modelTag);
   } catch (const onnx_mlir::ExecutionSessionException &error) {
     std::cerr << error.what() << std::endl;
     exec = nullptr;

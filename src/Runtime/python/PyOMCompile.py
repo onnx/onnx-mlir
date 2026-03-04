@@ -20,5 +20,6 @@ except ImportError:
     raise ImportError(
         "Looks like you did not build the PyOMCompileC target, build it by "
         "running `make PyOMCompileC`. You may need to set PYTHONPATH to the "
-        "location of PyOMCompileC (possibly in Debug/lib or Release/lib)."
+        "location of PyOMCompileC (possibly in onnx-mlir/build Debug/lib or "
+        "Release/lib)."
     )
