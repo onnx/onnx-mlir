@@ -20,7 +20,7 @@
 #include <filesystem>
 
 #include "src/Compiler/Command.hpp"
-#include "src/Compiler/DriverUtils.hpp"
+#include "src/Compiler/CommandUtils.hpp"
 #include <onnx-mlir/Compiler/OMCompilerTypes.h>
 
 using namespace onnx_mlir;

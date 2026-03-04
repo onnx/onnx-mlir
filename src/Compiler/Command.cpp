@@ -12,7 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Compiler/Command.hpp"
-#include "src/Compiler/DriverUtils.hpp"
+#include "src/Compiler/CommandUtils.hpp"
 
 #include <filesystem>
 #include <sstream>

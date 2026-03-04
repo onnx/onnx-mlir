@@ -46,10 +46,10 @@
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Builder/FrontendDialectTransformer.hpp"
 #include "src/Builder/ModelInputShaper.hpp"
+#include "src/Compiler/CommandUtils.hpp"
 #include "src/Compiler/CompilerDialects.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerPasses.hpp"
-#include "src/Compiler/DriverUtils.hpp"
 #include "src/Compiler/HeapReporter.hpp"
 #include "src/Version/Version.hpp"
 
