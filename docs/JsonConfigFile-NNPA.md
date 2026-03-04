@@ -19,7 +19,7 @@ By using a JSON file, users can currently control two following features:
 
 | Key              | Type                       | Description                                                                                       |
 | ---------------- | -------------------------- | ------------------------------------------------------------------------------------------------- |
-| compile_options  | array of string (optional) | A list of compiler command-line options that are appended to the existing command-line arguments. |
+| compile_options  | array of string (optional) | A list of compiler command-line options that are prepended to the existing command-line arguments. |
 | nnpa_ops_config  | array of object (optional) | List of operation configurations for device placement and quantization.                           |
 
 ## compile_options key
