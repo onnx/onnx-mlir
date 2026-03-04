@@ -48,8 +48,8 @@ public:
  *
  * ## Compilation Process
  * The class invokes the onnx-mlir compiler executable to perform the actual
- * compilation. When generating libraries or JAR files, the compiler automatically
- * links in the required lightweight runtime libraries.
+ * compilation. When generating libraries or JAR files, the compiler
+ * automatically links in the required lightweight runtime libraries.
  *
  * ## Runtime Library Location
  * By default, runtime libraries are expected in system-wide directories
@@ -78,8 +78,8 @@ public:
  * - `--tag=<name>`: Add a tag to the compiled model
  * - And many more (see onnx-mlir documentation)
  *
- * @note Flags can contain quoted strings (e.g., `-o "path with spaces/model.so"`)
- *       which will be properly parsed.
+ * @note Flags can contain quoted strings (e.g., `-o "path with
+ * spaces/model.so"`) which will be properly parsed.
  */
 class CompilerSession {
 public:
@@ -103,8 +103,8 @@ public:
    * blocks until compilation completes or fails.
    *
    * @param modelPath Path to the input model file (.onnx, .mlir, or .onnxtext).
-   *                  Can include a directory path. If empty, the flags parameter
-   *                  must contain the input filename.
+   *                  Can include a directory path. If empty, the flags
+   * parameter must contain the input filename.
    * @param flags Compilation flags as a single string (e.g., "-O3 -o output").
    *              Supports quoted strings for paths with spaces.
    * @param logFilename Optional path to a file where compilation logs will be
@@ -162,8 +162,8 @@ public:
    * @brief Static helper to predict output filename from model path and flags.
    *
    * Determines what the output filename would be based on the input and flags,
-   * without actually performing compilation. Useful for caching and pre-checking
-   * if output already exists.
+   * without actually performing compilation. Useful for caching and
+   * pre-checking if output already exists.
    *
    * @param modelPath Model path parameter (may be empty)
    * @param flags Compilation flags string
