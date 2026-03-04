@@ -69,7 +69,8 @@ static bool omMallocAndReadFile(
   
   // Try to claim the loading slot with sentinel
   void *expected = NULL;
-  if (cds((cds_t *)&expected, (cds_t *)&constAddr[0], *(cds_t *)&LOADING_SENTINEL)) {
+  void *sentinel = LOADING_SENTINEL;
+  if (cds((cds_t *)&expected, (cds_t *)&constAddr[0], *(cds_t *)&sentinel)) {
     // Another thread is loading or already loaded - wait for it
     int waited_ms = 0;
     while (constAddr[0] == LOADING_SENTINEL) {
