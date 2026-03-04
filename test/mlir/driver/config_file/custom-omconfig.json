@@ -1,0 +1,4 @@
+{
+  "compile_options": ["-O3", "--shapeInformation=0:3x4x5"]
+}
+
