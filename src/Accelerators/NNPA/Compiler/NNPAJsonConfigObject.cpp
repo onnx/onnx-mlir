@@ -98,12 +98,64 @@ bool NNPAJsonConfigObject::matchNodeName(mlir::Operation *op, std::regex re) {
 }
 
 bool NNPAJsonConfigObject::matchTensorInfo(Value tensor, json::Object *regObj) {
-  return true;
+  // clang-format off
+  // regObj format
+  //   {
+  //     "rank": 4, "type":  "f32", "dims": { 0: ">=2", 1: "3", 2: "%32==0", -1:"%64==0"}
+  //   },
+  // clang-format on
+
+  // Construct a target json object from the tensor.
+  json::Object targetObj;
+  constructTensorInfo(tensor, targetObj);
+
+  // Match the target object against the regex object.
+  bool matched = true;
+  for (const auto &kv : *regObj) {
+    StringRef k = kv.first;
+    if (k.equals_insensitive("rank")) {
+      matched &= (targetObj.getString(k) == regObj->getString(k));
+    }
+    if (k.equals_insensitive("type")) {
+      matched &= (targetObj.getString(k) == regObj->getString(k));
+    }
+    if (!matched)
+      break;
+  }
+
+  return matched;
 }
 
 bool NNPAJsonConfigObject::matchTensorInfo(
     ValueRange tensors, json::Object *regObj) {
-  return true;
+  // clang-format off
+  // regObj format
+  // {
+  //   "0": { "rank": 4, "type":  "f32" "dims": { 0: ">=2", 1: "3", 2: "%32==0", -1:"%64==0"} },
+  //   "1": { "rank": 4, "type":  "f32" "dims": { 0: ">=2", 1: "3", 2: "%32==0", -1:"%64==0"} },
+  // }
+  // clang-format on
+  int64_t numValues = tensors.size();
+
+  bool matched = true;
+  for (const auto &kv : *regObj) {
+    StringRef k = kv.first;
+    json::Object *v = regObj->getObject(k);
+    int id = std::stoi(k.str());
+    if (id < 0)
+      id += numValues;
+    if (id < 0 || id >= numValues) {
+      llvm::errs() << "Error: Invalid input/output index.\n";
+      matched = false;
+      break;
+    }
+    if (!matchTensorInfo(tensors[id], v)) {
+      matched = false;
+      break;
+    }
+  }
+
+  return matched;
 }
 
 void NNPAJsonConfigObject::applyConfigToOps(
@@ -184,16 +236,6 @@ void NNPAJsonConfigObject::applyConfigToOps(
         continue;
 
       // Check the tensor information.
-      // {
-      //   "rank": 4,
-      //   "type":  "f32"
-      //   "dims": {
-      //     0: ">=2",
-      //     1: "3",
-      //     2: "%32==0",
-      //     -1:"%64==0"
-      //   },
-      // },
       ValueRange inputTensors = ValueRange(op->getOperands());
       if (!matchTensorInfo(inputTensors, inputTensorsObj))
         continue;
