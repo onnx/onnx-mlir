@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
 import numpy as np
-from PyOMCompile import OMCompileSession
+from PyOMCompile import OMCompile
 from PyRuntime import OMExecutionSession
 
 # Compile the model
 try:
-    compiler = OMCompileSession("./mnist.onnx", "-O3 -o mnist2", reuse_compiled_model=0)
+    compiler = OMCompile("./mnist.onnx", "-O3 -o mnist2", reuse_compiled_model=0)
 except RuntimeError as e:
     print(f"Compilation failed: {e}")
     exit(1)

@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----------- OMCompileSession.cpp - compiler driver  ------------------===//
+//===----------- OMCompile.cpp - compiler driver  ------------------===//
 //
 //
 // Copyright 2026 The IBM Research Authors.
@@ -14,7 +14,7 @@
 // for onnx-mlir/include.
 //===----------------------------------------------------------------------===//
 
-#include "src/Compiler/OMCompileSession.hpp"
+#include "src/Compiler/OMCompile.hpp"
 
 #include <cstdlib>
 #include <filesystem>
@@ -32,6 +32,8 @@ void CompilerSession::compile(const std::string &modelPath,
     const std::string &flags, const std::string &logFilename) {
   // Initialize state.
   successfullyCompiled = false;
+  outputFilename = {};
+  outputConstantFilename = {};
   flagVect = parseFlags(flags);
   // When model path is given, add it to the vector of flags; otherwise locate
   // the input model filename from the flags.
@@ -83,6 +85,11 @@ void CompilerSession::compile(const std::string &modelPath,
   std::string name = onnx_mlir::getOutputFilename(inputFilename, flagVect);
   outputFilename = getAbsolutePathUsingCurrentDir(name);
   successfullyCompiled = true;
+  // Check if there is a output data filename.
+  std::string constFilename = fs::path(outputFilename).stem().string();
+  constFilename += ".constants.bin";
+  if (fs::exists(constFilename))
+    outputConstantFilename = constFilename;
 }
 
 std::string CompilerSession::getOutputFilename() {
@@ -91,6 +98,14 @@ std::string CompilerSession::getOutputFilename() {
         "Compiler session: has no successfully compiled model");
   }
   return outputFilename;
+}
+
+std::string CompilerSession::getOutputConstantFilename() {
+  if (!successfullyCompiled) {
+    throw CompilerSessionException(
+        "Compiler session: has no successfully compiled model");
+  }
+  return outputConstantFilename;
 }
 
 std::string CompilerSession::getModelTag() {

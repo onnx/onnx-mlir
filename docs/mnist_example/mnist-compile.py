@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
 import numpy as np
-from PyOMCompile import OMCompileSession
+from PyOMCompile import OMCompile
 
-# Load onnx model and create OMCompileSession object.
+# Load onnx model and create OMCompile object.
 if True:
     # model name given separately, works.
     model = "./mnist.onnx"
@@ -18,7 +18,7 @@ if False:
     flags = "-O3"
 
 try:
-    compiler = OMCompileSession(model, flags)
+    compiler = OMCompile(model, flags)
 except RuntimeError as e:
     print(f"Compilation failed: {e}")
     exit(1)

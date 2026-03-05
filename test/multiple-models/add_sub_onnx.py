@@ -87,14 +87,14 @@ if args.run_models:
     RUNTIME_DIR = os.environ["PY_LIB"]
     sys.path.append(RUNTIME_DIR)
     try:
-        from PyOMCompile import OMCompileSession
+        from PyOMCompile import OMCompile
         from PyRuntime import OMExecutionSession
     except ImportError as ie:
         raise ie
     # compile the models.
     try:
-        add_compiler = OMCompileSession(add_model, "-O3", reuse_compiled_model=0)
-        sub_compiler = OMCompileSession(sub_model, "-O3", reuse_compiled_model=0)
+        add_compiler = OMCompile(add_model, "-O3", reuse_compiled_model=0)
+        sub_compiler = OMCompile(sub_model, "-O3", reuse_compiled_model=0)
     except RuntimeError as e:
         print(f"Compilation failed: {e}")
         exit(1)

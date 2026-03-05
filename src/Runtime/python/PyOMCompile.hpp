@@ -2,13 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----- PyOMCompileSession.hpp - PyOMCompileSession Declaration --------===//
+//===----- PyOMCompile.hpp - PyOMCompile Declaration --------===//
 //
 // Copyright 2024-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file contains declaration of PyOMCompileSession class, which
+// This file contains declaration of PyOMCompile class, which
 // helps python programs to compile and run binary model libraries.
 //
 //===----------------------------------------------------------------------===//
@@ -22,13 +22,13 @@
 
 namespace py = pybind11;
 
-#include "src/Compiler/OMCompileSession.hpp"
+#include "src/Compiler/OMCompile.hpp"
 
 namespace onnx_mlir {
 
-class PyOMCompileSession {
+class PyOMCompile {
 public:
-  PyOMCompileSession(std::string modelPath, std::string flags,
+  PyOMCompile(std::string modelPath, std::string flags,
       const std::string &logFilename = {}, bool reuseCompiledModel = true);
   std::string pyGetOutputFilename();
   std::string pyGetModelTag();
@@ -47,14 +47,14 @@ PYBIND11_MODULE(PyOMCompileC, m) {
             "This module enables users to compile ONNX models using the onnx-mlir compiler\n"
             "from Python scripts. It provides a simple interface to invoke the compiler,\n"
             "manage compilation flags, and retrieve information about compiled models.\n";
-  py::class_<onnx_mlir::PyOMCompileSession>(m, "OMCompileSession",
+  py::class_<onnx_mlir::PyOMCompile>(m, "OMCompile",
       "Compiler session for ONNX models.\n\n"
       "This class provides an interface to compile ONNX models and retrieve\n"
       "information about the compilation results. It wraps the onnx-mlir compiler\n"
       "and handles model compilation, caching, and output file management.\n\n"
       "Example:\n"
-      "    >>> from PyCompile import OMCompileSession\n"
-      "    >>> compiler = OMCompileSession('model.onnx', '-O3 -o output')\n"
+      "    >>> from PyCompile import OMCompile\n"
+      "    >>> compiler = OMCompile('model.onnx', '-O3 -o output')\n"
       "    >>> output_file = compiler.get_output_file_name()\n"
       "    >>> print(f'Compiled to: {output_file}')")
       .def(py::init<const std::string &, const std::string &,
@@ -79,16 +79,16 @@ PYBIND11_MODULE(PyOMCompileC, m) {
           "        or no input model is provided.\n\n"
           "Example:\n"
           "    >>> # Basic compilation\n"
-          "    >>> compiler = OMCompileSession('mnist.onnx', '-O3')\n"
+          "    >>> compiler = OMCompile('mnist.onnx', '-O3')\n"
           "    >>> \n"
           "    >>> # With custom output name and optimization\n"
-          "    >>> compiler = OMCompileSession('model.onnx', '-O3 -o my_model')\n"
+          "    >>> compiler = OMCompile('model.onnx', '-O3 -o my_model')\n"
           "    >>> \n"
           "    >>> # Force recompilation\n"
-          "    >>> compiler = OMCompileSession('model.onnx', '-O3', \n"
+          "    >>> compiler = OMCompile('model.onnx', '-O3', \n"
           "    ...                             reuse_compiled_model=False)")
       .def("get_output_file_name",
-          &onnx_mlir::PyOMCompileSession::pyGetOutputFilename,
+          &onnx_mlir::PyOMCompile::pyGetOutputFilename,
           "Get the output filename of the compiled model.\n\n"
           "Returns the absolute path to the compiled model file. The filename is\n"
           "determined by the input model name and compilation flags (especially\n"
@@ -96,11 +96,11 @@ PYBIND11_MODULE(PyOMCompileC, m) {
           "Returns:\n"
           "    str: Full path to the compiled model output file.\n\n"
           "Example:\n"
-          "    >>> compiler = OMCompileSession('mnist.onnx', '-O3 -o mnist_opt')\n"
+          "    >>> compiler = OMCompile('mnist.onnx', '-O3 -o mnist_opt')\n"
           "    >>> output = compiler.get_output_file_name()\n"
           "    >>> print(output)  # e.g., '/home/me/mnist_opt.so' on Linux")
       .def("get_model_tag",
-          &onnx_mlir::PyOMCompileSession::pyGetModelTag,
+          &onnx_mlir::PyOMCompile::pyGetModelTag,
           "Get the model tag for the compiled model.\n\n"
           "Returns a unique identifier/tag for the compiled model based on the\n"
           "compilation flags. This can be used for model identification and\n"
@@ -108,7 +108,7 @@ PYBIND11_MODULE(PyOMCompileC, m) {
           "Returns:\n"
           "    str: Model tag string.\n\n"
           "Example:\n"
-          "    >>> compiler = OMCompileSession('model.onnx', '-O3 --tag=key_model')\n"
+          "    >>> compiler = OMCompile('model.onnx', '-O3 --tag=key_model')\n"
           "    >>> tag = compiler.get_model_tag()\n"
           "    >>> print(f'Model tag: {tag}') # e.g., `key_model`");
 }

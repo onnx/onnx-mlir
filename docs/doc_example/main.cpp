@@ -1,6 +1,6 @@
 #include <iostream>
 
-#include "src/Compiler/OMCompileSession.hpp"
+#include "src/Compiler/OMCompile.hpp"
 #include "src/Runtime/ExecutionSession.hpp"
 
 // Read the arguments from the command line and return a std::string

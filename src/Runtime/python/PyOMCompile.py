@@ -14,7 +14,7 @@ import numpy as np
 
 try:
     from PyOMCompileC import (
-        OMCompileSession,
+        OMCompile,
     )
 except ImportError:
     raise ImportError(
