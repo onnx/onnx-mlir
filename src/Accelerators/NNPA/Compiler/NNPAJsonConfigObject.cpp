@@ -269,6 +269,7 @@ bool NNPAJsonConfigObject::matchTensorInfo(
   //   "1": { "rank": "4", "type":  "f32" "dims": { 0: ">=2", 1: "3", 2: "%32==0", -1:"%64==0"} },
   // }
   // clang-format on
+
   int64_t numValues = tensors.size();
 
   bool matched = true;
@@ -370,10 +371,10 @@ void NNPAJsonConfigObject::applyConfigToOps(
 
       // Check the tensor information.
       ValueRange inputTensors = ValueRange(op->getOperands());
-      if (!matchTensorInfo(inputTensors, inputPatternObj))
+      if (inputPatternObj && !matchTensorInfo(inputTensors, inputPatternObj))
         continue;
       ValueRange outputTensors = ValueRange(op->getResults());
-      if (!matchTensorInfo(outputTensors, outputPatternObj))
+      if (inputPatternObj && !matchTensorInfo(outputTensors, outputPatternObj))
         continue;
 
       // Operation matches - apply rewrite.

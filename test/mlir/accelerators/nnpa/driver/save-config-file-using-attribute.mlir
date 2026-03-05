@@ -7,54 +7,158 @@ func.func @test_save_config_file(%arg0: tensor<?x?xf32>) -> tensor<?x?xf32> {
   %3 = "onnx.Sigmoid"(%2) {onnx_node_name = "Sigmoid_0", device = "cpu"} : (tensor<?x?xf32>) -> tensor<?x?xf32>
   onnx.Return %3 : tensor<?x?xf32>
 
-// CHECK: "nnpa_ops_config": [
-// CHECK:   {
-// CHECK:     "pattern": {
-// CHECK:       "match": {
-// CHECK:         "node_type": "onnx.MatMul",
-// CHECK:         "onnx_node_name": "MatMul_0"
-// CHECK:       },
-// CHECK:       "rewrite": {
-// CHECK:         "device": "nnpa",
-// CHECK:         "quantize": false
-// CHECK:       }
-// CHECK:     }
-// CHECK:   },
-// CHECK:   {
-// CHECK:     "pattern": {
-// CHECK:       "match": {
-// CHECK:         "node_type": "onnx.MatMul",
-// CHECK:         "onnx_node_name": "MatMul_1"
-// CHECK:       },
-// CHECK:       "rewrite": {
-// CHECK:         "device": "nnpa",
-// CHECK:         "quantize": true
-// CHECK:       }
-// CHECK:     }
-// CHECK:   },
-// CHECK:   {
-// CHECK:     "pattern": {
-// CHECK:       "match": {
-// CHECK:         "node_type": "onnx.MatMul",
-// CHECK:         "onnx_node_name": "MatMul_2"
-// CHECK:       },
-// CHECK:       "rewrite": {
-// CHECK:         "device": "nnpa",
-// CHECK:         "quantize": false
-// CHECK:       }
-// CHECK:     }
-// CHECK:   },
-// CHECK:   {
-// CHECK:     "pattern": {
-// CHECK:       "match": {
-// CHECK:         "node_type": "onnx.Sigmoid",
-// CHECK:         "onnx_node_name": "Sigmoid_0"
-// CHECK:       },
-// CHECK:       "rewrite": {
-// CHECK:         "device": "cpu"
-// CHECK:       }
-// CHECK:     }
-// CHECK:   }
-// CHECK: ]
+// CHECK:  "nnpa_ops_config": [
+// CHECK:    {
+// CHECK:      "pattern": {
+// CHECK:        "match": {
+// CHECK:          "inputs": {
+// CHECK:            "0": {
+// CHECK:              "dims": {
+// CHECK:                "0": "-1",
+// CHECK:                "1": "-1"
+// CHECK:              },
+// CHECK:              "rank": "2",
+// CHECK:              "type": "f32"
+// CHECK:            },
+// CHECK:            "1": {
+// CHECK:              "dims": {
+// CHECK:                "0": "-1",
+// CHECK:                "1": "-1"
+// CHECK:              },
+// CHECK:              "rank": "2",
+// CHECK:              "type": "f32"
+// CHECK:            }
+// CHECK:          },
+// CHECK:          "node_type": "onnx.MatMul",
+// CHECK:          "onnx_node_name": "MatMul_0",
+// CHECK:          "outputs": {
+// CHECK:            "0": {
+// CHECK:              "dims": {
+// CHECK:                "0": "-1",
+// CHECK:                "1": "-1"
+// CHECK:              },
+// CHECK:              "rank": "2",
+// CHECK:              "type": "f32"
+// CHECK:            }
+// CHECK:          }
+// CHECK:        },
+// CHECK:        "rewrite": {
+// CHECK:          "device": "nnpa",
+// CHECK:          "quantize": false
+// CHECK:        }
+// CHECK:      }
+// CHECK:    },
+// CHECK:    {
+// CHECK:      "pattern": {
+// CHECK:        "match": {
+// CHECK:          "inputs": {
+// CHECK:            "0": {
+// CHECK:              "dims": {
+// CHECK:                "0": "-1",
+// CHECK:                "1": "-1"
+// CHECK:              },
+// CHECK:              "rank": "2",
+// CHECK:              "type": "f32"
+// CHECK:            },
+// CHECK:            "1": {
+// CHECK:              "dims": {
+// CHECK:                "0": "-1",
+// CHECK:                "1": "-1"
+// CHECK:              },
+// CHECK:              "rank": "2",
+// CHECK:              "type": "f32"
+// CHECK:            }
+// CHECK:          },
+// CHECK:          "node_type": "onnx.MatMul",
+// CHECK:          "onnx_node_name": "MatMul_1",
+// CHECK:          "outputs": {
+// CHECK:            "0": {
+// CHECK:              "dims": {
+// CHECK:                "0": "-1",
+// CHECK:                "1": "-1"
+// CHECK:              },
+// CHECK:              "rank": "2",
+// CHECK:              "type": "f32"
+// CHECK:            }
+// CHECK:          }
+// CHECK:        },
+// CHECK:        "rewrite": {
+// CHECK:          "device": "nnpa",
+// CHECK:          "quantize": true
+// CHECK:        }
+// CHECK:      }
+// CHECK:    },
+// CHECK:    {
+// CHECK:      "pattern": {
+// CHECK:        "match": {
+// CHECK:          "inputs": {
+// CHECK:            "0": {
+// CHECK:              "dims": {
+// CHECK:                "0": "-1",
+// CHECK:                "1": "-1"
+// CHECK:              },
+// CHECK:              "rank": "2",
+// CHECK:              "type": "f32"
+// CHECK:            },
+// CHECK:            "1": {
+// CHECK:              "dims": {
+// CHECK:                "0": "-1",
+// CHECK:                "1": "-1"
+// CHECK:              },
+// CHECK:              "rank": "2",
+// CHECK:              "type": "f32"
+// CHECK:            }
+// CHECK:          },
+// CHECK:          "node_type": "onnx.MatMul",
+// CHECK:          "onnx_node_name": "MatMul_2",
+// CHECK:          "outputs": {
+// CHECK:            "0": {
+// CHECK:              "dims": {
+// CHECK:                "0": "-1",
+// CHECK:                "1": "-1"
+// CHECK:              },
+// CHECK:              "rank": "2",
+// CHECK:              "type": "f32"
+// CHECK:            }
+// CHECK:          }
+// CHECK:        },
+// CHECK:        "rewrite": {
+// CHECK:          "device": "nnpa",
+// CHECK:          "quantize": false
+// CHECK:        }
+// CHECK:      }
+// CHECK:    },
+// CHECK:    {
+// CHECK:      "pattern": {
+// CHECK:        "match": {
+// CHECK:          "inputs": {
+// CHECK:            "0": {
+// CHECK:              "dims": {
+// CHECK:                "0": "-1",
+// CHECK:                "1": "-1"
+// CHECK:              },
+// CHECK:              "rank": "2",
+// CHECK:              "type": "f32"
+// CHECK:            }
+// CHECK:          },
+// CHECK:          "node_type": "onnx.Sigmoid",
+// CHECK:          "onnx_node_name": "Sigmoid_0",
+// CHECK:          "outputs": {
+// CHECK:            "0": {
+// CHECK:              "dims": {
+// CHECK:                "0": "-1",
+// CHECK:                "1": "-1"
+// CHECK:              },
+// CHECK:              "rank": "2",
+// CHECK:              "type": "f32"
+// CHECK:            }
+// CHECK:          }
+// CHECK:        },
+// CHECK:        "rewrite": {
+// CHECK:          "device": "cpu"
+// CHECK:        }
+// CHECK:      }
+// CHECK:    }
+// CHECK:  ]
 }
 
