@@ -10102,7 +10102,7 @@ def ONNXTileOp:ONNX_Op<"Tile",
 }
 
 def ONNXTopKOp:ONNX_Op<"TopK",
-  [Pure, OpVersionTrait<11>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<24>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX TopK operation";
   let description = [{
   Retrieve the top-K largest or smallest elements along a specified axis. Given an input tensor of
@@ -10121,12 +10121,12 @@ def ONNXTopKOp:ONNX_Op<"TopK",
   Given two equivalent values, this operator uses the indices along the axis as
   a tiebreaker. That is, the element with the lower index will appear first.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[quant_QuantizedType]>]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[quant_QuantizedType]>]>:$X,
     TensorOf<[I64]>:$K,
     DefaultValuedAttr<SI64Attr, "-1">:$axis,
     DefaultValuedAttr<SI64Attr, "1">:$largest,
     DefaultValuedAttr<SI64Attr, "1">:$sorted);
-  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[quant_QuantizedType]>]>:$Values,
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[quant_QuantizedType]>]>:$Values,
     TensorOf<[I64]>:$Indices);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {

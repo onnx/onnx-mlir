@@ -286,7 +286,7 @@ version_dict = {
         "TfIdfVectorizer": [9],
         "ThresholdedRelu": [22],
         "Tile": [13],
-        "TopK": [11],
+        "TopK": [24],
         "Transpose": [21],
         "Trilu": [14],
         "Unique": [11],
