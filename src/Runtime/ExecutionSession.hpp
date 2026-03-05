@@ -4,7 +4,7 @@
 
 //===--------- ExecutionSession.hpp - ExecutionSession Declaration --------===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -34,6 +34,10 @@ typedef void *DynamicLibraryHandleType;
 #include <dlfcn.h>
 #endif
 
+// TODO: should ExecutionSession and OMCompile be in the onnx_mlir
+// namespace? They should not depend at all on the onnx-mlir compiler files
+// (except implicitly).
+
 namespace onnx_mlir {
 
 using entryPointFuncType = OMTensorList *(*)(OMTensorList *);
@@ -46,22 +50,30 @@ using OMTensorUniquePtr = std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>;
  * Class that supports executing compiled models.
  *
  * When the execution session does not work for known reasons, this class will
- * throw std::runtime_error errors. Errno info will provide further info about
- * the specific error that was raised.
- *
- * EFAULT when it could not load the library or a needed symbol was not found.
- * EINVAL when it expected an entry point prior to executing a specific
- * function.
- * EPERM when the model executed on a machine without a compatible
- * hardware/specialized accelerator.
+ * throw std::ExecutionSessionException errors.
  */
+
+// Exception class
+class ExecutionSessionException : public std::runtime_error {
+public:
+  explicit ExecutionSessionException(const std::string &msg)
+      : std::runtime_error(msg) {}
+};
+
 class ExecutionSession {
 public:
+  ExecutionSession() = default;
+
   // Create an execution session using the model given in sharedLibPath.
   // This path must point to the actual file, local directory is not searched.
+  // Throw errors on failure.
   ExecutionSession(std::string sharedLibPath, std::string tag = "",
       bool defaultEntryPoint = true);
   ~ExecutionSession();
+
+  // Initialization of library. Called by public constructor, or by subclasses.
+  void loadModel(std::string sharedLibPath, std::string tag = "",
+      bool defaultEntryPoint = true);
 
   // Get a NULL-terminated array of entry point names.
   // For example {"run_addition, "run_subtraction", NULL}
@@ -92,22 +104,8 @@ public:
   void printInstrumentation();
 
 protected:
-  // Constructor that build the object without initialization (for use by
-  // subclass only).
-  ExecutionSession() = default;
-
-  // Initialization of library. Called by public constructor, or by subclasses.
-  void Init(std::string sharedLibPath, std::string tag, bool defaultEntryPoint);
-
-  // Error reporting processing when throwing runtime errors. Set errno as
-  // appropriate.
-  std::string reportInitError() const;
-  std::string reportLibraryOpeningError(const std::string &libraryName) const;
-  std::string reportSymbolLoadingError(const std::string &symbolName) const;
-  std::string reportUndefinedEntryPointIn(
-      const std::string &functionName) const;
+  // Error reporting processing when throwing runtime errors.
   std::string reportErrnoError() const;
-  std::string reportCompilerError(const std::string &errorMessage) const;
 
   // Track if Init was called or not.
   bool isInitialized = false;
