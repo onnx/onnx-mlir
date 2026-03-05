@@ -203,9 +203,10 @@ static bool satisfiesIntegerConstraint(
   }
 }
 
-bool NNPAJsonConfigObject::matchTensorInfo(Value tensor, json::Object *regObj) {
+bool NNPAJsonConfigObject::matchTensorInfo(
+    Value tensor, json::Object *patternObj) {
   // clang-format off
-  // regObj format
+  // patternObj format
   //   {
   //     "rank": "4", "type":  "f32", "dims": { 0: ">=2", 1: "3", 2: "%32==0", -1:"%64==0"}
   //   },
@@ -215,28 +216,35 @@ bool NNPAJsonConfigObject::matchTensorInfo(Value tensor, json::Object *regObj) {
   json::Object targetObj;
   constructTensorInfo(tensor, targetObj);
 
-  // Match the target object against the regex object.
+  // Match the target object against the pattern object.
   bool matched = true;
-  for (const auto &kv : *regObj) {
+  for (const auto &kv : *patternObj) {
     StringRef k = kv.first;
-    if (k.equals_insensitive("rank")) {
-      matched &= satisfiesIntegerConstraint(
-          targetObj.getString(k)->str(), regObj->getString(k)->str());
+    if (matched && k.equals_insensitive("rank")) {
+      matched = satisfiesIntegerConstraint(
+          targetObj.getString(k)->str(), patternObj->getString(k)->str());
     }
-    if (k.equals_insensitive("type")) {
-      matched &= (targetObj.getString(k) == regObj->getString(k));
+    if (matched && k.equals_insensitive("type")) {
+      matched = (targetObj.getString(k) == patternObj->getString(k));
     }
-    if (k.equals_insensitive("dims")) {
+    if (matched && k.equals_insensitive("dims")) {
       // Match dimension constraints.
       json::Object *targetDims = targetObj.getObject(k);
-      json::Object *regDims = regObj->getObject(k);
+      json::Object *regDims = patternObj->getObject(k);
+      int64_t rank = std::stoi(targetObj.getString("rank")->str());
       if (targetDims && regDims) {
         for (const auto &dimKv : *regDims) {
-          StringRef dimIdx = dimKv.first;
-          std::optional<StringRef> targetDimVal = targetDims->getString(dimIdx);
-          std::optional<StringRef> regDimVal = regDims->getString(dimIdx);
+          StringRef dimStrRef = dimKv.first;
+          int64_t dimIdx = std::stoi(dimStrRef.str());
+          std::optional<StringRef> regDimVal = regDims->getString(dimStrRef);
+          // dimIdx can be < 0.
+          if (dimIdx < 0)
+            dimIdx += rank;
+          std::optional<StringRef> targetDimVal =
+              targetDims->getString(std::to_string(dimIdx));
           if (targetDimVal && regDimVal) {
-            matched &= satisfiesIntegerConstraint(targetDimVal->str(), regDimVal->str());
+            matched = satisfiesIntegerConstraint(
+                targetDimVal->str(), regDimVal->str());
           } else {
             matched = false;
           }
@@ -253,9 +261,9 @@ bool NNPAJsonConfigObject::matchTensorInfo(Value tensor, json::Object *regObj) {
 }
 
 bool NNPAJsonConfigObject::matchTensorInfo(
-    ValueRange tensors, json::Object *regObj) {
+    ValueRange tensors, json::Object *patternObj) {
   // clang-format off
-  // regObj format
+  // patternObj format
   // {
   //   "0": { "rank": "4", "type":  "f32" "dims": { 0: ">=2", 1: "3", 2: "%32==0", -1:"%64==0"} },
   //   "1": { "rank": "4", "type":  "f32" "dims": { 0: ">=2", 1: "3", 2: "%32==0", -1:"%64==0"} },
@@ -264,14 +272,13 @@ bool NNPAJsonConfigObject::matchTensorInfo(
   int64_t numValues = tensors.size();
 
   bool matched = true;
-  for (const auto &kv : *regObj) {
+  for (const auto &kv : *patternObj) {
     StringRef k = kv.first;
-    json::Object *v = regObj->getObject(k);
+    json::Object *v = patternObj->getObject(k);
     int id = std::stoi(k.str());
     if (id < 0)
       id += numValues;
     if (id < 0 || id >= numValues) {
-      llvm::errs() << "Error: Invalid input/output index.\n";
       matched = false;
       break;
     }
@@ -319,8 +326,8 @@ void NNPAJsonConfigObject::applyConfigToOps(
     std::optional<StringRef> nodeTypeStr = matchObj->getString(NODE_TYPE_KEY);
     std::optional<StringRef> onnxNodeNameStr =
         matchObj->getString(ONNX_NODE_NAME_KEY);
-    json::Object *inputTensorsObj = matchObj->getObject(INPUTS_KEY);
-    json::Object *outputTensorsObj = matchObj->getObject(OUTPUTS_KEY);
+    json::Object *inputPatternObj = matchObj->getObject(INPUTS_KEY);
+    json::Object *outputPatternObj = matchObj->getObject(OUTPUTS_KEY);
 
     if (!nodeTypeStr) {
       llvm::errs()
@@ -363,10 +370,10 @@ void NNPAJsonConfigObject::applyConfigToOps(
 
       // Check the tensor information.
       ValueRange inputTensors = ValueRange(op->getOperands());
-      if (!matchTensorInfo(inputTensors, inputTensorsObj))
+      if (!matchTensorInfo(inputTensors, inputPatternObj))
         continue;
       ValueRange outputTensors = ValueRange(op->getResults());
-      if (!matchTensorInfo(outputTensors, outputTensorsObj))
+      if (!matchTensorInfo(outputTensors, outputPatternObj))
         continue;
 
       // Operation matches - apply rewrite.
