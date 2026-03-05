@@ -21,20 +21,20 @@
 #include <string>
 #include <vector>
 
-// TODO: should ExecutionSession and CompilerSession be in the onnx_mlir
+// TODO: should ExecutionSession and OMCompile be in the onnx_mlir
 // namespace? They should not depend at all on the onnx-mlir compiler files
 // (except implicitly).
 namespace onnx_mlir {
 
 // Exception class
-class CompilerSessionException : public std::runtime_error {
+class OMCompileException : public std::runtime_error {
 public:
-  explicit CompilerSessionException(const std::string &msg)
+  explicit OMCompileException(const std::string &msg)
       : std::runtime_error(msg) {}
 };
 
 /**
- * @class CompilerSession
+ * @class OMCompile
  * @brief C++ interface for compiling ONNX models using the onnx-mlir compiler.
  *
  * This class provides a thread-safe interface to compile ONNX models from files
@@ -58,12 +58,12 @@ public:
  *
  * ## Usage Example
  * @code
- *   CompilerSession session;
+ *   OMCompile session;
  *   try {
  *     session.compile("model.onnx", "-O3 -o output");
  *     std::string outputFile = session.getOutputFilename();
  *     std::cout << "Compiled to: " << outputFile << std::endl;
- *   } catch (const CompilerSessionException& e) {
+ *   } catch (const OMCompileException& e) {
  *     std::cerr << "Compilation failed: " << e.what() << std::endl;
  *   }
  * @endcode
@@ -81,20 +81,20 @@ public:
  * @note Flags can contain quoted strings (e.g., `-o "path with
  * spaces/model.so"`) which will be properly parsed.
  */
-class CompilerSession {
+class OMCompile {
 public:
   /**
    * @brief Default constructor.
    *
-   * Creates a CompilerSession object. Actual compilation is deferred until
+   * Creates a OMCompile object. Actual compilation is deferred until
    * the compile() method is called.
    */
-  CompilerSession() = default;
+  OMCompile() = default;
 
   /**
    * @brief Destructor.
    */
-  ~CompilerSession() = default;
+  ~OMCompile() = default;
 
   /**
    * @brief Compile an ONNX model with specified flags.
@@ -110,7 +110,7 @@ public:
    * @param logFilename Optional path to a file where compilation logs will be
    *                    written. If empty, logs go to stdout/stderr.
    *
-   * @throws CompilerSessionException if compilation fails for any reason
+   * @throws OMCompileException if compilation fails for any reason
    *         (invalid input, compiler errors, missing dependencies, etc.)
    */
   void compile(const std::string &modelPath, const std::string &flags,

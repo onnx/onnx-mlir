@@ -28,14 +28,14 @@ namespace onnx_mlir {
 
 PyOMCompile::PyOMCompile(std::string modelPath, std::string flags,
     const std::string &logFilename, bool reuseCompiledModel)
-    : compilerSession() /* constructor without compilation */,
+    : OMcompile() /* constructor without compilation */,
       modelPath(modelPath), flags(flags) {
 
   // See if we can reuse a compilation (no check on model or flag
   // equivalencies).
   if (reuseCompiledModel) {
     reuseCompiledModel = false; // Assume failure unless otherwise proven.
-    std::string filename = CompilerSession::getOutputFilename(modelPath, flags);
+    std::string filename = OMCompile::getOutputFilename(modelPath, flags);
     if (!filename.empty()) {
       FILE *file = fopen(filename.c_str(), "r");
       if (file) {
@@ -48,11 +48,11 @@ PyOMCompile::PyOMCompile(std::string modelPath, std::string flags,
   // Must compile?
   if (!reuseCompiledModel) {
     try {
-      compilerSession.compile(modelPath, flags, logFilename);
-    } catch (const onnx_mlir::CompilerSessionException &error) {
+      OMcompile.compile(modelPath, flags, logFilename);
+    } catch (const onnx_mlir::OMCompileException &error) {
       std::string errorMessage = error.what();
       std::cerr << errorMessage << std::endl;
-      throw onnx_mlir::CompilerSessionException(errorMessage);
+      throw onnx_mlir::OMCompileException(errorMessage);
     }
   }
 }
@@ -61,11 +61,11 @@ PyOMCompile::PyOMCompile(std::string modelPath, std::string flags,
 // Custom getters
 
 std::string PyOMCompile::pyGetOutputFilename() {
-  return onnx_mlir::CompilerSession::getOutputFilename(modelPath, flags);
+  return onnx_mlir::OMCompile::getOutputFilename(modelPath, flags);
 }
 
 std::string PyOMCompile::pyGetModelTag() {
-  return onnx_mlir::CompilerSession::getModelTag(flags);
+  return onnx_mlir::OMCompile::getModelTag(flags);
 }
 
 } // namespace onnx_mlir

@@ -31,10 +31,11 @@ public:
   PyOMCompile(std::string modelPath, std::string flags,
       const std::string &logFilename = {}, bool reuseCompiledModel = true);
   std::string pyGetOutputFilename();
+  std::string pyGetOutputConstantFilename();
   std::string pyGetModelTag();
 
 private:
-  onnx_mlir::CompilerSession compilerSession; // To compile a model.
+  onnx_mlir::OMCompile OMcompile; // To compile a model.
   std::string modelPath;
   std::string flags;
 };
@@ -99,6 +100,17 @@ PYBIND11_MODULE(PyOMCompileC, m) {
           "    >>> compiler = OMCompile('mnist.onnx', '-O3 -o mnist_opt')\n"
           "    >>> output = compiler.get_output_file_name()\n"
           "    >>> print(output)  # e.g., '/home/me/mnist_opt.so' on Linux")
+      .def("get_output_constant_file_name",
+          &onnx_mlir::PyOMCompile::pyGetOutputFilename,
+          "Get the output filename of the compiled model constant file, if any.\n\n"
+          "If the compiler did generate a data constant file, return its\n"
+          "absolute path; otherwise, return an emtpy string.\n\n"
+          "Returns:\n"
+          "    str: Full path to the constant file of the compiled model.\n\n"
+          "Example:\n"
+          "    >>> compiler = OMCompile('mnist.onnx', '-O3 -o mnist_opt')\n"
+          "    >>> output = compiler.get_output_constant_file_name()\n"
+          "    >>> print(output)  # e.g., '/home/me/mnist_opt.constant.bin' on Linux")
       .def("get_model_tag",
           &onnx_mlir::PyOMCompile::pyGetModelTag,
           "Get the model tag for the compiled model.\n\n"

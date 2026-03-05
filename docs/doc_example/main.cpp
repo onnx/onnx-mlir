@@ -17,21 +17,21 @@ int main(int argc, char *argv[]) {
   std::string flags = readArgs(argc, argv);
   flags += "-o add_cpp_interface -v";
   // And compile the doc example into a model library.
-  onnx_mlir::CompilerSession compilerSession;
+  onnx_mlir::OMCompile OMcompile;
   try {
     // For testing: log the compile output (stderr and stdout) in compile.log.
-    compilerSession.compile("add.onnx", flags);
-  } catch (const onnx_mlir::CompilerSessionException &error) {
+    OMcompile.compile("add.onnx", flags);
+  } catch (const onnx_mlir::OMCompileException &error) {
     std::cerr << "error during compiler session: " << error.what() << std::endl;
     return 1;
   }
   std::cout << "Compiled succeeded with results in file: "
-            << compilerSession.getOutputFilename() << std::endl;
+            << OMcompile.getOutputFilename() << std::endl;
 
   // Prepare the execution session.
   onnx_mlir::ExecutionSession session;
   try {
-    session.loadModel(compilerSession.getOutputFilename());
+    session.loadModel(OMcompile.getOutputFilename());
   } catch (const onnx_mlir::ExecutionSessionException &error) {
     std::cerr << "error while creating execution session: " << error.what()
               << std::endl;

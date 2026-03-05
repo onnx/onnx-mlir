@@ -28,8 +28,8 @@ namespace fs = std::filesystem;
 
 namespace onnx_mlir {
 
-void CompilerSession::compile(const std::string &modelPath,
-    const std::string &flags, const std::string &logFilename) {
+void OMCompile::compile(const std::string &modelPath, const std::string &flags,
+    const std::string &logFilename) {
   // Initialize state.
   successfullyCompiled = false;
   outputFilename = {};
@@ -39,10 +39,10 @@ void CompilerSession::compile(const std::string &modelPath,
   // the input model filename from the flags.
   std::string inputFilename = onnx_mlir::getInputFilename(modelPath, flagVect);
   if (inputFilename.empty())
-    throw CompilerSessionException(
+    throw OMCompileException(
         "Compilation failed: missing input model file");
   if (!fs::exists(inputFilename)) {
-    throw CompilerSessionException(
+    throw OMCompileException(
         "Compilation failed: could not locate input model file \"" +
         inputFilename + "\"");
   }
@@ -61,7 +61,7 @@ void CompilerSession::compile(const std::string &modelPath,
     compile.redirectExecStreams(logFilename);
   int status = compile.exec();
   if (status != OnnxMlirCompilerErrorCodes::CompilerSuccess) {
-    throw CompilerSessionException(
+    throw OMCompileException(
         "Compilation failed with error code " + std::to_string(status));
   }
   // Success, save filename of output, using an absolute path to increase
@@ -92,25 +92,25 @@ void CompilerSession::compile(const std::string &modelPath,
     outputConstantFilename = constFilename;
 }
 
-std::string CompilerSession::getOutputFilename() {
+std::string OMCompile::getOutputFilename() {
   if (!successfullyCompiled) {
-    throw CompilerSessionException(
+    throw OMCompileException(
         "Compiler session: has no successfully compiled model");
   }
   return outputFilename;
 }
 
-std::string CompilerSession::getOutputConstantFilename() {
+std::string OMCompile::getOutputConstantFilename() {
   if (!successfullyCompiled) {
-    throw CompilerSessionException(
+    throw OMCompileException(
         "Compiler session: has no successfully compiled model");
   }
   return outputConstantFilename;
 }
 
-std::string CompilerSession::getModelTag() {
+std::string OMCompile::getModelTag() {
   if (!successfullyCompiled) {
-    throw CompilerSessionException(
+    throw OMCompileException(
         "Compiler session: has no successfully compiled model");
   }
   return onnx_mlir::getModelTag(flagVect);
@@ -121,12 +121,12 @@ std::string CompilerSession::getModelTag() {
   std::vector<std::string> flagVect = parseFlags(flags);
   std::string filename = onnx_mlir::getInputFilename(modelPath, flagVect);
   if (filename.empty())
-    throw CompilerSessionException(
+    throw OMCompileException(
         "Compiler session: no model is provided for the compilation");
   return filename;
 }
 
-/* static */ std::string CompilerSession::getOutputFilename(
+/* static */ std::string OMCompile::getOutputFilename(
     const std::string &modelPath, const std::string &flags) {
   std::vector<std::string> flagVect = parseFlags(flags);
   // Success, save filename of output, using an absolute path to increase
@@ -135,8 +135,7 @@ std::string CompilerSession::getModelTag() {
   return getAbsolutePathUsingCurrentDir(name);
 }
 
-/* static */ std::string CompilerSession::getModelTag(
-    const std::string &flags) {
+/* static */ std::string OMCompile::getModelTag(const std::string &flags) {
   std::vector<std::string> flagVect = parseFlags(flags);
   return onnx_mlir::getModelTag(flagVect);
 }
