@@ -34,6 +34,10 @@ int main(int argc, char *argv[]) {
 
   llvm::cl::SetVersionPrinter(getVersionPrinter);
 
+  int *segFaultPtr = nullptr;
+  fprintf(stderr, "hi alex, generate a segfault\n");
+  fprintf(stderr, "hi alex, here we go %i\n", *segFaultPtr);
+  
   // Remove unrelated options except common ones and the onnx-mlir options.
   removeUnrelatedOptions({&OnnxMlirCommonOptions, &OnnxMlirOptions});
 

@@ -31,7 +31,7 @@ from transformers import AutoTokenizer
 RUNTIME_DIR = os.path.join(os.environ["ONNX_MLIR_HOME"], "lib")
 sys.path.append(RUNTIME_DIR)
 try:
-    from PyOMCompile import OMCompileSession
+    from PyOMCompile import OMCompile
     from PyRuntime import OMExecutionSession
 except ImportError:
     raise ImportError(
@@ -95,10 +95,10 @@ with open(config_json_path) as f:
 compile_flags = "-O3 -v --onnx-op-stats TXT"
 # compile_flags = "-O3 --march=z16 --maccel=NNPA -v --onnx-op-stats TXT"
 try:
-    decoder_compile = OMCompileSession(
+    decoder_compile = OMCompile(
         decoder_model_path, compile_flags + " -tag=decoder", reuse_compiled_model=1
     )
-    decoder_with_past_compile = OMCompileSession(
+    decoder_with_past_compile = OMCompile(
         decoder_with_past_model_path,
         compile_flags + " -tag=decoder_with_past",
         reuse_compiled_model=1,
