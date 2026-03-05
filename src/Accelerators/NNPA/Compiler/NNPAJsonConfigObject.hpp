@@ -112,7 +112,8 @@ private:
   bool matchNodeType(mlir::Operation *op, std::regex re);
   bool matchNodeName(mlir::Operation *op, std::regex re);
   bool matchTensorInfo(mlir::Value tensor, llvm::json::Object *patternObj);
-  bool matchTensorInfo(mlir::ValueRange tensors, llvm::json::Object *patternObj);
+  bool matchTensorInfo(
+      mlir::ValueRange tensors, llvm::json::Object *patternObj);
 };
 
 /// Get the global NNPA configuration object.
