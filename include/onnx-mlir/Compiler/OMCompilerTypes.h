@@ -49,9 +49,10 @@ typedef enum {
   X(CompilerFailureInObjToLib, 12, "Failed to link object to library")         \
   X(InvalidCompilerOptions, 13, "Invalid compiler options")                    \
   X(CompilerFailure, 14, "Compilation failed")                                 \
-  X(CommandNotFound, 15, "Command executable not found (check PATH)")          \
-  X(CommandNotExecutable, 16, "Command not executable")                        \
-  X(CommandExecutionFailed, 17, "Command execution failed")
+  X(CompilerCrashed, 15, "Compiler failed to execute successfully")            \
+  X(CommandNotFound, 16, "Command executable not found (check PATH)")          \
+  X(CommandNotExecutable, 17, "Command not executable")                        \
+  X(CommandExecutionFailed, 18, "Command execution failed")
 
 /* Generate enum from the macro */
 typedef enum {

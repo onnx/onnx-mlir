@@ -357,19 +357,29 @@ static int genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
 
   // Use the LLVM's 'opt' command to optimize the bitcode.
   std::string optPath = getToolPath("opt");
-  Command optBitcode(/*exePath=*/optPath, VerboseOutput);
   setXoptOption({"--code-model", modelSizeStr[modelSize]});
-  int rc = optBitcode
-               .appendStr(getOptimizationLevelUniqueOption(
-                   {getLLVMOptions(), getXoptOption()}))
-               .appendStr(getTargetTripleOption())
-               .appendStr(getTargetArchOption(/*forLLVM toolchain*/ true))
-               .appendStr(getTargetCPUOption(/*forLLVM*/ true))
-               .appendList(getXoptOption())
-               .appendList(getLLVMOptions())
-               .appendList({"-o", optimizedBitcodeNameWithExt})
-               .appendStr(unoptimizedBitcodeNameWithExt)
-               .exec();
+  int rc;
+  try {
+    Command optBitcode(/*exePath=*/optPath, VerboseOutput);
+    rc = optBitcode
+             .appendStr(getOptimizationLevelUniqueOption(
+                 {getLLVMOptions(), getXoptOption()}))
+             .appendStr(getTargetTripleOption())
+             .appendStr(getTargetArchOption(/*forLLVM toolchain*/ true))
+             .appendStr(getTargetCPUOption(/*forLLVM*/ true))
+             .appendList(getXoptOption())
+             .appendList(getLLVMOptions())
+             .appendList({"-o", optimizedBitcodeNameWithExt})
+             .appendStr(unoptimizedBitcodeNameWithExt)
+             .exec();
+  } catch (const onnx_mlir::CommandException &error) {
+    if (Verbose) {
+      std::string errorMessage = error.what();
+      fprintf(stderr, "Return message from command exception (opt): %s\n",
+          errorMessage.c_str());
+    }
+    rc = 1; // Failure.
+  }
   return rc != 0 ? CompilerFailureInLLVMOpt : CompilerSuccess;
 }
 
@@ -381,21 +391,31 @@ static int genModelObject(
   showCompilePhase(msg);
   auto objectTiming = rootTimingScope.nest("[onnx-mlir] " + msg);
   std::string llcPath = getToolPath("llc");
-  Command llvmToObj(/*exePath=*/llcPath, VerboseOutput);
   setXllcOption({"--code-model", modelSizeStr[modelSize]});
-  int rc = llvmToObj
-               .appendStr(getOptimizationLevelUniqueOption(
-                   {getLLVMOptions(), getXllcOption()}))
-               .appendStr(getTargetTripleOption())
-               .appendStr(getTargetArchOption(/*LLVM toolchain*/ true))
-               .appendStr(getTargetCPUOption(/*LLVM*/ true))
-               .appendList(getXllcOption())
-               .appendList(getLLVMOptions())
-               .appendStr("-filetype=obj")
-               .appendStr("-relocation-model=pic")
-               .appendList({"-o", modelObjNameWithExt})
-               .appendStr(bitcodeNameWithExt)
-               .exec();
+  int rc;
+  try {
+    Command llvmToObj(/*exePath=*/llcPath, VerboseOutput);
+    rc = llvmToObj
+             .appendStr(getOptimizationLevelUniqueOption(
+                 {getLLVMOptions(), getXllcOption()}))
+             .appendStr(getTargetTripleOption())
+             .appendStr(getTargetArchOption(/*LLVM toolchain*/ true))
+             .appendStr(getTargetCPUOption(/*LLVM*/ true))
+             .appendList(getXllcOption())
+             .appendList(getLLVMOptions())
+             .appendStr("-filetype=obj")
+             .appendStr("-relocation-model=pic")
+             .appendList({"-o", modelObjNameWithExt})
+             .appendStr(bitcodeNameWithExt)
+             .exec();
+  } catch (const onnx_mlir::CommandException &error) {
+    if (Verbose) {
+      std::string errorMessage = error.what();
+      fprintf(stderr, "Return message from command exception (lc): %s\n",
+          errorMessage.c_str());
+    }
+    rc = 1; // Failure.
+  }
   return rc != 0 ? CompilerFailureInLLVMToObj : CompilerSuccess;
 }
 
@@ -405,16 +425,26 @@ static int genJniObject(const mlir::OwningOpRef<ModuleOp> &module,
   std::string msg = "Generating JNI Object";
   showCompilePhase(msg);
   auto jniTiming = rootTimingScope.nest("[onnx-mlir] " + msg);
-  Command ar(/*exePath=*/getToolPath("ar", true), VerboseOutput);
-  int rc = ar.appendStr("x")
-               // old version of ar does not support --output so comment out
-               // for now and use the optional wdir for exec() to get around
-               // the problem.
-               //.appendStr("--output")
-               //.appendStr(llvm::sys::path::parent_path(jniObjPath).str())
-               .appendStr(jniSharedLibPath)
-               .appendStr(llvm::sys::path::filename(jniObjPath).str())
-               .exec(llvm::sys::path::parent_path(jniObjPath).str());
+  int rc;
+  try {
+    Command ar(/*exePath=*/getToolPath("ar", true), VerboseOutput);
+    rc = ar.appendStr("x")
+             // old version of ar does not support --output so comment out
+             // for now and use the optional wdir for exec() to get around
+             // the problem.
+             //.appendStr("--output")
+             //.appendStr(llvm::sys::path::parent_path(jniObjPath).str())
+             .appendStr(jniSharedLibPath)
+             .appendStr(llvm::sys::path::filename(jniObjPath).str())
+             .exec(llvm::sys::path::parent_path(jniObjPath).str());
+  } catch (const onnx_mlir::CommandException &error) {
+    if (Verbose) {
+      std::string errorMessage = error.what();
+      fprintf(stderr, "Return message from command exception (ar): %s\n",
+          errorMessage.c_str());
+    }
+    rc = 1; // Failure.
+  }
   return rc != 0 ? CompilerFailureInGenJniObj : CompilerSuccess;
 }
 
@@ -458,15 +488,24 @@ static int genSharedLib(std::string sharedLibNameWithExt,
   llvm::FileRemover ldsRemover(lds);
 #endif
 #endif
-
-  Command link(getToolPath("cxx", true), VerboseOutput);
-  int rc = link.appendList(opts)
-               .appendList(objs)
-               .appendList(outputOpt)
-               .appendList(sharedLibOpts)
-               .appendList(libDirs)
-               .appendList(libs)
-               .exec();
+  int rc;
+  try {
+    Command link(getToolPath("cxx", true), VerboseOutput);
+    rc = link.appendList(opts)
+             .appendList(objs)
+             .appendList(outputOpt)
+             .appendList(sharedLibOpts)
+             .appendList(libDirs)
+             .appendList(libs)
+             .exec();
+  } catch (const onnx_mlir::CommandException &error) {
+    if (Verbose) {
+      std::string errorMessage = error.what();
+      fprintf(stderr, "Return message from command exception (cxx): %s\n",
+          errorMessage.c_str());
+    }
+    rc = 1; // Failure.
+  }
   return rc != 0 ? CompilerFailureInObjToLib : CompilerSuccess;
 }
 
@@ -489,14 +528,23 @@ static int genJniJar(const mlir::OwningOpRef<ModuleOp> &module,
                  << "\n";
 
   // Add shared library to model jar.
-  Command jar(getToolPath("jar", true), VerboseOutput);
-  int rc =
-      jar.appendStr("uf")
-          .appendStr(modelJniJarPath)
-          .appendStr("-C")
-          .appendStr(llvm::sys::path::parent_path(modelSharedLibPath).str())
-          .appendStr(llvm::sys::path::filename(modelSharedLibPath).str())
-          .exec();
+  int rc;
+  try {
+    Command jar(getToolPath("jar", true), VerboseOutput);
+    rc = jar.appendStr("uf")
+             .appendStr(modelJniJarPath)
+             .appendStr("-C")
+             .appendStr(llvm::sys::path::parent_path(modelSharedLibPath).str())
+             .appendStr(llvm::sys::path::filename(modelSharedLibPath).str())
+             .exec();
+  } catch (const onnx_mlir::CommandException &error) {
+    if (Verbose) {
+      std::string errorMessage = error.what();
+      fprintf(stderr, "Return message from command exception (jar): %s\n",
+          errorMessage.c_str());
+    }
+    rc = 1; // Failure.
+  }
   return rc != 0 ? CompilerFailureInGenJni : CompilerSuccess;
 }
 

@@ -274,11 +274,11 @@ int Command::exec(const std::string &wdir) {
   if (WIFEXITED(status)) {
     // Process exited normally.
     return WEXITSTATUS(status);
+
   } else if (WIFSIGNALED(status)) {
     // Process was terminated by a signal.
     int signal = WTERMSIG(status);
     std::string signalName;
-    
     // Map common signals to human-readable names.
     switch (signal) {
     case SIGSEGV:
@@ -309,23 +309,22 @@ int Command::exec(const std::string &wdir) {
       signalName = "signal " + std::to_string(signal);
       break;
     }
-    
     std::string errorMsg = "Command '" + path + "' terminated by " + signalName;
-    
     // Check if core dump was produced.
     if (WCOREDUMP(status)) {
       errorMsg += " (core dumped)";
     }
-    
     throw CommandException(errorMsg);
+
   } else if (WIFSTOPPED(status)) {
     // Process was stopped by a signal (shouldn't happen with waitpid).
     int signal = WSTOPSIG(status);
-    throw CommandException("Command '" + path + "' stopped by signal " +
-                           std::to_string(signal));
+    throw CommandException(
+        "Command '" + path + "' stopped by signal " + std::to_string(signal));
   }
 
   // Unknown termination status.
-  throw CommandException("Command '" + path + "' terminated with unknown status");
+  throw CommandException(
+      "Command '" + path + "' terminated with unknown status");
 #endif
 }

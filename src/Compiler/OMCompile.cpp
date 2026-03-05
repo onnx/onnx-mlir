@@ -35,12 +35,13 @@ void OMCompile::compile(const std::string &modelPath, const std::string &flags,
   outputFilename = {};
   outputConstantFilename = {};
   flagVect = parseFlags(flags);
+  bool verbose =
+      std::find(flagVect.begin(), flagVect.end(), "-v") != flagVect.end();
   // When model path is given, add it to the vector of flags; otherwise locate
   // the input model filename from the flags.
   std::string inputFilename = onnx_mlir::getInputFilename(modelPath, flagVect);
   if (inputFilename.empty())
-    throw OMCompileException(
-        "Compilation failed: missing input model file");
+    throw OMCompileException("Compilation failed: missing input model file");
   if (!fs::exists(inputFilename)) {
     throw OMCompileException(
         "Compilation failed: could not locate input model file \"" +
@@ -53,13 +54,29 @@ void OMCompile::compile(const std::string &modelPath, const std::string &flags,
   std::string compilerFilename = "onnx-mlir";
 #endif
   // Execute onnx-mlir command with arguments.
-  onnx_mlir::Command compile(compilerFilename, /*verbose*/ true);
-  compile.appendList(flagVect);
-  if (!modelPath.empty())
-    compile.appendStr(inputFilename);
-  if (!logFilename.empty())
-    compile.redirectExecStreams(logFilename);
-  int status = compile.exec();
+  int status;
+  try {
+    onnx_mlir::Command compileCommand(compilerFilename, verbose);
+    compileCommand.appendList(flagVect);
+    if (!modelPath.empty())
+      compileCommand.appendStr(inputFilename);
+    if (!logFilename.empty())
+      compileCommand.redirectExecStreams(logFilename);
+    // Compile, and catch CommandException if any.
+    status = compileCommand.exec();
+  } catch (const onnx_mlir::CommandException &error) {
+    std::string errorMessage;
+    if (verbose) {
+      errorMessage = error.what();
+      fprintf(stderr, "Return message from command exception: %s\n",
+          errorMessage.c_str());
+    }
+    errorMessage =
+        onnx_mlir::getOnnxMlirCompilerErrorDescription(CompilerCrashed);
+    throw OMCompileException(
+        "Compilation failed with error code: " + errorMessage);
+  }
+  // Compilation may have succeeded with an error code, catch here.
   if (status != OnnxMlirCompilerErrorCodes::CompilerSuccess) {
     std::string errorMessage(
         onnx_mlir::getOnnxMlirCompilerErrorDescription(status));
