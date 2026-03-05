@@ -16,8 +16,8 @@ class ONNXCSEOperationInfo : public DenseMapInfo<Operation *> {
 public:
   static unsigned getHashValue(const Operation *opC) {
     auto *op = const_cast<Operation *>(opC);
-    llvm::hash_code hash = llvm::hash_combine(op->getName(),
-        op->hashProperties());
+    llvm::hash_code hash =
+        llvm::hash_combine(op->getName(), op->hashProperties());
 
     // Remove ignorable attributes while computing hash
     SmallVector<NamedAttribute> attrs(op->getRawDictionaryAttrs().getValue());
@@ -25,7 +25,9 @@ public:
     while ((pos = llvm::find_if(attrs, [](NamedAttribute attr) {
       StringRef key = attr.getName().getValue();
       return key == "onnx_node_name" || key == "ResultNames";
-    })) != attrs.end()) { attrs.erase(pos); }
+    })) != attrs.end()) {
+      attrs.erase(pos);
+    }
     llvm::sort(attrs);
     hash = llvm::hash_combine(hash, ArrayRef(attrs));
 
