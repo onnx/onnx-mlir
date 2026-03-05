@@ -97,11 +97,117 @@ bool NNPAJsonConfigObject::matchNodeName(mlir::Operation *op, std::regex re) {
   return false;
 }
 
+// Helper function to check if an integer string value satisfies a constraint
+// pattern.
+//
+// Pattern Syntax:
+//   Comparison Operators:
+//     "3"      - Exact match (implicit equality): value must equal 3
+//     ">3"     - Greater than: value must be > 3
+//     ">=3"    - Greater than or equal: value must be >= 3
+//     "<3"     - Less than: value must be < 3
+//     "<=3"    - Less than or equal: value must be <= 3
+//     "==3"    - Explicit equality: value must equal 3
+//
+//   Modulo Operations (for divisibility/alignment checks):
+//     "%32==0" - Modulo constraint: (value % 32) must equal 0
+//     "%64==0" - Divisibility by 64: (value % 64) must equal 0
+//     "%N==R"  - General form: (value % N) must equal R
+//
+// Parameters:
+//   s   - String representation of integer value to test (e.g., "128", "-1")
+//   reg - Pattern/constraint string (e.g., ">5", ">=10", "%32==0")
+//
+// Returns:
+//   true  - The integer value in 's' satisfies the constraint in 'reg'
+//   false - Constraint not satisfied, or error (empty strings, invalid
+//   integers)
+//
+// Examples:
+//   satisfiesIntegerConstraint("10", ">5")     -> true  (10 > 5)
+//   satisfiesIntegerConstraint("64", "%32==0") -> true  (64 % 32 == 0)
+//   satisfiesIntegerConstraint("5", ">=5")     -> true  (5 >= 5)
+//   satisfiesIntegerConstraint("7", "7")       -> true  (7 == 7)
+//   satisfiesIntegerConstraint("-1", "-1")     -> true  (-1 == -1, for dynamic
+//   dims)
+static bool satisfiesIntegerConstraint(
+    const std::string &s, const std::string &reg) {
+  // Handle empty strings - return false for invalid input.
+  if (s.empty() || reg.empty())
+    return false;
+
+  try {
+    // Convert string 's' to integer value for comparison.
+    int64_t sValue = std::stoi(s);
+
+    // Check for modulo operation first (pattern: "%N==R").
+    // Example: "%32==0" checks if value is divisible by 32.
+    if (reg[0] == '%') {
+      size_t eqPos = reg.find("==");
+      if (eqPos != std::string::npos) {
+        // Extract divisor N from "%N==R" (between '%' and "==").
+        int64_t modValue = std::stoi(reg.substr(1, eqPos - 1));
+        // Extract expected remainder R from "%N==R" (after "==").
+        int64_t expectedRemainder = std::stoi(reg.substr(eqPos + 2));
+        // Check if (sValue % modValue) equals expectedRemainder.
+        return (sValue % modValue) == expectedRemainder;
+      }
+      return false; // Malformed modulo pattern.
+    }
+
+    // Parse comparison operator and extract numeric value.
+    std::string op;
+    int64_t regValue;
+
+    // Check two-character operators FIRST (to avoid misinterpreting ">=" as
+    // ">").
+    if (reg.size() >= 2 && reg.substr(0, 2) == ">=") {
+      op = ">=";
+      regValue = std::stoi(reg.substr(2)); // Extract number after ">=".
+    } else if (reg.size() >= 2 && reg.substr(0, 2) == "<=") {
+      op = "<=";
+      regValue = std::stoi(reg.substr(2)); // Extract number after "<=".
+    } else if (reg.size() >= 2 && reg.substr(0, 2) == "==") {
+      op = "==";
+      regValue = std::stoi(reg.substr(2)); // Extract number after "==".
+    }
+    // Check single-character operators.
+    else if (reg[0] == '>') {
+      op = ">";
+      regValue = std::stoi(reg.substr(1)); // Extract number after ">".
+    } else if (reg[0] == '<') {
+      op = "<";
+      regValue = std::stoi(reg.substr(1)); // Extract number after "<".
+    }
+    // No operator detected - treat as implicit equality.
+    else {
+      op = "==";
+      regValue = std::stoi(reg); // Entire string is the number.
+    }
+
+    // Perform the appropriate comparison based on the operator.
+    if (op == ">")
+      return sValue > regValue;
+    else if (op == ">=")
+      return sValue >= regValue;
+    else if (op == "<")
+      return sValue < regValue;
+    else if (op == "<=")
+      return sValue <= regValue;
+    else // op == "=="
+      return sValue == regValue;
+
+  } catch (const std::exception &e) {
+    // Handle any conversion errors (invalid integer format) - return false.
+    return false;
+  }
+}
+
 bool NNPAJsonConfigObject::matchTensorInfo(Value tensor, json::Object *regObj) {
   // clang-format off
   // regObj format
   //   {
-  //     "rank": 4, "type":  "f32", "dims": { 0: ">=2", 1: "3", 2: "%32==0", -1:"%64==0"}
+  //     "rank": "4", "type":  "f32", "dims": { 0: ">=2", 1: "3", 2: "%32==0", -1:"%64==0"}
   //   },
   // clang-format on
 
@@ -114,10 +220,30 @@ bool NNPAJsonConfigObject::matchTensorInfo(Value tensor, json::Object *regObj) {
   for (const auto &kv : *regObj) {
     StringRef k = kv.first;
     if (k.equals_insensitive("rank")) {
-      matched &= (targetObj.getString(k) == regObj->getString(k));
+      matched &= satisfiesIntegerConstraint(
+          targetObj.getString(k)->str(), regObj->getString(k)->str());
     }
     if (k.equals_insensitive("type")) {
       matched &= (targetObj.getString(k) == regObj->getString(k));
+    }
+    if (k.equals_insensitive("dims")) {
+      // Match dimension constraints.
+      json::Object *targetDims = targetObj.getObject(k);
+      json::Object *regDims = regObj->getObject(k);
+      if (targetDims && regDims) {
+        for (const auto &dimKv : *regDims) {
+          StringRef dimIdx = dimKv.first;
+          std::optional<StringRef> targetDimVal = targetDims->getString(dimIdx);
+          std::optional<StringRef> regDimVal = regDims->getString(dimIdx);
+          if (targetDimVal && regDimVal) {
+            matched &= satisfiesIntegerConstraint(targetDimVal->str(), regDimVal->str());
+          } else {
+            matched = false;
+          }
+          if (!matched)
+            break;
+        }
+      }
     }
     if (!matched)
       break;
@@ -131,8 +257,8 @@ bool NNPAJsonConfigObject::matchTensorInfo(
   // clang-format off
   // regObj format
   // {
-  //   "0": { "rank": 4, "type":  "f32" "dims": { 0: ">=2", 1: "3", 2: "%32==0", -1:"%64==0"} },
-  //   "1": { "rank": 4, "type":  "f32" "dims": { 0: ">=2", 1: "3", 2: "%32==0", -1:"%64==0"} },
+  //   "0": { "rank": "4", "type":  "f32" "dims": { 0: ">=2", 1: "3", 2: "%32==0", -1:"%64==0"} },
+  //   "1": { "rank": "4", "type":  "f32" "dims": { 0: ">=2", 1: "3", 2: "%32==0", -1:"%64==0"} },
   // }
   // clang-format on
   int64_t numValues = tensors.size();
