@@ -6161,6 +6161,7 @@ def ONNXQLinearConvOp:ONNX_Op<"QLinearConv",
   When bias is present it must be quantized using scale = input scale * weight scale and
   zero point as 0.
   }];
+  // FIXME Remove manual edition of ui16 support
   let arguments = (ins AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI16]>, TensorOf<[UI8]>]>:$x,
     AnyTypeOf<[TensorOf<[F32]>, TensorOf<[quant_QuantizedType]>]>:$x_scale,
     AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI16]>, TensorOf<[UI8]>]>:$x_zero_point,
@@ -6214,6 +6215,7 @@ def ONNXQLinearMatMulOp:ONNX_Op<"QLinearMatMul",
   have shape [D1, D2, M, 1] for per row quantization and shape [D1, D2, 1, K] for per column quantization.
   Production must never overflow, and accumulation may overflow if and only if in 32 bits.
   }];
+  // FIXME Remove manual edition of ui16 support
   let arguments = (ins AnyTypeOf<[TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[UI16]>, TensorOf<[UI8]>]>:$a,
     AnyTypeOf<[TensorOf<[F32]>, TensorOf<[quant_QuantizedType]>]>:$a_scale,
     AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[I16]>, TensorOf<[UI16]>]>:$a_zero_point,
