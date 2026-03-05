@@ -28,8 +28,8 @@ namespace onnx_mlir {
 
 PyOMCompile::PyOMCompile(std::string modelPath, std::string flags,
     const std::string &logFilename, bool reuseCompiledModel)
-    : OMcompile() /* constructor without compilation */,
-      modelPath(modelPath), flags(flags) {
+    : OMcompile() /* constructor without compilation */, modelPath(modelPath),
+      flags(flags) {
 
   // See if we can reuse a compilation (no check on model or flag
   // equivalencies).
