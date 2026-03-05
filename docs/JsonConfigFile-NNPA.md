@@ -37,8 +37,10 @@ Each object in the `nnpa_ops_config` array has the following structure:
 
 | Field          | Type              | Description                                                             |
 | -------------- | ----------------- | ----------------------------------------------------------------------- |
-| node_type      | string            | ONNX operator type (e.g., "onnx.Relu", "onnx.*").                       |
+| node_type      | string (required) | ONNX operator type (e.g., "onnx.Relu", "onnx.*").                       |
 | onnx_node_name | string (optional) | Specific ONNX node name (via a regex) to match.                         |
+| inputs         | object (optional) | Tensor information constraints for input operands.                       |
+| outputs        | object (optional) | Tensor information constraints for output results.                       |
 
 ### pattern.rewrite fields
 
@@ -47,10 +49,73 @@ Each object in the `nnpa_ops_config` array has the following structure:
 | device   | string (optional) | Target device for execution: "cpu", "nnpa", or ""                       |
 | quantize | boolean (optional)| Whether to apply quantization (true or false).                          |
 
-- Fields have the same names as ONNX operator's attributes.
-- Strings for `node _type` and `onnx_node_name` can be any [ECMAScript regular expressions](https://cplusplus.com/reference/regex/ECMAScript/).
-
 - Strings for `node_type` and `onnx_node_name` can be any [ECMAScript regular expressions](https://cplusplus.com/reference/regex/ECMAScript/).
+
+### Tensor Information Matching (inputs/outputs)
+
+The `inputs` and `outputs` fields in the `match` section allow matching operations based on their tensor properties. Each field is an object where keys are tensor indices and values are tensor constraint objects.
+
+**Tensor Indexing:**
+- Positive indices: 0-based from the start (0 is first tensor, 1 is second, etc.)
+- Negative indices: Count from the end (-1 is last tensor, -2 is second-to-last, -3 is third-to-last, etc.)
+
+#### Tensor constraint object fields
+
+| Field | Type              | Description                                                             |
+| ----- | ----------------- | ----------------------------------------------------------------------- |
+| rank  | string (optional) | Constraint on tensor rank (e.g., "4", ">2", ">=3").                     |
+| type  | string (optional) | Element type (e.g., "f32", "i64").                                      |
+| dims  | object (optional) | Dimension constraints where keys are dimension indices (0-based, negative indices count from end: -1 is last dimension, -2 is second-to-last, etc.) and values are constraints. |
+
+#### Constraint Pattern Syntax
+
+Constraint patterns support the following operators:
+
+**Comparison Operators:**
+- `"3"` - Exact match (implicit equality): value must equal 3
+- `">3"` - Greater than: value must be > 3
+- `">=3"` - Greater than or equal: value must be >= 3
+- `"<3"` - Less than: value must be < 3
+- `"<=3"` - Less than or equal: value must be <= 3
+- `"==3"` - Explicit equality: value must equal 3
+
+**Modulo Operations (for divisibility/alignment checks):**
+- `"%32==0"` - Modulo constraint: (value % 32) must equal 0
+- `"%64==0"` - Divisibility by 64: (value % 64) must equal 0
+- `"%N==R"` - General form: (value % N) must equal R
+
+**Special Values:**
+- `"-1"` - Matches dynamic dimensions
+
+**Dimension Indexing:**
+- Positive indices: 0-based from the start (0 is first dimension, 1 is second, etc.)
+- Negative indices: Count from the end (-1 is last dimension, -2 is second-to-last, -3 is third-to-last, etc.)
+
+**Examples:**
+```json
+{
+  "inputs": {
+    "0": {
+      "rank": "4",
+      "type": "f32",
+      "dims": {
+        "0": ">=2",
+        "1": "3",
+        "2": "%32==0",
+        "-1": "%64==0"
+      }
+    }
+  }
+}
+```
+
+This matches operations where:
+- The first input has rank 4
+- Element type is f32
+- Dimension 0 (first dimension) is >= 2
+- Dimension 1 (second dimension) equals 3
+- Dimension 2 (third dimension) is divisible by 32
+- Dimension -1 (last dimension, equivalent to dimension 3 for rank 4) is divisible by 64
 
 ### Semantics
 
@@ -62,8 +127,13 @@ Each object in the `nnpa_ops_config` array has the following structure:
   - **Quantization** (`"quantize"` in rewrite):
     - `"quantize": false`: the matched ONNX operators are not quantized. 
     - `"quantize": true`: the matched ONNX operators **may** be quantized. The compiler will check again if these operators are really suitable for quantization or not.
-- An ONNX operator is matched if both `node_type` AND `onnx_node_name` (if specified) in the `match` section are matched. Once matched, the attributes in the `rewrite` section are applied.
-- The list is evaluated in sequence, with earlier items having precedence. If an ONNX operator matches a pattern, it does not match against the remaining patterns in the list. 
+- An ONNX operator is matched if ALL specified criteria in the `match` section are satisfied:
+  - `node_type` must match (required)
+  - `onnx_node_name` must match (if specified)
+  - `inputs` tensor constraints must match (if specified)
+  - `outputs` tensor constraints must match (if specified)
+- Once matched, the attributes in the `rewrite` section are applied.
+- The list is evaluated in sequence, with earlier items having precedence. If an ONNX operator matches a pattern, it does not match against the remaining patterns in the list.
 
 # Examples
 - Let's use the following input model as an example:
@@ -280,6 +350,88 @@ Below are JSON files for different situations.
         },
         "rewrite": {
           "quantize": false
+        }
+      }
+    }
+  ]
+}
+```
+
+## Examples with Tensor Information Matching
+
+8. Match MatMul operations where the first input has rank 2 and dimensions are divisible by 32:
+```json
+{
+  "nnpa_ops_config": [
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.MatMul",
+          "inputs": {
+            "0": {
+              "rank": "2",
+              "dims": {
+                "0": "%32==0",
+                "1": "%32==0"
+              }
+            }
+          }
+        },
+        "rewrite": {
+          "quantize": true
+        }
+      }
+    }
+  ]
+}
+```
+
+9. Match Conv operations with specific input tensor properties (4D tensor with batch size >= 1 and channels divisible by 16):
+```json
+{
+  "nnpa_ops_config": [
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Conv",
+          "inputs": {
+            "0": {
+              "rank": "4",
+              "type": "f32",
+              "dims": {
+                "0": ">=1",
+                "1": "%16==0"
+              }
+            }
+          }
+        },
+        "rewrite": {
+          "device": "nnpa"
+        }
+      }
+    }
+  ]
+}
+```
+
+10. Match operations with dynamic dimensions in specific positions:
+```json
+{
+  "nnpa_ops_config": [
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.MatMul",
+          "inputs": {
+            "0": {
+              "dims": {
+                "0": "-1"
+              }
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
         }
       }
     }
