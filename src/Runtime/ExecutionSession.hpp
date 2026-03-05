@@ -34,7 +34,7 @@ typedef void *DynamicLibraryHandleType;
 #include <dlfcn.h>
 #endif
 
-// TODO: should ExecutionSession and CompilerSession be in the onnx_mlir
+// TODO: should ExecutionSession and OMCompile be in the onnx_mlir
 // namespace? They should not depend at all on the onnx-mlir compiler files
 // (except implicitly).
 

@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "src/Compiler/OMCompileSession.hpp"
+#include "src/Compiler/OMCompile.hpp"
 #include <assert.h>
 #include <fstream>
 #include <iostream>
@@ -27,11 +27,11 @@ int main(int argc, char *argv[]) {
   readArgsFromCommandLine(argc, argv);
 
   // Compile.
-  onnx_mlir::CompilerSession compilerSession;
+  onnx_mlir::OMCompile OMcompile;
   try {
-    compilerSession.compile("" /*input model name included in the flags*/, flags);
+    OMcompile.compile("" /*input model name included in the flags*/, flags);
     retVal = 0;
-  } catch (const onnx_mlir::CompilerSessionException &error) {
+  } catch (const onnx_mlir::OMCompileException &error) {
     std::cerr << "error during compiler session: " << error.what() << std::endl;
     retVal = 1;
   }

@@ -14,12 +14,12 @@ import numpy as np
 
 try:
     from PyOMCompileC import (
-        OMCompileSession,
+        OMCompile,
     )
 except ImportError:
     raise ImportError(
-        "Looks like you did not build the PyOMCompileC target, build it by "
-        "running `make PyOMCompileC`. You may need to set PYTHONPATH to the "
-        "location of PyOMCompileC (possibly in onnx-mlir/build Debug/lib or "
-        "Release/lib)."
+        "Looks like you did not build the PyOMCompileC target, build it by\n"
+        "running `make PyOMCompileC`. You may need to set PYTHONPATH to\n"
+        "include `onnx-mlir/build/Debug/lib` since `make PyOMCompileC` outputs\n"
+        "to `build/Debug` by default (or Release if building Release)."
     )

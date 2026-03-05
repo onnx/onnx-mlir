@@ -153,7 +153,7 @@ if(ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
   return()
 endif()
 
-pybind11_add_module(PyOMCompileC PyOMCompileSession.cpp)
+pybind11_add_module(PyOMCompileC PyOMCompile.cpp)
 add_dependencies(PyOMCompileC onnx)
 target_compile_options(PyOMCompileC
   PRIVATE
@@ -171,9 +171,7 @@ target_include_directories(PyOMCompileC
   )
 target_link_libraries(PyOMCompileC
   PRIVATE
-  OMCompileSession
-  onnx
-  onnx_proto
+  OMCompile
   )
 llvm_update_compile_flags(PyOMCompileC)
 

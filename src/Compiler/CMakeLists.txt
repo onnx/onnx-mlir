@@ -154,7 +154,7 @@ target_compile_definitions(OMVersion PUBLIC ${DEFINITIONS})
 set_property(SOURCE CompilerUtils.cpp APPEND PROPERTY COMPILE_DEFINITIONS ${DEFINITIONS})
 
 # This library only add MLIR/LLVM independent code that is used both in
-# onnx-mlir compiler as well as the OMCompileSession. The file listed
+# onnx-mlir compiler as well as the OMCompile. The file listed
 # here must remain MLIR/LLVM free.
  
 add_onnx_mlir_library(OMCommandUtils
@@ -172,8 +172,8 @@ add_onnx_mlir_library(OMCommandUtils
   LINK_LIBS PUBLIC
   )
 
-  add_onnx_mlir_library(OMCompileSession
-  OMCompileSession.cpp
+  add_onnx_mlir_library(OMCompile
+  OMCompile.cpp
 
   EXCLUDE_FROM_OM_LIBS
 
