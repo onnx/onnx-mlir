@@ -57,6 +57,12 @@ LogicalResult XFEGlobalMaxPoolOp::inferShapes(
       this->getOperation(), doShapeInference);
 }
 
+LogicalResult XFEBatchNormalizationOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  return XFEBatchNormalizationOpShapeInference(
+      this->getOperation(), doShapeInference);
+}
+
 LogicalResult XFEInstanceNormalizationOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return XFEInstanceNormalizationOpShapeInference(
@@ -110,6 +116,10 @@ LogicalResult XFEGlobalAveragePoolOp::verify() {
 
 LogicalResult XFEGlobalMaxPoolOp::verify() {
   return XFEGlobalMaxPoolOpVerify(this->getOperation());
+}
+
+LogicalResult XFEBatchNormalizationOp::verify() {
+  return XFEBatchNormalizationOpVerify(this->getOperation());
 }
 
 LogicalResult XFEInstanceNormalizationOp::verify() {

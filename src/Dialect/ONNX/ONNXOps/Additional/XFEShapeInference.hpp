@@ -42,6 +42,10 @@ LogicalResult XFEGlobalAveragePoolOpShapeInference(
 LogicalResult XFEGlobalMaxPoolOpShapeInference(
     Operation *op, std::function<void(Region &)> doShapeInference);
 
+// Shape inference for BatchNormalizationChannelLast
+LogicalResult XFEBatchNormalizationOpShapeInference(
+    Operation *op, std::function<void(Region &)> doShapeInference);
+
 // Shape inference for InstanceNormalizationChannelLast
 LogicalResult XFEInstanceNormalizationOpShapeInference(
     Operation *op, std::function<void(Region &)> doShapeInference);
