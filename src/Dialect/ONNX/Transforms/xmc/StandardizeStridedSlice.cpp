@@ -267,12 +267,26 @@ struct ConvertGatherToSlicePattern
     std::iota(allAxes.begin(), allAxes.end(), 0);
     Value axes = createConstantTensor(rewriter, loc, allAxes, int64Type);
 
-    // Create Slice operation
-    auto sliceOp = rewriter.create<ONNXSliceOp>(
-        loc, gatherOp.getType(), gatherOp.getData(), starts, ends, axes, steps);
+    // Compute the proper rank-preserving Slice output shape.
+    // onnx.Slice always preserves rank, unlike onnx.Gather which can squeeze
+    // the gather axis when the index is a scalar.
+    SmallVector<int64_t> sliceShape;
+    for (int64_t i = 0; i < rank; ++i) {
+      int64_t dimSize = (denseEnd[i] - denseBegin[i] + denseStrides[i] -
+                            (denseStrides[i] > 0 ? 1 : -1)) /
+                        denseStrides[i];
+      sliceShape.push_back(std::max<int64_t>(0, dimSize));
+    }
 
-    // If output shape differs (gather may squeeze dimensions), add reshape
-    auto sliceOutputType = mlir::cast<RankedTensorType>(sliceOp.getType());
+    auto sliceOutputType =
+        RankedTensorType::get(sliceShape, inputType.getElementType());
+
+    // Create Slice operation with the correct rank-preserving output type.
+    auto sliceOp = rewriter.create<ONNXSliceOp>(
+        loc, sliceOutputType, gatherOp.getData(), starts, ends, axes, steps);
+
+    // If gather squeezed dimensions (scalar index), add a reshape to match
+    // the original gather output shape.
     auto gatherOutputType = mlir::cast<RankedTensorType>(gatherOp.getType());
 
     if (sliceOutputType.getShape() != gatherOutputType.getShape()) {
