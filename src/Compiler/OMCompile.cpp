@@ -16,6 +16,7 @@
 
 #include "src/Compiler/OMCompile.hpp"
 
+#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 

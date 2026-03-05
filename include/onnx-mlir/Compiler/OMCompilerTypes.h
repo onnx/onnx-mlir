@@ -63,7 +63,7 @@ typedef enum {
 
 /* Generate error description strings array */
 static const char *OnnxMlirCompilerErrorCodeDescriptions[] = {
-#define ONNX_MLIR_ERROR_DESC(name, code, desc) [code] = desc,
+#define ONNX_MLIR_ERROR_DESC(name, code, desc) desc,
     ONNX_MLIR_COMPILER_ERROR_CODES(ONNX_MLIR_ERROR_DESC)
 #undef ONNX_MLIR_ERROR_DESC
 };
