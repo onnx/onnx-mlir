@@ -1112,7 +1112,8 @@ def get_operands_or_results(schema, type_str_dict, op_name, is_input):
         if qType:
             types.append("TensorOf<[quant_QuantizedType]>")
 
-        if OpSchema.FormalParameterOption.Optional == value.option:
+        is_optional = OpSchema.FormalParameterOption.Optional == value.option
+        if is_optional and not isinstance(schema, CustomOpSchema):
             types.append("NoneType")
 
         if OpSchema.FormalParameterOption.Variadic == value.option:
@@ -1136,7 +1137,10 @@ def get_operands_or_results(schema, type_str_dict, op_name, is_input):
         else:
             value_name = get_unique_output_name(schema, value.name)
 
-        name_to_types[value_name] = any_type_of(types)
+        final_type = any_type_of(types)
+        if is_optional and isinstance(schema, CustomOpSchema):
+            final_type = "Optional<{}>".format(final_type)
+        name_to_types[value_name] = final_type
     return name_to_types
 
 
@@ -1778,7 +1782,7 @@ def build_operator_schemas(custom_ops=None):
     operator_schemas = (
         list()
     )  # type: List[Tuple[Text, List[Tuple[int, List[Tuple[Text, OpSchema, List[OpSchema]]]]]]]
-    existing_ops = set()  # type: Set[Text]
+    existing_ops = set()  # type: Set[Tuple[Text, Text]]
     # Domain, name, versions
     opsets: dict[str, dict[str, list[int]]] = defaultdict(
         lambda: defaultdict(list)
@@ -1793,12 +1797,12 @@ def build_operator_schemas(custom_ops=None):
                 versions = sorted(unsorted_versions, key=lambda s: s.since_version)
                 opsets[domain][n].extend(reversed([s.since_version for s in versions]))
                 schema = versions[-1]
-                if schema.name in existing_ops:
+                if (domain, schema.name) in existing_ops:
                     continue
 
                 if check_operation_version:
                     # Generate operation of the latest version of your onnx.
-                    existing_ops.add(schema.name)
+                    existing_ops.add((domain, schema.name))
                     processed_name_map.append((n, schema, versions))
                     if domain not in version_dict:
                         continue
@@ -1831,7 +1835,7 @@ def build_operator_schemas(custom_ops=None):
                         # Check the version number against the version_dict.
                         specified_version = version_dict[domain][schema.name][v_counter]
                         if schema.since_version == specified_version:
-                            existing_ops.add(schema.name)
+                            existing_ops.add((domain, schema.name))
                             processed_name_map.append((n, schema, versions))
                             found = True
                             v_counter += 1

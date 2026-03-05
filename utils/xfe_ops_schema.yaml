@@ -63,6 +63,7 @@
   - name: B
     description: Optional 1D bias tensor
     type_str: T
+    optional: True
   outputs:
   - name: Y
     description: Output data tensor with channel-last layout
@@ -120,7 +121,7 @@
   outputs:
   - name: Y
     description: Output data tensor with channel-last layout
-    type_str: T
+    type_str: T_out
   attributes:
   - name: auto_pad
     description: Auto padding strategy (NOTSET, SAME_UPPER, SAME_LOWER, VALID)
@@ -134,6 +135,9 @@
     description: Whether include pad pixels when calculating values for the edges
     type: int
     default_value: 0
+  - name: dilations
+    description: Dilation value
+    type: list(int)
   - name: kernel_shape
     description: Shape of the pooling kernel
     type: list(int)
@@ -145,7 +149,16 @@
     type: list(int)
   type_constraints:
   - type_param: T
-    description: Constrain input and output types to float tensors.
+    description: Constrain input types.
+    allowed_types:
+    - tensor(float16)
+    - tensor(float)
+    - tensor(double)
+    - tensor(bfloat16)
+    - tensor(int8)
+    - tensor(uint8)
+  - type_param: T_out
+    description: Constrain output types to float tensors.
     allowed_types:
     - tensor(float16)
     - tensor(float)

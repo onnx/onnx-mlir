@@ -202,6 +202,22 @@ func.func @test_xfe_convtranspose_channel_last_3d(%arg0: tensor<1x8x16x16x3xf32>
   // CHECK: onnx.Return [[RES]] : tensor<1x16x32x32x64xf32>
 }
 
+
+// -----
+
+// COM: Test  conv without bias 
+func.func @test_xfe_conv_channel_last_no_bias(%arg0: tensor<1x28x28x3xf32>, %arg1: tensor<64x3x3x3xf32>) -> tensor<*xf32> {
+  %0 = "onnx.XFEConv"(%arg0, %arg1) {
+    strides = [1, 1],
+    pads = [0, 0, 0, 0],
+    dilations = [1, 1]
+  } : (tensor<1x28x28x3xf32>, tensor<64x3x3x3xf32>) -> tensor<*xf32>
+  onnx.Return %0 : tensor<*xf32>
+
+  // CHECK-LABEL: test_xfe_conv_channel_last_no_bias
+  // CHECK: [[RES:%.+]] = "onnx.XFEConv"(%arg0, %arg1) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<1x28x28x3xf32>, tensor<64x3x3x3xf32>) -> tensor<1x26x26x64xf32>
+  // CHECK: onnx.Return [[RES]] : tensor<1x26x26x64xf32>
+}
 // -----
 
 //===----------------------------------------------------------------------===//
