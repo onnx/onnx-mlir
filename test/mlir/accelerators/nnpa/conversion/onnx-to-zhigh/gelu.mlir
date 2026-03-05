@@ -28,3 +28,29 @@ func.func @test_gelu_tanh_arch15(%arg0 : tensor<1x2xf32>) -> tensor<1x2xf32> {
 // CHECK:           return [[VAR_2_]] : tensor<1x2xf32>
 // CHECK:         }
 }
+
+// -----
+
+func.func @test_gelu_erf_arch15_scalar(%arg0 : tensor<1xf32>) -> tensor<1xf32>{
+  %0 ="onnx.Gelu"(%arg0) {approximate = "none"} : (tensor<1xf32>) -> tensor<1xf32>
+ "func.return"(%0) : (tensor<1xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_gelu_erf_arch15_scalar
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1xf32>) -> tensor<1xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Gelu"([[PARAM_0_]]) <{approximate = "none"}> : (tensor<1xf32>) -> tensor<1xf32>
+// CHECK:           return [[VAR_0_]] : tensor<1xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_gelu_tanh_arch15_scalar(%arg0 : tensor<1xf32>) -> tensor<1xf32>{
+  %0 ="onnx.Gelu"(%arg0) {approximate = "tanh"} : (tensor<1xf32>) -> tensor<1xf32>
+ "func.return"(%0) : (tensor<1xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_gelu_tanh_arch15_scalar
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1xf32>) -> tensor<1xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Gelu"([[PARAM_0_]]) <{approximate = "tanh"}> : (tensor<1xf32>) -> tensor<1xf32>
+// CHECK:           return [[VAR_0_]] : tensor<1xf32>
+// CHECK:         }
+}
