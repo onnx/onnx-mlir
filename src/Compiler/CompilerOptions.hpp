@@ -35,6 +35,31 @@ extern const std::string OnnxMlirEnvOptionName;
 
 namespace onnx_mlir {
 
+/* Input IR can be at one of these levels */
+typedef enum {
+  ONNXLevel,
+  MLIRLevel,
+  LLVMLevel,
+} InputIRLevelType;
+
+/* Compiler optimization level (traditional -O0 ... -O3 flags) */
+typedef enum { O0 = 0, O1, O2, O3 } OptLevel;
+
+/* Compiler options to describe the architecture, optimization level,... */
+/* Keep in sync with enumeration in PyOnnxMirCompiler.hpp python module. */
+typedef enum {
+  TargetTriple,     /* Kind for mtriple string. */
+  TargetArch,       /* Kind for march string. */
+  TargetCPU,        /* Kind for mcpu string. */
+  TargetAccel,      /* Kind for maccel string. */
+  CompilerOptLevel, /* Kind for '0'...'3' string describing OptLevel. */
+  OPTFlag,          /* Kind for -Xopt string. */
+  LLCFlag,          /* Kind for -Xllc string. */
+  LLVMFlag,         /* Kind for -mllvm string. */
+  ModelTag,         /* Kind for tag string. */
+  Verbose,          /* Kind for enabling -v verbose mode (boolean option)*/
+} OptionKind;
+
 typedef enum {
   // clang-format off
   None,
