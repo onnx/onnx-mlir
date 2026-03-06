@@ -286,7 +286,7 @@ FILE *getInstrumentFile(bool withPrintStartReport) {
     fout = stdout;
     if (getenv("ONNX_MLIR_INSTRUMENT_FILE")) {
       char *fileName = getenv("ONNX_MLIR_INSTRUMENT_FILE");
-      FILE *newFileHandle = fopen(fileName, "w+");
+      FILE *newFileHandle = fopen(fileName, "a");
       if (newFileHandle) {
         fout = newFileHandle;
       }
