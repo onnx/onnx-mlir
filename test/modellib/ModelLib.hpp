@@ -4,7 +4,7 @@
 
 //====-- ModelLib.hpp - Building Models for numerical and benchmark tests -===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -24,6 +24,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/FileUtilities.h"
 
+#include "src/Compiler/CommandUtils.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -512,8 +513,7 @@ private:
 
 class SoftplusLibBuilder : public ModelLibBuilder {
 public:
-  SoftplusLibBuilder(
-      const std::string &modelName, const int N);
+  SoftplusLibBuilder(const std::string &modelName, const int N);
   bool build() final;
   bool prepareInputs() final;
   bool prepareInputs(float dataRangeLB, float dataRangeUB);
