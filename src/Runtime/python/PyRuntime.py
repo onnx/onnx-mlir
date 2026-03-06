@@ -40,6 +40,7 @@ else:
 
 
 class OMExecutionSession(OMExecutionSession_):
+
     def run(self, inputs):
         # Prepare arguments to call sess.run
         pyrun_inputs = []
