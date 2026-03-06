@@ -53,8 +53,8 @@ static int psErrorCount = 0;      // For counting memory errors.
 // For string processing
 static char instrumentReportOpName[INSTRUMENT_OP_NAME_MASK + 1];
 static char instrumentReportNodeName[INSTRUMENT_NODE_NAME_MASK + 1];
-static FILE *fout = 0; // For file output; none: undef; stdout.
-static bool initialized = false;
+static FILE *instrumentFout = 0; // For file output; none: undef; stdout.
+static bool instrumentInitialized = false;
 bool startReportPrinted = false;
 
 // Buffer data structure and array.
@@ -86,8 +86,8 @@ static void resetLocalState() {
   instrumentReportMemoryDisabled = false;
   instrumentCounter = 0;
   psErrorCount = 0;
-  fout = 0;
-  initialized = false;
+  instrumentFout = 0;
+  instrumentInitialized = false;
   startReportPrinted = false;
   bufferIndex = 0;
 }
@@ -141,7 +141,8 @@ static inline void PrintTime(LARGE_INTEGER *newTime, int isBefore) {
   WinTimerSub(newTime, globalTime, &resultSeconds1, &resultMicroseconds1);
   WinTimerSub(newTime, initTime, &resultSeconds2, &resultMicroseconds2);
   // Print header and data for time.
-  fprintf(fout, "==PERF-REPORT==, %s, %s, %s, %lld.%06lld, %lld.%06lld\n",
+  fprintf(instrumentFout,
+      "==PERF-REPORT==, %s, %s, %s, %lld.%06lld, %lld.%06lld\n",
       instrumentReportOpName, instrumentReportNodeName,
       (isBefore ? "before" : "after"), resultSeconds1, resultMicroseconds1,
       resultSeconds2, resultMicroseconds2);
@@ -156,7 +157,7 @@ static inline void PrintTime(struct timeval *newTimeValue, int isBefore) {
   timersub(newTimeValue, &globalTimeVal, &result1);
   timersub(newTimeValue, &initTimeVal, &result2);
   // Print header and data for time.
-  fprintf(fout, "==PERF-REPORT==, %s, %s, %s, %ld.%06ld, %ld.%06ld\n",
+  fprintf(instrumentFout, "==PERF-REPORT==, %s, %s, %s, %ld.%06ld, %ld.%06ld\n",
       instrumentReportOpName, instrumentReportNodeName,
       (isBefore ? "before" : "after"), (long int)result1.tv_sec,
       (long int)result1.tv_usec, (long int)result2.tv_sec,
@@ -171,7 +172,7 @@ static void ReportMemory() {
   GetProcessMemoryInfo(
       GetCurrentProcess(), (PROCESS_MEMORY_COUNTERS *)&pmc, sizeof(pmc));
   SIZE_T vMemSizeKB = pmc.PrivateUsage / 1024;
-  fprintf(fout, "%zu\n", vMemSizeKB);
+  fprintf(instrumentFout, "%zu\n", vMemSizeKB);
 }
 #else
 static void ReportMemory() {
@@ -184,7 +185,7 @@ static void ReportMemory() {
   assert(num_chars_written >= 0 && "snprintf write error to memCommand");
   memPipe = popen(memCommand, "r");
   if (!memPipe) {
-    fprintf(fout, ", error-failed-to-execute-ps\n");
+    fprintf(instrumentFout, ", error-failed-to-execute-ps\n");
     psErrorCount++;
     return;
   }
@@ -192,11 +193,11 @@ static void ReportMemory() {
   (void)fgetc(memPipe);
   memOutput[strcspn(memOutput, "\n")] = 0;
   if (!feof(memPipe)) {
-    fprintf(fout, ", error-unexpected-output-from-pipe\n");
+    fprintf(instrumentFout, ", error-unexpected-output-from-pipe\n");
     psErrorCount++;
   } else {
     // No error, print data.
-    fprintf(fout, ", %s\n", memOutput);
+    fprintf(instrumentFout, ", %s\n", memOutput);
   }
   pclose(memPipe);
 }
@@ -225,8 +226,9 @@ static void ProcessName(
 
 static void inline printStartReport() {
   if (!startReportPrinted) {
-    assert(fout && "expected initialized fout for reporting");
-    fprintf(fout, "==START-REPORT==\n");
+    assert(instrumentFout &&
+           "expected instrumentInitialized instrumentFout for reporting");
+    fprintf(instrumentFout, "==START-REPORT==\n");
     startReportPrinted = true;
   }
 }
@@ -246,7 +248,7 @@ static void flushRecordBuffer() {
     if (isAfter)
       PrintTime(&timeRecordBuffer[i].afterTime, /*before*/ false);
   }
-  fflush(fout);
+  fflush(instrumentFout);
   bufferIndex = 0;
 }
 
@@ -277,25 +279,26 @@ static void updateRecordBuffer(
 // =============================================================================
 // Support for initialization
 
-// Initialize fout on the first call (as fout is statically initialized to
-// null). If defined, fout will target the value in ONNX_MLIR_INSTRUMENT_FILE.
-// Otherwise, fout default to standard out.
+// Initialize instrumentFout on the first call (as instrumentFout is statically
+// instrumentInitialized to null). If defined, instrumentFout will target the
+// value in ONNX_MLIR_INSTRUMENT_FILE. Otherwise, instrumentFout default to
+// standard out.
 
 FILE *getInstrumentFile(bool withPrintStartReport) {
-  if (!fout) {
-    fout = stdout;
+  if (!instrumentFout) {
+    instrumentFout = stdout;
     if (getenv("ONNX_MLIR_INSTRUMENT_FILE")) {
       char *fileName = getenv("ONNX_MLIR_INSTRUMENT_FILE");
       FILE *newFileHandle = fopen(fileName, "a");
       if (newFileHandle) {
-        fout = newFileHandle;
+        instrumentFout = newFileHandle;
       }
     }
-    assert(fout);
+    assert(instrumentFout);
   }
   if (withPrintStartReport)
     printStartReport();
-  return fout;
+  return instrumentFout;
 }
 
 // Called only from OMInstrumentPoint, which is only generated by the compiler
@@ -306,8 +309,8 @@ static void startInstrumentation() {
   // reset between runs.
   startReportPrinted = false;
   bufferIndex = 0;
-  if (!initialized) {
-    initialized = true;
+  if (!instrumentInitialized) {
+    instrumentInitialized = true;
     // First: read environment variables.
     if (getenv("ONNX_MLIR_NO_INSTRUMENT_TIME")) {
       instrumentReportTimeDisabled = true;
@@ -370,12 +373,13 @@ void OMInstrumentPoint(const char *opName, int64_t iTag, const char *nodeName) {
     printStartReport();
     ProcessName(opName, tag, nodeName);
     bool isBefore = IS_INSTRUMENT_BEFORE_OP(tag);
-    fprintf(fout, "==MEM-REPORT==, %s, %s, %s", instrumentReportOpName,
-        instrumentReportNodeName, (isBefore ? "before" : "after"));
+    fprintf(instrumentFout, "==MEM-REPORT==, %s, %s, %s",
+        instrumentReportOpName, instrumentReportNodeName,
+        (isBefore ? "before" : "after"));
     ReportMemory();
   }
   if (!reportTime && !reportMem) {
     printStartReport();
-    fprintf(fout, "==TICK-REPORT==, %i\n", instrumentCounter++);
+    fprintf(instrumentFout, "==TICK-REPORT==, %i\n", instrumentCounter++);
   }
 }
