@@ -107,10 +107,6 @@ struct ConvertSCastPairToRequantizePattern
     if (!isa<quant::QuantizedType>(inputElemType))
       return failure();
 
-    // Check that the intermediate value has only one use (the second scast)
-    if (!midValue.hasOneUse())
-      return failure();
-
     // Extract input quantization parameters
     auto inputQType = dyn_cast<quant::UniformQuantizedType>(inputElemType);
     auto inputQPerAxis =

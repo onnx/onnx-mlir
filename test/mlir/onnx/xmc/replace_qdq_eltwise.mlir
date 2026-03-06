@@ -423,7 +423,7 @@ func.func @test_quantized_mod_no_activation(
 }
 
 // -----
-// Test Pattern 1: Standalone Relu (no preceding eltwise) -> fused RELU
+// Test Pattern 1: Standalone Relu (u8, zp!=0) -> fused RELU
 // CHECK-LABEL: func.func @test_quantized_relu_standalone
 func.func @test_quantized_relu_standalone(
     %arg0: tensor<1x8x8x8x!quant.uniform<u8:f32, 0.02:128>>)
@@ -441,7 +441,7 @@ func.func @test_quantized_relu_standalone(
 }
 
 // -----
-// Test Pattern 1: Standalone LeakyRelu (no preceding eltwise) -> fused LEAKYRELU
+// Test Pattern 1: Standalone LeakyRelu -> fused LEAKYRELU with alpha attrs
 // CHECK-LABEL: func.func @test_quantized_leakyrelu_standalone
 func.func @test_quantized_leakyrelu_standalone(
     %arg0: tensor<1x8x8x8x!quant.uniform<u8:f32, 0.02:128>>)
@@ -454,7 +454,7 @@ func.func @test_quantized_leakyrelu_standalone(
   // CHECK: %[[NOVAL:.*]] = "onnx.NoValue"()
   // CHECK: %[[FUSED:.*]] = "onnx.XCOMPILERFusedEltwise"(%arg0, %[[NOVAL]])
   // CHECK-SAME: leakyrelu_alpha = {{[0-9.e+-]+}} : f32
-  // CHECK-SAME: nonlinear = "LEAKYRELU"
+  // CHECK-SAME: nonlinear = "NONE"
   // CHECK-SAME: prelu_in = 3 : si64
   // CHECK-SAME: prelu_shift = 8 : si64
   // CHECK-SAME: type = "LEAKYRELU"

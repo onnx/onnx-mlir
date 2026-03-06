@@ -66,30 +66,80 @@ static IntegerAttr getSI64Attr(PatternRewriter &rewriter, int64_t value) {
   return rewriter.getIntegerAttr(si64, value);
 }
 
-// For LeakyRelu ops, return (leakyrelu_alpha, prelu_in, prelu_shift); else
-// empty attrs. Used by Pattern 1 so LeakyRelu is handled in the generic path.
-static std::tuple<FloatAttr, IntegerAttr, IntegerAttr>
-getLeakyReluAttrsIfApplicable(Operation *op, PatternRewriter &rewriter) {
-  auto leakyOp = dyn_cast<ONNXLeakyReluOp>(op);
-  if (!leakyOp) {
-    return {FloatAttr(), IntegerAttr(), IntegerAttr()};
-  }
-  FloatAttr alphaAttr = leakyOp.getAlphaAttr();
-  float alpha = alphaAttr ? alphaAttr.getValue().convertToFloat() : 0.01f;
-  if (!alphaAttr)
-    alphaAttr = rewriter.getFloatAttr(rewriter.getF32Type(), alpha);
-  auto [M, N] = getLeakyReluAlphaToPreluFactor(alpha);
-  return {alphaAttr, getSI64Attr(rewriter, M), getSI64Attr(rewriter, N)};
+// Canonicalize activation op types following the xcompiler ReplaceQDQConvPass
+// Canonicalize LeakyReLU op type to LEAKYRELU with alpha and prelu factors.
+// Returns {mappedOpType, leakyrelu_alpha, prelu_in, prelu_shift}.
+// mappedOpType is empty when no remapping is needed.
+
+// ReLU on UINT8 with zero_point=0 is a no-op: unsigned values are already
+// non-negative, so clamping at zero has no effect.
+static bool isReluNoOp(Operation *op) {
+  if (!isa<ONNXReluOp>(op))
+    return false;
+  auto resultType = op->getResult(0).getType();
+  auto tensorType = mlir::dyn_cast<RankedTensorType>(resultType);
+  if (!tensorType)
+    return false;
+  auto uq = mlir::dyn_cast<mlir::quant::UniformQuantizedType>(
+      tensorType.getElementType());
+  if (!uq)
+    return false;
+
+  return uq.getStorageType().isUnsignedInteger(8) && uq.getZeroPoint() == 0;
 }
 
-// True if value is produced by an eltwise op that Pattern 2 fuses with Relu/
-// LeakyRelu. Pattern 1 should not fuse standalone Relu/LeakyRelu in that case.
+static std::tuple<StringRef, FloatAttr, IntegerAttr, IntegerAttr>
+computeActivationMapping(Operation *op, PatternRewriter &rewriter) {
+  if (auto leakyOp = dyn_cast<ONNXLeakyReluOp>(op)) {
+    FloatAttr alphaAttr = leakyOp.getAlphaAttr();
+    float alpha = alphaAttr ? alphaAttr.getValue().convertToFloat() : 0.01f;
+    if (!alphaAttr)
+      alphaAttr = rewriter.getFloatAttr(rewriter.getF32Type(), alpha);
+    auto [M, N] = getLeakyReluAlphaToPreluFactor(alpha);
+    return {"LEAKYRELU", alphaAttr, getSI64Attr(rewriter, M),
+        getSI64Attr(rewriter, N)};
+  }
+  return {"", FloatAttr(), IntegerAttr(), IntegerAttr()};
+}
+
+// Check if two quantized types have matching scale and zero_point.
+static bool hasMatchingQuantParams(Type typeA, Type typeB) {
+  auto tensorA = mlir::dyn_cast<RankedTensorType>(typeA);
+  auto tensorB = mlir::dyn_cast<RankedTensorType>(typeB);
+  if (!tensorA || !tensorB)
+    return false;
+  auto qA = mlir::dyn_cast<mlir::quant::UniformQuantizedType>(
+      tensorA.getElementType());
+  auto qB = mlir::dyn_cast<mlir::quant::UniformQuantizedType>(
+      tensorB.getElementType());
+  if (!qA || !qB)
+    return false;
+  return std::fabs(qA.getScale() - qB.getScale()) <= 1e-6 &&
+         qA.getZeroPoint() == qB.getZeroPoint();
+}
+
+// True if value is produced by an eltwise op that Pattern 2 can fuse with
+// Relu/LeakyRelu. Pattern 1 should not fuse standalone Relu/LeakyRelu in that
+// case. However, if the quantization parameters between the eltwise output and
+// the activation output don't match, Pattern 2 will reject the fusion, so
+// Pattern 1 should handle it.
 static bool isInputFromPattern2Eltwise(Value v) {
   Operation *def = v.getDefiningOp();
   if (!def)
     return false;
-  return isa<ONNXAddOp, ONNXSubOp, ONNXMulOp, ONNXDivOp, ONNXTanhOp,
-      ONNXSqrtOp>(def);
+  if (!isa<ONNXAddOp, ONNXSubOp, ONNXMulOp, ONNXDivOp, ONNXTanhOp, ONNXSqrtOp>(
+          def))
+    return false;
+  // Check that the activation (user of def's result) has matching quant params.
+  // If not, Pattern 2 will reject, so don't defer.
+  for (Operation *user : def->getResult(0).getUsers()) {
+    if (isa<ONNXReluOp, ONNXLeakyReluOp>(user)) {
+      if (!hasMatchingQuantParams(
+              def->getResult(0).getType(), user->getResult(0).getType()))
+        return false;
+    }
+  }
+  return true;
 }
 
 // Check if type is quantized
@@ -233,15 +283,21 @@ struct FuseQuantizedEltwiseWithoutActivation
                << "Fusing quantized eltwise into onnx.XCOMPILERFusedEltwise: "
                << eltwiseOp->getName() << "\n");
 
+    // ReLU on UINT8 with zero_point=0 is a no-op: remove it entirely.
+    if (isUnary && isReluNoOp(eltwiseOp.getOperation())) {
+      rewriter.replaceOp(eltwiseOp, a);
+      return success();
+    }
     // Only create IR (e.g. onnx.NoValue) after we know we will rewrite.
     if (isUnary)
       b = rewriter.create<ONNXNoneOp>(eltwiseOp.getLoc()).getResult();
 
-    auto [leakyAlpha, preluIn, preluShift] =
-        getLeakyReluAttrsIfApplicable(eltwiseOp.getOperation(), rewriter);
-    // Verifier requires nonlinear=LEAKYRELU when leakyrelu_alpha/prelu_* are
-    // set.
-    StringRef nonlinear = leakyAlpha ? "LEAKYRELU" : "NONE";
+    auto [mappedOpType, leakyAlpha, preluIn, preluShift] =
+        computeActivationMapping(eltwiseOp.getOperation(), rewriter);
+    if (!mappedOpType.empty())
+      opType = mappedOpType;
+
+    StringRef nonlinear = "NONE";
 
     auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(eltwiseOp.getLoc(),
         eltwiseOp.getType(), // result type (quantized)
@@ -424,6 +480,14 @@ struct FuseQuantizedEltwiseActivation : public OpRewritePattern<ActivationOp> {
       return rewriter.notifyMatchFailure(
           activationOp, "activation output not quantized");
 
+    // Verify scale/zp consistency between eltwise output and activation output.
+    // If they differ, there's an implicit requantization that would be lost by
+    // fusing.
+    if (!hasMatchingQuantParams(eltwiseOp.getResult().getType(),
+            activationOp.getResult().getType()))
+      return rewriter.notifyMatchFailure(activationOp,
+          "eltwise and activation have different quantization parameters");
+
     LLVM_DEBUG(llvm::dbgs() << "Fusing quantized eltwise+activation into "
                                "onnx.XCOMPILERFusedEltwise: "
                             << eltwiseOp->getName() << " + "
@@ -434,6 +498,30 @@ struct FuseQuantizedEltwiseActivation : public OpRewritePattern<ActivationOp> {
     if (opType.empty())
       return rewriter.notifyMatchFailure(
           activationOp, "unsupported eltwise op");
+
+    // ReLU on UINT8 with zero_point=0 is a no-op. Fuse the eltwise without
+    // any activation (nonlinear="NONE"), effectively dropping the ReLU.
+    if (isReluNoOp(activationOp.getOperation())) {
+      if (isUnary)
+        b = rewriter.create<ONNXNoneOp>(eltwiseOp.getLoc()).getResult();
+      auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(
+          eltwiseOp.getLoc(), activationOp.getType(), a, b,
+          /*clip_max=*/IntegerAttr(),
+          /*clip_min=*/IntegerAttr(),
+          /*enable_lut_sigmoid=*/rewriter.getBoolAttr(false),
+          /*leakyrelu_alpha=*/FloatAttr(),
+          /*mul_y=*/FloatAttr(),
+          /*nonlinear=*/rewriter.getStringAttr("NONE"),
+          /*nonlinear_in_scales=*/FloatAttr(),
+          /*nonlinear_in_zeropoints=*/IntegerAttr(),
+          /*prelu_in=*/IntegerAttr(),
+          /*prelu_shift=*/IntegerAttr(),
+          /*type=*/rewriter.getStringAttr(opType));
+      rewriter.replaceOp(activationOp, fusedOp.getResult());
+      if (eltwiseOp->use_empty())
+        rewriter.eraseOp(eltwiseOp);
+      return success();
+    }
 
     // Determine nonlinear type and collect attributes
     StringRef nonlinear;

@@ -1,5 +1,6 @@
 // (c) Copyright 2022 - 2025 Advanced Micro Devices, Inc. All Rights reserved.
 
+#include "mlir/IR/Attributes.h"
 #include "mlir/IR/OperationSupport.h"
 #include "mlir/Support/LLVM.h"
 #include "llvm/ADT/Hashing.h"
@@ -14,11 +15,26 @@ namespace onnx_mlir {
 class ONNXCSEOperationInfo : public DenseMapInfo<Operation *> {
 public:
   static unsigned getHashValue(const Operation *opC) {
-    return OperationEquivalence::computeHash(const_cast<Operation *>(opC),
-        /*hashOperands=*/OperationEquivalence::directHashValue,
-        /*hashResults=*/OperationEquivalence::ignoreHashValue,
-        OperationEquivalence::IgnoreLocations |
-            OperationEquivalence::IgnoreDiscardableAttrs);
+    auto *op = const_cast<Operation *>(opC);
+    llvm::hash_code hash =
+        llvm::hash_combine(op->getName(), op->hashProperties());
+
+    // Remove ignorable attributes while computing hash
+    SmallVector<NamedAttribute> attrs(op->getRawDictionaryAttrs().getValue());
+    NamedAttribute *pos;
+    while ((pos = llvm::find_if(attrs, [](NamedAttribute attr) {
+      StringRef key = attr.getName().getValue();
+      return key == "onnx_node_name" || key == "ResultNames";
+    })) != attrs.end()) {
+      attrs.erase(pos);
+    }
+    llvm::sort(attrs);
+    hash = llvm::hash_combine(hash, ArrayRef(attrs));
+
+    for (Value operand : op->getOperands())
+      hash = llvm::hash_combine(hash, hash_value(operand));
+    hash = llvm::hash_combine(hash, op->getResultTypes());
+    return hash;
   }
 
   static bool isEqual(const Operation *lhsC, const Operation *rhsC) {
@@ -29,10 +45,35 @@ public:
     if (lhs == getTombstoneKey() || lhs == getEmptyKey() ||
         rhs == getTombstoneKey() || rhs == getEmptyKey())
       return false;
-    return OperationEquivalence::isEquivalentTo(const_cast<Operation *>(lhsC),
-        const_cast<Operation *>(rhsC),
-        OperationEquivalence::IgnoreLocations |
-            OperationEquivalence::IgnoreDiscardableAttrs);
+
+    if (lhs->getName() != rhs->getName() ||
+        lhs->getNumOperands() != rhs->getNumOperands() ||
+        lhs->getNumResults() != rhs->getNumResults() ||
+        !lhs->getName().compareOpProperties(
+            lhs->getPropertiesStorage(), rhs->getPropertiesStorage()))
+      return false;
+
+    // Compare attributes, skipping ignorable attributes
+    for (auto lhsA : lhs->getAttrs()) {
+      StringRef key = lhsA.getName().getValue();
+      if (key == "onnx_node_name" || key == "ResultNames")
+        continue;
+      if (!rhs->hasAttr(key) || rhs->getAttr(key) != lhsA.getValue())
+        return false;
+    }
+
+    for (auto [lhsO, rhsO] :
+        llvm::zip(lhs->getOperands(), rhs->getOperands())) {
+      if (lhsO != rhsO)
+        return false;
+    }
+
+    for (auto [lhsR, rhsR] : llvm::zip(lhs->getResults(), rhs->getResults())) {
+      if (lhsR.getType() != rhsR.getType())
+        return false;
+    }
+
+    return true;
   }
 };
 

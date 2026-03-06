@@ -1161,6 +1161,32 @@ def get_attrs(schema):
     if not schema.attributes:
         return OrderedDict()
 
+    def get_default_value_if_present(attr):
+        """Return (has_default, default_value).
+
+        For real ONNX schemas, `attr.default_value` is an AttributeProto. Its
+        `name` may be populated even when no default literal exists, so use the
+        proto `type` to detect real defaults.
+        For YAML custom ops, the default is stored directly in `.name`.
+        """
+        default_proto_or_obj = attr.default_value
+
+        # Real ONNX AttributeProto path.
+        if isinstance(default_proto_or_obj, onnx.AttributeProto):
+            if default_proto_or_obj.type == onnx.AttributeProto.UNDEFINED:
+                return False, None
+            default_value = helper.get_attribute_value(default_proto_or_obj)
+            # Be defensive: if decoder yields None, treat as no default.
+            if default_value is None:
+                return False, None
+            return True, default_value
+
+        # CustomOpSchema path.
+        default_value = getattr(default_proto_or_obj, "name", None)
+        if default_value is None:
+            return False, None
+        return True, default_value
+
     name_to_type = OrderedDict()
     for _, attr in sorted(schema.attributes.items()):
         if attr.type == OpSchema.AttrType.GRAPH:
@@ -1174,7 +1200,17 @@ def get_attrs(schema):
         # Option holds either required or default value.
         elif attr.required:
             name_to_type[attr.name] = onnx_attr_type_to_mlir_attr_type(attr.type)
-        elif attr.default_value.name is not None:
+        else:
+            has_default, default_value = get_default_value_if_present(attr)
+            if not has_default:
+                # Optional attribute; use type_str for custom ops
+                # (e.g. bool -> BoolAttr).
+                type_str = getattr(attr, "type_str", None)
+                if type_str == "bool":
+                    name_to_type[attr.name] = "OptionalAttr<BoolAttr>"
+                else:
+                    name_to_type[attr.name] = get_attr_type_optional(attr.type)
+                continue
 
             def format_value(value):  # type: (Any) -> Text
                 if isinstance(value, float):
@@ -1186,15 +1222,6 @@ def get_attrs(schema):
                 elif isinstance(value, (bytes, bytearray)) and sys.version_info[0] == 3:
                     return str(value.decode("utf-8"))
                 return str(value)
-
-            # Check if this is a CustomOpSchema attribute (from YAML)
-            # CustomOpSchema stores the default value directly in attr.default_value.name
-            if hasattr(attr.default_value, "ref_attr_name"):
-                # This is a real ONNX AttributeProto
-                default_value = helper.get_attribute_value(attr.default_value)
-            else:
-                # This is from CustomOpSchema, default value is already in .name
-                default_value = attr.default_value.name
 
             if isinstance(default_value, list):
                 default_value = [format_value(val) for val in default_value]
@@ -1220,13 +1247,6 @@ def get_attrs(schema):
                 name_to_type[attr.name] = get_attr_type_with_default(
                     attr.type, default_value_str
                 )
-        else:
-            # Optional attribute; use type_str for custom ops (e.g. bool -> BoolAttr)
-            type_str = getattr(attr, "type_str", None)
-            if type_str == "bool":
-                name_to_type[attr.name] = "OptionalAttr<BoolAttr>"
-            else:
-                name_to_type[attr.name] = get_attr_type_optional(attr.type)
     return name_to_type
 
 
