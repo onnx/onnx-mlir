@@ -2688,11 +2688,13 @@ struct FuseBackToBackMaxpools
     ONNXMaxPoolSingleOutOp upperMaxpool = nullptr;
     auto upperDequant = dyn_cast<ONNXDequantizeLinearOp>(upperOp);
 
+    Operation *quantOp = nullptr;
     if (upperDequant) {
       auto *quant = upperDequant->getOperand(0).getDefiningOp();
       if (!quant || !isa<ONNXQuantizeLinearOp>(quant))
         return rewriter.notifyMatchFailure(
             lowerMaxpool->getLoc(), "No Q->Dq chain between the maxpools");
+      quantOp = quant;
       Operation *quantInputDef = quant->getOperand(0).getDefiningOp();
       if (!quantInputDef)
         return rewriter.notifyMatchFailure(lowerMaxpool->getLoc(),
@@ -2711,6 +2713,11 @@ struct FuseBackToBackMaxpools
     if (!upperMaxpool->hasOneUse()) {
       return rewriter.notifyMatchFailure(lowerMaxpool->getLoc(),
           "Optimization only works when upper maxpool has one user");
+    }
+    if (quantOp && !quantOp->hasOneUse()) {
+      return rewriter.notifyMatchFailure(lowerMaxpool->getLoc(),
+          "QuantizeLinear before the "
+          "upper maxpool has more than one user");
     }
 
     auto upperMaxpoolKernelSizeArr = upperMaxpool.getKernelShape().getValue();

@@ -3137,3 +3137,57 @@ func.func @maxpool_k5_p1_s1_maxpool_k3_p1_s1_quant_int8(%arg0: tensor<1x3x224x22
 // CHECK:           %[[VAL_4:.*]] = "onnx.MaxPoolSingleOut"(%[[VAL_3]]) {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [7, 7], pads = [2, 2, 2, 2], storage_order = 0 : si64, strides = [1, 1]} : (tensor<1x3x224x224xf32>) -> tensor<1x3x222x222xf32>
 // CHECK:           %[[VAL_5:.*]] = "onnx.QuantizeLinear"(%[[VAL_4]], %[[VAL_1]], %[[VAL_2]]) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x3x222x222xf32>, tensor<f32>, tensor<i8>) -> tensor<1x3x222x222xi8>
 // CHECK:           return %[[VAL_5]] : tensor<1x3x222x222xi8>
+
+// -----
+
+/// Test that if we have three chains of two-back-to-back maxpools, where each chain's
+/// input is used in more than one place we fuse only the maxpools in each chain and maintain
+/// the serial order of the maxpools instead of recursively merging them so that we end up
+/// with three parallel maxpools.
+func.func @back_to_back_i8_maxpools(%arg0: tensor<1x192x23x40xf32>) -> tensor<1x768x23x40xf32> {
+  %0 = onnx.Constant dense<6.250000e-02> : tensor<f32>
+  %1 = onnx.Constant dense<0> : tensor<i8>
+  %2 = "onnx.QuantizeLinear"(%arg0, %0, %1) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x192x23x40xf32>, tensor<f32>, tensor<i8>) -> tensor<1x192x23x40xi8>
+  %3 = "onnx.DequantizeLinear"(%2, %0, %1) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x192x23x40xi8>, tensor<f32>, tensor<i8>) -> tensor<1x192x23x40xf32>
+  %4 = "onnx.DequantizeLinear"(%2, %0, %1) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x192x23x40xi8>, tensor<f32>, tensor<i8>) -> tensor<1x192x23x40xf32>
+  %5 = "onnx.MaxPoolSingleOut"(%4) {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], storage_order = 0 : si64, strides = [1, 1]} : (tensor<1x192x23x40xf32>) -> tensor<1x192x23x40xf32>
+  %6 = "onnx.QuantizeLinear"(%5, %0, %1) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x192x23x40xf32>, tensor<f32>, tensor<i8>) -> tensor<1x192x23x40xi8>
+  %7 = "onnx.DequantizeLinear"(%6, %0, %1) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x192x23x40xi8>, tensor<f32>, tensor<i8>) -> tensor<1x192x23x40xf32>
+  %8 = "onnx.MaxPoolSingleOut"(%7) {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], storage_order = 0 : si64, strides = [1, 1]} : (tensor<1x192x23x40xf32>) -> tensor<1x192x23x40xf32>
+  %9 = "onnx.QuantizeLinear"(%8, %0, %1) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x192x23x40xf32>, tensor<f32>, tensor<i8>) -> tensor<1x192x23x40xi8>
+  %10 = "onnx.DequantizeLinear"(%9, %0, %1) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x192x23x40xi8>, tensor<f32>, tensor<i8>) -> tensor<1x192x23x40xf32>
+  %11 = "onnx.DequantizeLinear"(%9, %0, %1) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x192x23x40xi8>, tensor<f32>, tensor<i8>) -> tensor<1x192x23x40xf32>
+  %12 = "onnx.MaxPoolSingleOut"(%11) {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], storage_order = 0 : si64, strides = [1, 1]} : (tensor<1x192x23x40xf32>) -> tensor<1x192x23x40xf32>
+  %13 = "onnx.QuantizeLinear"(%12, %0, %1) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x192x23x40xf32>, tensor<f32>, tensor<i8>) -> tensor<1x192x23x40xi8>
+  %14 = "onnx.DequantizeLinear"(%13, %0, %1) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x192x23x40xi8>, tensor<f32>, tensor<i8>) -> tensor<1x192x23x40xf32>
+  %15 = "onnx.MaxPoolSingleOut"(%14) {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], storage_order = 0 : si64, strides = [1, 1]} : (tensor<1x192x23x40xf32>) -> tensor<1x192x23x40xf32>
+  %16 = "onnx.QuantizeLinear"(%15, %0, %1) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x192x23x40xf32>, tensor<f32>, tensor<i8>) -> tensor<1x192x23x40xi8>
+  %17 = "onnx.DequantizeLinear"(%16, %0, %1) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x192x23x40xi8>, tensor<f32>, tensor<i8>) -> tensor<1x192x23x40xf32>
+  %18 = "onnx.DequantizeLinear"(%16, %0, %1) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x192x23x40xi8>, tensor<f32>, tensor<i8>) -> tensor<1x192x23x40xf32>
+  %19 = "onnx.MaxPoolSingleOut"(%18) {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], storage_order = 0 : si64, strides = [1, 1]} : (tensor<1x192x23x40xf32>) -> tensor<1x192x23x40xf32>
+  %20 = "onnx.QuantizeLinear"(%19, %0, %1) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x192x23x40xf32>, tensor<f32>, tensor<i8>) -> tensor<1x192x23x40xi8>
+  %21 = "onnx.DequantizeLinear"(%20, %0, %1) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x192x23x40xi8>, tensor<f32>, tensor<i8>) -> tensor<1x192x23x40xf32>
+  %22 = "onnx.MaxPoolSingleOut"(%21) {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], storage_order = 0 : si64, strides = [1, 1]} : (tensor<1x192x23x40xf32>) -> tensor<1x192x23x40xf32>
+  %23 = "onnx.QuantizeLinear"(%22, %0, %1) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x192x23x40xf32>, tensor<f32>, tensor<i8>) -> tensor<1x192x23x40xi8>
+  %24 = "onnx.DequantizeLinear"(%23, %0, %1) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x192x23x40xi8>, tensor<f32>, tensor<i8>) -> tensor<1x192x23x40xf32>
+  %25 = "onnx.Concat"(%3, %10, %17, %24) {axis = 1 : si64} : (tensor<1x192x23x40xf32>, tensor<1x192x23x40xf32>, tensor<1x192x23x40xf32>, tensor<1x192x23x40xf32>) -> tensor<1x768x23x40xf32>
+  onnx.Return %25 : tensor<1x768x23x40xf32>
+}
+
+// CHECK-LABEL:   func.func @back_to_back_i8_maxpools(
+// CHECK-SAME:                                        %[[VAL_0:.*]]: tensor<1x192x23x40xf32>) -> tensor<1x768x23x40xf32> {
+// CHECK:           %[[VAL_1:.*]] = onnx.Constant dense<6.250000e-02> : tensor<f32>
+// CHECK:           %[[VAL_2:.*]] = onnx.Constant dense<0> : tensor<i8>
+// CHECK:           %[[VAL_3:.*]] = "onnx.QuantizeLinear"(%[[VAL_0]], %[[VAL_1]], %[[VAL_2]]) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x192x23x40xf32>, tensor<f32>, tensor<i8>) -> tensor<1x192x23x40xi8>
+// CHECK:           %[[VAL_4:.*]] = "onnx.DequantizeLinear"(%[[VAL_3]], %[[VAL_1]], %[[VAL_2]]) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x192x23x40xi8>, tensor<f32>, tensor<i8>) -> tensor<1x192x23x40xf32>
+// CHECK:           %[[VAL_5:.*]] = "onnx.MaxPoolSingleOut"(%[[VAL_4]]) {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [5, 5], pads = [2, 2, 2, 2], storage_order = 0 : si64, strides = [1, 1]} : (tensor<1x192x23x40xf32>) -> tensor<1x192x23x40xf32>
+// CHECK:           %[[VAL_6:.*]] = "onnx.QuantizeLinear"(%[[VAL_5]], %[[VAL_1]], %[[VAL_2]]) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x192x23x40xf32>, tensor<f32>, tensor<i8>) -> tensor<1x192x23x40xi8>
+// CHECK:           %[[VAL_7:.*]] = "onnx.DequantizeLinear"(%[[VAL_6]], %[[VAL_1]], %[[VAL_2]]) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x192x23x40xi8>, tensor<f32>, tensor<i8>) -> tensor<1x192x23x40xf32>
+// CHECK:           %[[VAL_8:.*]] = "onnx.MaxPoolSingleOut"(%[[VAL_7]]) {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [5, 5], pads = [2, 2, 2, 2], storage_order = 0 : si64, strides = [1, 1]} : (tensor<1x192x23x40xf32>) -> tensor<1x192x23x40xf32>
+// CHECK:           %[[VAL_9:.*]] = "onnx.QuantizeLinear"(%[[VAL_8]], %[[VAL_1]], %[[VAL_2]]) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x192x23x40xf32>, tensor<f32>, tensor<i8>) -> tensor<1x192x23x40xi8>
+// CHECK:           %[[VAL_10:.*]] = "onnx.DequantizeLinear"(%[[VAL_9]], %[[VAL_1]], %[[VAL_2]]) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x192x23x40xi8>, tensor<f32>, tensor<i8>) -> tensor<1x192x23x40xf32>
+// CHECK:           %[[VAL_11:.*]] = "onnx.MaxPoolSingleOut"(%[[VAL_10]]) {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [5, 5], pads = [2, 2, 2, 2], storage_order = 0 : si64, strides = [1, 1]} : (tensor<1x192x23x40xf32>) -> tensor<1x192x23x40xf32>
+// CHECK:           %[[VAL_12:.*]] = "onnx.QuantizeLinear"(%[[VAL_11]], %[[VAL_1]], %[[VAL_2]]) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x192x23x40xf32>, tensor<f32>, tensor<i8>) -> tensor<1x192x23x40xi8>
+// CHECK:           %[[VAL_13:.*]] = "onnx.DequantizeLinear"(%[[VAL_12]], %[[VAL_1]], %[[VAL_2]]) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x192x23x40xi8>, tensor<f32>, tensor<i8>) -> tensor<1x192x23x40xf32>
+// CHECK:           %[[VAL_14:.*]] = "onnx.Concat"(%[[VAL_4]], %[[VAL_7]], %[[VAL_10]], %[[VAL_13]]) {axis = 1 : si64} : (tensor<1x192x23x40xf32>, tensor<1x192x23x40xf32>, tensor<1x192x23x40xf32>, tensor<1x192x23x40xf32>) -> tensor<1x768x23x40xf32>
+// CHECK:           onnx.Return %[[VAL_14]] : tensor<1x768x23x40xf32>
