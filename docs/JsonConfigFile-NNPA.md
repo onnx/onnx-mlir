@@ -78,6 +78,7 @@ Constraint patterns support the following operators:
 - `"<3"` - Less than: value must be < 3
 - `"<=3"` - Less than or equal: value must be <= 3
 - `"==3"` - Explicit equality: value must equal 3
+- `"!=3"` - Not equal: value must not equal 3
 
 **Modulo Operations (for divisibility/alignment checks):**
 - `"%32==0"` - Modulo constraint: (value % 32) must equal 0
@@ -432,6 +433,54 @@ Below are JSON files for different situations.
         },
         "rewrite": {
           "device": "cpu"
+        }
+      }
+    }
+  ]
+}
+```
+
+11. Match Conv operations where rank is not 4 (e.g., to handle 3D or 5D convolutions differently):
+```json
+{
+  "nnpa_ops_config": [
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Conv",
+          "inputs": {
+            "0": {
+              "rank": "!=4"
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    }
+  ]
+}
+```
+
+12. Match MatMul operations where the last dimension is not 768 (to exclude specific embedding sizes):
+```json
+{
+  "nnpa_ops_config": [
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.MatMul",
+          "inputs": {
+            "0": {
+              "dims": {
+                "-1": "!=768"
+              }
+            }
+          }
+        },
+        "rewrite": {
+          "quantize": true
         }
       }
     }

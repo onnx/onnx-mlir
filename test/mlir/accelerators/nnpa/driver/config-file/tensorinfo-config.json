@@ -1,0 +1,132 @@
+{
+  "nnpa_ops_config": [
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "node_name": "test_rank_eq_1",
+          "inputs": {
+            "0": {
+              "rank": "2"
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "node_name": "test_rank_eq_2",
+          "inputs": {
+            "0": {
+              "rank": "==2"
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "node_name": "test_rank_lt",
+          "inputs": {
+            "0": {
+              "rank": "<3"
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "node_name": "test_rank_lt_eq",
+          "inputs": {
+            "0": {
+              "rank": "<=2"
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "node_name": "test_rank_gt",
+          "inputs": {
+            "0": {
+              "rank": ">1"
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "node_name": "test_rank_gt_eq",
+          "inputs": {
+            "0": {
+              "rank": ">=2"
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "node_name": "test_rank_not_eq",
+          "inputs": {
+            "0": {
+              "rank": "!=3"
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "node_name": "test_rank_modulo",
+          "inputs": {
+            "0": {
+              "rank": "%2==0"
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    }
+  ]
+}

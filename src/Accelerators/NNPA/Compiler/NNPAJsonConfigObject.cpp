@@ -108,6 +108,7 @@ bool NNPAJsonConfigObject::matchNodeName(mlir::Operation *op, std::regex re) {
 //     "<3"     - Less than: value must be < 3
 //     "<=3"    - Less than or equal: value must be <= 3
 //     "==3"    - Explicit equality: value must equal 3
+//     "!=3"    - Not equal: value must not equal 3
 //
 //   Modulo Operations (for divisibility/alignment checks):
 //     "%32==0" - Modulo constraint: (value % 32) must equal 0
@@ -128,6 +129,7 @@ bool NNPAJsonConfigObject::matchNodeName(mlir::Operation *op, std::regex re) {
 //   satisfiesIntegerConstraint("64", "%32==0") -> true  (64 % 32 == 0)
 //   satisfiesIntegerConstraint("5", ">=5")     -> true  (5 >= 5)
 //   satisfiesIntegerConstraint("7", "7")       -> true  (7 == 7)
+//   satisfiesIntegerConstraint("5", "!=3")     -> true  (5 != 3)
 //   satisfiesIntegerConstraint("-1", "-1")     -> true  (-1 == -1, for dynamic
 //   dims)
 static bool satisfiesIntegerConstraint(
@@ -170,6 +172,9 @@ static bool satisfiesIntegerConstraint(
     } else if (reg.size() >= 2 && reg.substr(0, 2) == "==") {
       op = "==";
       regValue = std::stoi(reg.substr(2)); // Extract number after "==".
+    } else if (reg.size() >= 2 && reg.substr(0, 2) == "!=") {
+      op = "!=";
+      regValue = std::stoi(reg.substr(2)); // Extract number after "!=".
     }
     // Check single-character operators.
     else if (reg[0] == '>') {
@@ -194,6 +199,8 @@ static bool satisfiesIntegerConstraint(
       return sValue < regValue;
     else if (op == "<=")
       return sValue <= regValue;
+    else if (op == "!=")
+      return sValue != regValue;
     else // op == "=="
       return sValue == regValue;
 
@@ -374,7 +381,7 @@ void NNPAJsonConfigObject::applyConfigToOps(
       if (inputPatternObj && !matchTensorInfo(inputTensors, inputPatternObj))
         continue;
       ValueRange outputTensors = ValueRange(op->getResults());
-      if (inputPatternObj && !matchTensorInfo(outputTensors, outputPatternObj))
+      if (outputPatternObj && !matchTensorInfo(outputTensors, outputPatternObj))
         continue;
 
       // Operation matches - apply rewrite.
