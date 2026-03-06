@@ -224,7 +224,7 @@ static void ProcessName(
 // =============================================================================
 // Buffer management
 
-static void inline printStartReport() {
+static inline void printStartReport() {
   if (!startReportPrinted) {
     assert(instrumentFout &&
            "expected instrumentInitialized instrumentFout for reporting");
