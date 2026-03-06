@@ -29,8 +29,8 @@ public:
       return rewriter.notifyMatchFailure(dqOp, "scale not a scalar float");
 
     APFloat scaleVal = scaleAttr.getSplatValue<APFloat>();
-    if (!scaleVal.isNegative())
-      return rewriter.notifyMatchFailure(dqOp, "scale is not negative");
+    if (!scaleVal.isNegative() && !scaleVal.isZero())
+      return rewriter.notifyMatchFailure(dqOp, "scale is positive");
 
     // Data input (x) must be a scalar integer constant with value 1.
     auto xOp = dqOp.getX().getDefiningOp<ONNXConstantOp>();
@@ -70,23 +70,33 @@ public:
                                : zpVal.getSExtValue() != 0)
       return rewriter.notifyMatchFailure(dqOp, "zero point value is not 0");
 
-    // Negate scale.
-    APFloat negScale = scaleVal;
-    negScale.changeSign();
-    auto negScaleAttr = DenseElementsAttr::get(
-        cast<ShapedType>(scaleOp.getResult().getType()), negScale);
+    auto scaleShapedTy = cast<ShapedType>(scaleOp.getResult().getType());
+    auto xShapedTy = cast<ShapedType>(xOp.getResult().getType());
+    auto zpShapedTy = cast<ShapedType>(zpOp.getResult().getType());
 
-    // Swap x and zp: new x = 0, new zp = 1.
-    auto newXAttr =
-        DenseElementsAttr::get(cast<ShapedType>(xOp.getResult().getType()),
-            IntegerAttr::get(xIntType, 0));
-    auto newZpAttr =
-        DenseElementsAttr::get(cast<ShapedType>(zpOp.getResult().getType()),
-            IntegerAttr::get(zpIntType, 1));
+    DenseElementsAttr newScaleAttr, newXAttr, newZpAttr;
+    if (scaleVal.isZero()) {
+      // Zero scale: set x=0, zp=0, scale=1.0 so output is (0-0)*1.0 = 0.
+      APFloat one(scaleVal.getSemantics(), 1);
+      newScaleAttr = DenseElementsAttr::get(scaleShapedTy, one);
+      newXAttr =
+          DenseElementsAttr::get(xShapedTy, IntegerAttr::get(xIntType, 0));
+      newZpAttr =
+          DenseElementsAttr::get(zpShapedTy, IntegerAttr::get(zpIntType, 0));
+    } else {
+      // Negative scale: negate scale, swap x and zp values.
+      APFloat negScale = scaleVal;
+      negScale.changeSign();
+      newScaleAttr = DenseElementsAttr::get(scaleShapedTy, negScale);
+      newXAttr =
+          DenseElementsAttr::get(xShapedTy, IntegerAttr::get(xIntType, 0));
+      newZpAttr =
+          DenseElementsAttr::get(zpShapedTy, IntegerAttr::get(zpIntType, 1));
+    }
 
     Location loc = dqOp.getLoc();
     auto newScaleOp =
-        rewriter.create<ONNXConstantOp>(loc, Attribute(), negScaleAttr);
+        rewriter.create<ONNXConstantOp>(loc, Attribute(), newScaleAttr);
     auto newXOp = rewriter.create<ONNXConstantOp>(loc, Attribute(), newXAttr);
     auto newZpOp = rewriter.create<ONNXConstantOp>(loc, Attribute(), newZpAttr);
 
