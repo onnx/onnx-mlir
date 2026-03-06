@@ -45,11 +45,8 @@
 
 using namespace mlir;
 
-namespace {
+namespace onnx_mlir {
 
-/* All the implementation of this pass is put in the anonymous name space
- * to hide from ourside.
- */
 #define GEN_PASS_DEF_PROCESSSCFPARALLELPRIVATEPASS
 #include "src/Transform/Passes.h.inc"
 
@@ -131,25 +128,15 @@ void ProcessScfParallelPrivatePass::runOnOperation() {
         matchParallelForWithAllocScope(op);
   });
   RewritePatternSet patterns(context);
-  onnx_mlir::getParallelPrivateScfToScfPatterns(patterns);
+  getParallelPrivateScfToScfPatterns(patterns);
 
   if (failed(applyPartialConversion(function, target, std::move(patterns))))
     signalPassFailure();
 }
 
-} // namespace
-
-void onnx_mlir::getParallelPrivateScfToScfPatterns(
-    mlir::RewritePatternSet &patterns) {
+void getParallelPrivateScfToScfPatterns(mlir::RewritePatternSet &patterns) {
   MLIRContext *context = patterns.getContext();
   patterns.insert<ProcessScfParallelWithoutScopePattern>(context);
 }
 
-/*!
- * Create a SCF Parallel Private pass.
- */
-namespace onnx_mlir {
-std::unique_ptr<mlir::Pass> createProcessScfParallelPrivatePass() {
-  return std::make_unique<ProcessScfParallelPrivatePass>();
-}
 } // namespace onnx_mlir

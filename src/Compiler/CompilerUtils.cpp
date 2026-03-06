@@ -820,8 +820,9 @@ static int emitOutputFiles(std::string outputNameNoExt,
 static const llvm::Target *getLLVMTarget(
     const std::string &targetTriple, const Location &loc) {
   std::string error;
+  llvm::Triple triple(targetTriple);
   const llvm::Target *LLVMTarget =
-      llvm::TargetRegistry::lookupTarget(targetTriple, error);
+      llvm::TargetRegistry::lookupTarget(triple, error);
   if (!LLVMTarget) {
     emitError(loc, Twine("Target architecture is unknown: ") + error);
     return nullptr;

@@ -13,7 +13,7 @@
 
 using namespace mlir;
 
-namespace {
+namespace onnx_mlir {
 
 /* Include the definition of BufferOMPLoopHoistingBase from Passes.h.inc,
  * which is generated from Passes.td.
@@ -22,11 +22,6 @@ namespace {
  */
 #define GEN_PASS_DEF_BUFFEROMPLOOPHOISTINGPASS
 #include "src/Transform/Passes.h.inc"
-
-struct BufferOMPLoopHoistingPass
-    : public impl::BufferOMPLoopHoistingPassBase<BufferOMPLoopHoistingPass> {
-  void runOnOperation() override;
-};
 
 bool directlyNestedIn(Operation *op, Operation *wsloopOp) {
   Operation *currentOp = op;
@@ -140,16 +135,13 @@ void HandleOneLoop(omp::WsloopOp wsloopOp) {
   }
 }
 
-void BufferOMPLoopHoistingPass::runOnOperation() {
-  Operation *op = getOperation();
-  op->walk([&](omp::WsloopOp wsloopOp) { HandleOneLoop(wsloopOp); });
-}
-} // namespace
-
-namespace onnx_mlir {
-// This function will be used outside to insert this pass to pass manager.
-// Since it is a pass in onnx-mlir project, name space onnx_mlir is used.
-std::unique_ptr<Pass> createBufferOMPLoopHoistingPass() {
-  return std::make_unique<BufferOMPLoopHoistingPass>();
+class BufferOMPLoopHoistingPass
+    : public impl::BufferOMPLoopHoistingPassBase<BufferOMPLoopHoistingPass> {
+public:
+  void runOnOperation() override {
+    Operation *op = getOperation();
+    op->walk([&](omp::WsloopOp wsloopOp) { HandleOneLoop(wsloopOp); });
+  }
 };
+
 } // namespace onnx_mlir

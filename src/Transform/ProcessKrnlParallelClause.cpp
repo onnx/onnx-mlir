@@ -35,11 +35,8 @@
 
 using namespace mlir;
 
-namespace {
+namespace onnx_mlir {
 
-/* All the implementation of this pass is put in the anonymous name space
- * to hide from ourside.
- */
 #define GEN_PASS_DEF_PROCESSKRNLPARALLELCLAUSEPASS
 #include "src/Transform/Passes.h.inc"
 
@@ -117,25 +114,16 @@ void ProcessKrnlParallelClausePass::runOnOperation() {
   target.addIllegalOp<KrnlParallelClauseOp>();
 
   RewritePatternSet patterns(context);
-  onnx_mlir::getKrnlParallelClauseIntoOpenMPPatterns(patterns);
+  getKrnlParallelClauseIntoOpenMPPatterns(patterns);
 
   if (failed(applyPartialConversion(function, target, std::move(patterns))))
     signalPassFailure();
 }
 
-} // namespace
-
-void onnx_mlir::getKrnlParallelClauseIntoOpenMPPatterns(
+void getKrnlParallelClauseIntoOpenMPPatterns(
     mlir::RewritePatternSet &patterns) {
   MLIRContext *context = patterns.getContext();
   patterns.insert<ProcessKrnlParallelClauseWithoutScopePattern>(context);
 }
 
-/*!
- * Create a Krnl Parallel Clause pass.
- */
-namespace onnx_mlir {
-std::unique_ptr<Pass> createProcessKrnlParallelClausePass() {
-  return std::make_unique<ProcessKrnlParallelClausePass>();
-}
 } // namespace onnx_mlir

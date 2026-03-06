@@ -23,9 +23,9 @@
 #include "src/Support/KrnlSupport.hpp"
 
 using namespace mlir;
-using namespace onnx_mlir::krnl;
 
-namespace {
+namespace onnx_mlir {
+namespace krnl {
 
 #define GEN_PASS_DEF_LOWERKRNLREGIONPASS
 #include "src/Transform/PassesKrnl.h.inc"
@@ -76,12 +76,6 @@ public:
       signalPassFailure();
   }
 };
-} // namespace
 
-namespace onnx_mlir {
-namespace krnl {
-std::unique_ptr<Pass> createLowerKrnlRegionPass() {
-  return std::make_unique<LowerKrnlRegionPass>();
-}
 } // namespace krnl
 } // namespace onnx_mlir
