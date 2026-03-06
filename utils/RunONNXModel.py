@@ -887,7 +887,7 @@ class InferenceSession:
 
             # Import the compiler session.
             try:
-                from PyOMCompile import OMCompileSession
+                from PyOMCompile import OMCompile
             except ImportError:
                 raise RuntimeError("Set PyOMCompile in your python env.")
             # Prepare compiler arguments.
@@ -902,7 +902,7 @@ class InferenceSession:
             # Invoke the compiler.
             start = time.perf_counter()
             try:
-                compiler = OMCompileSession(
+                compiler = OMCompile(
                     input_model_path,
                     args.compile_args + " -o " + output_path,
                     log_file_name=log_file,
