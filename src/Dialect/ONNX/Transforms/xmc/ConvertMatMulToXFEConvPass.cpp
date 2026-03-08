@@ -12,9 +12,19 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
 
+#include <algorithm>
 #include <numeric>
+#include <optional>
 
 using namespace mlir;
+
+/// Max channel for Conv. All three xcompiler passes use (1, 4096) -> C < 4096.
+static constexpr int64_t kMaxChannel = 4096;
+/// Max kernel/stride for H,W general fallback. For IPU_STRIX/AIE4 the stride
+/// limit from conv_limit().stride() is small. With limit=4, H,W max out at 2
+/// (since 2*2=4 is NOT < 4). K=29696: C=2^8*29=7424 > 4096 → rejected.
+/// K=4096: (2,2,1024) → accepted. K=8192: (2,2,2048) → accepted.
+static constexpr int64_t kMaxKernelLimitDefault = 4;
 
 namespace {
 
@@ -25,78 +35,113 @@ struct ConvShapes {
   SmallVector<int64_t> stride;      // [H', W']
 };
 
-/// Factorize integer into prime factors
-static SmallVector<int64_t> integerDecomposition(int64_t n) {
-  SmallVector<int64_t> factors;
-  for (int64_t i = 2; i * i <= n; ++i) {
-    while (n % i == 0) {
-      factors.push_back(i);
-      n /= i;
+/// xcompiler integer_decomposition: 2s first, then odd primes.
+/// Returns (success, factors). success = factors.size() >= num.
+static std::pair<bool, SmallVector<int64_t>>
+integerDecomposition(int64_t input, int64_t num = 1) {
+  SmallVector<int64_t> ret;
+  int64_t n = input;
+  while (n % 2 == 0) {
+    ret.push_back(2);
+    n /= 2;
+  }
+  for (int64_t f = 3; f * f <= n; f += 2) {
+    while (n % f == 0) {
+      ret.push_back(f);
+      n /= f;
     }
   }
-  if (n > 1)
-    factors.push_back(n);
-  return factors;
+  if (n != 1)
+    ret.push_back(n);
+  bool if_enough = (int64_t)ret.size() >= num;
+  return {if_enough, ret};
 }
 
-/// Compose factors into H*W*C with constraints
-/// Try H first if H<=W, then W, then C
-static std::tuple<int64_t, int64_t, int64_t> integerComposition(
-    ArrayRef<int64_t> factors, int64_t maxH, int64_t maxW, int64_t maxC) {
-  int64_t H = 1, W = 1, C = 1;
-  for (int64_t f : factors) {
-    if (H * f <= maxH && H <= W) {
-      H *= f;
-    } else if (W * f <= maxW) {
-      W *= f;
-    } else if (C * f <= maxC) {
-      C *= f;
-    } else {
-      return {-1, -1, -1};
+/// xcompiler integer_composition: round-robin distribute factors into H,W,C.
+/// Bounds (low, high): result must satisfy low <= ret[idx] < high.
+/// Matches TransferMatMulToConv2dPass, TransferQDQMatMulToConv2dPass,
+/// TransferQDQMatMulToConv2dForcePass.
+static std::pair<bool, SmallVector<int64_t>> integerComposition(
+    SmallVector<int64_t> integers,
+    std::array<std::pair<int64_t, int64_t>, 3> bounds) {
+  int64_t originalProd = 1;
+  for (int64_t x : integers)
+    originalProd *= x;
+  std::sort(integers.begin(), integers.end());
+  SmallVector<int64_t> ret = {1, 1, 1};
+  constexpr size_t retSize = 3;
+  if (integers.size() < retSize)
+    integers.resize(retSize, 1);
+
+  size_t idx = 0;
+  int credits = retSize;
+  for (auto it = integers.begin();
+       it != integers.end() && (credits--);
+       idx = (idx + 1) % retSize) {
+    int64_t top = bounds[idx].second;
+    int64_t cur = *it;
+    if (ret[idx] < top && ret[idx] * cur < top) {
+      ret[idx] *= cur;
+      it = integers.erase(it);
+      credits = retSize;
     }
   }
-  return {H, W, C};
+  int64_t retProd = ret[0] * ret[1] * ret[2];
+  bool if_success = (retProd == originalProd);
+  for (size_t i = 0; i < retSize; ++i) {
+    if_success &= (bounds[i].first <= ret[i] && ret[i] < bounds[i].second);
+  }
+  return {if_success, ret};
 }
 
-/// Decompose K into H*W*C
-static std::tuple<int64_t, int64_t, int64_t> decomposeK(int64_t K) {
-  auto factors = integerDecomposition(K);
+/// Decompose K into H*W*C matching TransferQDQMatMulToConv2dPass logic:
+/// 1. Try IPU preferred (1,2) → H=1,W=1,C=K. Succeeds when K < 4096.
+/// 2. Fall back to general (1, maxKernelLimit). With limit=4, H,W max=2.
+///    K=29696 fails (factor 29 can't fit). K=4096 works as (2,2,1024).
+static std::optional<std::tuple<int64_t, int64_t, int64_t>>
+decomposeK(int64_t K, int64_t maxKernelLimit = kMaxKernelLimitDefault) {
+  auto [dec_ok, dec_rlts] = integerDecomposition(K);
+  if (!dec_ok)
+    return std::nullopt;
 
-  if (factors.size() < 3) {
-    factors.clear();
-    factors.push_back(K);
-    factors.resize(3, 1); // [K, 1, 1]
+  if (dec_rlts.size() < 3) {
+    dec_rlts.clear();
+    dec_rlts.push_back(K);
+    dec_rlts.resize(3, 1);
   }
 
-  // Try IPU-optimized composition: maxH=2, maxW=2, maxC=4096
-  auto [H_ipu, W_ipu, C_ipu] = integerComposition(factors, 2, 2, 4096);
-  if (H_ipu > 0 && W_ipu > 0 && C_ipu > 0) {
-    if (C_ipu >= 1024 || (H_ipu == 1 && W_ipu == 1))
-      return {H_ipu, W_ipu, C_ipu};
-    return {1, 1, K};
-  }
+  // QDQ/ForcePass: try IPU (1,2) for H,W first
+  std::array<std::pair<int64_t, int64_t>, 3> ipuBounds = {
+      std::make_pair(1, 2), std::make_pair(1, 2), std::make_pair(1, kMaxChannel),
+  };
+  auto [ipu_ok, ipu_hwc] = integerComposition(dec_rlts, ipuBounds);
+  if (ipu_ok && ipu_hwc.size() >= 3)
+    return {{ipu_hwc[0], ipu_hwc[1], ipu_hwc[2]}};
 
-  // Fallback: maxH=16, maxW=16, maxC=4096
-  auto [H_gen, W_gen, C_gen] = integerComposition(factors, 16, 16, 4096);
-  if (H_gen > 0 && W_gen > 0 && C_gen > 0) {
-    if (C_gen >= 1024 || (H_gen == 1 && W_gen == 1))
-      return {H_gen, W_gen, C_gen};
-    return {1, 1, K};
-  }
-
-  return {1, 1, K};
+  // General fallback: (1, maxKernelLimit) for H,W, (1, 4096) for C.
+  // Matches TransferQDQMatMulToConv2dPass general composition path.
+  std::array<std::pair<int64_t, int64_t>, 3> bounds = {
+      std::make_pair(1, maxKernelLimit),
+      std::make_pair(1, maxKernelLimit),
+      std::make_pair(1, kMaxChannel),
+  };
+  auto [comp_ok, hwc] = integerComposition(dec_rlts, bounds);
+  if (!comp_ok || hwc.size() < 3)
+    return std::nullopt;
+  return {{hwc[0], hwc[1], hwc[2]}};
 }
 
-/// Compute convolution shapes from MatMul shapes using decomposeK
-ConvShapes computeConvShapes(
+/// Compute convolution shapes. Returns nullopt when decomposition fails.
+std::optional<ConvShapes> computeConvShapes(
     ArrayRef<int64_t> inputShape, ArrayRef<int64_t> weightShape) {
-  ConvShapes shapes;
-
   if (inputShape.empty() || weightShape.size() < 2)
-    return shapes;
+    return std::nullopt;
 
   int64_t K = inputShape.back();
   int64_t N = weightShape.back();
+
+  // xcompiler does not reject K > 4096; the constraint is on C (channel) via
+  // integer_composition bounds (1, 4096). K can be larger if it decomposes.
 
   int64_t M = 1;
   for (size_t i = 0; i < inputShape.size() - 1; ++i) {
@@ -107,12 +152,15 @@ ConvShapes computeConvShapes(
     M *= inputShape[i];
   }
 
-  auto [H, W, C] = decomposeK(K);
+  auto hwc = decomposeK(K);
+  if (!hwc)
+    return std::nullopt;
 
+  auto [H, W, C] = *hwc;
+  ConvShapes shapes;
   shapes.inputShape = {M, H, W, C};
   shapes.weightShape = {N, H, W, C};
   shapes.stride = {H, W};
-
   return shapes;
 }
 
@@ -169,8 +217,11 @@ struct MatMulToXFEConvPattern : public OpRewritePattern<ONNXMatMulOp> {
       return failure();
     }
 
-    // Compute convolution shapes
-    ConvShapes convShapes = computeConvShapes(inputShape, weightShape);
+    // Compute convolution shapes; fail if decomposition invalid (matches xcompiler)
+    auto convShapesOpt = computeConvShapes(inputShape, weightShape);
+    if (!convShapesOpt)
+      return failure();
+    ConvShapes convShapes = *convShapesOpt;
 
     // Use original op's result element type for conv and final output
     // (preserves quantized/typed semantics). Reshape1 stays on input type
@@ -319,7 +370,10 @@ struct GemmToXFEConvPattern : public OpRewritePattern<ONNXGemmOp> {
     int64_t N = (transB == 0) ? bShape[1] : bShape[0];
     SmallVector<int64_t> effectiveAShape = {M, K_A};
     SmallVector<int64_t> effectiveBShape = {K_B, N};
-    ConvShapes convShapes = computeConvShapes(effectiveAShape, effectiveBShape);
+    auto convShapesOpt = computeConvShapes(effectiveAShape, effectiveBShape);
+    if (!convShapesOpt)
+      return failure();
+    ConvShapes convShapes = *convShapesOpt;
 
     // Use original op's result element type for conv and final output.
     auto resultType = cast<RankedTensorType>(gemmOp.getResult().getType());
@@ -344,7 +398,7 @@ struct GemmToXFEConvPattern : public OpRewritePattern<ONNXGemmOp> {
     Value reshape1Output = rewriter.create<ONNXReshapeOp>(
         loc, reshape1OutputType, effectiveA, shapeConst1);
 
-    // Format weight: [K, N] -> transpose to [N, K] -> reshape to [N, 1, 1, K]
+    // Format weight: [K, N] -> transpose to [N, K] -> reshape to [N, H, W, C]
     // (or [N, K] -> reshape directly when transB=1)
     auto bElementType = bType.getElementType();
     auto convWeightType =
