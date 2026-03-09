@@ -607,15 +607,13 @@ static int compileModuleToJniJar(
   llvm::sys::path::append(jniLibDir, "libmodel");
   std::string jniLibBase = llvm::StringRef(jniLibDir).str();
 
-  // clang-format off
 #if defined(__APPLE__) && defined(__clang__)
 #define NOEXECSTACK                                                            \
-  {                                                                            \
-  }
+  {}
 #else
-#define NOEXECSTACK {"-z", "noexecstack"}
+#define NOEXECSTACK                                                            \
+  { "-z", "noexecstack" }
 #endif
-  // clang-format on
   std::string modelSharedLibPath = getTargetFilename(jniLibBase, EmitLib);
   rc = genSharedLib(modelSharedLibPath, NOEXECSTACK,
       {modelObjNameWithExt, jniObjPath}, getCompilerConfig(CCM_SHARED_LIB_DEPS),
