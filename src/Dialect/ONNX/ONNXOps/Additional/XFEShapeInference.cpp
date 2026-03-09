@@ -108,7 +108,6 @@ LogicalResult XFEConvOpShapeInference(
   auto stridesAttr = convOp.getStrides();
   auto padsAttr = convOp.getPads();
   auto dilationsAttr = convOp.getDilations();
-
   // Default values (all 1s for strides/dilations, 0s for pads)
   SmallVector<int64_t, 4> strides(numSpatialDims, 1);
   SmallVector<int64_t, 8> pads(
@@ -123,14 +122,6 @@ LogicalResult XFEConvOpShapeInference(
     }
   }
 
-  // Parse pads [begin_0, begin_1, ..., end_0, end_1, ...]
-  if (padsAttr.has_value()) {
-    auto padsArray = padsAttr.value();
-    for (size_t i = 0; i < std::min(padsArray.size(), pads.size()); ++i) {
-      pads[i] = mlir::cast<IntegerAttr>(padsArray[i]).getInt();
-    }
-  }
-
   // Parse dilations
   if (dilationsAttr.has_value()) {
     auto dilationsArray = dilationsAttr.value();
@@ -140,21 +131,43 @@ LogicalResult XFEConvOpShapeInference(
     }
   }
 
+  // Check auto_pad mode
+  StringRef autoPad = convOp.getAutoPad();
+  bool isSamePad =
+      (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER");
+
+  // Parse explicit pads only when not using auto_pad SAME
+  if (!isSamePad && padsAttr.has_value()) {
+    auto padsArray = padsAttr.value();
+    for (size_t i = 0; i < std::min(padsArray.size(), pads.size()); ++i) {
+      pads[i] = mlir::cast<IntegerAttr>(padsArray[i]).getInt();
+    }
+  }
+
   // Compute output spatial dimensions
   SmallVector<int64_t, 6> outputShape;
   outputShape.push_back(N); // batch
 
   for (int64_t i = 0; i < numSpatialDims; ++i) {
     int64_t inputDim = xShape[i + 1]; // spatial dimension from input (NHWC)
-    int64_t kernelDim =
-        wShape[i + 1]; // kernel size from weight (OHWI: skip O, then H,W,...)
-    int64_t padBegin = pads[i];
-    int64_t padEnd = pads[numSpatialDims + i];
     int64_t stride = strides[i];
-    int64_t dilation = dilations[i];
 
-    int64_t outputDim = computeChannelLastSpatialDim(
-        inputDim, kernelDim, padBegin, padEnd, stride, dilation);
+    int64_t outputDim;
+    if (isSamePad) {
+      // SAME padding: output = ceil(input / stride)
+      if (inputDim == ShapedType::kDynamic) {
+        outputDim = ShapedType::kDynamic;
+      } else {
+        outputDim = (inputDim + stride - 1) / stride;
+      }
+    } else {
+      int64_t kernelDim = wShape[i + 1];
+      int64_t padBegin = pads[i];
+      int64_t padEnd = pads[numSpatialDims + i];
+      int64_t dilation = dilations[i];
+      outputDim = computeChannelLastSpatialDim(
+          inputDim, kernelDim, padBegin, padEnd, stride, dilation);
+    }
     outputShape.push_back(outputDim);
   }
 
@@ -225,13 +238,6 @@ LogicalResult XFEConvTransposeOpShapeInference(
     }
   }
 
-  if (padsAttr.has_value()) {
-    auto padsArray = padsAttr.value();
-    for (size_t i = 0; i < std::min(padsArray.size(), pads.size()); ++i) {
-      pads[i] = mlir::cast<IntegerAttr>(padsArray[i]).getInt();
-    }
-  }
-
   if (dilationsAttr.has_value()) {
     auto dilationsArray = dilationsAttr.value();
     for (size_t i = 0; i < std::min(dilationsArray.size(), dilations.size());
@@ -249,27 +255,45 @@ LogicalResult XFEConvTransposeOpShapeInference(
     }
   }
 
+  // Check auto_pad mode
+  StringRef autoPad = convTransposeOp.getAutoPad();
+  bool isSamePad =
+      (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER");
+
+  if (!isSamePad && padsAttr.has_value()) {
+    auto padsArray = padsAttr.value();
+    for (size_t i = 0; i < std::min(padsArray.size(), pads.size()); ++i) {
+      pads[i] = mlir::cast<IntegerAttr>(padsArray[i]).getInt();
+    }
+  }
+
   // Compute output spatial dimensions for ConvTranspose
-  // Formula: output_dim = (input_dim - 1) * stride - 2 * pad + (kernel - 1) *
-  // dilation + 1 + output_padding
   SmallVector<int64_t, 6> outputShape;
   outputShape.push_back(N); // batch
 
   for (int64_t i = 0; i < numSpatialDims; ++i) {
     int64_t inputDim = xShape[i + 1]; // spatial dimension from input (NHWC)
-    int64_t kernelDim =
-        wShape[i + 1]; // kernel size from weight (OHWI: skip O, then H,W,...)
-    int64_t padBegin = pads[i];
-    int64_t padEnd = pads[numSpatialDims + i];
     int64_t stride = strides[i];
-    int64_t dilation = dilations[i];
     int64_t outPad = outputPadding[i];
 
     int64_t outputDim = ShapedType::kDynamic;
-    if (inputDim != ShapedType::kDynamic && kernelDim != ShapedType::kDynamic) {
-      int64_t effectiveKernel = (kernelDim - 1) * dilation + 1;
-      outputDim = (inputDim - 1) * stride - padBegin - padEnd +
-                  effectiveKernel + outPad;
+    if (isSamePad) {
+      // SAME padding for ConvTranspose: output = input * stride
+      if (inputDim != ShapedType::kDynamic) {
+        outputDim = inputDim * stride + outPad;
+      }
+    } else {
+      int64_t kernelDim = wShape[i + 1];
+      int64_t padBegin = pads[i];
+      int64_t padEnd = pads[numSpatialDims + i];
+      int64_t dilation = dilations[i];
+
+      if (inputDim != ShapedType::kDynamic &&
+          kernelDim != ShapedType::kDynamic) {
+        int64_t effectiveKernel = (kernelDim - 1) * dilation + 1;
+        outputDim = (inputDim - 1) * stride - padBegin - padEnd +
+                    effectiveKernel + outPad;
+      }
     }
     outputShape.push_back(outputDim);
   }
@@ -316,7 +340,6 @@ LogicalResult XFEAveragePoolOpShapeInference(
   auto kernelShapeAttr = poolOp.getKernelShape();
   auto stridesAttr = poolOp.getStrides();
   auto padsAttr = poolOp.getPads();
-
   // Extract kernel shape (required attribute)
   if (!kernelShapeAttr.has_value() ||
       static_cast<int64_t>(kernelShapeAttr->size()) < numSpatialDims)
@@ -336,9 +359,14 @@ LogicalResult XFEAveragePoolOpShapeInference(
     }
   }
 
-  // Parse pads [begin_0, begin_1, ..., end_0, end_1, ...] (default 0)
+  // Check auto_pad mode
+  StringRef autoPad = poolOp.getAutoPad();
+  bool isSamePad =
+      (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER");
+
+  // Parse pads only when not using auto_pad SAME
   SmallVector<int64_t, 8> pads(numSpatialDims * 2, 0);
-  if (padsAttr.has_value()) {
+  if (!isSamePad && padsAttr.has_value()) {
     for (size_t i = 0; i < std::min(padsAttr->size(), pads.size()); ++i) {
       pads[i] = mlir::cast<IntegerAttr>((*padsAttr)[i]).getInt();
     }
@@ -355,13 +383,21 @@ LogicalResult XFEAveragePoolOpShapeInference(
 
   for (int64_t i = 0; i < numSpatialDims; ++i) {
     int64_t inputDim = xShape[i + 1];
-    int64_t kernelDim = kernels[i];
-    int64_t padBegin = pads[i];
-    int64_t padEnd = pads[numSpatialDims + i];
     int64_t stride = strides[i];
 
-    int64_t outputDim = computeChannelLastSpatialDim(
-        inputDim, kernelDim, padBegin, padEnd, stride, 1, ceilMode);
+    int64_t outputDim;
+    if (isSamePad) {
+      if (inputDim == ShapedType::kDynamic)
+        outputDim = ShapedType::kDynamic;
+      else
+        outputDim = (inputDim + stride - 1) / stride;
+    } else {
+      int64_t kernelDim = kernels[i];
+      int64_t padBegin = pads[i];
+      int64_t padEnd = pads[numSpatialDims + i];
+      outputDim = computeChannelLastSpatialDim(
+          inputDim, kernelDim, padBegin, padEnd, stride, 1, ceilMode);
+    }
     outputShape.push_back(outputDim);
   }
 
@@ -426,9 +462,14 @@ LogicalResult XFEMaxPoolOpShapeInference(
     }
   }
 
-  // Parse pads [begin_0, begin_1, ..., end_0, end_1, ...] (default 0)
+  // Check auto_pad mode
+  StringRef autoPad = poolOp.getAutoPad();
+  bool isSamePad =
+      (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER");
+
+  // Parse pads only when not using auto_pad SAME
   SmallVector<int64_t, 8> pads(numSpatialDims * 2, 0);
-  if (padsAttr.has_value()) {
+  if (!isSamePad && padsAttr.has_value()) {
     for (size_t i = 0; i < std::min(padsAttr->size(), pads.size()); ++i) {
       pads[i] = mlir::cast<IntegerAttr>((*padsAttr)[i]).getInt();
     }
@@ -454,14 +495,22 @@ LogicalResult XFEMaxPoolOpShapeInference(
 
   for (int64_t i = 0; i < numSpatialDims; ++i) {
     int64_t inputDim = xShape[i + 1];
-    int64_t kernelDim = kernels[i];
-    int64_t padBegin = pads[i];
-    int64_t padEnd = pads[numSpatialDims + i];
     int64_t stride = strides[i];
-    int64_t dilation = dilations[i];
 
-    int64_t outputDim = computeChannelLastSpatialDim(
-        inputDim, kernelDim, padBegin, padEnd, stride, dilation, ceilMode);
+    int64_t outputDim;
+    if (isSamePad) {
+      if (inputDim == ShapedType::kDynamic)
+        outputDim = ShapedType::kDynamic;
+      else
+        outputDim = (inputDim + stride - 1) / stride;
+    } else {
+      int64_t kernelDim = kernels[i];
+      int64_t padBegin = pads[i];
+      int64_t padEnd = pads[numSpatialDims + i];
+      int64_t dilation = dilations[i];
+      outputDim = computeChannelLastSpatialDim(
+          inputDim, kernelDim, padBegin, padEnd, stride, dilation, ceilMode);
+    }
     outputShape.push_back(outputDim);
   }
 

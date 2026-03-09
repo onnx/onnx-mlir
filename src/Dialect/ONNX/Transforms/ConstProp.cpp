@@ -119,14 +119,28 @@ ElementsAttr getConstValueElements(Value constValue) {
 // Creates ONNXConstantOp with the location from replacingValue.
 Value createReplacingConstantOp(
     PatternRewriter &rewriter, Value replacingValue, ElementsAttr elements) {
-  mlir::Value result =
-      OnnxBuilder(rewriter, replacingValue.getLoc()).constant(elements);
-
   auto tensorType = cast<mlir::TensorType>(replacingValue.getType());
-  if (isa<mlir::quant::QuantizedType>(tensorType.getElementType()))
-    result.setType(replacingValue.getType());
+  Type replacingElemType = tensorType.getElementType();
+  Type elementsElemType = elements.getShapedType().getElementType();
 
-  return result;
+  if (elementsElemType != replacingElemType) {
+    if (isa<mlir::quant::QuantizedType>(replacingElemType)) {
+      // Output is quantized: create constant with storage-typed data, then
+      // set the result type to the full quantized type.
+      mlir::Value result =
+          OnnxBuilder(rewriter, replacingValue.getLoc()).constant(elements);
+      result.setType(replacingValue.getType());
+      return result;
+    }
+    // Output is NOT quantized but element types differ (e.g., i8 storage
+    // from a quantized constant folded through an op with f32 output).
+    // Cast the data to match the output element type so the DenseElementsAttr
+    // and the Value type are consistent.
+    OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
+    elements = elementsBuilder.castElementType(elements, replacingElemType);
+  }
+
+  return OnnxBuilder(rewriter, replacingValue.getLoc()).constant(elements);
 }
 
 // Helper to restrict specialization to non-bool types.
