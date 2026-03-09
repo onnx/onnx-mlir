@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
 
-##################### onnxmlirdocker.py ########################################
+##################### onnxmlirdockercompile.py #################################
 #
-# Copyright 2019-2025 The IBM Research Authors.
+# Copyright 2019-2026 The IBM Research Authors.
 #
 ################################################################################
 #
@@ -64,7 +64,8 @@ class CompileSession:
         if "compile_tag" in kwargs.keys():
             self.compile_tag = kwargs["compile_tag"]
         else:
-            self.compile_tag = "NONE"
+            # Conform with the default of onnx-mlir
+            self.compile_tag = ""
 
         self.model_path = model_path
         if model_path.endswith(".mlir"):
@@ -225,13 +226,15 @@ class CompileSession:
         if self.compile_options != "":
             command_str += " " + self.compile_options
 
+        # When tag is used, the name of entry function changed.
         command_str += " --tag=" + self.compile_tag
 
         command_str += " " + os.path.join(
             self.container_model_dirname, self.model_basename
         )
 
-        # print(command_str)
+        if self.debug:
+            print(command_str)
 
         # Logically, the model directory could be mounted as read only.
         # But wrong time error occurred with "r" mode
