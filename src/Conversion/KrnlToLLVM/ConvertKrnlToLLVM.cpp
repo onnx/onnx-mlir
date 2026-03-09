@@ -891,7 +891,7 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
         (uint64_t)(constantsToFileSingleThreshold * 1024),
         (uint64_t)(constantsToFileTotalThreshold * 1024 * 1024 * 1024));
     if (storeConstantsToFile) {
-      llvm::outs() << "Constants in the model exceeds the thresholds "
+      llvm::outs() << "Constants in the model exceed the thresholds "
                    << "(single constant <= " << constantsToFileSingleThreshold
                    << " KB, "
                    << "total constants <= " << constantsToFileTotalThreshold
