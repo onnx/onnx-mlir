@@ -768,8 +768,8 @@ struct ConvertKrnlToLLVMPass
   ConvertKrnlToLLVMPass(const ConvertKrnlToLLVMPass &pass)
       : PassWrapper<ConvertKrnlToLLVMPass, OperationPass<ModuleOp>>() {}
   ConvertKrnlToLLVMPass(bool verifyInputTensors, bool useLRODATA,
-      bool storeConstantsToFile, uint64_t constantsToFileSingleThreshold,
-      uint64_t constantsToFileTotalThreshold, std::string outputNameNoExt,
+      bool storeConstantsToFile, float constantsToFileSingleThreshold,
+      float constantsToFileTotalThreshold, std::string outputNameNoExt,
       bool enableParallel) {
     this->verifyInputTensors = verifyInputTensors;
     // Exclusive options. no option or only one option can be True.
@@ -888,8 +888,8 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   std::string fname = outputNameNoExt + ".constants.bin";
   if (storeConstantsToFile) {
     storeConstantsToFile = extractConstantsToFile(module, fname,
-        (uint64_t)constantsToFileSingleThreshold * 1024,
-        (uint64_t)constantsToFileTotalThreshold * 1024 * 1024 * 1024);
+        (uint64_t)(constantsToFileSingleThreshold * 1024),
+        (uint64_t)(constantsToFileTotalThreshold * 1024 * 1024 * 1024));
     if (storeConstantsToFile) {
       llvm::outs() << "Constants in the model exceeds the thresholds "
                    << "(single constant <= " << constantsToFileSingleThreshold
