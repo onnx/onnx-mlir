@@ -73,7 +73,7 @@ static std::pair<bool, SmallVector<int64_t>> integerComposition(
   size_t idx = 0;
   int credits = retSize;
   for (auto it = integers.begin(); it != integers.end() && (credits--);
-      idx = (idx + 1) % retSize) {
+        idx = (idx + 1) % retSize) {
     int64_t top = bounds[idx].second;
     int64_t cur = *it;
     if (ret[idx] < top && ret[idx] * cur < top) {
