@@ -1112,8 +1112,7 @@ def get_operands_or_results(schema, type_str_dict, op_name, is_input):
         if qType:
             types.append("TensorOf<[quant_QuantizedType]>")
 
-        is_optional = OpSchema.FormalParameterOption.Optional == value.option
-        if is_optional and not isinstance(schema, CustomOpSchema):
+        if OpSchema.FormalParameterOption.Optional == value.option:
             types.append("NoneType")
 
         if OpSchema.FormalParameterOption.Variadic == value.option:
@@ -1137,10 +1136,7 @@ def get_operands_or_results(schema, type_str_dict, op_name, is_input):
         else:
             value_name = get_unique_output_name(schema, value.name)
 
-        final_type = any_type_of(types)
-        if is_optional and isinstance(schema, CustomOpSchema):
-            final_type = "Optional<{}>".format(final_type)
-        name_to_types[value_name] = final_type
+        name_to_types[value_name] = any_type_of(types)
     return name_to_types
 
 
@@ -1497,11 +1493,11 @@ def gen_op_def(schema, with_version=False):
     traits = ["Pure", f"OpVersionTrait<{schema.since_version}>"]
 
     # Generate SameOperandsAndResultShape traits.
-    if opName in OpsWithSameOperandsAndResultShape:
+    if mlir_op_name in OpsWithSameOperandsAndResultShape:
         traits.append("SameOperandsAndResultShape")
 
     # Generate ConstantLike traits.
-    if opName in OpsWithConstantLike:
+    if mlir_op_name in OpsWithConstantLike:
         traits.append("ConstantLike")
 
     # OpsWithShapeInference:
@@ -1510,7 +1506,7 @@ def gen_op_def(schema, with_version=False):
     # Error will be report if these operations are encountered at runtime.
     traits.append("DeclareOpInterfaceMethods<ShapeInferenceOpInterface>")
     traits.append("DeclareOpInterfaceMethods<ShapeHelperOpInterface>")
-    if opName in OpsWithResultTypeInference:
+    if mlir_op_name in OpsWithResultTypeInference:
         traits.append("DeclareOpInterfaceMethods<ResultTypeInferenceOpInterface>")
     if len(regions):
         traits.append('OpInterface<"HasOnnxSubgraphOpInterface">')
@@ -1519,11 +1515,11 @@ def gen_op_def(schema, with_version=False):
     indent = inc_indent(indent)
 
     # Generate decl for custom assembly format.
-    if opName in OpsWithCustomAssemblyFormat:
+    if mlir_op_name in OpsWithCustomAssemblyFormat:
         s += indent + "let hasCustomAssemblyFormat = 1;\n"
 
     # Generate decl for canonicalizer.
-    if opName in OpsWithCanonicalizer:
+    if mlir_op_name in OpsWithCanonicalizer:
         s += indent + "let hasCanonicalizer = 1;\n"
 
     # Generate decl for summary.
@@ -1577,7 +1573,7 @@ def gen_op_def(schema, with_version=False):
     # Add custom builders.
     # Use element type of the first operand to construct an UnrankedTensorType
     # for the output.
-    if opName in custom_builder_ops_list:
+    if mlir_op_name in custom_builder_ops_list:
         if len(ins) == 0:
             raise RuntimeWarning(
                 "warning: not generate custom build methods for "
@@ -1586,11 +1582,11 @@ def gen_op_def(schema, with_version=False):
             )
 
         r = ""  # r is the resultType, use it with r.format(*operands, indent=indent)
-        if opName in custom_builder_broadcast_ops_list:
+        if mlir_op_name in custom_builder_broadcast_ops_list:
             numOperands = 2
             r += "{indent}auto lhsTy = {0}.getType();\n"
             r += "{indent}auto rhsTy = {1}.getType();\n"
-            if opName in custom_builder_broadcast_to_bool_ops_list:
+            if mlir_op_name in custom_builder_broadcast_to_bool_ops_list:
                 r += "{indent}auto elTy = $_builder.getI1Type();\n"
                 elTy = "elTy"
             else:
@@ -1671,8 +1667,8 @@ def gen_op_def(schema, with_version=False):
     # Generate input/output number and output type mapping
     s = get_numberof_inout(s, indent, schema)
 
-    if opName in OpsWithHelpers:
-        s += OpsWithHelpers[opName]
+    if mlir_op_name in OpsWithHelpers:
+        s += OpsWithHelpers[mlir_op_name]
 
     if len(regions):
         s += indent + "int64_t getSubgraphRegionIdx(const std::string& name) {\n"
@@ -1696,8 +1692,8 @@ def gen_op_def(schema, with_version=False):
 
     s += indent + "}];\n"
 
-    if opName in custom_definition_misc:
-        s += custom_definition_misc[opName] + "\n"
+    if mlir_op_name in custom_definition_misc:
+        s += custom_definition_misc[mlir_op_name] + "\n"
 
     ###########################################
     # Generate decl for verifier/folder.
