@@ -18,8 +18,9 @@
 
 using namespace mlir;
 
-/// Max channel for Conv. All three xcompiler passes use (1, 4096) -> C < 4096.
+/// Max channel for Conv.
 static constexpr int64_t kMaxChannel = 4096;
+
 /// Max kernel/stride for H,W general fallback. For IPU_STRIX/AIE4 the stride
 /// limit from conv_limit().stride() is small. With limit=4, H,W max out at 2
 /// (since 2*2=4 is NOT < 4). K=29696: C=2^8*29=7424 > 4096 → rejected.
@@ -35,10 +36,10 @@ struct ConvShapes {
   SmallVector<int64_t> stride;      // [H', W']
 };
 
-/// xcompiler integer_decomposition: 2s first, then odd primes.
+///  integer_decomposition: 2s first, then odd primes.
 /// Returns (success, factors). success = factors.size() >= num.
-static std::pair<bool, SmallVector<int64_t>>
-integerDecomposition(int64_t input, int64_t num = 1) {
+static std::pair<bool, SmallVector<int64_t>> integerDecomposition(
+    int64_t input, int64_t num = 1) {
   SmallVector<int64_t> ret;
   int64_t n = input;
   while (n % 2 == 0) {
@@ -57,7 +58,7 @@ integerDecomposition(int64_t input, int64_t num = 1) {
   return {if_enough, ret};
 }
 
-/// xcompiler integer_composition: round-robin distribute factors into H,W,C.
+/// integer_composition: round-robin distribute factors into H,W,C.
 /// Bounds (low, high): result must satisfy low <= ret[idx] < high.
 /// Matches TransferMatMulToConv2dPass, TransferQDQMatMulToConv2dPass,
 /// TransferQDQMatMulToConv2dForcePass.
@@ -75,9 +76,8 @@ static std::pair<bool, SmallVector<int64_t>> integerComposition(
 
   size_t idx = 0;
   int credits = retSize;
-  for (auto it = integers.begin();
-       it != integers.end() && (credits--);
-       idx = (idx + 1) % retSize) {
+  for (auto it = integers.begin(); it != integers.end() && (credits--);
+      idx = (idx + 1) % retSize) {
     int64_t top = bounds[idx].second;
     int64_t cur = *it;
     if (ret[idx] < top && ret[idx] * cur < top) {
@@ -97,9 +97,8 @@ static std::pair<bool, SmallVector<int64_t>> integerComposition(
 /// Decompose K into H*W*C matching TransferQDQMatMulToConv2dPass logic:
 /// 1. Try IPU preferred (1,2) → H=1,W=1,C=K. Succeeds when K < 4096.
 /// 2. Fall back to general (1, maxKernelLimit). With limit=4, H,W max=2.
-///    K=29696 fails (factor 29 can't fit). K=4096 works as (2,2,1024).
-static std::optional<std::tuple<int64_t, int64_t, int64_t>>
-decomposeK(int64_t K, int64_t maxKernelLimit = kMaxKernelLimitDefault) {
+static std::optional<std::tuple<int64_t, int64_t, int64_t>> decomposeK(
+    int64_t K, int64_t maxKernelLimit = kMaxKernelLimitDefault) {
   auto [dec_ok, dec_rlts] = integerDecomposition(K);
   if (!dec_ok)
     return std::nullopt;
@@ -112,7 +111,9 @@ decomposeK(int64_t K, int64_t maxKernelLimit = kMaxKernelLimitDefault) {
 
   // QDQ/ForcePass: try IPU (1,2) for H,W first
   std::array<std::pair<int64_t, int64_t>, 3> ipuBounds = {
-      std::make_pair(1, 2), std::make_pair(1, 2), std::make_pair(1, kMaxChannel),
+      std::make_pair(1, 2),
+      std::make_pair(1, 2),
+      std::make_pair(1, kMaxChannel),
   };
   auto [ipu_ok, ipu_hwc] = integerComposition(dec_rlts, ipuBounds);
   if (ipu_ok && ipu_hwc.size() >= 3)
@@ -139,9 +140,6 @@ std::optional<ConvShapes> computeConvShapes(
 
   int64_t K = inputShape.back();
   int64_t N = weightShape.back();
-
-  // xcompiler does not reject K > 4096; the constraint is on C (channel) via
-  // integer_composition bounds (1, 4096). K can be larger if it decomposes.
 
   int64_t M = 1;
   for (size_t i = 0; i < inputShape.size() - 1; ++i) {
@@ -217,7 +215,8 @@ struct MatMulToXFEConvPattern : public OpRewritePattern<ONNXMatMulOp> {
       return failure();
     }
 
-    // Compute convolution shapes; fail if decomposition invalid (matches xcompiler)
+    // Compute convolution shapes; fail if decomposition invalid (matches
+    // xcompiler)
     auto convShapesOpt = computeConvShapes(inputShape, weightShape);
     if (!convShapesOpt)
       return failure();
