@@ -899,11 +899,11 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
                    << "Stored them in an external file: " << "\"" << fname
                    << "\""
                    << ". Make sure to put this file in the same folder as the "
-                      "generated model or set OM_CONSTANT_ATH to the "
+                      "generated model or set OM_CONSTANT_PATH to the "
                       "folder having this file. For constants-related "
                       "settings, see options --store-constants-to-file, "
                       "--constants-to-file-single-threshold and "
-                      "--constants-to-file-total-threshold\n";
+                      "--constants-to-file-total-threshold.\n";
     }
   }
 
