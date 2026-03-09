@@ -2858,8 +2858,15 @@ struct FuseBackToBackMaxpools
 
     auto newPadding = rewriter.getArrayAttr(newPaddingVec);
 
-    // Create replacement maxpool
-    MultiDialectBuilder<OnnxBuilder> b(rewriter, lowerMaxpool.getLoc());
+    SmallVector<Location> locsToFuse;
+    locsToFuse.push_back(upperMaxpool->getLoc());
+    locsToFuse.push_back(lowerMaxpool->getLoc());
+    if (upperDequant) {
+      locsToFuse.push_back(quantOp->getLoc());
+      locsToFuse.push_back(upperDequant->getLoc());
+    }
+    Location fusedLoc = rewriter.getFusedLoc(locsToFuse);
+    MultiDialectBuilder<OnnxBuilder> b(rewriter, fusedLoc);
     auto newMaxpool =
         b.onnx.createTypedOpAndInferShapes<ONNXMaxPoolSingleOutOp>(
             lowerMaxpool->getResultTypes()[0], upperMaxpool.getX(),

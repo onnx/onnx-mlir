@@ -69,3 +69,27 @@ func.func @consecutive_clips(%arg0: tensor<3x1024x1024xf32>) -> (tensor<3x1024x1
   // CHECK-DAG: [[LOC_CLIP2:#.+]] = loc("Clip2")
   // CHECK: [[FUSED_LOC]] = loc(fused[[[LOC_CLIP2]], [[LOC_CLIP1]]])
 }
+
+// -----
+
+func.func @maxpool_k5_p1_s1_maxpool_k3_p1_s1_quant_int8(%arg0: tensor<1x3x224x224xi8> {onnx.name = "input"}) -> tensor<1x3x222x222xi8> {
+  %0 = onnx.Constant dense<2.500000e-01> : tensor<f32> loc("scale")
+  %1 = onnx.Constant dense<0> : tensor<i8> loc("zero_point")
+  %2 = "onnx.DequantizeLinear"(%arg0, %0, %1) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x3x224x224xi8>, tensor<f32>, tensor<i8>) -> tensor<1x3x224x224xf32> loc("DequantizeLinear_0")
+  %3 = "onnx.MaxPoolSingleOut"(%2) {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [5, 5], pads = [1, 1, 1, 1], storage_order = 0 : si64, strides = [1, 1]} : (tensor<1x3x224x224xf32>) -> tensor<1x3x222x222xf32> loc("MaxPool_upper")
+  %4 = "onnx.QuantizeLinear"(%3, %0, %1) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x3x222x222xf32>, tensor<f32>, tensor<i8>) -> tensor<1x3x222x222xi8> loc("QuantizeLinear")
+  %5 = "onnx.DequantizeLinear"(%4, %0, %1) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x3x222x222xi8>, tensor<f32>, tensor<i8>) -> tensor<1x3x222x222xf32> loc("DequantizeLinear_1")
+  %6 = "onnx.MaxPoolSingleOut"(%5) {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1], storage_order = 0 : si64, strides = [1, 1]} : (tensor<1x3x222x222xf32>) -> tensor<1x3x222x222xf32> loc("MaxPool_lower")
+  %7 = "onnx.QuantizeLinear"(%6, %0, %1) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x3x222x222xf32>, tensor<f32>, tensor<i8>) -> tensor<1x3x222x222xi8> loc("QuantizeLinear_out")
+  return %7 : tensor<1x3x222x222xi8>
+}
+
+// CHECK-LABEL: func.func @maxpool_k5_p1_s1_maxpool_k3_p1_s1_quant_int8
+// CHECK: "onnx.MaxPoolSingleOut"
+// CHECK-SAME: loc([[LOC_FUSED:#.+]])
+
+// CHECK-DAG: [[LOC_MU:#.+]] = loc("MaxPool_upper")
+// CHECK-DAG: [[LOC_QL:#.+]] = loc("QuantizeLinear")
+// CHECK-DAG: [[LOC_DQ1:#.+]] = loc("DequantizeLinear_1")
+// CHECK-DAG: [[LOC_ML:#.+]] = loc("MaxPool_lower")
+// CHECK-DAG: [[LOC_FUSED]] = loc(fused[[[LOC_MU]], [[LOC_ML]], [[LOC_QL]], [[LOC_DQ1]]])
