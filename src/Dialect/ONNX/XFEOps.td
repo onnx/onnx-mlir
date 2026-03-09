@@ -357,37 +357,6 @@ def XFEMaxPoolOp:ONNX_Op<"XFEMaxPool",
   let hasVerifier = 1;
 }
 
-def XFESpaceToDepthOp:ONNX_Op<"XFESpaceToDepth",
-  [Pure, OpVersionTrait<1>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
-  let summary = "SpaceToDepthChannelLast operation";
-  let description = [{
-  SpaceToDepth with channel-last layout (channels innermost). Rearranges blocks of spatial data into the channel dimension with input/output tensors in channel-last format instead of NCHW. This is the reverse transformation of DepthToSpaceChannelLast.
-  }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[quant_QuantizedType]>]>:$input,
-    OptionalAttr<SI64Attr>:$blocksize);
-  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[quant_QuantizedType]>]>:$output);
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 1;
-    }
-    static int getNumberOfResults() {
-      return 1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {30};
-    }
-  }];
-  let extraClassDefinition = [{
-    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
-        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-      // TODO: Implement specific shape helper for this custom op
-      // For now, returning nullptr - shape inference will use default behavior
-      return nullptr;
-    }
-  }];
-  let hasVerifier = 1;
-}
-
 def XFEResizeOp:ONNX_Op<"XFEResize",
   [Pure, OpVersionTrait<1>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ResizeChannelLast operation";
@@ -430,3 +399,33 @@ def XFEResizeOp:ONNX_Op<"XFEResize",
   let hasVerifier = 1;
 }
 
+def XFESpaceToDepthOp:ONNX_Op<"XFESpaceToDepth",
+  [Pure, OpVersionTrait<1>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "SpaceToDepthChannelLast operation";
+  let description = [{
+  SpaceToDepth with channel-last layout (channels innermost). Rearranges blocks of spatial data into the channel dimension with input/output tensors in channel-last format instead of NCHW. This is the reverse transformation of DepthToSpaceChannelLast.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[quant_QuantizedType]>]>:$input,
+    OptionalAttr<SI64Attr>:$blocksize);
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[quant_QuantizedType]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {30};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      // TODO: Implement specific shape helper for this custom op
+      // For now, returning nullptr - shape inference will use default behavior
+      return nullptr;
+    }
+  }];
+  let hasVerifier = 1;
+}
