@@ -568,6 +568,37 @@ LogicalResult XFEGlobalMaxPoolOpShapeInference(
   return success();
 }
 
+LogicalResult XFEBatchNormalizationOpShapeInference(
+    Operation *op, std::function<void(Region &)> doShapeInference) {
+  auto bnOp = dyn_cast<XFEBatchNormalizationOp>(op);
+  if (!bnOp)
+    return failure();
+
+  Value input = bnOp.getX();
+  if (!hasShapeAndRank(input))
+    return success();
+
+  auto inputType = mlir::cast<ShapedType>(input.getType());
+  auto inputShape = inputType.getShape(); // [N, spatial_dims..., C]
+
+  if (inputShape.size() < 3)
+    return op->emitError(
+        "BatchNormalizationChannelLast requires at least 3D input tensor");
+
+  // Batch normalization preserves the input shape
+  // Output shape: same as input
+  SmallVector<int64_t, 6> outputShape(inputShape.begin(), inputShape.end());
+
+  Type elementType = inputType.getElementType();
+  if (auto existingType = dyn_cast<ShapedType>(bnOp.getY().getType())) {
+    elementType = existingType.getElementType();
+  }
+  auto resultType = RankedTensorType::get(outputShape, elementType);
+  bnOp.getY().setType(resultType);
+
+  return success();
+}
+
 LogicalResult XFEInstanceNormalizationOpShapeInference(
     Operation *op, std::function<void(Region &)> doShapeInference) {
   auto normOp = dyn_cast<XFEInstanceNormalizationOp>(op);
