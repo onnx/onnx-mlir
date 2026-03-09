@@ -21,10 +21,8 @@ using namespace mlir;
 /// Max channel for Conv.
 static constexpr int64_t kMaxChannel = 4096;
 
-/// Max kernel/stride for H,W general fallback. For IPU_STRIX/AIE4 the stride
-/// limit from conv_limit().stride() is small. With limit=4, H,W max out at 2
-/// (since 2*2=4 is NOT < 4). K=29696: C=2^8*29=7424 > 4096 → rejected.
-/// K=4096: (2,2,1024) → accepted. K=8192: (2,2,2048) → accepted.
+/// Max kernel/stride for H,W in general fallback composition.
+/// Derived from conv_limit().stride() for IPU_STRIX/AIE4 target ("1-4").
 static constexpr int64_t kMaxKernelLimitDefault = 4;
 
 namespace {
@@ -36,8 +34,8 @@ struct ConvShapes {
   SmallVector<int64_t> stride;      // [H', W']
 };
 
-///  integer_decomposition: 2s first, then odd primes.
-/// Returns (success, factors). success = factors.size() >= num.
+/// Factorize into primes (2s first, then odd primes ascending).
+/// Returns (factors.size() >= num, factors).
 static std::pair<bool, SmallVector<int64_t>> integerDecomposition(
     int64_t input, int64_t num = 1) {
   SmallVector<int64_t> ret;
@@ -58,10 +56,8 @@ static std::pair<bool, SmallVector<int64_t>> integerDecomposition(
   return {if_enough, ret};
 }
 
-/// integer_composition: round-robin distribute factors into H,W,C.
-/// Bounds (low, high): result must satisfy low <= ret[idx] < high.
-/// Matches TransferMatMulToConv2dPass, TransferQDQMatMulToConv2dPass,
-/// TransferQDQMatMulToConv2dForcePass.
+/// Round-robin distribute factors into 3 buckets (H, W, C).
+/// Bounds (low, high): each result must satisfy low <= ret[idx] < high.
 static std::pair<bool, SmallVector<int64_t>> integerComposition(
     SmallVector<int64_t> integers,
     std::array<std::pair<int64_t, int64_t>, 3> bounds) {
@@ -94,9 +90,8 @@ static std::pair<bool, SmallVector<int64_t>> integerComposition(
   return {if_success, ret};
 }
 
-/// Decompose K into H*W*C matching TransferQDQMatMulToConv2dPass logic:
-/// 1. Try IPU preferred (1,2) → H=1,W=1,C=K. Succeeds when K < 4096.
-/// 2. Fall back to general (1, maxKernelLimit). With limit=4, H,W max=2.
+/// Decompose K into H*W*C. Tries IPU-preferred tight bounds first,
+/// then falls back to general bounds.
 static std::optional<std::tuple<int64_t, int64_t, int64_t>> decomposeK(
     int64_t K, int64_t maxKernelLimit = kMaxKernelLimitDefault) {
   auto [dec_ok, dec_rlts] = integerDecomposition(K);
@@ -109,7 +104,7 @@ static std::optional<std::tuple<int64_t, int64_t, int64_t>> decomposeK(
     dec_rlts.resize(3, 1);
   }
 
-  // QDQ/ForcePass: try IPU (1,2) for H,W first
+  // Try IPU-preferred tight bounds: H,W < 2 (i.e. H=W=1)
   std::array<std::pair<int64_t, int64_t>, 3> ipuBounds = {
       std::make_pair(1, 2),
       std::make_pair(1, 2),
@@ -119,8 +114,7 @@ static std::optional<std::tuple<int64_t, int64_t, int64_t>> decomposeK(
   if (ipu_ok && ipu_hwc.size() >= 3)
     return {{ipu_hwc[0], ipu_hwc[1], ipu_hwc[2]}};
 
-  // General fallback: (1, maxKernelLimit) for H,W, (1, 4096) for C.
-  // Matches TransferQDQMatMulToConv2dPass general composition path.
+  // General fallback: H,W < maxKernelLimit, C < 4096
   std::array<std::pair<int64_t, int64_t>, 3> bounds = {
       std::make_pair(1, maxKernelLimit),
       std::make_pair(1, maxKernelLimit),
@@ -215,16 +209,11 @@ struct MatMulToXFEConvPattern : public OpRewritePattern<ONNXMatMulOp> {
       return failure();
     }
 
-    // Compute convolution shapes; fail if decomposition invalid (matches
-    // xcompiler)
     auto convShapesOpt = computeConvShapes(inputShape, weightShape);
     if (!convShapesOpt)
       return failure();
     ConvShapes convShapes = *convShapesOpt;
 
-    // Use original op's result element type for conv and final output
-    // (preserves quantized/typed semantics). Reshape1 stays on input type
-    // (reshaping A).
     auto resultType = cast<RankedTensorType>(matMulOp.getResult().getType());
     Type outputElementType = resultType.getElementType();
     Type inputElementType = inputType.getElementType();
