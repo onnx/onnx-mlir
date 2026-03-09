@@ -890,6 +890,14 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
     storeConstantsToFile = extractConstantsToFile(module, fname,
         (uint64_t)constantsToFileSingleThreshold * 1024,
         (uint64_t)constantsToFileTotalThreshold * 1024 * 1024 * 1024);
+    if (storeConstantsToFile) {
+      llvm::outs() << "Constants in the model exceeds the thredshold. Stored "
+                      "them in an external file: "
+                   << "\"" << fname << "\""
+                   << ". Make sure to put this file in the same folder as the "
+                      "generated model or set OM_CONSTANT_PATH to the "
+                      "folder having this file.\n";
+    }
   }
 
   // Request C wrapper emission via attribute.
