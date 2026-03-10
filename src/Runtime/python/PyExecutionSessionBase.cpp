@@ -451,7 +451,7 @@ std::vector<std::string> PyExecutionSessionBase::pyQueryEntryPoints() {
   if (!isInitialized)
     throw onnx_mlir::ExecutionSessionException(
         "uninitialized PyExecutionSession");
-  assert(_queryEntryPointsFunc && "Query entry point not loaded.");
+  assert(_queryEntryPointsFunc && "Query entry point was not loaded.");
   const char **entryPointArr = _queryEntryPointsFunc(NULL);
 
   std::vector<std::string> outputPyArrays;
