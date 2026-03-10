@@ -115,10 +115,10 @@ PyExecutionSessionBase::PyExecutionSessionBase(
 // =============================================================================
 // Run.
 
-std::vector<py::array> PyExecutionSessionBase::pyRun(
+std::vector<py::array> PyExecutionSessionBase::pyRunInternal(
     const std::vector<py::array> &inputsPyArray,
     const std::vector<py::array> &shapesPyArray,
-    const std::vector<py::array> &stridesPyArray) {
+    const std::vector<py::array> &stridesPyArray, bool useSignalHandler) {
   if (!isInitialized)
     throw onnx_mlir::ExecutionSessionException(
         "uninitialized PyExecutionSession");
@@ -150,6 +150,9 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
     } else {
       // If data is not writable, copy them to a writable buffer.
       auto *copiedData = (float *)malloc(inputPyArray.nbytes());
+      if (!copiedData)
+        throw onnx_mlir::ExecutionSessionException(
+            "Failed to allocate data buffer for copied data.");
       memcpy(copiedData, inputPyArray.data(), inputPyArray.nbytes());
       dataPtr = copiedData;
       // We want OMTensor to free up the memory space upon destruction.
@@ -230,24 +233,37 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
     } else if (std::is_same<int64_t, pybind11::ssize_t>::value) {
       inputOMTensor =
           omTensorCreateWithOwnership(dataPtr, shape, ndim, dtype, ownData);
+      if (!inputOMTensor)
+        throw onnx_mlir::ExecutionSessionException(
+            "fail to allocate Tensor for input data");
       omTensorSetStridesWithPyArrayStrides(inputOMTensor, stride);
     } else {
       std::vector<int64_t> safeShape(shape, shape + ndim);
       std::vector<int64_t> safeStrides(stride, stride + ndim);
       inputOMTensor = omTensorCreateWithOwnership(
           dataPtr, safeShape.data(), ndim, dtype, ownData);
+      if (!inputOMTensor)
+        throw onnx_mlir::ExecutionSessionException(
+            "fail to allocate Tensor for input data");
       omTensorSetStridesWithPyArrayStrides(inputOMTensor, safeStrides.data());
     }
     omts.emplace_back(inputOMTensor);
   }
   TIMING_STOP_PRINT(process_input);
 
-  // 2. Call entry point.
+  // 2. Call entry point: create list.
   TIMING_INIT_START(inference);
   OMTensorList *wrappedInput = omTensorListCreate(omts.data(), omts.size());
-  auto *wrappedOutput = _entryPointFunc(wrappedInput);
-  if (!wrappedOutput)
-    throw onnx_mlir::ExecutionSessionException("error while runing the model");
+  if (!wrappedInput)
+    throw onnx_mlir::ExecutionSessionException(
+        "fail to allocate Tensor List for input data");
+  // Call
+  OMTensorList *wrappedOutput = nullptr;
+  if (useSignalHandler)
+    wrappedOutput = runWithSignalHandler(wrappedInput);
+  else
+    wrappedOutput = run(wrappedInput);
+
   TIMING_STOP_PRINT(inference);
 
   // 3. Process outputs.
@@ -355,6 +371,22 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
   TIMING_STOP_PRINT(delete_in_lists);
 
   return outputPyArrays;
+}
+
+std::vector<py::array> PyExecutionSessionBase::pyRun(
+    const std::vector<py::array> &inputsPyArray,
+    const std::vector<py::array> &shapesPyArray,
+    const std::vector<py::array> &stridesPyArray) {
+  return pyRunInternal(inputsPyArray, shapesPyArray, stridesPyArray,
+      /*run with signal handler*/ false);
+}
+
+std::vector<py::array> PyExecutionSessionBase::pyRunWithSignalHandler(
+    const std::vector<py::array> &inputsPyArray,
+    const std::vector<py::array> &shapesPyArray,
+    const std::vector<py::array> &stridesPyArray) {
+  return pyRunInternal(inputsPyArray, shapesPyArray, stridesPyArray,
+      /*run with signal handler*/ true);
 }
 
 // =============================================================================

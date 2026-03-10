@@ -20,6 +20,11 @@
 #include <memory>
 #include <string>
 
+#if !defined(_WIN32)
+#include <csetjmp>
+#include <csignal>
+#endif
+
 #include "OnnxMlirRuntime.h"
 
 // LLVM provides the wrapper class, llvm::sys::DynamicLibrary, for dynamic
@@ -97,6 +102,12 @@ public:
   // tensor lists.
   OMTensorList *run(OMTensorList *input);
 
+  // Run with signal handling to catch crashes (SIGSEGV, SIGBUS, SIGFPE,
+  // SIGILL). Throw ExecutionSessionException if a signal is caught, and sets
+  // errno to the signal number. Note: This method can only be called on POSIX
+  // systems (Linux, macOS, etc.)
+  OMTensorList *runWithSignalHandler(OMTensorList *input);
+
   // Get input and output signature as a Json string. For example for nminst:
   // `[ { "type" : "f32" , "dims" : [1 , 1 , 28 , 28] , "name" : "image" } ]`
   const std::string inputSignature() const;
@@ -105,7 +116,15 @@ public:
 
 protected:
   // Error reporting processing when throwing runtime errors.
-  std::string reportErrnoError() const;
+  std::string reportErrnoError(bool fromSignal=false) const;
+
+#if !defined(_WIN32)
+  // Signal handling infrastructure (POSIX only)
+  static void signalHandler(int signum);
+  static std::jmp_buf signalJumpBuffer;
+  static volatile sig_atomic_t signalCaught;
+  static volatile sig_atomic_t signalNumber;
+#endif
 
   // Track if Init was called or not.
   bool isInitialized = false;

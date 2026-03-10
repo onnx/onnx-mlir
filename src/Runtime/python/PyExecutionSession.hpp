@@ -136,6 +136,15 @@ PYBIND11_MODULE(PyRuntimeC, m) {
           "    >>> outputs = session.run(inputs, shapes, strides)\n"
           "    >>> predictions = outputs[0]\n"
           "    >>> print(f'Predicted class: {np.argmax(predictions)}')")
+      .def("run_with_signal_handler",
+          &onnx_mlir::PyExecutionSession::pyRunWithSignalHandler,
+          py::arg("input"),
+          py::arg("shape"),
+          py::arg("stride"),
+          "Run inference on the model with signal handlers.\n\n"
+          "Same as run, but with signal handler (only effective in posix env).\n"
+          "Handlers are not thread safe, execution may not be safe after catching \n"
+          "a signal as process memory might be corrupted. Use for debugging purpose only.\n")
       .def("input_signature",
           &onnx_mlir::PyExecutionSession::pyInputSignature,
           "Get the input signature of the model.\n\n"

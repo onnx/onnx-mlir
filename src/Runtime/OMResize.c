@@ -191,12 +191,14 @@ static float interpolate_nd_with_x(OMTensor *data, int n, float *scale_factors,
       float *dataPtr = (float *)omTensorGetDataPtr(data) + i * stride;
       OMTensor *data1 = omTensorCreate(
           dataPtr, omTensorGetShape(data) + 1, n - 1, ONNX_TYPE_FLOAT);
+      assert(data1 && "failed to crate tensor");
       tempData[i] = interpolate_nd_with_x(data1, n - 1, scale_factors + 1,
           xs + 1, get_coeffs, coeffs_buffer, coeffs_n, roi, extrapolation_value,
           coordinate_transformation_mode, exclude_outside, mode);
       omTensorDestroy(data1);
     }
     OMTensor *tempT = omTensorCreate(tempData, tempShape, 1, ONNX_TYPE_FLOAT);
+      assert(tempT && "failed to crate tensor");
     float ret = interpolate_1d_with_x(tempT, scale_factors[0], xs[0],
         get_coeffs, coeffs_buffer, coeffs_n, roi, extrapolation_value,
         coordinate_transformation_mode, exclude_outside, mode);

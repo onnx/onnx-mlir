@@ -47,6 +47,11 @@ public:
   std::vector<py::array> pyRun(const std::vector<py::array> &inputsPyArray,
       const std::vector<py::array> &shapesPyArray,
       const std::vector<py::array> &stridesPyArray);
+  // Run with a signal handler, slower and unsafe if catch signal; posix only.
+  std::vector<py::array> pyRunWithSignalHandler(
+      const std::vector<py::array> &inputsPyArray,
+      const std::vector<py::array> &shapesPyArray,
+      const std::vector<py::array> &stridesPyArray);
   std::string pyInputSignature();
   std::string pyOutputSignature();
   void pyPrintInstrumentation(); // Print instrumentation (if any).
@@ -55,6 +60,11 @@ protected:
   // Constructor that build the object without initialization (for use by
   // subclass only).
   PyExecutionSessionBase() : onnx_mlir::ExecutionSession() {}
+
+private:
+  std::vector<py::array> pyRunInternal(const std::vector<py::array> &inputsPyArray,
+      const std::vector<py::array> &shapesPyArray,
+      const std::vector<py::array> &stridesPyArray, bool useSignalHandler);
 };
 } // namespace onnx_mlir
 #endif
