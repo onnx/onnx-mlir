@@ -69,6 +69,8 @@ std::unique_ptr<mlir::Pass> createONNXCSEPass();
 
 std::unique_ptr<mlir::Pass> createQuantTypesPass();
 
+std::unique_ptr<mlir::Pass> createFixNegScalePass();
+
 /// Pass for instrument the ops in specific stage.
 std::unique_ptr<mlir::Pass> createInstrumentPass();
 std::unique_ptr<mlir::Pass> createInstrumentPass(
