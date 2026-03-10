@@ -390,12 +390,14 @@ OMTensorList *ExecutionSession::runWithSignalHandler(OMTensorList *input) {
     // First time through - run the inference
     errno = 0; // Clear errno.
     output = _entryPointFunc(input);
-#if 1
-    // Testing only
+
+#if 0
+    #warning "Injecting a null ptr dereferencing for testing only.
     float *nullPtr = nullptr;
-    fprintf(stderr, "about to dereference a ptr\n");
+    fprintf(stderr, "about to dereference a null pointer\n");
     fprintf(stderr, "%f\n", *nullPtr);
 #endif
+
     // Restore old signal handlers
     sigaction(SIGSEGV, &oldSigsegv, nullptr);
     sigaction(SIGBUS, &oldSigbus, nullptr);
