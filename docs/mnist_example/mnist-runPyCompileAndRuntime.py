@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
 
 import numpy as np
-from PyCompileAndRuntime import OMCompileExecutionSession
+from PyOMCompile import OMCompile
+from PyRuntime import OMExecutionSession
+
+# Compile the model
+try:
+    compiler = OMCompile("./mnist.onnx", "-O3 -o mnist2", reuse_compiled_model=0)
+except RuntimeError as e:
+    print(f"Compilation failed: {e}")
+    exit(1)
 
 # Load onnx model and create CompileExecutionSession object,
 # by first compiling the mnist.onnx model with the "-O3" options.
-session = OMCompileExecutionSession(
-    "./mnist.onnx", "-O3 -o=mnist2", reuse_compiled_model=1
-)
-if session.get_compiled_result():
-    print("error with :" + session.get_error_message())
-    exit(1)
+session = OMExecutionSession("./mnist2.so")
+
 # Print the models input/output signature, for display.
 # Signature functions for info only, commented out if they cause problems.
 print("input signature in json", session.input_signature())
@@ -807,8 +811,9 @@ input = np.array(
     np.dtype(np.float32),
 ).reshape(1, 1, 28, 28)
 
-# Run the model.
-outputs = session.run(input)
+# Run the model. It is best to always use the [] around the inputs as the inputs
+# are an vector of numpy arrays.
+outputs = session.run([input])
 # Analyze the output (first array in the list, of signature 1x10xf32).
 prediction = outputs[0]
 digit = -1

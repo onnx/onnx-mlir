@@ -36,7 +36,7 @@ endif()
 add_custom_command(
   OUTPUT ${OMRuntimeTestModelLibraryFiles}
   COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/gen_add_onnx.py
-  COMMAND onnx-mlir add.onnx -o ${OMRuntimeTestModelLibraryName}
+  COMMAND $<TARGET_FILE:onnx-mlir> add.onnx -o ${OMRuntimeTestModelLibraryName}
   WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
   DEPENDS onnx-mlir
   )
@@ -86,8 +86,9 @@ add_onnx_mlir_executable(OMRuntimeCppTest
   ${ONNX_MLIR_SRC_ROOT}/include
 
   LINK_LIBS PRIVATE
-  OMCompiler
+
   OMExecutionSession
+  OMCompile
   )
 
 set_output_directory(OMRuntimeCppTest BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR} LIBRARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
