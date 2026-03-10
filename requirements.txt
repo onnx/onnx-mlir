@@ -5,4 +5,4 @@ numpy>=1.26.4
 protobuf>=6.33.5
 onnx==1.17.0
 pytest>=9.0.2
-pytest-xdist>=3.8.0
+pytest-xdist>=3.4.0
