@@ -59,15 +59,13 @@ PyOMCompile::PyOMCompile(std::string modelPath, std::string flags,
 // Custom getters
 
 std::string PyOMCompile::pyGetOutputFilename() {
-  return onnx_mlir::OMCompile::getOutputFilename(modelPath, flags);
+  return OMcompile.getOutputFilename();
 }
 
 std::string PyOMCompile::pyGetOutputConstantFilename() {
-  return onnx_mlir::OMCompile::getOutputConstantFilename(modelPath, flags);
+  return OMcompile.getOutputConstantFilename();
 }
 
-std::string PyOMCompile::pyGetModelTag() {
-  return onnx_mlir::OMCompile::getModelTag(flags);
-}
+std::string PyOMCompile::pyGetModelTag() { return OMcompile.getModelTag(); }
 
 } // namespace onnx_mlir
