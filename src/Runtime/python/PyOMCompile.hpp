@@ -101,7 +101,7 @@ PYBIND11_MODULE(PyOMCompileC, m) {
           "    >>> output = compiler.get_output_file_name()\n"
           "    >>> print(output)  # e.g., '/home/me/mnist_opt.so' on Linux")
       .def("get_output_constant_file_name",
-          &onnx_mlir::PyOMCompile::pyGetOutputFilename,
+          &onnx_mlir::PyOMCompile::pyGetOutputConstantFilename,
           "Get the output filename of the compiled model constant file, if any.\n\n"
           "If the compiler did generate a data constant file, return its\n"
           "absolute path; otherwise, return an emtpy string.\n\n"

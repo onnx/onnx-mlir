@@ -47,13 +47,11 @@ PyOMCompile::PyOMCompile(std::string modelPath, std::string flags,
   }
   // Must compile?
   if (!reuseCompiledModel) {
-    try {
-      OMcompile.compile(modelPath, flags, logFilename);
-    } catch (const onnx_mlir::OMCompileException &error) {
-      std::string errorMessage = error.what();
-      std::cerr << errorMessage << std::endl;
-      throw onnx_mlir::OMCompileException(errorMessage);
-    }
+    // Let compilation exceptions propagate naturally to Python without
+    // printing to stderr. Python code can handle and display exceptions
+    // as needed, avoiding duplicate error messages.
+    // Old version caught and re-threw with stderr output, causing duplicates.
+    OMcompile.compile(modelPath, flags, logFilename);
   }
 }
 
@@ -62,6 +60,10 @@ PyOMCompile::PyOMCompile(std::string modelPath, std::string flags,
 
 std::string PyOMCompile::pyGetOutputFilename() {
   return onnx_mlir::OMCompile::getOutputFilename(modelPath, flags);
+}
+
+std::string PyOMCompile::pyGetOutputConstantFilename() {
+  return onnx_mlir::OMCompile::getOutputConstantFilename(modelPath, flags);
 }
 
 std::string PyOMCompile::pyGetModelTag() {

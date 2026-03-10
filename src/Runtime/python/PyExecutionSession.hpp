@@ -142,7 +142,7 @@ PYBIND11_MODULE(PyRuntimeC, m) {
           py::arg("shape"),
           py::arg("stride"),
           "Run inference on the model with signal handlers.\n\n"
-          "Same as run, but with signal handler (only effective in posix env).\n"
+          "Same as run, but with signal handlers (only effective in posix env).\n"
           "Handlers are not thread safe, execution may not be safe after catching \n"
           "a signal as process memory might be corrupted. Use for debugging purpose only.\n")
       .def("input_signature",
