@@ -105,6 +105,14 @@ LogicalResult XFEGlobalMaxPoolOpVerify(Operation *op) {
   return success();
 }
 
+LogicalResult XFEBatchNormalizationOpVerify(Operation *op) {
+  // BatchNormalizationChannelLast expects:
+  // - X: input tensor with channel-last layout (rank >= 3)
+  // - scale, B: 1D tensors of size C
+  // - input_mean, input_var: 1D tensors of size C
+  return success();
+}
+
 LogicalResult XFEInstanceNormalizationOpVerify(Operation *op) {
   // TODO: Implement verification for InstanceNormalizationChannelLast
   //

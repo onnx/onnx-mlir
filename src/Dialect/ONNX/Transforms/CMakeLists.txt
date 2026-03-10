@@ -54,6 +54,7 @@ add_onnx_mlir_library(OMONNXRewrite
   LegalizeQuarkQuantizedOps.cpp
   ONNXCSE.cpp
   QuantTypes.cpp
+  FixNegScale.cpp
   ConvertToChannelLast.cpp
   ResultNamesUpdater.cpp
   xmc/MergeSliceConcatPass.cpp

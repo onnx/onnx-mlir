@@ -283,6 +283,68 @@
   max_output: 1
 
 # ==============================================================================
+# BatchNormalization: Batch normalization with channel-last (NHWC) layout
+# Normalizes along the channel (last) dimension: y = scale * (x - mean) / sqrt(var + epsilon) + B
+# ==============================================================================
+- name: BatchNormalization
+  domain: com.amd.xfe
+  since_version: 1
+  support_level: COMMON
+  description: 'Batch normalization with channel-last layout (channels innermost). Carries out batch normalization with input/output tensors in channel-last format instead of NCHW. Uses pre-computed mean and variance for inference mode.'
+  meta_attributes:
+  - onnx_opset: 15
+  - verify: True
+  - fold: False
+  inputs:
+  - name: X
+    description: Input data tensor with channel-last layout (batch, spatial_dims..., channels)
+    type_str: T
+  - name: scale
+    description: 1D scale tensor of size C (number of channels)
+    type_str: T
+  - name: B
+    description: 1D bias tensor of size C (number of channels)
+    type_str: T
+  - name: input_mean
+    description: 1D running mean tensor of size C
+    type_str: U
+  - name: input_var
+    description: 1D running variance tensor of size C
+    type_str: U
+  outputs:
+  - name: Y
+    description: Output data tensor with channel-last layout, same shape as input
+    type_str: T
+  attributes:
+  - name: epsilon
+    description: Small value to add to variance to avoid division by zero
+    type: float
+    default_value: 1e-05
+  - name: momentum
+    description: Factor used in computing the running mean and variance (unused in inference)
+    type: float
+    default_value: 0.9
+  type_constraints:
+  - type_param: T
+    description: Constrain input and output types to float tensors.
+    allowed_types:
+    - tensor(float16)
+    - tensor(float)
+    - tensor(double)
+    - tensor(bfloat16)
+  - type_param: U
+    description: Constrain mean and var types to float tensors.
+    allowed_types:
+    - tensor(float16)
+    - tensor(float)
+    - tensor(double)
+    - tensor(bfloat16)
+  min_input: 5
+  max_input: 5
+  min_output: 1
+  max_output: 1
+
+# ==============================================================================
 # InstanceNormalization: Instance normalization with channel-last (NHWC) layout
 # Normalizes per instance per channel: y = scale * (x - mean) / sqrt(variance + epsilon) + B
 # ==============================================================================
