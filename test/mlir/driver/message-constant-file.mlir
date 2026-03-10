@@ -10,4 +10,4 @@ module {
 
 // CHECK: [1/6] {{.*}} Importing ONNX Model to MLIR Module from
 // CHECK: [2/6] {{.*}} Compiling and Optimizing MLIR Module
-// CHECK-NEXT: Constants in the model exceeds the thresholds (single constant <= {{.*}} KB, total constants <= {{.*}} GB). Stored them in an external file: {{.*}}.constants.bin". Make sure to put this file in the same folder as the generated model or set OM_CONSTANT_PATH to the folder having this file. For constants-related settings, see options --store-constants-to-file, --constants-to-file-single-threshold and --constants-to-file-total-threshold.
+// CHECK-NEXT: Constants in the model exceed the thresholds (single constant <= {{.*}} KB, total constants <= {{.*}} GB). Stored them in an external file: "{{.*}}.constants.bin". Make sure to put this file in the same folder as the generated model or set OM_CONSTANT_PATH to the folder having this file. For constants-related settings, see options --store-constants-to-file, --constants-to-file-single-threshold and --constants-to-file-total-threshold.
