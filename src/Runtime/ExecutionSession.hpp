@@ -116,7 +116,7 @@ public:
 
 protected:
   // Error reporting processing when throwing runtime errors.
-  std::string reportErrnoError(bool fromSignal=false) const;
+  std::string reportErrnoError(bool fromSignal = false) const;
 
 #if !defined(_WIN32)
   // Signal handling infrastructure (POSIX only)

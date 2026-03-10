@@ -62,7 +62,8 @@ protected:
   PyExecutionSessionBase() : onnx_mlir::ExecutionSession() {}
 
 private:
-  std::vector<py::array> pyRunInternal(const std::vector<py::array> &inputsPyArray,
+  std::vector<py::array> pyRunInternal(
+      const std::vector<py::array> &inputsPyArray,
       const std::vector<py::array> &shapesPyArray,
       const std::vector<py::array> &stridesPyArray, bool useSignalHandler);
 };

@@ -392,7 +392,7 @@ OMTensorList *ExecutionSession::runWithSignalHandler(OMTensorList *input) {
     output = _entryPointFunc(input);
 
 #if 0
-    #warning "Injecting a null ptr dereferencing for testing only."
+#warning "Injecting a null ptr dereferencing for testing only."
     float *nullPtr = nullptr;
     fprintf(stderr, "about to dereference a null pointer\n");
     fprintf(stderr, "%f\n", *nullPtr);
