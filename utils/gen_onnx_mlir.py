@@ -1745,13 +1745,17 @@ def gen_op_importer(domain, name, file, since_version=None):
 
     mappedName = map_op_name_to_onnx_mlir_name(opName, domain)
     s = indent + 'import_handler_map_["{}"]["{}"] = \n '.format(domain, opName)
+    if domain and domain not in ["", "ai.onnx.ml", "ai.onnx.preview.training"]:
+        mlir_op_name = domain_abrv_dict[domain] + opName
+    else:
+        mlir_op_name = opName
 
     # Only support special op handler for the op without version.
     if since_version is not None:
         handler_func = "buildOperation<mlir::{}>".format(mappedName)
     else:
         handler_func = special_op_handler.get(
-            name, "buildOperation<mlir::{}>".format(mappedName)
+            mlir_op_name, "buildOperation<mlir::{}>".format(mappedName)
         )
 
     s += inc_indent(indent) + "&onnx_mlir::detail::FrontendGenImpl::"

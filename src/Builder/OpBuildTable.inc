@@ -748,7 +748,7 @@ import_handler_map_["com.amd.xcompiler"]["Requantize"] =
 import_handler_map_["com.amd.xfe"]["AveragePool"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEAveragePoolOp>;
 import_handler_map_["com.amd.xfe"]["BatchNormalization"] = 
-   &onnx_mlir::detail::FrontendGenImpl::ImportNodeBatchNormalization;
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEBatchNormalizationOp>;
 import_handler_map_["com.amd.xfe"]["Conv"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEConvOp>;
 import_handler_map_["com.amd.xfe"]["ConvTranspose"] = 
@@ -764,7 +764,7 @@ import_handler_map_["com.amd.xfe"]["InstanceNormalization"] =
 import_handler_map_["com.amd.xfe"]["MatMulBias"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEMatMulBiasOp>;
 import_handler_map_["com.amd.xfe"]["MaxPool"] = 
-   &onnx_mlir::detail::FrontendGenImpl::ImportNodeMaxPool;
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEMaxPoolOp>;
 import_handler_map_["com.amd.xfe"]["Resize"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEResizeOp>;
 import_handler_map_["com.amd.xfe"]["SpaceToDepth"] = 
@@ -786,13 +786,13 @@ import_handler_map_["com.amd.xfe"]["ConvTranspose"] =
 import_handler_map_["com.amd.xfe"]["AveragePool"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEAveragePoolOp>;
 import_handler_map_["com.amd.xfe"]["MaxPool"] = 
-   &onnx_mlir::detail::FrontendGenImpl::ImportNodeMaxPool;
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEMaxPoolOp>;
 import_handler_map_["com.amd.xfe"]["GlobalAveragePool"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEGlobalAveragePoolOp>;
 import_handler_map_["com.amd.xfe"]["GlobalMaxPool"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEGlobalMaxPoolOp>;
 import_handler_map_["com.amd.xfe"]["BatchNormalization"] = 
-   &onnx_mlir::detail::FrontendGenImpl::ImportNodeBatchNormalization;
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEBatchNormalizationOp>;
 import_handler_map_["com.amd.xfe"]["InstanceNormalization"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEInstanceNormalizationOp>;
 import_handler_map_["com.amd.xfe"]["DepthToSpace"] = 
