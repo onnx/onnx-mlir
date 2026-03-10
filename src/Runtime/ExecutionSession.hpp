@@ -133,6 +133,7 @@ protected:
 
   // Entry point for printing instrumentation
   const std::string _printInstrumentationName = "omInstrumentPrint";
+  const bool silentlyIgnoreMissingPrintInstrumentationFunc = true;
   printInstrumentationFuncType _printInstrumentationFunc = nullptr;
 };
 
