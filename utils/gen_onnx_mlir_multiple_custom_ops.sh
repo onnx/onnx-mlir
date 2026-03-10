@@ -14,6 +14,10 @@ ls *.td
 cp *.td ../src/Dialect/ONNX/
 echo "========================================================="
 
+echo "Copying OpBuildTable.inc to ../src/Builder/"
+cp OpBuildTable.inc ../src/Builder/
+echo "========================================================="
+
 # extract prefix from .td file names (until <prefix>Ops.td)
 prefixes=()
 for td_file in *Ops.td; do

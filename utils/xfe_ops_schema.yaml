@@ -431,6 +431,8 @@
     - tensor(float)
     - tensor(double)
     - tensor(bfloat16)
+    - tensor(int8)
+    - tensor(uint8)
   - type_param: U
     description: Constrain mean and var types to float tensors.
     allowed_types:

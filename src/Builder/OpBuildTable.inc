@@ -221,6 +221,7 @@ dialect_op_version_map_["com.amd.xcompiler"]["DepthwiseConv"] = {1};
 dialect_op_version_map_["com.amd.xcompiler"]["Requantize"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["MatMulBias"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["Conv"] = {1};
+dialect_op_version_map_["com.amd.xfe"]["ConvTranspose"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["AveragePool"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["MaxPool"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["GlobalAveragePool"] = {1};
@@ -236,6 +237,7 @@ dialect_op_version_map_["com.amd.xcompiler"]["DepthwiseConv"] = {1};
 dialect_op_version_map_["com.amd.xcompiler"]["Requantize"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["MatMulBias"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["Conv"] = {1};
+dialect_op_version_map_["com.amd.xfe"]["ConvTranspose"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["AveragePool"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["MaxPool"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["GlobalAveragePool"] = {1};
@@ -743,8 +745,30 @@ import_handler_map_["com.amd.xcompiler"]["FusedEltwise"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XCOMPILERFusedEltwiseOp>;
 import_handler_map_["com.amd.xcompiler"]["Requantize"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XCOMPILERRequantizeOp>;
+import_handler_map_["com.amd.xfe"]["AveragePool"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEAveragePoolOp>;
+import_handler_map_["com.amd.xfe"]["BatchNormalization"] = 
+   &onnx_mlir::detail::FrontendGenImpl::ImportNodeBatchNormalization;
+import_handler_map_["com.amd.xfe"]["Conv"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEConvOp>;
+import_handler_map_["com.amd.xfe"]["ConvTranspose"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEConvTransposeOp>;
+import_handler_map_["com.amd.xfe"]["DepthToSpace"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEDepthToSpaceOp>;
+import_handler_map_["com.amd.xfe"]["GlobalAveragePool"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEGlobalAveragePoolOp>;
+import_handler_map_["com.amd.xfe"]["GlobalMaxPool"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEGlobalMaxPoolOp>;
+import_handler_map_["com.amd.xfe"]["InstanceNormalization"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEInstanceNormalizationOp>;
 import_handler_map_["com.amd.xfe"]["MatMulBias"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEMatMulBiasOp>;
+import_handler_map_["com.amd.xfe"]["MaxPool"] = 
+   &onnx_mlir::detail::FrontendGenImpl::ImportNodeMaxPool;
+import_handler_map_["com.amd.xfe"]["Resize"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEResizeOp>;
+import_handler_map_["com.amd.xfe"]["SpaceToDepth"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFESpaceToDepthOp>;
 import_handler_map_["com.amd.quark"]["BFPQuantizeDequantize"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::AMDQuarkBFPQuantizeDequantizeOp>;
 import_handler_map_["com.amd.xcompiler"]["FusedEltwise"] = 
@@ -757,6 +781,8 @@ import_handler_map_["com.amd.xfe"]["MatMulBias"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEMatMulBiasOp>;
 import_handler_map_["com.amd.xfe"]["Conv"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEConvOp>;
+import_handler_map_["com.amd.xfe"]["ConvTranspose"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEConvTransposeOp>;
 import_handler_map_["com.amd.xfe"]["AveragePool"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEAveragePoolOp>;
 import_handler_map_["com.amd.xfe"]["MaxPool"] = 
@@ -766,7 +792,7 @@ import_handler_map_["com.amd.xfe"]["GlobalAveragePool"] =
 import_handler_map_["com.amd.xfe"]["GlobalMaxPool"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEGlobalMaxPoolOp>;
 import_handler_map_["com.amd.xfe"]["BatchNormalization"] = 
-   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEBatchNormalizationOp>;
+   &onnx_mlir::detail::FrontendGenImpl::ImportNodeBatchNormalization;
 import_handler_map_["com.amd.xfe"]["InstanceNormalization"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEInstanceNormalizationOp>;
 import_handler_map_["com.amd.xfe"]["DepthToSpace"] = 
@@ -797,8 +823,8 @@ dialect_op_opsets_map_[""]["BitwiseNot"] = {18};
 dialect_op_opsets_map_[""]["BitwiseOr"] = {18};
 dialect_op_opsets_map_[""]["BitwiseXor"] = {18};
 dialect_op_opsets_map_[""]["BlackmanWindow"] = {17};
-dialect_op_opsets_map_[""]["Cast"] = {24, 23, 21, 19, 13, 9, 6, 1};
-dialect_op_opsets_map_[""]["CastLike"] = {24, 23, 21, 19, 15};
+dialect_op_opsets_map_[""]["Cast"] = {25, 24, 23, 21, 19, 13, 9, 6, 1};
+dialect_op_opsets_map_[""]["CastLike"] = {25, 24, 23, 21, 19, 15};
 dialect_op_opsets_map_[""]["Ceil"] = {13, 6, 1};
 dialect_op_opsets_map_[""]["Celu"] = {12};
 dialect_op_opsets_map_[""]["CenterCropPad"] = {18};
@@ -807,8 +833,8 @@ dialect_op_opsets_map_[""]["Col2Im"] = {18};
 dialect_op_opsets_map_[""]["Compress"] = {11, 9};
 dialect_op_opsets_map_[""]["Concat"] = {13, 11, 4, 1};
 dialect_op_opsets_map_[""]["ConcatFromSequence"] = {11};
-dialect_op_opsets_map_[""]["Constant"] = {24, 23, 21, 19, 13, 12, 11, 9, 1};
-dialect_op_opsets_map_[""]["ConstantOfShape"] = {24, 23, 21, 20, 9};
+dialect_op_opsets_map_[""]["Constant"] = {25, 24, 23, 21, 19, 13, 12, 11, 9, 1};
+dialect_op_opsets_map_[""]["ConstantOfShape"] = {25, 24, 23, 21, 20, 9};
 dialect_op_opsets_map_[""]["Conv"] = {22, 11, 1};
 dialect_op_opsets_map_[""]["ConvInteger"] = {10};
 dialect_op_opsets_map_[""]["ConvTranspose"] = {22, 11, 1};
@@ -818,7 +844,7 @@ dialect_op_opsets_map_[""]["CumSum"] = {14, 11};
 dialect_op_opsets_map_[""]["DFT"] = {20, 17};
 dialect_op_opsets_map_[""]["DeformConv"] = {22, 19};
 dialect_op_opsets_map_[""]["DepthToSpace"] = {13, 11, 1};
-dialect_op_opsets_map_[""]["DequantizeLinear"] = {24, 23, 21, 19, 13, 10};
+dialect_op_opsets_map_[""]["DequantizeLinear"] = {25, 24, 23, 21, 19, 13, 10};
 dialect_op_opsets_map_[""]["Det"] = {22, 11};
 dialect_op_opsets_map_[""]["Div"] = {14, 13, 7, 6, 1};
 dialect_op_opsets_map_[""]["Dropout"] = {22, 13, 12, 10, 7, 6, 1};
@@ -830,7 +856,7 @@ dialect_op_opsets_map_[""]["Erf"] = {13, 9};
 dialect_op_opsets_map_[""]["Exp"] = {13, 6, 1};
 dialect_op_opsets_map_[""]["Expand"] = {13, 8};
 dialect_op_opsets_map_[""]["EyeLike"] = {22, 9};
-dialect_op_opsets_map_[""]["Flatten"] = {24, 23, 21, 13, 11, 9, 1};
+dialect_op_opsets_map_[""]["Flatten"] = {25, 24, 23, 21, 13, 11, 9, 1};
 dialect_op_opsets_map_[""]["Floor"] = {13, 6, 1};
 dialect_op_opsets_map_[""]["GRU"] = {22, 14, 7, 3, 1};
 dialect_op_opsets_map_[""]["Gather"] = {13, 11, 1};
@@ -850,8 +876,8 @@ dialect_op_opsets_map_[""]["HannWindow"] = {17};
 dialect_op_opsets_map_[""]["HardSigmoid"] = {22, 6, 1};
 dialect_op_opsets_map_[""]["HardSwish"] = {22, 14};
 dialect_op_opsets_map_[""]["Hardmax"] = {13, 11, 1};
-dialect_op_opsets_map_[""]["Identity"] = {24, 23, 21, 19, 16, 14, 13, 1};
-dialect_op_opsets_map_[""]["If"] = {24, 23, 21, 19, 16, 13, 11, 1};
+dialect_op_opsets_map_[""]["Identity"] = {25, 24, 23, 21, 19, 16, 14, 13, 1};
+dialect_op_opsets_map_[""]["If"] = {25, 24, 23, 21, 19, 16, 13, 11, 1};
 dialect_op_opsets_map_[""]["ImageDecoder"] = {20};
 dialect_op_opsets_map_[""]["InstanceNormalization"] = {22, 6, 1};
 dialect_op_opsets_map_[""]["IsInf"] = {20, 10};
@@ -864,7 +890,7 @@ dialect_op_opsets_map_[""]["Less"] = {13, 9, 7, 1};
 dialect_op_opsets_map_[""]["LessOrEqual"] = {16, 12};
 dialect_op_opsets_map_[""]["Log"] = {13, 6, 1};
 dialect_op_opsets_map_[""]["LogSoftmax"] = {13, 11, 1};
-dialect_op_opsets_map_[""]["Loop"] = {24, 23, 21, 19, 16, 13, 11, 1};
+dialect_op_opsets_map_[""]["Loop"] = {25, 24, 23, 21, 19, 16, 13, 11, 1};
 dialect_op_opsets_map_[""]["LpNormalization"] = {22, 1};
 dialect_op_opsets_map_[""]["LpPool"] = {22, 18, 11, 2, 1};
 dialect_op_opsets_map_[""]["MatMul"] = {13, 9, 1};
@@ -892,11 +918,11 @@ dialect_op_opsets_map_[""]["OptionalGetElement"] = {18, 15};
 dialect_op_opsets_map_[""]["OptionalHasElement"] = {18, 15};
 dialect_op_opsets_map_[""]["Or"] = {7, 1};
 dialect_op_opsets_map_[""]["PRelu"] = {16, 9, 7, 6, 1};
-dialect_op_opsets_map_[""]["Pad"] = {24, 23, 21, 19, 18, 13, 11, 2, 1};
+dialect_op_opsets_map_[""]["Pad"] = {25, 24, 23, 21, 19, 18, 13, 11, 2, 1};
 dialect_op_opsets_map_[""]["Pow"] = {15, 13, 12, 7, 1};
 dialect_op_opsets_map_[""]["QLinearConv"] = {10};
 dialect_op_opsets_map_[""]["QLinearMatMul"] = {21, 10};
-dialect_op_opsets_map_[""]["QuantizeLinear"] = {24, 23, 21, 19, 13, 10};
+dialect_op_opsets_map_[""]["QuantizeLinear"] = {25, 24, 23, 21, 19, 13, 10};
 dialect_op_opsets_map_[""]["RMSNormalization"] = {23};
 dialect_op_opsets_map_[""]["RNN"] = {22, 14, 7, 1};
 dialect_op_opsets_map_[""]["RandomNormal"] = {22, 1};
@@ -917,14 +943,14 @@ dialect_op_opsets_map_[""]["ReduceSum"] = {13, 11, 1};
 dialect_op_opsets_map_[""]["ReduceSumSquare"] = {18, 13, 11, 1};
 dialect_op_opsets_map_[""]["RegexFullMatch"] = {20};
 dialect_op_opsets_map_[""]["Relu"] = {14, 13, 6, 1};
-dialect_op_opsets_map_[""]["Reshape"] = {24, 23, 21, 19, 14, 13, 5, 1};
+dialect_op_opsets_map_[""]["Reshape"] = {25, 24, 23, 21, 19, 14, 13, 5, 1};
 dialect_op_opsets_map_[""]["Resize"] = {19, 18, 13, 11, 10};
 dialect_op_opsets_map_[""]["ReverseSequence"] = {10};
 dialect_op_opsets_map_[""]["RoiAlign"] = {22, 16, 10};
 dialect_op_opsets_map_[""]["RotaryEmbedding"] = {23};
 dialect_op_opsets_map_[""]["Round"] = {22, 11};
 dialect_op_opsets_map_[""]["STFT"] = {17};
-dialect_op_opsets_map_[""]["Scan"] = {24, 23, 21, 19, 16, 11, 9, 8};
+dialect_op_opsets_map_[""]["Scan"] = {25, 24, 23, 21, 19, 16, 11, 9, 8};
 dialect_op_opsets_map_[""]["Scatter"] = {11, 9};
 dialect_op_opsets_map_[""]["ScatterElements"] = {18, 16, 13, 11};
 dialect_op_opsets_map_[""]["ScatterND"] = {18, 16, 13, 11};
@@ -936,13 +962,13 @@ dialect_op_opsets_map_[""]["SequenceErase"] = {11};
 dialect_op_opsets_map_[""]["SequenceInsert"] = {11};
 dialect_op_opsets_map_[""]["SequenceLength"] = {11};
 dialect_op_opsets_map_[""]["SequenceMap"] = {17};
-dialect_op_opsets_map_[""]["Shape"] = {24, 23, 21, 19, 15, 13, 1};
+dialect_op_opsets_map_[""]["Shape"] = {25, 24, 23, 21, 19, 15, 13, 1};
 dialect_op_opsets_map_[""]["Shrink"] = {9};
 dialect_op_opsets_map_[""]["Sigmoid"] = {13, 6, 1};
 dialect_op_opsets_map_[""]["Sign"] = {13, 9};
 dialect_op_opsets_map_[""]["Sin"] = {22, 7};
 dialect_op_opsets_map_[""]["Sinh"] = {22, 9};
-dialect_op_opsets_map_[""]["Size"] = {24, 23, 21, 19, 13, 1};
+dialect_op_opsets_map_[""]["Size"] = {25, 24, 23, 21, 19, 13, 1};
 dialect_op_opsets_map_[""]["Slice"] = {13, 11, 10, 1};
 dialect_op_opsets_map_[""]["Softmax"] = {13, 11, 1};
 dialect_op_opsets_map_[""]["SoftmaxCrossEntropyLoss"] = {13, 12};
@@ -952,7 +978,7 @@ dialect_op_opsets_map_[""]["SpaceToDepth"] = {13, 1};
 dialect_op_opsets_map_[""]["Split"] = {18, 13, 11, 2, 1};
 dialect_op_opsets_map_[""]["SplitToSequence"] = {24, 11};
 dialect_op_opsets_map_[""]["Sqrt"] = {13, 6, 1};
-dialect_op_opsets_map_[""]["Squeeze"] = {24, 23, 21, 13, 11, 1};
+dialect_op_opsets_map_[""]["Squeeze"] = {25, 24, 23, 21, 13, 11, 1};
 dialect_op_opsets_map_[""]["StringConcat"] = {20};
 dialect_op_opsets_map_[""]["StringNormalizer"] = {10};
 dialect_op_opsets_map_[""]["StringSplit"] = {20};
@@ -966,10 +992,10 @@ dialect_op_opsets_map_[""]["TfIdfVectorizer"] = {9};
 dialect_op_opsets_map_[""]["ThresholdedRelu"] = {22, 10};
 dialect_op_opsets_map_[""]["Tile"] = {13, 6, 1};
 dialect_op_opsets_map_[""]["TopK"] = {24, 11, 10, 1};
-dialect_op_opsets_map_[""]["Transpose"] = {24, 23, 21, 13, 1};
+dialect_op_opsets_map_[""]["Transpose"] = {25, 24, 23, 21, 13, 1};
 dialect_op_opsets_map_[""]["Trilu"] = {14};
 dialect_op_opsets_map_[""]["Unique"] = {11};
-dialect_op_opsets_map_[""]["Unsqueeze"] = {24, 23, 21, 13, 11, 1};
+dialect_op_opsets_map_[""]["Unsqueeze"] = {25, 24, 23, 21, 13, 11, 1};
 dialect_op_opsets_map_[""]["Upsample"] = {10, 9, 7, 1};
 dialect_op_opsets_map_[""]["Where"] = {16, 9};
 dialect_op_opsets_map_[""]["Xor"] = {7, 1};
@@ -1002,6 +1028,7 @@ dialect_op_opsets_map_["com.amd.xcompiler"]["Requantize"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["AveragePool"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["BatchNormalization"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["Conv"] = {1};
+dialect_op_opsets_map_["com.amd.xfe"]["ConvTranspose"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["DepthToSpace"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["GlobalAveragePool"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["GlobalMaxPool"] = {1};
@@ -1016,6 +1043,7 @@ dialect_op_opsets_map_["com.amd.xcompiler"]["DepthwiseConv"] = {1};
 dialect_op_opsets_map_["com.amd.xcompiler"]["Requantize"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["MatMulBias"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["Conv"] = {1};
+dialect_op_opsets_map_["com.amd.xfe"]["ConvTranspose"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["AveragePool"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["MaxPool"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["GlobalAveragePool"] = {1};
