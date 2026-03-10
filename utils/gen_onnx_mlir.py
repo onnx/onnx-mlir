@@ -286,7 +286,7 @@ version_dict = {
         "TfIdfVectorizer": [9],
         "ThresholdedRelu": [22],
         "Tile": [13],
-        "TopK": [11],
+        "TopK": [24],
         "Transpose": [21],
         "Trilu": [14],
         "Unique": [11],
@@ -626,10 +626,6 @@ OpsWithVerifier = [
 
 # Op with fold function
 OpsWithFolder = ["Constant", "Squeeze", "SqueezeV11", "ReduceMean", "Slice"]
-
-# Dynamic lists for custom ops with verify and fold (populated at runtime)
-CustomOpsWithVerifier = []
-CustomOpsWithFolder = []
 
 # Op with ConstantLike trait
 OpsWithConstantLike = ["Constant"]
@@ -1700,10 +1696,14 @@ def gen_op_def(schema, with_version=False):
         s += custom_definition_misc[opName] + "\n"
 
     ###########################################
-    # Generate decl for verifier.
-    if opName in OpsWithVerifier or opName in CustomOpsWithVerifier:
+    # Generate decl for verifier/folder.
+    custom_meta = getattr(schema, "meta_attributes", {})
+    custom_has_verifier = bool(custom_meta.get("verify", False))
+    custom_has_folder = bool(custom_meta.get("fold", False))
+
+    if opName in OpsWithVerifier or custom_has_verifier:
         s += indent + "let hasVerifier = 1;\n"
-    if opName in OpsWithFolder or opName in CustomOpsWithFolder:
+    if opName in OpsWithFolder or custom_has_folder:
         s += indent + "let hasFolder = 1;\n"
     s += "}\n\n"
     return s
@@ -1862,7 +1862,7 @@ def main(args):  # type: (Type[Args]) -> None
         custom_ops = load_custom_ops_from_yaml(args.custom_ops_yaml)
         print(f"Loaded {len(custom_ops)} custom operations from {args.custom_ops_yaml}")
 
-        # Build version dict for custom ops and populate verifier/folder lists
+        # Build version dict for custom ops.
         for op in custom_ops:
             if op.domain not in custom_version_dict:
                 custom_version_dict[op.domain] = {}
@@ -1876,16 +1876,10 @@ def main(args):  # type: (Type[Args]) -> None
                 domain_abrv_dict[op.domain] = abbrev
                 print(f"Registered new domain: {op.domain} -> {abbrev}")
 
-            # Check meta_attributes for verify and fold
-            domain_abbrev = domain_abrv_dict.get(op.domain, op.domain.upper())
-            op_name = f"{domain_abbrev}{op.name}Op"
-
             if op.meta_attributes.get("verify", False):
-                CustomOpsWithVerifier.append(op.name)
                 print(f"  {op.name}: verify enabled")
 
             if op.meta_attributes.get("fold", False):
-                CustomOpsWithFolder.append(op.name)
                 print(f"  {op.name}: fold enabled")
 
         # Merge custom_version_dict into version_dict so custom ops are generated

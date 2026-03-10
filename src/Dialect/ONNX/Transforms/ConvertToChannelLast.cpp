@@ -19,6 +19,7 @@
 // - MaxPool -> XFEMaxPool
 // - GlobalAveragePool -> XFEGlobalAveragePool
 // - GlobalMaxPool -> XFEGlobalMaxPool
+// - BatchNormalizationInferenceMode -> XFEBatchNormalization
 // - InstanceNormalization -> XFEInstanceNormalization
 // - DepthToSpace -> XFEDepthToSpace
 // - SpaceToDepth -> XFESpaceToDepth
@@ -531,6 +532,59 @@ struct GlobalMaxPoolToChannelLastPattern
   }
 };
 
+// Pattern to convert BatchNormalizationInferenceMode to XFEBatchNormalization
+struct BatchNormToChannelLastPattern
+    : public OpRewritePattern<ONNXBatchNormalizationInferenceModeOp> {
+  using OpRewritePattern<
+      ONNXBatchNormalizationInferenceModeOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(ONNXBatchNormalizationInferenceModeOp bnOp,
+      PatternRewriter &rewriter) const override {
+    Location loc = bnOp.getLoc();
+    Value input = bnOp.getX();
+    Value scale = bnOp.getScale();
+    Value B = bnOp.getB();
+    Value mean = bnOp.getMean();
+    Value var = bnOp.getVar();
+
+    auto inputType = mlir::dyn_cast<RankedTensorType>(input.getType());
+    if (!inputType || inputType.getRank() < 3)
+      return failure();
+
+    int64_t rank = inputType.getRank();
+
+    // Transpose input to channel-last
+    Value inputChannelLast = createInputTranspose(
+        rewriter, loc, input, rank, inputType.getElementType());
+
+    // Create XFEBatchNormalization operation
+    auto origOutputType = mlir::cast<ShapedType>(bnOp.getType());
+    Type outputElementType = origOutputType.getElementType();
+    auto bnChannelLastOp = rewriter.create<XFEBatchNormalizationOp>(loc,
+        UnrankedTensorType::get(outputElementType), inputChannelLast, scale, B,
+        mean, var, bnOp.getEpsilonAttr(), bnOp.getMomentumAttr());
+
+    // Transfer onnx_node_name attribute
+    transferOnnxNodeName(bnOp, bnChannelLastOp);
+
+    // Run shape inference
+    if (failed(bnChannelLastOp.inferShapes(nullptr))) {
+      return failure();
+    }
+
+    // Transpose output back to NCHW
+    auto xfeOutputType =
+        mlir::cast<ShapedType>(bnChannelLastOp.getY().getType());
+    auto transposeOutputType = RankedTensorType::get(
+        origOutputType.getShape(), xfeOutputType.getElementType());
+    Value outputNCHW = createOutputTranspose(
+        rewriter, loc, bnChannelLastOp.getY(), transposeOutputType, rank);
+
+    rewriter.replaceOp(bnOp, outputNCHW);
+    return success();
+  }
+};
+
 // Pattern to convert InstanceNormalization to XFEInstanceNormalization
 struct InstanceNormToChannelLastPattern
     : public OpRewritePattern<ONNXInstanceNormalizationOp> {
@@ -968,6 +1022,7 @@ struct ConvertToChannelLastPass : public PassWrapper<ConvertToChannelLastPass,
     patterns.add<MaxPoolToChannelLastPattern>(context);
     patterns.add<GlobalAveragePoolToChannelLastPattern>(context);
     patterns.add<GlobalMaxPoolToChannelLastPattern>(context);
+    patterns.add<BatchNormToChannelLastPattern>(context);
     patterns.add<InstanceNormToChannelLastPattern>(context);
     patterns.add<DepthToSpaceToChannelLastPattern>(context);
     patterns.add<SpaceToDepthToChannelLastPattern>(context);
