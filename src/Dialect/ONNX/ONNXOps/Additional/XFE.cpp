@@ -80,6 +80,12 @@ LogicalResult XFEResizeOp::inferShapes(
   return XFEResizeOpShapeInference(this->getOperation(), doShapeInference);
 }
 
+LogicalResult XFEBatchNormalizationOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  return XFEBatchNormalizationOpShapeInference(
+      this->getOperation(), doShapeInference);
+}
+
 // ============================================================
 // Verify
 // ============================================================
@@ -147,5 +153,9 @@ LogicalResult XFESpaceToDepthOp::verify() {
 LogicalResult XFEResizeOp::verify() {
   if (failed(XFEResizeOpVerify(this->getOperation())))
     return failure();
+  return XFEChannelWiseQuantizationVerify(this->getOperation());
+}
+
+LogicalResult XFEBatchNormalizationOp::verify() {
   return XFEChannelWiseQuantizationVerify(this->getOperation());
 }

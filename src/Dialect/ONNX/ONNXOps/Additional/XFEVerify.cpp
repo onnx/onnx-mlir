@@ -34,9 +34,10 @@ static LogicalResult verifyPerAxisQuantAxis(
     return success();
   int32_t quantAxis = perAxisType.getQuantizedDimension();
   if (static_cast<int64_t>(quantAxis) != expectedAxis)
-    return op->emitError()
-           << tensorName << " per-axis quantization axis is " << quantAxis
-           << ", but channel-last layout requires axis " << expectedAxis;
+    return op->emitError() << tensorName << " per-axis quantization axis is "
+                           << quantAxis
+                           << ", but channel-last layout requires axis "
+                           << expectedAxis;
   return success();
 }
 
@@ -214,7 +215,8 @@ LogicalResult XFEMaxPoolOpVerify(Operation *op) {
   auto xType = mlir::cast<ShapedType>(X.getType());
   auto xShape = xType.getShape();
   if (xShape.size() < 3)
-    return op->emitError("MaxPoolChannelLast requires at least 3D input tensor");
+    return op->emitError(
+        "MaxPoolChannelLast requires at least 3D input tensor");
 
   int64_t numSpatialDims = static_cast<int64_t>(xShape.size()) - 2;
   auto kernelShapeAttr = poolOp.getKernelShape();
