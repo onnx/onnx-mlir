@@ -7,44 +7,73 @@ cd "$REPO_ROOT/utils"
 # Run gen_onnx_mlir.py and copy auto-generated files
 bash gen_onnx_mlir_multiple_custom_ops.sh > /dev/null 2>&1
 
+# Build the exact list of destination files (mirroring gen_onnx_mlir_multiple_custom_ops.sh copy logic)
+generated_files=()
+
+generated_files+=("src/Builder/OpBuildTable.inc")
+generated_files+=("src/Dialect/ONNX/ONNXOps.td.inc")
+
+for td_file in *.td; do
+  generated_files+=("src/Dialect/ONNX/$td_file")
+done
+
+prefixes=()
+for td_file in *Ops.td; do
+  prefixes+=("${td_file%Ops.td}")
+done
+
+cpp_hpp_files=()
+for prefix in "${prefixes[@]}"; do
+  for f in ${prefix}*.cpp ${prefix}*.hpp; do
+    case "$f" in
+      *ShapeInference.cpp|*Verify.cpp) continue ;;
+    esac
+    generated_files+=("src/Dialect/ONNX/ONNXOps/Additional/$f")
+    cpp_hpp_files+=("src/Dialect/ONNX/ONNXOps/Additional/$f")
+  done
+done
+
 cd "$REPO_ROOT"
 
-CLANG_FORMAT="${CLANG_FORMAT:-clang-format-9}"
-if ! command -v "$CLANG_FORMAT" &> /dev/null; then
-  echo "::warning::$CLANG_FORMAT not found, falling back to clang-format"
-  CLANG_FORMAT="clang-format"
+# Run clang-format only on the generated C++ files
+if [ ${#cpp_hpp_files[@]} -gt 0 ]; then
+  clang-format -i "${cpp_hpp_files[@]}"
 fi
 
-# Run clang-format only on the C++ files produced by the generator
-find src/Dialect/ONNX/ONNXOps/Additional -name '*.cpp' -o -name '*.hpp' | xargs "$CLANG_FORMAT" -i
-
-# Check for expected manual edits in ONNXOps.td.inc
-if ! git diff --quiet -- src/Dialect/ONNX/ONNXOps.td.inc; then
-  inc_diff=$(git diff -- src/Dialect/ONNX/ONNXOps.td.inc)
-  num_hunks=$(echo "$inc_diff" | grep -c '^@@')
-  is_known_bf16_diff=$(echo "$inc_diff" | grep -c 'FIXME(FXML-4138)')
-  if [ "$num_hunks" -eq 1 ] && [ "$is_known_bf16_diff" -ge 1 ]; then
-    echo "::warning::ONNXOps.td.inc has the expected FXML-4138 BF16 manual edit diff — skipping."
-    git checkout -- src/Dialect/ONNX/ONNXOps.td.inc
+# Handle ONNXOps.td.inc separately: allow the known FXML-4138 BF16 manual edit
+check_files=()
+for f in "${generated_files[@]}"; do
+  if [ "$f" = "src/Dialect/ONNX/ONNXOps.td.inc" ]; then
+    if ! git diff --quiet -- "$f"; then
+      inc_diff=$(git diff -- "$f")
+      num_hunks=$(echo "$inc_diff" | grep -c '^@@')
+      is_known_bf16_diff=$(echo "$inc_diff" | grep -c 'FIXME(FXML-4138)')
+      if [ "$num_hunks" -eq 1 ] && [ "$is_known_bf16_diff" -ge 1 ]; then
+        echo "::warning::ONNXOps.td.inc has the expected FXML-4138 BF16 manual edit diff — skipping."
+        git checkout -- "$f"
+      else
+        echo "::error::ONNXOps.td.inc has unexpected differences beyond the known FXML-4138 BF16 edit."
+        echo "$inc_diff"
+        exit 1
+      fi
+    fi
   else
-    echo "::error::ONNXOps.td.inc has unexpected differences beyond the known FXML-4138 BF16 edit."
-    echo "$inc_diff"
+    check_files+=("$f")
+  fi
+done
+
+# Check for diffs only in the generated files
+if ! git diff --quiet -- "${check_files[@]}"; then
+  echo "::error::Generated files are not in sync with gen_onnx_mlir.py and/or yaml files. Please run utils/gen_onnx_mlir_multiple_custom_ops.sh or refer to  docs/ImportONNXDefs.md."
+  git diff --stat -- "${check_files[@]}"
+  git diff -- "${check_files[@]}"
+  exit 1
+fi
+
+# Check for untracked files only among the generated files
+for f in "${check_files[@]}"; do
+  if [ ! -z "$(git ls-files --others --exclude-standard -- "$f")" ]; then
+    echo "::error::Generated file $f is untracked. Please commit it or update .gitignore."
     exit 1
   fi
-fi
-
-# Check for unexpected file changes
-if ! git diff --quiet; then
-  echo "::error::Generated files are out of date. Please run utils/gen_onnx_mlir_multiple_custom_ops.sh and commit the results."
-  git diff --stat
-  git diff
-  exit 1
-fi
-
-# Check for untracked files outside of utils/
-untracked=$(git ls-files --others --exclude-standard -- ':!utils/')
-if [ -n "$untracked" ]; then
-  echo "::error::gen_onnx_mlir_multiple_custom_ops.sh produced untracked files. Please commit them or update .gitignore."
-  echo "$untracked"
-  exit 1
-fi
+done
