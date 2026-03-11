@@ -62,7 +62,8 @@
     type_str: T
   - name: B
     description: Optional 1D bias tensor
-    type_str: T
+    type_str: T_bias
+    optional: True
   outputs:
   - name: Y
     description: Output data tensor with channel-last layout
@@ -96,6 +97,93 @@
     - tensor(float)
     - tensor(double)
     - tensor(bfloat16)
+    - tensor(int8)
+    - tensor(uint8)
+  - type_param: T_bias
+    description: Constrain bias type to float tensors.
+    allowed_types:
+    - tensor(float16)
+    - tensor(float)
+    - tensor(double)
+    - tensor(bfloat16)
+    - tensor(int32)
+  min_input: 2
+  max_input: 3
+  min_output: 1
+  max_output: 1
+
+# ==============================================================================
+# ConvTranspose: N-D Transposed Convolution with channel-last data layout
+# ==============================================================================
+- name: ConvTranspose
+  domain: com.amd.xfe
+  since_version: 1
+  support_level: COMMON
+  description: 'Transpose convolution operator with channel-last layout (channels innermost). Similar to ONNX ConvTranspose but expects input/output tensors in channel-last format instead of NCHW.'
+  meta_attributes:
+  - onnx_opset: 11
+  - verify: True
+  - fold: False
+  inputs:
+  - name: X
+    description: Input data tensor with channel-last layout (batch, spatial_dims..., channels)
+    type_str: T
+  - name: W
+    description: Weight tensor with filter layout
+    type_str: T
+  - name: B
+    description: Optional 1D bias tensor
+    type_str: T_bias
+    optional: True
+  outputs:
+  - name: Y
+    description: Output data tensor with channel-last layout
+    type_str: T
+  attributes:
+  - name: auto_pad
+    description: Auto padding strategy (NOTSET, SAME_UPPER, SAME_LOWER, VALID)
+    type: string
+    default_value: NOTSET
+  - name: dilations
+    description: Dilation value along each spatial axis
+    type: list(int)
+  - name: group
+    description: Number of groups for grouped convolution
+    type: int
+    default_value: 1
+  - name: kernel_shape
+    description: Shape of the convolution kernel
+    type: list(int)
+  - name: output_padding
+    description: Additional size added to one side of the output shape for each spatial axis
+    type: list(int)
+  - name: output_shape
+    description: Shape of the output for each spatial axis
+    type: list(int)
+  - name: pads
+    description: Padding for the beginning and ending along each spatial axis
+    type: list(int)
+  - name: strides
+    description: Stride along each spatial axis
+    type: list(int)
+  type_constraints:
+  - type_param: T
+    description: Constrain input and output types to float tensors.
+    allowed_types:
+    - tensor(float16)
+    - tensor(float)
+    - tensor(double)
+    - tensor(bfloat16)
+    - tensor(int8)
+    - tensor(uint8)
+  - type_param: T_bias
+    description: Constrain bias type to float tensors.
+    allowed_types:
+    - tensor(float16)
+    - tensor(float)
+    - tensor(double)
+    - tensor(bfloat16)
+    - tensor(int32)
   min_input: 2
   max_input: 3
   min_output: 1
@@ -108,7 +196,7 @@
   domain: com.amd.xfe
   since_version: 1
   support_level: COMMON
-  description: 'AveragePool with channel-last layout (channels innermost). Applies average pooling with input/output tensors in channel-last format. Equivalent to AveragePool with kernel size equal to the spatial dimensions. Supports N-D input tensors.'
+  description: 'AveragePool with channel-last layout (channels innermost). Applies average pooling with input/output tensors in channel-last format. Supports N-D input tensors.'
   meta_attributes:
   - onnx_opset: 11
   - verify: True
@@ -129,11 +217,12 @@
   - name: ceil_mode
     description: Whether to use ceil or floor to compute output shape
     type: int
-    default_value: 0
   - name: count_include_pad
     description: Whether include pad pixels when calculating values for the edges
     type: int
-    default_value: 0
+  - name: dilations
+    description: Dilation value
+    type: list(int)
   - name: kernel_shape
     description: Shape of the pooling kernel
     type: list(int)
@@ -145,12 +234,14 @@
     type: list(int)
   type_constraints:
   - type_param: T
-    description: Constrain input and output types to float tensors.
+    description: Constrain input types.
     allowed_types:
     - tensor(float16)
     - tensor(float)
     - tensor(double)
     - tensor(bfloat16)
+    - tensor(int8)
+    - tensor(uint8)
   min_input: 1
   max_input: 1
   min_output: 1
@@ -184,7 +275,6 @@
   - name: ceil_mode
     description: Whether to use ceil or floor to compute output shape
     type: int
-    default_value: 0
   - name: dilations
     description: Dilation value along each spatial axis
     type: list(int)
@@ -197,7 +287,6 @@
   - name: storage_order
     description: The storage order of the tensor (0 for row major, 1 for column major)
     type: int
-    default_value: 0
   - name: strides
     description: Stride along each spatial axis
     type: list(int)
@@ -209,6 +298,8 @@
     - tensor(float)
     - tensor(double)
     - tensor(bfloat16)
+    - tensor(int8)
+    - tensor(uint8)
   min_input: 1
   max_input: 1
   min_output: 1
@@ -243,6 +334,8 @@
     - tensor(float)
     - tensor(double)
     - tensor(bfloat16)
+    - tensor(int8)
+    - tensor(uint8)
   min_input: 1
   max_input: 1
   min_output: 1
@@ -277,6 +370,8 @@
     - tensor(float)
     - tensor(double)
     - tensor(bfloat16)
+    - tensor(int8)
+    - tensor(uint8)
   min_input: 1
   max_input: 1
   min_output: 1
@@ -332,6 +427,8 @@
     - tensor(float)
     - tensor(double)
     - tensor(bfloat16)
+    - tensor(int8)
+    - tensor(uint8)
   - type_param: U
     description: Constrain mean and var types to float tensors.
     allowed_types:
@@ -384,6 +481,8 @@
     - tensor(float)
     - tensor(double)
     - tensor(bfloat16)
+    - tensor(int8)
+    - tensor(uint8)
   min_input: 3
   max_input: 3
   min_output: 1
@@ -505,12 +604,15 @@
   - name: roi
     description: Region of interest for coordinate transformation (optional, use empty tensor if not needed)
     type_str: T2
+    optional: True
   - name: scales
     description: Scale factors for each dimension (optional if sizes is provided)
     type_str: tensor(float)
+    optional: True
   - name: sizes
     description: Output sizes for each dimension (optional if scales is provided)
     type_str: tensor(int64)
+    optional: True
   outputs:
   - name: Y
     description: Output data tensor with channel-last layout, resized spatial dimensions

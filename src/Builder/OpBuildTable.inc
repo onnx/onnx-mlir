@@ -221,6 +221,7 @@ dialect_op_version_map_["com.amd.xcompiler"]["DepthwiseConv"] = {1};
 dialect_op_version_map_["com.amd.xcompiler"]["Requantize"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["MatMulBias"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["Conv"] = {1};
+dialect_op_version_map_["com.amd.xfe"]["ConvTranspose"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["AveragePool"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["MaxPool"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["GlobalAveragePool"] = {1};
@@ -236,6 +237,7 @@ dialect_op_version_map_["com.amd.xcompiler"]["DepthwiseConv"] = {1};
 dialect_op_version_map_["com.amd.xcompiler"]["Requantize"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["MatMulBias"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["Conv"] = {1};
+dialect_op_version_map_["com.amd.xfe"]["ConvTranspose"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["AveragePool"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["MaxPool"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["GlobalAveragePool"] = {1};
@@ -743,8 +745,30 @@ import_handler_map_["com.amd.xcompiler"]["FusedEltwise"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XCOMPILERFusedEltwiseOp>;
 import_handler_map_["com.amd.xcompiler"]["Requantize"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XCOMPILERRequantizeOp>;
+import_handler_map_["com.amd.xfe"]["AveragePool"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEAveragePoolOp>;
+import_handler_map_["com.amd.xfe"]["BatchNormalization"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEBatchNormalizationOp>;
+import_handler_map_["com.amd.xfe"]["Conv"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEConvOp>;
+import_handler_map_["com.amd.xfe"]["ConvTranspose"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEConvTransposeOp>;
+import_handler_map_["com.amd.xfe"]["DepthToSpace"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEDepthToSpaceOp>;
+import_handler_map_["com.amd.xfe"]["GlobalAveragePool"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEGlobalAveragePoolOp>;
+import_handler_map_["com.amd.xfe"]["GlobalMaxPool"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEGlobalMaxPoolOp>;
+import_handler_map_["com.amd.xfe"]["InstanceNormalization"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEInstanceNormalizationOp>;
 import_handler_map_["com.amd.xfe"]["MatMulBias"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEMatMulBiasOp>;
+import_handler_map_["com.amd.xfe"]["MaxPool"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEMaxPoolOp>;
+import_handler_map_["com.amd.xfe"]["Resize"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEResizeOp>;
+import_handler_map_["com.amd.xfe"]["SpaceToDepth"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFESpaceToDepthOp>;
 import_handler_map_["com.amd.quark"]["BFPQuantizeDequantize"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::AMDQuarkBFPQuantizeDequantizeOp>;
 import_handler_map_["com.amd.xcompiler"]["FusedEltwise"] = 
@@ -757,10 +781,12 @@ import_handler_map_["com.amd.xfe"]["MatMulBias"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEMatMulBiasOp>;
 import_handler_map_["com.amd.xfe"]["Conv"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEConvOp>;
+import_handler_map_["com.amd.xfe"]["ConvTranspose"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEConvTransposeOp>;
 import_handler_map_["com.amd.xfe"]["AveragePool"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEAveragePoolOp>;
 import_handler_map_["com.amd.xfe"]["MaxPool"] = 
-   &onnx_mlir::detail::FrontendGenImpl::ImportNodeMaxPool;
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEMaxPoolOp>;
 import_handler_map_["com.amd.xfe"]["GlobalAveragePool"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEGlobalAveragePoolOp>;
 import_handler_map_["com.amd.xfe"]["GlobalMaxPool"] = 
@@ -1002,6 +1028,7 @@ dialect_op_opsets_map_["com.amd.xcompiler"]["Requantize"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["AveragePool"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["BatchNormalization"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["Conv"] = {1};
+dialect_op_opsets_map_["com.amd.xfe"]["ConvTranspose"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["DepthToSpace"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["GlobalAveragePool"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["GlobalMaxPool"] = {1};
@@ -1016,6 +1043,7 @@ dialect_op_opsets_map_["com.amd.xcompiler"]["DepthwiseConv"] = {1};
 dialect_op_opsets_map_["com.amd.xcompiler"]["Requantize"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["MatMulBias"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["Conv"] = {1};
+dialect_op_opsets_map_["com.amd.xfe"]["ConvTranspose"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["AveragePool"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["MaxPool"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["GlobalAveragePool"] = {1};

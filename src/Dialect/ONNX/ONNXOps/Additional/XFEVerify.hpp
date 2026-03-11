@@ -17,34 +17,37 @@ namespace mlir {
 // Verify for MatMulBias
 LogicalResult XFEMatMulBiasOpVerify(Operation *op);
 
-// Verify for ConvChannelLast
+// Verify for Conv
 LogicalResult XFEConvOpVerify(Operation *op);
 
-// Verify for ConvTransposeChannelLast
+// Verify for ConvTranspose
 LogicalResult XFEConvTransposeOpVerify(Operation *op);
 
-// Verify for AveragePoolChannelLast
+// Verify for AveragePool
 LogicalResult XFEAveragePoolOpVerify(Operation *op);
 
-// Verify for MaxPoolChannelLast
+// Verify for MaxPool
 LogicalResult XFEMaxPoolOpVerify(Operation *op);
 
-// Verify for GlobalAveragePoolChannelLast
+// Verify for GlobalAveragePool
 LogicalResult XFEGlobalAveragePoolOpVerify(Operation *op);
 
-// Verify for GlobalMaxPoolChannelLast
+// Verify for GlobalMaxPool
 LogicalResult XFEGlobalMaxPoolOpVerify(Operation *op);
 
-// Verify for InstanceNormalizationChannelLast
+// Verify for BatchNormalization
+LogicalResult XFEBatchNormalizationOpVerify(Operation *op);
+
+// Verify for InstanceNormalization
 LogicalResult XFEInstanceNormalizationOpVerify(Operation *op);
 
-// Verify for DepthToSpaceChannelLast
+// Verify for DepthToSpace
 LogicalResult XFEDepthToSpaceOpVerify(Operation *op);
 
-// Verify for SpaceToDepthChannelLast
+// Verify for SpaceToDepth
 LogicalResult XFESpaceToDepthOpVerify(Operation *op);
 
-// Verify for ResizeChannelLast
+// Verify for Resize
 LogicalResult XFEResizeOpVerify(Operation *op);
 
 // Verify channel-wise (per-axis) quantization axis alignment for all XFE ops
