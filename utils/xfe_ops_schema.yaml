@@ -217,11 +217,9 @@
   - name: ceil_mode
     description: Whether to use ceil or floor to compute output shape
     type: int
-    default_value: 0
   - name: count_include_pad
     description: Whether include pad pixels when calculating values for the edges
     type: int
-    default_value: 0
   - name: dilations
     description: Dilation value
     type: list(int)
@@ -277,7 +275,6 @@
   - name: ceil_mode
     description: Whether to use ceil or floor to compute output shape
     type: int
-    default_value: 0
   - name: dilations
     description: Dilation value along each spatial axis
     type: list(int)
@@ -290,7 +287,6 @@
   - name: storage_order
     description: The storage order of the tensor (0 for row major, 1 for column major)
     type: int
-    default_value: 0
   - name: strides
     description: Stride along each spatial axis
     type: list(int)
