@@ -130,7 +130,7 @@ LogicalResult XFEMatMulBiasOpVerify(Operation *op) {
   auto matmulOp = dyn_cast<XFEMatMulBiasOp>(op);
   if (!matmulOp)
     return failure();
-  return success();
+  return XFEChannelWiseQuantizationVerify(op);
 }
 
 LogicalResult XFEConvOpVerify(Operation *op) {
@@ -152,7 +152,7 @@ LogicalResult XFEConvOpVerify(Operation *op) {
     return op->emitError("ConvChannelLast requires matching rank tensors with "
                          "at least 3 dimensions");
 
-  return success();
+  return XFEChannelWiseQuantizationVerify(op);
 }
 
 LogicalResult XFEConvTransposeOpVerify(Operation *op) {
@@ -175,7 +175,7 @@ LogicalResult XFEConvTransposeOpVerify(Operation *op) {
         "ConvTransposeChannelLast requires matching rank tensors with "
         "at least 3 dimensions");
 
-  return success();
+  return XFEChannelWiseQuantizationVerify(op);
 }
 
 LogicalResult XFEAveragePoolOpVerify(Operation *op) {
@@ -200,7 +200,7 @@ LogicalResult XFEAveragePoolOpVerify(Operation *op) {
     return op->emitError(
         "kernel_shape attribute required with matching spatial dimensions");
 
-  return success();
+  return XFEChannelWiseQuantizationVerify(op);
 }
 
 LogicalResult XFEMaxPoolOpVerify(Operation *op) {
@@ -225,7 +225,7 @@ LogicalResult XFEMaxPoolOpVerify(Operation *op) {
     return op->emitError(
         "kernel_shape attribute required with matching spatial dimensions");
 
-  return success();
+  return XFEChannelWiseQuantizationVerify(op);
 }
 
 LogicalResult XFEGlobalAveragePoolOpVerify(Operation *op) {
@@ -243,7 +243,7 @@ LogicalResult XFEGlobalAveragePoolOpVerify(Operation *op) {
     return op->emitError(
         "GlobalAveragePoolChannelLast requires at least 3D input tensor");
 
-  return success();
+  return XFEChannelWiseQuantizationVerify(op);
 }
 
 LogicalResult XFEGlobalMaxPoolOpVerify(Operation *op) {
@@ -261,7 +261,7 @@ LogicalResult XFEGlobalMaxPoolOpVerify(Operation *op) {
     return op->emitError(
         "GlobalMaxPoolChannelLast requires at least 3D input tensor");
 
-  return success();
+  return XFEChannelWiseQuantizationVerify(op);
 }
 
 LogicalResult XFEInstanceNormalizationOpVerify(Operation *op) {
@@ -279,7 +279,7 @@ LogicalResult XFEInstanceNormalizationOpVerify(Operation *op) {
     return op->emitError(
         "InstanceNormalizationChannelLast requires at least 3D input tensor");
 
-  return success();
+  return XFEChannelWiseQuantizationVerify(op);
 }
 
 LogicalResult XFEDepthToSpaceOpVerify(Operation *op) {
@@ -309,7 +309,7 @@ LogicalResult XFEDepthToSpaceOpVerify(Operation *op) {
   if (C != ShapedType::kDynamic && C % blocksizeSq != 0)
     return op->emitError("input channels must be divisible by blocksize^2");
 
-  return success();
+  return XFEChannelWiseQuantizationVerify(op);
 }
 
 LogicalResult XFESpaceToDepthOpVerify(Operation *op) {
@@ -341,7 +341,7 @@ LogicalResult XFESpaceToDepthOpVerify(Operation *op) {
   if (W != ShapedType::kDynamic && W % blocksize != 0)
     return op->emitError("input width must be divisible by blocksize");
 
-  return success();
+  return XFEChannelWiseQuantizationVerify(op);
 }
 
 LogicalResult XFEResizeOpVerify(Operation *op) {
@@ -395,7 +395,25 @@ LogicalResult XFEResizeOpVerify(Operation *op) {
       return op->emitError("sizes size must match input rank");
   }
 
-  return success();
+  return XFEChannelWiseQuantizationVerify(op);
+}
+
+LogicalResult XFEBatchNormalizationOpVerify(Operation *op) {
+  auto bnOp = dyn_cast<XFEBatchNormalizationOp>(op);
+  if (!bnOp)
+    return failure();
+
+  Value input = bnOp.getX();
+  if (!hasShapeAndRank(input))
+    return success();
+
+  auto inputType = mlir::cast<ShapedType>(input.getType());
+  auto inputShape = inputType.getShape();
+  if (inputShape.size() < 3)
+    return op->emitError(
+        "BatchNormalizationChannelLast requires at least 3D input tensor");
+
+  return XFEChannelWiseQuantizationVerify(op);
 }
 
 } // namespace mlir

@@ -50,7 +50,4 @@ LogicalResult XFESpaceToDepthOpVerify(Operation *op);
 // Verify for Resize
 LogicalResult XFEResizeOpVerify(Operation *op);
 
-// Verify channel-wise (per-axis) quantization axis alignment for all XFE ops
-LogicalResult XFEChannelWiseQuantizationVerify(Operation *op);
-
 } // namespace mlir

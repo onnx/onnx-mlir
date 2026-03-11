@@ -67,7 +67,10 @@
     - tensor(uint16)
     - tensor(int8)
     - tensor(int16)
-    - tensor(quant_QuantizedType)
+    - tensor(float16)
+    - tensor(float)
+    - tensor(double)
+    - tensor(bfloat16)
   - type_param: T_or_None
     description: Constrain to all types in T plus NoneType.
     allowed_types:
@@ -75,7 +78,10 @@
     - tensor(uint16)
     - tensor(int8)
     - tensor(int16)
-    - tensor(quant_QuantizedType)
+    - tensor(float16)
+    - tensor(float)
+    - tensor(double)
+    - tensor(bfloat16)    
     - NoneType
   min_input: 2
   max_input: 2
@@ -138,7 +144,6 @@
     - tensor(uint16)
     - tensor(int8)
     - tensor(int16)
-    - tensor(quant_QuantizedType)
   - type_param: T_or_None
     description: Constrain to all types in T plus NoneType.
     allowed_types:
@@ -150,7 +155,6 @@
     - tensor(uint16)
     - tensor(int8)
     - tensor(int16)
-    - tensor(quant_QuantizedType)
     - NoneType
   min_input: 2
   max_input: 3

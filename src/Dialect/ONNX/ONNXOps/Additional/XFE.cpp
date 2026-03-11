@@ -57,6 +57,12 @@ LogicalResult XFEGlobalMaxPoolOp::inferShapes(
       this->getOperation(), doShapeInference);
 }
 
+LogicalResult XFEBatchNormalizationOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  return XFEBatchNormalizationOpShapeInference(
+      this->getOperation(), doShapeInference);
+}
+
 LogicalResult XFEInstanceNormalizationOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return XFEInstanceNormalizationOpShapeInference(
@@ -80,82 +86,54 @@ LogicalResult XFEResizeOp::inferShapes(
   return XFEResizeOpShapeInference(this->getOperation(), doShapeInference);
 }
 
-LogicalResult XFEBatchNormalizationOp::inferShapes(
-    std::function<void(Region &)> doShapeInference) {
-  return XFEBatchNormalizationOpShapeInference(
-      this->getOperation(), doShapeInference);
-}
-
 // ============================================================
 // Verify
 // ============================================================
 
 LogicalResult XFEMatMulBiasOp::verify() {
-  if (failed(XFEMatMulBiasOpVerify(this->getOperation())))
-    return failure();
-  return XFEChannelWiseQuantizationVerify(this->getOperation());
+  return XFEMatMulBiasOpVerify(this->getOperation());
 }
 
 LogicalResult XFEConvOp::verify() {
-  if (failed(XFEConvOpVerify(this->getOperation())))
-    return failure();
-  return XFEChannelWiseQuantizationVerify(this->getOperation());
+  return XFEConvOpVerify(this->getOperation());
 }
 
 LogicalResult XFEConvTransposeOp::verify() {
-  if (failed(XFEConvTransposeOpVerify(this->getOperation())))
-    return failure();
-  return XFEChannelWiseQuantizationVerify(this->getOperation());
+  return XFEConvTransposeOpVerify(this->getOperation());
 }
 
 LogicalResult XFEAveragePoolOp::verify() {
-  if (failed(XFEAveragePoolOpVerify(this->getOperation())))
-    return failure();
-  return XFEChannelWiseQuantizationVerify(this->getOperation());
+  return XFEAveragePoolOpVerify(this->getOperation());
 }
 
 LogicalResult XFEMaxPoolOp::verify() {
-  if (failed(XFEMaxPoolOpVerify(this->getOperation())))
-    return failure();
-  return XFEChannelWiseQuantizationVerify(this->getOperation());
+  return XFEMaxPoolOpVerify(this->getOperation());
 }
 
 LogicalResult XFEGlobalAveragePoolOp::verify() {
-  if (failed(XFEGlobalAveragePoolOpVerify(this->getOperation())))
-    return failure();
-  return XFEChannelWiseQuantizationVerify(this->getOperation());
+  return XFEGlobalAveragePoolOpVerify(this->getOperation());
 }
 
 LogicalResult XFEGlobalMaxPoolOp::verify() {
-  if (failed(XFEGlobalMaxPoolOpVerify(this->getOperation())))
-    return failure();
-  return XFEChannelWiseQuantizationVerify(this->getOperation());
-}
-
-LogicalResult XFEInstanceNormalizationOp::verify() {
-  if (failed(XFEInstanceNormalizationOpVerify(this->getOperation())))
-    return failure();
-  return XFEChannelWiseQuantizationVerify(this->getOperation());
-}
-
-LogicalResult XFEDepthToSpaceOp::verify() {
-  if (failed(XFEDepthToSpaceOpVerify(this->getOperation())))
-    return failure();
-  return XFEChannelWiseQuantizationVerify(this->getOperation());
-}
-
-LogicalResult XFESpaceToDepthOp::verify() {
-  if (failed(XFESpaceToDepthOpVerify(this->getOperation())))
-    return failure();
-  return XFEChannelWiseQuantizationVerify(this->getOperation());
-}
-
-LogicalResult XFEResizeOp::verify() {
-  if (failed(XFEResizeOpVerify(this->getOperation())))
-    return failure();
-  return XFEChannelWiseQuantizationVerify(this->getOperation());
+  return XFEGlobalMaxPoolOpVerify(this->getOperation());
 }
 
 LogicalResult XFEBatchNormalizationOp::verify() {
-  return XFEChannelWiseQuantizationVerify(this->getOperation());
+  return XFEBatchNormalizationOpVerify(this->getOperation());
+}
+
+LogicalResult XFEInstanceNormalizationOp::verify() {
+  return XFEInstanceNormalizationOpVerify(this->getOperation());
+}
+
+LogicalResult XFEDepthToSpaceOp::verify() {
+  return XFEDepthToSpaceOpVerify(this->getOperation());
+}
+
+LogicalResult XFESpaceToDepthOp::verify() {
+  return XFESpaceToDepthOpVerify(this->getOperation());
+}
+
+LogicalResult XFEResizeOp::verify() {
+  return XFEResizeOpVerify(this->getOperation());
 }
