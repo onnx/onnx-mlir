@@ -29,6 +29,9 @@ namespace krnl {
 
 #define GEN_PASS_DEF_LOWERKRNLREGIONPASS
 #include "src/Transform/PassesKrnl.h.inc"
+} // namespace krnl
+
+namespace {
 
 /* All the implementation of this pass is put in the anonymous name space
  * to hide from ourside.
@@ -61,7 +64,8 @@ public:
  *  Function pass that lowers KrnlRegionOp
  */
 class LowerKrnlRegionPass
-    : public impl::LowerKrnlRegionPassBase<LowerKrnlRegionPass> {
+    : public onnx_mlir::krnl::impl::LowerKrnlRegionPassBase<
+          LowerKrnlRegionPass> {
 public:
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(LowerKrnlRegionPass)
 
@@ -77,5 +81,5 @@ public:
   }
 };
 
-} // namespace krnl
+} // namespace
 } // namespace onnx_mlir
