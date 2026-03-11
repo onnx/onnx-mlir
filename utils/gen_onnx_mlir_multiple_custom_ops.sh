@@ -15,6 +15,7 @@ cp OpBuildTable.inc ../src/Builder/
 echo "========================================================="
 echo "Copying ONNXOps.td.inc to ../src/Dialect/ONNX/"
 cp ONNXOps.td.inc ../src/Dialect/ONNX/
+echo "WARNING: ONNXOps.td.inc has manual edits which have been overwritten by the script. Please check before committing."
 
 
 
@@ -39,7 +40,7 @@ for prefix in "${prefixes[@]}"; do
     done
 done
 echo "========================================================="
-echo "Reminder: Add your function implementation (for a new op only) to files:"
+echo "REMINDER: Add your function implementation (for a new op only) to files:"
 ls *ShapeInference.cpp *Verify.cpp
 echo "in ../src/Dialect/ONNX/ONNXOps/Additional/"
 echo "========================================================="
