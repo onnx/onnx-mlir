@@ -308,7 +308,7 @@ bool omMMapBinaryFile(
   }
 
 #ifdef __MVS__
-  // z/OS: Use mmap (works for all sizes if not preloaded)
+  // z/OS: If model was not stored in malloc area, use mmap.
   void *tempAddr = mmap(0, size, PROT_READ, __MAP_MEGA, fd, 0);
   if (tempAddr == MAP_FAILED) {
     fprintf(stderr, "Error while mmapping %s: %s\n", fname, strerror(errno));
