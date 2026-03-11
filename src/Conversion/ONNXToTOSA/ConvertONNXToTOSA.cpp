@@ -26,10 +26,11 @@ namespace onnx_mlir {
 
 void populateONNXToTOSAConversionPattern(ConversionTarget &target,
     RewritePatternSet &patterns, TypeConverter &typeConverter, MLIRContext *ctx,
-    int64_t groupedConvThreshold, bool convertSliceOnlyWhenStepOne) {
+    int64_t groupedConvThreshold, bool convertSliceOnlyWhenStepOne,
+    bool disableCastLowering) {
   // Math
   populateLoweringONNXElementwiseOpToTOSAPattern(
-      target, patterns, typeConverter, ctx);
+      target, patterns, typeConverter, ctx, disableCastLowering);
   populateLoweringONNXReduceOpsToTOSAPattern(
       target, patterns, typeConverter, ctx);
   populateLoweringONNXGemmOpToTOSAPattern(target, patterns, typeConverter, ctx);
@@ -118,6 +119,9 @@ public:
       "convert-slice-only-when-step-one",
       llvm::cl::desc("If enabled, convert onnx.slice only if all steps are 1"),
       llvm::cl::ZeroOrMore, llvm::cl::init(false)};
+  Option<bool> disableCastLowering{*this, "disable-cast-lowering",
+      llvm::cl::desc("If enabled, disable the lowering of onnx.cast to tosa."),
+      llvm::cl::ZeroOrMore, llvm::cl::init(false)};
 };
 
 Value handleDynamicToStaticShapes(
@@ -195,7 +199,7 @@ void FrontendToTosaLoweringPass::runOnOperation() {
 
   // Define patterns
   populateONNXToTOSAConversionPattern(target, patterns, typeConverter, context,
-      groupedConvThreshold, convertSliceOnlyWhenStepOne);
+      groupedConvThreshold, convertSliceOnlyWhenStepOne, disableCastLowering);
 
   if (failed(applyPartialConversion(module, target, std::move(patterns)))) {
     signalPassFailure();
