@@ -164,17 +164,10 @@ std::vector<py::array> PyExecutionSessionBase::pyRunInternal(
     auto inputPyArray = inputsPyArray[argId];
     auto shapePyArray = shapesPyArray[argId];
     auto stridePyArray = stridesPyArray[argId];
-    // Check if array is C-style contiguous using bitwise AND to test the flag.
-    // Old (incorrect) version:
-    //
-    // if (!inputPyArray.flags() || !py::array::c_style)
-    //
-    // The old version had a logic error - it checked if the constant c_style
-    // was zero, not if the bit was set in the array's flags.
+    // Check if array is C-style contiguous.
     if (!(inputPyArray.flags() & py::array::c_style))
       throw onnx_mlir::ExecutionSessionException(
           "Expect contiguous python array.");
-
     void *dataPtr;
     int64_t ownData = 0;
     if (inputPyArray.writeable()) {
