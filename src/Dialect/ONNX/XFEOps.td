@@ -22,8 +22,8 @@ def XFEAveragePoolOp:ONNX_Op<"XFEAveragePool",
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[quant_QuantizedType]>]>:$X,
     DefaultValuedStrAttr<StrAttr, "NOTSET">:$auto_pad,
-    DefaultValuedAttr<SI64Attr, "0">:$ceil_mode,
-    DefaultValuedAttr<SI64Attr, "0">:$count_include_pad,
+    OptionalAttr<SI64Attr>:$ceil_mode,
+    OptionalAttr<SI64Attr>:$count_include_pad,
     OptionalAttr<I64ArrayAttr>:$dilations,
     OptionalAttr<I64ArrayAttr>:$kernel_shape,
     OptionalAttr<I64ArrayAttr>:$pads,
@@ -330,11 +330,11 @@ def XFEMaxPoolOp:ONNX_Op<"XFEMaxPool",
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[quant_QuantizedType]>]>:$X,
     DefaultValuedStrAttr<StrAttr, "NOTSET">:$auto_pad,
-    DefaultValuedAttr<SI64Attr, "0">:$ceil_mode,
+    OptionalAttr<SI64Attr>:$ceil_mode,
     OptionalAttr<I64ArrayAttr>:$dilations,
     OptionalAttr<I64ArrayAttr>:$kernel_shape,
     OptionalAttr<I64ArrayAttr>:$pads,
-    DefaultValuedAttr<SI64Attr, "0">:$storage_order,
+    OptionalAttr<SI64Attr>:$storage_order,
     OptionalAttr<I64ArrayAttr>:$strides);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[quant_QuantizedType]>]>:$Y);
   let extraClassDeclaration = [{
