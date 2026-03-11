@@ -9,13 +9,19 @@ echo "yaml_args: ${yaml_args[@]}"
 python gen_onnx_mlir.py "${yaml_args[@]}"
 
 echo "========================================================="
+echo "Copying OpBuildTable.inc to ../src/Builder/"
+cp OpBuildTable.inc ../src/Builder/
+
+echo "========================================================="
+echo "Copying ONNXOps.td.inc to ../src/Dialect/ONNX/"
+cp ONNXOps.td.inc ../src/Dialect/ONNX/
+
+
+
+echo "========================================================="
 echo "Copying generated .td files to ../src/Dialect/ONNX/"
 ls *.td
 cp *.td ../src/Dialect/ONNX/
-echo "========================================================="
-
-echo "Copying OpBuildTable.inc to ../src/Builder/"
-cp OpBuildTable.inc ../src/Builder/
 echo "========================================================="
 
 # extract prefix from .td file names (until <prefix>Ops.td)
