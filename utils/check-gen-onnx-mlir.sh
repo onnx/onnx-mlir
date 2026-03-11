@@ -4,8 +4,14 @@ set -euo pipefail
 REPO_ROOT=$(git rev-parse --show-toplevel)
 cd "$REPO_ROOT/utils"
 
-# Run gen_onnx_mlir.py and copy auto-generated files
-bash gen_onnx_mlir_multiple_custom_ops.sh > /dev/null 2>&1
+# Run gen_onnx_mlir.py and copy auto-generated files (keep stderr visible for diagnostics)
+bash -e gen_onnx_mlir_multiple_custom_ops.sh > /dev/null
+
+# Verify the generator actually produced output
+if ! ls *.td 1>/dev/null 2>&1; then
+  echo "::error::gen_onnx_mlir_multiple_custom_ops.sh did not produce any .td files — generation likely failed."
+  exit 1
+fi
 
 # Build the exact list of destination files (mirroring gen_onnx_mlir_multiple_custom_ops.sh copy logic)
 generated_files=()
@@ -37,7 +43,11 @@ cd "$REPO_ROOT"
 
 # Run clang-format only on the generated C++ files
 if [ ${#cpp_hpp_files[@]} -gt 0 ]; then
-  clang-format -i "${cpp_hpp_files[@]}"
+  if command -v clang-format &> /dev/null; then
+    clang-format -i "${cpp_hpp_files[@]}"
+  else
+    echo "::warning::clang-format not found — skipping formatting of generated files."
+  fi
 fi
 
 # Handle ONNXOps.td.inc separately: allow the known FXML-4138 BF16 manual edit
@@ -64,7 +74,7 @@ done
 
 # Check for diffs only in the generated files
 if ! git diff --quiet -- "${check_files[@]}"; then
-  echo "::error::Generated files are not in sync with gen_onnx_mlir.py and/or yaml files. Please run utils/gen_onnx_mlir_multiple_custom_ops.sh or refer to  docs/ImportONNXDefs.md."
+  echo "::error::Generated files are not in sync with gen_onnx_mlir.py and/or yaml files. Please run utils/gen_onnx_mlir_multiple_custom_ops.sh or refer to docs/ImportONNXDefs.md."
   git diff --stat -- "${check_files[@]}"
   git diff -- "${check_files[@]}"
   exit 1
@@ -72,7 +82,7 @@ fi
 
 # Check for untracked files only among the generated files
 for f in "${check_files[@]}"; do
-  if [ ! -z "$(git ls-files --others --exclude-standard -- "$f")" ]; then
+  if [ -n "$(git ls-files --others --exclude-standard -- "$f")" ]; then
     echo "::error::Generated file $f is untracked. Please commit it or update .gitignore."
     exit 1
   fi
