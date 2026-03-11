@@ -468,7 +468,7 @@ special_type_constraints = {
         "T4": ["tensor(int16)", "tensor(int8)"],
     },
     "QLinearMatMul": {
-        "*": ["tensor(int16)","tensor(uint16)"],
+        "*": ["tensor(int16)", "tensor(uint16)"],
     },
 }
 
