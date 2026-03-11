@@ -3,9 +3,10 @@ set -euo pipefail
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
 cd "$REPO_ROOT/utils"
+pwd
 
-# Run gen_onnx_mlir.py and copy auto-generated files (keep stderr visible for diagnostics)
-bash gen_onnx_mlir_multiple_custom_ops.sh > /dev/null
+# Run gen_onnx_mlir.py and copy auto-generated files
+bash gen_onnx_mlir_multiple_custom_ops.sh
 
 # Verify the generator actually produced output
 if ! ls *.td 1>/dev/null 2>&1; then
