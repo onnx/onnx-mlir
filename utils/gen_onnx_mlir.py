@@ -459,6 +459,19 @@ def load_custom_ops_from_yaml(yaml_paths: List[str]) -> List[CustomOpSchema]:
     return custom_schemas
 
 
+# Extra tensor types patched into ops' ONNX type constraints after parsing.
+# Keyed by op name. Value is a dict of type_param -> extra allowed type strings:
+#   "*" applies to all type params, named keys (e.g. "T4") target one param.
+special_type_constraints = {
+    "QLinearConv": {
+        "*": ["tensor(uint16)"],
+        "T4": ["tensor(int16)", "tensor(int8)"],
+    },
+    "QLinearMatMul": {
+        "*": ["tensor(int16)","tensor(uint16)"],
+    },
+}
+
 # Manual specification of attribute type.
 special_attr_types = dict([("Cast.to", "type")])
 
@@ -1400,6 +1413,14 @@ def parse_type_constraints(schema):
         type_str_dict[type_constraint.type_param_str] = parse_a_type_constraint(
             type_constraint
         )
+    if schema.name in special_type_constraints:
+        patches = special_type_constraints[schema.name]
+        for type_param, types in type_str_dict.items():
+            extra = patches.get(type_param, []) + patches.get("*", [])
+            for t in extra:
+                mlir_t = parse_type_str(t)
+                if mlir_t not in types:
+                    types.append(mlir_t)
     return type_str_dict
 
 
