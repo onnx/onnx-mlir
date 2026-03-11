@@ -12,6 +12,7 @@
 #define DEBUG_TYPE "buffer-omploop-hoisting"
 
 using namespace mlir;
+using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
@@ -22,6 +23,9 @@ namespace onnx_mlir {
  */
 #define GEN_PASS_DEF_BUFFEROMPLOOPHOISTINGPASS
 #include "src/Transform/Passes.h.inc"
+} // namespace onnx_mlir
+
+namespace {
 
 bool directlyNestedIn(Operation *op, Operation *wsloopOp) {
   Operation *currentOp = op;
@@ -136,7 +140,8 @@ void HandleOneLoop(omp::WsloopOp wsloopOp) {
 }
 
 class BufferOMPLoopHoistingPass
-    : public impl::BufferOMPLoopHoistingPassBase<BufferOMPLoopHoistingPass> {
+    : public onnx_mlir::impl::BufferOMPLoopHoistingPassBase<
+          BufferOMPLoopHoistingPass> {
 public:
   void runOnOperation() override {
     Operation *op = getOperation();
@@ -144,4 +149,4 @@ public:
   }
 };
 
-} // namespace onnx_mlir
+} // namespace

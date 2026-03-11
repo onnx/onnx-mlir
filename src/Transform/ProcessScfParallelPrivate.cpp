@@ -44,12 +44,16 @@
 #define DEBUG_TYPE "scf-parallel-private"
 
 using namespace mlir;
+using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
 #define GEN_PASS_DEF_PROCESSSCFPARALLELPRIVATEPASS
 #include "src/Transform/Passes.h.inc"
 
+} // namespace onnx_mlir
+
+namespace {
 struct ProcessScfParallelWithoutScopePattern
     : public OpRewritePattern<scf::ParallelOp> {
   using OpRewritePattern<scf::ParallelOp>::OpRewritePattern;
@@ -106,7 +110,7 @@ struct ProcessScfParallelWithoutScopePattern
 };
 
 struct ProcessScfParallelPrivatePass
-    : public impl::ProcessScfParallelPrivatePassBase<
+    : public onnx_mlir::impl::ProcessScfParallelPrivatePassBase<
           ProcessScfParallelPrivatePass> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ProcessScfParallelPrivatePass)
 
@@ -133,7 +137,9 @@ void ProcessScfParallelPrivatePass::runOnOperation() {
   if (failed(applyPartialConversion(function, target, std::move(patterns))))
     signalPassFailure();
 }
+} // namespace
 
+namespace onnx_mlir {
 void getParallelPrivateScfToScfPatterns(mlir::RewritePatternSet &patterns) {
   MLIRContext *context = patterns.getContext();
   patterns.insert<ProcessScfParallelWithoutScopePattern>(context);

@@ -34,12 +34,16 @@
 #define DEBUG_TYPE "krnl-parallel-clause"
 
 using namespace mlir;
+using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
 #define GEN_PASS_DEF_PROCESSKRNLPARALLELCLAUSEPASS
 #include "src/Transform/Passes.h.inc"
 
+} // namespace onnx_mlir
+
+namespace {
 struct ProcessKrnlParallelClauseWithoutScopePattern
     : public OpRewritePattern<KrnlParallelClauseOp> {
   using OpRewritePattern<KrnlParallelClauseOp>::OpRewritePattern;
@@ -95,7 +99,7 @@ struct ProcessKrnlParallelClauseWithoutScopePattern
 };
 
 struct ProcessKrnlParallelClausePass
-    : public impl::ProcessKrnlParallelClausePassBase<
+    : public onnx_mlir::impl::ProcessKrnlParallelClausePassBase<
           ProcessKrnlParallelClausePass> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ProcessKrnlParallelClausePass)
 
@@ -119,7 +123,9 @@ void ProcessKrnlParallelClausePass::runOnOperation() {
   if (failed(applyPartialConversion(function, target, std::move(patterns))))
     signalPassFailure();
 }
+} // namespace
 
+namespace onnx_mlir {
 void getKrnlParallelClauseIntoOpenMPPatterns(
     mlir::RewritePatternSet &patterns) {
   MLIRContext *context = patterns.getContext();
