@@ -88,6 +88,10 @@ typedef enum {
   // clang-format on
 } OptReport;
 
+typedef enum {
+  GreedyAlg, // Greedy algorithm.
+} DecodingStrategy;
+
 extern const std::string modelSizeStr[];
 
 // Common options shared between onnx-mlir and onnx-mlir-opt.
@@ -176,6 +180,7 @@ extern bool debugTestCompilerOpt;                             // onnx-mlir only
 extern bool useLinalgPath;                                    // onnx-mlir only
 extern std::string configFile;                                // onnx-mlir only
 extern std::string saveConfigFile;                            // onnx-mlir only
+extern DecodingStrategy decodingStrategy;                     // onnx-mlir only
 
 extern bool split_input_file;          // onnx-mlir-opt only
 extern bool verify_diagnostics;        // onnx-mlir-opt only

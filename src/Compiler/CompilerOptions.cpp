@@ -109,6 +109,7 @@ bool enableBoundCheck;                                 // onnx-mlir only
 bool useLinalgPath;                                    // onnx-mlir only
 std::string configFile;                                // onnx-mlir only
 std::string saveConfigFile;                            // onnx-mlir only
+DecodingStrategy decodingStrategy;                     // onnx-mlir only
 bool split_input_file;                                 // onnx-mlir-opt only
 bool verify_diagnostics;                               // onnx-mlir-opt only
 bool verify_passes;                                    // onnx-mlir-opt only
@@ -831,6 +832,12 @@ static llvm::cl::opt<bool, true> enable_bound_check("enable-bound-check",
     llvm::cl::location(enableBoundCheck), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
+llvm::cl::opt<DecodingStrategy, true> decodingStrategyOpt{"decoding-strategy",
+    llvm::cl::desc("Choose a decoding strategy to append to the model. Used "
+                   "for decoder models"),
+    llvm::cl::location(decodingStrategy),
+    llvm::cl::values(clEnumVal(GreedyAlg, "Greedy algorithm (default).")),
+    llvm::cl::init(GreedyAlg), llvm::cl::cat(OnnxMlirOptions)};
 /*
   How to use the optional optimization for testing.
 
