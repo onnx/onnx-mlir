@@ -35,9 +35,6 @@ LogicalResult XFEGlobalAveragePoolOpVerify(Operation *op);
 // Verify for GlobalMaxPoolChannelLast
 LogicalResult XFEGlobalMaxPoolOpVerify(Operation *op);
 
-// Verify for BatchNormalizationChannelLast
-LogicalResult XFEBatchNormalizationOpVerify(Operation *op);
-
 // Verify for InstanceNormalizationChannelLast
 LogicalResult XFEInstanceNormalizationOpVerify(Operation *op);
 
@@ -49,5 +46,8 @@ LogicalResult XFESpaceToDepthOpVerify(Operation *op);
 
 // Verify for ResizeChannelLast
 LogicalResult XFEResizeOpVerify(Operation *op);
+
+// Verify channel-wise (per-axis) quantization axis alignment for all XFE ops
+LogicalResult XFEChannelWiseQuantizationVerify(Operation *op);
 
 } // namespace mlir
