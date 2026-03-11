@@ -5,7 +5,7 @@ REPO_ROOT=$(git rev-parse --show-toplevel)
 cd "$REPO_ROOT/utils"
 
 # Run gen_onnx_mlir.py and copy auto-generated files (keep stderr visible for diagnostics)
-bash -e gen_onnx_mlir_multiple_custom_ops.sh > /dev/null
+bash gen_onnx_mlir_multiple_custom_ops.sh > /dev/null
 
 # Verify the generator actually produced output
 if ! ls *.td 1>/dev/null 2>&1; then
