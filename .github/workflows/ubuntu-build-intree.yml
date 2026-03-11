@@ -84,3 +84,6 @@ jobs:
       run: |
         cd ..
         sh onnx-mlir/utils/check-unittest.sh
+
+    - name: verify generated files are up-to-date
+      run: bash utils/check-gen-onnx-mlir.sh
