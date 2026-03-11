@@ -17,7 +17,6 @@ add_onnx_mlir_library(ModelLib
   EXCLUDE_FROM_OM_LIBS
 
   LINK_LIBS PUBLIC
-  OMCompiler
   OMCompilerUtils
   OMExecutionSession
   ${CMAKE_DL_LIBS}

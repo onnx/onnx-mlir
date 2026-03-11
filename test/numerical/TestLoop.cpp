@@ -134,7 +134,7 @@ bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
   std::vector<onnx_mlir::OMTensorUniquePtr> outputs;
   try {
     outputs = sess.run(std::move(inputs));
-  } catch (const std::runtime_error &error) {
+  } catch (const onnx_mlir::ExecutionSessionException &error) {
     std::cerr << "error while running: " << error.what() << std::endl;
     return false;
   }

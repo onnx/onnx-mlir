@@ -15,7 +15,7 @@
 #ifndef ONNX_MLIR_COMPILER_PASSES_H
 #define ONNX_MLIR_COMPILER_PASSES_H
 #include "mlir/Pass/PassManager.h"
-
+#include "src/Compiler/CompilerOptions.hpp"
 namespace onnx_mlir {
 // Configures passes up front based on command line options.
 void configurePasses();

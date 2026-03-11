@@ -4,7 +4,7 @@
 
 //===-- PyExecutionSessionBase.hpp - PyExecutionSessionBase Declaration ---===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,6 +12,9 @@
 // contains shared code for PyExecutionSession and PyOMCompileExecutionSession.
 //
 //===----------------------------------------------------------------------===//
+
+// TODO: base class is no longer needed, should be merged with
+// PyExecutionSession.
 
 #ifndef ONNX_MLIR_PY_EXECUTION_SESSION_BASE_H
 #define ONNX_MLIR_PY_EXECUTION_SESSION_BASE_H
@@ -52,7 +55,6 @@ protected:
   // Constructor that build the object without initialization (for use by
   // subclass only).
   PyExecutionSessionBase() : onnx_mlir::ExecutionSession() {}
-  std::string reportPythonError(std::string errorStr) const;
 };
 } // namespace onnx_mlir
 #endif

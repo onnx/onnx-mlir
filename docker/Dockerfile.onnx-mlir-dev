@@ -60,7 +60,7 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
 # Build onnx-mlir and run tests
     && cd ${ONNX_MLIR_ROOT} \
     && rm -rf build && mkdir -p build && cd build \
-# NNPA acclerator is built on all archs to enable lit tests
+# NNPA accelerator is built on all archs to enable lit tests
 # (dependent libzdnn is built on s390x only)
     && CC=clang CXX=clang++ \
        cmake -DMLIR_DIR=${LLVM_PROJECT_ROOT}/build/lib/cmake/mlir \
@@ -79,6 +79,8 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
        fi \
     && make -j${NPROC} \
     && make -j${NPROC} LIT_OPTS=-v check-onnx-lit \
+# Add onnx-mlir to PATH for subsequent make commands
+    && export PATH="${ONNX_MLIR_ROOT}/build/Debug/bin:${PATH}" \
 # FLOAT16 backend tests only work on ppc64le platform at the moment
     && TEST_NOFLOAT16=${TEST_NOFLOAT16:-$([ "$(uname -m)" = "s390x" ] && echo true || \
                                          ([ "$(uname -m)" = "x86_64" ] &&  echo true || \
@@ -131,5 +133,9 @@ LABEL onnx_mlir_pr_number=${ONNX_MLIR_PR_NUMBER}
 LABEL onnx_mlir_pr_number2=${ONNX_MLIR_PR_NUMBER2}
 
 COPY --from=onnx-mlir-dev-test / /
+
+# Add onnx-mlir build directory to PATH for interactive use
+ENV PATH="/workdir/onnx-mlir/build/Debug/bin:${PATH}"
+
 CMD [ "/bin/bash" ]
 LABEL onnx_mlir_successfully_built=yes
