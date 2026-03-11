@@ -147,10 +147,15 @@ void ExecutionSession::loadModel(
   _printInstrumentationFunc = reinterpret_cast<printInstrumentationFuncType>(
       dlsym(_sharedLibraryHandle, _printInstrumentationName.c_str()));
 #endif
-  if (!_printInstrumentationFunc)
-    throw ExecutionSessionException(
-        "Cannot load symbol: '" + _printInstrumentationName + "'.");
-
+  if (!_printInstrumentationFunc) {
+    // Silently ignore
+    if (silentlyIgnoreMissingPrintInstrumentationFunc) {
+      _printInstrumentationFunc = nullptr;
+    } else {
+      throw ExecutionSessionException(
+          "Cannot load symbol: '" + _printInstrumentationName + "'.");
+    }
+  }
   // Set OM_CONSTANT_PATH for loading constants from file if required.
   std::size_t found = sharedLibPath.find_last_of("/\\");
   if (found != std::string::npos) {
@@ -241,7 +246,8 @@ void ExecutionSession::printInstrumentation() {
     throw ExecutionSessionException(
         "Execution session must be initialized once.");
   errno = 0; // No errors.
-  return _printInstrumentationFunc();
+  if (_printInstrumentationFunc)
+    _printInstrumentationFunc();
 }
 
 // =============================================================================
@@ -285,6 +291,11 @@ std::vector<OMTensorUniquePtr> ExecutionSession::run(
   // OMTensorUniquePtr. So we need to simply deallocate the list structure
   // without touching the OMTensors.
   omTensorListDestroyShallow(wrappedOutput);
+
+  // Print instrumentation.
+  if (_printInstrumentationFunc)
+    _printInstrumentationFunc();
+
   errno = 0; // No errors.
   return outs;
 }
@@ -304,6 +315,11 @@ OMTensorList *ExecutionSession::run(OMTensorList *input) {
   OMTensorList *output = _entryPointFunc(input);
   if (!output)
     throw ExecutionSessionException(reportErrnoError());
+
+  // Print instrumentation.
+  if (_printInstrumentationFunc)
+    _printInstrumentationFunc();
+
   errno = 0; // No errors.
   return output;
 }
