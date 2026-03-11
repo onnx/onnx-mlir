@@ -1638,6 +1638,15 @@ public:
     if (firstAllowZero != 0)
       return rewriter.notifyMatchFailure(op, "Does not support AllowZero != 0");
 
+    // Don't fuse if element types differ (e.g. quantized -> f32 boundary).
+    auto firstDataElemType =
+        mlir::cast<ShapedType>(firstData.getType()).getElementType();
+    auto secondResultElemType =
+        mlir::cast<ShapedType>(secondReshapeOp.getType()).getElementType();
+    if (firstDataElemType != secondResultElemType)
+      return rewriter.notifyMatchFailure(
+          op, "Element types differ across reshape chain");
+
     Location loc = rewriter.getFusedLoc(
         {firstReshapeOp.getLoc(), secondReshapeOp.getLoc()});
     OnnxBuilder createONNX(rewriter, loc);
