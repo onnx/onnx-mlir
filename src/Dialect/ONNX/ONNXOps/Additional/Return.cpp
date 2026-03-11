@@ -81,8 +81,8 @@ LogicalResult ONNXReturnOp::verify() {
       return emitError() << "type of return operand " << i << " ("
                          << getOperand(i).getType()
                          << ") is incompatible with function result type ("
-                         << results[i] << ")" << " in function @"
-                         << function.getName();
+                         << results[i] << ")"
+                         << " in function @" << function.getName();
 
   return success();
 }

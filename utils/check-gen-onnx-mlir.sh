@@ -9,8 +9,14 @@ bash gen_onnx_mlir_multiple_custom_ops.sh > /dev/null 2>&1
 
 cd "$REPO_ROOT"
 
+CLANG_FORMAT="${CLANG_FORMAT:-clang-format-9}"
+if ! command -v "$CLANG_FORMAT" &> /dev/null; then
+  echo "::warning::$CLANG_FORMAT not found, falling back to clang-format"
+  CLANG_FORMAT="clang-format"
+fi
+
 # Run clang-format only on the C++ files produced by the generator
-find src/Dialect/ONNX/ONNXOps/Additional -name '*.cpp' -o -name '*.hpp' | xargs clang-format -i
+find src/Dialect/ONNX/ONNXOps/Additional -name '*.cpp' -o -name '*.hpp' | xargs "$CLANG_FORMAT" -i
 
 # Check for expected manual edits in ONNXOps.td.inc
 if ! git diff --quiet -- src/Dialect/ONNX/ONNXOps.td.inc; then
