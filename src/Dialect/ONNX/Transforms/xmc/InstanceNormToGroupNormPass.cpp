@@ -1,7 +1,7 @@
 // Copyright (C) 2022 - 2025 Advanced Micro Devices, Inc. All rights reserved.
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/Dialect/Quant/IR/QuantTypes.h"
+#include "mlir/Dialect/Quant/IR/Quant.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/PatternMatch.h"
@@ -12,14 +12,11 @@
 #include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/Support/Debug.h"
 
 #include <cstring>
 #include <optional>
 
 using namespace mlir;
-
-#define DEBUG_TYPE "convert-instancenorm-to-groupnorm"
 
 namespace {
 
@@ -35,56 +32,20 @@ std::optional<SmallVector<int64_t>> getStaticShape(Type type) {
   return SmallVector<int64_t>(tensorType.getShape());
 }
 
-/// Check if two shapes are equal.
-bool shapesEqual(ArrayRef<int64_t> shape1, ArrayRef<int64_t> shape2) {
-  if (shape1.size() != shape2.size())
-    return false;
-  for (size_t i = 0; i < shape1.size(); ++i) {
-    if (shape1[i] != shape2[i])
-      return false;
-  }
-  return true;
-}
-
-/// Expand constant data by repeating it to fill the target size.
-/// Used to expand InstanceNorm scale/bias to GroupNorm scale/bias.
-template <typename T>
-SmallVector<T> expandConstantData(ArrayRef<T> original, int64_t targetSize) {
-  SmallVector<T> expanded;
-  expanded.reserve(targetSize);
-  while (static_cast<int64_t>(expanded.size()) < targetSize) {
-    expanded.append(original.begin(), original.end());
-  }
-  return expanded;
-}
-
-/// Extract constant data from an ONNX constant op.
-template <typename T>
-std::optional<SmallVector<T>> getConstantData(Value value) {
-  auto constOp = value.getDefiningOp<ONNXConstantOp>();
-  if (!constOp)
-    return std::nullopt;
-
-  auto attr = mlir::dyn_cast<DenseElementsAttr>(constOp.getValueAttr());
-  if (!attr)
-    return std::nullopt;
-
-  SmallVector<T> data;
-  for (auto val : attr.getValues<T>()) {
-    data.push_back(val);
-  }
-  return data;
-}
-
 /// Create an expanded constant by repeating the original constant data.
 /// Supports float, integer, and quantized element types via raw byte access.
-Value createExpandedConstant(PatternRewriter &rewriter, Location loc,
+ONNXConstantOp createExpandedConstant(PatternRewriter &rewriter, Location loc,
     Value originalConst, int64_t targetSize, int64_t /*originalSize*/) {
-  // Try to get the constant op
+  // Try to get the constant op or from scast
   auto constOp = originalConst.getDefiningOp<ONNXConstantOp>();
-
-  if (!constOp)
-    return nullptr;
+  if (!constOp) {
+    // Try to get from scast
+    if (auto scastOp = originalConst.getDefiningOp<quant::StorageCastOp>()) {
+      constOp = scastOp.getOperand().getDefiningOp<ONNXConstantOp>();
+    }
+    if (!constOp)
+      return nullptr;
+  }
 
   auto attr = mlir::dyn_cast<DenseElementsAttr>(constOp.getValueAttr());
   if (!attr)
@@ -159,7 +120,6 @@ struct MergeReshapeInstanceNormPattern
 
   LogicalResult matchAndRewrite(
       ONNXReshapeOp bottomReshape, PatternRewriter &rewriter) const override {
-    LLVM_DEBUG(llvm::dbgs() << "Checking reshape op for IN->GN pattern\n");
 
     // Match the pattern bottom-up from the final reshape
     // Pattern: Reshape <- InstanceNorm <- Reshape
@@ -183,43 +143,36 @@ struct MergeReshapeInstanceNormPattern
     auto outputShapeOpt = getStaticShape(bottomReshape.getResult().getType());
     auto instanceShapeOpt = getStaticShape(instanceNorm.getResult().getType());
 
-    if (!inputShapeOpt || !outputShapeOpt || !instanceShapeOpt) {
-      LLVM_DEBUG(llvm::dbgs() << "Cannot get static shapes\n");
-      return failure();
-    }
+    if (!inputShapeOpt || !outputShapeOpt || !instanceShapeOpt)
+      return rewriter.notifyMatchFailure(
+          bottomReshape, "Cannot get static shapes");
 
     auto inputShape = *inputShapeOpt;
     auto outputShape = *outputShapeOpt;
     auto instanceShape = *instanceShapeOpt;
 
     // Input and output shapes must match (reshapes cancel out)
-    if (!shapesEqual(inputShape, outputShape)) {
-      LLVM_DEBUG(llvm::dbgs() << "Input/output shapes don't match, skipping\n");
-      return failure();
-    }
+    if (inputShape != outputShape)
+      return rewriter.notifyMatchFailure(
+          bottomReshape, "Input/output shapes don't match");
 
     // Only support 3D (NCD) or 4D (NCHW) tensors
-    if (inputShape.size() != 3 && inputShape.size() != 4) {
-      LLVM_DEBUG(llvm::dbgs() << "Only 3D/4D tensors supported, got "
-                              << inputShape.size() << "D\n");
-      return failure();
-    }
+    if (inputShape.size() != 3 && inputShape.size() != 4)
+      return rewriter.notifyMatchFailure(
+          bottomReshape, "Only 3D/4D tensors supported, got " +
+                             std::to_string(inputShape.size()) + "D");
 
     // Calculate group count
     int64_t gnChannel = inputShape[1];    // Original channel count
     int64_t inChannel = instanceShape[1]; // InstanceNorm channel count
 
-    if (inChannel == 0 || gnChannel < inChannel || gnChannel % inChannel != 0) {
-      LLVM_DEBUG(llvm::dbgs()
-                 << "Invalid channel relationship: gnChannel=" << gnChannel
-                 << ", inChannel=" << inChannel << "\n");
-      return failure();
-    }
+    if (inChannel == 0 || gnChannel < inChannel || gnChannel % inChannel != 0)
+      return rewriter.notifyMatchFailure(
+          bottomReshape, "Invalid channel relationship: gnChannel=" +
+                             std::to_string(gnChannel) +
+                             ", inChannel=" + std::to_string(inChannel));
 
     int64_t numGroups = gnChannel / inChannel;
-
-    LLVM_DEBUG(llvm::dbgs() << "Converting InstanceNorm to GroupNorm with "
-                            << numGroups << " groups\n");
 
     // Get scale and bias from InstanceNorm
     Value instanceScale = instanceNorm.getScale();
@@ -227,16 +180,22 @@ struct MergeReshapeInstanceNormPattern
     float epsilon = instanceNorm.getEpsilon().convertToFloat();
 
     // Create expanded scale constant
-    Value newScale = createExpandedConstant(
+    auto newScale = createExpandedConstant(
         rewriter, bottomReshape.getLoc(), instanceScale, gnChannel, inChannel);
     if (!newScale)
-      return failure();
+      return rewriter.notifyMatchFailure(
+          bottomReshape, "Failed to create new scale");
 
     // Create expanded bias constant
-    Value newBias = createExpandedConstant(
+    auto newBias = createExpandedConstant(
         rewriter, bottomReshape.getLoc(), instanceBias, gnChannel, inChannel);
-    if (!newBias)
-      return failure();
+    if (!newBias) {
+      // Rollback changes when failing, otherwise the pattern matcher will be
+      // stuck in infinite loop
+      rewriter.eraseOp(newScale);
+      return rewriter.notifyMatchFailure(
+          bottomReshape, "Failed to create new bias");
+    }
 
     // Create GroupNormalization op
 
@@ -254,9 +213,6 @@ struct MergeReshapeInstanceNormPattern
 
     // Replace all uses of the bottom reshape with the GroupNorm result
     rewriter.replaceOp(bottomReshape, groupNormOp.getResult());
-
-    LLVM_DEBUG(
-        llvm::dbgs() << "Successfully converted InstanceNorm to GroupNorm\n");
     return success();
   }
 };
@@ -285,7 +241,6 @@ struct ConvertInstanceNormToGroupNormPass
     patterns.add<MergeReshapeInstanceNormPattern>(context);
 
     GreedyRewriteConfig config;
-    config.maxIterations = 3;
     ResultNamesUpdater rnUpdater;
     config.listener = &rnUpdater;
 
