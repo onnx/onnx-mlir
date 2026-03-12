@@ -16,6 +16,8 @@
 #ifndef ONNX_MLIR_NNPA_JSON_CONFIG_OBJECT_H
 #define ONNX_MLIR_NNPA_JSON_CONFIG_OBJECT_H
 
+#include <regex>
+
 #include "mlir/IR/Operation.h"
 #include "src/Compiler/JsonConfigObject.hpp"
 #include "llvm/ADT/STLFunctionalExtras.h"
@@ -85,12 +87,18 @@ public:
           buildConfigFn);
 
   // JSON key constants for NNPA configuration.
+  // TODO: define a JSON schema file for validation.
   static constexpr const char *OPS_CONFIG_KEY = "nnpa_ops_config";
   static constexpr const char *PATTERN_KEY = "pattern";
+  // Keys inside `pattern'
   static constexpr const char *MATCH_KEY = "match";
   static constexpr const char *REWRITE_KEY = "rewrite";
+  // Keys inside `match`.
   static constexpr const char *NODE_TYPE_KEY = "node_type";
   static constexpr const char *ONNX_NODE_NAME_KEY = "onnx_node_name";
+  static constexpr const char *INPUTS_KEY = "inputs";
+  static constexpr const char *OUTPUTS_KEY = "outputs";
+  // Keys inside `rewrite`.
   static constexpr const char *DEVICE_KEY = "device";
   static constexpr const char *QUANTIZE_KEY = "quantize";
 
@@ -98,6 +106,14 @@ public:
   static constexpr const char *ONNX_NODE_NAME_ATTR = ONNX_NODE_NAME_KEY;
   static constexpr const char *DEVICE_ATTR = DEVICE_KEY;
   static constexpr const char *QUANTIZE_ATTR = QUANTIZE_KEY;
+
+private:
+  void constructTensorInfo(mlir::Value v, llvm::json::Object &tensorInfoObj);
+  bool matchNodeType(mlir::Operation *op, std::regex re);
+  bool matchNodeName(mlir::Operation *op, std::regex re);
+  bool matchTensorInfo(mlir::Value tensor, llvm::json::Object *patternObj);
+  bool matchTensorInfo(
+      mlir::ValueRange tensors, llvm::json::Object *patternObj);
 };
 
 /// Get the global NNPA configuration object.

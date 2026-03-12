@@ -172,6 +172,13 @@ void DevicePlacementPass::runOnOperation() {
         ops, [&](llvm::json::Object *rewriteObj, mlir::Operation *op) {
           if (auto device =
                   rewriteObj->getString(NNPAJsonConfigObject::DEVICE_KEY)) {
+            if (!(device.value().empty() ||
+                    device.value().equals_insensitive("cpu") ||
+                    device.value().equals_insensitive("nnpa"))) {
+              llvm::errs() << "Device value in JSON config file must be cpu or "
+                              "nnpa or empty, but got "
+                           << device.value() << ".\n";
+            }
             op->setAttr(NNPAJsonConfigObject::DEVICE_ATTR,
                 StringAttr::get(module.getContext(), *device));
           }
