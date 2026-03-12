@@ -612,8 +612,6 @@ private:
                     " is set by --shapeInformationLB as " +
                     std::to_string(bound) + ", but got ");
             break;
-          default:
-            assert(false && "Unsupported BoundType");
           }
         }
       }
