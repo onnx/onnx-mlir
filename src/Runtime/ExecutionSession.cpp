@@ -350,7 +350,7 @@ OMTensorList *ExecutionSession::run(
 
 #if defined(_WIN32)
   // Run with signal is not supported under Windows, ignore.
-  return run(input);
+  return runWithoutSignalHandler(input);
 #else
   if (!useSignalHandler)
     return runWithoutSignalHandler(input);
@@ -379,7 +379,7 @@ OMTensorList *ExecutionSession::runWithoutSignalHandler(OMTensorList *input) {
 // Run with signal handling to catch crashes (POSIX only).
 OMTensorList *ExecutionSession::runWithSignalHandler(OMTensorList *input) {
 #if defined(_WIN32)
-  assert(false && "illegal call");
+  assert(false && "unsupported call");
   return nullptr;
 #else
   // Save old signal handlers
@@ -442,11 +442,18 @@ OMTensorList *ExecutionSession::runWithSignalHandler(OMTensorList *input) {
 // Error reporting
 
 std::string ExecutionSession::reportErrnoError(bool fromSignal) const {
-  std::string errMessageStr = std::string(strerror(errno));
   std::stringstream errStr;
-  errStr << "Runtime error during inference returning with ERRNO " << errno
-         << ", '" << errMessageStr
-         << (fromSignal ? "', caught in a signal handler." : "'.") << std::endl;
+  if (fromSignal) {
+    // errno contains the signal number when fromSignal is true
+    std::string signalStr = std::string(strsignal(errno));
+    errStr << "Runtime error during inference caught signal " << errno << ", '"
+           << signalStr << "'." << std::endl;
+  } else {
+    // errno contains a standard error code
+    std::string errMessageStr = std::string(strerror(errno));
+    errStr << "Runtime error during inference returning with ERRNO " << errno
+           << ", '" << errMessageStr << "'." << std::endl;
+  }
   return errStr.str();
 }
 
