@@ -140,7 +140,7 @@ PyExecutionSessionBase::PyExecutionSessionBase(
 // =============================================================================
 // Run.
 
-std::vector<py::array> PyExecutionSessionBase::pyRunInternal(
+std::vector<py::array> PyExecutionSessionBase::pyRun(
     const std::vector<py::array> &inputsPyArray,
     const std::vector<py::array> &shapesPyArray,
     const std::vector<py::array> &stridesPyArray, bool useSignalHandler) {
@@ -290,10 +290,7 @@ std::vector<py::array> PyExecutionSessionBase::pyRunInternal(
     // multi-threaded Python applications without affecting single-threaded
     // code.
     //     py::gil_scoped_release release;  // Release GIL
-    if (useSignalHandler)
-      wrappedOutput = runWithSignalHandler(wrappedInput);
-    else
-      wrappedOutput = run(wrappedInput);
+    wrappedOutput = run(wrappedInput, useSignalHandler);
   } // TODO from above: GIL would automatically be reacquired here.
   TIMING_STOP_PRINT(inference);
 
@@ -415,22 +412,6 @@ std::vector<py::array> PyExecutionSessionBase::pyRunInternal(
   TIMING_STOP_PRINT(delete_in_lists);
 
   return outputPyArrays;
-}
-
-std::vector<py::array> PyExecutionSessionBase::pyRun(
-    const std::vector<py::array> &inputsPyArray,
-    const std::vector<py::array> &shapesPyArray,
-    const std::vector<py::array> &stridesPyArray) {
-  return pyRunInternal(inputsPyArray, shapesPyArray, stridesPyArray,
-      /*run with signal handler*/ false);
-}
-
-std::vector<py::array> PyExecutionSessionBase::pyRunWithSignalHandler(
-    const std::vector<py::array> &inputsPyArray,
-    const std::vector<py::array> &shapesPyArray,
-    const std::vector<py::array> &stridesPyArray) {
-  return pyRunInternal(inputsPyArray, shapesPyArray, stridesPyArray,
-      /*run with signal handler*/ true);
 }
 
 // =============================================================================

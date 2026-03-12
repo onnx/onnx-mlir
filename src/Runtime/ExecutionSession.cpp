@@ -338,9 +338,8 @@ std::vector<OMTensorUniquePtr> ExecutionSession::run(
   return outs;
 }
 
-// Run using public interface. Explicit calls are needed to free tensor & tensor
-// lists.
-OMTensorList *ExecutionSession::run(OMTensorList *input) {
+OMTensorList *ExecutionSession::run(
+    OMTensorList *input, bool useSignalHandler) {
   if (!isInitialized)
     throw ExecutionSessionException(
         "Execution session must be initialized once.");
@@ -348,6 +347,20 @@ OMTensorList *ExecutionSession::run(OMTensorList *input) {
     throw ExecutionSessionException(
         "Must set an entry point (e.g. run_main_graph) before calling run "
         "function.");
+
+#if defined(_WIN32)
+  // Run with signal is not supported under Windows, ignore.
+  return run(input);
+#else
+  if (!useSignalHandler)
+    return runWithoutSignalHandler(input);
+  return runWithSignalHandler(input);
+#endif
+}
+
+// Run using public interface. Explicit calls are needed to free tensor & tensor
+// lists.
+OMTensorList *ExecutionSession::runWithoutSignalHandler(OMTensorList *input) {
 
   // Run inference.
   errno = 0; // Clear errno.
@@ -366,17 +379,9 @@ OMTensorList *ExecutionSession::run(OMTensorList *input) {
 // Run with signal handling to catch crashes (POSIX only).
 OMTensorList *ExecutionSession::runWithSignalHandler(OMTensorList *input) {
 #if defined(_WIN32)
-  // Run with signal is not supported under Windows.
-  return run(input);
-#endif
-  if (!isInitialized)
-    throw ExecutionSessionException(
-        "Execution session must be initialized once.");
-  if (!_entryPointFunc)
-    throw ExecutionSessionException(
-        "Must set an entry point (e.g. run_main_graph) before calling run "
-        "function.");
-
+  assert(false && "illegal call");
+  return nullptr;
+#else
   // Save old signal handlers
   struct sigaction oldSigsegv, oldSigbus, oldSigfpe, oldSigill;
   struct sigaction newAction;
@@ -430,6 +435,7 @@ OMTensorList *ExecutionSession::runWithSignalHandler(OMTensorList *input) {
     errno = signum;
     throw ExecutionSessionException(reportErrnoError(/*from signal*/ true));
   }
+#endif
 }
 
 // =============================================================================

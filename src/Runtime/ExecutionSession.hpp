@@ -99,14 +99,9 @@ public:
   std::vector<OMTensorUniquePtr> run(std::vector<OMTensorUniquePtr>);
 
   // Run using public interface. Explicit calls are needed to free tensor &
-  // tensor lists.
-  OMTensorList *run(OMTensorList *input);
-
-  // Run with signal handling to catch crashes (SIGSEGV, SIGBUS, SIGFPE,
-  // SIGILL, SIGABRT). Throw ExecutionSessionException if a signal is caught,
-  // and sets errno to the signal number. Note: This method can only be called
-  // on POSIX systems (Linux, macOS, etc.)
-  OMTensorList *runWithSignalHandler(OMTensorList *input);
+  // tensor lists. Using a signal handler is only a debugging option; it is not
+  // safe to continue after catching a signal, not thread safe.
+  OMTensorList *run(OMTensorList *input, bool useSignalHandler = false);
 
   // Get input and output signature as a Json string. For example for nminst:
   // `[ { "type" : "f32" , "dims" : [1 , 1 , 28 , 28] , "name" : "image" } ]`
@@ -154,6 +149,16 @@ protected:
   const std::string _printInstrumentationName = "omInstrumentPrint";
   const bool silentlyIgnoreMissingPrintInstrumentationFunc = true;
   printInstrumentationFuncType _printInstrumentationFunc = nullptr;
+
+private:
+  // Run with without signal handler.
+  OMTensorList *runWithoutSignalHandler(OMTensorList *input);
+
+  // Run with signal handling to catch crashes (SIGSEGV, SIGBUS, SIGFPE,
+  // SIGILL, SIGABRT). Throw ExecutionSessionException if a signal is caught,
+  // and sets errno to the signal number. Note: This method can only be called
+  // on POSIX systems (Linux, macOS, etc.)
+  OMTensorList *runWithSignalHandler(OMTensorList *input);
 };
 
 } // namespace onnx_mlir

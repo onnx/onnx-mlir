@@ -107,6 +107,7 @@ PYBIND11_MODULE(PyRuntimeC, m) {
           py::arg("input"),
           py::arg("shape"),
           py::arg("stride"),
+          py::arg("use_signal_handler") = false,
           "Run inference on the model.\n\n"
           "Executes the model with the provided inputs and returns the outputs.\n"
           "All inputs must be numpy arrays with compatible shapes and types.\n\n"
@@ -116,12 +117,16 @@ PYBIND11_MODULE(PyRuntimeC, m) {
           "    shape (list[numpy.ndarray]): List of shape arrays for each input.\n"
           "        Each shape array contains the dimensions of the corresponding input.\n"
           "    stride (list[numpy.ndarray]): List of stride arrays for each input.\n"
-          "        Each stride array contains the memory strides of the corresponding input.\n\n"
+          "        Each stride array contains the memory strides of the corresponding input.\n"
+          "    use_signal_handler (bool): When true, catch signals via a signal handler.\n"
+          "        For debugging only, unsafe, not thread safe. Default is false.\n\n"
           "Returns:\n"
           "    list[numpy.ndarray]: List of output tensors as numpy arrays.\n\n"
           "Raises:\n"
           "    RuntimeError: If input shapes/types don't match the model signature,\n"
-          "        or if inference fails.\n\n"
+          "        or if inference fails. When using signal handler, also raise an\n"
+          "        exception when catching seg-faults or other signals; unsafe to\n"
+          "        continue after an exception.\n\n"
           "Example:\n"
           "    >>> import numpy as np\n"
           "    >>> session = OMExecutionSession('mnist.so')\n"
@@ -136,15 +141,6 @@ PYBIND11_MODULE(PyRuntimeC, m) {
           "    >>> outputs = session.run(inputs, shapes, strides)\n"
           "    >>> predictions = outputs[0]\n"
           "    >>> print(f'Predicted class: {np.argmax(predictions)}')")
-      .def("run_with_signal_handler",
-          &onnx_mlir::PyExecutionSession::pyRunWithSignalHandler,
-          py::arg("input"),
-          py::arg("shape"),
-          py::arg("stride"),
-          "Run inference on the model with signal handlers.\n\n"
-          "Same as run, but with signal handlers (only effective in posix env).\n"
-          "Handlers are not thread safe, execution may not be safe after catching \n"
-          "a signal as process memory might be corrupted. Use for debugging purpose only.\n")
       .def("input_signature",
           &onnx_mlir::PyExecutionSession::pyInputSignature,
           "Get the input signature of the model.\n\n"
