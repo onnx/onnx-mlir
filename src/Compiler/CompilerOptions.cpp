@@ -1460,10 +1460,9 @@ void removeUnrelatedOptions(
   optCategories.push_back(&llvm::cl::getGeneralCategory());
   llvm::cl::HideUnrelatedOptions(optCategories);
 
-  llvm::StringMap<llvm::cl::Option *> &optMap =
-      llvm::cl::getRegisteredOptions();
+  auto &optMap = llvm::cl::getRegisteredOptions();
   for (auto n = optMap.begin(); n != optMap.end(); n++) {
-    llvm::cl::Option *opt = n->getValue();
+    llvm::cl::Option *opt = n->second;
     if (opt->getOptionHiddenFlag() == llvm::cl::ReallyHidden)
       opt->removeArgument();
   }
