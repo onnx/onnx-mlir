@@ -40,18 +40,22 @@
 #define DEBUG_TYPE "print-empty-instrumentation"
 
 using namespace mlir;
+using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
 #define GEN_PASS_DEF_INSTRUMENTCLEANUPPASS
 #include "src/Transform/Passes.h.inc"
 
+} // namespace onnx_mlir
+
+namespace {
 /*!
  * This pass insert KrnlInstrumentOp before and after each ops
  */
 
 class InstrumentCleanupPass
-    : public impl::InstrumentCleanupPassBase<InstrumentCleanupPass> {
+    : public onnx_mlir::impl::InstrumentCleanupPassBase<InstrumentCleanupPass> {
 public:
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(InstrumentCleanupPass)
 
@@ -121,16 +125,5 @@ public:
       op->erase();
   }
 };
-} // namespace onnx_mlir
 
-/*!
- * Create an instrumentation pass.
- */
-// Below is defined by GEN_PASS_DEF in onnx_mlir namespace
-/*
-   namespace onnx_mlir {
-   std::unique_ptr<mlir::Pass> createInstrumentCleanupPass() {
-   return std::make_unique<InstrumentCleanupPass>();
-   }
-   }//onnx_mlir
- */
+} // namespace
