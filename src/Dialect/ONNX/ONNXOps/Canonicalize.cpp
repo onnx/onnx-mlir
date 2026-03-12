@@ -949,6 +949,41 @@ private:
 };
 
 // =============================================================================
+// Rewrite pattern for redundant resize (scale=1 or same input/output size)
+// =============================================================================
+//
+// A resize with equal input and output dimensions is a noop.
+// This assumes coordinate transformation mode is not "tf_crop_and_resize".
+class RemoveRedundantResizePattern : public OpRewritePattern<ONNXResizeOp> {
+public:
+  using OpRewritePattern<ONNXResizeOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXResizeOp onnxResizeOp, PatternRewriter &rewriter) const override {
+
+    auto inputType =
+        mlir::dyn_cast<RankedTensorType>(onnxResizeOp.getX().getType());
+    auto outputType = mlir::dyn_cast<RankedTensorType>(onnxResizeOp.getType());
+
+    if (!inputType || !outputType)
+      return failure();
+
+    if (!inputType.hasStaticShape() || !outputType.hasStaticShape())
+      return failure();
+
+    if (inputType.getShape() != outputType.getShape())
+      return failure();
+
+    if (onnxResizeOp.getCoordinateTransformationMode() == "tf_crop_and_resize")
+      return failure();
+
+    rewriter.replaceOp(onnxResizeOp, onnxResizeOp.getX());
+
+    return success();
+  }
+};
+
+// =============================================================================
 // Rewrite pattern for loop (not handled in Rewrite.td).
 // =============================================================================
 
@@ -3226,6 +3261,7 @@ void ONNXReshapeOp::getCanonicalizationPatterns(
 void ONNXResizeOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<EmptyTensorInputsResizePattern>(context);
+  result.insert<RemoveRedundantResizePattern>(context);
 }
 
 /// on the ONNXRNNOp.
