@@ -66,8 +66,37 @@ public:
     ONNXReturnOp returnOp = mlir::dyn_cast<ONNXReturnOp>(term);
     if (!returnOp)
       return;
+    if (returnOp.getOperands().size() < 1)
+      return;
 
-    returnOp.dump();
+    // Emit computation for the decoding strategy.
+    OpBuilder b(returnOp);
+    Location loc = returnOp.getLoc();
+    Value logits = returnOp.getOperands()[0];
+    Operation *decodingOp = emitGreedyAlgorithm(b, loc, logits);
+    Value nextTokens = decodingOp->getResults()[0];
+
+    // Replace the first return value by the output of the decoding strategy.
+    returnOp.getOperation()->moveAfter(decodingOp);
+    returnOp->setOperand(0, nextTokens);
+
+    // Update the function signature to reflect the new return type.
+    SmallVector<Type> newResultTypes;
+    newResultTypes.push_back(nextTokens.getType());
+    for (unsigned i = 1; i < returnOp.getOperands().size(); ++i)
+      newResultTypes.push_back(returnOp.getOperands()[i].getType());
+    FunctionType newFuncType = FunctionType::get(
+        mainFunc.getContext(), mainFunc.getArgumentTypes(), newResultTypes);
+    mainFunc.setFunctionType(newFuncType);
+  }
+
+private:
+  Operation *emitGreedyAlgorithm(OpBuilder b, Location loc, Value logits) {
+    UnrankedTensorType resultType = UnrankedTensorType::get(
+        cast<TensorType>(logits.getType()).getElementType());
+    ONNXArgMaxOp argmaxOp = ONNXArgMaxOp::create(b, loc, resultType, logits,
+        /*axis*/ -1, /*keepdims*/ 1, /*select_last_index*/ 0);
+    return argmaxOp.getOperation();
   }
 };
 
