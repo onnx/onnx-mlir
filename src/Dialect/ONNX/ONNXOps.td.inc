@@ -1113,9 +1113,9 @@ def ONNXCeluOp:ONNX_Op<"Celu",
   ```
   }];
   // FIXME(FXML-4138): Remove manual modification of BF16 support when the operation definition is updated upstream
-  let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, TensorOf<[BF16]>]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, TensorOf<[BF16]>, TensorOf<[quant_QuantizedType]>]>:$X,
     DefaultValuedAttr<F32Attr, "1.0">:$alpha);
-  let results = (outs AnyTypeOf<[TensorOf<[F32]>, TensorOf<[BF16]>]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[F32]>, TensorOf<[BF16]>, TensorOf<[quant_QuantizedType]>]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -1215,6 +1215,7 @@ def ONNXClipOp:ONNX_Op<"Clip",
       return sh;
     }
   }];
+  let hasFolder = 1;
 }
 
 def ONNXClipV12Op:ONNX_Op<"ClipV12",

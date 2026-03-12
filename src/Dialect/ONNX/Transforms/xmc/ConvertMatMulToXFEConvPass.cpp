@@ -205,11 +205,17 @@ struct MatMulToXFEConvPattern : public OpRewritePattern<ONNXMatMulOp> {
     auto inputShape = inputType.getShape();
     auto weightShape = weightType.getShape();
 
-    // Verify MatMul shape: input [D1, D2, ..., Dn, K], weight [K, N]
-    if (inputShape.empty() || weightShape.size() < 2 ||
-        inputShape.back() != weightShape[0]) {
+    // Weight must be a 2D constant [K, N] -- reject batched/higher-dim MatMul.
+    if (weightShape.size() != 2)
       return failure();
-    }
+
+    auto weightConstOp = weight.getDefiningOp<ONNXConstantOp>();
+    if (!weightConstOp)
+      return failure();
+
+    // Verify MatMul shape: input [D1, D2, ..., Dn, K], weight [K, N]
+    if (inputShape.empty() || inputShape.back() != weightShape[0])
+      return failure();
 
     auto convShapesOpt = computeConvShapes(inputShape, weightShape);
     if (!convShapesOpt)
@@ -234,12 +240,6 @@ struct MatMulToXFEConvPattern : public OpRewritePattern<ONNXMatMulOp> {
         RankedTensorType::get(convShapes.weightShape, weightElementType);
     auto weightShapeConst =
         createShapeConstant(rewriter, loc, convShapes.weightShape);
-
-    // Require weight to be a 2D constant so we can safely transpose it.
-    auto weightConstOp = weight.getDefiningOp<ONNXConstantOp>();
-    if (!weightConstOp || weightShape.size() != 2) {
-      return failure();
-    }
 
     // Transpose [K, N] -> [N, K].
     auto transposedWeightType = RankedTensorType::get(
@@ -335,15 +335,18 @@ struct GemmToXFEConvPattern : public OpRewritePattern<ONNXGemmOp> {
     auto aShape = aType.getShape();
     auto bShape = bType.getShape();
 
-    // GEMM shape: A [M, K], B [K, N] -> output [M, N] (or transposed variants)
-    if (aShape.size() < 2 || bShape.size() < 2) {
+    // GEMM requires 2D inputs; B must be a constant.
+    if (aShape.size() != 2 || bShape.size() != 2)
       return failure();
-    }
+
+    auto bConstOp = B.getDefiningOp<ONNXConstantOp>();
+    if (!bConstOp)
+      return failure();
+
     int64_t K_A = (transA == 0) ? aShape[1] : aShape[0];
     int64_t K_B = (transB == 0) ? bShape[0] : bShape[1];
-    if (K_A != K_B) {
+    if (K_A != K_B)
       return failure();
-    }
 
     // Handle alpha: if alpha != 1.0, we need to scale the weight
     // For now, only handle alpha = 1.0
@@ -395,12 +398,6 @@ struct GemmToXFEConvPattern : public OpRewritePattern<ONNXGemmOp> {
         RankedTensorType::get(convShapes.weightShape, bElementType);
     auto weightShapeConst =
         createShapeConstant(rewriter, loc, convShapes.weightShape);
-
-    // Require B to be a 2D constant so we can safely transpose it
-    auto bConstOp = B.getDefiningOp<ONNXConstantOp>();
-    if (!bConstOp || bShape.size() != 2) {
-      return failure();
-    }
 
     Value convWeight;
     if (transB != 0) {
