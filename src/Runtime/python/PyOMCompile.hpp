@@ -29,15 +29,14 @@ namespace onnx_mlir {
 class PyOMCompile {
 public:
   PyOMCompile(std::string modelPath, std::string flags,
-      const std::string &logFilename = {}, bool reuseCompiledModel = true);
+      const std::string &compilerPath = {}, const std::string &logFilename = {},
+      bool reuseCompiledModel = true);
   std::string pyGetOutputFilename();
   std::string pyGetOutputConstantFilename();
   std::string pyGetModelTag();
 
 private:
   onnx_mlir::OMCompile OMcompile; // To compile a model.
-  std::string modelPath;
-  std::string flags;
 };
 
 } // namespace onnx_mlir
@@ -58,10 +57,11 @@ PYBIND11_MODULE(PyOMCompileC, m) {
       "    >>> compiler = OMCompile('model.onnx', '-O3 -o output')\n"
       "    >>> output_file = compiler.get_output_file_name()\n"
       "    >>> print(f'Compiled to: {output_file}')")
-      .def(py::init<const std::string &, const std::string &,
+      .def(py::init<const std::string &, const std::string &, const std::string &,
                const std::string &, const bool>(),
           py::arg("input_model_path"),
           py::arg("flags"),
+          py::arg("compiler_path") = "",
           py::arg("log_file_name") = "",
           py::arg("reuse_compiled_model") = false,
           "Compile an ONNX model.\n\n"
@@ -71,6 +71,9 @@ PYBIND11_MODULE(PyOMCompileC, m) {
           "    flags (str): Compilation flags as a single string.\n"
           "        Examples: '-O3', '-O3 -o output_name', '--EmitLib'.\n"
           "        All onnx-mlir command-line options are supported.\n"
+          "    compiler_path (str, optional): Path to onnx-mlir compiler binary,\n"
+          "        namely path plus binary name. If empty (default), use onnx-mlir\n"
+          "        at its default location.\n"
           "    log_file_name (str, optional): Path to log file for compilation output.\n"
           "        If empty (default), output goes to stdout/stderr.\n"
           "    reuse_compiled_model (bool, optional): If True, reuse existing compiled\n"
@@ -95,7 +98,9 @@ PYBIND11_MODULE(PyOMCompileC, m) {
           "determined by the input model name and compilation flags (especially\n"
           "the '-o' flag if provided).\n\n"
           "Returns:\n"
-          "    str: Full path to the compiled model output file.\n\n"
+          "    str: Full path to the compiled model output file.\n"
+          "Raises:\n"
+          "    RuntimeError: If the compilation failed\n\n"
           "Example:\n"
           "    >>> compiler = OMCompile('mnist.onnx', '-O3 -o mnist_opt')\n"
           "    >>> output = compiler.get_output_file_name()\n"
@@ -106,7 +111,9 @@ PYBIND11_MODULE(PyOMCompileC, m) {
           "If the compiler did generate a data constant file, return its\n"
           "absolute path; otherwise, return an emtpy string.\n\n"
           "Returns:\n"
-          "    str: Full path to the constant file of the compiled model.\n\n"
+          "    str: Full path to the constant file of the compiled model.\n"
+          "Raises:\n"
+          "    RuntimeError: If the compilation failed\n\n"
           "Example:\n"
           "    >>> compiler = OMCompile('mnist.onnx', '-O3 -o mnist_opt')\n"
           "    >>> output = compiler.get_output_constant_file_name()\n"
@@ -118,7 +125,9 @@ PYBIND11_MODULE(PyOMCompileC, m) {
           "compilation flags. This can be used for model identification and\n"
           "caching purposes.\n\n"
           "Returns:\n"
-          "    str: Model tag string.\n\n"
+          "    str: Model tag string.\n"
+          "Raises:\n"
+          "    RuntimeError: If the compilation failed\n\n"
           "Example:\n"
           "    >>> compiler = OMCompile('model.onnx', '-O3 --tag=key_model')\n"
           "    >>> tag = compiler.get_model_tag()\n"

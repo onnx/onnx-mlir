@@ -150,9 +150,9 @@ PYBIND11_MODULE(PyRuntimeC, m) {
           "Returns:\n"
           "    str: Human-readable description of the model's input signature.\n\n"
           "Example:\n"
-          "    >>> session = OMExecutionSession('model.so')\n"
+          "    >>> session = OMExecutionSession('mnist.so')\n"
           "    >>> print(session.input_signature())\n"
-          "    # Output: \"Input 0: name='input', shape=[1,3,224,224], type=float32\"")
+          "    # Output: input signature in json [{\"type\" : \"f32\", \"dims\" : [1,1,28,28], \"name\" : \"image\"}")
       .def("output_signature",
           &onnx_mlir::PyExecutionSession::pyOutputSignature,
           "Get the output signature of the model.\n\n"
@@ -162,9 +162,9 @@ PYBIND11_MODULE(PyRuntimeC, m) {
           "Returns:\n"
           "    str: Human-readable description of the model's output signature.\n\n"
           "Example:\n"
-          "    >>> session = OMExecutionSession('model.so')\n"
+          "    >>> session = OMExecutionSession('mnist.so')\n"
           "    >>> print(session.output_signature())\n"
-          "    # Output: \"Output 0: name='output', shape=[1,1000], type=float32\"")
+          "    # Output: output signature in json [{\"type\" : \"f32\", \"dims\" : [1,10], \"name\" : \"prediction\"}")
       .def("print_instrumentation",
           &onnx_mlir::PyExecutionSession::pyPrintInstrumentation,
           "Print instrumentation data from the model execution.\n\n"
