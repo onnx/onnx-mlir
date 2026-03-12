@@ -216,9 +216,12 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   if (hasSignatureInstrumentation(onnx_mlir::InstrumentStages::Onnx))
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentONNXSignaturePass(
         instrumentSignatures, instrumentOnnxNode));
-  if (hasInstrumentation(onnx_mlir::InstrumentStages::Onnx))
-    pm.addNestedPass<func::FuncOp>(
-        onnx_mlir::createInstrumentPass(instrumentOps, instrumentActions));
+  if (hasInstrumentation(onnx_mlir::InstrumentStages::Onnx)) {
+    InstrumentPassOptions options;
+    options.instrumentOps = instrumentOps;
+    options.actions = instrumentActions;
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(options));
+  }
 
   // Convert ONNX to Linalg if requested (either --use-linalg-path or
   // --linalg-ops is specified)

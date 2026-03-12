@@ -122,15 +122,3 @@ public:
   }
 };
 } // namespace onnx_mlir
-
-/*!
- * Create an instrumentation pass.
- */
-// Below is defined by GEN_PASS_DEF in onnx_mlir namespace
-/*
-   namespace onnx_mlir {
-   std::unique_ptr<mlir::Pass> createInstrumentCleanupPass() {
-   return std::make_unique<InstrumentCleanupPass>();
-   }
-   }//onnx_mlir
- */
