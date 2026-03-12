@@ -257,9 +257,6 @@ void ZTensorEncodingAttr::print(AsmPrinter &printer) const {
     break;
   case QuantizedType::UNDEFINED:
     break;
-  default:
-    llvm_unreachable("Unexpected quantized type");
-    break;
   }
   printer << "}>";
 }
