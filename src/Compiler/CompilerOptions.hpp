@@ -89,7 +89,8 @@ typedef enum {
 } OptReport;
 
 typedef enum {
-  GreedyAlg, // Greedy algorithm.
+  GreedyDecodingStrategy, // Greedy algorithm.
+  NoneDecodingStrategy
 } DecodingStrategy;
 
 extern const std::string modelSizeStr[];

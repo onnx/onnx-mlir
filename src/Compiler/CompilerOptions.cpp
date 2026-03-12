@@ -836,8 +836,13 @@ llvm::cl::opt<DecodingStrategy, true> decodingStrategyOpt{"decoding-strategy",
     llvm::cl::desc("Choose a decoding strategy to append to the model. Used "
                    "for decoder models"),
     llvm::cl::location(decodingStrategy),
-    llvm::cl::values(clEnumVal(GreedyAlg, "Greedy algorithm (default).")),
-    llvm::cl::init(GreedyAlg), llvm::cl::cat(OnnxMlirOptions)};
+    llvm::cl::values(
+        clEnumValN(GreedyDecodingStrategy, "greedy", "Greedy algorithm."),
+        clEnumValN(
+            NoneDecodingStrategy, "none", "No decoding strategy (default).")),
+    llvm::cl::init(DecodingStrategy::NoneDecodingStrategy),
+    llvm::cl::cat(OnnxMlirOptions)};
+
 /*
   How to use the optional optimization for testing.
 

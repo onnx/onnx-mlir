@@ -43,6 +43,10 @@ std::unique_ptr<mlir::Pass> createDecomposeONNXToONNXPass(
 std::unique_ptr<mlir::Pass> createRecomposeONNXToONNXPass(
     const std::string &target = "");
 
+// Pass for appending a decoding strategy into the main graph. 
+#define GEN_PASS_DECL_APPENDDECODINGSTRATEGYPASS
+std::unique_ptr<::mlir::Pass> createAppendDecodingStrategyPass();
+
 std::unique_ptr<mlir::Pass> createConvOptONNXToONNXPass(
     bool enableSimdDataLayoutOpt = false);
 
