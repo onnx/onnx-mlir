@@ -46,12 +46,13 @@ int64_t normalizeAxis(int64_t axis, int64_t rank) {
   return axis < 0 ? axis + rank : axis;
 }
 
-/// Check if reduction is only on channel dimension (axis 1 for NCHW)
+/// Check if reduction is on channel dimension.
+/// NCHW: channel at axis 1. NHWC: channel at axis rank-1.
 bool isChannelWiseReduction(llvm::ArrayRef<int64_t> axes, int64_t rank) {
   if (axes.size() != 1)
     return false;
   int64_t axis = normalizeAxis(axes[0], rank);
-  return axis == 1; // NCHW: channel is at index 1
+  return axis == 1 || (rank > 2 && axis == rank - 1);
 }
 
 /// Check if element type is valid for onnx.Conv (float or quantized).
@@ -168,7 +169,10 @@ llvm::SmallVector<int64_t> compute4DShape(llvm::ArrayRef<int64_t> inputShape) {
   return result;
 }
 
-/// Convert channel-wise reduction to convolution (NCHW layout)
+/// Convert channel-wise reduction to convolution (NCHW layout).
+/// Standard group=1 1x1 conv reduces inputShape[1] (C_in) to 1.
+///   Input [N,C,H,W] → Conv(weight=[1,C,1,1], group=1) → [N,1,H,W]
+/// The downstream ONNXToXIR pass handles NCHW→NHWC layout conversion.
 mlir::Value convertReductionToConv(mlir::PatternRewriter &rewriter,
     mlir::Location loc, mlir::Value input,
     bool isMean, // true for mean, false for sum
@@ -183,24 +187,17 @@ mlir::Value convertReductionToConv(mlir::PatternRewriter &rewriter,
 
   llvm::SmallVector<int64_t> convInputShape;
   if (useConv3D) {
-    // Keep 5D for Conv3D: [N, C, D, H, W]
     convInputShape = inputShape;
   } else {
     convInputShape = compute4DShape(inputShape);
   }
 
-  // Reshape if needed
   mlir::Value convInput = input;
-  bool needsInputReshape =
-      (inputShape != llvm::ArrayRef<int64_t>(convInputShape));
-  if (needsInputReshape) {
+  if (inputShape != llvm::ArrayRef<int64_t>(convInputShape)) {
     convInput = createReshape(rewriter, loc, input, convInputShape);
   }
 
-  // NCHW layout: standard ONNX Conv format
-
-  int64_t convOutputC = 1; // Channel-wise reduction always outputs 1 channel
-
+  int64_t convOutputC = 1;
   float weightValue = isMean ? (1.0f / static_cast<float>(inputChannel)) : 1.0f;
 
   llvm::SmallVector<int64_t> weightShape;
@@ -210,14 +207,12 @@ mlir::Value convertReductionToConv(mlir::PatternRewriter &rewriter,
   llvm::SmallVector<int64_t> dilations;
 
   if (useConv3D) {
-    // Conv3D weight: [O, I, D, H, W] for NCHW
     weightShape = {convOutputC, inputChannel, 1, 1, 1};
     kernelShape = {1, 1, 1};
     strides = {1, 1, 1};
     pads = {0, 0, 0, 0, 0, 0};
     dilations = {1, 1, 1};
   } else {
-    // Conv2D weight: [O, I, H, W] for NCHW
     weightShape = {convOutputC, inputChannel, 1, 1};
     kernelShape = {1, 1};
     strides = {1, 1};
@@ -225,19 +220,31 @@ mlir::Value convertReductionToConv(mlir::PatternRewriter &rewriter,
     dilations = {1, 1};
   }
 
-  // Create weights
   auto inputType = mlir::cast<mlir::ShapedType>(convInput.getType());
-  mlir::Value weights = createConstantTensor(
-      rewriter, loc, weightShape, weightValue, inputType.getElementType());
 
-  // Compute output shape (same spatial dims, channel becomes 1)
+  // For quantized inputs, create weights with signed i8 quantized type
+  // (conv weights are conventionally signed). Use |weightValue| as scale
+  // so the quantized weight is 1, with zero_point=0.
+  mlir::Type weightElemType = inputType.getElementType();
+  if (auto inputQuantType = mlir::dyn_cast<mlir::quant::UniformQuantizedType>(
+          inputType.getElementType())) {
+    double wScale = static_cast<double>(std::abs(weightValue));
+    if (wScale < 1e-10)
+      wScale = 1.0;
+    weightElemType = mlir::quant::UniformQuantizedType::get(
+        mlir::quant::QuantizationFlags::Signed,
+        rewriter.getIntegerType(8), inputQuantType.getExpressedType(), wScale,
+        /*zeroPoint=*/0, /*storageTypeMin=*/-128, /*storageTypeMax=*/127);
+  }
+
+  mlir::Value weights = createConstantTensor(
+      rewriter, loc, weightShape, weightValue, weightElemType);
+
   llvm::SmallVector<int64_t> convOutputShape;
   if (useConv3D) {
-    // [N, C, D, H, W] → [N, 1, D, H, W]
     convOutputShape = {convInputShape[0], convOutputC, convInputShape[2],
         convInputShape[3], convInputShape[4]};
   } else {
-    // [N, C, H, W] → [N, 1, H, W]
     convOutputShape = {
         convInputShape[0], convOutputC, convInputShape[2], convInputShape[3]};
   }
@@ -245,16 +252,21 @@ mlir::Value convertReductionToConv(mlir::PatternRewriter &rewriter,
   auto convOutputType =
       mlir::RankedTensorType::get(convOutputShape, inputType.getElementType());
 
-  // Create None value for bias (required by ONNX dialect)
-  auto noneVal = rewriter.create<mlir::ONNXNoneOp>(loc).getResult();
+  // Create zero bias for quantized conv (reference xcompiler always adds bias)
+  mlir::Value bias;
+  if (mlir::isa<mlir::quant::QuantizedType>(inputType.getElementType())) {
+    llvm::SmallVector<int64_t> biasShape = {convOutputC};
+    bias = createConstantTensor(
+        rewriter, loc, biasShape, 0.0f, inputType.getElementType());
+  } else {
+    bias = rewriter.create<mlir::ONNXNoneOp>(loc).getResult();
+  }
 
-  // Create signed 64-bit integer type for group attribute
   auto si64Type = rewriter.getIntegerType(64, /*isSigned=*/true);
 
-  // Create Conv operation
   mlir::Value convResult =
       rewriter.create<mlir::ONNXConvOp>(loc, convOutputType, convInput, weights,
-          /*B=*/noneVal, // no bias
+          /*B=*/bias,
           /*auto_pad=*/rewriter.getStringAttr("NOTSET"),
           /*dilations=*/rewriter.getI64ArrayAttr(dilations),
           /*group=*/mlir::IntegerAttr::get(si64Type, 1),
@@ -262,7 +274,7 @@ mlir::Value convertReductionToConv(mlir::PatternRewriter &rewriter,
           /*pads=*/rewriter.getI64ArrayAttr(pads),
           /*strides=*/rewriter.getI64ArrayAttr(strides));
 
-  // Reshape back to original output shape if needed
+  // Reshape to original output shape if needed (e.g. keepdims=false)
   auto convResultShape = getShape(convResult);
   if (convResultShape != llvm::ArrayRef<int64_t>(originalOutputShape)) {
     convResult = createReshape(rewriter, loc, convResult, originalOutputShape);
@@ -317,7 +329,6 @@ struct ReduceMeanToConvPattern : public OpRewritePattern<ONNXReduceMeanOp> {
     mlir::Location loc = op.getLoc();
     mlir::Value input = op.getData();
 
-    // Get input shape
     auto inputShape = getShape(input);
     if (inputShape.empty() || inputShape.size() < 2)
       return mlir::failure();
@@ -329,28 +340,19 @@ struct ReduceMeanToConvPattern : public OpRewritePattern<ONNXReduceMeanOp> {
       return mlir::failure();
 
     int64_t rank = inputShape.size();
-    int64_t inputChannel = inputShape[1]; // NCHW: channel is at index 1
 
-    // Get reduction axes
     auto axes = getAxesFromReduceMean(op);
     if (axes.empty())
       return mlir::failure();
 
-    // Check if channel-wise reduction
-    if (!isChannelWiseReduction(axes, rank)) {
-      // Not a channel-wise reduction, skip
+    if (!isChannelWiseReduction(axes, rank))
       return mlir::failure();
-    }
 
-    // For reduction_mean, channel must be power of 2
-    // (unless this is part of a mul pattern - handled separately)
-    if (!isPowerOf2(inputChannel)) {
-      // Cannot convert to conv - channel is not power of 2
+    int64_t inputChannel = inputShape[1];
+
+    if (!isPowerOf2(inputChannel))
       return mlir::failure();
-    }
 
-    // Check output shape constraint
-    // NCHW: channel at index 1, so valid output has channel dim reduced
     auto outputShape = getShape(op.getReduced());
     bool validOutputShape =
         (outputShape.size() == inputShape.size() - 1) ||
@@ -359,12 +361,139 @@ struct ReduceMeanToConvPattern : public OpRewritePattern<ONNXReduceMeanOp> {
     if (!validOutputShape)
       return mlir::failure();
 
-    // Convert to convolution
     mlir::Value result = convertReductionToConv(rewriter, loc, input,
         /*isMean=*/true, outputShape);
 
     rewriter.replaceOp(op, result);
     return success();
+  }
+};
+
+//===----------------------------------------------------------------------===//
+// ReduceMeanSpatialAxisToConvPattern
+//===----------------------------------------------------------------------===//
+// Handles single-axis ReduceMean on any non-batch, non-channel axis by
+// transposing the reduction axis to the channel position (axis 1), applying
+// channel-wise conv reduction, then transposing back.
+
+struct ReduceMeanSpatialAxisToConvPattern
+    : public OpRewritePattern<ONNXReduceMeanOp> {
+  using OpRewritePattern<ONNXReduceMeanOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXReduceMeanOp op, PatternRewriter &rewriter) const override {
+
+    mlir::Location loc = op.getLoc();
+    mlir::Value input = op.getData();
+
+    auto inputShape = getShape(input);
+    if (inputShape.empty() || inputShape.size() < 3)
+      return mlir::failure();
+
+    int64_t rank = inputShape.size();
+
+    auto axes = getAxesFromReduceMean(op);
+    if (axes.size() != 1)
+      return mlir::failure();
+
+    int64_t axis = normalizeAxis(axes[0], rank);
+
+    if (axis == 0)
+      return mlir::failure();
+
+    // Only axis=1 (NCHW channel) is handled by ReduceMeanToConvPattern.
+    // axis=rank-1 (NHWC channel) falls through here because
+    // ReduceMeanToConvPattern hardcodes inputShape[1] as channel count,
+    // which is incorrect for NHWC. This pattern correctly transposes the
+    // reduction axis to position 1 before converting to Conv.
+    if (axis == 1)
+      return mlir::failure();
+
+    int64_t reductionDimSize = inputShape[axis];
+
+    if (reductionDimSize == mlir::ShapedType::kDynamic)
+      return mlir::failure();
+
+    if (!isPowerOf2(reductionDimSize))
+      return mlir::failure();
+
+    auto outputShape = getShape(op.getReduced());
+    if (outputShape.empty())
+      return mlir::failure();
+
+    auto inputType = mlir::cast<mlir::ShapedType>(input.getType());
+
+    // If rank < 4, reshape to 4D first by appending size-1 dims.
+    // This ensures our transpose and ConvertToChannelLastPass's transpose
+    // both operate on 4D tensors and compose to a trivial reshape
+    // (only moving size-1 dims) rather than producing residual transposes.
+    mlir::Value workingInput = input;
+    llvm::SmallVector<int64_t> workingShape(inputShape.begin(), inputShape.end());
+    int64_t workingRank = rank;
+    if (rank < 4) {
+      workingShape.resize(4, 1);
+      workingInput = createReshape(rewriter, loc, input, workingShape);
+      workingRank = 4;
+    }
+
+    // Build permutation: [0, axis, axis+1, ..., r-1, 1, ..., axis-1]
+    // Moves reduction axis to position 1 (NCHW channel), placing dims
+    // after the reduction axis first, then dims before it (excluding batch).
+    // E.g. axis=3, rank=4: [0, 3, 1, 2] (standard NHWC→NCHW)
+    //      axis=2, rank=4: [0, 2, 3, 1]
+    // When composed with ConvertToChannelLastPass's NCHW→NHWC [0, 2, 3, 1],
+    // the combined permutation only moves size-1 dims (zero-cost reshape).
+    llvm::SmallVector<int64_t> perm;
+    perm.push_back(0);
+    perm.push_back(axis);
+    for (int64_t i = axis + 1; i < workingRank; ++i)
+      perm.push_back(i);
+    for (int64_t i = 1; i < axis; ++i)
+      perm.push_back(i);
+
+    llvm::SmallVector<int64_t> transposedInputShape;
+    for (auto p : perm)
+      transposedInputShape.push_back(workingShape[p]);
+
+    auto transposedInputType = mlir::RankedTensorType::get(
+        transposedInputShape, inputType.getElementType());
+
+    mlir::Value transposedInput = rewriter.create<mlir::ONNXTransposeOp>(
+        loc, transposedInputType, workingInput, rewriter.getI64ArrayAttr(perm));
+
+    // In transposed domain: reduction is now on axis 1 (channel)
+    // Compute keepdims=true output shape in transposed domain
+    llvm::SmallVector<int64_t> transposedConvOutputShape;
+    for (int64_t i = 0; i < workingRank; ++i)
+      transposedConvOutputShape.push_back(
+          i == 1 ? 1 : transposedInputShape[i]);
+
+    mlir::Value convResult = convertReductionToConv(
+        rewriter, loc, transposedInput, /*isMean=*/true,
+        transposedConvOutputShape);
+
+    // Compute inverse permutation and transpose back
+    llvm::SmallVector<int64_t> inversePerm(workingRank);
+    for (int64_t i = 0; i < workingRank; ++i)
+      inversePerm[perm[i]] = i;
+
+    auto convResultShape = getShape(convResult);
+    llvm::SmallVector<int64_t> untransposedShape;
+    for (auto p : inversePerm)
+      untransposedShape.push_back(convResultShape[p]);
+
+    auto untransposedType = mlir::RankedTensorType::get(
+        untransposedShape, inputType.getElementType());
+
+    mlir::Value result = rewriter.create<mlir::ONNXTransposeOp>(
+        loc, untransposedType, convResult, rewriter.getI64ArrayAttr(inversePerm));
+
+    // Reshape to match expected output shape (e.g. keepdims=false removes dim)
+    if (untransposedShape != llvm::ArrayRef<int64_t>(outputShape))
+      result = createReshape(rewriter, loc, result, outputShape);
+
+    rewriter.replaceOp(op, result);
+    return mlir::success();
   }
 };
 
@@ -382,7 +511,6 @@ struct ReduceSumToConvPattern : public OpRewritePattern<ONNXReduceSumOp> {
     mlir::Value input = op.getData();
     mlir::Value axesInput = op.getAxes();
 
-    // Get input shape
     auto inputShape = getShape(input);
     if (inputShape.empty() || inputShape.size() < 2)
       return mlir::failure();
@@ -395,17 +523,17 @@ struct ReduceSumToConvPattern : public OpRewritePattern<ONNXReduceSumOp> {
 
     int64_t rank = inputShape.size();
 
-    // Get reduction axes from constant input
     auto axes = getAxesFromReduceSum(axesInput);
-    if (axes.empty())
+    if (axes.size() != 1)
       return mlir::failure();
 
-    // Check if channel-wise reduction
-    if (!isChannelWiseReduction(axes, rank))
+    // Only handle axis=1 (NCHW channel). Other axes including axis=rank-1
+    // (NHWC channel) are handled by ReduceSumSpatialAxisToConvPattern which
+    // correctly reshapes the input to place the reduction dim at position 1.
+    int64_t axis = normalizeAxis(axes[0], rank);
+    if (axis != 1)
       return mlir::failure();
 
-    // Check output shape constraint
-    // NCHW: channel at index 1, so valid output has channel dim reduced
     auto outputShape = getShape(op.getReduced());
     bool validOutputShape =
         (outputShape.size() == inputShape.size() - 1) ||
@@ -414,12 +542,125 @@ struct ReduceSumToConvPattern : public OpRewritePattern<ONNXReduceSumOp> {
     if (!validOutputShape)
       return mlir::failure();
 
-    // Convert to convolution
     mlir::Value result = convertReductionToConv(rewriter, loc, input,
         /*isMean=*/false, outputShape);
 
     rewriter.replaceOp(op, result);
     return success();
+  }
+};
+
+//===----------------------------------------------------------------------===//
+// ReduceSumSpatialAxisToConvPattern
+//===----------------------------------------------------------------------===//
+// Handles ReduceSum on any non-batch, non-NCHW-channel axis by transposing
+// the reduction axis to the channel position (axis 1), applying channel-wise
+// conv reduction, then transposing back.
+// Uses permutation [0, axis, axis+1, ..., r-1, 1, ..., axis-1] which
+// composes with ConvertToChannelLastPass's transposes to produce only
+// size-1 dim permutations (zero-cost reshapes, no data movement).
+
+struct ReduceSumSpatialAxisToConvPattern
+    : public OpRewritePattern<ONNXReduceSumOp> {
+  using OpRewritePattern<ONNXReduceSumOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXReduceSumOp op, PatternRewriter &rewriter) const override {
+
+    mlir::Location loc = op.getLoc();
+    mlir::Value input = op.getData();
+    mlir::Value axesInput = op.getAxes();
+
+    auto inputShape = getShape(input);
+    if (inputShape.empty() || inputShape.size() < 3)
+      return mlir::failure();
+
+    int64_t rank = inputShape.size();
+
+    auto axes = getAxesFromReduceSum(axesInput);
+    if (axes.size() != 1)
+      return mlir::failure();
+
+    int64_t axis = normalizeAxis(axes[0], rank);
+
+    if (axis == 0 || axis == 1)
+      return mlir::failure();
+
+    int64_t reductionDimSize = inputShape[axis];
+
+    if (reductionDimSize == mlir::ShapedType::kDynamic)
+      return mlir::failure();
+
+    auto outputShape = getShape(op.getReduced());
+    if (outputShape.empty())
+      return mlir::failure();
+
+    auto inputType = mlir::cast<mlir::ShapedType>(input.getType());
+
+    // If rank < 4, reshape to 4D first by appending size-1 dims.
+    // This ensures our transpose and ConvertToChannelLastPass's transpose
+    // both operate on 4D tensors and compose to a trivial reshape
+    // (only moving size-1 dims) rather than producing residual transposes.
+    mlir::Value workingInput = input;
+    llvm::SmallVector<int64_t> workingShape(inputShape.begin(), inputShape.end());
+    int64_t workingRank = rank;
+    if (rank < 4) {
+      workingShape.resize(4, 1);
+      workingInput = createReshape(rewriter, loc, input, workingShape);
+      workingRank = 4;
+    }
+
+    // Build permutation: [0, axis, axis+1, ..., r-1, 1, ..., axis-1]
+    llvm::SmallVector<int64_t> perm;
+    perm.push_back(0);
+    perm.push_back(axis);
+    for (int64_t i = axis + 1; i < workingRank; ++i)
+      perm.push_back(i);
+    for (int64_t i = 1; i < axis; ++i)
+      perm.push_back(i);
+
+    llvm::SmallVector<int64_t> transposedInputShape;
+    for (auto p : perm)
+      transposedInputShape.push_back(workingShape[p]);
+
+    auto transposedInputType = mlir::RankedTensorType::get(
+        transposedInputShape, inputType.getElementType());
+
+    mlir::Value transposedInput = rewriter.create<mlir::ONNXTransposeOp>(
+        loc, transposedInputType, workingInput, rewriter.getI64ArrayAttr(perm));
+
+    // In transposed domain: reduction is now on axis 1 (channel)
+    llvm::SmallVector<int64_t> transposedConvOutputShape;
+    for (int64_t i = 0; i < workingRank; ++i)
+      transposedConvOutputShape.push_back(
+          i == 1 ? 1 : transposedInputShape[i]);
+
+    mlir::Value convResult = convertReductionToConv(
+        rewriter, loc, transposedInput, /*isMean=*/false,
+        transposedConvOutputShape);
+
+    // Compute inverse permutation and transpose back
+    llvm::SmallVector<int64_t> inversePerm(workingRank);
+    for (int64_t i = 0; i < workingRank; ++i)
+      inversePerm[perm[i]] = i;
+
+    auto convResultShape = getShape(convResult);
+    llvm::SmallVector<int64_t> untransposedShape;
+    for (auto p : inversePerm)
+      untransposedShape.push_back(convResultShape[p]);
+
+    auto untransposedType = mlir::RankedTensorType::get(
+        untransposedShape, inputType.getElementType());
+
+    mlir::Value result = rewriter.create<mlir::ONNXTransposeOp>(
+        loc, untransposedType, convResult, rewriter.getI64ArrayAttr(inversePerm));
+
+    // Reshape to match expected output shape (e.g. keepdims=false removes dim)
+    if (untransposedShape != llvm::ArrayRef<int64_t>(outputShape))
+      result = createReshape(rewriter, loc, result, outputShape);
+
+    rewriter.replaceOp(op, result);
+    return mlir::success();
   }
 };
 
@@ -476,7 +717,6 @@ struct ReduceMeanMulToConvPattern : public OpRewritePattern<ONNXMulOp> {
       return mlir::failure();
     }
 
-    // Get input info
     mlir::Value input = reduceMean.getData();
     auto inputShape = getShape(input);
     if (inputShape.empty() || inputShape.size() < 2)
@@ -489,25 +729,20 @@ struct ReduceMeanMulToConvPattern : public OpRewritePattern<ONNXMulOp> {
       return mlir::failure();
 
     int64_t rank = inputShape.size();
-    int64_t inputChannel = inputShape[1]; // NCHW: channel is at index 1
 
-    // Check channel-wise reduction
     auto axes = getAxesFromReduceMean(reduceMean);
     if (!isChannelWiseReduction(axes, rank))
       return mlir::failure();
 
-    // Validate: Does mulConstant == 1/inputChannel (or DPU approximation)?
+    int64_t inputChannel = inputShape[1];
+
     float expectedCoeff = getMulConstCoefficient(inputChannel);
     float tolerance = 1e-6f;
-    if (std::abs(mulConstant - expectedCoeff) > tolerance) {
-      // Constant doesn't match expected DPU coefficient
+    if (std::abs(mulConstant - expectedCoeff) > tolerance)
       return mlir::failure();
-    }
 
-    // Get output shape from mul op
     auto outputShape = getShape(mulOp.getC());
 
-    // Convert to convolution (the mul is absorbed into the conv weights)
     mlir::Location loc = mulOp.getLoc();
     mlir::Value result = convertReductionToConv(rewriter, loc, input,
         /*isMean=*/true, outputShape);
@@ -536,7 +771,6 @@ struct ReduceMeanReluToConvPattern : public OpRewritePattern<ONNXReluOp> {
     if (!reduceMean.getReduced().hasOneUse())
       return mlir::failure();
 
-    // Get input info
     mlir::Value input = reduceMean.getData();
     auto inputShape = getShape(input);
     if (inputShape.empty() || inputShape.size() < 2)
@@ -549,22 +783,19 @@ struct ReduceMeanReluToConvPattern : public OpRewritePattern<ONNXReluOp> {
       return mlir::failure();
 
     int64_t rank = inputShape.size();
-    int64_t inputChannel = inputShape[1]; // NCHW: channel is at index 1
 
-    // Check channel-wise reduction
     auto axes = getAxesFromReduceMean(reduceMean);
     if (!isChannelWiseReduction(axes, rank))
       return mlir::failure();
 
-    // Power of 2 constraint
+    int64_t inputChannel = inputShape[1];
+
     if (!isPowerOf2(inputChannel))
       return mlir::failure();
 
-    // Get output shape from relu
     auto reluOutputShape = getShape(reluOp.getY());
     auto reduceMeanOutputShape = getShape(reduceMean.getReduced());
 
-    // Convert reduction to conv
     mlir::Location loc = reluOp.getLoc();
     mlir::Value convResult = convertReductionToConv(
         rewriter, loc, input, /*isMean=*/true, reduceMeanOutputShape);
@@ -605,7 +836,9 @@ struct TransferReduceMeanSumToConvPass
     patterns.add<ReduceMeanMulToConvPattern>(context);
     patterns.add<ReduceMeanReluToConvPattern>(context);
     patterns.add<ReduceMeanToConvPattern>(context);
+    patterns.add<ReduceMeanSpatialAxisToConvPattern>(context);
     patterns.add<ReduceSumToConvPattern>(context);
+    patterns.add<ReduceSumSpatialAxisToConvPattern>(context);
 
     GreedyRewriteConfig config;
     config.strictMode = GreedyRewriteStrictness::ExistingAndNewOps;

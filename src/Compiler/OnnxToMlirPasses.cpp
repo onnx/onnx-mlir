@@ -10,7 +10,6 @@ using namespace mlir;
 namespace onnx_mlir {
 
 void addXmcMlirPasses(mlir::OpPassManager &pm, OnnxToMlirOptions opts) {
-  pm.addNestedPass<func::FuncOp>(createFixNegScalePass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createOptimizeOnnxRequantizationPass());
   pm.addNestedPass<func::FuncOp>(createONNXCSEPass());
@@ -23,11 +22,11 @@ void addXmcMlirPasses(mlir::OpPassManager &pm, OnnxToMlirOptions opts) {
       onnx_mlir::createTransferResizeLinearToDwConv());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvWithBiasPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createRemoveRedundantReshapePass());
+  pm.addNestedPass<func::FuncOp>(
+      onnx_mlir::createTransferReduceMeanSumToConvPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createLowerReduceToPoolPass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createTransferPoolFixToDownsampleFixPass());
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createTransferReduceMeanSumToConvPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createRemoveRedundantReluPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createStandardizeSliceOpsPass());
   pm.addNestedPass<func::FuncOp>(
