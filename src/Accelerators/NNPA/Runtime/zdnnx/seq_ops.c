@@ -220,11 +220,11 @@ zdnn_status zdnnx_seq_unary_elementwise(const zdnn_ztensor *input,
           zdnnx_set_tile(&si_y, &ty, tile_buff_y, e4, e3, e2, e1);
           zdnnx_copy_data_to_tile(&tx);
 
-          zdnn_status status;
+          zdnn_status status = ZDNN_UNAVAILABLE_FUNCTION;
           if (op_type == ZDNNX_EXP_OP)
             status = zdnn_exp(&tx.data, &ty.data);
           else if (op_type == ZDNNX_GELU_OP)
-            zdnn_gelu(&tx.data, &ty.data);
+            status = zdnn_gelu(&tx.data, &ty.data);
           else if (op_type == ZDNNX_INVSQRT_OP)
             status =
                 zdnn_invsqrt(&tx.data, *(const float *)scalar_input, &ty.data);
@@ -235,11 +235,9 @@ zdnn_status zdnnx_seq_unary_elementwise(const zdnn_ztensor *input,
           else if (op_type == ZDNNX_SIGMOID_OP)
             status = zdnn_sigmoid(&tx.data, &ty.data);
           else if (op_type == ZDNNX_SQRT_OP)
-            zdnn_sqrt(&tx.data, &ty.data);
+            status = zdnn_sqrt(&tx.data, &ty.data);
           else if (op_type == ZDNNX_TANH_OP)
             status = zdnn_tanh(&tx.data, &ty.data);
-          else
-            status = ZDNN_UNAVAILABLE_FUNCTION;
           if (status != ZDNN_OK)
             return status;
 
