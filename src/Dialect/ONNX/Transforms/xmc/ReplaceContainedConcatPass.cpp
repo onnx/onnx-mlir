@@ -10,6 +10,7 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 #include "src/Pass/Passes.hpp"
 
 using namespace mlir;
@@ -162,8 +163,10 @@ struct ReplaceContainedConcatPass
     GreedyRewriteConfig config;
     config.maxIterations = 10;
     config.useTopDownTraversal = false;
+    ResultNamesUpdater rnUpdater;
+    config.listener = &rnUpdater;
 
-    if (failed(applyPatternsAndFoldGreedily(
+    if (failed(applyPatternsGreedily(
             getOperation(), std::move(patterns), config))) {
       signalPassFailure();
     }
