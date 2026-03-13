@@ -64,3 +64,30 @@ func.func @test_exceed_limit_add(%arg0 : tensor<32769x10xf32>, %arg1 : tensor<32
 // CHECK-LABEL:  func @test_exceed_limit_add
 // CHECK:        "onnx.Add"
 }
+
+// -----
+
+func.func @test_scalar_add_1(%arg0 : tensor<f32>, %arg1 : tensor<f32>) -> tensor<f32> {
+  %x = "onnx.Add"(%arg0, %arg1) : (tensor<f32>, tensor<f32>) -> tensor<f32>
+  "func.return"(%x) : (tensor<f32>) -> ()
+
+// CHECK-LABEL:  func.func @test_scalar_add_1
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<f32>, [[PARAM_1_:%.+]]: tensor<f32>) -> tensor<f32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Add"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<f32>, tensor<f32>) -> tensor<f32>
+// CHECK:           return [[VAR_0_]] : tensor<f32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_scalar_add_2(%arg0 : tensor<1xf32>, %arg1 : tensor<1xf32>) -> tensor<1xf32> {
+  %x = "onnx.Add"(%arg0, %arg1) : (tensor<1xf32>, tensor<1xf32>) -> tensor<1xf32>
+  "func.return"(%x) : (tensor<1xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_scalar_add_2
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1xf32>, [[PARAM_1_:%.+]]: tensor<1xf32>) -> tensor<1xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Add"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<1xf32>, tensor<1xf32>) -> tensor<1xf32>
+// CHECK:           return [[VAR_0_]] : tensor<1xf32>
+// CHECK:         }
+}
+

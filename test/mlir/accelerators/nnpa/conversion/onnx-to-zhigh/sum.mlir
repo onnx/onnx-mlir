@@ -79,3 +79,16 @@ func.func @test_exceed_limit_sum(%arg0 : tensor<32769x10xf32>, %arg1 : tensor<32
 // CHECK-LABEL:  func @test_exceed_limit_sum
 // CHECK:        "onnx.Sum"
 }
+
+// -----
+
+func.func @test_sum_4_scalar_operands(%arg0 : tensor<1xf32>, %arg1 : tensor<1xf32>, %arg2 : tensor<1xf32>, %arg3 : tensor<1xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Sum"(%arg0, %arg1, %arg2, %arg3) : (tensor<1xf32>, tensor<1xf32>, tensor<1xf32>, tensor<1xf32>) -> tensor<*xf32>
+  "func.return"(%0) : (tensor<*xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_sum_4_scalar_operands
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1xf32>, [[PARAM_1_:%.+]]: tensor<1xf32>, [[PARAM_2_:%.+]]: tensor<1xf32>, [[PARAM_3_:%.+]]: tensor<1xf32>) -> tensor<1xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Sum"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]]) : (tensor<1xf32>, tensor<1xf32>, tensor<1xf32>, tensor<1xf32>) -> tensor<1xf32>
+// CHECK:           return [[VAR_0_]] : tensor<1xf32>
+// CHECK:         }
+}

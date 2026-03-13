@@ -73,3 +73,18 @@ func.func @test_reduce_min_axes_not_lowered_not_multiple_axes(%arg0 : tensor<3x2
 // CHECK:           return [[VAR_1_]] : tensor<1x2x1xf32>
 // CHECK:         }
 }
+
+// -----
+
+func.func @test_reduce_min_scalar(%arg0 : tensor<1xf32>) -> tensor<*xf32> {
+   %cst = "onnx.Constant"() {value = dense<[0]> : tensor<1xi64> } : () -> tensor<1xi64>
+   %0 ="onnx.ReduceMin"(%arg0, %cst) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<1xf32>, tensor<1xi64>)-> tensor<*xf32>
+   "func.return"(%0) : (tensor<*xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_reduce_min_scalar
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1xf32>) -> tensor<1xf32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<0> : tensor<1xi64>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.ReduceMin"([[PARAM_0_]], [[VAR_0_]]) <{keepdims = 1 : si64, noop_with_empty_axes = 0 : si64}> : (tensor<1xf32>, tensor<1xi64>) -> tensor<1xf32>
+// CHECK:           return [[VAR_1_]] : tensor<1xf32>
+// CHECK:         }
+}

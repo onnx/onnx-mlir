@@ -35,3 +35,17 @@ func.func @test_exceed_limit_relu(%arg0 : tensor<32769x10xf32>) -> tensor<*xf32>
 // CHECK-LABEL:  func @test_exceed_limit_relu
 // CHECK:        "onnx.Relu"
 }
+
+// -----
+
+func.func @test_scalar_relu(%arg0 : tensor<1xf32>) -> tensor<1xf32> {
+  %x = "onnx.Relu"(%arg0) : (tensor<1xf32>) -> tensor<1xf32>
+  "func.return"(%x) : (tensor<1xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_scalar_relu
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1xf32>) -> tensor<1xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Relu"([[PARAM_0_]]) : (tensor<1xf32>) -> tensor<1xf32>
+// CHECK:           return [[VAR_0_]] : tensor<1xf32>
+// CHECK:         }
+}
+

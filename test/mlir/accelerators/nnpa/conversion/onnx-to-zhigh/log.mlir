@@ -36,3 +36,17 @@ func.func @test_exceed_limit_log(%arg0 : tensor<32769x10xf32>) -> tensor<*xf32> 
 // CHECK-LABEL:  func @test_exceed_limit_log
 // CHECK:        "onnx.Log"
 }
+
+// -----
+
+func.func @test_scalar_log(%arg0 : tensor<1xf32>) -> tensor<1xf32> {
+  %x = "onnx.Log"(%arg0) : (tensor<1xf32>) -> tensor<1xf32>
+  "func.return"(%x) : (tensor<1xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_scalar_log
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1xf32>) -> tensor<1xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Log"([[PARAM_0_]]) : (tensor<1xf32>) -> tensor<1xf32>
+// CHECK:           return [[VAR_0_]] : tensor<1xf32>
+// CHECK:         }
+}
+
