@@ -1,4 +1,5 @@
-numpy~=1.22.2
-pillow~=10.3.0
-torch~=2.8.0
-torchvision~=0.23.0
+numpy==2.2.6
+onnxscript>=0.6.2
+pillow~=12.1.1
+torch~=2.10.0
+torchvision~=0.25.0
