@@ -531,10 +531,10 @@ struct SplitXFEDepthwiseConvPattern : public OpRewritePattern<XFEConvOp> {
 
       // Create split XFE depthwise conv
       auto splitConvOp = rewriter.create<XFEConvOp>(loc, splitOutputType,
-          convOp.getX(), splitWeight, splitBias, convOp.getAutoPadAttr(),
-          convOp.getDilationsAttr(), convOp.getGroupAttr(),
-          convOp.getKernelShapeAttr(), convOp.getPadsAttr(),
-          convOp.getStridesAttr(), convOp.getActivationAttr());
+          convOp.getX(), splitWeight, splitBias, convOp.getActivationAttr(),
+          convOp.getAutoPadAttr(), convOp.getDilationsAttr(),
+          convOp.getGroupAttr(), convOp.getKernelShapeAttr(),
+          convOp.getPadsAttr(), convOp.getStridesAttr());
 
       concatInputs.push_back(splitConvOp.getResult());
 

@@ -243,10 +243,10 @@ struct ScaleToDwConv2dPattern : public OpRewritePattern<ONNXMulOp> {
     auto padsAttr = rewriter.getI64ArrayAttr({0, 0, 0, 0});
     auto stridesAttr = rewriter.getI64ArrayAttr({1, 1});
 
-    auto dwConvOp = rewriter.create<XFEConvOp>(loc, convOutputType,
-        reshapedInput, reshapedWeight, bias, autoPadAttr, dilationsAttr,
-        groupAttr, kernelShapeAttr, padsAttr, stridesAttr,
-        rewriter.getStringAttr("NONE"));
+    auto dwConvOp =
+        rewriter.create<XFEConvOp>(loc, convOutputType, reshapedInput,
+            reshapedWeight, bias, rewriter.getStringAttr("NONE"), autoPadAttr,
+            dilationsAttr, groupAttr, kernelShapeAttr, padsAttr, stridesAttr);
 
     transferOnnxNodeName(mulOp, dwConvOp);
 

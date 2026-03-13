@@ -241,12 +241,12 @@ struct ConvertXFEConvToDepthwiseConvPattern
         X,                            // Input
         newWConst,                    // Weights (IHWO, data transposed)
         B,                            // Bias (optional)
+        activationAttr,               // activation
         autoPadAttr,                  // auto_pad
         dilationsAttr,                // dilations
         kernelShapeAttr,              // kernel_shape (required)
         padsAttr,                     // pads
-        stridesAttr,                  // strides
-        activationAttr                // activation
+        stridesAttr                   // strides
     );
 
     // Transfer onnx_node_name attribute from XFEConv to XCOMPILERDepthwiseConv
