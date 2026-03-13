@@ -35,6 +35,25 @@
 #include "OMTensorListHelper.hpp"
 
 namespace onnx_mlir {
+
+#if !defined(_WIN32)
+// =============================================================================
+// Static member initialization for signal handling (POSIX only)
+
+std::jmp_buf ExecutionSession::signalJumpBuffer;
+volatile sig_atomic_t ExecutionSession::signalCaught = 0;
+volatile sig_atomic_t ExecutionSession::signalNumber = 0;
+
+// =============================================================================
+// Signal handler (POSIX only)
+
+void ExecutionSession::signalHandler(int signum) {
+  signalCaught = 1;
+  signalNumber = signum;
+  std::longjmp(signalJumpBuffer, signum);
+}
+#endif
+
 // =============================================================================
 // Constructor, destructor, and init.
 
@@ -42,6 +61,10 @@ ExecutionSession::ExecutionSession(
     std::string sharedLibPath, std::string tag, bool defaultEntryPoint) {
   loadModel(sharedLibPath, tag, defaultEntryPoint);
 }
+
+// Errors: If dlopen returns null, it means error. Technically, if dlsym returns
+// null, it is not necessarily an error (in corner cases); but for us it would
+// be because we expect all our symbols to be defined to non-null.
 
 void ExecutionSession::loadModel(
     std::string sharedLibPath, std::string tag, bool defaultEntryPoint) {
@@ -253,6 +276,20 @@ void ExecutionSession::printInstrumentation() {
 // =============================================================================
 // Run.
 
+// When executing a graph (e.g. run_main_graph, function referenced as
+// _entryPointFunc), we may encounter the following runtime errors (returned by
+// errno). Error is first signaled by _entryPointFunc returning null.
+//
+// EPERM (accelerator compatibility check).
+//
+// May call functions in OMExternalConstant.c, which in turn calls
+// malloc/open/map who can generate errno.
+//
+// Operations in src/Runtime/OM*.c (which may be called by _entryPointFunc)
+// generates asserts. In Posix (Linux and MacOS), abort triggers a SIGABRT that
+// can be caught by a "sigaction(SIGABRT, &sa, NULL)" installed handler. They
+// also have malloc that can generate errno.
+
 std::vector<OMTensorUniquePtr> ExecutionSession::run(
     std::vector<OMTensorUniquePtr> ins) {
   if (!isInitialized)
@@ -270,6 +307,7 @@ std::vector<OMTensorUniquePtr> ExecutionSession::run(
       omTensorListCreate(omts.data(), static_cast<int64_t>(omts.size()));
 
   // Run inference.
+  errno = 0; // Clear errno.
   auto *wrappedOutput = _entryPointFunc(wrappedInput);
 
   // We created a wrapper for the input list, but the input list does not really
@@ -300,9 +338,8 @@ std::vector<OMTensorUniquePtr> ExecutionSession::run(
   return outs;
 }
 
-// Run using public interface. Explicit calls are needed to free tensor & tensor
-// lists.
-OMTensorList *ExecutionSession::run(OMTensorList *input) {
+OMTensorList *ExecutionSession::run(
+    OMTensorList *input, bool useSignalHandler) {
   if (!isInitialized)
     throw ExecutionSessionException(
         "Execution session must be initialized once.");
@@ -311,7 +348,22 @@ OMTensorList *ExecutionSession::run(OMTensorList *input) {
         "Must set an entry point (e.g. run_main_graph) before calling run "
         "function.");
 
+#if defined(_WIN32)
+  // Run with signal is not supported under Windows, ignore.
+  return runWithoutSignalHandler(input);
+#else
+  if (!useSignalHandler)
+    return runWithoutSignalHandler(input);
+  return runWithSignalHandler(input);
+#endif
+}
+
+// Run using public interface. Explicit calls are needed to free tensor & tensor
+// lists.
+OMTensorList *ExecutionSession::runWithoutSignalHandler(OMTensorList *input) {
+
   // Run inference.
+  errno = 0; // Clear errno.
   OMTensorList *output = _entryPointFunc(input);
   if (!output)
     throw ExecutionSessionException(reportErrnoError());
@@ -324,14 +376,84 @@ OMTensorList *ExecutionSession::run(OMTensorList *input) {
   return output;
 }
 
+// Run with signal handling to catch crashes (POSIX only).
+OMTensorList *ExecutionSession::runWithSignalHandler(OMTensorList *input) {
+#if defined(_WIN32)
+  assert(false && "unsupported call");
+  return nullptr;
+#else
+  // Save old signal handlers
+  struct sigaction oldSigsegv, oldSigbus, oldSigfpe, oldSigill;
+  struct sigaction newAction;
+
+  // Setup new signal handler
+  newAction.sa_handler = signalHandler;
+  sigemptyset(&newAction.sa_mask);
+  newAction.sa_flags = 0;
+
+  // Install signal handlers for the signals we want to catch
+  sigaction(SIGSEGV, &newAction, &oldSigsegv);
+  sigaction(SIGBUS, &newAction, &oldSigbus);
+  sigaction(SIGFPE, &newAction, &oldSigfpe);
+  sigaction(SIGILL, &newAction, &oldSigill);
+  sigaction(SIGABRT, &newAction, &oldSigill);
+
+  // Reset signal state
+  signalCaught = 0;
+  signalNumber = 0;
+
+  OMTensorList *output = nullptr;
+
+  // Set up the jump point for signal handler
+  int signum = setjmp(signalJumpBuffer);
+
+  if (signum == 0) {
+    // First time through - run the inference
+    errno = 0; // Clear errno.
+    output = _entryPointFunc(input);
+
+    // Restore old signal handlers
+    sigaction(SIGSEGV, &oldSigsegv, nullptr);
+    sigaction(SIGBUS, &oldSigbus, nullptr);
+    sigaction(SIGFPE, &oldSigfpe, nullptr);
+    sigaction(SIGILL, &oldSigill, nullptr);
+    sigaction(SIGABRT, &oldSigill, nullptr);
+    // Throw error if nullptr output (list expected in successful executions).
+    if (!output)
+      throw ExecutionSessionException(reportErrnoError());
+    // No errors, clear potential errno and return output list.
+    errno = 0;
+    return output;
+  } else {
+    // We got here via longjmp from signal handler
+    // Restore old signal handlers
+    sigaction(SIGSEGV, &oldSigsegv, nullptr);
+    sigaction(SIGBUS, &oldSigbus, nullptr);
+    sigaction(SIGFPE, &oldSigfpe, nullptr);
+    sigaction(SIGILL, &oldSigill, nullptr);
+    // Set errno to the signal number for error reporting
+    errno = signum;
+    throw ExecutionSessionException(reportErrnoError(/*from signal*/ true));
+  }
+#endif
+}
+
 // =============================================================================
 // Error reporting
 
-std::string ExecutionSession::reportErrnoError() const {
-  std::string errMessageStr = std::string(strerror(errno));
+std::string ExecutionSession::reportErrnoError(bool fromSignal) const {
   std::stringstream errStr;
-  errStr << "Runtime error during inference returning with ERRNO code '"
-         << errMessageStr << "'." << std::endl;
+  if (fromSignal) {
+    // errno contains the signal number when fromSignal is true
+    std::string signalStr = std::string(strsignal(errno));
+    errStr << "Runtime error during inference caught signal " << errno << ", '"
+           << signalStr << "'." << std::endl;
+  } else {
+    // errno contains a standard error code
+    std::string errMessageStr = std::string(strerror(errno));
+    errStr << "Runtime error during inference returning with ERRNO " << errno
+           << ", '" << errMessageStr << "'." << std::endl;
+  }
   return errStr.str();
 }
 

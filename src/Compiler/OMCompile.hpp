@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----------- OMCompilerSession.hpp - compiler driver  -----------------===//
+//===----------- OMCompiler.hpp - compiler driver  ------------------------===//
 //
 //
 // Copyright 2026 The IBM Research Authors.
