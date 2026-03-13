@@ -281,7 +281,8 @@ struct MatMulToXFEConvPattern : public OpRewritePattern<ONNXMatMulOp> {
     // Create XFEConv operation
     auto convOp = rewriter.create<XFEConvOp>(loc, convOutputType,
         reshape1Output, convWeight, noneBias, autoPadAttr, dilationsAttr,
-        groupAttr, kernelShapeAttr, padsAttr, stridesAttr);
+        groupAttr, kernelShapeAttr, padsAttr, stridesAttr,
+        rewriter.getStringAttr("NONE"));
 
     // Transfer onnx_node_name attribute from MatMul to XFEConv
     transferOnnxNodeName(matMulOp, convOp);
@@ -455,7 +456,8 @@ struct GemmToXFEConvPattern : public OpRewritePattern<ONNXGemmOp> {
     // Create XFEConv operation
     auto convOp = rewriter.create<XFEConvOp>(loc, convOutputType,
         reshape1Output, convWeight, bias, autoPadAttr, dilationsAttr, groupAttr,
-        kernelShapeAttr, padsAttr, stridesAttr);
+        kernelShapeAttr, padsAttr, stridesAttr,
+        rewriter.getStringAttr("NONE"));
 
     // Transfer onnx_node_name attribute from GEMM to XFEConv
     transferOnnxNodeName(gemmOp, convOp);

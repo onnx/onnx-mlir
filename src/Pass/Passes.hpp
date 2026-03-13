@@ -181,6 +181,14 @@ std::unique_ptr<mlir::Pass> createTransferPoolFixToDownsampleFixPass();
 /// input_channels.
 std::unique_ptr<mlir::Pass> createConvertXFEConvToDepthwiseConvPass();
 
+/// Pass for fusing Conv + Activation patterns into conv ops with activation
+/// attribute (XFEConv, XFEConvTranspose, XCOMPILERDepthwiseConv).
+std::unique_ptr<mlir::Pass> createFuseConvActivationPass();
+
+/// Pass for normalizing conv activation attributes into hardware-compatible
+/// form (LEAKYRELU/PRELU/HSIGMOID) matching xcompiler behavior.
+std::unique_ptr<mlir::Pass> createNormalizeConvActivationPass();
+
 /// Pass for splitting depthwise conv2d with channel_multiplier > 1.
 std::unique_ptr<mlir::Pass>
 createTransferDepthwiseConv2dWithChannelMultiplierPass();

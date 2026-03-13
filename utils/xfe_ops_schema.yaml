@@ -89,6 +89,10 @@
   - name: strides
     description: Stride along each spatial axis
     type: list(int)
+  - name: activation
+    description: Fused activation function type (NONE, RELU, LEAKYRELU, PRELU, HSIGMOID, RELU6, SIGMOID). Defaults to NONE (no activation).
+    type: string
+    default_value: NONE
   type_constraints:
   - type_param: T
     description: Constrain input and output types to float tensors.
@@ -166,6 +170,10 @@
   - name: strides
     description: Stride along each spatial axis
     type: list(int)
+  - name: activation
+    description: Fused activation function type (NONE, RELU, LEAKYRELU, PRELU, HSIGMOID, RELU6, SIGMOID). Defaults to NONE (no activation).
+    type: string
+    default_value: NONE
   type_constraints:
   - type_param: T
     description: Constrain input and output types to float tensors.

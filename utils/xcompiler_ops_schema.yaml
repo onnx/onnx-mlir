@@ -126,6 +126,10 @@
     description: Auto padding mode (NOTSET, SAME_UPPER, SAME_LOWER, VALID). Defaults to NOTSET.
     type: string
     default_value: NOTSET
+  - name: activation
+    description: Fused activation function type (NONE, RELU, LEAKYRELU, PRELU, HSIGMOID, RELU6, SIGMOID). Defaults to NONE (no activation).
+    type: string
+    default_value: NONE
   type_constraints:
   - type_param: T
     description: Constrain input and output types to all numeric tensor types.
