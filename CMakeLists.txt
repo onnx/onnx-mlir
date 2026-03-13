@@ -12,6 +12,7 @@ option(ONNX_MLIR_BUILD_TESTS "Build ONNX-MLIR test executables. If OFF, just gen
 option(ONNX_MLIR_CCACHE_BUILD "Set to ON for a ccache enabled build." OFF)
 option(ONNX_MLIR_ENABLE_WERROR "Enable warnings as errors." OFF)
 option(ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS "Suppress warning in third_party code." ON)
+option(ONNX_MLIR_BUILD_STANDALONE "Build onnx-mlir as standalone binary with static linking" OFF)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -92,6 +93,13 @@ choose_build_target()
 
 option(ONNX_MLIR_ENABLE_STABLEHLO "Enable StableHLO support." ON)
 option(ONNX_MLIR_ENABLE_JAVA "Set to ON for building the Java runtime, tools, and tests" ON)
+
+# Disable StableHLO in standalone mode to reduce dependencies
+# Note: Java/JNI support is compatible with standalone builds as it uses static libraries
+if(ONNX_MLIR_BUILD_STANDALONE)
+  set(ONNX_MLIR_ENABLE_STABLEHLO OFF CACHE BOOL "" FORCE)
+  message(STATUS "ONNX_MLIR_BUILD_STANDALONE: ON - Disabling StableHLO support")
+endif()
 
 include(CTest)
 include(ExternalProject)

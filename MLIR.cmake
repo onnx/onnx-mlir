@@ -40,8 +40,14 @@ else()
   add_definitions(${LLVM_DEFINITIONS})
 endif()
 
-set(BUILD_SHARED_LIBS ${LLVM_ENABLE_SHARED_LIBS} CACHE BOOL "" FORCE)
-message(STATUS "BUILD_SHARED_LIBS        : " ${BUILD_SHARED_LIBS})
+# Allow standalone build to override LLVM's shared libs setting
+if(ONNX_MLIR_BUILD_STANDALONE)
+  set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+  message(STATUS "BUILD_SHARED_LIBS        : ${BUILD_SHARED_LIBS} (forced OFF for standalone build)")
+else()
+  set(BUILD_SHARED_LIBS ${LLVM_ENABLE_SHARED_LIBS} CACHE BOOL "" FORCE)
+  message(STATUS "BUILD_SHARED_LIBS        : ${BUILD_SHARED_LIBS}")
+endif()
 
 # onnx uses exceptions, so we need to make sure that LLVM_REQUIRES_EH is set to ON, so that
 # the functions from HandleLLVMOptions and AddLLVM don't disable exceptions.
