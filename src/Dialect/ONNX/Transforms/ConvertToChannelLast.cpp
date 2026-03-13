@@ -212,8 +212,7 @@ struct ConvToChannelLastPattern : public OpRewritePattern<ONNXConvOp> {
         weightChannelLast, bias, convOp.getAutoPadAttr(),
         convOp.getDilationsAttr(), convOp.getGroupAttr(),
         convOp.getKernelShapeAttr(), convOp.getPadsAttr(),
-        convOp.getStridesAttr(),
-        rewriter.getStringAttr("NONE"));
+        convOp.getStridesAttr(), rewriter.getStringAttr("NONE"));
 
     // Transfer onnx_node_name attribute from original Conv to XFEConv
     transferOnnxNodeName(convOp, convChannelLastOp);
@@ -293,8 +292,7 @@ struct ConvTransposeToChannelLastPattern
         convTransposeOp.getKernelShapeAttr(),
         convTransposeOp.getOutputPaddingAttr(),
         convTransposeOp.getOutputShapeAttr(), convTransposeOp.getPadsAttr(),
-        convTransposeOp.getStridesAttr(),
-        rewriter.getStringAttr("NONE"));
+        convTransposeOp.getStridesAttr(), rewriter.getStringAttr("NONE"));
 
     // Transfer onnx_node_name attribute from original ConvTranspose to
     // XFEConvTranspose

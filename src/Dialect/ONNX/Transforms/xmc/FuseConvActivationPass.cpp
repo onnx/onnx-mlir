@@ -14,7 +14,8 @@
 //                                 LeakyRelu  -> FusedEltwise(type="LEAKYRELU")
 //                                 Clip(0,6)  -> FusedEltwise(type="CLIP")
 //                                 Sigmoid    -> FusedEltwise(type="SIGMOID")
-//   - ReplaceHsigmoidAndHswishPass: HardSigmoid -> FusedEltwise(type="QLINEARSIGMOID")
+//   - ReplaceHsigmoidAndHswishPass: HardSigmoid ->
+//   FusedEltwise(type="QLINEARSIGMOID")
 //
 // The QuantTypes pass (which runs even earlier) converts Q/DQ ops into
 // quantized tensor types (e.g., !quant.uniform<i8:f32, ...>). When Q→DQ
@@ -65,9 +66,7 @@ namespace {
 //===----------------------------------------------------------------------===//
 
 /// Check if a value has exactly one user (single fanout).
-static bool hasSingleUser(Value v) {
-  return v.hasOneUse();
-}
+static bool hasSingleUser(Value v) { return v.hasOneUse(); }
 
 /// Check if conv output and activation output have matching quantized types.
 /// Fusion is only allowed when there is no requantization between conv and
@@ -102,8 +101,8 @@ static bool quantTypesMatch(Type convOutputType, Type activationOutputType) {
 ///   HardSigmoid -> type="QLINEARSIGMOID"
 /// Returns the activation string to set on the conv op, or empty if not an
 /// activation we fuse.
-static StringRef
-getFusedEltwiseActivationType(XCOMPILERFusedEltwiseOp fusedOp) {
+static StringRef getFusedEltwiseActivationType(
+    XCOMPILERFusedEltwiseOp fusedOp) {
   StringRef opType = fusedOp.getType();
   if (opType == "RELU")
     return "RELU";
@@ -134,8 +133,7 @@ getFusedEltwiseActivationType(XCOMPILERFusedEltwiseOp fusedOp) {
 //===----------------------------------------------------------------------===//
 
 template <typename ConvOp>
-struct FuseConvActivation
-    : public OpRewritePattern<XCOMPILERFusedEltwiseOp> {
+struct FuseConvActivation : public OpRewritePattern<XCOMPILERFusedEltwiseOp> {
   using OpRewritePattern<XCOMPILERFusedEltwiseOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(XCOMPILERFusedEltwiseOp fusedOp,

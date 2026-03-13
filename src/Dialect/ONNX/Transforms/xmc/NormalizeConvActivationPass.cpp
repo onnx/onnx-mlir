@@ -126,8 +126,7 @@ static void normalizeActivation(ConvOp convOp, OpBuilder &builder) {
     float alpha = 0.0f;
     auto [M, N] = getPreluFactor(alpha);
     convOp->setAttr("activation", builder.getStringAttr("PRELU"));
-    convOp->setAttr(
-        "leakyrelu_alpha", builder.getF32FloatAttr(alpha));
+    convOp->setAttr("leakyrelu_alpha", builder.getF32FloatAttr(alpha));
     convOp->setAttr("prelu_in", getSI64Attr(builder, M));
     convOp->setAttr("prelu_shift", getSI64Attr(builder, N));
 
@@ -142,8 +141,8 @@ static void normalizeActivation(ConvOp convOp, OpBuilder &builder) {
     // Get alpha — it was preserved by FuseConvActivationPass from the
     // FusedEltwise op. If not present, default to the standard value.
     float alpha = kStandardLeakyReluAlpha;
-    if (auto alphaAttr = convOp->template getAttrOfType<FloatAttr>(
-            "leakyrelu_alpha")) {
+    if (auto alphaAttr =
+            convOp->template getAttrOfType<FloatAttr>("leakyrelu_alpha")) {
       alpha = alphaAttr.getValue().convertToFloat();
     }
 
@@ -171,16 +170,14 @@ static void normalizeActivation(ConvOp convOp, OpBuilder &builder) {
   // "HARDSIGMOID" → "HSIGMOID" (rename for hardware compatibility)
   if (activation == "HARDSIGMOID") {
     convOp->setAttr("activation", builder.getStringAttr("HSIGMOID"));
-    LLVM_DEBUG(llvm::dbgs()
-               << "NormalizeConvActivation: " << convOp->getName()
-               << " HARDSIGMOID -> HSIGMOID\n");
+    LLVM_DEBUG(llvm::dbgs() << "NormalizeConvActivation: " << convOp->getName()
+                            << " HARDSIGMOID -> HSIGMOID\n");
     return;
   }
 
   // "RELU6", "SIGMOID" — no transformation needed, pass through.
-  LLVM_DEBUG(llvm::dbgs()
-             << "NormalizeConvActivation: " << convOp->getName()
-             << " activation=" << activation << " (no change)\n");
+  LLVM_DEBUG(llvm::dbgs() << "NormalizeConvActivation: " << convOp->getName()
+                          << " activation=" << activation << " (no change)\n");
 }
 
 //===----------------------------------------------------------------------===//
@@ -196,9 +193,7 @@ struct NormalizeConvActivationPass
   NormalizeConvActivationPass(const NormalizeConvActivationPass &pass)
       : PassWrapper(pass) {}
 
-  StringRef getArgument() const override {
-    return "normalize-conv-activation";
-  }
+  StringRef getArgument() const override { return "normalize-conv-activation"; }
   StringRef getDescription() const override {
     return "Normalize conv activation attributes into hardware-compatible "
            "form (LEAKYRELU/PRELU/HSIGMOID) matching xcompiler behavior";
