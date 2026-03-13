@@ -239,15 +239,6 @@ if (ONNX_MLIR_ENABLE_STABLEHLO)
   add_compile_definitions(ONNX_MLIR_ENABLE_STABLEHLO)
 endif()
 
-# The target onnx is defined here after third_part/onnx is included.
-if(NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
-  target_link_libraries(onnx PUBLIC
-    absl::log_internal_check_op
-    absl::log_internal_message
-    absl::status
-    )
-endif()
-
 if (ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
   add_subdirectory(src)
 else()

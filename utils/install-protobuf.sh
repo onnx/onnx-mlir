@@ -7,20 +7,6 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
 rustup install ${RUST_VERSION}
 cargo install cargo-bazel --version ${CARGO_BAZEL_VERSION}
 
-# Install absl for new version of protobuf
-ABSL_VERSION=20240722.1
-ABSL_URL=https://github.com/abseil/abseil-cpp.git
-ABSL_DIR=abseil-cpp
-git clone -b ${ABSL_VERSION} --recursive ${ABSL_URL} ${ABSL_DIR}
-mkdir -p ${ABSL_DIR}/build
-cd ${ABSL_DIR}/build
-cmake -DCMAKE_INSTALL_LIBDIR=lib \
-      -DABSL_PROPAGATE_CXX_STD=ON \
-      -DBUILD_SHARED_LIBS=ON ..
-make -j${NPROC} install
-cd ../..
-rm -rf ${ABSL_DIR} ${HOME}/.cache
-
 # Install protobuf
 PROTOBUF_VERSION=6.31.1
 PROTOBUF_URL=https://github.com/protocolbuffers/protobuf.git
