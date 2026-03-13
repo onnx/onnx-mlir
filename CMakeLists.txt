@@ -114,8 +114,11 @@ endif()
 
 find_package(Python3 ${LLVM_MINIMUM_PYTHON_VERSION} REQUIRED COMPONENTS Interpreter Development)
 
-# absl is needed by llvm and onnx 
-find_package(absl REQUIRED)
+# absl is needed by llvm and onnx
+# In standalone mode, let ONNX build its own absl (via protobuf)
+if(NOT ONNX_MLIR_BUILD_STANDALONE)
+  find_package(absl REQUIRED)
+endif()
 
 if(ONNX_MLIR_ENABLE_JAVA)
   # On MacOS, find_package for Java and JNI doesn't work if JAVA_INCLUDE_PATH
@@ -194,6 +197,18 @@ if (ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
   add_subdirectory(third_party/pybind11)
 else()
   set(pybind11_FIND_QUIETLY ON)
+
+  # Configure ONNX for standalone builds
+  if(ONNX_MLIR_BUILD_STANDALONE)
+    set(ONNX_BUILD_CUSTOM_PROTOBUF ON CACHE BOOL "" FORCE)
+    set(ONNX_USE_PROTOBUF_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+    set(BUILD_ONNX_PYTHON OFF CACHE BOOL "" FORCE)
+    # Force protobuf to fetch and build its own abseil (not find system one)
+    set(protobuf_ABSL_PROVIDER "module" CACHE STRING "" FORCE)
+    set(protobuf_BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+    message(STATUS "Standalone mode: ONNX will build its own static protobuf and abseil")
+  endif()
+
   add_subdirectory(third_party/onnx)
   add_subdirectory(third_party/pybind11)
 
@@ -248,12 +263,15 @@ if (ONNX_MLIR_ENABLE_STABLEHLO)
 endif()
 
 # The target onnx is defined here after third_part/onnx is included.
+# In standalone mode, ONNX builds its own absl, so these targets will be available
 if(NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
-  target_link_libraries(onnx PUBLIC
-    absl::log_internal_check_op
-    absl::log_internal_message
-    absl::status
-    )
+  if(NOT ONNX_MLIR_BUILD_STANDALONE)
+    target_link_libraries(onnx PUBLIC
+      absl::log_internal_check_op
+      absl::log_internal_message
+      absl::status
+      )
+  endif()
 endif()
 
 if (ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
