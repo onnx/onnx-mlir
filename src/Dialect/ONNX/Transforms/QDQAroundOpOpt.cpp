@@ -6,6 +6,8 @@
 //===----------------------------------------------------------------------===//
 
 #include <cmath>
+#include <llvm/ADT/STLExtras.h>
+#include <mlir/IR/Attributes.h>
 #include <mlir/IR/IRMapping.h>
 #include <mlir/IR/Operation.h>
 #include <mlir/IR/PatternMatch.h>
@@ -167,9 +169,15 @@ public:
       transform(op->getOperands(), std::back_inserter(newInputs),
           [&](Value operand) { return irMapping.lookupOrDefault(operand); });
 
+      SmallVector<NamedAttribute> filteredAttrs(op->getAttrs());
+      if (auto foundIter = llvm::find_if(filteredAttrs,
+              [](NamedAttribute kv) { return kv.getName() == "ResultNames"; });
+          foundIter != filteredAttrs.end())
+        filteredAttrs.erase(foundIter);
+
       auto newOp =
           rewriter.create<T>(op.getLoc(), TypeRange{qOp.getResult().getType()},
-              ValueRange{newInputs}, op->getAttrs());
+              ValueRange{newInputs}, filteredAttrs);
       rewriter.replaceOp(qOp, newOp.getResult());
       return success();
     }
