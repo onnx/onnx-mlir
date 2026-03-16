@@ -7,7 +7,7 @@ project(onnx-mlir)
 
 option(ONNX_MLIR_BUILD_TESTS "Build ONNX-MLIR test executables. If OFF, just generate build targets." ON)
 option(ONNX_MLIR_CCACHE_BUILD "Set to ON for a ccache enabled build." OFF)
-option(ONNX_MLIR_ENABLE_KRNL "Enable Krnl dialect, ONNX-to-Krnl conversions, and related passes." ON)
+option(ONNX_MLIR_ENABLE_KRNL "Enable Krnl dialect, ONNX-to-Krnl conversions, and related passes." OFF)
 option(ONNX_MLIR_ENABLE_STABLEHLO "Enable StableHLO support." ON)
 option(ONNX_MLIR_ENABLE_WERROR "Enable warnings as errors." OFF)
 option(ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS "Suppress warning in third_party code." ON)
