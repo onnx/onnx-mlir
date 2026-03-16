@@ -269,7 +269,7 @@ struct OptimizeOnnxRequantizationPass
   }
   StringRef getDescription() const override {
     return "Optimize requantization in ONNX operations that don't change "
-           "quantization semantics (Reshape, Transpose, Slice, Concat)";
+           "quantization semantics (Reshape, Transpose, Slice, Pad, Concat)";
   }
 
   void runOnOperation() override {
@@ -283,6 +283,8 @@ struct OptimizeOnnxRequantizationPass
         .add<OnnxQDQRequantizationOptimizationPattern<::mlir::ONNXTransposeOp>>(
             patterns.getContext());
     patterns.add<OnnxQDQRequantizationOptimizationPattern<::mlir::ONNXSliceOp>>(
+        patterns.getContext());
+    patterns.add<OnnxQDQRequantizationOptimizationPattern<::mlir::ONNXPadOp>>(
         patterns.getContext());
     patterns.add<
         OnnxQDQRequantizationOptimizationPattern<::mlir::ONNXDepthToSpaceOp>>(
