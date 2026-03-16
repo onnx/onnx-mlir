@@ -43,12 +43,12 @@ public:
     ModuleOp moduleOp = getOperation();
 
     // Find the entry point function.
-    func::FuncOp mainFunc = getMainFuncFunc(moduleOp);
+    func::FuncOp mainFunc = getMainFunc(moduleOp);
     if (!mainFunc)
       return;
 
     // Find the ONNXReturnOp.
-    mlir::Operation *term = mainFunc.getBody().back().getTerminator();
+    Operation *term = mainFunc.getBody().back().getTerminator();
     ONNXReturnOp returnOp = mlir::dyn_cast<ONNXReturnOp>(term);
     if (!returnOp || returnOp.getOperands().size() < 1)
       return;
@@ -74,7 +74,7 @@ public:
         /*axes=*/createOnnx.constantInt64({1}),
         /*steps=*/createOnnx.constantInt64({1}));
 
-    // Emit computation for the decoding strategy.
+    // Emit code for the decoding strategy.
     Value nextTokens = emitDecodingStrategies(createOnnx, lastTokenLogits);
     // Squeeze nextTokens from the shape [batch_size, 1, 1] to [batch_size, 1].
     nextTokens = createOnnx.squeeze(
@@ -101,7 +101,7 @@ public:
   }
 
 private:
-  func::FuncOp getMainFuncFunc(ModuleOp moduleOp) const {
+  func::FuncOp getMainFunc(ModuleOp moduleOp) const {
     // Find the ONNXEntryPoint operation that knows which is the main function.
     ONNXEntryPointOp entryPointOp;
     moduleOp.walk([&entryPointOp](ONNXEntryPointOp op) -> WalkResult {
@@ -122,6 +122,7 @@ private:
     func::FuncOp mainFunc = mlir::dyn_cast<func::FuncOp>(mainFuncOp);
     if (!mainFunc)
       return nullptr;
+
     return mainFunc;
   }
 
