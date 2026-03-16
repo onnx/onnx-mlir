@@ -1686,7 +1686,6 @@ void ONNXToZHighLoweringPass::runOnOperation() {
   // prohibit the combined ops lowering happened.
   RewritePatternSet combinedPatterns(&getContext());
   onnx_mlir::getONNXToZHighMultipleOpPatterns(combinedPatterns);
-
   // It's ok to fail.
   (void)applyPatternsGreedily(module, std::move(combinedPatterns));
 

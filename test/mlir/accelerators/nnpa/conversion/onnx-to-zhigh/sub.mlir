@@ -64,3 +64,17 @@ func.func @test_exceed_limit_sub(%arg0 : tensor<32769x10xf32>, %arg1 : tensor<32
 // CHECK-LABEL:  func @test_exceed_limit_sub
 // CHECK:        "onnx.Sub"
 }
+
+// -----
+
+func.func @test_scalar_sub(%arg0 : tensor<1xf32>, %arg1 : tensor<1xf32>) -> tensor<1xf32> {
+  %x = "onnx.Sub"(%arg0, %arg1) : (tensor<1xf32>, tensor<1xf32>) -> tensor<1xf32>
+  "func.return"(%x) : (tensor<1xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_scalar_sub
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1xf32>, [[PARAM_1_:%.+]]: tensor<1xf32>) -> tensor<1xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Sub"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<1xf32>, tensor<1xf32>) -> tensor<1xf32>
+// CHECK:           return [[VAR_0_]] : tensor<1xf32>
+// CHECK:         }
+}
+

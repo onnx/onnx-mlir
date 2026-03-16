@@ -80,3 +80,16 @@ func.func @test_exceed_limit_softmax(%arg0 : tensor<32769x10xf32>) -> tensor<*xf
 // CHECK-LABEL:  func @test_exceed_limit_softmax
 // CHECK:        "onnx.Softmax"
 }
+
+// -----
+
+func.func @test_softmax_scalar(%arg0 : tensor<1xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Softmax"(%arg0) {axis = 0: si64} : (tensor<1xf32>) -> tensor<*xf32>
+  "func.return"(%0) : (tensor<*xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_softmax_scalar
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1xf32>) -> tensor<1xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Softmax"([[PARAM_0_]]) <{axis = 0 : si64}> : (tensor<1xf32>) -> tensor<1xf32>
+// CHECK:           return [[VAR_0_]] : tensor<1xf32>
+// CHECK:         }
+}
