@@ -22,6 +22,7 @@ By default, `onnx-mlir` is built with shared libraries, which requires LLVM/MLIR
 cmake -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
   -DLLVM_ENABLE_PROJECTS="mlir" \
+  -DLLVM_ENABLE_RUNTIMES="compiler-rt;openmp" \
   -DBUILD_SHARED_LIBS=ON \
   ../llvm
 ninja
@@ -42,27 +43,45 @@ ninja onnx-mlir
 - Portable across systems with the same architecture
 - No need for LLVM/MLIR installation at runtime
 - StableHLO support automatically disabled (Java/JNI support remains available)
+- Protobuf and Abseil built from source and statically linked
 
 **Build Commands:**
+
+**Step 1: Build LLVM/MLIR with static libraries**
 ```bash
-# Build LLVM/MLIR with static libraries
 cmake -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
   -DLLVM_ENABLE_PROJECTS="mlir" \
+  -DLLVM_ENABLE_RUNTIMES="compiler-rt;openmp" \
   -DBUILD_SHARED_LIBS=OFF \
   -DLLVM_BUILD_LLVM_DYLIB=OFF \
   -DLLVM_LINK_LLVM_DYLIB=OFF \
   ../llvm
 ninja
+```
 
-# Build onnx-mlir as standalone
+**Step 2: Build onnx-mlir as standalone**
+```bash
+# Clean build directory
+rm -rf build
+mkdir build && cd build
+
+# Configure with standalone mode (Linux example)
 cmake -G Ninja \
   -DMLIR_DIR=/path/to/llvm-build/lib/cmake/mlir \
   -DCMAKE_BUILD_TYPE=Release \
   -DONNX_MLIR_BUILD_STANDALONE=ON \
+  -DCMAKE_IGNORE_PATH="/usr/local;/opt" \
   ..
+
 ninja onnx-mlir
 ```
+
+**Important Notes:**
+- The `-DCMAKE_IGNORE_PATH` flag prevents CMake from finding system-installed packages, forcing it to build everything from source.
+- **Linux/z:** Use `-DCMAKE_IGNORE_PATH="/usr/local;/opt"` (shown above)
+- **macOS:** Use `-DCMAKE_IGNORE_PATH="/opt/homebrew;/usr/local"` instead
+- First build will take longer (~10-20 minutes extra) as it builds protobuf and abseil from source
 
 ## CMake Options
 
@@ -105,63 +124,144 @@ Note: Both builds require `llc` and `opt` at runtime for code generation.
 - When LLVM/MLIR is already installed on target systems
 - When disk space is limited
 - When you need StableHLO support
+- Faster incremental builds
 
 ### When to Use Standalone Build
 - Distribution to systems without LLVM/MLIR
 - Containerized deployments
 - Ensuring consistent behavior across different systems
 - When you want a single portable binary
+- Production deployments where dependencies are a concern
 
 ## Verification
 
-To verify your build mode, check the binary size and dependencies:
+### Quick Verification
 
+**macOS:**
 ```bash
-# Check binary size
-ls -lh /path/to/onnx-mlir
+# Check binary size (should be 200-400 MB for standalone)
+ls -lh Debug/bin/onnx-mlir
 
-# Check dynamic library dependencies (Linux)
-ldd /path/to/onnx-mlir
+# Check for non-system dependencies (should be minimal)
+otool -L Debug/bin/onnx-mlir | grep -v "^/usr/lib\|^/System"
 
-# Check dynamic library dependencies (macOS)
-otool -L /path/to/onnx-mlir
+# Check for third-party libraries (should return nothing or only zstd)
+otool -L Debug/bin/onnx-mlir | grep -E "absl|protobuf|homebrew"
 ```
 
-**Expected output for standalone build:**
-- Binary size: 200-400 MB
-- Only system libraries in dependencies (no libMLIR*, libLLVM*)
+**Linux/z:**
+```bash
+# Check binary size (should be 200-400 MB for standalone)
+ls -lh Debug/bin/onnx-mlir
 
-**Expected output for default build:**
+# Check for non-system dependencies (should be minimal)
+ldd Debug/bin/onnx-mlir | grep -v "^/lib\|^/usr/lib\|linux-vdso\|ld-linux"
+
+# Check for third-party libraries (should return nothing)
+ldd Debug/bin/onnx-mlir | grep -E "protobuf|absl|boost"
+```
+
+### Comprehensive Verification Script
+
+**macOS:**
+```bash
+#!/bin/bash
+echo "=== ONNX-MLIR Standalone Verification (macOS) ==="
+echo ""
+echo "Binary Size:"
+ls -lh Debug/bin/onnx-mlir
+echo ""
+echo "Non-System Dependencies:"
+otool -L Debug/bin/onnx-mlir | grep -v "^/usr/lib\|^/System\|Debug/bin" || echo "None (Good!)"
+echo ""
+echo "Third-Party Dependencies:"
+otool -L Debug/bin/onnx-mlir | grep -E "absl|protobuf|homebrew" || echo "None (Good!)"
+```
+
+**Linux/z:**
+```bash
+#!/bin/bash
+echo "=== ONNX-MLIR Standalone Verification (Linux) ==="
+echo ""
+echo "Binary Size:"
+ls -lh Debug/bin/onnx-mlir
+echo ""
+echo "Non-System Dependencies:"
+ldd Debug/bin/onnx-mlir | grep -v "^/lib\|^/usr/lib\|linux-vdso\|ld-linux" || echo "None (Good!)"
+echo ""
+echo "Third-Party Dependencies:"
+ldd Debug/bin/onnx-mlir | grep -E "protobuf|absl|boost" || echo "None (Good!)"
+echo ""
+echo "Symbol Count (>100k = static):"
+nm Debug/bin/onnx-mlir 2>/dev/null | wc -l
+```
+
+### Expected Results
+
+**✅ Standalone Build (Good):**
+- Binary size: 200-400 MB
+- Non-system dependencies: None or only zstd (from LLVM)
+- Third-party libraries: None
+- Symbol count: >100,000
+
+**❌ Default Build:**
 - Binary size: 5-10 MB
-- Many libMLIR* and libLLVM* libraries in dependencies
+- Non-system dependencies: Many libMLIR*, libLLVM* libraries
+- Third-party libraries: May include protobuf, abseil
+- Symbol count: <10,000
 
 ## Troubleshooting
 
+### Issue: Binary still has protobuf/abseil dependencies from Homebrew or /usr/local
+
+**Symptoms:**
+```bash
+otool -L Debug/bin/onnx-mlir | grep -E "absl|protobuf|homebrew"
+# Shows: /opt/homebrew/opt/abseil/lib/libabsl_*.dylib
+```
+
+**Solution:** You forgot to use `CMAKE_IGNORE_PATH`. Clean and rebuild:
+```bash
+rm -rf build
+mkdir build && cd build
+cmake -DONNX_MLIR_BUILD_STANDALONE=ON \
+      -DCMAKE_IGNORE_PATH="/opt/homebrew;/usr/local" \
+      ..
+ninja onnx-mlir
+```
+
 ### Issue: Binary still has LLVM/MLIR shared library dependencies
 
-**Solution:** Ensure LLVM/MLIR was built with `BUILD_SHARED_LIBS=OFF`:
+**Solution:** Ensure LLVM/MLIR was built with static libraries:
 ```bash
 cd /path/to/llvm-build
 cmake -L | grep BUILD_SHARED_LIBS
 # Should show: BUILD_SHARED_LIBS:BOOL=OFF
 ```
 
-### Issue: Build fails with undefined references
+If not, rebuild LLVM with `-DBUILD_SHARED_LIBS=OFF -DLLVM_BUILD_LLVM_DYLIB=OFF -DLLVM_LINK_LLVM_DYLIB=OFF`
 
-**Solution:** Clean the build directory and rebuild:
-```bash
-rm -rf build
-mkdir build && cd build
-cmake -DONNX_MLIR_BUILD_STANDALONE=ON ..
-ninja onnx-mlir
-```
+### Issue: Build fails with "could not find absl" or protobuf errors
+
+**Solution:** This is expected when using `CMAKE_IGNORE_PATH`. The build system will automatically fetch and build these from source. Just wait for the build to complete (first build takes longer).
 
 ### Issue: Binary is too large
 
-**Solution:** This is expected for standalone builds. To reduce size:
+**Solution:** This is expected for standalone builds (200-400 MB). To reduce size:
 1. Use `CMAKE_BUILD_TYPE=MinSizeRel` instead of `Release`
 2. Strip debug symbols: `strip /path/to/onnx-mlir`
 3. Use compression: `upx /path/to/onnx-mlir` (if available)
+4. Disable features you don't need (e.g., `-DONNX_MLIR_ENABLE_JAVA=OFF`)
+
+### Issue: CMake finds wrong MLIR_DIR
+
+**Solution:** Ensure you're pointing to the static LLVM build:
+```bash
+cmake -DMLIR_DIR=/path/to/static-llvm-build/lib/cmake/mlir \
+      -DONNX_MLIR_BUILD_STANDALONE=ON \
+      -DCMAKE_IGNORE_PATH="/opt/homebrew;/usr/local" \
+      ..
+```
 
 ## Performance Considerations
 
