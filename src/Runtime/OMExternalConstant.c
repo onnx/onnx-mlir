@@ -30,9 +30,9 @@ typedef int make_iso_compilers_happy;
 #include <unistd.h>
 
 #ifdef __MVS__
-#include <dlfcn.h>
 #include <libgen.h>
 #include <sys/stat.h>
+#include "metal_csvquery.h"
 #endif
 
 #if defined(_WIN32)
@@ -60,31 +60,27 @@ static void *g_constant_buffer = NULL;
 static int64_t g_constant_buffer_size = 0;
 
 /// Constructor: Preload constants at library load time
-void __attribute__ ((constructor)) omMallocAndReadFile(void) {
-  Dl_info dl_info;
+void __attribute__ ((constructor)) omPreloadConstants(void) {
+  char so_path[1024];
   
-  // Get the path to the current shared library
-  if (!dladdr((void *)omMallocAndReadFile, &dl_info)) {
-    fprintf(stderr, "Failed to get library path\n");
+  // Use Metal C CSVQUERY to get the path to the current shared library
+  int path_len = metal_get_module_path(so_path, sizeof(so_path));
+  if (path_len == 0) {
+    fprintf(stderr, "Failed to get library path via CSVQUERY\n");
     return;
   }
   
   // Get directory and basename of the .so file
-  char *so_path = strdup(dl_info.dli_fname);
-  if (!so_path) {
+  char *so_path_copy1 = strdup(so_path);
+  char *so_path_copy2 = strdup(so_path);
+  if (!so_path_copy1 || !so_path_copy2) {
+    free(so_path_copy1);
+    free(so_path_copy2);
     return;
   }
   
-  // Get directory
-  char *so_path_copy = strdup(so_path);
-  if (!so_path_copy) {
-    free(so_path);
-    return;
-  }
-  char *so_dir = dirname(so_path_copy);
-  
-  // Get basename (filename without directory)
-  char *so_basename = basename(so_path);
+  char *so_dir = dirname(so_path_copy1);
+  char *so_basename = basename(so_path_copy2);
   
   // Check for OM_CONSTANT_PATH environment variable
   char *basePath = getenv("OM_CONSTANT_PATH");
@@ -124,7 +120,9 @@ void __attribute__ ((constructor)) omMallocAndReadFile(void) {
   
   char *filePath = (char *)malloc(filePathLen);
   if (!filePath) {
-    free(so_path);
+    free(const_filename);
+    free(so_path_copy1);
+    free(so_path_copy2);
     return;
   }
   
@@ -136,8 +134,8 @@ void __attribute__ ((constructor)) omMallocAndReadFile(void) {
     // File doesn't exist - this is OK, might not have constants
     free(const_filename);
     free(filePath);
-    free(so_path);
-    free(so_path_copy);
+    free(so_path_copy1);
+    free(so_path_copy2);
     return;
   }
   
@@ -148,7 +146,8 @@ void __attribute__ ((constructor)) omMallocAndReadFile(void) {
   if (fstat(fd, &st) != 0) {
     close(fd);
     free(filePath);
-    free(so_path);
+    free(so_path_copy1);
+    free(so_path_copy2);
     return;
   }
   
@@ -160,8 +159,8 @@ void __attribute__ ((constructor)) omMallocAndReadFile(void) {
     // Small file - let mmap handle it at runtime
     close(fd);
     free(filePath);
-    free(so_path);
-    free(so_path_copy);
+    free(so_path_copy1);
+    free(so_path_copy2);
     return;
   }
   
@@ -174,8 +173,8 @@ void __attribute__ ((constructor)) omMallocAndReadFile(void) {
             (long long)g_constant_buffer_size);
     close(fd);
     free(filePath);
-    free(so_path);
-    free(so_path_copy);
+    free(so_path_copy1);
+    free(so_path_copy2);
     return;
   }
   
@@ -201,8 +200,8 @@ void __attribute__ ((constructor)) omMallocAndReadFile(void) {
         g_constant_buffer_size = 0;
         close(fd);
         free(filePath);
-        free(so_path);
-        free(so_path_copy);
+        free(so_path_copy1);
+        free(so_path_copy2);
         return;
       }
       
@@ -214,8 +213,8 @@ void __attribute__ ((constructor)) omMallocAndReadFile(void) {
         g_constant_buffer_size = 0;
         close(fd);
         free(filePath);
-        free(so_path);
-        free(so_path_copy);
+        free(so_path_copy1);
+        free(so_path_copy2);
         return;
       }
       
@@ -228,8 +227,8 @@ void __attribute__ ((constructor)) omMallocAndReadFile(void) {
   
   close(fd);
   free(filePath);
-  free(so_path);
-  free(so_path_copy);
+  free(so_path_copy1);
+  free(so_path_copy2);
   
   fprintf(stderr, "Successfully preloaded %lld bytes of constants (>1GB)\n",
           (long long)g_constant_buffer_size);
@@ -267,17 +266,19 @@ bool omMMapBinaryFile(
     return false;
   }
 
-  // Already mmaped. Nothing to do.
+  // Already loaded. Nothing to do.
   if (constAddr[0] != NULL)
     return true;
 
 #ifdef __MVS__
-  // Check if we have a preloaded constant buffer from constructor
+  // Fast path: Check if constructor preloaded this constant (>1GB files)
   if (g_constant_buffer != NULL && g_constant_buffer_size >= size) {
     constAddr[0] = g_constant_buffer;
     errno = 0;
     return true;
   }
+  
+  // Fallback: File was ≤1GB or constructor didn't run, use mmap
 #endif
 
   char *filePath;
