@@ -13,7 +13,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Dialect/Quant/IR/QuantTypes.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/TypeUtilities.h"
@@ -119,27 +118,6 @@ ElementsAttr getConstValueElements(Value constValue) {
 // Creates ONNXConstantOp with the location from replacingValue.
 Value createReplacingConstantOp(
     PatternRewriter &rewriter, Value replacingValue, ElementsAttr elements) {
-  auto tensorType = cast<mlir::TensorType>(replacingValue.getType());
-  Type replacingElemType = tensorType.getElementType();
-  Type elementsElemType = elements.getShapedType().getElementType();
-
-  if (elementsElemType != replacingElemType) {
-    if (isa<mlir::quant::QuantizedType>(replacingElemType)) {
-      // Output is quantized: create constant with storage-typed data, then
-      // set the result type to the full quantized type.
-      mlir::Value result =
-          OnnxBuilder(rewriter, replacingValue.getLoc()).constant(elements);
-      result.setType(replacingValue.getType());
-      return result;
-    }
-    // Output is NOT quantized but element types differ (e.g., i8 storage
-    // from a quantized constant folded through an op with f32 output).
-    // Cast the data to match the output element type so the DenseElementsAttr
-    // and the Value type are consistent.
-    OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
-    elements = elementsBuilder.castElementType(elements, replacingElemType);
-  }
-
   return OnnxBuilder(rewriter, replacingValue.getLoc()).constant(elements);
 }
 
@@ -538,10 +516,6 @@ Value ConstPropElementwiseUnary(
     PatternRewriter &rewriter, Value replacingValue, Value constValue) {
   Type replacingElemType =
       mlir::cast<ShapedType>(replacingValue.getType()).getElementType();
-
-  if (auto quantType =
-          mlir::dyn_cast<mlir::quant::QuantizedType>(replacingElemType))
-    replacingElemType = quantType.getStorageType();
 
   ElementsAttr constElements = getConstValueElements(constValue);
   assert(replacingElemType == constElements.getElementType() &&
