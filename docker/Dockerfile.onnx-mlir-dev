@@ -65,7 +65,7 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
 # cppcheck v1.90 in Ubuntu Focal since it apparently silently
 # ignores nonexisting files. But cppcheck v2.7 in Jammy and
 # v2.13 in Noble will report error on nonexisting files.
-    && if [ "$(uname -m)" = "s390x" ] && command -v cppcheck > /dev/null 2>&1; then \
+    && if [ "$(uname -m)" = "s390x" ]; then \
            make -j${NPROC} onnx && \
            NPROC=${NPROC} ${ONNX_MLIR_ROOT}/utils/cppcheck_scan/cppcheck-scan.py; \
        fi \
