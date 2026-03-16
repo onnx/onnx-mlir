@@ -81,9 +81,8 @@ void PlaceBeneficialOpsOnNNPA(mlir::MLIRContext *context,
  */
 void PlaceBeneficialOpsOnNNPAWithStickUnstick(mlir::MLIRContext *context,
     mlir::ModuleOp module, const llvm::SmallVector<mlir::Operation *, 32> &ops,
-    const DimAnalysis *dimAnalysis, const OpSetType &cpuOps,
-    double minFactor = 1.1, double significantCPUFactor = 2.0,
-    double significantNNPAFactor = 3.0);
+    const DimAnalysis *dimAnalysis, const OpSetType &cpuOps, double minFactor,
+    double significantCPUFactor, double significantNNPAFactor);
 
 } // namespace onnx_mlir
 #endif
