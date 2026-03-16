@@ -898,6 +898,32 @@ func.func @test_rewrite_batchnormtestmode_1d_f16(%arg0 : tensor<64xf16>, %scale 
 
 // -----
 
+func.func @test_backward_fold_scale_axis(%arg0: tensor<1x256xf32>) -> tensor<1x128xf32> {
+  %0 = onnx.Constant dense<0.00999999977> : tensor<256x128xf32>
+  %1 = onnx.Constant dense<0.00999999977> : tensor<128xf32>
+  %2 = onnx.Constant dense<0.00999999977> : tensor<128xf32>
+  %3 = onnx.Constant dense<0.00999999977> : tensor<128xf32>
+  %4 = onnx.Constant dense<0.0> : tensor<128xf32>
+  %5 = onnx.Constant dense<1.0> : tensor<128xf32>
+  %6 = "onnx.Gemm"(%arg0, %0, %1) {alpha = 1.000000e+00 : f32, beta = 1.000000e+00 : f32, onnx_node_name = "onnx.Gemm_0", transA = 0 : si64, transB = 0 : si64} : (tensor<1x256xf32>, tensor<256x128xf32>, tensor<128xf32>) -> tensor<1x128xf32>
+  %7 = "onnx.BatchNormalizationInferenceMode"(%6, %2, %3, %4, %5) {epsilon = 0.0 : f32, momentum = 0.899999976 : f32, onnx_node_name = "onnx.BatchNormalizationInferenceMode_1"} : (tensor<1x128xf32>, tensor<128xf32>, tensor<128xf32>, tensor<128xf32>, tensor<128xf32>) -> tensor<1x128xf32>
+  %8 = "onnx.Relu"(%7) {onnx_node_name = "onnx.Relu_2"} : (tensor<1x128xf32>) -> tensor<1x128xf32>
+  return %8 : tensor<1x128xf32>
+  // CHECK-LABEL: func @test_backward_fold_scale_axis
+  // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x256xf32>) -> tensor<1x128xf32> {
+  // CHECK:      [[VAR_0_:%.+]] = onnx.Constant dense<{{.*}}> : tensor<256x128xf32>
+  // CHECK:      [[VAR_1_:%.+]] = onnx.Constant dense<{{.*}}> : tensor<128xf32>
+  // CHECK:      [[MUL_0_:%.+]] = "onnx.Mul"([[VAR_0_]], [[VAR_1_]])
+  // CHECK:      [[MUL_1_:%.+]] = "onnx.Mul"([[VAR_1_]], [[VAR_1_]])
+  // CHECK:      [[ADD_0_:%.+]] = "onnx.Add"([[MUL_1_]], [[VAR_1_]])
+  // CHECK:     [[VAR_2_:%.+]] = "onnx.Gemm"([[PARAM_0_]], [[MUL_0_]], [[ADD_0_]])
+  // CHECK-SAME:     : (tensor<1x256xf32>, tensor<256x128xf32>, tensor<128xf32>) -> tensor<1x128xf32>
+  // CHECK:      [[VAR_3_:%.+]] = "onnx.Relu"([[VAR_2_]]) {onnx_node_name = "onnx.Relu_2"} : (tensor<1x128xf32>) -> tensor<1x128xf32>
+  // CHECK-NEXT:     return [[VAR_3_]] : tensor<1x128xf32>
+}
+
+// -----
+
 func.func @test_normalize_add(%arg0 : tensor<2xf32>) -> tensor<2xf32> {
     %cst = "onnx.NoValue"() {value} : () -> none
     %0 = onnx.Constant dense<[0.0, 1.0]> : tensor<2xf32>
