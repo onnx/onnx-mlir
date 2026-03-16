@@ -18,7 +18,7 @@ bool isTensorName(Attribute attr) {
   if (auto strAttr = dyn_cast<StringAttr>(attr))
     return !strAttr.empty();
   else if (auto arrayAttr = dyn_cast<ArrayAttr>(attr))
-    return !arrayAttr.empty();
+    return !arrayAttr.empty() && isTensorName(arrayAttr[0]);
   return false;
 }
 
