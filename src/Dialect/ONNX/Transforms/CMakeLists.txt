@@ -142,14 +142,16 @@ add_onnx_mlir_library(OMHybridTransform
   OMShapeInference
   )
 
-add_onnx_mlir_library(OMONNXPreKrnlVerifyONNX
-  ONNXPreKrnlVerifyPass.cpp
+if (ONNX_MLIR_ENABLE_KRNL)
+  add_onnx_mlir_library(OMONNXPreKrnlVerifyONNX
+    ONNXPreKrnlVerifyPass.cpp
 
-  LINK_LIBS PUBLIC
-  OMONNXOps
-  MLIRPass
-  OMSupport
-  )
+    LINK_LIBS PUBLIC
+    OMONNXOps
+    MLIRPass
+    OMSupport
+    )
+endif()
 
 add_onnx_mlir_library(OMONNXSimplifyShapeRelatedOps
   SimplifyShapeRelatedOps.cpp

@@ -62,6 +62,11 @@ add_onnx_mlir_library(OMCompilerOptions
   )
 
 
+set(OMCompilerDialects_EXTRA_LIBS)
+if (ONNX_MLIR_ENABLE_KRNL)
+  list(APPEND OMCompilerDialects_EXTRA_LIBS OMKrnlOps)
+endif()
+
 add_onnx_mlir_library(OMCompilerDialects
   CompilerDialects.cpp
 
@@ -69,7 +74,7 @@ add_onnx_mlir_library(OMCompilerDialects
   OMAccelerator
   OMCompilerOptions
   OMInitAccelerators
-  OMKrnlOps
+  ${OMCompilerDialects_EXTRA_LIBS}
   OMONNXOps
   MLIRIR
   MLIROpenMPToLLVMIRTranslation
@@ -91,6 +96,11 @@ add_onnx_mlir_library(OMDisposableGarbageCollector
   OMONNXOps
 )
 
+set(OMOnnxToMlirPasses_EXTRA_LIBS)
+if (ONNX_MLIR_ENABLE_KRNL)
+  list(APPEND OMOnnxToMlirPasses_EXTRA_LIBS OMInstrument)
+endif()
+
 add_onnx_mlir_library(OMOnnxToMlirPasses
   OnnxToMlirPasses.cpp
   
@@ -104,11 +114,9 @@ add_onnx_mlir_library(OMOnnxToMlirPasses
 
   LINK_LIBS PRIVATE
   OMOpTransform
-  OMInstrument
+  ${OMOnnxToMlirPasses_EXTRA_LIBS}
   OMInstrumentONNX
   OMHybridTransform
-  OMInstrument
-  OMInstrumentONNX
   OMOpTransform
   OMONNXStandardFuncReturnPass
   OMONNXSimplifyShapeRelatedOps

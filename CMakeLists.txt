@@ -7,6 +7,7 @@ project(onnx-mlir)
 
 option(ONNX_MLIR_BUILD_TESTS "Build ONNX-MLIR test executables. If OFF, just generate build targets." ON)
 option(ONNX_MLIR_CCACHE_BUILD "Set to ON for a ccache enabled build." OFF)
+option(ONNX_MLIR_ENABLE_KRNL "Enable Krnl dialect, ONNX-to-Krnl conversions, and related passes." ON)
 option(ONNX_MLIR_ENABLE_STABLEHLO "Enable StableHLO support." ON)
 option(ONNX_MLIR_ENABLE_WERROR "Enable warnings as errors." OFF)
 option(ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS "Suppress warning in third_party code." ON)
@@ -240,6 +241,10 @@ if (ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS)
   set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS_COPY})
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DSUPPRESS_THIRD_PARTY_WARNINGS")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSUPPRESS_THIRD_PARTY_WARNINGS")
+endif()
+
+if (ONNX_MLIR_ENABLE_KRNL)
+  add_compile_definitions(ONNX_MLIR_ENABLE_KRNL)
 endif()
 
 if (ONNX_MLIR_ENABLE_STABLEHLO)
