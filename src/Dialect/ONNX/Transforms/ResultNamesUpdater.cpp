@@ -25,7 +25,7 @@ bool isTensorName(Attribute attr) {
 } // namespace
 
 void ResultNamesUpdater::notifyOperationReplaced(
-    mlir::Operation *op, mlir::Operation *replacement) {
+    Operation *op, Operation *replacement) {
   auto resultNamesArray = op->getAttrOfType<ArrayAttr>("ResultNames");
   if (!resultNamesArray)
     return;
