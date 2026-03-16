@@ -4,6 +4,6 @@ lit~=15.0
 numpy==2.0.1
 onnx==1.19.1
 protobuf==4.25.3
-pyyaml>=6.0
+pyyaml==6.0
 pytest==8.3.2
 pytest-xdist==3.6.1
