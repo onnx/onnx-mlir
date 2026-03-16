@@ -27,12 +27,16 @@ typedef int make_iso_compilers_happy;
 
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
-#ifdef __MVS__
 #include <libgen.h>
-#include <sys/stat.h>
+
+#ifdef __MVS__
+#define MAX_MMAP_SIZE (1024LL * 1024LL * 1024LL)
 #include "metal_csvquery.h"
+#else
+#include <dlfcn.h>
 #endif
 
 #if defined(_WIN32)
@@ -54,21 +58,34 @@ static void checkEndianness(const char constPackIsLE) {
   }
 }
 
-#ifdef __MVS__
-// Global buffer to store preloaded constants
+// Global buffer to store preloaded constants (all platforms)
 static void *g_constant_buffer = NULL;
 static int64_t g_constant_buffer_size = 0;
+#ifndef __MVS__
+static bool g_used_mmap = false; // Track if we used mmap (for munmap in destructor)
+#endif
 
-/// Constructor: Preload constants at library load time
+/// Constructor: Preload constants at library load time (all platforms)
 void __attribute__ ((constructor)) omPreloadConstants(void) {
   char so_path[1024];
   
-  // Use Metal C CSVQUERY to get the path to the current shared library
+#ifdef __MVS__
+  // z/OS: Use Metal C CSVQUERY to get the path to the current shared library
   int path_len = metal_get_module_path(so_path, sizeof(so_path));
   if (path_len == 0) {
     fprintf(stderr, "Failed to get library path via CSVQUERY\n");
     return;
   }
+#else
+  // Non-z/OS: Use dladdr to get the path to the current shared library
+  Dl_info dl_info;
+  if (!dladdr((void *)omPreloadConstants, &dl_info)) {
+    fprintf(stderr, "Failed to get library path via dladdr\n");
+    return;
+  }
+  strncpy(so_path, dl_info.dli_fname, sizeof(so_path) - 1);
+  so_path[sizeof(so_path) - 1] = '\0';
+#endif
   
   // Get directory and basename of the .so file
   char *so_path_copy1 = strdup(so_path);
@@ -94,8 +111,8 @@ void __attribute__ ((constructor)) omPreloadConstants(void) {
   size_t const_filename_len = basename_len + 20; // extra space for ".constants.bin"
   char *const_filename = (char *)malloc(const_filename_len);
   if (!const_filename) {
-    free(so_path);
-    free(so_path_copy);
+    free(so_path_copy1);
+    free(so_path_copy2);
     return;
   }
   
@@ -152,103 +169,142 @@ void __attribute__ ((constructor)) omPreloadConstants(void) {
   }
   
   int64_t fileSize = st.st_size;
-  
-  // Only preload if file is larger than 1GB
-  #define MAX_MMAP_SIZE (1024LL * 1024LL * 1024LL)
-  if (fileSize <= MAX_MMAP_SIZE) {
-    // Small file - let mmap handle it at runtime
-    close(fd);
-    free(filePath);
-    free(so_path_copy1);
-    free(so_path_copy2);
-    return;
-  }
-  
-  // Large file - preload into malloc'd buffer
   g_constant_buffer_size = fileSize;
-  g_constant_buffer = malloc(g_constant_buffer_size);
   
-  if (!g_constant_buffer) {
-    fprintf(stderr, "Failed to allocate %lld bytes for constants\n",
-            (long long)g_constant_buffer_size);
-    close(fd);
-    free(filePath);
-    free(so_path_copy1);
-    free(so_path_copy2);
-    return;
-  }
-  
-  // Read file in 1GB chunks
-  int64_t remaining = g_constant_buffer_size;
-  int64_t offset = 0;
-  char *destPtr = (char *)g_constant_buffer;
-  
-  while (remaining > 0) {
-    int64_t chunkSize = (remaining > MAX_MMAP_SIZE) ? MAX_MMAP_SIZE : remaining;
-    int64_t totalRead = 0;
+#ifdef __MVS__
+  // z/OS: Check if file is larger than 1GB (mmap limit)
+  if (fileSize > MAX_MMAP_SIZE) {
+    // Large file - use malloc + chunked read
+    g_constant_buffer = malloc(g_constant_buffer_size);
     
-    // Handle short reads
-    while (totalRead < chunkSize) {
-      ssize_t bytesRead = read(fd, destPtr + offset + totalRead,
-                               chunkSize - totalRead);
-      
-      if (bytesRead < 0) {
-        fprintf(stderr, "Error reading constants at offset %lld: %s\n",
-                (long long)(offset + totalRead), strerror(errno));
-        free(g_constant_buffer);
-        g_constant_buffer = NULL;
-        g_constant_buffer_size = 0;
-        close(fd);
-        free(filePath);
-        free(so_path_copy1);
-        free(so_path_copy2);
-        return;
-      }
-      
-      if (bytesRead == 0) {
-        fprintf(stderr, "Unexpected EOF reading constants at offset %lld\n",
-                (long long)(offset + totalRead));
-        free(g_constant_buffer);
-        g_constant_buffer = NULL;
-        g_constant_buffer_size = 0;
-        close(fd);
-        free(filePath);
-        free(so_path_copy1);
-        free(so_path_copy2);
-        return;
-      }
-      
-      totalRead += bytesRead;
+    if (!g_constant_buffer) {
+      fprintf(stderr, "Failed to allocate %lld bytes for constants\n",
+              (long long)g_constant_buffer_size);
+      close(fd);
+      free(filePath);
+      free(so_path_copy1);
+      free(so_path_copy2);
+      return;
     }
     
-    offset += chunkSize;
-    remaining -= chunkSize;
+    // Read file in 1GB chunks
+    int64_t remaining = g_constant_buffer_size;
+    int64_t offset = 0;
+    char *destPtr = (char *)g_constant_buffer;
+    
+    while (remaining > 0) {
+      int64_t chunkSize = (remaining > MAX_MMAP_SIZE) ? MAX_MMAP_SIZE : remaining;
+      int64_t totalRead = 0;
+      
+      // Handle short reads
+      while (totalRead < chunkSize) {
+        ssize_t bytesRead = read(fd, destPtr + offset + totalRead,
+                                 chunkSize - totalRead);
+        
+        if (bytesRead < 0) {
+          fprintf(stderr, "Error reading constants at offset %lld: %s\n",
+                  (long long)(offset + totalRead), strerror(errno));
+          free(g_constant_buffer);
+          g_constant_buffer = NULL;
+          g_constant_buffer_size = 0;
+          close(fd);
+          free(filePath);
+          free(so_path_copy1);
+          free(so_path_copy2);
+          return;
+        }
+        
+        if (bytesRead == 0) {
+          fprintf(stderr, "Unexpected EOF reading constants at offset %lld\n",
+                  (long long)(offset + totalRead));
+          free(g_constant_buffer);
+          g_constant_buffer = NULL;
+          g_constant_buffer_size = 0;
+          close(fd);
+          free(filePath);
+          free(so_path_copy1);
+          free(so_path_copy2);
+          return;
+        }
+        
+        totalRead += bytesRead;
+      }
+      
+      offset += chunkSize;
+      remaining -= chunkSize;
+    }
+    
+    close(fd);
+    fprintf(stderr, "Successfully preloaded %lld bytes of constants via malloc (>1GB on z/OS)\n",
+            (long long)g_constant_buffer_size);
+  } else {
+    // Small file on z/OS - use mmap
+    g_constant_buffer = mmap(0, fileSize, PROT_READ, __MAP_MEGA, fd, 0);
+    if (g_constant_buffer == MAP_FAILED) {
+      fprintf(stderr, "Error while mmapping %s: %s\n", filePath, strerror(errno));
+      g_constant_buffer = NULL;
+      g_constant_buffer_size = 0;
+      close(fd);
+      free(filePath);
+      free(so_path_copy1);
+      free(so_path_copy2);
+      return;
+    }
+    close(fd);
+    fprintf(stderr, "Successfully preloaded %lld bytes of constants via mmap (z/OS)\n",
+            (long long)g_constant_buffer_size);
   }
-  
+#else
+  // Non-z/OS: Always use mmap
+  g_constant_buffer = mmap(0, fileSize, PROT_READ, MAP_SHARED, fd, 0);
+  if (g_constant_buffer == MAP_FAILED) {
+    fprintf(stderr, "Error while mmapping %s: %s\n", filePath, strerror(errno));
+    g_constant_buffer = NULL;
+    g_constant_buffer_size = 0;
+    close(fd);
+    free(filePath);
+    free(so_path_copy1);
+    free(so_path_copy2);
+    return;
+  }
   close(fd);
+  g_used_mmap = true;
+  fprintf(stderr, "Successfully preloaded %lld bytes of constants via mmap\n",
+          (long long)g_constant_buffer_size);
+#endif
+  
   free(filePath);
   free(so_path_copy1);
   free(so_path_copy2);
-  
-  fprintf(stderr, "Successfully preloaded %lld bytes of constants (>1GB)\n",
-          (long long)g_constant_buffer_size);
-  
-  #undef MAX_MMAP_SIZE
 }
 
-/// Destructor: Free preloaded constants at library unload time
+/// Destructor: Free preloaded constants at library unload time (all platforms)
 void __attribute__ ((destructor)) omFreeConstantBuffer(void) {
   if (g_constant_buffer) {
-    free(g_constant_buffer);
+#ifdef __MVS__
+    // z/OS: Check if we used malloc (>1GB) or mmap (≤1GB)
+    if (g_constant_buffer_size > MAX_MMAP_SIZE) {
+      // Was malloc'd
+      free(g_constant_buffer);
+      fprintf(stderr, "Freed constant buffer (malloc)\n");
+    } else {
+      // Was mmap'd
+      munmap(g_constant_buffer, g_constant_buffer_size);
+      fprintf(stderr, "Freed constant buffer (munmap)\n");
+    }
+#else
+    // Non-z/OS: Always mmap'd
+    if (g_used_mmap) {
+      munmap(g_constant_buffer, g_constant_buffer_size);
+      fprintf(stderr, "Freed constant buffer (munmap)\n");
+    }
+#endif
     g_constant_buffer = NULL;
     g_constant_buffer_size = 0;
-    fprintf(stderr, "Freed constant buffer\n");
   }
 }
 
-#endif
-
-/// MMap data from a binary file into memory.
+/// Return the address of preloaded constants.
 ///
 /// \param[in] constAddr lreturned address to a global variable in the IR.
 /// \param[in] filename File name at the current folder
@@ -270,16 +326,12 @@ bool omMMapBinaryFile(
   if (constAddr[0] != NULL)
     return true;
 
-#ifdef __MVS__
-  // Fast path: Check if constructor preloaded this constant (>1GB files)
-  if (g_constant_buffer != NULL && g_constant_buffer_size >= size) {
+  // Return the preloaded constant buffer
+  if (g_constant_buffer != NULL && g_constant_buffer_size > 0) {
     constAddr[0] = g_constant_buffer;
     errno = 0;
     return true;
   }
-  
-  // Fallback: File was ≤1GB or constructor didn't run, use mmap
-#endif
 
   char *filePath;
   char *basePath = getenv("OM_CONSTANT_PATH");
@@ -308,40 +360,6 @@ bool omMMapBinaryFile(
     return false;
   }
 
-#ifdef __MVS__
-  // z/OS: If model was not stored in malloc area, use mmap.
-  void *tempAddr = mmap(0, size, PROT_READ, __MAP_MEGA, fd, 0);
-  if (tempAddr == MAP_FAILED) {
-    fprintf(stderr, "Error while mmapping %s: %s\n", fname, strerror(errno));
-    close(fd);
-    if (basePath)
-      free(filePath);
-    return false;
-  }
-  
-  // Standard CAS for mmap path
-  void *expected = NULL;
-  if (cds((cds_t *)&expected, (cds_t *)&constAddr[0], *(cds_t *)&tempAddr)) {
-    // Another thread won, clean up our mmap
-    munmap(tempAddr, size);
-  }
-#else
-  void *tempAddr = mmap(0, size, PROT_READ, MAP_SHARED, fd, 0);
-  if (tempAddr == MAP_FAILED) {
-    fprintf(stderr, "Error while mmapping %s: %s\n", fname, strerror(errno));
-    close(fd);
-    if (basePath)
-      free(filePath);
-    return false;
-  }
-
-  /* Prepare to compare-and-swap to setup the shared constAddr.
-   * If we fail, another thread beat us so free our mmap.
-   */
-  if (!__sync_bool_compare_and_swap(&constAddr[0], NULL, tempAddr))
-    munmap(tempAddr, size);
-#endif
-
   /* Either we succeeded in setting constAddr or someone else did it.
    * Either way, constAddr is now setup. We can close our fd without
    * invalidating the mmap.
@@ -349,7 +367,7 @@ bool omMMapBinaryFile(
   close(fd);
   if (basePath)
     free(filePath);
-  return true;
+  return false;
 }
 
 /// Return the address of a constant at a given offset.
