@@ -113,7 +113,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
 
   // Append a decoding strategy to the main graph if required. This is mainly
   // used for decoding models.
-  if (decodingStrategy != NoneDecodingStrategy) {
+  if (appendDecodingStrategy) {
     pm.addPass(onnx_mlir::createAppendDecodingStrategyPass());
   }
 

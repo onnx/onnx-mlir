@@ -14,8 +14,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinTypes.h"
 
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
 
@@ -40,44 +42,48 @@ public:
   void runOnOperation() override {
     ModuleOp moduleOp = getOperation();
 
-    // Find the ONNXEntryPoint operation that knows which is the main function.
-    ONNXEntryPointOp entryPointOp;
-    moduleOp.walk([&entryPointOp](ONNXEntryPointOp op) -> WalkResult {
-      entryPointOp = op;
-      return WalkResult::advance();
-    });
-    if (!entryPointOp)
-      return;
-
-    // Get the main function.
-    SymbolRefAttr funcRefAttr =
-        entryPointOp.getOperation()->getAttrOfType<SymbolRefAttr>(
-            ONNXEntryPointOp::getEntryPointFuncAttrName());
-    StringRef mainFuncName = funcRefAttr.getLeafReference().getValue();
-    Operation *mainFuncOp = moduleOp.lookupSymbol(mainFuncName);
-    if (!mainFuncOp)
-      return;
-    func::FuncOp mainFunc = mlir::dyn_cast<func::FuncOp>(mainFuncOp);
+    // Find the entry point function.
+    func::FuncOp mainFunc = getMainFuncFunc(moduleOp);
     if (!mainFunc)
       return;
 
     // Find the ONNXReturnOp.
     mlir::Operation *term = mainFunc.getBody().back().getTerminator();
     ONNXReturnOp returnOp = mlir::dyn_cast<ONNXReturnOp>(term);
-    if (!returnOp)
+    if (!returnOp || returnOp.getOperands().size() < 1)
       return;
-    if (returnOp.getOperands().size() < 1)
-      return;
+
+    // Start rewriting.
+    OpBuilder b(term->getContext());
+    Location loc = term->getLoc();
+    OnnxBuilder createOnnx(b, loc);
+
+    // Insert operations before the terminator.
+    OpBuilder::InsertPoint savedIP = b.saveInsertionPoint();
+    b.setInsertionPoint(term);
+    Value logits = returnOp.getOperands()[0];
+    UnrankedTensorType unrankedType = UnrankedTensorType::get(
+        cast<TensorType>(logits.getType()).getElementType());
+    // Emit code to extract logits for the last token.
+    // ```python
+    // last_token_logits = logits[batch_size, -1, :]
+    // ```
+    Value lastTokenLogits = createOnnx.slice(unrankedType, logits,
+        /*starts=*/createOnnx.constantInt64({-1}),
+        /*ends=*/createOnnx.constantInt64({INT_MAX}),
+        /*axes=*/createOnnx.constantInt64({1}),
+        /*steps=*/createOnnx.constantInt64({1}));
 
     // Emit computation for the decoding strategy.
-    OpBuilder b(returnOp);
-    Location loc = returnOp.getLoc();
-    Value logits = returnOp.getOperands()[0];
-    Operation *decodingOp = emitGreedyAlgorithm(b, loc, logits);
-    Value nextTokens = decodingOp->getResults()[0];
+    Value nextTokens = emitDecodingStrategies(createOnnx, lastTokenLogits);
+    // Squeeze nextTokens from the shape [batch_size, 1, 1] to [batch_size, 1].
+    nextTokens = createOnnx.squeeze(
+        unrankedType, nextTokens, createOnnx.constantInt64({1}));
+
+    // Restore the original insertion point.
+    b.restoreInsertionPoint(savedIP);
 
     // Replace the first return value by the output of the decoding strategy.
-    returnOp.getOperation()->moveAfter(decodingOp);
     returnOp->setOperand(0, nextTokens);
 
     // Update the function signature to reflect the new return type.
@@ -88,15 +94,44 @@ public:
     FunctionType newFuncType = FunctionType::get(
         mainFunc.getContext(), mainFunc.getArgumentTypes(), newResultTypes);
     mainFunc.setFunctionType(newFuncType);
+    // Update onnx.name of the 1st output.
+    NamedAttribute namedAttr =
+        b.getNamedAttr("onnx.name", b.getStringAttr("generated_ids"));
+    mainFunc.setResultAttrs(0, namedAttr);
   }
 
 private:
-  Operation *emitGreedyAlgorithm(OpBuilder b, Location loc, Value logits) {
+  func::FuncOp getMainFuncFunc(ModuleOp moduleOp) const {
+    // Find the ONNXEntryPoint operation that knows which is the main function.
+    ONNXEntryPointOp entryPointOp;
+    moduleOp.walk([&entryPointOp](ONNXEntryPointOp op) -> WalkResult {
+      entryPointOp = op;
+      return WalkResult::advance();
+    });
+    if (!entryPointOp)
+      return nullptr;
+
+    // Get the main function.
+    SymbolRefAttr funcRefAttr =
+        entryPointOp.getOperation()->getAttrOfType<SymbolRefAttr>(
+            ONNXEntryPointOp::getEntryPointFuncAttrName());
+    StringRef mainFuncName = funcRefAttr.getLeafReference().getValue();
+    Operation *mainFuncOp = moduleOp.lookupSymbol(mainFuncName);
+    if (!mainFuncOp)
+      return nullptr;
+    func::FuncOp mainFunc = mlir::dyn_cast<func::FuncOp>(mainFuncOp);
+    if (!mainFunc)
+      return nullptr;
+    return mainFunc;
+  }
+
+  Value emitDecodingStrategies(OnnxBuilder &createOnnx, Value logits) const {
     UnrankedTensorType resultType = UnrankedTensorType::get(
         cast<TensorType>(logits.getType()).getElementType());
-    ONNXArgMaxOp argmaxOp = ONNXArgMaxOp::create(b, loc, resultType, logits,
+    // Greed algorithm.
+    Value argmax = createOnnx.argMax(resultType, logits,
         /*axis*/ -1, /*keepdims*/ 1, /*select_last_index*/ 0);
-    return argmaxOp.getOperation();
+    return argmax;
   }
 };
 
