@@ -30,9 +30,11 @@ void ResultNamesUpdater::notifyOperationReplaced(
   if (!resultNamesArray)
     return;
 
-  if (auto replResultNames =
-          replacement->getAttrOfType<ArrayAttr>("ResultNames");
-      replResultNames && llvm::all_of(replResultNames, isTensorName))
+  // Always overwrite on newly created op
+  bool newOp = replacement->getUses().empty();
+  // Check if ResultNames exist already
+  auto replResultNames = replacement->getAttrOfType<ArrayAttr>("ResultNames");
+  if (!newOp && replResultNames && llvm::all_of(replResultNames, isTensorName))
     return;
 
   replacement->setAttr("ResultNames", resultNamesArray);
@@ -64,7 +66,8 @@ void ResultNamesUpdater::notifyOperationReplaced(
       if (auto existing = replOp->getAttrOfType<ArrayAttr>("ResultNames"))
         replResultNames = SmallVector<Attribute>(existing.getValue());
 
-      if (isTensorName(replResultNames[replResult.getResultNumber()]))
+      bool newOp = replOp->getUses().empty();
+      if (!newOp && isTensorName(replResultNames[replResult.getResultNumber()]))
         continue;
 
       // Replace the ResultName of current result
