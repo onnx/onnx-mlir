@@ -114,10 +114,16 @@ void QuantOpSelectionPass::runOnOperation() {
     // Apply configuration to ONNX ops.
     configObject->applyConfigToOps(
         ops, [&](llvm::json::Object *rewriteObj, mlir::Operation *op) {
-          if (auto quantize =
-                  rewriteObj->getBoolean(NNPAJsonConfigObject::QUANTIZE_KEY)) {
-            op->setAttr(NNPAJsonConfigObject::QUANTIZE_ATTR,
-                BoolAttr::get(module.getContext(), *quantize));
+          if (auto quantizeValue =
+                  rewriteObj->get(NNPAJsonConfigObject::QUANTIZE_KEY)) {
+            if (auto quantize = quantizeValue->getAsBoolean()) {
+              op->setAttr(NNPAJsonConfigObject::QUANTIZE_ATTR,
+                  BoolAttr::get(module.getContext(), *quantize));
+            } else {
+              llvm::errs() << "Quantize value in JSON config file must be true "
+                              "or false, but got "
+                           << *quantizeValue << ".\n";
+            }
           }
         });
   }
