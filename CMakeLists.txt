@@ -106,7 +106,7 @@ endif()
 
 find_package(Python3 ${LLVM_MINIMUM_PYTHON_VERSION} REQUIRED COMPONENTS Interpreter Development)
 
-# absl is needed by llvm and onnx 
+# absl is needed by protobuf and onnx
 find_package(absl REQUIRED)
 
 if(ONNX_MLIR_ENABLE_JAVA)
