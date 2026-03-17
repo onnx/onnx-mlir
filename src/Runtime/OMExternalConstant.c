@@ -17,6 +17,14 @@
 typedef int make_iso_compilers_happy;
 #else
 
+#ifdef __MVS__
+#define MAX_MMAP_SIZE (1024LL * 1024LL * 1024LL)
+#include "metal_csvquery.h"
+#else
+#define _GNU_SOURCE
+#include <dlfcn.h>
+#endif
+
 #include <errno.h>
 #include <inttypes.h>
 #include <stdbool.h>
@@ -31,13 +39,6 @@ typedef int make_iso_compilers_happy;
 #include <unistd.h>
 
 #include <libgen.h>
-
-#ifdef __MVS__
-#define MAX_MMAP_SIZE (1024LL * 1024LL * 1024LL)
-#include "metal_csvquery.h"
-#else
-#include <dlfcn.h>
-#endif
 
 #if defined(_WIN32)
 const char *DIR_SEPARATOR = "\\";
