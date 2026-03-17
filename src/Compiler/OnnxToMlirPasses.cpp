@@ -87,6 +87,9 @@ void addXmcMlirPasses(mlir::OpPassManager &pm, OnnxToMlirOptions opts) {
       onnx_mlir::createReplaceHsigmoidAndHswishPass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createConvertXFEConvToDepthwiseConvPass());
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createFuseConvActivationPass());
+  pm.addNestedPass<func::FuncOp>(
+      onnx_mlir::createNormalizeConvActivationPass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createConvertSCastPairToRequantizePass());
 }

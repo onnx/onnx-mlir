@@ -25,6 +25,7 @@
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Quant/IR/QuantTypes.h"
+#include "mlir/Dialect/Traits.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
@@ -160,21 +161,31 @@ bool isQuantizedType(Type type) {
 
 // Recover a ranked result type for an eltwise op whose result became unranked
 // due to upstream shape inference issues with mismatched quantized element
-// types.
+// types. For binary ops (e.g. ADD with broadcast), the result shape is the
+// broadcast of both inputs, not one operand's shape.
 static Type recoverRankedResultType(Type resultType, Value a, Value b) {
   if (mlir::isa<RankedTensorType>(resultType))
     return resultType;
   auto unrankedType = mlir::dyn_cast<UnrankedTensorType>(resultType);
   if (!unrankedType)
     return resultType;
-  if (auto aType = mlir::dyn_cast<RankedTensorType>(a.getType()))
+  auto aType = mlir::dyn_cast<RankedTensorType>(a.getType());
+  auto bType = b ? mlir::dyn_cast<RankedTensorType>(b.getType()) : nullptr;
+  if (aType && bType) {
+    // Binary op: result shape is the broadcast of a and b.
+    llvm::SmallVector<int64_t> broadcastedShape;
+    if (OpTrait::util::getBroadcastedShape(
+            aType.getShape(), bType.getShape(), broadcastedShape))
+      return RankedTensorType::get(
+          broadcastedShape, unrankedType.getElementType());
+    // Incompatible shapes: fall through to single-operand fallback.
+  }
+  if (aType)
     return RankedTensorType::get(
         aType.getShape(), unrankedType.getElementType());
-  if (b && mlir::isa<RankedTensorType>(b.getType())) {
-    auto bType = mlir::cast<RankedTensorType>(b.getType());
+  if (bType)
     return RankedTensorType::get(
         bType.getShape(), unrankedType.getElementType());
-  }
   return resultType;
 }
 

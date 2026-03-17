@@ -39,6 +39,7 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 #include "src/Pass/Passes.hpp"
 
 using namespace mlir;
@@ -209,10 +210,10 @@ struct ConvToChannelLastPattern : public OpRewritePattern<ONNXConvOp> {
     Type outputElementType = origOutputType.getElementType();
     auto convChannelLastOp = rewriter.create<XFEConvOp>(loc,
         UnrankedTensorType::get(outputElementType), inputChannelLast,
-        weightChannelLast, bias, convOp.getAutoPadAttr(),
-        convOp.getDilationsAttr(), convOp.getGroupAttr(),
-        convOp.getKernelShapeAttr(), convOp.getPadsAttr(),
-        convOp.getStridesAttr());
+        weightChannelLast, bias, rewriter.getStringAttr("NONE"),
+        convOp.getAutoPadAttr(), convOp.getDilationsAttr(),
+        convOp.getGroupAttr(), convOp.getKernelShapeAttr(),
+        convOp.getPadsAttr(), convOp.getStridesAttr());
 
     // Transfer onnx_node_name attribute from original Conv to XFEConv
     transferOnnxNodeName(convOp, convChannelLastOp);
@@ -287,9 +288,9 @@ struct ConvTransposeToChannelLastPattern
     Type outputElementType = origOutputType.getElementType();
     auto convTransposeChannelLastOp = rewriter.create<XFEConvTransposeOp>(loc,
         UnrankedTensorType::get(outputElementType), inputChannelLast,
-        weightChannelLast, bias, convTransposeOp.getAutoPadAttr(),
-        convTransposeOp.getDilationsAttr(), convTransposeOp.getGroupAttr(),
-        convTransposeOp.getKernelShapeAttr(),
+        weightChannelLast, bias, rewriter.getStringAttr("NONE"),
+        convTransposeOp.getAutoPadAttr(), convTransposeOp.getDilationsAttr(),
+        convTransposeOp.getGroupAttr(), convTransposeOp.getKernelShapeAttr(),
         convTransposeOp.getOutputPaddingAttr(),
         convTransposeOp.getOutputShapeAttr(), convTransposeOp.getPadsAttr(),
         convTransposeOp.getStridesAttr());
@@ -1028,7 +1029,10 @@ struct ConvertToChannelLastPass : public PassWrapper<ConvertToChannelLastPass,
     patterns.add<SpaceToDepthToChannelLastPattern>(context);
     patterns.add<ResizeToChannelLastPattern>(context);
 
-    if (failed(applyPatternsGreedily(function, std::move(patterns)))) {
+    GreedyRewriteConfig config;
+    onnx_mlir::ResultNamesUpdater rnUpdater;
+    config.listener = &rnUpdater;
+    if (failed(applyPatternsGreedily(function, std::move(patterns), config))) {
       signalPassFailure();
     }
   }
