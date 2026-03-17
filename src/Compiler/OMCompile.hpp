@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----------- OMCompilerSession.hpp - compiler driver  -----------------===//
+//===----------- OMCompiler.hpp - compiler driver  ------------------------===//
 //
 //
 // Copyright 2026 The IBM Research Authors.
@@ -103,10 +103,13 @@ public:
    * blocks until compilation completes or fails.
    *
    * @param modelPath Path to the input model file (.onnx, .mlir, or .onnxtext).
-   *                  Can include a directory path. If empty, the flags
-   * parameter must contain the input filename.
+   * Can include a directory path. If empty, the flags parameter must contain
+   * the input filename.
    * @param flags Compilation flags as a single string (e.g., "-O3 -o output").
    *              Supports quoted strings for paths with spaces.
+   * @param compilerPath Optional path to the compiler binary, including the
+   * binary name.  If empty (default) standard onnx-mlir binary will be used at
+   * standard location.
    * @param logFilename Optional path to a file where compilation logs will be
    *                    written. If empty, logs go to stdout/stderr.
    *
@@ -114,6 +117,7 @@ public:
    *         (invalid input, compiler errors, missing dependencies, etc.)
    */
   void compile(const std::string &modelPath, const std::string &flags,
+      const std::string &compilerPath = {},
       const std::string &logFilename = {});
 
   /**

@@ -107,6 +107,7 @@ PYBIND11_MODULE(PyRuntimeC, m) {
           py::arg("input"),
           py::arg("shape"),
           py::arg("stride"),
+          py::arg("use_signal_handler") = false,
           "Run inference on the model.\n\n"
           "Executes the model with the provided inputs and returns the outputs.\n"
           "All inputs must be numpy arrays with compatible shapes and types.\n\n"
@@ -116,12 +117,16 @@ PYBIND11_MODULE(PyRuntimeC, m) {
           "    shape (list[numpy.ndarray]): List of shape arrays for each input.\n"
           "        Each shape array contains the dimensions of the corresponding input.\n"
           "    stride (list[numpy.ndarray]): List of stride arrays for each input.\n"
-          "        Each stride array contains the memory strides of the corresponding input.\n\n"
+          "        Each stride array contains the memory strides of the corresponding input.\n"
+          "    use_signal_handler (bool): When true, catch signals via a signal handler.\n"
+          "        For debugging only, unsafe, not thread safe. Default is false.\n\n"
           "Returns:\n"
           "    list[numpy.ndarray]: List of output tensors as numpy arrays.\n\n"
           "Raises:\n"
           "    RuntimeError: If input shapes/types don't match the model signature,\n"
-          "        or if inference fails.\n\n"
+          "        or if inference fails. When using signal handler, also raise an\n"
+          "        exception when catching seg-faults or other signals; unsafe to\n"
+          "        continue after an exception.\n\n"
           "Example:\n"
           "    >>> import numpy as np\n"
           "    >>> session = OMExecutionSession('mnist.so')\n"
@@ -145,9 +150,9 @@ PYBIND11_MODULE(PyRuntimeC, m) {
           "Returns:\n"
           "    str: Human-readable description of the model's input signature.\n\n"
           "Example:\n"
-          "    >>> session = OMExecutionSession('model.so')\n"
+          "    >>> session = OMExecutionSession('mnist.so')\n"
           "    >>> print(session.input_signature())\n"
-          "    # Output: \"Input 0: name='input', shape=[1,3,224,224], type=float32\"")
+          "    # Output: input signature in json [{\"type\" : \"f32\", \"dims\" : [1,1,28,28], \"name\" : \"image\"}")
       .def("output_signature",
           &onnx_mlir::PyExecutionSession::pyOutputSignature,
           "Get the output signature of the model.\n\n"
@@ -157,9 +162,9 @@ PYBIND11_MODULE(PyRuntimeC, m) {
           "Returns:\n"
           "    str: Human-readable description of the model's output signature.\n\n"
           "Example:\n"
-          "    >>> session = OMExecutionSession('model.so')\n"
+          "    >>> session = OMExecutionSession('mnist.so')\n"
           "    >>> print(session.output_signature())\n"
-          "    # Output: \"Output 0: name='output', shape=[1,1000], type=float32\"")
+          "    # Output: output signature in json [{\"type\" : \"f32\", \"dims\" : [1,10], \"name\" : \"prediction\"}")
       .def("print_instrumentation",
           &onnx_mlir::PyExecutionSession::pyPrintInstrumentation,
           "Print instrumentation data from the model execution.\n\n"
