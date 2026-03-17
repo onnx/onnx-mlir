@@ -60,6 +60,8 @@ cmake -G Ninja \
 ninja
 ```
 
+**Note:** LLVM defaults to static libraries, so `-DBUILD_SHARED_LIBS=OFF` is technically optional but recommended for clarity. The critical flags are `-DLLVM_BUILD_LLVM_DYLIB=OFF` and `-DLLVM_LINK_LLVM_DYLIB=OFF` which prevent building the monolithic LLVM shared library.
+
 **Step 2: Build onnx-mlir as standalone**
 ```bash
 # Clean build directory

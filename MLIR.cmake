@@ -42,21 +42,15 @@ endif()
 
 # Allow standalone build to override LLVM's shared libs setting
 if(ONNX_MLIR_BUILD_STANDALONE)
-  # Check if LLVM was built with shared libraries
-  # LLVM_ENABLE_SHARED_LIBS is set by LLVMConfig.cmake (imported via find_package(MLIR))
-  if(NOT DEFINED LLVM_ENABLE_SHARED_LIBS)
-    message(WARNING "LLVM_ENABLE_SHARED_LIBS is not defined. Cannot verify LLVM build configuration.")
-  elseif(LLVM_ENABLE_SHARED_LIBS)
+  # Verify LLVM was built with -DLLVM_BUILD_LLVM_DYLIB=OFF and -DLLVM_LINK_LLVM_DYLIB=OFF
+  # by checking if the libLLVM shared library exists
+  if(EXISTS "${LLVM_LIBRARY_DIR}/libLLVM${CMAKE_SHARED_LIBRARY_SUFFIX}")
     message(FATAL_ERROR
-      "ONNX_MLIR_BUILD_STANDALONE=ON requires LLVM to be built with static libraries.\n"
-      "Your LLVM was built with LLVM_ENABLE_SHARED_LIBS=ON (BUILD_SHARED_LIBS=ON).\n"
+      "ONNX_MLIR_BUILD_STANDALONE=ON requires LLVM built without shared dylib.\n"
+      "Found: ${LLVM_LIBRARY_DIR}/libLLVM${CMAKE_SHARED_LIBRARY_SUFFIX}\n"
       "Please rebuild LLVM with:\n"
-      "  -DBUILD_SHARED_LIBS=OFF\n"
       "  -DLLVM_BUILD_LLVM_DYLIB=OFF\n"
-      "  -DLLVM_LINK_LLVM_DYLIB=OFF\n"
-      "Or disable standalone mode by removing -DONNX_MLIR_BUILD_STANDALONE=ON")
-  else()
-    message(STATUS "LLVM_ENABLE_SHARED_LIBS  : ${LLVM_ENABLE_SHARED_LIBS} (verified for standalone build)")
+      "  -DLLVM_LINK_LLVM_DYLIB=OFF")
   endif()
   set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
   message(STATUS "BUILD_SHARED_LIBS        : ${BUILD_SHARED_LIBS} (forced OFF for standalone build)")
