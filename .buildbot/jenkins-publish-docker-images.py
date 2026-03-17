@@ -26,7 +26,7 @@ IMAGE_LABELS = {
     python_dev_image_name: ONNX_MLIR_LABELS,
     python_usr_image_name: ONNX_MLIR_LABELS,
 }
-IMAGE_ARCHS = {"s390x", "amd64", "ppc64le"}
+IMAGE_ARCHS = {"s390x", "amd64"}
 commit_sha1_date_label = {
     python_static_image_name: "llvm_project_sha1_date",
     python_shared_image_name: "llvm_project_sha1_date",
