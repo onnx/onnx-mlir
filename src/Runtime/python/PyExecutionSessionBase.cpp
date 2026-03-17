@@ -381,19 +381,29 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
     // be whatever the malloc returned.
     void *omtAllocPtr = omTensorGetAllocatedPtr(omt);
     void *omtDataPtr = omTensorGetDataPtr(omt);
+    if (!(omtDataPtr >= omtAllocPtr)) {
+      // omtDataPtr must be inside omtAllocPtr, so it has to be being larger or
+      // equal than omtAllocPtr.
+      throw onnx_mlir::ExecutionSessionException(
+          "case where data ptr is out of bound of the allocated ptr");
+    }
     // Check if the return value is a static constant, which cannot be freed and
     // thus would have been created with the "owning" flag being false.
     if (omTensorGetOwning(omt)) {
-      // CWe have a regular tensor which we will need to free at the right time.
+      // We have a regular tensor which we will need to free at the right time.
       // Create the capsule that points to the data to be freed (allocated
       // pointer).
       py::capsule free_data_with_allocate_ptr(
-          omtAllocPtr, [](void *ptr) { free(ptr); });
+          omtAllocPtr /* Address that will be passed to the lambda function. */,
+          [](void *ptr) { /* Lambda function that performs the freeing. */
+            free(ptr);
+          });
       // Set owning to false as we migrate the ownership to python
       omTensorSetOwning(omt, false);
       // Pass the py::capsule to the numpy array for proper bookkeeping.
-      outputPyArrays.emplace_back(
-          py::array(dtype, shape, omtDataPtr, free_data_with_allocate_ptr));
+      outputPyArrays.emplace_back(py::array(dtype, shape,
+          omtDataPtr, // Data pointer used to access the values.
+          free_data_with_allocate_ptr /* Capsule that save the deallocation. */));
     } else {
       // We have a constant, its a very rare case, just do like in the past:
       // copy.
