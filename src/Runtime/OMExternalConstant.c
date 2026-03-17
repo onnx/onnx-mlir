@@ -36,7 +36,6 @@ typedef int make_iso_compilers_happy;
 #define MAX_MMAP_SIZE (1024LL * 1024LL * 1024LL)
 #include "metal_csvquery.h"
 #else
-#define _GNU_SOURCE
 #include <dlfcn.h>
 #endif
 
