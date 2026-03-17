@@ -39,7 +39,6 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
-#include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 #include "src/Pass/Passes.hpp"
 
 using namespace mlir;
@@ -213,7 +212,9 @@ struct ConvToChannelLastPattern : public OpRewritePattern<ONNXConvOp> {
         weightChannelLast, bias, rewriter.getStringAttr("NONE"),
         convOp.getAutoPadAttr(), convOp.getDilationsAttr(),
         convOp.getGroupAttr(), convOp.getKernelShapeAttr(),
-        convOp.getPadsAttr(), convOp.getStridesAttr());
+        /*leakyrelu_alpha=*/FloatAttr(), convOp.getPadsAttr(),
+        /*prelu_in=*/IntegerAttr(), /*prelu_shift=*/IntegerAttr(),
+        convOp.getStridesAttr());
 
     // Transfer onnx_node_name attribute from original Conv to XFEConv
     transferOnnxNodeName(convOp, convChannelLastOp);
@@ -291,8 +292,9 @@ struct ConvTransposeToChannelLastPattern
         weightChannelLast, bias, rewriter.getStringAttr("NONE"),
         convTransposeOp.getAutoPadAttr(), convTransposeOp.getDilationsAttr(),
         convTransposeOp.getGroupAttr(), convTransposeOp.getKernelShapeAttr(),
-        convTransposeOp.getOutputPaddingAttr(),
+        /*leakyrelu_alpha=*/FloatAttr(), convTransposeOp.getOutputPaddingAttr(),
         convTransposeOp.getOutputShapeAttr(), convTransposeOp.getPadsAttr(),
+        /*prelu_in=*/IntegerAttr(), /*prelu_shift=*/IntegerAttr(),
         convTransposeOp.getStridesAttr());
 
     // Transfer onnx_node_name attribute from original ConvTranspose to
@@ -1029,10 +1031,7 @@ struct ConvertToChannelLastPass : public PassWrapper<ConvertToChannelLastPass,
     patterns.add<SpaceToDepthToChannelLastPattern>(context);
     patterns.add<ResizeToChannelLastPattern>(context);
 
-    GreedyRewriteConfig config;
-    onnx_mlir::ResultNamesUpdater rnUpdater;
-    config.listener = &rnUpdater;
-    if (failed(applyPatternsGreedily(function, std::move(patterns), config))) {
+    if (failed(applyPatternsGreedily(function, std::move(patterns)))) {
       signalPassFailure();
     }
   }

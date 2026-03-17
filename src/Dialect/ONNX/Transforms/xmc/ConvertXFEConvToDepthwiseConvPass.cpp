@@ -232,10 +232,15 @@ struct ConvertXFEConvToDepthwiseConvPattern
     auto newWType = RankedTensorType::get(newWShape, wType.getElementType());
     newWConst.getResult().setType(newWType);
 
-    // Get the activation attribute from the source XFEConv op
+    // Copy activation-related attributes from the source XFEConv op
     auto activationAttr = convOp.getActivationAttr();
+    auto leakyreluAlphaAttr = convOp.getLeakyreluAlphaAttr();
+    auto preluInAttr = convOp.getPreluInAttr();
+    auto preluShiftAttr = convOp.getPreluShiftAttr();
 
-    // Create the DepthwiseConv operation with IHWO weights
+    // Create the DepthwiseConv operation with IHWO weights (attr order per
+    // XCOMPILEROps.td: activation, auto_pad, dilations, kernel_shape,
+    // leakyrelu_alpha, pads, prelu_in, prelu_shift, strides)
     auto depthwiseConv = rewriter.create<XCOMPILERDepthwiseConvOp>(loc,
         convOp.getResult().getType(), // Output type
         X,                            // Input
@@ -245,7 +250,10 @@ struct ConvertXFEConvToDepthwiseConvPattern
         autoPadAttr,                  // auto_pad
         dilationsAttr,                // dilations
         kernelShapeAttr,              // kernel_shape (required)
+        leakyreluAlphaAttr,           // leakyrelu_alpha
         padsAttr,                     // pads
+        preluInAttr,                  // prelu_in
+        preluShiftAttr,               // prelu_shift
         stridesAttr                   // strides
     );
 

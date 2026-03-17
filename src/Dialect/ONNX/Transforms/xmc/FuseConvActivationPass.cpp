@@ -188,11 +188,10 @@ struct FuseConvActivation : public OpRewritePattern<ConvOp> {
 
     // Set the activation attribute and transfer alpha if applicable
     rewriter.modifyOpInPlace(convOp, [&] {
-      convOp->setAttr(
-          "activation", rewriter.getStringAttr(actInfo.activationType));
+      convOp.setActivationAttr(rewriter.getStringAttr(actInfo.activationType));
 
       if (actInfo.alphaAttr)
-        convOp->setAttr("leakyrelu_alpha", actInfo.alphaAttr);
+        convOp.setLeakyreluAlphaAttr(actInfo.alphaAttr);
     });
 
     // Update the conv op's result type if activation changes it

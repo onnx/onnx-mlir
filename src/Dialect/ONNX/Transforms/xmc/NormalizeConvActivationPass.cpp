@@ -114,7 +114,7 @@ static void normalizeActivation(ConvOp convOp, OpBuilder &builder) {
     // Special case: if output is UINT8 with zero_point=0, ReLU is implicit
     // in the unsigned representation — no activation needed.
     if (isReluImplicitInOutputType(convOp.getResult().getType())) {
-      convOp->setAttr("activation", builder.getStringAttr("NONE"));
+      convOp.setActivationAttr(builder.getStringAttr("NONE"));
       LLVM_DEBUG(llvm::dbgs()
                  << "NormalizeConvActivation: " << convOp->getName()
                  << " RELU -> NONE (implicit in UINT8 zp=0)\n");
@@ -125,10 +125,10 @@ static void normalizeActivation(ConvOp convOp, OpBuilder &builder) {
     // Since alpha=0 != 26/256, this becomes PRELU with computed mul/shift.
     float alpha = 0.0f;
     auto [M, N] = getPreluFactor(alpha);
-    convOp->setAttr("activation", builder.getStringAttr("PRELU"));
-    convOp->setAttr("leakyrelu_alpha", builder.getF32FloatAttr(alpha));
-    convOp->setAttr("prelu_in", getSI64Attr(builder, M));
-    convOp->setAttr("prelu_shift", getSI64Attr(builder, N));
+    convOp.setActivationAttr(builder.getStringAttr("PRELU"));
+    convOp.setLeakyreluAlphaAttr(builder.getF32FloatAttr(alpha));
+    convOp.setPreluInAttr(getSI64Attr(builder, M));
+    convOp.setPreluShiftAttr(getSI64Attr(builder, N));
 
     LLVM_DEBUG(llvm::dbgs()
                << "NormalizeConvActivation: " << convOp->getName()
@@ -138,11 +138,10 @@ static void normalizeActivation(ConvOp convOp, OpBuilder &builder) {
 
   // "LEAKYRELU" handling
   if (activation == "LEAKYRELU") {
-    // Get alpha — it was preserved by FuseConvActivationPass from the
+    // Get alpha — it was preserved by the fuse pass from the
     // FusedEltwise op. If not present, default to the standard value.
     float alpha = kStandardLeakyReluAlpha;
-    if (auto alphaAttr =
-            convOp->template getAttrOfType<FloatAttr>("leakyrelu_alpha")) {
+    if (auto alphaAttr = convOp.getLeakyreluAlphaAttr()) {
       alpha = alphaAttr.getValue().convertToFloat();
     }
 
@@ -155,9 +154,9 @@ static void normalizeActivation(ConvOp convOp, OpBuilder &builder) {
     } else {
       // Non-standard alpha — convert to PRELU with fixed-point mul/shift.
       auto [M, N] = getPreluFactor(alpha);
-      convOp->setAttr("activation", builder.getStringAttr("PRELU"));
-      convOp->setAttr("prelu_in", getSI64Attr(builder, M));
-      convOp->setAttr("prelu_shift", getSI64Attr(builder, N));
+      convOp.setActivationAttr(builder.getStringAttr("PRELU"));
+      convOp.setPreluInAttr(getSI64Attr(builder, M));
+      convOp.setPreluShiftAttr(getSI64Attr(builder, N));
 
       LLVM_DEBUG(llvm::dbgs()
                  << "NormalizeConvActivation: " << convOp->getName()
@@ -169,7 +168,7 @@ static void normalizeActivation(ConvOp convOp, OpBuilder &builder) {
 
   // "HARDSIGMOID" → "HSIGMOID" (rename for hardware compatibility)
   if (activation == "HARDSIGMOID") {
-    convOp->setAttr("activation", builder.getStringAttr("HSIGMOID"));
+    convOp.setActivationAttr(builder.getStringAttr("HSIGMOID"));
     LLVM_DEBUG(llvm::dbgs() << "NormalizeConvActivation: " << convOp->getName()
                             << " HARDSIGMOID -> HSIGMOID\n");
     return;
