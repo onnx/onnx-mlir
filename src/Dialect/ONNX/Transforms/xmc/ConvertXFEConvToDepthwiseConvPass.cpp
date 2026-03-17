@@ -232,12 +232,16 @@ struct ConvertXFEConvToDepthwiseConvPattern
     auto newWType = RankedTensorType::get(newWShape, wType.getElementType());
     newWConst.getResult().setType(newWType);
 
+    // Get the activation attribute from the source XFEConv op
+    auto activationAttr = convOp.getActivationAttr();
+
     // Create the DepthwiseConv operation with IHWO weights
     auto depthwiseConv = rewriter.create<XCOMPILERDepthwiseConvOp>(loc,
         convOp.getResult().getType(), // Output type
         X,                            // Input
         newWConst,                    // Weights (IHWO, data transposed)
         B,                            // Bias (optional)
+        activationAttr,               // activation
         autoPadAttr,                  // auto_pad
         dilationsAttr,                // dilations
         kernelShapeAttr,              // kernel_shape (required)

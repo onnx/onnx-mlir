@@ -210,10 +210,10 @@ struct ConvToChannelLastPattern : public OpRewritePattern<ONNXConvOp> {
     Type outputElementType = origOutputType.getElementType();
     auto convChannelLastOp = rewriter.create<XFEConvOp>(loc,
         UnrankedTensorType::get(outputElementType), inputChannelLast,
-        weightChannelLast, bias, convOp.getAutoPadAttr(),
-        convOp.getDilationsAttr(), convOp.getGroupAttr(),
-        convOp.getKernelShapeAttr(), convOp.getPadsAttr(),
-        convOp.getStridesAttr());
+        weightChannelLast, bias, rewriter.getStringAttr("NONE"),
+        convOp.getAutoPadAttr(), convOp.getDilationsAttr(),
+        convOp.getGroupAttr(), convOp.getKernelShapeAttr(),
+        convOp.getPadsAttr(), convOp.getStridesAttr());
 
     // Transfer onnx_node_name attribute from original Conv to XFEConv
     transferOnnxNodeName(convOp, convChannelLastOp);
@@ -288,9 +288,9 @@ struct ConvTransposeToChannelLastPattern
     Type outputElementType = origOutputType.getElementType();
     auto convTransposeChannelLastOp = rewriter.create<XFEConvTransposeOp>(loc,
         UnrankedTensorType::get(outputElementType), inputChannelLast,
-        weightChannelLast, bias, convTransposeOp.getAutoPadAttr(),
-        convTransposeOp.getDilationsAttr(), convTransposeOp.getGroupAttr(),
-        convTransposeOp.getKernelShapeAttr(),
+        weightChannelLast, bias, rewriter.getStringAttr("NONE"),
+        convTransposeOp.getAutoPadAttr(), convTransposeOp.getDilationsAttr(),
+        convTransposeOp.getGroupAttr(), convTransposeOp.getKernelShapeAttr(),
         convTransposeOp.getOutputPaddingAttr(),
         convTransposeOp.getOutputShapeAttr(), convTransposeOp.getPadsAttr(),
         convTransposeOp.getStridesAttr());

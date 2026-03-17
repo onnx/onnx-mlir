@@ -105,6 +105,8 @@ add_onnx_mlir_library(OMONNXRewrite
   xmc/ConvWithBiasPass.cpp
   xmc/RemoveRedundantReshapePass.cpp
   xmc/ConvertXFEConvToDepthwiseConvPass.cpp
+  xmc/FuseConvActivationPass.cpp
+  xmc/NormalizeConvActivationPass.cpp
 
   DEPENDS
   OMONNXDecomposeIncGen
