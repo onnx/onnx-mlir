@@ -467,7 +467,7 @@ static int genSharedLib(std::string sharedLibNameWithExt,
       [](std::string &libDir) { libDir = "/libpath:\"" + libDir + "\""; });
 #else
   std::vector<std::string> outputOpt = {"-o", sharedLibNameWithExt};
-  std::vector<std::string> sharedLibOpts = {"-shared", "-fPIC"};
+  std::vector<std::string> sharedLibOpts = {"-shared", "-fPIC", "-g"};
   llvm::for_each(libs, [](std::string &lib) { lib = "-l" + lib; });
   llvm::for_each(libDirs, [](std::string &libDir) { libDir = "-L" + libDir; });
 #ifdef __s390x__
@@ -506,7 +506,23 @@ static int genSharedLib(std::string sharedLibNameWithExt,
     }
     rc = 1; // Failure.
   }
-  return rc != 0 ? CompilerFailureInObjToLib : CompilerSuccess;
+  if (rc != 0)
+    return CompilerFailureInObjToLib;
+#ifdef __APPLE__
+  // On macOS, run dsymutil to generate .dSYM with debug info.
+  try {
+    Command dsym(/*exePath=*/"dsymutil", VerboseOutput);
+    dsym.appendStr(sharedLibNameWithExt).exec();
+  } catch (const onnx_mlir::CommandException &error) {
+    if (Verbose) {
+      std::string errorMessage = error.what();
+      fprintf(stderr, "Return message from command exception (dsymutil): %s\n",
+          errorMessage.c_str());
+    }
+    // dsymutil failure is non-fatal; continue without debug symbols.
+  }
+#endif
+  return CompilerSuccess;
 }
 
 // Create jar containing java runtime and model shared library (which includes
