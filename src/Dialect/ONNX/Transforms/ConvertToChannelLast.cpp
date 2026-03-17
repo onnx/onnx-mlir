@@ -39,6 +39,7 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 #include "src/Pass/Passes.hpp"
 
 using namespace mlir;
@@ -1031,7 +1032,10 @@ struct ConvertToChannelLastPass : public PassWrapper<ConvertToChannelLastPass,
     patterns.add<SpaceToDepthToChannelLastPattern>(context);
     patterns.add<ResizeToChannelLastPattern>(context);
 
-    if (failed(applyPatternsGreedily(function, std::move(patterns)))) {
+    GreedyRewriteConfig config;
+    onnx_mlir::ResultNamesUpdater rnUpdater;
+    config.listener = &rnUpdater;
+    if (failed(applyPatternsGreedily(function, std::move(patterns), config))) {
       signalPassFailure();
     }
   }
