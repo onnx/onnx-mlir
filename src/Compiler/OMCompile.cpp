@@ -30,7 +30,7 @@ namespace fs = std::filesystem;
 namespace onnx_mlir {
 
 void OMCompile::compile(const std::string &modelPath, const std::string &flags,
-    const std::string &logFilename) {
+    const std::string &compilerPath, const std::string &logFilename) {
   // Initialize state.
   successfullyCompiled = false;
   outputFilename = {};
@@ -49,11 +49,18 @@ void OMCompile::compile(const std::string &modelPath, const std::string &flags,
         inputFilename + "\"");
   }
   // Determine the onnx-mlir executable path.
+  std::string compilerFilename;
+  if (compilerPath.empty()) {
+    // Default value relying on PATH to locate the binary.
 #ifdef _WIN32
-  std::string compilerFilename = "onnx-mlir.exe";
+    compilerFilename = "onnx-mlir.exe";
 #else
-  std::string compilerFilename = "onnx-mlir";
+    compilerFilename = "onnx-mlir";
 #endif
+  } else {
+    // Use user provided path to binary, including "onnx-mlir"
+    compilerFilename = compilerPath;
+  }
   // Execute onnx-mlir command with arguments.
   int status;
   try {

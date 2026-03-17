@@ -44,9 +44,12 @@ public:
   // argument, a vector of shapes of the objects as the second argument, and a
   // vector of strides of the object as the third argument. All pyRun arguments
   // should have the same length, otherwise python exceptions occur.
+  // Run with a signal handler: for debugging only. It is slower and unsafe if
+  // catch signal; posix only.
   std::vector<py::array> pyRun(const std::vector<py::array> &inputsPyArray,
       const std::vector<py::array> &shapesPyArray,
-      const std::vector<py::array> &stridesPyArray);
+      const std::vector<py::array> &stridesPyArray,
+      bool useSignalHandler = false);
   std::string pyInputSignature();
   std::string pyOutputSignature();
   void pyPrintInstrumentation(); // Print instrumentation (if any).

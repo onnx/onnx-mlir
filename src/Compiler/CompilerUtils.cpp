@@ -373,7 +373,7 @@ static int genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
              .appendStr(unoptimizedBitcodeNameWithExt)
              .exec();
   } catch (const onnx_mlir::CommandException &error) {
-    if (Verbose) {
+    if (VerboseOutput) {
       std::string errorMessage = error.what();
       fprintf(stderr, "Return message from command exception (opt): %s\n",
           errorMessage.c_str());
@@ -409,7 +409,7 @@ static int genModelObject(
              .appendStr(bitcodeNameWithExt)
              .exec();
   } catch (const onnx_mlir::CommandException &error) {
-    if (Verbose) {
+    if (VerboseOutput) {
       std::string errorMessage = error.what();
       fprintf(stderr, "Return message from command exception (lc): %s\n",
           errorMessage.c_str());
@@ -438,7 +438,7 @@ static int genJniObject(const mlir::OwningOpRef<ModuleOp> &module,
              .appendStr(llvm::sys::path::filename(jniObjPath).str())
              .exec(llvm::sys::path::parent_path(jniObjPath).str());
   } catch (const onnx_mlir::CommandException &error) {
-    if (Verbose) {
+    if (VerboseOutput) {
       std::string errorMessage = error.what();
       fprintf(stderr, "Return message from command exception (ar): %s\n",
           errorMessage.c_str());
@@ -499,7 +499,7 @@ static int genSharedLib(std::string sharedLibNameWithExt,
              .appendList(libs)
              .exec();
   } catch (const onnx_mlir::CommandException &error) {
-    if (Verbose) {
+    if (VerboseOutput) {
       std::string errorMessage = error.what();
       fprintf(stderr, "Return message from command exception (cxx): %s\n",
           errorMessage.c_str());
@@ -554,7 +554,7 @@ static int genJniJar(const mlir::OwningOpRef<ModuleOp> &module,
              .appendStr(llvm::sys::path::filename(modelSharedLibPath).str())
              .exec();
   } catch (const onnx_mlir::CommandException &error) {
-    if (Verbose) {
+    if (VerboseOutput) {
       std::string errorMessage = error.what();
       fprintf(stderr, "Return message from command exception (jar): %s\n",
           errorMessage.c_str());
@@ -754,6 +754,8 @@ static int emitOutputFiles(std::string outputNameNoExt,
   // outside the function code at the beginning of the file in which case the
   // elision of these constants is not strictly required. Elision is also not
   // necessary when emitting the .bc file.
+  std::string outputNameWithExt =
+      getTargetFilename(outputNameNoExt, emissionTarget);
   switch (emissionTarget) {
   case EmitObj: {
     std::string modelObjNameWithExt;
@@ -800,8 +802,6 @@ static int emitOutputFiles(std::string outputNameNoExt,
   } break;
   default: {
     // Emit the version with all constants included.
-    std::string outputNameWithExt =
-        getTargetFilename(outputNameNoExt, emissionTarget);
     if (!doNotEmitFullMLIRCode) {
       int rc = outputCode(module, outputNameWithExt);
       if (VerboseOutput)
@@ -827,7 +827,9 @@ static int emitOutputFiles(std::string outputNameNoExt,
     }
   }
   }
-  showCompilePhase("Compilation completed");
+  std::string completeMsg =
+      "Compilation completed. Generated \"" + outputNameWithExt + "\"";
+  showCompilePhase(completeMsg);
 
   return CompilerSuccess;
 } // end anonymous namespace
@@ -836,8 +838,9 @@ static int emitOutputFiles(std::string outputNameNoExt,
 static const llvm::Target *getLLVMTarget(
     const std::string &targetTriple, const Location &loc) {
   std::string error;
+  llvm::Triple triple(targetTriple);
   const llvm::Target *LLVMTarget =
-      llvm::TargetRegistry::lookupTarget(targetTriple, error);
+      llvm::TargetRegistry::lookupTarget(triple, error);
   if (!LLVMTarget) {
     emitError(loc, Twine("Target architecture is unknown: ") + error);
     return nullptr;
