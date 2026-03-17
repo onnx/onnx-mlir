@@ -27,7 +27,7 @@ jobs:
     - name: get protobuf version
       id: get-protobuf-version
       run: |
-        echo "protobuf_version=$(protoc --version)" >> $GITHUB_OUTPUT
+        echo "protobuf_version=$(protoc --version|tr ' ' '-')" >> $GITHUB_OUTPUT
 
     - name: restore MLIR cache
       id: restore-mlir-cache
