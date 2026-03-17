@@ -14,39 +14,25 @@ include "mlir/Interfaces/CallInterfaces.td"
 include "mlir/IR/SymbolInterfaces.td"
 include "src/IR/AttrBase.td"
 
-def XCOMPILERDepthwiseConvOp
-    : ONNX_Op<"XCOMPILERDepthwiseConv",
-          [Pure, OpVersionTrait<1>,
-              DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
-              DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+def XCOMPILERDepthwiseConvOp:ONNX_Op<"XCOMPILERDepthwiseConv",
+  [Pure, OpVersionTrait<1>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "DepthwiseConv operation";
   let description = [{
   Depthwise separable convolution with NHWC layout supporting both 2D and 3D inputs. Supports both quantized and non-quantized tensor types. Weight uses OHWI format (consistent with XFEConv). Each input channel is convolved with its own set of filters (group = input_channels). This is more computationally efficient than standard convolution. For 2D: input shape is [N, H, W, C], weight shape is [C, kH, kW, 1]. For 3D: input shape is [N, D, H, W, C], weight shape is [C, kD, kH, kW, 1]. Attributes: kernel_shape specifies the filter dimensions; strides specifies the stride along each spatial axis; pads specifies the padding for beginning and ending along each spatial axis; dilations specifies the dilation along each spatial axis; auto_pad specifies the padding type (NOTSET, SAME_UPPER, SAME_LOWER, VALID).
   }];
-  let arguments =
-      (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>,
-           TensorOf<[BF16]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[I8]>,
-           TensorOf<[I16]>, TensorOf<[quant_QuantizedType]>,
-           TensorOf<[quant_QuantizedType]>]>:$X,
-          AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>,
-              TensorOf<[BF16]>, TensorOf<[UI8]>, TensorOf<[UI16]>,
-              TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[quant_QuantizedType]>,
-              TensorOf<[quant_QuantizedType]>]>:$W,
-          AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>,
-              TensorOf<[BF16]>, TensorOf<[UI8]>, TensorOf<[UI16]>,
-              TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[quant_QuantizedType]>,
-              NoneType, TensorOf<[quant_QuantizedType]>]>:$B,
-          DefaultValuedStrAttr<StrAttr, "NONE">:$activation,
-          DefaultValuedStrAttr<StrAttr, "NOTSET">:$auto_pad,
-          OptionalAttr<I64ArrayAttr>:$dilations, I64ArrayAttr:$kernel_shape,
-          OptionalAttr<F32Attr>:$leakyrelu_alpha,
-          OptionalAttr<I64ArrayAttr>:$pads, OptionalAttr<SI64Attr>:$prelu_in,
-          OptionalAttr<SI64Attr>:$prelu_shift,
-          OptionalAttr<I64ArrayAttr>:$strides);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>,
-      TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[UI8]>, TensorOf<[UI16]>,
-      TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[quant_QuantizedType]>,
-      TensorOf<[quant_QuantizedType]>]>:$Y);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[quant_QuantizedType]>, TensorOf<[quant_QuantizedType]>]>:$X,
+    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[quant_QuantizedType]>, TensorOf<[quant_QuantizedType]>]>:$W,
+    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[quant_QuantizedType]>, NoneType, TensorOf<[quant_QuantizedType]>]>:$B,
+    DefaultValuedStrAttr<StrAttr, "NONE">:$activation,
+    DefaultValuedStrAttr<StrAttr, "NOTSET">:$auto_pad,
+    OptionalAttr<I64ArrayAttr>:$dilations,
+    I64ArrayAttr:$kernel_shape,
+    OptionalAttr<F32Attr>:$leakyrelu_alpha,
+    OptionalAttr<I64ArrayAttr>:$pads,
+    OptionalAttr<SI64Attr>:$prelu_in,
+    OptionalAttr<SI64Attr>:$prelu_shift,
+    OptionalAttr<I64ArrayAttr>:$strides);
+  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[quant_QuantizedType]>, TensorOf<[quant_QuantizedType]>]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 3;
@@ -69,30 +55,26 @@ def XCOMPILERDepthwiseConvOp
   let hasVerifier = 1;
 }
 
-def XCOMPILERFusedEltwiseOp
-    : ONNX_Op<"XCOMPILERFusedEltwise",
-          [Pure, OpVersionTrait<1>,
-              DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
-              DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+def XCOMPILERFusedEltwiseOp:ONNX_Op<"XCOMPILERFusedEltwise",
+  [Pure, OpVersionTrait<1>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "FusedEltwise operation";
   let description = [{
   Quantized element-wise operation supporting arithmetic, trigonometric, activation, and comparision elementwise functions. Few eltwise ops support fusion with an optional activation.  Attributes: type specifies the element-wise operation (ADD, MUL, SUB, DIV, TANH, SQRT, etc); nonlinear specifies optional activation (NONE, RELU, LEAKYRELU); leakyrelu_alpha is the original LeakyReLU alpha; prelu_in is the fixed-point multiplier M for LeakyReLU (M/2^N); prelu_shift is the fixed-point shift N for LeakyReLU, clip_min is minimum value, under which element is replaced by min, clip_max is maximum value, over which element is replaced by max, nonlinear_in_qscales is the quantization scales for the input of the nonlinear activation, nonlinear_in_zeropoints is the quantization zero points for the input of the nonlinear activation.
   }];
-  let arguments =
-      (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[I8]>,
-           TensorOf<[I16]>, TensorOf<[quant_QuantizedType]>]>:$A,
-          AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[I8]>,
-              TensorOf<[I16]>, TensorOf<[quant_QuantizedType]>, NoneType]>:$B,
-          OptionalAttr<SI64Attr>:$clip_max, OptionalAttr<SI64Attr>:$clip_min,
-          DefaultValuedAttr<BoolAttr, "false">:$enable_lut_sigmoid,
-          OptionalAttr<F32Attr>:$leakyrelu_alpha, OptionalAttr<F32Attr>:$mul_y,
-          DefaultValuedStrAttr<StrAttr, "NONE">:$nonlinear,
-          OptionalAttr<F32Attr>:$nonlinear_in_scales,
-          OptionalAttr<SI64Attr>:$nonlinear_in_zeropoints,
-          OptionalAttr<SI64Attr>:$prelu_in, OptionalAttr<SI64Attr>:$prelu_shift,
-          StrAttr:$type);
-  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>,
-      TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[quant_QuantizedType]>]>:$Y);
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[quant_QuantizedType]>]>:$A,
+    AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[quant_QuantizedType]>, NoneType]>:$B,
+    OptionalAttr<SI64Attr>:$clip_max,
+    OptionalAttr<SI64Attr>:$clip_min,
+    DefaultValuedAttr<BoolAttr, "false">:$enable_lut_sigmoid,
+    OptionalAttr<F32Attr>:$leakyrelu_alpha,
+    OptionalAttr<F32Attr>:$mul_y,
+    DefaultValuedStrAttr<StrAttr, "NONE">:$nonlinear,
+    OptionalAttr<F32Attr>:$nonlinear_in_scales,
+    OptionalAttr<SI64Attr>:$nonlinear_in_zeropoints,
+    OptionalAttr<SI64Attr>:$prelu_in,
+    OptionalAttr<SI64Attr>:$prelu_shift,
+    StrAttr:$type);
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[quant_QuantizedType]>]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 2;
@@ -115,22 +97,18 @@ def XCOMPILERFusedEltwiseOp
   let hasVerifier = 1;
 }
 
-def XCOMPILERRequantizeOp
-    : ONNX_Op<"XCOMPILERRequantize",
-          [Pure, OpVersionTrait<1>,
-              DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
-              DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+def XCOMPILERRequantizeOp:ONNX_Op<"XCOMPILERRequantize",
+  [Pure, OpVersionTrait<1>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "Requantize operation";
   let description = [{
   Converts a quantized tensor from one quantization scheme (scale_in, zero_point_in) to another (scale_out, zero_point_out) without going through floating-point intermediate representation. Mathematical definition: q_out = round((q_in - zp_in) * (s_in / s_out)) + zp_out. This is a single fused operation that conceptually dequantizes and requantizes, all done in integer arithmetic with scaling factors. Attributes: a_scale and a_zero_point define the input quantization parameters; y_scale and y_zero_point define the output quantization parameters.
   }];
-  let arguments =
-      (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[I8]>,
-           TensorOf<[I16]>, TensorOf<[quant_QuantizedType]>]>:$X,
-          F32ArrayAttr:$a_scale, I64ArrayAttr:$a_zero_point,
-          F32ArrayAttr:$y_scale, I64ArrayAttr:$y_zero_point);
-  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>,
-      TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[quant_QuantizedType]>]>:$Y);
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[quant_QuantizedType]>]>:$X,
+    F32ArrayAttr:$a_scale,
+    I64ArrayAttr:$a_zero_point,
+    F32ArrayAttr:$y_scale,
+    I64ArrayAttr:$y_zero_point);
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[quant_QuantizedType]>]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -152,3 +130,4 @@ def XCOMPILERRequantizeOp
   }];
   let hasVerifier = 1;
 }
+
