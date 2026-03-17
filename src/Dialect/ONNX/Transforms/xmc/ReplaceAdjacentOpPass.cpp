@@ -9,6 +9,7 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 #include "src/Pass/Passes.hpp"
 
 #include "llvm/ADT/DenseMap.h"
@@ -263,7 +264,11 @@ struct ReplaceAdjacentOpPass
     RewritePatternSet patterns(ctx);
     patterns.add<MergeNestedConcatPattern>(ctx);
     patterns.add<SplitDuplicateInputsPattern>(ctx);
-    if (failed(applyPatternsGreedily(getOperation(), std::move(patterns))))
+    GreedyRewriteConfig config;
+    ResultNamesUpdater rnUpdater;
+    config.listener = &rnUpdater;
+    if (failed(
+            applyPatternsGreedily(getOperation(), std::move(patterns), config)))
       signalPassFailure();
   }
 };
