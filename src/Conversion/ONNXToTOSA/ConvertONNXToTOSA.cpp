@@ -122,6 +122,10 @@ public:
   Option<bool> disableCastLowering{*this, "disable-cast-lowering",
       llvm::cl::desc("If enabled, disable the lowering of onnx.cast to tosa."),
       llvm::cl::ZeroOrMore, llvm::cl::init(false)};
+  ListOption<std::string> excludedOps{*this, "excluded-ops",
+      llvm::cl::desc("ONNX op names to exclude from TOSA conversion "
+                     "(e.g. onnx.Gather,onnx.Slice)"),
+      llvm::cl::ZeroOrMore};
 };
 
 Value handleDynamicToStaticShapes(
@@ -196,6 +200,9 @@ void FrontendToTosaLoweringPass::runOnOperation() {
   // Define legal dialects and operations
   target.addLegalDialect<mlir::tosa::TosaDialect, func::FuncDialect,
       mlir::arith::ArithDialect, mlir::shape::ShapeDialect>();
+
+  for (const std::string &opName : excludedOps)
+    target.addLegalOp(OperationName(opName, context));
 
   // Define patterns
   populateONNXToTOSAConversionPattern(target, patterns, typeConverter, context,
