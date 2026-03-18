@@ -137,6 +137,21 @@ PyExecutionSessionBase::PyExecutionSessionBase(
     std::string sharedLibPath, std::string tag, bool defaultEntryPoint)
     : onnx_mlir::ExecutionSession(sharedLibPath, tag, defaultEntryPoint) {}
 
+static py::array copyTensorToPyArray(
+    py::dtype dt, const std::vector<int64_t> &shape, OMTensor *omt) {
+  // Get info from OMTensor.
+  void *dataPtr = omTensorGetDataPtr(omt);
+  size_t dataByteSize = omTensorGetBufferSize(omt);
+  // Make a destination array with the declared dtype.
+  py::array out(dt, shape);
+  if (static_cast<size_t>(out.nbytes()) != dataByteSize) {
+    throw std::runtime_error("Size mismatch between buffer and dtype*shape.");
+  }
+  // Copy data using memcopy.
+  std::memcpy(out.mutable_data(), dataPtr, dataByteSize);
+  return out;
+}
+
 // =============================================================================
 // Run.
 
@@ -403,15 +418,13 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
       if (forceOutputDataCopy) {
         // force copy of result, leaving ownership on so that it be destroyed at
         // the end.
-        outputPyArrays.emplace_back(py::array(dtype, shape, omtDataPtr));
+        outputPyArrays.emplace_back(copyTensorToPyArray(dtype, shape, omt));
       } else {
         // We have a regular tensor which we will need to free at the right
         // time. Create the capsule that points to the data to be freed
         // (allocated pointer).
         py::capsule free_data_with_allocate_ptr(
-            omtAllocPtr /* Address that will be passed to the lambda function.
-                         */
-            ,
+            omtAllocPtr, /* Address that will be passed to lambda function. */
             [](void *ptr) { /* Lambda function that performs the freeing. */
               free(ptr);
             });
@@ -425,7 +438,7 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
     } else {
       // We have a constant, its a very rare case, just do like in the past:
       // copy.
-      outputPyArrays.emplace_back(py::array(dtype, shape, omtDataPtr));
+      outputPyArrays.emplace_back(copyTensorToPyArray(dtype, shape, omt));
     }
     TIMING_STOP_PRINT(process_output_pyarray);
   }
