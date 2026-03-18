@@ -7,6 +7,5 @@ add_onnx_mlir_library(OMONNXConversionCommon
   LINK_LIBS PUBLIC
 
   OMONNXOps
-  OMSupport
   MLIRTransforms
 )

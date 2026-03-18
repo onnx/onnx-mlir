@@ -7,7 +7,6 @@
 
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Compiler/CompilerDialects.hpp"
-#include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/Support/CommandLine.h"

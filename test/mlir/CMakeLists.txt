@@ -15,6 +15,12 @@ else()
   message(STATUS "Accelerator lit tests    : NONE")
 endif()
 
+if (ONNX_MLIR_ENABLE_KRNL)
+  set(ONNX_MLIR_KRNL_ENABLED 1)
+else()
+  set(ONNX_MLIR_KRNL_ENABLED 0)
+endif()
+
 if (ONNX_MLIR_ENABLE_STABLEHLO)
   set(ONNX_MLIR_STABLEHLO_ENABLED 1)
 else()
