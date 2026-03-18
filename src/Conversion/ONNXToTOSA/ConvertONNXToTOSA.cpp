@@ -120,7 +120,7 @@ public:
       llvm::cl::ZeroOrMore, llvm::cl::init(false)};
   ListOption<std::string> excludedOps{*this, "excluded-ops",
       llvm::cl::desc("ONNX op names to exclude from TOSA conversion "
-                     "(e.g. onnx.Gather,onnx.Slice)"),
+                     "(e.g. Gather,Cast)"),
       llvm::cl::ZeroOrMore};
 };
 
