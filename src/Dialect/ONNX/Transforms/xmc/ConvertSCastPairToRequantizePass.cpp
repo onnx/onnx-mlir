@@ -185,7 +185,7 @@ struct ConvertSCastPairToRequantizePattern
     if (inputQType && outputQType) {
       // Per-tensor quantization
       // Skip if params are identical (not a requantization)
-      if (std::abs(inputQType.getScale() - outputQType.getScale()) < 1e-9 &&
+      if (std::abs(inputQType.getScale() - outputQType.getScale()) < 1e-6 &&
           inputQType.getZeroPoint() == outputQType.getZeroPoint())
         return failure();
 
@@ -258,7 +258,7 @@ struct ConvertQAndScastToRequantizePattern
     if (outputQType) {
       if (qParams->first.size() != 1)
         return failure();
-      if (std::abs(qParams->first[0] - outputQType.getScale()) < 1e-9 &&
+      if (std::abs(qParams->first[0] - outputQType.getScale()) < 1e-6 &&
           qParams->second[0] == outputQType.getZeroPoint())
         return failure();
 
@@ -270,7 +270,7 @@ struct ConvertQAndScastToRequantizePattern
       bool same = true;
       for (size_t i = 0; i < qParams->first.size(); ++i) {
         if (std::abs(qParams->first[i] - outputQPerAxis.getScales()[i]) >=
-                1e-9 ||
+                1e-6 ||
             qParams->second[i] != outputQPerAxis.getZeroPoints()[i]) {
           same = false;
           break;
@@ -324,7 +324,7 @@ struct ConvertScastAndDQToRequantizePattern
     RankedTensorType resultType;
 
     if (inputQType && dqParams->first.size() == 1) {
-      if (std::abs(inputQType.getScale() - dqParams->first[0]) < 1e-9 &&
+      if (std::abs(inputQType.getScale() - dqParams->first[0]) < 1e-6 &&
           inputQType.getZeroPoint() == dqParams->second[0])
         return failure();
       aScaleAttr = buildScaleAttr(rewriter, inputQType);
@@ -341,7 +341,7 @@ struct ConvertScastAndDQToRequantizePattern
       bool same = true;
       for (size_t i = 0; i < dqParams->first.size(); ++i) {
         if (std::abs(inputQPerAxis.getScales()[i] - dqParams->first[i]) >=
-                1e-9 ||
+                1e-6 ||
             inputQPerAxis.getZeroPoints()[i] != dqParams->second[i]) {
           same = false;
           break;

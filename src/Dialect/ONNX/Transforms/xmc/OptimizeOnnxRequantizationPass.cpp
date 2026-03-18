@@ -11,6 +11,10 @@
 #include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 #include "src/Pass/Passes.hpp"
 
+#include <cmath>
+#include <optional>
+#include <utility>
+
 using namespace mlir;
 
 namespace {
@@ -21,6 +25,68 @@ bool isQuantizedType(Type type) {
   if (!tensorType)
     return false;
   return isa<quant::QuantizedType>(tensorType.getElementType());
+}
+
+/// Get constant scale (float) and zero_point (int64) from DQ/Q operands.
+/// Returns both when each Value is a constant; otherwise nullopt. For Concat.
+static std::optional<std::pair<float, int64_t>> getConstScaleAndZp(
+    Value scaleVal, Value zpVal) {
+  if (!scaleVal || !zpVal || isa<NoneType>(scaleVal.getType()) ||
+      isa<NoneType>(zpVal.getType()))
+    return std::nullopt;
+  auto scaleCst = scaleVal.getDefiningOp<ONNXConstantOp>();
+  auto zpCst = zpVal.getDefiningOp<ONNXConstantOp>();
+  if (!scaleCst || !zpCst)
+    return std::nullopt;
+  auto scaleAttr = dyn_cast_or_null<ElementsAttr>(scaleCst.getValueAttr());
+  auto zpAttr = dyn_cast_or_null<ElementsAttr>(zpCst.getValueAttr());
+  if (!scaleAttr || !zpAttr)
+    return std::nullopt;
+  auto getFloat = [](ElementsAttr attr) -> std::optional<float> {
+    if (attr.isSplat()) {
+      if (isa<FloatType>(attr.getElementType()))
+        return static_cast<float>(
+            attr.getSplatValue<APFloat>().convertToDouble());
+      return std::nullopt;
+    }
+    auto shapedTy = dyn_cast<ShapedType>(attr.getType());
+    if (!shapedTy || !shapedTy.hasStaticShape() ||
+        shapedTy.getNumElements() != 1)
+      return std::nullopt;
+    auto a = *attr.getValues<Attribute>().begin();
+    if (auto f = dyn_cast<FloatAttr>(a))
+      return static_cast<float>(f.getValueAsDouble());
+    return std::nullopt;
+  };
+  auto getInt = [](ElementsAttr attr) -> std::optional<int64_t> {
+    if (attr.isSplat()) {
+      Type et = attr.getElementType();
+      if (isa<FloatType>(et))
+        return static_cast<int64_t>(
+            std::llround(attr.getSplatValue<APFloat>().convertToDouble()));
+      if (auto it = dyn_cast<IntegerType>(et)) {
+        APInt api = attr.getSplatValue<APInt>();
+        return it.isUnsigned() ? static_cast<int64_t>(api.getZExtValue())
+                               : static_cast<int64_t>(api.getSExtValue());
+      }
+      return std::nullopt;
+    }
+    auto shapedTy = dyn_cast<ShapedType>(attr.getType());
+    if (!shapedTy || !shapedTy.hasStaticShape() ||
+        shapedTy.getNumElements() != 1)
+      return std::nullopt;
+    auto a = *attr.getValues<Attribute>().begin();
+    if (auto f = dyn_cast<FloatAttr>(a))
+      return static_cast<int64_t>(std::llround(f.getValueAsDouble()));
+    if (auto i = dyn_cast<IntegerAttr>(a))
+      return static_cast<int64_t>(i.getInt());
+    return std::nullopt;
+  };
+  std::optional<float> s = getFloat(scaleAttr);
+  std::optional<int64_t> z = getInt(zpAttr);
+  if (s && z)
+    return std::make_pair(*s, *z);
+  return std::nullopt;
 }
 
 /// Pattern for Q(parent) -> DQ(parent) -> op -> Q(output) patterns
@@ -187,12 +253,23 @@ OnnxQDQRequantizationOptimizationPattern<::mlir::ONNXConcatOp>::matchAndRewrite(
       continue;
     }
 
-    // Get DQ's scale/zp and compare with Q(output)'s
+    // Get DQ's scale/zp and compare with Q(output)'s. Like xcompiler pass:
+    // if |in_scale - out_scale| < 1e-6 and same zp, ignore (no requantize).
     ::mlir::Value dqScaleVal = dqOpTyped->getOperand(1);
     ::mlir::Value dqZpVal = dqOpTyped->getOperand(2);
 
-    // No requantization needed if DQ already uses the same params
-    if (dqScaleVal == qOutputScaleVal && dqZpVal == qOutputZpVal) {
+    bool need_requantize = true;
+    auto in = getConstScaleAndZp(dqScaleVal, dqZpVal);
+    auto out = getConstScaleAndZp(qOutputScaleVal, qOutputZpVal);
+    if (in && out) {
+      float scale_abs_diff = std::fabs(in->first - out->first);
+      if (scale_abs_diff < 1e-6f && in->second == out->second)
+        need_requantize = false;
+    } else {
+      need_requantize =
+          (dqScaleVal != qOutputScaleVal || dqZpVal != qOutputZpVal);
+    }
+    if (!need_requantize) {
       newInputs.push_back(inputValue);
       continue;
     }
@@ -269,7 +346,7 @@ struct OptimizeOnnxRequantizationPass
   }
   StringRef getDescription() const override {
     return "Optimize requantization in ONNX operations that don't change "
-           "quantization semantics (Reshape, Transpose, Slice, Pad, Concat)";
+           "quantization semantics (Reshape, Transpose, Slice, Concat)";
   }
 
   void runOnOperation() override {
@@ -283,8 +360,6 @@ struct OptimizeOnnxRequantizationPass
         .add<OnnxQDQRequantizationOptimizationPattern<::mlir::ONNXTransposeOp>>(
             patterns.getContext());
     patterns.add<OnnxQDQRequantizationOptimizationPattern<::mlir::ONNXSliceOp>>(
-        patterns.getContext());
-    patterns.add<OnnxQDQRequantizationOptimizationPattern<::mlir::ONNXPadOp>>(
         patterns.getContext());
     patterns.add<
         OnnxQDQRequantizationOptimizationPattern<::mlir::ONNXDepthToSpaceOp>>(
