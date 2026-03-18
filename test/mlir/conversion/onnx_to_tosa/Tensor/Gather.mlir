@@ -1,5 +1,5 @@
 // RUN: onnx-mlir-opt --convert-onnx-to-tosa -cse %s -split-input-file | FileCheck %s
-// RUN: onnx-mlir-opt --convert-onnx-to-tosa="excluded-ops=onnx.Gather" -cse %s -split-input-file | FileCheck %s --check-prefix=EXCLUDE
+// RUN: onnx-mlir-opt --convert-onnx-to-tosa="excluded-ops=Gather" -cse %s -split-input-file | FileCheck %s --check-prefix=EXCLUDE
 
 func.func @test_gather_axis0(%arg0 : tensor<3x2xf32>) -> tensor<2x2x2xf32> {
   %indices = "onnx.Constant"() {value = dense<[[0, 1], [1, 2]]> : tensor<2x2xi64>} : () -> tensor<2x2xi64>
