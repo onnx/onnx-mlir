@@ -734,22 +734,19 @@ static void populateLoweringONNXElementwiseUnaryTemplateOpToTOSAPattern(
 }
 
 void populateLoweringONNXElementwiseOpToTOSAPattern(ConversionTarget &target,
-    RewritePatternSet &patterns, TypeConverter &typeConverter, MLIRContext *ctx,
-    bool disableCastLowering) {
+    RewritePatternSet &patterns, TypeConverter &typeConverter,
+    MLIRContext *ctx) {
   patterns.insert<ONNXReluOpLoweringToTOSA, ONNXLeakyReluOpLoweringToTOSA,
-      ONNXMulOpLoweringToTosa, ONNXClipOpLoweringToTOSA,
-      ONNXDivOpLoweringToTOSA, ONNXHardSigmoidOpLoweringToTOSA,
-      ONNXSqrtOpLoweringToTOSA, ONNXEluOpLoweringToTOSA,
-      ONNXPReluOpLoweringToTOSA, ONNXThresholdedReluOpLoweringToTOSA,
-      ONNXSoftplusOpLoweringToTOSA, ONNXSeluOpLoweringToTOSA,
-      ONNXComparisonOpLoweringToTOSA<ONNXEqualOp>,
+      ONNXMulOpLoweringToTosa, ONNXCastOpLoweringToTOSA,
+      ONNXClipOpLoweringToTOSA, ONNXDivOpLoweringToTOSA,
+      ONNXHardSigmoidOpLoweringToTOSA, ONNXSqrtOpLoweringToTOSA,
+      ONNXEluOpLoweringToTOSA, ONNXPReluOpLoweringToTOSA,
+      ONNXThresholdedReluOpLoweringToTOSA, ONNXSoftplusOpLoweringToTOSA,
+      ONNXSeluOpLoweringToTOSA, ONNXComparisonOpLoweringToTOSA<ONNXEqualOp>,
       ONNXComparisonOpLoweringToTOSA<ONNXGreaterOrEqualOp>,
       ONNXComparisonOpLoweringToTOSA<ONNXGreaterOp>,
       ONNXComparisonOpLoweringToTOSA<ONNXLessOrEqualOp>,
       ONNXComparisonOpLoweringToTOSA<ONNXLessOp>>(typeConverter, ctx);
-  if (!disableCastLowering) {
-    patterns.insert<ONNXCastOpLoweringToTOSA>(typeConverter, ctx);
-  }
 
   populateLoweringONNXElementwiseBinaryTemplateOpToTOSAPattern(
       patterns, typeConverter, ctx);
