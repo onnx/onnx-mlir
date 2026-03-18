@@ -114,6 +114,15 @@ void ExecutionSession::loadModel(
     throw ExecutionSessionException(
         "Cannot open library: '" + sharedLibPath + "'.");
 #else
+#ifdef __MVS__
+  // On z/OS, set OM_CONSTANT_FILE environment variable before dlopen
+  // so the constructor can preload constants
+  std::string constantFileName = std::filesystem::path(sharedLibPath)
+                                    .filename()
+                                    .replace_extension(".constants.bin")
+                                    .string();
+  setenv("OM_CONSTANT_FILE", constantFileName.c_str(), 1);
+#endif
   // Copy code from llvm/lib/Support/DynamicLibrary.cpp, especially the flags
   // ToFix: copy the lock related code too.
   _sharedLibraryHandle = dlopen(sharedLibPath.c_str(), RTLD_LAZY | RTLD_GLOBAL);
