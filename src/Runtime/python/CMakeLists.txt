@@ -40,20 +40,6 @@ else()
   )
 endif()
 
-# Refer to onnx-mlir/CMakeList.txt
-# Since PyExecutionSessionBase include onnx/onnx_pb.h, absl lib may be needed.
-# Another solution is to simply add onnx into link library, which was tested 
-# and proven. This solution seems more elegant to me.
-# However, not sure whether it is too much to link onnx to PyRuntimeC, though
-# third_party/onnx is built in both normal and light-weight driver
-#if (absl_FOUND)
-#  message(STATUS "absl found and add it the dependent library for OMPyExecutionSessionBase")
-#  target_link_libraries(OMPyExecutionSessionBase PUBLIC
-#    absl::log_internal_check_op
-#    absl::log_internal_message
-#    absl::status
-#    )
-#endif()
 
 if(MSVC)
   target_link_libraries(OMPyExecutionSessionBase

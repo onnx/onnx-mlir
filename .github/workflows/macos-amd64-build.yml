@@ -20,13 +20,14 @@ jobs:
 
     - name: install tools that are needed for compilation
       run: |
-        brew install automake ninja protobuf@33 pybind11
+        brew install automake protobuf@33 pybind11
+        brew link --overwrite --force protobuf@33
         python3 -m pip install protobuf==6.33.0
 
     - name: get protobuf version
       id: get-protobuf-version
       run: |
-        echo "protobuf_version=$(protoc --version)" >> $GITHUB_OUTPUT
+        echo "protobuf_version=$(protoc --version|tr ' ' '-')" >> $GITHUB_OUTPUT
 
     - name: restore MLIR cache
       id: restore-mlir-cache
