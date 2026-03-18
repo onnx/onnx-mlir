@@ -142,6 +142,30 @@ static py::array copyTensorToPyArray(
   // Get info from OMTensor.
   void *dataPtr = omTensorGetDataPtr(omt);
   size_t dataByteSize = omTensorGetBufferSize(omt);
+
+  // Special handling for string tensors
+  if (omTensorGetDataType(omt) == ONNX_TYPE_STRING) {
+    // For strings, we need to reconstruct a Python object array.
+    py::array out(dt, shape);
+    // Recall that our array of string in OMTensors look like this:
+    // [ptr0][ptr1][ptr2]['h']['i']['\0']['b']['y']['e']['\0']...
+    // So strArray points to the array of pointers at the begining of the memory
+    // block.
+    char **strArray = (char **)dataPtr;
+    int64_t numElements = omTensorGetNumElems(omt);
+    // Iterate for each string.
+    auto out_ptr = out.mutable_data();
+    for (int64_t i = 0; i < numElements; i++) {
+      // Create Python string objects from C strings, where pyStr has its own
+      // copy of the data.
+      py::str pyStr(strArray[i]);
+      // Store in the object array. The release transfer the ownership of the
+      // string to the PyObject, aka our py:array in our case.
+      ((PyObject **)out_ptr)[i] = pyStr.release().ptr();
+    }
+    return out;
+  }
+
   // Make a destination array with the declared dtype.
   py::array out(dt, shape);
   if (static_cast<size_t>(out.nbytes()) != dataByteSize) {
