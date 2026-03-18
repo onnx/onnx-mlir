@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-tosa=disable-cast-lowering=true -cse %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-tosa=excluded-ops=Cast -cse %s -split-input-file | FileCheck %s
 
 func.func @test_cast_f32_i8(%arg0: tensor<13x21x1xf32>) -> tensor<13x21x1xi8> {
   %0 = "onnx.Cast"(%arg0) {to = i8} : (tensor<13x21x1xf32>) -> tensor<13x21x1xi8>
