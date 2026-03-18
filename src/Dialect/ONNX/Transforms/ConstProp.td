@@ -1176,7 +1176,9 @@ def PadOfConst : NamedPat<"PadOfConst",
     [(IsFromDenseONNXConstantOp:$pads),
      (IsFromDenseONNXConstantOpOrNone:$constant_value),
      (IsNoneType:$axes),
-     (EqualString<"constant"> $mode)]>;
+     (EqualString<"constant"> $mode),
+     (HasStaticShape:$resOp),
+     (SatisfiesExpansionBound:$resOp)]>;
 
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with Concat operations.
