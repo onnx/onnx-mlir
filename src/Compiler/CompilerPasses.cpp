@@ -112,6 +112,12 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   // In future, only the dynamic pass, ONNXOpTransformPass, will be used for
   // this function.
 
+  // Append a decoding strategy to the main graph if required. This is mainly
+  // used for decoding models.
+  if (appendDecodingStrategy) {
+    pm.addPass(onnx_mlir::createAppendDecodingStrategyPass());
+  }
+
   if (!donotScrubDisposableElementsAttr)
     pm.addInstrumentation(
         std::make_unique<DisposableGarbageCollector>(pm.getContext()));

@@ -110,6 +110,7 @@ bool useLinalgPath;                                    // onnx-mlir only
 bool enableDebugInfo;                                  // onnx-mlir only
 std::string configFile;                                // onnx-mlir only
 std::string saveConfigFile;                            // onnx-mlir only
+bool appendDecodingStrategy;                           // onnx-mlir only
 bool split_input_file;                                 // onnx-mlir-opt only
 bool verify_diagnostics;                               // onnx-mlir-opt only
 bool verify_passes;                                    // onnx-mlir-opt only
@@ -839,6 +840,17 @@ static llvm::cl::opt<bool, true> enable_bound_check("enable-bound-check",
         "Set to 'true' if you want to enable the check."),
     llvm::cl::location(enableBoundCheck), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<bool, true> appendDecodingStrategyOpt{"append-decoding-strategy",
+    llvm::cl::desc(
+        "Append decoding strategies to the model. Used for decoder models. If "
+        "enabled, the 1st output of the original model must have the shape of "
+        "[batch_size, sequence_length, vocaburary_size] of either static or "
+        "dynamic dimensions and the 1st output is replaced by a tensor whose "
+        "shape is [batch_size, 1] and element type is i64. Currenlty support "
+        "greedy streategy only."),
+    llvm::cl::location(appendDecodingStrategy), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions)};
 
 /*
   How to use the optional optimization for testing.

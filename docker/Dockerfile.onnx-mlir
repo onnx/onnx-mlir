@@ -22,15 +22,7 @@ COPY . onnx-mlir
 # CMAKE_INSTALL_LIBDIR to be lib.
 RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
     && cd ${ONNX_ROOT} \
-    #
-    # Require patching until upstreamed
-    #
-    && sed -i -e 's/target_link_libraries(onnx PUBLIC onnx_proto)/target_link_libraries(onnx PUBLIC onnx_proto PUBLIC ${protobuf_ABSL_USED_TARGETS})/g' \
-           -e '/absl::log_initialize/a \
-          absl::log_internal_check_op\
-          absl::log_internal_message\
-          absl::log_internal_nullguard' CMakeLists.txt \
-    # ubi9 doesn't have "externally managed environment" problem and 
+    # ubi9 doesn't have "externally managed environment" problem and
     # --prefix=/usr is not required to be added to pip install command.
     #
     # Must specify --no-build-isolation to avoid protoc-gen-mypy.py
