@@ -47,6 +47,10 @@ struct OnnxBuilder : DialectBuilder {
   // ONNXAddOp
   mlir::Value add(mlir::Value A, mlir::Value B) const;
 
+  // ONNXArgMax
+  mlir::Value argMax(mlir::Type outputType, mlir::Value input, int64_t axis,
+      int64_t keepDims, int64_t selectLastIndex) const;
+
   // ONNXCastOp
   mlir::Value cast(mlir::Type outputType, mlir::Value input,
       mlir::IntegerAttr saturate, mlir::TypeAttr to,

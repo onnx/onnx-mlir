@@ -49,6 +49,12 @@ Value OnnxBuilder::add(Value A, Value B) const {
   return createOpAndInferShapes<ONNXAddOp>(toTensor(A), toTensor(B));
 }
 
+Value OnnxBuilder::argMax(Type outputType, Value input, int64_t axis,
+    int64_t keepDims, int64_t selectLastIndex) const {
+  return createTypedOpAndInferShapes<ONNXArgMaxOp>(
+      outputType, input, axis, keepDims, selectLastIndex);
+}
+
 Value OnnxBuilder::cast(Type outputType, Value input, IntegerAttr saturate,
     TypeAttr to, bool inferShape) const {
   if (inferShape)
