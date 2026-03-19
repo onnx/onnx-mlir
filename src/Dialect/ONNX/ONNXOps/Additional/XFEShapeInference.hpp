@@ -18,43 +18,47 @@ namespace mlir {
 LogicalResult XFEMatMulBiasOpShapeInference(
     Operation *op, std::function<void(Region &)> doShapeInference);
 
-// Shape inference for ConvChannelLast
+// Shape inference for Conv
 LogicalResult XFEConvOpShapeInference(
     Operation *op, std::function<void(Region &)> doShapeInference);
 
-// Shape inference for ConvTransposeChannelLast
+// Shape inference for ConvTranspose
 LogicalResult XFEConvTransposeOpShapeInference(
     Operation *op, std::function<void(Region &)> doShapeInference);
 
-// Shape inference for AveragePoolChannelLast
+// Shape inference for AveragePool
 LogicalResult XFEAveragePoolOpShapeInference(
     Operation *op, std::function<void(Region &)> doShapeInference);
 
-// Shape inference for MaxPoolChannelLast
+// Shape inference for MaxPool
 LogicalResult XFEMaxPoolOpShapeInference(
     Operation *op, std::function<void(Region &)> doShapeInference);
 
-// Shape inference for GlobalAveragePoolChannelLast
+// Shape inference for GlobalAveragePool
 LogicalResult XFEGlobalAveragePoolOpShapeInference(
     Operation *op, std::function<void(Region &)> doShapeInference);
 
-// Shape inference for GlobalMaxPoolChannelLast
+// Shape inference for GlobalMaxPool
 LogicalResult XFEGlobalMaxPoolOpShapeInference(
     Operation *op, std::function<void(Region &)> doShapeInference);
 
-// Shape inference for InstanceNormalizationChannelLast
+// Shape inference for BatchNormalization
+LogicalResult XFEBatchNormalizationOpShapeInference(
+    Operation *op, std::function<void(Region &)> doShapeInference);
+
+// Shape inference for InstanceNormalization
 LogicalResult XFEInstanceNormalizationOpShapeInference(
     Operation *op, std::function<void(Region &)> doShapeInference);
 
-// Shape inference for DepthToSpaceChannelLast
+// Shape inference for DepthToSpace
 LogicalResult XFEDepthToSpaceOpShapeInference(
     Operation *op, std::function<void(Region &)> doShapeInference);
 
-// Shape inference for SpaceToDepthChannelLast
+// Shape inference for SpaceToDepth
 LogicalResult XFESpaceToDepthOpShapeInference(
     Operation *op, std::function<void(Region &)> doShapeInference);
 
-// Shape inference for ResizeChannelLast
+// Shape inference for Resize
 LogicalResult XFEResizeOpShapeInference(
     Operation *op, std::function<void(Region &)> doShapeInference);
 

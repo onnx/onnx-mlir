@@ -17,14 +17,18 @@
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/Tools/mlir-reduce/MlirReduceMain.h"
+#ifdef ONNX_MLIR_ENABLE_KRNL
 #include "src/Dialect/Krnl/KrnlOps.hpp"
+#endif
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
 using namespace mlir;
 
 static void registerDialects(DialectRegistry &registry) {
   registry.insert<mlir::ONNXDialect>();
+#ifdef ONNX_MLIR_ENABLE_KRNL
   registry.insert<mlir::KrnlDialect>();
+#endif
 }
 
 int main(int argc, char **argv) {

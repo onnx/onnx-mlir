@@ -711,7 +711,7 @@ func.func @test_clip_min_greater_than_max1() -> tensor<3x2xbf16> {
   %max = onnx.Constant {value = dense<1.0> : tensor<bf16>} : tensor<bf16>
   %0 = "onnx.Clip"(%cst, %min, %max) : (tensor<3x2xbf16>, tensor<bf16>, tensor<bf16>) -> tensor<3x2xbf16>
   return %0 : tensor<3x2xbf16>
-  // CHECK: {{.*}} = onnx.Constant dense<{{.}}[1.000000e+00, 1.000000e+00], [1.000000e+00, 0x7FC0], [1.000000e+00, 1.000000e+00]]>
+  // CHECK: {{.*}} = onnx.Constant dense<1.000000e+00> : tensor<3x2xbf16>
   // CHECK-NOT: {{.*}} = "onnx.Clip"
 }
 

@@ -124,12 +124,29 @@ public:
 
     auto qType = std::get<quant::QuantizedType>(qTypeErr);
     auto qTensorType = cast<TensorType>(dqOp.getType()).clone(qType);
-    if (auto constOp = dqOp.getX().getDefiningOp<ONNXConstantOp>();
-        constOp && constOp.getResult().hasOneUse()) {
-      rewriter.modifyOpInPlace(
-          constOp, [&]() { constOp.getResult().setType(qTensorType); });
-      rewriter.replaceOp(dqOp, constOp);
-      return success();
+
+    // Constants handling
+    if (auto constOp = dqOp.getX().getDefiningOp<ONNXConstantOp>()) {
+      Operation *dqRepl = nullptr;
+
+      // Single-use constants are directly replaced in place of DQ
+      if (constOp->hasOneUse())
+        dqRepl = constOp;
+
+      // Multi-use constants are duplicated (only if they are small)
+      else if (auto constVal = dyn_cast_if_present<DenseElementsAttr>(
+                   constOp.getValueAttr());
+               constVal &&
+               (constVal.isSplat() || constVal.getRawData().size() < 32))
+        dqRepl = rewriter.clone(*constOp);
+
+      if (dqRepl) {
+        // Update the result type to be quantized type
+        rewriter.modifyOpInPlace(
+            dqRepl, [&]() { dqRepl->getResult(0).setType(qTensorType); });
+        rewriter.replaceOp(dqOp, dqRepl);
+        return success();
+      }
     }
 
     auto scast = rewriter.create<quant::StorageCastOp>(

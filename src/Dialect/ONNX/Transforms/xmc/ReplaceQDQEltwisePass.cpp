@@ -25,6 +25,7 @@
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Quant/IR/QuantTypes.h"
+#include "mlir/Dialect/Traits.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
@@ -102,16 +103,23 @@ computeActivationMapping(Operation *op, PatternRewriter &rewriter) {
   return {"", FloatAttr(), IntegerAttr(), IntegerAttr()};
 }
 
+// Extract element type from ranked or unranked tensor.
+static Type getElementTypeFromTensor(Type type) {
+  if (auto rt = mlir::dyn_cast<RankedTensorType>(type))
+    return rt.getElementType();
+  if (auto ut = mlir::dyn_cast<UnrankedTensorType>(type))
+    return ut.getElementType();
+  return {};
+}
+
 // Check if two quantized types have matching scale and zero_point.
 static bool hasMatchingQuantParams(Type typeA, Type typeB) {
-  auto tensorA = mlir::dyn_cast<RankedTensorType>(typeA);
-  auto tensorB = mlir::dyn_cast<RankedTensorType>(typeB);
-  if (!tensorA || !tensorB)
+  Type elemA = getElementTypeFromTensor(typeA);
+  Type elemB = getElementTypeFromTensor(typeB);
+  if (!elemA || !elemB)
     return false;
-  auto qA = mlir::dyn_cast<mlir::quant::UniformQuantizedType>(
-      tensorA.getElementType());
-  auto qB = mlir::dyn_cast<mlir::quant::UniformQuantizedType>(
-      tensorB.getElementType());
+  auto qA = mlir::dyn_cast<mlir::quant::UniformQuantizedType>(elemA);
+  auto qB = mlir::dyn_cast<mlir::quant::UniformQuantizedType>(elemB);
   if (!qA || !qB)
     return false;
   return std::fabs(qA.getScale() - qB.getScale()) <= 1e-6 &&
@@ -142,12 +150,43 @@ static bool isInputFromPattern2Eltwise(Value v) {
   return true;
 }
 
-// Check if type is quantized
+// Check if type is quantized (handles both ranked and unranked tensors).
 bool isQuantizedType(Type type) {
-  if (auto tensorType = mlir::dyn_cast<RankedTensorType>(type)) {
+  if (auto tensorType = mlir::dyn_cast<RankedTensorType>(type))
     return mlir::isa<mlir::quant::QuantizedType>(tensorType.getElementType());
-  }
+  if (auto tensorType = mlir::dyn_cast<UnrankedTensorType>(type))
+    return mlir::isa<mlir::quant::QuantizedType>(tensorType.getElementType());
   return false;
+}
+
+// Recover a ranked result type for an eltwise op whose result became unranked
+// due to upstream shape inference issues with mismatched quantized element
+// types. For binary ops (e.g. ADD with broadcast), the result shape is the
+// broadcast of both inputs, not one operand's shape.
+static Type recoverRankedResultType(Type resultType, Value a, Value b) {
+  if (mlir::isa<RankedTensorType>(resultType))
+    return resultType;
+  auto unrankedType = mlir::dyn_cast<UnrankedTensorType>(resultType);
+  if (!unrankedType)
+    return resultType;
+  auto aType = mlir::dyn_cast<RankedTensorType>(a.getType());
+  auto bType = b ? mlir::dyn_cast<RankedTensorType>(b.getType()) : nullptr;
+  if (aType && bType) {
+    // Binary op: result shape is the broadcast of a and b.
+    llvm::SmallVector<int64_t> broadcastedShape;
+    if (OpTrait::util::getBroadcastedShape(
+            aType.getShape(), bType.getShape(), broadcastedShape))
+      return RankedTensorType::get(
+          broadcastedShape, unrankedType.getElementType());
+    // Incompatible shapes: fall through to single-operand fallback.
+  }
+  if (aType)
+    return RankedTensorType::get(
+        aType.getShape(), unrankedType.getElementType());
+  if (bType)
+    return RankedTensorType::get(
+        bType.getShape(), unrankedType.getElementType());
+  return resultType;
 }
 
 // Check if type is BFloat16
@@ -299,9 +338,10 @@ struct FuseQuantizedEltwiseWithoutActivation
 
     StringRef nonlinear = "NONE";
 
+    Type resultType = recoverRankedResultType(eltwiseOp.getType(), a, b);
+
     auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(eltwiseOp.getLoc(),
-        eltwiseOp.getType(), // result type (quantized)
-        a, b,
+        resultType, a, b,
         /*clip_max=*/IntegerAttr(),
         /*clip_min=*/IntegerAttr(),
         /*enable_lut_sigmoid=*/rewriter.getBoolAttr(false),

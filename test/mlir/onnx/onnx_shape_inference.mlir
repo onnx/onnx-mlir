@@ -3496,6 +3496,15 @@ func.func @topk_constant_k(%X: tensor<3x4x5xf32>) -> tensor<*xf32> {
 
 // -----
 
+func.func @topk_bf16(%X: tensor<3x4x5xbf16>, %K: tensor<i64>) -> tensor<*xbf16> {
+  %value, %indices = "onnx.TopK"(%X, %K) {axis = 1 : si64} : (tensor<3x4x5xbf16>, tensor<i64>) -> (tensor<*xbf16>, tensor<*xi64>)
+  onnx.Return %value : tensor<*xbf16>
+  // CHECK-LABEL: topk_bf16
+  // CHECK: {{.*}} = "onnx.TopK"({{.*}}, {{.*}}) {axis = 1 : si64, largest = 1 : si64, sorted = 1 : si64} : (tensor<3x4x5xbf16>, tensor<i64>) -> (tensor<3x?x5xbf16>, tensor<3x?x5xi64>)
+}
+
+// -----
+
 func.func @unique(%arg0: tensor<2x2xi64>) -> tensor<*xi64> {
   %Y, %indices, %inverse_indices, %counts = "onnx.Unique"(%arg0) {axis = 0 : si64} : (tensor<2x2xi64>) -> (tensor<*xi64>, tensor<*xi64>, tensor<*xi64>, tensor<*xi64>)
   return %Y : tensor<*xi64>

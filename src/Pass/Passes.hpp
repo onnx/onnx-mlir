@@ -69,12 +69,16 @@ std::unique_ptr<mlir::Pass> createONNXCSEPass();
 
 std::unique_ptr<mlir::Pass> createQuantTypesPass();
 
+std::unique_ptr<mlir::Pass> createFixNegScalePass();
+
+#ifdef ONNX_MLIR_ENABLE_KRNL
 /// Pass for instrument the ops in specific stage.
 std::unique_ptr<mlir::Pass> createInstrumentPass();
 std::unique_ptr<mlir::Pass> createInstrumentPass(
     const std::string &ops, unsigned actions);
 /// Pass for instrument cleanup.
 std::unique_ptr<mlir::Pass> createInstrumentCleanupPass();
+#endif
 
 /// Passes for instrumenting the ONNX ops to print their operand type
 /// signatures at runtime.
@@ -179,6 +183,14 @@ std::unique_ptr<mlir::Pass> createTransferPoolFixToDownsampleFixPass();
 /// input_channels.
 std::unique_ptr<mlir::Pass> createConvertXFEConvToDepthwiseConvPass();
 
+/// Pass for fusing Conv + Activation patterns into conv ops with activation
+/// attribute (XFEConv, XFEConvTranspose, XCOMPILERDepthwiseConv).
+std::unique_ptr<mlir::Pass> createFuseConvActivationPass();
+
+/// Pass for normalizing conv activation attributes into hardware-compatible
+/// form (LEAKYRELU/PRELU/HSIGMOID) matching xcompiler behavior.
+std::unique_ptr<mlir::Pass> createNormalizeConvActivationPass();
+
 /// Pass for splitting depthwise conv2d with channel_multiplier > 1.
 std::unique_ptr<mlir::Pass>
 createTransferDepthwiseConv2dWithChannelMultiplierPass();
@@ -256,6 +268,7 @@ std::unique_ptr<mlir::Pass> createTransferOp1dToOp2dPass();
 /// Pass for transferring Scale operations to DepthwiseConv2D operations.
 std::unique_ptr<mlir::Pass> createTransferScaleToDwConv2dPass();
 
+#ifdef ONNX_MLIR_ENABLE_KRNL
 /// Pass for verifying Onnx ops before lowering to Krnl
 std::unique_ptr<mlir::Pass> createONNXPreKrnlVerifyPass();
 
@@ -269,6 +282,7 @@ void configureOnnxToKrnlLoweringPass(bool reportOnParallel,
     bool simdIsEnabled);
 std::unique_ptr<mlir::Pass> createProcessScfParallelPrivatePass();
 std::unique_ptr<mlir::Pass> createProcessKrnlParallelClausePass();
+#endif
 
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
 /// Add pass for lowering to Stablehlo IR.
@@ -276,12 +290,15 @@ std::unique_ptr<mlir::Pass> createLowerToStablehloPass();
 std::unique_ptr<mlir::Pass> createLowerToStablehloPass(bool enableUnroll);
 #endif
 
+#ifdef ONNX_MLIR_ENABLE_KRNL
 /// Pass for eliding the values of global Krnl operations.
 std::unique_ptr<mlir::Pass> createElideConstGlobalValuePass();
+#endif
 
 /// Pass for legalizing quark-quantized models.
 std::unique_ptr<mlir::Pass> createLegalizeQuarkQuantizedOpsPass();
 
+#ifdef ONNX_MLIR_ENABLE_KRNL
 namespace krnl {
 /// Pass for lowering frontend dialects to Krnl IR dialect.
 std::unique_ptr<mlir::Pass> createConvertKrnlToAffinePass();
@@ -301,6 +318,7 @@ std::unique_ptr<mlir::Pass> createConvertKrnlToLLVMPass(bool verifyInputTensors,
     std::string outputNameNoExt, bool enableParallel);
 
 } // namespace krnl
+#endif
 
 /// Pass for lowering Onnx ops to TOSA dialect
 std::unique_ptr<mlir::Pass> createConvertONNXToTOSAPass();

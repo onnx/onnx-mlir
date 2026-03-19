@@ -1113,9 +1113,9 @@ def ONNXCeluOp:ONNX_Op<"Celu",
   ```
   }];
   // FIXME(FXML-4138): Remove manual modification of BF16 support when the operation definition is updated upstream
-  let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, TensorOf<[BF16]>]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, TensorOf<[BF16]>, TensorOf<[quant_QuantizedType]>]>:$X,
     DefaultValuedAttr<F32Attr, "1.0">:$alpha);
-  let results = (outs AnyTypeOf<[TensorOf<[F32]>, TensorOf<[BF16]>]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[F32]>, TensorOf<[BF16]>, TensorOf<[quant_QuantizedType]>]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -1215,6 +1215,7 @@ def ONNXClipOp:ONNX_Op<"Clip",
       return sh;
     }
   }];
+  let hasFolder = 1;
 }
 
 def ONNXClipV12Op:ONNX_Op<"ClipV12",
@@ -6161,22 +6162,22 @@ def ONNXQLinearConvOp:ONNX_Op<"QLinearConv",
   When bias is present it must be quantized using scale = input scale * weight scale and
   zero point as 0.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI16]>, TensorOf<[UI8]>]>:$x,
+  let arguments = (ins AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[UI16]>]>:$x,
     AnyTypeOf<[TensorOf<[F32]>, TensorOf<[quant_QuantizedType]>]>:$x_scale,
-    AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI16]>, TensorOf<[UI8]>]>:$x_zero_point,
-    AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI16]>, TensorOf<[UI8]>]>:$w,
+    AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[UI16]>]>:$x_zero_point,
+    AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[UI16]>]>:$w,
     AnyTypeOf<[TensorOf<[F32]>, TensorOf<[quant_QuantizedType]>]>:$w_scale,
-    AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI16]>, TensorOf<[UI8]>]>:$w_zero_point,
+    AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[UI16]>]>:$w_zero_point,
     AnyTypeOf<[TensorOf<[F32]>, TensorOf<[quant_QuantizedType]>]>:$y_scale,
-    AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI16]>, TensorOf<[UI8]>]>:$y_zero_point,
-    AnyTypeOf<[TensorOf<[I32]>, TensorOf<[UI16]>, TensorOf<[I16]>, TensorOf<[I8]>, NoneType]>:$B,
+    AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[UI16]>]>:$y_zero_point,
+    AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I16]>, TensorOf<[I8]>, TensorOf<[UI16]>, NoneType]>:$B,
     DefaultValuedStrAttr<StrAttr, "NOTSET">:$auto_pad,
     OptionalAttr<I64ArrayAttr>:$dilations,
     DefaultValuedAttr<SI64Attr, "1">:$group,
     OptionalAttr<I64ArrayAttr>:$kernel_shape,
     OptionalAttr<I64ArrayAttr>:$pads,
     OptionalAttr<I64ArrayAttr>:$strides);
-  let results = (outs AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI16]>, TensorOf<[UI8]>]>:$y);
+  let results = (outs AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[UI16]>]>:$y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 9;
@@ -6214,7 +6215,7 @@ def ONNXQLinearMatMulOp:ONNX_Op<"QLinearMatMul",
   have shape [D1, D2, M, 1] for per row quantization and shape [D1, D2, 1, K] for per column quantization.
   Production must never overflow, and accumulation may overflow if and only if in 32 bits.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[UI16]>, TensorOf<[UI8]>]>:$a,
+  let arguments = (ins AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[I16]>, TensorOf<[UI16]>]>:$a,
     AnyTypeOf<[TensorOf<[F32]>, TensorOf<[quant_QuantizedType]>]>:$a_scale,
     AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[I16]>, TensorOf<[UI16]>]>:$a_zero_point,
     AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[I16]>, TensorOf<[UI16]>]>:$b,
@@ -10100,7 +10101,7 @@ def ONNXTileOp:ONNX_Op<"Tile",
 }
 
 def ONNXTopKOp:ONNX_Op<"TopK",
-  [Pure, OpVersionTrait<11>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<24>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX TopK operation";
   let description = [{
   Retrieve the top-K largest or smallest elements along a specified axis. Given an input tensor of
@@ -10119,12 +10120,12 @@ def ONNXTopKOp:ONNX_Op<"TopK",
   Given two equivalent values, this operator uses the indices along the axis as
   a tiebreaker. That is, the element with the lower index will appear first.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[quant_QuantizedType]>]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[quant_QuantizedType]>]>:$X,
     TensorOf<[I64]>:$K,
     DefaultValuedAttr<SI64Attr, "-1">:$axis,
     DefaultValuedAttr<SI64Attr, "1">:$largest,
     DefaultValuedAttr<SI64Attr, "1">:$sorted);
-  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[quant_QuantizedType]>]>:$Values,
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[quant_QuantizedType]>]>:$Values,
     TensorOf<[I64]>:$Indices);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {

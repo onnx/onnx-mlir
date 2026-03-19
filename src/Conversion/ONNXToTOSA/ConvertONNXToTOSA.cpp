@@ -118,6 +118,10 @@ public:
       "convert-slice-only-when-step-one",
       llvm::cl::desc("If enabled, convert onnx.slice only if all steps are 1"),
       llvm::cl::ZeroOrMore, llvm::cl::init(false)};
+  ListOption<std::string> excludedOps{*this, "excluded-ops",
+      llvm::cl::desc("ONNX op names to exclude from TOSA conversion "
+                     "(e.g. Gather,Cast)"),
+      llvm::cl::ZeroOrMore};
 };
 
 Value handleDynamicToStaticShapes(
@@ -192,6 +196,9 @@ void FrontendToTosaLoweringPass::runOnOperation() {
   // Define legal dialects and operations
   target.addLegalDialect<mlir::tosa::TosaDialect, func::FuncDialect,
       mlir::arith::ArithDialect, mlir::shape::ShapeDialect>();
+
+  for (const std::string &opName : excludedOps)
+    target.addLegalOp(OperationName("onnx." + opName, context));
 
   // Define patterns
   populateONNXToTOSAConversionPattern(target, patterns, typeConverter, context,

@@ -80,8 +80,9 @@ bool ConstPropONNXToONNXPassConfiguration::constantPropIsDisabled = false;
 // Precondition: result has ranked tensor type with static shape and int or
 // float element type.
 bool satisfiesExpansionBound(Value result) {
-  auto resultType = cast<RankedTensorType>(result.getType());
-  assert(resultType.hasStaticShape() && "expansion bound needs static shape");
+  auto resultType = dyn_cast<RankedTensorType>(result.getType());
+  if (!resultType || !resultType.hasStaticShape())
+    return true;
   // SmallVector<WideNum> uses uint32_t for capacity when sizeof(WideNum) >= 4
   // thus capping at UINT32_MAX elements.
   constexpr auto kMaxConstPropElements =

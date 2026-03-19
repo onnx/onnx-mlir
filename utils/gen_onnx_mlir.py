@@ -286,7 +286,7 @@ version_dict = {
         "TfIdfVectorizer": [9],
         "ThresholdedRelu": [22],
         "Tile": [13],
-        "TopK": [11],
+        "TopK": [24],
         "Transpose": [21],
         "Trilu": [14],
         "Unique": [11],
@@ -459,6 +459,19 @@ def load_custom_ops_from_yaml(yaml_paths: List[str]) -> List[CustomOpSchema]:
     return custom_schemas
 
 
+# Extra tensor types patched into ops' ONNX type constraints after parsing.
+# Keyed by op name. Value is a dict of type_param -> extra allowed type strings:
+#   "*" applies to all type params, named keys (e.g. "T4") target one param.
+special_type_constraints = {
+    "QLinearConv": {
+        "*": ["tensor(uint16)"],
+        "T4": ["tensor(int16)", "tensor(int8)"],
+    },
+    "QLinearMatMul": {
+        "*": ["tensor(int16)", "tensor(uint16)"],
+    },
+}
+
 # Manual specification of attribute type.
 special_attr_types = dict([("Cast.to", "type")])
 
@@ -625,11 +638,7 @@ OpsWithVerifier = [
 ]
 
 # Op with fold function
-OpsWithFolder = ["Constant", "Squeeze", "SqueezeV11", "ReduceMean", "Slice"]
-
-# Dynamic lists for custom ops with verify and fold (populated at runtime)
-CustomOpsWithVerifier = []
-CustomOpsWithFolder = []
+OpsWithFolder = ["Constant", "Squeeze", "SqueezeV11", "ReduceMean", "Slice", "Clip"]
 
 # Op with ConstantLike trait
 OpsWithConstantLike = ["Constant"]
@@ -1404,6 +1413,14 @@ def parse_type_constraints(schema):
         type_str_dict[type_constraint.type_param_str] = parse_a_type_constraint(
             type_constraint
         )
+    if schema.name in special_type_constraints:
+        patches = special_type_constraints[schema.name]
+        for type_param, types in type_str_dict.items():
+            extra = patches.get(type_param, []) + patches.get("*", [])
+            for t in extra:
+                mlir_t = parse_type_str(t)
+                if mlir_t not in types:
+                    types.append(mlir_t)
     return type_str_dict
 
 
@@ -1497,11 +1514,11 @@ def gen_op_def(schema, with_version=False):
     traits = ["Pure", f"OpVersionTrait<{schema.since_version}>"]
 
     # Generate SameOperandsAndResultShape traits.
-    if opName in OpsWithSameOperandsAndResultShape:
+    if mlir_op_name in OpsWithSameOperandsAndResultShape:
         traits.append("SameOperandsAndResultShape")
 
     # Generate ConstantLike traits.
-    if opName in OpsWithConstantLike:
+    if mlir_op_name in OpsWithConstantLike:
         traits.append("ConstantLike")
 
     # OpsWithShapeInference:
@@ -1510,7 +1527,7 @@ def gen_op_def(schema, with_version=False):
     # Error will be report if these operations are encountered at runtime.
     traits.append("DeclareOpInterfaceMethods<ShapeInferenceOpInterface>")
     traits.append("DeclareOpInterfaceMethods<ShapeHelperOpInterface>")
-    if opName in OpsWithResultTypeInference:
+    if mlir_op_name in OpsWithResultTypeInference:
         traits.append("DeclareOpInterfaceMethods<ResultTypeInferenceOpInterface>")
     if len(regions):
         traits.append('OpInterface<"HasOnnxSubgraphOpInterface">')
@@ -1519,11 +1536,11 @@ def gen_op_def(schema, with_version=False):
     indent = inc_indent(indent)
 
     # Generate decl for custom assembly format.
-    if opName in OpsWithCustomAssemblyFormat:
+    if mlir_op_name in OpsWithCustomAssemblyFormat:
         s += indent + "let hasCustomAssemblyFormat = 1;\n"
 
     # Generate decl for canonicalizer.
-    if opName in OpsWithCanonicalizer:
+    if mlir_op_name in OpsWithCanonicalizer:
         s += indent + "let hasCanonicalizer = 1;\n"
 
     # Generate decl for summary.
@@ -1577,7 +1594,7 @@ def gen_op_def(schema, with_version=False):
     # Add custom builders.
     # Use element type of the first operand to construct an UnrankedTensorType
     # for the output.
-    if opName in custom_builder_ops_list:
+    if mlir_op_name in custom_builder_ops_list:
         if len(ins) == 0:
             raise RuntimeWarning(
                 "warning: not generate custom build methods for "
@@ -1586,11 +1603,11 @@ def gen_op_def(schema, with_version=False):
             )
 
         r = ""  # r is the resultType, use it with r.format(*operands, indent=indent)
-        if opName in custom_builder_broadcast_ops_list:
+        if mlir_op_name in custom_builder_broadcast_ops_list:
             numOperands = 2
             r += "{indent}auto lhsTy = {0}.getType();\n"
             r += "{indent}auto rhsTy = {1}.getType();\n"
-            if opName in custom_builder_broadcast_to_bool_ops_list:
+            if mlir_op_name in custom_builder_broadcast_to_bool_ops_list:
                 r += "{indent}auto elTy = $_builder.getI1Type();\n"
                 elTy = "elTy"
             else:
@@ -1671,8 +1688,8 @@ def gen_op_def(schema, with_version=False):
     # Generate input/output number and output type mapping
     s = get_numberof_inout(s, indent, schema)
 
-    if opName in OpsWithHelpers:
-        s += OpsWithHelpers[opName]
+    if mlir_op_name in OpsWithHelpers:
+        s += OpsWithHelpers[mlir_op_name]
 
     if len(regions):
         s += indent + "int64_t getSubgraphRegionIdx(const std::string& name) {\n"
@@ -1696,14 +1713,18 @@ def gen_op_def(schema, with_version=False):
 
     s += indent + "}];\n"
 
-    if opName in custom_definition_misc:
-        s += custom_definition_misc[opName] + "\n"
+    if mlir_op_name in custom_definition_misc:
+        s += custom_definition_misc[mlir_op_name] + "\n"
 
     ###########################################
-    # Generate decl for verifier.
-    if opName in OpsWithVerifier or opName in CustomOpsWithVerifier:
+    # Generate decl for verifier/folder.
+    custom_meta = getattr(schema, "meta_attributes", {})
+    custom_has_verifier = bool(custom_meta.get("verify", False))
+    custom_has_folder = bool(custom_meta.get("fold", False))
+
+    if opName in OpsWithVerifier or custom_has_verifier:
         s += indent + "let hasVerifier = 1;\n"
-    if opName in OpsWithFolder or opName in CustomOpsWithFolder:
+    if opName in OpsWithFolder or custom_has_folder:
         s += indent + "let hasFolder = 1;\n"
     s += "}\n\n"
     return s
@@ -1745,13 +1766,17 @@ def gen_op_importer(domain, name, file, since_version=None):
 
     mappedName = map_op_name_to_onnx_mlir_name(opName, domain)
     s = indent + 'import_handler_map_["{}"]["{}"] = \n '.format(domain, opName)
+    if domain and domain not in ["", "ai.onnx.ml", "ai.onnx.preview.training"]:
+        mlir_op_name = domain_abrv_dict[domain] + opName
+    else:
+        mlir_op_name = opName
 
     # Only support special op handler for the op without version.
     if since_version is not None:
         handler_func = "buildOperation<mlir::{}>".format(mappedName)
     else:
         handler_func = special_op_handler.get(
-            name, "buildOperation<mlir::{}>".format(mappedName)
+            mlir_op_name, "buildOperation<mlir::{}>".format(mappedName)
         )
 
     s += inc_indent(indent) + "&onnx_mlir::detail::FrontendGenImpl::"
@@ -1778,7 +1803,7 @@ def build_operator_schemas(custom_ops=None):
     operator_schemas = (
         list()
     )  # type: List[Tuple[Text, List[Tuple[int, List[Tuple[Text, OpSchema, List[OpSchema]]]]]]]
-    existing_ops = set()  # type: Set[Text]
+    existing_ops = set()  # type: Set[Tuple[Text, Text]]
     # Domain, name, versions
     opsets: dict[str, dict[str, list[int]]] = defaultdict(
         lambda: defaultdict(list)
@@ -1793,12 +1818,12 @@ def build_operator_schemas(custom_ops=None):
                 versions = sorted(unsorted_versions, key=lambda s: s.since_version)
                 opsets[domain][n].extend(reversed([s.since_version for s in versions]))
                 schema = versions[-1]
-                if schema.name in existing_ops:
+                if (domain, schema.name) in existing_ops:
                     continue
 
                 if check_operation_version:
                     # Generate operation of the latest version of your onnx.
-                    existing_ops.add(schema.name)
+                    existing_ops.add((domain, schema.name))
                     processed_name_map.append((n, schema, versions))
                     if domain not in version_dict:
                         continue
@@ -1831,7 +1856,7 @@ def build_operator_schemas(custom_ops=None):
                         # Check the version number against the version_dict.
                         specified_version = version_dict[domain][schema.name][v_counter]
                         if schema.since_version == specified_version:
-                            existing_ops.add(schema.name)
+                            existing_ops.add((domain, schema.name))
                             processed_name_map.append((n, schema, versions))
                             found = True
                             v_counter += 1
@@ -1862,7 +1887,7 @@ def main(args):  # type: (Type[Args]) -> None
         custom_ops = load_custom_ops_from_yaml(args.custom_ops_yaml)
         print(f"Loaded {len(custom_ops)} custom operations from {args.custom_ops_yaml}")
 
-        # Build version dict for custom ops and populate verifier/folder lists
+        # Build version dict for custom ops.
         for op in custom_ops:
             if op.domain not in custom_version_dict:
                 custom_version_dict[op.domain] = {}
@@ -1876,16 +1901,10 @@ def main(args):  # type: (Type[Args]) -> None
                 domain_abrv_dict[op.domain] = abbrev
                 print(f"Registered new domain: {op.domain} -> {abbrev}")
 
-            # Check meta_attributes for verify and fold
-            domain_abbrev = domain_abrv_dict.get(op.domain, op.domain.upper())
-            op_name = f"{domain_abbrev}{op.name}Op"
-
             if op.meta_attributes.get("verify", False):
-                CustomOpsWithVerifier.append(op.name)
                 print(f"  {op.name}: verify enabled")
 
             if op.meta_attributes.get("fold", False):
-                CustomOpsWithFolder.append(op.name)
                 print(f"  {op.name}: fold enabled")
 
         # Merge custom_version_dict into version_dict so custom ops are generated
