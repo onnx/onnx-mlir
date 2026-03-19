@@ -2847,7 +2847,7 @@ struct FuseBackToBackMaxpools
     auto inputShape = inputType.getShape();
 
     for (uint64_t pooledDimIdx = 2; pooledDimIdx < inputShape.size();
-         pooledDimIdx++) {
+        pooledDimIdx++) {
       auto effectiveInputDim = inputShape[pooledDimIdx] + 2 * upperMaxpoolPad;
       if ((effectiveInputDim - upperMaxpoolKernelSize) % upperMaxpoolStride !=
           0) {
@@ -3023,6 +3023,71 @@ struct FusePadIntoAveragePoolPattern
   }
 };
 
+// Replace onnx.Gather with a scalar constant index by onnx.Slice +
+// onnx.Reshape. Gather(data, scalar_constant_index, axis) is equivalent to
+// slicing a single element along the axis and then squeezing that axis away.
+class ReplaceGatherWithSlicePattern : public OpRewritePattern<ONNXGatherOp> {
+public:
+  using OpRewritePattern<ONNXGatherOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXGatherOp gatherOp, PatternRewriter &rewriter) const override {
+    Location loc = gatherOp.getLoc();
+    Value data = gatherOp.getData();
+    Value indices = gatherOp.getIndices();
+    int64_t axis = gatherOp.getAxis();
+
+    auto inputType = dyn_cast<RankedTensorType>(data.getType());
+    if (!inputType || !inputType.hasStaticShape())
+      return failure();
+
+    // Check that indices is a scalar
+    auto indicesType = dyn_cast<ShapedType>(indices.getType());
+    if (!indicesType || indicesType.getRank() != 0)
+      return failure();
+
+    // Check that indices is a constant integer value
+    APInt indicesVal;
+    if (!matchPattern(indices, m_ConstantInt(&indicesVal)))
+      return failure();
+
+    int64_t inputRank = inputType.getRank();
+    if (axis < 0)
+      axis += inputRank;
+
+    ArrayRef<int64_t> inputShape = inputType.getShape();
+
+    int64_t idx = indicesVal.getSExtValue();
+    if (idx < 0)
+      idx += inputShape[axis];
+
+    OnnxBuilder createONNX(rewriter, loc);
+
+    Value starts = createONNX.constantInt64({idx});
+    Value ends = createONNX.constantInt64({idx + 1});
+    Value axes = createONNX.constantInt64({axis});
+    Value steps = createONNX.constantInt64({1});
+
+    SmallVector<int64_t, 4> sliceShape(inputShape.begin(), inputShape.end());
+    sliceShape[axis] = 1;
+    auto sliceType =
+        RankedTensorType::get(sliceShape, inputType.getElementType());
+
+    Value sliceOp =
+        createONNX.slice(sliceType, data, starts, ends, axes, steps);
+
+    // Gather with a scalar index removes the gathered axis from the result,
+    // but Slice preserves rank. Reshape to drop the size-1 axis.
+    auto gatherOutputType = cast<RankedTensorType>(gatherOp.getType());
+    Value shapeConst = createONNX.constantInt64(
+        SmallVector<int64_t>(gatherOutputType.getShape()));
+    Value reshapeOp = createONNX.reshape(gatherOutputType, sliceOp, shapeConst);
+    rewriter.replaceOp(gatherOp, reshapeOp);
+
+    return success();
+  }
+};
+
 // =============================================================================
 /// Register optimization patterns as "canonicalization" patterns.
 /// Add op to OpsWithCanonicalizer in gen_onnx_mlir.py to activate.
@@ -3149,6 +3214,12 @@ void ONNXDimOp::getCanonicalizationPatterns(
 void ONNXEqualOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<BinaryOpBroadcastAxisPattern<ONNXEqualOp>>(context);
+}
+
+/// on the ONNXGatherOp.
+void ONNXGatherOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<ReplaceGatherWithSlicePattern>(context);
 }
 
 /// on the ONNXGlobalAveragePoolOp.
