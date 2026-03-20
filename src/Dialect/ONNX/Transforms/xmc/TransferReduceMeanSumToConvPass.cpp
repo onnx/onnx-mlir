@@ -232,8 +232,8 @@ mlir::Value convertReductionToConv(mlir::PatternRewriter &rewriter,
     if (wScale < 1e-10)
       wScale = 1.0;
     weightElemType = mlir::quant::UniformQuantizedType::get(
-        mlir::quant::QuantizationFlags::Signed,
-        rewriter.getIntegerType(8), inputQuantType.getExpressedType(), wScale,
+        mlir::quant::QuantizationFlags::Signed, rewriter.getIntegerType(8),
+        inputQuantType.getExpressedType(), wScale,
         /*zeroPoint=*/0, /*storageTypeMin=*/-128, /*storageTypeMax=*/127);
   }
 
@@ -254,10 +254,14 @@ mlir::Value convertReductionToConv(mlir::PatternRewriter &rewriter,
 
   // Create zero bias for quantized conv (reference xcompiler always adds bias)
   mlir::Value bias;
-  if (mlir::isa<mlir::quant::QuantizedType>(inputType.getElementType())) {
+  if (auto inputQuantType = mlir::dyn_cast<mlir::quant::UniformQuantizedType>(
+          inputType.getElementType())) {
     llvm::SmallVector<int64_t> biasShape = {convOutputC};
-    bias = createConstantTensor(
-        rewriter, loc, biasShape, 0.0f, inputType.getElementType());
+    auto biasQuantType = mlir::quant::UniformQuantizedType::get(
+        mlir::quant::QuantizationFlags::Signed, rewriter.getIntegerType(16),
+        inputQuantType.getExpressedType(), inputQuantType.getScale(),
+        /*zeroPoint=*/0, /*storageTypeMin=*/-32768, /*storageTypeMax=*/32767);
+    bias = createConstantTensor(rewriter, loc, biasShape, 0.0f, biasQuantType);
   } else {
     bias = rewriter.create<mlir::ONNXNoneOp>(loc).getResult();
   }
@@ -428,7 +432,8 @@ struct ReduceMeanSpatialAxisToConvPattern
     // both operate on 4D tensors and compose to a trivial reshape
     // (only moving size-1 dims) rather than producing residual transposes.
     mlir::Value workingInput = input;
-    llvm::SmallVector<int64_t> workingShape(inputShape.begin(), inputShape.end());
+    llvm::SmallVector<int64_t> workingShape(
+        inputShape.begin(), inputShape.end());
     int64_t workingRank = rank;
     if (rank < 4) {
       workingShape.resize(4, 1);
@@ -465,12 +470,10 @@ struct ReduceMeanSpatialAxisToConvPattern
     // Compute keepdims=true output shape in transposed domain
     llvm::SmallVector<int64_t> transposedConvOutputShape;
     for (int64_t i = 0; i < workingRank; ++i)
-      transposedConvOutputShape.push_back(
-          i == 1 ? 1 : transposedInputShape[i]);
+      transposedConvOutputShape.push_back(i == 1 ? 1 : transposedInputShape[i]);
 
-    mlir::Value convResult = convertReductionToConv(
-        rewriter, loc, transposedInput, /*isMean=*/true,
-        transposedConvOutputShape);
+    mlir::Value convResult = convertReductionToConv(rewriter, loc,
+        transposedInput, /*isMean=*/true, transposedConvOutputShape);
 
     // Compute inverse permutation and transpose back
     llvm::SmallVector<int64_t> inversePerm(workingRank);
@@ -485,8 +488,8 @@ struct ReduceMeanSpatialAxisToConvPattern
     auto untransposedType = mlir::RankedTensorType::get(
         untransposedShape, inputType.getElementType());
 
-    mlir::Value result = rewriter.create<mlir::ONNXTransposeOp>(
-        loc, untransposedType, convResult, rewriter.getI64ArrayAttr(inversePerm));
+    mlir::Value result = rewriter.create<mlir::ONNXTransposeOp>(loc,
+        untransposedType, convResult, rewriter.getI64ArrayAttr(inversePerm));
 
     // Reshape to match expected output shape (e.g. keepdims=false removes dim)
     if (untransposedShape != llvm::ArrayRef<int64_t>(outputShape))
@@ -602,7 +605,8 @@ struct ReduceSumSpatialAxisToConvPattern
     // both operate on 4D tensors and compose to a trivial reshape
     // (only moving size-1 dims) rather than producing residual transposes.
     mlir::Value workingInput = input;
-    llvm::SmallVector<int64_t> workingShape(inputShape.begin(), inputShape.end());
+    llvm::SmallVector<int64_t> workingShape(
+        inputShape.begin(), inputShape.end());
     int64_t workingRank = rank;
     if (rank < 4) {
       workingShape.resize(4, 1);
@@ -632,12 +636,10 @@ struct ReduceSumSpatialAxisToConvPattern
     // In transposed domain: reduction is now on axis 1 (channel)
     llvm::SmallVector<int64_t> transposedConvOutputShape;
     for (int64_t i = 0; i < workingRank; ++i)
-      transposedConvOutputShape.push_back(
-          i == 1 ? 1 : transposedInputShape[i]);
+      transposedConvOutputShape.push_back(i == 1 ? 1 : transposedInputShape[i]);
 
-    mlir::Value convResult = convertReductionToConv(
-        rewriter, loc, transposedInput, /*isMean=*/false,
-        transposedConvOutputShape);
+    mlir::Value convResult = convertReductionToConv(rewriter, loc,
+        transposedInput, /*isMean=*/false, transposedConvOutputShape);
 
     // Compute inverse permutation and transpose back
     llvm::SmallVector<int64_t> inversePerm(workingRank);
@@ -652,8 +654,8 @@ struct ReduceSumSpatialAxisToConvPattern
     auto untransposedType = mlir::RankedTensorType::get(
         untransposedShape, inputType.getElementType());
 
-    mlir::Value result = rewriter.create<mlir::ONNXTransposeOp>(
-        loc, untransposedType, convResult, rewriter.getI64ArrayAttr(inversePerm));
+    mlir::Value result = rewriter.create<mlir::ONNXTransposeOp>(loc,
+        untransposedType, convResult, rewriter.getI64ArrayAttr(inversePerm));
 
     // Reshape to match expected output shape (e.g. keepdims=false removes dim)
     if (untransposedShape != llvm::ArrayRef<int64_t>(outputShape))
