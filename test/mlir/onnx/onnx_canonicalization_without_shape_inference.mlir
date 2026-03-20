@@ -250,3 +250,25 @@ func.func @test_split_relu_movement_missing_shape(%arg0: tensor<1x8x2xf32>) -> (
 // CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Relu"([[VAR_1_]]#2) {onnx_node_name = "onnx.Relu_3"} : (tensor<1x3x2xf32>) -> tensor<1x3x2xf32>
 // CHECK:           onnx.Return [[VAR_2_]], [[VAR_3_]], [[VAR_4_]] : tensor<1x2x2xf32>, tensor<*xf32>, tensor<1x3x2xf32>
 // CHECK:         }
+
+// -----
+
+// No fusion should happen when element types differ across the reshape chain
+// (e.g. quantized input -> float output).
+func.func @test_reshape_no_fusion_type_mismatch(
+    %arg0: tensor<1x6x!quant.uniform<i8:f32, 1.000000e+00>>) -> tensor<6xf32> {
+  %0 = onnx.Constant dense<[2, 3]> : tensor<2xi64>
+  %1 = onnx.Constant dense<[6]> : tensor<1xi64>
+  %2 = "onnx.Reshape"(%arg0, %0) : (tensor<1x6x!quant.uniform<i8:f32, 1.000000e+00>>, tensor<2xi64>) -> tensor<2x3x!quant.uniform<i8:f32, 1.000000e+00>>
+  %3 = "onnx.Reshape"(%2, %1) : (tensor<2x3x!quant.uniform<i8:f32, 1.000000e+00>>, tensor<1xi64>) -> tensor<6xf32>
+  onnx.Return %3 : tensor<6xf32>
+
+// CHECK-LABEL:  func.func @test_reshape_no_fusion_type_mismatch
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x6x!quant.uniform<i8:f32, 1.000000e+00>>) -> tensor<6xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[2, 3]> : tensor<2xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<6> : tensor<1xi64>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_0_]]) {allowzero = 0 : si64} : (tensor<1x6x!quant.uniform<i8:f32, 1.000000e+00>>, tensor<2xi64>) -> tensor<2x3x!quant.uniform<i8:f32, 1.000000e+00>>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Reshape"([[VAR_2_]], [[VAR_1_]]) {allowzero = 0 : si64} : (tensor<2x3x!quant.uniform<i8:f32, 1.000000e+00>>, tensor<1xi64>) -> tensor<6xf32>
+// CHECK:           onnx.Return [[VAR_3_]] : tensor<6xf32>
+// CHECK:         }
+}
