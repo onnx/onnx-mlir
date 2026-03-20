@@ -2847,7 +2847,7 @@ struct FuseBackToBackMaxpools
     auto inputShape = inputType.getShape();
 
     for (uint64_t pooledDimIdx = 2; pooledDimIdx < inputShape.size();
-         pooledDimIdx++) {
+        pooledDimIdx++) {
       auto effectiveInputDim = inputShape[pooledDimIdx] + 2 * upperMaxpoolPad;
       if ((effectiveInputDim - upperMaxpoolKernelSize) % upperMaxpoolStride !=
           0) {
@@ -3042,7 +3042,7 @@ public:
       return failure();
 
     // Check that indices is a scalar
-    auto indicesType = dyn_cast<ShapedType>(indices.getType());
+    auto indicesType = dyn_cast<RankedTensorType>(indices.getType());
     if (!indicesType || indicesType.getRank() != 0)
       return failure();
 
