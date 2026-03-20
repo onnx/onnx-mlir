@@ -126,15 +126,14 @@ LogicalResult XFEConvOpShapeInference(
   if (dilationsAttr.has_value()) {
     auto dilationsArray = dilationsAttr.value();
     for (size_t i = 0; i < std::min(dilationsArray.size(), dilations.size());
-         ++i) {
+        ++i) {
       dilations[i] = mlir::cast<IntegerAttr>(dilationsArray[i]).getInt();
     }
   }
 
   // Check auto_pad mode
   StringRef autoPad = convOp.getAutoPad();
-  bool isSamePad =
-      (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER");
+  bool isSamePad = (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER");
 
   // Parse explicit pads only when not using auto_pad SAME
   if (!isSamePad && padsAttr.has_value()) {
@@ -241,7 +240,7 @@ LogicalResult XFEConvTransposeOpShapeInference(
   if (dilationsAttr.has_value()) {
     auto dilationsArray = dilationsAttr.value();
     for (size_t i = 0; i < std::min(dilationsArray.size(), dilations.size());
-         ++i) {
+        ++i) {
       dilations[i] = mlir::cast<IntegerAttr>(dilationsArray[i]).getInt();
     }
   }
@@ -249,7 +248,7 @@ LogicalResult XFEConvTransposeOpShapeInference(
   if (outputPaddingAttr.has_value()) {
     auto outputPaddingArray = outputPaddingAttr.value();
     for (size_t i = 0;
-         i < std::min(outputPaddingArray.size(), outputPadding.size()); ++i) {
+        i < std::min(outputPaddingArray.size(), outputPadding.size()); ++i) {
       outputPadding[i] =
           mlir::cast<IntegerAttr>(outputPaddingArray[i]).getInt();
     }
@@ -257,8 +256,7 @@ LogicalResult XFEConvTransposeOpShapeInference(
 
   // Check auto_pad mode
   StringRef autoPad = convTransposeOp.getAutoPad();
-  bool isSamePad =
-      (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER");
+  bool isSamePad = (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER");
 
   if (!isSamePad && padsAttr.has_value()) {
     auto padsArray = padsAttr.value();
@@ -361,8 +359,7 @@ LogicalResult XFEAveragePoolOpShapeInference(
 
   // Check auto_pad mode
   StringRef autoPad = poolOp.getAutoPad();
-  bool isSamePad =
-      (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER");
+  bool isSamePad = (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER");
 
   // Parse pads only when not using auto_pad SAME
   SmallVector<int64_t, 8> pads(numSpatialDims * 2, 0);
@@ -464,8 +461,7 @@ LogicalResult XFEMaxPoolOpShapeInference(
 
   // Check auto_pad mode
   StringRef autoPad = poolOp.getAutoPad();
-  bool isSamePad =
-      (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER");
+  bool isSamePad = (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER");
 
   // Parse pads only when not using auto_pad SAME
   SmallVector<int64_t, 8> pads(numSpatialDims * 2, 0);
@@ -479,7 +475,7 @@ LogicalResult XFEMaxPoolOpShapeInference(
   SmallVector<int64_t, 4> dilations(numSpatialDims, 1);
   if (dilationsAttr.has_value()) {
     for (size_t i = 0; i < std::min(dilationsAttr->size(), dilations.size());
-         ++i) {
+        ++i) {
       dilations[i] = mlir::cast<IntegerAttr>((*dilationsAttr)[i]).getInt();
     }
   }
