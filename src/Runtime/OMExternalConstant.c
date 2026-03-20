@@ -27,7 +27,12 @@ typedef int make_iso_compilers_happy;
 
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <unistd.h>
+
+#ifdef __MVS__
+#define MAX_MMAP_SIZE (1024LL * 1024LL * 1024LL)
+#endif
 
 #if defined(_WIN32)
 const char *DIR_SEPARATOR = "\\";
@@ -47,6 +52,165 @@ __attribute__((unused)) static void checkEndianness(const char constPackIsLE) {
     exit(1);
   }
 }
+
+#ifdef __MVS__
+// Global buffer to store preloaded constants (z/OS only)
+static void *g_constant_buffer = NULL;
+static int64_t g_constant_buffer_size = 0;
+
+/// Constructor: Preload constants at library load time (z/OS only)
+void __attribute__((constructor)) omPreloadConstants(void) {
+  // Get the constant filename from environment variable
+  char *const_filename = getenv("OM_CONSTANT_FILE");
+  if (!const_filename) {
+    // No constant file specified, nothing to preload
+    return;
+  }
+
+  // Get the base path from environment variable
+  char *basePath = getenv("OM_CONSTANT_PATH");
+  if (!basePath) {
+    // No path specified, use current directory
+    basePath = ".";
+  }
+
+  // Construct full file path
+  size_t baseLen = strlen(basePath);
+  size_t fnameLen = strlen(const_filename);
+  size_t sepLen = strlen(DIR_SEPARATOR);
+  size_t filePathLen = baseLen + sepLen + fnameLen + 1;
+  
+  char *filePath = (char *)malloc(filePathLen);
+  if (!filePath) {
+    fprintf(stderr, "Error allocating memory for file path\n");
+    return;
+  }
+
+  snprintf(filePath, filePathLen, "%s%s%s", basePath, DIR_SEPARATOR,
+      const_filename);
+
+  // Open the constants file
+  int fd = open(filePath, O_RDONLY);
+  if (fd < 0) {
+    // File doesn't exist - this is OK, might not have constants
+    free(filePath);
+    return;
+  }
+
+  // Get file size
+  struct stat st;
+  if (fstat(fd, &st) != 0) {
+    fprintf(stderr, "Error getting file size for %s: %s\n", filePath,
+        strerror(errno));
+    close(fd);
+    free(filePath);
+    return;
+  }
+
+  int64_t fileSize = st.st_size;
+  g_constant_buffer_size = fileSize;
+
+  // Check if file is larger than 1GB (mmap limit on z/OS)
+  if (fileSize > MAX_MMAP_SIZE) {
+    // Large file - use malloc + chunked read
+    g_constant_buffer = malloc(g_constant_buffer_size);
+
+    if (!g_constant_buffer) {
+      fprintf(stderr, "Failed to allocate %lld bytes for constants\n",
+          (long long)g_constant_buffer_size);
+      close(fd);
+      free(filePath);
+      return;
+    }
+
+    // Read file in 1GB chunks
+    int64_t remaining = g_constant_buffer_size;
+    int64_t offset = 0;
+    char *destPtr = (char *)g_constant_buffer;
+
+    while (remaining > 0) {
+      int64_t chunkSize =
+          (remaining > MAX_MMAP_SIZE) ? MAX_MMAP_SIZE : remaining;
+      int64_t totalRead = 0;
+
+      // Handle short reads
+      while (totalRead < chunkSize) {
+        ssize_t bytesRead =
+            read(fd, destPtr + offset + totalRead, chunkSize - totalRead);
+
+        if (bytesRead < 0) {
+          fprintf(stderr, "Error reading constants at offset %lld: %s\n",
+              (long long)(offset + totalRead), strerror(errno));
+          free(g_constant_buffer);
+          g_constant_buffer = NULL;
+          g_constant_buffer_size = 0;
+          close(fd);
+          free(filePath);
+          return;
+        }
+
+        if (bytesRead == 0) {
+          fprintf(stderr, "Unexpected EOF reading constants at offset %lld\n",
+              (long long)(offset + totalRead));
+          free(g_constant_buffer);
+          g_constant_buffer = NULL;
+          g_constant_buffer_size = 0;
+          close(fd);
+          free(filePath);
+          return;
+        }
+
+        totalRead += bytesRead;
+      }
+
+      offset += chunkSize;
+      remaining -= chunkSize;
+    }
+
+    close(fd);
+    fprintf(stderr,
+        "Successfully preloaded %lld bytes of constants via malloc (>1GB on "
+        "z/OS)\n",
+        (long long)g_constant_buffer_size);
+  } else {
+    // Small file on z/OS - use mmap
+    g_constant_buffer = mmap(0, fileSize, PROT_READ, __MAP_MEGA, fd, 0);
+    if (g_constant_buffer == MAP_FAILED) {
+      fprintf(stderr, "Error while mmapping %s: %s\n", filePath,
+          strerror(errno));
+      g_constant_buffer = NULL;
+      g_constant_buffer_size = 0;
+      close(fd);
+      free(filePath);
+      return;
+    }
+    close(fd);
+    fprintf(stderr,
+        "Successfully preloaded %lld bytes of constants via mmap (z/OS)\n",
+        (long long)g_constant_buffer_size);
+  }
+
+  free(filePath);
+}
+
+/// Destructor: Free preloaded constants at library unload time (z/OS only)
+void __attribute__((destructor)) omFreeConstantBuffer(void) {
+  if (g_constant_buffer) {
+    // Check if we used malloc (>1GB) or mmap (≤1GB)
+    if (g_constant_buffer_size > MAX_MMAP_SIZE) {
+      // Was malloc'd
+      free(g_constant_buffer);
+      fprintf(stderr, "Freed constant buffer (malloc)\n");
+    } else {
+      // Was mmap'd
+      munmap(g_constant_buffer, g_constant_buffer_size);
+      fprintf(stderr, "Freed constant buffer (munmap)\n");
+    }
+    g_constant_buffer = NULL;
+    g_constant_buffer_size = 0;
+  }
+}
+#endif
 
 /// MMap data from a binary file into memory.
 ///
@@ -69,6 +233,14 @@ bool omMMapBinaryFile(
   // Already mmaped. Nothing to do.
   if (constAddr[0] != NULL)
     return true;
+
+#ifdef __MVS__
+  // On z/OS, return the preloaded constant buffer if available
+  if (g_constant_buffer != NULL && g_constant_buffer_size > 0) {
+    constAddr[0] = g_constant_buffer;
+    return true;
+  }
+#endif
 
   char *filePath;
   char *basePath = getenv("OM_CONSTANT_PATH");
