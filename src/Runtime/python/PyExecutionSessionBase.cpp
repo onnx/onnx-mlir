@@ -137,13 +137,60 @@ PyExecutionSessionBase::PyExecutionSessionBase(
     std::string sharedLibPath, std::string tag, bool defaultEntryPoint)
     : onnx_mlir::ExecutionSession(sharedLibPath, tag, defaultEntryPoint) {}
 
+static py::array copyTensorToPyArray(
+    py::dtype dt, const std::vector<int64_t> &shape, OMTensor *omt) {
+  // Get info from OMTensor.
+  void *dataPtr = omTensorGetDataPtr(omt);
+  size_t dataByteSize = omTensorGetBufferSize(omt);
+
+  // Special handling for string tensors
+  if (omTensorGetDataType(omt) == ONNX_TYPE_STRING) {
+    // For strings, we need to reconstruct a Python object array.
+    py::array out(dt, shape);
+    // Recall that our array of string in OMTensors look like this:
+    // [ptr0][ptr1][ptr2]['h']['i']['\0']['b']['y']['e']['\0']...
+    // So strArray points to the array of pointers at the begining of the memory
+    // block.
+    char **strArray = (char **)dataPtr;
+    int64_t numElements = omTensorGetNumElems(omt);
+    // Iterate for each string.
+    auto out_ptr = out.mutable_data();
+    for (int64_t i = 0; i < numElements; i++) {
+      // Create Python string objects from C strings, where pyStr has its own
+      // copy of the data.
+      py::str pyStr(strArray[i]);
+      // Store in the object array. The release transfer the ownership of the
+      // string to the PyObject, aka our py:array in our case.
+      ((PyObject **)out_ptr)[i] = pyStr.release().ptr();
+    }
+    return out;
+  }
+
+  // Make a destination array with the declared dtype.
+  py::array out(dt, shape);
+  if (static_cast<size_t>(out.nbytes()) != dataByteSize) {
+    throw std::runtime_error("Size mismatch between buffer and dtype*shape.");
+  }
+  // Copy data using memcopy.
+  std::memcpy(out.mutable_data(), dataPtr, dataByteSize);
+  return out;
+}
+
 // =============================================================================
 // Run.
 
 std::vector<py::array> PyExecutionSessionBase::pyRun(
     const std::vector<py::array> &inputsPyArray,
     const std::vector<py::array> &shapesPyArray,
-    const std::vector<py::array> &stridesPyArray, bool useSignalHandler) {
+    const std::vector<py::array> &stridesPyArray,
+    // Should only be used for debugging, as it has performance issues
+    // (installing/uninstalling signal handler plus long jump setup) and
+    // correctness issues (when signals are issued as corruption of memory
+    // cannot be ruled out).
+    bool useSignalHandler,
+    // Should only be used for debugging, as it has performance degradation
+    // issues (extra copies).
+    bool forceOutputDataCopy) {
   if (!isInitialized)
     throw onnx_mlir::ExecutionSessionException(
         "uninitialized PyExecutionSession");
@@ -381,23 +428,41 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
     // be whatever the malloc returned.
     void *omtAllocPtr = omTensorGetAllocatedPtr(omt);
     void *omtDataPtr = omTensorGetDataPtr(omt);
+    // Comparing pointers is only meaningful when from same data structure,
+    // which it is here as both came from the same char buffer.
+    if (!((char *)omtDataPtr >= (char *)omtAllocPtr)) {
+      // omtDataPtr must be inside omtAllocPtr, so it has to be being larger or
+      // equal than omtAllocPtr.
+      throw onnx_mlir::ExecutionSessionException(
+          "case where data ptr is out of bound of the allocated ptr");
+    }
     // Check if the return value is a static constant, which cannot be freed and
     // thus would have been created with the "owning" flag being false.
     if (omTensorGetOwning(omt)) {
-      // CWe have a regular tensor which we will need to free at the right time.
-      // Create the capsule that points to the data to be freed (allocated
-      // pointer).
-      py::capsule free_data_with_allocate_ptr(
-          omtAllocPtr, [](void *ptr) { free(ptr); });
-      // Set owning to false as we migrate the ownership to python
-      omTensorSetOwning(omt, false);
-      // Pass the py::capsule to the numpy array for proper bookkeeping.
-      outputPyArrays.emplace_back(
-          py::array(dtype, shape, omtDataPtr, free_data_with_allocate_ptr));
+      if (forceOutputDataCopy) {
+        // force copy of result, leaving ownership on so that it be destroyed at
+        // the end.
+        outputPyArrays.emplace_back(copyTensorToPyArray(dtype, shape, omt));
+      } else {
+        // We have a regular tensor which we will need to free at the right
+        // time. Create the capsule that points to the data to be freed
+        // (allocated pointer).
+        py::capsule free_data_with_allocate_ptr(
+            omtAllocPtr, /* Address that will be passed to lambda function. */
+            [](void *ptr) { /* Lambda function that performs the freeing. */
+              free(ptr);
+            });
+        // Set owning to false as we migrate the ownership to python
+        omTensorSetOwning(omt, false);
+        // Pass the py::capsule to the numpy array for proper bookkeeping.
+        outputPyArrays.emplace_back(py::array(dtype, shape,
+          omtDataPtr, // Data pointer used to access the values.
+          free_data_with_allocate_ptr /* Capsule that save the deallocation. */));
+      }
     } else {
       // We have a constant, its a very rare case, just do like in the past:
       // copy.
-      outputPyArrays.emplace_back(py::array(dtype, shape, omtDataPtr));
+      outputPyArrays.emplace_back(copyTensorToPyArray(dtype, shape, omt));
     }
     TIMING_STOP_PRINT(process_output_pyarray);
   }
