@@ -227,8 +227,9 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   // function and just before instrumentation.
   pm.addPass(createSetONNXNodeNamePass());
 
-  // Add instrumentation for Onnx Ops
-  // Keep this pass at the end of this function.
+#ifdef ONNX_MLIR_ENABLE_KRNL
+  // Add instrumentation for Onnx Ops (requires Krnl dialect for
+  // KrnlInstrumentOp). Keep this pass at the end of this function.
   unsigned instrumentActions = opts.instrumentControlBits;
   if (opts.profileIR == onnx_mlir::ProfileIRs::Onnx) {
     opts.instrumentStage = onnx_mlir::InstrumentStages::Onnx;
@@ -238,6 +239,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   if (opts.instrumentStage == onnx_mlir::InstrumentStages::Onnx)
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::createInstrumentPass(opts.instrumentOps, instrumentActions));
+#endif
   if (opts.instrumentSignatures != "NONE" || opts.instrumentOnnxNode != "NONE")
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentONNXSignaturePass(
         opts.instrumentSignatures, opts.instrumentOnnxNode));

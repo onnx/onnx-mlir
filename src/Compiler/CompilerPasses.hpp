@@ -25,11 +25,13 @@ namespace onnx_mlir {
 // Configures passes up front based on command line options.
 void configurePasses();
 
+#ifdef ONNX_MLIR_ENABLE_KRNL
 void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
     std::string ONNXOpsStatFilename);
 void addKrnlToAffinePasses(mlir::PassManager &pm);
 void addKrnlToLLVMPasses(
     mlir::OpPassManager &pm, std::string outputNameNoExt, bool enableCSE);
+#endif
 InputIRLevelType determineInputIRLevel(
     mlir::OwningOpRef<mlir::ModuleOp> &module);
 void addPasses(mlir::OwningOpRef<mlir::ModuleOp> &module, mlir::PassManager &pm,
