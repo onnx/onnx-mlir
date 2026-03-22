@@ -31,27 +31,27 @@ Value getIdentityValue(
 Value getReduceMaxIdentityValue(
     ConversionPatternRewriter &rewriter, Location loc, Type elemType) {
   MathBuilder createMath(rewriter, loc);
-  return rewriter.create<stablehlo::ConstantOp>(
-      loc, createMath.negativeInfAttr(elemType));
+  return stablehlo::ConstantOp::create(
+      rewriter, loc, createMath.negativeInfAttr(elemType));
 }
 
 Value getReduceMinIdentityValue(
     ConversionPatternRewriter &rewriter, Location loc, Type elemType) {
   MathBuilder createMath(rewriter, loc);
-  return rewriter.create<stablehlo::ConstantOp>(
-      loc, createMath.positiveInfAttr(elemType));
+  return stablehlo::ConstantOp::create(
+      rewriter, loc, createMath.positiveInfAttr(elemType));
 }
 
 Value getReduceSumIdentityValue(
     ConversionPatternRewriter &rewriter, Location loc, Type elemType) {
-  return rewriter.create<stablehlo::ConstantOp>(
-      loc, rewriter.getZeroAttr(elemType));
+  return stablehlo::ConstantOp::create(
+      rewriter, loc, rewriter.getZeroAttr(elemType));
 }
 
 Value getReduceMeanIdentityValue(
     ConversionPatternRewriter &rewriter, Location loc, Type elemType) {
-  return rewriter.create<stablehlo::ConstantOp>(
-      loc, rewriter.getZeroAttr(elemType));
+  return stablehlo::ConstantOp::create(
+      rewriter, loc, rewriter.getZeroAttr(elemType));
 }
 
 template <>
@@ -316,19 +316,19 @@ Value getReductionShapeValue(Location loc, PatternRewriter &rewriter,
     else
       isReductionAxis.push_back(false);
   }
-  Value inputShape = rewriter.create<shape::ShapeOfOp>(loc, operand);
+  Value inputShape = shape::ShapeOfOp::create(rewriter, loc, operand);
   SmallVector<Value> dims;
   for (int64_t i = 0; i < rank; i++) {
     if (!isReductionAxis[i]) {
-      Value dim = rewriter.create<shape::GetExtentOp>(loc, inputShape, i);
+      Value dim = shape::GetExtentOp::create(rewriter, loc, inputShape, i);
       dims.push_back(dim);
     } else if (keepDims) {
-      Value dim = rewriter.create<arith::ConstantIndexOp>(loc, 1);
+      Value dim = arith::ConstantIndexOp::create(rewriter, loc, 1);
       dims.push_back(dim);
     }
   }
-  Value reduceShapeValue = rewriter.create<shape::FromExtentsOp>(loc, dims);
-  reduceShapeValue = rewriter.create<shape::ToExtentTensorOp>(loc,
+  Value reduceShapeValue = shape::FromExtentsOp::create(rewriter, loc, dims);
+  reduceShapeValue = shape::ToExtentTensorOp::create(rewriter, loc,
       RankedTensorType::get({rank}, rewriter.getIndexType()), reduceShapeValue);
   return reduceShapeValue;
 }
@@ -366,7 +366,7 @@ Value createReduce(Location loc, Value operand, Value identity,
       mlir::cast<RankedTensorType>(operand.getType());
   Type reduceResultType =
       RankedTensorType::get(reduceShape, operandType.getElementType());
-  stablehlo::ReduceOp reduce = rewriter.create<stablehlo::ReduceOp>(loc,
+  stablehlo::ReduceOp reduce = stablehlo::ReduceOp::create(rewriter, loc,
       reduceResultType, operand, identity, rewriter.getDenseI64ArrayAttr(axes));
 
   // setup "stablehlo.reduce"'s body
@@ -382,15 +382,15 @@ Value createReduce(Location loc, Value operand, Value identity,
     OpBuilder::InsertionGuard guard(rewriter);
     rewriter.setInsertionPointToStart(&block);
     Value reduceResult =
-        rewriter.create<BlockReduceOp>(loc, firstArgument, secondArgument);
-    rewriter.create<stablehlo::ReturnOp>(loc, reduceResult);
+        BlockReduceOp::create(rewriter, loc, firstArgument, secondArgument);
+    stablehlo::ReturnOp::create(rewriter, loc, reduceResult);
   }
   Value result = reduce.getResult(0);
   if (keepDims) {
     Value reduceShapeValue =
         getReductionShapeValue(loc, rewriter, operand, axes, true);
-    result = rewriter.create<stablehlo::DynamicReshapeOp>(
-        loc, outputType, result, reduceShapeValue);
+    result = stablehlo::DynamicReshapeOp::create(
+        rewriter, loc, outputType, result, reduceShapeValue);
   }
   return result;
 }
@@ -453,8 +453,8 @@ struct ONNXReductionOpLoweringToStablehlo : public ConversionPattern {
         int64_t reduceFactor = getReductionFactor(inputType, axes);
         Value reduceFactorValue =
             getShapedFloat(loc, rewriter, reduceFactor, reduceResult);
-        reduceResult = rewriter.create<stablehlo::DivOp>(
-            loc, reduceResult, reduceFactorValue);
+        reduceResult = stablehlo::DivOp::create(
+            rewriter, loc, reduceResult, reduceFactorValue);
       } else {
         Value ones;
         if (mlir::isa<IntegerType>(elemType))
@@ -463,8 +463,8 @@ struct ONNXReductionOpLoweringToStablehlo : public ConversionPattern {
           ones = getShapedFloat(loc, rewriter, 1.0, input);
         Value reduceSum = createReduce<stablehlo::AddOp>(loc, ones, identity,
             reducedShape, axes, rewriter, isKeepdims, outputType);
-        reduceResult = rewriter.create<stablehlo::DivOp>(
-            loc, outputType, reduceResult, reduceSum);
+        reduceResult = stablehlo::DivOp::create(
+            rewriter, loc, outputType, reduceResult, reduceSum);
       }
     }
     rewriter.replaceOp(op, reduceResult);

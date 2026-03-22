@@ -41,15 +41,15 @@ struct ONNXDimOpLoweringToStablehlo : public ConversionPattern {
     assert((axisLit >= 0 && axisLit < rank) &&
            "Axis must be in the range [0, input tensor rank - 1]");
 
-    Value inputShape = rewriter.create<shape::ShapeOfOp>(loc, tensorArg);
+    Value inputShape = shape::ShapeOfOp::create(rewriter, loc, tensorArg);
     Value dimValue =
-        rewriter.create<shape::GetExtentOp>(loc, inputShape, axisLit);
+        shape::GetExtentOp::create(rewriter, loc, inputShape, axisLit);
     Type dimType = dimOp.getDim().getType();
     Type indexValueType = mlir::cast<ShapedType>(dimType).getElementType();
     Value castedIndex =
-        rewriter.create<arith::IndexCastOp>(loc, indexValueType, dimValue);
-    Value indexTensor = rewriter.create<tensor::FromElementsOp>(
-        loc, dimType, ArrayRef<Value>{castedIndex});
+        arith::IndexCastOp::create(rewriter, loc, indexValueType, dimValue);
+    Value indexTensor = tensor::FromElementsOp::create(
+        rewriter, loc, dimType, ArrayRef<Value>{castedIndex});
     rewriter.replaceOp(op, indexTensor);
     return success();
   }

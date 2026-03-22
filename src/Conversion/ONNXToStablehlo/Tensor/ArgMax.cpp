@@ -39,20 +39,20 @@ static void BuildArgmaxReductionBody(
   Value rhsIndex = block->getArgument(3);
 
   ImplicitLocOpBuilder b(loc, *builder);
-  Value compareDt = b.create<stablehlo::CompareOp>(
-      lhsVal, rhsVal, stablehlo::ComparisonDirection::GE);
+  Value compareDt = stablehlo::CompareOp::create(
+      b, lhsVal, rhsVal, stablehlo::ComparisonDirection::GE);
   Value selectedInput =
-      b.create<stablehlo::SelectOp>(inputType, compareDt, lhsVal, rhsVal);
+      stablehlo::SelectOp::create(b, inputType, compareDt, lhsVal, rhsVal);
 
-  Value compareEq = b.create<stablehlo::CompareOp>(
-      lhsVal, rhsVal, stablehlo::ComparisonDirection::EQ);
-  Value minIndex = b.create<stablehlo::MinOp>(lhsIndex, rhsIndex);
+  Value compareEq = stablehlo::CompareOp::create(
+      b, lhsVal, rhsVal, stablehlo::ComparisonDirection::EQ);
+  Value minIndex = stablehlo::MinOp::create(b, lhsIndex, rhsIndex);
   Value minValIndex =
-      b.create<stablehlo::SelectOp>(indexType, compareDt, lhsIndex, rhsIndex);
-  Value selectedIndex = b.create<stablehlo::SelectOp>(
-      indexType, compareEq, minIndex, minValIndex);
+      stablehlo::SelectOp::create(b, indexType, compareDt, lhsIndex, rhsIndex);
+  Value selectedIndex = stablehlo::SelectOp::create(
+      b, indexType, compareEq, minIndex, minValIndex);
   Value returnValues[] = {selectedInput, selectedIndex};
-  b.create<stablehlo::ReturnOp>(returnValues);
+  stablehlo::ReturnOp::create(b, returnValues);
 }
 
 // ONNXArgMaxOp is mainly implemented using Stablehlo DynamicIotaOp and
@@ -66,7 +66,7 @@ struct ONNXArgMaxOpLoweringToStablehlo : public ConversionPattern {
     // Gather info.
     Location loc = op->getLoc();
     ONNXArgMaxOpAdaptor operandAdaptor(operands);
-    ONNXArgMaxOp argMaxOp = llvm::cast<ONNXArgMaxOp>(op);
+    ONNXArgMaxOp argMaxOp = mlir::dyn_cast<ONNXArgMaxOp>(op);
 
     // Shape helper (not really used).
     IndexExprBuilderForStablehlo createIE(rewriter, loc);
@@ -77,8 +77,8 @@ struct ONNXArgMaxOpLoweringToStablehlo : public ConversionPattern {
     assert(isRankedShapedType(outputType) && "Expected Ranked ShapedType");
     ShapedType outputShapedType = mlir::cast<ShapedType>(outputType);
     Type indexElementType = outputShapedType.getElementType();
-    Value indexInitValue = rewriter.create<stablehlo::ConstantOp>(
-        loc, rewriter.getZeroAttr(indexElementType));
+    Value indexInitValue = stablehlo::ConstantOp::create(
+        rewriter, loc, rewriter.getZeroAttr(indexElementType));
 
     // data input
     Value data = operandAdaptor.getData();
@@ -96,25 +96,25 @@ struct ONNXArgMaxOpLoweringToStablehlo : public ConversionPattern {
     int64_t keepdims = argMaxOp.getKeepdims();
     bool isKeepdims = (keepdims == 1) ? true : false;
 
-    Value initValue = rewriter.create<stablehlo::ConstantOp>(
-        loc, rewriter.getFloatAttr(elementType,
-                 APFloat::getInf(
-                     mlir::cast<FloatType>(elementType).getFloatSemantics(),
-                     /*isNegative=*/true)));
+    Value initValue = stablehlo::ConstantOp::create(rewriter, loc,
+        rewriter.getFloatAttr(elementType,
+            APFloat::getInf(
+                mlir::cast<FloatType>(elementType).getFloatSemantics(),
+                /*isNegative=*/true)));
     RankedTensorType indexType =
         RankedTensorType::get(dataType.getShape(), indexElementType);
 
     IntegerAttr iotaDimension = IntegerAttr::get(rewriter.getI64Type(), axis);
-    Value inputShapeOp = rewriter.create<shape::ShapeOfOp>(loc, data);
-    Value indexValues = rewriter.create<stablehlo::DynamicIotaOp>(
-        loc, indexType, inputShapeOp, iotaDimension);
+    Value inputShapeOp = shape::ShapeOfOp::create(rewriter, loc, data);
+    Value indexValues = stablehlo::DynamicIotaOp::create(
+        rewriter, loc, indexType, inputShapeOp, iotaDimension);
 
     ArrayRef<int64_t> inputShape = dataType.getShape();
     SmallVector<int64_t> resultShape;
     for (int64_t i = 0; i < dataRank; i++)
       if (i != axis)
         resultShape.push_back(inputShape[i]);
-    stablehlo::ReduceOp reduction = rewriter.create<stablehlo::ReduceOp>(loc,
+    stablehlo::ReduceOp reduction = stablehlo::ReduceOp::create(rewriter, loc,
         /*resultType0*/
         TypeRange{RankedTensorType::get(resultShape, elementType),
             RankedTensorType::get(resultShape, indexElementType)},
@@ -128,26 +128,27 @@ struct ONNXArgMaxOpLoweringToStablehlo : public ConversionPattern {
     Value result = reduction.getResult(1);
     if (isKeepdims) {
       if (outputShapedType.hasStaticShape())
-        result = rewriter.create<stablehlo::ReshapeOp>(loc, outputType, result);
+        result =
+            stablehlo::ReshapeOp::create(rewriter, loc, outputType, result);
       else {
         SmallVector<Value> dims;
         for (int64_t i = 0; i < dataRank; i++) {
           if (i != axis) {
             Value dim =
-                rewriter.create<shape::GetExtentOp>(loc, inputShapeOp, i);
+                shape::GetExtentOp::create(rewriter, loc, inputShapeOp, i);
             dims.push_back(dim);
           } else {
-            Value dim = rewriter.create<arith::ConstantIndexOp>(loc, 1);
+            Value dim = arith::ConstantIndexOp::create(rewriter, loc, 1);
             dims.push_back(dim);
           }
         }
         Type outputShapeType =
             RankedTensorType::get({dataRank}, rewriter.getIndexType());
-        Value newShapeValue = rewriter.create<shape::FromExtentsOp>(loc, dims);
-        newShapeValue = rewriter.create<shape::ToExtentTensorOp>(
-            loc, outputShapeType, newShapeValue);
-        result = rewriter.create<stablehlo::DynamicReshapeOp>(
-            loc, outputType, result, newShapeValue);
+        Value newShapeValue = shape::FromExtentsOp::create(rewriter, loc, dims);
+        newShapeValue = shape::ToExtentTensorOp::create(
+            rewriter, loc, outputShapeType, newShapeValue);
+        result = stablehlo::DynamicReshapeOp::create(
+            rewriter, loc, outputType, result, newShapeValue);
       }
     }
     rewriter.replaceOp(op, result);

@@ -31,7 +31,7 @@ struct ONNXSplitOpLoweringToStablehlo : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     ONNXSplitOpAdaptor operandAdaptor(operands);
-    ONNXSplitOp splitOp = llvm::cast<ONNXSplitOp>(op);
+    ONNXSplitOp splitOp = mlir::dyn_cast<ONNXSplitOp>(op);
     Value input = splitOp.getInput();
     Value split = splitOp.getSplit();
     assert(isRankedShapedType(input.getType()) &&
@@ -84,7 +84,7 @@ struct ONNXSplitOpLoweringToStablehlo : public ConversionPattern {
       endIndice += splitSizes[i];
       beginIndices[dimIndex] = beginIndice;
       endIndices[dimIndex] = endIndice;
-      slices.push_back(rewriter.create<stablehlo::SliceOp>(loc, sliceType,
+      slices.push_back(stablehlo::SliceOp::create(rewriter, loc, sliceType,
           input, DenseI64ArrayAttr::get(context, beginIndices),
           DenseI64ArrayAttr::get(context, endIndices),
           DenseI64ArrayAttr::get(context, strides)));

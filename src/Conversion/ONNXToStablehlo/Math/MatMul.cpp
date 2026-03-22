@@ -97,19 +97,19 @@ struct ONNXMatMulOpLoweringToStablehlo : public ConversionPattern {
       if (!broadCastedType.hasStaticShape()) {
         SmallVector<Value> dimTensors(paddedRank - oneDPad - rank);
         for (int64_t i = 0; i < paddedRank - oneDPad - rank; i++) {
-          Value dim = rewriter.create<tensor::DimOp>(loc, operandToMatch, i);
-          dim = rewriter.create<arith::IndexCastOp>(
-              loc, rewriter.getI64Type(), dim);
+          Value dim = tensor::DimOp::create(rewriter, loc, operandToMatch, i);
+          dim = arith::IndexCastOp::create(
+              rewriter, loc, rewriter.getI64Type(), dim);
           dimTensors[i] =
-              rewriter.create<tensor::FromElementsOp>(loc, ValueRange{dim});
+              tensor::FromElementsOp::create(rewriter, loc, ValueRange{dim});
         }
         Value broadcastedShape =
-            rewriter.create<shape::ShapeOfOp>(loc, operandToBroadcast);
-        broadcastedShape = rewriter.create<arith::IndexCastOp>(loc,
+            shape::ShapeOfOp::create(rewriter, loc, operandToBroadcast);
+        broadcastedShape = arith::IndexCastOp::create(rewriter, loc,
             RankedTensorType::get({rank}, rewriter.getI64Type()),
             broadcastedShape);
         dimTensors.push_back(broadcastedShape);
-        Value fullShape = rewriter.create<stablehlo::ConcatenateOp>(loc,
+        Value fullShape = stablehlo::ConcatenateOp::create(rewriter, loc,
             RankedTensorType::get(
                 {broadCastedType.getRank()}, rewriter.getI64Type()),
             dimTensors, rewriter.getI64IntegerAttr(0));
@@ -129,7 +129,7 @@ struct ONNXMatMulOpLoweringToStablehlo : public ConversionPattern {
 
     Value dotProduct;
     if (paddedRank > 2)
-      dotProduct = rewriter.create<stablehlo::DotGeneralOp>(loc, outputType,
+      dotProduct = stablehlo::DotGeneralOp::create(rewriter, loc, outputType,
           broadcastedA, broadcastedB,
           stablehlo::DotDimensionNumbersAttr::get(rewriter.getContext(),
               llvm::to_vector<4>(llvm::seq<int64_t>(0, paddedRank - 2)),
@@ -137,7 +137,7 @@ struct ONNXMatMulOpLoweringToStablehlo : public ConversionPattern {
               {paddedRank - 1 - oneDPadA}, {paddedRank - 2}),
           /*precision_config*/ nullptr, /*algorithm*/ nullptr);
     else {
-      dotProduct = rewriter.create<stablehlo::DotOp>(loc,
+      dotProduct = stablehlo::DotOp::create(rewriter, loc,
           op->getResultTypes().front(), broadcastedA, broadcastedB, nullptr);
     }
     rewriter.replaceOp(op, dotProduct);

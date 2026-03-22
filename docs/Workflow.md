@@ -296,4 +296,4 @@ Very small PRs are easy to review. Very large PRs are very difficult to review.
 
 Follow the [coding style](https://llvm.org/docs/CodingStandards.html) used by LLVM for your code. We use the `clang-format` command to get the proper style, which is also tested by our CIs. It is acceptable to run the command on all of the files that were modified by your PR. We recommend using VS code where the clang formatter will be run automatically using the clang format configuration file already present in the repository.
 
-For python code, we use the [black](https://pypi.org/project/black) code formatter. You should run the `black` command on all the python code modified by your PR, which must pass the black code formatter CI check before it can be merged.
+For python code, we use the [black](https://pypi.org/project/black) code formatter. You should run the `black` command on all the python code modified by your PR, which must pass the black code formatter CI check before it can be merged. Onnx-mlir workflow installed the `stable` version of black, which turned out to be `pip install black[colorama]==26.1.0`.

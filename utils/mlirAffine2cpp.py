@@ -105,7 +105,7 @@ def process_map_dim_sym(line):
     map_sym_pat = re.compile(r"\(([^\)]*)\)\[([^\]]*)\]")
     definitions = map_sym_pat.findall(line)
     for d in definitions:
-        (dim, sym) = d
+        dim, sym = d
         x = "(" + dim + ")" + "[" + sym + "]"
         y = "(" + dim
         if dim and sym:
@@ -168,11 +168,11 @@ def process_main(args):
     arg_pat = re.compile(r"%(\w+):\s+memref<([^>]+)>")
     definitions = arg_pat.findall(args)
     for d in definitions:
-        (name, type_str) = d
+        name, type_str = d
         name = process_stripped_name(name)
         if debug > 1:
             print("// got arg:", name, "type:", type_str)
-        (type, dims) = compute_memref_type(type_str)
+        type, dims = compute_memref_type(type_str)
         print(type + " " + name + dims + ";")
     print("// Function code.")
 
@@ -265,8 +265,7 @@ def main(argv):
 
     had_builtin = False
 
-    print(
-        """
+    print("""
 #include <math.h>
 #include <stdio.h>
 #include <string>
@@ -334,8 +333,7 @@ void print4(std::string msg, float *a, long long d0, long long d1, long long d2,
 }
 
 // Map support, if any.
-"""
-    )
+""")
 
     for line in sys.stdin:
         line = line.rstrip()
@@ -433,7 +431,7 @@ void print4(std::string msg, float *a, long long d0, long long d1, long long d2,
                     "memref type:",
                     type_str,
                 )
-            (type, dims) = compute_memref_type(type_str)
+            type, dims = compute_memref_type(type_str)
             print(type + " " + name + dims + ";")
             continue
 
@@ -495,7 +493,7 @@ void print4(std::string msg, float *a, long long d0, long long d1, long long d2,
                     "memref:",
                     memref,
                 )
-            (type, dims) = compute_memref_type(memref)
+            type, dims = compute_memref_type(memref)
             addr = addr.replace(
                 ",", "]["
             )  # Transform separators in multi-dim array ref.

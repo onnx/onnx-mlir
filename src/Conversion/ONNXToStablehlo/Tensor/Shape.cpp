@@ -28,10 +28,10 @@ struct ONNXShapeOpLoweringToStablehlo : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    // Get shape.
-    ONNXShapeOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
-    ONNXShapeOp shapeOp = cast<ONNXShapeOp>(op);
     Location loc = op->getLoc();
+    // Get shape.
+    ONNXShapeOp shapeOp = cast<ONNXShapeOp>(op);
+    ONNXShapeOpAdaptor operandAdaptor(operands, shapeOp);
     IndexExprBuilderForStablehlo createIE(rewriter, loc);
     ONNXShapeOpShapeHelper shapeHelper(op, operands, &createIE);
     shapeHelper.computeShapeAndAssertOnFailure();
@@ -44,9 +44,9 @@ struct ONNXShapeOpLoweringToStablehlo : public ConversionPattern {
         shapeHelper.getOutputDims(0)[0].getLiteral(), elementType);
 
     Value input = shapeOp.getData();
-    Value shape = rewriter.create<shape::ShapeOfOp>(loc, input);
+    Value shape = shape::ShapeOfOp::create(rewriter, loc, input);
     Value castedShape =
-        rewriter.create<arith::IndexCastOp>(loc, resultOutputType, shape);
+        arith::IndexCastOp::create(rewriter, loc, resultOutputType, shape);
     rewriter.replaceOp(op, castedShape);
     return success();
   }

@@ -93,9 +93,9 @@ public:
   using OpAdaptor = typename ONNXConvOp::Adaptor;
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    OpAdaptor adaptor(operands, op->getAttrDictionary());
     auto loc = op->getLoc();
-    auto convOp = llvm::cast<ONNXConvOp>(op);
+    auto convOp = mlir::dyn_cast<ONNXConvOp>(op);
+    OpAdaptor adaptor(operands, convOp);
 
     TosaBuilder tosaBuilder(rewriter, loc);
 
@@ -130,8 +130,8 @@ public:
       DenseElementsAttr newBiasAttr = DenseElementsAttr::get(
           RankedTensorType::get({weightShape[0]}, rewriter.getF32Type()),
           {0.0F});
-      bias = rewriter.create<mlir::tosa::ConstOp>(
-          convOp->getLoc(), newBiasAttr.getType(), newBiasAttr);
+      bias = mlir::tosa::ConstOp::create(
+          rewriter, convOp->getLoc(), newBiasAttr.getType(), newBiasAttr);
     }
 
     DenseI64ArrayAttr dilations =

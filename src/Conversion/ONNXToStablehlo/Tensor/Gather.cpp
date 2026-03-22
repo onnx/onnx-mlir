@@ -61,27 +61,27 @@ struct ONNXGatherOpLoweringToStablehlo : public ConversionPattern {
       int64_t axisDimSizeLit = inputType.getShape()[axisLit];
       axisDimSize = getShapedInt(loc, rewriter, axisDimSizeLit, indices);
     } else {
-      Value inputShape = rewriter.create<shape::ShapeOfOp>(loc, data);
-      Value indicesShape = rewriter.create<shape::ShapeOfOp>(loc, indices);
+      Value inputShape = shape::ShapeOfOp::create(rewriter, loc, data);
+      Value indicesShape = shape::ShapeOfOp::create(rewriter, loc, indices);
       Value axisDimSizeIndexValue =
-          rewriter.create<shape::GetExtentOp>(loc, inputShape, axisLit);
-      Value axisDimSizeValue = rewriter.create<arith::IndexCastOp>(
-          loc, indicesType.getElementType(), axisDimSizeIndexValue);
-      axisDimSizeValue = rewriter.create<tensor::FromElementsOp>(loc,
+          shape::GetExtentOp::create(rewriter, loc, inputShape, axisLit);
+      Value axisDimSizeValue = arith::IndexCastOp::create(
+          rewriter, loc, indicesType.getElementType(), axisDimSizeIndexValue);
+      axisDimSizeValue = tensor::FromElementsOp::create(rewriter, loc,
           RankedTensorType::get({}, indicesType.getElementType()),
           axisDimSizeValue);
-      axisDimSize = rewriter.create<stablehlo::DynamicBroadcastInDimOp>(loc,
+      axisDimSize = stablehlo::DynamicBroadcastInDimOp::create(rewriter, loc,
           indicesType, axisDimSizeValue, indicesShape,
           rewriter.getDenseI64ArrayAttr({}));
     }
-    Value greaterOp = rewriter.create<stablehlo::CompareOp>(
-        loc, indices, zero, stablehlo::ComparisonDirection::LT);
-    Value positiveIndices = rewriter.create<stablehlo::AddOp>(
-        loc, indicesType, indices, axisDimSize);
-    Value startIndices = rewriter.create<stablehlo::SelectOp>(
-        loc, indicesType, greaterOp, positiveIndices, indices);
+    Value greaterOp = stablehlo::CompareOp::create(
+        rewriter, loc, indices, zero, stablehlo::ComparisonDirection::LT);
+    Value positiveIndices = stablehlo::AddOp::create(
+        rewriter, loc, indicesType, indices, axisDimSize);
+    Value startIndices = stablehlo::SelectOp::create(
+        rewriter, loc, indicesType, greaterOp, positiveIndices, indices);
 
-    Value gatherValue = rewriter.create<stablehlo::TorchIndexSelectOp>(loc,
+    Value gatherValue = stablehlo::TorchIndexSelectOp::create(rewriter, loc,
         outputType, data, startIndices, rewriter.getI64IntegerAttr(axisLit),
         rewriter.getI64IntegerAttr(0));
     rewriter.replaceOp(op, gatherValue);

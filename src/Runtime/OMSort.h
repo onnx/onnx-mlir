@@ -39,13 +39,20 @@ typedef void(sortFunctionType(void *base, size_t nmemb, size_t size,
     compareFunctionType *compar, void *data));
 #endif
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 //
 // === Function Prototypes (Declarations) ===
 //
+// Custom quick sort function declaration for environments
+// not supporting qsort_r (e.g. zos)
+
+#ifdef __APPLE__
+void quick_sort_custom(void *base, size_t dataNum, size_t dataSize,
+    void *dataPtr, compareFunctionType compFunc);
+#else
+void quick_sort_custom(void *base, size_t dataNum, size_t dataSize,
+    compareFunctionType compFunc, void *dataPtr);
+#endif
+
 compareFunctionType *getCompareFunction(
     uint64_t ascending, OM_DATA_TYPE dataType);
 
@@ -54,9 +61,5 @@ void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
 
 void omTensorTopK(OMTensor *orderTensor, const OMTensor *inputTensor,
     uint64_t axis, uint64_t ascending, uint64_t k_u64, uint64_t sorted);
-
-#ifdef __cplusplus
-} // closing extern "C"
-#endif
 
 #endif // ONNX_MLIR_OMSORT_H

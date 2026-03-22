@@ -335,7 +335,7 @@ private:
 
     // Initialize an array with the addresses of the global strings.
     builder.setInsertionPoint(block, block->begin());
-    Value array = builder.create<LLVM::UndefOp>(loc, arrayType);
+    Value array = LLVM::UndefOp::create(builder, loc, arrayType);
 
     int32_t index = 0;
     Value lastValue = array;

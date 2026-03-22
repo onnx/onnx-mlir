@@ -81,7 +81,7 @@ bool Conv2DLibBuilder::build() {
 
   auto xVal = entryBlock.getArgument(0);
   auto wVal = entryBlock.getArgument(1);
-  auto bVal = builder.create<ONNXNoneOp>(loc).getResult();
+  auto bVal = ONNXNoneOp::create(builder, loc).getResult();
 
   auto dilations = builder.getI64ArrayAttr({dilation, dilation});
   auto kernel_shape = builder.getI64ArrayAttr({kH, kW});
@@ -89,7 +89,7 @@ bool Conv2DLibBuilder::build() {
   auto strides = builder.getI64ArrayAttr({stride, stride});
   auto group = IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
       APInt(64, 1, /*isSigned=*/true));
-  auto convOp = builder.create<ONNXConvOp>(loc,
+  auto convOp = ONNXConvOp::create(builder, loc,
       /*Y=*/yType,
       /*X=*/xVal, /*W=*/wVal, /*B=*/bVal,
       /*auto_pad=*/builder.getStringAttr(getAutoPadName(autoPad)),
@@ -115,7 +115,7 @@ bool Conv2DLibBuilder::build() {
   convOp.getX().setType(xTypeSymbol);
 
   llvm::SmallVector<Value, 1> results = {convOp.getResult()};
-  builder.create<func::ReturnOp>(loc, results);
+  func::ReturnOp::create(builder, loc, results);
   module.push_back(funcOp);
 
   createEntryPoint(funcOp);

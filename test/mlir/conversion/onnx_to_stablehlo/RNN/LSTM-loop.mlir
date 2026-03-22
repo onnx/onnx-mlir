@@ -154,7 +154,7 @@ func.func @test_lstm_loop(%arg0 : tensor<128x16x512xf32>, %arg1 : tensor<2x2048x
 // CHECK:             [[VAR_114_:%.+]] = stablehlo.add [[VAR_112_]], [[VAR_113_]] : tensor<1xi64>
 // CHECK:             stablehlo.return [[VAR_114_]], [[VAR_111_]], [[VAR_108_]], [[VAR_97_]] : tensor<1xi64>, tensor<128x1x16x256xf32>, tensor<16x256xf32>, tensor<16x256xf32>
 // CHECK:           }
-// CHECK:           [[VAR_50_:%.+]]:4 = stablehlo.while([[VAR_iterArg_1_:%.+]] = [[VAR_c_]], [[VAR_iterArg_9_1_:%.+]] = [[VAR_c_]]st_5, [[VAR_iterArg_10_1_:%.+]] = [[VAR_14_]], [[VAR_iterArg_11_1_:%.+]] = [[VAR_16_]]) : tensor<1xi64>, tensor<128x1x16x256xf32>, tensor<16x256xf32>, tensor<16x256xf32>
+// CHECK:           [[VAR_50_:%.+]]:4 = stablehlo.while([[VAR_iterArg_1_:%.+]] = [[VAR_c_]], [[VAR_iterArg_9_1_:%.+]] = [[VAR_cst_5_]], [[VAR_iterArg_10_1_:%.+]] = [[VAR_14_]], [[VAR_iterArg_11_1_:%.+]] = [[VAR_16_]]) : tensor<1xi64>, tensor<128x1x16x256xf32>, tensor<16x256xf32>, tensor<16x256xf32>
 // CHECK:            cond {
 // CHECK:             [[VAR_52_2_:%.+]] = stablehlo.compare  GE, [[VAR_iterArg_1_]], [[VAR_c_7_]] : (tensor<1xi64>, tensor<1xi64>) -> tensor<1xi1>
 // CHECK:             [[VAR_53_2_:%.+]] = stablehlo.reshape [[VAR_52_2_]] : (tensor<1xi1>) -> tensor<i1>

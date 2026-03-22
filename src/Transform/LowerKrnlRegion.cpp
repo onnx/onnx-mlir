@@ -11,6 +11,7 @@
 // This pass enables the lowering of the krnl.region operation
 //
 //===----------------------------------------------------------------------===//
+#include "mlir/Transforms/Passes.h"
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -22,9 +23,19 @@
 #include "src/Support/KrnlSupport.hpp"
 
 using namespace mlir;
-using namespace onnx_mlir::krnl;
+
+namespace onnx_mlir {
+namespace krnl {
+
+#define GEN_PASS_DEF_LOWERKRNLREGIONPASS
+#include "src/Transform/PassesKrnl.h.inc"
+} // namespace krnl
 
 namespace {
+
+/* All the implementation of this pass is put in the anonymous name space
+ * to hide from ourside.
+ */
 
 /*!
  Move the ops in KrnlRegionOp out of its region and then erase KrnlRegionOp
@@ -53,15 +64,10 @@ public:
  *  Function pass that lowers KrnlRegionOp
  */
 class LowerKrnlRegionPass
-    : public PassWrapper<LowerKrnlRegionPass, OperationPass<func::FuncOp>> {
+    : public onnx_mlir::krnl::impl::LowerKrnlRegionPassBase<
+          LowerKrnlRegionPass> {
 public:
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(LowerKrnlRegionPass)
-
-  StringRef getArgument() const override { return "lower-krnl-region"; }
-
-  StringRef getDescription() const override {
-    return "Move ops in krnl.region operation out and erase this op";
-  }
 
   void runOnOperation() override {
     auto function = getOperation();
@@ -74,12 +80,6 @@ public:
       signalPassFailure();
   }
 };
-} // namespace
 
-namespace onnx_mlir {
-namespace krnl {
-std::unique_ptr<Pass> createLowerKrnlRegionPass() {
-  return std::make_unique<LowerKrnlRegionPass>();
-}
-} // namespace krnl
+} // namespace
 } // namespace onnx_mlir

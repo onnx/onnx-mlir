@@ -36,8 +36,7 @@ import numpy as np
 def print_usage(msg=""):
     if msg:
         print("Error:", msg, "\n")
-    print(
-        """
+    print("""
 Usage: Report statistics on compiler and runtime characteristics of ONNX ops.
 make-report.py -[vh] [-c <compile_log>] [-r <run_log>] [-l <num>]
       [-p <plot_file_name][-s <stats>] [--sort <val>] [--supported] [-u <val>]
@@ -100,8 +99,7 @@ Parameters on how to print:
 Help:
   -v/--verbose:        Run in verbose mode (see error and warnings).
   -h/--help:           Print usage.
-    """
-    )
+    """)
     exit(1)
 
 
@@ -324,7 +322,7 @@ def parse_file_for_stat(file_name, stat_name):
                 break
 
         # Parse line.
-        (has_stat, op, node_name, details) = parse_line(
+        has_stat, op, node_name, details = parse_line(
             line.rstrip(), report_str, is_perf_stat
         )
         if not has_stat:
@@ -340,7 +338,7 @@ def parse_file_for_stat(file_name, stat_name):
         if timing_key in node_time_used:
             # has seen it
             continue
-        (op, node_name) = get_op_node_from_timing_key(timing_key)
+        op, node_name = get_op_node_from_timing_key(timing_key)
         secondary_key = get_secondary_key(node_name, "")
         record_pattern(op, node_name, secondary_key)
 
@@ -386,7 +384,7 @@ def parse_file_for_perf(file_name, stat_name, warmup_num=0):
                 break  # On to the next measurement.
 
             # Parse line.
-            (has_stat, op, node_name, details) = parse_line(line, report_str, True)
+            has_stat, op, node_name, details = parse_line(line, report_str, True)
             if not has_stat:
                 continue
             # Keep only after times.

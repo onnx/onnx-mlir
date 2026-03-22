@@ -367,8 +367,8 @@ struct ONNXNonMaxSuppressionOpLowering
                 // Only proceed if the box satisfies the above conditions.
                 Value canSelectBox = create.math.andi(
                     create.math.andi(checkScore, checkMOPC), isNotRemoved);
-                auto ifOp = rewriter.create<scf::IfOp>(
-                    loc, canSelectBox, /*withElseRegion=*/false);
+                auto ifOp = scf::IfOp::create(
+                    rewriter, loc, canSelectBox, /*withElseRegion=*/false);
                 rewriter.setInsertionPointToStart(
                     &ifOp.getThenRegion().front());
 
@@ -409,8 +409,8 @@ struct ONNXNonMaxSuppressionOpLowering
                       // Only proceed if a box has not yet been removed.
                       Value isRemoved = createKrnl.load(removedIndices, {o});
                       Value isNotRemoved = createMath.eq(isRemoved, falseVal);
-                      auto if1Op = rewriter.create<scf::IfOp>(
-                          loc, isNotRemoved, /*withElseRegion=*/false);
+                      auto if1Op = scf::IfOp::create(rewriter, loc,
+                          isNotRemoved, /*withElseRegion=*/false);
                       rewriter.setInsertionPointToStart(
                           &if1Op.getThenRegion().front());
 
@@ -428,8 +428,8 @@ struct ONNXNonMaxSuppressionOpLowering
 
                       // Only proceed if IOU >= iou_threshold.
                       Value checkIOU = createMath.sge(iou, iouTH);
-                      auto if2Op = rewriter.create<scf::IfOp>(
-                          loc, checkIOU, /*withElseRegion=*/false);
+                      auto if2Op = scf::IfOp::create(
+                          rewriter, loc, checkIOU, /*withElseRegion=*/false);
                       rewriter.setInsertionPointToStart(
                           &if2Op.getThenRegion().front());
 

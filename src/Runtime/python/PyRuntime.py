@@ -14,7 +14,7 @@ import os
 import importlib
 import pkgutil
 
-if __package__ == "onnxmlir" or __package__ == "onnxmlirtorch":
+if __package__ == "onnxmlir" or __package__ == "torch_onnxmlir":
     loader = pkgutil.get_loader(__package__)
     PyRuntimeC_module = os.path.join(
         os.path.dirname(loader.get_filename(__package__)), "libs"
@@ -40,7 +40,8 @@ else:
 
 
 class OMExecutionSession(OMExecutionSession_):
-    def run(self, inputs):
+
+    def run(self, inputs, with_signal_handler=False, force_output_data_copy=False):
         # Prepare arguments to call sess.run
         pyrun_inputs = []
         pyrun_shapes = []
@@ -50,5 +51,9 @@ class OMExecutionSession(OMExecutionSession_):
             pyrun_shapes.append(np.array(inp.shape, dtype=np.int64))
             pyrun_strides.append(np.array(inp.strides, dtype=np.int64))
         return super(OMExecutionSession, self).run(
-            pyrun_inputs, pyrun_shapes, pyrun_strides
+            pyrun_inputs,
+            pyrun_shapes,
+            pyrun_strides,
+            with_signal_handler,
+            force_output_data_copy,
         )

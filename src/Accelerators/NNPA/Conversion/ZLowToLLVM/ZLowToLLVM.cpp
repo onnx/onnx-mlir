@@ -2149,24 +2149,22 @@ public:
 
         // Prepare the input vector.
         // Only care about the first element.
-        Value inputVecI16 = rewriter.create<LLVM::UndefOp>(loc, vecTypeI16);
+        Value inputVecI16 = LLVM::UndefOp::create(rewriter, loc, vecTypeI16);
         inputVecI16 = create.llvm.insertElement(inputVecI16, inputI16, 0);
         SmallVector<Value> asmVals{inputVecI16};
 
         // Emit SIMD instruction for conversion.
-        Value outVecI32Struct =
-            rewriter
-                .create<LLVM::InlineAsmOp>(loc,
-                    LLVM::LLVMStructType::getLiteral(rewriter.getContext(),
-                        {vecTypeI32, vecTypeI32}, /*Packed=*/false),
-                    /*operands=*/asmVals,
-                    /*asm_string=*/asmStr,
-                    /*constraints=*/asmConstraints, /*has_side_effects=*/false,
-                    /*is_align_stack=*/false,
-                    /*tail_call_kind=*/LLVM::TailCallKind::None,
-                    /*asm_dialect=*/LLVM::AsmDialectAttr(),
-                    /*operand_attrs=*/ArrayAttr())
-                .getResult(0);
+        Value outVecI32Struct = LLVM::InlineAsmOp::create(rewriter, loc,
+            LLVM::LLVMStructType::getLiteral(rewriter.getContext(),
+                {vecTypeI32, vecTypeI32}, /*Packed=*/false),
+            /*operands=*/asmVals,
+            /*asm_string=*/asmStr,
+            /*constraints=*/asmConstraints, /*has_side_effects=*/false,
+            /*is_align_stack=*/false,
+            /*tail_call_kind=*/LLVM::TailCallKind::None,
+            /*asm_dialect=*/LLVM::AsmDialectAttr(),
+            /*operand_attrs=*/ArrayAttr())
+                                    .getResult(0);
         Value outVecI32 =
             create.llvm.extractValue(vecTypeI32, outVecI32Struct, 0);
         Value outVecF32 = create.llvm.bitcast(vecTypeF32, outVecI32);
@@ -2320,25 +2318,24 @@ public:
         // Prepare two input vectors: each for left/right four elements.
         // Only care about the first element.
         Value inputI32 = create.llvm.bitcast(i32Ty, input);
-        Value inputVecI32Left = rewriter.create<LLVM::UndefOp>(loc, vecTypeI32);
+        Value inputVecI32Left =
+            LLVM::UndefOp::create(rewriter, loc, vecTypeI32);
         inputVecI32Left =
             create.llvm.insertElement(inputVecI32Left, inputI32, 0);
         Value inputVecI32Right =
-            rewriter.create<LLVM::UndefOp>(loc, vecTypeI32);
+            LLVM::UndefOp::create(rewriter, loc, vecTypeI32);
         SmallVector<Value> asmVals{inputVecI32Left, inputVecI32Right};
 
         // Emit SIMD instruction for conversion.
-        Value outVecI16 =
-            rewriter
-                .create<LLVM::InlineAsmOp>(loc, vecTypeI16,
-                    /*operands=*/asmVals,
-                    /*asm_string=*/asmStr,
-                    /*constraints=*/asmConstraints, /*has_side_effects=*/false,
-                    /*is_align_stack=*/false,
-                    /*tail_call_kind=*/LLVM::TailCallKind::None,
-                    /*asm_dialect=*/LLVM::AsmDialectAttr(),
-                    /*operand_attrs=*/ArrayAttr())
-                .getResult(0);
+        Value outVecI16 = LLVM::InlineAsmOp::create(rewriter, loc, vecTypeI16,
+            /*operands=*/asmVals,
+            /*asm_string=*/asmStr,
+            /*constraints=*/asmConstraints, /*has_side_effects=*/false,
+            /*is_align_stack=*/false,
+            /*tail_call_kind=*/LLVM::TailCallKind::None,
+            /*asm_dialect=*/LLVM::AsmDialectAttr(),
+            /*operand_attrs=*/ArrayAttr())
+                              .getResult(0);
         Value outVecDLF16 = create.llvm.bitcast(vecTypeF16, outVecI16);
         outputDLF16 = create.llvm.extractElement(f16Ty, outVecDLF16, 0);
       } else {
@@ -2477,19 +2474,17 @@ public:
                          "       VCLFNL $1,$2,2,0       \n\t";
     const char *asmConstraints = "=&v,=v,v";
     SmallVector<Value> asmVals{inputVecI16};
-    Value outVecI32Struct =
-        rewriter
-            .create<LLVM::InlineAsmOp>(loc,
-                LLVM::LLVMStructType::getLiteral(rewriter.getContext(),
-                    {vecTypeI32, vecTypeI32}, /*Packed=*/false),
-                /*operands=*/asmVals,
-                /*asm_string=*/asmStr,
-                /*constraints=*/asmConstraints, /*has_side_effects=*/false,
-                /*is_align_stack=*/false,
-                /*tail_call_kind=*/LLVM::TailCallKind::None,
-                /*asm_dialect=*/LLVM::AsmDialectAttr(),
-                /*operand_attrs=*/ArrayAttr())
-            .getResult(0);
+    Value outVecI32Struct = LLVM::InlineAsmOp::create(rewriter, loc,
+        LLVM::LLVMStructType::getLiteral(
+            rewriter.getContext(), {vecTypeI32, vecTypeI32}, /*Packed=*/false),
+        /*operands=*/asmVals,
+        /*asm_string=*/asmStr,
+        /*constraints=*/asmConstraints, /*has_side_effects=*/false,
+        /*is_align_stack=*/false,
+        /*tail_call_kind=*/LLVM::TailCallKind::None,
+        /*asm_dialect=*/LLVM::AsmDialectAttr(),
+        /*operand_attrs=*/ArrayAttr())
+                                .getResult(0);
 
     Value outVecI32H = create.llvm.extractValue(vecTypeI32, outVecI32Struct, 0);
     Value outVecI32L = create.llvm.extractValue(vecTypeI32, outVecI32Struct, 1);
@@ -2539,17 +2534,15 @@ public:
     SmallVector<Value> asmVals{vecI32H, vecI32L};
 
     // Emit SIMD instruction for conversion.
-    Value outVecI16 =
-        rewriter
-            .create<LLVM::InlineAsmOp>(loc, vecTypeI16,
-                /*operands=*/asmVals,
-                /*asm_string=*/asmStr,
-                /*constraints=*/asmConstraints, /*has_side_effects=*/false,
-                /*is_align_stack=*/false,
-                /*tail_call_kind=*/LLVM::TailCallKind::None,
-                /*asm_dialect=*/LLVM::AsmDialectAttr(),
-                /*operand_attrs=*/ArrayAttr())
-            .getResult(0);
+    Value outVecI16 = LLVM::InlineAsmOp::create(rewriter, loc, vecTypeI16,
+        /*operands=*/asmVals,
+        /*asm_string=*/asmStr,
+        /*constraints=*/asmConstraints, /*has_side_effects=*/false,
+        /*is_align_stack=*/false,
+        /*tail_call_kind=*/LLVM::TailCallKind::None,
+        /*asm_dialect=*/LLVM::AsmDialectAttr(),
+        /*operand_attrs=*/ArrayAttr())
+                          .getResult(0);
 
     Value outVecF16 = create.llvm.bitcast(vecTypeF16, outVecI16);
     rewriter.replaceOp(op, {outVecF16});

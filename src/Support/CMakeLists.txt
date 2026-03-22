@@ -1,5 +1,17 @@
 # SPDX-License-Identifier: Apache-2.0
 
+# Check whether the build is for a tool (sub-project for now)
+# Otherwise, continue with default onnx-mlir project
+choose_build_target()
+
+add_onnx_mlir_library(OMSmallFPConversion
+  SmallFPConversion.c
+  )
+set_target_properties(OMSmallFPConversion
+  PROPERTIES
+  LANGUAGE C
+  )
+
 add_onnx_mlir_library(OMDiagnostic
   Diagnostic.cpp
 
@@ -33,12 +45,4 @@ add_onnx_mlir_library(OMMlirUtilities
   LINK_LIBS PUBLIC
   OMSmallFPConversion
   MLIRIR
-  )
-
-add_onnx_mlir_library(OMSmallFPConversion
-  SmallFPConversion.c
-  )
-set_target_properties(OMSmallFPConversion
-  PROPERTIES
-  LANGUAGE C
   )

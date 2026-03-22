@@ -54,16 +54,16 @@ struct ONNXTileOpLoweringToStablehlo : public ConversionPattern {
     for (int64_t i = 0; i < inputRank; ++i) {
       int64_t dim_size = inputType.getDimSize(i);
       if (dim_size == ShapedType::kDynamic) {
-        Value inputShape = rewriter.create<shape::ShapeOfOp>(loc, input);
+        Value inputShape = shape::ShapeOfOp::create(rewriter, loc, input);
         Value dimSizeExtent =
-            rewriter.create<shape::GetExtentOp>(loc, inputShape, i);
-        Value dimSizeValue = rewriter.create<arith::IndexCastOp>(
-            loc, RankedTensorType::get({1}, indexType), dimSizeExtent);
+            shape::GetExtentOp::create(rewriter, loc, inputShape, i);
+        Value dimSizeValue = arith::IndexCastOp::create(rewriter, loc,
+            RankedTensorType::get({1}, indexType), dimSizeExtent);
         inputShapeValues.push_back(dimSizeValue);
       } else {
-        inputShapeValues.push_back(rewriter.create<stablehlo::ConstantOp>(
-            loc, DenseElementsAttr::get(RankedTensorType::get({1}, indexType),
-                     ArrayRef<int64_t>{dim_size})));
+        inputShapeValues.push_back(stablehlo::ConstantOp::create(rewriter, loc,
+            DenseElementsAttr::get(RankedTensorType::get({1}, indexType),
+                ArrayRef<int64_t>{dim_size})));
       }
     }
 
@@ -81,7 +81,7 @@ struct ONNXTileOpLoweringToStablehlo : public ConversionPattern {
     SmallVector<Value, 4> outDimSize;
     outDimSize.reserve(inputRank * 2);
     for (int64_t dim_idx = 0; dim_idx < inputRank; ++dim_idx) {
-      Value multiples_size = rewriter.create<stablehlo::SliceOp>(loc,
+      Value multiples_size = stablehlo::SliceOp::create(rewriter, loc,
           RankedTensorType::get({1}, multiplesElementType), multiples,
           DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{dim_idx}),
           DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{dim_idx + 1}),
@@ -97,7 +97,7 @@ struct ONNXTileOpLoweringToStablehlo : public ConversionPattern {
     DenseI64ArrayAttr broadcast_dims_attr =
         rewriter.getDenseI64ArrayAttr(broadcastDimensions);
 
-    Value out_dim_size_tensor = rewriter.create<stablehlo::ConcatenateOp>(loc,
+    Value out_dim_size_tensor = stablehlo::ConcatenateOp::create(rewriter, loc,
         RankedTensorType::get(
             {static_cast<int64_t>(outDimSize.size())}, indexType),
         outDimSize, IntegerAttr::get(rewriter.getIntegerType(64), 0));
@@ -105,24 +105,24 @@ struct ONNXTileOpLoweringToStablehlo : public ConversionPattern {
         inputRank * 2, ShapedType::kDynamic);
     RankedTensorType broadcast_type =
         RankedTensorType::get(broadcast_shape, elementType);
-    Value broadcast = rewriter.create<stablehlo::DynamicBroadcastInDimOp>(
-        loc, broadcast_type, input, out_dim_size_tensor, broadcast_dims_attr);
+    Value broadcast = stablehlo::DynamicBroadcastInDimOp::create(rewriter, loc,
+        broadcast_type, input, out_dim_size_tensor, broadcast_dims_attr);
 
     // %shape = [MS1, MS2]
     SmallVector<Value, 4> shape_values;
     shape_values.reserve(inputRank);
     for (int64_t i = 0; i < inputRank; ++i) {
-      Value dim_size_value = rewriter.create<stablehlo::MulOp>(
-          loc, outDimSize[2 * i], outDimSize[2 * i + 1]);
+      Value dim_size_value = stablehlo::MulOp::create(
+          rewriter, loc, outDimSize[2 * i], outDimSize[2 * i + 1]);
       shape_values.push_back(dim_size_value);
     }
-    Value shape = rewriter.create<stablehlo::ConcatenateOp>(loc,
+    Value shape = stablehlo::ConcatenateOp::create(rewriter, loc,
         RankedTensorType::get(
             {static_cast<int64_t>(shape_values.size())}, indexType),
         shape_values, IntegerAttr::get(rewriter.getIntegerType(64), 0));
-    Value reshpaeOp = rewriter.create<stablehlo::DynamicReshapeOp>(
-        loc, outputType, broadcast, shape);
-    rewriter.replaceOp(op, reshpaeOp);
+    Value reshapeOp = stablehlo::DynamicReshapeOp::create(
+        rewriter, loc, outputType, broadcast, shape);
+    rewriter.replaceOp(op, reshapeOp);
     return success();
   }
 };

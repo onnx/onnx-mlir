@@ -58,7 +58,7 @@ class VariadicSizeIsGT<int N> : Constraint<
 >;
 
 // Create a unit constant that will be used as none input.
-def CreateNoneValue : NativeCodeCall<"$_builder.create<ONNXNoneOp>($_loc)">;
+def CreateNoneValue : NativeCodeCall<"ONNXNoneOp::create($_builder, $_loc)">;
 
 class getNth<int n, string x> : NativeCodeCall<x # "[" # n # "]">;
 
@@ -100,10 +100,10 @@ def GetUnrankedTensorTypeOf : NativeCodeCall<
 >;
 
 class EmitOp3<string s> :
-        NativeCodeCall<"$_builder.create<" # s # ">($_loc, $0, $1, $2)">;
+        NativeCodeCall<"" # s # "::create($_builder, $_loc, $0, $1, $2)">;
 
 class EmitOp4<string s> :
-        NativeCodeCall<"$_builder.create<" # s # ">($_loc, $0, $1, $2, $3)">;
+        NativeCodeCall<"" # s # "::create($_builder, $_loc, $0, $1, $2, $3)">;
 
 def IsF32ScalarConstantTensor: Constraint<
   CPred<"isF32ScalarConstantTensor($0)">,
@@ -200,7 +200,7 @@ def replaceONNXAddPattern : Pat<
 //
 //===----------------------------------------------------------------------===//
 def GetONNXSumOpWithoutFirst : NativeCodeCall<
-  "$_builder.create<ONNXSumOp>("
+  "ONNXSumOp::create($_builder, "
   "  $_loc,"
   "  mlir::cast<ShapedType>($0[0].getType()),"
   "  ValueRange(OperandRange{$0.begin() + 1, $0.end()}))"

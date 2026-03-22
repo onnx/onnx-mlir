@@ -91,13 +91,9 @@ else:
             variables.test_to_enable_symbol_dict[test_name] = (
                 test_name_symbol_dimparam_list[1]
             )
-        assert (
-            test_name in all_test_names
-        ), """test name {} not found, it is likely
+        assert test_name in all_test_names, """test name {} not found, it is likely
         that you may have misspelled the test name or the specified test does not
-        exist in the version of onnx package you installed.""".format(
-            test_name
-        )
+        exist in the version of onnx package you installed.""".format(test_name)
         backend_test.include(r"^{}$".format(test_name))
         if len(test_name_symbol_dimparam_list) >= 3:
             variables.test_to_enable_dimparams_dict[test_name] = ",".join(

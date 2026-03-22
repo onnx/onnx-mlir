@@ -228,7 +228,7 @@ private:
   }
 
   Value createNoneValue() {
-    return builder_.create<ONNXNoneOp>(UnknownLoc()).getResult();
+    return ONNXNoneOp::create(builder_, UnknownLoc()).getResult();
   }
 
   Value createConstantValue(ElementsAttr value, Location loc) {
@@ -539,7 +539,7 @@ private:
           inputDimParams.emplace_back(inputDimParamsFromOption[inputIndex]);
         else if (!inputDimParamsFromOptionForAllArgs.empty())
           inputDimParams.emplace_back(inputDimParamsFromOptionForAllArgs);
-        else if (!dimParams.empty())
+        else
           inputDimParams.emplace_back(dimParams);
 
         argTypes.emplace_back(argTy);
@@ -593,10 +593,10 @@ private:
     }
 
     if (useReturn)
-      builder_.create<ONNXReturnOp>(UnknownLoc(), retVals);
+      ONNXReturnOp::create(builder_, UnknownLoc(), retVals);
     else
       // Create a return operation to return all ONNX output tensors.
-      builder_.create<ONNXYieldOp>(UnknownLoc(), retVals);
+      ONNXYieldOp::create(builder_, UnknownLoc(), retVals);
 
     SmallVector<llvm::StringRef> inputDimParamsRefs, outputDimParamsRefs;
     for (uint64_t i = 0; i < inputDimParams.size(); ++i)
@@ -816,7 +816,8 @@ private:
         outputTypes.emplace_back(builder_.getNoneType());
 
     // TODO: Handle optional inputs.
-    T op = builder_.create<T>(ImportLoc(node), outputTypes, inputs, attributes);
+    T op =
+        T::create(builder_, ImportLoc(node), outputTypes, inputs, attributes);
     // Type inference for results.
     for (const auto &attr : node.attribute()) {
       if (attr.type() == onnx::AttributeProto_AttributeType_GRAPH) {
@@ -1309,10 +1310,12 @@ private:
     OpsetImportsMap function_opset_map =
         GetOpsetImportsFromProto(functionProto);
 
+    // Update the ShapeInferenceOptions with the new interface.
+    const onnx::ShapeInferenceOptions &options = onnx::ShapeInferenceOptions();
+
     // Populates graph.value_info().
     onnx::shape_inference::InferShapes(&graph, function_opset_map,
-        onnx::OpSchemaRegistry::Instance(),
-        /*options=*/{}, in_model_functions_);
+        onnx::OpSchemaRegistry::Instance(), options, in_model_functions_);
 
     // Save caller context, while generating function body.
     ModelLocalFunctionsMap callerModelFunctions;
@@ -1504,10 +1507,10 @@ private:
       SmallVector<NamedAttribute, 2> argAttrs;
       for (size_t k = 0; k < funcAttrsToMove.size(); ++k) {
         if (i < funcAttrsToMove[k].size()) {
-          auto name = mlir::cast<StringAttr>(funcAttrsToMove[k].getValue()[i]);
-          if (name) {
+          auto v = mlir::cast<StringAttr>(funcAttrsToMove[k].getValue()[i]);
+          if (v && !v.getValue().empty()) {
             NamedAttribute namedAttr =
-                builder_.getNamedAttr(argAttrNames[k], name);
+                builder_.getNamedAttr(argAttrNames[k], v);
             argAttrs.emplace_back(namedAttr);
           }
         }

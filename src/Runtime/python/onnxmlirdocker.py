@@ -295,7 +295,7 @@ class InferenceSession:
         # When the script is used in package onnxmlir, the files to be imported
         # are within the package. Path in the package should be used.
         # Otherwise, env variable ONNX_MLIR_HOME is used to for import path
-        if __package__ == "onnxmlir" or __package__ == "onnxmlirtorch":
+        if __package__ == "onnxmlir" or __package__ == "torch_onnxmlir":
             try:
                 from .PyRuntime import OMExecutionSession
             except ImportError:
@@ -349,6 +349,8 @@ class InferenceSession:
             print("error: input is not provided. ToFix: random input")
             exit(1)
 
+        # Let onnx-mlir know where to find the constants file.
+        os.environ["OM_CONSTANT_PATH"] = os.path.dirname(self.compiled_model)
         return self.session.run(inputs)
 
     def input_signature(self):

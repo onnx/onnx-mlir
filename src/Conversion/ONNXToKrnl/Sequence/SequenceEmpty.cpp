@@ -37,7 +37,7 @@ struct ONNXSequenceEmptyOpLowering
     MemRefType outputMemRefType = mlir::cast<MemRefType>(convertedType);
 
     Value alloc =
-        rewriter.create<KrnlSeqAllocOp>(loc, outputMemRefType, ValueRange());
+        KrnlSeqAllocOp::create(rewriter, loc, outputMemRefType, ValueRange());
 
     rewriter.replaceOp(op, alloc);
     onnxToKrnlSimdReport(op);

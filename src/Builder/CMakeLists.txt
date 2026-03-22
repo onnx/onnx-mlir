@@ -12,13 +12,11 @@ add_onnx_mlir_library(OMBuilder
 
   LINK_LIBS PUBLIC
   OMHasOnnxSubgraphOpInterface
+  OMMlirUtilities
   OMONNXOps
   OMResultTypeInferenceOpInterface
   MLIRFuncDialect
   onnx
-  absl::log_internal_check_op
-  absl::log_internal_message
-  absl::status
   )
 
 configure_file(OpBuildTable.inc.dc.in

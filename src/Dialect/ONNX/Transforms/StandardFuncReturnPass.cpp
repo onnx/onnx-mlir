@@ -35,7 +35,8 @@ struct StandardReturnPattern : public OpConversionPattern<ONNXReturnOp> {
     func::FuncOp function = ReturnOp.getParentOp();
     inferFunctionReturnShapes(function);
 
-    rewriter.create<func::ReturnOp>(ReturnOp->getLoc(), ReturnOp.getOperands());
+    func::ReturnOp::create(
+        rewriter, ReturnOp->getLoc(), ReturnOp.getOperands());
     rewriter.eraseOp(ReturnOp);
     return success();
   }

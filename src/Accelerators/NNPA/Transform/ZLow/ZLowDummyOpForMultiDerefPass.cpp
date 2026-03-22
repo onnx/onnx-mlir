@@ -68,7 +68,7 @@ public:
                     operands[j].getDefiningOp()) {
                   OpBuilder b(op);
                   op->setOperand(
-                      j, b.create<ZLowDummyOp>(op->getLoc(), operands[j]));
+                      j, ZLowDummyOp::create(b, op->getLoc(), operands[j]));
                   processed.insert(j);
                 }
               }

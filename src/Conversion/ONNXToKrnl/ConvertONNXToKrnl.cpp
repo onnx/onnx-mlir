@@ -189,6 +189,11 @@ std::map<std::string, std::string> ONNXEntryPointLowering::typeMap = {
     {std::string(" ui16 "), std::string(" \"ui16\" ")},
     {std::string(" ui8 "), std::string(" \"ui8\" ")}};
 
+void populateLoweringONNXEntryPointOpPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx) {
+  patterns.insert<ONNXEntryPointLowering>(ctx);
+}
+
 void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx, DimAnalysis *dimAnalysis,
     bool enableTiling, bool enableSIMD, bool enableParallel,
@@ -287,7 +292,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXSequenceInsertOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXSequenceLengthOpPattern(patterns, typeConverter, ctx);
   // Entry point
-  patterns.insert<ONNXEntryPointLowering>(ctx);
+  populateLoweringONNXEntryPointOpPattern(patterns, ctx);
   // Additional
   populateLoweringONNXCustomOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXLayoutTransformOpPattern(patterns, typeConverter, ctx, enableParallel);

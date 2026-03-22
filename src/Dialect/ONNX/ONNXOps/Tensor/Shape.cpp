@@ -47,7 +47,7 @@ static int64_t normalizeClampedPerSpec(int64_t axis, int64_t rank) {
 } // namespace
 
 LogicalResult ONNXShapeOpShapeHelper::computeShape() {
-  ONNXShapeOp shapeOp = llvm::cast<ONNXShapeOp>(op);
+  ONNXShapeOp shapeOp = mlir::dyn_cast<ONNXShapeOp>(op);
   ONNXShapeOpAdaptor operandAdaptor(operands);
   Value data = operandAdaptor.getData();
 

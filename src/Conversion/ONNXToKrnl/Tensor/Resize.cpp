@@ -98,11 +98,11 @@ struct ONNXResizeOpLowering : public OpConversionPattern<ONNXResizeOp> {
     if (resizeOp.getMode() != "nearest") {
       std::vector<std::string> attributeNames = {"mode", "nearest_mode"};
       if (!isNoneValue(resizeOp.getScales())) {
-        rewriter.create<KrnlCallOp>(
-            loc, "Resize_Scales", alloc, op, operands, attributeNames);
+        KrnlCallOp::create(rewriter, loc, "Resize_Scales", alloc, op, operands,
+            attributeNames);
       } else {
-        rewriter.create<KrnlCallOp>(
-            loc, "Resize_Size", alloc, op, operands, attributeNames);
+        KrnlCallOp::create(
+            rewriter, loc, "Resize_Size", alloc, op, operands, attributeNames);
       }
       rewriter.replaceOp(op, alloc);
       onnxToKrnlSimdReport(op);
@@ -129,8 +129,8 @@ struct ONNXResizeOpLowering : public OpConversionPattern<ONNXResizeOp> {
           for (int64_t i = 0; i < rank; ++i) {
             Value inIndexFloat;
             Value outIndex = loopInd[i];
-            Value outIndexInteger = rewriter.create<arith::IndexCastOp>(
-                loc, rewriter.getIntegerType(64), outIndex);
+            Value outIndexInteger = arith::IndexCastOp::create(
+                rewriter, loc, rewriter.getIntegerType(64), outIndex);
             Value outIndexFloat =
                 create.math.cast(rewriter.getF32Type(), outIndexInteger);
 
@@ -161,10 +161,10 @@ struct ONNXResizeOpLowering : public OpConversionPattern<ONNXResizeOp> {
               inIndexFloat = create.math.add(inIndexFloat, deltaConstant);
             } else if (resizeOp.getNearestMode() == "floor") {
               // Not supported by create.math
-              inIndexFloat = rewriter.create<math::FloorOp>(loc, inIndexFloat);
+              inIndexFloat = math::FloorOp::create(rewriter, loc, inIndexFloat);
             } else if (resizeOp.getNearestMode() == "ceil") {
               // Not supported by create.math
-              inIndexFloat = rewriter.create<math::CeilOp>(loc, inIndexFloat);
+              inIndexFloat = math::CeilOp::create(rewriter, loc, inIndexFloat);
             } else {
               llvm_unreachable("Unexpected getNearestMode() for ResizeOp");
             }

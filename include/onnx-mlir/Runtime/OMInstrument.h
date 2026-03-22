@@ -36,6 +36,7 @@
 #include <malloc.h>
 #endif // #ifdef __APPLE__
 
+#include <stdio.h>
 #include <onnx-mlir/Compiler/OMCompilerMacros.h>
 
 #ifdef __cplusplus
@@ -43,11 +44,16 @@ extern "C" {
 #endif
 
 /**
- * Initialize instrument.
- * Initialize counter and read env variables for control
+ * Print the instrumentation information gathered during a single inference run.
+ * If no information was recorded (e.g. the -profile-ir or -profile-ir-with-sig
+ * were not used), this call does nothing. Printing goes on standard out or in
+ * the file pointed to by the ONNX_MLIR_INSTRUMENT_FILE variable. In rare cases,
+ * the instrumentation buffer may overflow, in which case printing may occur
+ * prior to this call; nevertheless a call to the function below will ensure
+ * that the entire information is printed out.
  *
  */
-OM_EXTERNAL_VISIBILITY void OMInstrumentInit();
+OM_EXTERNAL_VISIBILITY void omInstrumentPrint();
 
 /**
  * Create an instrument point.
@@ -64,6 +70,14 @@ OM_EXTERNAL_VISIBILITY void OMInstrumentInit();
  */
 OM_EXTERNAL_VISIBILITY void OMInstrumentPoint(
     const char *opName, int64_t tag, const char *nodeName);
+
+/**
+ * Initialize fout on the first call (as fout is statically initialized to
+ * null). If ONNX_MLIR_INSTRUMENT_FILE is defined, fout will target the value in
+ * ONNX_MLIR_INSTRUMENT_FILE. Otherwise, fout default to standard out.
+ */
+
+OM_EXTERNAL_VISIBILITY FILE *getInstrumentFile(bool withPrintStartReport);
 
 #ifdef __cplusplus
 }

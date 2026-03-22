@@ -39,6 +39,7 @@ target_compile_definitions(OMVersion PUBLIC ${DEFINITIONS})
 
 add_onnx_mlir_library(OMCompilerOptions
   CompilerOptions.cpp
+  JsonConfigObject.cpp
 
   EXCLUDE_FROM_OM_LIBS
 
@@ -57,6 +58,7 @@ add_onnx_mlir_library(OMCompilerOptions
   MLIRIR
   OMAccelerator
   LLVMTargetParser
+  LLVMSupport
   )
 
 
@@ -89,6 +91,7 @@ add_onnx_mlir_library(OMCompilerPasses
   ${OMLibs}
   OMCompilerOptions
   MLIRAffineTransforms
+  MLIRArithToLLVM
   MLIRBufferizationPipelines
   MLIRBufferizationToMemRef
   MLIRIR
@@ -150,6 +153,40 @@ list(APPEND DEFINITIONS "PRODUCT_ID=\"${PRODUCT_ID}\"")
 target_compile_definitions(OMVersion PUBLIC ${DEFINITIONS})
 set_property(SOURCE CompilerUtils.cpp APPEND PROPERTY COMPILE_DEFINITIONS ${DEFINITIONS})
 
+# This library only add MLIR/LLVM independent code that is used both in
+# onnx-mlir compiler as well as the OMCompile. The file listed
+# here must remain MLIR/LLVM free.
+ 
+add_onnx_mlir_library(OMCommandUtils
+  Command.cpp
+  CommandUtils.cpp
+
+  EXCLUDE_FROM_OM_LIBS
+
+  INCLUDE_DIRS PRIVATE
+  ${FILE_GENERATE_DIR}
+
+  INCLUDE_DIRS PUBLIC
+  ${ONNX_MLIR_SRC_ROOT}/include
+
+  LINK_LIBS PUBLIC
+  )
+
+  add_onnx_mlir_library(OMCompile
+  OMCompile.cpp
+
+  EXCLUDE_FROM_OM_LIBS
+
+  INCLUDE_DIRS PRIVATE
+  ${FILE_GENERATE_DIR}
+
+  INCLUDE_DIRS PUBLIC
+  ${ONNX_MLIR_SRC_ROOT}/include
+
+  LINK_LIBS PRIVATE
+  OMCommandUtils
+  )
+
 add_onnx_mlir_library(OMCompilerUtils
   CompilerUtils.cpp
   HeapReporter.cpp
@@ -169,6 +206,7 @@ add_onnx_mlir_library(OMCompilerUtils
 
   LINK_LIBS PUBLIC
   OMCompilerDialects
+  OMCommandUtils
   OMCompilerPasses
   OMAccelerator
   OMVersion
@@ -222,48 +260,3 @@ if(OPENMP_INCLUDE_DIR)
   add_dependencies(OMCompilerUtils ompruntime)
 endif()
 
-add_onnx_mlir_library(OMCompiler
-  OnnxMlirCompiler.cpp
-
-  DEPENDS
-  OMCompilerUtils
-
-  INCLUDE_DIRS PRIVATE
-  ${FILE_GENERATE_DIR}
-
-  INCLUDE_DIRS PUBLIC
-  ${ONNX_MLIR_SRC_ROOT}/include
-
-  EXCLUDE_FROM_OM_LIBS
-
-  LINK_LIBS PRIVATE
-  OMCompilerUtils
-  )
-
-if (NOT BUILD_SHARED_LIBS)
-  target_compile_definitions(OMCompiler PUBLIC ONNX_MLIR_BUILT_AS_STATIC)
-endif()
-
-pybind11_add_module(PyCompile PyOMCompileSession.cpp)
-add_dependencies(PyCompile onnx)
-target_compile_options(PyCompile
-  PRIVATE
-  $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-frtti -fexceptions>
-  $<$<CXX_COMPILER_ID:MSVC>:/EHsc /GR>
-  )
-target_compile_definitions(PyCompile
-  PRIVATE
-  $<TARGET_PROPERTY:onnx,COMPILE_DEFINITIONS>
-  )
-target_include_directories(PyCompile
-  PRIVATE
-  $<TARGET_PROPERTY:onnx,INCLUDE_DIRECTORIES>
-  )
-target_link_libraries(PyCompile
-  PRIVATE
-  OMCompiler
-  )
-
-install(TARGETS PyCompile
-  DESTINATION lib
-  )

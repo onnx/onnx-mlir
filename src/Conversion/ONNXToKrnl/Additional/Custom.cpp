@@ -68,7 +68,7 @@ struct ONNXCustomOpLowering : public OpConversionPattern<ONNXCustomOp> {
           excludeStrings.end())
         attributeNames.push_back(attrName);
     }
-    rewriter.create<KrnlCallOp>(loc, customOp.getFunctionName().str(),
+    KrnlCallOp::create(rewriter, loc, customOp.getFunctionName().str(),
         outputAllocs, op, operands, attributeNames);
 
     rewriter.replaceOp(op, outputAllocs);

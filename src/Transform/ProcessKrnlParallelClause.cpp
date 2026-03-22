@@ -12,9 +12,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Transform/ProcessKrnlParallelClause.hpp"
+#include "mlir/Transforms/Passes.h"
+
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
+#include "src/Transform/ProcessKrnlParallelClause.hpp"
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -32,9 +34,16 @@
 #define DEBUG_TYPE "krnl-parallel-clause"
 
 using namespace mlir;
+using namespace onnx_mlir;
+
+namespace onnx_mlir {
+
+#define GEN_PASS_DEF_PROCESSKRNLPARALLELCLAUSEPASS
+#include "src/Transform/Passes.h.inc"
+
+} // namespace onnx_mlir
 
 namespace {
-
 struct ProcessKrnlParallelClauseWithoutScopePattern
     : public OpRewritePattern<KrnlParallelClauseOp> {
   using OpRewritePattern<KrnlParallelClauseOp>::OpRewritePattern;
@@ -65,7 +74,8 @@ struct ProcessKrnlParallelClauseWithoutScopePattern
         // Nevertheless, this warning attests that this might be a possibility.
         // In such case, we would get a compiler warning/error of use before
         // def.
-        MutableOperandRange mutableNumThreads = parOp.getNumThreadsMutable();
+        MutableOperandRange mutableNumThreads =
+            parOp.getNumThreadsVarsMutable();
         mutableNumThreads.assign(numThreads);
       }
       if (procBind.has_value()) {
@@ -90,29 +100,11 @@ struct ProcessKrnlParallelClauseWithoutScopePattern
 };
 
 struct ProcessKrnlParallelClausePass
-    : public PassWrapper<ProcessKrnlParallelClausePass,
-          OperationPass<func::FuncOp>> {
+    : public onnx_mlir::impl::ProcessKrnlParallelClausePassBase<
+          ProcessKrnlParallelClausePass> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ProcessKrnlParallelClausePass)
 
-  ProcessKrnlParallelClausePass() {}
-  ProcessKrnlParallelClausePass(const ProcessKrnlParallelClausePass &pass)
-      : mlir::PassWrapper<ProcessKrnlParallelClausePass,
-            OperationPass<func::FuncOp>>() {}
-
-  StringRef getArgument() const override {
-    return "process-krnl-parallel-clause";
-  }
-
-  StringRef getDescription() const override {
-    return "Migrate info from Krnl Parallel Clause into OpenMP Parallel "
-           "operation.";
-  }
-
   void runOnOperation() final;
-
-  typedef PassWrapper<ProcessKrnlParallelClausePass,
-      OperationPass<func::FuncOp>>
-      BaseType;
 };
 
 void ProcessKrnlParallelClausePass::runOnOperation() {
@@ -127,23 +119,18 @@ void ProcessKrnlParallelClausePass::runOnOperation() {
   target.addIllegalOp<KrnlParallelClauseOp>();
 
   RewritePatternSet patterns(context);
-  onnx_mlir::getKrnlParallelClauseIntoOpenMPPatterns(patterns);
+  getKrnlParallelClauseIntoOpenMPPatterns(patterns);
 
   if (failed(applyPartialConversion(function, target, std::move(patterns))))
     signalPassFailure();
 }
-
 } // namespace
 
-void onnx_mlir::getKrnlParallelClauseIntoOpenMPPatterns(
+namespace onnx_mlir {
+void getKrnlParallelClauseIntoOpenMPPatterns(
     mlir::RewritePatternSet &patterns) {
   MLIRContext *context = patterns.getContext();
   patterns.insert<ProcessKrnlParallelClauseWithoutScopePattern>(context);
 }
 
-/*!
- * Create a Krnl Parallel Clause pass.
- */
-std::unique_ptr<mlir::Pass> onnx_mlir::createProcessKrnlParallelClausePass() {
-  return std::make_unique<ProcessKrnlParallelClausePass>();
-}
+} // namespace onnx_mlir

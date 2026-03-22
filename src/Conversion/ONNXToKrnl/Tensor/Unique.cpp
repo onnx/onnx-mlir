@@ -44,11 +44,11 @@ Value emitArgUnique(ConversionPatternRewriter &rewriter, Location loc,
   Value val_sorted = create.math.constant(int_type, sorted);
   if (count_only) {
     SmallVector<Value, 4> operands = {total, input, val_axis, val_sorted};
-    rewriter.create<KrnlCallOp>(loc, "omTensorUniqueCount", 1, operands);
+    KrnlCallOp::create(rewriter, loc, "omTensorUniqueCount", 1, operands);
   } else {
     SmallVector<Value, 8> operands = {total, Y, indices, inverse_indices,
         counts, input, val_axis, val_sorted};
-    rewriter.create<KrnlCallOp>(loc, "omTensorUnique", 5, operands);
+    KrnlCallOp::create(rewriter, loc, "omTensorUnique", 5, operands);
   }
   return total;
 }
@@ -92,8 +92,8 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    ONNXTopKOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
-    ONNXUniqueOp uniqueOp = llvm::cast<ONNXUniqueOp>(op);
+    ONNXUniqueOp uniqueOp = mlir::dyn_cast<ONNXUniqueOp>(op);
+    ONNXUniqueOpAdaptor operandAdaptor(operands, uniqueOp);
     Location loc = op->getLoc();
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
         MemRefBuilder>

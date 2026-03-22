@@ -2661,7 +2661,7 @@ struct ONNXWhereOpLowering : public ConversionPattern {
 
             // Return lhs if cond is true else rhs.
             Value result =
-                rewriter.create<arith::SelectOp>(loc, cond, lhs, rhs);
+                arith::SelectOp::create(rewriter, loc, cond, lhs, rhs);
 
             // Store result in the resulting array.
             createKrnl.storeIE(result, alloc, outputAccessExprs);
@@ -2677,7 +2677,7 @@ struct ONNXWhereOpLowering : public ConversionPattern {
       Value rhs = create.krnl.load(operandAdaptor.getY());
 
       // Return lhs if cond is true else rhs.
-      Value result = rewriter.create<arith::SelectOp>(loc, cond, lhs, rhs);
+      Value result = arith::SelectOp::create(rewriter, loc, cond, lhs, rhs);
 
       // Store result in the resulting array.
       create.krnl.store(result, alloc);

@@ -1,16 +1,28 @@
 #!/usr/bin/env python3
 
 import numpy as np
-from PyCompile import OMCompileSession
+from PyOMCompile import OMCompile
 
-# Load onnx model and create OMCompileSession object.
-file = "./mnist.onnx"
-compiler = OMCompileSession(file)
-# Generate the library file. Success when rc == 0 while set the opt as "-O3"
-rc = compiler.compile("-O3 -o mnist")
-# Get the output file name
-model = compiler.get_compiled_file_name()
-if rc:
-    print("Failed to compile with error code", rc)
+# Load onnx model and create OMCompile object.
+if True:
+    # model name given separately, works.
+    model = "./mnist.onnx"
+    flags = "-O3 -o mnist"
+if False:
+    # model name given in flags, works.
+    model = ""
+    flags = "-O3 -o mnist ./mnist.onnx"
+if False:
+    # no model, fails.
+    model = ""
+    flags = "-O3"
+
+try:
+    compiler = OMCompile(model, flags)
+except RuntimeError as e:
+    print(f"Compilation failed: {e}")
     exit(1)
-print("Compiled onnx file", file, "to", model, "with rc", rc)
+
+# Get the output file name
+compiled_model = compiler.get_output_file_name()
+print("Compiled onnx file", model, "to", compiled_model)

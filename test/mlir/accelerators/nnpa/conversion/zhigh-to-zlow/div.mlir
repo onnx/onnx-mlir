@@ -17,7 +17,7 @@ func.func @should_lower_to_zlow(%arg0: tensor<3x4x5xf16, #zhigh.layout<{dataLayo
 // CHECK:           krnl.store [[VAR_c3_i64_]], [[RES_1_]]{{.}}[[VAR_c0_]]{{.}} : memref<3xi64>
 // CHECK:           krnl.store [[VAR_c4_i64_]], [[RES_1_]]{{.}}[[VAR_c1_]]{{.}} : memref<3xi64>
 // CHECK:           krnl.store [[VAR_c5_i64_]], [[RES_1_]]{{.}}[[VAR_c2_]]{{.}} : memref<3xi64>
-// CHECK:           "zlow.div"([[PARAM_0_]], [[PARAM_1_]], [[RES_1_]], [[RES_]]) {layout = "3D"} : (memref<3x4x5xf16, #map>, memref<3x4x5xf16, #map>, memref<3xi64>, memref<3x4x5xf16, #map>) -> ()
+// CHECK:           "zlow.div"([[PARAM_0_]], [[PARAM_1_]], [[RES_1_]], [[RES_]]) <{layout = "3D"}> : (memref<3x4x5xf16, #map>, memref<3x4x5xf16, #map>, memref<3xi64>, memref<3x4x5xf16, #map>) -> ()
 // CHECK:           return [[RES_]] : memref<3x4x5xf16, #map>
 // CHECK:         }
 }
@@ -44,7 +44,7 @@ func.func @should_lower_to_zlow_unknown_dims(%arg0: tensor<3x?x5xf16, #zhigh.lay
 // CHECK:           [[VAR_3_:%.+]] = arith.index_cast [[VAR_1_]] : index to i64
 // CHECK:           krnl.store [[VAR_3_]], [[RES_1_]]{{.}}[[VAR_c1_]]{{.}} : memref<3xi64>
 // CHECK:           krnl.store [[VAR_c5_i64_]], [[RES_1_]]{{.}}[[VAR_c2_]]{{.}} : memref<3xi64>
-// CHECK:           "zlow.div"([[PARAM_0_]], [[PARAM_1_]], [[RES_1_]], [[RES_]]) {layout = "3D"} : (memref<3x?x5xf16, #map>, memref<3x?x5xf16, #map>, memref<3xi64>, memref<3x?x5xf16, #map>) -> ()
+// CHECK:           "zlow.div"([[PARAM_0_]], [[PARAM_1_]], [[RES_1_]], [[RES_]]) <{layout = "3D"}> : (memref<3x?x5xf16, #map>, memref<3x?x5xf16, #map>, memref<3xi64>, memref<3x?x5xf16, #map>) -> ()
 // CHECK:           return [[RES_]] : memref<3x?x5xf16, #map>
 // CHECK:         }
 }

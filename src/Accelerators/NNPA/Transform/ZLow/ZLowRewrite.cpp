@@ -242,7 +242,7 @@ public:
       // Insert a zlow.reshape to reshape the input ztensor.
       // This zlow.reshape will be no-op once it is lowered to lower IR.
       rewriter.setInsertionPointAfter(tgtZMemRef.getDefiningOp());
-      rewriter.create<ZLowReshapeOp>(loc, srcZMemRef, tgtZMemRef,
+      ZLowReshapeOp::create(rewriter, loc, srcZMemRef, tgtZMemRef,
           unstickOp.getLayoutAttr(), stickOp.getLayoutAttr());
     }
     rewriter.eraseOp(stickOp);
@@ -431,8 +431,8 @@ public:
       }
       // This DummyOp is used to make the intermediate generated code valid. It
       // wil be removed automatically via canonicalization.
-      Value dummyConverter = rewriter.create<ZLowDummyOp>(
-          loc, cpuElementType, clonedOp->getResult(0));
+      Value dummyConverter = ZLowDummyOp::create(
+          rewriter, loc, cpuElementType, clonedOp->getResult(0));
       rewriter.replaceOp(loadOp, {dummyConverter});
     }
 
@@ -482,7 +482,7 @@ public:
       // This DummyOp is used to make the intermediate generated code valid. It
       // will be removed automatically via canonicalization.
       Value dummyConverter =
-          rewriter.create<ZLowDummyOp>(loc, stickifiedElementType, storeValue);
+          ZLowDummyOp::create(rewriter, loc, stickifiedElementType, storeValue);
       // Clone storeOp with new Memref, Value, and Indices.
       IRMapping operandMap;
       operandMap.map(storeOp.getMemref(), stickMemref);

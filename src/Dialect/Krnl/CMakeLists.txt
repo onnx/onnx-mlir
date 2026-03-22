@@ -18,6 +18,7 @@ add_onnx_mlir_library(OMKrnlOps
   DEPENDS
   OMKrnlIncGen
   OMSpecializedKernelOpInterface
+  OMTransformsKrnlPassIncGen
 
   LINK_LIBS PUBLIC
   OMCompilerOptions

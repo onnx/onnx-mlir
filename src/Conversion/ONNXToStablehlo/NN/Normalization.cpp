@@ -31,8 +31,8 @@ struct ONNXBatchNormalizationInferenceModeOpLoweringToStablehlo
       ConversionPatternRewriter &rewriter) const final {
     // batchnorm{epsilon}(x, scale, bias, mean, variance) =
     //      scale * (x - mean) / sqrt(variance + epsilon) + bias
-    ONNXBatchNormalizationInferenceModeOpAdaptor operandAdaptor(
-        operands, op->getAttrDictionary());
+    auto bnOp = mlir::dyn_cast<ONNXBatchNormalizationInferenceModeOp>(op);
+    ONNXBatchNormalizationInferenceModeOpAdaptor operandAdaptor(operands, bnOp);
     Location loc = op->getLoc();
 
     Value operand = operandAdaptor.getX();
@@ -42,7 +42,7 @@ struct ONNXBatchNormalizationInferenceModeOpLoweringToStablehlo
     Value variance = operandAdaptor.getVar();
     llvm::APFloat eps = operandAdaptor.getEpsilon();
 
-    Value result = rewriter.create<stablehlo::BatchNormInferenceOp>(loc,
+    Value result = stablehlo::BatchNormInferenceOp::create(rewriter, loc,
         op->getResultTypes(), operand, scale, bias, mean, variance, eps, 1);
     rewriter.replaceOp(op, result);
     return success();

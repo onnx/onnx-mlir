@@ -25,7 +25,7 @@ func.func @maxpool_valid_padding(%arg0: tensor<1x32x32x3xf16, #zhigh.layout<{dat
 // CHECK:           krnl.store [[VAR_c32_i64_]], [[RES_1_]]{{.}}[[VAR_c3_]]{{.}} : memref<6xi64>
 // CHECK:           krnl.store [[VAR_c31_i64_]], [[RES_1_]]{{.}}[[VAR_c4_]]{{.}} : memref<6xi64>
 // CHECK:           krnl.store [[VAR_c31_i64_]], [[RES_1_]]{{.}}[[VAR_c5_]]{{.}} : memref<6xi64>
-// CHECK:           "zlow.maxpool2d"([[PARAM_0_]], [[RES_1_]], [[RES_]]) {kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1]} : (memref<1x32x32x3xf16, #map>, memref<6xi64>, memref<1x31x31x3xf16, #map>) -> ()
+// CHECK:           "zlow.maxpool2d"([[PARAM_0_]], [[RES_1_]], [[RES_]]) <{kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1]}> : (memref<1x32x32x3xf16, #map>, memref<6xi64>, memref<1x31x31x3xf16, #map>) -> ()
 // CHECK:           return [[RES_]] : memref<1x31x31x3xf16, #map>
 // CHECK:         }
 }
@@ -56,7 +56,7 @@ func.func @maxpool_same_padding(%arg0: tensor<1x32x32x3xf16, #zhigh.layout<{data
 // CHECK:           krnl.store [[VAR_c32_i64_]], [[RES_1_]]{{.}}[[VAR_c3_]]{{.}} : memref<6xi64>
 // CHECK:           krnl.store [[VAR_c32_i64_]], [[RES_1_]]{{.}}[[VAR_c4_]]{{.}} : memref<6xi64>
 // CHECK:           krnl.store [[VAR_c32_i64_]], [[RES_1_]]{{.}}[[VAR_c5_]]{{.}} : memref<6xi64>
-// CHECK:           "zlow.maxpool2d"([[PARAM_0_]], [[RES_1_]], [[RES_]]) {kernel_shape = [2, 2], padding_type = "SAME_PADDING", strides = [1, 1]} : (memref<1x32x32x3xf16, #map>, memref<6xi64>, memref<1x32x32x3xf16, #map>) -> ()
+// CHECK:           "zlow.maxpool2d"([[PARAM_0_]], [[RES_1_]], [[RES_]]) <{kernel_shape = [2, 2], padding_type = "SAME_PADDING", strides = [1, 1]}> : (memref<1x32x32x3xf16, #map>, memref<6xi64>, memref<1x32x32x3xf16, #map>) -> ()
 // CHECK:           return [[RES_]] : memref<1x32x32x3xf16, #map>
 // CHECK:         }
 }
@@ -99,7 +99,7 @@ func.func @maxpool_valid_padding_unknown_dims(%arg0: tensor<1x?x?x?xf16, #zhigh.
 // CHECK:           krnl.store [[VAR_10_]], [[RES_1_]]{{.}}[[VAR_c4_]]{{.}} : memref<6xi64>
 // CHECK:           [[VAR_11_:%.+]] = arith.index_cast [[VAR_4_]] : index to i64
 // CHECK:           krnl.store [[VAR_11_]], [[RES_1_]]{{.}}[[VAR_c5_]]{{.}} : memref<6xi64>
-// CHECK:           "zlow.maxpool2d"([[PARAM_0_]], [[RES_1_]], [[RES_]]) {kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1]} : (memref<1x?x?x?xf16, #map>, memref<6xi64>, memref<1x?x?x?xf16, #map>) -> ()
+// CHECK:           "zlow.maxpool2d"([[PARAM_0_]], [[RES_1_]], [[RES_]]) <{kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1]}> : (memref<1x?x?x?xf16, #map>, memref<6xi64>, memref<1x?x?x?xf16, #map>) -> ()
 // CHECK:           return [[RES_]] : memref<1x?x?x?xf16, #map>
 // CHECK:         }
 }
@@ -138,7 +138,7 @@ func.func @maxpool_same_padding_unknown_dims(%arg0: tensor<1x?x?x?xf16, #zhigh.l
 // CHECK:           krnl.store [[VAR_8_]], [[RES_1_]]{{.}}[[VAR_c4_]]{{.}} : memref<6xi64>
 // CHECK:           [[VAR_9_:%.+]] = arith.index_cast [[VAR_1_]] : index to i64
 // CHECK:           krnl.store [[VAR_9_]], [[RES_1_]]{{.}}[[VAR_c5_]]{{.}} : memref<6xi64>
-// CHECK:           "zlow.maxpool2d"([[PARAM_0_]], [[RES_1_]], [[RES_]]) {kernel_shape = [2, 2], padding_type = "SAME_PADDING", strides = [1, 1]} : (memref<1x?x?x?xf16, #map>, memref<6xi64>, memref<1x?x?x?xf16, #map>) -> ()
+// CHECK:           "zlow.maxpool2d"([[PARAM_0_]], [[RES_1_]], [[RES_]]) <{kernel_shape = [2, 2], padding_type = "SAME_PADDING", strides = [1, 1]}> : (memref<1x?x?x?xf16, #map>, memref<6xi64>, memref<1x?x?x?xf16, #map>) -> ()
 // CHECK:           return [[RES_]] : memref<1x?x?x?xf16, #map>
 // CHECK:         }
 }
@@ -170,7 +170,7 @@ func.func @maxpool_same_padding_no_bias_unknown_dims(%arg0: tensor<1x32x32x3xf16
 // CHECK:           krnl.store [[VAR_c32_i64_]], [[RES_1_]]{{.}}[[VAR_c3_]]{{.}} : memref<6xi64>
 // CHECK:           krnl.store [[VAR_c32_i64_]], [[RES_1_]]{{.}}[[VAR_c4_]]{{.}} : memref<6xi64>
 // CHECK:           krnl.store [[VAR_c32_i64_]], [[RES_1_]]{{.}}[[VAR_c5_]]{{.}} : memref<6xi64>
-// CHECK:           "zlow.maxpool2d"([[PARAM_0_]], [[RES_1_]], [[RES_]]) {kernel_shape = [2, 2], padding_type = "SAME_PADDING", strides = [1, 1]} : (memref<1x32x32x3xf16, #map>, memref<6xi64>, memref<1x32x32x3xf16, #map>) -> ()
+// CHECK:           "zlow.maxpool2d"([[PARAM_0_]], [[RES_1_]], [[RES_]]) <{kernel_shape = [2, 2], padding_type = "SAME_PADDING", strides = [1, 1]}> : (memref<1x32x32x3xf16, #map>, memref<6xi64>, memref<1x32x32x3xf16, #map>) -> ()
 // CHECK:           return [[RES_]] : memref<1x32x32x3xf16, #map>
 // CHECK:         }
 }
@@ -202,7 +202,7 @@ func.func @avgpool_valid_padding(%arg0: tensor<1x32x32x3xf16, #zhigh.layout<{dat
 // CHECK:           krnl.store [[VAR_c32_i64_]], [[RES_1_]]{{.}}[[VAR_c3_]]{{.}} : memref<6xi64>
 // CHECK:           krnl.store [[VAR_c31_i64_]], [[RES_1_]]{{.}}[[VAR_c4_]]{{.}} : memref<6xi64>
 // CHECK:           krnl.store [[VAR_c31_i64_]], [[RES_1_]]{{.}}[[VAR_c5_]]{{.}} : memref<6xi64>
-// CHECK:           "zlow.avgpool2d"([[PARAM_0_]], [[RES_1_]], [[RES_]]) {kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1]} : (memref<1x32x32x3xf16, #map>, memref<6xi64>, memref<1x31x31x3xf16, #map>) -> ()
+// CHECK:           "zlow.avgpool2d"([[PARAM_0_]], [[RES_1_]], [[RES_]]) <{kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1]}> : (memref<1x32x32x3xf16, #map>, memref<6xi64>, memref<1x31x31x3xf16, #map>) -> ()
 // CHECK:           return [[RES_]] : memref<1x31x31x3xf16, #map>
 // CHECK:         }
 }
@@ -233,7 +233,7 @@ func.func @avgpool_same_padding(%arg0: tensor<1x32x32x3xf16, #zhigh.layout<{data
 // CHECK:           krnl.store [[VAR_c32_i64_]], [[RES_1_]]{{.}}[[VAR_c3_]]{{.}} : memref<6xi64>
 // CHECK:           krnl.store [[VAR_c32_i64_]], [[RES_1_]]{{.}}[[VAR_c4_]]{{.}} : memref<6xi64>
 // CHECK:           krnl.store [[VAR_c32_i64_]], [[RES_1_]]{{.}}[[VAR_c5_]]{{.}} : memref<6xi64>
-// CHECK:           "zlow.avgpool2d"([[PARAM_0_]], [[RES_1_]], [[RES_]]) {kernel_shape = [2, 2], padding_type = "SAME_PADDING", strides = [1, 1]} : (memref<1x32x32x3xf16, #map>, memref<6xi64>, memref<1x32x32x3xf16, #map>) -> ()
+// CHECK:           "zlow.avgpool2d"([[PARAM_0_]], [[RES_1_]], [[RES_]]) <{kernel_shape = [2, 2], padding_type = "SAME_PADDING", strides = [1, 1]}> : (memref<1x32x32x3xf16, #map>, memref<6xi64>, memref<1x32x32x3xf16, #map>) -> ()
 // CHECK:           return [[RES_]] : memref<1x32x32x3xf16, #map>
 // CHECK:         }
 }
@@ -276,7 +276,7 @@ func.func @avgpool_valid_padding_unknown_dims(%arg0: tensor<1x?x?x?xf16, #zhigh.
 // CHECK:           krnl.store [[VAR_10_]], [[RES_1_]]{{.}}[[VAR_c4_]]{{.}} : memref<6xi64>
 // CHECK:           [[VAR_11_:%.+]] = arith.index_cast [[VAR_4_]] : index to i64
 // CHECK:           krnl.store [[VAR_11_]], [[RES_1_]]{{.}}[[VAR_c5_]]{{.}} : memref<6xi64>
-// CHECK:           "zlow.avgpool2d"([[PARAM_0_]], [[RES_1_]], [[RES_]]) {kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1]} : (memref<1x?x?x?xf16, #map>, memref<6xi64>, memref<1x?x?x?xf16, #map>) -> ()
+// CHECK:           "zlow.avgpool2d"([[PARAM_0_]], [[RES_1_]], [[RES_]]) <{kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1]}> : (memref<1x?x?x?xf16, #map>, memref<6xi64>, memref<1x?x?x?xf16, #map>) -> ()
 // CHECK:           return [[RES_]] : memref<1x?x?x?xf16, #map>
 // CHECK:         }
 }
@@ -315,7 +315,7 @@ func.func @avgpool_same_padding_unknown_dims(%arg0: tensor<1x?x?x?xf16, #zhigh.l
 // CHECK:           krnl.store [[VAR_8_]], [[RES_1_]]{{.}}[[VAR_c4_]]{{.}} : memref<6xi64>
 // CHECK:           [[VAR_9_:%.+]] = arith.index_cast [[VAR_1_]] : index to i64
 // CHECK:           krnl.store [[VAR_9_]], [[RES_1_]]{{.}}[[VAR_c5_]]{{.}} : memref<6xi64>
-// CHECK:           "zlow.avgpool2d"([[PARAM_0_]], [[RES_1_]], [[RES_]]) {kernel_shape = [2, 2], padding_type = "SAME_PADDING", strides = [1, 1]} : (memref<1x?x?x?xf16, #map>, memref<6xi64>, memref<1x?x?x?xf16, #map>) -> ()
+// CHECK:           "zlow.avgpool2d"([[PARAM_0_]], [[RES_1_]], [[RES_]]) <{kernel_shape = [2, 2], padding_type = "SAME_PADDING", strides = [1, 1]}> : (memref<1x?x?x?xf16, #map>, memref<6xi64>, memref<1x?x?x?xf16, #map>) -> ()
 // CHECK:           return [[RES_]] : memref<1x?x?x?xf16, #map>
 // CHECK:         }
 }
@@ -347,7 +347,7 @@ func.func @avgpool_same_padding_no_bias_unknown_dims(%arg0: tensor<1x32x32x3xf16
 // CHECK:           krnl.store [[VAR_c32_i64_]], [[RES_1_]]{{.}}[[VAR_c3_]]{{.}} : memref<6xi64>
 // CHECK:           krnl.store [[VAR_c32_i64_]], [[RES_1_]]{{.}}[[VAR_c4_]]{{.}} : memref<6xi64>
 // CHECK:           krnl.store [[VAR_c32_i64_]], [[RES_1_]]{{.}}[[VAR_c5_]]{{.}} : memref<6xi64>
-// CHECK:           "zlow.avgpool2d"([[PARAM_0_]], [[RES_1_]], [[RES_]]) {kernel_shape = [2, 2], padding_type = "SAME_PADDING", strides = [1, 1]} : (memref<1x32x32x3xf16, #map>, memref<6xi64>, memref<1x32x32x3xf16, #map>) -> ()
+// CHECK:           "zlow.avgpool2d"([[PARAM_0_]], [[RES_1_]], [[RES_]]) <{kernel_shape = [2, 2], padding_type = "SAME_PADDING", strides = [1, 1]}> : (memref<1x32x32x3xf16, #map>, memref<6xi64>, memref<1x32x32x3xf16, #map>) -> ()
 // CHECK:           return [[RES_]] : memref<1x32x32x3xf16, #map>
 // CHECK:         }
 }

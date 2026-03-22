@@ -238,12 +238,19 @@ ParseResult ONNXConstantOfShapeOp::parse(
 //===----------------------------------------------------------------------===//
 Operation *ONNXDialect::materializeConstant(
     OpBuilder &builder, Attribute value, Type type, Location loc) {
-  // The attribute could be either a UnitAttr or DenseElementsAttr, IntAttr,
-  // FloatAttr and etc.
-  // OnnxBuilder converts it into (the result of) a ONNXNoneOp or
-  // ONNXConstantOp.
+  // UnitAttr represents a sentinel \"no value\" (NoneType) in ONNX. It should
+  // not be materialized as a ConstantLike op via materializeConstant, since
+  // MLIR's infrastructure assumes materialized constants are true constants
+  // (e.g., DenseElementsAttr-backed) and may assert otherwise.
+  //
+  // Returning nullptr for UnitAttr lets the caller fall back to other
+  // mechanisms (or simply not materialize a constant), while still allowing
+  // ONNXNoneOp to be created explicitly where appropriate.
+  if (isa<UnitAttr>(value))
+    return nullptr;
+
+  // All other attributes are materialized as ONNXConstantOp.
   MultiDialectBuilder<OnnxBuilder> create(builder, loc);
-  Value result =
-      isa<UnitAttr>(value) ? create.onnx.none() : create.onnx.constant(value);
+  Value result = create.onnx.constant(value);
   return result.getDefiningOp();
 }

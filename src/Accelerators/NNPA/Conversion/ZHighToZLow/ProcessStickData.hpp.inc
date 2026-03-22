@@ -173,8 +173,7 @@ void IterateOverStickInputData(const BUILDER &b, mlir::Operation *op,
                           create.vec.loadIE(vecF16Type, inputAsSticks,
                               {SymIE(inputStickOffset), l + (u * archVL)});
                       auto convertOp =
-                          b.getBuilder()
-                              .create<zlow::ZLowConvertDLF16ToF32VectorOp>(
+                              zlow::ZLowConvertDLF16ToF32VectorOp::create(b.getBuilder(), 
                                   b.getLoc(), vecOfF16);
                       vecOfF32Vals.emplace_back(convertOp.getResult(0));
                       vecOfF32Vals.emplace_back(convertOp.getResult(1));
@@ -212,8 +211,7 @@ void IterateOverStickInputData(const BUILDER &b, mlir::Operation *op,
                           inputAsSticks, {SymIE(inputStickOffset), l});
                       // Convert back to f32.
                       auto convertOp =
-                          b.getBuilder()
-                              .create<zlow::ZLowConvertDLF16ToF32VectorOp>(
+                              zlow::ZLowConvertDLF16ToF32VectorOp::create(b.getBuilder(), 
                                   b.getLoc(), vecOfF16);
                       vecOfF32Vals.emplace_back(convertOp.getResult(0));
                       vecOfF32Vals.emplace_back(convertOp.getResult(1));
@@ -229,7 +227,7 @@ void IterateOverStickInputData(const BUILDER &b, mlir::Operation *op,
                     inputAsSticks, {SymIE(inputStickOffset), lastL});
                 // Convert back to f32.
                 auto convertOp =
-                    b.getBuilder().create<zlow::ZLowConvertDLF16ToF32VectorOp>(
+                    zlow::ZLowConvertDLF16ToF32VectorOp::create(b.getBuilder(), 
                         b.getLoc(), vecOfF16);
                 mlir::Value vecF32H = convertOp.getResult(0);
                 mlir::Value vecF32L = convertOp.getResult(1);

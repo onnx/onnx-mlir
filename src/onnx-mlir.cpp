@@ -34,19 +34,38 @@ int main(int argc, char *argv[]) {
 
   llvm::cl::SetVersionPrinter(getVersionPrinter);
 
-  // Remove unrelated options except common ones and the onnx-mlir options
+  // Remove unrelated options except common ones and the onnx-mlir options.
   removeUnrelatedOptions({&OnnxMlirCommonOptions, &OnnxMlirOptions});
 
-  if (!parseCustomEnvFlagsCommandLineOption(argc, argv, &llvm::errs()) ||
-      !llvm::cl::ParseCommandLineOptions(argc, argv,
+  // Load options from a file given by --config-file.
+  // If --config-file is not used, looking for omconfig.json in the same folder
+  // as the input file.
+  std::vector<std::string> extraArgs;
+  loadCompileOptionsFromConfig(argc, argv, extraArgs);
+
+  // Contruct a list of all options.
+  std::vector<const char *> allArgs;
+  // onnx-mlir program.
+  allArgs.emplace_back(argv[0]);
+  // Options from the config file.
+  for (const auto &arg : extraArgs)
+    allArgs.emplace_back(arg.c_str());
+  // CLI options will overwrite the ones in the config file.
+  for (int i = 1; i < argc; ++i)
+    allArgs.emplace_back(argv[i]);
+
+  if (!parseCustomEnvFlagsCommandLineOption(
+          allArgs.size(), allArgs.data(), &llvm::errs()) ||
+      !llvm::cl::ParseCommandLineOptions(allArgs.size(), allArgs.data(),
           getVendorName() + " - A modular optimizer driver\n", &llvm::errs(),
           nullptr, customEnvFlags.c_str())) {
     llvm::errs() << "Failed to parse options\n";
-    return 1;
+    return OnnxMlirCompilerErrorCodes::InvalidCompilerOptions;
   }
+
   initCompilerConfig();
 
-  // Timing manager reporting enabled via "--enable-timing" compiler flag
+  // Timing manager reporting enabled via "--enable-timing" compiler flag.
   timingManager.setEnabled(enableTiming);
   rootTimingScope = timingManager.getRootScope();
   auto setupTiming = rootTimingScope.nest("[onnx-mlir] Loading Dialects");
@@ -105,7 +124,7 @@ int main(int argc, char *argv[]) {
   if (rc != 0) {
     if (!errorMessage.empty())
       llvm::errs() << errorMessage << "\n";
-    return 1;
+    return rc;
   }
   inputFileTiming.stop();
   return compileModule(module, context, outputBaseName, emissionTarget);

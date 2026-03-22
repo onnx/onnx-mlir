@@ -4,6 +4,8 @@ add_onnx_mlir_rewriter(Decompose)
 add_onnx_mlir_rewriter(ConstProp)
 add_onnx_mlir_rewriter(ConvOpt)
 
+add_onnx_mlir_pass(ONNXTransforms Passes ONNXTransforms)
+
 add_onnx_mlir_library(OMShapeInference
   ShapeInference.cpp
 
@@ -115,6 +117,28 @@ add_onnx_mlir_library(OMReplaceOpWithItsOperand
 
   INCLUDE_DIRS PUBLIC
   ${ONNX_MLIR_SRC_ROOT}/include
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  MLIRPass
+  )
+
+add_onnx_mlir_library(OMRemoveSameONNXDim
+  RemoveSameONNXDim.cpp
+
+  INCLUDE_DIRS PUBLIC
+  ${ONNX_MLIR_SRC_ROOT}/include
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  MLIRPass
+  )
+
+add_onnx_mlir_library(OMAppendDecodingStrategy
+  AppendDecodingStrategy.cpp
+
+  DEPENDS
+  OMONNXTransformsPassIncGen
 
   LINK_LIBS PUBLIC
   OMONNXOps

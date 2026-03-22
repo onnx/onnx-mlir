@@ -45,9 +45,8 @@ public:
     Location loc = op->getLoc();
     MultiDialectBuilder<MathBuilder, MemRefBuilder> create(rewriter, loc);
 
-    auto output = rewriter
-                      .create<memref::LoadOp>(loc, operandAdaptor.getSeq(),
-                          operandAdaptor.getIndex())
+    auto output = memref::LoadOp::create(
+        rewriter, loc, operandAdaptor.getSeq(), operandAdaptor.getIndex())
                       .getResult();
 
     // TODO: overwrite the element in seq so that runtime error can be detected
@@ -69,7 +68,7 @@ public:
         }
       }
       Value alloc = create.mem.alignedAlloc(outputType, allocParams);
-      rewriter.create<memref::CopyOp>(loc, output, alloc);
+      memref::CopyOp::create(rewriter, loc, output, alloc);
       rewriter.replaceOp(op, alloc);
       return success();
     }

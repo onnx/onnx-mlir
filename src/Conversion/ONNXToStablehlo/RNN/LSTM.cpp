@@ -425,11 +425,11 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
         unsqueezedIdxType, sequenceIV, create.onnx.constantInt64({0}));
     if (isForward)
       state.allHForward =
-          rewriter.create<ONNXScatterNDOp>(loc, state.allHForward.getType(),
+          ONNXScatterNDOp::create(rewriter, loc, state.allHForward.getType(),
               state.allHForward, unsqueezedIdx, unsqueezedHt);
     else
       state.allHReverse =
-          rewriter.create<ONNXScatterNDOp>(loc, state.allHReverse.getType(),
+          ONNXScatterNDOp::create(rewriter, loc, state.allHReverse.getType(),
               state.allHReverse, unsqueezedIdx, unsqueezedHt);
   }
 }
@@ -555,7 +555,7 @@ void calculateStateWithLoop<ONNXLSTMOp, LstmState, LstmActivationPack,
         state.forwardCt.getType()};
     SmallVector<Location> locations(returnedTypes.size(), loc);
     ::stablehlo::WhileOp whileLoopOp =
-        rewriter.create<::stablehlo::WhileOp>(loc, returnedTypes, operands);
+        ::stablehlo::WhileOp::create(rewriter, loc, returnedTypes, operands);
     Region &condRegion = whileLoopOp.getCond();
     Region &bodyRegion = whileLoopOp.getBody();
     Block &condBlock = condRegion.emplaceBlock();
@@ -566,11 +566,11 @@ void calculateStateWithLoop<ONNXLSTMOp, LstmState, LstmActivationPack,
       rewriter.setInsertionPointToStart(&condBlock);
       BlockArgument lhs = condBlock.getArgument(0);
       Value rhs = create.onnx.constantInt64({sequenceDimSize});
-      Value compareResult = rewriter.create<::stablehlo::CompareOp>(
-          loc, lhs, rhs, ::stablehlo::ComparisonDirection::LT);
-      compareResult = rewriter.create<::stablehlo::ReshapeOp>(
-          loc, RankedTensorType::get({}, rewriter.getI1Type()), compareResult);
-      rewriter.create<::stablehlo::ReturnOp>(loc, compareResult);
+      Value compareResult = ::stablehlo::CompareOp::create(
+          rewriter, loc, lhs, rhs, ::stablehlo::ComparisonDirection::LT);
+      compareResult = ::stablehlo::ReshapeOp::create(rewriter, loc,
+          RankedTensorType::get({}, rewriter.getI1Type()), compareResult);
+      ::stablehlo::ReturnOp::create(rewriter, loc, compareResult);
     }
     bodyBlock.addArguments(returnedTypes, locations);
     {
@@ -590,7 +590,7 @@ void calculateStateWithLoop<ONNXLSTMOp, LstmState, LstmActivationPack,
           initialH, /*enableUnroll=*/false, /*isForward=*/true);
       Value one = create.onnx.constantInt64({1});
       Value newSeqIV = create.onnx.add(seqIV, one);
-      rewriter.create<::stablehlo::ReturnOp>(loc,
+      ::stablehlo::ReturnOp::create(rewriter, loc,
           ValueRange(
               {newSeqIV, state.allHForward, state.forwardHt, state.forwardCt}));
     }
@@ -611,7 +611,7 @@ void calculateStateWithLoop<ONNXLSTMOp, LstmState, LstmActivationPack,
         state.reverseCt.getType()};
     SmallVector<Location> locations(returnedTypes.size(), loc);
     ::stablehlo::WhileOp whileLoopOp =
-        rewriter.create<::stablehlo::WhileOp>(loc, returnedTypes, operands);
+        ::stablehlo::WhileOp::create(rewriter, loc, returnedTypes, operands);
     Region &condRegion = whileLoopOp.getCond();
     Region &bodyRegion = whileLoopOp.getBody();
     Block &condBlock = condRegion.emplaceBlock();
@@ -622,11 +622,11 @@ void calculateStateWithLoop<ONNXLSTMOp, LstmState, LstmActivationPack,
       rewriter.setInsertionPointToStart(&condBlock);
       BlockArgument lhs = condBlock.getArgument(0);
       Value rhs = create.onnx.constantInt64({0});
-      Value compareResult = rewriter.create<::stablehlo::CompareOp>(
-          loc, lhs, rhs, ::stablehlo::ComparisonDirection::GE);
-      compareResult = rewriter.create<::stablehlo::ReshapeOp>(
-          loc, RankedTensorType::get({}, rewriter.getI1Type()), compareResult);
-      rewriter.create<::stablehlo::ReturnOp>(loc, compareResult);
+      Value compareResult = ::stablehlo::CompareOp::create(
+          rewriter, loc, lhs, rhs, ::stablehlo::ComparisonDirection::GE);
+      compareResult = ::stablehlo::ReshapeOp::create(rewriter, loc,
+          RankedTensorType::get({}, rewriter.getI1Type()), compareResult);
+      ::stablehlo::ReturnOp::create(rewriter, loc, compareResult);
     }
     bodyBlock.addArguments(returnedTypes, locations);
     {
@@ -646,9 +646,9 @@ void calculateStateWithLoop<ONNXLSTMOp, LstmState, LstmActivationPack,
           initialH, /*enableUnroll=*/false, /*isForward=*/false);
       Value one = create.onnx.constantInt64({1});
       Value newrevseqIV = create.onnx.sub(revseqIV, one);
-      rewriter.create<::stablehlo::ReturnOp>(
-          loc, ValueRange({newrevseqIV, state.allHReverse, state.reverseHt,
-                   state.reverseCt}));
+      ::stablehlo::ReturnOp::create(rewriter, loc,
+          ValueRange({newrevseqIV, state.allHReverse, state.reverseHt,
+              state.reverseCt}));
     }
     state.allHReverse = whileLoopOp.getResults()[1];
     state.reverseHt = whileLoopOp.getResults()[2];

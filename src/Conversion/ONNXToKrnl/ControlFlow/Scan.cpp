@@ -150,11 +150,9 @@ struct ONNXScanOpLowering : public OpConversionPattern<ONNXScanOp> {
                "Expecting scan body function output to consist of"
                "tensors/memrefs.");
         auto outputTy = mlir::cast<ShapedType>(output.getType());
-        bodyOutputs[i] = rewriter
-                             .create<UnrealizedConversionCastOp>(loc,
-                                 MemRefType::get(outputTy.getShape(),
-                                     outputTy.getElementType()),
-                                 output)
+        bodyOutputs[i] = UnrealizedConversionCastOp::create(rewriter, loc,
+            MemRefType::get(outputTy.getShape(), outputTy.getElementType()),
+            output)
                              .getResult(0);
       }
 

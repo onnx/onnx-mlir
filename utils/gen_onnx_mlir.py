@@ -66,7 +66,7 @@ list_operation_version = args.list_operation_version
 
 # ==UPDATE_ONNX_VERSION_OPSET==
 # Look for tag above and update all references when upgrading the ONNX support within ONNX-MLIR.
-current_onnx_version = "1.17.0"
+current_onnx_version = "1.20.1"
 
 # Check the version of onnx package being used.
 if (
@@ -356,6 +356,7 @@ OpsWithCanonicalizer = [
     "Resize",
     "RNN",
     "Shape",
+    "Slice",
     "Split",
     "Size",
     "SoftmaxV11",

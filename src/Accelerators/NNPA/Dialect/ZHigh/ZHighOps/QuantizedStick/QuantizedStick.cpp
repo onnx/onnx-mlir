@@ -82,7 +82,8 @@ void ZHighQuantizedStickOp::build(OpBuilder &builder, OperationState &state,
 //===----------------------------------------------------------------------===//
 
 LogicalResult ZHighQuantizedStickOpShapeHelper::computeShape() {
-  ZHighQuantizedStickOp::Adaptor operandAdaptor(operands);
+  auto stickOp = mlir::dyn_cast<ZHighQuantizedStickOp>(op);
+  ZHighQuantizedStickOp::Adaptor operandAdaptor(operands, stickOp);
   Value input = operandAdaptor.getIn();
 
   // Output dims of result.
@@ -187,7 +188,7 @@ public:
       return failure();
 
     // Rewrite by passing the stickified input directly to ZHighQuantizedStick.
-    ZHighQuantizedStickOp newQStickOp = rewriter.create<ZHighQuantizedStickOp>(
+    ZHighQuantizedStickOp newQStickOp = ZHighQuantizedStickOp::create(rewriter,
         loc, stickInput, qStickOp.getInRecScale(), qStickOp.getInOffset(),
         qStickOp.getLayoutAttr(), qStickOp.getQuantizedTypeAttr());
     rewriter.replaceOp(qStickOp, newQStickOp.getResults());

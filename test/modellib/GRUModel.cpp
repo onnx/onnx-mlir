@@ -74,7 +74,7 @@ bool GRULibBuilder::build() {
   func::FuncOp funcOp = createEmptyTestFunction(inputsType, outputsType);
   Block &entryBlock = funcOp.getBody().front();
 
-  auto noneVal = builder.create<ONNXNoneOp>(loc).getResult();
+  auto noneVal = ONNXNoneOp::create(builder, loc).getResult();
   auto xVal = entryBlock.getArgument(0);
   auto sVal = noneVal;
   auto hVal = entryBlock.getArgument(1);
@@ -99,7 +99,7 @@ bool GRULibBuilder::build() {
   auto rConstant = buildONNXConstantOp(rOmt, rType);
   auto bConstant = buildONNXConstantOp(bOmt, bType);
 
-  auto gruOp = builder.create<ONNXGRUOp>(loc,
+  auto gruOp = ONNXGRUOp::create(builder, loc,
       /*Y=*/yType, /*Y_h=*/yHType,
       /*X=*/xVal, /*W=*/wConstant, /*R=*/rConstant, /*B=*/bConstant,
       /*sequence_lens=*/sVal, /*initial_h=*/hVal,
@@ -111,7 +111,7 @@ bool GRULibBuilder::build() {
   gruOp.getResults()[0].setType(yType);
   gruOp.getResults()[1].setType(yHType);
 
-  builder.create<func::ReturnOp>(loc, gruOp.getResults());
+  func::ReturnOp::create(builder, loc, gruOp.getResults());
   module.push_back(funcOp);
 
   createEntryPoint(funcOp);
@@ -120,7 +120,7 @@ bool GRULibBuilder::build() {
 
 bool GRULibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   constexpr int num = 2;
-  OMTensor* list[num];
+  OMTensor *list[num];
   list[0] = omTensorCreateWithRandomData<float>(
       llvm::ArrayRef(xShape), dataRangeLB, dataRangeUB);
   list[1] = omTensorCreateWithRandomData<float>(

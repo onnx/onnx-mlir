@@ -1,14 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
-if (ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
-  add_subdirectory(Runtime)
-  # Accelerators introduces a target AcceleratorsInc. Define a dummy one here
-  add_custom_target(AcceleratorsInc
-      COMMAND echo "This is the dummy definition for AcceleratorsInc"
-  ) 
-  add_compile_definitions(ENABLE_PYRUNTIME_LIGHT)
-  return()
-endif()
+# Check whether the build is for a tool (sub-project for now)
+# Otherwise, continue with default onnx-mlir project
+choose_build_target()
 
 # Find OpenMP headers built by LLVM
 find_path(OPENMP_INCLUDE_DIR
@@ -43,4 +37,9 @@ add_onnx_mlir_executable(onnx-mlir
   OMCompilerUtils
   OMOptionUtils
   )
+
+# Ensure Python bindings are built with onnx-mlir
+# since such binding are now necessary to run, for
+# example, RunONNXModel.py.
+add_dependencies(onnx-mlir PyRuntimeC PyOMCompileC)
   

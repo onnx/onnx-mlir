@@ -50,11 +50,11 @@ bool MatMul2DLibBuilder::build() {
   auto aVal = entryBlock.getArgument(0);
   auto bVal = entryBlock.getArgument(1);
 
-  auto MatmulOp = builder.create<ONNXMatMulOp>(loc,
+  auto MatmulOp = ONNXMatMulOp::create(builder, loc,
       /*Y=*/yType, /*A=*/aVal, /*B=*/bVal);
 
   llvm::SmallVector<Value, 1> results = {MatmulOp.getResult()};
-  builder.create<func::ReturnOp>(loc, results);
+  func::ReturnOp::create(builder, loc, results);
   module.push_back(funcOp);
 
   createEntryPoint(funcOp);
@@ -156,11 +156,11 @@ bool MatMulSingleBroadcastLibBuilder::build() {
   // Create op.
   auto aVal = entryBlock.getArgument(0);
   auto bVal = entryBlock.getArgument(1);
-  auto MatmulOp = builder.create<ONNXMatMulOp>(loc,
+  auto MatmulOp = ONNXMatMulOp::create(builder, loc,
       /*Y=*/yType, /*A=*/aVal, /*B=*/bVal);
   // Create function return.
   llvm::SmallVector<Value, 1> results = {MatmulOp.getResult()};
-  builder.create<func::ReturnOp>(loc, results);
+  func::ReturnOp::create(builder, loc, results);
   module.push_back(funcOp);
 
   createEntryPoint(funcOp);

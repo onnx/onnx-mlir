@@ -27,8 +27,8 @@ struct ONNXShapeTransformOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
-    ONNXShapeTransformOpAdaptor operandAdaptor(
-        operands, op->getAttrDictionary());
+    auto shapeTransformOp = mlir::dyn_cast<ONNXShapeTransformOp>(op);
+    ONNXShapeTransformOpAdaptor operandAdaptor(operands, shapeTransformOp);
     Value input = operandAdaptor.getInput();
     AffineMap indexMap = operandAdaptor.getIndexMap();
 

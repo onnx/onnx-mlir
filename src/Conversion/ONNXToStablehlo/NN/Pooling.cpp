@@ -27,18 +27,18 @@ static Value createInitialValueForPoolingOp(
   Location loc = op->getLoc();
   if (isa<ONNXMaxPoolSingleOutOp>(op)) {
     // returns negative infinity
-    return rewriter.create<stablehlo::ConstantOp>(loc,
+    return stablehlo::ConstantOp::create(rewriter, loc,
         rewriter.getFloatAttr(elemType,
             APFloat::getInf(mlir::cast<FloatType>(elemType).getFloatSemantics(),
                 /*isNegative=*/true)));
   }
   if (isa<ONNXAveragePoolOp>(op)) {
     // returns negative infinity
-    return rewriter.create<stablehlo::ConstantOp>(
-        loc, rewriter.getFloatAttr(elemType,
-                 APFloat::getZero(
-                     mlir::cast<FloatType>(elemType).getFloatSemantics(),
-                     /*isNegative=*/false)));
+    return stablehlo::ConstantOp::create(rewriter, loc,
+        rewriter.getFloatAttr(
+            elemType, APFloat::getZero(
+                          mlir::cast<FloatType>(elemType).getFloatSemantics(),
+                          /*isNegative=*/false)));
   }
   op->emitError("unimplemented lowering for onnx pooling op\n");
   return nullptr;
@@ -55,8 +55,8 @@ void buildReduceBody(Type elementType, Region *body, OpBuilder *builder) {
   Location loc = body->getLoc();
   block->addArguments({type, type}, SmallVector<Location, 2>(2, loc));
   Value reducer =
-      builder->create<Op>(loc, block->getArgument(0), block->getArgument(1));
-  builder->create<stablehlo::ReturnOp>(loc, reducer);
+      Op::create(*builder, loc, block->getArgument(0), block->getArgument(1));
+  stablehlo::ReturnOp::create(*builder, loc, reducer);
 }
 
 template <typename Op>
@@ -101,9 +101,9 @@ struct ONNXPoolOpLoweringToStablehlo : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    PoolOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
-    Location loc = op->getLoc();
     PoolOp poolOp = llvm::cast<PoolOp>(op);
+    PoolOpAdaptor operandAdaptor(operands, poolOp);
+    Location loc = op->getLoc();
 
     // Get shape.
     IndexExprBuilderForStablehlo createStablehloIE(rewriter, loc);
@@ -157,22 +157,21 @@ struct ONNXPoolOpLoweringToStablehlo : public ConversionPattern {
 
     padVector(strides, spatialOffset, 1);
     padVector(dilations, spatialOffset, 1);
-    stablehlo::ReduceWindowOp reduce =
-        rewriter.create<stablehlo::ReduceWindowOp>(loc, outputType,
-            inputOperand, initVal,
-            getKernelAttr(kernelShape, &rewriter, spatialOffset),
-            rewriter.getDenseI64ArrayAttr(strides),
-            /*base_dilations=*/DenseI64ArrayAttr(),
-            /*window_dilations=*/rewriter.getDenseI64ArrayAttr(dilations),
-            DenseIntElementsAttr::get(
-                RankedTensorType::get({rank, 2}, rewriter.getI64Type()),
-                flattenPaddings));
+    stablehlo::ReduceWindowOp reduce = stablehlo::ReduceWindowOp::create(
+        rewriter, loc, outputType, inputOperand, initVal,
+        getKernelAttr(kernelShape, &rewriter, spatialOffset),
+        rewriter.getDenseI64ArrayAttr(strides),
+        /*base_dilations=*/DenseI64ArrayAttr(),
+        /*window_dilations=*/rewriter.getDenseI64ArrayAttr(dilations),
+        DenseIntElementsAttr::get(
+            RankedTensorType::get({rank, 2}, rewriter.getI64Type()),
+            flattenPaddings));
     buildReduceBodyFor<PoolOp>(elemType, &reduce.getBody(), &rewriter);
 
     if (isa<ONNXAveragePoolOp>(op)) {
       Value reduceResult = reduce.getResult(0);
       int64_t countIncludePad =
-          llvm::cast<ONNXAveragePoolOp>(op).getCountIncludePad();
+          mlir::dyn_cast<ONNXAveragePoolOp>(op).getCountIncludePad();
       if (countIncludePad) {
         // Use kernel size as the divisor
         int64_t kernelSize = 1;
@@ -180,14 +179,14 @@ struct ONNXPoolOpLoweringToStablehlo : public ConversionPattern {
           kernelSize *= kernelShape[i].getLiteral();
         }
         Value divisor = getShapedFloat(loc, rewriter, kernelSize, reduceResult);
-        Value divResult = rewriter.create<stablehlo::DivOp>(
-            loc, outputType, reduceResult, divisor);
+        Value divResult = stablehlo::DivOp::create(
+            rewriter, loc, outputType, reduceResult, divisor);
         rewriter.replaceOp(op, divResult);
       } else {
         // Use another stablehlo.ReduceWindowOp to get the divisor
         Value one = getShapedFloat(loc, rewriter, 1.0, inputOperand);
         stablehlo::ReduceWindowOp reduceDivisor =
-            rewriter.create<stablehlo::ReduceWindowOp>(loc, outputType, one,
+            stablehlo::ReduceWindowOp::create(rewriter, loc, outputType, one,
                 initVal, getKernelAttr(kernelShape, &rewriter, spatialOffset),
                 rewriter.getDenseI64ArrayAttr(strides),
                 /*base_dilations=*/DenseI64ArrayAttr(),
@@ -197,8 +196,8 @@ struct ONNXPoolOpLoweringToStablehlo : public ConversionPattern {
                     flattenPaddings));
         buildReduceBodyFor<ONNXAveragePoolOp>(
             elemType, &reduceDivisor.getBody(), &rewriter);
-        Value divResult = rewriter.create<stablehlo::DivOp>(
-            loc, outputType, reduceResult, reduceDivisor.getResult(0));
+        Value divResult = stablehlo::DivOp::create(rewriter, loc, outputType,
+            reduceResult, reduceDivisor.getResult(0));
         rewriter.replaceOp(op, divResult);
       }
     } else {

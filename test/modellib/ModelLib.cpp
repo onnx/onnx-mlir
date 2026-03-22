@@ -4,7 +4,7 @@
 
 //===========-- ModelLib.cpp - Helper function for building models -==========//
 //
-// Copyright 2022-2023 The IBM Research Authors.
+// Copyright 2022-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -15,6 +15,7 @@
 #include "mlir/IR/BuiltinOps.h"
 
 #include "include/OnnxMlirRuntime.h"
+#include "src/Compiler/CommandUtils.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Runtime/OMTensorHelper.hpp"
@@ -47,7 +48,12 @@ bool ModelLibBuilder::compileAndLoad() {
   std::string libFilename =
       getTargetFilename(sharedLibBaseName, onnx_mlir::EmitLib);
   std::string modelTag = getCompilerOption(OptionKind::ModelTag);
-  exec = new ExecutionSession(libFilename, modelTag);
+  try {
+    exec = new ExecutionSession(libFilename, modelTag);
+  } catch (const onnx_mlir::ExecutionSessionException &error) {
+    std::cerr << error.what() << std::endl;
+    exec = nullptr;
+  }
   return exec != nullptr;
 }
 
@@ -69,9 +75,12 @@ bool ModelLibBuilder::checkInstructionFromEnv(
 bool ModelLibBuilder::checkInstruction(const std::string instructionName) {
   if (instructionName.empty())
     return true;
-  llvm::sys::DynamicLibrary sharedLibraryHandle =
-      exec->getSharedLibraryHandle();
+  DynamicLibraryHandleType sharedLibraryHandle = exec->getSharedLibraryHandle();
+#if defined(_WIN32)
   void *addr = sharedLibraryHandle.getAddressOfSymbol(instructionName.c_str());
+#else
+  void *addr = dlsym(sharedLibraryHandle, instructionName.c_str());
+#endif
   if (!addr) {
     printf("%s not found.\n", instructionName.c_str());
     return false;
@@ -87,7 +96,7 @@ bool ModelLibBuilder::run() {
   }
   try {
     outputs = exec->run(inputs);
-  } catch (const std::runtime_error &error) {
+  } catch (const onnx_mlir::ExecutionSessionException &error) {
     std::cerr << "error while running: " << error.what() << std::endl;
     return false;
   }
@@ -161,7 +170,7 @@ func::FuncOp ModelLibBuilder::createEmptyTestFunction(
 
   llvm::SmallVector<NamedAttribute, 1> attrs;
   auto funcOp =
-      builder.create<func::FuncOp>(loc, "main_graph", funcType, attrs);
+      func::FuncOp::create(builder, loc, "main_graph", funcType, attrs);
 
   Block *entryBlock = funcOp.addEntryBlock();
   builder.setInsertionPointToStart(entryBlock);
@@ -180,9 +189,9 @@ ONNXConstantOp ModelLibBuilder::buildONNXConstantOp(
   float *arrayPtr = reinterpret_cast<float *>(bufferPtr);
   auto array = std::vector<float>(arrayPtr, arrayPtr + numElems);
   auto denseAttr = DenseElementsAttr::get(resultType, llvm::ArrayRef(array));
-  return builder.create<ONNXConstantOp>(loc, resultType, Attribute(), denseAttr,
-      FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(),
-      ArrayAttr());
+  return ONNXConstantOp::create(builder, loc, resultType, Attribute(),
+      denseAttr, FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(),
+      StringAttr(), ArrayAttr());
 }
 
 bool ModelLibBuilder::areCloseFloat(const OMTensor *res, const OMTensor *ref,

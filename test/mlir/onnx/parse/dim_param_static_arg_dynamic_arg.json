@@ -1,0 +1,94 @@
+// RUN: onnx-mlir --EmitONNXBasic --printIR %s | FileCheck %s
+
+// dim_param_static_arg_dynamic_arg.json is an onnx model that has a a single Add operations
+// whose 1st operand does not use dim_param and 2nd operand uses dim_param.
+
+// CHECK-LABEL:  func.func @main_graph
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x2xf32> {onnx.name = "X"}, [[PARAM_1_:%.+]]: tensor<1x?xf32> {onnx.dim_params = "1:sequence_len", onnx.name = "Y"}) -> (tensor<1x2xf32> {onnx.name = "Z"}) {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Add"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<1x2xf32>, tensor<1x?xf32>) -> tensor<1x2xf32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<1x2xf32>
+// CHECK:         }
+// CHECK:         "onnx.EntryPoint"() <{func = @main_graph}> : () -> ()
+
+{
+  "irVersion": "9",
+  "producerName": "onnx-mlir",
+  "graph": {
+    "node": [
+      {
+        "input": [
+          "X",
+          "Y"
+        ],
+        "output": [
+          "Z"
+        ],
+        "opType": "Add"
+      }
+    ],
+    "name": "test-dim-param",
+    "input": [
+      {
+        "name": "X",
+        "type": {
+          "tensorType": {
+            "elemType": 1,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "1"
+                },
+                {
+                  "dimValue": "2"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "name": "Y",
+        "type": {
+          "tensorType": {
+            "elemType": 1,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "1"
+                },
+                {
+                  "dimParam": "sequence_len"
+                }
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "output": [
+      {
+        "name": "Z",
+        "type": {
+          "tensorType": {
+            "elemType": 1,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "1"
+                },
+                {
+                  "dimValue": "2"
+                }
+              ]
+            }
+          }
+        }
+      }
+    ]
+  },
+  "opsetImport": [
+    {
+      "version": "19"
+    }
+  ]
+}

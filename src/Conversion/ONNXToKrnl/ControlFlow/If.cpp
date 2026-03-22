@@ -36,8 +36,8 @@ struct ONNXIfOpLowering : public OpConversionPattern<ONNXIfOp> {
             typeConverter->convertTypes(resultTypes, convertedResultTypes))) {
       return failure();
     }
-    scf::IfOp scfIfOp = rewriter.create<scf::IfOp>(
-        loc, convertedResultTypes, cond, /*withElseRegion=*/true);
+    scf::IfOp scfIfOp = scf::IfOp::create(
+        rewriter, loc, convertedResultTypes, cond, /*withElseRegion=*/true);
     graphToScfBranch(
         rewriter, loc, ifOp.getThenBranch(), scfIfOp.getThenRegion());
     graphToScfBranch(
