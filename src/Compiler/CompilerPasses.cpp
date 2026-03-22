@@ -34,7 +34,9 @@
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerPasses.hpp"
 #include "src/Compiler/OnnxToMlirPasses.hpp"
+#ifdef ONNX_MLIR_ENABLE_KRNL
 #include "src/Conversion/KrnlToLLVM/ConvertKrnlToLLVM.hpp"
+#endif
 #include "src/Dialect/Mlir/VectorMachineSupport.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Pass/Passes.hpp"
@@ -61,11 +63,14 @@ void configurePasses() {
   configureConstPropONNXToONNXPass(onnxConstPropRoundFPToInt,
       onnxConstPropExpansionBound, onnxConstPropDisablePatterns,
       disableConstantProp);
+#ifdef ONNX_MLIR_ENABLE_KRNL
   configureOnnxToKrnlLoweringPass(optReport == OptReport::Parallel,
       enableParallel, parallelizeOps, optReport == OptReport::Simd,
       !disableSimdOption);
+#endif
 }
 
+#ifdef ONNX_MLIR_ENABLE_KRNL
 void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
     std::string ONNXOpsStatFormat) {
   if (enableCSE)
@@ -179,6 +184,7 @@ void addKrnlToLLVMPasses(
   pm.addPass(mlir::createReconcileUnrealizedCastsPass());
   pm.addPass(mlir::createCanonicalizerPass());
 }
+#endif
 
 InputIRLevelType determineInputIRLevel(mlir::OwningOpRef<ModuleOp> &module) {
   Operation *moduleOp = module->getOperation();
@@ -195,11 +201,13 @@ InputIRLevelType determineInputIRLevel(mlir::OwningOpRef<ModuleOp> &module) {
   if (hasONNXOps)
     return ONNXLevel;
 
+#ifdef ONNX_MLIR_ENABLE_KRNL
   // If there are Krnl ops, the input level is MLIR.
   bool hasKrnlOps = llvm::any_of(dialectNamespace,
       [&](StringRef ns) { return (ns == KrnlDialect::getDialectNamespace()); });
   if (hasKrnlOps)
     return MLIRLevel;
+#endif
 
   // Otherwise, set to the lowest level, LLVMLevel.
   return LLVMLevel;
@@ -253,6 +261,7 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
         /*donotScrubDisposableElementsAttr=*/false, opts);
   }
 
+#ifdef ONNX_MLIR_ENABLE_KRNL
   if (emissionTarget >= EmitMLIR) {
     if (inputIRLevel <= ONNXLevel)
       addONNXToKrnlPasses(
@@ -263,6 +272,7 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
 
   if (inputIRLevel <= LLVMLevel && emissionTarget >= EmitLLVMIR)
     addKrnlToLLVMPasses(pm, outputNameNoExt, /*enableCSE=*/true);
+#endif
 }
 
 } // namespace onnx_mlir

@@ -24,7 +24,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Compiler/OptionUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"

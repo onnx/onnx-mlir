@@ -10,15 +10,17 @@ add_onnx_mlir_library(OMDiagnostic
   MLIRIR
   )
 
-add_onnx_mlir_library(OMSupport
-  KrnlSupport.cpp
+if (ONNX_MLIR_ENABLE_KRNL)
+  add_onnx_mlir_library(OMSupport
+    KrnlSupport.cpp
 
-  INCLUDE_DIRS PUBLIC
-  ${ONNX_MLIR_SRC_ROOT}/include
+    INCLUDE_DIRS PUBLIC
+    ${ONNX_MLIR_SRC_ROOT}/include
 
-  LINK_LIBS PUBLIC
-  OMKrnlOps
-  )
+    LINK_LIBS PUBLIC
+    OMKrnlOps
+    )
+endif()
 
 add_onnx_mlir_library(OMMlirUtilities
   ErrorHandling.cpp

@@ -7,7 +7,9 @@
 #include "CompilerDialects.hpp"
 
 #include "src/Compiler/CompilerOptions.hpp"
+#ifdef ONNX_MLIR_ENABLE_KRNL
 #include "src/Dialect/Krnl/KrnlOps.hpp"
+#endif
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 
 #include "mlir/InitAllDialects.h"
@@ -34,7 +36,9 @@ DialectRegistry registerDialects(ArrayRef<accel::Accelerator::Kind> accels) {
   registry.insert<math::MathDialect>();
   registry.insert<memref::MemRefDialect>();
   registry.insert<ONNXDialect>();
+#ifdef ONNX_MLIR_ENABLE_KRNL
   registry.insert<KrnlDialect>();
+#endif
   registry.insert<cf::ControlFlowDialect>();
   registerOpenMPDialectTranslation(registry);
   mlir::memref::registerRuntimeVerifiableOpInterfaceExternalModels(registry);
