@@ -57,7 +57,9 @@ enum { LOG_TRACE, LOG_DEBUG, LOG_INFO, LOG_WARNING, LOG_ERROR, LOG_FATAL };
      * truncated.                                                              \
      */                                                                        \
     int __m = snprintf(buf + strlen(buf), 6,                                   \
-        (__i == __l) ? " " : (__j == 1) ? " ... " : "... ");                   \
+        (__i == __l) ? " "                                                     \
+        : (__j == 1) ? " ... "                                                 \
+                     : "... ");                                                \
     assert(__m >= 0 && "snprintf write error to buf");                         \
   } while (0)
 
