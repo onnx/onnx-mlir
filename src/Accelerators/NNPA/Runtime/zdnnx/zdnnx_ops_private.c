@@ -48,9 +48,8 @@ uint32_t zdnnx_get_nnpa_max_dim_size(zdnnx_axis dim_index) {
       nnpa_max_dim_size_e1 = zdnnx_is_telum_1 ? zdnn_get_nnpa_max_dim_idx_size()
                                               : zdnn_get_max_for_dim(1);
     return nnpa_max_dim_size_e1;
-  default:
-    return 0;
   }
+  return 0;
 }
 
 uint64_t zdnnx_get_nnpa_max_tensor_size() {

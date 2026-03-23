@@ -4,7 +4,7 @@
 
 //===-------------------------- NNPACompilerUtils.cpp ---------------------===//
 //
-// Copyright 2022-2025 The IBM Research Authors.
+// Copyright 2022-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -27,6 +27,7 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
 
@@ -249,12 +250,6 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
 
   // Override pass configurations.
   configurePasses();
-  // Empty the save json config file if it exists.
-  if (!nnpaSaveConfigFile.empty()) {
-    std::error_code EC;
-    llvm::raw_fd_ostream OS(nnpaSaveConfigFile, EC, llvm::sys::fs::OF_None);
-    OS.close();
-  }
 
   // LLVM_DEBUG(llvm::dbgs() << "Adding NNPA passes" << std::endl;);
   if (emissionTarget >= EmitONNXIR) {
@@ -263,10 +258,16 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
             pm.getContext()));
     addONNXToMLIRPasses(pm, /*target CPU*/ maccel.empty(),
         /*donotScrubDisposableElementsAttr*/ true);
-    pm.addPass(onnx_mlir::createDevicePlacementPass(
-        nnpaLoadConfigFile, nnpaSaveConfigFile, nnpaPlacementHeuristic));
-    pm.addPass(onnx_mlir::createQuantOpSelectionPass(
-        nnpaLoadConfigFile, nnpaSaveConfigFile));
+    pm.addPass(onnx_mlir::createDevicePlacementPass(nnpaPlacementHeuristic));
+    pm.addPass(onnx_mlir::createQuantOpSelectionPass());
+    // Save the current config to a file if required.
+    if (!saveConfigFile.empty()) {
+      // Empty the save json config file if it exists.
+      std::error_code EC;
+      llvm::raw_fd_ostream OS(saveConfigFile, EC, llvm::sys::fs::OF_None);
+      OS.close();
+      pm.addPass(onnx_mlir::createGenerateConfigFilePass(saveConfigFile));
+    }
   }
 
   if (emissionTarget >= EmitMLIR) {

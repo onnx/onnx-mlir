@@ -1,9 +1,6 @@
-#include <errno.h>
 #include <iostream>
 
-#include <OnnxMlirCompiler.h>
-#include <OnnxMlirRuntime.h>
-
+#include "src/Compiler/OMCompile.hpp"
 #include "src/Runtime/ExecutionSession.hpp"
 
 // Read the arguments from the command line and return a std::string
@@ -16,48 +13,39 @@ std::string readArgs(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-  // Read compiler options from command line and compile the doc example into a
-  // model library.
-  char *errorMessage = nullptr;
-  char *compiledFilename = nullptr;
+  // Read compiler options from command line.
   std::string flags = readArgs(argc, argv);
-  flags += "-o add_cpp_interface";
-  std::cout << "Compile with options \"" << flags << "\"\n";
-  int rc = onnx_mlir::omCompileFromFile(
-      "add.onnx", flags.c_str(), &compiledFilename, &errorMessage);
-  if (rc != onnx_mlir::CompilerSuccess) {
-    std::cerr << "Failed to compile add.onnx with error code " << rc;
-    if (errorMessage)
-      std::cerr << " and message \"" << errorMessage << "\"";
-    std::cerr << "." << std::endl;
-    free(compiledFilename);
-    free(errorMessage);
-    return rc;
+  flags += "-o add_cpp_interface -v";
+  // And compile the doc example into a model library.
+  onnx_mlir::OMCompile OMcompile;
+  try {
+    // For testing: log the compile output (stderr and stdout) in compile.log.
+    OMcompile.compile("add.onnx", flags);
+  } catch (const onnx_mlir::OMCompileException &error) {
+    std::cerr << error.what() << std::endl;
+    return 1;
   }
-  std::string libFilename(compiledFilename);
-  std::cout << "Compiled succeeded with results in file: " << libFilename
-            << std::endl;
-  free(compiledFilename);
-  free(errorMessage);
+  std::cout << "Compiled succeeded with results in file: "
+            << OMcompile.getOutputFilename() << std::endl;
 
   // Prepare the execution session.
-  onnx_mlir::ExecutionSession *session;
+  onnx_mlir::ExecutionSession session;
   try {
-    session = new onnx_mlir::ExecutionSession("./" + libFilename);
-  } catch (const std::runtime_error &error) {
+    session.loadModel(OMcompile.getOutputFilename());
+  } catch (const onnx_mlir::ExecutionSessionException &error) {
     std::cerr << "error while creating execution session: " << error.what()
-              << " and errno " << errno << std::endl;
-    return errno;
+              << std::endl;
+    return 2;
   }
 
   // Get input signature and print it.
   std::string inputSignature;
   try {
-    inputSignature = session->inputSignature();
-  } catch (const std::runtime_error &error) {
+    inputSignature = session.inputSignature();
+  } catch (const onnx_mlir::ExecutionSessionException &error) {
     std::cerr << "error while loading input signature: " << error.what()
-              << " and errno " << errno << std::endl;
-    return errno;
+              << std::endl;
+    return 3;
   }
   std::cout << "Compiled add.onnx model has input signature: \""
             << inputSignature << "\"." << std::endl;
@@ -79,11 +67,10 @@ int main(int argc, char *argv[]) {
   std::cout << "Start running model " << std::endl;
   OMTensorList *outputList;
   try {
-    outputList = session->run(input);
-  } catch (const std::runtime_error &error) {
-    std::cerr << "error while running model: " << error.what() << " and errno "
-              << errno << std::endl;
-    return errno;
+    outputList = session.run(input, /*debug: catch segfault in handler*/ true);
+  } catch (const onnx_mlir::ExecutionSessionException &error) {
+    std::cerr << "error while running model: " << error.what() << std::endl;
+    return 5;
   }
   std::cout << "Finished running model " << std::endl;
 
@@ -101,6 +88,5 @@ int main(int argc, char *argv[]) {
     }
   }
   std::cout << "Model verified successfully" << std::endl;
-  delete session;
   return 0;
 }

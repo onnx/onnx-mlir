@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Match the minimum required version of LLVM and MLIR
-cmake_minimum_required(VERSION 3.20.0)
+cmake_minimum_required(VERSION 3.26.0)
 
 project(onnx-mlir)
 
@@ -106,8 +106,6 @@ endif()
 
 find_package(Python3 ${LLVM_MINIMUM_PYTHON_VERSION} REQUIRED COMPONENTS Interpreter Development)
 
-# absl is needed by llvm and onnx 
-find_package(absl REQUIRED)
 
 if(ONNX_MLIR_ENABLE_JAVA)
   # On MacOS, find_package for Java and JNI doesn't work if JAVA_INCLUDE_PATH
@@ -237,15 +235,6 @@ endif()
 
 if (ONNX_MLIR_ENABLE_STABLEHLO)
   add_compile_definitions(ONNX_MLIR_ENABLE_STABLEHLO)
-endif()
-
-# The target onnx is defined here after third_part/onnx is included.
-if(NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
-  target_link_libraries(onnx PUBLIC
-    absl::log_internal_check_op
-    absl::log_internal_message
-    absl::status
-    )
 endif()
 
 if (ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)

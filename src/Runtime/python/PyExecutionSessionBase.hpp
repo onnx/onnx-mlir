@@ -4,7 +4,7 @@
 
 //===-- PyExecutionSessionBase.hpp - PyExecutionSessionBase Declaration ---===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,6 +12,9 @@
 // contains shared code for PyExecutionSession and PyOMCompileExecutionSession.
 //
 //===----------------------------------------------------------------------===//
+
+// TODO: base class is no longer needed, should be merged with
+// PyExecutionSession.
 
 #ifndef ONNX_MLIR_PY_EXECUTION_SESSION_BASE_H
 #define ONNX_MLIR_PY_EXECUTION_SESSION_BASE_H
@@ -41,9 +44,14 @@ public:
   // argument, a vector of shapes of the objects as the second argument, and a
   // vector of strides of the object as the third argument. All pyRun arguments
   // should have the same length, otherwise python exceptions occur.
+  // Run with a signal handler: for debugging only. It is slower and unsafe if
+  // catch signal; posix only.
+  // forceOutputDataCopy should be only used for debugging purpose if suspecting
+  // PYBIND issues.
   std::vector<py::array> pyRun(const std::vector<py::array> &inputsPyArray,
       const std::vector<py::array> &shapesPyArray,
-      const std::vector<py::array> &stridesPyArray);
+      const std::vector<py::array> &stridesPyArray,
+      bool useSignalHandler = false, bool forceOutputDataCopy = false);
   std::string pyInputSignature();
   std::string pyOutputSignature();
   void pyPrintInstrumentation(); // Print instrumentation (if any).
@@ -52,7 +60,6 @@ protected:
   // Constructor that build the object without initialization (for use by
   // subclass only).
   PyExecutionSessionBase() : onnx_mlir::ExecutionSession() {}
-  std::string reportPythonError(std::string errorStr) const;
 };
 } // namespace onnx_mlir
 #endif

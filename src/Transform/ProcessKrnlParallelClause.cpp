@@ -34,15 +34,16 @@
 #define DEBUG_TYPE "krnl-parallel-clause"
 
 using namespace mlir;
+using namespace onnx_mlir;
 
-namespace {
+namespace onnx_mlir {
 
-/* All the implementation of this pass is put in the anonymous name space
- * to hide from ourside.
- */
 #define GEN_PASS_DEF_PROCESSKRNLPARALLELCLAUSEPASS
 #include "src/Transform/Passes.h.inc"
 
+} // namespace onnx_mlir
+
+namespace {
 struct ProcessKrnlParallelClauseWithoutScopePattern
     : public OpRewritePattern<KrnlParallelClauseOp> {
   using OpRewritePattern<KrnlParallelClauseOp>::OpRewritePattern;
@@ -73,7 +74,8 @@ struct ProcessKrnlParallelClauseWithoutScopePattern
         // Nevertheless, this warning attests that this might be a possibility.
         // In such case, we would get a compiler warning/error of use before
         // def.
-        MutableOperandRange mutableNumThreads = parOp.getNumThreadsMutable();
+        MutableOperandRange mutableNumThreads =
+            parOp.getNumThreadsVarsMutable();
         mutableNumThreads.assign(numThreads);
       }
       if (procBind.has_value()) {
@@ -98,7 +100,7 @@ struct ProcessKrnlParallelClauseWithoutScopePattern
 };
 
 struct ProcessKrnlParallelClausePass
-    : public impl::ProcessKrnlParallelClausePassBase<
+    : public onnx_mlir::impl::ProcessKrnlParallelClausePassBase<
           ProcessKrnlParallelClausePass> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ProcessKrnlParallelClausePass)
 
@@ -117,25 +119,18 @@ void ProcessKrnlParallelClausePass::runOnOperation() {
   target.addIllegalOp<KrnlParallelClauseOp>();
 
   RewritePatternSet patterns(context);
-  onnx_mlir::getKrnlParallelClauseIntoOpenMPPatterns(patterns);
+  getKrnlParallelClauseIntoOpenMPPatterns(patterns);
 
   if (failed(applyPartialConversion(function, target, std::move(patterns))))
     signalPassFailure();
 }
-
 } // namespace
 
-void onnx_mlir::getKrnlParallelClauseIntoOpenMPPatterns(
+namespace onnx_mlir {
+void getKrnlParallelClauseIntoOpenMPPatterns(
     mlir::RewritePatternSet &patterns) {
   MLIRContext *context = patterns.getContext();
   patterns.insert<ProcessKrnlParallelClauseWithoutScopePattern>(context);
 }
 
-/*!
- * Create a Krnl Parallel Clause pass.
- */
-namespace onnx_mlir {
-std::unique_ptr<Pass> createProcessKrnlParallelClausePass() {
-  return std::make_unique<ProcessKrnlParallelClausePass>();
-}
 } // namespace onnx_mlir

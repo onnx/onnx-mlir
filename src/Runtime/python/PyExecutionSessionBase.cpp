@@ -4,7 +4,7 @@
 
 //===- PyExecutionSessionBase.cpp - PyExecutionSessionBase Implementation -===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,6 +12,9 @@
 // contains shared code for PyExecutionSession and PyOMCompileExecutionSession.
 //
 //===----------------------------------------------------------------------===//
+
+// TODO: base class is no longer needed, should be merged with
+// PyExecutionSession.
 
 #ifndef ENABLE_PYRUNTIME_LIGHT
 #include "src/Support/SmallFP.hpp"
@@ -80,27 +83,52 @@ namespace onnx_mlir {
 // This function will be rewritten when pybind fixes the issue, or
 // better way for fixing it is found.
 //
-void *generateOMTensorBufferForStringData(py::array pyArray) {
+static void *generateOMTensorBufferForStringData(py::array pyArray) {
+  // Compute the total number of element in the pyArray, e.g. shape (3, 4) has
+  // 12 elements. While we handle here multi-dimensional arrays, we actually
+  // requires them to be flatten (aka 1 Dim) below.
   auto shape = pyArray.shape();
   uint64_t numElem = 1;
   for (size_t i = 0; i < (size_t)pyArray.ndim(); ++i)
     numElem *= shape[i];
+  // Init local values.
   uint64_t strLenTotal = 0;
   uint64_t off = 0;
   void *dataBuffer = NULL;
+  // Since we only handle 1D elements here, we can shape the pyArray as a vector
+  // of strings.
   assert(pyArray.ndim() == 1 && "input pyArray should be flatten");
   auto vec = pyArray.cast<std::vector<std::string>>();
+  // Allocate a data buffer with the following memory layout, taking the example
+  // of strings 3 "hi", "bye", "ok". Layout is as follow:
+  //
+  // [ptr0][ptr1][ptr2]['h']['i']['\0']['b']['y']['e']['\0']['o']['k']['\0']
+  // | <--pointers--> || < -- -- -- -string data-- -- -- -- -- -- -- -- -->|
+  //
+  // In the code below, since we have std::strings, use string.length() as it is
+  // generally more reliable as strlen(string) which relies on the '\0' char.
   for (int64_t i = 0; i < shape[0]; ++i)
-    strLenTotal += strlen(vec[i].data()) + 1;
+    strLenTotal += vec[i].length() + 1;
   dataBuffer = malloc(sizeof(char *) * numElem + strLenTotal);
   if (dataBuffer == NULL)
     return NULL;
+  // strArray points to the pointers (first data region above).
   char **strArray = (char **)dataBuffer;
+  // strPos points to the string data (second data region above)
   char *strPos = (char *)(((char *)dataBuffer) + sizeof(char *) * numElem);
   for (int64_t i = 0; i < shape[0]; ++i) {
-    strcpy(strPos, vec[i].data());
+    // Copy the i-th string's data to the current position in the string data
+    // region. Use length() and memcpy for safer copying that handles embedded
+    // nulls and avoids redundant strlen calls.
+    size_t len = vec[i].length();
+    memcpy(strPos, vec[i].data(), len);
+    strPos[len] = '\0';
+    // Store the pointer to this string in the pointer array. off increments
+    // after assignment.
     strArray[off++] = strPos;
-    strPos += strlen(vec[i].data()) + 1;
+    // Move strPos forward by the string length + 1 (for null terminator) to
+    // position for next string.
+    strPos += len + 1;
   }
   return dataBuffer;
 }
@@ -109,42 +137,94 @@ PyExecutionSessionBase::PyExecutionSessionBase(
     std::string sharedLibPath, std::string tag, bool defaultEntryPoint)
     : onnx_mlir::ExecutionSession(sharedLibPath, tag, defaultEntryPoint) {}
 
+static py::array copyTensorToPyArray(
+    py::dtype dt, const std::vector<int64_t> &shape, OMTensor *omt) {
+  // Get info from OMTensor.
+  void *dataPtr = omTensorGetDataPtr(omt);
+  size_t dataByteSize = omTensorGetBufferSize(omt);
+
+  // Special handling for string tensors
+  if (omTensorGetDataType(omt) == ONNX_TYPE_STRING) {
+    // For strings, we need to reconstruct a Python object array.
+    py::array out(dt, shape);
+    // Recall that our array of string in OMTensors look like this:
+    // [ptr0][ptr1][ptr2]['h']['i']['\0']['b']['y']['e']['\0']...
+    // So strArray points to the array of pointers at the begining of the memory
+    // block.
+    char **strArray = (char **)dataPtr;
+    int64_t numElements = omTensorGetNumElems(omt);
+    // Iterate for each string.
+    auto out_ptr = out.mutable_data();
+    for (int64_t i = 0; i < numElements; i++) {
+      // Create Python string objects from C strings, where pyStr has its own
+      // copy of the data.
+      py::str pyStr(strArray[i]);
+      // Store in the object array. The release transfer the ownership of the
+      // string to the PyObject, aka our py:array in our case.
+      ((PyObject **)out_ptr)[i] = pyStr.release().ptr();
+    }
+    return out;
+  }
+
+  // Make a destination array with the declared dtype.
+  py::array out(dt, shape);
+  if (static_cast<size_t>(out.nbytes()) != dataByteSize) {
+    throw std::runtime_error("Size mismatch between buffer and dtype*shape.");
+  }
+  // Copy data using memcopy.
+  std::memcpy(out.mutable_data(), dataPtr, dataByteSize);
+  return out;
+}
+
 // =============================================================================
 // Run.
 
 std::vector<py::array> PyExecutionSessionBase::pyRun(
     const std::vector<py::array> &inputsPyArray,
     const std::vector<py::array> &shapesPyArray,
-    const std::vector<py::array> &stridesPyArray) {
+    const std::vector<py::array> &stridesPyArray,
+    // Should only be used for debugging, as it has performance issues
+    // (installing/uninstalling signal handler plus long jump setup) and
+    // correctness issues (when signals are issued as corruption of memory
+    // cannot be ruled out).
+    bool useSignalHandler,
+    // Should only be used for debugging, as it has performance degradation
+    // issues (extra copies).
+    bool forceOutputDataCopy) {
   if (!isInitialized)
-    throw std::runtime_error(reportInitError());
+    throw onnx_mlir::ExecutionSessionException(
+        "uninitialized PyExecutionSession");
   if (!_entryPointFunc)
-    throw std::runtime_error(reportUndefinedEntryPointIn("run"));
+    throw onnx_mlir::ExecutionSessionException(
+        "Undefined entry point in run function");
 
   // 1. Process inputs.
   TIMING_INIT_START(process_input);
   std::vector<OMTensor *> omts;
   if (inputsPyArray.size() != shapesPyArray.size())
-    throw std::runtime_error(
-        reportPythonError("numbers of inputs and shapes should be the same"));
+    throw onnx_mlir::ExecutionSessionException(
+        "numbers of inputs and shapes should be the same");
   if (inputsPyArray.size() != stridesPyArray.size())
-    throw std::runtime_error(
-        reportPythonError("numbers of inputs and strides should be the same"));
+    throw onnx_mlir::ExecutionSessionException(
+        "numbers of inputs and strides should be the same");
   for (size_t argId = 0; argId < inputsPyArray.size(); argId++) {
     auto inputPyArray = inputsPyArray[argId];
     auto shapePyArray = shapesPyArray[argId];
     auto stridePyArray = stridesPyArray[argId];
-    if (!inputPyArray.flags() || !py::array::c_style)
-      throw std::runtime_error(
-          reportPythonError("Expect contiguous python array."));
-
+    // Check if array is C-style contiguous.
+    if (!(inputPyArray.flags() & py::array::c_style))
+      throw onnx_mlir::ExecutionSessionException(
+          "Expect contiguous python array.");
     void *dataPtr;
     int64_t ownData = 0;
     if (inputPyArray.writeable()) {
       dataPtr = inputPyArray.mutable_data();
     } else {
       // If data is not writable, copy them to a writable buffer.
-      auto *copiedData = (float *)malloc(inputPyArray.nbytes());
+      void *copiedData = (void *)malloc(inputPyArray.nbytes());
+      if (!copiedData)
+        throw onnx_mlir::ExecutionSessionException(
+            "Failed to allocate data buffer for copied data.");
       memcpy(copiedData, inputPyArray.data(), inputPyArray.nbytes());
       dataPtr = copiedData;
       // We want OMTensor to free up the memory space upon destruction.
@@ -209,14 +289,14 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
       std::stringstream errStr;
       errStr << "Numpy type not supported: " << inputPyArray.dtype()
              << std::endl;
-      throw std::runtime_error(reportPythonError(errStr.str()));
+      throw onnx_mlir::ExecutionSessionException(errStr.str());
     }
     OMTensor *inputOMTensor = NULL;
     if (dtype == ONNX_TYPE_STRING) {
       void *tensorBuffer = generateOMTensorBufferForStringData(inputPyArray);
       if (tensorBuffer == NULL)
-        throw std::runtime_error(reportPythonError(
-            "fail to allocate Tensor buffer for string data"));
+        throw onnx_mlir::ExecutionSessionException(
+            "fail to allocate Tensor buffer for string data");
       inputOMTensor = omTensorCreateWithOwnership(
           tensorBuffer, shape, ndim, dtype, /*own_data=*/true);
 
@@ -225,32 +305,61 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
     } else if (std::is_same<int64_t, pybind11::ssize_t>::value) {
       inputOMTensor =
           omTensorCreateWithOwnership(dataPtr, shape, ndim, dtype, ownData);
+      if (!inputOMTensor)
+        throw onnx_mlir::ExecutionSessionException(
+            "fail to allocate Tensor for input data");
       omTensorSetStridesWithPyArrayStrides(inputOMTensor, stride);
     } else {
       std::vector<int64_t> safeShape(shape, shape + ndim);
       std::vector<int64_t> safeStrides(stride, stride + ndim);
       inputOMTensor = omTensorCreateWithOwnership(
           dataPtr, safeShape.data(), ndim, dtype, ownData);
+      if (!inputOMTensor)
+        throw onnx_mlir::ExecutionSessionException(
+            "fail to allocate Tensor for input data");
       omTensorSetStridesWithPyArrayStrides(inputOMTensor, safeStrides.data());
     }
     omts.emplace_back(inputOMTensor);
   }
   TIMING_STOP_PRINT(process_input);
 
-  // 2. Call entry point.
+  // 2. Call entry point: create list.
   TIMING_INIT_START(inference);
   OMTensorList *wrappedInput = omTensorListCreate(omts.data(), omts.size());
-  auto *wrappedOutput = _entryPointFunc(wrappedInput);
-  if (!wrappedOutput)
-    throw std::runtime_error(reportErrnoError());
+  if (!wrappedInput)
+    throw onnx_mlir::ExecutionSessionException(
+        "fail to allocate Tensor List for input data");
+  // Call
+  OMTensorList *wrappedOutput = nullptr;
+  {
+    // TODO: Consider releasing Python's GIL during inference to allow other
+    // Python threads to run concurrently. This would improve performance in
+    // multi-threaded Python applications without affecting single-threaded
+    // code.
+    //     py::gil_scoped_release release;  // Release GIL
+    wrappedOutput = run(wrappedInput, useSignalHandler);
+  } // TODO from above: GIL would automatically be reacquired here.
   TIMING_STOP_PRINT(inference);
+
+  // Check if inference succeeded and returned valid output
+  if (!wrappedOutput) {
+    omTensorListDestroy(wrappedInput);
+    throw onnx_mlir::ExecutionSessionException("error while runing the model");
+  }
 
   // 3. Process outputs.
   TIMING_INIT_START(process_output);
   std::vector<py::array> outputPyArrays;
   for (int64_t i = 0; i < omTensorListGetSize(wrappedOutput); i++) {
-    TIMING_INIT_START(process_output_types);
     auto *omt = omTensorListGetOmtByIndex(wrappedOutput, i);
+    if (!omt) {
+      omTensorListDestroy(wrappedOutput);
+      omTensorListDestroy(wrappedInput);
+      std::stringstream errStr;
+      errStr << "Failed to get output tensor at index " << i;
+      throw onnx_mlir::ExecutionSessionException(errStr.str());
+    }
+    TIMING_INIT_START(process_output_types);
     auto shape = std::vector<int64_t>(
         omTensorGetShape(omt), omTensorGetShape(omt) + omTensorGetRank(omt));
 
@@ -306,8 +415,7 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
       std::stringstream errStr;
       errStr << "Unsupported ONNX type in OMTensor: "
              << omTensorGetDataType(omt) << std::endl;
-
-      throw std::runtime_error(reportPythonError(errStr.str()));
+      throw onnx_mlir::ExecutionSessionException(errStr.str());
     }
     }
     TIMING_STOP_PRINT(process_output_types);
@@ -320,23 +428,41 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
     // be whatever the malloc returned.
     void *omtAllocPtr = omTensorGetAllocatedPtr(omt);
     void *omtDataPtr = omTensorGetDataPtr(omt);
+    // Comparing pointers is only meaningful when from same data structure,
+    // which it is here as both came from the same char buffer.
+    if (!((char *)omtDataPtr >= (char *)omtAllocPtr)) {
+      // omtDataPtr must be inside omtAllocPtr, so it has to be being larger or
+      // equal than omtAllocPtr.
+      throw onnx_mlir::ExecutionSessionException(
+          "case where data ptr is out of bound of the allocated ptr");
+    }
     // Check if the return value is a static constant, which cannot be freed and
     // thus would have been created with the "owning" flag being false.
     if (omTensorGetOwning(omt)) {
-      // CWe have a regular tensor which we will need to free at the right time.
-      // Create the capsule that points to the data to be freed (allocated
-      // pointer).
-      py::capsule free_data_with_allocate_ptr(
-          omtAllocPtr, [](void *ptr) { free(ptr); });
-      // Set owning to false as we migrate the ownership to python
-      omTensorSetOwning(omt, false);
-      // Pass the py::capsule to the numpy array for proper bookkeeping.
-      outputPyArrays.emplace_back(
-          py::array(dtype, shape, omtDataPtr, free_data_with_allocate_ptr));
+      if (forceOutputDataCopy) {
+        // force copy of result, leaving ownership on so that it be destroyed at
+        // the end.
+        outputPyArrays.emplace_back(copyTensorToPyArray(dtype, shape, omt));
+      } else {
+        // We have a regular tensor which we will need to free at the right
+        // time. Create the capsule that points to the data to be freed
+        // (allocated pointer).
+        py::capsule free_data_with_allocate_ptr(
+            omtAllocPtr, /* Address that will be passed to lambda function. */
+            [](void *ptr) { /* Lambda function that performs the freeing. */
+              free(ptr);
+            });
+        // Set owning to false as we migrate the ownership to python
+        omTensorSetOwning(omt, false);
+        // Pass the py::capsule to the numpy array for proper bookkeeping.
+        outputPyArrays.emplace_back(py::array(dtype, shape,
+          omtDataPtr, // Data pointer used to access the values.
+          free_data_with_allocate_ptr /* Capsule that save the deallocation. */));
+      }
     } else {
       // We have a constant, its a very rare case, just do like in the past:
       // copy.
-      outputPyArrays.emplace_back(py::array(dtype, shape, omtDataPtr));
+      outputPyArrays.emplace_back(copyTensorToPyArray(dtype, shape, omt));
     }
     TIMING_STOP_PRINT(process_output_pyarray);
   }
@@ -362,8 +488,9 @@ void PyExecutionSessionBase::pySetEntryPoint(std::string entryPointName) {
 
 std::vector<std::string> PyExecutionSessionBase::pyQueryEntryPoints() {
   if (!isInitialized)
-    throw std::runtime_error(reportInitError());
-  assert(_queryEntryPointsFunc && "Query entry point not loaded.");
+    throw onnx_mlir::ExecutionSessionException(
+        "uninitialized PyExecutionSession");
+  assert(_queryEntryPointsFunc && "Query entry point was not loaded.");
   const char **entryPointArr = _queryEntryPointsFunc(NULL);
 
   std::vector<std::string> outputPyArrays;
@@ -385,15 +512,6 @@ std::string PyExecutionSessionBase::pyOutputSignature() {
 
 // =============================================================================
 // Error reporting
-
-std::string PyExecutionSessionBase::reportPythonError(
-    std::string errorStr) const {
-  errno = EFAULT; // Bad Address.
-  std::stringstream errStr;
-  errStr << "Execution session: encountered python error `" << errorStr << "'."
-         << std::endl;
-  return errStr.str();
-}
 
 // =============================================================================
 // Instrumentation reporting

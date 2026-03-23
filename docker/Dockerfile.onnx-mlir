@@ -1,3 +1,4 @@
+# This dockerfile is built using UBI-9 image.
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE} AS onnx-mlir-test
 
@@ -21,17 +22,13 @@ COPY . onnx-mlir
 # CMAKE_INSTALL_LIBDIR to be lib.
 RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
     && cd ${ONNX_ROOT} \
-    # Require patching until upstreamed
-    && sed -i -e 's/target_link_libraries(onnx PUBLIC onnx_proto)/target_link_libraries(onnx PUBLIC onnx_proto PUBLIC ${protobuf_ABSL_USED_TARGETS})/g' \
-           -e '/absl::log_initialize/a \
-          absl::log_internal_check_op\
-          absl::log_internal_message\
-          absl::log_internal_nullguard' CMakeLists.txt \
-    # Required for pip install with `--no-build-isolation` flag.
-    # setuptools >= 70.x creates conflicts with pip packaging versions.
-    && python3 -m pip install --upgrade setuptools==68.2.2 \
+    # ubi9 doesn't have "externally managed environment" problem and
+    # --prefix=/usr is not required to be added to pip install command.
+    #
+    # Must specify --no-build-isolation to avoid protoc-gen-mypy.py
+    # segfault on s390x
     && CC=clang CXX=clang++ CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib" \
-       python3 -m pip install . --no-build-isolation \
+       pip3 install . --no-build-isolation \
     && rm -rf ${HOME}/.cache
 
 ARG NPROC=4
@@ -68,6 +65,7 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
                                ([ "$(uname -m)" = "x86_64" ] &&  echo || \
                                ([ "$(uname -m)" = "ppc64le" ] && echo || echo)))} \
     && TEST_ARGS="-march=${TEST_MARCH}" \
+    && make -j${NPROC} install && ldconfig \
     && make check-docs \
     && make check-unittest \
     && make check-multiple-models \
@@ -84,7 +82,6 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
                -j${NPROC} \
                check-onnx-backend-numerical-nnpa; \
        fi \
-    && make -j${NPROC} install && ldconfig \
 # Clean up
     && cd ${WORK_DIR} \
     && distro=$(cat /etc/os-release|grep -Po '(?<=^ID=).*'|sed 's/\"//g') \
@@ -94,11 +91,10 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
                   make ninja-build python3 && \
           rm -rf /var/lib/apt/lists/*; \
        elif [ "${distro}" = "rhel" ] || [ "${distro}" = "fedora" ]; then \
-          pip3 uninstall -q -y Cython pybind11 pytest pytest-forked \
-               pytest-xdist typing-extensions && \
+          pip3 uninstall -q -y \
+               Cython pytest pytest-xdist typing-extensions && \
           yum remove -q -y \
-              adwaita-icon-theme autoconf automake cmake file \
-              git libtool ninja-build python39 && \
+              autoconf automake cmake file git libtool ninja-build python3.11 && \
           rm -rf /var/cache/dnf/*; \
        fi \
     && rm -rf /tmp/* /usr/bin/python ${HOME}/.cache \
