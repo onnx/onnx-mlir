@@ -383,6 +383,15 @@ LogicalResult ONNXPReluOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
+// StringConcatOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXStringConcatOp::inferShapes(
+    std::function<void(Region &)> /*doShapeInference*/) {
+  return inferShapeForBroadcastingOps<ONNXStringConcatOp>(*this);
+}
+
+//===----------------------------------------------------------------------===//
 // SubOp
 //===----------------------------------------------------------------------===//
 
