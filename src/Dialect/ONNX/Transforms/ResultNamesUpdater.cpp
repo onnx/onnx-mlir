@@ -8,41 +8,71 @@
 
 #include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 
+using namespace mlir;
+
 namespace onnx_mlir {
 
+namespace {
+
+bool isTensorName(Attribute attr) {
+  if (auto strAttr = dyn_cast<StringAttr>(attr))
+    return !strAttr.empty();
+  else if (auto arrayAttr = dyn_cast<ArrayAttr>(attr))
+    return !arrayAttr.empty() && isTensorName(arrayAttr[0]);
+  return false;
+}
+
+} // namespace
+
 void ResultNamesUpdater::notifyOperationReplaced(
-    mlir::Operation *op, mlir::ValueRange replacement) {
-  if (!op->hasAttrOfType<mlir::ArrayAttr>("ResultNames"))
+    Operation *op, Operation *replacement) {
+  auto resultNamesArray = op->getAttrOfType<ArrayAttr>("ResultNames");
+  if (!resultNamesArray)
     return;
 
-  auto resultNamesArray = op->getAttrOfType<mlir::ArrayAttr>("ResultNames");
+  // Always overwrite on newly created op
+  bool newOp = replacement->getUses().empty();
+  // Check if ResultNames exist already
+  auto replResultNames = replacement->getAttrOfType<ArrayAttr>("ResultNames");
+  if (!newOp && replResultNames && llvm::all_of(replResultNames, isTensorName))
+    return;
 
+  replacement->setAttr("ResultNames", resultNamesArray);
+}
+
+void ResultNamesUpdater::notifyOperationReplaced(
+    Operation *op, ValueRange replacement) {
   // If the op is replaced by a single op, simply copy the attribute
-  mlir::Operation *replSingleOp = replacement.front().getDefiningOp();
-  if (replSingleOp &&
-      llvm::all_of(replacement, [replSingleOp](mlir::Value val) -> bool {
-        return val.getDefiningOp() == replSingleOp;
+  if (Operation *replOp = replacement.front().getDefiningOp();
+      replOp && llvm::all_of(replacement, [replOp](Value val) -> bool {
+        return val.getDefiningOp() == replOp;
       })) {
-    replSingleOp->setAttr("ResultNames", resultNamesArray);
+    notifyOperationReplaced(op, replOp);
     return;
   }
 
-  mlir::MLIRContext *ctx = op->getContext();
+  auto resultNamesArray = op->getAttrOfType<ArrayAttr>("ResultNames");
+  if (!resultNamesArray)
+    return;
+
+  MLIRContext *ctx = op->getContext();
   for (auto [name, value] : llvm::zip_equal(resultNamesArray, replacement)) {
-    if (mlir::OpResult replResult = mlir::dyn_cast<mlir::OpResult>(value)) {
-      mlir::Operation *replOp = replResult.getOwner();
+    if (auto replResult = dyn_cast<OpResult>(value)) {
+      Operation *replOp = replResult.getOwner();
 
       // Get new or existing ResultNames
-      mlir::SmallVector<mlir::Attribute> replResultNames(
-          replOp->getNumResults(), mlir::StringAttr::get(ctx));
-      if (auto existing = replOp->getAttrOfType<mlir::ArrayAttr>("ResultNames"))
-        replResultNames =
-            mlir::SmallVector<mlir::Attribute>(existing.getValue());
+      SmallVector<Attribute> replResultNames(
+          replOp->getNumResults(), StringAttr::get(ctx));
+      if (auto existing = replOp->getAttrOfType<ArrayAttr>("ResultNames"))
+        replResultNames = SmallVector<Attribute>(existing.getValue());
+
+      bool newOp = replOp->getUses().empty();
+      if (!newOp && isTensorName(replResultNames[replResult.getResultNumber()]))
+        continue;
 
       // Replace the ResultName of current result
       replResultNames[replResult.getResultNumber()] = name;
-      replOp->setAttr(
-          "ResultNames", mlir::ArrayAttr::get(ctx, replResultNames));
+      replOp->setAttr("ResultNames", ArrayAttr::get(ctx, replResultNames));
     }
   }
 }
