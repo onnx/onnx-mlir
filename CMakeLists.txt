@@ -114,11 +114,6 @@ endif()
 
 find_package(Python3 ${LLVM_MINIMUM_PYTHON_VERSION} REQUIRED COMPONENTS Interpreter Development)
 
-# absl is needed by llvm and onnx
-# In standalone mode, let ONNX build its own absl (via protobuf)
-if(NOT ONNX_MLIR_BUILD_STANDALONE)
-  find_package(absl REQUIRED)
-endif()
 
 if(ONNX_MLIR_ENABLE_JAVA)
   # On MacOS, find_package for Java and JNI doesn't work if JAVA_INCLUDE_PATH
@@ -260,18 +255,6 @@ endif()
 
 if (ONNX_MLIR_ENABLE_STABLEHLO)
   add_compile_definitions(ONNX_MLIR_ENABLE_STABLEHLO)
-endif()
-
-# The target onnx is defined here after third_part/onnx is included.
-# In standalone mode, ONNX builds its own absl, so these targets will be available
-if(NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
-  if(NOT ONNX_MLIR_BUILD_STANDALONE)
-    target_link_libraries(onnx PUBLIC
-      absl::log_internal_check_op
-      absl::log_internal_message
-      absl::status
-      )
-  endif()
 endif()
 
 if (ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)

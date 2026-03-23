@@ -1,16 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
-function(add_pass_group NAME TD_FILE PREFIX)
-  set(LLVM_TARGET_DEFINITIONS ${TD_FILE}.td)
-  mlir_tablegen(${TD_FILE}.h.inc -gen-pass-decls -name ${NAME})
-  mlir_tablegen(${PREFIX}.capi.h.inc -gen-pass-capi-header --prefix ${PREFIX})
-  mlir_tablegen(${PREFIX}.capi.cpp.inc -gen-pass-capi-impl --prefix ${PREFIX})
-  add_public_tablegen_target(OM${NAME}PassIncGen)
-endfunction()
-
 #separate krnl pass into different .td
-add_pass_group(TransformsKrnl PassesKrnl TransformsKrnl)
-add_pass_group(Transforms Passes Transforms)
+add_onnx_mlir_pass(TransformsKrnl PassesKrnl TransformsKrnl)
+add_onnx_mlir_pass(Transforms Passes Transforms)
 
 add_onnx_mlir_library(OMLowerKrnlRegion
   LowerKrnlRegion.cpp
