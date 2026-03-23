@@ -214,8 +214,7 @@ static bool omMallocAndReadFile(const char *filename) {
     return false;
   }
 
-  snprintf(
-      filePath, filePathLen, "%s%s%s", basePath, DIR_SEPARATOR, filename);
+  snprintf(filePath, filePathLen, "%s%s%s", basePath, DIR_SEPARATOR, filename);
 
   // Open the constants file
   int fd = open(filePath, O_RDONLY);
@@ -304,8 +303,8 @@ static bool omMallocAndReadFile(const char *filename) {
     // Small file on z/OS - use mmap
     g_constant_buffer = mmap(0, fileSize, PROT_READ, __MAP_MEGA, fd, 0);
     if (g_constant_buffer == MAP_FAILED) {
-      fprintf(stderr, "Error while mmapping %s: %s\n", filePath,
-          strerror(errno));
+      fprintf(
+          stderr, "Error while mmapping %s: %s\n", filePath, strerror(errno));
       g_constant_buffer = NULL;
       g_constant_buffer_size = 0;
       close(fd);
@@ -356,9 +355,7 @@ void __attribute__((constructor)) omCtor(void) {
 }
 
 /// Destructor: Free preloaded constants at library unload time (z/OS only)
-void __attribute__((destructor)) omDtor(void) {
-  omFreeBuffer();
-}
+void __attribute__((destructor)) omDtor(void) { omFreeBuffer(); }
 #endif
 
 #endif
