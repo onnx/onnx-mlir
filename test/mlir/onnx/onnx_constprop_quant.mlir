@@ -1,8 +1,11 @@
 // Verify that quant-types followed by constprop-onnx does not crash or
 // miscompute. The IsIntOrFloatType constraint on element-wise const-prop
-// patterns causes them to skip quantized-typed constants, leaving the ops
-// intact. Data-movement patterns (e.g. Transpose) are NOT guarded because
-// rearranging storage values preserves quantized semantics.
+// patterns causes them to skip quantized-typed constants, and the
+// ValuesHaveSameDType constraint on unary (like Transpose) patterns ensures
+// const-prop is skipped when input/output element types differ (e.g. one
+// side is quantized and the other is not, or different quantization
+// parameters).
+
 // RUN: onnx-mlir-opt %s --quant-types --constprop-onnx | FileCheck %s
 
 func.func @add_two_quantized_constants() -> tensor<2xf32> {
@@ -188,7 +191,246 @@ func.func @reduce_sum_quantized_constant() -> tensor<1xf32> {
 // CHECK:         quant.scast
 
 
-// Transpose — should still be folded
+// Unary ops with quantized input (from DQL) but no Q on output — should NOT be folded.
+
+func.func @neg_quantized_input_float_output() -> tensor<2xf32> {
+  %a = onnx.Constant dense<[10, 20]> : tensor<2xui8>
+  %s = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %z = onnx.Constant dense<0> : tensor<ui8>
+  %dq = "onnx.DequantizeLinear"(%a, %s, %z) {axis = 0 : si64, block_size = 0 : si64} : (tensor<2xui8>, tensor<f32>, tensor<ui8>) -> tensor<2xf32>
+  %r = "onnx.Neg"(%dq) : (tensor<2xf32>) -> tensor<2xf32>
+  return %r : tensor<2xf32>
+}
+
+// CHECK-LABEL: @neg_quantized_input_float_output
+// CHECK:         onnx.Neg
+// CHECK-SAME:      (tensor<2x!quant.uniform<u8:f32, 5.000000e-01>>) -> tensor<2xf32>
+
+
+func.func @relu_quantized_input_float_output() -> tensor<2xf32> {
+  %a = onnx.Constant dense<[10, 20]> : tensor<2xui8>
+  %s = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %z = onnx.Constant dense<0> : tensor<ui8>
+  %dq = "onnx.DequantizeLinear"(%a, %s, %z) {axis = 0 : si64, block_size = 0 : si64} : (tensor<2xui8>, tensor<f32>, tensor<ui8>) -> tensor<2xf32>
+  %r = "onnx.Relu"(%dq) : (tensor<2xf32>) -> tensor<2xf32>
+  return %r : tensor<2xf32>
+}
+
+// CHECK-LABEL: @relu_quantized_input_float_output
+// CHECK:         onnx.Relu
+// CHECK-SAME:      (tensor<2x!quant.uniform<u8:f32, 5.000000e-01>>) -> tensor<2xf32>
+
+
+func.func @abs_quantized_input_float_output() -> tensor<2xf32> {
+  %a = onnx.Constant dense<[10, 20]> : tensor<2xui8>
+  %s = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %z = onnx.Constant dense<0> : tensor<ui8>
+  %dq = "onnx.DequantizeLinear"(%a, %s, %z) {axis = 0 : si64, block_size = 0 : si64} : (tensor<2xui8>, tensor<f32>, tensor<ui8>) -> tensor<2xf32>
+  %r = "onnx.Abs"(%dq) : (tensor<2xf32>) -> tensor<2xf32>
+  return %r : tensor<2xf32>
+}
+
+// CHECK-LABEL: @abs_quantized_input_float_output
+// CHECK:         onnx.Abs
+// CHECK-SAME:      (tensor<2x!quant.uniform<u8:f32, 5.000000e-01>>) -> tensor<2xf32>
+
+
+func.func @ceil_quantized_input_float_output() -> tensor<2xf32> {
+  %a = onnx.Constant dense<[10, 20]> : tensor<2xui8>
+  %s = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %z = onnx.Constant dense<0> : tensor<ui8>
+  %dq = "onnx.DequantizeLinear"(%a, %s, %z) {axis = 0 : si64, block_size = 0 : si64} : (tensor<2xui8>, tensor<f32>, tensor<ui8>) -> tensor<2xf32>
+  %r = "onnx.Ceil"(%dq) : (tensor<2xf32>) -> tensor<2xf32>
+  return %r : tensor<2xf32>
+}
+
+// CHECK-LABEL: @ceil_quantized_input_float_output
+// CHECK:         onnx.Ceil
+// CHECK-SAME:      (tensor<2x!quant.uniform<u8:f32, 5.000000e-01>>) -> tensor<2xf32>
+
+
+func.func @floor_quantized_input_float_output() -> tensor<2xf32> {
+  %a = onnx.Constant dense<[10, 20]> : tensor<2xui8>
+  %s = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %z = onnx.Constant dense<0> : tensor<ui8>
+  %dq = "onnx.DequantizeLinear"(%a, %s, %z) {axis = 0 : si64, block_size = 0 : si64} : (tensor<2xui8>, tensor<f32>, tensor<ui8>) -> tensor<2xf32>
+  %r = "onnx.Floor"(%dq) : (tensor<2xf32>) -> tensor<2xf32>
+  return %r : tensor<2xf32>
+}
+
+// CHECK-LABEL: @floor_quantized_input_float_output
+// CHECK:         onnx.Floor
+// CHECK-SAME:      (tensor<2x!quant.uniform<u8:f32, 5.000000e-01>>) -> tensor<2xf32>
+
+
+func.func @round_quantized_input_float_output() -> tensor<2xf32> {
+  %a = onnx.Constant dense<[10, 20]> : tensor<2xui8>
+  %s = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %z = onnx.Constant dense<0> : tensor<ui8>
+  %dq = "onnx.DequantizeLinear"(%a, %s, %z) {axis = 0 : si64, block_size = 0 : si64} : (tensor<2xui8>, tensor<f32>, tensor<ui8>) -> tensor<2xf32>
+  %r = "onnx.Round"(%dq) : (tensor<2xf32>) -> tensor<2xf32>
+  return %r : tensor<2xf32>
+}
+
+// CHECK-LABEL: @round_quantized_input_float_output
+// CHECK:         onnx.Round
+// CHECK-SAME:      (tensor<2x!quant.uniform<u8:f32, 5.000000e-01>>) -> tensor<2xf32>
+
+
+func.func @cos_quantized_input_float_output() -> tensor<2xf32> {
+  %a = onnx.Constant dense<[10, 20]> : tensor<2xui8>
+  %s = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %z = onnx.Constant dense<0> : tensor<ui8>
+  %dq = "onnx.DequantizeLinear"(%a, %s, %z) {axis = 0 : si64, block_size = 0 : si64} : (tensor<2xui8>, tensor<f32>, tensor<ui8>) -> tensor<2xf32>
+  %r = "onnx.Cos"(%dq) : (tensor<2xf32>) -> tensor<2xf32>
+  return %r : tensor<2xf32>
+}
+
+// CHECK-LABEL: @cos_quantized_input_float_output
+// CHECK:         onnx.Cos
+// CHECK-SAME:      (tensor<2x!quant.uniform<u8:f32, 5.000000e-01>>) -> tensor<2xf32>
+
+
+func.func @sin_quantized_input_float_output() -> tensor<2xf32> {
+  %a = onnx.Constant dense<[10, 20]> : tensor<2xui8>
+  %s = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %z = onnx.Constant dense<0> : tensor<ui8>
+  %dq = "onnx.DequantizeLinear"(%a, %s, %z) {axis = 0 : si64, block_size = 0 : si64} : (tensor<2xui8>, tensor<f32>, tensor<ui8>) -> tensor<2xf32>
+  %r = "onnx.Sin"(%dq) : (tensor<2xf32>) -> tensor<2xf32>
+  return %r : tensor<2xf32>
+}
+
+// CHECK-LABEL: @sin_quantized_input_float_output
+// CHECK:         onnx.Sin
+// CHECK-SAME:      (tensor<2x!quant.uniform<u8:f32, 5.000000e-01>>) -> tensor<2xf32>
+
+
+func.func @erf_quantized_input_float_output() -> tensor<2xf32> {
+  %a = onnx.Constant dense<[10, 20]> : tensor<2xui8>
+  %s = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %z = onnx.Constant dense<0> : tensor<ui8>
+  %dq = "onnx.DequantizeLinear"(%a, %s, %z) {axis = 0 : si64, block_size = 0 : si64} : (tensor<2xui8>, tensor<f32>, tensor<ui8>) -> tensor<2xf32>
+  %r = "onnx.Erf"(%dq) : (tensor<2xf32>) -> tensor<2xf32>
+  return %r : tensor<2xf32>
+}
+
+// CHECK-LABEL: @erf_quantized_input_float_output
+// CHECK:         onnx.Erf
+// CHECK-SAME:      (tensor<2x!quant.uniform<u8:f32, 5.000000e-01>>) -> tensor<2xf32>
+
+
+func.func @exp_quantized_input_float_output() -> tensor<2xf32> {
+  %a = onnx.Constant dense<[10, 20]> : tensor<2xui8>
+  %s = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %z = onnx.Constant dense<0> : tensor<ui8>
+  %dq = "onnx.DequantizeLinear"(%a, %s, %z) {axis = 0 : si64, block_size = 0 : si64} : (tensor<2xui8>, tensor<f32>, tensor<ui8>) -> tensor<2xf32>
+  %r = "onnx.Exp"(%dq) : (tensor<2xf32>) -> tensor<2xf32>
+  return %r : tensor<2xf32>
+}
+
+// CHECK-LABEL: @exp_quantized_input_float_output
+// CHECK:         onnx.Exp
+// CHECK-SAME:      (tensor<2x!quant.uniform<u8:f32, 5.000000e-01>>) -> tensor<2xf32>
+
+
+func.func @log_quantized_input_float_output() -> tensor<2xf32> {
+  %a = onnx.Constant dense<[10, 20]> : tensor<2xui8>
+  %s = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %z = onnx.Constant dense<0> : tensor<ui8>
+  %dq = "onnx.DequantizeLinear"(%a, %s, %z) {axis = 0 : si64, block_size = 0 : si64} : (tensor<2xui8>, tensor<f32>, tensor<ui8>) -> tensor<2xf32>
+  %r = "onnx.Log"(%dq) : (tensor<2xf32>) -> tensor<2xf32>
+  return %r : tensor<2xf32>
+}
+
+// CHECK-LABEL: @log_quantized_input_float_output
+// CHECK:         onnx.Log
+// CHECK-SAME:      (tensor<2x!quant.uniform<u8:f32, 5.000000e-01>>) -> tensor<2xf32>
+
+
+func.func @sigmoid_quantized_input_float_output() -> tensor<2xf32> {
+  %a = onnx.Constant dense<[10, 20]> : tensor<2xui8>
+  %s = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %z = onnx.Constant dense<0> : tensor<ui8>
+  %dq = "onnx.DequantizeLinear"(%a, %s, %z) {axis = 0 : si64, block_size = 0 : si64} : (tensor<2xui8>, tensor<f32>, tensor<ui8>) -> tensor<2xf32>
+  %r = "onnx.Sigmoid"(%dq) : (tensor<2xf32>) -> tensor<2xf32>
+  return %r : tensor<2xf32>
+}
+
+// CHECK-LABEL: @sigmoid_quantized_input_float_output
+// CHECK:         onnx.Sigmoid
+// CHECK-SAME:      (tensor<2x!quant.uniform<u8:f32, 5.000000e-01>>) -> tensor<2xf32>
+
+
+func.func @sqrt_quantized_input_float_output() -> tensor<2xf32> {
+  %a = onnx.Constant dense<[10, 20]> : tensor<2xui8>
+  %s = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %z = onnx.Constant dense<0> : tensor<ui8>
+  %dq = "onnx.DequantizeLinear"(%a, %s, %z) {axis = 0 : si64, block_size = 0 : si64} : (tensor<2xui8>, tensor<f32>, tensor<ui8>) -> tensor<2xf32>
+  %r = "onnx.Sqrt"(%dq) : (tensor<2xf32>) -> tensor<2xf32>
+  return %r : tensor<2xf32>
+}
+
+// CHECK-LABEL: @sqrt_quantized_input_float_output
+// CHECK:         onnx.Sqrt
+// CHECK-SAME:      (tensor<2x!quant.uniform<u8:f32, 5.000000e-01>>) -> tensor<2xf32>
+
+
+func.func @reciprocal_quantized_input_float_output() -> tensor<2xf32> {
+  %a = onnx.Constant dense<[10, 20]> : tensor<2xui8>
+  %s = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %z = onnx.Constant dense<0> : tensor<ui8>
+  %dq = "onnx.DequantizeLinear"(%a, %s, %z) {axis = 0 : si64, block_size = 0 : si64} : (tensor<2xui8>, tensor<f32>, tensor<ui8>) -> tensor<2xf32>
+  %r = "onnx.Reciprocal"(%dq) : (tensor<2xf32>) -> tensor<2xf32>
+  return %r : tensor<2xf32>
+}
+
+// CHECK-LABEL: @reciprocal_quantized_input_float_output
+// CHECK:         onnx.Reciprocal
+// CHECK-SAME:      (tensor<2x!quant.uniform<u8:f32, 5.000000e-01>>) -> tensor<2xf32>
+
+
+// Transpose with quantized input but no Q on output — should NOT be folded
+func.func @transpose_quantized_input_float_output() -> tensor<2x1xf32> {
+  %a = onnx.Constant dense<[[10, 20]]> : tensor<1x2xui8>
+  %a_scale = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %a_zp = onnx.Constant dense<0> : tensor<ui8>
+
+  %a_dq = "onnx.DequantizeLinear"(%a, %a_scale, %a_zp) {axis = 0 : si64, block_size = 0 : si64} : (tensor<1x2xui8>, tensor<f32>, tensor<ui8>) -> tensor<1x2xf32>
+
+  %t = "onnx.Transpose"(%a_dq) {perm = [1, 0]} : (tensor<1x2xf32>) -> tensor<2x1xf32>
+
+  return %t : tensor<2x1xf32>
+}
+
+// CHECK-LABEL: @transpose_quantized_input_float_output
+// CHECK:         onnx.Transpose
+// CHECK-SAME:      (tensor<1x2x!quant.uniform<u8:f32, 5.000000e-01>>) -> tensor<2x1xf32>
+
+
+// Transpose with different input/output quantized types — should NOT be folded
+func.func @transpose_quantized_dtype_mismatch() -> tensor<2x1xf32> {
+  %a = onnx.Constant dense<[[10, 20]]> : tensor<1x2xui8>
+  %a_scale = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %a_zp = onnx.Constant dense<0> : tensor<ui8>
+
+  %a_dq = "onnx.DequantizeLinear"(%a, %a_scale, %a_zp) {axis = 0 : si64, block_size = 0 : si64} : (tensor<1x2xui8>, tensor<f32>, tensor<ui8>) -> tensor<1x2xf32>
+
+  %t = "onnx.Transpose"(%a_dq) {perm = [1, 0]} : (tensor<1x2xf32>) -> tensor<2x1xf32>
+
+  %out_scale = onnx.Constant dense<2.500000e-01> : tensor<f32>
+  %out_zp = onnx.Constant dense<0> : tensor<ui8>
+  %q = "onnx.QuantizeLinear"(%t, %out_scale, %out_zp) {axis = 0 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<2x1xf32>, tensor<f32>, tensor<ui8>) -> tensor<2x1xui8>
+  %final = "onnx.DequantizeLinear"(%q, %out_scale, %out_zp) {axis = 0 : si64, block_size = 0 : si64} : (tensor<2x1xui8>, tensor<f32>, tensor<ui8>) -> tensor<2x1xf32>
+
+  return %final : tensor<2x1xf32>
+}
+
+// CHECK-LABEL: @transpose_quantized_dtype_mismatch
+// CHECK:         onnx.Transpose
+// CHECK-SAME:      (tensor<1x2x!quant.uniform<u8:f32, 5.000000e-01>>) -> tensor<2x1x!quant.uniform<u8:f32, 2.500000e-01>>
+
+
+// Transpose with matching input/output quantized types — should still be folded
 func.func @transpose_quantized_constant() -> tensor<2x1xf32> {
   %a = onnx.Constant dense<[[10, 20]]> : tensor<1x2xui8>
   %a_scale = onnx.Constant dense<5.000000e-01> : tensor<f32>
