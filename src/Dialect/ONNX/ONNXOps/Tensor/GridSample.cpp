@@ -66,8 +66,13 @@ LogicalResult ONNXGridSampleOp::verify() {
     return emitOpError("align_corners needs to be 0 or 1");
   }
   const auto mode = op.getMode();
-  if (mode != "linear" && mode != "nearest" && mode != "cubic") {
-    return emitOpError("mode needs to be linear, nearest or cubic");
+  // We have seen onnx operations where it uses bilinear to indicate "linear"
+  // for a 4D NCHW input tensor. So add it here even though the standard refer
+  // to it but does not appear to condone it. Same for trilinear.
+  if (mode != "linear" && mode != "bilinear" && mode != "trilinear" &&
+      mode != "nearest" && mode != "cubic") {
+    return emitOpError(
+        "mode needs to be linear, bilinear, trilinear, nearest or cubic");
   }
   const auto paddingMode = op.getPaddingMode();
   if (paddingMode != "zeros" && paddingMode != "border" &&
