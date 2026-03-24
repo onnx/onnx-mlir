@@ -3032,6 +3032,24 @@ struct FusePadIntoAveragePoolPattern
   }
 };
 
+// LeakyRelu with alpha == 0.0 is equivalent to Relu.
+class LeakyReluAlphaZeroToReluPattern
+    : public OpRewritePattern<ONNXLeakyReluOp> {
+public:
+  using OpRewritePattern<ONNXLeakyReluOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXLeakyReluOp op, PatternRewriter &rewriter) const override {
+    FloatAttr alphaAttr = op.getAlphaAttr();
+    assert(alphaAttr);
+    if (alphaAttr.getValueAsDouble() != 0.0)
+      return failure();
+    rewriter.replaceOpWithNewOp<ONNXReluOp>(
+        op, op.getResult().getType(), op.getX());
+    return success();
+  }
+};
+
 // =============================================================================
 /// Register optimization patterns as "canonicalization" patterns.
 /// Add op to OpsWithCanonicalizer in gen_onnx_mlir.py to activate.
@@ -3207,6 +3225,12 @@ void ONNXLayoutTransformOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<ONNXLayoutTransformEliminationPattern>(context);
   result.insert<ONNXLayoutTransformFusionPattern>(context);
+}
+
+/// on the ONNXLeakyReluOp.
+void ONNXLeakyReluOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<LeakyReluAlphaZeroToReluPattern>(context);
 }
 
 /// on the ONNXLessOp.
