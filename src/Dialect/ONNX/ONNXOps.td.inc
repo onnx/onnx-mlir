@@ -4153,6 +4153,7 @@ def ONNXLayerNormalizationOp:ONNX_Op<"LayerNormalization",
 
 def ONNXLeakyReluOp:ONNX_Op<"LeakyRelu",
   [Pure, OpVersionTrait<16>, SameOperandsAndResultShape, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX LeakyRelu operation";
   let description = [{
   LeakyRelu takes input data (Tensor<T>) and an argument alpha, and produces one

@@ -533,6 +533,7 @@ OpsWithCanonicalizer = [
     "GroupNormalizationV18",
     "GRU",
     "Identity",
+    "LeakyRelu",
     "Less",
     "Loop",
     "LSTM",
