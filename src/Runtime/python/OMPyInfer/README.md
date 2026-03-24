@@ -3,9 +3,6 @@
 This package provides a python driver to run inference on ONNX model compiled onnx-mlir.
 There is a helloworld example in the tests folder with the package:
 ```
-# IBM Confidential
-# © Copyright IBM Corp. 2025
-
 import numpy as np
 import OMPyInfer
 
@@ -23,6 +20,22 @@ r = sess.run([a, b])
 
 # Print output
 print(r)
+```
+## Utilities to run a model
+
+The `InferenceSession` provides the basic function to run a model. This package also provides some utility functions to run a model and verify the results.
+The following example shows how to use the input files and reference output files (.npy files) to run a model. 
+
+```
+import numpy
+import OMPyInfer
+
+input_files = ["filename1.npy", "filename2.npy"]
+ref_output_files = [ "ref_filename.npy" ]
+
+session = OMPyInfer.InferenceSession("mymode.so")
+outputs = OMPyInfer.utils.run_model_with_file(session, input_files, ref_output_files, rtol, atol)
+
 ```
 
 ## Compile onnx model to shared library
@@ -42,12 +55,8 @@ python onnx-mlir/src/Runtime/python/OMPyInfer
 ```
 
 
-## Verify
+## Test
 ```
 cd OMPyInfer/tests
 python helloworld.py
 ```
-
-## VERSIONS
-Version 1.0.0 supports the model copied with onnx-mlir before 29bde823f, 2026-02-04.
-
