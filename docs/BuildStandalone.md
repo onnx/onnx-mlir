@@ -56,11 +56,15 @@ cmake -G Ninja \
   -DBUILD_SHARED_LIBS=OFF \
   -DLLVM_BUILD_LLVM_DYLIB=OFF \
   -DLLVM_LINK_LLVM_DYLIB=OFF \
+  -DLLVM_ENABLE_ZSTD=OFF \
   ../llvm
 ninja
 ```
 
-**Note:** LLVM defaults to static libraries, so `-DBUILD_SHARED_LIBS=OFF` is technically optional but recommended for clarity. The critical flags are `-DLLVM_BUILD_LLVM_DYLIB=OFF` and `-DLLVM_LINK_LLVM_DYLIB=OFF` which prevent building the monolithic LLVM shared library.
+**Notes:**
+- LLVM defaults to static libraries, so `-DBUILD_SHARED_LIBS=OFF` is technically optional but recommended for clarity
+- The critical flags are `-DLLVM_BUILD_LLVM_DYLIB=OFF` and `-DLLVM_LINK_LLVM_DYLIB=OFF` which prevent building the monolithic LLVM shared library
+- `-DLLVM_ENABLE_ZSTD=OFF` disables zstd compression support to avoid a Homebrew dependency on macOS. If you need zstd, use `-DLLVM_ENABLE_ZSTD=FORCE_ON -DLLVM_USE_STATIC_ZSTD=ON` instead (requires static zstd library)
 
 **Step 2: Build onnx-mlir as standalone**
 ```bash
