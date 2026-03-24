@@ -63,7 +63,7 @@ static void *g_constant_buffer_original =
 static int64_t g_constant_buffer_size = 0;
 
 // Forward declarations for helper functions
-static bool omMallocAndReadFile(const char *filename);
+static bool omMallocAndReadFile(const char *filename, int64_t fileSize);
 static void omFreeBuffer(void);
 #endif
 
@@ -191,11 +191,16 @@ void omGetExternalConstantAddr(
 /// and small files (≤1GB) using mmap.
 ///
 /// \param[in] filename Name of the constants file
+/// \param[in] fileSize Size of the file in bytes
 ///
 /// \return true on success, false on failure
 ///
-static bool omMallocAndReadFile(const char *filename) {
+static bool omMallocAndReadFile(const char *filename, int64_t fileSize) {
   if (!filename) {
+    return false;
+  }
+
+  if (fileSize <= 0) {
     return false;
   }
 
@@ -223,22 +228,11 @@ static bool omMallocAndReadFile(const char *filename) {
   // Open the constants file
   int fd = open(filePath, O_RDONLY);
   if (fd < 0) {
-    // File doesn't exist - this is OK, might not have constants
+    fprintf(stderr, "Failed to open %s: %s\n", filePath, strerror(errno));
     free(filePath);
     return false;
   }
 
-  // Get file size
-  struct stat st;
-  if (fstat(fd, &st) != 0) {
-    fprintf(stderr, "Error getting file size for %s: %s\n", filePath,
-        strerror(errno));
-    close(fd);
-    free(filePath);
-    return false;
-  }
-
-  int64_t fileSize = st.st_size;
   g_constant_buffer_size = fileSize;
 
   // Check if file is larger than 1GB (mmap limit on z/OS)
@@ -307,10 +301,6 @@ static bool omMallocAndReadFile(const char *filename) {
     }
 
     close(fd);
-    fprintf(stderr,
-        "Successfully preloaded %lld bytes of constants via malloc (>1GB on "
-        "z/OS)\n",
-        (long long)g_constant_buffer_size);
   } else {
     // Small file on z/OS - use mmap
     g_constant_buffer = mmap(0, fileSize, PROT_READ, __MAP_MEGA, fd, 0);
@@ -358,8 +348,52 @@ void __attribute__((constructor)) omCtor(void) {
     return;
   }
 
+  // Get the base path from environment variable
+  char *basePath = getenv("OM_CONSTANT_PATH");
+  if (!basePath) {
+    basePath = ".";
+  }
+
+  // Construct full file path
+  size_t baseLen = strlen(basePath);
+  size_t fnameLen = strlen(const_filename);
+  size_t sepLen = strlen(DIR_SEPARATOR);
+  size_t filePathLen = baseLen + sepLen + fnameLen + 1;
+
+  char *filePath = (char *)malloc(filePathLen);
+  if (!filePath) {
+    fprintf(stderr, "Error allocating memory for file path\n");
+    return;
+  }
+
+  snprintf(
+      filePath, filePathLen, "%s%s%s", basePath, DIR_SEPARATOR, const_filename);
+
+  // Open file to get size
+  int fd = open(filePath, O_RDONLY);
+  if (fd < 0) {
+    fprintf(stderr, "Failed to open %s: %s\n", filePath, strerror(errno));
+    free(filePath);
+    return;
+  }
+
+  // Get file size
+  struct stat st;
+  if (fstat(fd, &st) != 0) {
+    fprintf(stderr, "Error getting file size for %s: %s\n", filePath,
+        strerror(errno));
+    close(fd);
+    free(filePath);
+    return;
+  }
+
+  int64_t fileSize = st.st_size;
+
+  close(fd);
+  free(filePath);
+
   // Load the constants file
-  omMallocAndReadFile(const_filename);
+  omMallocAndReadFile(const_filename, fileSize);
 }
 
 /// Destructor: Free preloaded constants at library unload time (z/OS only)
