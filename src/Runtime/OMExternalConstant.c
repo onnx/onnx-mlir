@@ -21,6 +21,7 @@ typedef int make_iso_compilers_happy;
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -32,6 +33,7 @@ typedef int make_iso_compilers_happy;
 
 #ifdef __MVS__
 #define MAX_MMAP_SIZE (1024LL * 1024LL * 1024LL)
+#define AIU_PAGESIZE_IN_BYTES 4096
 #endif
 
 #if defined(_WIN32)
@@ -56,6 +58,8 @@ __attribute__((unused)) static void checkEndianness(const char constPackIsLE) {
 #ifdef __MVS__
 // Global buffer to store preloaded constants (z/OS only)
 static void *g_constant_buffer = NULL;
+static void *g_constant_buffer_original =
+    NULL; // Original malloc'd pointer for free
 static int64_t g_constant_buffer_size = 0;
 
 // Forward declarations for helper functions
@@ -239,16 +243,24 @@ static bool omMallocAndReadFile(const char *filename) {
 
   // Check if file is larger than 1GB (mmap limit on z/OS)
   if (fileSize > MAX_MMAP_SIZE) {
-    // Large file - use malloc + chunked read
-    g_constant_buffer = malloc(g_constant_buffer_size);
+    // Large file - use malloc + chunked read with 4K alignment
+    // Allocate extra space to ensure 4K alignment
+    size_t extra_allocation = AIU_PAGESIZE_IN_BYTES;
+    void *ptr = malloc(g_constant_buffer_size + extra_allocation);
 
-    if (!g_constant_buffer) {
+    if (!ptr) {
       fprintf(stderr, "Failed to allocate %lld bytes for constants\n",
           (long long)g_constant_buffer_size);
       close(fd);
       free(filePath);
       return false;
     }
+
+    // Find the 4K boundary after ptr
+    g_constant_buffer = (void *)(((uintptr_t)ptr + extra_allocation) &
+                                 ~(AIU_PAGESIZE_IN_BYTES - 1));
+    // Store the original malloc'd address for later free
+    g_constant_buffer_original = ptr;
 
     // Read file in 1GB chunks
     int64_t remaining = g_constant_buffer_size;
@@ -312,9 +324,6 @@ static bool omMallocAndReadFile(const char *filename) {
       return false;
     }
     close(fd);
-    fprintf(stderr,
-        "Successfully preloaded %lld bytes of constants via mmap (z/OS)\n",
-        (long long)g_constant_buffer_size);
   }
 
   free(filePath);
@@ -328,15 +337,14 @@ static void omFreeBuffer(void) {
   if (g_constant_buffer) {
     // Check if we used malloc (>1GB) or mmap (≤1GB)
     if (g_constant_buffer_size > MAX_MMAP_SIZE) {
-      // Was malloc'd
-      free(g_constant_buffer);
-      fprintf(stderr, "Freed constant buffer (malloc)\n");
+      // Was malloc'd - free the original pointer, not the aligned one
+      free(g_constant_buffer_original);
     } else {
       // Was mmap'd
       munmap(g_constant_buffer, g_constant_buffer_size);
-      fprintf(stderr, "Freed constant buffer (munmap)\n");
     }
     g_constant_buffer = NULL;
+    g_constant_buffer_original = NULL;
     g_constant_buffer_size = 0;
   }
 }
