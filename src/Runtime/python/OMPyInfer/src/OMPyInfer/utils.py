@@ -1,4 +1,3 @@
-
 """Read .npy files saved by run-torch.py and return their contents as numpy arrays."""
 
 import numpy as np
@@ -18,12 +17,13 @@ def read_npy(filenames):
     for path in filenames:
         arr = np.load(path)
         # Convert the data for endian
-        arrays[path] = arr.astype(arr.dtype.newbyteorder('='))
-        #print(f"{path}: shape={arr.shape}, dtype={arr.dtype}")
+        arrays[path] = arr.astype(arr.dtype.newbyteorder("="))
+        # print(f"{path}: shape={arr.shape}, dtype={arr.dtype}")
     return arrays
 
 
 """Utility to compare two lists of numpy arrays (reference vs actual)."""
+
 
 def compare_result(reference, actual, rtol=1e-5, atol=1e-8):
     """Compare two lists of numpy arrays element by element.
@@ -111,7 +111,10 @@ def compare_result(reference, actual, rtol=1e-5, atol=1e-8):
 
     return all_pass
 
-def run_model_with_file(session, input_files, ref_output_files=None, rtol=0.05, atol=0.1):
+
+def run_model_with_file(
+    session, input_files, ref_output_files=None, rtol=0.05, atol=0.1
+):
     input_dir = read_npy(input_files)
     input_arrays = [input_dir[f] for f in input_files]
 
