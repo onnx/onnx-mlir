@@ -112,6 +112,9 @@ struct ReplaceContainedConcatPattern : public OpRewritePattern<ONNXConcatOp> {
       if (!outerConcatOp || outerConcatOp == innerConcatOp)
         continue;
 
+      if (!innerConcatOp->isBeforeInBlock(outerConcatOp))
+        continue;
+
       if (!isFixMatch(outerConcatOp))
         continue;
 
