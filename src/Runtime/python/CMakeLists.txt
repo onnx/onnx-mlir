@@ -90,6 +90,17 @@ target_link_libraries(PyRuntimeC
   )
 llvm_update_compile_flags(PyRuntimeC)
 
+# Statically link the C++ standard library to avoid version mismatches between
+# build and runtime environments. This is critical for PyRuntimeC because it
+# may be loaded in containers or systems with different C++ library versions.
+# - GCC/Clang: -static-libstdc++ links libstdc++ statically while keeping other
+#   libraries (like libc, libm, libpthread) dynamically linked
+# - MSVC: /MT links the C runtime statically (already handled by compile options above)
+target_link_options(PyRuntimeC
+  PRIVATE
+  $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-static-libstdc++>
+  )
+
 install(TARGETS PyRuntimeC
   DESTINATION lib
   )
@@ -160,6 +171,17 @@ target_link_libraries(PyOMCompileC
   OMCompile
   )
 llvm_update_compile_flags(PyOMCompileC)
+
+# Statically link the C++ standard library to avoid version mismatches between
+# build and runtime environments. This is critical for PyOMCompileC because it
+# may be loaded in containers or systems with different C++ library versions.
+# - GCC/Clang: -static-libstdc++ links libstdc++ statically while keeping other
+#   libraries (like libc, libm, libpthread) dynamically linked
+# - MSVC: /MT links the C runtime statically (already handled by compile options above)
+target_link_options(PyOMCompileC
+  PRIVATE
+  $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-static-libstdc++>
+  )
 
 install(TARGETS PyOMCompileC
   DESTINATION lib
