@@ -621,8 +621,8 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
 /// into global operations. The function's type is `void()`.
 void emitLoadConstantDataFunc(ModuleOp &module,
     const RuntimeAPIRegistry &apiRegistry,
-    const SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps, std::string funcName,
-    bool calledByEntryPoint = false) {
+    const SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps,
+    std::string funcName) {
   MLIRContext *ctx = module.getContext();
   Location loc = module.getLoc();
   OpBuilder b(ctx);
@@ -636,49 +636,16 @@ void emitLoadConstantDataFunc(ModuleOp &module,
 
   // The following function will be emitted inside the IR to load constants from
   // file.
-  Type llvmFnType = LLVM::LLVMFunctionType::get(llvmVoidTy, {}, false);
 
-  // If calledByEntryPoint, this function will be called by entry points.
-  // Otherwise, user program (C/C++/Java/Python) would call this function.
-  LLVM::LLVMFuncOp funcOp;
-  if (calledByEntryPoint) {
-    Operation *firstEntryPointOp =
-        getFirstEntryOpInBlock(module, entryGlobalOps);
-    assert(firstEntryPointOp && "No entry function exists");
-    OpBuilder::InsertionGuard guard(b);
-    b.setInsertionPoint(firstEntryPointOp);
-    funcOp = create.llvm.func(funcName, llvmFnType, /*createUniqueFunc=*/true);
-    // Call funcName in each entry point function.
-    bool zOS = isZOS(module);
-    for (auto entryGlobalOp : entryGlobalOps) {
-      std::string entryName =
-          mlir::cast<StringAttr>(entryGlobalOp.getValue().value())
-              .getValue()
-              .str();
-      // Entry point name is encoded in EBCDIC on z/OS.
-      entryName = (zOS) ? krnl::e2a_s(entryName) : entryName;
-      // Erase the null symbol.
-      entryName.erase(
-          std::find(entryName.begin(), entryName.end(), '\0'), entryName.end());
-      auto entryFunc = module.lookupSymbol<LLVM::LLVMFuncOp>(entryName);
-      assert(entryFunc && "Entry function not found");
-      OpBuilder::InsertionGuard guard(b);
-      b.setInsertionPoint(
-          &entryFunc.getBody().front(), entryFunc.getBody().front().begin());
-      FlatSymbolRefAttr loadAllConstantsRef = create.llvm.getOrInsertSymbolRef(
-          module, LLVMBuilder::SymbolPostfix(module, funcName), llvmVoidTy, {},
-          /*isVarArg=*/false);
-      create.llvm.call({}, loadAllConstantsRef, {});
-    }
-  } else {
-    OpBuilder::InsertionGuard guard(b);
-    b.setInsertionPointToEnd(module.getBody());
-    funcOp = create.llvm.func(funcName, llvmFnType, /*createUniqueFunc=*/true);
-  }
+  OpBuilder::InsertionGuard guard1(b);
+  b.setInsertionPointToEnd(module.getBody());
+  Type llvmFnType = LLVM::LLVMFunctionType::get(llvmVoidTy, {}, false);
+  LLVM::LLVMFuncOp funcOp =
+      create.llvm.func(funcName, llvmFnType, /*createUniqueFunc=*/true);
 
   // Emit the body of the function.
   Block *entryBlock = funcOp.addEntryBlock(b);
-  OpBuilder::InsertionGuard guard(b);
+  OpBuilder::InsertionGuard guard2(b);
   b.setInsertionPointToStart(entryBlock);
 
   // Get the constant file name.
