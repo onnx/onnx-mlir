@@ -134,3 +134,61 @@ func.func @reduce_sum_large_channel(%arg0: tensor<1x64x32x32x!quant.uniform<i8:f
 }
 // CHECK: "onnx.Conv"
 // CHECK-NOT: onnx.ReduceSum
+
+// -----
+
+//===----------------------------------------------------------------------===//
+// Negative Tests: Integer element types (should NOT convert)
+// Conv only supports float/quantized types, not integer types like i64.
+// These patterns arise from Cast/IsNaN counting in instance normalization.
+//===----------------------------------------------------------------------===//
+
+// CHECK-LABEL: @reduce_mean_i64_input_no_convert
+// NCHW: tensor<1x8x4x4xi64> - integer element type
+// Should NOT convert because onnx.Conv does not support i64
+func.func @reduce_mean_i64_input_no_convert(%arg0: tensor<1x8x4x4xi64>) -> tensor<1x1x4x4xi64> {
+    %0 = onnx.Constant dense<[1]> : tensor<1xi64>
+    %1 = "onnx.ReduceMean"(%arg0, %0) {keepdims = 1 : si64} : (tensor<1x8x4x4xi64>, tensor<1xi64>) -> tensor<1x1x4x4xi64>
+    return %1 : tensor<1x1x4x4xi64>
+}
+// CHECK: "onnx.ReduceMean"
+// CHECK-NOT: onnx.Conv
+
+// -----
+
+// CHECK-LABEL: @reduce_sum_i64_input_no_convert
+// NCHW: tensor<1x8x4x4xi64> - integer element type
+// Should NOT convert because onnx.Conv does not support i64
+func.func @reduce_sum_i64_input_no_convert(%arg0: tensor<1x8x4x4xi64>) -> tensor<1x1x4x4xi64> {
+    %0 = onnx.Constant dense<[1]> : tensor<1xi64>
+    %1 = "onnx.ReduceSum"(%arg0, %0) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<1x8x4x4xi64>, tensor<1xi64>) -> tensor<1x1x4x4xi64>
+    return %1 : tensor<1x1x4x4xi64>
+}
+// CHECK: "onnx.ReduceSum"
+// CHECK-NOT: onnx.Conv
+
+// -----
+
+// CHECK-LABEL: @reduce_mean_i32_input_no_convert
+// NCHW: tensor<1x4x4x4xi32> - integer element type
+// Should NOT convert because onnx.Conv does not support i32
+func.func @reduce_mean_i32_input_no_convert(%arg0: tensor<1x4x4x4xi32>) -> tensor<1x1x4x4xi32> {
+    %0 = onnx.Constant dense<[1]> : tensor<1xi64>
+    %1 = "onnx.ReduceMean"(%arg0, %0) {keepdims = 1 : si64} : (tensor<1x4x4x4xi32>, tensor<1xi64>) -> tensor<1x1x4x4xi32>
+    return %1 : tensor<1x1x4x4xi32>
+}
+// CHECK: "onnx.ReduceMean"
+// CHECK-NOT: onnx.Conv
+
+// -----
+
+// CHECK-LABEL: @reduce_mean_f32_input_should_convert
+// NCHW: tensor<1x8x4x4xf32> - float element type
+// Should convert because onnx.Conv supports f32
+func.func @reduce_mean_f32_input_should_convert(%arg0: tensor<1x8x4x4xf32>) -> tensor<1x1x4x4xf32> {
+    %0 = onnx.Constant dense<[1]> : tensor<1xi64>
+    %1 = "onnx.ReduceMean"(%arg0, %0) {keepdims = 1 : si64} : (tensor<1x8x4x4xf32>, tensor<1xi64>) -> tensor<1x1x4x4xf32>
+    return %1 : tensor<1x1x4x4xf32>
+}
+// CHECK: "onnx.Conv"
+// CHECK-NOT: onnx.ReduceMean
