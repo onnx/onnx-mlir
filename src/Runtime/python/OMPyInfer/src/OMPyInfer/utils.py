@@ -4,7 +4,7 @@ import numpy as np
 import sys
 
 
-def read_npy(filenames):
+def read_npy_files(filenames):
     """Read a list of .npy files and return a dict mapping filename to numpy array.
 
     Args:
@@ -25,19 +25,19 @@ def read_npy(filenames):
 """Utility to compare two lists of numpy arrays (reference vs actual)."""
 
 
-def compare_result(reference, actual, rtol=1e-5, atol=1e-8):
+def compare_result_bob(actual, reference, atol=1e-8, rtol=1e-5):
     """Compare two lists of numpy arrays element by element.
 
     Parameters
     ----------
-    reference : list of np.ndarray
-        Expected arrays.
     actual : list of np.ndarray
         Actual arrays to check.
-    rtol : float
-        Relative tolerance for floating-point comparison.
+    reference : list of np.ndarray
+        Expected arrays.
     atol : float
         Absolute tolerance for floating-point comparison.
+    rtol : float
+        Relative tolerance for floating-point comparison.
 
     Returns
     -------
@@ -112,18 +112,67 @@ def compare_result(reference, actual, rtol=1e-5, atol=1e-8):
     return all_pass
 
 
+def compare_result(actual_outs, ref_outs, atol=1e-8, rtol=1e-5, debug=0):
+    total_elements = 0
+    mismatched_elements = 0
+    max_atol = 0
+    sum_rtol = 0
+    # The outputs are of shape: #queries, seq_length, hidden_states, with
+    # seq_length various with query.
+    for q_index in range(len(actual_outs)):
+        q_actual_outs = actual_outs[q_index]
+        q_ref_outs = ref_outs[q_index]
+        for index, actual_val in np.ndenumerate(q_actual_outs):
+            total_elements += 1
+            ref_val = q_ref_outs[index]
+            this_atol = abs(ref_val - actual_val)
+            max_atol = max(this_atol, max_atol)
+            sum_rtol += abs((this_atol) / ref_val)
+            if np.issubdtype(q_actual_outs.dtype, np.dtype(bool).type):
+                if ref_val == actual_val:
+                    continue
+            else:
+                # Use equation atol + rtol * abs(desired), that is used in assert_allclose.
+                diff = float(atol) + float(rtol) * abs(ref_val)
+                if abs(actual_val - ref_val) <= diff:
+                    continue
+            mismatched_elements += 1
+            if debug >= 1:
+                print(
+                    "  at {}".format(index),
+                    "mismatch {} (actual)".format(actual_val),
+                    "vs {} (reference)".format(ref_val),
+                )
+
+    print(
+        f"Max absolute difference: {max_atol}\nMean of relative difference {sum_rtol/total_elements}"
+    )
+    if mismatched_elements == 0:
+        print("  correct.\n")
+        return True
+    else:
+        print(
+            "  got mismatched elements {}/{}, in percentage {}.\n".format(
+                mismatched_elements,
+                total_elements,
+                mismatched_elements / total_elements,
+            )
+        )
+        return False
+
+
 def run_model_with_file(
-    session, input_files, ref_output_files=None, rtol=0.05, atol=0.1
+    session, input_files, ref_output_files=None, atol=0.1, rtol=0.05
 ):
-    input_dir = read_npy(input_files)
+    input_dir = read_npy_files(input_files)
     input_arrays = [input_dir[f] for f in input_files]
 
     outputs = session.run(input_arrays)
 
     if ref_output_files:
-        arrays = read_npy(ref_output_files)
+        arrays = read_npy_files(ref_output_files)
         ref_outputs = [arrays[f] for f in ref_output_files]
-        all_match = compare_result(ref_outputs, outputs, rtol, atol)
+        all_match = compare_result(outputs, ref_outputs, atol, rtol)
         if all_match:
             print("\n✓ All outputs match the reference within specified tolerances")
         else:
