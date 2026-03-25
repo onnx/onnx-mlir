@@ -239,8 +239,8 @@ struct ConvToChannelLastPattern : public OpRewritePattern<ONNXConvOp> {
     }
 
     // Transpose output back to NCHW using original NCHW output type
-    Value outputNCHW = createOutputTranspose(rewriter, loc,
-        convChannelLastOp.getResult(), convOp.getType(), rank);
+    Value outputNCHW = createOutputTranspose(
+        rewriter, loc, convChannelLastOp.getResult(), convOp.getType(), rank);
 
     rewriter.replaceOp(convOp, outputNCHW);
     return success();
@@ -303,8 +303,9 @@ struct ConvTransposeToChannelLastPattern
     }
 
     // Transpose output back to NCHW using original NCHW output type
-    Value outputNCHW = createOutputTranspose(rewriter, loc,
-        convTransposeChannelLastOp.getResult(), convTransposeOp.getType(),
+    Value outputNCHW = createOutputTranspose(
+        rewriter, loc, convTransposeChannelLastOp.getResult(),
+        convTransposeOp.getType(),
         rank);
 
     rewriter.replaceOp(convTransposeOp, outputNCHW);
@@ -350,8 +351,8 @@ struct AveragePoolToChannelLastPattern
     }
 
     // Transpose output back to NCHW using original NCHW output type
-    Value outputNCHW = createOutputTranspose(rewriter, loc,
-        poolChannelLastOp.getResult(), poolOp.getType(), rank);
+    Value outputNCHW = createOutputTranspose(
+        rewriter, loc, poolChannelLastOp.getResult(), poolOp.getType(), rank);
 
     rewriter.replaceOp(poolOp, outputNCHW);
     return success();
@@ -396,8 +397,8 @@ struct MaxPoolToChannelLastPattern
     }
 
     // Transpose output back to NCHW using original NCHW output type
-    Value outputNCHW = createOutputTranspose(rewriter, loc,
-        poolChannelLastOp.getResult(), poolOp.getType(), rank);
+    Value outputNCHW = createOutputTranspose(
+        rewriter, loc, poolChannelLastOp.getResult(), poolOp.getType(), rank);
 
     rewriter.replaceOp(poolOp, outputNCHW);
     return success();
@@ -438,8 +439,8 @@ struct GlobalAveragePoolToChannelLastPattern
     }
 
     // Transpose output back to NCHW using original NCHW output type
-    Value outputNCHW = createOutputTranspose(rewriter, loc,
-        poolChannelLastOp.getResult(), poolOp.getType(), rank);
+    Value outputNCHW = createOutputTranspose(
+        rewriter, loc, poolChannelLastOp.getResult(), poolOp.getType(), rank);
 
     rewriter.replaceOp(poolOp, outputNCHW);
     return success();
@@ -480,8 +481,8 @@ struct GlobalMaxPoolToChannelLastPattern
     }
 
     // Transpose output back to NCHW using original NCHW output type
-    Value outputNCHW = createOutputTranspose(rewriter, loc,
-        poolChannelLastOp.getResult(), poolOp.getType(), rank);
+    Value outputNCHW = createOutputTranspose(
+        rewriter, loc, poolChannelLastOp.getResult(), poolOp.getType(), rank);
 
     rewriter.replaceOp(poolOp, outputNCHW);
     return success();
@@ -573,8 +574,8 @@ struct InstanceNormToChannelLastPattern
     }
 
     // Transpose output back to NCHW using original NCHW output type
-    Value outputNCHW = createOutputTranspose(rewriter, loc,
-        normChannelLastOp.getResult(), normOp.getType(), rank);
+    Value outputNCHW = createOutputTranspose(
+        rewriter, loc, normChannelLastOp.getResult(), normOp.getType(), rank);
 
     rewriter.replaceOp(normOp, outputNCHW);
     return success();
@@ -934,8 +935,8 @@ struct ResizeToChannelLastPattern : public OpRewritePattern<ONNXResizeOp> {
     }
 
     // Transpose output back to NCHW
-    Value outputNCHW = createOutputTranspose(rewriter, loc,
-        resizeChannelLastOp.getResult(), resizeOp.getType(), rank);
+    Value outputNCHW = createOutputTranspose(
+        rewriter, loc, resizeChannelLastOp.getResult(), resizeOp.getType(), rank);
 
     rewriter.replaceOp(resizeOp, outputNCHW);
     return success();

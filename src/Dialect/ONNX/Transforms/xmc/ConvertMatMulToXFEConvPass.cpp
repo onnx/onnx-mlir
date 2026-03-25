@@ -9,8 +9,8 @@
 #include "llvm/ADT/SmallVector.h"
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
-#include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
 #include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
@@ -470,8 +470,8 @@ struct GemmToXFEConvPattern : public OpRewritePattern<ONNXGemmOp> {
       convWeightType =
           RankedTensorType::get(convShapes.weightShape, convWeightElemType);
 
-      convWeight = tryFoldTransposeReshapeConst(rewriter, loc, B,
-          {1, 0}, convShapes.weightShape, convWeightElemType);
+      convWeight = tryFoldTransposeReshapeConst(
+          rewriter, loc, B, {1, 0}, convShapes.weightShape, convWeightElemType);
 
       if (!convWeight) {
         auto transposedElemType = remapPerAxisQuantDim(bElementType, 0);

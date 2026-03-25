@@ -24,9 +24,7 @@ namespace onnx_mlir {
 struct SelectiveShapeInferencePass
     : public PassWrapper<SelectiveShapeInferencePass,
           OperationPass<func::FuncOp>> {
-  StringRef getArgument() const override {
-    return "selective-shape-inference";
-  }
+  StringRef getArgument() const override { return "selective-shape-inference"; }
   StringRef getDescription() const override {
     return "Run shape inference only on standard ONNX ops with unranked "
            "results, skipping XFE/XCompiler ops";
@@ -55,8 +53,8 @@ struct SelectiveShapeInferencePass
         if (!hasUnranked)
           return;
 
-        LLVM_DEBUG(llvm::dbgs()
-                   << "Selective shape inference on: " << name << "\n");
+        LLVM_DEBUG(
+            llvm::dbgs() << "Selective shape inference on: " << name << "\n");
 
         if (succeeded(shapeInfOp.inferShapes([](Region &) {})))
           changed = true;

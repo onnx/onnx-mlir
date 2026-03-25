@@ -278,8 +278,7 @@ struct FuseConsecutiveTransposes : public OpRewritePattern<ONNXTransposeOp> {
 
           // DequantizeLinear takes storage type (i8) input, produces f32.
           rewriter.replaceOpWithNewOp<ONNXDequantizeLinearOp>(op, outputType,
-              scastOp.getResult(), scaleConst.getResult(),
-              zpConst.getResult(),
+              scastOp.getResult(), scaleConst.getResult(), zpConst.getResult(),
               /*axis=*/IntegerAttr(), /*block_size=*/IntegerAttr());
 
           return success();
