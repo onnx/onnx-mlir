@@ -236,11 +236,12 @@ static LogicalResult lowerGridSample2D(ONNXGridSampleOp op,
   DimsExpr ubs = shapeHelper.getOutputDims();
 
   // Parallelize outer loops (N, C) for better performance
-  // The two outer loops (batch and channel) are independent and can be parallelized
+  // The two outer loops (batch and channel) are independent and can be
+  // parallelized
   if (enableParallel) {
     SmallVector<Value, 2> outerLoops = {loopDef[0], loopDef[1]};
-    tryCreateKrnlParallel(create.krnl, op, "gridsample 2d", outerLoops, lbs, ubs,
-        0, 2, {}, /*min iter for going parallel*/ 4);
+    tryCreateKrnlParallel(create.krnl, op, "gridsample 2d", outerLoops, lbs,
+        ubs, 0, 2, {}, /*min iter for going parallel*/ 4);
   }
 
   // Constants
@@ -267,8 +268,10 @@ static LogicalResult lowerGridSample2D(ONNXGridSampleOp op,
         Value gridYCast = create.math.cast(elementType, gridY);
 
         // Transform coordinates from [-1,1] to input space
-        Value x = transformCoordinate(create.math, loc, gridXCast, W, alignCorners);
-        Value y = transformCoordinate(create.math, loc, gridYCast, H, alignCorners);
+        Value x =
+            transformCoordinate(create.math, loc, gridXCast, W, alignCorners);
+        Value y =
+            transformCoordinate(create.math, loc, gridYCast, H, alignCorners);
 
         Value result;
 
@@ -411,11 +414,12 @@ static LogicalResult lowerGridSample3D(ONNXGridSampleOp op,
   DimsExpr ubs = shapeHelper.getOutputDims();
 
   // Parallelize outer loops (N, C) for better performance
-  // The two outer loops (batch and channel) are independent and can be parallelized
+  // The two outer loops (batch and channel) are independent and can be
+  // parallelized
   if (enableParallel) {
     SmallVector<Value, 2> outerLoops = {loopDef[0], loopDef[1]};
-    tryCreateKrnlParallel(create.krnl, op, "gridsample 3d", outerLoops, lbs, ubs,
-        0, 2, {}, /*min iter for going parallel*/ 4);
+    tryCreateKrnlParallel(create.krnl, op, "gridsample 3d", outerLoops, lbs,
+        ubs, 0, 2, {}, /*min iter for going parallel*/ 4);
   }
 
   // Constants
@@ -446,9 +450,12 @@ static LogicalResult lowerGridSample3D(ONNXGridSampleOp op,
         Value gridZCast = create.math.cast(elementType, gridZ);
 
         // Transform coordinates from [-1,1] to input space
-        Value x = transformCoordinate(create.math, loc, gridXCast, W, alignCorners);
-        Value y = transformCoordinate(create.math, loc, gridYCast, H, alignCorners);
-        Value z = transformCoordinate(create.math, loc, gridZCast, D, alignCorners);
+        Value x =
+            transformCoordinate(create.math, loc, gridXCast, W, alignCorners);
+        Value y =
+            transformCoordinate(create.math, loc, gridYCast, H, alignCorners);
+        Value z =
+            transformCoordinate(create.math, loc, gridZCast, D, alignCorners);
 
         Value result;
 
@@ -536,8 +543,8 @@ static LogicalResult lowerGridSample3D(ONNXGridSampleOp op,
 //===----------------------------------------------------------------------===//
 
 struct ONNXGridSampleOpLowering : public OpConversionPattern<ONNXGridSampleOp> {
-  ONNXGridSampleOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
-      bool enableParallel)
+  ONNXGridSampleOpLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
       : OpConversionPattern(typeConverter, ctx) {
     this->enableParallel =
         enableParallel &&
@@ -628,8 +635,7 @@ struct ONNXGridSampleOpLowering : public OpConversionPattern<ONNXGridSampleOp> {
 
 void populateLoweringONNXGridSampleOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel) {
-  patterns.insert<ONNXGridSampleOpLowering>(
-      typeConverter, ctx, enableParallel);
+  patterns.insert<ONNXGridSampleOpLowering>(typeConverter, ctx, enableParallel);
 }
 
 } // namespace onnx_mlir
