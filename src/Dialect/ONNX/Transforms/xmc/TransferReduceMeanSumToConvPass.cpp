@@ -222,15 +222,19 @@ mlir::Value convertReductionToConv(mlir::PatternRewriter &rewriter,
 
   auto inputType = mlir::cast<mlir::ShapedType>(convInput.getType());
 
-  // For quantized inputs, create weights with signed i8 quantized type
-  // (conv weights are conventionally signed). Use |weightValue| as scale
-  // so the quantized weight is 1, with zero_point=0.
+  // For quantized inputs, compute weight scale via fix_point:
+  //   fix_point = floor(log2(127 / |weightValue|))
+  //   wScale    = 1 / 2^fix_point
+  // This maximizes INT8 utilization (quantized weight ≈ 64 for power-of-2 C).
   mlir::Type weightElemType = inputType.getElementType();
+  double wScale = 1.0;
   if (auto inputQuantType = mlir::dyn_cast<mlir::quant::UniformQuantizedType>(
           inputType.getElementType())) {
-    double wScale = static_cast<double>(std::abs(weightValue));
-    if (wScale < 1e-10)
-      wScale = 1.0;
+    double absWeight = std::abs(static_cast<double>(weightValue));
+    if (absWeight > 1e-10) {
+      int fixPoint = static_cast<int>(std::floor(std::log2(127.0 / absWeight)));
+      wScale = 1.0 / std::pow(2.0, fixPoint);
+    }
     weightElemType = mlir::quant::UniformQuantizedType::get(
         mlir::quant::QuantizationFlags::Signed, rewriter.getIntegerType(8),
         inputQuantType.getExpressedType(), wScale,
@@ -252,14 +256,14 @@ mlir::Value convertReductionToConv(mlir::PatternRewriter &rewriter,
   auto convOutputType =
       mlir::RankedTensorType::get(convOutputShape, inputType.getElementType());
 
-  // Create zero bias for quantized conv (reference xcompiler always adds bias)
   mlir::Value bias;
   if (auto inputQuantType = mlir::dyn_cast<mlir::quant::UniformQuantizedType>(
           inputType.getElementType())) {
     llvm::SmallVector<int64_t> biasShape = {convOutputC};
+    double biasScale = inputQuantType.getScale() * wScale;
     auto biasQuantType = mlir::quant::UniformQuantizedType::get(
         mlir::quant::QuantizationFlags::Signed, rewriter.getIntegerType(16),
-        inputQuantType.getExpressedType(), inputQuantType.getScale(),
+        inputQuantType.getExpressedType(), biasScale,
         /*zeroPoint=*/0, /*storageTypeMin=*/-32768, /*storageTypeMax=*/32767);
     bias = createConstantTensor(rewriter, loc, biasShape, 0.0f, biasQuantType);
   } else {
