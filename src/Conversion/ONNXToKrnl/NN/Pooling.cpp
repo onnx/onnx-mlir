@@ -90,7 +90,12 @@ bool getCountIncludePad(PoolOp poolOp) {
 // AveragePool has count_include_pad attribute.
 template <>
 bool getCountIncludePad<ONNXAveragePoolOp>(ONNXAveragePoolOp poolOp) {
-  return (poolOp.getCountIncludePad() == 1);
+  // This is the behavor of torch and ort.
+  poolOp.emitWarning() << "Attribute count_include_pad=1 is not honored "
+                          "because of the behavior of torch and ort.";
+
+  return false;
+  // return (poolOp.getCountIncludePad() == 1);
 }
 
 //===----------------------------------------------------------------------===//
@@ -446,7 +451,7 @@ struct ONNXPoolOpLowering : public OpConversionPattern<PoolOp> {
               for (int i = 0; i < kernelOffset; ++i)
                 inputIndices.emplace_back(outputIndices[i]);
               for (int i = kernelOffset;
-                   i < static_cast<int>(inputShape.size()); ++i) {
+                  i < static_cast<int>(inputShape.size()); ++i) {
                 int j = i - kernelOffset;
                 DimIndexExpr hp(poolingLoopInd[j]);
                 IndexExpr startH = windowStartExprs[j];
