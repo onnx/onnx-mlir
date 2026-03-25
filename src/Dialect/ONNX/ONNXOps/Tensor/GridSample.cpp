@@ -80,6 +80,8 @@ LogicalResult ONNXGridSampleOp::verify() {
     return emitOpError("padding_mode needs to be zeros, border or reflection");
   }
 
+  // Note that ONNX to Krnl lowering may not support all option combination;
+  // errors will be generated later for unsupported cases.
   if (!hasShapeAndRank(getOperation()))
     return success();
 

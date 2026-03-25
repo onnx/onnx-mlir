@@ -62,5 +62,82 @@ def load_onnxmlir_node_tests():
                 np.array([[3, 0, 2], [1, 3, 0], [0, 1, 2]], np.int64),
             ],
         ),
+        # GridSample tests
+        make_onnxmlir_node_test(
+            """
+test_onnxmlir_gridsample_2d_bilinear
+(float[1,1,4,4] X, float[1,2,2,2] grid) => (float[1,1,2,2] Y) {
+    Y = GridSample <mode = "linear", padding_mode = "zeros", align_corners = 0> (X, grid)
+}
+""",
+            [
+                np.array([[[[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12], [13, 14, 15, 16]]]], np.float32),
+                np.array([[[[-0.5, -0.5], [0.5, -0.5]], [[-0.5, 0.5], [0.5, 0.5]]]], np.float32),
+            ],
+            [
+                np.array([[[[3.5, 4.5], [7.5, 8.5]]]], np.float32),
+            ],
+        ),
+        make_onnxmlir_node_test(
+            """
+test_onnxmlir_gridsample_2d_nearest
+(float[1,1,4,4] X, float[1,2,2,2] grid) => (float[1,1,2,2] Y) {
+    Y = GridSample <mode = "nearest", padding_mode = "zeros", align_corners = 0> (X, grid)
+}
+""",
+            [
+                np.array([[[[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12], [13, 14, 15, 16]]]], np.float32),
+                np.array([[[[-0.5, -0.5], [0.5, -0.5]], [[-0.5, 0.5], [0.5, 0.5]]]], np.float32),
+            ],
+            [
+                np.array([[[[6, 6], [10, 10]]]], np.float32),
+            ],
+        ),
+        make_onnxmlir_node_test(
+            """
+test_onnxmlir_gridsample_2d_bicubic
+(float[1,1,4,4] X, float[1,2,2,2] grid) => (float[1,1,2,2] Y) {
+    Y = GridSample <mode = "cubic", padding_mode = "zeros", align_corners = 0> (X, grid)
+}
+""",
+            [
+                np.array([[[[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12], [13, 14, 15, 16]]]], np.float32),
+                np.array([[[[-0.5, -0.5], [0.5, -0.5]], [[-0.5, 0.5], [0.5, 0.5]]]], np.float32),
+            ],
+            [
+                np.array([[[[3.5, 4.5], [7.5, 8.5]]]], np.float32),
+            ],
+            rtol=1e-2,
+        ),
+        make_onnxmlir_node_test(
+            """
+test_onnxmlir_gridsample_2d_border
+(float[1,1,4,4] X, float[1,2,2,2] grid) => (float[1,1,2,2] Y) {
+    Y = GridSample <mode = "linear", padding_mode = "border", align_corners = 0> (X, grid)
+}
+""",
+            [
+                np.array([[[[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12], [13, 14, 15, 16]]]], np.float32),
+                np.array([[[[-1.5, -1.5], [1.5, -1.5]], [[-1.5, 1.5], [1.5, 1.5]]]], np.float32),
+            ],
+            [
+                np.array([[[[1.0, 4.0], [13.0, 16.0]]]], np.float32),
+            ],
+        ),
+        make_onnxmlir_node_test(
+            """
+test_onnxmlir_gridsample_align_corners
+(float[1,1,4,4] X, float[1,2,2,2] grid) => (float[1,1,2,2] Y) {
+    Y = GridSample <mode = "linear", padding_mode = "zeros", align_corners = 1> (X, grid)
+}
+""",
+            [
+                np.array([[[[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12], [13, 14, 15, 16]]]], np.float32),
+                np.array([[[[-1.0, -1.0], [1.0, -1.0]], [[-1.0, 1.0], [1.0, 1.0]]]], np.float32),
+            ],
+            [
+                np.array([[[[1.0, 4.0], [13.0, 16.0]]]], np.float32),
+            ],
+        ),
         # add more onnxmlir node tests here
     ]
