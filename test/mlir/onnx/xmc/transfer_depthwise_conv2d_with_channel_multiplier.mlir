@@ -338,4 +338,107 @@ module {
   // CHECK: onnx.Conv
   // CHECK: onnx.Conv
   // CHECK: onnx.Concat
+
+  // =========================================================================
+  // Quantized type tests - Verify storage vs quantized type handling
+  // The fix ensures split weight/bias constants use the full quantized type
+  // (e.g., !quant.uniform<i8:f32, ...>) for the result, not just the storage
+  // type (e.g., i8).
+  // =========================================================================
+
+  // Test 15: Quantized depthwise conv with channel_multiplier=2 (NCHW, ui8)
+  // Input: [1, 4, 8, 8] (NCHW), group=4, output_channels=8
+  // channel_multiplier = 8/4 = 2
+  // Verifies that split weight constants preserve the full quantized type
+  // (e.g., !quant.uniform<u8:f32, ...>) instead of using just the storage type (ui8).
+  func.func @test_depthwise_conv_cm2_quant_ui8(%arg0: tensor<1x4x8x8x!quant.uniform<u8:f32, 0.1:128>>) -> tensor<1x8x8x8x!quant.uniform<u8:f32, 0.1:128>> {
+    %weights = "onnx.Constant"() {value = dense<128> : tensor<8x1x3x3xui8>} : () -> tensor<8x1x3x3x!quant.uniform<u8:f32, 0.05:128>>
+    %none = "onnx.NoValue"() {value} : () -> none
+    %0 = "onnx.Conv"(%arg0, %weights, %none) {
+      auto_pad = "NOTSET",
+      dilations = [1, 1],
+      group = 4 : si64,
+      kernel_shape = [3, 3],
+      pads = [1, 1, 1, 1],
+      strides = [1, 1]
+    } : (tensor<1x4x8x8x!quant.uniform<u8:f32, 0.1:128>>, tensor<8x1x3x3x!quant.uniform<u8:f32, 0.05:128>>, none) -> tensor<1x8x8x8x!quant.uniform<u8:f32, 0.1:128>>
+    return %0 : tensor<1x8x8x8x!quant.uniform<u8:f32, 0.1:128>>
+  }
+  // CHECK-LABEL: func.func @test_depthwise_conv_cm2_quant_ui8
+  // CHECK: onnx.Constant
+  // CHECK: onnx.NoValue
+  // CHECK: onnx.Conv
+  // CHECK-SAME: group = 4
+  // CHECK: onnx.Conv
+  // CHECK-SAME: group = 4
+  // CHECK: onnx.Concat
+  // CHECK-SAME: axis = 1
+
+  // Test 16: Quantized depthwise conv with bias and channel_multiplier=2 (NCHW, ui8)
+  // Bias uses quantized i32 type, verifying both weight and bias type handling
+  func.func @test_depthwise_conv_cm2_quant_ui8_bias(%arg0: tensor<1x4x8x8x!quant.uniform<u8:f32, 0.1:128>>) -> tensor<1x8x8x8x!quant.uniform<u8:f32, 0.1:128>> {
+    %weights = "onnx.Constant"() {value = dense<128> : tensor<8x1x3x3xui8>} : () -> tensor<8x1x3x3x!quant.uniform<u8:f32, 0.05:128>>
+    %bias = "onnx.Constant"() {value = dense<0> : tensor<8xi32>} : () -> tensor<8x!quant.uniform<i32:f32, 0.005:0>>
+    %0 = "onnx.Conv"(%arg0, %weights, %bias) {
+      auto_pad = "NOTSET",
+      dilations = [1, 1],
+      group = 4 : si64,
+      kernel_shape = [3, 3],
+      pads = [1, 1, 1, 1],
+      strides = [1, 1]
+    } : (tensor<1x4x8x8x!quant.uniform<u8:f32, 0.1:128>>, tensor<8x1x3x3x!quant.uniform<u8:f32, 0.05:128>>, tensor<8x!quant.uniform<i32:f32, 0.005:0>>) -> tensor<1x8x8x8x!quant.uniform<u8:f32, 0.1:128>>
+    return %0 : tensor<1x8x8x8x!quant.uniform<u8:f32, 0.1:128>>
+  }
+  // CHECK-LABEL: func.func @test_depthwise_conv_cm2_quant_ui8_bias
+  // CHECK: onnx.Constant
+  // CHECK: onnx.Conv
+  // CHECK: onnx.Conv
+  // CHECK: onnx.Concat
+  // CHECK-SAME: axis = 1
+
+  // Test 17: XFE quantized depthwise conv with channel_multiplier=2 (NHWC, ui8)
+  // Input: [1, 8, 8, 4] (NHWC), group=4, output_channels=8
+  // Verifies that XFEConv split preserves quantized types for weight constants.
+  func.func @test_xfe_depthwise_conv_cm2_quant_ui8(%arg0: tensor<1x8x8x4x!quant.uniform<u8:f32, 0.1:128>>) -> tensor<1x8x8x8x!quant.uniform<u8:f32, 0.1:128>> {
+    %weights = "onnx.Constant"() {value = dense<128> : tensor<8x1x3x3xui8>} : () -> tensor<8x1x3x3x!quant.uniform<u8:f32, 0.05:128>>
+    %none = "onnx.NoValue"() {value} : () -> none
+    %0 = "onnx.XFEConv"(%arg0, %weights, %none) {
+      auto_pad = "NOTSET",
+      dilations = [1, 1],
+      group = 4 : si64,
+      kernel_shape = [3, 3],
+      pads = [1, 1, 1, 1],
+      strides = [1, 1]
+    } : (tensor<1x8x8x4x!quant.uniform<u8:f32, 0.1:128>>, tensor<8x1x3x3x!quant.uniform<u8:f32, 0.05:128>>, none) -> tensor<1x8x8x8x!quant.uniform<u8:f32, 0.1:128>>
+    return %0 : tensor<1x8x8x8x!quant.uniform<u8:f32, 0.1:128>>
+  }
+  // CHECK-LABEL: func.func @test_xfe_depthwise_conv_cm2_quant_ui8
+  // CHECK: onnx.Constant
+  // CHECK: onnx.NoValue
+  // CHECK: onnx.XFEConv
+  // CHECK: onnx.XFEConv
+  // CHECK: onnx.Concat
+  // CHECK-SAME: axis = 3
+
+  // Test 18: XFE quantized depthwise conv with bias and channel_multiplier=3 (NHWC, ui8)
+  func.func @test_xfe_depthwise_conv_cm3_quant_bias(%arg0: tensor<1x8x8x2x!quant.uniform<u8:f32, 0.1:128>>) -> tensor<1x8x8x6x!quant.uniform<u8:f32, 0.1:128>> {
+    %weights = "onnx.Constant"() {value = dense<128> : tensor<6x1x3x3xui8>} : () -> tensor<6x1x3x3x!quant.uniform<u8:f32, 0.05:128>>
+    %bias = "onnx.Constant"() {value = dense<0> : tensor<6xi32>} : () -> tensor<6x!quant.uniform<i32:f32, 0.005:0>>
+    %0 = "onnx.XFEConv"(%arg0, %weights, %bias) {
+      auto_pad = "NOTSET",
+      dilations = [1, 1],
+      group = 2 : si64,
+      kernel_shape = [3, 3],
+      pads = [1, 1, 1, 1],
+      strides = [1, 1]
+    } : (tensor<1x8x8x2x!quant.uniform<u8:f32, 0.1:128>>, tensor<6x1x3x3x!quant.uniform<u8:f32, 0.05:128>>, tensor<6x!quant.uniform<i32:f32, 0.005:0>>) -> tensor<1x8x8x6x!quant.uniform<u8:f32, 0.1:128>>
+    return %0 : tensor<1x8x8x6x!quant.uniform<u8:f32, 0.1:128>>
+  }
+  // CHECK-LABEL: func.func @test_xfe_depthwise_conv_cm3_quant_bias
+  // CHECK: onnx.Constant
+  // CHECK: onnx.XFEConv
+  // CHECK: onnx.XFEConv
+  // CHECK: onnx.XFEConv
+  // CHECK: onnx.Concat
+  // CHECK-SAME: axis = 3
 }

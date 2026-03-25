@@ -526,6 +526,7 @@ OpsWithCanonicalizer = [
     "Div",
     "Dropout",
     "Equal",
+    "Gather",
     "GlobalAveragePool",
     "GlobalMaxPool",
     "Greater",
