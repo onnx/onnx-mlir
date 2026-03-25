@@ -546,7 +546,7 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
 
   // Store each constant into single file.
   // Constants with the highest alignment will be packed first in the file.
-  // The file will be mmaped later at runtime and aligned at the page boundary,
+  // The file will be loaded later at runtime and aligned at the page boundary,
   // So every constants must be correctly aligned. Pads are added if necessary.
   llvm::sys::fs::remove(filepath);
   std::ofstream outfile(filepath, std::ios::app | std::ios::binary);
@@ -600,7 +600,7 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
   create.llvm.globalOp(llvmI8Ty,
       /*isConstant=*/true, LLVM::Linkage::Internal,
       EXTERNAL_CONSTANT_PREFIX + "isLE", b.getI8IntegerAttr(isLE));
-  // Create an uninitialized global into which we will load/mmap constants from
+  // Create an uninitialized global into which we will load constants from
   // the file at runtime.
   LLVM::GlobalOp packedConstOp = create.llvm.globalOp(llvmI8PtrTy,
       /*isConstant=*/false, LLVM::Linkage::Internal,
@@ -617,11 +617,11 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
   return true;
 }
 
-/// Emit a function "omLoadConstantsFromFile" in the IR to load constants from
-/// external files into global operations.
-void loadConstantsFromFile(ModuleOp &module,
+/// Emit a function, funcName, in the IR to load constants from external files
+/// into global operations. The function's type is `void()`.
+void emitLoadConstantDataFunc(ModuleOp &module,
     const RuntimeAPIRegistry &apiRegistry,
-    const SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps,
+    const SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps, std::string funcName,
     bool calledByEntryPoint = false) {
   MLIRContext *ctx = module.getContext();
   Location loc = module.getLoc();
@@ -636,7 +636,6 @@ void loadConstantsFromFile(ModuleOp &module,
 
   // The following function will be emitted inside the IR to load constants from
   // file.
-  std::string loadAllConstantsFuncName = "omLoadConstantsFromFile";
   Type llvmFnType = LLVM::LLVMFunctionType::get(llvmVoidTy, {}, false);
 
   // If calledByEntryPoint, this function will be called by entry points.
@@ -648,9 +647,8 @@ void loadConstantsFromFile(ModuleOp &module,
     assert(firstEntryPointOp && "No entry function exists");
     OpBuilder::InsertionGuard guard(b);
     b.setInsertionPoint(firstEntryPointOp);
-    funcOp = create.llvm.func(
-        loadAllConstantsFuncName, llvmFnType, /*createUniqueFunc=*/true);
-    // Call loadAllConstantsFuncName in each entry point function.
+    funcOp = create.llvm.func(funcName, llvmFnType, /*createUniqueFunc=*/true);
+    // Call funcName in each entry point function.
     bool zOS = isZOS(module);
     for (auto entryGlobalOp : entryGlobalOps) {
       std::string entryName =
@@ -668,16 +666,14 @@ void loadConstantsFromFile(ModuleOp &module,
       b.setInsertionPoint(
           &entryFunc.getBody().front(), entryFunc.getBody().front().begin());
       FlatSymbolRefAttr loadAllConstantsRef = create.llvm.getOrInsertSymbolRef(
-          module, LLVMBuilder::SymbolPostfix(module, loadAllConstantsFuncName),
-          llvmVoidTy, {},
+          module, LLVMBuilder::SymbolPostfix(module, funcName), llvmVoidTy, {},
           /*isVarArg=*/false);
       create.llvm.call({}, loadAllConstantsRef, {});
     }
   } else {
     OpBuilder::InsertionGuard guard(b);
     b.setInsertionPointToEnd(module.getBody());
-    funcOp = create.llvm.func(
-        loadAllConstantsFuncName, llvmFnType, /*createUniqueFunc=*/true);
+    funcOp = create.llvm.func(funcName, llvmFnType, /*createUniqueFunc=*/true);
   }
 
   // Emit the body of the function.
@@ -713,11 +709,11 @@ void loadConstantsFromFile(ModuleOp &module,
   auto packedGlobalOp = module.lookupSymbol<LLVM::GlobalOp>(packedSymbol);
   Value packedGlobalAddr = create.llvm.addressOf(packedGlobalOp);
   Value packedGlobalPtr = create.llvm.bitcast(llvmI8PtrTy, packedGlobalAddr);
-  // Call a function to mmap the binary file to memory.
+  // Call a function to load the binary file to memory.
   Value isleVal = create.llvm.constant(llvmI64Ty, isle);
   Value sizeVal = create.llvm.constant(llvmI64Ty, dataSize);
   Value retVal = RuntimeAPI::callApi(b, loc, apiRegistry,
-      RuntimeAPI::API::MMAP_BINARY_FILE,
+      RuntimeAPI::API::LOAD_CONSTANT_DATA,
       {packedGlobalPtr, fnameI8Ptr, sizeVal, isleVal});
   equalOrReturn(module, b, loc,
       create.llvm.constant(llvmI1Ty, static_cast<int64_t>(1)), retVal);
@@ -750,6 +746,52 @@ void loadConstantsFromFile(ModuleOp &module,
     return WalkResult::advance();
   });
 
+  create.llvm._return();
+}
+
+/// Emit a function, funcName, in the IR to free the buffer allocated for
+/// constants.  The function's type is `void()`.
+void emitUnloadConstantDataFunc(ModuleOp &module,
+    const RuntimeAPIRegistry &apiRegistry, std::string funcName) {
+  MLIRContext *ctx = module.getContext();
+  Location loc = module.getLoc();
+  OpBuilder b(ctx);
+  MultiDialectBuilder<LLVMBuilder> create(b, loc);
+
+  Type llvmVoidTy = LLVM::LLVMVoidType::get(ctx);
+  Type llvmI1Ty = IntegerType::get(ctx, 1);
+  Type llvmI8Ty = IntegerType::get(ctx, 8);
+  Type llvmI8PtrTy = getPointerType(ctx, llvmI8Ty);
+
+  // The following function will be emitted inside the IR to unload/free
+  // constants.
+  OpBuilder::InsertionGuard guard1(b);
+  b.setInsertionPointToEnd(module.getBody());
+  Type llvmFnType = LLVM::LLVMFunctionType::get(llvmVoidTy, {}, false);
+  LLVM::LLVMFuncOp funcOp =
+      create.llvm.func(funcName, llvmFnType, /*createUniqueFunc=*/true);
+
+  // Emit the body of the function.
+  Block *entryBlock = funcOp.addEntryBlock(b);
+  OpBuilder::InsertionGuard guard2(b);
+  b.setInsertionPointToStart(entryBlock);
+
+  // Get the constant file name.
+  std::string fnameSymbol =
+      LLVMBuilder::SymbolPostfix(module, EXTERNAL_CONSTANT_PREFIX + "filename");
+  auto fnameGlobalOp = module.lookupSymbol<LLVM::GlobalOp>(fnameSymbol);
+  assert(fnameGlobalOp && "Could not find the global op for filename");
+  // Get the packedConst global.
+  std::string packedSymbol = LLVMBuilder::SymbolPostfix(
+      module, EXTERNAL_CONSTANT_PREFIX + "packedConst");
+  auto packedGlobalOp = module.lookupSymbol<LLVM::GlobalOp>(packedSymbol);
+  Value packedGlobalAddr = create.llvm.addressOf(packedGlobalOp);
+  Value packedGlobalPtr = create.llvm.bitcast(llvmI8PtrTy, packedGlobalAddr);
+  // Call an external function to free the constant buffer.
+  Value retVal = RuntimeAPI::callApi(b, loc, apiRegistry,
+      RuntimeAPI::API::UNLOAD_CONSTANT_DATA, {packedGlobalPtr});
+  equalOrReturn(module, b, loc,
+      create.llvm.constant(llvmI1Ty, static_cast<int64_t>(1)), retVal);
   create.llvm._return();
 }
 
@@ -1026,25 +1068,41 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
     const RuntimeAPIRegistry &apiRegistry =
         RuntimeAPIRegistry(module, builder, typeConverter);
 
-    // Emit a function, omLoadConstantsFromFile, that loads contants from files
+    // Emit a function, omLoadConstantDataCtor, that loads contants from files
     // to memory.
-    loadConstantsFromFile(module, apiRegistry, entryGlobalOps);
+    emitLoadConstantDataFunc(
+        module, apiRegistry, entryGlobalOps, "omLoadConstantDataCtor");
+    // Emit a function, omUnloadConstantDataDtor, that frees the buffer
+    // created for the constants.
+    emitUnloadConstantDataFunc(module, apiRegistry, "omUnloadConstantDataDtor");
   }
 
   // Emit global ctors and dtors to call specific functions when the .so file is
   // loaded and unloaded. Note that
   // - a function with a higher priority is called first, and
   // - ctors and dtors functions must have type of void().
+  // Emit constructors.
   SmallVector<std::string> ctors;
   SmallVector<int32_t> ctorsPriorities;
   SmallVector<Attribute> ctorsData;
   if (storeConstantsToFile) {
-    ctors.emplace_back("omLoadConstantsFromFile");
+    ctors.emplace_back("omLoadConstantDataCtor");
     ctorsPriorities.emplace_back(65535);
     ctorsData.emplace_back(LLVM::ZeroAttr::get(ctx));
   }
   emitCtors(module, builder, /*ctors*/ ctors,
       /*priorities*/ ctorsPriorities, /*data*/ ctorsData);
+  // Emit destructors.
+  SmallVector<std::string> dtors;
+  SmallVector<int32_t> dtorsPriorities;
+  SmallVector<Attribute> dtorsData;
+  if (storeConstantsToFile) {
+    dtors.emplace_back("omUnloadConstantDataDtor");
+    dtorsPriorities.emplace_back(65535);
+    dtorsData.emplace_back(LLVM::ZeroAttr::get(ctx));
+  }
+  emitDtors(module, builder, /*dtors*/ dtors,
+      /*priorities*/ dtorsPriorities, /*data*/ dtorsData);
 
   // Annotate global constants with `.lrodata` section if required.
   // Make sure this is always called at the end of this pass.
