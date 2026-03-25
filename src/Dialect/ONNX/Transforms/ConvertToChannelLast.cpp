@@ -61,6 +61,40 @@ void transferOnnxNodeName(Operation *sourceOp, Operation *targetOp) {
   }
 }
 
+// Helper function to remap per-channel quantization axis after transpose.
+// Given a permutation, update the quantized dimension in the element type.
+Type remapPerAxisQuantType(Type elementType, ArrayRef<int64_t> perm) {
+  auto perAxisType = dyn_cast<quant::UniformQuantizedPerAxisType>(elementType);
+  if (!perAxisType)
+    return elementType; // not per-axis, nothing to do
+
+  int32_t oldAxis = perAxisType.getQuantizedDimension();
+  int32_t newAxis = oldAxis;
+  for (int64_t i = 0, e = perm.size(); i < e; ++i) {
+    if (perm[i] == oldAxis) {
+      newAxis = static_cast<int32_t>(i);
+      break;
+    }
+  }
+  if (newAxis == oldAxis)
+    return elementType; // unchanged
+
+  return quant::UniformQuantizedPerAxisType::get(perAxisType.getFlags(),
+      perAxisType.getStorageType(), perAxisType.getExpressedType(),
+      perAxisType.getScales(), perAxisType.getZeroPoints(), newAxis,
+      perAxisType.getStorageTypeMin(), perAxisType.getStorageTypeMax());
+}
+
+// Remap per-axis quant type from NCHW to NHWC layout.
+Type remapQuantTypeNchw2Nhwc(Type elementType, int64_t rank) {
+  SmallVector<int64_t, 4> perm;
+  perm.push_back(0);
+  for (int64_t i = 2; i < rank; ++i)
+    perm.push_back(i);
+  perm.push_back(1);
+  return remapPerAxisQuantType(elementType, perm);
+}
+
 // Helper function to create input transpose (NCHW -> channel-last)
 // For rank N: [0, 2, 3, ..., N-1, 1]
 Value createInputTranspose(PatternRewriter &rewriter, Location loc, Value input,
@@ -77,8 +111,10 @@ Value createInputTranspose(PatternRewriter &rewriter, Location loc, Value input,
     transposedShape.push_back(inputType.getDimSize(p));
   }
 
+  Type transposedElementType =
+      remapPerAxisQuantType(inputType.getElementType(), perm);
   auto transposedType =
-      RankedTensorType::get(transposedShape, inputType.getElementType());
+      RankedTensorType::get(transposedShape, transposedElementType);
   return rewriter.create<ONNXTransposeOp>(
       loc, transposedType, input, rewriter.getI64ArrayAttr(perm));
 }
@@ -100,36 +136,12 @@ Value createWeightTranspose(PatternRewriter &rewriter, Location loc,
     transposedShape.push_back(weightType.getDimSize(p));
   }
 
+  Type transposedElementType =
+      remapPerAxisQuantType(weightType.getElementType(), perm);
   auto transposedType =
-      RankedTensorType::get(transposedShape, weightType.getElementType());
+      RankedTensorType::get(transposedShape, transposedElementType);
   return rewriter.create<ONNXTransposeOp>(
       loc, transposedType, weight, rewriter.getI64ArrayAttr(perm));
-}
-
-// Helper function to remap per-channel quantization axis after transpose.
-// Given a permutation, update the quantized dimension in the element type.
-Type remapPerAxisQuantType(Type elementType, ArrayRef<int64_t> perm) {
-  auto perAxisType = dyn_cast<quant::UniformQuantizedPerAxisType>(elementType);
-  if (!perAxisType)
-    return elementType; // not per-axis, nothing to do
-
-  int32_t oldAxis = perAxisType.getQuantizedDimension();
-  // Find the new position: after transpose, input dim oldAxis ends up at
-  // position i where perm[i] == oldAxis.
-  int32_t newAxis = oldAxis;
-  for (int64_t i = 0, e = perm.size(); i < e; ++i) {
-    if (perm[i] == oldAxis) {
-      newAxis = static_cast<int32_t>(i);
-      break;
-    }
-  }
-  if (newAxis == oldAxis)
-    return elementType; // unchanged
-
-  return quant::UniformQuantizedPerAxisType::get(perAxisType.getFlags(),
-      perAxisType.getStorageType(), perAxisType.getExpressedType(),
-      perAxisType.getScales(), perAxisType.getZeroPoints(), newAxis,
-      perAxisType.getStorageTypeMin(), perAxisType.getStorageTypeMax());
 }
 
 // Helper function to create weight transpose for ConvTranspose
@@ -204,12 +216,11 @@ struct ConvToChannelLastPattern : public OpRewritePattern<ONNXConvOp> {
         rewriter, loc, weight, rank, weightType.getElementType());
 
     // Create XFEConv operation
-    // CRITICAL: Use original Conv's output element type to preserve
-    // quantization
     auto origOutputType = mlir::cast<ShapedType>(convOp.getType());
     Type outputElementType = origOutputType.getElementType();
+    Type nhwcOutputElemType = remapQuantTypeNchw2Nhwc(outputElementType, rank);
     auto convChannelLastOp = rewriter.create<XFEConvOp>(loc,
-        UnrankedTensorType::get(outputElementType), inputChannelLast,
+        UnrankedTensorType::get(nhwcOutputElemType), inputChannelLast,
         weightChannelLast, bias, rewriter.getStringAttr("NONE"),
         convOp.getAutoPadAttr(), convOp.getDilationsAttr(),
         convOp.getGroupAttr(), convOp.getKernelShapeAttr(),
@@ -227,24 +238,9 @@ struct ConvToChannelLastPattern : public OpRewritePattern<ONNXConvOp> {
       return failure();
     }
 
-    // Transpose output back to NCHW
-    // CRITICAL: Get element type from XFEConv's ACTUAL output (after shape
-    // inference). This ensures we preserve quantized types that were set during
-    // shape inference
-    auto xfeOutputType =
-        mlir::cast<ShapedType>(convChannelLastOp.getResult().getType());
-    Type actualElementType = xfeOutputType.getElementType();
-    Type transposeOutputType;
-    if (origOutputType.hasRank()) {
-      // Use original Conv's shape but XFEConv's actual element type
-      transposeOutputType =
-          RankedTensorType::get(origOutputType.getShape(), actualElementType);
-    } else {
-      transposeOutputType = convOp.getType();
-    }
-
+    // Transpose output back to NCHW using original NCHW output type
     Value outputNCHW = createOutputTranspose(rewriter, loc,
-        convChannelLastOp.getResult(), transposeOutputType, rank);
+        convChannelLastOp.getResult(), convOp.getType(), rank);
 
     rewriter.replaceOp(convOp, outputNCHW);
     return success();
@@ -284,12 +280,11 @@ struct ConvTransposeToChannelLastPattern
         rewriter, loc, weight, rank, weightType.getElementType());
 
     // Create XFEConvTranspose operation
-    // CRITICAL: Use original ConvTranspose's output element type to preserve
-    // quantization
     auto origOutputType = mlir::cast<ShapedType>(convTransposeOp.getType());
     Type outputElementType = origOutputType.getElementType();
+    Type nhwcOutputElemType = remapQuantTypeNchw2Nhwc(outputElementType, rank);
     auto convTransposeChannelLastOp = rewriter.create<XFEConvTransposeOp>(loc,
-        UnrankedTensorType::get(outputElementType), inputChannelLast,
+        UnrankedTensorType::get(nhwcOutputElemType), inputChannelLast,
         weightChannelLast, bias, rewriter.getStringAttr("NONE"),
         convTransposeOp.getAutoPadAttr(), convTransposeOp.getDilationsAttr(),
         convTransposeOp.getGroupAttr(), convTransposeOp.getKernelShapeAttr(),
@@ -307,24 +302,10 @@ struct ConvTransposeToChannelLastPattern
       return failure();
     }
 
-    // Transpose output back to NCHW
-    // CRITICAL: Get element type from XFEConvTranspose's ACTUAL output (after
-    // shape inference)
-    auto xfeOutputType = mlir::cast<ShapedType>(
-        convTransposeChannelLastOp.getResult().getType());
-    Type actualElementType = xfeOutputType.getElementType();
-    Type transposeOutputType;
-    if (origOutputType.hasRank()) {
-      // Use original ConvTranspose's shape but XFEConvTranspose's actual
-      // element type
-      transposeOutputType =
-          RankedTensorType::get(origOutputType.getShape(), actualElementType);
-    } else {
-      transposeOutputType = convTransposeOp.getType();
-    }
-
+    // Transpose output back to NCHW using original NCHW output type
     Value outputNCHW = createOutputTranspose(rewriter, loc,
-        convTransposeChannelLastOp.getResult(), transposeOutputType, rank);
+        convTransposeChannelLastOp.getResult(), convTransposeOp.getType(),
+        rank);
 
     rewriter.replaceOp(convTransposeOp, outputNCHW);
     return success();
@@ -352,33 +333,25 @@ struct AveragePoolToChannelLastPattern
         rewriter, loc, input, rank, inputType.getElementType());
 
     // Create XFEAveragePool operation
-    // Use original pool's output element type to preserve quantization
     auto origOutputType = mlir::cast<ShapedType>(poolOp.getType());
     Type outputElementType = origOutputType.getElementType();
+    Type nhwcOutputElemType = remapQuantTypeNchw2Nhwc(outputElementType, rank);
     auto poolChannelLastOp = rewriter.create<XFEAveragePoolOp>(loc,
-        UnrankedTensorType::get(outputElementType), inputChannelLast,
+        UnrankedTensorType::get(nhwcOutputElemType), inputChannelLast,
         poolOp.getAutoPadAttr(), poolOp.getCeilModeAttr(),
         poolOp.getCountIncludePadAttr(), poolOp.getDilationsAttr(),
         poolOp.getKernelShapeAttr(), poolOp.getPadsAttr(),
         poolOp.getStridesAttr());
 
-    // Transfer onnx_node_name attribute from original AveragePool to
-    // XFEAveragePool
     transferOnnxNodeName(poolOp, poolChannelLastOp);
 
-    // CRITICAL: Immediately run shape inference
     if (failed(poolChannelLastOp.inferShapes(nullptr))) {
       return failure();
     }
 
-    // Transpose output back to NCHW
-    // Get actual element type from XFEAveragePool output
-    auto xfeOutputType =
-        mlir::cast<ShapedType>(poolChannelLastOp.getResult().getType());
-    auto transposeOutputType = RankedTensorType::get(
-        origOutputType.getShape(), xfeOutputType.getElementType());
+    // Transpose output back to NCHW using original NCHW output type
     Value outputNCHW = createOutputTranspose(rewriter, loc,
-        poolChannelLastOp.getResult(), transposeOutputType, rank);
+        poolChannelLastOp.getResult(), poolOp.getType(), rank);
 
     rewriter.replaceOp(poolOp, outputNCHW);
     return success();
@@ -406,32 +379,25 @@ struct MaxPoolToChannelLastPattern
         rewriter, loc, input, rank, inputType.getElementType());
 
     // Create XFEMaxPool operation
-    // Use original pool's output element type to preserve quantization
     auto origOutputType = mlir::cast<ShapedType>(poolOp.getType());
     Type outputElementType = origOutputType.getElementType();
+    Type nhwcOutputElemType = remapQuantTypeNchw2Nhwc(outputElementType, rank);
     auto poolChannelLastOp = rewriter.create<XFEMaxPoolOp>(loc,
-        UnrankedTensorType::get(outputElementType), inputChannelLast,
+        UnrankedTensorType::get(nhwcOutputElemType), inputChannelLast,
         poolOp.getAutoPadAttr(), poolOp.getCeilModeAttr(),
         poolOp.getDilationsAttr(), poolOp.getKernelShapeAttr(),
         poolOp.getPadsAttr(), poolOp.getStorageOrderAttr(),
         poolOp.getStridesAttr());
 
-    // Transfer onnx_node_name attribute from original MaxPool to XFEMaxPool
     transferOnnxNodeName(poolOp, poolChannelLastOp);
 
-    // CRITICAL: Immediately run shape inference
     if (failed(poolChannelLastOp.inferShapes(nullptr))) {
       return failure();
     }
 
-    // Transpose output back to NCHW
-    // Get actual element type from XFEMaxPool output
-    auto xfeOutputType =
-        mlir::cast<ShapedType>(poolChannelLastOp.getResult().getType());
-    auto transposeOutputType = RankedTensorType::get(
-        origOutputType.getShape(), xfeOutputType.getElementType());
+    // Transpose output back to NCHW using original NCHW output type
     Value outputNCHW = createOutputTranspose(rewriter, loc,
-        poolChannelLastOp.getResult(), transposeOutputType, rank);
+        poolChannelLastOp.getResult(), poolOp.getType(), rank);
 
     rewriter.replaceOp(poolOp, outputNCHW);
     return success();
@@ -461,26 +427,19 @@ struct GlobalAveragePoolToChannelLastPattern
     // Create XFEGlobalAveragePool operation
     auto origOutputType = mlir::cast<ShapedType>(poolOp.getType());
     Type outputElementType = origOutputType.getElementType();
+    Type nhwcOutputElemType = remapQuantTypeNchw2Nhwc(outputElementType, rank);
     auto poolChannelLastOp = rewriter.create<XFEGlobalAveragePoolOp>(
-        loc, UnrankedTensorType::get(outputElementType), inputChannelLast);
+        loc, UnrankedTensorType::get(nhwcOutputElemType), inputChannelLast);
 
-    // Transfer onnx_node_name attribute from original GlobalAveragePool to
-    // XFEGlobalAveragePool
     transferOnnxNodeName(poolOp, poolChannelLastOp);
 
-    // CRITICAL: Immediately run shape inference
     if (failed(poolChannelLastOp.inferShapes(nullptr))) {
       return failure();
     }
 
-    // Transpose output back to NCHW
-    // Get actual element type from XFEGlobalAveragePool output
-    auto xfeOutputType =
-        mlir::cast<ShapedType>(poolChannelLastOp.getResult().getType());
-    auto transposeOutputType = RankedTensorType::get(
-        origOutputType.getShape(), xfeOutputType.getElementType());
+    // Transpose output back to NCHW using original NCHW output type
     Value outputNCHW = createOutputTranspose(rewriter, loc,
-        poolChannelLastOp.getResult(), transposeOutputType, rank);
+        poolChannelLastOp.getResult(), poolOp.getType(), rank);
 
     rewriter.replaceOp(poolOp, outputNCHW);
     return success();
@@ -510,26 +469,19 @@ struct GlobalMaxPoolToChannelLastPattern
     // Create XFEGlobalMaxPool operation
     auto origOutputType = mlir::cast<ShapedType>(poolOp.getType());
     Type outputElementType = origOutputType.getElementType();
+    Type nhwcOutputElemType = remapQuantTypeNchw2Nhwc(outputElementType, rank);
     auto poolChannelLastOp = rewriter.create<XFEGlobalMaxPoolOp>(
-        loc, UnrankedTensorType::get(outputElementType), inputChannelLast);
+        loc, UnrankedTensorType::get(nhwcOutputElemType), inputChannelLast);
 
-    // Transfer onnx_node_name attribute from original GlobalMaxPool to
-    // XFEGlobalMaxPool
     transferOnnxNodeName(poolOp, poolChannelLastOp);
 
-    // CRITICAL: Immediately run shape inference
     if (failed(poolChannelLastOp.inferShapes(nullptr))) {
       return failure();
     }
 
-    // Transpose output back to NCHW
-    // Get actual element type from XFEGlobalMaxPool output
-    auto xfeOutputType =
-        mlir::cast<ShapedType>(poolChannelLastOp.getResult().getType());
-    auto transposeOutputType = RankedTensorType::get(
-        origOutputType.getShape(), xfeOutputType.getElementType());
+    // Transpose output back to NCHW using original NCHW output type
     Value outputNCHW = createOutputTranspose(rewriter, loc,
-        poolChannelLastOp.getResult(), transposeOutputType, rank);
+        poolChannelLastOp.getResult(), poolOp.getType(), rank);
 
     rewriter.replaceOp(poolOp, outputNCHW);
     return success();
@@ -564,25 +516,20 @@ struct BatchNormToChannelLastPattern
     // Create XFEBatchNormalization operation
     auto origOutputType = mlir::cast<ShapedType>(bnOp.getType());
     Type outputElementType = origOutputType.getElementType();
+    Type nhwcOutputElemType = remapQuantTypeNchw2Nhwc(outputElementType, rank);
     auto bnChannelLastOp = rewriter.create<XFEBatchNormalizationOp>(loc,
-        UnrankedTensorType::get(outputElementType), inputChannelLast, scale, B,
+        UnrankedTensorType::get(nhwcOutputElemType), inputChannelLast, scale, B,
         mean, var, bnOp.getEpsilonAttr(), bnOp.getMomentumAttr());
 
-    // Transfer onnx_node_name attribute
     transferOnnxNodeName(bnOp, bnChannelLastOp);
 
-    // Run shape inference
     if (failed(bnChannelLastOp.inferShapes(nullptr))) {
       return failure();
     }
 
-    // Transpose output back to NCHW
-    auto xfeOutputType =
-        mlir::cast<ShapedType>(bnChannelLastOp.getY().getType());
-    auto transposeOutputType = RankedTensorType::get(
-        origOutputType.getShape(), xfeOutputType.getElementType());
+    // Transpose output back to NCHW using original NCHW output type
     Value outputNCHW = createOutputTranspose(
-        rewriter, loc, bnChannelLastOp.getY(), transposeOutputType, rank);
+        rewriter, loc, bnChannelLastOp.getY(), bnOp.getType(), rank);
 
     rewriter.replaceOp(bnOp, outputNCHW);
     return success();
@@ -612,30 +559,22 @@ struct InstanceNormToChannelLastPattern
         rewriter, loc, input, rank, inputType.getElementType());
 
     // Create XFEInstanceNormalization operation
-    // Use original norm's output element type to preserve quantization
     auto origOutputType = mlir::cast<ShapedType>(normOp.getType());
     Type outputElementType = origOutputType.getElementType();
+    Type nhwcOutputElemType = remapQuantTypeNchw2Nhwc(outputElementType, rank);
     auto normChannelLastOp = rewriter.create<XFEInstanceNormalizationOp>(loc,
-        UnrankedTensorType::get(outputElementType), inputChannelLast, scale, B,
+        UnrankedTensorType::get(nhwcOutputElemType), inputChannelLast, scale, B,
         normOp.getEpsilonAttr());
 
-    // Transfer onnx_node_name attribute from original InstanceNormalization to
-    // XFEInstanceNormalization
     transferOnnxNodeName(normOp, normChannelLastOp);
 
-    // CRITICAL: Immediately run shape inference
     if (failed(normChannelLastOp.inferShapes(nullptr))) {
       return failure();
     }
 
-    // Transpose output back to NCHW
-    // Get actual element type from XFEInstanceNormalization output
-    auto xfeOutputType =
-        mlir::cast<ShapedType>(normChannelLastOp.getResult().getType());
-    auto transposeOutputType = RankedTensorType::get(
-        origOutputType.getShape(), xfeOutputType.getElementType());
+    // Transpose output back to NCHW using original NCHW output type
     Value outputNCHW = createOutputTranspose(rewriter, loc,
-        normChannelLastOp.getResult(), transposeOutputType, rank);
+        normChannelLastOp.getResult(), normOp.getType(), rank);
 
     rewriter.replaceOp(normOp, outputNCHW);
     return success();
@@ -667,10 +606,11 @@ struct DepthToSpaceToChannelLastPattern
     auto origOutputType = mlir::dyn_cast<ShapedType>(d2sOp.getType());
     Type outputElemType = origOutputType ? origOutputType.getElementType()
                                          : inputType.getElementType();
+    Type nhwcOutputElemType = remapQuantTypeNchw2Nhwc(outputElemType, rank);
 
     // Create XFEDepthToSpace operation
     auto d2sChannelLastOp = rewriter.create<XFEDepthToSpaceOp>(loc,
-        UnrankedTensorType::get(outputElemType), inputChannelLast,
+        UnrankedTensorType::get(nhwcOutputElemType), inputChannelLast,
         d2sOp.getBlocksizeAttr(), d2sOp.getModeAttr());
 
     // Transfer onnx_node_name attribute from original DepthToSpace to
@@ -717,10 +657,11 @@ struct SpaceToDepthToChannelLastPattern
     auto origOutputType = mlir::dyn_cast<ShapedType>(s2dOp.getType());
     Type outputElemType = origOutputType ? origOutputType.getElementType()
                                          : inputType.getElementType();
+    Type nhwcOutputElemType = remapQuantTypeNchw2Nhwc(outputElemType, rank);
 
     // Create XFESpaceToDepth operation
     auto s2dChannelLastOp = rewriter.create<XFESpaceToDepthOp>(loc,
-        UnrankedTensorType::get(outputElemType), inputChannelLast,
+        UnrankedTensorType::get(nhwcOutputElemType), inputChannelLast,
         s2dOp.getBlocksizeAttr());
 
     // Transfer onnx_node_name attribute from original SpaceToDepth to
@@ -890,6 +831,7 @@ struct ResizeToChannelLastPattern : public OpRewritePattern<ONNXResizeOp> {
     auto origOutputType = mlir::dyn_cast<ShapedType>(resizeOp.getType());
     Type outputElemType = origOutputType ? origOutputType.getElementType()
                                          : inputType.getElementType();
+    Type nhwcOutputElemType = remapQuantTypeNchw2Nhwc(outputElemType, rank);
 
     // Handle scales and sizes - need to permute them for channel-last layout
     // Permutation: [0, 2, 3, ..., N-1, 1] for NCHW -> NHWC
@@ -973,7 +915,7 @@ struct ResizeToChannelLastPattern : public OpRewritePattern<ONNXResizeOp> {
 
     // Create XFEResize operation
     auto resizeChannelLastOp = rewriter.create<XFEResizeOp>(loc,
-        UnrankedTensorType::get(outputElemType), inputChannelLast,
+        UnrankedTensorType::get(nhwcOutputElemType), inputChannelLast,
         roiChannelLast, scalesChannelLast, sizesChannelLast,
         resizeOp.getAntialiasAttr(), resizeOp.getAxesAttr(),
         resizeOp.getCoordinateTransformationModeAttr(),
