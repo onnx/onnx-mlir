@@ -3060,7 +3060,7 @@ public:
     if (!matchPattern(indices, m_ConstantInt(&indicesVal)))
       return failure();
 
-    int64_t inputRank = inputType.getRank();
+    const int64_t inputRank = inputType.getRank();
     if (axis < 0)
       axis += inputRank;
 
