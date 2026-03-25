@@ -59,7 +59,7 @@ func.func @test_constants_to_file() -> memref<10xi64> {
 // CHECK:           llvm.return [[VAR_0_6_]] : !llvm.ptr
 // CHECK:         }
 
-// CHECK:         llvm.func @omLoadConstantsFromFile() -> i1 {
+// CHECK:         llvm.func @omLoadConstantsFromFile() {
 // CHECK-DAG:       [[VAR_0_9_:%.+]] = llvm.mlir.constant(4096 : i64) : i64
 // CHECK-DAG:       [[VAR_1_3_:%.+]] = llvm.mlir.addressof @om_external_constant_data_constant_0 : !llvm.ptr
 // CHECK-DAG:       [[VAR_2_3_:%.+]] = llvm.mlir.addressof @om_external_constant_data_constant_1 : !llvm.ptr
@@ -72,26 +72,13 @@ func.func @test_constants_to_file() -> memref<10xi64> {
 // CHECK:           [[VAR_9_3_:%.+]] = llvm.icmp "ne" [[VAR_3_3_]], [[VAR_8_3_]] : i1
 // CHECK:           llvm.cond_br [[VAR_9_3_]], ^bb1, ^bb2
 // CHECK:         ^bb1:  // pred: ^bb0
-// CHECK:           llvm.return [[VAR_8_3_]] : i1
+// CHECK:           llvm.return
 // CHECK:         ^bb2:  // pred: ^bb0
 // CHECK:           llvm.call @omGetExternalConstantAddr([[VAR_2_3_]], [[VAR_6_3_]], [[VAR_5_3_]]) : (!llvm.ptr, !llvm.ptr, i64) -> ()
 // CHECK:           llvm.call @omGetExternalConstantAddr([[VAR_1_3_]], [[VAR_6_3_]], [[VAR_0_9_]]) : (!llvm.ptr, !llvm.ptr, i64) -> ()
-// CHECK:           llvm.return [[VAR_3_3_]] : i1
+// CHECK:           llvm.return
 // CHECK:         }
-
-// CHECK:         llvm.func @run_main_graph({{.*}}: !llvm.ptr) -> !llvm.ptr {
-// CHECK-DAG:       [[VAR_3_4_:%.+]] = llvm.mlir.zero : !llvm.ptr
-// CHECK-DAG:       [[VAR_4_4_:%.+]] = llvm.mlir.constant(22 : i32) : i32
-// CHECK-DAG:       [[VAR_5_4_:%.+]] = llvm.mlir.constant(true) : i1
-// CHECK-DAG:       [[VAR_6_4_:%.+]] = llvm.call @omLoadConstantsFromFile() : () -> i1
-// CHECK:           [[VAR_7_4_:%.+]] = llvm.icmp "ne" [[VAR_5_4_]], [[VAR_6_4_]] : i1
-// CHECK:           llvm.cond_br [[VAR_7_4_]], ^bb1, ^bb2
-// CHECK:         ^bb1:  // pred: ^bb0
-// CHECK:           [[VAR_8_4_:%.+]] = llvm.call @__errno_location() : () -> !llvm.ptr
-// CHECK:           llvm.store [[VAR_4_4_]], [[VAR_8_4_]] : i32, !llvm.ptr
-// CHECK:           llvm.return [[VAR_3_4_]] : !llvm.ptr
-// CHECK:         ^bb2:  // pred: ^bb0
-// CHECK:         }
+// CHECK:         llvm.mlir.global_ctors ctors = [@omLoadConstantsFromFile], priorities = [65535 : i32], data = [#llvm.zero]
 
 }
   "krnl.entry_point"() {func = @test_constants_to_file, numInputs = 0 : i32, numOutputs = 1 : i32, signature = "[in_sig]\00@[out_sig]\00"} : () -> ()

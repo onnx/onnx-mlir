@@ -622,12 +622,13 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
 void loadConstantsFromFile(ModuleOp &module,
     const RuntimeAPIRegistry &apiRegistry,
     const SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps,
-    bool calledByEntryPoint = true) {
+    bool calledByEntryPoint = false) {
   MLIRContext *ctx = module.getContext();
   Location loc = module.getLoc();
   OpBuilder b(ctx);
   MultiDialectBuilder<LLVMBuilder> create(b, loc);
 
+  Type llvmVoidTy = LLVM::LLVMVoidType::get(ctx);
   Type llvmI1Ty = IntegerType::get(ctx, 1);
   Type llvmI8Ty = IntegerType::get(ctx, 8);
   Type llvmI64Ty = IntegerType::get(ctx, 64);
@@ -636,7 +637,7 @@ void loadConstantsFromFile(ModuleOp &module,
   // The following function will be emitted inside the IR to load constants from
   // file.
   std::string loadAllConstantsFuncName = "omLoadConstantsFromFile";
-  Type llvmFnType = LLVM::LLVMFunctionType::get(llvmI1Ty, {}, false);
+  Type llvmFnType = LLVM::LLVMFunctionType::get(llvmVoidTy, {}, false);
 
   // If calledByEntryPoint, this function will be called by entry points.
   // Otherwise, user program (C/C++/Java/Python) would call this function.
@@ -668,11 +669,9 @@ void loadConstantsFromFile(ModuleOp &module,
           &entryFunc.getBody().front(), entryFunc.getBody().front().begin());
       FlatSymbolRefAttr loadAllConstantsRef = create.llvm.getOrInsertSymbolRef(
           module, LLVMBuilder::SymbolPostfix(module, loadAllConstantsFuncName),
-          llvmI1Ty, {},
+          llvmVoidTy, {},
           /*isVarArg=*/false);
-      Value retVal = create.llvm.call({llvmI1Ty}, loadAllConstantsRef, {});
-      equalOrFailed(module, b, loc,
-          create.llvm.constant(llvmI1Ty, static_cast<int64_t>(1)), retVal);
+      create.llvm.call({}, loadAllConstantsRef, {});
     }
   } else {
     OpBuilder::InsertionGuard guard(b);
@@ -721,7 +720,7 @@ void loadConstantsFromFile(ModuleOp &module,
       RuntimeAPI::API::MMAP_BINARY_FILE,
       {packedGlobalPtr, fnameI8Ptr, sizeVal, isleVal});
   equalOrReturn(module, b, loc,
-      create.llvm.constant(llvmI1Ty, static_cast<int64_t>(1)), retVal, retVal);
+      create.llvm.constant(llvmI1Ty, static_cast<int64_t>(1)), retVal);
 
   // Now set pointers for constants in the IR
   module->walk([&](LLVM::GlobalOp dataGlobalOp) -> WalkResult {
@@ -751,7 +750,67 @@ void loadConstantsFromFile(ModuleOp &module,
     return WalkResult::advance();
   });
 
-  create.llvm._return(create.llvm.constant(llvmI1Ty, static_cast<int64_t>(1)));
+  create.llvm._return();
+}
+
+/// Emit global contructors to call specific functions when the .so file is
+/// loaded. Note that
+/// - a function with a higher priority is called first, and
+/// - ctors functions must have type of void().
+void emitCtors(ModuleOp &module, OpBuilder &builder,
+    ArrayRef<std::string> ctors, ArrayRef<int32_t> priorities,
+    ArrayRef<Attribute> data) {
+  MLIRContext *ctx = module.getContext();
+  MultiDialectBuilder<LLVMBuilder> create(builder, module.getLoc());
+  llvm::SmallVector<mlir::Attribute, 1> ctorsArray;
+  llvm::SmallVector<int32_t, 1> prioritiesArray;
+  llvm::SmallVector<mlir::Attribute, 1> dataArray;
+  // Prepare operands.
+  for (uint64_t i = 0; i < ctors.size(); ++i) {
+    StringRef funcName = StringRef(ctors[i]);
+    FlatSymbolRefAttr loadFuncRef = create.llvm.getOrInsertSymbolRef(module,
+        funcName, LLVM::LLVMVoidType::get(ctx), {},
+        /*isVarArg=*/false);
+    ctorsArray.emplace_back(loadFuncRef);
+    prioritiesArray.emplace_back(priorities[i]);
+    dataArray.emplace_back(data[i]);
+  }
+  // Only create global constructors if there are any to register.
+  if (!ctorsArray.empty()) {
+    OpBuilder::InsertionGuard guard(builder);
+    builder.setInsertionPointToEnd(module.getBody());
+    create.llvm.globalCtors(ctorsArray, prioritiesArray, dataArray);
+  }
+}
+
+/// Emit global destructors to call specific functions when the .so file is
+/// unloaded. Note that
+/// - a function with a higher priority is called first, and
+/// - dtors functions must have type of void().
+void emitDtors(ModuleOp &module, OpBuilder &builder,
+    ArrayRef<std::string> dtors, ArrayRef<int32_t> priorities,
+    ArrayRef<Attribute> data) {
+  MLIRContext *ctx = module.getContext();
+  MultiDialectBuilder<LLVMBuilder> create(builder, module.getLoc());
+  llvm::SmallVector<mlir::Attribute, 1> dtorsArray;
+  llvm::SmallVector<int32_t, 1> prioritiesArray;
+  llvm::SmallVector<mlir::Attribute, 1> dataArray;
+  // Prepare operands.
+  for (uint64_t i = 0; i < dtors.size(); ++i) {
+    StringRef funcName = StringRef(dtors[i]);
+    FlatSymbolRefAttr loadFuncRef = create.llvm.getOrInsertSymbolRef(module,
+        funcName, LLVM::LLVMVoidType::get(ctx), {},
+        /*isVarArg=*/false);
+    dtorsArray.emplace_back(loadFuncRef);
+    prioritiesArray.emplace_back(priorities[i]);
+    dataArray.emplace_back(data[i]);
+  }
+  // Only create global destructors if there are any to register.
+  if (!dtorsArray.empty()) {
+    OpBuilder::InsertionGuard guard(builder);
+    builder.setInsertionPointToEnd(module.getBody());
+    create.llvm.globalDtors(dtorsArray, prioritiesArray, dataArray);
+  }
 }
 
 //===----------------------------------------------------------------------===//
@@ -971,6 +1030,21 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
     // to memory.
     loadConstantsFromFile(module, apiRegistry, entryGlobalOps);
   }
+
+  // Emit global ctors and dtors to call specific functions when the .so file is
+  // loaded and unloaded. Note that
+  // - a function with a higher priority is called first, and
+  // - ctors and dtors functions must have type of void().
+  SmallVector<std::string> ctors;
+  SmallVector<int32_t> ctorsPriorities;
+  SmallVector<Attribute> ctorsData;
+  if (storeConstantsToFile) {
+    ctors.emplace_back("omLoadConstantsFromFile");
+    ctorsPriorities.emplace_back(65535);
+    ctorsData.emplace_back(LLVM::ZeroAttr::get(ctx));
+  }
+  emitCtors(module, builder, /*ctors*/ ctors,
+      /*priorities*/ ctorsPriorities, /*data*/ ctorsData);
 
   // Annotate global constants with `.lrodata` section if required.
   // Make sure this is always called at the end of this pass.
