@@ -206,7 +206,8 @@ static Value computeCubicWeight(
 
 static LogicalResult lowerGridSample2D(ONNXGridSampleOp op,
     ONNXGridSampleOpAdaptor adaptor, ConversionPatternRewriter &rewriter,
-    Location loc, Value alloc, ONNXGridSampleOpShapeHelper &shapeHelper) {
+    Location loc, Value alloc, ONNXGridSampleOpShapeHelper &shapeHelper,
+    bool enableParallel) {
 
   Value input = adaptor.getX();
   Value grid = adaptor.getGrid();
@@ -233,6 +234,14 @@ static LogicalResult lowerGridSample2D(ONNXGridSampleOp op,
   ValueRange loopDef = create.krnl.defineLoops(outputRank);
   SmallVector<IndexExpr, 4> lbs(outputRank, LitIE(0));
   DimsExpr ubs = shapeHelper.getOutputDims();
+
+  // Parallelize outer loops (N, C) for better performance
+  // The two outer loops (batch and channel) are independent and can be parallelized
+  if (enableParallel) {
+    SmallVector<Value, 2> outerLoops = {loopDef[0], loopDef[1]};
+    tryCreateKrnlParallel(create.krnl, op, "gridsample 2d", outerLoops, lbs, ubs,
+        0, 2, {}, /*min iter for going parallel*/ 4);
+  }
 
   // Constants
   Value zero = create.math.constant(elementType, 0.0);
@@ -367,7 +376,8 @@ static LogicalResult lowerGridSample2D(ONNXGridSampleOp op,
 
 static LogicalResult lowerGridSample3D(ONNXGridSampleOp op,
     ONNXGridSampleOpAdaptor adaptor, ConversionPatternRewriter &rewriter,
-    Location loc, Value alloc, ONNXGridSampleOpShapeHelper &shapeHelper) {
+    Location loc, Value alloc, ONNXGridSampleOpShapeHelper &shapeHelper,
+    bool enableParallel) {
 
   Value input = adaptor.getX();
   Value grid = adaptor.getGrid();
@@ -393,8 +403,16 @@ static LogicalResult lowerGridSample3D(ONNXGridSampleOp op,
   // Output shape: [N, C, D_out, H_out, W_out]
   int64_t outputRank = 5;
   ValueRange loopDef = create.krnl.defineLoops(outputRank);
-  SmallVector<IndexExpr, 4> lbs(outputRank, LitIE(0));
+  SmallVector<IndexExpr, 5> lbs(outputRank, LitIE(0));
   DimsExpr ubs = shapeHelper.getOutputDims();
+
+  // Parallelize outer loops (N, C) for better performance
+  // The two outer loops (batch and channel) are independent and can be parallelized
+  if (enableParallel) {
+    SmallVector<Value, 2> outerLoops = {loopDef[0], loopDef[1]};
+    tryCreateKrnlParallel(create.krnl, op, "gridsample 3d", outerLoops, lbs, ubs,
+        0, 2, {}, /*min iter for going parallel*/ 4);
+  }
 
   // Constants
   Value zero = create.math.constant(elementType, 0.0);
@@ -509,8 +527,16 @@ static LogicalResult lowerGridSample3D(ONNXGridSampleOp op,
 //===----------------------------------------------------------------------===//
 
 struct ONNXGridSampleOpLowering : public OpConversionPattern<ONNXGridSampleOp> {
-  ONNXGridSampleOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : OpConversionPattern(typeConverter, ctx) {}
+  ONNXGridSampleOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
+      bool enableParallel)
+      : OpConversionPattern(typeConverter, ctx) {
+    this->enableParallel =
+        enableParallel &&
+        OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
+            ONNXGridSampleOp::getOperationName());
+  }
+
+  bool enableParallel = false;
 
   LogicalResult matchAndRewrite(ONNXGridSampleOp gridSampleOp,
       ONNXGridSampleOpAdaptor adaptor,
@@ -572,11 +598,11 @@ struct ONNXGridSampleOpLowering : public OpConversionPattern<ONNXGridSampleOp> {
     // Dispatch to 2D or 3D implementation
     LogicalResult result = success();
     if (inputRank == 4) {
-      result = lowerGridSample2D(
-          gridSampleOp, adaptor, rewriter, loc, alloc, shapeHelper);
+      result = lowerGridSample2D(gridSampleOp, adaptor, rewriter, loc, alloc,
+          shapeHelper, enableParallel);
     } else if (inputRank == 5) {
-      result = lowerGridSample3D(
-          gridSampleOp, adaptor, rewriter, loc, alloc, shapeHelper);
+      result = lowerGridSample3D(gridSampleOp, adaptor, rewriter, loc, alloc,
+          shapeHelper, enableParallel);
     } else {
       return emitError(
           loc, "GridSample only supports 2D (4D input) and 3D (5D input)");
@@ -592,8 +618,9 @@ struct ONNXGridSampleOpLowering : public OpConversionPattern<ONNXGridSampleOp> {
 };
 
 void populateLoweringONNXGridSampleOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx) {
-  patterns.insert<ONNXGridSampleOpLowering>(typeConverter, ctx);
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel) {
+  patterns.insert<ONNXGridSampleOpLowering>(
+      typeConverter, ctx, enableParallel);
 }
 
 } // namespace onnx_mlir
