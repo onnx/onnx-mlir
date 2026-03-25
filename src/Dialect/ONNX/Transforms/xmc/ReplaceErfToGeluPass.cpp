@@ -107,17 +107,16 @@ struct ReplaceErfGeluPattern : public OpRewritePattern<ONNXErfOp> {
     if (!mul1Op)
       return rewriter.notifyMatchFailure(erfOp, "mul user is not Mul(0.5)");
 
-    LLVM_DEBUG(llvm::dbgs()
-               << "replace-erf-to-gelu: Matched GELU pattern at "
-               << erfOp.getLoc() << "\n");
+    LLVM_DEBUG(llvm::dbgs() << "replace-erf-to-gelu: Matched GELU pattern at "
+                            << erfOp.getLoc() << "\n");
 
     // --- Create onnx.Gelu ---
     // Input: geluInput (x), output type: same as mul1's output
     Location loc = erfOp.getLoc();
     Type resultType = mul1Op.getResult().getType();
 
-    auto geluOp = rewriter.create<ONNXGeluOp>(loc, resultType, geluInput,
-        rewriter.getStringAttr("none"));
+    auto geluOp = rewriter.create<ONNXGeluOp>(
+        loc, resultType, geluInput, rewriter.getStringAttr("none"));
 
     rewriter.replaceOp(mul1Op, geluOp.getResult());
     return success();
@@ -129,8 +128,7 @@ struct ReplaceErfGeluPattern : public OpRewritePattern<ONNXErfOp> {
 namespace onnx_mlir {
 
 struct ReplaceErfToGeluPass
-    : public PassWrapper<ReplaceErfToGeluPass,
-          OperationPass<func::FuncOp>> {
+    : public PassWrapper<ReplaceErfToGeluPass, OperationPass<func::FuncOp>> {
   StringRef getArgument() const override { return "replace-erf-to-gelu"; }
   StringRef getDescription() const override {
     return "Replace quantized Erf-based GELU subgraph with onnx.Gelu";
