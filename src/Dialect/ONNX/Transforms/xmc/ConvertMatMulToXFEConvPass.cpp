@@ -10,6 +10,9 @@
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
 #include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 #include "src/Pass/Passes.hpp"
 
@@ -40,6 +43,35 @@ static Type remapPerAxisQuantDim(Type elemType, int32_t newAxis) {
         perAxis.getStorageTypeMin(), perAxis.getStorageTypeMax());
   }
   return elemType;
+}
+
+/// Try to fold a transpose ([K,N]->[N,K]) and reshape ([N,K]->[N,1,1,K])
+/// directly into the constant, returning the folded constant value.
+/// Returns nullptr if the weight is not a constant.
+static Value tryFoldTransposeReshapeConst(PatternRewriter &rewriter,
+    Location loc, Value weight, ArrayRef<uint64_t> perm,
+    ArrayRef<int64_t> reshapedShape, Type outputElemType) {
+  auto constOp = weight.getDefiningOp<ONNXConstantOp>();
+  if (!constOp)
+    return nullptr;
+  auto valueAttr = constOp.getValueAttr();
+  if (!valueAttr || !isa<DenseElementsAttr, DisposableElementsAttr>(valueAttr))
+    return nullptr;
+
+  auto wElements = mlir::cast<ElementsAttr>(valueAttr);
+
+  onnx_mlir::OnnxElementsAttrBuilder elemBuilder(rewriter.getContext());
+  ElementsAttr transposedElements = elemBuilder.transpose(wElements, perm);
+  ElementsAttr reshapedElements =
+      elemBuilder.reshape(transposedElements, reshapedShape);
+  DenseElementsAttr denseFolded =
+      elemBuilder.toDenseElementsAttr(reshapedElements);
+
+  auto newConstOp =
+      rewriter.create<ONNXConstantOp>(loc, Attribute(), denseFolded);
+  auto resultType = RankedTensorType::get(reshapedShape, outputElemType);
+  newConstOp.getResult().setType(resultType);
+  return newConstOp.getResult();
 }
 
 /// Structure to hold convolution shape information
@@ -251,27 +283,27 @@ struct MatMulToXFEConvPattern : public OpRewritePattern<ONNXMatMulOp> {
 
     // Format weight: [K, N] -> transpose to [N, K] -> reshape to [N, 1, 1, K].
     auto weightElementType = weightType.getElementType();
-    auto convWeightType =
-        RankedTensorType::get(convShapes.weightShape, weightElementType);
-    auto weightShapeConst =
-        createShapeConstant(rewriter, loc, convShapes.weightShape);
-
-    // Transpose [K, N] -> [N, K].
-    // If weight has per-axis quant on axis 1 (N dim), after transpose it
-    // moves to axis 0.
-    auto transposedElemType = remapPerAxisQuantDim(weightElementType, 0);
-    auto transposedWeightType = RankedTensorType::get(
-        {weightShape[1], weightShape[0]}, transposedElemType);
-    auto permAttr = rewriter.getI64ArrayAttr({1, 0});
-    Value transposedWeight = rewriter.create<ONNXTransposeOp>(
-        loc, transposedWeightType, weight, permAttr);
-
-    // Reshape to [N, H, W, C] for XFEConv.  Axis 0 (N=C_out) stays axis 0.
     auto convWeightElemType = remapPerAxisQuantDim(weightElementType, 0);
-    convWeightType =
+    auto convWeightType =
         RankedTensorType::get(convShapes.weightShape, convWeightElemType);
-    Value convWeight = rewriter.create<ONNXReshapeOp>(
-        loc, convWeightType, transposedWeight, weightShapeConst);
+
+    // Try to fold transpose+reshape directly into the constant.
+    Value convWeight = tryFoldTransposeReshapeConst(rewriter, loc, weight,
+        {1, 0}, convShapes.weightShape, convWeightElemType);
+
+    if (!convWeight) {
+      // Non-constant weight: emit Transpose + Reshape ops.
+      auto weightShapeConst =
+          createShapeConstant(rewriter, loc, convShapes.weightShape);
+      auto transposedElemType = remapPerAxisQuantDim(weightElementType, 0);
+      auto transposedWeightType = RankedTensorType::get(
+          {weightShape[1], weightShape[0]}, transposedElemType);
+      auto permAttr = rewriter.getI64ArrayAttr({1, 0});
+      Value transposedWeight = rewriter.create<ONNXTransposeOp>(
+          loc, transposedWeightType, weight, permAttr);
+      convWeight = rewriter.create<ONNXReshapeOp>(
+          loc, convWeightType, transposedWeight, weightShapeConst);
+    }
 
     // Create XFEConv
     // XFEConv expects: input [M, H, W, C], weight [C_out, H', W', C]
@@ -432,20 +464,25 @@ struct GemmToXFEConvPattern : public OpRewritePattern<ONNXGemmOp> {
       convWeight = rewriter.create<ONNXReshapeOp>(
           loc, convWeightType, B, weightShapeConst);
     } else {
-      // Transpose [K, N] -> [N, K].
+      // Transpose [K, N] -> [N, K] then reshape to [N, H, W, C].
       // Per-axis quant on axis 1 (N) moves to axis 0.
-      auto transposedElemType = remapPerAxisQuantDim(bElementType, 0);
-      auto transposedBType =
-          RankedTensorType::get({bShape[1], bShape[0]}, transposedElemType);
-      auto permAttr = rewriter.getI64ArrayAttr({1, 0});
-      Value transposedB =
-          rewriter.create<ONNXTransposeOp>(loc, transposedBType, B, permAttr);
-      // Reshape to [N, H, W, C] for XFEConv. Axis 0 stays axis 0.
       auto convWeightElemType = remapPerAxisQuantDim(bElementType, 0);
       convWeightType =
           RankedTensorType::get(convShapes.weightShape, convWeightElemType);
-      convWeight = rewriter.create<ONNXReshapeOp>(
-          loc, convWeightType, transposedB, weightShapeConst);
+
+      convWeight = tryFoldTransposeReshapeConst(rewriter, loc, B,
+          {1, 0}, convShapes.weightShape, convWeightElemType);
+
+      if (!convWeight) {
+        auto transposedElemType = remapPerAxisQuantDim(bElementType, 0);
+        auto transposedBType =
+            RankedTensorType::get({bShape[1], bShape[0]}, transposedElemType);
+        auto permAttr = rewriter.getI64ArrayAttr({1, 0});
+        Value transposedB =
+            rewriter.create<ONNXTransposeOp>(loc, transposedBType, B, permAttr);
+        convWeight = rewriter.create<ONNXReshapeOp>(
+            loc, convWeightType, transposedB, weightShapeConst);
+      }
     }
 
     // Create XFEConv
