@@ -23,7 +23,7 @@
 #define BFLAST(mask) ((mask) & (1 + ~(mask)))
 #define BFGET(w, mask) (((w) & (mask)) / BFLAST(mask))
 #define BFPUT(w, mask, value)                                                  \
-  ((w) = ((w) & ~(mask)) | (((value)*BFLAST(mask)) & (mask)))
+  ((w) = ((w) & ~(mask)) | (((value) * BFLAST(mask)) & (mask)))
 
 static constexpr uint8_t VIC_INVALID = 1;
 static constexpr uint8_t VIC_DIVIDE = 2;
