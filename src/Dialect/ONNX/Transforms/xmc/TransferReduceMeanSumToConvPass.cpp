@@ -54,6 +54,13 @@ bool isChannelWiseReduction(llvm::ArrayRef<int64_t> axes, int64_t rank) {
   return axis == 1; // NCHW: channel is at index 1
 }
 
+/// Check if element type is valid for onnx.Conv (float or quantized).
+/// Integer types like i64 (from Shape/Cast ops) are not supported by Conv.
+bool isConvCompatibleElementType(mlir::Type elementType) {
+  return mlir::isa<mlir::FloatType>(elementType) ||
+         mlir::isa<mlir::quant::QuantizedType>(elementType);
+}
+
 /// Create constant tensor with given shape and value.
 /// Supports float, integer, and quantized element types.
 /// For quantized types, the float value is quantized using the type's
@@ -315,6 +322,12 @@ struct ReduceMeanToConvPattern : public OpRewritePattern<ONNXReduceMeanOp> {
     if (inputShape.empty() || inputShape.size() < 2)
       return mlir::failure();
 
+    // onnx.Conv only supports float/quantized types, not integer types.
+    auto inputElemType =
+        mlir::cast<mlir::ShapedType>(input.getType()).getElementType();
+    if (!isConvCompatibleElementType(inputElemType))
+      return mlir::failure();
+
     int64_t rank = inputShape.size();
     int64_t inputChannel = inputShape[1]; // NCHW: channel is at index 1
 
@@ -372,6 +385,12 @@ struct ReduceSumToConvPattern : public OpRewritePattern<ONNXReduceSumOp> {
     // Get input shape
     auto inputShape = getShape(input);
     if (inputShape.empty() || inputShape.size() < 2)
+      return mlir::failure();
+
+    // onnx.Conv only supports float/quantized types, not integer types.
+    auto inputElemType =
+        mlir::cast<mlir::ShapedType>(input.getType()).getElementType();
+    if (!isConvCompatibleElementType(inputElemType))
       return mlir::failure();
 
     int64_t rank = inputShape.size();
@@ -463,6 +482,12 @@ struct ReduceMeanMulToConvPattern : public OpRewritePattern<ONNXMulOp> {
     if (inputShape.empty() || inputShape.size() < 2)
       return mlir::failure();
 
+    // onnx.Conv only supports float/quantized types, not integer types.
+    auto inputElemType =
+        mlir::cast<mlir::ShapedType>(input.getType()).getElementType();
+    if (!isConvCompatibleElementType(inputElemType))
+      return mlir::failure();
+
     int64_t rank = inputShape.size();
     int64_t inputChannel = inputShape[1]; // NCHW: channel is at index 1
 
@@ -515,6 +540,12 @@ struct ReduceMeanReluToConvPattern : public OpRewritePattern<ONNXReluOp> {
     mlir::Value input = reduceMean.getData();
     auto inputShape = getShape(input);
     if (inputShape.empty() || inputShape.size() < 2)
+      return mlir::failure();
+
+    // onnx.Conv only supports float/quantized types, not integer types.
+    auto inputElemType =
+        mlir::cast<mlir::ShapedType>(input.getType()).getElementType();
+    if (!isConvCompatibleElementType(inputElemType))
       return mlir::failure();
 
     int64_t rank = inputShape.size();
