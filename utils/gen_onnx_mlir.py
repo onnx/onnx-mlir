@@ -3,6 +3,10 @@
 # After modifying this file, the script will need to run to rebuild the
 # onnx-mlir ONNX Dialect. This is performed by calling
 # `make OMONNXOpsIncTranslation` in the build dir.
+# Alternatively, gen_onnx_mlir_multiple_custom_ops.sh can be used to generate
+# the ONNX Dialect with custom dialect extensions.
+# Before running these scripts, ensure that onnx==1.19.1 is installed
+# in the python environment.
 # If the changes are not seen, then you need to rebuild the entire onnx-mlir.
 
 # After changes that impact the documentation of the ops, run
@@ -529,6 +533,7 @@ OpsWithCanonicalizer = [
     "GroupNormalizationV18",
     "GRU",
     "Identity",
+    "LeakyRelu",
     "Less",
     "Loop",
     "LSTM",
