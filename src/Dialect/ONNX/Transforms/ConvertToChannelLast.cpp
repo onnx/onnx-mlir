@@ -303,9 +303,8 @@ struct ConvTransposeToChannelLastPattern
     }
 
     // Transpose output back to NCHW using original NCHW output type
-    Value outputNCHW = createOutputTranspose(
-        rewriter, loc, convTransposeChannelLastOp.getResult(),
-        convTransposeOp.getType(),
+    Value outputNCHW = createOutputTranspose(rewriter, loc,
+        convTransposeChannelLastOp.getResult(), convTransposeOp.getType(),
         rank);
 
     rewriter.replaceOp(convTransposeOp, outputNCHW);
@@ -935,8 +934,8 @@ struct ResizeToChannelLastPattern : public OpRewritePattern<ONNXResizeOp> {
     }
 
     // Transpose output back to NCHW
-    Value outputNCHW = createOutputTranspose(
-        rewriter, loc, resizeChannelLastOp.getResult(), resizeOp.getType(), rank);
+    Value outputNCHW = createOutputTranspose(rewriter, loc,
+        resizeChannelLastOp.getResult(), resizeOp.getType(), rank);
 
     rewriter.replaceOp(resizeOp, outputNCHW);
     return success();
