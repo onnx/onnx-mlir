@@ -4,7 +4,7 @@
 
 //===-------------- GridSample.cpp - Lowering GridSample Op ---------------===//
 //
-// Copyright 2024 The IBM Research Authors.
+// Copyright 2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -66,6 +66,100 @@ static Value isInBounds(
   return math.andi(geZero, leSize);
 }
 
+// Helper to load value with padding mode handling (2D case)
+// Returns zero for out-of-bounds (zeros mode) or clamped value (border mode)
+static Value loadWithPadding(const KrnlBuilder &createKrnl, MathBuilder &math,
+    Location loc, Value input, ArrayRef<Value> indices, Value yCoord,
+    Value xCoord, Value H, Value W, StringRef paddingMode, Value zero) {
+  Type floatType = yCoord.getType();
+  
+  if (paddingMode == "border") {
+    // Clamp coordinates to [0, size-1]
+    Value one = math.constant(floatType, 1.0);
+    Value zeroFloat = math.constant(floatType, 0.0);
+    Value hFloat = math.cast(floatType, H);
+    Value wFloat = math.cast(floatType, W);
+    Value hMax = math.sub(hFloat, one);
+    Value wMax = math.sub(wFloat, one);
+    
+    Value xClamped = math.min(math.max(xCoord, zeroFloat), wMax);
+    Value yClamped = math.min(math.max(yCoord, zeroFloat), hMax);
+    Value xIdx = math.castToIndex(xClamped);
+    Value yIdx = math.castToIndex(yClamped);
+    
+    // Build full index array
+    SmallVector<Value, 4> fullIndices(indices.begin(), indices.end());
+    fullIndices.push_back(yIdx);
+    fullIndices.push_back(xIdx);
+    return createKrnl.load(input, fullIndices);
+  } else {
+    // zeros padding: check bounds and return zero if out of bounds
+    Value inBounds = math.andi(
+        isInBounds(math, loc, xCoord, W), isInBounds(math, loc, yCoord, H));
+    Value xIdx = math.castToIndex(xCoord);
+    Value yIdx = math.castToIndex(yCoord);
+    
+    // Build full index array
+    SmallVector<Value, 4> fullIndices(indices.begin(), indices.end());
+    fullIndices.push_back(yIdx);
+    fullIndices.push_back(xIdx);
+    Value val = createKrnl.load(input, fullIndices);
+    return math.select(inBounds, val, zero);
+  }
+}
+
+// Helper to load value with padding mode handling (3D case)
+// Returns zero for out-of-bounds (zeros mode) or clamped value (border mode)
+static Value loadWithPadding3D(const KrnlBuilder &createKrnl, MathBuilder &math,
+    Location loc, Value input, ArrayRef<Value> indices, Value zCoord,
+    Value yCoord, Value xCoord, Value D, Value H, Value W,
+    StringRef paddingMode, Value zero) {
+  Type floatType = zCoord.getType();
+  
+  if (paddingMode == "border") {
+    // Clamp coordinates to [0, size-1]
+    Value one = math.constant(floatType, 1.0);
+    Value zeroFloat = math.constant(floatType, 0.0);
+    Value dFloat = math.cast(floatType, D);
+    Value hFloat = math.cast(floatType, H);
+    Value wFloat = math.cast(floatType, W);
+    Value dMax = math.sub(dFloat, one);
+    Value hMax = math.sub(hFloat, one);
+    Value wMax = math.sub(wFloat, one);
+    
+    Value xClamped = math.min(math.max(xCoord, zeroFloat), wMax);
+    Value yClamped = math.min(math.max(yCoord, zeroFloat), hMax);
+    Value zClamped = math.min(math.max(zCoord, zeroFloat), dMax);
+    Value xIdx = math.castToIndex(xClamped);
+    Value yIdx = math.castToIndex(yClamped);
+    Value zIdx = math.castToIndex(zClamped);
+    
+    // Build full index array
+    SmallVector<Value, 5> fullIndices(indices.begin(), indices.end());
+    fullIndices.push_back(zIdx);
+    fullIndices.push_back(yIdx);
+    fullIndices.push_back(xIdx);
+    return createKrnl.load(input, fullIndices);
+  } else {
+    // zeros padding: check bounds and return zero if out of bounds
+    Value inBounds = math.andi(
+        math.andi(isInBounds(math, loc, xCoord, W),
+            isInBounds(math, loc, yCoord, H)),
+        isInBounds(math, loc, zCoord, D));
+    Value xIdx = math.castToIndex(xCoord);
+    Value yIdx = math.castToIndex(yCoord);
+    Value zIdx = math.castToIndex(zCoord);
+    
+    // Build full index array
+    SmallVector<Value, 5> fullIndices(indices.begin(), indices.end());
+    fullIndices.push_back(zIdx);
+    fullIndices.push_back(yIdx);
+    fullIndices.push_back(xIdx);
+    Value val = createKrnl.load(input, fullIndices);
+    return math.select(inBounds, val, zero);
+  }
+}
+
 // Compute cubic interpolation weight using Robert G. Keys method
 // Reference: https://ieeexplore.ieee.org/document/1163711
 static Value computeCubicWeight(
@@ -119,6 +213,7 @@ static LogicalResult lowerGridSample2D(ONNXGridSampleOp op,
   Value grid = adaptor.getGrid();
   StringRef mode = op.getMode();
   int64_t alignCorners = op.getAlignCorners();
+  StringRef paddingMode = op.getPaddingMode();
   
   MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
       MemRefBuilder>
@@ -167,19 +262,8 @@ static LogicalResult lowerGridSample2D(ONNXGridSampleOp op,
           // Nearest neighbor interpolation
           Value x_nearest = create.math.roundEven(x);
           Value y_nearest = create.math.roundEven(y);
-          
-          // Check bounds
-          Value inBounds = create.math.andi(
-              isInBounds(create.math, loc, x_nearest, W),
-              isInBounds(create.math, loc, y_nearest, H));
-          
-          // Convert to index
-          Value x_idx = create.math.castToIndex(x_nearest);
-          Value y_idx = create.math.castToIndex(y_nearest);
-          
-          // Load value if in bounds, else zero
-          Value val = createKrnl.load(input, {n, c, y_idx, x_idx});
-          result = create.math.select(inBounds, val, zero);
+          result = loadWithPadding(createKrnl, create.math, loc, input, {n, c},
+              y_nearest, x_nearest, H, W, paddingMode, zero);
           
         } else if (mode == "linear" || mode == "bilinear") {
           // Bilinear interpolation
@@ -194,21 +278,15 @@ static LogicalResult lowerGridSample2D(ONNXGridSampleOp op,
           Value wx1 = create.math.sub(one, wx);
           Value wy1 = create.math.sub(one, wy);
           
-          // Load 4 corner values with bounds checking (zeros padding)
-          auto loadWithPadding = [&](Value y_coord, Value x_coord) -> Value {
-            Value inBounds = create.math.andi(
-                isInBounds(create.math, loc, x_coord, W),
-                isInBounds(create.math, loc, y_coord, H));
-            Value x_idx = create.math.castToIndex(x_coord);
-            Value y_idx = create.math.castToIndex(y_coord);
-            Value val = createKrnl.load(input, {n, c, y_idx, x_idx});
-            return create.math.select(inBounds, val, zero);
-          };
-          
-          Value v00 = loadWithPadding(y0, x0);
-          Value v01 = loadWithPadding(y0, x1);
-          Value v10 = loadWithPadding(y1, x0);
-          Value v11 = loadWithPadding(y1, x1);
+          // Load 4 corner values with padding
+          Value v00 = loadWithPadding(createKrnl, create.math, loc, input,
+              {n, c}, y0, x0, H, W, paddingMode, zero);
+          Value v01 = loadWithPadding(createKrnl, create.math, loc, input,
+              {n, c}, y0, x1, H, W, paddingMode, zero);
+          Value v10 = loadWithPadding(createKrnl, create.math, loc, input,
+              {n, c}, y1, x0, H, W, paddingMode, zero);
+          Value v11 = loadWithPadding(createKrnl, create.math, loc, input,
+              {n, c}, y1, x1, H, W, paddingMode, zero);
           
           // Bilinear formula
           Value t0 = create.math.mul(create.math.mul(wy1, wx1), v00);
@@ -246,17 +324,6 @@ static LogicalResult lowerGridSample2D(ONNXGridSampleOp op,
           Value wy2 = computeCubicWeight(create.math, loc, create.math.sub(one, dy), a);
           Value wy3 = computeCubicWeight(create.math, loc, create.math.sub(create.math.constant(elementType, 2.0), dy), a);
           
-          // Load 16 values with padding
-          auto loadWithPadding = [&](Value y_coord, Value x_coord) -> Value {
-            Value inBounds = create.math.andi(
-                isInBounds(create.math, loc, x_coord, W),
-                isInBounds(create.math, loc, y_coord, H));
-            Value x_idx = create.math.castToIndex(x_coord);
-            Value y_idx = create.math.castToIndex(y_coord);
-            Value val = createKrnl.load(input, {n, c, y_idx, x_idx});
-            return create.math.select(inBounds, val, zero);
-          };
-          
           // Compute bicubic interpolation
           Value sum = zero;
           SmallVector<Value, 4> xCoords = {x0, x1, x2, x3};
@@ -266,7 +333,8 @@ static LogicalResult lowerGridSample2D(ONNXGridSampleOp op,
           
           for (int i = 0; i < 4; ++i) {
             for (int j = 0; j < 4; ++j) {
-              Value val = loadWithPadding(yCoords[i], xCoords[j]);
+              Value val = loadWithPadding(createKrnl, create.math, loc, input,
+                  {n, c}, yCoords[i], xCoords[j], H, W, paddingMode, zero);
               Value weight = create.math.mul(wyWeights[i], wxWeights[j]);
               sum = create.math.add(sum, create.math.mul(weight, val));
             }
@@ -297,6 +365,7 @@ static LogicalResult lowerGridSample3D(ONNXGridSampleOp op,
   Value grid = adaptor.getGrid();
   StringRef mode = op.getMode();
   int64_t alignCorners = op.getAlignCorners();
+  StringRef paddingMode = op.getPaddingMode();
   
   MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
       MemRefBuilder>
@@ -351,21 +420,8 @@ static LogicalResult lowerGridSample3D(ONNXGridSampleOp op,
           Value y_nearest = create.math.roundEven(y);
           Value z_nearest = create.math.roundEven(z);
           
-          // Check bounds
-          Value inBounds = create.math.andi(
-              create.math.andi(
-                  isInBounds(create.math, loc, x_nearest, W),
-                  isInBounds(create.math, loc, y_nearest, H)),
-              isInBounds(create.math, loc, z_nearest, D));
-          
-          // Convert to index
-          Value x_idx = create.math.castToIndex(x_nearest);
-          Value y_idx = create.math.castToIndex(y_nearest);
-          Value z_idx = create.math.castToIndex(z_nearest);
-          
-          // Load value if in bounds, else zero
-          Value val = createKrnl.load(input, {n, c, z_idx, y_idx, x_idx});
-          result = create.math.select(inBounds, val, zero);
+          result = loadWithPadding3D(createKrnl, create.math, loc, input, {n, c},
+              z_nearest, y_nearest, x_nearest, D, H, W, paddingMode, zero);
           
         } else if (mode == "linear" || mode == "trilinear") {
           // Trilinear interpolation (8 corner points)
@@ -384,28 +440,23 @@ static LogicalResult lowerGridSample3D(ONNXGridSampleOp op,
           Value wy1 = create.math.sub(one, wy);
           Value wz1 = create.math.sub(one, wz);
           
-          // Load 8 corner values with bounds checking (zeros padding)
-          auto loadWithPadding = [&](Value z_coord, Value y_coord, Value x_coord) -> Value {
-            Value inBounds = create.math.andi(
-                create.math.andi(
-                    isInBounds(create.math, loc, x_coord, W),
-                    isInBounds(create.math, loc, y_coord, H)),
-                isInBounds(create.math, loc, z_coord, D));
-            Value x_idx = create.math.castToIndex(x_coord);
-            Value y_idx = create.math.castToIndex(y_coord);
-            Value z_idx = create.math.castToIndex(z_coord);
-            Value val = createKrnl.load(input, {n, c, z_idx, y_idx, x_idx});
-            return create.math.select(inBounds, val, zero);
-          };
-          
-          Value v000 = loadWithPadding(z0, y0, x0);
-          Value v001 = loadWithPadding(z0, y0, x1);
-          Value v010 = loadWithPadding(z0, y1, x0);
-          Value v011 = loadWithPadding(z0, y1, x1);
-          Value v100 = loadWithPadding(z1, y0, x0);
-          Value v101 = loadWithPadding(z1, y0, x1);
-          Value v110 = loadWithPadding(z1, y1, x0);
-          Value v111 = loadWithPadding(z1, y1, x1);
+          // Load 8 corner values with padding
+          Value v000 = loadWithPadding3D(createKrnl, create.math, loc, input,
+              {n, c}, z0, y0, x0, D, H, W, paddingMode, zero);
+          Value v001 = loadWithPadding3D(createKrnl, create.math, loc, input,
+              {n, c}, z0, y0, x1, D, H, W, paddingMode, zero);
+          Value v010 = loadWithPadding3D(createKrnl, create.math, loc, input,
+              {n, c}, z0, y1, x0, D, H, W, paddingMode, zero);
+          Value v011 = loadWithPadding3D(createKrnl, create.math, loc, input,
+              {n, c}, z0, y1, x1, D, H, W, paddingMode, zero);
+          Value v100 = loadWithPadding3D(createKrnl, create.math, loc, input,
+              {n, c}, z1, y0, x0, D, H, W, paddingMode, zero);
+          Value v101 = loadWithPadding3D(createKrnl, create.math, loc, input,
+              {n, c}, z1, y0, x1, D, H, W, paddingMode, zero);
+          Value v110 = loadWithPadding3D(createKrnl, create.math, loc, input,
+              {n, c}, z1, y1, x0, D, H, W, paddingMode, zero);
+          Value v111 = loadWithPadding3D(createKrnl, create.math, loc, input,
+              {n, c}, z1, y1, x1, D, H, W, paddingMode, zero);
           
           // Trilinear formula
           Value t0 = create.math.mul(create.math.mul(create.math.mul(wz1, wy1), wx1), v000);
@@ -448,9 +499,10 @@ struct ONNXGridSampleOpLowering : public OpConversionPattern<ONNXGridSampleOp> {
     Location loc = ONNXLoc<ONNXGridSampleOp>(op);
     ValueRange operands = adaptor.getOperands();
     
-    // Check padding mode - only zeros supported
-    if (gridSampleOp.getPaddingMode() != "zeros") {
-      return emitError(loc, "Only zeros padding mode is currently supported");
+    // Check padding mode - zeros and border supported
+    StringRef paddingMode = gridSampleOp.getPaddingMode();
+    if (paddingMode != "zeros" && paddingMode != "border") {
+      return emitError(loc, "Only zeros and border padding modes are currently supported");
     }
     
     // Check interpolation mode
