@@ -262,9 +262,13 @@ static LogicalResult lowerGridSample2D(ONNXGridSampleOp op,
         Value gridY = createKrnl.load(
             grid, {n, h_out, w_out, create.math.constantIndex(1)});
 
+        // Cast grid coordinates to input element type if needed
+        Value gridXCast = create.math.cast(elementType, gridX);
+        Value gridYCast = create.math.cast(elementType, gridY);
+
         // Transform coordinates from [-1,1] to input space
-        Value x = transformCoordinate(create.math, loc, gridX, W, alignCorners);
-        Value y = transformCoordinate(create.math, loc, gridY, H, alignCorners);
+        Value x = transformCoordinate(create.math, loc, gridXCast, W, alignCorners);
+        Value y = transformCoordinate(create.math, loc, gridYCast, H, alignCorners);
 
         Value result;
 
@@ -436,10 +440,15 @@ static LogicalResult lowerGridSample3D(ONNXGridSampleOp op,
         Value gridZ = createKrnl.load(
             grid, {n, d_out, h_out, w_out, create.math.constantIndex(2)});
 
+        // Cast grid coordinates to input element type if needed
+        Value gridXCast = create.math.cast(elementType, gridX);
+        Value gridYCast = create.math.cast(elementType, gridY);
+        Value gridZCast = create.math.cast(elementType, gridZ);
+
         // Transform coordinates from [-1,1] to input space
-        Value x = transformCoordinate(create.math, loc, gridX, W, alignCorners);
-        Value y = transformCoordinate(create.math, loc, gridY, H, alignCorners);
-        Value z = transformCoordinate(create.math, loc, gridZ, D, alignCorners);
+        Value x = transformCoordinate(create.math, loc, gridXCast, W, alignCorners);
+        Value y = transformCoordinate(create.math, loc, gridYCast, H, alignCorners);
+        Value z = transformCoordinate(create.math, loc, gridZCast, D, alignCorners);
 
         Value result;
 
