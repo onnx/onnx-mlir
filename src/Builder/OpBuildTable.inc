@@ -8,6 +8,7 @@ dialect_op_version_map_[""]["Abs"] = {13};
 dialect_op_version_map_[""]["Acos"] = {22};
 dialect_op_version_map_[""]["Acosh"] = {22};
 dialect_op_version_map_[""]["Add"] = {14};
+dialect_op_version_map_[""]["AffineGrid"] = {20};
 dialect_op_version_map_[""]["And"] = {7};
 dialect_op_version_map_[""]["ArgMax"] = {13};
 dialect_op_version_map_[""]["ArgMin"] = {13};
@@ -80,6 +81,7 @@ dialect_op_version_map_[""]["Hardmax"] = {13};
 dialect_op_version_map_[""]["HardSwish"] = {22};
 dialect_op_version_map_[""]["Identity"] = {21};
 dialect_op_version_map_[""]["If"] = {21};
+dialect_op_version_map_[""]["ImageDecoder"] = {20};
 dialect_op_version_map_[""]["InstanceNormalization"] = {22};
 dialect_op_version_map_[""]["IsInf"] = {20};
 dialect_op_version_map_[""]["IsNaN"] = {20};
@@ -122,7 +124,7 @@ dialect_op_version_map_[""]["PRelu"] = {16};
 dialect_op_version_map_[""]["Pad"] = {21, 18, 13, 11, 2};
 dialect_op_version_map_[""]["Pow"] = {15};
 dialect_op_version_map_[""]["QLinearConv"] = {10};
-dialect_op_version_map_[""]["QLinearMatMul"] = {10};
+dialect_op_version_map_[""]["QLinearMatMul"] = {21};
 dialect_op_version_map_[""]["QuantizeLinear"] = {21};
 dialect_op_version_map_[""]["RNN"] = {22};
 dialect_op_version_map_[""]["RandomNormal"] = {22};
@@ -141,6 +143,7 @@ dialect_op_version_map_[""]["ReduceMin"] = {20, 18, 13};
 dialect_op_version_map_[""]["ReduceProd"] = {18, 13};
 dialect_op_version_map_[""]["ReduceSum"] = {13, 11};
 dialect_op_version_map_[""]["ReduceSumSquare"] = {18, 13};
+dialect_op_version_map_[""]["RegexFullMatch"] = {20};
 dialect_op_version_map_[""]["Relu"] = {14};
 dialect_op_version_map_[""]["Reshape"] = {21};
 dialect_op_version_map_[""]["Resize"] = {19, 18, 13, 11, 10};
@@ -177,7 +180,9 @@ dialect_op_version_map_[""]["Split"] = {18, 13, 11};
 dialect_op_version_map_[""]["SplitToSequence"] = {11};
 dialect_op_version_map_[""]["Sqrt"] = {13};
 dialect_op_version_map_[""]["Squeeze"] = {21, 11};
+dialect_op_version_map_[""]["StringConcat"] = {20};
 dialect_op_version_map_[""]["StringNormalizer"] = {10};
+dialect_op_version_map_[""]["StringSplit"] = {20};
 dialect_op_version_map_[""]["STFT"] = {17};
 dialect_op_version_map_[""]["Sub"] = {14};
 dialect_op_version_map_[""]["Sum"] = {13};
@@ -201,7 +206,7 @@ dialect_op_version_map_["ai.onnx.ml"]["CategoryMapper"] = {1};
 dialect_op_version_map_["ai.onnx.ml"]["DictVectorizer"] = {1};
 dialect_op_version_map_["ai.onnx.ml"]["FeatureVectorizer"] = {1};
 dialect_op_version_map_["ai.onnx.ml"]["Imputer"] = {1};
-dialect_op_version_map_["ai.onnx.ml"]["LabelEncoder"] = {2};
+dialect_op_version_map_["ai.onnx.ml"]["LabelEncoder"] = {4};
 dialect_op_version_map_["ai.onnx.ml"]["LinearClassifier"] = {1};
 dialect_op_version_map_["ai.onnx.ml"]["LinearRegressor"] = {1};
 dialect_op_version_map_["ai.onnx.ml"]["Normalizer"] = {1};
@@ -209,8 +214,9 @@ dialect_op_version_map_["ai.onnx.ml"]["OneHotEncoder"] = {1};
 dialect_op_version_map_["ai.onnx.ml"]["SVMClassifier"] = {1};
 dialect_op_version_map_["ai.onnx.ml"]["SVMRegressor"] = {1};
 dialect_op_version_map_["ai.onnx.ml"]["Scaler"] = {1};
-dialect_op_version_map_["ai.onnx.ml"]["TreeEnsembleClassifier"] = {1};
-dialect_op_version_map_["ai.onnx.ml"]["TreeEnsembleRegressor"] = {1};
+dialect_op_version_map_["ai.onnx.ml"]["TreeEnsemble"] = {5};
+dialect_op_version_map_["ai.onnx.ml"]["TreeEnsembleClassifier"] = {5};
+dialect_op_version_map_["ai.onnx.ml"]["TreeEnsembleRegressor"] = {5};
 dialect_op_version_map_["ai.onnx.ml"]["ZipMap"] = {1};
 dialect_op_version_map_["ai.onnx.preview.training"]["Adagrad"] = {1};
 dialect_op_version_map_["ai.onnx.preview.training"]["Adam"] = {1};
@@ -255,6 +261,8 @@ import_handler_map_[""]["Acosh"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAcoshOp>;
 import_handler_map_[""]["Add"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAddOp>;
+import_handler_map_[""]["AffineGrid"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAffineGridOp>;
 import_handler_map_[""]["And"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAndOp>;
 import_handler_map_[""]["ArgMax"] = 
@@ -415,6 +423,8 @@ import_handler_map_[""]["Identity"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXIdentityOp>;
 import_handler_map_[""]["If"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXIfOp>;
+import_handler_map_[""]["ImageDecoder"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXImageDecoderOp>;
 import_handler_map_[""]["InstanceNormalization"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXInstanceNormalizationOp>;
 import_handler_map_[""]["IsInf"] = 
@@ -569,6 +579,8 @@ import_handler_map_[""]["ReduceSumSquare"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceSumSquareOp>;
 import_handler_map_[""]["ReduceSumSquareV13"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceSumSquareV13Op>;
+import_handler_map_[""]["RegexFullMatch"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXRegexFullMatchOp>;
 import_handler_map_[""]["Relu"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReluOp>;
 import_handler_map_[""]["Reshape"] = 
@@ -659,8 +671,12 @@ import_handler_map_[""]["Squeeze"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSqueezeOp>;
 import_handler_map_[""]["SqueezeV11"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSqueezeV11Op>;
+import_handler_map_[""]["StringConcat"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXStringConcatOp>;
 import_handler_map_[""]["StringNormalizer"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXStringNormalizerOp>;
+import_handler_map_[""]["StringSplit"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXStringSplitOp>;
 import_handler_map_[""]["Sub"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSubOp>;
 import_handler_map_[""]["Sum"] = 
@@ -725,6 +741,8 @@ import_handler_map_["ai.onnx.ml"]["SVMRegressor"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSVMRegressorOp>;
 import_handler_map_["ai.onnx.ml"]["Scaler"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXScalerOp>;
+import_handler_map_["ai.onnx.ml"]["TreeEnsemble"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXTreeEnsembleOp>;
 import_handler_map_["ai.onnx.ml"]["TreeEnsembleClassifier"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXTreeEnsembleClassifierOp>;
 import_handler_map_["ai.onnx.ml"]["TreeEnsembleRegressor"] = 

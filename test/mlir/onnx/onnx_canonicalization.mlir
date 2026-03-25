@@ -3239,3 +3239,22 @@ func.func @back_to_back_i8_maxpools(%arg0: tensor<1x192x23x40xf32>) -> tensor<1x
 // CHECK:           %[[VAL_13:.*]] = "onnx.DequantizeLinear"(%[[VAL_12]], %[[VAL_1]], %[[VAL_2]]) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x192x23x40xi8>, tensor<f32>, tensor<i8>) -> tensor<1x192x23x40xf32>
 // CHECK:           %[[VAL_14:.*]] = "onnx.Concat"(%[[VAL_4]], %[[VAL_7]], %[[VAL_10]], %[[VAL_13]]) {axis = 1 : si64} : (tensor<1x192x23x40xf32>, tensor<1x192x23x40xf32>, tensor<1x192x23x40xf32>, tensor<1x192x23x40xf32>) -> tensor<1x768x23x40xf32>
 // CHECK:           onnx.Return %[[VAL_14]] : tensor<1x768x23x40xf32>
+
+// -----
+
+// LeakyRelu with alpha = 0 is canonicalized to Relu.
+// CHECK-LABEL:   func.func @leaky_relu_alpha_zero_to_relu(%arg0: tensor<2x3xf32>) -> tensor<2x3xf32> {
+func.func @leaky_relu_alpha_zero_to_relu(%arg0: tensor<2x3xf32>) -> tensor<2x3xf32> {
+  // CHECK-NEXT:    %{{[0-9]+}} = "onnx.Relu"(%arg0) : (tensor<2x3xf32>) -> tensor<2x3xf32>
+  %0 = "onnx.LeakyRelu"(%arg0) {alpha = 0.000000e+00 : f32} : (tensor<2x3xf32>) -> tensor<2x3xf32>
+  onnx.Return %0 : tensor<2x3xf32>
+}
+
+// -----
+
+// CHECK-LABEL:   func.func @leaky_relu_alpha_default(%arg0: tensor<2x3xf32>) -> tensor<2x3xf32> {
+func.func @leaky_relu_alpha_default(%arg0: tensor<2x3xf32>) -> tensor<2x3xf32> {
+  // CHECK-NEXT:    %{{[0-9]+}} = "onnx.LeakyRelu"(%arg0) {alpha = 0.00999999977 : f32} : (tensor<2x3xf32>) -> tensor<2x3xf32>
+  %0 = "onnx.LeakyRelu"(%arg0) : (tensor<2x3xf32>) -> tensor<2x3xf32>
+  onnx.Return %0 : tensor<2x3xf32>
+}

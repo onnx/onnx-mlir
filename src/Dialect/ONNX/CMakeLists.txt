@@ -47,6 +47,7 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/ControlFlow/Scan.cpp
   ONNXOps/ML/CategoryMapper.cpp
   ONNXOps/ML/OneHotEncoder.cpp
+  ONNXOps/ML/TreeEnsemble.cpp
   ONNXOps/Math/Bernoulli.cpp
   ONNXOps/Math/Clip.cpp
   ONNXOps/Math/DFT.cpp
@@ -80,6 +81,7 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/RNN/RNN.cpp
   ONNXOps/Sequence/Sequence.cpp
   ONNXOps/Sequence/SplitToSequence.cpp
+  ONNXOps/Tensor/AffineGrid.cpp
   ONNXOps/Tensor/ArgMinMax.cpp
   ONNXOps/Tensor/Compress.cpp
   ONNXOps/Tensor/Concat.cpp
@@ -94,6 +96,7 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/Tensor/GatherElements.cpp
   ONNXOps/Tensor/GatherND.cpp
   ONNXOps/Tensor/GridSample.cpp
+  ONNXOps/Tensor/ImageDecoder.cpp
   ONNXOps/Tensor/Identity.cpp
   ONNXOps/Tensor/NonZero.cpp
   ONNXOps/Tensor/OneHot.cpp
@@ -108,6 +111,7 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/Tensor/Slice.cpp
   ONNXOps/Tensor/SpaceToDepth.cpp
   ONNXOps/Tensor/Split.cpp
+  ONNXOps/Tensor/StringSplit.cpp
   ONNXOps/Tensor/Squeeze.cpp
   ONNXOps/Tensor/Tile.cpp
   ONNXOps/Tensor/Transpose.cpp
