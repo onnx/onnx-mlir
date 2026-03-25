@@ -3289,3 +3289,22 @@ func.func @test_gather_like_slice_negative_integer(%arg0 : tensor<3x3xf32>) -> t
 // CHECK:         %[[RESHAPE:.*]] = "onnx.Reshape"(%[[SLICE]], %[[C3]]) {allowzero = 0 : si64} : (tensor<1x3xf32>, tensor<1xi64>) -> tensor<3xf32>
 // CHECK:         return %[[RESHAPE]]
 }
+
+// -----
+
+// LeakyRelu with alpha = 0 is canonicalized to Relu.
+// CHECK-LABEL:   func.func @leaky_relu_alpha_zero_to_relu(%arg0: tensor<2x3xf32>) -> tensor<2x3xf32> {
+func.func @leaky_relu_alpha_zero_to_relu(%arg0: tensor<2x3xf32>) -> tensor<2x3xf32> {
+  // CHECK-NEXT:    %{{[0-9]+}} = "onnx.Relu"(%arg0) : (tensor<2x3xf32>) -> tensor<2x3xf32>
+  %0 = "onnx.LeakyRelu"(%arg0) {alpha = 0.000000e+00 : f32} : (tensor<2x3xf32>) -> tensor<2x3xf32>
+  onnx.Return %0 : tensor<2x3xf32>
+}
+
+// -----
+
+// CHECK-LABEL:   func.func @leaky_relu_alpha_default(%arg0: tensor<2x3xf32>) -> tensor<2x3xf32> {
+func.func @leaky_relu_alpha_default(%arg0: tensor<2x3xf32>) -> tensor<2x3xf32> {
+  // CHECK-NEXT:    %{{[0-9]+}} = "onnx.LeakyRelu"(%arg0) {alpha = 0.00999999977 : f32} : (tensor<2x3xf32>) -> tensor<2x3xf32>
+  %0 = "onnx.LeakyRelu"(%arg0) : (tensor<2x3xf32>) -> tensor<2x3xf32>
+  onnx.Return %0 : tensor<2x3xf32>
+}

@@ -352,6 +352,16 @@ LogicalResult ONNXIsNaNOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
+// RegexFullMatch
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXRegexFullMatchOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  IntegerType i1Type = IntegerType::get(getContext(), 1, IntegerType::Signless);
+  return inferShapeForUnaryOps(getOperation(), i1Type);
+}
+
+//===----------------------------------------------------------------------===//
 // LeakyRelu
 //===----------------------------------------------------------------------===//
 

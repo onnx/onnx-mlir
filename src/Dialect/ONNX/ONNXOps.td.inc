@@ -159,6 +159,63 @@ def ONNXAddOp:ONNX_Op<"Add",
     let hasVerifier = 1;
 }
 
+def ONNXAffineGridOp:ONNX_Op<"AffineGrid",
+  [Pure, OpVersionTrait<20>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ONNX AffineGrid operation";
+  let description = [{
+  Generates a 2D or 3D flow field (sampling grid), given a batch of affine matrices theta
+  (https://pytorch.org/docs/stable/generated/torch.nn.functional.affine_grid.html).
+  An affine matrix `theta` is applied to a position tensor represented in its homogeneous expression. Here is an example in 3D:
+  ```
+  [r00, r01, r02, t0]   [x]   [x']
+  [r10, r11, r12, t1] * [y] = [y']
+  [r20, r21, r22, t2]   [z]   [z']
+  [0,   0,   0,   1 ]   [1]   [1 ]
+  ```
+  where `(x, y, z)` is the position in the original space, `(x', y', z')` is the position in the output space.
+  The last row is always `[0, 0, 0, 1]` and is not stored in the affine matrix. Therefore we have `theta` of shape `(N, 2, 3)` for 2D or `(N, 3, 4)` for 3D.
+  
+  Input `size` is used to define grid of positions evenly spaced in the original 2D or 3D space, with dimensions ranging from `-1` to `1`.
+  The output `grid` contains positions in the output space.
+  
+  When `align_corners=1`, consider `-1` and `1` to refer to the centers of the corner pixels (mark `v` in illustration).
+  ```
+  v            v            v            v
+  |-------------------|------------------|
+  -1                  0                  1
+  ```
+  When `align_corners=0`, consider `-1` and `1` to refer to the outer edge of the corner pixels.
+  ```
+      v        v         v         v
+  |------------------|-------------------|
+  -1                 0                   1
+  ```
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[quant_QuantizedType]>]>:$theta,
+    TensorOf<[I64]>:$size,
+    DefaultValuedAttr<SI64Attr, "0">:$align_corners);
+  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[quant_QuantizedType]>]>:$grid);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {30};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXAffineGridOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+}
+
 def ONNXAndOp:ONNX_Op<"And",
   [Pure, OpVersionTrait<7>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let hasCanonicalizer = 1;
@@ -3729,6 +3786,58 @@ def ONNXIfOp:ONNX_Op<"If",
   let hasVerifier = 1;
 }
 
+def ONNXImageDecoderOp:ONNX_Op<"ImageDecoder",
+  [Pure, OpVersionTrait<20>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ONNX ImageDecoder operation";
+  let description = [{
+  Loads and decodes and image from a file. If it can't decode for any reason (e.g. corrupted encoded
+  stream, invalid format, it will return an empty matrix).
+  The following image formats are supported:
+  * BMP
+  * JPEG (note: Lossless JPEG support is optional)
+  * JPEG2000
+  * TIFF
+  * PNG
+  * WebP
+  * Portable image format (PBM, PGM, PPM, PXM, PNM)
+  Decoded images follow a channel-last layout: (Height, Width, Channels).
+  **JPEG chroma upsampling method:**
+  When upsampling the chroma components by a factor of 2, the pixels are linearly interpolated so that the
+  centers of the output pixels are 1/4 and 3/4 of the way between input pixel centers.
+  When rounding, 0.5 is rounded down and up at alternative pixels locations to prevent bias towards
+  larger values (ordered dither pattern).
+  Considering adjacent input pixels A, B, and C, B is upsampled to pixels B0 and B1 so that
+  ```
+  B0 = round_half_down((1/4) * A + (3/4) * B)
+  B1 = round_half_up((3/4) * B + (1/4) * C)
+  ```
+  This method,  is the default chroma upsampling method in the well-established libjpeg-turbo library,
+  also referred as \"smooth\" or \"fancy\" upsampling.
+  }];
+  let arguments = (ins TensorOf<[UI8]>:$encoded_stream,
+    DefaultValuedStrAttr<StrAttr, "RGB">:$pixel_format);
+  let results = (outs TensorOf<[UI8]>:$image);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {2};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXImageDecoderOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+}
+
 def ONNXInstanceNormalizationOp:ONNX_Op<"InstanceNormalization",
   [Pure, OpVersionTrait<22>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX InstanceNormalization operation";
@@ -4045,6 +4154,7 @@ def ONNXLayerNormalizationOp:ONNX_Op<"LayerNormalization",
 
 def ONNXLeakyReluOp:ONNX_Op<"LeakyRelu",
   [Pure, OpVersionTrait<16>, SameOperandsAndResultShape, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX LeakyRelu operation";
   let description = [{
   LeakyRelu takes input data (Tensor<T>) and an argument alpha, and produces one
@@ -6201,7 +6311,7 @@ def ONNXQLinearConvOp:ONNX_Op<"QLinearConv",
 }
 
 def ONNXQLinearMatMulOp:ONNX_Op<"QLinearMatMul",
-  [Pure, OpVersionTrait<10>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<21>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX QLinearMatMul operation";
   let description = [{
   Matrix product that behaves like [numpy.matmul](https://numpy.org/doc/stable/reference/generated/numpy.matmul.html).
@@ -6216,15 +6326,15 @@ def ONNXQLinearMatMulOp:ONNX_Op<"QLinearMatMul",
   have shape [D1, D2, M, 1] for per row quantization and shape [D1, D2, 1, K] for per column quantization.
   Production must never overflow, and accumulation may overflow if and only if in 32 bits.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[I16]>, TensorOf<[UI16]>]>:$a,
-    AnyTypeOf<[TensorOf<[F32]>, TensorOf<[quant_QuantizedType]>]>:$a_scale,
-    AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[I16]>, TensorOf<[UI16]>]>:$a_zero_point,
-    AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[I16]>, TensorOf<[UI16]>]>:$b,
-    AnyTypeOf<[TensorOf<[F32]>, TensorOf<[quant_QuantizedType]>]>:$b_scale,
-    AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[I16]>, TensorOf<[UI16]>]>:$b_zero_point,
-    AnyTypeOf<[TensorOf<[F32]>, TensorOf<[quant_QuantizedType]>]>:$y_scale,
-    AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[I16]>, TensorOf<[UI16]>]>:$y_zero_point);
-  let results = (outs AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[I16]>, TensorOf<[UI16]>]>:$y);
+  let arguments = (ins AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>, TensorOf<[I16]>, TensorOf<[UI16]>]>:$a,
+    AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F16]>, TensorOf<[BF16]>, TensorOf<[I16]>, TensorOf<[UI16]>, TensorOf<[quant_QuantizedType]>]>:$a_scale,
+    AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>, TensorOf<[I16]>, TensorOf<[UI16]>]>:$a_zero_point,
+    AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>, TensorOf<[I16]>, TensorOf<[UI16]>]>:$b,
+    AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F16]>, TensorOf<[BF16]>, TensorOf<[I16]>, TensorOf<[UI16]>, TensorOf<[quant_QuantizedType]>]>:$b_scale,
+    AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>, TensorOf<[I16]>, TensorOf<[UI16]>]>:$b_zero_point,
+    AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F16]>, TensorOf<[BF16]>, TensorOf<[I16]>, TensorOf<[UI16]>, TensorOf<[quant_QuantizedType]>]>:$y_scale,
+    AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>, TensorOf<[I16]>, TensorOf<[UI16]>]>:$y_zero_point);
+  let results = (outs AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>, TensorOf<[I16]>, TensorOf<[UI16]>]>:$y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 8;
@@ -7549,6 +7659,36 @@ def ONNXReduceSumSquareV13Op:ONNX_Op<"ReduceSumSquareV13",
     onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
         onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
       onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceSumSquareV13OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+}
+
+def ONNXRegexFullMatchOp:ONNX_Op<"RegexFullMatch",
+  [Pure, OpVersionTrait<20>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ONNX RegexFullMatch operation";
+  let description = [{
+  RegexFullMatch performs a full regex match on each element of the input tensor. If an element fully matches the regex pattern specified as an attribute, the corresponding element in the output is True and it is False otherwise. [RE2](https://github.com/google/re2/wiki/Syntax) regex syntax is used.
+  }];
+  let arguments = (ins TensorOf<[StringType]>:$X,
+    OptionalAttr<StrAttr>:$pattern);
+  let results = (outs TensorOf<[I1]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {9};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXRegexFullMatchOpShapeHelper(op, oper, ieb, scope);
       assert(sh && "failed to allocate shape helper");
       return sh;
     }
@@ -9785,6 +9925,36 @@ def ONNXSqueezeV11Op:ONNX_Op<"SqueezeV11",
     let hasFolder = 1;
 }
 
+def ONNXStringConcatOp:ONNX_Op<"StringConcat",
+  [Pure, OpVersionTrait<20>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ONNX StringConcat operation";
+  let description = [{
+  StringConcat concatenates string tensors elementwise (with NumPy-style broadcasting support)
+  }];
+  let arguments = (ins TensorOf<[StringType]>:$X,
+    TensorOf<[StringType]>:$Y);
+  let results = (outs TensorOf<[StringType]>:$Z);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {8};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXStringConcatOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+}
+
 def ONNXStringNormalizerOp:ONNX_Op<"StringNormalizer",
   [Pure, OpVersionTrait<10>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX StringNormalizer operation";
@@ -9820,6 +9990,42 @@ def ONNXStringNormalizerOp:ONNX_Op<"StringNormalizer",
     onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
         onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
       onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXStringNormalizerOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+}
+
+def ONNXStringSplitOp:ONNX_Op<"StringSplit",
+  [Pure, OpVersionTrait<20>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ONNX StringSplit operation";
+  let description = [{
+  StringSplit splits a string tensor's elements into substrings based on a delimiter attribute and a maxsplit attribute.
+  
+  The first output of this operator is a tensor of strings representing the substrings from splitting each input string on the `delimiter` substring. This tensor has one additional rank compared to the input tensor in order to store the substrings for each input element (where the input tensor is not empty). Note that, in order to ensure the same number of elements are present in the final dimension, this tensor will pad empty strings as illustrated in the examples below. Consecutive delimiters are not grouped together and are deemed to delimit empty strings, except if the `delimiter` is unspecified or is the empty string (\"\"). In the case where the `delimiter` is unspecified or the empty string, consecutive whitespace characters are regarded as a single separator and leading or trailing whitespace is removed in the output.
+  
+  The second output tensor represents the number of substrings generated. `maxsplit` can be used to limit the number of splits performed - after the `maxsplit`th split if the string is not fully split, the trailing suffix of input string after the final split point is also added. For elements where fewer splits are possible than specified in `maxsplit`, it has no effect.
+  }];
+  let arguments = (ins TensorOf<[StringType]>:$X,
+    OptionalAttr<StrAttr>:$delimiter,
+    OptionalAttr<SI64Attr>:$maxsplit);
+  let results = (outs TensorOf<[StringType]>:$Y,
+    TensorOf<[I64]>:$Z);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 2;
+    }
+    static std::vector<int> getTypeMap() {
+      return {8,7};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXStringSplitOpShapeHelper(op, oper, ieb, scope);
       assert(sh && "failed to allocate shape helper");
       return sh;
     }
@@ -10870,7 +11076,7 @@ def ONNXImputerOp:ONNX_Op<"Imputer",
 }
 
 def ONNXLabelEncoderOp:ONNX_Op<"LabelEncoder",
-  [Pure, OpVersionTrait<2>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<4>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX LabelEncoder operation";
   let description = [{
   Maps each element in the input tensor to another value.<br>
@@ -10879,29 +11085,34 @@ def ONNXLabelEncoderOp:ONNX_Op<"LabelEncoder",
       would be mapped to the i-th value in the specified 'values_*' attribute. It
       implies that input's element type and the element type of the specified
       'keys_*' should be identical while the output type is identical to the
-      specified 'values_*' attribute. If an input element can not be found in the
+      specified 'values_*' attribute. Note that the 'keys_*' and 'values_*' attributes
+      must have the same length. If an input element can not be found in the
       specified 'keys_*' attribute, the 'default_*' that matches the specified
-      'values_*' attribute may be used as its output value.<br>
+      'values_*' attribute may be used as its output value. The type of the 'default_*'
+      attribute must match the 'values_*' attribute chosen. <br>
       Let's consider an example which maps a string tensor to an integer tensor.
       Assume and 'keys_strings' is [\"Amy\", \"Sally\"], 'values_int64s' is [5, 6],
       and 'default_int64' is '-1'.  The input [\"Dori\", \"Amy\", \"Amy\", \"Sally\",
       \"Sally\"] would be mapped to [-1, 5, 5, 6, 6].<br>
       Since this operator is an one-to-one mapping, its input and output shapes
       are the same. Notice that only one of 'keys_*'/'values_*' can be set.<br>
-      For key look-up, bit-wise comparison is used so even a float NaN can be
-      mapped to a value in 'values_*' attribute.<br>
+      Float keys with value 'NaN' match any input 'NaN' value regardless of bit
+      value. If a key is repeated, the last key takes precedence.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[StringType]>, TensorOf<[I64]>, TensorOf<[F32]>, TensorOf<[quant_QuantizedType]>]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[StringType]>, TensorOf<[I64]>, TensorOf<[F32]>, TensorOf<[I32]>, TensorOf<[I16]>, TensorOf<[F64]>, TensorOf<[quant_QuantizedType]>]>:$X,
     DefaultValuedAttr<F32Attr, "-0.0">:$default_float,
     DefaultValuedAttr<SI64Attr, "-1">:$default_int64,
     DefaultValuedStrAttr<StrAttr, "_Unused">:$default_string,
+    OptionalAttr<AnyAttr>:$default_tensor,
     OptionalAttr<F32ArrayAttr>:$keys_floats,
     OptionalAttr<I64ArrayAttr>:$keys_int64s,
     OptionalAttr<StrArrayAttr>:$keys_strings,
+    OptionalAttr<AnyAttr>:$keys_tensor,
     OptionalAttr<F32ArrayAttr>:$values_floats,
     OptionalAttr<I64ArrayAttr>:$values_int64s,
-    OptionalAttr<StrArrayAttr>:$values_strings);
-  let results = (outs AnyTypeOf<[TensorOf<[StringType]>, TensorOf<[I64]>, TensorOf<[F32]>, TensorOf<[quant_QuantizedType]>]>:$Y);
+    OptionalAttr<StrArrayAttr>:$values_strings,
+    OptionalAttr<AnyAttr>:$values_tensor);
+  let results = (outs AnyTypeOf<[TensorOf<[StringType]>, TensorOf<[I64]>, TensorOf<[F32]>, TensorOf<[I32]>, TensorOf<[I16]>, TensorOf<[F64]>, TensorOf<[quant_QuantizedType]>]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -11185,11 +11396,71 @@ def ONNXScalerOp:ONNX_Op<"Scaler",
   }];
 }
 
+def ONNXTreeEnsembleOp:ONNX_Op<"TreeEnsemble",
+  [Pure, OpVersionTrait<5>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ONNX TreeEnsemble operation";
+  let description = [{
+  Tree Ensemble operator.  Returns the regressed values for each input in a batch.
+      Inputs have dimensions `[N, F]` where `N` is the input batch size and `F` is the number of input features.
+      Outputs have dimensions `[N, num_targets]` where `N` is the batch size and `num_targets` is the number of targets, which is a configurable attribute.
+  
+      The encoding of this attribute is split along interior nodes and the leaves of the trees. Notably, attributes with the prefix `nodes_*` are associated with interior nodes, and attributes with the prefix `leaf_*` are associated with leaves.
+      The attributes `nodes_*` must all have the same length and encode a sequence of tuples, as defined by taking all the `nodes_*` fields at a given position.
+  
+      All fields prefixed with `leaf_*` represent tree leaves, and similarly define tuples of leaves and must have identical length.
+  
+      This operator can be used to implement both the previous `TreeEnsembleRegressor` and `TreeEnsembleClassifier` nodes.
+      The `TreeEnsembleRegressor` node maps directly to this node and requires changing how the nodes are represented.
+      The `TreeEnsembleClassifier` node can be implemented by adding a `ArgMax` node after this node to determine the top class.
+      To encode class labels, a `LabelEncoder` or `GatherND` operator may be used.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[F16]>, TensorOf<[quant_QuantizedType]>]>:$X,
+    DefaultValuedAttr<SI64Attr, "1">:$aggregate_function,
+    I64ArrayAttr:$leaf_targetids,
+    AnyAttr:$leaf_weights,
+    OptionalAttr<AnyAttr>:$membership_values,
+    OptionalAttr<SI64Attr>:$n_targets,
+    I64ArrayAttr:$nodes_falseleafs,
+    I64ArrayAttr:$nodes_falsenodeids,
+    I64ArrayAttr:$nodes_featureids,
+    OptionalAttr<AnyAttr>:$nodes_hitrates,
+    OptionalAttr<I64ArrayAttr>:$nodes_missing_value_tracks_true,
+    AnyAttr:$nodes_modes,
+    AnyAttr:$nodes_splits,
+    I64ArrayAttr:$nodes_trueleafs,
+    I64ArrayAttr:$nodes_truenodeids,
+    DefaultValuedAttr<SI64Attr, "0">:$post_transform,
+    I64ArrayAttr:$tree_roots);
+  let results = (outs AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[F16]>, TensorOf<[quant_QuantizedType]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {30};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXTreeEnsembleOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+}
+
 def ONNXTreeEnsembleClassifierOp:ONNX_Op<"TreeEnsembleClassifier",
-  [Pure, OpVersionTrait<1>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<5>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX TreeEnsembleClassifier operation";
   let description = [{
-  Tree Ensemble classifier.  Returns the top class for each of N inputs.<br>
+  This operator is DEPRECATED. Please use TreeEnsemble with provides similar functionality.
+      In order to determine the top class, the ArgMax node can be applied to the output of TreeEnsemble.
+      To encode class labels, use a LabelEncoder operator.
+      Tree Ensemble classifier. Returns the top class for each of N inputs.<br>
       The attributes named 'nodes_X' form a sequence of tuples, associated by
       index into the sequences, which must all be of equal length. These tuples
       define the nodes.<br>
@@ -11198,24 +11469,30 @@ def ONNXTreeEnsembleClassifierOp:ONNX_Op<"TreeEnsembleClassifier",
       the associated class_weights index.<br>
       One and only one of classlabels_strings or classlabels_int64s
       will be defined. The class_ids are indices into this list.
+      All fields ending with <i>_as_tensor</i> can be used instead of the
+      same parameter without the suffix if the element type is double and not float.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I64]>, TensorOf<[I32]>, TensorOf<[quant_QuantizedType]>]>:$X,
     OptionalAttr<F32ArrayAttr>:$base_values,
+    OptionalAttr<AnyAttr>:$base_values_as_tensor,
     OptionalAttr<I64ArrayAttr>:$class_ids,
     OptionalAttr<I64ArrayAttr>:$class_nodeids,
     OptionalAttr<I64ArrayAttr>:$class_treeids,
     OptionalAttr<F32ArrayAttr>:$class_weights,
+    OptionalAttr<AnyAttr>:$class_weights_as_tensor,
     OptionalAttr<I64ArrayAttr>:$classlabels_int64s,
     OptionalAttr<StrArrayAttr>:$classlabels_strings,
     OptionalAttr<I64ArrayAttr>:$nodes_falsenodeids,
     OptionalAttr<I64ArrayAttr>:$nodes_featureids,
     OptionalAttr<F32ArrayAttr>:$nodes_hitrates,
+    OptionalAttr<AnyAttr>:$nodes_hitrates_as_tensor,
     OptionalAttr<I64ArrayAttr>:$nodes_missing_value_tracks_true,
     OptionalAttr<StrArrayAttr>:$nodes_modes,
     OptionalAttr<I64ArrayAttr>:$nodes_nodeids,
     OptionalAttr<I64ArrayAttr>:$nodes_treeids,
     OptionalAttr<I64ArrayAttr>:$nodes_truenodeids,
     OptionalAttr<F32ArrayAttr>:$nodes_values,
+    OptionalAttr<AnyAttr>:$nodes_values_as_tensor,
     DefaultValuedStrAttr<StrAttr, "NONE">:$post_transform);
   let results = (outs AnyTypeOf<[TensorOf<[StringType]>, TensorOf<[I64]>]>:$Y,
     AnyTypeOf<[TensorOf<[F32]>, TensorOf<[quant_QuantizedType]>]>:$Z);
@@ -11241,10 +11518,12 @@ def ONNXTreeEnsembleClassifierOp:ONNX_Op<"TreeEnsembleClassifier",
 }
 
 def ONNXTreeEnsembleRegressorOp:ONNX_Op<"TreeEnsembleRegressor",
-  [Pure, OpVersionTrait<1>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<5>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX TreeEnsembleRegressor operation";
   let description = [{
-  Tree Ensemble regressor.  Returns the regressed values for each input in N.<br>
+  This operator is DEPRECATED. Please use TreeEnsemble instead which provides the same
+      functionality.<br>
+      Tree Ensemble regressor.  Returns the regressed values for each input in N.<br>
       All args with nodes_ are fields of a tuple of tree nodes, and
       it is assumed they are the same length, and an index i will decode the
       tuple across these inputs.  Each node id can appear only once
@@ -11252,27 +11531,33 @@ def ONNXTreeEnsembleRegressorOp:ONNX_Op<"TreeEnsembleRegressor",
       All fields prefixed with target_ are tuples of votes at the leaves.<br>
       A leaf may have multiple votes, where each vote is weighted by
       the associated target_weights index.<br>
+      All fields ending with <i>_as_tensor</i> can be used instead of the
+      same parameter without the suffix if the element type is double and not float.
       All trees must have their node ids start at 0 and increment by 1.<br>
       Mode enum is BRANCH_LEQ, BRANCH_LT, BRANCH_GTE, BRANCH_GT, BRANCH_EQ, BRANCH_NEQ, LEAF
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I64]>, TensorOf<[I32]>, TensorOf<[quant_QuantizedType]>]>:$X,
     DefaultValuedStrAttr<StrAttr, "SUM">:$aggregate_function,
     OptionalAttr<F32ArrayAttr>:$base_values,
+    OptionalAttr<AnyAttr>:$base_values_as_tensor,
     OptionalAttr<SI64Attr>:$n_targets,
     OptionalAttr<I64ArrayAttr>:$nodes_falsenodeids,
     OptionalAttr<I64ArrayAttr>:$nodes_featureids,
     OptionalAttr<F32ArrayAttr>:$nodes_hitrates,
+    OptionalAttr<AnyAttr>:$nodes_hitrates_as_tensor,
     OptionalAttr<I64ArrayAttr>:$nodes_missing_value_tracks_true,
     OptionalAttr<StrArrayAttr>:$nodes_modes,
     OptionalAttr<I64ArrayAttr>:$nodes_nodeids,
     OptionalAttr<I64ArrayAttr>:$nodes_treeids,
     OptionalAttr<I64ArrayAttr>:$nodes_truenodeids,
     OptionalAttr<F32ArrayAttr>:$nodes_values,
+    OptionalAttr<AnyAttr>:$nodes_values_as_tensor,
     DefaultValuedStrAttr<StrAttr, "NONE">:$post_transform,
     OptionalAttr<I64ArrayAttr>:$target_ids,
     OptionalAttr<I64ArrayAttr>:$target_nodeids,
     OptionalAttr<I64ArrayAttr>:$target_treeids,
-    OptionalAttr<F32ArrayAttr>:$target_weights);
+    OptionalAttr<F32ArrayAttr>:$target_weights,
+    OptionalAttr<AnyAttr>:$target_weights_as_tensor);
   let results = (outs AnyTypeOf<[TensorOf<[F32]>, TensorOf<[quant_QuantizedType]>]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {

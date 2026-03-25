@@ -1673,6 +1673,15 @@ public:
     if (firstAllowZero != 0)
       return rewriter.notifyMatchFailure(op, "Does not support AllowZero != 0");
 
+    // Don't fuse if element types differ (e.g. quantized -> f32 boundary).
+    auto firstDataElemType =
+        mlir::cast<ShapedType>(firstData.getType()).getElementType();
+    auto secondResultElemType =
+        mlir::cast<ShapedType>(secondReshapeOp.getType()).getElementType();
+    if (firstDataElemType != secondResultElemType)
+      return rewriter.notifyMatchFailure(
+          op, "Element types differ across reshape chain");
+
     Location loc = rewriter.getFusedLoc(
         {firstReshapeOp.getLoc(), secondReshapeOp.getLoc()});
     OnnxBuilder createONNX(rewriter, loc);
@@ -3088,6 +3097,24 @@ public:
   }
 };
 
+// LeakyRelu with alpha == 0.0 is equivalent to Relu.
+class LeakyReluAlphaZeroToReluPattern
+    : public OpRewritePattern<ONNXLeakyReluOp> {
+public:
+  using OpRewritePattern<ONNXLeakyReluOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXLeakyReluOp op, PatternRewriter &rewriter) const override {
+    FloatAttr alphaAttr = op.getAlphaAttr();
+    assert(alphaAttr);
+    if (alphaAttr.getValueAsDouble() != 0.0)
+      return failure();
+    rewriter.replaceOpWithNewOp<ONNXReluOp>(
+        op, op.getResult().getType(), op.getX());
+    return success();
+  }
+};
+
 // =============================================================================
 /// Register optimization patterns as "canonicalization" patterns.
 /// Add op to OpsWithCanonicalizer in gen_onnx_mlir.py to activate.
@@ -3269,6 +3296,12 @@ void ONNXLayoutTransformOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<ONNXLayoutTransformEliminationPattern>(context);
   result.insert<ONNXLayoutTransformFusionPattern>(context);
+}
+
+/// on the ONNXLeakyReluOp.
+void ONNXLeakyReluOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<LeakyReluAlphaZeroToReluPattern>(context);
 }
 
 /// on the ONNXLessOp.

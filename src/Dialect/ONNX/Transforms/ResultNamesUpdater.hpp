@@ -9,6 +9,9 @@ namespace onnx_mlir {
 class ResultNamesUpdater : public mlir::RewriterBase::Listener {
 public:
   void notifyOperationReplaced(
+      mlir::Operation *op, mlir::Operation *replacement) override;
+
+  void notifyOperationReplaced(
       mlir::Operation *op, mlir::ValueRange replacement) override;
 };
 
