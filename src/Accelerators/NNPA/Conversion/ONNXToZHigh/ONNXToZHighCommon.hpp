@@ -123,5 +123,12 @@ mlir::FloatAttr getScalarF32AttrFromConstant(mlir::Value v);
 mlir::Value getDynShape(
     mlir::Location loc, mlir::PatternRewriter &rewriter, mlir::Value x);
 
+// Copy the onnx_node_name attribute from an ONNX operation to a zhigh operation.
+template <typename ONNXOp, typename ZHighOp>
+void preserveOnnxNodeName(ONNXOp onnxOp, ZHighOp zhighOp) {
+  if (auto nodeName = onnxOp->template getAttrOfType<mlir::StringAttr>("onnx_node_name"))
+    zhighOp->setAttr("onnx_node_name", nodeName);
+}
+
 } // namespace onnx_mlir
 #endif
