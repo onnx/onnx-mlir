@@ -37,8 +37,8 @@ static LogicalResult verifyXFEFusedConvActivationAttrs(ConvLikeOp convOp) {
   bool isPrelu = activation == "PRELU";
 
   if (convOp.getLeakyreluAlphaAttr() && activation != "LEAKYRELU" && !isPrelu)
-    return convOp->emitOpError(
-        "'leakyrelu_alpha' is only valid when activation is LEAKYRELU or PRELU");
+    return convOp->emitOpError("'leakyrelu_alpha' is only valid when "
+                               "activation is LEAKYRELU or PRELU");
 
   if (convOp.getPreluInAttr() && !isPrelu)
     return convOp->emitOpError(

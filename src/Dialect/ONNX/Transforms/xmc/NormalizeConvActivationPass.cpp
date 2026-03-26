@@ -27,7 +27,7 @@
 //  "LEAKYRELU"         | "LEAKYRELU"       | If alpha == 26/256
 //  "LEAKYRELU"         | "PRELU"           | If alpha != 26/256
 //                      |                   | Computes prelu_in/shift
-//  "HSIGMOID"          | "HSIGMOID"        | No change 
+//  "HSIGMOID"          | "HSIGMOID"        | No change
 //  "RELU6"             | "RELU6"           | No change
 //  "SIGMOID"           | "SIGMOID"         | No change
 //

@@ -20,7 +20,8 @@ static bool isValidDepthwiseConvActivation(StringRef activation) {
 }
 
 template <typename ConvLikeOp>
-static LogicalResult verifyDepthwiseConvFusedActivationAttrs(ConvLikeOp convOp) {
+static LogicalResult verifyDepthwiseConvFusedActivationAttrs(
+    ConvLikeOp convOp) {
   StringRef activation = convOp.getActivation();
   if (!isValidDepthwiseConvActivation(activation))
     return convOp->emitOpError(
@@ -31,8 +32,8 @@ static LogicalResult verifyDepthwiseConvFusedActivationAttrs(ConvLikeOp convOp) 
   bool isPrelu = activation == "PRELU";
 
   if (convOp.getLeakyreluAlphaAttr() && activation != "LEAKYRELU" && !isPrelu)
-    return convOp->emitOpError(
-        "'leakyrelu_alpha' is only valid when activation is LEAKYRELU or PRELU");
+    return convOp->emitOpError("'leakyrelu_alpha' is only valid when "
+                               "activation is LEAKYRELU or PRELU");
 
   if (convOp.getPreluInAttr() && !isPrelu)
     return convOp->emitOpError(
