@@ -8,6 +8,12 @@
 # After changes that impact the documentation of the ops, run
 # "make onnx-mlir-docs".
 
+# TODO: Consolidate extraClassDeclaration generation methods
+# There are currently multiple ways to generate extraClassDeclaration in this
+# script that should be unified into a single, consistent approach. Look for
+# methods that generate TableGen code containing 'extraClassDeclaration' and
+# consolidate them to reduce code duplication and improve maintainability.
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
