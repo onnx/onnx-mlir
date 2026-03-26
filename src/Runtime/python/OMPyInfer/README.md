@@ -50,7 +50,7 @@ In the env to run inference (no need to be the container for compiler)
 
 ```
 cd build-OMPyInfer
-cmake --DONNX_MLIR_TARGET_TO_BUILD=OMPyInfer
+cmake --DONNX_MLIR_TARGET_TO_BUILD=OMPyInfer ..
 cmake --build . --target OMCreateOMPyInfer
 pip install -e src/Runtime/python/OMPyInfer
 ```
