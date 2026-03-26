@@ -35,7 +35,12 @@ func.func @test_gridsample_2d_nearest(%arg0: tensor<1x1x3x3xf32>, %arg1: tensor<
 // CHECK:             [[IV:%.+]]:4 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3)
 // CHECK:             [[LOAD_GRID_X_:%.+]] = krnl.load [[GRID_]]
 // CHECK:             [[LOAD_GRID_Y_:%.+]] = krnl.load [[GRID_]]
-// CHECK:             math.roundeven
+// CHECK:             math.floor
+// CHECK:             arith.subf
+// CHECK:             arith.cmpf
+// CHECK:             arith.addf
+// CHECK:             arith.select
+// CHECK:             arith.mulf
 // CHECK:             krnl.store {{%.+}}, [[RES_]]
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<1x1x2x2xf32>
@@ -99,7 +104,12 @@ func.func @test_gridsample_3d_nearest(%arg0: tensor<1x2x2x3x4xf32>, %arg1: tenso
 // CHECK:             [[LOAD_GRID_X_:%.+]] = krnl.load [[GRID_]]
 // CHECK:             [[LOAD_GRID_Y_:%.+]] = krnl.load [[GRID_]]
 // CHECK:             [[LOAD_GRID_Z_:%.+]] = krnl.load [[GRID_]]
-// CHECK:             math.roundeven
+// CHECK:             math.floor
+// CHECK:             arith.subf
+// CHECK:             arith.cmpf
+// CHECK:             arith.addf
+// CHECK:             arith.select
+// CHECK:             arith.mulf
 // CHECK:             krnl.store {{%.+}}, [[RES_]]
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<1x2x2x2x2xf32>
@@ -143,7 +153,12 @@ func.func @test_gridsample_2d_nearest_border(%arg0: tensor<1x1x3x3xf32>, %arg1: 
 // CHECK:             [[IV:%.+]]:4 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3)
 // CHECK:             [[LOAD_GRID_X_:%.+]] = krnl.load [[GRID_]]
 // CHECK:             [[LOAD_GRID_Y_:%.+]] = krnl.load [[GRID_]]
-// CHECK:             math.roundeven
+// CHECK:             math.floor
+// CHECK:             arith.subf
+// CHECK:             arith.cmpf
+// CHECK:             arith.addf
+// CHECK:             arith.select
+// CHECK:             arith.mulf
 // CHECK:             arith.maxnumf
 // CHECK:             arith.minnumf
 // CHECK:             krnl.store {{%.+}}, [[RES_]]
@@ -214,7 +229,12 @@ func.func @test_gridsample_3d_nearest_border(%arg0: tensor<1x2x2x3x4xf32>, %arg1
 // CHECK:             [[LOAD_GRID_X_:%.+]] = krnl.load [[GRID_]]
 // CHECK:             [[LOAD_GRID_Y_:%.+]] = krnl.load [[GRID_]]
 // CHECK:             [[LOAD_GRID_Z_:%.+]] = krnl.load [[GRID_]]
-// CHECK:             math.roundeven
+// CHECK:             math.floor
+// CHECK:             arith.subf
+// CHECK:             arith.cmpf
+// CHECK:             arith.addf
+// CHECK:             arith.select
+// CHECK:             arith.mulf
 // CHECK:             arith.maxnumf
 // CHECK:             arith.minnumf
 // CHECK:             krnl.store {{%.+}}, [[RES_]]
