@@ -19,7 +19,9 @@
 // whether it is a fuseable activation of either kind.
 //
 // Filters:
+//   - conv pads attribute (if present) must be non-negative
 //   - conv must have single fanout
+//   - activation output must have single fanout (single use)
 //   - if both conv output and activation output are quantized, their
 //     quantization parameters must match (no requantization)
 //
@@ -65,6 +67,20 @@ static bool quantTypesMatch(Type convOutputType, Type activationOutputType) {
   return convQuant.getScale() == actQuant.getScale() &&
          convQuant.getZeroPoint() == actQuant.getZeroPoint() &&
          convQuant.getStorageType() == actQuant.getStorageType();
+}
+
+/// Return false if the conv's explicit pads attribute contains a negative
+/// value.
+template <typename ConvOp>
+static bool convPadsNonNegative(ConvOp convOp) {
+  if (auto padsAttr = convOp.getPadsAttr()) {
+    for (mlir::Attribute p : padsAttr.getValue()) {
+      int64_t v = mlir::cast<mlir::IntegerAttr>(p).getValue().getSExtValue();
+      if (v < 0)
+        return false;
+    }
+  }
+  return true;
 }
 
 /// Try to identify a fuseable activation from an operation.
@@ -152,6 +168,10 @@ struct FuseConvActivation : public OpRewritePattern<ConvOp> {
       return rewriter.notifyMatchFailure(
           convOp, "conv already has fused activation");
 
+    if (!convPadsNonNegative(convOp))
+      return rewriter.notifyMatchFailure(
+          convOp, "conv pads must be non-negative");
+
     // Conv output must have single fanout
     if (!convOp.getResult().hasOneUse())
       return rewriter.notifyMatchFailure(convOp, "conv has multiple users");
@@ -162,6 +182,10 @@ struct FuseConvActivation : public OpRewritePattern<ConvOp> {
     if (actInfo.activationType.empty())
       return rewriter.notifyMatchFailure(
           convOp, "single user is not a fuseable activation");
+
+    if (!actInfo.output.hasOneUse())
+      return rewriter.notifyMatchFailure(
+          convOp, "activation output has multiple users");
 
     // Verify the user's input comes from this conv (not from a different
     // operand position for multi-input ops like FusedEltwise)

@@ -163,6 +163,68 @@ func.func @test_no_fusion_multiple_users(
 // CHECK: "onnx.XCOMPILERFusedEltwise"
 
 // -----
+// Test: No fusion when conv pads attribute contains a negative value
+// CHECK-LABEL: func.func @test_no_fusion_negative_pads
+func.func @test_no_fusion_negative_pads(
+    %arg0: tensor<1x4x4x8x!quant.uniform<u8:f32, 0.02:128>>,
+    %weight: tensor<16x3x3x8x!quant.uniform<i8:f32, 0.005>>,
+    %bias: tensor<16x!quant.uniform<i32:f32, 1.000000e-04>>,
+    %none: none) -> tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>> {
+
+  %conv = "onnx.XFEConv"(%arg0, %weight, %bias)
+      {activation = "NONE", auto_pad = "NOTSET", dilations = [1, 1],
+       group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, -1],
+       strides = [1, 1]}
+      : (tensor<1x4x4x8x!quant.uniform<u8:f32, 0.02:128>>,
+         tensor<16x3x3x8x!quant.uniform<i8:f32, 0.005>>,
+         tensor<16x!quant.uniform<i32:f32, 1.000000e-04>>)
+      -> tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>>
+
+  %act = "onnx.XCOMPILERFusedEltwise"(%conv, %none)
+      {enable_lut_sigmoid = false, nonlinear = "NONE", type = "RELU"}
+      : (tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>>, none)
+      -> tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>>
+
+  return %act : tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>>
+}
+// CHECK: "onnx.XFEConv"
+// CHECK-SAME: activation = "NONE"
+// CHECK-SAME: pads = [1, 1, 1, -1]
+// CHECK: "onnx.XCOMPILERFusedEltwise"
+
+// -----
+// Test: No fusion when activation output has multiple users (conv has single user)
+// CHECK-LABEL: func.func @test_no_fusion_activation_multi_use
+func.func @test_no_fusion_activation_multi_use(
+    %arg0: tensor<1x4x4x8x!quant.uniform<u8:f32, 0.02:128>>,
+    %weight: tensor<16x3x3x8x!quant.uniform<i8:f32, 0.005>>,
+    %bias: tensor<16x!quant.uniform<i32:f32, 1.000000e-04>>,
+    %none: none) -> (tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>>,
+                     tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>>) {
+
+  %conv = "onnx.XFEConv"(%arg0, %weight, %bias)
+      {activation = "NONE", auto_pad = "NOTSET", dilations = [1, 1],
+       group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1],
+       strides = [1, 1]}
+      : (tensor<1x4x4x8x!quant.uniform<u8:f32, 0.02:128>>,
+         tensor<16x3x3x8x!quant.uniform<i8:f32, 0.005>>,
+         tensor<16x!quant.uniform<i32:f32, 1.000000e-04>>)
+      -> tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>>
+
+  %act = "onnx.XCOMPILERFusedEltwise"(%conv, %none)
+      {enable_lut_sigmoid = false, nonlinear = "NONE", type = "RELU"}
+      : (tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>>, none)
+      -> tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>>
+
+  // Two uses of activation output; conv still has a single user.
+  return %act, %act : tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>>,
+                        tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>>
+}
+// CHECK: "onnx.XFEConv"
+// CHECK-SAME: activation = "NONE"
+// CHECK: "onnx.XCOMPILERFusedEltwise"
+
+// -----
 // Test: No fusion when FusedEltwise is not an activation (e.g., ADD)
 // CHECK-LABEL: func.func @test_no_fusion_non_activation
 func.func @test_no_fusion_non_activation(
