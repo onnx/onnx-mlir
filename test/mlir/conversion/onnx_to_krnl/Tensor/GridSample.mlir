@@ -1,4 +1,7 @@
-// RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-krnl %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --march=z17 --shape-inference --convert-onnx-to-krnl %s -split-input-file | FileCheck %s
+
+
+// Note here: we added the march = z17 because not all machines have support for round even operation.
 
 // -----
 
@@ -10,12 +13,9 @@ func.func @test_gridsample_2d_bilinear(%arg0: tensor<1x1x4x4xf32>, %arg1: tensor
 // CHECK-LABEL:  func @test_gridsample_2d_bilinear
 // CHECK-SAME:   ([[INPUT_:%.+]]: memref<1x1x4x4xf32>, [[GRID_:%.+]]: memref<1x2x3x2xf32>) -> memref<1x1x2x3xf32> {
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<1x1x2x3xf32>
-// CHECK-DAG:       [[INDICES_ALLOC_:%.+]] = memref.alloc() {{.*}}: memref<2x3x4xindex>
-// CHECK-DAG:       [[INDICES_:%.+]] = memref.cast [[INDICES_ALLOC_]] : memref<2x3x4xindex> to memref<?x?x4xindex>
-// CHECK-DAG:       [[WEIGHTS_ALLOC_:%.+]] = memref.alloc() {{.*}}: memref<2x3x4xf32>
-// CHECK-DAG:       [[WEIGHTS_:%.+]] = memref.cast [[WEIGHTS_ALLOC_]] : memref<2x3x4xf32> to memref<?x?x4xf32>
-// CHECK-DAG:       [[MASK_ALLOC_:%.+]] = memref.alloc() {{.*}}: memref<2x3xi8>
-// CHECK-DAG:       [[MASK_:%.+]] = memref.cast [[MASK_ALLOC_]] : memref<2x3xi8> to memref<?x?xi8>
+// CHECK-DAG:       [[INDICES_:%.+]] = memref.alloc() {{.*}}: memref<2x3x4xindex>
+// CHECK-DAG:       [[WEIGHTS_:%.+]] = memref.alloc() {{.*}}: memref<2x3x4xf32>
+// CHECK-DAG:       [[MASK_:%.+]] = memref.alloc() {{.*}}: memref<2x3xi8>
 // CHECK-DAG:       [[LOOP_N_:%.+]] = krnl.define_loops 1
 // CHECK:           krnl.iterate([[LOOP_N_]]) with ([[LOOP_N_]] -> [[I_N_:%.+]] = 0 to 1){
 // CHECK:             [[LOOP_PLAN_:%.+]]:2 = krnl.define_loops 2
@@ -52,7 +52,7 @@ func.func @test_gridsample_2d_nearest(%arg0: tensor<1x1x3x3xf32>, %arg1: tensor<
 // CHECK:             [[IV:%.+]]:4 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3)
 // CHECK:             [[LOAD_GRID_X_:%.+]] = krnl.load [[GRID_]]
 // CHECK:             [[LOAD_GRID_Y_:%.+]] = krnl.load [[GRID_]]
-// CHECK:             math.roundeven
+// CHECK:             krnl.round_even
 // CHECK:             krnl.store {{%.+}}, [[RES_]]
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<1x1x2x2xf32>
@@ -116,7 +116,7 @@ func.func @test_gridsample_3d_nearest(%arg0: tensor<1x2x2x3x4xf32>, %arg1: tenso
 // CHECK:             [[LOAD_GRID_X_:%.+]] = krnl.load [[GRID_]]
 // CHECK:             [[LOAD_GRID_Y_:%.+]] = krnl.load [[GRID_]]
 // CHECK:             [[LOAD_GRID_Z_:%.+]] = krnl.load [[GRID_]]
-// CHECK:             math.roundeven
+// CHECK:             krnl.round_even
 // CHECK:             krnl.store {{%.+}}, [[RES_]]
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<1x2x2x2x2xf32>
@@ -132,9 +132,9 @@ func.func @test_gridsample_2d_linear_border(%arg0: tensor<1x1x4x4xf32>, %arg1: t
 // CHECK-LABEL:  func @test_gridsample_2d_linear_border
 // CHECK-SAME:   ([[INPUT_:%.+]]: memref<1x1x4x4xf32>, [[GRID_:%.+]]: memref<1x2x3x2xf32>) -> memref<1x1x2x3xf32> {
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<1x1x2x3xf32>
-// CHECK-DAG:       [[INDICES_:%.+]] = memref.alloc({{.*}}) {{.*}}: memref<?x?x4xindex>
-// CHECK-DAG:       [[WEIGHTS_:%.+]] = memref.alloc({{.*}}) {{.*}}: memref<?x?x4xf32>
-// CHECK-DAG:       [[MASK_:%.+]] = memref.alloc({{.*}}) {{.*}}: memref<?x?xi8>
+// CHECK-DAG:       [[INDICES_:%.+]] = memref.alloc() {{.*}}: memref<2x3x4xindex>
+// CHECK-DAG:       [[WEIGHTS_:%.+]] = memref.alloc() {{.*}}: memref<2x3x4xf32>
+// CHECK-NOT:       memref.alloc{{.*}}memref<2x3xi8>
 // CHECK-DAG:       [[LOOP_N_:%.+]] = krnl.define_loops 1
 // CHECK:           krnl.iterate([[LOOP_N_]]) with ([[LOOP_N_]] -> [[I_N_:%.+]] = 0 to 1){
 // CHECK:             [[LOOP_PLAN_:%.+]]:2 = krnl.define_loops 2
@@ -142,9 +142,9 @@ func.func @test_gridsample_2d_linear_border(%arg0: tensor<1x1x4x4xf32>, %arg1: t
 // CHECK:               [[LOAD_GRID_X_:%.+]] = krnl.load [[GRID_]]
 // CHECK:               [[LOAD_GRID_Y_:%.+]] = krnl.load [[GRID_]]
 // CHECK:               math.floor
+// CHECK-DAG:           krnl.store {{%.+}}, [[WEIGHTS_]]
 // CHECK:               arith.maxnumf
 // CHECK:               arith.minnumf
-// CHECK-DAG:           krnl.store {{%.+}}, [[WEIGHTS_]]
 // CHECK-DAG:           krnl.store {{%.+}}, [[INDICES_]]
 // CHECK:             }
 // CHECK:             [[LOOP_APPLY_:%.+]]:3 = krnl.define_loops 3
@@ -173,7 +173,7 @@ func.func @test_gridsample_2d_nearest_border(%arg0: tensor<1x1x3x3xf32>, %arg1: 
 // CHECK:             [[IV:%.+]]:4 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3)
 // CHECK:             [[LOAD_GRID_X_:%.+]] = krnl.load [[GRID_]]
 // CHECK:             [[LOAD_GRID_Y_:%.+]] = krnl.load [[GRID_]]
-// CHECK:             math.roundeven
+// CHECK:             krnl.round_even
 // CHECK:             arith.maxnumf
 // CHECK:             arith.minnumf
 // CHECK:             krnl.store {{%.+}}, [[RES_]]
@@ -244,7 +244,7 @@ func.func @test_gridsample_3d_nearest_border(%arg0: tensor<1x2x2x3x4xf32>, %arg1
 // CHECK:             [[LOAD_GRID_X_:%.+]] = krnl.load [[GRID_]]
 // CHECK:             [[LOAD_GRID_Y_:%.+]] = krnl.load [[GRID_]]
 // CHECK:             [[LOAD_GRID_Z_:%.+]] = krnl.load [[GRID_]]
-// CHECK:             math.roundeven
+// CHECK:             krnl.round_even
 // CHECK:             arith.maxnumf
 // CHECK:             arith.minnumf
 // CHECK:             krnl.store {{%.+}}, [[RES_]]
@@ -262,12 +262,9 @@ func.func @test_gridsample_2d_mixed_types(%arg0: tensor<1x1x4x4xf32>, %arg1: ten
 // CHECK-LABEL:  func @test_gridsample_2d_mixed_types
 // CHECK-SAME:   ([[INPUT_:%.+]]: memref<1x1x4x4xf32>, [[GRID_:%.+]]: memref<1x2x2x2xf64>) -> memref<1x1x2x2xf32> {
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<1x1x2x2xf32>
-// CHECK-DAG:       [[INDICES_ALLOC_:%.+]] = memref.alloc() {{.*}}: memref<2x2x4xindex>
-// CHECK-DAG:       [[INDICES_:%.+]] = memref.cast [[INDICES_ALLOC_]] : memref<2x2x4xindex> to memref<?x?x4xindex>
-// CHECK-DAG:       [[WEIGHTS_ALLOC_:%.+]] = memref.alloc() {{.*}}: memref<2x2x4xf32>
-// CHECK-DAG:       [[WEIGHTS_:%.+]] = memref.cast [[WEIGHTS_ALLOC_]] : memref<2x2x4xf32> to memref<?x?x4xf32>
-// CHECK-DAG:       [[MASK_ALLOC_:%.+]] = memref.alloc() {{.*}}: memref<2x2xi8>
-// CHECK-DAG:       [[MASK_:%.+]] = memref.cast [[MASK_ALLOC_]] : memref<2x2xi8> to memref<?x?xi8>
+// CHECK-DAG:       [[INDICES_:%.+]] = memref.alloc() {{.*}}: memref<2x2x4xindex>
+// CHECK-DAG:       [[WEIGHTS_:%.+]] = memref.alloc() {{.*}}: memref<2x2x4xf32>
+// CHECK-DAG:       [[MASK_:%.+]] = memref.alloc() {{.*}}: memref<2x2xi8>
 // CHECK-DAG:       [[LOOP_N_:%.+]] = krnl.define_loops 1
 // CHECK:           krnl.iterate([[LOOP_N_]]) with ([[LOOP_N_]] -> [[I_N_:%.+]] = 0 to 1){
 // CHECK:             [[LOOP_PLAN_:%.+]]:2 = krnl.define_loops 2

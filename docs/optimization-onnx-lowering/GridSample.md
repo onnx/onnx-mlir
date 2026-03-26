@@ -1,5 +1,7 @@
 # GridSample Bilinear 2D Optimization
 
+**Status:** Enabled by default (can be disabled by setting `ENABLE_GRIDSAMPLE_BILINEAR_OPT` to 0)
+
 ## Overview
 
 This document describes the optimized implementation of GridSample for 2D bilinear interpolation in ONNX-MLIR, inspired by the ONNX Runtime implementation.

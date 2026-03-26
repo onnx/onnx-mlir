@@ -1,4 +1,6 @@
-// RUN: onnx-mlir-opt -O3 --march=x86-64 --shape-inference --convert-onnx-to-krnl=enable-parallel --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt -O3 --march=z17 --shape-inference --convert-onnx-to-krnl=enable-parallel --canonicalize %s -split-input-file | FileCheck %s
+
+// Note here: we added the march = z17 because not all machines have support for round even operation.
 
 // -----
 
