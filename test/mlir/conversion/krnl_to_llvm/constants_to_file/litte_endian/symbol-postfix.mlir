@@ -173,7 +173,7 @@ module attributes {"onnx-mlir.symbol-postfix" = "tag_constants_to_file"} {
 // CHECK-CONST-TO-FILE:           llvm.return
 // CHECK-CONST-TO-FILE:         }
 // CHECK-CONST-TO-FILE:         llvm.func @omLoadConstantDataCtor() {
-// CHECK-CONST-TO-FILE:           llvm.call @omLoadConstantDataCtor_tag_constants_to_file() : () -> i1
+// CHECK-CONST-TO-FILE:           llvm.call @omLoadConstantDataCtor_tag_constants_to_file() : () -> ()
 // CHECK-CONST-TO-FILE:           llvm.return
 // CHECK-CONST-TO-FILE:         }
 
