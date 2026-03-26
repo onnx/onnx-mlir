@@ -87,7 +87,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
 | **Gradient** |none | | | |
 | **Greater** |7 - * | | |
 | **GreaterOrEqual** |12 - * | | |
-| **GridSample** |none | | | |
+| **GridSample** |16 - * |2D and 3D only. Padding modes: zeros, border. | |
 | **GroupNormalization** |18 - * | | |
 | **HammingWindow** |17 - * | | |
 | **HannWindow** |17 - * | | |

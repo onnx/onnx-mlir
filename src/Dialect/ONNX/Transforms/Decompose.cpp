@@ -396,7 +396,10 @@ Attribute upgradeGridSampleV16Mode(PatternRewriter &rewriter, Attribute mode) {
   if (stringMode.strref() == "bicubic") {
     return rewriter.getStringAttr("cubic");
   }
-  assert(stringMode.strref() == "nearest");
+  if (stringMode.strref() == "trilinear") {
+    return rewriter.getStringAttr("linear");
+  }
+  // Mode is already in new format (linear, cubic, nearest) or is nearest
   return mode;
 }
 
