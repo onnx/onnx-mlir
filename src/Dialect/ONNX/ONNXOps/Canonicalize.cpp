@@ -3055,10 +3055,15 @@ public:
     if (!indicesType || indicesType.getRank() != 0)
       return failure();
 
-    // Check that indices is a constant integer value
-    APInt indicesVal;
-    if (!matchPattern(indices, m_ConstantInt(&indicesVal)))
+    auto gatherOutputType = dyn_cast<RankedTensorType>(gatherOp.getType());
+    if (!gatherOutputType)
       return failure();
+
+    // Check that indices is a constant integer value
+    auto indicesConstOp = indices.getDefiningOp<ONNXConstantOp>();
+    if (!indicesConstOp)
+      return failure();
+    auto idx = getScalarValue<int64_t>(indicesConstOp);
 
     const int64_t inputRank = inputType.getRank();
     if (axis < 0)
@@ -3066,7 +3071,6 @@ public:
 
     ArrayRef<int64_t> inputShape = inputType.getShape();
 
-    int64_t idx = indicesVal.getSExtValue();
     if (idx < 0)
       idx += inputShape[axis];
 
@@ -3087,7 +3091,6 @@ public:
 
     // Gather with a scalar index removes the gathered axis from the result,
     // but Slice preserves rank. Reshape to drop the size-1 axis.
-    auto gatherOutputType = cast<RankedTensorType>(gatherOp.getType());
     Value shapeConst = createONNX.constantInt64(
         SmallVector<int64_t>(gatherOutputType.getShape()));
     Value reshapeOp = createONNX.reshape(gatherOutputType, sliceOp, shapeConst);
