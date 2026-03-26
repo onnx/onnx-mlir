@@ -277,9 +277,24 @@ static LogicalResult lowerGridSample2D(ONNXGridSampleOp op,
 
         if (mode == "nearest") {
           // Nearest neighbor interpolation
-          // Use roundEvenEmulation to avoid macOS linker issues with roundevenf
-          Value x_nearest = create.krnl.roundEven(x);
-          Value y_nearest = create.krnl.roundEven(y);
+          // Check target platform to determine which roundEven implementation to use
+          auto module = op->getParentOfType<ModuleOp>();
+          bool isMacOS = false;
+          if (auto tripleAttr = module->getAttrOfType<StringAttr>("llvm.target_triple")) {
+            llvm::Triple triple(tripleAttr.getValue());
+            isMacOS = triple.isOSDarwin();
+          }
+
+          Value x_nearest, y_nearest;
+          if (isMacOS) {
+            // Use custom emulation that doesn't require roundevenf libc/libm call
+            x_nearest = create.krnl.roundEven(x);
+            y_nearest = create.krnl.roundEvenEmulation(y);
+          } else {
+            // Standard lowering for platforms where roundevenf is available
+            x_nearest = create.math.roundEven(x);
+            y_nearest = create.math.roundEven(y);
+          }
           result = loadWithPadding(createKrnl, create.math, loc, input, {n, c},
               y_nearest, x_nearest, H, W, paddingMode, zero);
 
@@ -462,10 +477,26 @@ static LogicalResult lowerGridSample3D(ONNXGridSampleOp op,
 
         if (mode == "nearest") {
           // Nearest neighbor interpolation
-          // Use roundEvenEmulation to avoid macOS linker issues with roundevenf
-          Value x_nearest = create.krnl.roundEven(x);
-          Value y_nearest = create.krnl.roundEven(y);
-          Value z_nearest = create.krnl.roundEven(z);
+          // Check target platform to determine which roundEven implementation to use
+          auto module = op->getParentOfType<ModuleOp>();
+          bool isMacOS = false;
+          if (auto tripleAttr = module->getAttrOfType<StringAttr>("llvm.target_triple")) {
+            llvm::Triple triple(tripleAttr.getValue());
+            isMacOS = triple.isOSDarwin();
+          }
+
+          Value x_nearest, y_nearest, z_nearest;
+          if (isMacOS) {
+            // Use custom emulation that doesn't require roundevenf libc/libm call
+            x_nearest = create.krnl.roundEven(x);
+            y_nearest = create.krnl.roundEven(y);
+            z_nearest = create.krnl.roundEven(z);
+          } else {
+            // Standard lowering for platforms where roundevenf is available
+            x_nearest = create.math.roundEven(x);
+            y_nearest = create.math.roundEven(y);
+            z_nearest = create.math.roundEven(z);
+          }
 
           result =
               loadWithPadding3D(createKrnl, create.math, loc, input, {n, c},
