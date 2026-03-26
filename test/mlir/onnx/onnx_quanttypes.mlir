@@ -251,3 +251,18 @@ func.func @q_dq_q_dq(%arg0: tensor<1x64x128x128xf32>, %arg1: tensor<1x64x128x128
 // CHECK-SAME: tensor<1x64x128x128x!quant.uniform<u8:f32, 0.039215687662363052:127>> to tensor<1x64x128x128xui8>
 // CHECK-NEXT: quant.scast
 // CHECK-SAME: tensor<1x64x128x128xui8> to tensor<1x64x128x128x!quant.uniform<u8:f32, 0.023221839219331741:52>>
+
+// Test that RandomNormalLike with dtype=1 (f32) accepts a quantized result type
+// when the expressed type matches the dtype.
+func.func @randomnormallike_quant_types(%arg0: tensor<1x64x32xui16>) -> tensor<1x64x32xui16> {
+  %zp = onnx.Constant dense<32031> : tensor<ui16>
+  %sc = onnx.Constant dense<1.15724782E-4> : tensor<f32>
+  %dq = "onnx.DequantizeLinear"(%arg0, %sc, %zp) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x64x32xui16>, tensor<f32>, tensor<ui16>) -> tensor<1x64x32xf32>
+  %rand = "onnx.RandomNormalLike"(%dq) {dtype = 1 : si64, mean = 0.0 : f32, scale = 1.0 : f32} : (tensor<1x64x32xf32>) -> tensor<1x64x32xf32>
+  %q = "onnx.QuantizeLinear"(%rand, %sc, %zp) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x64x32xf32>, tensor<f32>, tensor<ui16>) -> tensor<1x64x32xui16>
+  return %q : tensor<1x64x32xui16>
+}
+
+// CHECK-LABEL: @randomnormallike_quant_types
+// CHECK: "onnx.RandomNormalLike"
+// CHECK-SAME: !quant.uniform<u16:f32,
