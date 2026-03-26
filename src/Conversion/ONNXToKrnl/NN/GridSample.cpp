@@ -278,8 +278,8 @@ static LogicalResult lowerGridSample2D(ONNXGridSampleOp op,
         if (mode == "nearest") {
           // Nearest neighbor interpolation
           // Use roundEvenEmulation to avoid macOS linker issues with roundevenf
-          Value x_nearest = create.math.roundEvenEmulation(x);
-          Value y_nearest = create.math.roundEvenEmulation(y);
+          Value x_nearest = create.krnl.roundEven(x);
+          Value y_nearest = create.krnl.roundEven(y);
           result = loadWithPadding(createKrnl, create.math, loc, input, {n, c},
               y_nearest, x_nearest, H, W, paddingMode, zero);
 
@@ -463,9 +463,9 @@ static LogicalResult lowerGridSample3D(ONNXGridSampleOp op,
         if (mode == "nearest") {
           // Nearest neighbor interpolation
           // Use roundEvenEmulation to avoid macOS linker issues with roundevenf
-          Value x_nearest = create.math.roundEvenEmulation(x);
-          Value y_nearest = create.math.roundEvenEmulation(y);
-          Value z_nearest = create.math.roundEvenEmulation(z);
+          Value x_nearest = create.krnl.roundEven(x);
+          Value y_nearest = create.krnl.roundEven(y);
+          Value z_nearest = create.krnl.roundEven(z);
 
           result =
               loadWithPadding3D(createKrnl, create.math, loc, input, {n, c},
