@@ -405,7 +405,7 @@ static LogicalResult lowerGridSample2DBilinearOptimized(ONNXGridSampleOp op,
         ValueRange applyLoopDef = create.krnl.defineLoops(applyRank);
         SmallVector<IndexExpr, 3> applyLbs(applyRank, LitIE(0));
         SmallVector<IndexExpr, 3> applyUbs = {
-            outputDims[1], SymIE(H_out), SymIE(W_out)};
+            SymIE(outputDims[1]), SymIE(H_out), SymIE(W_out)};
 
         // Parallelize channel loop if enabled
         if (enableParallel) {
