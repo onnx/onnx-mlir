@@ -324,9 +324,57 @@ struct MulAddToDepthwiseConvPattern : public OpRewritePattern<ONNXAddOp> {
     auto convOutputType =
         RankedTensorType::get(inputShape, inputType.getElementType());
 
+    // Reshape bias constant to [C] to satisfy onnx.Conv verifier:
+    // bias dim must equal first dim of weights (inputChannel).
+    // isPerChannelBias accepts [C], [1,C,1,1], or [1] - normalize to [C].
+    auto biasType = cast<RankedTensorType>(bias.getType());
+    auto biasShape = biasType.getShape();
+    Value convBias = bias;
+    if (!(biasShape.size() == 1 && biasShape[0] == inputChannel)) {
+      auto biasConstOp = bias.getDefiningOp<ONNXConstantOp>();
+      if (!biasConstOp)
+        return failure();
+      auto denseAttr = dyn_cast<DenseElementsAttr>(biasConstOp.getValueAttr());
+      if (!denseAttr)
+        return failure();
+
+      Type storageElemType = biasType.getElementType();
+      if (auto qType = dyn_cast<quant::QuantizedType>(storageElemType))
+        storageElemType = qType.getStorageType();
+
+      if (biasShape.size() == 1 && biasShape[0] == 1 && inputChannel > 1) {
+        // Scalar bias [1]: create splat [C] with the same value
+        auto flatStorageType =
+            RankedTensorType::get({inputChannel}, storageElemType);
+        auto flatAttr = DenseElementsAttr::get(
+            flatStorageType, denseAttr.getSplatValue<Attribute>());
+        auto flatResultType =
+            RankedTensorType::get({inputChannel}, biasType.getElementType());
+        convBias =
+            rewriter
+                .create<ONNXConstantOp>(loc, flatResultType, mlir::ValueRange{},
+                    mlir::ArrayRef<mlir::NamedAttribute>{
+                        rewriter.getNamedAttr("value", flatAttr)})
+                .getResult();
+      } else {
+        // [1,C,1,1] or other -> reshape dense attr to [C]
+        auto flatStorageType =
+            RankedTensorType::get({inputChannel}, storageElemType);
+        auto flatAttr = denseAttr.reshape(flatStorageType);
+        auto flatResultType =
+            RankedTensorType::get({inputChannel}, biasType.getElementType());
+        convBias =
+            rewriter
+                .create<ONNXConstantOp>(loc, flatResultType, mlir::ValueRange{},
+                    mlir::ArrayRef<mlir::NamedAttribute>{
+                        rewriter.getNamedAttr("value", flatAttr)})
+                .getResult();
+      }
+    }
+
     // Create Conv op with bias
     auto convOp = rewriter.create<ONNXConvOp>(loc, convOutputType, input,
-        newWeight, /*bias=*/bias,
+        newWeight, /*bias=*/convBias,
         /*auto_pad=*/rewriter.getStringAttr("NOTSET"),
         /*dilations=*/dilations,
         /*group=*/group,

@@ -23,11 +23,11 @@ void addXmcMlirPasses(mlir::OpPassManager &pm, OnnxToMlirOptions opts) {
       onnx_mlir::createTransferResizeLinearToDwConv());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvWithBiasPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createRemoveRedundantReshapePass());
+  pm.addNestedPass<func::FuncOp>(
+      onnx_mlir::createTransferReduceMeanSumToConvPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createLowerReduceToPoolPass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createTransferPoolFixToDownsampleFixPass());
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createTransferReduceMeanSumToConvPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createRemoveRedundantReluPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createStandardizeSliceOpsPass());
   pm.addNestedPass<func::FuncOp>(
@@ -76,7 +76,6 @@ void addXmcMlirPasses(mlir::OpPassManager &pm, OnnxToMlirOptions opts) {
       onnx_mlir::createBatchReductionToReshapeReductionPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceQDQEltwisePass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceQDQSigmoidPass());
-
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceAdjacentOpPass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createRemovePairsAndMoveDownReshapePass());
@@ -228,8 +227,9 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   // function and just before instrumentation.
   pm.addPass(createSetONNXNodeNamePass());
 
-  // Add instrumentation for Onnx Ops
-  // Keep this pass at the end of this function.
+#ifdef ONNX_MLIR_ENABLE_KRNL
+  // Add instrumentation for Onnx Ops (requires Krnl dialect for
+  // KrnlInstrumentOp). Keep this pass at the end of this function.
   unsigned instrumentActions = opts.instrumentControlBits;
   if (opts.profileIR == onnx_mlir::ProfileIRs::Onnx) {
     opts.instrumentStage = onnx_mlir::InstrumentStages::Onnx;
@@ -239,6 +239,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   if (opts.instrumentStage == onnx_mlir::InstrumentStages::Onnx)
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::createInstrumentPass(opts.instrumentOps, instrumentActions));
+#endif
   if (opts.instrumentSignatures != "NONE" || opts.instrumentOnnxNode != "NONE")
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentONNXSignaturePass(
         opts.instrumentSignatures, opts.instrumentOnnxNode));
