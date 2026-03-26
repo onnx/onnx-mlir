@@ -136,16 +136,16 @@ func.func @test_leakyrelu_nonstandard_alpha(
 // CHECK-SAME: prelu_shift = 8 : si64
 
 // -----
-// Test: HARDSIGMOID → HSIGMOID (renamed for hardware)
-// CHECK-LABEL: func.func @test_hardsigmoid_to_hsigmoid
-func.func @test_hardsigmoid_to_hsigmoid(
+// Test: HSIGMOID passes through unchanged (name used after fuse-conv-activation)
+// CHECK-LABEL: func.func @test_hsigmoid_passthrough
+func.func @test_hsigmoid_passthrough(
     %arg0: tensor<1x4x4x8x!quant.uniform<u8:f32, 0.05:128>>,
     %weight: tensor<16x3x3x8x!quant.uniform<i8:f32, 0.01>>,
     %bias: tensor<16x!quant.uniform<i32:f32, 5.000000e-04>>)
     -> tensor<1x4x4x16x!quant.uniform<u8:f32, 0.004:0>> {
 
   %conv = "onnx.XFEConv"(%arg0, %weight, %bias)
-      {activation = "HARDSIGMOID", auto_pad = "NOTSET", dilations = [1, 1],
+      {activation = "HSIGMOID", auto_pad = "NOTSET", dilations = [1, 1],
        group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1],
        strides = [1, 1]}
       : (tensor<1x4x4x8x!quant.uniform<u8:f32, 0.05:128>>,

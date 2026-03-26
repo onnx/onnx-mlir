@@ -101,9 +101,9 @@ func.func @test_xfeconv_relu_fusion_same_quant(
 // CHECK-NOT: "onnx.XCOMPILERFusedEltwise"
 
 // -----
-// Test: XFEConv + HardSigmoid fusion (matching quant params)
-// CHECK-LABEL: func.func @test_xfeconv_hardsigmoid_fusion
-func.func @test_xfeconv_hardsigmoid_fusion(
+// Test: XFEConv + QLINEARSIGMOID (quantized hard sigmoid) → activation HSIGMOID
+// CHECK-LABEL: func.func @test_xfeconv_qlinearsigmoid_fusion
+func.func @test_xfeconv_qlinearsigmoid_fusion(
     %arg0: tensor<1x4x4x8x!quant.uniform<u8:f32, 0.05:128>>,
     %weight: tensor<16x3x3x8x!quant.uniform<i8:f32, 0.01>>,
     %bias: tensor<16x!quant.uniform<i32:f32, 5.000000e-04>>,
@@ -127,7 +127,7 @@ func.func @test_xfeconv_hardsigmoid_fusion(
   return %act : tensor<1x4x4x16x!quant.uniform<u8:f32, 0.03:128>>
 }
 // CHECK: "onnx.XFEConv"
-// CHECK-SAME: activation = "HARDSIGMOID"
+// CHECK-SAME: activation = "HSIGMOID"
 // CHECK-NOT: "onnx.XCOMPILERFusedEltwise"
 
 // -----
