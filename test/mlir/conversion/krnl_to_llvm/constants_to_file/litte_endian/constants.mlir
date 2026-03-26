@@ -59,7 +59,7 @@ func.func @test_constants_to_file() -> memref<10xi64> {
 // CHECK:           llvm.return [[VAR_0_6_]] : !llvm.ptr
 // CHECK:         }
 
-// CHECK:         llvm.func @omLoadConstantDataCtor() -> i1 {
+// CHECK:         llvm.func @omLoadConstantDataCtor() {
 // CHECK-DAG:       [[VAR_0_9_:%.+]] = llvm.mlir.constant(4096 : i64) : i64
 // CHECK-DAG:       [[VAR_1_3_:%.+]] = llvm.mlir.addressof @om_external_constant_data_constant_0 : !llvm.ptr
 // CHECK-DAG:       [[VAR_1_4_:%.+]] = llvm.mlir.constant(0 : i64) : i64
@@ -73,11 +73,11 @@ func.func @test_constants_to_file() -> memref<10xi64> {
 // CHECK:           [[VAR_9_3_:%.+]] = llvm.icmp "ne" [[VAR_3_3_]], [[VAR_8_3_]] : i1
 // CHECK:           llvm.cond_br [[VAR_9_3_]], ^bb1, ^bb2
 // CHECK:         ^bb1:  // pred: ^bb0
-// CHECK:           llvm.return [[VAR_8_3_]] : i1
+// CHECK:           llvm.return
 // CHECK:         ^bb2:  // pred: ^bb0
 // CHECK:           llvm.call @omGetExternalConstantAddr([[VAR_2_3_]], [[VAR_6_3_]], [[VAR_1_4_]]) : (!llvm.ptr, !llvm.ptr, i64) -> ()
 // CHECK:           llvm.call @omGetExternalConstantAddr([[VAR_1_3_]], [[VAR_6_3_]], [[VAR_0_9_]]) : (!llvm.ptr, !llvm.ptr, i64) -> ()
-// CHECK:           llvm.return [[VAR_3_3_]] : i1
+// CHECK:           llvm.return
 // CHECK:         }
 
 // CHECK:         llvm.func @omUnloadConstantDataDtor() {
