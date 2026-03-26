@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
@@ -90,12 +91,9 @@ bool getCountIncludePad(PoolOp poolOp) {
 // AveragePool has count_include_pad attribute.
 template <>
 bool getCountIncludePad<ONNXAveragePoolOp>(ONNXAveragePoolOp poolOp) {
-  // This is the behavor of torch and ort.
-  poolOp.emitWarning() << "Attribute count_include_pad=1 is not honored "
-                          "because of the behavior of torch and ort.";
-
-  return false;
-  // return (poolOp.getCountIncludePad() == 1);
+  if (disableCountIncludePad)
+    return false;
+  return (poolOp.getCountIncludePad() == 1);
 }
 
 //===----------------------------------------------------------------------===//
