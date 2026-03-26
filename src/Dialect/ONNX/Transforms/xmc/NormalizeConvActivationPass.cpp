@@ -10,7 +10,7 @@
 // the xcompiler ReplaceQDQConvPass.
 //
 // It runs after FuseConvActivationPass, which sets the high-level activation
-// string (e.g., "RELU", "LEAKYRELU", "RELU6", "HARDSIGMOID") and preserves
+// string (e.g., "RELU", "LEAKYRELU", "RELU6", "HSIGMOID") and preserves
 // any relevant attributes (e.g., leakyrelu_alpha) from the fused activation.
 //
 // Activation normalization rules (matching xcompiler behavior):
@@ -21,16 +21,13 @@
 //  "RELU"              | "NONE"            | If output is UINT8 and
 //                      |                   | zero_point == 0 (ReLU is
 //                      |                   | implicit in unsigned repr)
-//  "RELU"              | "LEAKYRELU"       | Otherwise: treated as
-//                      |                   | LeakyReLU with alpha=0
-//                      |                   | Sets leakyrelu_alpha=0.0
-//                      |                   | Then alpha(0)!=26/256 so
-//                      |                   | becomes "PRELU" with
-//                      |                   | computed prelu_in/shift
+//  "RELU"              | "PRELU"           | Otherwise: alpha=0 != 26/256;
+//                      |                   | prelu_in / prelu_shift; may set
+//                      |                   | leakyrelu_alpha=0 (optional)
 //  "LEAKYRELU"         | "LEAKYRELU"       | If alpha == 26/256
 //  "LEAKYRELU"         | "PRELU"           | If alpha != 26/256
 //                      |                   | Computes prelu_in/shift
-//  "HARDSIGMOID"       | "HSIGMOID"        | Renamed for hardware
+//  "HSIGMOID"          | "HSIGMOID"        | No change 
 //  "RELU6"             | "RELU6"           | No change
 //  "SIGMOID"           | "SIGMOID"         | No change
 //
@@ -138,8 +135,7 @@ static void normalizeActivation(ConvOp convOp, OpBuilder &builder) {
 
   // "LEAKYRELU" handling
   if (activation == "LEAKYRELU") {
-    // Get alpha — it was preserved by the fuse pass from the
-    // FusedEltwise op. If not present, default to the standard value.
+
     float alpha = kStandardLeakyReluAlpha;
     if (auto alphaAttr = convOp.getLeakyreluAlphaAttr()) {
       alpha = alphaAttr.getValue().convertToFloat();
@@ -166,15 +162,7 @@ static void normalizeActivation(ConvOp convOp, OpBuilder &builder) {
     return;
   }
 
-  // "HARDSIGMOID" → "HSIGMOID" (rename for hardware compatibility)
-  if (activation == "HARDSIGMOID") {
-    convOp.setActivationAttr(builder.getStringAttr("HSIGMOID"));
-    LLVM_DEBUG(llvm::dbgs() << "NormalizeConvActivation: " << convOp->getName()
-                            << " HARDSIGMOID -> HSIGMOID\n");
-    return;
-  }
-
-  // "RELU6", "SIGMOID" — no transformation needed, pass through.
+  // "HSIGMOID", "RELU6", "SIGMOID" — no transformation needed, pass through.
   LLVM_DEBUG(llvm::dbgs() << "NormalizeConvActivation: " << convOp->getName()
                           << " activation=" << activation << " (no change)\n");
 }

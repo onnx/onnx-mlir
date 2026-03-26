@@ -96,7 +96,7 @@ static ActivationInfo getActivationInfo(Operation *op) {
     else if (opType == "SIGMOID")
       info.activationType = "SIGMOID";
     else if (opType == "QLINEARSIGMOID")
-      info.activationType = "HARDSIGMOID";
+      info.activationType = "HSIGMOID";
     else
       return info; // empty = not fuseable
 
@@ -126,7 +126,7 @@ static ActivationInfo getActivationInfo(Operation *op) {
     return info;
   }
   if (isa<ONNXHardSigmoidOp>(op)) {
-    info.activationType = "HARDSIGMOID";
+    info.activationType = "HSIGMOID";
     info.output = op->getResult(0);
     return info;
   }

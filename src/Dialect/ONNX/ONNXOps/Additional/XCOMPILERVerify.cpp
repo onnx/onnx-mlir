@@ -8,6 +8,49 @@ using namespace onnx_mlir;
 
 namespace mlir {
 
+namespace {
+
+// Same fused-activation rules as XFEConv / XFEVerify (depthwise shares attrs).
+
+static bool isValidDepthwiseConvActivation(StringRef activation) {
+  return activation == "NONE" || activation == "RELU" ||
+         activation == "LEAKYRELU" || activation == "PRELU" ||
+         activation == "HSIGMOID" || activation == "RELU6" ||
+         activation == "SIGMOID";
+}
+
+template <typename ConvLikeOp>
+static LogicalResult verifyDepthwiseConvFusedActivationAttrs(ConvLikeOp convOp) {
+  StringRef activation = convOp.getActivation();
+  if (!isValidDepthwiseConvActivation(activation))
+    return convOp->emitOpError(
+               "'activation' must be one of NONE, RELU, LEAKYRELU, PRELU, "
+               "HSIGMOID, RELU6, SIGMOID, got '")
+           << activation << "'";
+
+  bool isPrelu = activation == "PRELU";
+
+  if (convOp.getLeakyreluAlphaAttr() && activation != "LEAKYRELU" && !isPrelu)
+    return convOp->emitOpError(
+        "'leakyrelu_alpha' is only valid when activation is LEAKYRELU or PRELU");
+
+  if (convOp.getPreluInAttr() && !isPrelu)
+    return convOp->emitOpError(
+        "'prelu_in' is only valid when activation is PRELU");
+
+  if (convOp.getPreluShiftAttr() && !isPrelu)
+    return convOp->emitOpError(
+        "'prelu_shift' is only valid when activation is PRELU");
+
+  if (isPrelu && (!convOp.getPreluInAttr() || !convOp.getPreluShiftAttr()))
+    return convOp->emitOpError(
+        "activation PRELU requires both 'prelu_in' and 'prelu_shift'");
+
+  return success();
+}
+
+} // namespace
+
 LogicalResult XCOMPILERFusedEltwiseOpVerify(Operation *op) {
 
   auto fusedEltwiseOp = dyn_cast<XCOMPILERFusedEltwiseOp>(op);
@@ -52,6 +95,9 @@ LogicalResult XCOMPILERFusedEltwiseOpVerify(Operation *op) {
 LogicalResult XCOMPILERDepthwiseConvOpVerify(Operation *op) {
   auto convOp = dyn_cast<XCOMPILERDepthwiseConvOp>(op);
   if (!convOp)
+    return failure();
+
+  if (failed(verifyDepthwiseConvFusedActivationAttrs(convOp)))
     return failure();
 
   // Verify input X is 4D [N, H, W, C] or 5D [N, D, H, W, C] (NHWC layout)
