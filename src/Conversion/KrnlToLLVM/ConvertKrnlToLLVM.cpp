@@ -776,9 +776,9 @@ void emitCtors(ModuleOp &module, OpBuilder &builder,
   llvm::SmallVector<mlir::Attribute, 1> dataArray;
   // Prepare operands.
   for (uint64_t i = 0; i < ctors.size(); ++i) {
-    StringRef funcName = StringRef(ctors[i]);
     FlatSymbolRefAttr loadFuncRef = create.llvm.getOrInsertSymbolRef(module,
-        funcName, LLVM::LLVMVoidType::get(ctx), {},
+        LLVMBuilder::SymbolPostfix(module, ctors[i]),
+        LLVM::LLVMVoidType::get(ctx), {},
         /*isVarArg=*/false);
     ctorsArray.emplace_back(loadFuncRef);
     prioritiesArray.emplace_back(priorities[i]);
@@ -806,9 +806,9 @@ void emitDtors(ModuleOp &module, OpBuilder &builder,
   llvm::SmallVector<mlir::Attribute, 1> dataArray;
   // Prepare operands.
   for (uint64_t i = 0; i < dtors.size(); ++i) {
-    StringRef funcName = StringRef(dtors[i]);
     FlatSymbolRefAttr loadFuncRef = create.llvm.getOrInsertSymbolRef(module,
-        funcName, LLVM::LLVMVoidType::get(ctx), {},
+        LLVMBuilder::SymbolPostfix(module, dtors[i]),
+        LLVM::LLVMVoidType::get(ctx), {},
         /*isVarArg=*/false);
     dtorsArray.emplace_back(loadFuncRef);
     prioritiesArray.emplace_back(priorities[i]);

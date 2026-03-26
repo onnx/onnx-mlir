@@ -192,6 +192,6 @@ module attributes {"onnx-mlir.symbol-postfix" = "tag_constants_to_file"} {
 // CHECK-CONST-TO-FILE:           llvm.call @omUnloadConstantDataDtor_tag_constants_to_file() : () -> ()
 // CHECK-CONST-TO-FILE:           llvm.return
 // CHECK-CONST-TO-FILE:         }
-// CHECK-CONST-TO-FILE:         llvm.mlir.global_ctors ctors = [@omLoadConstantDataCtor], priorities = [65535 : i32], data = [#llvm.zero]
-// CHECK-CONST-TO-FILE:         llvm.mlir.global_dtors dtors = [@omUnloadConstantDataDtor], priorities = [65535 : i32], data = [#llvm.zero]
+// CHECK-CONST-TO-FILE:         llvm.mlir.global_ctors ctors = [@omLoadConstantDataCtor_tag_constants_to_file], priorities = [65535 : i32], data = [#llvm.zero]
+// CHECK-CONST-TO-FILE:         llvm.mlir.global_dtors dtors = [@omUnloadConstantDataDtor_tag_constants_to_file], priorities = [65535 : i32], data = [#llvm.zero]
 }
