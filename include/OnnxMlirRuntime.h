@@ -15,6 +15,16 @@
 #ifndef ONNX_MLIR_ONNXMLIRRUNTIME_H
 #define ONNX_MLIR_ONNXMLIRRUNTIME_H
 
+/* Version macros for ONNX-MLIR Runtime API */
+#define ONNX_MLIR_RUNTIME_VERSION_MAJOR 1
+#define ONNX_MLIR_RUNTIME_VERSION_MINOR 0
+#define ONNX_MLIR_RUNTIME_VERSION_PATCH 0
+#define ONNX_MLIR_RUNTIME_VERSION_STRING "1.0.0"
+
+/* API version information */
+#define ONNX_MLIR_RUNTIME_API_VERSION 1
+#define ONNX_MLIR_RUNTIME_API_VERSION_STRING "1.0"
+
 #ifdef __cplusplus
 #include <cstdint>
 #else
