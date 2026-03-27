@@ -881,6 +881,11 @@ struct PushTransposeThroughSCast
     if (!perm)
       return failure();
 
+    if (llvm::any_of(op->getUsers(),
+            [](Operation *op) { return isa<ONNXDequantizeLinearOp>(op); }))
+      return rewriter.notifyMatchFailure(
+          op, "Not pushing through boundary scast");
+
     auto outputType = mlir::cast<RankedTensorType>(op.getType());
 
     // The new scast takes the transpose's input directly, so its output must
