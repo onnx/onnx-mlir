@@ -16,6 +16,8 @@
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 // Enable optimized bilinear 2D GridSample implementation (0 is disabled).
+// See docs/optimization-onnx-lowering/GridSample.md for explanation of the
+// approach.
 #define ENABLE_GRIDSAMPLE_BILINEAR_OPT 1
 
 using namespace mlir;
@@ -26,14 +28,14 @@ namespace onnx_mlir {
 // Helper functions for coordinate transformation
 //===----------------------------------------------------------------------===//
 
-// Transform normalized grid coordinate [-1,1] to input coordinate
-// align_corners=0: [-1,1] -> [-0.5, size-0.5]
-// align_corners=1: [-1,1] -> [0, size-1]
+// Transform normalized grid coordinate [-1,1] to input coordinate.
+// align_corners=0: [-1,1] -> [-0.5, size-0.5].
+// align_corners=1: [-1,1] -> [0, size-1].
 static Value transformCoordinate(MathBuilder &math, Location loc,
     Value gridCoord, Value inputSize, int64_t alignCorners) {
   Type floatType = gridCoord.getType();
 
-  // Convert inputSize (index) to float
+  // Convert inputSize (index) to float.
   Value inputSizeFloat = math.cast(floatType, inputSize);
 
   if (alignCorners == 1) {
@@ -55,7 +57,7 @@ static Value transformCoordinate(MathBuilder &math, Location loc,
   }
 }
 
-// Check if coordinate is in bounds [0, size-1]
+// Check if coordinate is in bounds [0, size-1].
 static Value isInBounds(
     MathBuilder &math, Location loc, Value coord, Value size) {
   Type floatType = coord.getType();
@@ -69,15 +71,15 @@ static Value isInBounds(
   return math.andi(geZero, leSize);
 }
 
-// Helper to load value with padding mode handling (2D case)
-// Returns zero for out-of-bounds (zeros mode) or clamped value (border mode)
+// Helper to load value with padding mode handling (2D case).
+// Returns zero for out-of-bounds (zeros mode) or clamped value (border mode).
 static Value loadWithPadding(const KrnlBuilder &createKrnl, MathBuilder &math,
     Location loc, Value input, ArrayRef<Value> indices, Value yCoord,
     Value xCoord, Value H, Value W, StringRef paddingMode, Value zero) {
   Type floatType = yCoord.getType();
 
   if (paddingMode == "border") {
-    // Clamp coordinates to [0, size-1]
+    // Clamp coordinates to [0, size-1].
     Value one = math.constant(floatType, 1.0);
     Value zeroFloat = math.constant(floatType, 0.0);
     Value hFloat = math.cast(floatType, H);
@@ -90,19 +92,19 @@ static Value loadWithPadding(const KrnlBuilder &createKrnl, MathBuilder &math,
     Value xIdx = math.castToIndex(xClamped);
     Value yIdx = math.castToIndex(yClamped);
 
-    // Build full index array
+    // Build full index array.
     SmallVector<Value, 4> fullIndices(indices.begin(), indices.end());
     fullIndices.push_back(yIdx);
     fullIndices.push_back(xIdx);
     return createKrnl.load(input, fullIndices);
   } else {
-    // zeros padding: check bounds and return zero if out of bounds
+    // Zeros padding: check bounds and return zero if out of bounds.
     Value inBounds = math.andi(
         isInBounds(math, loc, xCoord, W), isInBounds(math, loc, yCoord, H));
     Value xIdx = math.castToIndex(xCoord);
     Value yIdx = math.castToIndex(yCoord);
 
-    // Build full index array
+    // Build full index array.
     SmallVector<Value, 4> fullIndices(indices.begin(), indices.end());
     fullIndices.push_back(yIdx);
     fullIndices.push_back(xIdx);
@@ -111,8 +113,8 @@ static Value loadWithPadding(const KrnlBuilder &createKrnl, MathBuilder &math,
   }
 }
 
-// Helper to load value with padding mode handling (3D case)
-// Returns zero for out-of-bounds (zeros mode) or clamped value (border mode)
+// Helper to load value with padding mode handling (3D case).
+// Returns zero for out-of-bounds (zeros mode) or clamped value (border mode).
 static Value loadWithPadding3D(const KrnlBuilder &createKrnl, MathBuilder &math,
     Location loc, Value input, ArrayRef<Value> indices, Value zCoord,
     Value yCoord, Value xCoord, Value D, Value H, Value W,
@@ -120,7 +122,7 @@ static Value loadWithPadding3D(const KrnlBuilder &createKrnl, MathBuilder &math,
   Type floatType = zCoord.getType();
 
   if (paddingMode == "border") {
-    // Clamp coordinates to [0, size-1]
+    // Clamp coordinates to [0, size-1].
     Value one = math.constant(floatType, 1.0);
     Value zeroFloat = math.constant(floatType, 0.0);
     Value dFloat = math.cast(floatType, D);
@@ -137,14 +139,14 @@ static Value loadWithPadding3D(const KrnlBuilder &createKrnl, MathBuilder &math,
     Value yIdx = math.castToIndex(yClamped);
     Value zIdx = math.castToIndex(zClamped);
 
-    // Build full index array
+    // Build full index array.
     SmallVector<Value, 5> fullIndices(indices.begin(), indices.end());
     fullIndices.push_back(zIdx);
     fullIndices.push_back(yIdx);
     fullIndices.push_back(xIdx);
     return createKrnl.load(input, fullIndices);
   } else {
-    // zeros padding: check bounds and return zero if out of bounds
+    // Zeros padding: check bounds and return zero if out of bounds.
     Value inBounds = math.andi(math.andi(isInBounds(math, loc, xCoord, W),
                                    isInBounds(math, loc, yCoord, H)),
         isInBounds(math, loc, zCoord, D));
@@ -152,7 +154,7 @@ static Value loadWithPadding3D(const KrnlBuilder &createKrnl, MathBuilder &math,
     Value yIdx = math.castToIndex(yCoord);
     Value zIdx = math.castToIndex(zCoord);
 
-    // Build full index array
+    // Build full index array.
     SmallVector<Value, 5> fullIndices(indices.begin(), indices.end());
     fullIndices.push_back(zIdx);
     fullIndices.push_back(yIdx);
@@ -162,7 +164,7 @@ static Value loadWithPadding3D(const KrnlBuilder &createKrnl, MathBuilder &math,
   }
 }
 
-// Compute cubic interpolation weight using Robert G. Keys method
+// Compute cubic interpolation weight using Robert G. Keys method.
 // Reference: https://ieeexplore.ieee.org/document/1163711
 static Value computeCubicWeight(
     MathBuilder &math, Location loc, Value s, double a) {
@@ -195,7 +197,7 @@ static Value computeCubicWeight(
   Value t3 = math.mul(eightA, abs_s);
   Value w2 = math.sub(math.add(math.sub(t1, t2), t3), fourA);
 
-  // Select based on |s|
+  // Select based on |s|.
   Value isLessOne = math.sle(abs_s, one);
   Value isLessTwo = math.sle(abs_s, two);
   Value zero = math.constant(floatType, 0.0);
@@ -207,55 +209,55 @@ static Value computeCubicWeight(
 // Optimized 2D BiLinear GridSample with Precomputed Sampling Plan
 //===----------------------------------------------------------------------===//
 
-// Compute sampling plan for bilinear interpolation for a single batch
+// Compute sampling plan for bilinear interpolation for a single batch.
 // Creates 3 HxW arrays: indices (HxWx4), weights (HxWx4), and mask (HxW with 4
-// bits)
+// bits).
 static void computeBilinearSamplingPlan(const KrnlBuilder &createKrnl,
     MathBuilder &math, Location loc, Value grid, Value H, Value W, Value h_out,
     Value w_out, Value n, int64_t alignCorners, StringRef paddingMode,
     Type elementType, Type indexType, Value indicesAlloc, Value weightsAlloc,
     Value maskAlloc) {
 
-  // Load grid coordinates
+  // Load grid coordinates.
   Value gridX = createKrnl.load(grid, {n, h_out, w_out, math.constantIndex(0)});
   Value gridY = createKrnl.load(grid, {n, h_out, w_out, math.constantIndex(1)});
 
-  // Cast to element type
+  // Cast to element type.
   Value gridXCast = math.cast(elementType, gridX);
   Value gridYCast = math.cast(elementType, gridY);
 
-  // Transform coordinates
+  // Transform coordinates.
   Value x = transformCoordinate(math, loc, gridXCast, W, alignCorners);
   Value y = transformCoordinate(math, loc, gridYCast, H, alignCorners);
 
-  // Compute floor coordinates
+  // Compute floor coordinates.
   Value one = math.constant(elementType, 1.0);
   Value x0 = math.floor(x);
   Value x1 = math.add(x0, one);
   Value y0 = math.floor(y);
   Value y1 = math.add(y0, one);
 
-  // Compute interpolation weights
+  // Compute interpolation weights.
   Value wx = math.sub(x, x0);
   Value wy = math.sub(y, y0);
   Value wx1 = math.sub(one, wx);
   Value wy1 = math.sub(one, wy);
 
-  // Compute 4 corner weights: w11, w12, w21, w22
+  // Compute 4 corner weights: w11, w12, w21, w22.
   Value w11 = math.mul(wy1, wx1); // (1-wy) * (1-wx) for corner (y0, x0)
   Value w12 = math.mul(wy1, wx);  // (1-wy) * wx for corner (y0, x1)
   Value w21 = math.mul(wy, wx1);  // wy * (1-wx) for corner (y1, x0)
   Value w22 = math.mul(wy, wx);   // wy * wx for corner (y1, x1)
 
-  // Store weights in HxWx4 array
+  // Store weights in HxWx4 array.
   createKrnl.store(w11, weightsAlloc, {h_out, w_out, math.constantIndex(0)});
   createKrnl.store(w12, weightsAlloc, {h_out, w_out, math.constantIndex(1)});
   createKrnl.store(w21, weightsAlloc, {h_out, w_out, math.constantIndex(2)});
   createKrnl.store(w22, weightsAlloc, {h_out, w_out, math.constantIndex(3)});
 
-  // Handle coordinates based on padding mode
+  // Handle coordinates based on padding mode.
   if (paddingMode == "border") {
-    // Clamp coordinates to [0, size-1]
+    // Clamp coordinates to [0, size-1].
     Value zeroFloat = math.constant(elementType, 0.0);
     Value hFloat = math.cast(elementType, H);
     Value wFloat = math.cast(elementType, W);
@@ -268,23 +270,23 @@ static void computeBilinearSamplingPlan(const KrnlBuilder &createKrnl,
     y1 = math.min(math.max(y1, zeroFloat), hMax);
   }
 
-  // Convert to indices
+  // Convert to indices.
   Value x0_idx = math.castToIndex(x0);
   Value x1_idx = math.castToIndex(x1);
   Value y0_idx = math.castToIndex(y0);
   Value y1_idx = math.castToIndex(y1);
 
-  // Store indices in HxWx4 array
+  // Store indices in HxWx4 array.
   createKrnl.store(x0_idx, indicesAlloc, {h_out, w_out, math.constantIndex(0)});
   createKrnl.store(x1_idx, indicesAlloc, {h_out, w_out, math.constantIndex(1)});
   createKrnl.store(y0_idx, indicesAlloc, {h_out, w_out, math.constantIndex(2)});
   createKrnl.store(y1_idx, indicesAlloc, {h_out, w_out, math.constantIndex(3)});
 
-  // Compute mask with 4 bits for the 4 corners (only for zeros padding)
+  // Compute mask with 4 bits for the 4 corners (only for zeros padding).
   if (paddingMode == "zeros") {
     Type i8Type = IntegerType::get(math.getBuilder().getContext(), 8);
 
-    // Check bounds for each corner and set corresponding bit
+    // Check bounds for each corner and set corresponding bit.
     Value inBounds00 =
         math.andi(isInBounds(math, loc, x0, W), isInBounds(math, loc, y0, H));
     Value inBounds01 =
@@ -295,7 +297,7 @@ static void computeBilinearSamplingPlan(const KrnlBuilder &createKrnl,
         math.andi(isInBounds(math, loc, x1, W), isInBounds(math, loc, y1, H));
 
     // Build mask: bit 0 for (y0,x0), bit 1 for (y0,x1), bit 2 for (y1,x0), bit
-    // 3 for (y1,x1)
+    // 3 for (y1,x1).
     Value bit0 = math.constant(i8Type, 1);
     Value bit1 = math.constant(i8Type, 2);
     Value bit2 = math.constant(i8Type, 4);
@@ -309,13 +311,13 @@ static void computeBilinearSamplingPlan(const KrnlBuilder &createKrnl,
 
     Value mask = math.ori(math.ori(mask0, mask1), math.ori(mask2, mask3));
 
-    // Store mask in HxW array
+    // Store mask in HxW array.
     createKrnl.store(mask, maskAlloc, {h_out, w_out});
   }
-  // For border mode: no mask needed, coordinates are clamped
+  // For border mode: no mask needed, coordinates are clamped.
 }
 
-// Optimized bilinear interpolation using precomputed sampling plan
+// Optimized bilinear interpolation using precomputed sampling plan.
 static LogicalResult lowerGridSample2DBilinearOptimized(ONNXGridSampleOp op,
     ONNXGridSampleOpAdaptor adaptor, ConversionPatternRewriter &rewriter,
     Location loc, Value alloc, ONNXGridSampleOpShapeHelper &shapeHelper,
@@ -330,11 +332,11 @@ static LogicalResult lowerGridSample2DBilinearOptimized(ONNXGridSampleOp op,
       MemRefBuilder>
       create(rewriter, loc);
 
-  // Get dimensions
+  // Get dimensions.
   MemRefType inputType = mlir::cast<MemRefType>(input.getType());
   Type elementType = inputType.getElementType();
 
-  // Input shape: [N, C, H, W]
+  // Input shape: [N, C, H, W].
   DimsExpr inputDims;
   create.krnlIE.getShapeAsDims(input, inputDims);
   IndexExpr N = inputDims[0];
@@ -343,15 +345,15 @@ static LogicalResult lowerGridSample2DBilinearOptimized(ONNXGridSampleOp op,
   Value H_val = H.getValue();
   Value W_val = W.getValue();
 
-  // Output shape: [N, C, H_out, W_out]
+  // Output shape: [N, C, H_out, W_out].
   DimsExpr outputDims = shapeHelper.getOutputDims();
   IndexExpr H_out = outputDims[2];
   IndexExpr W_out = outputDims[3];
 
-  // Allocate sampling plan arrays (reused for each batch)
-  // 1. Indices: HxWx4 (x0, x1, y0, y1)
-  // 2. Weights: HxWx4 (w11, w12, w21, w22)
-  // 3. Mask: HxW (4 bits for 4 corners) - only for "zeros" padding mode
+  // Allocate sampling plan arrays (reused for each batch):
+  // 1. Indices: HxWx4 (x0, x1, y0, y1).
+  // 2. Weights: HxWx4 (w11, w12, w21, w22).
+  // 3. Mask: HxW (4 bits for 4 corners) - only for "zeros" padding mode.
   Type indexType = rewriter.getIndexType();
   DimsExpr indicesWeightsDims = {H_out, W_out, LitIE(4)};
   MemRefType indicesType = create.mem.getType(indicesWeightsDims, indexType);
@@ -359,7 +361,7 @@ static LogicalResult lowerGridSample2DBilinearOptimized(ONNXGridSampleOp op,
   Value indicesAlloc = create.mem.alignedAlloc(indicesType, indicesWeightsDims);
   Value weightsAlloc = create.mem.alignedAlloc(weightsType, indicesWeightsDims);
 
-  // Only allocate mask for "zeros" padding mode
+  // Only allocate mask for "zeros" padding mode.
   Value maskAlloc;
   if (paddingMode == "zeros") {
     Type i8Type = IntegerType::get(rewriter.getContext(), 8);
@@ -368,7 +370,7 @@ static LogicalResult lowerGridSample2DBilinearOptimized(ONNXGridSampleOp op,
     maskAlloc = create.mem.alignedAlloc(maskType, maskDims);
   }
 
-  // Outer loop over batches (N)
+  // Outer loop over batches (N).
   ValueRange nLoopDef = create.krnl.defineLoops(1);
   SmallVector<IndexExpr, 1> nLbs = {LitIE(0)};
   SmallVector<IndexExpr, 1> nUbs = {N};
@@ -380,8 +382,8 @@ static LogicalResult lowerGridSample2DBilinearOptimized(ONNXGridSampleOp op,
         IndexExprScope outerScope(createKrnl);
         Value n = nLoopInd[0];
 
-        // Phase 1: Compute sampling plan for this batch
-        // Loop over H_out, W_out to precompute sampling plan
+        // Phase 1: Compute sampling plan for this batch.
+        // Loop over H_out, W_out to precompute sampling plan.
         int64_t planRank = 2;
         ValueRange planLoopDef = create.krnl.defineLoops(planRank);
         SmallVector<IndexExpr, 2> planLbs(planRank, LitIE(0));
@@ -399,15 +401,15 @@ static LogicalResult lowerGridSample2DBilinearOptimized(ONNXGridSampleOp op,
                   maskAlloc);
             });
 
-        // Phase 2: Apply sampling plan to compute output for all channels
-        // Loop over C, H_out, W_out
+        // Phase 2: Apply sampling plan to compute output for all channels.
+        // Loop over C, H_out, W_out.
         int64_t applyRank = 3;
         ValueRange applyLoopDef = create.krnl.defineLoops(applyRank);
         SmallVector<IndexExpr, 3> applyLbs(applyRank, LitIE(0));
         SmallVector<IndexExpr, 3> applyUbs = {
             SymIE(outputDims[1]), SymIE(H_out), SymIE(W_out)};
 
-        // Parallelize channel loop if enabled
+        // Parallelize channel loop if enabled.
         if (enableParallel) {
           SmallVector<Value, 1> channelLoop = {applyLoopDef[0]};
           tryCreateKrnlParallel(create.krnl, op, "gridsample 2d bilinear opt",
@@ -426,7 +428,7 @@ static LogicalResult lowerGridSample2DBilinearOptimized(ONNXGridSampleOp op,
               Value h_out = loopInd[1];
               Value w_out = loopInd[2];
 
-              // Load precomputed indices
+              // Load precomputed indices.
               Value x0_idx = createKrnl.load(
                   indicesAlloc, {h_out, w_out, create.math.constantIndex(0)});
               Value x1_idx = createKrnl.load(
@@ -436,7 +438,7 @@ static LogicalResult lowerGridSample2DBilinearOptimized(ONNXGridSampleOp op,
               Value y1_idx = createKrnl.load(
                   indicesAlloc, {h_out, w_out, create.math.constantIndex(3)});
 
-              // Load precomputed weights
+              // Load precomputed weights.
               Value w11 = createKrnl.load(
                   weightsAlloc, {h_out, w_out, create.math.constantIndex(0)});
               Value w12 = createKrnl.load(
@@ -446,18 +448,18 @@ static LogicalResult lowerGridSample2DBilinearOptimized(ONNXGridSampleOp op,
               Value w22 = createKrnl.load(
                   weightsAlloc, {h_out, w_out, create.math.constantIndex(3)});
 
-              // Load 4 corner values
+              // Load 4 corner values.
               Value v00 = createKrnl.load(input, {n, c, y0_idx, x0_idx});
               Value v01 = createKrnl.load(input, {n, c, y0_idx, x1_idx});
               Value v10 = createKrnl.load(input, {n, c, y1_idx, x0_idx});
               Value v11 = createKrnl.load(input, {n, c, y1_idx, x1_idx});
 
-              // Apply mask only for zeros padding mode
+              // Apply mask only for zeros padding mode.
               if (paddingMode == "zeros") {
-                // Load precomputed mask
+                // Load precomputed mask.
                 Value mask = createKrnl.load(maskAlloc, {h_out, w_out});
 
-                // Apply mask bits to zero out out-of-bounds values
+                // Apply mask bits to zero out out-of-bounds values.
                 Type i8Type = mask.getType();
                 Value bit0 = create.math.constant(i8Type, 1);
                 Value bit1 = create.math.constant(i8Type, 2);
@@ -480,9 +482,9 @@ static LogicalResult lowerGridSample2DBilinearOptimized(ONNXGridSampleOp op,
                 v10 = create.math.select(cond10, zero, v10);
                 v11 = create.math.select(cond11, zero, v11);
               }
-              // For border mode, no masking needed - all values are in bounds
+              // For border mode, no masking needed - all values are in bounds.
 
-              // Compute bilinear interpolation
+              // Compute bilinear interpolation.
               Value t0 = create.math.mul(w11, v00);
               Value t1 = create.math.mul(w12, v01);
               Value t2 = create.math.mul(w21, v10);
@@ -491,7 +493,7 @@ static LogicalResult lowerGridSample2DBilinearOptimized(ONNXGridSampleOp op,
               Value result = create.math.add(
                   create.math.add(t0, t1), create.math.add(t2, t3));
 
-              // Store result
+              // Store result.
               createKrnl.store(result, alloc, {n, c, h_out, w_out});
             });
       });
@@ -518,7 +520,7 @@ static LogicalResult lowerGridSample2D(ONNXGridSampleOp op,
       MemRefBuilder>
       create(rewriter, loc);
 
-  // Get dimensions
+  // Get dimensions.
   MemRefType inputType = mlir::cast<MemRefType>(input.getType());
   Type elementType = inputType.getElementType();
 
@@ -534,16 +536,16 @@ static LogicalResult lowerGridSample2D(ONNXGridSampleOp op,
   SmallVector<IndexExpr, 4> lbs(outputRank, LitIE(0));
   DimsExpr ubs = shapeHelper.getOutputDims();
 
-  // Parallelize outer loops (N, C) for better performance
+  // Parallelize outer loops (N, C) for better performance.
   // The two outer loops (batch and channel) are independent and can be
-  // parallelized
+  // parallelized.
   if (enableParallel) {
     SmallVector<Value, 2> outerLoops = {loopDef[0], loopDef[1]};
     tryCreateKrnlParallel(create.krnl, op, "gridsample 2d", outerLoops, lbs,
         ubs, 0, 2, {}, /*min iter for going parallel*/ 4);
   }
 
-  // Constants
+  // Constants.
   Value zero = create.math.constant(elementType, 0.0);
   Value one = create.math.constant(elementType, 1.0);
 
@@ -556,17 +558,17 @@ static LogicalResult lowerGridSample2D(ONNXGridSampleOp op,
         Value h_out = loopInd[2];
         Value w_out = loopInd[3];
 
-        // Load grid coordinates: grid[n, h_out, w_out, :]
+        // Load grid coordinates: grid[n, h_out, w_out, :].
         Value gridX = createKrnl.load(
             grid, {n, h_out, w_out, create.math.constantIndex(0)});
         Value gridY = createKrnl.load(
             grid, {n, h_out, w_out, create.math.constantIndex(1)});
 
-        // Cast grid coordinates to input element type if needed
+        // Cast grid coordinates to input element type if needed.
         Value gridXCast = create.math.cast(elementType, gridX);
         Value gridYCast = create.math.cast(elementType, gridY);
 
-        // Transform coordinates from [-1,1] to input space
+        // Transform coordinates from [-1,1] to input space.
         Value x =
             transformCoordinate(create.math, loc, gridXCast, W, alignCorners);
         Value y =
@@ -575,27 +577,27 @@ static LogicalResult lowerGridSample2D(ONNXGridSampleOp op,
         Value result;
 
         if (mode == "nearest") {
-          // Nearest neighbor interpolation
-          // Use KrnlBuilder's roundEven which handles macOS compatibility
+          // Nearest neighbor interpolation; use KrnlBuilder's roundEven which
+          // handles macOS compatibility.
           Value x_nearest = createKrnl.roundEven(x);
           Value y_nearest = createKrnl.roundEven(y);
           result = loadWithPadding(createKrnl, create.math, loc, input, {n, c},
               y_nearest, x_nearest, H, W, paddingMode, zero);
 
         } else if (mode == "linear" || mode == "bilinear") {
-          // Bilinear interpolation
+          // Bilinear interpolation.
           Value x0 = create.math.floor(x);
           Value x1 = create.math.add(x0, one);
           Value y0 = create.math.floor(y);
           Value y1 = create.math.add(y0, one);
 
-          // Compute weights
+          // Compute weights.
           Value wx = create.math.sub(x, x0);
           Value wy = create.math.sub(y, y0);
           Value wx1 = create.math.sub(one, wx);
           Value wy1 = create.math.sub(one, wy);
 
-          // Load 4 corner values with padding
+          // Load 4 corner values with padding.
           Value v00 = loadWithPadding(createKrnl, create.math, loc, input,
               {n, c}, y0, x0, H, W, paddingMode, zero);
           Value v01 = loadWithPadding(createKrnl, create.math, loc, input,
@@ -605,7 +607,7 @@ static LogicalResult lowerGridSample2D(ONNXGridSampleOp op,
           Value v11 = loadWithPadding(createKrnl, create.math, loc, input,
               {n, c}, y1, x1, H, W, paddingMode, zero);
 
-          // Bilinear formula
+          // Bilinear formula.
           Value t0 = create.math.mul(create.math.mul(wy1, wx1), v00);
           Value t1 = create.math.mul(create.math.mul(wy1, wx), v01);
           Value t2 = create.math.mul(create.math.mul(wy, wx1), v10);
@@ -615,11 +617,11 @@ static LogicalResult lowerGridSample2D(ONNXGridSampleOp op,
               create.math.add(create.math.add(t0, t1), create.math.add(t2, t3));
 
         } else if (mode == "cubic") {
-          // Bicubic interpolation using Robert G. Keys method
+          // Bicubic interpolation using Robert G. Keys method.
           Value x1 = create.math.floor(x);
           Value y1 = create.math.floor(y);
 
-          // Get 16 neighboring points (4x4 grid)
+          // Get 16 neighboring points (4x4 grid).
           Value x0 = create.math.sub(x1, one);
           Value x2 = create.math.add(x1, one);
           Value x3 = create.math.add(x2, one);
@@ -627,7 +629,7 @@ static LogicalResult lowerGridSample2D(ONNXGridSampleOp op,
           Value y2 = create.math.add(y1, one);
           Value y3 = create.math.add(y2, one);
 
-          // Compute cubic weights
+          // Compute cubic weights.
           Value dx = create.math.sub(x, x1);
           Value dy = create.math.sub(y, y1);
 
@@ -648,7 +650,7 @@ static LogicalResult lowerGridSample2D(ONNXGridSampleOp op,
           Value wy3 = computeCubicWeight(create.math, loc,
               create.math.sub(create.math.constant(elementType, 2.0), dy), a);
 
-          // Compute bicubic interpolation
+          // Compute bicubic interpolation.
           Value sum = zero;
           SmallVector<Value, 4> xCoords = {x0, x1, x2, x3};
           SmallVector<Value, 4> yCoords = {y0, y1, y2, y3};
@@ -666,11 +668,11 @@ static LogicalResult lowerGridSample2D(ONNXGridSampleOp op,
 
           result = sum;
         } else {
-          // This should not be reached due to checks in matchAndRewrite
+          // This should not be reached due to checks in matchAndRewrite.
           result = zero;
         }
 
-        // Store result
+        // Store result.
         createKrnl.store(result, alloc, loopInd);
       });
 
@@ -696,33 +698,33 @@ static LogicalResult lowerGridSample3D(ONNXGridSampleOp op,
       MemRefBuilder>
       create(rewriter, loc);
 
-  // Get dimensions
+  // Get dimensions.
   MemRefType inputType = mlir::cast<MemRefType>(input.getType());
   Type elementType = inputType.getElementType();
 
-  // Input shape: [N, C, D, H, W]
+  // Input shape: [N, C, D, H, W].
   DimsExpr inputDims;
   create.krnlIE.getShapeAsDims(input, inputDims);
   Value D = inputDims[2].getValue();
   Value H = inputDims[3].getValue();
   Value W = inputDims[4].getValue();
 
-  // Output shape: [N, C, D_out, H_out, W_out]
+  // Output shape: [N, C, D_out, H_out, W_out].
   int64_t outputRank = 5;
   ValueRange loopDef = create.krnl.defineLoops(outputRank);
   SmallVector<IndexExpr, 5> lbs(outputRank, LitIE(0));
   DimsExpr ubs = shapeHelper.getOutputDims();
 
-  // Parallelize outer loops (N, C) for better performance
+  // Parallelize outer loops (N, C) for better performance.
   // The two outer loops (batch and channel) are independent and can be
-  // parallelized
+  // parallelized.
   if (enableParallel) {
     SmallVector<Value, 2> outerLoops = {loopDef[0], loopDef[1]};
     tryCreateKrnlParallel(create.krnl, op, "gridsample 3d", outerLoops, lbs,
         ubs, 0, 2, {}, /*min iter for going parallel*/ 4);
   }
 
-  // Constants
+  // Constants.
   Value zero = create.math.constant(elementType, 0.0);
   Value one = create.math.constant(elementType, 1.0);
 
@@ -736,7 +738,7 @@ static LogicalResult lowerGridSample3D(ONNXGridSampleOp op,
         Value h_out = loopInd[3];
         Value w_out = loopInd[4];
 
-        // Load grid coordinates: grid[n, d_out, h_out, w_out, :]
+        // Load grid coordinates: grid[n, d_out, h_out, w_out, :].
         Value gridX = createKrnl.load(
             grid, {n, d_out, h_out, w_out, create.math.constantIndex(0)});
         Value gridY = createKrnl.load(
@@ -744,12 +746,12 @@ static LogicalResult lowerGridSample3D(ONNXGridSampleOp op,
         Value gridZ = createKrnl.load(
             grid, {n, d_out, h_out, w_out, create.math.constantIndex(2)});
 
-        // Cast grid coordinates to input element type if needed
+        // Cast grid coordinates to input element type if needed.
         Value gridXCast = create.math.cast(elementType, gridX);
         Value gridYCast = create.math.cast(elementType, gridY);
         Value gridZCast = create.math.cast(elementType, gridZ);
 
-        // Transform coordinates from [-1,1] to input space
+        // Transform coordinates from [-1,1] to input space.
         Value x =
             transformCoordinate(create.math, loc, gridXCast, W, alignCorners);
         Value y =
@@ -760,7 +762,7 @@ static LogicalResult lowerGridSample3D(ONNXGridSampleOp op,
         Value result;
 
         if (mode == "nearest") {
-          // Nearest neighbor interpolation
+          // Nearest neighbor interpolation.
           Value x_nearest = createKrnl.roundEven(x);
           Value y_nearest = createKrnl.roundEven(y);
           Value z_nearest = createKrnl.roundEven(z);
@@ -770,7 +772,7 @@ static LogicalResult lowerGridSample3D(ONNXGridSampleOp op,
                   z_nearest, y_nearest, x_nearest, D, H, W, paddingMode, zero);
 
         } else if (mode == "linear" || mode == "trilinear") {
-          // Trilinear interpolation (8 corner points)
+          // Trilinear interpolation (8 corner points).
           Value x0 = create.math.floor(x);
           Value x1 = create.math.add(x0, one);
           Value y0 = create.math.floor(y);
@@ -778,7 +780,7 @@ static LogicalResult lowerGridSample3D(ONNXGridSampleOp op,
           Value z0 = create.math.floor(z);
           Value z1 = create.math.add(z0, one);
 
-          // Compute weights
+          // Compute weights.
           Value wx = create.math.sub(x, x0);
           Value wy = create.math.sub(y, y0);
           Value wz = create.math.sub(z, z0);
@@ -786,7 +788,7 @@ static LogicalResult lowerGridSample3D(ONNXGridSampleOp op,
           Value wy1 = create.math.sub(one, wy);
           Value wz1 = create.math.sub(one, wz);
 
-          // Load 8 corner values with padding
+          // Load 8 corner values with padding.
           Value v000 = loadWithPadding3D(createKrnl, create.math, loc, input,
               {n, c}, z0, y0, x0, D, H, W, paddingMode, zero);
           Value v001 = loadWithPadding3D(createKrnl, create.math, loc, input,
@@ -804,7 +806,7 @@ static LogicalResult lowerGridSample3D(ONNXGridSampleOp op,
           Value v111 = loadWithPadding3D(createKrnl, create.math, loc, input,
               {n, c}, z1, y1, x1, D, H, W, paddingMode, zero);
 
-          // Trilinear formula
+          // Trilinear formula.
           Value t0 = create.math.mul(
               create.math.mul(create.math.mul(wz1, wy1), wx1), v000);
           Value t1 = create.math.mul(
@@ -827,11 +829,11 @@ static LogicalResult lowerGridSample3D(ONNXGridSampleOp op,
               create.math.add(
                   create.math.add(t4, t5), create.math.add(t6, t7)));
         } else {
-          // This should not be reached due to checks in matchAndRewrite
+          // This should not be reached due to checks in matchAndRewrite.
           result = zero;
         }
 
-        // Store result
+        // Store result.
         createKrnl.store(result, alloc, loopInd);
       });
 
@@ -862,14 +864,14 @@ struct ONNXGridSampleOpLowering : public OpConversionPattern<ONNXGridSampleOp> {
     Location loc = ONNXLoc<ONNXGridSampleOp>(op);
     ValueRange operands = adaptor.getOperands();
 
-    // Check padding mode - zeros and border supported
+    // Check padding mode - zeros and border supported.
     StringRef paddingMode = gridSampleOp.getPaddingMode();
     if (paddingMode != "zeros" && paddingMode != "border") {
       return emitError(
           loc, "Only zeros and border padding modes are currently supported");
     }
 
-    // Check interpolation mode
+    // Check interpolation mode.
     StringRef mode = gridSampleOp.getMode();
     if (mode != "nearest" && mode != "linear" && mode != "bilinear" &&
         mode != "cubic" && mode != "trilinear") {
@@ -879,42 +881,42 @@ struct ONNXGridSampleOpLowering : public OpConversionPattern<ONNXGridSampleOp> {
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder>
         create(rewriter, loc);
 
-    // Get shape using existing shape helper
+    // Get shape using existing shape helper.
     ONNXGridSampleOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
-    // Convert output type to MemRefType
+    // Convert output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
     assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
     MemRefType outputMemRefType = mlir::cast<MemRefType>(convertedType);
 
-    // Allocate output
+    // Allocate output.
     Value alloc =
         create.mem.alignedAlloc(outputMemRefType, shapeHelper.getOutputDims());
 
-    // Get input rank to determine 2D vs 3D
+    // Get input rank to determine 2D vs 3D.
     Value input = adaptor.getX();
     int64_t inputRank = mlir::cast<MemRefType>(input.getType()).getRank();
 
-    // Check mode compatibility with dimensionality
+    // Check mode compatibility with dimensionality.
     if (inputRank == 4) {
-      // 2D: supports nearest, linear/bilinear, cubic
+      // 2D: supports nearest, linear/bilinear, cubic.
       if (mode == "trilinear") {
         return emitError(
             loc, "trilinear mode is only supported for 3D (5D input)");
       }
     } else if (inputRank == 5) {
-      // 3D: supports nearest, linear/trilinear
+      // 3D: supports nearest, linear/trilinear.
       if (mode == "cubic") {
         return emitError(loc, "cubic mode is not supported for 3D (5D input)");
       }
     }
 
-    // Dispatch to 2D or 3D implementation
+    // Dispatch to 2D or 3D implementation.
     LogicalResult result = success();
     if (inputRank == 4) {
-      // Use optimized bilinear path for 2D bilinear interpolation
+      // Use optimized bilinear path for 2D bilinear interpolation.
       if (ENABLE_GRIDSAMPLE_BILINEAR_OPT &&
           (mode == "linear" || mode == "bilinear")) {
         result = lowerGridSample2DBilinearOptimized(gridSampleOp, adaptor,
@@ -946,5 +948,3 @@ void populateLoweringONNXGridSampleOpPattern(RewritePatternSet &patterns,
 }
 
 } // namespace onnx_mlir
-
-// Made with Bob

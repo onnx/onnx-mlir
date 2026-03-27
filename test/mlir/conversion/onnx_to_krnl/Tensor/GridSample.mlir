@@ -2,6 +2,7 @@
 
 
 // Note here: we added the march = z17 because not all machines have support for round even operation.
+// Recent Z machines have it, same with recent macs.
 
 // -----
 

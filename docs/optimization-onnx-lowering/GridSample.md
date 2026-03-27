@@ -1,3 +1,4 @@
+<!--- SPDX-License-Identifier: Apache-2.0 -->
 # GridSample Bilinear 2D Optimization
 
 **Status:** Enabled by default (can be disabled by setting `ENABLE_GRIDSAMPLE_BILINEAR_OPT` to 0)
