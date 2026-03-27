@@ -1234,6 +1234,22 @@ void MemRefBuilder::storeIE(Value val, Value memref,
 }
 
 //===----------------------------------------------------------------------===//
+// Compute type and dyn symbols for alloc functions.
+
+mlir::MemRefType MemRefBuilder::getType(DimsExprRef shape, Type elementType) {
+  int64_t rank = shape.size();
+  llvm::SmallVector<int64_t, 6> typeShape;
+  for (int64_t i = 0; i < rank; ++i) {
+    if (shape[i].isLiteral())
+      // Use literal directly in type.
+      typeShape.emplace_back(shape[i].getLiteral());
+    else
+      // Else we have a dynamic value.
+      typeShape.emplace_back(ShapedType::kDynamic);
+  }
+  return MemRefType::get(typeShape, elementType);
+}
+//===----------------------------------------------------------------------===//
 // Alloc functions without alignment.
 
 memref::AllocOp MemRefBuilder::alloc(MemRefType type) const {
