@@ -14,7 +14,6 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
-#include "llvm/TargetParser/Triple.h"
 
 // Enable optimized bilinear 2D GridSample implementation (0 is disabled).
 // See docs/optimization-onnx-lowering/GridSample.md for explanation of the
