@@ -2421,6 +2421,32 @@ LLVM::GlobalOp LLVMBuilder::globalOp(Type resultType, bool isConstant,
   return gop;
 }
 
+void LLVMBuilder::globalCtors(ArrayRef<Attribute> ctors,
+    ArrayRef<int32_t> priorities, ArrayRef<Attribute> data) const {
+  MLIRContext *context = b().getContext();
+
+  // Create the array attributes.
+  ArrayAttr ctorsAttr = ArrayAttr::get(context, ctors);
+  ArrayAttr prioritiesAttr = b().getI32ArrayAttr(priorities);
+  ArrayAttr dataAttr = ArrayAttr::get(context, data);
+
+  // Create the global constructors operation.
+  LLVM::GlobalCtorsOp::create(b(), loc(), ctorsAttr, prioritiesAttr, dataAttr);
+}
+
+void LLVMBuilder::globalDtors(ArrayRef<Attribute> ctors,
+    ArrayRef<int32_t> priorities, ArrayRef<Attribute> data) const {
+  MLIRContext *context = b().getContext();
+
+  // Create the array attributes.
+  ArrayAttr dtorsAttr = ArrayAttr::get(context, ctors);
+  ArrayAttr prioritiesAttr = b().getI32ArrayAttr(priorities);
+  ArrayAttr dataAttr = ArrayAttr::get(context, data);
+
+  // Create the global destructors operation.
+  LLVM::GlobalDtorsOp::create(b(), loc(), dtorsAttr, prioritiesAttr, dataAttr);
+}
+
 Value LLVMBuilder::icmp(LLVM::ICmpPredicate cond, Value lhs, Value rhs) const {
   return LLVM::ICmpOp::create(b(), loc(), cond, lhs, rhs);
 }
