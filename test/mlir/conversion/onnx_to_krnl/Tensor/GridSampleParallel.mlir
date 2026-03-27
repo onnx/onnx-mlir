@@ -1,4 +1,7 @@
-// RUN: onnx-mlir-opt -O3 --march=x86-64 --shape-inference --convert-onnx-to-krnl=enable-parallel --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt -O3 --march=z17 --shape-inference --convert-onnx-to-krnl=enable-parallel --canonicalize %s -split-input-file | FileCheck %s
+
+// Note here: we added the march = z17 because not all machines have support for round even operation.
+// Recent Z machines have it, same with recent macs.
 
 // -----
 
@@ -11,10 +14,17 @@ func.func @test_gridsample_2d_parallel_small_batch(%arg0: tensor<1x20x4x4xf32>, 
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<1x20x4x4xf32>, [[PARAM_1_:%.+]]: memref<1x2x2x2xf32>) -> memref<1x20x2x2xf32> {
 // CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0.000000e+00 : f32
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<1x20x2x2xf32>
-// CHECK-DAG:       [[LOOP_0_:%.+]]:4 = krnl.define_loops 4
-// CHECK:           krnl.parallel([[LOOP_0_]]#1)
-// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3)
-// CHECK:             krnl.store {{%.+}}, [[RES_]]
+// CHECK:           memref.alloc({{.*}}) {{.*}}: memref<2x2x4xindex>
+// CHECK:           memref.alloc({{.*}}) {{.*}}: memref<2x2x4xf32>
+// CHECK:           memref.alloc({{.*}}) {{.*}}: memref<2x2xi8>
+// CHECK:           [[LOOP_N_:%.+]] = krnl.define_loops 1
+// CHECK:           krnl.iterate([[LOOP_N_]]) with ([[LOOP_N_]] -> [[I_N_:%.+]] = 0 to 1){
+// CHECK:             [[LOOP_PLAN_:%.+]]:2 = krnl.define_loops 2
+// CHECK:             krnl.iterate([[LOOP_PLAN_]]#0, [[LOOP_PLAN_]]#1)
+// CHECK:             [[LOOP_APPLY_:%.+]]:3 = krnl.define_loops 3
+// CHECK:             krnl.parallel([[LOOP_APPLY_]]#0)
+// CHECK:             krnl.iterate([[LOOP_APPLY_]]#0, [[LOOP_APPLY_]]#1, [[LOOP_APPLY_]]#2)
+// CHECK:               krnl.store {{%.+}}, [[RES_]]
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<1x20x2x2xf32>
 }
@@ -30,10 +40,16 @@ func.func @test_gridsample_2d_parallel_large_batch(%arg0: tensor<16x3x4x4xf32>, 
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<16x3x4x4xf32>, [[PARAM_1_:%.+]]: memref<16x2x2x2xf32>) -> memref<16x3x2x2xf32> {
 // CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0.000000e+00 : f32
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<16x3x2x2xf32>
-// CHECK-DAG:       [[LOOP_0_:%.+]]:4 = krnl.define_loops 4
-// CHECK:           krnl.parallel([[LOOP_0_]]#0)
-// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3)
-// CHECK:             krnl.store {{%.+}}, [[RES_]]
+// CHECK:           memref.alloc({{.*}}) {{.*}}: memref<2x2x4xindex>
+// CHECK:           memref.alloc({{.*}}) {{.*}}: memref<2x2x4xf32>
+// CHECK:           memref.alloc({{.*}}) {{.*}}: memref<2x2xi8>
+// CHECK:           [[LOOP_N_:%.+]] = krnl.define_loops 1
+// CHECK:           krnl.iterate([[LOOP_N_]]) with ([[LOOP_N_]] -> [[I_N_:%.+]] = 0 to 16){
+// CHECK:             [[LOOP_PLAN_:%.+]]:2 = krnl.define_loops 2
+// CHECK:             krnl.iterate([[LOOP_PLAN_]]#0, [[LOOP_PLAN_]]#1)
+// CHECK:             [[LOOP_APPLY_:%.+]]:3 = krnl.define_loops 3
+// CHECK:             krnl.iterate([[LOOP_APPLY_]]#0, [[LOOP_APPLY_]]#1, [[LOOP_APPLY_]]#2)
+// CHECK:               krnl.store {{%.+}}, [[RES_]]
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<16x3x2x2xf32>
 }

@@ -1,4 +1,8 @@
-// RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-krnl %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --march=z17 --shape-inference --convert-onnx-to-krnl %s -split-input-file | FileCheck %s
+
+
+// Note here: we added the march = z17 because not all machines have support for round even operation.
+// Recent Z machines have it, same with recent macs.
 
 // -----
 
@@ -10,12 +14,26 @@ func.func @test_gridsample_2d_bilinear(%arg0: tensor<1x1x4x4xf32>, %arg1: tensor
 // CHECK-LABEL:  func @test_gridsample_2d_bilinear
 // CHECK-SAME:   ([[INPUT_:%.+]]: memref<1x1x4x4xf32>, [[GRID_:%.+]]: memref<1x2x3x2xf32>) -> memref<1x1x2x3xf32> {
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<1x1x2x3xf32>
-// CHECK-DAG:       [[LOOP_0_:%.+]]:4 = krnl.define_loops 4
-// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 1, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 1, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 2, [[LOOP_0_]]#3 -> [[I_3_:%.+]] = 0 to 3){
-// CHECK:             [[IV:%.+]]:4 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3)
-// CHECK:             [[LOAD_GRID_X_:%.+]] = krnl.load [[GRID_]]
-// CHECK:             [[LOAD_GRID_Y_:%.+]] = krnl.load [[GRID_]]
-// CHECK:             krnl.store {{%.+}}, [[RES_]]
+// CHECK-DAG:       [[INDICES_:%.+]] = memref.alloc() {{.*}}: memref<2x3x4xindex>
+// CHECK-DAG:       [[WEIGHTS_:%.+]] = memref.alloc() {{.*}}: memref<2x3x4xf32>
+// CHECK-DAG:       [[MASK_:%.+]] = memref.alloc() {{.*}}: memref<2x3xi8>
+// CHECK-DAG:       [[LOOP_N_:%.+]] = krnl.define_loops 1
+// CHECK:           krnl.iterate([[LOOP_N_]]) with ([[LOOP_N_]] -> [[I_N_:%.+]] = 0 to 1){
+// CHECK:             [[LOOP_PLAN_:%.+]]:2 = krnl.define_loops 2
+// CHECK:             krnl.iterate([[LOOP_PLAN_]]#0, [[LOOP_PLAN_]]#1) with ([[LOOP_PLAN_]]#0 -> [[I_H_:%.+]] = 0 to 2, [[LOOP_PLAN_]]#1 -> [[I_W_:%.+]] = 0 to 3){
+// CHECK:               [[LOAD_GRID_X_:%.+]] = krnl.load [[GRID_]]
+// CHECK:               [[LOAD_GRID_Y_:%.+]] = krnl.load [[GRID_]]
+// CHECK-DAG:           krnl.store {{%.+}}, [[WEIGHTS_]]
+// CHECK-DAG:           krnl.store {{%.+}}, [[INDICES_]]
+// CHECK-DAG:           krnl.store {{%.+}}, [[MASK_]]
+// CHECK:             }
+// CHECK:             [[LOOP_APPLY_:%.+]]:3 = krnl.define_loops 3
+// CHECK:             krnl.iterate([[LOOP_APPLY_]]#0, [[LOOP_APPLY_]]#1, [[LOOP_APPLY_]]#2) with ([[LOOP_APPLY_]]#0 -> [[I_C_:%.+]] = 0 to 1, [[LOOP_APPLY_]]#1 -> [[I_H2_:%.+]] = 0 to 2, [[LOOP_APPLY_]]#2 -> [[I_W2_:%.+]] = 0 to 3){
+// CHECK:               krnl.load [[INDICES_]]
+// CHECK:               krnl.load [[WEIGHTS_]]
+// CHECK:               krnl.load [[INPUT_]]
+// CHECK:               krnl.store {{%.+}}, [[RES_]]
+// CHECK:             }
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<1x1x2x3xf32>
 }
@@ -35,12 +53,7 @@ func.func @test_gridsample_2d_nearest(%arg0: tensor<1x1x3x3xf32>, %arg1: tensor<
 // CHECK:             [[IV:%.+]]:4 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3)
 // CHECK:             [[LOAD_GRID_X_:%.+]] = krnl.load [[GRID_]]
 // CHECK:             [[LOAD_GRID_Y_:%.+]] = krnl.load [[GRID_]]
-// CHECK:             math.floor
-// CHECK:             arith.subf
-// CHECK:             arith.cmpf
-// CHECK:             arith.addf
-// CHECK:             arith.select
-// CHECK:             arith.mulf
+// CHECK:             krnl.round_even
 // CHECK:             krnl.store {{%.+}}, [[RES_]]
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<1x1x2x2xf32>
@@ -104,12 +117,7 @@ func.func @test_gridsample_3d_nearest(%arg0: tensor<1x2x2x3x4xf32>, %arg1: tenso
 // CHECK:             [[LOAD_GRID_X_:%.+]] = krnl.load [[GRID_]]
 // CHECK:             [[LOAD_GRID_Y_:%.+]] = krnl.load [[GRID_]]
 // CHECK:             [[LOAD_GRID_Z_:%.+]] = krnl.load [[GRID_]]
-// CHECK:             math.floor
-// CHECK:             arith.subf
-// CHECK:             arith.cmpf
-// CHECK:             arith.addf
-// CHECK:             arith.select
-// CHECK:             arith.mulf
+// CHECK:             krnl.round_even
 // CHECK:             krnl.store {{%.+}}, [[RES_]]
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<1x2x2x2x2xf32>
@@ -125,15 +133,28 @@ func.func @test_gridsample_2d_linear_border(%arg0: tensor<1x1x4x4xf32>, %arg1: t
 // CHECK-LABEL:  func @test_gridsample_2d_linear_border
 // CHECK-SAME:   ([[INPUT_:%.+]]: memref<1x1x4x4xf32>, [[GRID_:%.+]]: memref<1x2x3x2xf32>) -> memref<1x1x2x3xf32> {
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<1x1x2x3xf32>
-// CHECK-DAG:       [[LOOP_0_:%.+]]:4 = krnl.define_loops 4
-// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 1, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 1, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 2, [[LOOP_0_]]#3 -> [[I_3_:%.+]] = 0 to 3){
-// CHECK:             [[IV:%.+]]:4 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3)
-// CHECK:             [[LOAD_GRID_X_:%.+]] = krnl.load [[GRID_]]
-// CHECK:             [[LOAD_GRID_Y_:%.+]] = krnl.load [[GRID_]]
-// CHECK:             math.floor
-// CHECK:             arith.maxnumf
-// CHECK:             arith.minnumf
-// CHECK:             krnl.store {{%.+}}, [[RES_]]
+// CHECK-DAG:       [[INDICES_:%.+]] = memref.alloc() {{.*}}: memref<2x3x4xindex>
+// CHECK-DAG:       [[WEIGHTS_:%.+]] = memref.alloc() {{.*}}: memref<2x3x4xf32>
+// CHECK-NOT:       memref.alloc{{.*}}memref<2x3xi8>
+// CHECK-DAG:       [[LOOP_N_:%.+]] = krnl.define_loops 1
+// CHECK:           krnl.iterate([[LOOP_N_]]) with ([[LOOP_N_]] -> [[I_N_:%.+]] = 0 to 1){
+// CHECK:             [[LOOP_PLAN_:%.+]]:2 = krnl.define_loops 2
+// CHECK:             krnl.iterate([[LOOP_PLAN_]]#0, [[LOOP_PLAN_]]#1) with ([[LOOP_PLAN_]]#0 -> [[I_H_:%.+]] = 0 to 2, [[LOOP_PLAN_]]#1 -> [[I_W_:%.+]] = 0 to 3){
+// CHECK:               [[LOAD_GRID_X_:%.+]] = krnl.load [[GRID_]]
+// CHECK:               [[LOAD_GRID_Y_:%.+]] = krnl.load [[GRID_]]
+// CHECK:               math.floor
+// CHECK-DAG:           krnl.store {{%.+}}, [[WEIGHTS_]]
+// CHECK:               arith.maxnumf
+// CHECK:               arith.minnumf
+// CHECK-DAG:           krnl.store {{%.+}}, [[INDICES_]]
+// CHECK:             }
+// CHECK:             [[LOOP_APPLY_:%.+]]:3 = krnl.define_loops 3
+// CHECK:             krnl.iterate([[LOOP_APPLY_]]#0, [[LOOP_APPLY_]]#1, [[LOOP_APPLY_]]#2) with ([[LOOP_APPLY_]]#0 -> [[I_C_:%.+]] = 0 to 1, [[LOOP_APPLY_]]#1 -> [[I_H2_:%.+]] = 0 to 2, [[LOOP_APPLY_]]#2 -> [[I_W2_:%.+]] = 0 to 3){
+// CHECK:               krnl.load [[INDICES_]]
+// CHECK:               krnl.load [[WEIGHTS_]]
+// CHECK:               krnl.load [[INPUT_]]
+// CHECK:               krnl.store {{%.+}}, [[RES_]]
+// CHECK:             }
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<1x1x2x3xf32>
 }
@@ -153,12 +174,7 @@ func.func @test_gridsample_2d_nearest_border(%arg0: tensor<1x1x3x3xf32>, %arg1: 
 // CHECK:             [[IV:%.+]]:4 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3)
 // CHECK:             [[LOAD_GRID_X_:%.+]] = krnl.load [[GRID_]]
 // CHECK:             [[LOAD_GRID_Y_:%.+]] = krnl.load [[GRID_]]
-// CHECK:             math.floor
-// CHECK:             arith.subf
-// CHECK:             arith.cmpf
-// CHECK:             arith.addf
-// CHECK:             arith.select
-// CHECK:             arith.mulf
+// CHECK:             krnl.round_even
 // CHECK:             arith.maxnumf
 // CHECK:             arith.minnumf
 // CHECK:             krnl.store {{%.+}}, [[RES_]]
@@ -229,12 +245,7 @@ func.func @test_gridsample_3d_nearest_border(%arg0: tensor<1x2x2x3x4xf32>, %arg1
 // CHECK:             [[LOAD_GRID_X_:%.+]] = krnl.load [[GRID_]]
 // CHECK:             [[LOAD_GRID_Y_:%.+]] = krnl.load [[GRID_]]
 // CHECK:             [[LOAD_GRID_Z_:%.+]] = krnl.load [[GRID_]]
-// CHECK:             math.floor
-// CHECK:             arith.subf
-// CHECK:             arith.cmpf
-// CHECK:             arith.addf
-// CHECK:             arith.select
-// CHECK:             arith.mulf
+// CHECK:             krnl.round_even
 // CHECK:             arith.maxnumf
 // CHECK:             arith.minnumf
 // CHECK:             krnl.store {{%.+}}, [[RES_]]
@@ -252,14 +263,28 @@ func.func @test_gridsample_2d_mixed_types(%arg0: tensor<1x1x4x4xf32>, %arg1: ten
 // CHECK-LABEL:  func @test_gridsample_2d_mixed_types
 // CHECK-SAME:   ([[INPUT_:%.+]]: memref<1x1x4x4xf32>, [[GRID_:%.+]]: memref<1x2x2x2xf64>) -> memref<1x1x2x2xf32> {
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<1x1x2x2xf32>
-// CHECK-DAG:       [[LOOP_0_:%.+]]:4 = krnl.define_loops 4
-// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 1, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 1, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 2, [[LOOP_0_]]#3 -> [[I_3_:%.+]] = 0 to 2){
-// CHECK:             [[IV:%.+]]:4 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3)
-// CHECK:             [[LOAD_GRID_X_:%.+]] = krnl.load [[GRID_]]{{.*}} : memref<1x2x2x2xf64>
-// CHECK:             [[LOAD_GRID_Y_:%.+]] = krnl.load [[GRID_]]{{.*}} : memref<1x2x2x2xf64>
-// CHECK:             [[CAST_X_:%.+]] = arith.truncf [[LOAD_GRID_X_]] : f64 to f32
-// CHECK:             [[CAST_Y_:%.+]] = arith.truncf [[LOAD_GRID_Y_]] : f64 to f32
-// CHECK:             krnl.store {{%.+}}, [[RES_]]
+// CHECK-DAG:       [[INDICES_:%.+]] = memref.alloc() {{.*}}: memref<2x2x4xindex>
+// CHECK-DAG:       [[WEIGHTS_:%.+]] = memref.alloc() {{.*}}: memref<2x2x4xf32>
+// CHECK-DAG:       [[MASK_:%.+]] = memref.alloc() {{.*}}: memref<2x2xi8>
+// CHECK-DAG:       [[LOOP_N_:%.+]] = krnl.define_loops 1
+// CHECK:           krnl.iterate([[LOOP_N_]]) with ([[LOOP_N_]] -> [[I_N_:%.+]] = 0 to 1){
+// CHECK:             [[LOOP_PLAN_:%.+]]:2 = krnl.define_loops 2
+// CHECK:             krnl.iterate([[LOOP_PLAN_]]#0, [[LOOP_PLAN_]]#1) with ([[LOOP_PLAN_]]#0 -> [[I_H_:%.+]] = 0 to 2, [[LOOP_PLAN_]]#1 -> [[I_W_:%.+]] = 0 to 2){
+// CHECK:               [[LOAD_GRID_X_:%.+]] = krnl.load [[GRID_]]{{.*}} : memref<1x2x2x2xf64>
+// CHECK:               [[LOAD_GRID_Y_:%.+]] = krnl.load [[GRID_]]{{.*}} : memref<1x2x2x2xf64>
+// CHECK:               [[CAST_X_:%.+]] = arith.truncf [[LOAD_GRID_X_]] : f64 to f32
+// CHECK:               [[CAST_Y_:%.+]] = arith.truncf [[LOAD_GRID_Y_]] : f64 to f32
+// CHECK-DAG:           krnl.store {{%.+}}, [[WEIGHTS_]]
+// CHECK-DAG:           krnl.store {{%.+}}, [[INDICES_]]
+// CHECK-DAG:           krnl.store {{%.+}}, [[MASK_]]
+// CHECK:             }
+// CHECK:             [[LOOP_APPLY_:%.+]]:3 = krnl.define_loops 3
+// CHECK:             krnl.iterate([[LOOP_APPLY_]]#0, [[LOOP_APPLY_]]#1, [[LOOP_APPLY_]]#2) with ([[LOOP_APPLY_]]#0 -> [[I_C_:%.+]] = 0 to 1, [[LOOP_APPLY_]]#1 -> [[I_H2_:%.+]] = 0 to 2, [[LOOP_APPLY_]]#2 -> [[I_W2_:%.+]] = 0 to 2){
+// CHECK:               krnl.load [[INDICES_]]
+// CHECK:               krnl.load [[WEIGHTS_]]
+// CHECK:               krnl.load [[INPUT_]]
+// CHECK:               krnl.store {{%.+}}, [[RES_]]
+// CHECK:             }
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<1x1x2x2xf32>
 }
