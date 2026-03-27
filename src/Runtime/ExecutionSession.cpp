@@ -72,6 +72,18 @@ void ExecutionSession::loadModel(
     throw ExecutionSessionException(
         "Execution session must be initialized once at most.");
 
+  // Set OM_CONSTANT_PATH for loading constants from file if required.
+  // Do this before dlopen since OM_CONSTANT_PATH is used by constructors.
+  std::size_t found = sharedLibPath.find_last_of("/\\");
+  if (found != std::string::npos) {
+    std::string basePath = sharedLibPath.substr(0, found);
+#if defined(_WIN32)
+    _putenv_s("OM_CONSTANT_PATH", basePath.c_str());
+#else
+    setenv("OM_CONSTANT_PATH", basePath.c_str(), /*overwrite=*/0);
+#endif
+  }
+
   // If there is no tag, use the model filename without extension as a tag.
   if (tag == "") {
 #if defined(_WIN32)
@@ -178,16 +190,6 @@ void ExecutionSession::loadModel(
       throw ExecutionSessionException(
           "Cannot load symbol: '" + _printInstrumentationName + "'.");
     }
-  }
-  // Set OM_CONSTANT_PATH for loading constants from file if required.
-  std::size_t found = sharedLibPath.find_last_of("/\\");
-  if (found != std::string::npos) {
-    std::string basePath = sharedLibPath.substr(0, found);
-#if defined(_WIN32)
-    _putenv_s("OM_CONSTANT_PATH", basePath.c_str());
-#else
-    setenv("OM_CONSTANT_PATH", basePath.c_str(), /*overwrite=*/0);
-#endif
   }
 
   // Successful completion of initialization.

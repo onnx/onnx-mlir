@@ -786,6 +786,16 @@ struct LLVMBuilder final : DialectBuilder {
       mlir::LLVM::Linkage, llvm::StringRef name, mlir::Attribute attr,
       uint64_t alignment = 0, bool uniqueName = true) const;
 
+  // GlobalCtorsOp
+  void globalCtors(mlir::ArrayRef<mlir::Attribute> ctors,
+      mlir::ArrayRef<int32_t> priorities,
+      mlir::ArrayRef<mlir::Attribute> data) const;
+
+  // GlobalDtorsOp
+  void globalDtors(mlir::ArrayRef<mlir::Attribute> dtors,
+      mlir::ArrayRef<int32_t> priorities,
+      mlir::ArrayRef<mlir::Attribute> data) const;
+
   // ICmpOp
   mlir::Value icmp(
       mlir::LLVM::ICmpPredicate cond, mlir::Value lhs, mlir::Value rhs) const;
