@@ -198,8 +198,11 @@ LogicalResult ZHighExtendedLayoutTransformOp::inferShapes(
   if (!hasShapeAndRank(getSource()))
     return success();
 
-  Type elementType = getElementType(getResult().getType());
   ZHighExtendedLayoutTransformOpShapeHelper shapeHelper(getOperation(), {});
+  Type elementType = getElementType(getResult().getType());
+  Attribute encoding = getZTensorEncoding(getResult().getType());
+  if (encoding)
+    return shapeHelper.computeShapeAndUpdateType(elementType, encoding);
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
