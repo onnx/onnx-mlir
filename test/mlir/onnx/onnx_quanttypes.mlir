@@ -267,7 +267,6 @@ func.func @randomnormallike_quant_types(%arg0: tensor<1x64x32xui16>) -> tensor<1
 // CHECK: "onnx.RandomNormalLike"
 // CHECK-SAME: !quant.uniform<u16:f32,
 
-
 // Test that RMSLayerNormalization accepts quantized input (X) and produces
 // quantized output (Y) after -quant-types folds surrounding DQ/Q ops.
 // Scale stays float and bias is none — only X and Y carry quant types.
