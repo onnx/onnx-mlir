@@ -33,11 +33,12 @@ The following example shows how to use the input files and reference output file
 import numpy
 import OMPyInfer
 
+args = OMPyInfer.parse_args()
 input_files = ["filename1.npy", "filename2.npy"]
 ref_output_files = [ "ref_filename.npy" ]
 
 session = OMPyInfer.InferenceSession("mymode.so")
-outputs = OMPyInfer.utils.run_model_with_file(session, input_files, ref_output_files, warmup=args.warmup, repeat=args.n_iteration, atol=args.atol, rtol=args.rtol)
+outputs = OMPyInfer.run_model_with_file(session, input_files, ref_output_files, warmup=args.warmup, repeat=args.n_iteration, atol=args.atol, rtol=args.rtol)
 
 ```
 
