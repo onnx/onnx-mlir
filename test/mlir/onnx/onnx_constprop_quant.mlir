@@ -574,3 +574,25 @@ func.func @slice_quantized_input_float_output() -> tensor<1xf32> {
 // CHECK-LABEL: @slice_quantized_input_float_output
 // CHECK:         onnx.Slice
 // CHECK-SAME:      (tensor<2x!quant.uniform<u8:f32, 5.000000e-01>>
+
+
+// ReduceMean noop fold with quantized input — should NOT be folded.
+// The fold method returns getData() when there are no reduction axes and
+// noop_with_empty_axes is set; the IsIntOrFloatType guard prevents a type
+// mismatch between the quantized input and the float result.
+func.func @reduce_mean_noop_quantized_input_float_output() -> tensor<1xf32> {
+  %a = onnx.Constant dense<[10, 20]> : tensor<2xui8>
+  %a_scale = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %a_zp = onnx.Constant dense<0> : tensor<ui8>
+
+  %a_dq = "onnx.DequantizeLinear"(%a, %a_scale, %a_zp) {axis = 0 : si64, block_size = 0 : si64} : (tensor<2xui8>, tensor<f32>, tensor<ui8>) -> tensor<2xf32>
+
+  %none = "onnx.NoValue"() {value} : () -> none
+  %r = "onnx.ReduceMean"(%a_dq, %none) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<2xf32>, none) -> tensor<1xf32>
+
+  return %r : tensor<1xf32>
+}
+
+// CHECK-LABEL: @reduce_mean_noop_quantized_input_float_output
+// CHECK:         onnx.ReduceMean
+// CHECK-SAME:      (tensor<2x!quant.uniform<u8:f32, 5.000000e-01>>
