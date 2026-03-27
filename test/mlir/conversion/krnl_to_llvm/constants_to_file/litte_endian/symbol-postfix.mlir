@@ -152,7 +152,7 @@ module attributes {"onnx-mlir.symbol-postfix" = "tag_constants_to_file"} {
 // CHECK-CONST-TO-FILE:           llvm.return [[VAR_0_15_]] : !llvm.ptr
 // CHECK-CONST-TO-FILE:         }
 
-// CHECK-CONST-TO-FILE:         llvm.func @omLoadConstantsFromFile_tag_constants_to_file() -> i1 {
+// CHECK-CONST-TO-FILE:         llvm.func @omLoadConstantDataCtor_tag_constants_to_file() {
 // CHECK-CONST-TO-FILE-DAG:       [[VAR_0_19_:%.+]] = llvm.mlir.constant(4096 : i64) : i64
 // CHECK-CONST-TO-FILE-DAG:       [[VAR_1_10_:%.+]] = llvm.mlir.addressof @om_external_constant_data_constant_0_tag_constants_to_file : !llvm.ptr
 // CHECK-CONST-TO-FILE-DAG:       [[VAR_1_11_:%.+]] = llvm.mlir.constant(0 : i64) : i64
@@ -162,48 +162,36 @@ module attributes {"onnx-mlir.symbol-postfix" = "tag_constants_to_file"} {
 // CHECK-CONST-TO-FILE-DAG:       [[VAR_5_9_:%.+]] = llvm.mlir.constant(1 : i64) : i64
 // CHECK-CONST-TO-FILE-DAG:       [[VAR_6_8_:%.+]] = llvm.mlir.addressof @om_external_constant_packedConst_tag_constants_to_file : !llvm.ptr
 // CHECK-CONST-TO-FILE-DAG:       [[VAR_7_5_:%.+]] = llvm.mlir.addressof @om_external_constant_filename_tag_constants_to_file : !llvm.ptr
-// CHECK-CONST-TO-FILE:           [[VAR_8_4_:%.+]] = llvm.call @omMMapBinaryFile([[VAR_6_8_]], [[VAR_7_5_]], [[VAR_4_9_]], [[VAR_5_9_]]) : (!llvm.ptr, !llvm.ptr, i64, i64) -> i1
+// CHECK-CONST-TO-FILE:           [[VAR_8_4_:%.+]] = llvm.call @omLoadConstantData([[VAR_6_8_]], [[VAR_7_5_]], [[VAR_4_9_]], [[VAR_5_9_]]) : (!llvm.ptr, !llvm.ptr, i64, i64) -> i1
 // CHECK-CONST-TO-FILE:           [[VAR_9_4_:%.+]] = llvm.icmp "ne" [[VAR_3_10_]], [[VAR_8_4_]] : i1
 // CHECK-CONST-TO-FILE:           llvm.cond_br [[VAR_9_4_]], ^bb1, ^bb2
 // CHECK-CONST-TO-FILE:         ^bb1:  // pred: ^bb0
-// CHECK-CONST-TO-FILE:           llvm.return [[VAR_8_4_]] : i1
+// CHECK-CONST-TO-FILE:           llvm.return
 // CHECK-CONST-TO-FILE:         ^bb2:  // pred: ^bb0
 // CHECK-CONST-TO-FILE:           llvm.call @omGetExternalConstantAddr([[VAR_2_10_]], [[VAR_6_8_]], [[VAR_1_11_]]) : (!llvm.ptr, !llvm.ptr, i64) -> ()
 // CHECK-CONST-TO-FILE:           llvm.call @omGetExternalConstantAddr([[VAR_1_10_]], [[VAR_6_8_]], [[VAR_0_19_]]) : (!llvm.ptr, !llvm.ptr, i64) -> ()
-// CHECK-CONST-TO-FILE:           llvm.return [[VAR_3_10_]] : i1
+// CHECK-CONST-TO-FILE:           llvm.return
 // CHECK-CONST-TO-FILE:         }
-// CHECK-CONST-TO-FILE:         llvm.func @omLoadConstantsFromFile() -> i1 {
-// CHECK-CONST-TO-FILE:           [[VAR_0_20_:%.+]] = llvm.call @omLoadConstantsFromFile_tag_constants_to_file() : () -> i1
-// CHECK-CONST-TO-FILE:           llvm.return [[VAR_0_20_]] : i1
-// CHECK-CONST-TO-FILE:         }
-
-// CHECK-CONST-TO-FILE:         llvm.func @run_main_graph_tag_constants_to_file([[arg0_:%.+]]: !llvm.ptr) -> !llvm.ptr {
-// CHECK-CONST-TO-FILE-DAG:       [[VAR_3_11_:%.+]] = llvm.mlir.zero : !llvm.ptr
-// CHECK-CONST-TO-FILE-DAG:       [[VAR_4_10_:%.+]] = llvm.mlir.constant(22 : i32) : i32
-// CHECK-CONST-TO-FILE-DAG:       [[VAR_5_10_:%.+]] = llvm.mlir.constant(true) : i1
-// CHECK-CONST-TO-FILE-DAG:       [[VAR_6_9_:%.+]] = llvm.call @omLoadConstantsFromFile_tag_constants_to_file() : () -> i1
-// CHECK-CONST-TO-FILE:           [[VAR_7_6_:%.+]] = llvm.icmp "ne" [[VAR_5_10_]], [[VAR_6_9_]] : i1
-// CHECK-CONST-TO-FILE:           llvm.cond_br [[VAR_7_6_]], ^bb1, ^bb2
-// CHECK-CONST-TO-FILE:         ^bb1:  // pred: ^bb0
-// CHECK-CONST-TO-FILE:           [[VAR_8_5_:%.+]] = llvm.call @__errno_location() : () -> !llvm.ptr
-// CHECK-CONST-TO-FILE:           llvm.store [[VAR_4_10_]], [[VAR_8_5_]] : i32, !llvm.ptr
-// CHECK-CONST-TO-FILE:           llvm.return [[VAR_3_11_]] : !llvm.ptr
-// CHECK-CONST-TO-FILE:         ^bb2:  // pred: ^bb0
+// CHECK-CONST-TO-FILE:         llvm.func @omLoadConstantDataCtor() {
+// CHECK-CONST-TO-FILE:           llvm.call @omLoadConstantDataCtor_tag_constants_to_file() : () -> ()
+// CHECK-CONST-TO-FILE:           llvm.return
 // CHECK-CONST-TO-FILE:         }
 
-// CHECK-CONST-TO-FILE:         llvm.func @run_main_graph([[arg0_]]: !llvm.ptr) -> !llvm.ptr {
-// CHECK-CONST-TO-FILE-DAG:       [[VAR_0_22_:%.+]] = llvm.mlir.zero : !llvm.ptr
-// CHECK-CONST-TO-FILE-DAG:       [[VAR_1_12_:%.+]] = llvm.mlir.constant(22 : i32) : i32
-// CHECK-CONST-TO-FILE-DAG:       [[VAR_2_12_:%.+]] = llvm.mlir.constant(true) : i1
-// CHECK-CONST-TO-FILE-DAG:       [[VAR_3_12_:%.+]] = llvm.call @omLoadConstantsFromFile_tag_constants_to_file() : () -> i1
-// CHECK-CONST-TO-FILE:           [[VAR_4_11_:%.+]] = llvm.icmp "ne" [[VAR_2_12_]], [[VAR_3_12_]] : i1
-// CHECK-CONST-TO-FILE:           llvm.cond_br [[VAR_4_11_]], ^bb1, ^bb2
+// CHECK-CONST-TO-FILE:         llvm.func @omUnloadConstantDataDtor_tag_constants_to_file() {
+// CHECK-CONST-TO-FILE-DAG:       [[VAR_0_15_:%.+]] = llvm.mlir.constant(true) : i1
+// CHECK-CONST-TO-FILE-DAG:       [[VAR_1_7_:%.+]] = llvm.mlir.addressof @om_external_constant_packedConst_tag_constants_to_file : !llvm.ptr
+// CHECK-CONST-TO-FILE:           [[VAR_2_7_:%.+]] = llvm.call @omUnloadConstantData([[VAR_1_7_]]) : (!llvm.ptr) -> i1
+// CHECK-CONST-TO-FILE:           [[VAR_3_7_:%.+]] = llvm.icmp "ne" [[VAR_0_15_]], [[VAR_2_7_]] : i1
+// CHECK-CONST-TO-FILE:           llvm.cond_br [[VAR_3_7_]], ^bb1, ^bb2
 // CHECK-CONST-TO-FILE:         ^bb1:  // pred: ^bb0
-// CHECK-CONST-TO-FILE:           [[VAR_5_11_:%.+]] = llvm.call @__errno_location() : () -> !llvm.ptr
-// CHECK-CONST-TO-FILE:           llvm.store [[VAR_1_12_]], [[VAR_5_11_]] : i32, !llvm.ptr
-// CHECK-CONST-TO-FILE:           llvm.return [[VAR_0_22_]] : !llvm.ptr
+// CHECK-CONST-TO-FILE:           llvm.return
 // CHECK-CONST-TO-FILE:         ^bb2:  // pred: ^bb0
-// CHECK-CONST-TO-FILE:           [[VAR_6_10_:%.+]] = llvm.call @run_main_graph_tag_constants_to_file([[arg0_]]) : (!llvm.ptr) -> !llvm.ptr
-// CHECK-CONST-TO-FILE:           llvm.return [[VAR_6_10_]] : !llvm.ptr
+// CHECK-CONST-TO-FILE:           llvm.return
 // CHECK-CONST-TO-FILE:         }
+// CHECK-CONST-TO-FILE:         llvm.func @omUnloadConstantDataDtor() {
+// CHECK-CONST-TO-FILE:           llvm.call @omUnloadConstantDataDtor_tag_constants_to_file() : () -> ()
+// CHECK-CONST-TO-FILE:           llvm.return
+// CHECK-CONST-TO-FILE:         }
+// CHECK-CONST-TO-FILE:         llvm.mlir.global_ctors ctors = [@omLoadConstantDataCtor_tag_constants_to_file], priorities = [65535 : i32], data = [#llvm.zero]
+// CHECK-CONST-TO-FILE:         llvm.mlir.global_dtors dtors = [@omUnloadConstantDataDtor_tag_constants_to_file], priorities = [65535 : i32], data = [#llvm.zero]
 }
