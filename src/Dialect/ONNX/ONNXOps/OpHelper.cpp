@@ -4,7 +4,7 @@
 
 //===------- ONNXOpsHelper.cpp - Helper functions for ONNX dialects -------===//
 //
-// Copyright 2019-2025 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -800,6 +800,79 @@ Type getMLIRTypeFromDtypeDefaultingToF32(
     return builder.getF32Type();
   return convertONNXTypeToMLIRType(
       builder, static_cast<onnx::TensorProto_DataType>(*dtype));
+}
+
+bool hasAllOnesInArrayAttr(ArrayAttr arrayAttr) {
+  // Treat null/missing attribute as default (all ones for strides).
+  if (!arrayAttr)
+    return true;
+  for (auto attr : arrayAttr.getValue()) {
+    auto intAttr = mlir::dyn_cast<IntegerAttr>(attr);
+    if (!intAttr || intAttr.getInt() != 1)
+      return false;
+  }
+  return true;
+}
+
+bool hasAllZerosInArrayAttr(ArrayAttr arrayAttr) {
+  // Treat null/missing attribute as default (all zeros for pads).
+  if (!arrayAttr)
+    return true;
+  for (auto attr : arrayAttr.getValue()) {
+    auto intAttr = mlir::dyn_cast<IntegerAttr>(attr);
+    if (!intAttr || intAttr.getInt() != 0)
+      return false;
+  }
+  return true;
+}
+
+bool hasNonZeroInArrayAttr(ArrayAttr arrayAttr) {
+  // Treat null/missing attribute as default (all zeros), so no non-zero values.
+  if (!arrayAttr)
+    return false;
+  for (auto attr : arrayAttr.getValue()) {
+    auto intAttr = mlir::dyn_cast<IntegerAttr>(attr);
+    if (intAttr && intAttr.getInt() != 0)
+      return true;
+  }
+  return false;
+}
+
+DenseElementsAttr createFullPadsForAllDims(
+    PatternRewriter &rewriter, Value input, ArrayAttr pads) {
+  auto inputType = mlir::cast<ShapedType>(input.getType());
+  int64_t rank = inputType.getRank();
+  int64_t k = pads.size() / 2;
+
+  // Create full pads array: prepend zeros for the first (rank-k) dimensions,
+  // then add the actual pads for the innermost k dimensions.
+  SmallVector<int64_t, 8> fullPads;
+
+  // Add zeros for the first (rank-k) dimensions (both begin and end).
+  for (int64_t i = 0; i < rank - k; ++i) {
+    fullPads.push_back(0);
+  }
+
+  // Add the actual begin pads for the innermost k dimensions.
+  for (int64_t i = 0; i < k; ++i) {
+    auto intAttr = mlir::cast<IntegerAttr>(pads.getValue()[i]);
+    fullPads.push_back(intAttr.getInt());
+  }
+
+  // Add zeros for the end padding of the first (rank-k) dimensions.
+  for (int64_t i = 0; i < rank - k; ++i) {
+    fullPads.push_back(0);
+  }
+
+  // Add the actual end pads for the innermost k dimensions.
+  for (int64_t i = k; i < (int64_t)pads.size(); ++i) {
+    auto intAttr = mlir::cast<IntegerAttr>(pads.getValue()[i]);
+    fullPads.push_back(intAttr.getInt());
+  }
+
+  auto padsType =
+      RankedTensorType::get({(int64_t)fullPads.size()}, rewriter.getI64Type());
+  return DenseElementsAttr::get(padsType, ArrayRef<int64_t>(fullPads));
 }
 
 bool isScalarTensor(Value v) {

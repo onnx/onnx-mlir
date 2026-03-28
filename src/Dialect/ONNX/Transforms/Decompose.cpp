@@ -4,7 +4,7 @@
 
 //===----------- ONNXDecompose.cpp - ONNX High Level Rewriting ------------===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -582,6 +582,232 @@ Value insertAdditionalPadsConvTranspose(PatternRewriter &rewriter, Location loc,
   }
   return paddedInput;
 }
+
+// New ConvTranspose decomposition pattern following the approach in
+// conv-trans-with-group-v4.py. This pattern decomposes ConvTranspose into:
+// 1. UpsampleAndPad for zero insertion and padding
+// 2. Weight transformation (reshape, flip, permute)
+// 3. Regular Conv operation
+//
+// For detailed explanation of this decomposition approach, see:
+// docs/optimization-onnx-lowering/ConvTranspose.md
+struct DecomposeConvTransposePattern
+    : public OpRewritePattern<ONNXConvTransposeOp> {
+  using OpRewritePattern<ONNXConvTransposeOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(ONNXConvTransposeOp convTransposeOp,
+      PatternRewriter &rewriter) const final {
+    Location loc = convTransposeOp.getLoc();
+    Value X = convTransposeOp.getX();
+    Value W = convTransposeOp.getW();
+    Value B = convTransposeOp.getB();
+
+    // Get input and weight types.
+    ShapedType xType = mlir::cast<ShapedType>(X.getType());
+    ShapedType wType = mlir::cast<ShapedType>(W.getType());
+
+    if (!xType.hasRank() || !wType.hasRank())
+      return failure();
+
+    int64_t rank = xType.getRank();
+    ArrayRef<int64_t> wShape = wType.getShape();
+
+    // Check that all weight dimensions are known at compile time.
+    for (int64_t dim : wShape) {
+      if (ShapedType::isDynamic(dim))
+        return failure();
+    }
+
+    // Get attributes.
+    ONNXConvTransposeOpShapeHelper shapeHelper(
+        convTransposeOp.getOperation(), {});
+    if (failed(shapeHelper.computeShape()))
+      return failure();
+
+    // Get attributes from shape helper and op.
+    auto strides = shapeHelper.strides;
+    auto dilations = shapeHelper.dilations;
+    DimsExpr pads = shapeHelper.pads;
+    auto outputPadding = shapeHelper.outputPadding;
+    int64_t group = convTransposeOp.getGroup();
+    SmallVector<IndexExpr, 2> kernelShape = shapeHelper.kernelShape;
+    StringRef autoPad = convTransposeOp.getAutoPad();
+
+    // Verify all are literals.
+    if (!IndexExpr::isLiteral(kernelShape) || !IndexExpr::isLiteral(pads))
+      return failure();
+
+    int64_t spatialRank = strides.size();
+    int64_t spatialOffset = 2; // N and C dimensions.
+
+    onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
+        rewriter, loc);
+
+    // Compute pads based on auto_pad mode following Python reference.
+    SmallVector<int64_t, 4> padTop(spatialRank);
+    SmallVector<int64_t, 4> padBottom(spatialRank);
+
+    if (autoPad == "VALID") {
+      // No padding.
+      for (int64_t i = 0; i < spatialRank; ++i) {
+        padTop[i] = 0;
+        padBottom[i] = 0;
+      }
+    } else if (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER") {
+      // For SAME padding: output_size = input_size * stride.
+      // total_pad = output_padding + ((kernel_size - 1) * dilation + 1) -
+      // stride.
+      for (int64_t i = 0; i < spatialRank; ++i) {
+        int64_t kH = kernelShape[i].getLiteral();
+        int64_t dH = dilations[i];
+        int64_t sH = strides[i];
+        int64_t opH = outputPadding[i];
+
+        int64_t totalPad = opH + ((kH - 1) * dH + 1) - sH;
+        totalPad = std::max(0LL, (long long)totalPad);
+
+        if (autoPad == "SAME_UPPER") {
+          // Extra padding on bottom/right.
+          padTop[i] = totalPad / 2;
+          padBottom[i] = totalPad - padTop[i];
+        } else { // SAME_LOWER
+          // Extra padding on top/left.
+          padBottom[i] = totalPad / 2;
+          padTop[i] = totalPad - padBottom[i];
+        }
+      }
+    } else { // NOTSET
+      // Use explicit pads parameter.
+      for (int64_t i = 0; i < spatialRank; ++i) {
+        padTop[i] = pads[i].getLiteral();
+        padBottom[i] = pads[i + spatialRank].getLiteral();
+      }
+    }
+
+    // Step 1 & 2: Upsampling and padding using UpsampleAndPad.
+    // Compute padding for UpsampleAndPad following Python reference.
+    SmallVector<int64_t, 4> upsamplePads;
+    for (int64_t i = 0; i < spatialRank; ++i) {
+      int64_t kH = kernelShape[i].getLiteral();
+      int64_t dH = dilations[i];
+
+      // Compute padding as in Python reference.
+      int64_t basePad = (kH - 1) * dH;
+      int64_t padLeft = basePad - padTop[i];
+
+      upsamplePads.push_back(padLeft);
+    }
+    for (int64_t i = 0; i < spatialRank; ++i) {
+      int64_t kH = kernelShape[i].getLiteral();
+      int64_t dH = dilations[i];
+      int64_t opH = outputPadding[i];
+
+      int64_t basePad = (kH - 1) * dH;
+      int64_t padRight = basePad - padBottom[i] + opH;
+
+      upsamplePads.push_back(padRight);
+    }
+
+    // Create UpsampleAndPad operation.
+    ArrayAttr stridesAttr = rewriter.getI64ArrayAttr(strides);
+    ArrayAttr padsAttr = rewriter.getI64ArrayAttr(upsamplePads);
+
+    Type xUpType = UnrankedTensorType::get(xType.getElementType());
+    Value xUp = ONNXUpsampleAndPadOp::create(
+        rewriter, loc, xUpType, X, stridesAttr, padsAttr);
+
+    // Step 3: Weight transformation.
+    // Weight shape: (Cin, Cout_per_group, kH, kW, ...)
+    int64_t Cin = wShape[0];
+    int64_t CoutPg = wShape[1];
+    int64_t CinPg = Cin / group;
+
+    // Reshape to (group, Cin_per_group, Cout_per_group, kH, kW, ...).
+    SmallVector<int64_t, 6> reshapeShape1;
+    reshapeShape1.push_back(group);
+    reshapeShape1.push_back(CinPg);
+    reshapeShape1.push_back(CoutPg);
+    for (int64_t i = 0; i < spatialRank; ++i)
+      reshapeShape1.push_back(wShape[2 + i]);
+
+    Value reshapeShapeVal1 = create.onnx.constantInt64(reshapeShape1);
+    Type reshapeType1 =
+        RankedTensorType::get(reshapeShape1, wType.getElementType());
+    Value wReshaped1 = create.onnx.reshape(reshapeType1, W, reshapeShapeVal1);
+
+    // Flip all spatial dimensions using a single Slice operation with negative
+    // steps. Use INT64_MAX for start and INT64_MIN for end to flip entire
+    // dimension.
+    SmallVector<int64_t, 4> starts;
+    SmallVector<int64_t, 4> ends;
+    SmallVector<int64_t, 4> axes;
+    SmallVector<int64_t, 4> steps;
+
+    for (int64_t i = 0; i < spatialRank; ++i) {
+      int64_t axis = 3 + i; // After group, Cin_pg, Cout_pg.
+
+      // Flip by slicing from end to start with step -1.
+      starts.push_back(INT64_MAX);
+      ends.push_back(INT64_MIN);
+      axes.push_back(axis);
+      steps.push_back(-1);
+    }
+
+    Value startsVal = create.onnx.constantInt64(starts);
+    Value endsVal = create.onnx.constantInt64(ends);
+    Value axesVal = create.onnx.constantInt64(axes);
+    Value stepsVal = create.onnx.constantInt64(steps);
+
+    Type sliceType = UnrankedTensorType::get(wType.getElementType());
+    Value wFlipped = create.onnx.slice(
+        sliceType, wReshaped1, startsVal, endsVal, axesVal, stepsVal);
+
+    // Permute: swap Cin_pg and Cout_pg (indices 1 and 2).
+    // From (group, Cin_pg, Cout_pg, kH, kW, ...) to (group, Cout_pg, Cin_pg,
+    // kH, kW, ...).
+    SmallVector<int64_t, 6> permIndices;
+    permIndices.push_back(0); // group
+    permIndices.push_back(2); // Cout_pg
+    permIndices.push_back(1); // Cin_pg
+    for (int64_t i = 0; i < spatialRank; ++i)
+      permIndices.push_back(3 + i);
+
+    ArrayAttr permAttr = rewriter.getI64ArrayAttr(permIndices);
+    Type transposeType = UnrankedTensorType::get(wType.getElementType());
+    Value wPermuted = create.onnx.transpose(transposeType, wFlipped, permAttr);
+
+    // Reshape back to (group * Cout_pg, Cin_pg, kH, kW, ...).
+    SmallVector<int64_t, 5> reshapeShape2;
+    reshapeShape2.push_back(group * CoutPg);
+    reshapeShape2.push_back(CinPg);
+    for (int64_t i = 0; i < spatialRank; ++i)
+      reshapeShape2.push_back(wShape[2 + i]);
+
+    Value reshapeShapeVal2 = create.onnx.constantInt64(reshapeShape2);
+    Type reshapeType2 =
+        RankedTensorType::get(reshapeShape2, wType.getElementType());
+    Value wConv =
+        create.onnx.reshape(reshapeType2, wPermuted, reshapeShapeVal2);
+
+    // Step 4: Create Conv operation.
+    // Use stride=1, dilation from original, group from original, no padding.
+    SmallVector<int64_t, 4> convStrides(spatialRank, 1);
+    SmallVector<int64_t, 4> convPads(2 * spatialRank, 0);
+    
+
+    // Extract kernel shape from weight dimensions (spatial dimensions).
+    SmallVector<int64_t, 4> convKernelShape;
+    for (int64_t i = 0; i < spatialRank; ++i)
+      convKernelShape.push_back(wShape[2 + i]);
+    
+    Type convResultType = convTransposeOp.getResult().getType();
+    Value convResult = create.onnx.conv(convResultType, xUp, wConv, B,
+        "NOTSET", dilations, group, convKernelShape, convPads, convStrides);
+    rewriter.replaceOp(convTransposeOp, convResult);
+    return success();
+  }
+};
+
 // ConvTransposeOp END
 
 Value normalizeConstantOp(
@@ -1303,6 +1529,7 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
   patterns.insert<CustomOpFuseMatMulPattern>(context);
   patterns.insert<SoftmaxCrossEntropyPattern>(context);
   patterns.insert<SumToAddPattern>(context);
+  patterns.insert<DecomposeConvTransposePattern>(context);
 
   if (!onnx_mlir::decomposeOpsInONNX.empty()) {
     for (const auto &op : onnx_mlir::decomposeOpsInONNX) {

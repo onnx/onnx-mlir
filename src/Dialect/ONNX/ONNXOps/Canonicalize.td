@@ -2,7 +2,7 @@
 
 //===---- ONNXRewrite.td - Pattern Match Rewriting for ONNX --*- tablegen -===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -515,6 +515,47 @@ def RemoveIdentityTilePattern:  Pat<
   (replaceWithValue $val),
   // Check that we have indeed a identity tile pattern.
   [(IsFromONNXConstantOpWithOnes:$r), (HaveSameShapedType $val,$result)]>;
+
+//===----------------------------------------------------------------------===//
+// Canonicalization for ONNXUpsampleAndPadOp
+//===----------------------------------------------------------------------===//
+
+// Check whether an ArrayAttr contains all ones.
+def HasAllOnesInArrayAttr: Constraint<CPred<"onnx_mlir::hasAllOnesInArrayAttr($0)">,
+                                       "has all ones">;
+
+// Check whether an ArrayAttr contains all zeros.
+def HasAllZerosInArrayAttr: Constraint<CPred<"onnx_mlir::hasAllZerosInArrayAttr($0)">,
+                                        "has all zeros">;
+
+// Check whether an ArrayAttr contains non-zero values.
+def HasNonZeroInArrayAttrParam: Constraint<CPred<"onnx_mlir::hasNonZeroInArrayAttr($0)">,
+                                            "has non-zero elements">;
+
+// Create full pads array for all dimensions by prepending zeros.
+def CreateFullPadsForAllDims: NativeCodeCall<
+  "onnx_mlir::createFullPadsForAllDims($_builder, $0, $1)">;
+
+// Create constant mode attribute for Pad operation.
+def CreateConstantModeAttr: NativeCodeCall<"$_builder.getStringAttr(\"constant\")">;
+
+// Remove identity UpsampleAndPad where all strides are 1 and all pads are 0.
+def RemoveIdentityUpsampleAndPadPattern: Pat<
+  (ONNXUpsampleAndPadOp $input, $strides, $pads),
+  (replaceWithValue $input),
+  [(HasAllOnesInArrayAttr $strides),
+   (HasAllZerosInArrayAttr $pads)]>;
+
+// Convert UpsampleAndPad to Pad when all strides are 1.
+def ConvertUpsampleAndPadToPadPattern: Pat<
+  (ONNXUpsampleAndPadOp $input, $strides, $pads),
+  (ONNXPadOp $input,
+    (ONNXConstantOpFromDenseAttr (CreateFullPadsForAllDims $input, $pads)),
+    (CreateNoneValue),
+    (CreateNoneValue),
+    (CreateConstantModeAttr)),
+  [(HasAllOnesInArrayAttr $strides),
+   (HasNonZeroInArrayAttrParam $pads)]>;
 
 //===----------------------------------------------------------------------===//
 // Canonicalization for ONNXLayoutTransformOp

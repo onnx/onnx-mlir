@@ -548,37 +548,38 @@ def insertPadsConvTransposeInput: NativeCodeCall<
 def insertAdditionalPadsConvTranspose: NativeCodeCall<
   "onnx_mlir::insertAdditionalPadsConvTranspose($_builder, $_loc, $0.getDefiningOp<ONNXConvOp>(), $0, $1.getDefiningOp<ONNXConvTransposeOp>())">;
 
-def ConvTransposeOpPattern1: Pattern<
-   (ONNXConvTransposeOp:$res $x, $w, $b,
-      $auto_pad, $dilation, $group, $kernel_shape,
-      $output_padding, $output_shape, $pads, $strides),
-   [
-    (reverseWeightConvTranspose:$reversed_w $w),
-    (getPadsConvTranspose:$new_pads $res),
-    (ONNXConvOp:$conv_res $x, $reversed_w, $b,
-       (GetNullStringAttr), $dilation, $group, $kernel_shape, $new_pads, $strides),
-    (insertAdditionalPadsConvTranspose $conv_res, $res)
-   ],
-   [(HasRankAndShape:$res), (ShouldDecomposeConvTransposeOp:$res), (HasUnitStrides:$strides)], [],
-   (addBenefit 1)
->;
+// Commented out to use new C++ pattern (DecomposeConvTransposePattern) instead.
+// def ConvTransposeOpPattern1: Pattern<
+//    (ONNXConvTransposeOp:$res $x, $w, $b,
+//       $auto_pad, $dilation, $group, $kernel_shape,
+//       $output_padding, $output_shape, $pads, $strides),
+//    [
+//     (reverseWeightConvTranspose:$reversed_w $w),
+//     (getPadsConvTranspose:$new_pads $res),
+//     (ONNXConvOp:$conv_res $x, $reversed_w, $b,
+//        (GetNullStringAttr), $dilation, $group, $kernel_shape, $new_pads, $strides),
+//     (insertAdditionalPadsConvTranspose $conv_res, $res)
+//    ],
+//    [(HasRankAndShape:$res), (ShouldDecomposeConvTransposeOp:$res), (HasUnitStrides:$strides)], [],
+//    (addBenefit 1)
+// >;
 
-def ConvTransposeOpPattern2: Pattern<
-   (ONNXConvTransposeOp:$res $x, $w, $b,
-      $auto_pad, $dilation, $group, $kernel_shape,
-      $output_padding, $output_shape, $pads, $strides),
-   [
-    (reverseWeightConvTranspose:$reversed_w $w),
-    (insertPadsConvTransposeInput:$new_x $res, $x),
-    (getPadsConvTranspose:$new_pads $res),
-    (ONNXConvOp:$conv_res $new_x, $reversed_w, $b,
-       (GetNullStringAttr), $dilation, $group, $kernel_shape, $new_pads, (GetNullArrayAttr)),
-    (insertAdditionalPadsConvTranspose
-        $conv_res, $res)
-   ],
-   [(HasRankAndShape:$res), (ShouldDecomposeConvTransposeOp:$res)], [],
-   (addBenefit 0)
->;
+// def ConvTransposeOpPattern2: Pattern<
+//    (ONNXConvTransposeOp:$res $x, $w, $b,
+//       $auto_pad, $dilation, $group, $kernel_shape,
+//       $output_padding, $output_shape, $pads, $strides),
+//    [
+//     (reverseWeightConvTranspose:$reversed_w $w),
+//     (insertPadsConvTransposeInput:$new_x $res, $x),
+//     (getPadsConvTranspose:$new_pads $res),
+//     (ONNXConvOp:$conv_res $new_x, $reversed_w, $b,
+//        (GetNullStringAttr), $dilation, $group, $kernel_shape, $new_pads, (GetNullArrayAttr)),
+//     (insertAdditionalPadsConvTranspose
+//         $conv_res, $res)
+//    ],
+//    [(HasRankAndShape:$res), (ShouldDecomposeConvTransposeOp:$res)], [],
+//    (addBenefit 0)
+// >;
 
 //===----------------------------------------------------------------------===//
 // Rewrite `ONNXConstantOfShapeOp {value} (%shape)` into

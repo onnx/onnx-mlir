@@ -4,7 +4,7 @@
 
 //===---------------- ONNXShapeHelper.hpp - help for shapes ---------------===//
 //
-// Copyright 2020-2024 The IBM Research Authors.
+// Copyright 2020-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -893,6 +893,7 @@ using ONNXSpaceToDepthOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXSpa
 using ONNXTileOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTileOp>;
 using ONNXTopKOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTopKOp>;
 using ONNXTransposeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTransposeOp>;
+using ONNXUpsampleAndPadOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXUpsampleAndPadOp>;
 using ONNXUpsampleOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXUpsampleOp>;
 // clang-format on
 
