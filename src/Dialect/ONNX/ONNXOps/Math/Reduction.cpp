@@ -405,6 +405,11 @@ OpFoldResult ONNXReduceMeanOp::fold(FoldAdaptor adaptor) {
   if (failed(shapeHelper.computeShape()))
     return nullptr;
 
+  if (auto elemType =
+          mlir::cast<ShapedType>(getData().getType()).getElementType();
+      !mlir::isa<IntegerType, FloatType>(elemType))
+    return nullptr;
+
   const bool hasReduction =
       llvm::any_of(shapeHelper.isReductionAxis, [](bool axis) { return axis; });
 
