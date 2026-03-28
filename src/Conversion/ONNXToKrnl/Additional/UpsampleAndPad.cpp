@@ -140,5 +140,3 @@ void populateLoweringONNXUpsampleAndPadOpPattern(RewritePatternSet &patterns,
 }
 
 } // namespace onnx_mlir
-
-// Made with Bob
