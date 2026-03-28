@@ -332,7 +332,6 @@ struct DecomposeConvTransposePattern
     auto kernelShape = shapeHelper.kernelShape;
     StringRef autoPad = convTransposeOp.getAutoPad();
 
-    // hi alex, don't use kernelShape and wShape
     if (!IndexExpr::isLiteral(kernelShape))
       return failure();
 
