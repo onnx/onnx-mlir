@@ -267,21 +267,8 @@ static int mmapAndReadFile(void **constAddr, int fd, int64_t fileSize) {
     return 1;
   }
 
-  /* Prepare to compare-and-swap to setup the shared constAddr.
-   * If we fail, another thread beat us so free our mmap.
-   */
-#ifdef __MVS__
-  void *expected = NULL;
-  if (cds((cds_t *)&expected, (cds_t *)&constAddr[0], *(cds_t *)&tempAddr))
-    munmap(tempAddr, fileSize);
-#else
-  if (!__sync_bool_compare_and_swap(&constAddr[0], NULL, tempAddr))
-    munmap(tempAddr, fileSize);
-#endif
-
-  /* Either we succeeded in setting constAddr or someone else did it.
-   * Either way, constAddr is now setup.
-   */
+  // Successfully mmap.
+  constAddr[0] = tempAddr;
   return 0;
 }
 
