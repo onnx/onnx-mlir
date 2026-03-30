@@ -48,7 +48,7 @@ const int i = 1;
 static void checkEndianness(const char constPackIsLE) {
   if (XOR(IS_SYSTEM_LE(), constPackIsLE)) {
     fprintf(stderr, "Constant pack is stored in a byte order that is not "
-                    "native to this current system.");
+                    "native to this current system.\n");
     exit(1);
   }
 }
@@ -71,12 +71,12 @@ static int mmapAndReadFile(void **constAddr, int fd, int64_t fileSize);
 bool omLoadConstantData(
     void **constAddr, char *fname, int64_t size, int64_t isLE) {
   if (constAddr == NULL) {
-    fprintf(stderr, "Error: null pointer.");
+    fprintf(stderr, "Error: null pointer.\n");
     return false;
   }
 
   if (size <= 0) {
-    fprintf(stderr, "File size is zero.");
+    fprintf(stderr, "File size is zero.\n");
     return false;
   }
 
@@ -97,7 +97,7 @@ bool omLoadConstantData(
     size_t filePathLen = baseLen + sepLen + fnameLen + 1;
     filePath = (char *)malloc(filePathLen);
     if (!filePath) {
-      fprintf(stderr, "Error while malloc: %s", strerror(errno));
+      fprintf(stderr, "Error while malloc: %s\n", strerror(errno));
       return false;
     }
     snprintf(filePath, filePathLen, "%s%s%s", basePath, DIR_SEPARATOR, fname);
@@ -112,25 +112,34 @@ bool omLoadConstantData(
         "Error while opening %s: %s. Please set OM_CONSTANT_PATH to the folder "
         "that contains %s.\n",
         filePath, strerror(errno), fname);
+    if (basePath) {
+      free(filePath);
+    }
     return false;
-  }
-  if (basePath) {
-    free(filePath);
   }
 
   // Load the file into memory.
 #ifdef __MVS__
-  if (mallocAndReadFile(constAddr, fd, size)) {
+  int failed = mallocAndReadFile(constAddr, fd, size);
 #else
-  if (mmapAndReadFile(constAddr, fd, size)) {
+  int failed = mmapAndReadFile(constAddr, fd, size);
 #endif
-    fprintf(stderr, "Error while loading the constant file %s\n", fname);
-    close(fd);
+  if (failed) {
+    fprintf(stderr, "Error while loading the constant file %s\n", filePath);
+  }
+
+  // Clean up.
+  close(fd);
+  if (basePath) {
+    free(filePath);
+  }
+
+  // constAddr is not available.
+  if (failed) {
     return false;
   }
 
   // constAddr is now setup.
-  close(fd);
   return true;
 }
 
@@ -145,11 +154,11 @@ bool omLoadConstantData(
 void omGetExternalConstantAddr(
     void **outputAddr, void **baseAddr, int64_t offset) {
   if (outputAddr == NULL) {
-    fprintf(stderr, "Error: null pointer.");
+    fprintf(stderr, "Error: null pointer.\n");
     return;
   }
   if (baseAddr == NULL) {
-    fprintf(stderr, "Error: null pointer.");
+    fprintf(stderr, "Error: null pointer.\n");
     return;
   }
   // Constant is already loaded. Nothing to do.
@@ -167,6 +176,8 @@ void omGetExternalConstantAddr(
 ///
 /// \return true/false
 bool omUnloadConstantData(void **constAddr, int64_t size) {
+  if (constAddr == NULL)
+    return false;
   void *ptr = constAddr[0];
   if (ptr == NULL)
     return false;
@@ -269,8 +280,7 @@ static int mmapAndReadFile(void **constAddr, int fd, int64_t fileSize) {
 #endif
 
   /* Either we succeeded in setting constAddr or someone else did it.
-   * Either way, constAddr is now setup. We can close our fd without
-   * invalidating the mmap.
+   * Either way, constAddr is now setup.
    */
   return 0;
 }
