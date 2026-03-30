@@ -37,19 +37,17 @@
 import os
 import sys
 import argparse
-import onnx
+#import onnx
 import time
 import signal
 import subprocess
 import numpy as np
-import tempfile
-import json
+#import tempfile
+#import json
 import logging
 import re
 
-from onnx import numpy_helper
-from onnx.mapping import TENSOR_TYPE_TO_NP_TYPE
-from collections import OrderedDict
+#from collections import OrderedDict
 
 LOG_LEVEL = {
     "debug": logging.DEBUG,

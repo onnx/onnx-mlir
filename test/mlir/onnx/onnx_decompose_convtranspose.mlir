@@ -26,7 +26,7 @@
 // CHECK-DAG:       [[VAR_9_:%.+]] = "onnx.Transpose"([[VAR_8_]]) <{perm = [0, 2, 1, 3, 4]}> : (tensor<1x1x2x3x3xf32>) -> tensor<1x2x1x3x3xf32>
 // CHECK-DAG:       [[VAR_10_:%.+]] = onnx.Constant dense<[2, 1, 3, 3]> : tensor<4xi64>
 // CHECK:           [[VAR_11_:%.+]] = "onnx.Reshape"([[VAR_9_]], [[VAR_10_]]) <{allowzero = 0 : si64}> : (tensor<1x2x1x3x3xf32>, tensor<4xi64>) -> tensor<2x1x3x3xf32>
-// CHECK:           [[VAR_12_:%.+]] = "onnx.Conv"([[VAR_1_]], [[VAR_11_]], [[VAR_0_]]) <{auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [0, 0, 0, 0], strides = [1, 1]}> : (tensor<*xf32>, tensor<2x1x3x3xf32>, none) -> tensor<1x2x5x5xf32>
+// CHECK:           [[VAR_12_:%.+]] = "onnx.Conv"([[VAR_1_]], [[VAR_11_]], [[VAR_0_]]) <{auto_pad = "VALID", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [0, 0, 0, 0], strides = [1, 1]}> : (tensor<*xf32>, tensor<2x1x3x3xf32>, none) -> tensor<1x2x5x5xf32>
 // CHECK:           onnx.Return [[VAR_12_]] : tensor<1x2x5x5xf32>
 // CHECK:         }
 
@@ -56,7 +56,7 @@
 // CHECK-DAG:       [[VAR_9_:%.+]] = "onnx.Transpose"([[VAR_8_]]) <{perm = [0, 2, 1, 3]}> : (tensor<1x1x2x3xf32>) -> tensor<1x2x1x3xf32>
 // CHECK-DAG:       [[VAR_10_:%.+]] = onnx.Constant dense<[2, 1, 3]> : tensor<3xi64>
 // CHECK:           [[VAR_11_:%.+]] = "onnx.Reshape"([[VAR_9_]], [[VAR_10_]]) <{allowzero = 0 : si64}> : (tensor<1x2x1x3xf32>, tensor<3xi64>) -> tensor<2x1x3xf32>
-// CHECK:           [[VAR_12_:%.+]] = "onnx.Conv"([[VAR_1_]], [[VAR_1_]]1, [[VAR_0_]]) <{auto_pad = "NOTSET", dilations = [1], group = 1 : si64, kernel_shape = [3], pads = [0, 0], strides = [1]}> : (tensor<*xf32>, tensor<2x1x3xf32>, none) -> tensor<1x2x5xf32>
+// CHECK:           [[VAR_12_:%.+]] = "onnx.Conv"([[VAR_1_]], [[VAR_1_]]1, [[VAR_0_]]) <{auto_pad = "VALID", dilations = [1], group = 1 : si64, kernel_shape = [3], pads = [0, 0], strides = [1]}> : (tensor<*xf32>, tensor<2x1x3xf32>, none) -> tensor<1x2x5xf32>
 // CHECK:           onnx.Return [[VAR_12_]] : tensor<1x2x5xf32>
 // CHECK:         }
 
@@ -86,7 +86,7 @@
 // CHECK-DAG:       [[VAR_9_:%.+]] = "onnx.Transpose"([[VAR_8_]]) <{perm = [0, 2, 1, 3, 4, 5]}> : (tensor<1x1x2x3x3x3xf32>) -> tensor<1x2x1x3x3x3xf32>
 // CHECK-DAG:       [[VAR_10_:%.+]] = onnx.Constant dense<[2, 1, 3, 3, 3]> : tensor<5xi64>
 // CHECK:           [[VAR_11_:%.+]] = "onnx.Reshape"([[VAR_9_]], [[VAR_10_]]) <{allowzero = 0 : si64}> : (tensor<1x2x1x3x3x3xf32>, tensor<5xi64>) -> tensor<2x1x3x3x3xf32>
-// CHECK:           [[VAR_12_:%.+]] = "onnx.Conv"([[VAR_1_]], [[VAR_1_]]1, [[VAR_0_]]) <{auto_pad = "NOTSET", dilations = [1, 1, 1], group = 1 : si64, kernel_shape = [3, 3, 3], pads = [0, 0, 0, 0, 0, 0], strides = [1, 1, 1]}> : (tensor<*xf32>, tensor<2x1x3x3x3xf32>, none) -> tensor<1x2x5x6x7xf32>
+// CHECK:           [[VAR_12_:%.+]] = "onnx.Conv"([[VAR_1_]], [[VAR_1_]]1, [[VAR_0_]]) <{auto_pad = "VALID", dilations = [1, 1, 1], group = 1 : si64, kernel_shape = [3, 3, 3], pads = [0, 0, 0, 0, 0, 0], strides = [1, 1, 1]}> : (tensor<*xf32>, tensor<2x1x3x3x3xf32>, none) -> tensor<1x2x5x6x7xf32>
 // CHECK:           onnx.Return [[VAR_12_]] : tensor<1x2x5x6x7xf32>
 // CHECK:         }
 
@@ -116,7 +116,7 @@
 // CHECK-DAG:       [[VAR_9_:%.+]] = "onnx.Transpose"([[VAR_8_]]) <{perm = [0, 2, 1, 3, 4]}> : (tensor<1x1x2x3x3xf32>) -> tensor<1x2x1x3x3xf32>
 // CHECK-DAG:       [[VAR_10_:%.+]] = onnx.Constant dense<[2, 1, 3, 3]> : tensor<4xi64>
 // CHECK:           [[VAR_11_:%.+]] = "onnx.Reshape"([[VAR_9_]], [[VAR_10_]]) <{allowzero = 0 : si64}> : (tensor<1x2x1x3x3xf32>, tensor<4xi64>) -> tensor<2x1x3x3xf32>
-// CHECK:           [[VAR_12_:%.+]] = "onnx.Conv"([[VAR_1_]], [[VAR_1_]]1, [[VAR_0_]]) <{auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [0, 0, 0, 0], strides = [1, 1]}> : (tensor<*xf32>, tensor<2x1x3x3xf32>, none) -> tensor<1x2x7x3xf32>
+// CHECK:           [[VAR_12_:%.+]] = "onnx.Conv"([[VAR_1_]], [[VAR_1_]]1, [[VAR_0_]]) <{auto_pad = "VALID", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [0, 0, 0, 0], strides = [1, 1]}> : (tensor<*xf32>, tensor<2x1x3x3xf32>, none) -> tensor<1x2x7x3xf32>
 // CHECK:           onnx.Return [[VAR_12_]] : tensor<1x2x7x3xf32>
 // CHECK:         }
 
@@ -146,6 +146,6 @@
 // CHECK-DAG:       [[VAR_9_:%.+]] = "onnx.Transpose"([[VAR_8_]]) <{perm = [0, 2, 1, 3, 4]}> : (tensor<1x1x2x3x3xf32>) -> tensor<1x2x1x3x3xf32>
 // CHECK-DAG:       [[VAR_10_:%.+]] = onnx.Constant dense<[2, 1, 3, 3]> : tensor<4xi64>
 // CHECK:           [[VAR_11_:%.+]] = "onnx.Reshape"([[VAR_9_]], [[VAR_10_]]) <{allowzero = 0 : si64}> : (tensor<1x2x1x3x3xf32>, tensor<4xi64>) -> tensor<2x1x3x3xf32>
-// CHECK:           [[VAR_12_:%.+]] = "onnx.Conv"([[VAR_1_]], [[VAR_1_]]1, [[VAR_0_]]) <{auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [0, 0, 0, 0], strides = [1, 1]}> : (tensor<*xf32>, tensor<2x1x3x3xf32>, none) -> tensor<1x2x10x8xf32>
+// CHECK:           [[VAR_12_:%.+]] = "onnx.Conv"([[VAR_1_]], [[VAR_1_]]1, [[VAR_0_]]) <{auto_pad = "VALID", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [0, 0, 0, 0], strides = [1, 1]}> : (tensor<*xf32>, tensor<2x1x3x3xf32>, none) -> tensor<1x2x10x8xf32>
 // CHECK:           onnx.Return [[VAR_12_]] : tensor<1x2x10x8xf32>
 // CHECK:         }

@@ -504,7 +504,7 @@ struct DecomposeConvTransposePattern
       convKernelShape.push_back(wShape[2 + i]);
 
     Type convResultType = convTransposeOp.getResult().getType();
-    Value convResult = create.onnx.conv(convResultType, xUp, wConv, B, "NOTSET",
+    Value convResult = create.onnx.conv(convResultType, xUp, wConv, B, "VALID",
         dilations, group, convKernelShape, convPads, convStrides);
     rewriter.replaceOp(convTransposeOp, convResult);
     return success();
