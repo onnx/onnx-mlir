@@ -21,7 +21,6 @@
 // Filters:
 //   - conv pads attribute (if present) must be non-negative
 //   - conv must have single fanout
-//   - activation output must have single fanout (single use)
 //   - if both conv output and activation output are quantized, their
 //     quantization parameters must match (no requantization)
 //
@@ -182,10 +181,6 @@ struct FuseConvActivation : public OpRewritePattern<ConvOp> {
     if (actInfo.activationType.empty())
       return rewriter.notifyMatchFailure(
           convOp, "single user is not a fuseable activation");
-
-    if (!actInfo.output.hasOneUse())
-      return rewriter.notifyMatchFailure(
-          convOp, "activation output has multiple users");
 
     // Verify the user's input comes from this conv (not from a different
     // operand position for multi-input ops like FusedEltwise)

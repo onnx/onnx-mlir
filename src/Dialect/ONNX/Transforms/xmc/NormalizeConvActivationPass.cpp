@@ -13,7 +13,10 @@
 // string (e.g., "RELU", "LEAKYRELU", "RELU6", "HSIGMOID") and preserves
 // any relevant attributes (e.g., leakyrelu_alpha) from the fused activation.
 //
-// Activation normalization rules (matching xcompiler behavior):
+// ReLU (α=0) is kept as "RELU" — not lowered to PRELU (differs from some
+// xcompiler QDQ paths that used PRELU for ReLU).
+//
+// Activation normalization rules:
 //
 //  Input activation    | Output activation | Condition / Notes
 //  --------------------|-------------------|---------------------------
@@ -21,11 +24,11 @@
 //  "RELU"              | "NONE"            | If output is UINT8 and
 //                      |                   | zero_point == 0 (ReLU is
 //                      |                   | implicit in unsigned repr)
-//  "RELU"              | "PRELU"           | Otherwise: alpha=0 != 26/256;
-//                      |                   | prelu_in / prelu_shift; may set
-//                      |                   | leakyrelu_alpha=0 (optional)
+//  "RELU"              | "RELU"            | Otherwise: keep ReLU (no PRELU)
+//  "LEAKYRELU"         | "RELU"            | If leakyrelu_alpha attr == 0
+//                      |                   | (XIR convention; same as ReLU)
 //  "LEAKYRELU"         | "LEAKYRELU"       | If alpha == 26/256
-//  "LEAKYRELU"         | "PRELU"           | If alpha != 26/256
+//  "LEAKYRELU"         | "PRELU"           | If alpha != 26/256 and != 0
 //                      |                   | Computes prelu_in/shift
 //  "HSIGMOID"          | "HSIGMOID"        | No change
 //  "RELU6"             | "RELU6"           | No change
@@ -77,6 +80,18 @@ static IntegerAttr getSI64Attr(OpBuilder &builder, int64_t value) {
   return builder.getIntegerAttr(si64, value);
 }
 
+/// LEAKYRELU with non-native α: set PRELU + (prelu_in, prelu_shift) from \p
+/// alpha.
+template <typename ConvOp>
+static std::pair<int64_t, int64_t> applyPreluFixedPointForAlpha(
+    ConvOp convOp, OpBuilder &builder, float alpha) {
+  auto [M, N] = getPreluFactor(alpha);
+  convOp.setActivationAttr(builder.getStringAttr("PRELU"));
+  convOp.setPreluInAttr(getSI64Attr(builder, M));
+  convOp.setPreluShiftAttr(getSI64Attr(builder, N));
+  return {M, N};
+}
+
 /// Check if the output type is unsigned 8-bit quantized with zero_point == 0.
 /// When this is true, ReLU is implicit (unsigned representation cannot
 /// represent negative values when zp=0), so no explicit activation is needed.
@@ -96,8 +111,34 @@ static bool isReluImplicitInOutputType(Type outputType) {
          quantType.getZeroPoint() == 0;
 }
 
+/// ReLU (α=0) normalization: optional UINT8 implicit → NONE; otherwise keep
+/// ReLU and do not lower to PRELU.
+template <typename ConvOp>
+static void normalizeReluActivation(
+    ConvOp convOp, OpBuilder &builder, bool fromLeakyReluZeroAlpha = false) {
+  // Special case: if output is UINT8 with zero_point=0, ReLU is implicit
+  // in the unsigned representation — no activation needed.
+  if (isReluImplicitInOutputType(convOp.getResult().getType())) {
+    convOp.setActivationAttr(builder.getStringAttr("NONE"));
+    LLVM_DEBUG(llvm::dbgs()
+               << "NormalizeConvActivation: " << convOp->getName() << " "
+               << (fromLeakyReluZeroAlpha ? "LEAKYRELU (alpha=0)" : "RELU")
+               << " -> NONE (implicit in UINT8 zp=0)\n");
+    return;
+  }
+
+  if (fromLeakyReluZeroAlpha) {
+    // LEAKYRELU with explicit α=0 is plain ReLU — use RELU, not PRELU.
+    convOp.setActivationAttr(builder.getStringAttr("RELU"));
+    LLVM_DEBUG(llvm::dbgs() << "NormalizeConvActivation: " << convOp->getName()
+                            << " LEAKYRELU (alpha=0) -> RELU (no PRELU)\n");
+    return;
+  }
+
+  // Input is already "RELU"; leave activation and attrs unchanged (no PRELU).
+}
+
 /// Normalize the activation attribute on a conv-like op.
-/// This implements the xcompiler ReplaceQDQConvPass activation handling logic.
 template <typename ConvOp>
 static void normalizeActivation(ConvOp convOp, OpBuilder &builder) {
   StringRef activation = convOp.getActivation();
@@ -108,52 +149,32 @@ static void normalizeActivation(ConvOp convOp, OpBuilder &builder) {
 
   // "RELU" handling
   if (activation == "RELU") {
-    // Special case: if output is UINT8 with zero_point=0, ReLU is implicit
-    // in the unsigned representation — no activation needed.
-    if (isReluImplicitInOutputType(convOp.getResult().getType())) {
-      convOp.setActivationAttr(builder.getStringAttr("NONE"));
-      LLVM_DEBUG(llvm::dbgs()
-                 << "NormalizeConvActivation: " << convOp->getName()
-                 << " RELU -> NONE (implicit in UINT8 zp=0)\n");
-      return;
-    }
-
-    // Standard case: RELU is treated as LEAKYRELU with alpha=0.
-    // Since alpha=0 != 26/256, this becomes PRELU with computed mul/shift.
-    float alpha = 0.0f;
-    auto [M, N] = getPreluFactor(alpha);
-    convOp.setActivationAttr(builder.getStringAttr("PRELU"));
-    convOp.setLeakyreluAlphaAttr(builder.getF32FloatAttr(alpha));
-    convOp.setPreluInAttr(getSI64Attr(builder, M));
-    convOp.setPreluShiftAttr(getSI64Attr(builder, N));
-
-    LLVM_DEBUG(llvm::dbgs()
-               << "NormalizeConvActivation: " << convOp->getName()
-               << " RELU -> PRELU (alpha=0, M=" << M << ", N=" << N << ")\n");
+    normalizeReluActivation(convOp, builder);
     return;
   }
 
   // "LEAKYRELU" handling
   if (activation == "LEAKYRELU") {
-
-    float alpha = kStandardLeakyReluAlpha;
+    // Explicit LEAKYRELU_alpha == 0 means ReLU (XIR convention): same IR as
+    // RELU.
     if (auto alphaAttr = convOp.getLeakyreluAlphaAttr()) {
-      alpha = alphaAttr.getValue().convertToFloat();
+      if (alphaAttr.getValue().convertToFloat() == 0.0f) {
+        normalizeReluActivation(
+            convOp, builder, /*fromLeakyReluZeroAlpha=*/true);
+        return;
+      }
     }
 
+    float alpha = kStandardLeakyReluAlpha;
+    if (auto alphaAttr = convOp.getLeakyreluAlphaAttr())
+      alpha = alphaAttr.getValue().convertToFloat();
+
     if (alpha == kStandardLeakyReluAlpha) {
-      // Standard LeakyReLU alpha — hardware supports natively.
-      // Keep activation as "LEAKYRELU".
       LLVM_DEBUG(llvm::dbgs()
                  << "NormalizeConvActivation: " << convOp->getName()
                  << " LEAKYRELU (alpha=26/256) -> LEAKYRELU (standard)\n");
     } else {
-      // Non-standard alpha — convert to PRELU with fixed-point mul/shift.
-      auto [M, N] = getPreluFactor(alpha);
-      convOp.setActivationAttr(builder.getStringAttr("PRELU"));
-      convOp.setPreluInAttr(getSI64Attr(builder, M));
-      convOp.setPreluShiftAttr(getSI64Attr(builder, N));
-
+      auto [M, N] = applyPreluFixedPointForAlpha(convOp, builder, alpha);
       LLVM_DEBUG(llvm::dbgs()
                  << "NormalizeConvActivation: " << convOp->getName()
                  << " LEAKYRELU (alpha=" << alpha << ") -> PRELU (M=" << M

@@ -1,6 +1,6 @@
 // RUN: onnx-mlir-opt --normalize-conv-activation %s | FileCheck %s
-// NOTE: This pass runs after fuse-conv-activation. It normalizes the
-// "activation" attribute into hardware-compatible form.
+// NOTE: Runs after fuse-conv-activation. ReLU (α=0) stays "RELU" unless
+// implicit in UINT8 zp=0 → NONE; non-native LEAKYRELU α maps to PRELU+M/N.
 
 // -----
 // Test: RELU on UINT8 output with zero_point=0 → NONE (implicit ReLU)
@@ -28,9 +28,9 @@ func.func @test_relu_implicit_uint8_zp0(
 // CHECK-NOT: prelu_shift
 
 // -----
-// Test: RELU on UINT8 output with zero_point!=0 → PRELU (alpha=0)
-// CHECK-LABEL: func.func @test_relu_to_prelu
-func.func @test_relu_to_prelu(
+// Test: RELU on UINT8 output with zero_point!=0 → stays RELU (not lowered to PRELU)
+// CHECK-LABEL: func.func @test_relu_uint8_nonzero_zp_stays_relu
+func.func @test_relu_uint8_nonzero_zp_stays_relu(
     %arg0: tensor<1x4x4x8x!quant.uniform<u8:f32, 0.02:128>>,
     %weight: tensor<16x3x3x8x!quant.uniform<i8:f32, 0.005>>,
     %bias: tensor<16x!quant.uniform<i32:f32, 1.000000e-04>>)
@@ -48,16 +48,14 @@ func.func @test_relu_to_prelu(
   return %conv : tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>>
 }
 // CHECK: "onnx.XFEConv"
-// CHECK-SAME: activation = "PRELU"
-// CHECK-SAME: leakyrelu_alpha = 0.000000e+00 : f32
-// CHECK-SAME: prelu_in = 0 : si64
-// CHECK-SAME: prelu_shift = 8 : si64
+// CHECK-SAME: activation = "RELU"
+// CHECK-NOT: prelu_in
+// CHECK-NOT: prelu_shift
 
 // -----
-// Test: RELU on signed INT8 output → PRELU (alpha=0)
-// Signed types always need explicit activation (no implicit ReLU).
-// CHECK-LABEL: func.func @test_relu_signed_to_prelu
-func.func @test_relu_signed_to_prelu(
+// Test: RELU on signed INT8 output → stays RELU (not lowered to PRELU)
+// CHECK-LABEL: func.func @test_relu_signed_stays_relu
+func.func @test_relu_signed_stays_relu(
     %arg0: tensor<1x4x4x8x!quant.uniform<i8:f32, 0.02:0>>,
     %weight: tensor<16x3x3x8x!quant.uniform<i8:f32, 0.005>>,
     %bias: tensor<16x!quant.uniform<i32:f32, 1.000000e-04>>)
@@ -75,9 +73,35 @@ func.func @test_relu_signed_to_prelu(
   return %conv : tensor<1x4x4x16x!quant.uniform<i8:f32, 0.02:0>>
 }
 // CHECK: "onnx.XFEConv"
-// CHECK-SAME: activation = "PRELU"
-// CHECK-SAME: prelu_in = 0 : si64
-// CHECK-SAME: prelu_shift = 8 : si64
+// CHECK-SAME: activation = "RELU"
+// CHECK-NOT: prelu_in
+// CHECK-NOT: prelu_shift
+
+// -----
+// Test: LEAKYRELU with explicit alpha=0 → RELU (same as plain ReLU)
+// CHECK-LABEL: func.func @test_leakyrelu_alpha_zero_to_relu
+func.func @test_leakyrelu_alpha_zero_to_relu(
+    %arg0: tensor<1x4x4x8x!quant.uniform<u8:f32, 0.02:128>>,
+    %weight: tensor<16x3x3x8x!quant.uniform<i8:f32, 0.005>>,
+    %bias: tensor<16x!quant.uniform<i32:f32, 1.000000e-04>>)
+    -> tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>> {
+
+  %conv = "onnx.XFEConv"(%arg0, %weight, %bias)
+      {activation = "LEAKYRELU", auto_pad = "NOTSET", dilations = [1, 1],
+       group = 1 : si64, kernel_shape = [3, 3],
+       leakyrelu_alpha = 0.000000e+00 : f32,
+       pads = [1, 1, 1, 1], strides = [1, 1]}
+      : (tensor<1x4x4x8x!quant.uniform<u8:f32, 0.02:128>>,
+         tensor<16x3x3x8x!quant.uniform<i8:f32, 0.005>>,
+         tensor<16x!quant.uniform<i32:f32, 1.000000e-04>>)
+      -> tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>>
+
+  return %conv : tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>>
+}
+// CHECK: "onnx.XFEConv"
+// CHECK-SAME: activation = "RELU"
+// CHECK-NOT: prelu_in
+// CHECK-NOT: prelu_shift
 
 // -----
 // Test: LEAKYRELU with alpha=26/256 stays LEAKYRELU (hardware-native)

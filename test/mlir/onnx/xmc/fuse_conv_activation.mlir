@@ -193,9 +193,9 @@ func.func @test_no_fusion_negative_pads(
 // CHECK: "onnx.XCOMPILERFusedEltwise"
 
 // -----
-// Test: No fusion when activation output has multiple users (conv has single user)
-// CHECK-LABEL: func.func @test_no_fusion_activation_multi_use
-func.func @test_no_fusion_activation_multi_use(
+// Test: Fusion when activation output has multiple users (conv result rewires all uses)
+// CHECK-LABEL: func.func @test_fusion_activation_multi_use
+func.func @test_fusion_activation_multi_use(
     %arg0: tensor<1x4x4x8x!quant.uniform<u8:f32, 0.02:128>>,
     %weight: tensor<16x3x3x8x!quant.uniform<i8:f32, 0.005>>,
     %bias: tensor<16x!quant.uniform<i32:f32, 1.000000e-04>>,
@@ -221,8 +221,8 @@ func.func @test_no_fusion_activation_multi_use(
                         tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>>
 }
 // CHECK: "onnx.XFEConv"
-// CHECK-SAME: activation = "NONE"
-// CHECK: "onnx.XCOMPILERFusedEltwise"
+// CHECK-SAME: activation = "RELU"
+// CHECK-NOT: "onnx.XCOMPILERFusedEltwise"
 
 // -----
 // Test: No fusion when FusedEltwise is not an activation (e.g., ADD)
