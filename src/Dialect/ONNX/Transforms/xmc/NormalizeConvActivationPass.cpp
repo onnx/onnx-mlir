@@ -111,6 +111,14 @@ static bool isReluImplicitInOutputType(Type outputType) {
          quantType.getZeroPoint() == 0;
 }
 
+/// XFE verify: 'leakyrelu_alpha' is only allowed for LEAKYRELU or PRELU
+/// (see verifyXFEFusedConvActivationAttrs).
+template <typename ConvOp>
+static void eraseLeakyreluAlphaIfPresent(ConvOp convOp) {
+  if (convOp.getLeakyreluAlphaAttr())
+    convOp->removeAttr("leakyrelu_alpha");
+}
+
 /// ReLU (α=0) normalization: optional UINT8 implicit → NONE; otherwise keep
 /// ReLU and do not lower to PRELU.
 template <typename ConvOp>
@@ -120,6 +128,8 @@ static void normalizeReluActivation(
   // in the unsigned representation — no activation needed.
   if (isReluImplicitInOutputType(convOp.getResult().getType())) {
     convOp.setActivationAttr(builder.getStringAttr("NONE"));
+    if (fromLeakyReluZeroAlpha)
+      eraseLeakyreluAlphaIfPresent(convOp);
     LLVM_DEBUG(llvm::dbgs()
                << "NormalizeConvActivation: " << convOp->getName() << " "
                << (fromLeakyReluZeroAlpha ? "LEAKYRELU (alpha=0)" : "RELU")
@@ -130,6 +140,7 @@ static void normalizeReluActivation(
   if (fromLeakyReluZeroAlpha) {
     // LEAKYRELU with explicit α=0 is plain ReLU — use RELU, not PRELU.
     convOp.setActivationAttr(builder.getStringAttr("RELU"));
+    eraseLeakyreluAlphaIfPresent(convOp);
     LLVM_DEBUG(llvm::dbgs() << "NormalizeConvActivation: " << convOp->getName()
                             << " LEAKYRELU (alpha=0) -> RELU (no PRELU)\n");
     return;
