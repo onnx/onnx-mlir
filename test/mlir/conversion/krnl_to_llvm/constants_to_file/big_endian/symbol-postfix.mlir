@@ -177,8 +177,9 @@ module attributes {"onnx-mlir.symbol-postfix" = "tag_constants_to_file"} {
 // CHECK-CONST-TO-FILE:         }
 // CHECK-CONST-TO-FILE:         llvm.func @omUnloadConstantDataDtor_tag_constants_to_file() {
 // CHECK-CONST-TO-FILE-DAG:       [[VAR_0_15_:%.+]] = llvm.mlir.constant(true) : i1
+// CHECK-CONST-TO-FILE-DAG:       [[VAR_0_16_:%.+]] = llvm.mlir.constant(4176 : i64) : i64
 // CHECK-CONST-TO-FILE-DAG:       [[VAR_1_7_:%.+]] = llvm.mlir.addressof @om_external_constant_packedConst_tag_constants_to_file : !llvm.ptr
-// CHECK-CONST-TO-FILE:           [[VAR_2_7_:%.+]] = llvm.call @omUnloadConstantData([[VAR_1_7_]]) : (!llvm.ptr) -> i1
+// CHECK-CONST-TO-FILE:           [[VAR_2_7_:%.+]] = llvm.call @omUnloadConstantData([[VAR_1_7_]], [[VAR_0_16_]]) : (!llvm.ptr, i64) -> i1
 // CHECK-CONST-TO-FILE:           [[VAR_3_7_:%.+]] = llvm.icmp "ne" [[VAR_0_15_]], [[VAR_2_7_]] : i1
 // CHECK-CONST-TO-FILE:           llvm.cond_br [[VAR_3_7_]], ^bb1, ^bb2
 // CHECK-CONST-TO-FILE:         ^bb1:  // pred: ^bb0
