@@ -184,11 +184,9 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
   // Replace every DisposableElementsAttr with DenseElementsAttr.
   pm.addPass(onnx_mlir::zhigh::createZHighScrubDisposablePass());
 
-  // NOTE: Cannot have a pass of shape analysis after this pass as we add
-  // "non-standard" mixtures of types into operations, for example with "add(f16
-  // in stickified format, f23) -> f32". Shape inferences & verification
-  // requires all of the types to be identical, so we need to execute this pass
-  // JUST before lowering to KRNL/ZLow.
+  // Fuse stick/unstick into ONNX operations such as ONNX Add, Sub, etc.
+  // By fusion, the inputs and outputs of the ONNX operations might have type of
+  // f16.
   if (!nnpaDisableFusionOpStickUnstick)
     pm.addPass(onnx_mlir::zhigh::createFusionOpStickUnstick());
 
