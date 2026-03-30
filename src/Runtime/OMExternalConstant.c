@@ -45,12 +45,11 @@ const int i = 1;
 
 #define XOR(a, b) (!(a) != !(b))
 
-static void checkEndianness(const char constPackIsLE) {
+static bool checkEndianness(const char constPackIsLE) {
   if (XOR(IS_SYSTEM_LE(), constPackIsLE)) {
-    fprintf(stderr, "Constant pack is stored in a byte order that is not "
-                    "native to this current system.\n");
-    exit(1);
+    return false;
   }
+  return true;
 }
 
 // Forward declarations for helper functions.
@@ -85,7 +84,11 @@ bool omLoadConstantData(
     return true;
 
   // Ensure endianness is correct.
-  checkEndianness(isLE);
+  if (!checkEndianness(isLE)) {
+    fprintf(stderr, "Constant pack is stored in a byte order that is not "
+                    "native to this current system.\n");
+    return false;
+  }
 
   // Prepare an absolute path to the constants file.
   char *filePath;
