@@ -114,8 +114,9 @@ bool omLoadConstantData(
         filePath, strerror(errno), fname);
     return false;
   }
-  if (basePath)
+  if (basePath) {
     free(filePath);
+  }
 
   // Load the file into memory.
 #ifdef __MVS__
