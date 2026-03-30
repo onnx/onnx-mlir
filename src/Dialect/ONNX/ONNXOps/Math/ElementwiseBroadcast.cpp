@@ -74,9 +74,11 @@ static LogicalResult inferShapeForBroadcastingOps(
     return success();
   }
 
+  // ElementType should be from the output.
   if (!elementType)
     elementType =
-        mlir::cast<ShapedType>(op.getOperand(0).getType()).getElementType();
+        mlir::cast<ShapedType>(op.getOperation()->getResult(0).getType())
+            .getElementType();
   ONNXBroadcastOpShapeHelper shapeHelper(op.getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
