@@ -15,6 +15,7 @@
 #ifndef ONNX_MLIR_OPS_HELPER_H
 #define ONNX_MLIR_OPS_HELPER_H
 
+#include "mlir/Dialect/Quant/IR/QuantTypes.h"
 #include "mlir/Dialect/Traits.h"
 #include "mlir/IR/AffineExpr.h"
 #include "mlir/IR/AffineMap.h"
@@ -295,10 +296,16 @@ mlir::LogicalResult verifyElementTypeFromDtypeWithFallBackToInputType(OP op) {
   const auto elementType =
       getResultElementTypeFromDtypeWithFallBackToInputType(op);
   const auto resultType = mlir::cast<mlir::ShapedType>(op.getType());
-  if (resultType.getElementType() != elementType) {
+  auto resultElemType = resultType.getElementType();
+  if (resultElemType != elementType) {
+    if (auto qType =
+            mlir::dyn_cast<mlir::quant::QuantizedType>(resultElemType)) {
+      if (qType.getExpressedType() == elementType)
+        return mlir::success();
+    }
     return op->emitOpError(llvm::formatv(
         "result element type {0} does not match the expected type {1}",
-        resultType.getElementType(), elementType));
+        resultElemType, elementType));
   }
   return mlir::success();
 }

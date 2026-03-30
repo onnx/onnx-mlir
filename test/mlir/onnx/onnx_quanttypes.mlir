@@ -251,3 +251,39 @@ func.func @q_dq_q_dq(%arg0: tensor<1x64x128x128xf32>, %arg1: tensor<1x64x128x128
 // CHECK-SAME: tensor<1x64x128x128x!quant.uniform<u8:f32, 0.039215687662363052:127>> to tensor<1x64x128x128xui8>
 // CHECK-NEXT: quant.scast
 // CHECK-SAME: tensor<1x64x128x128xui8> to tensor<1x64x128x128x!quant.uniform<u8:f32, 0.023221839219331741:52>>
+
+// Test that RandomNormalLike with dtype=1 (f32) accepts a quantized result type
+// when the expressed type matches the dtype.
+func.func @randomnormallike_quant_types(%arg0: tensor<1x64x32xui16>) -> tensor<1x64x32xui16> {
+  %zp = onnx.Constant dense<32031> : tensor<ui16>
+  %sc = onnx.Constant dense<1.15724782E-4> : tensor<f32>
+  %dq = "onnx.DequantizeLinear"(%arg0, %sc, %zp) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x64x32xui16>, tensor<f32>, tensor<ui16>) -> tensor<1x64x32xf32>
+  %rand = "onnx.RandomNormalLike"(%dq) {dtype = 1 : si64, mean = 0.0 : f32, scale = 1.0 : f32} : (tensor<1x64x32xf32>) -> tensor<1x64x32xf32>
+  %q = "onnx.QuantizeLinear"(%rand, %sc, %zp) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x64x32xf32>, tensor<f32>, tensor<ui16>) -> tensor<1x64x32xui16>
+  return %q : tensor<1x64x32xui16>
+}
+
+// CHECK-LABEL: @randomnormallike_quant_types
+// CHECK: "onnx.RandomNormalLike"
+// CHECK-SAME: !quant.uniform<u16:f32,
+
+// Test that RMSLayerNormalization accepts quantized input (X) and produces
+// quantized output (Y) after -quant-types folds surrounding DQ/Q ops.
+// Scale stays float and bias is none — only X and Y carry quant types.
+func.func @rmslayernorm_quant_types(%arg0: tensor<1x128x2880xi16>) -> tensor<1x128x2880xi16> {
+  %zp_x = onnx.Constant dense<8361> : tensor<i16>
+  %sc_x = onnx.Constant dense<9.59339377E-4> : tensor<f32>
+  %zp_y = onnx.Constant dense<8361> : tensor<i16>
+  %sc_y = onnx.Constant dense<9.59339377E-4> : tensor<f32>
+  %none = "onnx.NoValue"() {value} : () -> none
+  %scale_const = onnx.Constant dense<1.0> : tensor<2880xf32>
+  %dq_x = "onnx.DequantizeLinear"(%arg0, %sc_x, %zp_x) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x128x2880xi16>, tensor<f32>, tensor<i16>) -> tensor<1x128x2880xf32>
+  %Y, %InvStdDev = "onnx.RMSLayerNormalization"(%dq_x, %scale_const, %none) {axis = -1 : si64, epsilon = 1.0E-5 : f32, stash_type = 1 : si64} : (tensor<1x128x2880xf32>, tensor<2880xf32>, none) -> (tensor<1x128x2880xf32>, none)
+  %q_y = "onnx.QuantizeLinear"(%Y, %sc_y, %zp_y) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x128x2880xf32>, tensor<f32>, tensor<i16>) -> tensor<1x128x2880xi16>
+  return %q_y : tensor<1x128x2880xi16>
+}
+
+// CHECK-LABEL: @rmslayernorm_quant_types
+// CHECK: "onnx.RMSLayerNormalization"
+// CHECK-SAME: (tensor<1x128x2880x!quant.uniform<i16:f32, 9.5933937700465322E-4:8361>>, tensor<2880xf32>, none)
+// CHECK-SAME: -> (tensor<1x128x2880x!quant.uniform<i16:f32, 9.5933937700465322E-4:8361>>, none)

@@ -3239,3 +3239,72 @@ func.func @back_to_back_i8_maxpools(%arg0: tensor<1x192x23x40xf32>) -> tensor<1x
 // CHECK:           %[[VAL_13:.*]] = "onnx.DequantizeLinear"(%[[VAL_12]], %[[VAL_1]], %[[VAL_2]]) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x192x23x40xi8>, tensor<f32>, tensor<i8>) -> tensor<1x192x23x40xf32>
 // CHECK:           %[[VAL_14:.*]] = "onnx.Concat"(%[[VAL_4]], %[[VAL_7]], %[[VAL_10]], %[[VAL_13]]) {axis = 1 : si64} : (tensor<1x192x23x40xf32>, tensor<1x192x23x40xf32>, tensor<1x192x23x40xf32>, tensor<1x192x23x40xf32>) -> tensor<1x768x23x40xf32>
 // CHECK:           onnx.Return %[[VAL_14]] : tensor<1x768x23x40xf32>
+
+// -----
+
+func.func @test_gather_like_slice(%arg0 : tensor<3x3xf32>) -> tensor<3xf32> {
+  %indices = onnx.Constant dense<0> : tensor<i64>
+  %0 = "onnx.Gather"(%arg0, %indices) {axis = 1 : si64} : (tensor<3x3xf32>, tensor<i64>) -> tensor<3xf32>
+  "func.return"(%0) : (tensor<3xf32>) -> ()
+// CHECK-LABEL:   test_gather_like_slice
+// CHECK-SAME:    (%[[ARG:.*]]: tensor<3x3xf32>)
+// CHECK-DAG:     %[[C3:.*]] = onnx.Constant dense<3> : tensor<1xi64>
+// CHECK-DAG:     %[[C0:.*]] = onnx.Constant dense<0> : tensor<1xi64>
+// CHECK-DAG:     %[[C1:.*]] = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK:         %[[SLICE:.*]] = "onnx.Slice"(%[[ARG]], %[[C0]], %[[C1]], %[[C1]], %[[C1]]) : (tensor<3x3xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3x1xf32>
+// CHECK:         %[[RESHAPE:.*]] = "onnx.Reshape"(%[[SLICE]], %[[C3]]) {allowzero = 0 : si64} : (tensor<3x1xf32>, tensor<1xi64>) -> tensor<3xf32>
+// CHECK:         return %[[RESHAPE]]
+}
+
+// -----
+
+func.func @test_gather_like_slice_positive_integer(%arg0 : tensor<3x3xf32>) -> tensor<3xf32> {
+  %indices = onnx.Constant dense<2> : tensor<i64>
+  %0 = "onnx.Gather"(%arg0, %indices) {axis = 0 : si64} : (tensor<3x3xf32>, tensor<i64>) -> tensor<3xf32>
+  "func.return"(%0) : (tensor<3xf32>) -> ()
+// CHECK-LABEL:   test_gather_like_slice_positive_integer
+// CHECK-SAME:    (%[[ARG:.*]]: tensor<3x3xf32>)
+// CHECK-DAG:     %[[C2:.*]] = onnx.Constant dense<2> : tensor<1xi64>
+// CHECK-DAG:     %[[C3:.*]] = onnx.Constant dense<3> : tensor<1xi64>
+// CHECK-DAG:     %[[C0:.*]] = onnx.Constant dense<0> : tensor<1xi64>
+// CHECK-DAG:     %[[C1:.*]] = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK:         %[[SLICE:.*]] = "onnx.Slice"(%[[ARG]], %[[C2]], %[[C3]], %[[C0]], %[[C1]]) : (tensor<3x3xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1x3xf32>
+// CHECK:         %[[RESHAPE:.*]] = "onnx.Reshape"(%[[SLICE]], %[[C3]]) {allowzero = 0 : si64} : (tensor<1x3xf32>, tensor<1xi64>) -> tensor<3xf32>
+// CHECK:         return %[[RESHAPE]]
+}
+
+// -----
+
+func.func @test_gather_like_slice_negative_integer(%arg0 : tensor<3x3xf32>) -> tensor<3xf32> {
+  %indices = onnx.Constant dense<-1> : tensor<i64>
+  %0 = "onnx.Gather"(%arg0, %indices) {axis = 0 : si64} : (tensor<3x3xf32>, tensor<i64>) -> tensor<3xf32>
+  "func.return"(%0) : (tensor<3xf32>) -> ()
+// CHECK-LABEL:   test_gather_like_slice_negative_integer
+// CHECK-SAME:    (%[[ARG:.*]]: tensor<3x3xf32>)
+// CHECK-DAG:     %[[C2:.*]] = onnx.Constant dense<2> : tensor<1xi64>
+// CHECK-DAG:     %[[C3:.*]] = onnx.Constant dense<3> : tensor<1xi64>
+// CHECK-DAG:     %[[C0:.*]] = onnx.Constant dense<0> : tensor<1xi64>
+// CHECK-DAG:     %[[C1:.*]] = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK:         %[[SLICE:.*]] = "onnx.Slice"(%[[ARG]], %[[C2]], %[[C3]], %[[C0]], %[[C1]]) : (tensor<3x3xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1x3xf32>
+// CHECK:         %[[RESHAPE:.*]] = "onnx.Reshape"(%[[SLICE]], %[[C3]]) {allowzero = 0 : si64} : (tensor<1x3xf32>, tensor<1xi64>) -> tensor<3xf32>
+// CHECK:         return %[[RESHAPE]]
+}
+
+// -----
+
+// LeakyRelu with alpha = 0 is canonicalized to Relu.
+// CHECK-LABEL:   func.func @leaky_relu_alpha_zero_to_relu(%arg0: tensor<2x3xf32>) -> tensor<2x3xf32> {
+func.func @leaky_relu_alpha_zero_to_relu(%arg0: tensor<2x3xf32>) -> tensor<2x3xf32> {
+  // CHECK-NEXT:    %{{[0-9]+}} = "onnx.Relu"(%arg0) : (tensor<2x3xf32>) -> tensor<2x3xf32>
+  %0 = "onnx.LeakyRelu"(%arg0) {alpha = 0.000000e+00 : f32} : (tensor<2x3xf32>) -> tensor<2x3xf32>
+  onnx.Return %0 : tensor<2x3xf32>
+}
+
+// -----
+
+// CHECK-LABEL:   func.func @leaky_relu_alpha_default(%arg0: tensor<2x3xf32>) -> tensor<2x3xf32> {
+func.func @leaky_relu_alpha_default(%arg0: tensor<2x3xf32>) -> tensor<2x3xf32> {
+  // CHECK-NEXT:    %{{[0-9]+}} = "onnx.LeakyRelu"(%arg0) {alpha = 0.00999999977 : f32} : (tensor<2x3xf32>) -> tensor<2x3xf32>
+  %0 = "onnx.LeakyRelu"(%arg0) : (tensor<2x3xf32>) -> tensor<2x3xf32>
+  onnx.Return %0 : tensor<2x3xf32>
+}

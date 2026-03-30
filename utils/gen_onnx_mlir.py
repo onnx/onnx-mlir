@@ -3,6 +3,10 @@
 # After modifying this file, the script will need to run to rebuild the
 # onnx-mlir ONNX Dialect. This is performed by calling
 # `make OMONNXOpsIncTranslation` in the build dir.
+# Alternatively, gen_onnx_mlir_multiple_custom_ops.sh can be used to generate
+# the ONNX Dialect with custom dialect extensions.
+# Before running these scripts, ensure that onnx==1.19.1 is installed
+# in the python environment.
 # If the changes are not seen, then you need to rebuild the entire onnx-mlir.
 
 # After changes that impact the documentation of the ops, run
@@ -108,6 +112,7 @@ version_dict = {
         "Acos": [22],
         "Acosh": [22],
         "Add": [14],
+        "AffineGrid": [20],
         "And": [7],
         "ArgMax": [13],
         "ArgMin": [13],
@@ -180,6 +185,7 @@ version_dict = {
         "HardSwish": [22],
         "Identity": [21],
         "If": [21],
+        "ImageDecoder": [20],
         "InstanceNormalization": [22],
         "IsInf": [20],
         "IsNaN": [20],
@@ -222,7 +228,7 @@ version_dict = {
         "Pad": [21, 18, 13, 11, 2],
         "Pow": [15],
         "QLinearConv": [10],
-        "QLinearMatMul": [10],
+        "QLinearMatMul": [21],
         "QuantizeLinear": [21],
         "RNN": [22],
         "RandomNormal": [22],
@@ -241,6 +247,7 @@ version_dict = {
         "ReduceProd": [18, 13],
         "ReduceSum": [13, 11],
         "ReduceSumSquare": [18, 13],
+        "RegexFullMatch": [20],
         "Relu": [14],
         "Reshape": [21],
         "Resize": [19, 18, 13, 11, 10],
@@ -277,7 +284,9 @@ version_dict = {
         "SplitToSequence": [11],
         "Sqrt": [13],
         "Squeeze": [21, 11],
+        "StringConcat": [20],
         "StringNormalizer": [10],
+        "StringSplit": [20],
         "STFT": [17],
         "Sub": [14],
         "Sum": [13],
@@ -303,7 +312,7 @@ version_dict = {
         "DictVectorizer": [1],
         "FeatureVectorizer": [1],
         "Imputer": [1],
-        "LabelEncoder": [2],
+        "LabelEncoder": [4],
         "LinearClassifier": [1],
         "LinearRegressor": [1],
         "Normalizer": [1],
@@ -311,8 +320,9 @@ version_dict = {
         "SVMClassifier": [1],
         "SVMRegressor": [1],
         "Scaler": [1],
-        "TreeEnsembleClassifier": [1],
-        "TreeEnsembleRegressor": [1],
+        "TreeEnsemble": [5],
+        "TreeEnsembleClassifier": [5],
+        "TreeEnsembleRegressor": [5],
         "ZipMap": [1],
     },
     "ai.onnx.preview.training": {
@@ -516,6 +526,7 @@ OpsWithCanonicalizer = [
     "Div",
     "Dropout",
     "Equal",
+    "Gather",
     "GlobalAveragePool",
     "GlobalMaxPool",
     "Greater",
@@ -523,6 +534,7 @@ OpsWithCanonicalizer = [
     "GroupNormalizationV18",
     "GRU",
     "Identity",
+    "LeakyRelu",
     "Less",
     "Loop",
     "LSTM",

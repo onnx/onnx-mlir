@@ -36,12 +36,15 @@ struct RemovePairedReshapePattern : public OpRewritePattern<ONNXReshapeOp> {
     if (!next)
       return failure();
 
+    // Collect all XCOMPILERFusedEltwiseOps in the chain.
+    SmallVector<Operation *> eltwiseChain;
     Operation *cursor = next;
     while (
         cursor && isa<XCOMPILERFusedEltwiseOp>(cursor) && cursor->hasOneUse()) {
+      eltwiseChain.push_back(cursor);
       cursor = *cursor->user_begin();
     }
-    if (!cursor || cursor == next)
+    if (eltwiseChain.empty())
       return failure();
 
     auto reshape2 = dyn_cast_or_null<ONNXReshapeOp>(cursor);
@@ -56,10 +59,28 @@ struct RemovePairedReshapePattern : public OpRewritePattern<ONNXReshapeOp> {
     if (reshape1DataTy.getShape() != reshape2OutTy.getShape())
       return failure();
 
+    // For binary eltwises, check that input B is compatible with the new
+    // shape. If B has a different rank from reshape1Data, removing the
+    // reshapes would change broadcasting semantics and could break
+    // downstream ops (e.g., XFEConv expecting a specific rank).
+    int64_t newRank = reshape1DataTy.getRank();
+    for (Operation *eltwiseOp : eltwiseChain) {
+      auto fusedEltwise = cast<XCOMPILERFusedEltwiseOp>(eltwiseOp);
+      Value inputB = fusedEltwise.getB();
+      if (!isa<NoneType>(inputB.getType())) {
+        auto inputBTy = dyn_cast<RankedTensorType>(inputB.getType());
+        if (inputBTy && inputBTy.getRank() != newRank)
+          return failure();
+      }
+    }
+
+    // Remove reshape1, update ALL eltwise types in the chain, remove reshape2.
     rewriter.replaceOp(reshape1, reshape1Data);
-    rewriter.modifyOpInPlace(next, [=]() {
-      next->getResult(0).setType(reshape2->getResult(0).getType());
-    });
+    for (Operation *eltwiseOp : eltwiseChain) {
+      rewriter.modifyOpInPlace(eltwiseOp, [=]() {
+        eltwiseOp->getResult(0).setType(reshape2->getResult(0).getType());
+      });
+    }
     rewriter.replaceOp(reshape2, reshape2.getData());
     return success();
   }

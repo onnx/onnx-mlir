@@ -133,106 +133,117 @@ SmallVector<T> extractSplitBias(
 }
 
 /// Create a constant op with the given values and shape (templatized for
-/// different types)
+/// different types).
+/// `storageElementType` is used for the DenseElementsAttr (e.g., ui8, i8).
+/// `resultElementType` is used for the ONNXConstantOp result type (may be
+/// quantized, e.g., !quant.uniform<ui8:f32, ...>).
 template <typename T>
 Value createConstant(PatternRewriter &rewriter, Location loc,
-    ArrayRef<T> values, ArrayRef<int64_t> shape, Type elementType) {
-  auto tensorType = RankedTensorType::get(shape, elementType);
+    ArrayRef<T> values, ArrayRef<int64_t> shape, Type storageElementType,
+    Type resultElementType) {
+  auto storageTensorType = RankedTensorType::get(shape, storageElementType);
+  auto resultTensorType = RankedTensorType::get(shape, resultElementType);
   DenseElementsAttr attr;
 
   if constexpr (std::is_floating_point_v<T>) {
-    attr = DenseFPElementsAttr::get(tensorType, values);
+    attr = DenseFPElementsAttr::get(storageTensorType, values);
   } else {
-    attr = DenseIntElementsAttr::get(tensorType, values);
+    attr = DenseIntElementsAttr::get(storageTensorType, values);
   }
 
-  return rewriter.create<ONNXConstantOp>(loc, tensorType, Attribute(), attr,
-      FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(),
+  return rewriter.create<ONNXConstantOp>(loc, resultTensorType, Attribute(),
+      attr, FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(),
       ArrayAttr());
 }
 
-/// Create split weight constant based on element type
+/// Create split weight constant based on element type.
+/// `resultElementType` is the full element type for the result (may include
+/// quantization info). The storage type is derived from denseWeightAttr.
 Value createSplitWeightConstant(PatternRewriter &rewriter, Location loc,
     DenseElementsAttr denseWeightAttr, int64_t cmIdx, int64_t inputChannels,
-    int64_t weightsPerChannel, ArrayRef<int64_t> splitWeightShape) {
-  Type elementType = denseWeightAttr.getElementType();
+    int64_t weightsPerChannel, ArrayRef<int64_t> splitWeightShape,
+    Type resultElementType) {
+  Type storageType = denseWeightAttr.getElementType();
 
-  if (elementType.isF32()) {
+  if (storageType.isF32()) {
     auto splitWeights = extractSplitWeights<float>(
         denseWeightAttr, cmIdx, inputChannels, weightsPerChannel);
-    return createConstant<float>(
-        rewriter, loc, splitWeights, splitWeightShape, elementType);
-  } else if (elementType.isF64()) {
+    return createConstant<float>(rewriter, loc, splitWeights, splitWeightShape,
+        storageType, resultElementType);
+  } else if (storageType.isF64()) {
     auto splitWeights = extractSplitWeights<double>(
         denseWeightAttr, cmIdx, inputChannels, weightsPerChannel);
-    return createConstant<double>(
-        rewriter, loc, splitWeights, splitWeightShape, elementType);
-  } else if (elementType.isSignedInteger(8)) {
+    return createConstant<double>(rewriter, loc, splitWeights, splitWeightShape,
+        storageType, resultElementType);
+  } else if (storageType.isSignedInteger(8)) {
     auto splitWeights = extractSplitWeights<int8_t>(
         denseWeightAttr, cmIdx, inputChannels, weightsPerChannel);
-    return createConstant<int8_t>(
-        rewriter, loc, splitWeights, splitWeightShape, elementType);
-  } else if (elementType.isUnsignedInteger(8)) {
+    return createConstant<int8_t>(rewriter, loc, splitWeights, splitWeightShape,
+        storageType, resultElementType);
+  } else if (storageType.isUnsignedInteger(8)) {
     auto splitWeights = extractSplitWeights<uint8_t>(
         denseWeightAttr, cmIdx, inputChannels, weightsPerChannel);
-    return createConstant<uint8_t>(
-        rewriter, loc, splitWeights, splitWeightShape, elementType);
-  } else if (elementType.isSignedInteger(16)) {
+    return createConstant<uint8_t>(rewriter, loc, splitWeights,
+        splitWeightShape, storageType, resultElementType);
+  } else if (storageType.isSignedInteger(16)) {
     auto splitWeights = extractSplitWeights<int16_t>(
         denseWeightAttr, cmIdx, inputChannels, weightsPerChannel);
-    return createConstant<int16_t>(
-        rewriter, loc, splitWeights, splitWeightShape, elementType);
-  } else if (elementType.isUnsignedInteger(16)) {
+    return createConstant<int16_t>(rewriter, loc, splitWeights,
+        splitWeightShape, storageType, resultElementType);
+  } else if (storageType.isUnsignedInteger(16)) {
     auto splitWeights = extractSplitWeights<uint16_t>(
         denseWeightAttr, cmIdx, inputChannels, weightsPerChannel);
-    return createConstant<uint16_t>(
-        rewriter, loc, splitWeights, splitWeightShape, elementType);
+    return createConstant<uint16_t>(rewriter, loc, splitWeights,
+        splitWeightShape, storageType, resultElementType);
   }
 
   return Value(); // Unsupported type
 }
 
-/// Create split bias constant based on element type
+/// Create split bias constant based on element type.
+/// `resultElementType` is the full element type for the result (may include
+/// quantization info). The storage type is derived from denseBiasAttr.
 Value createSplitBiasConstant(PatternRewriter &rewriter, Location loc,
-    DenseElementsAttr denseBiasAttr, int64_t cmIdx, int64_t inputChannels) {
-  Type elementType = denseBiasAttr.getElementType();
+    DenseElementsAttr denseBiasAttr, int64_t cmIdx, int64_t inputChannels,
+    Type resultElementType) {
+  Type storageType = denseBiasAttr.getElementType();
   SmallVector<int64_t> biasShape = {inputChannels};
 
-  if (elementType.isF32()) {
+  if (storageType.isF32()) {
     auto biasValues =
         extractSplitBias<float>(denseBiasAttr, cmIdx, inputChannels);
     return createConstant<float>(
-        rewriter, loc, biasValues, biasShape, elementType);
-  } else if (elementType.isF64()) {
+        rewriter, loc, biasValues, biasShape, storageType, resultElementType);
+  } else if (storageType.isF64()) {
     auto biasValues =
         extractSplitBias<double>(denseBiasAttr, cmIdx, inputChannels);
     return createConstant<double>(
-        rewriter, loc, biasValues, biasShape, elementType);
-  } else if (elementType.isSignedInteger(8)) {
+        rewriter, loc, biasValues, biasShape, storageType, resultElementType);
+  } else if (storageType.isSignedInteger(8)) {
     auto biasValues =
         extractSplitBias<int8_t>(denseBiasAttr, cmIdx, inputChannels);
     return createConstant<int8_t>(
-        rewriter, loc, biasValues, biasShape, elementType);
-  } else if (elementType.isUnsignedInteger(8)) {
+        rewriter, loc, biasValues, biasShape, storageType, resultElementType);
+  } else if (storageType.isUnsignedInteger(8)) {
     auto biasValues =
         extractSplitBias<uint8_t>(denseBiasAttr, cmIdx, inputChannels);
     return createConstant<uint8_t>(
-        rewriter, loc, biasValues, biasShape, elementType);
-  } else if (elementType.isSignedInteger(16)) {
+        rewriter, loc, biasValues, biasShape, storageType, resultElementType);
+  } else if (storageType.isSignedInteger(16)) {
     auto biasValues =
         extractSplitBias<int16_t>(denseBiasAttr, cmIdx, inputChannels);
     return createConstant<int16_t>(
-        rewriter, loc, biasValues, biasShape, elementType);
-  } else if (elementType.isUnsignedInteger(16)) {
+        rewriter, loc, biasValues, biasShape, storageType, resultElementType);
+  } else if (storageType.isUnsignedInteger(16)) {
     auto biasValues =
         extractSplitBias<uint16_t>(denseBiasAttr, cmIdx, inputChannels);
     return createConstant<uint16_t>(
-        rewriter, loc, biasValues, biasShape, elementType);
-  } else if (elementType.isInteger(32)) {
+        rewriter, loc, biasValues, biasShape, storageType, resultElementType);
+  } else if (storageType.isInteger(32)) {
     auto biasValues =
         extractSplitBias<int32_t>(denseBiasAttr, cmIdx, inputChannels);
     return createConstant<int32_t>(
-        rewriter, loc, biasValues, biasShape, elementType);
+        rewriter, loc, biasValues, biasShape, storageType, resultElementType);
   }
 
   return Value(); // Unsupported type
@@ -342,10 +353,11 @@ struct SplitDepthwiseConvPattern : public OpRewritePattern<ONNXConvOp> {
     onnx_mlir::OnnxBuilder onnxBuilder(rewriter, loc);
 
     for (int64_t cmIdx = 0; cmIdx < channelMultiplier; cmIdx++) {
-      // Create split weight constant using templatized helper
-      Value splitWeight =
-          createSplitWeightConstant(rewriter, loc, denseWeightAttr, cmIdx,
-              inputChannels, weightsPerChannel, splitWeightShape);
+      // Create split weight constant using templatized helper.
+      // Pass the full weight element type (may be quantized) for the result.
+      Value splitWeight = createSplitWeightConstant(rewriter, loc,
+          denseWeightAttr, cmIdx, inputChannels, weightsPerChannel,
+          splitWeightShape, weightType.getElementType());
       if (!splitWeight) {
         LLVM_DEBUG(
             llvm::dbgs() << "Unsupported weight element type, skipping\n");
@@ -355,8 +367,9 @@ struct SplitDepthwiseConvPattern : public OpRewritePattern<ONNXConvOp> {
       // Create split bias if present
       Value splitBias;
       if (hasBias && denseBiasAttr) {
-        splitBias = createSplitBiasConstant(
-            rewriter, loc, denseBiasAttr, cmIdx, inputChannels);
+        auto biasType = cast<RankedTensorType>(origBias.getType());
+        splitBias = createSplitBiasConstant(rewriter, loc, denseBiasAttr, cmIdx,
+            inputChannels, biasType.getElementType());
         if (!splitBias) {
           LLVM_DEBUG(
               llvm::dbgs() << "Unsupported bias element type, skipping\n");
@@ -505,10 +518,11 @@ struct SplitXFEDepthwiseConvPattern : public OpRewritePattern<XFEConvOp> {
     onnx_mlir::OnnxBuilder onnxBuilder(rewriter, loc);
 
     for (int64_t cmIdx = 0; cmIdx < channelMultiplier; cmIdx++) {
-      // Create split weight constant using templatized helper
-      Value splitWeight =
-          createSplitWeightConstant(rewriter, loc, denseWeightAttr, cmIdx,
-              inputChannels, weightsPerChannel, splitWeightShape);
+      // Create split weight constant using templatized helper.
+      // Pass the full weight element type (may be quantized) for the result.
+      Value splitWeight = createSplitWeightConstant(rewriter, loc,
+          denseWeightAttr, cmIdx, inputChannels, weightsPerChannel,
+          splitWeightShape, weightType.getElementType());
       if (!splitWeight) {
         LLVM_DEBUG(
             llvm::dbgs() << "Unsupported weight element type, skipping\n");
@@ -518,8 +532,9 @@ struct SplitXFEDepthwiseConvPattern : public OpRewritePattern<XFEConvOp> {
       // Create split bias if present
       Value splitBias;
       if (hasBias && denseBiasAttr) {
-        splitBias = createSplitBiasConstant(
-            rewriter, loc, denseBiasAttr, cmIdx, inputChannels);
+        auto biasType = cast<RankedTensorType>(origBias.getType());
+        splitBias = createSplitBiasConstant(rewriter, loc, denseBiasAttr, cmIdx,
+            inputChannels, biasType.getElementType());
         if (!splitBias) {
           LLVM_DEBUG(
               llvm::dbgs() << "Unsupported bias element type, skipping\n");
