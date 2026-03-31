@@ -134,7 +134,7 @@
 // CHECK-LABEL:  func.func @test_convtrans_outputpadding
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x3x3xf32>, [[PARAM_1_:%.+]]: tensor<1x2x3x3xf32>) -> tensor<1x2x10x8xf32> {
 // CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
-// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.UpsampleAndPad"([[PARAM_0_]]) <{pads = [2, 2, 2, 2], strides = [3, 2]}> : (tensor<1x1x3x3xf32>) -> tensor<*xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.UpsampleAndPad"([[PARAM_0_]]) <{pads = [2, 2, 3, 3], strides = [3, 2]}> : (tensor<1x1x3x3xf32>) -> tensor<*xf32>
 // CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<[1, 1, 2, 3, 3]> : tensor<5xi64>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Reshape"([[PARAM_1_]], [[VAR_2_]]) <{allowzero = 0 : si64}> : (tensor<1x2x3x3xf32>, tensor<5xi64>) -> tensor<1x1x2x3x3xf32>
@@ -149,3 +149,5 @@
 // CHECK:           [[VAR_12_:%.+]] = "onnx.Conv"([[VAR_1_]], [[VAR_1_]]1, [[VAR_0_]]) <{auto_pad = "VALID", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [0, 0, 0, 0], strides = [1, 1]}> : (tensor<*xf32>, tensor<2x1x3x3xf32>, none) -> tensor<1x2x10x8xf32>
 // CHECK:           onnx.Return [[VAR_12_]] : tensor<1x2x10x8xf32>
 // CHECK:         }
+
+

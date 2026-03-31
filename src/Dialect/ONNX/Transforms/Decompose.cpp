@@ -166,8 +166,8 @@ bool hasStaticSpatialDims(Value v) {
 // Alternatively, Slice can be used
 //   %res = onnx.Slice(%input, %start, %end, %step)
 // The start, and end for slice will be onnx.constant:
-//   start: %position*%split for %axis, 0 for other dimensionis
-//   end: (%positiion+1)*%split for %axis, upper bound for other dimension
+//   start: %position*%split for %axis, 0 for other dimensions
+//   end: (%position+1)*%split for %axis, upper bound for other dimension
 //   step: 1 for all dimensions
 // The split approach may have better performance than the alternative slice
 // approach,  because the slicing is done separately.
@@ -323,6 +323,21 @@ struct DecomposeConvTransposePattern
     if (failed(shapeHelper.computeShape()))
       return failure();
 
+    // Check if output_shape is provided.
+    std::optional<ArrayAttr> outputShapeOpt = convTransposeOp.getOutputShape();
+
+    // When output_shape is provided, input spatial dimensions must be known at
+    // compile time to compute pads.
+    if (outputShapeOpt.has_value()) {
+      ArrayRef<int64_t> xShape = xType.getShape();
+      // Check spatial dimensions (skip batch and channel dimensions).
+      for (size_t i = 2; i < xShape.size(); ++i) {
+        if (ShapedType::isDynamic(xShape[i])) {
+          return failure();
+        }
+      }
+    }
+
     // Get attributes from shape helper and op.
     auto strides = shapeHelper.strides;
     auto dilations = shapeHelper.dilations;
@@ -340,11 +355,54 @@ struct DecomposeConvTransposePattern
     onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
         rewriter, loc);
 
-    // Compute pads based on auto_pad mode following Python reference.
+    // Compute pads based on auto_pad mode or output_shape following Python
+    // reference.
     SmallVector<int64_t, 4> padTop(spatialRank);
     SmallVector<int64_t, 4> padBottom(spatialRank);
 
-    if (autoPad == "VALID") {
+    // When output_shape is provided, compute pads from it.
+    if (outputShapeOpt.has_value()) {
+      // Get input shape to compute pads.
+      ArrayRef<int64_t> xShape = xType.getShape();
+
+      for (int64_t i = 0; i < spatialRank; ++i) {
+        int64_t inputSize = xShape[2 + i];
+        int64_t outputSize = ArrayAttrIntVal(outputShapeOpt, i);
+        int64_t kH = kernelShape[i].getLiteral();
+        int64_t dH = dilations[i];
+        int64_t sH = strides[i];
+        int64_t opH = outputPadding[i];
+
+        // Calculate total padding needed.
+        // Formula: total_pad = stride * (input - 1) + output_padding + kernel -
+        // output_shape.
+        // Note: Unlike SAME_UPPER/SAME_LOWER without output_shape, we do NOT
+        // clamp to non-negative here because negative padding is valid and will
+        // be swapped to the opposite side below.
+        int64_t totalPad =
+            sH * (inputSize - 1) + opH + ((kH - 1) * dH + 1) - outputSize;
+
+        // Distribute padding based on auto_pad mode.
+        if (autoPad == "SAME_UPPER" || autoPad == "NOTSET") {
+          // Extra padding on bottom/right (default behavior).
+          padTop[i] = totalPad / 2;
+          padBottom[i] = totalPad - padTop[i];
+        } else { // SAME_LOWER
+          // Extra padding on top/left.
+          padBottom[i] = totalPad / 2;
+          padTop[i] = totalPad - padBottom[i];
+        }
+
+        // When pads are negative, swap them to opposite sides.
+        // This matches ONNX Runtime behavior where negative padding adds zeros
+        // on opposite edges.
+        if (padTop[i] < 0) {
+          int64_t temp = padTop[i];
+          padTop[i] = padBottom[i];
+          padBottom[i] = temp;
+        }
+      }
+    } else if (autoPad == "VALID") {
       // No padding.
       for (int64_t i = 0; i < spatialRank; ++i) {
         padTop[i] = 0;

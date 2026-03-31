@@ -107,7 +107,6 @@ LogicalResult ONNXGenericPoolOpShapeHelper<OP_TYPE>::customComputeShape(
       outputDims.emplace_back(O);
     } else if (autoPad == "VALID") {
 #if 1 // hi alex
-      fprintf(stderr, "hi alex in valid\n");
       IndexExpr t1 = I;
       IndexExpr t2 = t1 - kdTerm;
       IndexExpr O;
@@ -116,9 +115,6 @@ LogicalResult ONNXGenericPoolOpShapeHelper<OP_TYPE>::customComputeShape(
       else
         O = t2.floorDiv(s);
       O = O + one;
-      t1.debugPrint("K-1");
-      kdTerm.debugPrint("kd term");
-      O.debugPrint("O");
 #else
       IndexExpr t1 = I - kdTerm; // Compute ceil((I - kdTerm +1)/s).
       IndexExpr t2 = t1 + one;
@@ -151,7 +147,7 @@ LogicalResult ONNXGenericPoolOpShapeHelper<OP_TYPE>::customComputeShape(
     }
   }
 
-#if DEBUG || 1
+#if DEBUG
   if (outputDims.size() == 4) {
     std::cerr << "2d conv const params";
     if (outputDims[0].isLiteral())

@@ -6,7 +6,7 @@
 //
 // =============================================================================
 //
-// Defines language-specific pattern match rewritings for ONNX using
+// Defines language-specific pattern match rewriting for ONNX using
 // Declarative Rewrite Rules (DRR) specified using TableGen records.
 //
 //===----------------------------------------------------------------------===//

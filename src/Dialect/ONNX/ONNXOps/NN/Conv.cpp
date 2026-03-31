@@ -381,9 +381,6 @@ LogicalResult ONNXConvTransposeOpShapeHelper::computeShape() {
   int64_t spatialOffset = 2;
   int64_t spatialRank = rank - spatialOffset;
 
-  fprintf(stderr, "hi alex, shape on this conv trans\n  ");
-  op->dump(); // hi alex
-
   // Fill the stride, dilation, kernel.
   for (int i = 0; i < spatialRank; ++i) {
     // Strides, default 1.
@@ -430,7 +427,6 @@ LogicalResult ONNXConvTransposeOpShapeHelper::computeShape() {
     IndexExpr kdTerm = t0 * d + oneIE; // (k - 1) * d + 1
     IndexExpr t1 = I - oneIE;
     if (outputShapeOpt.has_value()) {
-      fprintf(stderr, "hi alex, output shape opt is here\n");
       // Set output dim, then calculate pads using output dim.
       LiteralIndexExpr O(ArrayAttrIntVal(outputShapeOpt, i));
       outputDims.emplace_back(O);
@@ -448,13 +444,6 @@ LogicalResult ONNXConvTransposeOpShapeHelper::computeShape() {
       } else {
         return op->emitError("auto_pad of unknown/unsupported value");
       }
-      O.debugPrint("O");
-      s.debugPrint("s");
-      t1.debugPrint("t1");
-      kdTerm.debugPrint("kdterm");
-      pads[i].debugPrint("pad i");
-      pads[i+ spatialRank].debugPrint("pad i+spatial rank");
-      pSum.debugPrint("P sum");
     } else {
       // Set pads for NOTSET and VALID, then calculate output dim using pads.
       // Set output dim for SAME_UPPER and SAME_LOWER, then calculate pads.
@@ -473,8 +462,6 @@ LogicalResult ONNXConvTransposeOpShapeHelper::computeShape() {
         // O = s * (I - 1) + outPad + ((K - 1) * d + 1) - P
         IndexExpr O = s * t1 + outPad + kdTerm - pSum;
         outputDims.emplace_back(O); // Set output dim
-        fprintf(stderr, "hi alex in conv trans with dims\n");
-        O.debugPrint("O");
       } else if (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER") {
         // Set output dim.
         IndexExpr O = I * s;
@@ -639,6 +626,17 @@ LogicalResult ONNXConvTransposeOp::verify() {
         wShape[0] != ShapedType::kDynamic && xShape[1] != wShape[0]) {
       return emitOpError("Channel In (C) of input must be equal 1st dim "
                          "of weights");
+    }
+    // When output_shape is provided, input spatial dimensions must be static.
+    if (getOutputShape().has_value()) {
+      for (int64_t i = 2; i < static_cast<int64_t>(xShape.size()); ++i) {
+        if (xShape[i] == ShapedType::kDynamic) {
+          return emitOpError(
+              "When output_shape is provided, input spatial dimensions must "
+              "be static (dimension ")
+                 << i << " is dynamic)";
+        }
+      }
     }
   }
   if (hasBias && hasShapeAndRank(B)) {

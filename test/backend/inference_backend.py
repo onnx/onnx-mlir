@@ -2,7 +2,7 @@
 
 ##################### inference_backend.py #####################################
 #
-# Copyright 2021, 2024 The IBM Research Authors.
+# Copyright 2021- 2026 The IBM Research Authors.
 #
 ################################################################################
 from __future__ import absolute_import
@@ -742,7 +742,7 @@ def get_test_models():
         },
         # ==OP== ConvTranspose
         # ==MIN== 1
-        # ==LIM== Weight input `W` must be constant with static dimensions.
+        # ==LIM== Weight input `W` must be constant with static dimensions. `X` input shape must be constant when using the `output_shape` option.
         "test_convtranspose_1d_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {0: {0, 1, 2}},
@@ -770,12 +770,14 @@ def get_test_models():
         },
         "test_convtranspose_kernel_shape_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1, 2, 3}},
+            # Dynamic shapes disabled: when output_shape is provided, input
+            # spatial dimensions must be known at compile time to compute pads.
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_output_shape_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1, 2, 3}},
+            # Dynamic shapes disabled: when output_shape is provided, input
+            # spatial dimensions must be known at compile time to compute pads.
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_pad_cpu": {
