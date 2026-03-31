@@ -281,11 +281,18 @@ LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateType(
          "element type cannot be a shaped type other than vector type");
   uint64_t resNum = op->getNumResults();
   for (uint64_t i = 0; i < resNum; ++i) {
+    Type resultType = op->getResults()[i].getType();
     // If we have an optional type, leave it as is.
-    if (mlir::isa<NoneType>(op->getResults()[i].getType()))
+    if (mlir::isa<NoneType>(resultType))
       continue;
     llvm::SmallVector<int64_t, 4> shapeVect;
     IndexExpr::getShape(getOutputDims(i), shapeVect);
+    // If encoding is not set, keep the output's encoding unchanged.
+    Attribute outputEncoding;
+    if (encoding)
+      outputEncoding = encoding;
+    else
+      encoding = getTensorEncoding(resultType);
     // Set refineShape to false here because we refine it (or not) when setting
     // the output shape. So there is no need to perform this again here.
     updateType(op, op->getResults()[i], shapeVect, elementType, encoding,
@@ -645,7 +652,7 @@ bool ONNXBroadcastOpShapeHelper::hasManageableBroadcastForInnerDims(
                                 << " & " << d << "; abort\n");
         return collapsedInnermostLoops > 0;
       } // End for all non-scalars,
-    }   // End testing non-scalar compatibility.
+    } // End testing non-scalar compatibility.
 
     // 4) Since we have at least one non-scalar
     //   4.1) all the scalar inputs are now marked as having a broadcast.

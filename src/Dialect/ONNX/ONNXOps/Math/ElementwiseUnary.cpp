@@ -40,8 +40,9 @@ LogicalResult inferShapeForUnaryOps(Operation *op) {
   // ElementType should be from the output.
   Type elementType = resultType.getElementType();
   // If the output has encoding, keep it unchanged.
-  // Otherwise, no encoding.
   Attribute encoding = getTensorEncoding(resultType);
+  if (!encoding)
+    encoding = inputType.getEncoding();
   return inferShapeForUnaryOps(op, elementType, encoding);
 }
 
@@ -55,8 +56,9 @@ LogicalResult inferShapeForUnaryOps(Operation *op, Type elementType) {
       mlir::dyn_cast<RankedTensorType>(input.getType());
   ShapedType resultType = mlir::cast<ShapedType>(op->getResult(0).getType());
   // If the output has encoding, keep it unchanged.
-  // Otherwise, no encoding.
   Attribute encoding = getTensorEncoding(resultType);
+  if (!encoding)
+    encoding = inputType.getEncoding();
   return inferShapeForUnaryOps(op, elementType, encoding);
 }
 
