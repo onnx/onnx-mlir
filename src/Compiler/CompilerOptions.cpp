@@ -99,6 +99,7 @@ std::string modelTag;                                  // onnx-mlir only
 bool enableConvOptPass;                                // onnx-mlir only
 std::vector<std::string> replaceOpWithItsOperand;      // onnx-mlir only
 bool disableConstantProp;                              // onnx-mlir only
+bool disableCountIncludePad;                           // onnx-mlir only
 std::vector<std::string> extraLibPaths;                // onnx-mlir only
 std::vector<std::string> extraLibs;                    // onnx-mlir only
 ProfileIRs profileIR;                                  // onnx-mlir only
@@ -753,6 +754,16 @@ static llvm::cl::opt<bool, true> disableConstantPropOpt("disable-constant-prop",
     llvm::cl::desc("Disable Constant Propagation (default is false).\n"
                    "Set to 'true' to disable Constant Propagation."),
     llvm::cl::location(disableConstantProp), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<bool, true> disableiCountIncludePadOpt(
+    "disable-count-include-pad",
+    llvm::cl::desc(
+        "Force count_include_pad = 0 for AveragePool (default is false). The "
+        "default implementation of onnx-mlir conforms to the document of onnx "
+        "and pytorch, and passed the backend test. But the implementation of "
+        "torch and onnxruntime always behave as count_include_pad=0"),
+    llvm::cl::location(disableCountIncludePad), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
 static llvm::cl::opt<uint64_t, true> compilation_num_threads("j",
