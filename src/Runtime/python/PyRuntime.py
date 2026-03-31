@@ -24,6 +24,7 @@ except ImportError:
         "2. Add the path of PyRuntimeC, in build/Debug/lib by default, to your os path"
     )
 
+
 class OMExecutionSession(OMExecutionSession_):
 
     def run(self, inputs, with_signal_handler=False, force_output_data_copy=False):
