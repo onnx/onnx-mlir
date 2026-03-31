@@ -37,17 +37,19 @@
 import os
 import sys
 import argparse
-#import onnx
+
+# import onnx
 import time
 import signal
 import subprocess
 import numpy as np
-#import tempfile
-#import json
+
+# import tempfile
+# import json
 import logging
 import re
 
-#from collections import OrderedDict
+# from collections import OrderedDict
 
 LOG_LEVEL = {
     "debug": logging.DEBUG,
