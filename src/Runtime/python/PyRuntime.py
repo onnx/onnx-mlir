@@ -12,32 +12,17 @@ import numpy as np
 import sys
 import os
 import importlib
-import pkgutil
+import importlib.util
 
-if __package__ == "onnxmlir" or __package__ == "torch_onnxmlir":
-    loader = pkgutil.get_loader(__package__)
-    PyRuntimeC_module = os.path.join(
-        os.path.dirname(loader.get_filename(__package__)), "libs"
+try:
+    from PyRuntimeC import OMExecutionSession as OMExecutionSession_
+except ImportError:
+    raise ImportError(
+        "Failed in loading the prebuilt PyRuntimeC*.so for your system."
+        "Here is how to fix this issue:"
+        "1. Make sure to build PyRuntimeC target to match your architecture and python version."
+        "2. Add the path of PyRuntimeC, in build/Debug/lib by default, to your os path"
     )
-    sys.path.append(PyRuntimeC_module)
-
-    try:
-        from PyRuntimeC import OMExecutionSession as OMExecutionSession_
-    except ImportError:
-        raise ImportError(
-            "Failure to load the prebuild PyRuntimeC*.so for your system."
-            "The reason could be that either your system or your python version is not supported"
-            "Refer to docs/BuildPyRuntimeLight.md to build the driver by yourself"
-        )
-else:
-    try:
-        from PyRuntimeC import OMExecutionSession as OMExecutionSession_
-    except ImportError:
-        raise ImportError(
-            "Looks like you did not build the PyRuntimeC target, build it by running `make PyRuntimeC`."
-            "You may need to set ONNX_MLIR_HOME to `onnx-mlir/build/Debug` since `make PyRuntimeC` outputs to `build/Debug` by default"
-        )
-
 
 class OMExecutionSession(OMExecutionSession_):
 
