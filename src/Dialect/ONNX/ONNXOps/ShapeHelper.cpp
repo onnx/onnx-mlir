@@ -113,7 +113,9 @@ static void refineDims(Operation *op, DimsExpr &inferredDims, Value output) {
     // inferredDim is different from existingDim. Believe in existingDim.
     assert(inferredDims[i].isLiteral() && "isLiteral failed");
     if (existingDims[i] != inferredDims[i].getLiteral()) {
+      fprintf(stderr, "hi alex, difference in shape for op\n  ");
       if (op) {
+        op->dump(); // hi alex
         llvm::outs() << "\nWarning for operation " << op->getName()
                      << ": [Shape inference, dim " << i
                      << "] the inferred dim (" << inferredDims[i].getLiteral()
