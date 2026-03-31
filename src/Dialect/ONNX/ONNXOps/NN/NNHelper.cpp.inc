@@ -106,7 +106,6 @@ LogicalResult ONNXGenericPoolOpShapeHelper<OP_TYPE>::customComputeShape(
       // Set output dim, and pads already set, nothing more to do.
       outputDims.emplace_back(O);
     } else if (autoPad == "VALID") {
-#if 1 // hi alex
       IndexExpr t1 = I;
       IndexExpr t2 = t1 - kdTerm;
       IndexExpr O;
@@ -115,11 +114,6 @@ LogicalResult ONNXGenericPoolOpShapeHelper<OP_TYPE>::customComputeShape(
       else
         O = t2.floorDiv(s);
       O = O + one;
-#else
-      IndexExpr t1 = I - kdTerm; // Compute ceil((I - kdTerm +1)/s).
-      IndexExpr t2 = t1 + one;
-      IndexExpr O = t2.ceilDiv(s);
-#endif
       // Set output dim, and pads already set to zero, nothing more to do.
       outputDims.emplace_back(O);
     } else if (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER") {
