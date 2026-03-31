@@ -46,10 +46,12 @@ public:
   // should have the same length, otherwise python exceptions occur.
   // Run with a signal handler: for debugging only. It is slower and unsafe if
   // catch signal; posix only.
+  // forceOutputDataCopy should be only used for debugging purpose if suspecting
+  // PYBIND issues.
   std::vector<py::array> pyRun(const std::vector<py::array> &inputsPyArray,
       const std::vector<py::array> &shapesPyArray,
       const std::vector<py::array> &stridesPyArray,
-      bool useSignalHandler = false);
+      bool useSignalHandler = false, bool forceOutputDataCopy = false);
   std::string pyInputSignature();
   std::string pyOutputSignature();
   void pyPrintInstrumentation(); // Print instrumentation (if any).

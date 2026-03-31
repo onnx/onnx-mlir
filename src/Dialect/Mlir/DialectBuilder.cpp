@@ -1234,6 +1234,22 @@ void MemRefBuilder::storeIE(Value val, Value memref,
 }
 
 //===----------------------------------------------------------------------===//
+// Compute type and dyn symbols for alloc functions.
+
+mlir::MemRefType MemRefBuilder::getType(DimsExprRef shape, Type elementType) {
+  int64_t rank = shape.size();
+  llvm::SmallVector<int64_t, 6> typeShape;
+  for (int64_t i = 0; i < rank; ++i) {
+    if (shape[i].isLiteral())
+      // Use literal directly in type.
+      typeShape.emplace_back(shape[i].getLiteral());
+    else
+      // Else we have a dynamic value.
+      typeShape.emplace_back(ShapedType::kDynamic);
+  }
+  return MemRefType::get(typeShape, elementType);
+}
+//===----------------------------------------------------------------------===//
 // Alloc functions without alignment.
 
 memref::AllocOp MemRefBuilder::alloc(MemRefType type) const {
@@ -2419,6 +2435,32 @@ LLVM::GlobalOp LLVMBuilder::globalOp(Type resultType, bool isConstant,
   ModuleOp module = gop.getOperation()->getParentOfType<ModuleOp>();
   gop.setName(LLVMBuilder::SymbolPostfix(module, name.str()));
   return gop;
+}
+
+void LLVMBuilder::globalCtors(ArrayRef<Attribute> ctors,
+    ArrayRef<int32_t> priorities, ArrayRef<Attribute> data) const {
+  MLIRContext *context = b().getContext();
+
+  // Create the array attributes.
+  ArrayAttr ctorsAttr = ArrayAttr::get(context, ctors);
+  ArrayAttr prioritiesAttr = b().getI32ArrayAttr(priorities);
+  ArrayAttr dataAttr = ArrayAttr::get(context, data);
+
+  // Create the global constructors operation.
+  LLVM::GlobalCtorsOp::create(b(), loc(), ctorsAttr, prioritiesAttr, dataAttr);
+}
+
+void LLVMBuilder::globalDtors(ArrayRef<Attribute> ctors,
+    ArrayRef<int32_t> priorities, ArrayRef<Attribute> data) const {
+  MLIRContext *context = b().getContext();
+
+  // Create the array attributes.
+  ArrayAttr dtorsAttr = ArrayAttr::get(context, ctors);
+  ArrayAttr prioritiesAttr = b().getI32ArrayAttr(priorities);
+  ArrayAttr dataAttr = ArrayAttr::get(context, data);
+
+  // Create the global destructors operation.
+  LLVM::GlobalDtorsOp::create(b(), loc(), dtorsAttr, prioritiesAttr, dataAttr);
 }
 
 Value LLVMBuilder::icmp(LLVM::ICmpPredicate cond, Value lhs, Value rhs) const {

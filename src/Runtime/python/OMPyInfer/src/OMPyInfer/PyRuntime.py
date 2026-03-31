@@ -33,7 +33,7 @@ except ImportError:
 # Only real difference is how to locate the PyRuntimeC*.so and the two will
 # be merged
 class OMExecutionSession(OMExecutionSession_):
-    def run(self, inputs):
+    def run(self, inputs, with_signal_handler=False, force_output_data_copy=False):
         # Prepare arguments to call sess.run
         pyrun_inputs = []
         pyrun_shapes = []
@@ -43,5 +43,9 @@ class OMExecutionSession(OMExecutionSession_):
             pyrun_shapes.append(np.array(inp.shape, dtype=np.int64))
             pyrun_strides.append(np.array(inp.strides, dtype=np.int64))
         return super(OMExecutionSession, self).run(
-            pyrun_inputs, pyrun_shapes, pyrun_strides
+            pyrun_inputs,
+            pyrun_shapes,
+            pyrun_strides,
+            with_signal_handler,
+            force_output_data_copy,
         )
