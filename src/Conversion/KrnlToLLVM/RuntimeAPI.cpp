@@ -90,7 +90,7 @@ RuntimeAPIRegistry::RuntimeAPIRegistry(
     RuntimeAPI(API::PRINT_OMTENSOR, "omTensorPrint", voidTy, {opaquePtrTy, opaquePtrTy}),
     RuntimeAPI(API::GET_OMTENSOR_LIST_SIZE, "omTensorListGetSize", int64Ty, {opaquePtrTy}),
     RuntimeAPI(API::LOAD_CONSTANT_DATA, "omLoadConstantData", int1Ty, {opaquePtrPtrTy, opaquePtrTy, int64Ty, int64Ty}),
-    RuntimeAPI(API::UNLOAD_CONSTANT_DATA, "omUnloadConstantData", int1Ty, {opaquePtrPtrTy}),
+    RuntimeAPI(API::UNLOAD_CONSTANT_DATA, "omUnloadConstantData", int1Ty, {opaquePtrPtrTy, int64Ty}),
     RuntimeAPI(API::GET_EXTERNAL_CONSTANT_ADDR, "omGetExternalConstantAddr", voidTy, {opaquePtrPtrTy, opaquePtrPtrTy, int64Ty}),
   };
   // clang-format on
