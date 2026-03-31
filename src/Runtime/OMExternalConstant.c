@@ -45,38 +45,37 @@ const int i = 1;
 
 #define XOR(a, b) (!(a) != !(b))
 
-__attribute__((unused)) static void checkEndianness(const char constPackIsLE) {
+static bool checkEndianness(const char constPackIsLE) {
   if (XOR(IS_SYSTEM_LE(), constPackIsLE)) {
-    fprintf(stderr, "Constant pack is stored in a byte order that is not "
-                    "native to this current system.");
-    exit(1);
+    return false;
   }
+  return true;
 }
 
 // Forward declarations for helper functions.
-static void *mallocAndReadFile(const char *filePath, int64_t fileSize);
-static void freeAlignedBuffer(void *alignedPtr);
+static int mallocAndReadFile(void **constAddr, int fd, int64_t fileSize);
+static int mmapAndReadFile(void **constAddr, int fd, int64_t fileSize);
 
 /// Load data from a binary file into memory.
 /// This function is called from the constructor of the .so file, so it runs
 /// when the .so file is loaded.
 ///
 /// \param[in] constAddr Returned address to a global variable in the IR.
-/// \param[in] filename File name at the current folder
-/// \param[in] size Size in bytes to copy data from the binary file
-/// \param[in] isLE Data in the binary file is little-endian or not
+/// \param[in] filename File name at the current folder.
+/// \param[in] size Size in bytes to copy data from the binary file.
+/// \param[in] isLE Data in the binary file is little-endian or not.
 ///
 /// \return true/false
 ///
 bool omLoadConstantData(
     void **constAddr, char *fname, int64_t size, int64_t isLE) {
   if (constAddr == NULL) {
-    fprintf(stderr, "Error: null pointer.");
+    fprintf(stderr, "Error: null pointer.\n");
     return false;
   }
 
   if (size <= 0) {
-    fprintf(stderr, "File size is zero.");
+    fprintf(stderr, "File size is zero.\n");
     return false;
   }
 
@@ -84,6 +83,14 @@ bool omLoadConstantData(
   if (constAddr[0] != NULL)
     return true;
 
+  // Ensure endianness is correct.
+  if (!checkEndianness(isLE)) {
+    fprintf(stderr, "Constant pack is stored in a byte order that is not "
+                    "native to this current system.\n");
+    return false;
+  }
+
+  // Prepare an absolute path to the constants file.
   char *filePath;
   char *basePath = getenv("OM_CONSTANT_PATH");
   if (basePath) {
@@ -93,7 +100,7 @@ bool omLoadConstantData(
     size_t filePathLen = baseLen + sepLen + fnameLen + 1;
     filePath = (char *)malloc(filePathLen);
     if (!filePath) {
-      fprintf(stderr, "Error while malloc: %s", strerror(errno));
+      fprintf(stderr, "Error while malloc: %s\n", strerror(errno));
       return false;
     }
     snprintf(filePath, filePathLen, "%s%s%s", basePath, DIR_SEPARATOR, fname);
@@ -101,14 +108,37 @@ bool omLoadConstantData(
     filePath = (char *)fname;
   }
 
-  // Malloc a buffer and load the file into the buffer.
-  constAddr[0] = mallocAndReadFile(filePath, size);
+  // Open the constants file.
+  int fd = open(filePath, O_RDONLY);
+  if (fd < 0) {
+    fprintf(stderr,
+        "Error while opening %s: %s. Please set OM_CONSTANT_PATH to the folder "
+        "that contains %s.\n",
+        filePath, strerror(errno), fname);
+    if (basePath) {
+      free(filePath);
+    }
+    return false;
+  }
 
-  if (basePath)
+  // Load the file into memory.
+#ifdef __MVS__
+  int failed = mallocAndReadFile(constAddr, fd, size);
+#else
+  int failed = mmapAndReadFile(constAddr, fd, size);
+#endif
+  if (failed) {
+    fprintf(stderr, "Error while loading the constant file %s\n", filePath);
+  }
+
+  // Clean up.
+  close(fd);
+  if (basePath) {
     free(filePath);
+  }
 
-  if (constAddr[0] == NULL) {
-    fprintf(stderr, "Error while loading the constant file %s\n", fname);
+  // constAddr is not available.
+  if (failed) {
     return false;
   }
 
@@ -127,11 +157,11 @@ bool omLoadConstantData(
 void omGetExternalConstantAddr(
     void **outputAddr, void **baseAddr, int64_t offset) {
   if (outputAddr == NULL) {
-    fprintf(stderr, "Error: null pointer.");
+    fprintf(stderr, "Error: null pointer.\n");
     return;
   }
   if (baseAddr == NULL) {
-    fprintf(stderr, "Error: null pointer.");
+    fprintf(stderr, "Error: null pointer.\n");
     return;
   }
   // Constant is already loaded. Nothing to do.
@@ -148,54 +178,42 @@ void omGetExternalConstantAddr(
 /// \param[in] constAddr Returned address to a global variable in the IR.
 ///
 /// \return true/false
-bool omUnloadConstantData(void **constAddr) {
-  void *alignedPtr = constAddr[0];
-  if (alignedPtr == NULL)
+bool omUnloadConstantData(void **constAddr, int64_t size) {
+  if (constAddr == NULL)
     return false;
-  freeAlignedBuffer(alignedPtr);
+  void *ptr = constAddr[0];
+  if (ptr == NULL)
+    return false;
+#ifdef __MVS__
+  free(ptr);
+#else
+  munmap(ptr, size);
+#endif
   return true;
 }
 
 /// Load constants from file into memory using malloc/read.
 ///
-/// \param[in] filename Name of the constants file
-/// \param[in] fileSize Size of the file in bytes
+/// \param[in] constAddr Returned address to a global variable in the IR.
+/// \param[in] fd File descriptor.
+/// \param[in] fileSize Size of the file in bytes.
 ///
-/// \return true on success, false on failure
+/// \return 0 on success, 1 on failure.
 ///
-static void *mallocAndReadFile(const char *filePath, int64_t fileSize) {
-  // Open the constants file
-  int fd = open(filePath, O_RDONLY);
-  if (fd < 0) {
-    fprintf(stderr, "Failed to open %s: %s\n", filePath, strerror(errno));
-    return NULL;
-  }
-
+static int mallocAndReadFile(void **constAddr, int fd, int64_t fileSize) {
   // Large file - use malloc + chunked read with 4K alignment.
   // Allocate extra space to ensure 4K alignment.
-  // Request one more page + size of a pointer from the OS, which is used for
-  // tracking the original allocation.
-  unsigned short extraAllocation = (PAGESIZE_IN_BYTES - 1) + sizeof(void *);
-  void *ptr = malloc(fileSize + extraAllocation);
-
-  if (!ptr) {
+  if (posix_memalign(
+          constAddr, /*alignment*/ PAGESIZE_IN_BYTES, /*size*/ fileSize)) {
     fprintf(stderr, "Failed to allocate %lld bytes for constants\n",
         (long long)fileSize);
-    close(fd);
-    return NULL;
+    return 1;
   }
-
-  // Find the 4K boundary after ptr.
-  void *alignedPtr =
-      (void *)(((uintptr_t)ptr + extraAllocation) & ~(PAGESIZE_IN_BYTES - 1));
-  // Put the original malloc'd address right before alignedPtr.
-  // This is used when we free the buffer.
-  ((void **)alignedPtr)[-1] = ptr;
 
   // Read file in 1GB chunks.
   int64_t remaining = fileSize;
   int64_t offset = 0;
-  char *destPtr = (char *)alignedPtr;
+  char *destAddr = (char *)constAddr[0];
 
   while (remaining > 0) {
     int64_t chunkSize = (remaining > CHUNK_SIZE) ? CHUNK_SIZE : remaining;
@@ -204,22 +222,20 @@ static void *mallocAndReadFile(const char *filePath, int64_t fileSize) {
     // Handle short reads.
     while (totalRead < chunkSize) {
       ssize_t bytesRead =
-          read(fd, destPtr + offset + totalRead, chunkSize - totalRead);
+          read(fd, destAddr + offset + totalRead, chunkSize - totalRead);
 
       if (bytesRead < 0) {
         fprintf(stderr, "Error reading constants at offset %lld: %s\n",
             (long long)(offset + totalRead), strerror(errno));
-        freeAlignedBuffer(alignedPtr);
-        close(fd);
-        return NULL;
+        free(constAddr[0]);
+        return 1;
       }
 
       if (bytesRead == 0) {
         fprintf(stderr, "Unexpected EOF reading constants at offset %lld\n",
             (long long)(offset + totalRead));
-        freeAlignedBuffer(alignedPtr);
-        close(fd);
-        return NULL;
+        free(constAddr[0]);
+        return 1;
       }
 
       totalRead += bytesRead;
@@ -229,18 +245,34 @@ static void *mallocAndReadFile(const char *filePath, int64_t fileSize) {
     remaining -= chunkSize;
   }
 
-  close(fd);
-
-  return alignedPtr;
+  return 0;
 }
 
-static void freeAlignedBuffer(void *alignedPtr) {
-  if (alignedPtr) {
-    // Was malloc'd - free the original pointer, not the aligned one
-    // Get the original malloc'd address from where we put it and free it
-    void *originalPtr = ((void **)alignedPtr)[-1];
-    free(originalPtr);
+/// Load constants from file into memory using mmap.
+///
+/// \param[in] constAddr Returned address to a global variable in the IR.
+/// \param[in] fd File descriptor.
+/// \param[in] size Size in bytes to copy data from the binary file.
+///
+/// \return 0 on success, 1 on failure.
+///
+/// This function is thread-safe.
+///
+static int mmapAndReadFile(void **constAddr, int fd, int64_t fileSize) {
+#ifdef __MVS__
+  void *tempAddr = mmap(0, fileSize, PROT_READ, __MAP_MEGA, fd, 0);
+#else
+  void *tempAddr = mmap(0, fileSize, PROT_READ, MAP_SHARED, fd, 0);
+#endif
+
+  if (tempAddr == MAP_FAILED) {
+    fprintf(stderr, "Error while mmapping: %s\n", strerror(errno));
+    return 1;
   }
+
+  // Successfully mmap.
+  constAddr[0] = tempAddr;
+  return 0;
 }
 
 #endif
