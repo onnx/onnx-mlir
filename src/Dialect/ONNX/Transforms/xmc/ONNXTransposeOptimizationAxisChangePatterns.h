@@ -167,6 +167,35 @@ struct AxisAttributeTransformer<ONNXArgMaxOp> {
       ArrayRef<int64_t> outputShape);
 };
 
+// ONNXSoftmaxOp - Transform axis attribute
+template <>
+struct AxisAttributeTransformer<ONNXSoftmaxOp> {
+  static LogicalResult transformAttributes(
+      ONNXSoftmaxOp op, PatternRewriter &rewriter, ArrayRef<int64_t> perm) {
+    int64_t axis = op.getAxis();
+    int64_t rank = static_cast<int64_t>(perm.size());
+
+    if (axis < 0)
+      axis += rank;
+
+    if (axis < 0 || axis >= rank)
+      return failure();
+
+    int64_t newAxis = perm[axis];
+
+    op.setAxisAttr(rewriter.getIntegerAttr(
+        rewriter.getIntegerType(64, /*isSigned=*/true), newAxis));
+
+    return success();
+  }
+
+  static SmallVector<int64_t> getAdjustedPermutation(ONNXSoftmaxOp /*op*/,
+      ArrayRef<int64_t> /*perm*/, ArrayRef<int64_t> /*inputShape*/,
+      ArrayRef<int64_t> /*outputShape*/) {
+    return SmallVector<int64_t>(); // No rank change
+  }
+};
+
 // Reduction Operations - Transform axes attribute and compute adjusted
 // permutation
 template <>
@@ -251,6 +280,8 @@ struct PushTransposeThroughAxisOp : public OpRewritePattern<OpType> {
     if constexpr (std::is_same_v<OpType, ONNXSqueezeOp> ||
                   std::is_same_v<OpType, ONNXArgMaxOp>) {
       input = op.getData();
+    } else if constexpr (std::is_same_v<OpType, ONNXSoftmaxOp>) {
+      input = op.getInput();
     } else {
       input = op.getOperand(0);
     }
@@ -286,6 +317,8 @@ struct PushTransposeThroughAxisOp : public OpRewritePattern<OpType> {
     if constexpr (std::is_same_v<OpType, ONNXSqueezeOp> ||
                   std::is_same_v<OpType, ONNXArgMaxOp>) {
       newOp.getDataMutable().assign(transposeOp.getData());
+    } else if constexpr (std::is_same_v<OpType, ONNXSoftmaxOp>) {
+      newOp.getInputMutable().assign(transposeOp.getData());
     } else {
       newOp.setOperand(0, transposeOp.getData());
     }

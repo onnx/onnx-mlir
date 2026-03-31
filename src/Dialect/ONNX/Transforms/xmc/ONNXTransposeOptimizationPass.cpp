@@ -1858,6 +1858,7 @@ struct ONNXTransposeOptimizationPass
 
     patterns.add<PushTransposeThroughAxisOp<ONNXSqueezeOp>>(context);
     patterns.add<PushTransposeThroughAxisOp<ONNXArgMaxOp>>(context);
+    patterns.add<PushTransposeThroughAxisOp<ONNXSoftmaxOp>>(context);
 
     patterns.add<PushTransposeThroughAxisOp<ONNXReduceMeanOp>>(context);
     patterns.add<PushTransposeThroughAxisOp<ONNXReduceMaxOp>>(context);
