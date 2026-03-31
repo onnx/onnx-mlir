@@ -311,6 +311,7 @@ LogicalResult ONNXLayerNormalizationOp::inferShapes(
     return success();
   ShapedType resultType =
       mlir::cast<ShapedType>(getOperation()->getResult(0).getType());
+  // If the output has encoding, keep it unchanged.
   Attribute encoding = getTensorEncoding(resultType);
   ONNXLayerNormalizationOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(
@@ -334,6 +335,7 @@ LogicalResult ONNXRMSLayerNormalizationOp::inferShapes(
     return success();
   ShapedType resultType =
       mlir::cast<ShapedType>(getOperation()->getResult(0).getType());
+  // If the output has encoding, keep it unchanged.
   Attribute encoding = getTensorEncoding(resultType);
   ONNXRMSLayerNormalizationOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(

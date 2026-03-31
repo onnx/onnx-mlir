@@ -80,12 +80,9 @@ static LogicalResult inferShapeForBroadcastingOps(
   if (!elementType)
     elementType = resultType.getElementType();
   // If the output has encoding, keep it unchanged.
-  // Otherwise, no encoding.
   ONNXBroadcastOpShapeHelper shapeHelper(op.getOperation(), {});
   Attribute encoding = getTensorEncoding(resultType);
-  if (encoding)
-    return shapeHelper.computeShapeAndUpdateType(elementType, encoding);
-  return shapeHelper.computeShapeAndUpdateType(elementType);
+  return shapeHelper.computeShapeAndUpdateType(elementType, encoding);
 }
 
 } // namespace
