@@ -74,12 +74,17 @@ static LogicalResult inferShapeForBroadcastingOps(
     return success();
   }
 
+  ShapedType resultType =
+      mlir::cast<ShapedType>(op.getOperation()->getResult(0).getType());
   // ElementType should be from the output.
   if (!elementType)
-    elementType =
-        mlir::cast<ShapedType>(op.getOperation()->getResult(0).getType())
-            .getElementType();
+    elementType = resultType.getElementType();
+  // If the output has encoding, keep it unchanged.
+  // Otherwise, no encoding.
   ONNXBroadcastOpShapeHelper shapeHelper(op.getOperation(), {});
+  Attribute encoding = getTensorEncoding(resultType);
+  if (encoding)
+    return shapeHelper.computeShapeAndUpdateType(elementType, encoding);
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
