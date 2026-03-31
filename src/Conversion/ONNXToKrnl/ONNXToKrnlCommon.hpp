@@ -533,8 +533,8 @@ void populateLoweringONNXShapeTransformOpPattern(
 void populateLoweringONNXCustomOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 
-void populateLoweringONNXUpsampleAndPadOpPattern(
-    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXUpsampleAndPadOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
 
 // Utilities for generating krnl.call for ONNX Ops
 

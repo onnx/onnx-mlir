@@ -26,8 +26,13 @@ namespace onnx_mlir {
 
 struct ONNXUpsampleAndPadOpLowering
     : public OpConversionPattern<ONNXUpsampleAndPadOp> {
-  ONNXUpsampleAndPadOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : OpConversionPattern(typeConverter, ctx) {}
+  ONNXUpsampleAndPadOpLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
+      : OpConversionPattern(typeConverter, ctx) {
+    this->enableParallel = enableParallel;
+  }
+
+  bool enableParallel = false;
 
   LogicalResult matchAndRewrite(ONNXUpsampleAndPadOp upsampleAndPadOp,
       ONNXUpsampleAndPadOpAdaptor adaptor,
@@ -98,12 +103,20 @@ struct ONNXUpsampleAndPadOpLowering
     create.krnl.memset(outputMemRef, zeroValue);
 
     // Loop over input tensor and write to output at correct positions.
-    LiteralIndexExpr zero(0);
+    LitIE zero(0);
     SmallVector<IndexExpr, 4> lbs(rank, zero);
     SmallVector<IndexExpr, 4> ubs;
     create.krnlIE.getShapeAsDims(X, ubs);
 
     ValueRange loopDef = create.krnl.defineLoops(rank);
+
+    // Parallelize the outermost 2 loops if enabled and rank >= 2.
+    if (enableParallel && rank >= 2) {
+      SmallVector<Value, 2> outerLoops = {loopDef[0], loopDef[1]};
+      tryCreateKrnlParallel(create.krnl, op, "upsample and pad", outerLoops,
+          lbs, ubs, 0, 2, {}, /*min iter for going parallel*/ 8);
+    }
+
     create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
         [&](const KrnlBuilder &createKrnl, ValueRange inputLoopInd) {
           // Compute output indices.
@@ -115,8 +128,8 @@ struct ONNXUpsampleAndPadOpLowering
             } else {
               // Last k dimensions: apply stride and padding.
               uint64_t dimIdx = i - (rank - k);
-              LiteralIndexExpr stride(stridesVec[dimIdx]);
-              LiteralIndexExpr padBegin(padsVec[dimIdx]);
+              LitIE stride(stridesVec[dimIdx]);
+              LitIE padBegin(padsVec[dimIdx]);
               // output_idx = input_idx * stride + pad_begin
               outputLoopInd.emplace_back(
                   DimIE(inputLoopInd[i]) * stride + padBegin);
@@ -135,8 +148,9 @@ struct ONNXUpsampleAndPadOpLowering
 };
 
 void populateLoweringONNXUpsampleAndPadOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx) {
-  patterns.insert<ONNXUpsampleAndPadOpLowering>(typeConverter, ctx);
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel) {
+  patterns.insert<ONNXUpsampleAndPadOpLowering>(
+      typeConverter, ctx, enableParallel);
 }
 
 } // namespace onnx_mlir

@@ -298,7 +298,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXCustomOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXLayoutTransformOpPattern(patterns, typeConverter, ctx, enableParallel);
   populateLoweringONNXShapeTransformOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXUpsampleAndPadOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXUpsampleAndPadOpPattern(patterns, typeConverter, ctx, enableParallel);
   // clang-format on
 }
 
