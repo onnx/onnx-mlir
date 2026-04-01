@@ -1,6 +1,6 @@
 # Building onnx-mlir as a Standalone Binary
 
-This document explains how to build `onnx-mlir` as a standalone binary with static linking, similar to how LLVM builds `llc` and `opt`.
+This document explains how to build `onnx-mlir` as a standalone binary with static linking, similar to how LLVM builds `llc` and `opt`. Note that just like LLVM, key system-wide libraries like `libc` remain dynamically liked.
 
 ## Overview
 
@@ -21,7 +21,7 @@ By default, `onnx-mlir` is built with shared libraries, which requires LLVM/MLIR
 # Build LLVM/MLIR with shared libraries
 cmake -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
-  -DLLVM_ENABLE_PROJECTS="mlir" \
+  -DLLVM_ENABLE_PROJECTS="mlir;clang" \
   -DLLVM_ENABLE_RUNTIMES="compiler-rt;openmp" \
   -DBUILD_SHARED_LIBS=ON \
   ../llvm
@@ -35,7 +35,7 @@ cmake -G Ninja \
 ninja onnx-mlir
 ```
 
-### Standalone Build (Static Linking)
+### Standalone Build
 
 **Characteristics:**
 - Binary size: ~200-400 MB
@@ -51,7 +51,7 @@ ninja onnx-mlir
 ```bash
 cmake -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
-  -DLLVM_ENABLE_PROJECTS="mlir" \
+  -DLLVM_ENABLE_PROJECTS="mlir;clang" \
   -DLLVM_ENABLE_RUNTIMES="compiler-rt;openmp" \
   -DBUILD_SHARED_LIBS=OFF \
   -DLLVM_BUILD_LLVM_DYLIB=OFF \
