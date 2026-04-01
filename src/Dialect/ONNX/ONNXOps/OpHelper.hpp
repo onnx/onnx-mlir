@@ -79,6 +79,10 @@ mlir::Type convertTensorTypeToTensorTypeWithEncoding(
 /// Return true if the tensor is a ONNX tensor (having ONNXTensorEncodingAttr).
 bool isONNXTensor(const mlir::Type type);
 
+/// Get a tensor encoding attribute from a type.
+/// Returns null-attribute if there is no encoding.
+mlir::Attribute getTensorEncoding(mlir::Type type);
+
 /// Get a ONNX tensor encoding attribute from a type.Returns null-attribute for
 /// any type without an encoding.
 mlir::ONNXTensorEncodingAttr getONNXTensorEncoding(mlir::Type type);
