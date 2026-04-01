@@ -3,8 +3,11 @@
 // This pass replaces quantized HardSigmoid operations with
 // XCOMPILERFusedEltwise ops that work directly with quantized tensor types.
 // TODO: Replacing HSwish
+
+// This pass implements ReplaceQDQSigmoid pass for hard-sigmoid pattern, and TransferLutToEltwise Pass from xcompiler.
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Quant/IR/QuantTypes.h"
+#include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
@@ -15,7 +18,7 @@
 #include "src/Pass/Passes.hpp"
 
 #include "llvm/Support/Debug.h"
-
+#include <iostream>
 #define DEBUG_TYPE "replace-hsigmoid-and-hswish"
 
 using namespace mlir;
@@ -58,7 +61,7 @@ struct ReplaceQuantizedHardSigmoidPattern
       PatternRewriter &rewriter) const override {
     LLVM_DEBUG(llvm::dbgs() << "replace-hsigmoid-and-hswish: Trying to match "
                             << hardSigmoidOp << "\n");
-
+    std::cout << "Reached hsigmoid pass" <<std::endl;
     Value input = hardSigmoidOp.getX();
     Value output = hardSigmoidOp.getY();
 
@@ -102,10 +105,123 @@ struct ReplaceQuantizedHardSigmoidPattern
         /*nonlinear_in_zeropoints=*/IntegerAttr(),
         /*prelu_in=*/IntegerAttr(),
         /*prelu_shift=*/IntegerAttr(),
-        /*type=*/rewriter.getStringAttr("QLINEARSIGMOID"));
+        /*type=*/rewriter.getStringAttr("HSIGMOID"));
 
     // Replace HardSigmoid directly with XCOMPILERFusedEltwise output
     rewriter.replaceOp(hardSigmoidOp, fusedEltwiseOp.getResult());
+
+    return success();
+  }
+};
+
+/// Extract a scalar float from a constant value. Returns nullopt if the value
+/// is not produced by an ONNXConstantOp holding a single float element.
+static std::optional<float> getConstScalarF32(Value v) {
+  if (!v || isa<NoneType>(v.getType()))
+    return std::nullopt;
+  auto cst = v.getDefiningOp<ONNXConstantOp>();
+  if (!cst)
+    return std::nullopt;
+  auto elementsAttr = dyn_cast_or_null<ElementsAttr>(cst.getValueAttr());
+  if (!elementsAttr)
+    return std::nullopt;
+  if (elementsAttr.isSplat()) {
+    Type et = elementsAttr.getElementType();
+    if (isa<FloatType>(et)) {
+      APFloat apf = elementsAttr.getSplatValue<APFloat>();
+      return static_cast<float>(apf.convertToDouble());
+    }
+    return std::nullopt;
+  }
+  auto shapedTy = dyn_cast<ShapedType>(elementsAttr.getType());
+  if (!shapedTy || !shapedTy.hasStaticShape() ||
+      shapedTy.getNumElements() != 1)
+    return std::nullopt;
+  Attribute firstAttr = *elementsAttr.getValues<Attribute>().begin();
+  if (auto f = dyn_cast<FloatAttr>(firstAttr))
+    return static_cast<float>(f.getValueAsDouble());
+  return std::nullopt;
+}
+
+/// Pattern to fuse HardSigmoid + Mul into XCOMPILERFusedEltwise (HSIGMOID).
+///
+/// Matches: Mul(x, HardSigmoid(x)) or Mul(HardSigmoid(x), x)
+/// where x has quantized type and Mul output has quantized type.
+/// Also handles Mul(const, HardSigmoid(x)) by extracting const as mul_y.
+///
+/// Creates: XCOMPILERFusedEltwise with type="HSIGMOID", alpha/beta from
+/// HardSigmoid, and optional mul_y from constant operand.
+struct FuseHardSigmoidMulToFusedEltwisePattern
+    : public OpRewritePattern<ONNXMulOp> {
+  using OpRewritePattern<ONNXMulOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXMulOp mulOp, PatternRewriter &rewriter) const override {
+    std::cout <<"FuseHardSigmoidMulToFusedEltwisePattern" <<std::endl;
+    Value a = mulOp.getA();
+    Value b = mulOp.getB();
+
+    // Find HardSigmoid as one operand of the Mul.
+    ONNXHardSigmoidOp hardSigmoidOp = a.getDefiningOp<ONNXHardSigmoidOp>();
+    Value otherOperand = b;
+    if (!hardSigmoidOp) {
+      hardSigmoidOp = b.getDefiningOp<ONNXHardSigmoidOp>();
+      otherOperand = a;
+    }
+    if (!hardSigmoidOp)
+      return failure();
+
+    Value hsigmoidInput = hardSigmoidOp.getX();
+    Type mulOutputType = mulOp.getResult().getType();
+
+    double inputScale, outputScale;
+    int64_t inputZeroPoint, outputZeroPoint;
+    if (failed(extractQuantParamsFromType(
+            hsigmoidInput.getType(), inputScale, inputZeroPoint)))
+      return rewriter.notifyMatchFailure(
+          mulOp, "HardSigmoid input is not quantized");
+    if (failed(extractQuantParamsFromType(
+            mulOutputType, outputScale, outputZeroPoint)))
+      return rewriter.notifyMatchFailure(
+          mulOp, "Mul output is not quantized");
+   
+    FloatAttr alphaAttr = hardSigmoidOp.getAlphaAttr();
+    FloatAttr betaAttr = hardSigmoidOp.getBetaAttr();
+
+    std::optional<float> mulY = getConstScalarF32(otherOperand);
+    if (!mulY)
+      return rewriter.notifyMatchFailure(
+          mulOp, "non-HardSigmoid Mul operand is not a constant scalar float");
+    FloatAttr mulYAttr = rewriter.getFloatAttr(rewriter.getF32Type(), *mulY);
+
+    Location loc = mulOp.getLoc();
+    auto noneOp =
+        rewriter.create<ONNXNoneOp>(loc, rewriter.getNoneType(), true);
+
+    auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(loc,
+        mulOutputType,
+        hsigmoidInput,
+        noneOp.getResult(),
+        /*clip_max=*/IntegerAttr(),
+        /*clip_min=*/IntegerAttr(),
+        /*enable_lut_sigmoid=*/rewriter.getBoolAttr(false),
+        /*leakyrelu_alpha=*/FloatAttr(),
+        /*mul_y=*/mulYAttr,
+        /*nonlinear=*/rewriter.getStringAttr("NONE"),
+        /*nonlinear_in_scales=*/FloatAttr(),
+        /*nonlinear_in_zeropoints=*/IntegerAttr(),
+        /*prelu_in=*/IntegerAttr(),
+        /*prelu_shift=*/IntegerAttr(),
+        /*type=*/rewriter.getStringAttr("HSWISH"));
+
+    if (alphaAttr)
+      fusedOp->setAttr("alpha", alphaAttr);
+    if (betaAttr)
+      fusedOp->setAttr("beta", betaAttr);
+
+    rewriter.replaceOp(mulOp, fusedOp.getResult());
+    if (hardSigmoidOp->use_empty())
+      rewriter.eraseOp(hardSigmoidOp);
 
     return success();
   }
@@ -130,6 +246,8 @@ struct ReplaceHsigmoidAndHswishPass
     MLIRContext *context = &getContext();
     RewritePatternSet patterns(context);
     patterns.add<ReplaceQuantizedHardSigmoidPattern>(context);
+    patterns.add<FuseHardSigmoidMulToFusedEltwisePattern>(context);
+    std::cout <<"Added hsigmoid pattern" <<std::endl;
     ResultNamesUpdater rnUpdater;
     GreedyRewriteConfig config;
     config.listener = &rnUpdater;
