@@ -467,7 +467,9 @@ static int genSharedLib(std::string sharedLibNameWithExt,
       [](std::string &libDir) { libDir = "/libpath:\"" + libDir + "\""; });
 #else
   std::vector<std::string> outputOpt = {"-o", sharedLibNameWithExt};
-  std::vector<std::string> sharedLibOpts = {"-shared", "-fPIC", "-g"};
+  std::vector<std::string> sharedLibOpts = {"-shared", "-fPIC"};
+  if (enableDebugInfo)
+    sharedLibOpts.emplace_back("-g");
   llvm::for_each(libs, [](std::string &lib) { lib = "-l" + lib; });
   llvm::for_each(libDirs, [](std::string &libDir) { libDir = "-L" + libDir; });
 #ifdef __s390x__
