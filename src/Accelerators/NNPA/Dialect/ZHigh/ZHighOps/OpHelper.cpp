@@ -208,6 +208,13 @@ StringAttr getZTensorLayoutAttr(OpBuilder &builder, Type type) {
   return nullptr;
 }
 
+ZTensorEncodingAttr createZTensorEncodingAttr(
+    MLIRContext *ctx, StringAttr layout) {
+  ZTensorEncodingAttr::DataLayout dataLayout =
+      convertStringAttrToZTensorDataLayout(layout);
+  return ZTensorEncodingAttr::get(ctx, dataLayout);
+}
+
 ZTensorEncodingAttr::QuantizedType getZTensorQuantizedType(Type type) {
   if (auto encoding = getZTensorEncoding(type))
     return encoding.getQuantizedType();

@@ -59,6 +59,10 @@ ZTensorEncodingAttr::DataLayout getZTensorLayout(mlir::Type type);
 mlir::StringAttr getZTensorLayoutAttr(
     mlir::OpBuilder &builder, mlir::Type type);
 
+// Create a ZTensorEncodingAttr from a layout string.
+ZTensorEncodingAttr createZTensorEncodingAttr(
+    mlir::MLIRContext *ctx, mlir::StringAttr layout);
+
 /// Get the quantized type of a ztensor.
 ZTensorEncodingAttr::QuantizedType getZTensorQuantizedType(mlir::Type type);
 

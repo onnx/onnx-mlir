@@ -33,7 +33,8 @@ LogicalResult ONNXLayoutTransformOp::inferShapes(
   ONNXUnaryOpShapeHelper shapeHelper(getOperation(), {});
   if (Attribute encoding = getTensorEncoding(resultType))
     return shapeHelper.computeShapeAndUpdateType(elementType, encoding);
-  shapeHelper.computeShapeAndUpdateType(elementType);
+  return shapeHelper.computeShapeAndUpdateType(
+      elementType, getTargetLayoutAttr());
 }
 
 //===----------------------------------------------------------------------===//
