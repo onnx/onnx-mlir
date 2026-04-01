@@ -27,11 +27,13 @@ LogicalResult ONNXLayoutTransformOp::inferShapes(
   if (!hasShapeAndRank(getData()))
     return success();
 
-  Type elementType =
-      mlir::dyn_cast<RankedTensorType>(getData().getType()).getElementType();
+  ShapedType resultType =
+      mlir::cast<ShapedType>(getOperation()->getResult(0).getType());
+  Type elementType = resultType.getElementType();
   ONNXUnaryOpShapeHelper shapeHelper(getOperation(), {});
-  return shapeHelper.computeShapeAndUpdateType(
-      elementType, getTargetLayoutAttr());
+  if (Attribute encoding = getTensorEncoding(resultType))
+    return shapeHelper.computeShapeAndUpdateType(elementType, encoding);
+  shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
 //===----------------------------------------------------------------------===//
