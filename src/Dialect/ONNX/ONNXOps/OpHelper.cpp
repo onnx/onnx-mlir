@@ -85,6 +85,12 @@ bool isONNXTensor(const Type type) {
   return false;
 }
 
+Attribute getTensorEncoding(Type type) {
+  if (auto ttp = mlir::dyn_cast<RankedTensorType>(type))
+    return mlir::dyn_cast_or_null<Attribute>(ttp.getEncoding());
+  return nullptr;
+}
+
 ONNXTensorEncodingAttr getONNXTensorEncoding(Type type) {
   if (auto ttp = mlir::dyn_cast<RankedTensorType>(type))
     return mlir::dyn_cast_or_null<ONNXTensorEncodingAttr>(ttp.getEncoding());

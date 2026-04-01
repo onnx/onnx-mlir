@@ -34,12 +34,10 @@ LogicalResult inferShapeForUnaryOps(Operation *op) {
   Value input = op->getOperand(0);
   if (!hasShapeAndRank(input))
     return success();
-  RankedTensorType inputType =
-      mlir::dyn_cast<RankedTensorType>(input.getType());
+  ShapedType resultType = mlir::cast<ShapedType>(op->getResult(0).getType());
   // ElementType should be from the output.
-  Type elementType =
-      mlir::cast<ShapedType>(op->getResult(0).getType()).getElementType();
-  return inferShapeForUnaryOps(op, elementType, inputType.getEncoding());
+  Type elementType = resultType.getElementType();
+  return inferShapeForUnaryOps(op, elementType);
 }
 
 /// Handle shape inference for unary element-wise operators with specific output
@@ -48,9 +46,20 @@ LogicalResult inferShapeForUnaryOps(Operation *op, Type elementType) {
   Value input = op->getOperand(0);
   if (!hasShapeAndRank(input))
     return success();
-  RankedTensorType inputType =
-      mlir::dyn_cast<RankedTensorType>(input.getType());
-  return inferShapeForUnaryOps(op, elementType, inputType.getEncoding());
+  ShapedType resultType = mlir::cast<ShapedType>(op->getResult(0).getType());
+  // If the output has encoding, keep it unchanged.
+  Attribute encoding = getTensorEncoding(resultType);
+  return inferShapeForUnaryOps(op, elementType, encoding);
+}
+
+/// Handle shape inference for unary element-wise operators with specific
+/// encoding.
+LogicalResult inferShapeForUnaryOps(Operation *op, Attribute encoding) {
+  Value input = op->getOperand(0);
+  if (!hasShapeAndRank(input))
+    return success();
+  ShapedType resultType = mlir::cast<ShapedType>(op->getResult(0).getType());
+  return inferShapeForUnaryOps(op, resultType.getElementType(), encoding);
 }
 
 /// Handle shape inference for unary element-wise operators with specific output
