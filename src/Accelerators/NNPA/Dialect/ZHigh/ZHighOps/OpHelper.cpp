@@ -201,8 +201,10 @@ ZTensorEncodingAttr::DataLayout getZTensorLayout(Type type) {
   return ZTensorEncodingAttr::DataLayout::UNDEFINED;
 }
 
-StringAttr getZTensorLayoutAttr(OpBuilder &builder, ZTensorEncodingAttr encoding) {
-  return convertZTensorDataLayoutToStringAttr(builder, encoding.getDataLayout());
+StringAttr getZTensorLayoutAttr(
+    OpBuilder &builder, ZTensorEncodingAttr encoding) {
+  return convertZTensorDataLayoutToStringAttr(
+      builder, encoding.getDataLayout());
 }
 
 StringAttr getZTensorLayoutAttr(OpBuilder &builder, Type type) {
