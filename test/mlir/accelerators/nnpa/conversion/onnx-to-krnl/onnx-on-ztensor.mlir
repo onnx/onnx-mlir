@@ -137,7 +137,7 @@ func.func @test_onnx_layout_transform_on_ztensor(%arg0: tensor<3x5x7xf32, #zhigh
 // Check the layout transform is working properly.
 
   func.func @layout_transform_to_from_3DS(%arg0: tensor<?x?x?xf16>) -> tensor<?x?x?xf16> {
-    %0 = "onnx.LayoutTransform"(%arg0) {target_layout = "3DS"} : (tensor<?x?x?xf16>) -> tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+    %0 = "onnx.LayoutTransform"(%arg0) {target_layout = #zhigh.layout<{dataLayout = "3DS"}>} : (tensor<?x?x?xf16>) -> tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>
     %1 = "onnx.LayoutTransform"(%0) : (tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<?x?x?xf16>
     return %1 : tensor<?x?x?xf16>
 

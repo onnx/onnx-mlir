@@ -58,6 +58,11 @@ def GetLayout : NativeCodeCall<
       "::onnx_mlir::zhigh::getZTensorLayout($0.getType()))"
 >;
 
+def GetLayoutFromZTensorEncoding : NativeCodeCall<
+  "::onnx_mlir::zhigh::convertZTensorDataLayoutToStringAttr($_builder, "
+      "(mlir::dyn_cast<ZTensorEncodingAttr>($0)).getDataLayout())"
+>;
+
 def NoOneIsOfNHWCLayout: Constraint<
   CPred<"!::onnx_mlir::zhigh::oneIsOfLayout($0.getType(), $1.getType(), "
         "::onnx_mlir::zhigh::ZTensorEncodingAttr::DataLayout::NHWC)">,
@@ -78,6 +83,10 @@ def NoOneIsOf2DSLayout: Constraint<
 
 def GetEncodingAttr : NativeCodeCall<
   "::onnx_mlir::zhigh::getZTensorEncoding($0.getType())"
+>;
+
+def CreateZTensorEncodingAttr: NativeCodeCall<
+  "::onnx_mlir::zhigh::createZTensorEncodingAttr($_builder.getContext(), $0)"
 >;
 
 def GetMinusBcastConst : NativeCodeCall<

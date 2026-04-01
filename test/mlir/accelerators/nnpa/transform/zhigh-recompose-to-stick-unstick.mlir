@@ -2,7 +2,7 @@
 
 func.func @test_relu(%arg0: tensor<1x3x5x?xf32>) -> tensor<1x3x5x?xf32> {
   %0 = "zhigh.F32ToDLF16"(%arg0) : (tensor<1x3x5x?xf32>) -> tensor<1x3x5x?xf16>
-  %1 = "onnx.LayoutTransform"(%0) {target_layout = "4D"} : (tensor<1x3x5x?xf16>) -> tensor<1x3x5x?xf16, #zhigh.layout<{dataLayout = "4D"}>>
+  %1 = "onnx.LayoutTransform"(%0) {target_layout = #zhigh.layout<{dataLayout = "4D"}>} : (tensor<1x3x5x?xf16>) -> tensor<1x3x5x?xf16, #zhigh.layout<{dataLayout = "4D"}>>
   %2 = "zhigh.Relu"(%1) : (tensor<1x3x5x?xf16, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<1x3x5x?xf16, #zhigh.layout<{dataLayout = "4D"}>>
   %3 = "onnx.LayoutTransform"(%2) : (tensor<1x3x5x?xf16, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<1x3x5x?xf16>
   %4 = "zhigh.DLF16ToF32"(%3) : (tensor<1x3x5x?xf16>) -> tensor<1x3x5x?xf32>
