@@ -21,11 +21,12 @@ def check_non_negative(argname, value):
     return value
 
 
-def parse_args():
+def parse_args(parser=None):
     """Parse command line arguments."""
-    parser = argparse.ArgumentParser(
-        description="Run a model model using onnx-mlir compiled model"
-    )
+    if parser is None:
+        parser = argparse.ArgumentParser(
+            description="Use onnx-mlir compiled model to run inference"
+        )
     parser.add_argument(
         "-m",
         "--model",
@@ -37,13 +38,13 @@ def parse_args():
         "--atol",
         type=float,
         default=1e-1,
-        help="Absolute tolerance for numerical comparisons (default: 1e-5)",
+        help="Absolute tolerance for numerical comparisons (default: 1e-1)",
     )
     parser.add_argument(
         "--rtol",
         type=float,
         default=5e-2,
-        help="Relative tolerance for numerical comparisons (default: 1e-5)",
+        help="Relative tolerance for numerical comparisons (default: 5e-2)",
     )
     parser.add_argument(
         "-w",
@@ -108,15 +109,33 @@ def compare_result(actual_outs, ref_outs, atol=1e-8, rtol=1e-5, debug=0):
         True if all arrays match within the given tolerances.
     """
 
+    if len(ref_outs) != len(actual_outs):
+        print(
+            f"FAIL: list length mismatch: reference={len(reference)}, actual={len(actual)}"
+        )
+        return False
+
     total_elements = 0
     mismatched_elements = 0
     max_atol = 0
     sum_rtol = 0
     # The outputs are of shape: #queries, seq_length, hidden_states, with
     # seq_length various with query.
-    for q_index in range(len(actual_outs)):
-        q_actual_outs = actual_outs[q_index]
-        q_ref_outs = ref_outs[q_index]
+    for q_index, (q_ref_outs, q_actual_outs) in enumerate(zip(ref_outs, actual_outs)):
+        if q_ref_outs.shape != q_actual_outs.shape:
+            print(
+                f"FAIL: output[{q_index}] shape mismatch: reference={q_ref_outs.shape}, actual={q_actual_outs.shape}"
+            )
+            all_pass = False
+            continue
+
+        if q_ref_outs.dtype != q_actual_outs.dtype:
+            print(
+                f"FAIL: output[{q_index}] dtype mismatch: reference={q_ref_outs.dtype}, actual={q_actual_outs.dtype}"
+            )
+            all_pass = False
+            continue
+
         for index, actual_val in np.ndenumerate(q_actual_outs):
             total_elements += 1
             ref_val = q_ref_outs[index]
@@ -138,10 +157,10 @@ def compare_result(actual_outs, ref_outs, atol=1e-8, rtol=1e-5, debug=0):
                     "mismatch {} (actual)".format(actual_val),
                     "vs {} (reference)".format(ref_val),
                 )
-
-    print(
-        f"Max absolute difference: {max_atol}\nMean of relative difference {sum_rtol/total_elements}"
-    )
+    if total_elements > 0:
+        print(
+            f"Max absolute difference: {max_atol}\nMean of relative difference {sum_rtol/total_elements}"
+        )
     print(f"Under the requirement of atol {atol} and rtol {rtol}")
     if mismatched_elements == 0:
         print("\n✓ correct.\n")

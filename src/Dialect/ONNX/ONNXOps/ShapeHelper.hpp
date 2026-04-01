@@ -344,6 +344,9 @@ mlir::LogicalResult inferShapeForUnaryOps(mlir::Operation *op);
 // Same as above, but allow a type change.
 mlir::LogicalResult inferShapeForUnaryOps(
     mlir::Operation *op, mlir::Type elementType);
+// Same as above, but allow an encoding change.
+mlir::LogicalResult inferShapeForUnaryOps(
+    mlir::Operation *op, mlir::Attribute encoding);
 // Same as above, but allow a type and encoding change.
 mlir::LogicalResult inferShapeForUnaryOps(
     mlir::Operation *op, mlir::Type elementType, mlir::Attribute encoding);

@@ -65,5 +65,6 @@ Suppose you are in build-OMPyInfer directory:
 
 ```
 cd src/Runtime/python/OMPyInfer/tests
+# Compile test_add.mlir into test_add.so
 python helloworld.py
 ```
