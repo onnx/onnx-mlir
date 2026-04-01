@@ -25,6 +25,7 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/Canonicalize.cpp
   ONNXOps/ShapeHelper.cpp
   ONNXTypes.cpp
+  TensorName.cpp
 
   # Support for shape inference and verifiers
   ONNXOps/Additional/AMDQuark.cpp
