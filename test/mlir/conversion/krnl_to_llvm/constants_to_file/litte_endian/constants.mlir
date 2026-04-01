@@ -38,7 +38,7 @@ func.func @test_constants_to_file() -> memref<10xi64> {
   return %2 : memref<10xi64>
 
 // CHECK:         llvm.func @omGetExternalConstantAddr(!llvm.ptr, !llvm.ptr, i64)
-// CHECK:         llvm.func @omUnloadConstantData(!llvm.ptr) -> i1
+// CHECK:         llvm.func @omUnloadConstantData(!llvm.ptr, i64) -> i1
 // CHECK:         llvm.func @omLoadConstantData(!llvm.ptr, !llvm.ptr, i64, i64) -> i1
 // CHECK:         llvm.mlir.global internal constant @constant_2(dense<[21, 22, 23, 24, 25, 26, 27, 28, 29, 30]> : tensor<10xi64>) {addr_space = 0 : i32, alignment = 4096 : i64} : !llvm.array<10 x i64>
 // CHECK:         llvm.mlir.global internal @om_external_constant_data_constant_1() {addr_space = 0 : i32, alignment = 4096 : i64} : !llvm.ptr {
@@ -82,8 +82,9 @@ func.func @test_constants_to_file() -> memref<10xi64> {
 
 // CHECK:         llvm.func @omUnloadConstantDataDtor() {
 // CHECK-DAG:       [[VAR_0_15_:%.+]] = llvm.mlir.constant(true) : i1
+// CHECK-DAG:       [[VAR_0_16_:%.+]] = llvm.mlir.constant(4176 : i64) : i64
 // CHECK-DAG:       [[VAR_1_9_:%.+]] = llvm.mlir.addressof @om_external_constant_packedConst : !llvm.ptr
-// CHECK:           [[VAR_2_9_:%.+]] = llvm.call @omUnloadConstantData([[VAR_1_9_]]) : (!llvm.ptr) -> i1
+// CHECK:           [[VAR_2_9_:%.+]] = llvm.call @omUnloadConstantData([[VAR_1_9_]], [[VAR_0_16_]]) : (!llvm.ptr, i64) -> i1
 // CHECK:           [[VAR_3_9_:%.+]] = llvm.icmp "ne" [[VAR_0_15_]], [[VAR_2_9_]] : i1
 // CHECK:           llvm.cond_br [[VAR_3_9_]], ^bb1, ^bb2
 // CHECK:         ^bb1:  // pred: ^bb0

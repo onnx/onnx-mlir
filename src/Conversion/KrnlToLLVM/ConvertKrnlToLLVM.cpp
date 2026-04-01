@@ -728,6 +728,7 @@ void emitUnloadConstantDataFunc(ModuleOp &module,
   Type llvmVoidTy = LLVM::LLVMVoidType::get(ctx);
   Type llvmI1Ty = IntegerType::get(ctx, 1);
   Type llvmI8Ty = IntegerType::get(ctx, 8);
+  Type llvmI64Ty = IntegerType::get(ctx, 64);
   Type llvmI8PtrTy = getPointerType(ctx, llvmI8Ty);
 
   // The following function will be emitted inside the IR to unload/free
@@ -743,20 +744,24 @@ void emitUnloadConstantDataFunc(ModuleOp &module,
   OpBuilder::InsertionGuard guard2(b);
   b.setInsertionPointToStart(entryBlock);
 
-  // Get the constant file name.
-  std::string fnameSymbol =
-      LLVMBuilder::SymbolPostfix(module, EXTERNAL_CONSTANT_PREFIX + "filename");
-  auto fnameGlobalOp = module.lookupSymbol<LLVM::GlobalOp>(fnameSymbol);
-  assert(fnameGlobalOp && "Could not find the global op for filename");
+  // Get the file size.
+  std::string fsizeSymbol =
+      LLVMBuilder::SymbolPostfix(module, EXTERNAL_CONSTANT_PREFIX + "filesize");
+  auto fsizeGlobalOp = module.lookupSymbol<LLVM::GlobalOp>(fsizeSymbol);
+  assert(fsizeGlobalOp && "Could not find the global op for filesize");
+  int64_t dataSize = mlir::cast<IntegerAttr>(fsizeGlobalOp.getValue().value())
+                         .getValue()
+                         .getSExtValue();
   // Get the packedConst global.
   std::string packedSymbol = LLVMBuilder::SymbolPostfix(
       module, EXTERNAL_CONSTANT_PREFIX + "packedConst");
   auto packedGlobalOp = module.lookupSymbol<LLVM::GlobalOp>(packedSymbol);
   Value packedGlobalAddr = create.llvm.addressOf(packedGlobalOp);
   Value packedGlobalPtr = create.llvm.bitcast(llvmI8PtrTy, packedGlobalAddr);
+  Value sizeVal = create.llvm.constant(llvmI64Ty, dataSize);
   // Call an external function to free the constant buffer.
   Value retVal = RuntimeAPI::callApi(b, loc, apiRegistry,
-      RuntimeAPI::API::UNLOAD_CONSTANT_DATA, {packedGlobalPtr});
+      RuntimeAPI::API::UNLOAD_CONSTANT_DATA, {packedGlobalPtr, sizeVal});
   equalOrReturn(module, b, loc,
       create.llvm.constant(llvmI1Ty, static_cast<int64_t>(1)), retVal);
   create.llvm._return();
