@@ -13,13 +13,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Tosa/IR/TosaOps.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
-#include <mlir/Dialect/Arith/IR/Arith.h>
-
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -195,7 +195,8 @@ void FrontendToTosaLoweringPass::runOnOperation() {
 
   // Define legal dialects and operations
   target.addLegalDialect<mlir::tosa::TosaDialect, func::FuncDialect,
-      mlir::arith::ArithDialect, mlir::shape::ShapeDialect>();
+      mlir::arith::ArithDialect, mlir::shape::ShapeDialect,
+      mlir::affine::AffineDialect>();
 
   for (const std::string &opName : excludedOps)
     target.addLegalOp(OperationName("onnx." + opName, context));
