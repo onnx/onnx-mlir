@@ -201,11 +201,24 @@ ZTensorEncodingAttr::DataLayout getZTensorLayout(Type type) {
   return ZTensorEncodingAttr::DataLayout::UNDEFINED;
 }
 
+StringAttr getZTensorLayoutAttr(
+    OpBuilder &builder, ZTensorEncodingAttr encoding) {
+  return convertZTensorDataLayoutToStringAttr(
+      builder, encoding.getDataLayout());
+}
+
 StringAttr getZTensorLayoutAttr(OpBuilder &builder, Type type) {
   ZTensorEncodingAttr::DataLayout layout = getZTensorLayout(type);
   if (layout != ZTensorEncodingAttr::DataLayout::UNDEFINED)
     return convertZTensorDataLayoutToStringAttr(builder, layout);
   return nullptr;
+}
+
+ZTensorEncodingAttr createZTensorEncodingAttr(
+    MLIRContext *ctx, StringAttr layout) {
+  ZTensorEncodingAttr::DataLayout dataLayout =
+      convertStringAttrToZTensorDataLayout(layout);
+  return ZTensorEncodingAttr::get(ctx, dataLayout);
 }
 
 ZTensorEncodingAttr::QuantizedType getZTensorQuantizedType(Type type) {

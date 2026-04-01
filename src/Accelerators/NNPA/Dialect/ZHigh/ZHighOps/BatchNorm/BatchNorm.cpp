@@ -25,7 +25,8 @@ namespace zhigh {
 
 LogicalResult ZHighBatchNormOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return inferShapeForUnaryOps(this->getOperation());
+  return inferShapeForUnaryOps(this->getOperation(),
+      getZTensorEncoding(this->getOperation()->getOperand(0).getType()));
 }
 
 } // namespace zhigh
