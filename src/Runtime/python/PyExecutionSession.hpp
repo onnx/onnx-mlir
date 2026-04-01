@@ -108,6 +108,7 @@ PYBIND11_MODULE(PyRuntimeC, m) {
           py::arg("shape"),
           py::arg("stride"),
           py::arg("use_signal_handler") = false,
+          py::arg("force_output_data_copy") = false,
           "Run inference on the model.\n\n"
           "Executes the model with the provided inputs and returns the outputs.\n"
           "All inputs must be numpy arrays with compatible shapes and types.\n\n"
@@ -119,7 +120,9 @@ PYBIND11_MODULE(PyRuntimeC, m) {
           "    stride (list[numpy.ndarray]): List of stride arrays for each input.\n"
           "        Each stride array contains the memory strides of the corresponding input.\n"
           "    use_signal_handler (bool): When true, catch signals via a signal handler.\n"
-          "        For debugging only, unsafe, not thread safe. Default is false.\n\n"
+          "        For debugging only, unsafe, not thread safe. Default is false.\n"
+          "    force_output_data_copy (bool): When true, force copying of output data\n"
+          "        into the python data structures. For debugging only. Default is false.\n\n"
           "Returns:\n"
           "    list[numpy.ndarray]: List of output tensors as numpy arrays.\n\n"
           "Raises:\n"

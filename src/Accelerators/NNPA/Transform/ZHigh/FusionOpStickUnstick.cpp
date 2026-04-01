@@ -747,8 +747,9 @@ public:
           std::optional<mlir::Attribute> layoutAttr =
               finalLayoutTransform.getTargetLayout();
           assert(layoutAttr.has_value() && "expected layout");
-          mlir::StringAttr layoutStringAttr =
-              mlir::dyn_cast<StringAttr>(layoutAttr.value());
+          OpBuilder b(layoutTransform);
+          mlir::StringAttr layoutStringAttr = getZTensorLayoutAttr(
+              b, mlir::dyn_cast<ZTensorEncodingAttr>(layoutAttr.value()));
           assert(layoutStringAttr && "expected layout");
           finalLayout = layoutStringAttr;
           resultVal = finalLayoutTransform.getOutput();

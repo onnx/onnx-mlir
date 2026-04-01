@@ -747,7 +747,7 @@ func.func @test_grid_sample_align_corners(%arg0: tensor<2x1x4x4xf32>, %arg1: ten
 // -----
 
 func.func @test_grid_sample_mode(%arg0: tensor<2x1x4x4xf32>, %arg1: tensor<2x6x6x2xf32>) -> tensor<*xf32> {
-  // expected-error @+1 {{'onnx.GridSample' op mode needs to be linear, nearest or cubic}}
+  // expected-error @+1 {{'onnx.GridSample' op mode needs to be linear, bilinear, trilinear, nearest or cubic}}
   %0 = "onnx.GridSample"(%arg0, %arg1) {align_corners = 1 : si64, mode = "sampling", padding_mode = "border"} : (tensor<2x1x4x4xf32>, tensor<2x6x6x2xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 }

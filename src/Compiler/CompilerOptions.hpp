@@ -118,6 +118,7 @@ extern bool disableQuantZeroPoint;                            // common for both
 extern bool enableKrnlBufferReuse;                            // common for both
 extern bool enableSafeCodeGen;                                // common for both
 extern bool disableMemRefPrefetch;                            // common for both
+extern bool disableCountIncludePad;                           // common for both
 extern uint64_t compilationNumThreads;                        // common for both
 extern std::vector<std::string> decomposeOpsInONNX;           // common for both
 extern std::string linalgOps;                                 // common for both
