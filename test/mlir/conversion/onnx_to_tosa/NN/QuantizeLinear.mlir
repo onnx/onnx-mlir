@@ -122,3 +122,17 @@ func.func @all_scalar(%arg0 : tensor<f32>) -> tensor<i8> {
 
 // CHECK-LABEL: all_scalar
 // CHECK-NOT: onnx.QuantizeLinear
+
+// -----
+
+func.func @dynamic_static(%arg0 : tensor<?xf32>, %arg1 : tensor<f32>, %arg2 : tensor<i8>) -> tensor<1xi8> {
+  %0 = "onnx.QuantizeLinear"(%arg0, %arg1, %arg2) {axis = 1 : si64} : (tensor<?xf32>, tensor<f32>, tensor<i8>) -> tensor<1xi8>
+  return %0 : tensor<1xi8>
+}
+
+// CHECK-LABEL: dynamic_static
+// CHECK-SAME:    (%[[ARG_0:.*]]: tensor<?xf32>, %[[ARG_1:.*]]: tensor<f32>, %[[ARG_2:.*]]: tensor<i8>) -> tensor<1xi8>
+// CHECK:         %[[REC:.*]] = tosa.reciprocal
+// CHECK:         %[[CLAMP:.*]] = tosa.clamp
+// CHECK:         %[[OUT:.*]] = tosa.cast %[[CLAMP]] : (tensor<1xi32>) -> tensor<1xi8>
+// CHECK:         return %[[OUT]] : tensor<1xi8>

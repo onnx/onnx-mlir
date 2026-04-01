@@ -60,9 +60,9 @@ public:
 
 } // namespace
 
-void populateLoweringONNXWhereOpToTOSAPattern(ConversionTarget &target,
+void populateLoweringONNXWhereOpToTOSAPattern(ConversionTarget & /*target*/,
     RewritePatternSet &patterns, TypeConverter &typeConverter,
     MLIRContext *ctx) {
-  patterns.insert<ONNXWhereLoweringToTOSA>(ctx);
+  patterns.insert<ONNXWhereLoweringToTOSA>(typeConverter, ctx);
 }
 } // namespace onnx_mlir

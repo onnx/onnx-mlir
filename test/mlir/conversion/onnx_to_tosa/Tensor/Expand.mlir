@@ -145,3 +145,13 @@ func.func @test_expand_no_legalization(%arg0: tensor<1x64x1x1xf32>, %arg1: tenso
 }
 // CHECK-LABEL:  func @test_expand_no_legalization
 // CHECK: onnx.Expand
+
+// -----
+
+func.func @test_expand_dynamic_input_static_output(%arg0: tensor<?x64x1x1xf32>) -> tensor<1x64x64x64xf32> {
+  %0 = "onnx.Constant"() {value = dense<[1, 64, 64, 64]> : tensor<4xi64>} : () -> tensor<4xi64>
+  %1 = "onnx.Expand"(%arg0, %0) : (tensor<?x64x1x1xf32>, tensor<4xi64>) -> tensor<1x64x64x64xf32>
+  return %1 : tensor<1x64x64x64xf32>
+}
+// CHECK-LABEL:  func.func @test_expand_dynamic_input_static_output
+// CHECK: onnx.Expand

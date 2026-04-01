@@ -62,3 +62,16 @@ func.func @test_tile_no_valid_tosa_tile_type(%arg0 : tensor<5x5x1x32xf64>) -> te
 // CHECK-LABEL: test_tile_no_valid_tosa_tile_type
 // CHECK-NOT: tosa.tile
 }
+
+// -----
+
+func.func @test_tile_dynamic_input_static_output(%arg0 : tensor<?x5x1x32xf32>) -> tensor<1x10x30x32xf32> {
+  %const = onnx.Constant dense<[1, 2, 30, 1]> : tensor<4xi64>
+  %tile = "onnx.Tile"(%arg0, %const) : (tensor<?x5x1x32xf32>, tensor<4xi64>) -> tensor<1x10x30x32xf32>
+  return %tile : tensor<1x10x30x32xf32>
+// CHECK-LABEL:  func.func @test_tile_dynamic_input_static_output
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x5x1x32xf32>) -> tensor<1x10x30x32xf32> {
+// CHECK:           [[VAR_0_:%.+]] = tosa.const_shape  {value = dense<[1, 2, 30, 1]> : tensor<4xindex>} : () -> !tosa.shape<4>
+// CHECK:           [[VAR_1_:%.+]] = tosa.tile [[PARAM_0_]], [[VAR_0_]] : (tensor<?x5x1x32xf32>, !tosa.shape<4>) -> tensor<1x10x30x32xf32>
+// CHECK:           return [[VAR_1_]] : tensor<1x10x30x32xf32>
+}

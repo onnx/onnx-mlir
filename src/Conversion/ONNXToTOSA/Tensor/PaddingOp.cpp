@@ -116,7 +116,7 @@ public:
   }
 };
 
-void populateLoweringONNXPadOpToTOSAPattern(ConversionTarget &target,
+void populateLoweringONNXPadOpToTOSAPattern(ConversionTarget & /*target*/,
     RewritePatternSet &patterns, TypeConverter &typeConverter,
     MLIRContext *ctx) {
   patterns.insert<ONNXPadOpLoweringToTOSA>(typeConverter, ctx);

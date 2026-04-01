@@ -47,7 +47,7 @@ public:
 
 } // namespace
 
-void populateLoweringONNXReshapeOpToTOSAPattern(ConversionTarget &target,
+void populateLoweringONNXReshapeOpToTOSAPattern(ConversionTarget & /*target*/,
     RewritePatternSet &patterns, TypeConverter &typeConverter,
     MLIRContext *ctx) {
   patterns.insert<ONNXReshapeOpLoweringToTOSA>(typeConverter, ctx);

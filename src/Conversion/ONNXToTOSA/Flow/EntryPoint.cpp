@@ -50,10 +50,10 @@ public:
 
 } // namespace
 
-void populateLoweringONNXEntryPointOpToTOSAPattern(ConversionTarget &target,
-    RewritePatternSet &patterns, TypeConverter &typeConverter,
-    MLIRContext *ctx) {
-  patterns.insert<ONNXEntryPointLoweringToTOSA>(ctx);
+void populateLoweringONNXEntryPointOpToTOSAPattern(
+    ConversionTarget & /*target*/, RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXEntryPointLoweringToTOSA>(typeConverter, ctx);
 }
 
 } // namespace onnx_mlir

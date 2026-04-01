@@ -124,8 +124,8 @@ public:
       llvm::cl::ZeroOrMore};
 };
 
-Value handleDynamicToStaticShapes(
-    OpBuilder &builder, TensorType type, ValueRange inputs, Location loc) {
+Value handleDynamicToStaticShapes(OpBuilder & /*builder*/, TensorType type,
+    ValueRange inputs, Location /*loc*/) {
   if (inputs.size() != 1) {
     // we can only handle inputs of size 1
     return {};
