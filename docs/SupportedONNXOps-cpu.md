@@ -52,7 +52,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
 | **ConstantOfShape** |9 - * |Does not support int4 and uint4. | |
 | **Conv** |6 - * | | |
 | **ConvInteger** |none | | | |
-| **ConvTranspose** |6 - * |Spatial dimensions (H and W in input `X`, and kH and kW in input `W`) must be static dimension. | |
+| **ConvTranspose** |6 - * |Weight input `W` must be constant with static dimensions. `X` input shape must be constant when using the `output_shape` option. | |
 | **Cos** |7 - * | | |
 | **Cosh** |9 - * | | |
 | **CumSum** |11 - * | | |
