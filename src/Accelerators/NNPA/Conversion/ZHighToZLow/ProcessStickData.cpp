@@ -237,16 +237,6 @@ static void IterateOverStickInputOutput(const KrnlBuilder &kb, Operation *op,
       enableParallel = false;
   }
 
-  // Get input/output Tensors and MemRefs.
-  // Exclude none values.
-  // SmallVector<Value, 4> originalVals, originalMemRefs;
-  // for (uint64_t i = 0; i < op->getNumOperands(); ++i) {
-  //   if (isNoneValue(op->getOperands()[i]))
-  //     continue;
-  //   originalVals.emplace_back(op->getOperands()[i]);
-  //   originalMemRefs.emplace_back(operands[i]);
-  // }
-  // int64_t inputNum = originalVals.size();
   int64_t inputNum = op->getNumOperands();
   SmallVector<Value, 4> originalVals = op->getOperands();
   originalVals.emplace_back(op->getResult(0)); // Output is at index inputNum.
@@ -520,10 +510,6 @@ struct ONNXElementwiseOpLoweringWithNNPALayout
     // Shape helper.
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder>
         create(rewriter, loc);
-    // ONNXBroadcastOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
-    // ONNXUnaryOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
-    // shapeHelper.computeShapeAndAssertOnFailure();
-
     auto shapeOp = llvm::dyn_cast<ShapeHelperOpInterface>(*op);
     SmallVector<Value> memRefs;
     for (Value v : operands)
@@ -534,8 +520,6 @@ struct ONNXElementwiseOpLoweringWithNNPALayout
     if (!shapeHelper)
       return failure();
     shapeHelper->computeShapeAndAssertOnFailure();
-    // if (failed(shapeHelper->computeShape()))
-    //   return failure();
 
     Value alloc = allocateTraditionalOrZtensor(rewriter, this->typeConverter,
         op, operands, elmsOp.getResult(), shapeHelper->getOutputDims(),
