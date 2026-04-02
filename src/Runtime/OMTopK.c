@@ -158,7 +158,7 @@ void omTensorTopK(OMTensor *orderTensor, const OMTensor *inputTensor,
   // 3. Get the final sort comparator (same as loop).
   compareFunctionType *sortCompare = loopCompare;
 
-  uint64_t datasize = OM_DATA_TYPE_SIZE[dataType];
+  uint64_t datasize = getDataTypeSize(dataType);
 
 // Get the standard C sort function
 #if defined(__APPLE__)

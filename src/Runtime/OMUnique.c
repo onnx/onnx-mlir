@@ -122,7 +122,7 @@ static int isLessNum(void *arg1, void *arg2, OM_DATA_TYPE dataType) {
 // Check if
 static int isLessSlice(
     void *elem1, void *elem2, uint64_t elemSize, OM_DATA_TYPE dataType) {
-  uint64_t dataSize = OM_DATA_TYPE_SIZE[dataType];
+  uint64_t dataSize = getDataTypeSize(dataType);
   int64_t elemNum = elemSize / dataSize;
   for (int i = 0; i < elemNum; i++) {
     void *num1 = ((char *)elem1) + (dataSize * i);
@@ -149,7 +149,7 @@ static void getSliceData(const OMTensor *inputTensor, int64_t sliceAxis,
   const int64_t *inputStrides = omTensorGetStrides(inputTensor);
   const OM_DATA_TYPE dataType = omTensorGetDataType(inputTensor);
   void *inputPtr = omTensorGetDataPtr(inputTensor);
-  uint64_t dataSize = OM_DATA_TYPE_SIZE[dataType];
+  uint64_t dataSize = getDataTypeSize(dataType);
   assert(inputRank <= 6 && "rank should be 6 or less");
   assert(sliceAxis < inputRank && "rank should be less than rank");
 
@@ -205,7 +205,7 @@ static void getSliceData(const OMTensor *inputTensor, int64_t sliceAxis,
 // in another function.
 //
 static int sliceTableRegister(sliceTable *table, void *slice, uint64_t off) {
-  uint64_t dataSize = OM_DATA_TYPE_SIZE[table->dataType];
+  uint64_t dataSize = getDataTypeSize(table->dataType);
   char *sliceDataPtr = (char *)table->sliceDataPtr;
   uint64_t sliceSizeInBytes = table->numberOfElementsInSlice * dataSize;
   // Searching for matching data in linear search
@@ -278,7 +278,7 @@ static void produceY(const OMTensor *inputTensor, OMTensor *indices,
   void *YPtr = omTensorGetDataPtr(Y);
 
   const OM_DATA_TYPE dataType = omTensorGetDataType(inputTensor);
-  uint64_t dataSize = OM_DATA_TYPE_SIZE[dataType];
+  uint64_t dataSize = getDataTypeSize(dataType);
 
   // To support input Tensor with various ranks in a uniform way.
   // If the input rank < 6, upgrade the rank to 6 virtually without changing
@@ -355,7 +355,7 @@ void omTensorUnique(OMTensor *totalTensor, OMTensor *Y, OMTensor *indices,
   void *inverseIndicesPtr =
       (inverse_indices != NULL) ? omTensorGetDataPtr(inverse_indices) : NULL;
   void *countsPtr = (counts != NULL) ? omTensorGetDataPtr(counts) : NULL;
-  uint64_t dataSize = OM_DATA_TYPE_SIZE[dataType];
+  uint64_t dataSize = getDataTypeSize(dataType);
 
   int count = 0;
   sliceTable sliceTable;

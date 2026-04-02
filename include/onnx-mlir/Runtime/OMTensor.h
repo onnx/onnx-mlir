@@ -295,6 +295,9 @@ OM_EXTERNAL_VISIBILITY void omTensorSetDataType(
 
 /* Helper function to get the ONNX data type size in bytes */
 static inline int64_t getDataTypeSize(OM_DATA_TYPE dataType) {
+  /* Prevent out of bound access to OM_DATA_TYPE_SIZE */
+  if ((int)dataType < 0 || (int)dataType > ONNX_TYPE_LAST)
+    return OM_DATA_TYPE_SIZE[ONNX_TYPE_UNDEFINED];
   return OM_DATA_TYPE_SIZE[dataType];
 }
 

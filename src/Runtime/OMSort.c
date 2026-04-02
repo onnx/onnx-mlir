@@ -328,7 +328,7 @@ void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
   // Choose the appropriate compare function
   compareFunctionType *compareElements =
       getCompareFunction(ascending, dataType);
-  uint64_t datasize = OM_DATA_TYPE_SIZE[dataType];
+  uint64_t datasize = getDataTypeSize(dataType);
 
 #if defined(__APPLE__)
   // MacOS supports qsort_r in different API
