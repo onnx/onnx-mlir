@@ -47,11 +47,11 @@ void UnifiedStickSupport::init(KrnlBuilder &kb, mlir::Value originalVal,
   this->isWrite = isWrite;
   this->disableSaturation = disableSaturation;
   assert((isRead || isWrite) && "must be at least read or write");
-  if (isNoneValue(this->memRef)) {
-    this->isNoneVal = true;
+
+  // No further initialization if data is none.
+  if (isNoneValue(this->memRef))
     return;
-  }
-  this->isNoneVal = false;
+
   // Classify: get info and classify.
   Type originalType = originalVal.getType();
   auto originalShape = getShape(originalType);

@@ -96,7 +96,6 @@ public:
   bool hasRead() { return isRead; }
   bool hasWrite() { return isWrite; }
   bool hasStick() { return isStick; }
-  bool hasNoneValue() { return isNoneVal; }
   bool isInitialized() { return isRead || isWrite; }
   mlir::Value getOriginalVal() { return originalVal; }
   mlir::Value getOriginalMemRef() { return originalMemRef; }
@@ -114,7 +113,7 @@ private:
   bool isRead = false;  // Detect data is uninitialized if both isRead and
   bool isWrite = false; // isWrite are false.
   bool disableSaturation;
-  bool isStick, isBroadcast, isBuffer, isNoneVal;
+  bool isStick, isBroadcast, isBuffer;
   // Computed values outside of the stick loop.
   DimsExpr outerIndices;
   IndexExpr stickOffset; // For stick values.
