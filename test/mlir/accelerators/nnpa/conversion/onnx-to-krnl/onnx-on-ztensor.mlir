@@ -190,3 +190,69 @@ func.func @test_onnx_layout_transform_on_ztensor(%arg0: tensor<3x5x7xf32, #zhigh
 // CHECK:         }
 }
 
+// -----
+
+// COM: Check an unary operation but has more than one operand and one of the operands is None.
+func.func @test_clip(%arg0: tensor<?x300x4xf32>, %arg1: tensor<f32>) -> tensor<?x300x4xf16, #zhigh.layout<{dataLayout = "3DS"}>>{
+  %0 =  "onnx.NoValue"() {value} : () -> none
+  %1 = "onnx.Clip"(%arg0, %arg1, %0) : (tensor<?x300x4xf32>, tensor<f32>, none) -> tensor<?x300x4xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  onnx.Return %1: tensor<?x300x4xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+
+// mlir2FileCheck.py
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0) -> (d0)>
+// CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<(d0) -> (d0 * 64)>
+// CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<(d0) -> (d0 floordiv 64)>
+// CHECK-DAG:   [[MAP_4_:#.+]] = affine_map<(d0) -> (d0 * -64 + 4)>
+// CHECK-DAG:   [[MAP_5_:#.+]] = affine_map<(d0, d1) -> (d0 + d1 * 64)>
+// CHECK-LABEL:  func.func @test_clip
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x300x4xf32>, [[PARAM_1_:%.+]]: memref<f32>) -> memref<?x300x4xf16, #map> {
+// CHECK-DAG:       [[VAR_cst_:%.+]] = arith.constant dense<-8.57315738E+9> : vector<4xf32>
+// CHECK-DAG:       [[VAR_cst_0_:%.+]] = arith.constant dense<8.57315738E+9> : vector<4xf32>
+// CHECK-DAG:       [[CST_8_:%.+]] = arith.constant 8 : index
+// CHECK-DAG:       [[CST_4_:%.+]] = arith.constant 4 : index
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK:           [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x300x4xf32>
+// CHECK:           [[RES_:%.+]] = memref.alloc([[VAR_dim_]]) {{.*}}: memref<?x300x4xf16, #map>
+// CHECK-DAG:       [[VAR_0_:%.+]] = builtin.unrealized_conversion_cast [[RES_]] : memref<?x300x4xf16, #map> to tensor<?x300x4xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-DAG:       [[VAR_reinterpret_cast_:%.+]] = memref.reinterpret_cast [[RES_]] to offset: [0], sizes: [2, 64], strides: [64, 1] : memref<?x300x4xf16, #map> to memref<2x64xf16>
+// CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
+// CHECK:           krnl.iterate([[LOOP_0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to [[MAP_1_]]([[VAR_dim_]])){
+// CHECK-DAG:         [[VAR_2_:%.+]] = krnl.get_induction_var_value([[LOOP_0_]]) : (!krnl.loop) -> index
+// CHECK-DAG:         [[LOOP_1_:%.+]] = krnl.define_loops 1
+// CHECK:             krnl.iterate([[LOOP_1_]]) with ([[LOOP_1_]] -> [[I_1_:%.+]] = 0 to 300){
+// CHECK-DAG:           [[VAR_4_:%.+]] = krnl.get_induction_var_value([[LOOP_1_]]) : (!krnl.loop) -> index
+// CHECK-DAG:           [[LOOP_2_:%.+]] = krnl.define_loops 1
+// CHECK:               krnl.iterate([[LOOP_2_]]) with ([[LOOP_2_]] -> [[I_2_:%.+]] = 0 to 1){
+// CHECK:                 [[VAR_6_:%.+]] = krnl.get_induction_var_value([[LOOP_2_]]) : (!krnl.loop) -> index
+// CHECK-DAG:             [[VAR_7_:%.+]] = affine.apply [[MAP_2_]]([[VAR_6_]])
+// CHECK-DAG:             [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]][] : memref<f32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:             [[VAR_9_:%.+]] = vector.broadcast [[LOAD_PARAM_1_MEM_]] : f32 to vector<4xf32>
+// CHECK-DAG:             [[VAR_10_:%.+]] = krnl.get_linear_offset_index [[RES_]] at {{.}}[[VAR_2_]], [[VAR_4_]], [[VAR_7_]]{{.}} : memref<?x300x4xf16, #map>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:             [[VAR_11_:%.+]] = affine.apply [[MAP_3_]]([[VAR_10_]])
+// CHECK-DAG:             [[VAR_12_:%.+]] = affine.apply [[MAP_4_]]([[VAR_6_]])
+// CHECK:                 scf.for [[I_3_:%.+]] = [[CST_0_]] to [[VAR_12_]] step [[CST_8_]] {
+// CHECK:                   [[VAR_13_:%.+]] = affine.apply [[MAP_5_]]([[I_3_]], [[VAR_6_]])
+// CHECK-DAG:               [[LOAD_PARAM_0_MEM_:%.+]] = vector.load [[PARAM_0_]]{{.}}[[VAR_2_]], [[VAR_4_]], [[VAR_13_]]{{.}} : memref<?x300x4xf32>, vector<4xf32>
+// CHECK-DAG:               [[VAR_15_:%.+]] = arith.addi [[VAR_13_]], [[CST_4_]] : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:               [[LOAD_PARAM_0_MEM_1_:%.+]] = vector.load [[PARAM_0_]]{{.}}[[VAR_2_]], [[VAR_4_]], [[VAR_15_]]{{.}} : memref<?x300x4xf32>, vector<4xf32>
+// CHECK-DAG:               [[VAR_17_:%.+]] = arith.maxnumf [[VAR_9_]], [[LOAD_PARAM_0_MEM_]] : vector<4xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:               [[VAR_18_:%.+]] = arith.maxnumf [[VAR_9_]], [[LOAD_PARAM_0_MEM_1_]] : vector<4xf32>
+// CHECK-DAG:               [[VAR_19_:%.+]] = arith.minnumf [[VAR_17_]], [[VAR_cst_0_]] : vector<4xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:               [[VAR_20_:%.+]] = arith.minnumf [[VAR_18_]], [[VAR_cst_0_]] : vector<4xf32>
+// CHECK-DAG:               [[VAR_21_:%.+]] = arith.maxnumf [[VAR_19_]], [[VAR_cst_]] : vector<4xf32>
+// CHECK:                   [[VAR_22_:%.+]] = arith.maxnumf [[VAR_20_]], [[VAR_cst_]] : vector<4xf32>
+// CHECK:                   [[VAR_23_:%.+]] = "zlow.vec_f32_to_dlf16"([[VAR_21_]], [[VAR_22_]]) : (vector<4xf32>, vector<4xf32>) -> vector<8xf16>
+// CHECK:                   vector.store [[VAR_23_]], [[VAR_reinterpret_cast_]]{{.}}[[VAR_11_]], [[I_3_]]{{.}} : memref<2x64xf16>, vector<8xf16>
+// CHECK:                 }
+// CHECK:               }
+// CHECK:             }
+// CHECK:           }
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<?x300x4xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:         }
+}
