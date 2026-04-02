@@ -47,6 +47,11 @@ void UnifiedStickSupport::init(KrnlBuilder &kb, mlir::Value originalVal,
   this->isWrite = isWrite;
   this->disableSaturation = disableSaturation;
   assert((isRead || isWrite) && "must be at least read or write");
+  if (isNoneValue(this->memRef)) {
+    this->isNoneVal = true;
+    return;
+  }
+  this->isNoneVal = false;
   // Classify: get info and classify.
   Type originalType = originalVal.getType();
   auto originalShape = getShape(originalType);
@@ -85,6 +90,10 @@ void UnifiedStickSupport::beforeStickLoop(
   // Initialize data that will hold data and stick offsets.
   stickOffset = nullptr;
   highVal = lowVal = nullptr;
+  if (isNoneValue(memRef)) {
+    highVal = lowVal = memRef;
+    return;
+  }
   // Handling for broadcast or stick
   if (isBroadcast) {
     IndexExpr lit0 = LitIE(0);

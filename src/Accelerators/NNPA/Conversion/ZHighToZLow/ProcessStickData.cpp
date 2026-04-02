@@ -237,10 +237,20 @@ static void IterateOverStickInputOutput(const KrnlBuilder &kb, Operation *op,
       enableParallel = false;
   }
 
+  // Get input/output Tensors and MemRefs.
+  // Exclude none values.
+  // SmallVector<Value, 4> originalVals, originalMemRefs;
+  // for (uint64_t i = 0; i < op->getNumOperands(); ++i) {
+  //   if (isNoneValue(op->getOperands()[i]))
+  //     continue;
+  //   originalVals.emplace_back(op->getOperands()[i]);
+  //   originalMemRefs.emplace_back(operands[i]);
+  // }
+  // int64_t inputNum = originalVals.size();
   int64_t inputNum = op->getNumOperands();
-  mlir::SmallVector<Value, 4> originalVals = op->getOperands();
+  SmallVector<Value, 4> originalVals = op->getOperands();
   originalVals.emplace_back(op->getResult(0)); // Output is at index inputNum.
-  mlir::SmallVector<Value, 4> originalMemRefs = operands;
+  SmallVector<Value, 4> originalMemRefs = operands;
   originalMemRefs.emplace_back(alloc); // Output is at index inputNum.
   mlir::BitVector isReads(inputNum + 1, true), isWrites(inputNum + 1, false);
   isReads[inputNum] = false; // Output is at index inputNum.
@@ -510,11 +520,25 @@ struct ONNXElementwiseOpLoweringWithNNPALayout
     // Shape helper.
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder>
         create(rewriter, loc);
-    ONNXBroadcastOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
-    shapeHelper.computeShapeAndAssertOnFailure();
+    // ONNXBroadcastOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    // ONNXUnaryOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    // shapeHelper.computeShapeAndAssertOnFailure();
+
+    auto shapeOp = llvm::dyn_cast<ShapeHelperOpInterface>(*op);
+    SmallVector<Value> memRefs;
+    for (Value v : operands)
+      memRefs.emplace_back(v);
+    ONNXOpShapeHelper *shapeHelper =
+        shapeOp.getShapeHelper(op, memRefs, &create.krnlIE, nullptr);
+    // If no shape helper, or unimplemented, just abort.
+    if (!shapeHelper)
+      return failure();
+    shapeHelper->computeShapeAndAssertOnFailure();
+    // if (failed(shapeHelper->computeShape()))
+    //   return failure();
 
     Value alloc = allocateTraditionalOrZtensor(rewriter, this->typeConverter,
-        op, operands, elmsOp.getResult(), shapeHelper.getOutputDims(),
+        op, operands, elmsOp.getResult(), shapeHelper->getOutputDims(),
         /*does not collapse and write past boundaries, ok to set VL=1 here*/ 1);
 
     UnifiedStickSupportList::IterateFctOver4xF32 fct =
@@ -526,7 +550,7 @@ struct ONNXElementwiseOpLoweringWithNNPALayout
     // Unroll: can unroll up to 8 (for 8 * simd of 8 = 1 stick of 64.)
     int64_t unrollFactor = 8;
     IterateOverStickInputOutput(create.krnl, op, adaptor.getOperands(), alloc,
-        shapeHelper.getOutputDims(), unrollFactor, enableParallel,
+        shapeHelper->getOutputDims(), unrollFactor, enableParallel,
         disableSaturation, true /*prefetch*/, fct);
 
     // replace op.
