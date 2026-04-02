@@ -310,12 +310,8 @@ struct DecomposeConvTransposePattern
       return failure();
 
     ArrayRef<int64_t> wShape = wType.getShape();
-
-    // Check that all weight dimensions are known at compile time.
-    for (int64_t dim : wShape) {
-      if (ShapedType::isDynamic(dim))
-        return failure();
-    }
+    if (!wType.hasStaticShape())
+      return failure();
 
     // Get attributes.
     ONNXConvTransposeOpShapeHelper shapeHelper(

@@ -812,36 +812,24 @@ bool hasAllOnesInArrayAttr(ArrayAttr arrayAttr) {
   // Treat null/missing attribute as default (all ones for strides).
   if (!arrayAttr)
     return true;
-  for (auto attr : arrayAttr.getValue()) {
-    auto intAttr = mlir::dyn_cast<IntegerAttr>(attr);
-    if (!intAttr || intAttr.getInt() != 1)
-      return false;
-  }
-  return true;
+  return llvm::all_of(arrayAttr.getAsRange<IntegerAttr>(),
+      [](IntegerAttr intAttr) { return (intAttr.getInt() == 1); });
 }
 
 bool hasAllZerosInArrayAttr(ArrayAttr arrayAttr) {
   // Treat null/missing attribute as default (all zeros for pads).
   if (!arrayAttr)
     return true;
-  for (auto attr : arrayAttr.getValue()) {
-    auto intAttr = mlir::dyn_cast<IntegerAttr>(attr);
-    if (!intAttr || intAttr.getInt() != 0)
-      return false;
-  }
-  return true;
+  return llvm::all_of(arrayAttr.getAsRange<IntegerAttr>(),
+      [](IntegerAttr intAttr) { return (intAttr.getInt() == 0); });
 }
 
 bool hasNonZeroInArrayAttr(ArrayAttr arrayAttr) {
   // Treat null/missing attribute as default (all zeros), so no non-zero values.
   if (!arrayAttr)
     return false;
-  for (auto attr : arrayAttr.getValue()) {
-    auto intAttr = mlir::dyn_cast<IntegerAttr>(attr);
-    if (intAttr && intAttr.getInt() != 0)
-      return true;
-  }
-  return false;
+  return llvm::any_of(arrayAttr.getAsRange<IntegerAttr>(),
+      [](IntegerAttr intAttr) { return (intAttr.getInt() != 0); });
 }
 
 DenseElementsAttr createFullPadsForAllDims(
@@ -933,8 +921,8 @@ bool isIdentityReshape(
     return false;
 
   // Check if same shape in the sense that both dimensions at the same index
-  // must be both static or dynamic. Otherwise, written rules may fail with the
-  // following error due to shape mismatched:
+  // must be both static or dynamic. Otherwise, written rules may fail with
+  // the following error due to shape mismatched:
   // ```
   // error: failed to materialize conversion for result #0 of operation
   // 'onnx.Reshape' that remained live after conversion
@@ -942,9 +930,9 @@ bool isIdentityReshape(
   if (inputShape != outputShape)
     return false;
 
-  // Reshape is an identity if at least (N-1) out of N dimensions are equal. We
-  // don't need to care about the different dimension, it is maybe because of
-  // DimAnalysis failed to handle it.
+  // Reshape is an identity if at least (N-1) out of N dimensions are equal.
+  // We don't need to care about the different dimension, it is maybe because
+  // of DimAnalysis failed to handle it.
   int nSameDims = 0;
   for (int64_t i = 0; i < inputRank; ++i) {
     if (inputShape[i] != ShapedType::kDynamic &&

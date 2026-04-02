@@ -137,18 +137,9 @@ pad_w_right = 2 - 1 + 0 = 1
 
 ## Testing
 
-### Python Reference Implementation
-
-A Python reference implementation is available in:
-- [`../astudy/convtranspose/study/conv_trans_with_group_v5.py`](../../astudy/convtranspose/study/conv_trans_with_group_v5.py)
-
 ### Test Scripts
 
-1. **Python validation:** [`../astudy/convtranspose/study/test_v5_with_onnx_runtime.py`](../../astudy/convtranspose/study/test_v5_with_onnx_runtime.py)
-   - Validates against ONNX Runtime
-   - All tests pass with numerical accuracy < 5e-7
-
-2. **MLIR tests:** [`test/mlir/onnx/onnx_decompose_convtranspose_output_shape.mlir`](../../test/mlir/onnx/onnx_decompose_convtranspose_output_shape.mlir)
+1. **MLIR tests:** [`test/mlir/onnx/onnx_decompose_convtranspose_output_shape.mlir`](../../test/mlir/onnx/onnx_decompose_convtranspose_output_shape.mlir)
    - Tests decomposition with output_shape
    - Tests with different auto_pad modes
    - Tests with positive and negative pads
@@ -156,10 +147,6 @@ A Python reference implementation is available in:
 ### Running Tests
 
 ```bash
-# Python validation
-cd ../astudy/convtranspose/study
-DEBUG_CONVTRANSPOSE=1 python test_v5_with_onnx_runtime.py
-
 # MLIR tests
 cd build
 ./Debug/bin/onnx-mlir-opt --decompose-onnx ../test/mlir/onnx/onnx_decompose_convtranspose_output_shape.mlir -split-input-file

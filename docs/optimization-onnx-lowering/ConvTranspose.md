@@ -324,8 +324,6 @@ Test configurations include:
 7. 3D ConvTranspose (5D tensor)
 8. 3D with strides [2, 2, 2]
 
-See [`test_convtranspose_comparison.py`](../../astudy/convtranspose/test/test_convtranspose_comparison.py) for complete test suite.
-
 ## Implementation Location
 
 - **Decomposition pattern**: [`src/Dialect/ONNX/Transforms/Decompose.cpp`](../../src/Dialect/ONNX/Transforms/Decompose.cpp:586-820) - `DecomposeConvTransposePattern`

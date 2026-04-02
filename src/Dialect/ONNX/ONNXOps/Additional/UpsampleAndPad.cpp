@@ -180,8 +180,12 @@ LogicalResult ONNXUpsampleAndPadOp::inferShapes(
   if (!hasShapeAndRank(getX()))
     return success();
 
-  Type elementType = mlir::cast<ShapedType>(getX().getType()).getElementType();
   ONNXUpsampleAndPadOpShapeHelper shapeHelper(getOperation(), {});
+  // hi alex
+  // ElementType should be from the output.
+  ShapedType resultType =
+      mlir::cast<ShapedType>(getOperation()->getResult(0).getType());
+  Type elementType = resultType.getElementType();
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 

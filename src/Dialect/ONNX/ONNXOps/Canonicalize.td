@@ -277,6 +277,18 @@ class IntegerAttrIsOf<int s> : Constraint<
   "IntegerAttr is of the given value"
   >;
 
+// Check whether an ArrayAttr contains all ones.
+def HasAllOnesInArrayAttr: Constraint<CPred<"onnx_mlir::hasAllOnesInArrayAttr($0)">,
+                                       "has all ones">;
+
+// Check whether an ArrayAttr contains all zeros.
+def HasAllZerosInArrayAttr: Constraint<CPred<"onnx_mlir::hasAllZerosInArrayAttr($0)">,
+                                        "has all zeros">;
+
+// Check whether an ArrayAttr contains non-zero values.
+def HasNonZeroInArrayAttrParam: Constraint<CPred<"onnx_mlir::hasNonZeroInArrayAttr($0)">,
+                                            "has non-zero elements">;
+
 //===----------------------------------------------------------------------===//
 // Pattern-Match and Rewrite
 //===----------------------------------------------------------------------===//
@@ -519,18 +531,6 @@ def RemoveIdentityTilePattern:  Pat<
 //===----------------------------------------------------------------------===//
 // Canonicalization for ONNXUpsampleAndPadOp
 //===----------------------------------------------------------------------===//
-
-// Check whether an ArrayAttr contains all ones.
-def HasAllOnesInArrayAttr: Constraint<CPred<"onnx_mlir::hasAllOnesInArrayAttr($0)">,
-                                       "has all ones">;
-
-// Check whether an ArrayAttr contains all zeros.
-def HasAllZerosInArrayAttr: Constraint<CPred<"onnx_mlir::hasAllZerosInArrayAttr($0)">,
-                                        "has all zeros">;
-
-// Check whether an ArrayAttr contains non-zero values.
-def HasNonZeroInArrayAttrParam: Constraint<CPred<"onnx_mlir::hasNonZeroInArrayAttr($0)">,
-                                            "has non-zero elements">;
 
 // Create full pads array for all dimensions by prepending zeros.
 def CreateFullPadsForAllDims: NativeCodeCall<
