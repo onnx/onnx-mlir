@@ -770,14 +770,14 @@ def get_test_models():
         },
         "test_convtranspose_kernel_shape_cpu": {
             STATIC_SHAPE: {},
-            # Dynamic shapes disabled: when output_shape is provided, input
-            # spatial dimensions must be known at compile time to compute pads.
+            DYNAMIC_SHAPE: {0: {0, 1}},
+            # Dynamic shapes disabled for spatial dims (output_shape option only).
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_output_shape_cpu": {
             STATIC_SHAPE: {},
-            # Dynamic shapes disabled: when output_shape is provided, input
-            # spatial dimensions must be known at compile time to compute pads.
+            DYNAMIC_SHAPE: {0: {0, 1}},
+            # Dynamic shapes disabled for spatial dims (output_shape option only).
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_pad_cpu": {
