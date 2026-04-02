@@ -1,0 +1,10 @@
+* @jorickert @p-lanza
+
+# Files/Folders excluded from default ownership
+/src/Dialect/ONNX/Transforms/xmc/
+/src/Dialect/ONNX/XCOMPILEROps.td
+/src/Dialect/ONNX/ONNXOps/Additional/XCOMPILER*
+/test/mlir/onnx/xmc/
+/test/mlir/onnx/onnx_xcompiler_shape_inference.mlir
+/test/mlir/onnx/onnx_xcompiler_verify.mlir
+/utils/xcompiler_ops_schema.yaml
