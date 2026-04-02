@@ -22,18 +22,6 @@
 // ToFix: how to handle float_16
 #endif
 
-#if 1 // hi alex
-
-#else
-// SuppressWarnings.h only defines macros, not functions.
-#include "src/Support/SuppressWarnings.h"
-
-SUPPRESS_WARNINGS_PUSH
-// #include "onnx/onnx_pb.h"
-#include "src/Runtime/python/TensorProto.hpp"
-SUPPRESS_WARNINGS_POP
-#endif
-
 #include "PyExecutionSessionBase.hpp"
 
 #define OM_DRIVER_TIMING 1 /* 1 for timing, 0 for no timing/overheads */

@@ -3,7 +3,7 @@
  */
 // ====-- OnnxDataTypeMetaData.inc ----------------------------------------===//
 //
-// Copyright 2025 The IBM Research Authors.
+// Copyright 2025-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
