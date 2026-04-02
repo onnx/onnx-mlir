@@ -695,3 +695,110 @@ func.func @test_multiple_fusions(
   // CHECK-SAME: type = "MUL"
   // CHECK: return %[[FUSED_ADD]], %[[FUSED_MUL]]
 }
+
+// -----
+// Test Pattern 5: Replace quantized Expand with Eltwise ADD (4D, C=1, W=1)
+// Input shape [1,1,1,1] -> Expand to [1,1,32,32]
+// Should create XCOMPILERFusedEltwise(input, zeros, type="ADD")
+// CHECK-LABEL: func.func @test_expand_to_eltwise_4d
+func.func @test_expand_to_eltwise_4d(
+    %arg0: tensor<1x1x1x1x!quant.uniform<u8:f32, 0.05:128>>)
+    -> tensor<1x1x32x32x!quant.uniform<u8:f32, 0.05:128>> {
+  %shape = "onnx.Constant"() {value = dense<[1, 1, 32, 32]> : tensor<4xi64>} : () -> tensor<4xi64>
+  %expand = "onnx.Expand"(%arg0, %shape) :
+      (tensor<1x1x1x1x!quant.uniform<u8:f32, 0.05:128>>, tensor<4xi64>)
+      -> tensor<1x1x32x32x!quant.uniform<u8:f32, 0.05:128>>
+  return %expand : tensor<1x1x32x32x!quant.uniform<u8:f32, 0.05:128>>
+
+  // CHECK: %[[ZEROS:.*]] = onnx.Constant {value = dense<0> : tensor<1x1x32x32xui8>}
+  // CHECK: %[[FUSED:.*]] = "onnx.XCOMPILERFusedEltwise"(%arg0, %[[ZEROS]])
+  // CHECK-SAME: nonlinear = "NONE"
+  // CHECK-SAME: type = "ADD"
+  // CHECK: return %[[FUSED]]
+}
+
+// -----
+// Test Pattern 5: Replace quantized Expand with i8 quantized type (4D, C=1, W=1)
+// CHECK-LABEL: func.func @test_expand_to_eltwise_i8
+func.func @test_expand_to_eltwise_i8(
+    %arg0: tensor<1x1x1x1x!quant.uniform<i8:f32, 0.03:0>>)
+    -> tensor<1x1x16x16x!quant.uniform<i8:f32, 0.03:0>> {
+  %shape = "onnx.Constant"() {value = dense<[1, 1, 16, 16]> : tensor<4xi64>} : () -> tensor<4xi64>
+  %expand = "onnx.Expand"(%arg0, %shape) :
+      (tensor<1x1x1x1x!quant.uniform<i8:f32, 0.03:0>>, tensor<4xi64>)
+      -> tensor<1x1x16x16x!quant.uniform<i8:f32, 0.03:0>>
+  return %expand : tensor<1x1x16x16x!quant.uniform<i8:f32, 0.03:0>>
+
+  // CHECK: %[[ZEROS:.*]] = onnx.Constant {value = dense<0> : tensor<1x1x16x16xi8>}
+  // CHECK: %[[FUSED:.*]] = "onnx.XCOMPILERFusedEltwise"(%arg0, %[[ZEROS]])
+  // CHECK-SAME: nonlinear = "NONE"
+  // CHECK-SAME: type = "ADD"
+  // CHECK: return %[[FUSED]]
+}
+
+// -----
+// Negative: Pattern 5 should NOT fire when 4D input has W (dim 3) != 1
+// CHECK-LABEL: func.func @test_expand_no_match_w_not_one
+func.func @test_expand_no_match_w_not_one(
+    %arg0: tensor<1x1x1x4x!quant.uniform<u8:f32, 0.05:128>>)
+    -> tensor<1x1x8x4x!quant.uniform<u8:f32, 0.05:128>> {
+  %shape = "onnx.Constant"() {value = dense<[1, 1, 8, 4]> : tensor<4xi64>} : () -> tensor<4xi64>
+  %expand = "onnx.Expand"(%arg0, %shape) :
+      (tensor<1x1x1x4x!quant.uniform<u8:f32, 0.05:128>>, tensor<4xi64>)
+      -> tensor<1x1x8x4x!quant.uniform<u8:f32, 0.05:128>>
+  return %expand : tensor<1x1x8x4x!quant.uniform<u8:f32, 0.05:128>>
+
+  // CHECK: "onnx.Expand"
+  // CHECK-NOT: "onnx.XCOMPILERFusedEltwise"
+}
+
+// -----
+// Negative: Pattern 5 should NOT fire when 4D input has C (dim 1) != 1
+// CHECK-LABEL: func.func @test_expand_no_match_c_not_one
+func.func @test_expand_no_match_c_not_one(
+    %arg0: tensor<1x16x1x1x!quant.uniform<u8:f32, 0.05:128>>)
+    -> tensor<1x16x32x32x!quant.uniform<u8:f32, 0.05:128>> {
+  %shape = "onnx.Constant"() {value = dense<[1, 16, 32, 32]> : tensor<4xi64>} : () -> tensor<4xi64>
+  %expand = "onnx.Expand"(%arg0, %shape) :
+      (tensor<1x16x1x1x!quant.uniform<u8:f32, 0.05:128>>, tensor<4xi64>)
+      -> tensor<1x16x32x32x!quant.uniform<u8:f32, 0.05:128>>
+  return %expand : tensor<1x16x32x32x!quant.uniform<u8:f32, 0.05:128>>
+
+  // CHECK: "onnx.Expand"
+  // CHECK-NOT: "onnx.XCOMPILERFusedEltwise"
+}
+
+// -----
+// Negative: Pattern 5 should NOT fire on non-quantized Expand
+// CHECK-LABEL: func.func @test_expand_float_not_replaced
+func.func @test_expand_float_not_replaced(
+    %arg0: tensor<1x16x1x1xf32>)
+    -> tensor<1x16x32x32xf32> {
+  %shape = "onnx.Constant"() {value = dense<[1, 16, 32, 32]> : tensor<4xi64>} : () -> tensor<4xi64>
+  %expand = "onnx.Expand"(%arg0, %shape) :
+      (tensor<1x16x1x1xf32>, tensor<4xi64>)
+      -> tensor<1x16x32x32xf32>
+  return %expand : tensor<1x16x32x32xf32>
+
+  // CHECK: "onnx.Expand"
+  // CHECK-NOT: "onnx.XCOMPILERFusedEltwise"
+}
+
+// -----
+// Test Pattern 5: Non-4D tensor (3D) should also be replaced
+// CHECK-LABEL: func.func @test_expand_to_eltwise_3d
+func.func @test_expand_to_eltwise_3d(
+    %arg0: tensor<1x1x8x!quant.uniform<i8:f32, 0.02:0>>)
+    -> tensor<4x16x8x!quant.uniform<i8:f32, 0.02:0>> {
+  %shape = "onnx.Constant"() {value = dense<[4, 16, 8]> : tensor<3xi64>} : () -> tensor<3xi64>
+  %expand = "onnx.Expand"(%arg0, %shape) :
+      (tensor<1x1x8x!quant.uniform<i8:f32, 0.02:0>>, tensor<3xi64>)
+      -> tensor<4x16x8x!quant.uniform<i8:f32, 0.02:0>>
+  return %expand : tensor<4x16x8x!quant.uniform<i8:f32, 0.02:0>>
+
+  // CHECK: %[[ZEROS:.*]] = onnx.Constant {value = dense<0> : tensor<4x16x8xi8>}
+  // CHECK: %[[FUSED:.*]] = "onnx.XCOMPILERFusedEltwise"(%arg0, %[[ZEROS]])
+  // CHECK-SAME: nonlinear = "NONE"
+  // CHECK-SAME: type = "ADD"
+  // CHECK: return %[[FUSED]]
+}

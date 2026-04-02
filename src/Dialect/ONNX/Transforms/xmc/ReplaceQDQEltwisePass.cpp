@@ -17,6 +17,11 @@
 //      LeakyRelu are fused into a single onnx.XCOMPILERFusedEltwise.
 // 3. BFloat16 with ReLU (4 combinations)
 // 4. Post-Quantized ReLU for IPU Strix (2 combinations)
+// 5. Replace Expand with Eltwise ADD
+//    - Quantized Expand ops are replaced by XCOMPILERFusedEltwise ADD with a
+//      zero constant at the target shape. For 4D (NCHW) inputs, only fires
+//      when W (dim index 2) is 1; non-4D inputs have no spatial constraint.
+//      Mirrors xcompiler's ReplaceQDQExpandToEltwisePass.
 //
 // Note: This pass assumes quant-types pass has already run, so operations
 // already have !quant.uniform types instead of explicit Q/DQ operations.
@@ -769,6 +774,81 @@ struct FusePostQuantizedReLUStrix : public OpRewritePattern<ONNXReluOp> {
 };
 
 //===----------------------------------------------------------------------===//
+// Pattern 5: Replace Expand with Eltwise ADD
+// Quantized Expand(input, shape) -> XCOMPILERFusedEltwise(input, zeros, "ADD")
+// For 4D (NCHW) inputs:
+//   - W (dim[3]) == 1 is required (mirrors QDQ version, NHWC dim[2]).
+//   - C (dim[1]) == 1 is also required (mirrors fixed-point version, NHWC
+//   dim[3]).
+// Non-4D inputs have no spatial constraint.
+//===----------------------------------------------------------------------===//
+
+struct ReplaceExpandWithEltwise : public OpRewritePattern<ONNXExpandOp> {
+  using OpRewritePattern<ONNXExpandOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXExpandOp expandOp, PatternRewriter &rewriter) const override {
+    Value input = expandOp.getInput();
+    Type resultType = expandOp.getOutput().getType();
+
+    if (!isQuantizedType(input.getType()) || !isQuantizedType(resultType))
+      return rewriter.notifyMatchFailure(expandOp, "not quantized");
+
+    auto inputRankedType = mlir::dyn_cast<RankedTensorType>(input.getType());
+    auto outputRankedType = mlir::dyn_cast<RankedTensorType>(resultType);
+    if (!inputRankedType || !outputRankedType)
+      return rewriter.notifyMatchFailure(expandOp, "not ranked tensors");
+
+    auto inputShape = inputRankedType.getShape();
+
+    // For 4D (NCHW) tensors, require both C==1 (dim[1]) and W==1 (dim[3]).
+    // NHWC equivalents: W=dim[2], C=dim[3] in xcompiler's fixed-point version.
+    // Non-4D tensors are accepted without spatial-dim constraints.
+    if (inputShape.size() == 4 && (inputShape[1] != 1 || inputShape[3] != 1))
+      return rewriter.notifyMatchFailure(
+          expandOp, "4D input requires C (dim[1]) == 1 and W (dim[3]) == 1");
+
+    LLVM_DEBUG(llvm::dbgs() << "Replacing quantized Expand with eltwise ADD: "
+                            << expandOp->getName() << "\n");
+
+    auto outputShape = outputRankedType.getShape();
+    Type elemType = outputRankedType.getElementType();
+
+    // Build a zero constant with the output shape and storage type.
+    Type storageType = elemType;
+    if (auto qType =
+            mlir::dyn_cast<mlir::quant::UniformQuantizedType>(elemType))
+      storageType = qType.getStorageType();
+
+    auto zeroAttr =
+        DenseElementsAttr::get(RankedTensorType::get(outputShape, storageType),
+            rewriter.getZeroAttr(storageType));
+
+    auto valueNamedAttr = rewriter.getNamedAttr("value", zeroAttr);
+    auto zeroConst = rewriter.create<ONNXConstantOp>(expandOp.getLoc(),
+        outputRankedType, mlir::ValueRange{},
+        mlir::ArrayRef<mlir::NamedAttribute>{valueNamedAttr});
+
+    auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(expandOp.getLoc(),
+        resultType, input, zeroConst.getResult(),
+        /*clip_max=*/IntegerAttr(),
+        /*clip_min=*/IntegerAttr(),
+        /*enable_lut_sigmoid=*/rewriter.getBoolAttr(false),
+        /*leakyrelu_alpha=*/FloatAttr(),
+        /*mul_y=*/FloatAttr(),
+        /*nonlinear=*/rewriter.getStringAttr("NONE"),
+        /*nonlinear_in_scales=*/FloatAttr(),
+        /*nonlinear_in_zeropoints=*/IntegerAttr(),
+        /*prelu_in=*/IntegerAttr(),
+        /*prelu_shift=*/IntegerAttr(),
+        /*type=*/rewriter.getStringAttr("ADD"));
+
+    rewriter.replaceOp(expandOp, fusedOp.getResult());
+    return success();
+  }
+};
+
+//===----------------------------------------------------------------------===//
 // Pass Definition
 //===----------------------------------------------------------------------===//
 
@@ -891,6 +971,12 @@ struct ReplaceQDQEltwisePass
       patterns.add<FusePostQuantizedReLUStrix<ONNXAddOp>>(context, true);
       patterns.add<FusePostQuantizedReLUStrix<ONNXMulOp>>(context, true);
     }
+
+    //========================================================================
+    // Pattern 5: Replace Expand with Eltwise ADD
+    //========================================================================
+
+    patterns.add<ReplaceExpandWithEltwise>(context);
 
     //========================================================================
     // Apply patterns with greedy rewriter
