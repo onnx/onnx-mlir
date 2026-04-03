@@ -257,6 +257,91 @@ std::optional<SmallVector<int64_t>> normalizeAndFilterAxes(
 }
 
 //===----------------------------------------------------------------------===//
+/// Pattern: ReduceMeanV13 → AveragePool
+///
+/// ONNXReduceMeanV13Op uses attribute-based axes (I64ArrayAttr).
+/// onnx-mlir canonicalises GlobalAveragePool into ReduceMeanV13 with
+/// axes=[2,3,...,rank-1], so this pattern is the primary entry point for
+/// converting global-average-pool semantics into an ONNXAveragePoolOp
+/// that downstream XIR lowering already handles.
+//===----------------------------------------------------------------------===//
+
+struct LowerReduceMeanV13ToAvgPoolPattern
+    : public OpRewritePattern<ONNXReduceMeanV13Op> {
+  using OpRewritePattern<ONNXReduceMeanV13Op>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXReduceMeanV13Op reduceOp, PatternRewriter &rewriter) const override {
+    Location loc = reduceOp.getLoc();
+
+    auto inputType = dyn_cast<RankedTensorType>(reduceOp.getData().getType());
+    auto outputType = dyn_cast<RankedTensorType>(reduceOp.getType());
+
+    if (!inputType || !outputType || !inputType.hasStaticShape())
+      return failure();
+
+    ArrayRef<int64_t> inputShape = inputType.getShape();
+    int64_t rank = inputShape.size();
+
+    if (rank > 4 || rank < 3)
+      return failure();
+
+    auto axesOpt = extractAxes(reduceOp.getAxesAttr());
+    if (!axesOpt)
+      return failure();
+
+    auto axesResult = normalizeAndFilterAxes(*axesOpt, rank, inputShape,
+        reduceOp, inputType, outputType, rewriter, loc);
+    if (!axesResult)
+      return success();
+
+    SmallVector<int64_t> axes = *axesResult;
+
+    if (!areAxesValidForSpatialPooling(axes, rank))
+      return failure();
+
+    auto [poolShape, kernelH, kernelW] =
+        calculateSpatialPoolParameters(inputShape, axes);
+
+    Value poolInput = reduceOp.getData();
+    if (inputShape != ArrayRef<int64_t>(poolShape)) {
+      poolInput = createReshapeOp(rewriter, loc, reduceOp.getData(), poolShape,
+          inputType.getElementType());
+    }
+
+    auto kernelShapeAttr = rewriter.getI64ArrayAttr({kernelH, kernelW});
+    auto stridesAttr = rewriter.getI64ArrayAttr({kernelH, kernelW});
+    auto padsAttr = rewriter.getI64ArrayAttr({0, 0, 0, 0});
+
+    int64_t outH = (poolShape[2] + kernelH - 1) / kernelH;
+    int64_t outW = (poolShape[3] + kernelW - 1) / kernelW;
+    SmallVector<int64_t> poolOutputShape = {
+        poolShape[0], poolShape[1], outH, outW};
+    auto poolOutputType =
+        RankedTensorType::get(poolOutputShape, inputType.getElementType());
+
+    auto si64Type =
+        IntegerType::get(rewriter.getContext(), 64, IntegerType::Signed);
+    auto avgPoolOp =
+        rewriter.create<ONNXAveragePoolOp>(loc, poolOutputType, poolInput,
+            /*auto_pad=*/rewriter.getStringAttr("NOTSET"),
+            /*ceil_mode=*/IntegerAttr::get(si64Type, 1),
+            /*count_include_pad=*/IntegerAttr::get(si64Type, 0),
+            /*dilations=*/nullptr, kernelShapeAttr, padsAttr, stridesAttr);
+
+    Value result = avgPoolOp.getResult();
+
+    if (poolOutputShape != outputType.getShape()) {
+      result = createReshapeOp(rewriter, loc, result, outputType.getShape(),
+          outputType.getElementType());
+    }
+
+    rewriter.replaceOp(reduceOp, result);
+    return success();
+  }
+};
+
+//===----------------------------------------------------------------------===//
 /// Pattern: ReduceMean → AveragePool
 //===----------------------------------------------------------------------===//
 
@@ -706,7 +791,10 @@ struct LowerReduceToPoolPass
     MLIRContext *context = &getContext();
     RewritePatternSet patterns(context);
 
-    // ReduceMean → AveragePool
+    // ReduceMeanV13 → AveragePool (attribute-based axes; produced by
+    // GlobalAveragePool canonicalization)
+    patterns.add<LowerReduceMeanV13ToAvgPoolPattern>(context);
+    // ReduceMean → AveragePool (operand-based axes)
     patterns.add<LowerReduceMeanToAvgPoolPattern>(context);
     // ReduceSum → AveragePool + Mul
     patterns.add<LowerReduceSumToAvgPoolPattern>(context);
