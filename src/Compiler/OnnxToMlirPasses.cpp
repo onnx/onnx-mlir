@@ -15,6 +15,7 @@ void addXmcMlirPasses(mlir::OpPassManager &pm, OnnxToMlirOptions opts) {
       onnx_mlir::createOptimizeOnnxRequantizationPass());
   pm.addNestedPass<func::FuncOp>(createONNXCSEPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createQuantTypesPass());
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceErfToGeluPass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createConvertInstanceNormToGroupNormPass());
   //  pm.addNestedPass<func::FuncOp>(onnx_mlir::createSplitGroupConvPass());
