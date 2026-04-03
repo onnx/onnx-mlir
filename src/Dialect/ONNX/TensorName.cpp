@@ -32,37 +32,8 @@ std::unique_ptr<Transform> Transform::fromAttr(ArrayAttr arrayAttr) {
   return {};
 }
 
-template <>
-SmallVector<std::unique_ptr<Transform>> Transform::fromOp<ONNXReshapeOp>(
-    ONNXReshapeOp reshapeOp) {
-  SmallVector<std::unique_ptr<Transform>> transforms;
-  transforms.push_back(std::make_unique<ReshapeTransform>(reshapeOp));
-  return transforms;
-}
-
-template <>
-SmallVector<std::unique_ptr<Transform>> Transform::fromOp<ONNXTransposeOp>(
-    ONNXTransposeOp transposeOp) {
-  SmallVector<std::unique_ptr<Transform>> transforms;
-  transforms.push_back(std::make_unique<TransposeTransform>(transposeOp));
-  return transforms;
-}
-
-template <>
-SmallVector<std::unique_ptr<Transform>> Transform::fromOp<ONNXPadOp>(
-    ONNXPadOp padOp) {
-  SmallVector<std::unique_ptr<Transform>> transforms;
-  if (padOp.getMode() == "constant")
-    transforms.push_back(std::make_unique<PadTransform>(padOp));
-  return transforms;
-}
-
-template <>
-SmallVector<std::unique_ptr<Transform>> Transform::fromOp<ONNXSliceOp>(
-    ONNXSliceOp sliceOp) {
-  SmallVector<std::unique_ptr<Transform>> transforms;
-  transforms.push_back(std::make_unique<SliceTransform>(sliceOp));
-  return transforms;
+SmallVector<std::unique_ptr<Transform>> Transform::fromOp(Operation *op) {
+  return {};
 }
 
 SmallVector<int64_t> Transform::arrayToVector(ArrayAttr arrayAttr) {

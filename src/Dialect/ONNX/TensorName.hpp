@@ -48,10 +48,8 @@ public:
   virtual mlir::Attribute toAttr(mlir::MLIRContext *context) const = 0;
 
   // Op conversions
-  template <typename OpTy = mlir::Operation *>
-  static mlir::SmallVector<std::unique_ptr<Transform>> fromOp(OpTy /*op*/) {
-    return {};
-  }
+  static mlir::SmallVector<std::unique_ptr<Transform>> fromOp(
+      mlir::Operation *op);
   // virtual mlir::Operation *toOp(
   //     mlir::OpBuilder &builder, mlir::Value) const = 0;
 
