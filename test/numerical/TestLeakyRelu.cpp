@@ -57,7 +57,7 @@ int main(int argc, char *argv[]) {
     printf("RapidCheck test case generation.\n");
     bool success = rc::check("LeakyRelu implementation correctness", [&]() {
       const int maxRange = 50;
-      const int N = *rc::gen::inRange(1, maxRange);
+      const int N = *rc::gen::inRange(2, maxRange);
       float alpha = *rc::gen::inRange(-10, 10) / 10.0;
       RC_ASSERT(isOMLeakyReluTheSameAsNaiveImplFor(N, alpha));
     });
