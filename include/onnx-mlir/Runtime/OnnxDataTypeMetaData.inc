@@ -33,14 +33,14 @@ OM_TYPE_METADATA_DEF(ONNX_TYPE_UINT32,        12, sizeof(uint32_t), "uint32_t")
 OM_TYPE_METADATA_DEF(ONNX_TYPE_UINT64,        13, sizeof(uint64_t), "uint64_t")
 OM_TYPE_METADATA_DEF(ONNX_TYPE_COMPLEX64,     14, 8,                "_Complex float")
 OM_TYPE_METADATA_DEF(ONNX_TYPE_COMPLEX128,    15, 16,               "_Complex double")
-OM_TYPE_METADATA_DEF(ONNX_TYPE_BFLOAT16,      16, 2,                "bfloat16")       // C++23, string only.
-OM_TYPE_METADATA_DEF(ONNX_TYPE_FLOAT8E4M3FN,  17, 1,                "FLOAT8E4M3FN")   // No C/C++ name.
-OM_TYPE_METADATA_DEF(ONNX_TYPE_FLOAT8E4M3FNUZ,18, 1,                "FLOAT8E4M3FNUZ") // No C/C++ name.
-OM_TYPE_METADATA_DEF(ONNX_TYPE_FLOAT8E5M2,    19, 1,                "FLOAT8E5M2")     // No C/C++ name.
-OM_TYPE_METADATA_DEF(ONNX_TYPE_UINT4,         20, 1,                "UINT4") // No C/C++ byte size & name.
-OM_TYPE_METADATA_DEF(ONNX_TYPE_INT4,          21, 1,                "INT4") // No C/C++ byte size & name.
+OM_TYPE_METADATA_DEF(ONNX_TYPE_BFLOAT16,      16, 2,                "bfloat16")       /* C++23, before name only. */
+OM_TYPE_METADATA_DEF(ONNX_TYPE_FLOAT8E4M3FN,  17, 1,                "FLOAT8E4M3FN")   /* No C/C++ name. */
+OM_TYPE_METADATA_DEF(ONNX_TYPE_FLOAT8E4M3FNUZ,18, 1,                "FLOAT8E4M3FNUZ") /* No C/C++ name. */
+OM_TYPE_METADATA_DEF(ONNX_TYPE_FLOAT8E5M2,    19, 1,                "FLOAT8E5M2")     /* No C/C++ name. */
+OM_TYPE_METADATA_DEF(ONNX_TYPE_UINT4,         20, 1 /*sub byte*/,   "UINT4") /* No C/C++ byte size & name. */
+OM_TYPE_METADATA_DEF(ONNX_TYPE_INT4,          21, 1 /*sub byte*/,   "INT4")  /* No C/C++ byte size & name. */
 
-OM_TYPE_METADATA_DEF(ONNX_TYPE_LAST,          21, 0,                "OUT OF BOUND") // MUST be last enum.
+OM_TYPE_METADATA_DEF(ONNX_TYPE_LAST,          21, 0,                "OUT OF BOUND") /* MUST be last enum. */
 // clang-format on
 #else
 #error "Must define OM_TYPE_METADATA_DEF macro."

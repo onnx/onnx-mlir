@@ -303,7 +303,7 @@ compareFunctionType *getCompareFunction(
                          : compareFunction(Float16, Descending);
     break;
   default:
-    assert(false && "unexpected data type in getCompareFunction");
+    assert(false); // Error: "unexpected data type in getCompareFunction".
   }
   return compFunc;
 }
@@ -312,11 +312,13 @@ void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
     uint64_t axis, uint64_t ascending) {
   const OM_DATA_TYPE dataType = omTensorGetDataType(inputTensor);
   const uint64_t rank = omTensorGetRank(inputTensor);
-  assert(rank <= 6 && "omTensorSort assumes rank <= 6");
-  assert(axis == (rank - 1) && "omTensorSort assumes axis == (rank - 1)");
+  assert(rank <= 6); // Error: "omTensorSort assumes rank <= 6".
+  assert(
+      axis == (rank - 1)); // Error: "omTensorSort assumes axis == (rank - 1)".
   const int64_t *inputShape = omTensorGetShape(inputTensor);
   const int64_t *inputStrides = omTensorGetStrides(inputTensor);
-  assert(inputStrides[axis] == 1 && "omTensorSort assumes strides[axis] == 1");
+  assert(inputStrides[axis] ==
+         1); // Error "omTensorSort assumes strides[axis] == 1".
   void *orderPtr = omTensorGetDataPtr(orderTensor);
   uint64_t *order = (uint64_t *)orderPtr;
   void *dataPtr = omTensorGetDataPtr(inputTensor);
@@ -329,6 +331,7 @@ void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
   compareFunctionType *compareElements =
       getCompareFunction(ascending, dataType);
   uint64_t datasize = getDataTypeSize(dataType);
+  assert(datasize > 0); // Test for unsupported types.
 
 #if defined(__APPLE__)
   // MacOS supports qsort_r in different API

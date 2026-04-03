@@ -241,8 +241,10 @@ OMTensor *omTensorCreateEmpty(
     const int64_t *shape, int64_t rank, OM_DATA_TYPE dtype) {
   OMTensor *tensor;
   void *dataPtr;
-  if (((dataPtr = malloc(getNumElems(shape, rank) * getDataTypeSize(dtype))) ==
-          NULL) ||
+  int64_t datasize = getDataTypeSize(dtype);
+  if (datasize == 0)
+    return NULL; /* Undefined types have 0 size storage.*/
+  if (((dataPtr = malloc(getNumElems(shape, rank) * datasize)) == NULL) ||
       ((tensor = omTensorCreateWithOwnership(
             dataPtr, shape, rank, dtype, /*owning=*/true)) == NULL)) {
     free(dataPtr); // OK if dataPtr == NULL
