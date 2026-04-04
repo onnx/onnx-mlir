@@ -147,10 +147,10 @@ def compare_result(actual_outs, ref_outs, atol=1e-8, rtol=1e-5, debug=0):
                     continue
             else:
                 # Use equation atol + rtol * abs(desired), that is used in assert_allclose.
-                all_pass = False
                 diff = float(atol) + float(rtol) * abs(ref_val)
                 if abs(actual_val - ref_val) <= diff:
                     continue
+            all_pass = False
             mismatched_elements += 1
             if debug >= 1:
                 print(
