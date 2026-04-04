@@ -156,7 +156,7 @@ static float interpolate_1d_with_x(OMTensor *data, float scale_factor, float x,
 
   // float points[coeffs_n];
   float *points = (float *)malloc(sizeof(float) * coeffs_n);
-  assert(points && "failed to allocate memory for points");
+  assert(points); // Error: "failed to allocate memory for points".
 
   get_neighbor(x_ori, n, input_width, (float *)omTensorGetDataPtr(data), points,
       exclude_outside);
@@ -180,7 +180,7 @@ static float interpolate_nd_with_x(OMTensor *data, int n, float *scale_factors,
   } else {
     int64_t input_width = omTensorGetShape(data)[0];
     float *tempData = (float *)malloc(sizeof(float) * input_width);
-    assert(tempData && "failed to allocate memory for tempData");
+    assert(tempData); // Error: "failed to allocate memory for tempData".
     int64_t tempShape[] = {input_width};
 
     int64_t stride = 1;
@@ -191,14 +191,14 @@ static float interpolate_nd_with_x(OMTensor *data, int n, float *scale_factors,
       float *dataPtr = (float *)omTensorGetDataPtr(data) + i * stride;
       OMTensor *data1 = omTensorCreate(
           dataPtr, omTensorGetShape(data) + 1, n - 1, ONNX_TYPE_FLOAT);
-      assert(data1 && "failed to create tensor");
+      assert(data1); // Error: "failed to create tensor".
       tempData[i] = interpolate_nd_with_x(data1, n - 1, scale_factors + 1,
           xs + 1, get_coeffs, coeffs_buffer, coeffs_n, roi, extrapolation_value,
           coordinate_transformation_mode, exclude_outside, mode);
       omTensorDestroy(data1);
     }
     OMTensor *tempT = omTensorCreate(tempData, tempShape, 1, ONNX_TYPE_FLOAT);
-    assert(tempT && "failed to create tensor");
+    assert(tempT); // Error: "failed to create tensor".
     float ret = interpolate_1d_with_x(tempT, scale_factors[0], xs[0],
         get_coeffs, coeffs_buffer, coeffs_n, roi, extrapolation_value,
         coordinate_transformation_mode, exclude_outside, mode);
@@ -230,7 +230,7 @@ static void generate_coordinates(
     int64_t rank, int64_t *output_size, int64_t *allCoordinates) {
   int64_t position = 0;
   int64_t *currentIter = (int64_t *)malloc(sizeof(int64_t) * rank);
-  assert(currentIter && "failed to allocate memory for currentIter");
+  assert(currentIter); // Error: "failed to allocate memory for currentIter".
   coordinate_step(rank, output_size, allCoordinates, 0, currentIter, &position);
   free(currentIter);
 }
@@ -240,8 +240,8 @@ static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
     Coeff_Func_t get_coeffs, int coeffs_n, OMTensor *roi,
     float *extrapolation_value, int coordinate_transformation_mode,
     int exclude_outside) {
-  assert(omTensorGetDataType(data) == ONNX_TYPE_FLOAT &&
-         "Resize runtime: only float type is supported currently");
+  assert(omTensorGetDataType(data) == ONNX_TYPE_FLOAT);
+  // Error: "Resize runtime: only float type is supported currently".
 
   int64_t rank = omTensorGetRank(data);
   const int64_t *inputShape = omTensorGetShape(data);
@@ -253,13 +253,14 @@ static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
     output_size = (int64_t *)omTensorGetDataPtr(output_size_OMT);
   if (scale_factor == NULL) {
     scale_factor = (float *)malloc(sizeof(float) * rank);
-    assert(scale_factor && "failed to allocate memory for scale_factor");
+    assert(
+        scale_factor); // Error: "failed to allocate memory for scale_factor".
     for (int i = 0; i < rank; i++) {
       scale_factor[i] = ((float)output_size[i]) / inputShape[i];
     }
   } else {
     output_size = (int64_t *)malloc(sizeof(int64_t) * rank);
-    assert(output_size && "failed to allocate memory for output_size");
+    assert(output_size); // Error: "failed to allocate memory for output_size".
     for (int i = 0; i < rank; i++) {
       output_size[i] = scale_factor[i] * inputShape[i];
     }
@@ -274,16 +275,18 @@ static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
   // int64_t allCoordinates[outputSize][rank];
   int64_t *allCoordinates =
       (int64_t *)malloc(outputSize * rank * sizeof(int64_t));
-  assert(allCoordinates && "failed to allocate memory for allCoordinates");
+  assert(
+      allCoordinates); // Error: "failed to allocate memory for allCoordinates".
   generate_coordinates(rank, output_size, allCoordinates);
 
   // float coeffs_buffer[coeffs_n]; // = {1.0, 0.};
   float *coeffs_buffer = (float *)malloc(sizeof(float) * coeffs_n);
-  assert(coeffs_buffer && "failed to allocate memory for coeffs_buffer");
+  assert(
+      coeffs_buffer); // Error: "failed to allocate memory for coeffs_buffer".
 
   for (int i = 0; i < outputSize; i++) {
     float *Xs = (float *)malloc(sizeof(float) * rank);
-    assert(Xs && "failed to allocate memory for Xs");
+    assert(Xs); // Error: "failed to allocate memory for Xs".
     for (int j = 0; j < rank; j++) {
       Xs[j] = *(allCoordinates + i * rank + j);
     }
@@ -330,7 +333,7 @@ void Resize_Scales(OMTensor *output, OMTensor *data, OMTensor *scales,
     coeffs_f = cubic_coeffs;
     coeffs_n = 4;
   } else {
-    assert(0 && "Resize runtime: unsupported mode");
+    assert(0); // Error: "Resize runtime: unsupported mode".
   }
 
   interpolate_nd_OMTensor(
@@ -362,7 +365,7 @@ void Resize_Size(OMTensor *output, OMTensor *data, OMTensor *size,
     coeffs_f = cubic_coeffs;
     coeffs_n = 4;
   } else {
-    assert(0 && "Resize runtime: unsupported mode");
+    assert(0); // Error: "Resize runtime: unsupported mode".
   }
   interpolate_nd_OMTensor(
       /*OMTensor */ output,

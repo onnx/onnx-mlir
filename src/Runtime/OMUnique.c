@@ -4,7 +4,7 @@
 
 //===-- OMUnique.c - OMUnique C Implementation ---------------------------===//
 //
-// Copyright 2025 The IBM Research Authors.
+// Copyright 2025-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -114,7 +114,7 @@ static int isLessNum(void *arg1, void *arg2, OM_DATA_TYPE dataType) {
   // case ONNX_TYPE_COMPLEX64:
   // case ONNX_TYPE_COMPLEX128:
   default:
-    assert(false && "Unsupported ONNX type in OMTensor");
+    assert(false); // Error: "Unsupported ONNX type in OMTensor".
   }
   return 0;
 }
@@ -122,7 +122,8 @@ static int isLessNum(void *arg1, void *arg2, OM_DATA_TYPE dataType) {
 // Check if
 static int isLessSlice(
     void *elem1, void *elem2, uint64_t elemSize, OM_DATA_TYPE dataType) {
-  uint64_t dataSize = OM_DATA_TYPE_SIZE[dataType];
+  uint64_t dataSize = getDataTypeSize(dataType);
+  assert(dataSize > 0); // Test for unsupported types.
   int64_t elemNum = elemSize / dataSize;
   for (int i = 0; i < elemNum; i++) {
     void *num1 = ((char *)elem1) + (dataSize * i);
@@ -149,9 +150,10 @@ static void getSliceData(const OMTensor *inputTensor, int64_t sliceAxis,
   const int64_t *inputStrides = omTensorGetStrides(inputTensor);
   const OM_DATA_TYPE dataType = omTensorGetDataType(inputTensor);
   void *inputPtr = omTensorGetDataPtr(inputTensor);
-  uint64_t dataSize = OM_DATA_TYPE_SIZE[dataType];
-  assert(inputRank <= 6 && "rank should be 6 or less");
-  assert(sliceAxis < inputRank && "rank should be less than rank");
+  uint64_t dataSize = getDataTypeSize(dataType);
+  assert(dataSize > 0);          // Test for unsupported types.
+  assert(inputRank <= 6);        // Error: "rank should be 6 or less".
+  assert(sliceAxis < inputRank); // Error: "rank should be less than rank".
 
   // To support input Tensor with various ranks in a uniform way.
   // If the input rank < 6, upgrade the rank to 6 virtually without changing
@@ -205,7 +207,8 @@ static void getSliceData(const OMTensor *inputTensor, int64_t sliceAxis,
 // in another function.
 //
 static int sliceTableRegister(sliceTable *table, void *slice, uint64_t off) {
-  uint64_t dataSize = OM_DATA_TYPE_SIZE[table->dataType];
+  uint64_t dataSize = getDataTypeSize(table->dataType);
+  assert(dataSize > 0); // Test for unsupported types.
   char *sliceDataPtr = (char *)table->sliceDataPtr;
   uint64_t sliceSizeInBytes = table->numberOfElementsInSlice * dataSize;
   // Searching for matching data in linear search
@@ -265,20 +268,22 @@ static int sliceTableRegister(sliceTable *table, void *slice, uint64_t off) {
 static void produceY(const OMTensor *inputTensor, OMTensor *indices,
     int64_t sliceAxis, OMTensor *Y) {
   const int64_t inputRank = omTensorGetRank(inputTensor);
-  assert(inputRank <= 6 && "input rank should be 6 or less");
-  assert(sliceAxis < inputRank && "sliceAxis should be less than input rank");
+  assert(inputRank <= 6); // Error: "input rank should be 6 or less".
+  assert(sliceAxis <
+         inputRank); // Error: "sliceAxis should be less than input rank".
   const int64_t *inputShape = omTensorGetShape(inputTensor);
   const int64_t *inputStrides = omTensorGetStrides(inputTensor);
   void *inputPtr = omTensorGetDataPtr(inputTensor);
   const int64_t indicesRank = omTensorGetRank(indices);
-  assert(indicesRank == 1 && "indices rank should be 1");
+  assert(indicesRank == 1); // Error: "indices rank should be 1".
   const int64_t *indicesShape = omTensorGetShape(indices);
   const int64_t count = indicesShape[0];
   int64_t *indicesPtr = (int64_t *)omTensorGetDataPtr(indices);
   void *YPtr = omTensorGetDataPtr(Y);
 
   const OM_DATA_TYPE dataType = omTensorGetDataType(inputTensor);
-  uint64_t dataSize = OM_DATA_TYPE_SIZE[dataType];
+  uint64_t dataSize = getDataTypeSize(dataType);
+  assert(dataSize > 0); // Test for unsupported types.
 
   // To support input Tensor with various ranks in a uniform way.
   // If the input rank < 6, upgrade the rank to 6 virtually without changing
@@ -345,8 +350,8 @@ void omTensorUnique(OMTensor *totalTensor, OMTensor *Y, OMTensor *indices,
     int64_t sliceAxis, uint64_t sorted) {
   const OM_DATA_TYPE dataType = omTensorGetDataType(inputTensor);
   const int64_t inputRank = omTensorGetRank(inputTensor);
-  assert(inputRank <= 6 && "input rank should be 6 or less");
-  assert(sliceAxis < inputRank && "axis should be less than rank");
+  assert(inputRank <= 6);        // Error: "input rank should be 6 or less".
+  assert(sliceAxis < inputRank); // Error: "axis should be less than rank".
   int64_t *totalPtr = (int64_t *)omTensorGetDataPtr(totalTensor);
   const int64_t *inputShape = omTensorGetShape(inputTensor);
   void *inputPtr = omTensorGetDataPtr(inputTensor);
@@ -355,7 +360,8 @@ void omTensorUnique(OMTensor *totalTensor, OMTensor *Y, OMTensor *indices,
   void *inverseIndicesPtr =
       (inverse_indices != NULL) ? omTensorGetDataPtr(inverse_indices) : NULL;
   void *countsPtr = (counts != NULL) ? omTensorGetDataPtr(counts) : NULL;
-  uint64_t dataSize = OM_DATA_TYPE_SIZE[dataType];
+  uint64_t dataSize = getDataTypeSize(dataType);
+  assert(dataSize > 0); // Test for unsupported types.
 
   int count = 0;
   sliceTable sliceTable;

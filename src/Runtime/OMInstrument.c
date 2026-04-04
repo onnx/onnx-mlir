@@ -182,7 +182,7 @@ static void ReportMemory() {
   mypid = getpid();
   int num_chars_written =
       snprintf(memCommand, sizeof(memCommand), "ps -o vsz='' -p %d", mypid);
-  assert(num_chars_written >= 0 && "snprintf write error to memCommand");
+  assert(num_chars_written >= 0); // Error:"snprintf write error to memCommand".
   memPipe = popen(memCommand, "r");
   if (!memPipe) {
     fprintf(instrumentFout, ", error-failed-to-execute-ps\n");
@@ -226,8 +226,8 @@ static void ProcessName(
 
 static inline void printStartReport() {
   if (!startReportPrinted) {
-    assert(instrumentFout &&
-           "expected instrumentInitialized instrumentFout for reporting");
+    assert(instrumentFout); // Error  "expected instrumentInitialized
+                            // instrumentFout for reporting".
     fprintf(instrumentFout, "==START-REPORT==\n");
     startReportPrinted = true;
   }
