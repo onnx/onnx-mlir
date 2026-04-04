@@ -115,12 +115,7 @@ def compare_result(actual_outs, ref_outs, atol=1e-8, rtol=1e-5, debug=0):
         )
         return False
 
-    total_elements = 0
-    mismatched_elements = 0
-    max_atol = 0
-    sum_rtol = 0
-    # The outputs are of shape: #queries, seq_length, hidden_states, with
-    # seq_length various with query.
+    all_pass = True
     for q_index, (q_ref_outs, q_actual_outs) in enumerate(zip(ref_outs, actual_outs)):
         if q_ref_outs.shape != q_actual_outs.shape:
             print(
@@ -136,17 +131,23 @@ def compare_result(actual_outs, ref_outs, atol=1e-8, rtol=1e-5, debug=0):
             all_pass = False
             continue
 
+        total_elements = 0
+        mismatched_elements = 0
+        max_atol = 0
         for index, actual_val in np.ndenumerate(q_actual_outs):
             total_elements += 1
             ref_val = q_ref_outs[index]
             this_atol = abs(ref_val - actual_val)
             max_atol = max(this_atol, max_atol)
-            sum_rtol += abs((this_atol) / ref_val)
             if np.issubdtype(q_actual_outs.dtype, np.dtype(bool).type):
+                if ref_val == actual_val:
+                    continue
+            elif np.issubdtype(q_actual_outs.dtype, np.integer):
                 if ref_val == actual_val:
                     continue
             else:
                 # Use equation atol + rtol * abs(desired), that is used in assert_allclose.
+                all_pass = False
                 diff = float(atol) + float(rtol) * abs(ref_val)
                 if abs(actual_val - ref_val) <= diff:
                     continue
@@ -157,23 +158,21 @@ def compare_result(actual_outs, ref_outs, atol=1e-8, rtol=1e-5, debug=0):
                     "mismatch {} (actual)".format(actual_val),
                     "vs {} (reference)".format(ref_val),
                 )
-    if total_elements > 0:
-        print(
-            f"Max absolute difference: {max_atol}\nMean of relative difference {sum_rtol/total_elements}"
-        )
-    print(f"Under the requirement of atol {atol} and rtol {rtol}")
-    if mismatched_elements == 0:
-        print("\n✓ correct.\n")
-        return True
-    else:
-        print(
-            "\n✗  got mismatched elements {}/{}, in percentage {}.\n".format(
-                mismatched_elements,
-                total_elements,
-                mismatched_elements / total_elements,
+        if mismatched_elements > 0:
+            print(
+                "Output {} got mismatched elements {}/{}, ({:.2f}%). Max absolute difference {:.2f}\n".format(
+                    q_index,
+                    mismatched_elements,
+                    total_elements,
+                    mismatched_elements / total_elements * 100.0,
+                    max_atol,
+                )
             )
-        )
-        return False
+    if all_pass:
+        print("\n✓ Correct.\n")
+    else:
+        print("\n✗  Failed\n")
+    return all_pass
 
 
 def ordinal(n):
