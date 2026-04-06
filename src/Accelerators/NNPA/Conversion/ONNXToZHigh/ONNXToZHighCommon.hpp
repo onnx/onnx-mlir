@@ -123,5 +123,15 @@ mlir::FloatAttr getScalarF32AttrFromConstant(mlir::Value v);
 mlir::Value getDynShape(
     mlir::Location loc, mlir::PatternRewriter &rewriter, mlir::Value x);
 
+// Generic helper function to check if any operation has device attribute set to
+// CPU
+inline bool isMarkedForCPU(mlir::Operation *op) {
+  if (!op)
+    return false;
+  mlir::StringAttr device =
+      op->getAttrOfType<mlir::StringAttr>(DEVICE_ATTRIBUTE);
+  return device && device.getValue().equals_insensitive(CPU_DEVICE);
+}
+
 } // namespace onnx_mlir
 #endif
