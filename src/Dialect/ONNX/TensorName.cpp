@@ -60,8 +60,7 @@ SmallVector<int64_t> Transform::denseToVector(DenseIntElementsAttr denseAttr) {
 }
 
 SmallVector<int64_t> Transform::valToVector(Value val) {
-  auto constOp = val.getDefiningOp<ONNXConstantOp>();
-  if (!constOp) {
+  if (auto constOp = val.getDefiningOp<ONNXConstantOp>()) {
     if (auto arrayAttr = dyn_cast<ArrayAttr>(constOp.getValueAttr()))
       return arrayToVector(arrayAttr);
     else if (auto denseAttr =
