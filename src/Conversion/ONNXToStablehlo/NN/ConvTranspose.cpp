@@ -73,10 +73,10 @@ struct ONNXConvTransposeOpLoweringToStablehlo : public ConversionPattern {
     LogicalResult shapecomputed = shapeHelper.computeShape();
     assert(succeeded(shapecomputed) && "Could not compute output shape");
 
-    llvm::SmallVector<IndexExpr, 2> kernelShape = shapeHelper.kernelShape;
-    llvm::SmallVector<int64_t, 2> strides = shapeHelper.strides;
-    llvm::SmallVector<int64_t, 2> dilations = shapeHelper.dilations;
-    llvm::SmallVector<int64_t, 2> outputPadding = shapeHelper.outputPadding;
+    auto kernelShape = shapeHelper.kernelShape;
+    auto strides = shapeHelper.strides;
+    auto dilations = shapeHelper.dilations;
+    auto outputPadding = shapeHelper.outputPadding;
 
     Value inputOperand = operandAdaptor.getX();
     Value filterOperand = operandAdaptor.getW();

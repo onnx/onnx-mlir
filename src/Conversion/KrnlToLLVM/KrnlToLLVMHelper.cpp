@@ -420,6 +420,23 @@ void noLessOrFailed(ModuleOp &module, OpBuilder &rewriter, Location loc,
 }
 
 void equalOrReturn(ModuleOp &module, OpBuilder &rewriter, Location loc,
+    Value lhs, Value rhs, std::string errorMsg) {
+  MultiDialectBuilder<LLVMBuilder, KrnlBuilder> create(rewriter, loc);
+  create.llvm.ifThenElse(/*cond=*/
+      [&](const LLVMBuilder &createLLVM) {
+        return createLLVM.icmp(LLVM::ICmpPredicate::ne, lhs, rhs);
+      }, /*then=*/
+      [&](const LLVMBuilder &createLLVM) {
+        MultiDialectBuilder<LLVMBuilder, KrnlBuilder> create(createLLVM);
+        // Print an error message.
+        if (!errorMsg.empty())
+          create.krnl.printf(StringRef(errorMsg + "\n"));
+        // Return void.
+        create.llvm._return();
+      });
+}
+
+void equalOrReturn(ModuleOp &module, OpBuilder &rewriter, Location loc,
     Value lhs, Value rhs, Value retVal, std::string errorMsg) {
   MultiDialectBuilder<LLVMBuilder, KrnlBuilder> create(rewriter, loc);
   create.llvm.ifThenElse(/*cond=*/

@@ -311,7 +311,7 @@ func.func @pattern_extended_layout_transform_v1(%arg0: tensor<3x?x2048xf32>, %ar
   %13 = "onnx.Transpose"(%12) {perm = [0, 2, 1, 3]} : (tensor<3x?x32x64xf16>) -> tensor<3x32x?x64xf16>
   %14 = "onnx.Concat"(%2, %6, %4) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
   %15 = "onnx.Reshape"(%13, %14) {allowzero = 0 : si64} : (tensor<3x32x?x64xf16>, tensor<3xi64>) -> tensor<96x?x64xf16>
-  %16 = "onnx.LayoutTransform"(%15) {target_layout = "3DS"} : (tensor<96x?x64xf16>) -> tensor<96x?x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  %16 = "onnx.LayoutTransform"(%15) {target_layout = #zhigh.layout<{dataLayout = "3DS"}>} : (tensor<96x?x64xf16>) -> tensor<96x?x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
   %17 = "zhigh.Stick"(%arg4) {layout = "2D"} : (tensor<64x64xf32>) -> tensor<64x64xf16, #zhigh.layout<{dataLayout = "2D"}>>
   %18 = "zhigh.MatMul"(%16, %17, %0) {transposeA = 0 : si64, transposeB = 0 : si64} : (tensor<96x?x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<64x64xf16, #zhigh.layout<{dataLayout = "2D"}>>, none) -> tensor<96x?x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
   %19 = "zhigh.Unstick"(%18) : (tensor<96x?x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<96x?x64xf32>
@@ -360,7 +360,7 @@ func.func @pattern_extended_layout_transform_v2(%arg0: tensor<3x?x4096xf32>, %ar
     %13 = "onnx.Transpose"(%12) {perm = [0, 2, 1, 3]} : (tensor<3x?x32x128xf16>) -> tensor<3x32x?x128xf16>
     %14 = "onnx.Concat"(%2, %6, %5) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
     %15 = "onnx.Reshape"(%13, %14) {allowzero = 0 : si64} : (tensor<3x32x?x128xf16>, tensor<3xi64>) -> tensor<96x?x128xf16>
-    %16 = "onnx.LayoutTransform"(%15) {target_layout = "3DS"} : (tensor<96x?x128xf16>) -> tensor<96x?x128xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+    %16 = "onnx.LayoutTransform"(%15) {target_layout = #zhigh.layout<{dataLayout = "3DS"}>} : (tensor<96x?x128xf16>) -> tensor<96x?x128xf16, #zhigh.layout<{dataLayout = "3DS"}>>
     %17 = "zhigh.Stick"(%arg4) {layout = "2D"} : (tensor<128x128xf32>) -> tensor<128x128xf16, #zhigh.layout<{dataLayout = "2D"}>>
     %18 = "zhigh.MatMul"(%16, %17, %0) {transposeA = 0 : si64, transposeB = 0 : si64} : (tensor<96x?x128xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<128x128xf16, #zhigh.layout<{dataLayout = "2D"}>>, none) -> tensor<96x?x128xf16, #zhigh.layout<{dataLayout = "3DS"}>>
     %19 = "zhigh.Unstick"(%18) : (tensor<96x?x128xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<96x?x128xf32>
@@ -427,7 +427,7 @@ func.func @test_lt_reshape_lt(%arg0: tensor<1x12x64x256xf16, #zhigh.layout<{data
     %0 = onnx.Constant dense<[12, 64, 256]> : tensor<3xi64>
     %1 = "onnx.LayoutTransform"(%arg0) : (tensor<1x12x64x256xf16, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<1x12x64x256xf16>
     %2 = "onnx.Reshape"(%1, %0) <{allowzero = 0 : si64}> : (tensor<1x12x64x256xf16>, tensor<3xi64>) -> tensor<12x64x256xf16>
-    %3 = "onnx.LayoutTransform"(%2) <{target_layout = "3DS"}> : (tensor<12x64x256xf16>) -> tensor<12x64x256xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+    %3 = "onnx.LayoutTransform"(%2) <{target_layout = #zhigh.layout<{dataLayout = "3DS"}>}> : (tensor<12x64x256xf16>) -> tensor<12x64x256xf16, #zhigh.layout<{dataLayout = "3DS"}>>
     return %3 : tensor<12x64x256xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 // mlir2FileCheck.py
 // CHECK-LABEL:  func.func @test_lt_reshape_lt

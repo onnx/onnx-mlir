@@ -98,6 +98,7 @@ install(TARGETS PyRuntimeC
 add_custom_target(OMCreateOMPyInferPackage
         COMMAND rm -rf ${CMAKE_CURRENT_BINARY_DIR}/OMPyInfer
         COMMAND cp -r ${CMAKE_CURRENT_SOURCE_DIR}/OMPyInfer ${CMAKE_CURRENT_BINARY_DIR}
+	COMMAND cp -r ${CMAKE_CURRENT_SOURCE_DIR}/PyRuntime.py ${CMAKE_CURRENT_BINARY_DIR}/OMPyInfer/src/OMPyInfer
         COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/OMPyInfer/src/OMPyInfer/libs
         COMMAND cp ${ONNX_MLIR_BIN_ROOT}/${CMAKE_BUILD_TYPE}/lib/PyRuntimeC.*.so ${CMAKE_CURRENT_BINARY_DIR}/OMPyInfer/src/OMPyInfer/libs
         DEPENDS PyRuntimeC
@@ -158,6 +159,7 @@ target_include_directories(PyOMCompileC
 target_link_libraries(PyOMCompileC
   PRIVATE
   OMCompile
+  onnx
   )
 llvm_update_compile_flags(PyOMCompileC)
 

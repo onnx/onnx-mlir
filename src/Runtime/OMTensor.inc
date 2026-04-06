@@ -241,8 +241,10 @@ OMTensor *omTensorCreateEmpty(
     const int64_t *shape, int64_t rank, OM_DATA_TYPE dtype) {
   OMTensor *tensor;
   void *dataPtr;
-  if (((dataPtr = malloc(getNumElems(shape, rank) * getDataTypeSize(dtype))) ==
-          NULL) ||
+  int64_t datasize = getDataTypeSize(dtype);
+  if (datasize == 0)
+    return NULL; /* Undefined types have 0 size storage.*/
+  if (((dataPtr = malloc(getNumElems(shape, rank) * datasize)) == NULL) ||
       ((tensor = omTensorCreateWithOwnership(
             dataPtr, shape, rank, dtype, /*owning=*/true)) == NULL)) {
     free(dataPtr); // OK if dataPtr == NULL
@@ -394,6 +396,9 @@ void *omTensorGetAllocatedPtr(const OMTensor *tensor) {
 
 /* Helper function to get the ONNX data type C name string */
 static inline const char *getDataTypeName(OM_DATA_TYPE dataType) {
+  /* Prevent out of bound access to OM_DATA_TYPE_SIZE */
+  if ((int)dataType < 0 || (int)dataType > ONNX_TYPE_LAST)
+    return OM_DATA_TYPE_NAME[ONNX_TYPE_UNDEFINED];
   return OM_DATA_TYPE_NAME[dataType];
 }
 

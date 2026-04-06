@@ -52,7 +52,7 @@ def CanDecomposeUnstick:
 // TODO: do not decompose weight stick.
 def DecomposeStickPattern: Pat<
   (ZHighStickOp $input, $layout, $noSaturation),
-  (ONNXLayoutTransformOp (ZHighF32ToDLF16Op $input, $noSaturation), $layout),
+  (ONNXLayoutTransformOp (ZHighF32ToDLF16Op $input, $noSaturation), (CreateZTensorEncodingAttr $layout)),
   [(IsNotNHWCLayout $layout), (FromDLF16ToF32Op:$input)]
 >;
 

@@ -2,7 +2,7 @@
 
 //===-- AdditionalONNXOps.td -- ONNX Dialect Additional Ops  -*- tablegen -===//
 //
-// Copyright 2019-2023 The IBM Research Authors
+// Copyright 2019-2026 The IBM Research Authors
 //
 // =============================================================================
 //
@@ -646,3 +646,79 @@ def ONNXRMSLayerNormalizationOp:ONNX_Op<"RMSLayerNormalization",
   }];
   let hasVerifier = 1;
 }
+
+//===----------------------------------------------------------------------===//
+// ONNXUpsampleAndPadOp
+def ONNXUpsampleAndPadOp : ONNX_Op<"UpsampleAndPad",
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+   DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let hasCanonicalizer = 1;
+  let summary = "ONNX UpsampleAndPad operation";
+  let description = [{
+    This operation performs upsampling followed by padding on an n-dimensional tensor.
+
+    Given an input tensor X of rank n, strides of size k, and pads of size 2*k,
+    the operation proceeds in two steps:
+
+    1. Upsampling: For each of the innermost k dimensions, insert zeros between
+       elements according to the stride values. The upsampled size for dimension i is:
+       upsampled_size[i] = (input_size[i] - 1) * strides[i] + 1
+
+    2. Padding: Apply constant padding (value=0) to the upsampled result.
+       The first k elements of pads specify the beginning padding, and the last k
+       elements specify the ending padding for each of the innermost k dimensions.
+
+    Example for 2D case with X=(N,C,H,W) and strides=(sH,sW):
+      H_up = (H - 1) * sH + 1
+      W_up = (W - 1) * sW + 1
+      x_up[:, :, ::sH, ::sW] = x  (with zeros elsewhere)
+      output = pad(x_up, pads)
+    Optional attributes:
+    - strides: If not specified, defaults to all 1s (no upsampling).
+    - pads: If not specified, defaults to all 0s (no padding).
+
+    Constraints:
+    - k <= n (number of stride dimensions must not exceed input rank)
+    - pads must have size 2*k
+    - All stride values must be positive
+
+    This operation is not part of the standard and was added to assist onnx-mlir.
+  }];
+
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>,
+                                   TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>,
+                                   TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>,
+                                   TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X,
+                       OptionalAttr<I64ArrayAttr>:$strides,
+                       OptionalAttr<I64ArrayAttr>:$pads);
+
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>,
+                                  TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>,
+                                  TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>,
+                                  TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
+
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {30};
+    }
+  }];
+
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ONNXUpsampleAndPadOp::getShapeHelper(mlir::Operation *op,
+        llvm::ArrayRef<mlir::Value> oper,
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXUpsampleAndPadOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+
+  let hasVerifier = 1;
+}
+

@@ -4,7 +4,7 @@
 
 //===---------------- ONNXShapeHelper.hpp - help for shapes ---------------===//
 //
-// Copyright 2020-2024 The IBM Research Authors.
+// Copyright 2020-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -344,6 +344,9 @@ mlir::LogicalResult inferShapeForUnaryOps(mlir::Operation *op);
 // Same as above, but allow a type change.
 mlir::LogicalResult inferShapeForUnaryOps(
     mlir::Operation *op, mlir::Type elementType);
+// Same as above, but allow an encoding change.
+mlir::LogicalResult inferShapeForUnaryOps(
+    mlir::Operation *op, mlir::Attribute encoding);
 // Same as above, but allow a type and encoding change.
 mlir::LogicalResult inferShapeForUnaryOps(
     mlir::Operation *op, mlir::Type elementType, mlir::Attribute encoding);
@@ -482,7 +485,7 @@ struct ONNXConvTransposeOpShapeHelper : public ONNXOpShapeHelper {
   virtual ~ONNXConvTransposeOpShapeHelper() {}
   mlir::LogicalResult computeShape() final;
   // Values set by computeShape.
-  llvm::SmallVector<IndexExpr, 2> kernelShape;
+  llvm::SmallVector<IndexExpr, 4> kernelShape;
   llvm::SmallVector<IndexExpr, 4> pads;
   llvm::SmallVector<int64_t, 2> strides;
   llvm::SmallVector<int64_t, 2> dilations;
@@ -893,6 +896,7 @@ using ONNXSpaceToDepthOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXSpa
 using ONNXTileOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTileOp>;
 using ONNXTopKOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTopKOp>;
 using ONNXTransposeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTransposeOp>;
+using ONNXUpsampleAndPadOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXUpsampleAndPadOp>;
 using ONNXUpsampleOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXUpsampleOp>;
 // clang-format on
 

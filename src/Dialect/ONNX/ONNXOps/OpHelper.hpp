@@ -4,7 +4,7 @@
 
 //===---------- OpHelper.hpp - Helper functions for ONNX dialects ---------===//
 //
-// Copyright 2019-2025 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -78,6 +78,10 @@ mlir::Type convertTensorTypeToTensorTypeWithEncoding(
 
 /// Return true if the tensor is a ONNX tensor (having ONNXTensorEncodingAttr).
 bool isONNXTensor(const mlir::Type type);
+
+/// Get a tensor encoding attribute from a type.
+/// Returns null-attribute if there is no encoding.
+mlir::Attribute getTensorEncoding(mlir::Type type);
 
 /// Get a ONNX tensor encoding attribute from a type.Returns null-attribute for
 /// any type without an encoding.
@@ -248,6 +252,20 @@ mlir::ArrayAttr createArrayAttrFromConstantOp(mlir::ONNXConstantOp constOp);
 
 // Check whether a value is produced by a dense ONNXConstantOp.
 bool isDenseONNXConstant(mlir::Value result);
+
+// Check whether an ArrayAttr contains all ones.
+bool hasAllOnesInArrayAttr(mlir::ArrayAttr arrayAttr);
+
+// Check whether an ArrayAttr contains all zeros.
+bool hasAllZerosInArrayAttr(mlir::ArrayAttr arrayAttr);
+
+// Check whether an ArrayAttr contains non-zero values.
+bool hasNonZeroInArrayAttr(mlir::ArrayAttr arrayAttr);
+
+// Create full pads array for all dimensions by prepending zeros for outer
+// dimensions.
+mlir::DenseElementsAttr createFullPadsForAllDims(
+    mlir::PatternRewriter &rewriter, mlir::Value input, mlir::ArrayAttr pads);
 
 // Get scalar value when it is a constant.
 template <typename RESULT_TYPE>

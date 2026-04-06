@@ -627,6 +627,18 @@ LogicalResult ONNXConvTransposeOp::verify() {
       return emitOpError("Channel In (C) of input must be equal 1st dim "
                          "of weights");
     }
+    // When output_shape is provided, input spatial dimensions must be static.
+    // As otherwise the pad sizes are themselves dynamic.
+    if (getOutputShape().has_value()) {
+      for (int64_t i = 2; i < static_cast<int64_t>(xShape.size()); ++i) {
+        if (xShape[i] == ShapedType::kDynamic) {
+          return emitOpError("When output_shape is provided, input spatial "
+                             "dimensions must "
+                             "be static (dimension ")
+                 << i << " is dynamic)";
+        }
+      }
+    }
   }
   if (hasBias && hasShapeAndRank(B)) {
     auto bShape = mlir::cast<ShapedType>(B.getType()).getShape();

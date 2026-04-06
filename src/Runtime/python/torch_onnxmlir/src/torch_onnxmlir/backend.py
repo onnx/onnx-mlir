@@ -202,8 +202,9 @@ def generate_hash_key(
                         else:
                             shape.append(s)
                     shape_str = ",".join(shape)
+                    dtype = node.meta["example_value"].dtype
                     node_info.append(
-                        f"om_placeholder_{placeholder_counter}_[{shape_str}]"
+                        f"om_placeholder_{placeholder_counter}_[{shape_str}]_{dtype}"
                     )
                 else:
                     node_info.append(f"om_placeholder_{placeholder_counter}")
