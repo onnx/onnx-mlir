@@ -38,6 +38,7 @@ public:
     Slice,
     Dequantize,
     Quantize,
+    List,
   };
 
   Transform(Kind k, mlir::ArrayRef<int64_t> inShape,
@@ -48,8 +49,7 @@ public:
   virtual mlir::Attribute toAttr(mlir::MLIRContext *context) const = 0;
 
   // Op conversions
-  static mlir::SmallVector<std::unique_ptr<Transform>> fromOp(
-      mlir::Operation *op);
+  static std::unique_ptr<Transform> fromOp(mlir::Operation *op);
   // virtual mlir::Operation *toOp(
   //     mlir::OpBuilder &builder, mlir::Value) const = 0;
 
@@ -181,6 +181,27 @@ private:
   mlir::SmallVector<int64_t> axes;
 };
 
+/// A convenience transform to hold multiple transforms
+class ListTransform : public Transform {
+public:
+  ListTransform(mlir::SmallVector<std::unique_ptr<Transform>> &&transforms);
+
+  mlir::Attribute toAttr(mlir::MLIRContext *context) const override;
+
+  // mlir::Operation *toOp(
+  //     mlir::OpBuilder &builder, mlir::Value value) const override;
+
+  [[nodiscard]] std::unique_ptr<Transform> invert() const override;
+
+  static bool classof(const Transform *transform) {
+    return transform->getKind() == Kind::List;
+  }
+
+private:
+  friend class TensorName;
+  mlir::SmallVector<std::unique_ptr<Transform>> transforms;
+};
+
 /// A TensorName represents the name of a tensor along with the sequence of
 /// transformations that have been applied to it.
 class TensorName {
@@ -210,9 +231,7 @@ public:
   }
 
   /// Add new transform at the end of list of tranforms
-  void push_back(std::unique_ptr<Transform> transform) {
-    transforms.push_back(std::move(transform));
-  }
+  void push_back(std::unique_ptr<Transform> transform);
 
   /// Attribute conversion
   [[nodiscard]] mlir::Attribute toAttr(mlir::MLIRContext *context) const;

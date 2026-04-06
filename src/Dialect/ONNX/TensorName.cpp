@@ -32,7 +32,7 @@ std::unique_ptr<Transform> Transform::fromAttr(ArrayAttr arrayAttr) {
   return {};
 }
 
-SmallVector<std::unique_ptr<Transform>> Transform::fromOp(Operation *op) {
+std::unique_ptr<Transform> Transform::fromOp(Operation *op) {
   return {};
 }
 
@@ -250,6 +250,24 @@ std::unique_ptr<Transform> SliceTransform::invert() const {
       outShape, starts, padEnds, axes, Attribute(), inShape);
 }
 
+// == List == //
+
+ListTransform::ListTransform(
+    SmallVector<std::unique_ptr<Transform>> &&transforms)
+    : Transform(Kind::List, {}, {}), transforms(std::move(transforms)) {}
+
+mlir::Attribute ListTransform::toAttr(MLIRContext * /*context*/) const {
+  llvm_unreachable(
+      "ListTransform should not be directly converted to attribute");
+}
+
+std::unique_ptr<Transform> ListTransform::invert() const {
+  SmallVector<std::unique_ptr<Transform>> trans;
+  for (const auto &transform : llvm::reverse(transforms))
+    trans.push_back(transform->invert());
+  return std::make_unique<ListTransform>(std::move(trans));
+}
+
 // == TensorName == //
 
 TensorName::TensorName(std::string name) : name(std::move(name)) {}
@@ -294,11 +312,10 @@ TensorName TensorName::inferWithUse(Value value) {
     return tname;
 
   Operation *op = *value.user_begin();
-  if (auto transforms = Transform::fromOp(op); transforms.size()) {
+  if (auto transform = Transform::fromOp(op)) {
     tname = inferWithUse(op->getResult(0));
     if (tname) {
-      for (auto &transform : llvm::reverse(transforms))
-        tname.push_back(transform->invert());
+      tname.push_back(transform->invert());
       (void)tname.setTo(value);
     }
   }
@@ -312,16 +329,25 @@ TensorName TensorName::inferWithDef(Value value) {
     return tname;
 
   Operation *op = value.getDefiningOp();
-  if (auto transforms = Transform::fromOp(op); transforms.size()) {
+  if (auto transform = Transform::fromOp(op)) {
     tname = inferWithDef(op->getOperand(0));
     if (tname) {
-      for (auto &transform : transforms)
-        tname.push_back(std::move(transform));
+      tname.push_back(std::move(transform));
       (void)tname.setTo(value);
     }
   }
 
   return tname;
+}
+
+void TensorName::push_back(std::unique_ptr<Transform> transform) {
+  if (auto *list = dyn_cast<ListTransform>(transform.get())) {
+    for (auto &it : list->transforms) {
+      transforms.push_back(std::move(it));
+    }
+    return;
+  }
+  transforms.push_back(std::move(transform));
 }
 
 Attribute TensorName::toAttr(MLIRContext *context) const {
