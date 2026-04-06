@@ -37,7 +37,7 @@ std::unique_ptr<Transform> Transform::fromAttr(ArrayAttr arrayAttr) {
 }
 
 std::unique_ptr<Transform> Transform::fromOp(Operation *op) {
-  if (auto nameInf = dyn_cast<mlir::TensorNameInference>(op))
+  if (auto nameInf = dyn_cast_if_present<mlir::TensorNameInference>(op))
     return nameInf.inferTensorNameTransform();
   return {};
 }
