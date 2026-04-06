@@ -3,10 +3,14 @@
 #include <memory>
 #include <numeric>
 
-#include "mlir/IR/BuiltinTypes.h"
-#include "mlir/IR/TypeUtilities.h"
+#include <llvm/ADT/SmallVectorExtras.h>
+#include <llvm/Support/ErrorHandling.h>
+#include <mlir/IR/BuiltinTypes.h>
+#include <mlir/IR/TypeUtilities.h>
+
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/TensorName.hpp"
+#include "src/Interface/TensorNameInference.hpp"
 
 using namespace mlir;
 
@@ -33,6 +37,8 @@ std::unique_ptr<Transform> Transform::fromAttr(ArrayAttr arrayAttr) {
 }
 
 std::unique_ptr<Transform> Transform::fromOp(Operation *op) {
+  if (auto nameInf = dyn_cast<mlir::TensorNameInference>(op))
+    return nameInf.inferTensorNameTransform();
   return {};
 }
 
@@ -93,11 +99,6 @@ ReshapeTransform::ReshapeTransform(
     ArrayRef<int64_t> inShape, ArrayRef<int64_t> outShape)
     : Transform(Kind::Reshape, inShape, outShape) {}
 
-ReshapeTransform::ReshapeTransform(ONNXReshapeOp reshapeOp)
-    : ReshapeTransform(
-          cast<RankedTensorType>(reshapeOp.getData().getType()).getShape(),
-          cast<RankedTensorType>(reshapeOp.getResult().getType()).getShape()) {}
-
 ReshapeTransform::ReshapeTransform(ArrayAttr attr)
     : ReshapeTransform(arrayToVector(cast<ArrayAttr>(attr[1])),
           arrayToVector(cast<ArrayAttr>(attr[2]))) {}
@@ -117,13 +118,6 @@ std::unique_ptr<Transform> ReshapeTransform::invert() const {
 TransposeTransform::TransposeTransform(ArrayRef<int64_t> inShape,
     ArrayRef<int64_t> perm, ArrayRef<int64_t> outShape)
     : Transform(Kind::Transpose, inShape, outShape), perm(perm) {}
-
-TransposeTransform::TransposeTransform(ONNXTransposeOp transposeOp)
-    : TransposeTransform(
-          cast<RankedTensorType>(transposeOp.getData().getType()).getShape(),
-          arrayToVector(transposeOp.getPermAttr()),
-          cast<RankedTensorType>(transposeOp.getResult().getType())
-              .getShape()) {}
 
 TransposeTransform::TransposeTransform(ArrayAttr attr)
     : TransposeTransform(arrayToVector(cast<ArrayAttr>(attr[1])),
@@ -154,25 +148,6 @@ PadTransform::PadTransform(ArrayRef<int64_t> inShape, ArrayRef<int64_t> starts,
     ArrayRef<int64_t> outShape)
     : Transform(Kind::Pad, inShape, outShape), starts(starts), ends(ends),
       axes(axes), constant(constant) {}
-
-PadTransform::PadTransform(ONNXPadOp padOp)
-    : Transform(Kind::Pad,
-          cast<RankedTensorType>(padOp.getData().getType()).getShape(),
-          cast<RankedTensorType>(padOp.getOutput().getType()).getShape()),
-      axes(axesToVector(padOp.getAxes(), inShape.size())) {
-  // In Pad op, pads = [x1_start, x2_start, ..., x1_end, x2_end, ...]
-  auto pads = valToVector(padOp.getPads());
-  auto splitAt = pads.size() / 2;
-  starts = SmallVector<int64_t>(pads.begin(), pads.begin() + splitAt);
-  ends = SmallVector<int64_t>(pads.begin() + splitAt, pads.end());
-
-  auto constVal = padOp.getConstantValue();
-  if (!isa<NoneType>(constVal.getType())) {
-    if (auto constOp = constVal.getDefiningOp<ONNXConstantOp>()) {
-      constant = constOp.getValueAttr();
-    }
-  }
-}
 
 PadTransform::PadTransform(ArrayAttr attr)
     : PadTransform(arrayToVector(cast<ArrayAttr>(attr[1])),
@@ -210,18 +185,6 @@ SliceTransform::SliceTransform(ArrayRef<int64_t> inShape,
     ArrayRef<int64_t> outShape)
     : Transform(Kind::Slice, inShape, outShape), starts(starts), ends(ends),
       axes(axes) {}
-
-SliceTransform::SliceTransform(ONNXSliceOp sliceOp)
-    : Transform(Kind::Slice,
-          cast<RankedTensorType>(sliceOp.getData().getType()).getShape(),
-          cast<RankedTensorType>(sliceOp.getOutput().getType()).getShape()),
-      starts(valToVector(sliceOp.getStarts())),
-      ends(valToVector(sliceOp.getEnds())),
-      axes(axesToVector(sliceOp.getAxes(), inShape.size())) {
-  // Clip end values
-  for (const auto &[ax, en] : llvm::zip_equal(axes, ends))
-    en = std::min(en, inShape[ax]);
-}
 
 SliceTransform::SliceTransform(ArrayAttr attr)
     : SliceTransform(arrayToVector(cast<ArrayAttr>(attr[1])),

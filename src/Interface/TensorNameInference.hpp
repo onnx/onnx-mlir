@@ -23,17 +23,17 @@ public:
       mlir::Operation *op) const;
 };
 
-class SliceOpTensorNameInference
-    : public mlir::TensorNameInference::ExternalModel<
-          SliceOpTensorNameInference, mlir::ONNXSliceOp> {
+class PadOpTensorNameInference
+    : public mlir::TensorNameInference::ExternalModel<PadOpTensorNameInference,
+          mlir::ONNXPadOp> {
 public:
   std::unique_ptr<onnx_mlir::Transform> inferTensorNameTransform(
       mlir::Operation *op) const;
 };
 
-class PadOpTensorNameInference
-    : public mlir::TensorNameInference::ExternalModel<PadOpTensorNameInference,
-          mlir::ONNXPadOp> {
+class SliceOpTensorNameInference
+    : public mlir::TensorNameInference::ExternalModel<
+          SliceOpTensorNameInference, mlir::ONNXSliceOp> {
 public:
   std::unique_ptr<onnx_mlir::Transform> inferTensorNameTransform(
       mlir::Operation *op) const;

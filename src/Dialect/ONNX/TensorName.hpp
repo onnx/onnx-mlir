@@ -90,7 +90,6 @@ public:
   ReshapeTransform(mlir::ArrayAttr attr);
   mlir::Attribute toAttr(mlir::MLIRContext *context) const override;
 
-  ReshapeTransform(mlir::ONNXReshapeOp reshapeOp);
   // mlir::Operation *toOp(
   //     mlir::OpBuilder &builder, mlir::Value value) const override;
 
@@ -109,7 +108,6 @@ public:
   TransposeTransform(mlir::ArrayAttr attr);
   mlir::Attribute toAttr(mlir::MLIRContext *context) const override;
 
-  TransposeTransform(mlir::ONNXTransposeOp transposeOp);
   // mlir::Operation *toOp(
   //     mlir::OpBuilder &builder, mlir::Value value) const override;
 
@@ -133,7 +131,6 @@ public:
   PadTransform(mlir::ArrayAttr attr);
   mlir::Attribute toAttr(mlir::MLIRContext *context) const override;
 
-  PadTransform(mlir::ONNXPadOp padOp);
   // mlir::Operation *toOp(
   //     mlir::OpBuilder &builder, mlir::Value value) const override;
 
@@ -162,7 +159,6 @@ public:
   SliceTransform(mlir::ArrayAttr attr);
   mlir::Attribute toAttr(mlir::MLIRContext *context) const override;
 
-  SliceTransform(mlir::ONNXSliceOp sliceOp);
   // mlir::Operation *toOp(
   //     mlir::OpBuilder &builder, mlir::Value value) const override;
 
