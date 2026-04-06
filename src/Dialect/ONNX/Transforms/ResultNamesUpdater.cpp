@@ -1,12 +1,14 @@
 // Copyright (C) 2022 - 2025 Advanced Micro Devices, Inc. All rights reserved.
 
 #include <deque>
+#include <memory>
 #include <unordered_set>
 
 #include <llvm/ADT/STLExtras.h>
 #include <mlir/IR/BuiltinAttributes.h>
 #include <mlir/IR/MLIRContext.h>
 #include <mlir/IR/Value.h>
+#include <mlir/Pass/Pass.h>
 #include <mlir/Support/LLVM.h>
 
 #include "src/Dialect/ONNX/TensorName.hpp"
@@ -109,6 +111,24 @@ void ResultNamesUpdater::notifyOperationReplaced(
           inferenceVals.end(), defOp->operand_begin(), defOp->operand_end());
   }
   inferTensorNames(inferenceVals);
+}
+
+class InferTensorNamesPass
+    : public PassWrapper<InferTensorNamesPass, OperationPass<func::FuncOp>> {
+public:
+  StringRef getArgument() const override { return "onnx-infer-tensornames"; }
+
+  void runOnOperation() override {
+    func::FuncOp func = getOperation();
+    func->walk([](Operation *op) {
+      for (auto result : op->getResults())
+        TensorName::infer(result);
+    });
+  }
+};
+
+std::unique_ptr<mlir::Pass> createInferTensorNames() {
+  return std::make_unique<InferTensorNamesPass>();
 }
 
 } // namespace onnx_mlir
