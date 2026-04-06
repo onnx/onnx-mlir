@@ -49,6 +49,12 @@ def IsBiasNoneOr1D : Constraint<
 	"  mlir::cast<ShapedType>($_self.getType()).getRank() == 1)">
 >;
 
+// Generic constraint to check if an operation is NOT marked for CPU execution
+def IsNotMarkedForCPU: Constraint<
+  CPred<"!isMarkedForCPU($0.getDefiningOp())">,
+  "Operation is not marked for CPU execution"
+>;
+
 class VariadicSizeIs<int N> : Constraint<
   CPred<"$0.size() == " # N>, "The variadic operand's size is N"
 >;
@@ -425,9 +431,11 @@ def replaceONNXSoftmax3DPattern : Pat<
 //===----------------------------------------------------------------------===//
 def IsSoftmaxLegalForZDNN: Constraint<
   CPred<"isSuitableForZDNN<ONNXSoftmaxOp>(" #
-             "dyn_cast_or_null<ONNXSoftmaxOp>($0.getDefiningOp()))">,
-  "Softmax is legal for zDNN"
+             "dyn_cast_or_null<ONNXSoftmaxOp>($0.getDefiningOp())) && " #
+        "!isMarkedForCPU($0.getDefiningOp())">,
+  "Softmax is legal for zDNN and not marked for CPU"
 >;
+
 def replaceONNXLogSoftmaxPattern : Pattern<
   (ONNXLogOp:$res (ONNXSoftmaxOp:$s $x, $axis)),
   [
@@ -594,8 +602,9 @@ def GetMatMulBiasLayoutStringAttr : NativeCodeCall<
 
 def IsMatMulLegalForZDNN: Constraint<
   CPred<"isSuitableForZDNN<ONNXMatMulOp>(" #
-             "dyn_cast_or_null<ONNXMatMulOp>($0.getDefiningOp()))">,
-  "MatMul is legal for zDNN"
+             "dyn_cast_or_null<ONNXMatMulOp>($0.getDefiningOp())) && " #
+        "!isMarkedForCPU($0.getDefiningOp())">,
+  "MatMul is legal for zDNN and not marked for CPU"
 >;
 
 def replaceONNXMatMulPattern : Pat<
@@ -1336,8 +1345,9 @@ def replaceONNXConv2DPattern : Pattern<
 
 def IsConv2DLegalForZDNN: Constraint<
   CPred<"isSuitableForZDNN<ONNXConvOp>(" #
-             "dyn_cast_or_null<ONNXConvOp>($0.getDefiningOp()))">,
-  "Conv is legal for zDNN"
+             "dyn_cast_or_null<ONNXConvOp>($0.getDefiningOp())) && " #
+        "!isMarkedForCPU($0.getDefiningOp())">,
+  "Conv is legal for zDNN and not marked for CPU"
 >;
 
 def replaceONNXReluConvPattern : Pattern<
