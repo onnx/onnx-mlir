@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include <memory>
+
+#include <mlir/IR/DialectRegistry.h>
+
 #include "src/Dialect/ONNX/TensorName.hpp"
 #include "src/Interface/TensorNameInference.hpp.inc"
 
@@ -38,5 +42,7 @@ public:
   std::unique_ptr<onnx_mlir::Transform> inferTensorNameTransform(
       mlir::Operation *op) const;
 };
+
+void registerTensorNameInferenceExternalModels(mlir::DialectRegistry &registry);
 
 } // namespace onnx_mlir

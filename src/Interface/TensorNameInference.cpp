@@ -87,4 +87,15 @@ std::unique_ptr<Transform> SliceOpTensorNameInference::inferTensorNameTransform(
       inShape, starts, ends, axes, outShape);
 }
 
+void registerTensorNameInferenceExternalModels(
+    mlir::DialectRegistry &registry) {
+  registry.addExtension<ONNXDialect>(
+      +[](MLIRContext *ctx, ONNXDialect * /*dialect*/) {
+        ONNXTransposeOp::attachInterface<TransposeOpTensorNameInference>(*ctx);
+        ONNXReshapeOp::attachInterface<ReshapeOpTensorNameInference>(*ctx);
+        ONNXPadOp::attachInterface<PadOpTensorNameInference>(*ctx);
+        ONNXSliceOp::attachInterface<SliceOpTensorNameInference>(*ctx);
+      });
+}
+
 } // namespace onnx_mlir
