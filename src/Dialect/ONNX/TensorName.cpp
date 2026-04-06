@@ -306,7 +306,7 @@ TensorName TensorName::inferWithDef(Value value) {
 void TensorName::push_back(std::unique_ptr<Transform> transform) {
   if (auto *list = dyn_cast<ListTransform>(transform.get())) {
     for (auto &it : list->transforms) {
-      transforms.push_back(std::move(it));
+      push_back(std::move(it));
     }
     return;
   }
