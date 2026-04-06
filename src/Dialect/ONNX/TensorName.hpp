@@ -50,8 +50,6 @@ public:
 
   // Op conversions
   static std::unique_ptr<Transform> fromOp(mlir::Operation *op);
-  // virtual mlir::Operation *toOp(
-  //     mlir::OpBuilder &builder, mlir::Value) const = 0;
 
   /// Creates a new transform which is inversion of the current transform
   [[nodiscard]] virtual std::unique_ptr<Transform> invert() const = 0;
@@ -90,9 +88,6 @@ public:
   ReshapeTransform(mlir::ArrayAttr attr);
   mlir::Attribute toAttr(mlir::MLIRContext *context) const override;
 
-  // mlir::Operation *toOp(
-  //     mlir::OpBuilder &builder, mlir::Value value) const override;
-
   [[nodiscard]] std::unique_ptr<Transform> invert() const override;
 
   static bool classof(const Transform *transform) {
@@ -107,9 +102,6 @@ public:
 
   TransposeTransform(mlir::ArrayAttr attr);
   mlir::Attribute toAttr(mlir::MLIRContext *context) const override;
-
-  // mlir::Operation *toOp(
-  //     mlir::OpBuilder &builder, mlir::Value value) const override;
 
   [[nodiscard]] std::unique_ptr<Transform> invert() const override;
   static bool classof(const Transform *transform) {
@@ -130,9 +122,6 @@ public:
 
   PadTransform(mlir::ArrayAttr attr);
   mlir::Attribute toAttr(mlir::MLIRContext *context) const override;
-
-  // mlir::Operation *toOp(
-  //     mlir::OpBuilder &builder, mlir::Value value) const override;
 
   [[nodiscard]] std::unique_ptr<Transform> invert() const override;
   static bool classof(const Transform *transform) {
@@ -159,9 +148,6 @@ public:
   SliceTransform(mlir::ArrayAttr attr);
   mlir::Attribute toAttr(mlir::MLIRContext *context) const override;
 
-  // mlir::Operation *toOp(
-  //     mlir::OpBuilder &builder, mlir::Value value) const override;
-
   [[nodiscard]] std::unique_ptr<Transform> invert() const override;
   static bool classof(const Transform *transform) {
     return transform->getKind() == Kind::Slice;
@@ -183,9 +169,6 @@ public:
   ListTransform(mlir::SmallVector<std::unique_ptr<Transform>> &&transforms);
 
   mlir::Attribute toAttr(mlir::MLIRContext *context) const override;
-
-  // mlir::Operation *toOp(
-  //     mlir::OpBuilder &builder, mlir::Value value) const override;
 
   [[nodiscard]] std::unique_ptr<Transform> invert() const override;
 
