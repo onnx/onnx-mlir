@@ -47,16 +47,18 @@ std::unique_ptr<Transform> PadOpTensorNameInference::inferTensorNameTransform(
 
   // Only mode = "constant" is supported
   if (padOp.getMode() != "constant")
-    return {};
+    return nullptr;
   auto constOp = padOp.getConstantValue().getDefiningOp<ONNXConstantOp>();
   if (!constOp)
-    return {};
+    return nullptr;
   Attribute constant = constOp.getValueAttr();
   if (!constant)
-    return {};
+    return nullptr;
+  auto pads = Transform::valToVector(padOp.getPads());
+  if (pads.size() == 0)
+    return nullptr;
 
   auto inShape = cast<RankedTensorType>(padOp.getData().getType()).getShape();
-  auto pads = Transform::valToVector(padOp.getPads());
   auto splitAt = pads.size() / 2;
   auto starts = SmallVector<int64_t>(pads.begin(), pads.begin() + splitAt);
   auto ends = SmallVector<int64_t>(pads.begin() + splitAt, pads.end());
@@ -78,6 +80,11 @@ std::unique_ptr<Transform> SliceOpTensorNameInference::inferTensorNameTransform(
   auto axes = Transform::axesToVector(sliceOp.getAxes(), inShape.size());
   auto outShape =
       cast<RankedTensorType>(sliceOp.getResult().getType()).getShape();
+
+  if (starts.size() == 0 || ends.size() == 0 ||
+      llvm::any_of(Transform::valToVector(sliceOp.getSteps()),
+          [](int64_t s) { return s != 1; }))
+    return nullptr;
 
   // Clip end values
   for (const auto &[ax, en] : llvm::zip_equal(axes, ends))
