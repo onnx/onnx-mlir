@@ -191,6 +191,9 @@ void registerOMPasses(int optLevel) {
     return createOptimizeOnnxRequantizationPass();
   });
 
+  mlir::registerPass(
+      []() -> std::unique_ptr<mlir::Pass> { return createDQBinaryQOptPass(); });
+
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createConvertSCastPairToRequantizePass();
   });
