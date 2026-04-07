@@ -105,8 +105,10 @@ LogicalResult getScaleValue(ConversionPatternRewriter &rewriter, Operation *op,
 
 class ONNXResizeOpLoweringToTOSA : public ConversionPattern {
 public:
-  ONNXResizeOpLoweringToTOSA(MLIRContext *ctx)
-      : ConversionPattern(ONNXResizeOp::getOperationName(), 1, ctx) {}
+  ONNXResizeOpLoweringToTOSA(
+      const TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, ONNXResizeOp::getOperationName(), 1, ctx) {}
   using OpAdaptor = typename ONNXResizeOp::Adaptor;
 
   struct FractionNumber {
@@ -332,10 +334,10 @@ public:
 
 } // namespace
 
-void populateLoweringONNXResizeOpToTOSAPattern(ConversionTarget &target,
+void populateLoweringONNXResizeOpToTOSAPattern(ConversionTarget & /*target*/,
     RewritePatternSet &patterns, TypeConverter &typeConverter,
     MLIRContext *ctx) {
-  patterns.insert<ONNXResizeOpLoweringToTOSA>(ctx);
+  patterns.insert<ONNXResizeOpLoweringToTOSA>(typeConverter, ctx);
 }
 
 } // namespace onnx_mlir

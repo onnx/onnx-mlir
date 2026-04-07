@@ -12,8 +12,8 @@
 //   1. XCOMPILERFusedEltwiseOp — quantized activations lowered by
 //      ReplaceQDQEltwisePass / ReplaceHsigmoidAndHswishPass
 //   2. Raw ONNX activation ops (ONNXReluOp, ONNXLeakyReluOp,
-//      ONNXHardSigmoidOp) — non-quantized activations that were not
-//      converted to FusedEltwise
+//      ONNXHardSigmoidOp, ONNXClipOp with constant min=0, max=6 for RELU6) —
+//      activations that were not converted to FusedEltwise
 //
 // A single pattern per conv type walks the conv's unique user and checks
 // whether it is a fuseable activation of either kind.
@@ -36,6 +36,9 @@
 #include "src/Pass/Passes.hpp"
 
 #include "llvm/Support/Debug.h"
+
+#include <cmath>
+#include <optional>
 
 #define DEBUG_TYPE "fuse-conv-activation"
 
@@ -80,6 +83,44 @@ static bool convPadsNonNegative(ConvOp convOp) {
     }
   }
   return true;
+
+/// Scalar onnx.Constant (splat or one element) as int64, for Clip min/max.
+static std::optional<int64_t> clipBoundAsI64(Value v) {
+  if (!v || isa<NoneType>(v.getType()))
+    return std::nullopt;
+
+  auto cst = v.getDefiningOp<ONNXConstantOp>();
+  if (!cst)
+    return std::nullopt;
+
+  auto elementsAttr = dyn_cast_or_null<ElementsAttr>(cst.getValueAttr());
+  if (!elementsAttr)
+    return std::nullopt;
+
+  if (elementsAttr.isSplat()) {
+    Type et = elementsAttr.getElementType();
+    if (isa<FloatType>(et)) {
+      APFloat apf = elementsAttr.getSplatValue<APFloat>();
+      return static_cast<int64_t>(std::llround(apf.convertToDouble()));
+    }
+    if (auto it = dyn_cast<IntegerType>(et)) {
+      APInt api = elementsAttr.getSplatValue<APInt>();
+      return static_cast<int64_t>(
+          it.isUnsigned() ? api.getZExtValue() : api.getSExtValue());
+    }
+    return std::nullopt;
+  }
+
+  auto shapedTy = dyn_cast<ShapedType>(elementsAttr.getType());
+  if (!shapedTy || !shapedTy.hasStaticShape() || shapedTy.getNumElements() != 1)
+    return std::nullopt;
+
+  Attribute firstAttr = *elementsAttr.getValues<Attribute>().begin();
+  if (auto f = dyn_cast<FloatAttr>(firstAttr))
+    return static_cast<int64_t>(std::llround(f.getValueAsDouble()));
+  if (auto i = dyn_cast<IntegerAttr>(firstAttr))
+    return static_cast<int64_t>(i.getInt());
+  return std::nullopt;
 }
 
 /// Try to identify a fuseable activation from an operation.
@@ -106,7 +147,9 @@ static ActivationInfo getActivationInfo(Operation *op) {
       info.activationType = "RELU";
     else if (opType == "LEAKYRELU")
       info.activationType = "LEAKYRELU";
-    else if (opType == "CLIP")
+    else if (opType == "CLIP" &&
+             fusedOp.getClipMin() == std::optional<int64_t>(0) &&
+             fusedOp.getClipMax() == std::optional<int64_t>(6))
       info.activationType = "RELU6";
     else if (opType == "SIGMOID")
       info.activationType = "SIGMOID";
@@ -143,6 +186,15 @@ static ActivationInfo getActivationInfo(Operation *op) {
   if (isa<ONNXHardSigmoidOp>(op)) {
     info.activationType = "HSIGMOID";
     info.output = op->getResult(0);
+    return info;
+  }
+  if (auto clipOp = dyn_cast<ONNXClipOp>(op)) {
+    std::optional<int64_t> cmin = clipBoundAsI64(clipOp.getMin());
+    std::optional<int64_t> cmax = clipBoundAsI64(clipOp.getMax());
+    if (cmin != std::optional<int64_t>(0) || cmax != std::optional<int64_t>(6))
+      return info;
+    info.activationType = "RELU6";
+    info.output = clipOp.getResult();
     return info;
   }
 

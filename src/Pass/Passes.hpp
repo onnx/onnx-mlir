@@ -71,6 +71,8 @@ std::unique_ptr<mlir::Pass> createQuantTypesPass();
 
 std::unique_ptr<mlir::Pass> createFixNegScalePass();
 
+std::unique_ptr<mlir::Pass> createInferTensorNames();
+
 #ifdef ONNX_MLIR_ENABLE_KRNL
 /// Pass for instrument the ops in specific stage.
 std::unique_ptr<mlir::Pass> createInstrumentPass();
@@ -150,6 +152,10 @@ std::unique_ptr<mlir::Pass> createRemoveUselessQLinearPoolPass();
 
 /// Pass for replacing quantized HardSigmoid with XCOMPILERFusedEltwise.
 std::unique_ptr<mlir::Pass> createReplaceHsigmoidAndHswishPass();
+
+/// Pass for replacing quantized Erf-based GELU subgraph with
+/// XCOMPILERFusedEltwise(GELU).
+std::unique_ptr<mlir::Pass> createReplaceErfToGeluPass();
 
 /// Pass for replacing quantized Sigmoid with XCOMPILERFusedEltwise
 /// QLINEARSIGMOID.

@@ -62,6 +62,7 @@ add_onnx_mlir_library(OMONNXRewrite
   xmc/MergeContinuousStridedSlice.cpp
   xmc/RemoveContinuousTransposeWithReshape.cpp
   xmc/RemoveUselessQLinearPoolPass.cpp
+  xmc/ReplaceErfToGeluPass.cpp
   xmc/ReplaceHsigmoidAndHswishPass.cpp
   xmc/ReplaceQDQSigmoidPass.cpp
   xmc/ReplaceQDQEltwisePass.cpp

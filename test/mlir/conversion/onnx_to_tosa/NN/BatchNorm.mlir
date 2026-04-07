@@ -116,3 +116,18 @@ func.func @test_batchnorm_f64(%arg0: tensor<100x3x10x10xf64>) -> tensor<100x3x10
 // CHECK-NEXT: [[VAR_14_:%.+]]  = tosa.add [[VAR_13_]], [[VAR_6_]] : (tensor<100x3x10x10xf64>, tensor<1x3x1x1xf64>) -> tensor<100x3x10x10xf64>
 // CHECK-NEXT: return [[VAR_14_]] : tensor<100x3x10x10xf64>
 }
+
+// -----
+
+func.func @test_batchnorm_dynamic_input_static_output(%arg0: tensor<?x3x10x10xf32>) -> tensor<1x3x10x10xf32> {
+    %0 = "onnx.Constant"() {value = dense<[1.0, 2.0, 3.0]> : tensor<3xf32>} : () -> tensor<3xf32>
+    %1 = "onnx.Constant"() {value = dense<[2.0, 3.0, 4.0]> : tensor<3xf32>} : () -> tensor<3xf32>
+    %2 = "onnx.Constant"() {value = dense<[3.0, 4.0, 5.0]> : tensor<3xf32>} : () -> tensor<3xf32>
+    %3 = "onnx.Constant"() {value = dense<[4.0, 5.0, 6.0]> : tensor<3xf32>} : () -> tensor<3xf32>
+    %4 = "onnx.BatchNormalizationInferenceMode"(%arg0, %0, %1, %2, %3) {epsilon = 1.00000007E-5 : f32, momentum = 1.00000007E-3 : f32} : (tensor<?x3x10x10xf32>, tensor<3xf32>, tensor<3xf32>, tensor<3xf32>, tensor<3xf32>) -> tensor<1x3x10x10xf32>
+    return %4 : tensor<1x3x10x10xf32>
+// CHECK-LABEL: func @test_batchnorm_dynamic_input_static_output
+// CHECK-SAME:  ([[PARAM_0_:%.+]]: tensor<?x3x10x10xf32>) -> tensor<1x3x10x10xf32>
+// CHECK:       tosa.sub [[PARAM_0_]]
+// CHECK:       return {{.*}} : tensor<1x3x10x10xf32>
+}

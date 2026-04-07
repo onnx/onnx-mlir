@@ -9371,6 +9371,7 @@ def ONNXSliceOp:ONNX_Op<"Slice",
 
 def ONNXSoftmaxOp:ONNX_Op<"Softmax",
   [Pure, OpVersionTrait<13>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Softmax operation";
   let description = [{
   The operator computes the normalized exponential values for the given input:

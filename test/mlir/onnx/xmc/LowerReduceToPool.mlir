@@ -166,3 +166,18 @@ func.func @reduce_sum_larger_spatial(%arg0: tensor<1x32x8x8x!quant.uniform<i8:f3
 // CHECK: "onnx.AveragePool"
 // CHECK: "onnx.Mul"
 // CHECK-NOT: onnx.ReduceSum
+
+//===----------------------------------------------------------------------===//
+// ReduceMeanV13 → AveragePool Tests (attribute-based axes, from
+// GlobalAveragePool canonicalization)
+//===----------------------------------------------------------------------===//
+
+// CHECK-LABEL: @reduce_mean_v13_spatial_hw
+// NCHW: tensor<1x3x4x4> - N=1, C=3, H=4, W=4
+// Reduce axes [2, 3] (H, W) -> output tensor<1x3x1x1>
+func.func @reduce_mean_v13_spatial_hw(%arg0: tensor<1x3x4x4x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<1x3x1x1x!quant.uniform<i8:f32, 0.05:0>> {
+    %0 = "onnx.ReduceMeanV13"(%arg0) {axes = [2, 3], keepdims = 1 : si64} : (tensor<1x3x4x4x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<1x3x1x1x!quant.uniform<i8:f32, 0.05:0>>
+    return %0 : tensor<1x3x1x1x!quant.uniform<i8:f32, 0.05:0>>
+}
+// CHECK: "onnx.AveragePool"
+// CHECK-NOT: onnx.ReduceMeanV13

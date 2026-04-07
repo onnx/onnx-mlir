@@ -85,6 +85,10 @@ void registerOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createReplaceErfToGeluPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createReplaceQDQSigmoidPass();
   });
 
@@ -349,6 +353,7 @@ void registerOMPasses(int optLevel) {
   mlir::registerPass(createQuantTypesPass);
   mlir::registerPass(createONNXCSEPass);
   mlir::registerPass(createFixNegScalePass);
+  mlir::registerPass(createInferTensorNames);
 
   mlir::PassPipelineRegistration<>("xmc-passes", "Run all XMC xcompiler passes",
       [](mlir::OpPassManager &pm) { addXmcMlirPasses(pm); });

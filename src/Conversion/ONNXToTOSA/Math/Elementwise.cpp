@@ -733,9 +733,9 @@ static void populateLoweringONNXElementwiseUnaryTemplateOpToTOSAPattern(
           IsFloat, IsFloat>>(typeConverter, ctx);
 }
 
-void populateLoweringONNXElementwiseOpToTOSAPattern(ConversionTarget &target,
-    RewritePatternSet &patterns, TypeConverter &typeConverter,
-    MLIRContext *ctx) {
+void populateLoweringONNXElementwiseOpToTOSAPattern(
+    ConversionTarget & /*target*/, RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXReluOpLoweringToTOSA, ONNXLeakyReluOpLoweringToTOSA,
       ONNXMulOpLoweringToTosa, ONNXCastOpLoweringToTOSA,
       ONNXClipOpLoweringToTOSA, ONNXDivOpLoweringToTOSA,

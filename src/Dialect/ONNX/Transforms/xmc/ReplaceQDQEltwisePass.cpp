@@ -103,6 +103,9 @@ computeActivationMapping(Operation *op, PatternRewriter &rewriter) {
   return {"", FloatAttr(), IntegerAttr(), IntegerAttr()};
 }
 
+// Forward declare for use before definition.
+bool isFloat32Type(Type type);
+
 // Extract element type from ranked or unranked tensor.
 static Type getElementTypeFromTensor(Type type) {
   if (auto rt = mlir::dyn_cast<RankedTensorType>(type))
@@ -140,6 +143,10 @@ static bool isInputFromPattern2Eltwise(Value v) {
     return false;
   // Check that the activation (user of def's result) has matching quant params.
   // If not, Pattern 2 will reject, so don't defer.
+  // When eltwise output is f32 (mixed-precision boundary), Pattern 2 can
+  // handle it, so always defer.
+  if (isFloat32Type(def->getResult(0).getType()))
+    return true;
   for (Operation *user : def->getResult(0).getUsers()) {
     if (isa<ONNXReluOp, ONNXLeakyReluOp>(user)) {
       if (!hasMatchingQuantParams(
@@ -504,26 +511,32 @@ struct FuseQuantizedEltwiseActivation : public OpRewritePattern<ActivationOp> {
           activationOp, "eltwise op is not unary/binary");
     }
 
-    // Check that eltwise inputs and output are quantized
-    if (!isQuantizedType(eltwiseOp.getResult().getType()))
-      return rewriter.notifyMatchFailure(
-          activationOp, "eltwise output not quantized");
-
+    // Check that eltwise inputs are quantized
     for (auto operand : eltwiseOp->getOperands()) {
       if (!isQuantizedType(operand.getType()))
         return rewriter.notifyMatchFailure(
             activationOp, "eltwise input not quantized");
     }
 
+    // Eltwise output can be quantized or f32 (mixed-precision boundary).
+    // When f32, the activation bridges back to quantized.
+    bool eltwiseOutputIsFloat = isFloat32Type(eltwiseOp.getResult().getType());
+    if (!eltwiseOutputIsFloat &&
+        !isQuantizedType(eltwiseOp.getResult().getType()))
+      return rewriter.notifyMatchFailure(
+          activationOp, "eltwise output not quantized or f32");
+
     // Check activation output is quantized
     if (!isQuantizedType(activationOp.getResult().getType()))
       return rewriter.notifyMatchFailure(
           activationOp, "activation output not quantized");
 
-    // Verify scale/zp consistency between eltwise output and activation output.
-    // If they differ, there's an implicit requantization that would be lost by
-    // fusing.
-    if (!hasMatchingQuantParams(eltwiseOp.getResult().getType(),
+    // When eltwise output is quantized, verify scale/zp consistency with
+    // activation output. If they differ, there's an implicit requantization
+    // that would be lost by fusing. When eltwise output is f32, skip this
+    // check since there are no quant params to compare.
+    if (!eltwiseOutputIsFloat &&
+        !hasMatchingQuantParams(eltwiseOp.getResult().getType(),
             activationOp.getResult().getType()))
       return rewriter.notifyMatchFailure(activationOp,
           "eltwise and activation have different quantization parameters");

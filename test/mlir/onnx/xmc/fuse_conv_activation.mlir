@@ -101,6 +101,130 @@ func.func @test_xfeconv_relu_fusion_same_quant(
 // CHECK-NOT: "onnx.XCOMPILERFusedEltwise"
 
 // -----
+
+// Test: XFEConv + Clip(0,6) → fused as RELU6 (same quant params)
+// CHECK-LABEL: func.func @test_xfeconv_clip_relu6_fusion
+func.func @test_xfeconv_clip_relu6_fusion(
+    %arg0: tensor<1x4x4x8x!quant.uniform<u8:f32, 0.02:128>>,
+    %weight: tensor<16x3x3x8x!quant.uniform<i8:f32, 0.005>>,
+    %bias: tensor<16x!quant.uniform<i32:f32, 1.000000e-04>>,
+    %none: none) -> tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>> {
+
+  %conv = "onnx.XFEConv"(%arg0, %weight, %bias)
+      {activation = "NONE", auto_pad = "NOTSET", dilations = [1, 1],
+       group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1],
+       strides = [1, 1]}
+      : (tensor<1x4x4x8x!quant.uniform<u8:f32, 0.02:128>>,
+         tensor<16x3x3x8x!quant.uniform<i8:f32, 0.005>>,
+         tensor<16x!quant.uniform<i32:f32, 1.000000e-04>>)
+      -> tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>>
+
+  %act = "onnx.XCOMPILERFusedEltwise"(%conv, %none)
+      {clip_max = 6 : si64, clip_min = 0 : si64, enable_lut_sigmoid = false,
+       nonlinear = "NONE", type = "CLIP"}
+      : (tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>>, none)
+      -> tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>>
+
+  return %act : tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>>
+}
+// CHECK: "onnx.XFEConv"
+// CHECK-SAME: activation = "RELU6"
+// CHECK-NOT: "onnx.XCOMPILERFusedEltwise"
+
+// -----
+// Test: No fusion for Clip with bounds other than (0,6)
+// CHECK-LABEL: func.func @test_no_fusion_clip_non_relu6
+func.func @test_no_fusion_clip_non_relu6(
+    %arg0: tensor<1x4x4x8x!quant.uniform<u8:f32, 0.02:128>>,
+    %weight: tensor<16x3x3x8x!quant.uniform<i8:f32, 0.005>>,
+    %bias: tensor<16x!quant.uniform<i32:f32, 1.000000e-04>>,
+    %none: none) -> tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>> {
+
+  %conv = "onnx.XFEConv"(%arg0, %weight, %bias)
+      {activation = "NONE", auto_pad = "NOTSET", dilations = [1, 1],
+       group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1],
+       strides = [1, 1]}
+      : (tensor<1x4x4x8x!quant.uniform<u8:f32, 0.02:128>>,
+         tensor<16x3x3x8x!quant.uniform<i8:f32, 0.005>>,
+         tensor<16x!quant.uniform<i32:f32, 1.000000e-04>>)
+      -> tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>>
+
+  %act = "onnx.XCOMPILERFusedEltwise"(%conv, %none)
+      {clip_max = 255 : si64, clip_min = 0 : si64, enable_lut_sigmoid = false,
+       nonlinear = "NONE", type = "CLIP"}
+      : (tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>>, none)
+      -> tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>>
+
+  return %act : tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>>
+}
+// CHECK: "onnx.XFEConv"
+// CHECK-SAME: activation = "NONE"
+// CHECK: "onnx.XCOMPILERFusedEltwise"
+// CHECK-SAME: type = "CLIP"
+
+// -----
+// Test: XFEConv + raw onnx.Clip(0,6) → RELU6 (not lowered to FusedEltwise)
+// CHECK-LABEL: func.func @test_xfeconv_onnx_clip_relu6_fusion
+func.func @test_xfeconv_onnx_clip_relu6_fusion(
+    %arg0: tensor<1x4x4x8x!quant.uniform<u8:f32, 0.02:128>>,
+    %weight: tensor<16x3x3x8x!quant.uniform<i8:f32, 0.005>>,
+    %bias: tensor<16x!quant.uniform<i32:f32, 1.000000e-04>>)
+    -> tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>> {
+
+  %cmin = "onnx.Constant"() {value = dense<0> : tensor<i64>} : () -> tensor<i64>
+  %cmax = "onnx.Constant"() {value = dense<6> : tensor<i64>} : () -> tensor<i64>
+
+  %conv = "onnx.XFEConv"(%arg0, %weight, %bias)
+      {activation = "NONE", auto_pad = "NOTSET", dilations = [1, 1],
+       group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1],
+       strides = [1, 1]}
+      : (tensor<1x4x4x8x!quant.uniform<u8:f32, 0.02:128>>,
+         tensor<16x3x3x8x!quant.uniform<i8:f32, 0.005>>,
+         tensor<16x!quant.uniform<i32:f32, 1.000000e-04>>)
+      -> tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>>
+
+  %act = "onnx.Clip"(%conv, %cmin, %cmax) :
+      (tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>>, tensor<i64>,
+       tensor<i64>) -> tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>>
+
+  return %act : tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>>
+}
+// CHECK: "onnx.XFEConv"
+// CHECK-SAME: activation = "RELU6"
+// CHECK-NOT: "onnx.Clip"
+
+// -----
+// Test: No fusion for raw onnx.Clip when bounds are not ReLU6
+// CHECK-LABEL: func.func @test_no_fusion_onnx_clip_non_relu6
+func.func @test_no_fusion_onnx_clip_non_relu6(
+    %arg0: tensor<1x4x4x8x!quant.uniform<u8:f32, 0.02:128>>,
+    %weight: tensor<16x3x3x8x!quant.uniform<i8:f32, 0.005>>,
+    %bias: tensor<16x!quant.uniform<i32:f32, 1.000000e-04>>)
+    -> tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>> {
+
+  %cmin = "onnx.Constant"() {value = dense<0> : tensor<i64>} : () -> tensor<i64>
+  %cmax = "onnx.Constant"() {value = dense<255> : tensor<i64>} : () -> tensor<i64>
+
+  %conv = "onnx.XFEConv"(%arg0, %weight, %bias)
+      {activation = "NONE", auto_pad = "NOTSET", dilations = [1, 1],
+       group = 1 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1],
+       strides = [1, 1]}
+      : (tensor<1x4x4x8x!quant.uniform<u8:f32, 0.02:128>>,
+         tensor<16x3x3x8x!quant.uniform<i8:f32, 0.005>>,
+         tensor<16x!quant.uniform<i32:f32, 1.000000e-04>>)
+      -> tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>>
+
+  %act = "onnx.Clip"(%conv, %cmin, %cmax) :
+      (tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>>, tensor<i64>,
+       tensor<i64>) -> tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>>
+
+  return %act : tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>>
+}
+// CHECK: "onnx.XFEConv"
+// CHECK-SAME: activation = "NONE"
+// CHECK: "onnx.Clip"
+
+// -----
 // Test: XFEConv + QLINEARSIGMOID (quantized hard sigmoid) → activation HSIGMOID
 // CHECK-LABEL: func.func @test_xfeconv_qlinearsigmoid_fusion
 func.func @test_xfeconv_qlinearsigmoid_fusion(

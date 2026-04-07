@@ -25,6 +25,7 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/Canonicalize.cpp
   ONNXOps/ShapeHelper.cpp
   ONNXTypes.cpp
+  TensorName.cpp
 
   # Support for shape inference and verifiers
   ONNXOps/Additional/AMDQuark.cpp
@@ -125,6 +126,7 @@ add_onnx_mlir_library(OMONNXOps
   OMONNXCanonicalizeIncGen
   OMResultTypeInferenceOpInterfaceIncGen
   OMShapeInferenceOpInterfaceIncGen
+  OMTensorNameInferenceIncGen
 
   LINK_LIBS PRIVATE
   OMDiagnostic
@@ -133,6 +135,7 @@ add_onnx_mlir_library(OMONNXOps
   OMMlirDialects
   OMMlirUtilities
   OMShapeHelperOpInterface
+  OMTensorNameInference
   OMONNXElementsAttr
   onnx
   MLIRFuncDialect
