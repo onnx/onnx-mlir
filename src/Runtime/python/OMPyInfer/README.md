@@ -45,14 +45,14 @@ outputs = OMPyInfer.run_model_with_file(session, input_files, ref_output_files, 
 ## Install the pacakge
 Currently, you need to build the package for your env and then install the package with pip.
 In the env to run inference (no need to be the container for compiler)
-1. Make sure it is allowed to install python package. A common solution is to use python virtual environment
+1. Make sure that you are allowed to install python package. A common solution is to use python virtual environment
 2. Get onnx-mlir source code when needed. Refer to [doc](https://github.com/onnx/onnx-mlir/blob/7423b55476bdf082cf3cb9a1bde9607d05de2992/docs/BuildOnLinuxOSX.md?plain=1#L58)
 3. Create a build directory, e.g. build-OMPyInfer. Then execute the following commands:
 
 ```
 cd build-OMPyInfer
-cmake --DONNX_MLIR_TARGET_TO_BUILD=OMPyInfer ..
-cmake --build . --target OMCreateOMPyInfer
+cmake -DONNX_MLIR_TARGET_TO_BUILD=OMPyInfer ..
+cmake --build . --target OMCreateOMPyInferPackage
 pip install -e src/Runtime/python/OMPyInfer
 ```
 
