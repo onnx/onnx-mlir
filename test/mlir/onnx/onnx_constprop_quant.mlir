@@ -501,3 +501,147 @@ func.func @transpose_per_axis_quant_mismatch_scales() -> tensor<2x1xf32> {
 // CHECK-LABEL: @transpose_per_axis_quant_mismatch_scales
 // CHECK:         onnx.Transpose
 // CHECK-SAME:      perm = [1, 0]
+
+
+// Reshape with quantized input but float output — should NOT be folded
+func.func @reshape_quantized_input_float_output() -> tensor<1x2xf32> {
+  %a = onnx.Constant dense<[10, 20]> : tensor<2xui8>
+  %a_scale = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %a_zp = onnx.Constant dense<0> : tensor<ui8>
+
+  %a_dq = "onnx.DequantizeLinear"(%a, %a_scale, %a_zp) {axis = 0 : si64, block_size = 0 : si64} : (tensor<2xui8>, tensor<f32>, tensor<ui8>) -> tensor<2xf32>
+
+  %shape = onnx.Constant dense<[1, 2]> : tensor<2xi64>
+  %r = "onnx.Reshape"(%a_dq, %shape) {allowzero = 0 : si64} : (tensor<2xf32>, tensor<2xi64>) -> tensor<1x2xf32>
+
+  return %r : tensor<1x2xf32>
+}
+
+// CHECK-LABEL: @reshape_quantized_input_float_output
+// CHECK:         onnx.Reshape
+// CHECK-SAME:      (tensor<2x!quant.uniform<u8:f32, 5.000000e-01>>, tensor<2xi64>) -> tensor<1x2xf32>
+
+
+// Reshape with matching input/output quantized types — should still be folded
+func.func @reshape_quantized_constant() -> tensor<1x2xf32> {
+  %a = onnx.Constant dense<[10, 20]> : tensor<2xui8>
+  %a_scale = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %a_zp = onnx.Constant dense<0> : tensor<ui8>
+
+  %a_dq = "onnx.DequantizeLinear"(%a, %a_scale, %a_zp) {axis = 0 : si64, block_size = 0 : si64} : (tensor<2xui8>, tensor<f32>, tensor<ui8>) -> tensor<2xf32>
+
+  %shape = onnx.Constant dense<[1, 2]> : tensor<2xi64>
+  %r = "onnx.Reshape"(%a_dq, %shape) {allowzero = 0 : si64} : (tensor<2xf32>, tensor<2xi64>) -> tensor<1x2xf32>
+
+  %out_scale = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %out_zp = onnx.Constant dense<0> : tensor<ui8>
+  %q = "onnx.QuantizeLinear"(%r, %out_scale, %out_zp) {axis = 0 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x2xf32>, tensor<f32>, tensor<ui8>) -> tensor<1x2xui8>
+  %final = "onnx.DequantizeLinear"(%q, %out_scale, %out_zp) {axis = 0 : si64, block_size = 0 : si64} : (tensor<1x2xui8>, tensor<f32>, tensor<ui8>) -> tensor<1x2xf32>
+
+  return %final : tensor<1x2xf32>
+}
+
+// CHECK-LABEL: @reshape_quantized_constant
+// CHECK-NOT:     onnx.Reshape
+// CHECK:         onnx.Constant
+// CHECK:         quant.scast
+
+
+// Unsqueeze with quantized input but float output — should NOT be folded
+func.func @unsqueeze_quantized_input_float_output() -> tensor<1x2xf32> {
+  %a = onnx.Constant dense<[10, 20]> : tensor<2xui8>
+  %a_scale = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %a_zp = onnx.Constant dense<0> : tensor<ui8>
+
+  %a_dq = "onnx.DequantizeLinear"(%a, %a_scale, %a_zp) {axis = 0 : si64, block_size = 0 : si64} : (tensor<2xui8>, tensor<f32>, tensor<ui8>) -> tensor<2xf32>
+
+  %axes = onnx.Constant dense<[0]> : tensor<1xi64>
+  %r = "onnx.Unsqueeze"(%a_dq, %axes) : (tensor<2xf32>, tensor<1xi64>) -> tensor<1x2xf32>
+
+  return %r : tensor<1x2xf32>
+}
+
+// CHECK-LABEL: @unsqueeze_quantized_input_float_output
+// CHECK:         onnx.Unsqueeze
+// CHECK-SAME:      (tensor<2x!quant.uniform<u8:f32, 5.000000e-01>>, tensor<1xi64>) -> tensor<1x2xf32>
+
+
+// Squeeze with quantized input but float output — should NOT be folded
+func.func @squeeze_quantized_input_float_output() -> tensor<2xf32> {
+  %a = onnx.Constant dense<[[10, 20]]> : tensor<1x2xui8>
+  %a_scale = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %a_zp = onnx.Constant dense<0> : tensor<ui8>
+
+  %a_dq = "onnx.DequantizeLinear"(%a, %a_scale, %a_zp) {axis = 0 : si64, block_size = 0 : si64} : (tensor<1x2xui8>, tensor<f32>, tensor<ui8>) -> tensor<1x2xf32>
+
+  %axes = onnx.Constant dense<[0]> : tensor<1xi64>
+  %r = "onnx.Squeeze"(%a_dq, %axes) : (tensor<1x2xf32>, tensor<1xi64>) -> tensor<2xf32>
+
+  return %r : tensor<2xf32>
+}
+
+// CHECK-LABEL: @squeeze_quantized_input_float_output
+// CHECK:         onnx.Squeeze
+// CHECK-SAME:      (tensor<1x2x!quant.uniform<u8:f32, 5.000000e-01>>, tensor<1xi64>) -> tensor<2xf32>
+
+
+// Gather with quantized input but float output — should NOT be folded
+func.func @gather_quantized_input_float_output() -> tensor<1xf32> {
+  %a = onnx.Constant dense<[10, 20]> : tensor<2xui8>
+  %a_scale = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %a_zp = onnx.Constant dense<0> : tensor<ui8>
+
+  %a_dq = "onnx.DequantizeLinear"(%a, %a_scale, %a_zp) {axis = 0 : si64, block_size = 0 : si64} : (tensor<2xui8>, tensor<f32>, tensor<ui8>) -> tensor<2xf32>
+
+  %indices = onnx.Constant dense<[0]> : tensor<1xi64>
+  %r = "onnx.Gather"(%a_dq, %indices) {axis = 0 : si64} : (tensor<2xf32>, tensor<1xi64>) -> tensor<1xf32>
+
+  return %r : tensor<1xf32>
+}
+
+// CHECK-LABEL: @gather_quantized_input_float_output
+// CHECK:         onnx.Gather
+// CHECK-SAME:      (tensor<2x!quant.uniform<u8:f32, 5.000000e-01>>, tensor<1xi64>) -> tensor<1xf32>
+
+
+// Slice with quantized input but float output — should NOT be folded
+func.func @slice_quantized_input_float_output() -> tensor<1xf32> {
+  %a = onnx.Constant dense<[10, 20]> : tensor<2xui8>
+  %a_scale = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %a_zp = onnx.Constant dense<0> : tensor<ui8>
+
+  %a_dq = "onnx.DequantizeLinear"(%a, %a_scale, %a_zp) {axis = 0 : si64, block_size = 0 : si64} : (tensor<2xui8>, tensor<f32>, tensor<ui8>) -> tensor<2xf32>
+
+  %starts = onnx.Constant dense<[0]> : tensor<1xi64>
+  %ends = onnx.Constant dense<[1]> : tensor<1xi64>
+  %axes = onnx.Constant dense<[0]> : tensor<1xi64>
+  %r = "onnx.Slice"(%a_dq, %starts, %ends, %axes, %axes) : (tensor<2xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1xf32>
+
+  return %r : tensor<1xf32>
+}
+
+// CHECK-LABEL: @slice_quantized_input_float_output
+// CHECK:         onnx.Slice
+// CHECK-SAME:      (tensor<2x!quant.uniform<u8:f32, 5.000000e-01>>
+
+
+// ReduceMean noop fold with quantized input — should NOT be folded.
+// The fold method returns getData() when there are no reduction axes and
+// noop_with_empty_axes is set; the IsIntOrFloatType guard prevents a type
+// mismatch between the quantized input and the float result.
+func.func @reduce_mean_noop_quantized_input_float_output() -> tensor<1xf32> {
+  %a = onnx.Constant dense<[10, 20]> : tensor<2xui8>
+  %a_scale = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %a_zp = onnx.Constant dense<0> : tensor<ui8>
+
+  %a_dq = "onnx.DequantizeLinear"(%a, %a_scale, %a_zp) {axis = 0 : si64, block_size = 0 : si64} : (tensor<2xui8>, tensor<f32>, tensor<ui8>) -> tensor<2xf32>
+
+  %none = "onnx.NoValue"() {value} : () -> none
+  %r = "onnx.ReduceMean"(%a_dq, %none) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<2xf32>, none) -> tensor<1xf32>
+
+  return %r : tensor<1xf32>
+}
+
+// CHECK-LABEL: @reduce_mean_noop_quantized_input_float_output
+// CHECK:         onnx.ReduceMean
+// CHECK-SAME:      (tensor<2x!quant.uniform<u8:f32, 5.000000e-01>>
