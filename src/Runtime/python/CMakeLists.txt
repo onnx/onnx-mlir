@@ -113,6 +113,23 @@ add_custom_target(OMTestOMPyInferPackage
         DEPENDS OMCreateOMPyInferPackage
      )
 
+# Target to prepare OMPyCompile package
+if (ONNX_MLIR_BUILD_STANDALONE)
+    add_custom_target(OMCreateOMPyCompilePackage
+        COMMAND rm -rf ${CMAKE_CURRENT_BINARY_DIR}/OMPyCompile
+        COMMAND cp -r ${CMAKE_CURRENT_SOURCE_DIR}/OMPyCompile ${CMAKE_CURRENT_BINARY_DIR}
+	COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/PyOMCompile.py ${CMAKE_CURRENT_BINARY_DIR}/OMPyCompile/src/OMPyCompile
+	COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/OMPyCompile/src/OMPyCompile/lib
+	COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/OMPyCompile/src/OMPyCompile/bin
+	COMMAND cp ${ONNX_MLIR_BIN_ROOT}/${CMAKE_BUILD_TYPE}/bin/onnx-mlir ${CMAKE_CURRENT_BINARY_DIR}/OMPyCompile/src/OMPyCompile/bin
+	COMMAND cp ${ONNX_MLIR_BIN_ROOT}/${CMAKE_BUILD_TYPE}/bin/llc ${CMAKE_CURRENT_BINARY_DIR}/OMPyCompile/src/OMPyCompile/bin
+	COMMAND cp ${ONNX_MLIR_BIN_ROOT}/${CMAKE_BUILD_TYPE}/bin/opt ${CMAKE_CURRENT_BINARY_DIR}/OMPyCompile/src/OMPyCompile/bin
+	COMMAND cp ${ONNX_MLIR_BIN_ROOT}/${CMAKE_BUILD_TYPE}/lib/libcruntime.a ${CMAKE_CURRENT_BINARY_DIR}/OMPyCompile/src/OMPyCompile/lib
+	COMMAND cp ${ONNX_MLIR_BIN_ROOT}/${CMAKE_BUILD_TYPE}/lib/libompruntime.a ${CMAKE_CURRENT_BINARY_DIR}/OMPyCompile/src/OMPyCompile/lib
+        DEPENDS onnx-mlir
+     )
+endif()
+
 # Target to prepare onnxmlir package
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/onnxmlir/src/onnxmlir/libs)
 
