@@ -169,9 +169,9 @@ def compare_result(actual_outs, ref_outs, atol=1e-8, rtol=1e-5, debug=0):
                 )
             )
     if all_pass:
-        print("\n✓ Correct.\n")
+        print(f"\n✓ Correct result with atol {atol} and rtol {rtol}\n")
     else:
-        print("\n✗  Failed\n")
+        print(f"\n✗ Wrong result with atol {atol} and rtol {rtol}\n")
     return all_pass
 
 
