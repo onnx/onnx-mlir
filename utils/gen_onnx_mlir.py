@@ -547,6 +547,7 @@ OpsWithCanonicalizer = [
     "Shape",
     "Split",
     "Size",
+    "Softmax",
     "SoftmaxV11",
     "SpaceToDepth",
     "Squeeze",
