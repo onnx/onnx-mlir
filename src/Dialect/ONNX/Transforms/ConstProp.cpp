@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Quant/IR/QuantTypes.h"
+#include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/TypeUtilities.h"
@@ -111,13 +112,13 @@ bool valuesHaveSameDTypeForTransposeOfConst(
   if (!transposeOp)
     return false;
 
-  auto inShaped = dyn_cast<ShapedType>(input.getType());
-  auto outShaped = dyn_cast<ShapedType>(transposeResult.getType());
-  if (!inShaped || !outShaped)
+  auto inRanked = dyn_cast<RankedTensorType>(input.getType());
+  auto outRanked = dyn_cast<RankedTensorType>(transposeResult.getType());
+  if (!inRanked || !outRanked)
     return false;
 
-  Type inElem = inShaped.getElementType();
-  Type outElem = outShaped.getElementType();
+  Type inElem = inRanked.getElementType();
+  Type outElem = outRanked.getElementType();
 
   SmallVector<int64_t, 8> perm;
   if (transposeOp.getPermAttr()) {
@@ -126,23 +127,24 @@ bool valuesHaveSameDTypeForTransposeOfConst(
       perm.push_back(p);
   } else {
     // ONNX default: reverse dimension order.
-    for (int64_t r = inShaped.getRank() - 1; r >= 0; --r)
+    for (int64_t r = inRanked.getRank() - 1; r >= 0; --r)
       perm.push_back(r);
   }
-  if (static_cast<int64_t>(perm.size()) != inShaped.getRank())
+  // Ranked input: perm length must match tensor rank (ONNX Transpose).
+  if (static_cast<int64_t>(perm.size()) != inRanked.getRank())
     return false;
 
   Type expectedOutElem = inElem;
   if (auto perAxis =
           dyn_cast<mlir::quant::UniformQuantizedPerAxisType>(inElem)) {
     int32_t oldAxis = perAxis.getQuantizedDimension();
-    int32_t newAxis = oldAxis;
-    for (int64_t i = 0, e = static_cast<int64_t>(perm.size()); i < e; ++i) {
-      if (perm[static_cast<size_t>(i)] == oldAxis) {
-        newAxis = static_cast<int32_t>(i);
-        break;
-      }
-    }
+    if (oldAxis < 0 || oldAxis >= inRanked.getRank())
+      return false;
+    // ONNX: output axis i reads input axis perm[i]; inverse maps input axis
+    // -> output axis (same as ConvertToChannelLast::remapPerAxisQuantType).
+    SmallVector<int64_t> invPerm = invertPermutationVector(perm);
+    int32_t newAxis =
+        static_cast<int32_t>(invPerm[static_cast<size_t>(oldAxis)]);
     if (newAxis != oldAxis) {
       expectedOutElem =
           mlir::quant::UniformQuantizedPerAxisType::get(perAxis.getFlags(),
