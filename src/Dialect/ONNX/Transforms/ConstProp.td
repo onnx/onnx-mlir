@@ -101,9 +101,9 @@ def ValuesHaveSameDType : Constraint<
   CPred<"$0.getType().cast<mlir::ShapedType>().getElementType() == $1.getType().cast<mlir::ShapedType>().getElementType()">,
   "Values have same dtype">;
 
-def ValuesHaveSameDTypeUnlessPerAxisQuant : Constraint<
-  CPred<"valuesHaveSameDTypeUnlessPerAxisQuant($0, $1)">,
-  "Values have same dtype, or per-axis quantization on either value (skip strict dtype match)">;
+def TransposeConstPropTypesMatch : Constraint<
+  CPred<"valuesHaveSameDTypeForTransposeOfConst($0, $1)">,
+  "Transpose result dtype matches constant input after per-axis quant axis remap">;
 
 def IsMatMulIntegerLhsZero: Constraint<
     CPred<"isMatMulIntegerLhsZero($0, $1)">,
@@ -1145,7 +1145,7 @@ def TransposeofConst : NamedPat<"TransposeofConst",
     // To c' where c' is transposed attribute
     (CreateTransposeOfConst $resOp, $input),
     [(IsFromDenseONNXConstantOp:$input),
-     (ValuesHaveSameDTypeUnlessPerAxisQuant $resOp, $input)]>;
+     (TransposeConstPropTypesMatch $resOp, $input)]>;
 
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with ReverseSequence operations.

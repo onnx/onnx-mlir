@@ -95,17 +95,56 @@ bool satisfiesExpansionBound(Value result) {
          getSizeInBytes(resultType);
 }
 
-/// Same as comparing element types, except we skip the check when either value
-/// is per-axis quantized: transpose const-prop uses the TransposeOp's result
-/// type (with updated quant axis) while the constant may still carry the
-/// pre-transpose quant type, so element types may not compare equal.
-bool valuesHaveSameDTypeUnlessPerAxisQuant(Value a, Value b) {
-  Type elemA = cast<ShapedType>(a.getType()).getElementType();
-  Type elemB = cast<ShapedType>(b.getType()).getElementType();
-  if (isa<mlir::quant::UniformQuantizedPerAxisType>(elemA) ||
-      isa<mlir::quant::UniformQuantizedPerAxisType>(elemB))
-    return true;
-  return elemA == elemB;
+/// True if the transpose result's element type matches the constant input's
+/// element type after remapping per-axis quantization through `perm` (same
+/// rule as ConvertToChannelLast: output axis i reads input axis perm[i]).
+bool valuesHaveSameDTypeForTransposeOfConst(Value transposeResult, Value input) {
+  auto transposeOp = dyn_cast<ONNXTransposeOp>(transposeResult.getDefiningOp());
+  if (!transposeOp)
+    return false;
+
+  auto inShaped = dyn_cast<ShapedType>(input.getType());
+  auto outShaped = dyn_cast<ShapedType>(transposeResult.getType());
+  if (!inShaped || !outShaped)
+    return false;
+
+  Type inElem = inShaped.getElementType();
+  Type outElem = outShaped.getElementType();
+
+  SmallVector<int64_t, 8> perm;
+  if (transposeOp.getPermAttr()) {
+    for (int64_t p :
+        extractFromIntegerArrayAttr<int64_t>(transposeOp.getPermAttr()))
+      perm.push_back(p);
+  } else {
+    // ONNX default: reverse dimension order.
+    for (int64_t r = inShaped.getRank() - 1; r >= 0; --r)
+      perm.push_back(r);
+  }
+  if (static_cast<int64_t>(perm.size()) != inShaped.getRank())
+    return false;
+
+  Type expectedOutElem = inElem;
+  if (auto perAxis =
+          dyn_cast<mlir::quant::UniformQuantizedPerAxisType>(inElem)) {
+    int32_t oldAxis = perAxis.getQuantizedDimension();
+    int32_t newAxis = oldAxis;
+    for (int64_t i = 0, e = static_cast<int64_t>(perm.size()); i < e; ++i) {
+      if (perm[static_cast<size_t>(i)] == oldAxis) {
+        newAxis = static_cast<int32_t>(i);
+        break;
+      }
+    }
+    if (newAxis != oldAxis) {
+      expectedOutElem = mlir::quant::UniformQuantizedPerAxisType::get(
+          perAxis.getFlags(), perAxis.getStorageType(),
+          perAxis.getExpressedType(), perAxis.getScales(),
+          perAxis.getZeroPoints(), newAxis, perAxis.getStorageTypeMin(),
+          perAxis.getStorageTypeMax());
+    }
+  }
+
+  return expectedOutElem == outElem;
 }
 
 // We want to disable Constant Propagation when a user
