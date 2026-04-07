@@ -4,7 +4,7 @@ include "mlir/IR/OpBase.td"
 
 def TensorNameInference : OpInterface<"TensorNameInference"> {
   let methods = [
-    InterfaceMethod<"Return list of Transforms representing the Op",
+    InterfaceMethod<"Return Transform representing the Op",
                     "std::unique_ptr<onnx_mlir::Transform>",
                     "inferTensorNameTransform">
     ];
