@@ -89,7 +89,7 @@ std::unique_ptr<mlir::Pass> createInstrumentONNXSignaturePass(
 
 /// Pass for simplifying shape-related ONNX operations.
 std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass(
-    bool disableCastOpCanonicalizations = false);
+    bool disableCastOpCanonicalizations = false, bool enablGAPToReduceMean = true);
 
 /// Pass for replacing ONNXReturnOp with func::ReturnOp.
 std::unique_ptr<mlir::Pass> createStandardFuncReturnPass();

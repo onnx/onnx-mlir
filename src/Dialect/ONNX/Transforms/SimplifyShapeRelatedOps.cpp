@@ -462,8 +462,8 @@ struct SimplifyShapeRelatedOpsPass
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(SimplifyShapeRelatedOpsPass)
 
   SimplifyShapeRelatedOpsPass(
-      bool disableCastOpCanonicalizations)
-      : PassWrapper(), disableCastOpCanonicalizations(disableCastOpCanonicalizations) {}
+      bool disableCastOpCanonicalizations, bool enablGAPToReduceMean)
+      : PassWrapper(), disableCastOpCanonicalizations(disableCastOpCanonicalizations), enablGAPToReduceMean(enablGAPToReduceMean) {}
 
   StringRef getArgument() const override {
     return "simplify-shape-related-ops-onnx";
@@ -478,6 +478,7 @@ struct SimplifyShapeRelatedOpsPass
 private:
   void topDownShapeSimplification(MLIRContext *context, ModuleOp moduleOp);
   bool disableCastOpCanonicalizations;
+  bool enablGAPToReduceMean;
 };
 
 void SimplifyShapeRelatedOpsPass::topDownShapeSimplification(
@@ -529,9 +530,13 @@ void SimplifyShapeRelatedOpsPass::runOnOperation() {
     OpPassManager pm("builtin.module");
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
-    pm.addPass(mlir::createCanonicalizerPass(config,
-        /*disabledPatterns=*/{"GlobalAveragePoolPattern"},
-        /*enabledPatterns=*/{}));
+    if (!this->enablGAPToReduceMean) {
+      pm.addPass(mlir::createCanonicalizerPass(config,
+          /*disabledPatterns=*/{"GlobalAveragePoolPattern"},
+          /*enabledPatterns=*/{}));
+    } else {
+      pm.addPass(mlir::createCanonicalizerPass());
+    }
     if (failed(runPipeline(pm, moduleOp)))
       return signalPassFailure();
   }
@@ -544,8 +549,8 @@ namespace onnx_mlir {
 /*!
  * Create a SimplifyShapeRelatedOps pass.
  */
-std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass(bool disableCastOpCanonicalizations) {
-  return std::make_unique<SimplifyShapeRelatedOpsPass>(disableCastOpCanonicalizations);
+std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass(bool disableCastOpCanonicalizations, bool enablGAPToReduceMean) {
+  return std::make_unique<SimplifyShapeRelatedOpsPass>(disableCastOpCanonicalizations, enablGAPToReduceMean);
 }
 
 } // namespace onnx_mlir

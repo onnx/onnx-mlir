@@ -191,7 +191,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
 
   // Simplify shape-related ops.
   pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass(
-      opts.enableQuarkQuantizedLegalization));
+      opts.enableQuarkQuantizedLegalization, opts.enablGAPToReduceMean));
 
   // Canonicalizing Q-DQ related ops
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createQDQCanonicalizePass(
