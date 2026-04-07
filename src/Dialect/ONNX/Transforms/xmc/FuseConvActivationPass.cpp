@@ -71,19 +71,6 @@ static bool quantTypesMatch(Type convOutputType, Type activationOutputType) {
          convQuant.getStorageType() == actQuant.getStorageType();
 }
 
-/// Return false if the conv's explicit pads attribute contains a negative
-/// value.
-template <typename ConvOp>
-static bool convPadsNonNegative(ConvOp convOp) {
-  if (auto padsAttr = convOp.getPadsAttr()) {
-    for (mlir::Attribute p : padsAttr.getValue()) {
-      int64_t v = mlir::cast<mlir::IntegerAttr>(p).getValue().getSExtValue();
-      if (v < 0)
-        return false;
-    }
-  }
-  return true;
-
 /// Scalar onnx.Constant (splat or one element) as int64, for Clip min/max.
 static std::optional<int64_t> clipBoundAsI64(Value v) {
   if (!v || isa<NoneType>(v.getType()))
@@ -121,6 +108,20 @@ static std::optional<int64_t> clipBoundAsI64(Value v) {
   if (auto i = dyn_cast<IntegerAttr>(firstAttr))
     return static_cast<int64_t>(i.getInt());
   return std::nullopt;
+}
+
+/// Return false if the conv's explicit pads attribute contains a negative
+/// value.
+template <typename ConvOp>
+static bool convPadsNonNegative(ConvOp convOp) {
+  if (auto padsAttr = convOp.getPadsAttr()) {
+    for (mlir::Attribute p : padsAttr.getValue()) {
+      int64_t v = mlir::cast<mlir::IntegerAttr>(p).getValue().getSExtValue();
+      if (v < 0)
+        return false;
+    }
+  }
+  return true;
 }
 
 /// Try to identify a fuseable activation from an operation.
