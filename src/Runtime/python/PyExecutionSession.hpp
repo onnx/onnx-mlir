@@ -102,13 +102,13 @@ PYBIND11_MODULE(PyRuntimeC, m) {
           "    >>> session = OMExecutionSession('model.so', use_default_entry_point=False)\n"
           "    >>> session.set_entry_point('run_main_graph')\n"
           "    >>> outputs = session.run(inputs)")
-      .def("run",
-          &onnx_mlir::PyExecutionSession::pyRun,
+      .def("runImplementation",
+          &onnx_mlir::PyExecutionSession::pyRunImplementation,
           py::arg("input"),
           py::arg("shape"),
           py::arg("stride"),
-          py::arg("use_signal_handler") = false,
-          py::arg("force_output_data_copy") = false,
+          py::arg("use_signal_handler"),
+          py::arg("force_output_data_copy"),
           "Run inference on the model.\n\n"
           "Executes the model with the provided inputs and returns the outputs.\n"
           "All inputs must be numpy arrays with compatible shapes and types.\n\n"

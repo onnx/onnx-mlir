@@ -340,7 +340,10 @@ std::vector<OMTensorUniquePtr> ExecutionSession::run(
   return outs;
 }
 
-OMTensorList *ExecutionSession::run(
+// =============================================================================
+// Common run method implementation.
+
+OMTensorList *ExecutionSession::runImplementation(
     OMTensorList *input, bool useSignalHandler) {
   if (!isInitialized)
     throw ExecutionSessionException(
@@ -350,18 +353,28 @@ OMTensorList *ExecutionSession::run(
         "Must set an entry point (e.g. run_main_graph) before calling run "
         "function.");
 
+  OMTensorList *output;
 #if defined(_WIN32)
   // Run with signal is not supported under Windows, ignore.
-  return runWithoutSignalHandler(input);
+  output = runWithoutSignalHandler(input);
 #else
-  if (!useSignalHandler)
-    return runWithoutSignalHandler(input);
-  return runWithSignalHandler(input);
+  if (useSignalHandler)
+    output = runWithSignalHandler(input);
+  else
+    output = runWithoutSignalHandler(input);
 #endif
+
+  // Print instrumentation.
+  if (_printInstrumentationFunc)
+    _printInstrumentationFunc();
+
+  // Return results from the inference.
+  return output;
 }
 
-// Run using public interface. Explicit calls are needed to free tensor & tensor
-// lists.
+// =============================================================================
+// Implementation of run public interfaces
+
 OMTensorList *ExecutionSession::runWithoutSignalHandler(OMTensorList *input) {
 
   // Run inference.
@@ -369,10 +382,6 @@ OMTensorList *ExecutionSession::runWithoutSignalHandler(OMTensorList *input) {
   OMTensorList *output = _entryPointFunc(input);
   if (!output)
     throw ExecutionSessionException(reportErrnoError());
-
-  // Print instrumentation.
-  if (_printInstrumentationFunc)
-    _printInstrumentationFunc();
 
   errno = 0; // No errors.
   return output;
@@ -437,7 +446,19 @@ OMTensorList *ExecutionSession::runWithSignalHandler(OMTensorList *input) {
     errno = signum;
     throw ExecutionSessionException(reportErrnoError(/*from signal*/ true));
   }
-#endif
+#endif // if(_WIN32)
+}
+
+// =============================================================================
+// Public run methods.
+
+OMTensorList *ExecutionSession::run(OMTensorList *input) {
+  return runImplementation(input, /*signal handler*/ false);
+}
+
+OMTensorList *ExecutionSession::debugRun(
+    OMTensorList *input, bool useSignalHandler) {
+  return runImplementation(input, useSignalHandler);
 }
 
 // =============================================================================

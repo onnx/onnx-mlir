@@ -171,7 +171,7 @@ static py::array copyTensorToPyArray(
 // =============================================================================
 // Run.
 
-std::vector<py::array> PyExecutionSessionBase::pyRun(
+std::vector<py::array> PyExecutionSessionBase::pyRunImplementation(
     const std::vector<py::array> &inputsPyArray,
     const std::vector<py::array> &shapesPyArray,
     const std::vector<py::array> &stridesPyArray,
@@ -329,7 +329,9 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
     // multi-threaded Python applications without affecting single-threaded
     // code.
     //     py::gil_scoped_release release;  // Release GIL
-    wrappedOutput = run(wrappedInput, useSignalHandler);
+
+    // hi alex, fix that.
+    wrappedOutput = debugRun(wrappedInput, useSignalHandler);
   } // TODO from above: GIL would automatically be reacquired here.
   TIMING_STOP_PRINT(inference);
 

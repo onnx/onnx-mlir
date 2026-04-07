@@ -27,8 +27,8 @@ except ImportError:
 
 class OMExecutionSession(OMExecutionSession_):
 
-    def run(self, inputs, with_signal_handler=False, force_output_data_copy=False):
-        # Prepare arguments to call sess.run
+    def run(self, inputs):
+        # Prepare arguments to call session.run
         pyrun_inputs = []
         pyrun_shapes = []
         pyrun_strides = []
@@ -36,7 +36,24 @@ class OMExecutionSession(OMExecutionSession_):
             pyrun_inputs.append(inp.ravel())
             pyrun_shapes.append(np.array(inp.shape, dtype=np.int64))
             pyrun_strides.append(np.array(inp.strides, dtype=np.int64))
-        return super(OMExecutionSession, self).run(
+        return super(OMExecutionSession, self).runImplementation(
+            pyrun_inputs,
+            pyrun_shapes,
+            pyrun_strides,
+            False,  # No Signal handler
+            False,  # No forced copy of output data.
+        )
+
+    def runDebug(self, inputs, with_signal_handler=False, force_output_data_copy=False):
+        # Prepare arguments to call session.run
+        pyrun_inputs = []
+        pyrun_shapes = []
+        pyrun_strides = []
+        for inp in inputs:
+            pyrun_inputs.append(inp.ravel())
+            pyrun_shapes.append(np.array(inp.shape, dtype=np.int64))
+            pyrun_strides.append(np.array(inp.strides, dtype=np.int64))
+        return super(OMExecutionSession, self).runImplementation(
             pyrun_inputs,
             pyrun_shapes,
             pyrun_strides,

@@ -99,9 +99,22 @@ public:
   std::vector<OMTensorUniquePtr> run(std::vector<OMTensorUniquePtr>);
 
   // Run using public interface. Explicit calls are needed to free tensor &
-  // tensor lists. Using a signal handler is only a debugging option; it is not
-  // safe to continue after catching a signal, not thread safe.
-  OMTensorList *run(OMTensorList *input, bool useSignalHandler = false);
+  // tensor lists. On error, the return value is null. Call may throw exceptions
+  // (ExecutionSessionException) on error. Otherwise, the return values contain
+  // the output tensor list. Explicit calls are needed to free tensor & tensor
+  // lists.
+  OMTensorList *run(OMTensorList *input);
+
+  // Debug version of run interface, with additional hooks to enable debugging.
+  // This version should not be used in production mode, and may be
+  // enhanced/deprecated between releases.
+  // * When useSignalHandler is true, the inference occurs in a code region that
+  //   is guarded by signal handler, which catch segmentation faults and
+  //   asserts. The code will catch such signals and throw exceptions. It is
+  //   generally unsafe to continue execution after such exceptions, as memory
+  //   can be irremediably corrupted.
+  //.
+  OMTensorList *debugRun(OMTensorList *input, bool useSignalHandler = false);
 
   // Get input and output signature as a Json string. For example for nminst:
   // `[ { "type" : "f32" , "dims" : [1 , 1 , 28 , 28] , "name" : "image" } ]`
@@ -149,6 +162,10 @@ protected:
   const std::string _printInstrumentationName = "omInstrumentPrint";
   const bool silentlyIgnoreMissingPrintInstrumentationFunc = true;
   printInstrumentationFuncType _printInstrumentationFunc = nullptr;
+
+protected:
+  // Common implementation for both public run methods.
+  OMTensorList *runImplementation(OMTensorList *input, bool useSignalHandler);
 
 private:
   // Run with without signal handler.
