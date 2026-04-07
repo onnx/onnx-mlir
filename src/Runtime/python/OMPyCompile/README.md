@@ -1,36 +1,43 @@
 <!--- SPDX-License-Identifier: Apache-2.0 -->
-# OMPyInfer
+# OMPyCompiler
 
 ## Functionalities
-### Inference driver
+### Compiler driver
 This package provides a python driver to compile an ONNX model with standalone onnx-compile compiler (built in container, but executed outside of the container).
 There is a helloworld example in the tests folder with the package:
+
 ```
 import OMPyCompile
 
-model="./test_add.so"
+model="./test_add.onnx"
 
-compiled_lib = OMPyCompile.compile(model, flags="-O3")
+compile_session = OMPyCompile.OMCompile(model, "-O3")
+
+r = compile_session.get_output_file_name()
 
 # Print output: the path to the compiled model
-print(compile_lib)
+print(r)
 ```
 
 ## Create the pacakge
-Refer to docs/BuildStandAlone.md to build the standalone compiler. Make sure to run "cmake --build . --target OMCreateOMPyCompilePackage" in your build-standalone directory.
-
-## Install the package
-In the env to use the standalone compiler (no need to be the container for compiler), make sure it is allowed to install python package. A common solution is to use python virtual environment
-
+### Build standalone compiler
+Refer to docs/BuildStandAlone.md to build the standalone compiler. 
+Assume that the path of the standalone compiler is onnx-mlir/build-standalone/Debug.
+### Create and install the package
+Refere to TBD (temporarily use README.md in of OMPyInfer package).
+Suppose you are under onnx-mlir directory
 ```
-pip install  onnx-mlir/build-standalone/src/Runtime/python/OMPyCompile
+mkdir build-OMPyInfer
+cd build-OMPyInfer
+cmake -DONNX_MLIR_TARGET_TO_BUILD=OMPyInfer -DONNX_MLIR_STANDALONE_DIR=onnx-mlir/build-standalone/Debug ..
+cmake --build . --target OMCreateOMPyCompilePackage
+pip install src/Runtime/python/OMPyCompile
 ```
 
 ## Test
-Suppose you are in build-standalone directory:
 
 ```
-cd src/Runtime/python/OMPyCompile/tests
+cd onnx-mlir/src/Runtime/python/OMPyCompile/tests
 python helloworld.py
 ls test_add.so
 ```

@@ -8,9 +8,9 @@ name = "OMPyCompile"
 version = "1.0.0"
 authors = [
   { name="Tong Chen", email="chentong@us.ibm.com" },
-  { name="Sunny Anand", email="sunny.anand79@ibm.com" },
+  { name="Alexandre Eichenberger", email="alexe@us.ibm.com" },
 ]
-description = "Python driver to run inference on onnx model compiled with zdlc"
+description = "Python driver to compile an onnx model compiled with standalone onnx-mlir compiler"
 readme = "README.md"
 requires-python = ">=3.9"
 license = "Apache-2.0"
@@ -32,7 +32,8 @@ packages = ["src/OMPyCompile"]
 
 [tool.hatch.build]
 include = [
-  "src/OMPyCompile/libs/*"
+  "src/OMPyCompile/lib/*"
+  "src/OMPyCompile/bin/*"
 ]
 
 
