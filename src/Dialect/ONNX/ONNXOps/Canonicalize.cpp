@@ -2585,6 +2585,28 @@ struct PullReluLikeOpsThroughSplitPattern
   }
 };
 
+struct SoftmaxNegativeAxisPattern : public OpRewritePattern<ONNXSoftmaxOp> {
+  using OpRewritePattern<ONNXSoftmaxOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(
+      ONNXSoftmaxOp softmaxOp, PatternRewriter &rewriter) const final {
+
+    auto inputType = dyn_cast<RankedTensorType>(softmaxOp.getInput().getType());
+    if (!inputType)
+      return rewriter.notifyMatchFailure(
+          softmaxOp, "Input is not a ranked tensor");
+
+    const int64_t axis = softmaxOp.getAxis();
+    const int64_t rank = inputType.getRank();
+
+    if (axis >= 0)
+      return failure(); // nothing to do.
+    assert(-rank <= axis && "axis is out of range");
+    rewriter.modifyOpInPlace(
+        softmaxOp, [&]() { softmaxOp.setAxis(rank + axis); });
+    return success();
+  }
+};
+
 /*
  * Push down the transpose after scale (mul op), so the scale can be fused to
  * Layernorm.
@@ -3403,6 +3425,12 @@ void ONNXShapeTransformOp::getCanonicalizationPatterns(
 void ONNXSizeOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<SizeToConstantPattern>(context);
+}
+
+/// on the ONNXSoftmaxOp.
+void ONNXSoftmaxOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<SoftmaxNegativeAxisPattern>(context);
 }
 
 /// on the ONNXSoftmaxV11Op.
