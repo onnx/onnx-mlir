@@ -46,7 +46,8 @@ public:
 
   // Attribute conversions
   static std::unique_ptr<Transform> fromAttr(mlir::ArrayAttr arrayAttr);
-  virtual mlir::Attribute toAttr(mlir::MLIRContext *context) const = 0;
+  [[nodiscard]] virtual mlir::Attribute toAttr(
+      mlir::MLIRContext *context) const = 0;
 
   // Op conversions
   static std::unique_ptr<Transform> fromOp(mlir::Operation *op);
@@ -86,7 +87,8 @@ public:
       mlir::ArrayRef<int64_t> inShape, mlir::ArrayRef<int64_t> outShape);
 
   ReshapeTransform(mlir::ArrayAttr attr);
-  mlir::Attribute toAttr(mlir::MLIRContext *context) const override;
+  [[nodiscard]] mlir::Attribute toAttr(
+      mlir::MLIRContext *context) const override;
 
   [[nodiscard]] std::unique_ptr<Transform> invert() const override;
 
@@ -101,9 +103,11 @@ public:
       mlir::ArrayRef<int64_t> perm, mlir::ArrayRef<int64_t> outShape);
 
   TransposeTransform(mlir::ArrayAttr attr);
-  mlir::Attribute toAttr(mlir::MLIRContext *context) const override;
+  [[nodiscard]] mlir::Attribute toAttr(
+      mlir::MLIRContext *context) const override;
 
   [[nodiscard]] std::unique_ptr<Transform> invert() const override;
+
   static bool classof(const Transform *transform) {
     return transform->getKind() == Kind::Transpose;
   }
@@ -121,9 +125,11 @@ public:
       mlir::Attribute constant, mlir::ArrayRef<int64_t> outShape);
 
   PadTransform(mlir::ArrayAttr attr);
-  mlir::Attribute toAttr(mlir::MLIRContext *context) const override;
+  [[nodiscard]] mlir::Attribute toAttr(
+      mlir::MLIRContext *context) const override;
 
   [[nodiscard]] std::unique_ptr<Transform> invert() const override;
+
   static bool classof(const Transform *transform) {
     return transform->getKind() == Kind::Pad;
   }
@@ -146,9 +152,11 @@ public:
       mlir::ArrayRef<int64_t> axes, mlir::ArrayRef<int64_t> outShape);
 
   SliceTransform(mlir::ArrayAttr attr);
-  mlir::Attribute toAttr(mlir::MLIRContext *context) const override;
+  [[nodiscard]] mlir::Attribute toAttr(
+      mlir::MLIRContext *context) const override;
 
   [[nodiscard]] std::unique_ptr<Transform> invert() const override;
+
   static bool classof(const Transform *transform) {
     return transform->getKind() == Kind::Slice;
   }
