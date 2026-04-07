@@ -32,6 +32,33 @@ typedef enum {
 } EmissionTargetType;
 
 /* Input IR can be at one of these levels */
+/* Onnx Mlir Compiler return code on errors; zero is success */
+/* Define error codes with descriptions using X-macro pattern */
+#define ONNX_MLIR_COMPILER_ERROR_CODES(X)                                      \
+  X(CompilerSuccess, 0, "Success")                                             \
+  X(InvalidCompilerOption, 1, "Invalid compiler option")                       \
+  X(InvalidInputFile, 2, "Invalid input file format")                          \
+  X(InvalidInputFileAccess, 3, "Cannot open input file")                       \
+  X(InvalidOutputFileAccess, 4, "Cannot open output file")                     \
+  X(InvalidTemporaryFileAccess, 5, "Cannot access temporary file")             \
+  X(InvalidOnnxFormat, 6, "Invalid ONNX format")                               \
+  X(CompilerFailureInMLIRToLLVM, 7, "Failed to lower MLIR to LLVM")            \
+  X(CompilerFailureInLLVMOpt, 8, "Failed to optimize LLVM")                    \
+  X(CompilerFailureInLLVMToObj, 9, "Failed to lower LLVM to object")           \
+  X(CompilerFailureInGenJniObj, 10, "Failed to generate JNI object")           \
+  X(CompilerFailureInGenJni, 11, "Failed to generate JNI")                     \
+  X(CompilerFailureInObjToLib, 12, "Failed to link object to library")         \
+  X(InvalidCompilerOptions, 13, "Invalid compiler options")                    \
+  X(CompilerFailure, 14, "Compilation failed")                                 \
+  X(CompilerCrashed, 15, "Compiler failed to execute successfully")            \
+  X(CommandNotFound, 16, "Command executable not found (check PATH)")          \
+  X(CommandNotExecutable, 17, "Command not executable")                        \
+  X(CommandExecutionFailed, 18, "Command execution failed")                    \
+  /* TODO: Remove after onnx 1.21.0 update (see                             */ \
+  /*   https://github.com/onnx/onnx-mlir/issues/3455).                      */ \
+  X(InvalidInputFileLink, 19, "Input file is a hardlink, which is not allowed")
+
+/* Generate enum from the macro */
 typedef enum {
   ONNXLevel,
   MLIRLevel,
