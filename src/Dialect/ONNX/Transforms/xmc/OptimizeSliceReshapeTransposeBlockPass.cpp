@@ -1,12 +1,14 @@
 // Copyright (C) 2022 - 2025 Advanced Micro Devices, Inc. All rights reserved.
 //
 // This pass mirrors xcompiler dev OptimizeSliceReshapeTransposeBlockPass
-// (get_template_block / get_template_block_mha + optimize_block / optimize_block_mha):
+// (get_template_block / get_template_block_mha + optimize_block /
+// optimize_block_mha):
 //
-// Matmul (get_template_block filter): rank-3 reshape inputs; transpose orders are
+// Matmul (get_template_block filter): rank-3 reshape inputs; transpose orders
+// are
 //   exactly {0,2,1,3}, {0,2,3,1}, {0,2,1,3} on branches 0,1,2 (middle branch is
-//   {0,2,3,1}). optimize_block fuses reshape+transpose then slices; only the middle
-//   branch gets extra transpose {0,1,3,2} after its strided_slice.
+//   {0,2,3,1}). optimize_block fuses reshape+transpose then slices; only the
+//   middle branch gets extra transpose {0,1,3,2} after its strided_slice.
 //
 // MHA (get_template_block_mha): same ranks; all three transposes {0,2,1,3}.
 //   optimize_block_mha does not add that extra transpose.
@@ -15,7 +17,8 @@
 //   input -> [slice_0, slice_1, slice_2] -> [reshape_0, reshape_1, reshape_2]
 //          -> [transpose_0, transpose_1, transpose_2] -> consumer
 // Into:
-//   input -> reshape -> transpose {0,2,1,3} -> [slice_x, slice_y, (+ maybe Transpose)]
+//   input -> reshape -> transpose {0,2,1,3} -> [slice_x, slice_y, (+ maybe
+//   Transpose)]
 //
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -65,10 +68,10 @@ Value createConstantI64Array(
   return rewriter.create<ONNXConstantOp>(loc, Attribute(), denseAttr);
 }
 
-/// Reshape output layout: axis 0=N, 1=S, 2=H, 3=D. ONNX Transpose: output dim i maps
-/// from input dim perm[i]. Valid "head-split" patterns put N,H first and S,D last:
-/// perm[0]==0, perm[1]==2, and {perm[2],perm[3]} == {1,3}.
-/// Sets \p needsSwapSdOnOutput when the branch output had (N,H,D,S) vs fused (N,H,S,D).
+/// Reshape output layout: axis 0=N, 1=S, 2=H, 3=D. ONNX Transpose: output dim i
+/// maps from input dim perm[i]. Valid "head-split" patterns put N,H first and
+/// S,D last: perm[0]==0, perm[1]==2, and {perm[2],perm[3]} == {1,3}. Sets \p
+/// needsSwapSdOnOutput when the branch output had (N,H,D,S) vs fused (N,H,S,D).
 static bool parseHeadSplitTranspose(
     ArrayAttr permAttr, bool &needsSwapSdOnOutput) {
   if (!permAttr || permAttr.size() != 4)
@@ -90,7 +93,8 @@ static bool parseHeadSplitTranspose(
   return false;
 }
 
-/// Read one element from a 1-D onnx.Constant tensor (typical slice starts/steps).
+/// Read one element from a 1-D onnx.Constant tensor (typical slice
+/// starts/steps).
 static bool tryGet1DConstI64Element(Value v, size_t index, int64_t &out) {
   Operation *def = v.getDefiningOp();
   if (!def)
@@ -140,8 +144,8 @@ struct MatchedPattern {
   bool needsSwapSdOnOutput[3] = {false, false, false};
 };
 
-/// Map xcompiler branch order: matmul {0213,0231,0213}; MHA three {0213}; sort by
-/// channel begin (`starts[2]`).
+/// Map xcompiler branch order: matmul {0213,0231,0213}; MHA three {0213}; sort
+/// by channel begin (`starts[2]`).
 static LogicalResult canonializeThreeChains(SmallVector<ChainSlot, 3> &chains,
     MatchedPattern &pattern, Value sliceInput) {
   if (chains.size() != 3)
@@ -154,7 +158,8 @@ static LogicalResult canonializeThreeChains(SmallVector<ChainSlot, 3> &chains,
 
   int64_t keys[3];
   for (int i = 0; i < 3; ++i) {
-    FailureOr<int64_t> k = getChannelSliceStartKey(chains[static_cast<unsigned>(i)].slice);
+    FailureOr<int64_t> k =
+        getChannelSliceStartKey(chains[static_cast<unsigned>(i)].slice);
     if (failed(k))
       return failure();
     keys[i] = *k;
@@ -400,8 +405,8 @@ public:
           stepsConst);
 
       Value repl = newSliceOp.getResult();
-      // Branch that used {0,2,3,1} had layout (N,H,D,S); slice above is (N,H,S,D).
-      // Swap last two dims to match original consumers.
+      // Branch that used {0,2,3,1} had layout (N,H,D,S); slice above is
+      // (N,H,S,D). Swap last two dims to match original consumers.
       if (pattern.needsSwapSdOnOutput[i]) {
         sliceVals.assign({nDim, numHeadsPerSlice, dDim, sDim});
         auto swappedType = RankedTensorType::get(sliceVals, elementType);
