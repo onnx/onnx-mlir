@@ -68,25 +68,26 @@ std::unique_ptr<llvm::MemoryBuffer> readExternalData_LE(
 
   // TODO: Remove after onnx 1.21.0 update (see
   // https://github.com/onnx/onnx-mlir/issues/3455).
-  // Reject symlinks and hardlinks in external data files to prevent path
-  // traversal attacks (CVE-2026-27489, CVE-2026-34446). A malicious ONNX model
-  // can specify external data locations that are symlinks or hardlinks to
-  // sensitive files.
+  // Reject symlinks in external data files to prevent path traversal attacks
+  // (CVE-2026-27489).
   if (llvm::sys::fs::is_symlink_file(pathStr)) {
     llvm::errs() << "Error: external data file " << pathStr
                  << " is a symlink, which is not allowed for security "
                     "reasons.\n";
     llvm_unreachable("external data file is a symlink");
   }
-  {
-    llvm::sys::fs::file_status fileStat;
-    if (!llvm::sys::fs::status(pathStr, fileStat) &&
-        fileStat.getLinkCount() > 1) {
-      llvm::errs() << "Error: external data file " << pathStr
-                   << " is a hardlink (link count: " << fileStat.getLinkCount()
-                   << "), which is not allowed for security reasons.\n";
-      llvm_unreachable("external data file is a hardlink");
-    }
+
+  // TODO: Remove after onnx 1.21.0 update (see
+  // https://github.com/onnx/onnx-mlir/issues/3455).
+  // Reject hardlinks in external data files to prevent path traversal attacks
+  // (CVE-2026-34446).
+  llvm::sys::fs::file_status fileStat;
+  if (!llvm::sys::fs::status(pathStr, fileStat) &&
+      fileStat.getLinkCount() > 1) {
+    llvm::errs() << "Error: external data file " << pathStr
+                 << " is a hardlink (link count: " << fileStat.getLinkCount()
+                 << "), which is not allowed for security reasons.\n";
+    llvm_unreachable("external data file is a hardlink");
   }
 
   auto bufferOrError = llvm::MemoryBuffer::getFileSlice(
