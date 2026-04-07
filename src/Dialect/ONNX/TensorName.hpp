@@ -171,6 +171,43 @@ private:
   mlir::SmallVector<int64_t> axes;
 };
 
+template <Transform::Kind QDQType>
+class QDQTransform : public Transform {
+public:
+  QDQTransform(mlir::ArrayRef<int64_t> shape, double scale, int64_t zeroPoint,
+      mlir::Type scaleType, mlir::Type zpType);
+
+  QDQTransform(mlir::ArrayAttr attr);
+  [[nodiscard]] mlir::Attribute toAttr(
+      mlir::MLIRContext *context) const override;
+
+  [[nodiscard]] std::unique_ptr<Transform> invert() const override;
+
+  static bool classof(const Transform *transform) {
+    return transform->getKind() == QDQType;
+  }
+
+  [[nodiscard]] float getScale() const { return scale; }
+  [[nodiscard]] int64_t getZeroPoint() const { return zeroPoint; }
+  [[nodiscard]] mlir::Type getScaleType() const { return scaleType; }
+  [[nodiscard]] mlir::Type getZpType() const { return zpType; }
+
+  [[nodiscard]] mlir::Type getFromDType() const;
+  [[nodiscard]] mlir::Type getToDType() const;
+
+private:
+  double scale;
+  int64_t zeroPoint;
+  mlir::Type scaleType;
+  mlir::Type zpType;
+};
+
+// template class QDQTransform<Transform::Kind::Dequantize>;
+// template class QDQTransform<Transform::Kind::Quantize>;
+
+using DequantizeTransform = QDQTransform<Transform::Kind::Dequantize>;
+using QuantizeTransform = QDQTransform<Transform::Kind::Quantize>;
+
 /// A convenience transform to hold multiple transforms
 class ListTransform : public Transform {
 public:

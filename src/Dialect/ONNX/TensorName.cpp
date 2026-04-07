@@ -31,6 +31,10 @@ std::unique_ptr<Transform> Transform::fromAttr(ArrayAttr arrayAttr) {
         return std::make_unique<PadTransform>(arrayAttr);
       else if (transType == "Slice")
         return std::make_unique<SliceTransform>(arrayAttr);
+      else if (transType == "Dequantize")
+        return std::make_unique<DequantizeTransform>(arrayAttr);
+      else if (transType == "Quantize")
+        return std::make_unique<QuantizeTransform>(arrayAttr);
     }
   }
   return {};
@@ -210,6 +214,67 @@ std::unique_ptr<Transform> SliceTransform::invert() const {
 
   return std::make_unique<PadTransform>(
       outShape, starts, padEnds, axes, Attribute(), inShape);
+}
+
+// == QDQ == //
+
+template <Transform::Kind QDQType>
+QDQTransform<QDQType>::QDQTransform(mlir::ArrayRef<int64_t> shape, double scale,
+    int64_t zeroPoint, mlir::Type scaleType, mlir::Type zpType)
+    : Transform(QDQType, shape, shape), scale(scale), zeroPoint(zeroPoint),
+      scaleType(scaleType), zpType(zpType) {}
+
+template <Transform::Kind QDQType>
+QDQTransform<QDQType>::QDQTransform(mlir::ArrayAttr attr)
+    : QDQTransform(arrayToVector(cast<ArrayAttr>(attr[1])),
+          cast<FloatAttr>(attr[2]).getValueAsDouble(),
+          cast<IntegerAttr>(attr[3]).getInt(),
+          cast<FloatAttr>(attr[2]).getType(),
+          cast<IntegerAttr>(attr[3]).getType()) {}
+
+template <Transform::Kind QDQType>
+mlir::Attribute QDQTransform<QDQType>::toAttr(
+    mlir::MLIRContext *context) const {
+  StringRef transType = "Unknown";
+  if constexpr (QDQType == Transform::Kind::Dequantize)
+    transType = "Dequantize";
+  else if constexpr (QDQType == Transform::Kind::Dequantize)
+    transType = "Quantize";
+  return ArrayAttr::get(context, {
+                                     StringAttr::get(context, transType),
+                                     vecToAttr(context, inShape),
+                                     FloatAttr::get(scaleType, scale),
+                                     IntegerAttr::get(zpType, zeroPoint),
+                                 });
+}
+
+template <Transform::Kind QDQType>
+std::unique_ptr<Transform> QDQTransform<QDQType>::invert() const {
+  if constexpr (QDQType == Transform::Kind::Dequantize)
+    return std::make_unique<QuantizeTransform>(
+        inShape, scale, zeroPoint, scaleType, zpType);
+  else if constexpr (QDQType == Transform::Kind::Dequantize)
+    return std::make_unique<DequantizeTransform>(
+        inShape, scale, zeroPoint, scaleType, zpType);
+  return nullptr;
+}
+
+template <Transform::Kind QDQType>
+mlir::Type QDQTransform<QDQType>::getFromDType() const {
+  if constexpr (QDQType == Transform::Kind::Dequantize)
+    return zpType;
+  else if constexpr (QDQType == Transform::Kind::Quantize)
+    return scaleType;
+  return nullptr;
+}
+
+template <Transform::Kind QDQType>
+mlir::Type QDQTransform<QDQType>::getToDType() const {
+  if constexpr (QDQType == Transform::Kind::Dequantize)
+    return scaleType;
+  else if constexpr (QDQType == Transform::Kind::Quantize)
+    return zpType;
+  return nullptr;
 }
 
 // == List == //
