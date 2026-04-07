@@ -69,7 +69,7 @@ public:
 };
 } // namespace
 
-void populateLoweringONNXSplitOpToTOSAPattern(ConversionTarget &target,
+void populateLoweringONNXSplitOpToTOSAPattern(ConversionTarget & /*target*/,
     RewritePatternSet &patterns, TypeConverter &typeConverter,
     MLIRContext *ctx) {
   patterns.insert<ONNXSplitOpLoweringToTOSA>(typeConverter, ctx);

@@ -181,9 +181,9 @@ public:
 
 } // namespace
 
-void populateLoweringONNXQuantizeLinearOpToTOSAPattern(ConversionTarget &target,
-    RewritePatternSet &patterns, TypeConverter &typeConverter,
-    MLIRContext *ctx) {
+void populateLoweringONNXQuantizeLinearOpToTOSAPattern(
+    ConversionTarget & /*target*/, RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXQuantizeLinearOpLoweringToTOSA>(typeConverter, ctx);
 }
 

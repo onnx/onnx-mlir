@@ -101,8 +101,10 @@ Value createConvInGroups(PatternRewriter &rewriter, Operation *op,
 
 class ONNXConvOpLoweringToTOSA : public ConversionPattern {
 public:
-  ONNXConvOpLoweringToTOSA(MLIRContext *ctx, int64_t groupedConvThreshold)
-      : ConversionPattern(ONNXConvOp::getOperationName(), 1, ctx),
+  ONNXConvOpLoweringToTOSA(const TypeConverter &typeConverter, MLIRContext *ctx,
+      int64_t groupedConvThreshold)
+      : ConversionPattern(
+            typeConverter, ONNXConvOp::getOperationName(), 1, ctx),
         groupedConvThreshold(groupedConvThreshold) {}
 
   using OpAdaptor = typename ONNXConvOp::Adaptor;
@@ -261,10 +263,11 @@ private:
 
 } // namespace
 
-void populateLoweringONNXConvOpToTOSAPattern(ConversionTarget &target,
+void populateLoweringONNXConvOpToTOSAPattern(ConversionTarget & /*target*/,
     RewritePatternSet &patterns, TypeConverter &typeConverter, MLIRContext *ctx,
     int64_t groupedConvThreshold) {
-  patterns.insert<ONNXConvOpLoweringToTOSA>(ctx, groupedConvThreshold);
+  patterns.insert<ONNXConvOpLoweringToTOSA>(
+      typeConverter, ctx, groupedConvThreshold);
 }
 
 } // namespace onnx_mlir

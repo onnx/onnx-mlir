@@ -216,3 +216,15 @@ func.func @test_pad_f16_non_constant_padval(%arg0: tensor<20x16x44x32xf16>, %arg
 // CHECK:           [[VAR_1_:%.+]] = tosa.pad [[PARAM_0_]], [[VAR_0_]], [[PARAM_1_]] : (tensor<20x16x44x32xf16>, !tosa.shape<8>, tensor<f16>) -> tensor<24x22x52x42xf16>
 // CHECK:           return [[VAR_1_]] : tensor<24x22x52x42xf16>
 }
+
+// -----
+
+func.func @test_pad_dynamic_input_static_output(%arg0: tensor<?x16x44x32xf32>) -> tensor<24x22x52x42xf32> {
+    %noval = "onnx.NoValue"() {value} : () -> none
+    %0 = "onnx.Constant"() {value = dense<[0, 1, 2, 3, 4, 5, 6, 7]> : tensor<8xi64>} : () -> tensor<8xi64>
+    %1 = "onnx.Constant"() {value = dense<[4.5000]> : tensor<1xf32>} : () -> tensor<1xf32>
+    %2 = "onnx.Pad"(%arg0, %0, %1, %noval) {mode = "constant"} : (tensor<?x16x44x32xf32>, tensor<8xi64>, tensor<1xf32>, none) -> tensor<24x22x52x42xf32>
+    return %2 : tensor<24x22x52x42xf32>
+}
+// CHECK-LABEL:  func.func @test_pad_dynamic_input_static_output
+// CHECK: "onnx.Pad"

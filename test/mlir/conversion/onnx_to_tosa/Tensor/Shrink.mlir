@@ -50,3 +50,14 @@ func.func @test_shrink_int_constants_are_one(%arg0: tensor<4x4xi8>) -> tensor<4x
 //       CHECK:    %8 = tosa.select %6, %7, %5 : (tensor<4x4xi1>, tensor<4x4xi8>, tensor<4x4xi8>) -> tensor<4x4xi8>
 //       CHECK:    return %8 : tensor<4x4xi8>
 } 
+
+// -----
+
+func.func @test_shrink_dynamic_input_static_output(%arg0: tensor<?x4xf32>) -> tensor<1x4xf32> {
+  %0 = "onnx.Shrink"(%arg0) {lambd = -7.500000e-01 : f32, bias = 5.000000e-01 : f32} : (tensor<?x4xf32>) -> tensor<1x4xf32>
+  return %0 : tensor<1x4xf32>
+// CHECK-LABEL:  func.func @test_shrink_dynamic_input_static_output(
+// CHECK:           %[[VAL_6:.*]] = tosa.select {{.*}} : (tensor<?x4xi1>, tensor<?x4xf32>, tensor<1x1xf32>) -> tensor<?x4xf32>
+// CHECK:           %[[VAL_9:.*]] = tosa.select {{.*}} : (tensor<?x4xi1>, tensor<?x4xf32>, tensor<?x4xf32>) -> tensor<1x4xf32>
+// CHECK:           return %[[VAL_9]] : tensor<1x4xf32>
+}

@@ -123,10 +123,10 @@ public:
 
 } // namespace
 
-void populateLoweringONNXAveragePoolOpToTOSAPattern(ConversionTarget &target,
-    RewritePatternSet &patterns, TypeConverter &typeConverter,
-    MLIRContext *ctx) {
-  patterns.insert<ONNXAveragePoolOpLoweringToTOSA>(ctx);
+void populateLoweringONNXAveragePoolOpToTOSAPattern(
+    ConversionTarget & /*target*/, RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
+  patterns.insert<ONNXAveragePoolOpLoweringToTOSA>(typeConverter, ctx);
 }
 
 } // namespace onnx_mlir

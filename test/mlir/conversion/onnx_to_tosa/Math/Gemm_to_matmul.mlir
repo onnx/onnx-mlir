@@ -162,3 +162,17 @@ func.func @test_mixed(%arg0: tensor<11x5xf32>, %arg1: tensor<3x11xf32>, %arg2: t
 // CHECK:           return [[VAR_13_]] : tensor<5x3xf32>
 // CHECK:         }
 }
+
+// -----
+
+func.func @test_gemm_to_matmul_dynamic_input_static_output(%arg0: tensor<?x5xf32>, %arg1: tensor<5x?xf32>, %arg2: tensor<?x4xf32>) -> tensor<1x4xf32> {
+  %0 = "onnx.Gemm"(%arg0, %arg1, %arg2) {alpha = 1.0 : f32} : (tensor<?x5xf32>, tensor<5x?xf32>, tensor<?x4xf32>) -> tensor<1x4xf32>
+  return %0 : tensor<1x4xf32>
+// CHECK-LABEL:  func.func @test_gemm_to_matmul_dynamic_input_static_output
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x5xf32>, [[PARAM_1_:%.+]]: tensor<5x?xf32>, [[PARAM_2_:%.+]]: tensor<?x4xf32>) -> tensor<1x4xf32> {
+// CHECK:           [[VAR_2_:%.+]] = tosa.matmul [[VAR_0_:%.+]], [[VAR_1_:%.+]] : (tensor<1x?x5xf32>, tensor<1x5x?xf32>) -> tensor<1x?x?xf32>
+// CHECK:           [[VAR_4_:%.+]] = tosa.add [[VAR_2_]], [[VAR_3_:%.+]] : (tensor<1x?x?xf32>, tensor<1x?x4xf32>) -> tensor<?x?x?xf32>
+// CHECK:           [[VAR_5_:%.+]] = tosa.reshape [[VAR_4_]] {new_shape = array<i64: 1, 4>} : (tensor<?x?x?xf32>) -> tensor<1x4xf32>
+// CHECK:           return [[VAR_5_]] : tensor<1x4xf32>
+// CHECK:         }
+}

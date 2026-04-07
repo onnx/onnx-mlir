@@ -59,3 +59,18 @@ func.func @test_softmax_before_v13_axis_zero(%arg0: tensor<13x21x3xf32>) -> tens
 // CHECK: %[[VAL_5:.*]] = tosa.reciprocal %[[VAL_4]] : (tensor<1x1x1xf32>) -> tensor<1x1x1xf32>
 // CHECK: %[[VAL_6:.*]] = tosa.mul %[[VAL_1]], %[[VAL_5]], {{.*}}: (tensor<13x21x3xf32>, tensor<1x1x1xf32>, tensor<1xi8>) -> tensor<13x21x3xf32>
 }
+
+// -----
+
+func.func @test_softmax_dynamic_input_static_output(%arg0: tensor<?x21x3xf32>) -> tensor<1x21x3xf32> {
+  %0 = "onnx.Softmax"(%arg0) {axis = 2 : si64} : (tensor<?x21x3xf32>) -> tensor<1x21x3xf32>
+  return %0 : tensor<1x21x3xf32>
+// CHECK-LABEL: func.func @test_softmax_dynamic_input_static_output(
+// CHECK-SAME: %[[VAL_0:.*]]: tensor<?x21x3xf32>) -> tensor<1x21x3xf32> {
+// CHECK: %[[MAX:.*]] = tosa.reduce_max %[[VAL_0]] {axis = 2 : i32}
+// CHECK: %[[SUB:.*]] = tosa.sub %[[VAL_0]], %[[MAX]]
+// CHECK: %[[VAL_1:.*]] = tosa.exp %[[SUB]] : (tensor<?x21x3xf32>) -> tensor<1x21x3xf32>
+// CHECK: %[[VAL_2:.*]] = tosa.reduce_sum %[[VAL_1]] {axis = 2 : i32} : (tensor<1x21x3xf32>) -> tensor<1x21x1xf32>
+// CHECK: %[[VAL_4:.*]] = tosa.mul %[[VAL_1]], {{.*}} : (tensor<1x21x3xf32>, tensor<1x21x1xf32>, tensor<1xi8>) -> tensor<1x21x3xf32>
+// CHECK: return %[[VAL_4]] : tensor<1x21x3xf32>
+}
