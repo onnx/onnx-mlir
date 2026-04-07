@@ -5,6 +5,7 @@ add_onnx_mlir_interface(ShapeHelperOpInterface)
 add_onnx_mlir_interface(ResultTypeInferenceOpInterface)
 add_onnx_mlir_interface(HasOnnxSubgraphOpInterface)
 add_onnx_mlir_interface(SpecializedKernelOpInterface)
+add_onnx_mlir_interface(TensorNameInference)
 
 add_onnx_mlir_library(OMShapeInferenceOpInterface
   ShapeInferenceOpInterface.cpp
@@ -61,3 +62,14 @@ add_onnx_mlir_library(OMSpecializedKernelOpInterface
   MLIRIR
   LLVMSupport
   )
+
+add_onnx_mlir_library(OMTensorNameInference
+	TensorNameInference.cpp
+
+	DEPENDS
+	OMTensorNameInferenceIncGen
+
+	LINK_LIBS PUBLIC
+	MLIRIR
+	LLVMSupport
+)
