@@ -1,10 +1,10 @@
 // Verify that quant-types followed by constprop-onnx does not crash or
 // miscompute. The IsIntOrFloatType constraint on element-wise const-prop
-// patterns causes them to skip quantized-typed constants, and the
-// ValuesHaveSameDType constraint on unary (like Transpose) patterns ensures
-// const-prop is skipped when input/output element types differ (e.g. one
-// side is quantized and the other is not, or different quantization
-// parameters).
+// patterns causes them to skip quantized-typed constants, and transpose
+// const-prop compares input/output dtypes after remapping per-axis
+// quantization through perm (TransposeConstPropTypesMatch); otherwise
+// const-prop is skipped when types differ (e.g. float vs quant, mismatched
+// scales, or per-axis vs incompatible output quant).
 
 // RUN: onnx-mlir-opt %s --quant-types --constprop-onnx | FileCheck %s
 
@@ -452,3 +452,52 @@ func.func @transpose_quantized_constant() -> tensor<2x1xf32> {
 // CHECK-NOT:     onnx.Transpose
 // CHECK:         onnx.Constant
 // CHECK:         quant.scast
+
+
+// Per-axis Q along input axis 1; after perm=[1,0] the quant axis becomes 0.
+// Input/output use the same per-axis scales — fold transpose into the constant.
+func.func @transpose_per_axis_quant_constant() -> tensor<2x1xf32> {
+  %a = onnx.Constant dense<[[10, 20]]> : tensor<1x2xui8>
+  %a_scale = onnx.Constant dense<[5.000000e-01, 5.000000e-01]> : tensor<2xf32>
+  %a_zp = onnx.Constant dense<[0, 0]> : tensor<2xui8>
+
+  %a_dq = "onnx.DequantizeLinear"(%a, %a_scale, %a_zp) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x2xui8>, tensor<2xf32>, tensor<2xui8>) -> tensor<1x2xf32>
+
+  %t = "onnx.Transpose"(%a_dq) {perm = [1, 0]} : (tensor<1x2xf32>) -> tensor<2x1xf32>
+
+  %out_scale = onnx.Constant dense<[5.000000e-01, 5.000000e-01]> : tensor<2xf32>
+  %out_zp = onnx.Constant dense<[0, 0]> : tensor<2xui8>
+  %q = "onnx.QuantizeLinear"(%t, %out_scale, %out_zp) {axis = 0 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<2x1xf32>, tensor<2xf32>, tensor<2xui8>) -> tensor<2x1xui8>
+  %final = "onnx.DequantizeLinear"(%q, %out_scale, %out_zp) {axis = 0 : si64, block_size = 0 : si64} : (tensor<2x1xui8>, tensor<2xf32>, tensor<2xui8>) -> tensor<2x1xf32>
+
+  return %final : tensor<2x1xf32>
+}
+
+// CHECK-LABEL: @transpose_per_axis_quant_constant
+// CHECK-NOT:     onnx.Transpose
+// CHECK:         !quant.uniform<u8:f32:0, {5.000000e-01,5.000000e-01}>
+// CHECK:         quant.scast
+
+
+// Same per-axis input path, but output Q uses different per-axis scales than
+// the remapped input quant type — transpose const-prop must not fold.
+func.func @transpose_per_axis_quant_mismatch_scales() -> tensor<2x1xf32> {
+  %a = onnx.Constant dense<[[10, 20]]> : tensor<1x2xui8>
+  %a_scale = onnx.Constant dense<[5.000000e-01, 5.000000e-01]> : tensor<2xf32>
+  %a_zp = onnx.Constant dense<[0, 0]> : tensor<2xui8>
+
+  %a_dq = "onnx.DequantizeLinear"(%a, %a_scale, %a_zp) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x2xui8>, tensor<2xf32>, tensor<2xui8>) -> tensor<1x2xf32>
+
+  %t = "onnx.Transpose"(%a_dq) {perm = [1, 0]} : (tensor<1x2xf32>) -> tensor<2x1xf32>
+
+  %out_scale = onnx.Constant dense<[5.000000e-01, 2.500000e-01]> : tensor<2xf32>
+  %out_zp = onnx.Constant dense<[0, 0]> : tensor<2xui8>
+  %q = "onnx.QuantizeLinear"(%t, %out_scale, %out_zp) {axis = 0 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<2x1xf32>, tensor<2xf32>, tensor<2xui8>) -> tensor<2x1xui8>
+  %final = "onnx.DequantizeLinear"(%q, %out_scale, %out_zp) {axis = 0 : si64, block_size = 0 : si64} : (tensor<2x1xui8>, tensor<2xf32>, tensor<2xui8>) -> tensor<2x1xf32>
+
+  return %final : tensor<2x1xf32>
+}
+
+// CHECK-LABEL: @transpose_per_axis_quant_mismatch_scales
+// CHECK:         onnx.Transpose
+// CHECK-SAME:      perm = [1, 0]
