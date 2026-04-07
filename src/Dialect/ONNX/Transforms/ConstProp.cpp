@@ -98,7 +98,8 @@ bool satisfiesExpansionBound(Value result) {
 /// True if the transpose result's element type matches the constant input's
 /// element type after remapping per-axis quantization through `perm` (same
 /// rule as ConvertToChannelLast: output axis i reads input axis perm[i]).
-bool valuesHaveSameDTypeForTransposeOfConst(Value transposeResult, Value input) {
+bool valuesHaveSameDTypeForTransposeOfConst(
+    Value transposeResult, Value input) {
   auto transposeOp = dyn_cast<ONNXTransposeOp>(transposeResult.getDefiningOp());
   if (!transposeOp)
     return false;
@@ -136,11 +137,11 @@ bool valuesHaveSameDTypeForTransposeOfConst(Value transposeResult, Value input) 
       }
     }
     if (newAxis != oldAxis) {
-      expectedOutElem = mlir::quant::UniformQuantizedPerAxisType::get(
-          perAxis.getFlags(), perAxis.getStorageType(),
-          perAxis.getExpressedType(), perAxis.getScales(),
-          perAxis.getZeroPoints(), newAxis, perAxis.getStorageTypeMin(),
-          perAxis.getStorageTypeMax());
+      expectedOutElem =
+          mlir::quant::UniformQuantizedPerAxisType::get(perAxis.getFlags(),
+              perAxis.getStorageType(), perAxis.getExpressedType(),
+              perAxis.getScales(), perAxis.getZeroPoints(), newAxis,
+              perAxis.getStorageTypeMin(), perAxis.getStorageTypeMax());
     }
   }
 
