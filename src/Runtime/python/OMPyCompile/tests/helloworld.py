@@ -11,6 +11,8 @@ import OMPyCompile
 # unless you are on a s390 machine.
 script_dir = Path(__file__).resolve().parent
 model = script_dir / "test_add.mlir"
-r = OMPyCompile.compile(str(model), "-O3")
+compile_session = OMPyCompile.OMCompile(str(model), "-O3")
+
+r = compile_session.get_output_file_name()
 
 print(r)

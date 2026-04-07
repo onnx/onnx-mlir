@@ -13,9 +13,8 @@
 import numpy as np
 
 try:
-    from PyOMCompileC import (
-        OMCompile,
-    )
+    from PyOMCompileC import OMCompile as OMCompile_
+   
 except ImportError:
     raise ImportError(
         "Looks like you did not build the PyOMCompileC target, build it by\n"
@@ -23,3 +22,14 @@ except ImportError:
         "include `onnx-mlir/build/Debug/lib` since `make PyOMCompileC` outputs\n"
         "to `build/Debug` by default (or Release if building Release)."
     )
+
+
+
+class OMCompile(OMCompile_):
+    def __init__(self, input_model_path, flags, compiler_path="", log_file_name="", reuse_compiled_model=False ):
+        if __package__ and not compiler_path:
+            from . import compiler_path as compiler_path_in_package
+            super().__init__(input_model_path, flags, compiler_path_in_package, log_file_name, reuse_compiled_model)
+        else:
+            super().__init__(input_model_path, flags, compiler_path, log_file_name, reuse_compiled_model)
+
