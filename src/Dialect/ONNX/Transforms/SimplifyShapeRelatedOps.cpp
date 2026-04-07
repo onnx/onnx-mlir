@@ -512,9 +512,6 @@ void SimplifyShapeRelatedOpsPass::topDownShapeSimplification(
   ONNXUnsqueezeOp::getCanonicalizationPatterns(patterns, context);
   ONNXUnsqueezeV11Op::getCanonicalizationPatterns(patterns, context);
 
-  GreedyRewriteConfig config;
-  config.useTopDownTraversal = true;
-
   // Simplify shape-related ops.
   if (failed(applyPatternsGreedily(moduleOp, std::move(patterns))))
     signalPassFailure();
@@ -528,10 +525,13 @@ void SimplifyShapeRelatedOpsPass::runOnOperation() {
   // so that all ops' shape are updated.
   for (unsigned i = 0; i < 3; ++i) {
     topDownShapeSimplification(context, moduleOp);
+    GreedyRewriteConfig config;
     OpPassManager pm("builtin.module");
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
-    pm.addPass(mlir::createCanonicalizerPass());
+    pm.addPass(mlir::createCanonicalizerPass(config,
+        /*disabledPatterns=*/{"GlobalAveragePoolPattern"},
+        /*enabledPatterns=*/{}));
     if (failed(runPipeline(pm, moduleOp)))
       return signalPassFailure();
   }

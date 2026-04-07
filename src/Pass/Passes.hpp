@@ -104,7 +104,8 @@ std::unique_ptr<mlir::Pass> createONNXHybridTransformPass(
     bool enableInstanceNormDecompose = true,
     bool enableMatmulNBitsDecompose = false,
     bool enableGroupQueryAttentionDecompose = true,
-    bool enableSplitToSliceDecompose = false);
+    bool enableSplitToSliceDecompose = false,
+    bool enablGAPToReduceMean = true);
 
 /// Pass for analyzing unknown dimension in ONNX operations.
 std::unique_ptr<mlir::Pass> createONNXDimAnalysisPass();

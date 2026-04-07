@@ -133,6 +133,11 @@ struct ONNXHybridTransformPass
       "enable-split-to-slice-decompose",
       llvm::cl::desc("Enable decomposition of Split to Slice"),
       ::llvm::cl::init(false)};
+  
+  Option<bool> enablGAPToReduceMean{*this,
+      "enable-globalaveragepool-to-reducemean",
+      llvm::cl::desc("Enable canonicalize from GlobalAveragePool to ReduceMean"),
+      ::llvm::cl::init(true)};
 
   FrozenRewritePatternSet patterns;
 
@@ -143,7 +148,8 @@ struct ONNXHybridTransformPass
       bool enableConvTranspose1dDecomposeToPhasedConv,
       bool enableInstanceNormDecompose, bool enableMatmulNBitsDecompose,
       bool enableGroupQueryAttentionDecompose,
-      bool enableSplitToSliceDecompose) {
+      bool enableSplitToSliceDecompose, 
+      bool enablGAPToReduceMean) {
     this->recomposition = enableRecomposition;
     this->quarkQuantizedOpsLegalization = enableQuarkQuantizedOpsLegalization;
     this->enableConvTransposeDecompose = enableConvTransposeDecompose;
@@ -156,6 +162,7 @@ struct ONNXHybridTransformPass
     this->enableGroupQueryAttentionDecompose =
         enableGroupQueryAttentionDecompose;
     this->enableSplitToSliceDecompose = enableSplitToSliceDecompose;
+    this->enablGAPToReduceMean = enablGAPToReduceMean;
   }
 
   ONNXHybridTransformPass(const ONNXHybridTransformPass &pass)
@@ -183,12 +190,17 @@ struct ONNXHybridTransformPass
 
     if (canonicalization) {
       // canonicalization (copied from mlir/lib/Transforms/Canonicalizer.cpp)
-      for (auto *dialect : context->getLoadedDialects())
+      for (auto *dialect : context->getLoadedDialects()){
         dialect->getCanonicalizationPatterns(cumulativePatterns);
+     }
       for (RegisteredOperationName op : context->getRegisteredOperations()) {
         // Since we are manipulating ONNXCastOp's, disable any canonicalization
         // for it.
         if (quarkQuantizedOpsLegalization && op.getStringRef() == "onnx.Cast") {
+          continue;
+        }
+        
+        if (!enablGAPToReduceMean && op.getStringRef() == "onnx.GlobalAveragePool") {
           continue;
         }
         op.getCanonicalizationPatterns(cumulativePatterns, context);
@@ -252,11 +264,11 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createONNXHybridTransformPass(
     bool enableConvTransposeDecomposeToPhasedConv,
     bool enableConvTranspose1dDecomposeToPhasedConv,
     bool enableInstanceNormDecompose, bool enableMatmulNBitsDecompose,
-    bool enableGroupQueryAttentionDecompose, bool enableSplitToSliceDecompose) {
+    bool enableGroupQueryAttentionDecompose, bool enableSplitToSliceDecompose, bool enablGAPToReduceMean) {
   return std::make_unique<ONNXHybridTransformPass>(enableRecomposition,
       enableQuarkQuantizedOpsLegalization, enableConvTransposeDecompose,
       enableConvTransposeDecomposeToPhasedConv,
       enableConvTranspose1dDecomposeToPhasedConv, enableInstanceNormDecompose,
       enableMatmulNBitsDecompose, enableGroupQueryAttentionDecompose,
-      enableSplitToSliceDecompose);
+      enableSplitToSliceDecompose, enablGAPToReduceMean);
 }

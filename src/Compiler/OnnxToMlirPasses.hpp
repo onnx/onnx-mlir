@@ -27,7 +27,8 @@ struct OnnxToMlirOptions {
   bool enableSplitToSliceDecompose = false;
 
   bool disableBatchNormDecompose = false;
-
+  bool enablGAPToReduceMean = true;
+  
   bool disableRecomposeOption = false;
   bool enableONNXHybridPass = true;
   bool enableConvOptPass = true;
