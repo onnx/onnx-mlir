@@ -95,6 +95,19 @@ bool satisfiesExpansionBound(Value result) {
          getSizeInBytes(resultType);
 }
 
+/// Same as comparing element types, except we skip the check when either value
+/// is per-axis quantized: transpose const-prop uses the TransposeOp's result
+/// type (with updated quant axis) while the constant may still carry the
+/// pre-transpose quant type, so element types may not compare equal.
+bool valuesHaveSameDTypeUnlessPerAxisQuant(Value a, Value b) {
+  Type elemA = cast<ShapedType>(a.getType()).getElementType();
+  Type elemB = cast<ShapedType>(b.getType()).getElementType();
+  if (isa<mlir::quant::UniformQuantizedPerAxisType>(elemA) ||
+      isa<mlir::quant::UniformQuantizedPerAxisType>(elemB))
+    return true;
+  return elemA == elemB;
+}
+
 // We want to disable Constant Propagation when a user
 // manually specifies the "disable-constant-prop" flag.
 bool isConstantPropagationDisabled() {
