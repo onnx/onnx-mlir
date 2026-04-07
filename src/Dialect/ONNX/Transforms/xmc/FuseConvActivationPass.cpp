@@ -84,239 +84,242 @@ static bool convPadsNonNegative(ConvOp convOp) {
   }
   return true;
 
-/// Scalar onnx.Constant (splat or one element) as int64, for Clip min/max.
-static std::optional<int64_t> clipBoundAsI64(Value v) {
-  if (!v || isa<NoneType>(v.getType()))
-    return std::nullopt;
+  /// Scalar onnx.Constant (splat or one element) as int64, for Clip min/max.
+  static std::optional<int64_t> clipBoundAsI64(Value v) {
+    if (!v || isa<NoneType>(v.getType()))
+      return std::nullopt;
 
-  auto cst = v.getDefiningOp<ONNXConstantOp>();
-  if (!cst)
-    return std::nullopt;
+    auto cst = v.getDefiningOp<ONNXConstantOp>();
+    if (!cst)
+      return std::nullopt;
 
-  auto elementsAttr = dyn_cast_or_null<ElementsAttr>(cst.getValueAttr());
-  if (!elementsAttr)
-    return std::nullopt;
+    auto elementsAttr = dyn_cast_or_null<ElementsAttr>(cst.getValueAttr());
+    if (!elementsAttr)
+      return std::nullopt;
 
-  if (elementsAttr.isSplat()) {
-    Type et = elementsAttr.getElementType();
-    if (isa<FloatType>(et)) {
-      APFloat apf = elementsAttr.getSplatValue<APFloat>();
-      return static_cast<int64_t>(std::llround(apf.convertToDouble()));
+    if (elementsAttr.isSplat()) {
+      Type et = elementsAttr.getElementType();
+      if (isa<FloatType>(et)) {
+        APFloat apf = elementsAttr.getSplatValue<APFloat>();
+        return static_cast<int64_t>(std::llround(apf.convertToDouble()));
+      }
+      if (auto it = dyn_cast<IntegerType>(et)) {
+        APInt api = elementsAttr.getSplatValue<APInt>();
+        return static_cast<int64_t>(
+            it.isUnsigned() ? api.getZExtValue() : api.getSExtValue());
+      }
+      return std::nullopt;
     }
-    if (auto it = dyn_cast<IntegerType>(et)) {
-      APInt api = elementsAttr.getSplatValue<APInt>();
-      return static_cast<int64_t>(
-          it.isUnsigned() ? api.getZExtValue() : api.getSExtValue());
-    }
+
+    auto shapedTy = dyn_cast<ShapedType>(elementsAttr.getType());
+    if (!shapedTy || !shapedTy.hasStaticShape() ||
+        shapedTy.getNumElements() != 1)
+      return std::nullopt;
+
+    Attribute firstAttr = *elementsAttr.getValues<Attribute>().begin();
+    if (auto f = dyn_cast<FloatAttr>(firstAttr))
+      return static_cast<int64_t>(std::llround(f.getValueAsDouble()));
+    if (auto i = dyn_cast<IntegerAttr>(firstAttr))
+      return static_cast<int64_t>(i.getInt());
     return std::nullopt;
   }
 
-  auto shapedTy = dyn_cast<ShapedType>(elementsAttr.getType());
-  if (!shapedTy || !shapedTy.hasStaticShape() || shapedTy.getNumElements() != 1)
-    return std::nullopt;
+  /// Try to identify a fuseable activation from an operation.
+  /// Handles both XCOMPILERFusedEltwiseOp (quantized path) and raw ONNX
+  /// activation ops (non-quantized path).
+  ///
+  /// On success, returns the activation string, the activation's output value,
+  /// and optionally sets alphaOut for LeakyRelu.
+  /// On failure, returns empty string.
+  struct ActivationInfo {
+    StringRef activationType;
+    Value output;
+    float alpha = 0.0f;
+    FloatAttr alphaAttr;
+  };
 
-  Attribute firstAttr = *elementsAttr.getValues<Attribute>().begin();
-  if (auto f = dyn_cast<FloatAttr>(firstAttr))
-    return static_cast<int64_t>(std::llround(f.getValueAsDouble()));
-  if (auto i = dyn_cast<IntegerAttr>(firstAttr))
-    return static_cast<int64_t>(i.getInt());
-  return std::nullopt;
-}
+  static ActivationInfo getActivationInfo(Operation * op) {
+    ActivationInfo info;
 
-/// Try to identify a fuseable activation from an operation.
-/// Handles both XCOMPILERFusedEltwiseOp (quantized path) and raw ONNX
-/// activation ops (non-quantized path).
-///
-/// On success, returns the activation string, the activation's output value,
-/// and optionally sets alphaOut for LeakyRelu.
-/// On failure, returns empty string.
-struct ActivationInfo {
-  StringRef activationType;
-  Value output;
-  float alpha = 0.0f;
-  FloatAttr alphaAttr;
-};
+    // --- XCOMPILERFusedEltwiseOp (quantized path) ---
+    if (auto fusedOp = dyn_cast<XCOMPILERFusedEltwiseOp>(op)) {
+      StringRef opType = fusedOp.getType();
+      if (opType == "RELU")
+        info.activationType = "RELU";
+      else if (opType == "LEAKYRELU")
+        info.activationType = "LEAKYRELU";
+      else if (opType == "CLIP" &&
+               fusedOp.getClipMin() == std::optional<int64_t>(0) &&
+               fusedOp.getClipMax() == std::optional<int64_t>(6))
+        info.activationType = "RELU6";
+      else if (opType == "SIGMOID")
+        info.activationType = "SIGMOID";
+      else if (opType == "QLINEARSIGMOID")
+        info.activationType = "HSIGMOID";
+      else
+        return info; // empty = not fuseable
 
-static ActivationInfo getActivationInfo(Operation *op) {
-  ActivationInfo info;
-
-  // --- XCOMPILERFusedEltwiseOp (quantized path) ---
-  if (auto fusedOp = dyn_cast<XCOMPILERFusedEltwiseOp>(op)) {
-    StringRef opType = fusedOp.getType();
-    if (opType == "RELU")
-      info.activationType = "RELU";
-    else if (opType == "LEAKYRELU")
-      info.activationType = "LEAKYRELU";
-    else if (opType == "CLIP" &&
-             fusedOp.getClipMin() == std::optional<int64_t>(0) &&
-             fusedOp.getClipMax() == std::optional<int64_t>(6))
-      info.activationType = "RELU6";
-    else if (opType == "SIGMOID")
-      info.activationType = "SIGMOID";
-    else if (opType == "QLINEARSIGMOID")
-      info.activationType = "HSIGMOID";
-    else
-      return info; // empty = not fuseable
-
-    info.output = fusedOp.getResult();
-    if (auto attr = fusedOp.getLeakyreluAlphaAttr()) {
-      info.alphaAttr = attr;
-      info.alpha = attr.getValue().convertToFloat();
-    }
-    return info;
-  }
-
-  // --- Raw ONNX activation ops (non-quantized path) ---
-  if (isa<ONNXReluOp>(op)) {
-    info.activationType = "RELU";
-    info.output = op->getResult(0);
-    return info;
-  }
-  if (auto leakyOp = dyn_cast<ONNXLeakyReluOp>(op)) {
-    info.activationType = "LEAKYRELU";
-    info.output = leakyOp.getResult();
-    if (auto attr = leakyOp.getAlphaAttr()) {
-      info.alphaAttr = attr;
-      info.alpha = attr.getValue().convertToFloat();
-    } else {
-      info.alpha = 0.01f; // ONNX default
-    }
-    return info;
-  }
-  if (isa<ONNXHardSigmoidOp>(op)) {
-    info.activationType = "HSIGMOID";
-    info.output = op->getResult(0);
-    return info;
-  }
-  if (auto clipOp = dyn_cast<ONNXClipOp>(op)) {
-    std::optional<int64_t> cmin = clipBoundAsI64(clipOp.getMin());
-    std::optional<int64_t> cmax = clipBoundAsI64(clipOp.getMax());
-    if (cmin != std::optional<int64_t>(0) || cmax != std::optional<int64_t>(6))
+      info.output = fusedOp.getResult();
+      if (auto attr = fusedOp.getLeakyreluAlphaAttr()) {
+        info.alphaAttr = attr;
+        info.alpha = attr.getValue().convertToFloat();
+      }
       return info;
-    info.activationType = "RELU6";
-    info.output = clipOp.getResult();
-    return info;
-  }
-
-  return info; // empty = not fuseable
-}
-
-//===----------------------------------------------------------------------===//
-// Single pattern: Conv + any Activation
-//
-// Matches on the ConvOp itself. Inspects its single user to determine if
-// it is a fuseable activation (FusedEltwise or raw ONNX op).
-//===----------------------------------------------------------------------===//
-
-template <typename ConvOp>
-struct FuseConvActivation : public OpRewritePattern<ConvOp> {
-  using OpRewritePattern<ConvOp>::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(
-      ConvOp convOp, PatternRewriter &rewriter) const override {
-    // Conv must already have activation="NONE" (not already fused)
-    if (convOp.getActivation() != "NONE")
-      return rewriter.notifyMatchFailure(
-          convOp, "conv already has fused activation");
-
-    if (!convPadsNonNegative(convOp))
-      return rewriter.notifyMatchFailure(
-          convOp, "conv pads must be non-negative");
-
-    // Conv output must have single fanout
-    if (!convOp.getResult().hasOneUse())
-      return rewriter.notifyMatchFailure(convOp, "conv has multiple users");
-
-    // Get the single user and check if it is a fuseable activation
-    Operation *userOp = *convOp.getResult().getUsers().begin();
-    ActivationInfo actInfo = getActivationInfo(userOp);
-    if (actInfo.activationType.empty())
-      return rewriter.notifyMatchFailure(
-          convOp, "single user is not a fuseable activation");
-
-    // Verify the user's input comes from this conv (not from a different
-    // operand position for multi-input ops like FusedEltwise)
-    bool inputFromConv = false;
-    if (auto fusedOp = dyn_cast<XCOMPILERFusedEltwiseOp>(userOp))
-      inputFromConv = (fusedOp.getA() == convOp.getResult());
-    else
-      inputFromConv = (userOp->getOperand(0) == convOp.getResult());
-    if (!inputFromConv)
-      return rewriter.notifyMatchFailure(
-          convOp, "activation input is not from this conv");
-
-    // Conv output and activation output quantized types must match.
-    if (!quantTypesMatch(
-            convOp.getResult().getType(), actInfo.output.getType()))
-      return rewriter.notifyMatchFailure(convOp,
-          "conv output and activation output quant types differ "
-          "(requantization — cannot fuse)");
-
-    LLVM_DEBUG(llvm::dbgs()
-               << "FuseConvActivation: fusing " << convOp->getName() << " + "
-               << userOp->getName()
-               << " -> activation=" << actInfo.activationType << "\n");
-
-    // Set the activation attribute and transfer alpha if applicable
-    rewriter.modifyOpInPlace(convOp, [&] {
-      convOp.setActivationAttr(rewriter.getStringAttr(actInfo.activationType));
-
-      if (actInfo.alphaAttr)
-        convOp.setLeakyreluAlphaAttr(actInfo.alphaAttr);
-    });
-
-    // Update the conv op's result type if activation changes it
-    Type activationOutputType = actInfo.output.getType();
-    if (convOp.getResult().getType() != activationOutputType)
-      convOp.getResult().setType(activationOutputType);
-
-    // Replace the activation op with the conv output
-    rewriter.replaceOp(userOp, convOp.getResult());
-
-    return success();
-  }
-};
-
-//===----------------------------------------------------------------------===//
-// Pass Definition
-//===----------------------------------------------------------------------===//
-
-struct FuseConvActivationPass
-    : public PassWrapper<FuseConvActivationPass, OperationPass<func::FuncOp>> {
-  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(FuseConvActivationPass)
-
-  FuseConvActivationPass() = default;
-  FuseConvActivationPass(const FuseConvActivationPass &pass)
-      : PassWrapper(pass) {}
-
-  StringRef getArgument() const override { return "fuse-conv-activation"; }
-  StringRef getDescription() const override {
-    return "Fuse Conv + Activation patterns into conv ops with activation "
-           "attribute (XFEConv, XFEConvTranspose, XCOMPILERDepthwiseConv)";
-  }
-
-  void runOnOperation() override {
-    auto function = getOperation();
-    MLIRContext *context = &getContext();
-
-    RewritePatternSet patterns(context);
-
-    // Single pattern per conv type — inspects the conv's unique user to
-    // determine if it is a fuseable activation (FusedEltwise or raw ONNX).
-    patterns.add<FuseConvActivation<XFEConvOp>>(context);
-    patterns.add<FuseConvActivation<XFEConvTransposeOp>>(context);
-    patterns.add<FuseConvActivation<XCOMPILERDepthwiseConvOp>>(context);
-
-    GreedyRewriteConfig config;
-    config.useTopDownTraversal = true;
-    config.maxIterations = 10;
-
-    if (failed(applyPatternsAndFoldGreedily(
-            function, std::move(patterns), config))) {
-      signalPassFailure();
     }
+
+    // --- Raw ONNX activation ops (non-quantized path) ---
+    if (isa<ONNXReluOp>(op)) {
+      info.activationType = "RELU";
+      info.output = op->getResult(0);
+      return info;
+    }
+    if (auto leakyOp = dyn_cast<ONNXLeakyReluOp>(op)) {
+      info.activationType = "LEAKYRELU";
+      info.output = leakyOp.getResult();
+      if (auto attr = leakyOp.getAlphaAttr()) {
+        info.alphaAttr = attr;
+        info.alpha = attr.getValue().convertToFloat();
+      } else {
+        info.alpha = 0.01f; // ONNX default
+      }
+      return info;
+    }
+    if (isa<ONNXHardSigmoidOp>(op)) {
+      info.activationType = "HSIGMOID";
+      info.output = op->getResult(0);
+      return info;
+    }
+    if (auto clipOp = dyn_cast<ONNXClipOp>(op)) {
+      std::optional<int64_t> cmin = clipBoundAsI64(clipOp.getMin());
+      std::optional<int64_t> cmax = clipBoundAsI64(clipOp.getMax());
+      if (cmin != std::optional<int64_t>(0) ||
+          cmax != std::optional<int64_t>(6))
+        return info;
+      info.activationType = "RELU6";
+      info.output = clipOp.getResult();
+      return info;
+    }
+
+    return info; // empty = not fuseable
   }
-};
+
+  //===----------------------------------------------------------------------===//
+  // Single pattern: Conv + any Activation
+  //
+  // Matches on the ConvOp itself. Inspects its single user to determine if
+  // it is a fuseable activation (FusedEltwise or raw ONNX op).
+  //===----------------------------------------------------------------------===//
+
+  template <typename ConvOp>
+  struct FuseConvActivation : public OpRewritePattern<ConvOp> {
+    using OpRewritePattern<ConvOp>::OpRewritePattern;
+
+    LogicalResult matchAndRewrite(
+        ConvOp convOp, PatternRewriter &rewriter) const override {
+      // Conv must already have activation="NONE" (not already fused)
+      if (convOp.getActivation() != "NONE")
+        return rewriter.notifyMatchFailure(
+            convOp, "conv already has fused activation");
+
+      if (!convPadsNonNegative(convOp))
+        return rewriter.notifyMatchFailure(
+            convOp, "conv pads must be non-negative");
+
+      // Conv output must have single fanout
+      if (!convOp.getResult().hasOneUse())
+        return rewriter.notifyMatchFailure(convOp, "conv has multiple users");
+
+      // Get the single user and check if it is a fuseable activation
+      Operation *userOp = *convOp.getResult().getUsers().begin();
+      ActivationInfo actInfo = getActivationInfo(userOp);
+      if (actInfo.activationType.empty())
+        return rewriter.notifyMatchFailure(
+            convOp, "single user is not a fuseable activation");
+
+      // Verify the user's input comes from this conv (not from a different
+      // operand position for multi-input ops like FusedEltwise)
+      bool inputFromConv = false;
+      if (auto fusedOp = dyn_cast<XCOMPILERFusedEltwiseOp>(userOp))
+        inputFromConv = (fusedOp.getA() == convOp.getResult());
+      else
+        inputFromConv = (userOp->getOperand(0) == convOp.getResult());
+      if (!inputFromConv)
+        return rewriter.notifyMatchFailure(
+            convOp, "activation input is not from this conv");
+
+      // Conv output and activation output quantized types must match.
+      if (!quantTypesMatch(
+              convOp.getResult().getType(), actInfo.output.getType()))
+        return rewriter.notifyMatchFailure(convOp,
+            "conv output and activation output quant types differ "
+            "(requantization — cannot fuse)");
+
+      LLVM_DEBUG(llvm::dbgs()
+                 << "FuseConvActivation: fusing " << convOp->getName() << " + "
+                 << userOp->getName()
+                 << " -> activation=" << actInfo.activationType << "\n");
+
+      // Set the activation attribute and transfer alpha if applicable
+      rewriter.modifyOpInPlace(convOp, [&] {
+        convOp.setActivationAttr(
+            rewriter.getStringAttr(actInfo.activationType));
+
+        if (actInfo.alphaAttr)
+          convOp.setLeakyreluAlphaAttr(actInfo.alphaAttr);
+      });
+
+      // Update the conv op's result type if activation changes it
+      Type activationOutputType = actInfo.output.getType();
+      if (convOp.getResult().getType() != activationOutputType)
+        convOp.getResult().setType(activationOutputType);
+
+      // Replace the activation op with the conv output
+      rewriter.replaceOp(userOp, convOp.getResult());
+
+      return success();
+    }
+  };
+
+  //===----------------------------------------------------------------------===//
+  // Pass Definition
+  //===----------------------------------------------------------------------===//
+
+  struct FuseConvActivationPass : public PassWrapper<FuseConvActivationPass,
+                                      OperationPass<func::FuncOp>> {
+    MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(FuseConvActivationPass)
+
+    FuseConvActivationPass() = default;
+    FuseConvActivationPass(const FuseConvActivationPass &pass)
+        : PassWrapper(pass) {}
+
+    StringRef getArgument() const override { return "fuse-conv-activation"; }
+    StringRef getDescription() const override {
+      return "Fuse Conv + Activation patterns into conv ops with activation "
+             "attribute (XFEConv, XFEConvTranspose, XCOMPILERDepthwiseConv)";
+    }
+
+    void runOnOperation() override {
+      auto function = getOperation();
+      MLIRContext *context = &getContext();
+
+      RewritePatternSet patterns(context);
+
+      // Single pattern per conv type — inspects the conv's unique user to
+      // determine if it is a fuseable activation (FusedEltwise or raw ONNX).
+      patterns.add<FuseConvActivation<XFEConvOp>>(context);
+      patterns.add<FuseConvActivation<XFEConvTransposeOp>>(context);
+      patterns.add<FuseConvActivation<XCOMPILERDepthwiseConvOp>>(context);
+
+      GreedyRewriteConfig config;
+      config.useTopDownTraversal = true;
+      config.maxIterations = 10;
+
+      if (failed(applyPatternsAndFoldGreedily(
+              function, std::move(patterns), config))) {
+        signalPassFailure();
+      }
+    }
+  };
 
 } // end anonymous namespace
 
