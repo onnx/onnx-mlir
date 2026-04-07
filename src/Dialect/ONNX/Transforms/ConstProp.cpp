@@ -106,6 +106,8 @@ bool satisfiesExpansionBound(Value result) {
 /// True if the transpose result's element type matches the constant input's
 /// element type after remapping per-axis quantization through `perm` (same
 /// rule as ConvertToChannelLast: output axis i reads input axis perm[i]).
+/// Requires an explicit `perm` attribute; ONNX's default (reverse axes) is
+/// expected to be materialized during import or canonicalization.
 bool valuesHaveSameDTypeForTransposeOfConst(
     Value transposeResult, Value input) {
   auto transposeOp = dyn_cast<ONNXTransposeOp>(transposeResult.getDefiningOp());
@@ -120,21 +122,17 @@ bool valuesHaveSameDTypeForTransposeOfConst(
   Type inElem = inRanked.getElementType();
   Type outElem = outRanked.getElementType();
 
+  if (!transposeOp.getPermAttr())
+    return false;
   SmallVector<int64_t, 8> perm;
-  if (transposeOp.getPermAttr()) {
-    for (int64_t p :
-        extractFromIntegerArrayAttr<int64_t>(transposeOp.getPermAttr()))
-      perm.push_back(p);
-  } else {
-    // ONNX default: reverse dimension order.
-    for (int64_t r = inRanked.getRank() - 1; r >= 0; --r)
-      perm.push_back(r);
-  }
+  for (int64_t p :
+      extractFromIntegerArrayAttr<int64_t>(transposeOp.getPermAttr()))
+    perm.push_back(p);
   // Ranked input: perm length must match tensor rank (ONNX Transpose).
   if (static_cast<int64_t>(perm.size()) != inRanked.getRank())
     return false;
 
-  Type expectedOutElem = inElem;
+  Type transposedInElem = inElem;
   if (auto perAxis =
           dyn_cast<mlir::quant::UniformQuantizedPerAxisType>(inElem)) {
     int32_t oldAxis = perAxis.getQuantizedDimension();
@@ -146,7 +144,7 @@ bool valuesHaveSameDTypeForTransposeOfConst(
     int32_t newAxis =
         static_cast<int32_t>(invPerm[static_cast<size_t>(oldAxis)]);
     if (newAxis != oldAxis) {
-      expectedOutElem =
+      transposedInElem =
           mlir::quant::UniformQuantizedPerAxisType::get(perAxis.getFlags(),
               perAxis.getStorageType(), perAxis.getExpressedType(),
               perAxis.getScales(), perAxis.getZeroPoints(), newAxis,
@@ -154,7 +152,7 @@ bool valuesHaveSameDTypeForTransposeOfConst(
     }
   }
 
-  return expectedOutElem == outElem;
+  return transposedInElem == outElem;
 }
 
 // We want to disable Constant Propagation when a user
