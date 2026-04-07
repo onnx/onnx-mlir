@@ -40,3 +40,15 @@ func.func @test_transpose_dyn(%arg0 : tensor<*xf32>) -> tensor<*xf32> {
 // CHECK-LABEL:   func.func @test_transpose_dyn
 // CHECK:         onnx.Transpose
 }
+
+// -----
+
+func.func @test_transpose_dynamic_input_static_output(%arg0 : tensor<?x5x1x32xf32>) -> tensor<32x1x5x1xf32> {
+  %0 = "onnx.Transpose"(%arg0) {perm = [3, 2, 1, 0]} : (tensor<?x5x1x32xf32>) -> tensor<32x1x5x1xf32>
+  return %0 : tensor<32x1x5x1xf32>
+// CHECK-LABEL:   func.func @test_transpose_dynamic_input_static_output(
+// CHECK-SAME:                                                %[[VAL_0:.*]]: tensor<?x5x1x32xf32>) -> tensor<32x1x5x1xf32> {
+// CHECK:           %[[VAL_1:.*]] = "tosa.const"() <{value = dense<[3, 2, 1, 0]> : tensor<4xi32>}> : () -> tensor<4xi32>
+// CHECK:           %[[VAL_2:.*]] = tosa.transpose %[[VAL_0]], %[[VAL_1]] : (tensor<?x5x1x32xf32>, tensor<4xi32>) -> tensor<32x1x5x1xf32>
+// CHECK:           return %[[VAL_2]] : tensor<32x1x5x1xf32>
+}

@@ -230,3 +230,16 @@ func.func @slice_4d_step2_1sliced_dim(%arg0: tensor<1x3x640x640xbf16>) -> tensor
 
 // ONLY-STEP1-LABEL: func @slice_4d_step2_1sliced_dim
 // ONLY-STEP1-NOT: tosa.slice
+
+// -----
+
+func.func @slice_dynamic_input_static_output(%arg0: tensor<?x30xf32>) -> tensor<1x2xf32> {
+  %axes = "onnx.Constant"() {value = dense<[0, 1]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %starts = "onnx.Constant"() {value = dense<[5, 5]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %ends = "onnx.Constant"() {value = dense<[8, 25]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %steps = "onnx.Constant"() {value = dense<[10, 10]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %0 = "onnx.Slice"(%arg0, %starts, %ends, %axes, %steps) : (tensor<?x30xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<1x2xf32>
+  return %0 : tensor<1x2xf32>
+}
+// CHECK-LABEL: func @slice_dynamic_input_static_output
+// CHECK: onnx.Slice

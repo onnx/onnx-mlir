@@ -208,6 +208,10 @@ OpFoldResult ONNXSqueezeOp::fold(FoldAdaptor adaptor) {
   if (!hasStaticShape(getSqueezed().getType()))
     return nullptr;
 
+  if (mlir::cast<ShapedType>(getData().getType()).getElementType() !=
+      mlir::cast<ShapedType>(getSqueezed().getType()).getElementType())
+    return nullptr;
+
   OnnxElementsAttrBuilder elementsBuilder(getContext());
   return elementsBuilder.reshape(mlir::cast<ElementsAttr>(adaptor.getData()),
       getShape(getSqueezed().getType()));
@@ -222,6 +226,10 @@ OpFoldResult ONNXSqueezeV11Op::fold(FoldAdaptor adaptor) {
   }
 
   if (!hasStaticShape(getSqueezed().getType()))
+    return nullptr;
+
+  if (mlir::cast<ShapedType>(getData().getType()).getElementType() !=
+      mlir::cast<ShapedType>(getSqueezed().getType()).getElementType())
     return nullptr;
 
   OnnxElementsAttrBuilder elementsBuilder(getContext());

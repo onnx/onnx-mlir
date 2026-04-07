@@ -148,3 +148,16 @@ func.func @test_maxpoolsingleout_dilation1_dyn(%arg0 : tensor<*xf32>) -> tensor<
 }
 // CHECK-LABEL: func.func @test_maxpoolsingleout_dilation1_dyn
 // CHECK: onnx.MaxPoolSingleOut
+
+// -----
+
+func.func @test_maxpoolsingleout_dynamic_input_static_output(%arg0 : tensor<?x5x32x32xf32>) -> tensor<1x5x30x30xf32> {
+  %0 = "onnx.MaxPoolSingleOut"(%arg0) {kernel_shape = [3, 3]} : (tensor<?x5x32x32xf32>) -> tensor<1x5x30x30xf32>
+  return %0 : tensor<1x5x30x30xf32>
+}
+// CHECK-LABEL: func.func @test_maxpoolsingleout_dynamic_input_static_output(
+// CHECK: %[[TRANS_ARG:.*]] = tosa.transpose %arg0
+// CHECK: %[[MPOOL_RES:.*]] = tosa.max_pool2d %[[TRANS_ARG]] {{.*}} : (tensor<?x32x32x5xf32>) -> tensor<?x30x30x5xf32>
+// CHECK: %[[TRANS_MPOOL_RES:.*]] = tosa.transpose %[[MPOOL_RES]]
+// CHECK: return %[[TRANS_MPOOL_RES]] : tensor<1x5x30x30xf32>
+// CHECK: }

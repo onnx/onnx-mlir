@@ -1,6 +1,8 @@
 // RUN: onnx-mlir-opt --constprop-onnx --onnx-const-prop-expansion-bound=2 %s -split-input-file | FileCheck --check-prefix=EXPANSIONBOUND2 %s
 // RUN: onnx-mlir-opt --constprop-onnx --onnx-const-prop-round-fp-to-int=true %s -split-input-file | FileCheck --check-prefix=ROUND %s
 // RUN: onnx-mlir-opt --constprop-onnx --onnx-const-prop-round-fp-to-int=false %s -split-input-file | FileCheck --check-prefix=TRUNCATE %s
+// RUN: onnx-mlir-opt --constprop-onnx --onnx-const-prop-expansion-bound=1 %s -split-input-file | FileCheck --check-prefix=EXPANSIONBOUND1 %s
+// RUN: onnx-mlir-opt --constprop-onnx %s -split-input-file | FileCheck --check-prefix=NOBOUND %s
 
 //===----------------------------------------------------------------------===//
 // Constant propagate ONNXAddOp only if expansion bound satisfied
@@ -38,3 +40,71 @@ func.func @test_cast_f16_i16() -> tensor<6xi16> {
 //
 // TRUNCATE-LABEL: @test_cast_f16_i16() -> tensor<6xi16>
 // TRUNCATE: onnx.Constant dense<[-1, 0, 0, 0, 1, 1]> : tensor<6xi16>
+
+// -----
+
+// Constant propagate ONNXPadOp only if expansion bound satisfied.
+// (sum of all operand bytes) × bound ≥ output bytes 
+
+func.func @test_pad_propagates_expansion_bound() -> tensor<3x4xf32> {
+  %data = onnx.Constant dense<[[1.0, 1.2], [2.3, 3.4], [4.5, 5.7]]> : tensor<3x2xf32>
+  %pads = onnx.Constant dense<[0, 2, 0, 0]> : tensor<4xi64>
+  %non = "onnx.NoValue"() {value} : () -> none
+  %1 = "onnx.Pad"(%data, %pads, %non, %non) {mode = "constant"} : (tensor<3x2xf32>, tensor<4xi64>, none, none) -> tensor<3x4xf32>
+  onnx.Return %1 : tensor<3x4xf32>
+}
+// EXPANSIONBOUND2-LABEL: @test_pad_propagates_expansion_bound() -> tensor<3x4xf32>
+// EXPANSIONBOUND2:        onnx.Constant {{.*}} : tensor<3x4xf32>
+// EXPANSIONBOUND2-NOT:    onnx.Pad
+//
+// EXPANSIONBOUND1-LABEL: @test_pad_propagates_expansion_bound() -> tensor<3x4xf32>
+// EXPANSIONBOUND1:        onnx.Constant {{.*}} : tensor<3x4xf32>
+// EXPANSIONBOUND1-NOT:    onnx.Pad
+
+// -----
+
+func.func @test_pad_propagates_only_with_larger_bound() -> tensor<3x9xf32> {
+  %data = onnx.Constant dense<[[1.0, 1.2], [2.3, 3.4], [4.5, 5.7]]> : tensor<3x2xf32>
+  %pads = onnx.Constant dense<[0, 7, 0, 0]> : tensor<4xi64>
+  %non = "onnx.NoValue"() {value} : () -> none
+  %1 = "onnx.Pad"(%data, %pads, %non, %non) {mode = "constant"} : (tensor<3x2xf32>, tensor<4xi64>, none, none) -> tensor<3x9xf32>
+  onnx.Return %1 : tensor<3x9xf32>
+}
+// EXPANSIONBOUND2-LABEL: @test_pad_propagates_only_with_larger_bound() -> tensor<3x9xf32>
+// EXPANSIONBOUND2:        onnx.Constant {{.*}} : tensor<3x9xf32>
+// EXPANSIONBOUND2-NOT:    onnx.Pad
+//
+// EXPANSIONBOUND1-LABEL: @test_pad_propagates_only_with_larger_bound() -> tensor<3x9xf32>
+// EXPANSIONBOUND1:        "onnx.Pad"({{.*}}) {mode = "constant"} : (tensor<3x2xf32>, tensor<4xi64>, none, none) -> tensor<3x9xf32>
+
+// -----
+
+// Large expansion: never folds with bound≤2.
+// This represents the class of over-padded weight constants that triggered the
+// original SmallVector overflow crash.
+func.func @test_pad_doesnt_propagate_expansion_bound() -> tensor<3x10xf32> {
+  %data = onnx.Constant dense<[[1.0, 1.2], [2.3, 3.4], [4.5, 5.7]]> : tensor<3x2xf32>
+  %pads = onnx.Constant dense<[0, 8, 0, 0]> : tensor<4xi64>
+  %non = "onnx.NoValue"() {value} : () -> none
+  %1 = "onnx.Pad"(%data, %pads, %non, %non) {mode = "constant"} : (tensor<3x2xf32>, tensor<4xi64>, none, none) -> tensor<3x10xf32>
+  onnx.Return %1 : tensor<3x10xf32>
+}
+// EXPANSIONBOUND2-LABEL: @test_pad_doesnt_propagate_expansion_bound() -> tensor<3x10xf32>
+// EXPANSIONBOUND2:        "onnx.Pad"({{.*}}) {mode = "constant"} : (tensor<3x2xf32>, tensor<4xi64>, none, none) -> tensor<3x10xf32>
+//
+// EXPANSIONBOUND1-LABEL: @test_pad_doesnt_propagate_expansion_bound() -> tensor<3x10xf32>
+// EXPANSIONBOUND1:        "onnx.Pad"({{.*}}) {mode = "constant"} : (tensor<3x2xf32>, tensor<4xi64>, none, none) -> tensor<3x10xf32>
+
+// -----
+
+// PadOfConst must not fold when the output exceeds UINT32_MAX elements, even
+// with no expansion bound set (expansionBound == -1).
+func.func @test_pad_doesnt_fold_over_uint32max_elements() -> tensor<1x4294967296xf32> {
+  %data = onnx.Constant dense<[[1.0]]> : tensor<1x1xf32>
+  %pads = onnx.Constant dense<[0, 0, 0, 4294967295]> : tensor<4xi64>
+  %non = "onnx.NoValue"() {value} : () -> none
+  %1 = "onnx.Pad"(%data, %pads, %non, %non) {mode = "constant"} : (tensor<1x1xf32>, tensor<4xi64>, none, none) -> tensor<1x4294967296xf32>
+  onnx.Return %1 : tensor<1x4294967296xf32>
+}
+// NOBOUND-LABEL: @test_pad_doesnt_fold_over_uint32max_elements() -> tensor<1x4294967296xf32>
+// NOBOUND:       "onnx.Pad"({{.*}}) {mode = "constant"} : (tensor<1x1xf32>, tensor<4xi64>, none, none) -> tensor<1x4294967296xf32>

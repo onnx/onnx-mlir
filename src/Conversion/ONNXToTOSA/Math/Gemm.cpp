@@ -226,7 +226,7 @@ public:
 
 } // namespace
 
-void populateLoweringONNXGemmOpToTOSAPattern(ConversionTarget &target,
+void populateLoweringONNXGemmOpToTOSAPattern(ConversionTarget & /*target*/,
     RewritePatternSet &patterns, TypeConverter &typeConverter,
     MLIRContext *ctx) {
   patterns.insert<ONNXGemmOpLoweringToTOSA>(typeConverter, ctx);

@@ -61,24 +61,6 @@ public:
 
     auto indicesType = cast<ShapedType>(indices.getType());
 
-    APInt indicesVal;
-    if (indicesType.getRank() == 0 &&
-        matchPattern(indices, m_ConstantInt(&indicesVal))) {
-      llvm::SmallVector<int64_t, 4> starts(inputType.getRank(), 0);
-      llvm::SmallVector<int64_t, 4> size{inputType.getShape()};
-
-      // onnx allows indices to be negative integer
-      int64_t indicesValInteger = indicesVal.getSExtValue();
-      starts[axis] = indicesValInteger >= 0 ? indicesValInteger
-                                            : indicesValInteger + size[axis];
-
-      size[axis] = 1;
-      Value sliceOp = tosaBuilder.slice(input, size, starts);
-      auto reshape = tosaBuilder.reshape(sliceOp, resultTy.getShape());
-      rewriter.replaceOp(op, reshape);
-      return success();
-    }
-
     SmallVector<int32_t, 4> newIndicesValues;
     newIndicesValues.resize(indicesType.getNumElements());
 
@@ -116,10 +98,10 @@ public:
 
 } // namespace
 
-void populateLoweringONNXGatherOpToTOSAPattern(ConversionTarget &target,
+void populateLoweringONNXGatherOpToTOSAPattern(ConversionTarget & /*target*/,
     RewritePatternSet &patterns, TypeConverter &typeConverter,
     MLIRContext *ctx) {
-  patterns.insert<ONNXGatherLoweringToTOSA>(ctx);
+  patterns.insert<ONNXGatherLoweringToTOSA>(typeConverter, ctx);
 }
 
 } // namespace onnx_mlir

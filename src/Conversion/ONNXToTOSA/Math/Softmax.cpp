@@ -122,7 +122,7 @@ public:
 
 } // namespace
 
-void populateLoweringONNXSoftmaxOpToTOSAPattern(ConversionTarget &target,
+void populateLoweringONNXSoftmaxOpToTOSAPattern(ConversionTarget & /*target*/,
     RewritePatternSet &patterns, TypeConverter &typeConverter,
     MLIRContext *ctx) {
   patterns.insert<ONNXSoftmaxLoweringToTOSA<ONNXSoftmaxOp>,

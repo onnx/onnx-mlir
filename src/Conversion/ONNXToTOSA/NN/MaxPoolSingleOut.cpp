@@ -31,8 +31,10 @@ namespace {
 
 class ONNXMaxPoolSingleOutOpLoweringToTOSA : public ConversionPattern {
 public:
-  ONNXMaxPoolSingleOutOpLoweringToTOSA(MLIRContext *ctx)
-      : ConversionPattern(ONNXMaxPoolSingleOutOp::getOperationName(), 1, ctx) {}
+  ONNXMaxPoolSingleOutOpLoweringToTOSA(
+      const TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(typeConverter,
+            ONNXMaxPoolSingleOutOp::getOperationName(), 1, ctx) {}
   using OpAdaptor = typename ONNXMaxPoolSingleOutOp::Adaptor;
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -76,9 +78,9 @@ public:
 } // namespace
 
 void populateLoweringONNXMaxPoolSingleOutOpToTOSAPattern(
-    ConversionTarget &target, RewritePatternSet &patterns,
+    ConversionTarget & /*target*/, RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
-  patterns.insert<ONNXMaxPoolSingleOutOpLoweringToTOSA>(ctx);
+  patterns.insert<ONNXMaxPoolSingleOutOpLoweringToTOSA>(typeConverter, ctx);
 }
 
 } // namespace onnx_mlir

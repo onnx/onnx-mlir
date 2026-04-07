@@ -96,3 +96,12 @@ func.func @test_eyelike_dif_dim_2(%arg0 : tensor<4x2xf64>) -> tensor<4x2xf64> {
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<4x2xf64>) -> tensor<4x2xf64> {
 // CHECK:           [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<{{\[\[}}1.000000e+00, 0.000000e+00], [0.000000e+00, 1.000000e+00], [0.000000e+00, 0.000000e+00], [0.000000e+00, 0.000000e+00]{{.}}> : tensor<4x2xf64>}> : () -> tensor<4x2xf64>
 // CHECK:           onnx.Return [[VAR_0_]] : tensor<4x2xf64>
+
+// -----
+
+func.func @test_eyelike_dynamic_shape(%arg0 : tensor<?x?xf32>) -> tensor<?x?xf32> {
+  %0 = "onnx.EyeLike"(%arg0) : (tensor<?x?xf32>) -> tensor<?x?xf32>
+  "onnx.Return"(%0) : (tensor<?x?xf32>) -> ()
+}
+// CHECK-LABEL:  func.func @test_eyelike_dynamic_shape
+// CHECK:           "onnx.EyeLike"

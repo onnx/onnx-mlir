@@ -32,3 +32,14 @@ func.func @test_concat_negative_axis(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tenso
 // CHECK:           %[[VAL_2:.*]] = tosa.concat %[[VAL_0]], %[[VAL_1]] {axis = 2 : i32} : (tensor<5x5x1x32xf32>, tensor<5x5x3x32xf32>) -> tensor<5x5x4x32xf32>
 // CHECK:           return %[[VAL_2]] : tensor<5x5x4x32xf32>
 }
+
+// -----
+func.func @test_concat_dynamic_input_static_output(%arg0 : tensor<?x1xf32>, %arg1 : tensor<?x3xf32>) -> tensor<1x4xf32> {
+  %0 = "onnx.Concat"(%arg0, %arg1) {axis = 1 : si64} : (tensor<?x1xf32>, tensor<?x3xf32>) -> tensor<1x4xf32>
+  return %0 : tensor<1x4xf32>
+// CHECK-LABEL:   func.func @test_concat_dynamic_input_static_output(
+// CHECK-SAME:                                                %[[VAL_0:.*]]: tensor<?x1xf32>,
+// CHECK-SAME:                                                %[[VAL_1:.*]]: tensor<?x3xf32>) -> tensor<1x4xf32> {
+// CHECK:           %[[VAL_2:.*]] = tosa.concat %[[VAL_0]], %[[VAL_1]] {axis = 1 : i32} : (tensor<?x1xf32>, tensor<?x3xf32>) -> tensor<1x4xf32>
+// CHECK:           return %[[VAL_2]] : tensor<1x4xf32>
+}

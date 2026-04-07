@@ -1,10 +1,9 @@
 // Verify that quant-types followed by constprop-onnx does not crash or
 // miscompute. The IsIntOrFloatType constraint on element-wise const-prop
-// patterns causes them to skip quantized-typed constants, and transpose
-// const-prop compares input/output dtypes after remapping per-axis
-// quantization through perm (TransposeConstPropTypesMatch); otherwise
-// const-prop is skipped when types differ (e.g. float vs quant, mismatched
-// scales, or per-axis vs incompatible output quant).
+// patterns causes them to skip quantized-typed constants. For rearrangement
+// ops (like Transpose), the ValuesHaveSameDType constraint ensures const-prop
+// is skipped when input/output element types differ (e.g. one side is
+// quantized and the other is not, or different quantization parameters).
 
 // RUN: onnx-mlir-opt %s --quant-types --constprop-onnx | FileCheck %s
 
@@ -191,7 +190,8 @@ func.func @reduce_sum_quantized_constant() -> tensor<1xf32> {
 // CHECK:         quant.scast
 
 
-// Unary ops with quantized input (from DQL) but no Q on output — should NOT be folded.
+// Unary ops with quantized input (from DQL) but no Q on output — should NOT
+// be folded because IsIntOrFloatType blocks quantized inputs.
 
 func.func @neg_quantized_input_float_output() -> tensor<2xf32> {
   %a = onnx.Constant dense<[10, 20]> : tensor<2xui8>

@@ -78,6 +78,19 @@ func.func @test_reducesumV13(%arg0: tensor<1x32x112x112xf32>) -> tensor<1x32x1x1
 
 // -----
 
+func.func @reduce_sum_dynamic_input_static_output(%arg0: tensor<?x5x9x11xf32>) -> tensor<1x5x1x1xf32> {
+%0 = "onnx.Constant"() {value = dense<[2, 3]> : tensor<2xi64>} : () -> tensor<2xi64>
+%1 = "onnx.ReduceSum"(%arg0, %0) : (tensor<?x5x9x11xf32>, tensor<2xi64>) -> tensor<1x5x1x1xf32>
+return %1 : tensor<1x5x1x1xf32>
+// CHECK-LABEL:   func.func @reduce_sum_dynamic_input_static_output(
+// CHECK-SAME:                                                 %[[VAL_0:.*]]: tensor<?x5x9x11xf32>) -> tensor<1x5x1x1xf32> {
+// CHECK:           %[[VAL_1:.*]] = tosa.reduce_sum %[[VAL_0]] {axis = 2 : i32} : (tensor<?x5x9x11xf32>) -> tensor<?x5x1x11xf32>
+// CHECK:           %[[VAL_2:.*]] = tosa.reduce_sum %[[VAL_1]] {axis = 3 : i32} : (tensor<?x5x1x11xf32>) -> tensor<1x5x1x1xf32>
+// CHECK:           return %[[VAL_2]] : tensor<1x5x1x1xf32>
+}
+
+// -----
+
 func.func @test_reducesumV11_keep_dims_false(%arg0: tensor<1x32x112x112xf32>) -> tensor<1x32xf32> {
   %0 = "onnx.ReduceSumV11"(%arg0) {axes = [2, 3], keepdims = 0 : si64} : (tensor<1x32x112x112xf32>) -> tensor<1x32xf32>
   return %0 : tensor<1x32xf32>
