@@ -67,7 +67,7 @@ int main(int argc, char *argv[]) {
   std::cout << "Start running model " << std::endl;
   OMTensorList *outputList;
   try {
-    outputList = session.run(input, /*debug: catch segfault in handler*/ true);
+    outputList = session.runDebug(input, /*debug: catch segfault in handler*/ true);
   } catch (const onnx_mlir::ExecutionSessionException &error) {
     std::cerr << "error while running model: " << error.what() << std::endl;
     return 5;
