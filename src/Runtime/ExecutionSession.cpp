@@ -456,7 +456,7 @@ OMTensorList *ExecutionSession::run(OMTensorList *input) {
   return runImplementation(input, /*signal handler*/ false);
 }
 
-OMTensorList *ExecutionSession::debugRun(
+OMTensorList *ExecutionSession::runDebug(
     OMTensorList *input, bool useSignalHandler) {
   return runImplementation(input, useSignalHandler);
 }

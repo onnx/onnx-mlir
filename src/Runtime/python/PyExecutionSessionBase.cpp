@@ -330,8 +330,7 @@ std::vector<py::array> PyExecutionSessionBase::pyRunImplementation(
     // code.
     //     py::gil_scoped_release release;  // Release GIL
 
-    // hi alex, fix that.
-    wrappedOutput = debugRun(wrappedInput, useSignalHandler);
+    wrappedOutput = runImplementation(wrappedInput, useSignalHandler);
   } // TODO from above: GIL would automatically be reacquired here.
   TIMING_STOP_PRINT(inference);
 

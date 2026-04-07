@@ -114,7 +114,7 @@ public:
   //   generally unsafe to continue execution after such exceptions, as memory
   //   can be irremediably corrupted.
   //.
-  OMTensorList *debugRun(OMTensorList *input, bool useSignalHandler = false);
+  OMTensorList *runDebug(OMTensorList *input, bool useSignalHandler = false);
 
   // Get input and output signature as a Json string. For example for nminst:
   // `[ { "type" : "f32" , "dims" : [1 , 1 , 28 , 28] , "name" : "image" } ]`
