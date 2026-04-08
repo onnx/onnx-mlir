@@ -342,6 +342,10 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
   // 3. Process outputs.
   TIMING_INIT_START(process_output);
   std::vector<py::array> outputPyArrays;
+  // Maintain a 1-to-1 mapping between data pointers and py::capsule, to avoid
+  // creating two capsules for the same pointer. Otherwise, it causes double
+  // free error.
+  std::map<void *, py::capsule> mapPtrCapsule{};
   for (int64_t i = 0; i < omTensorListGetSize(wrappedOutput); i++) {
     auto *omt = omTensorListGetOmtByIndex(wrappedOutput, i);
     if (!omt) {
@@ -439,11 +443,18 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
         // We have a regular tensor which we will need to free at the right
         // time. Create the capsule that points to the data to be freed
         // (allocated pointer).
-        py::capsule free_data_with_allocate_ptr(
-            omtAllocPtr, /* Address that will be passed to lambda function. */
-            [](void *ptr) { /* Lambda function that performs the freeing. */
-              free(ptr);
-            });
+        auto it = mapPtrCapsule.find(omtDataPtr);
+        py::capsule free_data_with_allocate_ptr;
+        if (it != mapPtrCapsule.end()) {
+          free_data_with_allocate_ptr = it->second;
+        } else {
+          free_data_with_allocate_ptr = py::capsule(
+              omtAllocPtr, /* Address that will be passed to lambda function. */
+              [](void *ptr) { /* Lambda function that performs the freeing. */
+                free(ptr);
+              });
+          mapPtrCapsule.try_emplace(omtDataPtr, free_data_with_allocate_ptr);
+        }
         // Set owning to false as we migrate the ownership to python
         omTensorSetOwning(omt, false);
         // Pass the py::capsule to the numpy array for proper bookkeeping.
