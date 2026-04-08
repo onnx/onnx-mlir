@@ -54,10 +54,6 @@ std::unique_ptr<mlir::Pass> createConvOptONNXToONNXPass(
 
 std::unique_ptr<mlir::Pass> createShapeInferencePass();
 
-/// Selective shape inference: runs only on standard ONNX ops with unranked
-/// results, skipping XFE/XCompiler ops to avoid their verification errors.
-std::unique_ptr<mlir::Pass> createSelectiveShapeInferencePass();
-
 // To configure ConstPropONNXToONNXPass at program start.
 void configureConstPropONNXToONNXPass(bool roundFPToInt, int expansionBound,
     llvm::ArrayRef<std::string> disabledPatterns, bool constantPropIsDisabled);
