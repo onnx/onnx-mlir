@@ -30,11 +30,14 @@ Build: see [Linux or OSX](BuildOnLinuxOSX.md).
 
 **Build Commands:**
 
+In the commands below, we build the compilers in a custom `build_standalone` directory. Users may 
+decide whether to use the traditional `build` or a custom `build_standalone` directory. Both solutions work.
+
 **Step 1: Build LLVM/MLIR with static libraries**
 ```bash
 # Clean build directory (needed if you already have a build directory).
-rm -rf build
-mkdir build && cd build
+rm -rf build_standalone
+mkdir build_standalone && cd build_standalone
 
 cmake -G Ninja ../llvm \
   -DLLVM_ENABLE_PROJECTS="mlir;clang" \
@@ -43,7 +46,6 @@ cmake -G Ninja ../llvm \
   -DCMAKE_BUILD_TYPE=Release \
   -DLLVM_ENABLE_ASSERTIONS=ON \
   -DLLVM_ENABLE_RTTI=ON \
-  -DENABLE_LIBOMPTARGET=OFF \
   -DLLVM_ENABLE_LIBEDIT=OFF \
   -DBUILD_SHARED_LIBS=OFF \
   -DLLVM_BUILD_LLVM_DYLIB=OFF \
@@ -62,12 +64,12 @@ cmake --build . --target check-mlir
 **Step 2: Build onnx-mlir as standalone**
 ```bash
 # Clean build directory (needed if you already have a build directory).
-rm -rf build
-mkdir build && cd build
+rm -rf build_standalone
+mkdir build_standalone && cd build_standalone
 
 # Configure with standalone mode (Linux example)
-MLIR_DIR=$(pwd)/llvm-project/build/lib/cmake/mlir
-mkdir onnx-mlir/build && cd onnx-mlir/build
+MLIR_DIR=$(pwd)/llvm-project/build_standalone/lib/cmake/mlir
+mkdir onnx-mlir/build_standalone && cd onnx-mlir/build_standalone
 if [[ -z "$pythonLocation" ]]; then
   cmake -G "Unix Makefiles" \
         -DCMAKE_CXX_COMPILER=/usr/bin/c++ \
@@ -237,8 +239,8 @@ otool -L Debug/bin/onnx-mlir | grep -E "absl|protobuf|homebrew"
 
 **Solution:** You forgot to use `CMAKE_IGNORE_PATH`. Clean and rebuild:
 ```bash
-rm -rf build
-mkdir build && cd build
+rm -rf build_standalone
+mkdir build_standalone && cd build_standalone
 cmake -DONNX_MLIR_BUILD_STANDALONE=ON \
       -DCMAKE_IGNORE_PATH="/opt/homebrew;/usr/local" \
       ..
