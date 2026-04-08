@@ -169,16 +169,19 @@ PYBIND11_MODULE(PyRuntimeC, m) {
           "    ...     outputs = session.runDebug([img], with_signal_handler=True)\n"
           "    ... except RuntimeError as e:\n"
           "    ...     print(f'Caught error: {e}')")
-      .def("runImplementation",
+      .def("_runImplementation",
           &onnx_mlir::PyExecutionSession::pyRunImplementation,
           py::arg("input"),
           py::arg("shape"),
           py::arg("stride"),
           py::arg("use_signal_handler"),
           py::arg("force_output_data_copy"),
-          "Low-level inference implementation (internal use).\n\n"
+          "Low-level inference implementation (internal/protected use only).\n\n"
+          ".. warning::\n"
+          "   This is an internal method intended for use by subclasses only.\n"
+          "   Direct use is not recommended; prefer run() or runDebug() instead.\n\n"
           "This is the underlying implementation method called by run() and runDebug().\n"
-          "Direct use is not recommended; prefer run() or runDebug() instead.\n\n"
+          "Subclasses can call this method to implement custom inference wrappers.\n\n"
           "Args:\n"
           "    input (list[numpy.ndarray]): Flattened input tensors.\n"
           "    shape (list[numpy.ndarray]): Shape arrays for each input.\n"

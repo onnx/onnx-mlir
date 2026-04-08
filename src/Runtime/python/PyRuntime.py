@@ -36,7 +36,7 @@ class OMExecutionSession(OMExecutionSession_):
             pyrun_inputs.append(inp.ravel())
             pyrun_shapes.append(np.array(inp.shape, dtype=np.int64))
             pyrun_strides.append(np.array(inp.strides, dtype=np.int64))
-        return super(OMExecutionSession, self).runImplementation(
+        return super(OMExecutionSession, self)._runImplementation(
             pyrun_inputs,
             pyrun_shapes,
             pyrun_strides,
@@ -53,7 +53,7 @@ class OMExecutionSession(OMExecutionSession_):
             pyrun_inputs.append(inp.ravel())
             pyrun_shapes.append(np.array(inp.shape, dtype=np.int64))
             pyrun_strides.append(np.array(inp.strides, dtype=np.int64))
-        return super(OMExecutionSession, self).runImplementation(
+        return super(OMExecutionSession, self)._runImplementation(
             pyrun_inputs,
             pyrun_shapes,
             pyrun_strides,
