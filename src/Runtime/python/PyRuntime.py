@@ -45,7 +45,7 @@ class OMExecutionSession(OMExecutionSession_):
         )
 
     def runDebug(self, inputs, with_signal_handler=False, force_output_data_copy=False):
-        # Prepare arguments to call session.run
+        # Prepare arguments to call session.runDebug
         pyrun_inputs = []
         pyrun_shapes = []
         pyrun_strides = []
