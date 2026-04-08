@@ -52,7 +52,8 @@ public:
       const std::vector<py::array> &inputsPyArray,
       const std::vector<py::array> &shapesPyArray,
       const std::vector<py::array> &stridesPyArray,
-      bool useSignalHandler, bool forceOutputDataCopy);
+      bool useSignalHandler,     // Debug flags.
+      bool forceOutputDataCopy); // Debug flags.
   std::string pyInputSignature();
   std::string pyOutputSignature();
   void pyPrintInstrumentation(); // Print instrumentation (if any).
