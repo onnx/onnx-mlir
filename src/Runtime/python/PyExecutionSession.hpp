@@ -128,9 +128,12 @@ PYBIND11_MODULE(PyRuntimeC, m) {
           "    >>> inputs = [img]\n"
           "    >>> \n"
           "    >>> # Run inference\n"
-          "    >>> outputs = session.run(inputs)\n"
-          "    >>> predictions = outputs[0]\n"
-          "    >>> print(f'Predicted class: {np.argmax(predictions)}')")
+          "    >>> try:\n"
+          "    ...     outputs = session.run(inputs)\n"
+          "    ...     predictions = outputs[0]\n"
+          "    ...     print(f'Predicted class: {np.argmax(predictions)}')\n"
+          "    ... except RuntimeError as e:\n"
+          "    ...     print(f'Inference failed: {e}')")
       .def("runDebug",
           [](onnx_mlir::PyExecutionSession &self, const std::vector<py::array> &inputs,
               bool with_signal_handler, bool force_output_data_copy) -> std::vector<py::array> {
