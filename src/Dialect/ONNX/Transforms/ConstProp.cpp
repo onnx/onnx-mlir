@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Quant/IR/QuantTypes.h"
+#include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/TypeUtilities.h"
@@ -100,6 +101,58 @@ bool satisfiesExpansionBound(Value result) {
   }
   return sum * ConstPropONNXToONNXPassConfiguration::expansionBound >=
          getSizeInBytes(resultType);
+}
+
+/// True if the transpose result's element type matches the constant input's
+/// element type after remapping per-axis quantization through `perm` (same
+/// rule as ConvertToChannelLast: output axis i reads input axis perm[i]).
+/// Requires an explicit `perm` attribute; ONNX's default (reverse axes) is
+/// expected to be materialized during import or canonicalization.
+bool valuesHaveSameDTypeForTransposeOfConst(
+    Value transposeResult, Value input) {
+  auto transposeOp = dyn_cast<ONNXTransposeOp>(transposeResult.getDefiningOp());
+  if (!transposeOp)
+    return false;
+
+  auto inRanked = dyn_cast<RankedTensorType>(input.getType());
+  auto outRanked = dyn_cast<RankedTensorType>(transposeResult.getType());
+  if (!inRanked || !outRanked)
+    return false;
+
+  Type inElem = inRanked.getElementType();
+  Type outElem = outRanked.getElementType();
+
+  if (!transposeOp.getPermAttr())
+    return false;
+  SmallVector<int64_t, 8> perm;
+  for (int64_t p :
+      extractFromIntegerArrayAttr<int64_t>(transposeOp.getPermAttr()))
+    perm.push_back(p);
+  // Ranked input: perm length must match tensor rank (ONNX Transpose).
+  if (static_cast<int64_t>(perm.size()) != inRanked.getRank())
+    return false;
+
+  Type transposedInElem = inElem;
+  if (auto perAxis =
+          dyn_cast<mlir::quant::UniformQuantizedPerAxisType>(inElem)) {
+    int32_t oldAxis = perAxis.getQuantizedDimension();
+    if (oldAxis < 0 || oldAxis >= inRanked.getRank())
+      return false;
+    // ONNX: output axis i reads input axis perm[i]; inverse maps input axis
+    // -> output axis (same as ConvertToChannelLast::remapPerAxisQuantType).
+    SmallVector<int64_t> invPerm = invertPermutationVector(perm);
+    int32_t newAxis =
+        static_cast<int32_t>(invPerm[static_cast<size_t>(oldAxis)]);
+    if (newAxis != oldAxis) {
+      transposedInElem =
+          mlir::quant::UniformQuantizedPerAxisType::get(perAxis.getFlags(),
+              perAxis.getStorageType(), perAxis.getExpressedType(),
+              perAxis.getScales(), perAxis.getZeroPoints(), newAxis,
+              perAxis.getStorageTypeMin(), perAxis.getStorageTypeMax());
+    }
+  }
+
+  return transposedInElem == outElem;
 }
 
 // We want to disable Constant Propagation when a user
