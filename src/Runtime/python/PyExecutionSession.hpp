@@ -103,7 +103,7 @@ PYBIND11_MODULE(PyRuntimeC, m) {
           "    >>> session.set_entry_point('run_main_graph')\n"
           "    >>> outputs = session.run(inputs)")
       .def("run",
-          [](onnx_mlir::PyExecutionSession &self, const std::vector<py::array> &inputs) {
+          [](onnx_mlir::PyExecutionSession &self, const std::vector<py::array> &inputs) -> std::vector<py::array> {
             throw std::runtime_error("run() must be called on the Python subclass, not the C++ base class");
           },
           py::arg("inputs"),
@@ -133,7 +133,7 @@ PYBIND11_MODULE(PyRuntimeC, m) {
           "    >>> print(f'Predicted class: {np.argmax(predictions)}')")
       .def("runDebug",
           [](onnx_mlir::PyExecutionSession &self, const std::vector<py::array> &inputs,
-              bool with_signal_handler, bool force_output_data_copy) {
+              bool with_signal_handler, bool force_output_data_copy) -> std::vector<py::array> {
             throw std::runtime_error("runDebug() must be called on the Python subclass, not the C++ base class");
           },
           py::arg("inputs"),
