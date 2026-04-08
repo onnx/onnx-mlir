@@ -32,7 +32,7 @@ packages = ["src/OMPyCompile"]
 
 [tool.hatch.build]
 include = [
-  "src/OMPyCompile/lib/*"
+  "src/OMPyCompile/lib/*",
   "src/OMPyCompile/bin/*"
 ]
 
