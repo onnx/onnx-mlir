@@ -41,7 +41,9 @@ else:
 
 tokenizer = AutoTokenizer.from_pretrained(model_path)
 # attn_implementation="eager" is needed to decompose sdpa ops
-model = AutoModelForCausalLM.from_pretrained(model_path, attn_implementation="eager")
+model = AutoModelForCausalLM.from_pretrained(
+    model_path, attn_implementation="eager", torch_dtype=torch.float32
+)
 model.eval()
 
 om_options = {
