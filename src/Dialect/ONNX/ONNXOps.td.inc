@@ -3442,7 +3442,6 @@ def ONNXGridSampleV16Op:ONNX_Op<"GridSampleV16",
 
 def ONNXGroupNormalizationOp:ONNX_Op<"GroupNormalization",
   [Pure, OpVersionTrait<21>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
-  let hasCanonicalizer = 1;
   let summary = "ONNX GroupNormalization operation";
   let description = [{
   A GroupNormalization function. Carries out group normalization as described in
@@ -3499,7 +3498,6 @@ def ONNXGroupNormalizationOp:ONNX_Op<"GroupNormalization",
 
 def ONNXGroupNormalizationV18Op:ONNX_Op<"GroupNormalizationV18",
   [Pure, OpVersionTrait<18>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
-  let hasCanonicalizer = 1;
   let summary = "ONNX GroupNormalization operation";
   let description = [{
   A GroupNormalization function. Carries out group normalization as described in
