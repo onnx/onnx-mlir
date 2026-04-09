@@ -65,29 +65,11 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
     int64_t inputRank = inputType.getRank();
     int64_t spatialRank = inputRank - 2;
 
-    // Get attributes.
-    ArrayAttr kernelShapeAttr = im2colOp.getKernelShapeAttr();
-    ArrayAttr stridesAttr = im2colOp.getStridesAttr();
-    ArrayAttr dilationsAttr = im2colOp.getDilationsAttr();
-    ArrayAttr padsAttr = im2colOp.getPadsAttr();
-
-    // Extract kernel shape, strides, dilations, and pads.
-    SmallVector<int64_t, 4> kernelShape;
-    SmallVector<int64_t, 4> strides;
-    SmallVector<int64_t, 4> dilations;
-    SmallVector<int64_t, 4> pads;
-
-    for (auto attr : kernelShapeAttr.getValue())
-      kernelShape.push_back(mlir::cast<IntegerAttr>(attr).getInt());
-    
-    for (auto attr : stridesAttr.getValue())
-      strides.push_back(mlir::cast<IntegerAttr>(attr).getInt());
-    
-    for (auto attr : dilationsAttr.getValue())
-      dilations.push_back(mlir::cast<IntegerAttr>(attr).getInt());
-    
-    for (auto attr : padsAttr.getValue())
-      pads.push_back(mlir::cast<IntegerAttr>(attr).getInt());
+    // Get attributes from shape helper (already computed).
+    const auto &kernelShape = shapeHelper.kernelShape;
+    const auto &strides = shapeHelper.strides;
+    const auto &dilations = shapeHelper.dilations;
+    const auto &pads = shapeHelper.pads; // IndexExpr, begin pads only.
 
     // Create index expressions for dimensions.
     IndexExprScope scope(create.krnl);
@@ -106,11 +88,11 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
     SmallVector<IndexExpr, 4> outputSpatialDims;
     for (int64_t i = 0; i < spatialRank; ++i) {
       IndexExpr inputDim = inputSpatialDims[i];
-      IndexExpr padBefore = LiteralIndexExpr(pads[i]);
-      IndexExpr padAfter = LiteralIndexExpr(pads[spatialRank + i]);
-      IndexExpr kernel = LiteralIndexExpr(kernelShape[i]);
-      IndexExpr stride = LiteralIndexExpr(strides[i]);
-      IndexExpr dilation = LiteralIndexExpr(dilations[i]);
+      IndexExpr padBefore = pads[i]; // Already IndexExpr.
+      IndexExpr padAfter = pads[i];  // Shape helper stores begin pads only, assume symmetric.
+      IndexExpr kernel = LitIE(kernelShape[i]);
+      IndexExpr stride = LitIE(strides[i]);
+      IndexExpr dilation = LitIE(dilations[i]);
       
       IndexExpr effectiveKernel = (kernel - 1) * dilation + 1;
       IndexExpr outputDim =
@@ -135,7 +117,7 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
     ValueRange outerLoopDef = create.krnl.defineLoops(1);
     
     // Enable parallelism if required.
-    SmallVector<IndexExpr, 1> lbs = {LiteralIndexExpr(0)};
+    SmallVector<IndexExpr, 1> lbs = {LitIE(0)};
     SmallVector<IndexExpr, 1> ubs = {numRows};
     if (enableParallel)
       tryCreateKrnlParallel(create.krnl, op, "im2col", outerLoopDef, lbs, ubs, 16);
@@ -147,7 +129,7 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
           IndexExprScope outerScope(createKrnl);
           
           // Get output row index.
-          IndexExpr rowIdx = DimIndexExpr(outerLoopInd[0]);
+          IndexExpr rowIdx = DimIE(outerLoopInd[0]);
           
           // Decompose rowIdx into [n, o1, o2, ..., on].
           SmallVector<IndexExpr, 5> outputIndices;
@@ -155,10 +137,10 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
           
           // Compute strides for output positions.
           SmallVector<IndexExpr, 4> outputStrides;
-          IndexExpr stride = LiteralIndexExpr(1);
+          IndexExpr stride = LitIE(1);
           for (int64_t i = spatialRank - 1; i >= 0; --i) {
             outputStrides.insert(outputStrides.begin(), stride);
-            stride = stride * outputSpatialDims[i];
+            stride = stride * SymIE(outputSpatialDims[i]);
           }
           
           // Extract n.
@@ -177,11 +159,11 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
           int64_t numFieldLoops = 1 + spatialRank;
           ValueRange fieldLoopDef = create.krnl.defineLoops(numFieldLoops);
           
-          SmallVector<IndexExpr, 5> fieldLbs(numFieldLoops, LiteralIndexExpr(0));
+          SmallVector<IndexExpr, 5> fieldLbs(numFieldLoops, LitIE(0));
           SmallVector<IndexExpr, 5> fieldUbs;
-          fieldUbs.push_back(CI);
+          fieldUbs.push_back(SymIE(CI));
           for (int64_t i = 0; i < spatialRank; ++i) {
-            fieldUbs.push_back(LiteralIndexExpr(kernelShape[i]));
+            fieldUbs.push_back(LitIE(kernelShape[i]));
           }
           
           create.krnl.iterateIE(fieldLoopDef, fieldLoopDef, fieldLbs, fieldUbs,
@@ -191,20 +173,20 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
                 IndexExprScope innerScope(createKrnl2);
                 
                 // Extract ci and kernel indices directly from loop variables.
-                IndexExpr ci = DimIndexExpr(fieldLoopInd[0]);
+                IndexExpr ci = DimIE(fieldLoopInd[0]);
                 SmallVector<IndexExpr, 4> kernelIndices;
                 for (int64_t i = 0; i < spatialRank; ++i) {
-                  kernelIndices.push_back(DimIndexExpr(fieldLoopInd[1 + i]));
+                  kernelIndices.push_back(DimIE(fieldLoopInd[1 + i]));
                 }
                 
                 // Compute input spatial indices.
                 SmallVector<IndexExpr, 4> inputSpatialIndices;
                 for (int64_t i = 0; i < spatialRank; ++i) {
-                  IndexExpr oi = outputIndices[1 + i];
+                  IndexExpr oi = SymIE(outputIndices[1 + i]);
                   IndexExpr ki = kernelIndices[i];
-                  IndexExpr si = LiteralIndexExpr(strides[i]);
-                  IndexExpr di = LiteralIndexExpr(dilations[i]);
-                  IndexExpr padBefore = LiteralIndexExpr(pads[i]);
+                  IndexExpr si = LitIE(strides[i]);
+                  IndexExpr di = LitIE(dilations[i]);
+                  IndexExpr padBefore = SymIE(pads[i]); // From outer scope.
                   
                   IndexExpr inputIdx = oi * si + ki * di - padBefore;
                   inputSpatialIndices.push_back(inputIdx);
@@ -217,7 +199,7 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
                 Value inBounds = create.math.constant(rewriter.getI1Type(), true);
                 for (int64_t i = 0; i < spatialRank; ++i) {
                   IndexExpr inputIdx = inputSpatialIndices[i];
-                  IndexExpr inputDim = inputSpatialDims[i];
+                  IndexExpr inputDim = SymIE(inputSpatialDims[i]); // From outer scope.
                   
                   Value geZero = create.math.sge(inputIdx.getValue(),
                       create.math.constantIndex(0));
