@@ -48,10 +48,12 @@ public:
   // catch signal; posix only.
   // forceOutputDataCopy should be only used for debugging purpose if suspecting
   // PYBIND issues.
-  std::vector<py::array> pyRun(const std::vector<py::array> &inputsPyArray,
+  std::vector<py::array> pyRunImplementation(
+      const std::vector<py::array> &inputsPyArray,
       const std::vector<py::array> &shapesPyArray,
       const std::vector<py::array> &stridesPyArray,
-      bool useSignalHandler = false, bool forceOutputDataCopy = false);
+      bool useSignalHandler,     // Debug flags.
+      bool forceOutputDataCopy); // Debug flags.
   std::string pyInputSignature();
   std::string pyOutputSignature();
   void pyPrintInstrumentation(); // Print instrumentation (if any).
