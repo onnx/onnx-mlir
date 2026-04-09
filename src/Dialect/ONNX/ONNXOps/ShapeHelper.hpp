@@ -474,6 +474,26 @@ using ONNXMaxPoolSingleOutOpShapeHelper = ONNXGenericPoolOpShapeHelper<mlir::ONN
 // clang-format on
 
 //===----------------------------------------------------------------------===//
+// Im2Col Op
+//===----------------------------------------------------------------------===//
+
+struct ONNXIm2ColOpShapeHelper : public ONNXOpShapeHelper {
+  ONNXIm2ColOpShapeHelper(mlir::Operation *op, mlir::ValueRange operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
+  virtual ~ONNXIm2ColOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+
+  // Computed attributes (similar to Conv/Pool ops).
+  llvm::SmallVector<int64_t, 4> strides;
+  llvm::SmallVector<int64_t, 4> dilations;
+  llvm::SmallVector<IndexExpr, 4> pads; // Begin pads only.
+  llvm::SmallVector<int64_t, 4> kernelShape;
+  int64_t spatialRank;
+};
+
+
+//===----------------------------------------------------------------------===//
 // ConvTranspose Op
 //===----------------------------------------------------------------------===//
 
