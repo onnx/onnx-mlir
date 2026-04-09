@@ -32,6 +32,7 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 #include "src/Pass/Passes.hpp"
 
 #include "llvm/Support/Debug.h"
@@ -293,6 +294,8 @@ struct FuseConvActivationPass
     GreedyRewriteConfig config;
     config.useTopDownTraversal = true;
     config.maxIterations = 10;
+    onnx_mlir::ResultNamesUpdater rnUpdater;
+    config.listener = &rnUpdater;
 
     if (failed(applyPatternsAndFoldGreedily(
             function, std::move(patterns), config))) {
