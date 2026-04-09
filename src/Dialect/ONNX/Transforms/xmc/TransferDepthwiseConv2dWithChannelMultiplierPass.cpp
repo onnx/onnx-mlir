@@ -549,7 +549,9 @@ struct SplitXFEDepthwiseConvPattern : public OpRewritePattern<XFEConvOp> {
           convOp.getX(), splitWeight, splitBias, convOp.getActivationAttr(),
           convOp.getAutoPadAttr(), convOp.getDilationsAttr(),
           convOp.getGroupAttr(), convOp.getKernelShapeAttr(),
-          convOp.getPadsAttr(), convOp.getStridesAttr());
+          convOp.getLeakyreluAlphaAttr(), convOp.getPadsAttr(),
+          convOp.getPreluInAttr(), convOp.getPreluShiftAttr(),
+          convOp.getStridesAttr());
 
       concatInputs.push_back(splitConvOp.getResult());
 

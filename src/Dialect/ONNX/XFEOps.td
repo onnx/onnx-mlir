@@ -101,7 +101,10 @@ def XFEConvOp:ONNX_Op<"XFEConv",
     OptionalAttr<I64ArrayAttr>:$dilations,
     DefaultValuedAttr<SI64Attr, "1">:$group,
     OptionalAttr<I64ArrayAttr>:$kernel_shape,
+    OptionalAttr<F32Attr>:$leakyrelu_alpha,
     OptionalAttr<I64ArrayAttr>:$pads,
+    OptionalAttr<SI64Attr>:$prelu_in,
+    OptionalAttr<SI64Attr>:$prelu_shift,
     OptionalAttr<I64ArrayAttr>:$strides);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[quant_QuantizedType]>]>:$Y);
   let extraClassDeclaration = [{
@@ -140,9 +143,12 @@ def XFEConvTransposeOp:ONNX_Op<"XFEConvTranspose",
     OptionalAttr<I64ArrayAttr>:$dilations,
     DefaultValuedAttr<SI64Attr, "1">:$group,
     OptionalAttr<I64ArrayAttr>:$kernel_shape,
+    OptionalAttr<F32Attr>:$leakyrelu_alpha,
     OptionalAttr<I64ArrayAttr>:$output_padding,
     OptionalAttr<I64ArrayAttr>:$output_shape,
     OptionalAttr<I64ArrayAttr>:$pads,
+    OptionalAttr<SI64Attr>:$prelu_in,
+    OptionalAttr<SI64Attr>:$prelu_shift,
     OptionalAttr<I64ArrayAttr>:$strides);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[quant_QuantizedType]>]>:$Y);
   let extraClassDeclaration = [{

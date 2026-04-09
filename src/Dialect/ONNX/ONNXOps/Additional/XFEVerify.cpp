@@ -12,6 +12,51 @@ using namespace onnx_mlir;
 
 namespace mlir {
 
+namespace {
+
+// Fused activation attributes (xfe_ops_schema Conv): activation, optional
+// leakyrelu_alpha, prelu_in, prelu_shift. Aligns with FuseConvActivationPass /
+// NormalizeConvActivationPass.
+
+static bool isValidXFEFusedActivation(StringRef activation) {
+  return activation == "NONE" || activation == "RELU" ||
+         activation == "LEAKYRELU" || activation == "PRELU" ||
+         activation == "HSIGMOID" || activation == "RELU6" ||
+         activation == "SIGMOID";
+}
+
+template <typename ConvLikeOp>
+static LogicalResult verifyXFEFusedConvActivationAttrs(ConvLikeOp convOp) {
+  StringRef activation = convOp.getActivation();
+  if (!isValidXFEFusedActivation(activation))
+    return convOp->emitOpError(
+               "'activation' must be one of NONE, RELU, LEAKYRELU, PRELU, "
+               "HSIGMOID, RELU6, SIGMOID, got '")
+           << activation << "'";
+
+  bool isPrelu = activation == "PRELU";
+
+  if (convOp.getLeakyreluAlphaAttr() && activation != "LEAKYRELU" && !isPrelu)
+    return convOp->emitOpError("'leakyrelu_alpha' is only valid when "
+                               "activation is LEAKYRELU or PRELU");
+
+  if (convOp.getPreluInAttr() && !isPrelu)
+    return convOp->emitOpError(
+        "'prelu_in' is only valid when activation is PRELU");
+
+  if (convOp.getPreluShiftAttr() && !isPrelu)
+    return convOp->emitOpError(
+        "'prelu_shift' is only valid when activation is PRELU");
+
+  if (isPrelu && (!convOp.getPreluInAttr() || !convOp.getPreluShiftAttr()))
+    return convOp->emitOpError(
+        "activation PRELU requires both 'prelu_in' and 'prelu_shift'");
+
+  return success();
+}
+
+} // namespace
+
 //===----------------------------------------------------------------------===//
 // Channel-wise (per-axis) quantization verifier for all XFE ops.
 //
@@ -138,6 +183,9 @@ LogicalResult XFEConvOpVerify(Operation *op) {
   if (!convOp)
     return failure();
 
+  if (failed(verifyXFEFusedConvActivationAttrs(convOp)))
+    return failure();
+
   Value X = convOp.getX();
   Value W = convOp.getW();
   if (!hasShapeAndRank(X) || !hasShapeAndRank(W))
@@ -158,6 +206,9 @@ LogicalResult XFEConvOpVerify(Operation *op) {
 LogicalResult XFEConvTransposeOpVerify(Operation *op) {
   auto convTransposeOp = dyn_cast<XFEConvTransposeOp>(op);
   if (!convTransposeOp)
+    return failure();
+
+  if (failed(verifyXFEFusedConvActivationAttrs(convTransposeOp)))
     return failure();
 
   Value X = convTransposeOp.getX();

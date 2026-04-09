@@ -19,6 +19,7 @@
 // whether it is a fuseable activation of either kind.
 //
 // Filters:
+//   - conv pads attribute (if present) must be non-negative
 //   - conv must have single fanout
 //   - if both conv output and activation output are quantized, their
 //     quantization parameters must match (no requantization)
@@ -110,6 +111,20 @@ static std::optional<int64_t> clipBoundAsI64(Value v) {
   return std::nullopt;
 }
 
+/// Return false if the conv's explicit pads attribute contains a negative
+/// value.
+template <typename ConvOp>
+static bool convPadsNonNegative(ConvOp convOp) {
+  if (auto padsAttr = convOp.getPadsAttr()) {
+    for (mlir::Attribute p : padsAttr.getValue()) {
+      int64_t v = mlir::cast<mlir::IntegerAttr>(p).getValue().getSExtValue();
+      if (v < 0)
+        return false;
+    }
+  }
+  return true;
+}
+
 /// Try to identify a fuseable activation from an operation.
 /// Handles both XCOMPILERFusedEltwiseOp (quantized path) and raw ONNX
 /// activation ops (non-quantized path).
@@ -141,7 +156,7 @@ static ActivationInfo getActivationInfo(Operation *op) {
     else if (opType == "SIGMOID")
       info.activationType = "SIGMOID";
     else if (opType == "QLINEARSIGMOID")
-      info.activationType = "HARDSIGMOID";
+      info.activationType = "HSIGMOID";
     else
       return info; // empty = not fuseable
 
@@ -171,7 +186,7 @@ static ActivationInfo getActivationInfo(Operation *op) {
     return info;
   }
   if (isa<ONNXHardSigmoidOp>(op)) {
-    info.activationType = "HARDSIGMOID";
+    info.activationType = "HSIGMOID";
     info.output = op->getResult(0);
     return info;
   }
@@ -205,6 +220,10 @@ struct FuseConvActivation : public OpRewritePattern<ConvOp> {
     if (convOp.getActivation() != "NONE")
       return rewriter.notifyMatchFailure(
           convOp, "conv already has fused activation");
+
+    if (!convPadsNonNegative(convOp))
+      return rewriter.notifyMatchFailure(
+          convOp, "conv pads must be non-negative");
 
     // Conv output must have single fanout
     if (!convOp.getResult().hasOneUse())
@@ -242,11 +261,10 @@ struct FuseConvActivation : public OpRewritePattern<ConvOp> {
 
     // Set the activation attribute and transfer alpha if applicable
     rewriter.modifyOpInPlace(convOp, [&] {
-      convOp->setAttr(
-          "activation", rewriter.getStringAttr(actInfo.activationType));
+      convOp.setActivationAttr(rewriter.getStringAttr(actInfo.activationType));
 
       if (actInfo.alphaAttr)
-        convOp->setAttr("leakyrelu_alpha", actInfo.alphaAttr);
+        convOp.setLeakyreluAlphaAttr(actInfo.alphaAttr);
     });
 
     // Update the conv op's result type if activation changes it

@@ -27,7 +27,10 @@ def XCOMPILERDepthwiseConvOp:ONNX_Op<"XCOMPILERDepthwiseConv",
     DefaultValuedStrAttr<StrAttr, "NOTSET">:$auto_pad,
     OptionalAttr<I64ArrayAttr>:$dilations,
     I64ArrayAttr:$kernel_shape,
+    OptionalAttr<F32Attr>:$leakyrelu_alpha,
     OptionalAttr<I64ArrayAttr>:$pads,
+    OptionalAttr<SI64Attr>:$prelu_in,
+    OptionalAttr<SI64Attr>:$prelu_shift,
     OptionalAttr<I64ArrayAttr>:$strides);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[quant_QuantizedType]>]>:$Y);
   let extraClassDeclaration = [{
