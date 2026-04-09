@@ -4521,8 +4521,7 @@ struct DecomposeONNXToONNXPass
         pass.enableConvTransposeDecomposeToPhasedConv.getValue();
     this->enableInstanceNormDecompose =
         pass.enableInstanceNormDecompose.getValue();
-    this->enableGroupNormDecompose =
-        pass.enableGroupNormDecompose.getValue();
+    this->enableGroupNormDecompose = pass.enableGroupNormDecompose.getValue();
     this->enableMatmulNBitsDecompose =
         pass.enableMatmulNBitsDecompose.getValue();
     this->enableGroupQueryAttentionDecompose =

@@ -133,7 +133,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
         opts.enableConvTransposeDecomposeToPhasedConv,
         opts.enableConvTranspose1dDecomposeToPhasedConv,
         opts.enableInstanceNormDecompose, opts.enableGroupNormDecompose,
-        opts.enableMatmulNBitsDecompose, opts.enableGroupQueryAttentionDecompose,
+        opts.enableMatmulNBitsDecompose,
+        opts.enableGroupQueryAttentionDecompose,
         opts.enableSplitToSliceDecompose, opts.enablGAPToReduceMean));
     // Convolution Optimization for CPU: enable when there are no accelerators.
     if (targetCPU && opts.enableConvOptPass) {
@@ -207,7 +208,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
         opts.enableConvTransposeDecomposeToPhasedConv,
         opts.enableConvTranspose1dDecomposeToPhasedConv,
         opts.enableInstanceNormDecompose, opts.enableGroupNormDecompose,
-        opts.enableMatmulNBitsDecompose, opts.enableGroupQueryAttentionDecompose,
+        opts.enableMatmulNBitsDecompose,
+        opts.enableGroupQueryAttentionDecompose,
         opts.enableSplitToSliceDecompose, opts.enablGAPToReduceMean));
   } else {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());

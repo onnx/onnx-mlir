@@ -153,9 +153,8 @@ struct ONNXHybridTransformPass
       bool enableConvTransposeDecomposeToPhasedConv,
       bool enableConvTranspose1dDecomposeToPhasedConv,
       bool enableInstanceNormDecompose, bool enableGroupNormDecompose,
-      bool enableMatmulNBitsDecompose,
-      bool enableGroupQueryAttentionDecompose, bool enableSplitToSliceDecompose,
-      bool enablGAPToReduceMean) {
+      bool enableMatmulNBitsDecompose, bool enableGroupQueryAttentionDecompose,
+      bool enableSplitToSliceDecompose, bool enablGAPToReduceMean) {
     this->recomposition = enableRecomposition;
     this->quarkQuantizedOpsLegalization = enableQuarkQuantizedOpsLegalization;
     this->enableConvTransposeDecompose = enableConvTransposeDecompose;
