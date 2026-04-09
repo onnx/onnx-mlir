@@ -47,6 +47,7 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
     ONNXIm2ColOpShapeHelper shapeHelper(op, {});
     shapeHelper.computeShapeAndAssertOnFailure();
     
+    // Allocate with 2D shape [numRows, numCols].
     Value alloc = create.mem.alignedAlloc(
         outputMemRefType, shapeHelper.getOutputDims());
 
@@ -103,39 +104,39 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
       IndexExpr dilation = LiteralIndexExpr(dilations[i]);
       
       IndexExpr effectiveKernel = (kernel - 1) * dilation + 1;
-      IndexExpr outputDim = 
+      IndexExpr outputDim =
           (inputDim + padBefore + padAfter - effectiveKernel).floorDiv(stride) + 1;
       outputSpatialDims.push_back(outputDim);
     }
     
-    // Compute total number of output positions.
-    IndexExpr numOutputPositions = N;
-    for (int64_t i = 0; i < spatialRank; ++i) {
-      numOutputPositions = numOutputPositions * outputSpatialDims[i];
+    // Get numRows from shape helper output dimensions.
+    IndexExpr numRows = shapeHelper.getOutputDims()[0];
+    
+    // Reshape alloc to [numRows, CI, K1, K2, ..., KN] for easier indexing.
+    DimsExpr reshapedDims;
+    reshapedDims.push_back(numRows);
+    reshapedDims.push_back(CI);
+    for (int64_t k : kernelShape) {
+      reshapedDims.push_back(LiteralIndexExpr(k));
     }
     
-    // Compute receptive field size.
-    IndexExpr receptiveFieldSize = CI;
-    for (int64_t i = 0; i < spatialRank; ++i) {
-      receptiveFieldSize = receptiveFieldSize * LiteralIndexExpr(kernelShape[i]);
-    }
+    Value reshapedAlloc = create.mem.reinterpretCast(alloc, reshapedDims);
 
-    // Create loops for output positions and receptive field.
-    ValueRange loopDef = create.krnl.defineLoops(2);
-    create.krnl.iterateIE(loopDef, loopDef, {LiteralIndexExpr(0), LiteralIndexExpr(0)},
-        {numOutputPositions, receptiveFieldSize},
-        [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
+    // Create single loop for output positions (collapsed).
+    ValueRange outerLoopDef = create.krnl.defineLoops(1);
+    create.krnl.iterateIE(outerLoopDef, outerLoopDef, {LiteralIndexExpr(0)},
+        {numRows},
+        [&](const KrnlBuilder &createKrnl, ValueRange outerLoopInd) {
           MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>
               create(createKrnl);
-          IndexExprScope innerScope(createKrnl);
+          IndexExprScope outerScope(createKrnl);
           
-          // Get loop indices.
-          IndexExpr posIdx = DimIndexExpr(loopInd[0]);
-          IndexExpr fieldIdx = DimIndexExpr(loopInd[1]);
+          // Get output row index.
+          IndexExpr rowIdx = DimIndexExpr(outerLoopInd[0]);
           
-          // Decompose posIdx into [n, o1, o2, ..., on].
+          // Decompose rowIdx into [n, o1, o2, ..., on].
           SmallVector<IndexExpr, 5> outputIndices;
-          IndexExpr remaining = posIdx;
+          IndexExpr remaining = rowIdx;
           
           // Compute strides for output positions.
           SmallVector<IndexExpr, 4> outputStrides;
@@ -157,74 +158,80 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
             remaining = remaining % outputStrides[i];
           }
           
-          // Decompose fieldIdx into [ci, k1, k2, ..., kn].
-          SmallVector<IndexExpr, 5> fieldIndices;
-          remaining = fieldIdx;
+          // Create nested loops for receptive field: ci, k1, k2, ..., kN.
+          int64_t numFieldLoops = 1 + spatialRank;
+          ValueRange fieldLoopDef = create.krnl.defineLoops(numFieldLoops);
           
-          // Compute strides for receptive field.
-          SmallVector<IndexExpr, 4> fieldStrides;
-          stride = LiteralIndexExpr(1);
-          for (int64_t i = spatialRank - 1; i >= 0; --i) {
-            fieldStrides.insert(fieldStrides.begin(), stride);
-            stride = stride * LiteralIndexExpr(kernelShape[i]);
-          }
-          
-          // Extract ci.
-          IndexExpr ci = remaining.floorDiv(stride);
-          fieldIndices.push_back(ci);
-          remaining = remaining % stride;
-          
-          // Extract kernel indices.
+          SmallVector<IndexExpr, 5> fieldLbs(numFieldLoops, LiteralIndexExpr(0));
+          SmallVector<IndexExpr, 5> fieldUbs;
+          fieldUbs.push_back(CI);
           for (int64_t i = 0; i < spatialRank; ++i) {
-            IndexExpr ki = remaining.floorDiv(fieldStrides[i]);
-            fieldIndices.push_back(ki);
-            remaining = remaining % fieldStrides[i];
+            fieldUbs.push_back(LiteralIndexExpr(kernelShape[i]));
           }
           
-          // Compute input spatial indices.
-          SmallVector<IndexExpr, 4> inputSpatialIndices;
-          for (int64_t i = 0; i < spatialRank; ++i) {
-            IndexExpr oi = outputIndices[1 + i];
-            IndexExpr ki = fieldIndices[1 + i];
-            IndexExpr si = LiteralIndexExpr(strides[i]);
-            IndexExpr di = LiteralIndexExpr(dilations[i]);
-            IndexExpr padBefore = LiteralIndexExpr(pads[i]);
-            
-            IndexExpr inputIdx = oi * si + ki * di - padBefore;
-            inputSpatialIndices.push_back(inputIdx);
-          }
-          
-          // Check bounds and load value.
-          Value zero = create.math.constant(inputType.getElementType(), 0.0);
-          Value loadedValue = zero;
-          
-          // Build condition for all spatial dimensions being in bounds.
-          Value inBounds = create.math.constant(rewriter.getI1Type(), true);
-          for (int64_t i = 0; i < spatialRank; ++i) {
-            IndexExpr inputIdx = inputSpatialIndices[i];
-            IndexExpr inputDim = inputSpatialDims[i];
-            
-            Value geZero = create.math.sge(inputIdx.getValue(), 
-                create.math.constantIndex(0));
-            Value ltDim = create.math.slt(inputIdx.getValue(), 
-                inputDim.getValue());
-            Value dimInBounds = create.math.andi(geZero, ltDim);
-            inBounds = create.math.andi(inBounds, dimInBounds);
-          }
-          
-          // Load value if in bounds.
-          SmallVector<Value, 5> inputIndicesVals;
-          inputIndicesVals.push_back(n.getValue());
-          inputIndicesVals.push_back(ci.getValue());
-          for (int64_t i = 0; i < spatialRank; ++i) {
-            inputIndicesVals.push_back(inputSpatialIndices[i].getValue());
-          }
-          
-          Value actualValue = create.krnl.load(input, inputIndicesVals);
-          loadedValue = create.math.select(inBounds, actualValue, zero);
-          
-          // Store to output.
-          create.krnl.store(loadedValue, alloc, loopInd);
+          create.krnl.iterateIE(fieldLoopDef, fieldLoopDef, fieldLbs, fieldUbs,
+              [&](const KrnlBuilder &createKrnl2, ValueRange fieldLoopInd) {
+                MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>
+                    create(createKrnl2);
+                IndexExprScope innerScope(createKrnl2);
+                
+                // Extract ci and kernel indices directly from loop variables.
+                IndexExpr ci = DimIndexExpr(fieldLoopInd[0]);
+                SmallVector<IndexExpr, 4> kernelIndices;
+                for (int64_t i = 0; i < spatialRank; ++i) {
+                  kernelIndices.push_back(DimIndexExpr(fieldLoopInd[1 + i]));
+                }
+                
+                // Compute input spatial indices.
+                SmallVector<IndexExpr, 4> inputSpatialIndices;
+                for (int64_t i = 0; i < spatialRank; ++i) {
+                  IndexExpr oi = outputIndices[1 + i];
+                  IndexExpr ki = kernelIndices[i];
+                  IndexExpr si = LiteralIndexExpr(strides[i]);
+                  IndexExpr di = LiteralIndexExpr(dilations[i]);
+                  IndexExpr padBefore = LiteralIndexExpr(pads[i]);
+                  
+                  IndexExpr inputIdx = oi * si + ki * di - padBefore;
+                  inputSpatialIndices.push_back(inputIdx);
+                }
+                
+                // Check bounds and load value.
+                Value zero = create.math.constant(inputType.getElementType(), 0.0);
+                
+                // Build condition for all spatial dimensions being in bounds.
+                Value inBounds = create.math.constant(rewriter.getI1Type(), true);
+                for (int64_t i = 0; i < spatialRank; ++i) {
+                  IndexExpr inputIdx = inputSpatialIndices[i];
+                  IndexExpr inputDim = inputSpatialDims[i];
+                  
+                  Value geZero = create.math.sge(inputIdx.getValue(),
+                      create.math.constantIndex(0));
+                  Value ltDim = create.math.slt(inputIdx.getValue(),
+                      inputDim.getValue());
+                  Value dimInBounds = create.math.andi(geZero, ltDim);
+                  inBounds = create.math.andi(inBounds, dimInBounds);
+                }
+                
+                // Load value if in bounds.
+                SmallVector<Value, 5> inputIndicesVals;
+                inputIndicesVals.push_back(n.getValue());
+                inputIndicesVals.push_back(ci.getValue());
+                for (int64_t i = 0; i < spatialRank; ++i) {
+                  inputIndicesVals.push_back(inputSpatialIndices[i].getValue());
+                }
+                
+                Value actualValue = create.krnl.load(input, inputIndicesVals);
+                Value loadedValue = create.math.select(inBounds, actualValue, zero);
+                
+                // Store to reshaped output[rowIdx, ci, k1, k2, ..., kN].
+                SmallVector<Value, 6> outputIndicesVals;
+                outputIndicesVals.push_back(rowIdx.getValue());
+                outputIndicesVals.push_back(ci.getValue());
+                for (int64_t i = 0; i < spatialRank; ++i) {
+                  outputIndicesVals.push_back(kernelIndices[i].getValue());
+                }
+                create.krnl.store(loadedValue, reshapedAlloc, outputIndicesVals);
+              });
         });
 
     rewriter.replaceOp(op, alloc);
