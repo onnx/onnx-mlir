@@ -10,6 +10,7 @@
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 #include "src/Pass/Passes.hpp"
 
 #include "mlir/Dialect/Quant/IR/QuantTypes.h"
@@ -529,8 +530,10 @@ struct ConvertMatMulToXFEConvPass
     patterns.add<MatMulToXFEConvPattern>(context);
     patterns.add<GemmToXFEConvPattern>(context);
 
-    // Apply patterns greedily
-    if (failed(applyPatternsGreedily(func, std::move(patterns)))) {
+    GreedyRewriteConfig config;
+    onnx_mlir::ResultNamesUpdater rnUpdater;
+    config.listener = &rnUpdater;
+    if (failed(applyPatternsGreedily(func, std::move(patterns), config))) {
       signalPassFailure();
     }
   }

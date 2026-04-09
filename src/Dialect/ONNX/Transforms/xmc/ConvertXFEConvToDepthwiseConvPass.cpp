@@ -39,6 +39,7 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
+#include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 #include <iostream>
 
 using namespace mlir;
@@ -285,6 +286,8 @@ struct ConvertXFEConvToDepthwiseConvPass
 
     GreedyRewriteConfig config;
     config.strictMode = GreedyRewriteStrictness::ExistingAndNewOps;
+    onnx_mlir::ResultNamesUpdater rnUpdater;
+    config.listener = &rnUpdater;
     if (failed(applyPatternsGreedily(
             getOperation(), std::move(patterns), config))) {
       signalPassFailure();
