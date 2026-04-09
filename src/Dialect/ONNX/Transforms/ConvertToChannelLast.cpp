@@ -839,85 +839,139 @@ struct ResizeToChannelLastPattern : public OpRewritePattern<ONNXResizeOp> {
     Value scales = resizeOp.getScales();
     Value sizes = resizeOp.getSizes();
 
-    // Helper to permute a 1D tensor from NCHW order to NHWC order
-    // CRITICAL: Must create a constant-folded result for shape inference to
-    // work
-    auto permuteForChannelLast = [&](Value tensor) -> Value {
+    // NCHW->NHWC permutation: [0, 2, 3, ..., N-1, 1]
+    SmallVector<int64_t, 4> perm;
+    perm.push_back(0);
+    for (int64_t i = 2; i < rank; ++i)
+      perm.push_back(i);
+    perm.push_back(1);
+
+    // Helper: get DenseElementsAttr from an ONNXConstantOp value, or nullptr.
+    auto getConstAttr = [](Value v) -> DenseElementsAttr {
+      if (auto defOp = v.getDefiningOp<ONNXConstantOp>())
+        if (auto valueAttr = defOp.getValue())
+          return mlir::dyn_cast<DenseElementsAttr>(*valueAttr);
+      return nullptr;
+    };
+
+    // Permute a rank-sized constant 1D tensor from NCHW to NHWC order.
+    // Returns std::nullopt if the value is non-None and not a foldable constant.
+    auto permuteForChannelLast =
+        [&](Value tensor) -> std::optional<Value> {
       if (isa<NoneType>(tensor.getType()))
         return tensor;
 
       auto tensorType = mlir::dyn_cast<RankedTensorType>(tensor.getType());
-      if (!tensorType || !tensorType.hasStaticShape())
-        return tensor;
+      if (!tensorType || !tensorType.hasStaticShape() ||
+          tensorType.getNumElements() != rank)
+        return std::nullopt;
 
-      int64_t numElements = tensorType.getNumElements();
-      if (numElements != rank)
-        return tensor; // Can't permute if size doesn't match rank
+      DenseElementsAttr constAttr = getConstAttr(tensor);
+      if (!constAttr)
+        return std::nullopt;
 
-      // Try to get constant values for folding
-      DenseElementsAttr constAttr;
-      if (auto defOp = tensor.getDefiningOp<ONNXConstantOp>()) {
-        if (auto valueAttr = defOp.getValue()) {
-          constAttr = mlir::dyn_cast<DenseElementsAttr>(*valueAttr);
-        }
+      auto elemType = tensorType.getElementType();
+      if (elemType.isF32()) {
+        auto values = constAttr.getValues<float>();
+        SmallVector<float, 4> permuted;
+        for (int64_t p : perm)
+          permuted.push_back(values[p]);
+        return rewriter
+            .create<ONNXConstantOp>(loc, mlir::Attribute(),
+                DenseElementsAttr::get(
+                    tensorType, llvm::ArrayRef<float>(permuted)))
+            .getResult();
       }
-
-      // Create permutation for channel-last: [0, 2, 3, ..., N-1, 1]
-      SmallVector<int64_t, 4> perm;
-      perm.push_back(0); // batch
-      for (int64_t i = 2; i < rank; ++i)
-        perm.push_back(i); // spatial dimensions
-      perm.push_back(1);   // channels
-
-      // If input is a constant, create a permuted constant (constant folding)
-      if (constAttr) {
-        auto elemType = tensorType.getElementType();
-        if (elemType.isF32()) {
-          // Permute float constants
-          auto values = constAttr.getValues<float>();
-          SmallVector<float, 4> permutedValues;
-          for (int64_t p : perm) {
-            permutedValues.push_back(values[p]);
-          }
-          auto permutedAttr = DenseElementsAttr::get(
-              tensorType, llvm::ArrayRef<float>(permutedValues));
-          return rewriter.create<ONNXConstantOp>(
-              loc, mlir::Attribute(), permutedAttr);
-        } else if (elemType.isInteger(64)) {
-          // Permute int64 constants
-          auto values = constAttr.getValues<int64_t>();
-          SmallVector<int64_t, 4> permutedValues;
-          for (int64_t p : perm) {
-            permutedValues.push_back(values[p]);
-          }
-          auto permutedAttr =
-              DenseIntElementsAttr::get(tensorType, permutedValues);
-          return rewriter.create<ONNXConstantOp>(
-              loc, mlir::Attribute(), permutedAttr);
-        }
+      if (elemType.isInteger(64)) {
+        auto values = constAttr.getValues<int64_t>();
+        SmallVector<int64_t, 4> permuted;
+        for (int64_t p : perm)
+          permuted.push_back(values[p]);
+        return rewriter
+            .create<ONNXConstantOp>(loc, mlir::Attribute(),
+                DenseIntElementsAttr::get(tensorType, permuted))
+            .getResult();
       }
-
-      // Fallback: Create Gather op for non-constant inputs
-      SmallVector<int64_t, 4> indices(perm.begin(), perm.end());
-      auto indicesType = RankedTensorType::get({rank}, rewriter.getI64Type());
-      auto indicesAttr = DenseIntElementsAttr::get(indicesType, indices);
-      Value indicesValue =
-          rewriter.create<ONNXConstantOp>(loc, mlir::Attribute(), indicesAttr);
-
-      auto si64Type = rewriter.getIntegerType(64, /*isSigned=*/true);
-      return rewriter.create<ONNXGatherOp>(loc, tensorType, tensor,
-          indicesValue, rewriter.getIntegerAttr(si64Type, 0));
+      return std::nullopt;
     };
 
-    Value roiChannelLast = permuteForChannelLast(roi);
-    Value scalesChannelLast = permuteForChannelLast(scales);
-    Value sizesChannelLast = permuteForChannelLast(sizes);
+    // Permute Roi which has 2*rank elements:
+    // [start_dim0..start_dimN, end_dim0..end_dimN].
+    // Each half is permuted with the NCHW->NHWC mapping independently.
+    auto permuteRoiForChannelLast =
+        [&](Value tensor) -> std::optional<Value> {
+      if (isa<NoneType>(tensor.getType()))
+        return tensor;
+
+      auto tensorType = mlir::dyn_cast<RankedTensorType>(tensor.getType());
+      if (!tensorType || !tensorType.hasStaticShape() ||
+          tensorType.getNumElements() != 2 * rank)
+        return std::nullopt;
+
+      DenseElementsAttr constAttr = getConstAttr(tensor);
+      if (!constAttr || !tensorType.getElementType().isF32())
+        return std::nullopt;
+
+      auto values = constAttr.getValues<float>();
+      SmallVector<float> permuted;
+      for (int64_t p : perm)
+        permuted.push_back(values[p]);
+      for (int64_t p : perm)
+        permuted.push_back(values[rank + p]);
+      return rewriter
+          .create<ONNXConstantOp>(loc, mlir::Attribute(),
+              DenseElementsAttr::get(
+                  tensorType, llvm::ArrayRef<float>(permuted)))
+          .getResult();
+    };
+
+    auto roiResult = permuteRoiForChannelLast(roi);
+    if (!roiResult)
+      return rewriter.notifyMatchFailure(
+          resizeOp, "non-constant roi not supported");
+
+    // When axes is specified, scales/sizes have len(axes) elements and are
+    // paired with the axes entries. They don't need position-based permutation
+    // since the axes attribute is remapped separately.
+    bool hasAxes = resizeOp.getAxesAttr() != nullptr;
+    Value scalesChannelLast = scales;
+    Value sizesChannelLast = sizes;
+    if (!hasAxes) {
+      auto scalesResult = permuteForChannelLast(scales);
+      if (!scalesResult)
+        return rewriter.notifyMatchFailure(
+            resizeOp, "non-constant scales not supported");
+      auto sizesResult = permuteForChannelLast(sizes);
+      if (!sizesResult)
+        return rewriter.notifyMatchFailure(
+            resizeOp, "non-constant sizes not supported");
+      scalesChannelLast = *scalesResult;
+      sizesChannelLast = *sizesResult;
+    }
+
+    Value roiChannelLast = *roiResult;
+
+    // Remap axes attribute from NCHW indices to NHWC indices.
+    // NCHW->NHWC mapping: 0->0, 1->3, 2->1, 3->2
+    mlir::ArrayAttr nhwcAxesAttr = nullptr;
+    if (auto axesAttr = resizeOp.getAxesAttr()) {
+      SmallVector<int64_t, 4> nchwToNhwc(rank);
+      nchwToNhwc[0] = 0;
+      nchwToNhwc[1] = rank - 1;
+      for (int64_t i = 2; i < rank; ++i)
+        nchwToNhwc[i] = i - 1;
+
+      SmallVector<int64_t, 4> remappedAxes;
+      for (auto a : axesAttr.getAsRange<IntegerAttr>())
+        remappedAxes.push_back(nchwToNhwc[a.getInt()]);
+      nhwcAxesAttr = rewriter.getI64ArrayAttr(remappedAxes);
+    }
 
     // Create XFEResize operation
     auto resizeChannelLastOp = rewriter.create<XFEResizeOp>(loc,
         UnrankedTensorType::get(nhwcOutputElemType), inputChannelLast,
         roiChannelLast, scalesChannelLast, sizesChannelLast,
-        resizeOp.getAntialiasAttr(), resizeOp.getAxesAttr(),
+        resizeOp.getAntialiasAttr(), nhwcAxesAttr,
         resizeOp.getCoordinateTransformationModeAttr(),
         resizeOp.getCubicCoeffAAttr(), resizeOp.getExcludeOutsideAttr(),
         resizeOp.getExtrapolationValueAttr(),

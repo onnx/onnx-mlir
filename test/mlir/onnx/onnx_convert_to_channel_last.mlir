@@ -344,3 +344,133 @@ func.func @test_resize_downsample_to_channel_last(%arg0: tensor<1x64x32x32xf32>)
   // CHECK: onnx.Return [[OUTPUT_NCHW]] : tensor<1x64x16x16xf32>
 }
 
+// -----
+
+// COM: Test Resize with axes attribute - axes must be remapped from NCHW to NHWC
+// In NCHW: axes=[2,3] means resize H,W. In NHWC: axes=[1,2].
+// CHECK-LABEL: func.func @test_resize_axes_remap
+func.func @test_resize_axes_remap(%arg0: tensor<1x3x4x4xf32>) -> tensor<1x3x8x8xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %scales = "onnx.Constant"() {value = dense<[2.0, 2.0]> : tensor<2xf32>} : () -> tensor<2xf32>
+  %0 = "onnx.Resize"(%arg0, %none, %scales, %none) {
+    axes = [2, 3],
+    coordinate_transformation_mode = "half_pixel",
+    mode = "nearest",
+    nearest_mode = "round_prefer_floor"
+  } : (tensor<1x3x4x4xf32>, none, tensor<2xf32>, none) -> tensor<1x3x8x8xf32>
+  onnx.Return %0 : tensor<1x3x8x8xf32>
+
+  // axes=[2,3] in NCHW should become axes=[1,2] in NHWC
+  // CHECK: [[INPUT_CHANNEL_LAST:%.+]] = "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]}
+  // CHECK: "onnx.XFEResize"({{.*}}) {{{.*}}axes = [1, 2]{{.*}}}
+  // CHECK: "onnx.Transpose"({{.*}}) {perm = [0, 3, 1, 2]}
+}
+
+// -----
+
+// COM: Test Resize with Roi - roi has 2*rank=8 elements, each half permuted
+// NCHW roi: [0, 0, 0.2, 0.3, 1, 1, 0.8, 0.7]
+// NHWC roi: [0, 0.2, 0.3, 0, 1, 0.8, 0.7, 1]
+// CHECK-LABEL: func.func @test_resize_roi_permute
+func.func @test_resize_roi_permute(%arg0: tensor<1x3x4x4xf32>) -> tensor<1x3x8x8xf32> {
+  %roi = "onnx.Constant"() {value = dense<[0.0, 0.0, 0.2, 0.3, 1.0, 1.0, 0.8, 0.7]> : tensor<8xf32>} : () -> tensor<8xf32>
+  %scales = "onnx.Constant"() {value = dense<[1.0, 1.0, 2.0, 2.0]> : tensor<4xf32>} : () -> tensor<4xf32>
+  %none = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.Resize"(%arg0, %roi, %scales, %none) {
+    coordinate_transformation_mode = "tf_crop_and_resize",
+    mode = "nearest",
+    nearest_mode = "round_prefer_floor"
+  } : (tensor<1x3x4x4xf32>, tensor<8xf32>, tensor<4xf32>, none) -> tensor<1x3x8x8xf32>
+  onnx.Return %0 : tensor<1x3x8x8xf32>
+
+  // Roi [0,0,0.2,0.3, 1,1,0.8,0.7] permuted per-half with [0,2,3,1]:
+  // -> [0, 0.2, 0.3, 0, 1, 0.8, 0.7, 1]
+  // CHECK-DAG: [[SCALES_PERMUTED:%.+]] = onnx.Constant dense<[1.000000e+00, 2.000000e+00, 2.000000e+00, 1.000000e+00]> : tensor<4xf32>
+  // CHECK-DAG: [[ROI_PERMUTED:%.+]] = onnx.Constant dense<[0.000000e+00, 2.000000e-01, 3.000000e-01, 0.000000e+00, 1.000000e+00, 8.000000e-01, 0.699999988, 1.000000e+00]> : tensor<8xf32>
+  // CHECK: "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]}
+  // CHECK: "onnx.XFEResize"
+  // CHECK: "onnx.Transpose"({{.*}}) {perm = [0, 3, 1, 2]}
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Quantized Type Tests - Per-tensor quantization
+//===----------------------------------------------------------------------===//
+
+// COM: Test Conv with per-tensor quantized types
+// CHECK-LABEL: func.func @test_conv_quantized_per_tensor
+func.func @test_conv_quantized_per_tensor(
+    %arg0: tensor<1x3x28x28x!quant.uniform<u8:f32, 0.05:128>>,
+    %arg1: tensor<64x3x3x3x!quant.uniform<i8:f32, 0.02>>,
+    %arg2: tensor<64x!quant.uniform<i8:f32, 0.01>>)
+    -> tensor<1x64x26x26x!quant.uniform<u8:f32, 0.1:128>> {
+  %0 = "onnx.Conv"(%arg0, %arg1, %arg2) {
+    dilations = [1, 1],
+    group = 1 : si64,
+    pads = [0, 0, 0, 0],
+    strides = [1, 1]
+  } : (tensor<1x3x28x28x!quant.uniform<u8:f32, 0.05:128>>,
+       tensor<64x3x3x3x!quant.uniform<i8:f32, 0.02>>,
+       tensor<64x!quant.uniform<i8:f32, 0.01>>)
+    -> tensor<1x64x26x26x!quant.uniform<u8:f32, 0.1:128>>
+  onnx.Return %0 : tensor<1x64x26x26x!quant.uniform<u8:f32, 0.1:128>>
+
+  // CHECK: "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]}
+  // CHECK: "onnx.Transpose"(%arg1) {perm = [0, 2, 3, 1]}
+  // CHECK: "onnx.XFEConv"
+  // CHECK: "onnx.Transpose"({{.*}}) {perm = [0, 3, 1, 2]}
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Quantized Type Tests - Per-axis quantization with axis remapping
+//===----------------------------------------------------------------------===//
+
+// COM: Test Conv with per-axis quantized weight (axis=0 in NCHW stays axis=0 in OHWI)
+// CHECK-LABEL: func.func @test_conv_quantized_per_axis
+func.func @test_conv_quantized_per_axis(
+    %arg0: tensor<1x3x8x8x!quant.uniform<u8:f32, 0.05:128>>,
+    %arg1: tensor<16x3x3x3x!quant.uniform<i8:f32:0, {0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 0.11, 0.12, 0.13, 0.14, 0.15, 0.16}>>,
+    %arg2: tensor<16xf32>)
+    -> tensor<1x16x6x6x!quant.uniform<u8:f32, 0.1:128>> {
+  %0 = "onnx.Conv"(%arg0, %arg1, %arg2) {
+    dilations = [1, 1],
+    group = 1 : si64,
+    pads = [0, 0, 0, 0],
+    strides = [1, 1]
+  } : (tensor<1x3x8x8x!quant.uniform<u8:f32, 0.05:128>>,
+       tensor<16x3x3x3x!quant.uniform<i8:f32:0, {0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 0.11, 0.12, 0.13, 0.14, 0.15, 0.16}>>,
+       tensor<16xf32>)
+    -> tensor<1x16x6x6x!quant.uniform<u8:f32, 0.1:128>>
+  onnx.Return %0 : tensor<1x16x6x6x!quant.uniform<u8:f32, 0.1:128>>
+
+  // Weight transpose [0,2,3,1] keeps axis=0 as axis=0
+  // CHECK: "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]}
+  // CHECK: "onnx.Transpose"(%arg1) {perm = [0, 2, 3, 1]}
+  // CHECK: "onnx.XFEConv"
+  // Output per-axis quant on axis=1 (channel in NCHW) remaps to axis=3 (channel in NHWC)
+  // CHECK: "onnx.Transpose"({{.*}}) {perm = [0, 3, 1, 2]}
+}
+
+// -----
+
+// COM: Test AveragePool with quantized types
+// CHECK-LABEL: func.func @test_avgpool_quantized
+func.func @test_avgpool_quantized(
+    %arg0: tensor<1x64x28x28x!quant.uniform<u8:f32, 0.05:128>>)
+    -> tensor<1x64x14x14x!quant.uniform<u8:f32, 0.05:128>> {
+  %0 = "onnx.AveragePool"(%arg0) {
+    kernel_shape = [2, 2],
+    strides = [2, 2],
+    pads = [0, 0, 0, 0]
+  } : (tensor<1x64x28x28x!quant.uniform<u8:f32, 0.05:128>>)
+    -> tensor<1x64x14x14x!quant.uniform<u8:f32, 0.05:128>>
+  onnx.Return %0 : tensor<1x64x14x14x!quant.uniform<u8:f32, 0.05:128>>
+
+  // CHECK: "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]}
+  // CHECK: "onnx.XFEAveragePool"
+  // CHECK: "onnx.Transpose"({{.*}}) {perm = [0, 3, 1, 2]}
+}
+
