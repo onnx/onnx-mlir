@@ -21,7 +21,16 @@ using namespace mlir;
 namespace onnx_mlir {
 
 struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
-  using OpConversionPattern<ONNXIm2ColOp>::OpConversionPattern;
+  ONNXIm2ColOpLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
+      : OpConversionPattern(typeConverter, ctx) {
+    this->enableParallel =
+        enableParallel &&
+        OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
+            ONNXIm2ColOp::getOperationName());
+  }
+
+  bool enableParallel = false;
 
   LogicalResult matchAndRewrite(ONNXIm2ColOp im2colOp, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
@@ -124,8 +133,14 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
 
     // Create single loop for output positions (collapsed).
     ValueRange outerLoopDef = create.krnl.defineLoops(1);
-    create.krnl.iterateIE(outerLoopDef, outerLoopDef, {LiteralIndexExpr(0)},
-        {numRows},
+    
+    // Enable parallelism if required.
+    SmallVector<IndexExpr, 1> lbs = {LiteralIndexExpr(0)};
+    SmallVector<IndexExpr, 1> ubs = {numRows};
+    if (enableParallel)
+      tryCreateKrnlParallel(create.krnl, op, "im2col", outerLoopDef, lbs, ubs, 16);
+    
+    create.krnl.iterateIE(outerLoopDef, outerLoopDef, lbs, ubs,
         [&](const KrnlBuilder &createKrnl, ValueRange outerLoopInd) {
           MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>
               create(createKrnl);
@@ -240,8 +255,8 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
 };
 
 void populateLoweringONNXIm2ColOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx) {
-  patterns.insert<ONNXIm2ColOpLowering>(typeConverter, ctx);
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel) {
+  patterns.insert<ONNXIm2ColOpLowering>(typeConverter, ctx, enableParallel);
 }
 
 } // namespace onnx_mlir
