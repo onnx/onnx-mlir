@@ -234,7 +234,7 @@ func.func @test_global_maxpool_to_channel_last(%arg0: tensor<1x512x7x7xf32>) -> 
 /// Normalization Conversion Tests
 //===----------------------------------------------------------------------===//
 
-// COM: Test InstanceNormalization to InstanceNormalizationChannelLast conversion
+// COM: Test InstanceNormalization to InstanceNormalizationChannelLast conversion (4D NCHW)
 // CHECK-LABEL: func.func @test_instance_norm_to_channel_last
 func.func @test_instance_norm_to_channel_last(%arg0: tensor<1x64x28x28xf32>, %arg1: tensor<64xf32>, %arg2: tensor<64xf32>) -> tensor<1x64x28x28xf32> {
   %0 = "onnx.InstanceNormalization"(%arg0, %arg1, %arg2) {epsilon = 1.0e-05 : f32} : (tensor<1x64x28x28xf32>, tensor<64xf32>, tensor<64xf32>) -> tensor<1x64x28x28xf32>
@@ -244,6 +244,62 @@ func.func @test_instance_norm_to_channel_last(%arg0: tensor<1x64x28x28xf32>, %ar
   // CHECK: [[NORM_CHANNEL_LAST:%.+]] = "onnx.XFEInstanceNormalization"([[INPUT_CHANNEL_LAST]], %arg1, %arg2) {epsilon = 9.99999974E-6 : f32} : (tensor<1x28x28x64xf32>, tensor<64xf32>, tensor<64xf32>) -> tensor<1x28x28x64xf32>
   // CHECK: [[OUTPUT_NCHW:%.+]] = "onnx.Transpose"([[NORM_CHANNEL_LAST]]) {perm = [0, 3, 1, 2]} : (tensor<1x28x28x64xf32>) -> tensor<1x64x28x28xf32>
   // CHECK: onnx.Return [[OUTPUT_NCHW]] : tensor<1x64x28x28xf32>
+}
+
+// -----
+
+// COM: Test InstanceNormalization NCD (3D) conversion
+// CHECK-LABEL: func.func @test_instance_norm_3d_ncd
+func.func @test_instance_norm_3d_ncd(%arg0: tensor<1x32x128xf32>, %arg1: tensor<32xf32>, %arg2: tensor<32xf32>) -> tensor<1x32x128xf32> {
+  %0 = "onnx.InstanceNormalization"(%arg0, %arg1, %arg2) {epsilon = 1.0e-05 : f32} : (tensor<1x32x128xf32>, tensor<32xf32>, tensor<32xf32>) -> tensor<1x32x128xf32>
+  onnx.Return %0 : tensor<1x32x128xf32>
+
+  // CHECK: [[INPUT_NDC:%.+]] = "onnx.Transpose"(%arg0) {perm = [0, 2, 1]} : (tensor<1x32x128xf32>) -> tensor<1x128x32xf32>
+  // CHECK: [[NORM_NDC:%.+]] = "onnx.XFEInstanceNormalization"([[INPUT_NDC]], %arg1, %arg2) {epsilon = 9.99999974E-6 : f32} : (tensor<1x128x32xf32>, tensor<32xf32>, tensor<32xf32>) -> tensor<1x128x32xf32>
+  // CHECK: [[OUTPUT_NCD:%.+]] = "onnx.Transpose"([[NORM_NDC]]) {perm = [0, 2, 1]} : (tensor<1x128x32xf32>) -> tensor<1x32x128xf32>
+  // CHECK: onnx.Return [[OUTPUT_NCD]] : tensor<1x32x128xf32>
+}
+
+// -----
+
+// COM: Test BatchNormalization NCD (3D) conversion
+// CHECK-LABEL: func.func @test_batchnorm_3d_ncd
+func.func @test_batchnorm_3d_ncd(%arg0: tensor<1x64x256xf32>, %arg1: tensor<64xf32>, %arg2: tensor<64xf32>, %arg3: tensor<64xf32>, %arg4: tensor<64xf32>) -> tensor<1x64x256xf32> {
+  %0 = "onnx.BatchNormalizationInferenceMode"(%arg0, %arg1, %arg2, %arg3, %arg4) {epsilon = 1.0e-05 : f32, momentum = 0.9 : f32} : (tensor<1x64x256xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>) -> tensor<1x64x256xf32>
+  onnx.Return %0 : tensor<1x64x256xf32>
+
+  // CHECK: [[INPUT_NDC:%.+]] = "onnx.Transpose"(%arg0) {perm = [0, 2, 1]} : (tensor<1x64x256xf32>) -> tensor<1x256x64xf32>
+  // CHECK: [[BN_NDC:%.+]] = "onnx.XFEBatchNormalization"([[INPUT_NDC]], %arg1, %arg2, %arg3, %arg4) {epsilon = 9.99999974E-6 : f32, momentum = 0.899999976 : f32} : (tensor<1x256x64xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>) -> tensor<1x256x64xf32>
+  // CHECK: [[OUTPUT_NCD:%.+]] = "onnx.Transpose"([[BN_NDC]]) {perm = [0, 2, 1]} : (tensor<1x256x64xf32>) -> tensor<1x64x256xf32>
+  // CHECK: onnx.Return [[OUTPUT_NCD]] : tensor<1x64x256xf32>
+}
+
+// -----
+
+// COM: Test GroupNormalization 4D NCHW conversion
+// CHECK-LABEL: func.func @test_groupnorm_4d_nchw
+func.func @test_groupnorm_4d_nchw(%arg0: tensor<1x64x28x28xf32>, %arg1: tensor<64xf32>, %arg2: tensor<64xf32>) -> tensor<1x64x28x28xf32> {
+  %0 = "onnx.GroupNormalization"(%arg0, %arg1, %arg2) {epsilon = 1.0e-05 : f32, num_groups = 4 : si64} : (tensor<1x64x28x28xf32>, tensor<64xf32>, tensor<64xf32>) -> tensor<1x64x28x28xf32>
+  onnx.Return %0 : tensor<1x64x28x28xf32>
+
+  // CHECK: [[INPUT_NHWC:%.+]] = "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]} : (tensor<1x64x28x28xf32>) -> tensor<1x28x28x64xf32>
+  // CHECK: [[GN_NHWC:%.+]] = "onnx.XFEGroupNormalization"([[INPUT_NHWC]], %arg1, %arg2) {epsilon = 9.99999974E-6 : f32, num_groups = 4 : si64} : (tensor<1x28x28x64xf32>, tensor<64xf32>, tensor<64xf32>) -> tensor<1x28x28x64xf32>
+  // CHECK: [[OUTPUT_NCHW:%.+]] = "onnx.Transpose"([[GN_NHWC]]) {perm = [0, 3, 1, 2]} : (tensor<1x28x28x64xf32>) -> tensor<1x64x28x28xf32>
+  // CHECK: onnx.Return [[OUTPUT_NCHW]] : tensor<1x64x28x28xf32>
+}
+
+// -----
+
+// COM: Test GroupNormalization 3D NCD conversion
+// CHECK-LABEL: func.func @test_groupnorm_3d_ncd
+func.func @test_groupnorm_3d_ncd(%arg0: tensor<1x32x128xf32>, %arg1: tensor<32xf32>, %arg2: tensor<32xf32>) -> tensor<1x32x128xf32> {
+  %0 = "onnx.GroupNormalization"(%arg0, %arg1, %arg2) {epsilon = 1.0e-05 : f32, num_groups = 8 : si64} : (tensor<1x32x128xf32>, tensor<32xf32>, tensor<32xf32>) -> tensor<1x32x128xf32>
+  onnx.Return %0 : tensor<1x32x128xf32>
+
+  // CHECK: [[INPUT_NDC:%.+]] = "onnx.Transpose"(%arg0) {perm = [0, 2, 1]} : (tensor<1x32x128xf32>) -> tensor<1x128x32xf32>
+  // CHECK: [[GN_NDC:%.+]] = "onnx.XFEGroupNormalization"([[INPUT_NDC]], %arg1, %arg2) {epsilon = 9.99999974E-6 : f32, num_groups = 8 : si64} : (tensor<1x128x32xf32>, tensor<32xf32>, tensor<32xf32>) -> tensor<1x128x32xf32>
+  // CHECK: [[OUTPUT_NCD:%.+]] = "onnx.Transpose"([[GN_NDC]]) {perm = [0, 2, 1]} : (tensor<1x128x32xf32>) -> tensor<1x32x128xf32>
+  // CHECK: onnx.Return [[OUTPUT_NCD]] : tensor<1x32x128xf32>
 }
 
 // -----

@@ -21,6 +21,7 @@
 // - GlobalMaxPool -> XFEGlobalMaxPool
 // - BatchNormalizationInferenceMode -> XFEBatchNormalization
 // - InstanceNormalization -> XFEInstanceNormalization
+// - GroupNormalization -> XFEGroupNormalization
 // - DepthToSpace -> XFEDepthToSpace
 // - SpaceToDepth -> XFESpaceToDepth
 //
@@ -642,6 +643,54 @@ struct InstanceNormToChannelLastPattern
   }
 };
 
+// Pattern to convert GroupNormalization to XFEGroupNormalization
+struct GroupNormToChannelLastPattern
+    : public OpRewritePattern<ONNXGroupNormalizationOp> {
+  using OpRewritePattern<ONNXGroupNormalizationOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXGroupNormalizationOp gnOp, PatternRewriter &rewriter) const override {
+    Location loc = gnOp.getLoc();
+    Value input = gnOp.getX();
+    Value scale = gnOp.getScale();
+    Value bias = gnOp.getBias();
+
+    auto inputType = mlir::dyn_cast<RankedTensorType>(input.getType());
+    if (!inputType || inputType.getRank() < 3)
+      return failure();
+
+    int64_t rank = inputType.getRank();
+
+    // Transpose input to channel-last
+    Value inputChannelLast = createInputTranspose(
+        rewriter, loc, input, rank, inputType.getElementType());
+
+    // Create XFEGroupNormalization operation
+    auto origOutputType = mlir::cast<ShapedType>(gnOp.getType());
+    Type outputElementType = origOutputType.getElementType();
+    auto gnChannelLastOp = rewriter.create<XFEGroupNormalizationOp>(loc,
+        UnrankedTensorType::get(outputElementType), inputChannelLast, scale,
+        bias, gnOp.getEpsilonAttr(), gnOp.getNumGroupsAttr());
+
+    transferOnnxNodeName(gnOp, gnChannelLastOp);
+
+    if (failed(gnChannelLastOp.inferShapes(nullptr))) {
+      return failure();
+    }
+
+    // Transpose output back to NCHW
+    auto xfeOutputType =
+        mlir::cast<ShapedType>(gnChannelLastOp.getY().getType());
+    auto transposeOutputType = RankedTensorType::get(
+        origOutputType.getShape(), xfeOutputType.getElementType());
+    Value outputNCHW = createOutputTranspose(
+        rewriter, loc, gnChannelLastOp.getY(), transposeOutputType, rank);
+
+    rewriter.replaceOp(gnOp, outputNCHW);
+    return success();
+  }
+};
+
 // Pattern to convert DepthToSpace to XFEDepthToSpace
 struct DepthToSpaceToChannelLastPattern
     : public OpRewritePattern<ONNXDepthToSpaceOp> {
@@ -1028,6 +1077,7 @@ struct ConvertToChannelLastPass : public PassWrapper<ConvertToChannelLastPass,
     patterns.add<GlobalMaxPoolToChannelLastPattern>(context);
     patterns.add<BatchNormToChannelLastPattern>(context);
     patterns.add<InstanceNormToChannelLastPattern>(context);
+    patterns.add<GroupNormToChannelLastPattern>(context);
     patterns.add<DepthToSpaceToChannelLastPattern>(context);
     patterns.add<SpaceToDepthToChannelLastPattern>(context);
     patterns.add<ResizeToChannelLastPattern>(context);

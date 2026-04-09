@@ -236,6 +236,7 @@ dialect_op_version_map_["com.amd.xfe"]["BatchNormalization"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["InstanceNormalization"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["DepthToSpace"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["SpaceToDepth"] = {1};
+dialect_op_version_map_["com.amd.xfe"]["GroupNormalization"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["Resize"] = {1};
 dialect_op_version_map_["com.amd.quark"]["BFPQuantizeDequantize"] = {1};
 dialect_op_version_map_["com.amd.xcompiler"]["FusedEltwise"] = {1};
@@ -252,6 +253,7 @@ dialect_op_version_map_["com.amd.xfe"]["BatchNormalization"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["InstanceNormalization"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["DepthToSpace"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["SpaceToDepth"] = {1};
+dialect_op_version_map_["com.amd.xfe"]["GroupNormalization"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["Resize"] = {1};
 import_handler_map_[""]["Abs"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAbsOp>;
@@ -777,6 +779,8 @@ import_handler_map_["com.amd.xfe"]["GlobalAveragePool"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEGlobalAveragePoolOp>;
 import_handler_map_["com.amd.xfe"]["GlobalMaxPool"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEGlobalMaxPoolOp>;
+import_handler_map_["com.amd.xfe"]["GroupNormalization"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEGroupNormalizationOp>;
 import_handler_map_["com.amd.xfe"]["InstanceNormalization"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEInstanceNormalizationOp>;
 import_handler_map_["com.amd.xfe"]["MatMulBias"] = 
@@ -817,6 +821,8 @@ import_handler_map_["com.amd.xfe"]["DepthToSpace"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEDepthToSpaceOp>;
 import_handler_map_["com.amd.xfe"]["SpaceToDepth"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFESpaceToDepthOp>;
+import_handler_map_["com.amd.xfe"]["GroupNormalization"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEGroupNormalizationOp>;
 import_handler_map_["com.amd.xfe"]["Resize"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEResizeOp>;
 dialect_op_opsets_map_[""]["Abs"] = {13, 6, 1};
@@ -1050,6 +1056,7 @@ dialect_op_opsets_map_["com.amd.xfe"]["ConvTranspose"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["DepthToSpace"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["GlobalAveragePool"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["GlobalMaxPool"] = {1};
+dialect_op_opsets_map_["com.amd.xfe"]["GroupNormalization"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["InstanceNormalization"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["MatMulBias"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["MaxPool"] = {1};
@@ -1070,4 +1077,5 @@ dialect_op_opsets_map_["com.amd.xfe"]["BatchNormalization"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["InstanceNormalization"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["DepthToSpace"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["SpaceToDepth"] = {1};
+dialect_op_opsets_map_["com.amd.xfe"]["GroupNormalization"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["Resize"] = {1};

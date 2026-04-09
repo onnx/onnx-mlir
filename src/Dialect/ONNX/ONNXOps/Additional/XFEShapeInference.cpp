@@ -672,6 +672,35 @@ LogicalResult XFEInstanceNormalizationOpShapeInference(
   return success();
 }
 
+LogicalResult XFEGroupNormalizationOpShapeInference(
+    Operation *op, std::function<void(Region &)> doShapeInference) {
+  auto gnOp = dyn_cast<XFEGroupNormalizationOp>(op);
+  if (!gnOp)
+    return failure();
+
+  Value input = gnOp.getX();
+  if (!hasShapeAndRank(input))
+    return success();
+
+  auto inputType = mlir::cast<ShapedType>(input.getType());
+  auto inputShape = inputType.getShape();
+
+  if (inputShape.size() < 3)
+    return op->emitError(
+        "GroupNormalizationChannelLast requires at least 3D input tensor");
+
+  SmallVector<int64_t, 6> outputShape(inputShape.begin(), inputShape.end());
+
+  Type elementType = inputType.getElementType();
+  if (auto existingType = dyn_cast<ShapedType>(gnOp.getY().getType())) {
+    elementType = existingType.getElementType();
+  }
+  auto resultType = RankedTensorType::get(outputShape, elementType);
+  gnOp.getY().setType(resultType);
+
+  return success();
+}
+
 LogicalResult XFEDepthToSpaceOpShapeInference(
     Operation *op, std::function<void(Region &)> doShapeInference) {
   auto d2sOp = dyn_cast<XFEDepthToSpaceOp>(op);
