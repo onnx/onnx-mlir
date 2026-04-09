@@ -530,8 +530,6 @@ OpsWithCanonicalizer = [
     "GlobalAveragePool",
     "GlobalMaxPool",
     "Greater",
-    "GroupNormalization",
-    "GroupNormalizationV18",
     "GRU",
     "Identity",
     "LeakyRelu",

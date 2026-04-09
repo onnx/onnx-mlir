@@ -254,6 +254,7 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
     opts.enableXMCPasses = enableXMCPasses;
     if (enableXMCPasses) {
       opts.enableInstanceNormDecompose = false;
+      opts.enableGroupNormDecompose = false;
       opts.enableConvTransposeDecomposeToPhasedConv = false;
     }
 

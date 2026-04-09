@@ -119,8 +119,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
       /*target=*/"", opts.enableConvTransposeDecompose,
       opts.enableConvTransposeDecomposeToPhasedConv,
       opts.enableConvTranspose1dDecomposeToPhasedConv,
-      opts.enableInstanceNormDecompose, opts.enableMatmulNBitsDecompose,
-      opts.enableGroupQueryAttentionDecompose,
+      opts.enableInstanceNormDecompose, opts.enableGroupNormDecompose,
+      opts.enableMatmulNBitsDecompose, opts.enableGroupQueryAttentionDecompose,
       opts.enableSplitToSliceDecompose));
   if (!opts.disableRecomposeOption)
     pm.addNestedPass<func::FuncOp>(
@@ -132,7 +132,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
         opts.enableConvTransposeDecompose,
         opts.enableConvTransposeDecomposeToPhasedConv,
         opts.enableConvTranspose1dDecomposeToPhasedConv,
-        opts.enableInstanceNormDecompose, opts.enableMatmulNBitsDecompose,
+        opts.enableInstanceNormDecompose, opts.enableGroupNormDecompose,
+        opts.enableMatmulNBitsDecompose,
         opts.enableGroupQueryAttentionDecompose,
         opts.enableSplitToSliceDecompose, opts.enablGAPToReduceMean));
     // Convolution Optimization for CPU: enable when there are no accelerators.
@@ -145,7 +146,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
               opts.enableConvTransposeDecompose,
               opts.enableConvTransposeDecomposeToPhasedConv,
               opts.enableConvTranspose1dDecomposeToPhasedConv,
-              opts.enableInstanceNormDecompose, opts.enableMatmulNBitsDecompose,
+              opts.enableInstanceNormDecompose, opts.enableGroupNormDecompose,
+              opts.enableMatmulNBitsDecompose,
               opts.enableGroupQueryAttentionDecompose,
               opts.enableSplitToSliceDecompose, opts.enablGAPToReduceMean));
     }
@@ -205,7 +207,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
         opts.enableConvTransposeDecompose,
         opts.enableConvTransposeDecomposeToPhasedConv,
         opts.enableConvTranspose1dDecomposeToPhasedConv,
-        opts.enableInstanceNormDecompose, opts.enableMatmulNBitsDecompose,
+        opts.enableInstanceNormDecompose, opts.enableGroupNormDecompose,
+        opts.enableMatmulNBitsDecompose,
         opts.enableGroupQueryAttentionDecompose,
         opts.enableSplitToSliceDecompose, opts.enablGAPToReduceMean));
   } else {

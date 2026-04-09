@@ -18,6 +18,7 @@ struct OnnxToMlirOptions {
   bool enableConvTransposeDecomposeToPhasedConv = false;
   bool enableConvTranspose1dDecomposeToPhasedConv = false;
   bool enableInstanceNormDecompose = true;
+  bool enableGroupNormDecompose = true;
   bool enableMatmulNBitsDecompose = false;
   bool enableGroupQueryAttentionDecompose = true;
   bool enableRemoveDqQAroundOp = false;

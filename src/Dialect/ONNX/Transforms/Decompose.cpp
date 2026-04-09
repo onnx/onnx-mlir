@@ -22,6 +22,7 @@
 
 #include <cmath>
 #include <numeric>
+#include <type_traits>
 
 #include "mlir/Analysis/TopologicalSortUtils.h"
 #include "mlir/IR/Attributes.h"
@@ -4078,6 +4079,178 @@ public:
 };
 
 // =============================================================================
+// Decompose GroupNormalization to LayerNormalization
+// =============================================================================
+namespace {
+template <typename OP_TYPE>
+bool isGroupNormDecomposable(OP_TYPE groupNormOp) {
+  const Type inputType = groupNormOp.getX().getType();
+  return onnx_mlir::hasStaticShape(inputType) &&
+         onnx_mlir::hasStaticShape(groupNormOp.getResult().getType());
+}
+} // namespace
+
+template <typename OP>
+constexpr bool scaleAndBiasWithNumGroupShape =
+    std::is_same_v<OP, ONNXGroupNormalizationV18Op>;
+
+template <typename OP_TYPE>
+LogicalResult decomposeGroupNormToLayerNorm(
+    OP_TYPE groupNormOp, PatternRewriter &rewriter) {
+
+  // Match.
+  if (!isGroupNormDecomposable(groupNormOp))
+    return failure();
+
+  // Get info.
+  Value input = groupNormOp.getX();
+  Value scale = groupNormOp.getScale();
+  Value bias = groupNormOp.getBias();
+  ShapedType inputType = mlir::cast<ShapedType>(input.getType());
+  Type elementType = inputType.getElementType();
+  auto inputShapeVal = inputType.getShape();
+  int64_t C = inputShapeVal[1];
+  int64_t inputRank = inputType.getRank();
+  int64_t nonSpacialRank = 2; //  Batch N and Channel C: 2 dimensions.
+  assert(inputRank > nonSpacialRank &&
+         "expected instance norm with input ranks > 2");
+  int64_t spacialRank = inputRank - nonSpacialRank;
+  int64_t layerNormRank = inputRank + 1; // +1 as C is split to NG and C/NG
+  int64_t numGroups = groupNormOp.getNumGroups();
+
+  // Rewrite.
+  onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
+      rewriter, groupNormOp.getLoc());
+  int64_t axis = nonSpacialRank;
+  int64_t numInNorm = layerNormRank - axis;
+  Type biasScaleType;
+  Value axes;
+  Value newBias;
+  Value newScale;
+
+  //"numgroups" and "C" should have the same dimension index
+  llvm::SmallVector<int64_t, 4> axesList, biasScaleVal;
+
+  if constexpr (scaleAndBiasWithNumGroupShape<OP_TYPE>) {
+    // Opset18 Uses "numgroups" the number of groups of channels for the scale
+    // and bias
+    // Unsqueeze scale/bias from [NG] to [1 x NG x 1 x ... x 1] with numInNorm
+    // 1s.
+    biasScaleVal.emplace_back(numGroups);
+    for (int64_t i = 1; i <= numInNorm; ++i) {
+      biasScaleVal.emplace_back(1);
+      axesList.emplace_back(i);
+    }
+
+    axes = create.onnx.constantInt64(axesList);
+    biasScaleType = RankedTensorType::get(biasScaleVal, elementType);
+    newScale = create.onnx.unsqueeze(biasScaleType, scale, axes);
+    newBias = create.onnx.unsqueeze(biasScaleType, bias, axes);
+  } else {
+    // Opset21 Uses "C" the number of channels for the scale and bias
+    // The equivalent of "C" when split is "NG x C/NG"
+    // Reshape scale/bias from [C] to [NG x C/NG x 1 x ... x 1] with numInNorm
+    // 1s.
+    biasScaleVal.emplace_back(numGroups);
+    // C can be a dynamic or static value, account for that here
+    if (C != ShapedType::kDynamic) {
+      assert(C % numGroups == 0 && "expected numGroups to divide C");
+      biasScaleVal.emplace_back(C / numGroups);
+    } else {
+      biasScaleVal.emplace_back(ShapedType::kDynamic);
+    }
+
+    for (int64_t i = 2; i <= numInNorm; ++i) {
+      biasScaleVal.emplace_back(1);
+    }
+
+    // Calculate the (possible) dynamic dimensions for biasScaleShape
+    Value NGShape = create.onnx.constantInt64({numGroups});
+    Value oneDimShape =
+        create.onnx.constantInt64(SmallVector<int64_t>(spacialRank, 1));
+    Type biasScaleShapeType =
+        RankedTensorType::get({inputRank}, rewriter.getI64Type());
+    Value biasScaleShape = create.onnx.concat(
+        biasScaleShapeType, {NGShape, NGShape, oneDimShape}, /*axis*/ 0);
+
+    // Reshape instead of unsqueeze (use biasScaleShape)
+    biasScaleType = RankedTensorType::get(biasScaleVal, elementType);
+    newScale = create.onnx.reshape(biasScaleType, scale, biasScaleShape);
+    newBias = create.onnx.reshape(biasScaleType, bias, biasScaleShape);
+  }
+
+  // Convert input from N x C x D1...Dn to N x (NG x C/NG) x D1...Dn.
+  // First compute the new (possible dynamic) shape.
+  Type batchShapeType = RankedTensorType::get({1}, rewriter.getI64Type());
+  Value NShape = create.onnx.shape(
+      batchShapeType, input, /*start*/ 0, /*exclusive end*/ 1);
+  Value NGandMin1Shape = create.onnx.constantInt64({numGroups, -1});
+  Type spacialShapeType =
+      RankedTensorType::get({spacialRank}, rewriter.getI64Type());
+  Value spacialShape =
+      create.onnx.shape(spacialShapeType, input, /*start*/ nonSpacialRank);
+  Type layerNormShapeType =
+      RankedTensorType::get({layerNormRank}, rewriter.getI64Type());
+  Value layerNormShape = create.onnx.concat(layerNormShapeType,
+      {NShape, NGandMin1Shape, spacialShape}, /*axis*/
+      0);
+  // Compute type of converted input.
+  llvm::SmallVector<int64_t, 5> layerNormShapeVal;
+  // Create a new tensor with the following dimensions: N, NG, C/NG, D1, D2,
+  // Dn...
+  layerNormShapeVal.emplace_back(inputShapeVal[0]); // N
+  layerNormShapeVal.emplace_back(numGroups);        // NG
+  if (C != ShapedType::kDynamic) {
+    assert(C % numGroups == 0 && "expected numGroups to divide C");
+    layerNormShapeVal.emplace_back(C / numGroups); // (C/NG)
+  } else
+    layerNormShapeVal.emplace_back(ShapedType::kDynamic);
+  for (int64_t i = 0; i < spacialRank; ++i)
+    layerNormShapeVal.emplace_back(inputShapeVal[nonSpacialRank + i]); // Dn
+  RankedTensorType layerNormInputType =
+      RankedTensorType::get(layerNormShapeVal, elementType);
+  Value layerNormInput =
+      create.onnx.reshape(layerNormInputType, input, layerNormShape);
+  // Create output using layer norm.
+  Value layerNormY = create.onnx.layerNorm(layerNormInputType, layerNormInput,
+      newScale, newBias, axis, groupNormOp.getEpsilonAttr());
+  // Resize output to original size
+  Type inputShapeType =
+      RankedTensorType::get({inputRank}, rewriter.getI64Type());
+  Value inputShape = create.onnx.shape(inputShapeType, input);
+  Type outputType = groupNormOp.getY().getType();
+  Value Y = create.onnx.reshape(outputType, layerNormY, inputShape);
+  // Set the type of the output to be the same as the output of the original
+  // operation we are trying to replace.
+  Y.setType(groupNormOp.getResult().getType());
+  // Replace operation.
+  rewriter.replaceOp(groupNormOp, Y);
+  return success();
+}
+
+struct DecomposeGroupNormPattern
+    : public OpRewritePattern<ONNXGroupNormalizationOp> {
+  using OpRewritePattern<ONNXGroupNormalizationOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(ONNXGroupNormalizationOp groupNormOp,
+      PatternRewriter &rewriter) const final {
+    return decomposeGroupNormToLayerNorm<ONNXGroupNormalizationOp>(
+        groupNormOp, rewriter);
+  }
+};
+
+struct DecomposeGroupNormV18Pattern
+    : public OpRewritePattern<ONNXGroupNormalizationV18Op> {
+  using OpRewritePattern<ONNXGroupNormalizationV18Op>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(ONNXGroupNormalizationV18Op groupNormOp,
+      PatternRewriter &rewriter) const final {
+    return decomposeGroupNormToLayerNorm<ONNXGroupNormalizationV18Op>(
+        groupNormOp, rewriter);
+  }
+};
+
+// =============================================================================
 // Decompose InstanceNormalization to LayerNormalization
 // =============================================================================
 struct DecomposeInstanceNormPattern
@@ -4320,6 +4493,7 @@ struct DecomposeONNXToONNXPass
       bool enableConvTransposeDecomposeToPhasedConv = false,
       bool enableConvTranspose1dDecomposeToPhasedConv = false,
       bool enableInstanceNormDecompose = true,
+      bool enableGroupNormDecompose = true,
       bool enableMatmulNBitsDecompose = false,
       bool enableGroupQueryAttentionDecompose = true,
       bool enableSplitToSliceDecompose = false) {
@@ -4330,6 +4504,7 @@ struct DecomposeONNXToONNXPass
     this->enableConvTranspose1dDecomposeToPhasedConv =
         enableConvTranspose1dDecomposeToPhasedConv;
     this->enableInstanceNormDecompose = enableInstanceNormDecompose;
+    this->enableGroupNormDecompose = enableGroupNormDecompose;
     this->enableMatmulNBitsDecompose = enableMatmulNBitsDecompose;
     this->enableGroupQueryAttentionDecompose =
         enableGroupQueryAttentionDecompose;
@@ -4346,6 +4521,7 @@ struct DecomposeONNXToONNXPass
         pass.enableConvTransposeDecomposeToPhasedConv.getValue();
     this->enableInstanceNormDecompose =
         pass.enableInstanceNormDecompose.getValue();
+    this->enableGroupNormDecompose = pass.enableGroupNormDecompose.getValue();
     this->enableMatmulNBitsDecompose =
         pass.enableMatmulNBitsDecompose.getValue();
     this->enableGroupQueryAttentionDecompose =
@@ -4387,6 +4563,11 @@ struct DecomposeONNXToONNXPass
                      "LayerNormalization"),
       ::llvm::cl::init(true)};
 
+  Option<bool> enableGroupNormDecompose{*this, "enable-groupnorm-decompose",
+      llvm::cl::desc("Enable decomposition of GroupNormalization to "
+                     "LayerNormalization"),
+      ::llvm::cl::init(true)};
+
   Option<bool> enableMatmulNBitsDecompose{*this, "enable-matmulnbits-decompose",
       llvm::cl::desc("Enable decomposition of Microsoft MatmulNBits to "
                      "dequantize linear and matmul ops"),
@@ -4415,8 +4596,8 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   onnx_mlir::getDecomposeONNXToONNXPatterns(patterns,
       enableConvTransposeDecompose, enableConvTransposeDecomposeToPhasedConv,
       enableConvTranspose1dDecomposeToPhasedConv, enableInstanceNormDecompose,
-      enableMatmulNBitsDecompose, enableGroupQueryAttentionDecompose,
-      enableSplitToSliceDecompose);
+      enableGroupNormDecompose, enableMatmulNBitsDecompose,
+      enableGroupQueryAttentionDecompose, enableSplitToSliceDecompose);
   patterns.insert<ReplaceCastLikeByCastPattern>(context);
 
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
@@ -4437,8 +4618,9 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
     mlir::RewritePatternSet &patterns, bool enableConvTransposeDecompose,
     bool enableConvTransposeDecomposeToPhasedConv,
     bool enableConvTranspose1dDecomposeToPhasedConv,
-    bool enableInstanceNormDecompose, bool enableMatmulNBitsDecompose,
-    bool enableGroupQueryAttentionDecompose, bool enableSplitToSliceDecompose) {
+    bool enableInstanceNormDecompose, bool enableGroupNormDecompose,
+    bool enableMatmulNBitsDecompose, bool enableGroupQueryAttentionDecompose,
+    bool enableSplitToSliceDecompose) {
   MLIRContext *context = patterns.getContext();
   populateWithGenerated(patterns);
   if (enableConvTransposeDecompose)
@@ -4449,6 +4631,10 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
     convtranspose_1d_phased::populateWithGenerated(patterns);
   if (enableInstanceNormDecompose)
     patterns.insert<DecomposeInstanceNormPattern>(context);
+  if (enableGroupNormDecompose) {
+    patterns.insert<DecomposeGroupNormPattern>(context);
+    patterns.insert<DecomposeGroupNormV18Pattern>(context);
+  }
   if (enableSplitToSliceDecompose)
     patterns.insert<SplitToSlicePattern>(context);
   patterns.insert<onnx_mlir::DecomposeEinsumPattern>(context);
@@ -4496,11 +4682,12 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createDecomposeONNXToONNXPass(
     const std::string &target, bool enableConvTransposeDecompose,
     bool enableConvTransposeDecomposeToPhasedConv,
     bool enableConvTranspose1dDecomposeToPhasedConv,
-    bool enableInstanceNormDecompose, bool enableMatmulNBitsDecompose,
-    bool enableGroupQueryAttentionDecompose, bool enableSplitToSliceDecompose) {
+    bool enableInstanceNormDecompose, bool enableGroupNormDecompose,
+    bool enableMatmulNBitsDecompose, bool enableGroupQueryAttentionDecompose,
+    bool enableSplitToSliceDecompose) {
   return std::make_unique<DecomposeONNXToONNXPass>(target,
       enableConvTransposeDecompose, enableConvTransposeDecomposeToPhasedConv,
       enableConvTranspose1dDecomposeToPhasedConv, enableInstanceNormDecompose,
-      enableMatmulNBitsDecompose, enableGroupQueryAttentionDecompose,
-      enableSplitToSliceDecompose);
+      enableGroupNormDecompose, enableMatmulNBitsDecompose,
+      enableGroupQueryAttentionDecompose, enableSplitToSliceDecompose);
 }

@@ -118,6 +118,11 @@ struct ONNXHybridTransformPass
                      "LayerNormalization"),
       ::llvm::cl::init(true)};
 
+  Option<bool> enableGroupNormDecompose{*this, "enable-groupnorm-decompose",
+      llvm::cl::desc("Enable decomposition of GroupNormalization to "
+                     "LayerNormalization"),
+      ::llvm::cl::init(true)};
+
   Option<bool> enableMatmulNBitsDecompose{*this, "enable-matmulnbits-decompose",
       llvm::cl::desc("Enable decomposition of Microsoft MatmulNBits to "
                      "dequantize linear and matmul ops"),
@@ -147,9 +152,9 @@ struct ONNXHybridTransformPass
       bool enableConvTransposeDecompose,
       bool enableConvTransposeDecomposeToPhasedConv,
       bool enableConvTranspose1dDecomposeToPhasedConv,
-      bool enableInstanceNormDecompose, bool enableMatmulNBitsDecompose,
-      bool enableGroupQueryAttentionDecompose, bool enableSplitToSliceDecompose,
-      bool enablGAPToReduceMean) {
+      bool enableInstanceNormDecompose, bool enableGroupNormDecompose,
+      bool enableMatmulNBitsDecompose, bool enableGroupQueryAttentionDecompose,
+      bool enableSplitToSliceDecompose, bool enablGAPToReduceMean) {
     this->recomposition = enableRecomposition;
     this->quarkQuantizedOpsLegalization = enableQuarkQuantizedOpsLegalization;
     this->enableConvTransposeDecompose = enableConvTransposeDecompose;
@@ -158,6 +163,7 @@ struct ONNXHybridTransformPass
     this->enableConvTranspose1dDecomposeToPhasedConv =
         enableConvTranspose1dDecomposeToPhasedConv;
     this->enableInstanceNormDecompose = enableInstanceNormDecompose;
+    this->enableGroupNormDecompose = enableGroupNormDecompose;
     this->enableMatmulNBitsDecompose = enableMatmulNBitsDecompose;
     this->enableGroupQueryAttentionDecompose =
         enableGroupQueryAttentionDecompose;
@@ -217,8 +223,9 @@ struct ONNXHybridTransformPass
           enableConvTransposeDecompose,
           enableConvTransposeDecomposeToPhasedConv,
           enableConvTranspose1dDecomposeToPhasedConv,
-          enableInstanceNormDecompose, enableMatmulNBitsDecompose,
-          enableGroupQueryAttentionDecompose, enableSplitToSliceDecompose);
+          enableInstanceNormDecompose, enableGroupNormDecompose,
+          enableMatmulNBitsDecompose, enableGroupQueryAttentionDecompose,
+          enableSplitToSliceDecompose);
     }
 
     if (recomposition) {
@@ -264,13 +271,14 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createONNXHybridTransformPass(
     bool enableConvTransposeDecompose,
     bool enableConvTransposeDecomposeToPhasedConv,
     bool enableConvTranspose1dDecomposeToPhasedConv,
-    bool enableInstanceNormDecompose, bool enableMatmulNBitsDecompose,
-    bool enableGroupQueryAttentionDecompose, bool enableSplitToSliceDecompose,
-    bool enablGAPToReduceMean) {
+    bool enableInstanceNormDecompose, bool enableGroupNormDecompose,
+    bool enableMatmulNBitsDecompose, bool enableGroupQueryAttentionDecompose,
+    bool enableSplitToSliceDecompose, bool enablGAPToReduceMean) {
   return std::make_unique<ONNXHybridTransformPass>(enableRecomposition,
       enableQuarkQuantizedOpsLegalization, enableConvTransposeDecompose,
       enableConvTransposeDecomposeToPhasedConv,
       enableConvTranspose1dDecomposeToPhasedConv, enableInstanceNormDecompose,
-      enableMatmulNBitsDecompose, enableGroupQueryAttentionDecompose,
-      enableSplitToSliceDecompose, enablGAPToReduceMean);
+      enableGroupNormDecompose, enableMatmulNBitsDecompose,
+      enableGroupQueryAttentionDecompose, enableSplitToSliceDecompose,
+      enablGAPToReduceMean);
 }
