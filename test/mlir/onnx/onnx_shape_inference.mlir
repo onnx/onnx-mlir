@@ -3684,6 +3684,33 @@ func.func @test_seqence_3(%arg0: tensor<2x4x8xf32>, %arg1: tensor<3x6xf32>) -> !
 
 // -----
 
+// Test that SequenceEmpty (with explicit dtype) -> SequenceInsert -> SequenceAt
+// correctly propagates shape through the chain:
+//   - SequenceEmpty result stays !onnx.Seq<tensor<*xf32>> (element type is
+//     unranked because SequenceEmpty has no shape info, only dtype).
+//   - SequenceInsert sees an empty seq (length=0) and promotes the element
+//     type to the concrete shape of the inserted tensor.
+//   - SequenceAt propagates that element type to the output.
+//   - The function return type is refined from tensor<*xf32> to tensor<1x4xf32>.
+func.func @test_sequence_empty_insert_at(%arg0: tensor<1x4xf32>) -> tensor<*xf32> {
+  %0 = "onnx.SequenceEmpty"() {dtype = 1 : si64} : () -> !onnx.Seq<tensor<*xf32>>
+  %cst_none = "onnx.NoValue"() {value} : () -> none
+  %1 = "onnx.SequenceInsert"(%0, %arg0, %cst_none) : (!onnx.Seq<tensor<*xf32>>, tensor<1x4xf32>, none) -> !onnx.Seq<tensor<*xf32>>
+  %cst_idx = onnx.Constant dense<0> : tensor<i64>
+  %2 = "onnx.SequenceAt"(%1, %cst_idx) : (!onnx.Seq<tensor<*xf32>>, tensor<i64>) -> tensor<*xf32>
+  onnx.Return %2 : tensor<*xf32>
+// CHECK-LABEL:  func @test_sequence_empty_insert_at
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x4xf32>) -> tensor<1x4xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<0> : tensor<i64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.SequenceEmpty"() {dtype = 1 : si64} : () -> !onnx.Seq<tensor<*xf32>>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.SequenceInsert"([[VAR_2_]], [[PARAM_0_]], [[VAR_1_]]) : (!onnx.Seq<tensor<*xf32>>, tensor<1x4xf32>, none) -> !onnx.Seq<tensor<1x4xf32>>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.SequenceAt"([[VAR_3_]], [[VAR_0_]]) : (!onnx.Seq<tensor<1x4xf32>>, tensor<i64>) -> tensor<1x4xf32>
+// CHECK:           onnx.Return [[VAR_4_]] : tensor<1x4xf32>
+}
+
+// -----
+
 // when the split input is none we always infer that the splits will have dim
 // size 1 on the split axis even if we know the output sequence will be empty
 func.func @test_splittosequence_0(%arg0: tensor<0x?x4xf32>) -> !onnx.Seq<tensor<*xf32>> {
@@ -3808,6 +3835,130 @@ func.func @test_splittosequence_9(%arg0: tensor<4x?x3xf32>) -> !onnx.Seq<tensor<
 // CHECK:           [[VAR_cst_:%.+]] = onnx.Constant dense<[3, 1]> : tensor<2xi64>
 // CHECK:           [[VAR_0_:%.+]] = "onnx.SplitToSequence"([[PARAM_0_]], [[VAR_cst_]]) {axis = 0 : si64, keepdims = 1 : si64} : (tensor<4x?x3xf32>, tensor<2xi64>) -> !onnx.Seq<tensor<?x?x3xf32>>
 // CHECK:           onnx.Return [[VAR_0_]] : !onnx.Seq<tensor<?x?x3xf32>>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Test shape inference for SequenceAt.
+//===----------------------------------------------------------------------===//
+
+// SequenceAt from a ranked-element sequence: output refines to that element type.
+func.func @test_sequenceat_ranked(%arg0: tensor<3x4xf32>, %arg1: tensor<i64>) -> tensor<*xf32> {
+  %0 = "onnx.SequenceEmpty"() {dtype = 1 : si64} : () -> !onnx.Seq<tensor<*xf32>>
+  %cst = "onnx.NoValue"() {value} : () -> none
+  %1 = "onnx.SequenceInsert"(%0, %arg0, %cst) : (!onnx.Seq<tensor<*xf32>>, tensor<3x4xf32>, none) -> !onnx.Seq<tensor<*xf32>>
+  %2 = "onnx.SequenceAt"(%1, %arg1) : (!onnx.Seq<tensor<*xf32>>, tensor<i64>) -> tensor<*xf32>
+  onnx.Return %2 : tensor<*xf32>
+// CHECK-LABEL:  func @test_sequenceat_ranked
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4xf32>, [[PARAM_1_:%.+]]: tensor<i64>) -> tensor<3x4xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.SequenceEmpty"() {dtype = 1 : si64} : () -> !onnx.Seq<tensor<*xf32>>
+// CHECK-DAG:       [[VAR_cst_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK:           [[VAR_1_:%.+]] = "onnx.SequenceInsert"([[VAR_0_]], [[PARAM_0_]], [[VAR_cst_]]) : (!onnx.Seq<tensor<*xf32>>, tensor<3x4xf32>, none) -> !onnx.Seq<tensor<3x4xf32>>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.SequenceAt"([[VAR_1_]], [[PARAM_1_]]) : (!onnx.Seq<tensor<3x4xf32>>, tensor<i64>) -> tensor<3x4xf32>
+// CHECK:           onnx.Return [[VAR_2_]] : tensor<3x4xf32>
+}
+
+// -----
+
+// SequenceAt from an unranked-element sequence: output stays tensor<*xf32>.
+func.func @test_sequenceat_unranked(%arg0: tensor<*xf32>, %arg1: tensor<i64>) -> tensor<*xf32> {
+  %0 = "onnx.SequenceEmpty"() {dtype = 1 : si64} : () -> !onnx.Seq<tensor<*xf32>>
+  %cst = "onnx.NoValue"() {value} : () -> none
+  %1 = "onnx.SequenceInsert"(%0, %arg0, %cst) : (!onnx.Seq<tensor<*xf32>>, tensor<*xf32>, none) -> !onnx.Seq<tensor<*xf32>>
+  %2 = "onnx.SequenceAt"(%1, %arg1) : (!onnx.Seq<tensor<*xf32>>, tensor<i64>) -> tensor<*xf32>
+  onnx.Return %2 : tensor<*xf32>
+// CHECK-LABEL:  func @test_sequenceat_unranked
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>, [[PARAM_1_:%.+]]: tensor<i64>) -> tensor<*xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.SequenceEmpty"() {dtype = 1 : si64} : () -> !onnx.Seq<tensor<*xf32>>
+// CHECK-DAG:       [[VAR_cst_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK:           [[VAR_1_:%.+]] = "onnx.SequenceInsert"([[VAR_0_]], [[PARAM_0_]], [[VAR_cst_]]) : (!onnx.Seq<tensor<*xf32>>, tensor<*xf32>, none) -> !onnx.Seq<tensor<*xf32>>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.SequenceAt"([[VAR_1_]], [[PARAM_1_]]) : (!onnx.Seq<tensor<*xf32>>, tensor<i64>) -> tensor<*xf32>
+// CHECK:           onnx.Return [[VAR_2_]] : tensor<*xf32>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Test shape inference for SequenceConstruct.
+//===----------------------------------------------------------------------===//
+
+// SequenceConstruct with identical shapes: exact shape is preserved.
+func.func @test_sequenceconstruct_homogeneous(%arg0: tensor<2x4xf32>, %arg1: tensor<2x4xf32>) -> !onnx.Seq<tensor<*xf32>> {
+  %0 = "onnx.SequenceConstruct"(%arg0, %arg1) : (tensor<2x4xf32>, tensor<2x4xf32>) -> !onnx.Seq<tensor<*xf32>>
+  onnx.Return %0 : !onnx.Seq<tensor<*xf32>>
+// CHECK-LABEL:  func @test_sequenceconstruct_homogeneous
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x4xf32>, [[PARAM_1_:%.+]]: tensor<2x4xf32>) -> !onnx.Seq<tensor<2x4xf32>> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.SequenceConstruct"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<2x4xf32>, tensor<2x4xf32>) -> !onnx.Seq<tensor<2x4xf32>>
+// CHECK:           onnx.Return [[VAR_0_]] : !onnx.Seq<tensor<2x4xf32>>
+}
+
+// -----
+
+// SequenceConstruct with same rank but differing first dim: that dim becomes dynamic.
+func.func @test_sequenceconstruct_dynamic_dim(%arg0: tensor<2x4xf32>, %arg1: tensor<3x4xf32>) -> !onnx.Seq<tensor<*xf32>> {
+  %0 = "onnx.SequenceConstruct"(%arg0, %arg1) : (tensor<2x4xf32>, tensor<3x4xf32>) -> !onnx.Seq<tensor<*xf32>>
+  onnx.Return %0 : !onnx.Seq<tensor<*xf32>>
+// CHECK-LABEL:  func @test_sequenceconstruct_dynamic_dim
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x4xf32>, [[PARAM_1_:%.+]]: tensor<3x4xf32>) -> !onnx.Seq<tensor<?x4xf32>> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.SequenceConstruct"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<2x4xf32>, tensor<3x4xf32>) -> !onnx.Seq<tensor<?x4xf32>>
+// CHECK:           onnx.Return [[VAR_0_]] : !onnx.Seq<tensor<?x4xf32>>
+}
+
+// -----
+
+// SequenceConstruct with different ranks: element type falls back to unranked.
+func.func @test_sequenceconstruct_different_ranks(%arg0: tensor<2x4xf32>, %arg1: tensor<2x4x8xf32>) -> !onnx.Seq<tensor<*xf32>> {
+  %0 = "onnx.SequenceConstruct"(%arg0, %arg1) : (tensor<2x4xf32>, tensor<2x4x8xf32>) -> !onnx.Seq<tensor<*xf32>>
+  onnx.Return %0 : !onnx.Seq<tensor<*xf32>>
+// CHECK-LABEL:  func @test_sequenceconstruct_different_ranks
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x4xf32>, [[PARAM_1_:%.+]]: tensor<2x4x8xf32>) -> !onnx.Seq<tensor<*xf32>> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.SequenceConstruct"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<2x4xf32>, tensor<2x4x8xf32>) -> !onnx.Seq<tensor<*xf32>>
+// CHECK:           onnx.Return [[VAR_0_]] : !onnx.Seq<tensor<*xf32>>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Test shape inference for ConcatFromSequence.
+//===----------------------------------------------------------------------===//
+
+// ConcatFromSequence: inferShapes is not yet implemented; output stays tensor<*xf32>.
+func.func @test_concatfromsequence(%arg0: tensor<3x4xf32>) -> tensor<*xf32> {
+  %0 = "onnx.SequenceEmpty"() {dtype = 1 : si64} : () -> !onnx.Seq<tensor<*xf32>>
+  %cst = "onnx.NoValue"() {value} : () -> none
+  %1 = "onnx.SequenceInsert"(%0, %arg0, %cst) : (!onnx.Seq<tensor<*xf32>>, tensor<3x4xf32>, none) -> !onnx.Seq<tensor<*xf32>>
+  %2 = "onnx.ConcatFromSequence"(%1) {axis = 0 : si64} : (!onnx.Seq<tensor<*xf32>>) -> tensor<*xf32>
+  onnx.Return %2 : tensor<*xf32>
+// CHECK-LABEL:  func @test_concatfromsequence
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4xf32>) -> tensor<*xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.SequenceEmpty"() {dtype = 1 : si64} : () -> !onnx.Seq<tensor<*xf32>>
+// CHECK-DAG:       [[VAR_cst_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK:           [[VAR_1_:%.+]] = "onnx.SequenceInsert"([[VAR_0_]], [[PARAM_0_]], [[VAR_cst_]]) : (!onnx.Seq<tensor<*xf32>>, tensor<3x4xf32>, none) -> !onnx.Seq<tensor<3x4xf32>>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.ConcatFromSequence"([[VAR_1_]]) {axis = 0 : si64, new_axis = 0 : si64} : (!onnx.Seq<tensor<3x4xf32>>) -> tensor<*xf32>
+// CHECK:           onnx.Return [[VAR_2_]] : tensor<*xf32>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Test shape inference for SequenceMap.
+//===----------------------------------------------------------------------===//
+
+// SequenceMap with an Identity body: shape inference for SequenceMap is not yet
+// implemented so the result type (set at import time by resultTypeInference) is
+// preserved unchanged through the pass.
+func.func @test_sequencemap(%arg0: !onnx.Seq<tensor<1x4xf32>>) -> !onnx.Seq<tensor<1x4xf32>> {
+  %0 = "onnx.SequenceMap"(%arg0) ({
+  ^bb0(%elem: tensor<1x4xf32>):
+    %id = "onnx.Identity"(%elem) : (tensor<1x4xf32>) -> tensor<1x4xf32>
+    onnx.Yield %id : tensor<1x4xf32>
+  }) : (!onnx.Seq<tensor<1x4xf32>>) -> !onnx.Seq<tensor<1x4xf32>>
+  onnx.Return %0 : !onnx.Seq<tensor<1x4xf32>>
+// CHECK-LABEL:  func @test_sequencemap
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: !onnx.Seq<tensor<1x4xf32>>) -> !onnx.Seq<tensor<1x4xf32>> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.SequenceMap"([[PARAM_0_]])
+// CHECK:           onnx.Return [[VAR_0_]] : !onnx.Seq<tensor<1x4xf32>>
 }
 
 // -----

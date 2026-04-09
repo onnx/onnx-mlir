@@ -1485,7 +1485,7 @@ def ONNXConcatOp:ONNX_Op<"Concat",
 }
 
 def ONNXConcatFromSequenceOp:ONNX_Op<"ConcatFromSequence",
-  [Pure, OpVersionTrait<11>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<11>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, DeclareOpInterfaceMethods<ResultTypeInferenceOpInterface>]> {
   let summary = "ONNX ConcatFromSequence operation";
   let description = [{
   Concatenate a sequence of tensors into a single tensor.
@@ -8782,7 +8782,7 @@ def ONNXSeluOp:ONNX_Op<"Selu",
 }
 
 def ONNXSequenceAtOp:ONNX_Op<"SequenceAt",
-  [Pure, OpVersionTrait<11>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<11>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, DeclareOpInterfaceMethods<ResultTypeInferenceOpInterface>]> {
   let summary = "ONNX SequenceAt operation";
   let description = [{
   Outputs a tensor copy from the tensor at 'position' in 'input_sequence'.
@@ -8814,7 +8814,7 @@ def ONNXSequenceAtOp:ONNX_Op<"SequenceAt",
 }
 
 def ONNXSequenceConstructOp:ONNX_Op<"SequenceConstruct",
-  [Pure, OpVersionTrait<11>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<11>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, DeclareOpInterfaceMethods<ResultTypeInferenceOpInterface>]> {
   let summary = "ONNX SequenceConstruct operation";
   let description = [{
   Construct a tensor sequence containing 'inputs' tensors.
@@ -8972,7 +8972,7 @@ def ONNXSequenceLengthOp:ONNX_Op<"SequenceLength",
 }
 
 def ONNXSequenceMapOp:ONNX_Op<"SequenceMap",
-  [Pure, OpVersionTrait<17>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, OpInterface<"HasOnnxSubgraphOpInterface">]> {
+  [Pure, OpVersionTrait<17>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, DeclareOpInterfaceMethods<ResultTypeInferenceOpInterface>, OpInterface<"HasOnnxSubgraphOpInterface">]> {
   let summary = "ONNX SequenceMap operation";
   let description = [{
   Applies a sub-graph to each sample in the input sequence(s).
@@ -9750,7 +9750,7 @@ def ONNXSplitV11Op:ONNX_Op<"SplitV11",
 }
 
 def ONNXSplitToSequenceOp:ONNX_Op<"SplitToSequence",
-  [Pure, OpVersionTrait<11>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<11>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, DeclareOpInterfaceMethods<ResultTypeInferenceOpInterface>]> {
   let summary = "ONNX SplitToSequence operation";
   let description = [{
   Split a tensor into a sequence of tensors, along the specified 'axis'.
