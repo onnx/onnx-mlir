@@ -98,8 +98,7 @@ LogicalResult ONNXConstantOp::inferShapes(
   // DenseElementsAttr only stores the raw storage type (e.g. i8) while the
   // result type may carry a richer quantized type set by QuantTypesPass.
   Type elementType;
-  if (auto curType =
-          mlir::dyn_cast<RankedTensorType>(getResult().getType())) {
+  if (auto curType = mlir::dyn_cast<RankedTensorType>(getResult().getType())) {
     if (mlir::isa<mlir::quant::QuantizedType>(curType.getElementType()))
       elementType = curType.getElementType();
   }

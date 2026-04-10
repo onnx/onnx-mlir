@@ -860,9 +860,9 @@ struct ResizeToChannelLastPattern : public OpRewritePattern<ONNXResizeOp> {
     };
 
     // Permute a rank-sized constant 1D tensor from NCHW to NHWC order.
-    // Returns std::nullopt if the value is non-None and not a foldable constant.
-    auto permuteForChannelLast =
-        [&](Value tensor) -> std::optional<Value> {
+    // Returns std::nullopt if the value is non-None and not a foldable
+    // constant.
+    auto permuteForChannelLast = [&](Value tensor) -> std::optional<Value> {
       if (isa<NoneType>(tensor.getType()))
         return tensor;
 
@@ -903,8 +903,7 @@ struct ResizeToChannelLastPattern : public OpRewritePattern<ONNXResizeOp> {
     // Permute Roi which has 2*rank elements:
     // [start_dim0..start_dimN, end_dim0..end_dimN].
     // Each half is permuted with the NCHW->NHWC mapping independently.
-    auto permuteRoiForChannelLast =
-        [&](Value tensor) -> std::optional<Value> {
+    auto permuteRoiForChannelLast = [&](Value tensor) -> std::optional<Value> {
       if (isa<NoneType>(tensor.getType()))
         return tensor;
 
