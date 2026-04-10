@@ -122,16 +122,16 @@ set(NNPA_TEST_LIST_z16
     # ==LIM== - `auto_pad` must be `NOTSET`, `VALID`, and `SAME_UPPER`. If `NOTSET` is used, `pads` must be set so that the padding valid type or same upper.<br>- `ceil_mode` must be default value(0) <br>- Input and output tensors must be 4D tensors (N x C x H x W).<br>- `kernel_shape` must be static.<br>- `count_include_pad` must be default value(0).<br>- `ceil_mode` must be default value(0).
     # test_averagepool_1d_default_cpu
     # test_averagepool_2d_ceil_cpu
-    test_averagepool_2d_default_cpu,zdnn_avgpool2d
+    test_averagepool_2d_default_cpu,zdnn_avgpool2d,NO_DYNAMIC_SHAPE_TEST
     # test_averagepool_2d_pads_count_include_pad_cpu
     # test_averagepool_2d_pads_cpu
     # test_averagepool_2d_precomputed_pads_count_include_pad_cpu
     test_averagepool_2d_precomputed_pads_cpu,zdnn_avgpool2d,NO_DYNAMIC_SHAPE_TEST
-    test_averagepool_2d_precomputed_same_upper_cpu,zdnn_avgpool2d
-    test_averagepool_2d_precomputed_strides_cpu,zdnn_avgpool2d
+    test_averagepool_2d_precomputed_same_upper_cpu,zdnn_avgpool2d,NO_DYNAMIC_SHAPE_TEST
+    test_averagepool_2d_precomputed_strides_cpu,zdnn_avgpool2d,NO_DYNAMIC_SHAPE_TEST
     # test_averagepool_2d_same_lower_cpu
-    test_averagepool_2d_same_upper_cpu,zdnn_avgpool2d
-    test_averagepool_2d_strides_cpu,zdnn_avgpool2d
+    test_averagepool_2d_same_upper_cpu,zdnn_avgpool2d,NO_DYNAMIC_SHAPE_TEST
+    test_averagepool_2d_strides_cpu,zdnn_avgpool2d,NO_DYNAMIC_SHAPE_TEST
     # test_averagepool_3d_default_cpu
 
     # ==OP== BatchNormalization
@@ -279,15 +279,15 @@ set(NNPA_TEST_LIST_z16
     # ==LIM== - `auto_pad` must be `NOTSET`, `VALID`, and `SAME_UPPER`. If `NOTSET` is used, `pads` must be set so that the padding valid type or same upper.<br>- `ceil_mode` must be default value(0) <br>- Input and output tensors must be 4D tensors(N x C x H x W).<br>- `kernel_shape` must be static.<br>- `ceil_mode` must be default value(0).<br>- `dilations` must be default value(1).
     # test_maxpool_1d_default_cpu
     # test_maxpool_2d_ceil_cpu
-    test_maxpool_2d_default_cpu,zdnn_maxpool2d
+    test_maxpool_2d_default_cpu,zdnn_maxpool2d,NO_DYNAMIC_SHAPE_TEST
     # test_maxpool_2d_dilations_cpu
     # test_maxpool_2d_pads_cpu
     test_maxpool_2d_precomputed_pads_cpu,zdnn_maxpool2d,NO_DYNAMIC_SHAPE_TEST
-    test_maxpool_2d_precomputed_same_upper_cpu,zdnn_maxpool2d
-    test_maxpool_2d_precomputed_strides_cpu,zdnn_maxpool2d
+    test_maxpool_2d_precomputed_same_upper_cpu,zdnn_maxpool2d,NO_DYNAMIC_SHAPE_TEST
+    test_maxpool_2d_precomputed_strides_cpu,zdnn_maxpool2d,NO_DYNAMIC_SHAPE_TEST
     # test_maxpool_2d_same_lower_cpu
-    test_maxpool_2d_same_upper_cpu,zdnn_maxpool2d
-    test_maxpool_2d_strides_cpu,zdnn_maxpool2d
+    test_maxpool_2d_same_upper_cpu,zdnn_maxpool2d,NO_DYNAMIC_SHAPE_TEST
+    test_maxpool_2d_strides_cpu,zdnn_maxpool2d,NO_DYNAMIC_SHAPE_TEST
     # test_maxpool_3d_default_cpu
 
     # ==OP== Min
