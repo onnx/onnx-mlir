@@ -34,7 +34,7 @@ struct OnnxToMlirOptions {
   bool enableConvOptPass = true;
   bool enableSimdDataLayout = false;
   bool disableSimdOption = false;
-  bool enablGAPToReduceMean = true;
+  bool enableGAPToReduceMean = true;
 
   int onnxOpTransformThreshold = 3;
   bool onnxOpTransformReport = false;

@@ -136,7 +136,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
         opts.enableMatmulNBitsDecompose,
         opts.enableGroupQueryAttentionDecompose,
         opts.enableSplitToSliceDecompose, opts.enableConcatFuse,
-        opts.enablGAPToReduceMean));
+        opts.enableGAPToReduceMean));
     // Convolution Optimization for CPU: enable when there are no accelerators.
     if (targetCPU && opts.enableConvOptPass) {
       pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvOptONNXToONNXPass(
@@ -151,7 +151,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
               opts.enableMatmulNBitsDecompose,
               opts.enableGroupQueryAttentionDecompose,
               opts.enableSplitToSliceDecompose, opts.enableConcatFuse,
-              opts.enablGAPToReduceMean));
+              opts.enableGAPToReduceMean));
     }
     // If quark quantized legalization is enabled, do a last const prop after it
     // so that we cover any remaining Cast -> Cast patterns that weren't covered
@@ -195,7 +195,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
 
   // Simplify shape-related ops.
   pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass(
-      opts.enableQuarkQuantizedLegalization, opts.enablGAPToReduceMean));
+      opts.enableQuarkQuantizedLegalization, opts.enableGAPToReduceMean));
 
   // Canonicalizing Q-DQ related ops
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createQDQCanonicalizePass(
@@ -213,7 +213,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
         opts.enableMatmulNBitsDecompose,
         opts.enableGroupQueryAttentionDecompose,
         opts.enableSplitToSliceDecompose, opts.enableConcatFuse,
-        opts.enablGAPToReduceMean));
+        opts.enableGAPToReduceMean));
   } else {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
     pm.addPass(mlir::createCanonicalizerPass());

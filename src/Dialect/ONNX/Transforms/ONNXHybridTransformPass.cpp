@@ -143,7 +143,7 @@ struct ONNXHybridTransformPass
       llvm::cl::desc("Enable ConcatFusePattern in decomposition pass"),
       ::llvm::cl::init(true)};
 
-  Option<bool> enablGAPToReduceMean{*this,
+  Option<bool> enableGAPToReduceMean{*this,
       "enable-globalaveragepool-to-reducemean",
       llvm::cl::desc(
           "Enable canonicalize from GlobalAveragePool to ReduceMean"),
@@ -159,7 +159,7 @@ struct ONNXHybridTransformPass
       bool enableInstanceNormDecompose, bool enableGroupNormDecompose,
       bool enableMatmulNBitsDecompose, bool enableGroupQueryAttentionDecompose,
       bool enableSplitToSliceDecompose, bool enableConcatFuse,
-      bool enablGAPToReduceMean) {
+      bool enableGAPToReduceMean) {
     this->recomposition = enableRecomposition;
     this->quarkQuantizedOpsLegalization = enableQuarkQuantizedOpsLegalization;
     this->enableConvTransposeDecompose = enableConvTransposeDecompose;
@@ -174,7 +174,7 @@ struct ONNXHybridTransformPass
         enableGroupQueryAttentionDecompose;
     this->enableSplitToSliceDecompose = enableSplitToSliceDecompose;
     this->enableConcatFuse = enableConcatFuse;
-    this->enablGAPToReduceMean = enablGAPToReduceMean;
+    this->enableGAPToReduceMean = enableGAPToReduceMean;
   }
 
   ONNXHybridTransformPass(const ONNXHybridTransformPass &pass)
@@ -212,7 +212,7 @@ struct ONNXHybridTransformPass
           continue;
         }
 
-        if (!enablGAPToReduceMean &&
+        if (!enableGAPToReduceMean &&
             op.getStringRef() == "onnx.GlobalAveragePool") {
           continue;
         }
@@ -280,12 +280,12 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createONNXHybridTransformPass(
     bool enableInstanceNormDecompose, bool enableGroupNormDecompose,
     bool enableMatmulNBitsDecompose, bool enableGroupQueryAttentionDecompose,
     bool enableSplitToSliceDecompose, bool enableConcatFuse,
-    bool enablGAPToReduceMean) {
+    bool enableGAPToReduceMean) {
   return std::make_unique<ONNXHybridTransformPass>(enableRecomposition,
       enableQuarkQuantizedOpsLegalization, enableConvTransposeDecompose,
       enableConvTransposeDecomposeToPhasedConv,
       enableConvTranspose1dDecomposeToPhasedConv, enableInstanceNormDecompose,
       enableGroupNormDecompose, enableMatmulNBitsDecompose,
       enableGroupQueryAttentionDecompose, enableSplitToSliceDecompose,
-      enableConcatFuse, enablGAPToReduceMean);
+      enableConcatFuse, enableGAPToReduceMean);
 }
