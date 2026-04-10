@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXLegalityCheck.hpp"
+#include "src/Accelerators/NNPA/Compiler/NNPACompilerOptions.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/ShapeHelper.hpp"
 #include "src/Accelerators/NNPA/Support/NNPALimit.hpp"
@@ -151,13 +152,24 @@ bool checkLegalityPoolOpsCommon(
     return onnxToZHighUnsupportedReport(op, message);
   }
 
-  // Check parameter restrictions for maxpool2d/avgpool2d for each axis.
-  // Reject operations with unknown dimensions.
-  if (!inputType.hasStaticShape() || !outputType.hasStaticShape()) {
-    std::string message =
-        "Input and output tensors must have static shapes. Dynamic shapes are "
-        "not supported.";
-    return onnxToZHighUnsupportedReport(op, message);
+  // Check for dynamic height and width dimensions.
+  // When nnpaDisableShapeRestriction is enabled, allow dynamic shapes and
+  // assume they will satisfy constraints at runtime.
+  if (ShapedType::isDynamic(shapeInput[2]) ||
+      ShapedType::isDynamic(shapeInput[3]) ||
+      ShapedType::isDynamic(shapeOutput[2]) ||
+      ShapedType::isDynamic(shapeOutput[3])) {
+    if (nnpaDisableShapeRestriction) {
+      // When nnpaDisableShapeRestriction is enabled, skip static checks for
+      // dynamic shapes and defer validation to runtime.
+      return true;
+    }
+    // We cannot assume that the dynamic shapes will have the right shapes, so
+    // we disable NNPA for this op.
+    return onnxToZHighUnsupportedReport(op,
+        "Height and/or width have dynamic dimensions. They are not "
+        "supported. Use --nnpa-disable-shape-restriction to assume "
+        "dynamic shapes will satisfy NNPA constraints at runtime.");
   }
 
   int64_t inputShapeH = shapeInput[2];
@@ -1521,16 +1533,6 @@ bool isSuitableForZDNN<ONNXConvOp>(
     return onnxToZHighUnsupportedReport(op, message);
   }
 
-  // Do not support dynamic height and width dimensions since we can not check
-  // them at compile time.
-  if (ShapedType::isDynamic(shapeInput[2]) ||
-      ShapedType::isDynamic(shapeInput[3]) ||
-      ShapedType::isDynamic(shapeOutput[2]) ||
-      ShapedType::isDynamic(shapeOutput[3]))
-    return onnxToZHighUnsupportedReport(op,
-        "Height and/or width have dynamic dimensions. They are not "
-        "supported.");
-
   // Do not support group.
   if (operandAdaptor.getGroup() != 1)
     return onnxToZHighUnsupportedReport(op, "`group` must be 1 (default).");
@@ -1565,6 +1567,26 @@ bool isSuitableForZDNN<ONNXConvOp>(
           [](IndexExpr val) { return !val.isLiteral(); })) {
     std::string message = "The kernel_shape must be static value.";
     return onnxToZHighUnsupportedReport(op, message);
+  }
+
+  // Check for dynamic height and width dimensions.
+  // When nnpaDisableShapeRestriction is enabled, allow dynamic shapes and
+  // assume they will satisfy constraints at runtime.
+  if (ShapedType::isDynamic(shapeInput[2]) ||
+      ShapedType::isDynamic(shapeInput[3]) ||
+      ShapedType::isDynamic(shapeOutput[2]) ||
+      ShapedType::isDynamic(shapeOutput[3])) {
+    if (nnpaDisableShapeRestriction) {
+      // When nnpaDisableShapeRestriction is enabled, skip static checks for
+      // dynamic shapes and defer validation to runtime.
+      return true;
+    }
+    // We cannot assume that the dynamic shapes will have the right shapes, so
+    // we disable NNPA for this op.
+    return onnxToZHighUnsupportedReport(op,
+        "Height and/or width have dynamic dimensions. They are not "
+        "supported. Use --nnpa-disable-shape-restriction to assume "
+        "dynamic shapes will satisfy NNPA constraints at runtime.");
   }
 
   int64_t inputShapeH = shapeInput[2];
