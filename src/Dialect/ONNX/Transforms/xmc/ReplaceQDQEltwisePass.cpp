@@ -334,11 +334,6 @@ struct FuseQuantizedEltwiseWithoutActivation
                << "Fusing quantized eltwise into onnx.XCOMPILERFusedEltwise: "
                << eltwiseOp->getName() << "\n");
 
-    // ReLU on UINT8 with zero_point=0 is a no-op: remove it entirely.
-    if (isUnary && isReluNoOp(eltwiseOp.getOperation())) {
-      rewriter.replaceOp(eltwiseOp, a);
-      return success();
-    }
     // Only create IR (e.g. onnx.NoValue) after we know we will rewrite.
     if (isUnary)
       b = rewriter.create<ONNXNoneOp>(eltwiseOp.getLoc()).getResult();
