@@ -64,9 +64,14 @@ void transferOnnxNodeName(Operation *sourceOp, Operation *targetOp) {
 // Helper function to remap per-channel quantization axis after transpose.
 // Given a permutation, update the quantized dimension in the element type.
 Type remapPerAxisQuantType(Type elementType, ArrayRef<int64_t> perm) {
+  if (!isa<quant::QuantizedType>(elementType))
+    return elementType;
+
+  if (isa<quant::UniformQuantizedType>(elementType))
+    return elementType;
+
   auto perAxisType = dyn_cast<quant::UniformQuantizedPerAxisType>(elementType);
-  if (!perAxisType)
-    return elementType; // not per-axis, nothing to do
+  assert(perAxisType && "remapPerAxisQuantType: unhandled quantized type");
 
   int32_t oldAxis = perAxisType.getQuantizedDimension();
   int32_t newAxis = oldAxis;
