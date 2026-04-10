@@ -18,6 +18,7 @@ r = compile_session.get_output_file_name()
 # Print output: the path to the compiled model
 print(r)
 ```
+A complete example with compilation and run can be found in tests/run-matmul.py.
 
 ## Create the pacakge
 ### Build standalone compiler

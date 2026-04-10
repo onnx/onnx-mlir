@@ -126,6 +126,8 @@ if (ONNX_MLIR_STANDALONE_DIR)
 	COMMAND cp ${ONNX_MLIR_STANDALONE_DIR}/bin/opt ${CMAKE_CURRENT_BINARY_DIR}/OMPyCompile/src/OMPyCompile/bin
 	COMMAND cp ${ONNX_MLIR_STANDALONE_DIR}/lib/libcruntime.a ${CMAKE_CURRENT_BINARY_DIR}/OMPyCompile/src/OMPyCompile/lib
 	COMMAND cp ${ONNX_MLIR_STANDALONE_DIR}/lib/libompruntime.a ${CMAKE_CURRENT_BINARY_DIR}/OMPyCompile/src/OMPyCompile/lib
+	COMMAND cp ${ONNX_MLIR_STANDALONE_DIR}/lib/libzdnn.a ${CMAKE_CURRENT_BINARY_DIR}/OMPyCompile/src/OMPyCompile/lib
+	COMMAND cp ${ONNX_MLIR_STANDALONE_DIR}/lib/libRuntimeNNPA.a ${CMAKE_CURRENT_BINARY_DIR}/OMPyCompile/src/OMPyCompile/lib
 	COMMAND cp ${ONNX_MLIR_BIN_ROOT}/${CMAKE_BUILD_TYPE}/lib/PyOMCompileC.*.so ${CMAKE_CURRENT_BINARY_DIR}/OMPyCompile/src/OMPyCompile/lib
 	DEPENDS PyOMCompileC
      )
