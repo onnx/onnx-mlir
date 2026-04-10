@@ -151,30 +151,32 @@ bool checkLegalityPoolOpsCommon(
     return onnxToZHighUnsupportedReport(op, message);
   }
 
-  // Check parameter restrictions for maxpool2d/avgpool2d for each axis only
-  // when input and output are of static tensor type. When unknown dimensions
-  // are included, the restrictions are not checked and error messages are
-  // generated at runtime in zDNN.
-  if (inputType.hasStaticShape() && outputType.hasStaticShape()) {
-    int64_t inputShapeH = shapeInput[2];
-    int64_t inputShapeW = shapeInput[3];
-    int64_t outputShapeH = shapeOutput[2];
-    int64_t outputShapeW = shapeOutput[3];
-    int64_t kernelShapeH = shapeHelper.kernelShape[0].getLiteral();
-    int64_t kernelShapeW = shapeHelper.kernelShape[1].getLiteral();
-    int64_t stridesH = shapeHelper.strides[0];
-    int64_t stridesW = shapeHelper.strides[1];
-    bool checkH = meetPoolParamRestrictions(op.getOperation(), inputShapeH,
-        kernelShapeH, stridesH, outputShapeH, paddingType);
-    if (!checkH)
-      return false;
-    bool checkW = meetPoolParamRestrictions(op.getOperation(), inputShapeW,
-        kernelShapeW, stridesW, outputShapeW, paddingType);
-    if (!checkW)
-      return false;
+  // Check parameter restrictions for maxpool2d/avgpool2d for each axis.
+  // Reject operations with unknown dimensions.
+  if (!inputType.hasStaticShape() || !outputType.hasStaticShape()) {
+    std::string message =
+        "Input and output tensors must have static shapes. Dynamic shapes are "
+        "not supported.";
+    return onnxToZHighUnsupportedReport(op, message);
   }
 
-  // No check for tensors with unknown dimensions.
+  int64_t inputShapeH = shapeInput[2];
+  int64_t inputShapeW = shapeInput[3];
+  int64_t outputShapeH = shapeOutput[2];
+  int64_t outputShapeW = shapeOutput[3];
+  int64_t kernelShapeH = shapeHelper.kernelShape[0].getLiteral();
+  int64_t kernelShapeW = shapeHelper.kernelShape[1].getLiteral();
+  int64_t stridesH = shapeHelper.strides[0];
+  int64_t stridesW = shapeHelper.strides[1];
+  bool checkH = meetPoolParamRestrictions(op.getOperation(), inputShapeH,
+      kernelShapeH, stridesH, outputShapeH, paddingType);
+  if (!checkH)
+    return false;
+  bool checkW = meetPoolParamRestrictions(op.getOperation(), inputShapeW,
+      kernelShapeW, stridesW, outputShapeW, paddingType);
+  if (!checkW)
+    return false;
+
   return true;
 }
 
