@@ -74,8 +74,9 @@ LogicalResult ONNXCommonUnsqueezeOpShapeHelper<OP_TYPE>::customComputeShape(
 
   // Save the final result.
   setOutputDims(outputDims);
-  // Save the modified state
-  if (modified)
+  // Save the modified state.
+  // Donot make any changes in the analysis mode.
+  if (!getAnalysisMode() && modified)
     saveAxes();
   return success();
 }

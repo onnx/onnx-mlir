@@ -151,6 +151,7 @@ static void exploreSameDimsFromConsumingOperators(const DimAnalysis::DimT &dim,
       op->dump();
     });
 
+    // Skip operations of the specified type to avoid circular dependencies.
     if (isSkippedOp(op, skipOpType))
       continue;
 
@@ -376,7 +377,13 @@ static bool exploreSameDimsUsingShapeHelper(const DimAnalysis::DimT &dim,
     return false;
 
   // Compute shape.
-  if (!shapeHelper->isImplemented() || failed(shapeHelper->computeShape())) {
+  if (shapeHelper->isImplemented()) {
+    shapeHelper->setAnalysisMode();
+    if (failed(shapeHelper->computeShape())) {
+      delete shapeHelper;
+      return false;
+    }
+  } else {
     delete shapeHelper;
     return false;
   }
@@ -399,6 +406,8 @@ static bool exploreSameDimsUsingShapeHelper(const DimAnalysis::DimT &dim,
   QuestionmarkIndexExpr qmOuputIE =
       shapeHelper->getOutputDims(tensorIndex)[dimIndex];
   findAndAddSameDim(qmOuputIE, op, op->getOperands(), sameDims);
+
+  shapeHelper->unsetAnalysisMode();
   delete shapeHelper;
   return true;
 }
@@ -1006,10 +1015,18 @@ void DimAnalysis::visitDim(
   if (isa<ONNXConstantOp>(op))
     return;
 
+  // ONNXShapeOp was not simplified. Nothing to do further.
+  if (isa<ONNXShapeOp>(op))
+    return;
+
   // DimOp
   if (auto dimOp = mlir::dyn_cast<ONNXDimOp>(op)) {
-    DimAnalysis::DimT newSameDim(dimOp.getData(), dimOp.getAxis());
-    sameDims.insert(newSameDim);
+    // DimAnalysis::DimT newSameDim(dimOp.getData(), dimOp.getAxis());
+    // sameDims.insert(newSameDim);
+    if (auto d =
+            insertDimWhenUseful(dimOp.getData(), dimOp.getAxis(), sameDims))
+      LLVM_DEBUG(llvm::dbgs() << "  - Added a new dim(" << d.value().first
+                              << ", " << d.value().second << ")\n");
     return;
   }
 

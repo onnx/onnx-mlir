@@ -65,11 +65,13 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
 
   // Use scoped dimension analysis to detect equivalent dimensions.
   // Only analyze operations within a small upward level for performance.
-  constexpr int64_t kUpwardLevel = 10; // Configurable, adjust based on needs
+  constexpr int64_t kUpwardLevel = 10;
 
   // Skip ONNXReshapeOp to avoid circular dependency during shape inference.
   DimAnalysis scopedAnalysis(op, kUpwardLevel, TypeID::get<ONNXReshapeOp>());
-  scopedAnalysis.analyze();
+  // Donot call analysis again in the analysis mode.
+  if (!getAnalysisMode())
+    scopedAnalysis.analyze();
 
   std::set<int64_t> dataIgnoredDims, outputIgnoredDims;
   SmallVector<Value> shapeDimVals;

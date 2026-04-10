@@ -143,6 +143,15 @@ struct ONNXOpShapeHelper {
   // Set the operands with a vector of Value
   void setOperands(mlir::ValueRange);
 
+  // Set analysis mode. In this mode there is no refineShape.
+  void setAnalysisMode();
+
+  // Unset analysis mode.
+  void unsetAnalysisMode();
+
+  // Get analysis mode.
+  bool getAnalysisMode() { return this->analysisMode;}
+
 protected:
   // Helper for ops for which the output (n'th) is the same as the type of a
   // given input operand's type.
@@ -172,6 +181,9 @@ private:
   // Used to cache the operation's operands (shape inference only).
   llvm::SmallVector<mlir::Value> privateOperandsCache;
   bool ownScope, ownBuilder;
+  // Set to true when using ShapeHeper for dynamic dimension analysis.
+  // Otherwise, set to false.
+  bool analysisMode = false;
 };
 
 } // namespace onnx_mlir

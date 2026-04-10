@@ -179,7 +179,9 @@ void ONNXOpShapeHelper::computeShapeAndAssertOnFailure() {
 void ONNXOpShapeHelper::setOutputDims(
     const DimsExpr &inferredDims, int n, bool refineShape) {
   privateOutputsDims[n] = inferredDims;
-  if (refineShape) {
+  // Donot refine shape in the analysis mode to make sure dynamic dimensions are
+  // consistent during the dimension analysis.
+  if (!this->analysisMode && refineShape) {
     Value output = getOutput(n);
     refineDims(op, privateOutputsDims[n], output);
   }
@@ -187,6 +189,10 @@ void ONNXOpShapeHelper::setOutputDims(
 
 void ONNXOpShapeHelper::updateInputDimAt(
     Value inputVal, uint64_t dimSize, int64_t axis) {
+  // Donot update input dim during the analysis mode.
+  if (getAnalysisMode())
+    return;
+
   auto valType = mlir::dyn_cast<RankedTensorType>(inputVal.getType());
   if (!valType)
     return;
@@ -335,6 +341,10 @@ void ONNXOpShapeHelper::setOperands(ValueRange inputs) {
       llvm::SmallVector<Value, 4>(inputs.begin(), inputs.end());
   operands = ValueRange(privateOperandsCache);
 }
+
+void ONNXOpShapeHelper::setAnalysisMode() { this->analysisMode = true; }
+
+void ONNXOpShapeHelper::unsetAnalysisMode() { this->analysisMode = false; }
 
 //===----------------------------------------------------------------------===//
 // ONNX Broadcast Op Shape Helper
@@ -652,7 +662,7 @@ bool ONNXBroadcastOpShapeHelper::hasManageableBroadcastForInnerDims(
                                 << " & " << d << "; abort\n");
         return collapsedInnermostLoops > 0;
       } // End for all non-scalars,
-    }   // End testing non-scalar compatibility.
+    } // End testing non-scalar compatibility.
 
     // 4) Since we have at least one non-scalar
     //   4.1) all the scalar inputs are now marked as having a broadcast.
