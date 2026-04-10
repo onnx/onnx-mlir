@@ -1134,6 +1134,42 @@ Value ConstPropExpand(
 }
 
 //===----------------------------------------------------------------------===//
+// Code to perform constant propagation for ShapeOp.
+//===----------------------------------------------------------------------===//
+
+/// Folds onnx.Shape(input) into a constant int64 tensor when the input has a
+/// statically known shape. The optional start/end attributes are respected.
+Value ConstPropShape(
+    PatternRewriter &rewriter, Value replacingValue, Value inputValue) {
+  auto inputType = mlir::cast<ShapedType>(inputValue.getType());
+  assert(inputType.hasStaticShape() && "expected statically shaped input");
+
+  int64_t rank = inputType.getRank();
+  Operation *op = replacingValue.getDefiningOp();
+  ONNXShapeOp shapeOp = cast<ONNXShapeOp>(op);
+
+  // Normalize start: default 0, support negative indices.
+  int64_t start = shapeOp.getStart();
+  if (start < 0)
+    start += rank;
+  start = std::clamp(start, int64_t(0), rank);
+
+  // Normalize end: default rank, support negative indices.
+  int64_t end = rank;
+  if (auto endAttr = shapeOp.getEnd())
+    end = *endAttr < 0 ? *endAttr + rank : *endAttr;
+  end = std::clamp(end, int64_t(0), rank);
+
+  auto shape =
+      inputType.getShape().slice(start, std::max(end - start, int64_t(0)));
+  auto resultType = RankedTensorType::get(
+      {static_cast<int64_t>(shape.size())}, rewriter.getI64Type());
+  auto elements = DenseElementsAttr::get(
+      resultType, ArrayRef<int64_t>(shape.begin(), shape.end()));
+  return createReplacingConstantOp(rewriter, replacingValue, elements);
+}
+
+//===----------------------------------------------------------------------===//
 // Code to perform constant propagation for GatherOp.
 //===----------------------------------------------------------------------===//
 
