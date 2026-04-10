@@ -139,6 +139,10 @@ struct ONNXHybridTransformPass
       llvm::cl::desc("Enable decomposition of Split to Slice"),
       ::llvm::cl::init(false)};
 
+  Option<bool> enableConcatFuse{*this, "enable-concat-fuse",
+      llvm::cl::desc("Enable ConcatFusePattern in decomposition pass"),
+      ::llvm::cl::init(true)};
+
   Option<bool> enablGAPToReduceMean{*this,
       "enable-globalaveragepool-to-reducemean",
       llvm::cl::desc(
@@ -154,7 +158,8 @@ struct ONNXHybridTransformPass
       bool enableConvTranspose1dDecomposeToPhasedConv,
       bool enableInstanceNormDecompose, bool enableGroupNormDecompose,
       bool enableMatmulNBitsDecompose, bool enableGroupQueryAttentionDecompose,
-      bool enableSplitToSliceDecompose, bool enablGAPToReduceMean) {
+      bool enableSplitToSliceDecompose, bool enableConcatFuse,
+      bool enablGAPToReduceMean) {
     this->recomposition = enableRecomposition;
     this->quarkQuantizedOpsLegalization = enableQuarkQuantizedOpsLegalization;
     this->enableConvTransposeDecompose = enableConvTransposeDecompose;
@@ -168,6 +173,7 @@ struct ONNXHybridTransformPass
     this->enableGroupQueryAttentionDecompose =
         enableGroupQueryAttentionDecompose;
     this->enableSplitToSliceDecompose = enableSplitToSliceDecompose;
+    this->enableConcatFuse = enableConcatFuse;
     this->enablGAPToReduceMean = enablGAPToReduceMean;
   }
 
@@ -225,7 +231,7 @@ struct ONNXHybridTransformPass
           enableConvTranspose1dDecomposeToPhasedConv,
           enableInstanceNormDecompose, enableGroupNormDecompose,
           enableMatmulNBitsDecompose, enableGroupQueryAttentionDecompose,
-          enableSplitToSliceDecompose);
+          enableSplitToSliceDecompose, enableConcatFuse);
     }
 
     if (recomposition) {
@@ -273,12 +279,13 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createONNXHybridTransformPass(
     bool enableConvTranspose1dDecomposeToPhasedConv,
     bool enableInstanceNormDecompose, bool enableGroupNormDecompose,
     bool enableMatmulNBitsDecompose, bool enableGroupQueryAttentionDecompose,
-    bool enableSplitToSliceDecompose, bool enablGAPToReduceMean) {
+    bool enableSplitToSliceDecompose, bool enableConcatFuse,
+    bool enablGAPToReduceMean) {
   return std::make_unique<ONNXHybridTransformPass>(enableRecomposition,
       enableQuarkQuantizedOpsLegalization, enableConvTransposeDecompose,
       enableConvTransposeDecomposeToPhasedConv,
       enableConvTranspose1dDecomposeToPhasedConv, enableInstanceNormDecompose,
       enableGroupNormDecompose, enableMatmulNBitsDecompose,
       enableGroupQueryAttentionDecompose, enableSplitToSliceDecompose,
-      enablGAPToReduceMean);
+      enableConcatFuse, enablGAPToReduceMean);
 }

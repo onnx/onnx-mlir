@@ -21,6 +21,7 @@ struct OnnxToMlirOptions {
   bool enableGroupNormDecompose = true;
   bool enableMatmulNBitsDecompose = false;
   bool enableGroupQueryAttentionDecompose = true;
+  bool enableConcatFuse = true;
   bool enableRemoveDqQAroundOp = false;
   bool enableRemoveBinary = false;
   bool enableFusePadIntoAvgpool = false;
