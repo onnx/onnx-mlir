@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -61,6 +62,15 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
   // 2nd value in shape. So to compute the output dim at position of -1, we just
   // do 2048/64, that is 32. Without this simplification, the output dim at
   // position of -1 would be unknown at compile time.
+
+  // Use scoped dimension analysis to detect equivalent dimensions.
+  // Only analyze operations within a small upward level for performance.
+  constexpr int64_t kUpwardLevel = 10; // Configurable, adjust based on needs
+
+  // Skip ONNXReshapeOp to avoid circular dependency during shape inference.
+  DimAnalysis scopedAnalysis(op, kUpwardLevel, TypeID::get<ONNXReshapeOp>());
+  scopedAnalysis.analyze();
+
   std::set<int64_t> dataIgnoredDims, outputIgnoredDims;
   SmallVector<Value> shapeDimVals;
   if (areDimsFromConcat(shape)) {
@@ -98,9 +108,34 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
     for (int64_t i = 0; i < outputRank; ++i) {
       Value dim = shapeDimVals[i];
       if (auto dimOp = dim.getDefiningOp<ONNXDimOp>()) {
-        if (dimOp.getData() != refData)
-          continue;
+        // if (dimOp.getData() != refData)
+        //   continue;
+        // int64_t axis = dimOp.getAxis();
+        // if (auto search = dataIgnoredDims.find(axis);
+        //     search != dataIgnoredDims.end())
+        //   isBijective = false;
+        // if (fromMatMul && axis == getRank(refData.getType()) - 1)
+        //   isBijective = false;
+        // outputIgnoredDims.insert(i);
+        // dataIgnoredDims.insert(axis);
+        Value dimData = dimOp.getData();
         int64_t axis = dimOp.getAxis();
+
+        // Check if this dimension references the data tensor OR
+        // has an equivalent dynamic dimension according to scoped analysis.
+        bool isEquivalent = (dimData == refData);
+        if (!isEquivalent && hasShapeAndRank(dimData) &&
+            hasShapeAndRank(refData)) {
+          // Use scoped analysis to check dimension equivalence.
+          // This will detect cases like %arg0[1] == %arg1[1] even though
+          // %arg0 != %arg1.
+          isEquivalent =
+              scopedAnalysis.sameDynDim(dimData, axis, refData, axis);
+        }
+
+        if (!isEquivalent)
+          continue;
+
         if (auto search = dataIgnoredDims.find(axis);
             search != dataIgnoredDims.end())
           isBijective = false;

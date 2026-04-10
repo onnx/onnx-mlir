@@ -12,6 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <queue>
+
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
@@ -56,6 +58,11 @@ static bool areOverlapping(
     }
   }
   return false;
+}
+
+static bool isSkippedOp(Operation *op, TypeID skipOpType) {
+  return skipOpType != mlir::TypeID::get<void>() && op->getRegisteredInfo() &&
+         op->getRegisteredInfo()->getTypeID() == skipOpType;
 }
 
 /// Insert a dynamic dimension into the analysis sets.
@@ -135,14 +142,18 @@ static void findAndAddSameDim(const QuestionmarkIndexExpr &qmOuputIE,
 /// the input tensors of the consuming operator.
 ///
 /// For example, in MatMul(A, B) : MxN * NxP, dimA[1] = dimB[0] = N.
-static void exploreSameDimsFromConsumingOperators(
-    const DimAnalysis::DimT &dim, DimAnalysis::DimSetT &sameDims) {
+static void exploreSameDimsFromConsumingOperators(const DimAnalysis::DimT &dim,
+    DimAnalysis::DimSetT &sameDims, TypeID skipOpType) {
   LLVM_DEBUG(llvm::dbgs() << "Explore using consuming operators\n");
   for (Operation *op : dim.first.getUsers()) {
     LLVM_DEBUG({
       llvm::dbgs() << " - exploring ";
       op->dump();
     });
+
+    if (isSkippedOp(op, skipOpType))
+      continue;
+
     if (auto concatOp = mlir::dyn_cast<ONNXConcatOp>(op)) {
       // Dimensions on the same axis (except the concatenating axis) are the
       // same across all inputs.
@@ -488,6 +499,88 @@ static bool exploreSameDimsUsingShapeInput(const DimAnalysis::DimT &dim,
 }
 
 //===----------------------------------------------------------------------===//
+// Helper functions for scoped analysis.
+//===----------------------------------------------------------------------===//
+
+/// Collect operations by tracing back from a given operation up to a specified
+/// level. Uses BFS to traverse the operand chain backwards.
+static void collectOperationsUpward(Operation *startOp, int64_t upwardLevel,
+    llvm::SmallPtrSet<Operation *, 32> &collectedOps, mlir::TypeID skipOpType) {
+  if (upwardLevel < 0 || !startOp)
+    return;
+
+  // Use a worklist algorithm with level tracking.
+  std::queue<std::pair<Operation *, int64_t>> worklist;
+  llvm::DenseMap<Operation *, int64_t> opLevels;
+
+  worklist.push({startOp, 0});
+  opLevels[startOp] = 0;
+
+  // Collect or skip startOp?
+  if (!isSkippedOp(startOp, skipOpType))
+    collectedOps.insert(startOp);
+
+  while (!worklist.empty()) {
+    auto [currentOp, currentLevel] = worklist.front();
+    worklist.pop();
+
+    // Stop if we've reached the upward level limit.
+    if (currentLevel >= upwardLevel)
+      continue;
+
+    // Trace back through operands.
+    for (Value operand : currentOp->getOperands()) {
+      if (isNoneValue(operand))
+        continue;
+
+      // If operand is a block argument, we've reached the boundary.
+      if (mlir::isa<BlockArgument>(operand))
+        continue;
+
+      Operation *defOp = operand.getDefiningOp();
+      if (!defOp)
+        continue;
+
+      // Skip operations of the specified type to avoid circular dependencies.
+      if (isSkippedOp(defOp, skipOpType))
+        continue;
+
+      // Skip if already visited at a closer or equal level.
+      if (opLevels.count(defOp) && opLevels[defOp] <= currentLevel + 1)
+        continue;
+
+      // Add to collected operations.
+      collectedOps.insert(defOp);
+      opLevels[defOp] = currentLevel + 1;
+      worklist.push({defOp, currentLevel + 1});
+    }
+  }
+}
+
+/// Collect all values from the collected operations and function arguments.
+static void collectValuesFromOps(const llvm::SmallPtrSet<Operation *, 32> &ops,
+    llvm::SmallVector<Value, 32> &values) {
+  // Collect all results from the operations.
+  for (Operation *op : ops) {
+    for (Value result : op->getResults()) {
+      if (!isNoneValue(result))
+        values.push_back(result);
+    }
+  }
+
+  // Also collect block arguments from the parent function.
+  // (they are always relevant for dimension analysis).
+  if (!ops.empty()) {
+    Operation *anyOp = *ops.begin();
+    if (auto funcOp = anyOp->getParentOfType<func::FuncOp>()) {
+      for (BlockArgument arg : funcOp.getArguments()) {
+        values.push_back(arg);
+      }
+    }
+  }
+}
+
+//===----------------------------------------------------------------------===//
 // DimAnalysis class.
 //===----------------------------------------------------------------------===//
 
@@ -504,7 +597,8 @@ DimAnalysis::DimAnalysis(ModuleOp moduleOp) {
   moduleOp.walk([&](Operation *op) {
     if (auto funcOp = mlir::dyn_cast<func::FuncOp>(op)) {
       // Build dimensions for function arguments and results.
-      buildFunctionArgsRes(funcOp);
+      buildFunctionArgsRes(
+          funcOp, /*buildForInputs*/ true, /*buildForInputs*/ true);
     } else {
       // Build dimensions for normal operation results.
       for (Value output : op->getResults())
@@ -514,6 +608,47 @@ DimAnalysis::DimAnalysis(ModuleOp moduleOp) {
   });
   LLVM_DEBUG(llvm::dbgs() << "The number of dynamic dims in the IR: "
                           << numOfDynamicDims << "\n");
+}
+
+DimAnalysis::DimAnalysis(
+    Operation *op, int64_t upwardLevel, mlir::TypeID skipOpType) {
+  this->skipOpType = skipOpType;
+
+  if (!op || upwardLevel < 0)
+    return;
+
+  // Collect operations within the upward level, skipping operations of the
+  // specified type.
+  llvm::SmallPtrSet<Operation *, 32> collectedOps;
+  collectOperationsUpward(op, upwardLevel, collectedOps, skipOpType);
+
+  LLVM_DEBUG({
+    llvm::dbgs() << "Scoped DimAnalysis: collected " << collectedOps.size()
+                 << " operations within " << upwardLevel << " levels from ";
+    op->dump();
+    for (auto co : collectedOps)
+      co->dump();
+  });
+
+  // Collect all values from the collected operations.
+  llvm::SmallVector<Value, 32> values;
+  collectValuesFromOps(collectedOps, values);
+
+  // Build dimension sets for the collected values.
+  for (Value val : values) {
+    if (!isNoneValue(val))
+      build(val);
+  }
+
+  // Initialize function arguments if the operation belongs to a function.
+  if (auto funcOp = op->getParentOfType<func::FuncOp>()) {
+    buildFunctionArgsRes(
+        funcOp, /*buildForInputs*/ true, /*buildForInputs*/ false);
+  }
+
+  LLVM_DEBUG(
+      llvm::dbgs() << "The number of dynamic dims in the scoped analysis: "
+                   << numOfDynamicDims << "\n");
 }
 
 int64_t DimAnalysis::build(DimT d, int64_t setID) {
@@ -539,7 +674,8 @@ int64_t DimAnalysis::build(DimT d, int64_t setID) {
   return setID;
 }
 
-void DimAnalysis::buildFunctionArgsRes(func::FuncOp funcOp) {
+void DimAnalysis::buildFunctionArgsRes(
+    func::FuncOp funcOp, bool buildForInputs, bool buildForOutputs) {
   // If dim_params are available, try to group dims using dim_params because
   // dimensions wih the same dim_param are supposed to be the same at runtime.
 
@@ -579,19 +715,23 @@ void DimAnalysis::buildFunctionArgsRes(func::FuncOp funcOp) {
   };
 
   // Build internal mappings for arguments.
-  ArrayRef<BlockArgument> args = funcOp.getArguments();
-  ArrayAttr argAttrs = funcOp.getArgAttrsAttr();
-  buildFor(args, argAttrs);
+  if (buildForInputs) {
+    ArrayRef<BlockArgument> args = funcOp.getArguments();
+    ArrayAttr argAttrs = funcOp.getArgAttrsAttr();
+    buildFor(args, argAttrs);
+  }
 
   // Build internal mappings for results.
-  Operation *terminator = funcOp.getRegion().back().getTerminator();
-  ValueRange resVals;
-  if (auto returnOp = mlir::dyn_cast<func::ReturnOp>(terminator))
-    resVals = returnOp.getOperands();
-  else if (auto returnOp = mlir::dyn_cast<ONNXReturnOp>(terminator))
-    resVals = returnOp.getOperands();
-  ArrayAttr resAttrs = funcOp.getResAttrsAttr();
-  buildFor(resVals, resAttrs);
+  if (buildForOutputs) {
+    Operation *terminator = funcOp.getRegion().back().getTerminator();
+    ValueRange resVals;
+    if (auto returnOp = mlir::dyn_cast<func::ReturnOp>(terminator))
+      resVals = returnOp.getOperands();
+    else if (auto returnOp = mlir::dyn_cast<ONNXReturnOp>(terminator))
+      resVals = returnOp.getOperands();
+    ArrayAttr resAttrs = funcOp.getResAttrsAttr();
+    buildFor(resVals, resAttrs);
+  }
 
   // Build dynamic dimensions using dim_param.
   for (const auto &[param, dimSet] : paramSetMap) {
@@ -845,7 +985,7 @@ void DimAnalysis::visitDim(
   // between dimensions of the input operands.
   //
   // For example, in MatMul(A, B) : MxN * NxP, dimA[1] = dimB[0].
-  exploreSameDimsFromConsumingOperators(dim, sameDims);
+  exploreSameDimsFromConsumingOperators(dim, sameDims, skipOpType);
 
   // The remaining code will find where a dimension comes from, depending on
   // operation semantics, by *exploring the defining operator*. We utilize the
@@ -857,6 +997,10 @@ void DimAnalysis::visitDim(
 
   // Get the defining operator.
   Operation *op = tensor.getDefiningOp();
+
+  // This operator is skipped.
+  if (isSkippedOp(op, skipOpType))
+    return;
 
   // Tensor is from a constant. Nothing to do further.
   if (isa<ONNXConstantOp>(op))

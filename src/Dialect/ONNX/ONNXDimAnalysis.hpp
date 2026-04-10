@@ -39,6 +39,17 @@ public:
   /// Create a new analysis for all values in a module.
   DimAnalysis(mlir::ModuleOp op);
 
+  /// Create a scoped analysis by tracing back from a given operation.
+  /// Only analyzes operations within 'upwardLevel' steps back from 'op'.
+  /// This is a lightweight alternative to full module analysis.
+  /// @param op The starting operation to trace back from
+  /// @param upwardLevel Maximum number of levels to trace back (0 = only op
+  /// itself)
+  /// @param skipOpType Optional operation type ID to skip during analysis
+  /// (prevents circular dependencies)
+  DimAnalysis(mlir::Operation *op, int64_t upwardLevel,
+      mlir::TypeID skipOpType = mlir::TypeID::get<void>());
+
   /// Analyzes the relationship among dynamic dimensions.
   /// Current implementation uses a fixed-point iteration algorithm,
   /// where there are two phases at each iteration:
@@ -99,9 +110,9 @@ private:
   int64_t build(DimT d, int64_t setID = -1);
 
   /// Initializes the internal mappings for function arguments and resutls.
-  void buildFunctionArgsRes(mlir::func::FuncOp funcOp);
+  void buildFunctionArgsRes(
+      mlir::func::FuncOp funcOp, bool buildForInputs, bool buildForOutputs);
 
-  // Create dims for function arguments.
   /// Update each set of dynamic dimensions to include the same dynamic
   /// dimensions. This is a local update in the sense that the search space
   /// includes dynamic dimensions that directly link to the dimensions in the
@@ -127,6 +138,8 @@ private:
   /// This mapping maps each dynamic dimension in the tensor to a set of same
   /// dynamic dimensions.
   DimSetMapT dimSetMap;
+  // Skipped Op type.
+  mlir::TypeID skipOpType = mlir::TypeID::get<void>();
 };
 
 } // namespace onnx_mlir
