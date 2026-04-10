@@ -223,12 +223,19 @@ struct FuseConsecutiveTransposes : public OpRewritePattern<ONNXTransposeOp> {
           auto zpConst =
               rewriter.create<ONNXConstantOp>(op.getLoc(), Attribute(), zpAttr);
 
-          // Create QuantizeLinear op
-          rewriter.replaceOpWithNewOp<ONNXQuantizeLinearOp>(op, outputType,
-              prevTranspose.getOperand(), scaleConst.getResult(),
-              zpConst.getResult(),
+          // QuantizeLinear produces storage type (i8), not quant type.
+          auto storageResultType = RankedTensorType::get(
+              outputType.getShape(), outputQuantType.getStorageType());
+          auto qOp = rewriter.create<ONNXQuantizeLinearOp>(op.getLoc(),
+              storageResultType, prevTranspose.getOperand(),
+              scaleConst.getResult(), zpConst.getResult(),
               /*axis=*/IntegerAttr(), /*saturate=*/IntegerAttr(),
               /*block_size=*/IntegerAttr());
+
+          // scast restores the quant type for downstream consumers.
+          auto scastOp = rewriter.create<quant::StorageCastOp>(
+              op.getLoc(), outputType, qOp.getResult());
+          rewriter.replaceOp(op, scastOp.getResult());
 
           return success();
         }
@@ -262,10 +269,16 @@ struct FuseConsecutiveTransposes : public OpRewritePattern<ONNXTransposeOp> {
           auto zpConst =
               rewriter.create<ONNXConstantOp>(op.getLoc(), Attribute(), zpAttr);
 
-          // Create DequantizeLinear op
+          // scast strips the quant type so DQ gets plain storage type input.
+          Value dqInput = prevTranspose.getOperand();
+          auto storageTy = RankedTensorType::get(
+              inputType.getShape(), inputQuantType.getStorageType());
+          auto scastOp = rewriter.create<quant::StorageCastOp>(
+              op.getLoc(), storageTy, dqInput);
+
+          // DequantizeLinear takes storage type (i8) input, produces f32.
           rewriter.replaceOpWithNewOp<ONNXDequantizeLinearOp>(op, outputType,
-              prevTranspose.getOperand(), scaleConst.getResult(),
-              zpConst.getResult(),
+              scastOp.getResult(), scaleConst.getResult(), zpConst.getResult(),
               /*axis=*/IntegerAttr(), /*block_size=*/IntegerAttr());
 
           return success();
@@ -319,6 +332,10 @@ struct MoveTransposeThroughReshape : public OpRewritePattern<ONNXReshapeOp> {
         mlir::dyn_cast<RankedTensorType>(reshapeOp.getType());
 
     if (!transposeInputType || !transposeOutputType || !reshapeOutputType)
+      return failure();
+
+    if (isa<quant::UniformQuantizedPerAxisType>(
+            transposeInputType.getElementType()))
       return failure();
 
     auto transposeOutputShape = transposeOutputType.getShape();
@@ -840,10 +857,27 @@ struct PushTransposeThroughSCast
 
     // The new scast takes the transpose's input directly, so its output must
     // have the same shape as that input (scast only changes the element type).
+    // For per-axis quant types, remap the quant axis from post-transpose
+    // (output) space to pre-transpose (input) space.
     auto inputType =
         mlir::cast<RankedTensorType>(transposeOp.getOperand().getType());
-    auto newOutputType = RankedTensorType::get(
-        inputType.getShape(), outputType.getElementType());
+    Type newElemType = outputType.getElementType();
+    if (auto perAxisType =
+            dyn_cast<quant::UniformQuantizedPerAxisType>(newElemType)) {
+      int32_t oldAxis = perAxisType.getQuantizedDimension();
+      if (oldAxis >= 0 && oldAxis < static_cast<int32_t>(perm->size())) {
+        int32_t newAxis = static_cast<int32_t>((*perm)[oldAxis]);
+        if (newAxis != oldAxis) {
+          newElemType = quant::UniformQuantizedPerAxisType::get(
+              perAxisType.getFlags(), perAxisType.getStorageType(),
+              perAxisType.getExpressedType(), perAxisType.getScales(),
+              perAxisType.getZeroPoints(), newAxis,
+              perAxisType.getStorageTypeMin(), perAxisType.getStorageTypeMax());
+        }
+      }
+    }
+    auto newOutputType =
+        RankedTensorType::get(inputType.getShape(), newElemType);
 
     LLVM_DEBUG(llvm::dbgs() << "Pushing transpose through quant.scast\n");
 

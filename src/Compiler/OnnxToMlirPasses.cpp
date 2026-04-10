@@ -93,6 +93,7 @@ void addXmcMlirPasses(mlir::OpPassManager &pm, OnnxToMlirOptions opts) {
       onnx_mlir::createNormalizeConvActivationPass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createConvertSCastPairToRequantizePass());
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
 }
 
 void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,

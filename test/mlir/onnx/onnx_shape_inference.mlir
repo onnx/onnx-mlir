@@ -736,6 +736,32 @@ func.func @test_constant_sparse_2d_value() -> tensor<*xf32> {
 
 // -----
 
+/// Test ConstantOp shape inference preserves per-tensor quantized element type.
+/// Without the fix in Constant.cpp, inferShapes would read the element type
+/// from the DenseElementsAttr (i8) and overwrite the quantized type.
+func.func @test_constant_preserve_quant_type() -> tensor<3x!quant.uniform<i8:f32, 1.000000e-01>> {
+  %0 = "onnx.Constant"() {value = dense<[1, 2, 3]> : tensor<3xi8>} : () -> tensor<3x!quant.uniform<i8:f32, 1.000000e-01>>
+  "onnx.Return"(%0) : (tensor<3x!quant.uniform<i8:f32, 1.000000e-01>>) -> ()
+
+  // CHECK-LABEL: test_constant_preserve_quant_type
+  // CHECK: onnx.Constant {value = dense<[1, 2, 3]> : tensor<3xi8>} : tensor<3x!quant.uniform<i8:f32, 1.000000e-01>>
+  // CHECK: onnx.Return {{.*}} : tensor<3x!quant.uniform<i8:f32, 1.000000e-01>>
+}
+
+// -----
+
+/// Test ConstantOp shape inference preserves per-axis quantized element type.
+func.func @test_constant_preserve_per_axis_quant_type() -> tensor<2x!quant.uniform<i8:f32:0, {1.000000e-01, 2.000000e-01}>> {
+  %0 = "onnx.Constant"() {value = dense<[1, 2]> : tensor<2xi8>} : () -> tensor<2x!quant.uniform<i8:f32:0, {1.000000e-01, 2.000000e-01}>>
+  "onnx.Return"(%0) : (tensor<2x!quant.uniform<i8:f32:0, {1.000000e-01, 2.000000e-01}>>) -> ()
+
+  // CHECK-LABEL: test_constant_preserve_per_axis_quant_type
+  // CHECK: onnx.Constant {value = dense<[1, 2]> : tensor<2xi8>} : tensor<2x!quant.uniform<i8:f32:0, {1.000000e-01,2.000000e-01}>>
+  // CHECK: onnx.Return {{.*}} : tensor<2x!quant.uniform<i8:f32:0, {1.000000e-01,2.000000e-01}>>
+}
+
+// -----
+
 /// Test the default behavior of Average Pool with no padding (pad are set but shoud be ignored)
 func.func @test_default_averagepool(%arg0 : tensor<5x5x32x32xf32>) -> tensor<*xf32> {
   %0 = "onnx.AveragePool"(%arg0) {auto_pad = "VALID", ceil_mode = 0 : si64, kernel_shape = [3,3] } : (tensor<5x5x32x32xf32>) -> tensor<*xf32>
