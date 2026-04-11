@@ -1918,6 +1918,7 @@ def ONNXDivOp:ONNX_Op<"Div",
   
   This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md).
   
+  For integer inputs, the result is computed using truncating division (rounding toward zero).
   (Opset 14 change): Extend supported types to include uint8, int8, uint16, and int16.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$A,
@@ -4179,7 +4180,7 @@ def ONNXLoopOp:ONNX_Op<"Loop",
   1) Values from the enclosing scope (i.e. variable \"a\" here) are in scope and can
      be referenced in the inputs of the loop.
   2) Any values computed in the loop body that needs to be used in a subsequent
-     iteration or after the loop are modelled using a pair of variables in the loop-body,
+     iteration or after the loop are modeled using a pair of variables in the loop-body,
      consisting of an input variable (eg., b_in) and an output variable (eg., b_out).
      These are referred to as loop-carried dependences. The loop operation node
      supplies the input value of the input variable for the first iteration, and
@@ -4240,6 +4241,9 @@ def ONNXLpNormalizationOp:ONNX_Op<"LpNormalization",
   let summary = "ONNX LpNormalization operation";
   let description = [{
   Given a matrix, apply Lp-normalization along the provided axis.
+  The output is computed as: `output = input / Lp_norm(input, axis)`.
+  When the Lp norm is zero (i.e., all elements along the axis are zero),
+  the output is defined to be zero to avoid division by zero.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$input,
     DefaultValuedAttr<SI64Attr, "-1">:$axis,
@@ -5061,6 +5065,7 @@ def ONNXNonMaxSuppressionOp:ONNX_Op<"NonMaxSuppression",
   let description = [{
   Filter out boxes that have high intersection-over-union (IOU) overlap with previously selected boxes.
   Bounding boxes with score less than score_threshold are removed. Bounding box format is indicated by attribute center_point_box.
+  Boxes are suppressed if their IOU with a previously selected box is strictly greater than iou_threshold (i.e., boxes with IOU exactly equal to the threshold are kept).
   Note that this algorithm is agnostic to where the origin is in the coordinate system and more generally is invariant to
   orthogonal transformations and translations of the coordinate system; thus translating or reflections of the coordinate system
   result in the same boxes being selected by the algorithm.
