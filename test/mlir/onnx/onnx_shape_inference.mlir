@@ -1012,6 +1012,32 @@ func.func @test_reshape_dim_bijective_at_last_dim(%arg0: tensor<?x?x2048xf32>) -
 
 // -----
 
+// COM: Test if reshape's shape inference can use DimAnalysis to enhance shape inference.
+// COM: By using DimAnalysis, we can infer the output shape of [1x?x16x128]. Otherwise, it is only [1x?x?x128].
+
+func.func @test_reshape_use_dim_analysis(%arg0: tensor<1x?x2048xf32> {onnx.dim_params = "1:s0"}, %arg1: tensor<1x?x2048xf32> {onnx.dim_params = "1:s0"}) -> tensor<*xf32> {
+  %0 = onnx.Constant dense<1> : tensor<1xi64>
+  %1 = "onnx.Dim"(%arg1) <{axis = 1 : si64}> : (tensor<1x?x2048xf32>) -> tensor<1xi64>
+  %2 = onnx.Constant dense<-1> : tensor<1xi64>
+  %3 = onnx.Constant dense<128> : tensor<1xi64>
+  %4 = "onnx.Concat"(%0, %1, %2, %3) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
+  %5 = "onnx.Reshape"(%arg0, %4) <{allowzero = 0 : si64}> : (tensor<1x?x2048xf32>, tensor<4xi64>) -> tensor<*xf32>
+  return %5 : tensor<*xf32>
+
+// CHECK-LABEL:  func.func @test_reshape_use_dim_analysis
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x?x2048xf32> {onnx.dim_params = "1:s0"}, [[PARAM_1_:%.+]]: tensor<1x?x2048xf32> {onnx.dim_params = "1:s0"}) -> tensor<1x?x16x128xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<128> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<-1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Dim"([[PARAM_1_]]) <{axis = 1 : si64}> : (tensor<1x?x2048xf32>) -> tensor<1xi64>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Concat"([[VAR_2_]], [[VAR_3_]], [[VAR_1_]], [[VAR_0_]]) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
+// CHECK:           [[VAR_5_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_4_]]) <{allowzero = 0 : si64}> : (tensor<1x?x2048xf32>, tensor<4xi64>) -> tensor<1x?x16x128xf32>
+// CHECK:           return [[VAR_5_]] : tensor<1x?x16x128xf32>
+// CHECK:         }
+}
+
+// -----
+
 // COM: This pattern is found in the IBM granite-3.1-2b-instruct model.
 func.func @test_reshape_matmul_dim(%arg0: tensor<?x?x2048xf32>) -> tensor<?x?x?x64xf32> {
   %0 = onnx.Constant dense<1.000000e+00> : tensor<2048x2048xf32>
