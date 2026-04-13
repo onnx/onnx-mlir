@@ -685,9 +685,6 @@ DimAnalysis::DimAnalysis(
   LLVM_DEBUG({
     llvm::dbgs() << "Scoped DimAnalysis: collected " << collectedOps.size()
                  << " operations within " << upwardLevel << " levels from ";
-    op->dump();
-    for (auto co : collectedOps)
-      co->dump();
   });
 
   // Collect all values from the collected operations.

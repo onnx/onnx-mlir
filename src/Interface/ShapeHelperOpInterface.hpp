@@ -181,13 +181,11 @@ private:
   // Used to cache the operation's operands (shape inference only).
   llvm::SmallVector<mlir::Value> privateOperandsCache;
   bool ownScope, ownBuilder;
-  // ShapeHelper can use dynamic dimension analysis to understand the
-  // relationship between dynamic dimensions. Also, the dynamic dimension
-  // analysis can use ShapeHelper to analyze dynamic dimension relation.
-  // To avoid going to an infinite recursion, it is important to known when a
-  // ShapeHelper is used inside the dynamic dimension analysis or not.
-  // Always set to true when using ShapeHeper for dynamic dimension analysis.
-  // Otherwise, set to false.
+  // ShapeHelper may be called from dynamic dimension analysis. In such a case,
+  // ShapeHelper should be used only for analysis and should not update output
+  // dimensions. Otherwise the analysis may fail.
+  // Once this variable is set to True, functions in ShapeHelper should be aware
+  // of this mode and should not update output dimensions.
   bool dimAnalysisMode = false;
 };
 
