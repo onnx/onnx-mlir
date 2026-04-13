@@ -1015,10 +1015,6 @@ void DimAnalysis::visitDim(
   if (isa<ONNXConstantOp>(op))
     return;
 
-  // ONNXShapeOp was not simplified. Nothing to do further.
-  if (isa<ONNXShapeOp>(op))
-    return;
-
   // DimOp
   if (auto dimOp = mlir::dyn_cast<ONNXDimOp>(op)) {
     // DimAnalysis::DimT newSameDim(dimOp.getData(), dimOp.getAxis());
