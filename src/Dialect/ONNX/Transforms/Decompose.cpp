@@ -4496,7 +4496,7 @@ struct DecomposeONNXToONNXPass
       bool enableGroupNormDecompose = true,
       bool enableMatmulNBitsDecompose = false,
       bool enableGroupQueryAttentionDecompose = true,
-      bool enableSplitToSliceDecompose = false) {
+      bool enableSplitToSliceDecompose = false, bool enableConcatFuse = true) {
     this->target = target;
     this->enableConvTransposeDecompose = enableConvTransposeDecompose;
     this->enableConvTransposeDecomposeToPhasedConv =
@@ -4509,6 +4509,7 @@ struct DecomposeONNXToONNXPass
     this->enableGroupQueryAttentionDecompose =
         enableGroupQueryAttentionDecompose;
     this->enableSplitToSliceDecompose = enableSplitToSliceDecompose;
+    this->enableConcatFuse = enableConcatFuse;
   }
 
   DecomposeONNXToONNXPass(const DecomposeONNXToONNXPass &pass)
@@ -4528,6 +4529,7 @@ struct DecomposeONNXToONNXPass
         pass.enableGroupQueryAttentionDecompose.getValue();
     this->enableSplitToSliceDecompose =
         pass.enableSplitToSliceDecompose.getValue();
+    this->enableConcatFuse = pass.enableConcatFuse.getValue();
   }
 
   StringRef getArgument() const override { return "decompose-onnx"; }
@@ -4583,6 +4585,10 @@ struct DecomposeONNXToONNXPass
       llvm::cl::desc("Enable decomposition of Split to Slice operations"),
       ::llvm::cl::init(false)};
 
+  Option<bool> enableConcatFuse{*this, "enable-concat-fuse",
+      llvm::cl::desc("Enable ConcatFusePattern rewriter"),
+      ::llvm::cl::init(true)};
+
   void runOnOperation() final;
 
   typedef PassWrapper<DecomposeONNXToONNXPass, OperationPass<func::FuncOp>>
@@ -4597,7 +4603,8 @@ void DecomposeONNXToONNXPass::runOnOperation() {
       enableConvTransposeDecompose, enableConvTransposeDecomposeToPhasedConv,
       enableConvTranspose1dDecomposeToPhasedConv, enableInstanceNormDecompose,
       enableGroupNormDecompose, enableMatmulNBitsDecompose,
-      enableGroupQueryAttentionDecompose, enableSplitToSliceDecompose);
+      enableGroupQueryAttentionDecompose, enableSplitToSliceDecompose,
+      enableConcatFuse);
   patterns.insert<ReplaceCastLikeByCastPattern>(context);
 
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
@@ -4620,7 +4627,7 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
     bool enableConvTranspose1dDecomposeToPhasedConv,
     bool enableInstanceNormDecompose, bool enableGroupNormDecompose,
     bool enableMatmulNBitsDecompose, bool enableGroupQueryAttentionDecompose,
-    bool enableSplitToSliceDecompose) {
+    bool enableSplitToSliceDecompose, bool enableConcatFuse) {
   MLIRContext *context = patterns.getContext();
   populateWithGenerated(patterns);
   if (enableConvTransposeDecompose)
@@ -4638,7 +4645,8 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
   if (enableSplitToSliceDecompose)
     patterns.insert<SplitToSlicePattern>(context);
   patterns.insert<onnx_mlir::DecomposeEinsumPattern>(context);
-  patterns.insert<ConcatFusePattern>(context);
+  if (enableConcatFuse)
+    patterns.insert<ConcatFusePattern>(context);
   patterns.insert<DecomposeHardSwishPattern>(context);
   // Decompose CustomOp FusedMatMul introduced by onnxruntime:
   // https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#com.microsoft.FusedMatMul
@@ -4684,10 +4692,11 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createDecomposeONNXToONNXPass(
     bool enableConvTranspose1dDecomposeToPhasedConv,
     bool enableInstanceNormDecompose, bool enableGroupNormDecompose,
     bool enableMatmulNBitsDecompose, bool enableGroupQueryAttentionDecompose,
-    bool enableSplitToSliceDecompose) {
+    bool enableSplitToSliceDecompose, bool enableConcatFuse) {
   return std::make_unique<DecomposeONNXToONNXPass>(target,
       enableConvTransposeDecompose, enableConvTransposeDecomposeToPhasedConv,
       enableConvTranspose1dDecomposeToPhasedConv, enableInstanceNormDecompose,
       enableGroupNormDecompose, enableMatmulNBitsDecompose,
-      enableGroupQueryAttentionDecompose, enableSplitToSliceDecompose);
+      enableGroupQueryAttentionDecompose, enableSplitToSliceDecompose,
+      enableConcatFuse);
 }
