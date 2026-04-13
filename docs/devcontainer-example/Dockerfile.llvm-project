@@ -10,4 +10,3 @@ RUN apt-get install -y vim bash valgrind clang-format lsb-release \
 # For development
 ENV LLVM_PROJECT_ROOT=/workdir/llvm-project 
 ENV MLIR_DIR=/workdir/llvm-project/build/lib/cmake/mlir
-ENV eval "$(ssh-agent)" 
