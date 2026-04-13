@@ -159,7 +159,7 @@ def __init__(self, shared_lib_path: str, tag: str = "", use_default_entry_point:
 def run(self, inputs: List[ndarray]) -> List[ndarray]:
     """
     Run inference on the model.
-    
+
     Args:
         inputs: A list of NumPy arrays, the inputs of your model.
 
@@ -172,7 +172,7 @@ def runDebug(self, inputs: List[ndarray],
              force_output_data_copy: bool = False) -> List[ndarray]:
     """
     Run inference with debugging options enabled.
-    
+
     Args:
         inputs: A list of NumPy arrays, the inputs of your model.
         with_signal_handler: Enable signal handler for catching crashes (POSIX only).
@@ -206,7 +206,7 @@ def entry_points(self) -> List[str]:
 def set_entry_point(self, name: str):
     """
     Set the active entry point for inference.
-    
+
     Args:
         name: An entry point name from entry_points().
     """
@@ -214,7 +214,7 @@ def set_entry_point(self, name: str):
 def print_instrumentation(self):
     """
     Print instrumentation data from model execution.
-    
+
     If the model was compiled with instrumentation enabled, prints performance
     metrics and profiling information. Does nothing if instrumentation is not available.
     """
@@ -268,14 +268,14 @@ def __init__(self, input_model_path: str, flags: str,
              reuse_compiled_model: bool = False):
     """
     Compile an ONNX model.
-    
+
     Args:
         input_model_path: Relative or absolute path to your ONNX/MLIR model file.
         flags: Compilation flags as a single string (e.g., '-O3', '-O3 -o output_name').
         compiler_path: Path to onnx-mlir compiler binary. If empty, use default location.
         log_file_name: Path to log file for compilation output. If empty, output to stdout/stderr.
         reuse_compiled_model: If True, reuse existing compiled model if it exists. Default: False.
-    
+
     Raises:
         RuntimeError: If the model file doesn't exist, compilation fails, or no input model provided.
     """
@@ -286,10 +286,10 @@ def __init__(self, input_model_path: str, flags: str,
 def get_output_file_name(self) -> str:
     """
     Get the output filename of the compiled model.
-    
+
     Returns:
         Full path to the compiled model output file.
-    
+
     Raises:
         RuntimeError: If the compilation failed.
     """
@@ -297,10 +297,10 @@ def get_output_file_name(self) -> str:
 def get_output_constant_file_name(self) -> str:
     """
     Get the output filename of the compiled model constant file, if any.
-    
+
     Returns:
         Full path to the constant file of the compiled model, or empty string if none.
-    
+
     Raises:
         RuntimeError: If the compilation failed.
     """
@@ -308,10 +308,10 @@ def get_output_constant_file_name(self) -> str:
 def get_model_tag(self) -> str:
     """
     Get the model tag for the compiled model.
-    
+
     Returns:
         Model tag string based on compilation flags.
-    
+
     Raises:
         RuntimeError: If the compilation failed.
     """
