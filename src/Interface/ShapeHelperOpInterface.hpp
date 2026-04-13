@@ -143,14 +143,14 @@ struct ONNXOpShapeHelper {
   // Set the operands with a vector of Value
   void setOperands(mlir::ValueRange);
 
-  // Set analysis mode. In this mode there is no refineShape.
-  void setAnalysisMode();
+  // Set dim analysis mode. In this mode there is no refineShape.
+  void setDimAnalysisMode();
 
-  // Unset analysis mode.
-  void unsetAnalysisMode();
+  // Unset dim analysis mode.
+  void unsetDimAnalysisMode();
 
-  // Get analysis mode.
-  bool getAnalysisMode() { return this->analysisMode;}
+  // Check if it is in the dim analysis mode.
+  bool isInDimAnalysisMode() { return this->dimAnalysisMode; }
 
 protected:
   // Helper for ops for which the output (n'th) is the same as the type of a
@@ -181,9 +181,14 @@ private:
   // Used to cache the operation's operands (shape inference only).
   llvm::SmallVector<mlir::Value> privateOperandsCache;
   bool ownScope, ownBuilder;
-  // Set to true when using ShapeHeper for dynamic dimension analysis.
+  // ShapeHelper can use dynamic dimension analysis to understand the
+  // relationship between dynamic dimensions. Also, the dynamic dimension
+  // analysis can use ShapeHelper to analyze dynamic dimension relation.
+  // To avoid going to an infinite recursion, it is important to known when a
+  // ShapeHelper is used inside the dynamic dimension analysis or not.
+  // Always set to true when using ShapeHeper for dynamic dimension analysis.
   // Otherwise, set to false.
-  bool analysisMode = false;
+  bool dimAnalysisMode = false;
 };
 
 } // namespace onnx_mlir

@@ -65,6 +65,20 @@ static bool isSkippedOp(Operation *op, TypeID skipOpType) {
          op->getRegisteredInfo()->getTypeID() == skipOpType;
 }
 
+static bool hasUnrankedInputOutput(Operation *op) {
+  for (Value v : op->getOperands()) {
+    auto t = mlir::dyn_cast<RankedTensorType>(v.getType());
+    if (!t)
+      return true;
+  }
+  for (Value v : op->getResults()) {
+    auto t = mlir::dyn_cast<RankedTensorType>(v.getType());
+    if (!t)
+      return true;
+  }
+  return false;
+}
+
 /// Insert a dynamic dimension into the analysis sets.
 /// It is expected that the shape-related operations were simplified by
 /// `simplify-shape-related-ops-onnx` pass before this analysis pass. Thus,
@@ -378,7 +392,7 @@ static bool exploreSameDimsUsingShapeHelper(const DimAnalysis::DimT &dim,
 
   // Compute shape.
   if (shapeHelper->isImplemented()) {
-    shapeHelper->setAnalysisMode();
+    shapeHelper->setDimAnalysisMode();
     if (failed(shapeHelper->computeShape())) {
       delete shapeHelper;
       return false;
@@ -407,7 +421,7 @@ static bool exploreSameDimsUsingShapeHelper(const DimAnalysis::DimT &dim,
       shapeHelper->getOutputDims(tensorIndex)[dimIndex];
   findAndAddSameDim(qmOuputIE, op, op->getOperands(), sameDims);
 
-  shapeHelper->unsetAnalysisMode();
+  shapeHelper->unsetDimAnalysisMode();
   delete shapeHelper;
   return true;
 }
@@ -518,6 +532,9 @@ static void collectOperationsUpward(Operation *startOp, int64_t upwardLevel,
   if (upwardLevel < 0 || !startOp)
     return;
 
+  if (hasUnrankedInputOutput(startOp))
+    return;
+
   // Use a worklist algorithm with level tracking.
   std::queue<std::pair<Operation *, int64_t>> worklist;
   llvm::DenseMap<Operation *, int64_t> opLevels;
@@ -549,6 +566,14 @@ static void collectOperationsUpward(Operation *startOp, int64_t upwardLevel,
       Operation *defOp = operand.getDefiningOp();
       if (!defOp)
         continue;
+
+      if (hasUnrankedInputOutput(defOp)) {
+        // Detected tensor<*xdtype>. Terminate now.
+        LLVM_DEBUG(llvm::dbgs()
+                   << "Detected tensor<*xdtype>. Terminate DimAnalysis now.\n");
+        collectedOps.clear();
+        return;
+      }
 
       // Skip operations of the specified type to avoid circular dependencies.
       if (isSkippedOp(defOp, skipOpType))
@@ -594,16 +619,32 @@ static void collectValuesFromOps(const llvm::SmallPtrSet<Operation *, 32> &ops,
 //===----------------------------------------------------------------------===//
 
 DimAnalysis::DimAnalysis(ArrayRef<Value> vals) {
-  for (Value val : vals)
-    if (!isNoneValue(val))
-      build(val);
+  for (Value val : vals) {
+    // Ignore none values.
+    if (isNoneValue(val))
+      continue;
+    // Detect tensor<*xdtype>.
+    auto t = mlir::dyn_cast<RankedTensorType>(val.getType());
+    if (!t) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "Detected tensor<*xdtype>. Terminate DimAnalysis now.\n");
+      return;
+    }
+    build(val);
+  }
 
   LLVM_DEBUG(llvm::dbgs() << "The number of dynamic dims in the IR: "
                           << numOfDynamicDims << "\n");
 }
 
 DimAnalysis::DimAnalysis(ModuleOp moduleOp) {
-  moduleOp.walk([&](Operation *op) {
+  auto walkResult = moduleOp.walk([&](Operation *op) {
+    if (hasUnrankedInputOutput(op)) {
+      // Detected tensor<*xdtype>. Terminate now.
+      LLVM_DEBUG(llvm::dbgs()
+                 << "Detected tensor<*xdtype>. Terminate DimAnalysis now.\n");
+      return WalkResult::interrupt();
+    }
     if (auto funcOp = mlir::dyn_cast<func::FuncOp>(op)) {
       // Build dimensions for function arguments and results.
       buildFunctionArgsRes(
@@ -614,7 +655,13 @@ DimAnalysis::DimAnalysis(ModuleOp moduleOp) {
         if (!isNoneValue(output))
           build(output);
     }
+    return WalkResult::advance();
   });
+
+  // Do nothing if there exists unranked tensors.
+  if (!walkResult.wasInterrupted())
+    return;
+
   LLVM_DEBUG(llvm::dbgs() << "The number of dynamic dims in the IR: "
                           << numOfDynamicDims << "\n");
 }
