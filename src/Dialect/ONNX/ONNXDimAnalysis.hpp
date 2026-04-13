@@ -35,13 +35,6 @@ public:
   using DimSetMapT = llvm::SmallDenseMap<uint64_t, DimSetT, 4>;
 
 public:
-  /// Create a new analysis for specific values.
-  /// @param vals Target values for analysis.
-  /// @param shapeHelper ShapeHelper inside which this DimAnalysis is
-  /// constructed.
-  DimAnalysis(llvm::ArrayRef<mlir::Value> vals,
-      ONNXOpShapeHelper *shapeHelper = nullptr);
-
   /// Create a new analysis for all values in a module.
   /// @param op ModuleOp to analyze dynamics dimensions.
   /// @param shapeHelper ShapeHelper inside which this DimAnalysis is
@@ -147,6 +140,8 @@ private:
   /// This mapping maps each dynamic dimension in the tensor to a set of same
   /// dynamic dimensions.
   DimSetMapT dimSetMap;
+  /// Set of operations for analysis.
+  const llvm::SmallPtrSet<mlir::Operation *, 32> targetOps;
 };
 
 } // namespace onnx_mlir

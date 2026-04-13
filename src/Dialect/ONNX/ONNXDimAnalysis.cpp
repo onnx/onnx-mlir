@@ -155,14 +155,19 @@ static void findAndAddSameDim(const QuestionmarkIndexExpr &qmOuputIE,
 /// the input tensors of the consuming operator.
 ///
 /// For example, in MatMul(A, B) : MxN * NxP, dimA[1] = dimB[0] = N.
-static void exploreSameDimsFromConsumingOperators(
-    const DimAnalysis::DimT &dim, DimAnalysis::DimSetT &sameDims) {
+static void exploreSameDimsFromConsumingOperators(const DimAnalysis::DimT &dim,
+    DimAnalysis::DimSetT &sameDims,
+    const llvm::SmallPtrSet<Operation *, 32> &targetOps) {
   LLVM_DEBUG(llvm::dbgs() << "Explore using consuming operators\n");
   for (Operation *op : dim.first.getUsers()) {
     LLVM_DEBUG({
       llvm::dbgs() << " - exploring ";
       op->dump();
     });
+
+    // Do not explore beyond target operations.
+    if (!targetOps.contains(op))
+      return;
 
     if (auto concatOp = mlir::dyn_cast<ONNXConcatOp>(op)) {
       // Dimensions on the same axis (except the concatenating axis) are the
@@ -516,19 +521,42 @@ static bool exploreSameDimsUsingShapeInput(const DimAnalysis::DimT &dim,
   return true;
 }
 
+/// Collect all operations from ModuleOp.
+static llvm::SmallPtrSet<Operation *, 32> collectOperationsFromModule(
+    ModuleOp moduleOp) {
+  llvm::SmallPtrSet<Operation *, 32> collectedOps;
+
+  auto walkResult = moduleOp.walk([&](Operation *op) {
+    if (hasUnrankedInputOutput(op)) {
+      // Detected tensor<*xdtype>. Terminate now.
+      LLVM_DEBUG(llvm::dbgs()
+                 << "Detected tensor<*xdtype>. Terminate DimAnalysis now.\n");
+      return WalkResult::interrupt();
+    }
+    collectedOps.insert(op);
+    return WalkResult::advance();
+  });
+
+  if (walkResult.wasInterrupted())
+    collectedOps.clear();
+
+  return collectedOps;
+}
+
 //===----------------------------------------------------------------------===//
 // Helper functions for scoped analysis.
 //===----------------------------------------------------------------------===//
 
 /// Collect operations by tracing back from a given operation up to a specified
 /// level. Uses BFS to traverse the operand chain backwards.
-static void collectOperationsUpward(Operation *startOp, int64_t upwardLevel,
-    llvm::SmallPtrSet<Operation *, 32> &collectedOps) {
+static llvm::SmallPtrSet<Operation *, 32> collectOperationsUpward(
+    Operation *startOp, int64_t upwardLevel) {
+  llvm::SmallPtrSet<Operation *, 32> collectedOps;
   if (upwardLevel < 0 || !startOp)
-    return;
+    return collectedOps;
 
   if (hasUnrankedInputOutput(startOp))
-    return;
+    return collectedOps;
 
   // Use a worklist algorithm with level tracking.
   std::queue<std::pair<Operation *, int64_t>> worklist;
@@ -563,7 +591,7 @@ static void collectOperationsUpward(Operation *startOp, int64_t upwardLevel,
         LLVM_DEBUG(llvm::dbgs()
                    << "Detected tensor<*xdtype>. Terminate DimAnalysis now.\n");
         collectedOps.clear();
-        return;
+        return collectedOps;
       }
 
       // Skip if already visited at a closer or equal level.
@@ -576,6 +604,7 @@ static void collectOperationsUpward(Operation *startOp, int64_t upwardLevel,
       worklist.push({defOp, currentLevel + 1});
     }
   }
+  return collectedOps;
 }
 
 /// Collect all values from the collected operations and function arguments.
@@ -620,39 +649,12 @@ static bool notSafeForAnalysis(ONNXOpShapeHelper *shapeHelper) {
 // DimAnalysis class.
 //===----------------------------------------------------------------------===//
 
-DimAnalysis::DimAnalysis(ArrayRef<Value> vals, ONNXOpShapeHelper *shapeHelper) {
+DimAnalysis::DimAnalysis(ModuleOp moduleOp, ONNXOpShapeHelper *shapeHelper)
+    : targetOps(collectOperationsFromModule(moduleOp)) {
   if (notSafeForAnalysis(shapeHelper))
     return;
 
-  for (Value val : vals) {
-    // Ignore none values.
-    if (isNoneValue(val))
-      continue;
-    // Detect tensor<*xdtype>.
-    auto t = mlir::dyn_cast<RankedTensorType>(val.getType());
-    if (!t) {
-      LLVM_DEBUG(llvm::dbgs()
-                 << "Detected tensor<*xdtype>. Terminate DimAnalysis now.\n");
-      return;
-    }
-    build(val);
-  }
-
-  LLVM_DEBUG(llvm::dbgs() << "The number of dynamic dims in the IR: "
-                          << numOfDynamicDims << "\n");
-}
-
-DimAnalysis::DimAnalysis(ModuleOp moduleOp, ONNXOpShapeHelper *shapeHelper) {
-  if (notSafeForAnalysis(shapeHelper))
-    return;
-
-  auto walkResult = moduleOp.walk([&](Operation *op) {
-    if (hasUnrankedInputOutput(op)) {
-      // Detected tensor<*xdtype>. Terminate now.
-      LLVM_DEBUG(llvm::dbgs()
-                 << "Detected tensor<*xdtype>. Terminate DimAnalysis now.\n");
-      return WalkResult::interrupt();
-    }
+  for (Operation *op : targetOps) {
     if (auto funcOp = mlir::dyn_cast<func::FuncOp>(op)) {
       // Build dimensions for function arguments and results.
       buildFunctionArgsRes(
@@ -663,37 +665,29 @@ DimAnalysis::DimAnalysis(ModuleOp moduleOp, ONNXOpShapeHelper *shapeHelper) {
         if (!isNoneValue(output))
           build(output);
     }
-    return WalkResult::advance();
-  });
-
-  // Do nothing if there exists unranked tensors.
-  if (!walkResult.wasInterrupted())
-    return;
+  }
 
   LLVM_DEBUG(llvm::dbgs() << "The number of dynamic dims in the IR: "
                           << numOfDynamicDims << "\n");
 }
 
 DimAnalysis::DimAnalysis(
-    Operation *op, int64_t upwardLevel, ONNXOpShapeHelper *shapeHelper) {
+    Operation *op, int64_t upwardLevel, ONNXOpShapeHelper *shapeHelper)
+    : targetOps(collectOperationsUpward(op, upwardLevel)) {
   if (notSafeForAnalysis(shapeHelper))
     return;
 
   if (!op || upwardLevel < 0)
     return;
 
-  // Collect operations within the upward level.
-  llvm::SmallPtrSet<Operation *, 32> collectedOps;
-  collectOperationsUpward(op, upwardLevel, collectedOps);
-
   LLVM_DEBUG({
-    llvm::dbgs() << "Scoped DimAnalysis: collected " << collectedOps.size()
+    llvm::dbgs() << "Scoped DimAnalysis: collected " << targetOps.size()
                  << " operations within " << upwardLevel << " levels from ";
   });
 
   // Collect all values from the collected operations.
   llvm::SmallVector<Value, 32> values;
-  collectValuesFromOps(collectedOps, values);
+  collectValuesFromOps(targetOps, values);
 
   // Build dimension sets for the collected values.
   for (Value val : values) {
@@ -1044,9 +1038,10 @@ void DimAnalysis::visitDim(
 
   // When the current tensor is consumed by an operator, find the relation
   // between dimensions of the input operands.
+  // Do not go beyond the target operations since it's expensive.
   //
   // For example, in MatMul(A, B) : MxN * NxP, dimA[1] = dimB[0].
-  exploreSameDimsFromConsumingOperators(dim, sameDims);
+  exploreSameDimsFromConsumingOperators(dim, sameDims, targetOps);
 
   // The remaining code will find where a dimension comes from, depending on
   // operation semantics, by *exploring the defining operator*. We utilize the
