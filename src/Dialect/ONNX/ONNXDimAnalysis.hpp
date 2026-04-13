@@ -19,6 +19,8 @@
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/Value.h"
 
+#include "src/Interface/ShapeHelperOpInterface.hpp"
+
 namespace onnx_mlir {
 
 class DimAnalysis {
@@ -34,10 +36,17 @@ public:
 
 public:
   /// Create a new analysis for specific values.
-  DimAnalysis(llvm::ArrayRef<mlir::Value> vals);
+  /// @param vals Target values for analysis.
+  /// @param shapeHelper ShapeHelper inside which this DimAnalysis is
+  /// constructed.
+  DimAnalysis(llvm::ArrayRef<mlir::Value> vals,
+      ONNXOpShapeHelper *shapeHelper = nullptr);
 
   /// Create a new analysis for all values in a module.
-  DimAnalysis(mlir::ModuleOp op);
+  /// @param op ModuleOp to analyze dynamics dimensions.
+  /// @param shapeHelper ShapeHelper inside which this DimAnalysis is
+  /// constructed.
+  DimAnalysis(mlir::ModuleOp op, ONNXOpShapeHelper *shapeHelper = nullptr);
 
   /// Create a scoped analysis by tracing back from a given operation.
   /// Only analyzes operations within 'upwardLevel' steps back from 'op'.
@@ -45,10 +54,11 @@ public:
   /// @param op The starting operation to trace back from
   /// @param upwardLevel Maximum number of levels to trace back (0 = only op
   /// itself)
-  /// @param skipOpType Optional operation type ID to skip during analysis
-  /// (prevents circular dependencies)
-  DimAnalysis(mlir::Operation *op, int64_t upwardLevel,
-      mlir::TypeID skipOpType = mlir::TypeID::get<void>());
+  /// @param skipOpType Operation type ID to skip during analysis
+  /// @param shapeHelper ShapeHelper inside which this DimAnalysis is
+  /// constructed.
+  DimAnalysis(mlir::Operation *op, int64_t upwardLevel, mlir::TypeID skipOpType,
+      ONNXOpShapeHelper *shapeHelper = nullptr);
 
   /// Analyzes the relationship among dynamic dimensions.
   /// Current implementation uses a fixed-point iteration algorithm,

@@ -618,11 +618,29 @@ static void collectValuesFromOps(const llvm::SmallPtrSet<Operation *, 32> &ops,
   }
 }
 
+static bool notSafeForAnalysis(ONNXOpShapeHelper *shapeHelper) {
+  // Doing dim analysis inside dim analysis may cause infinite recursion.
+  if (shapeHelper && shapeHelper->isInDimAnalysisMode())
+    return true;
+
+  // Doing dim analysis during dialect lowering is unstable since an
+  // intermediate state of IR may be invalid.
+  // The existence of a builder indicates ShapeHelper is used in dialect
+  // lowering.
+  if (shapeHelper && shapeHelper->getBuilder()->getBuilderPtr())
+    return true;
+
+  return false;
+}
+
 //===----------------------------------------------------------------------===//
 // DimAnalysis class.
 //===----------------------------------------------------------------------===//
 
-DimAnalysis::DimAnalysis(ArrayRef<Value> vals) {
+DimAnalysis::DimAnalysis(ArrayRef<Value> vals, ONNXOpShapeHelper *shapeHelper) {
+  if (notSafeForAnalysis(shapeHelper))
+    return;
+
   for (Value val : vals) {
     // Ignore none values.
     if (isNoneValue(val))
@@ -641,7 +659,10 @@ DimAnalysis::DimAnalysis(ArrayRef<Value> vals) {
                           << numOfDynamicDims << "\n");
 }
 
-DimAnalysis::DimAnalysis(ModuleOp moduleOp) {
+DimAnalysis::DimAnalysis(ModuleOp moduleOp, ONNXOpShapeHelper *shapeHelper) {
+  if (notSafeForAnalysis(shapeHelper))
+    return;
+
   auto walkResult = moduleOp.walk([&](Operation *op) {
     if (hasUnrankedInputOutput(op)) {
       // Detected tensor<*xdtype>. Terminate now.
@@ -670,8 +691,11 @@ DimAnalysis::DimAnalysis(ModuleOp moduleOp) {
                           << numOfDynamicDims << "\n");
 }
 
-DimAnalysis::DimAnalysis(
-    Operation *op, int64_t upwardLevel, mlir::TypeID skipOpType) {
+DimAnalysis::DimAnalysis(Operation *op, int64_t upwardLevel,
+    mlir::TypeID skipOpType, ONNXOpShapeHelper *shapeHelper) {
+  if (notSafeForAnalysis(shapeHelper))
+    return;
+
   this->skipOpType = skipOpType;
 
   if (!op || upwardLevel < 0)

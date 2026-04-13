@@ -137,6 +137,7 @@ struct ONNXOpShapeHelper {
   mlir::Value getOutput(int n = 0) { return op->getResult(n); }
 
   // Get index expression scope and operation.
+  IndexExprBuilder *getBuilder() { return createIE; }
   IndexExprScope *getScope() { return scope; }
   mlir::Operation *getOp() { return op; }
 
