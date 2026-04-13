@@ -67,11 +67,15 @@ static bool isSkippedOp(Operation *op, TypeID skipOpType) {
 
 static bool hasUnrankedInputOutput(Operation *op) {
   for (Value v : op->getOperands()) {
+    if (isNoneValue(v))
+      continue;
     auto t = mlir::dyn_cast<RankedTensorType>(v.getType());
     if (!t)
       return true;
   }
   for (Value v : op->getResults()) {
+    if (isNoneValue(v))
+      continue;
     auto t = mlir::dyn_cast<RankedTensorType>(v.getType());
     if (!t)
       return true;

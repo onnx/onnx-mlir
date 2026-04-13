@@ -69,9 +69,7 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
 
   // Skip ONNXReshapeOp to avoid circular dependency during shape inference.
   DimAnalysis scopedAnalysis(op, kUpwardLevel, TypeID::get<ONNXReshapeOp>());
-  // Donot call analysis again in the analysis mode.
-  if (!isInDimAnalysisMode())
-    scopedAnalysis.analyze();
+  scopedAnalysis.analyze();
 
   std::set<int64_t> dataIgnoredDims, outputIgnoredDims;
   SmallVector<Value> shapeDimVals;
