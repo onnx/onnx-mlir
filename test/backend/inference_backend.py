@@ -2,7 +2,7 @@
 
 ##################### inference_backend.py #####################################
 #
-# Copyright 2021, 2024 The IBM Research Authors.
+# Copyright 2021- 2026 The IBM Research Authors.
 #
 ################################################################################
 from __future__ import absolute_import
@@ -742,50 +742,52 @@ def get_test_models():
         },
         # ==OP== ConvTranspose
         # ==MIN== 1
-        # ==LIM== Spatial dimensions (H and W in input `X`, and kH and kW in input `W`) must be static dimension.
+        # ==LIM== Weight input `W` must be constant with static dimensions. `X` input shape must be constant when using the `output_shape` option.
         "test_convtranspose_1d_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            DYNAMIC_SHAPE: {0: {0, 1, 2}},
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_3d_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            DYNAMIC_SHAPE: {0: {0, 1, 2, 3, 4}},
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_autopad_same_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            DYNAMIC_SHAPE: {0: {0, 1, 2, 3}},
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            DYNAMIC_SHAPE: {0: {0, 1, 2, 3}},
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_dilations_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            DYNAMIC_SHAPE: {0: {0, 1, 2, 3}},
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_kernel_shape_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            DYNAMIC_SHAPE: {0: {0, 1}},
+            # Dynamic shapes disabled for spatial dims (output_shape option only).
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_output_shape_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            DYNAMIC_SHAPE: {0: {0, 1}},
+            # Dynamic shapes disabled for spatial dims (output_shape option only).
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_pad_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            DYNAMIC_SHAPE: {0: {0, 1, 2, 3}},
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_pads_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            DYNAMIC_SHAPE: {0: {0, 1, 2, 3}},
             CONSTANT_INPUT: {1},
         },
         # ==OP== Cos
@@ -3824,6 +3826,7 @@ def JniExecutionSession(jar_name, inputs):
     # print('stdin=' + str(procStdin), file=sys.stderr)
     cmd = [
         "java",
+        "-XX:-UsePerfData",
         "-cp",
         jar_name + ":" + os.getenv("JSONITER_JAR"),
         "com.ibm.onnxmlir.OMRunner",

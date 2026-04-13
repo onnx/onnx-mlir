@@ -118,11 +118,13 @@ void omTensorTopK(OMTensor *orderTensor, const OMTensor *inputTensor,
   // Standard setup (same as omTensorSort)
   const OM_DATA_TYPE dataType = omTensorGetDataType(inputTensor);
   const uint64_t rank = omTensorGetRank(inputTensor);
-  assert(rank <= 6 && "omTensorTopK assumes rank <= 6");
-  assert(axis == (rank - 1) && "omTensorTopK assumes axis == (rank - 1)");
+  assert(rank <= 6); // Error: "omTensorTopK assumes rank <= 6".
+  assert(
+      axis == (rank - 1)); // Error: "omTensorTopK assumes axis == (rank - 1)".
   const int64_t *inputShape = omTensorGetShape(inputTensor);
   const int64_t *inputStrides = omTensorGetStrides(inputTensor);
-  assert(inputStrides[axis] == 1 && "omTensorTopK assumes strides[axis] == 1");
+  assert(inputStrides[axis] ==
+         1); // Error: "omTensorTopK assumes strides[axis] == 1".
 
   void *orderPtr = omTensorGetDataPtr(orderTensor);
   uint64_t *order = (uint64_t *)orderPtr;
@@ -158,8 +160,8 @@ void omTensorTopK(OMTensor *orderTensor, const OMTensor *inputTensor,
   // 3. Get the final sort comparator (same as loop).
   compareFunctionType *sortCompare = loopCompare;
 
-  uint64_t datasize = OM_DATA_TYPE_SIZE[dataType];
-
+  uint64_t datasize = getDataTypeSize(dataType);
+  assert(datasize > 0); // Got an undefined data type.
 // Get the standard C sort function
 #if defined(__APPLE__)
   sortFunctionType *sortFunc = qsort_r;

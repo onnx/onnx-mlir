@@ -38,24 +38,52 @@ VERBOSE = os.environ.get("VERBOSE", False)
 def import_driver():
     global ONNX_MLIR, args
     try:
+        # TODO: do we still use this?
         from onnxmlir import InferenceSession as SessionWrapper
 
         args.use_onnxmlir = True
     except ImportError:
         args.use_onnxmlir = False
-        if not os.environ.get("ONNX_MLIR_HOME", None):
-            raise RuntimeError(
-                "To use native compiler, set environment variable ONNX_MLIR_HOME to the path to onnx-mlir."
-                " Typical example is `path-to-onnx-mlir/build/Debug, which is the parent folder containing the bin, lib, and etc for the compiler."
-            )
+
         ONNX_MLIR_EXENAME = "onnx-mlir.exe" if sys.platform == "win32" else "onnx-mlir"
-        ONNX_MLIR = os.path.join(os.environ["ONNX_MLIR_HOME"], "bin", ONNX_MLIR_EXENAME)
+        ONNX_MLIR = None
+        RUNTIME_DIR = None
+
+        # TODO: would we want to eliminate ONNX_MLIR_HOME?
+        # Strategy 1: Use ONNX_MLIR_HOME environment variable if set
+        if os.environ.get("ONNX_MLIR_HOME", None):
+            onnx_mlir_home = os.environ["ONNX_MLIR_HOME"]
+            ONNX_MLIR = os.path.join(onnx_mlir_home, "bin", ONNX_MLIR_EXENAME)
+            RUNTIME_DIR = os.path.join(onnx_mlir_home, "lib")
+
+        # Strategy 2: Search PATH for onnx-mlir binary
+        # shutil.which() searches all directories in the PATH environment variable
+        if ONNX_MLIR is None or not os.path.isfile(ONNX_MLIR):
+            onnx_mlir_path = shutil.which(ONNX_MLIR_EXENAME)
+            if onnx_mlir_path:
+                # Resolve symbolic links to find the actual binary location
+                onnx_mlir_path = os.path.realpath(onnx_mlir_path)
+                ONNX_MLIR = onnx_mlir_path
+                # Assume runtime lib is in ../lib relative to bin directory
+                # e.g., if binary is /usr/local/bin/onnx-mlir, lib is /usr/local/lib
+                bin_dir = os.path.dirname(onnx_mlir_path)
+                RUNTIME_DIR = os.path.join(os.path.dirname(bin_dir), "lib")
+
+        # If still not found, raise error
+        if ONNX_MLIR is None or not os.path.isfile(ONNX_MLIR):
+            raise RuntimeError(
+                "Cannot find onnx-mlir binary. Please either:\n"
+                " 1) Set environment variable ONNX_MLIR_HOME to the path to onnx-mlir\n"
+                "    (e.g., path-to-onnx-mlir/build/Debug, the parent folder containing bin, lib, etc)\n"
+                " 2) Add onnx-mlir to your PATH (e.g., export PATH=/path/to/onnx-mlir/bin:$PATH)\n"
+                " 3) Install onnx-mlir to a standard location that is already in PATH"
+            )
+
         # Include runtime directory in python paths, so PyRuntime can be imported.
-        RUNTIME_DIR = os.path.join(os.environ["ONNX_MLIR_HOME"], "lib")
-        sys.path.append(RUNTIME_DIR)
+        if RUNTIME_DIR and os.path.isdir(RUNTIME_DIR):
+            sys.path.append(RUNTIME_DIR)
 
         # Check and import Onnx Mlir Execution session / python interface.
-
         try:
             from PyRuntime import OMExecutionSession as SessionWrapper
         except ImportError:

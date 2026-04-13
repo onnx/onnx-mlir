@@ -51,7 +51,7 @@ PyOMCompile::PyOMCompile(std::string modelPath, std::string flags,
     // printing to stderr. Python code can handle and display exceptions
     // as needed, avoiding duplicate error messages.
     // Old version caught and re-threw with stderr output, causing duplicates.
-    OMcompile.compile(modelPath, flags, logFilename);
+    OMcompile.compile(modelPath, flags, compilerPath, logFilename);
   }
 }
 

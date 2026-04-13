@@ -35,7 +35,7 @@ static inline uint32_t hash_string(uint32_t hval, const char *str) {
 static inline uint32_t hash_int64(uint32_t hval, int64_t val) {
   char str[20];
   int num_chars_written = snprintf(str, sizeof(str), "%lld", (long long)val);
-  assert(num_chars_written >= 0 && "snprintf write error to str");
+  assert(num_chars_written >= 0); // Error: "snprintf write error to str".
   return hash_string(hval, str);
 }
 

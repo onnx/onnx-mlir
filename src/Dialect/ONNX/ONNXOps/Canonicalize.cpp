@@ -4,7 +4,7 @@
 
 //===----------- ONNXRewrite.cpp - ONNX High Level Optimizer --------------===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -2768,3 +2768,13 @@ void ONNXWhereOp::getCanonicalizationPatterns(
 // on the ONNXDequantizeLinearOp.
 void ONNXDequantizeLinearOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {}
+
+//===----------------------------------------------------------------------===//
+// UpsampleAndPad
+//===----------------------------------------------------------------------===//
+
+void ONNXUpsampleAndPadOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<RemoveIdentityUpsampleAndPadPattern>(context);
+  results.insert<ConvertUpsampleAndPadToPadPattern>(context);
+}

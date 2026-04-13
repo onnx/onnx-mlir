@@ -31,7 +31,7 @@ LogicalResult ONNXGenericPoolOpShapeHelper<OP_TYPE>::customComputeShape(
     std::optional<ArrayAttr> strideOpt, std::optional<ArrayAttr> dilationOpt,
     bool hasFilter, bool ceilMode) {
   // Basic information.
-  if(!hasShapeAndRank(xValue)) {
+  if (!hasShapeAndRank(xValue)) {
     return failure();
   }
   int64_t rank = createIE->getShapedTypeRank(xValue);
@@ -106,9 +106,14 @@ LogicalResult ONNXGenericPoolOpShapeHelper<OP_TYPE>::customComputeShape(
       // Set output dim, and pads already set, nothing more to do.
       outputDims.emplace_back(O);
     } else if (autoPad == "VALID") {
-      IndexExpr t1 = I - kdTerm; // Compute ceil((I - kdTerm +1)/s).
-      IndexExpr t2 = t1 + one;
-      IndexExpr O = t2.ceilDiv(s);
+      IndexExpr t1 = I;
+      IndexExpr t2 = t1 - kdTerm;
+      IndexExpr O;
+      if (ceilMode)
+        O = t2.ceilDiv(s);
+      else
+        O = t2.floorDiv(s);
+      O = O + one;
       // Set output dim, and pads already set to zero, nothing more to do.
       outputDims.emplace_back(O);
     } else if (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER") {
@@ -138,24 +143,24 @@ LogicalResult ONNXGenericPoolOpShapeHelper<OP_TYPE>::customComputeShape(
 
 #if DEBUG
   if (outputDims.size() == 4) {
-    cerr << "2d conv const params";
+    std::cerr << "2d conv const params";
     if (outputDims[0].isLiteral())
-      cerr << ", N " << outputDims[0].getLiteral();
+      std::cerr << ", N " << outputDims[0].getLiteral();
     if (outputDims[1].isLiteral())
-      cerr << ", CO " << outputDims[1].getLiteral();
+      std::cerr << ", CO " << outputDims[1].getLiteral();
     if (outputDims[2].isLiteral())
-      cerr << ", WO " << outputDims[2].getLiteral();
+      std::cerr << ", WO " << outputDims[2].getLiteral();
     if (outputDims[3].isLiteral())
-      cerr << ", HO " << outputDims[3].getLiteral();
+      std::cerr << ", HO " << outputDims[3].getLiteral();
     if (pads[0].isLiteral())
-      cerr << ", ph begin " << pads[0].getLiteral();
+      std::cerr << ", ph begin " << pads[0].getLiteral();
     if (pads[2].isLiteral())
-      cerr << ", ph end " << pads[2].getLiteral();
+      std::cerr << ", ph end " << pads[2].getLiteral();
     if (pads[1].isLiteral())
-      cerr << ", pw begin " << pads[1].getLiteral();
+      std::cerr << ", pw begin " << pads[1].getLiteral();
     if (pads[3].isLiteral())
-      cerr << ", pw end " << pads[3].getLiteral();
-    cerr << endl;
+      std::cerr << ", pw end " << pads[3].getLiteral();
+    std::cerr << std::endl;
   }
 #endif
 

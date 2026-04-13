@@ -22,14 +22,6 @@
 // ToFix: how to handle float_16
 #endif
 
-// SuppressWarnings.h only defines macros, not functions.
-#include "src/Support/SuppressWarnings.h"
-
-SUPPRESS_WARNINGS_PUSH
-// #include "onnx/onnx_pb.h"
-#include "src/Runtime/python/TensorProto.hpp"
-SUPPRESS_WARNINGS_POP
-
 #include "PyExecutionSessionBase.hpp"
 
 #define OM_DRIVER_TIMING 1 /* 1 for timing, 0 for no timing/overheads */
@@ -179,7 +171,7 @@ static py::array copyTensorToPyArray(
 // =============================================================================
 // Run.
 
-std::vector<py::array> PyExecutionSessionBase::pyRun(
+std::vector<py::array> PyExecutionSessionBase::pyRunImplementation(
     const std::vector<py::array> &inputsPyArray,
     const std::vector<py::array> &shapesPyArray,
     const std::vector<py::array> &stridesPyArray,
@@ -337,7 +329,8 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
     // multi-threaded Python applications without affecting single-threaded
     // code.
     //     py::gil_scoped_release release;  // Release GIL
-    wrappedOutput = run(wrappedInput, useSignalHandler);
+
+    wrappedOutput = runImplementation(wrappedInput, useSignalHandler);
   } // TODO from above: GIL would automatically be reacquired here.
   TIMING_STOP_PRINT(inference);
 
@@ -350,6 +343,10 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
   // 3. Process outputs.
   TIMING_INIT_START(process_output);
   std::vector<py::array> outputPyArrays;
+  // Maintain an 1-to-1 mapping between data pointers and py::capsules, to avoid
+  // creating two capsules for the same pointer. Otherwise, it causes double
+  // free error.
+  std::map<void *, py::capsule> mapPtrCapsule{};
   for (int64_t i = 0; i < omTensorListGetSize(wrappedOutput); i++) {
     auto *omt = omTensorListGetOmtByIndex(wrappedOutput, i);
     if (!omt) {
@@ -366,49 +363,49 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
     // https://numpy.org/devdocs/user/basics.types.html
     py::dtype dtype;
     switch (omTensorGetDataType(omt)) {
-    case (OM_DATA_TYPE)onnx::TensorProto::FLOAT:
+    case ONNX_TYPE_FLOAT:
       dtype = py::dtype("float32");
       break;
-    case (OM_DATA_TYPE)onnx::TensorProto::UINT8:
+    case ONNX_TYPE_UINT8:
       dtype = py::dtype("uint8");
       break;
-    case (OM_DATA_TYPE)onnx::TensorProto::INT8:
+    case ONNX_TYPE_INT8:
       dtype = py::dtype("int8");
       break;
-    case (OM_DATA_TYPE)onnx::TensorProto::UINT16:
+    case ONNX_TYPE_UINT16:
       dtype = py::dtype("uint16");
       break;
-    case (OM_DATA_TYPE)onnx::TensorProto::INT16:
+    case ONNX_TYPE_INT16:
       dtype = py::dtype("int16");
       break;
-    case (OM_DATA_TYPE)onnx::TensorProto::INT32:
+    case ONNX_TYPE_INT32:
       dtype = py::dtype("int32");
       break;
-    case (OM_DATA_TYPE)onnx::TensorProto::INT64:
+    case ONNX_TYPE_INT64:
       dtype = py::dtype("int64");
       break;
-    case (OM_DATA_TYPE)onnx::TensorProto::STRING:
+    case ONNX_TYPE_STRING:
       dtype = py::dtype("str");
       break;
-    case (OM_DATA_TYPE)onnx::TensorProto::BOOL:
+    case ONNX_TYPE_BOOL:
       dtype = py::dtype("bool_");
       break;
-    case (OM_DATA_TYPE)onnx::TensorProto::FLOAT16:
+    case ONNX_TYPE_FLOAT16:
       dtype = py::dtype("float16");
       break;
-    case (OM_DATA_TYPE)onnx::TensorProto::DOUBLE:
+    case ONNX_TYPE_DOUBLE:
       dtype = py::dtype("float64");
       break;
-    case (OM_DATA_TYPE)onnx::TensorProto::UINT32:
+    case ONNX_TYPE_UINT32:
       dtype = py::dtype("uint32");
       break;
-    case (OM_DATA_TYPE)onnx::TensorProto::UINT64:
+    case ONNX_TYPE_UINT64:
       dtype = py::dtype("uint64");
       break;
-    case (OM_DATA_TYPE)onnx::TensorProto::COMPLEX64:
+    case ONNX_TYPE_COMPLEX64:
       dtype = py::dtype("csingle");
       break;
-    case (OM_DATA_TYPE)onnx::TensorProto::COMPLEX128:
+    case ONNX_TYPE_COMPLEX128:
       dtype = py::dtype("cdouble");
       break;
     default: {
@@ -447,11 +444,18 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
         // We have a regular tensor which we will need to free at the right
         // time. Create the capsule that points to the data to be freed
         // (allocated pointer).
-        py::capsule free_data_with_allocate_ptr(
-            omtAllocPtr, /* Address that will be passed to lambda function. */
-            [](void *ptr) { /* Lambda function that performs the freeing. */
-              free(ptr);
-            });
+        py::capsule free_data_with_allocate_ptr;
+        auto it = mapPtrCapsule.find(omtDataPtr);
+        if (it != mapPtrCapsule.end()) {
+          free_data_with_allocate_ptr = it->second;
+        } else {
+          free_data_with_allocate_ptr = py::capsule(
+              omtAllocPtr, /* Address that will be passed to lambda function. */
+              [](void *ptr) { /* Lambda function that performs the freeing. */
+                free(ptr);
+              });
+          mapPtrCapsule.try_emplace(omtDataPtr, free_data_with_allocate_ptr);
+        }
         // Set owning to false as we migrate the ownership to python
         omTensorSetOwning(omt, false);
         // Pass the py::capsule to the numpy array for proper bookkeeping.
