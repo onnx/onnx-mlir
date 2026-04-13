@@ -60,11 +60,6 @@ static bool areOverlapping(
   return false;
 }
 
-static bool isSkippedOp(Operation *op, TypeID skipOpType) {
-  return skipOpType != mlir::TypeID::get<void>() && op->getRegisteredInfo() &&
-         op->getRegisteredInfo()->getTypeID() == skipOpType;
-}
-
 static bool hasUnrankedInputOutput(Operation *op) {
   for (Value v : op->getOperands()) {
     if (isNoneValue(v))
@@ -160,18 +155,14 @@ static void findAndAddSameDim(const QuestionmarkIndexExpr &qmOuputIE,
 /// the input tensors of the consuming operator.
 ///
 /// For example, in MatMul(A, B) : MxN * NxP, dimA[1] = dimB[0] = N.
-static void exploreSameDimsFromConsumingOperators(const DimAnalysis::DimT &dim,
-    DimAnalysis::DimSetT &sameDims, TypeID skipOpType) {
+static void exploreSameDimsFromConsumingOperators(
+    const DimAnalysis::DimT &dim, DimAnalysis::DimSetT &sameDims) {
   LLVM_DEBUG(llvm::dbgs() << "Explore using consuming operators\n");
   for (Operation *op : dim.first.getUsers()) {
     LLVM_DEBUG({
       llvm::dbgs() << " - exploring ";
       op->dump();
     });
-
-    // Skip operations of the specified type to avoid circular dependencies.
-    if (isSkippedOp(op, skipOpType))
-      continue;
 
     if (auto concatOp = mlir::dyn_cast<ONNXConcatOp>(op)) {
       // Dimensions on the same axis (except the concatenating axis) are the
@@ -532,7 +523,7 @@ static bool exploreSameDimsUsingShapeInput(const DimAnalysis::DimT &dim,
 /// Collect operations by tracing back from a given operation up to a specified
 /// level. Uses BFS to traverse the operand chain backwards.
 static void collectOperationsUpward(Operation *startOp, int64_t upwardLevel,
-    llvm::SmallPtrSet<Operation *, 32> &collectedOps, mlir::TypeID skipOpType) {
+    llvm::SmallPtrSet<Operation *, 32> &collectedOps) {
   if (upwardLevel < 0 || !startOp)
     return;
 
@@ -545,10 +536,6 @@ static void collectOperationsUpward(Operation *startOp, int64_t upwardLevel,
 
   worklist.push({startOp, 0});
   opLevels[startOp] = 0;
-
-  // Collect or skip startOp?
-  if (!isSkippedOp(startOp, skipOpType))
-    collectedOps.insert(startOp);
 
   while (!worklist.empty()) {
     auto [currentOp, currentLevel] = worklist.front();
@@ -578,10 +565,6 @@ static void collectOperationsUpward(Operation *startOp, int64_t upwardLevel,
         collectedOps.clear();
         return;
       }
-
-      // Skip operations of the specified type to avoid circular dependencies.
-      if (isSkippedOp(defOp, skipOpType))
-        continue;
 
       // Skip if already visited at a closer or equal level.
       if (opLevels.count(defOp) && opLevels[defOp] <= currentLevel + 1)
@@ -691,20 +674,17 @@ DimAnalysis::DimAnalysis(ModuleOp moduleOp, ONNXOpShapeHelper *shapeHelper) {
                           << numOfDynamicDims << "\n");
 }
 
-DimAnalysis::DimAnalysis(Operation *op, int64_t upwardLevel,
-    mlir::TypeID skipOpType, ONNXOpShapeHelper *shapeHelper) {
+DimAnalysis::DimAnalysis(
+    Operation *op, int64_t upwardLevel, ONNXOpShapeHelper *shapeHelper) {
   if (notSafeForAnalysis(shapeHelper))
     return;
-
-  this->skipOpType = skipOpType;
 
   if (!op || upwardLevel < 0)
     return;
 
-  // Collect operations within the upward level, skipping operations of the
-  // specified type.
+  // Collect operations within the upward level.
   llvm::SmallPtrSet<Operation *, 32> collectedOps;
-  collectOperationsUpward(op, upwardLevel, collectedOps, skipOpType);
+  collectOperationsUpward(op, upwardLevel, collectedOps);
 
   LLVM_DEBUG({
     llvm::dbgs() << "Scoped DimAnalysis: collected " << collectedOps.size()
@@ -1066,7 +1046,7 @@ void DimAnalysis::visitDim(
   // between dimensions of the input operands.
   //
   // For example, in MatMul(A, B) : MxN * NxP, dimA[1] = dimB[0].
-  exploreSameDimsFromConsumingOperators(dim, sameDims, skipOpType);
+  exploreSameDimsFromConsumingOperators(dim, sameDims);
 
   // The remaining code will find where a dimension comes from, depending on
   // operation semantics, by *exploring the defining operator*. We utilize the
@@ -1078,10 +1058,6 @@ void DimAnalysis::visitDim(
 
   // Get the defining operator.
   Operation *op = tensor.getDefiningOp();
-
-  // This operator is skipped.
-  if (isSkippedOp(op, skipOpType))
-    return;
 
   // Tensor is from a constant. Nothing to do further.
   if (isa<ONNXConstantOp>(op))

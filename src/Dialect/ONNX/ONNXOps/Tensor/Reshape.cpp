@@ -65,9 +65,9 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
 
   // Use scoped dimension analysis to detect equivalent dimensions.
   // Only analyze operations within a small upward level for performance.
-  // Skip ONNXReshapeOp to avoid circular dependency during shape inference.
-  DimAnalysis scopedAnalysis(
-      op, /*upwardLevel*/ 5, TypeID::get<ONNXReshapeOp>(), this);
+  // Important: passing this ShapeHelper into DimAnalysis to avoid infinite
+  // recursion.
+  DimAnalysis scopedAnalysis(op, /*upwardLevel*/ 5, this);
   scopedAnalysis.analyze();
 
   // Find the bijective mapping.

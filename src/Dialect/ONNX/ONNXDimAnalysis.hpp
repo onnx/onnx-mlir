@@ -54,10 +54,9 @@ public:
   /// @param op The starting operation to trace back from
   /// @param upwardLevel Maximum number of levels to trace back (0 = only op
   /// itself)
-  /// @param skipOpType Operation type ID to skip during analysis
   /// @param shapeHelper ShapeHelper inside which this DimAnalysis is
   /// constructed.
-  DimAnalysis(mlir::Operation *op, int64_t upwardLevel, mlir::TypeID skipOpType,
+  DimAnalysis(mlir::Operation *op, int64_t upwardLevel,
       ONNXOpShapeHelper *shapeHelper = nullptr);
 
   /// Analyzes the relationship among dynamic dimensions.
@@ -148,8 +147,6 @@ private:
   /// This mapping maps each dynamic dimension in the tensor to a set of same
   /// dynamic dimensions.
   DimSetMapT dimSetMap;
-  // Skipped Op type.
-  mlir::TypeID skipOpType = mlir::TypeID::get<void>();
 };
 
 } // namespace onnx_mlir
