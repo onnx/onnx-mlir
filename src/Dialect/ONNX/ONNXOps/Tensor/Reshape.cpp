@@ -67,7 +67,7 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
   // Only analyze operations within a small upward level for performance.
   // Skip ONNXReshapeOp to avoid circular dependency during shape inference.
   DimAnalysis scopedAnalysis(
-      op, /*upwardLevel*/ 10, TypeID::get<ONNXReshapeOp>());
+      op, /*upwardLevel*/ 5, TypeID::get<ONNXReshapeOp>());
   scopedAnalysis.analyze();
 
   // Find the bijective mapping.

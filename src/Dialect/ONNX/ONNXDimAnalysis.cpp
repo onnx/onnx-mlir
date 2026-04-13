@@ -652,7 +652,7 @@ DimAnalysis::DimAnalysis(ModuleOp moduleOp) {
     if (auto funcOp = mlir::dyn_cast<func::FuncOp>(op)) {
       // Build dimensions for function arguments and results.
       buildFunctionArgsRes(
-          funcOp, /*buildForInputs*/ true, /*buildForInputs*/ true);
+          funcOp, /*buildForInputs*/ true, /*buildForOutputs*/ true);
     } else {
       // Build dimensions for normal operation results.
       for (Value output : op->getResults())
@@ -700,7 +700,7 @@ DimAnalysis::DimAnalysis(
   // Initialize function arguments if the operation belongs to a function.
   if (auto funcOp = op->getParentOfType<func::FuncOp>()) {
     buildFunctionArgsRes(
-        funcOp, /*buildForInputs*/ true, /*buildForInputs*/ false);
+        funcOp, /*buildForInputs*/ true, /*buildForOutputs*/ false);
   }
 
   LLVM_DEBUG(
