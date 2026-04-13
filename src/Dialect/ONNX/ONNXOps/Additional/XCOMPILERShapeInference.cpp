@@ -26,6 +26,14 @@ LogicalResult XCOMPILERFusedEltwiseOpShapeInference(
   ArrayRef<int64_t> aShape = aType.getShape();
   Type elementType = aType.getElementType();
 
+  // Preserve existing element type if already set (e.g., quantized types
+  // with independently calibrated scale/zero_point). Only fall back to
+  // input A's element type if the result is unranked.
+  if (auto existingType =
+          dyn_cast<RankedTensorType>(eltwiseOp.getResult().getType())) {
+    elementType = existingType.getElementType();
+  }
+
   SmallVector<int64_t> outputShape;
 
   // Check if B is provided (not None)
@@ -38,11 +46,6 @@ LogicalResult XCOMPILERFusedEltwiseOpShapeInference(
     ArrayRef<int64_t> bShape = bType.getShape();
 
     // Compute output shape using NumPy-style broadcasting
-    // Broadcasting rules:
-    // - Shapes are right-aligned (compare from trailing dimensions)
-    // - Dimensions are compatible if equal OR one of them is 1
-    // - Output shape is maximum along each dimension
-    // - Shorter shape is implicitly padded with 1s on the left
     if (!OpTrait::util::getBroadcastedShape(aShape, bShape, outputShape)) {
       return op->emitError("FusedEltwise: incompatible shapes for broadcasting")
              << " A shape: [" << aShape << "], B shape: [" << bShape << "]";

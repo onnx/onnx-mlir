@@ -135,6 +135,48 @@ func.func @test_XCOMPILER_fused_eltwise_single_input(%arg0: tensor<1x64x28x28xi8
 
 // -----
 
+// COM: Test that shape inference preserves existing quantized element type
+// COM: When the result already has a ranked type with its own scale/zero_point,
+// COM: shape inference must NOT overwrite it with input A's element type.
+func.func @test_XCOMPILER_fused_eltwise_preserve_quant_type(
+    %arg0: tensor<1x512x512x128x!quant.uniform<u16:f32, 3.4006399801000953E-4:29409>>,
+    %arg1: tensor<1x512x512x128x!quant.uniform<u16:f32, 1.52587890625E-5>>) ->
+    tensor<1x512x512x128x!quant.uniform<u16:f32, 1.9170573796145618E-4:1453>> {
+  %0 = "onnx.XCOMPILERFusedEltwise"(%arg0, %arg1) {
+    type = "MUL",
+    nonlinear = "NONE"
+  } : (tensor<1x512x512x128x!quant.uniform<u16:f32, 3.4006399801000953E-4:29409>>,
+       tensor<1x512x512x128x!quant.uniform<u16:f32, 1.52587890625E-5>>) ->
+       tensor<1x512x512x128x!quant.uniform<u16:f32, 1.9170573796145618E-4:1453>>
+  onnx.Return %0 : tensor<1x512x512x128x!quant.uniform<u16:f32, 1.9170573796145618E-4:1453>>
+
+  // CHECK-LABEL: test_XCOMPILER_fused_eltwise_preserve_quant_type
+  // CHECK: [[RES:%.+]] = "onnx.XCOMPILERFusedEltwise"(%arg0, %arg1) {{.*}} -> tensor<1x512x512x128x!quant.uniform<u16:f32, 1.9170573796145618E-4:1453>>
+  // CHECK: onnx.Return [[RES]] : tensor<1x512x512x128x!quant.uniform<u16:f32, 1.9170573796145618E-4:1453>>
+}
+
+// -----
+
+// COM: Test that unranked quantized result falls back to input A's element type
+func.func @test_XCOMPILER_fused_eltwise_unranked_quant(
+    %arg0: tensor<1x64x28x28x!quant.uniform<u16:f32, 0.001:100>>,
+    %arg1: tensor<1x64x28x28x!quant.uniform<u16:f32, 0.002:200>>) ->
+    tensor<*x!quant.uniform<u16:f32, 0.001:100>> {
+  %0 = "onnx.XCOMPILERFusedEltwise"(%arg0, %arg1) {
+    type = "ADD",
+    nonlinear = "NONE"
+  } : (tensor<1x64x28x28x!quant.uniform<u16:f32, 0.001:100>>,
+       tensor<1x64x28x28x!quant.uniform<u16:f32, 0.002:200>>) ->
+       tensor<*x!quant.uniform<u16:f32, 0.001:100>>
+  onnx.Return %0 : tensor<*x!quant.uniform<u16:f32, 0.001:100>>
+
+  // CHECK-LABEL: test_XCOMPILER_fused_eltwise_unranked_quant
+  // CHECK: [[RES:%.+]] = "onnx.XCOMPILERFusedEltwise"(%arg0, %arg1) {{.*}} -> tensor<1x64x28x28x!quant.uniform<u16:f32, 1.{{.*}}:100>>
+  // CHECK: onnx.Return [[RES]] : tensor<1x64x28x28x!quant.uniform<u16:f32, 1.{{.*}}:100>>
+}
+
+// -----
+
 //===----------------------------------------------------------------------===//
 /// XCOMPILER DepthwiseConv Tests (Depthwise Separable Convolution - NHWC layout)
 /// Supports both 2D (4D tensors) and 3D (5D tensors)
