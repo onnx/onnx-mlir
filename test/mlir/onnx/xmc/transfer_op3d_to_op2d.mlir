@@ -366,4 +366,52 @@ module {
   // CHECK: onnx.Reshape{{.*}} -> tensor<1x2x8x8xf32>
   // CHECK: onnx.Add{{.*}}(tensor<1x2x8x8xf32>, tensor<1x2x8x8xf32>)
   // CHECK: onnx.Reshape{{.*}} -> tensor<1x1x2x8x8xf32>
+
+  // Test 19: Per-axis quantized matmul-like Conv3d → Conv2d
+  // Matmul-like: kernel=1, stride=1, pad=0, dilation=1
+  // Weight: [OC=2, IC=4, 1, 1, 1] → [OC=2, IC*D=16, 1, 1]
+  // Axis 0 stays OC=2, per-axis quant unchanged.
+  func.func @test_matmul_like_conv3d_per_axis(%arg0: tensor<1x4x4x8x8x!quant.uniform<i8:f32, 0.1:0>>) -> tensor<1x2x4x8x8x!quant.uniform<i8:f32, 0.1:0>> {
+    %w = onnx.Constant {value = dense<1> : tensor<2x4x1x1x1xi8>} : tensor<2x4x1x1x1x!quant.uniform<i8:f32:0, {0.05, 0.06}>>
+    %none = "onnx.NoValue"() {value} : () -> none
+    %0 = "onnx.Conv"(%arg0, %w, %none) {
+      auto_pad = "NOTSET",
+      dilations = [1, 1, 1],
+      group = 1 : si64,
+      kernel_shape = [1, 1, 1],
+      pads = [0, 0, 0, 0, 0, 0],
+      strides = [1, 1, 1]
+    } : (tensor<1x4x4x8x8x!quant.uniform<i8:f32, 0.1:0>>, tensor<2x4x1x1x1x!quant.uniform<i8:f32:0, {0.05, 0.06}>>, none) -> tensor<1x2x4x8x8x!quant.uniform<i8:f32, 0.1:0>>
+    return %0 : tensor<1x2x4x8x8x!quant.uniform<i8:f32, 0.1:0>>
+  }
+  // Matmul-like: OC unchanged at 2, per-axis quant preserved as-is
+  // CHECK-LABEL: func.func @test_matmul_like_conv3d_per_axis
+  // CHECK: onnx.Reshape
+  // CHECK: onnx.Reshape{{.*}} -> tensor<2x16x1x1x!quant.uniform<i8:f32:0, {5.000000e-02,6.000000e-02}>>
+  // CHECK: onnx.Conv
+  // CHECK: onnx.Reshape
+
+  // Test 20: Per-axis quantized non-matmul Conv3d → Conv2d
+  // Non-matmul: kernel=[3,3,3], stride=1, pad=0
+  // Weight: [OC=2, IC=2, 3, 3, 3] → [OC*D=8, IC*D=8, 3, 3]
+  // Per-axis quant on axis 0: scales {s0, s1} expand to {s0,s0,s0,s0, s1,s1,s1,s1}
+  func.func @test_non_matmul_conv3d_per_axis(%arg0: tensor<1x2x4x8x8x!quant.uniform<i8:f32, 0.1:0>>) -> tensor<1x2x4x8x8x!quant.uniform<i8:f32, 0.1:0>> {
+    %w = onnx.Constant {value = dense<1> : tensor<2x2x3x3x3xi8>} : tensor<2x2x3x3x3x!quant.uniform<i8:f32:0, {0.05, 0.06}>>
+    %none = "onnx.NoValue"() {value} : () -> none
+    %0 = "onnx.Conv"(%arg0, %w, %none) {
+      auto_pad = "NOTSET",
+      dilations = [1, 1, 1],
+      group = 1 : si64,
+      kernel_shape = [3, 3, 3],
+      pads = [0, 0, 0, 0, 0, 0],
+      strides = [1, 1, 1]
+    } : (tensor<1x2x4x8x8x!quant.uniform<i8:f32, 0.1:0>>, tensor<2x2x3x3x3x!quant.uniform<i8:f32:0, {0.05, 0.06}>>, none) -> tensor<1x2x4x8x8x!quant.uniform<i8:f32, 0.1:0>>
+    return %0 : tensor<1x2x4x8x8x!quant.uniform<i8:f32, 0.1:0>>
+  }
+  // Non-matmul: OC expands 2→8 (factor D=4), each scale repeated 4 times
+  // CHECK-LABEL: func.func @test_non_matmul_conv3d_per_axis
+  // CHECK: onnx.Reshape
+  // CHECK: onnx.Reshape{{.*}} -> tensor<8x8x3x3x!quant.uniform<i8:f32:0, {5.000000e-02,5.000000e-02,5.000000e-02,5.000000e-02,6.000000e-02,6.000000e-02,6.000000e-02,6.000000e-02}>>
+  // CHECK: onnx.Conv
+  // CHECK: onnx.Reshape
 }

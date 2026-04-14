@@ -295,9 +295,8 @@ struct MatMulToXFEConvPattern : public OpRewritePattern<ONNXMatMulOp> {
       // Non-constant weight: emit Transpose + Reshape ops.
       auto weightShapeConst =
           createShapeConstant(rewriter, loc, convShapes.weightShape);
-      auto transposedElemType = remapPerAxisQuantDim(weightElementType, 0);
       auto transposedWeightType = RankedTensorType::get(
-          {weightShape[1], weightShape[0]}, transposedElemType);
+          {weightShape[1], weightShape[0]}, convWeightElemType);
       auto permAttr = rewriter.getI64ArrayAttr({1, 0});
       Value transposedWeight = rewriter.create<ONNXTransposeOp>(
           loc, transposedWeightType, weight, permAttr);
@@ -474,9 +473,8 @@ struct GemmToXFEConvPattern : public OpRewritePattern<ONNXGemmOp> {
           rewriter, loc, B, {1, 0}, convShapes.weightShape, convWeightElemType);
 
       if (!convWeight) {
-        auto transposedElemType = remapPerAxisQuantDim(bElementType, 0);
         auto transposedBType =
-            RankedTensorType::get({bShape[1], bShape[0]}, transposedElemType);
+            RankedTensorType::get({bShape[1], bShape[0]}, convWeightElemType);
         auto permAttr = rewriter.getI64ArrayAttr({1, 0});
         Value transposedB =
             rewriter.create<ONNXTransposeOp>(loc, transposedBType, B, permAttr);

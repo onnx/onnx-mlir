@@ -250,3 +250,40 @@ func.func @conv_channel_slice_defaults(%arg0: tensor<1x3x8x8xf32>) -> tensor<1x2
 // CHECK-NOT: onnx.Slice
 // CHECK: onnx.Conv
 // CHECK-SAME: -> tensor<1x2x6x6xf32>
+
+// -----
+
+// Test: Per-axis quantized weight channel slice
+// Conv has 4 output channels with per-axis quant, slice selects first 2.
+// Scales {0.1, 0.2, 0.3, 0.4} -> {0.1, 0.2} for sliced weight.
+// CHECK-LABEL: @conv_channel_slice_per_axis
+func.func @conv_channel_slice_per_axis(%arg0: tensor<1x3x8x8x!quant.uniform<u8:f32, 0.05:128>>) -> tensor<1x2x6x6x!quant.uniform<u8:f32, 0.1:128>> {
+    %weights = onnx.Constant {value = dense<128> : tensor<4x3x3x3xui8>} : tensor<4x3x3x3x!quant.uniform<u8:f32:0, {0.1, 0.2, 0.3, 0.4}>>
+    %bias = onnx.Constant {value = dense<0> : tensor<4xi32>} : tensor<4x!quant.uniform<i32:f32:0, {0.005, 0.01, 0.015, 0.02}>>
+    %conv = "onnx.Conv"(%arg0, %weights, %bias) {
+        auto_pad = "NOTSET",
+        dilations = [1, 1],
+        group = 1 : si64,
+        kernel_shape = [3, 3],
+        pads = [0, 0, 0, 0],
+        strides = [1, 1]
+    } : (tensor<1x3x8x8x!quant.uniform<u8:f32, 0.05:128>>,
+         tensor<4x3x3x3x!quant.uniform<u8:f32:0, {0.1, 0.2, 0.3, 0.4}>>,
+         tensor<4x!quant.uniform<i32:f32:0, {0.005, 0.01, 0.015, 0.02}>>) ->
+        tensor<1x4x6x6x!quant.uniform<u8:f32, 0.1:128>>
+
+    %starts = onnx.Constant dense<[0, 0, 0, 0]> : tensor<4xi64>
+    %ends = onnx.Constant dense<[1, 2, 6, 6]> : tensor<4xi64>
+    %axes = onnx.Constant dense<[0, 1, 2, 3]> : tensor<4xi64>
+    %steps = onnx.Constant dense<[1, 1, 1, 1]> : tensor<4xi64>
+    %sliced = "onnx.Slice"(%conv, %starts, %ends, %axes, %steps) : (tensor<1x4x6x6x!quant.uniform<u8:f32, 0.1:128>>, tensor<4xi64>, tensor<4xi64>, tensor<4xi64>, tensor<4xi64>) -> tensor<1x2x6x6x!quant.uniform<u8:f32, 0.1:128>>
+
+    return %sliced : tensor<1x2x6x6x!quant.uniform<u8:f32, 0.1:128>>
+}
+
+// Slice eliminated, weight scales sliced to {0.1, 0.2}, bias scales to {0.005, 0.01}
+// CHECK-NOT: onnx.Slice
+// CHECK: onnx.Conv
+// CHECK-SAME: tensor<2x3x3x3x!quant.uniform<u8:f32:0, {1.000000e-01,2.000000e-01}>>
+// CHECK-SAME: tensor<2x!quant.uniform<i32:f32:0, {5.000000e-03,1.000000e-02}>>
+// CHECK-SAME: -> tensor<1x2x6x6x!quant.uniform<u8:f32, 1.000000e-01:128>>
