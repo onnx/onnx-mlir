@@ -5,7 +5,7 @@
 //===----------- ONNXRecompose.cpp - ONNX High Level Rewriting ------------===//
 //
 // Copyright 2023 The IBM Research Authors.
-// Copyright 2025 Advanced Micro Devices, Inc. or its affiliates
+// Copyright 2025-2026 Advanced Micro Devices, Inc. or its affiliates
 //
 // =============================================================================
 //
@@ -744,6 +744,67 @@ private:
     // Can disable line below if not needed.
     LLVM_DEBUG(llvm::dbgs() << "LayerNorm failure:" << msg << "\n");
     return false;
+  }
+};
+
+// Recompose HardSigmoid from `clip(x * a + b, 0, 1)`.
+struct RecomposeHardSigmoidFromMulClipPattern
+    : public OpRewritePattern<ONNXClipOp> {
+  using OpRewritePattern<ONNXClipOp>::OpRewritePattern;
+
+  static bool matchScalarConstant(Value v, double &out) {
+    using namespace onnx_mlir;
+    if (!isDenseONNXConstant(v))
+      return false;
+    ElementsAttr attr = getElementAttributeFromONNXValue(v);
+    if (!attr || attr.getNumElements() != 1)
+      return false;
+    out = getScalarValue<double>(attr, attr.getElementType());
+    return true;
+  }
+
+  LogicalResult matchAndRewrite(
+      ONNXClipOp clipOp, PatternRewriter &rewriter) const final {
+    using namespace onnx_mlir;
+
+    auto elementType = getElementTypeOrSelf(clipOp.getType());
+    if (!isa<Float32Type, BFloat16Type, Float16Type>(elementType))
+      return failure();
+
+    // clip(input, 0, 1)
+    Value clipMin = clipOp.getMin();
+    Value clipMax = clipOp.getMax();
+    if (isNoneValue(clipMin) || isNoneValue(clipMax) ||
+        !isConstOf(clipMin, 0.0) || !isConstOf(clipMax, 1.0))
+      return failure();
+
+    // add(mul(x, a), b)
+    auto addOp = clipOp.getInput().getDefiningOp<ONNXAddOp>();
+    if (!addOp)
+      return failure();
+
+    auto mulOp = addOp.getOperand(0).getDefiningOp<ONNXMulOp>();
+    if (!mulOp)
+      return failure();
+
+    Value x = mulOp.getOperand(0);
+    double alpha;
+    if (!matchScalarConstant(mulOp.getOperand(1), alpha) || alpha <= 0.0)
+      return failure();
+
+    double beta;
+    if (!matchScalarConstant(addOp.getOperand(1), beta))
+      return failure();
+
+    auto alphaAttr = rewriter.getF32FloatAttr(alpha);
+    auto betaAttr = rewriter.getF32FloatAttr(beta);
+
+    auto loc = mlir::FusedLoc::get(rewriter.getContext(),
+        {clipOp.getLoc(), addOp.getLoc(), mulOp.getLoc()});
+    Value hardSigmoidOp = rewriter.create<ONNXHardSigmoidOp>(
+        loc, clipOp.getType(), x, alphaAttr, betaAttr);
+    rewriter.replaceOp(clipOp, hardSigmoidOp);
+    return success();
   }
 };
 
@@ -1517,6 +1578,7 @@ void RecomposeONNXToONNXPass::runOnOperation() {
 void onnx_mlir::getRecomposeONNXToONNXPatterns(
     mlir::RewritePatternSet &patterns) {
   MLIRContext *context = patterns.getContext();
+  patterns.insert<RecomposeHardSigmoidFromMulClipPattern>(context);
   patterns.insert<RecomposeGeluFromMulPattern>(context);
   patterns.insert<RecomposeLayerNormFromDivPattern<ONNXDivOp, false>>(context);
   patterns.insert<RecomposeLayerNormFromDivPattern<ONNXMulOp, false>>(context);

@@ -740,6 +740,35 @@ def MulConstAssociative4 : NamedPat<"MulConstAssociative4",
     (ONNXMulOp $c1, $c2)),
   [(IsNotAConstant:$x), (IsNotAConstant:$y), (HasOneUse:$lhs), (HasOneUse:$rhs)]>;
 
+// mul(add(x, b), a) -> add(mul(x, a), mul(a, b)).
+// mul(a, b) is folded to a single constant by MulConstProp.
+def MulAddConstDistributive : NamedPat<"MulAddConstDistributive",
+  // From mul(add(x, b), a) where a, b are constants.
+  (ONNXMulOp
+    (ONNXAddOp:$addOp $x, (ONNXConstantOp:$b $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXConstantOp:$a $_, $_, $_, $_, $_, $_, $_, $_)),
+  // To add(mul(x, a), mul(a, b)).
+  (ONNXAddOp
+    (ONNXMulOp $x, $a),
+    (ONNXMulOp $a, $b)),
+  [(IsNotAConstant:$x), (HasOneUse:$addOp)]>;
+
+// Distribute multiplication into clip: mul(clip(x, l, u), a) -> clip(mul(x, a), mul(a, l), mul(a, u)).
+// mul(a, l) and mul(a, u) are folded to single constants by MulConstProp in a later iteration.
+def MulClipConstDistributive : NamedPat<"MulClipConstDistributive",
+  // From mul(clip(x, l, u), a) where a, l, u are constants.
+  (ONNXMulOp
+    (ONNXClipOp:$clipOp $x,
+      (ONNXConstantOp:$l $_, $_, $_, $_, $_, $_, $_, $_),
+      (ONNXConstantOp:$u $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXConstantOp:$a $_, $_, $_, $_, $_, $_, $_, $_)),
+  // To clip(mul(x, a), mul(a, l), mul(a, u)).
+  (ONNXClipOp
+    (ONNXMulOp $x, $a),
+    (ONNXMulOp $a, $l),
+    (ONNXMulOp $a, $u)),
+  [(IsNotAConstant:$x), (HasOneUse:$clipOp)]>;
+
 // Constant Propagation for Mul
 def MulConstProp : NamedPat<"MulConstProp",
     // From mul(c1, c2).
