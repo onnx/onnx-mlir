@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <memory>
 #include <queue>
 
 #include "mlir/IR/Matchers.h"
@@ -383,8 +384,8 @@ static bool exploreSameDimsUsingShapeHelper(const DimAnalysis::DimT &dim,
     return false;
 
   // Get its shape interface.
-  ONNXOpShapeHelper *shapeHelper =
-      shape_op.getShapeHelper(op, {}, nullptr, nullptr);
+  std::unique_ptr<ONNXOpShapeHelper> shapeHelper(
+      shape_op.getShapeHelper(op, {}, nullptr, nullptr));
   // If no shape helper, or unimplemented, just abort.
   if (!shapeHelper)
     return false;
@@ -393,11 +394,9 @@ static bool exploreSameDimsUsingShapeHelper(const DimAnalysis::DimT &dim,
   if (shapeHelper->isImplemented()) {
     shapeHelper->setDimAnalysisMode();
     if (failed(shapeHelper->computeShape())) {
-      delete shapeHelper;
       return false;
     }
   } else {
-    delete shapeHelper;
     return false;
   }
 
@@ -421,7 +420,6 @@ static bool exploreSameDimsUsingShapeHelper(const DimAnalysis::DimT &dim,
   findAndAddSameDim(qmOuputIE, op, op->getOperands(), sameDims);
 
   shapeHelper->unsetDimAnalysisMode();
-  delete shapeHelper;
   return true;
 }
 
