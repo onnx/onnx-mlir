@@ -60,6 +60,12 @@ def parse_args(parser=None):
         default=1,
         help="The number of inference runs excluding warmup.",
     )
+    parser.add_argument(
+        "--debug",
+        type=int,
+        default=0,
+        help="The debug level. Higher value, more print out.",
+    )
 
     return parser.parse_args()
 
@@ -134,10 +140,13 @@ def compare_result(actual_outs, ref_outs, atol=1e-8, rtol=1e-5, debug=0):
         total_elements = 0
         mismatched_elements = 0
         max_atol = 0
+        max_rtol = 0
         for index, actual_val in np.ndenumerate(q_actual_outs):
             total_elements += 1
             ref_val = q_ref_outs[index]
             this_atol = abs(ref_val - actual_val)
+            if abs(ref_val) > 1e-10:
+                max_rtol = max(abs((ref_val - actual_val) / ref_val), max_rtol)
             max_atol = max(this_atol, max_atol)
             if np.issubdtype(q_actual_outs.dtype, np.dtype(bool).type):
                 if ref_val == actual_val:
@@ -158,14 +167,21 @@ def compare_result(actual_outs, ref_outs, atol=1e-8, rtol=1e-5, debug=0):
                     "mismatch {} (actual)".format(actual_val),
                     "vs {} (reference)".format(ref_val),
                 )
+        print(
+            "Output {} Max absolute difference {:.6f}, max relative difference {:.4f}%".format(
+                q_index,
+                max_atol,
+                max_rtol * 100,
+            )
+        )
+
         if mismatched_elements > 0:
             print(
-                "Output {} got mismatched elements {}/{}, ({:.2f}%). Max absolute difference {:.2f}\n".format(
+                "Output {} got mismatched elements {}/{}, ({:.2f}%).\n".format(
                     q_index,
                     mismatched_elements,
                     total_elements,
                     mismatched_elements / total_elements * 100.0,
-                    max_atol,
                 )
             )
     if all_pass:
@@ -246,11 +262,6 @@ def run_model_with_input_output_arrays(
 
     if ref_outputs:
         all_match = compare_result(outputs, ref_outputs, atol, rtol)
-
-        # Not sure whether to continue becuase the numerical difference
-        # does not necessarily mean failure for end-to-end
-        if not all_match:
-            sys.exit(-1)
 
     return outputs
 

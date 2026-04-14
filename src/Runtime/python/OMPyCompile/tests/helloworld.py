@@ -10,8 +10,14 @@ import OMPyCompile
 # You need to create your own test_add.so from test_add.onnx or test_add.mlir
 # unless you are on a s390 machine.
 script_dir = Path(__file__).resolve().parent
-model = script_dir / "test_add.mlir"
+model = str(script_dir / "test_add.mlir")
 compile_session = OMPyCompile.OMCompile(str(model), "-O3")
+try:
+    compile_session = OMCompile(model, "-O3")
+except RuntimeError as e:
+    print(f"Compilation failed: {e}")
+    exit(1)
+
 
 r = compile_session.get_output_file_name()
 

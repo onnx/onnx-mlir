@@ -32,7 +32,12 @@ def main():
     if args.model.endswith(".so"):
         compiled_model = args.model
     else:
-        compile_session = OMPyCompile.OMCompile(args.model, args.flags)
+        try:
+            compile_session = OMPyCompile.OMCompile(args.model, args.flags)
+        except RuntimeError as e:
+            print(f"Compilation failed: {e}")
+            exit(1)
+
         compiled_model = compile_session.get_output_file_name()
 
     run_session = OMPyInfer.InferenceSession(compiled_model)
