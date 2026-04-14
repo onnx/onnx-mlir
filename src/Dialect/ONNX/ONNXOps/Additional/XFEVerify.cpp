@@ -152,6 +152,9 @@ LogicalResult XFEChannelWiseQuantizationVerify(Operation *op) {
   } else if (auto normOp = dyn_cast<XFEInstanceNormalizationOp>(op)) {
     inputTensor = normOp.getInput();
     inputName = "input";
+  } else if (auto gnOp = dyn_cast<XFEGroupNormalizationOp>(op)) {
+    inputTensor = gnOp.getX();
+    inputName = "input X";
   } else if (auto d2sOp = dyn_cast<XFEDepthToSpaceOp>(op)) {
     inputTensor = d2sOp.getInput();
     inputName = "input";
@@ -329,6 +332,30 @@ LogicalResult XFEInstanceNormalizationOpVerify(Operation *op) {
   if (inputShape.size() < 3)
     return op->emitError(
         "InstanceNormalizationChannelLast requires at least 3D input tensor");
+
+  return XFEChannelWiseQuantizationVerify(op);
+}
+
+LogicalResult XFEGroupNormalizationOpVerify(Operation *op) {
+  auto gnOp = dyn_cast<XFEGroupNormalizationOp>(op);
+  if (!gnOp)
+    return failure();
+
+  Value input = gnOp.getX();
+  if (!hasShapeAndRank(input))
+    return success();
+
+  auto inputType = mlir::cast<ShapedType>(input.getType());
+  auto inputShape = inputType.getShape();
+  if (inputShape.size() < 3)
+    return op->emitError(
+        "GroupNormalizationChannelLast requires at least 3D input tensor");
+
+  int64_t C = inputShape[inputShape.size() - 1];
+  int64_t numGroups = gnOp.getNumGroups();
+  if (C != ShapedType::kDynamic && numGroups > 0 && C % numGroups != 0)
+    return op->emitError("number of channels (")
+           << C << ") must be divisible by num_groups (" << numGroups << ")";
 
   return XFEChannelWiseQuantizationVerify(op);
 }

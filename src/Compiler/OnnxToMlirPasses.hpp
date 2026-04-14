@@ -21,6 +21,7 @@ struct OnnxToMlirOptions {
   bool enableGroupNormDecompose = true;
   bool enableMatmulNBitsDecompose = false;
   bool enableGroupQueryAttentionDecompose = true;
+  bool enableConcatFuse = true;
   bool enableRemoveDqQAroundOp = false;
   bool enableRemoveBinary = false;
   bool enableFusePadIntoAvgpool = false;
@@ -33,7 +34,7 @@ struct OnnxToMlirOptions {
   bool enableConvOptPass = true;
   bool enableSimdDataLayout = false;
   bool disableSimdOption = false;
-  bool enablGAPToReduceMean = true;
+  bool enableGAPToReduceMean = true;
 
   int onnxOpTransformThreshold = 3;
   bool onnxOpTransformReport = false;

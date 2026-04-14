@@ -190,6 +190,9 @@ def CreateNegOfConst :
 def CreateNotOfConst :
    NativeCodeCall<"ConstPropElementwiseUnary<mlir::ONNXNotOp>($_builder, $0, $1)">;
 
+def CreateShapeOfConst :
+   NativeCodeCall<"ConstPropShape($_builder, $0, $1)">;
+
 def CreateSinOfConst :
    NativeCodeCall<"ConstPropElementwiseUnary<mlir::ONNXSinOp>($_builder, $0, $1)">;
 
@@ -557,6 +560,12 @@ def NotofConst : NamedPat<"NotofConst",
     (CreateNotOfConst $notOp, $input),
     [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
 
+// Constant Propagation for Shape
+def ShapeConstProp : NamedPat<"ShapeofConst",
+    (ONNXShapeOp:$shapeOp $input, $_, $_),
+    (CreateShapeOfConst $shapeOp, $input),
+    [(HasStaticShape:$input)]>;
+
 // Constant Propagation for Sin
 def SinConstProp : NamedPat<"SinofConst",
     // From sin(c).
@@ -571,7 +580,7 @@ def SigmoidConstProp : NamedPat<"SigmoidofConst",
     (ONNXSigmoidOp:$sigmoidOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
     // To new_c
     (CreateSigmoidOfConst $sigmoidOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
+    [(HasStaticShape:$input), (IsIntOrFloatType:$input)]>;
 
 // Constant Propagation for Reciprocal
 def ReciprocalConstProp : NamedPat<"ReciprocalofConst",
