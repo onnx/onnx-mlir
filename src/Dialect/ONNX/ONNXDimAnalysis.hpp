@@ -44,12 +44,12 @@ public:
   /// Create a scoped analysis by tracing back from a given operation.
   /// Only analyzes operations within 'upwardLevel' steps back from 'op'.
   /// This is a lightweight alternative to full module analysis.
-  /// @param op The starting operation to trace back from
+  /// @param op The starting operation to trace back from.
   /// @param upwardLevel Maximum number of levels to trace back (0 = only op
-  /// itself)
+  /// itself).
   /// @param shapeHelper ShapeHelper inside which this DimAnalysis is
   /// constructed.
-  DimAnalysis(mlir::Operation *op, int64_t upwardLevel,
+  DimAnalysis(mlir::Operation *op, uint64_t upwardLevel,
       ONNXOpShapeHelper *shapeHelper = nullptr);
 
   /// Analyzes the relationship among dynamic dimensions.

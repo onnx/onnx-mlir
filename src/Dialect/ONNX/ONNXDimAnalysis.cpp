@@ -547,17 +547,17 @@ static llvm::SmallPtrSet<Operation *, 32> collectOperationsFromModule(
 /// Collect operations by tracing back from a given operation up to a specified
 /// level. Uses BFS to traverse the operand chain backwards.
 static llvm::SmallPtrSet<Operation *, 32> collectOperationsUpward(
-    Operation *startOp, int64_t upwardLevel) {
+    Operation *startOp, uint32_t upwardLevel) {
   llvm::SmallPtrSet<Operation *, 32> collectedOps;
-  if (upwardLevel < 0 || !startOp)
+  if (!startOp)
     return collectedOps;
 
   if (hasUnrankedInputOutput(startOp))
     return collectedOps;
 
   // Use a worklist algorithm with level tracking.
-  std::queue<std::pair<Operation *, int64_t>> worklist;
-  llvm::DenseMap<Operation *, int64_t> opLevels;
+  std::queue<std::pair<Operation *, uint32_t>> worklist;
+  llvm::DenseMap<Operation *, uint32_t> opLevels;
 
   worklist.push({startOp, 0});
   opLevels[startOp] = 0;
@@ -604,29 +604,7 @@ static llvm::SmallPtrSet<Operation *, 32> collectOperationsUpward(
   return collectedOps;
 }
 
-/// Collect all values from the collected operations and function arguments.
-static void collectValuesFromOps(const llvm::SmallPtrSet<Operation *, 32> &ops,
-    llvm::SmallVector<Value, 32> &values) {
-  // Collect all results from the operations.
-  for (Operation *op : ops) {
-    for (Value result : op->getResults()) {
-      if (!isNoneValue(result))
-        values.push_back(result);
-    }
-  }
-
-  // Also collect block arguments from the parent function.
-  // (they are always relevant for dimension analysis).
-  if (!ops.empty()) {
-    Operation *anyOp = *ops.begin();
-    if (auto funcOp = anyOp->getParentOfType<func::FuncOp>()) {
-      for (BlockArgument arg : funcOp.getArguments()) {
-        values.push_back(arg);
-      }
-    }
-  }
-}
-
+/// Check if it is safe to do analysis inside the given ShapeHelper.
 static bool notSafeForAnalysis(ONNXOpShapeHelper *shapeHelper) {
   // Doing dim analysis inside dim analysis may cause infinite recursion.
   if (shapeHelper && shapeHelper->isInDimAnalysisMode())
@@ -669,12 +647,9 @@ DimAnalysis::DimAnalysis(ModuleOp moduleOp, ONNXOpShapeHelper *shapeHelper)
 }
 
 DimAnalysis::DimAnalysis(
-    Operation *op, int64_t upwardLevel, ONNXOpShapeHelper *shapeHelper)
+    Operation *op, uint64_t upwardLevel, ONNXOpShapeHelper *shapeHelper)
     : targetOps(collectOperationsUpward(op, upwardLevel)) {
-  if (notSafeForAnalysis(shapeHelper))
-    return;
-
-  if (!op || upwardLevel < 0)
+  if (!op || notSafeForAnalysis(shapeHelper))
     return;
 
   LLVM_DEBUG({
@@ -682,14 +657,12 @@ DimAnalysis::DimAnalysis(
                  << " operations within " << upwardLevel << " levels from:\n";
   });
 
-  // Collect all values from the collected operations.
-  llvm::SmallVector<Value, 32> values;
-  collectValuesFromOps(targetOps, values);
-
-  // Build dimension sets for the collected values.
-  for (Value val : values) {
-    if (!isNoneValue(val))
-      build(val);
+  // Build dimension sets for the target ops.
+  for (Operation *top : targetOps) {
+    for (Value output : top->getResults()) {
+      if (!isNoneValue(output))
+        build(output);
+    }
   }
 
   // Initialize function arguments if the operation belongs to a function.
@@ -948,7 +921,7 @@ void DimAnalysis::getONNXDimParams(
 }
 
 void DimAnalysis::analyze() {
-  if (dimSetMap.empty())
+  if (targetOps.empty())
     return;
 
   // Build sets of the same dynamic dimensions and merge them until a fixed
