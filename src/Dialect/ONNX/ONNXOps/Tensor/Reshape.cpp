@@ -63,17 +63,17 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
   // do 2048/64, that is 32. Without this simplification, the output dim at
   // position of -1 would be unknown at compile time.
 
-  // Use scoped dimension analysis to detect equivalent dimensions.
-  // Only analyze operations within a small upward level for performance.
-  // Important: passing this ShapeHelper into DimAnalysis to avoid infinite
-  // recursion.
-  DimAnalysis scopedAnalysis(op, /*upwardLevel*/ 5, this);
-  scopedAnalysis.analyze();
-
   // Find the bijective mapping.
   std::set<int64_t> dataIgnoredDims, outputIgnoredDims;
   SmallVector<Value> shapeDimVals;
   if (areDimsFromConcat(shape)) {
+    // Use scoped dimension analysis to detect equivalent dimensions.
+    // Only analyze operations within a small upward level for performance.
+    // Important: passing this ShapeHelper into DimAnalysis to avoid infinite
+    // recursion.
+    DimAnalysis scopedAnalysis(op, /*upwardLevel*/ 3, this);
+    scopedAnalysis.analyze();
+
     getDims(shape, shapeDimVals);
     bool isBijective = true;
     for (int64_t i = 0; i < outputRank; ++i) {

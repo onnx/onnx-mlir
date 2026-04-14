@@ -682,7 +682,7 @@ DimAnalysis::DimAnalysis(
 
   LLVM_DEBUG({
     llvm::dbgs() << "Scoped DimAnalysis: collected " << targetOps.size()
-                 << " operations within " << upwardLevel << " levels from ";
+                 << " operations within " << upwardLevel << " levels from:\n";
   });
 
   // Collect all values from the collected operations.
@@ -951,6 +951,9 @@ void DimAnalysis::getONNXDimParams(
 }
 
 void DimAnalysis::analyze() {
+  if (dimSetMap.empty())
+    return;
+
   // Build sets of the same dynamic dimensions and merge them until a fixed
   // point where there is no update on each set.
   bool continued = true;
