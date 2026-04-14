@@ -60,19 +60,18 @@ static bool areOverlapping(
   return false;
 }
 
+/// Check if the operation has any unranked input or output.
 static bool hasUnrankedInputOutput(Operation *op) {
   for (Value v : op->getOperands()) {
     if (isNoneValue(v))
       continue;
-    auto t = mlir::dyn_cast<RankedTensorType>(v.getType());
-    if (!t)
+    if (auto t = mlir::dyn_cast<UnrankedTensorType>(v.getType()))
       return true;
   }
   for (Value v : op->getResults()) {
     if (isNoneValue(v))
       continue;
-    auto t = mlir::dyn_cast<RankedTensorType>(v.getType());
-    if (!t)
+    if (auto t = mlir::dyn_cast<UnrankedTensorType>(v.getType()))
       return true;
   }
   return false;

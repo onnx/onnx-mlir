@@ -1038,6 +1038,41 @@ func.func @test_reshape_use_dim_analysis(%arg0: tensor<1x?x2048xf32> {onnx.dim_p
 
 // -----
 
+// COM: Test if DimAnalysis works well in the reshape's shape inference when there are two Reshape ops in the IR.
+
+func.func @test_reshape_using_dim_analysis_two_reshapes(%arg0: tensor<256x?xf32>, %arg1: tensor<4x12x?x?xf32>) -> tensor<*xf32> {
+   %0 = onnx.Constant dense<12> : tensor<1xi64>
+   %1 = onnx.Constant dense<4> : tensor<1xi64>
+   %2 = onnx.Constant dense<256> : tensor<1xi64>
+   %3 = onnx.Constant dense<48> : tensor<1xi64>
+   %4 = "onnx.Dim"(%arg1) <{axis = 2 : si64}> : (tensor<4x12x?x?xf32>) -> tensor<1xi64>
+   %5 = "onnx.Dim"(%arg1) <{axis = 3 : si64}> : (tensor<4x12x?x?xf32>) -> tensor<1xi64>
+   %6 = "onnx.Concat"(%3, %4, %5) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+   %7 = "onnx.Reshape"(%arg1, %6) <{allowzero = 0 : si64}> : (tensor<4x12x?x?xf32>, tensor<3xi64>) -> tensor<*xf32>
+   %8 = "onnx.MatMul"(%arg0, %7) : (tensor<256x?xf32>, tensor<*xf32>) -> tensor<*xf32>
+   %10 = "onnx.Concat"(%1, %0, %2, %5) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
+   %11 = "onnx.Reshape"(%8, %10) <{allowzero = 0 : si64}> : (tensor<*xf32>, tensor<4xi64>) -> tensor<*xf32>
+   return %11 : tensor<*xf32>
+
+// CHECK-LABEL:  func.func @test_reshape_using_dim_analysis_two_reshapes
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<256x?xf32>, [[PARAM_1_:%.+]]: tensor<4x12x?x?xf32>) -> tensor<4x12x256x?xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<12> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<4> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<256> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<48> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Dim"([[PARAM_1_]]) <{axis = 2 : si64}> : (tensor<4x12x?x?xf32>) -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Dim"([[PARAM_1_]]) <{axis = 3 : si64}> : (tensor<4x12x?x?xf32>) -> tensor<1xi64>
+// CHECK:           [[VAR_6_:%.+]] = "onnx.Concat"([[VAR_3_]], [[VAR_4_]], [[VAR_5_]]) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+// CHECK:           [[VAR_7_:%.+]] = "onnx.Reshape"([[PARAM_1_]], [[VAR_6_]]) <{allowzero = 0 : si64}> : (tensor<4x12x?x?xf32>, tensor<3xi64>) -> tensor<48x?x?xf32>
+// CHECK-DAG:       [[VAR_8_:%.+]] = "onnx.MatMul"([[PARAM_0_]], [[VAR_7_]]) : (tensor<256x?xf32>, tensor<48x?x?xf32>) -> tensor<48x256x?xf32>
+// CHECK-DAG:       [[VAR_9_:%.+]] = "onnx.Concat"([[VAR_1_]], [[VAR_0_]], [[VAR_2_]], [[VAR_5_]]) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
+// CHECK:           [[VAR_10_:%.+]] = "onnx.Reshape"([[VAR_8_]], [[VAR_9_]]) <{allowzero = 0 : si64}> : (tensor<48x256x?xf32>, tensor<4xi64>) -> tensor<4x12x256x?xf32>
+// CHECK:           return [[VAR_10_]] : tensor<4x12x256x?xf32>
+// CHECK:         }
+}
+
+// -----
+
 // COM: This pattern is found in the IBM granite-3.1-2b-instruct model.
 func.func @test_reshape_matmul_dim(%arg0: tensor<?x?x2048xf32>) -> tensor<?x?x?x64xf32> {
   %0 = onnx.Constant dense<1.000000e+00> : tensor<2048x2048xf32>

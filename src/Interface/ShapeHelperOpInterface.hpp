@@ -183,10 +183,10 @@ private:
   llvm::SmallVector<mlir::Value> privateOperandsCache;
   bool ownScope, ownBuilder;
   // ShapeHelper may be called from dynamic dimension analysis. In such a case,
-  // ShapeHelper should be used only for analysis and should not update output
-  // dimensions. Otherwise the analysis may fail.
-  // Once this variable is set to True, functions in ShapeHelper should be aware
-  // of this mode and should not update output dimensions.
+  // ShapeHelper should be used only for analysis and should not update
+  // input/output dimensions. Otherwise, the analysis may fail. Once this
+  // variable is set to True, functions in ShapeHelper should be aware of this
+  // mode and should not update input/output dimensions.
   bool dimAnalysisMode = false;
 };
 
