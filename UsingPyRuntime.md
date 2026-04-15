@@ -167,7 +167,7 @@ def run(self, inputs: List[ndarray]) -> List[ndarray]:
         A list of NumPy arrays, the outputs of your model.
     """
 
-def runDebug(self, inputs: List[ndarray],
+def run_debug(self, inputs: List[ndarray],
              with_signal_handler: bool = False,
              force_output_data_copy: bool = False) -> List[ndarray]:
     """
