@@ -212,6 +212,9 @@ std::unique_ptr<mlir::Pass> createTransferSpaceToDepthToConv2dPass();
 /// Pass for fusing quantized eltwise+activation patterns (XMC).
 std::unique_ptr<mlir::Pass> createReplaceQDQEltwisePass();
 
+/// Pass for lowering quantized onnx.Tile to XCOMPILERFusedEltwise ADD (XMC).
+std::unique_ptr<mlir::Pass> createReplaceQuantizedTileToAddPass();
+
 /// Pass for merging nested concats and splitting duplicate inputs.
 std::unique_ptr<mlir::Pass> createReplaceAdjacentOpPass();
 
