@@ -7,11 +7,11 @@
 #include "CompilerDialects.hpp"
 
 #include "src/Compiler/CompilerOptions.hpp"
-#include "src/Interface/TensorNameInference.hpp"
 #ifdef ONNX_MLIR_ENABLE_KRNL
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #endif
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
+#include "src/Dialect/ONNX/TensorName.hpp"
 
 #include "mlir/InitAllDialects.h"
 #include "mlir/Target/LLVMIR/Dialect/OpenMP/OpenMPToLLVMIRTranslation.h"

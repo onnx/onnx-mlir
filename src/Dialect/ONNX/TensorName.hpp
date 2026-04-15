@@ -23,63 +23,23 @@
 #include <mlir/Support/LLVM.h>
 
 #include <src/Dialect/ONNX/ONNXOps.hpp>
+#include <src/Interface/TensorNameInference.hpp>
 
 namespace onnx_mlir {
 
-/// Base class that represents Transformations applied on an original ONNX
-/// Tensor to obtain respective tensor in the modified graph
-class Transform {
-public:
-  /// Enum to allow LLVM-style casting with isa<>, dyn_cast<> etc.
-  enum class Kind {
-    Reshape,
-    Transpose,
-    Pad,
-    Slice,
-    Dequantize,
-    Quantize,
-    List,
-  };
+// Attribute -> Transform
+std::unique_ptr<Transform> fromAttr(mlir::ArrayAttr arrayAttr);
 
-  Transform(Kind k, mlir::ArrayRef<int64_t> inShape,
-      mlir::ArrayRef<int64_t> outShape);
+// Op -> Transform (utilizing the OpInterface)
+std::unique_ptr<Transform> fromOp(mlir::Operation *op);
 
-  // Attribute conversions
-  static std::unique_ptr<Transform> fromAttr(mlir::ArrayAttr arrayAttr);
-  [[nodiscard]] virtual mlir::Attribute toAttr(
-      mlir::MLIRContext *context) const = 0;
-
-  // Op conversions
-  static std::unique_ptr<Transform> fromOp(mlir::Operation *op);
-
-  /// Creates a new transform which is inversion of the current transform
-  [[nodiscard]] virtual std::unique_ptr<Transform> invert() const = 0;
-
-  virtual ~Transform() = default;
-
-  /// Utility methods to be used by sub-classes
-  static mlir::SmallVector<int64_t> arrayToVector(mlir::ArrayAttr arrayAttr);
-  static mlir::SmallVector<int64_t> denseToVector(
-      mlir::DenseIntElementsAttr denseAttr);
-  static mlir::SmallVector<int64_t> valToVector(mlir::Value val);
-  static mlir::SmallVector<int64_t> axesToVector(mlir::Value val, size_t rank);
-  static mlir::ArrayAttr vecToAttr(
-      mlir::MLIRContext *context, mlir::ArrayRef<int64_t> vector);
-
-  [[nodiscard]] Kind getKind() const { return kind; };
-
-  [[nodiscard]] mlir::ArrayRef<int64_t> getInShape() const { return inShape; }
-  [[nodiscard]] mlir::ArrayRef<int64_t> getOutShape() const { return outShape; }
-
-private:
-  const Kind kind;
-
-protected:
-  friend class TensorName;
-
-  mlir::SmallVector<int64_t> inShape;
-  mlir::SmallVector<int64_t> outShape;
-};
+/// Utility methods to be used by sub-classes or OpInterface implementations
+mlir::SmallVector<int64_t> arrayToVector(mlir::ArrayAttr arrayAttr);
+mlir::SmallVector<int64_t> denseToVector(mlir::DenseIntElementsAttr denseAttr);
+mlir::SmallVector<int64_t> valToVector(mlir::Value val);
+mlir::SmallVector<int64_t> axesToVector(mlir::Value val, size_t rank);
+mlir::ArrayAttr vecToAttr(
+    mlir::MLIRContext *context, mlir::ArrayRef<int64_t> vector);
 
 class ReshapeTransform : public Transform {
 public:
@@ -274,5 +234,39 @@ private:
   /// original tensor.
   mlir::SmallVector<std::unique_ptr<Transform>> transforms;
 };
+
+class ReshapeOpTensorNameInference
+    : public mlir::TensorNameInference::ExternalModel<
+          ReshapeOpTensorNameInference, mlir::ONNXReshapeOp> {
+public:
+  std::unique_ptr<onnx_mlir::Transform> inferTensorNameTransform(
+      mlir::Operation *op) const;
+};
+
+class TransposeOpTensorNameInference
+    : public mlir::TensorNameInference::ExternalModel<
+          TransposeOpTensorNameInference, mlir::ONNXTransposeOp> {
+public:
+  std::unique_ptr<onnx_mlir::Transform> inferTensorNameTransform(
+      mlir::Operation *op) const;
+};
+
+class PadOpTensorNameInference
+    : public mlir::TensorNameInference::ExternalModel<PadOpTensorNameInference,
+          mlir::ONNXPadOp> {
+public:
+  std::unique_ptr<onnx_mlir::Transform> inferTensorNameTransform(
+      mlir::Operation *op) const;
+};
+
+class SliceOpTensorNameInference
+    : public mlir::TensorNameInference::ExternalModel<
+          SliceOpTensorNameInference, mlir::ONNXSliceOp> {
+public:
+  std::unique_ptr<onnx_mlir::Transform> inferTensorNameTransform(
+      mlir::Operation *op) const;
+};
+
+void registerTensorNameInferenceExternalModels(mlir::DialectRegistry &registry);
 
 } // namespace onnx_mlir
