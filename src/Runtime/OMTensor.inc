@@ -341,9 +341,10 @@ void omTensorSetStridesWithPyArrayStrides(
   if (!tensor || !stridesInBytes)
     return;
   int64_t dataTypeSize = getDataTypeSize(tensor->_dataType);
-  assert(dataTypeSize != 0); // Zero for unknown.
   if (dataTypeSize == 0) {
-    dataTypeSize = 1; // In case asserts are turned off.
+    fprintf(stderr, "Error, unknown data type in tensor\n");
+    assert(dataTypeSize != 0); // Zero for unknown.
+    return; // In case asserts are turned off.
   }
   for (int64_t i = 0; i < tensor->_rank; i++)
     tensor->_strides[i] = stridesInBytes[i] / dataTypeSize;

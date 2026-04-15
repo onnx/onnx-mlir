@@ -134,10 +134,10 @@ PYBIND11_MODULE(PyRuntimeC, m) {
           "    ...     print(f'Predicted class: {np.argmax(predictions)}')\n"
           "    ... except RuntimeError as e:\n"
           "    ...     print(f'Inference failed: {e}')")
-      .def("runDebug",
+      .def("run_debug",
           [](onnx_mlir::PyExecutionSession &self, const std::vector<py::array> &inputs,
               bool with_signal_handler, bool force_output_data_copy) -> std::vector<py::array> {
-            throw std::runtime_error("runDebug() must be called on the Python subclass, not the C++ base class");
+            throw std::runtime_error("run_debug() must be called on the Python subclass, not the C++ base class");
           },
           py::arg("inputs"),
           py::arg("with_signal_handler") = false,
@@ -169,7 +169,7 @@ PYBIND11_MODULE(PyRuntimeC, m) {
           "    >>> \n"
           "    >>> # Debug with signal handler to catch crashes\n"
           "    >>> try:\n"
-          "    ...     outputs = session.runDebug([img], with_signal_handler=True)\n"
+          "    ...     outputs = session.run_debug([img], with_signal_handler=True)\n"
           "    ... except RuntimeError as e:\n"
           "    ...     print(f'Caught error: {e}')")
       .def("_runImplementation",
@@ -182,8 +182,8 @@ PYBIND11_MODULE(PyRuntimeC, m) {
           "Low-level inference implementation (internal/protected use only).\n\n"
           ".. warning::\n"
           "   This is an internal method intended for use by subclasses only.\n"
-          "   Direct use is not recommended; prefer run() or runDebug() instead.\n\n"
-          "This is the underlying implementation method called by run() and runDebug().\n"
+          "   Direct use is not recommended; prefer run() or run_debug() instead.\n\n"
+          "This is the underlying implementation method called by run() and run_debug().\n"
           "Subclasses can call this method to implement custom inference wrappers.\n\n"
           "Args:\n"
           "    input (list[numpy.ndarray]): Flattened input tensors.\n"

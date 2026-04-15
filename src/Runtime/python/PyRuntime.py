@@ -44,8 +44,8 @@ class OMExecutionSession(OMExecutionSession_):
             False,  # No forced copy of output data.
         )
 
-    def runDebug(self, inputs, with_signal_handler=False, force_output_data_copy=False):
-        # Prepare arguments to call session.runDebug
+    def run_debug(self, inputs, with_signal_handler=False, force_output_data_copy=False):
+        # Prepare arguments to call session.run_debug
         pyrun_inputs = []
         pyrun_shapes = []
         pyrun_strides = []
