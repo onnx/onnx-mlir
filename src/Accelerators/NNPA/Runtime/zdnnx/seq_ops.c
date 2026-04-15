@@ -26,10 +26,10 @@
 // -----------------------------------------------------------------------------
 
 /**
- * Return false if exceeded the maximum tensor size but couldnot find a good
- * splitting way. Otherwise, return true.
+ * Select tile sizes so that the sizes do not exceed the maximum values in NNPA,
+ * e.g. max dim sizes and max tensor size.
  */
-static bool select_tile_sizes(const zdnn_ztensor *t, uint32_t *ts_e4,
+static void select_tile_sizes(const zdnn_ztensor *t, uint32_t *ts_e4,
     uint32_t *ts_e3, uint32_t *ts_e2, uint32_t *ts_e1) {
   uint32_t shape[4];
   zdnnx_get_transformed_shape(t, shape);
@@ -123,7 +123,7 @@ static bool select_tile_sizes(const zdnn_ztensor *t, uint32_t *ts_e4,
   // Dimensions are unchanged, return false.
   if (tmp_e1 == shape[E1] && tmp_e2 == shape[E2] && tmp_e3 == shape[E3] &&
       tmp_e4 == shape[E4])
-    return false;
+    return;
 
   if (include_e4)
     *ts_e4 = tmp_e4;
@@ -133,8 +133,6 @@ static bool select_tile_sizes(const zdnn_ztensor *t, uint32_t *ts_e4,
     *ts_e2 = tmp_e2;
   if (include_e1)
     *ts_e1 = tmp_e1;
-
-  return true;
 }
 
 zdnn_status zdnnx_seq_unary_elementwise(const zdnn_ztensor *input,
