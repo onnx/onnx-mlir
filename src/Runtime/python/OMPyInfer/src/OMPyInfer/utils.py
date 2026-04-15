@@ -236,13 +236,13 @@ def run_model_with_input_output_arrays(
     ref_outputs=None,
     warmup=0,
     repeat=1,
-    debug=0,
     atol=0.1,
     rtol=0.05,
+    debug=0,
 ):
     try:
         for i in range(warmup):
-            outputs = session.run(input_arrays, debug)
+            outputs = session.run(input_arrays)
     except Exception as e:
         print(f"Inference {i} got exception: {e}")
         sys.exit(-1)
@@ -261,7 +261,7 @@ def run_model_with_input_output_arrays(
         process_perf_results(perf_results)
 
     if ref_outputs:
-        all_match = compare_result(outputs, ref_outputs, atol, rtol)
+        all_match = compare_result(outputs, ref_outputs, atol, rtol, debug)
 
     return outputs
 
@@ -272,9 +272,9 @@ def run_model_with_input_output_files(
     ref_output_files=None,
     warmup=0,
     repeat=1,
-    debug=0,
     atol=0.1,
     rtol=0.05,
+    debug=0,
 ):
     input_arrays = read_npy_files(input_files)
     if ref_output_files:
@@ -283,5 +283,5 @@ def run_model_with_input_output_files(
         ref_outputs = None
 
     return run_model_with_input_output_arrays(
-        session, input_arrays, ref_outputs, warmup, repeat, debug, atol, rtol
+        session, input_arrays, ref_outputs, warmup, repeat, atol, rtol, debug
     )
