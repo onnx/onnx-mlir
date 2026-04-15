@@ -1,6 +1,7 @@
 // Copyright (C) 2026 Advanced Micro Devices, Inc. All rights reserved.
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Traits.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/PatternMatch.h"
@@ -59,26 +60,47 @@ struct RemovePairedReshapePattern : public OpRewritePattern<ONNXReshapeOp> {
     if (reshape1DataTy.getShape() != reshape2OutTy.getShape())
       return failure();
 
-    // For binary eltwises, check that input B is compatible with the new
-    // shape. If B has a different rank from reshape1Data, removing the
-    // reshapes would change broadcasting semantics and could break
-    // downstream ops (e.g., XFEConv expecting a specific rank).
-    int64_t newRank = reshape1DataTy.getRank();
+    // For binary eltwises, verify that input B is compatible with the
+    // original (pre-reshape) shape. Two checks are needed:
+    //
+    // 1. Rank check: B must have the same rank as the original shape.
+    //    Removing reshapes that change rank would produce a FusedEltwise
+    //    whose broadcast output rank differs from reshape2's output rank,
+    //    causing downstream shape-inference assertions.
+    //
+    // 2. Broadcast check: B must be broadcastable with the original shape.
+    //    The reshape may merge spatial dims (e.g. [300,4] → [1,1200]),
+    //    making B compatible with the reshaped A but incompatible with
+    //    the original A (dim: 4 vs 1200).
+    int64_t origRank = reshape1DataTy.getRank();
+    ArrayRef<int64_t> origShape = reshape1DataTy.getShape();
     for (Operation *eltwiseOp : eltwiseChain) {
       auto fusedEltwise = cast<XCOMPILERFusedEltwiseOp>(eltwiseOp);
       Value inputB = fusedEltwise.getB();
       if (!isa<NoneType>(inputB.getType())) {
         auto inputBTy = dyn_cast<RankedTensorType>(inputB.getType());
-        if (inputBTy && inputBTy.getRank() != newRank)
+        if (inputBTy && inputBTy.getRank() != origRank)
           return failure();
+        if (inputBTy) {
+          SmallVector<int64_t> broadcastResult;
+          if (!OpTrait::util::getBroadcastedShape(
+                  origShape, inputBTy.getShape(), broadcastResult))
+            return failure();
+        }
       }
     }
 
-    // Remove reshape1, update ALL eltwise types in the chain, remove reshape2.
+    // Remove reshape1, update eltwise result types in the chain, remove
+    // reshape2. Preserve each eltwise's original element type (which may
+    // be quantized) — only update the shape.
     rewriter.replaceOp(reshape1, reshape1Data);
     for (Operation *eltwiseOp : eltwiseChain) {
-      rewriter.modifyOpInPlace(eltwiseOp, [=]() {
-        eltwiseOp->getResult(0).setType(reshape2->getResult(0).getType());
+      rewriter.modifyOpInPlace(eltwiseOp, [&]() {
+        auto curType =
+            cast<RankedTensorType>(eltwiseOp->getResult(0).getType());
+        auto newType = RankedTensorType::get(
+            reshape2OutTy.getShape(), curType.getElementType());
+        eltwiseOp->getResult(0).setType(newType);
       });
     }
     rewriter.replaceOp(reshape2, reshape2.getData());

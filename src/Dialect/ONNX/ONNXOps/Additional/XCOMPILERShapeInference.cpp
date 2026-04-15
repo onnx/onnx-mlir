@@ -1,5 +1,6 @@
 
 #include "XCOMPILERShapeInference.hpp"
+#include "mlir/Dialect/Quant/IR/QuantTypes.h"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
@@ -26,12 +27,17 @@ LogicalResult XCOMPILERFusedEltwiseOpShapeInference(
   ArrayRef<int64_t> aShape = aType.getShape();
   Type elementType = aType.getElementType();
 
-  // Preserve existing element type if already set (e.g., quantized types
-  // with independently calibrated scale/zero_point). Only fall back to
-  // input A's element type if the result is unranked.
+  // Preserve existing quantized element type if already set (e.g., quantized
+  // types with independently calibrated scale/zero_point). Only fall back to
+  // input A's element type when the result is unranked or has a non-quantized
+  // element type. This prevents intermediate passes (e.g.,
+  // RemovePairsAndMoveDownReshapePass) that set the result type to f32
+  // from permanently losing quantized type information.
   if (auto existingType =
           dyn_cast<RankedTensorType>(eltwiseOp.getResult().getType())) {
-    elementType = existingType.getElementType();
+    if (mlir::isa<mlir::quant::QuantizedType>(existingType.getElementType())) {
+      elementType = existingType.getElementType();
+    }
   }
 
   SmallVector<int64_t> outputShape;

@@ -16,6 +16,7 @@
 #include "llvm/ADT/BitVector.h"
 #include "llvm/Support/Debug.h"
 
+#include "mlir/Dialect/Quant/IR/QuantTypes.h"
 #include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
@@ -849,6 +850,20 @@ void updateType(Operation *op, Value val, ArrayRef<int64_t> shape,
   // Get element type.
   if (!elementType)
     elementType = getElementType(val.getType());
+
+  // Preserve quantized element types that were set by QuantTypesPass.
+  // Shape inference derives elementType from an op's input, which may have
+  // lost its quantized type — either to the expressed type (f32, from a
+  // DequantizeLinear) or to the storage type (e.g. ui16, from a quant.scast).
+  // In both cases the result was previously assigned a calibrated quantized
+  // type that must be kept; overwriting it would make downstream quant.scast
+  // and XCOMPILERRequantize ops illegal (integer→integer or f32 operand).
+  if (auto valType = mlir::dyn_cast<RankedTensorType>(val.getType())) {
+    if (mlir::isa<mlir::quant::QuantizedType>(valType.getElementType()) &&
+        !mlir::isa<mlir::quant::QuantizedType>(elementType)) {
+      elementType = valType.getElementType();
+    }
+  }
 
   // Get encoding.
   if (auto valType = mlir::dyn_cast<RankedTensorType>(val.getType()))
