@@ -80,8 +80,8 @@ static LogicalResult getStaticRepeatsFromConstant(
 /// Returns true if `lhs` and `rhs` are NumPy-style broadcast-compatible and the
 /// broadcast result equals `expected` (same rules as XCOMPILERFusedEltwise /
 /// ONNX broadcast eltwise verification).
-static bool broadcastMatchesExpectedShape(ArrayRef<int64_t> lhs,
-    ArrayRef<int64_t> rhs, ArrayRef<int64_t> expected) {
+static bool broadcastMatchesExpectedShape(
+    ArrayRef<int64_t> lhs, ArrayRef<int64_t> rhs, ArrayRef<int64_t> expected) {
   SmallVector<int64_t> bcastShape;
   if (!OpTrait::util::getBroadcastedShape(lhs, rhs, bcastShape))
     return false;
@@ -98,7 +98,8 @@ struct ReplaceQuantizedTileToAddPattern : public OpRewritePattern<ONNXTileOp> {
     auto outType = dyn_cast<RankedTensorType>(tileOp.getType());
     if (!inType || !outType)
       return failure();
-    auto inQuant = dyn_cast<quant::UniformQuantizedType>(inType.getElementType());
+    auto inQuant =
+        dyn_cast<quant::UniformQuantizedType>(inType.getElementType());
     if (!inQuant || !isa<quant::UniformQuantizedType>(outType.getElementType()))
       return failure();
 
@@ -109,7 +110,8 @@ struct ReplaceQuantizedTileToAddPattern : public OpRewritePattern<ONNXTileOp> {
       return failure();
 
     SmallVector<int64_t, 8> repeats;
-    if (failed(getStaticRepeatsFromConstant(tileOp.getRepeats(), rank, repeats)))
+    if (failed(
+            getStaticRepeatsFromConstant(tileOp.getRepeats(), rank, repeats)))
       return failure();
     auto inShape = inType.getShape();
     SmallVector<int64_t, 8> computedOutShape;
@@ -144,8 +146,8 @@ struct ReplaceQuantizedTileToAddPattern : public OpRewritePattern<ONNXTileOp> {
     auto valueNamedAttr = rewriter.getNamedAttr("value", zpSplatAttr);
     auto zpTensorConst = rewriter.create<ONNXConstantOp>(loc, quantResultType,
         ValueRange{}, ArrayRef<NamedAttribute>{valueNamedAttr});
-    auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(loc, tileOp.getType(),
-        input, zpTensorConst.getResult(),
+    auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(loc,
+        tileOp.getType(), input, zpTensorConst.getResult(),
         /*clip_max=*/IntegerAttr(),
         /*clip_min=*/IntegerAttr(),
         /*enable_lut_sigmoid=*/rewriter.getBoolAttr(false),
