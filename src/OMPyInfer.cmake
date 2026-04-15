@@ -1,3 +1,4 @@
+add_subdirectory(Compiler)
 add_subdirectory(Runtime)
 add_subdirectory(Support)
 # Accelerators introduces a target AcceleratorsInc. Define a dummy one here
