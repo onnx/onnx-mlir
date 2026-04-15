@@ -167,6 +167,9 @@ static inline zdnn_status compute_tile_sizes_for_matmul(
 zdnn_status zdnnx_omp_matmul(const zdnn_ztensor *input_a,
     const zdnn_ztensor *input_b, const zdnn_ztensor *input_c, int op_type,
     zdnn_ztensor *output, bool is_bcast) {
+#ifdef ZDNNX_DEBUG
+  printf("[OMP MatMul]\n");
+#endif
   // MatMul types in zdnn:
   // - unstacked: A (2D),  B (2D),  C (1D),  Y (2D)
   // - stacked  : A (3DS), B (3DS), C (2DS), Y (3DS)

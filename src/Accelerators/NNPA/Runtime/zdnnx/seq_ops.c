@@ -424,7 +424,7 @@ zdnn_status zdnnx_seq_matmul(const zdnn_ztensor *input_a,
       (a_layout == ZDNN_3DS && b_layout == ZDNN_3DS && c_layout == ZDNN_2DS);
 
   // Select suitable tile sizes for E4, E2, E1 tile size. E3 is always 1.
-  uint32_t ts_e4, ts_e2, ts_e1;
+  uint32_t ts_e4 = 0, ts_e2 = 0, ts_e1 = 0;
   select_tile_sizes(input_a, &ts_e4, NULL, &ts_e2, NULL);
   select_tile_sizes(input_b, &ts_e4, NULL, NULL, &ts_e1);
   select_tile_sizes(output, &ts_e4, NULL, &ts_e2, &ts_e1);
