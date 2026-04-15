@@ -182,6 +182,24 @@ public:
   }
 };
 
+class ONNXSigmoidOpLoweringToTOSA : public OpConversionPattern<ONNXSigmoidOp> {
+public:
+  using OpConversionPattern<ONNXSigmoidOp>::OpConversionPattern;
+  using OpAdaptor = typename ONNXSigmoidOp::Adaptor;
+  LogicalResult matchAndRewrite(ONNXSigmoidOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+
+    auto scalarType = getElementTypeOrSelf(adaptor.getX());
+    if (!isTOSAFloat(scalarType))
+      return rewriter.notifyMatchFailure(
+          op, "`tosa.sigmoid` only supports float types");
+
+    rewriter.replaceOpWithNewOp<mlir::tosa::SigmoidOp>(
+        op, op.getType(), adaptor.getX());
+    return success();
+  }
+};
+
 class ONNXDivOpLoweringToTOSA : public OpConversionPattern<ONNXDivOp> {
 public:
   using OpConversionPattern::OpConversionPattern;
@@ -219,7 +237,8 @@ void populateLoweringONNXElementwiseOpToTOSAPattern(ConversionTarget &target,
       ONNXBinaryElementwiseOpLoweringToTOSA<ONNXSubOp, mlir::tosa::SubOp>,
       ONNXSinOpLoweringToTOSA, ONNXCosOpLoweringToTOSA,
       ONNXExpOpLoweringToTOSA, ONNXFloorOpLoweringToTOSA,
-      ONNXReluOpLoweringToTOSA, ONNXDivOpLoweringToTOSA>(typeConverter, ctx);
+      ONNXReluOpLoweringToTOSA, ONNXSigmoidOpLoweringToTOSA,
+      ONNXDivOpLoweringToTOSA>(typeConverter, ctx);
 }
 
 } // namespace onnx_mlir
