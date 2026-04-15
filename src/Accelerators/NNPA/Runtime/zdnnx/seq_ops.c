@@ -87,56 +87,37 @@ static bool select_tile_sizes(const zdnn_ztensor *t, uint32_t *ts_e4,
       tmp_e3 = 1;
   }
 
-  // If exceeded the max tensor size, decrease by half the maximum dimension.
+  // If exceeded the max tensor size, decrease dim size in this order to
+  // maximize the buffer reuse:
+  // - decrease e4
+  // - decrease e1
+  // - decrease e3
+  // - decrease e2
   uint64_t total_tile_size = (uint64_t)(tmp_e4) * (uint64_t)(tmp_e3) *
                              (uint64_t)(tmp_e2) * (uint64_t)(tmp_e1);
-  while (total_tile_size > max_tensor_size) {
-#ifdef ZDNNX_DEBUG
-    printf("Exceeding the max tensor size, adjusting ...\n");
-#endif
-    uint32_t *max_ts = NULL;
-    if (include_e4 && (max_ts == NULL || tmp_e4 > *max_ts))
-      max_ts = &tmp_e4;
-    if (include_e3 && (max_ts == NULL || tmp_e3 > *max_ts)) {
-      max_ts = &tmp_e3;
-      // E4, E1 are the outer loops of E3 in stickified tensor.
-      // To avoid data copy, split E4, E1 into chunks of 1 element.
-      if (include_e4)
-        tmp_e4 = 1;
-      if (include_e1 && (tmp_e1 > 64))
-        tmp_e1 = 64;
-    }
-    if (include_e2 && (max_ts == NULL || tmp_e2 > *max_ts)) {
-      max_ts = &tmp_e2;
-      // E4, E1, E3 are the outer loops of E2 in stickified tensor.
-      // To avoid data copy, split E4, E1, E3 into chunks of 1 element.
-      if (include_e4)
-        tmp_e4 = 1;
-      if (include_e1 && (tmp_e1 > 64))
-        tmp_e1 = 64;
-      if (include_e3)
-        tmp_e3 = 1;
-    }
-    if (include_e1 && (max_ts == NULL || tmp_e1 > *max_ts)) {
-      max_ts = &tmp_e1;
-      // E4 is the outer loop of E1 in stickified tensor.
-      // To avoid data copy, split E4 into chunks of 1 element.
-      if (include_e4)
-        tmp_e4 = 1;
-    }
-    if (max_ts) {
-      *max_ts = *max_ts / 2;
-    } else {
-      // Exceed the maximum tensor size but couldnot find a good splitting way.
-      return false;
-    }
 
-    // The total tile size does not change, failed to find a splitting that
-    // avoids exceeding the maximum tensor size.
-    uint64_t new_total_tile_size = (uint64_t)(tmp_e4) * (uint64_t)(tmp_e3) *
-                                   (uint64_t)(tmp_e2) * (uint64_t)(tmp_e1);
-    if (new_total_tile_size == total_tile_size)
-      return false;
+  uint32_t *tmp_ptrs[4] = {&tmp_e4, &tmp_e3, &tmp_e2, &tmp_e1};
+  bool includes[4] = {include_e4, include_e3, include_e1, include_e1};
+  for (int i = 0; i < 4; ++i) {
+    if (!includes[i])
+      continue;
+    while (total_tile_size > max_tensor_size) {
+#ifdef ZDNNX_DEBUG
+      printf("Exceeding the max tensor size: tile_size: %ld, "
+             "max_tensor_size: %ld. Adjusting (decrease by half) ... \n",
+          total_tile_size, max_tensor_size);
+#endif
+      *tmp_ptrs[i] /= 2;
+      uint64_t new_total_tile_size = (uint64_t)(tmp_e4) * (uint64_t)(tmp_e3) *
+                                     (uint64_t)(tmp_e2) * (uint64_t)(tmp_e1);
+      // When the total size is unchanged, meaning the tile dim is decreased
+      // to 1. Stop searching.
+      if (new_total_tile_size == total_tile_size) {
+        assert(*tmp_ptrs[i] == 1 && "Something really wrong happened.");
+        break;
+      }
+      total_tile_size = new_total_tile_size;
+    }
   }
 
   // Dimensions are unchanged, return false.
@@ -364,8 +345,7 @@ zdnn_status zdnnx_seq_softmax(const zdnn_ztensor *input, void *save_area,
   // Select suitable tile sizes.
   // For softmax, do not split E1 since it affects accuracy of the final result.
   uint32_t ts_e4 = 0, ts_e3 = 0, ts_e2 = 0;
-  if (!select_tile_sizes(input, &ts_e4, &ts_e3, &ts_e2, NULL))
-    return zdnn_softmax(input, save_area, act_func, output);
+  select_tile_sizes(input, &ts_e4, &ts_e3, &ts_e2, NULL);
 
   // Prepare split information
   zdnnx_split_info si_x, si_y;
@@ -373,8 +353,13 @@ zdnn_status zdnnx_seq_softmax(const zdnn_ztensor *input, void *save_area,
   zdnnx_prepare_split_info(&si_y, output, ts_e4, ts_e3, ts_e2, 0, "Softmax Y");
 
   // No splitting, call the zdnn softmax without any changes.
-  if (zdnnx_has_one_tile(&si_x))
+  if (zdnnx_has_one_tile(&si_x)) {
+#ifdef ZDNNX_DEBUG
+    printf("[Softmax] calling the original zdnn softmax.\n");
+    zdnnx_print_ztensor_info(input, "Softmax X");
+#endif
     return zdnn_softmax(input, save_area, act_func, output);
+  }
 
   // Prepare a shared buffer for all tiles if data copy occurs.
   char *tile_buff_x = NULL;
@@ -439,30 +424,17 @@ zdnn_status zdnnx_seq_matmul(const zdnn_ztensor *input_a,
   bool is_stacked =
       (a_layout == ZDNN_3DS && b_layout == ZDNN_3DS && c_layout == ZDNN_2DS);
 
-  // Select suitable tile sizes.
-  uint32_t ts_e2, ts_e1;
-  // Select E2 tile size.
-  if (!select_tile_sizes(input_a, NULL, NULL, &ts_e2, NULL)) {
-#ifdef ZDNNX_DEBUG
-    printf("[MatMul] calling the original zdnn matmul.\n");
-#endif
-    return call_zdnn_matmul_op(
-        input_a, input_b, input_c, op_type, output, is_bcast);
-  }
-  // Select E1 tile size.
-  if (!select_tile_sizes(input_b, NULL, NULL, NULL, &ts_e1)) {
-#ifdef ZDNNX_DEBUG
-    printf("[MatMul] calling the original zdnn matmul.\n");
-#endif
-    return call_zdnn_matmul_op(
-        input_a, input_b, input_c, op_type, output, is_bcast);
-  }
+  // Select suitable tile sizes for E4, E2, E1 tile size. E3 is always 1.
+  uint32_t ts_e4, ts_e2, ts_e1;
+  select_tile_sizes(input_a, &ts_e4, NULL, &ts_e2, NULL);
+  select_tile_sizes(input_b, &ts_e4, NULL, NULL, &ts_e1);
+  select_tile_sizes(output, &ts_e4, NULL, &ts_e2, &ts_e1);
 
   zdnnx_split_info si_a, si_b, si_c, si_y;
-  zdnnx_prepare_split_info(&si_a, input_a, 1, 0, ts_e2, 0, "MatMul A");
-  zdnnx_prepare_split_info(&si_b, input_b, 1, 0, 0, ts_e1, "MatMul B");
-  zdnnx_prepare_split_info(&si_c, input_c, 1, 0, 0, ts_e1, "MatMul C");
-  zdnnx_prepare_split_info(&si_y, output, 1, 0, ts_e2, ts_e1, "MatMul Y");
+  zdnnx_prepare_split_info(&si_a, input_a, ts_e4, 0, ts_e2, 0, "MatMul A");
+  zdnnx_prepare_split_info(&si_b, input_b, ts_e4, 0, 0, ts_e1, "MatMul B");
+  zdnnx_prepare_split_info(&si_c, input_c, ts_e4, 0, 0, ts_e1, "MatMul C");
+  zdnnx_prepare_split_info(&si_y, output, ts_e4, 0, ts_e2, ts_e1, "MatMul Y");
 
   // No splitting, call the zdnn matmul without any changes.
   if (zdnnx_has_one_tile(&si_a) && zdnnx_has_one_tile(&si_b)) {
