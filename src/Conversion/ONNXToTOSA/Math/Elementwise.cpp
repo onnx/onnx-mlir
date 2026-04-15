@@ -182,6 +182,27 @@ public:
   }
 };
 
+class ONNXSqrtOpLoweringToTOSA : public OpConversionPattern<ONNXSqrtOp> {
+public:
+  using OpConversionPattern<ONNXSqrtOp>::OpConversionPattern;
+  using OpAdaptor = typename ONNXSqrtOp::Adaptor;
+  LogicalResult matchAndRewrite(ONNXSqrtOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+
+    auto scalarType = getElementTypeOrSelf(adaptor.getX());
+    if (!isTOSAFloat(scalarType))
+      return rewriter.notifyMatchFailure(
+          op, "TOSA sqrt lowering only supports float types");
+
+    // TOSA has no dedicated sqrt op; decompose as sqrt(x) = 1 / rsqrt(x).
+    Value rsqrtResult = mlir::tosa::RsqrtOp::create(
+        rewriter, op->getLoc(), op.getType(), adaptor.getX());
+    rewriter.replaceOpWithNewOp<mlir::tosa::ReciprocalOp>(
+        op, op.getType(), rsqrtResult);
+    return success();
+  }
+};
+
 class ONNXSigmoidOpLoweringToTOSA : public OpConversionPattern<ONNXSigmoidOp> {
 public:
   using OpConversionPattern<ONNXSigmoidOp>::OpConversionPattern;
@@ -238,7 +259,7 @@ void populateLoweringONNXElementwiseOpToTOSAPattern(ConversionTarget &target,
       ONNXSinOpLoweringToTOSA, ONNXCosOpLoweringToTOSA,
       ONNXExpOpLoweringToTOSA, ONNXFloorOpLoweringToTOSA,
       ONNXReluOpLoweringToTOSA, ONNXSigmoidOpLoweringToTOSA,
-      ONNXDivOpLoweringToTOSA>(typeConverter, ctx);
+      ONNXSqrtOpLoweringToTOSA, ONNXDivOpLoweringToTOSA>(typeConverter, ctx);
 }
 
 } // namespace onnx_mlir
