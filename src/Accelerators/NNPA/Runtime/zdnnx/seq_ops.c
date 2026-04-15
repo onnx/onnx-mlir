@@ -356,7 +356,6 @@ zdnn_status zdnnx_seq_softmax(const zdnn_ztensor *input, void *save_area,
   if (zdnnx_has_one_tile(&si_x)) {
 #ifdef ZDNNX_DEBUG
     printf("[Softmax] calling the original zdnn softmax.\n");
-    zdnnx_print_ztensor_info(input, "Softmax X");
 #endif
     return zdnn_softmax(input, save_area, act_func, output);
   }
