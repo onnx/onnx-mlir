@@ -37,6 +37,31 @@ namespace {
 // Helper Functions
 //===----------------------------------------------------------------------===//
 
+/// Slice per-axis quantization scales/zeroPoints for a strided channel slice.
+/// Collects indices [begin, begin+stride, begin+2*stride, ...) < end.
+/// Returns the original type unchanged if not per-axis quantized.
+static mlir::Type slicePerAxisQuantType(
+    mlir::Type elementType, int64_t begin, int64_t end, int64_t stride) {
+  auto perAxisType = dyn_cast<quant::UniformQuantizedPerAxisType>(elementType);
+  if (!perAxisType)
+    return elementType;
+
+  auto scales = perAxisType.getScales();
+  auto zeroPoints = perAxisType.getZeroPoints();
+
+  SmallVector<double> slicedScales;
+  SmallVector<int64_t> slicedZeroPoints;
+  for (int64_t i = begin; i < end; i += stride) {
+    slicedScales.push_back(scales[i]);
+    slicedZeroPoints.push_back(zeroPoints[i]);
+  }
+
+  return quant::UniformQuantizedPerAxisType::get(perAxisType.getFlags(),
+      perAxisType.getStorageType(), perAxisType.getExpressedType(),
+      slicedScales, slicedZeroPoints, perAxisType.getQuantizedDimension(),
+      perAxisType.getStorageTypeMin(), perAxisType.getStorageTypeMax());
+}
+
 /// Get shape from a value
 static llvm::SmallVector<int64_t> getShape(mlir::Value value) {
   auto shapedType = mlir::dyn_cast<mlir::ShapedType>(value.getType());
@@ -730,6 +755,10 @@ struct TransferConvSliceToConvPattern
       llvm::SmallVector<int64_t> newWeightShape = weightShape;
       newWeightShape[0] = newOutputChannels;
 
+      // Slice per-axis quant scales/zp to match the sliced output channels
+      auto slicedWeightElemType = slicePerAxisQuantType(
+          getElementType(weights), channelBegin, channelEnd, channelStride);
+
       if (weightsAreQuantized) {
         // Handle quantized weights (int8/uint8 with quant.uniform type)
         llvm::SmallVector<int64_t> weightDataInt;
@@ -740,9 +769,8 @@ struct TransferConvSliceToConvPattern
         auto slicedWeightData = sliceIntWeightData(weightDataInt, weightShape,
             channelBegin, channelEnd, channelStride);
 
-        // Create new quantized weights constant (preserves quantization type)
         newWeights = createConstantFromIntData(rewriter, loc, newWeightShape,
-            slicedWeightData, getElementType(weights));
+            slicedWeightData, slicedWeightElemType);
       } else {
         // Handle float weights
         llvm::SmallVector<float> weightData;
@@ -753,9 +781,8 @@ struct TransferConvSliceToConvPattern
         auto slicedWeightData = sliceWeightData(
             weightData, weightShape, channelBegin, channelEnd, channelStride);
 
-        // Create new float weights constant
         newWeights = createConstantFromFloatData(rewriter, loc, newWeightShape,
-            slicedWeightData, getElementType(weights));
+            slicedWeightData, slicedWeightElemType);
       }
 
       // Handle bias if present
@@ -766,6 +793,11 @@ struct TransferConvSliceToConvPattern
           llvm::SmallVector<int64_t> newBiasShape = {newOutputChannels};
           bool biasIsQuantized = isQuantizedType(convOp.getB().getType());
 
+          // Slice per-axis quant scales/zp for bias
+          auto slicedBiasElemType =
+              slicePerAxisQuantType(getElementType(convOp.getB()), channelBegin,
+                  channelEnd, channelStride);
+
           if (biasIsQuantized) {
             // Handle quantized bias (int32 with quant.uniform type)
             llvm::SmallVector<int64_t> biasDataInt;
@@ -774,7 +806,7 @@ struct TransferConvSliceToConvPattern
                   biasDataInt, channelBegin, channelEnd, channelStride);
 
               newBias = createConstantFromIntData(rewriter, loc, newBiasShape,
-                  slicedBiasData, getElementType(convOp.getB()));
+                  slicedBiasData, slicedBiasElemType);
             }
           } else {
             // Handle float bias
@@ -784,7 +816,7 @@ struct TransferConvSliceToConvPattern
                   biasData, channelBegin, channelEnd, channelStride);
 
               newBias = createConstantFromFloatData(rewriter, loc, newBiasShape,
-                  slicedBiasData, getElementType(convOp.getB()));
+                  slicedBiasData, slicedBiasElemType);
             }
           }
         }

@@ -7,6 +7,7 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
+#include "mlir/Dialect/Quant/IR/QuantTypes.h"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
@@ -21,6 +22,35 @@ namespace {
 //===----------------------------------------------------------------------===//
 // Helper Functions
 //===----------------------------------------------------------------------===//
+
+/// Expand per-axis quantization scales/zeroPoints by repeating each entry
+/// `factor` times. Used when reshaping axis 0 from OC to OC*D — each original
+/// output channel maps to `factor` consecutive channels in the reshaped weight.
+/// Returns the original type unchanged if not per-axis quantized.
+static Type expandPerAxisQuantType(Type elementType, int64_t factor) {
+  auto perAxisType = dyn_cast<quant::UniformQuantizedPerAxisType>(elementType);
+  if (!perAxisType)
+    return elementType;
+
+  auto scales = perAxisType.getScales();
+  auto zeroPoints = perAxisType.getZeroPoints();
+
+  SmallVector<double> expandedScales;
+  SmallVector<int64_t> expandedZeroPoints;
+  expandedScales.reserve(scales.size() * factor);
+  expandedZeroPoints.reserve(zeroPoints.size() * factor);
+  for (size_t i = 0; i < scales.size(); ++i) {
+    for (int64_t d = 0; d < factor; ++d) {
+      expandedScales.push_back(scales[i]);
+      expandedZeroPoints.push_back(zeroPoints[i]);
+    }
+  }
+
+  return quant::UniformQuantizedPerAxisType::get(perAxisType.getFlags(),
+      perAxisType.getStorageType(), perAxisType.getExpressedType(),
+      expandedScales, expandedZeroPoints, perAxisType.getQuantizedDimension(),
+      perAxisType.getStorageTypeMin(), perAxisType.getStorageTypeMax());
+}
 
 /// Extract int64_t value from an IntegerAttr
 inline int64_t getIntAttrValue(Attribute attr) {
@@ -150,12 +180,15 @@ struct Conv3dToConv2dPattern : public OpRewritePattern<ONNXConvOp> {
 
     // Weight shape depends on matmul-like vs standard
     llvm::SmallVector<int64_t, 4> newWeightShape;
+    Type newWeightElemType = weightType.getElementType();
     if (matmulLike) {
-      // Weight: [OC, IC*D, 1, 1] - IC must also account for depth!
+      // Weight: [OC, IC*D, 1, 1] — axis 0 stays OC, per-axis quant unchanged.
       newWeightShape = {OC, IC * inShape.D, 1, 1};
     } else {
-      // Weight: [OC*D_out, IC*D, H_k, W_k]
+      // Weight: [OC*D_out, IC*D, H_k, W_k] — axis 0 grows by factor D.
+      // Expand per-axis quant scales/zp: each OC entry repeats D times.
       newWeightShape = {OC * inShape.D, IC * inShape.D, H_k, W_k};
+      newWeightElemType = expandPerAxisQuantType(newWeightElemType, inShape.D);
     }
 
     // Reshape input
@@ -167,7 +200,7 @@ struct Conv3dToConv2dPattern : public OpRewritePattern<ONNXConvOp> {
 
     // Reshape weight
     auto newWeightType =
-        RankedTensorType::get(newWeightShape, weightType.getElementType());
+        RankedTensorType::get(newWeightShape, newWeightElemType);
     auto weightShapeConst = createShapeConstant(rewriter, loc, newWeightShape);
     auto reshapedWeight = rewriter.create<ONNXReshapeOp>(
         loc, newWeightType, weight, weightShapeConst);
@@ -194,8 +227,10 @@ struct Conv3dToConv2dPattern : public OpRewritePattern<ONNXConvOp> {
       auto biasType = cast<RankedTensorType>(bias.getType());
       // Bias shape must match Conv2D output channels: OC*D
       llvm::SmallVector<int64_t, 1> newBiasShape = {OC * inShape.D};
-      auto newBiasType =
-          RankedTensorType::get(newBiasShape, biasType.getElementType());
+      // Bias goes from [OC] to [OC*D] on both paths — expand per-axis quant.
+      auto newBiasElemType =
+          expandPerAxisQuantType(biasType.getElementType(), inShape.D);
+      auto newBiasType = RankedTensorType::get(newBiasShape, newBiasElemType);
       auto biasShapeConst = createShapeConstant(rewriter, loc, newBiasShape);
       reshapedBias = rewriter.create<ONNXReshapeOp>(
           loc, newBiasType, bias, biasShapeConst);

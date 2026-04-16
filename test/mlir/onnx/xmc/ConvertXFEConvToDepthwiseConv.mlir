@@ -406,3 +406,32 @@ func.func @regular_conv_f32_not_depthwise(%arg0: tensor<1x56x56x3xf32>) -> tenso
 // CHECK-NOT: onnx.XCOMPILERDepthwiseConv
 // CHECK: onnx.XFEConv
 
+// -----
+
+// =============================================================================
+// Test 15: Per-axis quantized depthwise conv — verify quantizedDimension remap
+// =============================================================================
+// Weight OHWI [4, 3, 3, 1] with per-axis quant on axis 0 (output channels).
+// After OHWI→IHWO transpose {3,1,2,0}, axis 0 maps to axis 3.
+// The 4 per-channel scales must remain intact, just on the new axis.
+
+// CHECK-LABEL: @depthwise_conv2d_per_axis_quant
+func.func @depthwise_conv2d_per_axis_quant(%arg0: tensor<1x8x8x4x!quant.uniform<i8:f32, 0.1:0>>) -> tensor<1x8x8x4x!quant.uniform<i8:f32, 0.1:0>> {
+    %weights = onnx.Constant {value = dense<1> : tensor<4x3x3x1xi8>} : tensor<4x3x3x1x!quant.uniform<i8:f32:0, {0.01, 0.02, 0.03, 0.04}>>
+    %none = "onnx.NoValue"() {value} : () -> none
+
+    %conv = "onnx.XFEConv"(%arg0, %weights, %none) {
+        auto_pad = "SAME_UPPER",
+        dilations = [1, 1],
+        group = 4 : si64,
+        kernel_shape = [3, 3],
+        pads = [1, 1, 1, 1],
+        strides = [1, 1]
+    } : (tensor<1x8x8x4x!quant.uniform<i8:f32, 0.1:0>>, tensor<4x3x3x1x!quant.uniform<i8:f32:0, {0.01, 0.02, 0.03, 0.04}>>, none) -> tensor<1x8x8x4x!quant.uniform<i8:f32, 0.1:0>>
+
+    return %conv : tensor<1x8x8x4x!quant.uniform<i8:f32, 0.1:0>>
+}
+// CHECK-NOT: onnx.XFEConv
+// Weight transposed OHWI→IHWO: [4,3,3,1]->[1,3,3,4], per-axis dim 0→3
+// CHECK: tensor<1x3x3x4x!quant.uniform<i8:f32:3, {1.000000e-02,2.000000e-02,3.000000e-02,4.000000e-02}>>
+// CHECK: onnx.XCOMPILERDepthwiseConv

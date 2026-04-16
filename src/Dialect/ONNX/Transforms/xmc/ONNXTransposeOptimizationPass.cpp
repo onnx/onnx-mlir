@@ -44,6 +44,30 @@ namespace {
 // Utility Functions
 //===----------------------------------------------------------------------===//
 
+/// Remap per-axis quantization dimension through a transpose permutation.
+/// For perm[i] == oldAxis, the new axis becomes i.
+static Type remapPerAxisQuantType(Type elementType, ArrayRef<int64_t> perm) {
+  auto perAxisType = dyn_cast<quant::UniformQuantizedPerAxisType>(elementType);
+  if (!perAxisType)
+    return elementType;
+
+  int32_t oldAxis = perAxisType.getQuantizedDimension();
+  int32_t newAxis = oldAxis;
+  for (int64_t i = 0, e = perm.size(); i < e; ++i) {
+    if (perm[i] == oldAxis) {
+      newAxis = static_cast<int32_t>(i);
+      break;
+    }
+  }
+  if (newAxis == oldAxis)
+    return elementType;
+
+  return quant::UniformQuantizedPerAxisType::get(perAxisType.getFlags(),
+      perAxisType.getStorageType(), perAxisType.getExpressedType(),
+      perAxisType.getScales(), perAxisType.getZeroPoints(), newAxis,
+      perAxisType.getStorageTypeMin(), perAxisType.getStorageTypeMax());
+}
+
 /// Check if permutation is identity [0, 1, 2, ..., n-1]
 bool isIdentityPermutation(ArrayRef<int64_t> perm) {
   for (size_t i = 0; i < perm.size(); ++i) {
@@ -1017,9 +1041,11 @@ struct FuseTransposeImmuneBinaryOp : public OpRewritePattern<BinaryOp> {
       reshapedOperand = otherOperand;
       LLVM_DEBUG(llvm::dbgs() << "  Shape unchanged, skipping Reshape\n");
     } else {
-      // Shape changed - need Reshape
-      auto newType =
-          RankedTensorType::get(newShape, otherType.getElementType());
+      // Shape changed - need Reshape.
+      // Remap per-axis quant dimension through the inverse permutation.
+      auto reshapedElemType =
+          remapPerAxisQuantType(otherType.getElementType(), invPerm);
+      auto newType = RankedTensorType::get(newShape, reshapedElemType);
 
       // Create a constant for the new shape
       auto shapeType = RankedTensorType::get(
@@ -1156,8 +1182,10 @@ struct PushTransposeThroughBinaryWithConst : public OpRewritePattern<BinaryOp> {
     auto invPerm = inversePermutation(*perm);
     auto newConstShape = permuteShape(constShape, invPerm);
 
-    // Check if element type is quantized
+    // Remap per-axis quant dimension through the inverse transpose applied
+    // to the constant (data moves from post-transpose to pre-transpose space).
     auto origElementType = constType.getElementType();
+    auto remappedElementType = remapPerAxisQuantType(origElementType, invPerm);
     auto isQuantized = mlir::isa<mlir::quant::QuantizedType>(origElementType);
 
     // For quantized types, we need to work with storage type for
@@ -1206,7 +1234,8 @@ struct PushTransposeThroughBinaryWithConst : public OpRewritePattern<BinaryOp> {
       }
       auto newDenseAttr = DenseElementsAttr::get(
           denseAttrType, denseAttr.getSplatValue<Attribute>());
-      auto newConstType = RankedTensorType::get(newConstShape, origElementType);
+      auto newConstType =
+          RankedTensorType::get(newConstShape, remappedElementType);
       auto newConstOp = rewriter.create<ONNXConstantOp>(constantOp.getLoc(),
           newConstType, Attribute(), newDenseAttr, nullptr, nullptr, nullptr,
           nullptr, nullptr, nullptr);
@@ -1345,8 +1374,10 @@ struct PushTransposeThroughBinaryWithConst : public OpRewritePattern<BinaryOp> {
 
     auto newDenseAttr = DenseElementsAttr::get(denseAttrType, newValues);
 
-    // Create the constant with the final type (including quantization)
-    auto newConstType = RankedTensorType::get(newConstShape, origElementType);
+    // Create the constant with the final type (including quantization),
+    // using the remapped per-axis quant dimension.
+    auto newConstType =
+        RankedTensorType::get(newConstShape, remappedElementType);
     auto newConstOp = rewriter.create<ONNXConstantOp>(constantOp.getLoc(),
         newConstType, Attribute(), newDenseAttr, nullptr, nullptr, nullptr,
         nullptr, nullptr, nullptr);

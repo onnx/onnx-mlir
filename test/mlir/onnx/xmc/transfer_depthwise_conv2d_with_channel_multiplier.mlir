@@ -441,4 +441,32 @@ module {
   // CHECK: onnx.XFEConv
   // CHECK: onnx.Concat
   // CHECK-SAME: axis = 3
+
+  // Test 19: Per-axis quantized depthwise conv with channel_multiplier=2 (NCHW)
+  // 2 input channels, 4 output channels, cm=2. Per-axis scales on axis 0.
+  // Split into 2 convs: channels [0,1] and [2,3].
+  // Scales {0.1, 0.2, 0.3, 0.4} -> {0.1, 0.2} and {0.3, 0.4}
+  func.func @test_depthwise_per_axis_cm2(%arg0: tensor<1x2x8x8x!quant.uniform<u8:f32, 0.1:128>>) -> tensor<1x4x8x8x!quant.uniform<u8:f32, 0.1:128>> {
+    %weights = "onnx.Constant"() {value = dense<128> : tensor<4x1x3x3xui8>} : () -> tensor<4x1x3x3x!quant.uniform<u8:f32:0, {0.1, 0.2, 0.3, 0.4}>>
+    %bias = "onnx.Constant"() {value = dense<0> : tensor<4xi32>} : () -> tensor<4x!quant.uniform<i32:f32:0, {0.01, 0.02, 0.03, 0.04}>>
+    %0 = "onnx.Conv"(%arg0, %weights, %bias) {
+      auto_pad = "NOTSET",
+      dilations = [1, 1],
+      group = 2 : si64,
+      kernel_shape = [3, 3],
+      pads = [1, 1, 1, 1],
+      strides = [1, 1]
+    } : (tensor<1x2x8x8x!quant.uniform<u8:f32, 0.1:128>>, tensor<4x1x3x3x!quant.uniform<u8:f32:0, {0.1, 0.2, 0.3, 0.4}>>, tensor<4x!quant.uniform<i32:f32:0, {0.01, 0.02, 0.03, 0.04}>>) -> tensor<1x4x8x8x!quant.uniform<u8:f32, 0.1:128>>
+    return %0 : tensor<1x4x8x8x!quant.uniform<u8:f32, 0.1:128>>
+  }
+  // CHECK-LABEL: func.func @test_depthwise_per_axis_cm2
+  // First split: channels [0,1], scales {0.1, 0.2}, bias scales {0.01, 0.02}
+  // CHECK: onnx.Conv
+  // CHECK-SAME: tensor<2x1x3x3x!quant.uniform<u8:f32:0, {1.000000e-01,2.000000e-01}>>
+  // CHECK-SAME: tensor<2x!quant.uniform<i32:f32:0, {1.000000e-02,2.000000e-02}>>
+  // Second split: channels [2,3], scales {0.3, 0.4}, bias scales {0.03, 0.04}
+  // CHECK: onnx.Conv
+  // CHECK-SAME: tensor<2x1x3x3x!quant.uniform<u8:f32:0, {3.000000e-01,4.000000e-01}>>
+  // CHECK-SAME: tensor<2x!quant.uniform<i32:f32:0, {3.000000e-02,4.000000e-02}>>
+  // CHECK: onnx.Concat
 }

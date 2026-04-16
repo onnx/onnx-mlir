@@ -1377,3 +1377,23 @@ func.func @test_softmax_transpose_fusion_pattern(%arg0: tensor<1x8400x4x16xf32>)
   %2 = "onnx.Transpose"(%1) {perm = [0, 2, 3, 1]} : (tensor<1x16x4x8400xf32>) -> tensor<1x4x8400x16xf32>
   return %2 : tensor<1x4x8400x16xf32>
 }
+
+// -----
+// ============================================================================
+// Test: Per-axis quantized constant through transpose+binary fusion
+// ============================================================================
+// Transpose(x, [0,2,3,1]) * per-axis-quant-const pushes transpose through Mul.
+// Const [1,1,1,4] is transpose-immune, so it gets Reshaped to [1,4,1,1].
+// Per-axis dim 3 must remap to dim 1 via inverse perm [0,3,1,2].
+
+// CHECK-LABEL: func @test_transpose_binary_per_axis_quant
+func.func @test_transpose_binary_per_axis_quant(%arg0: tensor<1x4x8x8x!quant.uniform<i8:f32, 0.1:0>>) -> tensor<1x8x8x4x!quant.uniform<i8:f32, 0.1:0>> {
+  %0 = "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]} : (tensor<1x4x8x8x!quant.uniform<i8:f32, 0.1:0>>) -> tensor<1x8x8x4x!quant.uniform<i8:f32, 0.1:0>>
+  %c = onnx.Constant {value = dense<1> : tensor<1x1x1x4xi8>} : tensor<1x1x1x4x!quant.uniform<i8:f32:3, {0.01, 0.02, 0.03, 0.04}>>
+  %1 = "onnx.Mul"(%0, %c) : (tensor<1x8x8x4x!quant.uniform<i8:f32, 0.1:0>>, tensor<1x1x1x4x!quant.uniform<i8:f32:3, {0.01, 0.02, 0.03, 0.04}>>) -> tensor<1x8x8x4x!quant.uniform<i8:f32, 0.1:0>>
+  return %1 : tensor<1x8x8x4x!quant.uniform<i8:f32, 0.1:0>>
+}
+// Reshaped to [1,4,1,1] with per-axis dim remapped from 3→1
+// CHECK: onnx.Reshape{{.*}}tensor<1x4x1x1x!quant.uniform<i8:f32:1, {1.000000e-02,2.000000e-02,3.000000e-02,4.000000e-02}>>
+// CHECK: onnx.Mul
+// CHECK: onnx.Transpose
