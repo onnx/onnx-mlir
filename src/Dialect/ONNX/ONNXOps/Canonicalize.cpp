@@ -2433,6 +2433,76 @@ struct SoftmaxNegativeAxisPattern : public OpRewritePattern<ONNXSoftmaxOp> {
   }
 };
 
+// Rewrite ONNXSoftmaxV11Op to ONNXSoftmaxOp (V13).
+//
+// V11 computes softmax over the flattened suffix [axis..rank-1].
+// V13 computes softmax along a single axis.
+//
+// When axis is already the last dim the ops are equivalent.
+// Otherwise we flatten the trailing dims, apply V13 softmax on that single
+// flattened dim, then reshape back.
+struct SoftmaxV11ToLatestPattern : public OpRewritePattern<ONNXSoftmaxV11Op> {
+  using OpRewritePattern<ONNXSoftmaxV11Op>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXSoftmaxV11Op op, PatternRewriter &rewriter) const final {
+    Value input = op.getInput();
+    int64_t axis = op.getAxis();
+    Type resultType = op.getResult().getType();
+
+    // axis == -1 always refers to the last dim, even for unranked tensors.
+    if (axis == -1) {
+      rewriter.replaceOpWithNewOp<ONNXSoftmaxOp>(op, resultType, input, axis);
+      return success();
+    }
+
+    auto inputType = dyn_cast<RankedTensorType>(input.getType());
+    if (!inputType)
+      return rewriter.notifyMatchFailure(op, "requires ranked input");
+
+    int64_t rank = inputType.getRank();
+    if (axis < 0)
+      axis += rank;
+
+    // If axis is innermost V11 and V13 semantics are identical.
+    if (axis == rank - 1) {
+      rewriter.replaceOpWithNewOp<ONNXSoftmaxOp>(op, resultType, input, axis);
+      return success();
+    }
+
+    if (!inputType.hasStaticShape())
+      return rewriter.notifyMatchFailure(
+          op, "non-last-axis requires static shape");
+
+    // Flatten [axis..rank-1] into a single trailing dimension, e.g.
+    //   [2, 3, 4, 5] with axis=1  ->  [2, 60]
+    ArrayRef<int64_t> inputShape = inputType.getShape();
+    int64_t trailingDim = 1;
+    for (int64_t i = axis; i < rank; ++i)
+      trailingDim *= inputShape[i];
+
+    SmallVector<int64_t> flatShape(
+        inputShape.begin(), inputShape.begin() + axis);
+    flatShape.push_back(trailingDim);
+    auto flatType =
+        RankedTensorType::get(flatShape, inputType.getElementType());
+
+    Location loc = op.getLoc();
+    auto shapeAttr = [&](ArrayRef<int64_t> shape) {
+      return rewriter.create<ONNXConstantOp>(
+          loc, nullptr, rewriter.getI64TensorAttr(shape));
+    };
+
+    Value flat = rewriter.create<ONNXReshapeOp>(
+        loc, flatType, input, shapeAttr(flatShape));
+    Value softmax = rewriter.create<ONNXSoftmaxOp>(loc, flatType, flat, axis);
+    rewriter.replaceOpWithNewOp<ONNXReshapeOp>(
+        op, resultType, softmax, shapeAttr(inputShape));
+
+    return success();
+  }
+};
+
 /*
  * Push down the transpose after scale (mul op), so the scale can be fused to
  * Layernorm.
