@@ -852,15 +852,16 @@ void updateType(Operation *op, Value val, ArrayRef<int64_t> shape,
     elementType = getElementType(val.getType());
 
   // Preserve quantized element types that were set by QuantTypesPass.
-  // Shape inference derives elementType from an op's input, which may have
-  // lost its quantized type — either to the expressed type (f32, from a
-  // DequantizeLinear) or to the storage type (e.g. ui16, from a quant.scast).
-  // In both cases the result was previously assigned a calibrated quantized
-  // type that must be kept; overwriting it would make downstream quant.scast
-  // and XCOMPILERRequantize ops illegal (integer→integer or f32 operand).
+  // QuantTypesPass assigns calibrated scale/zero_point to each op's result
+  // based on the model's quantization metadata. Shape inference must only
+  // update the tensor shape, never the quantization parameters. Without
+  // this guard, inferShapes would overwrite the calibrated type with:
+  //   - the expressed type (f32, from a DequantizeLinear input), or
+  //   - the storage type (e.g. ui16, from a quant.scast input), or
+  //   - a different quantized type from an operand (e.g. Concat using
+  //     operand 0's scale instead of the output's calibrated scale).
   if (auto valType = mlir::dyn_cast<RankedTensorType>(val.getType())) {
-    if (mlir::isa<mlir::quant::QuantizedType>(valType.getElementType()) &&
-        !mlir::isa<mlir::quant::QuantizedType>(elementType)) {
+    if (mlir::isa<mlir::quant::QuantizedType>(valType.getElementType())) {
       elementType = valType.getElementType();
     }
   }
