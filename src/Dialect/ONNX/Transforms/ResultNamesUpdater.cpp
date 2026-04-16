@@ -78,10 +78,7 @@ void ResultNamesUpdater::notifyOperationReplaced(
 
   // If the op is replaced by a single op, use the simpler method
   if (Operation *replSingleOp = replacement.front().getDefiningOp();
-      replSingleOp &&
-      llvm::all_of(replacement, [replSingleOp](Value value) -> bool {
-        return value.getDefiningOp() == replSingleOp;
-      }))
+      replSingleOp && replSingleOp->getResults() == replacement)
     return notifyOperationReplaced(op, replSingleOp);
 
   // First, copy the ResultNames attribute for the last value
