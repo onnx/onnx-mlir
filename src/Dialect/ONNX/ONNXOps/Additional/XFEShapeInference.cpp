@@ -748,6 +748,9 @@ LogicalResult XFEDepthToSpaceOpShapeInference(
   SmallVector<int64_t, 4> outputShape = {N, H_out, W_out, C_out};
 
   Type elementType = inputType.getElementType();
+  if (auto existingType = dyn_cast<ShapedType>(d2sOp.getResult().getType())) {
+    elementType = existingType.getElementType();
+  }
   auto resultType = RankedTensorType::get(outputShape, elementType);
   d2sOp.getResult().setType(resultType);
 
@@ -803,6 +806,9 @@ LogicalResult XFESpaceToDepthOpShapeInference(
   SmallVector<int64_t, 4> outputShape = {N, H_out, W_out, C_out};
 
   Type elementType = inputType.getElementType();
+  if (auto existingType = dyn_cast<ShapedType>(s2dOp.getResult().getType())) {
+    elementType = existingType.getElementType();
+  }
   auto resultType = RankedTensorType::get(outputShape, elementType);
   s2dOp.getResult().setType(resultType);
 

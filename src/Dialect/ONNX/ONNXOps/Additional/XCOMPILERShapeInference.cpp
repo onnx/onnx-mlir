@@ -82,6 +82,13 @@ LogicalResult XCOMPILERDepthwiseConvOpShapeInference(
   ArrayRef<int64_t> xShape = xType.getShape();
   Type elementType = xType.getElementType();
 
+  if (auto existingType =
+          dyn_cast<RankedTensorType>(convOp.getResult().getType())) {
+    if (mlir::isa<mlir::quant::QuantizedType>(existingType.getElementType())) {
+      elementType = existingType.getElementType();
+    }
+  }
+
   // Input must be 4D [N, H, W, C] or 5D [N, D, H, W, C]
   size_t rank = xShape.size();
   if (rank != 4 && rank != 5)
@@ -184,12 +191,25 @@ LogicalResult XCOMPILERRequantizeOpShapeInference(
   if (!requantizeOp)
     return failure();
 
-  // Requantize: output shape is identical to input shape
+  // Requantize: output shape is identical to input shape, but the element
+  // type must be preserved from the result (not copied from X). The result
+  // carries the output quantization parameters (y_scale, y_zero_point) which
+  // are independently calibrated and differ from X's input parameters
+  // (a_scale, a_zero_point). Copying X's element type would lose the output
+  // calibration. Additionally, X's defining op may have lost its quantized
+  // type during shape inference (becoming f32 or integer).
   Value X = requantizeOp.getX();
   if (!hasShapeAndRank(X))
     return success();
 
-  requantizeOp.getResult().setType(X.getType());
+  auto xType = mlir::cast<ShapedType>(X.getType());
+  Type elementType = xType.getElementType();
+  if (auto existingType =
+          dyn_cast<RankedTensorType>(requantizeOp.getResult().getType())) {
+    elementType = existingType.getElementType();
+  }
+  auto resultType = RankedTensorType::get(xType.getShape(), elementType);
+  requantizeOp.getResult().setType(resultType);
   return success();
 }
 
