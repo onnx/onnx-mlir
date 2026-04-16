@@ -208,9 +208,12 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
     for (int64_t i = 0; i < spatialRank; ++i) {
       inputSpatialDims.push_back(create.krnlIE.getShapeAsSymbol(input, 2 + i));
     }
-
+    op->dump();
+    IndexExpr::debugPrint("input dimensions", inputSpatialDims); // hi alex
     // Get output spatial dimensions from shape helper (already computed).
     const auto &outputSpatialDims = shapeHelper.outputSpatialDims;
+    IndexExpr::debugPrint(
+        "output spatial dimensions", outputSpatialDims); // hi alex
 
     // Get numRows from shape helper output dimensions.
     IndexExpr numRows = shapeHelper.getOutputDims()[0];
@@ -220,8 +223,9 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
     reshapedDims.push_back(numRows);
     reshapedDims.push_back(CI);
     for (int64_t k : kernelShape) {
-      reshapedDims.push_back(LiteralIndexExpr(k));
+      reshapedDims.push_back(LitIE(k));
     }
+    IndexExpr::debugPrint("reshape dimensions", reshapedDims); // hi alex
 
     Value reshapedAlloc = create.mem.reinterpretCast(alloc, reshapedDims);
 
@@ -274,7 +278,8 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
           // Check if all elements in the receptive field are in bounds.
           // For each spatial dimension i, check:
           //   minIdx[i] = oi * stride[i] - pad[i] >= 0
-          //   maxIdx[i] = oi * stride[i] + (kernelShape[i]-1) * dilation[i] - pad[i] < inputDim[i]
+          //   maxIdx[i] = oi * stride[i] + (kernelShape[i]-1) * dilation[i] -
+          //   pad[i] < inputDim[i]
           Value allInBounds = create.math.constant(rewriter.getI1Type(), true);
           for (int64_t i = 0; i < spatialRank; ++i) {
             IndexExpr oi = SymIE(outputIndices[1 + i]);
@@ -414,8 +419,8 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
                         IndexExpr inputIdx = inputSpatialIndices[i];
                         IndexExpr inputDim = SymIE(inputSpatialDims[i]);
 
-                        Value geZero = create.math.sge(inputIdx.getValue(),
-                            create.math.constantIndex(0));
+                        Value geZero = create.math.sge(
+                            inputIdx.getValue(), create.math.constantIndex(0));
                         Value ltDim = create.math.slt(
                             inputIdx.getValue(), inputDim.getValue());
                         Value dimInBounds = create.math.andi(geZero, ltDim);
@@ -455,6 +460,7 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
       ConversionPatternRewriter &rewriter) const final {
     Operation *op = im2colOp.getOperation();
     Location loc = ONNXLoc<ONNXIm2ColOp>(op);
+    ValueRange operands = adaptor.getOperands();
 
     // Get input.
     Value input = adaptor.getX();
@@ -470,9 +476,10 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
     // Insert an allocation for the output.
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder>
         create(rewriter, loc);
+    IndexExprScope scope(create.krnlIE);
 
     // Compute output dimensions using shape helper.
-    ONNXIm2ColOpShapeHelper shapeHelper(op, {});
+    ONNXIm2ColOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Allocate with 2D shape [numRows, numCols].
@@ -494,8 +501,8 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
 void populateLoweringONNXIm2ColOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel) {
   bool useOptimizedAlgo = OptimizationLevel > OptLevel::O0;
-  patterns.insert<ONNXIm2ColOpLowering>(
-      typeConverter, ctx, enableParallel, useOptimizedAlgo);
+  patterns.insert<ONNXIm2ColOpLowering>(typeConverter, ctx, enableParallel,
+      useOptimizedAlgo && true /* hi alex */);
 }
 
 } // namespace onnx_mlir

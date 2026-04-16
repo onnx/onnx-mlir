@@ -167,6 +167,10 @@ void registerOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createLateDecomposePass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createConvertONNXToTOSAPass();
   });
 

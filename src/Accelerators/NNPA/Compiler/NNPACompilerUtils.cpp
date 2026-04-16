@@ -175,6 +175,17 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
   if (isBE)
     pm.addPass(onnx_mlir::zhigh::createZHighConstPropagationPass());
 
+  // Late decomposition for ONNX ops that NNPA didn't pick up.
+  // This handles operations that remain in ONNX dialect after ZHigh lowering.
+  // Only apply when optimization level > 0.
+  fprintf(stderr, "hi alex, near late decompose in nnpa pass\n");
+  if (OptimizationLevel > OptLevel::O0) {
+    // hi alex, maybe shape inference before, and skip after; or both.
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createLateDecomposePass());
+    // Re-run shape inference after decomposition.
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
+  }
+
   // Remove common sub-expressions.
   pm.addPass(mlir::createCSEPass());
 

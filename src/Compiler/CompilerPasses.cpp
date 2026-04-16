@@ -170,6 +170,15 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
     }
   }
 
+  // Late decomposition for ONNX ops not handled by accelerators.
+  // Only apply when optimization level > 0.
+  if (targetCPU && OptimizationLevel > OptLevel::O0) {
+    fprintf(stderr, "hi alex from compiler passes cpu\n");
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createLateDecomposePass());
+    // Re-run shape inference after decomposition.
+    // hi alex pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
+  }
+
   // Simplify shape-related ops.
   pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass());
 
@@ -184,7 +193,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
   }
 
-  // Remove onnx.Dim operations that refer to the same dynamid dimension.
+  // Remove onnx.Dim operations that refer to the same dynamic dimension.
   pm.addPass(onnx_mlir::createRemoveSameONNXDimPass());
 
   // Replace ONNXReturnOp with func::ReturnOp.
