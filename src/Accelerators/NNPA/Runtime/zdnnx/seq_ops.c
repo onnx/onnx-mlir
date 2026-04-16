@@ -90,11 +90,11 @@ static void select_tile_sizes(const zdnn_ztensor *t, uint32_t *ts_e4,
 
   // If exceeded the max tensor size, decrease dim size in this order E4, E1,
   // E3, E2 to maximize the buffer reuse:
-  uint32_t *tmp_ptrs[4] = {&tmp_e4, &tmp_e1, &tmp_e3, &tmp_e2};
-  bool includes[4] = {include_e4, include_e1, include_e3, include_e2};
   uint64_t total_tile_size = (uint64_t)(tmp_e4) * (uint64_t)(tmp_e3) *
                              (uint64_t)(tmp_e2) * (uint64_t)(tmp_e1);
   if (total_tile_size > max_tensor_size) {
+    uint32_t *tmp_ptrs[4] = {&tmp_e4, &tmp_e1, &tmp_e3, &tmp_e2};
+    bool includes[4] = {include_e4, include_e1, include_e3, include_e2};
     for (int i = 0; i < 4; ++i) {
       if (!includes[i])
         continue;
