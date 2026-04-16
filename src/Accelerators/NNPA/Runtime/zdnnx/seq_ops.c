@@ -20,6 +20,7 @@
 #include "seq_ops.h"
 #include "zdnnx.h"
 #include "zdnnx_ops.h"
+#include "zdnnx_private.h"
 
 // -----------------------------------------------------------------------------
 // Element-wise operations
@@ -87,36 +88,42 @@ static void select_tile_sizes(const zdnn_ztensor *t, uint32_t *ts_e4,
       tmp_e3 = 1;
   }
 
-  // If exceeded the max tensor size, decrease dim size in this order to
-  // maximize the buffer reuse:
-  // - decrease e4
-  // - decrease e1
-  // - decrease e3
-  // - decrease e2
+  // If exceeded the max tensor size, decrease dim size in this order E4, E1,
+  // E3, E2 to maximize the buffer reuse:
+  uint32_t *tmp_ptrs[4] = {&tmp_e4, &tmp_e1, &tmp_e3, &tmp_e2};
+  bool includes[4] = {include_e4, include_e1, include_e3, include_e2};
   uint64_t total_tile_size = (uint64_t)(tmp_e4) * (uint64_t)(tmp_e3) *
                              (uint64_t)(tmp_e2) * (uint64_t)(tmp_e1);
-
-  uint32_t *tmp_ptrs[4] = {&tmp_e4, &tmp_e3, &tmp_e2, &tmp_e1};
-  bool includes[4] = {include_e4, include_e3, include_e1, include_e1};
-  for (int i = 0; i < 4; ++i) {
-    if (!includes[i])
-      continue;
-    while (total_tile_size > max_tensor_size) {
+  if (total_tile_size > max_tensor_size) {
+    for (int i = 0; i < 4; ++i) {
+      if (!includes[i])
+        continue;
+      // Minimum value, nothing to adjust.
+      if (*tmp_ptrs[i] == 1)
+        continue;
+        // Select a new dim size that makes total_tile_size smaller than
+        // max_tensor_size.
 #ifdef ZDNNX_DEBUG
+      int e_idx = 0;
+      if (i == 0)
+        e_idx = 4;
+      else if (i == 1)
+        e_idx = 1;
+      else if (i == 2)
+        e_idx = 3;
+      else if (i == 3)
+        e_idx = 2;
       printf("Exceeding the max tensor size: tile_size: %ld, "
-             "max_tensor_size: %ld. Adjusting (decrease by half) ... \n",
-          total_tile_size, max_tensor_size);
+             "max_tensor_size: %ld. Adjusting E%d... \n",
+          total_tile_size, max_tensor_size, e_idx);
 #endif
-      *tmp_ptrs[i] /= 2;
-      uint64_t new_total_tile_size = (uint64_t)(tmp_e4) * (uint64_t)(tmp_e3) *
-                                     (uint64_t)(tmp_e2) * (uint64_t)(tmp_e1);
-      // When the total size is unchanged, meaning the tile dim is decreased
-      // to 1. Stop searching.
-      if (new_total_tile_size == total_tile_size) {
-        assert(*tmp_ptrs[i] == 1 && "Something really wrong happened.");
+      *tmp_ptrs[i] = CEIL(*tmp_ptrs[i], CEIL(total_tile_size, max_tensor_size));
+      total_tile_size = (uint64_t)(tmp_e4) * (uint64_t)(tmp_e3) *
+                        (uint64_t)(tmp_e2) * (uint64_t)(tmp_e1);
+      // Good tile size. Stop searching.
+      if (total_tile_size <= max_tensor_size) {
         break;
       }
-      total_tile_size = new_total_tile_size;
     }
   }
 
