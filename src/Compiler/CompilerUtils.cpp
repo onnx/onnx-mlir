@@ -470,6 +470,8 @@ static int genSharedLib(std::string sharedLibNameWithExt,
 #else
   std::vector<std::string> outputOpt = {"-o", sharedLibNameWithExt};
   std::vector<std::string> sharedLibOpts = {"-shared", "-fPIC"};
+  if (enableDebugInfo)
+    sharedLibOpts.emplace_back("-g");
   llvm::for_each(libs, [](std::string &lib) { lib = "-l" + lib; });
   llvm::for_each(libDirs, [](std::string &libDir) { libDir = "-L" + libDir; });
 #ifdef __s390x__
@@ -508,7 +510,23 @@ static int genSharedLib(std::string sharedLibNameWithExt,
     }
     rc = 1; // Failure.
   }
-  return rc != 0 ? CompilerFailureInObjToLib : CompilerSuccess;
+  if (rc != 0)
+    return CompilerFailureInObjToLib;
+#ifdef __APPLE__
+  // On macOS, run dsymutil to generate .dSYM with debug info.
+  try {
+    Command dsym(/*exePath=*/"dsymutil", VerboseOutput);
+    dsym.appendStr(sharedLibNameWithExt).exec();
+  } catch (const onnx_mlir::CommandException &error) {
+    if (Verbose) {
+      std::string errorMessage = error.what();
+      fprintf(stderr, "Return message from command exception (dsymutil): %s\n",
+          errorMessage.c_str());
+    }
+    // dsymutil failure is non-fatal; continue without debug symbols.
+  }
+#endif
+  return CompilerSuccess;
 }
 
 // Create jar containing java runtime and model shared library (which includes
