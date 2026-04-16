@@ -20,6 +20,7 @@
 #include <math.h>
 #include <numeric>
 
+#include "mlir/Dialect/Quant/IR/QuantTypes.h"
 #include "mlir/Dialect/Traits.h"
 #include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "mlir/Dialect/Utils/StaticValueUtils.h"
@@ -2966,11 +2967,35 @@ public:
   }
 };
 
+// onnx.Abs(onnx.Abs(x)) -> onnx.Abs(x) by reusing the inner Abs result.
+class AbsAbsPattern : public OpRewritePattern<ONNXAbsOp> {
+public:
+  using OpRewritePattern<ONNXAbsOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXAbsOp op, PatternRewriter &rewriter) const override {
+    Value x = op.getX();
+    if (mlir::isa<quant::QuantizedType>(getElementTypeOrSelf(x)))
+      return failure();
+    auto innerAbs = x.getDefiningOp<ONNXAbsOp>();
+    if (!innerAbs)
+      return failure();
+    rewriter.replaceOp(op, innerAbs.getResult());
+    return success();
+  }
+};
+
 // =============================================================================
 /// Register optimization patterns as "canonicalization" patterns.
 /// Add op to OpsWithCanonicalizer in gen_onnx_mlir.py to activate.
 /// Please keep in alphabetical order.
 // =============================================================================
+
+/// on the ONNXAbsOp.
+void ONNXAbsOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<AbsAbsPattern>(context);
+}
 
 /// on the ONNXBatchNormalizationInferenceModeOp.
 void ONNXBatchNormalizationInferenceModeOp::getCanonicalizationPatterns(

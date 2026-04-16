@@ -59,6 +59,17 @@ func.func @test_dropout(%arg: tensor<10x10xf32>) -> (tensor<10x10xf32>, none) {
 
 // -----
 
+// CHECK-LABEL: @abs_abs(%arg0: tensor<3xf32>) -> tensor<3xf32>
+func.func @abs_abs(%arg0: tensor<3xf32>) -> tensor<3xf32> {
+  %0 = "onnx.Abs"(%arg0) : (tensor<3xf32>) -> tensor<3xf32>
+  %1 = "onnx.Abs"(%0) : (tensor<3xf32>) -> tensor<3xf32>
+  onnx.Return %1 : tensor<3xf32>
+  // CHECK-NEXT: [[R:%.+]] = "onnx.Abs"(%arg0) : (tensor<3xf32>) -> tensor<3xf32>
+  // CHECK-NEXT: onnx.Return [[R]] : tensor<3xf32>
+}
+
+// -----
+
 // CHECK-LABEL: @cast_elimination(%{{.*}}: tensor<2xf32>) -> tensor<2xf32> {
 func.func @cast_elimination(%arg0: tensor<2xf32>) -> tensor<2xf32> {
   %0 = "onnx.Cast"(%arg0) {to = f32} : (tensor<2xf32>) -> tensor<2xf32>

@@ -6,6 +6,7 @@
 
 def ONNXAbsOp:ONNX_Op<"Abs",
   [Pure, OpVersionTrait<13>, SameOperandsAndResultShape, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Abs operation";
   let description = [{
   Absolute takes one input data (Tensor<T>) and produces one output data
