@@ -310,6 +310,8 @@ compareFunctionType *getCompareFunction(
 
 void omTensorSort(OMTensor *orderTensor, const OMTensor *inputTensor,
     uint64_t axis, uint64_t ascending) {
+  if (!orderTensor || !inputTensor)
+    return;
   const OM_DATA_TYPE dataType = omTensorGetDataType(inputTensor);
   const uint64_t rank = omTensorGetRank(inputTensor);
   assert(rank <= 6); // Error: "omTensorSort assumes rank <= 6".

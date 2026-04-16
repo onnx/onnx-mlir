@@ -240,6 +240,8 @@ static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
     Coeff_Func_t get_coeffs, int coeffs_n, OMTensor *roi,
     float *extrapolation_value, int coordinate_transformation_mode,
     int exclude_outside) {
+  if (!output_OMT || !data)
+    return;
   assert(omTensorGetDataType(data) == ONNX_TYPE_FLOAT);
   // Error: "Resize runtime: only float type is supported currently".
 
