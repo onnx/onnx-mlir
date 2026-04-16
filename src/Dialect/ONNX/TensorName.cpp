@@ -16,11 +16,7 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-Transform::Transform(
-    Transform::Kind k, ArrayRef<int64_t> inShape, ArrayRef<int64_t> outShape)
-    : kind(k), inShape(inShape), outShape(outShape) {}
-
-std::unique_ptr<Transform> Transform::fromAttr(ArrayAttr arrayAttr) {
+std::unique_ptr<Transform> fromAttr(ArrayAttr arrayAttr) {
   if (arrayAttr.size()) {
     if (auto transType = dyn_cast<StringAttr>(arrayAttr[0])) {
       if (transType == "Reshape")
@@ -40,20 +36,20 @@ std::unique_ptr<Transform> Transform::fromAttr(ArrayAttr arrayAttr) {
   return {};
 }
 
-std::unique_ptr<Transform> Transform::fromOp(Operation *op) {
+std::unique_ptr<Transform> fromOp(Operation *op) {
   if (auto nameInf = dyn_cast_if_present<mlir::TensorNameInference>(op))
     return nameInf.inferTensorNameTransform();
   return {};
 }
 
-SmallVector<int64_t> Transform::arrayToVector(ArrayAttr arrayAttr) {
+SmallVector<int64_t> arrayToVector(ArrayAttr arrayAttr) {
   SmallVector<int64_t> vector;
   for (const APInt intVal : arrayAttr.getAsValueRange<IntegerAttr>())
     vector.push_back(intVal.getSExtValue());
   return vector;
 }
 
-SmallVector<int64_t> Transform::denseToVector(DenseIntElementsAttr denseAttr) {
+SmallVector<int64_t> denseToVector(DenseIntElementsAttr denseAttr) {
   if (denseAttr.isSplat()) {
     SmallVector<int64_t> vector(denseAttr.getNumElements());
     for (int64_t &v : vector)
@@ -63,7 +59,7 @@ SmallVector<int64_t> Transform::denseToVector(DenseIntElementsAttr denseAttr) {
   return SmallVector<int64_t>(denseAttr.getValues<int64_t>());
 }
 
-SmallVector<int64_t> Transform::valToVector(Value val) {
+SmallVector<int64_t> valToVector(Value val) {
   if (auto constOp = val.getDefiningOp<ONNXConstantOp>()) {
     if (auto arrayAttr = dyn_cast<ArrayAttr>(constOp.getValueAttr()))
       return arrayToVector(arrayAttr);
@@ -74,7 +70,7 @@ SmallVector<int64_t> Transform::valToVector(Value val) {
   return {};
 }
 
-SmallVector<int64_t> Transform::axesToVector(Value val, size_t rank) {
+SmallVector<int64_t> axesToVector(Value val, size_t rank) {
   if (isa<NoneType>(val.getType())) {
     SmallVector<int64_t> axes(rank);
     std::iota(axes.begin(), axes.end(), 0);
@@ -88,7 +84,7 @@ SmallVector<int64_t> Transform::axesToVector(Value val, size_t rank) {
   }
 }
 
-ArrayAttr Transform::vecToAttr(MLIRContext *context, ArrayRef<int64_t> vector) {
+ArrayAttr vecToAttr(MLIRContext *context, ArrayRef<int64_t> vector) {
   auto vecOfAttr =
       llvm::map_to_vector(vector, [context](int64_t v) -> Attribute {
         return IntegerAttr::get(IntegerType::get(context, 64), APInt(64, v));
@@ -310,8 +306,7 @@ TensorName::TensorName(Value value) {
       else if (auto arrayAttr = dyn_cast<ArrayAttr>(resultName)) {
         name = cast<StringAttr>(arrayAttr[0]).getValue().str();
         for (size_t i = 1; i < arrayAttr.size(); i++) {
-          transforms.push_back(
-              Transform::fromAttr(cast<ArrayAttr>(arrayAttr[i])));
+          transforms.push_back(fromAttr(cast<ArrayAttr>(arrayAttr[i])));
         }
       }
     }
@@ -339,7 +334,7 @@ TensorName TensorName::inferWithUse(Value value) {
     return tname;
 
   Operation *op = *value.user_begin();
-  if (auto transform = Transform::fromOp(op)) {
+  if (auto transform = fromOp(op)) {
     tname = inferWithUse(op->getResult(0));
     if (tname) {
       tname.push_back(transform->invert());
@@ -356,7 +351,7 @@ TensorName TensorName::inferWithDef(Value value) {
     return tname;
 
   Operation *op = value.getDefiningOp();
-  if (auto transform = Transform::fromOp(op)) {
+  if (auto transform = fromOp(op)) {
     tname = inferWithDef(op->getOperand(0));
     if (tname) {
       tname.push_back(std::move(transform));
@@ -413,6 +408,114 @@ LogicalResult TensorName::setTo(Value value) const {
     return success();
   }
   return failure();
+}
+
+// == OpInterface == //
+
+std::unique_ptr<Transform>
+ReshapeOpTensorNameInference::inferTensorNameTransform(
+    mlir::Operation *op) const {
+  auto reshapeOp = cast<ONNXReshapeOp>(op);
+
+  // Validate if shapes are static
+  auto inType = cast<RankedTensorType>(reshapeOp.getOperand(0).getType());
+  auto outType = cast<RankedTensorType>(reshapeOp.getResult().getType());
+  if (!inType.hasStaticShape() || !outType.hasStaticShape())
+    return nullptr;
+
+  return std::make_unique<ReshapeTransform>(
+      inType.getShape(), outType.getShape());
+}
+
+std::unique_ptr<Transform>
+TransposeOpTensorNameInference::inferTensorNameTransform(
+    mlir::Operation *op) const {
+  auto transposeOp = cast<ONNXTransposeOp>(op);
+
+  // Validate if shapes are static
+  auto inType = cast<RankedTensorType>(transposeOp.getOperand().getType());
+  auto outType = cast<RankedTensorType>(transposeOp.getResult().getType());
+  if (!inType.hasStaticShape() || !outType.hasStaticShape())
+    return nullptr;
+
+  auto perm = arrayToVector(transposeOp.getPermAttr());
+
+  return std::make_unique<TransposeTransform>(
+      inType.getShape(), perm, outType.getShape());
+}
+
+std::unique_ptr<Transform> PadOpTensorNameInference::inferTensorNameTransform(
+    mlir::Operation *op) const {
+  auto padOp = cast<ONNXPadOp>(op);
+
+  // Validate if shapes are static
+  auto inType = cast<RankedTensorType>(padOp.getOperand(0).getType());
+  auto outType = cast<RankedTensorType>(padOp.getResult().getType());
+  if (!inType.hasStaticShape() || !outType.hasStaticShape())
+    return nullptr;
+
+  // Only mode = "constant" is supported
+  if (padOp.getMode() != "constant")
+    return nullptr;
+  auto constOp = padOp.getConstantValue().getDefiningOp<ONNXConstantOp>();
+  if (!constOp)
+    return nullptr;
+  Attribute constant = constOp.getValueAttr();
+  if (!constant)
+    return nullptr;
+
+  // Validate if pads is constant
+  auto pads = valToVector(padOp.getPads());
+  if (pads.size() == 0)
+    return nullptr;
+
+  auto splitAt = pads.size() / 2;
+  auto starts = SmallVector<int64_t>(pads.begin(), pads.begin() + splitAt);
+  auto ends = SmallVector<int64_t>(pads.begin() + splitAt, pads.end());
+  auto axes = axesToVector(padOp.getAxes(), inType.getRank());
+
+  return std::make_unique<PadTransform>(
+      inType.getShape(), starts, ends, axes, constant, outType.getShape());
+}
+
+std::unique_ptr<Transform> SliceOpTensorNameInference::inferTensorNameTransform(
+    mlir::Operation *op) const {
+  auto sliceOp = cast<ONNXSliceOp>(op);
+
+  // Validate if shapes are static
+  auto inType = cast<RankedTensorType>(sliceOp.getOperand(0).getType());
+  auto outType = cast<RankedTensorType>(sliceOp.getResult().getType());
+  if (!inType.hasStaticShape() || !outType.hasStaticShape())
+    return nullptr;
+
+  // Validate if starts & ends are constant and steps is always 1
+  auto starts = valToVector(sliceOp.getStarts());
+  auto ends = valToVector(sliceOp.getEnds());
+  auto steps = valToVector(sliceOp.getSteps());
+  if (starts.size() == 0 || ends.size() == 0 ||
+      llvm::any_of(steps, [](int64_t s) { return s != 1; }))
+    return nullptr;
+
+  auto inShape = inType.getShape();
+  auto axes = axesToVector(sliceOp.getAxes(), inShape.size());
+
+  // Clip end values
+  for (const auto &[ax, en] : llvm::zip_equal(axes, ends))
+    en = std::min(en, inShape[ax]);
+
+  return std::make_unique<SliceTransform>(
+      inShape, starts, ends, axes, outType.getShape());
+}
+
+void registerTensorNameInferenceExternalModels(
+    mlir::DialectRegistry &registry) {
+  registry.addExtension<ONNXDialect>(
+      +[](MLIRContext *ctx, ONNXDialect * /*dialect*/) {
+        ONNXTransposeOp::attachInterface<TransposeOpTensorNameInference>(*ctx);
+        ONNXReshapeOp::attachInterface<ReshapeOpTensorNameInference>(*ctx);
+        ONNXPadOp::attachInterface<PadOpTensorNameInference>(*ctx);
+        ONNXSliceOp::attachInterface<SliceOpTensorNameInference>(*ctx);
+      });
 }
 
 } // namespace onnx_mlir

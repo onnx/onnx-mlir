@@ -24,6 +24,29 @@ namespace {
 // Helper Functions
 //===----------------------------------------------------------------------===//
 
+/// Slice per-axis quantization scales/zeroPoints for a sub-range of the
+/// quantized dimension (e.g. when splitting weights along output channels).
+/// Returns the original type unchanged if not per-axis quantized.
+static Type slicePerAxisQuantType(
+    Type elementType, int64_t start, int64_t count) {
+  auto perAxisType = dyn_cast<quant::UniformQuantizedPerAxisType>(elementType);
+  if (!perAxisType)
+    return elementType;
+
+  auto scales = perAxisType.getScales();
+  auto zeroPoints = perAxisType.getZeroPoints();
+
+  SmallVector<double> slicedScales(
+      scales.begin() + start, scales.begin() + start + count);
+  SmallVector<int64_t> slicedZeroPoints(
+      zeroPoints.begin() + start, zeroPoints.begin() + start + count);
+
+  return quant::UniformQuantizedPerAxisType::get(perAxisType.getFlags(),
+      perAxisType.getStorageType(), perAxisType.getExpressedType(),
+      slicedScales, slicedZeroPoints, perAxisType.getQuantizedDimension(),
+      perAxisType.getStorageTypeMin(), perAxisType.getStorageTypeMax());
+}
+
 /// Create a constant tensor for integer values
 Value createI64Constant(
     PatternRewriter &rewriter, Location loc, ArrayRef<int64_t> values) {
@@ -365,9 +388,11 @@ struct SplitGroupConvPattern : public OpRewritePattern<ONNXConvOp> {
       auto newWeightAttr = DenseElementsAttr::get(
           weightStorageTensorType, ArrayRef<uint8_t>(newWeightData));
 
-      // Create the final type with quantization
+      // Slice per-axis quant scales/zp for this split's output channels
+      auto splitWeightElemType = slicePerAxisQuantType(
+          weightElemType, outputStartChannel, newWeightCO);
       auto newWeightType =
-          RankedTensorType::get(newWeightShape, weightElemType);
+          RankedTensorType::get(newWeightShape, splitWeightElemType);
 
       auto newWeightConst = rewriter.create<ONNXConstantOp>(loc, newWeightType,
           /*sparse_value=*/Attribute(),
@@ -394,9 +419,11 @@ struct SplitGroupConvPattern : public OpRewritePattern<ONNXConvOp> {
         auto newBiasAttr = DenseElementsAttr::get(
             biasStorageTensorType, ArrayRef<uint32_t>(newBiasData));
 
-        // Create the final type with quantization
+        // Slice per-axis quant scales/zp for this split's bias channels
+        auto splitBiasElemType = slicePerAxisQuantType(
+            biasElemType, outputStartChannel, outputChannelsPerSplit);
         auto newBiasType =
-            RankedTensorType::get({outputChannelsPerSplit}, biasElemType);
+            RankedTensorType::get({outputChannelsPerSplit}, splitBiasElemType);
 
         newBias = rewriter.create<ONNXConstantOp>(loc, newBiasType,
             /*sparse_value=*/Attribute(),

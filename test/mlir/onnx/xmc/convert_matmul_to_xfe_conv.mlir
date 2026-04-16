@@ -159,3 +159,22 @@ func.func @matmul_to_xfe_conv_batch(%arg0: tensor<4x64x!quant.uniform<u8:f32, 2.
 // CHECK: %[[RESHAPE2:.*]] = "onnx.Reshape"
 // CHECK-SAME: tensor<4x32x!quant.uniform<u8:f32, 2.500000e-01>>
 // CHECK-NOT: "onnx.MatMul"
+
+// -----
+
+//===----------------------------------------------------------------------===//
+// MatMul with per-axis quantized weight
+//===----------------------------------------------------------------------===//
+
+// CHECK-LABEL: @matmul_per_axis_quant_weight
+// Weight [K=4, N=2] with per-axis quant on axis 1 (N = output features).
+// After transpose to [N, K] = [2, 4], per-axis dim should become 0.
+func.func @matmul_per_axis_quant_weight(%arg0: tensor<1x4x!quant.uniform<u8:f32, 0.1:128>>) -> tensor<1x2x!quant.uniform<u8:f32, 0.1:128>> {
+  %w = onnx.Constant {value = dense<1> : tensor<4x2xi8>} : tensor<4x2x!quant.uniform<i8:f32:1, {0.05, 0.06}>>
+  %0 = "onnx.MatMul"(%arg0, %w) : (tensor<1x4x!quant.uniform<u8:f32, 0.1:128>>, tensor<4x2x!quant.uniform<i8:f32:1, {0.05, 0.06}>>) -> tensor<1x2x!quant.uniform<u8:f32, 0.1:128>>
+  return %0 : tensor<1x2x!quant.uniform<u8:f32, 0.1:128>>
+}
+// Per-axis dim 1 (N) should remap to axis 0 in the conv weight [N, 1, 1, K]
+// CHECK: tensor<2x1x1x4x!quant.uniform<i8:f32:0, {5.000000e-02,6.000000e-02}>>
+// CHECK: onnx.XFEConv
+// CHECK-NOT: onnx.MatMul
