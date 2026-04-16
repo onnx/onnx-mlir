@@ -270,7 +270,11 @@ void omTensorDestroy(OMTensor *tensor) {
 }
 
 /* OMTensor data getter */
-void *omTensorGetDataPtr(const OMTensor *tensor) { return tensor->_alignedPtr; }
+void *omTensorGetDataPtr(const OMTensor *tensor) {
+  if (!tensor)
+    return NULL;
+  return tensor->_alignedPtr;
+}
 
 /**
  * OMTensor allocated and aligned pointer setter.
@@ -287,6 +291,8 @@ void *omTensorGetDataPtr(const OMTensor *tensor) { return tensor->_alignedPtr; }
  */
 void omTensorSetDataPtr(
     OMTensor *tensor, int64_t owning, void *allocatedPtr, void *alignedPtr) {
+  if (!tensor)
+    return;
   if (tensor->_owning) {
     /* If we own the allocated buffer, free it first. */
     free(tensor->_allocatedPtr);
@@ -301,22 +307,30 @@ void omTensorSetDataPtr(
 
 /* OMTensor data shape getter */
 const int64_t *omTensorGetShape(const OMTensor *tensor) {
+  if (!tensor)
+    return NULL;
   return tensor->_shape;
 }
 
 /* OMTensor data shape setter */
 void omTensorSetShape(OMTensor *tensor, const int64_t *shape) {
+  if (!tensor || !shape)
+    return;
   for (int64_t i = 0; i < tensor->_rank; i++)
     tensor->_shape[i] = shape[i];
 }
 
 /* OMTensor data strides getter */
 const int64_t *omTensorGetStrides(const OMTensor *tensor) {
+  if (!tensor)
+    return NULL;
   return tensor->_strides;
 }
 
 /* OMTensor data strides setter */
 void omTensorSetStrides(OMTensor *tensor, const int64_t *strides) {
+  if (!tensor || !strides)
+    return;
   for (int64_t i = 0; i < tensor->_rank; i++)
     tensor->_strides[i] = strides[i];
 }
@@ -324,32 +338,51 @@ void omTensorSetStrides(OMTensor *tensor, const int64_t *strides) {
 /* OMTensor data strides setter with PyArray stride values */
 void omTensorSetStridesWithPyArrayStrides(
     OMTensor *tensor, const int64_t *stridesInBytes) {
+  if (!tensor || !stridesInBytes)
+    return;
+  int64_t dataTypeSize = getDataTypeSize(tensor->_dataType);
+  if (dataTypeSize == 0) {
+    fprintf(stderr, "Error, unknown data type in tensor\n");
+    assert(dataTypeSize != 0); // Zero for unknown.
+    return; // In case asserts are turned off.
+  }
   for (int64_t i = 0; i < tensor->_rank; i++)
-    tensor->_strides[i] =
-        stridesInBytes[i] / getDataTypeSize(tensor->_dataType);
+    tensor->_strides[i] = stridesInBytes[i] / dataTypeSize;
 }
 
 /* OMTensor data type getter */
 OM_DATA_TYPE omTensorGetDataType(const OMTensor *tensor) {
+  if (!tensor)
+    return ONNX_TYPE_UNDEFINED;
   return tensor->_dataType;
 }
 
 /* OMTensor data type setter */
 void omTensorSetDataType(OMTensor *tensor, OM_DATA_TYPE dataType) {
+  if (!tensor)
+    return;
   tensor->_dataType = dataType;
 }
 
 /* OMTensor data buffer size getter */
 int64_t omTensorGetBufferSize(const OMTensor *tensor) {
+  if (!tensor)
+    return 0;
   return getNumElems(tensor->_shape, tensor->_rank) *
          getDataTypeSize(tensor->_dataType);
 }
 
 /* OMTensor rank getter */
-int64_t omTensorGetRank(const OMTensor *tensor) { return tensor->_rank; }
+int64_t omTensorGetRank(const OMTensor *tensor) {
+  if (!tensor)
+    return 0;
+  return tensor->_rank;
+}
 
 /* OMTensor number of elements getter */
 int64_t omTensorGetNumElems(const OMTensor *tensor) {
+  if (!tensor)
+    return 0;
   // Using signed indices helps detect when index falls below 0.
   // Verify that strides are dense, meaning that there're
   // no skipping elements.
@@ -368,12 +401,18 @@ int64_t omTensorGetNumElems(const OMTensor *tensor) {
  *
  * @return owning flag of the OMTensor.
  */
-int64_t omTensorGetOwning(const OMTensor *tensor) { return tensor->_owning; }
+int64_t omTensorGetOwning(const OMTensor *tensor) {
+  if (!tensor)
+    return 0;
+  return tensor->_owning;
+}
 
 /**
  * OMTensor owning flag setter.
  */
 void omTensorSetOwning(OMTensor *tensor, int64_t owning) {
+  if (!tensor)
+    return;
   tensor->_owning = owning;
 }
 
@@ -388,6 +427,8 @@ void omTensorSetOwning(OMTensor *tensor, int64_t owning) {
  *         NULL if the allocated data buffer is not set.
  */
 void *omTensorGetAllocatedPtr(const OMTensor *tensor) {
+  if (!tensor)
+    return NULL;
   return tensor->_allocatedPtr;
 }
 
@@ -397,7 +438,7 @@ void *omTensorGetAllocatedPtr(const OMTensor *tensor) {
 /* Helper function to get the ONNX data type C name string */
 static inline const char *getDataTypeName(OM_DATA_TYPE dataType) {
   /* Prevent out of bound access to OM_DATA_TYPE_SIZE */
-  if ((int)dataType < 0 || (int)dataType > ONNX_TYPE_LAST)
+  if ((int64_t)dataType < 0 || (int64_t)dataType > (int64_t)ONNX_TYPE_LAST)
     return OM_DATA_TYPE_NAME[ONNX_TYPE_UNDEFINED];
   return OM_DATA_TYPE_NAME[dataType];
 }

@@ -108,6 +108,7 @@ OptReport optReport;                                   // onnx-mlir only
 bool enableTiming;                                     // onnx-mlir only
 bool enableBoundCheck;                                 // onnx-mlir only
 bool useLinalgPath;                                    // onnx-mlir only
+bool enableDebugInfo;                                  // onnx-mlir only
 std::string configFile;                                // onnx-mlir only
 std::string saveConfigFile;                            // onnx-mlir only
 bool appendDecodingStrategy;                           // onnx-mlir only
@@ -681,6 +682,14 @@ static llvm::cl::opt<bool, true> verifyInputTensorsOpt("verifyInputTensors",
 static llvm::cl::opt<bool, true> useLinalgPathOpt("use-linalg-path",
     llvm::cl::desc("Use Linalg lowering path instead of Krnl (default=false)."),
     llvm::cl::location(useLinalgPath), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<bool, true> enableDebugInfoOpt("enable-debug-info",
+    llvm::cl::desc(
+        "Add the debug information to .so file. Such information can be used "
+        "by gdb. If the input is .onnx file, please also use --preserveMLIR "
+        "flag. Check docs/Testing.md for details"),
+    llvm::cl::location(enableDebugInfo), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<std::string, true> linalgOpsOpt("linalg-ops",
