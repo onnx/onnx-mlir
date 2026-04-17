@@ -15,7 +15,7 @@ The `onnx-mlir` compiler supports loading configuration from a JSON file, allowi
 **Example:**
 ```json
 {
-  "compile_options": ["-O3", "-march=z16", "-mcpu=z16"]
+  "compile_options": ["-O3", "-march=z16"]
 }
 ```
 
@@ -27,14 +27,14 @@ The `onnx-mlir` compiler supports loading configuration from a JSON file, allowi
 
 **Example:**
 ```json
-"compile_options": ["-O3", "-march=z16", "--enable-parallel"]
+"compile_options": ["-O3", "-march=z16", "--parallel"]
 ```
 
 **Supported Options:**
 - Optimization levels: `-O0`, `-O1`, `-O2`, `-O3`
 - Target architecture: `-march=<arch>`, `-mcpu=<cpu>`, `-mtriple=<triple>`
 - Accelerator: `-maccel=NNPA`
-- Parallelization: `--enable-parallel`
+- Parallelization: `--parallel`
 - And all other onnx-mlir command-line options
 
 # Usage
@@ -74,13 +74,13 @@ onnx-mlir -O2 --config-file=config.json model.onnx
 
 If you have a complex command line:
 ```bash
-onnx-mlir -O3 -march=z16 -mcpu=z16 --enable-parallel -j 8 model.onnx
+onnx-mlir -O3 -march=z16 --parallel -j 8 model.onnx
 ```
 
 Convert it to a config file:
 ```json
 {
-  "compile_options": ["-O3", "-march=z16", "-mcpu=z16", "--enable-parallel", "-j 8"]
+  "compile_options": ["-O3", "-march=z16", "--parallel", "-j 8"]
 }
 ```
 
