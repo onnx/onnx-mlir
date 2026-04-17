@@ -295,8 +295,9 @@ static void tailorLLVMIR(llvm::Module &llvmModule) {
 
 // Write LLVM optimized bitcode.
 // Returns 0 on success, error code on failure.
-static int genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
-    std::string outputNameNoExt, std::string optimizedBitcodeNameWithExt) {
+static int genLLVMBitcode(mlir::OwningOpRef<ModuleOp> &module,
+    std::string outputNameNoExt, std::string optimizedBitcodeNameWithExt,
+    mlir::MLIRContext &context) {
   std::string msg =
       "Translating MLIR Module to LLVM and Generating LLVM Optimized Bitcode";
   showCompilePhase(msg);
@@ -356,6 +357,14 @@ static int genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
   // Write unoptimized bitcode to a file.
   llvm::WriteBitcodeToFile(*llvmModule, moduleBitcodeStream);
   moduleBitcodeStream.flush();
+
+  // Free memory before using LLVM `opt` command
+  // TODO: It might be unexpected that the module is released in this function.
+  //       it is better to restructure functions so that the module is
+  //       automatically released.
+  llvmModule.reset();
+  module.release();
+  context.~MLIRContext();
 
   // Use the LLVM's 'opt' command to optimize the bitcode.
   std::string optPath = getToolPath("opt");
@@ -569,10 +578,12 @@ static int genJniJar(const mlir::OwningOpRef<ModuleOp> &module,
 }
 
 // Return 0 on success, error code on failure
-static int compileModuleToObject(const mlir::OwningOpRef<ModuleOp> &module,
-    std::string outputNameWithoutExt, std::string &objectNameWithExt) {
+static int compileModuleToObject(mlir::OwningOpRef<ModuleOp> &module,
+    std::string outputNameWithoutExt, std::string &objectNameWithExt,
+    mlir::MLIRContext &context) {
   std::string bitcodeNameWithExt = outputNameWithoutExt + ".bc";
-  int rc = genLLVMBitcode(module, outputNameWithoutExt, bitcodeNameWithExt);
+  int rc =
+      genLLVMBitcode(module, outputNameWithoutExt, bitcodeNameWithExt, context);
   if (rc != CompilerSuccess)
     return rc;
   llvm::FileRemover bitcodeRemover(
@@ -582,11 +593,12 @@ static int compileModuleToObject(const mlir::OwningOpRef<ModuleOp> &module,
 }
 
 // Return 0 on success, error code on failure
-static int compileModuleToSharedLibrary(
-    const mlir::OwningOpRef<ModuleOp> &module, std::string outputNameNoExt,
-    std::string &libNameWithExt) {
+static int compileModuleToSharedLibrary(mlir::OwningOpRef<ModuleOp> &module,
+    std::string outputNameNoExt, std::string &libNameWithExt,
+    mlir::MLIRContext &context) {
   std::string modelObjNameWithExt;
-  int rc = compileModuleToObject(module, outputNameNoExt, modelObjNameWithExt);
+  int rc = compileModuleToObject(
+      module, outputNameNoExt, modelObjNameWithExt, context);
   if (rc != CompilerSuccess)
     return rc;
   llvm::FileRemover modelObjRemover(
@@ -598,10 +610,11 @@ static int compileModuleToSharedLibrary(
 }
 
 // Return 0 on success, error code on failure
-static int compileModuleToJniJar(
-    const mlir::OwningOpRef<ModuleOp> &module, std::string outputNameNoExt) {
+static int compileModuleToJniJar(mlir::OwningOpRef<ModuleOp> &module,
+    std::string outputNameNoExt, mlir::MLIRContext &context) {
   std::string modelObjNameWithExt;
-  int rc = compileModuleToObject(module, outputNameNoExt, modelObjNameWithExt);
+  int rc = compileModuleToObject(
+      module, outputNameNoExt, modelObjNameWithExt, context);
   if (rc != CompilerSuccess)
     return rc;
   llvm::FileRemover modelObjRemover(
@@ -786,8 +799,8 @@ static int emitOutputFiles(std::string outputNameNoExt,
   switch (emissionTarget) {
   case EmitObj: {
     std::string modelObjNameWithExt;
-    int rc =
-        compileModuleToObject(module, outputNameNoExt, modelObjNameWithExt);
+    int rc = compileModuleToObject(
+        module, outputNameNoExt, modelObjNameWithExt, context);
     if (rc != CompilerSuccess)
       return rc;
     if (keepFiles(KeepFilesOfType::MLIR)) {
@@ -802,7 +815,7 @@ static int emitOutputFiles(std::string outputNameNoExt,
   case EmitLib: {
     std::string sharedLibNameWithExt;
     int rc = compileModuleToSharedLibrary(
-        module, outputNameNoExt, sharedLibNameWithExt);
+        module, outputNameNoExt, sharedLibNameWithExt, context);
     if (rc != CompilerSuccess)
       return rc;
     if (keepFiles(KeepFilesOfType::MLIR)) {
@@ -815,7 +828,7 @@ static int emitOutputFiles(std::string outputNameNoExt,
                    << "' has been compiled.\n";
   } break;
   case EmitJNI: {
-    int rc = compileModuleToJniJar(module, outputNameNoExt);
+    int rc = compileModuleToJniJar(module, outputNameNoExt, context);
     if (rc != CompilerSuccess)
       return rc;
     if (keepFiles(KeepFilesOfType::MLIR)) {
