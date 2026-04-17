@@ -621,7 +621,7 @@ bool zdnnx_prepare_split_info(zdnnx_split_info *split_info,
     split_info->flags |= REUSE_FULL_BUFFER;
 
   // No split since copying int8 is not supported yet.
-  if (full_ztensor->transformed_desc->type != ZDNN_BINARY_INT8 &&
+  if (full_ztensor->transformed_desc->type == ZDNN_BINARY_INT8 &&
       !reuse_full_buffer) {
     // Prepare to quit now.
     num_tiles[E4] = 1;
