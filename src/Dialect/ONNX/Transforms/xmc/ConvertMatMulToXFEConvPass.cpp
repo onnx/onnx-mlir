@@ -19,6 +19,8 @@
 #include "mlir/Dialect/Quant/IR/QuantTypes.h"
 
 #include <algorithm>
+#include <cmath>
+#include <limits>
 #include <numeric>
 #include <optional>
 
@@ -264,32 +266,131 @@ static std::pair<ONNXAddOp, Value> findFusibleBiasAdd(
   return {addOp, biasVal};
 }
 
-/// Reshape a bias value to 1D [N] if needed.
-static Value reshapeBiasTo1D(
-    PatternRewriter &rewriter, Location loc, Value biasVal, int64_t N) {
+/// Re-quantize bias into the conv accumulation domain (int32).
+///
+/// Mirrors the old xcompiler TransferQDQMatMulToConv2dPass logic:
+///   new_bias[i] = (orig_bias[i] - bias_zp) * round(bias_scale / (x_scale * w_scale))
+///
+/// The result is a 1D int32 constant with quant type
+///   !quant.uniform<i32:f32, x_scale * w_scale : 0>
+/// so that XFEToXIRDialectPass extracts the correct b_scale / b_zero_point.
+///
+/// Falls back to a simple 1D reshape when the input is not quantized.
+static Value requantizeBiasForConv(PatternRewriter &rewriter, Location loc,
+    Value biasVal, Value input, Value weight, int64_t N) {
   auto biasType = dyn_cast<RankedTensorType>(biasVal.getType());
   if (!biasType)
     return biasVal;
-  if (biasType.getRank() == 1 && biasType.getShape()[0] == N)
-    return biasVal;
 
-  auto constOp = biasVal.getDefiningOp<ONNXConstantOp>();
-  if (!constOp)
+  auto biasConstOp = biasVal.getDefiningOp<ONNXConstantOp>();
+  if (!biasConstOp)
     return biasVal;
-  auto denseAttr = dyn_cast<DenseElementsAttr>(constOp.getValueAttr());
+  auto denseAttr = dyn_cast<DenseElementsAttr>(biasConstOp.getValueAttr());
   if (!denseAttr)
     return biasVal;
 
-  auto storageElemType = denseAttr.getType().getElementType();
-  auto newStorageType = RankedTensorType::get({N}, storageElemType);
-  auto newAttr = denseAttr.reshape(newStorageType);
+  auto biasElemType = biasType.getElementType();
+  auto biasQType = dyn_cast<quant::UniformQuantizedType>(biasElemType);
 
-  auto resultElemType = biasType.getElementType();
-  auto newResultType = RankedTensorType::get({N}, resultElemType);
-  auto valueNamedAttr = rewriter.getNamedAttr("value", newAttr);
-  auto newConstOp = rewriter.create<ONNXConstantOp>(loc, newResultType,
-      mlir::ValueRange{}, mlir::ArrayRef<mlir::NamedAttribute>{valueNamedAttr});
-  return newConstOp.getResult();
+  // Non-quantized path: just reshape to 1D [N].
+  if (!biasQType) {
+    if (biasType.getRank() == 1 && biasType.getShape()[0] == N)
+      return biasVal;
+    auto storageElemType = denseAttr.getType().getElementType();
+    auto newStorageType = RankedTensorType::get({N}, storageElemType);
+    auto newAttr = denseAttr.reshape(newStorageType);
+    auto newResultType = RankedTensorType::get({N}, biasElemType);
+    auto valueNamedAttr = rewriter.getNamedAttr("value", newAttr);
+    return rewriter
+        .create<ONNXConstantOp>(loc, newResultType, mlir::ValueRange{},
+            mlir::ArrayRef<mlir::NamedAttribute>{valueNamedAttr})
+        .getResult();
+  }
+
+  // Quantized path: re-quantize bias into accumulation domain.
+  auto inputType = dyn_cast<RankedTensorType>(input.getType());
+  auto weightType = dyn_cast<RankedTensorType>(weight.getType());
+  if (!inputType || !weightType)
+    return biasVal;
+
+  auto inputQType =
+      dyn_cast<quant::UniformQuantizedType>(inputType.getElementType());
+  if (!inputQType)
+    return biasVal;
+
+  // Get per-tensor input scale.
+  double inputScale = inputQType.getScale();
+
+  // Get weight scale (per-tensor only for now).
+  double weightScale = 1.0;
+  if (auto wQType =
+          dyn_cast<quant::UniformQuantizedType>(weightType.getElementType())) {
+    weightScale = wQType.getScale();
+  } else if (auto wPAType = dyn_cast<quant::UniformQuantizedPerAxisType>(
+                 weightType.getElementType())) {
+    // Use scale[0] as representative (matches old xcompiler behavior).
+    auto scales = wPAType.getScales();
+    if (!scales.empty())
+      weightScale = scales[0];
+  } else {
+    return biasVal;
+  }
+
+  double biasScale = biasQType.getScale();
+  int64_t biasZP = biasQType.getZeroPoint();
+  double accumScale = inputScale * weightScale;
+  int32_t biasMul = static_cast<int32_t>(std::round(biasScale / accumScale));
+
+  // Flatten original bias data and re-quantize to int32.
+  auto flatStorageType =
+      RankedTensorType::get({N}, denseAttr.getType().getElementType());
+  auto flatAttr = denseAttr.reshape(flatStorageType);
+  SmallVector<int32_t> newBiasData;
+  newBiasData.reserve(N);
+
+  unsigned bitWidth = biasQType.getStorageType().getIntOrFloatBitWidth();
+  bool isSigned = biasQType.isSigned();
+  for (int64_t i = 0; i < N; ++i) {
+    int64_t raw = 0;
+    if (bitWidth <= 8) {
+      if (isSigned)
+        raw = flatAttr.getValues<int8_t>()[i];
+      else
+        raw = flatAttr.getValues<uint8_t>()[i];
+    } else if (bitWidth <= 16) {
+      if (isSigned)
+        raw = flatAttr.getValues<int16_t>()[i];
+      else
+        raw = flatAttr.getValues<uint16_t>()[i];
+    } else {
+      if (isSigned)
+        raw = flatAttr.getValues<int32_t>()[i];
+      else
+        raw = static_cast<int64_t>(flatAttr.getValues<uint32_t>()[i]);
+    }
+    newBiasData.push_back(
+        static_cast<int32_t>((raw - biasZP) * biasMul));
+  }
+
+  // Create int32 dense attribute.
+  auto i32Type = rewriter.getIntegerType(32);
+  auto newStorageType = RankedTensorType::get({N}, i32Type);
+  auto newDenseAttr = DenseElementsAttr::get(
+      newStorageType, llvm::ArrayRef<int32_t>(newBiasData));
+
+  // Create quantized type: !quant.uniform<i32:f32, accumScale:0>
+  auto newBiasQType = quant::UniformQuantizedType::get(
+      quant::QuantizationFlags::Signed, i32Type,
+      rewriter.getF32Type(), accumScale, /*zeroPoint=*/0,
+      std::numeric_limits<int32_t>::min(),
+      std::numeric_limits<int32_t>::max());
+  auto newResultType = RankedTensorType::get({N}, newBiasQType);
+
+  auto valueNamedAttr = rewriter.getNamedAttr("value", newDenseAttr);
+  return rewriter
+      .create<ONNXConstantOp>(loc, newResultType, mlir::ValueRange{},
+          mlir::ArrayRef<mlir::NamedAttribute>{valueNamedAttr})
+      .getResult();
 }
 
 /// Pattern to convert MatMul to Reshape -> XFEConv -> Reshape
@@ -405,7 +506,7 @@ struct MatMulToXFEConvPattern : public OpRewritePattern<ONNXMatMulOp> {
     onnx_mlir::OnnxBuilder onnxBuilder(rewriter, loc);
     Value bias;
     if (addOp && biasVal) {
-      bias = reshapeBiasTo1D(rewriter, loc, biasVal, N);
+      bias = requantizeBiasForConv(rewriter, loc, biasVal, input, weight, N);
     } else {
       bias = onnxBuilder.none();
     }
