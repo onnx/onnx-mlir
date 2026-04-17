@@ -101,3 +101,30 @@ func.func @conv_reject_dilation(%arg0: tensor<1x3x5x5xf32>,
   // CHECK: %{{.+}} = "onnx.Conv"(%arg0, %arg1, %{{.+}}) <{auto_pad = "NOTSET", dilations = [2, 2], group = 1 : si64, pads = [0, 0, 0, 0], strides = [1, 1]}> : (tensor<1x3x5x5xf32>, tensor<2x3x3x3xf32>, none) -> tensor<1x2x3x3xf32>
 }
 
+// -----
+
+// Test Conv: Dynamic shape case
+func.func @conv_dynamic(%arg0: tensor<?x3x?x?xf32>, %arg1: tensor<2x3x3x3xf32>)
+    -> tensor<?x2x?x?xf32> {
+  %none = "onnx.NoValue"() : () -> none
+  %0 = "onnx.Conv"(%arg0, %arg1, %none) {
+    dilations = [1, 1],
+    group = 1 : si64,
+    pads = [0, 0, 0, 0],
+    strides = [1, 1]
+  } : (tensor<?x3x?x?xf32>, tensor<2x3x3x3xf32>, none) -> tensor<?x2x?x?xf32>
+  return %0 : tensor<?x2x?x?xf32>
+
+  // CHECK-LABEL: conv_dynamic
+  // CHECK-DAG: [[ZERO:%.+]] = arith.constant 0.000000e+00 : f32
+  // CHECK-DAG: [[DIM0:%.+]] = tensor.dim %arg0, %{{.+}} : tensor<?x3x?x?xf32>
+  // CHECK-DAG: [[DIM2:%.+]] = tensor.dim %arg0, %{{.+}} : tensor<?x3x?x?xf32>
+  // CHECK-DAG: [[DIM3:%.+]] = tensor.dim %arg0, %{{.+}} : tensor<?x3x?x?xf32>
+  // CHECK-DAG: [[OUT_H:%.+]] = affine.apply
+  // CHECK-DAG: [[OUT_W:%.+]] = affine.apply
+  // CHECK: [[EMPTY:%.+]] = tensor.empty([[DIM0]], [[OUT_H]], [[OUT_W]]) : tensor<?x2x?x?xf32>
+  // CHECK: [[FILLED:%.+]] = linalg.fill ins([[ZERO]] : f32) outs([[EMPTY]] : tensor<?x2x?x?xf32>) -> tensor<?x2x?x?xf32>
+  // CHECK: [[RESULT:%.+]] = linalg.conv_2d_nchw_fchw {dilations = dense<1> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} ins(%arg0, %arg1 : tensor<?x3x?x?xf32>, tensor<2x3x3x3xf32>) outs([[FILLED]] : tensor<?x2x?x?xf32>) -> tensor<?x2x?x?xf32>
+  // CHECK: return [[RESULT]] : tensor<?x2x?x?xf32>
+}
+
