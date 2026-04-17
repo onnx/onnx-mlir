@@ -269,7 +269,8 @@ static std::pair<ONNXAddOp, Value> findFusibleBiasAdd(
 /// Re-quantize bias into the conv accumulation domain (int32).
 ///
 /// Mirrors the old xcompiler TransferQDQMatMulToConv2dPass logic:
-///   new_bias[i] = (orig_bias[i] - bias_zp) * round(bias_scale / (x_scale * w_scale))
+///   new_bias[i] = (orig_bias[i] - bias_zp) * round(bias_scale / (x_scale *
+///   w_scale))
 ///
 /// The result is a 1D int32 constant with quant type
 ///   !quant.uniform<i32:f32, x_scale * w_scale : 0>
@@ -368,8 +369,7 @@ static Value requantizeBiasForConv(PatternRewriter &rewriter, Location loc,
       else
         raw = static_cast<int64_t>(flatAttr.getValues<uint32_t>()[i]);
     }
-    newBiasData.push_back(
-        static_cast<int32_t>((raw - biasZP) * biasMul));
+    newBiasData.push_back(static_cast<int32_t>((raw - biasZP) * biasMul));
   }
 
   // Create int32 dense attribute.
@@ -380,9 +380,8 @@ static Value requantizeBiasForConv(PatternRewriter &rewriter, Location loc,
 
   // Create quantized type: !quant.uniform<i32:f32, accumScale:0>
   auto newBiasQType = quant::UniformQuantizedType::get(
-      quant::QuantizationFlags::Signed, i32Type,
-      rewriter.getF32Type(), accumScale, /*zeroPoint=*/0,
-      std::numeric_limits<int32_t>::min(),
+      quant::QuantizationFlags::Signed, i32Type, rewriter.getF32Type(),
+      accumScale, /*zeroPoint=*/0, std::numeric_limits<int32_t>::min(),
       std::numeric_limits<int32_t>::max());
   auto newResultType = RankedTensorType::get({N}, newBiasQType);
 
