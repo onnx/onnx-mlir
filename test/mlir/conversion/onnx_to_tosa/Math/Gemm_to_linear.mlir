@@ -42,3 +42,17 @@ func.func @gemm_to_fc_opt(%arg0: tensor<1x5xf32>, %arg1: tensor<4x5xf32>) -> ten
 // CHECK:           return %[[VAL_4]] : tensor<1x4xf32>
 // CHECK:         }
 }
+
+// -----
+
+func.func @gemm_to_fc_dynamic_input_static_output(%arg0: tensor<?x5xf32>, %arg1: tensor<4x?xf32>, %arg2: tensor<?xf32>) -> tensor<1x4xf32> {
+  %0 = "onnx.Gemm"(%arg0, %arg1, %arg2) {transB = 1 : si64} : (tensor<?x5xf32>, tensor<4x?xf32>, tensor<?xf32>) -> tensor<1x4xf32>
+  return %0 : tensor<1x4xf32>
+// CHECK-LABEL:   func.func @gemm_to_fc_dynamic_input_static_output(
+// CHECK-SAME:                                           %[[VAL_0:.*]]: tensor<?x5xf32>,
+// CHECK-SAME:                                           %[[VAL_1:.*]]: tensor<4x?xf32>,
+// CHECK-SAME:                                           %[[VAL_2:.*]]: tensor<?xf32>) -> tensor<1x4xf32> {
+// CHECK:           %[[VAL_3:.*]] = tosa.fully_connected %[[VAL_0]], %[[VAL_1]], %[[VAL_2]] : (tensor<?x5xf32>, tensor<4x?xf32>, tensor<?xf32>) -> tensor<1x4xf32>
+// CHECK:           return %[[VAL_3]] : tensor<1x4xf32>
+// CHECK:         }
+}

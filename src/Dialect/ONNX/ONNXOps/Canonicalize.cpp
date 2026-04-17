@@ -949,6 +949,41 @@ private:
 };
 
 // =============================================================================
+// Rewrite pattern for redundant resize (scale=1 or same input/output size)
+// =============================================================================
+//
+// A resize with equal input and output dimensions is a noop.
+// This assumes coordinate transformation mode is not "tf_crop_and_resize".
+class RemoveRedundantResizePattern : public OpRewritePattern<ONNXResizeOp> {
+public:
+  using OpRewritePattern<ONNXResizeOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXResizeOp onnxResizeOp, PatternRewriter &rewriter) const override {
+
+    auto inputType =
+        mlir::dyn_cast<RankedTensorType>(onnxResizeOp.getX().getType());
+    auto outputType = mlir::dyn_cast<RankedTensorType>(onnxResizeOp.getType());
+
+    if (!inputType || !outputType)
+      return failure();
+
+    if (!inputType.hasStaticShape() || !outputType.hasStaticShape())
+      return failure();
+
+    if (inputType.getShape() != outputType.getShape())
+      return failure();
+
+    if (onnxResizeOp.getCoordinateTransformationMode() == "tf_crop_and_resize")
+      return failure();
+
+    rewriter.replaceOp(onnxResizeOp, onnxResizeOp.getX());
+
+    return success();
+  }
+};
+
+// =============================================================================
 // Rewrite pattern for loop (not handled in Rewrite.td).
 // =============================================================================
 
@@ -1638,6 +1673,15 @@ public:
     if (firstAllowZero != 0)
       return rewriter.notifyMatchFailure(op, "Does not support AllowZero != 0");
 
+    // Don't fuse if element types differ (e.g. quantized -> f32 boundary).
+    auto firstDataElemType =
+        mlir::cast<ShapedType>(firstData.getType()).getElementType();
+    auto secondResultElemType =
+        mlir::cast<ShapedType>(secondReshapeOp.getType()).getElementType();
+    if (firstDataElemType != secondResultElemType)
+      return rewriter.notifyMatchFailure(
+          op, "Element types differ across reshape chain");
+
     Location loc = rewriter.getFusedLoc(
         {firstReshapeOp.getLoc(), secondReshapeOp.getLoc()});
     OnnxBuilder createONNX(rewriter, loc);
@@ -2239,180 +2283,6 @@ public:
 };
 
 // =============================================================================
-// Rewrite pattern for Group Normalization
-// =============================================================================
-
-namespace {
-template <typename OP_TYPE>
-bool isGroupNormDecomposable(OP_TYPE groupNormOp) {
-  const Type inputType = groupNormOp.getX().getType();
-  return onnx_mlir::hasStaticShape(inputType) &&
-         onnx_mlir::hasStaticShape(groupNormOp.getResult().getType());
-}
-} // namespace
-
-// Transform GroupNormalization into LayerNormalization
-template <typename OP>
-constexpr bool scaleAndBiasWithNumGroupShape =
-    std::is_same_v<OP, ONNXGroupNormalizationV18Op>;
-
-template <typename OP_TYPE>
-LogicalResult ONNXGroupNormalizationCommon(
-    OP_TYPE groupNormOp, PatternRewriter &rewriter) {
-
-  // Match.
-  if (!isGroupNormDecomposable(groupNormOp))
-    return failure();
-
-  // Get info.
-  Value input = groupNormOp.getX();
-  Value scale = groupNormOp.getScale();
-  Value bias = groupNormOp.getBias();
-  ShapedType inputType = mlir::cast<ShapedType>(input.getType());
-  Type elementType = inputType.getElementType();
-  auto inputShapeVal = inputType.getShape();
-  int64_t C = inputShapeVal[1];
-  int64_t inputRank = inputType.getRank();
-  int64_t nonSpacialRank = 2; //  Batch N and Channel C: 2 dimensions.
-  assert(inputRank > nonSpacialRank &&
-         "expected instance norm with input ranks > 2");
-  int64_t spacialRank = inputRank - nonSpacialRank;
-  int64_t layerNormRank = inputRank + 1; // +1 as C is split to NG and C/NG
-  int64_t numGroups = groupNormOp.getNumGroups();
-
-  // Rewrite.
-  onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
-      rewriter, groupNormOp.getLoc());
-  int64_t axis = nonSpacialRank;
-  int64_t numInNorm = layerNormRank - axis;
-  Type biasScaleType;
-  Value axes;
-  Value newBias;
-  Value newScale;
-
-  //"numgroups" and "C" should have the same dimension index
-  llvm::SmallVector<int64_t, 4> axesList, biasScaleVal;
-
-  if constexpr (scaleAndBiasWithNumGroupShape<OP_TYPE>) {
-    // Opset18 Uses "numgroups" the number of groups of channels for the scale
-    // and bias
-    // Unsqueeze scale/bias from [NG] to [1 x NG x 1 x ... x 1] with numInNorm
-    // 1s.
-    biasScaleVal.emplace_back(numGroups);
-    for (int64_t i = 1; i <= numInNorm; ++i) {
-      biasScaleVal.emplace_back(1);
-      axesList.emplace_back(i);
-    }
-
-    axes = create.onnx.constantInt64(axesList);
-    biasScaleType = RankedTensorType::get(biasScaleVal, elementType);
-    newScale = create.onnx.unsqueeze(biasScaleType, scale, axes);
-    newBias = create.onnx.unsqueeze(biasScaleType, bias, axes);
-  } else {
-    // Opset21 Uses "C" the number of channels for the scale and bias
-    // The equivalent of "C" when split is "NG x C/NG"
-    // Reshape scale/bias from [C] to [NG x C/NG x 1 x ... x 1] with numInNorm
-    // 1s.
-    biasScaleVal.emplace_back(numGroups);
-    // C can be a dynamic or static value, account for that here
-    if (C != ShapedType::kDynamic) {
-      assert(C % numGroups == 0 && "expected numGroups to divide C");
-      biasScaleVal.emplace_back(C / numGroups);
-    } else {
-      biasScaleVal.emplace_back(ShapedType::kDynamic);
-    }
-
-    for (int64_t i = 2; i <= numInNorm; ++i) {
-      biasScaleVal.emplace_back(1);
-    }
-
-    // Calculate the (possible) dynamic dimensions for biasScaleShape
-    Value NGShape = create.onnx.constantInt64({numGroups});
-    Value oneDimShape =
-        create.onnx.constantInt64(SmallVector<int64_t>(spacialRank, 1));
-    Type biasScaleShapeType =
-        RankedTensorType::get({inputRank}, rewriter.getI64Type());
-    Value biasScaleShape = create.onnx.concat(
-        biasScaleShapeType, {NGShape, NGShape, oneDimShape}, /*axis*/ 0);
-
-    // Reshape instead of unsqueeze (use biasScaleShape)
-    biasScaleType = RankedTensorType::get(biasScaleVal, elementType);
-    newScale = create.onnx.reshape(biasScaleType, scale, biasScaleShape);
-    newBias = create.onnx.reshape(biasScaleType, bias, biasScaleShape);
-  }
-
-  // Convert input from N x C x D1...Dn to N x (NG x C/NG) x D1...Dn.
-  // First compute the new (possible dynamic) shape.
-  Type batchShapeType = RankedTensorType::get({1}, rewriter.getI64Type());
-  Value NShape = create.onnx.shape(
-      batchShapeType, input, /*start*/ 0, /*exclusive end*/ 1);
-  Value NGandMin1Shape = create.onnx.constantInt64({numGroups, -1});
-  Type spacialShapeType =
-      RankedTensorType::get({spacialRank}, rewriter.getI64Type());
-  Value spacialShape =
-      create.onnx.shape(spacialShapeType, input, /*start*/ nonSpacialRank);
-  Type layerNormShapeType =
-      RankedTensorType::get({layerNormRank}, rewriter.getI64Type());
-  Value layerNormShape = create.onnx.concat(layerNormShapeType,
-      {NShape, NGandMin1Shape, spacialShape}, /*axis*/
-      0);
-  // Compute type of converted input.
-  llvm::SmallVector<int64_t, 5> layerNormShapeVal;
-  // Create a new tensor with the following dimensions: N, NG, C/NG, D1, D2,
-  // Dn...
-  layerNormShapeVal.emplace_back(inputShapeVal[0]); // N
-  layerNormShapeVal.emplace_back(numGroups);        // NG
-  if (C != ShapedType::kDynamic) {
-    assert(C % numGroups == 0 && "expected numGroups to divide C");
-    layerNormShapeVal.emplace_back(C / numGroups); // (C/NG)
-  } else
-    layerNormShapeVal.emplace_back(ShapedType::kDynamic);
-  for (int64_t i = 0; i < spacialRank; ++i)
-    layerNormShapeVal.emplace_back(inputShapeVal[nonSpacialRank + i]); // Dn
-  RankedTensorType layerNormInputType =
-      RankedTensorType::get(layerNormShapeVal, elementType);
-  Value layerNormInput =
-      create.onnx.reshape(layerNormInputType, input, layerNormShape);
-  // Create output using layer norm.
-  Value layerNormY = create.onnx.layerNorm(layerNormInputType, layerNormInput,
-      newScale, newBias, axis, groupNormOp.getEpsilonAttr());
-  // Resize output to original size
-  Type inputShapeType =
-      RankedTensorType::get({inputRank}, rewriter.getI64Type());
-  Value inputShape = create.onnx.shape(inputShapeType, input);
-  Type outputType = groupNormOp.getY().getType();
-  Value Y = create.onnx.reshape(outputType, layerNormY, inputShape);
-  // Set the type of the output to be the same as the output of the original
-  // operation we are trying to replace.
-  Y.setType(groupNormOp.getResult().getType());
-  // Replace operation.
-  rewriter.replaceOp(groupNormOp, Y);
-  return success();
-}
-
-struct RemoveGroupNormPattern1
-    : public OpRewritePattern<ONNXGroupNormalizationOp> {
-  using OpRewritePattern<ONNXGroupNormalizationOp>::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(ONNXGroupNormalizationOp groupNormOp,
-      PatternRewriter &rewriter) const final {
-    return ONNXGroupNormalizationCommon<ONNXGroupNormalizationOp>(
-        groupNormOp, rewriter);
-  }
-};
-
-struct RemoveGroupNormPattern2
-    : public OpRewritePattern<ONNXGroupNormalizationV18Op> {
-  using OpRewritePattern<ONNXGroupNormalizationV18Op>::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(ONNXGroupNormalizationV18Op groupNormOp,
-      PatternRewriter &rewriter) const final {
-    return ONNXGroupNormalizationCommon<ONNXGroupNormalizationV18Op>(
-        groupNormOp, rewriter);
-  }
-};
-
-// =============================================================================
 // Rewrite pattern for BatchNormalization
 // =============================================================================
 /// Decompose BatchNormV9 to BatchNorm
@@ -2537,6 +2407,28 @@ struct PullReluLikeOpsThroughSplitPattern
     for (Operation *op : reluLikeOps) {
       rewriter.replaceOp(op, op->getOperands());
     }
+    return success();
+  }
+};
+
+struct SoftmaxNegativeAxisPattern : public OpRewritePattern<ONNXSoftmaxOp> {
+  using OpRewritePattern<ONNXSoftmaxOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(
+      ONNXSoftmaxOp softmaxOp, PatternRewriter &rewriter) const final {
+
+    auto inputType = dyn_cast<RankedTensorType>(softmaxOp.getInput().getType());
+    if (!inputType)
+      return rewriter.notifyMatchFailure(
+          softmaxOp, "Input is not a ranked tensor");
+
+    const int64_t axis = softmaxOp.getAxis();
+    const int64_t rank = inputType.getRank();
+
+    if (axis >= 0)
+      return failure(); // nothing to do.
+    assert(-rank <= axis && "axis is out of range");
+    rewriter.modifyOpInPlace(
+        softmaxOp, [&]() { softmaxOp.setAxis(rank + axis); });
     return success();
   }
 };
@@ -2988,6 +2880,92 @@ struct FusePadIntoAveragePoolPattern
   }
 };
 
+// Replace onnx.Gather with a scalar constant index by onnx.Slice +
+// onnx.Reshape. Gather(data, scalar_constant_index, axis) is equivalent to
+// slicing a single element along the axis and then squeezing that axis away.
+class ReplaceGatherWithSlicePattern : public OpRewritePattern<ONNXGatherOp> {
+public:
+  using OpRewritePattern<ONNXGatherOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXGatherOp gatherOp, PatternRewriter &rewriter) const override {
+    Location loc = gatherOp.getLoc();
+    Value data = gatherOp.getData();
+    Value indices = gatherOp.getIndices();
+    int64_t axis = gatherOp.getAxis();
+
+    auto inputType = dyn_cast<RankedTensorType>(data.getType());
+    if (!inputType || !inputType.hasStaticShape())
+      return failure();
+
+    // Check that indices is a scalar
+    auto indicesType = dyn_cast<RankedTensorType>(indices.getType());
+    if (!indicesType || indicesType.getRank() != 0)
+      return failure();
+
+    auto gatherOutputType = dyn_cast<RankedTensorType>(gatherOp.getType());
+    if (!gatherOutputType)
+      return failure();
+
+    // Check that indices is a constant integer value
+    auto indicesConstOp = indices.getDefiningOp<ONNXConstantOp>();
+    if (!indicesConstOp)
+      return failure();
+    auto idx = getScalarValue<int64_t>(indicesConstOp);
+
+    const int64_t inputRank = inputType.getRank();
+    if (axis < 0)
+      axis += inputRank;
+
+    ArrayRef<int64_t> inputShape = inputType.getShape();
+
+    if (idx < 0)
+      idx += inputShape[axis];
+
+    OnnxBuilder createONNX(rewriter, loc);
+
+    Value starts = createONNX.constantInt64({idx});
+    Value ends = createONNX.constantInt64({idx + 1});
+    Value axes = createONNX.constantInt64({axis});
+    Value steps = createONNX.constantInt64({1});
+
+    SmallVector<int64_t, 4> sliceShape(inputShape.begin(), inputShape.end());
+    sliceShape[axis] = 1;
+    auto sliceType =
+        RankedTensorType::get(sliceShape, inputType.getElementType());
+
+    Value sliceOp =
+        createONNX.slice(sliceType, data, starts, ends, axes, steps);
+
+    // Gather with a scalar index removes the gathered axis from the result,
+    // but Slice preserves rank. Reshape to drop the size-1 axis.
+    Value shapeConst = createONNX.constantInt64(
+        SmallVector<int64_t>(gatherOutputType.getShape()));
+    Value reshapeOp = createONNX.reshape(gatherOutputType, sliceOp, shapeConst);
+    rewriter.replaceOp(gatherOp, reshapeOp);
+
+    return success();
+  }
+};
+
+// LeakyRelu with alpha == 0.0 is equivalent to Relu.
+class LeakyReluAlphaZeroToReluPattern
+    : public OpRewritePattern<ONNXLeakyReluOp> {
+public:
+  using OpRewritePattern<ONNXLeakyReluOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXLeakyReluOp op, PatternRewriter &rewriter) const override {
+    FloatAttr alphaAttr = op.getAlphaAttr();
+    assert(alphaAttr);
+    if (alphaAttr.getValueAsDouble() != 0.0)
+      return failure();
+    rewriter.replaceOpWithNewOp<ONNXReluOp>(
+        op, op.getResult().getType(), op.getX());
+    return success();
+  }
+};
+
 // =============================================================================
 /// Register optimization patterns as "canonicalization" patterns.
 /// Add op to OpsWithCanonicalizer in gen_onnx_mlir.py to activate.
@@ -3116,6 +3094,12 @@ void ONNXEqualOp::getCanonicalizationPatterns(
   result.insert<BinaryOpBroadcastAxisPattern<ONNXEqualOp>>(context);
 }
 
+/// on the ONNXGatherOp.
+void ONNXGatherOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<ReplaceGatherWithSlicePattern>(context);
+}
+
 /// on the ONNXGlobalAveragePoolOp.
 void ONNXGlobalAveragePoolOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
@@ -3132,17 +3116,6 @@ void ONNXGlobalMaxPoolOp::getCanonicalizationPatterns(
 void ONNXGreaterOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<BinaryOpBroadcastAxisPattern<ONNXGreaterOp>>(context);
-}
-
-/// on the ONNXGroupNormalizationOp and derivatives.
-void ONNXGroupNormalizationOp::getCanonicalizationPatterns(
-    RewritePatternSet &result, MLIRContext *context) {
-  result.insert<RemoveGroupNormPattern1>(context);
-}
-
-void ONNXGroupNormalizationV18Op::getCanonicalizationPatterns(
-    RewritePatternSet &result, MLIRContext *context) {
-  result.insert<RemoveGroupNormPattern2>(context);
 }
 
 /// on the ONNXGRUOp.
@@ -3163,6 +3136,12 @@ void ONNXLayoutTransformOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<ONNXLayoutTransformEliminationPattern>(context);
   result.insert<ONNXLayoutTransformFusionPattern>(context);
+}
+
+/// on the ONNXLeakyReluOp.
+void ONNXLeakyReluOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<LeakyReluAlphaZeroToReluPattern>(context);
 }
 
 /// on the ONNXLessOp.
@@ -3226,6 +3205,7 @@ void ONNXReshapeOp::getCanonicalizationPatterns(
 void ONNXResizeOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<EmptyTensorInputsResizePattern>(context);
+  result.insert<RemoveRedundantResizePattern>(context);
 }
 
 /// on the ONNXRNNOp.
@@ -3260,6 +3240,12 @@ void ONNXShapeTransformOp::getCanonicalizationPatterns(
 void ONNXSizeOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<SizeToConstantPattern>(context);
+}
+
+/// on the ONNXSoftmaxOp.
+void ONNXSoftmaxOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<SoftmaxNegativeAxisPattern>(context);
 }
 
 /// on the ONNXSoftmaxV11Op.

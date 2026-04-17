@@ -70,7 +70,7 @@ private:
 };
 } // namespace
 
-void populateLoweringONNXEyeLikeOpToTOSAPattern(ConversionTarget &target,
+void populateLoweringONNXEyeLikeOpToTOSAPattern(ConversionTarget & /*target*/,
     RewritePatternSet &patterns, TypeConverter &typeConverter,
     MLIRContext *ctx) {
   patterns.insert<ONNXEyeLikeLoweringToTOSA>(typeConverter, ctx);

@@ -13,13 +13,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Tosa/IR/TosaOps.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
-#include <mlir/Dialect/Arith/IR/Arith.h>
-
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -118,10 +118,14 @@ public:
       "convert-slice-only-when-step-one",
       llvm::cl::desc("If enabled, convert onnx.slice only if all steps are 1"),
       llvm::cl::ZeroOrMore, llvm::cl::init(false)};
+  ListOption<std::string> excludedOps{*this, "excluded-ops",
+      llvm::cl::desc("ONNX op names to exclude from TOSA conversion "
+                     "(e.g. Gather,Cast)"),
+      llvm::cl::ZeroOrMore};
 };
 
-Value handleDynamicToStaticShapes(
-    OpBuilder &builder, TensorType type, ValueRange inputs, Location loc) {
+Value handleDynamicToStaticShapes(OpBuilder & /*builder*/, TensorType type,
+    ValueRange inputs, Location /*loc*/) {
   if (inputs.size() != 1) {
     // we can only handle inputs of size 1
     return {};
@@ -191,7 +195,11 @@ void FrontendToTosaLoweringPass::runOnOperation() {
 
   // Define legal dialects and operations
   target.addLegalDialect<mlir::tosa::TosaDialect, func::FuncDialect,
-      mlir::arith::ArithDialect, mlir::shape::ShapeDialect>();
+      mlir::arith::ArithDialect, mlir::shape::ShapeDialect,
+      mlir::affine::AffineDialect>();
+
+  for (const std::string &opName : excludedOps)
+    target.addLegalOp(OperationName("onnx." + opName, context));
 
   // Define patterns
   populateONNXToTOSAConversionPattern(target, patterns, typeConverter, context,

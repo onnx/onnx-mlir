@@ -200,6 +200,17 @@ func.func @test_add_dyn_shape_and_const(%arg0: tensor<?x1xi64>) -> tensor<?x1xi6
 
 // -----
 
+func.func @test_add_dynamic_input_static_output(%arg0: tensor<?x3xf32>, %arg1: tensor<?x3xf32>) -> tensor<1x3xf32> {
+  %0 = "onnx.Add"(%arg0, %arg1) : (tensor<?x3xf32>, tensor<?x3xf32>) -> tensor<1x3xf32>
+  return %0 : tensor<1x3xf32>
+// CHECK-LABEL:  func.func @test_add_dynamic_input_static_output
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x3xf32>, [[PARAM_1_:%.+]]: tensor<?x3xf32>) -> tensor<1x3xf32> {
+// CHECK:           [[VAR_0_:%.+]] = tosa.add [[PARAM_0_]], [[PARAM_1_]] : (tensor<?x3xf32>, tensor<?x3xf32>) -> tensor<1x3xf32>
+// CHECK:           return [[VAR_0_]] : tensor<1x3xf32>
+}
+
+// -----
+
 func.func @test_add_dyn_shape_no_rank(%arg0: tensor<*xi64>) -> tensor<*xi64> {
   %0 = "onnx.Add"(%arg0, %arg0) : (tensor<*xi64>, tensor<*xi64>) -> tensor<*xi64>
   "func.return"(%0) : (tensor<*xi64>) -> ()
@@ -1282,4 +1293,418 @@ func.func @test_less_broadcast(%arg0: tensor<13x21x1xf32>, %arg1: tensor<1xf32>)
 // CHECK:           [[VAR_0_:%.+]] = tosa.reshape %arg1 {new_shape = array<i64: 1, 1, 1>} : (tensor<1xf32>) -> tensor<1x1x1xf32>
 // CHECK:           [[VAR_1_:%.+]] = tosa.greater [[VAR_0_]], %arg0 : (tensor<1x1x1xf32>, tensor<13x21x1xf32>) -> tensor<13x21x1xi1>
 // CHECK:           return [[VAR_1_]] : tensor<13x21x1xi1>
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_sin(%arg0: tensor<?x3xf32>) -> tensor<1x3xf32> {
+  %0 = "onnx.Sin"(%arg0) : (tensor<?x3xf32>) -> tensor<1x3xf32>
+  return %0 : tensor<1x3xf32>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_sin(
+// CHECK:           = tosa.sin %arg0 : (tensor<?x3xf32>) -> tensor<1x3xf32>
+// CHECK:           return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_less(%arg0: tensor<?x3xf32>, %arg1: tensor<?x3xf32>) -> tensor<1x3xi1> {
+  %0 = "onnx.Less"(%arg0, %arg1) : (tensor<?x3xf32>, tensor<?x3xf32>) -> tensor<1x3xi1>
+  return %0 : tensor<1x3xi1>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_less(
+// CHECK:           = tosa.greater %arg1, %arg0 : (tensor<?x3xf32>, tensor<?x3xf32>) -> tensor<1x3xi1>
+// CHECK:           return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_cast(%arg0: tensor<?x3xi64>) -> tensor<1x3xf16> {
+  %0 = "onnx.Cast"(%arg0) {saturate = 1 : si64, to = f16} : (tensor<?x3xi64>) -> tensor<1x3xf16>
+  return %0 : tensor<1x3xf16>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_cast(
+// CHECK:           = tosa.cast %arg0 : (tensor<?x3xi64>) -> tensor<1x3xf16>
+// CHECK:           return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_relu(%arg0: tensor<?x3xf32>) -> tensor<1x3xf32> {
+  %0 = "onnx.Relu"(%arg0) : (tensor<?x3xf32>) -> tensor<1x3xf32>
+  return %0 : tensor<1x3xf32>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_relu(
+// CHECK:           = tosa.clamp %arg0 {{.*}} : (tensor<?x3xf32>) -> tensor<1x3xf32>
+// CHECK:           return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_leaky_relu(%arg0: tensor<?x3xf32>) -> tensor<1x3xf32> {
+  %0 = "onnx.LeakyRelu"(%arg0) {alpha = 1.000000e-02 : f32} : (tensor<?x3xf32>) -> tensor<1x3xf32>
+  return %0 : tensor<1x3xf32>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_leaky_relu(
+// CHECK:          = tosa.select {{.*}} : (tensor<?x3xi1>, tensor<?x3xf32>, tensor<?x3xf32>) -> tensor<1x3xf32>
+// CHECK:          return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_clip(%arg0: tensor<?x3xf32>) -> tensor<1x3xf32> {
+  %cst0 = "onnx.Constant"() {value = dense<0.000000e+00> : tensor<f32>} : () -> tensor<f32>
+  %cst6 = "onnx.Constant"() {value = dense<6.000000e+00> : tensor<f32>} : () -> tensor<f32>
+  %0 = "onnx.Clip"(%arg0, %cst0, %cst6) : (tensor<?x3xf32>, tensor<f32>, tensor<f32>) -> tensor<1x3xf32>
+  return %0 : tensor<1x3xf32>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_clip(
+// CHECK:           = tosa.clamp %arg0 {{.*}} : (tensor<?x3xf32>) -> tensor<1x3xf32>
+// CHECK:           return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_sqrt(%arg0: tensor<?x3xf32>) -> tensor<1x3xf32> {
+  %0 = "onnx.Sqrt"(%arg0) : (tensor<?x3xf32>) -> tensor<1x3xf32>
+  return %0 : tensor<1x3xf32>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_sqrt(
+// CHECK:           = tosa.pow %arg0, {{.*}} : (tensor<?x3xf32>, tensor<1x1xf32>) -> tensor<1x3xf32>
+// CHECK:           return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_elu(%arg0: tensor<?x3xf32>) -> tensor<1x3xf32> {
+  %0 = "onnx.Elu"(%arg0) {alpha = 1.000000e+00 : f32} : (tensor<?x3xf32>) -> tensor<1x3xf32>
+  return %0 : tensor<1x3xf32>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_elu(
+// CHECK:          = tosa.select {{.*}} : (tensor<?x3xi1>, tensor<?x3xf32>, tensor<1x3xf32>) -> tensor<1x3xf32>
+// CHECK:          return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_softplus(%arg0: tensor<?x3xf32>) -> tensor<1x3xf32> {
+  %0 = "onnx.Softplus"(%arg0) : (tensor<?x3xf32>) -> tensor<1x3xf32>
+  return %0 : tensor<1x3xf32>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_softplus(
+// CHECK:           = tosa.exp %arg0 : (tensor<?x3xf32>) -> tensor<1x3xf32>
+// CHECK:           = tosa.log {{.*}} : (tensor<1x3xf32>) -> tensor<1x3xf32>
+// CHECK:           return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_selu(%arg0: tensor<?x3xf32>) -> tensor<1x3xf32> {
+  %0 = "onnx.Selu"(%arg0) {alpha = 1.500000e+00 : f32, gamma = 2.000000e+00 : f32} : (tensor<?x3xf32>) -> tensor<1x3xf32>
+  return %0 : tensor<1x3xf32>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_selu(
+// CHECK:          = tosa.mul {{.*}} : (tensor<?x3xf32>, tensor<1x1xf32>, tensor<1xi8>) -> tensor<1x3xf32>
+// CHECK:          return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_thresholded_relu(%arg0: tensor<?x3xf32>) -> tensor<1x3xf32> {
+  %0 = "onnx.ThresholdedRelu"(%arg0) {alpha = 1.000000e+00 : f32} : (tensor<?x3xf32>) -> tensor<1x3xf32>
+  return %0 : tensor<1x3xf32>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_thresholded_relu(
+// CHECK:          = tosa.select {{.*}} : (tensor<?x3xi1>, tensor<?x3xf32>, tensor<1x1xf32>) -> tensor<1x3xf32>
+// CHECK:          return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_mul(%arg0: tensor<?x3xf32>, %arg1: tensor<?x3xf32>) -> tensor<1x3xf32> {
+  %0 = "onnx.Mul"(%arg0, %arg1) : (tensor<?x3xf32>, tensor<?x3xf32>) -> tensor<1x3xf32>
+  return %0 : tensor<1x3xf32>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_mul(
+// CHECK:           = tosa.mul %arg0, %arg1, {{.*}} : (tensor<?x3xf32>, tensor<?x3xf32>, tensor<1xi8>) -> tensor<1x3xf32>
+// CHECK:           return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_div(%arg0: tensor<?x3xf32>, %arg1: tensor<?x3xf32>) -> tensor<1x3xf32> {
+  %0 = "onnx.Div"(%arg0, %arg1) : (tensor<?x3xf32>, tensor<?x3xf32>) -> tensor<1x3xf32>
+  return %0 : tensor<1x3xf32>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_div(
+// CHECK:           = tosa.reciprocal %arg1 : (tensor<?x3xf32>) -> tensor<?x3xf32>
+// CHECK:           = tosa.mul %arg0, {{.*}}, {{.*}} : (tensor<?x3xf32>, tensor<?x3xf32>, tensor<1xi8>) -> tensor<1x3xf32>
+// CHECK:           return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_hard_sigmoid(%arg0: tensor<?x3xf32>) -> tensor<1x3xf32> {
+  %0 = "onnx.HardSigmoid"(%arg0) {alpha = 1.66666672E-01 : f32, beta = 5.000000e-01 : f32} : (tensor<?x3xf32>) -> tensor<1x3xf32>
+  return %0 : tensor<1x3xf32>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_hard_sigmoid(
+// CHECK:           = tosa.clamp {{.*}} : (tensor<?x3xf32>) -> tensor<1x3xf32>
+// CHECK:           return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_prelu(%arg0: tensor<?x3xf32>, %arg1: tensor<?x3xf32>) -> tensor<1x3xf32> {
+  %0 = "onnx.PRelu"(%arg0, %arg1) : (tensor<?x3xf32>, tensor<?x3xf32>) -> tensor<1x3xf32>
+  return %0 : tensor<1x3xf32>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_prelu(
+// CHECK:           = tosa.select {{.*}} : (tensor<?x3xi1>, tensor<?x3xf32>, tensor<?x3xf32>) -> tensor<1x3xf32>
+// CHECK:           return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_neg(%arg0: tensor<?x3xf32>) -> tensor<1x3xf32> {
+  %0 = "onnx.Neg"(%arg0) : (tensor<?x3xf32>) -> tensor<1x3xf32>
+  return %0 : tensor<1x3xf32>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_neg(
+// CHECK:           = tosa.negate %arg0 : (tensor<?x3xf32>) -> tensor<1x3xf32>
+// CHECK:           return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_sub(%arg0: tensor<?x3xf32>, %arg1: tensor<?x3xf32>) -> tensor<1x3xf32> {
+  %0 = "onnx.Sub"(%arg0, %arg1) : (tensor<?x3xf32>, tensor<?x3xf32>) -> tensor<1x3xf32>
+  return %0 : tensor<1x3xf32>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_sub(
+// CHECK:           = tosa.sub %arg0, %arg1 : (tensor<?x3xf32>, tensor<?x3xf32>) -> tensor<1x3xf32>
+// CHECK:           return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_floor(%arg0: tensor<?x3xf32>) -> tensor<1x3xf32> {
+  %0 = "onnx.Floor"(%arg0) : (tensor<?x3xf32>) -> tensor<1x3xf32>
+  return %0 : tensor<1x3xf32>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_floor(
+// CHECK:           = tosa.floor %arg0 : (tensor<?x3xf32>) -> tensor<1x3xf32>
+// CHECK:           return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_ceil(%arg0: tensor<?x3xf32>) -> tensor<1x3xf32> {
+  %0 = "onnx.Ceil"(%arg0) : (tensor<?x3xf32>) -> tensor<1x3xf32>
+  return %0 : tensor<1x3xf32>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_ceil(
+// CHECK:           = tosa.ceil %arg0 : (tensor<?x3xf32>) -> tensor<1x3xf32>
+// CHECK:           return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_exp(%arg0: tensor<?x3xf32>) -> tensor<1x3xf32> {
+  %0 = "onnx.Exp"(%arg0) : (tensor<?x3xf32>) -> tensor<1x3xf32>
+  return %0 : tensor<1x3xf32>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_exp(
+// CHECK:           = tosa.exp %arg0 : (tensor<?x3xf32>) -> tensor<1x3xf32>
+// CHECK:           return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_log(%arg0: tensor<?x3xf32>) -> tensor<1x3xf32> {
+  %0 = "onnx.Log"(%arg0) : (tensor<?x3xf32>) -> tensor<1x3xf32>
+  return %0 : tensor<1x3xf32>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_log(
+// CHECK:           = tosa.log %arg0 : (tensor<?x3xf32>) -> tensor<1x3xf32>
+// CHECK:           return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_reciprocal(%arg0: tensor<?x3xf32>) -> tensor<1x3xf32> {
+  %0 = "onnx.Reciprocal"(%arg0) : (tensor<?x3xf32>) -> tensor<1x3xf32>
+  return %0 : tensor<1x3xf32>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_reciprocal(
+// CHECK:           = tosa.reciprocal %arg0 : (tensor<?x3xf32>) -> tensor<1x3xf32>
+// CHECK:           return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_tanh(%arg0: tensor<?x3xf32>) -> tensor<1x3xf32> {
+  %0 = "onnx.Tanh"(%arg0) : (tensor<?x3xf32>) -> tensor<1x3xf32>
+  return %0 : tensor<1x3xf32>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_tanh(
+// CHECK:           = tosa.tanh %arg0 : (tensor<?x3xf32>) -> tensor<1x3xf32>
+// CHECK:           return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_sigmoid(%arg0: tensor<?x3xf32>) -> tensor<1x3xf32> {
+  %0 = "onnx.Sigmoid"(%arg0) : (tensor<?x3xf32>) -> tensor<1x3xf32>
+  return %0 : tensor<1x3xf32>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_sigmoid(
+// CHECK:           = tosa.sigmoid %arg0 : (tensor<?x3xf32>) -> tensor<1x3xf32>
+// CHECK:           return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_abs(%arg0: tensor<?x3xi32>) -> tensor<1x3xi32> {
+  %0 = "onnx.Abs"(%arg0) : (tensor<?x3xi32>) -> tensor<1x3xi32>
+  return %0 : tensor<1x3xi32>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_abs(
+// CHECK:           = tosa.abs %arg0 : (tensor<?x3xi32>) -> tensor<1x3xi32>
+// CHECK:           return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_erf(%arg0: tensor<?x3xf32>) -> tensor<1x3xf32> {
+  %0 = "onnx.Erf"(%arg0) : (tensor<?x3xf32>) -> tensor<1x3xf32>
+  return %0 : tensor<1x3xf32>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_erf(
+// CHECK:           = tosa.erf %arg0 : (tensor<?x3xf32>) -> tensor<1x3xf32>
+// CHECK:           return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_bitwise_not(%arg0: tensor<?x3xi32>) -> tensor<1x3xi32> {
+  %0 = "onnx.BitwiseNot"(%arg0) : (tensor<?x3xi32>) -> tensor<1x3xi32>
+  return %0 : tensor<1x3xi32>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_bitwise_not(
+// CHECK:           = tosa.bitwise_not %arg0 : (tensor<?x3xi32>) -> tensor<1x3xi32>
+// CHECK:           return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_not(%arg0: tensor<?x3xi1>) -> tensor<1x3xi1> {
+  %0 = "onnx.Not"(%arg0) : (tensor<?x3xi1>) -> tensor<1x3xi1>
+  return %0 : tensor<1x3xi1>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_not(
+// CHECK:           = tosa.logical_not %arg0 : (tensor<?x3xi1>) -> tensor<1x3xi1>
+// CHECK:           return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_and(%arg0: tensor<?x3xi1>, %arg1: tensor<?x3xi1>) -> tensor<1x3xi1> {
+  %0 = "onnx.And"(%arg0, %arg1) : (tensor<?x3xi1>, tensor<?x3xi1>) -> tensor<1x3xi1>
+  return %0 : tensor<1x3xi1>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_and(
+// CHECK:           = tosa.logical_and %arg0, %arg1 : (tensor<?x3xi1>, tensor<?x3xi1>) -> tensor<1x3xi1>
+// CHECK:           return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_bitwise_and(%arg0: tensor<?x3xi32>, %arg1: tensor<?x3xi32>) -> tensor<1x3xi32> {
+  %0 = "onnx.BitwiseAnd"(%arg0, %arg1) : (tensor<?x3xi32>, tensor<?x3xi32>) -> tensor<1x3xi32>
+  return %0 : tensor<1x3xi32>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_bitwise_and(
+// CHECK:           = tosa.bitwise_and %arg0, %arg1 : (tensor<?x3xi32>, tensor<?x3xi32>) -> tensor<1x3xi32>
+// CHECK:           return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_or(%arg0: tensor<?x3xi1>, %arg1: tensor<?x3xi1>) -> tensor<1x3xi1> {
+  %0 = "onnx.Or"(%arg0, %arg1) : (tensor<?x3xi1>, tensor<?x3xi1>) -> tensor<1x3xi1>
+  return %0 : tensor<1x3xi1>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_or(
+// CHECK:           = tosa.logical_or %arg0, %arg1 : (tensor<?x3xi1>, tensor<?x3xi1>) -> tensor<1x3xi1>
+// CHECK:           return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_bitwise_or(%arg0: tensor<?x3xi32>, %arg1: tensor<?x3xi32>) -> tensor<1x3xi32> {
+  %0 = "onnx.BitwiseOr"(%arg0, %arg1) : (tensor<?x3xi32>, tensor<?x3xi32>) -> tensor<1x3xi32>
+  return %0 : tensor<1x3xi32>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_bitwise_or(
+// CHECK:           = tosa.bitwise_or %arg0, %arg1 : (tensor<?x3xi32>, tensor<?x3xi32>) -> tensor<1x3xi32>
+// CHECK:           return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_xor(%arg0: tensor<?x3xi1>, %arg1: tensor<?x3xi1>) -> tensor<1x3xi1> {
+  %0 = "onnx.Xor"(%arg0, %arg1) : (tensor<?x3xi1>, tensor<?x3xi1>) -> tensor<1x3xi1>
+  return %0 : tensor<1x3xi1>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_xor(
+// CHECK:           = tosa.logical_xor %arg0, %arg1 : (tensor<?x3xi1>, tensor<?x3xi1>) -> tensor<1x3xi1>
+// CHECK:           return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_bitwise_xor(%arg0: tensor<?x3xi32>, %arg1: tensor<?x3xi32>) -> tensor<1x3xi32> {
+  %0 = "onnx.BitwiseXor"(%arg0, %arg1) : (tensor<?x3xi32>, tensor<?x3xi32>) -> tensor<1x3xi32>
+  return %0 : tensor<1x3xi32>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_bitwise_xor(
+// CHECK:           = tosa.bitwise_xor %arg0, %arg1 : (tensor<?x3xi32>, tensor<?x3xi32>) -> tensor<1x3xi32>
+// CHECK:           return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_pow(%arg0: tensor<?x3xf32>, %arg1: tensor<?x3xf32>) -> tensor<1x3xf32> {
+  %0 = "onnx.Pow"(%arg0, %arg1) : (tensor<?x3xf32>, tensor<?x3xf32>) -> tensor<1x3xf32>
+  return %0 : tensor<1x3xf32>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_pow(
+// CHECK:           = tosa.pow %arg0, %arg1 : (tensor<?x3xf32>, tensor<?x3xf32>) -> tensor<1x3xf32>
+// CHECK:           return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_min(%arg0: tensor<?x3xf32>, %arg1: tensor<?x3xf32>) -> tensor<1x3xf32> {
+  %0 = "onnx.Min"(%arg0, %arg1) : (tensor<?x3xf32>, tensor<?x3xf32>) -> tensor<1x3xf32>
+  return %0 : tensor<1x3xf32>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_min(
+// CHECK:           = tosa.minimum %arg0, %arg1 : (tensor<?x3xf32>, tensor<?x3xf32>) -> tensor<1x3xf32>
+// CHECK:           return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_max(%arg0: tensor<?x3xf32>, %arg1: tensor<?x3xf32>) -> tensor<1x3xf32> {
+  %0 = "onnx.Max"(%arg0, %arg1) : (tensor<?x3xf32>, tensor<?x3xf32>) -> tensor<1x3xf32>
+  return %0 : tensor<1x3xf32>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_max(
+// CHECK:           = tosa.maximum %arg0, %arg1 : (tensor<?x3xf32>, tensor<?x3xf32>) -> tensor<1x3xf32>
+// CHECK:           return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_equal(%arg0: tensor<?x3xf32>, %arg1: tensor<?x3xf32>) -> tensor<1x3xi1> {
+  %0 = "onnx.Equal"(%arg0, %arg1) : (tensor<?x3xf32>, tensor<?x3xf32>) -> tensor<1x3xi1>
+  return %0 : tensor<1x3xi1>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_equal(
+// CHECK:           = tosa.equal %arg0, %arg1 : (tensor<?x3xf32>, tensor<?x3xf32>) -> tensor<1x3xi1>
+// CHECK:           return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_greater_or_equal(%arg0: tensor<?x3xf32>, %arg1: tensor<?x3xf32>) -> tensor<1x3xi1> {
+  %0 = "onnx.GreaterOrEqual"(%arg0, %arg1) : (tensor<?x3xf32>, tensor<?x3xf32>) -> tensor<1x3xi1>
+  return %0 : tensor<1x3xi1>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_greater_or_equal(
+// CHECK:           = tosa.greater_equal %arg0, %arg1 : (tensor<?x3xf32>, tensor<?x3xf32>) -> tensor<1x3xi1>
+// CHECK:           return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_greater(%arg0: tensor<?x3xf32>, %arg1: tensor<?x3xf32>) -> tensor<1x3xi1> {
+  %0 = "onnx.Greater"(%arg0, %arg1) : (tensor<?x3xf32>, tensor<?x3xf32>) -> tensor<1x3xi1>
+  return %0 : tensor<1x3xi1>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_greater(
+// CHECK:           = tosa.greater %arg0, %arg1 : (tensor<?x3xf32>, tensor<?x3xf32>) -> tensor<1x3xi1>
+// CHECK:           return
+}
+
+// -----
+
+func.func @test_elementwise_dynamic_input_static_output_less_or_equal(%arg0: tensor<?x3xf32>, %arg1: tensor<?x3xf32>) -> tensor<1x3xi1> {
+  %0 = "onnx.LessOrEqual"(%arg0, %arg1) : (tensor<?x3xf32>, tensor<?x3xf32>) -> tensor<1x3xi1>
+  return %0 : tensor<1x3xi1>
+// CHECK-LABEL:  func.func @test_elementwise_dynamic_input_static_output_less_or_equal(
+// CHECK:           = tosa.greater_equal %arg1, %arg0 : (tensor<?x3xf32>, tensor<?x3xf32>) -> tensor<1x3xi1>
+// CHECK:           return
 }

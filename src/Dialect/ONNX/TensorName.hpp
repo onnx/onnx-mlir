@@ -1,0 +1,272 @@
+// Copyright (C) 2026 Advanced Micro Devices, Inc. All rights reserved.
+
+#pragma once
+
+/// This files defines the TensorName structure.
+/// TensorName tracks the original name of a tensor along with a sequence of
+/// transformations (reshape, transpose, pad, slice) that have been applied to
+/// it.
+/// Then TensorName API abstracts the underlying storage mechanism (attributes
+/// on operations).
+
+#include <cstdint>
+#include <memory>
+#include <string>
+
+#include <llvm/Support/Casting.h>
+#include <llvm/Support/raw_ostream.h>
+#include <mlir/Dialect/Func/IR/FuncOps.h>
+#include <mlir/IR/Attributes.h>
+#include <mlir/IR/BuiltinAttributes.h>
+#include <mlir/IR/MLIRContext.h>
+#include <mlir/IR/PatternMatch.h>
+#include <mlir/Support/LLVM.h>
+
+#include <src/Dialect/ONNX/ONNXOps.hpp>
+#include <src/Interface/TensorNameInference.hpp>
+
+namespace onnx_mlir {
+
+// Attribute -> Transform
+std::unique_ptr<Transform> fromAttr(mlir::ArrayAttr arrayAttr);
+
+// Op -> Transform (utilizing the OpInterface)
+std::unique_ptr<Transform> fromOp(mlir::Operation *op);
+
+/// Utility methods to be used by sub-classes or OpInterface implementations
+mlir::SmallVector<int64_t> arrayToVector(mlir::ArrayAttr arrayAttr);
+mlir::SmallVector<int64_t> denseToVector(mlir::DenseIntElementsAttr denseAttr);
+mlir::SmallVector<int64_t> valToVector(mlir::Value val);
+mlir::SmallVector<int64_t> axesToVector(mlir::Value val, size_t rank);
+mlir::ArrayAttr vecToAttr(
+    mlir::MLIRContext *context, mlir::ArrayRef<int64_t> vector);
+
+class ReshapeTransform : public Transform {
+public:
+  ReshapeTransform(
+      mlir::ArrayRef<int64_t> inShape, mlir::ArrayRef<int64_t> outShape);
+
+  ReshapeTransform(mlir::ArrayAttr attr);
+  [[nodiscard]] mlir::Attribute toAttr(
+      mlir::MLIRContext *context) const override;
+
+  [[nodiscard]] std::unique_ptr<Transform> invert() const override;
+
+  static bool classof(const Transform *transform) {
+    return transform->getKind() == Kind::Reshape;
+  }
+};
+
+class TransposeTransform : public Transform {
+public:
+  TransposeTransform(mlir::ArrayRef<int64_t> inShape,
+      mlir::ArrayRef<int64_t> perm, mlir::ArrayRef<int64_t> outShape);
+
+  TransposeTransform(mlir::ArrayAttr attr);
+  [[nodiscard]] mlir::Attribute toAttr(
+      mlir::MLIRContext *context) const override;
+
+  [[nodiscard]] std::unique_ptr<Transform> invert() const override;
+
+  static bool classof(const Transform *transform) {
+    return transform->getKind() == Kind::Transpose;
+  }
+
+  [[nodiscard]] mlir::ArrayRef<int64_t> getPerm() const { return perm; }
+
+private:
+  mlir::SmallVector<int64_t> perm;
+};
+
+class PadTransform : public Transform {
+public:
+  PadTransform(mlir::ArrayRef<int64_t> inShape, mlir::ArrayRef<int64_t> starts,
+      mlir::ArrayRef<int64_t> ends, mlir::ArrayRef<int64_t> axes,
+      mlir::Attribute constant, mlir::ArrayRef<int64_t> outShape);
+
+  PadTransform(mlir::ArrayAttr attr);
+  [[nodiscard]] mlir::Attribute toAttr(
+      mlir::MLIRContext *context) const override;
+
+  [[nodiscard]] std::unique_ptr<Transform> invert() const override;
+
+  static bool classof(const Transform *transform) {
+    return transform->getKind() == Kind::Pad;
+  }
+
+  [[nodiscard]] mlir::ArrayRef<int64_t> getStarts() const { return starts; }
+  [[nodiscard]] mlir::ArrayRef<int64_t> getEnds() const { return ends; }
+  [[nodiscard]] mlir::ArrayRef<int64_t> getAxes() const { return axes; }
+
+private:
+  mlir::SmallVector<int64_t> starts;
+  mlir::SmallVector<int64_t> ends;
+  mlir::SmallVector<int64_t> axes;
+  mlir::Attribute constant;
+};
+
+class SliceTransform : public Transform {
+public:
+  SliceTransform(mlir::ArrayRef<int64_t> inShape,
+      mlir::ArrayRef<int64_t> starts, mlir::ArrayRef<int64_t> ends,
+      mlir::ArrayRef<int64_t> axes, mlir::ArrayRef<int64_t> outShape);
+
+  SliceTransform(mlir::ArrayAttr attr);
+  [[nodiscard]] mlir::Attribute toAttr(
+      mlir::MLIRContext *context) const override;
+
+  [[nodiscard]] std::unique_ptr<Transform> invert() const override;
+
+  static bool classof(const Transform *transform) {
+    return transform->getKind() == Kind::Slice;
+  }
+
+  [[nodiscard]] mlir::ArrayRef<int64_t> getStarts() const { return starts; }
+  [[nodiscard]] mlir::ArrayRef<int64_t> getEnds() const { return ends; }
+  [[nodiscard]] mlir::ArrayRef<int64_t> getAxes() const { return axes; }
+
+private:
+  mlir::SmallVector<int64_t> starts;
+  mlir::SmallVector<int64_t> ends;
+  mlir::SmallVector<int64_t> axes;
+};
+
+template <Transform::Kind QDQType>
+class QDQTransform : public Transform {
+public:
+  QDQTransform(mlir::ArrayRef<int64_t> shape, double scale, int64_t zeroPoint,
+      mlir::Type scaleType, mlir::Type zpType);
+
+  QDQTransform(mlir::ArrayAttr attr);
+  [[nodiscard]] mlir::Attribute toAttr(
+      mlir::MLIRContext *context) const override;
+
+  [[nodiscard]] std::unique_ptr<Transform> invert() const override;
+
+  static bool classof(const Transform *transform) {
+    return transform->getKind() == QDQType;
+  }
+
+  [[nodiscard]] float getScale() const { return scale; }
+  [[nodiscard]] int64_t getZeroPoint() const { return zeroPoint; }
+  [[nodiscard]] mlir::Type getScaleType() const { return scaleType; }
+  [[nodiscard]] mlir::Type getZpType() const { return zpType; }
+
+  [[nodiscard]] mlir::Type getFromDType() const;
+  [[nodiscard]] mlir::Type getToDType() const;
+
+private:
+  double scale;
+  int64_t zeroPoint;
+  mlir::Type scaleType;
+  mlir::Type zpType;
+};
+
+// template class QDQTransform<Transform::Kind::Dequantize>;
+// template class QDQTransform<Transform::Kind::Quantize>;
+
+using DequantizeTransform = QDQTransform<Transform::Kind::Dequantize>;
+using QuantizeTransform = QDQTransform<Transform::Kind::Quantize>;
+
+/// A convenience transform to hold multiple transforms
+class ListTransform : public Transform {
+public:
+  ListTransform(mlir::SmallVector<std::unique_ptr<Transform>> &&transforms);
+
+  mlir::Attribute toAttr(mlir::MLIRContext *context) const override;
+
+  [[nodiscard]] std::unique_ptr<Transform> invert() const override;
+
+  static bool classof(const Transform *transform) {
+    return transform->getKind() == Kind::List;
+  }
+
+private:
+  friend class TensorName;
+  mlir::SmallVector<std::unique_ptr<Transform>> transforms;
+};
+
+/// A TensorName represents the name of a tensor along with the sequence of
+/// transformations that have been applied to it.
+class TensorName {
+public:
+  TensorName(std::string name);
+
+  /// Constructs TensorName from MLIR value by extracting information from
+  /// the "ResultNames" attribute or the function argument attribute.
+  /// Does NOT `infer` the transforms.
+  explicit TensorName(mlir::Value value);
+
+  /// Infer the TensorName based on transforms
+  static TensorName infer(mlir::Value value);
+
+  /// True if TensorName corresponds to a valid tensor in ONNX
+  explicit operator bool() const { return !name.empty(); }
+
+  /// Get original name of the tensor
+  [[nodiscard]] mlir::StringRef getNameStr() const { return name; }
+
+  /// List of transforms to be applied
+  [[nodiscard]] mlir::SmallVector<Transform *> getTransforms() const {
+    return llvm::map_to_vector(
+        transforms, [](const std::unique_ptr<Transform> &uptr) -> Transform * {
+          return uptr.get();
+        });
+  }
+
+  /// Add new transform at the end of list of tranforms
+  void push_back(std::unique_ptr<Transform> transform);
+
+  /// Attribute conversion
+  [[nodiscard]] mlir::Attribute toAttr(mlir::MLIRContext *context) const;
+
+  /// Set the TensorName to value by setting attribute to defining op
+  mlir::LogicalResult setTo(mlir::Value value) const;
+
+  static TensorName inferWithUse(mlir::Value value);
+  static TensorName inferWithDef(mlir::Value value);
+
+private:
+  /// The original name of this tensor (e.g. the edge name in the ONNX model).
+  std::string name;
+
+  /// The list of transformations that need to be applied on top of the
+  /// original tensor.
+  mlir::SmallVector<std::unique_ptr<Transform>> transforms;
+};
+
+class ReshapeOpTensorNameInference
+    : public mlir::TensorNameInference::ExternalModel<
+          ReshapeOpTensorNameInference, mlir::ONNXReshapeOp> {
+public:
+  std::unique_ptr<onnx_mlir::Transform> inferTensorNameTransform(
+      mlir::Operation *op) const;
+};
+
+class TransposeOpTensorNameInference
+    : public mlir::TensorNameInference::ExternalModel<
+          TransposeOpTensorNameInference, mlir::ONNXTransposeOp> {
+public:
+  std::unique_ptr<onnx_mlir::Transform> inferTensorNameTransform(
+      mlir::Operation *op) const;
+};
+
+class PadOpTensorNameInference
+    : public mlir::TensorNameInference::ExternalModel<PadOpTensorNameInference,
+          mlir::ONNXPadOp> {
+public:
+  std::unique_ptr<onnx_mlir::Transform> inferTensorNameTransform(
+      mlir::Operation *op) const;
+};
+
+class SliceOpTensorNameInference
+    : public mlir::TensorNameInference::ExternalModel<
+          SliceOpTensorNameInference, mlir::ONNXSliceOp> {
+public:
+  std::unique_ptr<onnx_mlir::Transform> inferTensorNameTransform(
+      mlir::Operation *op) const;
+};
+
+void registerTensorNameInferenceExternalModels(mlir::DialectRegistry &registry);
+
+} // namespace onnx_mlir

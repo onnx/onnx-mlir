@@ -18,8 +18,10 @@ struct OnnxToMlirOptions {
   bool enableConvTransposeDecomposeToPhasedConv = false;
   bool enableConvTranspose1dDecomposeToPhasedConv = false;
   bool enableInstanceNormDecompose = true;
+  bool enableGroupNormDecompose = true;
   bool enableMatmulNBitsDecompose = false;
   bool enableGroupQueryAttentionDecompose = true;
+  bool enableConcatFuse = true;
   bool enableRemoveDqQAroundOp = false;
   bool enableRemoveBinary = false;
   bool enableFusePadIntoAvgpool = false;
@@ -27,12 +29,13 @@ struct OnnxToMlirOptions {
   bool enableSplitToSliceDecompose = false;
 
   bool disableBatchNormDecompose = false;
-
   bool disableRecomposeOption = false;
   bool enableONNXHybridPass = true;
   bool enableConvOptPass = true;
   bool enableSimdDataLayout = false;
   bool disableSimdOption = false;
+  bool enableGAPToReduceMean = true;
+
   int onnxOpTransformThreshold = 3;
   bool onnxOpTransformReport = false;
   int repeatOnnxTransform = 0;

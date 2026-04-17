@@ -736,6 +736,32 @@ func.func @test_constant_sparse_2d_value() -> tensor<*xf32> {
 
 // -----
 
+/// Test ConstantOp shape inference preserves per-tensor quantized element type.
+/// Without the fix in Constant.cpp, inferShapes would read the element type
+/// from the DenseElementsAttr (i8) and overwrite the quantized type.
+func.func @test_constant_preserve_quant_type() -> tensor<3x!quant.uniform<i8:f32, 1.000000e-01>> {
+  %0 = "onnx.Constant"() {value = dense<[1, 2, 3]> : tensor<3xi8>} : () -> tensor<3x!quant.uniform<i8:f32, 1.000000e-01>>
+  "onnx.Return"(%0) : (tensor<3x!quant.uniform<i8:f32, 1.000000e-01>>) -> ()
+
+  // CHECK-LABEL: test_constant_preserve_quant_type
+  // CHECK: onnx.Constant {value = dense<[1, 2, 3]> : tensor<3xi8>} : tensor<3x!quant.uniform<i8:f32, 1.000000e-01>>
+  // CHECK: onnx.Return {{.*}} : tensor<3x!quant.uniform<i8:f32, 1.000000e-01>>
+}
+
+// -----
+
+/// Test ConstantOp shape inference preserves per-axis quantized element type.
+func.func @test_constant_preserve_per_axis_quant_type() -> tensor<2x!quant.uniform<i8:f32:0, {1.000000e-01, 2.000000e-01}>> {
+  %0 = "onnx.Constant"() {value = dense<[1, 2]> : tensor<2xi8>} : () -> tensor<2x!quant.uniform<i8:f32:0, {1.000000e-01, 2.000000e-01}>>
+  "onnx.Return"(%0) : (tensor<2x!quant.uniform<i8:f32:0, {1.000000e-01, 2.000000e-01}>>) -> ()
+
+  // CHECK-LABEL: test_constant_preserve_per_axis_quant_type
+  // CHECK: onnx.Constant {value = dense<[1, 2]> : tensor<2xi8>} : tensor<2x!quant.uniform<i8:f32:0, {1.000000e-01,2.000000e-01}>>
+  // CHECK: onnx.Return {{.*}} : tensor<2x!quant.uniform<i8:f32:0, {1.000000e-01,2.000000e-01}>>
+}
+
+// -----
+
 /// Test the default behavior of Average Pool with no padding (pad are set but shoud be ignored)
 func.func @test_default_averagepool(%arg0 : tensor<5x5x32x32xf32>) -> tensor<*xf32> {
   %0 = "onnx.AveragePool"(%arg0) {auto_pad = "VALID", ceil_mode = 0 : si64, kernel_shape = [3,3] } : (tensor<5x5x32x32xf32>) -> tensor<*xf32>
@@ -3684,6 +3710,33 @@ func.func @test_seqence_3(%arg0: tensor<2x4x8xf32>, %arg1: tensor<3x6xf32>) -> !
 
 // -----
 
+// Test that SequenceEmpty (with explicit dtype) -> SequenceInsert -> SequenceAt
+// correctly propagates shape through the chain:
+//   - SequenceEmpty result stays !onnx.Seq<tensor<*xf32>> (element type is
+//     unranked because SequenceEmpty has no shape info, only dtype).
+//   - SequenceInsert sees an empty seq (length=0) and promotes the element
+//     type to the concrete shape of the inserted tensor.
+//   - SequenceAt propagates that element type to the output.
+//   - The function return type is refined from tensor<*xf32> to tensor<1x4xf32>.
+func.func @test_sequence_empty_insert_at(%arg0: tensor<1x4xf32>) -> tensor<*xf32> {
+  %0 = "onnx.SequenceEmpty"() {dtype = 1 : si64} : () -> !onnx.Seq<tensor<*xf32>>
+  %cst_none = "onnx.NoValue"() {value} : () -> none
+  %1 = "onnx.SequenceInsert"(%0, %arg0, %cst_none) : (!onnx.Seq<tensor<*xf32>>, tensor<1x4xf32>, none) -> !onnx.Seq<tensor<*xf32>>
+  %cst_idx = onnx.Constant dense<0> : tensor<i64>
+  %2 = "onnx.SequenceAt"(%1, %cst_idx) : (!onnx.Seq<tensor<*xf32>>, tensor<i64>) -> tensor<*xf32>
+  onnx.Return %2 : tensor<*xf32>
+// CHECK-LABEL:  func @test_sequence_empty_insert_at
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x4xf32>) -> tensor<1x4xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<0> : tensor<i64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.SequenceEmpty"() {dtype = 1 : si64} : () -> !onnx.Seq<tensor<*xf32>>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.SequenceInsert"([[VAR_2_]], [[PARAM_0_]], [[VAR_1_]]) : (!onnx.Seq<tensor<*xf32>>, tensor<1x4xf32>, none) -> !onnx.Seq<tensor<1x4xf32>>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.SequenceAt"([[VAR_3_]], [[VAR_0_]]) : (!onnx.Seq<tensor<1x4xf32>>, tensor<i64>) -> tensor<1x4xf32>
+// CHECK:           onnx.Return [[VAR_4_]] : tensor<1x4xf32>
+}
+
+// -----
+
 // when the split input is none we always infer that the splits will have dim
 // size 1 on the split axis even if we know the output sequence will be empty
 func.func @test_splittosequence_0(%arg0: tensor<0x?x4xf32>) -> !onnx.Seq<tensor<*xf32>> {
@@ -3808,6 +3861,130 @@ func.func @test_splittosequence_9(%arg0: tensor<4x?x3xf32>) -> !onnx.Seq<tensor<
 // CHECK:           [[VAR_cst_:%.+]] = onnx.Constant dense<[3, 1]> : tensor<2xi64>
 // CHECK:           [[VAR_0_:%.+]] = "onnx.SplitToSequence"([[PARAM_0_]], [[VAR_cst_]]) {axis = 0 : si64, keepdims = 1 : si64} : (tensor<4x?x3xf32>, tensor<2xi64>) -> !onnx.Seq<tensor<?x?x3xf32>>
 // CHECK:           onnx.Return [[VAR_0_]] : !onnx.Seq<tensor<?x?x3xf32>>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Test shape inference for SequenceAt.
+//===----------------------------------------------------------------------===//
+
+// SequenceAt from a ranked-element sequence: output refines to that element type.
+func.func @test_sequenceat_ranked(%arg0: tensor<3x4xf32>, %arg1: tensor<i64>) -> tensor<*xf32> {
+  %0 = "onnx.SequenceEmpty"() {dtype = 1 : si64} : () -> !onnx.Seq<tensor<*xf32>>
+  %cst = "onnx.NoValue"() {value} : () -> none
+  %1 = "onnx.SequenceInsert"(%0, %arg0, %cst) : (!onnx.Seq<tensor<*xf32>>, tensor<3x4xf32>, none) -> !onnx.Seq<tensor<*xf32>>
+  %2 = "onnx.SequenceAt"(%1, %arg1) : (!onnx.Seq<tensor<*xf32>>, tensor<i64>) -> tensor<*xf32>
+  onnx.Return %2 : tensor<*xf32>
+// CHECK-LABEL:  func @test_sequenceat_ranked
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4xf32>, [[PARAM_1_:%.+]]: tensor<i64>) -> tensor<3x4xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.SequenceEmpty"() {dtype = 1 : si64} : () -> !onnx.Seq<tensor<*xf32>>
+// CHECK-DAG:       [[VAR_cst_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK:           [[VAR_1_:%.+]] = "onnx.SequenceInsert"([[VAR_0_]], [[PARAM_0_]], [[VAR_cst_]]) : (!onnx.Seq<tensor<*xf32>>, tensor<3x4xf32>, none) -> !onnx.Seq<tensor<3x4xf32>>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.SequenceAt"([[VAR_1_]], [[PARAM_1_]]) : (!onnx.Seq<tensor<3x4xf32>>, tensor<i64>) -> tensor<3x4xf32>
+// CHECK:           onnx.Return [[VAR_2_]] : tensor<3x4xf32>
+}
+
+// -----
+
+// SequenceAt from an unranked-element sequence: output stays tensor<*xf32>.
+func.func @test_sequenceat_unranked(%arg0: tensor<*xf32>, %arg1: tensor<i64>) -> tensor<*xf32> {
+  %0 = "onnx.SequenceEmpty"() {dtype = 1 : si64} : () -> !onnx.Seq<tensor<*xf32>>
+  %cst = "onnx.NoValue"() {value} : () -> none
+  %1 = "onnx.SequenceInsert"(%0, %arg0, %cst) : (!onnx.Seq<tensor<*xf32>>, tensor<*xf32>, none) -> !onnx.Seq<tensor<*xf32>>
+  %2 = "onnx.SequenceAt"(%1, %arg1) : (!onnx.Seq<tensor<*xf32>>, tensor<i64>) -> tensor<*xf32>
+  onnx.Return %2 : tensor<*xf32>
+// CHECK-LABEL:  func @test_sequenceat_unranked
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>, [[PARAM_1_:%.+]]: tensor<i64>) -> tensor<*xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.SequenceEmpty"() {dtype = 1 : si64} : () -> !onnx.Seq<tensor<*xf32>>
+// CHECK-DAG:       [[VAR_cst_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK:           [[VAR_1_:%.+]] = "onnx.SequenceInsert"([[VAR_0_]], [[PARAM_0_]], [[VAR_cst_]]) : (!onnx.Seq<tensor<*xf32>>, tensor<*xf32>, none) -> !onnx.Seq<tensor<*xf32>>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.SequenceAt"([[VAR_1_]], [[PARAM_1_]]) : (!onnx.Seq<tensor<*xf32>>, tensor<i64>) -> tensor<*xf32>
+// CHECK:           onnx.Return [[VAR_2_]] : tensor<*xf32>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Test shape inference for SequenceConstruct.
+//===----------------------------------------------------------------------===//
+
+// SequenceConstruct with identical shapes: exact shape is preserved.
+func.func @test_sequenceconstruct_homogeneous(%arg0: tensor<2x4xf32>, %arg1: tensor<2x4xf32>) -> !onnx.Seq<tensor<*xf32>> {
+  %0 = "onnx.SequenceConstruct"(%arg0, %arg1) : (tensor<2x4xf32>, tensor<2x4xf32>) -> !onnx.Seq<tensor<*xf32>>
+  onnx.Return %0 : !onnx.Seq<tensor<*xf32>>
+// CHECK-LABEL:  func @test_sequenceconstruct_homogeneous
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x4xf32>, [[PARAM_1_:%.+]]: tensor<2x4xf32>) -> !onnx.Seq<tensor<2x4xf32>> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.SequenceConstruct"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<2x4xf32>, tensor<2x4xf32>) -> !onnx.Seq<tensor<2x4xf32>>
+// CHECK:           onnx.Return [[VAR_0_]] : !onnx.Seq<tensor<2x4xf32>>
+}
+
+// -----
+
+// SequenceConstruct with same rank but differing first dim: that dim becomes dynamic.
+func.func @test_sequenceconstruct_dynamic_dim(%arg0: tensor<2x4xf32>, %arg1: tensor<3x4xf32>) -> !onnx.Seq<tensor<*xf32>> {
+  %0 = "onnx.SequenceConstruct"(%arg0, %arg1) : (tensor<2x4xf32>, tensor<3x4xf32>) -> !onnx.Seq<tensor<*xf32>>
+  onnx.Return %0 : !onnx.Seq<tensor<*xf32>>
+// CHECK-LABEL:  func @test_sequenceconstruct_dynamic_dim
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x4xf32>, [[PARAM_1_:%.+]]: tensor<3x4xf32>) -> !onnx.Seq<tensor<?x4xf32>> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.SequenceConstruct"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<2x4xf32>, tensor<3x4xf32>) -> !onnx.Seq<tensor<?x4xf32>>
+// CHECK:           onnx.Return [[VAR_0_]] : !onnx.Seq<tensor<?x4xf32>>
+}
+
+// -----
+
+// SequenceConstruct with different ranks: element type falls back to unranked.
+func.func @test_sequenceconstruct_different_ranks(%arg0: tensor<2x4xf32>, %arg1: tensor<2x4x8xf32>) -> !onnx.Seq<tensor<*xf32>> {
+  %0 = "onnx.SequenceConstruct"(%arg0, %arg1) : (tensor<2x4xf32>, tensor<2x4x8xf32>) -> !onnx.Seq<tensor<*xf32>>
+  onnx.Return %0 : !onnx.Seq<tensor<*xf32>>
+// CHECK-LABEL:  func @test_sequenceconstruct_different_ranks
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x4xf32>, [[PARAM_1_:%.+]]: tensor<2x4x8xf32>) -> !onnx.Seq<tensor<*xf32>> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.SequenceConstruct"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<2x4xf32>, tensor<2x4x8xf32>) -> !onnx.Seq<tensor<*xf32>>
+// CHECK:           onnx.Return [[VAR_0_]] : !onnx.Seq<tensor<*xf32>>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Test shape inference for ConcatFromSequence.
+//===----------------------------------------------------------------------===//
+
+// ConcatFromSequence: inferShapes is not yet implemented; output stays tensor<*xf32>.
+func.func @test_concatfromsequence(%arg0: tensor<3x4xf32>) -> tensor<*xf32> {
+  %0 = "onnx.SequenceEmpty"() {dtype = 1 : si64} : () -> !onnx.Seq<tensor<*xf32>>
+  %cst = "onnx.NoValue"() {value} : () -> none
+  %1 = "onnx.SequenceInsert"(%0, %arg0, %cst) : (!onnx.Seq<tensor<*xf32>>, tensor<3x4xf32>, none) -> !onnx.Seq<tensor<*xf32>>
+  %2 = "onnx.ConcatFromSequence"(%1) {axis = 0 : si64} : (!onnx.Seq<tensor<*xf32>>) -> tensor<*xf32>
+  onnx.Return %2 : tensor<*xf32>
+// CHECK-LABEL:  func @test_concatfromsequence
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4xf32>) -> tensor<*xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.SequenceEmpty"() {dtype = 1 : si64} : () -> !onnx.Seq<tensor<*xf32>>
+// CHECK-DAG:       [[VAR_cst_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK:           [[VAR_1_:%.+]] = "onnx.SequenceInsert"([[VAR_0_]], [[PARAM_0_]], [[VAR_cst_]]) : (!onnx.Seq<tensor<*xf32>>, tensor<3x4xf32>, none) -> !onnx.Seq<tensor<3x4xf32>>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.ConcatFromSequence"([[VAR_1_]]) {axis = 0 : si64, new_axis = 0 : si64} : (!onnx.Seq<tensor<3x4xf32>>) -> tensor<*xf32>
+// CHECK:           onnx.Return [[VAR_2_]] : tensor<*xf32>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Test shape inference for SequenceMap.
+//===----------------------------------------------------------------------===//
+
+// SequenceMap with an Identity body: shape inference for SequenceMap is not yet
+// implemented so the result type (set at import time by resultTypeInference) is
+// preserved unchanged through the pass.
+func.func @test_sequencemap(%arg0: !onnx.Seq<tensor<1x4xf32>>) -> !onnx.Seq<tensor<1x4xf32>> {
+  %0 = "onnx.SequenceMap"(%arg0) ({
+  ^bb0(%elem: tensor<1x4xf32>):
+    %id = "onnx.Identity"(%elem) : (tensor<1x4xf32>) -> tensor<1x4xf32>
+    onnx.Yield %id : tensor<1x4xf32>
+  }) : (!onnx.Seq<tensor<1x4xf32>>) -> !onnx.Seq<tensor<1x4xf32>>
+  onnx.Return %0 : !onnx.Seq<tensor<1x4xf32>>
+// CHECK-LABEL:  func @test_sequencemap
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: !onnx.Seq<tensor<1x4xf32>>) -> !onnx.Seq<tensor<1x4xf32>> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.SequenceMap"([[PARAM_0_]])
+// CHECK:           onnx.Return [[VAR_0_]] : !onnx.Seq<tensor<1x4xf32>>
 }
 
 // -----
@@ -4615,3 +4792,310 @@ func.func @test_bfp_quant_dequant_negative_axis(%arg0: tensor<16x32xf32>) -> ten
 // CHECK:          "onnx.AMDQuarkBFPQuantizeDequantizeOp"
 // CHECK-SAME:       {axis = -1 : si64
 // CHECK-SAME:       (tensor<16x32xf32>) -> tensor<16x32xf32>
+
+// -----
+
+//===----------------------------------------------------------------------===//
+// RegexFullMatch
+//===----------------------------------------------------------------------===//
+
+func.func @test_regex_full_match_unranked(%arg0: tensor<*x!onnx.String>) -> tensor<*xi1> {
+  %0 = "onnx.RegexFullMatch"(%arg0) {pattern = ".*"} : (tensor<*x!onnx.String>) -> tensor<*xi1>
+  return %0 : tensor<*xi1>
+}
+// CHECK-LABEL:  func.func @test_regex_full_match_unranked
+// CHECK:          "onnx.RegexFullMatch"(%arg0) {pattern = ".*"} : (tensor<*x!onnx.String>) -> tensor<*xi1>
+
+// -----
+
+func.func @test_regex_full_match(%arg0: tensor<3x4x!onnx.String>) -> tensor<*xi1> {
+  %0 = "onnx.RegexFullMatch"(%arg0) {pattern = ".*"} : (tensor<3x4x!onnx.String>) -> tensor<*xi1>
+  return %0 : tensor<*xi1>
+}
+// CHECK-LABEL:  func.func @test_regex_full_match
+// CHECK:          "onnx.RegexFullMatch"(%arg0) {pattern = ".*"} : (tensor<3x4x!onnx.String>) -> tensor<3x4xi1>
+
+// -----
+
+func.func @test_regex_full_match_dynamic(%arg0: tensor<?x4x!onnx.String>) -> tensor<*xi1> {
+  %0 = "onnx.RegexFullMatch"(%arg0) {pattern = "[a-z]+"} : (tensor<?x4x!onnx.String>) -> tensor<*xi1>
+  return %0 : tensor<*xi1>
+}
+// CHECK-LABEL:  func.func @test_regex_full_match_dynamic
+// CHECK:          "onnx.RegexFullMatch"(%arg0) {pattern = "[a-z]+"} : (tensor<?x4x!onnx.String>) -> tensor<?x4xi1>
+
+// -----
+
+//===----------------------------------------------------------------------===//
+// StringConcat
+//===----------------------------------------------------------------------===//
+
+func.func @test_string_concat_unranked(%arg0: tensor<*x!onnx.String>, %arg1: tensor<*x!onnx.String>) -> tensor<*x!onnx.String> {
+  %0 = "onnx.StringConcat"(%arg0, %arg1) : (tensor<*x!onnx.String>, tensor<*x!onnx.String>) -> tensor<*x!onnx.String>
+  return %0 : tensor<*x!onnx.String>
+}
+// CHECK-LABEL:  func.func @test_string_concat_unranked
+// CHECK:          "onnx.StringConcat"(%arg0, %arg1) : (tensor<*x!onnx.String>, tensor<*x!onnx.String>) -> tensor<*x!onnx.String>
+
+// -----
+
+func.func @test_string_concat(%arg0: tensor<3x4x!onnx.String>, %arg1: tensor<3x4x!onnx.String>) -> tensor<*x!onnx.String> {
+  %0 = "onnx.StringConcat"(%arg0, %arg1) : (tensor<3x4x!onnx.String>, tensor<3x4x!onnx.String>) -> tensor<*x!onnx.String>
+  return %0 : tensor<*x!onnx.String>
+}
+// CHECK-LABEL:  func.func @test_string_concat
+// CHECK:          "onnx.StringConcat"(%arg0, %arg1) : (tensor<3x4x!onnx.String>, tensor<3x4x!onnx.String>) -> tensor<3x4x!onnx.String>
+
+// -----
+
+func.func @test_string_concat_broadcast(%arg0: tensor<3x1x!onnx.String>, %arg1: tensor<1x4x!onnx.String>) -> tensor<*x!onnx.String> {
+  %0 = "onnx.StringConcat"(%arg0, %arg1) : (tensor<3x1x!onnx.String>, tensor<1x4x!onnx.String>) -> tensor<*x!onnx.String>
+  return %0 : tensor<*x!onnx.String>
+}
+// CHECK-LABEL:  func.func @test_string_concat_broadcast
+// CHECK:          "onnx.StringConcat"(%arg0, %arg1) : (tensor<3x1x!onnx.String>, tensor<1x4x!onnx.String>) -> tensor<3x4x!onnx.String>
+
+// -----
+
+func.func @test_string_concat_dynamic(%arg0: tensor<?x4x!onnx.String>, %arg1: tensor<?x4x!onnx.String>) -> tensor<*x!onnx.String> {
+  %0 = "onnx.StringConcat"(%arg0, %arg1) : (tensor<?x4x!onnx.String>, tensor<?x4x!onnx.String>) -> tensor<*x!onnx.String>
+  return %0 : tensor<*x!onnx.String>
+}
+// CHECK-LABEL:  func.func @test_string_concat_dynamic
+// CHECK:          "onnx.StringConcat"(%arg0, %arg1) : (tensor<?x4x!onnx.String>, tensor<?x4x!onnx.String>) -> tensor<?x4x!onnx.String>
+
+// -----
+
+func.func @test_string_concat_broadcast_dynamic(%arg0: tensor<?x1x!onnx.String>, %arg1: tensor<1x?x!onnx.String>) -> tensor<*x!onnx.String> {
+  %0 = "onnx.StringConcat"(%arg0, %arg1) : (tensor<?x1x!onnx.String>, tensor<1x?x!onnx.String>) -> tensor<*x!onnx.String>
+  return %0 : tensor<*x!onnx.String>
+}
+// CHECK-LABEL:  func.func @test_string_concat_broadcast_dynamic
+// CHECK:          "onnx.StringConcat"(%arg0, %arg1) : (tensor<?x1x!onnx.String>, tensor<1x?x!onnx.String>) -> tensor<?x?x!onnx.String>
+
+// -----
+
+//===----------------------------------------------------------------------===//
+// ImageDecoder
+//===----------------------------------------------------------------------===//
+
+func.func @test_image_decoder_unranked(%arg0: tensor<*xui8>) -> tensor<*xui8> {
+  %0 = "onnx.ImageDecoder"(%arg0) {pixel_format = "RGB"} : (tensor<*xui8>) -> tensor<*xui8>
+  return %0 : tensor<*xui8>
+}
+// CHECK-LABEL:  func.func @test_image_decoder_unranked
+// CHECK:          "onnx.ImageDecoder"(%arg0) {pixel_format = "RGB"} : (tensor<*xui8>) -> tensor<?x?x?xui8>
+
+// -----
+
+func.func @test_image_decoder(%arg0: tensor<100xui8>) -> tensor<*xui8> {
+  %0 = "onnx.ImageDecoder"(%arg0) {pixel_format = "RGB"} : (tensor<100xui8>) -> tensor<*xui8>
+  return %0 : tensor<*xui8>
+}
+// CHECK-LABEL:  func.func @test_image_decoder
+// CHECK:          "onnx.ImageDecoder"(%arg0) {pixel_format = "RGB"} : (tensor<100xui8>) -> tensor<?x?x?xui8>
+
+// -----
+
+func.func @test_image_decoder_dynamic(%arg0: tensor<?xui8>) -> tensor<*xui8> {
+  %0 = "onnx.ImageDecoder"(%arg0) {pixel_format = "BGR"} : (tensor<?xui8>) -> tensor<*xui8>
+  return %0 : tensor<*xui8>
+}
+// CHECK-LABEL:  func.func @test_image_decoder_dynamic
+// CHECK:          "onnx.ImageDecoder"(%arg0) {pixel_format = "BGR"} : (tensor<?xui8>) -> tensor<?x?x?xui8>
+
+// -----
+
+func.func @test_image_decoder_grayscale(%arg0: tensor<200xui8>) -> tensor<*xui8> {
+  %0 = "onnx.ImageDecoder"(%arg0) {pixel_format = "Grayscale"} : (tensor<200xui8>) -> tensor<*xui8>
+  return %0 : tensor<*xui8>
+}
+// CHECK-LABEL:  func.func @test_image_decoder_grayscale
+// CHECK:          "onnx.ImageDecoder"(%arg0) {pixel_format = "Grayscale"} : (tensor<200xui8>) -> tensor<?x?x?xui8>
+
+// -----
+
+func.func @test_image_decoder_preserve_shape(%arg0: tensor<100xui8>) -> tensor<480x640x3xui8> {
+  %0 = "onnx.ImageDecoder"(%arg0) {pixel_format = "RGB"} : (tensor<100xui8>) -> tensor<480x640x3xui8>
+  return %0 : tensor<480x640x3xui8>
+}
+// CHECK-LABEL:  func.func @test_image_decoder_preserve_shape
+// CHECK:          "onnx.ImageDecoder"(%arg0) {pixel_format = "RGB"} : (tensor<100xui8>) -> tensor<480x640x3xui8>
+
+// -----
+
+//===----------------------------------------------------------------------===//
+// AffineGrid
+//===----------------------------------------------------------------------===//
+
+func.func @test_affine_grid_unranked(%arg0: tensor<*xf32>, %arg1: tensor<4xi64>) -> tensor<*xf32> {
+  %0 = "onnx.AffineGrid"(%arg0, %arg1) {align_corners = 0 : si64} : (tensor<*xf32>, tensor<4xi64>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+}
+// CHECK-LABEL:  func.func @test_affine_grid_unranked
+// CHECK:          "onnx.AffineGrid"(%arg0, %arg1) {align_corners = 0 : si64} : (tensor<*xf32>, tensor<4xi64>) -> tensor<?x?x?x2xf32>
+
+// -----
+
+func.func @test_affine_grid_2d(%arg0: tensor<2x2x3xf32>) -> tensor<*xf32> {
+  %0 = onnx.Constant dense<[2, 3, 8, 8]> : tensor<4xi64>
+  %1 = "onnx.AffineGrid"(%arg0, %0) {align_corners = 0 : si64} : (tensor<2x2x3xf32>, tensor<4xi64>) -> tensor<*xf32>
+  return %1 : tensor<*xf32>
+}
+// CHECK-LABEL:  func.func @test_affine_grid_2d
+// CHECK:          "onnx.AffineGrid"({{.*}}, {{.*}}) {align_corners = 0 : si64} : (tensor<2x2x3xf32>, tensor<4xi64>) -> tensor<2x8x8x2xf32>
+
+// -----
+
+func.func @test_affine_grid_3d(%arg0: tensor<2x3x4xf32>) -> tensor<*xf32> {
+  %0 = onnx.Constant dense<[2, 3, 4, 8, 8]> : tensor<5xi64>
+  %1 = "onnx.AffineGrid"(%arg0, %0) {align_corners = 0 : si64} : (tensor<2x3x4xf32>, tensor<5xi64>) -> tensor<*xf32>
+  return %1 : tensor<*xf32>
+}
+// CHECK-LABEL:  func.func @test_affine_grid_3d
+// CHECK:          "onnx.AffineGrid"({{.*}}, {{.*}}) {align_corners = 0 : si64} : (tensor<2x3x4xf32>, tensor<5xi64>) -> tensor<2x4x8x8x3xf32>
+
+// -----
+
+func.func @test_affine_grid_2d_dynamic_size(%arg0: tensor<?x2x3xf32>, %arg1: tensor<4xi64>) -> tensor<*xf32> {
+  %0 = "onnx.AffineGrid"(%arg0, %arg1) {align_corners = 0 : si64} : (tensor<?x2x3xf32>, tensor<4xi64>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+}
+// CHECK-LABEL:  func.func @test_affine_grid_2d_dynamic_size
+// CHECK:          "onnx.AffineGrid"(%arg0, %arg1) {align_corners = 0 : si64} : (tensor<?x2x3xf32>, tensor<4xi64>) -> tensor<?x?x?x2xf32>
+
+// -----
+
+func.func @test_affine_grid_3d_dynamic_size(%arg0: tensor<?x3x4xf32>, %arg1: tensor<5xi64>) -> tensor<*xf32> {
+  %0 = "onnx.AffineGrid"(%arg0, %arg1) {align_corners = 0 : si64} : (tensor<?x3x4xf32>, tensor<5xi64>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+}
+// CHECK-LABEL:  func.func @test_affine_grid_3d_dynamic_size
+// CHECK:          "onnx.AffineGrid"(%arg0, %arg1) {align_corners = 0 : si64} : (tensor<?x3x4xf32>, tensor<5xi64>) -> tensor<?x?x?x?x3xf32>
+
+// -----
+
+func.func @test_affine_grid_2d_dynamic_theta(%arg0: tensor<?x?x?xf32>) -> tensor<*xf32> {
+  %0 = onnx.Constant dense<[2, 3, 8, 8]> : tensor<4xi64>
+  %1 = "onnx.AffineGrid"(%arg0, %0) {align_corners = 0 : si64} : (tensor<?x?x?xf32>, tensor<4xi64>) -> tensor<*xf32>
+  return %1 : tensor<*xf32>
+}
+// CHECK-LABEL:  func.func @test_affine_grid_2d_dynamic_theta
+// CHECK:          "onnx.AffineGrid"({{.*}}, {{.*}}) {align_corners = 0 : si64} : (tensor<?x?x?xf32>, tensor<4xi64>) -> tensor<2x8x8x2xf32>
+
+// -----
+
+func.func @test_affine_grid_3d_dynamic_theta(%arg0: tensor<?x?x?xf32>) -> tensor<*xf32> {
+  %0 = onnx.Constant dense<[2, 3, 4, 8, 8]> : tensor<5xi64>
+  %1 = "onnx.AffineGrid"(%arg0, %0) {align_corners = 0 : si64} : (tensor<?x?x?xf32>, tensor<5xi64>) -> tensor<*xf32>
+  return %1 : tensor<*xf32>
+}
+// CHECK-LABEL:  func.func @test_affine_grid_3d_dynamic_theta
+// CHECK:          "onnx.AffineGrid"({{.*}}, {{.*}}) {align_corners = 0 : si64} : (tensor<?x?x?xf32>, tensor<5xi64>) -> tensor<2x4x8x8x3xf32>
+
+// -----
+
+//===----------------------------------------------------------------------===//
+// StringSplit
+//===----------------------------------------------------------------------===//
+
+func.func @test_string_split_unranked(%arg0: tensor<*x!onnx.String>) -> (tensor<*x!onnx.String>, tensor<*xi64>) {
+  %0:2 = "onnx.StringSplit"(%arg0) {delimiter = ","} : (tensor<*x!onnx.String>) -> (tensor<*x!onnx.String>, tensor<*xi64>)
+  return %0#0, %0#1 : tensor<*x!onnx.String>, tensor<*xi64>
+}
+// CHECK-LABEL:  func.func @test_string_split_unranked
+// CHECK:          "onnx.StringSplit"(%arg0) {delimiter = ","} : (tensor<*x!onnx.String>) -> (tensor<*x!onnx.String>, tensor<*xi64>)
+
+// -----
+
+func.func @test_string_split(%arg0: tensor<3x!onnx.String>) -> (tensor<*x!onnx.String>, tensor<*xi64>) {
+  %0:2 = "onnx.StringSplit"(%arg0) {delimiter = ","} : (tensor<3x!onnx.String>) -> (tensor<*x!onnx.String>, tensor<*xi64>)
+  return %0#0, %0#1 : tensor<*x!onnx.String>, tensor<*xi64>
+}
+// CHECK-LABEL:  func.func @test_string_split
+// CHECK:          "onnx.StringSplit"(%arg0) {delimiter = ","} : (tensor<3x!onnx.String>) -> (tensor<3x?x!onnx.String>, tensor<3xi64>)
+
+// -----
+
+func.func @test_string_split_2d(%arg0: tensor<2x3x!onnx.String>) -> (tensor<*x!onnx.String>, tensor<*xi64>) {
+  %0:2 = "onnx.StringSplit"(%arg0) {delimiter = " "} : (tensor<2x3x!onnx.String>) -> (tensor<*x!onnx.String>, tensor<*xi64>)
+  return %0#0, %0#1 : tensor<*x!onnx.String>, tensor<*xi64>
+}
+// CHECK-LABEL:  func.func @test_string_split_2d
+// CHECK:          "onnx.StringSplit"(%arg0) {delimiter = " "} : (tensor<2x3x!onnx.String>) -> (tensor<2x3x?x!onnx.String>, tensor<2x3xi64>)
+
+// -----
+
+func.func @test_string_split_dynamic(%arg0: tensor<?x!onnx.String>) -> (tensor<*x!onnx.String>, tensor<*xi64>) {
+  %0:2 = "onnx.StringSplit"(%arg0) {delimiter = " "} : (tensor<?x!onnx.String>) -> (tensor<*x!onnx.String>, tensor<*xi64>)
+  return %0#0, %0#1 : tensor<*x!onnx.String>, tensor<*xi64>
+}
+// CHECK-LABEL:  func.func @test_string_split_dynamic
+// CHECK:          "onnx.StringSplit"(%arg0) {delimiter = " "} : (tensor<?x!onnx.String>) -> (tensor<?x?x!onnx.String>, tensor<?xi64>)
+
+// -----
+
+func.func @test_string_split_2d_dynamic(%arg0: tensor<?x?x!onnx.String>) -> (tensor<*x!onnx.String>, tensor<*xi64>) {
+  %0:2 = "onnx.StringSplit"(%arg0) {delimiter = ","} : (tensor<?x?x!onnx.String>) -> (tensor<*x!onnx.String>, tensor<*xi64>)
+  return %0#0, %0#1 : tensor<*x!onnx.String>, tensor<*xi64>
+}
+// CHECK-LABEL:  func.func @test_string_split_2d_dynamic
+// CHECK:          "onnx.StringSplit"(%arg0) {delimiter = ","} : (tensor<?x?x!onnx.String>) -> (tensor<?x?x?x!onnx.String>, tensor<?x?xi64>)
+
+// -----
+
+func.func @test_string_split_preserve_shape(%arg0: tensor<3x!onnx.String>) -> (tensor<3x5x!onnx.String>, tensor<3xi64>) {
+  %0:2 = "onnx.StringSplit"(%arg0) {delimiter = ","} : (tensor<3x!onnx.String>) -> (tensor<3x5x!onnx.String>, tensor<3xi64>)
+  return %0#0, %0#1 : tensor<3x5x!onnx.String>, tensor<3xi64>
+}
+// CHECK-LABEL:  func.func @test_string_split_preserve_shape
+// CHECK:          "onnx.StringSplit"(%arg0) {delimiter = ","} : (tensor<3x!onnx.String>) -> (tensor<3x5x!onnx.String>, tensor<3xi64>)
+
+// -----
+
+//===----------------------------------------------------------------------===//
+// TreeEnsemble
+//===----------------------------------------------------------------------===//
+
+func.func @test_tree_ensemble_static(%arg0: tensor<10x5xf32>) -> tensor<*xf32> {
+  %0 = "onnx.TreeEnsemble"(%arg0) {aggregate_function = 1 : si64, leaf_targetids = [0 : i64, 0 : i64], leaf_weights = dense<[[1.0], [2.0]]> : tensor<2x1xf32>, n_targets = 3 : si64, nodes_falseleafs = [1 : i64], nodes_falsenodeids = [0 : i64], nodes_featureids = [0 : i64], nodes_modes = dense<[0]> : tensor<1xui8>, nodes_splits = dense<[0.5]> : tensor<1xf32>, nodes_trueleafs = [1 : i64], nodes_truenodeids = [1 : i64], post_transform = 0 : si64, tree_roots = [0 : i64]} : (tensor<10x5xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+}
+// CHECK-LABEL:  func.func @test_tree_ensemble_static
+// CHECK:          : (tensor<10x5xf32>) -> tensor<10x3xf32>
+
+// -----
+
+func.func @test_tree_ensemble_dynamic(%arg0: tensor<?x5xf32>) -> tensor<*xf32> {
+  %0 = "onnx.TreeEnsemble"(%arg0) {aggregate_function = 1 : si64, leaf_targetids = [0 : i64, 0 : i64], leaf_weights = dense<[[1.0], [2.0]]> : tensor<2x1xf32>, n_targets = 3 : si64, nodes_falseleafs = [1 : i64], nodes_falsenodeids = [0 : i64], nodes_featureids = [0 : i64], nodes_modes = dense<[0]> : tensor<1xui8>, nodes_splits = dense<[0.5]> : tensor<1xf32>, nodes_trueleafs = [1 : i64], nodes_truenodeids = [1 : i64], post_transform = 0 : si64, tree_roots = [0 : i64]} : (tensor<?x5xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+}
+// CHECK-LABEL:  func.func @test_tree_ensemble_dynamic
+// CHECK:          : (tensor<?x5xf32>) -> tensor<?x3xf32>
+
+// -----
+
+func.func @test_tree_ensemble_unranked(%arg0: tensor<*xf32>) -> tensor<*xf32> {
+  %0 = "onnx.TreeEnsemble"(%arg0) {aggregate_function = 1 : si64, leaf_targetids = [0 : i64, 0 : i64], leaf_weights = dense<[[1.0], [2.0]]> : tensor<2x1xf32>, n_targets = 3 : si64, nodes_falseleafs = [1 : i64], nodes_falsenodeids = [0 : i64], nodes_featureids = [0 : i64], nodes_modes = dense<[0]> : tensor<1xui8>, nodes_splits = dense<[0.5]> : tensor<1xf32>, nodes_trueleafs = [1 : i64], nodes_truenodeids = [1 : i64], post_transform = 0 : si64, tree_roots = [0 : i64]} : (tensor<*xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+}
+// CHECK-LABEL:  func.func @test_tree_ensemble_unranked
+// CHECK:          : (tensor<*xf32>) -> tensor<*xf32>
+
+// -----
+
+func.func @test_tree_ensemble_no_n_targets_static(%arg0: tensor<10x5xf32>) -> tensor<*xf32> {
+  %0 = "onnx.TreeEnsemble"(%arg0) {aggregate_function = 1 : si64, leaf_targetids = [0 : i64, 0 : i64], leaf_weights = dense<[[1.0], [2.0]]> : tensor<2x1xf32>, nodes_falseleafs = [1 : i64], nodes_falsenodeids = [0 : i64], nodes_featureids = [0 : i64], nodes_modes = dense<[0]> : tensor<1xui8>, nodes_splits = dense<[0.5]> : tensor<1xf32>, nodes_trueleafs = [1 : i64], nodes_truenodeids = [1 : i64], post_transform = 0 : si64, tree_roots = [0 : i64]} : (tensor<10x5xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+}
+// CHECK-LABEL:  func.func @test_tree_ensemble_no_n_targets_static
+// CHECK:          : (tensor<10x5xf32>) -> tensor<10x?xf32>
+
+// -----
+
+func.func @test_tree_ensemble_no_n_targets_dynamic(%arg0: tensor<?x5xf32>) -> tensor<*xf32> {
+  %0 = "onnx.TreeEnsemble"(%arg0) {aggregate_function = 1 : si64, leaf_targetids = [0 : i64, 0 : i64], leaf_weights = dense<[[1.0], [2.0]]> : tensor<2x1xf32>, nodes_falseleafs = [1 : i64], nodes_falsenodeids = [0 : i64], nodes_featureids = [0 : i64], nodes_modes = dense<[0]> : tensor<1xui8>, nodes_splits = dense<[0.5]> : tensor<1xf32>, nodes_trueleafs = [1 : i64], nodes_truenodeids = [1 : i64], post_transform = 0 : si64, tree_roots = [0 : i64]} : (tensor<?x5xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+}
+// CHECK-LABEL:  func.func @test_tree_ensemble_no_n_targets_dynamic
+// CHECK:          : (tensor<?x5xf32>) -> tensor<?x?xf32>

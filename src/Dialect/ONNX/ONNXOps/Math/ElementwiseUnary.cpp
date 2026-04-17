@@ -202,15 +202,6 @@ LogicalResult ONNXCeluOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
-// Clip
-//===----------------------------------------------------------------------===//
-
-LogicalResult ONNXClipOp::inferShapes(
-    std::function<void(Region &)> doShapeInference) {
-  return inferShapeForUnaryOps(this->getOperation());
-}
-
-//===----------------------------------------------------------------------===//
 // Cos
 //===----------------------------------------------------------------------===//
 
@@ -355,6 +346,16 @@ LogicalResult ONNXIsInfOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXIsNaNOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  IntegerType i1Type = IntegerType::get(getContext(), 1, IntegerType::Signless);
+  return inferShapeForUnaryOps(getOperation(), i1Type);
+}
+
+//===----------------------------------------------------------------------===//
+// RegexFullMatch
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXRegexFullMatchOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   IntegerType i1Type = IntegerType::get(getContext(), 1, IntegerType::Signless);
   return inferShapeForUnaryOps(getOperation(), i1Type);

@@ -287,6 +287,54 @@ func.func @test_resize_empty_tensor_inputs(%8: tensor<0xf32>, %714: tensor<*xf32
 
 // -----
 
+// CHECK-LABEL: func @test_remove_redundant_resize(%arg0: tensor<1x256x56x56xf32>) -> tensor<1x256x56x56xf32> {
+func.func @test_remove_redundant_resize(%arg0: tensor<1x256x56x56xf32>) -> tensor<1x256x56x56xf32> {
+  %noval = "onnx.NoValue"() {value} : () -> none
+  %shape = "onnx.Constant"() {value = dense<[1, 256, 56, 56]> : tensor<4xi64>} : () -> tensor<4xi64>
+  %0 = "onnx.Resize"(%arg0, %noval, %noval, %shape) 
+  { 
+    antialias = 0 : si64, 
+    coordinate_transformation_mode = "pytorch_half_pixel", 
+    cubic_coeff_a = -7.500000e-01 : f32, 
+    exclude_outside = 0 : si64, 
+    extrapolation_value = 0.000000e+00 : f32, 
+    keep_aspect_ratio_policy = "stretch", 
+    mode = "linear", 
+    nearest_mode = "floor"
+  } : (tensor<1x256x56x56xf32>, none, none, tensor<4xi64>) -> tensor<1x256x56x56xf32>
+  // CHECK-NOT: onnx.Resize
+  // CHECK-NEXT: onnx.Return %arg0 : tensor<1x256x56x56xf32>
+  "onnx.Return"(%0) : (tensor<1x256x56x56xf32>) -> ()
+}
+
+// -----
+
+// Verify that a redundant resize with tf_crop_and_resize is NOT removed,
+// because the ROI crops to a sub-region even when input/output shapes match.
+
+// CHECK-LABEL: func @test_no_remove_redundant_resize_tf_crop_and_resize
+func.func @test_no_remove_redundant_resize_tf_crop_and_resize(%arg0: tensor<1x256x56x56xf32>) -> tensor<1x256x56x56xf32> {
+  %noval = "onnx.NoValue"() {value} : () -> none
+  %roi = "onnx.Constant"() {value = dense<[0.0, 0.0, 0.2, 0.2, 1.0, 1.0, 0.8, 0.8]> : tensor<8xf32>} : () -> tensor<8xf32>
+  %shape = "onnx.Constant"() {value = dense<[1, 256, 56, 56]> : tensor<4xi64>} : () -> tensor<4xi64>
+  %0 = "onnx.Resize"(%arg0, %roi, %noval, %shape)
+  {
+    antialias = 0 : si64,
+    coordinate_transformation_mode = "tf_crop_and_resize",
+    cubic_coeff_a = -7.500000e-01 : f32,
+    exclude_outside = 0 : si64,
+    extrapolation_value = 0.000000e+00 : f32,
+    keep_aspect_ratio_policy = "stretch",
+    mode = "nearest",
+    nearest_mode = "floor"
+  } : (tensor<1x256x56x56xf32>, tensor<8xf32>, none, tensor<4xi64>) -> tensor<1x256x56x56xf32>
+  // CHECK: onnx.Resize
+  // CHECK: onnx.Return
+  "onnx.Return"(%0) : (tensor<1x256x56x56xf32>) -> ()
+}
+
+// -----
+
 // Check the combining of transposes into a simple transpose.
 // CHECK-LABEL: func @test_transpose_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<11x10x13x12xf32> {
 func.func @test_transpose_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<11x10x13x12xf32> {
@@ -1488,6 +1536,19 @@ func.func @test_softmax_v11_unranked(%arg0 : tensor<*xf32>) -> tensor<*xf32> {
 
 // -----
 
+func.func @test_softmax_negative_axis(%arg0 : tensor<10x20x30xf32>) -> tensor<10x20x30xf32> {
+  %0 = "onnx.Softmax"(%arg0) {axis = -1 : si64} : (tensor<10x20x30xf32>) -> tensor<10x20x30xf32>
+  onnx.Return %0 : tensor<10x20x30xf32>
+
+// CHECK-LABEL:  func.func @test_softmax_negative_axis
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x20x30xf32>) -> tensor<10x20x30xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Softmax"([[PARAM_0_]]) {axis = 2 : si64} : (tensor<10x20x30xf32>) -> tensor<10x20x30xf32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<10x20x30xf32>
+// CHECK:         }
+}
+
+// -----
+
 #transpose = affine_map<(d0, d1, d2, d3) -> (d2, d0, d1, d3)>
 #reshape =  affine_map<(d0, d1) -> (d0 floordiv 32, d0 mod 32, d1 floordiv 64, d1 mod 64)>
 func.func @shape_transform_compose(%arg0: tensor<128x128xf32>) -> tensor<2x4x32x64xf32> {
@@ -2286,104 +2347,6 @@ func.func @test_reorder_relu_maxpool(%arg0: tensor<1x64x32x32xf32>) -> tensor<1x
   // CHECK:      [[VAR_1_:%.+]] = "onnx.Relu"([[VAR_0_]]) : (tensor<1x64x16x16xf32>) -> tensor<1x64x16x16xf32>
   // CHECK-NEXT:     return [[VAR_1_]] : tensor<1x64x16x16xf32>
   // CHECK:         }
-}
-
-// -----
-
-func.func @test_groupnorm_v18(%arg0: tensor<3x4x2x2xf32>, %arg1: tensor<2xf32>, %arg2: tensor<2xf32>) -> tensor<3x4x2x2xf32> {
-  %0 = "onnx.GroupNormalizationV18"(%arg0, %arg1, %arg2) {epsilon = 0.00999999977 : f32, num_groups = 2 : si64} : (tensor<3x4x2x2xf32>, tensor<2xf32>, tensor<2xf32>) -> tensor<3x4x2x2xf32>
-  onnx.Return %0 : tensor<3x4x2x2xf32>
-// mlir2FileCheck.py
-// CHECK-LABEL:  func.func @test_groupnorm_v18
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4x2x2xf32>, [[PARAM_1_:%.+]]: tensor<2xf32>, [[PARAM_2_:%.+]]: tensor<2xf32>) -> tensor<3x4x2x2xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[3, 4, 2, 2]> : tensor<4xi64>
-// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<2> : tensor<2xi64>
-// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<[2, -1]> : tensor<2xi64>
-// CHECK-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<3> : tensor<1xi64>
-// CHECK-DAG:       [[VAR_4_:%.+]] = onnx.Constant dense<[1, 2, 3]> : tensor<3xi64>
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Unsqueeze"([[PARAM_1_]], [[VAR_4_]]) : (tensor<2xf32>, tensor<3xi64>) -> tensor<2x1x1x1xf32>
-// CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.Unsqueeze"([[PARAM_2_]], [[VAR_4_]]) : (tensor<2xf32>, tensor<3xi64>) -> tensor<2x1x1x1xf32>
-// CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.Concat"([[VAR_3_]], [[VAR_2_]], [[VAR_1_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<5xi64>
-// CHECK:           [[VAR_8_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_7_]]) {allowzero = 0 : si64} : (tensor<3x4x2x2xf32>, tensor<5xi64>) -> tensor<3x2x2x2x2xf32>
-// CHECK:           [[VAR_Y_:%.+]], [[VAR_Mean_:%.+]], [[VAR_InvStdDev_:%.+]] = "onnx.LayerNormalization"([[VAR_8_]], [[VAR_5_]], [[VAR_6_]]) {axis = 2 : si64, epsilon = 0.00999999977 : f32, stash_type = 1 : si64} : (tensor<3x2x2x2x2xf32>, tensor<2x1x1x1xf32>, tensor<2x1x1x1xf32>) -> (tensor<3x2x2x2x2xf32>, none, none)
-// CHECK:           [[VAR_9_:%.+]] = "onnx.Reshape"([[VAR_Y_]], [[VAR_0_]]) {allowzero = 0 : si64} : (tensor<3x2x2x2x2xf32>, tensor<4xi64>) -> tensor<3x4x2x2xf32>
-// CHECK:           onnx.Return [[VAR_9_]] : tensor<3x4x2x2xf32>
-// CHECK:         }
-}
-
-// -----
-
-func.func @test_groupnorm_v21(%arg0: tensor<3x4x2x2xf32>, %arg1: tensor<4xf32>, %arg2: tensor<4xf32>) -> tensor<3x4x2x2xf32> {
-  %0 = "onnx.GroupNormalization"(%arg0, %arg1, %arg2) {epsilon = 0.00999999977 : f32, num_groups = 2 : si64} : (tensor<3x4x2x2xf32>, tensor<4xf32>, tensor<4xf32>) -> tensor<3x4x2x2xf32>
-  onnx.Return %0 : tensor<3x4x2x2xf32>
-// mlir2FileCheck.py
-// CHECK-LABEL:  func.func @test_groupnorm_v21
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4x2x2xf32>, [[PARAM_1_:%.+]]: tensor<4xf32>, [[PARAM_2_:%.+]]: tensor<4xf32>) -> tensor<3x4x2x2xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[3, 4, 2, 2]> : tensor<4xi64>
-// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<2> : tensor<2xi64>
-// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<[2, -1]> : tensor<2xi64>
-// CHECK-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<3> : tensor<1xi64>
-// CHECK-DAG:       [[VAR_4_:%.+]] = onnx.Constant dense<2> : tensor<1xi64>
-// CHECK-DAG:       [[VAR_5_:%.+]] = onnx.Constant dense<1> : tensor<2xi64>
-// CHECK:           [[VAR_6_:%.+]] = "onnx.Concat"([[VAR_4_]], [[VAR_4_]], [[VAR_5_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<2xi64>) -> tensor<4xi64>
-// CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.Reshape"([[PARAM_1_]], [[VAR_6_]]) {allowzero = 0 : si64} : (tensor<4xf32>, tensor<4xi64>) -> tensor<2x2x1x1xf32>
-// CHECK-DAG:       [[VAR_8_:%.+]] = "onnx.Reshape"([[PARAM_2_]], [[VAR_6_]]) {allowzero = 0 : si64} : (tensor<4xf32>, tensor<4xi64>) -> tensor<2x2x1x1xf32>
-// CHECK-DAG:       [[VAR_9_:%.+]] = "onnx.Concat"([[VAR_3_]], [[VAR_2_]], [[VAR_1_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<5xi64>
-// CHECK:           [[VAR_10_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_9_]]) {allowzero = 0 : si64} : (tensor<3x4x2x2xf32>, tensor<5xi64>) -> tensor<3x2x2x2x2xf32>
-// CHECK:           [[VAR_Y_:%.+]], [[VAR_Mean_:%.+]], [[VAR_InvStdDev_:%.+]] = "onnx.LayerNormalization"([[VAR_10_]], [[VAR_7_]], [[VAR_8_]]) {axis = 2 : si64, epsilon = 0.00999999977 : f32, stash_type = 1 : si64} : (tensor<3x2x2x2x2xf32>, tensor<2x2x1x1xf32>, tensor<2x2x1x1xf32>) -> (tensor<3x2x2x2x2xf32>, none, none)
-// CHECK:           [[VAR_11_:%.+]] = "onnx.Reshape"([[VAR_Y_]], [[VAR_0_]]) {allowzero = 0 : si64} : (tensor<3x2x2x2x2xf32>, tensor<4xi64>) -> tensor<3x4x2x2xf32>
-// CHECK:           onnx.Return [[VAR_11_]] : tensor<3x4x2x2xf32>
-// CHECK:         }
-}
-
-// -----
-
-func.func @group_norm5d_v18(%arg0: tensor<3x4x6x8x16xf32>, %arg1: tensor<2xf32>, %arg2: tensor<2xf32>) -> tensor<3x4x6x8x16xf32> {
-  %0 = "onnx.GroupNormalizationV18"(%arg0, %arg1, %arg2) {epsilon = 0.00999999977 : f32, num_groups = 2 : si64} : (tensor<3x4x6x8x16xf32>, tensor<2xf32>, tensor<2xf32>) -> tensor<3x4x6x8x16xf32>
-  onnx.Return %0 : tensor<3x4x6x8x16xf32>
-// mlir2FileCheck.py
-// CHECK-LABEL:  func.func @group_norm5d_v18
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4x6x8x16xf32>, [[PARAM_1_:%.+]]: tensor<2xf32>, [[PARAM_2_:%.+]]: tensor<2xf32>) -> tensor<3x4x6x8x16xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[3, 4, 6, 8, 16]> : tensor<5xi64>
-// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<[6, 8, 16]> : tensor<3xi64>
-// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<[2, -1]> : tensor<2xi64>
-// CHECK-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<3> : tensor<1xi64>
-// CHECK-DAG:       [[VAR_4_:%.+]] = onnx.Constant dense<[1, 2, 3, 4]> : tensor<4xi64>
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Unsqueeze"([[PARAM_1_]], [[VAR_4_]]) : (tensor<2xf32>, tensor<4xi64>) -> tensor<2x1x1x1x1xf32>
-// CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.Unsqueeze"([[PARAM_2_]], [[VAR_4_]]) : (tensor<2xf32>, tensor<4xi64>) -> tensor<2x1x1x1x1xf32>
-// CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.Concat"([[VAR_3_]], [[VAR_2_]], [[VAR_1_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<2xi64>, tensor<3xi64>) -> tensor<6xi64>
-// CHECK:           [[VAR_8_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_7_]]) {allowzero = 0 : si64} : (tensor<3x4x6x8x16xf32>, tensor<6xi64>) -> tensor<3x2x2x6x8x16xf32>
-// CHECK:           [[VAR_Y_:%.+]], [[VAR_Mean_:%.+]], [[VAR_InvStdDev_:%.+]] = "onnx.LayerNormalization"([[VAR_8_]], [[VAR_5_]], [[VAR_6_]]) {axis = 2 : si64, epsilon = 0.00999999977 : f32, stash_type = 1 : si64} : (tensor<3x2x2x6x8x16xf32>, tensor<2x1x1x1x1xf32>, tensor<2x1x1x1x1xf32>) -> (tensor<3x2x2x6x8x16xf32>, none, none)
-// CHECK:           [[VAR_9_:%.+]] = "onnx.Reshape"([[VAR_Y_]], [[VAR_0_]]) {allowzero = 0 : si64} : (tensor<3x2x2x6x8x16xf32>, tensor<5xi64>) -> tensor<3x4x6x8x16xf32>
-// CHECK:           onnx.Return [[VAR_9_]] : tensor<3x4x6x8x16xf32>
-// CHECK:         }
-}
-
-// -----
-
-func.func @group_norm5d_v21(%arg0: tensor<3x4x6x8x16xf32>, %arg1: tensor<4xf32>, %arg2: tensor<4xf32>) -> tensor<3x4x6x8x16xf32> {
-  %0 = "onnx.GroupNormalization"(%arg0, %arg1, %arg2) {epsilon = 0.00999999977 : f32, num_groups = 2 : si64} : (tensor<3x4x6x8x16xf32>, tensor<4xf32>, tensor<4xf32>) -> tensor<3x4x6x8x16xf32>
-  onnx.Return %0 : tensor<3x4x6x8x16xf32>
-// mlir2FileCheck.py
-// CHECK-LABEL:  func.func @group_norm5d_v21
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4x6x8x16xf32>, [[PARAM_1_:%.+]]: tensor<4xf32>, [[PARAM_2_:%.+]]: tensor<4xf32>) -> tensor<3x4x6x8x16xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[3, 4, 6, 8, 16]> : tensor<5xi64>
-// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<[6, 8, 16]> : tensor<3xi64>
-// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<[2, -1]> : tensor<2xi64>
-// CHECK-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<3> : tensor<1xi64>
-// CHECK-DAG:       [[VAR_4_:%.+]] = onnx.Constant dense<2> : tensor<1xi64>
-// CHECK-DAG:       [[VAR_5_:%.+]] = onnx.Constant dense<1> : tensor<3xi64>
-// CHECK:           [[VAR_6_:%.+]] = "onnx.Concat"([[VAR_4_]], [[VAR_4_]], [[VAR_5_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<3xi64>) -> tensor<5xi64>
-// CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.Reshape"([[PARAM_1_]], [[VAR_6_]]) {allowzero = 0 : si64} : (tensor<4xf32>, tensor<5xi64>) -> tensor<2x2x1x1x1xf32>
-// CHECK-DAG:       [[VAR_8_:%.+]] = "onnx.Reshape"([[PARAM_2_]], [[VAR_6_]]) {allowzero = 0 : si64} : (tensor<4xf32>, tensor<5xi64>) -> tensor<2x2x1x1x1xf32>
-// CHECK-DAG:       [[VAR_9_:%.+]] = "onnx.Concat"([[VAR_3_]], [[VAR_2_]], [[VAR_1_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<2xi64>, tensor<3xi64>) -> tensor<6xi64>
-// CHECK:           [[VAR_10_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_9_]]) {allowzero = 0 : si64} : (tensor<3x4x6x8x16xf32>, tensor<6xi64>) -> tensor<3x2x2x6x8x16xf32>
-// CHECK:           [[VAR_Y_:%.+]], [[VAR_Mean_:%.+]], [[VAR_InvStdDev_:%.+]] = "onnx.LayerNormalization"([[VAR_10_]], [[VAR_7_]], [[VAR_8_]]) {axis = 2 : si64, epsilon = 0.00999999977 : f32, stash_type = 1 : si64} : (tensor<3x2x2x6x8x16xf32>, tensor<2x2x1x1x1xf32>, tensor<2x2x1x1x1xf32>) -> (tensor<3x2x2x6x8x16xf32>, none, none)
-// CHECK:           [[VAR_11_:%.+]] = "onnx.Reshape"([[VAR_Y_]], [[VAR_0_]]) {allowzero = 0 : si64} : (tensor<3x2x2x6x8x16xf32>, tensor<5xi64>) -> tensor<3x4x6x8x16xf32>
-// CHECK:           onnx.Return [[VAR_11_]] : tensor<3x4x6x8x16xf32>
-// CHECK:         }
 }
 
 // -----
@@ -3191,3 +3154,72 @@ func.func @back_to_back_i8_maxpools(%arg0: tensor<1x192x23x40xf32>) -> tensor<1x
 // CHECK:           %[[VAL_13:.*]] = "onnx.DequantizeLinear"(%[[VAL_12]], %[[VAL_1]], %[[VAL_2]]) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x192x23x40xi8>, tensor<f32>, tensor<i8>) -> tensor<1x192x23x40xf32>
 // CHECK:           %[[VAL_14:.*]] = "onnx.Concat"(%[[VAL_4]], %[[VAL_7]], %[[VAL_10]], %[[VAL_13]]) {axis = 1 : si64} : (tensor<1x192x23x40xf32>, tensor<1x192x23x40xf32>, tensor<1x192x23x40xf32>, tensor<1x192x23x40xf32>) -> tensor<1x768x23x40xf32>
 // CHECK:           onnx.Return %[[VAL_14]] : tensor<1x768x23x40xf32>
+
+// -----
+
+func.func @test_gather_like_slice(%arg0 : tensor<3x3xf32>) -> tensor<3xf32> {
+  %indices = onnx.Constant dense<0> : tensor<i64>
+  %0 = "onnx.Gather"(%arg0, %indices) {axis = 1 : si64} : (tensor<3x3xf32>, tensor<i64>) -> tensor<3xf32>
+  "func.return"(%0) : (tensor<3xf32>) -> ()
+// CHECK-LABEL:   test_gather_like_slice
+// CHECK-SAME:    (%[[ARG:.*]]: tensor<3x3xf32>)
+// CHECK-DAG:     %[[C3:.*]] = onnx.Constant dense<3> : tensor<1xi64>
+// CHECK-DAG:     %[[C0:.*]] = onnx.Constant dense<0> : tensor<1xi64>
+// CHECK-DAG:     %[[C1:.*]] = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK:         %[[SLICE:.*]] = "onnx.Slice"(%[[ARG]], %[[C0]], %[[C1]], %[[C1]], %[[C1]]) : (tensor<3x3xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3x1xf32>
+// CHECK:         %[[RESHAPE:.*]] = "onnx.Reshape"(%[[SLICE]], %[[C3]]) {allowzero = 0 : si64} : (tensor<3x1xf32>, tensor<1xi64>) -> tensor<3xf32>
+// CHECK:         return %[[RESHAPE]]
+}
+
+// -----
+
+func.func @test_gather_like_slice_positive_integer(%arg0 : tensor<3x3xf32>) -> tensor<3xf32> {
+  %indices = onnx.Constant dense<2> : tensor<i64>
+  %0 = "onnx.Gather"(%arg0, %indices) {axis = 0 : si64} : (tensor<3x3xf32>, tensor<i64>) -> tensor<3xf32>
+  "func.return"(%0) : (tensor<3xf32>) -> ()
+// CHECK-LABEL:   test_gather_like_slice_positive_integer
+// CHECK-SAME:    (%[[ARG:.*]]: tensor<3x3xf32>)
+// CHECK-DAG:     %[[C2:.*]] = onnx.Constant dense<2> : tensor<1xi64>
+// CHECK-DAG:     %[[C3:.*]] = onnx.Constant dense<3> : tensor<1xi64>
+// CHECK-DAG:     %[[C0:.*]] = onnx.Constant dense<0> : tensor<1xi64>
+// CHECK-DAG:     %[[C1:.*]] = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK:         %[[SLICE:.*]] = "onnx.Slice"(%[[ARG]], %[[C2]], %[[C3]], %[[C0]], %[[C1]]) : (tensor<3x3xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1x3xf32>
+// CHECK:         %[[RESHAPE:.*]] = "onnx.Reshape"(%[[SLICE]], %[[C3]]) {allowzero = 0 : si64} : (tensor<1x3xf32>, tensor<1xi64>) -> tensor<3xf32>
+// CHECK:         return %[[RESHAPE]]
+}
+
+// -----
+
+func.func @test_gather_like_slice_negative_integer(%arg0 : tensor<3x3xf32>) -> tensor<3xf32> {
+  %indices = onnx.Constant dense<-1> : tensor<i64>
+  %0 = "onnx.Gather"(%arg0, %indices) {axis = 0 : si64} : (tensor<3x3xf32>, tensor<i64>) -> tensor<3xf32>
+  "func.return"(%0) : (tensor<3xf32>) -> ()
+// CHECK-LABEL:   test_gather_like_slice_negative_integer
+// CHECK-SAME:    (%[[ARG:.*]]: tensor<3x3xf32>)
+// CHECK-DAG:     %[[C2:.*]] = onnx.Constant dense<2> : tensor<1xi64>
+// CHECK-DAG:     %[[C3:.*]] = onnx.Constant dense<3> : tensor<1xi64>
+// CHECK-DAG:     %[[C0:.*]] = onnx.Constant dense<0> : tensor<1xi64>
+// CHECK-DAG:     %[[C1:.*]] = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK:         %[[SLICE:.*]] = "onnx.Slice"(%[[ARG]], %[[C2]], %[[C3]], %[[C0]], %[[C1]]) : (tensor<3x3xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1x3xf32>
+// CHECK:         %[[RESHAPE:.*]] = "onnx.Reshape"(%[[SLICE]], %[[C3]]) {allowzero = 0 : si64} : (tensor<1x3xf32>, tensor<1xi64>) -> tensor<3xf32>
+// CHECK:         return %[[RESHAPE]]
+}
+
+// -----
+
+// LeakyRelu with alpha = 0 is canonicalized to Relu.
+// CHECK-LABEL:   func.func @leaky_relu_alpha_zero_to_relu(%arg0: tensor<2x3xf32>) -> tensor<2x3xf32> {
+func.func @leaky_relu_alpha_zero_to_relu(%arg0: tensor<2x3xf32>) -> tensor<2x3xf32> {
+  // CHECK-NEXT:    %{{[0-9]+}} = "onnx.Relu"(%arg0) : (tensor<2x3xf32>) -> tensor<2x3xf32>
+  %0 = "onnx.LeakyRelu"(%arg0) {alpha = 0.000000e+00 : f32} : (tensor<2x3xf32>) -> tensor<2x3xf32>
+  onnx.Return %0 : tensor<2x3xf32>
+}
+
+// -----
+
+// CHECK-LABEL:   func.func @leaky_relu_alpha_default(%arg0: tensor<2x3xf32>) -> tensor<2x3xf32> {
+func.func @leaky_relu_alpha_default(%arg0: tensor<2x3xf32>) -> tensor<2x3xf32> {
+  // CHECK-NEXT:    %{{[0-9]+}} = "onnx.LeakyRelu"(%arg0) {alpha = 0.00999999977 : f32} : (tensor<2x3xf32>) -> tensor<2x3xf32>
+  %0 = "onnx.LeakyRelu"(%arg0) : (tensor<2x3xf32>) -> tensor<2x3xf32>
+  onnx.Return %0 : tensor<2x3xf32>
+}

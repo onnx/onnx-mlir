@@ -96,11 +96,15 @@ def XFEConvOp:ONNX_Op<"XFEConv",
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[quant_QuantizedType]>]>:$X,
     AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[quant_QuantizedType]>]>:$W,
     AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[I32]>, TensorOf<[quant_QuantizedType]>, NoneType]>:$B,
+    DefaultValuedStrAttr<StrAttr, "NONE">:$activation,
     DefaultValuedStrAttr<StrAttr, "NOTSET">:$auto_pad,
     OptionalAttr<I64ArrayAttr>:$dilations,
     DefaultValuedAttr<SI64Attr, "1">:$group,
     OptionalAttr<I64ArrayAttr>:$kernel_shape,
+    OptionalAttr<F32Attr>:$leakyrelu_alpha,
     OptionalAttr<I64ArrayAttr>:$pads,
+    OptionalAttr<SI64Attr>:$prelu_in,
+    OptionalAttr<SI64Attr>:$prelu_shift,
     OptionalAttr<I64ArrayAttr>:$strides);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[quant_QuantizedType]>]>:$Y);
   let extraClassDeclaration = [{
@@ -134,13 +138,17 @@ def XFEConvTransposeOp:ONNX_Op<"XFEConvTranspose",
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[quant_QuantizedType]>]>:$X,
     AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[quant_QuantizedType]>]>:$W,
     AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[I32]>, TensorOf<[quant_QuantizedType]>, NoneType]>:$B,
+    DefaultValuedStrAttr<StrAttr, "NONE">:$activation,
     DefaultValuedStrAttr<StrAttr, "NOTSET">:$auto_pad,
     OptionalAttr<I64ArrayAttr>:$dilations,
     DefaultValuedAttr<SI64Attr, "1">:$group,
     OptionalAttr<I64ArrayAttr>:$kernel_shape,
+    OptionalAttr<F32Attr>:$leakyrelu_alpha,
     OptionalAttr<I64ArrayAttr>:$output_padding,
     OptionalAttr<I64ArrayAttr>:$output_shape,
     OptionalAttr<I64ArrayAttr>:$pads,
+    OptionalAttr<SI64Attr>:$prelu_in,
+    OptionalAttr<SI64Attr>:$prelu_shift,
     OptionalAttr<I64ArrayAttr>:$strides);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[quant_QuantizedType]>]>:$Y);
   let extraClassDeclaration = [{
@@ -238,6 +246,40 @@ def XFEGlobalMaxPoolOp:ONNX_Op<"XFEGlobalMaxPool",
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {30};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      // TODO: Implement specific shape helper for this custom op
+      // For now, returning nullptr - shape inference will use default behavior
+      return nullptr;
+    }
+  }];
+  let hasVerifier = 1;
+}
+
+def XFEGroupNormalizationOp:ONNX_Op<"XFEGroupNormalization",
+  [Pure, OpVersionTrait<1>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "GroupNormalization operation";
+  let description = [{
+  Group normalization with channel-last layout (channels innermost). Carries out group normalization with input/output tensors in channel-last format instead of NCHW. Divides channels into groups and normalizes within each group per instance.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[quant_QuantizedType]>]>:$X,
+    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[quant_QuantizedType]>]>:$scale,
+    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[quant_QuantizedType]>]>:$bias,
+    DefaultValuedAttr<F32Attr, "1e-05">:$epsilon,
+    SI64Attr:$num_groups);
+  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[quant_QuantizedType]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
     }
     static int getNumberOfResults() {
       return 1;

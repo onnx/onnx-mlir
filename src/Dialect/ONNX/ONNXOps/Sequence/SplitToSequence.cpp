@@ -20,6 +20,20 @@ using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
 
 //===----------------------------------------------------------------------===//
+// Type Inference
+//===----------------------------------------------------------------------===//
+
+std::vector<Type> ONNXSplitToSequenceOp::resultTypeInference() {
+  // At import time (before full shape inference) the output length and exact
+  // element shape are unknown.  Derive just the scalar dtype from the input.
+  Type scalarType = Builder(getContext()).getF32Type();
+  if (auto shapedInput = mlir::dyn_cast<ShapedType>(getInput().getType()))
+    scalarType = shapedInput.getElementType();
+  return {
+      SeqType::get(UnrankedTensorType::get(scalarType), ShapedType::kDynamic)};
+}
+
+//===----------------------------------------------------------------------===//
 // Verify
 //===----------------------------------------------------------------------===//
 

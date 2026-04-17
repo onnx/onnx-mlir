@@ -1,4 +1,5 @@
 // RUN: onnx-mlir-opt --convert-onnx-to-tosa -cse %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --convert-onnx-to-tosa="excluded-ops=Gather" -cse %s -split-input-file | FileCheck %s --check-prefix=EXCLUDE
 
 func.func @test_gather_axis0(%arg0 : tensor<3x2xf32>) -> tensor<2x2x2xf32> {
   %indices = "onnx.Constant"() {value = dense<[[0, 1], [1, 2]]> : tensor<2x2xi64>} : () -> tensor<2x2xi64>
@@ -22,6 +23,10 @@ func.func @test_gather_axis0(%arg0 : tensor<3x2xf32>) -> tensor<2x2x2xf32> {
 // CHECK:           %[[VAL_14:.*]] = "tosa.const"() <{value = dense<[0, 1, 2]> : tensor<3xi32>}> : () -> tensor<3xi32>
 // CHECK:           %[[VAL_15:.*]] = tosa.transpose %[[VAL_13]], %[[VAL_14]] : (tensor<2x2x2xf32>, tensor<3xi32>) -> tensor<2x2x2xf32>
 // CHECK:           return %[[VAL_15]] : tensor<2x2x2xf32>
+
+// EXCLUDE-LABEL:   func.func @test_gather_axis0(
+// EXCLUDE:           onnx.Gather
+// EXCLUDE-NOT:       tosa.gather
 }
 
 // -----
@@ -49,6 +54,10 @@ func.func @test_gather_axis0_neg_idx(%arg0 : tensor<3x2xf32>) -> tensor<2x2x2xf3
 // CHECK:           %[[VAL_14:.*]] = "tosa.const"() <{value = dense<[0, 1, 2]> : tensor<3xi32>}> : () -> tensor<3xi32>
 // CHECK:           %[[VAL_15:.*]] = tosa.transpose %[[VAL_13]], %[[VAL_14]] : (tensor<2x2x2xf32>, tensor<3xi32>) -> tensor<2x2x2xf32>
 // CHECK:           return %[[VAL_15]] : tensor<2x2x2xf32>
+
+// EXCLUDE-LABEL:   func.func @test_gather_axis0_neg_idx(
+// EXCLUDE:           onnx.Gather
+// EXCLUDE-NOT:       tosa.gather
 }
 
 // -----
@@ -77,6 +86,10 @@ func.func @test_gather_axis1(%arg0 : tensor<3x3xf32>) -> tensor<3x1x2xf32> {
 // CHECK:           %[[VAL_15:.*]] = tosa.transpose %[[VAL_13]], %[[VAL_14]] : (tensor<1x2x3xf32>, tensor<3xi32>) -> tensor<3x1x2xf32>
 // CHECK:           return %[[VAL_15]] : tensor<3x1x2xf32>
 // CHECK:         }
+
+// EXCLUDE-LABEL:   func.func @test_gather_axis1(
+// EXCLUDE:           onnx.Gather
+// EXCLUDE-NOT:       tosa.gather
 }
 
 // -----
@@ -102,6 +115,10 @@ func.func @test_gather_dynamic_indices(%arg0 : tensor<3x3xf32>, %indices: tensor
 // CHECK:           %[[VAL_14:.*]] = "tosa.const"() <{value = dense<[2, 0, 1]> : tensor<3xi32>}> : () -> tensor<3xi32>
 // CHECK:           %[[VAL_15:.*]] = tosa.transpose %[[VAL_13]], %[[VAL_14]] : (tensor<1x2x3xf32>, tensor<3xi32>) -> tensor<3x1x2xf32>
 // CHECK:           return %[[VAL_15]] : tensor<3x1x2xf32>
+
+// EXCLUDE-LABEL:   func.func @test_gather_dynamic_indices(
+// EXCLUDE:           onnx.Gather
+// EXCLUDE-NOT:       tosa.gather
 }
 
 // -----
@@ -126,45 +143,10 @@ func.func @test_gather_dynamic_indices_i32(%arg0 : tensor<3x3xf32>, %indices: te
 // CHECK:           %[[VAL_15:.*]] = "tosa.const"() <{value = dense<[2, 0, 1]> : tensor<3xi32>}> : () -> tensor<3xi32>
 // CHECK:           %[[VAL_16:.*]] = tosa.transpose %[[VAL_14]], %[[VAL_15]] : (tensor<1x2x3xf32>, tensor<3xi32>) -> tensor<3x1x2xf32>
 // CHECK:           return %[[VAL_16]] : tensor<3x1x2xf32>
-}
 
-// -----
-
-func.func @test_gather_like_slice(%arg0 : tensor<3x3xf32>) -> tensor<3xf32> {
-  %indices = onnx.Constant dense<0> : tensor<i64>
-  %0 = "onnx.Gather"(%arg0, %indices) {axis = 1 : si64} : (tensor<3x3xf32>, tensor<i64>) -> tensor<3xf32>
-  "func.return"(%0) : (tensor<3xf32>) -> ()
-// CHECK-LABEL:   test_gather_like_slice
-// CHECK-SAME:    (%[[ARG:.*]]: tensor<3x3xf32>)
-// CHECK:         %[[VAL_1:.*]] = tosa.slice %[[ARG]] {size = array<i64: 3, 1>, start = array<i64: 0, 0>} : (tensor<3x3xf32>) -> tensor<3x1xf32>
-// CHECK:         %[[VAL_2:.*]] = tosa.reshape %[[VAL_1]] {{.*}} -> tensor<3xf32>
-// CHECK:         return %[[VAL_2]]
-}
-
-// -----
-
-func.func @test_gather_like_slice_positive_integer(%arg0 : tensor<3x3xf32>) -> tensor<3xf32> {
-  %indices = onnx.Constant dense<2> : tensor<i64>
-  %0 = "onnx.Gather"(%arg0, %indices) {axis = 0 : si64} : (tensor<3x3xf32>, tensor<i64>) -> tensor<3xf32>
-  "func.return"(%0) : (tensor<3xf32>) -> ()
-// CHECK-LABEL:   test_gather_like_slice
-// CHECK-SAME:    (%[[ARG:.*]]: tensor<3x3xf32>)
-// CHECK:         %[[VAL_1:.*]] = tosa.slice %[[ARG]] {size = array<i64: 1, 3>, start = array<i64: 2, 0>} : (tensor<3x3xf32>) -> tensor<1x3xf32>
-// CHECK:         %[[VAL_2:.*]] = tosa.reshape %[[VAL_1]] {{.*}} -> tensor<3xf32>
-// CHECK:         return %[[VAL_2]]
-}
-
-// -----
-
-func.func @test_gather_like_slice_negative_integer(%arg0 : tensor<3x3xf32>) -> tensor<3xf32> {
-  %indices = onnx.Constant dense<-1> : tensor<i64>
-  %0 = "onnx.Gather"(%arg0, %indices) {axis = 0 : si64} : (tensor<3x3xf32>, tensor<i64>) -> tensor<3xf32>
-  "func.return"(%0) : (tensor<3xf32>) -> ()
-// CHECK-LABEL:   test_gather_like_slice
-// CHECK-SAME:    (%[[ARG:.*]]: tensor<3x3xf32>)
-// CHECK:         %[[VAL_1:.*]] = tosa.slice %[[ARG]] {size = array<i64: 1, 3>, start = array<i64: 2, 0>} : (tensor<3x3xf32>) -> tensor<1x3xf32>
-// CHECK:         %[[VAL_2:.*]] = tosa.reshape %[[VAL_1]] {{.*}} -> tensor<3xf32>
-// CHECK:         return %[[VAL_2]]
+// EXCLUDE-LABEL:   func.func @test_gather_dynamic_indices_i32(
+// EXCLUDE:           onnx.Gather
+// EXCLUDE-NOT:       tosa.gather
 }
 
 // -----
@@ -174,6 +156,9 @@ func.func @test_gather_dynamic_shape_indices_i32(%arg0 : tensor<?x4xf32>, %indic
   "func.return"(%0) : (tensor<?x4xf32>) -> ()
 // CHECK-LABEL: test_gather_dynamic_shape_indices_i32
 // CHECK: onnx.Gather
+
+// EXCLUDE-LABEL:   func.func @test_gather_dynamic_shape_indices_i32(
+// EXCLUDE:           onnx.Gather
 }
 
 // -----
@@ -183,6 +168,9 @@ func.func @test_gather_dynamic_input_static_output(%arg0 : tensor<?x2xf32>, %ind
   "func.return"(%0) : (tensor<1x2xf32>) -> ()
 // CHECK-LABEL: test_gather_dynamic_input_static_output
 // CHECK: onnx.Gather
+
+// EXCLUDE-LABEL:   func.func @test_gather_dynamic_input_static_output(
+// EXCLUDE:           onnx.Gather
 }
 
 // -----
@@ -192,4 +180,7 @@ func.func @test_gather_dynamic_indices(%arg0 : tensor<1x2xf32>, %indices: tensor
   "func.return"(%0) : (tensor<1x2xf32>) -> ()
 // CHECK-LABEL: test_gather_dynamic_indices
 // CHECK: onnx.Gather
+
+// EXCLUDE-LABEL:   func.func @test_gather_dynamic_indices(
+// EXCLUDE:           onnx.Gather
 }

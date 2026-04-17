@@ -19,6 +19,21 @@ using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
 
 //===----------------------------------------------------------------------===//
+// Type Inference
+//===----------------------------------------------------------------------===//
+
+std::vector<Type> ONNXConcatFromSequenceOp::resultTypeInference() {
+  // The output is a tensor whose element type matches the sequence elements.
+  // At import time (before full shape inference) derive only the scalar dtype.
+  Type scalarType = Builder(getContext()).getF32Type();
+  if (auto seqType = mlir::dyn_cast<SeqType>(getInputSequence().getType())) {
+    if (auto shapedElem = mlir::dyn_cast<ShapedType>(seqType.getElementType()))
+      scalarType = shapedElem.getElementType();
+  }
+  return {UnrankedTensorType::get(scalarType)};
+}
+
+//===----------------------------------------------------------------------===//
 // Verify
 //===----------------------------------------------------------------------===//
 

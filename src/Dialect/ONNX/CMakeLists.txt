@@ -25,6 +25,7 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/Canonicalize.cpp
   ONNXOps/ShapeHelper.cpp
   ONNXTypes.cpp
+  TensorName.cpp
 
   # Support for shape inference and verifiers
   ONNXOps/Additional/AMDQuark.cpp
@@ -47,7 +48,9 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/ControlFlow/Scan.cpp
   ONNXOps/ML/CategoryMapper.cpp
   ONNXOps/ML/OneHotEncoder.cpp
+  ONNXOps/ML/TreeEnsemble.cpp
   ONNXOps/Math/Bernoulli.cpp
+  ONNXOps/Math/Clip.cpp
   ONNXOps/Math/DFT.cpp
   ONNXOps/Math/STFT.cpp
   ONNXOps/Math/Einsum.cpp
@@ -79,6 +82,7 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/RNN/RNN.cpp
   ONNXOps/Sequence/Sequence.cpp
   ONNXOps/Sequence/SplitToSequence.cpp
+  ONNXOps/Tensor/AffineGrid.cpp
   ONNXOps/Tensor/ArgMinMax.cpp
   ONNXOps/Tensor/Compress.cpp
   ONNXOps/Tensor/Concat.cpp
@@ -93,6 +97,7 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/Tensor/GatherElements.cpp
   ONNXOps/Tensor/GatherND.cpp
   ONNXOps/Tensor/GridSample.cpp
+  ONNXOps/Tensor/ImageDecoder.cpp
   ONNXOps/Tensor/Identity.cpp
   ONNXOps/Tensor/NonZero.cpp
   ONNXOps/Tensor/OneHot.cpp
@@ -107,6 +112,7 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/Tensor/Slice.cpp
   ONNXOps/Tensor/SpaceToDepth.cpp
   ONNXOps/Tensor/Split.cpp
+  ONNXOps/Tensor/StringSplit.cpp
   ONNXOps/Tensor/Squeeze.cpp
   ONNXOps/Tensor/Tile.cpp
   ONNXOps/Tensor/Transpose.cpp
@@ -120,6 +126,7 @@ add_onnx_mlir_library(OMONNXOps
   OMONNXCanonicalizeIncGen
   OMResultTypeInferenceOpInterfaceIncGen
   OMShapeInferenceOpInterfaceIncGen
+  OMTensorNameInferenceIncGen
 
   LINK_LIBS PRIVATE
   OMDiagnostic
@@ -128,6 +135,7 @@ add_onnx_mlir_library(OMONNXOps
   OMMlirDialects
   OMMlirUtilities
   OMShapeHelperOpInterface
+  OMTensorNameInference
   OMONNXElementsAttr
   onnx
   MLIRFuncDialect

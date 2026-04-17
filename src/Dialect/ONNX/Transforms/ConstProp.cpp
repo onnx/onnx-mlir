@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Quant/IR/QuantTypes.h"
+#include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/TypeUtilities.h"
@@ -80,11 +81,18 @@ bool ConstPropONNXToONNXPassConfiguration::constantPropIsDisabled = false;
 // Precondition: result has ranked tensor type with static shape and int or
 // float element type.
 bool satisfiesExpansionBound(Value result) {
+  auto resultType = dyn_cast<RankedTensorType>(result.getType());
+  if (!resultType || !resultType.hasStaticShape())
+    return true;
+  // SmallVector<WideNum> uses uint32_t for capacity when sizeof(WideNum) >= 4
+  // thus capping at UINT32_MAX elements.
+  constexpr auto kMaxConstPropElements =
+      static_cast<int64_t>(std::numeric_limits<uint32_t>::max());
+  if (resultType.getNumElements() > kMaxConstPropElements)
+    return false;
   if (ConstPropONNXToONNXPassConfiguration::expansionBound < 0) {
     return true; // -1 == no bound
   }
-  auto resultType = cast<RankedTensorType>(result.getType());
-  assert(resultType.hasStaticShape() && "expansion bound needs static shape");
   int64_t sum = 0;
   for (auto operand : result.getDefiningOp()->getOperands()) {
     if (auto type = dyn_cast<RankedTensorType>(operand.getType()))
@@ -93,6 +101,58 @@ bool satisfiesExpansionBound(Value result) {
   }
   return sum * ConstPropONNXToONNXPassConfiguration::expansionBound >=
          getSizeInBytes(resultType);
+}
+
+/// True if the transpose result's element type matches the constant input's
+/// element type after remapping per-axis quantization through `perm` (same
+/// rule as ConvertToChannelLast: output axis i reads input axis perm[i]).
+/// Requires an explicit `perm` attribute; ONNX's default (reverse axes) is
+/// expected to be materialized during import or canonicalization.
+bool valuesHaveSameDTypeForTransposeOfConst(
+    Value transposeResult, Value input) {
+  auto transposeOp = dyn_cast<ONNXTransposeOp>(transposeResult.getDefiningOp());
+  if (!transposeOp)
+    return false;
+
+  auto inRanked = dyn_cast<RankedTensorType>(input.getType());
+  auto outRanked = dyn_cast<RankedTensorType>(transposeResult.getType());
+  if (!inRanked || !outRanked)
+    return false;
+
+  Type inElem = inRanked.getElementType();
+  Type outElem = outRanked.getElementType();
+
+  if (!transposeOp.getPermAttr())
+    return false;
+  SmallVector<int64_t, 8> perm;
+  for (int64_t p :
+      extractFromIntegerArrayAttr<int64_t>(transposeOp.getPermAttr()))
+    perm.push_back(p);
+  // Ranked input: perm length must match tensor rank (ONNX Transpose).
+  if (static_cast<int64_t>(perm.size()) != inRanked.getRank())
+    return false;
+
+  Type transposedInElem = inElem;
+  if (auto perAxis =
+          dyn_cast<mlir::quant::UniformQuantizedPerAxisType>(inElem)) {
+    int32_t oldAxis = perAxis.getQuantizedDimension();
+    if (oldAxis < 0 || oldAxis >= inRanked.getRank())
+      return false;
+    // ONNX: output axis i reads input axis perm[i]; inverse maps input axis
+    // -> output axis (same as ConvertToChannelLast::remapPerAxisQuantType).
+    SmallVector<int64_t> invPerm = invertPermutationVector(perm);
+    int32_t newAxis =
+        static_cast<int32_t>(invPerm[static_cast<size_t>(oldAxis)]);
+    if (newAxis != oldAxis) {
+      transposedInElem =
+          mlir::quant::UniformQuantizedPerAxisType::get(perAxis.getFlags(),
+              perAxis.getStorageType(), perAxis.getExpressedType(),
+              perAxis.getScales(), perAxis.getZeroPoints(), newAxis,
+              perAxis.getStorageTypeMin(), perAxis.getStorageTypeMax());
+    }
+  }
+
+  return transposedInElem == outElem;
 }
 
 // We want to disable Constant Propagation when a user
@@ -1071,6 +1131,42 @@ Value ConstPropExpand(
   ElementsAttr expandedElements =
       elementsBuilder.expand(constElements, expandedShape);
   return createReplacingConstantOp(rewriter, replacingValue, expandedElements);
+}
+
+//===----------------------------------------------------------------------===//
+// Code to perform constant propagation for ShapeOp.
+//===----------------------------------------------------------------------===//
+
+/// Folds onnx.Shape(input) into a constant int64 tensor when the input has a
+/// statically known shape. The optional start/end attributes are respected.
+Value ConstPropShape(
+    PatternRewriter &rewriter, Value replacingValue, Value inputValue) {
+  auto inputType = mlir::cast<ShapedType>(inputValue.getType());
+  assert(inputType.hasStaticShape() && "expected statically shaped input");
+
+  int64_t rank = inputType.getRank();
+  Operation *op = replacingValue.getDefiningOp();
+  ONNXShapeOp shapeOp = cast<ONNXShapeOp>(op);
+
+  // Normalize start: default 0, support negative indices.
+  int64_t start = shapeOp.getStart();
+  if (start < 0)
+    start += rank;
+  start = std::clamp(start, int64_t(0), rank);
+
+  // Normalize end: default rank, support negative indices.
+  int64_t end = rank;
+  if (auto endAttr = shapeOp.getEnd())
+    end = *endAttr < 0 ? *endAttr + rank : *endAttr;
+  end = std::clamp(end, int64_t(0), rank);
+
+  auto shape =
+      inputType.getShape().slice(start, std::max(end - start, int64_t(0)));
+  auto resultType = RankedTensorType::get(
+      {static_cast<int64_t>(shape.size())}, rewriter.getI64Type());
+  auto elements = DenseElementsAttr::get(
+      resultType, ArrayRef<int64_t>(shape.begin(), shape.end()));
+  return createReplacingConstantOp(rewriter, replacingValue, elements);
 }
 
 //===----------------------------------------------------------------------===//

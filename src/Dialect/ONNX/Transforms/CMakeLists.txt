@@ -62,6 +62,7 @@ add_onnx_mlir_library(OMONNXRewrite
   xmc/MergeContinuousStridedSlice.cpp
   xmc/RemoveContinuousTransposeWithReshape.cpp
   xmc/RemoveUselessQLinearPoolPass.cpp
+  xmc/ReplaceErfToGeluPass.cpp
   xmc/ReplaceHsigmoidAndHswishPass.cpp
   xmc/ReplaceQDQSigmoidPass.cpp
   xmc/ReplaceQDQEltwisePass.cpp
@@ -106,6 +107,8 @@ add_onnx_mlir_library(OMONNXRewrite
   xmc/ConvWithBiasPass.cpp
   xmc/RemoveRedundantReshapePass.cpp
   xmc/ConvertXFEConvToDepthwiseConvPass.cpp
+  xmc/FuseConvActivationPass.cpp
+  xmc/NormalizeConvActivationPass.cpp
 
   DEPENDS
   OMONNXDecomposeIncGen
@@ -143,14 +146,16 @@ add_onnx_mlir_library(OMHybridTransform
   OMShapeInference
   )
 
-add_onnx_mlir_library(OMONNXPreKrnlVerifyONNX
-  ONNXPreKrnlVerifyPass.cpp
+if (ONNX_MLIR_ENABLE_KRNL)
+  add_onnx_mlir_library(OMONNXPreKrnlVerifyONNX
+    ONNXPreKrnlVerifyPass.cpp
 
-  LINK_LIBS PUBLIC
-  OMONNXOps
-  MLIRPass
-  OMSupport
-  )
+    LINK_LIBS PUBLIC
+    OMONNXOps
+    MLIRPass
+    OMSupport
+    )
+endif()
 
 add_onnx_mlir_library(OMONNXSimplifyShapeRelatedOps
   SimplifyShapeRelatedOps.cpp

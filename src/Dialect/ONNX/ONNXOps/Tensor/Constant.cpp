@@ -94,8 +94,17 @@ LogicalResult ONNXConstantOp::inferShapes(
     valAttr = mlir::cast<SparseElementsAttr>(getSparseValueAttr());
   else
     valAttr = mlir::cast<ElementsAttr>(getValueAttr());
-  Type elementType =
-      mlir::cast<RankedTensorType>(valAttr.getType()).getElementType();
+  // Preserve quantized element type if already set on the result. The
+  // DenseElementsAttr only stores the raw storage type (e.g. i8) while the
+  // result type may carry a richer quantized type set by QuantTypesPass.
+  Type elementType;
+  if (auto curType = mlir::dyn_cast<RankedTensorType>(getResult().getType())) {
+    if (mlir::isa<mlir::quant::QuantizedType>(curType.getElementType()))
+      elementType = curType.getElementType();
+  }
+  if (!elementType)
+    elementType =
+        mlir::cast<RankedTensorType>(valAttr.getType()).getElementType();
   ONNXConstantOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

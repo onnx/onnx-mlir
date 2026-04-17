@@ -44,6 +44,30 @@ namespace {
 // Utility Functions
 //===----------------------------------------------------------------------===//
 
+/// Remap per-axis quantization dimension through a transpose permutation.
+/// For perm[i] == oldAxis, the new axis becomes i.
+static Type remapPerAxisQuantType(Type elementType, ArrayRef<int64_t> perm) {
+  auto perAxisType = dyn_cast<quant::UniformQuantizedPerAxisType>(elementType);
+  if (!perAxisType)
+    return elementType;
+
+  int32_t oldAxis = perAxisType.getQuantizedDimension();
+  int32_t newAxis = oldAxis;
+  for (int64_t i = 0, e = perm.size(); i < e; ++i) {
+    if (perm[i] == oldAxis) {
+      newAxis = static_cast<int32_t>(i);
+      break;
+    }
+  }
+  if (newAxis == oldAxis)
+    return elementType;
+
+  return quant::UniformQuantizedPerAxisType::get(perAxisType.getFlags(),
+      perAxisType.getStorageType(), perAxisType.getExpressedType(),
+      perAxisType.getScales(), perAxisType.getZeroPoints(), newAxis,
+      perAxisType.getStorageTypeMin(), perAxisType.getStorageTypeMax());
+}
+
 /// Check if permutation is identity [0, 1, 2, ..., n-1]
 bool isIdentityPermutation(ArrayRef<int64_t> perm) {
   for (size_t i = 0; i < perm.size(); ++i) {
@@ -223,12 +247,19 @@ struct FuseConsecutiveTransposes : public OpRewritePattern<ONNXTransposeOp> {
           auto zpConst =
               rewriter.create<ONNXConstantOp>(op.getLoc(), Attribute(), zpAttr);
 
-          // Create QuantizeLinear op
-          rewriter.replaceOpWithNewOp<ONNXQuantizeLinearOp>(op, outputType,
-              prevTranspose.getOperand(), scaleConst.getResult(),
-              zpConst.getResult(),
+          // QuantizeLinear produces storage type (i8), not quant type.
+          auto storageResultType = RankedTensorType::get(
+              outputType.getShape(), outputQuantType.getStorageType());
+          auto qOp = rewriter.create<ONNXQuantizeLinearOp>(op.getLoc(),
+              storageResultType, prevTranspose.getOperand(),
+              scaleConst.getResult(), zpConst.getResult(),
               /*axis=*/IntegerAttr(), /*saturate=*/IntegerAttr(),
               /*block_size=*/IntegerAttr());
+
+          // scast restores the quant type for downstream consumers.
+          auto scastOp = rewriter.create<quant::StorageCastOp>(
+              op.getLoc(), outputType, qOp.getResult());
+          rewriter.replaceOp(op, scastOp.getResult());
 
           return success();
         }
@@ -262,10 +293,16 @@ struct FuseConsecutiveTransposes : public OpRewritePattern<ONNXTransposeOp> {
           auto zpConst =
               rewriter.create<ONNXConstantOp>(op.getLoc(), Attribute(), zpAttr);
 
-          // Create DequantizeLinear op
+          // scast strips the quant type so DQ gets plain storage type input.
+          Value dqInput = prevTranspose.getOperand();
+          auto storageTy = RankedTensorType::get(
+              inputType.getShape(), inputQuantType.getStorageType());
+          auto scastOp = rewriter.create<quant::StorageCastOp>(
+              op.getLoc(), storageTy, dqInput);
+
+          // DequantizeLinear takes storage type (i8) input, produces f32.
           rewriter.replaceOpWithNewOp<ONNXDequantizeLinearOp>(op, outputType,
-              prevTranspose.getOperand(), scaleConst.getResult(),
-              zpConst.getResult(),
+              scastOp.getResult(), scaleConst.getResult(), zpConst.getResult(),
               /*axis=*/IntegerAttr(), /*block_size=*/IntegerAttr());
 
           return success();
@@ -319,6 +356,10 @@ struct MoveTransposeThroughReshape : public OpRewritePattern<ONNXReshapeOp> {
         mlir::dyn_cast<RankedTensorType>(reshapeOp.getType());
 
     if (!transposeInputType || !transposeOutputType || !reshapeOutputType)
+      return failure();
+
+    if (isa<quant::UniformQuantizedPerAxisType>(
+            transposeInputType.getElementType()))
       return failure();
 
     auto transposeOutputShape = transposeOutputType.getShape();
@@ -840,10 +881,27 @@ struct PushTransposeThroughSCast
 
     // The new scast takes the transpose's input directly, so its output must
     // have the same shape as that input (scast only changes the element type).
+    // For per-axis quant types, remap the quant axis from post-transpose
+    // (output) space to pre-transpose (input) space.
     auto inputType =
         mlir::cast<RankedTensorType>(transposeOp.getOperand().getType());
-    auto newOutputType = RankedTensorType::get(
-        inputType.getShape(), outputType.getElementType());
+    Type newElemType = outputType.getElementType();
+    if (auto perAxisType =
+            dyn_cast<quant::UniformQuantizedPerAxisType>(newElemType)) {
+      int32_t oldAxis = perAxisType.getQuantizedDimension();
+      if (oldAxis >= 0 && oldAxis < static_cast<int32_t>(perm->size())) {
+        int32_t newAxis = static_cast<int32_t>((*perm)[oldAxis]);
+        if (newAxis != oldAxis) {
+          newElemType = quant::UniformQuantizedPerAxisType::get(
+              perAxisType.getFlags(), perAxisType.getStorageType(),
+              perAxisType.getExpressedType(), perAxisType.getScales(),
+              perAxisType.getZeroPoints(), newAxis,
+              perAxisType.getStorageTypeMin(), perAxisType.getStorageTypeMax());
+        }
+      }
+    }
+    auto newOutputType =
+        RankedTensorType::get(inputType.getShape(), newElemType);
 
     LLVM_DEBUG(llvm::dbgs() << "Pushing transpose through quant.scast\n");
 
@@ -983,9 +1041,11 @@ struct FuseTransposeImmuneBinaryOp : public OpRewritePattern<BinaryOp> {
       reshapedOperand = otherOperand;
       LLVM_DEBUG(llvm::dbgs() << "  Shape unchanged, skipping Reshape\n");
     } else {
-      // Shape changed - need Reshape
-      auto newType =
-          RankedTensorType::get(newShape, otherType.getElementType());
+      // Shape changed - need Reshape.
+      // Remap per-axis quant dimension through the inverse permutation.
+      auto reshapedElemType =
+          remapPerAxisQuantType(otherType.getElementType(), invPerm);
+      auto newType = RankedTensorType::get(newShape, reshapedElemType);
 
       // Create a constant for the new shape
       auto shapeType = RankedTensorType::get(
@@ -1122,8 +1182,10 @@ struct PushTransposeThroughBinaryWithConst : public OpRewritePattern<BinaryOp> {
     auto invPerm = inversePermutation(*perm);
     auto newConstShape = permuteShape(constShape, invPerm);
 
-    // Check if element type is quantized
+    // Remap per-axis quant dimension through the inverse transpose applied
+    // to the constant (data moves from post-transpose to pre-transpose space).
     auto origElementType = constType.getElementType();
+    auto remappedElementType = remapPerAxisQuantType(origElementType, invPerm);
     auto isQuantized = mlir::isa<mlir::quant::QuantizedType>(origElementType);
 
     // For quantized types, we need to work with storage type for
@@ -1172,7 +1234,8 @@ struct PushTransposeThroughBinaryWithConst : public OpRewritePattern<BinaryOp> {
       }
       auto newDenseAttr = DenseElementsAttr::get(
           denseAttrType, denseAttr.getSplatValue<Attribute>());
-      auto newConstType = RankedTensorType::get(newConstShape, origElementType);
+      auto newConstType =
+          RankedTensorType::get(newConstShape, remappedElementType);
       auto newConstOp = rewriter.create<ONNXConstantOp>(constantOp.getLoc(),
           newConstType, Attribute(), newDenseAttr, nullptr, nullptr, nullptr,
           nullptr, nullptr, nullptr);
@@ -1311,8 +1374,10 @@ struct PushTransposeThroughBinaryWithConst : public OpRewritePattern<BinaryOp> {
 
     auto newDenseAttr = DenseElementsAttr::get(denseAttrType, newValues);
 
-    // Create the constant with the final type (including quantization)
-    auto newConstType = RankedTensorType::get(newConstShape, origElementType);
+    // Create the constant with the final type (including quantization),
+    // using the remapped per-axis quant dimension.
+    auto newConstType =
+        RankedTensorType::get(newConstShape, remappedElementType);
     auto newConstOp = rewriter.create<ONNXConstantOp>(constantOp.getLoc(),
         newConstType, Attribute(), newDenseAttr, nullptr, nullptr, nullptr,
         nullptr, nullptr, nullptr);
@@ -1858,6 +1923,7 @@ struct ONNXTransposeOptimizationPass
 
     patterns.add<PushTransposeThroughAxisOp<ONNXSqueezeOp>>(context);
     patterns.add<PushTransposeThroughAxisOp<ONNXArgMaxOp>>(context);
+    patterns.add<PushTransposeThroughAxisOp<ONNXSoftmaxOp>>(context);
 
     patterns.add<PushTransposeThroughAxisOp<ONNXReduceMeanOp>>(context);
     patterns.add<PushTransposeThroughAxisOp<ONNXReduceMaxOp>>(context);

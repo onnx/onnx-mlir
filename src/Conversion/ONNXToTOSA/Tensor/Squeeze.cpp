@@ -48,13 +48,13 @@ public:
 
 } // namespace
 
-void populateLoweringONNXSqueezeOpToTOSAPattern(ConversionTarget &target,
+void populateLoweringONNXSqueezeOpToTOSAPattern(ConversionTarget & /*target*/,
     RewritePatternSet &patterns, TypeConverter &typeConverter,
     MLIRContext *ctx) {
   patterns.insert<ONNXUnsqueezeSqueezeLoweringToTOSA<ONNXUnsqueezeOp,
                       ONNXUnsqueezeOpShapeHelper>,
       ONNXUnsqueezeSqueezeLoweringToTOSA<ONNXSqueezeOp,
-          ONNXSqueezeOpShapeHelper>>(ctx);
+          ONNXSqueezeOpShapeHelper>>(typeConverter, ctx);
 }
 
 } // namespace onnx_mlir

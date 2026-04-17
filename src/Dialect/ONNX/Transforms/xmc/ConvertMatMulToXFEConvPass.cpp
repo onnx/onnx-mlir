@@ -9,8 +9,14 @@
 #include "llvm/ADT/SmallVector.h"
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
+#include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 #include "src/Pass/Passes.hpp"
+
+#include "mlir/Dialect/Quant/IR/QuantTypes.h"
 
 #include <algorithm>
 #include <numeric>
@@ -26,6 +32,47 @@ static constexpr int64_t kMaxChannel = 4096;
 static constexpr int64_t kMaxKernelLimitDefault = 4;
 
 namespace {
+
+/// If `elemType` is a UniformQuantizedPerAxisType, return a copy with
+/// quantizedDimension set to `newAxis`.  Otherwise return `elemType` unchanged.
+static Type remapPerAxisQuantDim(Type elemType, int32_t newAxis) {
+  if (auto perAxis = dyn_cast<quant::UniformQuantizedPerAxisType>(elemType)) {
+    return quant::UniformQuantizedPerAxisType::get(perAxis.getFlags(),
+        perAxis.getStorageType(), perAxis.getExpressedType(),
+        perAxis.getScales(), perAxis.getZeroPoints(), newAxis,
+        perAxis.getStorageTypeMin(), perAxis.getStorageTypeMax());
+  }
+  return elemType;
+}
+
+/// Try to fold a transpose ([K,N]->[N,K]) and reshape ([N,K]->[N,1,1,K])
+/// directly into the constant, returning the folded constant value.
+/// Returns nullptr if the weight is not a constant.
+static Value tryFoldTransposeReshapeConst(PatternRewriter &rewriter,
+    Location loc, Value weight, ArrayRef<uint64_t> perm,
+    ArrayRef<int64_t> reshapedShape, Type outputElemType) {
+  auto constOp = weight.getDefiningOp<ONNXConstantOp>();
+  if (!constOp)
+    return nullptr;
+  auto valueAttr = constOp.getValueAttr();
+  if (!valueAttr || !isa<DenseElementsAttr, DisposableElementsAttr>(valueAttr))
+    return nullptr;
+
+  auto wElements = mlir::cast<ElementsAttr>(valueAttr);
+
+  onnx_mlir::OnnxElementsAttrBuilder elemBuilder(rewriter.getContext());
+  ElementsAttr transposedElements = elemBuilder.transpose(wElements, perm);
+  ElementsAttr reshapedElements =
+      elemBuilder.reshape(transposedElements, reshapedShape);
+  DenseElementsAttr denseFolded =
+      elemBuilder.toDenseElementsAttr(reshapedElements);
+
+  auto newConstOp =
+      rewriter.create<ONNXConstantOp>(loc, Attribute(), denseFolded);
+  auto resultType = RankedTensorType::get(reshapedShape, outputElemType);
+  newConstOp.getResult().setType(resultType);
+  return newConstOp.getResult();
+}
 
 /// Structure to hold convolution shape information
 struct ConvShapes {
@@ -205,11 +252,17 @@ struct MatMulToXFEConvPattern : public OpRewritePattern<ONNXMatMulOp> {
     auto inputShape = inputType.getShape();
     auto weightShape = weightType.getShape();
 
-    // Verify MatMul shape: input [D1, D2, ..., Dn, K], weight [K, N]
-    if (inputShape.empty() || weightShape.size() < 2 ||
-        inputShape.back() != weightShape[0]) {
+    // Weight must be a 2D constant [K, N] -- reject batched/higher-dim MatMul.
+    if (weightShape.size() != 2)
       return failure();
-    }
+
+    auto weightConstOp = weight.getDefiningOp<ONNXConstantOp>();
+    if (!weightConstOp)
+      return failure();
+
+    // Verify MatMul shape: input [D1, D2, ..., Dn, K], weight [K, N]
+    if (inputShape.empty() || inputShape.back() != weightShape[0])
+      return failure();
 
     auto convShapesOpt = computeConvShapes(inputShape, weightShape);
     if (!convShapesOpt)
@@ -230,27 +283,26 @@ struct MatMulToXFEConvPattern : public OpRewritePattern<ONNXMatMulOp> {
 
     // Format weight: [K, N] -> transpose to [N, K] -> reshape to [N, 1, 1, K].
     auto weightElementType = weightType.getElementType();
+    auto convWeightElemType = remapPerAxisQuantDim(weightElementType, 0);
     auto convWeightType =
-        RankedTensorType::get(convShapes.weightShape, weightElementType);
-    auto weightShapeConst =
-        createShapeConstant(rewriter, loc, convShapes.weightShape);
+        RankedTensorType::get(convShapes.weightShape, convWeightElemType);
 
-    // Require weight to be a 2D constant so we can safely transpose it.
-    auto weightConstOp = weight.getDefiningOp<ONNXConstantOp>();
-    if (!weightConstOp || weightShape.size() != 2) {
-      return failure();
+    // Try to fold transpose+reshape directly into the constant.
+    Value convWeight = tryFoldTransposeReshapeConst(rewriter, loc, weight,
+        {1, 0}, convShapes.weightShape, convWeightElemType);
+
+    if (!convWeight) {
+      // Non-constant weight: emit Transpose + Reshape ops.
+      auto weightShapeConst =
+          createShapeConstant(rewriter, loc, convShapes.weightShape);
+      auto transposedWeightType = RankedTensorType::get(
+          {weightShape[1], weightShape[0]}, convWeightElemType);
+      auto permAttr = rewriter.getI64ArrayAttr({1, 0});
+      Value transposedWeight = rewriter.create<ONNXTransposeOp>(
+          loc, transposedWeightType, weight, permAttr);
+      convWeight = rewriter.create<ONNXReshapeOp>(
+          loc, convWeightType, transposedWeight, weightShapeConst);
     }
-
-    // Transpose [K, N] -> [N, K].
-    auto transposedWeightType = RankedTensorType::get(
-        {weightShape[1], weightShape[0]}, weightElementType);
-    auto permAttr = rewriter.getI64ArrayAttr({1, 0});
-    Value transposedWeight = rewriter.create<ONNXTransposeOp>(
-        loc, transposedWeightType, weight, permAttr);
-
-    // Reshape to [N, 1, 1, K] for XFEConv.
-    Value convWeight = rewriter.create<ONNXReshapeOp>(
-        loc, convWeightType, transposedWeight, weightShapeConst);
 
     // Create XFEConv
     // XFEConv expects: input [M, H, W, C], weight [C_out, H', W', C]
@@ -280,8 +332,10 @@ struct MatMulToXFEConvPattern : public OpRewritePattern<ONNXMatMulOp> {
 
     // Create XFEConv operation
     auto convOp = rewriter.create<XFEConvOp>(loc, convOutputType,
-        reshape1Output, convWeight, noneBias, autoPadAttr, dilationsAttr,
-        groupAttr, kernelShapeAttr, padsAttr, stridesAttr);
+        reshape1Output, convWeight, noneBias, rewriter.getStringAttr("NONE"),
+        autoPadAttr, dilationsAttr, groupAttr, kernelShapeAttr,
+        /*leakyrelu_alpha=*/FloatAttr(), padsAttr,
+        /*prelu_in=*/IntegerAttr(), /*prelu_shift=*/IntegerAttr(), stridesAttr);
 
     // Transfer onnx_node_name attribute from MatMul to XFEConv
     transferOnnxNodeName(matMulOp, convOp);
@@ -335,15 +389,18 @@ struct GemmToXFEConvPattern : public OpRewritePattern<ONNXGemmOp> {
     auto aShape = aType.getShape();
     auto bShape = bType.getShape();
 
-    // GEMM shape: A [M, K], B [K, N] -> output [M, N] (or transposed variants)
-    if (aShape.size() < 2 || bShape.size() < 2) {
+    // GEMM requires 2D inputs; B must be a constant.
+    if (aShape.size() != 2 || bShape.size() != 2)
       return failure();
-    }
+
+    auto bConstOp = B.getDefiningOp<ONNXConstantOp>();
+    if (!bConstOp)
+      return failure();
+
     int64_t K_A = (transA == 0) ? aShape[1] : aShape[0];
     int64_t K_B = (transB == 0) ? bShape[0] : bShape[1];
-    if (K_A != K_B) {
+    if (K_A != K_B)
       return failure();
-    }
 
     // Handle alpha: if alpha != 1.0, we need to scale the weight
     // For now, only handle alpha = 1.0
@@ -396,27 +453,34 @@ struct GemmToXFEConvPattern : public OpRewritePattern<ONNXGemmOp> {
     auto weightShapeConst =
         createShapeConstant(rewriter, loc, convShapes.weightShape);
 
-    // Require B to be a 2D constant so we can safely transpose it
-    auto bConstOp = B.getDefiningOp<ONNXConstantOp>();
-    if (!bConstOp || bShape.size() != 2) {
-      return failure();
-    }
-
     Value convWeight;
     if (transB != 0) {
-      // B is [N, K], reshape directly to [N, 1, 1, K]
+      // B is [N, K], per-axis quant on axis 0 (N=C_out) stays axis 0
+      // after reshape to [N, H, W, C].
+      auto convWeightElemType = remapPerAxisQuantDim(bElementType, 0);
+      convWeightType =
+          RankedTensorType::get(convShapes.weightShape, convWeightElemType);
       convWeight = rewriter.create<ONNXReshapeOp>(
           loc, convWeightType, B, weightShapeConst);
     } else {
-      // Transpose [K, N] -> [N, K]
-      auto transposedBType =
-          RankedTensorType::get({bShape[1], bShape[0]}, bElementType);
-      auto permAttr = rewriter.getI64ArrayAttr({1, 0});
-      Value transposedB =
-          rewriter.create<ONNXTransposeOp>(loc, transposedBType, B, permAttr);
-      // Reshape to [N, 1, 1, K] for XFEConv
-      convWeight = rewriter.create<ONNXReshapeOp>(
-          loc, convWeightType, transposedB, weightShapeConst);
+      // Transpose [K, N] -> [N, K] then reshape to [N, H, W, C].
+      // Per-axis quant on axis 1 (N) moves to axis 0.
+      auto convWeightElemType = remapPerAxisQuantDim(bElementType, 0);
+      convWeightType =
+          RankedTensorType::get(convShapes.weightShape, convWeightElemType);
+
+      convWeight = tryFoldTransposeReshapeConst(
+          rewriter, loc, B, {1, 0}, convShapes.weightShape, convWeightElemType);
+
+      if (!convWeight) {
+        auto transposedBType =
+            RankedTensorType::get({bShape[1], bShape[0]}, convWeightElemType);
+        auto permAttr = rewriter.getI64ArrayAttr({1, 0});
+        Value transposedB =
+            rewriter.create<ONNXTransposeOp>(loc, transposedBType, B, permAttr);
+        convWeight = rewriter.create<ONNXReshapeOp>(
+            loc, convWeightType, transposedB, weightShapeConst);
+      }
     }
 
     // Create XFEConv
@@ -457,8 +521,10 @@ struct GemmToXFEConvPattern : public OpRewritePattern<ONNXGemmOp> {
 
     // Create XFEConv operation
     auto convOp = rewriter.create<XFEConvOp>(loc, convOutputType,
-        reshape1Output, convWeight, bias, autoPadAttr, dilationsAttr, groupAttr,
-        kernelShapeAttr, padsAttr, stridesAttr);
+        reshape1Output, convWeight, bias, rewriter.getStringAttr("NONE"),
+        autoPadAttr, dilationsAttr, groupAttr, kernelShapeAttr,
+        /*leakyrelu_alpha=*/FloatAttr(), padsAttr,
+        /*prelu_in=*/IntegerAttr(), /*prelu_shift=*/IntegerAttr(), stridesAttr);
 
     // Transfer onnx_node_name attribute from GEMM to XFEConv
     transferOnnxNodeName(gemmOp, convOp);
@@ -501,8 +567,10 @@ struct ConvertMatMulToXFEConvPass
     patterns.add<MatMulToXFEConvPattern>(context);
     patterns.add<GemmToXFEConvPattern>(context);
 
-    // Apply patterns greedily
-    if (failed(applyPatternsGreedily(func, std::move(patterns)))) {
+    GreedyRewriteConfig config;
+    onnx_mlir::ResultNamesUpdater rnUpdater;
+    config.listener = &rnUpdater;
+    if (failed(applyPatternsGreedily(func, std::move(patterns), config))) {
       signalPassFailure();
     }
   }

@@ -47,6 +47,9 @@ LogicalResult XFEDepthToSpaceOpVerify(Operation *op);
 // Verify for SpaceToDepth
 LogicalResult XFESpaceToDepthOpVerify(Operation *op);
 
+// Verify for GroupNormalization
+LogicalResult XFEGroupNormalizationOpVerify(Operation *op);
+
 // Verify for Resize
 LogicalResult XFEResizeOpVerify(Operation *op);
 

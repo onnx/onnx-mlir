@@ -58,6 +58,10 @@ LogicalResult XFEDepthToSpaceOpShapeInference(
 LogicalResult XFESpaceToDepthOpShapeInference(
     Operation *op, std::function<void(Region &)> doShapeInference);
 
+// Shape inference for GroupNormalization
+LogicalResult XFEGroupNormalizationOpShapeInference(
+    Operation *op, std::function<void(Region &)> doShapeInference);
+
 // Shape inference for Resize
 LogicalResult XFEResizeOpShapeInference(
     Operation *op, std::function<void(Region &)> doShapeInference);

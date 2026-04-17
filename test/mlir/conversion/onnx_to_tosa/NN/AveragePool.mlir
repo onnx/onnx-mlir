@@ -253,3 +253,17 @@ func.func @test_averagepool_dilations_one_dyn_shape(%arg0 : tensor<*xf32>) -> te
 // CHECK-LABEL: test_averagepool_dilations_one
 // CHECK: onnx.AveragePool
 
+// -----
+
+func.func @test_averagepool_dynamic_input_static_output(%arg0 : tensor<?x5x32x32xf32>) -> tensor<1x5x30x30xf32> {
+  %0 = "onnx.AveragePool"(%arg0) {kernel_shape = [3, 3]} : (tensor<?x5x32x32xf32>) -> tensor<1x5x30x30xf32>
+  return %0 : tensor<1x5x30x30xf32>
+}
+// CHECK-LABEL:  func.func @test_averagepool_dynamic_input_static_output
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x5x32x32xf32>) -> tensor<1x5x30x30xf32> {
+// CHECK:           [[VAR_1_:%.+]] = tosa.transpose [[PARAM_0_]], {{.+}} : (tensor<?x5x32x32xf32>, tensor<4xi32>) -> tensor<?x32x32x5xf32>
+// CHECK:           [[VAR_2_:%.+]] = tosa.avg_pool2d [[VAR_1_]] {{.*}} : (tensor<?x32x32x5xf32>) -> tensor<?x30x30x5xf32>
+// CHECK:           [[VAR_4_:%.+]] = tosa.transpose [[VAR_2_]], {{.+}} : (tensor<?x30x30x5xf32>, tensor<4xi32>) -> tensor<1x5x30x30xf32>
+// CHECK:           return [[VAR_4_]] : tensor<1x5x30x30xf32>
+// CHECK:         }
+

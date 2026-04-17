@@ -7,6 +7,7 @@
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 
 using namespace mlir;
 
@@ -118,7 +119,10 @@ class FixNegScalePass
     auto *ctx = &getContext();
     RewritePatternSet patterns(ctx);
     patterns.add<FixNegScale>(ctx);
-    if (failed(applyPatternsGreedily(func, std::move(patterns))))
+    GreedyRewriteConfig config;
+    ResultNamesUpdater rnUpdater;
+    config.listener = &rnUpdater;
+    if (failed(applyPatternsGreedily(func, std::move(patterns), config)))
       signalPassFailure();
   }
 };

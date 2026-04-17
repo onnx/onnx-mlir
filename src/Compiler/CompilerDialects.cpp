@@ -7,8 +7,11 @@
 #include "CompilerDialects.hpp"
 
 #include "src/Compiler/CompilerOptions.hpp"
+#ifdef ONNX_MLIR_ENABLE_KRNL
 #include "src/Dialect/Krnl/KrnlOps.hpp"
+#endif
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
+#include "src/Dialect/ONNX/TensorName.hpp"
 
 #include "mlir/InitAllDialects.h"
 #include "mlir/Target/LLVMIR/Dialect/OpenMP/OpenMPToLLVMIRTranslation.h"
@@ -34,7 +37,9 @@ DialectRegistry registerDialects(ArrayRef<accel::Accelerator::Kind> accels) {
   registry.insert<math::MathDialect>();
   registry.insert<memref::MemRefDialect>();
   registry.insert<ONNXDialect>();
+#ifdef ONNX_MLIR_ENABLE_KRNL
   registry.insert<KrnlDialect>();
+#endif
   registry.insert<cf::ControlFlowDialect>();
   registerOpenMPDialectTranslation(registry);
   mlir::memref::registerRuntimeVerifiableOpInterfaceExternalModels(registry);
@@ -49,6 +54,9 @@ DialectRegistry registerDialects(ArrayRef<accel::Accelerator::Kind> accels) {
   // Register interface needed by both old and new buffer deallocation pass.
   memref::registerAllocationOpInterfaceExternalModels(registry);
   arith::registerBufferDeallocationOpInterfaceExternalModels(registry);
+
+  // Register TensorName inference
+  registerTensorNameInferenceExternalModels(registry);
 
   return registry;
 }

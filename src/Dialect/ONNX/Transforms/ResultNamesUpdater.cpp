@@ -1,50 +1,131 @@
 // Copyright (C) 2022 - 2025 Advanced Micro Devices, Inc. All rights reserved.
 
+#include <deque>
+#include <memory>
+#include <unordered_set>
+
 #include <llvm/ADT/STLExtras.h>
 #include <mlir/IR/BuiltinAttributes.h>
 #include <mlir/IR/MLIRContext.h>
 #include <mlir/IR/Value.h>
+#include <mlir/Pass/Pass.h>
 #include <mlir/Support/LLVM.h>
 
+#include "src/Dialect/ONNX/TensorName.hpp"
 #include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
+
+using namespace mlir;
+
+template <>
+struct std::hash<Value> {
+  size_t operator()(Value value) const { return hash_value(value); }
+};
 
 namespace onnx_mlir {
 
-void ResultNamesUpdater::notifyOperationReplaced(
-    mlir::Operation *op, mlir::ValueRange replacement) {
-  if (!op->hasAttrOfType<mlir::ArrayAttr>("ResultNames"))
-    return;
+namespace {
 
-  auto resultNamesArray = op->getAttrOfType<mlir::ArrayAttr>("ResultNames");
+void inferTensorNames(ValueRange replOperands) {
+  // Collect the values that don't have TensorNames
+  std::unordered_set<Value> workList;
+  {
+    std::deque<Value> stack(replOperands.begin(), replOperands.end());
 
-  // If the op is replaced by a single op, simply copy the attribute
-  mlir::Operation *replSingleOp = replacement.front().getDefiningOp();
-  if (replSingleOp &&
-      llvm::all_of(replacement, [replSingleOp](mlir::Value val) -> bool {
-        return val.getDefiningOp() == replSingleOp;
-      })) {
-    replSingleOp->setAttr("ResultNames", resultNamesArray);
-    return;
+    // Process stack entries, adding values to worklist
+    while (!stack.empty()) {
+      Value value = stack.front();
+      stack.pop_front();
+      if (!TensorName(value) && workList.insert(value).second) {
+        if (Operation *defOp = value.getDefiningOp())
+          for (Value operand : defOp->getOperands())
+            stack.push_back(operand);
+      }
+    }
   }
 
-  mlir::MLIRContext *ctx = op->getContext();
+  // Process worklist
+  size_t wlen;
+  do {
+    wlen = workList.size();
+    for (Value value : workList) {
+      if (auto tname = TensorName::infer(value)) {
+        workList.erase(value);
+        break;
+      }
+    }
+  } while (workList.size() > 0 && wlen > workList.size());
+}
+
+} // namespace
+
+void ResultNamesUpdater::notifyOperationReplaced(
+    Operation *op, Operation *replacement) {
+  if (!op->hasAttrOfType<ArrayAttr>("ResultNames"))
+    return;
+
+  // First, copy the ResultNames attribute for the last value
+  auto resultNamesArray = op->getAttrOfType<ArrayAttr>("ResultNames");
+  replacement->setAttr("ResultNames", resultNamesArray);
+
+  // Infer the TensorNames for defining values
+  inferTensorNames(replacement->getOperands());
+}
+
+void ResultNamesUpdater::notifyOperationReplaced(
+    Operation *op, ValueRange replacement) {
+  if (!op->hasAttrOfType<ArrayAttr>("ResultNames"))
+    return;
+
+  // If the op is replaced by a single op, use the simpler method
+  if (Operation *replSingleOp = replacement.front().getDefiningOp();
+      replSingleOp && replSingleOp->getResults() == replacement)
+    return notifyOperationReplaced(op, replSingleOp);
+
+  // First, copy the ResultNames attribute for the last value
+  auto resultNamesArray = op->getAttrOfType<ArrayAttr>("ResultNames");
+  MLIRContext *ctx = op->getContext();
   for (auto [name, value] : llvm::zip_equal(resultNamesArray, replacement)) {
-    if (mlir::OpResult replResult = mlir::dyn_cast<mlir::OpResult>(value)) {
-      mlir::Operation *replOp = replResult.getOwner();
+    if (OpResult replResult = dyn_cast<OpResult>(value)) {
+      Operation *replOp = replResult.getOwner();
 
       // Get new or existing ResultNames
-      mlir::SmallVector<mlir::Attribute> replResultNames(
-          replOp->getNumResults(), mlir::StringAttr::get(ctx));
-      if (auto existing = replOp->getAttrOfType<mlir::ArrayAttr>("ResultNames"))
-        replResultNames =
-            mlir::SmallVector<mlir::Attribute>(existing.getValue());
+      SmallVector<Attribute> replResultNames(
+          replOp->getNumResults(), StringAttr::get(ctx));
+      if (auto existing = replOp->getAttrOfType<ArrayAttr>("ResultNames"))
+        replResultNames = SmallVector<Attribute>(existing.getValue());
 
       // Replace the ResultName of current result
       replResultNames[replResult.getResultNumber()] = name;
-      replOp->setAttr(
-          "ResultNames", mlir::ArrayAttr::get(ctx, replResultNames));
+      replOp->setAttr("ResultNames", ArrayAttr::get(ctx, replResultNames));
     }
   }
+
+  // Infer the TensorNames of defining values
+  SmallVector<Value> inferenceVals;
+  for (Value value : replacement) {
+    if (Operation *defOp = value.getDefiningOp())
+      inferenceVals.insert(
+          inferenceVals.end(), defOp->operand_begin(), defOp->operand_end());
+  }
+  inferTensorNames(inferenceVals);
+}
+
+class InferTensorNamesPass
+    : public PassWrapper<InferTensorNamesPass, OperationPass<func::FuncOp>> {
+public:
+  StringRef getArgument() const override { return "onnx-infer-tensornames"; }
+
+  void runOnOperation() override {
+    func::FuncOp func = getOperation();
+    func->walk([](Operation *op) {
+      for (auto result : op->getResults())
+        TensorName::infer(result);
+    });
+  }
+};
+
+std::unique_ptr<mlir::Pass> createInferTensorNames() {
+  return std::make_unique<InferTensorNamesPass>();
 }
 
 } // namespace onnx_mlir

@@ -89,6 +89,22 @@
   - name: strides
     description: Stride along each spatial axis
     type: list(int)
+  - name: activation
+    description: Fused activation function type (NONE, RELU, LEAKYRELU, PRELU, HSIGMOID, RELU6, SIGMOID). Defaults to NONE (no activation).
+    type: string
+    default_value: NONE
+  - name: leakyrelu_alpha
+    description: Alpha value for LEAKYRELU when activation is LEAKYRELU. Optional.
+    type: float
+    optional: True
+  - name: prelu_in
+    description: Fixed-point multiplier M for PRELU (alpha ≈ M/2^prelu_shift). Meaningful when activation is PRELU.
+    type: int
+    optional: True
+  - name: prelu_shift
+    description: Fixed-point shift N for PRELU (alpha ≈ prelu_in/2^N). Meaningful when activation is PRELU.
+    type: int
+    optional: True
   type_constraints:
   - type_param: T
     description: Constrain input and output types to float tensors.
@@ -166,6 +182,22 @@
   - name: strides
     description: Stride along each spatial axis
     type: list(int)
+  - name: activation
+    description: Fused activation function type (NONE, RELU, LEAKYRELU, PRELU, HSIGMOID, RELU6, SIGMOID). Defaults to NONE (no activation).
+    type: string
+    default_value: NONE
+  - name: leakyrelu_alpha
+    description: Alpha value for LEAKYRELU when activation is LEAKYRELU. Optional.
+    type: float
+    optional: True
+  - name: prelu_in
+    description: Fixed-point multiplier M for PRELU (alpha ≈ M/2^prelu_shift). Meaningful when activation is PRELU.
+    type: int
+    optional: True
+  - name: prelu_shift
+    description: Fixed-point shift N for PRELU (alpha ≈ prelu_in/2^N). Meaningful when activation is PRELU.
+    type: int
+    optional: True
   type_constraints:
   - type_param: T
     description: Constrain input and output types to float tensors.
@@ -581,6 +613,57 @@
     - tensor(bfloat16)
   min_input: 1
   max_input: 1
+  min_output: 1
+  max_output: 1
+
+# ==============================================================================
+# GroupNormalization: Group normalization with channel-last layout
+# Normalizes per group of channels: y = scale * (x - mean) / sqrt(variance + epsilon) + B
+# ==============================================================================
+- name: GroupNormalization
+  domain: com.amd.xfe
+  since_version: 1
+  support_level: COMMON
+  description: 'Group normalization with channel-last layout (channels innermost). Carries out group normalization with input/output tensors in channel-last format instead of NCHW. Divides channels into groups and normalizes within each group per instance.'
+  meta_attributes:
+  - onnx_opset: 21
+  - verify: True
+  - fold: False
+  inputs:
+  - name: X
+    description: Input data tensor with channel-last layout (batch, spatial_dims..., channels)
+    type_str: T
+  - name: scale
+    description: 1D scale tensor of size C (number of channels)
+    type_str: T
+  - name: bias
+    description: 1D bias tensor of size C (number of channels)
+    type_str: T
+  outputs:
+  - name: Y
+    description: Output data tensor with channel-last layout, same shape as input
+    type_str: T
+  attributes:
+  - name: epsilon
+    description: Small value to add to variance to avoid division by zero
+    type: float
+    default_value: 1e-05
+  - name: num_groups
+    description: Number of groups to divide channels into for normalization
+    type: int
+    required: true
+  type_constraints:
+  - type_param: T
+    description: Constrain input and output types to float tensors.
+    allowed_types:
+    - tensor(float16)
+    - tensor(float)
+    - tensor(double)
+    - tensor(bfloat16)
+    - tensor(int8)
+    - tensor(uint8)
+  min_input: 3
+  max_input: 3
   min_output: 1
   max_output: 1
 

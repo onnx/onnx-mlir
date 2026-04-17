@@ -711,7 +711,7 @@ func.func @test_clip_min_greater_than_max1() -> tensor<3x2xbf16> {
   %max = onnx.Constant {value = dense<1.0> : tensor<bf16>} : tensor<bf16>
   %0 = "onnx.Clip"(%cst, %min, %max) : (tensor<3x2xbf16>, tensor<bf16>, tensor<bf16>) -> tensor<3x2xbf16>
   return %0 : tensor<3x2xbf16>
-  // CHECK: {{.*}} = onnx.Constant dense<{{.}}[1.000000e+00, 1.000000e+00], [1.000000e+00, 0x7FC0], [1.000000e+00, 1.000000e+00]]>
+  // CHECK: {{.*}} = onnx.Constant dense<1.000000e+00> : tensor<3x2xbf16>
   // CHECK-NOT: {{.*}} = "onnx.Clip"
 }
 
@@ -2936,4 +2936,158 @@ func.func @test_one_matmul_with_bias_rhs(%arg0: tensor<1x4x2xi32>, %arg1: tensor
 // CHECK:           [[VAR_2_:%.+]] = "onnx.Add"([[VAR_1_]], [[CST]]) : (tensor<1x4x4xi32>, tensor<1x4x4xi32>) -> tensor<1x4x4xi32>
 // CHECK:           [[VAR_3_:%.+]] = "onnx.Add"([[PARAM_2_]], [[VAR_2_]]) : (tensor<1x4x4xi32>, tensor<1x4x4xi32>) -> tensor<1x4x4xi32>
 // CHECK:           onnx.Return [[VAR_3_]] : tensor<1x4x4xi32>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+// Tests for onnx.Shape constant propagation (ShapeofConst).
+// Requires only HasStaticShape on the input - no constant values needed.
+//===----------------------------------------------------------------------===//
+
+// Basic: 3-D input, no start/end -> returns all three dimensions.
+// CHECK-LABEL: @test_shape_basic
+func.func @test_shape_basic(%arg0: tensor<2x3x4xf32>) -> tensor<3xi64> {
+  %0 = "onnx.Shape"(%arg0) {start = 0 : si64} : (tensor<2x3x4xf32>) -> tensor<3xi64>
+  "onnx.Return"(%0) : (tensor<3xi64>) -> ()
+  // CHECK: onnx.Constant dense<[2, 3, 4]> : tensor<3xi64>
+  // CHECK-NOT: "onnx.Shape"
+}
+
+// -----
+
+// 1-D input -> single-element result.
+// CHECK-LABEL: @test_shape_1d
+func.func @test_shape_1d(%arg0: tensor<5xf32>) -> tensor<1xi64> {
+  %0 = "onnx.Shape"(%arg0) {start = 0 : si64} : (tensor<5xf32>) -> tensor<1xi64>
+  "onnx.Return"(%0) : (tensor<1xi64>) -> ()
+  // CHECK: onnx.Constant dense<5> : tensor<1xi64>
+  // CHECK-NOT: "onnx.Shape"
+}
+
+// -----
+
+// Scalar (rank-0) input -> empty shape tensor.
+// CHECK-LABEL: @test_shape_scalar
+func.func @test_shape_scalar(%arg0: tensor<f32>) -> tensor<0xi64> {
+  %0 = "onnx.Shape"(%arg0) {start = 0 : si64} : (tensor<f32>) -> tensor<0xi64>
+  "onnx.Return"(%0) : (tensor<0xi64>) -> ()
+  // CHECK: onnx.Constant dense<> : tensor<0xi64>
+  // CHECK-NOT: "onnx.Shape"
+}
+
+// -----
+
+// Positive start -> drops leading dimensions.
+// start=1 on [2,3,4] -> [3,4]
+// CHECK-LABEL: @test_shape_start_positive
+func.func @test_shape_start_positive(%arg0: tensor<2x3x4xf32>) -> tensor<2xi64> {
+  %0 = "onnx.Shape"(%arg0) {start = 1 : si64} : (tensor<2x3x4xf32>) -> tensor<2xi64>
+  "onnx.Return"(%0) : (tensor<2xi64>) -> ()
+  // CHECK: onnx.Constant dense<[3, 4]> : tensor<2xi64>
+  // CHECK-NOT: "onnx.Shape"
+}
+
+// -----
+
+// Negative start -> counts from the back (Python-style).
+// start=-2 on [2,3,4] -> same as start=1 -> [3,4]
+// CHECK-LABEL: @test_shape_start_negative
+func.func @test_shape_start_negative(%arg0: tensor<2x3x4xf32>) -> tensor<2xi64> {
+  %0 = "onnx.Shape"(%arg0) {start = -2 : si64} : (tensor<2x3x4xf32>) -> tensor<2xi64>
+  "onnx.Return"(%0) : (tensor<2xi64>) -> ()
+  // CHECK: onnx.Constant dense<[3, 4]> : tensor<2xi64>
+  // CHECK-NOT: "onnx.Shape"
+}
+
+// -----
+
+// Positive end -> clips trailing dimensions.
+// end=2 on [2,3,4] -> [2,3]
+// CHECK-LABEL: @test_shape_end_positive
+func.func @test_shape_end_positive(%arg0: tensor<2x3x4xf32>) -> tensor<2xi64> {
+  %0 = "onnx.Shape"(%arg0) {start = 0 : si64, end = 2 : si64} : (tensor<2x3x4xf32>) -> tensor<2xi64>
+  "onnx.Return"(%0) : (tensor<2xi64>) -> ()
+  // CHECK: onnx.Constant dense<[2, 3]> : tensor<2xi64>
+  // CHECK-NOT: "onnx.Shape"
+}
+
+// -----
+
+// Negative end -> counts from the back.
+// end=-1 on [2,3,4] -> same as end=2 -> [2,3]
+// CHECK-LABEL: @test_shape_end_negative
+func.func @test_shape_end_negative(%arg0: tensor<2x3x4xf32>) -> tensor<2xi64> {
+  %0 = "onnx.Shape"(%arg0) {start = 0 : si64, end = -1 : si64} : (tensor<2x3x4xf32>) -> tensor<2xi64>
+  "onnx.Return"(%0) : (tensor<2xi64>) -> ()
+  // CHECK: onnx.Constant dense<[2, 3]> : tensor<2xi64>
+  // CHECK-NOT: "onnx.Shape"
+}
+
+// -----
+
+// Both positive start and end -> single dimension extracted.
+// start=1, end=2 on [2,3,4] -> [3]
+// CHECK-LABEL: @test_shape_start_end_positive
+func.func @test_shape_start_end_positive(%arg0: tensor<2x3x4xf32>) -> tensor<1xi64> {
+  %0 = "onnx.Shape"(%arg0) {start = 1 : si64, end = 2 : si64} : (tensor<2x3x4xf32>) -> tensor<1xi64>
+  "onnx.Return"(%0) : (tensor<1xi64>) -> ()
+  // CHECK: onnx.Constant dense<3> : tensor<1xi64>
+  // CHECK-NOT: "onnx.Shape"
+}
+
+// -----
+
+// Both negative start and end -> single dimension extracted from the back.
+// start=-2, end=-1 on [2,3,4] -> same as start=1, end=2 -> [3]
+// CHECK-LABEL: @test_shape_start_end_negative
+func.func @test_shape_start_end_negative(%arg0: tensor<2x3x4xf32>) -> tensor<1xi64> {
+  %0 = "onnx.Shape"(%arg0) {start = -2 : si64, end = -1 : si64} : (tensor<2x3x4xf32>) -> tensor<1xi64>
+  "onnx.Return"(%0) : (tensor<1xi64>) -> ()
+  // CHECK: onnx.Constant dense<3> : tensor<1xi64>
+  // CHECK-NOT: "onnx.Shape"
+}
+
+// -----
+
+// Edge: start == end -> empty result.
+// CHECK-LABEL: @test_shape_start_equals_end
+func.func @test_shape_start_equals_end(%arg0: tensor<2x3x4xf32>) -> tensor<0xi64> {
+  %0 = "onnx.Shape"(%arg0) {start = 1 : si64, end = 1 : si64} : (tensor<2x3x4xf32>) -> tensor<0xi64>
+  "onnx.Return"(%0) : (tensor<0xi64>) -> ()
+  // CHECK: onnx.Constant dense<> : tensor<0xi64>
+  // CHECK-NOT: "onnx.Shape"
+}
+
+// -----
+
+// Edge: large negative start clamped to 0 -> full shape returned.
+// CHECK-LABEL: @test_shape_start_clamped
+func.func @test_shape_start_clamped(%arg0: tensor<2x3x4xf32>) -> tensor<3xi64> {
+  %0 = "onnx.Shape"(%arg0) {start = -100 : si64} : (tensor<2x3x4xf32>) -> tensor<3xi64>
+  "onnx.Return"(%0) : (tensor<3xi64>) -> ()
+  // CHECK: onnx.Constant dense<[2, 3, 4]> : tensor<3xi64>
+  // CHECK-NOT: "onnx.Shape"
+}
+
+// -----
+
+// Edge: large positive end clamped to rank -> full shape returned.
+// CHECK-LABEL: @test_shape_end_clamped
+func.func @test_shape_end_clamped(%arg0: tensor<2x3x4xf32>) -> tensor<3xi64> {
+  %0 = "onnx.Shape"(%arg0) {start = 0 : si64, end = 100 : si64} : (tensor<2x3x4xf32>) -> tensor<3xi64>
+  "onnx.Return"(%0) : (tensor<3xi64>) -> ()
+  // CHECK: onnx.Constant dense<[2, 3, 4]> : tensor<3xi64>
+  // CHECK-NOT: "onnx.Shape"
+}
+
+// -----
+
+// No fold: input has a dynamic dimension -> HasStaticShape constraint fails.
+// CHECK-LABEL: @test_shape_no_fold_dynamic
+func.func @test_shape_no_fold_dynamic(%arg0: tensor<?x3x4xf32>) -> tensor<3xi64> {
+  %0 = "onnx.Shape"(%arg0) {start = 0 : si64} : (tensor<?x3x4xf32>) -> tensor<3xi64>
+  "onnx.Return"(%0) : (tensor<3xi64>) -> ()
+  // CHECK: "onnx.Shape"
+  // CHECK-NOT: onnx.Constant
 }

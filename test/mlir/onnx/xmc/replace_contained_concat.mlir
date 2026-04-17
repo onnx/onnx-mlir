@@ -81,3 +81,18 @@ func.func @test_chained_optimization(%arg0: tensor<1x2x3x4xf32>, %arg1: tensor<1
 // CHECK: %[[C3:.*]] = "onnx.Concat"(%[[C2]], %arg3) {axis = 3 : si64}
 // CHECK: return %[[C1]], %[[C2]], %[[C3]]
 
+// -----
+
+// Test 7: No optimization when inner concat is defined after outer concat
+// (dominance guard prevents replacing outer with a reference to inner's result
+// that is not yet defined at that point in the block).
+// CHECK-LABEL: func.func @test_dominance_skip
+func.func @test_dominance_skip(%arg0: tensor<1x2x3x4xf32>, %arg1: tensor<1x2x3x4xf32>, %arg2: tensor<1x2x3x4xf32>, %arg3: tensor<1x2x3x4xf32>, %arg4: tensor<1x2x3x4xf32>) -> (tensor<1x2x3x20xf32>, tensor<1x2x3x12xf32>) {
+  %0 = "onnx.Concat"(%arg0, %arg1, %arg2, %arg3, %arg4) {axis = 3 : si64} : (tensor<1x2x3x4xf32>, tensor<1x2x3x4xf32>, tensor<1x2x3x4xf32>, tensor<1x2x3x4xf32>, tensor<1x2x3x4xf32>) -> tensor<1x2x3x20xf32>
+  %1 = "onnx.Concat"(%arg0, %arg1, %arg2) {axis = 3 : si64} : (tensor<1x2x3x4xf32>, tensor<1x2x3x4xf32>, tensor<1x2x3x4xf32>) -> tensor<1x2x3x12xf32>
+  return %0, %1 : tensor<1x2x3x20xf32>, tensor<1x2x3x12xf32>
+}
+// CHECK: %[[C0:.*]] = "onnx.Concat"(%arg0, %arg1, %arg2, %arg3, %arg4) {axis = 3 : si64}
+// CHECK: %[[C1:.*]] = "onnx.Concat"(%arg0, %arg1, %arg2) {axis = 3 : si64}
+// CHECK: return %[[C0]], %[[C1]]
+

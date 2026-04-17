@@ -29,3 +29,15 @@ func.func @test_reshape_fp8(%arg0 : tensor<128x1024xf8E5M2FNUZ>) -> tensor<1x128
 // CHECK: [[VAR_1_:%.+]] = tosa.reshape %arg0 {new_shape = array<i64: 1, 128, 16, 64>} : (tensor<128x1024xf8E5M2FNUZ>) -> tensor<1x128x16x64xf8E5M2FNUZ>
 // CHECK-NEXT: return [[VAR_1_]] : tensor<1x128x16x64xf8E5M2FNUZ>
   }
+
+// -----
+
+func.func @test_reshape_dynamic_input_static_output(%arg0 : tensor<?x1024xf32>) -> tensor<1x128x16x64xf32> {
+  %0 = "onnx.Constant"() {value = dense<[1, 128, 16, 64]> : tensor<4xi64>} : () -> tensor<4xi64>
+  %1 = "onnx.Reshape"(%arg0, %0) : (tensor<?x1024xf32>, tensor<4xi64>) -> tensor<1x128x16x64xf32>
+  return %1 : tensor<1x128x16x64xf32>
+// CHECK-LABEL: @test_reshape_dynamic_input_static_output
+// CHECK-SAME: ([[PARAM_0_:%.+]]: tensor<?x1024xf32>) -> tensor<1x128x16x64xf32> {
+// CHECK: [[VAR_1_:%.+]] = tosa.reshape [[PARAM_0_]] {new_shape = array<i64: 1, 128, 16, 64>} : (tensor<?x1024xf32>) -> tensor<1x128x16x64xf32>
+// CHECK: return [[VAR_1_]] : tensor<1x128x16x64xf32>
+}

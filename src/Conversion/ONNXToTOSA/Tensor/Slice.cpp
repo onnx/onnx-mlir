@@ -30,8 +30,9 @@ public:
   using OpConversionPattern::OpConversionPattern;
   using OpAdaptor = typename ONNXSliceOp::Adaptor;
 
-  ONNXSliceLoweringToTOSA(MLIRContext *ctx, bool convertSliceOnlyWhenStepOne)
-      : OpConversionPattern(ctx),
+  ONNXSliceLoweringToTOSA(const TypeConverter &typeConverter, MLIRContext *ctx,
+      bool convertSliceOnlyWhenStepOne)
+      : OpConversionPattern(typeConverter, ctx),
         convertSliceOnlyWhenStepOne(convertSliceOnlyWhenStepOne) {}
 
   LogicalResult matchAndRewrite(ONNXSliceOp op, OpAdaptor adaptor,
@@ -184,9 +185,10 @@ private:
 } // namespace
 
 void populateLoweringONNXSliceOpToTOSAPattern(ConversionTarget & /*target*/,
-    RewritePatternSet &patterns, TypeConverter & /*typeConverter*/,
-    MLIRContext *ctx, bool convertSliceOnlyWhenStepOne) {
-  patterns.insert<ONNXSliceLoweringToTOSA>(ctx, convertSliceOnlyWhenStepOne);
+    RewritePatternSet &patterns, TypeConverter &typeConverter, MLIRContext *ctx,
+    bool convertSliceOnlyWhenStepOne) {
+  patterns.insert<ONNXSliceLoweringToTOSA>(
+      typeConverter, ctx, convertSliceOnlyWhenStepOne);
 }
 
 } // namespace onnx_mlir

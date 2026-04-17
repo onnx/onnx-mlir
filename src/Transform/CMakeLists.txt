@@ -1,35 +1,37 @@
 # SPDX-License-Identifier: Apache-2.0
 
-add_onnx_mlir_library(OMLowerKrnlRegion
-  LowerKrnlRegion.cpp
+if (ONNX_MLIR_ENABLE_KRNL)
+  add_onnx_mlir_library(OMLowerKrnlRegion
+    LowerKrnlRegion.cpp
 
-  LINK_LIBS PUBLIC
-  OMSupport
-  MLIRTransformUtils
-  )
+    LINK_LIBS PUBLIC
+    OMSupport
+    MLIRTransformUtils
+    )
 
-add_onnx_mlir_library(OMScfParallelPrivateRegion
-  ProcessScfParallelPrivate.cpp
-  ProcessKrnlParallelClause.cpp
+  add_onnx_mlir_library(OMScfParallelPrivateRegion
+    ProcessScfParallelPrivate.cpp
+    ProcessKrnlParallelClause.cpp
 
-  LINK_LIBS PUBLIC
-  OMSupport
-  MLIRTransformUtils
-  MLIROpenMPToLLVM
-  )
+    LINK_LIBS PUBLIC
+    OMSupport
+    MLIRTransformUtils
+    MLIROpenMPToLLVM
+    )
 
-add_onnx_mlir_library(OMInstrument
-  InstrumentPass.cpp
-  InstrumentCleanupPass.cpp
+  add_onnx_mlir_library(OMInstrument
+    InstrumentPass.cpp
+    InstrumentCleanupPass.cpp
 
-  INCLUDE_DIRS PUBLIC
-  ${ONNX_MLIR_SRC_ROOT}/include
+    INCLUDE_DIRS PUBLIC
+    ${ONNX_MLIR_SRC_ROOT}/include
 
-  LINK_LIBS PUBLIC
-  OMONNXOps
-  OMKrnlOps
-  MLIRPass
-  OMOptionUtils
-  OMOpTransform
-  OMInstrumentONNX
-  )
+    LINK_LIBS PUBLIC
+    OMONNXOps
+    OMKrnlOps
+    MLIRPass
+    OMOptionUtils
+    OMOpTransform
+    OMInstrumentONNX
+    )
+endif()

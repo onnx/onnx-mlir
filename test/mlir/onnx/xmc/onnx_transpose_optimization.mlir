@@ -1294,3 +1294,106 @@ func.func @test_no_push_scast_without_transpose(%arg0: tensor<1x3x4x4x!quant.uni
   %0 = quant.scast %arg0 : tensor<1x3x4x4x!quant.uniform<i8:f32, 0.05:0>> to tensor<1x3x4x4xi8>
   return %0 : tensor<1x3x4x4xi8>
 }
+
+// -----
+
+// ============================================================================
+// SECTION: Push Transpose Through Softmax
+// ============================================================================
+
+// Test: Basic push transpose through softmax (NCHW -> NHWC, axis on channel dim)
+// Transpose [0,2,3,1] moves C from position 1 to 3.
+// Softmax on axis=3 (channel in NHWC) should become axis=1 (channel in NCHW)
+// after pushing the transpose through.
+// CHECK-LABEL: func @test_push_transpose_through_softmax_basic
+func.func @test_push_transpose_through_softmax_basic(%arg0: tensor<1x16x4x8400xf32>) -> tensor<1x4x8400x16xf32> {
+  // CHECK: %[[SOFTMAX:.*]] = "onnx.Softmax"(%arg0) {axis = 1 : si64}
+  // CHECK-SAME: (tensor<1x16x4x8400xf32>) -> tensor<1x16x4x8400xf32>
+  // CHECK: %[[TRANS:.*]] = "onnx.Transpose"(%[[SOFTMAX]]) {perm = [0, 2, 3, 1]}
+  // CHECK-SAME: (tensor<1x16x4x8400xf32>) -> tensor<1x4x8400x16xf32>
+  %0 = "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]} : (tensor<1x16x4x8400xf32>) -> tensor<1x4x8400x16xf32>
+  %1 = "onnx.Softmax"(%0) {axis = 3 : si64} : (tensor<1x4x8400x16xf32>) -> tensor<1x4x8400x16xf32>
+  return %1 : tensor<1x4x8400x16xf32>
+}
+
+// -----
+
+// Test: Push transpose through softmax on last axis (no axis change needed)
+// Transpose [0,2,1] on 3D tensor. Softmax on axis=2 (last dim).
+// perm[2]=1, so new axis should be 1.
+// CHECK-LABEL: func @test_push_transpose_through_softmax_3d
+func.func @test_push_transpose_through_softmax_3d(%arg0: tensor<1x8400x16xf32>) -> tensor<1x16x8400xf32> {
+  // CHECK: %[[SOFTMAX:.*]] = "onnx.Softmax"(%arg0) {axis = 1 : si64}
+  // CHECK-SAME: (tensor<1x8400x16xf32>) -> tensor<1x8400x16xf32>
+  // CHECK: %[[TRANS:.*]] = "onnx.Transpose"(%[[SOFTMAX]]) {perm = [0, 2, 1]}
+  // CHECK-SAME: (tensor<1x8400x16xf32>) -> tensor<1x16x8400xf32>
+  %0 = "onnx.Transpose"(%arg0) {perm = [0, 2, 1]} : (tensor<1x8400x16xf32>) -> tensor<1x16x8400xf32>
+  %1 = "onnx.Softmax"(%0) {axis = 2 : si64} : (tensor<1x16x8400xf32>) -> tensor<1x16x8400xf32>
+  return %1 : tensor<1x16x8400xf32>
+}
+
+// -----
+
+// Test: Push transpose through softmax with negative axis
+// Softmax axis=-1 on rank-4 tensor -> axis=3, perm[3]=1 -> new axis=1
+// CHECK-LABEL: func @test_push_transpose_through_softmax_neg_axis
+func.func @test_push_transpose_through_softmax_neg_axis(%arg0: tensor<2x16x8x8xf32>) -> tensor<2x8x8x16xf32> {
+  // CHECK: %[[SOFTMAX:.*]] = "onnx.Softmax"(%arg0) {axis = 1 : si64}
+  // CHECK-SAME: (tensor<2x16x8x8xf32>) -> tensor<2x16x8x8xf32>
+  // CHECK: %[[TRANS:.*]] = "onnx.Transpose"(%[[SOFTMAX]]) {perm = [0, 2, 3, 1]}
+  // CHECK-SAME: (tensor<2x16x8x8xf32>) -> tensor<2x8x8x16xf32>
+  %0 = "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]} : (tensor<2x16x8x8xf32>) -> tensor<2x8x8x16xf32>
+  %1 = "onnx.Softmax"(%0) {axis = -1 : si64} : (tensor<2x8x8x16xf32>) -> tensor<2x8x8x16xf32>
+  return %1 : tensor<2x8x8x16xf32>
+}
+
+// -----
+
+// Test: Push transpose through softmax with quantized types
+// CHECK-LABEL: func @test_push_transpose_through_softmax_quant
+func.func @test_push_transpose_through_softmax_quant(%arg0: tensor<1x8400x4x16x!quant.uniform<u16:f32, 3.105E-4:32768>>) -> tensor<1x16x4x8400x!quant.uniform<u16:f32, 3.105E-4:32768>> {
+  // CHECK: %[[SOFTMAX:.*]] = "onnx.Softmax"(%arg0) {axis = 3 : si64}
+  // CHECK-SAME: (tensor<1x8400x4x16x!quant.uniform<u16:f32, 3.105000e-04:32768>>) -> tensor<1x8400x4x16x!quant.uniform<u16:f32, 3.105000e-04:32768>>
+  // CHECK: %[[TRANS:.*]] = "onnx.Transpose"(%[[SOFTMAX]]) {perm = [0, 3, 2, 1]}
+  // CHECK-SAME: (tensor<1x8400x4x16x!quant.uniform<u16:f32, 3.105000e-04:32768>>) -> tensor<1x16x4x8400x!quant.uniform<u16:f32, 3.105000e-04:32768>>
+  %0 = "onnx.Transpose"(%arg0) {perm = [0, 3, 2, 1]} : (tensor<1x8400x4x16x!quant.uniform<u16:f32, 3.105E-4:32768>>) -> tensor<1x16x4x8400x!quant.uniform<u16:f32, 3.105E-4:32768>>
+  %1 = "onnx.Softmax"(%0) {axis = 1 : si64} : (tensor<1x16x4x8400x!quant.uniform<u16:f32, 3.105E-4:32768>>) -> tensor<1x16x4x8400x!quant.uniform<u16:f32, 3.105E-4:32768>>
+  return %1 : tensor<1x16x4x8400x!quant.uniform<u16:f32, 3.105E-4:32768>>
+}
+
+// -----
+
+// Test: Transpose + Softmax + Transpose should fuse into Softmax + single Transpose
+// After pushing Transpose_A through Softmax, two consecutive transposes fuse.
+// Transpose_A=[0,3,2,1] composed with Transpose_B=[0,2,3,1] = [0,2,1,3]
+// CHECK-LABEL: func @test_softmax_transpose_fusion_pattern
+func.func @test_softmax_transpose_fusion_pattern(%arg0: tensor<1x8400x4x16xf32>) -> tensor<1x4x8400x16xf32> {
+  // CHECK: %[[SOFTMAX:.*]] = "onnx.Softmax"(%arg0) {axis = 3 : si64}
+  // CHECK-SAME: (tensor<1x8400x4x16xf32>) -> tensor<1x8400x4x16xf32>
+  // CHECK: %[[TRANS:.*]] = "onnx.Transpose"(%[[SOFTMAX]]) {perm = [0, 2, 1, 3]}
+  // CHECK-SAME: (tensor<1x8400x4x16xf32>) -> tensor<1x4x8400x16xf32>
+  %0 = "onnx.Transpose"(%arg0) {perm = [0, 3, 2, 1]} : (tensor<1x8400x4x16xf32>) -> tensor<1x16x4x8400xf32>
+  %1 = "onnx.Softmax"(%0) {axis = 1 : si64} : (tensor<1x16x4x8400xf32>) -> tensor<1x16x4x8400xf32>
+  %2 = "onnx.Transpose"(%1) {perm = [0, 2, 3, 1]} : (tensor<1x16x4x8400xf32>) -> tensor<1x4x8400x16xf32>
+  return %2 : tensor<1x4x8400x16xf32>
+}
+
+// -----
+// ============================================================================
+// Test: Per-axis quantized constant through transpose+binary fusion
+// ============================================================================
+// Transpose(x, [0,2,3,1]) * per-axis-quant-const pushes transpose through Mul.
+// Const [1,1,1,4] is transpose-immune, so it gets Reshaped to [1,4,1,1].
+// Per-axis dim 3 must remap to dim 1 via inverse perm [0,3,1,2].
+
+// CHECK-LABEL: func @test_transpose_binary_per_axis_quant
+func.func @test_transpose_binary_per_axis_quant(%arg0: tensor<1x4x8x8x!quant.uniform<i8:f32, 0.1:0>>) -> tensor<1x8x8x4x!quant.uniform<i8:f32, 0.1:0>> {
+  %0 = "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]} : (tensor<1x4x8x8x!quant.uniform<i8:f32, 0.1:0>>) -> tensor<1x8x8x4x!quant.uniform<i8:f32, 0.1:0>>
+  %c = onnx.Constant {value = dense<1> : tensor<1x1x1x4xi8>} : tensor<1x1x1x4x!quant.uniform<i8:f32:3, {0.01, 0.02, 0.03, 0.04}>>
+  %1 = "onnx.Mul"(%0, %c) : (tensor<1x8x8x4x!quant.uniform<i8:f32, 0.1:0>>, tensor<1x1x1x4x!quant.uniform<i8:f32:3, {0.01, 0.02, 0.03, 0.04}>>) -> tensor<1x8x8x4x!quant.uniform<i8:f32, 0.1:0>>
+  return %1 : tensor<1x8x8x4x!quant.uniform<i8:f32, 0.1:0>>
+}
+// Reshaped to [1,4,1,1] with per-axis dim remapped from 3→1
+// CHECK: onnx.Reshape{{.*}}tensor<1x4x1x1x!quant.uniform<i8:f32:1, {1.000000e-02,2.000000e-02,3.000000e-02,4.000000e-02}>>
+// CHECK: onnx.Mul
+// CHECK: onnx.Transpose

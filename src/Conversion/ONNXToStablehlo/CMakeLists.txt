@@ -84,6 +84,5 @@ add_onnx_mlir_library(OMONNXToStablehlo
   OMONNXConversionCommon
   OMONNXRewrite
   OMONNXOps
-  OMSupport
   ${STABLEHLO_LIBS}
   )
