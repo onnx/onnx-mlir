@@ -19,6 +19,15 @@ using namespace mlir;
 
 namespace {
 
+/// Skip conversion when the activation input carries a quantized element type.
+/// Matches the old xcompiler behavior where TransferMulToDepthwiseConv2dPass
+/// returns early when QDQ mode is enabled (qdq::qdq_enabled check).
+static bool hasQuantizedInput(Value input) {
+  if (auto rtt = dyn_cast<RankedTensorType>(input.getType()))
+    return isa<quant::QuantizedType>(rtt.getElementType());
+  return false;
+}
+
 /// Helper function to create a shape constant for ONNX Reshape
 Value createShapeConstant(
     PatternRewriter &rewriter, Location loc, llvm::ArrayRef<int64_t> shape) {
@@ -145,6 +154,9 @@ struct MulToDepthwiseConvPattern : public OpRewritePattern<ONNXMulOp> {
       return failure(); // Not a constant-input mul
     }
 
+    if (hasQuantizedInput(input))
+      return failure();
+
     // Validate the pattern
     if (!isValidConstantWeight(weight, input))
       return failure();
@@ -269,6 +281,9 @@ struct MulAddToDepthwiseConvPattern : public OpRewritePattern<ONNXAddOp> {
     } else {
       return failure();
     }
+
+    if (hasQuantizedInput(input))
+      return failure();
 
     // Validate pattern
     if (!isValidConstantWeight(weight, input))
@@ -415,6 +430,9 @@ struct MulReluToDepthwiseConvPattern : public OpRewritePattern<ONNXReluOp> {
     } else {
       return failure();
     }
+
+    if (hasQuantizedInput(input))
+      return failure();
 
     // Validate pattern
     if (!isValidConstantWeight(weight, input))
