@@ -341,10 +341,12 @@ struct MatMulToXFEConvPattern : public OpRewritePattern<ONNXMatMulOp> {
     // Check for a fusible bias Add following the MatMul
     int64_t N = weightShape[1];
     auto [addOp, biasVal] = findFusibleBiasAdd(matMulOp, N);
-    Operation *opToReplace = addOp ? addOp.getOperation() : matMulOp.getOperation();
-    Type finalOutputElemType = addOp
-        ? cast<RankedTensorType>(addOp.getResult().getType()).getElementType()
-        : outputElementType;
+    Operation *opToReplace =
+        addOp ? addOp.getOperation() : matMulOp.getOperation();
+    Type finalOutputElemType =
+        addOp ? cast<RankedTensorType>(addOp.getResult().getType())
+                    .getElementType()
+              : outputElementType;
 
     // Create first Reshape: [D1, D2, ..., Dn, K] -> [M, H, W, C]
     auto reshape1OutputType =
