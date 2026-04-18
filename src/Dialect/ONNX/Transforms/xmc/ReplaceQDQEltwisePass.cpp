@@ -19,9 +19,8 @@
 // 4. Post-Quantized ReLU for IPU Strix (2 combinations)
 // 5. Replace Expand with Eltwise ADD
 //    - Quantized Expand ops are replaced by XCOMPILERFusedEltwise ADD with a
-//      zero constant at the target shape. For 4D (NCHW) inputs, only fires
-//      when W (dim index 2) is 1; non-4D inputs have no spatial constraint.
-//      Mirrors xcompiler's ReplaceQDQExpandToEltwisePass.
+//      zero constant at the target shape. No spatial constraints (matches
+//      xcompiler's ReplaceQDQExpandToEltwisePass behavior for quantized ops).
 //
 // Note: This pass assumes quant-types pass has already run, so operations
 // already have !quant.uniform types instead of explicit Q/DQ operations.
@@ -771,11 +770,8 @@ struct FusePostQuantizedReLUStrix : public OpRewritePattern<ONNXReluOp> {
 //===----------------------------------------------------------------------===//
 // Pattern 5: Replace Expand with Eltwise ADD
 // Quantized Expand(input, shape) -> XCOMPILERFusedEltwise(input, zeros, "ADD")
-// For 4D (NCHW) inputs:
-//   - W (dim[3]) == 1 is required (mirrors QDQ version, NHWC dim[2]).
-//   - C (dim[1]) == 1 is also required (mirrors fixed-point version, NHWC
-//   dim[3]).
-// Non-4D inputs have no spatial constraint.
+// Mirrors xcompiler's ReplaceQDQExpandToEltwisePass: no spatial constraints
+// since we already gate on quantized types.
 //===----------------------------------------------------------------------===//
 
 struct ReplaceExpandWithEltwise : public OpRewritePattern<ONNXExpandOp> {
@@ -795,13 +791,9 @@ struct ReplaceExpandWithEltwise : public OpRewritePattern<ONNXExpandOp> {
       return rewriter.notifyMatchFailure(expandOp, "not ranked tensors");
 
     auto inputShape = inputRankedType.getShape();
-
-    // For 4D (NCHW) tensors, require both C==1 (dim[1]) and W==1 (dim[3]).
-    // NHWC equivalents: W=dim[2], C=dim[3] in xcompiler's fixed-point version.
-    // Non-4D tensors are accepted without spatial-dim constraints.
-    if (inputShape.size() == 4 && (inputShape[1] != 1 || inputShape[3] != 1))
+    if (inputShape.size() == 4 && inputShape[2] != 1)
       return rewriter.notifyMatchFailure(
-          expandOp, "4D input requires C (dim[1]) == 1 and W (dim[3]) == 1");
+          expandOp, "4D input requires dim[2] == 1");
 
     LLVM_DEBUG(llvm::dbgs() << "Replacing quantized Expand with eltwise ADD: "
                             << expandOp->getName() << "\n");
