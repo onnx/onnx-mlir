@@ -319,12 +319,12 @@ static Value requantizeBiasForConv(PatternRewriter &rewriter, Location loc,
   if (!inputType || !weightType)
     return biasVal;
 
-  auto inputQType =
-      dyn_cast<quant::QuantizedType>(inputType.getElementType());
+  auto inputQType = dyn_cast<quant::QuantizedType>(inputType.getElementType());
   if (!inputQType)
     return biasVal;
 
-  // Extract scale[0] and zp[0] from any quantized type (per-tensor or per-axis).
+  // Extract scale[0] and zp[0] from any quantized type (per-tensor or
+  // per-axis).
   auto getScale0 = [](quant::QuantizedType qt) -> double {
     if (auto pt = dyn_cast<quant::UniformQuantizedType>(qt))
       return pt.getScale();
