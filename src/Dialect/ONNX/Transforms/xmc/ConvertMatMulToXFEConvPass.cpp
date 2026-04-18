@@ -219,8 +219,8 @@ std::optional<ConvShapes> computeConvShapes(
   SmallVector<int64_t, 4> paddedInput(inputShape.begin(), inputShape.end());
   while (paddedInput.size() < 4)
     paddedInput.insert(paddedInput.begin(), 1);
-  bool is3dimMatmul = (paddedInput[0] == 1) && (paddedInput[1] >= 4) &&
-                      (paddedInput[2] >= 8);
+  bool is3dimMatmul =
+      (paddedInput[0] == 1) && (paddedInput[1] >= 4) && (paddedInput[2] >= 8);
 
   ConvShapes shapes;
   shapes.weightShape = {N, H, W, C};
