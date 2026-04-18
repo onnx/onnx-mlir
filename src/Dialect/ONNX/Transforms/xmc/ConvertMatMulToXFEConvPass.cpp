@@ -231,6 +231,7 @@ Value createShapeConstant(
 }
 
 /// Try to find a following Add that can be absorbed as conv bias.
+/// Checks the direct user of the MatMul result for an Add with a constant.
 /// Returns the Add op and the bias constant value, or {nullptr, nullptr}.
 static std::pair<ONNXAddOp, Value> findFusibleBiasAdd(
     ONNXMatMulOp matMulOp, int64_t outputChannels) {
@@ -254,13 +255,14 @@ static std::pair<ONNXAddOp, Value> findFusibleBiasAdd(
   if (!biasConstOp)
     return {nullptr, nullptr};
 
-  auto biasAttr =
-      dyn_cast_or_null<DenseElementsAttr>(biasConstOp.getValueAttr());
-  if (!biasAttr)
+  // Bias element count must match output channels.
+  auto biasType = dyn_cast<RankedTensorType>(biasVal.getType());
+  if (!biasType)
     return {nullptr, nullptr};
-
-  // Bias must have exactly outputChannels elements (1D [N] or broadcastable)
-  if (biasAttr.getNumElements() != outputChannels)
+  int64_t biasElements = 1;
+  for (auto d : biasType.getShape())
+    biasElements *= d;
+  if (biasElements != outputChannels)
     return {nullptr, nullptr};
 
   return {addOp, biasVal};
@@ -268,9 +270,10 @@ static std::pair<ONNXAddOp, Value> findFusibleBiasAdd(
 
 /// Re-quantize bias into the conv accumulation domain (int32).
 ///
-/// Mirrors the old xcompiler TransferQDQMatMulToConv2dPass logic:
-///   new_bias[i] = (orig_bias[i] - bias_zp) * round(bias_scale / (x_scale *
-///   w_scale))
+/// Dequantizes each element to float, then re-quantizes into the conv
+/// accumulation scale (x_scale * w_scale):
+///   new_bias[i] = round( (orig_bias[i] - bias_zp) * bias_scale
+///                        / (x_scale * w_scale) )
 ///
 /// The result is a 1D int32 constant with quant type
 ///   !quant.uniform<i32:f32, x_scale * w_scale : 0>
@@ -291,7 +294,7 @@ static Value requantizeBiasForConv(PatternRewriter &rewriter, Location loc,
     return biasVal;
 
   auto biasElemType = biasType.getElementType();
-  auto biasQType = dyn_cast<quant::UniformQuantizedType>(biasElemType);
+  auto biasQType = dyn_cast<quant::QuantizedType>(biasElemType);
 
   // Non-quantized path: just reshape to 1D [N].
   if (!biasQType) {
@@ -309,40 +312,48 @@ static Value requantizeBiasForConv(PatternRewriter &rewriter, Location loc,
   }
 
   // Quantized path: re-quantize bias into accumulation domain.
+  // Matches golden xcompiler TransferQDQMatMulToConv2dPass: uses scale[0]
+  // for all channels (per-tensor treatment even for per-axis types).
   auto inputType = dyn_cast<RankedTensorType>(input.getType());
   auto weightType = dyn_cast<RankedTensorType>(weight.getType());
   if (!inputType || !weightType)
     return biasVal;
 
   auto inputQType =
-      dyn_cast<quant::UniformQuantizedType>(inputType.getElementType());
+      dyn_cast<quant::QuantizedType>(inputType.getElementType());
   if (!inputQType)
     return biasVal;
 
-  // Get per-tensor input scale.
-  double inputScale = inputQType.getScale();
+  // Extract scale[0] and zp[0] from any quantized type (per-tensor or per-axis).
+  auto getScale0 = [](quant::QuantizedType qt) -> double {
+    if (auto pt = dyn_cast<quant::UniformQuantizedType>(qt))
+      return pt.getScale();
+    if (auto pa = dyn_cast<quant::UniformQuantizedPerAxisType>(qt))
+      return pa.getScales().empty() ? 1.0 : pa.getScales()[0];
+    return 1.0;
+  };
+  auto getZP0 = [](quant::QuantizedType qt) -> int64_t {
+    if (auto pt = dyn_cast<quant::UniformQuantizedType>(qt))
+      return pt.getZeroPoint();
+    if (auto pa = dyn_cast<quant::UniformQuantizedPerAxisType>(qt))
+      return pa.getZeroPoints().empty() ? 0 : pa.getZeroPoints()[0];
+    return 0;
+  };
 
-  // Get weight scale (per-tensor only for now).
-  double weightScale = 1.0;
-  if (auto wQType =
-          dyn_cast<quant::UniformQuantizedType>(weightType.getElementType())) {
-    weightScale = wQType.getScale();
-  } else if (auto wPAType = dyn_cast<quant::UniformQuantizedPerAxisType>(
-                 weightType.getElementType())) {
-    // Use scale[0] as representative (matches old xcompiler behavior).
-    auto scales = wPAType.getScales();
-    if (!scales.empty())
-      weightScale = scales[0];
-  } else {
+  double inputScale = getScale0(inputQType);
+
+  auto weightQType =
+      dyn_cast<quant::QuantizedType>(weightType.getElementType());
+  if (!weightQType)
     return biasVal;
-  }
+  double weightScale = getScale0(weightQType);
 
-  double biasScale = biasQType.getScale();
-  int64_t biasZP = biasQType.getZeroPoint();
+  double biasScale = getScale0(biasQType);
+  int64_t biasZP = getZP0(biasQType);
   double accumScale = inputScale * weightScale;
-  int32_t biasMul = static_cast<int32_t>(std::round(biasScale / accumScale));
 
   // Flatten original bias data and re-quantize to int32.
+  //   new_bias[i] = round( (raw[i] - biasZP) * biasScale / accumScale )
   auto flatStorageType =
       RankedTensorType::get({N}, denseAttr.getType().getElementType());
   auto flatAttr = denseAttr.reshape(flatStorageType);
@@ -369,7 +380,9 @@ static Value requantizeBiasForConv(PatternRewriter &rewriter, Location loc,
       else
         raw = static_cast<int64_t>(flatAttr.getValues<uint32_t>()[i]);
     }
-    newBiasData.push_back(static_cast<int32_t>((raw - biasZP) * biasMul));
+    double floatBias = static_cast<double>(raw - biasZP) * biasScale;
+    newBiasData.push_back(
+        static_cast<int32_t>(std::round(floatBias / accumScale)));
   }
 
   // Create int32 dense attribute.
@@ -378,12 +391,12 @@ static Value requantizeBiasForConv(PatternRewriter &rewriter, Location loc,
   auto newDenseAttr = DenseElementsAttr::get(
       newStorageType, llvm::ArrayRef<int32_t>(newBiasData));
 
-  // Create quantized type: !quant.uniform<i32:f32, accumScale:0>
-  auto newBiasQType = quant::UniformQuantizedType::get(
+  // Result type: !quant.uniform<i32:f32, accumScale:0>
+  auto newBiasQType2 = quant::UniformQuantizedType::get(
       quant::QuantizationFlags::Signed, i32Type, rewriter.getF32Type(),
       accumScale, /*zeroPoint=*/0, std::numeric_limits<int32_t>::min(),
       std::numeric_limits<int32_t>::max());
-  auto newResultType = RankedTensorType::get({N}, newBiasQType);
+  auto newResultType = RankedTensorType::get({N}, newBiasQType2);
 
   auto valueNamedAttr = rewriter.getNamedAttr("value", newDenseAttr);
   return rewriter
