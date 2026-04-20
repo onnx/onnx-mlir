@@ -17,6 +17,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <functional>
 #include <math.h>
 #include <numeric>
 
@@ -2475,30 +2476,22 @@ struct SoftmaxV11ToLatestPattern : public OpRewritePattern<ONNXSoftmaxV11Op> {
           op, "non-last-axis requires static shape");
 
     // Flatten [axis..rank-1] into a single trailing dimension, e.g.
-    //   [2, 3, 4, 5] with axis=1  ->  [2, 60]
+    //   [1, 2, 3, 4, 5] with axis=2  ->  [1, 2, 60]
     ArrayRef<int64_t> inputShape = inputType.getShape();
-    int64_t trailingDim = 1;
-    for (int64_t i = axis; i < rank; ++i)
-      trailingDim *= inputShape[i];
-
-    SmallVector<int64_t> flatShape(
-        inputShape.begin(), inputShape.begin() + axis);
+    int64_t trailingDim = std::accumulate(inputShape.begin() + axis,
+        inputShape.end(), int64_t(1), std::multiplies<int64_t>{});
+    SmallVector<int64_t> flatShape(inputShape.take_front(axis));
     flatShape.push_back(trailingDim);
     auto flatType =
         RankedTensorType::get(flatShape, inputType.getElementType());
 
-    Location loc = op.getLoc();
-    auto shapeAttr = [&](ArrayRef<int64_t> shape) {
-      return rewriter.create<ONNXConstantOp>(
-          loc, nullptr, rewriter.getI64TensorAttr(shape));
-    };
-
-    Value flat = rewriter.create<ONNXReshapeOp>(
-        loc, flatType, input, shapeAttr(flatShape));
-    Value softmax = rewriter.create<ONNXSoftmaxOp>(loc, flatType, flat, axis);
-    rewriter.replaceOpWithNewOp<ONNXReshapeOp>(
-        op, resultType, softmax, shapeAttr(inputShape));
-
+    OnnxBuilder onnx(rewriter, op.getLoc());
+    auto inputReshapeOp =
+        onnx.reshape(flatType, input, onnx.constantInt64(flatShape));
+    auto softmaxOp = onnx.softmax(flatType, inputReshapeOp, axis);
+    auto outputReshapeOp =
+        onnx.reshape(resultType, softmaxOp, onnx.constantInt64(inputShape));
+    rewriter.replaceOp(op, outputReshapeOp);
     return success();
   }
 };

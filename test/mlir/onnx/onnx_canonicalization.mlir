@@ -1536,6 +1536,48 @@ func.func @test_softmax_v11_unranked(%arg0 : tensor<*xf32>) -> tensor<*xf32> {
 
 // -----
 
+func.func @test_softmax_v11_axis_minus_one_ranked(%arg0 : tensor<10x20x30xf32>) -> tensor<10x20x30xf32> {
+  %0 = "onnx.SoftmaxV11"(%arg0) {axis = -1 : si64} : (tensor<10x20x30xf32>) -> tensor<10x20x30xf32>
+  onnx.Return %0 : tensor<10x20x30xf32>
+
+// CHECK-LABEL:  func.func @test_softmax_v11_axis_minus_one_ranked
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x20x30xf32>) -> tensor<10x20x30xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Softmax"([[PARAM_0_]]) {axis = 2 : si64} : (tensor<10x20x30xf32>) -> tensor<10x20x30xf32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<10x20x30xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_softmax_v11_negative_axis(%arg0 : tensor<10x20x30xf32>) -> tensor<10x20x30xf32> {
+  %0 = "onnx.SoftmaxV11"(%arg0) {axis = -2 : si64} : (tensor<10x20x30xf32>) -> tensor<10x20x30xf32>
+  onnx.Return %0 : tensor<10x20x30xf32>
+
+// CHECK-LABEL:  func.func @test_softmax_v11_negative_axis
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x20x30xf32>) -> tensor<10x20x30xf32> {
+// CHECK-DAG:       [[SHAPE_ORIG_:%.+]] = onnx.Constant dense<[10, 20, 30]> : tensor<3xi64>
+// CHECK-DAG:       [[SHAPE_FLAT_:%.+]] = onnx.Constant dense<[10, 600]> : tensor<2xi64>
+// CHECK:           [[FLAT_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[SHAPE_FLAT_]]) {{.*}} : (tensor<10x20x30xf32>, tensor<2xi64>) -> tensor<10x600xf32>
+// CHECK:           [[SOFTMAX_:%.+]] = "onnx.Softmax"([[FLAT_]]) {axis = 1 : si64} : (tensor<10x600xf32>) -> tensor<10x600xf32>
+// CHECK:           [[RESULT_:%.+]] = "onnx.Reshape"([[SOFTMAX_]], [[SHAPE_ORIG_]]) {{.*}} : (tensor<10x600xf32>, tensor<3xi64>) -> tensor<10x20x30xf32>
+// CHECK:           onnx.Return [[RESULT_]] : tensor<10x20x30xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_softmax_v11_dynamic_shape_unchanged(%arg0 : tensor<12x4x56x?xf32>) -> tensor<12x4x56x?xf32> {
+  %0 = "onnx.SoftmaxV11"(%arg0) {axis = -2 : si64} : (tensor<12x4x56x?xf32>) -> tensor<12x4x56x?xf32>
+  onnx.Return %0 : tensor<12x4x56x?xf32>
+
+// CHECK-LABEL:  func.func @test_softmax_v11_dynamic_shape_unchanged
+// CHECK: "onnx.SoftmaxV11"
+// CHECK-NOT: "onnx.Reshape"
+// CHECK-NOT: "onnx.Softmax"
+}
+
+// -----
+
 func.func @test_softmax_v11_non_last_axis(%arg0 : tensor<10x20x30xf32>) -> tensor<10x20x30xf32> {
   %0 = "onnx.SoftmaxV11"(%arg0) {axis = 1 : si64} : (tensor<10x20x30xf32>) -> tensor<10x20x30xf32>
   onnx.Return %0 : tensor<10x20x30xf32>
