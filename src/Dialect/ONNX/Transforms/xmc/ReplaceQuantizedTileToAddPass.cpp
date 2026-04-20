@@ -1,11 +1,15 @@
 // Copyright (C) 2023 - 2026 Advanced Micro Devices, Inc. All rights reserved.
 //
-// Replaces onnx.Tile on uniformly quantized tensors with
-// onnx.XCOMPILERFusedEltwiseOp(type=ADD, nonlinear=NONE): A=input,
-// B=splat(zero_point) where B has the tiled output shape.
-// Same scale/zero_point as the tile input/output so the fused add is identity
-// in the real domain when NumPy-style broadcast matches tile expansion (e.g.
-// repeats on size-1 axes or identity repeats).
+// Replaces onnx.Tile with onnx.Add: A=input, B=splat(identity additive) where
+// B has the tiled output shape.
+// - Uniformly quantized tensors: B is splat(zero_point); input/output must
+//   share the same scale and zero_point.
+// - Non-quantized tensors: B is splat(0) in the element type.
+// The fused add is identity in the real domain when NumPy-style broadcast
+// matches tile expansion (e.g. repeats on size-1 axes or identity repeats).
+//
+// The splat second operand uses the onnx.Tile result shape from the model (IR),
+// not a recomputed input×repeats product.
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
@@ -41,45 +45,8 @@ static bool hasMatchingUniformQuant(Type tensorTypeA, Type tensorTypeB) {
          qa.getZeroPoint() == qb.getZeroPoint();
 }
 
-/// Fills `out` with repeat counts; requires length == inputRank and all > 0.
-static LogicalResult getStaticRepeatsFromConstant(
-    Value repeatsVal, int64_t inputRank, SmallVectorImpl<int64_t> &out) {
-  auto cst = repeatsVal.getDefiningOp<ONNXConstantOp>();
-  if (!cst)
-    return failure();
-
-  if (auto valAttr = cst.getValueAttr()) {
-    auto dense = dyn_cast<DenseIntElementsAttr>(valAttr);
-    if (!dense || dense.getType().getRank() != 1)
-      return failure();
-    if (static_cast<int64_t>(dense.getNumElements()) != inputRank)
-      return failure();
-    for (int64_t r : dense.getValues<int64_t>()) {
-      if (r <= 0)
-        return failure();
-      out.push_back(r);
-    }
-    return success();
-  }
-
-  if (auto intsAttr = cst.getValueIntsAttr()) {
-    if (static_cast<int64_t>(intsAttr.size()) != inputRank)
-      return failure();
-    for (Attribute a : intsAttr) {
-      int64_t r = cast<IntegerAttr>(a).getInt();
-      if (r <= 0)
-        return failure();
-      out.push_back(r);
-    }
-    return success();
-  }
-
-  return failure();
-}
-
 /// Returns true if `lhs` and `rhs` are NumPy-style broadcast-compatible and the
-/// broadcast result equals `expected` (same rules as XCOMPILERFusedEltwise /
-/// ONNX broadcast eltwise verification).
+/// broadcast result equals `expected` (same rules as onnx.Add broadcast).
 static bool broadcastMatchesExpectedShape(
     ArrayRef<int64_t> lhs, ArrayRef<int64_t> rhs, ArrayRef<int64_t> expected) {
   SmallVector<int64_t> bcastShape;
@@ -97,69 +64,80 @@ struct ReplaceQuantizedTileToAddPattern : public OpRewritePattern<ONNXTileOp> {
     auto inType = dyn_cast<RankedTensorType>(input.getType());
     auto outType = dyn_cast<RankedTensorType>(tileOp.getType());
     if (!inType || !outType)
-      return failure();
-    auto inQuant =
-        dyn_cast<quant::UniformQuantizedType>(inType.getElementType());
-    if (!inQuant || !isa<quant::UniformQuantizedType>(outType.getElementType()))
-      return failure();
+      return rewriter.notifyMatchFailure(
+          tileOp, "input and result must be ranked tensor types");
 
-    if (!hasMatchingUniformQuant(input.getType(), tileOp.getType()))
-      return failure();
-    int64_t rank = inType.getRank();
-    if (rank <= 0)
-      return failure();
-
-    SmallVector<int64_t, 8> repeats;
-    if (failed(
-            getStaticRepeatsFromConstant(tileOp.getRepeats(), rank, repeats)))
-      return failure();
-    auto inShape = inType.getShape();
-    SmallVector<int64_t, 8> computedOutShape;
-    computedOutShape.reserve(rank);
-    for (int64_t i = 0; i < rank; ++i) {
-      if (inShape[i] == ShapedType::kDynamic)
-        return failure();
-      computedOutShape.push_back(inShape[i] * repeats[static_cast<size_t>(i)]);
+    Type inElem = inType.getElementType();
+    Type outElem = outType.getElementType();
+    auto inQuant = dyn_cast<quant::UniformQuantizedType>(inElem);
+    auto outQuant = dyn_cast<quant::UniformQuantizedType>(outElem);
+    if (inQuant != nullptr || outQuant != nullptr) {
+      if (!inQuant || !outQuant)
+        return rewriter.notifyMatchFailure(tileOp,
+            "input and output must both be uniformly quantized, or both "
+            "non-quantized (mixed quant and non-quant is not supported)");
+      if (!hasMatchingUniformQuant(input.getType(), tileOp.getType()))
+        return rewriter.notifyMatchFailure(tileOp,
+            "uniform quant scale and zero_point must match on input and "
+            "output");
+    } else if (inElem != outElem) {
+      return rewriter.notifyMatchFailure(tileOp,
+          "non-quantized input and output element types must be identical");
     }
 
-    if (!outType.hasStaticShape())
-      return failure();
-    if (outType.getShape() != ArrayRef<int64_t>(computedOutShape))
-      return failure();
+    int64_t rank = inType.getRank();
+    if (rank <= 0)
+      return rewriter.notifyMatchFailure(
+          tileOp, "expected positive tensor rank");
 
-    // Fused eltwise ADD requires NumPy-style broadcast; reject when tile is not
+    auto inShape = inType.getShape();
+    for (int64_t i = 0; i < rank; ++i) {
+      if (inShape[i] == ShapedType::kDynamic)
+        return rewriter.notifyMatchFailure(tileOp,
+            "input dimensions must be static (dynamic dims not supported)");
+    }
+
+    ArrayRef<int64_t> outShape = outType.getShape();
+    if (static_cast<int64_t>(outShape.size()) != rank)
+      return rewriter.notifyMatchFailure(
+          tileOp, "output rank must match input rank");
+
+    // onnx.Add requires NumPy-style broadcast; reject when tile is not
     // expressible as broadcast(input, splat_const) with output = tile shape.
-    if (!broadcastMatchesExpectedShape(
-            inShape, ArrayRef<int64_t>(computedOutShape), computedOutShape))
-      return failure();
+    if (!broadcastMatchesExpectedShape(inShape, outShape, outShape))
+      return rewriter.notifyMatchFailure(tileOp,
+          "tile expansion is not expressible as NumPy broadcast from input to "
+          "a splat constant with the tiled output shape");
 
     Location loc = tileOp.getLoc();
-    int64_t zeroPoint = inQuant.getZeroPoint();
-    Type storageTy = inQuant.getStorageType();
 
-    auto quantResultType = RankedTensorType::get(computedOutShape, inQuant);
-    // Match ReplaceExpandWithEltwise: value dense uses storage element type;
-    // result tensor type remains uniformly quantized.
-    auto zpStorageType = RankedTensorType::get(computedOutShape, storageTy);
-    auto zpSplatAttr = DenseElementsAttr::get(
-        zpStorageType, rewriter.getIntegerAttr(storageTy, zeroPoint));
-    auto valueNamedAttr = rewriter.getNamedAttr("value", zpSplatAttr);
-    auto zpTensorConst = rewriter.create<ONNXConstantOp>(loc, quantResultType,
-        ValueRange{}, ArrayRef<NamedAttribute>{valueNamedAttr});
-    auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(loc,
-        tileOp.getType(), input, zpTensorConst.getResult(),
-        /*clip_max=*/IntegerAttr(),
-        /*clip_min=*/IntegerAttr(),
-        /*enable_lut_sigmoid=*/rewriter.getBoolAttr(false),
-        /*leakyrelu_alpha=*/FloatAttr(),
-        /*mul_y=*/FloatAttr(),
-        /*nonlinear=*/rewriter.getStringAttr("NONE"),
-        /*nonlinear_in_scales=*/FloatAttr(),
-        /*nonlinear_in_zeropoints=*/IntegerAttr(),
-        /*prelu_in=*/IntegerAttr(),
-        /*prelu_shift=*/IntegerAttr(),
-        /*type=*/rewriter.getStringAttr("ADD"));
-    rewriter.replaceOp(tileOp, fusedOp.getResult());
+    ONNXConstantOp zpTensorConst;
+    if (inQuant) {
+      int64_t zeroPoint = inQuant.getZeroPoint();
+      Type storageTy = inQuant.getStorageType();
+
+      auto quantResultType = RankedTensorType::get(outShape, inQuant);
+      // Match ReplaceExpandWithEltwise: value dense uses storage element type;
+      // result tensor type remains uniformly quantized.
+      auto zpStorageType = RankedTensorType::get(outShape, storageTy);
+      auto zpSplatAttr = DenseElementsAttr::get(
+          zpStorageType, rewriter.getIntegerAttr(storageTy, zeroPoint));
+      auto valueNamedAttr = rewriter.getNamedAttr("value", zpSplatAttr);
+      zpTensorConst = rewriter.create<ONNXConstantOp>(loc, quantResultType,
+          ValueRange{}, ArrayRef<NamedAttribute>{valueNamedAttr});
+    } else {
+      // Non-quantized: identity add uses splat(0), same as
+      // ReplaceExpandWithEltwise.
+      auto zeroAttr =
+          DenseElementsAttr::get(RankedTensorType::get(outShape, inElem),
+              rewriter.getZeroAttr(inElem));
+      auto valueNamedAttr = rewriter.getNamedAttr("value", zeroAttr);
+      zpTensorConst = rewriter.create<ONNXConstantOp>(loc, tileOp.getType(),
+          ValueRange{}, ArrayRef<NamedAttribute>{valueNamedAttr});
+    }
+    auto addOp = rewriter.create<ONNXAddOp>(
+        loc, tileOp.getType(), input, zpTensorConst.getResult());
+    rewriter.replaceOp(tileOp, addOp.getResult());
     return success();
   }
 };
@@ -175,8 +153,8 @@ struct ReplaceQuantizedTileToAddPass
     return "replace-quantized-tile-to-add";
   }
   StringRef getDescription() const override {
-    return "Lower quantized onnx.Tile to XCOMPILERFusedEltwise ADD with "
-           "splat(zero_point) second operand";
+    return "Lower onnx.Tile to onnx.Add: quantized tile uses "
+           "splat(zero_point); non-quantized tile uses splat(0)";
   }
 
   void runOnOperation() override {
