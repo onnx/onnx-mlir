@@ -9,6 +9,9 @@
 // Defines language-specific pattern match rewritings for ONNX using
 // Declarative Rewrite Rules (DRR) specified using TableGen records.
 //
+// Modifications (c) Copyright 2026 Advanced Micro Devices, Inc. or its
+// affiliates
+//
 //===----------------------------------------------------------------------===//
 
 #ifndef ONNX_CONSTPROP
@@ -751,7 +754,8 @@ def MulAddConstDistributive : NamedPat<"MulAddConstDistributive",
   (ONNXAddOp
     (ONNXMulOp $x, $a),
     (ONNXMulOp $a, $b)),
-  [(IsNotAConstant:$x), (HasOneUse:$addOp)]>;
+  [(IsNotAConstant:$x), (HasOneUse:$addOp), (IsIntOrFloatType:$a),
+  (IsIntOrFloatType:$b), (IsIntOrFloatType:$x)]>;
 
 // Distribute multiplication into clip: mul(clip(x, l, u), a) -> clip(mul(x, a), mul(a, l), mul(a, u)).
 // mul(a, l) and mul(a, u) are folded to single constants by MulConstProp in a later iteration.
@@ -767,7 +771,8 @@ def MulClipConstDistributive : NamedPat<"MulClipConstDistributive",
     (ONNXMulOp $x, $a),
     (ONNXMulOp $a, $l),
     (ONNXMulOp $a, $u)),
-  [(IsNotAConstant:$x), (HasOneUse:$clipOp)]>;
+  [(IsNotAConstant:$x), (HasOneUse:$clipOp),  (IsIntOrFloatType:$x), 
+  (IsIntOrFloatType:$a), (IsIntOrFloatType:$l), (IsIntOrFloatType:$u)]>;
 
 // Constant Propagation for Mul
 def MulConstProp : NamedPat<"MulConstProp",
