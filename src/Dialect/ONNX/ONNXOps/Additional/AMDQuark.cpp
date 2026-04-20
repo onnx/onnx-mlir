@@ -4,7 +4,7 @@
 
 //===------------------ AMDQuark.cpp - AMD Quark custom ops ---------------===//
 //
-// Copyright 2025 Advanced Micro Devices, Inc. or its affiliates
+// Copyright 2025-2026 Advanced Micro Devices, Inc. or its affiliates
 //
 //===----------------------------------------------------------------------===//
 
@@ -103,4 +103,25 @@ std::optional<int64_t> AMDQuarkBFPQuantizeDequantizeOp::getNormalizedAxis() {
 LogicalResult AMDQuarkBFPQuantizeDequantizeOp::inferShapes(
     std::function<void(Region &)> /*doShapeInference*/) {
   return inferShapeForUnaryOps(this->getOperation());
+}
+// ===----------- AMDQuarkExtendedQuantizeLinearOp ----------===//
+
+LogicalResult AMDQuarkExtendedQuantizeLinearOp::inferShapes(
+    std::function<void(Region &)> /*doShapeInference*/) {
+  if (!mlir::dyn_cast<RankedTensorType>(getX().getType()))
+    return success();
+  Type elementType = mlir::cast<ShapedType>(getY().getType()).getElementType();
+  ONNXUnaryOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
+}
+
+// ===----------- AMDQuarkExtendedDequantizeLinearOp ----------===//
+
+LogicalResult AMDQuarkExtendedDequantizeLinearOp::inferShapes(
+    std::function<void(Region &)> /*doShapeInference*/) {
+  if (!mlir::dyn_cast<RankedTensorType>(getX().getType()))
+    return success();
+  Type elementType = mlir::cast<ShapedType>(getY().getType()).getElementType();
+  ONNXUnaryOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }

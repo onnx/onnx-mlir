@@ -239,6 +239,8 @@ dialect_op_version_map_["com.amd.xfe"]["SpaceToDepth"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["GroupNormalization"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["Resize"] = {1};
 dialect_op_version_map_["com.amd.quark"]["BFPQuantizeDequantize"] = {1};
+dialect_op_version_map_["com.amd.quark"]["ExtendedQuantizeLinear"] = {1};
+dialect_op_version_map_["com.amd.quark"]["ExtendedDequantizeLinear"] = {1};
 dialect_op_version_map_["com.amd.xcompiler"]["FusedEltwise"] = {1};
 dialect_op_version_map_["com.amd.xcompiler"]["DepthwiseConv"] = {1};
 dialect_op_version_map_["com.amd.xcompiler"]["Requantize"] = {1};
@@ -793,6 +795,12 @@ import_handler_map_["com.amd.xfe"]["SpaceToDepth"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFESpaceToDepthOp>;
 import_handler_map_["com.amd.quark"]["BFPQuantizeDequantize"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::AMDQuarkBFPQuantizeDequantizeOp>;
+import_handler_map_["com.amd.quark"]["ExtendedQuantizeLinear"] =
+    &onnx_mlir::detail::FrontendGenImpl::buildOperation<
+        mlir::AMDQuarkExtendedQuantizeLinearOp>;
+import_handler_map_["com.amd.quark"]["ExtendedDequantizeLinear"] =
+    &onnx_mlir::detail::FrontendGenImpl::buildOperation<
+        mlir::AMDQuarkExtendedDequantizeLinearOp>;
 import_handler_map_["com.amd.xcompiler"]["FusedEltwise"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XCOMPILERFusedEltwiseOp>;
 import_handler_map_["com.amd.xcompiler"]["DepthwiseConv"] = 
@@ -1063,6 +1071,8 @@ dialect_op_opsets_map_["com.amd.xfe"]["MaxPool"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["Resize"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["SpaceToDepth"] = {1};
 dialect_op_opsets_map_["com.amd.quark"]["BFPQuantizeDequantize"] = {1};
+dialect_op_opsets_map_["com.amd.quark"]["ExtendedQuantizeLinear"] = {1};
+dialect_op_opsets_map_["com.amd.quark"]["ExtendedDequantizeLinear"] = {1};
 dialect_op_opsets_map_["com.amd.xcompiler"]["FusedEltwise"] = {1};
 dialect_op_opsets_map_["com.amd.xcompiler"]["DepthwiseConv"] = {1};
 dialect_op_opsets_map_["com.amd.xcompiler"]["Requantize"] = {1};
