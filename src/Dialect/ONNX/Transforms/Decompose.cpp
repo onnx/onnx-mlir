@@ -4515,10 +4515,25 @@ struct DecomposeLSTMSeqUnrollPattern : public OpRewritePattern<ONNXLSTMOp> {
   LogicalResult matchAndRewrite(
       ONNXLSTMOp lstmOp, PatternRewriter &rewriter) const final {
     // Guards:
+    //   - direction must be "forward": the unroll below chains Y_h/Y_c linearly
+    //     in time order, which is incorrect for "reverse" (time order flipped)
+    //     and structurally impossible for "bidirectional" (Y has a separate
+    //     num_directions axis fed by a second, reversed pass).
     //   - layout must be 0 so dim 0 of X is the sequence axis we slice on.
     //   - X must have a static seq_len > 1.
     //   - sequence_lens input must be absent (uniform sequence lengths only).
     // X has shape [seq_len, batch_size, input_size]
+    if (lstmOp.getDirection() != "forward") {
+      return rewriter.notifyMatchFailure(
+          lstmOp, "only direction=forward is supported");
+    }
+    // num_directions == 2 also mean direction="bidirectional"
+    auto wType = mlir::dyn_cast<ShapedType>(lstmOp.getW().getType());
+    if (wType && wType.hasRank() && wType.getRank() >= 1 &&
+        !wType.isDynamicDim(0) && wType.getDimSize(0) != 1) {
+      return rewriter.notifyMatchFailure(
+          lstmOp, "num_directions=2 (direction=bidirectional) is unsupported");
+    }
     if (lstmOp.getLayout() != 0) {
       return rewriter.notifyMatchFailure(lstmOp, "layout must be 0");
     }
