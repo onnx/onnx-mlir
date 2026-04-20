@@ -227,11 +227,13 @@ LogicalResult AxisAttributeTransformer<ONNXSliceOp>::transformAttributes(
 
   SmallVector<int64_t> axes = extractIntValues(axesAttr);
 
-  // Skip pushing transpose through Slice when slicing on axis 0.
-  // Preserves Transpose→Slice(axis=0) patterns (e.g. Q/K/V head splitting)
-  // to match golden xcompiler behavior where this chain is kept intact.
-  for (int64_t axis : axes) {
-    int64_t normAxis = axis < 0 ? axis + rank : axis;
+  // Skip pushing transpose through Slice when slicing on a single axis that
+  // is axis 0. This preserves Transpose→Slice(axis=0) patterns used in Q/K/V
+  // head splitting to match golden xcompiler behavior.
+  // Multi-axis slices (e.g. full-rank [0,1,2,3] for cropping) are still
+  // optimized.
+  if (axes.size() == 1) {
+    int64_t normAxis = axes[0] < 0 ? axes[0] + rank : axes[0];
     if (normAxis == 0)
       return failure();
   }
