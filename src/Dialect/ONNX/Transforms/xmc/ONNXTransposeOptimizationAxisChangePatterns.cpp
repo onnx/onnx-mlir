@@ -227,53 +227,58 @@ LogicalResult AxisAttributeTransformer<ONNXSliceOp>::transformAttributes(
 
   SmallVector<int64_t> axes = extractIntValues(axesAttr);
 
-  // Skip pushing transpose through Slice when the ONLY active slice dimension
-  // (the one that actually narrows the data) maps to axis 0 in pre-transpose
-  // space. This preserves Transpose→Slice patterns used for Q/K/V head
-  // splitting to match golden xcompiler behavior.
-  // If multiple dimensions are actively sliced, this is a general crop and
-  // the optimization is allowed.
+  // Skip when Slice only narrows axis 0 and all other axes are full-range.
+  // This preserves Transpose→Slice(axis=0) patterns (e.g. Q/K/V splitting).
   {
-    auto inputType =
-        dyn_cast<RankedTensorType>(op.getOperand(0).getType());
-    auto startsOpt = [&]() -> std::optional<SmallVector<int64_t>> {
-      auto c = op.getStarts().getDefiningOp<ONNXConstantOp>();
-      if (!c) return std::nullopt;
-      auto a = dyn_cast_or_null<DenseElementsAttr>(c.getValueAttr());
-      if (!a) return std::nullopt;
-      return SmallVector<int64_t>(extractIntValues(a));
-    }();
-    auto endsOpt = [&]() -> std::optional<SmallVector<int64_t>> {
-      auto c = op.getEnds().getDefiningOp<ONNXConstantOp>();
-      if (!c) return std::nullopt;
-      auto a = dyn_cast_or_null<DenseElementsAttr>(c.getValueAttr());
-      if (!a) return std::nullopt;
-      return SmallVector<int64_t>(extractIntValues(a));
-    }();
-    if (inputType && startsOpt && endsOpt &&
-        startsOpt->size() == axes.size() && endsOpt->size() == axes.size()) {
-      auto inputShape = inputType.getShape();
-      SmallVector<int64_t> invPerm(perm.size());
-      for (size_t i = 0; i < perm.size(); ++i)
-        invPerm[perm[i]] = i;
-      bool axis0IsActive = false;
-      int activeCount = 0;
-      for (size_t i = 0; i < axes.size(); ++i) {
-        int64_t axis = axes[i] < 0 ? axes[i] + rank : axes[i];
-        if (axis < 0 || axis >= rank)
-          continue;
-        int64_t start = (*startsOpt)[i];
-        int64_t end = (*endsOpt)[i];
-        int64_t dimSize = inputShape[axis];
-        bool isFullRange = (start == 0 && (end >= dimSize || end < 0));
-        if (!isFullRange) {
-          activeCount++;
-          if (invPerm[axis] == 0)
-            axis0IsActive = true;
+    auto sliceInputType =
+        dyn_cast<RankedTensorType>(op.getResult().getType());
+    auto startsConst = op.getStarts().getDefiningOp<ONNXConstantOp>();
+    auto endsConst = op.getEnds().getDefiningOp<ONNXConstantOp>();
+    if (sliceInputType && startsConst && endsConst) {
+      auto startsAttr =
+          dyn_cast_or_null<DenseElementsAttr>(startsConst.getValueAttr());
+      auto endsAttr =
+          dyn_cast_or_null<DenseElementsAttr>(endsConst.getValueAttr());
+      if (startsAttr && endsAttr) {
+        auto starts = extractIntValues(startsAttr);
+        auto ends = extractIntValues(endsAttr);
+        if (starts.size() == axes.size() && ends.size() == axes.size()) {
+          // Use output shape of the original Slice (before operand swap)
+          // to determine which axes are narrowed. For axes not listed,
+          // they are implicitly full-range.
+          // Since axes reference the Slice's original input (post-transpose),
+          // reconstruct that shape from pre-transpose shape + perm.
+          auto preTransType =
+              dyn_cast<RankedTensorType>(op.getOperand(0).getType());
+          if (preTransType) {
+            auto preShape = preTransType.getShape();
+            SmallVector<int64_t> postShape(rank);
+            for (int64_t i = 0; i < rank; ++i)
+              postShape[i] = preShape[perm[i]];
+
+            bool axis0Narrowed = false;
+            bool otherNarrowed = false;
+            for (size_t i = 0; i < axes.size(); ++i) {
+              int64_t axis = axes[i] < 0 ? axes[i] + rank : axes[i];
+              if (axis < 0 || axis >= rank)
+                continue;
+              int64_t dimSize = postShape[axis];
+              int64_t s = starts[i] < 0 ? starts[i] + dimSize : starts[i];
+              int64_t e = ends[i] < 0 ? ends[i] + dimSize : ends[i];
+              if (e > dimSize) e = dimSize;
+              bool isFullRange = (s == 0 && e >= dimSize);
+              if (!isFullRange) {
+                if (axis == 0)
+                  axis0Narrowed = true;
+                else
+                  otherNarrowed = true;
+              }
+            }
+            if (axis0Narrowed && !otherNarrowed)
+              return failure();
+          }
         }
       }
-      if (axis0IsActive && activeCount == 1)
-        return failure();
     }
   }
 
