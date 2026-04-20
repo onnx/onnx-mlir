@@ -227,12 +227,12 @@ LogicalResult AxisAttributeTransformer<ONNXSliceOp>::transformAttributes(
 
   SmallVector<int64_t> axes = extractIntValues(axesAttr);
 
-  // Skip pushing transpose through Slice when the slice selects a sub-range
-  // on a dimension that maps to axis 0 after the transpose. This preserves
-  // Transpose→Slice patterns used for Q/K/V head splitting to match golden
-  // xcompiler behavior.
-  // Full-range axes (start=0, end=dimSize, step=1) are not considered as
-  // "active" slice dimensions -- only axes that actually narrow the data.
+  // Skip pushing transpose through Slice when the ONLY active slice dimension
+  // (the one that actually narrows the data) maps to axis 0 in pre-transpose
+  // space. This preserves Transpose→Slice patterns used for Q/K/V head
+  // splitting to match golden xcompiler behavior.
+  // If multiple dimensions are actively sliced, this is a general crop and
+  // the optimization is allowed.
   {
     auto inputType =
         dyn_cast<RankedTensorType>(op.getOperand(0).getType());
@@ -256,6 +256,8 @@ LogicalResult AxisAttributeTransformer<ONNXSliceOp>::transformAttributes(
       SmallVector<int64_t> invPerm(perm.size());
       for (size_t i = 0; i < perm.size(); ++i)
         invPerm[perm[i]] = i;
+      bool axis0IsActive = false;
+      int activeCount = 0;
       for (size_t i = 0; i < axes.size(); ++i) {
         int64_t axis = axes[i] < 0 ? axes[i] + rank : axes[i];
         if (axis < 0 || axis >= rank)
@@ -264,9 +266,14 @@ LogicalResult AxisAttributeTransformer<ONNXSliceOp>::transformAttributes(
         int64_t end = (*endsOpt)[i];
         int64_t dimSize = inputShape[axis];
         bool isFullRange = (start == 0 && (end >= dimSize || end < 0));
-        if (!isFullRange && invPerm[axis] == 0)
-          return failure();
+        if (!isFullRange) {
+          activeCount++;
+          if (invPerm[axis] == 0)
+            axis0IsActive = true;
+        }
       }
+      if (axis0IsActive && activeCount == 1)
+        return failure();
     }
   }
 
