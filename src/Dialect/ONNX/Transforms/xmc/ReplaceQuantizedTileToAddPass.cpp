@@ -15,12 +15,15 @@
 #include "llvm/ADT/SmallVector.h"
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Quant/IR/Quant.h"
 #include "mlir/Dialect/Quant/IR/QuantTypes.h"
 #include "mlir/Dialect/Traits.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/PatternMatch.h"
+#include "mlir/IR/TypeUtilities.h"
 #include "mlir/Pass/Pass.h"
+#include "mlir/Support/LLVM.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include <cmath>
 
@@ -138,6 +141,82 @@ struct ReplaceQuantizedTileToAddPattern : public OpRewritePattern<ONNXTileOp> {
   }
 };
 
+class ReplaceIntegerTileToQuantizedTile : public OpRewritePattern<ONNXTileOp> {
+public:
+  using OpRewritePattern<ONNXTileOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXTileOp tileOp, PatternRewriter &rewriter) const override {
+    auto inputType =
+        dyn_cast<RankedTensorType>(tileOp->getOperand(0).getType());
+    auto outputType =
+        dyn_cast<RankedTensorType>(tileOp->getResult(0).getType());
+    if (!inputType || !outputType)
+      return rewriter.notifyMatchFailure(
+          tileOp, "Not RankedTensorType input/output");
+
+    auto inElemType = inputType.getElementType();
+    if (!isa<IntegerType>(inElemType))
+      return rewriter.notifyMatchFailure(tileOp, "Not an integer input");
+
+    Value defRes = tileOp->getOperand(0);
+    auto *defOp = defRes.getDefiningOp();
+    while (isa_and_present<ONNXReshapeOp, ONNXCastOp>(defOp)) {
+      defRes = defOp->getOperand(0);
+      defOp = defRes.getDefiningOp();
+    }
+
+    auto topK = dyn_cast_if_present<ONNXTopKOp>(defOp);
+    if (!topK)
+      return rewriter.notifyMatchFailure(topK, "Unable to find TopK");
+
+    if (auto topKResult = dyn_cast<OpResult>(defRes);
+        topKResult && topKResult.getResultNumber() == 2)
+      return rewriter.notifyMatchFailure(
+          topK, "Not the indices result of TopK");
+
+    auto topKQType = dyn_cast<quant::UniformQuantizedType>(
+        getElementTypeOrSelf(topK->getOperand(0).getType()));
+    if (!topKQType)
+      return rewriter.notifyMatchFailure(topK, "TopK input not Quantized type");
+    auto storageType = topKQType.getStorageType();
+
+    // == Rewrite section == //
+    // -> TopK -> Cast -> [Reshape] -dq-> Tile -q->
+
+    auto castOutputType = topK.getIndices().getType().clone(storageType);
+    Value value = rewriter.create<ONNXCastOp>(
+        tileOp.getLoc(), castOutputType, topK.getIndices(), 1, storageType);
+    if (inputType.getShape() != castOutputType.getShape()) {
+      auto shape = rewriter.create<ONNXConstantOp>(tileOp.getLoc(),
+          RankedTensorType::get(inputType.getRank(), rewriter.getI64Type()),
+          nullptr, rewriter.getI64TensorAttr(inputType.getShape()), nullptr,
+          nullptr, nullptr, nullptr, nullptr, nullptr);
+      value = rewriter.create<ONNXReshapeOp>(
+          tileOp.getLoc(), inputType.clone(storageType), value, shape);
+    }
+
+    bool isSigned =
+        storageType.isSignedInteger() || storageType.isSignlessInteger();
+    auto qType = quant::UniformQuantizedType::get(isSigned, storageType,
+        topKQType.getExpressedType(), 1.0, 0,
+        quant::UniformQuantizedType::getDefaultMinimumForInteger(
+            isSigned, storageType.getIntOrFloatBitWidth()),
+        quant::UniformQuantizedType::getDefaultMaximumForInteger(
+            isSigned, storageType.getIntOrFloatBitWidth()));
+    value = rewriter.create<quant::StorageCastOp>(
+        tileOp.getLoc(), inputType.clone(qType), value);
+
+    value = rewriter.create<ONNXTileOp>(
+        tileOp.getLoc(), outputType.clone(qType), value, tileOp.getRepeats());
+    value = rewriter.create<quant::StorageCastOp>(
+        tileOp.getLoc(), outputType.clone(storageType), value);
+    rewriter.replaceOp(tileOp, value);
+
+    return success();
+  }
+};
+
 } // namespace
 
 namespace onnx_mlir {
@@ -157,11 +236,10 @@ struct ReplaceQuantizedTileToAddPass
     MLIRContext *context = &getContext();
     RewritePatternSet patterns(context);
     patterns.add<ReplaceQuantizedTileToAddPattern>(context);
+    patterns.add<ReplaceIntegerTileToQuantizedTile>(context);
 
     GreedyRewriteConfig config;
-    config.useTopDownTraversal = true;
     config.enableRegionSimplification = GreedySimplifyRegionLevel::Disabled;
-    config.maxIterations = GreedyRewriteConfig::kNoLimit;
     ResultNamesUpdater rnUpdater;
     config.listener = &rnUpdater;
 

@@ -40,3 +40,24 @@ func.func @tile_stays_when_not_broadcastable(
   // CHECK: "onnx.Tile"(%arg0,
   // CHECK-NOT: "onnx.Add"
 }
+
+// -----
+
+func.func @topk_tile(%arg0: tensor<1x3600x!quant.uniform<u16:f32, 2.3757114831823856E-4:51533>>, %arg1: tensor<1x3600x4x!quant.uniform<u16:f32, 2.1844083676114678E-5:2948>>) -> tensor<1x300x4x!quant.uniform<u16:f32, 2.1844083676114678E-5:2948>> {
+  %0 = onnx.Constant dense<300> : tensor<1xi64>
+  %1 = onnx.Constant dense<[1, 300, 1]> : tensor<3xi64>
+  %2 = onnx.Constant dense<[1, 1, 4]> : tensor<3xi64>
+  %Values, %Indices = "onnx.TopK"(%arg0, %0) {axis = 1 : si64, largest = 1 : si64, sorted = 1 : si64} : (tensor<1x3600x!quant.uniform<u16:f32, 2.3757114831823856E-4:51533>>, tensor<1xi64>) -> (tensor<1x300xf32>, tensor<1x300xi64>)
+  %3 = "onnx.Cast"(%Indices) {saturate = 1 : si64, to = i32} : (tensor<1x300xi64>) -> tensor<1x300xi32>
+  %4 = "onnx.Reshape"(%3, %1) {allowzero = 0 : si64} : (tensor<1x300xi32>, tensor<3xi64>) -> tensor<1x300x1xi32>
+  %5 = "onnx.Tile"(%4, %2) : (tensor<1x300x1xi32>, tensor<3xi64>) -> tensor<1x300x4xi32>
+  %6 = "onnx.GatherElements"(%arg1, %5) {axis = 1 : si64} : (tensor<1x3600x4x!quant.uniform<u16:f32, 2.1844083676114678E-5:2948>>, tensor<1x300x4xi32>) -> tensor<1x300x4x!quant.uniform<u16:f32, 2.1844083676114678E-5:2948>>
+  return %6 : tensor<1x300x4x!quant.uniform<u16:f32, 2.1844083676114678E-5:2948>>
+}
+
+// CHECK-LABEL: @topk_tile
+// CHECK-NOT: "onnx.Tile"
+// CHECK: "onnx.Add"
+// CHECK-SAME: (tensor<1x300x1x!quant.uniform<u16:f32, 1.000000e+00>>,
+// CHECK-SAME: tensor<1x300x4x!quant.uniform<u16:f32, 1.000000e+00>>)
+// CHECK-SAME: -> tensor<1x300x4x!quant.uniform<u16:f32, 1.000000e+00>>
