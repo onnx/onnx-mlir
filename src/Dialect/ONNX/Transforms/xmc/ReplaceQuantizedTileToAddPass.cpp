@@ -32,22 +32,16 @@ using namespace mlir;
 
 namespace {
 
-static bool hasMatchingUniformQuant(Type tensorTypeA, Type tensorTypeB) {
-  auto ra = dyn_cast<RankedTensorType>(tensorTypeA);
-  auto rb = dyn_cast<RankedTensorType>(tensorTypeB);
-  if (!ra || !rb)
-    return false;
-  auto qa = dyn_cast<quant::UniformQuantizedType>(ra.getElementType());
-  auto qb = dyn_cast<quant::UniformQuantizedType>(rb.getElementType());
-  if (!qa || !qb)
-    return false;
-  return std::fabs(qa.getScale() - qb.getScale()) <= 1e-6 &&
-         qa.getZeroPoint() == qb.getZeroPoint();
+bool hasMatchingUniformQuant(
+    quant::UniformQuantizedType typeA, quant::UniformQuantizedType typeB) {
+  return typeA.getStorageType() == typeB.getStorageType() &&
+         std::fabs(typeA.getScale() - typeB.getScale()) <= 1e-6 &&
+         typeA.getZeroPoint() == typeB.getZeroPoint();
 }
 
 /// Returns true if `lhs` and `rhs` are NumPy-style broadcast-compatible and the
 /// broadcast result equals `expected` (same rules as onnx.Add broadcast).
-static bool broadcastMatchesExpectedShape(
+bool broadcastMatchesExpectedShape(
     ArrayRef<int64_t> lhs, ArrayRef<int64_t> rhs, ArrayRef<int64_t> expected) {
   SmallVector<int64_t> bcastShape;
   if (!OpTrait::util::getBroadcastedShape(lhs, rhs, bcastShape))
@@ -71,18 +65,20 @@ struct ReplaceQuantizedTileToAddPattern : public OpRewritePattern<ONNXTileOp> {
     Type outElem = outType.getElementType();
     auto inQuant = dyn_cast<quant::UniformQuantizedType>(inElem);
     auto outQuant = dyn_cast<quant::UniformQuantizedType>(outElem);
-    if (inQuant != nullptr || outQuant != nullptr) {
-      if (!inQuant || !outQuant)
+
+    if (isa<IntegerType>(inElem) || isa<IntegerType>(outElem)) {
+      return rewriter.notifyMatchFailure(
+          tileOp, "Only float or quantized type supported");
+    } else if (static_cast<bool>(inQuant) != static_cast<bool>(outQuant)) {
+      return rewriter.notifyMatchFailure(
+          tileOp, "mixed quant and non-quant not supported");
+    } else if (inQuant) {
+      if (!hasMatchingUniformQuant(inQuant, outQuant))
         return rewriter.notifyMatchFailure(tileOp,
-            "input and output must both be uniformly quantized, or both "
-            "non-quantized (mixed quant and non-quant is not supported)");
-      if (!hasMatchingUniformQuant(input.getType(), tileOp.getType()))
-        return rewriter.notifyMatchFailure(tileOp,
-            "uniform quant scale and zero_point must match on input and "
-            "output");
+            "quant scale and zero_point must match on input and output");
     } else if (inElem != outElem) {
-      return rewriter.notifyMatchFailure(tileOp,
-          "non-quantized input and output element types must be identical");
+      return rewriter.notifyMatchFailure(
+          tileOp, "non-quantized input and output element types must be same");
     }
 
     int64_t rank = inType.getRank();
