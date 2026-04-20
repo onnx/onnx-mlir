@@ -230,8 +230,7 @@ LogicalResult AxisAttributeTransformer<ONNXSliceOp>::transformAttributes(
   // Skip when Slice only narrows axis 0 and all other axes are full-range.
   // This preserves Transpose→Slice(axis=0) patterns (e.g. Q/K/V splitting).
   {
-    auto sliceInputType =
-        dyn_cast<RankedTensorType>(op.getResult().getType());
+    auto sliceInputType = dyn_cast<RankedTensorType>(op.getResult().getType());
     auto startsConst = op.getStarts().getDefiningOp<ONNXConstantOp>();
     auto endsConst = op.getEnds().getDefiningOp<ONNXConstantOp>();
     if (sliceInputType && startsConst && endsConst) {
@@ -265,7 +264,8 @@ LogicalResult AxisAttributeTransformer<ONNXSliceOp>::transformAttributes(
               int64_t dimSize = postShape[axis];
               int64_t s = starts[i] < 0 ? starts[i] + dimSize : starts[i];
               int64_t e = ends[i] < 0 ? ends[i] + dimSize : ends[i];
-              if (e > dimSize) e = dimSize;
+              if (e > dimSize)
+                e = dimSize;
               bool isFullRange = (s == 0 && e >= dimSize);
               if (!isFullRange) {
                 if (axis == 0)
