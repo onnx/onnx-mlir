@@ -4726,9 +4726,10 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
     bool enableInstanceNormDecompose, bool enableGroupNormDecompose,
     bool enableMatmulNBitsDecompose, bool enableGroupQueryAttentionDecompose,
     bool enableSplitToSliceDecompose, bool enableConcatFuse,
-    bool enableLstmSeqDecompose) {
+    bool enableLstmSeqDecompose, bool disableGenericDecompositions) {
   MLIRContext *context = patterns.getContext();
-  populateWithGenerated(patterns);
+  if (!disableGenericDecompositions)
+    populateWithGenerated(patterns);
   if (enableConvTransposeDecompose)
     convtranspose::populateWithGenerated(patterns);
   if (enableConvTransposeDecomposeToPhasedConv)
@@ -4743,36 +4744,43 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
   }
   if (enableSplitToSliceDecompose)
     patterns.insert<SplitToSlicePattern>(context);
-  patterns.insert<onnx_mlir::DecomposeEinsumPattern>(context);
+  if (!disableGenericDecompositions)
+    patterns.insert<onnx_mlir::DecomposeEinsumPattern>(context);
   if (enableConcatFuse)
     patterns.insert<ConcatFusePattern>(context);
-  patterns.insert<DecomposeHardSwishPattern>(context);
-  // Decompose CustomOp FusedMatMul introduced by onnxruntime:
-  // https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#com.microsoft.FusedMatMul
-  patterns.insert<CustomOpFuseMatMulPattern>(context);
-  patterns.insert<CustomOpMicrosoftQDquantizeLinear<ONNXQuantizeLinearOp>>(
-      context, "QuantizeLinear");
-  patterns.insert<CustomOpMicrosoftQDquantizeLinear<ONNXDequantizeLinearOp>>(
-      context, "DequantizeLinear");
-  patterns.insert<CustomOpMicrosoftToSingleOnnxOp<ONNXGeluOp>>(context, "Gelu");
-  patterns.insert<MicrosoftBiasGelu>(context);
-  patterns.insert<MicrosoftFusedConv>(context);
-  patterns.insert<MicrosoftSkipLayerNorm>(context);
-  patterns.insert<SimplifiedLayerNorm>(context);
-  patterns.insert<MicrosoftSkipSimplifiedLayerNorm>(context);
+  if (!disableGenericDecompositions) {
+    patterns.insert<DecomposeHardSwishPattern>(context);
+    // Decompose CustomOp FusedMatMul introduced by onnxruntime:
+    // https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#com.microsoft.FusedMatMul
+    patterns.insert<CustomOpFuseMatMulPattern>(context);
+    patterns.insert<CustomOpMicrosoftQDquantizeLinear<ONNXQuantizeLinearOp>>(
+        context, "QuantizeLinear");
+    patterns.insert<CustomOpMicrosoftQDquantizeLinear<ONNXDequantizeLinearOp>>(
+        context, "DequantizeLinear");
+    patterns.insert<CustomOpMicrosoftToSingleOnnxOp<ONNXGeluOp>>(
+        context, "Gelu");
+    patterns.insert<MicrosoftBiasGelu>(context);
+    patterns.insert<MicrosoftFusedConv>(context);
+    patterns.insert<MicrosoftSkipLayerNorm>(context);
+    patterns.insert<SimplifiedLayerNorm>(context);
+    patterns.insert<MicrosoftSkipSimplifiedLayerNorm>(context);
+  }
   if (enableGroupQueryAttentionDecompose)
     patterns.insert<MicrosoftGroupQueryAttention>(context);
-  patterns.insert<MicrosoftRotaryEmbedding>(context);
+  if (!disableGenericDecompositions)
+    patterns.insert<MicrosoftRotaryEmbedding>(context);
   if (enableMatmulNBitsDecompose)
     patterns.insert<MicrosoftMatmulNBits>(context);
-  patterns.insert<DecomposeSlicePadPattern>(context);
-  patterns.insert<DecomposeScatterNDPattern>(context);
-  patterns.insert<SoftmaxCrossEntropyPattern>(context);
-  patterns.insert<SumToAddPattern>(context);
+  if (!disableGenericDecompositions) {
+    patterns.insert<DecomposeSlicePadPattern>(context);
+    patterns.insert<DecomposeScatterNDPattern>(context);
+    patterns.insert<SoftmaxCrossEntropyPattern>(context);
+    patterns.insert<SumToAddPattern>(context);
+  }
   if (enableSplitToSliceDecompose)
     patterns.insert<SplitToSlicePattern>(context);
   if (enableLstmSeqDecompose)
-    patterns.insert<DecomposeLSTMSeqUnrollPattern>(context);
+    patterns.insert<DecomposeLSTMSeqUnrollPattern>(context, PatternBenefit(0));
 
   //   for (const auto &op : onnx_mlir::decomposeOpsInONNX) {
   //     if (op == "HardSwish") {
