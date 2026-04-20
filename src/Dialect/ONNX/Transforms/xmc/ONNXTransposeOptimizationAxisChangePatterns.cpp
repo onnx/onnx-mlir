@@ -227,15 +227,47 @@ LogicalResult AxisAttributeTransformer<ONNXSliceOp>::transformAttributes(
 
   SmallVector<int64_t> axes = extractIntValues(axesAttr);
 
-  // Skip pushing transpose through Slice when slicing on a single axis that
-  // is axis 0. This preserves Transpose→Slice(axis=0) patterns used in Q/K/V
-  // head splitting to match golden xcompiler behavior.
-  // Multi-axis slices (e.g. full-rank [0,1,2,3] for cropping) are still
-  // optimized.
-  if (axes.size() == 1) {
-    int64_t normAxis = axes[0] < 0 ? axes[0] + rank : axes[0];
-    if (normAxis == 0)
-      return failure();
+  // Skip pushing transpose through Slice when the slice selects a sub-range
+  // on a dimension that maps to axis 0 after the transpose. This preserves
+  // Transpose→Slice patterns used for Q/K/V head splitting to match golden
+  // xcompiler behavior.
+  // Full-range axes (start=0, end=dimSize, step=1) are not considered as
+  // "active" slice dimensions -- only axes that actually narrow the data.
+  {
+    auto inputType =
+        dyn_cast<RankedTensorType>(op.getOperand(0).getType());
+    auto startsOpt = [&]() -> std::optional<SmallVector<int64_t>> {
+      auto c = op.getStarts().getDefiningOp<ONNXConstantOp>();
+      if (!c) return std::nullopt;
+      auto a = dyn_cast_or_null<DenseElementsAttr>(c.getValueAttr());
+      if (!a) return std::nullopt;
+      return SmallVector<int64_t>(extractIntValues(a));
+    }();
+    auto endsOpt = [&]() -> std::optional<SmallVector<int64_t>> {
+      auto c = op.getEnds().getDefiningOp<ONNXConstantOp>();
+      if (!c) return std::nullopt;
+      auto a = dyn_cast_or_null<DenseElementsAttr>(c.getValueAttr());
+      if (!a) return std::nullopt;
+      return SmallVector<int64_t>(extractIntValues(a));
+    }();
+    if (inputType && startsOpt && endsOpt &&
+        startsOpt->size() == axes.size() && endsOpt->size() == axes.size()) {
+      auto inputShape = inputType.getShape();
+      SmallVector<int64_t> invPerm(perm.size());
+      for (size_t i = 0; i < perm.size(); ++i)
+        invPerm[perm[i]] = i;
+      for (size_t i = 0; i < axes.size(); ++i) {
+        int64_t axis = axes[i] < 0 ? axes[i] + rank : axes[i];
+        if (axis < 0 || axis >= rank)
+          continue;
+        int64_t start = (*startsOpt)[i];
+        int64_t end = (*endsOpt)[i];
+        int64_t dimSize = inputShape[axis];
+        bool isFullRange = (start == 0 && (end >= dimSize || end < 0));
+        if (!isFullRange && invPerm[axis] == 0)
+          return failure();
+      }
+    }
   }
 
   // Validate axes is not empty
