@@ -69,7 +69,8 @@ void addXmcMlirPasses(mlir::PassManager &pm, OnnxToMlirOptions opts) {
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createCombineTransposePairPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceNDimTransposePass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createTransfer5dStridedSliceTo4d());
-  //pm.addNestedPass<func::FuncOp>(onnx_mlir::createTransferOpShapeTo4dPass()); note: architecture specific pass. Not needed for AIE4. note: architecture specific pass. Not needed for AIE4.
+  // Note: architecture specific pass. Not needed for AIE4.
+  // pm.addNestedPass<func::FuncOp>(onnx_mlir::createTransferOpShapeTo4dPass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createBatchReductionToReshapeReductionPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceAdjacentOpPass());
