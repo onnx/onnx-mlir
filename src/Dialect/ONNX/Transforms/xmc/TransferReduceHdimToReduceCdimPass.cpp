@@ -67,6 +67,16 @@ bool isReduceCompatibleElementType(mlir::Type elementType) {
          mlir::isa<mlir::quant::QuantizedType>(elementType);
 }
 
+/// Like isReduceCompatibleElementType but also accepts plain integer types,
+/// for the rank<4 reshape-to-last-axis pattern that operates on the data
+/// shape only (no arithmetic semantics).  Needed for Cast(int->int)-wrapped
+/// reductions (e.g. i32 -> i64 accumulation in front of ReduceSum).
+bool isReshapeShapingCompatibleElementType(mlir::Type elementType) {
+  return isReduceCompatibleElementType(elementType) ||
+         mlir::isa<mlir::IntegerType>(elementType);
+}
+
+
 /// Extract axes from a ReduceSum/ReduceMean op's `axes` operand (must be a
 /// constant).  Returns std::nullopt if the operand is missing or non-constant.
 template <typename ONNX_OP>
@@ -389,6 +399,132 @@ struct PadReduceTo4DPattern : public mlir::OpRewritePattern<ONNX_OP> {
   }
 }; // struct PadReduceTo4DPattern
 
+
+//===----------------------------------------------------------------------===//
+// MoveReductionToLastAxisPattern
+//
+// Rank-3 ReduceSum/ReduceMean whose axis is NOT already the last one and
+// whose last dim is size-1 -> rewrite as a swap-reshape so the reduction is
+// on the last axis.  Also walks through an optional upstream Cast(int->int)
+// so the reshape lands on the original (pre-cast) input -- critical for
+// xcompiler-mlir's CastReduceSumFusion to still strip that cast.
+//
+// Before:
+//   [optional]   data        : rank-3, e.g. [B, N, 1]
+//   [optional]   Cast(int->int)
+//                ReduceSum axis=[a] keepdims=k     (a != rank-1, dim[rank-1]=1)
+//   [optional]   Cast(int->quant)
+//
+// After:
+//                Reshape (on real data)            : [B, N, 1] -> [B, 1, N]
+//   [optional]   Cast(int->int) re-emitted         : on swapped shape
+//                ReduceSum axis=[rank-1] keepdims=k (output shape preserved)
+//   [optional]   Cast(int->quant) (untouched)
+//
+// Match preconditions (kept narrow on purpose):
+//   - rank == 3, single axis, axis != rank-1
+//   - inputShape[rank-1] == 1 (so the swap is a free view)
+//   - inputShape[axis] != 1 (otherwise reduction is degenerate)
+//   - element type is float / quantized / integer
+//   - input has static shape
+//   - upstream is NOT already our own swap-reshape (idempotency: after the
+//     rewrite the new ReduceSum has axis = rank-1, so it cannot rematch)
+//===----------------------------------------------------------------------===//
+template <typename ONNX_OP>
+struct MoveReductionToLastAxisPattern : public mlir::OpRewritePattern<ONNX_OP> {
+  using mlir::OpRewritePattern<ONNX_OP>::OpRewritePattern;
+
+  mlir::LogicalResult matchAndRewrite(
+      ONNX_OP op, mlir::PatternRewriter &rewriter) const override {
+
+    mlir::Value input = op.getData();
+    auto inputType = mlir::dyn_cast<mlir::RankedTensorType>(input.getType());
+    if (!inputType || !inputType.hasStaticShape())
+      return mlir::failure();
+    auto inputShape = getShape(input);
+    if (inputShape.size() != 3)
+      return mlir::failure();
+
+    if (!isReshapeShapingCompatibleElementType(inputType.getElementType()))
+      return mlir::failure();
+
+    auto axesOpt = getConstantAxes(op);
+    if (!axesOpt || axesOpt->size() != 1)
+      return mlir::failure();
+    int64_t axis = normalizeAxis((*axesOpt)[0], 3);
+
+    int64_t lastAxis = 2;
+    if (axis == lastAxis)
+      return mlir::failure();
+
+    if (inputShape[lastAxis] != 1)
+      return mlir::failure();
+    if (inputShape[axis] == 1)
+      return mlir::failure();
+
+    mlir::Location loc = op.getLoc();
+
+    // Walk through optional Cast(int->int) accumulation cast so the
+    // reshape lands on the real input; CastReduceSumFusion can then still
+    // detect and strip the cast at XIR conversion time.
+    mlir::Value realInput = input;
+    mlir::ONNXCastOp upCast = nullptr;
+    if (auto cast = input.template getDefiningOp<mlir::ONNXCastOp>()) {
+      auto castInType =
+          mlir::dyn_cast<mlir::RankedTensorType>(cast.getInput().getType());
+      if (castInType && castInType.hasStaticShape() &&
+          castInType.getShape() == inputType.getShape()) {
+        auto castInElem = castInType.getElementType();
+        auto castOutElem = inputType.getElementType();
+        if (mlir::isa<mlir::IntegerType>(castInElem) &&
+            mlir::isa<mlir::IntegerType>(castOutElem)) {
+          upCast = cast;
+          realInput = cast.getInput();
+        }
+      }
+    }
+
+    // Compute swap-target shape: swap reduction axis with last axis.
+    llvm::SmallVector<int64_t> swappedShape(inputShape.begin(),
+        inputShape.end());
+    std::swap(swappedShape[axis], swappedShape[lastAxis]);
+
+    // Idempotency: skip if the immediate predecessor of `realInput` is
+    // already our swap-reshape with the same target shape (would loop).
+    if (auto upReshape =
+            realInput.template getDefiningOp<mlir::ONNXReshapeOp>()) {
+      auto outT = mlir::dyn_cast<mlir::RankedTensorType>(
+          upReshape.getReshaped().getType());
+      if (outT && outT.hasStaticShape() &&
+          llvm::SmallVector<int64_t>(outT.getShape()) == swappedShape)
+        return mlir::failure();
+    }
+
+    // Step 1: leading Reshape on real input -> swapped shape
+    mlir::Value reshaped =
+        createReshape(rewriter, loc, realInput, swappedShape);
+
+    // Step 2: re-emit Cast(int->int) on the reshaped data, if present
+    mlir::Value newReduceInput = reshaped;
+    if (upCast) {
+      auto newCastType = mlir::RankedTensorType::get(
+          swappedShape, inputType.getElementType());
+      newReduceInput = rewriter.create<mlir::ONNXCastOp>(loc, newCastType,
+          reshaped, upCast.getSaturateAttr(), upCast.getToAttr());
+    }
+
+    // Step 3: re-emit ReduceSum/ReduceMean with axis = [last]
+    mlir::Value newAxes =
+        createInt64Const1D(rewriter, loc, {lastAxis});
+    auto newReduce = rewriter.create<ONNX_OP>(loc,
+        op.getReduced().getType(), newReduceInput, newAxes,
+        op.getKeepdimsAttr(), op.getNoopWithEmptyAxesAttr());
+
+    rewriter.replaceOp(op, newReduce.getReduced());
+    return mlir::success();
+  }
+}; // struct MoveReductionToLastAxisPattern
+
 } // namespace
 
 //===----------------------------------------------------------------------===//
@@ -418,6 +554,8 @@ struct TransferReduceHdimToReduceCdimPass
     // separate (similarly templated) pattern -- omitted here because the
     // companion TransferReduceMeanSumToConvPass also only handles the
     // newer ops.
+    patterns.add<MoveReductionToLastAxisPattern<mlir::ONNXReduceSumOp>>(context);
+    patterns.add<MoveReductionToLastAxisPattern<mlir::ONNXReduceMeanOp>>(context);
     patterns.add<PadReduceTo4DPattern<mlir::ONNXReduceSumOp>>(context);
     patterns.add<PadReduceTo4DPattern<mlir::ONNXReduceMeanOp>>(context);
     patterns.add<ReduceHdimToCdimPattern<mlir::ONNXReduceSumOp>>(context);
