@@ -126,6 +126,9 @@ int main(int argc, char *argv[]) {
       llvm::errs() << errorMessage << "\n";
     return rc;
   }
+  // TODO(tung): put allArgs into a module attribute, say "user_compile_options"
+  std::string allArgsStr = "";
+  module.setAttr("user_compile_options", StringAttr::get(context, allArgsStr));
   inputFileTiming.stop();
   return compileModule(module, context, outputBaseName, emissionTarget);
 }

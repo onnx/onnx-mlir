@@ -212,6 +212,98 @@ static void loadMLIR(std::string inputFilename, mlir::MLIRContext &context,
 }
 
 // Tailor LLVMIR to add features that cannot be done with MLIR LLVMIR.
+
+// Helper function to escape JSON strings.
+static std::string escapeJSON(const std::string &str) {
+  std::ostringstream oss;
+  for (char c : str) {
+    switch (c) {
+    case '"':
+      oss << "\\\"";
+      break;
+    case '\\':
+      oss << "\\\\";
+      break;
+    case '\b':
+      oss << "\\b";
+      break;
+    case '\f':
+      oss << "\\f";
+      break;
+    case '\n':
+      oss << "\\n";
+      break;
+    case '\r':
+      oss << "\\r";
+      break;
+    case '\t':
+      oss << "\\t";
+      break;
+    default:
+      if (c < 0x20) {
+        oss << "\\u" << std::hex << std::setw(4) << std::setfill('0')
+            << static_cast<int>(c);
+      } else {
+        oss << c;
+      }
+    }
+  }
+  return oss.str();
+}
+
+// Helper function to create compilation metadata as JSON string.
+static std::string createCompilationMetadataJSON() {
+  std::ostringstream json;
+  json << "{\n";
+
+  // Version information.
+  json << "  \"version\": {\n";
+  json << "    \"onnx_mlir\": \"" << escapeJSON(getOnnxMlirCommitVersion())
+       << "\",\n";
+  json << "    \"product\": \"" << escapeJSON(getProductFullVersion())
+       << "\"\n";
+  json << "  },\n";
+
+  // Compilation options.
+  json << "  \"compilation_options\": {\n";
+  json << "    \"target_triple\": \"" << escapeJSON(mtriple) << "\",\n";
+  json << "    \"target_arch\": \"" << escapeJSON(march) << "\",\n";
+  json << "    \"target_cpu\": \"" << escapeJSON(mcpu) << "\",\n";
+  json << "    \"optimization_level\": \"" << escapeJSON(getOptimizationLevelOption()) << "\",\n";
+  json << "    \"model_size\": \"" << escapeJSON(modelSizeStr[modelSize]) << "\",\n";
+  json << "    \"model_tag\": \"" << escapeJSON(modelTag) << "\",\n";
+  json << "    \"enable_parallel\": " << (enableParallel ? "true" : "false") << ",\n";
+  json << "    \"enable_simd\": " << (!disableSimdOption && OptimizationLevel == OptLevel::O3 ? "true" : "false") << ",\n";
+  json << "    \"enable_fast_math\": " << (enableFastMathOption ? "true" : "false") << ",\n";
+  json << "    \"store_constants_to_file\": " << (storeConstantsToFile ? "true" : "false");
+
+  // Accelerators.
+  if (!maccel.empty()) {
+    json << ",\n    \"accelerators\": [";
+    bool first = true;
+    for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
+      if (!first)
+        json << ", ";
+      first = false;
+      std::ostringstream versionNumber;
+      versionNumber << std::hex << accel->getVersionNumber();
+      json << "\"" << escapeJSON(accel->getName()) << "-0x" << versionNumber.str() << "\"";
+    }
+    json << "]";
+  }
+
+  json << "\n  }";
+
+  // Operation statistics (if available).
+  if (!ONNXOpStats.empty()) {
+    json << ",\n  \"operation_statistics\": \"" << escapeJSON(ONNXOpStats) << "\"";
+  }
+
+  json << "\n}\n";
+  return json.str();
+}
+
+
 static void tailorLLVMIR(llvm::Module &llvmModule) {
   llvm::LLVMContext &ctx = llvmModule.getContext();
   // Emit metadata "zos_le_char_mode" for z/OS. Use EBCDIC codepage by default.
@@ -249,6 +341,21 @@ static void tailorLLVMIR(llvm::Module &llvmModule) {
   llvmModule.addModuleFlag(llvm::Module::Warning, "Product Id",
       llvm::MDString::get(ctx, PRODUCT_ID));
 #endif
+
+  // Embed compilation metadata as a global constant string.
+  // This survives compilation to native code unlike module flags.
+  std::string metadataJSON = createCompilationMetadataJSON();
+  llvm::Constant *metadata = llvm::ConstantDataArray::getString(
+      ctx, metadataJSON, /*AddNull=*/true);
+  llvm::GlobalVariable *metadataGV = new llvm::GlobalVariable(
+      llvmModule, metadata->getType(), /*isConstant=*/true,
+      llvm::GlobalValue::ExternalLinkage, metadata,
+      "onnx_mlir_compilation_metadata");
+  metadataGV->setAlignment(llvm::Align(1));
+  
+  // Also add as module flag for bitcode/IR inspection.
+  llvmModule.addModuleFlag(llvm::Module::Warning, "onnx-mlir.compilation-metadata",
+      llvm::MDString::get(ctx, metadataJSON));
 
   // Annotate functions to be accessible from DLL on Windows.
 #ifdef _WIN32
