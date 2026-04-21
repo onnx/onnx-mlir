@@ -281,6 +281,114 @@ struct ReduceWdimToCdimPattern : public mlir::OpRewritePattern<ONNX_OP> {
   }
 };
 
+
+//===----------------------------------------------------------------------===//
+// PadReduceTo4DPattern
+//
+// Mirrors xcompiler's ReplaceQDQReductionPass::shape_to_4d for the rank<4 →
+// rank-4 promotion needed by the AIE reduction kernel.  For an
+// ONNX_OP whose input is rank-1, rank-2 or rank-3, this pattern:
+//
+//   1. Inserts a leading-1 reshape to promote the input to rank-4
+//   2. Shifts the axis attribute by (4 - rank) so it points at the same
+//      logical dim
+//   3. Flips keepdims=false to true so the new reduce stays rank-4
+//   4. Appends a trailing reshape to restore the original output shape
+//
+// After this pattern fires, the existing ReduceHdimToCdimPattern can fire on
+// the now-rank-4 reduce (when the shifted axis lands on 1) and emit the
+// transpose-sandwich, producing the same op chain xmodel emits.
+//
+// Match preconditions (kept narrow to avoid affecting unrelated reductions):
+//   - rank-1, rank-2, or rank-3 input (rank-4 already handled directly)
+//   - single axis (axis array size == 1)
+//   - axes operand is a static ONNXConstantOp
+//   - input element type is float or quantized (i64/i32 reductions need
+//     special Cast handling and are out of scope here)
+//   - input has static shape
+//   - the shifted axis lands on position 1 (NCHW H-dim) so a downstream
+//     ReduceHdimToCdimPattern can fire; otherwise we don't pad
+//   - input is not already a leading-1 reshape we inserted (idempotency)
+//===----------------------------------------------------------------------===//
+template <typename ONNX_OP>
+struct PadReduceTo4DPattern : public mlir::OpRewritePattern<ONNX_OP> {
+  using mlir::OpRewritePattern<ONNX_OP>::OpRewritePattern;
+
+  mlir::LogicalResult matchAndRewrite(
+      ONNX_OP op, mlir::PatternRewriter &rewriter) const override {
+
+    mlir::Value input = op.getData();
+    auto inputType = mlir::dyn_cast<mlir::RankedTensorType>(input.getType());
+    if (!inputType || !inputType.hasStaticShape())
+      return mlir::failure();
+    auto inputShape = getShape(input);
+    int64_t rank = inputShape.size();
+
+    if (rank >= 4 || rank < 1)
+      return mlir::failure();
+
+    if (!isReduceCompatibleElementType(inputType.getElementType()))
+      return mlir::failure();
+
+    auto axesOpt = getConstantAxes(op);
+    if (!axesOpt || axesOpt->size() != 1)
+      return mlir::failure();
+    int64_t axis = normalizeAxis((*axesOpt)[0], rank);
+    int64_t shift = 4 - rank;
+    int64_t newAxis = axis + shift;
+
+    // Only pad if the shifted axis lands on a position where the downstream
+    // shaping patterns can take over.  Currently that's axis==1 (matches
+    // ReduceHdimToCdimPattern after padding).
+    if (newAxis != 1)
+      return mlir::failure();
+
+    // Idempotency: skip if input is a leading-1-prepending reshape we already
+    // inserted (this would loop us forever).
+    if (auto upReshape =
+            input.template getDefiningOp<mlir::ONNXReshapeOp>()) {
+      auto inT = mlir::dyn_cast<mlir::RankedTensorType>(
+          upReshape.getData().getType());
+      auto outT = mlir::dyn_cast<mlir::RankedTensorType>(
+          upReshape.getReshaped().getType());
+      if (inT && outT && outT.getRank() == 4 && inT.getRank() < 4 &&
+          outT.getShape()[0] == 1)
+        return mlir::failure();
+    }
+
+    mlir::Location loc = op.getLoc();
+    auto outElemType =
+        mlir::cast<mlir::ShapedType>(op.getReduced().getType())
+            .getElementType();
+
+    // Step 1: pad input to rank-4 by prepending size-1 dims
+    llvm::SmallVector<int64_t> paddedShape(shift, 1);
+    paddedShape.insert(paddedShape.end(), inputShape.begin(), inputShape.end());
+    mlir::Value padded = createReshape(rewriter, loc, input, paddedShape);
+
+    // Step 2: re-emit the reduce with axis = [newAxis], keepdims = true
+    llvm::SmallVector<int64_t> reduceOutShape(paddedShape);
+    reduceOutShape[newAxis] = 1;
+    auto reduceOutType =
+        mlir::RankedTensorType::get(reduceOutShape, outElemType);
+
+    mlir::Value newAxes = createInt64Const1D(rewriter, loc, {newAxis});
+
+    auto trueKeepdims = mlir::IntegerAttr::get(
+        rewriter.getIntegerType(64, /*isSigned=*/true), 1);
+    auto newReduce = rewriter.create<ONNX_OP>(loc, reduceOutType, padded,
+        newAxes, trueKeepdims, op.getNoopWithEmptyAxesAttr());
+
+    // Step 3: trailing reshape to restore original output shape
+    auto origOutShape = getShape(op.getReduced());
+    mlir::Value result = createReshape(rewriter, loc,
+        newReduce.getReduced(), origOutShape);
+
+    rewriter.replaceOp(op, result);
+    return mlir::success();
+  }
+}; // struct PadReduceTo4DPattern
+
 } // namespace
 
 //===----------------------------------------------------------------------===//
@@ -310,6 +418,8 @@ struct TransferReduceHdimToReduceCdimPass
     // separate (similarly templated) pattern -- omitted here because the
     // companion TransferReduceMeanSumToConvPass also only handles the
     // newer ops.
+    patterns.add<PadReduceTo4DPattern<mlir::ONNXReduceSumOp>>(context);
+    patterns.add<PadReduceTo4DPattern<mlir::ONNXReduceMeanOp>>(context);
     patterns.add<ReduceHdimToCdimPattern<mlir::ONNXReduceSumOp>>(context);
     patterns.add<ReduceWdimToCdimPattern<mlir::ONNXReduceSumOp>>(context);
     patterns.add<ReduceHdimToCdimPattern<mlir::ONNXReduceMeanOp>>(context);
