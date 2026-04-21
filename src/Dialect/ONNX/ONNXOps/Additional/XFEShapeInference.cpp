@@ -126,7 +126,7 @@ LogicalResult XFEConvOpShapeInference(
   if (dilationsAttr.has_value()) {
     auto dilationsArray = dilationsAttr.value();
     for (size_t i = 0; i < std::min(dilationsArray.size(), dilations.size());
-        ++i) {
+         ++i) {
       dilations[i] = mlir::cast<IntegerAttr>(dilationsArray[i]).getInt();
     }
   }
