@@ -56,17 +56,25 @@ check_files=()
 for f in "${generated_files[@]}"; do
   if [ "$f" = "src/Dialect/ONNX/ONNXOps.td.inc" ]; then
     if ! git diff --quiet -- "$f"; then
-      inc_diff=$(git diff -- "$f")
-      num_hunks=$(echo "$inc_diff" | grep -c '^@@')
-      is_known_bf16_diff=$(echo "$inc_diff" | grep -c 'FIXME(FXML-4138)')
-      if [ "$num_hunks" -eq 1 ] && [ "$is_known_bf16_diff" -ge 1 ]; then
-        echo "::warning::ONNXOps.td.inc has the expected FXML-4138 BF16 manual edit diff — skipping."
-        git checkout -- "$f"
-      else
-        echo "::error::ONNXOps.td.inc has unexpected differences beyond the known FXML-4138 BF16 edit."
-        echo "$inc_diff"
+      num_hunks=$(git diff -- "$f" | grep -c '^@@')
+      if [ "$num_hunks" -ne 2 ]; then
+        echo "::error::ONNXOps.td.inc has unexpected number of differences"
         exit 1
       fi
+
+      # Split diff into hunks
+      git diff -- "$f" | csplit -z -f diff_ -b "%02d.patch" - '/^@@/' '{*}'
+      is_known_bf16_diff=$(grep -c 'FIXME(FXML-4138)' "diff_01.patch")
+      is_known_gather_elems=$(grep -c 'DTYPE: uint16 to GatherElements indices' "diff_02.patch")
+
+      if [ "$is_known_bf16_diff" -eq 1 -a "$is_known_gather_elems" -eq 1 ]; then
+        echo "::warning::ONNXOps.td.inc has the expected manual edit diffs — skipping."
+        git checkout -- "$f"
+      else
+        echo "::error::ONNXOps.td.inc has unexpected differences beyond the known edits."
+        exit 1
+      fi
+
     fi
   else
     check_files+=("$f")
