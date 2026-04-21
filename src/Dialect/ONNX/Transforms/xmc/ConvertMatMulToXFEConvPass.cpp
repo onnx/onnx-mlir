@@ -177,7 +177,18 @@ static std::optional<std::tuple<int64_t, int64_t, int64_t>> decomposeK(
   return {{hwc[0], hwc[1], hwc[2]}};
 }
 
-/// Compute convolution shapes. Returns nullopt when decomposition fails.
+/// Compute convolution shapes.
+///
+/// Mirrors golden xcompiler TransferQDQMatMulToConv2dPass layout logic:
+/// 1. Decompose K into [H, W, C] (IPU preferred: H=1, W=1, C=K).
+/// 2. Put M into spatial dims (not batch): conv_input = [1, H*M_h, W*M_w, C].
+///    - If input is already multi-dim [1, M0, M1, K] with M0>=4, M1>=8
+///      (is_3dim_matmul), reuse M0, M1 as H, W directly.
+///    - Otherwise, distribute M's prime factors between H and W to balance
+///      the spatial dimensions (optimizes hardware tiling efficiency).
+/// 3. Batch dim is always 1 (sequence/token dims go into spatial).
+///
+/// Returns nullopt when decomposition fails.
 std::optional<ConvShapes> computeConvShapes(
     ArrayRef<int64_t> inputShape, ArrayRef<int64_t> weightShape) {
   if (inputShape.empty() || weightShape.size() < 2)
@@ -186,6 +197,7 @@ std::optional<ConvShapes> computeConvShapes(
   int64_t K = inputShape.back();
   int64_t N = weightShape.back();
 
+  // Compute M = product of all dims except last.
   int64_t M = 1;
   for (size_t i = 0; i < inputShape.size() - 1; ++i) {
     if (inputShape[i] == ShapedType::kDynamic) {
@@ -195,15 +207,59 @@ std::optional<ConvShapes> computeConvShapes(
     M *= inputShape[i];
   }
 
+  // Decompose K into [H, W, C].
   auto hwc = decomposeK(K);
   if (!hwc)
     return std::nullopt;
 
   auto [H, W, C] = *hwc;
+
+  // Check is_3dim_matmul: input padded to 4D is [1, M0, M1, K]
+  // with M0 >= 4 and M1 >= 8. Reuse those spatial dims directly.
+  SmallVector<int64_t, 4> paddedInput(inputShape.begin(), inputShape.end());
+  while (paddedInput.size() < 4)
+    paddedInput.insert(paddedInput.begin(), 1);
+  bool is3dimMatmul =
+      (paddedInput[0] == 1) && (paddedInput[1] >= 4) && (paddedInput[2] >= 8);
+
   ConvShapes shapes;
-  shapes.inputShape = {M, H, W, C};
   shapes.weightShape = {N, H, W, C};
   shapes.stride = {H, W};
+
+  if (H == 1 && W == 1 && is3dimMatmul) {
+    // Reuse existing multi-dim spatial layout.
+    shapes.inputShape = {1, paddedInput[1], paddedInput[2], C};
+  } else if (H == 1 && W == 1 && M != ShapedType::kDynamic) {
+    // Put M into spatial dims: distribute M's factors between H and W.
+    // Start with conv_input = [1, 1, 1, C], then move M into W,
+    // then balance by moving factors from W to H.
+    int64_t iH = 1;
+    int64_t iW = 1;
+    auto [dec_ok, splitDims] = integerDecomposition(M);
+    if (dec_ok && !splitDims.empty()) {
+      std::sort(splitDims.begin(), splitDims.end());
+      // Move factors into W until W > remaining M (height_multiplier),
+      // then put the rest into H.
+      int64_t heightMul = M;
+      iW = 1;
+      for (auto dim : splitDims) {
+        if (iW > heightMul)
+          break;
+        iW *= dim;
+        heightMul /= dim;
+      }
+      iH = heightMul;
+    } else {
+      // M is 1 or decomposition failed.
+      iH = 1;
+      iW = M;
+    }
+    shapes.inputShape = {1, iH, iW, C};
+  } else {
+    // General case (non-trivial K decomposition or dynamic M).
+    shapes.inputShape = {M, H, W, C};
+  }
+
   return shapes;
 }
 
