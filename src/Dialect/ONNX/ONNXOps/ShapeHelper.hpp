@@ -414,8 +414,6 @@ using ONNXTanhOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXThresholdedReluOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXTriluOpShapeHelper = ONNXUnaryOpShapeHelper;
 using AMDQuarkBFPQuantizeDequantizeOpShapeHelper = ONNXUnaryOpShapeHelper;
-using AMDQuarkExtendedQuantizeLinearOpShapeHelper = ONNXUnaryOpShapeHelper;
-using AMDQuarkExtendedDequantizeLinearOpShapeHelper = ONNXUnaryOpShapeHelper;
 // clang-format on
 
 //===----------------------------------------------------------------------===//
@@ -971,6 +969,9 @@ protected:
   // Shape inference pattern
   int pattern;
 };
+
+using AMDQuarkExtendedQuantizeLinearOpShapeHelper = ONNXCustomOpShapeHelper;
+using AMDQuarkExtendedDequantizeLinearOpShapeHelper = ONNXCustomOpShapeHelper;
 
 //===----------------------------------------------------------------------===//
 // Setting a new constant or attribute value.

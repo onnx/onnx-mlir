@@ -80,26 +80,29 @@ def AMDQuarkExtendedQuantizeLinearOp
     `y = saturate((x / scale) + zero_point)`.
 
     This is part of the `com.amd.quark` ONNX custom domain.
+
+    Support for F16 and BF16 is an AMD extension in ONNX-MLIR to
+    https://quark.docs.amd.com/latest/onnx/custom_operators/ExtendedQuantizeLinear.html.
   }];
 
   let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F16]>,
                        TensorOf<[BF16]>]>:$x,
       AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F16]>, TensorOf<[BF16]>]>:$y_scale,
-      AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[I16]>,
-          TensorOf<[UI16]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>,
-          TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>, TensorOf<[F16]>,
-          TensorOf<[BF16]>, NoneType]>:$y_zero_point);
-  let results = (outs AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>,
-      TensorOf<[I16]>, TensorOf<[UI16]>, TensorOf<[F8E4M3FN]>,
-      TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>,
-      TensorOf<[F32]>, TensorOf<[F16]>, TensorOf<[BF16]>]>:$y);
+      AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I16]>, TensorOf<[I8]>,
+          TensorOf<[UI32]>, TensorOf<[UI16]>, TensorOf<[UI8]>, TensorOf<[F16]>,
+          TensorOf<[BF16]>, NoneType]>:$y_zero_point,
+      DefaultValuedAttr<SI64Attr, "1">:$axis);
+  let results = (outs AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I16]>,
+      TensorOf<[I8]>, TensorOf<[UI32]>, TensorOf<[UI16]>, TensorOf<[UI8]>,
+      TensorOf<[F16]>, TensorOf<[BF16]>]>:$y);
+
+  let hasVerifier = 1;
 
   let extraClassDeclaration = [{
     static int getNumberOfOperands() { return 3; }
     static int getNumberOfResults() { return 1; }
     static std::vector<int> getTypeMap() { return {32}; }
-    static int getAxis() { return 1; } // stub
-    static void setAxis(int /*axis*/) { return; } // stub
+    [[nodiscard]] std::optional<int64_t> getNormalizedAxis();
   }];
 
   let extraClassDefinition = [{
@@ -128,27 +131,29 @@ def AMDQuarkExtendedDequantizeLinearOp
     tensor. The dequantization formula is `y = (x - zero_point) * scale`.
 
     This is part of the `com.amd.quark` ONNX custom domain.
+
+    Support for F16 and BF16 is an AMD extension in ONNX-MLIR to
+    https://quark.docs.amd.com/latest/onnx/custom_operators/ExtendedDequantizeLinear.html.
   }];
 
-  let arguments = (ins AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>,
-                       TensorOf<[I16]>, TensorOf<[UI16]>, TensorOf<[F8E4M3FN]>,
-                       TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>,
-                       TensorOf<[F8E5M2FNUZ]>, TensorOf<[F32]>, TensorOf<[F16]>,
-                       TensorOf<[BF16]>]>:$x,
+  let arguments = (ins AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I16]>,
+                       TensorOf<[I8]>, TensorOf<[UI32]>, TensorOf<[UI16]>,
+                       TensorOf<[UI8]>, TensorOf<[F16]>, TensorOf<[BF16]>]>:$x,
       AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F16]>, TensorOf<[BF16]>]>:$x_scale,
-      AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[I16]>,
-          TensorOf<[UI16]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>,
-          TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>, TensorOf<[F16]>,
-          TensorOf<[BF16]>, NoneType]>:$x_zero_point);
+      AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I16]>, TensorOf<[I8]>,
+          TensorOf<[UI32]>, TensorOf<[UI16]>, TensorOf<[UI8]>, TensorOf<[F16]>,
+          TensorOf<[BF16]>, NoneType]>:$x_zero_point,
+      DefaultValuedAttr<SI64Attr, "1">:$axis);
   let results =
       (outs AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F16]>, TensorOf<[BF16]>]>:$y);
+
+  let hasVerifier = 1;
 
   let extraClassDeclaration = [{
     static int getNumberOfOperands() { return 3; }
     static int getNumberOfResults() { return 1; }
     static std::vector<int> getTypeMap() { return {31}; }
-    static int getAxis() { return 1; } // stub
-    static void setAxis(int /*axis*/) { return; } // stub
+    [[nodiscard]] std::optional<int64_t> getNormalizedAxis();
   }];
 
   let extraClassDefinition = [{
