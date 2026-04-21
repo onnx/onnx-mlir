@@ -17,9 +17,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <functional>
 #include <math.h>
 #include <numeric>
 
+#include "mlir/Dialect/Quant/IR/QuantTypes.h"
 #include "mlir/Dialect/Traits.h"
 #include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "mlir/Dialect/Utils/StaticValueUtils.h"
@@ -2433,6 +2435,68 @@ struct SoftmaxNegativeAxisPattern : public OpRewritePattern<ONNXSoftmaxOp> {
   }
 };
 
+// Rewrite ONNXSoftmaxV11Op to ONNXSoftmaxOp (V13).
+//
+// V11 computes softmax over the flattened suffix [axis..rank-1].
+// V13 computes softmax along a single axis.
+//
+// When axis is already the last dim the ops are equivalent.
+// Otherwise we flatten the trailing dims, apply V13 softmax on that single
+// flattened dim, then reshape back.
+struct SoftmaxV11ToLatestPattern : public OpRewritePattern<ONNXSoftmaxV11Op> {
+  using OpRewritePattern<ONNXSoftmaxV11Op>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXSoftmaxV11Op op, PatternRewriter &rewriter) const final {
+    Value input = op.getInput();
+    int64_t axis = op.getAxis();
+    Type resultType = op.getResult().getType();
+
+    // axis == -1 always refers to the last dim, even for unranked tensors.
+    if (axis == -1) {
+      rewriter.replaceOpWithNewOp<ONNXSoftmaxOp>(op, resultType, input, axis);
+      return success();
+    }
+
+    auto inputType = dyn_cast<RankedTensorType>(input.getType());
+    if (!inputType)
+      return rewriter.notifyMatchFailure(op, "requires ranked input");
+
+    int64_t rank = inputType.getRank();
+    if (axis < 0)
+      axis += rank;
+
+    // If axis is innermost V11 and V13 semantics are identical.
+    if (axis == rank - 1) {
+      rewriter.replaceOpWithNewOp<ONNXSoftmaxOp>(op, resultType, input, axis);
+      return success();
+    }
+
+    if (!inputType.hasStaticShape())
+      return rewriter.notifyMatchFailure(
+          op, "non-last-axis requires static shape");
+
+    // Flatten [axis..rank-1] into a single trailing dimension, e.g.
+    //   [1, 2, 3, 4, 5] with axis=2  ->  [1, 2, 60]
+    ArrayRef<int64_t> inputShape = inputType.getShape();
+    int64_t trailingDim = std::accumulate(inputShape.begin() + axis,
+        inputShape.end(), int64_t(1), std::multiplies<int64_t>{});
+    SmallVector<int64_t> flatShape(inputShape.take_front(axis));
+    flatShape.push_back(trailingDim);
+    auto flatType =
+        RankedTensorType::get(flatShape, inputType.getElementType());
+
+    OnnxBuilder onnx(rewriter, op.getLoc());
+    auto inputReshapeOp =
+        onnx.reshape(flatType, input, onnx.constantInt64(flatShape));
+    auto softmaxOp = onnx.softmax(flatType, inputReshapeOp, axis);
+    auto outputReshapeOp =
+        onnx.reshape(resultType, softmaxOp, onnx.constantInt64(inputShape));
+    rewriter.replaceOp(op, outputReshapeOp);
+    return success();
+  }
+};
+
 /*
  * Push down the transpose after scale (mul op), so the scale can be fused to
  * Layernorm.
@@ -2966,11 +3030,35 @@ public:
   }
 };
 
+// onnx.Abs(onnx.Abs(x)) -> onnx.Abs(x) by reusing the inner Abs result.
+class AbsAbsPattern : public OpRewritePattern<ONNXAbsOp> {
+public:
+  using OpRewritePattern<ONNXAbsOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXAbsOp op, PatternRewriter &rewriter) const override {
+    Value x = op.getX();
+    if (mlir::isa<quant::QuantizedType>(getElementTypeOrSelf(x)))
+      return failure();
+    auto innerAbs = x.getDefiningOp<ONNXAbsOp>();
+    if (!innerAbs)
+      return failure();
+    rewriter.replaceOp(op, innerAbs.getResult());
+    return success();
+  }
+};
+
 // =============================================================================
 /// Register optimization patterns as "canonicalization" patterns.
 /// Add op to OpsWithCanonicalizer in gen_onnx_mlir.py to activate.
 /// Please keep in alphabetical order.
 // =============================================================================
+
+/// on the ONNXAbsOp.
+void ONNXAbsOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<AbsAbsPattern>(context);
+}
 
 /// on the ONNXBatchNormalizationInferenceModeOp.
 void ONNXBatchNormalizationInferenceModeOp::getCanonicalizationPatterns(

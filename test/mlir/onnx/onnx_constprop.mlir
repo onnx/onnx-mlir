@@ -1,3 +1,5 @@
+// Copyright 2026 Advanced Micro Devices, Inc. or its affiliates
+
 // RUN: onnx-mlir-opt --shape-inference --constprop-onnx %s -split-input-file | FileCheck %s
 
 //===----------------------------------------------------------------------===//
@@ -322,6 +324,58 @@ func.func @test_mul_const_associative_scalar_not_apply_2(%x: tensor<5xi32>, %y: 
 // CHECK:           [[VAR_2_:%.+]] = "onnx.Mul"([[PARAM_0_]], [[VAR_1_]]) : (tensor<5xi32>, tensor<1xi32>) -> tensor<5xi32>
 // CHECK:           onnx.Return [[VAR_2_]] : tensor<5xi32>
 // CHECK:         }
+}
+
+// -----
+
+// CHECK-LABEL: @test_mul_add_const_distributive
+func.func @test_mul_add_const_distributive(%x: tensor<3xf32>) -> tensor<3xf32> {
+  %a = onnx.Constant dense<2.0> : tensor<3xf32>
+  %b = onnx.Constant dense<3.0> : tensor<3xf32>
+  %1 = "onnx.Add"(%x, %b) : (tensor<3xf32>, tensor<3xf32>) -> tensor<3xf32>
+  %2 = "onnx.Mul"(%1, %a) : (tensor<3xf32>, tensor<3xf32>) -> tensor<3xf32>
+  onnx.Return %2 : tensor<3xf32>
+  // CHECK-DAG: [[AB:%.+]] = onnx.Constant dense<6.000000e+00> : tensor<3xf32>
+  // CHECK-DAG: [[A:%.+]] = onnx.Constant dense<2.000000e+00> : tensor<3xf32>
+  // CHECK: [[MUL:%.+]] = "onnx.Mul"(%arg0, [[A]]) : (tensor<3xf32>, tensor<3xf32>) -> tensor<3xf32>
+  // CHECK: [[ADD:%.+]] = "onnx.Add"([[MUL]], [[AB]]) : (tensor<3xf32>, tensor<3xf32>) -> tensor<3xf32>
+  // CHECK: onnx.Return [[ADD]] : tensor<3xf32>
+}
+
+// -----
+
+// CHECK-LABEL: @test_mul_add_const_distributive_multiuse
+// CHECK-SAME:  (%[[X:.*]]: tensor<3xf32>) -> (tensor<3xf32>, tensor<3xf32>)
+// CHECK-DAG:   %[[A:.*]] = onnx.Constant dense<2.000000e+00> : tensor<3xf32>
+// CHECK-DAG:   %[[B:.*]] = onnx.Constant dense<3.000000e+00> : tensor<3xf32>
+// CHECK:       %[[ADD:.*]] = "onnx.Add"(%[[X]], %[[B]]) : (tensor<3xf32>, tensor<3xf32>) -> tensor<3xf32>
+// CHECK:       %[[MUL:.*]] = "onnx.Mul"(%[[ADD]], %[[A]]) : (tensor<3xf32>, tensor<3xf32>) -> tensor<3xf32>
+// CHECK:       onnx.Return %[[MUL]], %[[ADD]] : tensor<3xf32>, tensor<3xf32>
+func.func @test_mul_add_const_distributive_multiuse(%x: tensor<3xf32>) -> (tensor<3xf32>, tensor<3xf32>) {
+  %a = onnx.Constant dense<2.0> : tensor<3xf32>
+  %b = onnx.Constant dense<3.0> : tensor<3xf32>
+  %add = "onnx.Add"(%x, %b) : (tensor<3xf32>, tensor<3xf32>) -> tensor<3xf32>
+  %mul = "onnx.Mul"(%add, %a) : (tensor<3xf32>, tensor<3xf32>) -> tensor<3xf32>
+  onnx.Return %mul, %add : tensor<3xf32>, tensor<3xf32>
+}
+
+// -----
+
+// CHECK-LABEL: @test_mul_clip_const_distributive
+func.func @test_mul_clip_const_distributive(%x: tensor<3xf32>) -> tensor<3xf32> {
+  %a = onnx.Constant dense<2.0> : tensor<3xf32>
+  %lo = onnx.Constant dense<0.0> : tensor<3xf32>
+  %hi = onnx.Constant dense<5.0> : tensor<3xf32>
+  %1 = "onnx.Clip"(%x, %lo, %hi) : (tensor<3xf32>, tensor<3xf32>, tensor<3xf32>) -> tensor<3xf32>
+  %2 = "onnx.Mul"(%1, %a) : (tensor<3xf32>, tensor<3xf32>) -> tensor<3xf32>
+  onnx.Return %2 : tensor<3xf32>
+  // After distribution: clip(mul(x, 2), mul(2, 0), mul(2, 5)) => clip(mul(x, 2), 0, 10)
+  // CHECK-DAG: [[AL:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<3xf32>
+  // CHECK-DAG: [[AU:%.+]] = onnx.Constant dense<1.000000e+01> : tensor<3xf32>
+  // CHECK-DAG: [[A:%.+]] = onnx.Constant dense<2.000000e+00> : tensor<3xf32>
+  // CHECK: [[MUL:%.+]] = "onnx.Mul"(%arg0, [[A]]) : (tensor<3xf32>, tensor<3xf32>) -> tensor<3xf32>
+  // CHECK: [[CLIP:%.+]] = "onnx.Clip"([[MUL]], [[AL]], [[AU]]) : (tensor<3xf32>, tensor<3xf32>, tensor<3xf32>) -> tensor<3xf32>
+  // CHECK: onnx.Return [[CLIP]] : tensor<3xf32>
 }
 
 //===----------------------------------------------------------------------===//

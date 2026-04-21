@@ -512,6 +512,7 @@ OpsWithCustomAssemblyFormat = [
 
 # Operations supporting canonicalization (alphabetical order).
 OpsWithCanonicalizer = [
+    "Abs",
     "Add",
     "And",
     "AveragePool",
