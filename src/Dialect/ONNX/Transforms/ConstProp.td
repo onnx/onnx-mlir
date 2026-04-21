@@ -9,6 +9,9 @@
 // Defines language-specific pattern match rewritings for ONNX using
 // Declarative Rewrite Rules (DRR) specified using TableGen records.
 //
+// Modifications (c) Copyright 2026 Advanced Micro Devices, Inc. or its
+// affiliates
+//
 //===----------------------------------------------------------------------===//
 
 #ifndef ONNX_CONSTPROP
@@ -739,6 +742,37 @@ def MulConstAssociative4 : NamedPat<"MulConstAssociative4",
     (ONNXMulOp $x, $y),
     (ONNXMulOp $c1, $c2)),
   [(IsNotAConstant:$x), (IsNotAConstant:$y), (HasOneUse:$lhs), (HasOneUse:$rhs)]>;
+
+// mul(add(x, b), a) -> add(mul(x, a), mul(a, b)).
+// mul(a, b) is folded to a single constant by MulConstProp.
+def MulAddConstDistributive : NamedPat<"MulAddConstDistributive",
+  // From mul(add(x, b), a) where a, b are constants.
+  (ONNXMulOp
+    (ONNXAddOp:$addOp $x, (ONNXConstantOp:$b $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXConstantOp:$a $_, $_, $_, $_, $_, $_, $_, $_)),
+  // To add(mul(x, a), mul(a, b)).
+  (ONNXAddOp
+    (ONNXMulOp $x, $a),
+    (ONNXMulOp $a, $b)),
+  [(IsNotAConstant:$x), (HasOneUse:$addOp), (IsIntOrFloatType:$a),
+  (IsIntOrFloatType:$b), (IsIntOrFloatType:$x)]>;
+
+// Distribute multiplication into clip: mul(clip(x, l, u), a) -> clip(mul(x, a), mul(a, l), mul(a, u)).
+// mul(a, l) and mul(a, u) are folded to single constants by MulConstProp in a later iteration.
+def MulClipConstDistributive : NamedPat<"MulClipConstDistributive",
+  // From mul(clip(x, l, u), a) where a, l, u are constants.
+  (ONNXMulOp
+    (ONNXClipOp:$clipOp $x,
+      (ONNXConstantOp:$l $_, $_, $_, $_, $_, $_, $_, $_),
+      (ONNXConstantOp:$u $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXConstantOp:$a $_, $_, $_, $_, $_, $_, $_, $_)),
+  // To clip(mul(x, a), mul(a, l), mul(a, u)).
+  (ONNXClipOp
+    (ONNXMulOp $x, $a),
+    (ONNXMulOp $a, $l),
+    (ONNXMulOp $a, $u)),
+  [(IsNotAConstant:$x), (HasOneUse:$clipOp),  (IsIntOrFloatType:$x), 
+  (IsIntOrFloatType:$a), (IsIntOrFloatType:$l), (IsIntOrFloatType:$u)]>;
 
 // Constant Propagation for Mul
 def MulConstProp : NamedPat<"MulConstProp",
