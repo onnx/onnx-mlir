@@ -175,6 +175,7 @@ extern bool enableTiming;                                     // onnx-mlir only
 extern bool enableBoundCheck;                                 // onnx-mlir only
 extern bool debugTestCompilerOpt;                             // onnx-mlir only
 extern bool useLinalgPath;                                    // onnx-mlir only
+extern bool enableDebugInfo;                                  // onnx-mlir only
 extern std::string configFile;                                // onnx-mlir only
 extern std::string saveConfigFile;                            // onnx-mlir only
 extern bool appendDecodingStrategy;                           // onnx-mlir only

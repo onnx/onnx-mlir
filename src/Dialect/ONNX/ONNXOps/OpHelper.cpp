@@ -672,6 +672,11 @@ Type convertONNXTypeToMLIRType(
   case onnx::TensorProto_DataType::TensorProto_DataType_UINT4:
     return builder.getIntegerType(/*width=*/4, false);
 
+  // Newer ONNX enum values that are not yet supported by onnx-mlir.
+  case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT4E2M1:
+  case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT8E8M0:
+  case onnx::TensorProto_DataType::TensorProto_DataType_UINT2:
+  case onnx::TensorProto_DataType::TensorProto_DataType_INT2:
   case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX64:
   case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX128:
   case onnx::TensorProto_DataType::TensorProto_DataType_UNDEFINED:
