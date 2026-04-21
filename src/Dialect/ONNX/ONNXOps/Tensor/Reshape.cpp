@@ -43,6 +43,20 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
   // Initialize context and results.
   outputDims.resize(outputRank);
 
+  // Compute the number of dynamic dimensions in the output.
+  uint64_t numDynamicDimsInOutput = 0;
+  ShapedType outputType =
+      mlir::dyn_cast<ShapedType>(op->getResult(0).getType());
+  if (outputType) {
+    for (int64_t d : outputType.getShape()) {
+      if (ShapedType::isDynamic(d))
+        numDynamicDimsInOutput++;
+    }
+  } else {
+    // Consider <*xdtype> as having all dynamic dims.
+    numDynamicDimsInOutput = outputRank;
+  }
+
   // Shape values can be 0, -1, or N (N > 0).
   //   - 0: the output dim is setting to the input dim at the same index.
   //   Thus, it must happen at the index < dataRank.
@@ -62,15 +76,17 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
   // 2nd value in shape. So to compute the output dim at position of -1, we just
   // do 2048/64, that is 32. Without this simplification, the output dim at
   // position of -1 would be unknown at compile time.
+  //
+  // No need to find the bijective mapping if the output has only one dynamic
+  // dim.
 
   // Find the bijective mapping.
   std::set<int64_t> dataIgnoredDims, outputIgnoredDims;
   SmallVector<Value> shapeDimVals;
-  if (areDimsFromConcat(shape)) {
+  if (numDynamicDimsInOutput > 1 && areDimsFromConcat(shape)) {
     // Use scoped dimension analysis to detect equivalent dimensions.
-    // Only analyze operations within a small upward level for performance.
-    // Important: passing this ShapeHelper into DimAnalysis to avoid infinite
-    // recursion.
+    // Only analyze operations within a small upward level for minimizing
+    // overhead.
     ScopedDimAnalysis scopedAnalysis(op, /*upwardLevel*/ 3, this);
     scopedAnalysis.analyze();
 
