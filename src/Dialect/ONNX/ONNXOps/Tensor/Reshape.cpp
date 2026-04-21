@@ -71,7 +71,7 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
     // Only analyze operations within a small upward level for performance.
     // Important: passing this ShapeHelper into DimAnalysis to avoid infinite
     // recursion.
-    DimAnalysis scopedAnalysis(op, /*upwardLevel*/ 3, this);
+    ScopedDimAnalysis scopedAnalysis(op, /*upwardLevel*/ 3, this);
     scopedAnalysis.analyze();
 
     getDims(shape, shapeDimVals);

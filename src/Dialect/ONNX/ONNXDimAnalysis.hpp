@@ -37,10 +37,9 @@ public:
 public:
   /// Create a new analysis for all values in a module.
   /// @param op ModuleOp to analyze dynamics dimensions.
-  /// @param shapeHelper ShapeHelper inside which this DimAnalysis is
-  /// constructed.
-  DimAnalysis(mlir::ModuleOp op, ONNXOpShapeHelper *shapeHelper = nullptr);
+  DimAnalysis(mlir::ModuleOp op);
 
+protected:
   /// Create a scoped analysis by tracing back from a given operation.
   /// Only analyzes operations within 'upwardLevel' steps back from 'op'.
   /// This is a lightweight alternative to full module analysis.
@@ -50,8 +49,9 @@ public:
   /// @param shapeHelper ShapeHelper inside which this DimAnalysis is
   /// constructed.
   DimAnalysis(mlir::Operation *op, uint64_t upwardLevel,
-      ONNXOpShapeHelper *shapeHelper = nullptr);
+      ONNXOpShapeHelper *shapeHelper);
 
+public:
   /// Analyzes the relationship among dynamic dimensions.
   /// Current implementation uses a fixed-point iteration algorithm,
   /// where there are two phases at each iteration:
@@ -140,8 +140,26 @@ private:
   /// This mapping maps each dynamic dimension in the tensor to a set of same
   /// dynamic dimensions.
   DimSetMapT dimSetMap;
-  /// Set of operations for analysis.
+  /// Set of operations for analysis. Contains either all operations from the
+  /// module (when constructed with ModuleOp) or operations within the specified
+  /// upwardLevel scope (when constructed with Operation* and upwardLevel).
   const llvm::SmallPtrSet<mlir::Operation *, 32> targetOps;
+};
+
+/// Scoped dimension analysis that only analyzes operations within a limited
+/// scope from a starting operation.
+/// This class is recommended for using inside ShapeHelper.
+class ScopedDimAnalysis : public DimAnalysis {
+public:
+  /// Create a scoped analysis by tracing back from a given operation.
+  /// Only analyzes operations within 'upwardLevel' steps back from 'op'.
+  /// @param op The starting operation to trace back from.
+  /// @param upwardLevel Maximum number of levels to trace back (0 = only op
+  /// itself).
+  /// @param shapeHelper ShapeHelper inside which this DimAnalysis is
+  /// constructed.
+  ScopedDimAnalysis(mlir::Operation *op, uint64_t upwardLevel,
+      ONNXOpShapeHelper *shapeHelper);
 };
 
 } // namespace onnx_mlir

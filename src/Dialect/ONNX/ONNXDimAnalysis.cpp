@@ -605,30 +605,52 @@ static llvm::SmallPtrSet<Operation *, 32> collectOperationsUpward(
 }
 
 /// Check if it is safe to do analysis inside the given ShapeHelper.
-static bool notSafeForAnalysis(ONNXOpShapeHelper *shapeHelper) {
+///
+/// Safe invocation path example:
+///   ONNXReshapeOpShapeHelper::computeShape() ->
+///   ScopedDimAnalysis(op, upwardLevel, this) ->
+///   safeForAnalysis(shapeHelper) returns true
+///
+/// Unsafe invocation path examples:
+///   1. Infinite recursion:
+///      DimAnalysis::visitDim() ->
+///      exploreSameDimsUsingShapeHelper() ->
+///      ONNXOpShapeHelper::computeShape() (with setDimAnalysisMode) ->
+///      ScopedDimAnalysis() ->
+///      safeForAnalysis() returns false (already in dim analysis mode)
+///
+///   2. During dialect lowering:
+///      ONNXToKrnlLoweringPass ->
+///      ONNXOpShapeHelper::computeShape() (with builder set) ->
+///      ScopedDimAnalysis() ->
+///      safeForAnalysis() returns false (builder pointer exists)
+static bool safeForAnalysis(ONNXOpShapeHelper *shapeHelper) {
+  // Must be called from a ShapeHelper.
+  if (!shapeHelper) {
+    LLVM_DEBUG(llvm::dbgs() << "ShapeHelper is not given in DimAnalysis\n");
+    return false;
+  }
+
   // Doing dim analysis inside dim analysis may cause infinite recursion.
-  if (shapeHelper && shapeHelper->isInDimAnalysisMode())
-    return true;
+  if (shapeHelper->isInDimAnalysisMode())
+    return false;
 
   // Doing dim analysis during dialect lowering is unstable since an
   // intermediate state of IR may be invalid.
   // The existence of a builder indicates ShapeHelper is used in dialect
   // lowering.
-  if (shapeHelper && shapeHelper->getBuilder()->getBuilderPtr())
-    return true;
+  if (shapeHelper->getBuilder()->getBuilderPtr())
+    return false;
 
-  return false;
+  return true;
 }
 
 //===----------------------------------------------------------------------===//
 // DimAnalysis class.
 //===----------------------------------------------------------------------===//
 
-DimAnalysis::DimAnalysis(ModuleOp moduleOp, ONNXOpShapeHelper *shapeHelper)
+DimAnalysis::DimAnalysis(ModuleOp moduleOp)
     : targetOps(collectOperationsFromModule(moduleOp)) {
-  if (notSafeForAnalysis(shapeHelper))
-    return;
-
   for (Operation *op : targetOps) {
     if (auto funcOp = mlir::dyn_cast<func::FuncOp>(op)) {
       // Build dimensions for function arguments and results.
@@ -649,7 +671,7 @@ DimAnalysis::DimAnalysis(ModuleOp moduleOp, ONNXOpShapeHelper *shapeHelper)
 DimAnalysis::DimAnalysis(
     Operation *op, uint64_t upwardLevel, ONNXOpShapeHelper *shapeHelper)
     : targetOps(collectOperationsUpward(op, upwardLevel)) {
-  if (!op || notSafeForAnalysis(shapeHelper))
+  if (!op || !safeForAnalysis(shapeHelper))
     return;
 
   LLVM_DEBUG({
@@ -1192,6 +1214,10 @@ void DimAnalysis::visitDim(
     }
   }
 }
+
+ScopedDimAnalysis::ScopedDimAnalysis(
+    Operation *op, uint64_t upwardLevel, ONNXOpShapeHelper *shapeHelper)
+    : DimAnalysis(op, upwardLevel, shapeHelper) {}
 
 } // namespace onnx_mlir
 

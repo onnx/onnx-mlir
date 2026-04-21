@@ -179,8 +179,12 @@ void ONNXOpShapeHelper::computeShapeAndAssertOnFailure() {
 void ONNXOpShapeHelper::setOutputDims(
     const DimsExpr &inferredDims, int n, bool refineShape) {
   privateOutputsDims[n] = inferredDims;
-  // Donot refine shape in the analysis mode to make sure dynamic dimensions are
-  // consistent during the dimension analysis.
+  // Do not refine shape in the analysis mode to make sure dynamic dimensions
+  // are consistent during the dimension analysis.
+  // Note: This guard, along with the one in updateInputDimAt, prevents all
+  // shape updates during dim analysis. All type modifications flow through
+  // either setOutputDims (via refineDims) or updateInputDimAt (via setType),
+  // making these two guards sufficient to prevent updates during analysis.
   if (!isInDimAnalysisMode() && refineShape) {
     Value output = getOutput(n);
     refineDims(op, privateOutputsDims[n], output);
