@@ -53,4 +53,7 @@ LogicalResult XFEGroupNormalizationOpVerify(Operation *op);
 // Verify for Resize
 LogicalResult XFEResizeOpVerify(Operation *op);
 
+// Verify for GridSample
+LogicalResult XFEGridSampleOpVerify(Operation *op);
+
 } // namespace mlir

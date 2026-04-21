@@ -126,7 +126,7 @@ LogicalResult XFEConvOpShapeInference(
   if (dilationsAttr.has_value()) {
     auto dilationsArray = dilationsAttr.value();
     for (size_t i = 0; i < std::min(dilationsArray.size(), dilations.size());
-         ++i) {
+        ++i) {
       dilations[i] = mlir::cast<IntegerAttr>(dilationsArray[i]).getInt();
     }
   }
@@ -240,7 +240,7 @@ LogicalResult XFEConvTransposeOpShapeInference(
   if (dilationsAttr.has_value()) {
     auto dilationsArray = dilationsAttr.value();
     for (size_t i = 0; i < std::min(dilationsArray.size(), dilations.size());
-         ++i) {
+        ++i) {
       dilations[i] = mlir::cast<IntegerAttr>(dilationsArray[i]).getInt();
     }
   }
@@ -248,7 +248,7 @@ LogicalResult XFEConvTransposeOpShapeInference(
   if (outputPaddingAttr.has_value()) {
     auto outputPaddingArray = outputPaddingAttr.value();
     for (size_t i = 0;
-         i < std::min(outputPaddingArray.size(), outputPadding.size()); ++i) {
+        i < std::min(outputPaddingArray.size(), outputPadding.size()); ++i) {
       outputPadding[i] =
           mlir::cast<IntegerAttr>(outputPaddingArray[i]).getInt();
     }
@@ -475,7 +475,7 @@ LogicalResult XFEMaxPoolOpShapeInference(
   SmallVector<int64_t, 4> dilations(numSpatialDims, 1);
   if (dilationsAttr.has_value()) {
     for (size_t i = 0; i < std::min(dilationsAttr->size(), dilations.size());
-         ++i) {
+        ++i) {
       dilations[i] = mlir::cast<IntegerAttr>((*dilationsAttr)[i]).getInt();
     }
   }
@@ -920,6 +920,37 @@ LogicalResult XFEResizeOpShapeInference(
   }
   auto resultType = RankedTensorType::get(outputShape, elementType);
   resizeOp.getResult().setType(resultType);
+
+  return success();
+}
+
+LogicalResult XFEGridSampleOpShapeInference(
+    Operation *op, std::function<void(Region &)> doShapeInference) {
+  auto gsOp = dyn_cast<XFEGridSampleOp>(op);
+  if (!gsOp)
+    return failure();
+
+  Value X = gsOp.getX();
+  Value grid = gsOp.getGrid();
+  if (!hasShapeAndRank(X) || !hasShapeAndRank(grid))
+    return success();
+
+  auto xType = mlir::cast<ShapedType>(X.getType());
+  auto gridType = mlir::cast<ShapedType>(grid.getType());
+  if (xType.getRank() != 4 || gridType.getRank() != 4)
+    return success();
+
+  auto xShape = xType.getShape();
+  auto gridShape = gridType.getShape();
+  SmallVector<int64_t, 4> outputShape = {
+      xShape[0], gridShape[1], gridShape[2], xShape[3]};
+
+  Type elementType = xType.getElementType();
+  if (auto existingType = dyn_cast<ShapedType>(gsOp.getResult().getType())) {
+    elementType = existingType.getElementType();
+  }
+  auto resultType = RankedTensorType::get(outputShape, elementType);
+  gsOp.getResult().setType(resultType);
 
   return success();
 }

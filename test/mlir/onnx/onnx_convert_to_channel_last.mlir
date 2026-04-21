@@ -7,6 +7,7 @@
 /// - MaxPool -> XFEMaxPool
 /// - GlobalAveragePool -> XFEGlobalAveragePool
 /// - GlobalMaxPool -> XFEGlobalMaxPool
+/// - GridSample -> XFEGridSample (4D)
 //===----------------------------------------------------------------------===//
 
 //===----------------------------------------------------------------------===//
@@ -528,5 +529,27 @@ func.func @test_avgpool_quantized(
   // CHECK: "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]}
   // CHECK: "onnx.XFEAveragePool"
   // CHECK: "onnx.Transpose"({{.*}}) {perm = [0, 3, 1, 2]}
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// GridSample → XFEGridSample (4D NCHW with NHWC sandwich)
+//===----------------------------------------------------------------------===//
+
+// COM: Test GridSample to XFEGridSample with explicit input/output transposes
+// CHECK-LABEL: func.func @test_gridsample_to_xfe_channel_last
+func.func @test_gridsample_to_xfe_channel_last(%arg0: tensor<1x3x4x4xf32>, %arg1: tensor<1x2x2x2xf32>) -> tensor<1x3x2x2xf32> {
+  %0 = "onnx.GridSample"(%arg0, %arg1) {
+    align_corners = 0 : si64,
+    mode = "linear",
+    padding_mode = "zeros"
+  } : (tensor<1x3x4x4xf32>, tensor<1x2x2x2xf32>) -> tensor<1x3x2x2xf32>
+  onnx.Return %0 : tensor<1x3x2x2xf32>
+
+  // CHECK: [[IN_NHWC:%.+]] = "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]} : (tensor<1x3x4x4xf32>) -> tensor<1x4x4x3xf32>
+  // CHECK: [[GS:%.+]] = "onnx.XFEGridSample"([[IN_NHWC]], %arg1) {{{.*}}align_corners = 0 : si64{{.*}}mode = "linear"{{.*}}padding_mode = "zeros"{{.*}}} : (tensor<1x4x4x3xf32>, tensor<1x2x2x2xf32>) -> tensor<1x2x2x3xf32>
+  // CHECK: [[OUT:%.+]] = "onnx.Transpose"([[GS]]) {perm = [0, 3, 1, 2]} : (tensor<1x2x2x3xf32>) -> tensor<1x3x2x2xf32>
+  // CHECK: onnx.Return [[OUT]] : tensor<1x3x2x2xf32>
 }
 
