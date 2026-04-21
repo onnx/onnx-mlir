@@ -269,7 +269,7 @@ def XFEGridSampleOp:ONNX_Op<"XFEGridSample",
   [Pure, OpVersionTrait<1>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "GridSample operation";
   let description = [{
-  GridSample with channel-last layout. Input X is NHWC (batch, height, width, channels). Sampling grid matches ONNX (N, H_out, W_out, 2). Typical lowering uses explicit NCHW-to-NHWC transposes around standard onnx.GridSample so transpose optimization can simplify layout ops.
+  GridSample with channel-last layout. Rank-4 NHWC or rank-5 NDHWC for volumetric inputs; grid matches ONNX (e.g. N,H_out,W_out,2 or N,D_out,H_out,W_out,3). Typical lowering uses explicit NCHW-to-channel-last transposes around onnx.GridSample so transpose optimization can simplify layout ops.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, TensorOf<[quant_QuantizedType]>]>:$X,
     AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[quant_QuantizedType]>]>:$grid,

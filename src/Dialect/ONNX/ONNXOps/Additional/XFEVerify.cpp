@@ -503,6 +503,8 @@ LogicalResult XFEGridSampleOpVerify(Operation *op) {
   if (!hasShapeAndRank(X) || !hasShapeAndRank(grid))
     return success();
 
+  // ND channel-last (e.g. rank-4 NHWC, rank-5 NDHWC): same rank and grid
+  // trailing dim = #spatial axes, matching ONNX GridSample.
   auto xType = mlir::cast<ShapedType>(X.getType());
   auto gridType = mlir::cast<ShapedType>(grid.getType());
   if (xType.getRank() != gridType.getRank())

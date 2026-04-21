@@ -25,7 +25,8 @@
 // - DepthToSpace -> XFEDepthToSpace
 // - SpaceToDepth -> XFESpaceToDepth
 // - Resize -> XFEResize
-// - GridSample -> XFEGridSample (explicit NCHW<->NHWC transposes for 4D)
+// - GridSample -> XFEGridSample (explicit NCHW<->channel-last transposes; 4D
+// and 5D)
 //
 //===----------------------------------------------------------------------===//
 
@@ -1061,11 +1062,15 @@ struct GridSampleToChannelLastPattern
       ONNXGridSampleOp op, PatternRewriter &rewriter) const override {
     auto xType = mlir::dyn_cast<RankedTensorType>(op.getX().getType());
     auto gridType = mlir::dyn_cast<RankedTensorType>(op.getGrid().getType());
-    if (!xType || !gridType || xType.getRank() != 4 || gridType.getRank() != 4)
+    if (!xType || !gridType)
+      return failure();
+    const int64_t rank = xType.getRank();
+    // ONNX GridSample: X and grid share rank; grid last dim = #spatial = rank
+    // - 2.
+    if (rank < 3 || rank != static_cast<int64_t>(gridType.getRank()))
       return failure();
 
     Location loc = op.getLoc();
-    constexpr int64_t rank = 4;
 
     Value xNhwc = createInputTranspose(
         rewriter, loc, op.getX(), rank, xType.getElementType());

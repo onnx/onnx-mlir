@@ -768,28 +768,28 @@
   max_output: 1
 
 # ==============================================================================
-# GridSample: sample from X at grid positions with channel-last layout (4D NHWC)
-# Aligns with ONNX GridSample semantics; X is NHWC; grid is (N, H_out, W_out, 2).
+# GridSample: sample from X at grid positions with channel-last layout (4D NHWC / 5D NDHWC)
+# Aligns with ONNX GridSample semantics; grid last dim = number of spatial axes.
 # ==============================================================================
 - name: GridSample
   domain: com.amd.xfe
   since_version: 1
   support_level: COMMON
-  description: 'GridSample with channel-last layout. Input X is NHWC (batch, height, width, channels). Sampling grid matches ONNX (N, H_out, W_out, 2). Typical lowering uses explicit NCHW-to-NHWC transposes around standard onnx.GridSample so transpose optimization can simplify layout ops.'
+  description: 'GridSample with channel-last layout. Rank-4 NHWC or rank-5 NDHWC for volumetric inputs; grid matches ONNX (e.g. N,H_out,W_out,2 or N,D_out,H_out,W_out,3). Typical lowering uses explicit NCHW-to-channel-last transposes around onnx.GridSample so transpose optimization can simplify layout ops.'
   meta_attributes:
   - onnx_opset: 22
   - verify: True
   - fold: False
   inputs:
   - name: X
-    description: Input data tensor in channel-last layout (batch, height, width, channels)
+    description: Input data tensor in channel-last layout — rank-4 NHWC (batch, height, width, channels) or rank-5 NDHWC (batch, depth, height, width, channels) for volumetric GridSample
     type_str: T1
   - name: grid
-    description: Flow field with shape (N, H_out, W_out, 2) giving normalized sample coordinates per output pixel
+    description: Sampling grid per ONNX — e.g. (N, H_out, W_out, 2) for 2D spatial or (N, D_out, H_out, W_out, 3) for 3D spatial, giving normalized coordinates per output voxel
     type_str: T2
   outputs:
   - name: Y
-    description: Sampled output in channel-last layout (batch, H_out, W_out, channels)
+    description: Sampled output in channel-last layout (batch, then output spatial dims, then channels)
     type_str: T1
   attributes:
   - name: align_corners

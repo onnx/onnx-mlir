@@ -126,7 +126,7 @@ LogicalResult XFEConvOpShapeInference(
   if (dilationsAttr.has_value()) {
     auto dilationsArray = dilationsAttr.value();
     for (size_t i = 0; i < std::min(dilationsArray.size(), dilations.size());
-         ++i) {
+        ++i) {
       dilations[i] = mlir::cast<IntegerAttr>(dilationsArray[i]).getInt();
     }
   }
@@ -240,7 +240,7 @@ LogicalResult XFEConvTransposeOpShapeInference(
   if (dilationsAttr.has_value()) {
     auto dilationsArray = dilationsAttr.value();
     for (size_t i = 0; i < std::min(dilationsArray.size(), dilations.size());
-         ++i) {
+        ++i) {
       dilations[i] = mlir::cast<IntegerAttr>(dilationsArray[i]).getInt();
     }
   }
@@ -248,7 +248,7 @@ LogicalResult XFEConvTransposeOpShapeInference(
   if (outputPaddingAttr.has_value()) {
     auto outputPaddingArray = outputPaddingAttr.value();
     for (size_t i = 0;
-         i < std::min(outputPaddingArray.size(), outputPadding.size()); ++i) {
+        i < std::min(outputPaddingArray.size(), outputPadding.size()); ++i) {
       outputPadding[i] =
           mlir::cast<IntegerAttr>(outputPaddingArray[i]).getInt();
     }
@@ -475,7 +475,7 @@ LogicalResult XFEMaxPoolOpShapeInference(
   SmallVector<int64_t, 4> dilations(numSpatialDims, 1);
   if (dilationsAttr.has_value()) {
     for (size_t i = 0; i < std::min(dilationsAttr->size(), dilations.size());
-         ++i) {
+        ++i) {
       dilations[i] = mlir::cast<IntegerAttr>((*dilationsAttr)[i]).getInt();
     }
   }
@@ -937,13 +937,21 @@ LogicalResult XFEGridSampleOpShapeInference(
 
   auto xType = mlir::cast<ShapedType>(X.getType());
   auto gridType = mlir::cast<ShapedType>(grid.getType());
-  if (xType.getRank() != 4 || gridType.getRank() != 4)
+  const int64_t xRank = xType.getRank();
+  const int64_t gridRank = gridType.getRank();
+  // Match XFEGridSampleOpVerify / ONNX: X and grid same rank; grid[..., r] with
+  // r = #spatial = rank - 2. Skip inference if ranks are inconsistent.
+  if (xRank < 3 || xRank != gridRank)
     return success();
 
   auto xShape = xType.getShape();
   auto gridShape = gridType.getShape();
-  SmallVector<int64_t, 4> outputShape = {
-      xShape[0], gridShape[1], gridShape[2], xShape[3]};
+  // Channel-last: [N, spatial_out..., C] from grid[1 : rank-1) and X channels.
+  SmallVector<int64_t, 6> outputShape;
+  outputShape.push_back(xShape[0]);
+  for (int64_t i = 1; i < gridRank - 1; ++i)
+    outputShape.push_back(gridShape[i]);
+  outputShape.push_back(xShape[xRank - 1]);
 
   Type elementType = xType.getElementType();
   if (auto existingType = dyn_cast<ShapedType>(gsOp.getResult().getType())) {

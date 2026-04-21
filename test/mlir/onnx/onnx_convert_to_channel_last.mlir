@@ -553,3 +553,26 @@ func.func @test_gridsample_to_xfe_channel_last(%arg0: tensor<1x3x4x4xf32>, %arg1
   // CHECK: onnx.Return [[OUT]] : tensor<1x3x2x2xf32>
 }
 
+// -----
+
+//===----------------------------------------------------------------------===//
+/// GridSample → XFEGridSample (5D NCDHW with NDHWC sandwich)
+//===----------------------------------------------------------------------===//
+
+// COM: Volumetric GridSample uses rank-5 X and grid; channel-last is NDHWC.
+// CHECK-LABEL: func.func @test_gridsample_5d_to_xfe_channel_last
+func.func @test_gridsample_5d_to_xfe_channel_last(
+    %arg0: tensor<1x2x3x4x5xf32>,
+    %arg1: tensor<1x2x3x4x3xf32>) -> tensor<1x2x3x4x5xf32> {
+  %0 = "onnx.GridSample"(%arg0, %arg1) {
+    align_corners = 0 : si64,
+    mode = "linear",
+    padding_mode = "zeros"
+  } : (tensor<1x2x3x4x5xf32>, tensor<1x2x3x4x3xf32>) -> tensor<1x2x3x4x5xf32>
+  onnx.Return %0 : tensor<1x2x3x4x5xf32>
+
+  // CHECK: [[IN:%.+]] = "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 4, 1]}
+  // CHECK: "onnx.XFEGridSample"([[IN]], %arg1)
+  // CHECK: "onnx.Transpose"({{.*}}) {perm = [0, 4, 1, 2, 3]}
+}
+
