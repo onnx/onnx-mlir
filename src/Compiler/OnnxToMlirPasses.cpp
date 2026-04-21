@@ -42,6 +42,13 @@ void addXmcMlirPasses(mlir::OpPassManager &pm, OnnxToMlirOptions opts) {
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createLowerReduceToPoolPass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createTransferPoolFixToDownsampleFixPass());
+  // After TransferReduceMeanSumToConv (called earlier in this pipeline)
+  // anything that didn't match -- e.g. NCHW axis=1 reductions, or rank-3
+  // axis=1 with degenerate channel -- lands here and gets shaped to a
+  // C-axis reduction so the AIE last-axis kernel can handle it.  Mirrors
+  // xcompiler's TransferReduceHdimToReduceCdimPass.
+  pm.addNestedPass<func::FuncOp>(
+      onnx_mlir::createTransferReduceHdimToReduceCdimPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createRemoveRedundantReluPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createStandardizeSliceOpsPass());
   pm.addNestedPass<func::FuncOp>(
