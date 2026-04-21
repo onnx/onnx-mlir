@@ -515,9 +515,11 @@ bool zdnnx_prepare_split_info(zdnnx_split_info *split_info,
         (tile_size_e2 % AIU_STICKS_PER_PAGE != 0)) {
       tile_shape[E2] =
           CEIL(tile_size_e2, AIU_STICKS_PER_PAGE) * AIU_STICKS_PER_PAGE;
+#ifdef ZDNNX_DEBUG
       printf("Warning: TileSize for E2 (%d) is not multiple of %d. Adjust to "
              "%d.\n",
           tile_size_e2, AIU_STICKS_PER_PAGE, tile_shape[E2]);
+#endif
     } else {
       tile_shape[E2] = tile_size_e2;
     }
@@ -529,9 +531,11 @@ bool zdnnx_prepare_split_info(zdnnx_split_info *split_info,
         (tile_size_e1 % AIU_2BYTE_CELLS_PER_STICK != 0)) {
       tile_shape[E1] = CEIL(tile_size_e1, AIU_2BYTE_CELLS_PER_STICK) *
                        AIU_2BYTE_CELLS_PER_STICK;
+#ifdef ZDNNX_DEBUG
       printf("Warning: TileSize for E1 (%d) is not multiple of %d. Adjust to "
              "%d.\n",
           tile_size_e1, AIU_2BYTE_CELLS_PER_STICK, tile_shape[E1]);
+#endif
     } else {
       tile_shape[E1] = tile_size_e1;
     }
