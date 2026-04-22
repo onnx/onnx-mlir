@@ -126,9 +126,17 @@ int main(int argc, char *argv[]) {
       llvm::errs() << errorMessage << "\n";
     return rc;
   }
-  // TODO(tung): put allArgs into a module attribute, say "user_compile_options"
+  // Store compile options in a module attribute.
   std::string allArgsStr = "";
-  module.setAttr("user_compile_options", StringAttr::get(context, allArgsStr));
+  for (uint64_t i = 1; i < allArgs.size(); ++i) {
+    if (allArgs[i]) {
+      if (i > 1)
+        allArgsStr += " ";
+      allArgsStr += allArgs[i];
+    }
+  }
+  module.get()->setAttr(
+      "onnx-mlir.compile_options", mlir::StringAttr::get(&context, allArgsStr));
   inputFileTiming.stop();
   return compileModule(module, context, outputBaseName, emissionTarget);
 }

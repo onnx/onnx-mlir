@@ -280,6 +280,9 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
     }
   }
 
+  // Store the op statistics in an attribute of ModuleOp.
+  pm.addPass(onnx_mlir::createWriteOpStatsToModuleAttributePass());
+
   pm.addPass(onnx_mlir::createLowerToKrnlPass(/*enableTiling*/ optLevel >= 3,
       /*enableSIMD*/ optLevel >= 3 && !disableSimdOption, enableParallel,
       /*enableFastMath*/ optLevel >= 3 && enableFastMathOption,
