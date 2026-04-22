@@ -1222,7 +1222,7 @@ def gen_op_def(schema, with_version=False):
     traits.append("DeclareOpInterfaceMethods<ShapeHelperOpInterface>")
     if opName in OpsWithReifyResultShapes:
         traits.append(
-            'DeclareOpInterfaceMethods<ReifyRankedShapedTypeOpInterface, '
+            "DeclareOpInterfaceMethods<ReifyRankedShapedTypeOpInterface, "
             '["reifyResultShapes"]>'
         )
     if opName in OpsWithResultTypeInference:
