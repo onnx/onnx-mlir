@@ -358,6 +358,17 @@ struct ReduceMeanToConvPattern : public OpRewritePattern<ONNXReduceMeanOp> {
     if (!isChannelWiseReduction(axes, rank))
       return mlir::failure();
 
+    // Defer to TransferReduceHdimToReduceCdimPass for the shape patterns it
+    // handles (transpose-sandwich / W-dim reshape form matching xmodel's
+    // convention).  Keep in sync with ReduceHdimToCdimPattern and
+    // ReduceWdimToCdimPattern in TransferReduceHdimToReduceCdimPass.cpp.
+    if (op.getKeepdims() != 0) {
+      int64_t normAxis = normalizeAxis(axes[0], rank);
+      if ((rank == 4 && normAxis == 1) ||
+          (rank == 3 && normAxis == 1 && inputShape[2] == 1))
+        return mlir::failure();
+    }
+
     int64_t inputChannel = inputShape[1];
 
     if (!isPowerOf2(inputChannel))
@@ -549,6 +560,15 @@ struct ReduceSumToConvPattern : public OpRewritePattern<ONNXReduceSumOp> {
     int64_t axis = normalizeAxis(axes[0], rank);
     if (axis != 1)
       return mlir::failure();
+
+    // Defer to TransferReduceHdimToReduceCdimPass for the shape patterns it
+    // handles (transpose-sandwich / W-dim reshape form matching xmodel's
+    // convention).  Keep in sync with ReduceHdimToCdimPattern and
+    // ReduceWdimToCdimPattern in TransferReduceHdimToReduceCdimPass.cpp.
+    if (op.getKeepdims() != 0) {
+      if ((rank == 4) || (rank == 3 && inputShape[2] == 1))
+        return mlir::failure();
+    }
 
     auto outputShape = getShape(op.getReduced());
     bool validOutputShape =
