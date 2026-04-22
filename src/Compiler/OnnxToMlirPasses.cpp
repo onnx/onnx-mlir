@@ -2,8 +2,10 @@
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Pass/PassManager.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
 #include "src/Compiler/DisposableGarbageCollector.hpp"
+#include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 #include "src/Pass/Passes.hpp"
 
 using namespace mlir;
@@ -86,7 +88,7 @@ void addXmcMlirPasses(mlir::OpPassManager &pm, OnnxToMlirOptions opts) {
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceContainedConcatPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createOptimizeSiblingConcatPass());
 
-  pm.addNestedPass<func::FuncOp>(mlir::createCanonicalizerPass());
+  pm.addNestedPass<func::FuncOp>(createCanonicalizeWithResultNamesPass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createReplaceHsigmoidAndHswishPass());
   pm.addNestedPass<func::FuncOp>(
@@ -169,7 +171,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
     }
   } else {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
-    pm.addPass(mlir::createCanonicalizerPass());
+    pm.addPass(onnx_mlir::createCanonicalizeWithResultNamesPass());
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
     // Convolution Optimization for CPU: enable when there are no accelerators.
     if (targetCPU && opts.enableConvOptPass) {
@@ -189,7 +191,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
     } else {
       // Statically add extra passes
       for (int i = 0; i < opts.repeatOnnxTransform; i++) {
-        pm.addPass(mlir::createCanonicalizerPass());
+        pm.addPass(onnx_mlir::createCanonicalizeWithResultNamesPass());
         pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
         pm.addNestedPass<func::FuncOp>(
             onnx_mlir::createConstPropONNXToONNXPass());
@@ -220,7 +222,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
         opts.enableGAPToReduceMean));
   } else {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
-    pm.addPass(mlir::createCanonicalizerPass());
+    pm.addPass(onnx_mlir::createCanonicalizeWithResultNamesPass());
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
   }
 

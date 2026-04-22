@@ -11,6 +11,7 @@
 #include <mlir/IR/Value.h>
 #include <mlir/Pass/Pass.h>
 #include <mlir/Support/LLVM.h>
+#include <mlir/Transforms/GreedyPatternRewriteDriver.h>
 
 #include "src/Dialect/ONNX/TensorName.hpp"
 #include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
@@ -149,6 +150,41 @@ public:
 
 std::unique_ptr<mlir::Pass> createInferTensorNames() {
   return std::make_unique<InferTensorNamesPass>();
+}
+
+// Canonicalizer that attaches a ResultNamesUpdater listener so that
+// ResultNames attributes survive op replacements during canonicalization.
+struct CanonicalizeWithResultNamesPass
+    : public mlir::PassWrapper<CanonicalizeWithResultNamesPass,
+          mlir::OperationPass<func::FuncOp>> {
+
+  llvm::StringRef getArgument() const override {
+    return "canonicalize-with-rn";
+  }
+
+  llvm::StringRef getDescription() const override {
+    return "Canonicalizer pass that preserves ResultNames attributes";
+  }
+
+  void runOnOperation() override {
+    auto *ctx = &getContext();
+    mlir::RewritePatternSet patterns(ctx);
+    for (auto *dialect : ctx->getLoadedDialects())
+      dialect->getCanonicalizationPatterns(patterns);
+    for (auto regOp : ctx->getRegisteredOperations())
+      regOp.getCanonicalizationPatterns(patterns, ctx);
+
+    GreedyRewriteConfig config;
+    ResultNamesUpdater rnUpdater;
+    config.listener = &rnUpdater;
+    if (failed(
+            applyPatternsGreedily(getOperation(), std::move(patterns), config)))
+      return signalPassFailure();
+  }
+};
+
+std::unique_ptr<Pass> createCanonicalizeWithResultNamesPass() {
+  return std::make_unique<CanonicalizeWithResultNamesPass>();
 }
 
 } // namespace onnx_mlir

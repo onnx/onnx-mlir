@@ -74,6 +74,8 @@ std::unique_ptr<mlir::Pass> createFixNegScalePass();
 
 std::unique_ptr<mlir::Pass> createInferTensorNames();
 
+std::unique_ptr<mlir::Pass> createCanonicalizeWithResultNamesPass();
+
 #ifdef ONNX_MLIR_ENABLE_KRNL
 /// Pass for instrument the ops in specific stage.
 std::unique_ptr<mlir::Pass> createInstrumentPass();

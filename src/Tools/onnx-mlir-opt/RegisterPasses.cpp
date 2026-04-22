@@ -358,6 +358,7 @@ void registerOMPasses(int optLevel) {
   mlir::registerPass(createONNXCSEPass);
   mlir::registerPass(createFixNegScalePass);
   mlir::registerPass(createInferTensorNames);
+  mlir::registerPass(createCanonicalizeWithResultNamesPass);
 
   mlir::PassPipelineRegistration<>("xmc-passes", "Run all XMC xcompiler passes",
       [](mlir::OpPassManager &pm) { addXmcMlirPasses(pm); });
