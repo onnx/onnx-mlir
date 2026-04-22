@@ -217,6 +217,19 @@ PYBIND11_MODULE(PyRuntimeC, m) {
           "    >>> session = OMExecutionSession('mnist.so')\n"
           "    >>> print(session.output_signature())\n"
           "    # Output: output signature in json [{\"type\" : \"f32\", \"dims\" : [1,10], \"name\" : \"prediction\"}")
+      .def("compilation_info",
+          &onnx_mlir::PyExecutionSession::pyCompilationInfo,
+          "Get the compilation information of the model.\n\n"
+          "Returns a JSON string containing compilation options and operation\n"
+          "statistics used when the model was compiled. This information is\n"
+          "useful for understanding how the model was built and what operations\n"
+          "it contains.\n\n"
+          "Returns:\n"
+          "    str: JSON string with compilation information.\n\n"
+          "Example:\n"
+          "    >>> session = OMExecutionSession('model.so')\n"
+          "    >>> print(session.compilation_info())\n"
+          "    # Output: {\"compile_options\": \"...\", \"op_stats\": {...}}")
       .def("print_instrumentation",
           &onnx_mlir::PyExecutionSession::pyPrintInstrumentation,
           "Print instrumentation data from the model execution.\n\n"

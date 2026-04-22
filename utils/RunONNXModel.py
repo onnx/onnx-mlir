@@ -1077,7 +1077,8 @@ class InferenceSession:
     """
 
     def run_inference(self):
-        return self.session.run(self.inputs)
+        print(self.session.compilation_info())
+        )       return self.session.run(self.inputs)
 
     def print_instrumentation(self):
         self.session.print_instrumentation()

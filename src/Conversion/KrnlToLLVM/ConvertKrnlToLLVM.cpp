@@ -827,6 +827,70 @@ void emitDtors(ModuleOp &module, OpBuilder &builder,
   }
 }
 
+/// Emit compilation information by extracting compile options and op stats
+/// from module attributes and constructing a JSON string.
+void emitCompilationInfo(ModuleOp &module) {
+  MLIRContext *context = module.getContext();
+  Location loc = module.getLoc();
+  OpBuilder b(context);
+  MultiDialectBuilder<LLVMBuilder> create(b, loc);
+
+  Type i8Type = IntegerType::get(context, 8);
+  Type i8PtrTy = getPointerType(context, i8Type);
+
+  // Get the compile_options attribute.
+  std::string compileOptions;
+  if (Attribute compileOptionsAttr =
+          module->getAttr("onnx-mlir.compile_options")) {
+    if (auto strAttr = mlir::dyn_cast<StringAttr>(compileOptionsAttr)) {
+      compileOptions = strAttr.getValue().str();
+    }
+  }
+
+  // Get the op_stats attribute.
+  std::string opStats;
+  if (Attribute opStatsAttr = module->getAttr("onnx-mlir.op_stats")) {
+    if (auto strAttr = mlir::dyn_cast<StringAttr>(opStatsAttr)) {
+      opStats = strAttr.getValue().str();
+    }
+  }
+
+  // Construct the JSON string.
+  std::string jsonString = "{\"compile_options\": \"" + compileOptions +
+                           "\", \"op_stats\": " + opStats + "}";
+
+  LLVM_DEBUG(llvm::dbgs() << "Compilation Info: " << jsonString << "\n");
+
+  // Create a global op to store the JSON string.
+  OpBuilder::InsertionGuard guard(b);
+  b.setInsertionPointToStart(module.getBody());
+  std::string jsonStringWithNull = jsonString + '\0';
+  jsonStringWithNull =
+      (isZOS(module)) ? krnl::a2e_s(jsonStringWithNull) : jsonStringWithNull;
+  mlir::StringAttr valueAttr =
+      mlir::StringAttr::get(context, jsonStringWithNull);
+  LLVM::GlobalOp compilationInfoGlobalOp = create.llvm.globalOp(
+      LLVM::LLVMArrayType::get(i8Type, jsonStringWithNull.size()),
+      /*isConstant=*/true, LLVM::Linkage::Internal, "om_compilation_info_json",
+      valueAttr);
+
+  // Emit the omCompilationInfo function of type `*i8 ()`.
+  b.setInsertionPointToEnd(module.getBody());
+  Type llvmFnType = LLVM::LLVMFunctionType::get(i8PtrTy, {}, false);
+  LLVM::LLVMFuncOp funcOp = create.llvm.func(
+      "omCompilationInfo", llvmFnType, /*createUniqueFunc=*/true);
+
+  // Emit the body of the function.
+  Block *entryBlock = funcOp.addEntryBlock(b);
+  OpBuilder::InsertionGuard bodyGuard(b);
+  b.setInsertionPointToStart(entryBlock);
+
+  // Return a pointer to the global JSON string.
+  Value jsonAddr = create.llvm.addressOf(compilationInfoGlobalOp);
+  Value jsonI8Ptr = create.llvm.bitcast(i8PtrTy, jsonAddr);
+  create.llvm._return(jsonI8Ptr);
+}
+
 //===----------------------------------------------------------------------===//
 // Krnl Dialect lowering pass
 //===----------------------------------------------------------------------===//
@@ -968,9 +1032,8 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
                    << "(single constant <= " << constantsToFileSingleThreshold
                    << " KB, "
                    << "total constants <= " << constantsToFileTotalThreshold
-                   << " GB). "
-                   << "Stored them in an external file: "
-                   << "\"" << fname << "\""
+                   << " GB). " << "Stored them in an external file: " << "\""
+                   << fname << "\""
                    << ". Make sure to put this file in the same folder as the "
                       "generated model or set OM_CONSTANT_PATH to the "
                       "folder having this file. For constants-related "
@@ -1087,6 +1150,9 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
       return WalkResult::advance();
     });
   }
+
+  // Emit compilation information.
+  emitCompilationInfo(module);
 }
 
 /// Create the pass for lowering `Krnl`, `Affine` and `Std` dialects to LLVM.
