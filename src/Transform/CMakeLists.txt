@@ -71,4 +71,5 @@ add_onnx_mlir_library(OMWriteOpStatsToModuleAttribute
   LINK_LIBS PUBLIC
   MLIRPass
   MLIRFuncDialect
+  MLIRTransforms
   )
