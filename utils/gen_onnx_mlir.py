@@ -335,6 +335,8 @@ version_dict = {
 additional_op_version_dict = {
     "com.amd.quark": {
         "BFPQuantizeDequantize": [1],
+        "ExtendedQuantizeLinear": [1],
+        "ExtendedDequantizeLinear": [1],
     }
 }
 

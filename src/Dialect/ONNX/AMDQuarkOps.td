@@ -2,7 +2,7 @@
 
 //===-- AMDQuarkOps.td -- AMD Quark Ops  -*- tablegen -===//
 //
-// Copyright 2025 Advanced Micro Devices, Inc. or its affiliates
+// Copyright 2025-2026 Advanced Micro Devices, Inc. or its affiliates
 //
 // =============================================================================
 //
@@ -65,3 +65,105 @@ def AMDQuarkBFPQuantizeDequantizeOp: ONNX_Op<"AMDQuarkBFPQuantizeDequantizeOp",
   }];
 }
 
+//===----------------------------------------------------------------------===//
+// AMDQuarkExtendedQuantizeLinearOp
+def AMDQuarkExtendedQuantizeLinearOp
+    : ONNX_Op<"AMDQuarkExtendedQuantizeLinearOp",
+          [Pure, OpVersionTrait<1>,
+              DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+              DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ExtendedQuantizeLinear";
+  let description = [{
+    Extended quantization operator from AMD's Quark quantizer. Consumes a
+    high-precision tensor, a scale, and a zero point to compute the
+    low-precision/quantized tensor. The quantization formula is
+    `y = saturate((x / scale) + zero_point)`.
+
+    This is part of the `com.amd.quark` ONNX custom domain.
+
+    Support for F16 and BF16 is an AMD extension in ONNX-MLIR to
+    https://quark.docs.amd.com/latest/onnx/custom_operators/ExtendedQuantizeLinear.html.
+  }];
+
+  let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F16]>,
+                       TensorOf<[BF16]>]>:$x,
+      AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F16]>, TensorOf<[BF16]>]>:$y_scale,
+      AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I16]>, TensorOf<[I8]>,
+          TensorOf<[UI32]>, TensorOf<[UI16]>, TensorOf<[UI8]>, TensorOf<[F16]>,
+          TensorOf<[BF16]>, NoneType]>:$y_zero_point,
+      DefaultValuedAttr<SI64Attr, "1">:$axis);
+  let results = (outs AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I16]>,
+      TensorOf<[I8]>, TensorOf<[UI32]>, TensorOf<[UI16]>, TensorOf<[UI8]>,
+      TensorOf<[F16]>, TensorOf<[BF16]>]>:$y);
+
+  let hasVerifier = 1;
+
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() { return 3; }
+    static int getNumberOfResults() { return 1; }
+    static std::vector<int> getTypeMap() { return {32}; }
+    [[nodiscard]] std::optional<int64_t> getNormalizedAxis();
+  }];
+
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * AMDQuarkExtendedQuantizeLinearOp::getShapeHelper(
+        mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper,
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh =
+          new onnx_mlir::AMDQuarkExtendedQuantizeLinearOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+}
+
+//===----------------------------------------------------------------------===//
+// AMDQuarkExtendedDequantizeLinearOp
+def AMDQuarkExtendedDequantizeLinearOp
+    : ONNX_Op<"AMDQuarkExtendedDequantizeLinearOp",
+          [Pure, OpVersionTrait<1>,
+              DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+              DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ExtendedDequantizeLinear";
+  let description = [{
+    Extended dequantization operator from AMD's Quark quantizer. Consumes a
+    quantized tensor, a scale, and a zero point to compute the full-precision
+    tensor. The dequantization formula is `y = (x - zero_point) * scale`.
+
+    This is part of the `com.amd.quark` ONNX custom domain.
+
+    Support for F16 and BF16 is an AMD extension in ONNX-MLIR to
+    https://quark.docs.amd.com/latest/onnx/custom_operators/ExtendedDequantizeLinear.html.
+  }];
+
+  let arguments = (ins AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I16]>,
+                       TensorOf<[I8]>, TensorOf<[UI32]>, TensorOf<[UI16]>,
+                       TensorOf<[UI8]>, TensorOf<[F16]>, TensorOf<[BF16]>]>:$x,
+      AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F16]>, TensorOf<[BF16]>]>:$x_scale,
+      AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I16]>, TensorOf<[I8]>,
+          TensorOf<[UI32]>, TensorOf<[UI16]>, TensorOf<[UI8]>, TensorOf<[F16]>,
+          TensorOf<[BF16]>, NoneType]>:$x_zero_point,
+      DefaultValuedAttr<SI64Attr, "1">:$axis);
+  let results =
+      (outs AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F16]>, TensorOf<[BF16]>]>:$y);
+
+  let hasVerifier = 1;
+
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() { return 3; }
+    static int getNumberOfResults() { return 1; }
+    static std::vector<int> getTypeMap() { return {31}; }
+    [[nodiscard]] std::optional<int64_t> getNormalizedAxis();
+  }];
+
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * AMDQuarkExtendedDequantizeLinearOp::getShapeHelper(
+        mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper,
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh =
+          new onnx_mlir::AMDQuarkExtendedDequantizeLinearOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+}

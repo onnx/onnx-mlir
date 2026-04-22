@@ -4794,6 +4794,103 @@ func.func @test_bfp_quant_dequant_negative_axis(%arg0: tensor<16x32xf32>) -> ten
 // CHECK-SAME:       (tensor<16x32xf32>) -> tensor<16x32xf32>
 
 // -----
+//===----------------------------------------------------------------------===//
+/// Test shape inference for amd.quark.ExtendedQuantizeLinear
+//===----------------------------------------------------------------------===//
+
+func.func @test_extended_quantize(%arg0: tensor<5x2x3x4xf32>, %arg1: tensor<f32>, %arg2: tensor<i8>) -> tensor<*xi8> {
+  %0 = "onnx.AMDQuarkExtendedQuantizeLinearOp"(%arg0, %arg1, %arg2) {axis = 1 : si64} : (tensor<5x2x3x4xf32>, tensor<f32>, tensor<i8>) -> tensor<*xi8>
+  return %0 : tensor<*xi8>
+}
+// CHECK-LABEL:  func.func @test_extended_quantize
+// CHECK:          "onnx.AMDQuarkExtendedQuantizeLinearOp"
+// CHECK-SAME:       {axis = 1 : si64} : (tensor<5x2x3x4xf32>, tensor<f32>, tensor<i8>) -> tensor<5x2x3x4xi8>
+
+func.func @test_extended_quantize_f16_zp(%arg0: tensor<5x2x3x4xf32>, %arg1: tensor<f32>, %arg2: tensor<f16>) -> tensor<*xf16> {
+  %0 = "onnx.AMDQuarkExtendedQuantizeLinearOp"(%arg0, %arg1, %arg2) : (tensor<5x2x3x4xf32>, tensor<f32>, tensor<f16>) -> tensor<*xf16>
+  return %0 : tensor<*xf16>
+}
+// CHECK-LABEL:  func.func @test_extended_quantize_f16_zp
+// CHECK:          "onnx.AMDQuarkExtendedQuantizeLinearOp"
+// CHECK-SAME:       (tensor<5x2x3x4xf32>, tensor<f32>, tensor<f16>) -> tensor<5x2x3x4xf16>
+
+func.func @test_extended_quantize_bf16_zp(%arg0: tensor<5x2x3x4xf32>, %arg1: tensor<f32>, %arg2: tensor<bf16>) -> tensor<*xbf16> {
+  %0 = "onnx.AMDQuarkExtendedQuantizeLinearOp"(%arg0, %arg1, %arg2) : (tensor<5x2x3x4xf32>, tensor<f32>, tensor<bf16>) -> tensor<*xbf16>
+  return %0 : tensor<*xbf16>
+}
+// CHECK-LABEL:  func.func @test_extended_quantize_bf16_zp
+// CHECK:          "onnx.AMDQuarkExtendedQuantizeLinearOp"
+// CHECK-SAME:       (tensor<5x2x3x4xf32>, tensor<f32>, tensor<bf16>) -> tensor<5x2x3x4xbf16>
+
+func.func @test_extended_quantize_none_zp(%arg0: tensor<5x2x3x4xf32>, %arg1: tensor<f32>) -> tensor<*xi8> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.AMDQuarkExtendedQuantizeLinearOp"(%arg0, %arg1, %none) : (tensor<5x2x3x4xf32>, tensor<f32>, none) -> tensor<*xi8>
+  return %0 : tensor<*xi8>
+}
+// CHECK-LABEL:  func.func @test_extended_quantize_none_zp
+// CHECK:          "onnx.AMDQuarkExtendedQuantizeLinearOp"
+// CHECK-SAME:       (tensor<5x2x3x4xf32>, tensor<f32>, none) -> tensor<5x2x3x4xi8>
+
+// -----
+
+func.func @test_extended_quantize_dynamic(%arg0: tensor<5x?x3x4xf32>, %arg1: tensor<f32>, %arg2: tensor<i8>) -> tensor<*xi8> {
+  %0 = "onnx.AMDQuarkExtendedQuantizeLinearOp"(%arg0, %arg1, %arg2) : (tensor<5x?x3x4xf32>, tensor<f32>, tensor<i8>) -> tensor<*xi8>
+  return %0 : tensor<*xi8>
+}
+// CHECK-LABEL:  func.func @test_extended_quantize_dynamic
+// CHECK:          "onnx.AMDQuarkExtendedQuantizeLinearOp"
+// CHECK-SAME:       (tensor<5x?x3x4xf32>, tensor<f32>, tensor<i8>) -> tensor<5x?x3x4xi8>
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Test shape inference for amd.quark.ExtendedDequantizeLinear
+//===----------------------------------------------------------------------===//
+
+func.func @test_extended_dequantize(%arg0: tensor<5x2x3x4xi8>, %arg1: tensor<f32>, %arg2: tensor<i8>) -> tensor<*xf32> {
+  %0 = "onnx.AMDQuarkExtendedDequantizeLinearOp"(%arg0, %arg1, %arg2) {axis = 1 : si64} : (tensor<5x2x3x4xi8>, tensor<f32>, tensor<i8>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+}
+// CHECK-LABEL:  func.func @test_extended_dequantize
+// CHECK:          "onnx.AMDQuarkExtendedDequantizeLinearOp"
+// CHECK-SAME:       {axis = 1 : si64} : (tensor<5x2x3x4xi8>, tensor<f32>, tensor<i8>) -> tensor<5x2x3x4xf32>
+
+func.func @test_extended_dequantize_f16(%arg0: tensor<5x2x3x4xf16>, %arg1: tensor<f32>, %arg2: tensor<f16>) -> tensor<*xf32> {
+  %0 = "onnx.AMDQuarkExtendedDequantizeLinearOp"(%arg0, %arg1, %arg2) : (tensor<5x2x3x4xf16>, tensor<f32>, tensor<f16>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+}
+// CHECK-LABEL:  func.func @test_extended_dequantize_f16
+// CHECK:          "onnx.AMDQuarkExtendedDequantizeLinearOp"
+// CHECK-SAME:       (tensor<5x2x3x4xf16>, tensor<f32>, tensor<f16>) -> tensor<5x2x3x4xf32>
+
+func.func @test_extended_dequantize_bf16_zp(%arg0: tensor<5x2x3x4xbf16>, %arg1: tensor<f32>, %arg2: tensor<bf16>) -> tensor<*xf32> {
+  %0 = "onnx.AMDQuarkExtendedDequantizeLinearOp"(%arg0, %arg1, %arg2) : (tensor<5x2x3x4xbf16>, tensor<f32>, tensor<bf16>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+}
+// CHECK-LABEL:  func.func @test_extended_dequantize_bf16_zp
+// CHECK:          "onnx.AMDQuarkExtendedDequantizeLinearOp"
+// CHECK-SAME:       (tensor<5x2x3x4xbf16>, tensor<f32>, tensor<bf16>) -> tensor<5x2x3x4xf32>
+
+func.func @test_extended_dequantize_none_zp(%arg0: tensor<5x2x3x4xi8>, %arg1: tensor<f32>) -> tensor<*xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.AMDQuarkExtendedDequantizeLinearOp"(%arg0, %arg1, %none) : (tensor<5x2x3x4xi8>, tensor<f32>, none) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+}
+// CHECK-LABEL:  func.func @test_extended_dequantize_none_zp
+// CHECK:          "onnx.AMDQuarkExtendedDequantizeLinearOp"
+// CHECK-SAME:       (tensor<5x2x3x4xi8>, tensor<f32>, none) -> tensor<5x2x3x4xf32>
+
+// -----
+
+func.func @test_extended_dequantize_dynamic(%arg0: tensor<5x?x3x4xi8>, %arg1: tensor<f32>, %arg2: tensor<i8>) -> tensor<*xf32> {
+  %0 = "onnx.AMDQuarkExtendedDequantizeLinearOp"(%arg0, %arg1, %arg2) : (tensor<5x?x3x4xi8>, tensor<f32>, tensor<i8>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+}
+// CHECK-LABEL:  func.func @test_extended_dequantize_dynamic
+// CHECK:          "onnx.AMDQuarkExtendedDequantizeLinearOp"
+// CHECK-SAME:       (tensor<5x?x3x4xi8>, tensor<f32>, tensor<i8>) -> tensor<5x?x3x4xf32>
+
+// -----
 
 //===----------------------------------------------------------------------===//
 // RegexFullMatch
