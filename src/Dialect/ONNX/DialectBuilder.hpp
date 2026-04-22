@@ -35,11 +35,11 @@ struct OnnxBuilder : DialectBuilder {
 
   // Create operation and infer shape.
   template <typename OnnxOpType, typename... Args>
-  OnnxOpType createOpAndInferShapes(Args &&...args) const;
+  OnnxOpType createOpAndInferShapes(Args &&... args) const;
 
   template <typename OnnxOpType, typename... Args>
   OnnxOpType createTypedOpAndInferShapes(
-      mlir::Type result_ty, Args &&...args) const;
+      mlir::Type result_ty, Args &&... args) const;
 
   // ONNXAbsOp
   mlir::Value abs(mlir::Value input) const;
