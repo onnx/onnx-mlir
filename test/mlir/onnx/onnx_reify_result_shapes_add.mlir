@@ -8,9 +8,10 @@ func.func @test_add_reify_dynamic_batch(%arg0: tensor<?x2xf32>, %arg1: tensor<?x
 }
 
 // CHECK-LABEL: func.func @test_add_reify_dynamic_batch
-// CHECK-DAG: [[SHAPE:%.+]] = shape.shape_of %arg{{.*}} : tensor<?x2xf32> -> tensor<2xindex>
-// CHECK-DAG: shape.get_extent [[SHAPE]]
-// CHECK-DAG: shape.get_extent [[SHAPE]]
+// CHECK-DAG: [[SHAPE0:%.+]] = shape.shape_of %arg0 : tensor<?x2xf32> -> tensor<2xindex>
+// CHECK-DAG: [[SHAPE1:%.+]] = shape.shape_of %arg1 : tensor<?x2xf32> -> tensor<2xindex>
+// CHECK-DAG: shape.get_extent [[SHAPE0]]
+// CHECK-DAG: shape.get_extent [[SHAPE1]]
 // CHECK: "onnx.Add"(%arg0, %arg1)
 
 // -----
