@@ -25,7 +25,8 @@ namespace onnx_mlir {
 namespace {
 
 struct TestONNXReifyResultShapesPass
-    : public PassWrapper<TestONNXReifyResultShapesPass, OperationPass<ModuleOp>> {
+    : public PassWrapper<TestONNXReifyResultShapesPass,
+          OperationPass<ModuleOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(TestONNXReifyResultShapesPass)
 
   StringRef getArgument() const override {
