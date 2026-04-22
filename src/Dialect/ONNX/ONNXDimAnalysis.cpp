@@ -28,6 +28,7 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include "src/Pass/Passes.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
 #define DEBUG_TYPE "dim_analysis"
@@ -534,8 +535,12 @@ static llvm::SmallPtrSet<Operation *, 32> collectOperationsFromModule(
     return WalkResult::advance();
   });
 
-  if (walkResult.wasInterrupted())
+  if (walkResult.wasInterrupted()) {
+    // Detected tensor<*xdtype>. DimAnalysis does not work with unranked
+    // tensors. Make the analysis no-op by returning an empty set of
+    // target operations.
     collectedOps.clear();
+  }
 
   return collectedOps;
 }
