@@ -164,6 +164,9 @@ LogicalResult XFEChannelWiseQuantizationVerify(Operation *op) {
   } else if (auto resizeOp = dyn_cast<XFEResizeOp>(op)) {
     inputTensor = resizeOp.getX();
     inputName = "input X";
+  } else if (auto gridOp = dyn_cast<XFEGridSampleOp>(op)) {
+    inputTensor = gridOp.getX();
+    inputName = "input X";
   } else {
     return success();
   }
@@ -472,6 +475,55 @@ LogicalResult XFEResizeOpVerify(Operation *op) {
     if (sizesAttr && static_cast<int64_t>(sizesAttr.size()) != rank)
       return op->emitError("sizes size must match input rank");
   }
+
+  return XFEChannelWiseQuantizationVerify(op);
+}
+
+LogicalResult XFEGridSampleOpVerify(Operation *op) {
+  auto gsOp = dyn_cast<XFEGridSampleOp>(op);
+  if (!gsOp)
+    return failure();
+
+  const int64_t alignCorners = gsOp.getAlignCorners();
+  if (alignCorners != 0 && alignCorners != 1)
+    return op->emitOpError("align_corners needs to be 0 or 1");
+
+  StringRef mode = gsOp.getMode();
+  if (mode != "linear" && mode != "nearest" && mode != "cubic")
+    return op->emitOpError("mode needs to be linear, nearest or cubic");
+
+  StringRef paddingMode = gsOp.getPaddingMode();
+  if (paddingMode != "zeros" && paddingMode != "border" &&
+      paddingMode != "reflection")
+    return op->emitOpError(
+        "padding_mode needs to be zeros, border or reflection");
+
+  Value X = gsOp.getX();
+  Value grid = gsOp.getGrid();
+  if (!hasShapeAndRank(X) || !hasShapeAndRank(grid))
+    return success();
+
+  // Channel-last, all ranks R >= 3: same rank; grid trailing dim = #spatial
+  // (R - 2), matching ONNX GridSample.
+  auto xType = mlir::cast<ShapedType>(X.getType());
+  auto gridType = mlir::cast<ShapedType>(grid.getType());
+  int64_t inputRank = xType.getRank();
+  if (inputRank < 3)
+    return op->emitError(
+        "XFEGridSample requires input rank >= 3 (batch, spatial..., channels)");
+
+  if (xType.getRank() != gridType.getRank())
+    return op->emitError("Input and grid must have the same rank");
+
+  auto xShape = xType.getShape();
+  auto gridShape = gridType.getShape();
+  if (xShape[0] != ShapedType::kDynamic &&
+      gridShape[0] != ShapedType::kDynamic && xShape[0] != gridShape[0])
+    return op->emitError("Input and grid must have the same batch value");
+  if (!ShapedType::isDynamic(gridShape.back()) &&
+      gridShape.back() != inputRank - 2)
+    return op->emitError() << "Grid last dim must have been '" << inputRank - 2
+                           << "' instead of '" << gridShape.back() << "'.";
 
   return XFEChannelWiseQuantizationVerify(op);
 }

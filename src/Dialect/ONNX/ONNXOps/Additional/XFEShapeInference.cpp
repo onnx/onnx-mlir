@@ -3,6 +3,8 @@
 // Move to: src/Dialect/ONNX/ONNXOps/Additional/XFEShapeInference.cpp
 // and add it to the CMakeLists.txt in src/Dialect/ONNX/
 
+#include "mlir/IR/TypeUtilities.h"
+
 #include "XFEShapeInference.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
@@ -920,6 +922,42 @@ LogicalResult XFEResizeOpShapeInference(
   }
   auto resultType = RankedTensorType::get(outputShape, elementType);
   resizeOp.getResult().setType(resultType);
+
+  return success();
+}
+
+LogicalResult XFEGridSampleOpShapeInference(
+    Operation *op, std::function<void(Region &)> doShapeInference) {
+  auto gsOp = dyn_cast<XFEGridSampleOp>(op);
+  if (!gsOp)
+    return failure();
+
+  Value X = gsOp.getX();
+  Value grid = gsOp.getGrid();
+  if (!hasShapeAndRank(X) || !hasShapeAndRank(grid))
+    return success();
+
+  auto xType = mlir::cast<ShapedType>(X.getType());
+  auto gridType = mlir::cast<ShapedType>(grid.getType());
+  const int64_t xRank = xType.getRank();
+  const int64_t gridRank = gridType.getRank();
+  // Match XFEGridSampleOpVerify / ONNX: X and grid same rank; grid[..., r] with
+  // r = #spatial = rank - 2. Skip inference if ranks are inconsistent.
+  if (xRank < 3 || xRank != gridRank)
+    return success();
+
+  auto xShape = xType.getShape();
+  auto gridShape = gridType.getShape();
+  // Channel-last: [N, spatial_out..., C] from grid[1 : rank-1) and X channels.
+  SmallVector<int64_t> outputShape;
+  outputShape.push_back(xShape[0]);
+  for (int64_t i = 1; i < gridRank - 1; ++i)
+    outputShape.push_back(gridShape[i]);
+  outputShape.push_back(xShape[xRank - 1]);
+
+  Type elementType = getElementTypeOrSelf(gsOp.getResult().getType());
+  auto resultType = RankedTensorType::get(outputShape, elementType);
+  gsOp.getResult().setType(resultType);
 
   return success();
 }

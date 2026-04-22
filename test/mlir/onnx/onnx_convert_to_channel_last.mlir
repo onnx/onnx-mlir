@@ -7,6 +7,7 @@
 /// - MaxPool -> XFEMaxPool
 /// - GlobalAveragePool -> XFEGlobalAveragePool
 /// - GlobalMaxPool -> XFEGlobalMaxPool
+/// - GridSample -> XFEGridSample (rank >= 3)
 //===----------------------------------------------------------------------===//
 
 //===----------------------------------------------------------------------===//
@@ -528,5 +529,72 @@ func.func @test_avgpool_quantized(
   // CHECK: "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]}
   // CHECK: "onnx.XFEAveragePool"
   // CHECK: "onnx.Transpose"({{.*}}) {perm = [0, 3, 1, 2]}
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// GridSample → XFEGridSample (3D / rank-3 NCL with channel-last sandwich)
+//===----------------------------------------------------------------------===//
+
+// COM: 1D spatial GridSample: NCHW layout (N,C,L); grid (N,L_out,1).
+// CHECK-LABEL: func.func @test_gridsample_rank3_to_xfe_channel_last
+func.func @test_gridsample_rank3_to_xfe_channel_last(
+    %arg0: tensor<1x3x8xf32>, %arg1: tensor<1x4x1xf32>) -> tensor<1x3x4xf32> {
+  %0 = "onnx.GridSample"(%arg0, %arg1) {
+    align_corners = 0 : si64,
+    mode = "linear",
+    padding_mode = "zeros"
+  } : (tensor<1x3x8xf32>, tensor<1x4x1xf32>) -> tensor<1x3x4xf32>
+  onnx.Return %0 : tensor<1x3x4xf32>
+
+  // CHECK: [[IN:%.+]] = "onnx.Transpose"(%arg0) {perm = [0, 2, 1]}
+  // CHECK: "onnx.XFEGridSample"([[IN]], %arg1)
+  // CHECK: "onnx.Transpose"({{.*}}) {perm = [0, 2, 1]}
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// GridSample → XFEGridSample (4D NCHW with NHWC sandwich)
+//===----------------------------------------------------------------------===//
+
+// COM: Test GridSample to XFEGridSample with explicit input/output transposes
+// CHECK-LABEL: func.func @test_gridsample_to_xfe_channel_last
+func.func @test_gridsample_to_xfe_channel_last(%arg0: tensor<1x3x4x4xf32>, %arg1: tensor<1x2x2x2xf32>) -> tensor<1x3x2x2xf32> {
+  %0 = "onnx.GridSample"(%arg0, %arg1) {
+    align_corners = 0 : si64,
+    mode = "linear",
+    padding_mode = "zeros"
+  } : (tensor<1x3x4x4xf32>, tensor<1x2x2x2xf32>) -> tensor<1x3x2x2xf32>
+  onnx.Return %0 : tensor<1x3x2x2xf32>
+
+  // CHECK: [[IN_NHWC:%.+]] = "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]} : (tensor<1x3x4x4xf32>) -> tensor<1x4x4x3xf32>
+  // CHECK: [[GS:%.+]] = "onnx.XFEGridSample"([[IN_NHWC]], %arg1) {{{.*}}align_corners = 0 : si64{{.*}}mode = "linear"{{.*}}padding_mode = "zeros"{{.*}}} : (tensor<1x4x4x3xf32>, tensor<1x2x2x2xf32>) -> tensor<1x2x2x3xf32>
+  // CHECK: [[OUT:%.+]] = "onnx.Transpose"([[GS]]) {perm = [0, 3, 1, 2]} : (tensor<1x2x2x3xf32>) -> tensor<1x3x2x2xf32>
+  // CHECK: onnx.Return [[OUT]] : tensor<1x3x2x2xf32>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// GridSample → XFEGridSample (5D NCDHW with NDHWC sandwich)
+//===----------------------------------------------------------------------===//
+
+// COM: Volumetric GridSample uses rank-5 X and grid; channel-last is NDHWC.
+// CHECK-LABEL: func.func @test_gridsample_5d_to_xfe_channel_last
+func.func @test_gridsample_5d_to_xfe_channel_last(
+    %arg0: tensor<1x2x3x4x5xf32>,
+    %arg1: tensor<1x2x3x4x3xf32>) -> tensor<1x2x3x4x5xf32> {
+  %0 = "onnx.GridSample"(%arg0, %arg1) {
+    align_corners = 0 : si64,
+    mode = "linear",
+    padding_mode = "zeros"
+  } : (tensor<1x2x3x4x5xf32>, tensor<1x2x3x4x3xf32>) -> tensor<1x2x3x4x5xf32>
+  onnx.Return %0 : tensor<1x2x3x4x5xf32>
+
+  // CHECK: [[IN:%.+]] = "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 4, 1]}
+  // CHECK: "onnx.XFEGridSample"([[IN]], %arg1)
+  // CHECK: "onnx.Transpose"({{.*}}) {perm = [0, 4, 1, 2, 3]}
 }
 
