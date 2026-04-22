@@ -38,6 +38,7 @@
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
+#include "src/Dialect/ONNX/Transforms/Decompose.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
 using namespace mlir;
@@ -214,6 +215,21 @@ bool canInferencePadsForNNPAConv(ONNXConvOp op) {
       (inputShape[3] == ShapedType::kDynamic))
     return false;
   return true;
+}
+
+/// Check if Conv should be decomposed to Im2Col for NNPA.
+/// This function combines existing checks without duplicating NNPA eligibility
+/// logic. NNPA Conv eligibility is determined ONLY by
+/// isSuitableForZDNN<ONNXConvOp>().
+static bool shouldDecomposeConvForNNPA(ONNXConvOp op) {
+  // Reuse existing NNPA eligibility check - single source of truth.
+  // If NNPA can handle it, don't decompose.
+  if (isSuitableForZDNN<ONNXConvOp>(op))
+    return false;
+
+  // Reuse existing decomposition eligibility check.
+  // If decomposition is possible, do it as fallback.
+  return shouldDecomposeConvToIm2Col(op);
 }
 
 // Create an ArrayAttr of IntegerAttr(s) of zero values.
@@ -668,6 +684,10 @@ void getRewriteONNXForZHighPatterns(
       patterns.getContext(), dimAnalysis);
   patterns.insert<RemoveReshapeWithIdentityPattern>(
       patterns.getContext(), dimAnalysis);
+  
+  // Add Conv to Im2Col decomposition pattern for Conv ops that cannot use NNPA.
+  // This reuses the existing ConvToIm2ColPattern from Decompose.cpp.
+  addConvToIm2ColPattern(patterns);
 }
 
 void getRewriteONNXForZHighDynamicallyLegal(
@@ -994,8 +1014,12 @@ void getRewriteONNXForZHighDynamicallyLegal(
 
   addDynamicallyLegalOpFor<ONNXConvOp>(
       target, dimAnalysis, [](ONNXConvOp op, const DimAnalysis *dimAnalysis) {
+        // Legal if:
+        // 1. Suitable for NNPA (checked by isSuitableForZDNN), OR
+        // 2. Cannot decompose (checked by shouldDecomposeConvToIm2Col), AND
+        // 3. Cannot infer pads (existing check)
         return isSuitableForZDNN<ONNXConvOp>(op) ||
-               !canInferencePadsForNNPAConv(op);
+               (!shouldDecomposeConvForNNPA(op) && !canInferencePadsForNNPAConv(op));
       });
   addDynamicallyLegalOpFor<ONNXReshapeOp>(target, dimAnalysis,
       [](ONNXReshapeOp op, const DimAnalysis *dimAnalysis) {

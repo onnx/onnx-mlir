@@ -608,6 +608,49 @@ ElementsAttr reshapeElementsAttrToRank0WithDefaultValue(
       .reshape(cast<ElementsAttr>(val), {});
 }
 
+//===----------------------------------------------------------------------===//
+// Exported functions for Conv to Im2Col decomposition
+//===----------------------------------------------------------------------===//
+
+// Check if Conv should be decomposed to Im2Col+MatMul.
+bool shouldDecomposeConvToIm2Col(ONNXConvOp convOp) {
+  // 1. Must have shape information.
+  Value X = convOp.getX();
+  Value W = convOp.getW();
+  if (!onnx_mlir::hasShapeAndRank(X) || !onnx_mlir::hasShapeAndRank(W))
+    return false;
+
+  // 2. Weight tensor must have static shape (we need to know kernel dims).
+  if (!onnx_mlir::hasStaticShape(W.getType()))
+    return false;
+
+  // 3. Must be 2D convolution (rank = 4: N x C x H x W).
+  // For now, only support 2D convolutions.
+  // Future: extend to 1D and 3D convolutions.
+  ShapedType xType = mlir::cast<ShapedType>(X.getType());
+  auto xShape = xType.getShape();
+  int64_t rank = xShape.size();
+  if (rank != 4)
+    return false; // Only 2D convolutions for now.
+
+  // 4. Group must be 1 (no grouped convolutions for now).
+  if (convOp.getGroup() != 1)
+    return false;
+
+  // 5. Must NOT be 1x1 convolution (handled elsewhere).
+  // For 2D convolution, check if kernel is [1, 1].
+  ShapedType wType = mlir::cast<ShapedType>(W.getType());
+  auto wShape = wType.getShape();
+  int64_t KH = wShape[2];
+  int64_t KW = wShape[3];
+
+  if (KH == 1 && KW == 1)
+    return false; // 1x1 kernel, let other optimizations handle it.
+
+  return true;
+}
+
+
 } // namespace onnx_mlir
 
 namespace {
@@ -1135,47 +1178,6 @@ struct DecomposeHardSwishPattern : public OpRewritePattern<ONNXHardSwishOp> {
   }
 };
 //===----------------------------------------------------------------------===//
-// Helper: Check if Conv should be decomposed to Im2Col+MatMul
-//===----------------------------------------------------------------------===//
-
-static bool shouldDecomposeConvToIm2Col(ONNXConvOp convOp) {
-  // 1. Must have shape information.
-  Value X = convOp.getX();
-  Value W = convOp.getW();
-  if (!onnx_mlir::hasShapeAndRank(X) || !onnx_mlir::hasShapeAndRank(W))
-    return false;
-
-  // 2. Weight tensor must have static shape (we need to know kernel dims).
-  if (!onnx_mlir::hasStaticShape(W.getType()))
-    return false;
-
-  // 3. Must be 2D convolution (rank = 4: N x C x H x W).
-  // For now, only support 2D convolutions.
-  // Future: extend to 1D and 3D convolutions.
-  ShapedType xType = mlir::cast<ShapedType>(X.getType());
-  auto xShape = xType.getShape();
-  int64_t rank = xShape.size();
-  if (rank != 4)
-    return false; // Only 2D convolutions for now.
-
-  // 4. Group must be 1 (no grouped convolutions for now).
-  if (convOp.getGroup() != 1)
-    return false;
-
-  // 5. Must NOT be 1x1 convolution (handled by ConvOpt).
-  // For 2D convolution, check if kernel is [1, 1].
-  ShapedType wType = mlir::cast<ShapedType>(W.getType());
-  auto wShape = wType.getShape();
-  int64_t KH = wShape[2];
-  int64_t KW = wShape[3];
-
-  if (KH == 1 && KW == 1)
-    return false; // 1x1 kernel, let ConvOpt handle it.
-
-  return true;
-}
-
-//===----------------------------------------------------------------------===//
 // Pattern: Conv to Im2Col + MatMul + Reshape
 //===----------------------------------------------------------------------===//
 
@@ -1202,7 +1204,7 @@ struct ConvToIm2ColPattern : public OpRewritePattern<ONNXConvOp> {
   LogicalResult matchAndRewrite(
       ONNXConvOp convOp, PatternRewriter &rewriter) const final {
     // Check if this convolution should be decomposed.
-    if (!shouldDecomposeConvToIm2Col(convOp))
+    if (!onnx_mlir::shouldDecomposeConvToIm2Col(convOp))
       return failure();
 
     Location loc = convOp.getLoc();
@@ -1302,6 +1304,18 @@ struct ConvToIm2ColPattern : public OpRewritePattern<ONNXConvOp> {
 
 };
 
+} // namespace
+
+namespace onnx_mlir {
+
+// Add Conv to Im2Col decomposition pattern to the pattern set.
+void addConvToIm2ColPattern(RewritePatternSet &patterns) {
+  patterns.add<ConvToIm2ColPattern>(patterns.getContext());
+}
+
+} // namespace onnx_mlir
+
+namespace {
 
 struct DecomposeONNXToONNXPass
     : public PassWrapper<DecomposeONNXToONNXPass, OperationPass<func::FuncOp>> {
@@ -1440,7 +1454,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   if (this->enableConvToMatmul) {
     target.addDynamicallyLegalOp<ONNXConvOp>(
         [](ONNXConvOp op) {
-          return !shouldDecomposeConvToIm2Col(op);
+          return !onnx_mlir::shouldDecomposeConvToIm2Col(op);
         });
   }
 
