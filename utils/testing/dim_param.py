@@ -15,7 +15,6 @@ from onnx import helper
 from onnx import AttributeProto, TensorProto, GraphProto
 from google.protobuf.json_format import MessageToJson
 
-
 # The protobuf definition can be found here:
 # https://github.com/onnx/onnx/blob/main/onnx/onnx.proto
 
