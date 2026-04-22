@@ -152,10 +152,11 @@ func.func @matmul_to_xfe_conv_batch(%arg0: tensor<4x64x!quant.uniform<u8:f32, 2.
   %1 = "onnx.MatMul"(%arg0, %0) : (tensor<4x64x!quant.uniform<u8:f32, 2.500000e-01>>, tensor<64x32x!quant.uniform<u8:f32, 2.500000e-01>>) -> tensor<4x32x!quant.uniform<u8:f32, 2.500000e-01>>
   return %1 : tensor<4x32x!quant.uniform<u8:f32, 2.500000e-01>>
 }
+// M=4 goes into spatial W: [1, 1, 4, 64]
 // CHECK: %[[RESHAPE1:.*]] = "onnx.Reshape"
-// CHECK-SAME: tensor<4x1x1x64x!quant.uniform<u8:f32, 2.500000e-01>>
+// CHECK-SAME: tensor<1x1x4x64x!quant.uniform<u8:f32, 2.500000e-01>>
 // CHECK: %[[XFE_CONV:.*]] = "onnx.XFEConv"
-// CHECK-SAME: tensor<4x1x1x32x!quant.uniform<u8:f32, 2.500000e-01>>
+// CHECK-SAME: tensor<1x1x4x32x!quant.uniform<u8:f32, 2.500000e-01>>
 // CHECK: %[[RESHAPE2:.*]] = "onnx.Reshape"
 // CHECK-SAME: tensor<4x32x!quant.uniform<u8:f32, 2.500000e-01>>
 // CHECK-NOT: "onnx.MatMul"

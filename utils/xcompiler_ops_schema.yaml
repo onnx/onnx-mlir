@@ -192,11 +192,11 @@
   inputs:
   - name: X
     description: Input quantized tensor
-    type_str: T
+    type_str: T_in
   outputs:
   - name: Y
-    description: Output requantized tensor
-    type_str: T
+    description: Output requantized tensor (may have a different element type than the input).
+    type_str: T_out
   attributes:
   - name: a_scale
     description: Input quantization scale(s). Per-tensor uses a single value, per-channel uses a vector.
@@ -215,13 +215,25 @@
     type: list(int)
     required: true
   type_constraints:
-  - type_param: T
-    description: Constrain input and output types to integer and quantized tensor types.
+  - type_param: T_in
+    description: Constrain input type to integer and quantized tensor types.
     allowed_types:
     - tensor(uint8)
     - tensor(uint16)
     - tensor(int8)
     - tensor(int16)
+    - tensor(int32)
+    - tensor(int64)
+    - tensor(quant_QuantizedType)
+  - type_param: T_out
+    description: Constrain output type to integer and quantized tensor types. Output dtype may differ from input dtype.
+    allowed_types:
+    - tensor(uint8)
+    - tensor(uint16)
+    - tensor(int8)
+    - tensor(int16)
+    - tensor(int32)
+    - tensor(int64)
     - tensor(quant_QuantizedType)
   min_input: 1
   max_input: 1
