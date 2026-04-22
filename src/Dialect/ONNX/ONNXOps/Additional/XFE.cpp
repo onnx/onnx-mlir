@@ -92,6 +92,11 @@ LogicalResult XFEResizeOp::inferShapes(
   return XFEResizeOpShapeInference(this->getOperation(), doShapeInference);
 }
 
+LogicalResult XFEGridSampleOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  return XFEGridSampleOpShapeInference(this->getOperation(), doShapeInference);
+}
+
 // ============================================================
 // Verify
 // ============================================================
@@ -146,4 +151,8 @@ LogicalResult XFEGroupNormalizationOp::verify() {
 
 LogicalResult XFEResizeOp::verify() {
   return XFEResizeOpVerify(this->getOperation());
+}
+
+LogicalResult XFEGridSampleOp::verify() {
+  return XFEGridSampleOpVerify(this->getOperation());
 }

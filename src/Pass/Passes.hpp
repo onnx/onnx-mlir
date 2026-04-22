@@ -10,6 +10,9 @@
 //
 // This file exposes the entry points to create compiler passes for ONNX-MLIR.
 //
+// Modifications (c) Copyright 2026 Advanced Micro Devices, Inc. or its
+// affiliates
+//
 //===----------------------------------------------------------------------===//
 
 #ifndef ONNX_MLIR_PASSES_H
@@ -45,7 +48,8 @@ std::unique_ptr<mlir::Pass> createDecomposeONNXToONNXPass(
     bool enableGroupNormDecompose = true,
     bool enableMatmulNBitsDecompose = false,
     bool enableGroupQueryAttentionDecompose = true,
-    bool enableSplitToSliceDecompose = false, bool enableConcatFuse = false);
+    bool enableSplitToSliceDecompose = false, bool enableConcatFuse = false,
+    bool enableLstmSeqDecompose = false);
 std::unique_ptr<mlir::Pass> createRecomposeONNXToONNXPass(
     const std::string &target = "");
 
@@ -108,7 +112,7 @@ std::unique_ptr<mlir::Pass> createONNXHybridTransformPass(
     bool enableMatmulNBitsDecompose = false,
     bool enableGroupQueryAttentionDecompose = true,
     bool enableSplitToSliceDecompose = false, bool enableConcatFuse = true,
-    bool enablGAPToReduceMean = true);
+    bool enablGAPToReduceMean = true, bool enableLstmSeqDecompose = false);
 
 /// Pass for analyzing unknown dimension in ONNX operations.
 std::unique_ptr<mlir::Pass> createONNXDimAnalysisPass();
@@ -231,6 +235,9 @@ std::unique_ptr<mlir::Pass> createTransferSpaceToDepthToConv2dPass();
 
 /// Pass for fusing quantized eltwise+activation patterns (XMC).
 std::unique_ptr<mlir::Pass> createReplaceQDQEltwisePass();
+
+/// Pass for lowering quantized onnx.Tile to XCOMPILERFusedEltwise ADD (XMC).
+std::unique_ptr<mlir::Pass> createReplaceQuantizedTileToAddPass();
 
 /// Pass for merging nested concats and splitting duplicate inputs.
 std::unique_ptr<mlir::Pass> createReplaceAdjacentOpPass();

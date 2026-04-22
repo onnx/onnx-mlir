@@ -1108,18 +1108,6 @@ def DimOpToConstantPattern: Pat<
 >;
 
 //===----------------------------------------------------------------------===//
-// Canonicalization for ONNXSoftmaxV11 to the latest version
-//===----------------------------------------------------------------------===//
-
-// When axis is the last dimension of the input tensor, the semantics of V11 is
-// the same as that of V13 (the latest version).
-def SoftmaxV11ToLatestPattern: Pat<
-   (ONNXSoftmaxV11Op $input, $axisAttr),
-   (ONNXSoftmaxOp $input, $axisAttr),
-   [(AxisIsTheLastDim $input, $axisAttr)]
->;
-
-//===----------------------------------------------------------------------===//
 // Canonicalization for ONNXShapeTransform
 //===----------------------------------------------------------------------===//
 

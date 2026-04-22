@@ -10,6 +10,9 @@
 //
 // This file contains builder functions for ONNX Dialect.
 //
+// Modifications (c) Copyright 2026 Advanced Micro Devices, Inc. or its
+// affiliates
+//
 //===----------------------------------------------------------------------===//
 
 #include "mlir/IR/TypeUtilities.h"
@@ -484,6 +487,11 @@ Value OnnxBuilder::slice(Type outputType, Value input, int64_t start,
   Value endVal = constant(b().getI64TensorAttr(ArrayRef<int64_t>({end})));
   Value stepVal = constant(b().getI64TensorAttr(ArrayRef<int64_t>({step})));
   return slice(outputType, input, startVal, endVal, /*axis*/ zeroVal, stepVal);
+}
+
+Value OnnxBuilder::softmax(Type outputType, Value input, int64_t axis) const {
+  return createTypedOpAndInferShapes<ONNXSoftmaxOp>(
+      toTensor(outputType), toTensor(input), axis);
 }
 
 Value OnnxBuilder::sqrt(Value input) const {

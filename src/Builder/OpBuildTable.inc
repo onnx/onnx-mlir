@@ -238,6 +238,7 @@ dialect_op_version_map_["com.amd.xfe"]["DepthToSpace"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["SpaceToDepth"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["GroupNormalization"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["Resize"] = {1};
+dialect_op_version_map_["com.amd.xfe"]["GridSample"] = {1};
 dialect_op_version_map_["com.amd.quark"]["BFPQuantizeDequantize"] = {1};
 dialect_op_version_map_["com.amd.quark"]["ExtendedQuantizeLinear"] = {1};
 dialect_op_version_map_["com.amd.quark"]["ExtendedDequantizeLinear"] = {1};
@@ -257,6 +258,7 @@ dialect_op_version_map_["com.amd.xfe"]["DepthToSpace"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["SpaceToDepth"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["GroupNormalization"] = {1};
 dialect_op_version_map_["com.amd.xfe"]["Resize"] = {1};
+dialect_op_version_map_["com.amd.xfe"]["GridSample"] = {1};
 import_handler_map_[""]["Abs"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAbsOp>;
 import_handler_map_[""]["Acos"] = 
@@ -781,6 +783,8 @@ import_handler_map_["com.amd.xfe"]["GlobalAveragePool"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEGlobalAveragePoolOp>;
 import_handler_map_["com.amd.xfe"]["GlobalMaxPool"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEGlobalMaxPoolOp>;
+import_handler_map_["com.amd.xfe"]["GridSample"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEGridSampleOp>;
 import_handler_map_["com.amd.xfe"]["GroupNormalization"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEGroupNormalizationOp>;
 import_handler_map_["com.amd.xfe"]["InstanceNormalization"] = 
@@ -831,6 +835,8 @@ import_handler_map_["com.amd.xfe"]["GroupNormalization"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEGroupNormalizationOp>;
 import_handler_map_["com.amd.xfe"]["Resize"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEResizeOp>;
+import_handler_map_["com.amd.xfe"]["GridSample"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::XFEGridSampleOp>;
 dialect_op_opsets_map_[""]["Abs"] = {13, 6, 1};
 dialect_op_opsets_map_[""]["Acos"] = {22, 7};
 dialect_op_opsets_map_[""]["Acosh"] = {22, 9};
@@ -1062,6 +1068,7 @@ dialect_op_opsets_map_["com.amd.xfe"]["ConvTranspose"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["DepthToSpace"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["GlobalAveragePool"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["GlobalMaxPool"] = {1};
+dialect_op_opsets_map_["com.amd.xfe"]["GridSample"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["GroupNormalization"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["InstanceNormalization"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["MatMulBias"] = {1};
@@ -1087,3 +1094,4 @@ dialect_op_opsets_map_["com.amd.xfe"]["DepthToSpace"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["SpaceToDepth"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["GroupNormalization"] = {1};
 dialect_op_opsets_map_["com.amd.xfe"]["Resize"] = {1};
+dialect_op_opsets_map_["com.amd.xfe"]["GridSample"] = {1};
