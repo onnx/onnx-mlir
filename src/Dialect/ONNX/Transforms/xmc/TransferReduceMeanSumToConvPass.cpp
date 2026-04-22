@@ -360,9 +360,12 @@ struct ReduceMeanToConvPattern : public OpRewritePattern<ONNXReduceMeanOp> {
 
     // Defer to TransferReduceHdimToReduceCdimPass for the shape patterns it
     // handles (transpose-sandwich / W-dim reshape form matching xmodel's
-    // convention).  Keep in sync with ReduceHdimToCdimPattern and
+    // convention).  Only defer for quantized inputs -- f32 reductions continue
+    // to convert to 1x1 Conv here since they don't go through the AIE
+    // last-axis kernel.  Keep in sync with ReduceHdimToCdimPattern and
     // ReduceWdimToCdimPattern in TransferReduceHdimToReduceCdimPass.cpp.
-    if (op.getKeepdims() != 0) {
+    if (op.getKeepdims() != 0 &&
+        mlir::isa<mlir::quant::QuantizedType>(inputElemType)) {
       int64_t normAxis = normalizeAxis(axes[0], rank);
       if ((rank == 4 && normAxis == 1) ||
           (rank == 3 && normAxis == 1 && inputShape[2] == 1))
@@ -563,9 +566,12 @@ struct ReduceSumToConvPattern : public OpRewritePattern<ONNXReduceSumOp> {
 
     // Defer to TransferReduceHdimToReduceCdimPass for the shape patterns it
     // handles (transpose-sandwich / W-dim reshape form matching xmodel's
-    // convention).  Keep in sync with ReduceHdimToCdimPattern and
+    // convention).  Only defer for quantized inputs -- f32 reductions continue
+    // to convert to 1x1 Conv here since they don't go through the AIE
+    // last-axis kernel.  Keep in sync with ReduceHdimToCdimPattern and
     // ReduceWdimToCdimPattern in TransferReduceHdimToReduceCdimPass.cpp.
-    if (op.getKeepdims() != 0) {
+    if (op.getKeepdims() != 0 &&
+        mlir::isa<mlir::quant::QuantizedType>(inputElemType)) {
       if ((rank == 4) || (rank == 3 && inputShape[2] == 1))
         return mlir::failure();
     }
