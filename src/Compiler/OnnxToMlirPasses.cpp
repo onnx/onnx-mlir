@@ -108,11 +108,7 @@ void addXmcMlirPasses(mlir::OpPassManager &pm, OnnxToMlirOptions opts) {
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createNormalizeConvActivationPass());
   // Move ReduceSum/ReduceMean on non-last axis to last-axis reduction via a
-  // transpose-sandwich (or a W-dim reshape for degenerate rank-3).  Runs
-  // AFTER the transpose-folding passes (ConvertToChannelLastPass,
-  // ONNXTransposeOptimizationPass, RemoveContinuousTransposeWithReshape)
-  // so the inserted transposes survive into the final IR -- matching
-  // xmodel's convention for the AIE last-axis reduction kernel.
+  // transpose-sandwich (or a W-dim reshape for degenerate rank-3).
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createTransferReduceHdimToReduceCdimPass());
   pm.addNestedPass<func::FuncOp>(
