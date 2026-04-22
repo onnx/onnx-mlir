@@ -525,7 +525,8 @@ static llvm::SmallPtrSet<Operation *, 32> collectOperationsFromModule(
 
   auto walkResult = moduleOp.walk([&](Operation *op) {
     if (hasUnrankedInputOutput(op)) {
-      // Detected tensor<*xdtype>. Terminate now.
+      // Detected tensor<*xdtype>. DimAnalysis does not work with unranked
+      // tensors. Terminate now.
       LLVM_DEBUG(llvm::dbgs()
                  << "Detected tensor<*xdtype>. Terminate DimAnalysis now.\n");
       return WalkResult::interrupt();
@@ -552,6 +553,8 @@ static llvm::SmallPtrSet<Operation *, 32> collectOperationsUpward(
   if (!startOp)
     return collectedOps;
 
+  // Terminate if there is tensor<*xdtype>. DimAnalysis does not work with
+  // unranked tensors.
   if (hasUnrankedInputOutput(startOp))
     return collectedOps;
 
@@ -584,7 +587,8 @@ static llvm::SmallPtrSet<Operation *, 32> collectOperationsUpward(
         continue;
 
       if (hasUnrankedInputOutput(defOp)) {
-        // Detected tensor<*xdtype>. Terminate now.
+        // Terminate if there is tensor<*xdtype>. DimAnalysis does not work with
+        // unranked tensors.
         LLVM_DEBUG(llvm::dbgs()
                    << "Detected tensor<*xdtype>. Terminate DimAnalysis now.\n");
         collectedOps.clear();
