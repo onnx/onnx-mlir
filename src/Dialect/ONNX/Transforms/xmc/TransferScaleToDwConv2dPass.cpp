@@ -183,11 +183,14 @@ struct ScaleToDwConv2dPattern : public OpRewritePattern<ONNXMulOp> {
       return failure();
     }
 
-    // Skip for quantized models (matches golden TransferScaleToDwConv2dPass
-    // which returns early when qdq_enabled).
-    if (auto rtt = dyn_cast<RankedTensorType>(input.getType()))
-      if (isa<quant::QuantizedType>(rtt.getElementType()))
-        return failure();
+    // Skip for quantized models when both input and scale are quantized
+    // (matches golden TransferScaleToDwConv2dPass which returns early when
+    // qdq_enabled). Allow when scale is float (legitimate scale operation).
+    if (auto inputRtt = dyn_cast<RankedTensorType>(input.getType()))
+      if (isa<quant::QuantizedType>(inputRtt.getElementType()))
+        if (auto scaleRtt = dyn_cast<RankedTensorType>(scale.getType()))
+          if (isa<quant::QuantizedType>(scaleRtt.getElementType()))
+            return failure();
 
     // Get types
     auto inputType = dyn_cast<RankedTensorType>(input.getType());
