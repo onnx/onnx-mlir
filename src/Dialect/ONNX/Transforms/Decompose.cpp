@@ -4496,19 +4496,21 @@ struct SplitToSlicePattern : public OpRewritePattern<ONNXSplitOp> {
 //
 // Example for seq_len = 2 (X: [2, B, I]):
 //
-//      X
-//      |
-//   +--+--+
-//   |     |
-// Slice Slice               // X_0 = X[0:1], X_1 = X[1:2]
-//   |     |
-//   v     v
-// LSTM_0 LSTM_1             // each with seq_len = 1
-//  (initial_h,c)  (Y_h_0, Y_c_0)
-//   |     |         |  |
-//  Y_0   Y_1 <------+--+   // h,c chained from LSTM_0 into LSTM_1
-//   \   /
-//   Concat(axis=0) -> Y   ;  Y_h := Y_h_1 ;  Y_c := Y_c_1
+//          X
+//          |
+//       +--+------------------+
+//       |                     |
+//     Slice                 Slice     // X_0 = X[0:1], X_1 = X[1:2]
+//       |                     |
+//       v                     v
+//     LSTM_0 --- h,c --->   LSTM_1    // each with seq_len = 1;
+//    (initial_h,c)         (Y_h_0, Y_c_0 fed as initial_h,c of LSTM_1)
+//       |                     |
+//       v                     v
+//      Y_0                   Y_1      // per-step Y's are independent
+//        \                   /
+//         \                 /
+//          Concat(axis=0) -> Y   ;  Y_h := Y_h_1 ;  Y_c := Y_c_1
 struct DecomposeLSTMSeqUnrollPattern : public OpRewritePattern<ONNXLSTMOp> {
   using OpRewritePattern::OpRewritePattern;
 
@@ -4556,6 +4558,13 @@ struct DecomposeLSTMSeqUnrollPattern : public OpRewritePattern<ONNXLSTMOp> {
         rewriter, lstmOp.getLoc());
     auto unrankedType = UnrankedTensorType::get(inputType.getElementType());
 
+    // Detect which outputs of the original op are omitted (NoneType). The
+    // per-timestep sub-LSTMs always need Y_h/Y_c internally to chain state,
+    // but the final replacement must preserve the original result types.
+    bool yIsNone = mlir::isa<NoneType>(lstmOp.getY().getType());
+    bool yhIsNone = mlir::isa<NoneType>(lstmOp.getYH().getType());
+    bool ycIsNone = mlir::isa<NoneType>(lstmOp.getYC().getType());
+
     // axes / steps constants reused for every per-timestep Slice.
     Value zero = create.onnx.constantInt64({0});
     Value one = create.onnx.constantInt64({1});
@@ -4578,13 +4587,18 @@ struct DecomposeLSTMSeqUnrollPattern : public OpRewritePattern<ONNXLSTMOp> {
           lstmOp.getClipAttr(), lstmOp.getDirectionAttr(),
           lstmOp.getHiddenSizeAttr(), lstmOp.getInputForgetAttr(),
           lstmOp.getLayoutAttr()));
-      yValues.push_back(lstmOps.back().getY());
+      if (!yIsNone)
+        yValues.push_back(lstmOps.back().getY());
     }
 
     // Y = concat(Y_0, ..., Y_{seqLen-1}) along time; Y_h/Y_c from last step.
-    rewriter.replaceOp(
-        lstmOp, {create.onnx.concat(unrankedType, yValues, 0),
-                    lstmOps.back().getYH(), lstmOps.back().getYC()});
+    // Any output that was omitted on the original op is replaced with a
+    // NoneValue so the rewritten IR keeps the same result signature.
+    Value yRepl = yIsNone ? create.onnx.none()
+                          : create.onnx.concat(unrankedType, yValues, 0);
+    Value yhRepl = yhIsNone ? create.onnx.none() : lstmOps.back().getYH();
+    Value ycRepl = ycIsNone ? create.onnx.none() : lstmOps.back().getYC();
+    rewriter.replaceOp(lstmOp, {yRepl, yhRepl, ycRepl});
     return success();
   }
 };
