@@ -1032,8 +1032,9 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
                    << "(single constant <= " << constantsToFileSingleThreshold
                    << " KB, "
                    << "total constants <= " << constantsToFileTotalThreshold
-                   << " GB). " << "Stored them in an external file: " << "\""
-                   << fname << "\""
+                   << " GB). "
+                   << "Stored them in an external file: "
+                   << "\"" << fname << "\""
                    << ". Make sure to put this file in the same folder as the "
                       "generated model or set OM_CONSTANT_PATH to the "
                       "folder having this file. For constants-related "
