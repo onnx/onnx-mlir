@@ -6,6 +6,9 @@
 //
 // Copyright 2019-2024 The IBM Research Authors.
 //
+// Modifications (c) Copyright 2026 Advanced Micro Devices, Inc. or its
+// affiliates
+//
 // =============================================================================
 //
 // This file implements a set of rewriters to decompose an ONNX operation into
@@ -4484,6 +4487,122 @@ struct SplitToSlicePattern : public OpRewritePattern<ONNXSplitOp> {
 //   }
 // };
 
+// =============================================================================
+// LSTM Decomposition Pattern
+// =============================================================================
+
+// Unroll an onnx.LSTM with seq_len > 1 into seq_len individual onnx.LSTM
+// ops each with seq_len=1, chaining Y_h/Y_c between them.
+//
+// Example for seq_len = 2 (X: [2, B, I]):
+//
+//          X
+//          |
+//       +--+------------------+
+//       |                     |
+//     Slice                 Slice     // X_0 = X[0:1], X_1 = X[1:2]
+//       |                     |
+//       v                     v
+//     LSTM_0 --- h,c --->   LSTM_1    // each with seq_len = 1;
+//    (initial_h,c)         (Y_h_0, Y_c_0 fed as initial_h,c of LSTM_1)
+//       |                     |
+//       v                     v
+//      Y_0                   Y_1      // per-step Y's are independent
+//        \                   /
+//         \                 /
+//          Concat(axis=0) -> Y   ;  Y_h := Y_h_1 ;  Y_c := Y_c_1
+struct DecomposeLSTMSeqUnrollPattern : public OpRewritePattern<ONNXLSTMOp> {
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXLSTMOp lstmOp, PatternRewriter &rewriter) const final {
+    // Guards:
+    //   - direction must be "forward": the unroll below chains Y_h/Y_c linearly
+    //     in time order, which is incorrect for "reverse" (time order flipped)
+    //     and structurally impossible for "bidirectional" (Y has a separate
+    //     num_directions axis fed by a second, reversed pass).
+    //   - layout must be 0 so dim 0 of X is the sequence axis we slice on.
+    //   - X must have a static seq_len > 1.
+    //   - sequence_lens input must be absent (uniform sequence lengths only).
+    // X has shape [seq_len, batch_size, input_size]
+    if (lstmOp.getDirection() != "forward") {
+      return rewriter.notifyMatchFailure(
+          lstmOp, "only direction=forward is supported");
+    }
+    // num_directions == 2 also mean direction="bidirectional"
+    auto wType = mlir::dyn_cast<ShapedType>(lstmOp.getW().getType());
+    if (wType && wType.hasRank() && wType.getRank() >= 1 &&
+        !wType.isDynamicDim(0) && wType.getDimSize(0) != 1) {
+      return rewriter.notifyMatchFailure(
+          lstmOp, "num_directions=2 (direction=bidirectional) is unsupported");
+    }
+    if (lstmOp.getLayout() != 0) {
+      return rewriter.notifyMatchFailure(lstmOp, "layout must be 0");
+    }
+    Value inputVal = lstmOp.getX();
+    auto inputType = mlir::dyn_cast<ShapedType>(inputVal.getType());
+    if (!inputType || !inputType.hasRank() || inputType.isDynamicDim(0)) {
+      return rewriter.notifyMatchFailure(
+          lstmOp, "static sequence length dimension required");
+    }
+    auto seqLen = static_cast<int64_t>(inputType.getDimSize(0));
+    if (seqLen < 2) {
+      return rewriter.notifyMatchFailure(lstmOp, "sequence length must be > 1");
+    }
+    if (!onnx_mlir::isNoneValue(lstmOp.getSequenceLens())) {
+      return rewriter.notifyMatchFailure(
+          lstmOp, "non-uniform sequence lengths not supported");
+    }
+
+    onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
+        rewriter, lstmOp.getLoc());
+    auto unrankedType = UnrankedTensorType::get(inputType.getElementType());
+
+    // Detect which outputs of the original op are omitted (NoneType). The
+    // per-timestep sub-LSTMs always need Y_h/Y_c internally to chain state,
+    // but the final replacement must preserve the original result types.
+    bool yIsNone = mlir::isa<NoneType>(lstmOp.getY().getType());
+    bool yhIsNone = mlir::isa<NoneType>(lstmOp.getYH().getType());
+    bool ycIsNone = mlir::isa<NoneType>(lstmOp.getYC().getType());
+
+    // axes / steps constants reused for every per-timestep Slice.
+    Value zero = create.onnx.constantInt64({0});
+    Value one = create.onnx.constantInt64({1});
+
+    // Emit one seq_len=1 LSTM per timestep, chaining Y_h/Y_c through.
+    SmallVector<ONNXLSTMOp> lstmOps;
+    SmallVector<Value> yValues;
+    for (int64_t t = 0; t < seqLen; ++t) {
+      Value sliceVal = create.onnx.slice(unrankedType, inputVal,
+          create.onnx.constantInt64({t}), create.onnx.constantInt64({t + 1}),
+          zero, one);
+      Value hVal = (t == 0) ? lstmOp.getInitialH() : lstmOps[t - 1].getYH();
+      Value cVal = (t == 0) ? lstmOp.getInitialC() : lstmOps[t - 1].getYC();
+
+      lstmOps.push_back(create.onnx.createOpAndInferShapes<ONNXLSTMOp>(
+          unrankedType, unrankedType, unrankedType, sliceVal, lstmOp.getW(),
+          lstmOp.getR(), lstmOp.getB(), lstmOp.getSequenceLens(), hVal, cVal,
+          lstmOp.getP(), lstmOp.getActivationAlphaAttr(),
+          lstmOp.getActivationBetaAttr(), lstmOp.getActivationsAttr(),
+          lstmOp.getClipAttr(), lstmOp.getDirectionAttr(),
+          lstmOp.getHiddenSizeAttr(), lstmOp.getInputForgetAttr(),
+          lstmOp.getLayoutAttr()));
+      if (!yIsNone)
+        yValues.push_back(lstmOps.back().getY());
+    }
+
+    // Y = concat(Y_0, ..., Y_{seqLen-1}) along time; Y_h/Y_c from last step.
+    // Any output that was omitted on the original op is replaced with a
+    // NoneValue so the rewritten IR keeps the same result signature.
+    Value yRepl = yIsNone ? create.onnx.none()
+                          : create.onnx.concat(unrankedType, yValues, 0);
+    Value yhRepl = yhIsNone ? create.onnx.none() : lstmOps.back().getYH();
+    Value ycRepl = ycIsNone ? create.onnx.none() : lstmOps.back().getYC();
+    rewriter.replaceOp(lstmOp, {yRepl, yhRepl, ycRepl});
+    return success();
+  }
+};
+
 struct DecomposeONNXToONNXPass
     : public PassWrapper<DecomposeONNXToONNXPass, OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(DecomposeONNXToONNXPass)
@@ -4496,7 +4615,8 @@ struct DecomposeONNXToONNXPass
       bool enableGroupNormDecompose = true,
       bool enableMatmulNBitsDecompose = false,
       bool enableGroupQueryAttentionDecompose = true,
-      bool enableSplitToSliceDecompose = false, bool enableConcatFuse = true) {
+      bool enableSplitToSliceDecompose = false, bool enableConcatFuse = true,
+      bool enableLstmSeqDecompose = false) {
     this->target = target;
     this->enableConvTransposeDecompose = enableConvTransposeDecompose;
     this->enableConvTransposeDecomposeToPhasedConv =
@@ -4510,6 +4630,7 @@ struct DecomposeONNXToONNXPass
         enableGroupQueryAttentionDecompose;
     this->enableSplitToSliceDecompose = enableSplitToSliceDecompose;
     this->enableConcatFuse = enableConcatFuse;
+    this->enableLstmSeqDecompose = enableLstmSeqDecompose;
   }
 
   DecomposeONNXToONNXPass(const DecomposeONNXToONNXPass &pass)
@@ -4530,6 +4651,7 @@ struct DecomposeONNXToONNXPass
     this->enableSplitToSliceDecompose =
         pass.enableSplitToSliceDecompose.getValue();
     this->enableConcatFuse = pass.enableConcatFuse.getValue();
+    this->enableLstmSeqDecompose = pass.enableLstmSeqDecompose.getValue();
   }
 
   StringRef getArgument() const override { return "decompose-onnx"; }
@@ -4589,6 +4711,11 @@ struct DecomposeONNXToONNXPass
       llvm::cl::desc("Enable ConcatFusePattern rewriter"),
       ::llvm::cl::init(true)};
 
+  Option<bool> enableLstmSeqDecompose{*this, "enable-lstm-seq-decomposition",
+      llvm::cl::desc("Enable sequence-length decomposition of LSTM (unroll a "
+                     "seq_len>1 LSTM into a chain of seq_len=1 LSTMs)"),
+      ::llvm::cl::init(false)};
+
   void runOnOperation() final;
 
   typedef PassWrapper<DecomposeONNXToONNXPass, OperationPass<func::FuncOp>>
@@ -4604,7 +4731,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
       enableConvTranspose1dDecomposeToPhasedConv, enableInstanceNormDecompose,
       enableGroupNormDecompose, enableMatmulNBitsDecompose,
       enableGroupQueryAttentionDecompose, enableSplitToSliceDecompose,
-      enableConcatFuse);
+      enableConcatFuse, enableLstmSeqDecompose);
   patterns.insert<ReplaceCastLikeByCastPattern>(context);
 
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
@@ -4627,9 +4754,11 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
     bool enableConvTranspose1dDecomposeToPhasedConv,
     bool enableInstanceNormDecompose, bool enableGroupNormDecompose,
     bool enableMatmulNBitsDecompose, bool enableGroupQueryAttentionDecompose,
-    bool enableSplitToSliceDecompose, bool enableConcatFuse) {
+    bool enableSplitToSliceDecompose, bool enableConcatFuse,
+    bool enableLstmSeqDecompose, bool disableGenericDecompositions) {
   MLIRContext *context = patterns.getContext();
-  populateWithGenerated(patterns);
+  if (!disableGenericDecompositions)
+    populateWithGenerated(patterns);
   if (enableConvTransposeDecompose)
     convtranspose::populateWithGenerated(patterns);
   if (enableConvTransposeDecomposeToPhasedConv)
@@ -4644,34 +4773,43 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
   }
   if (enableSplitToSliceDecompose)
     patterns.insert<SplitToSlicePattern>(context);
-  patterns.insert<onnx_mlir::DecomposeEinsumPattern>(context);
+  if (!disableGenericDecompositions)
+    patterns.insert<onnx_mlir::DecomposeEinsumPattern>(context);
   if (enableConcatFuse)
     patterns.insert<ConcatFusePattern>(context);
-  patterns.insert<DecomposeHardSwishPattern>(context);
-  // Decompose CustomOp FusedMatMul introduced by onnxruntime:
-  // https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#com.microsoft.FusedMatMul
-  patterns.insert<CustomOpFuseMatMulPattern>(context);
-  patterns.insert<CustomOpMicrosoftQDquantizeLinear<ONNXQuantizeLinearOp>>(
-      context, "QuantizeLinear");
-  patterns.insert<CustomOpMicrosoftQDquantizeLinear<ONNXDequantizeLinearOp>>(
-      context, "DequantizeLinear");
-  patterns.insert<CustomOpMicrosoftToSingleOnnxOp<ONNXGeluOp>>(context, "Gelu");
-  patterns.insert<MicrosoftBiasGelu>(context);
-  patterns.insert<MicrosoftFusedConv>(context);
-  patterns.insert<MicrosoftSkipLayerNorm>(context);
-  patterns.insert<SimplifiedLayerNorm>(context);
-  patterns.insert<MicrosoftSkipSimplifiedLayerNorm>(context);
+  if (!disableGenericDecompositions) {
+    patterns.insert<DecomposeHardSwishPattern>(context);
+    // Decompose CustomOp FusedMatMul introduced by onnxruntime:
+    // https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#com.microsoft.FusedMatMul
+    patterns.insert<CustomOpFuseMatMulPattern>(context);
+    patterns.insert<CustomOpMicrosoftQDquantizeLinear<ONNXQuantizeLinearOp>>(
+        context, "QuantizeLinear");
+    patterns.insert<CustomOpMicrosoftQDquantizeLinear<ONNXDequantizeLinearOp>>(
+        context, "DequantizeLinear");
+    patterns.insert<CustomOpMicrosoftToSingleOnnxOp<ONNXGeluOp>>(
+        context, "Gelu");
+    patterns.insert<MicrosoftBiasGelu>(context);
+    patterns.insert<MicrosoftFusedConv>(context);
+    patterns.insert<MicrosoftSkipLayerNorm>(context);
+    patterns.insert<SimplifiedLayerNorm>(context);
+    patterns.insert<MicrosoftSkipSimplifiedLayerNorm>(context);
+  }
   if (enableGroupQueryAttentionDecompose)
     patterns.insert<MicrosoftGroupQueryAttention>(context);
-  patterns.insert<MicrosoftRotaryEmbedding>(context);
+  if (!disableGenericDecompositions)
+    patterns.insert<MicrosoftRotaryEmbedding>(context);
   if (enableMatmulNBitsDecompose)
     patterns.insert<MicrosoftMatmulNBits>(context);
-  patterns.insert<DecomposeSlicePadPattern>(context);
-  patterns.insert<DecomposeScatterNDPattern>(context);
-  patterns.insert<SoftmaxCrossEntropyPattern>(context);
-  patterns.insert<SumToAddPattern>(context);
+  if (!disableGenericDecompositions) {
+    patterns.insert<DecomposeSlicePadPattern>(context);
+    patterns.insert<DecomposeScatterNDPattern>(context);
+    patterns.insert<SoftmaxCrossEntropyPattern>(context);
+    patterns.insert<SumToAddPattern>(context);
+  }
   if (enableSplitToSliceDecompose)
     patterns.insert<SplitToSlicePattern>(context);
+  if (enableLstmSeqDecompose)
+    patterns.insert<DecomposeLSTMSeqUnrollPattern>(context, PatternBenefit(0));
 
   //   for (const auto &op : onnx_mlir::decomposeOpsInONNX) {
   //     if (op == "HardSwish") {
@@ -4692,11 +4830,12 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createDecomposeONNXToONNXPass(
     bool enableConvTranspose1dDecomposeToPhasedConv,
     bool enableInstanceNormDecompose, bool enableGroupNormDecompose,
     bool enableMatmulNBitsDecompose, bool enableGroupQueryAttentionDecompose,
-    bool enableSplitToSliceDecompose, bool enableConcatFuse) {
+    bool enableSplitToSliceDecompose, bool enableConcatFuse,
+    bool enableLstmSeqDecompose) {
   return std::make_unique<DecomposeONNXToONNXPass>(target,
       enableConvTransposeDecompose, enableConvTransposeDecomposeToPhasedConv,
       enableConvTranspose1dDecomposeToPhasedConv, enableInstanceNormDecompose,
       enableGroupNormDecompose, enableMatmulNBitsDecompose,
       enableGroupQueryAttentionDecompose, enableSplitToSliceDecompose,
-      enableConcatFuse);
+      enableConcatFuse, enableLstmSeqDecompose);
 }

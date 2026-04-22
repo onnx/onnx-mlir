@@ -1,3 +1,14 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+//===------------------ OnnxToMlirPasses.hpp ------------------------------===//
+//
+// Modifications (c) Copyright 2026 Advanced Micro Devices, Inc. or its
+// affiliates
+//
+//===----------------------------------------------------------------------===//
+
 #ifndef ONNX_MLIR_ONNX_TO_MLIR_PASSES_H
 #define ONNX_MLIR_ONNX_TO_MLIR_PASSES_H
 
@@ -27,6 +38,7 @@ struct OnnxToMlirOptions {
   bool enableFusePadIntoAvgpool = false;
   bool enableXMCPasses = false;
   bool enableSplitToSliceDecompose = false;
+  bool enableLstmSeqDecompose = false;
 
   bool disableBatchNormDecompose = false;
   bool disableRecomposeOption = false;

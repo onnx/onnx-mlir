@@ -1,3 +1,14 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+//===------------------ OnnxToMlirPasses.cpp ------------------------------===//
+//
+// Modifications (c) Copyright 2026 Advanced Micro Devices, Inc. or its
+// affiliates
+//
+//===----------------------------------------------------------------------===//
+
 #include "OnnxToMlirPasses.hpp"
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -125,7 +136,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
       opts.enableConvTranspose1dDecomposeToPhasedConv,
       opts.enableInstanceNormDecompose, opts.enableGroupNormDecompose,
       opts.enableMatmulNBitsDecompose, opts.enableGroupQueryAttentionDecompose,
-      opts.enableSplitToSliceDecompose, opts.enableConcatFuse));
+      opts.enableSplitToSliceDecompose, opts.enableConcatFuse,
+      opts.enableLstmSeqDecompose));
   if (!opts.disableRecomposeOption)
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::createRecomposeONNXToONNXPass(/*target=*/""));
@@ -140,7 +152,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
         opts.enableMatmulNBitsDecompose,
         opts.enableGroupQueryAttentionDecompose,
         opts.enableSplitToSliceDecompose, opts.enableConcatFuse,
-        opts.enableGAPToReduceMean));
+        opts.enableGAPToReduceMean, opts.enableLstmSeqDecompose));
     // Convolution Optimization for CPU: enable when there are no accelerators.
     if (targetCPU && opts.enableConvOptPass) {
       pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvOptONNXToONNXPass(
@@ -155,7 +167,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
               opts.enableMatmulNBitsDecompose,
               opts.enableGroupQueryAttentionDecompose,
               opts.enableSplitToSliceDecompose, opts.enableConcatFuse,
-              opts.enableGAPToReduceMean));
+              opts.enableGAPToReduceMean, opts.enableLstmSeqDecompose));
     }
     // If quark quantized legalization is enabled, do a last const prop after it
     // so that we cover any remaining Cast -> Cast patterns that weren't covered
@@ -217,7 +229,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
         opts.enableMatmulNBitsDecompose,
         opts.enableGroupQueryAttentionDecompose,
         opts.enableSplitToSliceDecompose, opts.enableConcatFuse,
-        opts.enableGAPToReduceMean));
+        opts.enableGAPToReduceMean, opts.enableLstmSeqDecompose));
   } else {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
     pm.addPass(mlir::createCanonicalizerPass());

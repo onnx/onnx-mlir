@@ -11,6 +11,9 @@
 // rewrite, not a partial conversion with "legalization" to ensure that every
 // decomposable op is decomposed.
 //
+// Modifications (c) Copyright 2026 Advanced Micro Devices, Inc. or its
+// affiliates
+//
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Pass/Pass.h"
@@ -149,6 +152,11 @@ struct ONNXHybridTransformPass
           "Enable canonicalize from GlobalAveragePool to ReduceMean"),
       ::llvm::cl::init(true)};
 
+  Option<bool> enableLstmSeqDecompose{*this, "enable-lstm-seq-decomposition",
+      llvm::cl::desc("Enable sequence-length decomposition of LSTM (unroll a "
+                     "seq_len>1 LSTM into a chain of seq_len=1 LSTMs)"),
+      ::llvm::cl::init(false)};
+
   FrozenRewritePatternSet patterns;
 
   ONNXHybridTransformPass(bool enableRecomposition,
@@ -159,7 +167,7 @@ struct ONNXHybridTransformPass
       bool enableInstanceNormDecompose, bool enableGroupNormDecompose,
       bool enableMatmulNBitsDecompose, bool enableGroupQueryAttentionDecompose,
       bool enableSplitToSliceDecompose, bool enableConcatFuse,
-      bool enableGAPToReduceMean) {
+      bool enableGAPToReduceMean, bool enableLstmSeqDecompose = false) {
     this->recomposition = enableRecomposition;
     this->quarkQuantizedOpsLegalization = enableQuarkQuantizedOpsLegalization;
     this->enableConvTransposeDecompose = enableConvTransposeDecompose;
@@ -175,6 +183,7 @@ struct ONNXHybridTransformPass
     this->enableSplitToSliceDecompose = enableSplitToSliceDecompose;
     this->enableConcatFuse = enableConcatFuse;
     this->enableGAPToReduceMean = enableGAPToReduceMean;
+    this->enableLstmSeqDecompose = enableLstmSeqDecompose;
   }
 
   ONNXHybridTransformPass(const ONNXHybridTransformPass &pass)
@@ -231,7 +240,8 @@ struct ONNXHybridTransformPass
           enableConvTranspose1dDecomposeToPhasedConv,
           enableInstanceNormDecompose, enableGroupNormDecompose,
           enableMatmulNBitsDecompose, enableGroupQueryAttentionDecompose,
-          enableSplitToSliceDecompose, enableConcatFuse);
+          enableSplitToSliceDecompose, enableConcatFuse,
+          enableLstmSeqDecompose);
     }
 
     if (recomposition) {
@@ -280,12 +290,12 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createONNXHybridTransformPass(
     bool enableInstanceNormDecompose, bool enableGroupNormDecompose,
     bool enableMatmulNBitsDecompose, bool enableGroupQueryAttentionDecompose,
     bool enableSplitToSliceDecompose, bool enableConcatFuse,
-    bool enableGAPToReduceMean) {
+    bool enableGAPToReduceMean, bool enableLstmSeqDecompose) {
   return std::make_unique<ONNXHybridTransformPass>(enableRecomposition,
       enableQuarkQuantizedOpsLegalization, enableConvTransposeDecompose,
       enableConvTransposeDecomposeToPhasedConv,
       enableConvTranspose1dDecomposeToPhasedConv, enableInstanceNormDecompose,
       enableGroupNormDecompose, enableMatmulNBitsDecompose,
       enableGroupQueryAttentionDecompose, enableSplitToSliceDecompose,
-      enableConcatFuse, enableGAPToReduceMean);
+      enableConcatFuse, enableGAPToReduceMean, enableLstmSeqDecompose);
 }
