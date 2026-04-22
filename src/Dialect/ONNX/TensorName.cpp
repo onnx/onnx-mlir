@@ -418,9 +418,10 @@ ReshapeOpTensorNameInference::inferTensorNameTransform(
   auto reshapeOp = cast<ONNXReshapeOp>(op);
 
   // Validate if shapes are static
-  auto inType = cast<RankedTensorType>(reshapeOp.getOperand(0).getType());
-  auto outType = cast<RankedTensorType>(reshapeOp.getResult().getType());
-  if (!inType.hasStaticShape() || !outType.hasStaticShape())
+  auto inType = dyn_cast<RankedTensorType>(reshapeOp.getOperand(0).getType());
+  auto outType = dyn_cast<RankedTensorType>(reshapeOp.getResult().getType());
+  if (!inType || !outType || !inType.hasStaticShape() ||
+      !outType.hasStaticShape())
     return nullptr;
 
   return std::make_unique<ReshapeTransform>(
@@ -433,9 +434,10 @@ TransposeOpTensorNameInference::inferTensorNameTransform(
   auto transposeOp = cast<ONNXTransposeOp>(op);
 
   // Validate if shapes are static
-  auto inType = cast<RankedTensorType>(transposeOp.getOperand().getType());
-  auto outType = cast<RankedTensorType>(transposeOp.getResult().getType());
-  if (!inType.hasStaticShape() || !outType.hasStaticShape())
+  auto inType = dyn_cast<RankedTensorType>(transposeOp.getOperand().getType());
+  auto outType = dyn_cast<RankedTensorType>(transposeOp.getResult().getType());
+  if (!inType || !outType || !inType.hasStaticShape() ||
+      !outType.hasStaticShape())
     return nullptr;
 
   auto perm = arrayToVector(transposeOp.getPermAttr());
@@ -449,9 +451,10 @@ std::unique_ptr<Transform> PadOpTensorNameInference::inferTensorNameTransform(
   auto padOp = cast<ONNXPadOp>(op);
 
   // Validate if shapes are static
-  auto inType = cast<RankedTensorType>(padOp.getOperand(0).getType());
-  auto outType = cast<RankedTensorType>(padOp.getResult().getType());
-  if (!inType.hasStaticShape() || !outType.hasStaticShape())
+  auto inType = dyn_cast<RankedTensorType>(padOp.getOperand(0).getType());
+  auto outType = dyn_cast<RankedTensorType>(padOp.getResult().getType());
+  if (!inType || !outType || !inType.hasStaticShape() ||
+      !outType.hasStaticShape())
     return nullptr;
 
   // Only mode = "constant" is supported
@@ -483,9 +486,10 @@ std::unique_ptr<Transform> SliceOpTensorNameInference::inferTensorNameTransform(
   auto sliceOp = cast<ONNXSliceOp>(op);
 
   // Validate if shapes are static
-  auto inType = cast<RankedTensorType>(sliceOp.getOperand(0).getType());
-  auto outType = cast<RankedTensorType>(sliceOp.getResult().getType());
-  if (!inType.hasStaticShape() || !outType.hasStaticShape())
+  auto inType = dyn_cast<RankedTensorType>(sliceOp.getOperand(0).getType());
+  auto outType = dyn_cast<RankedTensorType>(sliceOp.getResult().getType());
+  if (!inType || !outType || !inType.hasStaticShape() ||
+      !outType.hasStaticShape())
     return nullptr;
 
   // Validate if starts & ends are constant and steps is always 1
