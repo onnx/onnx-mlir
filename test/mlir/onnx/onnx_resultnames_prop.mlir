@@ -1,6 +1,6 @@
 // (c) Copyright 2022 - 2025 Advanced Micro Devices, Inc. All Rights reserved.
 
-// RUN: onnx-mlir-opt %s --constprop-onnx --decompose-onnx=enable-split-to-slice --onnx-hybrid-transform --qdq-canonicalize=remove-qdq-around-ops | FileCheck %s
+// RUN: onnx-mlir-opt %s --constprop-onnx --decompose-onnx=enable-split-to-slice --canonicalize-with-rn --onnx-hybrid-transform --qdq-canonicalize=remove-qdq-around-ops | FileCheck %s
 
 func.func @constprop() -> tensor<f32> {
   %0 = onnx.Constant {ResultNames = ["const0"]} dense<1.000000e+00> : tensor<f32>
