@@ -25,8 +25,8 @@
 // - DepthToSpace -> XFEDepthToSpace
 // - SpaceToDepth -> XFESpaceToDepth
 // - Resize -> XFEResize
-// - GridSample -> XFEGridSample (explicit NCHW<->channel-last transposes; 4D
-// and 5D)
+// - GridSample -> XFEGridSample (explicit NCHW<->channel-last transposes; rank
+// >= 3 per ONNX GridSample)
 //
 //===----------------------------------------------------------------------===//
 

@@ -503,10 +503,15 @@ LogicalResult XFEGridSampleOpVerify(Operation *op) {
   if (!hasShapeAndRank(X) || !hasShapeAndRank(grid))
     return success();
 
-  // ND channel-last (e.g. rank-4 NHWC, rank-5 NDHWC): same rank and grid
-  // trailing dim = #spatial axes, matching ONNX GridSample.
+  // Channel-last, all ranks R >= 3: same rank; grid trailing dim = #spatial
+  // (R - 2), matching ONNX GridSample.
   auto xType = mlir::cast<ShapedType>(X.getType());
   auto gridType = mlir::cast<ShapedType>(grid.getType());
+  int64_t inputRank = xType.getRank();
+  if (inputRank < 3)
+    return op->emitError(
+        "XFEGridSample requires input rank >= 3 (batch, spatial..., channels)");
+
   if (xType.getRank() != gridType.getRank())
     return op->emitError("Input and grid must have the same rank");
 
@@ -515,8 +520,6 @@ LogicalResult XFEGridSampleOpVerify(Operation *op) {
   if (xShape[0] != ShapedType::kDynamic &&
       gridShape[0] != ShapedType::kDynamic && xShape[0] != gridShape[0])
     return op->emitError("Input and grid must have the same batch value");
-
-  int64_t inputRank = xType.getRank();
   if (!ShapedType::isDynamic(gridShape.back()) &&
       gridShape.back() != inputRank - 2)
     return op->emitError() << "Grid last dim must have been '" << inputRank - 2

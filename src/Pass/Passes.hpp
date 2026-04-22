@@ -118,8 +118,7 @@ std::unique_ptr<mlir::Pass> createSetONNXNodeNamePass();
 
 /// Pass for converting ONNX operations to ChannelLast variants with transposes.
 /// Supports: Conv, AveragePool, MaxPool, GlobalAveragePool, GlobalMaxPool,
-/// InstanceNormalization, DepthToSpace, SpaceToDepth, Resize, GridSample
-/// (4D), etc.
+/// InstanceNormalization, DepthToSpace, SpaceToDepth
 std::unique_ptr<mlir::Pass> createConvertToChannelLastPass();
 
 /// Pass for merging Slice->Concat patterns with downstream ops.

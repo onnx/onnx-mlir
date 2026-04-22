@@ -768,24 +768,24 @@
   max_output: 1
 
 # ==============================================================================
-# GridSample: sample from X at grid positions with channel-last layout (4D NHWC / 5D NDHWC)
-# Aligns with ONNX GridSample semantics; grid last dim = number of spatial axes.
+# GridSample: channel-last layout; rank R >= 3 (ONNX GridSample ND semantics)
+# Grid last dim = number of spatial axes (R - 2).
 # ==============================================================================
 - name: GridSample
   domain: com.amd.xfe
   since_version: 1
   support_level: COMMON
-  description: 'GridSample with channel-last layout. Rank-4 NHWC or rank-5 NDHWC for volumetric inputs; grid matches ONNX (e.g. N,H_out,W_out,2 or N,D_out,H_out,W_out,3). Typical lowering uses explicit NCHW-to-channel-last transposes around onnx.GridSample so transpose optimization can simplify layout ops.'
+  description: 'GridSample with channel-last layout. All tensor ranks R >= 3: X is [N, spatial..., C]; grid is [N, out_spatial..., (R-2)] per ONNX. Examples: R=3 (1 spatial), R=4 NHWC, R=5 NDHWC, and higher-D. Typical lowering uses NCHW-to-channel-last transposes around onnx.GridSample.'
   meta_attributes:
   - onnx_opset: 22
   - verify: True
   - fold: False
   inputs:
   - name: X
-    description: Input data tensor in channel-last layout — rank-4 NHWC (batch, height, width, channels) or rank-5 NDHWC (batch, depth, height, width, channels) for volumetric GridSample
+    description: Input in channel-last layout [N, spatial..., C] for rank R >= 3 (e.g. NLC for R=3, NHWC for R=4, NDHWC for R=5)
     type_str: T1
   - name: grid
-    description: Sampling grid per ONNX — e.g. (N, H_out, W_out, 2) for 2D spatial or (N, D_out, H_out, W_out, 3) for 3D spatial, giving normalized coordinates per output voxel
+    description: ONNX grid [N, out_spatial..., (R-2)] with normalized coordinates (e.g. last dim 1, 2, or 3 for 1D, 2D, or 3D spatial sampling)
     type_str: T2
   outputs:
   - name: Y

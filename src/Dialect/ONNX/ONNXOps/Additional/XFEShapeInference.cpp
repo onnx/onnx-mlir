@@ -947,7 +947,7 @@ LogicalResult XFEGridSampleOpShapeInference(
   auto xShape = xType.getShape();
   auto gridShape = gridType.getShape();
   // Channel-last: [N, spatial_out..., C] from grid[1 : rank-1) and X channels.
-  SmallVector<int64_t, 6> outputShape;
+  SmallVector<int64_t> outputShape;
   outputShape.push_back(xShape[0]);
   for (int64_t i = 1; i < gridRank - 1; ++i)
     outputShape.push_back(gridShape[i]);

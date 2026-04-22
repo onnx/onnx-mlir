@@ -7,7 +7,7 @@
 /// - MaxPool -> XFEMaxPool
 /// - GlobalAveragePool -> XFEGlobalAveragePool
 /// - GlobalMaxPool -> XFEGlobalMaxPool
-/// - GridSample -> XFEGridSample (4D)
+/// - GridSample -> XFEGridSample (rank >= 3)
 //===----------------------------------------------------------------------===//
 
 //===----------------------------------------------------------------------===//
@@ -529,6 +529,28 @@ func.func @test_avgpool_quantized(
   // CHECK: "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]}
   // CHECK: "onnx.XFEAveragePool"
   // CHECK: "onnx.Transpose"({{.*}}) {perm = [0, 3, 1, 2]}
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// GridSample → XFEGridSample (3D / rank-3 NCL with channel-last sandwich)
+//===----------------------------------------------------------------------===//
+
+// COM: 1D spatial GridSample: NCHW layout (N,C,L); grid (N,L_out,1).
+// CHECK-LABEL: func.func @test_gridsample_rank3_to_xfe_channel_last
+func.func @test_gridsample_rank3_to_xfe_channel_last(
+    %arg0: tensor<1x3x8xf32>, %arg1: tensor<1x4x1xf32>) -> tensor<1x3x4xf32> {
+  %0 = "onnx.GridSample"(%arg0, %arg1) {
+    align_corners = 0 : si64,
+    mode = "linear",
+    padding_mode = "zeros"
+  } : (tensor<1x3x8xf32>, tensor<1x4x1xf32>) -> tensor<1x3x4xf32>
+  onnx.Return %0 : tensor<1x3x4xf32>
+
+  // CHECK: [[IN:%.+]] = "onnx.Transpose"(%arg0) {perm = [0, 2, 1]}
+  // CHECK: "onnx.XFEGridSample"([[IN]], %arg1)
+  // CHECK: "onnx.Transpose"({{.*}}) {perm = [0, 2, 1]}
 }
 
 // -----
