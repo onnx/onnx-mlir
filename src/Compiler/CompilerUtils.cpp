@@ -261,10 +261,12 @@ static void tailorLLVMIR(llvm::Module &llvmModule) {
   exportedFuncs.emplace_back(StringRef("omInputSignature"));
   exportedFuncs.emplace_back(StringRef("omOutputSignature"));
   exportedFuncs.emplace_back(StringRef("omQueryEntryPoints"));
+  exportedFuncs.emplace_back(StringRef("omCompilationInfo"));
   if (!tag.empty()) {
     exportedFuncs.emplace_back(StringRef("omInputSignature" + tag));
     exportedFuncs.emplace_back(StringRef("omOutputSignature" + tag));
     exportedFuncs.emplace_back(StringRef("omQueryEntryPoints" + tag));
+    exportedFuncs.emplace_back(StringRef("omCompilationInfo" + tag));
   }
   // Entry point fuctions.
   if (llvm::GlobalVariable *GV =
