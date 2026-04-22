@@ -39,7 +39,7 @@ std::unique_ptr<mlir::Pass> createONNXOpTransformPass(int threshold,
 
 /// Pass for rewriting inside frontend dialect.
 std::unique_ptr<mlir::Pass> createDecomposeONNXToONNXPass(
-    const std::string &target = "");
+    const std::string &target = "", bool enableConvToMatmul = false);
 std::unique_ptr<mlir::Pass> createRecomposeONNXToONNXPass(
     const std::string &target = "");
 

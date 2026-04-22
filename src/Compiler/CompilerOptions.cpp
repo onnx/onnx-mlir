@@ -97,6 +97,7 @@ std::vector<std::string> reportHeapBefore;             // onnx-mlir only
 std::vector<std::string> reportHeapAfter;              // onnx-mlir only
 std::string modelTag;                                  // onnx-mlir only
 bool enableConvOptPass;                                // onnx-mlir only
+bool disableConvToMatmul;                              // onnx-mlir only
 std::vector<std::string> replaceOpWithItsOperand;      // onnx-mlir only
 bool disableConstantProp;                              // onnx-mlir only
 bool disableCountIncludePad;                           // onnx-mlir only
@@ -745,6 +746,11 @@ static llvm::cl::opt<std::string, true> modelTagOpt("tag",
 static llvm::cl::opt<bool, true> enableConvOptPassOpt("enable-conv-opt-pass",
     llvm::cl::desc("Enable the ConvOptPass. Default is true."),
     llvm::cl::location(enableConvOptPass), llvm::cl::init(true),
+    llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<bool, true> disableConvToMatmulOpt("disable-conv-to-matmul",
+    llvm::cl::desc("Disable Conv to Im2Col+MatMul decomposition. Default is false."),
+    llvm::cl::location(disableConvToMatmul), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::list<std::string, std::vector<std::string>>

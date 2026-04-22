@@ -128,7 +128,9 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
         /*nodeNameRegexList=*/replaceOpWithItsOperand));
 
   // Decompose first. Eliminates some unsupported ops without shape inference.
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createDecomposeONNXToONNXPass());
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createDecomposeONNXToONNXPass(
+      "", /* enable conv to matmul */ OptimizationLevel > OptLevel::O0 &&
+              targetCPU && !disableConvToMatmul));
 
   if (!disableRecomposeOption)
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createRecomposeONNXToONNXPass());
@@ -136,6 +138,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::createONNXHybridTransformPass(!disableRecomposeOption));
     // Convolution Optimization for CPU: enable when there are no accelerators.
+    // hi alex, do something about this (remove conv 1x1)
     if (targetCPU && enableConvOptPass) {
       pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvOptONNXToONNXPass(
           enableSimdDataLayout && !disableSimdOption));
@@ -147,6 +150,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
     pm.addPass(mlir::createCanonicalizerPass());
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
     // Convolution Optimization for CPU: enable when there are no accelerators.
+    // hi alex, do something about this (remove conv 1x1)
     if (targetCPU && enableConvOptPass) {
       pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvOptONNXToONNXPass(
           enableSimdDataLayout && !disableSimdOption));
@@ -176,7 +180,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
     fprintf(stderr, "hi alex from compiler passes cpu\n");
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createLateDecomposePass());
     // Re-run shape inference after decomposition.
-    // hi alex pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
+    // hi alex
+    // pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
   }
 
   // Simplify shape-related ops.

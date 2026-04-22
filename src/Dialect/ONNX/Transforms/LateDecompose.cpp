@@ -220,15 +220,20 @@ struct LateDecomposePass
   }
 
   void runOnOperation() final {
-    func::FuncOp function = getOperation();
-    MLIRContext *context = &getContext();
-
-    RewritePatternSet patterns(context);
-    getLateDecomposePatterns(patterns);
-
-    if (failed(applyPatternsGreedily(function, std::move(patterns)))) {
-      signalPassFailure();
-    }
+    // Temporarily disabled: Conv decomposition moved to Decompose.cpp
+    // TODO: Re-enable when needed for other late decompositions
+    return;
+    
+    // Original implementation (disabled):
+    // func::FuncOp function = getOperation();
+    // MLIRContext *context = &getContext();
+    //
+    // RewritePatternSet patterns(context);
+    // getLateDecomposePatterns(patterns);
+    //
+    // if (failed(applyPatternsGreedily(function, std::move(patterns)))) {
+    //   signalPassFailure();
+    // }
   }
 };
 
