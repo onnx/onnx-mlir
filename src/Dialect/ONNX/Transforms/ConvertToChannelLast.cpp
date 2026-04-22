@@ -24,6 +24,9 @@
 // - GroupNormalization -> XFEGroupNormalization
 // - DepthToSpace -> XFEDepthToSpace
 // - SpaceToDepth -> XFESpaceToDepth
+// - Resize -> XFEResize
+// - GridSample -> XFEGridSample (explicit NCHW<->channel-last transposes; rank
+// >= 3 per ONNX GridSample)
 //
 //===----------------------------------------------------------------------===//
 
@@ -1049,6 +1052,49 @@ struct ResizeToChannelLastPattern : public OpRewritePattern<ONNXResizeOp> {
   }
 };
 
+// Pattern to convert GridSample to XFEGridSample with explicit transposes so
+// ONNXTransposeOptimizationPass can fold or cancel transpose chains.
+struct GridSampleToChannelLastPattern
+    : public OpRewritePattern<ONNXGridSampleOp> {
+  using OpRewritePattern<ONNXGridSampleOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXGridSampleOp op, PatternRewriter &rewriter) const override {
+    auto xType = mlir::dyn_cast<RankedTensorType>(op.getX().getType());
+    auto gridType = mlir::dyn_cast<RankedTensorType>(op.getGrid().getType());
+    if (!xType || !gridType)
+      return failure();
+    const int64_t rank = xType.getRank();
+    // ONNX GridSample: X and grid share rank; grid last dim = #spatial = rank
+    // - 2.
+    if (rank < 3 || rank != static_cast<int64_t>(gridType.getRank()))
+      return failure();
+
+    Location loc = op.getLoc();
+
+    Value xNhwc = createInputTranspose(
+        rewriter, loc, op.getX(), rank, xType.getElementType());
+    Value grid = op.getGrid();
+
+    auto xNhwcType = mlir::cast<RankedTensorType>(xNhwc.getType());
+    auto xfeOp = rewriter.create<XFEGridSampleOp>(loc,
+        UnrankedTensorType::get(xNhwcType.getElementType()), xNhwc, grid,
+        op.getAlignCornersAttr(), op.getModeAttr(), op.getPaddingModeAttr());
+
+    transferOnnxNodeName(op, xfeOp);
+
+    if (failed(xfeOp.inferShapes([](Region &) {}))) {
+      return rewriter.notifyMatchFailure(
+          op, "failed to infer shapes for XFEGridSample");
+    }
+
+    Value yNchw = createOutputTranspose(
+        rewriter, loc, xfeOp.getResult(), op.getType(), rank);
+    rewriter.replaceOp(op, yNchw);
+    return success();
+  }
+};
+
 struct ConvertToChannelLastPass : public PassWrapper<ConvertToChannelLastPass,
                                       OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ConvertToChannelLastPass)
@@ -1081,6 +1127,7 @@ struct ConvertToChannelLastPass : public PassWrapper<ConvertToChannelLastPass,
     patterns.add<DepthToSpaceToChannelLastPattern>(context);
     patterns.add<SpaceToDepthToChannelLastPattern>(context);
     patterns.add<ResizeToChannelLastPattern>(context);
+    patterns.add<GridSampleToChannelLastPattern>(context);
 
     GreedyRewriteConfig config;
     onnx_mlir::ResultNamesUpdater rnUpdater;
