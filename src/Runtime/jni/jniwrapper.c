@@ -933,15 +933,16 @@ JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_compilation_1info_1jni(
 
   /* On z/OS, convert compilation info in EBCDIC to ASCII */
 #ifdef __MVS__
-  CHECK_CALL(
-      char *, infoptr, __e2a(jni_cinfo), infoptr != NULL, "infoptr=%p", infoptr);
+  CHECK_CALL(char *, infoptr, __e2a(jni_cinfo), infoptr != NULL, "infoptr=%p",
+      infoptr);
 #else
   const char *infoptr = jni_cinfo;
 #endif
 
   /* Convert to Java String object */
-  JNI_TYPE_VAR_CALL(env, jstring, java_cinfo, (*env)->NewStringUTF(env, infoptr),
-      java_cinfo != NULL, jecpt_cls, "java_cinfo=%p", java_cinfo);
+  JNI_TYPE_VAR_CALL(env, jstring, java_cinfo,
+      (*env)->NewStringUTF(env, infoptr), java_cinfo != NULL, jecpt_cls,
+      "java_cinfo=%p", java_cinfo);
 
   /* On z/OS, free the ASCII compilation info no longer needed */
 #ifdef __MVS__
