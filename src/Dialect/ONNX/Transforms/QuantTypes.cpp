@@ -151,7 +151,6 @@ public:
 
     auto scast = rewriter.create<quant::StorageCastOp>(
         dqOp.getLoc(), qTensorType, dqOp.getX());
-    ResultNamesUpdater().notifyOperationReplaced(dqOp, scast.getResult());
     rewriter.replaceOp(dqOp, scast);
     return success();
   }
@@ -177,9 +176,6 @@ public:
     auto qTensorType = cast<TensorType>(qOp.getType()).clone(qType);
     rewriter.modifyOpInPlace(qOp, [&]() { qOp.getX().setType(qTensorType); });
 
-    // Copy the ResultName of qOp to parentOp
-    ResultNamesUpdater().notifyOperationReplaced(qOp, qOp.getX());
-
     auto scast = rewriter.create<quant::StorageCastOp>(
         qOp.getLoc(), qOp.getY().getType(), qOp.getX());
     rewriter.replaceOp(qOp, scast);
@@ -200,7 +196,12 @@ class QuantTypesPass
     auto *ctx = &getContext();
     RewritePatternSet patterns(ctx);
     patterns.add<DQToSCast, QToSCast>(ctx);
-    if (failed(applyPatternsGreedily(func, std::move(patterns))))
+
+    GreedyRewriteConfig config;
+    ResultNamesUpdater rnUpdater;
+    config.listener = &rnUpdater;
+
+    if (failed(applyPatternsGreedily(func, std::move(patterns), config)))
       signalPassFailure();
   }
 };
