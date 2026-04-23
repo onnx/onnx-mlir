@@ -281,7 +281,7 @@ const std::string ExecutionSession::compilationInfo() const {
     throw ExecutionSessionException(
         "Execution session must be initialized once.");
   errno = 0; // No errors.
-  if (_compilationInfoFunc == nullptr)
+  if (!_compilationInfoFunc)
     return "{}";
   return _compilationInfoFunc();
 }
