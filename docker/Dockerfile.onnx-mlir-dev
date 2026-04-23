@@ -23,7 +23,7 @@ RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
     && sed -i 's/protobuf>=3.20.2/protobuf>=3.20.2,<5/' requirements.txt \
     && export PYTHONFAULTHANDLER=1 \
     && export CMAKE_BUILD_PARALLEL_LEVEL=1 \
-    && python3 -X faulthandler -m pip install -v . || \
+    && python3 -X faulthandler setup.py install || \
        (status=$?; \
         echo "===== protoc-gen-mypy wrapper ====="; \
         find .setuptools-cmake-build -path "*protoc-gen-mypy.sh" -print -exec sed -n '1,80p' {} \; 2>/dev/null || true; \
