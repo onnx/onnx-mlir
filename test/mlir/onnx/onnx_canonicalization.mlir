@@ -1677,11 +1677,13 @@ func.func @test_softmax_size_one_negative_axis(%arg0 : tensor<4x8x1x1xf32>) -> t
 
 // -----
 
-func.func @test_softmax_size_one_axis_non_unit(%arg0 : tensor<4x8x1x1xf32>) -> tensor<4x8x1x1xf32> {
+// Negative test for Softmax size-1 canonicalization pattern.
+// Verifies that the op is not folded when the axis is not size 1.
+func.func @test_softmax_size_not_one_axis(%arg0 : tensor<4x8x1x1xf32>) -> tensor<4x8x1x1xf32> {
   %0 = "onnx.Softmax"(%arg0) {axis = 1 : si64} : (tensor<4x8x1x1xf32>) -> tensor<4x8x1x1xf32>
   onnx.Return %0 : tensor<4x8x1x1xf32>
 
-// CHECK-LABEL:  func.func @test_softmax_size_one_axis_non_unit
+// CHECK-LABEL:  func.func @test_softmax_size_not_one_axis
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<4x8x1x1xf32>) -> tensor<4x8x1x1xf32> {
 // CHECK:            [[VAR_0_:%.+]] = "onnx.Softmax"([[PARAM_0_]]) {axis = 1 : si64} : (tensor<4x8x1x1xf32>) -> tensor<4x8x1x1xf32>
 // CHECK:            onnx.Return [[VAR_0_]] : tensor<4x8x1x1xf32>
