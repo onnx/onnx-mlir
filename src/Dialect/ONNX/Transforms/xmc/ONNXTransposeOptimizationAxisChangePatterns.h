@@ -313,6 +313,9 @@ struct PushTransposeThroughAxisOp : public OpRewritePattern<OpType> {
     rewriter.setInsertionPoint(op);
     auto newOp = mlir::cast<OpType>(rewriter.clone(*op.getOperation()));
 
+    // The cloned intermediate must not carry ResultNames, it will be inferred by through transpose
+    newOp->removeAttr("ResultNames");
+
     // Update the first operand to use the transpose's input
     if constexpr (std::is_same_v<OpType, ONNXSqueezeOp> ||
                   std::is_same_v<OpType, ONNXArgMaxOp>) {
