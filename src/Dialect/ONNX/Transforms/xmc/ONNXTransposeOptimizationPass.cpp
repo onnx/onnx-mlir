@@ -698,6 +698,8 @@ struct PushTransposeThroughUnaryOp : public OpRewritePattern<UnaryOp> {
         op.getLoc(), newOutputType, transposeOp.getOperand());
 
     for (auto namedAttr : op->getAttrs()) {
+      if (namedAttr.getName() == "ResultNames")
+        continue;
       newOp->setAttr(namedAttr.getName(), namedAttr.getValue());
     }
 
@@ -824,6 +826,8 @@ struct PushTransposeThroughQDQ : public OpRewritePattern<QDQOp> {
     // When pushing transpose through QDQ, the axis must be transformed
     SmallVector<NamedAttribute> newAttrs;
     for (auto attr : op->getAttrs()) {
+      if (attr.getName() == "ResultNames")
+        continue;
       if (attr.getName() == "axis") {
         if (auto axisAttr = mlir::dyn_cast<IntegerAttr>(attr.getValue())) {
           int64_t oldAxis = axisAttr.getValue().getSExtValue();
@@ -958,6 +962,8 @@ struct FuseBinaryOpTransposes : public OpRewritePattern<BinaryOp> {
         lhsTranspose.getOperand(), rhsTranspose.getOperand());
 
     for (auto namedAttr : op->getAttrs()) {
+      if (namedAttr.getName() == "ResultNames")
+        continue;
       newOp->setAttr(namedAttr.getName(), namedAttr.getValue());
     }
 
@@ -1078,6 +1084,8 @@ struct FuseTransposeImmuneBinaryOp : public OpRewritePattern<BinaryOp> {
         rewriter.create<BinaryOp>(op.getLoc(), newOutputType, lhs, rhs);
 
     for (auto namedAttr : op->getAttrs()) {
+      if (namedAttr.getName() == "ResultNames")
+        continue;
       newOp->setAttr(namedAttr.getName(), namedAttr.getValue());
     }
 
@@ -1254,6 +1262,8 @@ struct PushTransposeThroughBinaryWithConst : public OpRewritePattern<BinaryOp> {
           rewriter.create<BinaryOp>(op.getLoc(), newOutputType, lhs, rhs);
 
       for (auto namedAttr : op->getAttrs()) {
+        if (namedAttr.getName() == "ResultNames")
+          continue;
         newOp->setAttr(namedAttr.getName(), namedAttr.getValue());
       }
 
@@ -1398,6 +1408,8 @@ struct PushTransposeThroughBinaryWithConst : public OpRewritePattern<BinaryOp> {
 
     // Copy attributes
     for (auto namedAttr : op->getAttrs()) {
+      if (namedAttr.getName() == "ResultNames")
+        continue;
       newOp->setAttr(namedAttr.getName(), namedAttr.getValue());
     }
 
