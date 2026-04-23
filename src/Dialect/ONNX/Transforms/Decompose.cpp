@@ -609,8 +609,65 @@ ElementsAttr reshapeElementsAttrToRank0WithDefaultValue(
 }
 
 //===----------------------------------------------------------------------===//
-// Exported functions for Conv to Im2Col decomposition
+// Exported functions for Conv decomposition
 //===----------------------------------------------------------------------===//
+
+// Check if all values in optional array attribute equal expectedValue.
+static bool allArrayAttrValuesEqual(
+    std::optional<ArrayAttr> attr, int count, int64_t expectedValue) {
+  if (!attr.has_value())
+    return true; // No attribute means default behavior (typically 1).
+  return llvm::all_of(llvm::seq<int>(0, count),
+      [&](int i) { return ArrayAttrIntVal(attr, i) == expectedValue; });
+}
+
+// Determine if we can transform a conv 1x1 with group=1, kernel size =1x...x1,
+// stride=dilation=1, pad=0.
+bool shouldDecomposeConv1x1ToMatmul(ONNXConvOp convOp) {
+  constexpr int kConvSpatialDimStartIndex = 2;
+
+  // Get type, shape, and rank info for X and W inputs.
+  Value X = convOp.getX();
+  Value W = convOp.getW();
+  Value B = convOp.getB();
+  bool hasBias = !isNoneValue(B);
+  if (!hasShapeAndRank(X) || !hasShapeAndRank(W))
+    return false;
+  if (hasBias && !hasShapeAndRank(B))
+    return false;
+  const auto xType = mlir::cast<ShapedType>(X.getType());
+  const auto wType = mlir::cast<ShapedType>(W.getType());
+  const auto xShape = xType.getShape();
+  const auto wShape = wType.getShape();
+  int64_t rank = xShape.size();
+  assert(rank == (int64_t)wShape.size() && "X and W should have same rank");
+  assert(rank > 2 && "X and W should have two spatial dims");
+  // Compute spatial rank: all but N & Cin in X, Cout & Cin in W.
+  int spatialRank = rank - 2;
+  int spatialIndex = kConvSpatialDimStartIndex;
+  // Eliminate conv ops with groups > 1.
+  if (convOp.getGroup() != 1)
+    return false;
+  // Eliminate conv with spatial dims of the kernel that are not 1.
+  if (!llvm::all_of(llvm::seq<int>(spatialIndex, rank),
+          [&](int i) { return wShape[i] == 1; }))
+    return false;
+  // Eliminate conv op with dilations > 1.
+  if (!allArrayAttrValuesEqual(convOp.getDilations(), spatialRank, 1))
+    return false;
+  // Eliminate conv ops with strides > 1.
+  if (!allArrayAttrValuesEqual(convOp.getStrides(), spatialRank, 1))
+    return false;
+  // Eliminate conv ops with any padding.
+  // Only accept "VALID" or "NOTSET" with zero pads.
+  auto autoPad = convOp.getAutoPad();
+  if (autoPad != "NOTSET" && autoPad != "VALID")
+    return false;
+  if (autoPad == "NOTSET" &&
+      !allArrayAttrValuesEqual(convOp.getPads(), 2 * spatialRank, 0))
+    return false;
+  return true;
+}
 
 // Check if Conv should be decomposed to Im2Col+MatMul.
 bool shouldDecomposeConvToIm2Col(ONNXConvOp convOp) {
@@ -637,15 +694,11 @@ bool shouldDecomposeConvToIm2Col(ONNXConvOp convOp) {
   if (convOp.getGroup() != 1)
     return false;
 
-  // 5. Must NOT be 1x1 convolution (handled elsewhere).
-  // For 2D convolution, check if kernel is [1, 1].
-  ShapedType wType = mlir::cast<ShapedType>(W.getType());
-  auto wShape = wType.getShape();
-  int64_t KH = wShape[2];
-  int64_t KW = wShape[3];
-
-  if (KH == 1 && KW == 1)
-    return false; // 1x1 kernel, let other optimizations handle it.
+  // 5. Exclude 1x1 convolutions that can be directly converted to MatMul.
+  // Use the same check as the direct MatMul pattern to avoid conflicts.
+  // This allows 1x1 convs with stride>1 or padding to use Im2Col.
+  if (shouldDecomposeConv1x1ToMatmul(convOp))
+    return false;
 
   return true;
 }
@@ -1390,64 +1443,6 @@ struct ConvToIm2ColPattern : public OpRewritePattern<ONNXConvOp> {
 
 namespace onnx_mlir {
 
-// Check if all values in optional array attribute equal expectedValue.
-static bool allArrayAttrValuesEqual(
-    std::optional<ArrayAttr> attr, int count, int64_t expectedValue) {
-  if (!attr.has_value())
-    return true; // No attribute means default behavior (typically 1).
-  return llvm::all_of(llvm::seq<int>(0, count), [&](int i) {
-    return ArrayAttrIntVal(attr, i) == expectedValue;
-  });
-}
-
-// Determine if we can transform a conv 1x1 with group=1, kernel size =1x...x1,
-// stride=dilation=1, pad=0.
-bool shouldDecomposeConv1x1ToMatmul(ONNXConvOp convOp) {
-  constexpr int kConvSpatialDimStartIndex = 2;
-
-  // Get type, shape, and rank info for X and W inputs.
-  Value X = convOp.getX();
-  Value W = convOp.getW();
-  Value B = convOp.getB();
-  bool hasBias = !isNoneValue(B);
-  if (!hasShapeAndRank(X) || !hasShapeAndRank(W))
-    return false;
-  if (hasBias && !hasShapeAndRank(B))
-    return false;
-  const auto xType = mlir::cast<ShapedType>(X.getType());
-  const auto wType = mlir::cast<ShapedType>(W.getType());
-  const auto xShape = xType.getShape();
-  const auto wShape = wType.getShape();
-  int64_t rank = xShape.size();
-  assert(rank == (int64_t)wShape.size() && "X and W should have same rank");
-  assert(rank > 2 && "X and W should have two spatial dims");
-  // Compute spatial rank: all but N & Cin in X, Cout & Cin in W.
-  int spatialRank = rank - 2;
-  int spatialIndex = kConvSpatialDimStartIndex;
-  // Eliminate conv ops with groups > 1.
-  if (convOp.getGroup() != 1)
-    return false;
-  // Eliminate conv with spatial dims of the kernel that are not 1.
-  if (!llvm::all_of(llvm::seq<int>(spatialIndex, rank),
-          [&](int i) { return wShape[i] == 1; }))
-    return false;
-  // Eliminate conv op with dilations > 1.
-  if (!allArrayAttrValuesEqual(convOp.getDilations(), spatialRank, 1))
-    return false;
-  // Eliminate conv ops with strides > 1.
-  if (!allArrayAttrValuesEqual(convOp.getStrides(), spatialRank, 1))
-    return false;
-  // Eliminate conv ops with any padding.
-  // Only accept "VALID" or "NOTSET" with zero pads.
-  auto autoPad = convOp.getAutoPad();
-  if (autoPad != "NOTSET" && autoPad != "VALID")
-    return false;
-  if (autoPad == "NOTSET" &&
-      !allArrayAttrValuesEqual(convOp.getPads(), 2 * spatialRank, 0))
-    return false;
-  return true;
-}
-
 // Add Conv to Im2Col decomposition pattern to the pattern set.
 void addConvToIm2ColPattern(RewritePatternSet &patterns) {
   patterns.add<ConvToIm2ColPattern>(patterns.getContext());
@@ -1478,13 +1473,12 @@ namespace {
    are the same on inputs and outputs.
 */
 
-struct Conv1x1ToMatmulPattern : public ConversionPattern {
-  Conv1x1ToMatmulPattern(MLIRContext *context)
-      : ConversionPattern(ONNXConvOp::getOperationName(), 1, context) {}
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-      ConversionPatternRewriter &rewriter) const final {
+struct Conv1x1ToMatmulPattern : public OpRewritePattern<ONNXConvOp> {
+  using OpRewritePattern<ONNXConvOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXConvOp convOp, PatternRewriter &rewriter) const final {
     // Get basic op info.
-    ONNXConvOp convOp = ::llvm::dyn_cast<ONNXConvOp>(op);
     Location loc = convOp.getLoc();
     // All conditions should be satisfied, test to be sure.
     if (!onnx_mlir::shouldDecomposeConv1x1ToMatmul(convOp))
@@ -1500,7 +1494,6 @@ struct Conv1x1ToMatmulPattern : public ConversionPattern {
     auto xShape = xType.getShape();
     auto wShape = wType.getShape();
     int64_t rank = xShape.size();
-    int64_t spatialRank = rank - 2;
     // Get dimensions.
     int64_t batchSize = xShape[0];
     int64_t Cout = wShape[0];

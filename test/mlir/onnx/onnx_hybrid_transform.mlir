@@ -3,6 +3,8 @@
 // RUN: onnx-mlir-opt -onnx-hybrid-transform=decomposition=false %s | FileCheck --check-prefix=CONSTPROP %s
 // RUN: onnx-mlir-opt -onnx-hybrid-transform="max-num-rewrites-offset=1 max-num-rewrites-multiplier=0" %s 2>&1 | FileCheck --check-prefix=LIMIT %s
 
+// -----
+
 // Illustrates the back and forth between shape inference and the
 // BinaryOpBroadcastAxisPattern canonicalization pattern:
 // First shape inference finds the shape 64x3x7x7 for %lhs in
