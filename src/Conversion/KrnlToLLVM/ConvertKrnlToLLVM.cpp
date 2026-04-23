@@ -838,6 +838,15 @@ void emitCompilationInfo(ModuleOp &module) {
   Type i8Type = IntegerType::get(context, 8);
   Type i8PtrTy = getPointerType(context, i8Type);
 
+  // Get the compiler_info attribute.
+  std::string compilerVersion;
+  if (Attribute compilerVersionAttr =
+          module->getAttr("onnx-mlir.compiler_version")) {
+    if (auto strAttr = mlir::dyn_cast<StringAttr>(compilerVersionAttr)) {
+      compilerVersion = strAttr.getValue().str();
+    }
+  }
+
   // Get the compile_options attribute.
   std::string compileOptions;
   if (Attribute compileOptionsAttr =
@@ -846,7 +855,6 @@ void emitCompilationInfo(ModuleOp &module) {
       compileOptions = strAttr.getValue().str();
     }
   }
-
   // Get the op_stats attribute.
   std::string opStats;
   if (Attribute opStatsAttr = module->getAttr("onnx-mlir.op_stats")) {
@@ -856,8 +864,9 @@ void emitCompilationInfo(ModuleOp &module) {
   }
 
   // Construct the JSON string.
-  std::string jsonString = "{\"compile_options\": \"" + compileOptions +
-                           "\", \"op_stats\": " + opStats + "}";
+  std::string jsonString = "{\n\"compiler_version\": \"" + compilerVersion +
+                           "\",\n\"compile_options\": \"" + compileOptions +
+                           "\",\n\"op_stats\": " + opStats + "}";
 
   LLVM_DEBUG(llvm::dbgs() << "Compilation Info: " << jsonString << "\n");
 

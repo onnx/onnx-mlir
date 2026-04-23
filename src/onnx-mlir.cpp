@@ -156,6 +156,9 @@ int main(int argc, char *argv[]) {
   }
   module.get()->setAttr(
       "onnx-mlir.compile_options", mlir::StringAttr::get(&context, allArgsStr));
+  // Store compiler version information.
+  module.get()->setAttr("onnx-mlir.compiler_version",
+      mlir::StringAttr::get(&context, getOnnxMlirCommitVersion()));
   inputFileTiming.stop();
   return compileModule(module, context, outputBaseName, emissionTarget);
 }

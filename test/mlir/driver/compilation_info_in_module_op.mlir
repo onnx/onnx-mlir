@@ -8,4 +8,4 @@ module {
   "onnx.EntryPoint"() {func = @main_graph} : () -> ()
 }
 
-// CHECK: module attributes {{{.*}}"onnx-mlir.compile_options" = "--EmitMLIR --printIR {{.*}}", "onnx-mlir.op_stats" = "{\0A  \22func.func\22 : 1,\0A  \22func.return\22 : 1,\0A  \22onnx.Relu\22 : 1\0A}\0A"{{.*}}}
+// CHECK: module attributes {{{.*}}"onnx-mlir.compile_options" = "--EmitMLIR --printIR compilation_info_in_module_op.mlir", "onnx-mlir.compiler_version" = "{{.*}}", "onnx-mlir.op_stats" = "{\0A  \22func.func\22 : 1,\0A  \22func.return\22 : 1,\0A  \22onnx.Relu\22 : 1\0A}\0A"{{.*}}}
