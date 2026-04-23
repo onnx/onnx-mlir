@@ -667,8 +667,11 @@ WideNum asWideNum(double n, Type elemType) {
 }
 
 /// Checks whether a constant tensor's elements are all equal to a given scalar.
+/// Returns false if constValue is not a constant.
 bool isConstOf(Value constValue, double n) {
   ElementsAttr constElements = getElementAttributeFromONNXValue(constValue);
+  if (!constElements)
+    return false;
   Type elemType = constElements.getElementType();
   assert(!elemType.isInteger(1) && "booleans are not supported");
   WideNum w = asWideNum(n, elemType);
