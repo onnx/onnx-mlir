@@ -1390,6 +1390,64 @@ struct ConvToIm2ColPattern : public OpRewritePattern<ONNXConvOp> {
 
 namespace onnx_mlir {
 
+// Check if all values in optional array attribute equal expectedValue.
+static bool allArrayAttrValuesEqual(
+    std::optional<ArrayAttr> attr, int count, int64_t expectedValue) {
+  if (!attr.has_value())
+    return true; // No attribute means default behavior (typically 1).
+  return llvm::all_of(llvm::seq<int>(0, count), [&](int i) {
+    return ArrayAttrIntVal(attr, i) == expectedValue;
+  });
+}
+
+// Determine if we can transform a conv 1x1 with group=1, kernel size =1x...x1,
+// stride=dilation=1, pad=0.
+bool shouldDecomposeConv1x1ToMatmul(ONNXConvOp convOp) {
+  constexpr int kConvSpatialDimStartIndex = 2;
+
+  // Get type, shape, and rank info for X and W inputs.
+  Value X = convOp.getX();
+  Value W = convOp.getW();
+  Value B = convOp.getB();
+  bool hasBias = !isNoneValue(B);
+  if (!hasShapeAndRank(X) || !hasShapeAndRank(W))
+    return false;
+  if (hasBias && !hasShapeAndRank(B))
+    return false;
+  const auto xType = mlir::cast<ShapedType>(X.getType());
+  const auto wType = mlir::cast<ShapedType>(W.getType());
+  const auto xShape = xType.getShape();
+  const auto wShape = wType.getShape();
+  int64_t rank = xShape.size();
+  assert(rank == (int64_t)wShape.size() && "X and W should have same rank");
+  assert(rank > 2 && "X and W should have two spatial dims");
+  // Compute spatial rank: all but N & Cin in X, Cout & Cin in W.
+  int spatialRank = rank - 2;
+  int spatialIndex = kConvSpatialDimStartIndex;
+  // Eliminate conv ops with groups > 1.
+  if (convOp.getGroup() != 1)
+    return false;
+  // Eliminate conv with spatial dims of the kernel that are not 1.
+  if (!llvm::all_of(llvm::seq<int>(spatialIndex, rank),
+          [&](int i) { return wShape[i] == 1; }))
+    return false;
+  // Eliminate conv op with dilations > 1.
+  if (!allArrayAttrValuesEqual(convOp.getDilations(), spatialRank, 1))
+    return false;
+  // Eliminate conv ops with strides > 1.
+  if (!allArrayAttrValuesEqual(convOp.getStrides(), spatialRank, 1))
+    return false;
+  // Eliminate conv ops with any padding.
+  // Only accept "VALID" or "NOTSET" with zero pads.
+  auto autoPad = convOp.getAutoPad();
+  if (autoPad != "NOTSET" && autoPad != "VALID")
+    return false;
+  if (autoPad == "NOTSET" &&
+      !allArrayAttrValuesEqual(convOp.getPads(), 2 * spatialRank, 0))
+    return false;
+  return true;
+}
+
 // Add Conv to Im2Col decomposition pattern to the pattern set.
 void addConvToIm2ColPattern(RewritePatternSet &patterns) {
   patterns.add<ConvToIm2ColPattern>(patterns.getContext());
@@ -1398,6 +1456,106 @@ void addConvToIm2ColPattern(RewritePatternSet &patterns) {
 } // namespace onnx_mlir
 
 namespace {
+
+/*
+   Pattern: when we have a convolution with filter of 1x1, stride 1, dilation of
+   1, group of 1, and no padding; then we can perform the following
+   transformation.
+
+   from:
+     res = CONV(X=<NxCIxHxW>, W=<COxCIx1x1>)
+   to:
+     XX = reshape(X, <N, CO, H*W>) // flatten the last 2 dims.
+     WW = squeeze(W) // get rid of the last 2 1s in the dims.
+     MM = matmul(WW, XX) //  <CO, CI> * <N, CI, H*W> = <N, CO, H*W>
+     if (has bias) {
+        BB = unsqueeze(B, {0,2}) // <CO> -> <1, CO, 1>
+        MM = add(MM, BB)
+     }
+     res = reshape(MM, <N, CO, H, W>)
+
+   Note: since there is no pad, dilation, stride, the output spacial dims (H, W)
+   are the same on inputs and outputs.
+*/
+
+struct Conv1x1ToMatmulPattern : public ConversionPattern {
+  Conv1x1ToMatmulPattern(MLIRContext *context)
+      : ConversionPattern(ONNXConvOp::getOperationName(), 1, context) {}
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+    // Get basic op info.
+    ONNXConvOp convOp = ::llvm::dyn_cast<ONNXConvOp>(op);
+    Location loc = convOp.getLoc();
+    // All conditions should be satisfied, test to be sure.
+    if (!onnx_mlir::shouldDecomposeConv1x1ToMatmul(convOp))
+      return failure();
+    // All conditions satisfied, get info.
+    Value X = convOp.getX();
+    Value W = convOp.getW();
+    Value B = convOp.getB();
+    bool hasBias = !onnx_mlir::isNoneValue(B);
+    ShapedType xType = mlir::cast<ShapedType>(X.getType());
+    ShapedType wType = mlir::cast<ShapedType>(W.getType());
+    Type elementType = xType.getElementType();
+    auto xShape = xType.getShape();
+    auto wShape = wType.getShape();
+    int64_t rank = xShape.size();
+    int64_t spatialRank = rank - 2;
+    // Get dimensions.
+    int64_t batchSize = xShape[0];
+    int64_t Cout = wShape[0];
+    // Start transforming.
+    onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
+        rewriter, loc);
+    // Reshape [N, CI, H, W,...] to [N, CI, H*W*...] by collapsing all spatial
+    // dims.
+    Value XX =
+        create.onnx.reshapeToNDim(X, 3, /*collapseMostSignificant*/ false);
+    // Squeeze <Cout, Cin, 1, 1, ...> can be implemented by a reshape to <Cout,
+    // *>, collapsing all spatial dims.
+    Value WW =
+        create.onnx.reshapeToNDim(W, 2, /*collapseMostSignificant*/ false);
+    // Perform the matrix multiplication on WW * XX. Leave last dim runtime so
+    // that its actual H*W size can be generated during shape inference.
+    RankedTensorType MMOutputType = RankedTensorType::get(
+        {batchSize, Cout, ShapedType::kDynamic}, elementType);
+    Value MM = create.onnx.matmul(MMOutputType, WW, XX, /*gemm*/ false);
+    if (hasBias) {
+      // Reshape BB from <CO> to <1, CO, 1> for broadcast.
+      Value axes = create.onnx.constantInt64({0, 2});
+      Type bbType = RankedTensorType::get({1, Cout, 1}, elementType);
+      Value BB = create.onnx.unsqueeze(bbType, B, axes);
+      MM = create.onnx.add(MM, BB);
+    }
+    // Get type for shapes
+    Type shapeType = RankedTensorType::get({rank}, rewriter.getI64Type());
+    Type batchCoutShapeType = RankedTensorType::get({1}, rewriter.getI64Type());
+    Type spatialShapeType =
+        RankedTensorType::get({spatialRank}, rewriter.getI64Type());
+    // Get shape value from X, W.
+    Value xShapeVals = create.onnx.shape(shapeType, X);
+    Value wShapeVals = create.onnx.shape(shapeType, W);
+    Value batchShapeVal =
+        create.onnx.slice(batchCoutShapeType, xShapeVals, 0, 1);
+    Value CoutShapeVal =
+        create.onnx.slice(batchCoutShapeType, wShapeVals, 0, 1);
+    Value spatialShapeVal =
+        create.onnx.slice(spatialShapeType, xShapeVals, 2, rank);
+    // Output shape values: batch, Cout, spatial shape values
+    Value outputShapeVals = create.onnx.concat(
+        shapeType, {batchShapeVal, CoutShapeVal, spatialShapeVal}, 0);
+    // Output type is the same as input, except for Cin becomes Cout.
+    llvm::SmallVector<int64_t, 4> outputDims;
+    for (int i = 0; i < rank; ++i)
+      outputDims.emplace_back(xShape[i]);
+    outputDims[1] = Cout;
+    Value res =
+        create.onnx.reshape(convOp.getY().getType(), MM, outputShapeVals);
+    // Replace op and declare success.
+    rewriter.replaceOp(convOp, res);
+    return success();
+  }
+};
 
 struct DecomposeONNXToONNXPass
     : public PassWrapper<DecomposeONNXToONNXPass, OperationPass<func::FuncOp>> {
@@ -1533,12 +1691,18 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   }
 #endif
 
-  // Add dynamically legal op for Conv when enableConvToMatmul is true
-  if (this->enableConvToMatmul) {
-    target.addDynamicallyLegalOp<ONNXConvOp>([](ONNXConvOp op) {
-      return !onnx_mlir::shouldDecomposeConvToIm2Col(op);
-    });
-  }
+  // Add dynamically legal op for Conv: always check for 1x1 decomposition,
+  // and optionally check for Im2Col decomposition when enabled.
+  target.addDynamicallyLegalOp<ONNXConvOp>([this](ONNXConvOp op) {
+    // Conv is illegal (should be decomposed) if it's a 1x1 conv.
+    if (onnx_mlir::shouldDecomposeConv1x1ToMatmul(op))
+      return false;
+    // Conv is illegal if Im2Col decomposition is enabled and applicable.
+    if (this->enableConvToMatmul && onnx_mlir::shouldDecomposeConvToIm2Col(op))
+      return false;
+    // Otherwise, Conv is legal, i.e. we want to preserve the convolution as is.
+    return true;
+  });
 
   RewritePatternSet patterns(context);
   onnx_mlir::getDecomposeONNXToONNXPatterns(patterns, this->enableConvToMatmul);
@@ -1568,6 +1732,9 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
   patterns.insert<SoftmaxCrossEntropyPattern>(context);
   patterns.insert<SumToAddPattern>(context);
   patterns.insert<DecomposeConvTransposePattern>(context);
+
+  // Always add Conv 1x1 to MatMul decomposition (unconditional).
+  patterns.insert<Conv1x1ToMatmulPattern>(context);
 
   // Optionally add Conv to Im2Col+MatMul decomposition
   if (enableConvToMatmul) {
