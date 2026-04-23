@@ -143,7 +143,8 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
     // For starters only illustrating the new hybrid pass by replacing 3 passes
     // here. The plan is to replace most of the passes in addONNXToMLIRPasses.
     pm.addNestedPass<func::FuncOp>(
-        onnx_mlir::createONNXHybridTransformPass(!disableRecomposeOption));
+        onnx_mlir::createONNXHybridTransformPass(!disableRecomposeOption, 
+        /* enableConvToMatmul done in RewriteONNXForZHigh */ false));
   } else {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
     pm.addPass(mlir::createCanonicalizerPass());

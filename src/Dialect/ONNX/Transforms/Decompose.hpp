@@ -28,7 +28,7 @@ namespace onnx_mlir {
 // Exports the DecomposeONNXToONNXPass patterns. They are all plain rewrite
 // patterns that can be used with any PatternRewriter, not conversion patterns.
 void getDecomposeONNXToONNXPatterns(
-    mlir::RewritePatternSet &patterns, bool enableConvToMatmul = false);
+    mlir::RewritePatternSet &patterns, bool enableConvToMatmul = true);
 
 // Check if Conv should be decomposed to Im2Col+MatMul.
 // Returns true if the Conv operation meets the criteria for decomposition:

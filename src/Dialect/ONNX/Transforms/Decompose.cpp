@@ -1259,6 +1259,8 @@ struct ConvToIm2ColPattern : public OpRewritePattern<ONNXConvOp> {
     if (!onnx_mlir::shouldDecomposeConvToIm2Col(convOp))
       return failure();
 
+    fprintf(stderr, "hi alex, conv to im2col+matmul pattern\n  ");
+    convOp.dump();
     Location loc = convOp.getLoc();
     Value X = convOp.getX();
     Value W = convOp.getW();
@@ -1429,8 +1431,14 @@ struct ConvToIm2ColPattern : public OpRewritePattern<ONNXConvOp> {
     Value outputShapeVals =
         create.onnx.concat(shapeType, {N, COVal, OH, OW}, 0);
 
-    // Use the original Conv output type directly to ensure type compatibility.
-    Value Y = create.onnx.reshape(convOutType, Y_with_bias, outputShapeVals);
+    // Create reshape, using native builder when unranked (avoid shape infer).
+    Value Y;
+    if (!convOutType.hasRank()) {
+      Y = ONNXReshapeOp::create(
+          rewriter, loc, convOutType, Y_with_bias, outputShapeVals);
+    } else {
+      Y = create.onnx.reshape(convOutType, Y_with_bias, outputShapeVals);
+    }
 
     // Replace the original Conv with the final result.
     rewriter.replaceOp(convOp, Y);
@@ -1478,11 +1486,15 @@ struct Conv1x1ToMatmulPattern : public OpRewritePattern<ONNXConvOp> {
 
   LogicalResult matchAndRewrite(
       ONNXConvOp convOp, PatternRewriter &rewriter) const final {
+
     // Get basic op info.
     Location loc = convOp.getLoc();
     // All conditions should be satisfied, test to be sure.
     if (!onnx_mlir::shouldDecomposeConv1x1ToMatmul(convOp))
       return failure();
+    fprintf(stderr, "hi alex, 1x1 conv to matmul pattern\n  ");
+    convOp.dump();
+
     // All conditions satisfied, get info.
     Value X = convOp.getX();
     Value W = convOp.getW();
@@ -1490,6 +1502,7 @@ struct Conv1x1ToMatmulPattern : public OpRewritePattern<ONNXConvOp> {
     bool hasBias = !onnx_mlir::isNoneValue(B);
     ShapedType xType = mlir::cast<ShapedType>(X.getType());
     ShapedType wType = mlir::cast<ShapedType>(W.getType());
+    ShapedType convOutType = mlir::cast<ShapedType>(convOp.getType());
     Type elementType = xType.getElementType();
     auto xShape = xType.getShape();
     auto wShape = wType.getShape();
@@ -1537,8 +1550,15 @@ struct Conv1x1ToMatmulPattern : public OpRewritePattern<ONNXConvOp> {
     for (int i = 0; i < rank; ++i)
       outputDims.emplace_back(xShape[i]);
     outputDims[1] = Cout;
-    Value res =
-        create.onnx.reshape(convOp.getY().getType(), MM, outputShapeVals);
+
+    // Create reshape, using native builder when unranked (avoid shape infer).
+    Value res;
+    if (!convOutType.hasRank()) {
+      res = ONNXReshapeOp::create(
+          rewriter, loc, convOutType, MM, outputShapeVals);
+    } else {
+      res = create.onnx.reshape(convOutType, MM, outputShapeVals);
+    }
     // Replace op and declare success.
     rewriter.replaceOp(convOp, res);
     return success();
@@ -1558,7 +1578,6 @@ struct DecomposeONNXToONNXPass
       : mlir::PassWrapper<DecomposeONNXToONNXPass,
             OperationPass<func::FuncOp>>() {
     this->target = pass.target.getValue();
-    // hi alex, don't understand this, revisit in the future.
     this->enableConvToMatmul = pass.enableConvToMatmul.getValue();
   }
 

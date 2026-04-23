@@ -73,7 +73,6 @@ struct ONNXOpTransformPass : public mlir::PassWrapper<ONNXOpTransformPass,
 
 void ONNXOpTransformPass::runOnOperation() {
   auto module = getOperation();
-  fprintf(stderr, "hi alex, should not be in use\n");
   assert(onnxOpTransformThreshold > 0);
   int n = onnxOpTransformThreshold;
   OperationFingerPrint before(module);

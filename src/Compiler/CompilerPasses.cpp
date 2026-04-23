@@ -128,22 +128,24 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
         /*nodeNameRegexList=*/replaceOpWithItsOperand));
 
   // Decompose first. Eliminates some unsupported ops without shape inference.
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createDecomposeONNXToONNXPass(
-      "", /* enable conv to matmul */ OptimizationLevel > OptLevel::O0 &&
-              targetCPU && !disableConvToMatmul));
+  pm.addNestedPass<func::FuncOp>(
+      onnx_mlir::createDecomposeONNXToONNXPass("", /* enable conv to matmul */
+          targetCPU && !disableConvToMatmul));
 
   if (!disableRecomposeOption)
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createRecomposeONNXToONNXPass());
   if (enableONNXHybridPass) {
     pm.addNestedPass<func::FuncOp>(
-        onnx_mlir::createONNXHybridTransformPass(!disableRecomposeOption));
+        onnx_mlir::createONNXHybridTransformPass(!disableRecomposeOption,
+            /* enableConvToMatmul */ targetCPU && !disableConvToMatmul));
     // Convolution Optimization for CPU: enable when there are no accelerators.
     // hi alex, do something about this (remove conv 1x1)
     if (targetCPU && enableConvOptPass) {
       pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvOptONNXToONNXPass(
           enableSimdDataLayout && !disableSimdOption));
       pm.addNestedPass<func::FuncOp>(
-          onnx_mlir::createONNXHybridTransformPass(!disableRecomposeOption));
+          onnx_mlir::createONNXHybridTransformPass(!disableRecomposeOption,
+              /* enableConvToMatmul */ targetCPU && !disableConvToMatmul));
     }
   } else {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
@@ -191,7 +193,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   // shape if possible.
   if (enableONNXHybridPass) {
     pm.addNestedPass<func::FuncOp>(
-        onnx_mlir::createONNXHybridTransformPass(!disableRecomposeOption));
+        onnx_mlir::createONNXHybridTransformPass(!disableRecomposeOption,
+            /* enableConvToMatmul */ targetCPU && !disableConvToMatmul));
   } else {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
     pm.addPass(mlir::createCanonicalizerPass());

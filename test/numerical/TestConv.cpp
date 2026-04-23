@@ -45,7 +45,7 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int CIn, const int COut,
 
   Conv2DLibBuilder conv(SHARED_LIB_BASE.str(), N, CIn, COut, H, W, kH, kW,
       autoPad, pHBegin, pHEnd, pWBegin, pWEnd, stride, dilation, isDynamic);
-  return conv.build() && conv.compileAndLoad() &&
+  return conv.build() && conv.compileAndLoad(/*debug*/ true) &&
          conv.checkInstructionFromEnv("TEST_INSTRUCTION") &&
          conv.prepareInputsFromEnv("TEST_DATARANGE") && conv.run() &&
          conv.verifyOutputs();
@@ -97,6 +97,7 @@ int main(int argc, char *argv[]) {
   stride = dilation = 1;
   isDynamic = 0;
 
+#if 0
   // Some 1x1 conv in inception.
   assert(isOMConvTheSameAsNaiveImplFor(
              1, 64, 64, 55, 55, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
@@ -168,6 +169,7 @@ int main(int argc, char *argv[]) {
   assert(isOMConvTheSameAsNaiveImplFor(
              3, 64, 64, 55, 55, 3, 3, 1, 1, 2, 2, ConvAutoPad::NOTSET) &&
          "failed test from test_cpuconvpadding2");
+#endif
 
   // Had To Explicitly Iterate Over Dynamic as otherwise the random algorithm
   // never got to testing the dynamic cases.

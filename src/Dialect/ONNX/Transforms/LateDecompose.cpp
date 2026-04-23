@@ -28,6 +28,8 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
+#if 0
+
 namespace {
 
 //===----------------------------------------------------------------------===//
@@ -205,6 +207,7 @@ void getLateDecomposePatterns(RewritePatternSet &patterns) {
   patterns.add<ConvToIm2ColPattern>(patterns.getContext());
   // Future patterns can be added here.
 }
+#endif
 
 namespace {
 
@@ -223,7 +226,7 @@ struct LateDecomposePass
     // Temporarily disabled: Conv decomposition moved to Decompose.cpp
     // TODO: Re-enable when needed for other late decompositions
     return;
-    
+
     // Original implementation (disabled):
     // func::FuncOp function = getOperation();
     // MLIRContext *context = &getContext();

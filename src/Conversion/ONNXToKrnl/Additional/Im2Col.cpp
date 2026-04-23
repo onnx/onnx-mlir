@@ -208,12 +208,8 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
     for (int64_t i = 0; i < spatialRank; ++i) {
       inputSpatialDims.push_back(create.krnlIE.getShapeAsSymbol(input, 2 + i));
     }
-    op->dump();
-    IndexExpr::debugPrint("input dimensions", inputSpatialDims); // hi alex
     // Get output spatial dimensions from shape helper (already computed).
     const auto &outputSpatialDims = shapeHelper.outputSpatialDims;
-    IndexExpr::debugPrint(
-        "output spatial dimensions", outputSpatialDims); // hi alex
 
     // Get numRows from shape helper output dimensions.
     IndexExpr numRows = shapeHelper.getOutputDims()[0];
@@ -225,7 +221,6 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
     for (int64_t k : kernelShape) {
       reshapedDims.push_back(LitIE(k));
     }
-    IndexExpr::debugPrint("reshape dimensions", reshapedDims); // hi alex
 
     Value reshapedAlloc = create.mem.reinterpretCast(alloc, reshapedDims);
 
@@ -502,7 +497,7 @@ void populateLoweringONNXIm2ColOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel) {
   bool useOptimizedAlgo = OptimizationLevel > OptLevel::O0;
   patterns.insert<ONNXIm2ColOpLowering>(typeConverter, ctx, enableParallel,
-      useOptimizedAlgo && true /* hi alex */);
+      useOptimizedAlgo && true /* hi alex, switch to force naive algo */);
 }
 
 } // namespace onnx_mlir

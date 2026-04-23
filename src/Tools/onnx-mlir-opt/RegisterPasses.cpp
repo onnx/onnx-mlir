@@ -88,7 +88,8 @@ void registerOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return createONNXHybridTransformPass(/*recompose ops*/ true);
+    return createONNXHybridTransformPass(
+        /*recompose ops*/ true, /*enableConvToMatmul*/ true);
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {

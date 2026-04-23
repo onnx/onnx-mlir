@@ -103,8 +103,12 @@ public:
   virtual bool build() = 0;
   // Compile model from the model and ctx variables. The output is an executable
   // dynamic library. It can run second or third.
-  bool compileAndLoad();
-  bool compileAndLoad(const onnx_mlir::CompilerOptionList &list);
+  // With debug mode set to true, we will generate a .mlir file of the model
+  // being tested so that further debugging can use that model to reproduce
+  // errors, if any.
+  bool compileAndLoad(bool debug = false);
+  bool compileAndLoad(
+      const onnx_mlir::CompilerOptionList &list, bool debug = false);
   // Check whether a particular instruction extracted from environment variable
   // specified in the argument is included in the dynamic library file name
   // compiled here. If not found, return false.

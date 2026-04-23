@@ -217,21 +217,6 @@ bool canInferencePadsForNNPAConv(ONNXConvOp op) {
   return true;
 }
 
-/// Check if Conv should be decomposed to Im2Col for NNPA.
-/// This function combines existing checks without duplicating NNPA eligibility
-/// logic. NNPA Conv eligibility is determined ONLY by
-/// isSuitableForZDNN<ONNXConvOp>().
-static bool shouldDecomposeConvForNNPA(ONNXConvOp op) {
-  // Reuse existing NNPA eligibility check - single source of truth.
-  // If NNPA can handle it, don't decompose.
-  if (isSuitableForZDNN<ONNXConvOp>(op))
-    return false;
-
-  // Reuse existing decomposition eligibility check.
-  // If decomposition is possible, do it as fallback.
-  return shouldDecomposeConvToIm2Col(op);
-}
-
 // Create an ArrayAttr of IntegerAttr(s) of zero values.
 // This function is used for padding attribute in Conv.
 ArrayAttr getPadsForNNPAConv(PatternRewriter &rewriter, Value ret) {
@@ -673,8 +658,8 @@ public:
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXRewriteONNXForZHigh.inc"
 
-void getRewriteONNXForZHighPatterns(
-    RewritePatternSet &patterns, DimAnalysis *dimAnalysis, bool enableConvToMatmul) {
+void getRewriteONNXForZHighPatterns(RewritePatternSet &patterns,
+    DimAnalysis *dimAnalysis, bool enableConvToMatmul) {
   populateWithGenerated(patterns);
   patterns.insert<SplitLargeMatMulPattern>(patterns.getContext());
   patterns.insert<ExpandAddConstantPattern>(patterns.getContext());
@@ -684,7 +669,7 @@ void getRewriteONNXForZHighPatterns(
       patterns.getContext(), dimAnalysis);
   patterns.insert<RemoveReshapeWithIdentityPattern>(
       patterns.getContext(), dimAnalysis);
-  
+
   // Add Conv to Im2Col decomposition pattern for Conv ops that cannot use NNPA.
   // This reuses the existing ConvToIm2ColPattern from Decompose.cpp.
   if (enableConvToMatmul) {
@@ -1018,12 +1003,21 @@ void getRewriteONNXForZHighDynamicallyLegal(mlir::ConversionTarget *target,
   if (enableConvToMatmul) {
     addDynamicallyLegalOpFor<ONNXConvOp>(
         target, dimAnalysis, [](ONNXConvOp op, const DimAnalysis *dimAnalysis) {
-          // Legal if:
-          // 1. Suitable for NNPA (checked by isSuitableForZDNN), OR
-          // 2. Cannot decompose (checked by shouldDecomposeConvToIm2Col), AND
-          // 3. Cannot infer pads (existing check)
-          return isSuitableForZDNN<ONNXConvOp>(op) ||
-                 (!shouldDecomposeConvForNNPA(op) && !canInferencePadsForNNPAConv(op));
+          // Rule to change Conv with padding  => Pad -> Conv
+          bool suitableForZDNN = isSuitableForZDNN<ONNXConvOp>(op);
+          bool canDecomposeToPadAndConv = canInferencePadsForNNPAConv(op);
+          // Rule to change to conv -> im2Col -> matmul.
+          bool canDecomposeToIm2ColAndMatmul = shouldDecomposeConvToIm2Col(op);
+          bool canApplyRule =
+              canDecomposeToPadAndConv || canDecomposeToIm2ColAndMatmul;
+          bool legal = suitableForZDNN || !canApplyRule;
+          fprintf(stderr,
+              "hi alex in rewrite for zhigh: conv below is legal %i; conv "
+              "suitable %i, pad and conv %i; im2Col and matmul %i\n  ",
+              (int)legal, (int)suitableForZDNN, (int)canDecomposeToPadAndConv,
+              (int)canDecomposeToIm2ColAndMatmul);
+          op.dump();
+          return legal;
         });
   }
   addDynamicallyLegalOpFor<ONNXReshapeOp>(target, dimAnalysis,

@@ -75,6 +75,10 @@ struct ONNXHybridTransformPass
       llvm::cl::desc("Enable decomposition in hybrid transform"),
       llvm::cl::init(true)};
 
+  Option<bool> enableConvToMatmul{*this, "enable-conv-to-matmul",
+      llvm::cl::desc("Enable Conv to Im2Col+MatMul decomposition"),
+      llvm::cl::init(true)};
+
   Option<bool> recomposition{*this, "recomposition",
       llvm::cl::desc("Enable recomposition in hybrid transform"),
       llvm::cl::init(true)};
@@ -89,8 +93,9 @@ struct ONNXHybridTransformPass
 
   FrozenRewritePatternSet patterns;
 
-  ONNXHybridTransformPass(bool enableRecomposition) {
+  ONNXHybridTransformPass(bool enableRecomposition, bool enableConvToMatmul) {
     this->recomposition = enableRecomposition;
+    this->enableConvToMatmul = enableConvToMatmul;
   }
 
   ONNXHybridTransformPass(const ONNXHybridTransformPass &pass)
@@ -120,7 +125,7 @@ struct ONNXHybridTransformPass
     }
 
     if (decomposition) {
-      getDecomposeONNXToONNXPatterns(cumulativePatterns);
+      getDecomposeONNXToONNXPatterns(cumulativePatterns, enableConvToMatmul);
     }
 
     if (recomposition) {
@@ -160,6 +165,7 @@ struct ONNXHybridTransformPass
 } // namespace
 
 std::unique_ptr<mlir::Pass> onnx_mlir::createONNXHybridTransformPass(
-    bool enableRecomposition) {
-  return std::make_unique<ONNXHybridTransformPass>(enableRecomposition);
+    bool enableRecomposition, bool enableConvToMatmul) {
+  return std::make_unique<ONNXHybridTransformPass>(
+      enableRecomposition, enableConvToMatmul);
 }

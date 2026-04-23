@@ -40,8 +40,16 @@ ModelLibBuilder::~ModelLibBuilder() {
     delete exec;
 }
 
-bool ModelLibBuilder::compileAndLoad() {
+bool ModelLibBuilder::compileAndLoad(bool debug) {
+
   OwningOpRef<ModuleOp> moduleRef(module);
+  if (debug) {
+    fprintf(stderr, "Debugging mode: compile to save a .mlir model file\n");
+    // Can use EmitONNXBasic (before decode) EmitONNXIR (after decode).
+    compileModule(moduleRef, ctx, sharedLibBaseName, onnx_mlir::EmitONNXBasic);
+    fprintf(stderr, "Debugging mode: .mlir file saved here: \"%s\".\n",
+        sharedLibBaseName.c_str());
+  }
   if (compileModule(moduleRef, ctx, sharedLibBaseName, onnx_mlir::EmitLib) !=
       CompilerSuccess)
     return false;
@@ -58,10 +66,10 @@ bool ModelLibBuilder::compileAndLoad() {
 }
 
 bool ModelLibBuilder::compileAndLoad(
-    const onnx_mlir::CompilerOptionList &list) {
+    const onnx_mlir::CompilerOptionList &list, bool debug) {
   if (setCompilerOptions(list) != CompilerSuccess)
     return false;
-  return compileAndLoad();
+  return compileAndLoad(debug);
 }
 
 bool ModelLibBuilder::checkInstructionFromEnv(
