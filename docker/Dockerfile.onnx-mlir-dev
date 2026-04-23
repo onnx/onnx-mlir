@@ -32,7 +32,7 @@ RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
     && python3 -m pip uninstall -y onnx || true \
     && rm -rf /usr/local/lib/python3.10/dist-packages/onnx* \
               /usr/local/lib/python3.10/dist-packages/UNKNOWN-* \
-    && python3 -X faulthandler setup.py install \
+    && CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib" python3 -X faulthandler -m pip install . \
     # Verify what `import onnx` resolves to immediately after installation.
     && python3 -c "import onnx; print('installed onnx =', onnx); print('installed onnx file =', getattr(onnx, '__file__', None)); print('installed onnx spec =', getattr(onnx, '__spec__', None))" || \
        (status=$?; \
