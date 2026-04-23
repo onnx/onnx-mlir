@@ -17,6 +17,28 @@ module attributes {"onnx-mlir.compile_options" = "test-options", "onnx-mlir.op_s
 
 // -----
 
+// COM: Test with symbol-postfix attribute (should generate both omCompilationInfo and omCompilationInfo_tag)
+module attributes {"onnx-mlir.compile_options" = "--tag=test", "onnx-mlir.op_stats" = "{\"onnx.Add\": 2}", "onnx-mlir.symbol-postfix" = "tag"} {
+  func.func private @tagged_entry(%arg0: memref<8xf32>) -> memref<8xf32> {
+    return %arg0 : memref<8xf32>
+  }
+  "krnl.entry_point"() {func = @tagged_entry, numInputs = 1 : i32, numOutputs = 1 : i32, signature = "[tagged_in]\00@[tagged_out]\00"} : () -> ()
+
+// CHECK:         llvm.mlir.global internal constant @om_compilation_info_json_tag("{\0A\22compiler_version\22: \22\22,\0A\22compile_options\22: \22--tag=test\22,\0A\22op_stats\22: {\22onnx.Add\22: 2}}\00") {addr_space = 0 : i32}
+
+// CHECK:         llvm.func @omCompilationInfo_tag() -> !llvm.ptr {
+// CHECK:           [[VAR_0:%.+]] = llvm.mlir.addressof @om_compilation_info_json_tag : !llvm.ptr
+// CHECK:           llvm.return [[VAR_0]] : !llvm.ptr
+// CHECK:         }
+
+// CHECK:         llvm.func @omCompilationInfo() -> !llvm.ptr {
+// CHECK:           [[VAR_1:%.+]] = llvm.call @omCompilationInfo_tag() : () -> !llvm.ptr
+// CHECK:           llvm.return [[VAR_1]] : !llvm.ptr
+// CHECK:         }
+}
+
+// -----
+
 // COM: Test with empty op_stats
 module attributes {"onnx-mlir.compile_options" = "-O3 --EmitLib", "onnx-mlir.op_stats" = ""} {
   func.func private @test_entry(%arg0: memref<5xi32>) -> memref<5xi32> {
