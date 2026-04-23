@@ -18,6 +18,7 @@ RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
     && cd ${ONNX_ROOT} \
     && sed -i 's/"protobuf>=3.20.2"/"protobuf>=3.20.2,<5"/' pyproject.toml \
     && sed -i 's/protobuf>=3.20.2/protobuf>=3.20.2,<5/' requirements.txt \
+    && sed -i 's/if self.editable_mode:/if getattr(self, "editable_mode", False):/' setup.py \
     && export PYTHONFAULTHANDLER=1 \
     && export CMAKE_BUILD_PARALLEL_LEVEL=1 \
     && python3 -X faulthandler setup.py install || \
