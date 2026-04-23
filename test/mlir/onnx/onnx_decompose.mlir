@@ -302,8 +302,8 @@ func.func @test_upsample(%arg0: tensor<1x1x2x2xf32>, %arg1: tensor<4xf32>) -> te
   %0 = "onnx.Upsample"(%arg0, %arg1) {mode = "nearest"} : (tensor<1x1x2x2xf32>, tensor<4xf32>) -> tensor<1x1x4x6xf32>
   onnx.Return %0 : tensor<1x1x4x6xf32>
   // CHECK-LABEL: test_upsample
-  // CHECK: [[NONE_0:%.+]] = "onnx.NoValue"() <{value}> : () -> none
-  // CHECK: [[NONE_1:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+  // CHECK: [[NONE_0:%.+]] = "onnx.NoValue"() : () -> none
+  // CHECK: [[NONE_1:%.+]] = "onnx.NoValue"() : () -> none
   // CHECK: [[RES:%.+]] = "onnx.Resize"(%arg0, [[NONE_0]], %arg1, [[NONE_1]]) <{antialias = 0 : si64, coordinate_transformation_mode = "half_pixel", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, keep_aspect_ratio_policy = "stretch", mode = "nearest", nearest_mode = "round_prefer_floor"}> : (tensor<1x1x2x2xf32>, none, tensor<4xf32>, none) -> tensor<1x1x4x6xf32>
   // CHECK: onnx.Return [[RES]] : tensor<1x1x4x6xf32>
 }
@@ -314,9 +314,9 @@ func.func @test_upsamplev7(%arg0: tensor<1x1x2x2xf32>) -> tensor<1x1x4x6xf32> {
   %0 = "onnx.UpsampleV7"(%arg0) {mode = "nearest", scales = [0.1 : f32, 0.2 : f32, 0.3 : f32, 0.4 : f32]} : (tensor<1x1x2x2xf32>) -> tensor<1x1x4x6xf32>
   onnx.Return %0 : tensor<1x1x4x6xf32>
   // CHECK-LABEL: test_upsamplev7
-  // CHECK: [[NONE_0:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+  // CHECK: [[NONE_0:%.+]] = "onnx.NoValue"() : () -> none
   // CHECK: [[SCALES:%.+]] = onnx.Constant dense<[1.000000e-01, 2.000000e-01, 3.000000e-01, 4.000000e-01]> : tensor<4xf32>
-  // CHECK: [[NONE_1:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+  // CHECK: [[NONE_1:%.+]] = "onnx.NoValue"() : () -> none
   // CHECK: [[RES:%.+]] = "onnx.Resize"(%arg0, [[NONE_0]], [[SCALES]], [[NONE_1]]) <{antialias = 0 : si64, coordinate_transformation_mode = "half_pixel", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, keep_aspect_ratio_policy = "stretch", mode = "nearest", nearest_mode = "round_prefer_floor"}> : (tensor<1x1x2x2xf32>, none, tensor<4xf32>, none) -> tensor<1x1x4x6xf32>
   // CHECK: onnx.Return [[RES]] : tensor<1x1x4x6xf32>
 }
@@ -329,7 +329,7 @@ func.func @test_padv2(%arg0: tensor<1x3x224x224xf32>) -> tensor<*xf32> {
     // CHECK-LABEL: test_padv2
     // CHECK: [[PAD:%.+]] = onnx.Constant dense<[0, 0, 4, 4, 0, 0, 4, 4]> : tensor<8xi64>
     // CHECK: [[CONSTANT_VALUE:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<1xf32>
-    // CHECK: [[NONE:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+    // CHECK: [[NONE:%.+]] = "onnx.NoValue"() : () -> none
     // CHECK: [[RES:%.+]] = "onnx.Pad"(%arg0, [[PAD]], [[CONSTANT_VALUE]], [[NONE]]) <{mode = "reflect"}> : (tensor<1x3x224x224xf32>, tensor<8xi64>, tensor<1xf32>, none) -> tensor<*xf32>
     // CHECK: onnx.Return [[RES]] : tensor<*xf32>
 }
@@ -379,7 +379,7 @@ func.func @test_seqence_construct_1(%arg0: tensor<*xf32>, %arg1: tensor<*xf32>) 
   // CHECK-LABEL:  func @test_seqence_construct_1
   // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>, [[PARAM_1_:%.+]]: tensor<*xf32>) -> !onnx.Seq<tensor<*xf32>> {
   // CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.SequenceEmpty"() <{dtype = 1 : si64}> : () -> !onnx.Seq<tensor<*xf32>>
-  // CHECK-DAG:       [[VAR_cst_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+  // CHECK-DAG:       [[VAR_cst_:%.+]] = "onnx.NoValue"() : () -> none
   // CHECK:           [[VAR_1_:%.+]] = "onnx.SequenceInsert"([[VAR_0_]], [[PARAM_0_]], [[VAR_cst_]]) : (!onnx.Seq<tensor<*xf32>>, tensor<*xf32>, none) -> !onnx.Seq<tensor<*xf32>>
   // CHECK:           [[VAR_2_:%.+]] = "onnx.SequenceInsert"([[VAR_1_]], [[PARAM_1_]], [[VAR_cst_]]) : (!onnx.Seq<tensor<*xf32>>, tensor<*xf32>, none) -> !onnx.Seq<tensor<*xf32>>
   // CHECK:           onnx.Return [[VAR_2_]] : !onnx.Seq<tensor<*xf32>>
@@ -394,7 +394,7 @@ func.func @test_seqence_construct_2(%arg0: tensor<*xi16>) -> !onnx.Seq<tensor<*x
   // CHECK-LABEL:  func @test_seqence_construct_2
   // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xi16>) -> !onnx.Seq<tensor<*xi16>> {
   // CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.SequenceEmpty"() <{dtype = 5 : si64}> : () -> !onnx.Seq<tensor<*xi16>>
-  // CHECK-DAG:       [[VAR_cst_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+  // CHECK-DAG:       [[VAR_cst_:%.+]] = "onnx.NoValue"() : () -> none
   // CHECK:           [[VAR_1_:%.+]] = "onnx.SequenceInsert"([[VAR_0_]], [[PARAM_0_]], [[VAR_cst_]]) : (!onnx.Seq<tensor<*xi16>>, tensor<*xi16>, none) -> !onnx.Seq<tensor<*xi16>>
   // CHECK:           onnx.Return [[VAR_1_]] : !onnx.Seq<tensor<*xi16>>
 }
@@ -432,7 +432,7 @@ func.func @test_splitV11_no_split(%arg0 : tensor<*xf32>) -> () {
   onnx.Return
 
   // CHECK-LABEL:  func @test_splitV11_no_split
-  // CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+  // CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() : () -> none
   // CHECK:           [[VAR_1_:%.+]] = "onnx.Split"(%arg0, %0) <{axis = 1 : si64}> : (tensor<*xf32>, none) -> tensor<*xf32>
   // CHECK:           onnx.Return
 }
@@ -469,7 +469,7 @@ func.func @test_squeezeV11_no_axes(%arg0 : tensor<*xf32>) -> () {
   onnx.Return
 
   // CHECK-LABEL:  func @test_squeezeV11_no_axes
-  // CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+  // CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() : () -> none
   // CHECK:           [[VAR_1_:%.+]] = "onnx.Squeeze"(%arg0, %0) : (tensor<*xf32>, none) -> tensor<*xf32>
   // CHECK:           onnx.Return
 }
@@ -494,7 +494,7 @@ func.func @test_padV13(%arg0 : tensor<*xi64>, %arg1 : tensor<2xi64>) -> () {
   onnx.Return
   // CHECK-LABEL:  func @test_padV13
   // CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
-  // CHECK:           [[VAR_1_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+  // CHECK:           [[VAR_1_:%.+]] = "onnx.NoValue"() : () -> none
   // CHECK:           [[VAR_2_:%.+]] = "onnx.Pad"(%arg0, %arg1, [[VAR_0_]], [[VAR_1_]]) <{mode = "constant"}> : (tensor<*xi64>, tensor<2xi64>, none, none) -> tensor<*xi64>
   // CHECK:           onnx.Return
 }
@@ -675,7 +675,8 @@ func.func @sce_mean(%arg0: tensor<64x10xf32>, %arg1: tensor<64xi64>) -> tensor<f
     onnx.Return %output : tensor<f32>
   // CHECK-LABEL:  func @sce_mean
   // CHECK-SAME:     (%[[ARG0:.*]]: {{.*}}, %[[ARG1:.*]]: {{.*}})
-  // CHECK-DAG:      %[[NONE:.*]] = "onnx.NoValue"() <{value}> : () -> none
+  // CHECK-DAG:      %{{.*}} = "onnx.NoValue"() <{value}> {weight} : () -> none
+  // CHECK-DAG:      %[[NONE:.*]] = "onnx.NoValue"() : () -> none
   // CHECK-DAG:      %[[NUM_CLASSES:.*]] = onnx.Constant dense<10> : tensor<1xi64>
   // CHECK-DAG:      %[[ONE_HOT_VALS:.*]] = onnx.Constant dense<[0, 1]> : tensor<2xi64>
   // CHECK:          %[[ONE_HOT_LABELS:.*]] = "onnx.OneHot"(%[[ARG1]], %[[NUM_CLASSES]], %[[ONE_HOT_VALS]]) <{axis = 1 : si64}> : ({{.*}}) -> tensor<64x10xi64>
@@ -698,7 +699,8 @@ func.func @sce_mean_return_log_prob(%arg0: tensor<64x10xf32>, %arg1: tensor<64xi
     onnx.Return %output, %log_prob : tensor<f32>, tensor<64x10xf32>
   // CHECK-LABEL:  func @sce_mean_return_log_prob
   // CHECK-SAME:     (%[[ARG0:.*]]: {{.*}}, %[[ARG1:.*]]: {{.*}})
-  // CHECK-DAG:      %[[NONE:.*]] = "onnx.NoValue"() <{value}> : () -> none
+  // CHECK-DAG:      %{{.*}} = "onnx.NoValue"() <{value}> {weight} : () -> none
+  // CHECK-DAG:      %[[NONE:.*]] = "onnx.NoValue"() : () -> none
   // CHECK-DAG:      %[[NUM_CLASSES:.*]] = onnx.Constant dense<10> : tensor<1xi64>
   // CHECK-DAG:      %[[ONE_HOT_VALS:.*]] = onnx.Constant dense<[0, 1]> : tensor<2xi64>
   // CHECK:          %[[ONE_HOT_LABELS:.*]] = "onnx.OneHot"(%[[ARG1]], %[[NUM_CLASSES]], %[[ONE_HOT_VALS]]) <{axis = 1 : si64}> : ({{.*}}) -> tensor<64x10xi64>
@@ -720,7 +722,7 @@ func.func @sce_mean_with_weight_NCD1D2(%arg0: tensor<64x10x2x3xf32>, %arg1: tens
     onnx.Return %output : tensor<f32>
   // CHECK-LABEL:  func @sce_mean_with_weight_NCD1D2
   // CHECK-SAME:     (%[[ARG0:.*]]: {{.*}}, %[[ARG1:.*]]: {{.*}}, %[[ARG2:.*]]: {{.*}})
-  // CHECK-DAG:      %[[NONE:.*]] = "onnx.NoValue"() <{value}> : () -> none
+  // CHECK-DAG:      %[[NONE:.*]] = "onnx.NoValue"() : () -> none
   // CHECK-DAG:      %[[NUM_CLASSES:.*]] = onnx.Constant dense<10> : tensor<1xi64>
   // CHECK-DAG:      %[[ONE_HOT_VALS:.*]] = onnx.Constant dense<[0, 1]> : tensor<2xi64>
   // CHECK:          %[[ONE_HOT_LABELS:.*]] = "onnx.OneHot"(%[[ARG1]], %[[NUM_CLASSES]], %[[ONE_HOT_VALS]]) <{axis = 1 : si64}> : ({{.*}}) -> tensor<64x10x2x3xi64>
@@ -758,7 +760,7 @@ func.func @sce_mean_with_weight_NCD1D2_dynamic_num_classes(%arg0: tensor<64x?x2x
     onnx.Return %output : tensor<f32>
   // CHECK-LABEL:  func @sce_mean_with_weight_NCD1D2
   // CHECK-SAME:     (%[[ARG0:.*]]: {{.*}}, %[[ARG1:.*]]: {{.*}}, %[[ARG2:.*]]: {{.*}})
-  // CHECK-DAG:      %[[NONE:.*]] = "onnx.NoValue"() <{value}> : () -> none
+  // CHECK-DAG:      %[[NONE:.*]] = "onnx.NoValue"() : () -> none
   // CHECK-DAG:      %[[NUM_CLASSES:.*]] = "onnx.Dim"(%[[ARG0]]) <{axis = 1 : si64}> : (tensor<64x?x2x3xf32>) -> tensor<1xi64>
   // CHECK-DAG:      %[[ONE_HOT_VALS:.*]] = onnx.Constant dense<[0, 1]> : tensor<2xi64>
   // CHECK:          %[[ONE_HOT_LABELS:.*]] = "onnx.OneHot"(%[[ARG1]], %[[NUM_CLASSES]], %[[ONE_HOT_VALS]]) <{axis = 1 : si64}> : ({{.*}}) -> tensor<64x?x2x3xi64>
@@ -787,7 +789,8 @@ func.func @sce_sum(%arg0: tensor<64x10xf32>, %arg1: tensor<64xi64>) -> tensor<f3
     onnx.Return %output : tensor<f32>
   // CHECK-LABEL:  func @sce_sum
   // CHECK-SAME:     (%[[ARG0:.*]]: {{.*}}, %[[ARG1:.*]]: {{.*}})
-  // CHECK-DAG:      %[[NONE:.*]] = "onnx.NoValue"() <{value}> : () -> none
+  // CHECK-DAG:      %{{.*}} = "onnx.NoValue"() <{value}> {weight} : () -> none
+  // CHECK-DAG:      %[[NONE:.*]] = "onnx.NoValue"() : () -> none
   // CHECK-DAG:      %[[NUM_CLASSES:.*]] = onnx.Constant dense<10> : tensor<1xi64>
   // CHECK-DAG:      %[[ONE_HOT_VALS:.*]] = onnx.Constant dense<[0, 1]> : tensor<2xi64>
   // CHECK:          %[[ONE_HOT_LABELS:.*]] = "onnx.OneHot"(%[[ARG1]], %[[NUM_CLASSES]], %[[ONE_HOT_VALS]]) <{axis = 1 : si64}> : ({{.*}}) -> tensor<64x10xi64>
@@ -809,7 +812,7 @@ func.func @sce_sum_with_weight(%arg0: tensor<64x10xf32>, %arg1: tensor<64xi64>, 
     onnx.Return %output : tensor<f32>
   // CHECK-LABEL:  func @sce_sum_with_weight
   // CHECK-SAME:     (%[[ARG0:.*]]: {{.*}}, %[[ARG1:.*]]: {{.*}}, %[[ARG2:.*]]: {{.*}})
-  // CHECK-DAG:      %[[NONE:.*]] = "onnx.NoValue"() <{value}> : () -> none
+  // CHECK-DAG:      %[[NONE:.*]] = "onnx.NoValue"() : () -> none
   // CHECK-DAG:      %[[NUM_CLASSES:.*]] = onnx.Constant dense<10> : tensor<1xi64>
   // CHECK-DAG:      %[[ONE_HOT_VALS:.*]] = onnx.Constant dense<[0, 1]> : tensor<2xi64>
   // CHECK:          %[[ONE_HOT_LABELS:.*]] = "onnx.OneHot"(%[[ARG1]], %[[NUM_CLASSES]], %[[ONE_HOT_VALS]]) <{axis = 1 : si64}> : ({{.*}}) -> tensor<64x10xi64>

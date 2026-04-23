@@ -46,7 +46,7 @@ func.func @layernorm_without_bias(%x: tensor<1x384x768xf32>, %scale: tensor<768x
 // mlir2FileCheck.py
 // CHECK-LABEL:  func.func @layernorm_without_bias
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x384x768xf32>, [[PARAM_1_:%.+]]: tensor<768xf32>, [[PARAM_2_:%.+]]: tensor<768xf32>) -> tensor<1x384x768xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() : () -> none
 // CHECK:           [[Y_:%.+]], [[Mean_:%.+]], [[VAR_InvStdDev_:%.+]] = "onnx.LayerNormalization"([[PARAM_0_]], [[PARAM_1_]], [[VAR_0_]]) <{axis = 2 : si64, epsilon = 9.99999974E-6 : f32, stash_type = 1 : si64}> : (tensor<1x384x768xf32>, tensor<768xf32>, none) -> (tensor<1x384x768xf32>, none, none)
 // CHECK:           return [[Y_]] : tensor<1x384x768xf32>
 // CHECK:         }
@@ -260,7 +260,7 @@ func.func @rms_layer_norm_multi_use(%x: tensor<1x384x768xf32>, %scale: tensor<76
   return %MultiUse : tensor<1x384x768xf32>
 // CHECK-LABEL:  func.func @rms_layer_norm_multi_use
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x384x768xf32>, [[PARAM_1_:%.+]]: tensor<768xf32>) -> tensor<1x384x768xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() : () -> none
 // CHECK:           [[VAR_Y_:%.+]], [[VAR_InvStdDev_:%.+]] = "onnx.RMSLayerNormalization"([[PARAM_0_]], [[PARAM_1_]], [[VAR_0_]]) <{axis = 2 : si64, epsilon = 9.99999974E-6 : f32, stash_type = 1 : si64}> : (tensor<1x384x768xf32>, tensor<768xf32>, none) -> (tensor<1x384x768xf32>, none)
 // CHECK:           [[VAR_1_:%.+]] = "onnx.Add"([[VAR_Y_]], [[VAR_Y_]]) : (tensor<1x384x768xf32>, tensor<1x384x768xf32>) -> tensor<1x384x768xf32>
 // CHECK:           return [[VAR_1_]] : tensor<1x384x768xf32>
