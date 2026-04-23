@@ -183,9 +183,6 @@ void ExecutionSession::loadModel(
   _compilationInfoFunc = reinterpret_cast<compilationInfoFuncType>(
       dlsym(_sharedLibraryHandle, compilationInfoNameWithTag.c_str()));
 #endif
-  if (!_compilationInfoFunc)
-    throw ExecutionSessionException(
-        "Cannot load symbol: '" + compilationInfoNameWithTag + "'.");
 
 #if defined(_WIN32)
   _printInstrumentationFunc = reinterpret_cast<printInstrumentationFuncType>(
@@ -284,6 +281,8 @@ const std::string ExecutionSession::compilationInfo() const {
     throw ExecutionSessionException(
         "Execution session must be initialized once.");
   errno = 0; // No errors.
+  if (_compilationInfoFunc == nullptr)
+    return "{}";
   return _compilationInfoFunc();
 }
 
