@@ -650,7 +650,6 @@ bool shouldDecomposeConvToIm2Col(ONNXConvOp convOp) {
   return true;
 }
 
-
 } // namespace onnx_mlir
 
 namespace {
@@ -1214,14 +1213,15 @@ struct ConvToIm2ColPattern : public OpRewritePattern<ONNXConvOp> {
     bool hasBias = !onnx_mlir::isNoneValue(B);
 
     // Create ONNX builder for cleaner code.
-    onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(rewriter, loc);
+    onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
+        rewriter, loc);
 
     // Get element types.
     ShapedType xType = mlir::cast<ShapedType>(X.getType());
     ShapedType wType = mlir::cast<ShapedType>(W.getType());
-    
+
     auto wShape = wType.getShape();
-    
+
     // Extract weight dimensions (these are always static).
     // W: [CO, CI, KH, KW]
     int64_t CO = wShape[0];
@@ -1238,12 +1238,9 @@ struct ConvToIm2ColPattern : public OpRewritePattern<ONNXConvOp> {
     Type im2colOutputType =
         RankedTensorType::get(im2colShape, xType.getElementType());
 
-    Value X_col = ONNXIm2ColOp::create(rewriter, loc,
-        im2colOutputType, X,
-        convOp.getAutoPadAttr(),
-        convOp.getDilationsAttr(),
-        convOp.getKernelShapeAttr(),
-        convOp.getPadsAttr(),
+    Value X_col = ONNXIm2ColOp::create(rewriter, loc, im2colOutputType, X,
+        convOp.getAutoPadAttr(), convOp.getDilationsAttr(),
+        convOp.getKernelShapeAttr(), convOp.getPadsAttr(),
         convOp.getStridesAttr());
 
     // Step 2: Reshape W from [CO, CI, KH, KW] to [CO, CI*KH*KW].
@@ -1277,31 +1274,116 @@ struct ConvToIm2ColPattern : public OpRewritePattern<ONNXConvOp> {
     }
 
     // Step 6: Reshape back to [N, CO, OH, OW].
-    // Compute output shape from input X and weight W using onnx.Dim.
+    // Compute output dimensions OH and OW from input dimensions and Conv
+    // parameters.
     ShapedType convOutType = mlir::cast<ShapedType>(convOp.getType());
-    
-    // Extract individual dimensions using onnx.Dim.
-    // From X: [N, CI, H, W] -> get N, H, W
+
+    // Extract Conv attributes.
+    StringRef autoPad = convOp.getAutoPad();
+    ArrayAttr stridesAttr = convOp.getStridesAttr();
+    ArrayAttr padsAttr = convOp.getPadsAttr();
+    ArrayAttr dilationsAttr = convOp.getDilationsAttr();
+
+    // Get stride values (default to 1 if not specified).
+    int64_t strideH =
+        stridesAttr ? mlir::cast<IntegerAttr>(stridesAttr[0]).getInt() : 1;
+    int64_t strideW =
+        stridesAttr ? mlir::cast<IntegerAttr>(stridesAttr[1]).getInt() : 1;
+
+    // Get dilation values (default to 1 if not specified).
+    int64_t dilationH =
+        dilationsAttr ? mlir::cast<IntegerAttr>(dilationsAttr[0]).getInt() : 1;
+    int64_t dilationW =
+        dilationsAttr ? mlir::cast<IntegerAttr>(dilationsAttr[1]).getInt() : 1;
+
+    // Build output shape [N, CO, OH, OW].
     Value N = create.onnx.dim(X, 0);
-    Value OH = create.onnx.dim(X, 2);  // Output height (same as input for SAME padding)
-    Value OW = create.onnx.dim(X, 3);  // Output width (same as input for SAME padding)
-    
-    // From W: [CO, CI, KH, KW] -> get CO
-    Value COVal = create.onnx.dim(W, 0);
-    
+    Value COVal = create.onnx.dim(W, 0); // Keep it as dim.
+    Value H = create.onnx.dim(X, 2);
+    Value W_dim = create.onnx.dim(X, 3);
+
+    Value OH, OW;
+
+    // Compute OH and OW based on auto_pad mode.
+    if (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER") {
+      // For SAME padding: output_size = ceil(input_size / stride)
+      // Implement ceil(a/b) as (a + b - 1) / b
+
+      // Pre-compute: strideH - 1 and strideW - 1
+      int64_t strideH_minus_1 = strideH - 1;
+      int64_t strideW_minus_1 = strideW - 1;
+
+      Value strideH_minus_1_val = create.onnx.constantInt64({strideH_minus_1});
+      Value strideW_minus_1_val = create.onnx.constantInt64({strideW_minus_1});
+      Value strideHVal = create.onnx.constantInt64({strideH});
+      Value strideWVal = create.onnx.constantInt64({strideW});
+
+      // OH = ceil(H / strideH) = (H + strideH - 1) / strideH
+      Value H_plus_const = create.onnx.add(H, strideH_minus_1_val);
+      OH = create.onnx.div(H_plus_const, strideHVal);
+
+      // OW = ceil(W / strideW) = (W + strideW - 1) / strideW
+      Value W_plus_const = create.onnx.add(W_dim, strideW_minus_1_val);
+      OW = create.onnx.div(W_plus_const, strideWVal);
+    } else {
+      // For VALID or NOTSET: use explicit padding values.
+      // output_size = floor((input_size + pad_begin + pad_end - ((kernel_size -
+      // 1) * dilation + 1)) / stride) + 1
+
+      // Get padding values (default to 0 if not specified).
+      // Pads format: [pad_top, pad_left, pad_bottom, pad_right]
+      int64_t padTop = 0, padLeft = 0, padBottom = 0, padRight = 0;
+
+      if (autoPad != "VALID" && padsAttr) {
+        padTop = mlir::cast<IntegerAttr>(padsAttr[0]).getInt();
+        padLeft = mlir::cast<IntegerAttr>(padsAttr[1]).getInt();
+        padBottom = padsAttr.size() > 2
+                        ? mlir::cast<IntegerAttr>(padsAttr[2]).getInt()
+                        : 0;
+        padRight = padsAttr.size() > 3
+                       ? mlir::cast<IntegerAttr>(padsAttr[3]).getInt()
+                       : 0;
+      }
+
+      // Pre-compute all constant values.
+      int64_t padH_total = padTop + padBottom;
+      int64_t padW_total = padLeft + padRight;
+      int64_t effective_KH = (KH - 1) * dilationH + 1;
+      int64_t effective_KW = (KW - 1) * dilationW + 1;
+
+      // For OH: output_size = floor((input_size + pad_total - effective_kernel)
+      // / stride) + 1 Rearrange: output_size = (input_size + (pad_total -
+      // effective_kernel + stride)) / stride
+      int64_t OH_const_offset = padH_total - effective_KH + strideH;
+      int64_t OW_const_offset = padW_total - effective_KW + strideW;
+
+      Value OH_offset_val = create.onnx.constantInt64({OH_const_offset});
+      Value OW_offset_val = create.onnx.constantInt64({OW_const_offset});
+      Value strideHVal = create.onnx.constantInt64({strideH});
+      Value strideWVal = create.onnx.constantInt64({strideW});
+
+      // OH = (H + OH_const_offset) / strideH
+      Value H_adjusted = create.onnx.add(H, OH_offset_val);
+      OH = create.onnx.div(H_adjusted, strideHVal);
+
+      // OW = (W + OW_const_offset) / strideW
+      Value W_adjusted = create.onnx.add(W_dim, OW_offset_val);
+      OW = create.onnx.div(W_adjusted, strideWVal);
+    }
+
     // Concatenate dimensions to form output shape: [N, CO, OH, OW]
     Type shapeType = RankedTensorType::get({4}, rewriter.getI64Type());
-    Value outputShapeVals = create.onnx.concat(
-        shapeType, {N, COVal, OH, OW}, 0);
-    
+    Value outputShapeVals =
+        create.onnx.concat(shapeType, {N, COVal, OH, OW}, 0);
+
+    // Use the original Conv output type directly to ensure type compatibility.
     Value Y = create.onnx.reshape(convOutType, Y_with_bias, outputShapeVals);
 
-    // Replace the original Conv with the final Reshape.
+    // Replace the original Conv with the final result.
     rewriter.replaceOp(convOp, Y);
 
     return success();
   }
-
 };
 
 } // namespace
@@ -1321,7 +1403,8 @@ struct DecomposeONNXToONNXPass
     : public PassWrapper<DecomposeONNXToONNXPass, OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(DecomposeONNXToONNXPass)
 
-  DecomposeONNXToONNXPass(const std::string &target, bool enableConvToMatmul = false) {
+  DecomposeONNXToONNXPass(
+      const std::string &target, bool enableConvToMatmul = false) {
     this->target = target;
     this->enableConvToMatmul = enableConvToMatmul;
   }
@@ -1452,10 +1535,9 @@ void DecomposeONNXToONNXPass::runOnOperation() {
 
   // Add dynamically legal op for Conv when enableConvToMatmul is true
   if (this->enableConvToMatmul) {
-    target.addDynamicallyLegalOp<ONNXConvOp>(
-        [](ONNXConvOp op) {
-          return !onnx_mlir::shouldDecomposeConvToIm2Col(op);
-        });
+    target.addDynamicallyLegalOp<ONNXConvOp>([](ONNXConvOp op) {
+      return !onnx_mlir::shouldDecomposeConvToIm2Col(op);
+    });
   }
 
   RewritePatternSet patterns(context);

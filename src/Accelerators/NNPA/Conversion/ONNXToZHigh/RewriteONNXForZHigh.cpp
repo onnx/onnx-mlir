@@ -674,7 +674,7 @@ public:
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXRewriteONNXForZHigh.inc"
 
 void getRewriteONNXForZHighPatterns(
-    RewritePatternSet &patterns, DimAnalysis *dimAnalysis) {
+    RewritePatternSet &patterns, DimAnalysis *dimAnalysis, bool enableConvToMatmul) {
   populateWithGenerated(patterns);
   patterns.insert<SplitLargeMatMulPattern>(patterns.getContext());
   patterns.insert<ExpandAddConstantPattern>(patterns.getContext());
@@ -687,11 +687,13 @@ void getRewriteONNXForZHighPatterns(
   
   // Add Conv to Im2Col decomposition pattern for Conv ops that cannot use NNPA.
   // This reuses the existing ConvToIm2ColPattern from Decompose.cpp.
-  addConvToIm2ColPattern(patterns);
+  if (enableConvToMatmul) {
+    addConvToIm2ColPattern(patterns);
+  }
 }
 
-void getRewriteONNXForZHighDynamicallyLegal(
-    mlir::ConversionTarget *target, const DimAnalysis *dimAnalysis) {
+void getRewriteONNXForZHighDynamicallyLegal(mlir::ConversionTarget *target,
+    const DimAnalysis *dimAnalysis, bool enableConvToMatmul) {
   // `ONNXBatchNormalizationInferenceModeOp` to `ZHigh.BatchNorm`,
   // generating `ONNX.Add`, `ONNX.Sub`, `ONNX.Mul`, `ONNX.Div`,
   // and `ONNX.Sqrt` to calculate inputs(`a` and `b`)
@@ -1012,15 +1014,18 @@ void getRewriteONNXForZHighDynamicallyLegal(
         return true;
       });
 
-  addDynamicallyLegalOpFor<ONNXConvOp>(
-      target, dimAnalysis, [](ONNXConvOp op, const DimAnalysis *dimAnalysis) {
-        // Legal if:
-        // 1. Suitable for NNPA (checked by isSuitableForZDNN), OR
-        // 2. Cannot decompose (checked by shouldDecomposeConvToIm2Col), AND
-        // 3. Cannot infer pads (existing check)
-        return isSuitableForZDNN<ONNXConvOp>(op) ||
-               (!shouldDecomposeConvForNNPA(op) && !canInferencePadsForNNPAConv(op));
-      });
+  // Conv: Decompose to Im2Col+MatMul when NNPA cannot be used.
+  if (enableConvToMatmul) {
+    addDynamicallyLegalOpFor<ONNXConvOp>(
+        target, dimAnalysis, [](ONNXConvOp op, const DimAnalysis *dimAnalysis) {
+          // Legal if:
+          // 1. Suitable for NNPA (checked by isSuitableForZDNN), OR
+          // 2. Cannot decompose (checked by shouldDecomposeConvToIm2Col), AND
+          // 3. Cannot infer pads (existing check)
+          return isSuitableForZDNN<ONNXConvOp>(op) ||
+                 (!shouldDecomposeConvForNNPA(op) && !canInferencePadsForNNPAConv(op));
+        });
+  }
   addDynamicallyLegalOpFor<ONNXReshapeOp>(target, dimAnalysis,
       [](ONNXReshapeOp op, const DimAnalysis *dimAnalysis) {
         // Get rid of identity reshape here, as it impacts stick/unstick.
@@ -1032,6 +1037,7 @@ void getRewriteONNXForZHighDynamicallyLegal(
 
 struct RewriteONNXForZHighPass
     : public PassWrapper<RewriteONNXForZHighPass, OperationPass<ModuleOp>> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(RewriteONNXForZHighPass)
 
   StringRef getArgument() const override { return "rewrite-onnx-for-zhigh"; }
 
@@ -1040,6 +1046,18 @@ struct RewriteONNXForZHighPass
   }
 
   RewriteONNXForZHighPass() = default;
+  RewriteONNXForZHighPass(bool enableConvToMatmul) {
+    this->enableConvToMatmul = enableConvToMatmul;
+  }
+  RewriteONNXForZHighPass(const RewriteONNXForZHighPass &pass)
+      : mlir::PassWrapper<RewriteONNXForZHighPass, OperationPass<ModuleOp>>() {
+    this->enableConvToMatmul = pass.enableConvToMatmul.getValue();
+  }
+
+  Option<bool> enableConvToMatmul{*this, "enable-conv-to-matmul",
+      llvm::cl::desc("Enable Conv to Im2Col+MatMul decomposition for NNPA"),
+      ::llvm::cl::init(true)};
+
   void runOnOperation() final;
 };
 
@@ -1058,11 +1076,13 @@ void RewriteONNXForZHighPass::runOnOperation() {
   // We define the specific operations, or dialects, that are legal targets
   // for this lowering.
   target.addLegalDialect<ONNXDialect, zhigh::ZHighDialect, func::FuncDialect>();
-  onnx_mlir::getRewriteONNXForZHighDynamicallyLegal(&target, &dimAnalysis);
+  onnx_mlir::getRewriteONNXForZHighDynamicallyLegal(
+      &target, &dimAnalysis, this->enableConvToMatmul);
 
   // Single ONNX to ZHigh operation lowering.
   RewritePatternSet patterns(&getContext());
-  onnx_mlir::getRewriteONNXForZHighPatterns(patterns, &dimAnalysis);
+  onnx_mlir::getRewriteONNXForZHighPatterns(
+      patterns, &dimAnalysis, this->enableConvToMatmul);
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`
@@ -1073,6 +1093,10 @@ void RewriteONNXForZHighPass::runOnOperation() {
 
 std::unique_ptr<Pass> createRewriteONNXForZHighPass() {
   return std::make_unique<RewriteONNXForZHighPass>();
+}
+
+std::unique_ptr<Pass> createRewriteONNXForZHighPass(bool enableConvToMatmul) {
+  return std::make_unique<RewriteONNXForZHighPass>(enableConvToMatmul);
 }
 
 } // namespace onnx_mlir

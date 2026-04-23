@@ -48,6 +48,7 @@ void configureONNXToZHighLoweringPass(bool reportOnNNPAUnsupportedOps,
 
 /// Add pass for rewriting ONNX ops for ZHigh.
 std::unique_ptr<mlir::Pass> createRewriteONNXForZHighPass();
+std::unique_ptr<mlir::Pass> createRewriteONNXForZHighPass(bool enableConvToMatmul);
 
 /// Add pass for re-construct ONNX ops from ZHigh ops.
 std::unique_ptr<mlir::Pass> createZHighToONNXPass();

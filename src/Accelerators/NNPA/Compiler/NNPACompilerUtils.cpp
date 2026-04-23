@@ -107,10 +107,14 @@ void configurePassesNNPA() {
 }
 
 void addONNXToZHighPasses(mlir::PassManager &pm) {
+  // Determine if Conv to Im2Col+MatMul decomposition should be enabled.
+  // Use the same condition as the CPU path: OptimizationLevel > O0 && !disableConvToMatmul
+  bool enableConvToMatmul = OptimizationLevel > OptLevel::O0 && !disableConvToMatmul;
+  
   for (unsigned i = 0; i < 3; i++) {
     // Repeat this process so that shape-related ops such as Shape, Expand,
     // Gather generated during RewriteONNXForZHigh will become constants.
-    pm.addPass(onnx_mlir::createRewriteONNXForZHighPass());
+    pm.addPass(onnx_mlir::createRewriteONNXForZHighPass(enableConvToMatmul));
     // Simplify shape-related ops, including ShapeOp-to-DimOp replacement,
     // constant propagation, shape inference and canonicalize.
     pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass());
