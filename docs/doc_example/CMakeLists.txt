@@ -35,6 +35,7 @@ endif()
 
 add_custom_command(
   OUTPUT ${OMRuntimeTestModelLibraryFiles}
+  COMMAND ${Python3_EXECUTABLE} -c "import onnx; print(onnx); print(getattr(onnx, '__file__', 'no __file__')); from onnx import helper; print(helper)"
   COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/gen_add_onnx.py
   COMMAND onnx-mlir add.onnx -o ${OMRuntimeTestModelLibraryName}
   WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
