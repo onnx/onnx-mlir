@@ -895,6 +895,30 @@ func.func @test_hardsigmoid_clip_mul_add_f32(%arg0 : tensor<?x?x3072xf32>) -> te
 
 // -----
 
+func.func @test_hardsigmoid_clip_mul_add_f32_dynamic_min(%arg0 : tensor<?x?x3072xf32>, %arg1 : tensor<f32>) -> tensor<?x?x3072xf32> {
+  %a = onnx.Constant dense<0.166666672> : tensor<f32>
+  %b = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %one = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %0 = "onnx.Mul"(%arg0, %a) : (tensor<?x?x3072xf32>, tensor<f32>) -> tensor<?x?x3072xf32>
+  %1 = "onnx.Add"(%0, %b) : (tensor<?x?x3072xf32>, tensor<f32>) -> tensor<?x?x3072xf32>
+  %2 = "onnx.Clip"(%1, %arg1, %one) : (tensor<?x?x3072xf32>, tensor<f32>, tensor<f32>) -> tensor<?x?x3072xf32>
+  return %2 : tensor<?x?x3072xf32>
+
+// CHECK-LABEL:  func.func @test_hardsigmoid_clip_mul_add_f32_dynamic_min
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x3072xf32>, [[PARAM_1_:%.+]]: tensor<f32>) -> tensor<?x?x3072xf32> {
+// CHECK-DAG:           [[VAR_A_:%.+]] = onnx.Constant dense<0.166666672> : tensor<f32>
+// CHECK-DAG:           [[VAR_B_:%.+]] = onnx.Constant dense<5.000000e-01> : tensor<f32>
+// CHECK-DAG:           [[VAR_ONE_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<f32>
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Mul"([[PARAM_0_]], [[VAR_A_]]) : (tensor<?x?x3072xf32>, tensor<f32>) -> tensor<?x?x3072xf32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Add"([[VAR_0_]], [[VAR_B_]]) : (tensor<?x?x3072xf32>, tensor<f32>) -> tensor<?x?x3072xf32>
+// CHECK-NOT:       "onnx.HardSigmoid"
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Clip"([[VAR_1_]], [[PARAM_1_]], [[VAR_ONE_]]) : (tensor<?x?x3072xf32>, tensor<f32>, tensor<f32>) -> tensor<?x?x3072xf32>
+// CHECK:           return [[VAR_2_]] : tensor<?x?x3072xf32>
+// CHECK:         }
+}
+
+// -----
+
 // HardSigmoid(x) = clip(x * a + b, 0, 1) with alpha=1/6, beta=0.5 in bf16
 func.func @test_hardsigmoid_clip_mul_add_bf16(%arg0 : tensor<?x?x3072xbf16>) -> tensor<?x?x3072xbf16> {
   %a = onnx.Constant dense<0.166015625> : tensor<bf16>
