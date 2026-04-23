@@ -16,12 +16,25 @@ COPY . onnx-mlir
 # Setup onnx
 RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
     && cd ${ONNX_ROOT} \
+    # Keep protobuf on the pre-5 runtime to avoid the s390x crash in
+    # protoc-gen-mypy / google._upb._message observed in Jenkins.
     && sed -i 's/"protobuf>=3.20.2"/"protobuf>=3.20.2,<5"/' pyproject.toml \
     && sed -i 's/protobuf>=3.20.2/protobuf>=3.20.2,<5/' requirements.txt \
+    # ONNX setup.py expects editable_mode on newer setuptools paths; guard it
+    # so a normal non-editable install continues to work in the Docker build.
     && sed -i 's/if self.editable_mode:/if getattr(self, "editable_mode", False):/' setup.py \
     && export PYTHONFAULTHANDLER=1 \
     && export CMAKE_BUILD_PARALLEL_LEVEL=1 \
-    && python3 -X faulthandler setup.py install || \
+    # Clean out any preexisting/broken ONNX install artifacts first. Jenkins
+    # diagnostics showed Python resolving `onnx` from an UNKNOWN egg as a
+    # namespace package, which shadowed the intended installed package and
+    # caused `from onnx import helper` to fail during docs generation.
+    && python3 -m pip uninstall -y onnx || true \
+    && rm -rf /usr/local/lib/python3.10/dist-packages/onnx* \
+              /usr/local/lib/python3.10/dist-packages/UNKNOWN-* \
+    && python3 -X faulthandler setup.py install \
+    # Verify what `import onnx` resolves to immediately after installation.
+    && python3 -c "import onnx; print('installed onnx =', onnx); print('installed onnx file =', getattr(onnx, '__file__', None)); print('installed onnx spec =', getattr(onnx, '__spec__', None))" || \
        (status=$?; \
         echo "===== protoc-gen-mypy wrapper ====="; \
         find .setuptools-cmake-build -path "*protoc-gen-mypy.sh" -print -exec sed -n '1,80p' {} \; 2>/dev/null || true; \
@@ -29,6 +42,8 @@ RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
         find .setuptools-cmake-build -path "*protoc-gen-mypy.py" -print -exec sed -n '1,120p' {} \; 2>/dev/null || true; \
         echo "===== generated proto files ====="; \
         find .setuptools-cmake-build/onnx -maxdepth 1 \( -name "*.proto" -o -name "*.py" -o -name "*.pyi" \) -print 2>/dev/null || true; \
+        echo "===== dist-packages onnx ====="; \
+        find /usr/local/lib/python3.10/dist-packages -maxdepth 1 \( -name "onnx*" -o -name "UNKNOWN-*" \) -print 2>/dev/null || true; \
         exit ${status})
 
 ARG NPROC=4
