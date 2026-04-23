@@ -1527,23 +1527,18 @@ struct Conv1x1ToMatmulPattern : public ConversionPattern {
       Value BB = create.onnx.unsqueeze(bbType, B, axes);
       MM = create.onnx.add(MM, BB);
     }
-    // Get type for shapes
+    // Get individual dimension values using onnx.dim.
+    Value batchDim = create.onnx.dim(X, 0);
+    Value CoutDim = create.onnx.dim(W, 0);
+    // Collect spatial dimensions from X.
+    llvm::SmallVector<Value, 4> spatialDims;
+    for (int i = 2; i < rank; ++i)
+      spatialDims.push_back(create.onnx.dim(X, i));
+    // Build output shape by concatenating batch, Cout, and spatial dims.
+    llvm::SmallVector<Value, 4> outputShapeDims = {batchDim, CoutDim};
+    outputShapeDims.append(spatialDims.begin(), spatialDims.end());
     Type shapeType = RankedTensorType::get({rank}, rewriter.getI64Type());
-    Type batchCoutShapeType = RankedTensorType::get({1}, rewriter.getI64Type());
-    Type spatialShapeType =
-        RankedTensorType::get({spatialRank}, rewriter.getI64Type());
-    // Get shape value from X, W.
-    Value xShapeVals = create.onnx.shape(shapeType, X);
-    Value wShapeVals = create.onnx.shape(shapeType, W);
-    Value batchShapeVal =
-        create.onnx.slice(batchCoutShapeType, xShapeVals, 0, 1);
-    Value CoutShapeVal =
-        create.onnx.slice(batchCoutShapeType, wShapeVals, 0, 1);
-    Value spatialShapeVal =
-        create.onnx.slice(spatialShapeType, xShapeVals, 2, rank);
-    // Output shape values: batch, Cout, spatial shape values
-    Value outputShapeVals = create.onnx.concat(
-        shapeType, {batchShapeVal, CoutShapeVal, spatialShapeVal}, 0);
+    Value outputShapeVals = create.onnx.concat(shapeType, outputShapeDims, 0);
     // Output type is the same as input, except for Cin becomes Cout.
     llvm::SmallVector<int64_t, 4> outputDims;
     for (int i = 0; i < rank; ++i)
