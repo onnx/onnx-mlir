@@ -129,11 +129,30 @@ int main(int argc, char *argv[]) {
   // Store compile options in a module attribute.
   std::string allArgsStr = "";
   for (uint64_t i = 1; i < allArgs.size(); ++i) {
-    if (allArgs[i]) {
-      if (i > 1)
-        allArgsStr += " ";
-      allArgsStr += allArgs[i];
+    std::string arg(allArgs[i]);
+    // Sanitize paths: replace absolute/relative paths with just the filename.
+    // Handle options with values (e.g., --option=value or --option value).
+    size_t equalPos = arg.find('=');
+    if (equalPos != std::string::npos) {
+      // Option with value: --option=value.
+      std::string optionPart = arg.substr(0, equalPos + 1);
+      std::string valuePart = arg.substr(equalPos + 1);
+      // Check if value part contains path separators.
+      if (valuePart.find('/') != std::string::npos ||
+          valuePart.find('\\') != std::string::npos) {
+        std::filesystem::path valuePath(valuePart);
+        valuePart = valuePath.filename().string();
+      }
+      arg = optionPart + valuePart;
+    } else if (arg.find('/') != std::string::npos ||
+               arg.find('\\') != std::string::npos) {
+      // Standalone path argument.
+      std::filesystem::path argPath(arg);
+      arg = argPath.filename().string();
     }
+    if (!allArgsStr.empty())
+      allArgsStr += " ";
+    allArgsStr += arg;
   }
   module.get()->setAttr(
       "onnx-mlir.compile_options", mlir::StringAttr::get(&context, allArgsStr));
