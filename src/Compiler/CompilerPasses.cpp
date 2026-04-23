@@ -405,13 +405,13 @@ void addLinalgToLLVMPasses(mlir::PassManager &pm, std::string outputNameNoExt) {
   // 3. KrnlEntryPointOp → LLVM conversion (dynamic entry point functions,
   //    OMTensor conversion, accelerator initialization, signature recording)
   // 4. Runtime function generation (omQueryEntryPoints, omInputSignature,
-  //    omOutputSignature)
+  //    omOutputSignature, omCompilationInfo)
   // 5. Other features (constants file storage, C wrapper, .lrodata section)
   pm.addPass(krnl::createConvertKrnlToLLVMPass(verifyInputTensors,
       /*useLRODATA=*/(modelSize == ModelSize::large),
       /*storeConstantsToFile=*/storeConstantsToFile,
       constantsToFileSingleThreshold, constantsToFileTotalThreshold,
-      outputNameNoExt, enableParallel));
+      doNotEmbedCompilationInfo, outputNameNoExt, enableParallel));
   pm.addPass(mlir::createReconcileUnrealizedCastsPass());
   pm.addPass(mlir::createCanonicalizerPass());
 }
@@ -446,7 +446,7 @@ void addKrnlToLLVMPasses(
         /*useLRODATA=*/(modelSize == ModelSize::large),
         /*storeConstantsToFile=*/storeConstantsToFile,
         constantsToFileSingleThreshold, constantsToFileTotalThreshold,
-        outputNameNoExt, enableParallel));
+        doNotEmbedCompilationInfo, outputNameNoExt, enableParallel));
     pm.addPass(mlir::createReconcileUnrealizedCastsPass());
     pm.addPass(mlir::createCanonicalizerPass());
     return;
@@ -522,7 +522,7 @@ void addKrnlToLLVMPasses(
       /*useLRODATA=*/(modelSize == ModelSize::large),
       /*storeConstantsToFile=*/storeConstantsToFile,
       constantsToFileSingleThreshold, constantsToFileTotalThreshold,
-      outputNameNoExt, enableParallel));
+      doNotEmbedCompilationInfo, outputNameNoExt, enableParallel));
   pm.addPass(mlir::createReconcileUnrealizedCastsPass());
   pm.addPass(mlir::createCanonicalizerPass());
   if (enableDebugInfo)

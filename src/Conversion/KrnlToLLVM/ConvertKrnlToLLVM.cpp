@@ -915,8 +915,8 @@ struct ConvertKrnlToLLVMPass
       : PassWrapper<ConvertKrnlToLLVMPass, OperationPass<ModuleOp>>() {}
   ConvertKrnlToLLVMPass(bool verifyInputTensors, bool useLRODATA,
       bool storeConstantsToFile, float constantsToFileSingleThreshold,
-      float constantsToFileTotalThreshold, std::string outputNameNoExt,
-      bool enableParallel) {
+      float constantsToFileTotalThreshold, bool doNotEmbedCompilationInfo,
+      std::string outputNameNoExt, bool enableParallel) {
     this->verifyInputTensors = verifyInputTensors;
     // Exclusive options. no option or only one option can be True.
     this->useLRODATA = useLRODATA;
@@ -927,6 +927,7 @@ struct ConvertKrnlToLLVMPass
 #endif
     this->constantsToFileSingleThreshold = constantsToFileSingleThreshold;
     this->constantsToFileTotalThreshold = constantsToFileTotalThreshold;
+    this->doNotEmbedCompilationInfo = doNotEmbedCompilationInfo;
     this->outputNameNoExt = outputNameNoExt;
     this->enableParallel = enableParallel;
   }
@@ -956,6 +957,12 @@ struct ConvertKrnlToLLVMPass
       llvm::cl::init(false)};
 
   Option<bool> storeConstantsToFile{*this, "store-constants-to-file",
+      llvm::cl::desc("Do not embed compilation information such as compiler "
+                     "version, compile options, and ONNX operation statistics "
+                     "into the generated shared library."),
+      llvm::cl::init(false)};
+
+  Option<bool> doNotEmbedCompilationInfo{*this, "do-not-embed-compilation-info",
       llvm::cl::desc("Put global constants to a file."), llvm::cl::init(false)};
 
   Option<float> constantsToFileTotalThreshold{*this,
@@ -1162,7 +1169,8 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   }
 
   // Emit compilation information.
-  emitCompilationInfo(module);
+  if (!doNotEmbedCompilationInfo)
+    emitCompilationInfo(module);
 }
 
 /// Create the pass for lowering `Krnl`, `Affine` and `Std` dialects to LLVM.
@@ -1172,10 +1180,12 @@ std::unique_ptr<Pass> createConvertKrnlToLLVMPass() {
 std::unique_ptr<Pass> createConvertKrnlToLLVMPass(bool verifyInputTensors,
     bool useLRODATA, bool storeConstantsToFile,
     float constantsToFileSingleThreshold, float constantsToFileTotalThreshold,
-    std::string outputNameNoExt, bool enableParallel) {
+    bool doNotEmbedCompilationInfo, std::string outputNameNoExt,
+    bool enableParallel) {
   return std::make_unique<ConvertKrnlToLLVMPass>(verifyInputTensors, useLRODATA,
       storeConstantsToFile, constantsToFileSingleThreshold,
-      constantsToFileTotalThreshold, outputNameNoExt, enableParallel);
+      constantsToFileTotalThreshold, doNotEmbedCompilationInfo, outputNameNoExt,
+      enableParallel);
 }
 
 void populateKrnlToLLVMConversion(LLVMTypeConverter &typeConverter,
