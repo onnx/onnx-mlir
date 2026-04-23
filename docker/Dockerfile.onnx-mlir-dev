@@ -15,17 +15,7 @@ COPY . onnx-mlir
 
 # Setup onnx
 RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
-    && cd ${ONNX_ROOT} \
-    # Upgrade protobuf to fix segfault on s390x with protoc-gen-mypy
-    && pip3 install --upgrade "protobuf==4.21.12" --prefix=/usr \
-    # To avoid the "externally managed environment" error on ubuntu,
-    # use --prefix=/usr to install into /usr/local/lib (default is
-    # /usr/lib), which is needed in this image.
-    #
-    # Must specify --no-build-isolation to avoid protoc-gen-mypy.py
-    # segfault on s390x
-    && CC=clang CXX=clang++ CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib" \
-       pip3 install . --prefix=/usr --no-build-isolation
+    && cd ${ONNX_ROOT} && python3 -m pip install . --no-build-isolation
 
 ARG NPROC=4
 ARG ACCEL=NNPA
