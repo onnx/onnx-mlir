@@ -15,7 +15,21 @@ COPY . onnx-mlir
 
 # Setup onnx
 RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
-    && cd ${ONNX_ROOT} && python3 -m pip install .
+    && python3 -m pip install \
+         "mypy-protobuf==3.6.0" \
+         "types-protobuf==4.24.0.20240129" \
+    && cd ${ONNX_ROOT} \
+    && export PYTHONFAULTHANDLER=1 \
+    && export CMAKE_BUILD_PARALLEL_LEVEL=1 \
+    && python3 -X faulthandler -m pip install -v . || \
+       (status=$?; \
+        echo "===== protoc-gen-mypy wrapper ====="; \
+        find .setuptools-cmake-build -path "*protoc-gen-mypy.sh" -print -exec sed -n '1,80p' {} \; 2>/dev/null || true; \
+        echo "===== protoc-gen-mypy python ====="; \
+        find .setuptools-cmake-build -path "*protoc-gen-mypy.py" -print -exec sed -n '1,120p' {} \; 2>/dev/null || true; \
+        echo "===== generated proto files ====="; \
+        find .setuptools-cmake-build/onnx -maxdepth 1 \( -name "*.proto" -o -name "*.py" -o -name "*.pyi" \) -print 2>/dev/null || true; \
+        exit ${status})
 
 ARG NPROC=4
 ARG ACCEL=NNPA
