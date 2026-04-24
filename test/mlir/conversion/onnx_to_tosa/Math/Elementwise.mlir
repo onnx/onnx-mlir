@@ -65,14 +65,14 @@ func.func @test_sigmoid(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
 
 // -----
 
-// TOSA has no sqrt op; sqrt(x) is lowered as reciprocal(rsqrt(x)).
+// TOSA has no sqrt op; sqrt(x) is lowered as pow(x, 0.5).
 func.func @test_sqrt(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "onnx.Sqrt"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
   "func.return"(%0) : (tensor<10x10xf32>) -> ()
 // CHECK-LABEL:  func @test_sqrt
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
-// CHECK-NEXT:      [[VAR_0_:%.+]] = tosa.rsqrt [[PARAM_0_]] : (tensor<10x10xf32>) -> tensor<10x10xf32>
-// CHECK-NEXT:      [[VAR_1_:%.+]] = tosa.reciprocal [[VAR_0_]] : (tensor<10x10xf32>) -> tensor<10x10xf32>
+// CHECK-NEXT:      [[VAR_0_:%.+]] = "tosa.const"() <{values = dense<5.000000e-01> : tensor<1x1xf32>}> : () -> tensor<1x1xf32>
+// CHECK-NEXT:      [[VAR_1_:%.+]] = tosa.pow [[PARAM_0_]], [[VAR_0_]] : (tensor<10x10xf32>, tensor<1x1xf32>) -> tensor<10x10xf32>
 }
 
 

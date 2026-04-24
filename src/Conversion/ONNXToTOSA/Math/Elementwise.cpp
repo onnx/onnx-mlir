@@ -194,11 +194,15 @@ public:
       return rewriter.notifyMatchFailure(
           op, "TOSA sqrt lowering only supports float types");
 
-    // TOSA has no dedicated sqrt op; decompose as sqrt(x) = 1 / rsqrt(x).
-    Value rsqrtResult = mlir::tosa::RsqrtOp::create(
-        rewriter, op->getLoc(), op.getType(), adaptor.getX());
-    rewriter.replaceOpWithNewOp<mlir::tosa::ReciprocalOp>(
-        op, op.getType(), rsqrtResult);
+    // TOSA has no dedicated sqrt op; decompose as sqrt(x) = pow(x, 0.5).
+    auto inputType = mlir::cast<ShapedType>(adaptor.getX().getType());
+    llvm::SmallVector<int64_t> constShape(inputType.getRank(), 1);
+    auto constType = RankedTensorType::get(constShape, scalarType);
+    auto constAttr = DenseElementsAttr::get(constType, 0.5f);
+    Value halfConst = mlir::tosa::ConstOp::create(
+        rewriter, op->getLoc(), constType, constAttr);
+    rewriter.replaceOpWithNewOp<mlir::tosa::PowOp>(
+        op, op.getType(), adaptor.getX(), halfConst);
     return success();
   }
 };
