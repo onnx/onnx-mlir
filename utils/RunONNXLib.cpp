@@ -112,6 +112,7 @@ vector<uint64_t> timeLogInMicroSec;
 extern "C" OMTensorList *run_main_graph(OMTensorList *);
 extern "C" const char *omInputSignature(const char *);
 extern "C" const char *omOutputSignature(const char *);
+extern "C" const char *omCompilationInfo(void);
 extern "C" OMTensor *omTensorCreateWithOwnership(
     void *, const int64_t *, int64_t, OM_DATA_TYPE, int64_t);
 extern "C" OMTensorList *TensorListCreate(OMTensor **, int);
@@ -120,6 +121,7 @@ extern "C" void omTensorListDestroy(OMTensorList *list);
 OMTensorList *(*dll_run_main_graph)(OMTensorList *);
 const char *(*dll_omInputSignature)(const char *);
 const char *(*dll_omOutputSignature)(const char *);
+const char *(*dll_omCompilationInfo)(void);
 OMTensor *(*dll_omTensorCreateWithOwnership)(
     void *, int64_t *, int64_t, OM_DATA_TYPE, int64_t);
 OMTensorList *(*dll_omTensorListCreate)(OMTensor **, int);
@@ -129,6 +131,7 @@ void (*dll_omTensorListDestroy)(OMTensorList *);
 #define RUN_MAIN_GRAPH run_main_graph
 #define OM_INPUT_SIGNATURE omInputSignature
 #define OM_OUTPUT_SIGNATURE omOutputSignature
+#define OM_COMPILATION_INFO omCompilationInfo
 #define OM_TENSOR_CREATE omTensorCreateWithOwnership
 #define OM_TENSOR_LIST_CREATE omTensorListCreate
 #define OM_TENSOR_LIST_DESTROY omTensorListDestroy
@@ -137,6 +140,7 @@ void (*dll_omTensorListDestroy)(OMTensorList *);
 #define RUN_MAIN_GRAPH dll_run_main_graph
 #define OM_INPUT_SIGNATURE dll_omInputSignature
 #define OM_OUTPUT_SIGNATURE dll_omOutputSignature
+#define OM_COMPILATION_INFO dll_omCompilationInfo
 #define OM_TENSOR_CREATE dll_omTensorCreateWithOwnership
 #define OM_TENSOR_LIST_CREATE dll_omTensorListCreate
 #define OM_TENSOR_LIST_DESTROY dll_omTensorListDestroy
@@ -176,6 +180,9 @@ void loadDLL(string name, string entryPointName) {
   dll_omOutputSignature =
       (const char *(*)(const char *))dlsym(handle, "omOutputSignature");
   assert(!dlerror() && "failed to load omOutputSignature");
+  dll_omCompilationInfo =
+      (const char *(*)(void))dlsym(handle, "omCompilationInfo");
+  assert(!dlerror() && "failed to load omCompilationInfo");
   dll_omTensorCreateWithOwnership =
       (OMTensor * (*)(void *, int64_t *, int64_t, OM_DATA_TYPE, int64_t))
           dlsym(handle, "omTensorCreateWithOwnership");

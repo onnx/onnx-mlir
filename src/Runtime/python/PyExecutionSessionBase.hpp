@@ -56,6 +56,7 @@ public:
       bool forceOutputDataCopy); // Debug flags.
   std::string pyInputSignature();
   std::string pyOutputSignature();
+  std::string pyCompilationInfo();
   void pyPrintInstrumentation(); // Print instrumentation (if any).
 
 protected:

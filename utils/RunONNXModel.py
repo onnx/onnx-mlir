@@ -165,6 +165,11 @@ parser.add_argument(
     help="Print out the input and output signatures of the model.",
 )
 parser.add_argument(
+    "--print-compilation-info",
+    action="store_true",
+    help="Print out the compilation info stored in the compiled model.",
+)
+parser.add_argument(
     "--save-onnx",
     metavar="PATH",
     type=str,
@@ -209,7 +214,6 @@ parser.add_argument(
     default="",
     help="Options passed to onnxmlir. Used with --use-onnxmlir",
 )
-
 
 lib_group = parser.add_mutually_exclusive_group()
 lib_group.add_argument(
@@ -362,7 +366,6 @@ def verify_arg():
 ################################################################################
 # Support functions for RunONNXModel functionality.
 # Functions are free of args (all needed parameters are passed to the function).
-
 
 # A type mapping from MLIR to Numpy.
 MLIR_TYPE_TO_NP_TYPE = {
@@ -1009,6 +1012,11 @@ class InferenceSession:
         if args.print_signatures:
             print("Model's input signature: ", input_signature.strip())
             print("Model's output signature: ", output_signature.strip())
+        if args.print_compilation_info:
+            print(
+                "Compilation info stored in the compiled model: ",
+                self.session.compilation_info().strip(),
+            )
 
         # Let onnx-mlir know where to find the constants file.
         os.environ["OM_CONSTANT_PATH"] = self.model_dir
