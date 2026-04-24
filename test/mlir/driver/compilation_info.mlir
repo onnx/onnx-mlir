@@ -8,7 +8,7 @@ module {
   "onnx.EntryPoint"() {func = @main_graph} : () -> ()
 }
 
-// CHECK: llvm.mlir.global internal constant @om_compilation_info_json{{.*}}("{{.*}}compiler_version{{.*}}compile_options{{.*}}op_stats{{.*}}onnx.Relu{{.*}}")
+// CHECK: llvm.mlir.global internal constant @om_compilation_info_json_compilation_info("{\0A\22compiler_version\22: \22onnx-mlir version 0.4.2 (43864fda)\22,\0A\22compile_options\22: \22--EmitLLVMIR --printIR compilation_info.mlir\22,\0A\22op_stats\22: {\0A  \22func.return.3D\22 : 1,\0A  \22onnx.Relu.3D\22 : 1\0A}\0A}\00") {addr_space = 0 : i32}
 
 // CHECK: llvm.func @omCompilationInfo{{.*}}() -> !llvm.ptr
 // CHECK:   {{.*}} = llvm.mlir.addressof @om_compilation_info_json
