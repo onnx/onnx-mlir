@@ -411,7 +411,7 @@ void addLinalgToLLVMPasses(mlir::PassManager &pm, std::string outputNameNoExt) {
       /*useLRODATA=*/(modelSize == ModelSize::large),
       /*storeConstantsToFile=*/storeConstantsToFile,
       constantsToFileSingleThreshold, constantsToFileTotalThreshold,
-      doNotEmbedCompilationInfo, outputNameNoExt, enableParallel));
+      omitCompileInfo, outputNameNoExt, enableParallel));
   pm.addPass(mlir::createReconcileUnrealizedCastsPass());
   pm.addPass(mlir::createCanonicalizerPass());
 }
@@ -446,7 +446,7 @@ void addKrnlToLLVMPasses(
         /*useLRODATA=*/(modelSize == ModelSize::large),
         /*storeConstantsToFile=*/storeConstantsToFile,
         constantsToFileSingleThreshold, constantsToFileTotalThreshold,
-        doNotEmbedCompilationInfo, outputNameNoExt, enableParallel));
+        omitCompileInfo, outputNameNoExt, enableParallel));
     pm.addPass(mlir::createReconcileUnrealizedCastsPass());
     pm.addPass(mlir::createCanonicalizerPass());
     return;
@@ -522,7 +522,7 @@ void addKrnlToLLVMPasses(
       /*useLRODATA=*/(modelSize == ModelSize::large),
       /*storeConstantsToFile=*/storeConstantsToFile,
       constantsToFileSingleThreshold, constantsToFileTotalThreshold,
-      doNotEmbedCompilationInfo, outputNameNoExt, enableParallel));
+      omitCompileInfo, outputNameNoExt, enableParallel));
   pm.addPass(mlir::createReconcileUnrealizedCastsPass());
   pm.addPass(mlir::createCanonicalizerPass());
   if (enableDebugInfo)

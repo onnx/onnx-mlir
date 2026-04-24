@@ -1,4 +1,4 @@
-// RUN: onnx-mlir --do-not-embed-compilation-info --EmitLLVMIR --printIR %s | FileCheck %s
+// RUN: onnx-mlir --omit-compile-info --EmitLLVMIR --printIR %s | FileCheck %s
 
 module {
   func.func @main_graph(%arg0: tensor<?x?x?xf32>) -> tensor<?x?x?xf32> {

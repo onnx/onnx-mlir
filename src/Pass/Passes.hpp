@@ -143,7 +143,7 @@ std::unique_ptr<mlir::Pass> createConvertKrnlToLLVMPass();
 std::unique_ptr<mlir::Pass> createConvertKrnlToLLVMPass(bool verifyInputTensors,
     bool useLRODATA, bool storeConstantsToFile,
     float constantsToFileSingleThreshold, float constantsToFileTotalThreshold,
-    bool doNotEmbedCompilationInfo, std::string outputNameNoExt,
+    bool omitCompileInfo, std::string outputNameNoExt,
     bool enableParallel);
 
 } // namespace krnl
