@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['inputsignature_0',['inputsignature',['../classcom_1_1ibm_1_1onnxmlir_1_1_o_m_model.html#ab86e0e3f09421610a222a5e457c7708a',1,'com.ibm.onnxmlir.OMModel.inputSignature()'],['../classcom_1_1ibm_1_1onnxmlir_1_1_o_m_model.html#a630fc4c71130cc83c3be75fd05df154e',1,'com.ibm.onnxmlir.OMModel.inputSignature(String entry_point)']]]
+  ['compilationinfo_0',['compilationInfo',['../classcom_1_1ibm_1_1onnxmlir_1_1_o_m_model.html#a60c8274025747f5c67ccdc3c0b87b83d',1,'com::ibm::onnxmlir::OMModel']]]
 ];
