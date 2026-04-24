@@ -16,8 +16,9 @@ func.func @reduce_mean_channel_axis_pow2(%arg0: tensor<1x8x4x4x!quant.uniform<i8
     %1 = "onnx.ReduceMean"(%arg0, %0) {keepdims = 1 : si64} : (tensor<1x8x4x4x!quant.uniform<i8:f32, 0.05:0>>, tensor<1xi64>) -> tensor<1x1x4x4x!quant.uniform<i8:f32, 0.05:0>>
     return %1 : tensor<1x1x4x4x!quant.uniform<i8:f32, 0.05:0>>
 }
-// CHECK: "onnx.Conv"
-// CHECK-NOT: onnx.ReduceMean
+// Defer to TransferReduceHdimToReduceCdim (quantized rank-4 axis=[1] keepdims=true).
+// CHECK: "onnx.ReduceMean"
+// CHECK-NOT: "onnx.Conv"
 
 // CHECK-LABEL: @reduce_mean_channel_16
 // NCHW: tensor<1x16x8x8> - C=16 (power of 2)
@@ -26,8 +27,9 @@ func.func @reduce_mean_channel_16(%arg0: tensor<1x16x8x8x!quant.uniform<i8:f32, 
     %1 = "onnx.ReduceMean"(%arg0, %0) {keepdims = 1 : si64} : (tensor<1x16x8x8x!quant.uniform<i8:f32, 0.05:0>>, tensor<1xi64>) -> tensor<1x1x8x8x!quant.uniform<i8:f32, 0.05:0>>
     return %1 : tensor<1x1x8x8x!quant.uniform<i8:f32, 0.05:0>>
 }
-// CHECK: "onnx.Conv"
-// CHECK-NOT: onnx.ReduceMean
+// Defer to TransferReduceHdimToReduceCdim (quantized rank-4 axis=[1] keepdims=true).
+// CHECK: "onnx.ReduceMean"
+// CHECK-NOT: "onnx.Conv"
 
 // CHECK-LABEL: @reduce_mean_channel_negative_axis
 // NCHW: tensor<1x4x4x4> - reduce axis [-3] = axis 1 (C)
@@ -36,8 +38,9 @@ func.func @reduce_mean_channel_negative_axis(%arg0: tensor<1x4x4x4x!quant.unifor
     %1 = "onnx.ReduceMean"(%arg0, %0) {keepdims = 1 : si64} : (tensor<1x4x4x4x!quant.uniform<i8:f32, 0.05:0>>, tensor<1xi64>) -> tensor<1x1x4x4x!quant.uniform<i8:f32, 0.05:0>>
     return %1 : tensor<1x1x4x4x!quant.uniform<i8:f32, 0.05:0>>
 }
-// CHECK: "onnx.Conv"
-// CHECK-NOT: onnx.ReduceMean
+// Defer to TransferReduceHdimToReduceCdim (quantized rank-4 axis=[1] keepdims=true).
+// CHECK: "onnx.ReduceMean"
+// CHECK-NOT: "onnx.Conv"
 
 //===----------------------------------------------------------------------===//
 // ReduceSum → Conv Tests (Channel-wise reduction)
@@ -50,8 +53,9 @@ func.func @reduce_sum_channel_axis(%arg0: tensor<1x8x4x4x!quant.uniform<i8:f32, 
     %1 = "onnx.ReduceSum"(%arg0, %0) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<1x8x4x4x!quant.uniform<i8:f32, 0.05:0>>, tensor<1xi64>) -> tensor<1x1x4x4x!quant.uniform<i8:f32, 0.05:0>>
     return %1 : tensor<1x1x4x4x!quant.uniform<i8:f32, 0.05:0>>
 }
-// CHECK: "onnx.Conv"
-// CHECK-NOT: onnx.ReduceSum
+// Defer to TransferReduceHdimToReduceCdim (quantized rank-4 axis=[1] keepdims=true).
+// CHECK: "onnx.ReduceSum"
+// CHECK-NOT: "onnx.Conv"
 
 // CHECK-LABEL: @reduce_sum_channel_32
 // NCHW: tensor<1x32x16x16> - C=32
@@ -60,8 +64,9 @@ func.func @reduce_sum_channel_32(%arg0: tensor<1x32x16x16x!quant.uniform<i8:f32,
     %1 = "onnx.ReduceSum"(%arg0, %0) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<1x32x16x16x!quant.uniform<i8:f32, 0.05:0>>, tensor<1xi64>) -> tensor<1x1x16x16x!quant.uniform<i8:f32, 0.05:0>>
     return %1 : tensor<1x1x16x16x!quant.uniform<i8:f32, 0.05:0>>
 }
-// CHECK: "onnx.Conv"
-// CHECK-NOT: onnx.ReduceSum
+// Defer to TransferReduceHdimToReduceCdim (quantized rank-4 axis=[1] keepdims=true).
+// CHECK: "onnx.ReduceSum"
+// CHECK-NOT: "onnx.Conv"
 
 //===----------------------------------------------------------------------===//
 // ReduceMean Spatial Axis → Conv Tests (non-channel axis via transpose)
@@ -165,8 +170,9 @@ func.func @reduce_mean_batch_4(%arg0: tensor<4x16x8x8x!quant.uniform<i8:f32, 0.0
     %1 = "onnx.ReduceMean"(%arg0, %0) {keepdims = 1 : si64} : (tensor<4x16x8x8x!quant.uniform<i8:f32, 0.05:0>>, tensor<1xi64>) -> tensor<4x1x8x8x!quant.uniform<i8:f32, 0.05:0>>
     return %1 : tensor<4x1x8x8x!quant.uniform<i8:f32, 0.05:0>>
 }
-// CHECK: "onnx.Conv"
-// CHECK-NOT: onnx.ReduceMean
+// Defer to TransferReduceHdimToReduceCdim (quantized rank-4 axis=[1] keepdims=true).
+// CHECK: "onnx.ReduceMean"
+// CHECK-NOT: "onnx.Conv"
 
 // CHECK-LABEL: @reduce_sum_large_channel
 // NCHW: tensor<1x64x32x32> - C=64
@@ -175,8 +181,9 @@ func.func @reduce_sum_large_channel(%arg0: tensor<1x64x32x32x!quant.uniform<i8:f
     %1 = "onnx.ReduceSum"(%arg0, %0) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<1x64x32x32x!quant.uniform<i8:f32, 0.05:0>>, tensor<1xi64>) -> tensor<1x1x32x32x!quant.uniform<i8:f32, 0.05:0>>
     return %1 : tensor<1x1x32x32x!quant.uniform<i8:f32, 0.05:0>>
 }
-// CHECK: "onnx.Conv"
-// CHECK-NOT: onnx.ReduceSum
+// Defer to TransferReduceHdimToReduceCdim (quantized rank-4 axis=[1] keepdims=true).
+// CHECK: "onnx.ReduceSum"
+// CHECK-NOT: "onnx.Conv"
 
 // -----
 
