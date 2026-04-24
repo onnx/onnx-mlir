@@ -57,8 +57,8 @@ PYBIND11_MODULE(PyOMCompileC, m) {
       "    >>> compiler = OMCompile('model.onnx', '-O3 -o output')\n"
       "    >>> output_file = compiler.get_output_file_name()\n"
       "    >>> print(f'Compiled to: {output_file}')")
-      .def(py::init<const std::string &, const std::string &, const std::string &,
-               const std::string &, const bool>(),
+      .def(py::init<std::string, std::string, const std::string &,
+               const std::string &, bool>(),
           py::arg("input_model_path"),
           py::arg("flags"),
           py::arg("compiler_path") = "",

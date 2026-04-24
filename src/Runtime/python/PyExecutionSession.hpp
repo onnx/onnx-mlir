@@ -45,7 +45,7 @@ PYBIND11_MODULE(PyRuntimeC, m) {
       "    >>> inputs = [np.array([[1.0, 2.0, 3.0]], dtype=np.float32)]\n"
       "    >>> outputs = session.run(inputs)\n"
       "    >>> print(outputs[0])")
-      .def(py::init<const std::string &, const std::string &, const bool>(),
+      .def(py::init<std::string, std::string, bool>(),
           py::arg("shared_lib_path"),
           py::arg("tag") = "",
           py::arg("use_default_entry_point") = true,
