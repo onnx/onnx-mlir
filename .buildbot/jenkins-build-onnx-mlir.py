@@ -168,6 +168,7 @@ def build_per_pr_onnx_mlir(image_type, exp):
             buildargs={
                 "BASE_IMAGE": base_image_repo + ":" + base_image_tag,
                 "NPROC": NPROC,
+                "ONNX_MLIR_CODE_CACHEBUST": exp[github_repo_name2 + "_sha1"],
                 GITHUB_REPO_NAME2 + "_SHA1": exp[github_repo_name2 + "_sha1"],
                 GITHUB_REPO_NAME2 + "_SHA1_DATE": exp[github_repo_name2 + "_sha1_date"],
                 GITHUB_REPO_NAME2
