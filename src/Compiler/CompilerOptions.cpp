@@ -386,8 +386,7 @@ static llvm::cl::opt<bool, true> doNotEmitFullMLIRCodeOpt(
     llvm::cl::location(doNotEmitFullMLIRCode), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
-static llvm::cl::opt<bool, true> omitCompileInfoOpt(
-    "omit-compile-info",
+static llvm::cl::opt<bool, true> omitCompileInfoOpt("omit-compile-info",
     llvm::cl::desc("Do not embed compilation information such as compiler "
                    "version, compile options, and ONNX operation statistics "
                    "into the generated shared library."),

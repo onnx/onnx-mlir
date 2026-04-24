@@ -1180,8 +1180,7 @@ std::unique_ptr<Pass> createConvertKrnlToLLVMPass() {
 std::unique_ptr<Pass> createConvertKrnlToLLVMPass(bool verifyInputTensors,
     bool useLRODATA, bool storeConstantsToFile,
     float constantsToFileSingleThreshold, float constantsToFileTotalThreshold,
-    bool omitCompileInfo, std::string outputNameNoExt,
-    bool enableParallel) {
+    bool omitCompileInfo, std::string outputNameNoExt, bool enableParallel) {
   return std::make_unique<ConvertKrnlToLLVMPass>(verifyInputTensors, useLRODATA,
       storeConstantsToFile, constantsToFileSingleThreshold,
       constantsToFileTotalThreshold, omitCompileInfo, outputNameNoExt,
