@@ -25,7 +25,11 @@ extern "C" {
  *
  * The compilation information includes compile options and operation statistics
  * used during model compilation. The format is:
- * {"compile_options": "<string>", "op_stats": <json_object>}
+ * {
+ *    "compiler_version": "<string>",
+ *    "compile_options": "<string>",
+ *    "op_stats": <json_object>
+ *  }
  *
  * The string returned by omCompilationInfo does not have to be freed because
  * it is a part of the model.
