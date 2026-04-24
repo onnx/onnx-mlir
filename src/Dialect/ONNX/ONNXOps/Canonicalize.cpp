@@ -2435,6 +2435,43 @@ struct SoftmaxNegativeAxisPattern : public OpRewritePattern<ONNXSoftmaxOp> {
   }
 };
 
+// Softmax along an axis whose dimension has size 1 is the constant tensor 1.0
+// because exp(x)/exp(x) == 1.0 for all finite x.
+// E.g. Softmax(x: tensor<8x1xf32>) {axis=1} ==> Constant 1.0 : tensor<8x1xf32>
+struct SoftmaxSizeOneAxisPattern : public OpRewritePattern<ONNXSoftmaxOp> {
+  using OpRewritePattern<ONNXSoftmaxOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(
+      ONNXSoftmaxOp softmaxOp, PatternRewriter &rewriter) const final {
+    const auto inputType =
+        dyn_cast<RankedTensorType>(softmaxOp.getInput().getType());
+    if (!inputType || !inputType.hasStaticShape())
+      return rewriter.notifyMatchFailure(
+          softmaxOp, "requires ranked, static-shape input");
+    const auto elementType = dyn_cast<FloatType>(inputType.getElementType());
+    if (!elementType)
+      return rewriter.notifyMatchFailure(
+          softmaxOp, "only float element types are folded");
+
+    const int64_t rank = inputType.getRank();
+    int64_t axis = softmaxOp.getAxis();
+    if (axis < 0)
+      axis += rank;
+
+    assert(axis >= 0 && axis < rank && "axis is out of range");
+    if (inputType.getShape()[axis] != 1)
+      return failure();
+
+    const auto resultType =
+        RankedTensorType::get(inputType.getShape(), elementType);
+    const auto valueAttr = DenseElementsAttr::get(
+        resultType, rewriter.getFloatAttr(elementType, 1.0));
+    const Value constantOp = rewriter.create<ONNXConstantOp>(
+        softmaxOp.getLoc(), Attribute(), valueAttr);
+    rewriter.replaceOp(softmaxOp, constantOp);
+    return success();
+  }
+};
+
 // Rewrite ONNXSoftmaxV11Op to ONNXSoftmaxOp (V13).
 //
 // V11 computes softmax over the flattened suffix [axis..rank-1].
@@ -3334,6 +3371,7 @@ void ONNXSizeOp::getCanonicalizationPatterns(
 void ONNXSoftmaxOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<SoftmaxNegativeAxisPattern>(context);
+  results.insert<SoftmaxSizeOneAxisPattern>(context);
 }
 
 /// on the ONNXSoftmaxV11Op.

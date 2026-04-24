@@ -1649,6 +1649,49 @@ func.func @test_softmax_negative_axis(%arg0 : tensor<10x20x30xf32>) -> tensor<10
 
 // -----
 
+func.func @test_softmax_size_one_axis(%arg0 : tensor<4x8x1x1xf32>) -> tensor<4x8x1x1xf32> {
+  %0 = "onnx.Softmax"(%arg0) {axis = 2 : si64} : (tensor<4x8x1x1xf32>) -> tensor<4x8x1x1xf32>
+  onnx.Return %0 : tensor<4x8x1x1xf32>
+
+// CHECK-LABEL:  func.func @test_softmax_size_one_axis
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<4x8x1x1xf32>) -> tensor<4x8x1x1xf32> {
+// CHECK-NOT:        "onnx.Softmax"
+// CHECK:            [[CST_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<4x8x1x1xf32>
+// CHECK:            onnx.Return [[CST_]] : tensor<4x8x1x1xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_softmax_size_one_negative_axis(%arg0 : tensor<4x8x1x1xf32>) -> tensor<4x8x1x1xf32> {
+  %0 = "onnx.Softmax"(%arg0) {axis = -2 : si64} : (tensor<4x8x1x1xf32>) -> tensor<4x8x1x1xf32>
+  onnx.Return %0 : tensor<4x8x1x1xf32>
+
+// CHECK-LABEL:  func.func @test_softmax_size_one_negative_axis
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<4x8x1x1xf32>) -> tensor<4x8x1x1xf32> {
+// CHECK-NOT:        "onnx.Softmax"
+// CHECK:            [[CST_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<4x8x1x1xf32>
+// CHECK:            onnx.Return [[CST_]] : tensor<4x8x1x1xf32>
+// CHECK:         }
+}
+
+// -----
+
+// Negative test for Softmax size-1 canonicalization pattern.
+// Verifies that the op is not folded when the axis is not size 1.
+func.func @test_softmax_size_not_one_axis(%arg0 : tensor<4x8x1x1xf32>) -> tensor<4x8x1x1xf32> {
+  %0 = "onnx.Softmax"(%arg0) {axis = 1 : si64} : (tensor<4x8x1x1xf32>) -> tensor<4x8x1x1xf32>
+  onnx.Return %0 : tensor<4x8x1x1xf32>
+
+// CHECK-LABEL:  func.func @test_softmax_size_not_one_axis
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<4x8x1x1xf32>) -> tensor<4x8x1x1xf32> {
+// CHECK:            [[VAR_0_:%.+]] = "onnx.Softmax"([[PARAM_0_]]) {axis = 1 : si64} : (tensor<4x8x1x1xf32>) -> tensor<4x8x1x1xf32>
+// CHECK:            onnx.Return [[VAR_0_]] : tensor<4x8x1x1xf32>
+// CHECK:         }
+}
+
+// -----
+
 #transpose = affine_map<(d0, d1, d2, d3) -> (d2, d0, d1, d3)>
 #reshape =  affine_map<(d0, d1) -> (d0 floordiv 32, d0 mod 32, d1 floordiv 64, d1 mod 64)>
 func.func @shape_transform_compose(%arg0: tensor<128x128xf32>) -> tensor<2x4x32x64xf32> {
