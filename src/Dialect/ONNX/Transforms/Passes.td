@@ -13,16 +13,4 @@ def AppendDecodingStrategyPass : Pass<"append-decoding-strategy", "ModuleOp"> {
   }];
 }
 
-def LateDecomposePass : Pass<"late-decompose", "func::FuncOp"> {
-  let summary = "Decompose ONNX ops not handled by accelerators.";
-  let description = [{
-    This pass decomposes ONNX operations that were not handled by accelerators
-    into simpler operations. Currently supports:
-    - Conv (non-1x1, 2D) -> Im2Col + MatMul + Reshape
-    
-    This pass runs after shape inference and accelerator lowering, and is only
-    enabled at O3 optimization level.
-  }];
-}
-
 #endif

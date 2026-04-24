@@ -44,7 +44,6 @@ add_onnx_mlir_library(OMONNXRewrite
   ConvOpt.cpp
   Decompose.cpp
   DecomposeEinsum.cpp
-  LateDecompose.cpp
   ScrubDisposablePass.cpp
   SetONNXNodeName.cpp
   Recompose.cpp

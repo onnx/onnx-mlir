@@ -50,9 +50,6 @@ std::unique_ptr<::mlir::Pass> createAppendDecodingStrategyPass();
 std::unique_ptr<mlir::Pass> createConvOptONNXToONNXPass(
     bool enableSimdDataLayoutOpt = false);
 
-/// Pass for late decomposition of ONNX ops not handled by accelerators.
-std::unique_ptr<mlir::Pass> createLateDecomposePass();
-
 std::unique_ptr<mlir::Pass> createReplaceOpWithItsOperandPass(
     std::vector<std::string> nodeNameRegexList);
 
