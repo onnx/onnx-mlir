@@ -260,10 +260,10 @@ void populateLoweringONNXElementwiseOpToTOSAPattern(ConversionTarget &target,
   patterns.insert<ONNXElementwiseUnaryOpLoweringToTOSA<ONNXNegOp>,
       ONNXBinaryElementwiseOpLoweringToTOSA<ONNXAddOp, mlir::tosa::AddOp>,
       ONNXBinaryElementwiseOpLoweringToTOSA<ONNXSubOp, mlir::tosa::SubOp>,
-      ONNXSinOpLoweringToTOSA, ONNXCosOpLoweringToTOSA,
-      ONNXExpOpLoweringToTOSA, ONNXFloorOpLoweringToTOSA,
-      ONNXReluOpLoweringToTOSA, ONNXSigmoidOpLoweringToTOSA,
-      ONNXSqrtOpLoweringToTOSA, ONNXDivOpLoweringToTOSA>(typeConverter, ctx);
+      ONNXSinOpLoweringToTOSA, ONNXCosOpLoweringToTOSA, ONNXExpOpLoweringToTOSA,
+      ONNXFloorOpLoweringToTOSA, ONNXReluOpLoweringToTOSA,
+      ONNXSigmoidOpLoweringToTOSA, ONNXSqrtOpLoweringToTOSA,
+      ONNXDivOpLoweringToTOSA>(typeConverter, ctx);
 }
 
 } // namespace onnx_mlir
