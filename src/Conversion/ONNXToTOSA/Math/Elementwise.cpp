@@ -42,7 +42,7 @@ public:
   }
 };
 
-template <typename ONNXOpT, typename TosaOpT>
+template <typename ONNXOpT, typename TosaOpT, bool SwapOperands = false>
 class ONNXBinaryElementwiseOpLoweringToTOSA
     : public OpConversionPattern<ONNXOpT> {
 public:
@@ -85,6 +85,9 @@ public:
         rhs = newValues[1];
       }
     }
+
+    if (SwapOperands)
+      std::swap(lhs, rhs);
 
     rewriter.replaceOpWithNewOp<TosaOpT>(op, op.getType(), lhs, rhs);
 
@@ -199,6 +202,15 @@ void populateLoweringONNXElementwiseOpToTOSAPattern(ConversionTarget &target,
   patterns.insert<ONNXElementwiseUnaryOpLoweringToTOSA<ONNXNegOp>,
       ONNXBinaryElementwiseOpLoweringToTOSA<ONNXAddOp, mlir::tosa::AddOp>,
       ONNXBinaryElementwiseOpLoweringToTOSA<ONNXSubOp, mlir::tosa::SubOp>,
+      ONNXBinaryElementwiseOpLoweringToTOSA<ONNXEqualOp, mlir::tosa::EqualOp>,
+      ONNXBinaryElementwiseOpLoweringToTOSA<ONNXGreaterOp,
+          mlir::tosa::GreaterOp>,
+      ONNXBinaryElementwiseOpLoweringToTOSA<ONNXGreaterOrEqualOp,
+          mlir::tosa::GreaterEqualOp>,
+      ONNXBinaryElementwiseOpLoweringToTOSA<ONNXLessOp, mlir::tosa::GreaterOp,
+          /*SwapOperands=*/true>,
+      ONNXBinaryElementwiseOpLoweringToTOSA<ONNXLessOrEqualOp,
+          mlir::tosa::GreaterEqualOp, /*SwapOperands=*/true>,
       ONNXSinOpLoweringToTOSA, ONNXCosOpLoweringToTOSA,
       ONNXFloorOpLoweringToTOSA, ONNXReluOpLoweringToTOSA,
       ONNXDivOpLoweringToTOSA>(typeConverter, ctx);
