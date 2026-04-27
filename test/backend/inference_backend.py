@@ -3591,6 +3591,7 @@ def JniExecutionSession(jar_name, inputs):
     # print('stdin=' + str(procStdin), file=sys.stderr)
     cmd = [
         "java",
+        "-XX:-UsePerfData",  # Added to suppress JVM perf warnings and avoid json corruption
         "-cp",
         jar_name + ":" + os.getenv("JSONITER_JAR"),
         "com.ibm.onnxmlir.OMRunner",
