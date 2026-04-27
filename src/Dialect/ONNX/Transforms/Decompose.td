@@ -9,6 +9,9 @@
 // Defines language-specific pattern match rewritings for ONNX using
 // Declarative Rewrite Rules (DRR) specified using TableGen records.
 //
+// Modifications (c) Copyright 2026 Advanced Micro Devices, Inc. or its
+// affiliates
+//
 //===----------------------------------------------------------------------===//
 
 #ifndef ONNX_DECOMPOSE
@@ -126,13 +129,6 @@ def IntOne : AttrConstraint<
 def ReduceL1OpPattern
     : Pat<(ONNXReduceL1Op $oprd, $axes, $keepdims, $noop),
           (ONNXReduceSumOp(ONNXAbsOp $oprd), $axes, $keepdims, $noop)>;
-
-//===----------------------------------------------------------------------===//
-// ONNXReduceL2Op %X = ONNXSqrtOp (ONNXReduceSumSquareOp (%X))
-//===----------------------------------------------------------------------===//
-def ReduceL2OpPattern
-    : Pat<(ONNXReduceL2Op $oprd, $axes, $keepdims, $noop),
-          (ONNXSqrtOp(ONNXReduceSumSquareOp $oprd, $axes, $keepdims, $noop))>;
 
 //===----------------------------------------------------------------------===//
 // ONNXReduceLogSumOp %X = ONNXLogOp (ONNXReduceSumOp (%X))
