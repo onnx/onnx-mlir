@@ -7,7 +7,7 @@ func.func @matmulinteger(%arg0: tensor<?x?x768xui8>, %arg1: tensor<768x768xi8>, 
 
 // CHECK-LABEL:  func.func @matmulinteger
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x768xui8>, [[PARAM_1_:%.+]]: tensor<768x768xi8>, [[PARAM_2_:%.+]]: tensor<ui8>, [[PARAM_3_:%.+]]: tensor<i8>) -> tensor<?x?x768xi32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() : () -> none
 // CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<f32>
 // CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<f32>
 // CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Cast"([[PARAM_0_]]) <{saturate = 1 : si64, to = i8}> : (tensor<?x?x768xui8>) -> tensor<?x?x768xi8>
@@ -35,7 +35,7 @@ func.func @matmulinteger_no_precompute_bias(%arg0: tensor<?x?x768xui8>, %arg1: t
 // CHECK-LABEL:  func.func @matmulinteger_no_precompute_bias
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x768xui8>, [[PARAM_1_:%.+]]: tensor<768x768xi8>, [[PARAM_2_:%.+]]: tensor<ui8>) -> tensor<?x?x768xi32> {
 // CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<0> : tensor<i8>
-// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.NoValue"() : () -> none
 // CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<f32>
 // CHECK-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<f32>
 // CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Cast"([[PARAM_0_]]) <{saturate = 1 : si64, to = i8}> : (tensor<?x?x768xui8>) -> tensor<?x?x768xi8>
