@@ -326,10 +326,11 @@ static std::pair<ONNXAddOp, Value> findFusibleBiasAdd(
 
 /// Re-quantize bias into the conv accumulation domain (int32).
 ///
-/// Dequantizes each element to float, then re-quantizes into the conv
-/// accumulation scale (x_scale * w_scale):
-///   new_bias[i] = round( (orig_bias[i] - bias_zp) * bias_scale
-///                        / (x_scale * w_scale) )
+/// Re-quantizes each bias element into the conv accumulation scale
+/// (x_scale * w_scale) using float32 arithmetic to match the golden
+/// xcompiler TransferQDQMatMulToConv2dPass precision:
+///   ratio = float(bias_scale) / (float(w_scale) * float(x_scale))
+///   new_bias[i] = roundf(float(orig_bias[i] - bias_zp) * ratio)
 ///
 /// The result is a 1D int32 constant with quant type
 ///   !quant.uniform<i32:f32, x_scale * w_scale : 0>
@@ -408,8 +409,12 @@ static Value requantizeBiasForConv(PatternRewriter &rewriter, Location loc,
   int64_t biasZP = getZP0(biasQType);
   double accumScale = inputScale * weightScale;
 
-  // Flatten original bias data and re-quantize to int32.
-  //   new_bias[i] = round( (raw[i] - biasZP) * biasScale / accumScale )
+  // Precompute scale ratio in float32 to match golden xcompiler precision.
+  float biasScaleF = static_cast<float>(biasScale);
+  float weightScaleF = static_cast<float>(weightScale);
+  float inputScaleF = static_cast<float>(inputScale);
+  float scaleRatio = biasScaleF / (weightScaleF * inputScaleF);
+
   auto flatStorageType =
       RankedTensorType::get({N}, denseAttr.getType().getElementType());
   auto flatAttr = denseAttr.reshape(flatStorageType);
@@ -436,9 +441,8 @@ static Value requantizeBiasForConv(PatternRewriter &rewriter, Location loc,
       else
         raw = static_cast<int64_t>(flatAttr.getValues<uint32_t>()[i]);
     }
-    double floatBias = static_cast<double>(raw - biasZP) * biasScale;
-    newBiasData.push_back(
-        static_cast<int32_t>(std::round(floatBias / accumScale)));
+    float scaled = static_cast<float>(raw - biasZP) * scaleRatio;
+    newBiasData.push_back(static_cast<int32_t>(std::roundf(scaled)));
   }
 
   // Create int32 dense attribute.
