@@ -63,6 +63,7 @@ bool preserveLocations;                                // onnx-mlir only
 bool printIR;                                          // onnx-mlir only
 int printONNXBasicIR;                                  // onnx-mlir only
 bool doNotEmitFullMLIRCode;                            // onnx-mlir only
+bool omitCompileInfo;                                  // onnx-mlir only
 bool preserveBitcode;                                  // onnx-mlir only
 bool preserveLLVMIR;                                   // onnx-mlir only
 bool preserveMLIR;                                     // onnx-mlir only
@@ -108,6 +109,7 @@ OptReport optReport;                                   // onnx-mlir only
 bool enableTiming;                                     // onnx-mlir only
 bool enableBoundCheck;                                 // onnx-mlir only
 bool useLinalgPath;                                    // onnx-mlir only
+bool enableDebugInfo;                                  // onnx-mlir only
 std::string configFile;                                // onnx-mlir only
 std::string saveConfigFile;                            // onnx-mlir only
 bool appendDecodingStrategy;                           // onnx-mlir only
@@ -382,6 +384,13 @@ static llvm::cl::opt<bool, true> doNotEmitFullMLIRCodeOpt(
         "(<name>.tmp). Need to be used with emitting MLIR options such as "
         "--EmitONNXIR and --EmitMLIR."),
     llvm::cl::location(doNotEmitFullMLIRCode), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<bool, true> omitCompileInfoOpt("omit-compile-info",
+    llvm::cl::desc("Do not embed compilation information such as compiler "
+                   "version, compile options, and ONNX operation statistics "
+                   "into the generated shared library."),
+    llvm::cl::location(omitCompileInfo), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<bool, true> preserveBitcodeOpt("preserveBitcode",
@@ -681,6 +690,14 @@ static llvm::cl::opt<bool, true> verifyInputTensorsOpt("verifyInputTensors",
 static llvm::cl::opt<bool, true> useLinalgPathOpt("use-linalg-path",
     llvm::cl::desc("Use Linalg lowering path instead of Krnl (default=false)."),
     llvm::cl::location(useLinalgPath), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<bool, true> enableDebugInfoOpt("enable-debug-info",
+    llvm::cl::desc(
+        "Add the debug information to .so file. Such information can be used "
+        "by gdb. If the input is .onnx file, please also use --preserveMLIR "
+        "flag. Check docs/Testing.md for details"),
+    llvm::cl::location(enableDebugInfo), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<std::string, true> linalgOpsOpt("linalg-ops",

@@ -103,33 +103,22 @@ PYBIND11_MODULE(PyRuntimeC, m) {
           "    >>> session.set_entry_point('run_main_graph')\n"
           "    >>> outputs = session.run(inputs)")
       .def("run",
-          &onnx_mlir::PyExecutionSession::pyRun,
-          py::arg("input"),
-          py::arg("shape"),
-          py::arg("stride"),
-          py::arg("use_signal_handler") = false,
-          py::arg("force_output_data_copy") = false,
-          "Run inference on the model.\n\n"
+          [](onnx_mlir::PyExecutionSession &self, const std::vector<py::array> &inputs) -> std::vector<py::array> {
+            throw std::runtime_error("run() must be called on the Python subclass, not the C++ base class");
+          },
+          py::arg("inputs"),
+          "Run inference on the model with simplified interface.\n\n"
           "Executes the model with the provided inputs and returns the outputs.\n"
-          "All inputs must be numpy arrays with compatible shapes and types.\n\n"
+          "This is the primary method for running inference. It automatically handles\n"
+          "shape and stride extraction from numpy arrays.\n\n"
           "Args:\n"
-          "    input (list[numpy.ndarray]): List of input tensors as numpy arrays.\n"
-          "        The number and types must match the model's input signature.\n"
-          "    shape (list[numpy.ndarray]): List of shape arrays for each input.\n"
-          "        Each shape array contains the dimensions of the corresponding input.\n"
-          "    stride (list[numpy.ndarray]): List of stride arrays for each input.\n"
-          "        Each stride array contains the memory strides of the corresponding input.\n"
-          "    use_signal_handler (bool): When true, catch signals via a signal handler.\n"
-          "        For debugging only, unsafe, not thread safe. Default is false.\n"
-          "    force_output_data_copy (bool): When true, force copying of output data\n"
-          "        into the python data structures. For debugging only. Default is false.\n\n"
+          "    inputs (list[numpy.ndarray]): List of input tensors as numpy arrays.\n"
+          "        The number, shapes, and types must match the model's input signature.\n\n"
           "Returns:\n"
           "    list[numpy.ndarray]: List of output tensors as numpy arrays.\n\n"
           "Raises:\n"
           "    RuntimeError: If input shapes/types don't match the model signature,\n"
-          "        or if inference fails. When using signal handler, also raise an\n"
-          "        exception when catching seg-faults or other signals; unsafe to\n"
-          "        continue after an exception.\n\n"
+          "        or if inference fails.\n\n"
           "Example:\n"
           "    >>> import numpy as np\n"
           "    >>> session = OMExecutionSession('mnist.so')\n"
@@ -137,13 +126,73 @@ PYBIND11_MODULE(PyRuntimeC, m) {
           "    >>> # Prepare input\n"
           "    >>> img = np.random.rand(1, 1, 28, 28).astype(np.float32)\n"
           "    >>> inputs = [img]\n"
-          "    >>> shapes = [np.array(img.shape, dtype=np.int64)]\n"
-          "    >>> strides = [np.array(img.strides, dtype=np.int64)]\n"
           "    >>> \n"
           "    >>> # Run inference\n"
-          "    >>> outputs = session.run(inputs, shapes, strides)\n"
-          "    >>> predictions = outputs[0]\n"
-          "    >>> print(f'Predicted class: {np.argmax(predictions)}')")
+          "    >>> try:\n"
+          "    ...     outputs = session.run(inputs)\n"
+          "    ...     predictions = outputs[0]\n"
+          "    ...     print(f'Predicted class: {np.argmax(predictions)}')\n"
+          "    ... except RuntimeError as e:\n"
+          "    ...     print(f'Inference failed: {e}')")
+      .def("run_debug",
+          [](onnx_mlir::PyExecutionSession &self, const std::vector<py::array> &inputs,
+              bool with_signal_handler, bool force_output_data_copy) -> std::vector<py::array> {
+            throw std::runtime_error("run_debug() must be called on the Python subclass, not the C++ base class");
+          },
+          py::arg("inputs"),
+          py::arg("with_signal_handler") = false,
+          py::arg("force_output_data_copy") = false,
+          "Run inference with debugging options enabled.\n\n"
+          "Similar to run(), but provides additional debugging capabilities including\n"
+          "signal handling for catching segmentation faults and forced output copying.\n"
+          "This method is slower and should only be used for debugging purposes.\n\n"
+          "Args:\n"
+          "    inputs (list[numpy.ndarray]): List of input tensors as numpy arrays.\n"
+          "        The number, shapes, and types must match the model's input signature.\n"
+          "    with_signal_handler (bool, optional): When True, catch signals via a\n"
+          "        signal handler. Useful for debugging crashes but unsafe and not\n"
+          "        thread-safe. POSIX only. Default: False.\n"
+          "    force_output_data_copy (bool, optional): When True, force copying of\n"
+          "        output data into Python data structures. Use only for debugging\n"
+          "        suspected pybind11 issues. Default: False.\n\n"
+          "Returns:\n"
+          "    list[numpy.ndarray]: List of output tensors as numpy arrays.\n\n"
+          "Raises:\n"
+          "    RuntimeError: If input shapes/types don't match the model signature,\n"
+          "        or if inference fails. When using signal handler, also raises an\n"
+          "        exception when catching seg-faults or other signals; unsafe to\n"
+          "        continue after such an exception.\n\n"
+          "Example:\n"
+          "    >>> import numpy as np\n"
+          "    >>> session = OMExecutionSession('model.so')\n"
+          "    >>> img = np.random.rand(1, 3, 224, 224).astype(np.float32)\n"
+          "    >>> \n"
+          "    >>> # Debug with signal handler to catch crashes\n"
+          "    >>> try:\n"
+          "    ...     outputs = session.run_debug([img], with_signal_handler=True)\n"
+          "    ... except RuntimeError as e:\n"
+          "    ...     print(f'Caught error: {e}')")
+      .def("_runImplementation",
+          &onnx_mlir::PyExecutionSession::pyRunImplementation,
+          py::arg("input"),
+          py::arg("shape"),
+          py::arg("stride"),
+          py::arg("use_signal_handler"),
+          py::arg("force_output_data_copy"),
+          "Low-level inference implementation (internal/protected use only).\n\n"
+          ".. warning::\n"
+          "   This is an internal method intended for use by subclasses only.\n"
+          "   Direct use is not recommended; prefer run() or run_debug() instead.\n\n"
+          "This is the underlying implementation method called by run() and run_debug().\n"
+          "Subclasses can call this method to implement custom inference wrappers.\n\n"
+          "Args:\n"
+          "    input (list[numpy.ndarray]): Flattened input tensors.\n"
+          "    shape (list[numpy.ndarray]): Shape arrays for each input.\n"
+          "    stride (list[numpy.ndarray]): Stride arrays for each input.\n"
+          "    use_signal_handler (bool): Enable signal handler for debugging.\n"
+          "    force_output_data_copy (bool): Force output data copying.\n\n"
+          "Returns:\n"
+          "    list[numpy.ndarray]: List of output tensors.")
       .def("input_signature",
           &onnx_mlir::PyExecutionSession::pyInputSignature,
           "Get the input signature of the model.\n\n"
@@ -168,6 +217,20 @@ PYBIND11_MODULE(PyRuntimeC, m) {
           "    >>> session = OMExecutionSession('mnist.so')\n"
           "    >>> print(session.output_signature())\n"
           "    # Output: output signature in json [{\"type\" : \"f32\", \"dims\" : [1,10], \"name\" : \"prediction\"}")
+      .def("compilation_info",
+          &onnx_mlir::PyExecutionSession::pyCompilationInfo,
+          "Get the compilation information of the model.\n\n"
+          "Returns a JSON string containing compiler version, compilation options and operation\n"
+          "statistics used when the model was compiled. This information is\n"
+          "useful for understanding how the model was built and what operations\n"
+          "it contains. If the model was compiled without this information\n"
+          "(e.g. old compiler or --omit-compile-info is used), this function will return an empty JSON string that is {}.\n\n"
+          "Returns:\n"
+          "    str: JSON string with compilation information.\n\n"
+          "Example:\n"
+          "    >>> session = OMExecutionSession('model.so')\n"
+          "    >>> print(session.compilation_info())\n"
+          "    # Output: {\"compiler_version\": \"...\", \"compile_options\": \"...\", \"op_stats\": {...}}")
       .def("print_instrumentation",
           &onnx_mlir::PyExecutionSession::pyPrintInstrumentation,
           "Print instrumentation data from the model execution.\n\n"

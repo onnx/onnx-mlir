@@ -114,6 +114,8 @@ static void make_heap(uint64_t *heap, int64_t heap_size,
  */
 void omTensorTopK(OMTensor *orderTensor, const OMTensor *inputTensor,
     uint64_t axis, uint64_t ascending, uint64_t k_u64, uint64_t sorted) {
+  if (!orderTensor || !inputTensor)
+    return;
 
   // Standard setup (same as omTensorSort)
   const OM_DATA_TYPE dataType = omTensorGetDataType(inputTensor);

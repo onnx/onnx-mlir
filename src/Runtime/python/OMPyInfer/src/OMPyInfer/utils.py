@@ -60,6 +60,12 @@ def parse_args(parser=None):
         default=1,
         help="The number of inference runs excluding warmup.",
     )
+    parser.add_argument(
+        "--debug",
+        type=int,
+        default=0,
+        help="The debug level. Higher value, more print out.",
+    )
 
     return parser.parse_args()
 
@@ -115,12 +121,7 @@ def compare_result(actual_outs, ref_outs, atol=1e-8, rtol=1e-5, debug=0):
         )
         return False
 
-    total_elements = 0
-    mismatched_elements = 0
-    max_atol = 0
-    sum_rtol = 0
-    # The outputs are of shape: #queries, seq_length, hidden_states, with
-    # seq_length various with query.
+    all_pass = True
     for q_index, (q_ref_outs, q_actual_outs) in enumerate(zip(ref_outs, actual_outs)):
         if q_ref_outs.shape != q_actual_outs.shape:
             print(
@@ -136,13 +137,21 @@ def compare_result(actual_outs, ref_outs, atol=1e-8, rtol=1e-5, debug=0):
             all_pass = False
             continue
 
+        total_elements = 0
+        mismatched_elements = 0
+        max_atol = 0
+        max_rtol = 0
         for index, actual_val in np.ndenumerate(q_actual_outs):
             total_elements += 1
             ref_val = q_ref_outs[index]
             this_atol = abs(ref_val - actual_val)
+            if abs(ref_val) > 1e-10:
+                max_rtol = max(abs((ref_val - actual_val) / ref_val), max_rtol)
             max_atol = max(this_atol, max_atol)
-            sum_rtol += abs((this_atol) / ref_val)
             if np.issubdtype(q_actual_outs.dtype, np.dtype(bool).type):
+                if ref_val == actual_val:
+                    continue
+            elif np.issubdtype(q_actual_outs.dtype, np.integer):
                 if ref_val == actual_val:
                     continue
             else:
@@ -150,6 +159,7 @@ def compare_result(actual_outs, ref_outs, atol=1e-8, rtol=1e-5, debug=0):
                 diff = float(atol) + float(rtol) * abs(ref_val)
                 if abs(actual_val - ref_val) <= diff:
                     continue
+            all_pass = False
             mismatched_elements += 1
             if debug >= 1:
                 print(
@@ -157,23 +167,28 @@ def compare_result(actual_outs, ref_outs, atol=1e-8, rtol=1e-5, debug=0):
                     "mismatch {} (actual)".format(actual_val),
                     "vs {} (reference)".format(ref_val),
                 )
-    if total_elements > 0:
         print(
-            f"Max absolute difference: {max_atol}\nMean of relative difference {sum_rtol/total_elements}"
-        )
-    print(f"Under the requirement of atol {atol} and rtol {rtol}")
-    if mismatched_elements == 0:
-        print("\n✓ correct.\n")
-        return True
-    else:
-        print(
-            "\n✗  got mismatched elements {}/{}, in percentage {}.\n".format(
-                mismatched_elements,
-                total_elements,
-                mismatched_elements / total_elements,
+            "Output {} Max absolute difference {:.6f}, max relative difference {:.4f}%".format(
+                q_index,
+                max_atol,
+                max_rtol * 100,
             )
         )
-        return False
+
+        if mismatched_elements > 0:
+            print(
+                "Output {} got mismatched elements {}/{}, ({:.2f}%).\n".format(
+                    q_index,
+                    mismatched_elements,
+                    total_elements,
+                    mismatched_elements / total_elements * 100.0,
+                )
+            )
+    if all_pass:
+        print(f"\n✓ Correct result with atol {atol} and rtol {rtol}\n")
+    else:
+        print(f"\n✗ Wrong result with atol {atol} and rtol {rtol}\n")
+    return all_pass
 
 
 def ordinal(n):
@@ -221,13 +236,13 @@ def run_model_with_input_output_arrays(
     ref_outputs=None,
     warmup=0,
     repeat=1,
-    debug=0,
     atol=0.1,
     rtol=0.05,
+    debug=0,
 ):
     try:
         for i in range(warmup):
-            outputs = session.run(input_arrays, debug)
+            outputs = session.run(input_arrays)
     except Exception as e:
         print(f"Inference {i} got exception: {e}")
         sys.exit(-1)
@@ -246,12 +261,7 @@ def run_model_with_input_output_arrays(
         process_perf_results(perf_results)
 
     if ref_outputs:
-        all_match = compare_result(outputs, ref_outputs, atol, rtol)
-
-        # Not sure whether to continue becuase the numerical difference
-        # does not necessarily mean failure for end-to-end
-        if not all_match:
-            sys.exit(-1)
+        all_match = compare_result(outputs, ref_outputs, atol, rtol, debug)
 
     return outputs
 
@@ -262,9 +272,9 @@ def run_model_with_input_output_files(
     ref_output_files=None,
     warmup=0,
     repeat=1,
-    debug=0,
     atol=0.1,
     rtol=0.05,
+    debug=0,
 ):
     input_arrays = read_npy_files(input_files)
     if ref_output_files:
@@ -273,5 +283,5 @@ def run_model_with_input_output_files(
         ref_outputs = None
 
     return run_model_with_input_output_arrays(
-        session, input_arrays, ref_outputs, warmup, repeat, debug, atol, rtol
+        session, input_arrays, ref_outputs, warmup, repeat, atol, rtol, debug
     )

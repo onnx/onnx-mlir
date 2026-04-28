@@ -113,6 +113,26 @@ add_custom_target(OMTestOMPyInferPackage
         DEPENDS OMCreateOMPyInferPackage
      )
 
+# Target to prepare OMPyCompile package
+if (ONNX_MLIR_STANDALONE_DIR)
+    add_custom_target(OMCreateOMPyCompilePackage
+        COMMAND rm -rf ${CMAKE_CURRENT_BINARY_DIR}/OMPyCompile
+        COMMAND cp -r ${CMAKE_CURRENT_SOURCE_DIR}/OMPyCompile ${CMAKE_CURRENT_BINARY_DIR}
+	COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/PyOMCompile.py ${CMAKE_CURRENT_BINARY_DIR}/OMPyCompile/src/OMPyCompile
+	COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/OMPyCompile/src/OMPyCompile/lib
+	COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/OMPyCompile/src/OMPyCompile/bin
+	COMMAND cp ${ONNX_MLIR_STANDALONE_DIR}/bin/onnx-mlir ${CMAKE_CURRENT_BINARY_DIR}/OMPyCompile/src/OMPyCompile/bin
+	COMMAND cp ${ONNX_MLIR_STANDALONE_DIR}/bin/llc ${CMAKE_CURRENT_BINARY_DIR}/OMPyCompile/src/OMPyCompile/bin
+	COMMAND cp ${ONNX_MLIR_STANDALONE_DIR}/bin/opt ${CMAKE_CURRENT_BINARY_DIR}/OMPyCompile/src/OMPyCompile/bin
+	COMMAND cp ${ONNX_MLIR_STANDALONE_DIR}/lib/libcruntime.a ${CMAKE_CURRENT_BINARY_DIR}/OMPyCompile/src/OMPyCompile/lib
+	COMMAND cp ${ONNX_MLIR_STANDALONE_DIR}/lib/libompruntime.a ${CMAKE_CURRENT_BINARY_DIR}/OMPyCompile/src/OMPyCompile/lib
+	COMMAND cp ${ONNX_MLIR_STANDALONE_DIR}/lib/libzdnn.a ${CMAKE_CURRENT_BINARY_DIR}/OMPyCompile/src/OMPyCompile/lib
+	COMMAND cp ${ONNX_MLIR_STANDALONE_DIR}/lib/libRuntimeNNPA.a ${CMAKE_CURRENT_BINARY_DIR}/OMPyCompile/src/OMPyCompile/lib
+	COMMAND cp ${ONNX_MLIR_BIN_ROOT}/${CMAKE_BUILD_TYPE}/lib/PyOMCompileC.*.so ${CMAKE_CURRENT_BINARY_DIR}/OMPyCompile/src/OMPyCompile/lib
+	DEPENDS PyOMCompileC
+     )
+endif()
+
 # Target to prepare onnxmlir package
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/onnxmlir/src/onnxmlir/libs)
 
@@ -131,35 +151,24 @@ add_custom_target(OMCreateTorchONNXMLIRPackage
         COMMAND cp ${ONNX_MLIR_BIN_ROOT}/${CMAKE_BUILD_TYPE}/lib/PyRuntimeC.*.so ${CMAKE_CURRENT_BINARY_DIR}/torch_onnxmlir/src/torch_onnxmlir/libs
         COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/onnxmlirdocker.py ${CMAKE_CURRENT_BINARY_DIR}/torch_onnxmlir/src/torch_onnxmlir
         COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/PyRuntime.py ${CMAKE_CURRENT_BINARY_DIR}/torch_onnxmlir/src/torch_onnxmlir
-        DEPENDS PyRuntimeC
+	DEPENDS PyOMRuntimeC
      )
 
-if(ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
+#if(ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
   # Since the compiler is not built when PYRUNTIME_LIGHT is enabled,
   # PyCompileAndRuntime can not be simply built.
-  return()
-endif()
+  #  return()
+#endif()
 
 pybind11_add_module(PyOMCompileC PyOMCompile.cpp)
-add_dependencies(PyOMCompileC onnx)
 target_compile_options(PyOMCompileC
   PRIVATE
   $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-frtti -fexceptions>
   $<$<CXX_COMPILER_ID:MSVC>:/EHsc /GR>
   )
-target_compile_definitions(PyOMCompileC
-  PRIVATE
-  $<TARGET_PROPERTY:onnx,COMPILE_DEFINITIONS>
-  )
-target_include_directories(PyOMCompileC
-  PRIVATE
-  ${ONNX_MLIR_SRC_ROOT}/include
-  $<TARGET_PROPERTY:onnx,INCLUDE_DIRECTORIES>
-  )
 target_link_libraries(PyOMCompileC
   PRIVATE
   OMCompile
-  onnx
   )
 llvm_update_compile_flags(PyOMCompileC)
 

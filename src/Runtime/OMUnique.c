@@ -348,6 +348,8 @@ static void produceY(const OMTensor *inputTensor, OMTensor *indices,
 void omTensorUnique(OMTensor *totalTensor, OMTensor *Y, OMTensor *indices,
     OMTensor *inverse_indices, OMTensor *counts, const OMTensor *inputTensor,
     int64_t sliceAxis, uint64_t sorted) {
+  if (!inputTensor)
+    return;
   const OM_DATA_TYPE dataType = omTensorGetDataType(inputTensor);
   const int64_t inputRank = omTensorGetRank(inputTensor);
   assert(inputRank <= 6);        // Error: "input rank should be 6 or less".
