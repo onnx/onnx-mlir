@@ -5,17 +5,17 @@
 #include <mlir/Dialect/Quant/IR/QuantTypes.h>
 #include <mlir/IR/BuiltinAttributes.h>
 #include <mlir/IR/BuiltinTypes.h>
+#include <mlir/IR/Diagnostics.h>
 #include <mlir/IR/PatternMatch.h>
 #include <mlir/IR/TypeUtilities.h>
+#include <mlir/Pass/Pass.h>
 #include <mlir/Support/LLVM.h>
+#include <mlir/Transforms/GreedyPatternRewriteDriver.h>
 #include <optional>
 
-#include "ResultNamesUpdater.hpp"
-#include "mlir/IR/Diagnostics.h"
-#include "mlir/Pass/Pass.h"
-#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 
 using namespace mlir;
 
@@ -52,11 +52,17 @@ std::optional<double> getConstant(Value rhs) {
   return {};
 }
 
+bool isZPOutOfBounds(int64_t newZP, quant::UniformQuantizedType qType) {
+  return ((newZP < qType.getStorageTypeMin()) ||
+          (newZP > qType.getStorageTypeMax()));
+}
+
 template <typename ONNXBinOp>
 quant::UniformQuantizedType getInQuantType(
-    quant::UniformQuantizedType outQType, double binConst) {
+    quant::UniformQuantizedType outQType, double binConst, Location loc) {
   double newScale = outQType.getScale();
   int64_t newZP = outQType.getZeroPoint();
+
   if constexpr (std::is_same_v<ONNXBinOp, ONNXAddOp>) {
     newZP += std::lround(binConst / newScale);
   } else if constexpr (std::is_same_v<ONNXBinOp, ONNXSubOp>) {
@@ -71,17 +77,22 @@ quant::UniformQuantizedType getInQuantType(
     static_assert(false, "Unsupported binary operation");
     return nullptr;
   }
+
+  if (isZPOutOfBounds(newZP, outQType))
+    return nullptr;
+
   return quant::UniformQuantizedType::getChecked(
-      []() { return InFlightDiagnostic(); }, outQType.getFlags(),
+      [&loc]() { return emitWarning(loc); }, outQType.getFlags(),
       outQType.getStorageType(), outQType.getExpressedType(), newScale, newZP,
       outQType.getStorageTypeMin(), outQType.getStorageTypeMax());
 }
 
 template <typename ONNXBinOp>
 quant::UniformQuantizedType getOutQuantType(
-    quant::UniformQuantizedType inQType, double binConst) {
+    quant::UniformQuantizedType inQType, double binConst, Location loc) {
   double newScale = inQType.getScale();
   int64_t newZP = inQType.getZeroPoint();
+
   if constexpr (std::is_same_v<ONNXBinOp, ONNXAddOp>) {
     newZP -= std::lround(binConst / newScale);
   } else if constexpr (std::is_same_v<ONNXBinOp, ONNXSubOp>) {
@@ -96,8 +107,12 @@ quant::UniformQuantizedType getOutQuantType(
     static_assert(false, "Unsupported binary operation");
     return nullptr;
   }
+
+  if (isZPOutOfBounds(newZP, inQType))
+    return nullptr;
+
   return quant::UniformQuantizedType::getChecked(
-      []() { return InFlightDiagnostic(); }, inQType.getFlags(),
+      [&loc]() { return emitWarning(loc); }, inQType.getFlags(),
       inQType.getStorageType(), inQType.getExpressedType(), newScale, newZP,
       inQType.getStorageTypeMin(), inQType.getStorageTypeMax());
 }
@@ -117,6 +132,10 @@ public:
     auto rhs = binOp->getOperand(1);
     auto out = binOp->getResult(0);
 
+    // No need of swapping inputs if first input is constant
+    if (lhs.template getDefiningOp<ONNXConstantOp>())
+      return rewriter.notifyMatchFailure(binOp, "LHS should not be a constant");
+
     auto lhsType = dyn_cast<RankedTensorType>(lhs.getType());
     auto outType = dyn_cast<RankedTensorType>(out.getType());
     if (!lhsType || !outType)
@@ -130,7 +149,6 @@ public:
       return rewriter.notifyMatchFailure(
           binOp, "Not Quantized input and output types");
 
-    // No need of checking if first input is constant
     // No need of checking if constant passes through reshape, etc
     // Canonicalizations and Constant Folding takes care of those
     double binConst;
@@ -153,21 +171,26 @@ public:
       return rewriter.notifyMatchFailure(
           binOp, "Cannot update quant params on either input or output");
 
+    Location binLoc = binOp->getLoc();
+    auto newQType =
+        updateInput ? getInQuantType<ONNXBinOp>(outQType, binConst, binLoc)
+                    : getOutQuantType<ONNXBinOp>(outQType, binConst, binLoc);
+    if (!newQType)
+      return rewriter.notifyMatchFailure(binOp, "Cannot get new QType");
+
     if (updateInput) {
-      auto newQType = getInQuantType<ONNXBinOp>(outQType, binConst);
       rewriter.modifyOpInPlace(
           binOp, [&]() { lhs.setType(lhsType.clone(newQType)); });
       auto scast = rewriter.create<quant::StorageCastOp>(
-          binOp.getLoc(), lhsType.clone(newQType.getStorageType()), lhs);
+          binLoc, lhsType.clone(newQType.getStorageType()), lhs);
       auto replOp =
-          rewriter.create<quant::StorageCastOp>(binOp.getLoc(), outType, scast);
+          rewriter.create<quant::StorageCastOp>(binLoc, outType, scast);
       rewriter.replaceOp(binOp, replOp);
     } else {
-      auto newQType = getOutQuantType<ONNXBinOp>(outQType, binConst);
       auto scast = rewriter.create<quant::StorageCastOp>(
-          binOp.getLoc(), lhsType.clone(lhsQType.getStorageType()), lhs);
+          binLoc, lhsType.clone(lhsQType.getStorageType()), lhs);
       auto replOp = rewriter.create<quant::StorageCastOp>(
-          binOp.getLoc(), outType.clone(newQType), scast);
+          binLoc, outType.clone(newQType), scast);
       rewriter.replaceOp(binOp, replOp);
     }
 
