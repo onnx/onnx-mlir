@@ -144,7 +144,7 @@ static mlir::DenseElementsAttr makeScalarDEA(
 
     int64_t iv = static_cast<int64_t>(std::llround(d));
     const unsigned bw = clampIT.getWidth();
-    const bool isSigned = clampIT.isSigned();
+    const bool isSigned = clampIT.isSigned() || clampIT.isSignless();
 
     const int64_t minV = isSigned ? (-(int64_t(1) << (bw - 1))) : 0;
     const int64_t maxV =
