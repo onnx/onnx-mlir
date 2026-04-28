@@ -127,11 +127,11 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
             p = p * LitIE(kernelShape[i]);
           }
           for (int64_t i = 0; i < spatialRank; ++i) {
-            IndexExpr kernelStride = LitIE(1);
+            int64_t kernelStride = 1;
             for (int64_t j = i + 1; j < spatialRank; ++j) {
-              kernelStride = kernelStride * LitIE(kernelShape[j]);
+              kernelStride *= kernelShape[j];
             }
-            p = p + kernelIndices[i] * kernelStride;
+            p = p + kernelIndices[i] * LitIE(kernelStride);
           }
 
           // Compute input spatial indices with stride/dilation/padding.
