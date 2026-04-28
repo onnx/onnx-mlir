@@ -64,9 +64,9 @@ quant::UniformQuantizedType getInQuantType(
   int64_t newZP = outQType.getZeroPoint();
 
   if constexpr (std::is_same_v<ONNXBinOp, ONNXAddOp>) {
-    newZP += std::lround(binConst / newScale);
+    newZP += std::round(binConst / newScale);
   } else if constexpr (std::is_same_v<ONNXBinOp, ONNXSubOp>) {
-    newZP -= std::lround(binConst / newScale);
+    newZP -= std::round(binConst / newScale);
   } else if constexpr (std::is_same_v<ONNXBinOp, ONNXMulOp>) {
     if (binConst == 0.0)
       return nullptr;
@@ -94,9 +94,9 @@ quant::UniformQuantizedType getOutQuantType(
   int64_t newZP = inQType.getZeroPoint();
 
   if constexpr (std::is_same_v<ONNXBinOp, ONNXAddOp>) {
-    newZP -= std::lround(binConst / newScale);
+    newZP -= std::round(binConst / newScale);
   } else if constexpr (std::is_same_v<ONNXBinOp, ONNXSubOp>) {
-    newZP += std::lround(binConst / newScale);
+    newZP += std::round(binConst / newScale);
   } else if constexpr (std::is_same_v<ONNXBinOp, ONNXMulOp>) {
     newScale *= binConst;
   } else if constexpr (std::is_same_v<ONNXBinOp, ONNXDivOp>) {
@@ -174,7 +174,7 @@ public:
     Location binLoc = binOp->getLoc();
     auto newQType =
         updateInput ? getInQuantType<ONNXBinOp>(outQType, binConst, binLoc)
-                    : getOutQuantType<ONNXBinOp>(outQType, binConst, binLoc);
+                    : getOutQuantType<ONNXBinOp>(lhsQType, binConst, binLoc);
     if (!newQType)
       return rewriter.notifyMatchFailure(binOp, "Cannot get new QType");
 

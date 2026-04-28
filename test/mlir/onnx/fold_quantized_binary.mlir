@@ -112,7 +112,7 @@ func.func @dq_const_add_multiuse_update_output(%arg0: tensor<1x4xf32>) -> (tenso
 // CHECK: onnx.Identity
 // CHECK-NEXT: quant.scast
 // CHECK-NEXT: quant.scast
-// CHECK-SAME: quant.uniform<i8:f32, 0.20000000298023224:-50>
+// CHECK-SAME: quant.uniform<i8:f32, 0.10000000149011612:-100>
 // CHECK-NEXT: onnx.Identity
 
 // from: @test_kval_0_dst_q_mul
