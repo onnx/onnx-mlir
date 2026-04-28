@@ -116,6 +116,30 @@ public:
   }
 };
 
+class ONNXErfOpLoweringToTOSA : public OpConversionPattern<ONNXErfOp> {
+public:
+  using OpConversionPattern<ONNXErfOp>::OpConversionPattern;
+  using OpAdaptor = typename ONNXErfOp::Adaptor;
+  LogicalResult matchAndRewrite(ONNXErfOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+    rewriter.replaceOpWithNewOp<mlir::tosa::ErfOp>(
+        op, op.getType(), adaptor.getInput());
+    return success();
+  }
+};
+
+class ONNXTanhOpLoweringToTOSA : public OpConversionPattern<ONNXTanhOp> {
+public:
+  using OpConversionPattern<ONNXTanhOp>::OpConversionPattern;
+  using OpAdaptor = typename ONNXTanhOp::Adaptor;
+  LogicalResult matchAndRewrite(ONNXTanhOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+    rewriter.replaceOpWithNewOp<mlir::tosa::TanhOp>(
+        op, op.getType(), adaptor.getInput());
+    return success();
+  }
+};
+
 class ONNXFloorOpLoweringToTOSA : public OpConversionPattern<ONNXFloorOp> {
 public:
   using OpConversionPattern<ONNXFloorOp>::OpConversionPattern;
@@ -285,6 +309,7 @@ void populateLoweringONNXElementwiseOpToTOSAPattern(ConversionTarget &target,
       ONNXBinaryElementwiseOpLoweringToTOSA<ONNXAddOp, mlir::tosa::AddOp>,
       ONNXBinaryElementwiseOpLoweringToTOSA<ONNXSubOp, mlir::tosa::SubOp>,
       ONNXSinOpLoweringToTOSA, ONNXCosOpLoweringToTOSA,
+      ONNXErfOpLoweringToTOSA, ONNXTanhOpLoweringToTOSA,
       ONNXFloorOpLoweringToTOSA, ONNXReluOpLoweringToTOSA,
       ONNXClipOpLoweringToTOSA, ONNXDivOpLoweringToTOSA>(typeConverter, ctx);
 }

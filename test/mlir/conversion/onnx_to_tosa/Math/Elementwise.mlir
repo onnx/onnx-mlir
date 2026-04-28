@@ -167,6 +167,26 @@ func.func @test_cos(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
 
 // -----
 
+func.func @test_erf(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
+  %0 = "onnx.Erf"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
+  "func.return"(%0) : (tensor<10x10xf32>) -> ()
+// CHECK-LABEL:  func @test_erf
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
+// CHECK-NEXT:      [[VAR_0_:%.+]] = tosa.erf [[PARAM_0_]] : (tensor<10x10xf32>) -> tensor<10x10xf32>
+}
+
+// -----
+
+func.func @test_tanh(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
+  %0 = "onnx.Tanh"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
+  "func.return"(%0) : (tensor<10x10xf32>) -> ()
+// CHECK-LABEL:  func @test_tanh
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
+// CHECK-NEXT:      [[VAR_0_:%.+]] = tosa.tanh [[PARAM_0_]] : (tensor<10x10xf32>) -> tensor<10x10xf32>
+}
+
+// -----
+
 func.func @test_clip(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
   %min = "onnx.Constant"() {value = dense<-1.0> : tensor<f32>} : () -> tensor<f32>
   %max = "onnx.Constant"() {value = dense<1.0> : tensor<f32>} : () -> tensor<f32>
