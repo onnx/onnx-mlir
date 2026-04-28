@@ -17,6 +17,7 @@
 #include "mlir/IR/BuiltinAttributeInterfaces.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Endian.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/SwapByteOrder.h"
@@ -63,10 +64,35 @@ std::unique_ptr<llvm::MemoryBuffer> readExternalData_LE(
   assert(!location.empty() && "missing external data location");
   SmallVector<char> path(externalDataDir.begin(), externalDataDir.end());
   llvm::sys::path::append(path, location);
+  std::string pathStr(path.data(), path.size());
+
+  // TODO: Remove after onnx 1.21.0 update (see
+  // https://github.com/onnx/onnx-mlir/issues/3455).
+  // Reject symlinks in external data files to prevent path traversal attacks
+  // (CVE-2026-27489).
+  if (llvm::sys::fs::is_symlink_file(pathStr)) {
+    llvm::errs() << "Error: external data file " << pathStr
+                 << " is a symlink, which is not allowed for security "
+                    "reasons.\n";
+    llvm_unreachable("external data file is a symlink");
+  }
+
+  // TODO: Remove after onnx 1.21.0 update (see
+  // https://github.com/onnx/onnx-mlir/issues/3455).
+  // Reject hardlinks in external data files to prevent path traversal attacks
+  // (CVE-2026-34446).
+  llvm::sys::fs::file_status fileStat;
+  if (!llvm::sys::fs::status(pathStr, fileStat) &&
+      fileStat.getLinkCount() > 1) {
+    llvm::errs() << "Error: external data file " << pathStr
+                 << " is a hardlink (link count: " << fileStat.getLinkCount()
+                 << "), which is not allowed for security reasons.\n";
+    llvm_unreachable("external data file is a hardlink");
+  }
+
   auto bufferOrError = llvm::MemoryBuffer::getFileSlice(
       path, length, offset, /*IsVolatile=*/false);
   if (std::error_code ec = bufferOrError.getError()) {
-    std::string pathStr(path.data(), path.size());
     llvm::errs() << "Error " << ec.message() << " reading from file " << pathStr
                  << ", offset=" << offset << ", length=" << length << "\n";
     llvm_unreachable("llvm::MemoryBuffer::getFileSlice failed");

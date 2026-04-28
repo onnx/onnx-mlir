@@ -69,5 +69,8 @@ def BufferOMPLoopHoistingPass : Pass<"buffer-omploop-hoisting", "func::FuncOp"> 
   }];
 }
 
+def WriteOpStatsToModuleAttributePass : Pass<"write-op-stats-to-module-attribute"> {
+  let summary = "Write statistics of operations to an attribute in ModuleOp";
+}
 
 #endif

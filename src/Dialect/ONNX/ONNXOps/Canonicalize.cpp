@@ -1899,7 +1899,7 @@ public:
 
     // Check if the condition of WhereOp matches EqualOp, the X of it matches
     // ConstantOp, and the Y of it matches ConcatOp.
-    Operation *equalOp, *constantOp, *concatOp;
+    Operation *equalOp = nullptr, *constantOp = nullptr, *concatOp = nullptr;
     Value equalOpResVal, constantOpResVal, concatOpResVal;
     bool isEqualOp = operandOfOpDefinedBy<ONNXEqualOp>(
         equalOp, onnxWhereOp.getOperation(), equalOpResVal, 0);
