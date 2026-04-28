@@ -1288,8 +1288,9 @@ struct ConvToIm2ColPattern : public OpRewritePattern<ONNXConvOp> {
     int64_t kernelSize = CI * KH * KW;
 
     // Step 1: Create Im2Col operation.
-    // Output: [?, CI*KH*KW] where ? is dynamic (N*OH*OW).
-    SmallVector<int64_t, 2> im2colShape = {ShapedType::kDynamic, kernelSize};
+    // Output: [N, CI*KH*KW, OH*OW] - 3D tensor with batch dimension.
+    SmallVector<int64_t, 3> im2colShape = {
+        ShapedType::kDynamic, kernelSize, ShapedType::kDynamic};
     Type im2colOutputType =
         RankedTensorType::get(im2colShape, xType.getElementType());
 
@@ -1299,7 +1300,6 @@ struct ConvToIm2ColPattern : public OpRewritePattern<ONNXConvOp> {
         convOp.getStridesAttr());
 
     // Step 2: Reshape W from [CO, CI, KH, KW] to [CO, CI*KH*KW].
-
     // Create shape constant for reshape: [CO, kernelSize].
     SmallVector<int64_t, 2> w2dShape = {CO, kernelSize};
     Value shapeConst = create.onnx.constantInt64(w2dShape);
@@ -1310,22 +1310,26 @@ struct ConvToIm2ColPattern : public OpRewritePattern<ONNXConvOp> {
     // Reshape weight tensor.
     Value W_2d = create.onnx.reshape(w2dType, W, shapeConst);
 
-    // Step 3: Transpose W_2d to [kernelSize, CO] for MatMul.
-    Value W_2d_T = create.onnx.transposeInt64(W_2d, {1, 0});
-
-    // Step 4: MatMul: [?, CI*KH*KW] @ [CI*KH*KW, CO]
-    //         Result: [?, CO] where ? is dynamic.
-    SmallVector<int64_t, 2> matmulShape = {ShapedType::kDynamic, CO};
+    // Step 3: Batched MatMul: W_2d @ X_col.
+    // W_2d: [CO, CI*KH*KW], X_col: [N, CI*KH*KW, OH*OW]
+    // Result: [N, CO, OH*OW] via broadcasting.
+    SmallVector<int64_t, 3> matmulShape = {
+        ShapedType::kDynamic, CO, ShapedType::kDynamic};
     Type matmulType =
         RankedTensorType::get(matmulShape, wType.getElementType());
 
-    Value Y_flat = create.onnx.matmul(matmulType, X_col, W_2d_T);
+    Value Y_flat = create.onnx.matmul(matmulType, W_2d, X_col);
 
-    // Step 5: Add bias if present.
+    // Step 4: Add bias if present.
     Value Y_with_bias = Y_flat;
     if (hasBias) {
-      // Bias shape is [CO], broadcasts to [N*OH*OW, CO].
-      Y_with_bias = create.onnx.add(Y_flat, B);
+      // Reshape bias from [CO] to [CO, 1] for proper broadcasting.
+      Value axes = create.onnx.constantInt64({1});
+      ShapedType bType = mlir::cast<ShapedType>(B.getType());
+      Type bReshaped = RankedTensorType::get({CO, 1}, bType.getElementType());
+      Value B_reshaped = create.onnx.unsqueeze(bReshaped, B, axes);
+      // Bias shape [CO, 1] broadcasts to [N, CO, OH*OW].
+      Y_with_bias = create.onnx.add(Y_flat, B_reshaped);
     }
 
     // Step 6: Reshape back to [N, CO, OH, OW].
@@ -1426,7 +1430,8 @@ struct ConvToIm2ColPattern : public OpRewritePattern<ONNXConvOp> {
       OW = create.onnx.div(W_adjusted, strideWVal);
     }
 
-    // Concatenate dimensions to form output shape: [N, CO, OH, OW]
+    // Step 5: Reshape from [N, CO, OH*OW] to [N, CO, OH, OW].
+    // Concatenate dimensions to form output shape: [N, CO, OH, OW].
     Type shapeType = RankedTensorType::get({4}, rewriter.getI64Type());
     Value outputShapeVals =
         create.onnx.concat(shapeType, {N, COVal, OH, OW}, 0);

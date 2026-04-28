@@ -147,25 +147,24 @@ LogicalResult ONNXIm2ColOpShapeHelper::computeShape() {
     outputSpatialDims.push_back(outputDim);
   }
 
-  // Compute output shape: [N * prod(output_spatial_dims), CI *
-  // prod(kernel_shape)].
+  // Compute output shape: [N, CI * prod(kernel_shape), prod(output_spatial_dims)].
   IndexExpr N = createIE->getShapeAsDim(X, 0);
   IndexExpr CI = createIE->getShapeAsDim(X, 1);
 
-  // Compute numRows = N * prod(outputSpatialDims).
-  IndexExpr numRows = N;
-  for (const IndexExpr &dim : outputSpatialDims) {
-    numRows = numRows * dim;
-  }
-
-  // Compute numCols = CI * prod(kernel_shape).
-  IndexExpr numCols = CI;
+  // Compute numRows = CI * prod(kernel_shape).
+  IndexExpr numRows = CI;
   for (int64_t k : kernelShape) {
-    numCols = numCols * k;
+    numRows = numRows * k;
   }
 
-  // Set output dimensions.
-  DimsExpr outputDims = {numRows, numCols};
+  // Compute numCols = prod(outputSpatialDims).
+  IndexExpr numCols = LitIE(1);
+  for (const IndexExpr &dim : outputSpatialDims) {
+    numCols = numCols * dim;
+  }
+
+  // Set output dimensions: [N, CI*KH*KW, OH*OW].
+  DimsExpr outputDims = {N, numRows, numCols};
   setOutputDims(outputDims);
 
   return success();
