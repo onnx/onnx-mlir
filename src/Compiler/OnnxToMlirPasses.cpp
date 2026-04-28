@@ -143,7 +143,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
       opts.enableInstanceNormDecompose, opts.enableGroupNormDecompose,
       opts.enableMatmulNBitsDecompose, opts.enableGroupQueryAttentionDecompose,
       opts.enableSplitToSliceDecompose, opts.enableConcatFuse,
-      opts.enableLstmSeqDecompose, opts.enableReduceL2Decompose));
+      opts.enableLstmSeqDecompose, opts.enableReduceL2Decompose,
+      opts.enableGatherToSlice));
   if (!opts.disableRecomposeOption)
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::createRecomposeONNXToONNXPass(/*target=*/""));

@@ -40,6 +40,7 @@ struct OnnxToMlirOptions {
   bool enableXMCPasses = false;
   bool enableSplitToSliceDecompose = false;
   bool enableLstmSeqDecompose = false;
+  bool enableGatherToSlice = true;
 
   bool disableBatchNormDecompose = false;
   bool disableRecomposeOption = false;

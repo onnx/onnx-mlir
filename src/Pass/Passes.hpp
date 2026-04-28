@@ -49,7 +49,8 @@ std::unique_ptr<mlir::Pass> createDecomposeONNXToONNXPass(
     bool enableMatmulNBitsDecompose = false,
     bool enableGroupQueryAttentionDecompose = true,
     bool enableSplitToSliceDecompose = false, bool enableConcatFuse = false,
-    bool enableLstmSeqDecompose = false, bool enableReduceL2Decompose = true);
+    bool enableLstmSeqDecompose = false, bool enableReduceL2Decompose = true,
+    bool enableGatherToSlice = true);
 std::unique_ptr<mlir::Pass> createRecomposeONNXToONNXPass(
     const std::string &target = "");
 
