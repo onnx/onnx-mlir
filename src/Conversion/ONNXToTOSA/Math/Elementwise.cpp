@@ -164,6 +164,91 @@ public:
   }
 };
 
+// Extract a scalar ElementsAttr from a value defined either by
+// onnx.Constant (before conversion) or tosa.const (after conversion).
+static ElementsAttr getScalarConstantElementsAttr(Value v) {
+  if (auto onnxConst =
+          mlir::dyn_cast_or_null<ONNXConstantOp>(v.getDefiningOp()))
+    return mlir::dyn_cast_or_null<ElementsAttr>(onnxConst.getValueAttr());
+  if (auto tosaConst =
+          mlir::dyn_cast_or_null<mlir::tosa::ConstOp>(v.getDefiningOp()))
+    return tosaConst.getValues();
+  return nullptr;
+}
+
+class ONNXClipOpLoweringToTOSA : public OpConversionPattern<ONNXClipOp> {
+public:
+  using OpConversionPattern::OpConversionPattern;
+  LogicalResult matchAndRewrite(ONNXClipOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+    Value input = adaptor.getInput();
+    Value min = adaptor.getMin();
+    Value max = adaptor.getMax();
+
+    auto inputType = mlir::dyn_cast<TensorType>(input.getType());
+    if (!inputType)
+      return rewriter.notifyMatchFailure(op, "Tosa only supports TensorTypes");
+    Type elementType = inputType.getElementType();
+    if (!elementType.isIntOrFloat())
+      return rewriter.notifyMatchFailure(
+          op, "only int and float types are supported");
+
+    Attribute minAttr;
+    Attribute maxAttr;
+
+    if (auto floatType = mlir::dyn_cast<FloatType>(elementType)) {
+      const llvm::fltSemantics &semantics = floatType.getFloatSemantics();
+      APFloat minVal = APFloat::getLargest(semantics, /*Negative=*/true);
+      APFloat maxVal = APFloat::getLargest(semantics, /*Negative=*/false);
+
+      if (!isNoneValue(min)) {
+        ElementsAttr minElems = getScalarConstantElementsAttr(min);
+        if (!minElems)
+          return rewriter.notifyMatchFailure(
+              op, "min must be a constant for tosa.clamp");
+        minVal = *minElems.getValues<APFloat>().begin();
+      }
+      if (!isNoneValue(max)) {
+        ElementsAttr maxElems = getScalarConstantElementsAttr(max);
+        if (!maxElems)
+          return rewriter.notifyMatchFailure(
+              op, "max must be a constant for tosa.clamp");
+        maxVal = *maxElems.getValues<APFloat>().begin();
+      }
+      minAttr = rewriter.getFloatAttr(elementType, minVal);
+      maxAttr = rewriter.getFloatAttr(elementType, maxVal);
+    } else {
+      auto intType = mlir::cast<IntegerType>(elementType);
+      unsigned width = intType.getWidth();
+      APInt minVal = intType.isUnsigned() ? APInt::getMinValue(width)
+                                          : APInt::getSignedMinValue(width);
+      APInt maxVal = intType.isUnsigned() ? APInt::getMaxValue(width)
+                                          : APInt::getSignedMaxValue(width);
+
+      if (!isNoneValue(min)) {
+        ElementsAttr minElems = getScalarConstantElementsAttr(min);
+        if (!minElems)
+          return rewriter.notifyMatchFailure(
+              op, "min must be a constant for tosa.clamp");
+        minVal = *minElems.getValues<APInt>().begin();
+      }
+      if (!isNoneValue(max)) {
+        ElementsAttr maxElems = getScalarConstantElementsAttr(max);
+        if (!maxElems)
+          return rewriter.notifyMatchFailure(
+              op, "max must be a constant for tosa.clamp");
+        maxVal = *maxElems.getValues<APInt>().begin();
+      }
+      minAttr = rewriter.getIntegerAttr(elementType, minVal);
+      maxAttr = rewriter.getIntegerAttr(elementType, maxVal);
+    }
+
+    rewriter.replaceOpWithNewOp<mlir::tosa::ClampOp>(
+        op, op.getType(), input, minAttr, maxAttr);
+    return success();
+  }
+};
+
 class ONNXDivOpLoweringToTOSA : public OpConversionPattern<ONNXDivOp> {
 public:
   using OpConversionPattern::OpConversionPattern;
@@ -201,7 +286,7 @@ void populateLoweringONNXElementwiseOpToTOSAPattern(ConversionTarget &target,
       ONNXBinaryElementwiseOpLoweringToTOSA<ONNXSubOp, mlir::tosa::SubOp>,
       ONNXSinOpLoweringToTOSA, ONNXCosOpLoweringToTOSA,
       ONNXFloorOpLoweringToTOSA, ONNXReluOpLoweringToTOSA,
-      ONNXDivOpLoweringToTOSA>(typeConverter, ctx);
+      ONNXClipOpLoweringToTOSA, ONNXDivOpLoweringToTOSA>(typeConverter, ctx);
 }
 
 } // namespace onnx_mlir

@@ -164,3 +164,54 @@ func.func @test_cos(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
 // CHECK-NEXT:      [[VAR_0_:%.+]] = tosa.cos [[PARAM_0_]] : (tensor<10x10xf32>) -> tensor<10x10xf32>
 }
+
+// -----
+
+func.func @test_clip(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
+  %min = "onnx.Constant"() {value = dense<-1.0> : tensor<f32>} : () -> tensor<f32>
+  %max = "onnx.Constant"() {value = dense<1.0> : tensor<f32>} : () -> tensor<f32>
+  %0 = "onnx.Clip"(%arg0, %min, %max) : (tensor<10x10xf32>, tensor<f32>, tensor<f32>) -> tensor<10x10xf32>
+  "func.return"(%0) : (tensor<10x10xf32>) -> ()
+// CHECK-LABEL:  func @test_clip
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
+// CHECK:           [[VAR_0_:%.+]] = tosa.clamp [[PARAM_0_]] {max_val = 1.000000e+00 : f32, min_val = -1.000000e+00 : f32} : (tensor<10x10xf32>) -> tensor<10x10xf32>
+// CHECK:           return [[VAR_0_]] : tensor<10x10xf32>
+}
+
+// -----
+
+func.func @test_clip_default(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.Clip"(%arg0, %none, %none) : (tensor<10x10xf32>, none, none) -> tensor<10x10xf32>
+  "func.return"(%0) : (tensor<10x10xf32>) -> ()
+// CHECK-LABEL:  func @test_clip_default
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
+// CHECK:           [[VAR_0_:%.+]] = tosa.clamp [[PARAM_0_]] {max_val = 3.40282347E+38 : f32, min_val = -3.40282347E+38 : f32} : (tensor<10x10xf32>) -> tensor<10x10xf32>
+// CHECK:           return [[VAR_0_]] : tensor<10x10xf32>
+}
+
+// -----
+
+func.func @test_clip_min_only(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
+  %min = "onnx.Constant"() {value = dense<0.0> : tensor<f32>} : () -> tensor<f32>
+  %none = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.Clip"(%arg0, %min, %none) : (tensor<10x10xf32>, tensor<f32>, none) -> tensor<10x10xf32>
+  "func.return"(%0) : (tensor<10x10xf32>) -> ()
+// CHECK-LABEL:  func @test_clip_min_only
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
+// CHECK:           [[VAR_0_:%.+]] = tosa.clamp [[PARAM_0_]] {max_val = 3.40282347E+38 : f32, min_val = 0.000000e+00 : f32} : (tensor<10x10xf32>) -> tensor<10x10xf32>
+// CHECK:           return [[VAR_0_]] : tensor<10x10xf32>
+}
+
+// -----
+
+func.func @test_clip_int(%arg0: tensor<10x10xi32>) -> tensor<10x10xi32> {
+  %min = "onnx.Constant"() {value = dense<-5> : tensor<i32>} : () -> tensor<i32>
+  %max = "onnx.Constant"() {value = dense<5> : tensor<i32>} : () -> tensor<i32>
+  %0 = "onnx.Clip"(%arg0, %min, %max) : (tensor<10x10xi32>, tensor<i32>, tensor<i32>) -> tensor<10x10xi32>
+  "func.return"(%0) : (tensor<10x10xi32>) -> ()
+// CHECK-LABEL:  func @test_clip_int
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xi32>) -> tensor<10x10xi32> {
+// CHECK:           [[VAR_0_:%.+]] = tosa.clamp [[PARAM_0_]] {max_val = 5 : i32, min_val = -5 : i32} : (tensor<10x10xi32>) -> tensor<10x10xi32>
+// CHECK:           return [[VAR_0_]] : tensor<10x10xi32>
+}
