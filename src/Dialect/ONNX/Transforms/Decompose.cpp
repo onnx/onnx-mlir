@@ -4621,6 +4621,68 @@ struct DecomposeLSTMSeqUnrollPattern : public OpRewritePattern<ONNXLSTMOp> {
   }
 };
 
+// Decompose Gather(data, scalar_constant_index, axis) into Slice + Reshape.
+class DecomposeGatherToSlicePattern : public OpRewritePattern<ONNXGatherOp> {
+public:
+  using OpRewritePattern<ONNXGatherOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXGatherOp gatherOp, PatternRewriter &rewriter) const override {
+    Location loc = gatherOp.getLoc();
+    Value data = gatherOp.getData();
+    Value indices = gatherOp.getIndices();
+    int64_t axis = gatherOp.getAxis();
+
+    auto inputType = dyn_cast<RankedTensorType>(data.getType());
+    if (!inputType || !inputType.hasStaticShape())
+      return failure();
+
+    auto indicesType = dyn_cast<RankedTensorType>(indices.getType());
+    if (!indicesType || indicesType.getRank() != 0)
+      return failure();
+
+    auto gatherOutputType = dyn_cast<RankedTensorType>(gatherOp.getType());
+    if (!gatherOutputType)
+      return failure();
+
+    auto indicesConstOp = indices.getDefiningOp<ONNXConstantOp>();
+    if (!indicesConstOp)
+      return failure();
+    auto idx = onnx_mlir::getScalarValue<int64_t>(indicesConstOp);
+
+    const int64_t inputRank = inputType.getRank();
+    if (axis < 0)
+      axis += inputRank;
+
+    ArrayRef<int64_t> inputShape = inputType.getShape();
+
+    if (idx < 0)
+      idx += inputShape[axis];
+
+    onnx_mlir::OnnxBuilder createONNX(rewriter, loc);
+
+    Value starts = createONNX.constantInt64({idx});
+    Value ends = createONNX.constantInt64({idx + 1});
+    Value axes = createONNX.constantInt64({axis});
+    Value steps = createONNX.constantInt64({1});
+
+    SmallVector<int64_t, 4> sliceShape(inputShape.begin(), inputShape.end());
+    sliceShape[axis] = 1;
+    auto sliceType =
+        RankedTensorType::get(sliceShape, inputType.getElementType());
+
+    Value sliceOp =
+        createONNX.slice(sliceType, data, starts, ends, axes, steps);
+
+    Value shapeConst = createONNX.constantInt64(
+        SmallVector<int64_t>(gatherOutputType.getShape()));
+    Value reshapeOp = createONNX.reshape(gatherOutputType, sliceOp, shapeConst);
+    rewriter.replaceOp(gatherOp, reshapeOp);
+
+    return success();
+  }
+};
+
 struct DecomposeONNXToONNXPass
     : public PassWrapper<DecomposeONNXToONNXPass, OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(DecomposeONNXToONNXPass)
@@ -4634,8 +4696,8 @@ struct DecomposeONNXToONNXPass
       bool enableMatmulNBitsDecompose = false,
       bool enableGroupQueryAttentionDecompose = true,
       bool enableSplitToSliceDecompose = false, bool enableConcatFuse = true,
-      bool enableLstmSeqDecompose = false,
-      bool enableReduceL2Decompose = true) {
+      bool enableLstmSeqDecompose = false, bool enableReduceL2Decompose = true,
+      bool enableGatherToSlice = true) {
     this->target = target;
     this->enableConvTransposeDecompose = enableConvTransposeDecompose;
     this->enableConvTransposeDecomposeToPhasedConv =
@@ -4651,6 +4713,7 @@ struct DecomposeONNXToONNXPass
     this->enableConcatFuse = enableConcatFuse;
     this->enableLstmSeqDecompose = enableLstmSeqDecompose;
     this->enableReduceL2Decompose = enableReduceL2Decompose;
+    this->enableGatherToSlice = enableGatherToSlice;
   }
 
   DecomposeONNXToONNXPass(const DecomposeONNXToONNXPass &pass)
@@ -4673,6 +4736,7 @@ struct DecomposeONNXToONNXPass
     this->enableConcatFuse = pass.enableConcatFuse.getValue();
     this->enableLstmSeqDecompose = pass.enableLstmSeqDecompose.getValue();
     this->enableReduceL2Decompose = pass.enableReduceL2Decompose.getValue();
+    this->enableGatherToSlice = pass.enableGatherToSlice.getValue();
   }
 
   StringRef getArgument() const override { return "decompose-onnx"; }
@@ -4742,6 +4806,11 @@ struct DecomposeONNXToONNXPass
                      "Sqrt(ReduceSumSquare(x))"),
       ::llvm::cl::init(true)};
 
+  Option<bool> enableGatherToSlice{*this, "enable-gather-to-slice",
+      llvm::cl::desc(
+          "Enable decomposition of Gather with scalar index to Slice+Reshape"),
+      ::llvm::cl::init(true)};
+
   void runOnOperation() final;
 
   typedef PassWrapper<DecomposeONNXToONNXPass, OperationPass<func::FuncOp>>
@@ -4758,7 +4827,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
       enableGroupNormDecompose, enableMatmulNBitsDecompose,
       enableGroupQueryAttentionDecompose, enableSplitToSliceDecompose,
       enableConcatFuse, enableLstmSeqDecompose, enableReduceL2Decompose,
-      /*disableGenericDecompositions=*/false);
+      /*disableGenericDecompositions=*/false, enableGatherToSlice);
   patterns.insert<ReplaceCastLikeByCastPattern>(context);
 
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
@@ -4783,7 +4852,7 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
     bool enableMatmulNBitsDecompose, bool enableGroupQueryAttentionDecompose,
     bool enableSplitToSliceDecompose, bool enableConcatFuse,
     bool enableLstmSeqDecompose, bool enableReduceL2Decompose,
-    bool disableGenericDecompositions) {
+    bool disableGenericDecompositions, bool enableGatherToSlice) {
   MLIRContext *context = patterns.getContext();
   if (!disableGenericDecompositions)
     populateWithGenerated(patterns);
@@ -4848,6 +4917,9 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
   //   }
   // }
 
+  if (enableGatherToSlice)
+    patterns.insert<DecomposeGatherToSlicePattern>(context);
+
   // TODO: consider whether to include SoftmaxPattern here
 }
 
@@ -4861,11 +4933,13 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createDecomposeONNXToONNXPass(
     bool enableInstanceNormDecompose, bool enableGroupNormDecompose,
     bool enableMatmulNBitsDecompose, bool enableGroupQueryAttentionDecompose,
     bool enableSplitToSliceDecompose, bool enableConcatFuse,
-    bool enableLstmSeqDecompose, bool enableReduceL2Decompose) {
+    bool enableLstmSeqDecompose, bool enableReduceL2Decompose,
+    bool enableGatherToSlice) {
   return std::make_unique<DecomposeONNXToONNXPass>(target,
       enableConvTransposeDecompose, enableConvTransposeDecomposeToPhasedConv,
       enableConvTranspose1dDecomposeToPhasedConv, enableInstanceNormDecompose,
       enableGroupNormDecompose, enableMatmulNBitsDecompose,
       enableGroupQueryAttentionDecompose, enableSplitToSliceDecompose,
-      enableConcatFuse, enableLstmSeqDecompose, enableReduceL2Decompose);
+      enableConcatFuse, enableLstmSeqDecompose, enableReduceL2Decompose,
+      enableGatherToSlice);
 }
