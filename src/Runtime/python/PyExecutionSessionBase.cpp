@@ -514,6 +514,10 @@ std::string PyExecutionSessionBase::pyOutputSignature() {
   return outputSignature();
 }
 
+std::string PyExecutionSessionBase::pyCompilationInfo() {
+  return compilationInfo();
+}
+
 // =============================================================================
 // Error reporting
 
