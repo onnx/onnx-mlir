@@ -2,6 +2,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <cmath>
+
 //===------- ONNXOpsHelper.cpp - Helper functions for ONNX dialects -------===//
 //
 // Copyright 2019-2024 The IBM Research Authors.
@@ -17,6 +19,7 @@
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Path.h"
 
+#include "mlir/Dialect/Quant/IR/QuantTypes.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
@@ -866,6 +869,42 @@ bool hasIntegerPowerExponent(ONNXPowOp *op, int64_t &exponentValue) {
     return false;
   if (elementAttr.getNumElements() != 1)
     return false;
+
+  // Scalar onnx.Constant with a quantized tensor type: the dense attribute
+  // holds storage (e.g. ui16) while the real exponent is (raw - zp) * scale.
+  // Use tolerance only here; DQ / plain float / plain int paths stay exact.
+  if (auto rankedTy = dyn_cast<RankedTensorType>(exponent.getType())) {
+    Type wrappedElem = rankedTy.getElementType();
+    if (isa<mlir::quant::UniformQuantizedType,
+            mlir::quant::UniformQuantizedPerAxisType>(wrappedElem)) {
+      Type storageElem = elementAttr.getElementType();
+      double raw = getScalarValue<double>(elementAttr, storageElem);
+      double dequantizedExponent = 0.0;
+      if (auto uq =
+              dyn_cast<mlir::quant::UniformQuantizedType>(wrappedElem)) {
+        dequantizedExponent =
+            (raw - static_cast<double>(uq.getZeroPoint())) * uq.getScale();
+      } else {
+        auto pa =
+            cast<mlir::quant::UniformQuantizedPerAxisType>(wrappedElem);
+        auto scales = pa.getScales();
+        auto zps = pa.getZeroPoints();
+        if (scales.size() != 1 || zps.size() != 1)
+          return false;
+        dequantizedExponent =
+            (raw - static_cast<double>(zps[0])) * scales[0];
+      }
+      // Match xcompiler TransferPowWithExpTwoToMulPass (1e-6 vs real value).
+      constexpr double kQuantConstPowExponentIntegerTol = 1e-6;
+      double nearest = std::round(dequantizedExponent);
+      if (std::fabs(dequantizedExponent - nearest) >
+          kQuantConstPowExponentIntegerTol)
+        return false;
+      exponentValue = static_cast<int64_t>(nearest);
+      return true;
+    }
+  }
+
   Type elementType = elementAttr.getElementType();
   if (mlir::isa<FloatType>(elementType)) {
     double floatVal = getScalarValue<double>(elementAttr, elementType);
