@@ -82,47 +82,44 @@ LogicalResult ONNXIm2ColOpShapeHelper::computeShape() {
       // Default: no padding.
       pads.assign(2 * spatialRank, zeroIE);
     }
-  } else {
-    // auto_pad is SAME_UPPER, SAME_LOWER, or VALID.
+  } else if (autoPad == "VALID") {
     // For VALID, pads are all 0.
-    if (autoPad == "VALID") {
-      pads.assign(2 * spatialRank, zeroIE);
-    } else {
-      // SAME_UPPER or SAME_LOWER: compute pads to make output size = ceil(input
-      // / stride). Formula: total_pad = max(0, (output_size - 1) * stride +
-      // kernel_size - input_size) where output_size = ceil(input_size /
-      // stride).
-      llvm::SmallVector<IndexExpr, 4> padEnds;
-      for (int64_t i = 0; i < spatialRank; ++i) {
-        IndexExpr inputDim = createIE->getShapeAsDim(X, 2 + i);
-        int64_t stride = strides[i];
-        int64_t kernel = kernelShape[i];
-        int64_t dilation = dilations[i];
-        int64_t effectiveKernel = (kernel - 1) * dilation + 1;
+    pads.assign(2 * spatialRank, zeroIE);
+  } else {
+    // SAME_UPPER or SAME_LOWER: compute pads to make output size = ceil(input
+    // / stride). Formula: total_pad = max(0, (output_size - 1) * stride +
+    // kernel_size - input_size) where output_size = ceil(input_size /
+    // stride).
+    llvm::SmallVector<IndexExpr, 4> padEnds;
+    for (int64_t i = 0; i < spatialRank; ++i) {
+      IndexExpr inputDim = createIE->getShapeAsDim(X, 2 + i);
+      int64_t stride = strides[i];
+      int64_t kernel = kernelShape[i];
+      int64_t dilation = dilations[i];
+      int64_t effectiveKernel = (kernel - 1) * dilation + 1;
 
-        // output_size = ceil(input_size / stride).
-        IndexExpr outputDim = inputDim.ceilDiv(stride);
-        // total_pad = max(0, (output_size - 1) * stride + effectiveKernel -
-        // input_size).
-        IndexExpr totalPad = IndexExpr::max(
-            zeroIE, (outputDim - 1) * stride + effectiveKernel - inputDim);
+      // output_size = ceil(input_size / stride).
+      IndexExpr outputDim = inputDim.ceilDiv(stride);
+      // total_pad = max(0, (output_size - 1) * stride + effectiveKernel -
+      // input_size).
+      IndexExpr totalPad = IndexExpr::max(
+          zeroIE, (outputDim - 1) * stride + effectiveKernel - inputDim);
 
-        // For SAME_UPPER: pad_begin = floor(total_pad / 2).
-        // For SAME_LOWER: pad_begin = total_pad - floor(total_pad / 2).
-        IndexExpr padBegin, padEnd;
-        if (autoPad == "SAME_UPPER") {
-          padBegin = totalPad.floorDiv(2);
-          padEnd = totalPad - padBegin;
-        } else { // SAME_LOWER
-          padEnd = totalPad.floorDiv(2);
-          padBegin = totalPad - padEnd;
-        }
-        pads.push_back(padBegin);
-        padEnds.push_back(padEnd);
+      // For SAME_UPPER: pad_begin = floor(total_pad / 2).
+      // For SAME_LOWER: pad_begin = total_pad - floor(total_pad / 2).
+      IndexExpr padBegin, padEnd;
+      if (autoPad == "SAME_UPPER") {
+        padBegin = totalPad.floorDiv(2);
+        padEnd = totalPad - padBegin;
+      } else { // SAME_LOWER
+        padEnd = totalPad.floorDiv(2);
+        padBegin = totalPad - padEnd;
       }
-      // Append end pads.
-      pads.insert(pads.end(), padEnds.begin(), padEnds.end());
+      pads.push_back(padBegin);
+      padEnds.push_back(padEnd);
     }
+    // Append end pads.
+    pads.insert(pads.end(), padEnds.begin(), padEnds.end());
   }
 
   // Compute output spatial dimensions.
@@ -147,7 +144,8 @@ LogicalResult ONNXIm2ColOpShapeHelper::computeShape() {
     outputSpatialDims.push_back(outputDim);
   }
 
-  // Compute output shape: [N, CI * prod(kernel_shape), prod(output_spatial_dims)].
+  // Compute output shape: [N, CI * prod(kernel_shape),
+  // prod(output_spatial_dims)].
   IndexExpr N = createIE->getShapeAsDim(X, 0);
   IndexExpr CI = createIE->getShapeAsDim(X, 1);
 
