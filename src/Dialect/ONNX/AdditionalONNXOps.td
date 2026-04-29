@@ -728,21 +728,26 @@ def ONNXIm2ColOp: ONNX_Op<"Im2Col",
      DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Im2Col operation for convolution via matrix multiplication";
   let description = [{
-    Transforms N-dimensional convolution input into column format where each
-    row contains one flattened receptive field. This enables convolution to be
-    computed as matrix multiplication: Conv(X,W) = Reshape(Im2Col(X) @ W_flat^T).
+    Transforms N-dimensional convolution input into column format to enable
+    convolution via matrix multiplication.
     
     For input X: [N, CI, D1, D2, ..., DN]
     With kernel: [K1, K2, ..., KN]
     And output spatial dims: [O1, O2, ..., ON]
     
-    Output shape: [N * O1 * O2 * ... * ON, CI * K1 * K2 * ... * KN]
-                   ↑                        ↑
-              output positions (rows)   receptive field (cols)
+    Output shape: [N, CI * K1 * K2 * ... * KN, O1 * O2 * ... * ON]
+                   ↑  ↑                             ↑
+                 batch flattened receptive field    flattened output positions
     
-    Each row i contains the flattened receptive field for output position i,
-    ordered as: [c0_k0...kN, c1_k0...kN, ..., cCI_k0...kN] where c is channel
-    index and k0...kN are kernel spatial indices.
+    For each batch n and output position q, output[n, :, q] contains the
+    flattened receptive field ordered as:
+    [c0_k0...kN, c1_k0...kN, ..., cCI_k0...kN]
+    where c is the channel index and k0...kN are kernel spatial indices.
+  
+    This layout matches the common lowering pattern where weights are reshaped
+    to [CO, CI * K1 * ... * KN], Im2Col(X)[n] is viewed as
+    [CI * K1 * ... * KN, O1 * ... * ON], and convolution is computed as a
+    matrix multiplication for each batch.
     
     Parameters match ONNX Conv operation (excluding group):
     - auto_pad: Padding strategy (NOTSET, SAME_UPPER, SAME_LOWER, VALID).

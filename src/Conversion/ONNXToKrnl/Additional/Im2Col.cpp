@@ -111,7 +111,8 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
           }
 
           // Compute column index q = oh * OW + ow (for 2D case).
-          // General: q = oh * (OW * OD * ...) + ow * (OD * ...) + od * ... + ...
+          // General: q = oh * (OW * OD * ...) + ow * (OD * ...) + od * ... +
+          // ...
           IndexExpr q = LitIE(0);
           IndexExpr stride = LitIE(1);
           for (int64_t i = spatialRank - 1; i >= 0; --i) {
@@ -121,7 +122,8 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
           }
 
           // Compute row index p = ci * KH * KW + kh * KW + kw (for 2D case).
-          // General: p = ci * (KH * KW * ...) + kh * (KW * ...) + kw * ... + ...
+          // General: p = ci * (KH * KW * ...) + kh * (KW * ...) + kw * ... +
+          // ...
           IndexExpr p = ci;
           for (int64_t i = 0; i < spatialRank; ++i) {
             p = p * LitIE(kernelShape[i]);
@@ -184,15 +186,212 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
 
   //===----------------------------------------------------------------------===//
   // Optimized code generation for Im2Col operation.
-  // TODO: Re-implement optimized version based on the correct algorithm above.
-  // For now, just call the simple version.
+  // 2D optimized path:
+  // - One large outer loop over linearized columns n * (OH * OW).
+  // - SCF if/else to split interior and border cases.
+  // - SCF loops inside each branch.
+  // - Same output layout [N, CI*KH*KW, OH*OW] as the simple version.
   //===----------------------------------------------------------------------===//
 
   void optimizedCodeGen(Operation *op, ConversionPatternRewriter &rewriter,
       Value input, Value alloc, ONNXIm2ColOpShapeHelper &shapeHelper) const {
-    // Use simple code generation for now.
-    // Future optimization: loop tiling, vectorization, etc.
-    simpleCodeGen(op, rewriter, input, alloc, shapeHelper);
+    Location loc = ONNXLoc<ONNXIm2ColOp>(op);
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder,
+        MathBuilder, SCFBuilder>
+        create(rewriter, loc);
+
+    // Get input shape.
+    MemRefType inputType = mlir::cast<MemRefType>(input.getType());
+    int64_t inputRank = inputType.getRank();
+    int64_t spatialRank = inputRank - 2;
+
+    // Optimized implementation is currently specialized for 2D.
+    if (spatialRank != 2) {
+      simpleCodeGen(op, rewriter, input, alloc, shapeHelper);
+      return;
+    }
+    fprintf(stderr, "hi alex, used optimized code gen for im2cod\n");
+
+    // Get attributes from shape helper.
+    const auto &kernelShape = shapeHelper.kernelShape;
+    const auto &strides = shapeHelper.strides;
+    const auto &dilations = shapeHelper.dilations;
+    const auto &pads = shapeHelper.pads;
+    const auto &outputSpatialDims = shapeHelper.outputSpatialDims;
+
+    // Get dimensions. Any use in nested scopes must go through DimIE(value).
+    IndexExpr N = create.krnlIE.getShapeAsSymbol(input, 0);
+    IndexExpr CI = create.krnlIE.getShapeAsSymbol(input, 1);
+    IndexExpr HIn = create.krnlIE.getShapeAsSymbol(input, 2);
+    IndexExpr WIn = create.krnlIE.getShapeAsSymbol(input, 3);
+    IndexExpr OH = outputSpatialDims[0];
+    IndexExpr OW = outputSpatialDims[1];
+
+    int64_t KH = kernelShape[0];
+    int64_t KW = kernelShape[1];
+    int64_t strideH = strides[0];
+    int64_t strideW = strides[1];
+    int64_t dilationH = dilations[0];
+    int64_t dilationW = dilations[1];
+
+    IndexExpr padHBegin = pads[0];
+    IndexExpr padWBegin = pads[1];
+
+    IndexExpr outputImageSize = OH * OW;
+    int64_t kernelSize = KH * KW;
+    IndexExpr totalColumns = N * outputImageSize;
+
+    Value zeroIndex = create.math.constantIndex(0);
+    Value zeroValue = create.math.constant(inputType.getElementType(), 0.0);
+
+    ValueRange outerLoopDef = create.krnl.defineLoops(1);
+    DimsExpr lbs(1, LitIE(0));
+    DimsExpr ubs(1, totalColumns);
+    if (enableParallel) {
+      tryCreateKrnlParallel(create.krnl, op, "im2col outer loop parallelized",
+          outerLoopDef, lbs, ubs, 0, 0, {},
+          /*min iter for going parallel*/ 8,
+          /*createKrnlParallel=*/true);
+    }
+    create.krnl.iterateIE(outerLoopDef, outerLoopDef, lbs, ubs,
+        [&](const KrnlBuilder &createKrnl, ValueRange outerInd) {
+          MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
+              SCFBuilder>
+              create(createKrnl);
+          IndexExprScope outerScope(create.krnlIE);
+
+          IndexExpr linearColIE = DimIE(outerInd[0]);
+
+          IndexExpr n = linearColIE.floorDiv(DimIE(outputImageSize));
+          IndexExpr q = linearColIE - n * DimIE(outputImageSize);
+          IndexExpr oh = q.floorDiv(DimIE(OW));
+          IndexExpr ow = q - oh * DimIE(OW);
+
+          // Input origin shared by the full kernel sweep for this output
+          // column.
+          IndexExpr ihBase = oh * strideH - DimIE(padHBegin);
+          IndexExpr iwBase = ow * strideW - DimIE(padWBegin);
+
+          IndexExpr lastIH = ihBase + ((KH - 1) * dilationH);
+          IndexExpr lastIW = iwBase + ((KW - 1) * dilationW);
+          Value isInterior = create.math.andi(
+              create.math.andi(create.math.sge(ihBase.getValue(), zeroIndex),
+                  create.math.sge(iwBase.getValue(), zeroIndex)),
+              create.math.andi(
+                  create.math.slt(lastIH.getValue(), DimIE(HIn).getValue()),
+                  create.math.slt(lastIW.getValue(), DimIE(WIn).getValue())));
+
+          create.scf.ifThenElse(
+              isInterior,
+              [&](const SCFBuilder &scfThen) {
+                MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
+                    MathBuilder>
+                    create(scfThen);
+                IndexExprScope thenScope(create.krnlIE);
+
+                scfThen.forLoopIE(LitIE(0), DimIE(CI), 1,
+                    /*useParallel=*/false,
+                    [&](const SCFBuilder &scfCi, ValueRange ciInd) {
+                      MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
+                          MathBuilder>
+                          create(scfCi);
+                      IndexExprScope ciScope(create.krnlIE);
+                      IndexExpr ci = DimIE(ciInd[0]);
+                      IndexExpr ciBase = ci * kernelSize;
+
+                      scfCi.forLoopIE(LitIE(0), LitIE(KH), 1,
+                          /*useParallel=*/false,
+                          [&](const SCFBuilder &scfKh, ValueRange khInd) {
+                            MultiDialectBuilder<KrnlBuilder,
+                                IndexExprBuilderForKrnl, MathBuilder>
+                                create(scfKh);
+                            IndexExprScope khScope(create.krnlIE);
+                            IndexExpr kh = DimIE(khInd[0]);
+                            IndexExpr ih = DimIE(ihBase) + kh * dilationH;
+                            IndexExpr rowBase = DimIE(ciBase) + kh * KW;
+
+                            scfKh.forLoopIE(LitIE(0), LitIE(KW), 1,
+                                /*useParallel=*/false,
+                                [&](const SCFBuilder &scfKw, ValueRange kwInd) {
+                                  MultiDialectBuilder<KrnlBuilder,
+                                      IndexExprBuilderForKrnl, MathBuilder>
+                                      create(scfKw);
+                                  IndexExprScope kwScope(create.krnlIE);
+                                  IndexExpr kw = DimIE(kwInd[0]);
+                                  IndexExpr p = DimIE(rowBase) + kw;
+                                  IndexExpr iw = DimIE(iwBase) + kw * dilationW;
+                                  Value val = create.krnl.loadIE(input,
+                                      {DimIE(n), DimIE(ci), DimIE(ih), iw});
+                                  create.krnl.storeIE(
+                                      val, alloc, {DimIE(n), p, DimIE(q)});
+                                });
+                          });
+                    });
+              },
+              [&](const SCFBuilder &scfElse) {
+                MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
+                    MathBuilder>
+                    create(scfElse);
+                IndexExprScope elseScope(create.krnlIE);
+
+                IndexExpr hInInnerIE = DimIE(HIn);
+                IndexExpr wInInnerIE = DimIE(WIn);
+
+                scfElse.forLoopIE(LitIE(0), DimIE(CI), 1,
+                    /*useParallel=*/false,
+                    [&](const SCFBuilder &scfCi, ValueRange ciInd) {
+                      MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
+                          MathBuilder>
+                          create(scfCi);
+                      IndexExprScope ciScope(create.krnlIE);
+                      IndexExpr ci = DimIE(ciInd[0]);
+                      IndexExpr ciBase = ci * kernelSize;
+
+                      scfCi.forLoopIE(LitIE(0), LitIE(KH), 1,
+                          /*useParallel=*/false,
+                          [&](const SCFBuilder &scfKh, ValueRange khInd) {
+                            MultiDialectBuilder<KrnlBuilder,
+                                IndexExprBuilderForKrnl, MathBuilder>
+                                create(scfKh);
+                            IndexExprScope khScope(create.krnlIE);
+                            IndexExpr kh = DimIE(khInd[0]);
+                            IndexExpr ih = DimIE(ihBase) + kh * dilationH;
+                            IndexExpr rowBase = DimIE(ciBase) + kh * KW;
+
+                            scfKh.forLoopIE(LitIE(0), LitIE(KW), 1,
+                                /*useParallel=*/false,
+                                [&](const SCFBuilder &scfKw, ValueRange kwInd) {
+                                  MultiDialectBuilder<KrnlBuilder,
+                                      IndexExprBuilderForKrnl, MathBuilder>
+                                      create(scfKw);
+                                  IndexExprScope kwScope(create.krnlIE);
+                                  IndexExpr kw = DimIE(kwInd[0]);
+                                  IndexExpr p = DimIE(rowBase) + kw;
+                                  IndexExpr iw = DimIE(iwBase) + kw * dilationW;
+                                  Value inBounds = create.math.andi(
+                                      create.math.andi(
+                                          create.math.sge(
+                                              DimIE(ih).getValue(), zeroIndex),
+                                          create.math.slt(DimIE(ih).getValue(),
+                                              hInInnerIE.getValue())),
+                                      create.math.andi(
+                                          create.math.sge(
+                                              DimIE(iw).getValue(), zeroIndex),
+                                          create.math.slt(DimIE(iw).getValue(),
+                                              wInInnerIE.getValue())));
+
+                                  Value val = create.math.select(inBounds,
+                                      create.krnl.loadIE(
+                                          input, {DimIE(n), DimIE(ci),
+                                                     DimIE(ih), DimIE(iw)}),
+                                      zeroValue);
+                                  create.krnl.storeIE(
+                                      val, alloc, {DimIE(n), p, DimIE(q)});
+                                });
+                          });
+                    });
+              });
+        });
   }
 
   LogicalResult matchAndRewrite(ONNXIm2ColOp im2colOp, OpAdaptor adaptor,
@@ -241,7 +440,7 @@ void populateLoweringONNXIm2ColOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel) {
   bool useOptimizedAlgo = OptimizationLevel > OptLevel::O0;
   patterns.insert<ONNXIm2ColOpLowering>(typeConverter, ctx, enableParallel,
-      useOptimizedAlgo && false /* hi alex, switch to force naive algo */);
+      useOptimizedAlgo || true /* hi alex, switch to force naive algo */);
 }
 
 } // namespace onnx_mlir
