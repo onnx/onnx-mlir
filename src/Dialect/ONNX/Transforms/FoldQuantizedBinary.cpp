@@ -133,6 +133,7 @@ public:
     auto out = binOp->getResult(0);
 
     // No need of swapping inputs if first input is constant
+    // Canonicalization takes care of that
     if (lhs.template getDefiningOp<ONNXConstantOp>())
       return rewriter.notifyMatchFailure(binOp, "LHS should not be a constant");
 
@@ -150,7 +151,7 @@ public:
           binOp, "Not Quantized input and output types");
 
     // No need of checking if constant passes through reshape, etc
-    // Canonicalizations and Constant Folding takes care of those
+    // Constant folding takes care of that
     double binConst;
     if (auto constOpt = getConstant(rhs))
       binConst = *constOpt;
@@ -198,6 +199,18 @@ public:
   }
 };
 
+/// Folds binary ops Add, Sub, Mul, Div with Q-DQ by adjusting the scale and
+/// zero-point parameters. It works with 2 patterns:
+/// Q -> DQ -> Add -> Q   => Q(x, oscale, ozp + round(C/oscale))
+/// DQ -> Add -> Q -> DQ => DQ(x, iscale, izp - round(C/iscale))
+/// iscale, izp refer to quant params on the input of binary op
+/// oscale, ozp refer to quant params on the output of binary op
+///
+/// Converting above patterns to quant types
+/// not_scast --iqType-> Add --oqType->
+/// => not_scast --newQType-> scast -> scast --oqType->
+/// --iqType-> Add --oqType-> not_scast
+/// => --iqType-> scast -> scast --newQType-> not_scast
 class FoldQuantizedBinary
     : public PassWrapper<FoldQuantizedBinary, OperationPass<func::FuncOp>> {
 public:
