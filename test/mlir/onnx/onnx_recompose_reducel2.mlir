@@ -114,3 +114,27 @@ func.func @test_recompose_reducel2_reducesumsquare_extra_use(%arg0: tensor<2x3x4
 // CHECK:           "onnx.ReduceSumSquare"
 // CHECK:           "onnx.Sqrt"
 }
+
+// -----
+
+func.func @test_recompose_reducesumsquare_quant_types(%arg0: tensor<2x3x4x!quant.uniform<i8:f32, 0.5:0>>, %arg1: tensor<1xi64>) -> tensor<?x?x!quant.uniform<i8:f32, 2.0:2>> {
+  %0 = "onnx.Mul"(%arg0, %arg0) : (tensor<2x3x4x!quant.uniform<i8:f32, 0.5:0>>, tensor<2x3x4x!quant.uniform<i8:f32, 0.5:0>>) -> tensor<2x3x4x!quant.uniform<i8:f32, 1.0:1>>
+  %1 = "onnx.ReduceSum"(%0, %arg1) {keepdims = 0 : si64, noop_with_empty_axes = 0 : si64} : (tensor<2x3x4x!quant.uniform<i8:f32, 1.0:1>>, tensor<1xi64>) -> tensor<?x?x!quant.uniform<i8:f32, 2.0:2>>
+  onnx.Return %1 : tensor<?x?x!quant.uniform<i8:f32, 2.0:2>>
+// CHECK-LABEL:  func.func @test_recompose_reducesumsquare_quant_types
+// CHECK-NOT:       "onnx.ReduceSumSquare"
+// CHECK:           "onnx.Mul"
+// CHECK:           "onnx.ReduceSum"
+}
+
+// -----
+
+func.func @test_recompose_reducel2_quant_types(%arg0: tensor<2x3x4x!quant.uniform<i8:f32, 0.5:0>>, %arg1: tensor<1xi64>) -> tensor<?x?x!quant.uniform<i8:f32, 2.0:2>> {
+  %0 = "onnx.ReduceSumSquare"(%arg0, %arg1) {keepdims = 0 : si64, noop_with_empty_axes = 0 : si64} : (tensor<2x3x4x!quant.uniform<i8:f32, 0.5:0>>, tensor<1xi64>) -> tensor<?x?x!quant.uniform<i8:f32, 1.0:1>>
+  %1 = "onnx.Sqrt"(%0) : (tensor<?x?x!quant.uniform<i8:f32, 1.0:1>>) -> tensor<?x?x!quant.uniform<i8:f32, 2.0:2>>
+  onnx.Return %1 : tensor<?x?x!quant.uniform<i8:f32, 2.0:2>>
+// CHECK-LABEL:  func.func @test_recompose_reducel2_quant_types
+// CHECK-NOT:       "onnx.ReduceL2"
+// CHECK:           "onnx.ReduceSumSquare"
+// CHECK:           "onnx.Sqrt"
+}

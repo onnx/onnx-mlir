@@ -1269,6 +1269,12 @@ struct RecomposeReduceSumSquareFromMulReduceSumPattern
     if (mulOp.getA() != mulOp.getB())
       return failure();
 
+    // pessimistic: bail out if any involved value carries a quantized
+    if (onnx_mlir::hasQuantizedElementType(mulOp.getA()) ||
+        onnx_mlir::hasQuantizedElementType(mulOp.getC()) ||
+        onnx_mlir::hasQuantizedElementType(reduceSumOp.getReduced()))
+      return failure();
+
     const Value x = mulOp.getA();
     const auto loc = mlir::FusedLoc::get(
         rewriter.getContext(), {reduceSumOp.getLoc(), mulOp.getLoc()});
@@ -1293,6 +1299,12 @@ struct RecomposeReduceL2FromSqrtReduceSumSquarePattern
     if (!reduceSumSquareOp)
       return failure();
     if (!reduceSumSquareOp->hasOneUse())
+      return failure();
+
+    // pessimistic: bail out if any involved value carries a quantized
+    if (onnx_mlir::hasQuantizedElementType(reduceSumSquareOp.getData()) ||
+        onnx_mlir::hasQuantizedElementType(sqrtOp.getX()) ||
+        onnx_mlir::hasQuantizedElementType(sqrtOp.getY()))
       return failure();
 
     const auto loc = mlir::FusedLoc::get(
