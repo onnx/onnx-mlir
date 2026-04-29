@@ -375,6 +375,27 @@ bool getI64ValuesFromONNXConstantOp(
   return true;
 }
 
+bool extractI64Scalar(mlir::Value v, int64_t &out) {
+  llvm::SmallVector<int64_t, 1> values;
+  if (!getI64ValuesFromONNXConstantOp(v, values))
+    return false;
+  if (values.size() != 1)
+    return false;
+  out = values[0];
+  return true;
+}
+
+bool extractSlice1DConst(mlir::ONNXSliceOp sliceOp, int64_t &axis,
+    int64_t &start, int64_t &end, int64_t &step) {
+  if (mlir::isa<NoneType>(sliceOp.getAxes().getType()) ||
+      mlir::isa<NoneType>(sliceOp.getSteps().getType()))
+    return false;
+  return extractI64Scalar(sliceOp.getStarts(), start) &&
+         extractI64Scalar(sliceOp.getEnds(), end) &&
+         extractI64Scalar(sliceOp.getAxes(), axis) &&
+         extractI64Scalar(sliceOp.getSteps(), step);
+}
+
 //===----------------------------------------------------------------------===//
 // Support for BatchNorm
 

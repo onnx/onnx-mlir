@@ -194,6 +194,16 @@ mlir::ONNXConstantOp getONNXConstantOp(mlir::Value value);
 bool getI64ValuesFromONNXConstantOp(
     mlir::Value val, mlir::SmallVectorImpl<int64_t> &iRes);
 
+// Read a single-element i64 ONNX constant `v` into `out`. Returns false if
+// the value is not a 1-element i64 constant.
+[[nodiscard]] bool extractI64Scalar(mlir::Value v, int64_t &out);
+
+// Destructure a single-axis onnx.Slice into (axis, start, end, step). Returns
+// false if any of starts/ends/axes/steps is not a single-element i64 constant
+// or if axes/steps were NoneType.
+[[nodiscard]] bool extractSlice1DConst(mlir::ONNXSliceOp sliceOp, int64_t &axis,
+    int64_t &start, int64_t &end, int64_t &step);
+
 // Test if the value is none. Since none is a unit value it never makes a
 // difference whether it's a constant (the result of ONNXNoneOp) or the
 // optional result of some other op (e.g. ONNXDropoutOp mask result).
