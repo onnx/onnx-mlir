@@ -2230,6 +2230,151 @@ struct EliminateCarveOutAroundRotaryEmbeddingPattern
 };
 
 // =============================================================================
+// Rewrite pattern: fuse a trailing single-element scalar `onnx.Mul` into the
+//                  cos/sin caches of an upstream `onnx.RotaryEmbedding`.
+//
+// Match:
+//
+//   rope = onnx.RotaryEmbedding(X, cos, sin, none)
+//          {interleaved=0, rotary_embedding_dim=0, num_heads=N}
+//   t    = (zero or more) onnx.Transpose(... rope ...)
+//   y    = onnx.Mul(t, scale)        // scale is a scalar
+//
+// Rewrite to:
+//
+//   cosNew = onnx.Mul(cos, scale)
+//   sinNew = onnx.Mul(sin, scale)
+//   rope2  = onnx.RotaryEmbedding(X, cosNew, sinNew, none) {same attrs}
+//   y      = (the original transpose chain re-emitted on rope2)
+//
+// Correctness: for ONNX RoPE  the rotated half is built from
+//
+//     x1, x2   = split(input[..., :rotary_embedding_dim], 2, axis=-1)
+//     real     = cos * x1 - sin * x2
+//     imag     = sin * x1 + cos * x2
+//     rotated  = concat(real, imag, axis=-1)
+//     output   = concat(rotated, input[..., rotary_embedding_dim:],
+//                       axis=-1)
+//
+// substituting `cos -> s*cos` and `sin -> s*sin` for any scalar `s` gives
+// `s*real` and `s*imag`, hence `rotated' = s * rotated`.
+//
+// The un-rotated tail `input[..., rotary_embedding_dim:]` is concatenated
+// unchanged, so `output' = s * output` only holds when that tail is
+// empty. This is enforced by the `rotary_embedding_dim == 0` requirement.
+//
+// Pushing a scalar scale through transposes is safe, as its invariant to the
+// permutation.
+//
+// =============================================================================
+
+struct FuseScaleIntoRotaryEmbeddingPattern
+    : public OpRewritePattern<ONNXMulOp> {
+  using OpRewritePattern<ONNXMulOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXMulOp mulOp, PatternRewriter &rewriter) const final {
+    // Scale must be the RHS dense ONNX constant with exactly one element.
+    Value scale = mulOp.getB();
+    Value data = mulOp.getA();
+    if (!onnx_mlir::isDenseONNXConstant(scale) ||
+        onnx_mlir::isDenseONNXConstant(data))
+      return rewriter.notifyMatchFailure(
+          mulOp, "Mul is not in canonical (data, const) form");
+    auto scaleTy = dyn_cast<RankedTensorType>(scale.getType());
+    if (!scaleTy || !scaleTy.hasStaticShape() || scaleTy.getNumElements() != 1)
+      return rewriter.notifyMatchFailure(
+          mulOp, "scale must be a single-element static tensor");
+    if (!isPlainFloatType(scaleTy))
+      return rewriter.notifyMatchFailure(
+          mulOp, "scale element type is not a plain float");
+    auto mulResultTy = dyn_cast<RankedTensorType>(mulOp.getResult().getType());
+    if (!isPlainFloatType(mulResultTy))
+      return rewriter.notifyMatchFailure(
+          mulOp, "Mul result element type is not a plain float");
+
+    // Skip optional Transposes
+    SmallVector<ONNXTransposeOp> permsPost;
+    Value preTransposes = walkBackThroughTransposes(data, permsPost);
+    if (!preTransposes)
+      return rewriter.notifyMatchFailure(
+          mulOp, "post-RoPE transpose chain is malformed");
+
+    auto rope = preTransposes.getDefiningOp<ONNXRotaryEmbeddingOp>();
+    if (!rope || !rope->hasOneUse())
+      return rewriter.notifyMatchFailure(
+          mulOp, "Mul does not come from a single-use onnx.RotaryEmbedding");
+
+    // RoPE attribute / shape constraints. These could be relaxed in the future.
+    //   - rank-4 plain-float static input
+    //   - position_ids must be NoValue;
+    //   - interleaved == 0 and rotary_embedding_dim == 0 (full rotation)
+    auto ropeInTy = dyn_cast<RankedTensorType>(rope.getX().getType());
+    auto ropeOutTy = dyn_cast<RankedTensorType>(rope.getResult().getType());
+    if (!ropeInTy || !ropeOutTy || ropeInTy.getRank() != 4 ||
+        !ropeInTy.hasStaticShape() || !ropeOutTy.hasStaticShape())
+      return rewriter.notifyMatchFailure(
+          rope, "rope X / result must be rank-4 with static shape");
+    if (!isPlainFloatType(ropeInTy) || !isPlainFloatType(ropeOutTy))
+      return rewriter.notifyMatchFailure(
+          rope, "rope X / result has non-float element type");
+    if (!isa<NoneType>(rope.getPositionIds().getType()))
+      return rewriter.notifyMatchFailure(rope, "position_ids must be NoValue");
+    if (rope.getInterleaved() != 0)
+      return rewriter.notifyMatchFailure(rope, "interleaved must be 0");
+    if (rope.getRotaryEmbeddingDim() != 0)
+      return rewriter.notifyMatchFailure(
+          rope, "rotary_embedding_dim must be 0 (full rotation)");
+
+    // cos/sin must be dense ONNX constants of static shape, sharing the
+    // scale's element type so the fused Mul is well-typed and constprop-able.
+    auto cosTy = dyn_cast<RankedTensorType>(rope.getCosCache().getType());
+    auto sinTy = dyn_cast<RankedTensorType>(rope.getSinCache().getType());
+    if (!cosTy || !sinTy || !cosTy.hasStaticShape() || !sinTy.hasStaticShape())
+      return rewriter.notifyMatchFailure(
+          rope, "cos/sin must have static ranked shapes");
+    if (!onnx_mlir::isDenseONNXConstant(rope.getCosCache()) ||
+        !onnx_mlir::isDenseONNXConstant(rope.getSinCache()))
+      return rewriter.notifyMatchFailure(
+          rope, "cos/sin must be dense ONNX constants");
+    if (getElementTypeOrSelf(cosTy) != getElementTypeOrSelf(scaleTy) ||
+        getElementTypeOrSelf(sinTy) != getElementTypeOrSelf(scaleTy))
+      return rewriter.notifyMatchFailure(
+          rope, "cos/sin element type does not match scale");
+
+    // Rewrite section
+    SmallVector<Location, 4> locs{mulOp.getLoc(), rope.getLoc()};
+    for (auto t : permsPost)
+      locs.push_back(t.getLoc());
+    Location loc = FusedLoc::get(rewriter.getContext(), locs);
+    onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
+        rewriter, loc);
+
+    Value cosScaled = create.onnx.mul(rope.getCosCache(), scale);
+    Value sinScaled = create.onnx.mul(rope.getSinCache(), scale);
+
+    auto newRope = cast<ONNXRotaryEmbeddingOp>(rewriter.clone(*rope));
+    newRope->setLoc(loc);
+    newRope.getCosCacheMutable().assign(cosScaled);
+    newRope.getSinCacheMutable().assign(sinScaled);
+
+    Value newOut = newRope.getResult();
+    SmallVector<int64_t> curShape = llvm::to_vector(ropeOutTy.getShape());
+    Type elemType = getElementTypeOrSelf(ropeOutTy);
+    for (auto t : llvm::reverse(permsPost)) {
+      ArrayAttr permAttr = t.getPermAttr();
+      auto perm = extractFromIntegerArrayAttr<int64_t>(permAttr);
+      curShape = applyPermutation(curShape, perm);
+      const auto newTy = RankedTensorType::get(curShape, elemType);
+      newOut = create.onnx.transpose(newTy, newOut, permAttr);
+    }
+
+    rewriter.replaceOp(mulOp, newOut);
+    return success();
+  }
+};
+
+// =============================================================================
 // Rewrite pattern LayerNormalization
 // =============================================================================
 
@@ -3573,6 +3718,7 @@ void ONNXMulOp::getCanonicalizationPatterns(
   results.insert<PropagateConstantScalingInAttentionLayerPattern<ONNXMulOp>>(
       context);
   results.insert<PushTransposeDownScalePattern>(context);
+  results.insert<FuseScaleIntoRotaryEmbeddingPattern>(context);
 }
 
 /// on the ONNXOrOp.
