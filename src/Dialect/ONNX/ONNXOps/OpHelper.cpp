@@ -880,19 +880,16 @@ bool hasIntegerPowerExponent(ONNXPowOp *op, int64_t &exponentValue) {
       Type storageElem = elementAttr.getElementType();
       double raw = getScalarValue<double>(elementAttr, storageElem);
       double dequantizedExponent = 0.0;
-      if (auto uq =
-              dyn_cast<mlir::quant::UniformQuantizedType>(wrappedElem)) {
+      if (auto uq = dyn_cast<mlir::quant::UniformQuantizedType>(wrappedElem)) {
         dequantizedExponent =
             (raw - static_cast<double>(uq.getZeroPoint())) * uq.getScale();
       } else {
-        auto pa =
-            cast<mlir::quant::UniformQuantizedPerAxisType>(wrappedElem);
+        auto pa = cast<mlir::quant::UniformQuantizedPerAxisType>(wrappedElem);
         auto scales = pa.getScales();
         auto zps = pa.getZeroPoints();
         if (scales.size() != 1 || zps.size() != 1)
           return false;
-        dequantizedExponent =
-            (raw - static_cast<double>(zps[0])) * scales[0];
+        dequantizedExponent = (raw - static_cast<double>(zps[0])) * scales[0];
       }
       // Match xcompiler TransferPowWithExpTwoToMulPass (1e-6 vs real value).
       constexpr double kQuantConstPowExponentIntegerTol = 1e-6;
