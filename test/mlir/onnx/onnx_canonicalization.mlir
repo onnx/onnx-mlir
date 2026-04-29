@@ -1,11 +1,8 @@
-// RUN: onnx-mlir-opt --shape-inference --canonicalize="test-convergence=true"
-// --shape-inference --cse %s -split-input-file -verify-diagnostics | FileCheck
-// %s
+// RUN: onnx-mlir-opt --shape-inference --canonicalize="test-convergence=true" --shape-inference --cse %s -split-input-file -verify-diagnostics | FileCheck %s
 
 // -----
 
-// CHECK-LABEL: func @test_matmul_add_fused(%{{.*}}: tensor<10x10xf32>, %{{.*}}:
-// tensor<10x10xf32>, %{{.*}}: tensor<10x10xf32>) -> tensor<10x10xf32> {
+// CHECK-LABEL: func @test_matmul_add_fused(%{{.*}}: tensor<10x10xf32>, %{{.*}}: tensor<10x10xf32>, %{{.*}}: tensor<10x10xf32>) -> tensor<10x10xf32> {
 func.func @test_matmul_add_fused(%a0: tensor<10x10xf32>, %a1: tensor<10x10xf32>, %a2: tensor<10x10xf32>) -> tensor<10x10xf32> {
   // CHECK-NEXT: %{{[0-9]+}} = "onnx.Gemm"(%{{.*}}, %{{.*}}, %{{.*}}) {alpha = 1.000000e+00 : f32, beta = 1.000000e+00 : f32, transA = 0 : si64, transB = 0 : si64} : (tensor<10x10xf32>, tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<10x10xf32>
   %0 = "onnx.MatMul"(%a0, %a1) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<10x10xf32>
@@ -1695,9 +1692,8 @@ func.func @test_softmax_size_not_one_axis(%arg0 : tensor<4x8x1x1xf32>) -> tensor
 
 // -----
 
-#transpose = affine_map < (d0, d1, d2, d3)->(d2, d0, d1, d3)>
-#reshape = affine_map <                                                        \
-           (d0, d1)->(d0 floordiv 32, d0 mod 32, d1 floordiv 64, d1 mod 64)>
+#transpose = affine_map<(d0, d1, d2, d3) -> (d2, d0, d1, d3)>
+#reshape =  affine_map<(d0, d1) -> (d0 floordiv 32, d0 mod 32, d1 floordiv 64, d1 mod 64)>
 func.func @shape_transform_compose(%arg0: tensor<128x128xf32>) -> tensor<2x4x32x64xf32> {
   %0 = "onnx.ShapeTransform"(%arg0) {index_map = #reshape} : (tensor<128x128xf32>) -> tensor<4x32x2x64xf32>
   %1 = "onnx.ShapeTransform"(%0) {index_map = #transpose} : (tensor<4x32x2x64xf32>) -> tensor<2x4x32x64xf32>
@@ -1714,7 +1710,7 @@ func.func @shape_transform_compose(%arg0: tensor<128x128xf32>) -> tensor<2x4x32x
 // -----
 
 // Remove ShapeTransform with identity map.
-#identity = affine_map < (d0, d1)->(d0, d1)>
+#identity = affine_map<(d0, d1) -> (d0, d1)>
 func.func @shape_transform_identity_map(%arg0: tensor<128x128xf32>) -> tensor<128x128xf32> {
   %0 = "onnx.ShapeTransform"(%arg0) {index_map = #identity} : (tensor<128x128xf32>) -> tensor<128x128xf32>
   onnx.Return %0 : tensor<128x128xf32>
@@ -3331,9 +3327,64 @@ func.func @leaky_relu_alpha_zero_to_relu(%arg0: tensor<2x3xf32>) -> tensor<2x3xf
 
 // CHECK-LABEL:   func.func @leaky_relu_alpha_default(%arg0: tensor<2x3xf32>) -> tensor<2x3xf32> {
 func.func @leaky_relu_alpha_default(%arg0: tensor<2x3xf32>) -> tensor<2x3xf32> {
-  // CHECK-NEXT:    %{{[0-9]+}} = "onnx.LeakyRelu"(%arg0) {alpha = 0.00999999977
-  // : f32} : (tensor<2x3xf32>) -> tensor<2x3xf32>
-  % 0 = "onnx.LeakyRelu"(% arg0)
-      : (tensor<2x3xf32>)->tensor<2x3xf32> onnx.Return %
-        0 : tensor<2x3xf32>
+  // CHECK-NEXT:    %{{[0-9]+}} = "onnx.LeakyRelu"(%arg0) {alpha = 0.00999999977 : f32} : (tensor<2x3xf32>) -> tensor<2x3xf32>
+  %0 = "onnx.LeakyRelu"(%arg0) : (tensor<2x3xf32>) -> tensor<2x3xf32>
+  onnx.Return %0 : tensor<2x3xf32>
+}
+
+// -----
+
+// CHECK-LABEL: func.func @reduce_mean_drop_all_unit_axes
+func.func @reduce_mean_drop_all_unit_axes(%arg0: tensor<1x3x1x5xf32>) -> tensor<1x3x1x5xf32> {
+  %axes = onnx.Constant dense<[0, 2]> : tensor<2xi64>
+  %0 = "onnx.ReduceMean"(%arg0, %axes) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<1x3x1x5xf32>, tensor<2xi64>) -> tensor<1x3x1x5xf32>
+  onnx.Return %0 : tensor<1x3x1x5xf32>
+  // CHECK-NOT: onnx.ReduceMean
+  // CHECK: onnx.Return %arg0 : tensor<1x3x1x5xf32>
+}
+
+// -----
+
+// CHECK-LABEL: func.func @reduce_mean_drop_some_unit_axes
+func.func @reduce_mean_drop_some_unit_axes(%arg0: tensor<2x1x4x1x6xf16>) -> tensor<1x1x1x1x1xf16> {
+  %axes = onnx.Constant dense<[0, 1, -2, 4]> : tensor<4xi64>
+  %0 = "onnx.ReduceMean"(%arg0, %axes) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<2x1x4x1x6xf16>, tensor<4xi64>) -> tensor<1x1x1x1x1xf16>
+  onnx.Return %0 : tensor<1x1x1x1x1xf16>
+  // CHECK: %[[NEW_AXES:.+]] = onnx.Constant dense<[0, 4]> : tensor<2xi64>
+  // CHECK: %[[RES:.+]] = "onnx.ReduceMean"(%arg0, %[[NEW_AXES]]) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<2x1x4x1x6xf16>, tensor<2xi64>) -> tensor<1x1x1x1x1xf16>
+  // CHECK: onnx.Return %[[RES]]
+}
+
+// -----
+
+// CHECK-LABEL: func.func @reduce_mean_empty_axes_drop_unit
+func.func @reduce_mean_empty_axes_drop_unit(%arg0: tensor<3x1x5xi32>) -> tensor<1x1x1xi32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.ReduceMean"(%arg0, %none) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<3x1x5xi32>, none) -> tensor<1x1x1xi32>
+  onnx.Return %0 : tensor<1x1x1xi32>
+  // CHECK: %[[NEW_AXES:.+]] = onnx.Constant dense<[0, 2]> : tensor<2xi64>
+  // CHECK: %[[RES:.+]] = "onnx.ReduceMean"(%arg0, %[[NEW_AXES]]) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<3x1x5xi32>, tensor<2xi64>) -> tensor<1x1x1xi32>
+  // CHECK: onnx.Return %[[RES]]
+}
+
+// -----
+
+// CHECK-LABEL: func.func @reduce_mean_no_unit_axes_unchanged
+func.func @reduce_mean_no_unit_axes_unchanged(%arg0: tensor<2x3x4x5xbf16>) -> tensor<2x1x4x1xbf16> {
+  %axes = onnx.Constant dense<[1, -1]> : tensor<2xi64>
+  %0 = "onnx.ReduceMean"(%arg0, %axes) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<2x3x4x5xbf16>, tensor<2xi64>) -> tensor<2x1x4x1xbf16>
+  onnx.Return %0 : tensor<2x1x4x1xbf16>
+  // CHECK: %[[AXES:.+]] = onnx.Constant dense<[1, -1]> : tensor<2xi64>
+  // CHECK: %[[RES:.+]] = "onnx.ReduceMean"(%arg0, %[[AXES]]) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64}
+  // CHECK: onnx.Return %[[RES]]
+}
+
+// -----
+
+// CHECK-LABEL: func.func @reduce_mean_keepdims_zero_unchanged
+func.func @reduce_mean_keepdims_zero_unchanged(%arg0: tensor<1x3x1x5xf32>) -> tensor<3x5xf32> {
+  %axes = onnx.Constant dense<[0, 2]> : tensor<2xi64>
+  %0 = "onnx.ReduceMean"(%arg0, %axes) {keepdims = 0 : si64, noop_with_empty_axes = 0 : si64} : (tensor<1x3x1x5xf32>, tensor<2xi64>) -> tensor<3x5xf32>
+  onnx.Return %0 : tensor<3x5xf32>
+  // CHECK: "onnx.ReduceMean"(%arg0, %{{.*}}) {keepdims = 0 : si64, noop_with_empty_axes = 0 : si64}
 }
