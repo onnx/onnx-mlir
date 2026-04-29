@@ -15,6 +15,8 @@
 #ifndef ONNX_MLIR_OPS_HELPER_H
 #define ONNX_MLIR_OPS_HELPER_H
 
+#include <optional>
+
 #include "mlir/Dialect/Quant/IR/QuantTypes.h"
 #include "mlir/Dialect/Traits.h"
 #include "mlir/IR/AffineExpr.h"
@@ -357,6 +359,16 @@ private:
 };
 
 bool hasIntegerPowerExponent(mlir::ONNXPowOp *op, int64_t &exponentValue);
+
+/// If \p value is a dense `onnx.Constant` with exactly one element, returns the
+/// scalar in the **expressed** (real) domain: for uniform quantized tensor
+/// types, applies \code (storage - zp) * scale \endcode; for per-axis quantized
+/// types, only when there is exactly one scale and one zero-point. Otherwise
+/// returns the literal scalar (float/int/bf16 storage interpreted as \c
+/// double). Returns \c std::nullopt if the value is not a scalar dense
+/// constant or per-axis quantization cannot be reduced to a single effective
+/// scale/zero-point.
+std::optional<double> getRealScalarFromDenseONNXConstant(mlir::Value value);
 
 //===----------------------------------------------------------------------===//
 // Support for dim operations.

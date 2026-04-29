@@ -3,6 +3,7 @@
  */
 
 #include <cmath>
+#include <optional>
 
 //===------- ONNXOpsHelper.cpp - Helper functions for ONNX dialects -------===//
 //
@@ -830,6 +831,35 @@ IgnoreDiagnostic::~IgnoreDiagnostic() {
   diagEngine.eraseHandler(id);
 }
 
+std::optional<double> getRealScalarFromDenseONNXConstant(Value constantValue) {
+  if (!getONNXConstantOp(constantValue))
+    return std::nullopt;
+  ElementsAttr elementAttr = getElementAttributeFromONNXValue(constantValue);
+  if (!elementAttr || elementAttr.getNumElements() != 1)
+    return std::nullopt;
+
+  Type storageElemTy = elementAttr.getElementType();
+  double raw = getScalarValue<double>(elementAttr, storageElemTy);
+
+  auto rankedTy = dyn_cast<RankedTensorType>(constantValue.getType());
+  if (!rankedTy)
+    return raw;
+
+  Type wrappedElem = rankedTy.getElementType();
+  if (auto uq = dyn_cast<mlir::quant::UniformQuantizedType>(wrappedElem)) {
+    return (raw - static_cast<double>(uq.getZeroPoint())) * uq.getScale();
+  }
+  if (auto pa =
+          dyn_cast<mlir::quant::UniformQuantizedPerAxisType>(wrappedElem)) {
+    auto scales = pa.getScales();
+    auto zps = pa.getZeroPoints();
+    if (scales.size() != 1 || zps.size() != 1)
+      return std::nullopt;
+    return (raw - static_cast<double>(zps[0])) * scales[0];
+  }
+  return raw;
+}
+
 bool hasIntegerPowerExponent(ONNXPowOp *op, int64_t &exponentValue) {
   Value exponent = op->getY();
   // In case of QDQ quantized models: If exponent is from a DequantizeLinear op,
@@ -870,41 +900,33 @@ bool hasIntegerPowerExponent(ONNXPowOp *op, int64_t &exponentValue) {
   if (elementAttr.getNumElements() != 1)
     return false;
 
-  // Scalar onnx.Constant with a quantized tensor type: the dense attribute
-  // holds storage (e.g. ui16) while the real exponent is (raw - zp) * scale.
-  // Use tolerance only here; DQ / plain float / plain int paths stay exact.
-  if (auto rankedTy = dyn_cast<RankedTensorType>(exponent.getType())) {
-    Type wrappedElem = rankedTy.getElementType();
-    if (isa<mlir::quant::UniformQuantizedType,
-            mlir::quant::UniformQuantizedPerAxisType>(wrappedElem)) {
-      Type storageElem = elementAttr.getElementType();
-      double raw = getScalarValue<double>(elementAttr, storageElem);
-      double dequantizedExponent = 0.0;
-      if (auto uq = dyn_cast<mlir::quant::UniformQuantizedType>(wrappedElem)) {
-        dequantizedExponent =
-            (raw - static_cast<double>(uq.getZeroPoint())) * uq.getScale();
-      } else {
-        auto pa = cast<mlir::quant::UniformQuantizedPerAxisType>(wrappedElem);
-        auto scales = pa.getScales();
-        auto zps = pa.getZeroPoints();
-        if (scales.size() != 1 || zps.size() != 1)
-          return false;
-        dequantizedExponent = (raw - static_cast<double>(zps[0])) * scales[0];
-      }
-      // Match xcompiler TransferPowWithExpTwoToMulPass (1e-6 vs real value).
-      constexpr double kQuantConstPowExponentIntegerTol = 1e-6;
-      double nearest = std::round(dequantizedExponent);
-      if (std::fabs(dequantizedExponent - nearest) >
-          kQuantConstPowExponentIntegerTol)
-        return false;
-      exponentValue = static_cast<int64_t>(nearest);
-      return true;
-    }
+  auto realOpt = getRealScalarFromDenseONNXConstant(exponent);
+  if (!realOpt)
+    return false;
+
+  auto isQuantizedScalarConstantTensor = [](Value v) -> bool {
+    auto rt = dyn_cast<RankedTensorType>(v.getType());
+    if (!rt)
+      return false;
+    Type e = rt.getElementType();
+    return isa<mlir::quant::UniformQuantizedType,
+        mlir::quant::UniformQuantizedPerAxisType>(e);
+  };
+
+  // Quantized onnx.Constant: storage does not match the real exponent; allow a
+  // small tolerance when classifying as an integer (xcompiler uses 1e-6).
+  if (isQuantizedScalarConstantTensor(exponent)) {
+    constexpr double kQuantConstPowExponentIntegerTol = 1e-6;
+    double nearest = std::round(*realOpt);
+    if (std::fabs(*realOpt - nearest) > kQuantConstPowExponentIntegerTol)
+      return false;
+    exponentValue = static_cast<int64_t>(nearest);
+    return true;
   }
 
   Type elementType = elementAttr.getElementType();
   if (mlir::isa<FloatType>(elementType)) {
-    double floatVal = getScalarValue<double>(elementAttr, elementType);
+    double floatVal = *realOpt;
     if (floatVal == ceil(floatVal)) {
       // We essentially have an integer value represented as a float.
       exponentValue = static_cast<int64_t>(floatVal);
