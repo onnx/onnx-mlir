@@ -5,7 +5,6 @@
 #include <unordered_set>
 
 #include <llvm/ADT/STLExtras.h>
-#include <mlir/Dialect/Quant/IR/Quant.h>
 #include <mlir/IR/BuiltinAttributes.h>
 #include <mlir/IR/MLIRContext.h>
 #include <mlir/IR/Value.h>
@@ -58,33 +57,12 @@ void inferTensorNames(ValueRange replOperands) {
   } while (workList.size() > 0 && wlen > workList.size());
 }
 
-Value skipSCast(Operation *replacement) {
-  if (auto scast = dyn_cast_if_present<quant::StorageCastOp>(replacement)) {
-    // Second check to avoid (scast -> scast) and similar cases
-    if (auto newRepl = scast.getInput().getDefiningOp();
-        newRepl && !isa<quant::StorageCastOp, ONNXDequantizeLinearOp,
-                       ONNXQuantizeLinearOp>(newRepl))
-      return scast.getInput();
-  }
-  return nullptr;
-}
-
-OpResult skipSCast(OpResult value) {
-  if (auto newRepl = skipSCast(value.getOwner()))
-    return cast<OpResult>(newRepl);
-  return value;
-}
-
 } // namespace
 
 void ResultNamesUpdater::notifyOperationReplaced(
     Operation *op, Operation *replacement) {
   if (!op->hasAttrOfType<ArrayAttr>("ResultNames"))
     return;
-
-  // Skip scasts
-  if (auto newRepl = skipSCast(replacement))
-    return notifyOperationReplaced(op, newRepl);
 
   // First, copy the ResultNames attribute for the last value
   auto resultNamesArray = op->getAttrOfType<ArrayAttr>("ResultNames");
@@ -109,7 +87,6 @@ void ResultNamesUpdater::notifyOperationReplaced(
   MLIRContext *ctx = op->getContext();
   for (auto [name, value] : llvm::zip_equal(resultNamesArray, replacement)) {
     if (OpResult replResult = dyn_cast<OpResult>(value)) {
-      replResult = skipSCast(replResult);
       Operation *replOp = replResult.getOwner();
 
       // Get new or existing ResultNames
