@@ -34,6 +34,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/MC/TargetRegistry.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FileUtilities.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Program.h"
@@ -694,6 +695,18 @@ std::string dirName(StringRef inputFilename) {
   llvm::sys::path::remove_filename(path);
   return std::string(path.data(), path.size());
 }
+// TODO: Remove after onnx 1.21.0 update (see
+// https://github.com/onnx/onnx-mlir/issues/3455).
+// Check if a file is a hardlink. Hardlinks are detected by checking if the
+// file has more than one link (link count > 1). This mitigates path traversal
+// attacks (CVE-2026-34446) where a hardlink to a sensitive file bypasses
+// symlink checks because it appears as a regular file.
+bool isHardlink(StringRef filepath) {
+  llvm::sys::fs::file_status fileStat;
+  if (llvm::sys::fs::status(filepath, fileStat))
+    return false; // Cannot stat file; let later code handle the error.
+  return fileStat.getLinkCount() > 1;
+}
 } // namespace
 
 // Return 0 on success, error number on failure.
@@ -714,6 +727,16 @@ int processInputFile(StringRef inputFilename, mlir::MLIRContext &context,
                     "\": Either an ONNX model (.onnx or .onnxtext or .json), "
                     "or an MLIR file (.mlir) needs to be provided.";
     return InvalidInputFile;
+  }
+
+  // TODO: Remove after onnx 1.21.0 update (see
+  // https://github.com/onnx/onnx-mlir/issues/3455).
+  // Reject hardlinks to prevent path traversal attacks (CVE-2026-34446).
+  if (!inputIsSTDIN && isHardlink(inputFilename)) {
+    *errorMessage = "Input file \"" + inputFilename.str() +
+                    "\" is a hardlink, which is not allowed for "
+                    "security reasons.";
+    return InvalidInputFileLink;
   }
 
   if (inputIsSTDIN || inputIsONNX || inputIsONNXText || inputIsJSON) {

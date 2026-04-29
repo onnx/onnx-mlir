@@ -8,14 +8,19 @@ LABEL onnx_mlir_pr_number=${ONNX_MLIR_PR_NUMBER}
 LABEL onnx_mlir_pr_number2=${ONNX_MLIR_PR_NUMBER2}
 
 ARG WORK_DIR=/workdir
+ARG ONNX_MLIR_CODE_CACHEBUST=0
 WORKDIR ${WORK_DIR}
 
 # Copy onnx-mlir from the pull request
 COPY . onnx-mlir
 
-# Setup onnx
-RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
-    && cd ${ONNX_ROOT} && python3 -m pip install .
+# Setup onnx. Reference the cachebust arg in this layer so Docker does not
+# reuse a stale install when the vendored ONNX sources change.
+RUN echo "onnx-mlir code cachebust: ${ONNX_MLIR_CODE_CACHEBUST}" \
+    && ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
+    && cd ${ONNX_ROOT} \
+    && CC=clang CXX=clang++ CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib" python3 -m pip install . --no-build-isolation \
+    && rm -rf ${HOME}/.cache
 
 ARG NPROC=4
 ARG ACCEL=NNPA

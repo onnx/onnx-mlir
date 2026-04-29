@@ -4,9 +4,9 @@ on: [push, pull_request]
 
 jobs:
   build:
-    runs-on: macos-13
+    runs-on: macos-15-intel
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: recursive
     - uses: actions/setup-python@v4
@@ -24,7 +24,7 @@ jobs:
         sh ~/work/onnx-mlir/onnx-mlir/utils/install-protobuf.sh
     - name: cache MLIR directory
       id: cache-mlir
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/work/onnx-mlir/llvm-project
         key: ${{ runner.os }}-mlir-${{ hashFiles('**/clone-mlir.sh', '**/build-mlir.sh') }}

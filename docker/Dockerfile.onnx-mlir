@@ -8,6 +8,7 @@ LABEL onnx_mlir_pr_number=${ONNX_MLIR_PR_NUMBER}
 LABEL onnx_mlir_pr_number2=${ONNX_MLIR_PR_NUMBER2}
 
 ARG WORK_DIR=/workdir
+ARG ONNX_MLIR_CODE_CACHEBUST=0
 WORKDIR ${WORK_DIR}
 
 # Copy onnx-mlir from the pull request
@@ -19,9 +20,13 @@ COPY . onnx-mlir
 # it fails to find protobuf because CMAKE_INSTALL_LIBDIR resolves to
 # lib64 but protobuf is installed under /usr/local/lib. So we force
 # CMAKE_INSTALL_LIBDIR to be lib.
-RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
+# Reference the cachebust arg in this layer so Docker does not reuse a
+# stale vendored ONNX install when source changes need to be picked up.
+RUN echo "onnx-mlir code cachebust: ${ONNX_MLIR_CODE_CACHEBUST}" \
+    && ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
     && cd ${ONNX_ROOT} \
-    && CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib" python3 -m pip install .
+    && CC=clang CXX=clang++ CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib" python3 -m pip install . --no-build-isolation \
+    && rm -rf ${HOME}/.cache
 
 ARG NPROC=4
 ARG ACCEL=NNPA
@@ -38,6 +43,8 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
 # Build onnx-mlir, run tests, and install
     && cd ${ONNX_MLIR_ROOT} \
     && rm -rf build && mkdir -p build && cd build \
+    && distro=$(cat /etc/os-release|grep -Po '(?<=^ID=).*'|sed 's/\"//g') \
+    && PYTHON_CMAKE_ARGS=$([ "${distro}" = "rhel" ] || [ "${distro}" = "fedora" ] && echo "-DPython3_EXECUTABLE=/usr/bin/python3.9" || echo) \
 # NNPA acclerator is built on all archs to enable lit tests
 # (dependent libzdnn is built on s390x only)
     && CC=clang CXX=clang++ \
@@ -45,6 +52,7 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
              -DCMAKE_BUILD_TYPE=Release \
              -DLLVM_ENABLE_ASSERTIONS=ON \
              -DCMAKE_INSTALL_MESSAGE=NEVER \
+             ${PYTHON_CMAKE_ARGS} \
              -DONNX_MLIR_ACCELERATORS=${ACCEL} .. \
     && make -j${NPROC} \
     && make -j${NPROC} LIT_OPTS=-v check-onnx-lit \

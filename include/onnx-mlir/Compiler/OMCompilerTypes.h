@@ -72,6 +72,7 @@ typedef enum {
   CompilerFailureInGenJni = 11,    /* Failed to lower Jni object to Jni */
   CompilerFailureInObjToLib = 12,  /* Failed to link object to a library */
   CompilerFailure = 13,            /* Failed to compile valid input file. */
+  InvalidInputFileLink = 14,       /* Rejected input file because it is a hardlink. */
 } OnnxMlirCompilerErrorCodes;
 
 #ifdef __cplusplus

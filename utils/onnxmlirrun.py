@@ -108,7 +108,7 @@ class InferenceSession:
 
         print("Compiling the model ...")
         start = time.perf_counter()
-        (ok, msg) = self.execute_commands(command_str)
+        ok, msg = self.execute_commands(command_str)
         end = time.perf_counter()
         print("compile took ", end - start, " seconds.\n")
         if not ok:
@@ -176,7 +176,7 @@ class InferenceSession:
         if self.VERBOSE:
             print(cmds)
         out = subprocess.Popen(cmds, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        (stdout, stderr) = out.communicate()
+        stdout, stderr = out.communicate()
         msg = stderr.decode("utf-8") + stdout.decode("utf-8")
         if out.returncode == -signal.SIGSEGV:
             return (False, "Segfault")
