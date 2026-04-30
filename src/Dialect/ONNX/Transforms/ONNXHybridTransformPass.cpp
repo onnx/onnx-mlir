@@ -280,8 +280,12 @@ struct ONNXHybridTransformPass
     if (maxNumRewritesOffset == -1) {
       config.maxNumRewrites = GreedyRewriteConfig::kNoLimit;
     } else {
-      // Count the top level ops in f, i.e., excluding sub-regions.
-      float numOps = std::distance(body.op_begin(), body.op_end());
+      // Count all ops reachable from the function body, including ops inside
+      // loop/if sub-regions.  Loop unrolling moves sub-region ops to the top
+      // level, so the budget must account for them to avoid false convergence
+      // failures on models with unrollable loops.
+      int64_t numOps = 0;
+      body.walk([&](Operation *) { ++numOps; });
       config.maxNumRewrites =
           maxNumRewritesOffset + maxNumRewritesMultiplier * numOps;
     }

@@ -16,6 +16,9 @@
 // A `frontend` placeholder dialect is used to encode operations that are not
 // covered by any existing dialects.
 //
+// Modifications (c) Copyright 2026 Advanced Micro Devices, Inc. or its
+// affiliates
+//
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -318,7 +321,7 @@ private:
         NameLoc::get(builder_.getStringAttr("Initializer_" + tensor.name()));
     Value initializer = createConstantValue(mlirAttr, loc);
     if (options_.addResultNamesAttr) {
-      if (auto constOp = initializer.getDefiningOp()) {
+      if (auto *constOp = initializer.getDefiningOp()) {
         constOp->setAttr(
             "ResultNames", builder_.getStrArrayAttr({tensor.name()}));
       }
@@ -456,7 +459,7 @@ private:
     case onnx::AttributeProto::INT:
       mlirAttr =
           IntegerAttr::get(builder_.getIntegerType(64, /*isSigned=*/true),
-              APInt(64, /*value=*/attr.i(), /*isSigned=*/true));
+              APInt(64, /*val=*/attr.i(), /*isSigned=*/true));
       break;
     case onnx::AttributeProto::STRING:
       mlirAttr = builder_.getStringAttr(attr.s());
@@ -524,7 +527,7 @@ private:
   }
 
   // Generate a string vector from the dimParams option string
-  void getInputDimParamsMapFromOption(std::string optionStr,
+  static void getInputDimParamsMapFromOption(std::string optionStr,
       std::map<int, std::string> &paramStrMap,
       std::string &paramStrForAllArgs) {
     std::stringstream paramStrStream(optionStr);
@@ -541,7 +544,401 @@ private:
         paramStrMap[idx] = dimParamStr;
       }
     }
-    return;
+  }
+
+  // Resolves the MLIR type for a single input of an ONNX subgraph body.
+  //
+  // ONNX allows subgraph body inputs (Loop/Scan/If) to omit their type
+  // annotation when the type can be derived from the enclosing graph.
+  // This function tries three strategies in order:
+  //   1. Parse the type directly from the proto annotation (the normal case).
+  //   2. Steal the type from the corresponding operand of the parent op.
+  //      E.g. for a Loop body input at index 2 (the first loop-carried var),
+  //      the type is taken from operand 2 of the onnx.Loop op itself.
+  //   3. For onnx.Loop bodies specifically, the ONNX spec mandates that
+  //      input 0 is always i64 (iteration index) and input 1 is always i1
+  //      (termination condition), regardless of what the proto says.
+  //
+  // Returns an error if none of the strategies succeed.
+  // On success, `dimParams` is populated with symbolic dimension constraints
+  // (e.g. "N:batch") when the annotation provides them; it may remain empty
+  // for types resolved via fallback.
+  ErrorOr<Type> importBodyInputType(const onnx::ValueInfoProto &input,
+      int inputIndex, Operation *parentOp, std::string &dimParams,
+      std::string &errorMessage) {
+    ErrorOr<Type> importedType =
+        ImportType(input.type(), errorMessage, &dimParams);
+    if (!importedType.getError())
+      return importedType;
+
+    // Type annotation is absent; apply fallbacks in order:
+    // 1. Parent op's operand at the same index (if it has a concrete type).
+    // 2. ONNX-mandated fixed types for the first two Loop body inputs.
+    Type parentTy =
+        (parentOp != nullptr && inputIndex < (int)parentOp->getNumOperands())
+            ? parentOp->getOperand(inputIndex).getType()
+            : Type{};
+    if (parentTy && !mlir::isa<mlir::NoneType>(parentTy)) {
+      errorMessage = "";
+      return parentTy;
+    }
+    if (parentOp != nullptr && mlir::isa<ONNXLoopOp>(parentOp)) {
+      if (inputIndex == 0) {
+        errorMessage = "";
+        return builder_.getIntegerType(64); // iteration index
+      }
+      if (inputIndex == 1) {
+        errorMessage = "";
+        return builder_.getI1Type(); // loop condition
+      }
+    }
+    errorMessage += "Failed to import input type for '" + input.name() + "'\n";
+    return importedType.getError();
+  }
+
+  // Processes the input list of a subgraph body: resolves each input's MLIR
+  // type, adds all inputs as block arguments, and binds their ONNX names in
+  // the symbol table.
+  //
+  // Inputs that are initializers (weight tensors) are skipped here — they were
+  // already materialized as onnx.Constant ops before this function is called.
+  //
+  // The two-pass structure is intentional: MLIR requires all block arguments to
+  // be added in a single addArguments() call before any of them can appear as
+  // SSA values. The first pass collects types; the second pass binds names.
+  //
+  // Example: for a Loop body with inputs [iter_count, condition, x],
+  // where x is a loop-carried variable of type f32[N]:
+  //   - iter_count → i64 (Loop-mandated fixed type)
+  //   - condition  → i1  (Loop-mandated fixed type)
+  //   - x          → f32[N] (stolen from the parent onnx.Loop operand)
+  // All three become block arguments; their names are bound in
+  // frontend_symbols_ so downstream ImportNode calls can resolve them.
+  [[nodiscard]] std::error_code importGraphInputs(const onnx::GraphProto &graph,
+      Operation *parentOp, Block *entryBlock,
+      const std::unordered_set<std::string> &initializerNames,
+      llvm::SmallVector<Type, 4> &argTypes,
+      llvm::SmallVector<llvm::StringRef, 4> &inputNames,
+      llvm::SmallVector<std::string, 4> &inputDimParams,
+      std::string &errorMessage) {
+    std::map<int, std::string> inputDimParamsFromOption;
+    std::string inputDimParamsFromOptionForAllArgs;
+    getInputDimParamsMapFromOption(options_.dimParams, inputDimParamsFromOption,
+        inputDimParamsFromOptionForAllArgs);
+
+    int inputIndex = 0;
+    for (const auto &input : graph.input()) {
+      AddValueInfo(input);
+      if (initializerNames.contains(input.name()))
+        continue;
+
+      inputNames.push_back(input.name());
+      std::string dimParams;
+      ErrorOr<Type> importedType = importBodyInputType(
+          input, inputIndex, parentOp, dimParams, errorMessage);
+      if (auto ec = importedType.getError())
+        return ec;
+
+      Type argTy = modelInputShaper_.reshape(inputIndex, *importedType);
+      if (inputDimParamsFromOption.contains(inputIndex))
+        inputDimParams.emplace_back(inputDimParamsFromOption[inputIndex]);
+      else if (!inputDimParamsFromOptionForAllArgs.empty())
+        inputDimParams.emplace_back(inputDimParamsFromOptionForAllArgs);
+      else if (!dimParams.empty())
+        inputDimParams.emplace_back(dimParams);
+
+      argTypes.emplace_back(argTy);
+      ++inputIndex;
+    }
+
+    entryBlock->addArguments(argTypes,
+        llvm::SmallVector<Location, 4>(argTypes.size(), UnknownLoc()));
+
+    int entryBlockArgIdx = 0;
+    for (const auto &input : graph.input()) {
+      if (!initializerNames.contains(input.name()))
+        BindOnnxName(
+            input.name(), entryBlock->getArguments()[entryBlockArgIdx++]);
+    }
+    return {};
+  }
+
+  // Recursively collects all free variables of `body`: value names that the
+  // body (and any sub-bodies it contains) *use* but do not *define*.
+  //
+  // Used by buildIntraGraphCaptureEdges() to discover implicit dependencies
+  // between nodes in the enclosing graph — a node B with a subgraph that
+  // references a value x implicitly depends on whatever node A produces x,
+  // even if x is not a direct operand of B.
+  //
+  // Example: given a Loop body that contains  y = Add(x, iter_count)
+  // where neither "x" nor "iter_count" is produced inside the body,
+  // both end up in `freeVars` after this call.
+  //
+  // The result is accumulated into `freeVars` (not replaced) so the caller
+  // can call this function on multiple sub-bodies and union the results.
+  static void collectFreeVariables(
+      const onnx::GraphProto &body, std::unordered_set<std::string> &freeVars) {
+    // Collect all names referenced by nodes in this body (and sub-bodies).
+    for (const auto &n : body.node()) {
+      for (const auto &inp : n.input())
+        if (!inp.empty())
+          freeVars.insert(inp);
+      for (const auto &attr : n.attribute())
+        if (attr.type() == onnx::AttributeProto_AttributeType_GRAPH)
+          collectFreeVariables(attr.g(), freeVars);
+    }
+    // Remove names that are defined locally — what remains are free variables.
+    for (const auto &inp : body.input())
+      freeVars.erase(inp.name());
+    for (const auto &init : body.initializer())
+      freeVars.erase(init.name());
+    for (const auto &n : body.node())
+      for (const auto &out : n.output())
+        freeVars.erase(out);
+  }
+
+  // For each node in `graph`, returns the implicit ordering dependencies
+  // introduced by that node's nested subgraph attributes (Loop/If/Scan bodies).
+  //
+  // MOTIVATION
+  // A subgraph body can reference values that are not passed as direct
+  // operands to its enclosing node — these are "free variables" resolved by
+  // name lookup in the surrounding scope. A naive topological sort based only
+  // on direct operands misses these. This function makes them explicit so
+  // computeTopologicalOrder() can enforce the correct import order.
+  //
+  // TWO SOURCES OF FREE VARIABLES
+  // A body's free variables come from exactly one of two scopes:
+  //   1. The current `graph` (a node output, graph input, or initializer).
+  //      These create an ordering constraint: node B must be imported after
+  //      node A if B's body uses a value that A produces.
+  //      → Included in the returned localScopeEdges.
+  //   2. An enclosing graph (grandparent and above).
+  //      These are already bound in frontend_symbols_ by the time `graph`'s
+  //      import starts, so they impose no constraint within this graph.
+  //      → Excluded from the returned localScopeEdges.
+  //
+  // RECURSIVE GUARANTEE
+  // Source-2 values are guaranteed to be in frontend_symbols_ because the
+  // grandparent graph ran this same logic, detected the capture, and ensured
+  // its producer was imported before the node whose body uses it.
+  // This guarantee holds at every nesting depth by induction.
+  //
+  // EXAMPLE
+  //   node 0: scale = onnx.Constant(2.0)
+  //   node 1: result = onnx.Loop(...) {
+  //             body uses "scale"        ← source 1: produced in this graph
+  //             body uses "outer_weight" ← source 2: from grandparent graph
+  //           }
+  //
+  // Returns: [{} /* node 0 */, {"scale"} /* node 1 */]
+  // → computeTopologicalOrder() will schedule node 0 before node 1.
+  static std::vector<std::unordered_set<std::string>>
+  buildIntraGraphCaptureEdges(const onnx::GraphProto &graph) {
+    const int numNodes = graph.node_size();
+
+    // All value names owned by this graph scope (inputs, initializers, node
+    // outputs).
+    std::unordered_set<std::string> localScope;
+    for (const auto &inp : graph.input())
+      localScope.insert(inp.name());
+    for (const auto &init : graph.initializer())
+      localScope.insert(init.name());
+    for (int i = 0; i < numNodes; ++i)
+      for (const auto &out : graph.node(i).output())
+        if (!out.empty())
+          localScope.insert(out);
+
+    std::vector<std::unordered_set<std::string>> localScopeEdges(numNodes);
+    for (int i = 0; i < numNodes; ++i) {
+      for (const auto &attr : graph.node(i).attribute()) {
+        if (attr.type() == onnx::AttributeProto_AttributeType_GRAPH) {
+          std::unordered_set<std::string> bodyFreeVars;
+          collectFreeVariables(attr.g(), bodyFreeVars);
+          // Retain only source-1 free vars (produced in localScope).
+          // Source-2 vars (grandparent) are already in frontend_symbols_.
+          for (const auto &fv : bodyFreeVars)
+            if (localScope.contains(fv))
+              localScopeEdges[i].insert(fv);
+        }
+      }
+    }
+    return localScopeEdges;
+  }
+
+  // Returns a valid import order for the nodes in `graph` as a vector of
+  // node indices, using an iterative variant of Kahn's algorithm.
+  //
+  // ONNX does not guarantee that nodes appear in topological order in the
+  // proto. Importing a node before its inputs exist in the MLIR symbol table
+  // would cause a lookup failure, so we must sort first.
+  //
+  // A node is "ready" to be scheduled when two conditions are both met:
+  //   (a) All its direct input values are defined — either produced by an
+  //       earlier node in `defined`, or already bound in frontend_symbols_
+  //       from an enclosing graph scope.
+  //   (b) All values captured by its subgraph attributes are also defined.
+  //       These are the extra edges supplied by `localScopeEdges` (see
+  //       buildIntraGraphCaptureEdges()).
+  //
+  // The frontend_symbols_ check handles values from outer scopes (e.g. the
+  // main graph's tensors referenced by a Loop body): those are already bound
+  // before this subgraph's import starts and are unconditionally available.
+  //
+  // Nodes that cannot be scheduled (e.g. due to a cycle) are appended at the
+  // end as a best-effort fallback; ImportNode will then fail with a clear
+  // error when it tries to resolve the missing input value.
+  //
+  // Example: proto lists nodes in order [B, A] where B uses A's output "x":
+  //   pass 1: B not ready ("x" not yet in `defined`); A ready → order=[A]
+  //   pass 2: B ready ("x" now in `defined`)          → order=[A, B]
+  std::vector<int> computeTopologicalOrder(const onnx::GraphProto &graph,
+      const std::vector<std::unordered_set<std::string>> &localScopeEdges) {
+    const size_t numNodes = graph.node_size();
+
+    // `defined` tracks all value names that are available at the current point
+    // in the import: graph inputs, initializers, and outputs of scheduled
+    // nodes.
+    std::unordered_set<std::string> defined;
+    for (const auto &inp : graph.input())
+      defined.insert(inp.name());
+    for (const auto &init : graph.initializer())
+      defined.insert(init.name());
+
+    std::vector<bool> scheduled(numNodes, false);
+    std::vector<int> order;
+    order.reserve(numNodes);
+
+    bool anyProgress = true;
+    while (anyProgress && order.size() < numNodes) {
+      anyProgress = false;
+      for (size_t i = 0; i < numNodes; ++i) {
+        if (scheduled[i])
+          continue;
+        const auto &node = graph.node(i);
+        bool ready = true;
+        for (const auto &inp : node.input()) {
+          if (!inp.empty() && !defined.contains(inp) &&
+              !frontend_symbols_.GetByOnnxName(inp)) {
+            ready = false;
+            break;
+          }
+        }
+        if (ready) {
+          for (const auto &cap : localScopeEdges[i]) {
+            if (!defined.contains(cap) &&
+                !frontend_symbols_.GetByOnnxName(cap)) {
+              ready = false;
+              break;
+            }
+          }
+        }
+        if (ready) {
+          order.push_back(i);
+          scheduled[i] = true;
+          anyProgress = true;
+          for (const auto &out : node.output())
+            if (!out.empty())
+              defined.insert(out);
+        }
+      }
+    }
+    // Append any remaining nodes that could not be scheduled (e.g. due to a
+    // cycle or an unresolvable reference). These will cause ImportNode to fail
+    // with a missing-value error, which is preferable to silently skipping
+    // them.
+    for (size_t i = 0; i < numNodes; ++i)
+      if (!scheduled[i])
+        order.push_back(i);
+    return order;
+  }
+
+  // Imports all nodes of `graph` into the current MLIR region, in topological
+  // order.
+  //
+  // ONNX protos may list nodes in arbitrary order. Sorting ensures every
+  // node's inputs are already defined as MLIR Values in frontend_symbols_
+  // before the node itself is imported. Without sorting, ImportNode would
+  // fail to look up the input values of out-of-order nodes.
+  [[nodiscard]] std::error_code importGraphNodes(
+      const onnx::GraphProto &graph, std::string &errorMessage) {
+    auto localScopeEdges = buildIntraGraphCaptureEdges(graph);
+    auto order = computeTopologicalOrder(graph, localScopeEdges);
+    for (int idx : order) {
+      if (auto ec = ImportNode(graph.node(idx), errorMessage))
+        return ec;
+    }
+    return {};
+  }
+
+  // Resolves each graph output to the MLIR Value produced during node import
+  // and records its type for the enclosing op's result type list.
+  //
+  // Each output name is looked up in frontend_symbols_ — the same symbol
+  // table that ImportNode populated — to find the SSA Value that represents
+  // it. The resulting (Value, Type) pairs become the operands and result types
+  // of the region terminator (ONNXYieldOp or ONNXReturnOp).
+  //
+  // Any symbolic dimension constraints (e.g. "N:batch") attached to the
+  // output's type annotation are also collected into `outputDimParams` for
+  // use by setGraphOpAttributes().
+  [[nodiscard]] std::error_code importGraphOutputs(
+      const onnx::GraphProto &graph, llvm::SmallVector<Type, 4> &retTys,
+      llvm::SmallVector<Value, 4> &retVals,
+      llvm::SmallVector<std::string, 4> &outputDimParams,
+      std::string &errorMessage) {
+    for (const auto &output : graph.output()) {
+      std::string dimParams;
+      if (auto ec = ImportOutputTensor(
+              output, retTys, retVals, errorMessage, &dimParams)) {
+        errorMessage +=
+            "Failed to import output tensor '" + output.name() + "'.\n";
+        return ec;
+      }
+      if (!dimParams.empty())
+        outputDimParams.emplace_back(dimParams);
+    }
+    return {};
+  }
+
+  // Attaches compiler-internal bookkeeping attributes to the op that owns
+  // the imported subgraph region.
+  //
+  // These are not ONNX-standard attributes. They serve two purposes:
+  //   - "input_names" / "output_names": preserve the original ONNX tensor
+  //     names for error messages and IR readability.
+  //   - "input_dim_params" / "output_dim_params": propagate symbolic
+  //     dimension constraints (e.g. "N:batch_size") from the ONNX model's
+  //     type annotations into the MLIR IR, where later passes use them to
+  //     track dynamic shapes under a symbolic name rather than '?'.
+  //
+  // Example: an input annotated as float[N, 512] with dimParam "N:batch"
+  // produces input_dim_params = ["N:batch"], letting downstream passes know
+  // that dimension 0 of this tensor is the batch dimension.
+  void setGraphOpAttributes(Operation *op,
+      llvm::ArrayRef<llvm::StringRef> inputNames,
+      llvm::ArrayRef<llvm::StringRef> outputNames,
+      llvm::ArrayRef<std::string> inputDimParams,
+      llvm::ArrayRef<std::string> outputDimParams) {
+    if (!inputNames.empty())
+      op->setAttr("input_names", builder_.getStrArrayAttr(inputNames));
+    if (!outputNames.empty())
+      op->setAttr("output_names", builder_.getStrArrayAttr(outputNames));
+
+    // getStrArrayAttr requires ArrayRef<StringRef>; convert from std::string.
+    llvm::SmallVector<llvm::StringRef> inputDimParamsRefs;
+    llvm::SmallVector<llvm::StringRef> outputDimParamsRefs;
+    for (const auto &s : inputDimParams)
+      inputDimParamsRefs.emplace_back(s);
+    for (const auto &s : outputDimParams)
+      outputDimParamsRefs.emplace_back(s);
+    if (!inputDimParamsRefs.empty())
+      op->setAttr(
+          "input_dim_params", builder_.getStrArrayAttr(inputDimParamsRefs));
+    if (!outputDimParamsRefs.empty())
+      op->setAttr(
+          "output_dim_params", builder_.getStrArrayAttr(outputDimParamsRefs));
   }
 
   /*!
@@ -557,147 +954,56 @@ private:
    * terminator, otherwise, will use ONNXYieldOp as terminator.
    * @return function type corresponding to the subgraph input/output signature.
    */
-  ErrorOr<FunctionType> importGraph(const onnx::GraphProto &graph,
+  ErrorOr<FunctionType> importSubgraph(const onnx::GraphProto &graph,
       Region &region, Operation *op, bool useReturn,
       std::string &errorMessage) {
     frontend_symbols_.pushScope(graph.name());
     onnx_type_map.pushScope(graph.name());
     Block *entryBlock = &region.back();
 
-    // Maintain a mapping between the parameter and its initializer.
+    // Import initializers as constants and record their names.
     std::unordered_set<std::string> initializerNames;
     for (const auto &initializer : graph.initializer()) {
       BindOnnxName(initializer.name(), ImportTensor(initializer));
       initializerNames.insert(initializer.name());
     }
 
-    // create a function for the graph
-    // TODO:
-    //  * get name and type for the function.
-    //  * maintain a list of the defined graph
+    // Import input types, add block arguments, and bind them.
     llvm::SmallVector<Type, 4> argTypes;
+    llvm::SmallVector<llvm::StringRef, 4> inputNames;
+    llvm::SmallVector<llvm::StringRef, 4> outputNames;
+    llvm::SmallVector<std::string, 4> inputDimParams;
+    llvm::SmallVector<std::string, 4> outputDimParams;
+    if (auto ec = importGraphInputs(graph, op, entryBlock, initializerNames,
+            argTypes, inputNames, inputDimParams, errorMessage))
+      return ec;
 
-    llvm::SmallVector<llvm::StringRef, 4> inputNames, outputNames;
-    // Keep dim_param for each dynamic dimension of each input tensor.
-    // In ONNX specification, two dynamic dimensions with the same dim_param
-    // string would be the same at runtime.
-    //
-    // See https://github.com/onnx/onnx/blob/main/docs/IR.md for more
-    // information about dim_param.
-    llvm::SmallVector<std::string, 4> inputDimParams, outputDimParams;
-    std::map<int, std::string> inputDimParamsFromOption;
-    std::string inputDimParamsFromOptionForAllArgs;
-    getInputDimParamsMapFromOption(options_.dimParams, inputDimParamsFromOption,
-        inputDimParamsFromOptionForAllArgs);
-
-    // Import the input tensor types that are not constant and not initialized.
-    int inputIndex = 0;
-    for (const auto &input : graph.input()) {
-      AddValueInfo(input);
-      if (initializerNames.count(input.name()) == 0) {
-        inputNames.push_back(input.name());
-        std::string dimParams = "";
-        ErrorOr<Type> importedInputType =
-            ImportType(input.type(), errorMessage, &dimParams);
-        if (auto ec = importedInputType.getError()) {
-          errorMessage +=
-              "Failed to import input type for '" + input.name() + "\n";
-          return ec;
-        }
-        Type argTy = *importedInputType;
-        argTy = modelInputShaper_.reshape(inputIndex, argTy);
-        // For each input tensor, use either all dimensions by the compiler
-        // option OR all dimensions in the original onnx model. Dimensions
-        // from the option and the model in a single input tensor are not
-        // merged.
-        if (inputDimParamsFromOption.find(inputIndex) !=
-            inputDimParamsFromOption.end())
-          inputDimParams.emplace_back(inputDimParamsFromOption[inputIndex]);
-        else if (!inputDimParamsFromOptionForAllArgs.empty())
-          inputDimParams.emplace_back(inputDimParamsFromOptionForAllArgs);
-        else if (!dimParams.empty())
-          inputDimParams.emplace_back(dimParams);
-
-        argTypes.emplace_back(argTy);
-
-        // numInputs is the number of graph inputs not contained within the
-        // initializer
-        ++inputIndex;
-      }
-    }
-
-    // The compiler assumes the model is correct and doesn't try to do
-    // exhaustive correctness checking of its own
-    for (const auto &internal : graph.value_info()) {
+    // Register intermediate value types for shape inference.
+    for (const auto &internal : graph.value_info())
       AddValueInfo(internal, true);
-    }
-
     for (const auto &output : graph.output()) {
-      // Output tensor may be in input list
       AddValueInfo(output, true);
       outputNames.push_back(output.name());
     }
 
-    entryBlock->addArguments(argTypes,
-        llvm::SmallVector<Location, 4>(argTypes.size(), UnknownLoc()));
+    // Import nodes in topological order.
+    if (auto ec = importGraphNodes(graph, errorMessage))
+      return ec;
 
-    // Map graph inputs to entry block arguments.
-    // Counter of un-initialized tensors. This counter is used to index the
-    // entry block arguments.
-    int entryBlockArgIdx = 0;
-    for (const auto &input : graph.input()) {
-      if (initializerNames.count(input.name()) == 0) {
-        BindOnnxName(
-            input.name(), entryBlock->getArguments()[entryBlockArgIdx]);
-        entryBlockArgIdx++;
-      }
-    }
-
-    // Import nodes in the subgraph.
-    for (const auto &item : graph.node()) {
-      const auto ec = ImportNode(item, errorMessage);
-      if (ec) {
-        return ec;
-      }
-    }
-
+    // Import output tensors and emit the region terminator.
     llvm::SmallVector<Type, 4> retTys;
     llvm::SmallVector<Value, 4> retVals;
-    // Import the output tensors
-    for (const auto &output : graph.output()) {
-      std::string dimParams = "";
-      const auto ec =
-          ImportOutputTensor(output, retTys, retVals, errorMessage, &dimParams);
-      if (ec) {
-        errorMessage +=
-            "Failed to import output tensor '" + output.name() + "'.\n";
-        return ec;
-      }
-      if (!dimParams.empty())
-        outputDimParams.emplace_back(dimParams);
-    }
+    if (auto ec = importGraphOutputs(
+            graph, retTys, retVals, outputDimParams, errorMessage))
+      return ec;
 
     if (useReturn)
       builder_.create<ONNXReturnOp>(UnknownLoc(), retVals);
     else
-      // Create a return operation to return all ONNX output tensors.
       builder_.create<ONNXYieldOp>(UnknownLoc(), retVals);
 
-    SmallVector<llvm::StringRef> inputDimParamsRefs, outputDimParamsRefs;
-    for (uint64_t i = 0; i < inputDimParams.size(); ++i)
-      inputDimParamsRefs.emplace_back(llvm::StringRef(inputDimParams[i]));
-    for (uint64_t i = 0; i < outputDimParams.size(); ++i)
-      outputDimParamsRefs.emplace_back(llvm::StringRef(outputDimParams[i]));
-    if (!inputNames.empty())
-      op->setAttr("input_names", builder_.getStrArrayAttr(inputNames));
-    if (!outputNames.empty())
-      op->setAttr("output_names", builder_.getStrArrayAttr(outputNames));
-    if (!inputDimParamsRefs.empty())
-      op->setAttr(
-          "input_dim_params", builder_.getStrArrayAttr(inputDimParamsRefs));
-    if (!outputDimParamsRefs.empty())
-      op->setAttr(
-          "output_dim_params", builder_.getStrArrayAttr(outputDimParamsRefs));
+    setGraphOpAttributes(
+        op, inputNames, outputNames, inputDimParams, outputDimParams);
 
     frontend_symbols_.popScope(graph.name());
     onnx_type_map.popScope(graph.name());
@@ -729,7 +1035,7 @@ private:
       if (attr.type() == onnx::AttributeProto_AttributeType_GRAPH)
         result.addRegion();
 
-    auto op = builder_.create(result);
+    auto *op = builder_.create(result);
     for (int i = 0; i < node.output().size(); i++) {
       auto r = op->getResult(i);
       frontend_symbols_.AddMapping(node.output()[i], r);
@@ -968,7 +1274,7 @@ private:
         OpBuilder::InsertionGuard guard(builder_);
         builder_.setInsertionPointToStart(&region.back());
         const ErrorOr<FunctionType> importGraphResult =
-            importGraph(attr.g(), region, op, false, errorMessage);
+            importSubgraph(attr.g(), region, op, false, errorMessage);
         if (auto ec = importGraphResult.getError()) {
           return ec;
         }
@@ -1265,11 +1571,23 @@ private:
     };
 
     for (const auto &item : llvm::enumerate(node.input())) {
+      if (item.value().empty()) {
+        // Optional input absent (represented as empty string in ONNX).
+        // Leave inVals[item.index()] as nullptr; axes and steps are
+        // converted to NoneValue below when they remain null.
+        continue;
+      }
       if (const Value *valuePtr =
               frontend_symbols_.GetByOnnxName(item.value())) {
         inVals[item.index()] = *valuePtr;
       } else {
-        assert(false && "Unknown input");
+        // The input name is not in the symbol table. This can happen when a
+        // Slice op inside an ONNX control-flow body (Loop/If/Scan) references
+        // a value that has not been registered (e.g. a captured outer-scope
+        // value whose name was not recorded, or a graph-level input absent from
+        // the sub-graph). Return a non-fatal error so the caller can handle it.
+        errorMessage = "ImportNodeSlice: unknown input '" + item.value() + "'";
+        return std::make_error_code(std::errc::invalid_argument);
       }
     }
 
@@ -1319,7 +1637,7 @@ private:
   }
 
   const onnx::OpSchema *GetOpSchema(const onnx::NodeProto &node) {
-    auto &domain = node.domain();
+    const std::string &domain = node.domain();
     auto version_it = opset_map_.find(domain);
     if (version_it == opset_map_.end())
       return nullptr;
@@ -1500,7 +1818,7 @@ private:
       }
     }
 
-    *graph.mutable_node() = std::move(functionProto.node());
+    *graph.mutable_node() = functionProto.node();
 
     // Substitute caller attributes in graph nodes:
     AttrMap caller_attr_map;
@@ -1574,14 +1892,14 @@ private:
         BindOnnxName(name, value);
       }
 
-      for (auto &fb_node : graph.node()) {
+      for (const onnx::NodeProto &fb_node : graph.node()) {
         const auto ec = ImportNode(fb_node, errorMessage);
         if (ec) {
           return ec;
         }
       }
 
-      for (auto &name : functionProto.output()) {
+      for (const std::string &name : functionProto.output()) {
         // Skip missing optional outputs: they are not mapped.
         if (const Value *valuePtr = frontend_symbols_.GetByOnnxName(name)) {
           outputs.push_back(*valuePtr);
@@ -1633,7 +1951,7 @@ private:
     // We lack a way of specifying import behavior for custom domains. For now
     // some are hard-coded here, but an extension specification would be
     // preferred.
-    if (node.domain().compare("com.microsoft") == 0) {
+    if (node.domain() == "com.microsoft") {
       Type outElementType = {};
       if (opName == "DequantizeLinear") {
         outElementType =
@@ -1771,7 +2089,7 @@ private:
     SmallVector<ArrayAttr, 2> funcAttrsToMove;
     SmallVector<std::string, 2> targetArgAttrNames;
     for (size_t i = 0; i < funcAttrNames.size(); ++i) {
-      ArrayAttr attr = op->getAttrOfType<ArrayAttr>(funcAttrNames[i]);
+      auto attr = op->getAttrOfType<ArrayAttr>(funcAttrNames[i]);
       if (!attr)
         continue;
       funcAttrsToMove.emplace_back(attr);
@@ -1820,7 +2138,7 @@ private:
     builder_.setInsertionPointToStart(&mainFunc.getBody().back());
 
     ErrorOr<FunctionType> importedFuncType =
-        importGraph(graph, /*region=*/mainFunc.getBody(),
+        importSubgraph(graph, /*region=*/mainFunc.getBody(),
             /*op=*/mainFunc.getOperation(), /*useReturn=*/true, errorMessage);
     if (auto ec = importedFuncType.getError()) {
       errorMessage +=
@@ -1853,10 +2171,9 @@ private:
   int originVersion = CURRENT_ONNX_OPSET;
   // Get the version of the model
   // Code copied from onnx/onnx/version_coverter/convert.cc
-  for (auto it = model.opset_import().begin(); it != model.opset_import().end();
-       ++it) {
-    if (isDefaultDomain(it->domain())) {
-      originVersion = it->version();
+  for (const auto &it : model.opset_import()) {
+    if (isDefaultDomain(it.domain())) {
+      originVersion = it.version();
       break;
     }
   }

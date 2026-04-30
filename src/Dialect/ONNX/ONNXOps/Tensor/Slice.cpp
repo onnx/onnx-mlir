@@ -10,6 +10,9 @@
 //
 // This file provides definition of ONNX dialect Slice operation.
 //
+// Modifications (c) Copyright 2026 Advanced Micro Devices, Inc. or its
+// affiliates
+//
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
@@ -154,6 +157,9 @@ LogicalResult ONNXSliceOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
   if (!hasShapeAndRank(getData()))
+    return success();
+
+  if (!hasShapeAndRank(getStarts()))
     return success();
 
   Value axes = getAxes();
