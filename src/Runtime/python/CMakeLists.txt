@@ -10,46 +10,46 @@ file(GENERATE
   INPUT ${CMAKE_CURRENT_SOURCE_DIR}/PyOMCompile.py
   )
 
-# TODO: Remove pybind11::python_link_helper after cmake version bumped to 3.16+
-if(NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
-  add_onnx_mlir_library(OMPyExecutionSessionBase
-    PyExecutionSessionBase.cpp
-
-    EXCLUDE_FROM_OM_LIBS
-
-    LINK_LIBS PUBLIC
-    OMExecutionSession
-    OMMlirUtilities
-    pybind11::embed
-    pybind11::python_link_helper
-    )
-else()
-  add_compile_definitions(ENABLE_PYRUNTIME_LIGHT)
-  add_onnx_mlir_library(OMPyExecutionSessionBase
-    PyExecutionSessionBase.cpp
-
-    EXCLUDE_FROM_OM_LIBS
-
-    LINK_LIBS PUBLIC
-    OMExecutionSession
-    # ToFix: OMMlirUtilities used for float16 is temporarily excluded because
-    # it need some support from LLVM.
-    #OMMlirUtilities
-    pybind11::embed
-    pybind11::python_link_helper
-  )
-endif()
-
-
-if(MSVC)
-  target_link_libraries(OMPyExecutionSessionBase
-    PRIVATE pybind11::windows_extras
-  )
-endif()
-set_target_properties(OMPyExecutionSessionBase
-  PROPERTIES
-  POSITION_INDEPENDENT_CODE TRUE
-  )
+# hi alex # TODO: Remove pybind11::python_link_helper after cmake version bumped to 3.16+
+# hi alex if(NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
+# hi alex   add_onnx_mlir_library(OMPyExecutionSessionBase
+# hi alex     PyExecutionSessionBase.cpp
+# hi alex 
+# hi alex     EXCLUDE_FROM_OM_LIBS
+# hi alex 
+# hi alex     LINK_LIBS PUBLIC
+# hi alex     OMExecutionSession
+# hi alex     OMMlirUtilities
+# hi alex     pybind11::embed
+# hi alex     pybind11::python_link_helper
+# hi alex     )
+# hi alex else()
+# hi alex   add_compile_definitions(ENABLE_PYRUNTIME_LIGHT)
+# hi alex   add_onnx_mlir_library(OMPyExecutionSessionBase
+# hi alex     PyExecutionSessionBase.cpp
+# hi alex 
+# hi alex     EXCLUDE_FROM_OM_LIBS
+# hi alex 
+# hi alex     LINK_LIBS PUBLIC
+# hi alex     OMExecutionSession
+# hi alex     # ToFix: OMMlirUtilities used for float16 is temporarily excluded because
+# hi alex     # it need some support from LLVM.
+# hi alex     #OMMlirUtilities
+# hi alex     pybind11::embed
+# hi alex     pybind11::python_link_helper
+# hi alex   )
+# hi alex endif()
+# hi alex 
+# hi alex 
+# hi alex if(MSVC)
+# hi alex   target_link_libraries(OMPyExecutionSessionBase
+# hi alex     PRIVATE pybind11::windows_extras
+# hi alex   )
+# hi alex endif()
+# hi alex set_target_properties(OMPyExecutionSessionBase
+# hi alex   PROPERTIES
+# hi alex   POSITION_INDEPENDENT_CODE TRUE
+# hi alex   )
 
 # When running on ubi8 image, shared lib backend tests fail with
 # the following error:
@@ -78,16 +78,41 @@ set_target_properties(OMPyExecutionSessionBase
 # also removes some of the compile definitions and include directories
 # which we add back through target_compile_definitions and
 # target_include_directories.
+
+
 pybind11_add_module(PyRuntimeC PyExecutionSession.cpp)
 target_compile_options(PyRuntimeC
   PRIVATE
   $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-frtti -fexceptions>
   $<$<CXX_COMPILER_ID:MSVC>:/EHsc /GR>
   )
+
+if(NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
+
 target_link_libraries(PyRuntimeC
   PRIVATE
-  OMPyExecutionSessionBase
+  OMExecutionSession
+  OMMlirUtilities
+  # Former PyExecutionSessionBase had these, not sure if needed.
+  # pybind11::embed
+  # pybind11::python_link_helper
   )
+
+else()
+
+target_link_libraries(PyRuntimeC
+  PRIVATE
+  OMExecutionSession
+  # ToFix: OMMlirUtilities used for float16 is temporarily excluded because
+  # it need some support from LLVM.
+  # OMMlirUtilities
+
+  # Former PyExecutionSessionBase had these, not sure if needed.
+  # pybind11::embed
+  # pybind11::python_link_helper
+  )
+endif()
+
 llvm_update_compile_flags(PyRuntimeC)
 
 install(TARGETS PyRuntimeC

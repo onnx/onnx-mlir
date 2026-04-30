@@ -33,7 +33,7 @@ class PyExecutionSession : public onnx_mlir::ExecutionSession {
 public:
   PyExecutionSession(const std::string &sharedLibPath,
       const std::string &tag = "", const bool defaultEntryPoint = true);
-  std::vector<std::string> pyQueryEntryPoints();
+  std::vector<std::string> pyQueryEntryPoints() const;
   void pySetEntryPoint(const std::string &entryPointName);
   // pyRun expects a vector of Python numpy.ndarray objects as the first
   // argument, a vector of shapes of the objects as the second argument, and a
@@ -49,9 +49,9 @@ public:
       const std::vector<py::array> &stridesPyArray,
       bool useSignalHandler,     // Debug flags.
       bool forceOutputDataCopy); // Debug flags.
-  std::string pyInputSignature();
-  std::string pyOutputSignature();
-  std::string pyCompilationInfo();
+  std::string pyInputSignature() const;
+  std::string pyOutputSignature() const;
+  std::string pyCompilationInfo() const;
   void pyPrintInstrumentation(); // Print instrumentation (if any).
 
 protected:

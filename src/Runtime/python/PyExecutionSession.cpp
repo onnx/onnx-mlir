@@ -489,7 +489,7 @@ void PyExecutionSession::pySetEntryPoint(const std::string &entryPointName) {
   setEntryPoint(entryPointName);
 }
 
-std::vector<std::string> PyExecutionSession::pyQueryEntryPoints() {
+std::vector<std::string> PyExecutionSession::pyQueryEntryPoints() const {
   if (!isInitialized)
     throw onnx_mlir::ExecutionSessionException(
         "uninitialized PyExecutionSession");
@@ -505,13 +505,15 @@ std::vector<std::string> PyExecutionSession::pyQueryEntryPoints() {
   return outputPyArrays;
 }
 
-std::string PyExecutionSession::pyInputSignature() { return inputSignature(); }
+std::string PyExecutionSession::pyInputSignature() const {
+  return inputSignature();
+}
 
-std::string PyExecutionSession::pyOutputSignature() {
+std::string PyExecutionSession::pyOutputSignature() const {
   return outputSignature();
 }
 
-std::string PyExecutionSession::pyCompilationInfo() {
+std::string PyExecutionSession::pyCompilationInfo() const {
   return compilationInfo();
 }
 
