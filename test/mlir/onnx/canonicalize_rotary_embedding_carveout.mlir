@@ -1,5 +1,6 @@
 // Copyright 2026 Advanced Micro Devices, Inc. or its affiliates
 // RUN: onnx-mlir-opt --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --canonicalize="disable-patterns=FuseTransposePattern" %s -split-input-file | FileCheck %s --check-prefix=NOFUSE
 
 //===----------------------------------------------------------------------===//
 // Positive: prefix slice/concat sandwich elimination around onnx.RotaryEmbedding.
@@ -69,6 +70,58 @@ func.func @rope_k_prefix_carveout(%X: tensor<1x16x3x8xf32>) -> tensor<1x16x3x8xf
 // CHECK:           [[VAR_TPOST_:%.+]] = "onnx.Transpose"([[VAR_ROPE_]]) {perm = [0, 2, 1, 3]} : (tensor<1x3x16x8xf32>) -> tensor<1x16x3x8xf32>
 // CHECK:           return [[VAR_TPOST_]] : tensor<1x16x3x8xf32>
 // CHECK-NOT:       onnx.Slice
+}
+
+// -----
+
+func.func @rope_k_prefix_carveout_two_transposes(%X: tensor<1x16x3x8xf32>) -> tensor<1x16x3x8xf32> {
+  %s0   = onnx.Constant dense<0> : tensor<1xi64>
+  %s1   = onnx.Constant dense<1> : tensor<1xi64>
+  %s16  = onnx.Constant dense<16> : tensor<1xi64>
+  %ax   = onnx.Constant dense<1> : tensor<1xi64>
+  %st   = onnx.Constant dense<1> : tensor<1xi64>
+  %cos  = onnx.Constant dense<2.000000e+00> : tensor<1x15x4xf32>
+  %sin  = onnx.Constant dense<3.000000e+00> : tensor<1x15x4xf32>
+  %none = "onnx.NoValue"() {value} : () -> none
+  %pre  = "onnx.Slice"(%X, %s0, %s1, %ax, %st) : (tensor<1x16x3x8xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1x1x3x8xf32>
+  %pat  = "onnx.Slice"(%X, %s1, %s16, %ax, %st) : (tensor<1x16x3x8xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1x15x3x8xf32>
+  %tp1  = "onnx.Transpose"(%pat) {perm = [0, 2, 3, 1]} : (tensor<1x15x3x8xf32>) -> tensor<1x3x8x15xf32>
+  %tp2  = "onnx.Transpose"(%tp1) {perm = [0, 1, 3, 2]} : (tensor<1x3x8x15xf32>) -> tensor<1x3x15x8xf32>
+  %rope = "onnx.RotaryEmbedding"(%tp2, %cos, %sin, %none) {interleaved = 0 : si64, num_heads = 3 : si64, rotary_embedding_dim = 0 : si64} : (tensor<1x3x15x8xf32>, tensor<1x15x4xf32>, tensor<1x15x4xf32>, none) -> tensor<1x3x15x8xf32>
+  %tp3  = "onnx.Transpose"(%rope) {perm = [0, 1, 3, 2]} : (tensor<1x3x15x8xf32>) -> tensor<1x3x8x15xf32>
+  %tp4  = "onnx.Transpose"(%tp3) {perm = [0, 3, 1, 2]} : (tensor<1x3x8x15xf32>) -> tensor<1x15x3x8xf32>
+  %y    = "onnx.Concat"(%pre, %tp4) {axis = 1 : si64} : (tensor<1x1x3x8xf32>, tensor<1x15x3x8xf32>) -> tensor<1x16x3x8xf32>
+  return %y : tensor<1x16x3x8xf32>
+
+// CHECK-LABEL:  func.func @rope_k_prefix_carveout_two_transposes
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x16x3x8xf32>) -> tensor<1x16x3x8xf32> {
+// CHECK-DAG:       [[VAR_NONE_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK-DAG:       [[VAR_COS_:%.+]] = onnx.Constant dense<2.000000e+00> : tensor<1x15x4xf32>
+// CHECK-DAG:       [[VAR_SIN_:%.+]] = onnx.Constant dense<3.000000e+00> : tensor<1x15x4xf32>
+// CHECK-DAG:       [[VAR_COSID_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<1x1x4xf32>
+// CHECK-DAG:       [[VAR_SINID_:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<1x1x4xf32>
+// CHECK:           [[VAR_TPRE_:%.+]] = "onnx.Transpose"([[PARAM_0_]]) {perm = [0, 2, 1, 3]} : (tensor<1x16x3x8xf32>) -> tensor<1x3x16x8xf32>
+// CHECK-DAG:       [[VAR_PCOS_:%.+]] = "onnx.Concat"([[VAR_COSID_]], [[VAR_COS_]]) {axis = 1 : si64} : (tensor<1x1x4xf32>, tensor<1x15x4xf32>) -> tensor<1x16x4xf32>
+// CHECK-DAG:       [[VAR_PSIN_:%.+]] = "onnx.Concat"([[VAR_SINID_]], [[VAR_SIN_]]) {axis = 1 : si64} : (tensor<1x1x4xf32>, tensor<1x15x4xf32>) -> tensor<1x16x4xf32>
+// CHECK:           [[VAR_ROPE_:%.+]] = "onnx.RotaryEmbedding"([[VAR_TPRE_]], [[VAR_PCOS_]], [[VAR_PSIN_]], [[VAR_NONE_]]) {interleaved = 0 : si64, num_heads = 3 : si64, rotary_embedding_dim = 0 : si64} : (tensor<1x3x16x8xf32>, tensor<1x16x4xf32>, tensor<1x16x4xf32>, none) -> tensor<1x3x16x8xf32>
+// CHECK:           [[VAR_TPOST_:%.+]] = "onnx.Transpose"([[VAR_ROPE_]]) {perm = [0, 2, 1, 3]} : (tensor<1x3x16x8xf32>) -> tensor<1x16x3x8xf32>
+// CHECK:           return [[VAR_TPOST_]] : tensor<1x16x3x8xf32>
+// CHECK-NOT:       onnx.Slice
+// NOFUSE-LABEL: func.func @rope_k_prefix_carveout_two_transposes
+// NOFUSE-SAME:  ([[PARAM_0_:%.+]]: tensor<1x16x3x8xf32>) -> tensor<1x16x3x8xf32> {
+// NOFUSE-DAG:   [[VAR_NONE_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// NOFUSE-DAG:   [[VAR_COS_:%.+]] = onnx.Constant dense<2.000000e+00> : tensor<1x15x4xf32>
+// NOFUSE-DAG:   [[VAR_SIN_:%.+]] = onnx.Constant dense<3.000000e+00> : tensor<1x15x4xf32>
+// NOFUSE-DAG:   [[VAR_COSID_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<1x1x4xf32>
+// NOFUSE-DAG:   [[VAR_SINID_:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<1x1x4xf32>
+// NOFUSE:       [[VAR_TPRE0_:%.+]] = "onnx.Transpose"([[PARAM_0_]]) {perm = [0, 2, 3, 1]} : (tensor<1x16x3x8xf32>) -> tensor<1x3x8x16xf32>
+// NOFUSE:       [[VAR_TPRE1_:%.+]] = "onnx.Transpose"([[VAR_TPRE0_]]) {perm = [0, 1, 3, 2]} : (tensor<1x3x8x16xf32>) -> tensor<1x3x16x8xf32>
+// NOFUSE-DAG:   [[VAR_PCOS_:%.+]] = "onnx.Concat"([[VAR_COSID_]], [[VAR_COS_]]) {axis = 1 : si64} : (tensor<1x1x4xf32>, tensor<1x15x4xf32>) -> tensor<1x16x4xf32>
+// NOFUSE-DAG:   [[VAR_PSIN_:%.+]] = "onnx.Concat"([[VAR_SINID_]], [[VAR_SIN_]]) {axis = 1 : si64} : (tensor<1x1x4xf32>, tensor<1x15x4xf32>) -> tensor<1x16x4xf32>
+// NOFUSE:       [[VAR_ROPE_:%.+]] = "onnx.RotaryEmbedding"([[VAR_TPRE1_]], [[VAR_PCOS_]], [[VAR_PSIN_]], [[VAR_NONE_]]) {interleaved = 0 : si64, num_heads = 3 : si64, rotary_embedding_dim = 0 : si64} : (tensor<1x3x16x8xf32>, tensor<1x16x4xf32>, tensor<1x16x4xf32>, none) -> tensor<1x3x16x8xf32>
+// NOFUSE:       [[VAR_TPOST0_:%.+]] = "onnx.Transpose"([[VAR_ROPE_]]) {perm = [0, 1, 3, 2]} : (tensor<1x3x16x8xf32>) -> tensor<1x3x8x16xf32>
+// NOFUSE:       [[VAR_TPOST1_:%.+]] = "onnx.Transpose"([[VAR_TPOST0_]]) {perm = [0, 3, 1, 2]} : (tensor<1x3x8x16xf32>) -> tensor<1x16x3x8xf32>
+// NOFUSE:       return [[VAR_TPOST1_]] : tensor<1x16x3x8xf32>
 }
 
 // -----

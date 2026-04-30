@@ -1898,8 +1898,9 @@ namespace {
 
 // Walk upward through zero-or-more `onnx.Transpose`s, each consumed by a
 // single user, appending them to `chain` in walk order (closest-to-`v`
-// first). The returned `Value` is the bottom of the chain (i.e. the input
-// of the deepest transpose, or `v` itself when no transposes were found).
+// first). The returned `Value` is the source-side input to the chain (i.e.
+// the input of the furthest transpose from `v`, or `v` itself when no
+// transposes were found).
 //
 // Returns nullptr if any traversed transpose has more than one use, or if
 // either its input or result element type is not a plain float (so we
@@ -1995,6 +1996,9 @@ struct EliminateCarveOutAroundRotaryEmbeddingPattern
     if (!prefixSlice)
       return rewriter.notifyMatchFailure(
           concatOp, "first concat arm is not an onnx.Slice");
+    if (!prefixSlice->hasOneUse())
+      return rewriter.notifyMatchFailure(
+          concatOp, "prefix slice must have a single use");
     if (!isPlainFloatType(prefixSlice.getResult().getType()) ||
         !isPlainFloatType(prefixSlice.getData().getType()))
       return rewriter.notifyMatchFailure(
@@ -2022,17 +2026,17 @@ struct EliminateCarveOutAroundRotaryEmbeddingPattern
       return rewriter.notifyMatchFailure(
           concatOp, "fullLen must exceed prefixLen");
 
-    // Arm 1 is a`onnx.RotaryEmbedding` surrouded by optional Transposes
+    // Arm 1 is a`onnx.RotaryEmbedding` surrounded by optional Transposes
     SmallVector<ONNXTransposeOp> permsPost;
-    Value postBottom =
+    Value postChainInput =
         walkBackThroughTransposes(concatOp.getInputs()[1], permsPost);
-    if (!postBottom)
+    if (!postChainInput)
       return rewriter.notifyMatchFailure(
           concatOp, "post-RoPE transpose chain is malformed");
-    auto rope = postBottom.getDefiningOp<ONNXRotaryEmbeddingOp>();
+    auto rope = postChainInput.getDefiningOp<ONNXRotaryEmbeddingOp>();
     if (!rope || !rope->hasOneUse())
       return rewriter.notifyMatchFailure(concatOp,
-          "second concat arm does not bottom out at "
+          "second concat arm does not trace back to "
           "onnx.RotaryEmbedding (single-use)");
 
     // For now the matched RoPE must take a static rank-4 plain-float input,
@@ -2060,14 +2064,14 @@ struct EliminateCarveOutAroundRotaryEmbeddingPattern
     // same `X` as the prefix slice and carve `[prefixLen, fullLen)` along
     // `axisA` with unit step.
     SmallVector<ONNXTransposeOp> permsPre;
-    Value preBottom = walkBackThroughTransposes(rope.getX(), permsPre);
-    if (!preBottom)
+    Value preChainInput = walkBackThroughTransposes(rope.getX(), permsPre);
+    if (!preChainInput)
       return rewriter.notifyMatchFailure(
           concatOp, "pre-RoPE transpose chain is malformed");
-    auto patSlice = preBottom.getDefiningOp<ONNXSliceOp>();
+    auto patSlice = preChainInput.getDefiningOp<ONNXSliceOp>();
     if (!patSlice || !patSlice->hasOneUse())
       return rewriter.notifyMatchFailure(
-          concatOp, "RoPE input does not bottom out at a single-use Slice");
+          concatOp, "RoPE input does not trace back to a single-use Slice");
     if (!isPlainFloatType(patSlice.getResult().getType()) ||
         !isPlainFloatType(patSlice.getData().getType()))
       return rewriter.notifyMatchFailure(
@@ -3144,7 +3148,7 @@ struct FuseBackToBackMaxpools
     auto inputShape = inputType.getShape();
 
     for (uint64_t pooledDimIdx = 2; pooledDimIdx < inputShape.size();
-         pooledDimIdx++) {
+        pooledDimIdx++) {
       auto effectiveInputDim = inputShape[pooledDimIdx] + 2 * upperMaxpoolPad;
       if ((effectiveInputDim - upperMaxpoolKernelSize) % upperMaxpoolStride !=
           0) {
