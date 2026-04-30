@@ -117,8 +117,11 @@ endif()
 llvm_update_compile_flags(PyRuntimeC)
 
 # Add MLIR and LLVM include directories for SmallFP.hpp dependency
+# Get include directories from MLIRIR target
+get_target_property(MLIRIR_INCLUDE_DIRS MLIRIR INTERFACE_INCLUDE_DIRECTORIES)
 target_include_directories(PyRuntimeC
   SYSTEM PRIVATE
+  ${MLIRIR_INCLUDE_DIRS}
   ${MLIR_INCLUDE_DIRS}
   ${LLVM_INCLUDE_DIRS}
   ${ONNX_MLIR_SRC_ROOT}
