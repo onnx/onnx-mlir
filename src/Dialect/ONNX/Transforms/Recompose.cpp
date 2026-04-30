@@ -21,6 +21,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <cassert>
 #include <numeric>
 
 #include "mlir/Analysis/TopologicalSortUtils.h"
@@ -1543,6 +1544,8 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
 //   half_hi = onnx.Slice(patches, axes=[-1], starts=[d/2], ends=[d])
 //   neg     = onnx.Neg(half_hi)
 //   rot     = onnx.Concat(neg, half_lo, axis=-1)
+//   cos_full = onnx.Constant(...)
+//   sin_full = onnx.Constant(...)
 //   m_rot   = onnx.Mul(rot,    sin_full)
 //   m_data  = onnx.Mul(patches, cos_full)
 //   add     = onnx.Add(m_data, m_rot)
@@ -1580,6 +1583,11 @@ bool extractI64Scalar(mlir::Value v, int64_t &out) {
          extractI64Scalar(sliceOp.getSteps(), step);
 }
 
+[[nodiscard]] bool hasRopeFloatElementType(mlir::Type type) {
+  return mlir::isa<mlir::Float32Type, mlir::Float16Type, mlir::BFloat16Type>(
+      getElementTypeOrSelf(type));
+}
+
 // Verify the duplicate-half-along-last-axis invariant
 // (`src[..,:d/2] == src[..,d/2:]`) and produce the halved+reshaped constant
 // `[batch, seq, lastDim/2]` in a single pass over the source. Returns
@@ -1592,10 +1600,15 @@ bool extractI64Scalar(mlir::Value v, int64_t &out) {
 mlir::FailureOr<mlir::DenseElementsAttr> checkAndHalveLastAxis(
     mlir::ElementsAttr src, llvm::ArrayRef<int64_t> srcShape, int64_t batch,
     int64_t seq, mlir::Type elementType) {
+  assert(!srcShape.empty() && "expected a shaped RoPE constant");
   const int64_t lastDim = srcShape.back();
-  if (lastDim % 2 != 0)
-    return mlir::failure();
+  assert(lastDim % 2 == 0 && "expected an even RoPE last dimension");
   const int64_t halfDim = lastDim / 2;
+  const int64_t total = src.getNumElements();
+  assert(batch * seq * halfDim == total / 2 &&
+         "halved RoPE constant shape must match target shape");
+  assert(hasRopeFloatElementType(elementType) &&
+         "expected a supported RoPE float element type");
   auto outType =
       mlir::RankedTensorType::get({batch, seq, halfDim}, elementType);
 
@@ -1603,7 +1616,6 @@ mlir::FailureOr<mlir::DenseElementsAttr> checkAndHalveLastAxis(
     return mlir::DenseElementsAttr::get(
         outType, src.getSplatValue<llvm::APFloat>());
 
-  const int64_t total = src.getNumElements();
   if (total % lastDim != 0)
     return mlir::failure();
   const int64_t numStripes = total / lastDim;
@@ -1664,11 +1676,6 @@ mlir::FailureOr<int64_t> findSeqAxis(
   return *cosSeqAxis;
 }
 
-bool hasRopeFloatElementType(mlir::Value v) {
-  return mlir::isa<mlir::Float32Type, mlir::Float16Type, mlir::BFloat16Type>(
-      getElementTypeOrSelf(v.getType()));
-}
-
 struct RecomposeRotaryEmbeddingPattern
     : public mlir::OpRewritePattern<mlir::ONNXAddOp> {
   using mlir::OpRewritePattern<mlir::ONNXAddOp>::OpRewritePattern;
@@ -1677,10 +1684,10 @@ struct RecomposeRotaryEmbeddingPattern
       mlir::ONNXAddOp addOp, mlir::PatternRewriter &rewriter) const final {
     using namespace mlir;
 
-    Type elemType = getElementTypeOrSelf(addOp.getType());
-    if (!isa<Float32Type, Float16Type, BFloat16Type>(elemType))
+    if (!hasRopeFloatElementType(addOp.getResult().getType()))
       return rewriter.notifyMatchFailure(
           addOp, "unsupported element type for RoPE recompose");
+    const Type elemType = getElementTypeOrSelf(addOp.getType());
 
     // Both Add operands must be Mul ops, both single-use.
     auto mul0 = addOp.getA().getDefiningOp<ONNXMulOp>();
@@ -1712,19 +1719,19 @@ struct RecomposeRotaryEmbeddingPattern
 
     // Identify which non-constant operand is the rotate_half concat output.
     // The other must be `patches`.
-    const auto isRotateHalfConcat = [](Value v) -> bool {
+    const auto isConcat = [](Value v) -> bool {
       return v.getDefiningOp<ONNXConcatOp>();
     };
     Value patches, rotConcatVal, cosFull, sinFull;
     ONNXMulOp mDataOp, mRotOp;
-    if (isRotateHalfConcat(nc0) && !isRotateHalfConcat(nc1)) {
+    if (isConcat(nc0) && !isConcat(nc1)) {
       rotConcatVal = nc0;
       sinFull = c0;
       mRotOp = mul0;
       patches = nc1;
       cosFull = c1;
       mDataOp = mul1;
-    } else if (!isRotateHalfConcat(nc0) && isRotateHalfConcat(nc1)) {
+    } else if (!isConcat(nc0) && isConcat(nc1)) {
       rotConcatVal = nc1;
       sinFull = c1;
       mRotOp = mul1;
@@ -1775,7 +1782,7 @@ struct RecomposeRotaryEmbeddingPattern
     for (Value v : {patches, cosFull, sinFull, halfHi.getResult(),
              halfLo.getResult(), negOp.getResult(), rotConcatVal,
              mDataOp.getResult(), mRotOp.getResult()})
-      if (!hasRopeFloatElementType(v))
+      if (!hasRopeFloatElementType(v.getType()))
         return rewriter.notifyMatchFailure(addOp,
             "value in matched subgraph has non-whitelisted element type "
             "(e.g. quantized or integer)");
@@ -1819,6 +1826,10 @@ struct RecomposeRotaryEmbeddingPattern
           addOp, "cos/sin must have static ranked shape");
     auto cosShape = cosType.getShape();
     auto sinShape = sinType.getShape();
+    if (static_cast<int64_t>(cosShape.size()) != rank ||
+        static_cast<int64_t>(sinShape.size()) != rank)
+      return rewriter.notifyMatchFailure(
+          addOp, "cos/sin rank must match patches rank");
     if (cosShape.back() != d || sinShape.back() != d)
       return rewriter.notifyMatchFailure(
           addOp, "cos/sin last axis must equal d");
@@ -1837,10 +1848,13 @@ struct RecomposeRotaryEmbeddingPattern
       return rewriter.notifyMatchFailure(
           addOp, "cannot identify seq axis from cos/sin shape");
     const int64_t seqLen = cosShape[*seqAxisOr];
+    if (patchesType.getShape()[*seqAxisOr] != seqLen)
+      return rewriter.notifyMatchFailure(
+          addOp, "patches seq dim does not match cos/sin");
     bool kSide;
-    if (patchesType.getShape()[2] == seqLen) {
+    if (*seqAxisOr == 2) {
       kSide = false; // Q-side: [B, N, S, D]
-    } else if (patchesType.getShape()[1] == seqLen) {
+    } else if (*seqAxisOr == 1) {
       kSide = true; // K-side: [B, S, N, D]
     } else {
       return rewriter.notifyMatchFailure(
@@ -1864,9 +1878,9 @@ struct RecomposeRotaryEmbeddingPattern
     DenseElementsAttr sinHalf = *sinHalfOr;
 
     // Build the new IR.
-    Location loc = FusedLoc::get(
-        rewriter.getContext(), {addOp.getLoc(), mDataOp.getLoc(),
-                                   mRotOp.getLoc(), rotConcat.getLoc()});
+    Location loc = FusedLoc::get(rewriter.getContext(),
+        {addOp.getLoc(), mDataOp.getLoc(), mRotOp.getLoc(), rotConcat.getLoc(),
+            negOp.getLoc(), halfHi.getLoc(), halfLo.getLoc()});
     onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
         rewriter, loc);
 

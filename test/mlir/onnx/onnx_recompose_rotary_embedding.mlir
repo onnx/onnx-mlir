@@ -83,6 +83,40 @@ func.func @rope_k_side(%patches: tensor<1x16x3x8xf32>) -> tensor<1x16x3x8xf32> {
 
 // -----
 
+// K-side layout where N == S: use the cos/sin broadcast axis, not the equal
+// dimension sizes, to classify the layout.
+
+func.func @rope_k_side_equal_n_s(%patches: tensor<1x4x4x8xf32>) -> tensor<1x4x4x8xf32> {
+  %starts_lo = onnx.Constant dense<0> : tensor<1xi64>
+  %ends_lo   = onnx.Constant dense<4> : tensor<1xi64>
+  %starts_hi = onnx.Constant dense<4> : tensor<1xi64>
+  %ends_hi   = onnx.Constant dense<8> : tensor<1xi64>
+  %axes      = onnx.Constant dense<3> : tensor<1xi64>
+  %steps     = onnx.Constant dense<1> : tensor<1xi64>
+  %cos = onnx.Constant dense<2.0> : tensor<1x4x1x8xf32>
+  %sin = onnx.Constant dense<3.0> : tensor<1x4x1x8xf32>
+  %lo = "onnx.Slice"(%patches, %starts_lo, %ends_lo, %axes, %steps) : (tensor<1x4x4x8xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1x4x4x4xf32>
+  %hi = "onnx.Slice"(%patches, %starts_hi, %ends_hi, %axes, %steps) : (tensor<1x4x4x8xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<1x4x4x4xf32>
+  %neg = "onnx.Neg"(%hi) : (tensor<1x4x4x4xf32>) -> tensor<1x4x4x4xf32>
+  %rot = "onnx.Concat"(%neg, %lo) {axis = -1 : si64} : (tensor<1x4x4x4xf32>, tensor<1x4x4x4xf32>) -> tensor<1x4x4x8xf32>
+  %m_rot = "onnx.Mul"(%rot, %sin) : (tensor<1x4x4x8xf32>, tensor<1x4x1x8xf32>) -> tensor<1x4x4x8xf32>
+  %m_data = "onnx.Mul"(%patches, %cos) : (tensor<1x4x4x8xf32>, tensor<1x4x1x8xf32>) -> tensor<1x4x4x8xf32>
+  %out = "onnx.Add"(%m_data, %m_rot) : (tensor<1x4x4x8xf32>, tensor<1x4x4x8xf32>) -> tensor<1x4x4x8xf32>
+  return %out : tensor<1x4x4x8xf32>
+
+// CHECK-LABEL: func.func @rope_k_side_equal_n_s
+// CHECK-SAME:  ([[PARAM_0_:%.+]]: tensor<1x4x4x8xf32>) -> tensor<1x4x4x8xf32> {
+// CHECK-DAG:     [[VAR_COS_:%.+]] = onnx.Constant dense<2.000000e+00> : tensor<1x4x4xf32>
+// CHECK-DAG:     [[VAR_SIN_:%.+]] = onnx.Constant dense<3.000000e+00> : tensor<1x4x4xf32>
+// CHECK-DAG:     [[VAR_NONE_:%.+]] = "onnx.NoValue"
+// CHECK:         [[VAR_T1_:%.+]] = "onnx.Transpose"([[PARAM_0_]]) {perm = [0, 2, 1, 3]} : (tensor<1x4x4x8xf32>) -> tensor<1x4x4x8xf32>
+// CHECK:         [[VAR_R_:%.+]] = "onnx.RotaryEmbedding"([[VAR_T1_]], [[VAR_COS_]], [[VAR_SIN_]], [[VAR_NONE_]]) {interleaved = 0 : si64, num_heads = 4 : si64, rotary_embedding_dim = 0 : si64} : (tensor<1x4x4x8xf32>, tensor<1x4x4xf32>, tensor<1x4x4xf32>, none) -> tensor<1x4x4x8xf32>
+// CHECK:         [[VAR_T2_:%.+]] = "onnx.Transpose"([[VAR_R_]]) {perm = [0, 2, 1, 3]} : (tensor<1x4x4x8xf32>) -> tensor<1x4x4x8xf32>
+// CHECK:         return [[VAR_T2_]] : tensor<1x4x4x8xf32>
+}
+
+// -----
+
 // Non-splat cos/sin where each stripe has lo half == hi half.
 
 func.func @rope_nonsplat_cos(%patches: tensor<1x3x2x8xf32>) -> tensor<1x3x2x8xf32> {
