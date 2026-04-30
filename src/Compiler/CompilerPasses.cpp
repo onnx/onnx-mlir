@@ -142,7 +142,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
         onnx_mlir::createONNXHybridTransformPass(!disableRecomposeOption,
             /* enableConvToMatmul */ targetCPU && !disableConvToMatmul));
     // Convolution Optimization for CPU: enable when there are no accelerators.
-    // hi alex, do something about this (remove conv 1x1)
+    // TODO: we may want to remove this pass.
     if (targetCPU && enableConvOptPass) {
       pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvOptONNXToONNXPass(
           enableSimdDataLayout && !disableSimdOption));
@@ -155,7 +155,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
     pm.addPass(mlir::createCanonicalizerPass());
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
     // Convolution Optimization for CPU: enable when there are no accelerators.
-    // hi alex, do something about this (remove conv 1x1)
+    // TODO: we may want to remove this pass.
     if (targetCPU && enableConvOptPass) {
       pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvOptONNXToONNXPass(
           enableSimdDataLayout && !disableSimdOption));

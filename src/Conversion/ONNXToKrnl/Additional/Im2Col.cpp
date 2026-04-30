@@ -438,8 +438,8 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
 void populateLoweringONNXIm2ColOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel) {
   bool useOptimizedAlgo = OptimizationLevel > OptLevel::O0;
-  patterns.insert<ONNXIm2ColOpLowering>(typeConverter, ctx, enableParallel,
-      useOptimizedAlgo || true /* hi alex, switch to force naive algo */);
+  patterns.insert<ONNXIm2ColOpLowering>(
+      typeConverter, ctx, enableParallel, useOptimizedAlgo);
 }
 
 } // namespace onnx_mlir
