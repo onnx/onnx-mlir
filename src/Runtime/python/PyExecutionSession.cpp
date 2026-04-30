@@ -62,7 +62,6 @@ struct npy_format_descriptor<onnx_mlir::float_16> {
 } // namespace pybind11
 #endif
 
-
 namespace onnx_mlir {
 
 //
@@ -125,8 +124,8 @@ static void *generateOMTensorBufferForStringData(py::array pyArray) {
   return dataBuffer;
 }
 
-PyExecutionSession::PyExecutionSession(
-    std::string sharedLibPath, std::string tag, bool defaultEntryPoint)
+PyExecutionSession::PyExecutionSession(const std::string &sharedLibPath,
+    const std::string &tag, const bool defaultEntryPoint)
     : onnx_mlir::ExecutionSession(sharedLibPath, tag, defaultEntryPoint) {}
 
 static py::array copyTensorToPyArray(
@@ -486,7 +485,7 @@ std::vector<py::array> PyExecutionSession::pyRunImplementation(
 // =============================================================================
 // Setter and getter.
 
-void PyExecutionSession::pySetEntryPoint(std::string entryPointName) {
+void PyExecutionSession::pySetEntryPoint(const std::string &entryPointName) {
   setEntryPoint(entryPointName);
 }
 
@@ -506,9 +505,7 @@ std::vector<std::string> PyExecutionSession::pyQueryEntryPoints() {
   return outputPyArrays;
 }
 
-std::string PyExecutionSession::pyInputSignature() {
-  return inputSignature();
-}
+std::string PyExecutionSession::pyInputSignature() { return inputSignature(); }
 
 std::string PyExecutionSession::pyOutputSignature() {
   return outputSignature();

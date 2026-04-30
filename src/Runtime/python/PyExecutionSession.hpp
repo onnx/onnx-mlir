@@ -24,7 +24,6 @@ namespace py = pybind11;
 #include "src/Runtime/ExecutionSession.hpp"
 namespace onnx_mlir {
 
-
 #if !defined(WIN32) && !defined(_WIN32)
 class PYBIND11_EXPORT PyExecutionSession : public onnx_mlir::ExecutionSession {
 #else
@@ -32,10 +31,10 @@ class PyExecutionSession : public onnx_mlir::ExecutionSession {
 #endif
 
 public:
-  PyExecutionSession(std::string sharedLibPath, std::string tag = "",
-      bool defaultEntryPoint = true);
+  PyExecutionSession(const std::string &sharedLibPath,
+      const std::string &tag = "", const bool defaultEntryPoint = true);
   std::vector<std::string> pyQueryEntryPoints();
-  void pySetEntryPoint(std::string entryPointName);
+  void pySetEntryPoint(const std::string &entryPointName);
   // pyRun expects a vector of Python numpy.ndarray objects as the first
   // argument, a vector of shapes of the objects as the second argument, and a
   // vector of strides of the object as the third argument. All pyRun arguments
@@ -80,7 +79,7 @@ PYBIND11_MODULE(PyRuntimeC, m) {
       "    >>> inputs = [np.array([[1.0, 2.0, 3.0]], dtype=np.float32)]\n"
       "    >>> outputs = session.run(inputs)\n"
       "    >>> print(outputs[0])")
-      .def(py::init<std::string, std::string, bool>(),
+      .def(py::init<const std::string &, const std::string &, const bool>(),
           py::arg("shared_lib_path"),
           py::arg("tag") = "",
           py::arg("use_default_entry_point") = true,
