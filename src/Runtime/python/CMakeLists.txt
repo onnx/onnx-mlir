@@ -94,6 +94,7 @@ get_property(conversion_libs GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
 target_include_directories(PyRuntimeC
   PRIVATE
   ${MLIR_INCLUDE_DIRS}
+  ${LLVM_INCLUDE_DIRS}
   )
 
 if(NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
