@@ -1259,8 +1259,6 @@ struct ConvToIm2ColPattern : public OpRewritePattern<ONNXConvOp> {
     if (!onnx_mlir::shouldDecomposeConvToIm2Col(convOp))
       return failure();
 
-    fprintf(stderr, "hi alex, conv to im2col+matmul pattern\n  ");
-    convOp.dump();
     Location loc = convOp.getLoc();
     Value X = convOp.getX();
     Value W = convOp.getW();
@@ -1294,10 +1292,16 @@ struct ConvToIm2ColPattern : public OpRewritePattern<ONNXConvOp> {
     Type im2colOutputType =
         RankedTensorType::get(im2colShape, xType.getElementType());
 
+    // Create kernel_shape attribute from KH and KW if not present.
+    ArrayAttr kernelShapeAttr = convOp.getKernelShapeAttr();
+    if (!kernelShapeAttr) {
+      SmallVector<int64_t, 2> kernelShapeVals = {KH, KW};
+      kernelShapeAttr = rewriter.getI64ArrayAttr(kernelShapeVals);
+    }
+
     Value X_col = ONNXIm2ColOp::create(rewriter, loc, im2colOutputType, X,
-        convOp.getAutoPadAttr(), convOp.getDilationsAttr(),
-        convOp.getKernelShapeAttr(), convOp.getPadsAttr(),
-        convOp.getStridesAttr());
+        convOp.getAutoPadAttr(), convOp.getDilationsAttr(), kernelShapeAttr,
+        convOp.getPadsAttr(), convOp.getStridesAttr());
 
     // Step 2: Reshape W from [CO, CI, KH, KW] to [CO, CI*KH*KW].
     // Create shape constant for reshape: [CO, kernelSize].
@@ -1497,8 +1501,6 @@ struct Conv1x1ToMatmulPattern : public OpRewritePattern<ONNXConvOp> {
     // All conditions should be satisfied, test to be sure.
     if (!onnx_mlir::shouldDecomposeConv1x1ToMatmul(convOp))
       return failure();
-    fprintf(stderr, "hi alex, 1x1 conv to matmul pattern\n  ");
-    convOp.dump();
 
     // All conditions satisfied, get info.
     Value X = convOp.getX();

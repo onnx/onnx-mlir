@@ -130,8 +130,11 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   // Decompose first. Eliminates some unsupported ops without shape inference.
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createDecomposeONNXToONNXPass("", /* enable conv to matmul */
-          targetCPU && !disableConvToMatmul));
-
+          /* If we use hybrid, there will be a decompose there that can handle
+             the decomposition of conv to matmul. By delaying to hybrid, we give
+             the recompose of similar conv into one larger conv a chance. In
+             such case, disable enableConvToMatmul here. */
+          targetCPU && !disableConvToMatmul && !enableONNXHybridPass));
   if (!disableRecomposeOption)
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createRecomposeONNXToONNXPass());
   if (enableONNXHybridPass) {
@@ -175,7 +178,6 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
       }
     }
   }
-
 
   // Simplify shape-related ops.
   pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass());

@@ -210,7 +210,6 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
       simpleCodeGen(op, rewriter, input, alloc, shapeHelper);
       return;
     }
-    fprintf(stderr, "hi alex, used optimized code gen for im2cod\n");
 
     // Get attributes from shape helper.
     const auto &kernelShape = shapeHelper.kernelShape;
@@ -249,7 +248,7 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
     DimsExpr ubs(1, totalColumns);
     if (enableParallel) {
       tryCreateKrnlParallel(create.krnl, op, "im2col outer loop parallelized",
-          outerLoopDef, lbs, ubs, 0, 0, {},
+          outerLoopDef, lbs, ubs, 0, 1, {},
           /*min iter for going parallel*/ 8,
           /*createKrnlParallel=*/true);
     }

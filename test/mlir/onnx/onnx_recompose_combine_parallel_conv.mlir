@@ -1,4 +1,4 @@
-// RUN: onnx-mlir  --useOnnxModelTypes=false --EmitONNXIR --printIR %s | FileCheck %s
+// RUN: onnx-mlir  --useOnnxModelTypes=false --disable-conv-to-matmul --EmitONNXIR --printIR %s | FileCheck %s
 
 func.func @test_conv_concat_simple(%arg0: tensor<1x1x512x512xf32>) -> tensor<1x64x512x512xf32> {
   %0 = onnx.Constant dense<0.00999999977> : tensor<32x1x3x3xf32>

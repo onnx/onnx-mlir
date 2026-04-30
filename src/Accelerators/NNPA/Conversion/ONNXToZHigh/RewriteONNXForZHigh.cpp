@@ -1011,12 +1011,6 @@ void getRewriteONNXForZHighDynamicallyLegal(mlir::ConversionTarget *target,
           bool canApplyRule =
               canDecomposeToPadAndConv || canDecomposeToIm2ColAndMatmul;
           bool legal = suitableForZDNN || !canApplyRule;
-          fprintf(stderr,
-              "hi alex in rewrite for zhigh: conv below is legal %i; conv "
-              "suitable %i, pad and conv %i; im2Col and matmul %i\n  ",
-              (int)legal, (int)suitableForZDNN, (int)canDecomposeToPadAndConv,
-              (int)canDecomposeToIm2ColAndMatmul);
-          op.dump();
           return legal;
         });
   }
