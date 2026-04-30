@@ -19,6 +19,8 @@
 #ifndef ONNX_MLIR_PY_EXECUTION_SESSION_BASE_H
 #define ONNX_MLIR_PY_EXECUTION_SESSION_BASE_H
 
+#if 0 // hi alex
+
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -65,4 +67,8 @@ protected:
   PyExecutionSessionBase() : onnx_mlir::ExecutionSession() {}
 };
 } // namespace onnx_mlir
+
+
+#endif // hi alex
+
 #endif

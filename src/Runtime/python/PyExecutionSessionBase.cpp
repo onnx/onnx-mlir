@@ -13,6 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if 0 // hi alex
+
 // TODO: base class is no longer needed, should be merged with
 // PyExecutionSession.
 
@@ -24,8 +26,6 @@
 
 #include "PyExecutionSessionBase.hpp"
 
-#define OM_DRIVER_TIMING 1 /* 1 for timing, 0 for no timing/overheads */
-#include "src/Runtime/OMInstrumentHelper.h"
 
 namespace pybind11 {
 namespace detail {
@@ -530,3 +530,5 @@ void PyExecutionSessionBase::pyPrintInstrumentation() {
 }
 
 } // namespace onnx_mlir
+
+#endif // hi alex
