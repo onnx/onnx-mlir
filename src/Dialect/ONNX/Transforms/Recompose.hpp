@@ -28,7 +28,12 @@ namespace onnx_mlir {
 // patterns that can be used with any PatternRewriter, not conversion patterns.
 // Always include patterns that use transpose to make unsuitable axes suitable
 // for matching layernorm.
-void getRecomposeONNXToONNXPatterns(mlir::RewritePatternSet &patterns);
+//
+// `enableRotaryEmbeddingRecompose` enables a recomposition of a decomposed
+// RotaryEmbedding into an onnx.RotaryEmbedding op. The targeted decomposition
+// matches the RoPE in HuggingFaces LlamaRotaryEmbedding
+void getRecomposeONNXToONNXPatterns(mlir::RewritePatternSet &patterns,
+    bool enableRotaryEmbeddingRecompose = false);
 
 } // namespace onnx_mlir
 #endif

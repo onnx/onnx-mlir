@@ -162,6 +162,12 @@ struct ONNXHybridTransformPass
                      "seq_len>1 LSTM into a chain of seq_len=1 LSTMs)"),
       ::llvm::cl::init(false)};
 
+  Option<bool> enableRotaryEmbeddingRecompose{*this,
+      "enable-rotary-embedding-recompose",
+      llvm::cl::desc("Recompose LlamaRotaryEmbedding style RoPE "
+                     "into onnx.RotaryEmbedding"),
+      ::llvm::cl::init(false)};
+
   FrozenRewritePatternSet patterns;
 
   ONNXHybridTransformPass(bool enableRecomposition,
@@ -173,7 +179,8 @@ struct ONNXHybridTransformPass
       bool enableMatmulNBitsDecompose, bool enableGroupQueryAttentionDecompose,
       bool enableSplitToSliceDecompose, bool enableConcatFuse,
       bool enableGAPToReduceMean, bool enableLstmSeqDecompose = false,
-      bool enableReduceL2Decompose = true) {
+      bool enableReduceL2Decompose = true,
+      bool enableRotaryEmbeddingRecompose = false) {
     this->recomposition = enableRecomposition;
     this->quarkQuantizedOpsLegalization = enableQuarkQuantizedOpsLegalization;
     this->enableConvTransposeDecompose = enableConvTransposeDecompose;
@@ -191,6 +198,7 @@ struct ONNXHybridTransformPass
     this->enableGAPToReduceMean = enableGAPToReduceMean;
     this->enableLstmSeqDecompose = enableLstmSeqDecompose;
     this->enableReduceL2Decompose = enableReduceL2Decompose;
+    this->enableRotaryEmbeddingRecompose = enableRotaryEmbeddingRecompose;
   }
 
   ONNXHybridTransformPass(const ONNXHybridTransformPass &pass)
@@ -253,7 +261,8 @@ struct ONNXHybridTransformPass
     }
 
     if (recomposition) {
-      getRecomposeONNXToONNXPatterns(cumulativePatterns);
+      getRecomposeONNXToONNXPatterns(
+          cumulativePatterns, enableRotaryEmbeddingRecompose);
     }
 
     patterns = FrozenRewritePatternSet(std::move(cumulativePatterns));
@@ -299,7 +308,7 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createONNXHybridTransformPass(
     bool enableMatmulNBitsDecompose, bool enableGroupQueryAttentionDecompose,
     bool enableSplitToSliceDecompose, bool enableConcatFuse,
     bool enableGAPToReduceMean, bool enableLstmSeqDecompose,
-    bool enableReduceL2Decompose) {
+    bool enableReduceL2Decompose, bool enableRotaryEmbeddingRecompose) {
   return std::make_unique<ONNXHybridTransformPass>(enableRecomposition,
       enableQuarkQuantizedOpsLegalization, enableConvTransposeDecompose,
       enableConvTransposeDecomposeToPhasedConv,
@@ -307,5 +316,5 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createONNXHybridTransformPass(
       enableGroupNormDecompose, enableMatmulNBitsDecompose,
       enableGroupQueryAttentionDecompose, enableSplitToSliceDecompose,
       enableConcatFuse, enableGAPToReduceMean, enableLstmSeqDecompose,
-      enableReduceL2Decompose);
+      enableReduceL2Decompose, enableRotaryEmbeddingRecompose);
 }
