@@ -45,7 +45,7 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int CIn, const int COut,
 
   Conv2DLibBuilder conv(SHARED_LIB_BASE.str(), N, CIn, COut, H, W, kH, kW,
       autoPad, pHBegin, pHEnd, pWBegin, pWEnd, stride, dilation, isDynamic);
-  return conv.build() && conv.compileAndLoad(/*debug: emit mlir file*/ false) &&
+  return conv.build() && conv.compileAndLoad(/*debug: emit mlir file*/ true) &&
          conv.checkInstructionFromEnv("TEST_INSTRUCTION") &&
          conv.prepareInputsFromEnv("TEST_DATARANGE") && conv.run() &&
          conv.verifyOutputs();

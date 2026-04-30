@@ -443,5 +443,3 @@ void populateLoweringONNXIm2ColOpPattern(RewritePatternSet &patterns,
 }
 
 } // namespace onnx_mlir
-
-// Made with Bob
