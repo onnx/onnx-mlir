@@ -16,20 +16,18 @@
 // TODO: base class is no longer needed, should be merged with
 // PyExecutionSession.
 
-#ifndef ENABLE_PYRUNTIME_LIGHT
-#include "src/Support/SmallFP.hpp"
-#else
-// ToFix: how to handle float_16
-#endif
+#define SUPPORT_SMALL_FPP (!defined(ENABLE_PYRUNTIME_LIGHT) && 0)
 
 #include "PyExecutionSession.hpp"
 
 #define OM_DRIVER_TIMING 0 /* 1 for timing, 0 for no timing/overheads */
 #include "src/Runtime/OMInstrumentHelper.h"
 
-#ifndef ENABLE_PYRUNTIME_LIGHT
+#if SUPPORT_SMALL_FPP
 // ToFix: support for float_16
 // Now onnx_mlir::float_16 is not defined without SmallFP.h
+
+#include "src/Support/SmallFP.hpp"
 
 namespace pybind11 {
 namespace detail {
@@ -259,7 +257,7 @@ std::vector<py::array> PyExecutionSession::pyRunImplementation(
     // string type missing
     else if (py::isinstance<py::array_t<bool>>(inputPyArray))
       dtype = ONNX_TYPE_BOOL;
-#ifndef ENABLE_PYRUNTIME_LIGHT
+#if SUPPORT_SMALL_FPP
     else if (py::isinstance<py::array_t<float_16>>(inputPyArray))
       dtype = ONNX_TYPE_FLOAT16;
 #endif
