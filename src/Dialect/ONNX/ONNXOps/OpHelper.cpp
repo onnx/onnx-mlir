@@ -634,20 +634,6 @@ RESULT_TYPE getScalarValue(ElementsAttr denseAttr, Type type) {
         (raw - static_cast<double>(uq.getZeroPoint())) * uq.getScale();
     return static_cast<RESULT_TYPE>(expressed);
   }
-  if (auto pa =
-          dyn_cast<mlir::quant::UniformQuantizedPerAxisType>(elementaryType)) {
-    assert(denseAttr.getElementType() == pa.getStorageType() &&
-           "dense elements storage type must match quantized type storage");
-    auto scales = pa.getScales();
-    auto zps = pa.getZeroPoints();
-    assert(scales.size() == 1 && zps.size() == 1 &&
-           "scalar getScalarValue expects one scale and one zero-point for "
-           "per-axis quant");
-    double raw = getScalarValue<double>(denseAttr, pa.getStorageType());
-    double expressed =
-        (raw - static_cast<double>(zps[0])) * static_cast<double>(scales[0]);
-    return static_cast<RESULT_TYPE>(expressed);
-  }
   if (elementaryType.isInteger(8) || elementaryType.isInteger(16) ||
       elementaryType.isInteger(32) || elementaryType.isInteger(64)) {
     auto valueIt = denseAttr.getValues<IntegerAttr>().begin();
@@ -909,9 +895,7 @@ bool hasIntegerPowerExponent(ONNXPowOp *op, int64_t &exponentValue) {
     auto rt = dyn_cast<RankedTensorType>(v.getType());
     if (!rt)
       return false;
-    Type e = rt.getElementType();
-    return isa<mlir::quant::UniformQuantizedType,
-        mlir::quant::UniformQuantizedPerAxisType>(e);
+    return isa<mlir::quant::UniformQuantizedType>(rt.getElementType());
   };
 
   // Quantized onnx.Constant: storage does not match the real exponent; allow a
