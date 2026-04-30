@@ -267,7 +267,10 @@ mlir::ArrayAttr createArrayAttrFromConstantOp(mlir::ONNXConstantOp constOp);
 // Check whether a value is produced by a dense ONNXConstantOp.
 bool isDenseONNXConstant(mlir::Value result);
 
-// Get scalar value when it is a constant.
+// Get scalar value when it is a constant. If \p type is a shaped type whose
+// element type is `!quant.uniform<...>`, reads storage from \p denseAttr and
+// returns the expressed value `(storage - zp) * scale` (dense storage element
+// type must match the quant type's storage type).
 template <typename RESULT_TYPE>
 RESULT_TYPE getScalarValue(mlir::ElementsAttr denseAttr, mlir::Type type);
 
@@ -362,16 +365,6 @@ private:
 };
 
 bool hasIntegerPowerExponent(mlir::ONNXPowOp *op, int64_t &exponentValue);
-
-/// If \p value is a dense `onnx.Constant` with exactly one element, returns the
-/// scalar in the **expressed** (real) domain: for uniform quantized tensor
-/// types, applies \code (storage - zp) * scale \endcode; for per-axis quantized
-/// types, only when there is exactly one scale and one zero-point. Otherwise
-/// returns the literal scalar (float/int/bf16 storage interpreted as \c
-/// double). Returns \c std::nullopt if the value is not a scalar dense
-/// constant or per-axis quantization cannot be reduced to a single effective
-/// scale/zero-point.
-std::optional<double> getRealScalarFromDenseONNXConstant(mlir::Value value);
 
 //===----------------------------------------------------------------------===//
 // Support for dim operations.

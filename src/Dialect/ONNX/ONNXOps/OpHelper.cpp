@@ -626,13 +626,35 @@ bool isDenseONNXConstant(Value result) {
 template <typename RESULT_TYPE>
 RESULT_TYPE getScalarValue(ElementsAttr denseAttr, Type type) {
   Type elementaryType = getElementTypeOrSelf(type);
+  if (auto uq = dyn_cast<mlir::quant::UniformQuantizedType>(elementaryType)) {
+    assert(denseAttr.getElementType() == uq.getStorageType() &&
+           "dense elements storage type must match quantized type storage");
+    double raw = getScalarValue<double>(denseAttr, uq.getStorageType());
+    double expressed =
+        (raw - static_cast<double>(uq.getZeroPoint())) * uq.getScale();
+    return static_cast<RESULT_TYPE>(expressed);
+  }
+  if (auto pa =
+          dyn_cast<mlir::quant::UniformQuantizedPerAxisType>(elementaryType)) {
+    assert(denseAttr.getElementType() == pa.getStorageType() &&
+           "dense elements storage type must match quantized type storage");
+    auto scales = pa.getScales();
+    auto zps = pa.getZeroPoints();
+    assert(scales.size() == 1 && zps.size() == 1 &&
+           "scalar getScalarValue expects one scale and one zero-point for "
+           "per-axis quant");
+    double raw = getScalarValue<double>(denseAttr, pa.getStorageType());
+    double expressed =
+        (raw - static_cast<double>(zps[0])) * static_cast<double>(scales[0]);
+    return static_cast<RESULT_TYPE>(expressed);
+  }
   if (elementaryType.isInteger(8) || elementaryType.isInteger(16) ||
       elementaryType.isInteger(32) || elementaryType.isInteger(64)) {
     auto valueIt = denseAttr.getValues<IntegerAttr>().begin();
-    if (type.isSignedInteger()) {
+    if (elementaryType.isSignedInteger()) {
       return static_cast<RESULT_TYPE>(
           mlir::cast<IntegerAttr>(*valueIt).getSInt());
-    } else if (type.isUnsignedInteger()) {
+    } else if (elementaryType.isUnsignedInteger()) {
       return static_cast<RESULT_TYPE>(
           mlir::cast<IntegerAttr>(*valueIt).getUInt());
     } else {
@@ -834,36 +856,10 @@ IgnoreDiagnostic::~IgnoreDiagnostic() {
   diagEngine.eraseHandler(id);
 }
 
-std::optional<double> getRealScalarFromDenseONNXConstant(Value constantValue) {
-  if (!getONNXConstantOp(constantValue))
-    return std::nullopt;
-  ElementsAttr elementAttr = getElementAttributeFromONNXValue(constantValue);
-  if (!elementAttr || elementAttr.getNumElements() != 1)
-    return std::nullopt;
-
-  Type storageElemTy = elementAttr.getElementType();
-  double raw = getScalarValue<double>(elementAttr, storageElemTy);
-
-  auto rankedTy = dyn_cast<RankedTensorType>(constantValue.getType());
-  if (!rankedTy)
-    return raw;
-
-  Type wrappedElem = rankedTy.getElementType();
-  if (auto uq = dyn_cast<mlir::quant::UniformQuantizedType>(wrappedElem)) {
-    return (raw - static_cast<double>(uq.getZeroPoint())) * uq.getScale();
-  }
-  if (auto pa =
-          dyn_cast<mlir::quant::UniformQuantizedPerAxisType>(wrappedElem)) {
-    auto scales = pa.getScales();
-    auto zps = pa.getZeroPoints();
-    if (scales.size() != 1 || zps.size() != 1)
-      return std::nullopt;
-    return (raw - static_cast<double>(zps[0])) * scales[0];
-  }
-  return raw;
-}
-
 bool hasIntegerPowerExponent(ONNXPowOp *op, int64_t &exponentValue) {
+  // Near-integer classification for approximate dequant / float noise
+  // (aligned with xcompiler and quantized Constant path below).
+  constexpr double kPowExponentNearIntegerTol = 1e-6;
   Value exponent = op->getY();
   // In case of QDQ quantized models: If exponent is from a DequantizeLinear op,
   // we want to check the dequantized value of the exponent
@@ -889,23 +885,25 @@ bool hasIntegerPowerExponent(ONNXPowOp *op, int64_t &exponentValue) {
     // DequantizeLinear op. However, it should be good enough for checking that
     // the exponent is an integer)
     double dequantizedExponent = (x - zeroPoint) * scale;
-
-    if (dequantizedExponent == ceil(dequantizedExponent)) {
-      exponentValue = static_cast<int64_t>(dequantizedExponent);
-      return true;
-    }
-    return false;
+    double nearest = std::round(dequantizedExponent);
+    if (std::fabs(dequantizedExponent - nearest) > kPowExponentNearIntegerTol)
+      return false;
+    exponentValue = static_cast<int64_t>(nearest);
+    return true;
   }
 
-  ElementsAttr elementAttr = getElementAttributeFromONNXValue(exponent);
-  if (!elementAttr)
+  if (!getONNXConstantOp(exponent))
     return false;
-  if (elementAttr.getNumElements() != 1)
+  ElementsAttr elementAttr = getElementAttributeFromONNXValue(exponent);
+  if (!elementAttr || elementAttr.getNumElements() != 1)
     return false;
 
-  auto realOpt = getRealScalarFromDenseONNXConstant(exponent);
-  if (!realOpt)
-    return false;
+  double realScalar;
+  if (auto rankedTy = dyn_cast<RankedTensorType>(exponent.getType())) {
+    realScalar = getScalarValue<double>(elementAttr, rankedTy);
+  } else {
+    realScalar = getScalarValue<double>(elementAttr, elementAttr.getType());
+  }
 
   auto isQuantizedScalarConstantTensor = [](Value v) -> bool {
     auto rt = dyn_cast<RankedTensorType>(v.getType());
@@ -919,9 +917,8 @@ bool hasIntegerPowerExponent(ONNXPowOp *op, int64_t &exponentValue) {
   // Quantized onnx.Constant: storage does not match the real exponent; allow a
   // small tolerance when classifying as an integer (xcompiler uses 1e-6).
   if (isQuantizedScalarConstantTensor(exponent)) {
-    constexpr double kQuantConstPowExponentIntegerTol = 1e-6;
-    double nearest = std::round(*realOpt);
-    if (std::fabs(*realOpt - nearest) > kQuantConstPowExponentIntegerTol)
+    double nearest = std::round(realScalar);
+    if (std::fabs(realScalar - nearest) > kPowExponentNearIntegerTol)
       return false;
     exponentValue = static_cast<int64_t>(nearest);
     return true;
@@ -929,7 +926,7 @@ bool hasIntegerPowerExponent(ONNXPowOp *op, int64_t &exponentValue) {
 
   Type elementType = elementAttr.getElementType();
   if (mlir::isa<FloatType>(elementType)) {
-    double floatVal = *realOpt;
+    double floatVal = realScalar;
     if (floatVal == ceil(floatVal)) {
       // We essentially have an integer value represented as a float.
       exponentValue = static_cast<int64_t>(floatVal);
