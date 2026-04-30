@@ -269,5 +269,3 @@ LogicalResult ONNXIm2ColOp::verify() {
 
   return success();
 }
-
-// Made with Bob
