@@ -1955,10 +1955,498 @@ struct RecomposeConcatPattern : public OpRewritePattern<ONNXConcatOp> {
   }
 };
 
+namespace {
+
+[[nodiscard]] bool isPlainFloatType(Type t) {
+  Type elem = getElementTypeOrSelf(t);
+  return mlir::isa<FloatType>(elem);
+}
+
+// Walk upward through zero-or-more `onnx.Transpose`s, each consumed by a
+// single user, appending them to `chain` in walk order (closest-to-`v`
+// first). The returned `Value` is the source-side input to the chain (i.e.
+// the input of the furthest transpose from `v`, or `v` itself when no
+// transposes were found).
+//
+// Returns nullptr if any traversed transpose has more than one use, or if
+// either its input or result element type is not a plain float (so we
+// don't pull quantized data through the rewrite), or if any traversed
+// transpose has no explicit `perm` attribute
+Value walkBackThroughTransposes(
+    Value v, SmallVectorImpl<ONNXTransposeOp> &chain) {
+  while (auto t = v.getDefiningOp<ONNXTransposeOp>()) {
+    if (!t->hasOneUse())
+      return nullptr;
+    if (!isPlainFloatType(t.getData().getType()) ||
+        !isPlainFloatType(t.getTransposed().getType()))
+      return nullptr;
+    if (!t.getPermAttr())
+      return nullptr;
+    chain.push_back(t);
+    v = t.getData();
+  }
+  return v;
+}
+
+// Build an `onnx.Constant` splat tensor of the requested shape and float
+// element type
+Value buildSplatConstant(OpBuilder &b, Location loc, ArrayRef<int64_t> shape,
+    FloatType elemType, APFloat value) {
+  auto tensorTy = RankedTensorType::get(shape, elemType);
+  return b.create<ONNXConstantOp>(loc, /*sparse_value=*/Attribute(),
+      /*value=*/DenseElementsAttr::get(tensorTy, value));
+}
+
+// =============================================================================
+// Rewrite pattern: prefix slice/concat sandwich elimination around
+//                  onnx.RotaryEmbedding
+//
+//
+// This pattern absorbs a prefix slice into the cos/sin tables so the
+// slices and the concat disappear entirely.
+//
+// This is done by padding the cos/sin tables with (cos = 1,
+// sin = 0 at the prefix slots), which makes RoPE the identity for them
+//
+// Match (Q-side; K-side has an optional Transpose pair around RoPE):
+//
+//   pre    = onnx.Slice(X, starts=[0], ends=[prefixLen], axes=[A],
+//   steps=[1])
+//   pat    = onnx.Slice(X, starts=[prefixLen], ends=[N], axes=[A],
+//   steps=[1])
+//   rope   = onnx.RotaryEmbedding(Tpre*(pat), cos, sin, none)
+//   {interleaved=0}
+//    y     = onnx.Concat(pre, Tpost*(rope), axis=A)
+//
+// Rewrite to:
+//
+//   cosId   = splat(1.0, [1, prefixLen, halfD])
+//   sinId   = splat(0.0, [1, prefixLen, halfD])
+//   cosPad  = onnx.Concat(cosId, cos, axis=1)       // [1, S+prefixLen, halfD]
+//   sinPad  = onnx.Concat(sinId, sin, axis=1)
+//   y       = Tpost*(onnx.RotaryEmbedding(Tpre*(X), cosPad, sinPad, none))
+//
+//  The cosPad and sinPad can be constant folded
+// =============================================================================
+
+struct EliminateCarveOutAroundRotaryEmbeddingPattern
+    : public OpRewritePattern<ONNXConcatOp> {
+  using OpRewritePattern<ONNXConcatOp>::OpRewritePattern;
+
+  // Number of leading positions that bypass RoPE
+  static constexpr int64_t prefixLen = 1;
+
+  LogicalResult matchAndRewrite(
+      ONNXConcatOp concatOp, PatternRewriter &rewriter) const final {
+    if (concatOp.getInputs().size() != 2)
+      return rewriter.notifyMatchFailure(concatOp, "expected 2-arm concat");
+    auto concatTy = dyn_cast<RankedTensorType>(concatOp.getResult().getType());
+    if (!concatTy || !concatTy.hasStaticShape())
+      return rewriter.notifyMatchFailure(
+          concatOp, "concat result must be a ranked, static tensor");
+    if (!isPlainFloatType(concatTy))
+      return rewriter.notifyMatchFailure(
+          concatOp, "concat result element type is not a plain float");
+
+    const int64_t rank = concatTy.getRank();
+    int64_t axisA = concatOp.getAxis();
+    if (axisA < 0)
+      axisA += rank;
+    if (axisA < 0 || axisA >= rank)
+      return rewriter.notifyMatchFailure(concatOp, "concat axis out of range");
+
+    // Arm 0 is the prefix slice: an `onnx.Slice` of some source `X` carving
+    // a clean prefix of size `prefixLen` along `axisA` with unit step.
+    // Records `X` and `fullLen = X.shape[axisA]`.
+    auto prefixSlice = concatOp.getInputs()[0].getDefiningOp<ONNXSliceOp>();
+    if (!prefixSlice)
+      return rewriter.notifyMatchFailure(
+          concatOp, "first concat arm is not an onnx.Slice");
+    if (!prefixSlice->hasOneUse())
+      return rewriter.notifyMatchFailure(
+          concatOp, "prefix slice must have a single use");
+    if (!isPlainFloatType(prefixSlice.getResult().getType()) ||
+        !isPlainFloatType(prefixSlice.getData().getType()))
+      return rewriter.notifyMatchFailure(
+          concatOp, "prefix slice / source has non-float element type");
+    int64_t prefixAxis, prefixStart, prefixEnd, prefixStep;
+    if (!extractSlice1DConst(
+            prefixSlice, prefixAxis, prefixStart, prefixEnd, prefixStep))
+      return rewriter.notifyMatchFailure(
+          concatOp, "prefix slice operands are not single-axis i64 constants");
+    if (prefixAxis != axisA || prefixStart != 0 || prefixEnd != prefixLen ||
+        prefixStep != 1)
+      return rewriter.notifyMatchFailure(concatOp,
+          "prefix slice does not carve a clean prefix of size prefixLen");
+
+    Value X = prefixSlice.getData();
+    auto xTy = dyn_cast<RankedTensorType>(X.getType());
+    if (!xTy || !xTy.hasStaticShape())
+      return rewriter.notifyMatchFailure(
+          concatOp, "shared source X must have a static ranked shape");
+    if (!isPlainFloatType(xTy))
+      return rewriter.notifyMatchFailure(
+          concatOp, "shared source X has non-float element type");
+    const int64_t fullLen = xTy.getShape()[axisA];
+    if (fullLen <= prefixLen)
+      return rewriter.notifyMatchFailure(
+          concatOp, "fullLen must exceed prefixLen");
+
+    // Arm 1 is a`onnx.RotaryEmbedding` surrounded by optional Transposes
+    SmallVector<ONNXTransposeOp> permsPost;
+    Value postChainInput =
+        walkBackThroughTransposes(concatOp.getInputs()[1], permsPost);
+    if (!postChainInput)
+      return rewriter.notifyMatchFailure(
+          concatOp, "post-RoPE transpose chain is malformed");
+    auto rope = postChainInput.getDefiningOp<ONNXRotaryEmbeddingOp>();
+    if (!rope || !rope->hasOneUse())
+      return rewriter.notifyMatchFailure(concatOp,
+          "second concat arm does not trace back to "
+          "onnx.RotaryEmbedding (single-use)");
+
+    // For now the matched RoPE must take a static rank-4 plain-float input,
+    // have no `position_ids`, full rotation (`rotary_embedding_dim == 0`), and
+    // the standard non-interleaved layout that the v1 rewrite supports.
+    auto ropeInTy = dyn_cast<RankedTensorType>(rope.getX().getType());
+    auto ropeOutTy = dyn_cast<RankedTensorType>(rope.getResult().getType());
+    if (!ropeInTy || !ropeOutTy || ropeInTy.getRank() != 4 ||
+        !ropeInTy.hasStaticShape() || !ropeOutTy.hasStaticShape())
+      return rewriter.notifyMatchFailure(
+          rope, "rope X must be rank-4 with static shape");
+    if (!isPlainFloatType(ropeInTy) || !isPlainFloatType(ropeOutTy))
+      return rewriter.notifyMatchFailure(
+          rope, "rope X / result has non-float element type");
+    if (!isa<NoneType>(rope.getPositionIds().getType()))
+      return rewriter.notifyMatchFailure(rope, "position_ids must be NoValue");
+    if (rope.getInterleaved() != 0)
+      return rewriter.notifyMatchFailure(rope, "interleaved must be 0");
+    if (rope.getRotaryEmbeddingDim() != 0)
+      return rewriter.notifyMatchFailure(
+          rope, "rotary_embedding_dim must be 0 (full rotation)");
+
+    // From the RoPE input, chase through an optional pre-RoPE Transpose
+    // chain back to a single-use `onnx.Slice`. That slice must read the
+    // same `X` as the prefix slice and carve `[prefixLen, fullLen)` along
+    // `axisA` with unit step.
+    SmallVector<ONNXTransposeOp> permsPre;
+    Value preChainInput = walkBackThroughTransposes(rope.getX(), permsPre);
+    if (!preChainInput)
+      return rewriter.notifyMatchFailure(
+          concatOp, "pre-RoPE transpose chain is malformed");
+    auto patSlice = preChainInput.getDefiningOp<ONNXSliceOp>();
+    if (!patSlice || !patSlice->hasOneUse())
+      return rewriter.notifyMatchFailure(
+          concatOp, "RoPE input does not trace back to a single-use Slice");
+    if (!isPlainFloatType(patSlice.getResult().getType()) ||
+        !isPlainFloatType(patSlice.getData().getType()))
+      return rewriter.notifyMatchFailure(
+          concatOp, "patches slice / source has non-float element type");
+    if (patSlice.getData() != X)
+      return rewriter.notifyMatchFailure(
+          concatOp, "prefix and patches slices read different sources");
+    int64_t patAxis, patStart, patEnd, patStep;
+    if (!extractSlice1DConst(patSlice, patAxis, patStart, patEnd, patStep))
+      return rewriter.notifyMatchFailure(
+          concatOp, "patches slice operands are not single-axis i64 constants");
+    if (patAxis != axisA || patStart != prefixLen || patEnd != fullLen ||
+        patStep != 1)
+      return rewriter.notifyMatchFailure(
+          concatOp, "patches slice does not carve [prefixLen, fullLen)");
+
+    // Verify that the composed pre-RoPE Transpose chain maps the carve
+    // axis (`axisA` of `X`) onto axis 2 of the RoPE input, and the
+    // composed post-RoPE Transpose chain maps axis 2 of the RoPE output
+    // back to `axisA` of the concat-input. Check this by tagging the
+    // carve axis with `ShapedType::kDynamic` and walking the perm
+    // sequence; if the sentinel does not land at the expected position
+    // the matcher bails.
+    const auto composeChainShape = [](ArrayRef<int64_t> startShape,
+                                       ArrayRef<ONNXTransposeOp> chain) {
+      SmallVector<int64_t> shape(startShape.begin(), startShape.end());
+      for (auto t : llvm::reverse(chain))
+        shape = applyPermutation(
+            shape, extractFromIntegerArrayAttr<int64_t>(t.getPermAttr()));
+      return shape;
+    };
+    {
+      auto tagged = llvm::to_vector(xTy.getShape());
+      tagged[axisA] = ShapedType::kDynamic;
+      const auto out = composeChainShape(tagged, permsPre);
+      if (out.size() != 4 || out[2] != ShapedType::kDynamic)
+        return rewriter.notifyMatchFailure(concatOp,
+            "pre-RoPE transpose chain does not map carve axis to RoPE seq axis "
+            "(axis 2)");
+    }
+    {
+      auto tagged = llvm::to_vector(ropeInTy.getShape());
+      tagged[2] = ShapedType::kDynamic;
+      const auto out = composeChainShape(tagged, permsPost);
+      if (out.size() != size_t(rank) || out[axisA] != ShapedType::kDynamic)
+        return rewriter.notifyMatchFailure(concatOp,
+            "post-RoPE transpose chain does not map RoPE seq axis (axis 2) "
+            "back to carve axis");
+    }
+
+    // cos/sin must be static rank-3 dense ONNX float constants of shape
+    // `[1, fullLen-prefixLen, halfD]` with the same element type. Rank-3
+    // pins the seq axis at index 1 (the `[batch=1, S, halfD]` RoPE
+    // contract), which is what the padding step below assumes. Per-batch
+    // caches (batch != 1) is not supported yet.
+    auto cosTy = dyn_cast<RankedTensorType>(rope.getCosCache().getType());
+    auto sinTy = dyn_cast<RankedTensorType>(rope.getSinCache().getType());
+    if (!cosTy || !sinTy || !cosTy.hasStaticShape() || !sinTy.hasStaticShape())
+      return rewriter.notifyMatchFailure(
+          rope, "cos/sin must have static ranked shapes");
+    if (cosTy.getRank() != 3 || sinTy.getRank() != 3)
+      return rewriter.notifyMatchFailure(rope, "cos/sin must be rank-3");
+    if (!isPlainFloatType(cosTy) || !isPlainFloatType(sinTy))
+      return rewriter.notifyMatchFailure(
+          rope, "cos/sin have non-float element type");
+    if (getElementTypeOrSelf(cosTy) != getElementTypeOrSelf(sinTy))
+      return rewriter.notifyMatchFailure(
+          rope, "cos and sin must share the same element type");
+    if (getElementTypeOrSelf(xTy) != getElementTypeOrSelf(cosTy))
+      return rewriter.notifyMatchFailure(
+          rope, "X and cos/sin must share the same element type");
+    auto elemType = cast<FloatType>(getElementTypeOrSelf(cosTy));
+    if (!onnx_mlir::isDenseONNXConstant(rope.getCosCache()) ||
+        !onnx_mlir::isDenseONNXConstant(rope.getSinCache()))
+      return rewriter.notifyMatchFailure(
+          rope, "cos/sin must be dense ONNX constants");
+    const int64_t expectedSeq = fullLen - prefixLen;
+    const int64_t halfD = cosTy.getShape()[2];
+    if (cosTy.getShape() != ArrayRef<int64_t>{int64_t(1), expectedSeq, halfD} ||
+        sinTy.getShape() != ArrayRef<int64_t>{int64_t(1), expectedSeq, halfD})
+      return rewriter.notifyMatchFailure(
+          rope, "cos/sin shape does not match [1, fullLen-prefixLen, halfD]");
+
+    // Rewrite section
+    Location loc = FusedLoc::get(
+        rewriter.getContext(), {concatOp.getLoc(), rope.getLoc(),
+                                   prefixSlice.getLoc(), patSlice.getLoc()});
+    onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
+        rewriter, loc);
+
+    // Re-emit the optional pre-RoPE Transpose chain on the full source `X`
+    // instead of on the patches slice.
+    Value newRopeInput = X;
+    SmallVector<int64_t> curShape(xTy.getShape().begin(), xTy.getShape().end());
+    for (auto t : llvm::reverse(permsPre)) {
+      ArrayAttr permAttr = t.getPermAttr();
+      auto perm = extractFromIntegerArrayAttr<int64_t>(permAttr);
+      curShape = applyPermutation(curShape, perm);
+      auto newTy = RankedTensorType::get(curShape, elemType);
+      newRopeInput = create.onnx.transpose(newTy, newRopeInput, permAttr);
+    }
+    // the rebuilt input must equal the original `rope.X` shape with
+    // axis 2 (the seq axis under the `[B, N, S, D]` for RoPE) grown
+    // from `fullLen-prefixLen` to `fullLen`.
+    const auto newRopeInputTy = cast<RankedTensorType>(newRopeInput.getType());
+    {
+      [[maybe_unused]] ArrayRef<int64_t> rs = ropeInTy.getShape();
+      [[maybe_unused]] ArrayRef<int64_t> ns = newRopeInputTy.getShape();
+      assert(ns.size() == 4 && ns[0] == rs[0] && ns[1] == rs[1] &&
+             ns[2] == fullLen && ns[3] == rs[3] &&
+             "pre-RoPE transpose chain rebuild produced an unexpected shape");
+    }
+
+    // Pad cos/sin along the seq axis with `prefixLen` rows of the RoPE
+    // identity (cos = 1, sin = 0) so that the carved-out prefix slot(s)
+    // are a no-op rotation.
+    Value cosId =
+        buildSplatConstant(rewriter, loc, {int64_t{1}, prefixLen, halfD},
+            elemType, APFloat::getOne(elemType.getFloatSemantics()));
+    Value sinId =
+        buildSplatConstant(rewriter, loc, {int64_t{1}, prefixLen, halfD},
+            elemType, APFloat::getZero(elemType.getFloatSemantics()));
+    auto paddedCacheTy =
+        RankedTensorType::get({int64_t{1}, fullLen, halfD}, elemType);
+    Value paddedCos = create.onnx.concat(
+        paddedCacheTy, ValueRange{cosId, rope.getCosCache()}, /*axis=*/1);
+    Value paddedSin = create.onnx.concat(
+        paddedCacheTy, ValueRange{sinId, rope.getSinCache()}, /*axis=*/1);
+
+    const auto si64 = rewriter.getIntegerType(64, /*isSigned=*/true);
+    auto newRope = cast<ONNXRotaryEmbeddingOp>(rewriter.clone(*rope));
+    newRope->setLoc(loc);
+    newRope.getXMutable().assign(newRopeInput);
+    newRope.getCosCacheMutable().assign(paddedCos);
+    newRope.getSinCacheMutable().assign(paddedSin);
+    newRope.getResult().setType(newRopeInputTy);
+    newRope.setNumHeadsAttr(
+        IntegerAttr::get(si64, newRopeInputTy.getShape()[1]));
+
+    // Re-emit the optional post-RoPE Transpose chain on the new RoPE
+    // result.
+    Value newOut = newRope.getResult();
+    curShape.assign(
+        newRopeInputTy.getShape().begin(), newRopeInputTy.getShape().end());
+    for (auto t : llvm::reverse(permsPost)) {
+      ArrayAttr permAttr = t.getPermAttr();
+      auto perm = extractFromIntegerArrayAttr<int64_t>(permAttr);
+      curShape = applyPermutation(curShape, perm);
+      auto newTy = RankedTensorType::get(curShape, elemType);
+      newOut = create.onnx.transpose(newTy, newOut, permAttr);
+    }
+
+    assert(newOut.getType() == concatOp.getResult().getType() &&
+           "post-RoPE transpose chain rebuild does not reproduce the original "
+           "concat result type");
+
+    rewriter.replaceOp(concatOp, newOut);
+    return success();
+  }
+};
+
+// =============================================================================
+// Rewrite pattern: fuse a trailing single-element scalar `onnx.Mul` into the
+//                  cos/sin caches of an upstream `onnx.RotaryEmbedding`.
+//
+// Match:
+//
+//   rope = onnx.RotaryEmbedding(X, cos, sin, none)
+//          {interleaved=0, rotary_embedding_dim=0, num_heads=N}
+//   t    = (zero or more) onnx.Transpose(... rope ...)
+//   y    = onnx.Mul(t, scale)        // scale is a scalar
+//
+// Rewrite to:
+//
+//   cosNew = onnx.Mul(cos, scale)
+//   sinNew = onnx.Mul(sin, scale)
+//   rope2  = onnx.RotaryEmbedding(X, cosNew, sinNew, none) {same attrs}
+//   y      = (the original transpose chain re-emitted on rope2)
+//
+// Correctness: for ONNX RoPE  the rotated half is built from
+//
+//     x1, x2   = split(input[..., :rotary_embedding_dim], 2, axis=-1)
+//     real     = cos * x1 - sin * x2
+//     imag     = sin * x1 + cos * x2
+//     rotated  = concat(real, imag, axis=-1)
+//     output   = concat(rotated, input[..., rotary_embedding_dim:],
+//                       axis=-1)
+//
+// substituting `cos -> s*cos` and `sin -> s*sin` for any scalar `s` gives
+// `s*real` and `s*imag`, hence `rotated' = s * rotated`.
+//
+// The un-rotated tail `input[..., rotary_embedding_dim:]` is concatenated
+// unchanged, so `output' = s * output` only holds when that tail is
+// empty. This is enforced by the `rotary_embedding_dim == 0` requirement.
+//
+// Pushing a scalar scale through transposes is safe, as its invariant to the
+// permutation.
+//
+// =============================================================================
+
+struct FuseScaleIntoRotaryEmbeddingPattern
+    : public OpRewritePattern<ONNXMulOp> {
+  using OpRewritePattern<ONNXMulOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXMulOp mulOp, PatternRewriter &rewriter) const final {
+    // Scale must be the RHS dense ONNX constant with exactly one element.
+    Value scale = mulOp.getB();
+    Value data = mulOp.getA();
+    if (!onnx_mlir::isDenseONNXConstant(scale) ||
+        onnx_mlir::isDenseONNXConstant(data))
+      return rewriter.notifyMatchFailure(
+          mulOp, "Mul is not in canonical (data, const) form");
+    auto scaleTy = dyn_cast<RankedTensorType>(scale.getType());
+    if (!scaleTy || !scaleTy.hasStaticShape() || scaleTy.getNumElements() != 1)
+      return rewriter.notifyMatchFailure(
+          mulOp, "scale must be a single-element static tensor");
+    if (!isPlainFloatType(scaleTy))
+      return rewriter.notifyMatchFailure(
+          mulOp, "scale element type is not a plain float");
+    auto mulResultTy = dyn_cast<RankedTensorType>(mulOp.getResult().getType());
+    if (!isPlainFloatType(mulResultTy))
+      return rewriter.notifyMatchFailure(
+          mulOp, "Mul result element type is not a plain float");
+
+    // Skip optional Transposes
+    SmallVector<ONNXTransposeOp> permsPost;
+    Value preTransposes = walkBackThroughTransposes(data, permsPost);
+    if (!preTransposes)
+      return rewriter.notifyMatchFailure(
+          mulOp, "post-RoPE transpose chain is malformed");
+
+    auto rope = preTransposes.getDefiningOp<ONNXRotaryEmbeddingOp>();
+    if (!rope || !rope->hasOneUse())
+      return rewriter.notifyMatchFailure(
+          mulOp, "Mul does not come from a single-use onnx.RotaryEmbedding");
+
+    // RoPE attribute / shape constraints. These could be relaxed in the future.
+    //   - rank-4 plain-float static input
+    //   - position_ids must be NoValue;
+    //   - interleaved == 0 and rotary_embedding_dim == 0 (full rotation)
+    auto ropeInTy = dyn_cast<RankedTensorType>(rope.getX().getType());
+    auto ropeOutTy = dyn_cast<RankedTensorType>(rope.getResult().getType());
+    if (!ropeInTy || !ropeOutTy || ropeInTy.getRank() != 4 ||
+        !ropeInTy.hasStaticShape() || !ropeOutTy.hasStaticShape())
+      return rewriter.notifyMatchFailure(
+          rope, "rope X / result must be rank-4 with static shape");
+    if (!isPlainFloatType(ropeInTy) || !isPlainFloatType(ropeOutTy))
+      return rewriter.notifyMatchFailure(
+          rope, "rope X / result has non-float element type");
+    if (!isa<NoneType>(rope.getPositionIds().getType()))
+      return rewriter.notifyMatchFailure(rope, "position_ids must be NoValue");
+    if (rope.getInterleaved() != 0)
+      return rewriter.notifyMatchFailure(rope, "interleaved must be 0");
+    if (rope.getRotaryEmbeddingDim() != 0)
+      return rewriter.notifyMatchFailure(
+          rope, "rotary_embedding_dim must be 0 (full rotation)");
+
+    // cos/sin must be dense ONNX constants of static shape, sharing the
+    // scale's element type so the fused Mul is well-typed and constprop-able.
+    auto cosTy = dyn_cast<RankedTensorType>(rope.getCosCache().getType());
+    auto sinTy = dyn_cast<RankedTensorType>(rope.getSinCache().getType());
+    if (!cosTy || !sinTy || !cosTy.hasStaticShape() || !sinTy.hasStaticShape())
+      return rewriter.notifyMatchFailure(
+          rope, "cos/sin must have static ranked shapes");
+    if (!onnx_mlir::isDenseONNXConstant(rope.getCosCache()) ||
+        !onnx_mlir::isDenseONNXConstant(rope.getSinCache()))
+      return rewriter.notifyMatchFailure(
+          rope, "cos/sin must be dense ONNX constants");
+    if (getElementTypeOrSelf(cosTy) != getElementTypeOrSelf(scaleTy) ||
+        getElementTypeOrSelf(sinTy) != getElementTypeOrSelf(scaleTy))
+      return rewriter.notifyMatchFailure(
+          rope, "cos/sin element type does not match scale");
+
+    // Rewrite section
+    SmallVector<Location, 4> locs{mulOp.getLoc(), rope.getLoc()};
+    for (auto t : permsPost)
+      locs.push_back(t.getLoc());
+    Location loc = FusedLoc::get(rewriter.getContext(), locs);
+    onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
+        rewriter, loc);
+
+    Value cosScaled = create.onnx.mul(rope.getCosCache(), scale);
+    Value sinScaled = create.onnx.mul(rope.getSinCache(), scale);
+
+    auto newRope = cast<ONNXRotaryEmbeddingOp>(rewriter.clone(*rope));
+    newRope->setLoc(loc);
+    newRope.getCosCacheMutable().assign(cosScaled);
+    newRope.getSinCacheMutable().assign(sinScaled);
+
+    Value newOut = newRope.getResult();
+    SmallVector<int64_t> curShape = llvm::to_vector(ropeOutTy.getShape());
+    Type elemType = getElementTypeOrSelf(ropeOutTy);
+    for (auto t : llvm::reverse(permsPost)) {
+      ArrayAttr permAttr = t.getPermAttr();
+      auto perm = extractFromIntegerArrayAttr<int64_t>(permAttr);
+      curShape = applyPermutation(curShape, perm);
+      const auto newTy = RankedTensorType::get(curShape, elemType);
+      newOut = create.onnx.transpose(newTy, newOut, permAttr);
+    }
+
+    rewriter.replaceOp(mulOp, newOut);
+    return success();
+  }
+};
+
 // =============================================================================
 // Rewrite pattern LayerNormalization
 // =============================================================================
-namespace {
 
 // Checks if B is unidiretional broadcastable to A. Requires static shapes
 [[nodiscard]] bool areUnidirectionalBroadcastCompatible(Type a, Type b) {
@@ -3171,6 +3659,7 @@ void ONNXCastOp::getCanonicalizationPatterns(
 void ONNXConcatOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<RecomposeConcatPattern>(context);
+  results.insert<EliminateCarveOutAroundRotaryEmbeddingPattern>(context);
 }
 
 /// on the ONNXClipOp.
@@ -3299,6 +3788,7 @@ void ONNXMulOp::getCanonicalizationPatterns(
   results.insert<PropagateConstantScalingInAttentionLayerPattern<ONNXMulOp>>(
       context);
   results.insert<PushTransposeDownScalePattern>(context);
+  results.insert<FuseScaleIntoRotaryEmbeddingPattern>(context);
 }
 
 /// on the ONNXOrOp.

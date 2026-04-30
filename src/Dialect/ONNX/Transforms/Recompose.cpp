@@ -1624,31 +1624,6 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
 //
 //===----------------------------------------------------------------------===//
 
-// Read a single-element i64 ONNX constant operand into `out`.
-bool extractI64Scalar(mlir::Value v, int64_t &out) {
-  llvm::SmallVector<int64_t, 1> values;
-  if (!onnx_mlir::getI64ValuesFromONNXConstantOp(v, values))
-    return false;
-  if (values.size() != 1)
-    return false;
-  out = values[0];
-  return true;
-}
-
-// Destructure a single-axis onnx.Slice into (axis, start, end, step). Returns
-// false if any of starts/ends/axes/steps is not a single-element i64 constant
-// or if axes/steps were  NoneType (i.e. inferred defaults).
-[[nodiscard]] bool extractSlice1D(mlir::ONNXSliceOp sliceOp, int64_t &axis,
-    int64_t &start, int64_t &end, int64_t &step) {
-  if (mlir::isa<NoneType>(sliceOp.getAxes().getType()) ||
-      mlir::isa<NoneType>(sliceOp.getSteps().getType()))
-    return false;
-  return extractI64Scalar(sliceOp.getStarts(), start) &&
-         extractI64Scalar(sliceOp.getEnds(), end) &&
-         extractI64Scalar(sliceOp.getAxes(), axis) &&
-         extractI64Scalar(sliceOp.getSteps(), step);
-}
-
 [[nodiscard]] bool hasRopeFloatElementType(mlir::Type type) {
   return mlir::isa<mlir::Float32Type, mlir::Float16Type, mlir::BFloat16Type>(
       getElementTypeOrSelf(type));
@@ -1857,8 +1832,9 @@ struct RecomposeRotaryEmbeddingPattern
     // with the negated slice covering the high half (HF order).
     int64_t hiAxis, hiStart, hiEnd, hiStep;
     int64_t loAxis, loStart, loEnd, loStep;
-    if (!extractSlice1D(halfHi, hiAxis, hiStart, hiEnd, hiStep) ||
-        !extractSlice1D(halfLo, loAxis, loStart, loEnd, loStep))
+    if (!onnx_mlir::extractSlice1DConst(
+            halfHi, hiAxis, hiStart, hiEnd, hiStep) ||
+        !onnx_mlir::extractSlice1DConst(halfLo, loAxis, loStart, loEnd, loStep))
       return rewriter.notifyMatchFailure(
           addOp, "slice operands are not single-axis i64 constants");
     if (hiAxis != lastAxis || loAxis != lastAxis)
