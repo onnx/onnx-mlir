@@ -10,6 +10,9 @@
 //
 // This file contains helper functions for lowering ONNX ops to Krnl Dialect.
 //
+// Modifications (c) Copyright 2026 Advanced Micro Devices, Inc. or its
+// affiliates
+//
 //===----------------------------------------------------------------------===//
 
 #ifndef ONNX_MLIR_OPS_HELPER_H
@@ -482,6 +485,13 @@ bool isIdentityReshape(mlir::Value input, mlir::Value output,
 
 bool isDequantQuantSame(
     mlir::ONNXDequantizeLinearOp dqOp, mlir::ONNXQuantizeLinearOp qOp);
+
+/// Return true if the (element) type carries a `quant::QuantizedType`.
+/// Convenient for guarding rewrite patterns that are not valid on quantized
+/// values. Accepts either a raw `Type` (in which case `getElementTypeOrSelf`
+/// is applied) or a `Value` (whose type is inspected the same way).
+bool hasQuantizedElementType(mlir::Type type);
+bool hasQuantizedElementType(mlir::Value value);
 //===----------------------------------------------------------------------===//
 // Support for location.
 //===----------------------------------------------------------------------===//

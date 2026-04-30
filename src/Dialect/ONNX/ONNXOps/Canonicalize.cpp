@@ -905,6 +905,72 @@ struct PropagateConstantScalingInAttentionLayerPattern
   }
 };
 
+// Drop reduction axes that point to dimensions of size 1 from
+// `onnx.ReduceMean`. Reducing a unit-sized dimension is a no-op, so the axis
+// can be removed from the `axes` operand without changing the result.
+//
+// Only `keepdims = 1` is handled here. With `keepdims = 0`, dropping a
+// size-1 axis would change the output rank and require inserting a Squeeze,
+// which is left to other rewrites.
+//
+// The empty-axes + `noop_with_empty_axes = 1` case (no reduction at all) is
+// already handled by `ONNXReduceMeanOp::fold`, which forwards `data`.
+class DropUnitAxesFromReduceMeanPattern
+    : public OpRewritePattern<ONNXReduceMeanOp> {
+public:
+  using OpRewritePattern<ONNXReduceMeanOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXReduceMeanOp op, PatternRewriter &rewriter) const override {
+    if (op.getKeepdims() != 1)
+      return rewriter.notifyMatchFailure(op, "only keepdims=1 is handled");
+
+    auto dataType = mlir::dyn_cast<RankedTensorType>(op.getData().getType());
+    if (!dataType || !dataType.hasStaticShape())
+      return rewriter.notifyMatchFailure(op, "data must have static shape");
+    const ArrayRef<int64_t> shape = dataType.getShape();
+    const int64_t rank = dataType.getRank();
+
+    // Collect the reduction axes. Axis ranges are validated by shape
+    // inference, so we only need to handle the constant-vs-empty cases here.
+    SmallVector<int64_t> axes;
+    if (!isNoneValue(op.getAxes())) {
+      if (!getI64ValuesFromONNXConstantOp(op.getAxes(), axes))
+        return rewriter.notifyMatchFailure(op, "axes is not a constant");
+    } else if (op.getNoopWithEmptyAxes() == 0) {
+      // Empty axes with default semantics means reduce all dims.
+      axes.resize(rank);
+      std::iota(axes.begin(), axes.end(), int64_t{0});
+    } else {
+      return rewriter.notifyMatchFailure(op, "noop on empty axes");
+    }
+
+    // Drop axes that target unit-sized dimensions.
+    SmallVector<int64_t> remainingAxes;
+    for (int64_t a : axes) {
+      const int64_t normA = a < 0 ? a + rank : a;
+      if (shape[normA] != 1)
+        remainingAxes.push_back(a);
+    }
+    if (remainingAxes.size() == axes.size())
+      return rewriter.notifyMatchFailure(op, "no unit-sized axes to drop");
+
+    // All reduction axes were unit-sized: with keepdims=1 the result shape
+    // equals the input shape, so the op is equivalent to its data input.
+    if (remainingAxes.empty()) {
+      rewriter.replaceOp(op, op.getData());
+      return success();
+    }
+
+    // Otherwise update the axes operand in place; all other operands and
+    // attributes are unchanged.
+    OnnxBuilder create(rewriter, op.getLoc());
+    Value newAxes = create.constantInt64(remainingAxes);
+    rewriter.modifyOpInPlace(op, [&] { op.getAxesMutable().assign(newAxes); });
+    return success();
+  }
+};
+
 // =============================================================================
 // Rewrite pattern for Resize (not handled in Rewrite.td).
 // =============================================================================
@@ -3583,6 +3649,12 @@ void ONNXMulOp::getCanonicalizationPatterns(
 void ONNXOrOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<BinaryOpBroadcastAxisPattern<ONNXOrOp>>(context);
+}
+
+/// on the ONNXReduceMeanOp.
+void ONNXReduceMeanOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<DropUnitAxesFromReduceMeanPattern>(context);
 }
 
 /// on the ONNXReshapeOp.

@@ -947,6 +947,62 @@ func.func @gqa_batch4_do_rotary_no_position_ids(
 
 // -----
 
+// Test: do_rotary=1 with no position_ids and no past_key; GQA should not be decomposed.
+func.func @gqa_rotary_no_position_ids_no_past_key(
+  %q: tensor<1x128x3072xf32>,
+  %k: tensor<1x128x1536xf32>,
+  %v: tensor<1x128x1536xf32>,
+  %cos_cache: tensor<4096x48xf32>,
+  %sin_cache: tensor<4096x48xf32>
+) -> (tensor<1x128x3072xf32>, tensor<?x16x?x96xf32>, tensor<?x16x?x48xf32>) {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %total_seqlen = "onnx.Constant"() {value = dense<128> : tensor<i32>} : () -> tensor<i32>
+  %seqlens = "onnx.Constant"() {value = dense<127> : tensor<1x1xi32>} : () -> tensor<1x1xi32>
+  %out, %present_k, %present_v = "onnx.Custom"(%q, %k, %v, %none, %none, %seqlens, %total_seqlen, %cos_cache, %sin_cache) {
+    domain_name = "com.microsoft",
+    function_name = "GroupQueryAttention",
+    do_rotary = 1 : si64,
+    kv_num_heads = 16 : si64,
+    num_heads = 32 : si64
+  } : (tensor<1x128x3072xf32>, tensor<1x128x1536xf32>, tensor<1x128x1536xf32>, none, none, tensor<1x1xi32>, tensor<i32>, tensor<4096x48xf32>, tensor<4096x48xf32>) -> (tensor<1x128x3072xf32>, tensor<?x16x?x96xf32>, tensor<?x16x?x48xf32>)
+  return %out, %present_k, %present_v : tensor<1x128x3072xf32>, tensor<?x16x?x96xf32>, tensor<?x16x?x48xf32>
+}
+// CHECK-LABEL: func.func @gqa_rotary_no_position_ids_no_past_key
+// CHECK-NOT: "onnx.Attention"
+// CHECK: "onnx.Custom"
+// CHECK-SAME: function_name = "GroupQueryAttention"
+
+// -----
+
+// Test: do_rotary=1 with no position_ids and a dynamic past_key;  GQA should not be decomposed
+func.func @gqa_rotary_no_position_ids_dynamic_past_key(
+  %q: tensor<1x128x3072xf32>,
+  %k: tensor<1x128x1536xf32>,
+  %v: tensor<1x128x1536xf32>,
+  %past_k: tensor<?x16x?x96xf32>,
+  %past_v: tensor<?x16x?x48xf32>,
+  %cos_cache: tensor<4096x48xf32>,
+  %sin_cache: tensor<4096x48xf32>
+) -> (tensor<1x128x3072xf32>, tensor<?x16x?x96xf32>, tensor<?x16x?x48xf32>) {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %total_seqlen = "onnx.Constant"() {value = dense<128> : tensor<i32>} : () -> tensor<i32>
+  %seqlens = "onnx.Constant"() {value = dense<127> : tensor<1x1xi32>} : () -> tensor<1x1xi32>
+  %out, %present_k, %present_v = "onnx.Custom"(%q, %k, %v, %past_k, %past_v, %seqlens, %total_seqlen, %cos_cache, %sin_cache) {
+    domain_name = "com.microsoft",
+    function_name = "GroupQueryAttention",
+    do_rotary = 1 : si64,
+    kv_num_heads = 16 : si64,
+    num_heads = 32 : si64
+  } : (tensor<1x128x3072xf32>, tensor<1x128x1536xf32>, tensor<1x128x1536xf32>, tensor<?x16x?x96xf32>, tensor<?x16x?x48xf32>, tensor<1x1xi32>, tensor<i32>, tensor<4096x48xf32>, tensor<4096x48xf32>) -> (tensor<1x128x3072xf32>, tensor<?x16x?x96xf32>, tensor<?x16x?x48xf32>)
+  return %out, %present_k, %present_v : tensor<1x128x3072xf32>, tensor<?x16x?x96xf32>, tensor<?x16x?x48xf32>
+}
+// CHECK-LABEL: func.func @gqa_rotary_no_position_ids_dynamic_past_key
+// CHECK-NOT: "onnx.Attention"
+// CHECK: "onnx.Custom"
+// CHECK-SAME: function_name = "GroupQueryAttention"
+
+// -----
+
 func.func @rotary_embedding_4d_interleaved_rotdim_16(%data: tensor<1x32x128x96xf32>, %pos_ids: tensor<1x128xi64>, %cos_cache: tensor<4096x8xf32>, %sin_cache: tensor<4096x8xf32>) -> tensor<1x32x128x96xf32> {
   %0 = "onnx.Custom"(%data, %pos_ids, %cos_cache, %sin_cache) {
     domain_name = "com.microsoft",

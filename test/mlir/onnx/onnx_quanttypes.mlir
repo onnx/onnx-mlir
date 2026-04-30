@@ -306,11 +306,18 @@ func.func @layernorm_quant_types_resultnames(%arg0: tensor<1x128x768xui16>) -> t
   %12 = "onnx.DequantizeLinear"(%5, %6, %7) {ResultNames = ["dq_bias"], axis = 1 : si64, block_size = 0 : si64} : (tensor<768xi32>, tensor<f32>, tensor<i32>) -> tensor<768xf32>
   %Y, %Mean, %InvStdDev = "onnx.LayerNormalization"(%10, %11, %12) {ResultNames = ["ln0", "ln1", "ln2"], axis = -1 : si64, epsilon = 9.99999996E-13 : f32, stash_type = 1 : si64} : (tensor<1x128x768xf32>, tensor<768xf32>, tensor<768xf32>) -> (tensor<1x128x768xf32>, none, none)
   %13 = "onnx.QuantizeLinear"(%Y, %9, %8) {ResultNames = ["q_ln_out"], axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x128x768xf32>, tensor<f32>, tensor<ui16>) -> tensor<1x128x768xui16>
-  return %13 : tensor<1x128x768xui16>
+  %14 = "onnx.DequantizeLinear"(%13, %9, %8) {ResultNames = ["dq_relu_in"], axis = 1 : si64, block_size = 0 : si64} : (tensor<1x128x768xui16>, tensor<f32>, tensor<ui16>) -> tensor<1x128x768xf32>
+  %15 = "onnx.Relu"(%14) {ResultNames = ["relu_out"]} : (tensor<1x128x768xf32>) -> tensor<1x128x768xf32>
+  %16 = "onnx.QuantizeLinear"(%15, %9, %8) {ResultNames = ["q_relu_out"], axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x128x768xf32>, tensor<f32>, tensor<ui16>) -> tensor<1x128x768xui16>
+  return %16 : tensor<1x128x768xui16>
 }
+
 
 // CHECK-LABEL: @layernorm_quant_types_resultnames
 // CHECK: onnx.LayerNormalization
 // CHECK-SAME: ResultNames = ["q_ln_out", "ln1", "ln2"]
 // CHECK-SAME: (tensor<1x128x768x!quant.uniform<u16:f32, 5.1213039114372805E-5:38292>>, tensor<768x!quant.uniform<u8:f32, 0.0038560051470994949>>, tensor<768x!quant.uniform<i32:f32, 1.9747774615552771E-7>>)
 // CHECK-SAME: -> (tensor<1x128x768x!quant.uniform<u16:f32, 2.3420652723871171E-4:47366>>, none, none)
+// CHECK-NEXT: onnx.Relu
+// CHECK-SAME: ResultNames = ["q_relu_out"]
+// CHECK-SAME: (tensor<1x128x768x!quant.uniform<u16:f32, 2.3420652723871171E-4:47366>>) -> tensor<1x128x768x!quant.uniform<u16:f32, 2.3420652723871171E-4:47366>>
