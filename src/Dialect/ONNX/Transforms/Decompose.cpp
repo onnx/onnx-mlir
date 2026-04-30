@@ -3346,6 +3346,21 @@ struct MicrosoftGroupQueryAttention : public CustomOpToOnnxOps {
       return rewriter.notifyMatchFailure(
           customOp, "expected 'query' input to have static type");
     assert(queryType.getRank() == 3 && "Query input must have rank 3");
+    // Check pastKey shape requirements early, before any IR modifications.
+    auto doRotary = customOp->getAttrOfType<IntegerAttr>("do_rotary");
+    if (doRotary && doRotary.getSInt() > 0 &&
+        (numIn < 10 || isNoneValue(positionIds))) {
+      // We need to know the past sequence length to find the total sequence
+      // length (or vice versa). We could get the total sequence length from
+      // seqlens_k, but only if this input is a constant that we can read.
+      if (isNoneValue(pastKey))
+        return rewriter.notifyMatchFailure(
+            customOp, "expected 'past_ks' input to be provided");
+      auto pastKeyType = cast<ShapedType>(pastKey.getType());
+      if (!pastKeyType.hasStaticShape())
+        return rewriter.notifyMatchFailure(
+            customOp, "expected 'past_ks' input to have static type");
+    }
 
     auto none = rewriter.create<ONNXNoneOp>(loc);
     auto si64Type = rewriter.getIntegerType(64, true);
@@ -3393,7 +3408,6 @@ struct MicrosoftGroupQueryAttention : public CustomOpToOnnxOps {
 
     // If do_rotary = 1, query and key need to be passed through a rotary
     // embedding op
-    auto doRotary = customOp->getAttrOfType<IntegerAttr>("do_rotary");
     ONNXRotaryEmbeddingOp ropeQuery;
     ONNXRotaryEmbeddingOp ropeKey;
     if (doRotary && doRotary.getSInt() > 0) {
@@ -3404,16 +3418,7 @@ struct MicrosoftGroupQueryAttention : public CustomOpToOnnxOps {
       if (numIn < 10 || isNoneValue(positionIds)) {
         positionIds = none;
 
-        // We need to know the past sequence length to find the total sequence
-        // length (or vice versa). We could get the total sequence length from
-        // seqlens_k, but only if this input is a constant that we can read.
-        if (isNoneValue(pastKey))
-          return rewriter.notifyMatchFailure(
-              customOp, "expected 'past_ks' input to be provided");
         auto pastKeyType = cast<ShapedType>(pastKey.getType());
-        if (!pastKeyType.hasStaticShape())
-          return rewriter.notifyMatchFailure(
-              customOp, "expected 'past_ks' input to have static type");
 
         // Assuming the sequence length is the same kv_sequence_length
         const int64_t seqLen = queryType.getShape()[1];
