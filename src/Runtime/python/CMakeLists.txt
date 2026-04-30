@@ -88,15 +88,6 @@ target_compile_options(PyRuntimeC
   $<$<CXX_COMPILER_ID:MSVC>:/EHsc /GR>
   )
 
-# Add MLIR include directories for SmallFP.hpp dependency
-get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
-get_property(conversion_libs GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
-target_include_directories(PyRuntimeC
-  PRIVATE
-  ${MLIR_INCLUDE_DIRS}
-  ${LLVM_INCLUDE_DIRS}
-  )
-
 if(NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
 
 target_link_libraries(PyRuntimeC
@@ -124,6 +115,13 @@ target_link_libraries(PyRuntimeC
 endif()
 
 llvm_update_compile_flags(PyRuntimeC)
+
+# Add MLIR and LLVM include directories for SmallFP.hpp dependency
+target_include_directories(PyRuntimeC
+  PRIVATE
+  ${MLIR_INCLUDE_DIRS}
+  ${LLVM_INCLUDE_DIRS}
+  )
 
 install(TARGETS PyRuntimeC
   DESTINATION lib
