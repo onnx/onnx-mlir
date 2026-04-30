@@ -161,6 +161,7 @@ func.func @caseB_bothDQ_constViaDQ1_foldIntoQ(%arg0: tensor<1x4xf32>) -> tensor<
   }
 
 // CHECK-LABEL: func.func @branchBefore_foldIntoDQ
+// CHECK: %[[ZP_NEW:.*]] = onnx.Constant dense<-99> : tensor<i8>
 // CHECK: %[[S_DQ:.*]] = onnx.Constant dense<1.000000e-01> : tensor<f32>
 // CHECK: %[[S_Q:.*]]  = onnx.Constant dense<5.000000e-01> : tensor<f32>
 // CHECK: %[[ZP:.*]]   = onnx.Constant dense<0> : tensor<i8>
@@ -168,7 +169,7 @@ func.func @caseB_bothDQ_constViaDQ1_foldIntoQ(%arg0: tensor<1x4xf32>) -> tensor<
 // CHECK-SAME: : (tensor<1x4xf32>, tensor<f32>, tensor<i8>) -> tensor<1x4xi8>
 // CHECK: %[[ABS:.*]] = "onnx.Abs"(%[[Q]])
 // CHECK-SAME: : (tensor<1x4xi8>) -> tensor<1x4xi8>
-// CHECK: %[[DQ:.*]] = "onnx.DequantizeLinear"(%[[Q]], %[[S_DQ]], %[[ZP]])
+// CHECK: %[[DQ:.*]] = "onnx.DequantizeLinear"(%[[Q]], %[[S_DQ]], %[[ZP_NEW]])
 // CHECK-SAME: : (tensor<1x4xi8>, tensor<f32>, tensor<i8>) -> tensor<1x4xf32>
 // CHECK: return %[[DQ]], %[[ABS]] : tensor<1x4xf32>, tensor<1x4xi8>
 

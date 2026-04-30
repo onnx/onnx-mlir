@@ -13,6 +13,9 @@
 //
 // This file contains helper functions for lowering ONNX ops to Krnl Dialect.
 //
+// Modifications (c) Copyright 2026 Advanced Micro Devices, Inc. or its
+// affiliates
+//
 //===----------------------------------------------------------------------===//
 
 #include "mlir/IR/DialectResourceBlobManager.h"
@@ -1062,6 +1065,14 @@ bool isDequantQuantSame(
     return false;
   }
   return true;
+}
+
+bool hasQuantizedElementType(mlir::Type type) {
+  return mlir::isa<mlir::quant::QuantizedType>(getElementTypeOrSelf(type));
+}
+
+bool hasQuantizedElementType(mlir::Value value) {
+  return hasQuantizedElementType(value.getType());
 }
 
 //===----------------------------------------------------------------------===//

@@ -7211,6 +7211,7 @@ def ONNXReduceMaxV13Op:ONNX_Op<"ReduceMaxV13",
 
 def ONNXReduceMeanOp:ONNX_Op<"ReduceMean",
   [Pure, OpVersionTrait<18>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX ReduceMean operation";
   let description = [{
   Computes the mean of the input tensor's elements along the provided axes. The resulting
