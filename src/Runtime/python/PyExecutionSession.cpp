@@ -4,7 +4,7 @@
 
 //===----- PyExecutionSession.cpp - PyExecutionSession Implementation -----===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
