@@ -74,6 +74,10 @@ std::unique_ptr<mlir::Pass> createInstrumentPass(
 #define GEN_PASS_DECL_INSTRUMENTCLEANUPPASS
 #include "src/Transform/Passes.h.inc"
 
+/// Pass for writing operation statistics to a module attribute.
+#define GEN_PASS_DECL_WRITEOPSTATSTOMODULEATTRIBUTEPASS
+#include "src/Transform/Passes.h.inc"
+
 /// Passes for instrumenting the ONNX ops to print their operand type
 /// signatures at runtime.
 std::unique_ptr<mlir::Pass> createInstrumentONNXSignaturePass(
@@ -139,7 +143,7 @@ std::unique_ptr<mlir::Pass> createConvertKrnlToLLVMPass();
 std::unique_ptr<mlir::Pass> createConvertKrnlToLLVMPass(bool verifyInputTensors,
     bool useLRODATA, bool storeConstantsToFile,
     float constantsToFileSingleThreshold, float constantsToFileTotalThreshold,
-    std::string outputNameNoExt, bool enableParallel);
+    bool omitCompileInfo, std::string outputNameNoExt, bool enableParallel);
 
 } // namespace krnl
 

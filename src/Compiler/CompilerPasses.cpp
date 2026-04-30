@@ -290,6 +290,9 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
     }
   }
 
+  // Store the op statistics in an attribute of ModuleOp.
+  pm.addPass(onnx_mlir::createWriteOpStatsToModuleAttributePass());
+
   pm.addPass(onnx_mlir::createLowerToKrnlPass(/*enableTiling*/ optLevel >= 3,
       /*enableSIMD*/ optLevel >= 3 && !disableSimdOption, enableParallel,
       /*enableFastMath*/ optLevel >= 3 && enableFastMathOption,
@@ -412,13 +415,13 @@ void addLinalgToLLVMPasses(mlir::PassManager &pm, std::string outputNameNoExt) {
   // 3. KrnlEntryPointOp → LLVM conversion (dynamic entry point functions,
   //    OMTensor conversion, accelerator initialization, signature recording)
   // 4. Runtime function generation (omQueryEntryPoints, omInputSignature,
-  //    omOutputSignature)
+  //    omOutputSignature, omCompilationInfo)
   // 5. Other features (constants file storage, C wrapper, .lrodata section)
   pm.addPass(krnl::createConvertKrnlToLLVMPass(verifyInputTensors,
       /*useLRODATA=*/(modelSize == ModelSize::large),
       /*storeConstantsToFile=*/storeConstantsToFile,
       constantsToFileSingleThreshold, constantsToFileTotalThreshold,
-      outputNameNoExt, enableParallel));
+      omitCompileInfo, outputNameNoExt, enableParallel));
   pm.addPass(mlir::createReconcileUnrealizedCastsPass());
   pm.addPass(mlir::createCanonicalizerPass());
 }
@@ -453,7 +456,7 @@ void addKrnlToLLVMPasses(
         /*useLRODATA=*/(modelSize == ModelSize::large),
         /*storeConstantsToFile=*/storeConstantsToFile,
         constantsToFileSingleThreshold, constantsToFileTotalThreshold,
-        outputNameNoExt, enableParallel));
+        omitCompileInfo, outputNameNoExt, enableParallel));
     pm.addPass(mlir::createReconcileUnrealizedCastsPass());
     pm.addPass(mlir::createCanonicalizerPass());
     return;
@@ -529,7 +532,7 @@ void addKrnlToLLVMPasses(
       /*useLRODATA=*/(modelSize == ModelSize::large),
       /*storeConstantsToFile=*/storeConstantsToFile,
       constantsToFileSingleThreshold, constantsToFileTotalThreshold,
-      outputNameNoExt, enableParallel));
+      omitCompileInfo, outputNameNoExt, enableParallel));
   pm.addPass(mlir::createReconcileUnrealizedCastsPass());
   pm.addPass(mlir::createCanonicalizerPass());
   if (enableDebugInfo)

@@ -137,11 +137,21 @@ struct ONNXOpShapeHelper {
   mlir::Value getOutput(int n = 0) { return op->getResult(n); }
 
   // Get index expression scope and operation.
+  IndexExprBuilder *getBuilder() { return createIE; }
   IndexExprScope *getScope() { return scope; }
   mlir::Operation *getOp() { return op; }
 
   // Set the operands with a vector of Value
   void setOperands(mlir::ValueRange);
+
+  // Set dim analysis mode. In this mode there is no refineShape.
+  void setDimAnalysisMode();
+
+  // Unset dim analysis mode.
+  void unsetDimAnalysisMode();
+
+  // Check if it is in the dim analysis mode.
+  bool isInDimAnalysisMode() { return this->dimAnalysisMode; }
 
 protected:
   // Helper for ops for which the output (n'th) is the same as the type of a
@@ -172,6 +182,12 @@ private:
   // Used to cache the operation's operands (shape inference only).
   llvm::SmallVector<mlir::Value> privateOperandsCache;
   bool ownScope, ownBuilder;
+  // ShapeHelper may be called from dynamic dimension analysis. In such a case,
+  // ShapeHelper should be used only for analysis and should not update
+  // input/output dimensions. Otherwise, the analysis may fail. Once this
+  // variable is set to True, functions in ShapeHelper should be aware of this
+  // mode and should not update input/output dimensions.
+  bool dimAnalysisMode = false;
 };
 
 } // namespace onnx_mlir

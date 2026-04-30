@@ -58,3 +58,19 @@ add_onnx_mlir_library(BufferOMPLoopHoist
   MLIRMemRefDialect
   OMOptionUtils
   )
+
+add_onnx_mlir_library(OMWriteOpStatsToModuleAttribute
+  WriteOpStatsToModuleAttribute.cpp
+
+  DEPENDS
+  OMTransformsPassIncGen
+
+  INCLUDE_DIRS PUBLIC
+  ${ONNX_MLIR_SRC_ROOT}/include
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  MLIRPass
+  MLIRFuncDialect
+  MLIRTransforms
+  )
