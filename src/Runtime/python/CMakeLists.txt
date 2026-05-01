@@ -99,6 +99,13 @@ target_link_libraries(PyRuntimeC
   # pybind11::python_link_helper
   )
 
+target_include_directories(PyRuntimeC
+  PRIVATE
+  ${ONNX_MLIR_SRC_ROOT}/include
+  ${MLIR_INCLUDE_DIRS}
+  ${LLVM_INCLUDE_DIRS}
+  )
+
 else()
 
 target_link_libraries(PyRuntimeC
