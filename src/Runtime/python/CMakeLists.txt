@@ -99,14 +99,6 @@ target_link_libraries(PyRuntimeC
   # pybind11::python_link_helper
   )
 
-# Get include directories from MLIRIR target
-get_target_property(MLIRIR_INCLUDE_DIRS MLIRIR INTERFACE_INCLUDE_DIRECTORIES)
-target_include_directories(PyRuntimeC
-  PRIVATE
-  ${ONNX_MLIR_SRC_ROOT}/include
-  ${MLIRIR_INCLUDE_DIRS}
-  )
-
 else()
 
 target_link_libraries(PyRuntimeC
