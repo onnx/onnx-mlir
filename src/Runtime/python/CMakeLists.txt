@@ -88,31 +88,14 @@ target_compile_options(PyRuntimeC
   $<$<CXX_COMPILER_ID:MSVC>:/EHsc /GR>
   )
 
-if(NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
-
+# Link OMSmallFPConversion for float16 support.
+# This library contains only C code (SmallFPConversion.c) and has no LLVM dependencies,
+# so float16 support is now available in both full and light modes.
 target_link_libraries(PyRuntimeC
   PRIVATE
   OMExecutionSession
-  OMMlirUtilities
-  # Former PyExecutionSessionBase had these, not sure if needed. Seems to work without it.
-  # pybind11::embed
-  # pybind11::python_link_helper
+  OMSmallFPConversion
   )
-
-else()
-
-target_link_libraries(PyRuntimeC
-  PRIVATE
-  OMExecutionSession
-  # ToFix: OMMlirUtilities used for float16 is temporarily excluded because
-  # it need some support from LLVM.
-  # OMMlirUtilities
-
-  # Former PyExecutionSessionBase had these, not sure if needed. Seems to work without it.
-  # pybind11::embed
-  # pybind11::python_link_helper
-  )
-endif()
 
 llvm_update_compile_flags(PyRuntimeC)
 

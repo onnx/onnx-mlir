@@ -13,18 +13,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#define SUPPORT_SMALL_FP (!defined(ENABLE_PYRUNTIME_LIGHT))
-
 #include "PyExecutionSession.hpp"
+#include "PyFloat16.hpp"
 
 #define OM_DRIVER_TIMING 0 /* 1 for timing, 0 for no timing/overheads */
 #include "src/Runtime/OMInstrumentHelper.h"
-
-#ifndef ENABLE_PYRUNTIME_LIGHT
-// ToFix: support for float_16
-// Now onnx_mlir::float_16 is not defined without SmallFP.h
-
-#include "src/Support/SmallFP.hpp"
 
 namespace pybind11 {
 namespace detail {
@@ -55,7 +48,6 @@ struct npy_format_descriptor<onnx_mlir::float_16> {
 
 } // namespace detail
 } // namespace pybind11
-#endif
 
 namespace onnx_mlir {
 
@@ -254,10 +246,8 @@ std::vector<py::array> PyExecutionSession::pyRunImplementation(
     // string type missing
     else if (py::isinstance<py::array_t<bool>>(inputPyArray))
       dtype = ONNX_TYPE_BOOL;
-#ifndef ENABLE_PYRUNTIME_LIGHT
     else if (py::isinstance<py::array_t<float_16>>(inputPyArray))
       dtype = ONNX_TYPE_FLOAT16;
-#endif
     else if (py::isinstance<py::array_t<double>>(inputPyArray))
       dtype = ONNX_TYPE_DOUBLE;
     else if (py::isinstance<py::array_t<std::uint32_t>>(inputPyArray))
