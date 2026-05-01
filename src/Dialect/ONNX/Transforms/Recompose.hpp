@@ -32,8 +32,12 @@ namespace onnx_mlir {
 // `enableRotaryEmbeddingRecompose` enables a recomposition of a decomposed
 // RotaryEmbedding into an onnx.RotaryEmbedding op. The targeted decomposition
 // matches the RoPE in HuggingFaces LlamaRotaryEmbedding
+// `enableReduceL2Recompositions` enables a recomposition of a decomposed
+// ReduceL2 from Sqrt(ReduceSumSquare(x)) into an onnx.ReduceL2 op and
+// ReduceSumSquare from ReduceSum(Mul(x, x)).
 void getRecomposeONNXToONNXPatterns(mlir::RewritePatternSet &patterns,
-    bool enableRotaryEmbeddingRecompose = false);
+    bool enableRotaryEmbeddingRecompose = false,
+    bool enableReduceL2Recompositions = false);
 
 } // namespace onnx_mlir
 #endif

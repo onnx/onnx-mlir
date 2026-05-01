@@ -1969,10 +1969,11 @@ struct RecomposeONNXToONNXPass
     : public PassWrapper<RecomposeONNXToONNXPass, OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(RecomposeONNXToONNXPass)
 
-  RecomposeONNXToONNXPass(
-      const std::string &target, bool enableRotaryEmbeddingRecompose) {
+  RecomposeONNXToONNXPass(const std::string &target,
+      bool enableRotaryEmbeddingRecompose, bool enableReduceL2Recompositions) {
     this->target = target;
     this->enableRotaryEmbeddingRecompose = enableRotaryEmbeddingRecompose;
+    this->enableReduceL2Recompositions = enableReduceL2Recompositions;
   }
   RecomposeONNXToONNXPass(const RecomposeONNXToONNXPass &pass)
       : mlir::PassWrapper<RecomposeONNXToONNXPass,
@@ -1999,6 +2000,12 @@ struct RecomposeONNXToONNXPass
           "(rotate_half + 2 muls + 1 add) into onnx.RotaryEmbedding"),
       ::llvm::cl::init(false)};
 
+  Option<bool> enableReduceL2Recompositions{*this,
+      "enable-reducel2-recompositions",
+      llvm::cl::desc("Recompose ReduceL2 from Sqrt(ReduceSumSquare(x)) and "
+                     "ReduceSumSquare from ReduceSum(Mul(x, x))"),
+      ::llvm::cl::init(false)};
+
   void runOnOperation() final;
 
   typedef PassWrapper<RecomposeONNXToONNXPass, OperationPass<func::FuncOp>>
@@ -2011,7 +2018,7 @@ void RecomposeONNXToONNXPass::runOnOperation() {
 
   RewritePatternSet patterns(context);
   onnx_mlir::getRecomposeONNXToONNXPatterns(
-      patterns, enableRotaryEmbeddingRecompose);
+      patterns, enableRotaryEmbeddingRecompose, enableReduceL2Recompositions);
 
   onnx_mlir::ResultNamesUpdater rnUpdater;
   if (failed(applyPatternsGreedily(function, std::move(patterns),
@@ -2022,7 +2029,8 @@ void RecomposeONNXToONNXPass::runOnOperation() {
 } // namespace
 
 void onnx_mlir::getRecomposeONNXToONNXPatterns(
-    mlir::RewritePatternSet &patterns, bool enableRotaryEmbeddingRecompose) {
+    mlir::RewritePatternSet &patterns, bool enableRotaryEmbeddingRecompose,
+    bool enableReduceL2Recompositions) {
   MLIRContext *context = patterns.getContext();
   patterns.insert<RecomposeHardSigmoidFromMulClipPattern>(context);
   patterns.insert<RecomposeGeluFromMulPattern>(context);
@@ -2036,8 +2044,11 @@ void onnx_mlir::getRecomposeONNXToONNXPatterns(
   patterns.insert<RecomposeDepthToSpaceDCR>(context);
   if (enableRotaryEmbeddingRecompose)
     patterns.insert<RecomposeRotaryEmbeddingPattern>(context);
-  patterns.insert<RecomposeReduceSumSquareFromMulReduceSumPattern>(context);
-  patterns.insert<RecomposeReduceL2FromSqrtReduceSumSquarePattern>(context);
+  if (enableReduceL2Recompositions) {
+    patterns.insert<RecomposeReduceSumSquareFromMulReduceSumPattern>(context);
+    patterns.insert<RecomposeReduceL2FromSqrtReduceSumSquarePattern>(context);
+  }
+
   // AMD Disabled as downstream has no special support for it
   // patterns.insert<RecomposeQLinearMatMulFromQuantizeLinearPattern>(context);
   // patterns.insert<CombineParallelConv2DPattern>(context);
@@ -2047,7 +2058,8 @@ void onnx_mlir::getRecomposeONNXToONNXPatterns(
  * Create a RecomposeONNX pass.
  */
 std::unique_ptr<mlir::Pass> onnx_mlir::createRecomposeONNXToONNXPass(
-    const std::string &target, bool enableRotaryEmbeddingRecompose) {
+    const std::string &target, bool enableRotaryEmbeddingRecompose,
+    bool enableReduceL2Recompositions) {
   return std::make_unique<RecomposeONNXToONNXPass>(
-      target, enableRotaryEmbeddingRecompose);
+      target, enableRotaryEmbeddingRecompose, enableReduceL2Recompositions);
 }
