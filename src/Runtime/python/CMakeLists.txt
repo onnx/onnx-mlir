@@ -10,47 +10,49 @@ file(GENERATE
   INPUT ${CMAKE_CURRENT_SOURCE_DIR}/PyOMCompile.py
   )
 
-# Removed, keep for ref until we can build all systems.
-# # TODO: Remove pybind11::python_link_helper after cmake version bumped to 3.16+
-# if(NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
-#   add_onnx_mlir_library(OMPyExecutionSessionBase
-#     PyExecutionSessionBase.cpp
-# 
-#     EXCLUDE_FROM_OM_LIBS
-# 
-#     LINK_LIBS PUBLIC
-#     OMExecutionSession
-#     OMMlirUtilities
-#     pybind11::embed
-#     pybind11::python_link_helper
-#     )
-# else()
-#   add_compile_definitions(ENABLE_PYRUNTIME_LIGHT)
-#   add_onnx_mlir_library(OMPyExecutionSessionBase
-#     PyExecutionSessionBase.cpp
-# 
-#     EXCLUDE_FROM_OM_LIBS
-# 
-#     LINK_LIBS PUBLIC
-#     OMExecutionSession
-#     # ToFix: OMMlirUtilities used for float16 is temporarily excluded because
-#     # it need some support from LLVM.
-#     #OMMlirUtilities
-#     pybind11::embed
-#     pybind11::python_link_helper
-#   )
-# endif()
-# 
-# 
-# if(MSVC)
-#   target_link_libraries(OMPyExecutionSessionBase
-#     PRIVATE pybind11::windows_extras
-#   )
-# endif()
-# set_target_properties(OMPyExecutionSessionBase
-#   PROPERTIES
-#   POSITION_INDEPENDENT_CODE TRUE
-#   )
+# TODO: Remove after we can build all systems using the new approach.
+if (0)
+# TODO: Remove pybind11::python_link_helper after cmake version bumped to 3.16+
+if(NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
+  add_onnx_mlir_library(OMPyExecutionSessionBase
+    PyExecutionSessionBase.cpp
+
+    EXCLUDE_FROM_OM_LIBS
+
+    LINK_LIBS PUBLIC
+    OMExecutionSession
+    OMMlirUtilities
+    pybind11::embed
+    pybind11::python_link_helper
+    )
+else()
+  add_compile_definitions(ENABLE_PYRUNTIME_LIGHT)
+  add_onnx_mlir_library(OMPyExecutionSessionBase
+    PyExecutionSessionBase.cpp
+
+    EXCLUDE_FROM_OM_LIBS
+
+    LINK_LIBS PUBLIC
+    OMExecutionSession
+    # ToFix: OMMlirUtilities used for float16 is temporarily excluded because
+    # it need some support from LLVM.
+    #OMMlirUtilities
+    pybind11::embed
+    pybind11::python_link_helper
+  )
+endif()
+
+
+if(MSVC)
+  target_link_libraries(OMPyExecutionSessionBase
+    PRIVATE pybind11::windows_extras
+  )
+endif()
+set_target_properties(OMPyExecutionSessionBase
+  PROPERTIES
+  POSITION_INDEPENDENT_CODE TRUE
+  )
+endif()
 
 # When running on ubi8 image, shared lib backend tests fail with
 # the following error:

@@ -62,20 +62,14 @@ namespace onnx_mlir {
 // better way for fixing it is found.
 //
 static void *generateOMTensorBufferForStringData(py::array pyArray) {
-  // Compute the total number of element in the pyArray, e.g. shape (3, 4) has
-  // 12 elements. While we handle here multi-dimensional arrays, we actually
-  // requires them to be flatten (aka 1 Dim) below.
-  auto shape = pyArray.shape();
-  uint64_t numElem = 1;
-  for (size_t i = 0; i < (size_t)pyArray.ndim(); ++i)
-    numElem *= shape[i];
-  // Init local values.
-  uint64_t strLenTotal = 0;
-  uint64_t off = 0;
-  void *dataBuffer = NULL;
   // Since we only handle 1D elements here, we can shape the pyArray as a vector
   // of strings.
   assert(pyArray.ndim() == 1 && "input pyArray should be flatten");
+  // Init local values.
+  uint64_t numElem = pyArray.size();
+  uint64_t strLenTotal = 0;
+  uint64_t off = 0;
+  void *dataBuffer = NULL;
   auto vec = pyArray.cast<std::vector<std::string>>();
   // Allocate a data buffer with the following memory layout, taking the example
   // of strings 3 "hi", "bye", "ok". Layout is as follow:
@@ -85,7 +79,7 @@ static void *generateOMTensorBufferForStringData(py::array pyArray) {
   //
   // In the code below, since we have std::strings, use string.length() as it is
   // generally more reliable as strlen(string) which relies on the '\0' char.
-  for (int64_t i = 0; i < shape[0]; ++i)
+  for (int64_t i = 0; i < numElem; ++i)
     strLenTotal += vec[i].length() + 1;
   dataBuffer = malloc(sizeof(char *) * numElem + strLenTotal);
   if (dataBuffer == NULL)
@@ -94,7 +88,7 @@ static void *generateOMTensorBufferForStringData(py::array pyArray) {
   char **strArray = (char **)dataBuffer;
   // strPos points to the string data (second data region above)
   char *strPos = (char *)(((char *)dataBuffer) + sizeof(char *) * numElem);
-  for (int64_t i = 0; i < shape[0]; ++i) {
+  for (int64_t i = 0; i < numElem; ++i) {
     // Copy the i-th string's data to the current position in the string data
     // region. Use length() and memcpy for safer copying that handles embedded
     // nulls and avoids redundant strlen calls.

@@ -31,8 +31,8 @@ class PyExecutionSession : public onnx_mlir::ExecutionSession {
 #endif
 
 public:
-  PyExecutionSession(const std::string &sharedLibPath,
-      const std::string &tag = "", const bool defaultEntryPoint = true);
+  PyExecutionSession(const std::string &sharedLibPath, const std::string &tag,
+      const bool defaultEntryPoint);
   std::vector<std::string> pyQueryEntryPoints() const;
   void pySetEntryPoint(const std::string &entryPointName);
   // pyRun expects a vector of Python numpy.ndarray objects as the first
