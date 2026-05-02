@@ -57,8 +57,8 @@ void ExecutionSession::signalHandler(int signum) {
 // =============================================================================
 // Constructor, destructor, and init.
 
-ExecutionSession::ExecutionSession(
-    std::string sharedLibPath, std::string tag, bool defaultEntryPoint) {
+ExecutionSession::ExecutionSession(const std::string &sharedLibPath,
+    const std::string &tag, const bool defaultEntryPoint) {
   loadModel(sharedLibPath, tag, defaultEntryPoint);
 }
 
@@ -66,12 +66,13 @@ ExecutionSession::ExecutionSession(
 // null, it is not necessarily an error (in corner cases); but for us it would
 // be because we expect all our symbols to be defined to non-null.
 
-void ExecutionSession::loadModel(
-    std::string sharedLibPath, std::string tag, bool defaultEntryPoint) {
+void ExecutionSession::loadModel(const std::string &sharedLibPath,
+    const std::string &modelTag, const bool defaultEntryPoint) {
   if (isInitialized)
     throw ExecutionSessionException(
         "Execution session must be initialized once at most.");
 
+  std::string tag = modelTag;
   // Set OM_CONSTANT_PATH for loading constants from file if required.
   // Do this before dlopen since OM_CONSTANT_PATH is used by constructors.
   std::size_t found = sharedLibPath.find_last_of("/\\");

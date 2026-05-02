@@ -16,14 +16,48 @@
 #ifndef ONNX_MLIR_PY_EXECUTION_SESSION_H
 #define ONNX_MLIR_PY_EXECUTION_SESSION_H
 
-#include "PyExecutionSessionBase.hpp"
+#include <pybind11/numpy.h>
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+namespace py = pybind11;
 
+#include "src/Runtime/ExecutionSession.hpp"
 namespace onnx_mlir {
 
-class PyExecutionSession : public onnx_mlir::PyExecutionSessionBase {
+#if !defined(WIN32) && !defined(_WIN32)
+class PYBIND11_EXPORT PyExecutionSession : public onnx_mlir::ExecutionSession {
+#else
+class PyExecutionSession : public onnx_mlir::ExecutionSession {
+#endif
+
 public:
-  PyExecutionSession(std::string sharedLibPath, std::string tag = "",
-      bool defaultEntryPoint = true);
+  PyExecutionSession(const std::string &sharedLibPath, const std::string &tag,
+      const bool defaultEntryPoint);
+  std::vector<std::string> pyQueryEntryPoints() const;
+  void pySetEntryPoint(const std::string &entryPointName);
+  // pyRun expects a vector of Python numpy.ndarray objects as the first
+  // argument, a vector of shapes of the objects as the second argument, and a
+  // vector of strides of the object as the third argument. All pyRun arguments
+  // should have the same length, otherwise python exceptions occur.
+  // Run with a signal handler: for debugging only. It is slower and unsafe if
+  // catch signal; posix only.
+  // forceOutputDataCopy should be only used for debugging purpose if suspecting
+  // PYBIND issues.
+  std::vector<py::array> pyRunImplementation(
+      const std::vector<py::array> &inputsPyArray,
+      const std::vector<py::array> &shapesPyArray,
+      const std::vector<py::array> &stridesPyArray,
+      bool useSignalHandler,     // Debug flags.
+      bool forceOutputDataCopy); // Debug flags.
+  std::string pyInputSignature() const;
+  std::string pyOutputSignature() const;
+  std::string pyCompilationInfo() const;
+  void pyPrintInstrumentation(); // Print instrumentation (if any).
+
+protected:
+  // Constructor that build the object without initialization (for use by
+  // subclass only).
+  PyExecutionSession() : onnx_mlir::ExecutionSession() {}
 };
 } // namespace onnx_mlir
 

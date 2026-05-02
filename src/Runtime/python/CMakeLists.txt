@@ -10,6 +10,8 @@ file(GENERATE
   INPUT ${CMAKE_CURRENT_SOURCE_DIR}/PyOMCompile.py
   )
 
+# TODO: Remove after we can build all systems using the new approach.
+if (0)
 # TODO: Remove pybind11::python_link_helper after cmake version bumped to 3.16+
 if(NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
   add_onnx_mlir_library(OMPyExecutionSessionBase
@@ -50,6 +52,7 @@ set_target_properties(OMPyExecutionSessionBase
   PROPERTIES
   POSITION_INDEPENDENT_CODE TRUE
   )
+endif()
 
 # When running on ubi8 image, shared lib backend tests fail with
 # the following error:
@@ -78,16 +81,24 @@ set_target_properties(OMPyExecutionSessionBase
 # also removes some of the compile definitions and include directories
 # which we add back through target_compile_definitions and
 # target_include_directories.
+
+
 pybind11_add_module(PyRuntimeC PyExecutionSession.cpp)
 target_compile_options(PyRuntimeC
   PRIVATE
   $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-frtti -fexceptions>
   $<$<CXX_COMPILER_ID:MSVC>:/EHsc /GR>
   )
+
+# Link OMSmallFPConversion for float16 support.
+# This library contains only C code (SmallFPConversion.c) and has no LLVM dependencies,
+# so float16 support is now available in both full and light modes.
 target_link_libraries(PyRuntimeC
   PRIVATE
-  OMPyExecutionSessionBase
+  OMExecutionSession
+  OMSmallFPConversion
   )
+
 llvm_update_compile_flags(PyRuntimeC)
 
 install(TARGETS PyRuntimeC
