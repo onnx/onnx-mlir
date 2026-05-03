@@ -13,7 +13,6 @@
 
 #include "llvm/ADT/SmallVector.h"
 #include <cmath>
-#include <iostream>
 #include <numeric>
 #include <type_traits>
 
@@ -372,7 +371,8 @@ struct ReduceMeanToConvPattern : public OpRewritePattern<ReduceMeanOpTy> {
     if constexpr (std::is_same_v<ReduceMeanOpTy, mlir::ONNXReduceMeanOp>) {
       axes = getAxesFromReduceMean(op);
     } else {
-      static_assert(std::is_same_v<ReduceMeanOpTy, mlir::ONNXReduceMeanV13Op>,
+      static_assert(
+          std::is_same_v<ReduceMeanOpTy, mlir::ONNXReduceMeanV13Op>,
           "ReduceMeanToConvPattern only supports ReduceMean and ReduceMeanV13");
       axes = getAxesFromReduceMeanV13(op);
     }
@@ -433,7 +433,8 @@ struct ReduceMeanSpatialAxisToConvPattern
     if constexpr (std::is_same_v<ReduceMeanOpTy, mlir::ONNXReduceMeanOp>) {
       axes = getAxesFromReduceMean(op);
     } else {
-      static_assert(std::is_same_v<ReduceMeanOpTy, mlir::ONNXReduceMeanV13Op>,
+      static_assert(
+          std::is_same_v<ReduceMeanOpTy, mlir::ONNXReduceMeanV13Op>,
           "ReduceMeanSpatialAxisToConvPattern only supports ReduceMean and "
           "ReduceMeanV13");
       axes = getAxesFromReduceMeanV13(op);
@@ -590,9 +591,8 @@ struct ReduceSumToConvPattern : public OpRewritePattern<ONNXReduceSumOp> {
     // ReduceWdimToCdimPattern in TransferReduceHdimToReduceCdimPass.cpp.
     if (op.getKeepdims() != 0 &&
         mlir::isa<mlir::quant::QuantizedType>(inputElemType)) {
-      if ((rank == 4) || (rank == 3 && inputShape[2] == 1)) {
+      if ((rank == 4) || (rank == 3 && inputShape[2] == 1))
         return mlir::failure();
-      }
     }
 
     auto outputShape = getShape(op.getReduced());
