@@ -889,7 +889,7 @@ bool hasIntegerPowerExponent(ONNXPowOp *op, int64_t &exponentValue) {
     realScalar = getScalarValue<double>(elementAttr, rankedTy);
   } else {
     realScalar = getScalarValue<double>(elementAttr, elementAttr.getType());
-  } 
+  }
 
   Type elementType = elementAttr.getElementType();
   // Quantized onnx.Constant: storage does not match the real exponent; allow a
