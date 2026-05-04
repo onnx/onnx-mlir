@@ -10,6 +10,9 @@
 //
 // This file provides definition of ONNX dialect ConcatFromSequence operation.
 //
+// Modifications (c) Copyright 2026 Advanced Micro Devices, Inc. or its
+// affiliates
+//
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
@@ -72,4 +75,57 @@ LogicalResult ONNXConcatFromSequenceOp::verify() {
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
-// TODO
+LogicalResult ONNXConcatFromSequenceOp::inferShapes(
+    std::function<void(Region &)> /*doShapeInference*/) {
+  auto seqType = mlir::dyn_cast<SeqType>(getInputSequence().getType());
+  if (!seqType)
+    return success();
+
+  // Element type of the sequence must be a ranked tensor to infer the output.
+  auto elemType = mlir::dyn_cast<RankedTensorType>(seqType.getElementType());
+  if (!elemType)
+    return success();
+
+  // Sequence length must be statically known.
+  const int64_t seqLen = seqType.getLength();
+  if (seqLen == ShapedType::kDynamic)
+    return success();
+  if (seqLen < 0)
+    return success();
+
+  const int64_t rank = elemType.getRank();
+  const int64_t axis = getAxis();
+  const int64_t newAxis = getNewAxis();
+
+  // Normalize negative axis.
+  const int64_t axisNorm =
+      axis < 0 ? axis + rank + (newAxis == 1 ? 1 : 0) : axis;
+
+  SmallVector<int64_t> outShape;
+  if (newAxis == 0) {
+    // Concatenate along existing axis: output rank == elem rank.
+    // Output axis dim = seqLen * elem_axis_dim (or dynamic if elem is dynamic).
+    for (int64_t i = 0; i < rank; ++i) {
+      if (i == axisNorm) {
+        int64_t d = elemType.getDimSize(i);
+        outShape.push_back(
+            d == ShapedType::kDynamic ? ShapedType::kDynamic : seqLen * d);
+      } else {
+        outShape.push_back(elemType.getDimSize(i));
+      }
+    }
+  } else {
+    // Stack along a new axis: output rank == elem rank + 1.
+    // New axis has size seqLen; all other dims come from the element type.
+    for (int64_t i = 0; i < rank + 1; ++i) {
+      if (i == axisNorm)
+        outShape.push_back(seqLen);
+      else
+        outShape.push_back(elemType.getDimSize(i < axisNorm ? i : i - 1));
+    }
+  }
+
+  getResult().setType(
+      RankedTensorType::get(outShape, elemType.getElementType()));
+  return success();
+}

@@ -1,4 +1,5 @@
-// RUN: onnx-mlir-opt --recompose-onnx --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --recompose-onnx=enable-reducel2-recompositions=true --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --recompose-onnx --canonicalize %s -split-input-file | FileCheck %s --check-prefix=DISABLED-CHECK
 
 // -----
 
@@ -14,6 +15,10 @@ func.func @test_recompose_reducel2_basic(%arg0: tensor<2x3x4xf32>, %arg1: tensor
 // CHECK-NEXT:      [[VAR_0_:%.+]] = "onnx.ReduceL2"([[PARAM_0_]], [[PARAM_1_]]) {keepdims = 0 : si64, noop_with_empty_axes = 0 : si64} : (tensor<2x3x4xf32>, tensor<1xi64>) -> tensor<?x?xf32>
 // CHECK-NEXT:      onnx.Return [[VAR_0_]] : tensor<?x?xf32>
 // CHECK-NEXT:    }
+
+// DISABLED-CHECK-LABEL:  func.func @test_recompose_reducel2_basic
+// DISABLED-CHECK-NOT:       "onnx.ReduceL2"
+// DISABLED-CHECK-NOT:       "onnx.ReduceSumSquare"
 }
 
 // -----
@@ -29,6 +34,10 @@ func.func @test_recompose_reducel2_keepdims(%arg0: tensor<2x3x4xf32>, %arg1: ten
 // CHECK-NEXT:      onnx.Return [[VAR_0_]] : tensor<?x?x?xf32>
 // CHECK-NEXT:    }
 }
+
+// DISABLED-CHECK-LABEL:  func.func @test_recompose_reducel2_keepdims
+// DISABLED-CHECK-NOT:       "onnx.ReduceL2"
+// DISABLED-CHECK-NOT:       "onnx.ReduceSumSquare"
 
 // -----
 
@@ -46,6 +55,10 @@ func.func @test_recompose_reducel2_noop_with_empty_axes(%arg0: tensor<2x3x4xf32>
 // CHECK:         }
 }
 
+// DISABLED-CHECK-LABEL:  func.func @test_recompose_reducel2_noop_with_empty_axes
+// DISABLED-CHECK-NOT:       "onnx.ReduceL2"
+// DISABLED-CHECK-NOT:       "onnx.ReduceSumSquare"
+
 // -----
 
 func.func @test_recompose_reducel2_from_reducesumsquare(%arg0: tensor<2x3x4xf32>, %arg1: tensor<1xi64>) -> tensor<?x?xf32> {
@@ -59,6 +72,9 @@ func.func @test_recompose_reducel2_from_reducesumsquare(%arg0: tensor<2x3x4xf32>
 // CHECK-NEXT:    }
 }
 
+// DISABLED-CHECK-LABEL:  func.func @test_recompose_reducel2_from_reducesumsquare
+// DISABLED-CHECK-NOT:       "onnx.ReduceL2"
+
 // -----
 
 func.func @test_recompose_reducesumsquare(%arg0: tensor<2x3x4xf32>, %arg1: tensor<1xi64>) -> tensor<?x?xf32> {
@@ -71,6 +87,9 @@ func.func @test_recompose_reducesumsquare(%arg0: tensor<2x3x4xf32>, %arg1: tenso
 // CHECK-NEXT:      onnx.Return [[VAR_0_]] : tensor<?x?xf32>
 // CHECK-NEXT:    }
 }
+
+// DISABLED-CHECK-LABEL:  func.func @test_recompose_reducesumsquare
+// DISABLED-CHECK-NOT:       "onnx.ReduceSumSquare"
 
 // -----
 
@@ -88,6 +107,9 @@ func.func @test_recompose_reducel2_not_square(%arg0: tensor<2x3x4xf32>, %arg1: t
 // CHECK:           "onnx.Sqrt"
 }
 
+// DISABLED-CHECK-LABEL:  func.func @test_recompose_reducel2_not_square
+// DISABLED-CHECK-NOT:       "onnx.ReduceSumSquare"
+
 // -----
 
 func.func @test_recompose_reducel2_mul_extra_use(%arg0: tensor<2x3x4xf32>, %arg1: tensor<1xi64>) -> (tensor<?x?xf32>, tensor<2x3x4xf32>) {
@@ -103,6 +125,9 @@ func.func @test_recompose_reducel2_mul_extra_use(%arg0: tensor<2x3x4xf32>, %arg1
 // CHECK:           "onnx.Sqrt"
 }
 
+// DISABLED-CHECK-LABEL:  func.func @test_recompose_reducel2_mul_extra_use
+// DISABLED-CHECK-NOT:       "onnx.ReduceSumSquare"
+
 // -----
 
 func.func @test_recompose_reducel2_reducesumsquare_extra_use(%arg0: tensor<2x3x4xf32>, %arg1: tensor<1xi64>) -> (tensor<?x?xf32>, tensor<?x?xf32>) {
@@ -114,6 +139,9 @@ func.func @test_recompose_reducel2_reducesumsquare_extra_use(%arg0: tensor<2x3x4
 // CHECK:           "onnx.ReduceSumSquare"
 // CHECK:           "onnx.Sqrt"
 }
+
+// DISABLED-CHECK-LABEL:  func.func @test_recompose_reducel2_reducesumsquare_extra_use
+// DISABLED-CHECK-NOT:       "onnx.ReduceL2"
 
 // -----
 
@@ -127,6 +155,9 @@ func.func @test_recompose_reducesumsquare_quant_types(%arg0: tensor<2x3x4x!quant
 // CHECK:           "onnx.ReduceSum"
 }
 
+// DISABLED-CHECK-LABEL:  func.func @test_recompose_reducesumsquare_quant_types
+// DISABLED-CHECK-NOT:       "onnx.ReduceSumSquare"
+
 // -----
 
 func.func @test_recompose_reducel2_quant_types(%arg0: tensor<2x3x4x!quant.uniform<i8:f32, 0.5:0>>, %arg1: tensor<1xi64>) -> tensor<?x?x!quant.uniform<i8:f32, 2.0:2>> {
@@ -138,3 +169,6 @@ func.func @test_recompose_reducel2_quant_types(%arg0: tensor<2x3x4x!quant.unifor
 // CHECK:           "onnx.ReduceSumSquare"
 // CHECK:           "onnx.Sqrt"
 }
+
+// DISABLED-CHECK-LABEL:  func.func @test_recompose_reducel2_quant_types
+// DISABLED-CHECK-NOT:       "onnx.ReduceL2"

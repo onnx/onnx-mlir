@@ -1058,6 +1058,20 @@ func.func @test_reshape_dim(%arg0: tensor<?x?x2048xf32>) -> tensor<?x?x?x64xf32>
 
 // -----
 
+// When the shape operand is tensor<?xi64> the output rank is unknown at
+// inference time.  inferShapes must defer gracefully and leave the output
+// unranked rather than asserting.
+func.func @test_reshape_unresolved_shape(%arg0: tensor<4xf32>, %shape: tensor<?xi64>) -> tensor<*xf32> {
+  %0 = "onnx.Reshape"(%arg0, %shape) : (tensor<4xf32>, tensor<?xi64>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}
+// CHECK-LABEL:  func.func @test_reshape_unresolved_shape
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<4xf32>, [[PARAM_1_:%.+]]: tensor<?xi64>) -> tensor<*xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[PARAM_1_]]) {allowzero = 0 : si64} : (tensor<4xf32>, tensor<?xi64>) -> tensor<*xf32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<*xf32>
+
+// -----
+
 func.func @test_reshape_dim_bijective_at_last_dim(%arg0: tensor<?x?x2048xf32>) -> tensor<?x?x64x?xf32> {
   %1 = onnx.Constant dense<64> : tensor<1xi64>
   %2 = onnx.Constant dense<-1> : tensor<1xi64>
@@ -2937,6 +2951,52 @@ func.func @test_loop_multi_scan_main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>
 
 // -----
 
+// M=0 with a scan output: body never executes, so the scan output's leading
+// dimension is statically 0 even though the condition is absent (NoneType).
+
+func.func @test_loop_m0_scan_shape(%arg0: tensor<1xi64>) -> (tensor<*xi64>, tensor<*xi64>) {
+  %trip = onnx.Constant dense<0> : tensor<i64>
+  %none = "onnx.NoValue"() {value} : () -> none
+  %0:2 = "onnx.Loop"(%trip, %none, %arg0) ({
+  ^bb0(%iter: tensor<*xi64>, %cond: tensor<*xi1>, %carried: tensor<*xi64>):
+    %identity_cond = "onnx.Identity"(%cond) : (tensor<*xi1>) -> tensor<*xi1>
+    %next = "onnx.Add"(%carried, %iter) : (tensor<*xi64>, tensor<*xi64>) -> tensor<*xi64>
+    %scan_val = "onnx.Identity"(%next) : (tensor<*xi64>) -> tensor<*xi64>
+    onnx.Yield %identity_cond, %next, %scan_val : tensor<*xi1>, tensor<*xi64>, tensor<*xi64>
+  }) : (tensor<i64>, none, tensor<1xi64>) -> (tensor<*xi64>, tensor<*xi64>)
+  onnx.Return %0#0, %0#1 : tensor<*xi64>, tensor<*xi64>
+  // CHECK-LABEL: func @test_loop_m0_scan_shape
+  // CHECK-SAME:  ([[ARG0:%.+]]: tensor<1xi64>) -> (tensor<1xi64>, tensor<0x1xi64>)
+  // CHECK:       [[LOOP_OUT:%.+]]:2 = "onnx.Loop"
+  // CHECK:       }) : (tensor<i64>, none, tensor<1xi64>) -> (tensor<1xi64>, tensor<0x1xi64>)
+  // CHECK:       onnx.Return [[LOOP_OUT]]#0, [[LOOP_OUT]]#1 : tensor<1xi64>, tensor<0x1xi64>
+}
+
+// -----
+
+// M=3 with constant-true initial condition AND body always yields true:
+// both conditions are statically known, so the scan output leading dim is 3.
+
+func.func @test_loop_true_cond_scan_shape(%arg0: tensor<1xi64>) -> (tensor<*xi64>, tensor<*xi64>) {
+  %trip = onnx.Constant dense<3> : tensor<i64>
+  %cond = onnx.Constant dense<true> : tensor<i1>
+  %0:2 = "onnx.Loop"(%trip, %cond, %arg0) ({
+  ^bb0(%iter: tensor<*xi64>, %body_cond: tensor<*xi1>, %carried: tensor<*xi64>):
+    %next = "onnx.Add"(%carried, %iter) : (tensor<*xi64>, tensor<*xi64>) -> tensor<*xi64>
+    %scan_val = "onnx.Identity"(%next) : (tensor<*xi64>) -> tensor<*xi64>
+    %true = onnx.Constant dense<true> : tensor<i1>
+    onnx.Yield %true, %next, %scan_val : tensor<i1>, tensor<*xi64>, tensor<*xi64>
+  }) : (tensor<i64>, tensor<i1>, tensor<1xi64>) -> (tensor<*xi64>, tensor<*xi64>)
+  onnx.Return %0#0, %0#1 : tensor<*xi64>, tensor<*xi64>
+  // CHECK-LABEL: func @test_loop_true_cond_scan_shape
+  // CHECK-SAME:  ([[ARG0:%.+]]: tensor<1xi64>) -> (tensor<1xi64>, tensor<3x1xi64>)
+  // CHECK:       [[LOOP_OUT:%.+]]:2 = "onnx.Loop"
+  // CHECK:       }) : (tensor<i64>, tensor<i1>, tensor<1xi64>) -> (tensor<1xi64>, tensor<3x1xi64>)
+  // CHECK:       onnx.Return [[LOOP_OUT]]#0, [[LOOP_OUT]]#1 : tensor<1xi64>, tensor<3x1xi64>
+}
+
+// -----
+
 func.func @test_scan_simple_main_graph(%arg0: tensor<2xf32>, %arg1: tensor<3x2xf32>) -> (tensor<*xf32>, tensor<*xf32>) {
   %0:2 = "onnx.Scan"(%arg0, %arg1) ( {
   ^bb0(%arg2: tensor<*xf32>, %arg3: tensor<*xf32>):  // no predecessors
@@ -3949,7 +4009,8 @@ func.func @test_sequenceconstruct_different_ranks(%arg0: tensor<2x4xf32>, %arg1:
 /// Test shape inference for ConcatFromSequence.
 //===----------------------------------------------------------------------===//
 
-// ConcatFromSequence: inferShapes is not yet implemented; output stays tensor<*xf32>.
+// Sequence of length 1, element tensor<3x4xf32>, concatenate along axis 0.
+// seqLen=1, outShape = [1*3, 4] = [3, 4].
 func.func @test_concatfromsequence(%arg0: tensor<3x4xf32>) -> tensor<*xf32> {
   %0 = "onnx.SequenceEmpty"() {dtype = 1 : si64} : () -> !onnx.Seq<tensor<*xf32>>
   %cst = "onnx.NoValue"() {value} : () -> none
@@ -3957,13 +4018,95 @@ func.func @test_concatfromsequence(%arg0: tensor<3x4xf32>) -> tensor<*xf32> {
   %2 = "onnx.ConcatFromSequence"(%1) {axis = 0 : si64} : (!onnx.Seq<tensor<*xf32>>) -> tensor<*xf32>
   onnx.Return %2 : tensor<*xf32>
 // CHECK-LABEL:  func @test_concatfromsequence
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4xf32>) -> tensor<*xf32> {
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4xf32>) -> tensor<3x4xf32> {
 // CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.SequenceEmpty"() {dtype = 1 : si64} : () -> !onnx.Seq<tensor<*xf32>>
 // CHECK-DAG:       [[VAR_cst_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK:           [[VAR_1_:%.+]] = "onnx.SequenceInsert"([[VAR_0_]], [[PARAM_0_]], [[VAR_cst_]]) : (!onnx.Seq<tensor<*xf32>>, tensor<3x4xf32>, none) -> !onnx.Seq<tensor<3x4xf32>>
-// CHECK:           [[VAR_2_:%.+]] = "onnx.ConcatFromSequence"([[VAR_1_]]) {axis = 0 : si64, new_axis = 0 : si64} : (!onnx.Seq<tensor<3x4xf32>>) -> tensor<*xf32>
-// CHECK:           onnx.Return [[VAR_2_]] : tensor<*xf32>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.ConcatFromSequence"([[VAR_1_]]) {axis = 0 : si64, new_axis = 0 : si64} : (!onnx.Seq<tensor<3x4xf32>>) -> tensor<3x4xf32>
+// CHECK:           onnx.Return [[VAR_2_]] : tensor<3x4xf32>
 }
+
+// -----
+
+// Sequence of length 2, element tensor<3x4xf32>, concatenate along axis 0.
+// seqLen=2, outShape = [2*3, 4] = [6, 4].
+func.func @test_concatfromsequence_two_elems(%arg0: tensor<3x4xf32>) -> tensor<*xf32> {
+  %0 = "onnx.SequenceEmpty"() {dtype = 1 : si64} : () -> !onnx.Seq<tensor<*xf32>>
+  %cst = "onnx.NoValue"() {value} : () -> none
+  %1 = "onnx.SequenceInsert"(%0, %arg0, %cst) : (!onnx.Seq<tensor<*xf32>>, tensor<3x4xf32>, none) -> !onnx.Seq<tensor<*xf32>>
+  %2 = "onnx.SequenceInsert"(%1, %arg0, %cst) : (!onnx.Seq<tensor<*xf32>>, tensor<3x4xf32>, none) -> !onnx.Seq<tensor<*xf32>>
+  %3 = "onnx.ConcatFromSequence"(%2) {axis = 0 : si64} : (!onnx.Seq<tensor<*xf32>>) -> tensor<*xf32>
+  onnx.Return %3 : tensor<*xf32>
+// CHECK-LABEL:  func @test_concatfromsequence_two_elems
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4xf32>) -> tensor<6x4xf32> {
+// CHECK:           [[VAR_3_:%.+]] = "onnx.ConcatFromSequence"({{.+}}) {axis = 0 : si64, new_axis = 0 : si64} : (!onnx.Seq<tensor<3x4xf32>>) -> tensor<6x4xf32>
+// CHECK:           onnx.Return [[VAR_3_]] : tensor<6x4xf32>
+}
+
+// -----
+
+// Sequence of length 2, element tensor<3x4xf32>, stack along a new axis 0.
+// new_axis=1: outShape = [seqLen, dim0, dim1] = [2, 3, 4].
+func.func @test_concatfromsequence_newaxis(%arg0: tensor<3x4xf32>) -> tensor<*xf32> {
+  %0 = "onnx.SequenceEmpty"() {dtype = 1 : si64} : () -> !onnx.Seq<tensor<*xf32>>
+  %cst = "onnx.NoValue"() {value} : () -> none
+  %1 = "onnx.SequenceInsert"(%0, %arg0, %cst) : (!onnx.Seq<tensor<*xf32>>, tensor<3x4xf32>, none) -> !onnx.Seq<tensor<*xf32>>
+  %2 = "onnx.SequenceInsert"(%1, %arg0, %cst) : (!onnx.Seq<tensor<*xf32>>, tensor<3x4xf32>, none) -> !onnx.Seq<tensor<*xf32>>
+  %3 = "onnx.ConcatFromSequence"(%2) {axis = 0 : si64, new_axis = 1 : si64} : (!onnx.Seq<tensor<*xf32>>) -> tensor<*xf32>
+  onnx.Return %3 : tensor<*xf32>
+// CHECK-LABEL:  func @test_concatfromsequence_newaxis
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4xf32>) -> tensor<2x3x4xf32> {
+// CHECK:           [[VAR_3_:%.+]] = "onnx.ConcatFromSequence"({{.+}}) {axis = 0 : si64, new_axis = 1 : si64} : (!onnx.Seq<tensor<3x4xf32>>) -> tensor<2x3x4xf32>
+// CHECK:           onnx.Return [[VAR_3_]] : tensor<2x3x4xf32>
+}
+
+// -----
+
+// When the sequence arrives as a function argument the length is unknown.
+// inferShapes must defer gracefully and leave the output unranked.
+func.func @test_concatfromsequence_unknown_length(%seq: !onnx.Seq<tensor<3x4xf32>>) -> tensor<*xf32> {
+  %0 = "onnx.ConcatFromSequence"(%seq) {axis = 0 : si64} : (!onnx.Seq<tensor<3x4xf32>>) -> tensor<*xf32>
+  onnx.Return %0 : tensor<*xf32>
+}
+// CHECK-LABEL:  func @test_concatfromsequence_unknown_length
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: !onnx.Seq<tensor<3x4xf32>>) -> tensor<*xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.ConcatFromSequence"([[PARAM_0_]]) {axis = 0 : si64, new_axis = 0 : si64} : (!onnx.Seq<tensor<3x4xf32>>) -> tensor<*xf32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<*xf32>
+
+// -----
+
+// Elements have a dynamic leading dimension.  Concatenating along axis 0
+// multiplies that dimension by seqLen, which is still dynamic.
+// seqLen=2, elem=tensor<?x4xf32>, axis=0 → output tensor<?x4xf32>.
+func.func @test_concatfromsequence_dyn_elem_dim(%arg0: tensor<?x4xf32>) -> tensor<*xf32> {
+  %0 = "onnx.SequenceEmpty"() {dtype = 1 : si64} : () -> !onnx.Seq<tensor<*xf32>>
+  %cst = "onnx.NoValue"() {value} : () -> none
+  %1 = "onnx.SequenceInsert"(%0, %arg0, %cst) : (!onnx.Seq<tensor<*xf32>>, tensor<?x4xf32>, none) -> !onnx.Seq<tensor<*xf32>>
+  %2 = "onnx.SequenceInsert"(%1, %arg0, %cst) : (!onnx.Seq<tensor<*xf32>>, tensor<?x4xf32>, none) -> !onnx.Seq<tensor<*xf32>>
+  %3 = "onnx.ConcatFromSequence"(%2) {axis = 0 : si64} : (!onnx.Seq<tensor<*xf32>>) -> tensor<*xf32>
+  onnx.Return %3 : tensor<*xf32>
+}
+// CHECK-LABEL:  func @test_concatfromsequence_dyn_elem_dim
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x4xf32>) -> tensor<?x4xf32> {
+// CHECK:           [[VAR_3_:%.+]] = "onnx.ConcatFromSequence"({{.+}}) {axis = 0 : si64, new_axis = 0 : si64} : (!onnx.Seq<tensor<?x4xf32>>) -> tensor<?x4xf32>
+// CHECK:           onnx.Return [[VAR_3_]] : tensor<?x4xf32>
+
+// -----
+
+// Negative axis: axis=-1 normalises to rank-1 = 1 for rank-2 elements.
+// seqLen=2, elem=tensor<3x4xf32>, axis=-1 (→1) → output tensor<3x8xf32>.
+func.func @test_concatfromsequence_neg_axis(%arg0: tensor<3x4xf32>) -> tensor<*xf32> {
+  %0 = "onnx.SequenceEmpty"() {dtype = 1 : si64} : () -> !onnx.Seq<tensor<*xf32>>
+  %cst = "onnx.NoValue"() {value} : () -> none
+  %1 = "onnx.SequenceInsert"(%0, %arg0, %cst) : (!onnx.Seq<tensor<*xf32>>, tensor<3x4xf32>, none) -> !onnx.Seq<tensor<*xf32>>
+  %2 = "onnx.SequenceInsert"(%1, %arg0, %cst) : (!onnx.Seq<tensor<*xf32>>, tensor<3x4xf32>, none) -> !onnx.Seq<tensor<*xf32>>
+  %3 = "onnx.ConcatFromSequence"(%2) {axis = -1 : si64} : (!onnx.Seq<tensor<*xf32>>) -> tensor<*xf32>
+  onnx.Return %3 : tensor<*xf32>
+}
+// CHECK-LABEL:  func @test_concatfromsequence_neg_axis
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4xf32>) -> tensor<3x8xf32> {
+// CHECK:           [[VAR_3_:%.+]] = "onnx.ConcatFromSequence"({{.+}}) {axis = -1 : si64, new_axis = 0 : si64} : (!onnx.Seq<tensor<3x4xf32>>) -> tensor<3x8xf32>
+// CHECK:           onnx.Return [[VAR_3_]] : tensor<3x8xf32>
 
 // -----
 
@@ -4673,6 +4816,22 @@ func.func @test_slice_negative_steps_mixed_dialects(%arg0: tensor<100x200xf32>) 
 // CHECK-LABEL:  func.func @test_slice_negative_steps_mixed_dialects
 // CHECK:          "onnx.Slice"
 // CHECK-SAME:       (tensor<100x200xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<16x16xf32>
+
+// -----
+
+// When starts is unranked the output rank cannot be determined yet.
+// inferShapes must defer gracefully and leave the output unranked.
+func.func @test_slice_unranked_starts(%arg0: tensor<100x200xf32>, %starts: tensor<*xi64>) -> tensor<*xf32> {
+  %ends  = "onnx.Constant"() {value = dense<[10, 20]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %axes  = "onnx.Constant"() {value = dense<[0, 1]>  : tensor<2xi64>} : () -> tensor<2xi64>
+  %steps = "onnx.Constant"() {value = dense<[1, 1]>  : tensor<2xi64>} : () -> tensor<2xi64>
+  %0 = "onnx.Slice"(%arg0, %starts, %ends, %axes, %steps) : (tensor<100x200xf32>, tensor<*xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+}
+// CHECK-LABEL:  func.func @test_slice_unranked_starts
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<100x200xf32>, [[PARAM_1_:%.+]]: tensor<*xi64>) -> tensor<*xf32> {
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Slice"([[PARAM_0_]], [[PARAM_1_]], {{.+}}) : (tensor<100x200xf32>, tensor<*xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<*xf32>
+// CHECK:           return [[VAR_3_]] : tensor<*xf32>
 
 // -----
 

@@ -162,6 +162,17 @@ struct ONNXHybridTransformPass
                      "seq_len>1 LSTM into a chain of seq_len=1 LSTMs)"),
       ::llvm::cl::init(false)};
 
+  Option<bool> enableGatherToSlice{*this, "enable-gather-to-slice",
+      llvm::cl::desc(
+          "Enable decomposition of Gather with scalar index to Slice+Reshape"),
+      ::llvm::cl::init(true)};
+
+  Option<bool> enableRotaryEmbeddingRecompose{*this,
+      "enable-rotary-embedding-recompose",
+      llvm::cl::desc("Recompose LlamaRotaryEmbedding style RoPE "
+                     "into onnx.RotaryEmbedding"),
+      ::llvm::cl::init(false)};
+
   FrozenRewritePatternSet patterns;
 
   ONNXHybridTransformPass(bool enableRecomposition,
@@ -173,7 +184,8 @@ struct ONNXHybridTransformPass
       bool enableMatmulNBitsDecompose, bool enableGroupQueryAttentionDecompose,
       bool enableSplitToSliceDecompose, bool enableConcatFuse,
       bool enableGAPToReduceMean, bool enableLstmSeqDecompose = false,
-      bool enableReduceL2Decompose = true) {
+      bool enableGatherToSlice = true, bool enableReduceL2Decompose = true,
+      bool enableRotaryEmbeddingRecompose = false) {
     this->recomposition = enableRecomposition;
     this->quarkQuantizedOpsLegalization = enableQuarkQuantizedOpsLegalization;
     this->enableConvTransposeDecompose = enableConvTransposeDecompose;
@@ -191,6 +203,8 @@ struct ONNXHybridTransformPass
     this->enableGAPToReduceMean = enableGAPToReduceMean;
     this->enableLstmSeqDecompose = enableLstmSeqDecompose;
     this->enableReduceL2Decompose = enableReduceL2Decompose;
+    this->enableGatherToSlice = enableGatherToSlice;
+    this->enableRotaryEmbeddingRecompose = enableRotaryEmbeddingRecompose;
   }
 
   ONNXHybridTransformPass(const ONNXHybridTransformPass &pass)
@@ -249,11 +263,12 @@ struct ONNXHybridTransformPass
           enableMatmulNBitsDecompose, enableGroupQueryAttentionDecompose,
           enableSplitToSliceDecompose, enableConcatFuse, enableLstmSeqDecompose,
           enableReduceL2Decompose,
-          /*disableGenericDecompositions=*/false);
+          /*disableGenericDecompositions=*/false, enableGatherToSlice);
     }
 
     if (recomposition) {
-      getRecomposeONNXToONNXPatterns(cumulativePatterns);
+      getRecomposeONNXToONNXPatterns(
+          cumulativePatterns, enableRotaryEmbeddingRecompose);
     }
 
     patterns = FrozenRewritePatternSet(std::move(cumulativePatterns));
@@ -271,8 +286,12 @@ struct ONNXHybridTransformPass
     if (maxNumRewritesOffset == -1) {
       config.maxNumRewrites = GreedyRewriteConfig::kNoLimit;
     } else {
-      // Count the top level ops in f, i.e., excluding sub-regions.
-      float numOps = std::distance(body.op_begin(), body.op_end());
+      // Count all ops reachable from the function body, including ops inside
+      // loop/if sub-regions.  Loop unrolling moves sub-region ops to the top
+      // level, so the budget must account for them to avoid false convergence
+      // failures on models with unrollable loops.
+      int64_t numOps = 0;
+      body.walk([&](Operation *) { ++numOps; });
       config.maxNumRewrites =
           maxNumRewritesOffset + maxNumRewritesMultiplier * numOps;
     }
@@ -299,7 +318,8 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createONNXHybridTransformPass(
     bool enableMatmulNBitsDecompose, bool enableGroupQueryAttentionDecompose,
     bool enableSplitToSliceDecompose, bool enableConcatFuse,
     bool enableGAPToReduceMean, bool enableLstmSeqDecompose,
-    bool enableReduceL2Decompose) {
+    bool enableGatherToSlice, bool enableReduceL2Decompose,
+    bool enableRotaryEmbeddingRecompose) {
   return std::make_unique<ONNXHybridTransformPass>(enableRecomposition,
       enableQuarkQuantizedOpsLegalization, enableConvTransposeDecompose,
       enableConvTransposeDecomposeToPhasedConv,
@@ -307,5 +327,6 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createONNXHybridTransformPass(
       enableGroupNormDecompose, enableMatmulNBitsDecompose,
       enableGroupQueryAttentionDecompose, enableSplitToSliceDecompose,
       enableConcatFuse, enableGAPToReduceMean, enableLstmSeqDecompose,
-      enableReduceL2Decompose);
+      enableGatherToSlice, enableReduceL2Decompose,
+      enableRotaryEmbeddingRecompose);
 }

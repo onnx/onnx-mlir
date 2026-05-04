@@ -5,7 +5,7 @@
 //====------ ConvertONNXToTOSA.cpp - ONNX dialects to TOSA lowering -------===//
 //
 // Copyright (c) 2022 Arm Limited.
-// Copyright (c) 2022-2025 Advanced Micro Devices, Inc.
+// Copyright (c) 2022-2026 Advanced Micro Devices, Inc.
 //
 // =============================================================================
 //
