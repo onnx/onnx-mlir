@@ -905,24 +905,18 @@ bool hasIntegerPowerExponent(ONNXPowOp *op, int64_t &exponentValue) {
   if (!elementAttr || elementAttr.getNumElements() != 1)
     return false;
 
-  double realScalar;
-  if (auto rankedTy = dyn_cast<RankedTensorType>(exponent.getType())) {
-    realScalar = getScalarValue<double>(elementAttr, rankedTy);
-  } else {
-    realScalar = getScalarValue<double>(elementAttr, elementAttr.getType());
-  }
-
   Type elementType = elementAttr.getElementType();
   // Quantized onnx.Constant: storage does not match the real exponent; allow a
   // small tolerance when classifying as an integer (xcompiler uses 1e-6).
   if (hasQuantizedElementType(exponent)) {
+    double realScalar = getScalarValue<double>(elementAttr, exponent.getType());
     double nearest = std::round(realScalar);
     if (std::fabs(realScalar - nearest) > kPowExponentNearIntegerTol)
       return false;
     exponentValue = static_cast<int64_t>(nearest);
     return true;
   } else if (mlir::isa<FloatType>(elementType)) {
-    double floatVal = realScalar;
+    double floatVal = getScalarValue<double>(elementAttr, elementType);
     if (floatVal == ceil(floatVal)) {
       // We essentially have an integer value represented as a float.
       exponentValue = static_cast<int64_t>(floatVal);
