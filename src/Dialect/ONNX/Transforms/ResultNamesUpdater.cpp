@@ -1,6 +1,7 @@
 // Copyright (C) 2022 - 2025 Advanced Micro Devices, Inc. All rights reserved.
 
 #include <deque>
+#include <iterator>
 #include <memory>
 #include <unordered_set>
 
@@ -57,11 +58,20 @@ void inferTensorNames(ValueRange replOperands) {
   } while (workList.size() > 0 && wlen > workList.size());
 }
 
+bool hasNameAndManyUses(Value value) {
+  auto numUses = std::distance(value.use_begin(), value.use_end());
+  return TensorName(value) && numUses > 1;
+}
+
 } // namespace
 
 void ResultNamesUpdater::notifyOperationReplaced(
     Operation *op, Operation *replacement) {
   if (!op->hasAttrOfType<ArrayAttr>("ResultNames"))
+    return;
+
+  // If replacements have existing name and many uses, don't update ResultNames
+  if (llvm::any_of(replacement->getResults(), hasNameAndManyUses))
     return;
 
   // First, copy the ResultNames attribute for the last value
@@ -81,6 +91,10 @@ void ResultNamesUpdater::notifyOperationReplaced(
   if (Operation *replSingleOp = replacement.front().getDefiningOp();
       replSingleOp && replSingleOp->getResults() == replacement)
     return notifyOperationReplaced(op, replSingleOp);
+
+  // If replacements have existing name and many uses, don't update ResultNames
+  if (llvm::any_of(replacement, hasNameAndManyUses))
+    return;
 
   // First, copy the ResultNames attribute for the last value
   auto resultNamesArray = op->getAttrOfType<ArrayAttr>("ResultNames");
