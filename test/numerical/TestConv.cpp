@@ -17,6 +17,8 @@
 // warnings.
 #include "Common.hpp"
 
+#define USE_DEBUG true
+
 using namespace mlir;
 
 static const llvm::StringRef SHARED_LIB_BASE("./TestConv_main_graph");
@@ -45,9 +47,11 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int CIn, const int COut,
 
   Conv2DLibBuilder conv(SHARED_LIB_BASE.str(), N, CIn, COut, H, W, kH, kW,
       autoPad, pHBegin, pHEnd, pWBegin, pWEnd, stride, dilation, isDynamic);
-  return conv.build() && conv.compileAndLoad(/*debug: emit mlir file*/ true) &&
+  return conv.build() &&
+         conv.compileAndLoad(/*debug: emit mlir file*/ USE_DEBUG) &&
          conv.checkInstructionFromEnv("TEST_INSTRUCTION") &&
-         conv.prepareInputsFromEnv("TEST_DATARANGE") && conv.run() &&
+         conv.prepareInputsFromEnv("TEST_DATARANGE") &&
+         conv.run(/*debug: inside seg fault catcher*/ USE_DEBUG) &&
          conv.verifyOutputs();
 }
 

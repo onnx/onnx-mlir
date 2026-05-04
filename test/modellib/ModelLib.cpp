@@ -96,14 +96,14 @@ bool ModelLibBuilder::checkInstruction(const std::string instructionName) {
   return true;
 }
 
-bool ModelLibBuilder::run() {
+bool ModelLibBuilder::run(bool debug) {
   assert(inputs && exec && "expected successful compile and load");
   if (outputs) {
     omTensorListDestroy(outputs);
     outputs = nullptr; // Reset in case run has an exception.
   }
   try {
-    outputs = exec->run(inputs);
+    outputs = exec->runDebug(inputs, debug);
   } catch (const onnx_mlir::ExecutionSessionException &error) {
     std::cerr << "error while running: " << error.what() << std::endl;
     return false;

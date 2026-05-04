@@ -122,7 +122,7 @@ public:
   // It can run second or third.
   virtual bool prepareInputs() = 0;
   // Run model using prepared inputs, resulting in outputs. It must run fourth.
-  bool run();
+  bool run(bool debug=false);
   // Verify outputs from a run with reference data. It can run last.
   virtual bool verifyOutputs() = 0;
 
