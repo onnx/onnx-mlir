@@ -1753,6 +1753,21 @@ func.func @expand_pow_bf16_into_mul(%arg0: tensor<3x4x5xbf16>) -> tensor<3x4x5xb
 
 // -----
 
+// COM: Quantized scalar exponent (storage differs from real value 2.0); expand Pow to Mul.
+func.func @expand_pow_quant_u16_scalar_exp_into_mul(%arg0: tensor<3x4x5x!quant.uniform<u8:f32, 6.250000e-02>>) -> tensor<3x4x5x!quant.uniform<u8:f32, 6.250000e-02>> {
+    %c_exp = onnx.Constant {value = dense<65535> : tensor<ui16>} : tensor<!quant.uniform<u16:f32, 3.0518043786287308E-5>>
+    %0 = "onnx.Pow"(%arg0, %c_exp) : (tensor<3x4x5x!quant.uniform<u8:f32, 6.250000e-02>>, tensor<!quant.uniform<u16:f32, 3.0518043786287308E-5>>) -> tensor<3x4x5x!quant.uniform<u8:f32, 6.250000e-02>>
+    onnx.Return %0 : tensor<3x4x5x!quant.uniform<u8:f32, 6.250000e-02>>
+
+// CHECK-LABEL:  func.func @expand_pow_quant_u16_scalar_exp_into_mul
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4x5x!quant.uniform<u8:f32, 6.250000e-02>>) -> tensor<3x4x5x!quant.uniform<u8:f32, 6.250000e-02>> {
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Mul"([[PARAM_0_]], [[PARAM_0_]]) : (tensor<3x4x5x!quant.uniform<u8:f32, 6.250000e-02>>, tensor<3x4x5x!quant.uniform<u8:f32, 6.250000e-02>>) -> tensor<3x4x5x!quant.uniform<u8:f32, 6.250000e-02>>
+// CHECK:           onnx.Return [[VAR_1_]] : tensor<3x4x5x!quant.uniform<u8:f32, 6.250000e-02>>
+// CHECK:        }
+}
+
+// -----
+
 func.func @expand_pow_into_constant(%arg0: tensor<3x4x5xf32>) -> tensor<3x4x5xf32> {
     %cst = onnx.Constant dense<0.0> : tensor<f32>
     %0 = "onnx.Pow"(%arg0, %cst) : (tensor<3x4x5xf32>, tensor<f32>) -> tensor<3x4x5xf32>
