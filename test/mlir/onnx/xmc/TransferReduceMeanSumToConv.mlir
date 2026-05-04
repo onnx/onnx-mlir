@@ -43,6 +43,56 @@ func.func @reduce_mean_channel_negative_axis(%arg0: tensor<1x4x4x4x!quant.unifor
 // CHECK-NOT: onnx.ReduceMean
 
 //===----------------------------------------------------------------------===//
+// ReduceMeanV13 → Conv Tests (axes attribute; same patterns as ReduceMean)
+//===----------------------------------------------------------------------===//
+
+// CHECK-LABEL: @reduce_mean_v13_channel_quant
+// ReduceMeanV13 carries axes as an attribute (not an SSA operand).
+func.func @reduce_mean_v13_channel_quant(%arg0: tensor<1x8x4x4x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<1x1x4x4x!quant.uniform<i8:f32, 0.05:0>> {
+    %0 = "onnx.ReduceMeanV13"(%arg0) {axes = [1], keepdims = 1 : si64} : (tensor<1x8x4x4x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<1x1x4x4x!quant.uniform<i8:f32, 0.05:0>>
+    return %0 : tensor<1x1x4x4x!quant.uniform<i8:f32, 0.05:0>>
+}
+// CHECK: "onnx.Conv"
+// CHECK-NOT: onnx.ReduceMeanV13
+
+// CHECK-LABEL: @reduce_mean_v13_channel_negative_axis_attr
+// axes = [-3] is channel axis 1 for rank-4 NCHW.
+func.func @reduce_mean_v13_channel_negative_axis_attr(%arg0: tensor<1x4x4x4x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<1x1x4x4x!quant.uniform<i8:f32, 0.05:0>> {
+    %0 = "onnx.ReduceMeanV13"(%arg0) {axes = [-3], keepdims = 1 : si64} : (tensor<1x4x4x4x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<1x1x4x4x!quant.uniform<i8:f32, 0.05:0>>
+    return %0 : tensor<1x1x4x4x!quant.uniform<i8:f32, 0.05:0>>
+}
+// CHECK: "onnx.Conv"
+// CHECK-NOT: onnx.ReduceMeanV13
+
+// CHECK-LABEL: @reduce_mean_v13_spatial_axis2
+// Spatial axis [2], H=4 (power of 2): transpose → conv → transpose.
+func.func @reduce_mean_v13_spatial_axis2(%arg0: tensor<1x8x4x4x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<1x8x1x4x!quant.uniform<i8:f32, 0.05:0>> {
+    %0 = "onnx.ReduceMeanV13"(%arg0) {axes = [2], keepdims = 1 : si64} : (tensor<1x8x4x4x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<1x8x1x4x!quant.uniform<i8:f32, 0.05:0>>
+    return %0 : tensor<1x8x1x4x!quant.uniform<i8:f32, 0.05:0>>
+}
+// CHECK: "onnx.Transpose"
+// CHECK: "onnx.Conv"
+// CHECK: "onnx.Transpose"
+// CHECK-NOT: onnx.ReduceMeanV13
+
+// CHECK-LABEL: @reduce_mean_v13_non_pow2_no_convert
+// C=7 is not a power of two; channel ReduceMeanV13 must stay.
+func.func @reduce_mean_v13_non_pow2_no_convert(%arg0: tensor<1x7x4x4x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<1x1x4x4x!quant.uniform<i8:f32, 0.05:0>> {
+    %0 = "onnx.ReduceMeanV13"(%arg0) {axes = [1], keepdims = 1 : si64} : (tensor<1x7x4x4x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<1x1x4x4x!quant.uniform<i8:f32, 0.05:0>>
+    return %0 : tensor<1x1x4x4x!quant.uniform<i8:f32, 0.05:0>>
+}
+// CHECK: "onnx.ReduceMeanV13"
+// CHECK-NOT: onnx.Conv
+
+// CHECK-LABEL: @reduce_mean_v13_f32_channel
+func.func @reduce_mean_v13_f32_channel(%arg0: tensor<1x8x4x4xf32>) -> tensor<1x1x4x4xf32> {
+    %0 = "onnx.ReduceMeanV13"(%arg0) {axes = [1], keepdims = 1 : si64} : (tensor<1x8x4x4xf32>) -> tensor<1x1x4x4xf32>
+    return %0 : tensor<1x1x4x4xf32>
+}
+// CHECK: "onnx.Conv"
+// CHECK-NOT: onnx.ReduceMeanV13
+
+//===----------------------------------------------------------------------===//
 // ReduceSum → Conv Tests (Channel-wise reduction)
 //===----------------------------------------------------------------------===//
 
