@@ -94,23 +94,23 @@ install(TARGETS PyRuntimeC
   DESTINATION lib
   )
 
-# Target to prepare OMPyInfer package
-add_custom_target(OMCreateOMPyInferPackage
-        COMMAND rm -rf ${CMAKE_CURRENT_BINARY_DIR}/OMPyInfer
-        COMMAND cp -r ${CMAKE_CURRENT_SOURCE_DIR}/OMPyInfer ${CMAKE_CURRENT_BINARY_DIR}
-	COMMAND cp -r ${CMAKE_CURRENT_SOURCE_DIR}/PyRuntime.py ${CMAKE_CURRENT_BINARY_DIR}/OMPyInfer/src/OMPyInfer
-        COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/OMPyInfer/src/OMPyInfer/libs
-        COMMAND cp ${ONNX_MLIR_BIN_ROOT}/${CMAKE_BUILD_TYPE}/lib/PyRuntimeC.*.so ${CMAKE_CURRENT_BINARY_DIR}/OMPyInfer/src/OMPyInfer/libs
+# Target to prepare om_pyrt package
+add_custom_target(OMCreateOMPyRtPackage
+        COMMAND rm -rf ${CMAKE_CURRENT_BINARY_DIR}/om_pyrt
+        COMMAND cp -r ${CMAKE_CURRENT_SOURCE_DIR}/om_pyrt ${CMAKE_CURRENT_BINARY_DIR}
+	COMMAND cp -r ${CMAKE_CURRENT_SOURCE_DIR}/PyRuntime.py ${CMAKE_CURRENT_BINARY_DIR}/om_pyrt/src/om_pyrt
+        COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/om_pyrt/src/om_pyrt/libs
+        COMMAND cp ${ONNX_MLIR_BIN_ROOT}/${CMAKE_BUILD_TYPE}/lib/PyRuntimeC.*.so ${CMAKE_CURRENT_BINARY_DIR}/om_pyrt/src/om_pyrt/libs
         DEPENDS PyRuntimeC
      )
 
-# Target to run OMPyInfer package with newly built PyRuntimeC, not the new
+# Target to run om_pyrt package with newly built PyRuntimeC, not the new
 # model.so yet.
-add_custom_target(OMTestOMPyInferPackage
-        COMMAND pip uninstall -y OMPyInfer 
-        COMMAND pip install -e ${CMAKE_CURRENT_BINARY_DIR}/OMPyInfer
-        COMMAND python ${CMAKE_CURRENT_BINARY_DIR}/OMPyInfer/tests/helloworld.py
-        DEPENDS OMCreateOMPyInferPackage
+add_custom_target(OMTestOMPyRtPackage
+        COMMAND pip uninstall -y om_pyrt
+        COMMAND pip install -e ${CMAKE_CURRENT_BINARY_DIR}/om_pyrt
+        COMMAND python ${CMAKE_CURRENT_BINARY_DIR}/om_pyrt/tests/helloworld.py
+        DEPENDS OMCreateOMPyRtPackage
      )
 
 # Target to prepare OMPyCompile package
