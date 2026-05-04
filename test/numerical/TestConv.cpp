@@ -281,5 +281,6 @@ int main(int argc, char *argv[]) {
     }
 
   } // End loop over static / dynamic
+  printf("all test completed\n");
   return 0;
 }
