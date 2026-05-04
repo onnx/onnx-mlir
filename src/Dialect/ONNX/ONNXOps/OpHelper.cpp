@@ -889,8 +889,9 @@ bool hasIntegerPowerExponent(ONNXPowOp *op, int64_t &exponentValue) {
     realScalar = getScalarValue<double>(elementAttr, rankedTy);
   } else {
     realScalar = getScalarValue<double>(elementAttr, elementAttr.getType());
-  }
+  } 
 
+  Type elementType = elementAttr.getElementType();
   // Quantized onnx.Constant: storage does not match the real exponent; allow a
   // small tolerance when classifying as an integer (xcompiler uses 1e-6).
   if (hasQuantizedElementType(exponent)) {
@@ -899,10 +900,7 @@ bool hasIntegerPowerExponent(ONNXPowOp *op, int64_t &exponentValue) {
       return false;
     exponentValue = static_cast<int64_t>(nearest);
     return true;
-  }
-
-  Type elementType = elementAttr.getElementType();
-  if (mlir::isa<FloatType>(elementType)) {
+  } else if (mlir::isa<FloatType>(elementType)) {
     double floatVal = realScalar;
     if (floatVal == ceil(floatVal)) {
       // We essentially have an integer value represented as a float.
