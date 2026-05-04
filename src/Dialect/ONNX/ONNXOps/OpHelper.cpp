@@ -2,6 +2,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <cmath>
+#include <optional>
+
 //===------- ONNXOpsHelper.cpp - Helper functions for ONNX dialects -------===//
 //
 // Copyright 2019-2024 The IBM Research Authors.
@@ -20,6 +23,7 @@
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Path.h"
 
+#include "mlir/Dialect/Quant/IR/QuantTypes.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
@@ -643,13 +647,21 @@ bool isDenseONNXConstant(Value result) {
 template <typename RESULT_TYPE>
 RESULT_TYPE getScalarValue(ElementsAttr denseAttr, Type type) {
   Type elementaryType = getElementTypeOrSelf(type);
+  if (auto uq = dyn_cast<mlir::quant::UniformQuantizedType>(elementaryType)) {
+    assert(denseAttr.getElementType() == uq.getStorageType() &&
+           "dense elements storage type must match quantized type storage");
+    double raw = getScalarValue<double>(denseAttr, uq.getStorageType());
+    double expressed =
+        (raw - static_cast<double>(uq.getZeroPoint())) * uq.getScale();
+    return static_cast<RESULT_TYPE>(expressed);
+  }
   if (elementaryType.isInteger(8) || elementaryType.isInteger(16) ||
       elementaryType.isInteger(32) || elementaryType.isInteger(64)) {
     auto valueIt = denseAttr.getValues<IntegerAttr>().begin();
-    if (type.isSignedInteger()) {
+    if (elementaryType.isSignedInteger()) {
       return static_cast<RESULT_TYPE>(
           mlir::cast<IntegerAttr>(*valueIt).getSInt());
-    } else if (type.isUnsignedInteger()) {
+    } else if (elementaryType.isUnsignedInteger()) {
       return static_cast<RESULT_TYPE>(
           mlir::cast<IntegerAttr>(*valueIt).getUInt());
     } else {
@@ -852,6 +864,9 @@ IgnoreDiagnostic::~IgnoreDiagnostic() {
 }
 
 bool hasIntegerPowerExponent(ONNXPowOp *op, int64_t &exponentValue) {
+  // Near-integer classification for approximate dequant / float noise
+  // (aligned with xcompiler and quantized Constant path below).
+  constexpr double kPowExponentNearIntegerTol = 1e-6;
   Value exponent = op->getY();
   // In case of QDQ quantized models: If exponent is from a DequantizeLinear op,
   // we want to check the dequantized value of the exponent
@@ -877,21 +892,30 @@ bool hasIntegerPowerExponent(ONNXPowOp *op, int64_t &exponentValue) {
     // DequantizeLinear op. However, it should be good enough for checking that
     // the exponent is an integer)
     double dequantizedExponent = (x - zeroPoint) * scale;
-
-    if (dequantizedExponent == ceil(dequantizedExponent)) {
-      exponentValue = static_cast<int64_t>(dequantizedExponent);
-      return true;
-    }
-    return false;
+    double nearest = std::round(dequantizedExponent);
+    if (std::fabs(dequantizedExponent - nearest) > kPowExponentNearIntegerTol)
+      return false;
+    exponentValue = static_cast<int64_t>(nearest);
+    return true;
   }
 
+  if (!getONNXConstantOp(exponent))
+    return false;
   ElementsAttr elementAttr = getElementAttributeFromONNXValue(exponent);
-  if (!elementAttr)
+  if (!elementAttr || elementAttr.getNumElements() != 1)
     return false;
-  if (elementAttr.getNumElements() != 1)
-    return false;
+
   Type elementType = elementAttr.getElementType();
-  if (mlir::isa<FloatType>(elementType)) {
+  // Quantized onnx.Constant: storage does not match the real exponent; allow a
+  // small tolerance when classifying as an integer (xcompiler uses 1e-6).
+  if (hasQuantizedElementType(exponent)) {
+    double realScalar = getScalarValue<double>(elementAttr, exponent.getType());
+    double nearest = std::round(realScalar);
+    if (std::fabs(realScalar - nearest) > kPowExponentNearIntegerTol)
+      return false;
+    exponentValue = static_cast<int64_t>(nearest);
+    return true;
+  } else if (mlir::isa<FloatType>(elementType)) {
     double floatVal = getScalarValue<double>(elementAttr, elementType);
     if (floatVal == ceil(floatVal)) {
       // We essentially have an integer value represented as a float.
