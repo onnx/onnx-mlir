@@ -18,6 +18,8 @@
 #ifndef ONNX_MLIR_OPS_HELPER_H
 #define ONNX_MLIR_OPS_HELPER_H
 
+#include <optional>
+
 #include "mlir/Dialect/Quant/IR/QuantTypes.h"
 #include "mlir/Dialect/Traits.h"
 #include "mlir/IR/AffineExpr.h"
@@ -275,7 +277,10 @@ mlir::ArrayAttr createArrayAttrFromConstantOp(mlir::ONNXConstantOp constOp);
 // Check whether a value is produced by a dense ONNXConstantOp.
 bool isDenseONNXConstant(mlir::Value result);
 
-// Get scalar value when it is a constant.
+// Get scalar value when it is a constant. If \p type is a shaped type whose
+// element type is `!quant.uniform<...>`, reads storage from \p denseAttr and
+// returns the expressed value `(storage - zp) * scale` (dense storage element
+// type must match the quant type's storage type).
 template <typename RESULT_TYPE>
 RESULT_TYPE getScalarValue(mlir::ElementsAttr denseAttr, mlir::Type type);
 
