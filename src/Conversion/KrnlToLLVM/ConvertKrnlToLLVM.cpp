@@ -546,7 +546,7 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
 
   // Store each constant into single file.
   // Constants with the highest alignment will be packed first in the file.
-  // The file will be mmaped later at runtime and aligned at the page boundary,
+  // The file will be loaded later at runtime and aligned at the page boundary,
   // So every constants must be correctly aligned. Pads are added if necessary.
   llvm::sys::fs::remove(filepath);
   std::ofstream outfile(filepath, std::ios::app | std::ios::binary);
@@ -600,7 +600,7 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
   create.llvm.globalOp(llvmI8Ty,
       /*isConstant=*/true, LLVM::Linkage::Internal,
       EXTERNAL_CONSTANT_PREFIX + "isLE", b.getI8IntegerAttr(isLE));
-  // Create an uninitialized global into which we will load/mmap constants from
+  // Create an uninitialized global into which we will load constants from
   // the file at runtime.
   LLVM::GlobalOp packedConstOp = create.llvm.globalOp(llvmI8PtrTy,
       /*isConstant=*/false, LLVM::Linkage::Internal,
@@ -617,17 +617,18 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
   return true;
 }
 
-/// Emit a function "omLoadConstantsFromFile" in the IR to load constants from
-/// external files into global operations.
-void loadConstantsFromFile(ModuleOp &module,
+/// Emit a function, funcName, in the IR to load constants from external files
+/// into global operations. The function's type is `void()`.
+void emitLoadConstantDataFunc(ModuleOp &module,
     const RuntimeAPIRegistry &apiRegistry,
     const SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps,
-    bool calledByEntryPoint = true) {
+    std::string funcName) {
   MLIRContext *ctx = module.getContext();
   Location loc = module.getLoc();
   OpBuilder b(ctx);
   MultiDialectBuilder<LLVMBuilder> create(b, loc);
 
+  Type llvmVoidTy = LLVM::LLVMVoidType::get(ctx);
   Type llvmI1Ty = IntegerType::get(ctx, 1);
   Type llvmI8Ty = IntegerType::get(ctx, 8);
   Type llvmI64Ty = IntegerType::get(ctx, 64);
@@ -635,55 +636,16 @@ void loadConstantsFromFile(ModuleOp &module,
 
   // The following function will be emitted inside the IR to load constants from
   // file.
-  std::string loadAllConstantsFuncName = "omLoadConstantsFromFile";
-  Type llvmFnType = LLVM::LLVMFunctionType::get(llvmI1Ty, {}, false);
 
-  // If calledByEntryPoint, this function will be called by entry points.
-  // Otherwise, user program (C/C++/Java/Python) would call this function.
-  LLVM::LLVMFuncOp funcOp;
-  if (calledByEntryPoint) {
-    Operation *firstEntryPointOp =
-        getFirstEntryOpInBlock(module, entryGlobalOps);
-    assert(firstEntryPointOp && "No entry function exists");
-    OpBuilder::InsertionGuard guard(b);
-    b.setInsertionPoint(firstEntryPointOp);
-    funcOp = create.llvm.func(
-        loadAllConstantsFuncName, llvmFnType, /*createUniqueFunc=*/true);
-    // Call loadAllConstantsFuncName in each entry point function.
-    bool zOS = isZOS(module);
-    for (auto entryGlobalOp : entryGlobalOps) {
-      std::string entryName =
-          mlir::cast<StringAttr>(entryGlobalOp.getValue().value())
-              .getValue()
-              .str();
-      // Entry point name is encoded in EBCDIC on z/OS.
-      entryName = (zOS) ? krnl::e2a_s(entryName) : entryName;
-      // Erase the null symbol.
-      entryName.erase(
-          std::find(entryName.begin(), entryName.end(), '\0'), entryName.end());
-      auto entryFunc = module.lookupSymbol<LLVM::LLVMFuncOp>(entryName);
-      assert(entryFunc && "Entry function not found");
-      OpBuilder::InsertionGuard guard(b);
-      b.setInsertionPoint(
-          &entryFunc.getBody().front(), entryFunc.getBody().front().begin());
-      FlatSymbolRefAttr loadAllConstantsRef = create.llvm.getOrInsertSymbolRef(
-          module, LLVMBuilder::SymbolPostfix(module, loadAllConstantsFuncName),
-          llvmI1Ty, {},
-          /*isVarArg=*/false);
-      Value retVal = create.llvm.call({llvmI1Ty}, loadAllConstantsRef, {});
-      equalOrFailed(module, b, loc,
-          create.llvm.constant(llvmI1Ty, static_cast<int64_t>(1)), retVal);
-    }
-  } else {
-    OpBuilder::InsertionGuard guard(b);
-    b.setInsertionPointToEnd(module.getBody());
-    funcOp = create.llvm.func(
-        loadAllConstantsFuncName, llvmFnType, /*createUniqueFunc=*/true);
-  }
+  OpBuilder::InsertionGuard guard1(b);
+  b.setInsertionPointToEnd(module.getBody());
+  Type llvmFnType = LLVM::LLVMFunctionType::get(llvmVoidTy, {}, false);
+  LLVM::LLVMFuncOp funcOp =
+      create.llvm.func(funcName, llvmFnType, /*createUniqueFunc=*/true);
 
   // Emit the body of the function.
   Block *entryBlock = funcOp.addEntryBlock(b);
-  OpBuilder::InsertionGuard guard(b);
+  OpBuilder::InsertionGuard guard2(b);
   b.setInsertionPointToStart(entryBlock);
 
   // Get the constant file name.
@@ -714,14 +676,14 @@ void loadConstantsFromFile(ModuleOp &module,
   auto packedGlobalOp = module.lookupSymbol<LLVM::GlobalOp>(packedSymbol);
   Value packedGlobalAddr = create.llvm.addressOf(packedGlobalOp);
   Value packedGlobalPtr = create.llvm.bitcast(llvmI8PtrTy, packedGlobalAddr);
-  // Call a function to mmap the binary file to memory.
+  // Call a function to load the binary file to memory.
   Value isleVal = create.llvm.constant(llvmI64Ty, isle);
   Value sizeVal = create.llvm.constant(llvmI64Ty, dataSize);
   Value retVal = RuntimeAPI::callApi(b, loc, apiRegistry,
-      RuntimeAPI::API::MMAP_BINARY_FILE,
+      RuntimeAPI::API::LOAD_CONSTANT_DATA,
       {packedGlobalPtr, fnameI8Ptr, sizeVal, isleVal});
   equalOrReturn(module, b, loc,
-      create.llvm.constant(llvmI1Ty, static_cast<int64_t>(1)), retVal, retVal);
+      create.llvm.constant(llvmI1Ty, static_cast<int64_t>(1)), retVal);
 
   // Now set pointers for constants in the IR
   module->walk([&](LLVM::GlobalOp dataGlobalOp) -> WalkResult {
@@ -751,7 +713,191 @@ void loadConstantsFromFile(ModuleOp &module,
     return WalkResult::advance();
   });
 
-  create.llvm._return(create.llvm.constant(llvmI1Ty, static_cast<int64_t>(1)));
+  create.llvm._return();
+}
+
+/// Emit a function, funcName, in the IR to free the buffer allocated for
+/// constants.  The function's type is `void()`.
+void emitUnloadConstantDataFunc(ModuleOp &module,
+    const RuntimeAPIRegistry &apiRegistry, std::string funcName) {
+  MLIRContext *ctx = module.getContext();
+  Location loc = module.getLoc();
+  OpBuilder b(ctx);
+  MultiDialectBuilder<LLVMBuilder> create(b, loc);
+
+  Type llvmVoidTy = LLVM::LLVMVoidType::get(ctx);
+  Type llvmI1Ty = IntegerType::get(ctx, 1);
+  Type llvmI8Ty = IntegerType::get(ctx, 8);
+  Type llvmI64Ty = IntegerType::get(ctx, 64);
+  Type llvmI8PtrTy = getPointerType(ctx, llvmI8Ty);
+
+  // The following function will be emitted inside the IR to unload/free
+  // constants.
+  OpBuilder::InsertionGuard guard1(b);
+  b.setInsertionPointToEnd(module.getBody());
+  Type llvmFnType = LLVM::LLVMFunctionType::get(llvmVoidTy, {}, false);
+  LLVM::LLVMFuncOp funcOp =
+      create.llvm.func(funcName, llvmFnType, /*createUniqueFunc=*/true);
+
+  // Emit the body of the function.
+  Block *entryBlock = funcOp.addEntryBlock(b);
+  OpBuilder::InsertionGuard guard2(b);
+  b.setInsertionPointToStart(entryBlock);
+
+  // Get the file size.
+  std::string fsizeSymbol =
+      LLVMBuilder::SymbolPostfix(module, EXTERNAL_CONSTANT_PREFIX + "filesize");
+  auto fsizeGlobalOp = module.lookupSymbol<LLVM::GlobalOp>(fsizeSymbol);
+  assert(fsizeGlobalOp && "Could not find the global op for filesize");
+  int64_t dataSize = mlir::cast<IntegerAttr>(fsizeGlobalOp.getValue().value())
+                         .getValue()
+                         .getSExtValue();
+  // Get the packedConst global.
+  std::string packedSymbol = LLVMBuilder::SymbolPostfix(
+      module, EXTERNAL_CONSTANT_PREFIX + "packedConst");
+  auto packedGlobalOp = module.lookupSymbol<LLVM::GlobalOp>(packedSymbol);
+  Value packedGlobalAddr = create.llvm.addressOf(packedGlobalOp);
+  Value packedGlobalPtr = create.llvm.bitcast(llvmI8PtrTy, packedGlobalAddr);
+  Value sizeVal = create.llvm.constant(llvmI64Ty, dataSize);
+  // Call an external function to free the constant buffer.
+  Value retVal = RuntimeAPI::callApi(b, loc, apiRegistry,
+      RuntimeAPI::API::UNLOAD_CONSTANT_DATA, {packedGlobalPtr, sizeVal});
+  equalOrReturn(module, b, loc,
+      create.llvm.constant(llvmI1Ty, static_cast<int64_t>(1)), retVal);
+  create.llvm._return();
+}
+
+/// Emit global contructors to call specific functions when the .so file is
+/// loaded. Note that
+/// - a function with a higher priority is called first, and
+/// - ctors functions must have type of void().
+void emitCtors(ModuleOp &module, OpBuilder &builder,
+    ArrayRef<std::string> ctors, ArrayRef<int32_t> priorities,
+    ArrayRef<Attribute> data) {
+  MLIRContext *ctx = module.getContext();
+  MultiDialectBuilder<LLVMBuilder> create(builder, module.getLoc());
+  llvm::SmallVector<mlir::Attribute, 1> ctorsArray;
+  llvm::SmallVector<int32_t, 1> prioritiesArray;
+  llvm::SmallVector<mlir::Attribute, 1> dataArray;
+  // Prepare operands.
+  for (uint64_t i = 0; i < ctors.size(); ++i) {
+    FlatSymbolRefAttr loadFuncRef = create.llvm.getOrInsertSymbolRef(module,
+        LLVMBuilder::SymbolPostfix(module, ctors[i]),
+        LLVM::LLVMVoidType::get(ctx), {},
+        /*isVarArg=*/false);
+    ctorsArray.emplace_back(loadFuncRef);
+    prioritiesArray.emplace_back(priorities[i]);
+    dataArray.emplace_back(data[i]);
+  }
+  // Only create global constructors if there are any to register.
+  if (!ctorsArray.empty()) {
+    OpBuilder::InsertionGuard guard(builder);
+    builder.setInsertionPointToEnd(module.getBody());
+    create.llvm.globalCtors(ctorsArray, prioritiesArray, dataArray);
+  }
+}
+
+/// Emit global destructors to call specific functions when the .so file is
+/// unloaded. Note that
+/// - a function with a higher priority is called first, and
+/// - dtors functions must have type of void().
+void emitDtors(ModuleOp &module, OpBuilder &builder,
+    ArrayRef<std::string> dtors, ArrayRef<int32_t> priorities,
+    ArrayRef<Attribute> data) {
+  MLIRContext *ctx = module.getContext();
+  MultiDialectBuilder<LLVMBuilder> create(builder, module.getLoc());
+  llvm::SmallVector<mlir::Attribute, 1> dtorsArray;
+  llvm::SmallVector<int32_t, 1> prioritiesArray;
+  llvm::SmallVector<mlir::Attribute, 1> dataArray;
+  // Prepare operands.
+  for (uint64_t i = 0; i < dtors.size(); ++i) {
+    FlatSymbolRefAttr loadFuncRef = create.llvm.getOrInsertSymbolRef(module,
+        LLVMBuilder::SymbolPostfix(module, dtors[i]),
+        LLVM::LLVMVoidType::get(ctx), {},
+        /*isVarArg=*/false);
+    dtorsArray.emplace_back(loadFuncRef);
+    prioritiesArray.emplace_back(priorities[i]);
+    dataArray.emplace_back(data[i]);
+  }
+  // Only create global destructors if there are any to register.
+  if (!dtorsArray.empty()) {
+    OpBuilder::InsertionGuard guard(builder);
+    builder.setInsertionPointToEnd(module.getBody());
+    create.llvm.globalDtors(dtorsArray, prioritiesArray, dataArray);
+  }
+}
+
+/// Emit compilation information by extracting compile options and op stats
+/// from module attributes and constructing a JSON string.
+void emitCompilationInfo(ModuleOp &module) {
+  MLIRContext *context = module.getContext();
+  Location loc = module.getLoc();
+  OpBuilder b(context);
+  MultiDialectBuilder<LLVMBuilder> create(b, loc);
+
+  Type i8Type = IntegerType::get(context, 8);
+  Type i8PtrTy = getPointerType(context, i8Type);
+
+  // Get the compiler_info attribute.
+  std::string compilerVersion;
+  if (Attribute compilerVersionAttr =
+          module->getAttr("onnx-mlir.compiler_version")) {
+    if (auto strAttr = mlir::dyn_cast<StringAttr>(compilerVersionAttr)) {
+      compilerVersion = strAttr.getValue().str();
+    }
+  }
+
+  // Get the compile_options attribute.
+  std::string compileOptions;
+  if (Attribute compileOptionsAttr =
+          module->getAttr("onnx-mlir.compile_options")) {
+    if (auto strAttr = mlir::dyn_cast<StringAttr>(compileOptionsAttr)) {
+      compileOptions = strAttr.getValue().str();
+    }
+  }
+  // Get the op_stats attribute.
+  std::string opStats;
+  if (Attribute opStatsAttr = module->getAttr("onnx-mlir.op_stats")) {
+    if (auto strAttr = mlir::dyn_cast<StringAttr>(opStatsAttr)) {
+      opStats = strAttr.getValue().str();
+    }
+  }
+
+  // Construct the JSON string.
+  std::string jsonString = "{\n\"compiler_version\": \"" + compilerVersion +
+                           "\",\n\"compile_options\": \"" + compileOptions +
+                           "\",\n\"op_stats\": " + opStats + "}";
+
+  LLVM_DEBUG(llvm::dbgs() << "Compilation Info: " << jsonString << "\n");
+
+  // Create a global op to store the JSON string.
+  OpBuilder::InsertionGuard guard(b);
+  b.setInsertionPointToStart(module.getBody());
+  std::string jsonStringWithNull = jsonString + '\0';
+  jsonStringWithNull =
+      (isZOS(module)) ? krnl::a2e_s(jsonStringWithNull) : jsonStringWithNull;
+  mlir::StringAttr valueAttr =
+      mlir::StringAttr::get(context, jsonStringWithNull);
+  LLVM::GlobalOp compilationInfoGlobalOp = create.llvm.globalOp(
+      LLVM::LLVMArrayType::get(i8Type, jsonStringWithNull.size()),
+      /*isConstant=*/true, LLVM::Linkage::Internal, "om_compilation_info_json",
+      valueAttr);
+
+  // Emit the omCompilationInfo function of type `*i8 ()`.
+  b.setInsertionPointToEnd(module.getBody());
+  Type llvmFnType = LLVM::LLVMFunctionType::get(i8PtrTy, {}, false);
+  LLVM::LLVMFuncOp funcOp = create.llvm.func(
+      "omCompilationInfo", llvmFnType, /*createUniqueFunc=*/true);
+
+  // Emit the body of the function.
+  Block *entryBlock = funcOp.addEntryBlock(b);
+  OpBuilder::InsertionGuard bodyGuard(b);
+  b.setInsertionPointToStart(entryBlock);
+
+  // Return a pointer to the global JSON string.
+  Value jsonAddr = create.llvm.addressOf(compilationInfoGlobalOp);
+  Value jsonI8Ptr = create.llvm.bitcast(i8PtrTy, jsonAddr);
+  create.llvm._return(jsonI8Ptr);
 }
 
 //===----------------------------------------------------------------------===//
@@ -769,8 +915,8 @@ struct ConvertKrnlToLLVMPass
       : PassWrapper<ConvertKrnlToLLVMPass, OperationPass<ModuleOp>>() {}
   ConvertKrnlToLLVMPass(bool verifyInputTensors, bool useLRODATA,
       bool storeConstantsToFile, float constantsToFileSingleThreshold,
-      float constantsToFileTotalThreshold, std::string outputNameNoExt,
-      bool enableParallel) {
+      float constantsToFileTotalThreshold, bool omitCompileInfo,
+      std::string outputNameNoExt, bool enableParallel) {
     this->verifyInputTensors = verifyInputTensors;
     // Exclusive options. no option or only one option can be True.
     this->useLRODATA = useLRODATA;
@@ -781,6 +927,7 @@ struct ConvertKrnlToLLVMPass
 #endif
     this->constantsToFileSingleThreshold = constantsToFileSingleThreshold;
     this->constantsToFileTotalThreshold = constantsToFileTotalThreshold;
+    this->omitCompileInfo = omitCompileInfo;
     this->outputNameNoExt = outputNameNoExt;
     this->enableParallel = enableParallel;
   }
@@ -810,6 +957,12 @@ struct ConvertKrnlToLLVMPass
       llvm::cl::init(false)};
 
   Option<bool> storeConstantsToFile{*this, "store-constants-to-file",
+      llvm::cl::desc("Do not embed compilation information such as compiler "
+                     "version, compile options, and ONNX operation statistics "
+                     "into the generated shared library."),
+      llvm::cl::init(false)};
+
+  Option<bool> omitCompileInfo{*this, "omit-compile-info",
       llvm::cl::desc("Put global constants to a file."), llvm::cl::init(false)};
 
   Option<float> constantsToFileTotalThreshold{*this,
@@ -967,10 +1120,41 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
     const RuntimeAPIRegistry &apiRegistry =
         RuntimeAPIRegistry(module, builder, typeConverter);
 
-    // Emit a function, omLoadConstantsFromFile, that loads contants from files
+    // Emit a function, omLoadConstantDataCtor, that loads contants from files
     // to memory.
-    loadConstantsFromFile(module, apiRegistry, entryGlobalOps);
+    emitLoadConstantDataFunc(
+        module, apiRegistry, entryGlobalOps, "omLoadConstantDataCtor");
+    // Emit a function, omUnloadConstantDataDtor, that frees the buffer
+    // created for the constants.
+    emitUnloadConstantDataFunc(module, apiRegistry, "omUnloadConstantDataDtor");
   }
+
+  // Emit global ctors and dtors to call specific functions when the .so file is
+  // loaded and unloaded. Note that
+  // - a function with a higher priority is called first, and
+  // - ctors and dtors functions must have type of void().
+  // Emit constructors.
+  SmallVector<std::string> ctors;
+  SmallVector<int32_t> ctorsPriorities;
+  SmallVector<Attribute> ctorsData;
+  if (storeConstantsToFile) {
+    ctors.emplace_back("omLoadConstantDataCtor");
+    ctorsPriorities.emplace_back(65535);
+    ctorsData.emplace_back(LLVM::ZeroAttr::get(ctx));
+  }
+  emitCtors(module, builder, /*ctors*/ ctors,
+      /*priorities*/ ctorsPriorities, /*data*/ ctorsData);
+  // Emit destructors.
+  SmallVector<std::string> dtors;
+  SmallVector<int32_t> dtorsPriorities;
+  SmallVector<Attribute> dtorsData;
+  if (storeConstantsToFile) {
+    dtors.emplace_back("omUnloadConstantDataDtor");
+    dtorsPriorities.emplace_back(65535);
+    dtorsData.emplace_back(LLVM::ZeroAttr::get(ctx));
+  }
+  emitDtors(module, builder, /*dtors*/ dtors,
+      /*priorities*/ dtorsPriorities, /*data*/ dtorsData);
 
   // Annotate global constants with `.lrodata` section if required.
   // Make sure this is always called at the end of this pass.
@@ -983,6 +1167,10 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
       return WalkResult::advance();
     });
   }
+
+  // Emit compilation information.
+  if (!omitCompileInfo)
+    emitCompilationInfo(module);
 }
 
 /// Create the pass for lowering `Krnl`, `Affine` and `Std` dialects to LLVM.
@@ -992,10 +1180,11 @@ std::unique_ptr<Pass> createConvertKrnlToLLVMPass() {
 std::unique_ptr<Pass> createConvertKrnlToLLVMPass(bool verifyInputTensors,
     bool useLRODATA, bool storeConstantsToFile,
     float constantsToFileSingleThreshold, float constantsToFileTotalThreshold,
-    std::string outputNameNoExt, bool enableParallel) {
+    bool omitCompileInfo, std::string outputNameNoExt, bool enableParallel) {
   return std::make_unique<ConvertKrnlToLLVMPass>(verifyInputTensors, useLRODATA,
       storeConstantsToFile, constantsToFileSingleThreshold,
-      constantsToFileTotalThreshold, outputNameNoExt, enableParallel);
+      constantsToFileTotalThreshold, omitCompileInfo, outputNameNoExt,
+      enableParallel);
 }
 
 void populateKrnlToLLVMConversion(LLVMTypeConverter &typeConverter,

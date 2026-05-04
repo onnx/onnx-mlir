@@ -760,7 +760,7 @@ Java_com_ibm_onnxmlir_OMModel_query_1entry_1points(JNIEnv *env, jclass cls) {
   for (int64_t i = 0; i < neps; i++) {
     char ep[32];
     int num_chars_written = sprintf(ep, "ep[%lld]", (long long)i);
-    assert(num_chars_written >= 0 && "sprintf write error to ep");
+    assert(num_chars_written >= 0); // Error: "sprintf write error to ep".
     HEX_DEBUG(ep, jni_eps[i], strlen(jni_eps[i]));
     LOG_PRINTF(LOG_DEBUG, "ep[%d](%ld):%s", i, strlen(jni_eps[i]), jni_eps[i]);
 
@@ -911,4 +911,43 @@ JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_output_1signature_1jni(
 #endif
 
   return java_osig;
+}
+
+JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_compilation_1info_1jni(
+    JNIEnv *env, jclass cls) {
+
+  log_init();
+
+  /* Find and initialize Java Exception class */
+  JNI_TYPE_VAR_CALL(env, jclass, jecpt_cls,
+      (*env)->FindClass(env, jnistr[CLS_JAVA_LANG_EXCEPTION]),
+      jecpt_cls != NULL, NULL, "Class java/lang/Exception not found");
+
+  /* Call model compilation info API */
+  CHECK_CALL(const char *, jni_cinfo, omCompilationInfo(), jni_cinfo != NULL,
+      "jni_cinfo=%p", jni_cinfo);
+
+  /* Compilation info in hex and string format for debugging */
+  HEX_DEBUG("cinfo", jni_cinfo, strlen(jni_cinfo));
+  LOG_PRINTF(LOG_DEBUG, "cinfo(%d):%s", strlen(jni_cinfo), jni_cinfo);
+
+  /* On z/OS, convert compilation info in EBCDIC to ASCII */
+#ifdef __MVS__
+  CHECK_CALL(char *, infoptr, __e2a(jni_cinfo), infoptr != NULL, "infoptr=%p",
+      infoptr);
+#else
+  const char *infoptr = jni_cinfo;
+#endif
+
+  /* Convert to Java String object */
+  JNI_TYPE_VAR_CALL(env, jstring, java_cinfo,
+      (*env)->NewStringUTF(env, infoptr), java_cinfo != NULL, jecpt_cls,
+      "java_cinfo=%p", java_cinfo);
+
+  /* On z/OS, free the ASCII compilation info no longer needed */
+#ifdef __MVS__
+  free(infoptr);
+#endif
+
+  return java_cinfo;
 }

@@ -144,3 +144,23 @@ func.func @test_div_decomposed_broadcast(%arg0: tensor<13x21x1xf32>, %arg1: tens
 // CHECK:           [[VAR_4_:%.+]] = tosa.mul [[PARAM_0_]], [[VAR_2_]], [[VAR_3_]] : (tensor<13x21x1xf32>, tensor<1x1x1xf32>, tensor<1xi8>) -> tensor<13x21x1xf32>
 // CHECK:           return [[VAR_4_]] : tensor<13x21x1xf32>
 }
+
+// -----
+
+func.func @test_sin(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
+  %0 = "onnx.Sin"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
+  "func.return"(%0) : (tensor<10x10xf32>) -> ()
+// CHECK-LABEL:  func @test_sin
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
+// CHECK-NEXT:      [[VAR_0_:%.+]] = tosa.sin [[PARAM_0_]] : (tensor<10x10xf32>) -> tensor<10x10xf32>
+}
+
+// -----
+
+func.func @test_cos(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
+  %0 = "onnx.Cos"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
+  "func.return"(%0) : (tensor<10x10xf32>) -> ()
+// CHECK-LABEL:  func @test_cos
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
+// CHECK-NEXT:      [[VAR_0_:%.+]] = tosa.cos [[PARAM_0_]] : (tensor<10x10xf32>) -> tensor<10x10xf32>
+}

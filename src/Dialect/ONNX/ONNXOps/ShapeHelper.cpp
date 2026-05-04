@@ -179,7 +179,13 @@ void ONNXOpShapeHelper::computeShapeAndAssertOnFailure() {
 void ONNXOpShapeHelper::setOutputDims(
     const DimsExpr &inferredDims, int n, bool refineShape) {
   privateOutputsDims[n] = inferredDims;
-  if (refineShape) {
+  // Do not refine shape in the analysis mode to make sure dynamic dimensions
+  // are consistent during the dimension analysis.
+  // Note: This guard, along with the one in updateInputDimAt, prevents all
+  // shape updates during dim analysis. All type modifications flow through
+  // either setOutputDims (via refineDims) or updateInputDimAt (via setType),
+  // making these two guards sufficient to prevent updates during analysis.
+  if (!isInDimAnalysisMode() && refineShape) {
     Value output = getOutput(n);
     refineDims(op, privateOutputsDims[n], output);
   }
@@ -187,6 +193,10 @@ void ONNXOpShapeHelper::setOutputDims(
 
 void ONNXOpShapeHelper::updateInputDimAt(
     Value inputVal, uint64_t dimSize, int64_t axis) {
+  // Donot update input dim during the analysis mode.
+  if (isInDimAnalysisMode())
+    return;
+
   auto valType = mlir::dyn_cast<RankedTensorType>(inputVal.getType());
   if (!valType)
     return;
@@ -281,11 +291,18 @@ LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateType(
          "element type cannot be a shaped type other than vector type");
   uint64_t resNum = op->getNumResults();
   for (uint64_t i = 0; i < resNum; ++i) {
+    Type resultType = op->getResults()[i].getType();
     // If we have an optional type, leave it as is.
-    if (mlir::isa<NoneType>(op->getResults()[i].getType()))
+    if (mlir::isa<NoneType>(resultType))
       continue;
     llvm::SmallVector<int64_t, 4> shapeVect;
     IndexExpr::getShape(getOutputDims(i), shapeVect);
+    // If encoding is not set, keep the output's encoding unchanged.
+    Attribute outputEncoding;
+    if (encoding)
+      outputEncoding = encoding;
+    else
+      encoding = getTensorEncoding(resultType);
     // Set refineShape to false here because we refine it (or not) when setting
     // the output shape. So there is no need to perform this again here.
     updateType(op, op->getResults()[i], shapeVect, elementType, encoding,
@@ -327,6 +344,12 @@ void ONNXOpShapeHelper::setOperands(ValueRange inputs) {
   privateOperandsCache =
       llvm::SmallVector<Value, 4>(inputs.begin(), inputs.end());
   operands = ValueRange(privateOperandsCache);
+}
+
+void ONNXOpShapeHelper::setDimAnalysisMode() { this->dimAnalysisMode = true; }
+
+void ONNXOpShapeHelper::unsetDimAnalysisMode() {
+  this->dimAnalysisMode = false;
 }
 
 //===----------------------------------------------------------------------===//

@@ -35,6 +35,7 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/Additional/LayoutTransform.cpp
   ONNXOps/Additional/None.cpp
   ONNXOps/Additional/ShapeTransform.cpp
+  ONNXOps/Additional/UpsampleAndPad.cpp
   ONNXOps/ControlFlow/If.cpp
   ONNXOps/ControlFlow/Loop.cpp
   ONNXOps/ControlFlow/Scan.cpp

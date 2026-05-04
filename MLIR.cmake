@@ -40,8 +40,24 @@ else()
   add_definitions(${LLVM_DEFINITIONS})
 endif()
 
-set(BUILD_SHARED_LIBS ${LLVM_ENABLE_SHARED_LIBS} CACHE BOOL "" FORCE)
-message(STATUS "BUILD_SHARED_LIBS        : " ${BUILD_SHARED_LIBS})
+# Allow standalone build to override LLVM's shared libs setting
+if(ONNX_MLIR_BUILD_STANDALONE)
+  # Verify LLVM was built with -DLLVM_BUILD_LLVM_DYLIB=OFF and -DLLVM_LINK_LLVM_DYLIB=OFF
+  # by checking if the libLLVM shared library exists
+  if(EXISTS "${LLVM_LIBRARY_DIR}/libLLVM${CMAKE_SHARED_LIBRARY_SUFFIX}")
+    message(FATAL_ERROR
+      "ONNX_MLIR_BUILD_STANDALONE=ON requires LLVM built without shared dylib.\n"
+      "Found: ${LLVM_LIBRARY_DIR}/libLLVM${CMAKE_SHARED_LIBRARY_SUFFIX}\n"
+      "Please rebuild LLVM with:\n"
+      "  -DLLVM_BUILD_LLVM_DYLIB=OFF\n"
+      "  -DLLVM_LINK_LLVM_DYLIB=OFF")
+  endif()
+  set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+  message(STATUS "BUILD_SHARED_LIBS        : ${BUILD_SHARED_LIBS} (forced OFF for standalone build)")
+else()
+  set(BUILD_SHARED_LIBS ${LLVM_ENABLE_SHARED_LIBS} CACHE BOOL "" FORCE)
+  message(STATUS "BUILD_SHARED_LIBS        : ${BUILD_SHARED_LIBS}")
+endif()
 
 # onnx uses exceptions, so we need to make sure that LLVM_REQUIRES_EH is set to ON, so that
 # the functions from HandleLLVMOptions and AddLLVM don't disable exceptions.

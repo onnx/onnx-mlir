@@ -118,6 +118,7 @@ extern bool disableQuantZeroPoint;                            // common for both
 extern bool enableKrnlBufferReuse;                            // common for both
 extern bool enableSafeCodeGen;                                // common for both
 extern bool disableMemRefPrefetch;                            // common for both
+extern bool disableCountIncludePad;                           // common for both
 extern uint64_t compilationNumThreads;                        // common for both
 extern std::vector<std::string> decomposeOpsInONNX;           // common for both
 extern std::string linalgOps;                                 // common for both
@@ -130,6 +131,7 @@ extern bool preserveBitcode;                                  // onnx-mlir only
 extern bool preserveLLVMIR;                                   // onnx-mlir only
 extern bool preserveMLIR;                                     // onnx-mlir only
 extern bool doNotEmitFullMLIRCode;                            // onnx-mlir only
+extern bool omitCompileInfo;                                  // onnx-mlir only
 extern bool useOnnxModelTypes;                                // onnx-mlir only
 extern int repeatOnnxTransform;                               // onnx-mlir only
 extern std::string shapeInformation;                          // onnx-mlir only
@@ -174,6 +176,7 @@ extern bool enableTiming;                                     // onnx-mlir only
 extern bool enableBoundCheck;                                 // onnx-mlir only
 extern bool debugTestCompilerOpt;                             // onnx-mlir only
 extern bool useLinalgPath;                                    // onnx-mlir only
+extern bool enableDebugInfo;                                  // onnx-mlir only
 extern std::string configFile;                                // onnx-mlir only
 extern std::string saveConfigFile;                            // onnx-mlir only
 extern bool appendDecodingStrategy;                           // onnx-mlir only

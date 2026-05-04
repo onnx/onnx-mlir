@@ -57,8 +57,8 @@ void ExecutionSession::signalHandler(int signum) {
 // =============================================================================
 // Constructor, destructor, and init.
 
-ExecutionSession::ExecutionSession(
-    std::string sharedLibPath, std::string tag, bool defaultEntryPoint) {
+ExecutionSession::ExecutionSession(const std::string &sharedLibPath,
+    const std::string &tag, const bool defaultEntryPoint) {
   loadModel(sharedLibPath, tag, defaultEntryPoint);
 }
 
@@ -66,11 +66,24 @@ ExecutionSession::ExecutionSession(
 // null, it is not necessarily an error (in corner cases); but for us it would
 // be because we expect all our symbols to be defined to non-null.
 
-void ExecutionSession::loadModel(
-    std::string sharedLibPath, std::string tag, bool defaultEntryPoint) {
+void ExecutionSession::loadModel(const std::string &sharedLibPath,
+    const std::string &modelTag, const bool defaultEntryPoint) {
   if (isInitialized)
     throw ExecutionSessionException(
         "Execution session must be initialized once at most.");
+
+  std::string tag = modelTag;
+  // Set OM_CONSTANT_PATH for loading constants from file if required.
+  // Do this before dlopen since OM_CONSTANT_PATH is used by constructors.
+  std::size_t found = sharedLibPath.find_last_of("/\\");
+  if (found != std::string::npos) {
+    std::string basePath = sharedLibPath.substr(0, found);
+#if defined(_WIN32)
+    _putenv_s("OM_CONSTANT_PATH", basePath.c_str());
+#else
+    setenv("OM_CONSTANT_PATH", basePath.c_str(), /*overwrite=*/0);
+#endif
+  }
 
   // If there is no tag, use the model filename without extension as a tag.
   if (tag == "") {
@@ -162,6 +175,16 @@ void ExecutionSession::loadModel(
     throw ExecutionSessionException(
         "Cannot load symbol: '" + outputSignatureNameWithTag + "'.");
 
+  std::string compilationInfoNameWithTag = _compilationInfoName + lowDashTag;
+#if defined(_WIN32)
+  _compilationInfoFunc = reinterpret_cast<compilationInfoFuncType>(
+      _sharedLibraryHandle.getAddressOfSymbol(
+          compilationInfoNameWithTag.c_str()));
+#else
+  _compilationInfoFunc = reinterpret_cast<compilationInfoFuncType>(
+      dlsym(_sharedLibraryHandle, compilationInfoNameWithTag.c_str()));
+#endif
+
 #if defined(_WIN32)
   _printInstrumentationFunc = reinterpret_cast<printInstrumentationFuncType>(
       _sharedLibraryHandle.getAddressOfSymbol(
@@ -178,16 +201,6 @@ void ExecutionSession::loadModel(
       throw ExecutionSessionException(
           "Cannot load symbol: '" + _printInstrumentationName + "'.");
     }
-  }
-  // Set OM_CONSTANT_PATH for loading constants from file if required.
-  std::size_t found = sharedLibPath.find_last_of("/\\");
-  if (found != std::string::npos) {
-    std::string basePath = sharedLibPath.substr(0, found);
-#if defined(_WIN32)
-    _putenv_s("OM_CONSTANT_PATH", basePath.c_str());
-#else
-    setenv("OM_CONSTANT_PATH", basePath.c_str(), /*overwrite=*/0);
-#endif
   }
 
   // Successful completion of initialization.
@@ -264,6 +277,16 @@ const std::string ExecutionSession::outputSignature() const {
   return _outputSignatureFunc(_entryPointName.c_str());
 }
 
+const std::string ExecutionSession::compilationInfo() const {
+  if (!isInitialized)
+    throw ExecutionSessionException(
+        "Execution session must be initialized once.");
+  errno = 0; // No errors.
+  if (!_compilationInfoFunc)
+    return "{}";
+  return _compilationInfoFunc();
+}
+
 void ExecutionSession::printInstrumentation() {
   if (!isInitialized)
     throw ExecutionSessionException(
@@ -338,7 +361,10 @@ std::vector<OMTensorUniquePtr> ExecutionSession::run(
   return outs;
 }
 
-OMTensorList *ExecutionSession::run(
+// =============================================================================
+// Common run method implementation.
+
+OMTensorList *ExecutionSession::runImplementation(
     OMTensorList *input, bool useSignalHandler) {
   if (!isInitialized)
     throw ExecutionSessionException(
@@ -348,18 +374,28 @@ OMTensorList *ExecutionSession::run(
         "Must set an entry point (e.g. run_main_graph) before calling run "
         "function.");
 
+  OMTensorList *output;
 #if defined(_WIN32)
   // Run with signal is not supported under Windows, ignore.
-  return runWithoutSignalHandler(input);
+  output = runWithoutSignalHandler(input);
 #else
-  if (!useSignalHandler)
-    return runWithoutSignalHandler(input);
-  return runWithSignalHandler(input);
+  if (useSignalHandler)
+    output = runWithSignalHandler(input);
+  else
+    output = runWithoutSignalHandler(input);
 #endif
+
+  // Print instrumentation.
+  if (_printInstrumentationFunc)
+    _printInstrumentationFunc();
+
+  // Return results from the inference.
+  return output;
 }
 
-// Run using public interface. Explicit calls are needed to free tensor & tensor
-// lists.
+// =============================================================================
+// Implementation of run public interfaces
+
 OMTensorList *ExecutionSession::runWithoutSignalHandler(OMTensorList *input) {
 
   // Run inference.
@@ -367,10 +403,6 @@ OMTensorList *ExecutionSession::runWithoutSignalHandler(OMTensorList *input) {
   OMTensorList *output = _entryPointFunc(input);
   if (!output)
     throw ExecutionSessionException(reportErrnoError());
-
-  // Print instrumentation.
-  if (_printInstrumentationFunc)
-    _printInstrumentationFunc();
 
   errno = 0; // No errors.
   return output;
@@ -435,7 +467,19 @@ OMTensorList *ExecutionSession::runWithSignalHandler(OMTensorList *input) {
     errno = signum;
     throw ExecutionSessionException(reportErrnoError(/*from signal*/ true));
   }
-#endif
+#endif // if(_WIN32)
+}
+
+// =============================================================================
+// Public run methods.
+
+OMTensorList *ExecutionSession::run(OMTensorList *input) {
+  return runImplementation(input, /*signal handler*/ false);
+}
+
+OMTensorList *ExecutionSession::runDebug(
+    OMTensorList *input, bool useSignalHandler) {
+  return runImplementation(input, useSignalHandler);
 }
 
 // =============================================================================

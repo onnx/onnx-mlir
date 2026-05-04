@@ -18,7 +18,7 @@ logging.basicConfig(level=logging.INFO)  # Or INFO, WARNING, etc.
 # model_path = "google-bert/bert-base-uncased"
 model_path = "ibm-granite/granite-embedding-30m-english"
 # model_path = "ibm-granite/granite-embedding-278m-multilingual"
-model = AutoModel.from_pretrained(model_path)
+model = AutoModel.from_pretrained(model_path, torch_dtype=torch.float32)
 tokenizer = AutoTokenizer.from_pretrained(model_path)
 
 

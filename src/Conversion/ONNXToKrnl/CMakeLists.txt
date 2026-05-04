@@ -8,6 +8,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   Additional/Custom.cpp
   Additional/LayoutTransform.cpp
   Additional/ShapeTransform.cpp
+  Additional/UpsampleAndPad.cpp
   ControlFlow/If.cpp
   ControlFlow/Loop.cpp
   ControlFlow/Scan.cpp
@@ -35,6 +36,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   Math/TopK.cpp
   Math/Trilu.cpp
   NN/Conv.cpp
+  NN/GridSample.cpp
   NN/Normalization.cpp
   NN/Pooling.cpp
   ObjectDetection/NonMaxSuppression.cpp

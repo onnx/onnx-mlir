@@ -38,24 +38,52 @@ VERBOSE = os.environ.get("VERBOSE", False)
 def import_driver():
     global ONNX_MLIR, args
     try:
+        # TODO: do we still use this?
         from onnxmlir import InferenceSession as SessionWrapper
 
         args.use_onnxmlir = True
     except ImportError:
         args.use_onnxmlir = False
-        if not os.environ.get("ONNX_MLIR_HOME", None):
-            raise RuntimeError(
-                "To use native compiler, set environment variable ONNX_MLIR_HOME to the path to onnx-mlir."
-                " Typical example is `path-to-onnx-mlir/build/Debug, which is the parent folder containing the bin, lib, and etc for the compiler."
-            )
+
         ONNX_MLIR_EXENAME = "onnx-mlir.exe" if sys.platform == "win32" else "onnx-mlir"
-        ONNX_MLIR = os.path.join(os.environ["ONNX_MLIR_HOME"], "bin", ONNX_MLIR_EXENAME)
+        ONNX_MLIR = None
+        RUNTIME_DIR = None
+
+        # TODO: would we want to eliminate ONNX_MLIR_HOME?
+        # Strategy 1: Use ONNX_MLIR_HOME environment variable if set
+        if os.environ.get("ONNX_MLIR_HOME", None):
+            onnx_mlir_home = os.environ["ONNX_MLIR_HOME"]
+            ONNX_MLIR = os.path.join(onnx_mlir_home, "bin", ONNX_MLIR_EXENAME)
+            RUNTIME_DIR = os.path.join(onnx_mlir_home, "lib")
+
+        # Strategy 2: Search PATH for onnx-mlir binary
+        # shutil.which() searches all directories in the PATH environment variable
+        if ONNX_MLIR is None or not os.path.isfile(ONNX_MLIR):
+            onnx_mlir_path = shutil.which(ONNX_MLIR_EXENAME)
+            if onnx_mlir_path:
+                # Resolve symbolic links to find the actual binary location
+                onnx_mlir_path = os.path.realpath(onnx_mlir_path)
+                ONNX_MLIR = onnx_mlir_path
+                # Assume runtime lib is in ../lib relative to bin directory
+                # e.g., if binary is /usr/local/bin/onnx-mlir, lib is /usr/local/lib
+                bin_dir = os.path.dirname(onnx_mlir_path)
+                RUNTIME_DIR = os.path.join(os.path.dirname(bin_dir), "lib")
+
+        # If still not found, raise error
+        if ONNX_MLIR is None or not os.path.isfile(ONNX_MLIR):
+            raise RuntimeError(
+                "Cannot find onnx-mlir binary. Please either:\n"
+                " 1) Set environment variable ONNX_MLIR_HOME to the path to onnx-mlir\n"
+                "    (e.g., path-to-onnx-mlir/build/Debug, the parent folder containing bin, lib, etc)\n"
+                " 2) Add onnx-mlir to your PATH (e.g., export PATH=/path/to/onnx-mlir/bin:$PATH)\n"
+                " 3) Install onnx-mlir to a standard location that is already in PATH"
+            )
+
         # Include runtime directory in python paths, so PyRuntime can be imported.
-        RUNTIME_DIR = os.path.join(os.environ["ONNX_MLIR_HOME"], "lib")
-        sys.path.append(RUNTIME_DIR)
+        if RUNTIME_DIR and os.path.isdir(RUNTIME_DIR):
+            sys.path.append(RUNTIME_DIR)
 
         # Check and import Onnx Mlir Execution session / python interface.
-
         try:
             from PyRuntime import OMExecutionSession as SessionWrapper
         except ImportError:
@@ -137,6 +165,11 @@ parser.add_argument(
     help="Print out the input and output signatures of the model.",
 )
 parser.add_argument(
+    "--print-compilation-info",
+    action="store_true",
+    help="Print out the compilation info stored in the compiled model.",
+)
+parser.add_argument(
     "--save-onnx",
     metavar="PATH",
     type=str,
@@ -181,7 +214,6 @@ parser.add_argument(
     default="",
     help="Options passed to onnxmlir. Used with --use-onnxmlir",
 )
-
 
 lib_group = parser.add_mutually_exclusive_group()
 lib_group.add_argument(
@@ -334,7 +366,6 @@ def verify_arg():
 ################################################################################
 # Support functions for RunONNXModel functionality.
 # Functions are free of args (all needed parameters are passed to the function).
-
 
 # A type mapping from MLIR to Numpy.
 MLIR_TYPE_TO_NP_TYPE = {
@@ -809,6 +840,7 @@ class InferenceSession:
         start = time.perf_counter()
         self.model_dir = self.temp_dir.name
         output_path = os.path.join(self.model_dir, self.default_model_name)
+        compiler_log_file = ""
         # When use onnxmlir package, use different wrapper class no matter the
         # model is compiled or not.
         if args.use_onnxmlir:
@@ -891,21 +923,20 @@ class InferenceSession:
             except ImportError:
                 raise RuntimeError("Set PyOMCompile in your python env.")
             # Prepare compiler arguments.
-            log_file = ""
             if args.write_compile_log:
-                log_file = (
+                compiler_log_file = (
                     args.write_compile_log
                     if args.write_compile_log.startswith("/")
                     else os.path.join(os.getcwd(), args.write_compile_log)
                 )
-                print("  Compilation log is dumped into {}".format(log_file))
+                print("  Compilation log is dumped into {}".format(compiler_log_file))
             # Invoke the compiler.
             start = time.perf_counter()
             try:
                 compiler = OMCompile(
                     input_model_path,
                     args.compile_args + " -o " + output_path,
-                    log_file_name=log_file,
+                    log_file_name=compiler_log_file,
                 )
             except RuntimeError as e:
                 raise RuntimeError(f"Compilation failed: {e}")
@@ -937,19 +968,19 @@ class InferenceSession:
                 self.model_dir, f"{self.default_model_name}.constants.bin"
             )
             if os.path.exists(constants_file_path):
-                print("Saving the constants file to", args.save_model, "\n")
+                print("Saving the constants file to", args.save_model)
                 shutil.copy2(constants_file_path, args.save_model)
-            # Compilation log.
-            log_file_path = os.path.join(args.save_model, "compile.log")
-            with open(log_file_path, "w") as f:
-                print("Saving the compilation log to", args.save_model, "\n")
-                f.write(msg)
+            # Saving the compiler log file, if any.
+            if compiler_log_file and os.path.exists(compiler_log_file):
+                print("Saving the log file file to", args.save_model)
+                shutil.copy2(compiler_log_file, args.save_model)
+            # Saving compiler options.
             compiler_option_file_path = os.path.join(
                 args.save_model, "compiler_option.txt"
             )
             expected_string = cache_string(args.model, args.compile_args)
             with open(compiler_option_file_path, "w") as ff:
-                print("Saving the compilation options to", args.save_model, "\n")
+                print("Saving the compilation options to", args.save_model)
                 ff.write(expected_string)
 
         # Exit if only compiling the model.
@@ -981,6 +1012,11 @@ class InferenceSession:
         if args.print_signatures:
             print("Model's input signature: ", input_signature.strip())
             print("Model's output signature: ", output_signature.strip())
+        if args.print_compilation_info:
+            print(
+                "Compilation info stored in the compiled model: ",
+                self.session.compilation_info().strip(),
+            )
 
         # Let onnx-mlir know where to find the constants file.
         os.environ["OM_CONSTANT_PATH"] = self.model_dir
