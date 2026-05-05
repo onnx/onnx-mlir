@@ -1125,7 +1125,7 @@ struct MergeStridedSliceConcatConvPass
 
     // Add all three patterns
     // patterns.add<MergeStridedSliceConcatConvNHWC>(context);
-    patterns.add<MergeStridedSliceConcatTransposeConv>(context);
+    // patterns.add<MergeStridedSliceConcatTransposeConv>(context);
     patterns.add<MergeStridedSliceConcatConvPureNCHW>(context);
 
     ResultNamesUpdater rnUpdater;
