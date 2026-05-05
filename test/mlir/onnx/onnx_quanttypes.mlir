@@ -321,3 +321,26 @@ func.func @layernorm_quant_types_resultnames(%arg0: tensor<1x128x768xui16>) -> t
 // CHECK-NEXT: onnx.Relu
 // CHECK-SAME: ResultNames = ["q_relu_out"]
 // CHECK-SAME: (tensor<1x128x768x!quant.uniform<u16:f32, 2.3420652723871171E-4:47366>>) -> tensor<1x128x768x!quant.uniform<u16:f32, 2.3420652723871171E-4:47366>>
+
+// Test that a DQ with both terminator (return) and non-terminator users is
+// split: internal users get quantized types via scast, return stays float.
+// This pattern arises when CSE merges two identical DQs (one for return,
+// one for internal use) into a single DQ with mixed users.
+func.func @split_dq_mixed_users(%arg0: tensor<1x512x20x20xf32>) -> (tensor<1x512x20x20xf32>, tensor<20x20x1x512xf32>) {
+  %zp = onnx.Constant dense<31519> : tensor<ui16>
+  %sc = onnx.Constant dense<4.11819725E-4> : tensor<f32>
+  %0 = "onnx.QuantizeLinear"(%arg0, %sc, %zp) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x512x20x20xf32>, tensor<f32>, tensor<ui16>) -> tensor<1x512x20x20xui16>
+  %1 = "onnx.DequantizeLinear"(%0, %sc, %zp) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x512x20x20xui16>, tensor<f32>, tensor<ui16>) -> tensor<1x512x20x20xf32>
+  %2 = "onnx.Transpose"(%1) {perm = [2, 3, 0, 1]} : (tensor<1x512x20x20xf32>) -> tensor<20x20x1x512xf32>
+  return %1, %2 : tensor<1x512x20x20xf32>, tensor<20x20x1x512xf32>
+}
+
+// CHECK-LABEL: @split_dq_mixed_users
+// The return branch keeps the float DQ (cloned for terminator users)
+// CHECK: onnx.DequantizeLinear
+// CHECK-SAME: -> tensor<1x512x20x20xf32>
+// The internal branch gets a scast so Transpose stays quantized
+// CHECK: quant.scast
+// CHECK-SAME: to tensor<1x512x20x20x!quant.uniform<u16:f32, 4.1181972483173013E-4:31519>>
+// CHECK: onnx.Transpose
+// CHECK-SAME: tensor<1x512x20x20x!quant.uniform<u16:f32, 4.1181972483173013E-4:31519>>

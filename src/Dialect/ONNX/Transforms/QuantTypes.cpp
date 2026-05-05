@@ -110,11 +110,24 @@ public:
 
   LogicalResult matchAndRewrite(
       ONNXDequantizeLinearOp dqOp, PatternRewriter &rewriter) const override {
-    if (llvm::any_of(dqOp.getY().getUsers(), [](Operation *op) {
-          return op->hasTrait<OpTrait::IsTerminator>();
-        })) {
+    bool hasTermUser = llvm::any_of(dqOp.getY().getUsers(),
+        [](Operation *op) { return op->hasTrait<OpTrait::IsTerminator>(); });
+    bool hasNonTermUser = llvm::any_of(dqOp.getY().getUsers(),
+        [](Operation *op) { return !op->hasTrait<OpTrait::IsTerminator>(); });
+
+    // If only terminators use this DQ, keep it as float for the return.
+    if (hasTermUser && !hasNonTermUser)
       return rewriter.notifyMatchFailure(
           dqOp, "Cannot convert DQ output to function return");
+
+    // If both terminator and non-terminator users exist, split: clone the
+    // DQ for the return branch so the original can be converted to scast
+    // for internal (non-terminator) users that should stay quantized.
+    if (hasTermUser && hasNonTermUser) {
+      auto *clonedDQ = rewriter.clone(*dqOp);
+      for (auto &use : llvm::make_early_inc_range(dqOp.getY().getUses()))
+        if (use.getOwner()->hasTrait<OpTrait::IsTerminator>())
+          use.set(clonedDQ->getResult(0));
     }
 
     auto qTypeErr = getQuantType(dqOp);
