@@ -166,12 +166,17 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
 
           // Load value if in bounds, otherwise use zero.
           Value zero = create.math.constant(inputType.getElementType(), 0.0);
+          Value zeroIndex = LitIE(0).getValue();
 
           SmallVector<Value, 5> inputIndicesVals;
           inputIndicesVals.push_back(n.getValue());
           inputIndicesVals.push_back(ci.getValue());
           for (int64_t i = 0; i < spatialRank; ++i) {
-            inputIndicesVals.push_back(inputSpatialIndices[i].getValue());
+            // Access could be out of bound; in which case indices can be set to
+            // zero, don't care as result will not be used.
+            Value index = inputSpatialIndices[i].getValue();
+            Value inboundIndex = create.math.select(inBounds, index, zeroIndex);
+            inputIndicesVals.push_back(inboundIndex);
           }
 
           Value actualValue = create.krnl.load(input, inputIndicesVals);
