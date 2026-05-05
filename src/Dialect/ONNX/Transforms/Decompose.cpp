@@ -1259,9 +1259,6 @@ struct ConvToIm2ColPattern : public OpRewritePattern<ONNXConvOp> {
     if (!onnx_mlir::shouldDecomposeConvToIm2Col(convOp))
       return failure();
 
-    fprintf(stderr, "hi alex, conv to im2col patter with conv op\n  ");
-    convOp.dump();
-
     Location loc = convOp.getLoc();
     Value X = convOp.getX();
     Value W = convOp.getW();
@@ -1504,9 +1501,6 @@ struct Conv1x1ToMatmulPattern : public OpRewritePattern<ONNXConvOp> {
     // All conditions should be satisfied, test to be sure.
     if (!onnx_mlir::shouldDecomposeConv1x1ToMatmul(convOp))
       return failure();
-
-    fprintf(stderr, "hi alex, 1x1 conv to matmul patter with conv op\n  ");
-    convOp.dump();
 
     // All conditions satisfied, get info.
     Value X = convOp.getX();

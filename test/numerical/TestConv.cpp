@@ -17,9 +17,9 @@
 // warnings.
 #include "Common.hpp"
 
-#define USE_DEBUG true
-
 using namespace mlir;
+
+static const llvm::StringRef SHARED_LIB_BASE("./TestConv_main_graph");
 
 // Made global so that we can repeat the test with different strides and
 // dilations. Had to make them global to conform with the signatures of lambda
@@ -43,28 +43,13 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int CIn, const int COut,
       Conv2DLibBuilder::getAutoPadName(autoPad).c_str(), isDynamic, stride,
       dilation);
 
-  // Use unique library name for each test to avoid file conflicts.
-  std::string sharedLibName =
-      "./TestConv_main_graph_" + std::to_string(testNum);
-  Conv2DLibBuilder conv(sharedLibName, N, CIn, COut, H, W, kH, kW, autoPad,
-      pHBegin, pHEnd, pWBegin, pWEnd, stride, dilation, isDynamic);
-
-  bool result =
-      conv.build() &&
-      conv.compileAndLoad(/*debug: emit mlir file*/ USE_DEBUG) &&
-      conv.checkInstructionFromEnv("TEST_INSTRUCTION") &&
-      conv.prepareInputsFromEnv("TEST_DATARANGE") &&
-      conv.run(/*debug: inside seg fault catcher*/ USE_DEBUG && false) &&
-      conv.verifyOutputs();
-
-  // Clean up the generated shared library file after test completes.
-  std::string libFile =
-      onnx_mlir::getTargetFilename(sharedLibName, onnx_mlir::EmitLib);
-  if (llvm::sys::fs::exists(libFile)) {
-    llvm::sys::fs::remove(libFile);
-  }
-
-  return result;
+  Conv2DLibBuilder conv(SHARED_LIB_BASE.str(), N, CIn, COut, H, W, kH, kW,
+      autoPad, pHBegin, pHEnd, pWBegin, pWEnd, stride, dilation, isDynamic);
+  return conv.build() &&
+         conv.compileAndLoad(/*debug: generate mlir file*/ false) &&
+         conv.checkInstructionFromEnv("TEST_INSTRUCTION") &&
+         conv.prepareInputsFromEnv("TEST_DATARANGE") && conv.run() &&
+         conv.verifyOutputs();
 }
 
 } // namespace test
@@ -74,8 +59,8 @@ int main(int argc, char *argv[]) {
   using namespace onnx_mlir;
   using namespace onnx_mlir::test;
 
-  // Note: Individual test files are now uniquely named and cleaned up
-  // after each test completes in isOMConvTheSameAsNaiveImplFor().
+  llvm::FileRemover remover(
+      onnx_mlir::getTargetFilename(SHARED_LIB_BASE.str(), onnx_mlir::EmitLib));
 
   ModelLibBuilder::setRandomNumberGeneratorSeed("TEST_SEED");
   removeUnrelatedOptions({&OnnxMlirCommonOptions, &OnnxMlirOptions});
@@ -113,7 +98,6 @@ int main(int argc, char *argv[]) {
   stride = dilation = 1;
   isDynamic = 0;
 
-#if 1 // hi alex
   // Some 1x1 conv in inception.
   assert(isOMConvTheSameAsNaiveImplFor(
              1, 64, 64, 55, 55, 1, 1, 0, 0, 0, 0, ConvAutoPad::NOTSET) &&
@@ -185,7 +169,6 @@ int main(int argc, char *argv[]) {
   assert(isOMConvTheSameAsNaiveImplFor(
              3, 64, 64, 55, 55, 3, 3, 1, 1, 2, 2, ConvAutoPad::NOTSET) &&
          "failed test from test_cpuconvpadding2");
-#endif
 
   // Had To Explicitly Iterate Over Dynamic as otherwise the random algorithm
   // never got to testing the dynamic cases.
@@ -293,6 +276,6 @@ int main(int argc, char *argv[]) {
     }
 
   } // End loop over static / dynamic
-  printf("all test completed\n");
+  printf("completed tests\n");
   return 0;
 }

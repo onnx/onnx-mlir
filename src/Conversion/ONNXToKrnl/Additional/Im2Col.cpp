@@ -51,8 +51,6 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder>
         create(rewriter, loc);
 
-    fprintf(stderr, "hi alex, simple im2col path\n");
-
     // Get input shape.
     MemRefType inputType = mlir::cast<MemRefType>(input.getType());
     int64_t inputRank = inputType.getRank();
@@ -218,7 +216,6 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
       return;
     }
 
-    fprintf(stderr, "hi alex, optimized im2col path\n");
     // Get attributes from shape helper.
     const auto &kernelShape = shapeHelper.kernelShape;
     const auto &strides = shapeHelper.strides;
@@ -460,7 +457,7 @@ void populateLoweringONNXIm2ColOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel) {
   bool useOptimizedAlgo = OptimizationLevel > OptLevel::O0;
   patterns.insert<ONNXIm2ColOpLowering>(
-      typeConverter, ctx, enableParallel, useOptimizedAlgo || /*hi alex*/ true);
+      typeConverter, ctx, enableParallel, useOptimizedAlgo);
 }
 
 } // namespace onnx_mlir
