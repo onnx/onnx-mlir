@@ -584,7 +584,8 @@ private:
         // Check each dimension
         for (uint64_t dimID = 0; dimID < pair.second.size(); ++dimID) {
           int64_t bound = pair.second[dimID];
-          if (bound == ShapedType::kDynamic) { // No bound info for this dimension
+          if (bound == ShapedType::kDynamic) {
+            // No bound info for this dimension
             continue;
 	  }
           Value actualDim = create.llvm.load(int64Ty,
