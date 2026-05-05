@@ -120,16 +120,6 @@ SmallVector<int64_t> calculateResizeOutputShapeChannelLast(
   return outputShape;
 }
 
-/// Create an empty ROI constant for resize op
-Value createEmptyRoiConstant(PatternRewriter &rewriter, Location loc) {
-  auto roiType = RankedTensorType::get({0}, rewriter.getF32Type());
-  auto roiAttr = DenseElementsAttr::get(roiType, ArrayRef<float>{});
-
-  return rewriter.create<ONNXConstantOp>(loc, roiType, Attribute(), roiAttr,
-      FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(),
-      ArrayAttr());
-}
-
 /// Create output sizes constant for resize op
 Value createSizesConstant(
     PatternRewriter &rewriter, Location loc, ArrayRef<int64_t> outputShape) {
@@ -198,7 +188,10 @@ struct TransferPoolToDownsamplePattern : public OpRewritePattern<PoolOpT> {
     SmallVector<int64_t> expectedOutputShape =
         calculateResizeOutputShape(inputShape, kernel, stride);
 
-    Value roiConst = createEmptyRoiConstant(rewriter, loc);
+    // Use none for both roi and scales - roi is unused in sizes-mode and
+    // ConvertToChannelLastPass's Resize pattern only matches when roi is none
+    // (an empty 0-element ROI Constant blocks layout conversion downstream).
+    Value roiNone = rewriter.create<ONNXNoneOp>(loc).getResult();
     // Use none for scales - we specify sizes instead (cannot have both)
     Value scalesNone = rewriter.create<ONNXNoneOp>(loc).getResult();
     Value sizesConst = createSizesConstant(rewriter, loc, expectedOutputShape);
@@ -210,7 +203,7 @@ struct TransferPoolToDownsamplePattern : public OpRewritePattern<PoolOpT> {
     // Create resize op with mode "nearest"
     auto resizeOp =
         rewriter.create<ONNXResizeOp>(loc, outputType, poolOp.getX(),
-            /*roi=*/roiConst,
+            /*roi=*/roiNone,
             /*scales=*/scalesNone,
             /*sizes=*/sizesConst,
             /*antialias=*/IntegerAttr::get(si64Type, 0),
@@ -297,8 +290,10 @@ struct TransferONNXXFEPoolToDownsamplePattern
     SmallVector<int64_t> expectedOutputShape =
         calculateResizeOutputShapeChannelLast(inputShape, kernel, stride);
 
-    // Create ROI constant (empty)
-    Value roiConst = createEmptyRoiConstant(rewriter, loc);
+    // Use none for both roi and scales - roi is unused in sizes-mode and
+    // ConvertToChannelLastPass's Resize pattern only matches when roi is none
+    // (an empty 0-element ROI Constant blocks layout conversion downstream).
+    Value roiNone = rewriter.create<ONNXNoneOp>(loc).getResult();
     // Use none for scales - we specify sizes instead
     Value scalesNone = rewriter.create<ONNXNoneOp>(loc).getResult();
     // Create sizes constant
@@ -310,7 +305,7 @@ struct TransferONNXXFEPoolToDownsamplePattern
 
     // Create XFE resize op with mode "nearest"
     auto resizeOp = rewriter.create<XFEResizeOp>(loc, outputType, poolOp.getX(),
-        /*roi=*/roiConst,
+        /*roi=*/roiNone,
         /*scales=*/scalesNone,
         /*sizes=*/sizesConst,
         /*antialias=*/IntegerAttr::get(si64Type, 0),
