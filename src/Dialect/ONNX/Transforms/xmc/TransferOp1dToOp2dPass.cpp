@@ -83,21 +83,15 @@ Value createShapeConstant(
 
 /// Reshape 3D tensor [N, C, L] to 4D tensor for ONNX Conv2D
 /// ONNX Conv2D expects input in NCHW format: [N, C, H, W]
-/// Normal case: [N, C, L] → [N, C, 1, L] (H=1, W=L)
-/// Kernel=1 case: [N, C, L] → [1, N, C, L] (special optimization)
+/// [N, C, L] → [N, C, 1, L] (H=1, W=L)
 Value reshapeInputTo4D(
     PatternRewriter &rewriter, Location loc, Value input, int64_t kernelSize) {
   auto inputType = cast<RankedTensorType>(input.getType());
   auto inputShape = inputType.getShape();
 
-  llvm::SmallVector<int64_t> newShape;
-  if (kernelSize == 1) {
-    // Special case for kernel=1: [N, C, L] → [1, N, C, L]
-    newShape = {1, inputShape[0], inputShape[1], inputShape[2]};
-  } else {
-    // Normal case: [N, C, L] → [N, C, 1, L] (NCHW with H=1)
-    newShape = {inputShape[0], inputShape[1], 1, inputShape[2]};
-  }
+  // Always reshape [N, C, L] → [N, C, 1, L] (NCHW with H=1)
+  llvm::SmallVector<int64_t> newShape = {
+      inputShape[0], inputShape[1], 1, inputShape[2]};
 
   auto newType = RankedTensorType::get(newShape, inputType.getElementType());
   auto shapeConst = createShapeConstant(rewriter, loc, newShape);
