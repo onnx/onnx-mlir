@@ -151,7 +151,7 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
           }
 
           // Check bounds for all spatial dimensions.
-          Value inBounds = create.math.constant(rewriter.getI1Type(), true);
+          Value inbounds = create.math.constant(rewriter.getI1Type(), true);
           for (int64_t i = 0; i < spatialRank; ++i) {
             IndexExpr inputIdx = inputSpatialIndices[i];
             IndexExpr inputDim = SymIE(inputSpatialDims[i]);
@@ -160,8 +160,8 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
                 inputIdx.getValue(), create.math.constantIndex(0));
             Value ltDim =
                 create.math.slt(inputIdx.getValue(), inputDim.getValue());
-            Value dimInBounds = create.math.andi(geZero, ltDim);
-            inBounds = create.math.andi(inBounds, dimInBounds);
+            Value dimInbounds = create.math.andi(geZero, ltDim);
+            inbounds = create.math.andi(inbounds, dimInbounds);
           }
 
           // Load value if in bounds, otherwise use zero.
@@ -175,12 +175,12 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
             // Access could be out of bound; in which case indices can be set to
             // zero, don't care as result will not be used.
             Value index = inputSpatialIndices[i].getValue();
-            Value inboundIndex = create.math.select(inBounds, index, zeroIndex);
+            Value inboundIndex = create.math.select(inbounds, index, zeroIndex);
             inputIndicesVals.push_back(inboundIndex);
           }
 
           Value actualValue = create.krnl.load(input, inputIndicesVals);
-          Value loadedValue = create.math.select(inBounds, actualValue, zero);
+          Value loadedValue = create.math.select(inbounds, actualValue, zero);
 
           // Store to output[n, p, q].
           SmallVector<Value, 3> outputIndicesVals;
@@ -364,6 +364,14 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
                             IndexExpr kh = DimIE(khInd[0]);
                             IndexExpr ih = DimIE(ihBase) + kh * dilationH;
                             IndexExpr rowBase = DimIE(ciBase) + kh * KW;
+                            // Compute KH-dependent bounds checks once.
+                            Value ihInbounds = create.math.andi(
+                                create.math.sge(
+                                    DimIE(ih).getValue(), zeroIndex),
+                                create.math.slt(DimIE(ih).getValue(),
+                                    hInInnerIE.getValue()));
+                            Value inboundIH = create.math.select(
+                                ihInbounds, DimIE(ih).getValue(), zeroIndex);
 
                             scfKh.forLoopIE(LitIE(0), LitIE(KW), 1,
                                 /*useParallel=*/false,
@@ -375,23 +383,28 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
                                   IndexExpr kw = DimIE(kwInd[0]);
                                   IndexExpr p = DimIE(rowBase) + kw;
                                   IndexExpr iw = DimIE(iwBase) + kw * dilationW;
-                                  Value inBounds = create.math.andi(
-                                      create.math.andi(
-                                          create.math.sge(
-                                              DimIE(ih).getValue(), zeroIndex),
-                                          create.math.slt(DimIE(ih).getValue(),
-                                              hInInnerIE.getValue())),
-                                      create.math.andi(
-                                          create.math.sge(
-                                              DimIE(iw).getValue(), zeroIndex),
-                                          create.math.slt(DimIE(iw).getValue(),
-                                              wInInnerIE.getValue())));
-
-                                  Value val = create.math.select(inBounds,
-                                      create.krnl.loadIE(
-                                          input, {DimIE(n), DimIE(ci),
-                                                     DimIE(ih), DimIE(iw)}),
-                                      zeroValue);
+                                  // Compute KW-dependent bounds checks.
+                                  Value iwInbounds = create.math.andi(
+                                      create.math.sge(
+                                          DimIE(iw).getValue(), zeroIndex),
+                                      create.math.slt(DimIE(iw).getValue(),
+                                          wInInnerIE.getValue()));
+                                  Value inbounds =
+                                      create.math.andi(ihInbounds, iwInbounds);
+                                  // Now create iw that is guaranteed to be
+                                  // inbounds.
+                                  Value inboundIW = create.math.select(inbounds,
+                                      DimIE(iw).getValue(), zeroIndex);
+                                  // Load the actual value when inbound, inbound
+                                  // junk otherwise.
+                                  Value actualValue = create.krnl.load(
+                                      input, {DimIE(n).getValue(),
+                                                 DimIE(ci).getValue(),
+                                                 inboundIH, inboundIW});
+                                  // Select actual value or zero (padding).
+                                  Value val = create.math.select(
+                                      inbounds, actualValue, zeroValue);
+                                  // Store result.
                                   create.krnl.storeIE(
                                       val, alloc, {DimIE(n), p, DimIE(q)});
                                 });
@@ -446,8 +459,8 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
 void populateLoweringONNXIm2ColOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel) {
   bool useOptimizedAlgo = OptimizationLevel > OptLevel::O0;
-  patterns.insert<ONNXIm2ColOpLowering>(typeConverter, ctx, enableParallel,
-      useOptimizedAlgo && /*hi alex*/ false);
+  patterns.insert<ONNXIm2ColOpLowering>(
+      typeConverter, ctx, enableParallel, useOptimizedAlgo || /*hi alex*/ true);
 }
 
 } // namespace onnx_mlir
