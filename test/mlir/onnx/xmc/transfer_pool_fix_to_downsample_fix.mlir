@@ -21,7 +21,6 @@ module {
   }
   // CHECK-LABEL: func.func @test_maxpool_to_resize_basic
   // CHECK-NOT: onnx.MaxPoolSingleOut
-  // CHECK: onnx.Constant
   // CHECK: onnx.NoValue
   // CHECK: onnx.Constant
   // CHECK: onnx.Resize
@@ -43,7 +42,6 @@ module {
   }
   // CHECK-LABEL: func.func @test_avgpool_to_resize_basic
   // CHECK-NOT: onnx.AveragePool
-  // CHECK: onnx.Constant
   // CHECK: onnx.NoValue
   // CHECK: onnx.Constant
   // CHECK: onnx.Resize
