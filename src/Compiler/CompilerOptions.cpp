@@ -756,8 +756,10 @@ static llvm::cl::opt<bool, true> enableConvOptPassOpt("enable-conv-opt-pass",
     llvm::cl::location(enableConvOptPass), llvm::cl::init(true),
     llvm::cl::cat(OnnxMlirOptions));
 
-static llvm::cl::opt<bool, true> disableConvToMatmulOpt("disable-conv-to-matmul",
-    llvm::cl::desc("Disable Conv to Im2Col+MatMul decomposition. Default is false."),
+static llvm::cl::opt<bool, true> disableConvToMatmulOpt(
+    "disable-conv-to-matmul",
+    llvm::cl::desc(
+        "Disable Conv to Im2Col+MatMul decomposition. Default is false."),
     llvm::cl::location(disableConvToMatmul), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 

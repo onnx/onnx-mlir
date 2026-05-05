@@ -74,7 +74,9 @@ def process_def_use_chains(line):
         return
     # Has a def, add to def set.
     curr_def = definition.group(1)
-    use_qual_pat = re.compile(r"%([a-zA-Z0-9][a-zA-Z0-9_\-]*?)(:\d+)?(?=[^a-zA-Z0-9_\-]|$)")
+    use_qual_pat = re.compile(
+        r"%([a-zA-Z0-9][a-zA-Z0-9_\-]*?)(:\d+)?(?=[^a-zA-Z0-9_\-]|$)"
+    )
     uses = use_qual_pat.findall(line)
     for u in uses:
         # Var u is and array with var [name, qualifier]. Look at name only.
@@ -199,7 +201,9 @@ def process_line(i, line):
     def_pat = re.compile(r"%([a-zA-Z0-9][a-zA-Z0-9_\-]*)()\s+=")
     def_map_pat = re.compile(r"#([a-zA-Z0-9][a-zA-Z0-9_\-]*)()\s+=")
     def_op_pat = re.compile(r"=\s+(?:\w+\.)?(\w+)")
-    use_qual_pat = re.compile(r"%([a-zA-Z0-9][a-zA-Z0-9_\-]*?)(:\d+)?(?=[^a-zA-Z0-9_\-]|$)")
+    use_qual_pat = re.compile(
+        r"%([a-zA-Z0-9][a-zA-Z0-9_\-]*?)(:\d+)?(?=[^a-zA-Z0-9_\-]|$)"
+    )
     use_map_qual_pat = re.compile(r"#([a-zA-Z0-9][a-zA-Z0-9_\-]*)()\(")
     # Has a new function?
     if (

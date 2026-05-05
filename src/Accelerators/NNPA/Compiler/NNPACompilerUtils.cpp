@@ -108,9 +108,11 @@ void configurePassesNNPA() {
 
 void addONNXToZHighPasses(mlir::PassManager &pm) {
   // Determine if Conv to Im2Col+MatMul decomposition should be enabled.
-  // Use the same condition as the CPU path: OptimizationLevel > O0 && !disableConvToMatmul
-  bool enableConvToMatmul = OptimizationLevel > OptLevel::O0 && !disableConvToMatmul;
-  
+  // Use the same condition as the CPU path: OptimizationLevel > O0 &&
+  // !disableConvToMatmul
+  bool enableConvToMatmul =
+      OptimizationLevel > OptLevel::O0 && !disableConvToMatmul;
+
   for (unsigned i = 0; i < 3; i++) {
     // Repeat this process so that shape-related ops such as Shape, Expand,
     // Gather generated during RewriteONNXForZHigh will become constants.
@@ -143,8 +145,8 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
     // For starters only illustrating the new hybrid pass by replacing 3 passes
     // here. The plan is to replace most of the passes in addONNXToMLIRPasses.
     pm.addNestedPass<func::FuncOp>(
-        onnx_mlir::createONNXHybridTransformPass(!disableRecomposeOption, 
-        /* enableConvToMatmul done in RewriteONNXForZHigh */ false));
+        onnx_mlir::createONNXHybridTransformPass(!disableRecomposeOption,
+            /* enableConvToMatmul done in RewriteONNXForZHigh */ false));
   } else {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
     pm.addPass(mlir::createCanonicalizerPass());
@@ -179,7 +181,6 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
   bool isBE = llvm::endianness::native == llvm::endianness::big;
   if (isBE)
     pm.addPass(onnx_mlir::zhigh::createZHighConstPropagationPass());
-
 
   // Remove common sub-expressions.
   pm.addPass(mlir::createCSEPass());
