@@ -25,12 +25,12 @@ A complete example with compilation and run can be found in tests/run-matmul.py.
 Refer to docs/BuildStandAlone.md to build the standalone compiler. 
 Assume that the path of the standalone compiler is onnx-mlir/build-standalone/Debug.
 ### Create and install the package
-Refere to TBD (temporarily use README.md in of OMPyInfer package).
+Refere to TBD (temporarily use README.md in of om_pyrt package).
 Suppose you are under onnx-mlir directory
 ```
-mkdir build-OMPyInfer
-cd build-OMPyInfer
-cmake -DONNX_MLIR_TARGET_TO_BUILD=OMPyInfer -DONNX_MLIR_STANDALONE_DIR=onnx-mlir/build-standalone/Debug ..
+mkdir build-om-pyrt
+cd build-om-pyrt
+cmake -DONNX_MLIR_TARGET_TO_BUILD=OMPyRt -DONNX_MLIR_STANDALONE_DIR=onnx-mlir/build-standalone/Debug ..
 cmake --build . --target OMCreateOMPyCompilePackage
 pip install src/Runtime/python/OMPyCompile
 ```
