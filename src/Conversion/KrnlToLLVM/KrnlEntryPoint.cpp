@@ -587,7 +587,7 @@ private:
           if (bound == ShapedType::kDynamic) {
             // No bound info for this dimension
             continue;
-	  }
+          }
           Value actualDim = create.llvm.load(int64Ty,
               create.llvm.getElemPtr(getPointerType(context, int64Ty), int64Ty,
                   sizesArrayPtr,
