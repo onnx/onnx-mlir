@@ -38,7 +38,7 @@ func.func @canonicalize(%arg0: tensor<f32>) -> tensor<f32> {
 // CHECK: "onnx.Add"(%arg0, %0)
 // CHECK-SAME: ResultNames = ["add0"]
 
-func.func @qdq_canonicalize(%arg0: tensor<1x128xf32>) -> tensor<1x1x128xf32> {
+func.func @remove_qdq_around_ops(%arg0: tensor<1x128xf32>) -> tensor<1x1x128xf32> {
   %0 = onnx.Constant {ResultNames = ["scale"]} dense<1.000000e+00> : tensor<f32>
   %1 = onnx.Constant {ResultNames = ["zp"]} dense<128> : tensor<ui8>
   %2 = onnx.Constant {ResultNames = ["shape"]} dense<[1, 1, 128]> : tensor<3xi64>
@@ -50,7 +50,7 @@ func.func @qdq_canonicalize(%arg0: tensor<1x128xf32>) -> tensor<1x1x128xf32> {
   return %7 : tensor<1x1x128xf32>
 }
 
-// CHECK-LABEL: @qdq_canonicalize
+// CHECK-LABEL: @remove_qdq_around_ops
 // CHECK: onnx.QuantizeLinear
 // CHECK-SAME: ResultNames = ["q0"]
 // CHECK-NOT: onnx.DequantizeLinear
@@ -59,13 +59,34 @@ func.func @qdq_canonicalize(%arg0: tensor<1x128xf32>) -> tensor<1x1x128xf32> {
 // CHECK-NOT: onnx.QuantizeLinear
 // CHECK: onnx.DequantizeLinear
 
-func.func @complex_names(%arg0: tensor<f32>) -> tensor<f32> {
-  %0 = onnx.Constant {ResultNames = ["const0"]} dense<2.000000e+00> : tensor<f32>
-  %1 = "onnx.Add"(%0, %arg0) {ResultNames = [["add0", "with", "array", [1, 2, 3, 4]]]} : (tensor<f32>, tensor<f32>) -> tensor<f32>
-  return %1 : tensor<f32>
+func.func @remove_dq_q_single_use(%arg0: tensor<1x128xf32>) -> tensor<1x128xf32> {
+  %0 = onnx.Constant {ResultNames = ["scale"]} dense<1.000000e+00> : tensor<f32>
+  %1 = onnx.Constant {ResultNames = ["zp"]} dense<128> : tensor<ui8>
+  %3 = "onnx.QuantizeLinear"(%arg0, %0, %1) {ResultNames = ["q0"], axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x128xf32>, tensor<f32>, tensor<ui8>) -> tensor<1x128xui8>
+  %4 = "onnx.DequantizeLinear"(%3, %0, %1) {ResultNames = ["dq0"], axis = 1 : si64, block_size = 0 : si64} : (tensor<1x128xui8>, tensor<f32>, tensor<ui8>) -> tensor<1x128xf32>
+  %6 = "onnx.QuantizeLinear"(%4, %0, %1) {ResultNames = ["q1"], axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x128xf32>, tensor<f32>, tensor<ui8>) -> tensor<1x128xui8>
+  %7 = "onnx.DequantizeLinear"(%6, %0, %1) {ResultNames = ["dq1"], axis = 1 : si64, block_size = 0 : si64} : (tensor<1x128xui8>, tensor<f32>, tensor<ui8>) -> tensor<1x128xf32>
+  return %7 : tensor<1x128xf32>
 }
 
-// CHECK-LABEL: @complex_names
-// CHECK: "onnx.Add"(%arg0, %0)
-// CHECK-SAME: ResultNames = [
-// CHECK-SAME: ["add0", "with", "array", [1, 2, 3, 4]]]
+// CHECK-LABEL: @remove_dq_q_single_use
+// CHECK: onnx.QuantizeLinear
+// CHECK-SAME: ResultNames = ["q1"]
+// CHECK: onnx.DequantizeLinear
+// CHECK-SAME: ResultNames = ["dq1"]
+
+func.func @remove_dq_q_multi_use(%arg0: tensor<1x128xf32>) -> (tensor<1x128xui8>, tensor<1x128xf32>) {
+  %0 = onnx.Constant {ResultNames = ["scale"]} dense<1.000000e+00> : tensor<f32>
+  %1 = onnx.Constant {ResultNames = ["zp"]} dense<128> : tensor<ui8>
+  %3 = "onnx.QuantizeLinear"(%arg0, %0, %1) {ResultNames = ["q0"], axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x128xf32>, tensor<f32>, tensor<ui8>) -> tensor<1x128xui8>
+  %4 = "onnx.DequantizeLinear"(%3, %0, %1) {ResultNames = ["dq0"], axis = 1 : si64, block_size = 0 : si64} : (tensor<1x128xui8>, tensor<f32>, tensor<ui8>) -> tensor<1x128xf32>
+  %6 = "onnx.QuantizeLinear"(%4, %0, %1) {ResultNames = ["q1"], axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x128xf32>, tensor<f32>, tensor<ui8>) -> tensor<1x128xui8>
+  %7 = "onnx.DequantizeLinear"(%6, %0, %1) {ResultNames = ["dq1"], axis = 1 : si64, block_size = 0 : si64} : (tensor<1x128xui8>, tensor<f32>, tensor<ui8>) -> tensor<1x128xf32>
+  return %3, %7 : tensor<1x128xui8>, tensor<1x128xf32>
+}
+
+// CHECK-LABEL: @remove_dq_q_multi_use
+// CHECK: onnx.QuantizeLinear
+// CHECK-SAME: ResultNames = ["q0"]
+// CHECK: onnx.DequantizeLinear
+// CHECK-SAME: ResultNames = ["dq1"]
