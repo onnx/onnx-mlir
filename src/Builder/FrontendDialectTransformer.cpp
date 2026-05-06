@@ -1696,7 +1696,7 @@ private:
     int newestValidOpsetVersion = opset_list_it->second.back();
     int upperRangeOfNewestValidOpsetVersion = current_opset;
     for (auto opsetIter = opset_list_it->second.begin();
-         opsetIter != opset_list_it->second.end(); ++opsetIter) {
+        opsetIter != opset_list_it->second.end(); ++opsetIter) {
       if (*opsetIter <= current_opset) {
         if (opsetIter != opset_list_it->second.begin()) {
           upperRangeOfNewestValidOpsetVersion = std::max(
@@ -2252,7 +2252,7 @@ namespace {
   // Remove // comments, which are non-standard json and onnx text
   // but appear in lit tests in test/mlir/onnx/parse.
   for (llvm::line_iterator line(*buf, /*SkipBlanks=*/false), end; line != end;
-       ++line) {
+      ++line) {
     if (line->ltrim(" \t").starts_with("//"))
       continue; // omit comment lines beginning with (whitespace and) //
     if (line->contains("//")) {

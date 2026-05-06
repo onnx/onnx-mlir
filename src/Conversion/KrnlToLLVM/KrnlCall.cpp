@@ -52,7 +52,7 @@ public:
     auto itConverted = krnlCallAdaptor.getParameters().begin();
     auto itOriginal = krnlCallOp.getParameters().begin();
     for (; itConverted != krnlCallAdaptor.getParameters().end();
-         itConverted++, itOriginal++) {
+        itConverted++, itOriginal++) {
       handleOneParameter(rewriter, op, *itConverted, *itOriginal,
           parameterTypeList, parameterList, omTensors);
     }

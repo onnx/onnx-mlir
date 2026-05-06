@@ -34,7 +34,7 @@ struct OnnxBuilder : DialectBuilder {
   OnnxBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : DialectBuilder(b, loc) {}
   OnnxBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
-  virtual ~OnnxBuilder(){};
+  virtual ~OnnxBuilder() {};
 
   // Create operation and infer shape.
   template <typename OnnxOpType, typename... Args>

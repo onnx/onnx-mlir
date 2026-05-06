@@ -177,7 +177,7 @@ LogicalResult ONNXScatterNDOp::verify() {
   // Let k = indices.shape[-1], r = rank(data), q = rank(indices). Check that
   // updates.shape[q:] matches data.shape[k:r-1].
   for (int64_t i = indicesLastDim, j = indicesRank - 1; i < dataRank;
-       ++i, ++j) {
+      ++i, ++j) {
     assert(j < updatesRank && "j is out of bounds");
     if (updatesShape[j] != dataShape[i])
       return onnx_mlir::Diagnostic::emitDimensionHasUnexpectedValueError(

@@ -401,7 +401,7 @@ private:
       if (auto intermediateOp = dq1.getX().getDefiningOp()) {
         if (isValuePreservingOp(intermediateOp)) {
           if (auto constOp = intermediateOp->getOperand(0)
-                                 .getDefiningOp<ONNXConstantOp>()) {
+                  .getDefiningOp<ONNXConstantOp>()) {
             constantDqOp = dq1;
             state.dequantActivationOfBinOp = dq2;
             constantSourceOp = constOp;
@@ -412,7 +412,7 @@ private:
       if (auto intermediateOp = dq2.getX().getDefiningOp()) {
         if (isValuePreservingOp(intermediateOp)) {
           if (auto constOp = intermediateOp->getOperand(0)
-                                 .getDefiningOp<ONNXConstantOp>()) {
+                  .getDefiningOp<ONNXConstantOp>()) {
             constantDqOp = dq2;
             state.dequantActivationOfBinOp = dq1;
             constantSourceOp = constOp;

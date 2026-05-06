@@ -522,7 +522,7 @@ using ONNXGlobalMaxPoolOpShapeHelper = ONNXGenericGlobalPoolOpShapeHelper<mlir::
 struct ONNXSliceOpShapeHelper : public ONNXOpShapeHelper {
   ONNXSliceOpShapeHelper(mlir::Operation *op, mlir::ValueRange operands,
       IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
-      : ONNXOpShapeHelper(op, operands, ieBuilder, scope){};
+      : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {};
   virtual ~ONNXSliceOpShapeHelper() {}
   mlir::LogicalResult computeShape() final;
   // Additional data for SliceOp.

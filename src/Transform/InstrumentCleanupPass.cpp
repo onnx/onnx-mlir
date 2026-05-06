@@ -47,7 +47,7 @@ class InstrumentCleanupPass : public mlir::PassWrapper<InstrumentCleanupPass,
 public:
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(InstrumentCleanupPass)
 
-  InstrumentCleanupPass(){};
+  InstrumentCleanupPass() {};
   InstrumentCleanupPass(const InstrumentCleanupPass &pass)
       : mlir::PassWrapper<InstrumentCleanupPass,
             OperationPass<func::FuncOp>>() {}

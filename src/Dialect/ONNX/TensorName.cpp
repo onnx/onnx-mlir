@@ -399,7 +399,7 @@ LogicalResult TensorName::setTo(Value value) const {
       auto existing = resultNamesAttr.getValue();
       for (unsigned i = 0, e = std::min((unsigned)existing.size(),
                                (unsigned)resultNames.size());
-           i < e; ++i)
+          i < e; ++i)
         resultNames[i] = existing[i];
     }
 
