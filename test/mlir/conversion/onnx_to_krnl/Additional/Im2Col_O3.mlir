@@ -423,13 +423,14 @@ func.func @test_im2col_complex(%arg0: tensor<2x4x10x10xf32>) -> tensor<*xf32> {
 
 
 
+
 // Test Im2Col with dynamic batch dimension
 func.func @test_im2col_dynamic_batch(%arg0: tensor<?x3x6x6xf32>) -> tensor<*xf32> {
   %0 = "onnx.Im2Col"(%arg0) {kernel_shape = [2, 2]} : (tensor<?x3x6x6xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 }
 
-// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 * 25)>
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0 * 25)>
 // CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0) -> (d0 floordiv 25)>
 // CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<(d0) -> (d0 mod 25)>
 // CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<(d0) -> ((d0 mod 25) floordiv 5)>
@@ -451,7 +452,7 @@ func.func @test_im2col_dynamic_batch(%arg0: tensor<?x3x6x6xf32>) -> tensor<*xf32
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_dim_]]) {{.*}}: memref<?x12x25xf32>
 // CHECK-DAG:       [[VAR_dim_0_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x3x6x6xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
-// CHECK:           krnl.iterate([[LOOP_0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to [[MAP_0_]](){{.}}[[VAR_dim_0_]]{{.}}){
+// CHECK:           krnl.iterate([[LOOP_0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to [[MAP_0_]]([[VAR_dim_0_]])){
 // CHECK:             [[VAR_1_:%.+]] = krnl.get_induction_var_value([[LOOP_0_]]) : (!krnl.loop) -> index
 // CHECK-DAG:         [[VAR_2_:%.+]] = affine.apply [[MAP_1_]]([[VAR_1_]])
 // CHECK-DAG:         [[VAR_3_:%.+]] = affine.apply [[MAP_2_]]([[VAR_1_]])

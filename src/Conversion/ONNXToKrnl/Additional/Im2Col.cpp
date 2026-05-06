@@ -4,7 +4,7 @@
 
 //===------- Im2Col.cpp - Lowering ONNXIm2ColOp ---------------------------===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2026 The IBM Research Authors.
 //
 // =============================================================================
 //

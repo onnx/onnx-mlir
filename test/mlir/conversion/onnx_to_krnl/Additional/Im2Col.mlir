@@ -213,15 +213,17 @@ func.func @test_im2col_complex(%arg0: tensor<2x4x10x10xf32>) -> tensor<*xf32> {
 // -----
 
 
+
 // Test Im2Col with dynamic batch dimension
 func.func @test_im2col_dynamic_batch(%arg0: tensor<?x3x6x6xf32>) -> tensor<*xf32> {
   %0 = "onnx.Im2Col"(%arg0) {kernel_shape = [2, 2]} : (tensor<?x3x6x6xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 }
 
-// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1) -> (d0 * 5 + d1)>
-// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0, d1, d2) -> (d0 * 4 + d1 * 2 + d2)>
-// CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<(d0, d1) -> (d0 + d1)>
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0, d1) -> (d0 * 5 + d1)>
+// CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<(d0, d1, d2) -> (d0 * 4 + d1 * 2 + d2)>
+// CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<(d0, d1) -> (d0 + d1)>
 // CHECK-LABEL:  func.func @test_im2col_dynamic_batch
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x3x6x6xf32>) -> memref<?x12x25xf32> {
 // CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
@@ -231,12 +233,12 @@ func.func @test_im2col_dynamic_batch(%arg0: tensor<?x3x6x6xf32>) -> tensor<*xf32
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_dim_]]) {{.*}}: memref<?x12x25xf32>
 // CHECK-DAG:       [[VAR_dim_0_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x3x6x6xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:6 = krnl.define_loops 6
-// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3, [[LOOP_0_]]#4, [[LOOP_0_]]#5) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[VAR_dim_0_]], [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 5, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 5, [[LOOP_0_]]#3 -> [[I_3_:%.+]] = 0 to 3, [[LOOP_0_]]#4 -> [[I_4_:%.+]] = 0 to 2, [[LOOP_0_]]#5 -> [[I_5_:%.+]] = 0 to 2){
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3, [[LOOP_0_]]#4, [[LOOP_0_]]#5) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[MAP_0_]]([[VAR_dim_0_]]), [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 5, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 5, [[LOOP_0_]]#3 -> [[I_3_:%.+]] = 0 to 3, [[LOOP_0_]]#4 -> [[I_4_:%.+]] = 0 to 2, [[LOOP_0_]]#5 -> [[I_5_:%.+]] = 0 to 2){
 // CHECK:             [[VAR_1_:%.+]]:6 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3, [[LOOP_0_]]#4, [[LOOP_0_]]#5) : (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index, index, index, index)
-// CHECK-DAG:         [[VAR_2_:%.+]] = affine.apply [[MAP_0_]]([[VAR_1_]]#1, [[VAR_1_]]#2)
-// CHECK-DAG:         [[VAR_3_:%.+]] = affine.apply [[MAP_1_]]([[VAR_1_]]#3, [[VAR_1_]]#4, [[VAR_1_]]#5)
-// CHECK-DAG:         [[VAR_4_:%.+]] = affine.apply [[MAP_2_]]([[VAR_1_]]#1, [[VAR_1_]]#4)
-// CHECK-DAG:         [[VAR_5_:%.+]] = affine.apply [[MAP_2_]]([[VAR_1_]]#2, [[VAR_1_]]#5)
+// CHECK-DAG:         [[VAR_2_:%.+]] = affine.apply [[MAP_1_]]([[VAR_1_]]#1, [[VAR_1_]]#2)
+// CHECK-DAG:         [[VAR_3_:%.+]] = affine.apply [[MAP_2_]]([[VAR_1_]]#3, [[VAR_1_]]#4, [[VAR_1_]]#5)
+// CHECK-DAG:         [[VAR_4_:%.+]] = affine.apply [[MAP_3_]]([[VAR_1_]]#1, [[VAR_1_]]#4)
+// CHECK-DAG:         [[VAR_5_:%.+]] = affine.apply [[MAP_3_]]([[VAR_1_]]#2, [[VAR_1_]]#5)
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:         [[VAR_6_:%.+]] = arith.cmpi sge, [[VAR_4_]], [[CST_0_]] : index
 // CHECK-DAG:         [[VAR_7_:%.+]] = arith.cmpi slt, [[VAR_4_]], [[CST_6_]] : index

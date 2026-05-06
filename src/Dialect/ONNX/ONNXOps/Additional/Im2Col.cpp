@@ -4,7 +4,7 @@
 
 //===------------------ Im2Col.cpp - ONNX Operations ----------------------===//
 //
-// Copyright 2019-2026 The IBM Research Authors.
+// Copyright 2026 The IBM Research Authors.
 //
 // =============================================================================
 //
