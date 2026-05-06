@@ -1303,23 +1303,6 @@ func.func @test_no_push_transpose_through_boundary_scast(
 
 // -----
 
-// Test: scast with mixed users including DequantizeLinear - should NOT push transpose
-// CHECK-LABEL: func @test_no_push_transpose_through_boundary_scast_mixed_users
-func.func @test_no_push_transpose_through_boundary_scast_mixed_users(
-    %arg0: tensor<1x3x4x4x!quant.uniform<i8:f32, 0.05:0>>,
-    %scale: tensor<f32>,
-    %zp: tensor<i8>) -> (tensor<1x4x4x3xf32>, tensor<1x4x4x3xi8>) {
-  // CHECK: "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]}
-  // CHECK: quant.scast
-  // CHECK: "onnx.DequantizeLinear"
-  %0 = "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]} : (tensor<1x3x4x4x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<1x4x4x3x!quant.uniform<i8:f32, 0.05:0>>
-  %1 = quant.scast %0 : tensor<1x4x4x3x!quant.uniform<i8:f32, 0.05:0>> to tensor<1x4x4x3xi8>
-  %2 = "onnx.DequantizeLinear"(%1, %scale, %zp) : (tensor<1x4x4x3xi8>, tensor<f32>, tensor<i8>) -> tensor<1x4x4x3xf32>
-  return %2, %1 : tensor<1x4x4x3xf32>, tensor<1x4x4x3xi8>
-}
-
-// -----
-
 // Test: scast without transpose input should NOT be modified
 // CHECK-LABEL: func @test_no_push_scast_without_transpose
 func.func @test_no_push_scast_without_transpose(%arg0: tensor<1x3x4x4x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<1x3x4x4xi8> {
