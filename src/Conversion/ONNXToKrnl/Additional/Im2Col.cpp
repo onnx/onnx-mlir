@@ -92,6 +92,11 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
       ubs.push_back(LitIE(kernelShape[i])); // kh, kw, ...
     }
 
+    // Parallelize the outermost 2 loops (N and first output spatial dimension).
+    if (enableParallel)
+      tryCreateKrnlParallel(create.krnl, op, "im2col simple", loopDef, lbs, ubs,
+          0, 2, {}, /*min iter for going parallel*/ 16);
+
     create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
         [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
           MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>

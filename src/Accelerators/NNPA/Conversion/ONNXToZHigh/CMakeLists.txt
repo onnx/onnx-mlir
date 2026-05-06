@@ -37,6 +37,7 @@ add_onnx_mlir_library(OMRewriteONNXForZHigh
   OMNNPACompilerOptions
   OMONNXOps
   OMONNXToKrnl
+  OMONNXRewrite
   OMZHighOps
 
 
