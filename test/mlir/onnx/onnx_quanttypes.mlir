@@ -314,7 +314,9 @@ func.func @layernorm_quant_types_resultnames(%arg0: tensor<1x128x768xui16>) -> t
 
 
 // CHECK-LABEL: @layernorm_quant_types_resultnames
-// CHECK: onnx.LayerNormalization
+// CHECK: quant.scast
+// CHECK-NOT: ResultNames
+// CHECK-NEXT: onnx.LayerNormalization
 // CHECK-SAME: ResultNames = ["q_ln_out", "ln1", "ln2"]
 // CHECK-SAME: (tensor<1x128x768x!quant.uniform<u16:f32, 5.1213039114372805E-5:38292>>, tensor<768x!quant.uniform<u8:f32, 0.0038560051470994949>>, tensor<768x!quant.uniform<i32:f32, 1.9747774615552771E-7>>)
 // CHECK-SAME: -> (tensor<1x128x768x!quant.uniform<u16:f32, 2.3420652723871171E-4:47366>>, none, none)

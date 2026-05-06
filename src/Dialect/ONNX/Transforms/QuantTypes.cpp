@@ -164,7 +164,6 @@ public:
 
     auto scast = rewriter.create<quant::StorageCastOp>(
         dqOp.getLoc(), qTensorType, dqOp.getX());
-    ResultNamesUpdater().notifyOperationReplaced(dqOp, scast.getResult());
     rewriter.replaceOp(dqOp, scast);
     return success();
   }
