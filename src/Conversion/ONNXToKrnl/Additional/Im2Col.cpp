@@ -63,13 +63,13 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
     const auto &pads = shapeHelper.pads;
 
     // Get dimensions.
-    IndexExpr N = create.krnlIE.getShapeAsSymbol(input, 0);
-    IndexExpr CI = create.krnlIE.getShapeAsSymbol(input, 1);
+    IndexExpr N = create.krnlIE.getShapeAsDim(input, 0);
+    IndexExpr CI = create.krnlIE.getShapeAsDim(input, 1);
 
     // Get spatial input dimensions.
     SmallVector<IndexExpr, 4> inputSpatialDims;
     for (int64_t i = 0; i < spatialRank; ++i) {
-      inputSpatialDims.push_back(create.krnlIE.getShapeAsSymbol(input, 2 + i));
+      inputSpatialDims.push_back(create.krnlIE.getShapeAsDim(input, 2 + i));
     }
 
     // Get output spatial dimensions from shape helper.
@@ -143,7 +143,7 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
             IndexExpr ki = kernelIndices[i];
             IndexExpr si = LitIE(strides[i]);
             IndexExpr di = LitIE(dilations[i]);
-            IndexExpr padBefore = SymIE(pads[i]);
+            IndexExpr padBefore = DimIE(pads[i]);
             IndexExpr inputIdx = oi * si + ki * di - padBefore;
             inputSpatialIndices.push_back(inputIdx);
           }
@@ -152,7 +152,7 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
           Value inbounds = create.math.constant(rewriter.getI1Type(), true);
           for (int64_t i = 0; i < spatialRank; ++i) {
             IndexExpr inputIdx = inputSpatialIndices[i];
-            IndexExpr inputDim = SymIE(inputSpatialDims[i]);
+            IndexExpr inputDim = DimIE(inputSpatialDims[i]);
 
             Value geZero = create.math.sge(
                 inputIdx.getValue(), create.math.constantIndex(0));
@@ -224,10 +224,10 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
     const auto &outputSpatialDims = shapeHelper.outputSpatialDims;
 
     // Get dimensions. Any use in nested scopes must go through DimIE(value).
-    IndexExpr N = create.krnlIE.getShapeAsSymbol(input, 0);
-    IndexExpr CI = create.krnlIE.getShapeAsSymbol(input, 1);
-    IndexExpr HIn = create.krnlIE.getShapeAsSymbol(input, 2);
-    IndexExpr WIn = create.krnlIE.getShapeAsSymbol(input, 3);
+    IndexExpr N = create.krnlIE.getShapeAsDim(input, 0);
+    IndexExpr CI = create.krnlIE.getShapeAsDim(input, 1);
+    IndexExpr HIn = create.krnlIE.getShapeAsDim(input, 2);
+    IndexExpr WIn = create.krnlIE.getShapeAsDim(input, 3);
     IndexExpr OH = outputSpatialDims[0];
     IndexExpr OW = outputSpatialDims[1];
 
