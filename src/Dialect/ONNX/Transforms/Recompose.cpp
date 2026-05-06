@@ -809,6 +809,42 @@ struct RecomposeHardSigmoidFromMulClipPattern
   }
 };
 
+/// Recomposes Mul(x, HardSigmoid(x)) {alpha=1/6, beta=0.5} back into HardSwish
+struct RecomposeHardSwishFromMulPattern : public OpRewritePattern<ONNXMulOp> {
+  using OpRewritePattern<ONNXMulOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXMulOp mulOp, PatternRewriter &rewriter) const final {
+    using namespace onnx_mlir;
+
+    if (hasQuantizedElementType(mulOp.getResult()))
+      return rewriter.notifyMatchFailure(
+          mulOp, "HardSwish recompose is not valid on quantized types");
+
+    Value x = mulOp.getOperand(0);
+    auto hardSigmoidOp = mulOp.getOperand(1).getDefiningOp<ONNXHardSigmoidOp>();
+    if (!hardSigmoidOp)
+      return failure();
+    if (hardSigmoidOp.getX() != x)
+      return rewriter.notifyMatchFailure(
+          mulOp, "Mul lhs and HardSigmoid input are not the same SSA value");
+    FloatAttr alphaAttr = hardSigmoidOp.getAlphaAttr();
+    FloatAttr betaAttr = hardSigmoidOp.getBetaAttr();
+    constexpr double eps = 1e-5;
+    if (!isFloatAttrApprox(alphaAttr, 1.0 / 6.0, eps) ||
+        !isFloatAttrApprox(betaAttr, 0.5, eps))
+      return rewriter.notifyMatchFailure(
+          hardSigmoidOp, "alpha or beta is not 1/6 or 0.5");
+
+    auto loc = mlir::FusedLoc::get(
+        rewriter.getContext(), {mulOp.getLoc(), hardSigmoidOp.getLoc()});
+    Value hardSwishOp =
+        rewriter.create<ONNXHardSwishOp>(loc, mulOp.getType(), x);
+    rewriter.replaceOp(mulOp, hardSwishOp);
+    return success();
+  }
+};
+
 struct RecomposeGeluFromMulPattern : public OpRewritePattern<ONNXMulOp> {
   using OpRewritePattern<ONNXMulOp>::OpRewritePattern;
 
@@ -2032,6 +2068,7 @@ void onnx_mlir::getRecomposeONNXToONNXPatterns(
     mlir::RewritePatternSet &patterns, bool enableRotaryEmbeddingRecompose,
     bool enableReduceL2Recompositions) {
   MLIRContext *context = patterns.getContext();
+  patterns.insert<RecomposeHardSwishFromMulPattern>(context);
   patterns.insert<RecomposeHardSigmoidFromMulClipPattern>(context);
   patterns.insert<RecomposeGeluFromMulPattern>(context);
   patterns.insert<RecomposeLayerNormFromDivPattern<ONNXDivOp, false>>(context);

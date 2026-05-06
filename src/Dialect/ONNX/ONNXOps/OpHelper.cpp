@@ -714,6 +714,12 @@ bool isConstOf(Value constValue, double n) {
   return ElementsAttrBuilder::allEqual(constElements, w);
 }
 
+bool isFloatAttrApprox(mlir::FloatAttr attr, double expected, double epsilon) {
+  if (!attr)
+    return false;
+  return std::fabs(attr.getValueAsDouble() - expected) <= epsilon;
+}
+
 // Convert type to MLIR type.
 // A complete list of types can be found in:
 // <onnx-mlir-build-folder>/third_party/onnx/onnx/onnx.pb.h
