@@ -1255,7 +1255,8 @@ func.func @test_push_transpose_through_scast_to_storage(%arg0: tensor<1x3x4x4x!q
   // CHECK-SAME: perm = [0, 2, 3, 1]
   %0 = "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]} : (tensor<1x3x4x4x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<1x4x4x3x!quant.uniform<i8:f32, 0.05:0>>
   %1 = quant.scast %0 : tensor<1x4x4x3x!quant.uniform<i8:f32, 0.05:0>> to tensor<1x4x4x3xi8>
-  return %1 : tensor<1x4x4x3xi8>
+  %2 = "onnx.Identity"(%1) : (tensor<1x4x4x3xi8>) -> tensor<1x4x4x3xi8>
+  return %2 : tensor<1x4x4x3xi8>
 }
 
 // -----
@@ -1268,7 +1269,8 @@ func.func @test_push_transpose_through_scast_to_quant(%arg0: tensor<1x3x4x4xi8>)
   // CHECK-SAME: perm = [0, 2, 3, 1]
   %0 = "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]} : (tensor<1x3x4x4xi8>) -> tensor<1x4x4x3xi8>
   %1 = quant.scast %0 : tensor<1x4x4x3xi8> to tensor<1x4x4x3x!quant.uniform<i8:f32, 0.05:0>>
-  return %1 : tensor<1x4x4x3x!quant.uniform<i8:f32, 0.05:0>>
+  %2 = "onnx.Identity"(%1) : (tensor<1x4x4x3x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<1x4x4x3x!quant.uniform<i8:f32, 0.05:0>>
+  return %2 : tensor<1x4x4x3x!quant.uniform<i8:f32, 0.05:0>>
 }
 
 // -----
@@ -1281,7 +1283,39 @@ func.func @test_push_transpose_through_scast_i8(%arg0: tensor<1x32x7x7x!quant.un
   // CHECK-SAME: perm = [0, 2, 3, 1]
   %0 = "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]} : (tensor<1x32x7x7x!quant.uniform<i8:f32, 0.00842:0>>) -> tensor<1x7x7x32x!quant.uniform<i8:f32, 0.00842:0>>
   %1 = quant.scast %0 : tensor<1x7x7x32x!quant.uniform<i8:f32, 0.00842:0>> to tensor<1x7x7x32xi8>
-  return %1 : tensor<1x7x7x32xi8>
+  %2 = "onnx.Identity"(%1) : (tensor<1x7x7x32xi8>) -> tensor<1x7x7x32xi8>
+  return %2 : tensor<1x7x7x32xi8>
+}
+
+// -----
+
+// Test: scast feeding DequantizeLinear is a boundary - should NOT push transpose through
+// CHECK-LABEL: func @test_no_push_transpose_through_boundary_scast
+func.func @test_no_push_transpose_through_boundary_scast(
+    %arg0: tensor<1x3x4x4x!quant.uniform<i8:f32, 0.05:0>>,
+    %scale: tensor<f32>,
+    %zp: tensor<i8>) -> tensor<1x4x4x3xf32> {
+  // CHECK: "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]}
+  // CHECK: quant.scast
+  // CHECK: "onnx.DequantizeLinear"
+  %0 = "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]} : (tensor<1x3x4x4x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<1x4x4x3x!quant.uniform<i8:f32, 0.05:0>>
+  %1 = quant.scast %0 : tensor<1x4x4x3x!quant.uniform<i8:f32, 0.05:0>> to tensor<1x4x4x3xi8>
+  %2 = "onnx.DequantizeLinear"(%1, %scale, %zp) : (tensor<1x4x4x3xi8>, tensor<f32>, tensor<i8>) -> tensor<1x4x4x3xf32>
+  return %2 : tensor<1x4x4x3xf32>
+}
+
+// -----
+
+// Test: scast whose result is returned is a boundary - should NOT push transpose through
+// CHECK-LABEL: func @test_no_push_transpose_through_scast_at_return
+func.func @test_no_push_transpose_through_scast_at_return(
+    %arg0: tensor<1x3x4x4x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<1x4x4x3xi8> {
+  // CHECK: "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]}
+  // CHECK: quant.scast
+  // CHECK: return
+  %0 = "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]} : (tensor<1x3x4x4x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<1x4x4x3x!quant.uniform<i8:f32, 0.05:0>>
+  %1 = quant.scast %0 : tensor<1x4x4x3x!quant.uniform<i8:f32, 0.05:0>> to tensor<1x4x4x3xi8>
+  return %1 : tensor<1x4x4x3xi8>
 }
 
 // -----
