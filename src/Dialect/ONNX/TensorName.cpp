@@ -312,7 +312,7 @@ TensorName::TensorName(Value value) {
     }
   } else if (auto blkArg = dyn_cast<BlockArgument>(value)) {
     auto *parentOp = blkArg.getOwner()->getParentOp();
-    if (auto funcOp = dyn_cast<func::FuncOp>(parentOp)) {
+    if (auto funcOp = dyn_cast_or_null<func::FuncOp>(parentOp)) {
       auto argIndex = blkArg.getArgNumber();
       if (auto strAttr =
               funcOp.getArgAttrOfType<StringAttr>(argIndex, "onnx.name"))
