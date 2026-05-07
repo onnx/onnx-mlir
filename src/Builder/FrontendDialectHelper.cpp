@@ -173,7 +173,7 @@ ElementsAttr createElmAttrFromArray(RankedTensorType tensorType,
   return OnnxElementsAttrBuilder(ctx).fromArray<T>(tensorType,
       [array, &transformation, tensorType](MutableArrayRef<T> copy) {
         for (int64_t idx = 0;
-             idx < cast<ShapedType>(tensorType).getNumElements(); ++idx)
+            idx < cast<ShapedType>(tensorType).getNumElements(); ++idx)
           transformation(array, copy, idx);
       });
 }

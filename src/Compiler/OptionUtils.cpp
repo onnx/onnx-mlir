@@ -82,7 +82,7 @@ bool EnableByRegexOption::isEnabled(const std::string &name) {
 
   // We have not seen this op, then test using the regex and cache answer.
   for (auto itr = regexOfAllowedNames.begin(); itr != regexOfAllowedNames.end();
-       ++itr) {
+      ++itr) {
     std::regex re(*itr);
     if (std::regex_match(name, re)) {
       // We have a match, cache and return true.

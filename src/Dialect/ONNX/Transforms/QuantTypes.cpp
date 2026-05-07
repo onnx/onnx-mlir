@@ -61,8 +61,7 @@ std::variant<quant::QuantizedType, StringLiteral> getQuantType(QDQOp op) {
     // Creating a templated lambda and invoking immediately
     []<bool flag = false>() {
       static_assert(flag, "Only defined for DequantizeLinear & QuantizeLinear");
-    }
-    ();
+    }();
   }
 
   if (auto qType = dyn_cast<quant::QuantizedType>(expressedType))
@@ -149,8 +148,7 @@ public:
       // Multi-use constants are duplicated (only if they are small)
       else if (auto constVal = dyn_cast_if_present<DenseElementsAttr>(
                    constOp.getValueAttr());
-               constVal &&
-               (constVal.isSplat() || constVal.getRawData().size() < 32))
+          constVal && (constVal.isSplat() || constVal.getRawData().size() < 32))
         dqRepl = rewriter.clone(*constOp);
 
       if (dqRepl) {
