@@ -279,3 +279,17 @@ func.func @test_exceed_limit_maxpool(%arg0: tensor<32769x3x32x32xf32>) -> tensor
 // CHECK-LABEL:  func @test_exceed_limit_maxpool
 // CHECK:        "onnx.MaxPoolSingleOut"
 }
+
+// -----
+
+/// COM: Test for input tensor size limitation.
+/// COM: Not lowered when dimensin size exceeds 1024
+/// COM:  reference to issue #3493
+
+func.func @test_exceed_input_limit_maxpool(%arg0: tensor<1x32x1216x832xf32>) -> tensor<*xf32> {
+%0 = "onnx.MaxPoolSingleOut"(%arg0) <{auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [2, 2], storage_order = 0 : si64, strides = [2, 2]}> : (tensor<1x32x1216x832xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+
+// CHECK-LABEL:  func @test_exceed_input_limit_maxpool
+// CHECK:        "onnx.MaxPoolSingleOut"
+}

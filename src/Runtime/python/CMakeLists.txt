@@ -10,6 +10,8 @@ file(GENERATE
   INPUT ${CMAKE_CURRENT_SOURCE_DIR}/PyOMCompile.py
   )
 
+# TODO: Remove after we can build all systems using the new approach.
+if (0)
 # TODO: Remove pybind11::python_link_helper after cmake version bumped to 3.16+
 if(NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
   add_onnx_mlir_library(OMPyExecutionSessionBase
@@ -50,6 +52,7 @@ set_target_properties(OMPyExecutionSessionBase
   PROPERTIES
   POSITION_INDEPENDENT_CODE TRUE
   )
+endif()
 
 # When running on ubi8 image, shared lib backend tests fail with
 # the following error:
@@ -78,39 +81,47 @@ set_target_properties(OMPyExecutionSessionBase
 # also removes some of the compile definitions and include directories
 # which we add back through target_compile_definitions and
 # target_include_directories.
+
+
 pybind11_add_module(PyRuntimeC PyExecutionSession.cpp)
 target_compile_options(PyRuntimeC
   PRIVATE
   $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-frtti -fexceptions>
   $<$<CXX_COMPILER_ID:MSVC>:/EHsc /GR>
   )
+
+# Link OMSmallFPConversion for float16 support.
+# This library contains only C code (SmallFPConversion.c) and has no LLVM dependencies,
+# so float16 support is now available in both full and light modes.
 target_link_libraries(PyRuntimeC
   PRIVATE
-  OMPyExecutionSessionBase
+  OMExecutionSession
+  OMSmallFPConversion
   )
+
 llvm_update_compile_flags(PyRuntimeC)
 
 install(TARGETS PyRuntimeC
   DESTINATION lib
   )
 
-# Target to prepare OMPyInfer package
-add_custom_target(OMCreateOMPyInferPackage
-        COMMAND rm -rf ${CMAKE_CURRENT_BINARY_DIR}/OMPyInfer
-        COMMAND cp -r ${CMAKE_CURRENT_SOURCE_DIR}/OMPyInfer ${CMAKE_CURRENT_BINARY_DIR}
-	COMMAND cp -r ${CMAKE_CURRENT_SOURCE_DIR}/PyRuntime.py ${CMAKE_CURRENT_BINARY_DIR}/OMPyInfer/src/OMPyInfer
-        COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/OMPyInfer/src/OMPyInfer/libs
-        COMMAND cp ${ONNX_MLIR_BIN_ROOT}/${CMAKE_BUILD_TYPE}/lib/PyRuntimeC.*.so ${CMAKE_CURRENT_BINARY_DIR}/OMPyInfer/src/OMPyInfer/libs
+# Target to prepare om_pyrt package
+add_custom_target(OMCreateOMPyRtPackage
+        COMMAND rm -rf ${CMAKE_CURRENT_BINARY_DIR}/om_pyrt
+        COMMAND cp -r ${CMAKE_CURRENT_SOURCE_DIR}/om_pyrt ${CMAKE_CURRENT_BINARY_DIR}
+	COMMAND cp -r ${CMAKE_CURRENT_SOURCE_DIR}/PyRuntime.py ${CMAKE_CURRENT_BINARY_DIR}/om_pyrt/src/om_pyrt
+        COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/om_pyrt/src/om_pyrt/libs
+        COMMAND cp ${ONNX_MLIR_BIN_ROOT}/${CMAKE_BUILD_TYPE}/lib/PyRuntimeC.*.so ${CMAKE_CURRENT_BINARY_DIR}/om_pyrt/src/om_pyrt/libs
         DEPENDS PyRuntimeC
      )
 
-# Target to run OMPyInfer package with newly built PyRuntimeC, not the new
+# Target to run om_pyrt package with newly built PyRuntimeC, not the new
 # model.so yet.
-add_custom_target(OMTestOMPyInferPackage
-        COMMAND pip uninstall -y OMPyInfer 
-        COMMAND pip install -e ${CMAKE_CURRENT_BINARY_DIR}/OMPyInfer
-        COMMAND python ${CMAKE_CURRENT_BINARY_DIR}/OMPyInfer/tests/helloworld.py
-        DEPENDS OMCreateOMPyInferPackage
+add_custom_target(OMTestOMPyRtPackage
+        COMMAND pip uninstall -y om_pyrt
+        COMMAND pip install -e ${CMAKE_CURRENT_BINARY_DIR}/om_pyrt
+        COMMAND python ${CMAKE_CURRENT_BINARY_DIR}/om_pyrt/tests/helloworld.py
+        DEPENDS OMCreateOMPyRtPackage
      )
 
 # Target to prepare OMPyCompile package
