@@ -20,10 +20,9 @@ model_file = str(script_dir / "test_add.mlir")
 # compile_args is the flags passed to onnx-mlir
 import om_pyrt
 
-compiled_model = om_pyrt.CompileWithLocal(
+compiled_model = om_pyrt.CompileWithStandalone(
     "./test_add.mlir",
     "-O3",
-    "/home/chentong/workspace/onnx-mlir/build-standalone/Debug/bin/onnx-mlir",
 )
 print(compiled_model)
 

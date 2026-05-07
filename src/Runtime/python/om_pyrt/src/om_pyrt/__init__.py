@@ -20,6 +20,11 @@ from .utils import (
 )
 
 from .CompileWithContainer import CompileWithContainer
+from .CompileDriver import (
+    CompileWithStandalone,
+    CompileWithLocal,
+    compile,
+)
 
 __all__ = [
     "InferenceSession",

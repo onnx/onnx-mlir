@@ -110,11 +110,11 @@ add_custom_target(OMCreateOMPyRtPackage
         COMMAND rm -rf ${CMAKE_CURRENT_BINARY_DIR}/om_pyrt
         COMMAND cp -r ${CMAKE_CURRENT_SOURCE_DIR}/om_pyrt ${CMAKE_CURRENT_BINARY_DIR}
 	COMMAND cp -r ${CMAKE_CURRENT_SOURCE_DIR}/PyRuntime.py ${CMAKE_CURRENT_BINARY_DIR}/om_pyrt/src/om_pyrt
-	#COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/PyOMCompile.py ${CMAKE_CURRENT_BINARY_DIR}/OMPyCompile/src/OMPyCompile
+	COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/PyOMCompile.py ${CMAKE_CURRENT_BINARY_DIR}/om_pyrt/src/om_pyrt
         COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/om_pyrt/src/om_pyrt/libs
         COMMAND cp ${ONNX_MLIR_BIN_ROOT}/${CMAKE_BUILD_TYPE}/lib/PyRuntimeC.*.so ${CMAKE_CURRENT_BINARY_DIR}/om_pyrt/src/om_pyrt/libs
-	#COMMAND cp ${ONNX_MLIR_BIN_ROOT}/${CMAKE_BUILD_TYPE}/lib/PyOMCompileC.*.so ${CMAKE_CURRENT_BINARY_DIR}/OMPyCompile/src/OMPyCompile/lib
-        DEPENDS PyRuntimeC
+	COMMAND cp ${ONNX_MLIR_BIN_ROOT}/${CMAKE_BUILD_TYPE}/lib/PyOMCompileC.*.so ${CMAKE_CURRENT_BINARY_DIR}/om_pyrt/src/om_pyrt/libs
+        DEPENDS PyRuntimeC PyOMCompileC
      )
 
 # Target to run om_pyrt package with newly built PyRuntimeC, not the new
