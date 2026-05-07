@@ -239,6 +239,8 @@ class CompileSession:
         # Logically, the model directory could be mounted as read only.
         # But wrong time error occurred with "r" mode
         if self.compiler_image_name is None:
+            # This part should use the OMPyCompile.py directly
+            exit(-1)
             subprocess.run(command_str.split(" "))
             self.container = None
         else:
