@@ -73,13 +73,13 @@ public:
   // Create an execution session using the model given in sharedLibPath.
   // This path must point to the actual file, local directory is not searched.
   // Throw errors on failure.
-  ExecutionSession(std::string sharedLibPath, std::string tag = "",
-      bool defaultEntryPoint = true);
+  ExecutionSession(const std::string &sharedLibPath,
+      const std::string &tag = "", const bool defaultEntryPoint = true);
   ~ExecutionSession();
 
   // Initialization of library. Called by public constructor, or by subclasses.
-  void loadModel(std::string sharedLibPath, std::string tag = "",
-      bool defaultEntryPoint = true);
+  void loadModel(const std::string &sharedLibPath, const std::string &tag = "",
+      const bool defaultEntryPoint = true);
 
   // Get a NULL-terminated array of entry point names.
   // For example {"run_addition, "run_subtraction", NULL}
@@ -142,10 +142,6 @@ protected:
 
   // Handler to the shared library file being loaded.
   DynamicLibraryHandleType _sharedLibraryHandle;
-
-  // Tag used to compile the model. By default, it is the model filename without
-  // extension.
-  std::string tag;
 
   // Entry point function.
   std::string _entryPointName;
