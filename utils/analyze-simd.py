@@ -94,6 +94,29 @@ def define_arch_op_names(arch):
         op_name["vadd"] = "([vw]fa|[vw]fs|[vw]fmax|[vw]fmin|[vw]f[ck][eh])"
         op_name["load"] = "lg"
         op_name["store"] = "stg"
+    elif arch == "z+":  # IBM z with extended instruction coverage
+        # vl: vector load | vle: load element | vleb/h/f/g: load element byte/half/float/double | vfi/wfi: load immediate
+        op_name["vload"] = "(vl|vle[bhfg]?|[vw]fi)"
+        # vlrep: load and replicate | vlrl: load logical | vlbb: load to block boundary
+        op_name["vload-splat"] = "(vlrep|vlrl|vlbb)"
+        # vst: vector store | vste: store element | vsteb/h/f/g: store element variants
+        op_name["vstore"] = "(vst|vste[bhfg]?)"
+        # perm | merge | select | shift | replicate | permute | gen mask | pack | unpack
+        op_name["vshuffle"] = "(vperm|vsel|vmr|vsl|vsr|vrep|vpdi|vgm|vzero|vpk|vupll|vuplh)"
+        # vfma: fused multiply-add | vfms: fused multiply-subtract
+        op_name["vfma"] = "(vfma|vfms)"
+        # vfm: vector fp multiply | vm: vector integer multiply | vml: multiply logical
+        op_name["vmul"] = "(vfm|vm[lh]?)"
+        # vfd: vector fp divide
+        op_name["vdiv"] = "vfd"
+        # vector conversion between formats (NNPA <-> fp, FP <-> int, int <-> int, pack/unpack)
+        op_name["vconv"] = "(vclfnh|vclfnl|vcfn|vcrnf|vcnf|vclgd|vclfeb|vclgdb|vcfpl|vcfps|vpkh|vpkf|vpkg|vupll|vuplh)"
+        # add | sub | max | min | compare | and | or | xor | andc
+        op_name["vadd"] = "([vw]fa|[vw]fs|[vw]fmax|[vw]fmin|[vw]f[ck][eh]|va|vs|vmn|vmx|vn|vo|vx|vnc)"
+        # lg: load 64-bit | l: load 32-bit | lh: load 16-bit | lb: load 8-bit | llg/llh/llc: load logical
+        op_name["load"] = "(lg|llg|lh?|llh|lb?|llc)"
+        # stg: store 64-bit | st: store 32-bit | sth: store 16-bit | stc: store 8-bit
+        op_name["store"] = "(stg|sth?|stc)"
     elif arch == "x86":  # generic x86
         op_name["vload"] = "(v?mov[au]p[sd]|mov(h|hl|lh|l)ps)"
         op_name["vload-splat"] = "nothingtosee"
@@ -112,8 +135,31 @@ def define_arch_op_names(arch):
         )
         op_name["load"] = "mov"
         op_name["store"] = "mov"
+    elif arch == "neon":  # ARM NEON
+        # vld1-4: load 1-4 element structures | ldr with vector regs (q/d/s/v)
+        op_name["vload"] = "(vld[1-4]|ldr\s+[qdsv][0-9]+)"
+        # vdup: duplicate scalar to all lanes
+        op_name["vload-splat"] = "vdup"
+        # vst1-4: store 1-4 element structures | str with vector regs (q/d/s/v)
+        op_name["vstore"] = "(vst[1-4]|str\s+[qdsv][0-9]+)"
+        # vtbl: table lookup | vext: extract | vrev: reverse | vtrn: transpose | vzip/vuzp: zip/unzip | vmov: move
+        op_name["vshuffle"] = "(vtbl|vext|vrev|vtrn|vzip|vuzp|vmov)"
+        # vfma: fused multiply-add
+        op_name["vfma"] = "vfma"
+        # vmul: multiply
+        op_name["vmul"] = "vmul"
+        # vdiv: divide
+        op_name["vdiv"] = "vdiv"
+        # vcvt: convert | vqmovn/vmovn: narrow | vmovl: widen | vqmovun: saturating narrow unsigned
+        op_name["vconv"] = "(vcvt|vqmovn|vmovn|vmovl|vqmovun)"
+        # vadd/vsub: add/sub | vmax/vmin: max/min | vceq/vcge/vcgt/vcle/vclt: compare | vand/vorr/veor/vbic/vorn: logic
+        op_name["vadd"] = "(vadd|vsub|vmax|vmin|vceq|vcge|vcgt|vcle|vclt|vand|vorr|veor|vbic|vorn)"
+        # ldr/ldp with scalar regs (x/w/sp/lr) - exclude vector regs
+        op_name["load"] = "(ldr|ldp)\s+[xw][0-9]+|ldr\s+(sp|lr)"
+        # str/stp with scalar regs (x/w/sp/lr) - exclude vector regs
+        op_name["store"] = "(str|stp)\s+[xw][0-9]+|str\s+(sp|lr)"
     else:
-        print_usage("unknown arch (z or x86 at this time)")
+        print_usage("unknown arch (z, z+, x86, or neon at this time)")
 
 
 ################################################################################
