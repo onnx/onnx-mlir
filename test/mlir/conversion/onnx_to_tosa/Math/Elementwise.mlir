@@ -187,6 +187,49 @@ func.func @test_tanh(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
 
 // -----
 
+func.func @test_gelu_default(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
+  %0 = "onnx.Gelu"(%arg0) {approximate = "none"} : (tensor<10x10xf32>) -> tensor<10x10xf32>
+  "func.return"(%0) : (tensor<10x10xf32>) -> ()
+// CHECK-LABEL:  func @test_gelu_default
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
+// CHECK-DAG:       [[HALF_:%.+]] = "tosa.const"() <{values = dense<5.000000e-01> : tensor<1x1xf32>}>
+// CHECK-DAG:       [[ONE_:%.+]] = "tosa.const"() <{values = dense<1.000000e+00> : tensor<1x1xf32>}>
+// CHECK-DAG:       [[INV_SQRT2_:%.+]] = "tosa.const"() <{values = dense<0.707106769> : tensor<1x1xf32>}>
+// CHECK-DAG:       [[SHIFT_:%.+]] = "tosa.const"() <{values = dense<0> : tensor<1xi8>}> : () -> tensor<1xi8>
+// CHECK:           [[SCALED_:%.+]] = tosa.mul [[PARAM_0_]], [[INV_SQRT2_]], [[SHIFT_]]
+// CHECK:           [[ERF_:%.+]] = tosa.erf [[SCALED_]] : (tensor<10x10xf32>) -> tensor<10x10xf32>
+// CHECK:           [[ADD_ONE_:%.+]] = tosa.add [[ERF_]], [[ONE_]]
+// CHECK:           [[X_TIMES_:%.+]] = tosa.mul [[PARAM_0_]], [[ADD_ONE_]], [[SHIFT_]]
+// CHECK:           [[RESULT_:%.+]] = tosa.mul [[X_TIMES_]], [[HALF_]], [[SHIFT_]]
+// CHECK:           return [[RESULT_]] : tensor<10x10xf32>
+}
+
+// -----
+
+func.func @test_gelu_tanh(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
+  %0 = "onnx.Gelu"(%arg0) {approximate = "tanh"} : (tensor<10x10xf32>) -> tensor<10x10xf32>
+  "func.return"(%0) : (tensor<10x10xf32>) -> ()
+// CHECK-LABEL:  func @test_gelu_tanh
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
+// CHECK-DAG:       [[HALF_:%.+]] = "tosa.const"() <{values = dense<5.000000e-01> : tensor<1x1xf32>}>
+// CHECK-DAG:       [[ONE_:%.+]] = "tosa.const"() <{values = dense<1.000000e+00> : tensor<1x1xf32>}>
+// CHECK-DAG:       [[COEFF_:%.+]] = "tosa.const"() <{values = dense<4.471500e-02> : tensor<1x1xf32>}>
+// CHECK-DAG:       [[SQRT2_OVER_PI_:%.+]] = "tosa.const"() <{values = dense<0.797884583> : tensor<1x1xf32>}>
+// CHECK-DAG:       [[SHIFT_:%.+]] = "tosa.const"() <{values = dense<0> : tensor<1xi8>}> : () -> tensor<1xi8>
+// CHECK:           [[X_SQ_:%.+]] = tosa.mul [[PARAM_0_]], [[PARAM_0_]], [[SHIFT_]]
+// CHECK:           [[X_CU_:%.+]] = tosa.mul [[X_SQ_]], [[PARAM_0_]], [[SHIFT_]]
+// CHECK:           [[COEFF_X_CU_:%.+]] = tosa.mul [[COEFF_]], [[X_CU_]], [[SHIFT_]]
+// CHECK:           [[INNER_SUM_:%.+]] = tosa.add [[PARAM_0_]], [[COEFF_X_CU_]]
+// CHECK:           [[SCALED_:%.+]] = tosa.mul [[SQRT2_OVER_PI_]], [[INNER_SUM_]], [[SHIFT_]]
+// CHECK:           [[TANH_:%.+]] = tosa.tanh [[SCALED_]] : (tensor<10x10xf32>) -> tensor<10x10xf32>
+// CHECK:           [[ADD_ONE_:%.+]] = tosa.add [[TANH_]], [[ONE_]]
+// CHECK:           [[X_TIMES_:%.+]] = tosa.mul [[PARAM_0_]], [[ADD_ONE_]], [[SHIFT_]]
+// CHECK:           [[RESULT_:%.+]] = tosa.mul [[X_TIMES_]], [[HALF_]], [[SHIFT_]]
+// CHECK:           return [[RESULT_]] : tensor<10x10xf32>
+}
+
+// -----
+
 func.func @test_clip(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
   %min = "onnx.Constant"() {value = dense<-1.0> : tensor<f32>} : () -> tensor<f32>
   %max = "onnx.Constant"() {value = dense<1.0> : tensor<f32>} : () -> tensor<f32>

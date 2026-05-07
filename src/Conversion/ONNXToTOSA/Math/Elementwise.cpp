@@ -116,6 +116,76 @@ public:
   }
 };
 
+// Create a splatted constant tensor whose element type matches `elementType`
+// and whose shape is the same rank as `referenceShape` with all dims equal
+// to 1 so it can broadcast against tensors of that rank.
+static Value createFloatSplatConst(PatternRewriter &rewriter, Location loc,
+    double value, FloatType elementType, ArrayRef<int64_t> referenceShape) {
+  APFloat apVal(value);
+  bool losesInfo = false;
+  apVal.convert(elementType.getFloatSemantics(),
+      APFloat::rmNearestTiesToEven, &losesInfo);
+  auto constType = tosa::reduceAxisToOne(referenceShape, elementType);
+  auto constAttr = DenseElementsAttr::get(constType, apVal);
+  return mlir::tosa::ConstOp::create(rewriter, loc, constType, constAttr);
+}
+
+class ONNXGeluOpLoweringToTOSA : public OpConversionPattern<ONNXGeluOp> {
+public:
+  using OpConversionPattern<ONNXGeluOp>::OpConversionPattern;
+  using OpAdaptor = typename ONNXGeluOp::Adaptor;
+  LogicalResult matchAndRewrite(ONNXGeluOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+    Location loc = op->getLoc();
+    Value x = adaptor.getX();
+
+    auto inputType = mlir::dyn_cast<RankedTensorType>(x.getType());
+    if (!inputType)
+      return rewriter.notifyMatchFailure(op, "input must be a ranked tensor");
+    auto elementType = mlir::dyn_cast<FloatType>(inputType.getElementType());
+    if (!elementType)
+      return rewriter.notifyMatchFailure(
+          op, "tosa.gelu lowering only supports float types");
+
+    TosaBuilder tosaBuilder(rewriter, loc);
+    StringRef approximate = adaptor.getApproximate();
+    ArrayRef<int64_t> shape = inputType.getShape();
+    Value half = createFloatSplatConst(rewriter, loc, 0.5, elementType, shape);
+    Value one = createFloatSplatConst(rewriter, loc, 1.0, elementType, shape);
+
+    Value inner;
+    if (approximate == "none") {
+      // y = 0.5 * x * (1 + erf(x / sqrt(2)))
+      Value invSqrt2 = createFloatSplatConst(rewriter, loc,
+          0.70710678118654752440, elementType, shape);
+      Value scaled = tosaBuilder.mul(x, invSqrt2);
+      inner = mlir::tosa::ErfOp::create(rewriter, loc, scaled.getType(), scaled);
+    } else if (approximate == "tanh") {
+      // y = 0.5 * x * (1 + tanh(sqrt(2/pi) * (x + 0.044715 * x^3)))
+      Value coeff = createFloatSplatConst(
+          rewriter, loc, 0.044715, elementType, shape);
+      Value sqrt2OverPi = createFloatSplatConst(rewriter, loc,
+          0.79788456080286535588, elementType, shape);
+      Value xSquared = tosaBuilder.mul(x, x);
+      Value xCubed = tosaBuilder.mul(xSquared, x);
+      Value coeffXCubed = tosaBuilder.mul(coeff, xCubed);
+      Value sum = tosaBuilder.binaryOp<mlir::tosa::AddOp>(x, coeffXCubed);
+      Value scaled = tosaBuilder.mul(sqrt2OverPi, sum);
+      inner =
+          mlir::tosa::TanhOp::create(rewriter, loc, scaled.getType(), scaled);
+    } else {
+      return rewriter.notifyMatchFailure(
+          op, "unsupported 'approximate' attribute value");
+    }
+
+    Value addOne = tosaBuilder.binaryOp<mlir::tosa::AddOp>(inner, one);
+    Value mulX = tosaBuilder.mul(x, addOne);
+    Value result = tosaBuilder.mul(mulX, half);
+    rewriter.replaceOp(op, result);
+    return success();
+  }
+};
+
 class ONNXErfOpLoweringToTOSA : public OpConversionPattern<ONNXErfOp> {
 public:
   using OpConversionPattern<ONNXErfOp>::OpConversionPattern;
@@ -310,6 +380,7 @@ void populateLoweringONNXElementwiseOpToTOSAPattern(ConversionTarget &target,
       ONNXBinaryElementwiseOpLoweringToTOSA<ONNXSubOp, mlir::tosa::SubOp>,
       ONNXSinOpLoweringToTOSA, ONNXCosOpLoweringToTOSA,
       ONNXErfOpLoweringToTOSA, ONNXTanhOpLoweringToTOSA,
+      ONNXGeluOpLoweringToTOSA,
       ONNXFloorOpLoweringToTOSA, ONNXReluOpLoweringToTOSA,
       ONNXClipOpLoweringToTOSA, ONNXDivOpLoweringToTOSA>(typeConverter, ctx);
 }
