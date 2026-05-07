@@ -1,6 +1,8 @@
 // RUN: onnx-mlir-opt --march=arch15 --maccel=NNPA --shape-inference --convert-onnx-to-zhigh --canonicalize %s -split-input-file | FileCheck %s
 // RUN: onnx-mlir-opt --march=arch15 --maccel=NNPA --shape-inference --convert-onnx-to-zhigh --canonicalize --convert-zhigh-to-onnx %s -split-input-file | FileCheck %s --check-prefix=CHECK-FUSION
 
+// -----
+
 func.func @matmulinteger(%arg0: tensor<?x?x768xui8>, %arg1: tensor<768x768xi8>, %arg2: tensor<ui8>, %arg3: tensor<i8>) -> tensor<?x?x768xi32> {
   %0 = "onnx.MatMulInteger"(%arg0, %arg1, %arg2, %arg3) : (tensor<?x?x768xui8>, tensor<768x768xi8>, tensor<ui8>, tensor<i8>) -> tensor<?x?x768xi32>
   return %0 : tensor<?x?x768xi32>
