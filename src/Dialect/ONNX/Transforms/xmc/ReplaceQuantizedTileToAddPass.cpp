@@ -168,10 +168,13 @@ public:
 
     auto topK = dyn_cast_if_present<ONNXTopKOp>(defOp);
     if (!topK)
-      return rewriter.notifyMatchFailure(topK, "Unable to find TopK");
+      return rewriter.notifyMatchFailure(tileOp, "Unable to find TopK");
 
+    // ONNXTopK has two results: 0=values, 1=indices. We only want the
+    // indices path (TopK->Cast->[Reshape]->Tile). Anything else (values
+    // path, block arg, ...) is rejected.
     if (auto topKResult = dyn_cast<OpResult>(defRes);
-        topKResult && topKResult.getResultNumber() == 2)
+        topKResult && topKResult.getResultNumber() != 1)
       return rewriter.notifyMatchFailure(
           topK, "Not the indices result of TopK");
 
