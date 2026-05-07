@@ -102,7 +102,9 @@ def define_arch_op_names(arch):
         # vst: vector store | vste: store element | vsteb/h/f/g: store element variants
         op_name["vstore"] = "(vst|vste[bhfg]?)"
         # perm | merge | select | shift | replicate | permute | gen mask | pack | unpack
-        op_name["vshuffle"] = "(vperm|vsel|vmr|vsl|vsr|vrep|vpdi|vgm|vzero|vpk|vupll|vuplh)"
+        op_name["vshuffle"] = (
+            "(vperm|vsel|vmr|vsl|vsr|vrep|vpdi|vgm|vzero|vpk|vupll|vuplh)"
+        )
         # vfma: fused multiply-add | vfms: fused multiply-subtract
         op_name["vfma"] = "(vfma|vfms)"
         # vfm: vector fp multiply | vm: vector integer multiply | vml: multiply logical
@@ -110,9 +112,13 @@ def define_arch_op_names(arch):
         # vfd: vector fp divide
         op_name["vdiv"] = "vfd"
         # vector conversion between formats (NNPA <-> fp, FP <-> int, int <-> int, pack/unpack)
-        op_name["vconv"] = "(vclfnh|vclfnl|vcfn|vcrnf|vcnf|vclgd|vclfeb|vclgdb|vcfpl|vcfps|vpkh|vpkf|vpkg|vupll|vuplh)"
+        op_name["vconv"] = (
+            "(vclfnh|vclfnl|vcfn|vcrnf|vcnf|vclgd|vclfeb|vclgdb|vcfpl|vcfps|vpkh|vpkf|vpkg|vupll|vuplh)"
+        )
         # add | sub | max | min | compare | and | or | xor | andc
-        op_name["vadd"] = "([vw]fa|[vw]fs|[vw]fmax|[vw]fmin|[vw]f[ck][eh]|va|vs|vmn|vmx|vn|vo|vx|vnc)"
+        op_name["vadd"] = (
+            "([vw]fa|[vw]fs|[vw]fmax|[vw]fmin|[vw]f[ck][eh]|va|vs|vmn|vmx|vn|vo|vx|vnc)"
+        )
         # lg: load 64-bit | l: load 32-bit | lh: load 16-bit | lb: load 8-bit | llg/llh/llc: load logical
         op_name["load"] = "(lg|llg|lh?|llh|lb?|llc)"
         # stg: store 64-bit | st: store 32-bit | sth: store 16-bit | stc: store 8-bit
@@ -153,7 +159,9 @@ def define_arch_op_names(arch):
         # vcvt: convert | vqmovn/vmovn: narrow | vmovl: widen | vqmovun: saturating narrow unsigned
         op_name["vconv"] = "(vcvt|vqmovn|vmovn|vmovl|vqmovun)"
         # vadd/vsub: add/sub | vmax/vmin: max/min | vceq/vcge/vcgt/vcle/vclt: compare | vand/vorr/veor/vbic/vorn: logic
-        op_name["vadd"] = "(vadd|vsub|vmax|vmin|vceq|vcge|vcgt|vcle|vclt|vand|vorr|veor|vbic|vorn)"
+        op_name["vadd"] = (
+            "(vadd|vsub|vmax|vmin|vceq|vcge|vcgt|vcle|vclt|vand|vorr|veor|vbic|vorn)"
+        )
         # ldr/ldp with scalar regs (x/w/sp/lr) - exclude vector regs
         op_name["load"] = "(ldr|ldp)\s+[xw][0-9]+|ldr\s+(sp|lr)"
         # str/stp with scalar regs (x/w/sp/lr) - exclude vector regs
