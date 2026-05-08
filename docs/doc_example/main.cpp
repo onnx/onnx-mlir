@@ -1,6 +1,14 @@
 #include <iostream>
 
+#define USE_UNIFIED 1
+#define USE_CONTAINER 1
+
+#if USE_UNIFIED
+#include "src/Compiler/OMUnifiedCompile.hpp"
+#else
 #include "src/Compiler/OMCompile.hpp"
+#endif
+
 #include "src/Runtime/ExecutionSession.hpp"
 
 // Read the arguments from the command line and return a std::string
@@ -17,21 +25,30 @@ int main(int argc, char *argv[]) {
   std::string flags = readArgs(argc, argv);
   flags += "-o add_cpp_interface -v";
   // And compile the doc example into a model library.
-  onnx_mlir::OMCompile OMcompile;
+  #if USE_UNIFIED
+  #if USE_CONTAINER
+  onnx_mlir::OMUnifiedCompile compile(onnx_mlir::OMUnifiedCompile::ContainerEngine::Podman);
+  #else
+  onnx_mlir::OMUnifiedCompile compile({}, true);
+  #endif
+  #else
+  onnx_mlir::OMCompile compile;
+  #endif
+
   try {
     // For testing: log the compile output (stderr and stdout) in compile.log.
-    OMcompile.compile("add.onnx", flags);
+    compile.compile("add.onnx", flags);
   } catch (const onnx_mlir::OMCompileException &error) {
     std::cerr << error.what() << std::endl;
     return 1;
   }
   std::cout << "Compiled succeeded with results in file: "
-            << OMcompile.getOutputFilename() << std::endl;
+            << compile.getOutputFilename() << std::endl;
 
   // Prepare the execution session.
   onnx_mlir::ExecutionSession session;
   try {
-    session.loadModel(OMcompile.getOutputFilename());
+    session.loadModel(compile.getOutputFilename());
   } catch (const onnx_mlir::ExecutionSessionException &error) {
     std::cerr << "error while creating execution session: " << error.what()
               << std::endl;

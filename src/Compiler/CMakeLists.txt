@@ -191,6 +191,21 @@ add_onnx_mlir_library(OMCommandUtils
   OMCommandUtils
   )
 
+add_onnx_mlir_library(OMUnifiedCompile
+  OMUnifiedCompile.cpp
+
+  EXCLUDE_FROM_OM_LIBS
+
+  INCLUDE_DIRS PRIVATE
+  ${FILE_GENERATE_DIR}
+
+  INCLUDE_DIRS PUBLIC
+  ${ONNX_MLIR_SRC_ROOT}/include
+
+  LINK_LIBS PRIVATE
+  OMCommandUtils
+  )
+
 add_onnx_mlir_library(OMCompilerUtils
   CompilerUtils.cpp
   HeapReporter.cpp
