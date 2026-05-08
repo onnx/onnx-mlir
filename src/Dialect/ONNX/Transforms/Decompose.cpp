@@ -4378,6 +4378,9 @@ struct SplitToSlicePattern : public OpRewritePattern<ONNXSplitOp> {
       // This correctly handles uneven splits (e.g., splitting 10 into 3 ->
       // [4,3,3])
       for (unsigned i = 0; i < outputNum; ++i) {
+        if (!onnx_mlir::isRankedShapedType(splitOp.getResult(i).getType()))
+          return rewriter.notifyMatchFailure(
+              splitOp, "output must be ranked; shape inference needed first");
         ShapedType outputType =
             mlir::cast<ShapedType>(splitOp.getResult(i).getType());
         int64_t outputDimSize = outputType.getDimSize(axis);
