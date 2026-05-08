@@ -30,14 +30,12 @@ namespace fs = std::filesystem;
 namespace onnx_mlir {
 
 // Known container image configurations
-const std::map<std::string, std::string>
-    OMUnifiedCompile::knownImageConfigs = {
-        {"ghcr.io/onnxmlir/onnx-mlir", "/usr/local/bin/bin/onnx-mlir"},
-        {"ghcr.io/onnxmlir/onnx-mlir-dev",
-            "/workdir/onnx-mlir/build/Debug/bin/onnx-mlir"},
-        {"onnxmlir/onnx-mlir-dev",
-            "/workdir/onnx-mlir/build/Debug/bin/onnx-mlir"},
-        {"icr.io/ibmz/zdlc:5.0.0", ""}, // Entry point is the compiler
+const std::map<std::string, std::string> OMUnifiedCompile::knownImageConfigs = {
+    {"ghcr.io/onnxmlir/onnx-mlir", "/usr/local/bin/bin/onnx-mlir"},
+    {"ghcr.io/onnxmlir/onnx-mlir-dev",
+        "/workdir/onnx-mlir/build/Debug/bin/onnx-mlir"},
+    {"onnxmlir/onnx-mlir-dev", "/workdir/onnx-mlir/build/Debug/bin/onnx-mlir"},
+    {"icr.io/ibmz/zdlc:5.0.0", ""}, // Entry point is the compiler
 };
 
 //===----------------------------------------------------------------------===//
@@ -58,7 +56,7 @@ OMUnifiedCompile::OMUnifiedCompile(
       containerImage(), compilerPathInContainer(),
       containerEngine(ContainerEngine::Auto), autoPullImage(false),
       successfullyInitialized(false), successfullyCompiled(false) {
-  
+
   // Verify compiler is available (only if verbose)
   if (this->verbose) {
     try {
@@ -77,7 +75,7 @@ OMUnifiedCompile::OMUnifiedCompile(
                 << this->localCompilerPath << std::endl;
     }
   }
-  
+
   // Mark as successfully initialized
   successfullyInitialized = true;
 }
@@ -117,8 +115,9 @@ OMUnifiedCompile::OMUnifiedCompile(ContainerEngine engine,
 
   // Perform one-time container setup
   verifyContainerSetup();
-  
-  // Mark as successfully initialized (only if verifyContainerSetup didn't throw)
+
+  // Mark as successfully initialized (only if verifyContainerSetup didn't
+  // throw)
   successfullyInitialized = true;
 }
 
@@ -193,8 +192,7 @@ void OMUnifiedCompile::pullImage(const std::string &imageName) {
     pullCmd.appendStr(imageName);
     int status = pullCmd.exec();
     if (status != 0) {
-      throw OMCompileException(
-          "Failed to pull container image: " + imageName);
+      throw OMCompileException("Failed to pull container image: " + imageName);
     }
   } catch (const CommandException &e) {
     throw OMCompileException(
@@ -267,26 +265,6 @@ std::unique_ptr<Command> OMUnifiedCompile::createContainerCompileCommand(
 
   // Container Mode: Docker/Podman run with volume mounts
 
-  // Build the compiler command that will run inside the container
-  std::ostringstream cmdStream;
-  cmdStream << compilerPathInContainer;
-
-  // Add flags
-  for (const auto &flag : flagVect) {
-    cmdStream << " " << flag;
-  }
-
-  // Add input file (using container path)
-  cmdStream << " "
-            << (fs::path(modelDir) / fs::path(inputFilename).filename())
-                   .string();
-
-  std::string containerCmd = cmdStream.str();
-
-  if (verbose) {
-    std::cout << "Container command: " << containerCmd << std::endl;
-  }
-
   // Build the docker/podman run command
   auto cmd = std::make_unique<Command>(detectedEngineName, verbose);
   cmd->appendStr("run");
@@ -305,10 +283,23 @@ std::unique_ptr<Command> OMUnifiedCompile::createContainerCompileCommand(
   // Specify the image
   cmd->appendStr(containerImage);
 
-  // Add the compiler command (as a single string for shell execution)
-  cmd->appendStr("sh");
-  cmd->appendStr("-c");
-  cmd->appendStr(containerCmd);
+  // Add the compiler path and arguments directly (no shell wrapping)
+  cmd->appendStr(compilerPathInContainer);
+
+  // Add flags
+  cmd->appendList(flagVect);
+
+  // Add input file (using container path)
+  std::string containerInputPath =
+      (fs::path(modelDir) / fs::path(inputFilename).filename()).string();
+  cmd->appendStr(containerInputPath);
+
+  if (verbose) {
+    std::cout << "Container compilation with image: " << containerImage
+              << std::endl;
+    std::cout << "Compiler: " << compilerPathInContainer << std::endl;
+    std::cout << "Input: " << containerInputPath << std::endl;
+  }
 
   return cmd;
 }
@@ -365,7 +356,8 @@ void OMUnifiedCompile::compile(const std::string &modelPath,
   if (mode == CompilationMode::Local) {
     cmd = createLocalCompileCommand(modelPath, flagVect, inputFilename);
   } else {
-    cmd = createContainerCompileCommand(flagVect, inputFilename, modelDir, outputDir);
+    cmd = createContainerCompileCommand(
+        flagVect, inputFilename, modelDir, outputDir);
   }
 
   // Redirect logs if specified (shared logic)
@@ -383,7 +375,8 @@ void OMUnifiedCompile::compile(const std::string &modelPath,
       errorMessage = error.what();
       std::cerr << "Command exception: " << errorMessage << std::endl;
     }
-    throw OMCompileException("Compilation failed: " + std::string(error.what()));
+    throw OMCompileException(
+        "Compilation failed: " + std::string(error.what()));
   }
 
   // Check compilation status (shared logic)
@@ -457,4 +450,3 @@ std::string OMUnifiedCompile::getContainerEngineName() const {
 }
 
 } // namespace onnx_mlir
-
