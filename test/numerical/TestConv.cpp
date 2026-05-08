@@ -200,8 +200,8 @@ int main(int argc, char *argv[]) {
       const int kW = *rc::gen::inRange(1, 6);
       // Make sure we have at least 1 output per dimension.
       RC_PRE((H / stride >= kH * dilation) && (W / stride > kW * dilation));
-      RC_ASSERT(isOMConvTheSameAsNaiveImplFor(
-          N, CIn, COut, H, W, kH, kW, 0, 0, 0, 0, autoPad));
+      RC_ASSERT(isOMConvTheSameAsNaiveImplFor(N, CIn, COut, H, W, kH, kW, 0, 0,
+          0, 0, autoPad, stride, dilation, isDynamic));
     });
     if (!success)
       return 1;
