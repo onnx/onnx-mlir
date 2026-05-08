@@ -77,7 +77,8 @@ public:
   /**
    * @brief Constructor for local compilation.
    *
-   * @param compilerPath Path to local onnx-mlir binary (required, but {} uses PATH default)
+   * @param compilerPath Path to local onnx-mlir binary (required, but {} uses
+   * PATH default)
    * @param verbose Enable verbose output (default: false)
    *
    * @code
@@ -102,15 +103,17 @@ public:
    * - Verifies/pulls container image
    * - Auto-detects compiler path for known images
    *
-   * @param containerImage Container image name (required, but {} uses first known image)
-   * @param compilerPathInContainer Path to compiler in container (required, but {} auto-detects)
+   * @param containerImage Container image name (required, but {} uses first
+   * known image)
+   * @param compilerPathInContainer Path to compiler in container (required, but
+   * {} auto-detects)
    * @param engine Container engine to use (default: Auto - auto-detect)
    * @param autoPull Automatically pull missing images (default: true)
    * @param verbose Enable verbose output (default: false)
    *
    * @code
-   *   // Use defaults (first known image, auto-detect compiler, auto-detect engine)
-   *   OMUnifiedCompile compiler({}, {});
+   *   // Use defaults (first known image, auto-detect compiler, auto-detect
+   * engine) OMUnifiedCompile compiler({}, {});
    *
    *   // Specific image with auto-detected compiler path
    *   OMUnifiedCompile compiler("ghcr.io/onnxmlir/onnx-mlir", {});
@@ -200,8 +203,8 @@ private:
   const std::string localCompilerPath;
 
   // Container mode configuration
-  std::string containerImage;  // Not const - set in constructor body
-  std::string compilerPathInContainer;  // Not const - set in constructor body
+  std::string containerImage;          // Not const - set in constructor body
+  std::string compilerPathInContainer; // Not const - set in constructor body
   const ContainerEngine containerEngine;
   const bool autoPullImage;
   std::string detectedEngineName; // "docker" or "podman"
@@ -209,7 +212,7 @@ private:
   // Compilation state
   std::string outputFilename;
   std::string outputConstantFilename;
-  bool successfullyInitialized;  // Set to true when constructor completes
+  bool successfullyInitialized; // Set to true when constructor completes
   bool successfullyCompiled;
 
   // Known container image configurations
@@ -227,8 +230,9 @@ private:
       const std::string &inputFilename);
 
   std::unique_ptr<Command> createContainerCompileCommand(
-      const std::vector<std::string> &flagVect, const std::string &inputFilename,
-      const std::string &modelDir, const std::string &outputDir);
+      const std::vector<std::string> &flagVect,
+      const std::string &inputFilename, const std::string &modelDir,
+      const std::string &outputDir);
 };
 
 } // namespace onnx_mlir
