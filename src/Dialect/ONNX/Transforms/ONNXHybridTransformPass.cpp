@@ -76,6 +76,10 @@ struct ONNXHybridTransformPass
       llvm::cl::desc("Enable constant propagation in hybrid transform"),
       llvm::cl::init(true)};
 
+  Option<bool> qdqConstProp{*this, "qdq-const-prop",
+      llvm::cl::desc("Enable constant propagation for QDQ"),
+      llvm::cl::init(false)};
+
   Option<bool> decomposition{*this, "decomposition",
       llvm::cl::desc("Enable decomposition in hybrid transform"),
       llvm::cl::init(true)};
@@ -185,7 +189,8 @@ struct ONNXHybridTransformPass
       bool enableSplitToSliceDecompose, bool enableConcatFuse,
       bool enableGAPToReduceMean, bool enableLstmSeqDecompose = false,
       bool enableGatherToSlice = true, bool enableReduceL2Decompose = true,
-      bool enableRotaryEmbeddingRecompose = false) {
+      bool enableRotaryEmbeddingRecompose = false,
+      bool enableQDQConstProp = false) {
     this->recomposition = enableRecomposition;
     this->quarkQuantizedOpsLegalization = enableQuarkQuantizedOpsLegalization;
     this->enableConvTransposeDecompose = enableConvTransposeDecompose;
@@ -205,6 +210,7 @@ struct ONNXHybridTransformPass
     this->enableReduceL2Decompose = enableReduceL2Decompose;
     this->enableGatherToSlice = enableGatherToSlice;
     this->enableRotaryEmbeddingRecompose = enableRotaryEmbeddingRecompose;
+    this->qdqConstProp = enableQDQConstProp;
   }
 
   ONNXHybridTransformPass(const ONNXHybridTransformPass &pass)
@@ -251,7 +257,7 @@ struct ONNXHybridTransformPass
     }
 
     if (constantPropagation) {
-      getConstPropONNXToONNXPatterns(cumulativePatterns);
+      getConstPropONNXToONNXPatterns(cumulativePatterns, qdqConstProp);
     }
 
     if (decomposition) {
@@ -319,7 +325,7 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createONNXHybridTransformPass(
     bool enableSplitToSliceDecompose, bool enableConcatFuse,
     bool enableGAPToReduceMean, bool enableLstmSeqDecompose,
     bool enableGatherToSlice, bool enableReduceL2Decompose,
-    bool enableRotaryEmbeddingRecompose) {
+    bool enableRotaryEmbeddingRecompose, bool enableQDQConstProp) {
   return std::make_unique<ONNXHybridTransformPass>(enableRecomposition,
       enableQuarkQuantizedOpsLegalization, enableConvTransposeDecompose,
       enableConvTransposeDecomposeToPhasedConv,
@@ -328,5 +334,5 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createONNXHybridTransformPass(
       enableGroupQueryAttentionDecompose, enableSplitToSliceDecompose,
       enableConcatFuse, enableGAPToReduceMean, enableLstmSeqDecompose,
       enableGatherToSlice, enableReduceL2Decompose,
-      enableRotaryEmbeddingRecompose);
+      enableRotaryEmbeddingRecompose, enableQDQConstProp);
 }

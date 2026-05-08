@@ -42,6 +42,7 @@ struct OnnxToMlirOptions {
   bool enableLstmSeqDecompose = false;
   bool enableGatherToSlice = true;
   bool enableRotaryEmbeddingRecompose = false;
+  bool enableQDQConstProp = false;
 
   bool disableBatchNormDecompose = false;
   bool disableRecomposeOption = false;
