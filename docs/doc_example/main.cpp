@@ -1,7 +1,7 @@
 #include <iostream>
 
 #define USE_UNIFIED 1
-#define USE_CONTAINER 1
+#define USE_CONTAINER 0
 
 #if USE_UNIFIED
 #include "src/Compiler/OMUnifiedCompile.hpp"
