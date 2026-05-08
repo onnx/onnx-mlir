@@ -77,33 +77,52 @@ public:
   /**
    * @brief Constructor for local compilation.
    *
-   * @param compilerPath Path to local onnx-mlir binary. If empty, uses
-   * "onnx-mlir" from PATH.
+   * @param compilerPath Path to local onnx-mlir binary (required, but {} uses PATH default)
    * @param verbose Enable verbose output (default: false)
+   *
+   * @code
+   *   // Use onnx-mlir from PATH
+   *   OMUnifiedCompile compiler({});
+   *
+   *   // Use specific compiler
+   *   OMUnifiedCompile compiler("/path/to/onnx-mlir");
+   *
+   *   // With verbose
+   *   OMUnifiedCompile compiler({}, true);
+   * @endcode
    */
   explicit OMUnifiedCompile(
-      const std::string &compilerPath = {}, bool verbose = false);
+      const std::string &compilerPath, bool verbose = false);
 
   /**
    * @brief Constructor for container-based compilation.
    *
    * Performs one-time setup:
-   * - Detects container engine (docker/podman)
+   * - Detects container engine (docker/podman) if Auto
    * - Verifies/pulls container image
+   * - Auto-detects compiler path for known images
    *
-   * The ContainerEngine parameter is required and must be specified first
-   * to distinguish this constructor from the local compilation constructor.
-   *
-   * @param engine Container engine to use (required: Docker, Podman, or Auto)
-   * @param containerImage Container image name (if empty, uses first known image)
-   * @param compilerPathInContainer Path to compiler inside container (auto-detect if empty)
-   * @param verbose Enable verbose output (default: false)
+   * @param containerImage Container image name (required, but {} uses first known image)
+   * @param compilerPathInContainer Path to compiler in container (required, but {} auto-detects)
+   * @param engine Container engine to use (default: Auto - auto-detect)
    * @param autoPull Automatically pull missing images (default: true)
+   * @param verbose Enable verbose output (default: false)
+   *
+   * @code
+   *   // Use defaults (first known image, auto-detect compiler, auto-detect engine)
+   *   OMUnifiedCompile compiler({}, {});
+   *
+   *   // Specific image with auto-detected compiler path
+   *   OMUnifiedCompile compiler("ghcr.io/onnxmlir/onnx-mlir", {});
+   *
+   *   // With verbose mode
+   *   OMUnifiedCompile compiler({}, {}, ContainerEngine::Auto, true, true);
+   * @endcode
    */
-  OMUnifiedCompile(ContainerEngine engine,
-      const std::string &containerImage = {},
-      const std::string &compilerPathInContainer = {}, bool verbose = false,
-      bool autoPull = true);
+  OMUnifiedCompile(const std::string &containerImage,
+      const std::string &compilerPathInContainer,
+      ContainerEngine engine = ContainerEngine::Auto, bool autoPull = true,
+      bool verbose = false);
 
   /**
    * @brief Destructor.

@@ -82,9 +82,9 @@ OMUnifiedCompile::OMUnifiedCompile(
 }
 
 // Constructor for container compilation
-OMUnifiedCompile::OMUnifiedCompile(ContainerEngine engine,
-    const std::string &containerImage, const std::string &compilerPath,
-    bool verbose, bool autoPull)
+OMUnifiedCompile::OMUnifiedCompile(const std::string &containerImage,
+    const std::string &compilerPath, ContainerEngine engine, bool autoPull,
+    bool verbose)
     : mode(CompilationMode::Container), verbose(verbose), localCompilerPath(),
       containerEngine(engine), autoPullImage(autoPull),
       successfullyInitialized(false), successfullyCompiled(false) {

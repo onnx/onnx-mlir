@@ -27,11 +27,13 @@ int main(int argc, char *argv[]) {
 // And compile the doc example into a model library.
 #if USE_UNIFIED
 #if USE_CONTAINER
-  onnx_mlir::OMUnifiedCompile compile(
-      onnx_mlir::OMUnifiedCompile::ContainerEngine::Podman, {}, {},
-      /*verbose*/ true, /*autopull*/ true);
+  // Container compilation with new API: image, compilerPath, engine, autoPull, verbose
+  onnx_mlir::OMUnifiedCompile compile({}, {},
+      onnx_mlir::OMUnifiedCompile::ContainerEngine::Auto,
+      /*autoPull*/ true, /*verbose*/ true);
 #else
-  onnx_mlir::OMUnifiedCompile compile({}, true);
+  // Local compilation: compilerPath, verbose
+  onnx_mlir::OMUnifiedCompile compile({}, /*verbose*/ true);
 #endif
 #else
   onnx_mlir::OMCompile compile;
