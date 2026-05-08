@@ -28,7 +28,7 @@ int main(int argc, char *argv[]) {
 #if USE_UNIFIED
 #if USE_CONTAINER
   onnx_mlir::OMUnifiedCompile compile(
-      onnx_mlir::OMUnifiedCompile::ContainerEngine::Podman, {},
+      onnx_mlir::OMUnifiedCompile::ContainerEngine::Podman, {}, {},
       /*verbose*/ true, /*autopull*/ true);
 #else
   onnx_mlir::OMUnifiedCompile compile({}, true);
