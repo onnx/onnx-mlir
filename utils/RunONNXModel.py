@@ -36,65 +36,8 @@ VERBOSE = os.environ.get("VERBOSE", False)
 
 
 def import_driver():
-    global ONNX_MLIR, args
-    try:
-        # TODO: do we still use this?
-        from onnxmlir import InferenceSession as SessionWrapper
-
-        args.use_onnxmlir = True
-    except ImportError:
-        args.use_onnxmlir = False
-
-        ONNX_MLIR_EXENAME = "onnx-mlir.exe" if sys.platform == "win32" else "onnx-mlir"
-        ONNX_MLIR = None
-        RUNTIME_DIR = None
-
-        # TODO: would we want to eliminate ONNX_MLIR_HOME?
-        # Strategy 1: Use ONNX_MLIR_HOME environment variable if set
-        if os.environ.get("ONNX_MLIR_HOME", None):
-            onnx_mlir_home = os.environ["ONNX_MLIR_HOME"]
-            ONNX_MLIR = os.path.join(onnx_mlir_home, "bin", ONNX_MLIR_EXENAME)
-            RUNTIME_DIR = os.path.join(onnx_mlir_home, "lib")
-
-        # Strategy 2: Search PATH for onnx-mlir binary
-        # shutil.which() searches all directories in the PATH environment variable
-        if ONNX_MLIR is None or not os.path.isfile(ONNX_MLIR):
-            onnx_mlir_path = shutil.which(ONNX_MLIR_EXENAME)
-            if onnx_mlir_path:
-                # Resolve symbolic links to find the actual binary location
-                onnx_mlir_path = os.path.realpath(onnx_mlir_path)
-                ONNX_MLIR = onnx_mlir_path
-                # Assume runtime lib is in ../lib relative to bin directory
-                # e.g., if binary is /usr/local/bin/onnx-mlir, lib is /usr/local/lib
-                bin_dir = os.path.dirname(onnx_mlir_path)
-                RUNTIME_DIR = os.path.join(os.path.dirname(bin_dir), "lib")
-
-        # If still not found, raise error
-        if ONNX_MLIR is None or not os.path.isfile(ONNX_MLIR):
-            raise RuntimeError(
-                "Cannot find onnx-mlir binary. Please either:\n"
-                " 1) Set environment variable ONNX_MLIR_HOME to the path to onnx-mlir\n"
-                "    (e.g., path-to-onnx-mlir/build/Debug, the parent folder containing bin, lib, etc)\n"
-                " 2) Add onnx-mlir to your PATH (e.g., export PATH=/path/to/onnx-mlir/bin:$PATH)\n"
-                " 3) Install onnx-mlir to a standard location that is already in PATH"
-            )
-
-        # Include runtime directory in python paths, so PyRuntime can be imported.
-        if RUNTIME_DIR and os.path.isdir(RUNTIME_DIR):
-            sys.path.append(RUNTIME_DIR)
-
-        # Check and import Onnx Mlir Execution session / python interface.
-        try:
-            from PyRuntime import OMExecutionSession as SessionWrapper
-        except ImportError:
-            raise ImportError(
-                " To compile a model, you can either\n 1) install the onnxmlir package to use the compiler container,"
-                " or\n 2) set environment variable ONNX_MLIR_HOME to use the native compiler.\n"
-                " The execution of the two approaches just failed in your environment."
-                " For trouble shooting, please refer to docs/DebuggingNumericalError.md for details"
-            )
+    from .PyRuntime import OMExecutionSession as SessionWrapper
     return SessionWrapper
-
 
 ################################################################################
 # Support functions for parsing environment.
@@ -864,7 +807,11 @@ class InferenceSession:
                 # Inherit compiler option from RunONNXModel.py
                 model = args.model
                 args_dict["compile_options"] = args.compile_args + " -o " + output_path
-            session = self.session_wrapper(model, **args_dict)
+                # Compile. Can be controlled with args.
+                # Here is an example of using standalone compiler
+                from .CompileDriver import compile
+                model = compile(model, "standalone", **args_dict)
+            session = self.session_wrapper(model)
             self.session = session
             # The compile log is needed to save the model.
             # ToFix: the compilation message returned from container run
@@ -1315,6 +1262,7 @@ def main():
     session_wrapper = import_driver()
     # Create inference session and perform a performance run test, which load,
     # compute, and possibly verify data.
+    args.use_onnxmlir = True
     session = InferenceSession(session_wrapper=session_wrapper)
     return session.run_performance_test()
 
