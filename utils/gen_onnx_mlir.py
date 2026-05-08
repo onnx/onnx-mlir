@@ -482,6 +482,12 @@ special_type_constraints = {
     "QLinearMatMul": {
         "*": ["tensor(int16)", "tensor(uint16)"],
     },
+    "Concat": {
+        "T": ["tensor(uint4)", "tensor(int4)"],
+    },
+    "Slice": {
+        "T": ["tensor(uint4)", "tensor(int4)"],
+    },
 }
 
 # Manual specification of attribute type.
