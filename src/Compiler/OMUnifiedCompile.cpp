@@ -30,8 +30,9 @@ namespace fs = std::filesystem;
 namespace onnx_mlir {
 
 // Known container image configurations
+// Note: Empty string means the container's entrypoint is the compiler itself
 const std::map<std::string, std::string> OMUnifiedCompile::knownImageConfigs = {
-    {"ghcr.io/onnxmlir/onnx-mlir", "/usr/local/bin/bin/onnx-mlir"},
+    {"ghcr.io/onnxmlir/onnx-mlir", "onnx-mlir"}, // Entrypoint is onnx-mlir
     {"ghcr.io/onnxmlir/onnx-mlir-dev",
         "/workdir/onnx-mlir/build/Debug/bin/onnx-mlir"},
     {"onnxmlir/onnx-mlir-dev", "/workdir/onnx-mlir/build/Debug/bin/onnx-mlir"},
