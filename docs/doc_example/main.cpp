@@ -24,16 +24,18 @@ int main(int argc, char *argv[]) {
   // Read compiler options from command line.
   std::string flags = readArgs(argc, argv);
   flags += "-o add_cpp_interface -v";
-  // And compile the doc example into a model library.
-  #if USE_UNIFIED
-  #if USE_CONTAINER
-  onnx_mlir::OMUnifiedCompile compile(onnx_mlir::OMUnifiedCompile::ContainerEngine::Podman);
-  #else
+// And compile the doc example into a model library.
+#if USE_UNIFIED
+#if USE_CONTAINER
+  onnx_mlir::OMUnifiedCompile compile(
+      onnx_mlir::OMUnifiedCompile::ContainerEngine::Podman, {},
+      /*verbose*/ true, /*autopull*/ true);
+#else
   onnx_mlir::OMUnifiedCompile compile({}, true);
-  #endif
-  #else
+#endif
+#else
   onnx_mlir::OMCompile compile;
-  #endif
+#endif
 
   try {
     // For testing: log the compile output (stderr and stdout) in compile.log.
@@ -84,7 +86,8 @@ int main(int argc, char *argv[]) {
   std::cout << "Start running model " << std::endl;
   OMTensorList *outputList;
   try {
-    outputList = session.runDebug(input, /*debug: catch segfault in handler*/ true);
+    outputList =
+        session.runDebug(input, /*debug: catch segfault in handler*/ true);
   } catch (const onnx_mlir::ExecutionSessionException &error) {
     std::cerr << "error while running model: " << error.what() << std::endl;
     return 5;
