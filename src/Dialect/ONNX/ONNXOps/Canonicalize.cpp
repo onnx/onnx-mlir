@@ -153,6 +153,107 @@ Value createReshapedConstantForWeightFusion(
       constOpLoc, resultType, constant, shapeConst);
 }
 
+// Whether an ElementsAttr is all zeros (handles splat and non-splat for both
+// float and integer element types). Accepts any concrete `ElementsAttr` kind
+// (e.g. `DenseElementsAttr` or onnx-mlir's `DisposableElementsAttr`).
+static bool isElementsAttrAllZeros(ElementsAttr attr) {
+  if (mlir::isa<FloatType>(attr.getElementType()))
+    return llvm::all_of(
+        attr.getValues<APFloat>(), [](APFloat v) { return v.isZero(); });
+  if (mlir::isa<IntegerType>(attr.getElementType()))
+    return llvm::all_of(
+        attr.getValues<APInt>(), [](APInt v) { return v.isZero(); });
+  return false;
+}
+
+// Whether `v` is an `ONNXConstantOp` whose dense value is all zeros.
+static bool isOnnxConstantAllZeros(Value v) {
+  if (!v)
+    return false;
+  auto constOp = v.getDefiningOp<ONNXConstantOp>();
+  if (!constOp)
+    return false;
+  auto valueAttr = constOp.getValueAttr();
+  if (!valueAttr)
+    return false;
+  if (auto elementsAttr = mlir::dyn_cast<ElementsAttr>(valueAttr))
+    return isElementsAttrAllZeros(elementsAttr);
+  return false;
+}
+
+// Whether `bias` is "effectively zero" for the purpose of subsuming an Add
+// constant into a Conv bias under a Q -> DQ identity. We accept two forms:
+//   1. ONNXConstantOp with dense<0...> value.
+//   2. ONNXDequantizeLinearOp(qval, scale, zp) where both qval and zp are
+//      constant all-zeros. Then dq = (qval - zp) * scale = 0 regardless of
+//      the (possibly per-axis) scale.
+// Rejecting `NoneType` keeps this orthogonal to the null-bias variants and
+// makes pattern selection unambiguous.
+bool isEffectivelyZeroBias(Value bias) {
+  if (!bias)
+    return false;
+  if (mlir::isa<NoneType>(bias.getType()))
+    return false;
+  if (isOnnxConstantAllZeros(bias))
+    return true;
+  if (auto dq = bias.getDefiningOp<ONNXDequantizeLinearOp>()) {
+    return isOnnxConstantAllZeros(dq.getX()) &&
+           isOnnxConstantAllZeros(dq.getXZeroPoint());
+  }
+  return false;
+}
+
+// Whether `v` is an `ONNXConstantOp` whose dense value contains exactly one
+// element (any rank, e.g. tensor<f32>, tensor<1xf32>, tensor<1x1x1x1xf32>).
+// Used to verify that a quantized addend's q/scale/zero-point evaluates to a
+// single scalar that can be safely flattened to a 1-D length-1 tensor before
+// being broadcast across a Conv's output channels.
+bool isSingleElementONNXConstant(Value v) {
+  if (!v)
+    return false;
+  auto constOp = v.getDefiningOp<ONNXConstantOp>();
+  if (!constOp)
+    return false;
+  auto valueAttr = constOp.getValueAttr();
+  if (!valueAttr)
+    return false;
+  auto elementsAttr = mlir::dyn_cast<ElementsAttr>(valueAttr);
+  if (!elementsAttr)
+    return false;
+  return elementsAttr.getNumElements() == 1;
+}
+
+// Build a runtime sub-graph that broadcasts a single-element addend value
+// across the output channels of a Conv weight, producing a `<Cout xT>`
+// tensor suitable as a Conv bias:
+//
+//   reshape_shape = onnx.Constant dense<[1]> : tensor<1xi64>
+//   expand_shape  = onnx.Constant dense<[Cout]> : tensor<1xi64>
+//   reshaped      = onnx.Reshape(addend_dq, reshape_shape) : tensor<1xT>
+//   expanded      = onnx.Expand(reshaped, expand_shape) : tensor<Cout xT>
+//
+// Element type T is taken from `weight` so the resulting bias passes the
+// Conv verifier's element-type check. Used by FuseAddConvQDQ{Null,Zero}Bias
+// patterns.
+Value buildBroadcastBiasViaReshapeExpand(
+    PatternRewriter &rewriter, Value addendDQ, Value weight) {
+  auto loc = addendDQ.getLoc();
+  auto fpType = mlir::cast<ShapedType>(weight.getType()).getElementType();
+  int64_t cOut = mlir::cast<ShapedType>(weight.getType()).getShape()[0];
+  auto shapeConstTy = RankedTensorType::get({1}, rewriter.getI64Type());
+
+  Value reshaped = rewriter.create<ONNXReshapeOp>(loc,
+      RankedTensorType::get({1}, fpType), addendDQ,
+      rewriter.create<ONNXConstantOp>(loc, nullptr,
+          DenseElementsAttr::get(shapeConstTy, llvm::ArrayRef<int64_t>{1})),
+      IntegerAttr());
+
+  return rewriter.create<ONNXExpandOp>(loc,
+      RankedTensorType::get({cOut}, fpType), reshaped,
+      rewriter.create<ONNXConstantOp>(loc, nullptr,
+          DenseElementsAttr::get(shapeConstTy, llvm::ArrayRef<int64_t>{cOut})));
+}
+
 // Check if constant to Mul has valid shape for folding into the weights of
 // Conv. This is used for  FuseMulConvNullBiasPattern Valid cases:
 //   1. Scalar (1 element)
@@ -3601,6 +3702,8 @@ void ONNXAddOp::getCanonicalizationPatterns(
   results.insert<FuseGemmFollowedByAddition>(context);
   results.insert<FuseAddConvPattern>(context);
   results.insert<FuseAddConvNullBiasPattern>(context);
+  results.insert<FuseAddConvQDQNullBiasPattern>(context);
+  results.insert<FuseAddConvQDQZeroBiasPattern>(context);
   results.insert<BinaryOpBroadcastAxisPattern<ONNXAddOp>>(context);
   results.insert<PropagateScalarConstantExpandPattern<ONNXAddOp>>(context);
   results.insert<PropagateScaleIntoLayerNormPattern<ONNXLayerNormalizationOp>>(
