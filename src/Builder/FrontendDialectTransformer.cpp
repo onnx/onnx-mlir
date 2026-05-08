@@ -962,10 +962,13 @@ private:
     Block *entryBlock = &region.back();
 
     // Import initializers as constants and record their names.
+    // Duplicate initializer names can appear in malformed subgraphs; skip them.
     std::unordered_set<std::string> initializerNames;
     for (const auto &initializer : graph.initializer()) {
-      BindOnnxName(initializer.name(), ImportTensor(initializer));
-      initializerNames.insert(initializer.name());
+      if (!initializerNames.contains(initializer.name())) {
+        BindOnnxName(initializer.name(), ImportTensor(initializer));
+        initializerNames.insert(initializer.name());
+      }
     }
 
     // Import input types, add block arguments, and bind them.
