@@ -60,7 +60,7 @@ OMUnifiedCompile::OMUnifiedCompile(
   // Verify compiler is available (only if verbose)
   if (this->verbose) {
     try {
-      Command verifyCmd(this->localCompilerPath, false);
+      Command verifyCmd(this->localCompilerPath, verbose);
       verifyCmd.appendStr("--version");
       int status = verifyCmd.exec();
       if (status != 0) {
@@ -134,7 +134,7 @@ void OMUnifiedCompile::detectContainerEngine() {
 
   // Try docker first
   try {
-    Command dockerCheck("docker", false);
+    Command dockerCheck("docker", verbose);
     dockerCheck.appendStr("--version");
     int status = dockerCheck.exec();
     if (status == 0) {
@@ -150,7 +150,7 @@ void OMUnifiedCompile::detectContainerEngine() {
 
   // Try podman
   try {
-    Command podmanCheck("podman", false);
+    Command podmanCheck("podman", verbose);
     podmanCheck.appendStr("--version");
     int status = podmanCheck.exec();
     if (status == 0) {
@@ -170,7 +170,7 @@ void OMUnifiedCompile::detectContainerEngine() {
 
 bool OMUnifiedCompile::isImageAvailable(const std::string &imageName) {
   try {
-    Command imageCheck(detectedEngineName, false);
+    Command imageCheck(detectedEngineName, verbose);
     imageCheck.appendStr("images");
     imageCheck.appendStr("-q");
     imageCheck.appendStr(imageName);
@@ -224,7 +224,7 @@ void OMUnifiedCompile::verifyContainerSetup() {
   // Optionally verify compiler exists in container
   if (verbose) {
     try {
-      Command verifyCmd(detectedEngineName, false);
+      Command verifyCmd(detectedEngineName, verbose);
       verifyCmd.appendStr("run");
       verifyCmd.appendStr("--rm");
       verifyCmd.appendStr(containerImage);
@@ -299,6 +299,11 @@ std::unique_ptr<Command> OMUnifiedCompile::createContainerCompileCommand(
   cmd->appendStr("run");
   cmd->appendStr("--rm"); // Remove container after execution
 
+  // Override the container's entrypoint to use sh
+  // This is necessary because some images have onnx-mlir as the entrypoint
+  cmd->appendStr("--entrypoint");
+  cmd->appendStr("sh");
+
   // Mount model directory
   cmd->appendStr("-v");
   cmd->appendStr(modelDir + ":" + modelDir + ":rw");
@@ -312,9 +317,7 @@ std::unique_ptr<Command> OMUnifiedCompile::createContainerCompileCommand(
   // Specify the image
   cmd->appendStr(containerImage);
 
-  // Use sh -c to execute the command string inside the container
-  // This is necessary because we're passing a command string with arguments
-  cmd->appendStr("sh");
+  // Use -c to execute the command string
   cmd->appendStr("-c");
   cmd->appendStr(containerCmd);
 
