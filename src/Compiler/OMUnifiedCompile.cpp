@@ -265,6 +265,35 @@ std::unique_ptr<Command> OMUnifiedCompile::createContainerCompileCommand(
 
   // Container Mode: Docker/Podman run with volume mounts
 
+  // Build the compiler command string that will run inside the container
+  std::ostringstream cmdStream;
+  cmdStream << compilerPathInContainer;
+
+  // Add flags
+  for (const auto &flag : flagVect) {
+    // Escape any quotes in the flag
+    std::string escapedFlag = flag;
+    size_t pos = 0;
+    while ((pos = escapedFlag.find('"', pos)) != std::string::npos) {
+      escapedFlag.insert(pos, "\\");
+      pos += 2;
+    }
+    cmdStream << " " << escapedFlag;
+  }
+
+  // Add input file (using container path)
+  std::string containerInputPath =
+      (fs::path(modelDir) / fs::path(inputFilename).filename()).string();
+  cmdStream << " " << containerInputPath;
+
+  std::string containerCmd = cmdStream.str();
+
+  if (verbose) {
+    std::cout << "Container compilation with image: " << containerImage
+              << std::endl;
+    std::cout << "Container command: " << containerCmd << std::endl;
+  }
+
   // Build the docker/podman run command
   auto cmd = std::make_unique<Command>(detectedEngineName, verbose);
   cmd->appendStr("run");
@@ -283,23 +312,9 @@ std::unique_ptr<Command> OMUnifiedCompile::createContainerCompileCommand(
   // Specify the image
   cmd->appendStr(containerImage);
 
-  // Add the compiler path and arguments directly (no shell wrapping)
-  cmd->appendStr(compilerPathInContainer);
-
-  // Add flags
-  cmd->appendList(flagVect);
-
-  // Add input file (using container path)
-  std::string containerInputPath =
-      (fs::path(modelDir) / fs::path(inputFilename).filename()).string();
-  cmd->appendStr(containerInputPath);
-
-  if (verbose) {
-    std::cout << "Container compilation with image: " << containerImage
-              << std::endl;
-    std::cout << "Compiler: " << compilerPathInContainer << std::endl;
-    std::cout << "Input: " << containerInputPath << std::endl;
-  }
+  // Pass the entire command as a single string argument to the container
+  // This matches how the Python docker/podman SDK works
+  cmd->appendStr(containerCmd);
 
   return cmd;
 }
