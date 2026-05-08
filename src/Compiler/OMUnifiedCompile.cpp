@@ -312,8 +312,10 @@ std::unique_ptr<Command> OMUnifiedCompile::createContainerCompileCommand(
   // Specify the image
   cmd->appendStr(containerImage);
 
-  // Pass the entire command as a single string argument to the container
-  // This matches how the Python docker/podman SDK works
+  // Use sh -c to execute the command string inside the container
+  // This is necessary because we're passing a command string with arguments
+  cmd->appendStr("sh");
+  cmd->appendStr("-c");
   cmd->appendStr(containerCmd);
 
   return cmd;
