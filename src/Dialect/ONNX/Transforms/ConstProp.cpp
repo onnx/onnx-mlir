@@ -1644,6 +1644,50 @@ public:
   }
 };
 
+// Q-DQ Removal to enable const-folding through data reformatting ops
+template <typename ONNXOp>
+class RemoveQDQForConst : public OpRewritePattern<ONNXOp> {
+public:
+  using OpRewritePattern<ONNXOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXOp op, PatternRewriter &rewriter) const override {
+    // Only first operand is considered
+    auto dqOp =
+        op->getOperand(0).template getDefiningOp<ONNXDequantizeLinearOp>();
+    if (!dqOp)
+      return rewriter.notifyMatchFailure(op, "DQ not found");
+
+    auto constOp = dqOp.getX().template getDefiningOp<ONNXConstantOp>();
+    if (!constOp)
+      return rewriter.notifyMatchFailure(op, "Not a constant input");
+
+    // Only first result is considered
+    auto result = op->getResult(0);
+    auto qOp = dyn_cast<ONNXQuantizeLinearOp>(*result.user_begin());
+    if (!qOp || !result.hasOneUse())
+      return rewriter.notifyMatchFailure(
+          op, "Q not found or has multiple uses");
+
+    if (dqOp.getXScale() != qOp.getYScale() ||
+        dqOp.getXZeroPoint() != qOp.getYZeroPoint() ||
+        getElementTypeOrSelf(dqOp.getX()) != getElementTypeOrSelf(qOp.getY()))
+      return rewriter.notifyMatchFailure(op, "Q & DQ are not equivalent");
+
+    SmallVector<Value> operands = op->getOperands();
+    operands[0] = constOp;
+    SmallVector<NamedAttribute> attrs(op->getAttrs());
+    llvm::erase_if(attrs, [](NamedAttribute attr) {
+      auto strRef = attr.getName().strref();
+      return (strRef == "onnx_node_name" || strRef == "ResultNames");
+    });
+
+    rewriter.replaceOpWithNewOp<ONNXOp>(qOp, qOp.getType(), operands, attrs);
+
+    return success();
+  }
+};
+
 //===----------------------------------------------------------------------===//
 // Code to manage the pass.
 //===----------------------------------------------------------------------===//
@@ -1651,6 +1695,14 @@ public:
 struct ConstPropONNXToONNXPass
     : public PassWrapper<ConstPropONNXToONNXPass, OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ConstPropONNXToONNXPass)
+
+  Option<bool> enableQDQ{*this, "enable-qdq", llvm::cl::init(true)};
+
+  ConstPropONNXToONNXPass(bool enableQDQ) { this->enableQDQ = enableQDQ; }
+
+  ConstPropONNXToONNXPass(const ConstPropONNXToONNXPass &other) {
+    copyOptionValuesFrom(&other);
+  }
 
   StringRef getArgument() const override { return "constprop-onnx"; }
 
@@ -1666,7 +1718,7 @@ void ConstPropONNXToONNXPass::runOnOperation() {
   MLIRContext *context = &getContext();
 
   RewritePatternSet patterns(context);
-  getConstPropONNXToONNXPatterns(patterns);
+  getConstPropONNXToONNXPatterns(patterns, enableQDQ);
   onnx_mlir::ResultNamesUpdater rnUpdater;
   if (failed(applyPatternsGreedily(function, std::move(patterns),
           GreedyRewriteConfig{.listener = &rnUpdater})))
@@ -1675,7 +1727,8 @@ void ConstPropONNXToONNXPass::runOnOperation() {
 
 } // end anonymous namespace.
 
-void onnx_mlir::getConstPropONNXToONNXPatterns(RewritePatternSet &patterns) {
+void onnx_mlir::getConstPropONNXToONNXPatterns(
+    RewritePatternSet &patterns, bool enableQDQ) {
   if (isConstantPropagationDisabled())
     return;
   populateWithGenerated(patterns);
@@ -1684,6 +1737,11 @@ void onnx_mlir::getConstPropONNXToONNXPatterns(RewritePatternSet &patterns) {
   patterns.insert<IfOfConst>(patterns.getContext());
   patterns.insert<LoopUnroll>(patterns.getContext());
   patterns.insert<ConstPropConcatFromSequence>(patterns.getContext());
+  if (enableQDQ)
+    patterns.add<RemoveQDQForConst<ONNXSliceOp>,
+        RemoveQDQForConst<ONNXTransposeOp>, RemoveQDQForConst<ONNXReshapeOp>,
+        RemoveQDQForConst<ONNXSqueezeOp>, RemoveQDQForConst<ONNXUnsqueezeOp>,
+        RemoveQDQForConst<ONNXGatherOp>>(patterns.getContext());
 }
 
 void onnx_mlir::configureConstPropONNXToONNXPass(bool roundFPToInt,
@@ -1700,6 +1758,7 @@ void onnx_mlir::configureConstPropONNXToONNXPass(bool roundFPToInt,
 /*!
  * Create a ConstPropONNX pass.
  */
-std::unique_ptr<mlir::Pass> onnx_mlir::createConstPropONNXToONNXPass() {
-  return std::make_unique<ConstPropONNXToONNXPass>();
+std::unique_ptr<mlir::Pass> onnx_mlir::createConstPropONNXToONNXPass(
+    bool enableQDQ) {
+  return std::make_unique<ConstPropONNXToONNXPass>(enableQDQ);
 }
