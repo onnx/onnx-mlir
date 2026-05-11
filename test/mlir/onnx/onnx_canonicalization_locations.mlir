@@ -97,7 +97,7 @@ func.func @maxpool_k5_p1_s1_maxpool_k3_p1_s1_quant_int8(%arg0: tensor<1x3x224x22
 
 // -----
 
-// Verify that `FuseAddConvQDQZeroBiasPattern` produces a `fused` location on
+// Verify that `FuseAddConvQDQBiasPattern` produces a `fused` location on
 // the rewritten Conv
 func.func @test_fuse_add_conv_qdq_zero_bias_loc(%arg0 : tensor<1x3x4x4xf32>, %arg1 : tensor<3x3x1x1xf32>) -> tensor<1x3x4x4xf32> {
     %bias = onnx.Constant dense<0.000000e+00> : tensor<3xf32> loc("BiasConst")

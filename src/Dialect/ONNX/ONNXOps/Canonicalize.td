@@ -95,7 +95,7 @@ def createReshapedConstantForWeightFusion : NativeCodeCall<
 // Build `Expand(Reshape(addend_dq, [1]), [Cout])` using only standard ONNX
 // ops: an `ONNXReshapeOp` that flattens a single-element addend to <1xT>
 // followed by an `ONNXExpandOp` that broadcasts to <Cout xT>. Used by
-// FuseAddConvQDQZeroBiasPattern.
+// FuseAddConvQDQBiasPattern.
 //   $0 = addend_dq result Value (the DequantizeLinear output)
 //   $1 = Conv weight (provides Cout and the float element type T)
 def buildBroadcastBiasViaReshapeExpand : NativeCodeCall<
@@ -189,12 +189,25 @@ def HasNoneType : Constraint<CPred<"mlir::isa<NoneType>($0.getType())">>;
 
 def NotNoneType : Constraint<CPred<"!mlir::isa<NoneType>(($0.getType()))">>;
 
-def IsEffectivelyZeroBias : Constraint<
-    CPred<"onnx_mlir::isEffectivelyZeroBias($0)">,
-    "is a bias that is semantically zero (constant or DQ of zero with zp 0)">;
+def IsNoneOrEffectivelyZeroBias : Constraint<
+    CPred<"onnx_mlir::isNoneOrEffectivelyZeroBias($0)">,
+    "is a bias that is either none or semantically zero">;
+
+def WeightHasStaticCout : Constraint<
+    CPred<"mlir::isa<ShapedType>($0.getType()) && "
+          "mlir::cast<ShapedType>($0.getType()).hasRank() && "
+          "mlir::cast<ShapedType>($0.getType()).getRank() > 0 && "
+          "!mlir::cast<ShapedType>($0.getType()).isDynamicDim(0)">,
+    "Conv weight has a ranked type with a static Cout (dim 0)">;
+
+def IsDequantQuantSame : Constraint<
+    CPred<"onnx_mlir::isDequantQuantSame("
+          "$0.getDefiningOp<ONNXDequantizeLinearOp>(), "
+          "$1.getDefiningOp<ONNXQuantizeLinearOp>())">,
+    "Q -> DQ pair has matching scale, zero-point, axis and block size">;
 
 // Whether the bound value is an ONNXConstantOp containing exactly one
-// element (any rank). Used to gate FuseAddConvQDQZeroBiasPattern, whose
+// element (any rank). Used to gate FuseAddConvQDQBiasPattern, whose
 // rewrite reshapes the addend to a 1-D length-1 tensor before broadcasting
 // across the Conv's output channels.
 def IsSingleElementONNXConstant : Constraint<
@@ -428,37 +441,35 @@ def FuseAddConvPattern: Pat<
    (AllDimsFromAxisToEndAre<1, 1>:$y)]
 >;
 
-// QDQ-aware variants of FuseAddConvNullBiasPattern.
+// QDQ-aware variant of FuseAddConvNullBiasPattern.
 //
-// Both `FuseAddConvQDQNullBiasPattern` and `FuseAddConvQDQZeroBiasPattern`
-// fold an `Add` of a fully-constant `DequantizeLinear` chain (with single-
-// element q-value, scale, and zero-point) into the bias of a preceding
-// `Conv` whose result is wrapped in an identity Q -> DQ pair. The new Conv
-// bias is built using only standard ONNX ops:
+// `FuseAddConvQDQBiasPattern` folds an `Add` of a fully-constant
+// `DequantizeLinear` chain (with single-element q-value, scale, and
+// zero-point) into the bias of a preceding `Conv` whose result is wrapped
+// in an identity Q -> DQ pair. The original Conv bias must be either
+// `none` or semantically zero (a plain dense<0> constant, or a
+// `DequantizeLinear` of constant-zero with zp 0). With such a bias
+// `q(conv(x,w) + 0) == q(conv(x,w))`, so the rewrite is numerically
+// equivalent to the original `dq(q(conv(x,w))) + addend_value`.
+//
+// The new Conv bias is built using only standard ONNX ops:
 //   `Expand(Reshape(DQ(constQ, constS, constZP), [1]), [Cout])`
-// which broadcasts the splat addend value across the `Cout` output channels
-// of the Conv weight. Downstream constant folding is expected to collapse
-// this chain to a plain `<Cout xT>` constant.
+// which broadcasts the splat addend value across the `Cout` output
+// channels of the Conv weight. Downstream constant folding is expected to
+// collapse this chain to a plain `<Cout xT>` constant.
 //
-// The two patterns differ only in the constraint on the original Conv bias:
-//   - `Null` matches a `none`-typed bias (no bias at all).
-//   - `Zero` matches a present-but-effectively-zero bias (a plain dense<0>
-//     constant, or a `DequantizeLinear` of constant-zero with zp 0). With a
-//     zero original bias `q(conv(x,w) + 0) == q(conv(x,w))`, so the rewrite
-//     is numerically equivalent to the original `dq(q(conv(x,w))) +
-//     addend_value`.
-//
-// The identity Q -> DQ check is enforced via explicit `Equal` constraints on
-// the bound scale/zero_point/axis/block_size symbols between Q and DQ.
+// The identity Q -> DQ check is enforced by `IsDequantQuantSame`, which
+// compares scale and zero-point by value (not just SSA equality) and
+// gates axis / block_size on whether the params are scalar.
 
-def FuseAddConvQDQNullBiasPattern: Pattern<
+def FuseAddConvQDQBiasPattern: Pattern<
   (ONNXAddOp:$res
-    (ONNXDequantizeLinearOp
+    (ONNXDequantizeLinearOp:$dq
       (ONNXQuantizeLinearOp:$q
          (ONNXConvOp
             $x, $w, $b, $auto_pad, $dilation, $group, $kernel_shape, $pads, $strides),
          $q_scale, $q_zp, $q_axis, $q_bs, $odt, $sat),
-      $dq_scale, $dq_zp, $dq_axis, $dq_bs),
+      $_, $_, $_, $_),
     (ONNXDequantizeLinearOp:$addend_dq
        (ONNXConstantOp:$addend_q $_, $addend_q_attr, $_, $_, $_, $_, $_, $_),
        (ONNXConstantOp:$addend_scale $_, $addend_scale_attr, $_, $_, $_, $_, $_, $_),
@@ -475,58 +486,15 @@ def FuseAddConvQDQNullBiasPattern: Pattern<
        (returnType $q)),
     $q_scale, $q_zp, $q_axis, $q_bs)],
   [(HasShapeAndRank:$res),
-   (HasNoneType $b),
+   (IsNoneOrEffectivelyZeroBias $b),
+   (WeightHasStaticCout $w),
    (AttributeIsNotNull:$addend_q_attr),
    (AttributeIsNotNull:$addend_scale_attr),
    (AttributeIsNotNull:$addend_zp_attr),
    (IsSingleElementONNXConstant $addend_q),
    (IsSingleElementONNXConstant $addend_scale),
    (IsSingleElementONNXConstant $addend_zp),
-   // Enforce identity Q -> DQ on the conv output:
-   (Equal $q_scale, $dq_scale),
-   (Equal $q_zp, $dq_zp),
-   (Equal $q_axis, $dq_axis),
-   (Equal $q_bs, $dq_bs),
-   ]
->;
-
-def FuseAddConvQDQZeroBiasPattern: Pattern<
-  (ONNXAddOp:$res
-    (ONNXDequantizeLinearOp
-      (ONNXQuantizeLinearOp:$q
-         (ONNXConvOp
-            $x, $w, $b, $auto_pad, $dilation, $group, $kernel_shape, $pads, $strides),
-         $q_scale, $q_zp, $q_axis, $q_bs, $odt, $sat),
-      $dq_scale, $dq_zp, $dq_axis, $dq_bs),
-    (ONNXDequantizeLinearOp:$addend_dq
-       (ONNXConstantOp:$addend_q $_, $addend_q_attr, $_, $_, $_, $_, $_, $_),
-       (ONNXConstantOp:$addend_scale $_, $addend_scale_attr, $_, $_, $_, $_, $_, $_),
-       (ONNXConstantOp:$addend_zp $_, $addend_zp_attr, $_, $_, $_, $_, $_, $_),
-       $_, $_)),
-  [(ONNXDequantizeLinearOp
-    (ONNXQuantizeLinearOp:$new_q
-       (ONNXConvOp
-          $x, $w,
-          // new_b: Expand(Reshape(addend_dq, [1]), [Cout]).
-          (buildBroadcastBiasViaReshapeExpand $addend_dq, $w),
-          $auto_pad, $dilation, $group, $kernel_shape, $pads, $strides),
-       $q_scale, $q_zp, $q_axis, $q_bs, $odt, $sat,
-       (returnType $q)),
-    $q_scale, $q_zp, $q_axis, $q_bs)],
-  [(HasShapeAndRank:$res),
-   (NotNoneType $b),
-   (IsEffectivelyZeroBias $b),
-   (AttributeIsNotNull:$addend_q_attr),
-   (AttributeIsNotNull:$addend_scale_attr),
-   (AttributeIsNotNull:$addend_zp_attr),
-   (IsSingleElementONNXConstant $addend_q),
-   (IsSingleElementONNXConstant $addend_scale),
-   (IsSingleElementONNXConstant $addend_zp),
-   // Enforce identity Q -> DQ on the conv output:
-   (Equal $q_scale, $dq_scale),
-   (Equal $q_zp, $dq_zp),
-   (Equal $q_axis, $dq_axis),
-   (Equal $q_bs, $dq_bs),
+   (IsDequantQuantSame $dq, $q),
    ]
 >;
 

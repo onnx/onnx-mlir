@@ -262,7 +262,9 @@ static llvm::cl::opt<bool, true> enableUnsafeMathOptimizationsOpt(
     "unsafe-math-optimizations",
     llvm::cl::desc(
         "Enable ONNX-level optimizations that may not be fully numerically "
-        "equivalent regarding to floating-point arithmetic (default=true)."),
+        "equivalent due to continuous to quantized conversion (like "
+        "quantization operations or floating-point arithmetic) "
+        "(default=true)."),
     llvm::cl::location(enableUnsafeMathOptimizations), llvm::cl::init(true),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
