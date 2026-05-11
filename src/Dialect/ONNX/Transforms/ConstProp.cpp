@@ -176,8 +176,9 @@ bool isNotDisabled(StringRef name) {
 }
 
 ElementsAttr getConstValueElements(Value constValue) {
-  ONNXConstantOp constOp = cast<ONNXConstantOp>(constValue.getDefiningOp());
-  return mlir::cast<ElementsAttr>(constOp.getValueAttr());
+  ElementsAttr elements = getDenseOrDisposableConstLikeElements(constValue);
+  assert(elements && "getConstValueElements: value is not a dense constant");
+  return elements;
 }
 
 // Creates ONNXConstantOp with the location from replacingValue.
@@ -207,9 +208,11 @@ using EnableInteger =
 template <typename T>
 using EnableFloatingPoint = std::enable_if_t<std::is_floating_point_v<T>>;
 
-/// Checks whether a variadic value is produced by dense ONNXConstantOps.
+/// Checks whether all values in a variadic operand are dense ConstantLike.
 bool isVariadicOperandFromDenseONNXConstantOp(ValueRange operands) {
-  return llvm::all_of(operands, [](Value v) { return isDenseONNXConstant(v); });
+  return llvm::all_of(operands, [](Value v) {
+    return static_cast<bool>(getDenseOrDisposableConstLikeElements(v));
+  });
 }
 
 Value ConstZeroTensor(
