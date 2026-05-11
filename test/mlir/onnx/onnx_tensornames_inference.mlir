@@ -155,3 +155,49 @@ func.func @conv_double_shielding(%arg0: tensor<1x320x64x64xf32> {onnx.name = "in
 // CHECK-SAME: ["conv", ["Transpose", [1, 320, 64, 64], [0, 2, 3, 1], [1, 64, 64, 320]]]]
 // CHECK-NEXT: onnx.Transpose
 // CHECK-SAME: ResultNames = ["conv"]
+
+func.func @tile_result(%arg0: tensor<1x3xf32> {onnx.name = "input"}) -> tensor<2x6xf32> {
+  %0 = onnx.Constant dense<[2, 2]> : tensor<2xi64>
+  %1 = "onnx.Tile"(%arg0, %0) : (tensor<1x3xf32>, tensor<2xi64>) -> tensor<2x6xf32>
+  return %1 : tensor<2x6xf32>
+}
+
+// CHECK-LABEL: @tile_result
+// CHECK: onnx.Tile
+// CHECK-SAME: ResultNames = [
+// CHECK-SAME: ["input", ["Tile", [1, 3], [2, 2], [2, 6]]]]
+
+func.func @tile_operand(%arg0: tensor<1x4xf32>) -> tensor<3x4xf32> {
+  %0 = "onnx.Identity"(%arg0) : (tensor<1x4xf32>) -> tensor<1x4xf32>
+  %1 = onnx.Constant dense<[3, 1]> : tensor<2xi64>
+  %2 = "onnx.Tile"(%0, %1) {ResultNames = ["output"]} : (tensor<1x4xf32>, tensor<2xi64>) -> tensor<3x4xf32>
+  return %2 : tensor<3x4xf32>
+}
+
+// CHECK-LABEL: @tile_operand
+// CHECK: onnx.Identity
+// CHECK-SAME: ResultNames = [
+// CHECK-SAME: ["output", ["Slice", [3, 4], [0, 0], [1, 4], [0, 1], [1, 4]]]]
+// CHECK-NEXT: onnx.Constant dense
+// CHECK-NEXT: onnx.Tile
+// CHECK-SAME: ResultNames = ["output"]
+
+func.func @tile_reshape(%arg0: tensor<1x6xf32> {onnx.name = "input"}) -> tensor<4x12xf32> {
+  %shape = onnx.Constant dense<[1, 2, 3]> : tensor<3xi64>
+  %1 = "onnx.Reshape"(%arg0, %shape) {allowzero = 0 : si64} : (tensor<1x6xf32>, tensor<3xi64>) -> tensor<1x2x3xf32>
+  %repeats = onnx.Constant dense<[4, 1, 4]> : tensor<3xi64>
+  %2 = "onnx.Tile"(%1, %repeats) : (tensor<1x2x3xf32>, tensor<3xi64>) -> tensor<4x2x12xf32>
+  %shape2 = onnx.Constant dense<[4, 12, -1]> : tensor<3xi64>
+  %3 = "onnx.Reshape"(%2, %shape2) {allowzero = 0 : si64} : (tensor<4x2x12xf32>, tensor<3xi64>) -> tensor<4x12x2xf32>
+  %shape3 = onnx.Constant dense<[4, 12]> : tensor<2xi64>
+  %4 = "onnx.Reshape"(%2, %shape3) {allowzero = 0 : si64} : (tensor<4x2x12xf32>, tensor<2xi64>) -> tensor<4x12xf32>
+  return %4 : tensor<4x12xf32>
+}
+
+// CHECK-LABEL: @tile_reshape
+// CHECK: onnx.Reshape
+// CHECK-SAME: ResultNames = [
+// CHECK-SAME: ["input", ["Reshape", [1, 6], [1, 2, 3]]]]
+// CHECK:      onnx.Tile
+// CHECK-SAME: ResultNames = [
+// CHECK-SAME: ["input", ["Reshape", [1, 6], [1, 2, 3]], ["Tile", [1, 2, 3], [4, 1, 4], [4, 2, 12]]]]
