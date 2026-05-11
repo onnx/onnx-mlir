@@ -65,7 +65,7 @@ endfunction()
 set(TEST_LINK_LIBS rapidcheck ModelLib)
 
 # Conv2D
-set(TestConvNNPA_instruction zdnn_conv2d)
+set(TestConvNNPA_instruction "zdnn_conv2d,zdnn_matmul_op,zdnnx_matmul_bcast_op")
 set(TestConvNNPA_data_range -0.1,0.1)
 # Automatically set following config when using --maccel=NNPA
 # set(TestConvNNPA_config "-dim=static -dilation=1 -padding=valid_upper")

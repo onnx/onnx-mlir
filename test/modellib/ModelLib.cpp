@@ -20,6 +20,7 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Runtime/OMTensorHelper.hpp"
 #include "test/modellib/ModelLib.hpp"
+#include <sstream>
 
 using namespace mlir;
 
@@ -83,17 +84,34 @@ bool ModelLibBuilder::checkInstructionFromEnv(
 bool ModelLibBuilder::checkInstruction(const std::string instructionName) {
   if (instructionName.empty())
     return true;
+
+  // Split by comma and check each instruction
   DynamicLibraryHandleType sharedLibraryHandle = exec->getSharedLibraryHandle();
+  std::stringstream ss(instructionName);
+  std::string instruction;
+  // Iterate over each comma separated instructions, if any.
+  while (std::getline(ss, instruction, ',')) {
+    // Trim whitespace
+    size_t start = instruction.find_first_not_of(" \t");
+    size_t end = instruction.find_last_not_of(" \t");
+    if (start != std::string::npos && end != std::string::npos) {
+      instruction = instruction.substr(start, end - start + 1);
+    }
+    if (!instruction.empty()) {
 #if defined(_WIN32)
-  void *addr = sharedLibraryHandle.getAddressOfSymbol(instructionName.c_str());
+      void *addr = sharedLibraryHandle.getAddressOfSymbol(instruction.c_str());
 #else
-  void *addr = dlsym(sharedLibraryHandle, instructionName.c_str());
+      void *addr = dlsym(sharedLibraryHandle, instruction.c_str());
 #endif
-  if (!addr) {
-    printf("%s not found.\n", instructionName.c_str());
-    return false;
+      if (addr) {
+        printf("Found instruction: %s\n", instruction.c_str());
+        return true;
+      }
+    }
   }
-  return true;
+
+  printf("None of the instructions found: %s\n", instructionName.c_str());
+  return false;
 }
 
 bool ModelLibBuilder::run(bool debug) {
@@ -208,6 +226,8 @@ bool ModelLibBuilder::areCloseFloat(const OMTensor *res, const OMTensor *ref,
     return false;
   float rtol = getenv("TEST_RTOL") ? atof(getenv("TEST_RTOL")) : defaultRtol;
   float atol = getenv("TEST_ATOL") ? atof(getenv("TEST_ATOL")) : defaultAtol;
+  if (rtol != defaultRtol || atol != defaultAtol)
+    printf("RTOL and ATOL from env, with %f and %f values\n", rtol, atol);
   return omTensorAreTwoOmtsClose<float>(res, ref, rtol, atol);
 }
 
