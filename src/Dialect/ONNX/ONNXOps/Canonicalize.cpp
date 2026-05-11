@@ -48,6 +48,11 @@
 // Populated by configureBatchNormCanonicalization().
 static bool disableBatchNormDecompose = false;
 
+// Populated by configureUnsafeMathCanonicalization(). Gates ONNX
+// canonicalization patterns whose numerical equivalence relies on
+// fast/unsafe math assumptions.
+static bool enableUnsafeMath = true;
+
 using namespace mlir;
 using namespace onnx_mlir;
 
@@ -3702,8 +3707,10 @@ void ONNXAddOp::getCanonicalizationPatterns(
   results.insert<FuseGemmFollowedByAddition>(context);
   results.insert<FuseAddConvPattern>(context);
   results.insert<FuseAddConvNullBiasPattern>(context);
-  results.insert<FuseAddConvQDQNullBiasPattern>(context);
-  results.insert<FuseAddConvQDQZeroBiasPattern>(context);
+  if (enableUnsafeMath) {
+    results.insert<FuseAddConvQDQNullBiasPattern>(context);
+    results.insert<FuseAddConvQDQZeroBiasPattern>(context);
+  }
   results.insert<BinaryOpBroadcastAxisPattern<ONNXAddOp>>(context);
   results.insert<PropagateScalarConstantExpandPattern<ONNXAddOp>>(context);
   results.insert<PropagateScaleIntoLayerNormPattern<ONNXLayerNormalizationOp>>(
@@ -4087,4 +4094,9 @@ void ONNXDequantizeLinearOp::getCanonicalizationPatterns(
 void onnx_mlir::configureBatchNormCanonicalization(
     bool disableBatchNormDecomposeOption) {
   disableBatchNormDecompose = disableBatchNormDecomposeOption;
+}
+
+void onnx_mlir::configureUnsafeMathCanonicalization(
+    bool enableUnsafeMathOptimizations) {
+  enableUnsafeMath = enableUnsafeMathOptimizations;
 }

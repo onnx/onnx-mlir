@@ -16,6 +16,9 @@
 // called. The idea is to keep our code as free of "rogue" global options used
 // in random places in the code.
 //
+// Modifications (c) Copyright 2026 Advanced Micro Devices, Inc. or its
+// affiliates
+//
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Conversion/Passes.h"
@@ -63,6 +66,7 @@ void configurePasses() {
   configureConstPropONNXToONNXPass(onnxConstPropRoundFPToInt,
       onnxConstPropExpansionBound, onnxConstPropDisablePatterns,
       disableConstantProp);
+  configureUnsafeMathCanonicalization(enableUnsafeMathOptimizations);
 #ifdef ONNX_MLIR_ENABLE_KRNL
   configureOnnxToKrnlLoweringPass(optReport == OptReport::Parallel,
       enableParallel, parallelizeOps, optReport == OptReport::Simd,
@@ -238,6 +242,7 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
         enableConvTranspose1dDecomposeToPhasedConv;
     opts.disableBatchNormDecompose = disableBatchNormDecompose;
     opts.disableRecomposeOption = disableRecomposeOption;
+    opts.enableUnsafeMathOptimizations = enableUnsafeMathOptimizations;
     opts.enableONNXHybridPass = enableONNXHybridPass;
     opts.enableConvOptPass = enableConvOptPass;
     opts.enableSimdDataLayout = enableSimdDataLayout;

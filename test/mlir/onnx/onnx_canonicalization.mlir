@@ -1,5 +1,6 @@
 // Copyright 2026 Advanced Micro Devices, Inc. or its affiliates
 // RUN: onnx-mlir-opt --shape-inference --canonicalize="test-convergence=true" --shape-inference --cse %s -split-input-file -verify-diagnostics | FileCheck %s
+// RUN: onnx-mlir-opt --unsafe-math-optimizations=false --shape-inference --canonicalize="test-convergence=true" --shape-inference --cse %s -split-input-file -verify-diagnostics | FileCheck %s --check-prefix=NO-UNSAFE-MATH
 
 // -----
 
@@ -1103,6 +1104,16 @@ func.func @test_fuse_add_conv_qdq_null_bias(%arg0 : tensor<1x1x4x4xf32>, %arg1 :
 // CHECK:           [[DQ_:%.+]] = "onnx.DequantizeLinear"([[Q_]], {{.*}}, {{.*}})
 // CHECK-NOT:       "onnx.Add"
 // CHECK:           onnx.Return [[DQ_]] : tensor<1x8x4x4xf32>
+
+// With --unsafe-math=false, the QDQ-aware Conv bias fusion must not fire:
+// the original Add (and the surrounding Q -> DQ) is preserved.
+// NO-UNSAFE-MATH-LABEL:  func.func @test_fuse_add_conv_qdq_null_bias
+// NO-UNSAFE-MATH-NOT:       "onnx.Reshape"
+// NO-UNSAFE-MATH-NOT:       "onnx.Expand"
+// NO-UNSAFE-MATH:           "onnx.Conv"({{.*}}, {{.*}}, {{.*}}) {{.*}}: (tensor<1x1x4x4xf32>, tensor<8x1x3x3xf32>, none) -> tensor<{{.*}}>
+// NO-UNSAFE-MATH:           "onnx.QuantizeLinear"
+// NO-UNSAFE-MATH:           "onnx.DequantizeLinear"
+// NO-UNSAFE-MATH:           "onnx.Add"
 }
 
 // -----
@@ -1138,6 +1149,14 @@ func.func @test_fuse_add_conv_qdq_zero_bias(%arg0 : tensor<1x3x4x4xf32>, %arg1 :
 // CHECK:           [[DQ_:%.+]] = "onnx.DequantizeLinear"([[Q_]], {{.*}}, {{.*}})
 // CHECK-NOT:       "onnx.Add"
 // CHECK:           onnx.Return [[DQ_]] : tensor<1x3x4x4xf32>
+
+// NO-UNSAFE-MATH-LABEL:  func.func @test_fuse_add_conv_qdq_zero_bias
+// NO-UNSAFE-MATH-NOT:       "onnx.Reshape"
+// NO-UNSAFE-MATH-NOT:       "onnx.Expand"
+// NO-UNSAFE-MATH:           "onnx.Conv"
+// NO-UNSAFE-MATH:           "onnx.QuantizeLinear"
+// NO-UNSAFE-MATH:           "onnx.DequantizeLinear"
+// NO-UNSAFE-MATH:           "onnx.Add"
 }
 
 // -----
@@ -1170,6 +1189,14 @@ func.func @test_fuse_add_conv_qdq_zero_const_bias(%arg0 : tensor<1x1x28x28xf32>,
 // CHECK:           [[DQ_:%.+]] = "onnx.DequantizeLinear"([[Q_]], {{.*}}, {{.*}})
 // CHECK-NOT:       "onnx.Add"
 // CHECK:           onnx.Return [[DQ_]] : tensor<1x8x28x28xf32>
+
+// NO-UNSAFE-MATH-LABEL:  func.func @test_fuse_add_conv_qdq_zero_const_bias
+// NO-UNSAFE-MATH-NOT:       "onnx.Reshape"
+// NO-UNSAFE-MATH-NOT:       "onnx.Expand"
+// NO-UNSAFE-MATH:           "onnx.Conv"
+// NO-UNSAFE-MATH:           "onnx.QuantizeLinear"
+// NO-UNSAFE-MATH:           "onnx.DequantizeLinear"
+// NO-UNSAFE-MATH:           "onnx.Add"
 }
 
 // -----

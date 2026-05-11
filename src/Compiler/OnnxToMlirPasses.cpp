@@ -130,6 +130,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   // this function.
 
   configureBatchNormCanonicalization(opts.disableBatchNormDecompose);
+  configureUnsafeMathCanonicalization(opts.enableUnsafeMathOptimizations);
 
   if (!donotScrubDisposableElementsAttr)
     pm.addInstrumentation(
