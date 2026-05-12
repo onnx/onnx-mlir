@@ -70,7 +70,7 @@ void addXmcMlirPasses(mlir::OpPassManager &pm, OnnxToMlirOptions opts) {
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvertToChannelLastPass());
   if (opts.enableMatmulToConv)
     pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createConvertMatMulToXFEConvPass());
+        onnx_mlir::createConvertMatMulToXFEConvPass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createONNXTransposeOptimizationPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
