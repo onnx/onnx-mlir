@@ -123,8 +123,8 @@ static Value createFloatSplatConst(PatternRewriter &rewriter, Location loc,
     double value, FloatType elementType, ArrayRef<int64_t> referenceShape) {
   APFloat apVal(value);
   bool losesInfo = false;
-  apVal.convert(elementType.getFloatSemantics(),
-      APFloat::rmNearestTiesToEven, &losesInfo);
+  apVal.convert(elementType.getFloatSemantics(), APFloat::rmNearestTiesToEven,
+      &losesInfo);
   auto constType = tosa::reduceAxisToOne(referenceShape, elementType);
   auto constAttr = DenseElementsAttr::get(constType, apVal);
   return mlir::tosa::ConstOp::create(rewriter, loc, constType, constAttr);
@@ -156,16 +156,17 @@ public:
     Value inner;
     if (approximate == "none") {
       // y = 0.5 * x * (1 + erf(x / sqrt(2)))
-      Value invSqrt2 = createFloatSplatConst(rewriter, loc,
-          0.70710678118654752440, elementType, shape);
+      Value invSqrt2 = createFloatSplatConst(
+          rewriter, loc, 0.70710678118654752440, elementType, shape);
       Value scaled = tosaBuilder.mul(x, invSqrt2);
-      inner = mlir::tosa::ErfOp::create(rewriter, loc, scaled.getType(), scaled);
+      inner =
+          mlir::tosa::ErfOp::create(rewriter, loc, scaled.getType(), scaled);
     } else if (approximate == "tanh") {
       // y = 0.5 * x * (1 + tanh(sqrt(2/pi) * (x + 0.044715 * x^3)))
-      Value coeff = createFloatSplatConst(
-          rewriter, loc, 0.044715, elementType, shape);
-      Value sqrt2OverPi = createFloatSplatConst(rewriter, loc,
-          0.79788456080286535588, elementType, shape);
+      Value coeff =
+          createFloatSplatConst(rewriter, loc, 0.044715, elementType, shape);
+      Value sqrt2OverPi = createFloatSplatConst(
+          rewriter, loc, 0.79788456080286535588, elementType, shape);
       Value xSquared = tosaBuilder.mul(x, x);
       Value xCubed = tosaBuilder.mul(xSquared, x);
       Value coeffXCubed = tosaBuilder.mul(coeff, xCubed);
@@ -378,9 +379,8 @@ void populateLoweringONNXElementwiseOpToTOSAPattern(ConversionTarget &target,
   patterns.insert<ONNXElementwiseUnaryOpLoweringToTOSA<ONNXNegOp>,
       ONNXBinaryElementwiseOpLoweringToTOSA<ONNXAddOp, mlir::tosa::AddOp>,
       ONNXBinaryElementwiseOpLoweringToTOSA<ONNXSubOp, mlir::tosa::SubOp>,
-      ONNXSinOpLoweringToTOSA, ONNXCosOpLoweringToTOSA,
-      ONNXErfOpLoweringToTOSA, ONNXTanhOpLoweringToTOSA,
-      ONNXGeluOpLoweringToTOSA,
+      ONNXSinOpLoweringToTOSA, ONNXCosOpLoweringToTOSA, ONNXErfOpLoweringToTOSA,
+      ONNXTanhOpLoweringToTOSA, ONNXGeluOpLoweringToTOSA,
       ONNXFloorOpLoweringToTOSA, ONNXReluOpLoweringToTOSA,
       ONNXClipOpLoweringToTOSA, ONNXDivOpLoweringToTOSA>(typeConverter, ctx);
 }
