@@ -32,6 +32,10 @@ include "src/IR/AttrBase.td"
 // ONNX Ops to assist lowering of ONNX.
 //===----------------------------------------------------------------------===//
 
+def TensorOrMemref: AnyTypeOf<[AnyMemRef, AnyTensor], "", "::mlir::ShapedType">;
+
+def TensorOrMemrefOrNone: AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>;
+
 /*
   Note: each operation ONNXxxxOp that interact with shape helper should have
   the following def.
@@ -136,14 +140,14 @@ def ONNXCustomOp:ONNX_Op<"Custom",
     added.
   }];
 
-  let arguments = (ins Variadic<AnyTypeOf<[AnyTensor, AnyMemRef, NoneType]>>:$inputs,
+  let arguments = (ins Variadic<TensorOrMemrefOrNone>:$inputs,
         StrAttr:$function_name,
         // Attributs for shape inference
         OptionalAttr<TypeAttr>:$output_element_type,
         OptionalAttr<StrAttr>:$shape_infer_pattern,
         OptionalAttr<I64ArrayAttr >:$inputs_for_infer
         );
-  let results = (outs Variadic<AnyTypeOf<[AnyTensor, AnyMemRef, NoneType]>>:$outputs);
+  let results = (outs Variadic<TensorOrMemrefOrNone>:$outputs);
 
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
@@ -186,9 +190,9 @@ def ONNXDimOp : ONNX_Op<"Dim",
     This operation is not part of the standard and was added to assist onnx-mlir.
   }];
 
-  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$data,
+  let arguments = (ins AnyTypeOf<[TensorOrMemRef<[UI8]>, TensorOrMemRef<[UI16]>, TensorOrMemRef<[UI32]>, TensorOrMemRef<[UI64]>, TensorOrMemRef<[I8]>, TensorOrMemRef<[I16]>, TensorOrMemRef<[I32]>, TensorOrMemRef<[I64]>, TensorOrMemRef<[BF16]>, TensorOrMemRef<[F16]>, TensorOrMemRef<[F32]>, TensorOrMemRef<[F64]>, TensorOrMemRef<[StringType]>, TensorOrMemRef<[I1]>, TensorOrMemRef<[Complex<F32>]>, TensorOrMemRef<[Complex<F64>]>]>:$data,
                        DefaultValuedAttr<SI64Attr, "0">:$axis);
-  let results = (outs TensorOf<[I64]>:$dim);
+  let results = (outs TensorOrMemRef<[I64]>:$dim);
   let hasCanonicalizer = 1;
   let hasVerifier = 1;
   let extraClassDefinition = [{
@@ -225,7 +229,7 @@ def ONNXDimGroupOp : ONNX_Op<"DimGroup"> {
     This operation is not part of the standard and was added to assist onnx-mlir.
   }];
 
-  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$data,
+  let arguments = (ins AnyTypeOf<[TensorOrMemRef<[UI8]>, TensorOrMemRef<[UI16]>, TensorOrMemRef<[UI32]>, TensorOrMemRef<[UI64]>, TensorOrMemRef<[I8]>, TensorOrMemRef<[I16]>, TensorOrMemRef<[I32]>, TensorOrMemRef<[I64]>, TensorOrMemRef<[BF16]>, TensorOrMemRef<[F16]>, TensorOrMemRef<[F32]>, TensorOrMemRef<[F64]>, TensorOrMemRef<[StringType]>, TensorOrMemRef<[I1]>, TensorOrMemRef<[Complex<F32>]>, TensorOrMemRef<[Complex<F64>]>]>:$data,
                        DefaultValuedAttr<SI64Attr, "0">:$axis,
                        DefaultValuedAttr<SI64Attr, "-1">:$group_id);
 }
@@ -272,10 +276,10 @@ def ONNXLayoutTransformOp:ONNX_Op<"LayoutTransform", [Pure,
 
     This operation is not part of the standard and was added to assist onnx-mlir.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16, F32]>]>:$data,
+  let arguments = (ins AnyTypeOf<[TensorOrMemRef<[F16, F32]>]>:$data,
                        OptionalAttr<AnyAttrOf<[LayoutAttr]>>:$target_layout
   );
-  let results = (outs AnyTypeOf<[TensorOf<[F16, F32]>]>:$output);
+  let results = (outs AnyTypeOf<[TensorOrMemRef<[F16, F32]>]>:$output);
   let builders = [
     OpBuilder<(ins "::mlir::Value":$data, "::mlir::Attribute":$target_layout)>, // Defined layouts.
   ];
@@ -344,7 +348,7 @@ def ONNXPrintSignatureOp:ONNX_Op<"PrintSignature", []> {
     This operation is not part of the standard and was added to assist onnx-mlir.
   }];
 
-  let arguments = (ins StrAttr:$op_name, SI64Attr:$print_data, Variadic<AnyTypeOf<[AnyTensor, NoneType]>>:$input);
+  let arguments = (ins StrAttr:$op_name, SI64Attr:$print_data, Variadic<TensorOrMemrefOrNone>:$input);
 }
 
 //===----------------------------------------------------------------------===//
@@ -405,14 +409,14 @@ def ONNXBatchNormalizationInferenceModeOp: ONNX_Op<"BatchNormalizationInferenceM
     This operation is not part of the standard and was added to assist onnx-mlir.
   }];
 
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
-                       AnyTypeOf<[AnyMemRef, AnyTensor]>:$scale,
-                       AnyTypeOf<[AnyMemRef, AnyTensor]>:$B,
-                       AnyTypeOf<[AnyMemRef, AnyTensor]>:$mean,
-                       AnyTypeOf<[AnyMemRef, AnyTensor]>:$var,
+  let arguments = (ins TensorOrMemref:$X,
+                       TensorOrMemref:$scale,
+                       TensorOrMemref:$B,
+                       TensorOrMemref:$mean,
+                       TensorOrMemref:$var,
                        DefaultValuedAttr<F32Attr, "1e-05">:$epsilon,
                        DefaultValuedAttr<F32Attr, "0.9">:$momentum);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
+  let results = (outs TensorOrMemref:$o_Y);
 
   let hasCanonicalizer = 1;
 
@@ -445,7 +449,7 @@ def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
     This operation is not part of the standard and was added to assist onnx-mlir.
   }];
 
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+  let arguments = (ins TensorOrMemref:$X,
                        DefaultValuedStrAttr<StrAttr, "NOTSET">:$auto_pad,
                        DefaultValuedAttr<SI64Attr, "0">:$ceil_mode,
                        OptionalAttr<I64ArrayAttr>:$dilations,
@@ -453,7 +457,7 @@ def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
                        OptionalAttr<I64ArrayAttr>:$pads,
                        DefaultValuedAttr<SI64Attr, "0">:$storage_order,
                        OptionalAttr<I64ArrayAttr>:$strides);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
+  let results = (outs TensorOrMemref:$o_Y);
 
   let hasCanonicalizer = 1;
   let hasVerifier = 1;
@@ -488,13 +492,13 @@ def ONNXConcatShapeTransposeOp: ONNX_Op<"ConcatShapeTranspose", [Pure,
 
     This operation is not part of the standard and was added to assist onnx-mlir.
   }];
-  let arguments = (ins Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>>:$inputs,
+  let arguments = (ins Variadic<AnyTypeOf<[TensorOrMemRef<[UI8]>, TensorOrMemRef<[UI16]>, TensorOrMemRef<[UI32]>, TensorOrMemRef<[UI64]>, TensorOrMemRef<[I8]>, TensorOrMemRef<[I16]>, TensorOrMemRef<[I32]>, TensorOrMemRef<[I64]>, TensorOrMemRef<[BF16]>, TensorOrMemRef<[F16]>, TensorOrMemRef<[F32]>, TensorOrMemRef<[F64]>, TensorOrMemRef<[StringType]>, TensorOrMemRef<[I1]>, TensorOrMemRef<[Complex<F32>]>, TensorOrMemRef<[Complex<F64>]>]>>:$inputs,
   SI64Attr:$axis,
   OptionalAttr<SI64Attr>:$end,
   DefaultValuedAttr<SI64Attr, "0">:$start,
   OptionalAttr<I64ArrayAttr>:$perm);
-  let results = (outs TensorOf<[I64]>:$shape,
-     AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$transposed);
+  let results = (outs TensorOrMemRef<[I64]>:$shape,
+     AnyTypeOf<[TensorOrMemRef<[UI8]>, TensorOrMemRef<[UI16]>, TensorOrMemRef<[UI32]>, TensorOrMemRef<[UI64]>, TensorOrMemRef<[I8]>, TensorOrMemRef<[I16]>, TensorOrMemRef<[I32]>, TensorOrMemRef<[I64]>, TensorOrMemRef<[BF16]>, TensorOrMemRef<[F16]>, TensorOrMemRef<[F32]>, TensorOrMemRef<[F64]>, TensorOrMemRef<[StringType]>, TensorOrMemRef<[I1]>, TensorOrMemRef<[Complex<F32>]>, TensorOrMemRef<[Complex<F64>]>]>:$transposed);
 
   let extraClassDefinition = [{
     onnx_mlir::ONNXOpShapeHelper * ONNXConcatShapeTransposeOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
@@ -544,9 +548,9 @@ def ONNXShapeTransformOp: ONNX_Op<"ShapeTransform", [Pure,
 
     This operation is not part of the standard and was added to assist onnx-mlir.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F32]>]>:$input,
+  let arguments = (ins AnyTypeOf<[TensorOrMemRef<[F32]>]>:$input,
                        AffineMapAttr:$index_map);
-  let results = (outs AnyTypeOf<[TensorOf<[F32]>]>:$output);
+  let results = (outs AnyTypeOf<[TensorOrMemRef<[F32]>]>:$output);
 
   let extraClassDefinition = [{
     onnx_mlir::ONNXOpShapeHelper * ONNXShapeTransformOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
@@ -617,14 +621,14 @@ def ONNXRMSLayerNormalizationOp:ONNX_Op<"RMSLayerNormalization",
         the shape of `Mean` and `InvStdDev` is `[d[0], ..., d[axis-1], 1, ..., 1]`.
         `Y` and `X` have the same shape.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$X,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$Scale,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, NoneType]>:$B,
+  let arguments = (ins AnyTypeOf<[TensorOrMemRef<[F16]>, TensorOrMemRef<[F32]>, TensorOrMemRef<[F64]>, TensorOrMemRef<[BF16]>]>:$X,
+    AnyTypeOf<[TensorOrMemRef<[F16]>, TensorOrMemRef<[F32]>, TensorOrMemRef<[F64]>, TensorOrMemRef<[BF16]>]>:$Scale,
+    AnyTypeOf<[TensorOrMemRef<[F16]>, TensorOrMemRef<[F32]>, TensorOrMemRef<[F64]>, TensorOrMemRef<[BF16]>, NoneType]>:$B,
     DefaultValuedAttr<SI64Attr, "-1">:$axis,
     DefaultValuedAttr<F32Attr, "1e-05">:$epsilon,
     DefaultValuedAttr<SI64Attr, "1">:$stash_type);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$Y,
-    AnyTypeOf<[TensorOf<[F32]>, TensorOf<[BF16]>, NoneType]>:$InvStdDev);
+  let results = (outs AnyTypeOf<[TensorOrMemRef<[F16]>, TensorOrMemRef<[F32]>, TensorOrMemRef<[F64]>, TensorOrMemRef<[BF16]>]>:$Y,
+    AnyTypeOf<[TensorOrMemRef<[F32]>, TensorOrMemRef<[BF16]>, NoneType]>:$InvStdDev);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 3;
@@ -685,17 +689,17 @@ def ONNXUpsampleAndPadOp : ONNX_Op<"UpsampleAndPad",
     This operation is not part of the standard and was added to assist onnx-mlir.
   }];
 
-  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>,
-                                   TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>,
-                                   TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>,
-                                   TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOrMemRef<[UI8]>, TensorOrMemRef<[UI16]>, TensorOrMemRef<[UI32]>,
+                                   TensorOrMemRef<[UI64]>, TensorOrMemRef<[I8]>, TensorOrMemRef<[I16]>,
+                                   TensorOrMemRef<[I32]>, TensorOrMemRef<[I64]>, TensorOrMemRef<[BF16]>,
+                                   TensorOrMemRef<[F16]>, TensorOrMemRef<[F32]>, TensorOrMemRef<[F64]>]>:$X,
                        OptionalAttr<I64ArrayAttr>:$strides,
                        OptionalAttr<I64ArrayAttr>:$pads);
 
-  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>,
-                                  TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>,
-                                  TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>,
-                                  TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
+  let results = (outs AnyTypeOf<[TensorOrMemRef<[UI8]>, TensorOrMemRef<[UI16]>, TensorOrMemRef<[UI32]>,
+                                  TensorOrMemRef<[UI64]>, TensorOrMemRef<[I8]>, TensorOrMemRef<[I16]>,
+                                  TensorOrMemRef<[I32]>, TensorOrMemRef<[I64]>, TensorOrMemRef<[BF16]>,
+                                  TensorOrMemRef<[F16]>, TensorOrMemRef<[F32]>, TensorOrMemRef<[F64]>]>:$output);
 
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
