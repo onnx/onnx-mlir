@@ -178,6 +178,7 @@ func.func @tile_operand(%arg0: tensor<1x4xf32> {onnx.name = "input"}) -> tensor<
 
 // CHECK-LABEL: @tile_operand
 // CHECK: onnx.Identity
+// CHECK-SAME: ResultNames = [
 // CHECK-SAME: ["output", ["Slice", [3, 4], [0, 0], [1, 4], [0, 1], [1, 4]]]]
 // CHECK-NEXT: onnx.Constant dense
 // CHECK-NEXT: onnx.Tile
