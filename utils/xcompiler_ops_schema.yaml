@@ -216,7 +216,7 @@
     required: true
   type_constraints:
   - type_param: T_in
-    description: Constrain input type to integer and quantized tensor types.
+    description: Constrain input type to integer, float (pre quant-types), and quantized tensor types.
     allowed_types:
     - tensor(uint8)
     - tensor(uint16)
@@ -224,9 +224,10 @@
     - tensor(int16)
     - tensor(int32)
     - tensor(int64)
+    - tensor(float)
     - tensor(quant_QuantizedType)
   - type_param: T_out
-    description: Constrain output type to integer and quantized tensor types. Output dtype may differ from input dtype.
+    description: Constrain output type to integer, float (pre quant-types), and quantized tensor types. Output dtype may differ from input dtype.
     allowed_types:
     - tensor(uint8)
     - tensor(uint16)
@@ -234,6 +235,7 @@
     - tensor(int16)
     - tensor(int32)
     - tensor(int64)
+    - tensor(float)
     - tensor(quant_QuantizedType)
   min_input: 1
   max_input: 1

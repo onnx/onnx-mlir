@@ -147,6 +147,21 @@ func.func @test_qdq_chain(%arg0: tensor<1x3x224x224xf32>, %arg1: tensor<f32>, %a
   return %2 : tensor<1x224x224x3xf32>
 }
 
+// -----
+// Pushing Transpose down through XCOMPILERRequantize so consecutive Transposes
+// can fuse on the producer side. XCOMPILERRequantize is element-wise: only the
+// element type changes, so layout is preserved by the rewrite.
+// CHECK-LABEL: func @test_push_transpose_through_xcompiler_requantize
+func.func @test_push_transpose_through_xcompiler_requantize(%arg0: tensor<1x3x224x224x!quant.uniform<u8:f32, 0.0039215688593685627>>) -> tensor<1x224x224x3x!quant.uniform<u16:f32, 1.5259021893143654E-5>> {
+  // CHECK: %[[REQ:.*]] = "onnx.XCOMPILERRequantize"(%arg0)
+  // CHECK-SAME: (tensor<1x3x224x224x!quant.uniform<u8:f32, 0.0039215688593685627>>) -> tensor<1x3x224x224x!quant.uniform<u16:f32, 1.5259021893143654E-5>>
+  // CHECK: %[[TRANS:.*]] = "onnx.Transpose"(%[[REQ]]) {perm = [0, 2, 3, 1]}
+  // CHECK: return %[[TRANS]]
+  %0 = "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]} : (tensor<1x3x224x224x!quant.uniform<u8:f32, 0.0039215688593685627>>) -> tensor<1x224x224x3x!quant.uniform<u8:f32, 0.0039215688593685627>>
+  %1 = "onnx.XCOMPILERRequantize"(%0) {a_scale = [0.00392156886 : f32], a_zero_point = [0], y_scale = [1.52590219E-5 : f32], y_zero_point = [0]} : (tensor<1x224x224x3x!quant.uniform<u8:f32, 0.0039215688593685627>>) -> tensor<1x224x224x3x!quant.uniform<u16:f32, 1.5259021893143654E-5>>
+  return %1 : tensor<1x224x224x3x!quant.uniform<u16:f32, 1.5259021893143654E-5>>
+}
+
 
 // ============================================================================
 // SECTION 4: Binary Operations - Both Inputs Transposed
