@@ -237,3 +237,38 @@ func.func @zp_overflow_ui4_negative(%arg0: tensor<1x4xui4>) -> tensor<1x4xui4> {
 
 // skipped: @div_by_zero_fold_into_dq
 // reason: redundant
+
+// Multi-element splat constant should still fold (getConstant accepts splats of any shape)
+func.func @dq_splat_const_add_update_input(%arg0: tensor<1x4xf32>) -> tensor<1x4xi8> {
+  %0 = onnx.Constant dense<1.000000e+01> : tensor<1x4xf32>
+  %1 = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %2 = onnx.Constant dense<0> : tensor<i8>
+  %3 = "onnx.QuantizeLinear"(%arg0, %1, %2) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x4xf32>, tensor<f32>, tensor<i8>) -> tensor<1x4xi8>
+  %4 = quant.scast %3 : tensor<1x4xi8> to tensor<1x4x!quant.uniform<i8:f32, 5.000000e-01>>
+  %5 = "onnx.Identity"(%4) : (tensor<1x4x!quant.uniform<i8:f32, 5.000000e-01>>) -> tensor<1x4x!quant.uniform<i8:f32, 5.000000e-01>>
+  %6 = "onnx.Add"(%5, %0) : (tensor<1x4x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<1x4xf32>) -> tensor<1x4x!quant.uniform<i8:f32, 0.10000000149011612>>
+  %7 = "onnx.Identity"(%6) : (tensor<1x4x!quant.uniform<i8:f32, 0.10000000149011612>>) -> tensor<1x4x!quant.uniform<i8:f32, 0.10000000149011612>>
+  %8 = quant.scast %7 : tensor<1x4x!quant.uniform<i8:f32, 0.10000000149011612>> to tensor<1x4xi8>
+  return %8 : tensor<1x4xi8>
+}
+
+// CHECK-LABEL: @dq_splat_const_add_update_input
+// CHECK: onnx.Identity
+// CHECK-NEXT: quant.scast
+// CHECK-SAME: tensor<1x4x!quant.uniform<i8:f32, 0.10000000149011612:100>>
+// CHECK-NEXT: quant.scast
+// CHECK-NEXT: onnx.Identity
+
+// Non-splat constant should not fold
+func.func @non_splat_const_add_negative(%arg0: tensor<1x4xi8>) -> tensor<1x4xi8> {
+  %0 = onnx.Constant dense<[1.0, 2.0, 3.0, 4.0]> : tensor<4xf32>
+  %1 = quant.scast %arg0 : tensor<1x4xi8> to tensor<1x4x!quant.uniform<i8:f32, 5.000000e-01>>
+  %2 = "onnx.Identity"(%1) : (tensor<1x4x!quant.uniform<i8:f32, 5.000000e-01>>) -> tensor<1x4x!quant.uniform<i8:f32, 5.000000e-01>>
+  %3 = "onnx.Add"(%2, %0) : (tensor<1x4x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<4xf32>) -> tensor<1x4x!quant.uniform<i8:f32, 0.10000000149011612>>
+  %4 = "onnx.Identity"(%3) : (tensor<1x4x!quant.uniform<i8:f32, 0.10000000149011612>>) -> tensor<1x4x!quant.uniform<i8:f32, 0.10000000149011612>>
+  %5 = quant.scast %4 : tensor<1x4x!quant.uniform<i8:f32, 0.10000000149011612>> to tensor<1x4xi8>
+  return %5 : tensor<1x4xi8>
+}
+
+// CHECK-LABEL: @non_splat_const_add_negative
+// CHECK: onnx.Add

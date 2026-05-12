@@ -43,14 +43,19 @@ struct OnnxToMlirOptions {
   bool enableGatherToSlice = true;
   bool enableRotaryEmbeddingRecompose = false;
   bool enableQDQConstProp = false;
+  bool enableHardSwishDecompose = true;
 
   bool disableBatchNormDecompose = false;
   bool disableRecomposeOption = false;
+  bool enableUnsafeMathOptimizations = true;
   bool enableONNXHybridPass = true;
   bool enableConvOptPass = true;
   bool enableSimdDataLayout = false;
   bool disableSimdOption = false;
   bool enableGAPToReduceMean = true;
+
+  bool enableMatmulAddFusion = true;
+  bool enableMatmulToConv = true;
 
   int onnxOpTransformThreshold = 3;
   bool onnxOpTransformReport = false;

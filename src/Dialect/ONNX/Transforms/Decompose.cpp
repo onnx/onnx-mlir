@@ -4705,7 +4705,7 @@ struct DecomposeONNXToONNXPass
       bool enableGroupQueryAttentionDecompose = true,
       bool enableSplitToSliceDecompose = false, bool enableConcatFuse = true,
       bool enableLstmSeqDecompose = false, bool enableReduceL2Decompose = true,
-      bool enableGatherToSlice = true) {
+      bool enableGatherToSlice = true, bool enableHardSwishDecompose = true) {
     this->target = target;
     this->enableConvTransposeDecompose = enableConvTransposeDecompose;
     this->enableConvTransposeDecomposeToPhasedConv =
@@ -4722,6 +4722,7 @@ struct DecomposeONNXToONNXPass
     this->enableLstmSeqDecompose = enableLstmSeqDecompose;
     this->enableReduceL2Decompose = enableReduceL2Decompose;
     this->enableGatherToSlice = enableGatherToSlice;
+    this->enableHardSwishDecompose = enableHardSwishDecompose;
   }
 
   DecomposeONNXToONNXPass(const DecomposeONNXToONNXPass &pass)
@@ -4745,6 +4746,7 @@ struct DecomposeONNXToONNXPass
     this->enableLstmSeqDecompose = pass.enableLstmSeqDecompose.getValue();
     this->enableReduceL2Decompose = pass.enableReduceL2Decompose.getValue();
     this->enableGatherToSlice = pass.enableGatherToSlice.getValue();
+    this->enableHardSwishDecompose = pass.enableHardSwishDecompose.getValue();
   }
 
   StringRef getArgument() const override { return "decompose-onnx"; }
@@ -4819,6 +4821,11 @@ struct DecomposeONNXToONNXPass
           "Enable decomposition of Gather with scalar index to Slice+Reshape"),
       ::llvm::cl::init(true)};
 
+  Option<bool> enableHardSwishDecompose{*this, "enable-hardswish-decompose",
+      llvm::cl::desc("Enable decomposition of HardSwish into "
+                     "x * HardSigmoid(x) (alpha=1/6, beta=0.5)"),
+      ::llvm::cl::init(true)};
+
   void runOnOperation() final;
 
   typedef PassWrapper<DecomposeONNXToONNXPass, OperationPass<func::FuncOp>>
@@ -4835,7 +4842,8 @@ void DecomposeONNXToONNXPass::runOnOperation() {
       enableGroupNormDecompose, enableMatmulNBitsDecompose,
       enableGroupQueryAttentionDecompose, enableSplitToSliceDecompose,
       enableConcatFuse, enableLstmSeqDecompose, enableReduceL2Decompose,
-      /*disableGenericDecompositions=*/false, enableGatherToSlice);
+      /*disableGenericDecompositions=*/false, enableGatherToSlice,
+      enableHardSwishDecompose);
   patterns.insert<ReplaceCastLikeByCastPattern>(context);
 
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
@@ -4860,7 +4868,8 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
     bool enableMatmulNBitsDecompose, bool enableGroupQueryAttentionDecompose,
     bool enableSplitToSliceDecompose, bool enableConcatFuse,
     bool enableLstmSeqDecompose, bool enableReduceL2Decompose,
-    bool disableGenericDecompositions, bool enableGatherToSlice) {
+    bool disableGenericDecompositions, bool enableGatherToSlice,
+    bool enableHardSwishDecompose) {
   MLIRContext *context = patterns.getContext();
   if (!disableGenericDecompositions)
     populateWithGenerated(patterns);
@@ -4884,8 +4893,9 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
     patterns.insert<onnx_mlir::DecomposeEinsumPattern>(context);
   if (enableConcatFuse)
     patterns.insert<ConcatFusePattern>(context);
-  if (!disableGenericDecompositions) {
+  if (enableHardSwishDecompose)
     patterns.insert<DecomposeHardSwishPattern>(context);
+  if (!disableGenericDecompositions) {
     // Decompose CustomOp FusedMatMul introduced by onnxruntime:
     // https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#com.microsoft.FusedMatMul
     patterns.insert<CustomOpFuseMatMulPattern>(context);
@@ -4942,12 +4952,12 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createDecomposeONNXToONNXPass(
     bool enableMatmulNBitsDecompose, bool enableGroupQueryAttentionDecompose,
     bool enableSplitToSliceDecompose, bool enableConcatFuse,
     bool enableLstmSeqDecompose, bool enableReduceL2Decompose,
-    bool enableGatherToSlice) {
+    bool enableGatherToSlice, bool enableHardSwishDecompose) {
   return std::make_unique<DecomposeONNXToONNXPass>(target,
       enableConvTransposeDecompose, enableConvTransposeDecomposeToPhasedConv,
       enableConvTranspose1dDecomposeToPhasedConv, enableInstanceNormDecompose,
       enableGroupNormDecompose, enableMatmulNBitsDecompose,
       enableGroupQueryAttentionDecompose, enableSplitToSliceDecompose,
       enableConcatFuse, enableLstmSeqDecompose, enableReduceL2Decompose,
-      enableGatherToSlice);
+      enableGatherToSlice, enableHardSwishDecompose);
 }
