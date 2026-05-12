@@ -110,7 +110,7 @@ func.func @matmulinteger_rewrite_from_mul_pattern_in_bert(%arg0: tensor<?x?x768x
 // CHECK-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<5> : tensor<768x768xi8>
 // CHECK-DAG:       [[VAR_4_:%.+]] = onnx.Constant dense<0.00656270096> : tensor<f32>
 // CHECK-DAG:       [[VAR_5_:%.+]] = onnx.Constant dense<0> : tensor<i8>
-// CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.NoValue"() : () -> none
 // CHECK:           [[VAR_Out_:%.+]], [[VAR_RecScale_:%.+]], [[VAR_Offset_:%.+]] = "zhigh.QuantizedStick"([[PARAM_0_]], [[VAR_6_]], [[VAR_6_]]) <{layout = "3DS", quantized_type = "DLFLOAT16", sym_mode = 0 : i64}> : (tensor<?x?x768xf32>, none, none) -> (tensor<?x?x768xf16, #zhigh.layout<{dataLayout = "3DS", quantizedType = "DLFLOAT16"}>>, tensor<f32>, tensor<f32>)
 // CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.Reciprocal"([[VAR_4_]]) : (tensor<f32>) -> tensor<f32>
 // CHECK-DAG:       [[VAR_8_:%.+]] = "onnx.Cast"([[VAR_5_]]) <{saturate = 1 : si64, to = f32}> : (tensor<i8>) -> tensor<f32>
