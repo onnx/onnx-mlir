@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --decompose-onnx="enable-groupqueryattention-cache-slicing=false" %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --decompose-onnx="enable-groupqueryattention-decompose=true enable-groupqueryattention-cache-slicing=false" %s -split-input-file | FileCheck %s
 
 // When enable-groupqueryattention-cache-slicing is false, the cos/sin caches
 // must be passed through to onnx.RotaryEmbedding without any Slice/Reshape/

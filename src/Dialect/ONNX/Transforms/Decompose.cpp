@@ -4957,7 +4957,8 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
     patterns.insert<MicrosoftSkipSimplifiedLayerNorm>(context);
   }
   if (enableGroupQueryAttentionDecompose)
-    patterns.insert<MicrosoftGroupQueryAttention>(context);
+    patterns.insert<MicrosoftGroupQueryAttention>(
+        context, enableGroupQueryAttentionCacheSlicing);
   if (!disableGenericDecompositions)
     patterns.insert<MicrosoftRotaryEmbedding>(context);
   if (enableMatmulNBitsDecompose)
