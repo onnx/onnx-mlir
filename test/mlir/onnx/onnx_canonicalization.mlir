@@ -1,3 +1,4 @@
+// Copyright 2026 Advanced Micro Devices, Inc. or its affiliates
 // RUN: onnx-mlir-opt --shape-inference --canonicalize="test-convergence=true" --shape-inference --cse %s -split-input-file -verify-diagnostics | FileCheck %s
 
 // -----
@@ -1071,6 +1072,361 @@ func.func @test_fuse_add_conv_with_scalar_const(%arg0 : tensor<1x1x28x28xf32>, %
 // CHECK:           [[VAR_3_:%.+]] = "onnx.Add"([[VAR_2_]], [[VAR_0_]]) : (tensor<1x8x28x28xf32>, tensor<f32>) -> tensor<1x8x28x28xf32>
 // CHECK:           onnx.Return [[VAR_3_]] : tensor<1x8x28x28xf32>
 // CHECK:         }
+}
+
+// -----
+
+// Positive: QDQ-aware null-bias fusion with a fully-constant DequantizeLinear
+// addend. Same source/rewrite as `test_fuse_add_conv_qdq_zero_bias` below; the
+// only difference is that the Conv has no bias (`none`-typed) here.
+func.func @test_fuse_add_conv_qdq_null_bias(%arg0 : tensor<1x1x4x4xf32>, %arg1 : tensor<8x1x3x3xf32>) -> tensor<1x8x4x4xf32> {
+    %cst = "onnx.NoValue"() {value} : () -> none
+    %scale = onnx.Constant dense<0.5> : tensor<f32>
+    %zp = onnx.Constant dense<0> : tensor<i8>
+    %0 = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "SAME_UPPER", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], strides = [1, 1]} : (tensor<1x1x4x4xf32>, tensor<8x1x3x3xf32>, none) -> tensor<1x8x4x4xf32>
+    %1 = "onnx.QuantizeLinear"(%0, %scale, %zp) : (tensor<1x8x4x4xf32>, tensor<f32>, tensor<i8>) -> tensor<1x8x4x4xi8>
+    %2 = "onnx.DequantizeLinear"(%1, %scale, %zp) : (tensor<1x8x4x4xi8>, tensor<f32>, tensor<i8>) -> tensor<1x8x4x4xf32>
+    %addend_q = onnx.Constant dense<48> : tensor<1x1x1x1xi8>
+    %addend_scale = onnx.Constant dense<6.250000e-02> : tensor<f32>
+    %addend_zp = onnx.Constant dense<0> : tensor<i8>
+    %addend = "onnx.DequantizeLinear"(%addend_q, %addend_scale, %addend_zp) : (tensor<1x1x1x1xi8>, tensor<f32>, tensor<i8>) -> tensor<1x1x1x1xf32>
+    %3 = "onnx.Add"(%2, %addend) : (tensor<1x8x4x4xf32>, tensor<1x1x1x1xf32>) -> tensor<1x8x4x4xf32>
+    onnx.Return %3 : tensor<1x8x4x4xf32>
+// CHECK-LABEL:  func.func @test_fuse_add_conv_qdq_null_bias
+// CHECK-DAG:       [[EXPAND_SHAPE_:%.+]] = onnx.Constant dense<8> : tensor<1xi64>
+// CHECK-DAG:       [[RESHAPE_SHAPE_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK-DAG:       [[Q_SCALE_:%.+]] = onnx.Constant dense<5.000000e-01> : tensor<f32>
+// CHECK-DAG:       [[Q_ZP_:%.+]] = onnx.Constant dense<0> : tensor<i8>
+// CHECK:           [[ADDEND_DQ_:%.+]] = "onnx.DequantizeLinear"({{.*}}, {{.*}}, {{.*}}) {{.*}}: (tensor<1x1x1x1xi8>, tensor<f32>, tensor<i8>) -> tensor<1x1x1x1xf32>
+// CHECK:           [[RESHAPED_:%.+]] = "onnx.Reshape"([[ADDEND_DQ_]], [[RESHAPE_SHAPE_]]) {{.*}}: (tensor<1x1x1x1xf32>, tensor<1xi64>) -> tensor<1xf32>
+// CHECK:           [[NEW_BIAS_:%.+]] = "onnx.Expand"([[RESHAPED_]], [[EXPAND_SHAPE_]]) : (tensor<1xf32>, tensor<1xi64>) -> tensor<8xf32>
+// CHECK:           [[CONV_:%.+]] = "onnx.Conv"({{.*}}, {{.*}}, [[NEW_BIAS_]]) {{.*}}: (tensor<1x1x4x4xf32>, tensor<8x1x3x3xf32>, tensor<8xf32>) -> tensor<{{.*}}>
+// CHECK:           [[Q_:%.+]] = "onnx.QuantizeLinear"([[CONV_]], [[Q_SCALE_]], [[Q_ZP_]])
+// CHECK:           [[DQ_:%.+]] = "onnx.DequantizeLinear"([[Q_]], [[Q_SCALE_]], [[Q_ZP_]])
+// CHECK-NOT:       "onnx.Add"
+// CHECK:           onnx.Return [[DQ_]] : tensor<1x8x4x4xf32>
+}
+
+// -----
+
+// Positive: QDQ-aware zero-bias fusion. Conv bias is a `DequantizeLinear` of
+// constant-zero (effectively zero regardless of the scale); Add addend is a
+// fully-constant `DequantizeLinear` chain whose q-value lives in
+// `tensor<1x1x1x1xi8>` (single splat element).
+func.func @test_fuse_add_conv_qdq_zero_bias(%arg0 : tensor<1x3x4x4xf32>, %arg1 : tensor<3x3x1x1xf32>) -> tensor<1x3x4x4xf32> {
+    %bq = onnx.Constant dense<0> : tensor<3xi8>
+    %bias_scale = onnx.Constant dense<2.000000e+00> : tensor<f32>
+    %bias_zp = onnx.Constant dense<0> : tensor<i8>
+    %bias = "onnx.DequantizeLinear"(%bq, %bias_scale, %bias_zp) {axis = 1 : si64, block_size = 0 : si64} : (tensor<3xi8>, tensor<f32>, tensor<i8>) -> tensor<3xf32>
+    %scale = onnx.Constant dense<5.000000e-01> : tensor<f32>
+    %zp = onnx.Constant dense<0> : tensor<i8>
+    %0 = "onnx.Conv"(%arg0, %arg1, %bias) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [1, 1], strides = [1, 1]} : (tensor<1x3x4x4xf32>, tensor<3x3x1x1xf32>, tensor<3xf32>) -> tensor<1x3x4x4xf32>
+    %1 = "onnx.QuantizeLinear"(%0, %scale, %zp) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x3x4x4xf32>, tensor<f32>, tensor<i8>) -> tensor<1x3x4x4xi8>
+    %2 = "onnx.DequantizeLinear"(%1, %scale, %zp) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x3x4x4xi8>, tensor<f32>, tensor<i8>) -> tensor<1x3x4x4xf32>
+    %addend_q = onnx.Constant dense<48> : tensor<1x1x1x1xi8>
+    %addend_scale = onnx.Constant dense<6.250000e-02> : tensor<f32>
+    %addend_zp = onnx.Constant dense<0> : tensor<i8>
+    %addend = "onnx.DequantizeLinear"(%addend_q, %addend_scale, %addend_zp) {axis = 1 : si64, block_size = 0 : si64} : (tensor<1x1x1x1xi8>, tensor<f32>, tensor<i8>) -> tensor<1x1x1x1xf32>
+    %3 = "onnx.Add"(%2, %addend) : (tensor<1x3x4x4xf32>, tensor<1x1x1x1xf32>) -> tensor<1x3x4x4xf32>
+    onnx.Return %3 : tensor<1x3x4x4xf32>
+// CHECK-LABEL:  func.func @test_fuse_add_conv_qdq_zero_bias
+// CHECK-DAG:       [[EXPAND_SHAPE_:%.+]] = onnx.Constant dense<3> : tensor<1xi64>
+// CHECK-DAG:       [[RESHAPE_SHAPE_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK-DAG:       [[Q_SCALE_:%.+]] = onnx.Constant dense<5.000000e-01> : tensor<f32>
+// CHECK-DAG:       [[Q_ZP_:%.+]] = onnx.Constant dense<0> : tensor<i8>
+// CHECK:           [[ADDEND_DQ_:%.+]] = "onnx.DequantizeLinear"({{.*}}, {{.*}}, {{.*}}) {{.*}}: (tensor<1x1x1x1xi8>, tensor<f32>, tensor<i8>) -> tensor<1x1x1x1xf32>
+// CHECK:           [[RESHAPED_:%.+]] = "onnx.Reshape"([[ADDEND_DQ_]], [[RESHAPE_SHAPE_]]) {{.*}}: (tensor<1x1x1x1xf32>, tensor<1xi64>) -> tensor<1xf32>
+// CHECK:           [[NEW_BIAS_:%.+]] = "onnx.Expand"([[RESHAPED_]], [[EXPAND_SHAPE_]]) : (tensor<1xf32>, tensor<1xi64>) -> tensor<3xf32>
+// CHECK:           [[CONV_:%.+]] = "onnx.Conv"({{.*}}, {{.*}}, [[NEW_BIAS_]]) {{.*}}: (tensor<1x3x4x4xf32>, tensor<3x3x1x1xf32>, tensor<3xf32>) -> tensor<{{.*}}>
+// CHECK:           [[Q_:%.+]] = "onnx.QuantizeLinear"([[CONV_]], [[Q_SCALE_]], [[Q_ZP_]])
+// CHECK:           [[DQ_:%.+]] = "onnx.DequantizeLinear"([[Q_]], [[Q_SCALE_]], [[Q_ZP_]])
+// CHECK-NOT:       "onnx.Add"
+// CHECK:           onnx.Return [[DQ_]] : tensor<1x3x4x4xf32>
+}
+
+// -----
+
+// Positive: same DQ-of-constants addend, but the Conv bias is a plain
+// `dense<0.0>` constant rather than a `DequantizeLinear` of zero. Both
+// satisfy `IsNoneOrEffectivelyZeroBias`. The addend's q-value is rank-0
+// here (`tensor<i8>`), exercising the rank-agnostic Reshape-to-`[1]` step.
+func.func @test_fuse_add_conv_qdq_zero_const_bias(%arg0 : tensor<1x1x28x28xf32>, %arg1 : tensor<8x1x5x5xf32>) -> tensor<1x8x28x28xf32> {
+    %bias = onnx.Constant dense<0.0> : tensor<8xf32>
+    %scale = onnx.Constant dense<0.5> : tensor<f32>
+    %zp = onnx.Constant dense<0> : tensor<i8>
+    %0 = "onnx.Conv"(%arg0, %arg1, %bias) {auto_pad = "SAME_UPPER", dilations = [1, 1], group = 1 : si64, kernel_shape = [5, 5], strides = [1, 1]} : (tensor<1x1x28x28xf32>, tensor<8x1x5x5xf32>, tensor<8xf32>) -> tensor<1x8x28x28xf32>
+    %1 = "onnx.QuantizeLinear"(%0, %scale, %zp) : (tensor<1x8x28x28xf32>, tensor<f32>, tensor<i8>) -> tensor<1x8x28x28xi8>
+    %2 = "onnx.DequantizeLinear"(%1, %scale, %zp) : (tensor<1x8x28x28xi8>, tensor<f32>, tensor<i8>) -> tensor<1x8x28x28xf32>
+    %addend_q = onnx.Constant dense<2> : tensor<i8>
+    %addend_scale = onnx.Constant dense<1.500000e+00> : tensor<f32>
+    %addend_zp = onnx.Constant dense<0> : tensor<i8>
+    %addend = "onnx.DequantizeLinear"(%addend_q, %addend_scale, %addend_zp) : (tensor<i8>, tensor<f32>, tensor<i8>) -> tensor<f32>
+    %3 = "onnx.Add"(%2, %addend) : (tensor<1x8x28x28xf32>, tensor<f32>) -> tensor<1x8x28x28xf32>
+    onnx.Return %3 : tensor<1x8x28x28xf32>
+// CHECK-LABEL:  func.func @test_fuse_add_conv_qdq_zero_const_bias
+// CHECK-DAG:       [[EXPAND_SHAPE_:%.+]] = onnx.Constant dense<8> : tensor<1xi64>
+// CHECK-DAG:       [[RESHAPE_SHAPE_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK-DAG:       [[Q_SCALE_:%.+]] = onnx.Constant dense<5.000000e-01> : tensor<f32>
+// CHECK-DAG:       [[Q_ZP_:%.+]] = onnx.Constant dense<0> : tensor<i8>
+// CHECK:           [[ADDEND_DQ_:%.+]] = "onnx.DequantizeLinear"({{.*}}, {{.*}}, {{.*}}) {{.*}}: (tensor<i8>, tensor<f32>, tensor<i8>) -> tensor<f32>
+// CHECK:           [[RESHAPED_:%.+]] = "onnx.Reshape"([[ADDEND_DQ_]], [[RESHAPE_SHAPE_]]) {{.*}}: (tensor<f32>, tensor<1xi64>) -> tensor<1xf32>
+// CHECK:           [[NEW_BIAS_:%.+]] = "onnx.Expand"([[RESHAPED_]], [[EXPAND_SHAPE_]]) : (tensor<1xf32>, tensor<1xi64>) -> tensor<8xf32>
+// CHECK:           [[CONV_:%.+]] = "onnx.Conv"({{.*}}, {{.*}}, [[NEW_BIAS_]]) {{.*}}: (tensor<1x1x28x28xf32>, tensor<8x1x5x5xf32>, tensor<8xf32>) -> tensor<{{.*}}>
+// CHECK:           [[Q_:%.+]] = "onnx.QuantizeLinear"([[CONV_]], [[Q_SCALE_]], [[Q_ZP_]])
+// CHECK:           [[DQ_:%.+]] = "onnx.DequantizeLinear"([[Q_]], [[Q_SCALE_]], [[Q_ZP_]])
+// CHECK-NOT:       "onnx.Add"
+// CHECK:           onnx.Return [[DQ_]] : tensor<1x8x28x28xf32>
+}
+
+// -----
+
+// Negative: bias is `DQ(dense<0>, scale, zp != 0)`. dq = (0 - zp) * scale != 0
+// so it is NOT effectively zero -> must NOT fold.
+func.func @test_fuse_add_conv_qdq_dq_zero_q_nonzero_zp_no_rewrite(%arg0 : tensor<1x1x28x28xf32>, %arg1 : tensor<8x1x5x5xf32>) -> tensor<1x8x28x28xf32> {
+    %bq = onnx.Constant dense<0> : tensor<8xi8>
+    %bias_scale = onnx.Constant dense<0.125> : tensor<f32>
+    %bias_zp = onnx.Constant dense<3> : tensor<i8>
+    %bias = "onnx.DequantizeLinear"(%bq, %bias_scale, %bias_zp) : (tensor<8xi8>, tensor<f32>, tensor<i8>) -> tensor<8xf32>
+    %scale = onnx.Constant dense<0.5> : tensor<f32>
+    %zp = onnx.Constant dense<0> : tensor<i8>
+    %0 = "onnx.Conv"(%arg0, %arg1, %bias) {auto_pad = "SAME_UPPER", dilations = [1, 1], group = 1 : si64, kernel_shape = [5, 5], strides = [1, 1]} : (tensor<1x1x28x28xf32>, tensor<8x1x5x5xf32>, tensor<8xf32>) -> tensor<1x8x28x28xf32>
+    %1 = "onnx.QuantizeLinear"(%0, %scale, %zp) : (tensor<1x8x28x28xf32>, tensor<f32>, tensor<i8>) -> tensor<1x8x28x28xi8>
+    %2 = "onnx.DequantizeLinear"(%1, %scale, %zp) : (tensor<1x8x28x28xi8>, tensor<f32>, tensor<i8>) -> tensor<1x8x28x28xf32>
+    %addend_q = onnx.Constant dense<48> : tensor<1x1x1x1xi8>
+    %addend_scale = onnx.Constant dense<6.250000e-02> : tensor<f32>
+    %addend_zp = onnx.Constant dense<0> : tensor<i8>
+    %addend = "onnx.DequantizeLinear"(%addend_q, %addend_scale, %addend_zp) : (tensor<1x1x1x1xi8>, tensor<f32>, tensor<i8>) -> tensor<1x1x1x1xf32>
+    %3 = "onnx.Add"(%2, %addend) : (tensor<1x8x28x28xf32>, tensor<1x1x1x1xf32>) -> tensor<1x8x28x28xf32>
+    onnx.Return %3 : tensor<1x8x28x28xf32>
+// CHECK-LABEL:  func.func @test_fuse_add_conv_qdq_dq_zero_q_nonzero_zp_no_rewrite
+// CHECK:           "onnx.Conv"
+// CHECK:           "onnx.QuantizeLinear"
+// CHECK:           "onnx.DequantizeLinear"
+// CHECK:           "onnx.Add"
+}
+
+// -----
+
+// Negative: bias is `DQ(dense<non-zero>, scale, dense<0>)`. dq != 0 (it's a
+// non-zero per-channel value scaled), so it must NOT fold.
+func.func @test_fuse_add_conv_qdq_dq_nonzero_q_no_rewrite(%arg0 : tensor<1x1x28x28xf32>, %arg1 : tensor<8x1x5x5xf32>) -> tensor<1x8x28x28xf32> {
+    %bq = onnx.Constant dense<1> : tensor<8xi8>
+    %bias_scale = onnx.Constant dense<0.125> : tensor<f32>
+    %bias_zp = onnx.Constant dense<0> : tensor<i8>
+    %bias = "onnx.DequantizeLinear"(%bq, %bias_scale, %bias_zp) : (tensor<8xi8>, tensor<f32>, tensor<i8>) -> tensor<8xf32>
+    %scale = onnx.Constant dense<0.5> : tensor<f32>
+    %zp = onnx.Constant dense<0> : tensor<i8>
+    %0 = "onnx.Conv"(%arg0, %arg1, %bias) {auto_pad = "SAME_UPPER", dilations = [1, 1], group = 1 : si64, kernel_shape = [5, 5], strides = [1, 1]} : (tensor<1x1x28x28xf32>, tensor<8x1x5x5xf32>, tensor<8xf32>) -> tensor<1x8x28x28xf32>
+    %1 = "onnx.QuantizeLinear"(%0, %scale, %zp) : (tensor<1x8x28x28xf32>, tensor<f32>, tensor<i8>) -> tensor<1x8x28x28xi8>
+    %2 = "onnx.DequantizeLinear"(%1, %scale, %zp) : (tensor<1x8x28x28xi8>, tensor<f32>, tensor<i8>) -> tensor<1x8x28x28xf32>
+    %addend_q = onnx.Constant dense<48> : tensor<1x1x1x1xi8>
+    %addend_scale = onnx.Constant dense<6.250000e-02> : tensor<f32>
+    %addend_zp = onnx.Constant dense<0> : tensor<i8>
+    %addend = "onnx.DequantizeLinear"(%addend_q, %addend_scale, %addend_zp) : (tensor<1x1x1x1xi8>, tensor<f32>, tensor<i8>) -> tensor<1x1x1x1xf32>
+    %3 = "onnx.Add"(%2, %addend) : (tensor<1x8x28x28xf32>, tensor<1x1x1x1xf32>) -> tensor<1x8x28x28xf32>
+    onnx.Return %3 : tensor<1x8x28x28xf32>
+// CHECK-LABEL:  func.func @test_fuse_add_conv_qdq_dq_nonzero_q_no_rewrite
+// CHECK:           "onnx.Conv"
+// CHECK:           "onnx.QuantizeLinear"
+// CHECK:           "onnx.DequantizeLinear"
+// CHECK:           "onnx.Add"
+}
+
+// -----
+
+// Negative: existing Conv bias is a constant non-zero tensor -> must NOT fold.
+func.func @test_fuse_add_conv_qdq_nonzero_const_bias_no_rewrite(%arg0 : tensor<1x1x28x28xf32>, %arg1 : tensor<8x1x5x5xf32>) -> tensor<1x8x28x28xf32> {
+    %bias = onnx.Constant dense<0.5> : tensor<8xf32>
+    %scale = onnx.Constant dense<0.5> : tensor<f32>
+    %zp = onnx.Constant dense<0> : tensor<i8>
+    %0 = "onnx.Conv"(%arg0, %arg1, %bias) {auto_pad = "SAME_UPPER", dilations = [1, 1], group = 1 : si64, kernel_shape = [5, 5], strides = [1, 1]} : (tensor<1x1x28x28xf32>, tensor<8x1x5x5xf32>, tensor<8xf32>) -> tensor<1x8x28x28xf32>
+    %1 = "onnx.QuantizeLinear"(%0, %scale, %zp) : (tensor<1x8x28x28xf32>, tensor<f32>, tensor<i8>) -> tensor<1x8x28x28xi8>
+    %2 = "onnx.DequantizeLinear"(%1, %scale, %zp) : (tensor<1x8x28x28xi8>, tensor<f32>, tensor<i8>) -> tensor<1x8x28x28xf32>
+    %addend_q = onnx.Constant dense<48> : tensor<1x1x1x1xi8>
+    %addend_scale = onnx.Constant dense<6.250000e-02> : tensor<f32>
+    %addend_zp = onnx.Constant dense<0> : tensor<i8>
+    %addend = "onnx.DequantizeLinear"(%addend_q, %addend_scale, %addend_zp) : (tensor<1x1x1x1xi8>, tensor<f32>, tensor<i8>) -> tensor<1x1x1x1xf32>
+    %3 = "onnx.Add"(%2, %addend) : (tensor<1x8x28x28xf32>, tensor<1x1x1x1xf32>) -> tensor<1x8x28x28xf32>
+    onnx.Return %3 : tensor<1x8x28x28xf32>
+// CHECK-LABEL:  func.func @test_fuse_add_conv_qdq_nonzero_const_bias_no_rewrite
+// CHECK:           "onnx.Conv"
+// CHECK:           "onnx.QuantizeLinear"
+// CHECK:           "onnx.DequantizeLinear"
+// CHECK:           "onnx.Add"
+}
+
+// -----
+
+// Negative: existing Conv bias is a function argument (non-constant, not
+// provably zero). The IsNoneOrEffectivelyZeroBias constraint guards this.
+func.func @test_fuse_add_conv_qdq_existing_bias_no_rewrite(%arg0 : tensor<1x1x28x28xf32>, %arg1 : tensor<8x1x5x5xf32>, %arg2 : tensor<8xf32>) -> tensor<1x8x28x28xf32> {
+    %scale = onnx.Constant dense<0.5> : tensor<f32>
+    %zp = onnx.Constant dense<0> : tensor<i8>
+    %0 = "onnx.Conv"(%arg0, %arg1, %arg2) {auto_pad = "SAME_UPPER", dilations = [1, 1], group = 1 : si64, kernel_shape = [5, 5], strides = [1, 1]} : (tensor<1x1x28x28xf32>, tensor<8x1x5x5xf32>, tensor<8xf32>) -> tensor<1x8x28x28xf32>
+    %1 = "onnx.QuantizeLinear"(%0, %scale, %zp) : (tensor<1x8x28x28xf32>, tensor<f32>, tensor<i8>) -> tensor<1x8x28x28xi8>
+    %2 = "onnx.DequantizeLinear"(%1, %scale, %zp) : (tensor<1x8x28x28xi8>, tensor<f32>, tensor<i8>) -> tensor<1x8x28x28xf32>
+    %addend_q = onnx.Constant dense<48> : tensor<1x1x1x1xi8>
+    %addend_scale = onnx.Constant dense<6.250000e-02> : tensor<f32>
+    %addend_zp = onnx.Constant dense<0> : tensor<i8>
+    %addend = "onnx.DequantizeLinear"(%addend_q, %addend_scale, %addend_zp) : (tensor<1x1x1x1xi8>, tensor<f32>, tensor<i8>) -> tensor<1x1x1x1xf32>
+    %3 = "onnx.Add"(%2, %addend) : (tensor<1x8x28x28xf32>, tensor<1x1x1x1xf32>) -> tensor<1x8x28x28xf32>
+    onnx.Return %3 : tensor<1x8x28x28xf32>
+// CHECK-LABEL:  func.func @test_fuse_add_conv_qdq_existing_bias_no_rewrite
+// CHECK:           "onnx.Conv"({{.*}}, {{.*}}, %arg2)
+// CHECK:           "onnx.QuantizeLinear"
+// CHECK:           "onnx.DequantizeLinear"
+// CHECK:           "onnx.Add"
+}
+
+// -----
+
+// Negative: ZeroBiasPattern requires a `DequantizeLinear`-of-constants addend;
+// a plain `ONNXConstantOp` addend (with non-None Conv bias) does not match.
+func.func @test_fuse_add_conv_qdq_zero_bias_plain_const_addend_no_rewrite(%arg0 : tensor<1x1x28x28xf32>, %arg1 : tensor<8x1x5x5xf32>) -> tensor<1x8x28x28xf32> {
+    %bias = onnx.Constant dense<0.0> : tensor<8xf32>
+    %scale = onnx.Constant dense<0.5> : tensor<f32>
+    %zp = onnx.Constant dense<0> : tensor<i8>
+    %0 = "onnx.Conv"(%arg0, %arg1, %bias) {auto_pad = "SAME_UPPER", dilations = [1, 1], group = 1 : si64, kernel_shape = [5, 5], strides = [1, 1]} : (tensor<1x1x28x28xf32>, tensor<8x1x5x5xf32>, tensor<8xf32>) -> tensor<1x8x28x28xf32>
+    %1 = "onnx.QuantizeLinear"(%0, %scale, %zp) : (tensor<1x8x28x28xf32>, tensor<f32>, tensor<i8>) -> tensor<1x8x28x28xi8>
+    %2 = "onnx.DequantizeLinear"(%1, %scale, %zp) : (tensor<1x8x28x28xi8>, tensor<f32>, tensor<i8>) -> tensor<1x8x28x28xf32>
+    %3 = onnx.Constant dense<3.0> : tensor<8x1x1xf32>
+    %4 = "onnx.Add"(%2, %3) : (tensor<1x8x28x28xf32>, tensor<8x1x1xf32>) -> tensor<1x8x28x28xf32>
+    onnx.Return %4 : tensor<1x8x28x28xf32>
+// CHECK-LABEL:  func.func @test_fuse_add_conv_qdq_zero_bias_plain_const_addend_no_rewrite
+// CHECK:           "onnx.Conv"
+// CHECK:           "onnx.QuantizeLinear"
+// CHECK:           "onnx.DequantizeLinear"
+// CHECK:           "onnx.Add"
+}
+
+// -----
+
+// Negative: ZeroBiasPattern requires the addend's q-value to be scalar/splat;
+// a non-splat constant cannot be folded to a single bias value.
+func.func @test_fuse_add_conv_qdq_zero_bias_addend_non_splat_no_rewrite(%arg0 : tensor<1x1x28x28xf32>, %arg1 : tensor<8x1x5x5xf32>) -> tensor<1x8x28x28xf32> {
+    %bias = onnx.Constant dense<0.0> : tensor<8xf32>
+    %scale = onnx.Constant dense<0.5> : tensor<f32>
+    %zp = onnx.Constant dense<0> : tensor<i8>
+    %0 = "onnx.Conv"(%arg0, %arg1, %bias) {auto_pad = "SAME_UPPER", dilations = [1, 1], group = 1 : si64, kernel_shape = [5, 5], strides = [1, 1]} : (tensor<1x1x28x28xf32>, tensor<8x1x5x5xf32>, tensor<8xf32>) -> tensor<1x8x28x28xf32>
+    %1 = "onnx.QuantizeLinear"(%0, %scale, %zp) : (tensor<1x8x28x28xf32>, tensor<f32>, tensor<i8>) -> tensor<1x8x28x28xi8>
+    %2 = "onnx.DequantizeLinear"(%1, %scale, %zp) : (tensor<1x8x28x28xi8>, tensor<f32>, tensor<i8>) -> tensor<1x8x28x28xf32>
+    %addend_q = onnx.Constant dense<[[[1]], [[2]], [[3]], [[4]], [[5]], [[6]], [[7]], [[8]]]> : tensor<8x1x1xi8>
+    %addend_scale = onnx.Constant dense<1.000000e+00> : tensor<f32>
+    %addend_zp = onnx.Constant dense<0> : tensor<i8>
+    %addend = "onnx.DequantizeLinear"(%addend_q, %addend_scale, %addend_zp) : (tensor<8x1x1xi8>, tensor<f32>, tensor<i8>) -> tensor<8x1x1xf32>
+    %3 = "onnx.Add"(%2, %addend) : (tensor<1x8x28x28xf32>, tensor<8x1x1xf32>) -> tensor<1x8x28x28xf32>
+    onnx.Return %3 : tensor<1x8x28x28xf32>
+// CHECK-LABEL:  func.func @test_fuse_add_conv_qdq_zero_bias_addend_non_splat_no_rewrite
+// CHECK:           "onnx.Conv"
+// CHECK:           "onnx.QuantizeLinear"
+// CHECK:           "onnx.DequantizeLinear"
+// CHECK:           "onnx.Add"
+}
+
+// -----
+
+// Negative: ZeroBiasPattern's identity Q -> DQ check on the conv output also
+// applies. Mismatched scale on the Q vs DQ -> no fold.
+func.func @test_fuse_add_conv_qdq_zero_bias_mismatched_scale_no_rewrite(%arg0 : tensor<1x1x28x28xf32>, %arg1 : tensor<8x1x5x5xf32>) -> tensor<1x8x28x28xf32> {
+    %bias = onnx.Constant dense<0.0> : tensor<8xf32>
+    %scale_q = onnx.Constant dense<0.5> : tensor<f32>
+    %scale_dq = onnx.Constant dense<0.25> : tensor<f32>
+    %zp = onnx.Constant dense<0> : tensor<i8>
+    %0 = "onnx.Conv"(%arg0, %arg1, %bias) {auto_pad = "SAME_UPPER", dilations = [1, 1], group = 1 : si64, kernel_shape = [5, 5], strides = [1, 1]} : (tensor<1x1x28x28xf32>, tensor<8x1x5x5xf32>, tensor<8xf32>) -> tensor<1x8x28x28xf32>
+    %1 = "onnx.QuantizeLinear"(%0, %scale_q, %zp) : (tensor<1x8x28x28xf32>, tensor<f32>, tensor<i8>) -> tensor<1x8x28x28xi8>
+    %2 = "onnx.DequantizeLinear"(%1, %scale_dq, %zp) : (tensor<1x8x28x28xi8>, tensor<f32>, tensor<i8>) -> tensor<1x8x28x28xf32>
+    %addend_q = onnx.Constant dense<48> : tensor<1x1x1x1xi8>
+    %addend_scale = onnx.Constant dense<6.250000e-02> : tensor<f32>
+    %addend_zp = onnx.Constant dense<0> : tensor<i8>
+    %addend = "onnx.DequantizeLinear"(%addend_q, %addend_scale, %addend_zp) : (tensor<1x1x1x1xi8>, tensor<f32>, tensor<i8>) -> tensor<1x1x1x1xf32>
+    %3 = "onnx.Add"(%2, %addend) : (tensor<1x8x28x28xf32>, tensor<1x1x1x1xf32>) -> tensor<1x8x28x28xf32>
+    onnx.Return %3 : tensor<1x8x28x28xf32>
+// CHECK-LABEL:  func.func @test_fuse_add_conv_qdq_zero_bias_mismatched_scale_no_rewrite
+// CHECK:           "onnx.Conv"
+// CHECK:           "onnx.QuantizeLinear"
+// CHECK:           "onnx.DequantizeLinear"
+// CHECK:           "onnx.Add"
+}
+
+// -----
+
+// Negative: Q and DQ use different scale Values -> identity QDQ check fails.
+func.func @test_fuse_add_conv_qdq_mismatched_scale(%arg0 : tensor<1x1x28x28xf32>, %arg1 : tensor<8x1x5x5xf32>) -> tensor<1x8x28x28xf32> {
+    %cst = "onnx.NoValue"() {value} : () -> none
+    %scale_q = onnx.Constant dense<0.5> : tensor<f32>
+    %scale_dq = onnx.Constant dense<0.25> : tensor<f32>
+    %zp = onnx.Constant dense<0> : tensor<i8>
+    %0 = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "SAME_UPPER", dilations = [1, 1], group = 1 : si64, kernel_shape = [5, 5], strides = [1, 1]} : (tensor<1x1x28x28xf32>, tensor<8x1x5x5xf32>, none) -> tensor<1x8x28x28xf32>
+    %1 = "onnx.QuantizeLinear"(%0, %scale_q, %zp) : (tensor<1x8x28x28xf32>, tensor<f32>, tensor<i8>) -> tensor<1x8x28x28xi8>
+    %2 = "onnx.DequantizeLinear"(%1, %scale_dq, %zp) : (tensor<1x8x28x28xi8>, tensor<f32>, tensor<i8>) -> tensor<1x8x28x28xf32>
+    %3 = onnx.Constant dense<3.0> : tensor<8x1x1xf32>
+    %4 = "onnx.Add"(%2, %3) : (tensor<1x8x28x28xf32>, tensor<8x1x1xf32>) -> tensor<1x8x28x28xf32>
+    onnx.Return %4 : tensor<1x8x28x28xf32>
+// CHECK-LABEL:  func.func @test_fuse_add_conv_qdq_mismatched_scale
+// CHECK:           "onnx.Conv"
+// CHECK:           "onnx.QuantizeLinear"
+// CHECK:           "onnx.DequantizeLinear"
+// CHECK:           "onnx.Add"
+}
+
+// -----
+
+// Negative: Q and DQ use different zero_point Values -> identity QDQ check fails.
+func.func @test_fuse_add_conv_qdq_mismatched_zp(%arg0 : tensor<1x1x28x28xf32>, %arg1 : tensor<8x1x5x5xf32>) -> tensor<1x8x28x28xf32> {
+    %cst = "onnx.NoValue"() {value} : () -> none
+    %scale = onnx.Constant dense<0.5> : tensor<f32>
+    %zp_q = onnx.Constant dense<0> : tensor<i8>
+    %zp_dq = onnx.Constant dense<1> : tensor<i8>
+    %0 = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "SAME_UPPER", dilations = [1, 1], group = 1 : si64, kernel_shape = [5, 5], strides = [1, 1]} : (tensor<1x1x28x28xf32>, tensor<8x1x5x5xf32>, none) -> tensor<1x8x28x28xf32>
+    %1 = "onnx.QuantizeLinear"(%0, %scale, %zp_q) : (tensor<1x8x28x28xf32>, tensor<f32>, tensor<i8>) -> tensor<1x8x28x28xi8>
+    %2 = "onnx.DequantizeLinear"(%1, %scale, %zp_dq) : (tensor<1x8x28x28xi8>, tensor<f32>, tensor<i8>) -> tensor<1x8x28x28xf32>
+    %3 = onnx.Constant dense<3.0> : tensor<8x1x1xf32>
+    %4 = "onnx.Add"(%2, %3) : (tensor<1x8x28x28xf32>, tensor<8x1x1xf32>) -> tensor<1x8x28x28xf32>
+    onnx.Return %4 : tensor<1x8x28x28xf32>
+// CHECK-LABEL:  func.func @test_fuse_add_conv_qdq_mismatched_zp
+// CHECK:           "onnx.Conv"
+// CHECK:           "onnx.QuantizeLinear"
+// CHECK:           "onnx.DequantizeLinear"
+// CHECK:           "onnx.Add"
+}
+
+// -----
+
+// Negative: per-spatial constant (not a per-channel broadcast) -> no rewrite.
+func.func @test_fuse_add_conv_qdq_non_broadcast_const(%arg0 : tensor<1x1x28x28xf32>, %arg1 : tensor<8x1x5x5xf32>) -> tensor<1x8x28x28xf32> {
+    %cst = "onnx.NoValue"() {value} : () -> none
+    %scale = onnx.Constant dense<0.5> : tensor<f32>
+    %zp = onnx.Constant dense<0> : tensor<i8>
+    %0 = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "SAME_UPPER", dilations = [1, 1], group = 1 : si64, kernel_shape = [5, 5], strides = [1, 1]} : (tensor<1x1x28x28xf32>, tensor<8x1x5x5xf32>, none) -> tensor<1x8x28x28xf32>
+    %1 = "onnx.QuantizeLinear"(%0, %scale, %zp) : (tensor<1x8x28x28xf32>, tensor<f32>, tensor<i8>) -> tensor<1x8x28x28xi8>
+    %2 = "onnx.DequantizeLinear"(%1, %scale, %zp) : (tensor<1x8x28x28xi8>, tensor<f32>, tensor<i8>) -> tensor<1x8x28x28xf32>
+    %3 = onnx.Constant dense<3.0> : tensor<1x8x28x28xf32>
+    %4 = "onnx.Add"(%2, %3) : (tensor<1x8x28x28xf32>, tensor<1x8x28x28xf32>) -> tensor<1x8x28x28xf32>
+    onnx.Return %4 : tensor<1x8x28x28xf32>
+// CHECK-LABEL:  func.func @test_fuse_add_conv_qdq_non_broadcast_const
+// CHECK:           "onnx.Conv"
+// CHECK:           "onnx.QuantizeLinear"
+// CHECK:           "onnx.DequantizeLinear"
+// CHECK:           "onnx.Add"
+}
+
+// -----
+
+// Negative: Add RHS is not an ONNXConstantOp -> source pattern fails to match.
+func.func @test_fuse_add_conv_qdq_non_constant_rhs(%arg0 : tensor<1x1x28x28xf32>, %arg1 : tensor<8x1x5x5xf32>, %arg2 : tensor<8x1x1xf32>) -> tensor<1x8x28x28xf32> {
+    %cst = "onnx.NoValue"() {value} : () -> none
+    %scale = onnx.Constant dense<0.5> : tensor<f32>
+    %zp = onnx.Constant dense<0> : tensor<i8>
+    %0 = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "SAME_UPPER", dilations = [1, 1], group = 1 : si64, kernel_shape = [5, 5], strides = [1, 1]} : (tensor<1x1x28x28xf32>, tensor<8x1x5x5xf32>, none) -> tensor<1x8x28x28xf32>
+    %1 = "onnx.QuantizeLinear"(%0, %scale, %zp) : (tensor<1x8x28x28xf32>, tensor<f32>, tensor<i8>) -> tensor<1x8x28x28xi8>
+    %2 = "onnx.DequantizeLinear"(%1, %scale, %zp) : (tensor<1x8x28x28xi8>, tensor<f32>, tensor<i8>) -> tensor<1x8x28x28xf32>
+    %3 = "onnx.Add"(%2, %arg2) : (tensor<1x8x28x28xf32>, tensor<8x1x1xf32>) -> tensor<1x8x28x28xf32>
+    onnx.Return %3 : tensor<1x8x28x28xf32>
+// CHECK-LABEL:  func.func @test_fuse_add_conv_qdq_non_constant_rhs
+// CHECK:           "onnx.Conv"
+// CHECK:           "onnx.QuantizeLinear"
+// CHECK:           "onnx.DequantizeLinear"
+// CHECK:           "onnx.Add"
 }
 
 // -----

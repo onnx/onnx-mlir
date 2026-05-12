@@ -48,6 +48,9 @@
 // Populated by configureBatchNormCanonicalization().
 static bool disableBatchNormDecompose = false;
 
+// Populated by configureUnsafeMathCanonicalization().
+static bool enableUnsafeMath = true;
+
 using namespace mlir;
 using namespace onnx_mlir;
 
@@ -151,6 +154,75 @@ Value createReshapedConstantForWeightFusion(
   // Create and return the reshape op
   return rewriter.create<ONNXReshapeOp>(
       constOpLoc, resultType, constant, shapeConst);
+}
+
+// Whether `bias` is either NoneType or "effectively zero" for the purpose of
+// subsuming an Add constant into a Conv bias under a Q -> DQ identity. We
+// accept three forms:
+//   1. NoneType: the Conv has no bias at all.
+//   2. ONNXConstantOp with dense<0...> value.
+//   3. ONNXDequantizeLinearOp(qval, scale, zp) where both qval and zp are
+//      constant all-zeros. Then dq = (qval - zp) * scale = 0 regardless of
+//      the (possibly per-axis) scale.
+// Used by FuseAddConvQDQBiasPattern to dispatch on either a missing or a
+// semantically-zero Conv bias in a single pattern.
+bool isNoneOrEffectivelyZeroBias(Value bias) {
+  if (!bias)
+    return false;
+  if (mlir::isa<NoneType>(bias.getType()))
+    return true;
+  if (isConstOf(bias, 0.0))
+    return true;
+  if (auto dq = bias.getDefiningOp<ONNXDequantizeLinearOp>())
+    return isConstOf(dq.getX(), 0.0) && isConstOf(dq.getXZeroPoint(), 0.0);
+  return false;
+}
+
+// Whether `v` is an `ONNXConstantOp` whose dense value contains exactly one
+// element (any rank, e.g. tensor<f32>, tensor<1xf32>, tensor<1x1x1x1xf32>).
+// Used to verify that a quantized addend's q/scale/zero-point evaluates to a
+// single scalar that can be safely flattened to a 1-D length-1 tensor before
+// being broadcast across a Conv's output channels.
+//
+// Stronger than `isScalarConstantTensor` (which only accepts rank-0 or
+// rank-1-with-shape-[1]); we need to also accept e.g. tensor<1x1x1x1xT>.
+bool isSingleElementONNXConstant(Value v) {
+  ElementsAttr attr = getElementAttributeFromONNXValue(v);
+  return attr && attr.getNumElements() == 1;
+}
+
+// Build a runtime sub-graph that broadcasts a single-element addend value
+// across the output channels of a Conv weight, producing a `<Cout xT>`
+// tensor suitable as a Conv bias:
+//
+//   reshape_shape = onnx.Constant dense<[1]> : tensor<1xi64>
+//   expand_shape  = onnx.Constant dense<[Cout]> : tensor<1xi64>
+//   reshaped      = onnx.Reshape(addend_dq, reshape_shape) : tensor<1xT>
+//   expanded      = onnx.Expand(reshaped, expand_shape) : tensor<Cout xT>
+//
+// Element type T is taken from `weight` so the resulting bias passes the
+// Conv verifier's element-type check. Used by FuseAddConvQDQBiasPattern.
+Value buildBroadcastBiasViaReshapeExpand(
+    PatternRewriter &rewriter, Value addendDQ, Value weight) {
+  auto loc = addendDQ.getLoc();
+  auto weightType = mlir::cast<ShapedType>(weight.getType());
+  assert(weightType.hasRank() && weightType.getRank() > 0 &&
+         !weightType.isDynamicDim(0) &&
+         "Conv weight must be ranked with a static Cout");
+  auto fpType = weightType.getElementType();
+  int64_t cOut = weightType.getShape()[0];
+  auto shapeConstTy = RankedTensorType::get({1}, rewriter.getI64Type());
+
+  Value reshaped = rewriter.create<ONNXReshapeOp>(loc,
+      RankedTensorType::get({1}, fpType), addendDQ,
+      rewriter.create<ONNXConstantOp>(loc, nullptr,
+          DenseElementsAttr::get(shapeConstTy, llvm::ArrayRef<int64_t>{1})),
+      IntegerAttr());
+
+  return rewriter.create<ONNXExpandOp>(loc,
+      RankedTensorType::get({cOut}, fpType), reshaped,
+      rewriter.create<ONNXConstantOp>(loc, nullptr,
+          DenseElementsAttr::get(shapeConstTy, llvm::ArrayRef<int64_t>{cOut})));
 }
 
 // Check if constant to Mul has valid shape for folding into the weights of
@@ -3601,6 +3673,9 @@ void ONNXAddOp::getCanonicalizationPatterns(
   results.insert<FuseGemmFollowedByAddition>(context);
   results.insert<FuseAddConvPattern>(context);
   results.insert<FuseAddConvNullBiasPattern>(context);
+  if (enableUnsafeMath) {
+    results.insert<FuseAddConvQDQBiasPattern>(context);
+  }
   results.insert<BinaryOpBroadcastAxisPattern<ONNXAddOp>>(context);
   results.insert<PropagateScalarConstantExpandPattern<ONNXAddOp>>(context);
   results.insert<PropagateScaleIntoLayerNormPattern<ONNXLayerNormalizationOp>>(
@@ -3984,4 +4059,9 @@ void ONNXDequantizeLinearOp::getCanonicalizationPatterns(
 void onnx_mlir::configureBatchNormCanonicalization(
     bool disableBatchNormDecomposeOption) {
   disableBatchNormDecompose = disableBatchNormDecomposeOption;
+}
+
+void onnx_mlir::configureUnsafeMathCanonicalization(
+    bool enableUnsafeMathOptimizations) {
+  enableUnsafeMath = enableUnsafeMathOptimizations;
 }

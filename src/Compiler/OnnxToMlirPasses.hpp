@@ -46,6 +46,7 @@ struct OnnxToMlirOptions {
 
   bool disableBatchNormDecompose = false;
   bool disableRecomposeOption = false;
+  bool enableUnsafeMathOptimizations = true;
   bool enableONNXHybridPass = true;
   bool enableConvOptPass = true;
   bool enableSimdDataLayout = false;

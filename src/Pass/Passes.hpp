@@ -67,6 +67,9 @@ void configureConstPropONNXToONNXPass(bool roundFPToInt, int expansionBound,
 // To configure whether BatchNorm decomposition is disabled in canonicalization.
 void configureBatchNormCanonicalization(bool disableBatchNormDecompose);
 
+// Configure patterns that are not numerically safe.
+void configureUnsafeMathCanonicalization(bool enableUnsafeMathOptimizations);
+
 std::unique_ptr<mlir::Pass> createConstPropONNXToONNXPass(
     bool enableQDQ = false);
 
