@@ -32,14 +32,16 @@ import subprocess
 
 def print_usage():
     print("Translate mlir format from stdin/input file to a suitable FileCheck format.")
-    print("mlir2FileCheck [-cdh] [-a <arg arrays>] [-d <dict>] [-m <model file>")
+    print(
+        "mlir2FileCheck [-cdh] [-a <arg arrays>] [-d <dict>] [-m <model file>] [-p <prefix>]"
+    )
     print("  -a,--args <array>: Rename function arguments using a json array,")
     print('                     such as \'["A", "B", "C"] for 1st, 2nd, & 3rd args.\'.')
     print(
-        "  -c,--check       : Run FileCheck on output, to verify that the output is good."
+        "  -c,--check         : Run FileCheck on output, to verify that the output is good."
     )
     print(
-        "  -d,--debug       : Rename for easier debugging of code, disable FileCheck format."
+        "  -d,--debug         : Rename for easier debugging of code, disable FileCheck format."
     )
     print("  -h,--help        : Print help.")
     print("  -i,--input <input file name>: read input from this file instead of stdin.")
@@ -48,6 +50,7 @@ def print_usage():
     )
     print("  -n,--names <dict>: Rename variables using a json dictionary")
     print('                     such as \'{"cst": "ZERO"}\' to rename cst to ZERO.')
+    print("  -p,--prefix <prefix>: Set the FileCheck prefix (default: CHECK).")
     sys.exit()
 
 
@@ -190,7 +193,7 @@ def process_name(
 # Drive the processing of the current line.
 def process_line(i, line):
     global debug, check, squash_before_fct, prepare_name_dict, name_dict, refcount_dict
-    global line_color, curr_parallel_color, is_new_function_stuff
+    global line_color, curr_parallel_color, is_new_function_stuff, prefix
     def_arg_pat = re.compile(r"%([a-zA-Z0-9][a-zA-Z0-9_\-]*)():")
     def_qual_pat = re.compile(r"%([a-zA-Z0-9][a-zA-Z0-9_\-]*)(:\d+)?\s+=")
     def_pat = re.compile(r"%([a-zA-Z0-9][a-zA-Z0-9_\-]*)()\s+=")
@@ -319,31 +322,31 @@ def process_line(i, line):
     # change [[-1 -> *[-1
     new_line = re.sub(r"\[\[\s*-\s*(\d)", r"{{.}}[-\g<1>", new_line)
     # change a]] -> 1]*
-    new_line = re.sub(r"(\d)\s*\]\]", "\g<1>]{{.}}", new_line)
+    new_line = re.sub(r"(\d)\s*\]\]", r"\g<1>]{{.}}", new_line)
     if re.match(r"\s+(func\.)?func", line) is not None:
         # Split function line into 2 lines. Should make private optional
         new_line = re.sub(
             r"(\s+)((func\.)?func(\s+private)?\s+@[\w]+)\s*(\(.*)",
-            r"// CHECK-LABEL:\1\2\n// CHECK-SAME: \1\5",
+            rf"// {prefix}-LABEL:\1\2\n// {prefix}-SAME: \1\5",
             new_line,
         )
         print(new_line)
     elif squash_before_fct != 1:
         if line_color[i] == curr_parallel_color or has_affine_map_def:
             # This line is in an established parallel region
-            print("// CHECK-DAG:  ", new_line)
+            print(f"// {prefix}-DAG:  ", new_line)
         elif line_color[i] == line_color[i + 1]:
             # This line starts a parallel region, check if this break a parallel region.
             if curr_parallel_color != -1:
                 # Previous lines were also part of a parallel region.
                 # Need to separate them.
-                print("// CHECK-NOT: separator of consecutive DAGs")
+                print(f"// {prefix}-NOT: separator of consecutive DAGs")
             curr_parallel_color = line_color[i]
-            print("// CHECK-DAG:  ", new_line)
+            print(f"// {prefix}-DAG:  ", new_line)
         else:
             # No parallel region, set the color to undefined
             curr_parallel_color = -1
-            print("// CHECK:      ", new_line)
+            print(f"// {prefix}:      ", new_line)
 
 
 ################################################################################
@@ -351,21 +354,31 @@ def process_line(i, line):
 
 
 def main(argv):
-    global debug, check, squash_before_fct
+    global debug, check, squash_before_fct, prefix
     global def_set, line_color, curr_color, curr_parallel_color, is_new_function_stuff
     debug = 0
     check = 0
     model = ""
     has_model = 0
     squash_before_fct = 0
+    prefix = "CHECK"
     input_command = "mlir2FileCheck.py"
     input_file_name = ""
 
     try:
         opts, args = getopt.getopt(
             argv,
-            "hdca:n:m:i:",
-            ["help", "debug", "check", "args=", "names=", "model=", "input="],
+            "hdca:n:m:i:p:",
+            [
+                "help",
+                "debug",
+                "check",
+                "args=",
+                "names=",
+                "model=",
+                "input=",
+                "prefix=",
+            ],
         )
     except getopt.GetoptError:
         print_usage()
@@ -425,6 +438,9 @@ def main(argv):
         elif opt in ("-i", "--input"):
             # Do not add this option to the list of parameters recorded.
             input_file_name = arg
+        elif opt in ("-p", "--prefix"):
+            input_command += " -p '" + arg + "'"
+            prefix = arg
 
     if len(args) > 0:
         print("command does not use arguments without options: ", args)
