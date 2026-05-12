@@ -71,6 +71,11 @@ static IntegerAttr getSI64Attr(PatternRewriter &rewriter, int64_t value) {
   return rewriter.getIntegerAttr(si64, value);
 }
 
+// XCOMPILERFusedEltwise CLAMP min/max are signless i32 (matches XIR/xmodel).
+static IntegerAttr getI32Attr(PatternRewriter &rewriter, int64_t value) {
+  return rewriter.getI32IntegerAttr(static_cast<int32_t>(value));
+}
+
 // Canonicalize activation op types following the xcompiler ReplaceQDQConvPass
 // Canonicalize LeakyReLU op type to LEAKYRELU with alpha and prelu factors.
 // Returns {mappedOpType, leakyrelu_alpha, prelu_in, prelu_shift}.
@@ -387,12 +392,12 @@ struct FuseQuantizedClipWithoutActivation
     // present.
     IntegerAttr clipMinAttr, clipMaxAttr;
     if (auto mn = getConstScalarI64(clipOp.getMin()))
-      clipMinAttr = getSI64Attr(rewriter, *mn);
+      clipMinAttr = getI32Attr(rewriter, *mn);
     else if (clipOp.getMin() && !isa<NoneType>(clipOp.getMin().getType()))
       return rewriter.notifyMatchFailure(clipOp, "min not constant/none");
 
     if (auto mx = getConstScalarI64(clipOp.getMax()))
-      clipMaxAttr = getSI64Attr(rewriter, *mx);
+      clipMaxAttr = getI32Attr(rewriter, *mx);
     else if (clipOp.getMax() && !isa<NoneType>(clipOp.getMax().getType()))
       return rewriter.notifyMatchFailure(clipOp, "max not constant/none");
 

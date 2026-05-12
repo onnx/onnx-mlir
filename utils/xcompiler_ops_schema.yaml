@@ -42,10 +42,10 @@
     type: int
   - name: min
     description: Minimum value, under which element is replaced by min for Clip, valid only when type is CLAMP.
-    type: int
+    type: int32
   - name: max
     description: Maximum value, over which element is replaced by max for Clip, valid only when type is CLAMP.
-    type: int
+    type: int32
   - name: nonlinear_in_scales
     description: Quantization scales for the input of the nonlinear activation. This stores quantization information for the activation function in case there is a Q-DQ pair between the elementwise op and activation op.
     type: float
