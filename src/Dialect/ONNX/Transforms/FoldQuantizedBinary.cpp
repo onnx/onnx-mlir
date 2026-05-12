@@ -23,7 +23,7 @@ namespace {
 
 std::optional<double> getConstant(Value rhs) {
   auto constType = dyn_cast<RankedTensorType>(rhs.getType());
-  if (!constType || constType.getNumElements() != 1)
+  if (!constType)
     return {};
 
   auto constOp = rhs.getDefiningOp<ONNXConstantOp>();
@@ -31,7 +31,7 @@ std::optional<double> getConstant(Value rhs) {
     return {};
 
   auto attr = dyn_cast<DenseElementsAttr>(constOp.getValueAttr());
-  if (!attr)
+  if (!attr || !attr.isSplat())
     return {};
 
   auto attrDtype = attr.getElementType();
