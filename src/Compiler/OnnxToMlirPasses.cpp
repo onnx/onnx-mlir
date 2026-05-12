@@ -68,6 +68,9 @@ void addXmcMlirPasses(mlir::OpPassManager &pm, OnnxToMlirOptions opts) {
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createTransferScaleToDwConv2dPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvertToChannelLastPass());
+  if (opts.enableMatmulAddFusion)
+    pm.addNestedPass<func::FuncOp>(
+        onnx_mlir::createFuseMatMulAddToXFEMatMulBiasPass());
   if (opts.enableMatmulToConv)
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::createConvertMatMulToXFEConvPass());
