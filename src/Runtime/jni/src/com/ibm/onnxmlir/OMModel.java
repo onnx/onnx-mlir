@@ -171,6 +171,7 @@ public class OMModel {
     private static native String[] query_entry_points();
     private static native String input_signature_jni(String entry_point);
     private static native String output_signature_jni(String entry_point);
+    private static native String compilation_info_jni();
 
     /**
      * Default model runtime entry point
@@ -215,5 +216,14 @@ public class OMModel {
 
     public static String outputSignature(String entry_point) {
         return output_signature_jni(entry_point);
+    }
+
+    /**
+     * Compilation information of the model
+     *
+     * @return JSON string of compilation information
+     */
+    public static String compilationInfo() {
+        return compilation_info_jni();
     }
 }

@@ -333,6 +333,13 @@ bool meetPoolParamRestrictions(Operation *op, int64_t inputShape,
                             ") must be less than or equal to 64.";
       return onnxToZHighUnsupportedReport(op, message);
     }
+    // inputShape and kernelShape are less than or equal to 1024.
+    if (inputShape > 1024) {
+      std::string message =
+          "When the strides is zero, the inputShape and kernelShape (" +
+          std::to_string(inputShape) + ") must be less than or equal to 1024.";
+      return onnxToZHighUnsupportedReport(op, message);
+    }
     if (paddingType == "SAME_PADDING") {
       int64_t reqOutputShape = ceil(static_cast<float>(inputShape) / strides);
       if (outputShape != reqOutputShape) {
