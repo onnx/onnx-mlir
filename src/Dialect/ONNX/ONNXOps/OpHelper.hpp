@@ -293,6 +293,10 @@ WideNum asWideNum(double n, mlir::Type elemType);
 /// Checks whether a constant tensor's elements are all equal to a given scalar.
 bool isConstOf(mlir::Value constValue, double n);
 
+/// True if \p attr is non-null and its numeric value differs from \p expected
+/// by at most \p epsilon (using \p attr's value converted to double).
+bool isFloatAttrApprox(mlir::FloatAttr attr, double expected, double epsilon);
+
 mlir::Type convertONNXTypeToMLIRType(
     mlir::Builder &builder, onnx::TensorProto_DataType onnxType);
 

@@ -976,3 +976,68 @@ func.func @test_hardsigmoid_clip_mul_add_default_alpha_beta(%arg0 : tensor<?x?x3
 // CHECK:           return [[VAR_0_]] : tensor<?x?x3072xf32>
 // CHECK:         }
 }
+
+// -----
+
+// HardSwish(x) = x * HardSigmoid(x) with alpha=1/6, beta=0.5
+func.func @test_hardswish_from_mul_hardsigmoid(%arg0 : tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32> {
+  %0 = "onnx.HardSigmoid"(%arg0) {alpha = 0.166666672 : f32, beta = 5.000000e-01 : f32} : (tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+  %1 = "onnx.Mul"(%arg0, %0) : (tensor<?x?x3072xf32>, tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+  return %1 : tensor<?x?x3072xf32>
+
+// CHECK-LABEL:  func.func @test_hardswish_from_mul_hardsigmoid
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32> {
+// CHECK-NOT:       "onnx.HardSigmoid"
+// CHECK-NOT:       "onnx.Mul"
+// CHECK:           [[VAR_0_:%.+]] = "onnx.HardSwish"([[PARAM_0_]]) : (tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+// CHECK:           return [[VAR_0_]] : tensor<?x?x3072xf32>
+// CHECK:         }
+}
+
+// -----
+
+// Mul(x, HardSigmoid(x)) with alpha=0.2 should not match HardSwish pattern
+func.func @test_hardswish_from_mul_hardsigmoid_wrong_alpha(%arg0 : tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32> {
+  %0 = "onnx.HardSigmoid"(%arg0) {alpha = 2.000000e-01 : f32, beta = 5.000000e-01 : f32} : (tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+  %1 = "onnx.Mul"(%arg0, %0) : (tensor<?x?x3072xf32>, tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+  return %1 : tensor<?x?x3072xf32>
+
+// CHECK-LABEL:  func.func @test_hardswish_from_mul_hardsigmoid_wrong_alpha
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32> {
+// CHECK-NOT:       "onnx.HardSwish"
+// CHECK:           [[VAR_0_:%.+]] = "onnx.HardSigmoid"([[PARAM_0_]]) {alpha = 2.000000e-01 : f32, beta = 5.000000e-01 : f32} : (tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Mul"([[PARAM_0_]], [[VAR_0_]]) : (tensor<?x?x3072xf32>, tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+// CHECK:           return [[VAR_1_]] : tensor<?x?x3072xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_hardswish_from_mul_hardsigmoid_wrong_beta(%arg0 : tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32> {
+  %0 = "onnx.HardSigmoid"(%arg0) {alpha = 0.166666672 : f32, beta = 3.000000e-01 : f32} : (tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+  %1 = "onnx.Mul"(%arg0, %0) : (tensor<?x?x3072xf32>, tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+  return %1 : tensor<?x?x3072xf32>
+
+// CHECK-LABEL:  func.func @test_hardswish_from_mul_hardsigmoid_wrong_beta
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32> {
+// CHECK-NOT:       "onnx.HardSwish"
+// CHECK:           [[VAR_0_:%.+]] = "onnx.HardSigmoid"([[PARAM_0_]]) {alpha = 0.166666672 : f32, beta = 3.000000e-01 : f32} : (tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Mul"([[PARAM_0_]], [[VAR_0_]]) : (tensor<?x?x3072xf32>, tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+// CHECK:           return [[VAR_1_]] : tensor<?x?x3072xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_hardswish_from_mul_hardsigmoid_wrong_input(%arg0 : tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32> {
+  %0 = "onnx.Constant"() {value=dense<[7.0]> : tensor<1xf32>} : () -> tensor<1xf32>
+  %1 = "onnx.HardSigmoid"(%arg0) {alpha = 0.166666672 : f32, beta = 5.000000e-01 : f32} : (tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+  %2 = "onnx.Mul"(%0, %1) : (tensor<1xf32>, tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+  return %2 : tensor<?x?x3072xf32>
+
+// CHECK-LABEL:  func.func @test_hardswish_from_mul_hardsigmoid_wrong_input
+// CHECK-NOT:       "onnx.HardSwish"
+// CHECK:           "onnx.HardSigmoid"
+// CHECK:           "onnx.Mul"
+// CHECK:         }
+}
