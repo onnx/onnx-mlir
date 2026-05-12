@@ -54,6 +54,9 @@ struct OnnxToMlirOptions {
   bool disableSimdOption = false;
   bool enableGAPToReduceMean = true;
 
+  bool enableMatmulAddFusion = true;
+  bool enableMatmulToConv = true;
+
   int onnxOpTransformThreshold = 3;
   bool onnxOpTransformReport = false;
   int repeatOnnxTransform = 0;
