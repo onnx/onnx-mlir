@@ -131,6 +131,29 @@ private:
   mlir::SmallVector<int64_t> axes;
 };
 
+class TileTransform : public Transform {
+public:
+  TileTransform(mlir::ArrayRef<int64_t> inShape,
+      mlir::ArrayRef<int64_t> multiples, mlir::ArrayRef<int64_t> outShape);
+
+  TileTransform(mlir::ArrayAttr attr);
+  [[nodiscard]] mlir::Attribute toAttr(
+      mlir::MLIRContext *context) const override;
+
+  [[nodiscard]] std::unique_ptr<Transform> invert() const override;
+
+  static bool classof(const Transform *transform) {
+    return transform->getKind() == Kind::Tile;
+  }
+
+  [[nodiscard]] mlir::ArrayRef<int64_t> getMultiples() const {
+    return multiples;
+  }
+
+private:
+  mlir::SmallVector<int64_t> multiples;
+};
+
 template <Transform::Kind QDQType>
 class QDQTransform : public Transform {
 public:
@@ -262,6 +285,14 @@ public:
 class SliceOpTensorNameInference
     : public mlir::TensorNameInference::ExternalModel<
           SliceOpTensorNameInference, mlir::ONNXSliceOp> {
+public:
+  std::unique_ptr<onnx_mlir::Transform> inferTensorNameTransform(
+      mlir::Operation *op) const;
+};
+
+class TileOpTensorNameInference
+    : public mlir::TensorNameInference::ExternalModel<TileOpTensorNameInference,
+          mlir::ONNXTileOp> {
 public:
   std::unique_ptr<onnx_mlir::Transform> inferTensorNameTransform(
       mlir::Operation *op) const;
