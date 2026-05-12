@@ -73,12 +73,12 @@ LogicalResult XCOMPILERFusedEltwiseOpVerify(Operation *op) {
     return op->emitOpError(
         "'prelu_shift' is only valid when nonlinear is LEAKYRELU");
 
-  // clip_min, clip_max exist only if type == CLIP
-  bool isClip = (type == "CLIP");
-  if (fusedEltwiseOp.getClipMinAttr() && !isClip)
-    return op->emitOpError("'clip_min' is only valid when type is CLIP");
-  if (fusedEltwiseOp.getClipMaxAttr() && !isClip)
-    return op->emitOpError("'clip_max' is only valid when type is CLIP");
+  // min, max exist only if type == CLAMP
+  bool isClamp = (type == "CLAMP");
+  if (fusedEltwiseOp.getMinAttr() && !isClamp)
+    return op->emitOpError("'min' is only valid when type is CLAMP");
+  if (fusedEltwiseOp.getMaxAttr() && !isClamp)
+    return op->emitOpError("'max' is only valid when type is CLAMP");
 
   // nonlinear_in_scales and nonlinear_in_zeropoints exist only if nonlinear is
   // not NONE

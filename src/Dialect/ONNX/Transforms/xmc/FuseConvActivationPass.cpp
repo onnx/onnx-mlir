@@ -149,9 +149,9 @@ static ActivationInfo getActivationInfo(Operation *op) {
       info.activationType = "RELU";
     else if (opType == "LEAKYRELU")
       info.activationType = "LEAKYRELU";
-    else if (opType == "CLIP" &&
-             fusedOp.getClipMin() == std::optional<int64_t>(0) &&
-             fusedOp.getClipMax() == std::optional<int64_t>(6))
+    else if (opType == "CLAMP" &&
+             fusedOp.getMin() == std::optional<int64_t>(0) &&
+             fusedOp.getMax() == std::optional<int64_t>(6))
       info.activationType = "RELU6";
     else if (opType == "SIGMOID")
       info.activationType = "SIGMOID";
