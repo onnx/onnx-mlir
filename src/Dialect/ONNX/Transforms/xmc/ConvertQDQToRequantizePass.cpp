@@ -128,11 +128,6 @@ struct InsertRequantizeBetweenQDQPattern
     if (onnx_mlir::isDequantQuantSame(dqOp, qOp))
       return failure();
 
-    // If we have already inserted a Requantize between this DQ and Q
-    // (during a prior iteration), do not insert again.
-    if (qOp.getX().getDefiningOp<XCOMPILERRequantizeOp>())
-      return failure();
-
     auto dqParams =
         getConstantScaleAndZp(dqOp.getXScale(), dqOp.getXZeroPoint());
     auto qParams = getConstantScaleAndZp(qOp.getYScale(), qOp.getYZeroPoint());
@@ -158,6 +153,9 @@ struct InsertRequantizeBetweenQDQPattern
     auto requantize = rewriter.create<XCOMPILERRequantizeOp>(
         qOp.getLoc(), f32TensorType, dqResult, aScale, aZp, yScale, yZp);
 
+    // ResultNames is not populated for RequantizeOp here.
+    // In QuantTypes pass, it will get the ResultName of QuantizeLinear
+    // following it.
     rewriter.modifyOpInPlace(
         qOp, [&]() { qOp->setOperand(0, requantize.getResult()); });
 
