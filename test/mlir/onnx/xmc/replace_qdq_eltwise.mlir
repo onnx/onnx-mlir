@@ -327,7 +327,7 @@ func.func @test_quantized_clip_no_activation(
   return %clip : tensor<1x4x8x8x!quant.uniform<i8:f32, 0.01:0>>
 
   // CHECK: %[[NOVAL:.*]] = "onnx.NoValue"()
-  // CHECK: %[[FUSED:.*]] = "onnx.XCOMPILERFusedEltwise"(%arg0, %[[NOVAL]]){{.*}}clip_max = 127 : si64{{.*}}clip_min = -128 : si64{{.*}}nonlinear = "NONE"{{.*}}type = "CLIP"
+  // CHECK: %[[FUSED:.*]] = "onnx.XCOMPILERFusedEltwise"(%arg0, %[[NOVAL]]){{.*}}max = 127 : i32{{.*}}min = -128 : i32{{.*}}nonlinear = "NONE"{{.*}}type = "CLAMP"
   // CHECK: return %[[FUSED]]
 }
 
@@ -648,7 +648,7 @@ func.func @test_pattern1_clip_and_pattern2(
       tensor<1x4x8x8x!quant.uniform<u8:f32, 0.1:128>>
 
   // CHECK-DAG: %[[NOVAL:.*]] = "onnx.NoValue"()
-  // CHECK-DAG: %[[CLIP:.*]] = "onnx.XCOMPILERFusedEltwise"(%arg0, %[[NOVAL]]){{.*}}clip_max = 127 : si64{{.*}}clip_min = -128 : si64{{.*}}nonlinear = "NONE"{{.*}}type = "CLIP"
+  // CHECK-DAG: %[[CLIP:.*]] = "onnx.XCOMPILERFusedEltwise"(%arg0, %[[NOVAL]]){{.*}}max = 127 : i32{{.*}}min = -128 : i32{{.*}}nonlinear = "NONE"{{.*}}type = "CLAMP"
   // CHECK-DAG: %[[SUBRELU:.*]] = "onnx.XCOMPILERFusedEltwise"(%arg1, %arg2){{.*}}nonlinear = "RELU"{{.*}}type = "SUB"
   // CHECK: return %[[CLIP]], %[[SUBRELU]]
 }
