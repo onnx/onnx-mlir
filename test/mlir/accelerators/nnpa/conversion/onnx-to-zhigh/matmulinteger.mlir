@@ -7,7 +7,7 @@ func.func @matmulinteger(%arg0: tensor<?x?x768xui8>, %arg1: tensor<768x768xi8>, 
 
 // CHECK-LABEL:  func.func @matmulinteger
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x768xui8>, [[PARAM_1_:%.+]]: tensor<768x768xi8>, [[PARAM_2_:%.+]]: tensor<ui8>, [[PARAM_3_:%.+]]: tensor<i8>) -> tensor<?x?x768xi32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() : () -> none
 // CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<f32>
 // CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<f32>
 // CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Cast"([[PARAM_0_]]) <{saturate = 1 : si64, to = i8}> : (tensor<?x?x768xui8>) -> tensor<?x?x768xi8>
@@ -35,7 +35,7 @@ func.func @matmulinteger_no_precompute_bias(%arg0: tensor<?x?x768xui8>, %arg1: t
 // CHECK-LABEL:  func.func @matmulinteger_no_precompute_bias
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x768xui8>, [[PARAM_1_:%.+]]: tensor<768x768xi8>, [[PARAM_2_:%.+]]: tensor<ui8>) -> tensor<?x?x768xi32> {
 // CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<0> : tensor<i8>
-// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.NoValue"() : () -> none
 // CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<f32>
 // CHECK-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<f32>
 // CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Cast"([[PARAM_0_]]) <{saturate = 1 : si64, to = i8}> : (tensor<?x?x768xui8>) -> tensor<?x?x768xi8>
@@ -110,8 +110,8 @@ func.func @matmulinteger_rewrite_from_mul_pattern_in_bert(%arg0: tensor<?x?x768x
 // CHECK-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<5> : tensor<768x768xi8>
 // CHECK-DAG:       [[VAR_4_:%.+]] = onnx.Constant dense<0.00656270096> : tensor<f32>
 // CHECK-DAG:       [[VAR_5_:%.+]] = onnx.Constant dense<0> : tensor<i8>
-// CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
-// CHECK:           [[VAR_Out_:%.+]], [[VAR_RecScale_:%.+]], [[VAR_Offset_:%.+]] = "zhigh.QuantizedStick"([[PARAM_0_]], [[VAR_6_]], [[VAR_6_]]) <{layout = "3DS", quantized_type = "DLFLOAT16", sym_mode = 0 : i64}> : (tensor<?x?x768xf32>, none, none) -> (tensor<?x?x768xf16, #zhigh.layout<{dataLayout = "3DS", quantizedType = "DLFLOAT16"}>>, tensor<f32>, tensor<f32>)
+// CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.NoValue"() : () -> none
+// CHECK-DAG:       [[VAR_Out_:%.+]], [[VAR_RecScale_:%.+]], [[VAR_Offset_:%.+]] = "zhigh.QuantizedStick"([[PARAM_0_]], [[VAR_6_]], [[VAR_6_]]) <{layout = "3DS", quantized_type = "DLFLOAT16", sym_mode = 0 : i64}> : (tensor<?x?x768xf32>, none, none) -> (tensor<?x?x768xf16, #zhigh.layout<{dataLayout = "3DS", quantizedType = "DLFLOAT16"}>>, tensor<f32>, tensor<f32>)
 // CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.Reciprocal"([[VAR_4_]]) : (tensor<f32>) -> tensor<f32>
 // CHECK-DAG:       [[VAR_8_:%.+]] = "onnx.Cast"([[VAR_5_]]) <{saturate = 1 : si64, to = f32}> : (tensor<i8>) -> tensor<f32>
 // CHECK:           [[VAR_Out_0_:%.+]], [[VAR_RecScale_1_:%.+]], [[VAR_Offset_2_:%.+]] = "zhigh.QuantizedStick"([[VAR_3_]], [[VAR_7_]], [[VAR_8_]]) <{layout = "2D", quantized_type = "WEIGHTS", sym_mode = 0 : i64}> : (tensor<768x768xi8>, tensor<f32>, tensor<f32>) -> (tensor<768x768xi8, #zhigh.layout<{dataLayout = "2D", quantizedType = "WEIGHTS"}>>, tensor<f32>, tensor<f32>)

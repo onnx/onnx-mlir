@@ -15,6 +15,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Interfaces/InferTypeOpInterface.h"
+
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -96,6 +99,30 @@ LogicalResult ONNXAddOp::verify() {
 LogicalResult ONNXAddOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return inferShapeForBroadcastingOps<ONNXAddOp>(*this);
+}
+
+LogicalResult ONNXAddOp::reifyResultShapes(
+    OpBuilder &builder, ReifiedRankedShapedTypeDims &reifiedReturnShapes) {
+  auto rankedOutTy = dyn_cast<RankedTensorType>(getResult().getType());
+  if (!rankedOutTy)
+    return failure();
+
+  Location loc = getLoc();
+  IndexExprBuilderForReify createIE(builder, loc);
+  IndexExprScope scope(&builder, loc);
+  ONNXBroadcastOpShapeHelper shapeHelper(
+      getOperation(), getOperands(), &createIE, &scope);
+  if (failed(shapeHelper.computeShape()))
+    return failure();
+
+  SmallVector<OpFoldResult, 4> foldedDims;
+  IndexExpr::getOpOrFoldResults(shapeHelper.getOutputDims(0), foldedDims);
+  if (foldedDims.size() != static_cast<size_t>(rankedOutTy.getRank()))
+    return failure();
+
+  reifiedReturnShapes.clear();
+  reifiedReturnShapes.emplace_back(std::move(foldedDims));
+  return success();
 }
 
 //===----------------------------------------------------------------------===//

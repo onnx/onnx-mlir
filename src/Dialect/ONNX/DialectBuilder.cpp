@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/IR/TypeUtilities.h"
 
 #include "src/Dialect/Mlir/IndexExpr.hpp"
@@ -934,6 +935,43 @@ Value IndexExprBuilderForAnalysis::getVal(Value intArrayVal, uint64_t i) {
 Value IndexExprBuilderForAnalysis::getShapeVal(
     Value tensorOrMemrefValue, uint64_t i) {
   return nullptr;
+}
+
+// =============================================================================
+// IndexExpr Builder for reifyResultShapes (emits shape/shape:: IR).
+// =============================================================================
+
+// Return null if none is found.
+ElementsAttr IndexExprBuilderForReify::getConst(Value value) {
+  auto definingOp = value.getDefiningOp();
+  if (auto castOp = dyn_cast_or_null<arith::IndexCastOp>(definingOp)) {
+    Value input = castOp.getIn();
+    definingOp = input.getDefiningOp();
+  }
+  if (auto constOp = dyn_cast_or_null<ONNXConstantOp>(definingOp)) {
+    if (constOp.getValue().has_value())
+      return mlir::dyn_cast<ElementsAttr>(constOp.getValueAttr());
+  }
+  return nullptr;
+}
+
+Value IndexExprBuilderForReify::getVal(Value intArrayVal, uint64_t i) {
+  Type elemType = getElementType(intArrayVal.getType());
+  if (!mlir::isa<IndexType>(elemType)) {
+    Type indexTensorType = RankedTensorType::get(
+        mlir::cast<ShapedType>(intArrayVal.getType()).getShape(),
+        b().getIndexType());
+    intArrayVal =
+        arith::IndexCastOp::create(b(), loc(), indexTensorType, intArrayVal);
+  }
+  ShapeBuilder createShape(*this);
+  return createShape.getExtent(intArrayVal, i);
+}
+
+Value IndexExprBuilderForReify::getShapeVal(
+    Value tensorOrMemrefValue, uint64_t i) {
+  ShapeBuilder createShape(*this);
+  return createShape.dim(tensorOrMemrefValue, i);
 }
 
 } // namespace onnx_mlir
