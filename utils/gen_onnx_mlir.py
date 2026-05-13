@@ -386,6 +386,7 @@ class CustomOpSchema:
             # Map type string to OpSchema.AttrType
             type_map = {
                 "int": OpSchema.AttrType.INT,
+                "int32": OpSchema.AttrType.INT,
                 "float": OpSchema.AttrType.FLOAT,
                 "string": OpSchema.AttrType.STRING,
                 "tensor": OpSchema.AttrType.TENSOR,
@@ -1013,6 +1014,8 @@ def onnx_attr_type_to_mlir_attr_type(t):
 def tblgen_attr_type_to_cpp_type(t):
     if "I64Attr" in t:
         cpp_type = "IntegerAttr"
+    elif "I32Attr" in t:
+        cpp_type = "IntegerAttr"
     elif "F32Attr" in t:
         cpp_type = "FloatAttr"
     elif "I64ArrayAttr" in t or "F32ArrayAttr" in t:
@@ -1238,10 +1241,13 @@ def get_attrs(schema):
             has_default, default_value = get_default_value_if_present(attr)
             if not has_default:
                 # Optional attribute; use type_str for custom ops
-                # (e.g. bool -> BoolAttr).
+                # (e.g. bool -> BoolAttr, int32 -> I32Attr). Without these
+                # overrides custom-op ints always lower to SI64Attr.
                 type_str = getattr(attr, "type_str", None)
                 if type_str == "bool":
                     name_to_type[attr.name] = "OptionalAttr<BoolAttr>"
+                elif type_str == "int32":
+                    name_to_type[attr.name] = "OptionalAttr<I32Attr>"
                 else:
                     name_to_type[attr.name] = get_attr_type_optional(attr.type)
                 continue

@@ -92,10 +92,10 @@ struct ReplaceQuantizedHardSigmoidPattern
         output.getType(),   // Output type (quant tensor)
         input,              // A - quantized tensor input
         noneOp.getResult(), // B - none for unary op
-        /*clip_max=*/IntegerAttr(),
-        /*clip_min=*/IntegerAttr(),
         /*enable_lut_sigmoid=*/rewriter.getBoolAttr(false),
         /*leakyrelu_alpha=*/FloatAttr(),
+        /*max=*/IntegerAttr(),
+        /*min=*/IntegerAttr(),
         /*mul_y=*/FloatAttr(),
         /*nonlinear=*/rewriter.getStringAttr("NONE"),
         /*nonlinear_in_scales=*/FloatAttr(),
