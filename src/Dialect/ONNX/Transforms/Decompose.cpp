@@ -3286,8 +3286,12 @@ struct MicrosoftSkipSimplifiedLayerNorm : public CustomOpToOnnxOps {
 };
 
 struct MicrosoftGroupQueryAttention : public CustomOpToOnnxOps {
-  MicrosoftGroupQueryAttention(MLIRContext *ctx, PatternBenefit b = 1)
-      : CustomOpToOnnxOps(ctx, MicrosoftDomainName, "GroupQueryAttention", b) {}
+  MicrosoftGroupQueryAttention(
+      MLIRContext *ctx, bool enableCacheSlicing = true, PatternBenefit b = 1)
+      : CustomOpToOnnxOps(ctx, MicrosoftDomainName, "GroupQueryAttention", b),
+        enableCacheSlicing(enableCacheSlicing) {}
+
+  bool enableCacheSlicing;
 
   LogicalResult matchAndRewriteImpl(
       ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
@@ -3412,63 +3416,92 @@ struct MicrosoftGroupQueryAttention : public CustomOpToOnnxOps {
     ONNXRotaryEmbeddingOp ropeKey;
     if (doRotary && doRotary.getSInt() > 0) {
       assert(numIn >= 9 && !isNoneValue(cosCache) && !isNoneValue(sinCache));
-      // If do_rotary = 1 and no position ids are provided, we need to slice and
-      // transform the cos and sin caches to have shape:
-      // [batch_size, sequence_length, head_size / 2].
+      // If do_rotary = 1 and no position ids are provided, we need to slice
+      // and transform the cos and sin caches to have shape:
+      // [batch_size, sequence_length, head_size / 2]. When
+      // enableCacheSlicing is false, skip the slice/reshape/expand and pass
+      // the original cos/sin caches through unchanged.
       if (numIn < 10 || isNoneValue(positionIds)) {
         positionIds = none;
 
-        auto pastKeyType = cast<ShapedType>(pastKey.getType());
+        if (enableCacheSlicing) {
+          auto pastKeyType = cast<ShapedType>(pastKey.getType());
 
-        // Assuming the sequence length is the same kv_sequence_length
-        const int64_t seqLen = queryType.getShape()[1];
-        const int64_t pastSeqLen = pastKeyType.getShape()[2];
-        const int64_t totalSeqLen = pastSeqLen + seqLen;
+          // Assuming the sequence length is the same kv_sequence_length
+          const int64_t seqLen = queryType.getShape()[1];
+          const int64_t pastSeqLen = pastKeyType.getShape()[2];
+          const int64_t totalSeqLen = pastSeqLen + seqLen;
 
-        // The slice mimics indexing the cos/sin caches using the default
-        // pos_ids: [past_seq_len..total_seq_len].
-        onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
-            rewriter, loc);
-        Value startsConst = create.onnx.constantInt64({pastSeqLen});
-        Value endsConst = create.onnx.constantInt64({totalSeqLen});
-        Value axesConst = create.onnx.constantInt64({0});
-        Value stepsConst = create.onnx.constantInt64({1});
-        toCheck.append({startsConst, endsConst, axesConst, stepsConst});
+          // The slice mimics indexing the cos/sin caches using the default
+          // pos_ids: [past_seq_len..total_seq_len].
+          onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
+              rewriter, loc);
+          Value startsConst = create.onnx.constantInt64({pastSeqLen});
+          Value endsConst = create.onnx.constantInt64({totalSeqLen});
+          Value axesConst = create.onnx.constantInt64({0});
+          Value stepsConst = create.onnx.constantInt64({1});
+          toCheck.append({startsConst, endsConst, axesConst, stepsConst});
 
-        auto elementType = getElementTypeOrSelf(cosCache.getType());
-        auto cacheSlicedType =
-            RankedTensorType::get({seqLen, headSize / 2}, elementType);
-        auto cosCacheSliced = rewriter.create<ONNXSliceOp>(loc, cacheSlicedType,
-            cosCache, startsConst, endsConst, axesConst, stepsConst);
-        auto sinCacheSliced = rewriter.create<ONNXSliceOp>(loc, cacheSlicedType,
-            sinCache, startsConst, endsConst, axesConst, stepsConst);
-        toCheck.append({cosCacheSliced, sinCacheSliced});
+          auto elementType = getElementTypeOrSelf(cosCache.getType());
+          auto cacheSlicedType =
+              RankedTensorType::get({seqLen, headSize / 2}, elementType);
+          auto cosCacheSliced =
+              rewriter.create<ONNXSliceOp>(loc, cacheSlicedType, cosCache,
+                  startsConst, endsConst, axesConst, stepsConst);
+          auto sinCacheSliced =
+              rewriter.create<ONNXSliceOp>(loc, cacheSlicedType, sinCache,
+                  startsConst, endsConst, axesConst, stepsConst);
+          toCheck.append({cosCacheSliced, sinCacheSliced});
 
-        // reshape to [1, sequence_length, head_size / 2]
-        auto cache3dType =
-            RankedTensorType::get({1, seqLen, headSize / 2}, elementType);
-        auto reshapeShapeConst =
-            create.onnx.constantInt64({1, seqLen, headSize / 2});
-        cosCache =
-            create.onnx.reshape(cache3dType, cosCacheSliced, reshapeShapeConst);
-        sinCache =
-            create.onnx.reshape(cache3dType, sinCacheSliced, reshapeShapeConst);
-        toCheck.append({reshapeShapeConst, cosCache, sinCache});
+          // reshape to [1, sequence_length, head_size / 2]
+          auto cache3dType =
+              RankedTensorType::get({1, seqLen, headSize / 2}, elementType);
+          auto reshapeShapeConst =
+              create.onnx.constantInt64({1, seqLen, headSize / 2});
+          cosCache = create.onnx.reshape(
+              cache3dType, cosCacheSliced, reshapeShapeConst);
+          sinCache = create.onnx.reshape(
+              cache3dType, sinCacheSliced, reshapeShapeConst);
+          toCheck.append({reshapeShapeConst, cosCache, sinCache});
 
-        // Assume total/past sequence length is the same for every batch and
-        // broadcast the default pos_ids to get cos/sin caches with shape:
-        // [batch_size, sequence_length, head_size / 2]
-        int64_t batchSize = queryType.getShape()[0];
-        if (batchSize != 1) {
-          auto cacheBroadcastType = RankedTensorType::get(
-              {batchSize, seqLen, headSize / 2}, elementType);
-          auto broadcastShapeConst =
-              create.onnx.constantInt64({batchSize, seqLen, headSize / 2});
-          cosCache = create.onnx.expand(
-              cacheBroadcastType, cosCache, broadcastShapeConst);
-          sinCache = create.onnx.expand(
-              cacheBroadcastType, sinCache, broadcastShapeConst);
-          toCheck.append({broadcastShapeConst, cosCache, sinCache});
+          // Assume total/past sequence length is the same for every batch
+          // and broadcast the default pos_ids to get cos/sin caches with
+          // shape: [batch_size, sequence_length, head_size / 2]
+          int64_t batchSize = queryType.getShape()[0];
+          if (batchSize != 1) {
+            auto cacheBroadcastType = RankedTensorType::get(
+                {batchSize, seqLen, headSize / 2}, elementType);
+            auto broadcastShapeConst =
+                create.onnx.constantInt64({batchSize, seqLen, headSize / 2});
+            cosCache = create.onnx.expand(
+                cacheBroadcastType, cosCache, broadcastShapeConst);
+            sinCache = create.onnx.expand(
+                cacheBroadcastType, sinCache, broadcastShapeConst);
+            toCheck.append({broadcastShapeConst, cosCache, sinCache});
+          }
+        } else {
+          // Synthesize position_ids = [pastSeqLen, .., totalSeqLen-1]
+          // broadcast to [batch_size, seq_len]. Same semantics as the
+          // original slicing, but the cos/sin caches are passed through
+          // unchanged so the cache stays complete.
+          auto pastKeyType = cast<ShapedType>(pastKey.getType());
+          const int64_t seqLen = queryType.getShape()[1];
+          const int64_t pastSeqLen = pastKeyType.getShape()[2];
+          const int64_t totalSeqLen = pastSeqLen + seqLen;
+          const int64_t batchSize = queryType.getShape()[0];
+
+          SmallVector<Attribute> elements;
+          elements.reserve(batchSize * seqLen);
+          for (int64_t b = 0; b < batchSize; ++b)
+            for (int64_t i = pastSeqLen; i < totalSeqLen; ++i)
+              elements.push_back(rewriter.getI64IntegerAttr(i));
+
+          auto positionIdsType = RankedTensorType::get(
+              {batchSize, seqLen}, rewriter.getIntegerType(64));
+          positionIds = rewriter.create<ONNXConstantOp>(loc, Attribute(),
+              DenseElementsAttr::get(
+                  positionIdsType, ArrayRef<Attribute>(elements)));
+          toCheck.push_back(positionIds);
         }
       }
 
@@ -4705,7 +4738,8 @@ struct DecomposeONNXToONNXPass
       bool enableGroupQueryAttentionDecompose = true,
       bool enableSplitToSliceDecompose = false, bool enableConcatFuse = true,
       bool enableLstmSeqDecompose = false, bool enableReduceL2Decompose = true,
-      bool enableGatherToSlice = true, bool enableHardSwishDecompose = true) {
+      bool enableGatherToSlice = true, bool enableHardSwishDecompose = true,
+      bool enableGroupQueryAttentionCacheSlicing = true) {
     this->target = target;
     this->enableConvTransposeDecompose = enableConvTransposeDecompose;
     this->enableConvTransposeDecomposeToPhasedConv =
@@ -4723,6 +4757,8 @@ struct DecomposeONNXToONNXPass
     this->enableReduceL2Decompose = enableReduceL2Decompose;
     this->enableGatherToSlice = enableGatherToSlice;
     this->enableHardSwishDecompose = enableHardSwishDecompose;
+    this->enableGroupQueryAttentionCacheSlicing =
+        enableGroupQueryAttentionCacheSlicing;
   }
 
   DecomposeONNXToONNXPass(const DecomposeONNXToONNXPass &pass)
@@ -4747,6 +4783,8 @@ struct DecomposeONNXToONNXPass
     this->enableReduceL2Decompose = pass.enableReduceL2Decompose.getValue();
     this->enableGatherToSlice = pass.enableGatherToSlice.getValue();
     this->enableHardSwishDecompose = pass.enableHardSwishDecompose.getValue();
+    this->enableGroupQueryAttentionCacheSlicing =
+        pass.enableGroupQueryAttentionCacheSlicing.getValue();
   }
 
   StringRef getArgument() const override { return "decompose-onnx"; }
@@ -4826,6 +4864,13 @@ struct DecomposeONNXToONNXPass
                      "x * HardSigmoid(x) (alpha=1/6, beta=0.5)"),
       ::llvm::cl::init(true)};
 
+  Option<bool> enableGroupQueryAttentionCacheSlicing{*this,
+      "enable-groupqueryattention-cache-slicing",
+      llvm::cl::desc("Enable slicing of cos/sin caches during decomposing "
+                     "GroupQueryAttention. Set to false for keeping cache "
+                     "and synthesize position_ids instead."),
+      ::llvm::cl::init(true)};
+
   void runOnOperation() final;
 
   typedef PassWrapper<DecomposeONNXToONNXPass, OperationPass<func::FuncOp>>
@@ -4843,7 +4888,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
       enableGroupQueryAttentionDecompose, enableSplitToSliceDecompose,
       enableConcatFuse, enableLstmSeqDecompose, enableReduceL2Decompose,
       /*disableGenericDecompositions=*/false, enableGatherToSlice,
-      enableHardSwishDecompose);
+      enableHardSwishDecompose, enableGroupQueryAttentionCacheSlicing);
   patterns.insert<ReplaceCastLikeByCastPattern>(context);
 
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
@@ -4869,7 +4914,7 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
     bool enableSplitToSliceDecompose, bool enableConcatFuse,
     bool enableLstmSeqDecompose, bool enableReduceL2Decompose,
     bool disableGenericDecompositions, bool enableGatherToSlice,
-    bool enableHardSwishDecompose) {
+    bool enableHardSwishDecompose, bool enableGroupQueryAttentionCacheSlicing) {
   MLIRContext *context = patterns.getContext();
   if (!disableGenericDecompositions)
     populateWithGenerated(patterns);
@@ -4912,7 +4957,8 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
     patterns.insert<MicrosoftSkipSimplifiedLayerNorm>(context);
   }
   if (enableGroupQueryAttentionDecompose)
-    patterns.insert<MicrosoftGroupQueryAttention>(context);
+    patterns.insert<MicrosoftGroupQueryAttention>(
+        context, enableGroupQueryAttentionCacheSlicing);
   if (!disableGenericDecompositions)
     patterns.insert<MicrosoftRotaryEmbedding>(context);
   if (enableMatmulNBitsDecompose)
@@ -4952,12 +4998,14 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createDecomposeONNXToONNXPass(
     bool enableMatmulNBitsDecompose, bool enableGroupQueryAttentionDecompose,
     bool enableSplitToSliceDecompose, bool enableConcatFuse,
     bool enableLstmSeqDecompose, bool enableReduceL2Decompose,
-    bool enableGatherToSlice, bool enableHardSwishDecompose) {
+    bool enableGatherToSlice, bool enableHardSwishDecompose,
+    bool enableGroupQueryAttentionCacheSlicing) {
   return std::make_unique<DecomposeONNXToONNXPass>(target,
       enableConvTransposeDecompose, enableConvTransposeDecomposeToPhasedConv,
       enableConvTranspose1dDecomposeToPhasedConv, enableInstanceNormDecompose,
       enableGroupNormDecompose, enableMatmulNBitsDecompose,
       enableGroupQueryAttentionDecompose, enableSplitToSliceDecompose,
       enableConcatFuse, enableLstmSeqDecompose, enableReduceL2Decompose,
-      enableGatherToSlice, enableHardSwishDecompose);
+      enableGatherToSlice, enableHardSwishDecompose,
+      enableGroupQueryAttentionCacheSlicing);
 }

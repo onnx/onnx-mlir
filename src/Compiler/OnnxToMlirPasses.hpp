@@ -34,6 +34,7 @@ struct OnnxToMlirOptions {
   bool enableMatmulNBitsDecompose = false;
   bool enableGroupQueryAttentionDecompose = true;
   bool enableConcatFuse = true;
+  bool enableGroupQueryAttentionCacheSlicing = true;
   bool enableRemoveDqQAroundOp = false;
   bool enableRemoveBinary = false;
   bool enableFusePadIntoAvgpool = false;
