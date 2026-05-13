@@ -670,10 +670,10 @@ void getRewriteONNXForZHighPatterns(RewritePatternSet &patterns,
   patterns.insert<RemoveReshapeWithIdentityPattern>(
       patterns.getContext(), dimAnalysis);
 
-  // Add Conv to Im2Col decomposition pattern for Conv ops that cannot use NNPA.
+  // Add Conv to Matmul decomposition pattern for Conv ops that cannot use NNPA.
   // This reuses the existing ConvToIm2ColPattern from Decompose.cpp.
   if (enableConvToMatmul) {
-    addConvToIm2ColPattern(patterns);
+    addConvToMatmulPattern(patterns, isCompatibleWithNNPALevel(NNPALevel::M15));
   }
 }
 
@@ -1006,10 +1006,17 @@ void getRewriteONNXForZHighDynamicallyLegal(mlir::ConversionTarget *target,
           // Rule to change Conv with padding  => Pad -> Conv
           bool suitableForZDNN = isSuitableForZDNN<ONNXConvOp>(op);
           bool canDecomposeToPadAndConv = canInferencePadsForNNPAConv(op);
+          // Rule to change to 1x1 conv -> matmul.
+          // NNPA has fast 1xN broadcast, for M15+.
+          bool canDecompose1x1ToAMatmul = shouldDecomposeConv1x1ToMatmul(
+              op, /*hasFastBroadcast1xN=*/isCompatibleWithNNPALevel(M15));
           // Rule to change to conv -> im2Col -> matmul.
-          bool canDecomposeToIm2ColAndMatmul = shouldDecomposeConvToIm2Col(op);
-          bool canApplyRule =
-              canDecomposeToPadAndConv || canDecomposeToIm2ColAndMatmul;
+          // NNPA has fast 1xN broadcast, for M15+.
+          bool canDecomposeToIm2ColAndMatmul = shouldDecomposeConvToIm2Col(
+              op, /*hasFastBroadcast1xN=*/isCompatibleWithNNPALevel(M15));
+          bool canApplyRule = canDecomposeToPadAndConv ||
+                              canDecomposeToIm2ColAndMatmul ||
+                              canDecompose1x1ToAMatmul;
           bool legal = suitableForZDNN || !canApplyRule;
           return legal;
         });

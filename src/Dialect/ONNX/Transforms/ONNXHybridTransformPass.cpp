@@ -125,7 +125,8 @@ struct ONNXHybridTransformPass
     }
 
     if (decomposition) {
-      getDecomposeONNXToONNXPatterns(cumulativePatterns, enableConvToMatmul);
+      getDecomposeONNXToONNXPatterns(
+          cumulativePatterns, enableConvToMatmul);
     }
 
     if (recomposition) {

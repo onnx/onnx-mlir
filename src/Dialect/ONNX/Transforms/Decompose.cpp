@@ -623,7 +623,13 @@ static bool allArrayAttrValuesEqual(
 
 // Determine if we can transform a conv 1x1 with group=1, kernel size =1x...x1,
 // stride=dilation=1, pad=0.
-bool shouldDecomposeConv1x1ToMatmul(ONNXConvOp convOp) {
+bool shouldDecomposeConv1x1ToMatmul(
+    ONNXConvOp convOp, bool hasFastBroadcast1xN) {
+  // 1x1 decomposition introduces 1xN broadcast UNLESS BatchSize N==1.
+  // Initially ignore this case.
+  if (!hasFastBroadcast1xN)
+    return false;
+
   constexpr int kConvSpatialDimStartIndex = 2;
 
   // Get type, shape, and rank info for X and W inputs.
@@ -670,7 +676,12 @@ bool shouldDecomposeConv1x1ToMatmul(ONNXConvOp convOp) {
 }
 
 // Check if Conv should be decomposed to Im2Col+MatMul.
-bool shouldDecomposeConvToIm2Col(ONNXConvOp convOp) {
+bool shouldDecomposeConvToIm2Col(ONNXConvOp convOp, bool hasFastBroadcast1xN) {
+  // Im2Col decomposition introduces 1xN broadcast UNLESS BatchSize N==1.
+  // Initially ignore this case.
+  if (!hasFastBroadcast1xN)
+    return false;
+
   // 1. Must have shape information.
   Value X = convOp.getX();
   Value W = convOp.getW();
@@ -697,7 +708,7 @@ bool shouldDecomposeConvToIm2Col(ONNXConvOp convOp) {
   // 5. Exclude 1x1 convolutions that can be directly converted to MatMul.
   // Use the same check as the direct MatMul pattern to avoid conflicts.
   // This allows 1x1 convs with stride>1 or padding to use Im2Col.
-  if (shouldDecomposeConv1x1ToMatmul(convOp))
+  if (shouldDecomposeConv1x1ToMatmul(convOp, hasFastBroadcast1xN))
     return false;
 
   return true;
@@ -1251,12 +1262,16 @@ struct DecomposeHardSwishPattern : public OpRewritePattern<ONNXHardSwishOp> {
 //   Y = Reshape(Y_flat, [N, CO, OH, OW])
 
 struct ConvToIm2ColPattern : public OpRewritePattern<ONNXConvOp> {
-  using OpRewritePattern<ONNXConvOp>::OpRewritePattern;
+  bool hasFastBroadcast1xN;
+
+  ConvToIm2ColPattern(MLIRContext *context, bool hasFastBroadcast1xN)
+      : OpRewritePattern<ONNXConvOp>(context),
+        hasFastBroadcast1xN(hasFastBroadcast1xN) {}
 
   LogicalResult matchAndRewrite(
       ONNXConvOp convOp, PatternRewriter &rewriter) const final {
     // Check if this convolution should be decomposed.
-    if (!onnx_mlir::shouldDecomposeConvToIm2Col(convOp))
+    if (!onnx_mlir::shouldDecomposeConvToIm2Col(convOp, hasFastBroadcast1xN))
       return failure();
 
     Location loc = convOp.getLoc();
@@ -1458,15 +1473,6 @@ struct ConvToIm2ColPattern : public OpRewritePattern<ONNXConvOp> {
 
 } // namespace
 
-namespace onnx_mlir {
-
-// Add Conv to Im2Col decomposition pattern to the pattern set.
-void addConvToIm2ColPattern(RewritePatternSet &patterns) {
-  patterns.add<ConvToIm2ColPattern>(patterns.getContext());
-}
-
-} // namespace onnx_mlir
-
 namespace {
 
 /*
@@ -1491,7 +1497,11 @@ namespace {
 */
 
 struct Conv1x1ToMatmulPattern : public OpRewritePattern<ONNXConvOp> {
-  using OpRewritePattern<ONNXConvOp>::OpRewritePattern;
+  bool hasFastBroadcast1xN;
+
+  Conv1x1ToMatmulPattern(MLIRContext *context, bool hasFastBroadcast1xN)
+      : OpRewritePattern<ONNXConvOp>(context),
+        hasFastBroadcast1xN(hasFastBroadcast1xN) {}
 
   LogicalResult matchAndRewrite(
       ONNXConvOp convOp, PatternRewriter &rewriter) const final {
@@ -1499,7 +1509,7 @@ struct Conv1x1ToMatmulPattern : public OpRewritePattern<ONNXConvOp> {
     // Get basic op info.
     Location loc = convOp.getLoc();
     // All conditions should be satisfied, test to be sure.
-    if (!onnx_mlir::shouldDecomposeConv1x1ToMatmul(convOp))
+    if (!onnx_mlir::shouldDecomposeConv1x1ToMatmul(convOp, hasFastBroadcast1xN))
       return failure();
 
     // All conditions satisfied, get info.
@@ -1708,12 +1718,15 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   // Add dynamically legal op for Conv: always check for 1x1 decomposition,
   // and optionally check for Im2Col decomposition when enabled.
   target.addDynamicallyLegalOp<ONNXConvOp>([this](ONNXConvOp op) {
-    // Conv is illegal (should be decomposed) if it's a 1x1 conv.
-    if (onnx_mlir::shouldDecomposeConv1x1ToMatmul(op))
-      return false;
-    // Conv is illegal if Im2Col decomposition is enabled and applicable.
-    if (this->enableConvToMatmul && onnx_mlir::shouldDecomposeConvToIm2Col(op))
-      return false;
+    if (this->enableConvToMatmul) {
+      // Conv is illegal (should be decomposed) if it's a 1x1 conv.
+      if (onnx_mlir::shouldDecomposeConv1x1ToMatmul(
+              op, this->enableConvToMatmul))
+        return false;
+      // Conv is illegal if Im2Col decomposition is enabled and applicable.
+      if (onnx_mlir::shouldDecomposeConvToIm2Col(op, this->enableConvToMatmul))
+        return false;
+    }
     // Otherwise, Conv is legal, i.e. we want to preserve the convolution as is.
     return true;
   });
@@ -1734,6 +1747,17 @@ void DecomposeONNXToONNXPass::runOnOperation() {
 
 } // namespace
 
+namespace onnx_mlir {
+
+// Add Conv to Im2Col decomposition pattern to the pattern set.
+void addConvToMatmulPattern(
+    RewritePatternSet &patterns, bool hasFastBroadcast1xN) {
+  patterns.add<ConvToIm2ColPattern>(patterns.getContext(), hasFastBroadcast1xN);
+  patterns.add<Conv1x1ToMatmulPattern>(
+      patterns.getContext(), hasFastBroadcast1xN);
+}
+} // namespace onnx_mlir
+
 void onnx_mlir::getDecomposeONNXToONNXPatterns(
     mlir::RewritePatternSet &patterns, bool enableConvToMatmul) {
   MLIRContext *context = patterns.getContext();
@@ -1747,13 +1771,9 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
   patterns.insert<SumToAddPattern>(context);
   patterns.insert<DecomposeConvTransposePattern>(context);
 
-  // Always add Conv 1x1 to MatMul decomposition (unconditional).
-  patterns.insert<Conv1x1ToMatmulPattern>(context);
-
-  // Optionally add Conv to Im2Col+MatMul decomposition
-  if (enableConvToMatmul) {
-    patterns.insert<ConvToIm2ColPattern>(context);
-  }
+  // Optionally add 1x1 Conv to Matmul andConv to Im2Col+Matmul decomposition.
+  if (enableConvToMatmul)
+    addConvToMatmulPattern(patterns, enableConvToMatmul);
 
   if (!onnx_mlir::decomposeOpsInONNX.empty()) {
     for (const auto &op : onnx_mlir::decomposeOpsInONNX) {

@@ -69,7 +69,8 @@ int main(int argc, char *argv[]) {
       argc, argv, "TestConv\n", nullptr, nullptr, "TEST_ARGS");
   initCompilerConfig();
   std::string target = getCompilerOption(OptionKind::TargetAccel);
-  std::cout << "Target options: \"" << target << "\"\n";
+  std::string arch = getCompilerOption(OptionKind::TargetArch);
+  std::cout << "Target options: \"" << arch << " " << target << "\"\n";
   // Set default configurations
   int dimType = 2;     // default is for dynamic and static
   int maxDilation = 3; // maxDilation is an exclusive upper bound

@@ -582,7 +582,8 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
     // Always call addONNXToMLIRPasses first for preprocessing (ONNXReturnOp ->
     // func::ReturnOp, etc.) This is needed for both Krnl and Linalg paths
     // The function now handles the shouldCallONNXToMLIR check internally and
-    // automatically calls addONNXToLinalgPasses if needed
+    // automatically calls addONNXToLinalgPasses if needed.
+    // CPU can handle fast matmul with any broadcast patterns.
     addONNXToMLIRPasses(pm, /*target CPU*/ maccel.empty());
   }
 
