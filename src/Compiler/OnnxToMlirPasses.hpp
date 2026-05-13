@@ -43,6 +43,7 @@ struct OnnxToMlirOptions {
   bool enableGatherToSlice = true;
   bool enableRotaryEmbeddingRecompose = false;
   bool enableQDQConstProp = false;
+  bool enableHardSwishDecompose = true;
 
   bool disableBatchNormDecompose = false;
   bool disableRecomposeOption = false;
@@ -52,6 +53,9 @@ struct OnnxToMlirOptions {
   bool enableSimdDataLayout = false;
   bool disableSimdOption = false;
   bool enableGAPToReduceMean = true;
+
+  bool enableMatmulAddFusion = true;
+  bool enableMatmulToConv = true;
 
   int onnxOpTransformThreshold = 3;
   bool onnxOpTransformReport = false;

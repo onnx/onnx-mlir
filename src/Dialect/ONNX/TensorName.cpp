@@ -27,6 +27,8 @@ std::unique_ptr<Transform> fromAttr(ArrayAttr arrayAttr) {
         return std::make_unique<PadTransform>(arrayAttr);
       else if (transType == "Slice")
         return std::make_unique<SliceTransform>(arrayAttr);
+      else if (transType == "Tile")
+        return std::make_unique<TileTransform>(arrayAttr);
       else if (transType == "Dequantize")
         return std::make_unique<DequantizeTransform>(arrayAttr);
       else if (transType == "Quantize")
@@ -210,6 +212,36 @@ std::unique_ptr<Transform> SliceTransform::invert() const {
 
   return std::make_unique<PadTransform>(
       outShape, starts, padEnds, axes, Attribute(), inShape);
+}
+
+// == Tile == //
+
+TileTransform::TileTransform(ArrayRef<int64_t> inShape,
+    ArrayRef<int64_t> multiples, ArrayRef<int64_t> outShape)
+    : Transform(Kind::Tile, inShape, outShape), multiples(multiples) {}
+
+TileTransform::TileTransform(ArrayAttr attr)
+    : TileTransform(arrayToVector(cast<ArrayAttr>(attr[1])),
+          arrayToVector(cast<ArrayAttr>(attr[2])),
+          arrayToVector(cast<ArrayAttr>(attr[3]))) {}
+
+Attribute TileTransform::toAttr(MLIRContext *context) const {
+  return ArrayAttr::get(context, {
+                                     StringAttr::get(context, "Tile"),
+                                     vecToAttr(context, inShape),
+                                     vecToAttr(context, multiples),
+                                     vecToAttr(context, outShape),
+                                 });
+}
+
+std::unique_ptr<Transform> TileTransform::invert() const {
+  // The inverse of tiling is slicing back to the original shape.
+  // Each dimension goes from outShape[i] back to inShape[i] starting at 0.
+  SmallVector<int64_t> starts(inShape.size(), 0);
+  SmallVector<int64_t> axes(inShape.size());
+  std::iota(axes.begin(), axes.end(), 0);
+  return std::make_unique<SliceTransform>(
+      outShape, starts, SmallVector<int64_t>(inShape), axes, inShape);
 }
 
 // == QDQ == //
@@ -511,6 +543,24 @@ std::unique_ptr<Transform> SliceOpTensorNameInference::inferTensorNameTransform(
       inShape, starts, ends, axes, outType.getShape());
 }
 
+std::unique_ptr<Transform> TileOpTensorNameInference::inferTensorNameTransform(
+    mlir::Operation *op) const {
+  auto tileOp = cast<ONNXTileOp>(op);
+
+  auto inType = dyn_cast<RankedTensorType>(tileOp.getOperand(0).getType());
+  auto outType = dyn_cast<RankedTensorType>(tileOp.getResult().getType());
+  if (!inType || !outType || !inType.hasStaticShape() ||
+      !outType.hasStaticShape())
+    return nullptr;
+
+  auto multiples = valToVector(tileOp.getRepeats());
+  if (multiples.empty())
+    return nullptr;
+
+  return std::make_unique<TileTransform>(
+      inType.getShape(), multiples, outType.getShape());
+}
+
 void registerTensorNameInferenceExternalModels(
     mlir::DialectRegistry &registry) {
   registry.addExtension<ONNXDialect>(
@@ -519,6 +569,7 @@ void registerTensorNameInferenceExternalModels(
         ONNXReshapeOp::attachInterface<ReshapeOpTensorNameInference>(*ctx);
         ONNXPadOp::attachInterface<PadOpTensorNameInference>(*ctx);
         ONNXSliceOp::attachInterface<SliceOpTensorNameInference>(*ctx);
+        ONNXTileOp::attachInterface<TileOpTensorNameInference>(*ctx);
       });
 }
 

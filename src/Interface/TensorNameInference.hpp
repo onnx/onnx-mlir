@@ -19,6 +19,7 @@ public:
     Transpose,
     Pad,
     Slice,
+    Tile,
     Dequantize,
     Quantize,
     List,
