@@ -4,7 +4,7 @@
 
 //===--- RewriteONNXForZHigh.cpp - Rewrite ONNX ops for ZHigh lowering ----===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -1001,23 +1001,26 @@ void getRewriteONNXForZHighDynamicallyLegal(mlir::ConversionTarget *target,
 
   // Conv: Decompose to Im2Col+MatMul when NNPA cannot be used.
   if (enableConvToMatmul) {
+    fprintf(stderr, "hi alex, enable conv to matmul in onnx for zhigh\n");
     addDynamicallyLegalOpFor<ONNXConvOp>(
         target, dimAnalysis, [](ONNXConvOp op, const DimAnalysis *dimAnalysis) {
           // Rule to change Conv with padding  => Pad -> Conv
           bool suitableForZDNN = isSuitableForZDNN<ONNXConvOp>(op);
           bool canDecomposeToPadAndConv = canInferencePadsForNNPAConv(op);
-          // Rule to change to 1x1 conv -> matmul.
-          // NNPA has fast 1xN broadcast, for M15+.
-          bool canDecompose1x1ToAMatmul = shouldDecomposeConv1x1ToMatmul(
-              op, /*hasFastBroadcast1xN=*/isCompatibleWithNNPALevel(M15));
+          bool canDecompose1x1ToAMatmul = shouldDecomposeConv1x1ToMatmul(op);
           // Rule to change to conv -> im2Col -> matmul.
           // NNPA has fast 1xN broadcast, for M15+.
           bool canDecomposeToIm2ColAndMatmul = shouldDecomposeConvToIm2Col(
               op, /*hasFastBroadcast1xN=*/isCompatibleWithNNPALevel(M15));
           bool canApplyRule = canDecomposeToPadAndConv ||
-                              canDecomposeToIm2ColAndMatmul ||
-                              canDecompose1x1ToAMatmul;
+                              canDecompose1x1ToAMatmul ||
+                              canDecomposeToIm2ColAndMatmul;
           bool legal = suitableForZDNN || !canApplyRule;
+          fprintf(stderr,
+              "hi alex, dec to im2col %d, can apply rule %d, suitable %d, "
+              "legal %d\n",
+              (int)canDecomposeToIm2ColAndMatmul, (int)canApplyRule,
+              (int)suitableForZDNN, (int)legal);
           return legal;
         });
   }

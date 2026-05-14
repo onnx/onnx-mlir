@@ -33,12 +33,7 @@ void getDecomposeONNXToONNXPatterns(
 // Check if 1x1 Conv should be decomposed to a matmul.
 // Applicable for conv 1x1 with group=1, kernel size =1x...x1,
 // stride=dilation=1, pad=0.
-//
-// When hasFastBroadcast1xN is false, then we need to ensure that N=1 (single
-// batch only, as multiple back introduce a 1xN broadcast pattern that is
-// declared as not supported).
-bool shouldDecomposeConv1x1ToMatmul(
-    mlir::ONNXConvOp convOp, bool hasFastBroadcast1xN);
+bool shouldDecomposeConv1x1ToMatmul(mlir::ONNXConvOp convOp);
 
 // Check if Conv should be decomposed to Im2Col+MatMul.
 // Returns true if the Conv operation meets the criteria for decomposition:

@@ -623,12 +623,7 @@ static bool allArrayAttrValuesEqual(
 
 // Determine if we can transform a conv 1x1 with group=1, kernel size =1x...x1,
 // stride=dilation=1, pad=0.
-bool shouldDecomposeConv1x1ToMatmul(
-    ONNXConvOp convOp, bool hasFastBroadcast1xN) {
-  // 1x1 decomposition introduces 1xN broadcast UNLESS BatchSize N==1.
-  // Initially ignore this case.
-  if (!hasFastBroadcast1xN)
-    return false;
+bool shouldDecomposeConv1x1ToMatmul(ONNXConvOp convOp) {
 
   constexpr int kConvSpatialDimStartIndex = 2;
 
@@ -647,7 +642,7 @@ bool shouldDecomposeConv1x1ToMatmul(
   const auto wShape = wType.getShape();
   int64_t rank = xShape.size();
   assert(rank == (int64_t)wShape.size() && "X and W should have same rank");
-  assert(rank > 2 && "X and W should have two spatial dims");
+  assert(rank > 2 && "X and W should have two non-spatial dims");
   // Compute spatial rank: all but N & Cin in X, Cout & Cin in W.
   int spatialRank = rank - 2;
   int spatialIndex = kConvSpatialDimStartIndex;
@@ -703,12 +698,6 @@ bool shouldDecomposeConvToIm2Col(ONNXConvOp convOp, bool hasFastBroadcast1xN) {
 
   // 4. Group must be 1 (no grouped convolutions for now).
   if (convOp.getGroup() != 1)
-    return false;
-
-  // 5. Exclude 1x1 convolutions that can be directly converted to MatMul.
-  // Use the same check as the direct MatMul pattern to avoid conflicts.
-  // This allows 1x1 convs with stride>1 or padding to use Im2Col.
-  if (shouldDecomposeConv1x1ToMatmul(convOp, hasFastBroadcast1xN))
     return false;
 
   return true;
@@ -1264,8 +1253,9 @@ struct DecomposeHardSwishPattern : public OpRewritePattern<ONNXHardSwishOp> {
 struct ConvToIm2ColPattern : public OpRewritePattern<ONNXConvOp> {
   bool hasFastBroadcast1xN;
 
-  ConvToIm2ColPattern(MLIRContext *context, bool hasFastBroadcast1xN)
-      : OpRewritePattern<ONNXConvOp>(context),
+  ConvToIm2ColPattern(MLIRContext *context, bool hasFastBroadcast1xN,
+      PatternBenefit benefit = 1)
+      : OpRewritePattern<ONNXConvOp>(context, benefit),
         hasFastBroadcast1xN(hasFastBroadcast1xN) {}
 
   LogicalResult matchAndRewrite(
@@ -1288,8 +1278,12 @@ struct ConvToIm2ColPattern : public OpRewritePattern<ONNXConvOp> {
     ShapedType xType = mlir::cast<ShapedType>(X.getType());
     ShapedType wType = mlir::cast<ShapedType>(W.getType());
 
+    auto xShape = xType.getShape();
     auto wShape = wType.getShape();
 
+    // Determine if batch size is 1.
+    // TODO: remove this special handling, and squeeze unit batch size for NNPA.
+    bool unitBatchSize = xShape[0] == 1;
     // Extract weight dimensions (these are always static).
     // W: [CO, CI, KH, KW]
     int64_t CO = wShape[0];
@@ -1317,6 +1311,9 @@ struct ConvToIm2ColPattern : public OpRewritePattern<ONNXConvOp> {
     Value X_col = ONNXIm2ColOp::create(rewriter, loc, im2colOutputType, X,
         convOp.getAutoPadAttr(), convOp.getDilationsAttr(), kernelShapeAttr,
         convOp.getPadsAttr(), convOp.getStridesAttr());
+    if (unitBatchSize) // Squeeze the BS.
+      X_col =
+          create.onnx.reshapeToNDim(X_col, 2, /*collapseMostSignificant*/ true);
 
     // Step 2: Reshape W from [CO, CI, KH, KW] to [CO, CI*KH*KW].
     // Create shape constant for reshape: [CO, kernelSize].
@@ -1332,8 +1329,11 @@ struct ConvToIm2ColPattern : public OpRewritePattern<ONNXConvOp> {
     // Step 3: Batched MatMul: W_2d @ X_col.
     // W_2d: [CO, CI*KH*KW], X_col: [N, CI*KH*KW, OH*OW]
     // Result: [N, CO, OH*OW] via broadcasting.
-    SmallVector<int64_t, 3> matmulShape = {
-        ShapedType::kDynamic, CO, ShapedType::kDynamic};
+    SmallVector<int64_t, 3> matmulShape;
+    if (unitBatchSize)
+      matmulShape = {/*BS=1*/ CO, ShapedType::kDynamic};
+    else
+      matmulShape = {ShapedType::kDynamic, CO, ShapedType::kDynamic};
     Type matmulType =
         RankedTensorType::get(matmulShape, wType.getElementType());
 
@@ -1492,6 +1492,8 @@ namespace {
      }
      res = reshape(MM, <N, CO, H, W>)
 
+   when N = 1,  XX shape: <C0, H*W> to avoid broadcast.
+
    Note: since there is no pad, dilation, stride, the output spacial dims (H, W)
    are the same on inputs and outputs.
 */
@@ -1499,9 +1501,8 @@ namespace {
 struct Conv1x1ToMatmulPattern : public OpRewritePattern<ONNXConvOp> {
   bool hasFastBroadcast1xN;
 
-  Conv1x1ToMatmulPattern(MLIRContext *context, bool hasFastBroadcast1xN)
-      : OpRewritePattern<ONNXConvOp>(context),
-        hasFastBroadcast1xN(hasFastBroadcast1xN) {}
+  Conv1x1ToMatmulPattern(MLIRContext *context, PatternBenefit benefit = 1)
+      : OpRewritePattern<ONNXConvOp>(context, benefit) {}
 
   LogicalResult matchAndRewrite(
       ONNXConvOp convOp, PatternRewriter &rewriter) const final {
@@ -1509,7 +1510,7 @@ struct Conv1x1ToMatmulPattern : public OpRewritePattern<ONNXConvOp> {
     // Get basic op info.
     Location loc = convOp.getLoc();
     // All conditions should be satisfied, test to be sure.
-    if (!onnx_mlir::shouldDecomposeConv1x1ToMatmul(convOp, hasFastBroadcast1xN))
+    if (!onnx_mlir::shouldDecomposeConv1x1ToMatmul(convOp))
       return failure();
 
     // All conditions satisfied, get info.
@@ -1526,6 +1527,8 @@ struct Conv1x1ToMatmulPattern : public OpRewritePattern<ONNXConvOp> {
     int64_t rank = xShape.size();
     // Get dimensions.
     int64_t batchSize = xShape[0];
+    // TODO: remove this special handling, and squeeze unit batch size for NNPA.
+    bool unitBatchSize = batchSize == 1;
     int64_t Cout = wShape[0];
     // Start transforming.
     onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
@@ -1534,19 +1537,35 @@ struct Conv1x1ToMatmulPattern : public OpRewritePattern<ONNXConvOp> {
     // dims.
     Value XX =
         create.onnx.reshapeToNDim(X, 3, /*collapseMostSignificant*/ false);
+    if (unitBatchSize) {
+      // Batch size is 1, squeeze XX from [1, CI, H*W*...] to [CI, H*W*...].
+      XX = create.onnx.reshapeToNDim(XX, 2, /*collapseMostSignificant*/ true);
+    }
     // Squeeze <Cout, Cin, 1, 1, ...> can be implemented by a reshape to <Cout,
     // *>, collapsing all spatial dims.
     Value WW =
         create.onnx.reshapeToNDim(W, 2, /*collapseMostSignificant*/ false);
     // Perform the matrix multiplication on WW * XX. Leave last dim runtime so
     // that its actual H*W size can be generated during shape inference.
-    RankedTensorType MMOutputType = RankedTensorType::get(
-        {batchSize, Cout, ShapedType::kDynamic}, elementType);
+    RankedTensorType MMOutputType;
+    if (unitBatchSize)
+      MMOutputType = RankedTensorType::get(
+          {/*no BS*/ Cout, ShapedType::kDynamic}, elementType);
+    else
+      MMOutputType = RankedTensorType::get(
+          {batchSize, Cout, ShapedType::kDynamic}, elementType);
     Value MM = create.onnx.matmul(MMOutputType, WW, XX, /*gemm*/ false);
     if (hasBias) {
       // Reshape BB from <CO> to <1, CO, 1> for broadcast.
       Value axes = create.onnx.constantInt64({0, 2});
-      Type bbType = RankedTensorType::get({1, Cout, 1}, elementType);
+      Type bbType = RankedTensorType::get({Cout, 1}, elementType);
+#if 0 // hi alex
+      if (unitBatchSize)
+        bbType = RankedTensorType::get({/*no BS*/ Cout, 1}, elementType);
+      else
+        bbType = RankedTensorType::get({1, Cout, 1}, elementType);
+        */
+#endif
       Value BB = create.onnx.unsqueeze(bbType, B, axes);
       MM = create.onnx.add(MM, BB);
     }
@@ -1715,13 +1734,12 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   }
 #endif
 
-  // Add dynamically legal op for Conv: always check for 1x1 decomposition,
-  // and optionally check for Im2Col decomposition when enabled.
+  // Add dynamically legal op for Conv:  check for 1x1 decomposition and Im2Col
+  // decomposition when enabled.
   target.addDynamicallyLegalOp<ONNXConvOp>([this](ONNXConvOp op) {
     if (this->enableConvToMatmul) {
       // Conv is illegal (should be decomposed) if it's a 1x1 conv.
-      if (onnx_mlir::shouldDecomposeConv1x1ToMatmul(
-              op, this->enableConvToMatmul))
+      if (onnx_mlir::shouldDecomposeConv1x1ToMatmul(op))
         return false;
       // Conv is illegal if Im2Col decomposition is enabled and applicable.
       if (onnx_mlir::shouldDecomposeConvToIm2Col(op, this->enableConvToMatmul))
@@ -1752,9 +1770,9 @@ namespace onnx_mlir {
 // Add Conv to Im2Col decomposition pattern to the pattern set.
 void addConvToMatmulPattern(
     RewritePatternSet &patterns, bool hasFastBroadcast1xN) {
-  patterns.add<ConvToIm2ColPattern>(patterns.getContext(), hasFastBroadcast1xN);
-  patterns.add<Conv1x1ToMatmulPattern>(
-      patterns.getContext(), hasFastBroadcast1xN);
+  patterns.add<Conv1x1ToMatmulPattern>(patterns.getContext(), /*benefit=*/2);
+  patterns.add<ConvToIm2ColPattern>(
+      patterns.getContext(), hasFastBroadcast1xN, /*benefit=*/1);
 }
 } // namespace onnx_mlir
 
