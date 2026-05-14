@@ -191,11 +191,10 @@ std::unique_ptr<mlir::Pass> createReplaceQDQSigmoidPass();
 /// Pass for transferring ReduceMean/Sum operations to Conv operations.
 std::unique_ptr<mlir::Pass> createTransferReduceMeanSumToConvPass();
 
-/// Pass for canonicalising ReduceSum/ReduceMean/ReduceMax/ReduceMin so its
-/// input is rank-4 and `keep_dims=true`.  Mirrors xcompiler's
-/// ReplaceQDQReductionPass `shape_to_4d` algorithm and replaces the older
-/// TransferReduceHdimToReduceCdimPass (which used a transpose-sandwich
-/// instead of the reshape-only canonical form xmodel emits).
+/// Legacy transpose-sandwich Reduce H/W-axis -> C-axis pass.  Kept in-tree
+std::unique_ptr<mlir::Pass> createTransferReduceHdimToReduceCdimPass();
+
+/// Reshape Reduce(Sum/Mean/Max/Min) so its input is rank-4 + keep_dims=true,
 std::unique_ptr<mlir::Pass> createReplaceQDQReductionPass();
 
 /// Pass for transferring Conv->Slice patterns to Conv operations.

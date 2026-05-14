@@ -38,6 +38,7 @@ void addXmcMlirPasses(mlir::OpPassManager &pm, OnnxToMlirOptions opts) {
       onnx_mlir::createTransferResizeLinearToDwConv());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvWithBiasPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createRemoveRedundantReshapePass());
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceQDQReductionPass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createTransferReduceMeanSumToConvPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createLowerReduceToPoolPass());
@@ -113,13 +114,9 @@ void addXmcMlirPasses(mlir::OpPassManager &pm, OnnxToMlirOptions opts) {
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createFuseConvActivationPass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createNormalizeConvActivationPass());
-  // Reshape ReduceSum/ReduceMean/ReduceMax/ReduceMin so its input is rank-4
-  // and `keep_dims=true` (xcompiler.git's `shape_to_4d` canonical form).
-  // Replaces the legacy transpose-sandwich
-  // (createTransferReduceHdimToReduceCdimPass) with the reshape-only form
-  // xmodel emits.
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createReplaceQDQReductionPass());
+  // pm.addNestedPass<func::FuncOp>(
+  //     onnx_mlir::createTransferReduceHdimToReduceCdimPass());
+
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createConvertSCastPairToRequantizePass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
