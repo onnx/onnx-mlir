@@ -22,6 +22,7 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/TensorName.hpp"
 #include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 #include "src/Pass/Passes.hpp"
 
@@ -312,7 +313,25 @@ struct FuseConsecutiveTransposes : public OpRewritePattern<ONNXTransposeOp> {
         return failure();
       }
 
+      // Check if transpose output is a graph output (through scast and DQ)
+      TensorName tname(op.getResult());
+      bool graphOutput = false;
+      for (auto scast : op->getUsers()) {
+        if (isa_and_present<quant::StorageCastOp>(scast)) {
+          if (graphOutput = llvm::any_of(scast->getUsers(), [](Operation *dq) {
+                return isa_and_present<ONNXDequantizeLinearOp>(dq);
+              }))
+            break;
+        }
+      }
+
+      // Remove the transpose from the graph
       rewriter.replaceOp(op, prevTranspose.getOperand());
+
+      // If graphOutput, use the output resultname
+      if (graphOutput)
+        tname.setTo(prevTranspose.getOperand());
+
     } else {
       rewriter.replaceOpWithNewOp<ONNXTransposeOp>(op, op.getType(),
           prevTranspose.getOperand(), rewriter.getI64ArrayAttr(composedPerm));
