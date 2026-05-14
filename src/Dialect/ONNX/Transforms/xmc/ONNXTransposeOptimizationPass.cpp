@@ -316,22 +316,24 @@ struct FuseConsecutiveTransposes : public OpRewritePattern<ONNXTransposeOp> {
       // Check if transpose output is a graph output (through scast and DQ)
       TensorName tname(op.getResult());
       bool graphOutput = false;
-      for (auto scast : op->getUsers()) {
-        if (isa_and_present<quant::StorageCastOp>(scast)) {
-          if (graphOutput = llvm::any_of(scast->getUsers(), [](Operation *dq) {
-                return isa_and_present<ONNXDequantizeLinearOp>(dq);
-              }))
-            break;
+      for (auto user : op->getUsers()) {
+        if (auto scast = dyn_cast_if_present<quant::StorageCastOp>(user)) {
+          graphOutput = llvm::any_of(user->getUsers(), [](Operation *dq) {
+            return isa_and_present<ONNXDequantizeLinearOp>(dq);
+          });
+        } else {
+          graphOutput = isa_and_present<func::ReturnOp>(user);
         }
+        if (graphOutput)
+          break;
       }
 
-      // Remove the transpose from the graph
+      // Remove transposes from the graph
       rewriter.replaceOp(op, prevTranspose.getOperand());
 
       // If graphOutput, use the output resultname
       if (graphOutput)
         tname.setTo(prevTranspose.getOperand());
-
     } else {
       rewriter.replaceOpWithNewOp<ONNXTransposeOp>(op, op.getType(),
           prevTranspose.getOperand(), rewriter.getI64ArrayAttr(composedPerm));
@@ -473,7 +475,8 @@ private:
       int64_t reshapeSize = reshapeOutputShape[reshapeIdx];
 
       if (transposeSize == reshapeSize) {
-        // Case 1: Exact match (identity) - one transpose dim → one reshape dim
+        // Case 1: Exact match (identity) - one transpose dim → one reshape
+        // dim
         outDimGroups.push_back({reshapeSize});
         transposeIdx++;
         reshapeIdx++;
@@ -482,7 +485,8 @@ private:
         SmallVector<int64_t> group;
         int64_t accumulatedSize = 1;
 
-        // Collect consecutive reshape dims that multiply to this transpose dim
+        // Collect consecutive reshape dims that multiply to this transpose
+        // dim
         while (reshapeIdx < reshapeOutputShape.size() &&
                accumulatedSize < transposeSize) {
           int64_t nextDim = reshapeOutputShape[reshapeIdx];
@@ -504,7 +508,8 @@ private:
         transposeIdx++;
       } else {
         // Case 3: Merging - multiple transpose dims → one reshape dim
-        // Accumulate consecutive transpose dims until we match the reshape dim
+        // Accumulate consecutive transpose dims until we match the reshape
+        // dim
         int64_t accumulatedSize = transposeSize;
         size_t startIdx = transposeIdx;
         transposeIdx++;
@@ -524,8 +529,9 @@ private:
         // and if the input dims are not consecutive/ascending, the data will
         // be incorrectly reordered.
         //
-        // For merge to be safe, the input dims (perm[i] for each merged output
-        // dim i) must be consecutive (e.g., [2,3,4]) AND in ascending order.
+        // For merge to be safe, the input dims (perm[i] for each merged
+        // output dim i) must be consecutive (e.g., [2,3,4]) AND in ascending
+        // order.
         if (transposeIdx - startIdx > 1) {
           // Collect input dims for the merged output dims
           SmallVector<int64_t> inputDims;
@@ -652,7 +658,8 @@ private:
     size_t currentIdx = 0;
 
     for (size_t origDim = 0; origDim < perm.size(); ++origDim) {
-      // invPerm[origDim] = which transposed position this original dim goes to
+      // invPerm[origDim] = which transposed position this original dim goes
+      // to
       size_t transposedPos = invPerm[origDim];
 
       const auto &group = dimGroups[transposedPos];
@@ -909,9 +916,9 @@ struct PushTransposeThroughSCast
     auto outputType = mlir::cast<RankedTensorType>(op.getType());
 
     // The new scast takes the transpose's input directly, so its output must
-    // have the same shape as that input (scast only changes the element type).
-    // For per-axis quant types, remap the quant axis from post-transpose
-    // (output) space to pre-transpose (input) space.
+    // have the same shape as that input (scast only changes the element
+    // type). For per-axis quant types, remap the quant axis from
+    // post-transpose (output) space to pre-transpose (input) space.
     auto inputType =
         mlir::cast<RankedTensorType>(transposeOp.getOperand().getType());
     Type newElemType = outputType.getElementType();
@@ -1000,8 +1007,8 @@ struct FuseBinaryOpTransposes : public OpRewritePattern<BinaryOp> {
 };
 
 //===----------------------------------------------------------------------===//
-// Pattern 6: Binary Op with One Transpose and Transpose-Immune Operand (6 ops)
-// Rule: binop(transpose(x), y) -> transpose(binop(x, reshape(y)))
+// Pattern 6: Binary Op with One Transpose and Transpose-Immune Operand (6
+// ops) Rule: binop(transpose(x), y) -> transpose(binop(x, reshape(y)))
 //       where y is transpose-immune (scalar or single non-1 dim)
 //===----------------------------------------------------------------------===//
 
@@ -1216,7 +1223,8 @@ struct PushTransposeThroughBinaryWithConst : public OpRewritePattern<BinaryOp> {
     auto newConstShape = permuteShape(constShape, invPerm);
 
     // Remap per-axis quant dimension through the inverse transpose applied
-    // to the constant (data moves from post-transpose to pre-transpose space).
+    // to the constant (data moves from post-transpose to pre-transpose
+    // space).
     auto origElementType = constType.getElementType();
     auto remappedElementType = remapPerAxisQuantType(origElementType, invPerm);
     auto isQuantized = mlir::isa<mlir::quant::QuantizedType>(origElementType);
@@ -1253,7 +1261,8 @@ struct PushTransposeThroughBinaryWithConst : public OpRewritePattern<BinaryOp> {
     SmallVector<Attribute> newValues;
     newValues.reserve(numElements);
 
-    // For each position in the new transposed tensor, compute the old position
+    // For each position in the new transposed tensor, compute the old
+    // position
     auto rawData = denseAttr.getRawData();
 
     // Splat constants have compressed storage - transpose directly
@@ -1683,7 +1692,8 @@ struct FoldConstDQTranspose : public OpRewritePattern<ONNXTransposeOp> {
 
 //===----------------------------------------------------------------------===//
 // Pattern 7b: Push Transpose Through Where Operation
-// Rule: where(cond, transpose(x), transpose(y)) -> transpose(where(cond, x, y))
+// Rule: where(cond, transpose(x), transpose(y)) -> transpose(where(cond, x,
+// y))
 //===----------------------------------------------------------------------===//
 
 struct PushTransposeThroughWhere : public OpRewritePattern<ONNXWhereOp> {
@@ -1806,7 +1816,8 @@ struct PushTransposeThroughVariadicWithConst
         auto invPerm = inversePermutation(firstPerm);
         auto newShape = permuteShape(cShape, invPerm);
 
-        // Only create Reshape if shape actually changes (it won't for 1x1x1x1)
+        // Only create Reshape if shape actually changes (it won't for
+        // 1x1x1x1)
         if (newShape == constType.getShape()) {
           // Shape unchanged - use constant directly (no-op Reshape avoided)
           newInputs.push_back(constValue);
