@@ -379,12 +379,12 @@ struct LowerReduceMeanToAvgPoolPattern
 
     SmallVector<int64_t> axes = *axesResult;
 
-    // Defer to TransferReduceHdimToReduceCdimPass for single-axis reductions
-    // it can shape into a C-axis reduction (transpose-sandwich form, matching
-    // xmodel's convention).  Keeping these as ReduceMean lets the shaping
-    // pass insert the cleaner `transpose -> reduce -> transpose` instead of
-    // `transpose -> reshape -> transpose -> AvgPool`.  Keep the condition in
-    // sync with TransferReduceHdimToReduceCdimPass.cpp.
+    // Defer to ReplaceQDQReductionPass for single-axis reductions it can
+    // canonicalise to a rank-4 + keep_dims=true reshape form (matching
+    // xmodel's xcompiler-side `shape_to_4d` output).  Keeping these as
+    // ReduceMean lets that pass emit the cleaner `reshape -> reduce ->
+    // reshape` instead of `transpose -> reshape -> transpose -> AvgPool`.
+    // Keep the condition in sync with ReplaceQDQReductionPass.cpp.
     if (axes.size() == 1 && reduceOp.getKeepdims() != 0) {
       int64_t axis = axes[0];
       if ((rank == 4 && axis == 1) ||
@@ -685,12 +685,13 @@ struct LowerReduceSumToAvgPoolPattern
 
     SmallVector<int64_t> axes = *axesResult;
 
-    // Defer to TransferReduceHdimToReduceCdimPass for single-axis reductions
-    // it can shape into a C-axis reduction (transpose-sandwich form, matching
-    // xmodel's convention).  Keeping these as ReduceSum lets the shaping
-    // pass insert the cleaner `transpose -> reduce -> transpose` instead of
-    // `transpose -> reshape -> transpose -> AvgPool -> Mul(count)`.  Keep the
-    // condition in sync with TransferReduceHdimToReduceCdimPass.cpp.
+    // Defer to ReplaceQDQReductionPass for single-axis reductions it can
+    // canonicalise to a rank-4 + keep_dims=true reshape form (matching
+    // xmodel's xcompiler-side `shape_to_4d` output).  Keeping these as
+    // ReduceSum lets that pass emit the cleaner `reshape -> reduce ->
+    // reshape` instead of `transpose -> reshape -> transpose -> AvgPool ->
+    // Mul(count)`.  Keep the condition in sync with
+    // ReplaceQDQReductionPass.cpp.
     if (axes.size() == 1 && reduceOp.getKeepdims() != 0) {
       int64_t axis = axes[0];
       if ((rank == 4 && axis == 1) ||

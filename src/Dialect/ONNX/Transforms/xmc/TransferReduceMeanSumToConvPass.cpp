@@ -581,12 +581,12 @@ struct ReduceSumToConvPattern : public OpRewritePattern<ONNXReduceSumOp> {
     if (axis != 1)
       return mlir::failure();
 
-    // Defer to TransferReduceHdimToReduceCdimPass for the shape patterns it
-    // handles (transpose-sandwich / W-dim reshape form matching xmodel's
-    // convention).  Only defer for quantized inputs -- f32 reductions continue
-    // to convert to 1x1 Conv here since they don't go through the AIE
-    // last-axis kernel.  Keep in sync with ReduceHdimToCdimPattern and
-    // ReduceWdimToCdimPattern in TransferReduceHdimToReduceCdimPass.cpp.
+    // Defer to ReplaceQDQReductionPass for the shape patterns it handles
+    // (rank-4 + keep_dims=true reshape canonical form matching xmodel's
+    // xcompiler-side `shape_to_4d` output).  Only defer for quantized inputs
+    // -- f32 reductions continue to convert to 1x1 Conv here since they
+    // don't go through the AIE last-axis kernel.  Keep in sync with
+    // ReshapeReduceTo4DPattern in ReplaceQDQReductionPass.cpp.
     if (op.getKeepdims() != 0 &&
         mlir::isa<mlir::quant::QuantizedType>(inputElemType)) {
       if ((rank == 4) || (rank == 3 && inputShape[2] == 1))

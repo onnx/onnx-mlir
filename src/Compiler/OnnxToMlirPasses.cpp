@@ -113,10 +113,13 @@ void addXmcMlirPasses(mlir::OpPassManager &pm, OnnxToMlirOptions opts) {
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createFuseConvActivationPass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createNormalizeConvActivationPass());
-  // Move ReduceSum/ReduceMean on non-last axis to last-axis reduction via a
-  // transpose-sandwich (or a W-dim reshape for degenerate rank-3).
+  // Reshape ReduceSum/ReduceMean/ReduceMax/ReduceMin so its input is rank-4
+  // and `keep_dims=true` (xcompiler.git's `shape_to_4d` canonical form).
+  // Replaces the legacy transpose-sandwich
+  // (createTransferReduceHdimToReduceCdimPass) with the reshape-only form
+  // xmodel emits.
   pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createTransferReduceHdimToReduceCdimPass());
+      onnx_mlir::createReplaceQDQReductionPass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createConvertSCastPairToRequantizePass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());

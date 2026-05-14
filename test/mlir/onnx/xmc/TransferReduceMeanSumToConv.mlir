@@ -103,7 +103,7 @@ func.func @reduce_sum_channel_axis(%arg0: tensor<1x8x4x4x!quant.uniform<i8:f32, 
     %1 = "onnx.ReduceSum"(%arg0, %0) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<1x8x4x4x!quant.uniform<i8:f32, 0.05:0>>, tensor<1xi64>) -> tensor<1x1x4x4x!quant.uniform<i8:f32, 0.05:0>>
     return %1 : tensor<1x1x4x4x!quant.uniform<i8:f32, 0.05:0>>
 }
-// Defer to TransferReduceHdimToReduceCdim (quantized rank-4 axis=[1] keepdims=true).
+// Defer to ReplaceQDQReduction (quantized rank-4 axis=[1] keepdims=true).
 // CHECK: "onnx.ReduceSum"
 // CHECK-NOT: "onnx.Conv"
 
@@ -114,7 +114,7 @@ func.func @reduce_sum_channel_32(%arg0: tensor<1x32x16x16x!quant.uniform<i8:f32,
     %1 = "onnx.ReduceSum"(%arg0, %0) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<1x32x16x16x!quant.uniform<i8:f32, 0.05:0>>, tensor<1xi64>) -> tensor<1x1x16x16x!quant.uniform<i8:f32, 0.05:0>>
     return %1 : tensor<1x1x16x16x!quant.uniform<i8:f32, 0.05:0>>
 }
-// Defer to TransferReduceHdimToReduceCdim (quantized rank-4 axis=[1] keepdims=true).
+// Defer to ReplaceQDQReduction (quantized rank-4 axis=[1] keepdims=true).
 // CHECK: "onnx.ReduceSum"
 // CHECK-NOT: "onnx.Conv"
 
@@ -231,7 +231,7 @@ func.func @reduce_sum_large_channel(%arg0: tensor<1x64x32x32x!quant.uniform<i8:f
     %1 = "onnx.ReduceSum"(%arg0, %0) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<1x64x32x32x!quant.uniform<i8:f32, 0.05:0>>, tensor<1xi64>) -> tensor<1x1x32x32x!quant.uniform<i8:f32, 0.05:0>>
     return %1 : tensor<1x1x32x32x!quant.uniform<i8:f32, 0.05:0>>
 }
-// Defer to TransferReduceHdimToReduceCdim (quantized rank-4 axis=[1] keepdims=true).
+// Defer to ReplaceQDQReduction (quantized rank-4 axis=[1] keepdims=true).
 // CHECK: "onnx.ReduceSum"
 // CHECK-NOT: "onnx.Conv"
 

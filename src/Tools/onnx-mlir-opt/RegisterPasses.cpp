@@ -113,7 +113,7 @@ void registerOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return createTransferReduceHdimToReduceCdimPass();
+    return createReplaceQDQReductionPass();
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
