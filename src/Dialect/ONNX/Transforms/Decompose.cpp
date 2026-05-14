@@ -672,11 +672,6 @@ bool shouldDecomposeConv1x1ToMatmul(ONNXConvOp convOp) {
 
 // Check if Conv should be decomposed to Im2Col+MatMul.
 bool shouldDecomposeConvToIm2Col(ONNXConvOp convOp, bool hasFastBroadcast1xN) {
-  // Im2Col decomposition introduces 1xN broadcast UNLESS BatchSize N==1.
-  // Initially ignore this case.
-  if (!hasFastBroadcast1xN)
-    return false;
-
   // 1. Must have shape information.
   Value X = convOp.getX();
   Value W = convOp.getW();
@@ -698,6 +693,10 @@ bool shouldDecomposeConvToIm2Col(ONNXConvOp convOp, bool hasFastBroadcast1xN) {
 
   // 4. Group must be 1 (no grouped convolutions for now).
   if (convOp.getGroup() != 1)
+    return false;
+
+  // 5. Im2Col decomposition introduces 1xN broadcast UNLESS BatchSize N==1.
+  if (!hasFastBroadcast1xN && xShape[0] != 1)
     return false;
 
   return true;
