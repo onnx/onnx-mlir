@@ -181,3 +181,41 @@ func.func @reduce_mean_v13_spatial_hw(%arg0: tensor<1x3x4x4x!quant.uniform<i8:f3
 }
 // CHECK: "onnx.AveragePool"
 // CHECK-NOT: onnx.ReduceMeanV13
+
+// Channel-axis (axis=1) ReduceMean / ReduceSum is not spatial -- not converted.
+
+// CHECK-LABEL: @reduce_mean_channel_axis_rank4_no_convert
+func.func @reduce_mean_channel_axis_rank4_no_convert(%arg0: tensor<1x8x4x4x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<1x1x4x4x!quant.uniform<i8:f32, 0.05:0>> {
+    %0 = onnx.Constant dense<[1]> : tensor<1xi64>
+    %1 = "onnx.ReduceMean"(%arg0, %0) {keepdims = 1 : si64} : (tensor<1x8x4x4x!quant.uniform<i8:f32, 0.05:0>>, tensor<1xi64>) -> tensor<1x1x4x4x!quant.uniform<i8:f32, 0.05:0>>
+    return %1 : tensor<1x1x4x4x!quant.uniform<i8:f32, 0.05:0>>
+}
+// CHECK: "onnx.ReduceMean"
+// CHECK-NOT: onnx.AveragePool
+
+// CHECK-LABEL: @reduce_sum_channel_axis_rank4_no_convert
+func.func @reduce_sum_channel_axis_rank4_no_convert(%arg0: tensor<1x8x4x4x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<1x1x4x4x!quant.uniform<i8:f32, 0.05:0>> {
+    %0 = onnx.Constant dense<[1]> : tensor<1xi64>
+    %1 = "onnx.ReduceSum"(%arg0, %0) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<1x8x4x4x!quant.uniform<i8:f32, 0.05:0>>, tensor<1xi64>) -> tensor<1x1x4x4x!quant.uniform<i8:f32, 0.05:0>>
+    return %1 : tensor<1x1x4x4x!quant.uniform<i8:f32, 0.05:0>>
+}
+// CHECK: "onnx.ReduceSum"
+// CHECK-NOT: onnx.AveragePool
+
+// CHECK-LABEL: @reduce_mean_channel_axis_rank4_keepdims_false_no_convert
+func.func @reduce_mean_channel_axis_rank4_keepdims_false_no_convert(%arg0: tensor<1x8x4x4x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<1x4x4x!quant.uniform<i8:f32, 0.05:0>> {
+    %0 = onnx.Constant dense<[1]> : tensor<1xi64>
+    %1 = "onnx.ReduceMean"(%arg0, %0) {keepdims = 0 : si64} : (tensor<1x8x4x4x!quant.uniform<i8:f32, 0.05:0>>, tensor<1xi64>) -> tensor<1x4x4x!quant.uniform<i8:f32, 0.05:0>>
+    return %1 : tensor<1x4x4x!quant.uniform<i8:f32, 0.05:0>>
+}
+// CHECK: "onnx.ReduceMean"
+// CHECK-NOT: onnx.AveragePool
+
+// CHECK-LABEL: @reduce_mean_rank3_axis1_no_convert
+func.func @reduce_mean_rank3_axis1_no_convert(%arg0: tensor<1x8x4x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<1x1x4x!quant.uniform<i8:f32, 0.05:0>> {
+    %0 = onnx.Constant dense<[1]> : tensor<1xi64>
+    %1 = "onnx.ReduceMean"(%arg0, %0) {keepdims = 1 : si64} : (tensor<1x8x4x!quant.uniform<i8:f32, 0.05:0>>, tensor<1xi64>) -> tensor<1x1x4x!quant.uniform<i8:f32, 0.05:0>>
+    return %1 : tensor<1x1x4x!quant.uniform<i8:f32, 0.05:0>>
+}
+// CHECK: "onnx.ReduceMean"
+// CHECK-NOT: onnx.AveragePool
