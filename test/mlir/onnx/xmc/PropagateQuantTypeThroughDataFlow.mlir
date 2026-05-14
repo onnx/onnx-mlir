@@ -308,3 +308,147 @@ func.func @bwd_block_arg_with_other_users(%arg0: tensor<2x3xf32>) -> (tensor<3x2
   %t = "onnx.Transpose"(%arg0) {perm = [1, 0]} : (tensor<2x3xf32>) -> tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>
   return %t, %arg0 : tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<2x3xf32>
 }
+
+// -----
+// Long data-flow-only chain ending at func.return: every op converges to quant
+// and a single scast+DequantizeLinear bridge is inserted just before return.
+// CHECK-LABEL: func @chain_dataflow_only_to_return
+// CHECK: %[[R:.+]] = "onnx.Reshape"(%{{.+}}, %{{.+}}) {{.+}} -> tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: %[[T:.+]] = "onnx.Transpose"(%[[R]]) {{.+}} -> tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: %[[F:.+]] = "onnx.Flatten"(%[[T]]) {{.+}} -> tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: %[[SC:.+]] = quant.scast %[[F]] : tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>> to tensor<3x2xi8>
+// CHECK: %[[DQ:.+]] = "onnx.DequantizeLinear"(%[[SC]], %{{.+}}, %{{.+}})
+// CHECK: return %[[DQ]]
+func.func @chain_dataflow_only_to_return(%arg0: tensor<6xi8>) -> tensor<3x2xf32> {
+  %sh = "onnx.Constant"() {value = dense<[2, 3]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %q = quant.scast %arg0 : tensor<6xi8> to tensor<6x!quant.uniform<i8:f32, 5.000000e-01>>
+  %r = "onnx.Reshape"(%q, %sh) {allowzero = 0 : si64} : (tensor<6x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<2xi64>) -> tensor<2x3xf32>
+  %t = "onnx.Transpose"(%r) {perm = [1, 0]} : (tensor<2x3xf32>) -> tensor<3x2xf32>
+  %f = "onnx.Flatten"(%t) {axis = 1 : si64} : (tensor<3x2xf32>) -> tensor<3x2xf32>
+  return %f : tensor<3x2xf32>
+}
+
+// -----
+// Mixed chain: compute op (Relu) interleaved between two data-flow ops. The
+// shared-SSA retype propagates through Relu without us touching it: Reshape's
+// forward retypes Relu's operand; the trailing Transpose's backward retypes
+// Relu's result (single use). Relu naturally ends up quant -> quant.
+// CHECK-LABEL: func @chain_with_compute_op
+// CHECK: %[[R:.+]] = "onnx.Reshape"(%{{.+}}, %{{.+}}) {{.+}} -> tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: %[[RL:.+]] = "onnx.Relu"(%[[R]]) : (tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>) -> tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: %[[T:.+]] = "onnx.Transpose"(%[[RL]]) {{.+}} -> tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: return %[[T]]
+func.func @chain_with_compute_op(%arg0: tensor<6xi8>) -> tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>> {
+  %sh = "onnx.Constant"() {value = dense<[2, 3]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %q = quant.scast %arg0 : tensor<6xi8> to tensor<6x!quant.uniform<i8:f32, 5.000000e-01>>
+  %r = "onnx.Reshape"(%q, %sh) {allowzero = 0 : si64} : (tensor<6x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<2xi64>) -> tensor<2x3xf32>
+  %rl = "onnx.Relu"(%r) : (tensor<2x3xf32>) -> tensor<2x3xf32>
+  %t = "onnx.Transpose"(%rl) {perm = [1, 0]} : (tensor<2x3xf32>) -> tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>
+  return %t : tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>
+}
+
+// -----
+// Two data-flow producers feeding the same compute op (Add): both reshapes
+// forward-propagate to quant; Add naturally ends up consuming two quant
+// operands.
+// CHECK-LABEL: func @two_dataflow_to_compute
+// CHECK: %[[R1:.+]] = "onnx.Reshape"(%{{.+}}, %{{.+}}) {{.+}} -> tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: %[[R2:.+]] = "onnx.Reshape"(%{{.+}}, %{{.+}}) {{.+}} -> tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: %[[A:.+]] = "onnx.Add"(%[[R1]], %[[R2]]) : (tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>) -> tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: return %[[A]]
+func.func @two_dataflow_to_compute(%lhs: tensor<6xi8>, %rhs: tensor<6xi8>) -> tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>> {
+  %sh = "onnx.Constant"() {value = dense<[2, 3]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %ql = quant.scast %lhs : tensor<6xi8> to tensor<6x!quant.uniform<i8:f32, 5.000000e-01>>
+  %qr = quant.scast %rhs : tensor<6xi8> to tensor<6x!quant.uniform<i8:f32, 5.000000e-01>>
+  %r1 = "onnx.Reshape"(%ql, %sh) {allowzero = 0 : si64} : (tensor<6x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<2xi64>) -> tensor<2x3xf32>
+  %r2 = "onnx.Reshape"(%qr, %sh) {allowzero = 0 : si64} : (tensor<6x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<2xi64>) -> tensor<2x3xf32>
+  %a = "onnx.Add"(%r1, %r2) : (tensor<2x3xf32>, tensor<2x3xf32>) -> tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+  return %a : tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+}
+
+// -----
+// Forward propagation cascades through the chain but the last data-flow op
+// (Flatten, single-stepping into Cast) is blocked. The earlier ops still
+// converge to quant; only the boundary op retains the q->f32 mismatch, which
+// downstream Q/DQ rematerialization paths handle.
+// CHECK-LABEL: func @chain_blocked_by_terminal_cast
+// CHECK: %[[R:.+]] = "onnx.Reshape"(%{{.+}}, %{{.+}}) {{.+}} -> tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: %[[T:.+]] = "onnx.Transpose"(%[[R]]) {{.+}} -> tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: %[[F:.+]] = "onnx.Flatten"(%[[T]]) {axis = 1 : si64} : (tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>) -> tensor<3x2xf32>
+// CHECK: %[[C:.+]] = "onnx.Cast"(%[[F]]) {{.+}} : (tensor<3x2xf32>) -> tensor<3x2xi64>
+// CHECK: return %[[C]]
+func.func @chain_blocked_by_terminal_cast(%arg0: tensor<6xi8>) -> tensor<3x2xi64> {
+  %sh = "onnx.Constant"() {value = dense<[2, 3]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %q = quant.scast %arg0 : tensor<6xi8> to tensor<6x!quant.uniform<i8:f32, 5.000000e-01>>
+  %r = "onnx.Reshape"(%q, %sh) {allowzero = 0 : si64} : (tensor<6x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<2xi64>) -> tensor<2x3xf32>
+  %t = "onnx.Transpose"(%r) {perm = [1, 0]} : (tensor<2x3xf32>) -> tensor<3x2xf32>
+  %f = "onnx.Flatten"(%t) {axis = 1 : si64} : (tensor<3x2xf32>) -> tensor<3x2xf32>
+  %c = "onnx.Cast"(%f) {to = i64, saturate = 1 : si64} : (tensor<3x2xf32>) -> tensor<3x2xi64>
+  return %c : tensor<3x2xi64>
+}
+
+// -----
+// Forward then backward in the same chain: data-flow (in=quant, out=f32) feeds
+// a non-whitelisted compute op (Relu, polymorphic), which feeds another
+// data-flow (in=f32, out=quant). Forward and backward triggers meet on the
+// Relu via shared SSA.
+// CHECK-LABEL: func @fwd_and_bwd_meet_on_compute
+// CHECK: %[[R:.+]] = "onnx.Reshape"(%{{.+}}, %{{.+}}) {{.+}} -> tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: %[[RL:.+]] = "onnx.Relu"(%[[R]]) : (tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>) -> tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: %[[T:.+]] = "onnx.Transpose"(%[[RL]]) {{.+}} -> tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: return %[[T]]
+func.func @fwd_and_bwd_meet_on_compute(%arg0: tensor<6xi8>) -> tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>> {
+  %sh = "onnx.Constant"() {value = dense<[2, 3]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %q = quant.scast %arg0 : tensor<6xi8> to tensor<6x!quant.uniform<i8:f32, 5.000000e-01>>
+  %r = "onnx.Reshape"(%q, %sh) {allowzero = 0 : si64} : (tensor<6x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<2xi64>) -> tensor<2x3xf32>
+  %rl = "onnx.Relu"(%r) : (tensor<2x3xf32>) -> tensor<2x3xf32>
+  %t = "onnx.Transpose"(%rl) {perm = [1, 0]} : (tensor<2x3xf32>) -> tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>
+  return %t : tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>
+}
+
+// -----
+// Long mixed chain across multiple whitelisted op kinds plus a compute op
+// (Relu), with a quant constraint at BOTH ends (scast feeds the head; the
+// terminal Flatten result is quant). Forward propagation from the head meets
+// backward propagation from the tail at the Relu, so every op (including the
+// non-whitelisted Relu) ends up quant -> quant via shared SSA retyping.
+// CHECK-LABEL: func @long_mixed_chain_end_to_end_quant
+// CHECK: %[[U:.+]] = "onnx.Unsqueeze"(%{{.+}}, %{{.+}}) : (tensor<3x4x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<1xi64>) -> tensor<1x3x4x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: %[[RL:.+]] = "onnx.Relu"(%[[U]]) : (tensor<1x3x4x!quant.uniform<i8:f32, 5.000000e-01>>) -> tensor<1x3x4x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: %[[SQ:.+]] = "onnx.Squeeze"(%[[RL]], %{{.+}}) : (tensor<1x3x4x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<1xi64>) -> tensor<3x4x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: %[[T:.+]] = "onnx.Transpose"(%[[SQ]]) {{.+}} -> tensor<4x3x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: %[[F:.+]] = "onnx.Flatten"(%[[T]]) {{.+}} -> tensor<4x3x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: return %[[F]]
+func.func @long_mixed_chain_end_to_end_quant(%arg0: tensor<12xi8>) -> tensor<4x3x!quant.uniform<i8:f32, 5.000000e-01>> {
+  %shA = "onnx.Constant"() {value = dense<[3, 4]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %axes = "onnx.Constant"() {value = dense<[0]> : tensor<1xi64>} : () -> tensor<1xi64>
+  %q = quant.scast %arg0 : tensor<12xi8> to tensor<12x!quant.uniform<i8:f32, 5.000000e-01>>
+  %rsh = "onnx.Reshape"(%q, %shA) {allowzero = 0 : si64} : (tensor<12x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<2xi64>) -> tensor<3x4x!quant.uniform<i8:f32, 5.000000e-01>>
+  %u = "onnx.Unsqueeze"(%rsh, %axes) : (tensor<3x4x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<1xi64>) -> tensor<1x3x4xf32>
+  %rl = "onnx.Relu"(%u) : (tensor<1x3x4xf32>) -> tensor<1x3x4xf32>
+  %sq = "onnx.Squeeze"(%rl, %axes) : (tensor<1x3x4xf32>, tensor<1xi64>) -> tensor<3x4xf32>
+  %t = "onnx.Transpose"(%sq) {perm = [1, 0]} : (tensor<3x4xf32>) -> tensor<4x3xf32>
+  %f = "onnx.Flatten"(%t) {axis = 1 : si64} : (tensor<4x3xf32>) -> tensor<4x3x!quant.uniform<i8:f32, 5.000000e-01>>
+  return %f : tensor<4x3x!quant.uniform<i8:f32, 5.000000e-01>>
+}
+
+// -----
+// Diamond: a single quant source feeds two parallel data-flow chains; the
+// chains rejoin at an Add. Both branches forward-propagate independently to
+// quant; the Add ends up consuming two quant operands.
+// CHECK-LABEL: func @diamond_two_chains_into_add
+// CHECK: %[[R1:.+]] = "onnx.Reshape"(%{{.+}}, %{{.+}}) {{.+}} -> tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: %[[T1:.+]] = "onnx.Transpose"(%[[R1]]) {{.+}} -> tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: %[[R2:.+]] = "onnx.Reshape"(%{{.+}}, %{{.+}}) {{.+}} -> tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: %[[A:.+]] = "onnx.Add"(%[[T1]], %[[R2]]) : (tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>) -> tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: return %[[A]]
+func.func @diamond_two_chains_into_add(%arg0: tensor<6xi8>) -> tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>> {
+  %shA = "onnx.Constant"() {value = dense<[2, 3]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %shB = "onnx.Constant"() {value = dense<[3, 2]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %q = quant.scast %arg0 : tensor<6xi8> to tensor<6x!quant.uniform<i8:f32, 5.000000e-01>>
+  %r1 = "onnx.Reshape"(%q, %shA) {allowzero = 0 : si64} : (tensor<6x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<2xi64>) -> tensor<2x3xf32>
+  %t1 = "onnx.Transpose"(%r1) {perm = [1, 0]} : (tensor<2x3xf32>) -> tensor<3x2xf32>
+  %r2 = "onnx.Reshape"(%q, %shB) {allowzero = 0 : si64} : (tensor<6x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<2xi64>) -> tensor<3x2xf32>
+  %a = "onnx.Add"(%t1, %r2) : (tensor<3x2xf32>, tensor<3x2xf32>) -> tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>
+  return %a : tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>
+}

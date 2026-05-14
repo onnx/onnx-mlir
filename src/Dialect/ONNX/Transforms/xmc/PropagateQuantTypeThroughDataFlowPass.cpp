@@ -56,8 +56,8 @@ static bool isTypeBoundConsumer(Operation *op) {
       mlir::ONNXQuantizeLinearOp>(op);
 }
 
-static std::pair<Value, Value> buildScaleZpConstants(PatternRewriter &rewriter,
-    Location loc, quant::UniformQuantizedType q) {
+static std::pair<Value, Value> buildScaleZpConstants(
+    PatternRewriter &rewriter, Location loc, quant::UniformQuantizedType q) {
   auto scaleTT = RankedTensorType::get({}, rewriter.getF32Type());
   auto scaleAttr =
       DenseElementsAttr::get(scaleTT, rewriter.getF32FloatAttr(q.getScale()));
@@ -142,8 +142,7 @@ struct PropagateQuantTypePattern : public RewritePattern {
       rewriter.modifyOpInPlace(op, [&]() { out.setType(newOutTy); });
       for (func::ReturnOp r : returnUsers) {
         rewriter.setInsertionPoint(r);
-        Value bridge =
-            insertQuantToF32Bridge(rewriter, op->getLoc(), out, uQ);
+        Value bridge = insertQuantToF32Bridge(rewriter, op->getLoc(), out, uQ);
         rewriter.modifyOpInPlace(r, [&]() {
           for (OpOperand &opnd : r->getOpOperands())
             if (opnd.get() == out)
@@ -161,10 +160,8 @@ struct PropagateQuantTypePattern : public RewritePattern {
         if (!uQ)
           return failure();
         rewriter.setInsertionPoint(op);
-        Value bridge =
-            insertF32ToQuantBridge(rewriter, op->getLoc(), in, uQ);
-        rewriter.modifyOpInPlace(
-            op, [&]() { op->setOperand(0, bridge); });
+        Value bridge = insertF32ToQuantBridge(rewriter, op->getLoc(), in, uQ);
+        rewriter.modifyOpInPlace(op, [&]() { op->setOperand(0, bridge); });
         return success();
       }
       Operation *producer = in.getDefiningOp();
@@ -189,8 +186,7 @@ struct PropagateQuantTypePattern : public RewritePattern {
       rewriter.modifyOpInPlace(producer, [&]() { in.setType(newInTy); });
       for (func::ReturnOp r : returnSiblings) {
         rewriter.setInsertionPoint(r);
-        Value bridge =
-            insertQuantToF32Bridge(rewriter, op->getLoc(), in, uQ);
+        Value bridge = insertQuantToF32Bridge(rewriter, op->getLoc(), in, uQ);
         rewriter.modifyOpInPlace(r, [&]() {
           for (OpOperand &opnd : r->getOpOperands())
             if (opnd.get() == in)
