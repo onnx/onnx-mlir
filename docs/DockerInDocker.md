@@ -125,9 +125,9 @@ OMUnifiedCompile compiler(
 
 ### Environment Variables
 
-**`DIND_DISABLE=1`** - Disable DinD detection
+**`OM_DIND_DISABLE=1`** - Disable DinD detection
 
-**`DOCKER_HOST_PATH_PREFIX=/host`** - Set host path prefix when host filesystem is mounted at different location
+**`OM_DOCKER_HOST_PATH_PREFIX=/host`** - Set host path prefix when host filesystem is mounted at different location
 
 ## Common Use Cases
 
@@ -184,7 +184,7 @@ podman run -v $XDG_RUNTIME_DIR/podman/podman.sock:/var/run/docker.sock ...
 ### File Not Found in Inner Container
 1. Enable verbose mode to see path resolution
 2. Verify paths are mounted from host to outer container
-3. Use `DOCKER_HOST_PATH_PREFIX` if needed
+3. Use `OM_DOCKER_HOST_PATH_PREFIX` if needed
 4. Ensure absolute paths in code
 
 ### Debug Output Example

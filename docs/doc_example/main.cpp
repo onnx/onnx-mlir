@@ -1,14 +1,9 @@
 #include <iostream>
 
-#define USE_UNIFIED 1
+// Set to 1 to use container, or 0 to use local compiler. Default is local (needed for CIs)
 #define USE_CONTAINER 0
 
-#if USE_UNIFIED
-#include "src/Compiler/OMUnifiedCompile.hpp"
-#else
 #include "src/Compiler/OMCompile.hpp"
-#endif
-
 #include "src/Runtime/ExecutionSession.hpp"
 
 // Read the arguments from the command line and return a std::string
@@ -25,18 +20,14 @@ int main(int argc, char *argv[]) {
   std::string flags = readArgs(argc, argv);
   flags += "-o add_cpp_interface -v";
 // And compile the doc example into a model library.
-#if USE_UNIFIED
 #if USE_CONTAINER
-  // Container compilation with new API: image, compilerPath, engine, autoPull, verbose
-  onnx_mlir::OMUnifiedCompile compile({}, {},
-      onnx_mlir::OMUnifiedCompile::ContainerEngine::Auto,
+  // Container compilation: image, compilerPath, engine, autoPull, verbose
+  onnx_mlir::OMCompile compile({}, {},
+      onnx_mlir::OMCompile::ContainerEngine::Auto,
       /*autoPull*/ true, /*verbose*/ true);
 #else
   // Local compilation: compilerPath, verbose
-  onnx_mlir::OMUnifiedCompile compile({}, /*verbose*/ true);
-#endif
-#else
-  onnx_mlir::OMCompile compile;
+  onnx_mlir::OMCompile compile({}, /*verbose*/ true);
 #endif
 
   try {
