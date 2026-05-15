@@ -4,6 +4,10 @@
 
 //===------------------ ONNXHybridTransformPass.cpp -----------------------===//
 //
+// Copyright 2023-2026 The IBM Research Authors.
+//
+// =============================================================================
+//
 // Hybrid ONNX transformation pass that combines conversion patterns for
 // shape inference, canonicalization, constant propagation, and decomposition.
 //
@@ -125,8 +129,7 @@ struct ONNXHybridTransformPass
     }
 
     if (decomposition) {
-      getDecomposeONNXToONNXPatterns(
-          cumulativePatterns, enableConvToMatmul);
+      getDecomposeONNXToONNXPatterns(cumulativePatterns, enableConvToMatmul);
     }
 
     if (recomposition) {

@@ -4,7 +4,7 @@
 
 //===------- ONNXOpTransformPass.cpp - ONNX Op Transform ------------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2026  The IBM Research Authors.
 //
 // =============================================================================
 //

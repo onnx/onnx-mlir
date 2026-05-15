@@ -104,15 +104,11 @@ bool ModelLibBuilder::checkInstruction(const std::string instructionName) {
       void *addr = dlsym(sharedLibraryHandle, instruction.c_str());
 #endif
       if (addr) {
-        printf("Found instruction: %s\n", instruction.c_str());
         return true;
-      } else {
-        printf("NOT Found instruction: %s\n", instruction.c_str());
       }
     }
   }
 
-  printf("HI ALEX: None of the instructions found: %s\n", instructionName.c_str());
   return false;
 }
 

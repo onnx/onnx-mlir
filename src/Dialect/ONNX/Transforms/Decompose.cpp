@@ -1558,13 +1558,6 @@ struct Conv1x1ToMatmulPattern : public OpRewritePattern<ONNXConvOp> {
       // Reshape BB from <CO> to <CO, 1> for broadcast.
       Value axes = create.onnx.constantInt64({-1});
       Type bbType = RankedTensorType::get({Cout, 1}, elementType);
-#if 0 // hi alex
-      if (unitBatchSize)
-        bbType = RankedTensorType::get({/*no BS*/ Cout, 1}, elementType);
-      else
-        bbType = RankedTensorType::get({1, Cout, 1}, elementType);
-        */
-#endif
       Value BB = create.onnx.unsqueeze(bbType, B, axes);
       MM = create.onnx.add(MM, BB);
     }
