@@ -1505,11 +1505,6 @@ static bool checkConv2DParamRestrictions(Operation *op, int64_t inputDim,
 }
 
 /// Check legality for ONNXConvOp.
-// Test with condition to consider padding. When set to false, this is useful to
-// determine if ONNXPadOp can be used to make an illegal Conv operation legal.
-// WHen set to true, we have the regular full test of suitability for NNPA .
-
-// TODO: can apply the same approach to other patterns that use the ONNXPadOp.
 template <>
 bool isSuitableForZDNN<ONNXConvOp>(
     ONNXConvOp op, const DimAnalysis *dimAnalysis) {

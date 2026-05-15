@@ -108,8 +108,6 @@ void configurePassesNNPA() {
 
 void addONNXToZHighPasses(mlir::PassManager &pm) {
   // Determine if Conv to Im2Col+MatMul decomposition should be enabled.
-  // Use the same condition as the CPU path: OptimizationLevel > O0 &&
-  // !disableConvToMatmul
   bool enableConvToMatmul = !disableConvToMatmul;
 
   for (unsigned i = 0; i < 3; i++) {
