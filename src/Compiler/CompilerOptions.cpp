@@ -1162,9 +1162,8 @@ std::string getTargetAccel() {
 bool targetNoAccelerators() {
   // Cannot simply use maccel.empty() because maccel = {NONE} is valid and means
   // no accelerator too.
-  return llvm::none_of(maccel, [](auto a) {
-    return a != accel::Accelerator::Kind::NONE;
-  });
+  return llvm::none_of(
+      maccel, [](auto a) { return a != accel::Accelerator::Kind::NONE; });
 }
 
 // Support for Optimization level.
