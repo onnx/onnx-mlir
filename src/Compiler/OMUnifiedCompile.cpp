@@ -14,10 +14,14 @@
 #include "OMUnifiedCompile.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <sstream>
+#include <unistd.h>
 
 // Include onnx-mlir infrastructure
 #include "Command.hpp"
@@ -26,6 +30,272 @@
 
 using namespace onnx_mlir;
 namespace fs = std::filesystem;
+//===----------------------------------------------------------------------===//
+// Container Support - Internal Helper Class
+//===----------------------------------------------------------------------===//
+
+namespace {
+
+/**
+ * @class ContainerSupport
+ * @brief Internal helper class for all container-related operations.
+ *
+ * This class encapsulates container engine detection, image management,
+ * Docker-in-Docker support, and path resolution. It maintains verbose state
+ * to avoid passing it to every method call.
+ */
+class ContainerSupport {
+public:
+  explicit ContainerSupport(bool verbose) : verbose(verbose) {}
+
+  // Container Engine Detection
+  std::string detectEngine(OMUnifiedCompile::ContainerEngine preferredEngine);
+
+  // Image Management
+  bool isImageAvailable(const std::string &engineName, const std::string &imageName);
+  void pullImage(const std::string &engineName, const std::string &imageName);
+  void verifyCompilerInContainer(const std::string &engineName,
+      const std::string &imageName, const std::string &compilerPath);
+
+  // Docker-in-Docker (DinD) Support
+  bool detectDinDEnvironment();
+  bool isDinDDisabled();
+  void verifyDockerSocket(const std::string &engineName);
+  std::string resolveHostPath(const std::string &containerPath);
+
+private:
+  const bool verbose;
+};
+
+//===----------------------------------------------------------------------===//
+// ContainerSupport Implementation
+//===----------------------------------------------------------------------===//
+
+std::string ContainerSupport::detectEngine(
+    OMUnifiedCompile::ContainerEngine preferredEngine) {
+  // If user specified an engine, use it
+  if (preferredEngine != OMUnifiedCompile::ContainerEngine::Auto) {
+    return (preferredEngine == OMUnifiedCompile::ContainerEngine::Docker)
+               ? "docker"
+               : "podman";
+  }
+
+  // Try docker first
+  try {
+    Command dockerCheck("docker", verbose);
+    dockerCheck.appendStr("--version");
+    if (dockerCheck.exec() == 0) {
+      if (verbose) {
+        std::cout << "Detected container engine: docker" << std::endl;
+      }
+      return "docker";
+    }
+  } catch (...) {
+    // Docker not available
+  }
+
+  // Try podman
+  try {
+    Command podmanCheck("podman", verbose);
+    podmanCheck.appendStr("--version");
+    if (podmanCheck.exec() == 0) {
+      if (verbose) {
+        std::cout << "Detected container engine: podman" << std::endl;
+      }
+      return "podman";
+    }
+  } catch (...) {
+    // Podman not available
+  }
+
+  throw OMCompileException(
+      "No container engine found. Please install Docker or Podman.");
+}
+
+bool ContainerSupport::isImageAvailable(
+    const std::string &engineName, const std::string &imageName) {
+  try {
+    Command imageCheck(engineName, verbose);
+    imageCheck.appendStr("images");
+    imageCheck.appendStr("-q");
+    imageCheck.appendStr(imageName);
+    return imageCheck.exec() == 0;
+  } catch (...) {
+    return false;
+  }
+}
+
+void ContainerSupport::pullImage(
+    const std::string &engineName, const std::string &imageName) {
+  if (verbose) {
+    std::cout << "Pulling container image: " << imageName << std::endl;
+  }
+
+  try {
+    Command pullCmd(engineName, verbose);
+    pullCmd.appendStr("pull");
+    pullCmd.appendStr(imageName);
+    if (pullCmd.exec() != 0) {
+      throw OMCompileException("Failed to pull container image: " + imageName);
+    }
+  } catch (const CommandException &e) {
+    throw OMCompileException(
+        "Failed to pull container image: " + std::string(e.what()));
+  }
+}
+
+void ContainerSupport::verifyCompilerInContainer(const std::string &engineName,
+    const std::string &imageName, const std::string &compilerPath) {
+  if (!verbose)
+    return;
+
+  try {
+    Command verifyCmd(engineName, verbose);
+    verifyCmd.appendStr("run");
+    verifyCmd.appendStr("--rm");
+    verifyCmd.appendStr(imageName);
+    verifyCmd.appendStr(compilerPath);
+    verifyCmd.appendStr("--version");
+    if (verifyCmd.exec() != 0) {
+      std::cerr << "Warning: Compiler verification failed in container"
+                << std::endl;
+    }
+  } catch (...) {
+    std::cerr << "Warning: Could not verify compiler in container" << std::endl;
+  }
+}
+
+bool ContainerSupport::detectDinDEnvironment() {
+  // Method 1: Check for /.dockerenv file (Docker-specific marker)
+  if (fs::exists("/.dockerenv")) {
+    return true;
+  }
+
+  // Method 2: Check /proc/1/cgroup for container indicators
+  std::ifstream cgroup("/proc/1/cgroup");
+  if (cgroup.is_open()) {
+    std::string line;
+    while (std::getline(cgroup, line)) {
+      if (line.find("docker") != std::string::npos ||
+          line.find("containerd") != std::string::npos ||
+          line.find("podman") != std::string::npos) {
+        return true;
+      }
+    }
+  }
+
+  // Method 3: Check for container-specific environment variables
+  // These are commonly set by container runtimes
+  const char* containerEnv = std::getenv("container");
+  if (containerEnv) {
+    return true;
+  }
+
+  // Method 4: Check /run/.containerenv (Podman-specific marker)
+  if (fs::exists("/run/.containerenv")) {
+    return true;
+  }
+
+  // Method 5: Check if running as PID 1 with limited /proc/1/cgroup
+  // In containers, especially with cgroups v2, /proc/1/cgroup might just show "0::/"
+  // Combined with other indicators, this suggests containerization
+  std::ifstream cgroupCheck("/proc/1/cgroup");
+  if (cgroupCheck.is_open()) {
+    std::string firstLine;
+    std::getline(cgroupCheck, firstLine);
+    // If cgroup is just "0::/" and we have container-like hostname, likely in container
+    if (firstLine == "0::/") {
+      // Check if hostname looks like a container ID (12+ hex chars)
+      char hostname[256];
+      if (gethostname(hostname, sizeof(hostname)) == 0) {
+        std::string hostnameStr(hostname);
+        // Container hostnames are typically 12 hex characters
+        if (hostnameStr.length() == 12) {
+          bool allHex = true;
+          for (char c : hostnameStr) {
+            if (!std::isxdigit(c)) {
+              allHex = false;
+              break;
+            }
+          }
+          if (allHex) {
+            return true;
+          }
+        }
+      }
+    }
+  }
+
+  return false;
+}
+
+bool ContainerSupport::isDinDDisabled() {
+  const char *dindDisable = std::getenv("DIND_DISABLE");
+  return dindDisable && std::string(dindDisable) == "1";
+}
+
+void ContainerSupport::verifyDockerSocket(const std::string &engineName) {
+  std::string socketPath = "/var/run/docker.sock";
+  if (!fs::exists(socketPath)) {
+    throw OMCompileException(
+        "Docker-in-Docker detected but Docker socket not found at " +
+        socketPath +
+        ". Mount it with: -v /var/run/docker.sock:/var/run/docker.sock");
+  }
+
+  try {
+    Command testCmd(engineName, false);
+    testCmd.appendStr("info");
+    if (testCmd.exec() != 0) {
+      throw OMCompileException(
+          "Docker socket exists but not accessible. Check permissions or "
+          "ensure Docker daemon is running.");
+    }
+
+    if (verbose) {
+      std::cout << "Docker socket verified: " << socketPath << std::endl;
+    }
+  } catch (const CommandException &e) {
+    throw OMCompileException(
+        "Failed to verify Docker socket access: " + std::string(e.what()));
+  }
+}
+
+std::string ContainerSupport::resolveHostPath(const std::string &containerPath) {
+  fs::path absPath = fs::absolute(containerPath);
+  std::string pathStr = absPath.string();
+
+  // Check for DOCKER_HOST_PATH_PREFIX environment variable
+  const char *hostPrefix = std::getenv("DOCKER_HOST_PATH_PREFIX");
+  if (hostPrefix && std::strlen(hostPrefix) > 0) {
+    std::string prefix(hostPrefix);
+
+    if (pathStr.find(prefix) == 0) {
+      if (verbose) {
+        std::cout << "Path already has host prefix: " << pathStr << std::endl;
+      }
+      return pathStr;
+    }
+
+    std::string resolvedPath = prefix + pathStr;
+    if (verbose) {
+      std::cout << "Resolved DinD path: " << containerPath << " -> "
+                << resolvedPath << std::endl;
+    }
+    return resolvedPath;
+  }
+
+  // Default: assume paths are already host-relative
+  if (verbose) {
+    std::cout << "Using same path for DinD (no prefix): " << pathStr
+              << std::endl;
+  }
+
+  return pathStr;
+}
+
+} // anonymous namespace
+
 
 namespace onnx_mlir {
 
@@ -56,6 +326,7 @@ OMUnifiedCompile::OMUnifiedCompile(
                             : compilerPath),
       containerImage(), compilerPathInContainer(),
       containerEngine(ContainerEngine::Auto), autoPullImage(false),
+      dindDetected(false), dindDetectionDone(false),
       successfullyInitialized(false), successfullyCompiled(false) {
 
   // Verify compiler is available (only if verbose)
@@ -87,6 +358,7 @@ OMUnifiedCompile::OMUnifiedCompile(const std::string &containerImage,
     bool verbose)
     : mode(CompilationMode::Container), verbose(verbose), localCompilerPath(),
       containerEngine(engine), autoPullImage(autoPull),
+      dindDetected(false), dindDetectionDone(false),
       successfullyInitialized(false), successfullyCompiled(false) {
 
   // Set container image - use first known image if not provided
@@ -127,83 +399,38 @@ OMUnifiedCompile::OMUnifiedCompile(const std::string &containerImage,
 //===----------------------------------------------------------------------===//
 
 void OMUnifiedCompile::detectContainerEngine() {
-  if (containerEngine != ContainerEngine::Auto) {
-    detectedEngineName =
-        (containerEngine == ContainerEngine::Docker) ? "docker" : "podman";
-    return;
-  }
-
-  // Try docker first
-  try {
-    Command dockerCheck("docker", verbose);
-    dockerCheck.appendStr("--version");
-    int status = dockerCheck.exec();
-    if (status == 0) {
-      detectedEngineName = "docker";
-      if (verbose) {
-        std::cout << "Detected container engine: docker" << std::endl;
-      }
-      return;
-    }
-  } catch (...) {
-    // Docker not available
-  }
-
-  // Try podman
-  try {
-    Command podmanCheck("podman", verbose);
-    podmanCheck.appendStr("--version");
-    int status = podmanCheck.exec();
-    if (status == 0) {
-      detectedEngineName = "podman";
-      if (verbose) {
-        std::cout << "Detected container engine: podman" << std::endl;
-      }
-      return;
-    }
-  } catch (...) {
-    // Podman not available
-  }
-
-  throw OMCompileException(
-      "No container engine found. Please install Docker or Podman.");
+  ContainerSupport support(verbose);
+  detectedEngineName = support.detectEngine(containerEngine);
 }
 
 bool OMUnifiedCompile::isImageAvailable(const std::string &imageName) {
-  try {
-    Command imageCheck(detectedEngineName, verbose);
-    imageCheck.appendStr("images");
-    imageCheck.appendStr("-q");
-    imageCheck.appendStr(imageName);
-    int status = imageCheck.exec();
-    return status == 0;
-  } catch (...) {
-    return false;
-  }
+  ContainerSupport support(verbose);
+  return support.isImageAvailable(detectedEngineName, imageName);
 }
 
 void OMUnifiedCompile::pullImage(const std::string &imageName) {
-  if (verbose) {
-    std::cout << "Pulling container image: " << imageName << std::endl;
-  }
-
-  try {
-    Command pullCmd(detectedEngineName, verbose);
-    pullCmd.appendStr("pull");
-    pullCmd.appendStr(imageName);
-    int status = pullCmd.exec();
-    if (status != 0) {
-      throw OMCompileException("Failed to pull container image: " + imageName);
-    }
-  } catch (const CommandException &e) {
-    throw OMCompileException(
-        "Failed to pull container image: " + std::string(e.what()));
-  }
+  ContainerSupport support(verbose);
+  support.pullImage(detectedEngineName, imageName);
 }
 
 void OMUnifiedCompile::verifyContainerSetup() {
+  ContainerSupport support(verbose);
+
   // Detect container engine
   detectContainerEngine();
+
+  // Check if running in Docker-in-Docker and verify socket if so
+  if (!support.isDinDDisabled() && support.detectDinDEnvironment()) {
+    dindDetected = true;
+    dindDetectionDone = true;
+
+    if (verbose) {
+      std::cout << "Docker-in-Docker (DinD) environment detected" << std::endl;
+    }
+
+    // Verify Docker socket is accessible
+    support.verifyDockerSocket(detectedEngineName);
+  }
 
   // Verify image is available
   if (!isImageAvailable(containerImage)) {
@@ -223,24 +450,8 @@ void OMUnifiedCompile::verifyContainerSetup() {
   }
 
   // Optionally verify compiler exists in container
-  if (verbose) {
-    try {
-      Command verifyCmd(detectedEngineName, verbose);
-      verifyCmd.appendStr("run");
-      verifyCmd.appendStr("--rm");
-      verifyCmd.appendStr(containerImage);
-      verifyCmd.appendStr(compilerPathInContainer);
-      verifyCmd.appendStr("--version");
-      int status = verifyCmd.exec();
-      if (status != 0) {
-        std::cerr << "Warning: Compiler verification failed in container"
-                  << std::endl;
-      }
-    } catch (...) {
-      std::cerr << "Warning: Could not verify compiler in container"
-                << std::endl;
-    }
-  }
+  support.verifyCompilerInContainer(
+      detectedEngineName, containerImage, compilerPathInContainer);
 }
 
 //===----------------------------------------------------------------------===//
@@ -265,6 +476,20 @@ std::unique_ptr<Command> OMUnifiedCompile::createContainerCompileCommand(
     const std::string &modelDir, const std::string &outputDir) {
 
   // Container Mode: Docker/Podman run with volume mounts
+  // Note: When running in Docker-in-Docker (DinD), paths are automatically
+  // resolved to host paths to ensure the inner container can access them.
+
+  ContainerSupport support(verbose);
+
+  // Resolve paths for Docker-in-Docker scenarios
+  // In DinD, volume mounts must use paths from the HOST, not the outer container
+  std::string hostModelDir = modelDir;
+  std::string hostOutputDir = outputDir;
+
+  if (isRunningInContainer()) {
+    hostModelDir = support.resolveHostPath(modelDir);
+    hostOutputDir = support.resolveHostPath(outputDir);
+  }
 
   // Build the compiler command string that will run inside the container
   std::ostringstream cmdStream;
@@ -282,7 +507,7 @@ std::unique_ptr<Command> OMUnifiedCompile::createContainerCompileCommand(
     cmdStream << " " << escapedFlag;
   }
 
-  // Add input file (using container path)
+  // Add input file (using container path - same as modelDir)
   std::string containerInputPath =
       (fs::path(modelDir) / fs::path(inputFilename).filename()).string();
   cmdStream << " " << containerInputPath;
@@ -293,6 +518,10 @@ std::unique_ptr<Command> OMUnifiedCompile::createContainerCompileCommand(
     std::cout << "Container compilation with image: " << containerImage
               << std::endl;
     std::cout << "Container command: " << containerCmd << std::endl;
+    if (isRunningInContainer()) {
+      std::cout << "DinD mode: Host model dir: " << hostModelDir << std::endl;
+      std::cout << "DinD mode: Host output dir: " << hostOutputDir << std::endl;
+    }
   }
 
   // Build the docker/podman run command
@@ -305,14 +534,14 @@ std::unique_ptr<Command> OMUnifiedCompile::createContainerCompileCommand(
   cmd->appendStr("--entrypoint");
   cmd->appendStr("sh");
 
-  // Mount model directory
+  // Mount model directory (using host path for DinD)
   cmd->appendStr("-v");
-  cmd->appendStr(modelDir + ":" + modelDir + ":rw");
+  cmd->appendStr(hostModelDir + ":" + modelDir + ":rw");
 
-  // Mount output directory if different
+  // Mount output directory if different (using host path for DinD)
   if (outputDir != modelDir) {
     cmd->appendStr("-v");
-    cmd->appendStr(outputDir + ":" + outputDir + ":rw");
+    cmd->appendStr(hostOutputDir + ":" + outputDir + ":rw");
   }
 
   // Specify the image
@@ -432,6 +661,34 @@ void OMUnifiedCompile::compile(const std::string &modelPath,
     std::cout << "Compilation successful. Output: " << outputFilename
               << std::endl;
   }
+}
+
+//===----------------------------------------------------------------------===//
+// Docker-in-Docker (DinD) Public Method
+//===----------------------------------------------------------------------===//
+
+bool OMUnifiedCompile::isRunningInContainer() const {
+  ContainerSupport support(verbose);
+
+  // Check if DinD detection is disabled
+  if (support.isDinDDisabled()) {
+    return false;
+  }
+
+  // Use cached result if available
+  if (dindDetectionDone) {
+    return dindDetected;
+  }
+
+  // Perform detection
+  dindDetected = support.detectDinDEnvironment();
+  dindDetectionDone = true;
+
+  if (verbose && dindDetected) {
+    std::cout << "Docker-in-Docker (DinD) environment detected" << std::endl;
+  }
+
+  return dindDetected;
 }
 
 //===----------------------------------------------------------------------===//
