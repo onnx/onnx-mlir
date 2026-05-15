@@ -136,6 +136,10 @@ void registerOMPasses(int optLevel) {
       []() -> std::unique_ptr<mlir::Pass> { return createConvWithBiasPass(); });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createFuseMatMulAddToXFEMatMulBiasPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createRemoveRedundantReshapePass();
   });
 

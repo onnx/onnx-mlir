@@ -161,6 +161,10 @@ std::unique_ptr<mlir::Pass> createTransferResizeLinearToDwConv();
 /// Pass for fusing Add(Conv(A, X, none), constant) -> Conv(A, X, bias).
 std::unique_ptr<mlir::Pass> createConvWithBiasPass();
 
+/// Pass for fusing Add(MatMul(A, B), constant bias) -> onnx.XFEMatMulBias when
+/// the bias constant has one value per MatMul output channel (last dim of B).
+std::unique_ptr<mlir::Pass> createFuseMatMulAddToXFEMatMulBiasPass();
+
 /// Pass for removing redundant reshape operations around element-wise ops.
 std::unique_ptr<mlir::Pass> createRemoveRedundantReshapePass();
 
