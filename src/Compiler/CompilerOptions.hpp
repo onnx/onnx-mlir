@@ -4,7 +4,7 @@
 
 //===------------------------ CompilerOptions.hpp -------------------------===//
 //
-// Copyright 2022-2025 The IBM Research Authors.
+// Copyright 2022-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -165,6 +165,7 @@ extern std::vector<std::string> reportHeapBefore;             // onnx-mlir only
 extern std::vector<std::string> reportHeapAfter;              // onnx-mlir only
 extern std::string modelTag;                                  // onnx-mlir only
 extern bool enableConvOptPass;                                // onnx-mlir only
+extern bool disableConvToMatmul;                              // onnx-mlir only
 extern std::vector<std::string> replaceOpWithItsOperand;      // onnx-mlir only
 extern bool disableConstantProp;                              // onnx-mlir only
 extern std::vector<std::string> extraLibPaths;                // onnx-mlir only
@@ -214,6 +215,7 @@ int setTargetAccel(const std::string &str);
 void setTargetAccel(const accel::Accelerator::Kind accel);
 void clearTargetAccel();
 std::string getTargetAccel();
+bool targetNoAccelerators();
 
 void setOptLevel(const onnx_mlir::OptLevel level);
 void clearOptLevel();

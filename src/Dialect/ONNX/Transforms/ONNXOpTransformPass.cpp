@@ -4,7 +4,7 @@
 
 //===------- ONNXOpTransformPass.cpp - ONNX Op Transform ------------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2026  The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -73,7 +73,6 @@ struct ONNXOpTransformPass : public mlir::PassWrapper<ONNXOpTransformPass,
 
 void ONNXOpTransformPass::runOnOperation() {
   auto module = getOperation();
-
   assert(onnxOpTransformThreshold > 0);
   int n = onnxOpTransformThreshold;
   OperationFingerPrint before(module);

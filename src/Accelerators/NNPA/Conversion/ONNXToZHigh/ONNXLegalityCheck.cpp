@@ -1501,7 +1501,6 @@ static bool checkConv2DParamRestrictions(Operation *op, int64_t inputDim,
                           ") must be less than or equal to 13.";
     return onnxToZHighUnsupportedReport(op, message);
   }
-
   return true;
 }
 
@@ -1559,7 +1558,6 @@ bool isSuitableForZDNN<ONNXConvOp>(
   StringRef paddingType =
       getStrPaddingType<ONNXConvOp, ONNXConvOpAdaptor, ONNXConvOpShapeHelper>(
           op);
-
   if (paddingType.empty()) {
     std::string message =
         "Padding type must be `SAME_PADDING` or `VALID_PADDING`, but it is "
@@ -1614,7 +1612,6 @@ bool isSuitableForZDNN<ONNXConvOp>(
       op, inputShapeW, kernelShapeW, stridesW, outputShapeW, paddingType);
   if (!isWOK)
     return false;
-
   return true;
 }
 

@@ -333,14 +333,16 @@ OMTensorList *omTensorListCreateFromInputSignature(
   int inputNum = JSONArray->size();
   assert(inputNum >= 0 && inputNum < 100 && "out of bound number of inputs");
 
-  OMTensor *inputTensors[inputNum];
+  OMTensor **inputTensors = (OMTensor **)malloc(inputNum * sizeof(OMTensor*));
+  assert(inputTensors);
 
   int dimKnownAtRuntimeIndex = 0;
   for (int i = 0; i < inputNum; ++i) {
     auto JSONItem = (*JSONArray)[i].getAsObject();
     auto JSONItemType = JSONItem->getString("type");
     assert(JSONItemType && "failed to get type");
-    auto type = JSONItemType.value();
+    // Copy the string to avoid dangling reference to JSON memory.
+    std::string typeStr = JSONItemType.value().str();
     auto JSONDimArray = JSONItem->getArray("dims");
     int rank = JSONDimArray->size();
     assert(rank > 0 && rank < 100 && "rank is out bound");
@@ -369,8 +371,8 @@ OMTensorList *omTensorListCreateFromInputSignature(
     }
     // Create a randomly initialized tensor of the right shape.
     OMTensor *tensor = nullptr;
-    if (type.compare("float") == 0 || type.compare("f32") == 0 ||
-        type.compare("i32") == 0) {
+    if (typeStr.compare("float") == 0 || typeStr.compare("f32") == 0 ||
+        typeStr.compare("i32") == 0) {
       // Treat floats/f32 and i32 alike as they take the same memory footprint.
       float *data = nullptr;
       if (dataPtrList) {
@@ -380,8 +382,8 @@ OMTensorList *omTensorListCreateFromInputSignature(
         assert(data && "failed to allocate data");
       }
       tensor = OM_TENSOR_CREATE(data, shape, rank, ONNX_TYPE_FLOAT, true);
-    } else if (type.compare("double") == 0 || type.compare("f64") == 0 ||
-               type.compare("i64") == 0) {
+    } else if (typeStr.compare("double") == 0 || typeStr.compare("f64") == 0 ||
+               typeStr.compare("i64") == 0) {
       // Treat floats/f64 and i64 alike as they take the same memory footprint.
       double *data = nullptr;
       if (dataPtrList) {
@@ -391,7 +393,7 @@ OMTensorList *omTensorListCreateFromInputSignature(
         assert(data && "failed to allocate data");
       }
       tensor = OM_TENSOR_CREATE(data, shape, rank, ONNX_TYPE_DOUBLE, true);
-    } else if (type.compare("string") == 0) {
+    } else if (typeStr.compare("string") == 0) {
       // Add the handling of string type. "string" is the type in function
       // signature.
       char **data = nullptr;
@@ -418,13 +420,15 @@ OMTensorList *omTensorListCreateFromInputSignature(
     // Add tensor to list.
     inputTensors[i] = tensor;
     if (trace) {
-      cout << "Input " << i << ": tensor of " << type.str() << " with shape ";
+      cout << "Input " << i << ": tensor of " << typeStr << " with shape ";
       for (int d = 0; d < rank; ++d)
         cout << shape[d] << " ";
       cout << "and " << size << " elements" << endl;
     }
   }
-  return OM_TENSOR_LIST_CREATE(inputTensors, inputNum);
+  OMTensorList *list = OM_TENSOR_LIST_CREATE(inputTensors, inputNum);
+  free(inputTensors);
+  return list;
 }
 
 // Data structures for timing info.

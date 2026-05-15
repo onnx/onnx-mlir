@@ -6,6 +6,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   ONNXToKrnlCommon.cpp
   PerfectHash.cpp
   Additional/Custom.cpp
+  Additional/Im2Col.cpp
   Additional/LayoutTransform.cpp
   Additional/ShapeTransform.cpp
   Additional/UpsampleAndPad.cpp

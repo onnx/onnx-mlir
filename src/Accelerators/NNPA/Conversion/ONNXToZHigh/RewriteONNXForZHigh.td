@@ -412,7 +412,7 @@ class FloatAttrOfValue<int val>:
 class IsNotStringAttrOfValue<string val>:
   Constraint<CPred<"mlir::cast<StringAttr>($0).getValue() != \"" # val # "\"">>;
 
-// Check the a convolution operation is NOT leagal for zDNN
+// Check the a convolution operation is NOT legal for zDNN
 def IsConvNotLegalForZDNN: Constraint<
   CPred<"!isSuitableForZDNN<ONNXConvOp>(" #
         "dyn_cast_or_null<ONNXConvOp>($_self.getDefiningOp()))">,
@@ -448,7 +448,9 @@ def ConvOpPaddingPattern: Pattern<
      (createArrayAttrOfZerosFrom $nnpapads),
      $strides)
   ],
-  [(IsConvNotLegalForZDNN:$res), (CanInferencePadsForNNPAConv:$res)]
+  [(IsConvNotLegalForZDNN:$res), (CanInferencePadsForNNPAConv:$res)],
+  [],
+  (addBenefit 10) // Higher than Conv to matmul to use convolutions first.
 >;
 
 #endif // REWRITE_ONNX_FOR_ZHIGH

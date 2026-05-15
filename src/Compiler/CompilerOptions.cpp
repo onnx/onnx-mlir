@@ -4,7 +4,7 @@
 
 //===------------------------ CompilerOptions.cpp -------------------------===//
 //
-// Copyright 2022-2025 The IBM Research Authors.
+// Copyright 2022-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/TargetParser/Host.h"
 
@@ -98,6 +99,7 @@ std::vector<std::string> reportHeapBefore;             // onnx-mlir only
 std::vector<std::string> reportHeapAfter;              // onnx-mlir only
 std::string modelTag;                                  // onnx-mlir only
 bool enableConvOptPass;                                // onnx-mlir only
+bool disableConvToMatmul;                              // onnx-mlir only
 std::vector<std::string> replaceOpWithItsOperand;      // onnx-mlir only
 bool disableConstantProp;                              // onnx-mlir only
 bool disableCountIncludePad;                           // onnx-mlir only
@@ -755,6 +757,13 @@ static llvm::cl::opt<bool, true> enableConvOptPassOpt("enable-conv-opt-pass",
     llvm::cl::location(enableConvOptPass), llvm::cl::init(true),
     llvm::cl::cat(OnnxMlirOptions));
 
+static llvm::cl::opt<bool, true> disableConvToMatmulOpt(
+    "disable-conv-to-matmul",
+    llvm::cl::desc(
+        "Disable Conv to Im2Col+MatMul decomposition. Default is false."),
+    llvm::cl::location(disableConvToMatmul), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
+
 static llvm::cl::list<std::string, std::vector<std::string>>
     replaceOpWithItsOperandOpt("replace-op-with-its-operand",
         llvm::cl::desc(
@@ -1148,6 +1157,13 @@ std::string getTargetAccel() {
   if (!accelCount)
     ss << "--maccel=NONE";
   return ss.str();
+}
+
+bool targetNoAccelerators() {
+  // Cannot simply use maccel.empty() because maccel = {NONE} is valid and means
+  // no accelerator too.
+  return llvm::none_of(
+      maccel, [](auto a) { return a != accel::Accelerator::Kind::NONE; });
 }
 
 // Support for Optimization level.

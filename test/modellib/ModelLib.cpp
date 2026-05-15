@@ -20,6 +20,7 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Runtime/OMTensorHelper.hpp"
 #include "test/modellib/ModelLib.hpp"
+#include <sstream>
 
 using namespace mlir;
 
@@ -40,8 +41,16 @@ ModelLibBuilder::~ModelLibBuilder() {
     delete exec;
 }
 
-bool ModelLibBuilder::compileAndLoad() {
+bool ModelLibBuilder::compileAndLoad(bool debug) {
+
   OwningOpRef<ModuleOp> moduleRef(module);
+  if (debug) {
+    fprintf(stderr, "Debugging mode: compile to save a .mlir model file\n");
+    // Can use EmitONNXBasic (before decode) EmitONNXIR (after decode).
+    compileModule(moduleRef, ctx, sharedLibBaseName, onnx_mlir::EmitONNXBasic);
+    fprintf(stderr, "Debugging mode: .mlir file saved here: \"%s\".\n",
+        sharedLibBaseName.c_str());
+  }
   if (compileModule(moduleRef, ctx, sharedLibBaseName, onnx_mlir::EmitLib) !=
       CompilerSuccess)
     return false;
@@ -58,44 +67,66 @@ bool ModelLibBuilder::compileAndLoad() {
 }
 
 bool ModelLibBuilder::compileAndLoad(
-    const onnx_mlir::CompilerOptionList &list) {
+    const onnx_mlir::CompilerOptionList &list, bool debug) {
   if (setCompilerOptions(list) != CompilerSuccess)
     return false;
-  return compileAndLoad();
+  return compileAndLoad(debug);
 }
 
 bool ModelLibBuilder::checkInstructionFromEnv(
-    const std::string envCheckInstruction) {
+    const std::string envCheckInstruction, const bool optional) {
   std::string instructionName = getenv(envCheckInstruction.c_str())
                                     ? getenv(envCheckInstruction.c_str())
                                     : "";
-  return checkInstruction(instructionName);
+  return checkInstruction(instructionName, optional);
 }
 
-bool ModelLibBuilder::checkInstruction(const std::string instructionName) {
+bool ModelLibBuilder::checkInstruction(
+    const std::string instructionName, const bool optional) {
   if (instructionName.empty())
     return true;
+
+  // Split by comma and check each instruction
   DynamicLibraryHandleType sharedLibraryHandle = exec->getSharedLibraryHandle();
+  std::stringstream ss(instructionName);
+  std::string instruction;
+  // Iterate over each comma separated instructions, if any.
+  while (std::getline(ss, instruction, ',')) {
+    // Trim whitespace
+    size_t start = instruction.find_first_not_of(" \t");
+    size_t end = instruction.find_last_not_of(" \t");
+    if (start != std::string::npos && end != std::string::npos) {
+      instruction = instruction.substr(start, end - start + 1);
+    }
+    if (!instruction.empty()) {
 #if defined(_WIN32)
-  void *addr = sharedLibraryHandle.getAddressOfSymbol(instructionName.c_str());
+      void *addr = sharedLibraryHandle.getAddressOfSymbol(instruction.c_str());
 #else
-  void *addr = dlsym(sharedLibraryHandle, instructionName.c_str());
+      void *addr = dlsym(sharedLibraryHandle, instruction.c_str());
 #endif
-  if (!addr) {
-    printf("%s not found.\n", instructionName.c_str());
-    return false;
+      if (addr) {
+        std::cout << "Binary has" << (optional ? " optional" : "")
+                  << " instruction \"" << instruction << "\"\n";
+        return true;
+      }
+    }
   }
-  return true;
+  if (optional) {
+    std::cout << "Binary didn't have the optional \"" << instructionName
+              << "\" instructions\n";
+    return true;
+  }
+  return false;
 }
 
-bool ModelLibBuilder::run() {
+bool ModelLibBuilder::run(bool debug) {
   assert(inputs && exec && "expected successful compile and load");
   if (outputs) {
     omTensorListDestroy(outputs);
     outputs = nullptr; // Reset in case run has an exception.
   }
   try {
-    outputs = exec->run(inputs);
+    outputs = exec->runDebug(inputs, debug);
   } catch (const onnx_mlir::ExecutionSessionException &error) {
     std::cerr << "error while running: " << error.what() << std::endl;
     return false;
@@ -200,6 +231,8 @@ bool ModelLibBuilder::areCloseFloat(const OMTensor *res, const OMTensor *ref,
     return false;
   float rtol = getenv("TEST_RTOL") ? atof(getenv("TEST_RTOL")) : defaultRtol;
   float atol = getenv("TEST_ATOL") ? atof(getenv("TEST_ATOL")) : defaultAtol;
+  if (rtol != defaultRtol || atol != defaultAtol)
+    printf("RTOL and ATOL from env, with %f and %f values\n", rtol, atol);
   return omTensorAreTwoOmtsClose<float>(res, ref, rtol, atol);
 }
 
