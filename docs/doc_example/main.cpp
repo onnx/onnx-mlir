@@ -1,5 +1,8 @@
 #include <iostream>
 
+// Set to 1 to use container, or 0 to use local compiler. Default is local (needed for CIs)
+#define USE_CONTAINER 0
+
 #include "src/Compiler/OMCompile.hpp"
 #include "src/Runtime/ExecutionSession.hpp"
 
@@ -16,22 +19,31 @@ int main(int argc, char *argv[]) {
   // Read compiler options from command line.
   std::string flags = readArgs(argc, argv);
   flags += "-o add_cpp_interface -v";
-  // And compile the doc example into a model library.
-  onnx_mlir::OMCompile OMcompile;
+// And compile the doc example into a model library.
+#if USE_CONTAINER
+  // Container compilation: image, compilerPath, engine, autoPull, verbose
+  onnx_mlir::OMCompile compile({}, {},
+      onnx_mlir::OMCompile::ContainerEngine::Auto,
+      /*autoPull*/ true, /*verbose*/ true);
+#else
+  // Local compilation: compilerPath, verbose
+  onnx_mlir::OMCompile compile({}, /*verbose*/ true);
+#endif
+
   try {
     // For testing: log the compile output (stderr and stdout) in compile.log.
-    OMcompile.compile("add.onnx", flags);
+    compile.compile("add.onnx", flags);
   } catch (const onnx_mlir::OMCompileException &error) {
     std::cerr << error.what() << std::endl;
     return 1;
   }
   std::cout << "Compiled succeeded with results in file: "
-            << OMcompile.getOutputFilename() << std::endl;
+            << compile.getOutputFilename() << std::endl;
 
   // Prepare the execution session.
   onnx_mlir::ExecutionSession session;
   try {
-    session.loadModel(OMcompile.getOutputFilename());
+    session.loadModel(compile.getOutputFilename());
   } catch (const onnx_mlir::ExecutionSessionException &error) {
     std::cerr << "error while creating execution session: " << error.what()
               << std::endl;
@@ -67,7 +79,8 @@ int main(int argc, char *argv[]) {
   std::cout << "Start running model " << std::endl;
   OMTensorList *outputList;
   try {
-    outputList = session.runDebug(input, /*debug: catch segfault in handler*/ true);
+    outputList =
+        session.runDebug(input, /*debug: catch segfault in handler*/ true);
   } catch (const onnx_mlir::ExecutionSessionException &error) {
     std::cerr << "error while running model: " << error.what() << std::endl;
     return 5;
