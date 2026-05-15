@@ -18,11 +18,9 @@
 
 using namespace mlir;
 
-// ReplaceQDQReductionPass -- ONNX-MLIR port of xcompiler.git's `shape_to_4d`.
-// Canonicalises Q/DQ-bracketed Reduce(Sum/Mean/Max/Min) to rank-4 +
-// keep_dims=true (matches the AIE reduction kernel and xmodel emission).
-// Cast-template chains are skipped (handled by xcompiler.git's
-// `replace_reduce`).
+// ReplaceQDQReductionPass: canonicalise Q/DQ-bracketed
+// Reduce(Sum/Mean/Max/Min) to a rank-4 input with keep_dims=true by adding
+// leading/trailing reshapes.  Cast-bracketed reduction chains are skipped.
 
 namespace {
 
