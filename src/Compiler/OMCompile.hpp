@@ -40,7 +40,8 @@ public:
 
 /**
  * @class OMCompile
- * @brief Unified C++ interface for compiling ONNX models locally or in containers.
+ * @brief Unified C++ interface for compiling ONNX models locally or in
+ * containers.
  *
  * This class provides a thread-safe interface to compile ONNX models from files
  * (.onnx, .mlir, or .onnxtext formats) into various output formats such as
@@ -60,7 +61,8 @@ public:
  * ## Compilation Process
  * The class invokes the onnx-mlir compiler executable (locally or in container)
  * to perform the actual compilation. When generating libraries or JAR files,
- * the compiler automatically links in the required lightweight runtime libraries.
+ * the compiler automatically links in the required lightweight runtime
+ * libraries.
  *
  * ## Runtime Library Location
  * By default, runtime libraries are expected in system-wide directories
@@ -86,7 +88,8 @@ public:
  *   // Use containerized onnx-mlir
  *   OMCompile session(
  *       "ghcr.io/onnxmlir/onnx-mlir-dev",  // image
- *       "/workdir/onnx-mlir/build/Debug/bin/onnx-mlir"  // compiler in container
+ *       "/workdir/onnx-mlir/build/Debug/bin/onnx-mlir"  // compiler in
+ * container
  *   );
  *   session.compile("model.onnx", "-O3");
  * @endcode
@@ -135,7 +138,8 @@ public:
   /**
    * @brief Constructor for local compilation with custom compiler path.
    *
-   * @param compilerPath Path to local onnx-mlir binary (empty uses PATH default)
+   * @param compilerPath Path to local onnx-mlir binary (empty uses PATH
+   * default)
    * @param verbose Enable verbose output (default: false)
    *
    * @code
@@ -160,8 +164,10 @@ public:
    * - Auto-detects compiler path for known images
    * - Automatically detects and handles Docker-in-Docker (DinD) scenarios
    *
-   * @param containerImage Container image name (required, but {} uses first known image)
-   * @param compilerPathInContainer Path to compiler in container (required, but {} auto-detects)
+   * @param containerImage Container image name (required, but {} uses first
+   * known image)
+   * @param compilerPathInContainer Path to compiler in container (required, but
+   * {} auto-detects)
    * @param engine Container engine to use (default: Auto - auto-detect)
    * @param autoPull Automatically pull missing images (default: true)
    * @param verbose Enable verbose output (default: false)
@@ -178,8 +184,8 @@ public:
    * - OM_DIND_DISABLE: Set to "1" to disable DinD detection
    *
    * @code
-   *   // Use defaults (first known image, auto-detect compiler, auto-detect engine)
-   *   OMCompile compiler({}, {});
+   *   // Use defaults (first known image, auto-detect compiler, auto-detect
+   * engine) OMCompile compiler({}, {});
    *
    *   // Specific image with auto-detected compiler path
    *   OMCompile compiler("ghcr.io/onnxmlir/onnx-mlir", {});
@@ -359,8 +365,9 @@ private:
   std::string detectedEngineName; // "docker" or "podman".
 
   // Docker-in-Docker state (cached detection).
-  mutable bool dindDetected = false;      // Cached DinD detection result.
-  mutable bool dindDetectionDone = false; // Whether detection has been performed.
+  mutable bool dindDetected = false; // Cached DinD detection result.
+  mutable bool dindDetectionDone =
+      false; // Whether detection has been performed.
 
   // Compilation state.
   /// Parsed compilation flags as a vector of individual arguments.
@@ -371,7 +378,8 @@ private:
   std::string outputConstantFilename = {};
 
   /// Flag indicating whether the last compilation completed successfully.
-  bool successfullyInitialized = false; // Set to true when constructor completes.
+  bool successfullyInitialized =
+      false; // Set to true when constructor completes.
   bool successfullyCompiled = false;
 
   // Known container image configurations.

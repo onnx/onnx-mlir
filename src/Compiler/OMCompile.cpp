@@ -770,4 +770,3 @@ std::string OMCompile::getContainerEngineName() const {
 }
 
 } // namespace onnx_mlir
-
