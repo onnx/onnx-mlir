@@ -112,17 +112,19 @@ public:
   // Check whether a particular instruction extracted from environment variable
   // specified in the argument is included in the dynamic library file name
   // compiled here. If not found, return false.
-  bool checkInstructionFromEnv(const std::string envCheckInstruction);
+  bool checkInstructionFromEnv(
+      const std::string envCheckInstruction, const bool optional = false);
   // Check whether a particular instruction specified in the argument is
   // included in the dynamic library file name compiled here.
   // If not found, return false.
   // TODO: set multiple instructions
-  bool checkInstruction(const std::string instructionName);
+  bool checkInstruction(
+      const std::string instructionName, const bool optional = false);
   // Prepare inputs for running model. Subclass may add arguments as necessary.
   // It can run second or third.
   virtual bool prepareInputs() = 0;
   // Run model using prepared inputs, resulting in outputs. It must run fourth.
-  bool run(bool debug=false);
+  bool run(bool debug = false);
   // Verify outputs from a run with reference data. It can run last.
   virtual bool verifyOutputs() = 0;
 

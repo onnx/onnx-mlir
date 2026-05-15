@@ -48,7 +48,9 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int CIn, const int COut,
       autoPad, pHBegin, pHEnd, pWBegin, pWEnd, stride, dilation, isDynamic);
   return conv.build() &&
          conv.compileAndLoad(/*debug: generate mlir file*/ false) &&
-         conv.checkInstructionFromEnv("TEST_INSTRUCTION") &&
+         // Optional test of instruction as some (esp on z16) cannot be easily
+         // mapped to conv or matmul.
+         conv.checkInstructionFromEnv("TEST_INSTRUCTION", /*optional*/ true) &&
          conv.prepareInputsFromEnv("TEST_DATARANGE") && conv.run() &&
          conv.verifyOutputs();
 }

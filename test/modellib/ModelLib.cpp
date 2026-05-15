@@ -74,14 +74,15 @@ bool ModelLibBuilder::compileAndLoad(
 }
 
 bool ModelLibBuilder::checkInstructionFromEnv(
-    const std::string envCheckInstruction) {
+    const std::string envCheckInstruction, const bool optional) {
   std::string instructionName = getenv(envCheckInstruction.c_str())
                                     ? getenv(envCheckInstruction.c_str())
                                     : "";
-  return checkInstruction(instructionName);
+  return checkInstruction(instructionName, optional);
 }
 
-bool ModelLibBuilder::checkInstruction(const std::string instructionName) {
+bool ModelLibBuilder::checkInstruction(
+    const std::string instructionName, const bool optional) {
   if (instructionName.empty())
     return true;
 
@@ -104,11 +105,17 @@ bool ModelLibBuilder::checkInstruction(const std::string instructionName) {
       void *addr = dlsym(sharedLibraryHandle, instruction.c_str());
 #endif
       if (addr) {
+        std::cout << "Binary has" << (optional ? " optional" : "")
+                  << " instruction \"" << instruction << "\"\n";
         return true;
       }
     }
   }
-
+  if (optional) {
+    std::cout << "Binary didn't have the optional \"" << instructionName
+              << "\" instructions\n";
+    return true;
+  }
   return false;
 }
 
