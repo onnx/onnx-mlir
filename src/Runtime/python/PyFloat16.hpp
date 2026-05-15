@@ -65,4 +65,3 @@ private:
 } // namespace onnx_mlir
 
 #endif // ONNX_MLIR_PY_FLOAT16_H
-
