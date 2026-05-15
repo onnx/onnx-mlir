@@ -215,6 +215,7 @@ int setTargetAccel(const std::string &str);
 void setTargetAccel(const accel::Accelerator::Kind accel);
 void clearTargetAccel();
 std::string getTargetAccel();
+bool targetNoAccelerators();
 
 void setOptLevel(const onnx_mlir::OptLevel level);
 void clearOptLevel();

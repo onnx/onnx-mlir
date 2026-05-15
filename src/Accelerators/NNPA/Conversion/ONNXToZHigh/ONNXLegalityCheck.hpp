@@ -34,6 +34,21 @@ template <typename OP_TYPE>
 bool isSuitableForZDNN(
     OP_TYPE op, const onnx_mlir::DimAnalysis *dimAnalysis = nullptr);
 
+// Same, but sometime with have to check with relaxed conditions. By convention,
+// considerAllConditions == true is the same as the above isSuitableForZDNN
+// call. When false, then the test may omit some checks.
+//
+// For example, we have NNPA operations that can only handle specific pad
+// parameters; but we can also have a ONNXPadOp that can precede that operation
+// when pads are bad. So using the test
+// isSuitableWithConditionForZDNN<ONNXConvOp>(op, false) would, for this
+// specific op, test all of the ONNXConvOp conditions except for the padding
+// conditions. Note that each op may have a different flag with a different
+// meaning.
+template <typename OP_TYPE>
+bool isSuitableWithConditionForZDNN(OP_TYPE op, bool considerAllConditions,
+    const onnx_mlir::DimAnalysis *dimAnalysis = nullptr);
+
 /// Check if the input NNPA level is compatible with the current NNPA
 /// level.
 bool isCompatibleWithNNPALevel(std::string inputNNPALevel);

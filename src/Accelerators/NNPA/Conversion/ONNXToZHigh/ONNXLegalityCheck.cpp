@@ -1407,8 +1407,8 @@ bool isSuitableForZDNN<ONNXAveragePoolOp>(
 /// meet parameter restrictions for conv2d. See "Conv2D Parameter
 /// Restrictions" in "zDNN API Reference"
 static bool checkConv2DParamRestrictions(Operation *op, int64_t inputDim,
-    int64_t kernelDim, int64_t stride, int64_t outputDim,
-    StringRef paddingType) {
+    int64_t kernelDim, int64_t stride, int64_t outputDim, StringRef paddingType,
+    bool checkOutputRestriction) {
   if (stride == 0) {
     // paddingType must be VALID_PADDING.
     if (!(paddingType == "VALID_PADDING")) {
@@ -1444,6 +1444,8 @@ static bool checkConv2DParamRestrictions(Operation *op, int64_t inputDim,
       return onnxToZHighUnsupportedReport(op, message);
     }
   } else if (stride > 0 && stride <= 13) {
+    fprintf(stderr, "  hi alex legal 1 \n");
+
     // stride is greater than zero and less than or equal to 13.
     // kernel dim must be less than or equal to 64.
     if (kernelDim > 64) {
@@ -1457,7 +1459,7 @@ static bool checkConv2DParamRestrictions(Operation *op, int64_t inputDim,
     if (paddingType == "SAME_PADDING") {
       // height_out restriction.
       int64_t reqOutputShape = ceil(static_cast<float>(inputDim) / stride);
-      if (outputDim != reqOutputShape) {
+      if (checkOutputRestriction && outputDim != reqOutputShape) {
         std::string message =
             "When the strides (" + std::to_string(stride) +
             ")  is greater than zero and less than or equal to 13, output "
@@ -1480,10 +1482,11 @@ static bool checkConv2DParamRestrictions(Operation *op, int64_t inputDim,
             std::to_string(kernelDim) + ").";
         return onnxToZHighUnsupportedReport(op, message);
       }
+      fprintf(stderr, "  hi alex legal 2 \n");
       // height_out restriction.
       int64_t reqOutputShape =
           ceil(static_cast<float>(inputDim - kernelDim + 1) / stride);
-      if (outputDim != reqOutputShape) {
+      if (checkOutputRestriction && outputDim != reqOutputShape) {
         std::string message =
             "When the strides (" + std::to_string(stride) +
             ") is greater than zero and less than or equal to "
@@ -1502,13 +1505,20 @@ static bool checkConv2DParamRestrictions(Operation *op, int64_t inputDim,
     return onnxToZHighUnsupportedReport(op, message);
   }
 
+  fprintf(stderr, "  hi alex legal 3 \n");
+
   return true;
 }
 
 /// Check legality for ONNXConvOp.
+// Test with condition to consider padding. When set to false, this is useful to
+// determine if ONNXPadOp can be used to make an illegal Conv operation legal.
+// WHen set to true, we have the regular full test of suitability for NNPA .
+
+// TODO: can apply the same approach to other patterns that use the ONNXPadOp.
 template <>
-bool isSuitableForZDNN<ONNXConvOp>(
-    ONNXConvOp op, const DimAnalysis *dimAnalysis) {
+bool isSuitableWithConditionForZDNN<ONNXConvOp>(
+    ONNXConvOp op, bool considerPadding, const DimAnalysis *dimAnalysis) {
   // Check NNPA level.
   if (!isCompatibleWithNNPALevel(NNPALevel::M14))
     return onnxToZHighInCompatibilityReport(op.getOperation(), NNPALevel::M14);
@@ -1521,6 +1531,9 @@ bool isSuitableForZDNN<ONNXConvOp>(
   if (!isValidElementTypeAndRank(op.getOperation(), op.getB()))
     return false;
 
+  fprintf(stderr, "hi alex suit no pad 1 with consider padding %d\n  ",
+      (int)considerPadding);
+  op.dump();
   ONNXConvOpAdaptor operandAdaptor = ONNXConvOpAdaptor(op);
   ONNXConvOpShapeHelper shapeHelper(op.getOperation(), {});
   shapeHelper.computeShapeAndAssertOnFailure();
@@ -1553,21 +1566,31 @@ bool isSuitableForZDNN<ONNXConvOp>(
     return onnxToZHighUnsupportedReport(op.getOperation(), message);
   }
 
-  // `getStrPaddingType` returns `SAME_PADDING`, `VALID_PADDING`, or empty.
-  // `zdnn_conv2d` only support padding for `SAME_PADDING` and
-  // `VALID_PADDING`.
-  StringRef paddingType =
-      getStrPaddingType<ONNXConvOp, ONNXConvOpAdaptor, ONNXConvOpShapeHelper>(
-          op);
+  fprintf(stderr, "hi alex suit no pad 2\n");
 
-  if (paddingType.empty()) {
-    std::string message =
-        "Padding type must be `SAME_PADDING` or `VALID_PADDING`, but it is "
-        "neither of them. When attribute `auto_pad` is `NOTSET`, padding is "
-        "computed from input dimention etc, but when input has unknown "
-        "dimensions, it can't be computed.";
-    return onnxToZHighUnsupportedReport(op, message);
+  StringRef paddingType;
+  if (considerPadding) {
+    // `getStrPaddingType` returns `SAME_PADDING`, `VALID_PADDING`, or empty.
+    // `zdnn_conv2d` only support padding for `SAME_PADDING` and
+    // `VALID_PADDING`.
+    paddingType =
+        getStrPaddingType<ONNXConvOp, ONNXConvOpAdaptor, ONNXConvOpShapeHelper>(
+            op);
+
+    if (paddingType.empty()) {
+      std::string message =
+          "Padding type must be `SAME_PADDING` or `VALID_PADDING`, but it is "
+          "neither of them. When attribute `auto_pad` is `NOTSET`, padding is "
+          "computed from input dimention etc, but when input has unknown "
+          "dimensions, it can't be computed.";
+      fprintf(stderr, "hi alex, suit no pad 2.error, %s\n", message.c_str());
+      return onnxToZHighUnsupportedReport(op, message);
+    }
+  } else {
+    // After PadOp, we would have a valid padding scheme.
+    paddingType = "VALID_PADDING";
   }
+  fprintf(stderr, "hi alex suit no pad 2.5\n");
 
   // Check if kernelShape is literal. Only static value is supported.
   if (llvm::any_of(shapeHelper.kernelShape,
@@ -1575,6 +1598,7 @@ bool isSuitableForZDNN<ONNXConvOp>(
     std::string message = "The kernel_shape must be static value.";
     return onnxToZHighUnsupportedReport(op, message);
   }
+  fprintf(stderr, "hi alex suit no pad 3\n");
 
   // Check for dynamic height and width dimensions.
   // When nnpaDisableShapeRestriction is enabled, allow dynamic shapes and
@@ -1605,17 +1629,30 @@ bool isSuitableForZDNN<ONNXConvOp>(
   int64_t stridesH = shapeHelper.strides[0];
   int64_t stridesW = shapeHelper.strides[1];
 
+  fprintf(stderr, "hi alex suit no pad 4\n");
+
   // Check parameter restrictions for conv2d for each axis.
-  bool isHOK = checkConv2DParamRestrictions(
-      op, inputShapeH, kernelShapeH, stridesH, outputShapeH, paddingType);
+  bool isHOK = checkConv2DParamRestrictions(op, inputShapeH, kernelShapeH,
+      stridesH, outputShapeH, paddingType, considerPadding);
   if (!isHOK)
     return false;
-  bool isWOK = checkConv2DParamRestrictions(
-      op, inputShapeW, kernelShapeW, stridesW, outputShapeW, paddingType);
+  fprintf(stderr, "hi alex suit no pad 5\n");
+
+  bool isWOK = checkConv2DParamRestrictions(op, inputShapeW, kernelShapeW,
+      stridesW, outputShapeW, paddingType, considerPadding);
   if (!isWOK)
     return false;
+  fprintf(stderr, "hi alex suit no pad 6\n");
 
   return true;
+}
+
+/// Check legality for ONNXConvOp.
+template <>
+bool isSuitableForZDNN<ONNXConvOp>(
+    ONNXConvOp op, const DimAnalysis *dimAnalysis) {
+  return isSuitableWithConditionForZDNN<ONNXConvOp>(
+      op, /*check padding*/ true, dimAnalysis);
 }
 
 /// Check legality for ONNXBatchNormOp.

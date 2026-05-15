@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/TargetParser/Host.h"
 
@@ -1156,6 +1157,14 @@ std::string getTargetAccel() {
   if (!accelCount)
     ss << "--maccel=NONE";
   return ss.str();
+}
+
+bool targetNoAccelerators() {
+  // Cannot simply use maccel.empty() because maccel = {NONE} is valid and means
+  // no accelerator too.
+  return llvm::none_of(maccel, [](auto a) {
+    return a != accel::Accelerator::Kind::NONE;
+  });
 }
 
 // Support for Optimization level.

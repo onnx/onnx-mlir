@@ -195,6 +195,10 @@ bool isDefinedByONNXConstantOp(Value v) {
 // Check if pads can be inferenced for ONNXConv op.
 //
 bool canInferencePadsForNNPAConv(ONNXConvOp op) {
+#if 0
+  return isSuitableWithConditionForZDNN<ONNXConvOp>(
+      op, /*check all but padding*/ false);
+#else
   ONNXConvOpShapeHelper shapeHelper(op.getOperation(), {});
   shapeHelper.computeShapeAndAssertOnFailure();
   RankedTensorType inputType =
@@ -215,6 +219,14 @@ bool canInferencePadsForNNPAConv(ONNXConvOp op) {
       (inputShape[3] == ShapedType::kDynamic))
     return false;
   return true;
+#endif
+}
+
+bool hialex_canInferencePadsForNNPAConv(ONNXConvOp op) {
+  fprintf(stderr, "\n\n\nfrom rules\n\n\n");
+  bool res = canInferencePadsForNNPAConv(op);
+  fprintf(stderr, "done from rules with val %d\n\n\n", (int)res);
+  return res;
 }
 
 // Create an ArrayAttr of IntegerAttr(s) of zero values.
@@ -1000,11 +1012,13 @@ void getRewriteONNXForZHighDynamicallyLegal(mlir::ConversionTarget *target,
       });
 
   // Conv: Decompose to Im2Col+MatMul when NNPA cannot be used.
+  fprintf(stderr, "hi alex in rewrite onnx for zhigh\n");
   if (enableConvToMatmul) {
     fprintf(stderr, "hi alex, enable conv to matmul in onnx for zhigh\n");
     addDynamicallyLegalOpFor<ONNXConvOp>(
         target, dimAnalysis, [](ONNXConvOp op, const DimAnalysis *dimAnalysis) {
           // Rule to change Conv with padding  => Pad -> Conv
+          fprintf(stderr, "\nhi alex, consider conv op\n");
           bool suitableForZDNN = isSuitableForZDNN<ONNXConvOp>(op);
           bool canDecomposeToPadAndConv = canInferencePadsForNNPAConv(op);
           bool canDecompose1x1ToAMatmul = shouldDecomposeConv1x1ToMatmul(op);
@@ -1017,10 +1031,11 @@ void getRewriteONNXForZHighDynamicallyLegal(mlir::ConversionTarget *target,
                               canDecomposeToIm2ColAndMatmul;
           bool legal = suitableForZDNN || !canApplyRule;
           fprintf(stderr,
-              "hi alex, dec to im2col %d, can apply rule %d, suitable %d, "
-              "legal %d\n",
-              (int)canDecomposeToIm2ColAndMatmul, (int)canApplyRule,
-              (int)suitableForZDNN, (int)legal);
+              "hi alex, dec to im2col %d, pad %d, can apply rule %d, suitable "
+              "%d, legal %d\n  ",
+              (int)canDecomposeToIm2ColAndMatmul, (int)canDecomposeToPadAndConv,
+              (int)canApplyRule, (int)suitableForZDNN, (int)legal);
+          op.dump();
           return legal;
         });
   }

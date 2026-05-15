@@ -584,7 +584,7 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
     // The function now handles the shouldCallONNXToMLIR check internally and
     // automatically calls addONNXToLinalgPasses if needed.
     // CPU can handle fast matmul with any broadcast patterns.
-    addONNXToMLIRPasses(pm, /*target CPU*/ maccel.empty());
+    addONNXToMLIRPasses(pm, /*target CPU*/ targetNoAccelerators());
   }
 
   // Step 2: Lower to Affine dialect (for EmitMLIR)

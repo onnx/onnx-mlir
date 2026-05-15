@@ -263,7 +263,7 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
     pm.addInstrumentation(
         std::make_unique<onnx_mlir::zhigh::ZHighDisposableGarbageCollector>(
             pm.getContext()));
-    addONNXToMLIRPasses(pm, /*target CPU*/ maccel.empty(),
+    addONNXToMLIRPasses(pm, /*target CPU*/ targetNoAccelerators(),
         /*donotScrubDisposableElementsAttr*/ true);
     pm.addPass(onnx_mlir::createDevicePlacementPass(nnpaPlacementHeuristic));
     pm.addPass(onnx_mlir::createQuantOpSelectionPass());

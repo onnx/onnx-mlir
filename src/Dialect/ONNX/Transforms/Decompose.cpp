@@ -1342,7 +1342,7 @@ struct ConvToIm2ColPattern : public OpRewritePattern<ONNXConvOp> {
     Value Y_with_bias = Y_flat;
     if (hasBias) {
       // Reshape bias from [CO] to [CO, 1] for proper broadcasting.
-      Value axes = create.onnx.constantInt64({1});
+      Value axes = create.onnx.constantInt64({-1});
       ShapedType bType = mlir::cast<ShapedType>(B.getType());
       Type bReshaped = RankedTensorType::get({CO, 1}, bType.getElementType());
       Value B_reshaped = create.onnx.unsqueeze(bReshaped, B, axes);
@@ -1555,8 +1555,8 @@ struct Conv1x1ToMatmulPattern : public OpRewritePattern<ONNXConvOp> {
           {batchSize, Cout, ShapedType::kDynamic}, elementType);
     Value MM = create.onnx.matmul(MMOutputType, WW, XX, /*gemm*/ false);
     if (hasBias) {
-      // Reshape BB from <CO> to <1, CO, 1> for broadcast.
-      Value axes = create.onnx.constantInt64({0, 2});
+      // Reshape BB from <CO> to <CO, 1> for broadcast.
+      Value axes = create.onnx.constantInt64({-1});
       Type bbType = RankedTensorType::get({Cout, 1}, elementType);
 #if 0 // hi alex
       if (unitBatchSize)
