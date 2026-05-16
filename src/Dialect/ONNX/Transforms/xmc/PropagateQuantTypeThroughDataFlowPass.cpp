@@ -200,6 +200,10 @@ struct PropagateQuantTypePattern : public RewritePattern {
   }
 };
 
+} // namespace
+
+namespace onnx_mlir {
+
 struct PropagateQuantTypeThroughDataFlowPass
     : public PassWrapper<PropagateQuantTypeThroughDataFlowPass,
           OperationPass<func::FuncOp>> {
@@ -225,10 +229,6 @@ struct PropagateQuantTypeThroughDataFlowPass
       signalPassFailure();
   }
 };
-
-} // namespace
-
-namespace onnx_mlir {
 
 std::unique_ptr<mlir::Pass> createPropagateQuantTypeThroughDataFlowPass() {
   return std::make_unique<PropagateQuantTypeThroughDataFlowPass>();
