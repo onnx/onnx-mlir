@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
+# If 'ONNX_MLIR_BUILD_TESTS' is *not* ON, set 'EXCLUDE_FROM_ALL' for this directory. This will allow test targets to be
+# defined, but 'all' will not depend on them by default.
 if (NOT ONNX_MLIR_BUILD_TESTS)
-  set(EXCLUDE_FROM_ALL ON)
+  set_directory_properties(PROPERTIES EXCLUDE_FROM_ALL ON)
 endif()
 
 add_custom_target(doc-example)
