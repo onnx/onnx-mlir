@@ -565,24 +565,6 @@ LogicalResult ONNXSinhOp::inferShapes(
 // SoftmaxOp
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXSoftmaxOp::verify() {
-  ONNXSoftmaxOpAdaptor operandAdaptor(*this);
-  if (!hasShapeAndRank(operandAdaptor.getInput()))
-    return success();
-
-  int64_t inputRank =
-      mlir::cast<ShapedType>(operandAdaptor.getInput().getType()).getRank();
-  int64_t axisIndex = getAxis();
-
-  // axis attribute must be in the range [-r,r-1], where r = rank(input).
-  if (axisIndex < -inputRank || axisIndex >= inputRank)
-    return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
-        *this->getOperation(), "axis", axisIndex,
-        onnx_mlir::Diagnostic::Range<int64_t>(-inputRank, inputRank - 1));
-
-  return success();
-}
-
 LogicalResult ONNXSoftmaxOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
