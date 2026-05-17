@@ -8935,6 +8935,7 @@ def ONNXSoftmaxOp:ONNX_Op<"Softmax",
         return sh;
       }
     }];
+    let hasVerifier = 1;
 }
 
 def ONNXSoftmaxV11Op:ONNX_Op<"SoftmaxV11",
