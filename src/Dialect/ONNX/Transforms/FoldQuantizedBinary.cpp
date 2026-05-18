@@ -1,6 +1,7 @@
 // (c) Copyright 2026 Advanced Micro Devices, Inc. All Rights Reserved.
 
 #include <cmath>
+#include <llvm/ADT/APFloat.h>
 #include <mlir/Dialect/Quant/IR/Quant.h>
 #include <mlir/Dialect/Quant/IR/QuantTypes.h>
 #include <mlir/IR/BuiltinAttributes.h>
@@ -57,6 +58,17 @@ bool isZPOutOfBounds(int64_t newZP, quant::UniformQuantizedType qType) {
           (newZP > qType.getStorageTypeMax()));
 }
 
+double convertToExpressedType(double value, quant::UniformQuantizedType qType) {
+  if (auto fltType = dyn_cast<FloatType>(qType.getExpressedType())) {
+    APFloat ap(value);
+    bool losesInfo;
+    ap.convert(
+        fltType.getFloatSemantics(), APFloat::rmNearestTiesToEven, &losesInfo);
+    value = ap.convertToDouble();
+  }
+  return value;
+}
+
 template <typename ONNXBinOp>
 quant::UniformQuantizedType getInQuantType(
     quant::UniformQuantizedType outQType, double binConst, Location loc) {
@@ -71,8 +83,10 @@ quant::UniformQuantizedType getInQuantType(
     if (binConst == 0.0)
       return nullptr;
     newScale /= binConst;
+    newScale = convertToExpressedType(newScale, outQType);
   } else if constexpr (std::is_same_v<ONNXBinOp, ONNXDivOp>) {
     newScale *= binConst;
+    newScale = convertToExpressedType(newScale, outQType);
   } else {
     static_assert(false, "Unsupported binary operation");
     return nullptr;
@@ -99,10 +113,12 @@ quant::UniformQuantizedType getOutQuantType(
     newZP += std::round(binConst / newScale);
   } else if constexpr (std::is_same_v<ONNXBinOp, ONNXMulOp>) {
     newScale *= binConst;
+    newScale = convertToExpressedType(newScale, inQType);
   } else if constexpr (std::is_same_v<ONNXBinOp, ONNXDivOp>) {
     if (binConst == 0.0)
       return nullptr;
     newScale /= binConst;
+    newScale = convertToExpressedType(newScale, inQType);
   } else {
     static_assert(false, "Unsupported binary operation");
     return nullptr;
