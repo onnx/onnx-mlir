@@ -18,7 +18,6 @@
 #include "src/Compiler/DisposableGarbageCollector.hpp"
 #include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 #include "src/Pass/Passes.hpp"
-
 using namespace mlir;
 namespace onnx_mlir {
 
@@ -135,7 +134,6 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   // 2. Easy to compare two approaches.
   // In future, only the dynamic pass, ONNXOpTransformPass, will be used for
   // this function.
-
   configureBatchNormCanonicalization(opts.disableBatchNormDecompose);
   configureUnsafeMathCanonicalization(opts.enableUnsafeMathOptimizations);
 
