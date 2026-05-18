@@ -182,8 +182,10 @@ LogicalResult ONNXIm2ColOp::inferShapes(
 
   // Create shape helper and compute shape.
   ONNXIm2ColOpShapeHelper shapeHelper(getOperation(), {});
-  return shapeHelper.computeShapeAndUpdateType(
-      mlir::cast<ShapedType>(getX().getType()).getElementType());
+  ShapedType resultType =
+      mlir::cast<ShapedType>(getOperation()->getResult(0).getType());
+  Type elementType = resultType.getElementType();
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
 //===----------------------------------------------------------------------===//

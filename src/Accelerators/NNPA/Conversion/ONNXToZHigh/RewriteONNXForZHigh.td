@@ -450,7 +450,7 @@ def ConvOpPaddingPattern: Pattern<
   ],
   [(IsConvNotLegalForZDNN:$res), (CanInferencePadsForNNPAConv:$res)],
   [],
-  (addBenefit 10) // Higher than Conv to matmul to use convolutions first.
+  (addBenefit 1000) // Higher than Conv to matmul to use convolutions first.
 >;
 
 #endif // REWRITE_ONNX_FOR_ZHIGH

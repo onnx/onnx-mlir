@@ -41,6 +41,10 @@
 #include "src/Dialect/ONNX/Transforms/Decompose.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
+#include "llvm/Support/Debug.h"
+
+#define DEBUG_TYPE "rewrite-for-zhigh"
+
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -1015,14 +1019,14 @@ void getRewriteONNXForZHighDynamicallyLegal(mlir::ConversionTarget *target,
                               canDecompose1x1ToAMatmul ||
                               canDecomposeToIm2ColAndMatmul;
           bool legal = suitableForZDNN || !canApplyRule;
-#if 0
-          fprintf(stderr,
-              "Decompose to im2col %d, pad %d, can apply rule %d, suitable "
-              "%d, legal %d\n  ",
-              (int)canDecomposeToIm2ColAndMatmul, (int)canDecomposeToPadAndConv,
-              (int)canApplyRule, (int)suitableForZDNN, (int)legal);
-          op.dump();
-#endif
+          LLVM_DEBUG({
+            llvm::dbgs() << "Decompose to im2col "
+                         << canDecomposeToIm2ColAndMatmul << ", pad "
+                         << canDecomposeToPadAndConv << ", can apply rule "
+                         << canApplyRule << ", suitable " << suitableForZDNN
+                         << ", legal " << legal << "\n  ";
+            op.dump();
+          });
           return legal;
         });
   }
@@ -1054,7 +1058,7 @@ struct RewriteONNXForZHighPass
     this->enableConvToMatmul = pass.enableConvToMatmul.getValue();
   }
 
-  Option<bool> enableConvToMatmul{*this, "enable-conv-to-matmul",
+  Option<bool> enableConvToMatmul{*this, "nnpa-enable-conv-to-matmul",
       llvm::cl::desc("Enable Conv to Im2Col+MatMul decomposition for NNPA"),
       ::llvm::cl::init(true)};
 

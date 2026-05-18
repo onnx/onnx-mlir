@@ -238,7 +238,7 @@ Value replaceSequenceAt(
   int64_t splitInt = getScalarValue<int64_t>(splitConstant);
   int64_t axisInt = splitToSequence.getAxis();
 
-  auto shape = getShape(input.getType());
+  ArrayRef<int64_t> shape = getShape(input.getType());
 
   OnnxBuilder create(rewriter, loc);
 
@@ -612,13 +612,18 @@ ElementsAttr reshapeElementsAttrToRank0WithDefaultValue(
 // Exported functions for Conv decomposition
 //===----------------------------------------------------------------------===//
 
-// Check if all values in optional array attribute equal expectedValue.
-static bool allArrayAttrValuesEqual(
-    std::optional<ArrayAttr> attr, int count, int64_t expectedValue) {
+// Check if all values in optional array attribute equal defaultValue. If the
+// optional array is not defined, that is fine to as it then default to the
+// default value.
+static bool hasDefaultValues(
+    std::optional<ArrayAttr> attr, int count, int64_t defaultValue) {
   if (!attr.has_value())
-    return true; // No attribute means default behavior (typically 1).
-  return llvm::all_of(llvm::seq<int>(0, count),
-      [&](int i) { return ArrayAttrIntVal(attr, i) == expectedValue; });
+    return true; // No attribute means has default values.
+  if (static_cast<int>(attr.value().size()) != count)
+    return false; // Array does not have the expected count.
+  return llvm::all_of(attr.value(), [&](Attribute element) {
+    return mlir::cast<IntegerAttr>(element).getInt() == defaultValue;
+  });
 }
 
 // Determine if we can transform a conv 1x1 with group=1, kernel size =1x...x1,
@@ -638,8 +643,8 @@ bool shouldDecomposeConv1x1ToMatmul(ONNXConvOp convOp) {
     return false;
   const auto xType = mlir::cast<ShapedType>(X.getType());
   const auto wType = mlir::cast<ShapedType>(W.getType());
-  const auto xShape = xType.getShape();
-  const auto wShape = wType.getShape();
+  ArrayRef<int64_t> xShape = xType.getShape();
+  ArrayRef<int64_t> wShape = wType.getShape();
   int64_t rank = xShape.size();
   assert(rank == (int64_t)wShape.size() && "X and W should have same rank");
   assert(rank > 2 && "X and W should have two non-spatial dims");
@@ -654,10 +659,10 @@ bool shouldDecomposeConv1x1ToMatmul(ONNXConvOp convOp) {
           [&](int i) { return wShape[i] == 1; }))
     return false;
   // Eliminate conv op with dilations > 1.
-  if (!allArrayAttrValuesEqual(convOp.getDilations(), spatialRank, 1))
+  if (!hasDefaultValues(convOp.getDilations(), spatialRank, 1))
     return false;
   // Eliminate conv ops with strides > 1.
-  if (!allArrayAttrValuesEqual(convOp.getStrides(), spatialRank, 1))
+  if (!hasDefaultValues(convOp.getStrides(), spatialRank, 1))
     return false;
   // Eliminate conv ops with any padding.
   // Only accept "VALID" or "NOTSET" with zero pads.
@@ -665,7 +670,7 @@ bool shouldDecomposeConv1x1ToMatmul(ONNXConvOp convOp) {
   if (autoPad != "NOTSET" && autoPad != "VALID")
     return false;
   if (autoPad == "NOTSET" &&
-      !allArrayAttrValuesEqual(convOp.getPads(), 2 * spatialRank, 0))
+      !hasDefaultValues(convOp.getPads(), 2 * spatialRank, 0))
     return false;
   return true;
 }
@@ -686,7 +691,7 @@ bool shouldDecomposeConvToIm2Col(ONNXConvOp convOp, bool hasFastBroadcast1xN) {
   // For now, only support 2D convolutions.
   // Future: extend to 1D and 3D convolutions.
   ShapedType xType = mlir::cast<ShapedType>(X.getType());
-  auto xShape = xType.getShape();
+  ArrayRef<int64_t> xShape = xType.getShape();
   int64_t rank = xShape.size();
   if (rank != 4)
     return false; // Only 2D convolutions for now.
@@ -1277,8 +1282,8 @@ struct ConvToIm2ColPattern : public OpRewritePattern<ONNXConvOp> {
     ShapedType xType = mlir::cast<ShapedType>(X.getType());
     ShapedType wType = mlir::cast<ShapedType>(W.getType());
 
-    auto xShape = xType.getShape();
-    auto wShape = wType.getShape();
+    ArrayRef<int64_t> xShape = xType.getShape();
+    ArrayRef<int64_t> wShape = wType.getShape();
 
     // Determine if batch size is 1.
     // TODO: remove this special handling, and squeeze unit batch size for NNPA.
@@ -1521,8 +1526,8 @@ struct Conv1x1ToMatmulPattern : public OpRewritePattern<ONNXConvOp> {
     ShapedType wType = mlir::cast<ShapedType>(W.getType());
     ShapedType convOutType = mlir::cast<ShapedType>(convOp.getType());
     Type elementType = xType.getElementType();
-    auto xShape = xType.getShape();
-    auto wShape = wType.getShape();
+    ArrayRef<int64_t> xShape = xType.getShape();
+    ArrayRef<int64_t> wShape = wType.getShape();
     int64_t rank = xShape.size();
     // Get dimensions.
     int64_t batchSize = xShape[0];

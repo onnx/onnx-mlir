@@ -31,10 +31,6 @@
 
 using namespace mlir;
 
-namespace onnx_mlir {
-// Conv 1x1 to MatMul optimization has been moved to Decompose.cpp.
-} // namespace onnx_mlir
-
 namespace {
 
 /// Include the patterns defined in the Declarative Rewrite framework.
@@ -44,8 +40,7 @@ namespace {
 
 void onnx_mlir::getConvOptONNXToONNXPatterns(
     bool enableSimdDataLayoutOpt, RewritePatternSet &patterns) {
-  // Conv 1x1 to MatMul optimization is now handled in Decompose pass.
-  // This pass only handles SIMD data layout optimizations.
+  // This pass handles SIMD data layout optimizations.
   if (enableSimdDataLayoutOpt)
     populateWithGenerated(patterns);
 }

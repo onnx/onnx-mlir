@@ -1,15 +1,15 @@
 <!--- SPDX-License-Identifier: Apache-2.0 -->
 # Conv Lowering with Im2Col and MatMul
 
-**Status:** Enabled for supported [`Conv`](../onnx-mlir/src/Dialect/ONNX/ONNXOps/NN/Conv.cpp) configurations.
+**Status:** Enabled for supported [`Conv`](../../src/Dialect/ONNX/ONNXOps/NN/Conv.cpp) configurations.
 
 ## Overview
 
-This document describes the common lowering pattern that rewrites an ONNX [`Conv`](../onnx-mlir/src/Dialect/ONNX/ONNXOps/NN/Conv.cpp) into:
+This document describes the common lowering pattern that rewrites an ONNX [`Conv`](../../src/Dialect/ONNX/ONNXOps/NN/Conv.cpp) into:
 
-1. [`Im2Col`](../onnx-mlir/src/Conversion/ONNXToKrnl/Additional/Im2Col.cpp): extract each convolution window into a column.
-2. [`MatMul`](../onnx-mlir/src/Conversion/ONNXToKrnl/Math/MatMul.cpp): multiply reshaped weights by these columns.
-3. [`Reshape`](../onnx-mlir/src/Dialect/ONNX/ONNXOps/Tensor/Reshape.cpp): restore the convolution output shape.
+1. [`Im2Col`](../../src/Conversion/ONNXToKrnl/Additional/Im2Col.cpp): extract each convolution window into a column.
+2. [`MatMul`](../../src/Dialect/ONNX/ONNXOps/Math/MatMul.cpp): multiply reshaped weights by these columns.
+3. [`Reshape`](../../src/Dialect/ONNX/ONNXOps/Tensor/Reshape.cpp): restore the convolution output shape.
 
 The key idea is that convolution can be expressed as matrix multiplication once the input patches and weights are laid out appropriately.
 
@@ -82,7 +82,7 @@ Y_mat: [N, M, OH * OW] -> Y: [N, M, OH, OW]
 
 ## Im2Col Construction
 
-[`Im2Col`](../onnx-mlir/src/Conversion/ONNXToKrnl/Additional/Im2Col.cpp) builds one column for each output spatial position.
+[`Im2Col`](../../src/Conversion/ONNXToKrnl/Additional/Im2Col.cpp) builds one column for each output spatial position.
 
 For output position `(oh, ow)`, the input origin is:
 
@@ -118,10 +118,10 @@ X_col[n, p, q] = X[n, c, ih, iw]
 
 or zero when `(ih, iw)` is outside the input bounds.
 
-In the simple formulation, this can be written as a direct nested loop over
-batch, channel, kernel, and output coordinates. In the implementation work we
-just did, the same mapping is reorganized around one large outer loop over the
-output columns:
+The implementation provides two code generation paths:
+
+1. **Simple path**: Direct nested loops over batch, channel, kernel, and output coordinates.
+2. **Optimized path** (enabled at `-O1` and above): Reorganizes the computation around one large outer loop over the output columns:
 
 ```text
 linearCol in [0, N * OH * OW)
@@ -131,7 +131,7 @@ oh = q / OW
 ow = q % OW
 ```
 
-This layout has two advantages:
+The optimized layout has two advantages:
 
 - It computes one complete output column at a time.
 - It exposes a natural outer loop that can be parallelized.
@@ -189,7 +189,7 @@ ihBase = 0 * 1 - 1 = -1
 iwBase = 0 * 1 - 1 = -1
 ```
 
-So the 3x3 window overlaps the padded border. The first column of [`X_col`](../onnx-mlir/src/Conversion/ONNXToKrnl/Additional/Im2Col.cpp) becomes:
+So the 3x3 window overlaps the padded border. The first column of [`X_col`](../../src/Conversion/ONNXToKrnl/Additional/Im2Col.cpp) becomes:
 
 ```text
 [0, 0, 0,
@@ -229,31 +229,31 @@ This pattern is useful because it converts convolution into a regular dense line
 
 Benefits include:
 
-- Reuse of optimized [`MatMul`](../onnx-mlir/src/Conversion/ONNXToKrnl/Math/MatMul.cpp) lowering and code generation.
+- Reuse of optimized [`MatMul`](../../src/Dialect/ONNX/ONNXOps/Math/MatMul.cpp) lowering and code generation.
 - Simpler loop structure after the data layout transform.
 - A clear separation between:
   - patch extraction, and
   - numerical multiply-accumulate work.
 
-The cost is the temporary [`Im2Col`](../onnx-mlir/src/Conversion/ONNXToKrnl/Additional/Im2Col.cpp) buffer, which may be large for some shapes.
+The cost is the temporary [`Im2Col`](../../src/Conversion/ONNXToKrnl/Additional/Im2Col.cpp) buffer, which may be large for some shapes.
 
 ## Implementation Notes
 
-The recent lowering work follows these code generation rules:
+The optimized Im2Col lowering (enabled at `-O1` and above) follows these code generation rules:
 
-- Keep the outer traversal as one large [`krnl.iterateIE`](../onnx-mlir/src/Conversion/ONNXToKrnl/Additional/Im2Col.cpp) loop over all output columns.
-- Split interior and border handling with [`SCFBuilder::ifThenElse()`](../onnx-mlir/src/Dialect/Mlir/DialectBuilder.cpp:753).
-- Use [`SCFBuilder::forLoopIE()`](../onnx-mlir/src/Dialect/Mlir/DialectBuilder.cpp:719) for the inner loop nest inside each branch.
-- Keep index arithmetic in [`IndexExpr`](../onnx-mlir/src/Conversion/ONNXToKrnl/Additional/Im2Col.cpp) form.
-- When an outer [`IndexExpr`](../onnx-mlir/src/Conversion/ONNXToKrnl/Additional/Im2Col.cpp) is used inside a deeper loop scope, reintroduce it with [`DimIE(...)`](../onnx-mlir/src/Conversion/ONNXToKrnl/Additional/Im2Col.cpp:299).
-- Materialize conditions as MLIR values with [`MathBuilder`](../onnx-mlir/src/Conversion/ONNXToKrnl/Additional/Im2Col.cpp:267), not with C++ boolean operators on [`IndexExpr`](../onnx-mlir/src/Conversion/ONNXToKrnl/Additional/Im2Col.cpp).
-- Prefer [`loadIE()`](../onnx-mlir/src/Conversion/ONNXToKrnl/Additional/Im2Col.cpp:313) and [`storeIE()`](../onnx-mlir/src/Conversion/ONNXToKrnl/Additional/Im2Col.cpp:316).
+- The outer traversal uses one large [`krnl.iterateIE`](../../src/Conversion/ONNXToKrnl/Additional/Im2Col.cpp) loop over all output columns.
+- Interior and border handling are split with [`SCFBuilder::ifThenElse()`](../../src/Dialect/Mlir/DialectBuilder.cpp).
+- Inner loop nests inside each branch use [`SCFBuilder::forLoopIE()`](../../src/Dialect/Mlir/DialectBuilder.cpp).
+- Index arithmetic is kept in [`IndexExpr`](../../src/Dialect/Mlir/IndexExpr.hpp) form.
+- When an outer [`IndexExpr`](../../src/Dialect/Mlir/IndexExpr.hpp) is used inside a deeper loop scope, it is reintroduced with [`DimIE(...)`](../../src/Dialect/Mlir/IndexExpr.hpp).
+- Conditions are materialized as MLIR values with [`MathBuilder`](../../src/Dialect/Mlir/DialectBuilder.hpp), not with C++ boolean operators on [`IndexExpr`](../../src/Dialect/Mlir/IndexExpr.hpp).
+- [`loadIE()`](../../src/Dialect/Krnl/DialectBuilder.hpp) and [`storeIE()`](../../src/Dialect/Krnl/DialectBuilder.hpp) are used for memory operations.
 
-When parallel lowering is enabled, the outer loop can be marked for parallel execution using [`tryCreateKrnlParallel()`](../onnx-mlir/src/Accelerators/NNPA/Conversion/ZHighToZLow/ProcessStickData.cpp:77) on the outer loop definition before emitting the [`krnl.iterateIE`](../onnx-mlir/src/Conversion/ONNXToKrnl/Additional/Im2Col.cpp). This keeps the algorithm unchanged while exposing coarse-grain parallelism across output columns.
+When parallel lowering is enabled, the outer loop is marked for parallel execution using [`tryCreateKrnlParallel()`](../../src/Support/KrnlSupport.hpp) on the outer loop definition before emitting the [`krnl.iterateIE`](../../src/Conversion/ONNXToKrnl/Additional/Im2Col.cpp). This exposes coarse-grain parallelism across output columns.
 
 ## Brief Note on the 1x1 Path
 
-For a `1x1` convolution with stride `1`, dilation `1`, and no effective spatial expansion, the lowering can avoid the general [`Im2Col`](../onnx-mlir/src/Conversion/ONNXToKrnl/Additional/Im2Col.cpp) transform.
+For a `1x1` convolution with stride `1`, dilation `1`, and no effective spatial expansion, the lowering can avoid the general [`Im2Col`](../../src/Conversion/ONNXToKrnl/Additional/Im2Col.cpp) transform.
 
 In that case, each output position uses exactly one input element per channel, so the input can be viewed directly as:
 
@@ -283,7 +283,7 @@ So the `1x1` case is the same general idea, but without materializing the full s
 
 ## Summary
 
-The simple im2col-based convolution lowering is:
+The im2col-based convolution lowering pattern is:
 
 ```text
 Conv
