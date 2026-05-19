@@ -21,7 +21,7 @@ func.func @dq_dq_mul_update_input(%arg0: tensor<10x1xf32>) -> tensor<10x1xf32> {
 // CHECK-LABEL: @dq_dq_mul_update_input
 // CHECK: onnx.Identity
 // CHECK-NEXT: quant.scast
-// CHECK-SAME: quant.uniform<u16:f32, 9.9999993884121538E-4:10>
+// CHECK-SAME: quant.uniform<u16:f32, 9.9999993108212947E-4:10>
 // CHECK-NEXT: quant.scast
 // CHECK-NEXT: onnx.Identity
 
@@ -272,3 +272,21 @@ func.func @non_splat_const_add_negative(%arg0: tensor<1x4xi8>) -> tensor<1x4xi8>
 
 // CHECK-LABEL: @non_splat_const_add_negative
 // CHECK: onnx.Add
+
+// Proper conversion to float type
+func.func @dq_dq_mul_update_input_conversion(%arg0: tensor<1x1x1x3072xui16>) -> tensor<1x1x1x3072xui16> {
+  %0 = onnx.Constant {value = dense<65535> : tensor<ui16>} : tensor<!quant.uniform<u16:f32, 3.0518043786287308E-4>>
+  %1 = quant.scast %arg0 : tensor<1x1x1x3072xui16> to tensor<1x1x1x3072x!quant.uniform<u16:f32, 1.5259021893143654E-5:65535>>
+  %2 = "onnx.Identity"(%1) : (tensor<1x1x1x3072x!quant.uniform<u16:f32, 1.5259021893143654E-5:65535>>) -> tensor<1x1x1x3072x!quant.uniform<u16:f32, 1.5259021893143654E-5:65535>>
+  %3 = "onnx.Mul"(%2, %0) : (tensor<1x1x1x3072x!quant.uniform<u16:f32, 1.5259021893143654E-5:65535>>, tensor<!quant.uniform<u16:f32, 3.0518043786287308E-4>>) -> tensor<1x1x1x3072x!quant.uniform<u16:f32, 3.0518043786287308E-4:65535>>
+  %4 = "onnx.Identity"(%3) : (tensor<1x1x1x3072x!quant.uniform<u16:f32, 3.0518043786287308E-4:65535>>) -> tensor<1x1x1x3072x!quant.uniform<u16:f32, 3.0518043786287308E-4:65535>>
+  %5 = quant.scast %4 : tensor<1x1x1x3072x!quant.uniform<u16:f32, 3.0518043786287308E-4:65535>> to tensor<1x1x1x3072xui16>
+  return %5 : tensor<1x1x1x3072xui16>
+}
+
+// CHECK-LABEL: @dq_dq_mul_update_input_conversion
+// CHECK: onnx.Identity
+// CHECK-SAME: ([[qType:tensor<.*>]])
+// CHECK-SAME: -> [[qType]]
+// CHECK-NEXT: quant.scast
+// CHECK-SAME: tensor<1x1x1x3072x!quant.uniform<u16:f32, 1.5259021893143654E-5:65535>> to tensor<1x1x1x3072xui16>

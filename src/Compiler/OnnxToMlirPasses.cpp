@@ -18,7 +18,6 @@
 #include "src/Compiler/DisposableGarbageCollector.hpp"
 #include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 #include "src/Pass/Passes.hpp"
-
 using namespace mlir;
 namespace onnx_mlir {
 
@@ -29,6 +28,7 @@ void addXmcMlirPasses(mlir::OpPassManager &pm, OnnxToMlirOptions opts) {
   pm.addNestedPass<func::FuncOp>(createONNXCSEPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvertQDQToRequantizePass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createQuantTypesPass());
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createFoldQuantizedBinary());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceErfToGeluPass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createConvertInstanceNormToGroupNormPass());
@@ -134,7 +134,6 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   // 2. Easy to compare two approaches.
   // In future, only the dynamic pass, ONNXOpTransformPass, will be used for
   // this function.
-
   configureBatchNormCanonicalization(opts.disableBatchNormDecompose);
   configureUnsafeMathCanonicalization(opts.enableUnsafeMathOptimizations);
 
