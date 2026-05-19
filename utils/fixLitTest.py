@@ -226,20 +226,22 @@ def get_check_prefix_from_line(line):
     m = re.match(r"//\s+([^:]*):", line)
     if m:
         extracted_full = m.group(1)
-        
+
         # Check if the full extracted string is in the list (handles plain CHECK: lines).
         if extracted_full in prefix_ordered_list:
             return extracted_full
-        
+
         # Otherwise, try to find the base prefix by removing known CHECK directives.
         # Common directives: LABEL, NOT, DAG, SAME, NEXT, COUNT, EMPTY, etc.
-        directives = ['LABEL', 'NOT', 'DAG', 'SAME', 'NEXT', 'COUNT', 'EMPTY']
+        directives = ["LABEL", "NOT", "DAG", "SAME", "NEXT", "COUNT", "EMPTY"]
         for directive in directives:
-            if extracted_full.endswith('-' + directive):
-                base_prefix = extracted_full[:-len(directive)-1]  # Remove '-DIRECTIVE'
+            if extracted_full.endswith("-" + directive):
+                base_prefix = extracted_full[
+                    : -len(directive) - 1
+                ]  # Remove '-DIRECTIVE'
                 if base_prefix in prefix_ordered_list:
                     return base_prefix
-    
+
     return None
 
 
@@ -342,12 +344,12 @@ def emit_modified_segment(i, has_test):
             # Print the saved original CHECK lines for this prefix.
             for line in saved_check_lines[prefix]:
                 print(line)
-        print("") # add empty line
+        print("")  # add empty line
 
     # Third pass: print the deferred closing brace if any.
     if last_closing_brace is not None:
         print(last_closing_brace)
-    print("") # add empty line
+    print("")  # add empty line
 
     if has_test:
         run_FileCheck(
