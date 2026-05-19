@@ -1617,6 +1617,7 @@ func.func @expand_pow_into_mul_f32_int_exponent(%arg0: tensor<3x4x5xf32>) -> ten
 // CHECK:           onnx.Return [[VAR_3_]] : tensor<3x4x5xf32>
 // CHECK:        }
 }
+
 // -----
 
 // Check BinaryOpBroadcastAxisPattern. Example from inception-v2-6 model.

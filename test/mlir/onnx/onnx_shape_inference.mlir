@@ -636,6 +636,7 @@ func.func @test_conv_transpose_output_shape(%arg0 : tensor<1x64x36x48xf32>, %arg
 }
 
 // -----
+
 //===----------------------------------------------------------------------===//
 
 /// Test Pad_1
@@ -3631,6 +3632,7 @@ func.func @test_scatternd_float32(%arg0: tensor<4x4x4xf32>) -> tensor<*xf32> {
 }
 
 // -----
+
 func.func @test_seqence_length(%arg0 : !onnx.Seq<tensor<*xf32>>) -> tensor<*xi64> {
   %0 = "onnx.SequenceLength"(%arg0) : (!onnx.Seq<tensor<*xf32>>) -> tensor<*xi64>
   onnx.Return %0 : tensor<*xi64>
@@ -3642,6 +3644,7 @@ func.func @test_seqence_length(%arg0 : !onnx.Seq<tensor<*xf32>>) -> tensor<*xi64
 }
 
 // -----
+
 func.func @test_sequence_construct(%arg0 : tensor<2x3xf16>, %arg1 : tensor<4x3xf16>) -> !onnx.Seq<tensor<*xf16>> {
   %0 = "onnx.SequenceConstruct"(%arg0, %arg1) : (tensor<2x3xf16>, tensor<4x3xf16>) -> !onnx.Seq<tensor<*xf16>>
   onnx.Return %0 : !onnx.Seq<tensor<*xf16>>
@@ -3653,6 +3656,7 @@ func.func @test_sequence_construct(%arg0 : tensor<2x3xf16>, %arg1 : tensor<4x3xf
 }
 
 // -----
+
 func.func @test_seqence_1(%arg0: tensor<2x4xf32>, %arg1: tensor<2x6xf32>) -> !onnx.Seq<tensor<*xf32>> {
   %0 = "onnx.SequenceEmpty"() : () -> !onnx.Seq<tensor<*xf32>>
   %cst = "onnx.NoValue"() {value} : () -> none
@@ -4398,6 +4402,7 @@ func.func @test_random_uniform_static_f32() -> tensor<*xf32> {
 // CHECK-LABEL:  func.func @test_random_uniform_static_f32
 // CHECK:           [[VAR_0_:%.+]] = "onnx.RandomUniform"() <{dtype = 1 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32, shape = [3, 4, 5]}> : () -> tensor<3x4x5xf32>
 }
+
 // -----
 
 func.func @test_random_uniform_static_f64() -> tensor<*xf64> {

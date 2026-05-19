@@ -26,6 +26,7 @@ func.func @donot_remove_stick_op(%arg0: memref<5x10xf32>) -> memref<5x10xf16, #m
 // CHECK-NEXT:   zlow.stick 
 // CHECK-NEXT:   return 
 }
+
 // -----
 
 #map = affine_map<(d0, d1) -> (0, d1 floordiv 64, 0, d0 floordiv 32, d0 mod 32, d1 mod 64)>
