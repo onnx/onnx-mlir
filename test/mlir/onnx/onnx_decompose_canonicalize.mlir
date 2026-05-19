@@ -22,6 +22,9 @@ func.func @sequence_at_squeezed(%arg0 : tensor<1x1x100xf32>) -> tensor<1x100xf32
 // CHECK:         }
 }
 
+// -----
+
+
 func.func @sequence_at_multi(%arg0 : tensor<1x1x400xf32>) -> tensor<1x1x100xf32> {
   %15 = onnx.Constant dense<0> : tensor<i64>
   %38 = onnx.Constant dense<1> : tensor<i64>

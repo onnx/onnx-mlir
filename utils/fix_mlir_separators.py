@@ -73,13 +73,10 @@ def fix_separator_spacing(content):
 
 def process_file(filepath):
     """Process a single .mlir file."""
+    global modified_files
     try:
         with open(filepath, 'r', encoding='utf-8') as f:
             content = f.read()
-        
-        # Check if file contains separators
-        if '// -----' not in content:
-            return False
         
         fixed_content = fix_separator_spacing(content)
         
@@ -88,6 +85,7 @@ def process_file(filepath):
             with open(filepath, 'w', encoding='utf-8') as f:
                 f.write(fixed_content)
             print(f"Fixed: {filepath}")
+            modified_files.append(str(filepath))
             return True
         
         return False
@@ -97,6 +95,15 @@ def process_file(filepath):
 
 
 def main():
+    global modified_files
+    
+    print("=" * 80)
+    print("WARNING: This script makes automated changes to .mlir files.")
+    print("         Not all corner cases are handled correctly.")
+    print("         ALL CHANGES MUST BE MANUALLY REVIEWED before committing!")
+    print("=" * 80)
+    print()
+    
     if len(sys.argv) > 1:
         # Process specific files
         files = [Path(f) for f in sys.argv[1:]]
@@ -109,7 +116,19 @@ def main():
         if process_file(filepath):
             fixed_count += 1
     
-    print(f"\nTotal files fixed: {fixed_count}")
+    print()
+    print("=" * 80)
+    print(f"Total files modified: {fixed_count}")
+    print("=" * 80)
+    
+    if modified_files:
+        print("\nModified files:")
+        for f in modified_files:
+            print(f"  - {f}")
+        print()
+        print("=" * 80)
+        print("IMPORTANT: Review all changes with 'git diff' before committing!")
+        print("=" * 80)
 
 
 if __name__ == '__main__':

@@ -3430,6 +3430,9 @@ func.func @test_random_normal_like_type_default1(%arg0: tensor<1x1x28x28xf64>) -
   // CHECK: [[R0:%.+]] = "onnx.RandomUniformLike"(%arg0) <{high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32}> : (tensor<1x1x28x28xf64>) -> tensor<1x1x28x28xf64>
 }
 
+// -----
+
+
 
 //===----------------------------------------------------------------------===//
 // Test NonMaxSuppression
