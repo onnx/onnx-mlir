@@ -292,6 +292,13 @@ std::unique_ptr<mlir::Pass> createOptimizeOnnxRequantizationPass();
 /// Pass for converting back-to-back quant.scast pairs to XCOMPILERRequantize.
 std::unique_ptr<mlir::Pass> createConvertSCastPairToRequantizePass();
 
+/// Pass for inserting a no-op XCOMPILERRequantize on
+/// `producer -> quant.scast -> DequantizeLinear` output edges when the
+/// quantized producer (XFEConv / XCOMPILERDepthwiseConv /
+/// XCOMPILERFusedEltwise) has multiple fanouts. Ports xcompiler's
+/// AddRequantForOutputConvPass (XMC).
+std::unique_ptr<mlir::Pass> createAddRequantForOutputConvPass();
+
 /// Pass for folding equal Q(DQ(x)) and inserting XCOMPILERRequantize between
 /// DQ -> Q pairs whose quantization parameters differ. Runs before
 /// QuantTypesPass on the f32 boundary.

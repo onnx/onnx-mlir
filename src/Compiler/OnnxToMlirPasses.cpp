@@ -119,6 +119,12 @@ void addXmcMlirPasses(mlir::OpPassManager &pm, OnnxToMlirOptions opts) {
 
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createConvertSCastPairToRequantizePass());
+  // Insert no-op XCOMPILERRequantize on quantized-op -> scast -> DQ output
+  // edges with multi-fanout producers. Ports xcompiler's
+  // AddRequantForOutputConvPass. Runs as the last semantic transform of
+  // addXmcMlirPasses so it cannot disturb any other XMC pass.
+  pm.addNestedPass<func::FuncOp>(
+      onnx_mlir::createAddRequantForOutputConvPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
 }
 
