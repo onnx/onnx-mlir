@@ -141,6 +141,9 @@ struct ReshapeReduceTo4DPattern : public mlir::OpRewritePattern<ONNX_OP> {
     auto inputShape = getShape(input);
     int64_t rank = inputShape.size();
 
+    for (auto &a : axes)
+      a = normalizeAxis(a, rank);
+
     // Multi-axis is only canonicalisable when axis[0] is the last dim.
     if (axes.size() > 1 && axes[0] != rank - 1)
       return mlir::failure();
