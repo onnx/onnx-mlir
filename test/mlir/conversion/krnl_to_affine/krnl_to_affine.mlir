@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt -O3 --convert-krnl-to-affine %s -split-input-file | FileCheck %s
 
+// -----
+
 func.func @test_lower_degenerate_iterate(%arg0: memref<f32>) -> memref<f32> {
   %0 = memref.alloc() : memref<f32>
   krnl.iterate() with () {

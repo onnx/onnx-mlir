@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --march=arch15 --maccel=NNPA --shape-inference --convert-onnx-to-zhigh --canonicalize %s -split-input-file | FileCheck %s
 
+// -----
+
 func.func @test_reduce_max_axes_defined_noop_0(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
    %cst = "onnx.Constant"() {value = dense<[2]> : tensor<1xi64> } : () -> tensor<1xi64>
    %0 ="onnx.ReduceMax"(%arg0, %cst) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<3x2x2xf32>, tensor<1xi64>)-> tensor<*xf32>

@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-stablehlo %s --canonicalize -cse -split-input-file | FileCheck %s
 
+// -----
+
 func.func @test_argmax_verifier_1(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xi64> {
   %1 = "onnx.ArgMax"(%arg0) { axis = -1 : si64} : (tensor<5x5x1x32xf32>)  -> tensor<*xi64>
   "func.return"(%1) : (tensor<*xi64>) -> ()

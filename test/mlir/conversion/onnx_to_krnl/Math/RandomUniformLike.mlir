@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-krnl %s -split-input-file | FileCheck %s
 
+// -----
+
 func.func @test_random_normal_like1(%arg0: tensor<3x4x5xf32>) -> tensor<*xf32> {
   %0 = "onnx.RandomUniformLike"(%arg0) {dtype = 1 : si64, low = 0.0 :f32, high = 1.0 : f32, seed = 2.0 : f32} : (tensor<3x4x5xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()

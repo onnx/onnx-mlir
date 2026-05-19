@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --convert-onnx-to-stablehlo --canonicalize %s -split-input-file | FileCheck %s
 
+// -----
+
 func.func @test_depth_to_space(%arg0 : tensor<2x16x20x20xf32>) -> tensor<2x4x40x40xf32> {
   %0 = "onnx.DepthToSpace"(%arg0) {blocksize = 2 : si64, mode = "CRD"} : (tensor<2x16x20x20xf32>) -> tensor<2x4x40x40xf32>
   "func.return"(%0) : (tensor<2x4x40x40xf32>) -> ()

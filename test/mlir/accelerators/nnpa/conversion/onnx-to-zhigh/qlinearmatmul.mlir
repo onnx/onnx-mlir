@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --march=arch15 --maccel=NNPA --shape-inference --convert-onnx-to-zhigh --canonicalize %s -split-input-file | FileCheck %s
 
+// -----
+
 func.func @qlinearmatmul_i8_f32(%arg0: tensor<2x4xi8> {onnx.name = "a"}, %arg1: tensor<f32> {onnx.name = "a_scale"}, %arg2: tensor<i8> {onnx.name = "a_zero_point"}, %arg3: tensor<4x3xi8> {onnx.name = "b"}, %arg4: tensor<f32> {onnx.name = "b_scale"}, %arg5: tensor<i8> {onnx.name = "b_zero_point"}, %arg6: tensor<f32> {onnx.name = "y_scale"}, %arg7: tensor<i8> {onnx.name = "y_zero_point"}) -> (tensor<2x3xi8> {onnx.name = "y"}) {
     %0 = "onnx.QLinearMatMul"(%arg0, %arg1, %arg2, %arg3, %arg4, %arg5, %arg6, %arg7) : (tensor<2x4xi8>, tensor<f32>, tensor<i8>, tensor<4x3xi8>, tensor<f32>, tensor<i8>, tensor<f32>, tensor<i8>) -> tensor<2x3xi8>
     onnx.Return %0 : tensor<2x3xi8>

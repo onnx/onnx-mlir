@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --march=arch15 --maccel=NNPA --shape-inference --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
 
+// -----
+
 func.func @test_zhigh_quantized_stick_dlfloat16(%arg0: tensor<1x3x5xf32>) -> tensor<*xf16> {
   %none = "onnx.NoValue"() {value} : () -> none
   %0:3 = "zhigh.QuantizedStick"(%arg0, %none, %none) {layout = "3DS", quantized_type = "dlfloat16", sym_mode = 0 : i64} : (tensor<1x3x5xf32>, none, none) -> (tensor<*xf16>, tensor<f32>, tensor<f32>)

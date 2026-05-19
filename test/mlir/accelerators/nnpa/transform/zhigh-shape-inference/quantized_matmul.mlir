@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --march=arch15 --maccel=NNPA --shape-inference %s -split-input-file | FileCheck %s
 
+// -----
+
 func.func @test_zhigh_quantized_matmul(%arg0: tensor<1x3x5xf32>, %arg1: tensor<5x7xf32>, %arg2: tensor<7xf32>) -> tensor<*xf16> {
   %none = "onnx.NoValue"() {value} : () -> none
   %x:3 = "zhigh.QuantizedStick"(%arg0, %none, %none) {layout = "3DS", quantized_type = "dlfloat16"} : (tensor<1x3x5xf32>, none, none) -> (tensor<*xf16>, tensor<f32>, tensor<f32>)

@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt -O3 --convert-krnl-to-affine --convert-krnl-to-llvm --canonicalize %s -split-input-file | FileCheck %s
 
+// -----
+
 func.func @test_random_normal_lowering() -> memref<3x4x5xf32> {
   %0 = memref.alloc() {alignment = 16 : i64} : memref<3x4x5xf32>
   %c60 = arith.constant 60 : index

@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --march=arch15 --maccel=NNPA --shape-inference --convert-onnx-to-zhigh %s | FileCheck %s
 
+// -----
+
 func.func @test_invsqrt_reciprocal(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
   %a = "onnx.Sqrt"(%arg0) : (tensor<10x10xf32>) -> tensor<*xf32>
   %y = "onnx.Reciprocal"(%a) : (tensor<*xf32>) -> tensor<*xf32>
@@ -13,6 +15,9 @@ func.func @test_invsqrt_reciprocal(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
 // CHECK:           return [[VAR_2_]] : tensor<10x10xf32>
 // CHECK:         }
 }
+
+// -----
+
 
 func.func @test_invsqrt_div(%arg0 : tensor<1x2xf32>) -> tensor<1x2xf32> {
   %x = onnx.Constant dense<[[1.0, 1.0]]> : tensor<1x2xf32>
@@ -28,6 +33,9 @@ func.func @test_invsqrt_div(%arg0 : tensor<1x2xf32>) -> tensor<1x2xf32> {
 // CHECK:           return [[VAR_2_]] : tensor<1x2xf32>
 // CHECK:         }
 }
+
+// -----
+
 
 func.func @test_invsqrt_div2(%arg0 : tensor<1x2xf32>) -> tensor<*xf32> {
   %x = onnx.Constant dense<[[1.0, 1.0]]> : tensor<1x2xf32>

@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt -O3 --march=z16 --convert-onnx-to-krnl=enable-parallel --canonicalize %s -split-input-file | FileCheck %s
 
+// -----
+
 func.func @test_parallel_slice(%arg0 : tensor<1x32x?x64xf32>) -> tensor<1x32x?x32xf32> {
   %axes = onnx.Constant dense<[3]> : tensor<1xi64>
   %starts = onnx.Constant dense<[32]> : tensor<1xi64>

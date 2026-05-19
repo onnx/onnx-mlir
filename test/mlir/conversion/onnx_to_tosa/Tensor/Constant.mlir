@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-tosa %s -split-input-file | FileCheck %s
 
+// -----
+
 func.func @test_float_broadcast() -> tensor<3xf32> {
   %0 = "onnx.Constant"() {value = dense<1.0> : tensor<3xf32>} : () -> tensor<3xf32>
   return %0 : tensor<3xf32>

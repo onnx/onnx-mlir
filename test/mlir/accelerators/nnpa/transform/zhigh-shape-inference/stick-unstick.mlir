@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --march=z16 --maccel=NNPA --shape-inference %s -split-input-file | FileCheck %s
 
+// -----
+
 func.func @stick_unstick_static_dims(%arg0: tensor<1x3x5x7xf32>) -> tensor<*xf32> {
   %0 = "zhigh.Stick"(%arg0) {layout = "NHWC"} : (tensor<1x3x5x7xf32>) -> tensor<*xf16>
   %1 = "zhigh.Unstick"(%0) : (tensor<*xf16>) -> tensor<*xf32>

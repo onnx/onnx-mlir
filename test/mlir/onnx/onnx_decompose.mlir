@@ -586,7 +586,6 @@ func.func @test_constant_1() -> tensor<i64> {
 // CHECK:           onnx.Return [[VAR_0]] : tensor<i64>
 }
 
-
 // -----
 
 func.func @test_constant_2() -> tensor<f32> {

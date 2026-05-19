@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --convert-onnx-to-stablehlo %s --canonicalize -split-input-file | FileCheck %s
 
+// -----
+
 func.func @test_reducemax_v13(%arg0 : tensor<3x2x2xf32>) -> tensor<3x2xf32> {
   %0 ="onnx.ReduceMaxV13"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x2x2xf32>)-> tensor<3x2xf32>
   "func.return"(%0) : (tensor<3x2xf32>) -> ()

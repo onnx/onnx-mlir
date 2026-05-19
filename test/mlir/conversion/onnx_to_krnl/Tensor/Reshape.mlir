@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-krnl %s -split-input-file | FileCheck %s
 
+// -----
+
 func.func @test_reshape_constant(%arg0 : tensor<1x10xf32>) -> tensor<*xf32> {
   %0 = onnx.Constant dense<[2, 5]> : tensor<2xi64>
   %1 = "onnx.Reshape"(%arg0, %0) : (tensor<1x10xf32>, tensor<2xi64>) -> tensor<*xf32>

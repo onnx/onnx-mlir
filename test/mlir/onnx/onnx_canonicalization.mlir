@@ -543,7 +543,6 @@ func.func @test_shape2(%arg0 : tensor<?x4x8x16xf32>) -> tensor<*xi64> {
   // CHECK-NEXT: onnx.Return %0 : tensor<*xi64>
 }
 
-
 // -----
 
 func.func @test_size1(%arg0 : tensor<2x4x8x16xf32>) -> tensor<i64> {

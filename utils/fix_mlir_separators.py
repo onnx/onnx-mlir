@@ -2,6 +2,11 @@
 """
 Script to fix // ----- separators in .mlir files.
 Ensures there's always an empty line before and after each separator.
+Also adds missing separators between consecutive functions.
+
+WARNING: This script makes automated changes that may not handle all corner cases.
+         ALL CHANGES MUST BE MANUALLY REVIEWED before committing!
+
 Run this command in the onnx-mlir/test/mlir directory,
 e.g. python ../../utils/fix_mlir_separators.py
 """
@@ -11,18 +16,32 @@ import re
 from pathlib import Path
 
 
+# Track all modified files
+modified_files = []
+
+
 def fix_separator_spacing(content):
     """Fix spacing around // ----- separators and add missing separators between functions."""
     lines = content.split('\n')
     fixed_lines = []
     i = 0
+    last_run_line = -1
     
     while i < len(lines):
         line = lines[i]
         
+        # Track RUN commands
+        if line.strip().startswith('// RUN:'):
+            last_run_line = len(fixed_lines)
+        
         # Check if current line is a separator
         if line.strip() == '// -----':
-            # Check if we need empty line before
+            # Ensure exactly one empty line before separator
+            # Remove multiple consecutive empty lines before separator
+            while fixed_lines and fixed_lines[-1].strip() == '' and len(fixed_lines) > 1 and fixed_lines[-2].strip() == '':
+                fixed_lines.pop()
+            
+            # Add empty line before if needed
             if fixed_lines and fixed_lines[-1].strip() != '':
                 fixed_lines.append('')
             
@@ -34,6 +53,31 @@ def fix_separator_spacing(content):
                 fixed_lines.append('')
         else:
             fixed_lines.append(line)
+            
+            # Check if we need to add a separator after RUN commands
+            # Look for the end of RUN command block (non-RUN, non-empty line after RUN)
+            if last_run_line >= 0 and line.strip() and not line.strip().startswith('// RUN:'):
+                # Check if there's already a separator
+                has_separator = False
+                for j in range(last_run_line, len(fixed_lines)):
+                    if fixed_lines[j].strip() == '// -----':
+                        has_separator = True
+                        break
+                
+                if not has_separator and not line.strip().startswith('//'):
+                    # Remove multiple empty lines after RUN block
+                    insert_pos = len(fixed_lines) - 1
+                    while insert_pos > 0 and fixed_lines[insert_pos - 1].strip() == '':
+                        fixed_lines.pop(insert_pos - 1)
+                        insert_pos -= 1
+                    
+                    # Insert separator after RUN block with proper spacing
+                    insert_pos = len(fixed_lines) - 1
+                    fixed_lines.insert(insert_pos, '')
+                    fixed_lines.insert(insert_pos + 1, '// -----')
+                    fixed_lines.insert(insert_pos + 2, '')
+                
+                last_run_line = -1  # Reset
             
             # Check if we need to add a separator between functions
             # Look for closing brace followed by func.func (with possible empty lines/comments in between)

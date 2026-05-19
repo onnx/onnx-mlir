@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-stablehlo %s --canonicalize -split-input-file | FileCheck %s
 
+// -----
+
 func.func @test_onehot(%arg0 : tensor<2x3x4xi64>) -> tensor<*xi64> {
   %0 = onnx.Constant dense<64> : tensor<1xi64>
   %1 = onnx.Constant dense<[0, 1]> : tensor<2xi64>

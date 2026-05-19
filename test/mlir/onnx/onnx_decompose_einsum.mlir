@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --decompose-onnx %s -split-input-file | FileCheck %s
 
+// -----
+
 func.func @test_einsum_matmul(%arg0: tensor<2x3x4xf32>, %arg1: tensor<2x4x5xf32>) -> tensor<2x3x5xf32> {
   %0 = "onnx.Einsum"(%arg0, %arg1) {equation = "...ij,...jk"} : (tensor<2x3x4xf32>, tensor<2x4x5xf32>) -> tensor<2x3x5xf32>
   onnx.Return %0 : tensor<2x3x5xf32>

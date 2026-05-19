@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --march=z16 --maccel=NNPA --zhigh-recompose-to-stick-unstick --split-input-file %s | FileCheck %s
 
+// -----
+
 func.func @test_relu(%arg0: tensor<1x3x5x?xf32>) -> tensor<1x3x5x?xf32> {
   %0 = "zhigh.F32ToDLF16"(%arg0) : (tensor<1x3x5x?xf32>) -> tensor<1x3x5x?xf16>
   %1 = "onnx.LayoutTransform"(%0) {target_layout = #zhigh.layout<{dataLayout = "4D"}>} : (tensor<1x3x5x?xf16>) -> tensor<1x3x5x?xf16, #zhigh.layout<{dataLayout = "4D"}>>

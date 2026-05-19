@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-tosa -cse %s -split-input-file | FileCheck %s
 
+// -----
+
 func.func @test_relu(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "onnx.Relu"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
   "func.return"(%0) : (tensor<10x10xf32>) -> ()
@@ -43,7 +45,6 @@ func.func @test_floor(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
 // CHECK-NEXT:      [[VAR_0_:%.+]] = tosa.floor [[PARAM_0_]] : (tensor<10x10xf32>) -> tensor<10x10xf32>
 }
 
-
 // -----
 
 func.func @test_add(%arg0: tensor<13x21x1xf32>, %arg1: tensor<13x21x1xf32>) -> tensor<13x21x1xf32> {
@@ -67,7 +68,6 @@ func.func @test_add_broadcast(%arg0: tensor<13x21x1xf32>, %arg1: tensor<1xf32>) 
 // CHECK:           return [[VAR_2_]] : tensor<13x21x1xf32>
 }
 
-
 // -----
 
 func.func @test_sub(%arg0: tensor<13x21x1xf32>, %arg1: tensor<13x21x1xf32>) -> tensor<13x21x1xf32> {
@@ -90,7 +90,6 @@ func.func @test_sub_broadcast(%arg0: tensor<13x21x1xf32>, %arg1: tensor<1xf32>) 
 // CHECK:           [[VAR_2_:%.+]] = tosa.sub [[PARAM_0_]], [[VAR_1_]] : (tensor<13x21x1xf32>, tensor<1x1x1xf32>) -> tensor<13x21x1xf32>
 // CHECK:           return [[VAR_2_]] : tensor<13x21x1xf32>
 }
-
 
 // -----
 

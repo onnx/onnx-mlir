@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt -O3 --normalize-memrefs %s -split-input-file | FileCheck %s
 
+// -----
+
 #map_tile = affine_map<(d0, d1, d2, d3) -> (d0, d1, d2 floordiv 32, d3 floordiv 32, d2 mod 32, d3 mod 32)>
 
 // CHECK-LABEL: test_krnl_memcpy_norm

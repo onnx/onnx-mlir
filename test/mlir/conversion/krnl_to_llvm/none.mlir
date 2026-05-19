@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --convert-krnl-to-llvm %s -split-input-file | FileCheck %s
 
+// -----
+
 func.func private @test_krnl_call_with_novalue() {
   %none = "krnl.noValue"() : () -> none
   "krnl.call"(%none) {funcName = "func1", numOfOutput = 0 : si64} : (none) -> ()

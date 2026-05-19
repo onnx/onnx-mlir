@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --march=z16 --maccel=NNPA --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
 
+// -----
+
 func.func @test_stickified_constant_of_shape(%arg0: tensor<?x10xf16>) -> tensor<?x10xf16, #zhigh.layout<{dataLayout = "2D"}>> {
   %0 = onnx.Constant dense<8.000000e+00> : tensor<f32>
   %2 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?x10xf16>) -> tensor<1xi64>

@@ -6,6 +6,8 @@
 
 // RUN: cfg_file=$(dirname %s)/load-cfg-overlapping-condition.json && onnx-mlir-opt --device-placement=load-config-file=$cfg_file --march=z16 --maccel=NNPA --split-input-file %s | FileCheck %s --check-prefix=OVERLAPPING
 
+// -----
+
 func.func @test_load_config_file_all_on_cpu(%arg0: tensor<?x?x?xf32>) -> tensor<?x?x?xf32> {
   %0 = "onnx.Relu"(%arg0) {onnx_node_name = "Relu_0"} : (tensor<?x?x?xf32>) -> tensor<?x?x?xf32>
   %1 = "onnx.Relu"(%0) {onnx_node_name = "Relu_1"} : (tensor<?x?x?xf32>) -> tensor<?x?x?xf32>

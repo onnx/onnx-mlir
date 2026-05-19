@@ -2328,7 +2328,6 @@ func.func @test_gather_negative_axis(%arg0 : tensor<3x3xf32>, %arg1 : tensor<1x2
   // CHECK: onnx.Return [[RES]] : tensor<3x1x2xf32>
 }
 
-
 // -----
 
 func.func @test_gather_nd_1(%arg0 : tensor<2x2xf32>, %arg1 : tensor<2x2xi64>) -> tensor<*xf32> {
@@ -4179,7 +4178,6 @@ func.func @test_custom3(%arg0: tensor<1024xi32>, %arg1: tensor<4xf32>) -> tensor
 // CHECK:           [[VAR_0_:%.+]] = "onnx.Custom"([[PARAM_0_]], [[PARAM_1_]]) <{function_name = "testcall", inputs_for_infer = [1], shape_infer_pattern = "SameAs"}> : (tensor<1024xi32>, tensor<4xf32>) -> tensor<4xf32>
 // CHECK:           return [[VAR_0_]] : tensor<4xf32>
 // CHECK:         }
-
 
 // -----
 

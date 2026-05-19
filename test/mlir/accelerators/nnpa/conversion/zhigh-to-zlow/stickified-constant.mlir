@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --march=z16 --maccel=NNPA --convert-onnx-to-krnl %s -split-input-file | FileCheck %s
 
+// -----
+
 module  {
   func.func @remove_stick_2d() -> tensor<2x3xf32> {
     %0 = "zhigh.StickifiedConstant"() {alignment = 4096 : i64, value = dense_resource<zhigh> : tensor<4096xi8>} : () -> tensor<2x3xf16, #zhigh.layout<{dataLayout = "2D"}>>

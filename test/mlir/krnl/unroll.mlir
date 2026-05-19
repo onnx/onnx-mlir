@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt -O3 --convert-krnl-to-affine %s -split-input-file | FileCheck %s
 
+// -----
+
 func.func @simple_unroll() {
   %ii = krnl.define_loops 1
   krnl.unroll %ii : !krnl.loop

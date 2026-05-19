@@ -1,5 +1,7 @@
 // RUN: onnx-mlir --EmitLLVMIR --printIR %s | FileCheck %s
 
+// -----
+
 module {
   func.func @main_graph(%arg0: tensor<?xf32> {onnx.dim_params = "0:a", onnx.name = "x"}) -> (tensor<?xf32> {onnx.dim_params = "0:a", onnx.name = "exp"}) {
     %0 = "onnx.Exp"(%arg0) : (tensor<?xf32>) -> tensor<?xf32>

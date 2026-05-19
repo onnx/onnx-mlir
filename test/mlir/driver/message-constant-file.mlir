@@ -1,5 +1,7 @@
 // RUN: out=$(dirname %s)/test && onnx-mlir --store-constants-to-file --constants-to-file-single-threshold=0.03 --constants-to-file-total-threshold=0.00000006 -o ${out} %s | FileCheck %s && rm ${out}.so ${out}.constants.bin
 
+// -----
+
 module {
   func.func @main_graph() -> tensor<10xi64> {
       %0 = onnx.Constant dense<[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]> : tensor<10xi64>

@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --remove-same-onnx-dim %s -split-input-file | FileCheck %s
 
+// -----
+
 func.func @test_dim_params_onnx_return(%arg0: tensor<?x?xf32> {onnx.dim_params = "0:M,1:N", onnx.name = "X"}, %arg1: tensor<?x?xf32> {onnx.dim_params = "0:M,1:P", onnx.name = "Y"}) -> (tensor<1xi64>) {
   %M = "onnx.Dim"(%arg0) <{axis = 0 : si64}> : (tensor<?x?xf32>) -> tensor<1xi64>
   %N = "onnx.Dim"(%arg0) <{axis = 1 : si64}> : (tensor<?x?xf32>) -> tensor<1xi64>

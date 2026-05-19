@@ -1,5 +1,6 @@
 // RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
 
+// -----
 
 func.func private @test_hammingwindow(%arg0 : tensor<i32>) -> tensor<?xf32> {
   %0 = "onnx.HammingWindow"(%arg0) {output_datatype = 1 : si64 , periodic = 1 : si64} : (tensor<i32>) -> tensor<?xf32>
@@ -38,6 +39,9 @@ func.func private @test_hammingwindow(%arg0 : tensor<i32>) -> tensor<?xf32> {
 // CHECK:           return [[RES_]] : memref<?xf32>
 // CHECK:         }
 }
+
+// -----
+
 
 func.func private @test_blackmanwindow(%arg0 : tensor<i32>) -> tensor<?xf32> {
   %0 = "onnx.BlackmanWindow"(%arg0) {output_datatype = 1 : si64 , periodic = 0 : si64} : (tensor<i32>) -> tensor<?xf32>

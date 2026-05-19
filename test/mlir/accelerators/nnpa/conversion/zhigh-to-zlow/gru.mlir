@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --march=z16 --maccel=NNPA --shape-inference --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
 
+// -----
+
 func.func @gru_return_single_step(%input : tensor<3x5x7xf16, #zhigh.layout<{dataLayout = "3DS"}>>, %h0 : tensor<1x5x9xf16, #zhigh.layout<{dataLayout = "3DS"}>>, %input_weights : tensor<1x7x27xf16, #zhigh.layout<{dataLayout = "ZRH"}>>, %input_bias : tensor<1x27xf16, #zhigh.layout<{dataLayout = "ZRH"}>>, %hidden_weights : tensor<1x9x27xf16, #zhigh.layout<{dataLayout = "ZRH"}>>, %hidden_bias : tensor<1x27xf16, #zhigh.layout<{dataLayout = "ZRH"}>>) -> tensor<*xf16> {
 
   %hn_output = "zhigh.GRU"(%input, %h0, %input_weights, %input_bias, %hidden_weights, %hidden_bias) {direction = "forward", hidden_size = 9 : si64, return_all_steps = 0 : si64} : (tensor<3x5x7xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<1x5x9xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<1x7x27xf16, #zhigh.layout<{dataLayout = "ZRH"}>>, tensor<1x27xf16, #zhigh.layout<{dataLayout = "ZRH"}>>, tensor<1x9x27xf16, #zhigh.layout<{dataLayout = "ZRH"}>>, tensor<1x27xf16, #zhigh.layout<{dataLayout = "ZRH"}>>) -> tensor<*xf16>

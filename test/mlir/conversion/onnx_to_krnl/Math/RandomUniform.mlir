@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-krnl %s -split-input-file | FileCheck %s
 
+// -----
+
 func.func @test_random_uniform_f32type() -> tensor<*xf32> {
   %0 = "onnx.RandomUniform"() {shape = [3, 4, 5], dtype = 1 : si64, low = 0.0 :f32, high = 1.0 : f32, seed = 2.0 : f32} : () -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
@@ -16,6 +18,9 @@ func.func @test_random_uniform_f32type() -> tensor<*xf32> {
 // CHECK:         }
 }
 
+// -----
+
+
 func.func @test_random_uniform_f64type() -> tensor<*xf64> {
   %0 = "onnx.RandomUniform"() {shape = [3, 4, 5], dtype = 11 : si64, low = 0.0 :f32, high = 1.0 : f32, seed = 2.0 : f32} : () -> tensor<*xf64>
   "func.return"(%0) : (tensor<*xf64>) -> ()
@@ -30,6 +35,9 @@ func.func @test_random_uniform_f64type() -> tensor<*xf64> {
 // CHECK:           return [[RES_]] : memref<3x4x5xf64>
 // CHECK:         }
 }
+
+// -----
+
 
 
 func.func @test_random_uniform_without_seed() -> tensor<*xf32> {

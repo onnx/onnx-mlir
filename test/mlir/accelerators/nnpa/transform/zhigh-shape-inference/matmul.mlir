@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --march=z16 --maccel=NNPA --shape-inference %s -split-input-file | FileCheck %s
 
+// -----
+
 func.func @test_matmul_2d(%arg0 : tensor<4x8xf16, #zhigh.layout<{dataLayout = "2D"}>>, %arg1 : tensor<8x16xf16, #zhigh.layout<{dataLayout = "2D"}>>) -> tensor<*xf16> {
   %cst = "onnx.NoValue"() {value} : () -> none
   %0 = "zhigh.MatMul"(%arg0, %arg1, %cst) : (tensor<4x8xf16, #zhigh.layout<{dataLayout = "2D"}>>, tensor<8x16xf16, #zhigh.layout<{dataLayout = "2D"}>>, none) -> tensor<*xf16>

@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --canonicalize --convert-onnx-to-stablehlo %s -split-input-file | FileCheck %s
 
+// -----
+
 func.func @test_scatternd_1(%arg0 : tensor<8xf32>, %arg1 : tensor<4x1xi64>, %arg2 : tensor<4xf32>) -> tensor<8xf32> {
   %0 = "onnx.ScatterND"(%arg0, %arg1, %arg2) : (tensor<8xf32>, tensor<4x1xi64>, tensor<4xf32>) -> tensor<8xf32>
   return %0 : tensor<8xf32>

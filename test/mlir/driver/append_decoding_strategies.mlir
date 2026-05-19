@@ -1,5 +1,7 @@
 // RUN: onnx-mlir --append-decoding-strategy --EmitONNXIR --printIR %s | FileCheck %s
 
+// -----
+
 module {
   func.func @main_graph(%arg0: tensor<?x?xi64> {onnx.dim_params = "0:batch_size,1:sequence_length", onnx.name = "input_ids"}) -> (tensor<?x?x49155xf32> {onnx.dim_params = "0:batch_size,1:sequence_length", onnx.name = "logits"}) {
     %cst = onnx.Constant dense<0.5> : tensor<1x1x49155xf32>

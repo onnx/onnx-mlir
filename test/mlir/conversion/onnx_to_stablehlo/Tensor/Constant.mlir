@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --convert-onnx-to-stablehlo %s -split-input-file | FileCheck %s
 
+// -----
+
 func.func @test_scalar_attr() -> tensor<f32> {
   %0 = "onnx.Constant"() {value = dense<1.0> : tensor<f32>} : () -> tensor<f32>
   %1 = "onnx.Constant"() {value = dense<2.0> : tensor<f32>} : () -> tensor<f32>

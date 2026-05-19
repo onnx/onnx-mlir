@@ -1,4 +1,7 @@
 // RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-stablehlo --canonicalize -split-input-file %s | FileCheck %s
+
+// -----
+
 func.func @test_lstm(%arg0 : tensor<2x16x512xf32>, %arg1 : tensor<2x2048xf32>, %arg2 : tensor<2x1024x512xf32>, %arg3 : tensor<2x1024x256xf32>) -> tensor<2x2x16x256xf32> {
   %0 = onnx.Constant dense<0.000000e+00> : tensor<2x16x256xf32>
   %1 = "onnx.NoValue"() {value} : () -> none

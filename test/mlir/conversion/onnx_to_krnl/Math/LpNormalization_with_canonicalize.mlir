@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
 
+// -----
+
 func.func private @test_lpNormalization(%arg0 : tensor<10x20xf32>) -> tensor<*xf32> {
   %0 = "onnx.LpNormalization"(%arg0) {axis = 1 : si64, p = 1 : si64} : (tensor<10x20xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()

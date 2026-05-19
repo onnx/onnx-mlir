@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --march=arch15 --maccel=NNPA --shape-inference --convert-onnx-to-zhigh %s | FileCheck %s
 
+// -----
+
 func.func @test_gelu_erf_arch15(%arg0 : tensor<1x2xf32>) -> tensor<1x2xf32>{
   %0 ="onnx.Gelu"(%arg0) {approximate = "none"} : (tensor<1x2xf32>) -> tensor<1x2xf32>
  "func.return"(%0) : (tensor<1x2xf32>) -> ()

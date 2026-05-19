@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --march=arch15 --maccel=NNPA --shape-inference --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
 
+// -----
+
 func.func @test_zhigh_quantized_matmul(%arg0: tensor<1x3x5xf16, #zhigh.layout<{dataLayout = "3DS", quantizedType = "DLFLOAT16"}>>, %arg1: tensor<f32>, %arg2: tensor<f32>, %arg3: tensor<5x7xi8, #zhigh.layout<{dataLayout = "2D", quantizedType = "WEIGHTS"}>>, %arg4: tensor<f32>, %arg5: tensor<f32>, %arg6: tensor<7xi8, #zhigh.layout<{dataLayout = "1D", quantizedType = "INT8"}>>, %arg7: tensor<f32>, %arg8: tensor<f32>) -> tensor<1x3x7xf16, #zhigh.layout<{dataLayout = "3DS", quantizedType = "DLFLOAT16"}>> {
     %none = "onnx.NoValue"() {value} : () -> none
     %Out, %Out_RecScale, %Out_Offset = "zhigh.QuantizedMatMul"(%arg0, %arg1, %arg2, %arg3, %arg4, %arg5, %arg6, %arg7, %arg8, %none, %none) {DequantizeOutput = 0 : si64, DisableClipping = 0 : si64, PreComputedBias = 0 : si64} : (tensor<1x3x5xf16, #zhigh.layout<{dataLayout = "3DS", quantizedType = "DLFLOAT16"}>>, tensor<f32>, tensor<f32>, tensor<5x7xi8, #zhigh.layout<{dataLayout = "2D", quantizedType = "WEIGHTS"}>>, tensor<f32>, tensor<f32>, tensor<7xi8, #zhigh.layout<{dataLayout = "1D", quantizedType = "INT8"}>>, tensor<f32>, tensor<f32>, none, none) -> (tensor<1x3x7xf16, #zhigh.layout<{dataLayout = "3DS", quantizedType = "DLFLOAT16"}>>, tensor<f32>, tensor<f32>)

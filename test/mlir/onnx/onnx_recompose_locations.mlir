@@ -1,5 +1,6 @@
 // RUN: onnx-mlir-opt --recompose-onnx --canonicalize %s --mlir-print-debuginfo -split-input-file | FileCheck %s
 
+// -----
 
 func.func @test_combine_conv_split(%arg0: tensor<1x1x512x512xf32>) -> tensor<1x96x512x512xf32> {
   %0 = onnx.Constant dense<0.00999999976> : tensor<32x1x3x3xf32>

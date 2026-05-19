@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-tosa %s -split-input-file | FileCheck %s
 
+// -----
+
 func.func @test_softmax_v13(%arg0: tensor<13x21x3xf32>) -> tensor<13x21x3xf32> {
   %2 = "onnx.Softmax"(%arg0) : (tensor<13x21x3xf32>) -> tensor<13x21x3xf32>
   func.return %2 : tensor<13x21x3xf32>

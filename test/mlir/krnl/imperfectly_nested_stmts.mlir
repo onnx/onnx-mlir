@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt -O3 --convert-krnl-to-affine %s -split-input-file | FileCheck %s
 
+// -----
+
 func.func @simple_imperfectly_nested() {
   %ii = krnl.define_loops 1
   %ib, %il = krnl.block %ii 2 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)

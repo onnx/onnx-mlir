@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --march=arch15 --maccel=NNPA --shape-inference --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
 
+// -----
+
 func.func @reduce_max_axes_defined_noop_0(%arg0: tensor<3x4x5xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<3x4x1xf16, #zhigh.layout<{dataLayout = "3DS"}>> { 
   %0 = "zhigh.ReduceMax"(%arg0) : (tensor<3x4x5xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<3x4x1xf16, #zhigh.layout<{dataLayout = "3DS"}>>
   return %0 : tensor<3x4x1xf16, #zhigh.layout<{dataLayout = "3DS"}>>

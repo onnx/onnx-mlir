@@ -1,4 +1,7 @@
 // RUN: onnx-mlir-opt --convert-krnl-to-affine --normalize-memrefs --convert-krnl-to-affine --canonicalize %s -split-input-file | FileCheck %s
+
+// -----
+
 #map_2ds = affine_map<(d0, d1) -> (d0, d1 floordiv 64, 0, 0, 31, d1 mod 64)>
 func.func @lowering_krnl_memset(%arg0: memref<1xi64>, %arg1: memref<1xi64>) -> (memref<?x?xf16, #map_2ds>) {
   %cst_0 = arith.constant 0 : index

@@ -4,6 +4,8 @@
 // RUN: out=$(dirname %s)/test4 && onnx-mlir -v --config-file $(dirname %s)/custom-omconfig.json %s -o $out| FileCheck --check-prefix=PARSE_CONFIG_FILE_1 %s && rm ${out}.so
 // RUN: out=$(dirname %s)/test5 && onnx-mlir -v -config-file $(dirname %s)/custom-omconfig.json %s -o $out| FileCheck --check-prefix=PARSE_CONFIG_FILE_2 %s && rm ${out}.so
 
+// -----
+
 module {
   func.func @main_graph(%arg0: tensor<?x?x?xf32>) -> (tensor<?x?x?xf32>) {
     %0 = "onnx.Relu"(%arg0) : (tensor<?x?x?xf32>) -> tensor<?x?x?xf32>

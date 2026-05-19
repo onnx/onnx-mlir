@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt -O3 --convert-krnl-to-affine %s -split-input-file | FileCheck %s
 
+// -----
+
 func.func @test_simple() {
   %ii = krnl.define_loops 1
   krnl.iterate(%ii) with (%ii -> %i = 0 to 10) {

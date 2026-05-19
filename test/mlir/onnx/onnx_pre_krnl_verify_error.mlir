@@ -1,6 +1,5 @@
 // RUN: onnx-mlir-opt --onnx-pre-krnl-verify %s -split-input-file -verify-diagnostics
 
-
 // -----
  
 //===----------------------------------------------------------------------===//

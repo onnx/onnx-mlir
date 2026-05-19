@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --decompose-onnx="target=stablehlo" --convert-onnx-to-stablehlo %s --canonicalize -split-input-file | FileCheck %s
 
+// -----
+
 func.func @test_softmax(%arg0 : tensor<10x20x30xf32>) -> tensor<10x20x30xf32> {
   %0 = "onnx.Softmax"(%arg0) {axis = 1: si64} : (tensor<10x20x30xf32>) -> tensor<10x20x30xf32>
   "func.return"(%0) : (tensor<10x20x30xf32>) -> ()
@@ -71,7 +73,6 @@ func.func @test_softmax_dynamic(%arg0 : tensor<?x20x30xf32>) -> tensor<?x20x30xf
 // CHECK:           [[VAR_28_:%.+]] = stablehlo.divide [[VAR_26_]], [[VAR_27_]] : tensor<?x20x30xf32>
 // CHECK:           return [[VAR_28_]] : tensor<?x20x30xf32>
 // CHECK:         }
-
 
 // -----
 

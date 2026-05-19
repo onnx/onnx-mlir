@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --convert-krnl-to-llvm %s -split-input-file | FileCheck %s
 
+// -----
+
 func.func private @test_krnl_call_with_return(%arg0: memref<2x3xi32>) -> i32 {
   %1 = "krnl.call"() {funcName = "get_omp_num_thread", numOfOutput = 0 : si64} : () -> (i32)
   func.return %1: i32

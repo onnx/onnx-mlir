@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt -O3 --convert-krnl-to-affine %s -split-input-file | FileCheck %s
 
+// -----
+
 func.func @simple_permute() {
   %ii, %jj = krnl.define_loops 2
   krnl.permute(%ii, %jj) [1, 0] : !krnl.loop, !krnl.loop

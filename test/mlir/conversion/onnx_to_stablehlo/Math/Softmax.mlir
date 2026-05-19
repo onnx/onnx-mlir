@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --convert-onnx-to-stablehlo %s --canonicalize -split-input-file | FileCheck %s
 
+// -----
+
 func.func @test_softmax_bf16(%arg0 : tensor<10x20x30xbf16>) -> tensor<10x20x30xbf16> {
   %0 = "onnx.Softmax"(%arg0) {axis = 1: si64} : (tensor<10x20x30xbf16>) -> tensor<10x20x30xbf16>
   "func.return"(%0) : (tensor<10x20x30xbf16>) -> ()

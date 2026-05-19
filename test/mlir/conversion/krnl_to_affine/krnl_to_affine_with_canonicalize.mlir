@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt -O3 --convert-krnl-to-affine --canonicalize %s -split-input-file | FileCheck %s
 
+// -----
+
 func.func private @memset(%p0 : index, %p1 : index) -> () {
   //A source, B buffer
   %A = memref.alloca() : memref<8x4x20x30xf32>
