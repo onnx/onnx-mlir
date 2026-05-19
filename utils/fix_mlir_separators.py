@@ -15,7 +15,6 @@ import sys
 import re
 from pathlib import Path
 
-
 # Track all modified files
 modified_files = []
 
