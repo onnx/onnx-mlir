@@ -335,6 +335,26 @@ func.func @test_delay_dlf16_to_f32(%arg0: tensor<1x3x5x?xf16>, %arg1: tensor<3xi
 
 // -----
 
+// COM: DLF16ToF32 is delayed and pushed down through Split that has multiple outputs,
+// and it is removed when combined with F32ToDLF16.
+func.func @test_delay_dlf16_to_f32_multiple_outputs(%arg0: tensor<2x?xf16>) -> (tensor<1x?xf16>, tensor<1x?xf16>) {
+  %cst = "onnx.NoValue"() {value} : () -> none
+  %1 = "zhigh.DLF16ToF32"(%arg0) : (tensor<2x?xf16>) -> tensor<2x?xf32>
+  %2, %3 = "onnx.Split"(%1, %cst) { axis = 0 : si64} : (tensor<2x?xf32>, none) -> (tensor<1x?xf32>, tensor<1x?xf32>)
+  %4 = "zhigh.F32ToDLF16"(%2) : (tensor<1x?xf32>) -> tensor<1x?xf16>
+  %5 = "zhigh.F32ToDLF16"(%3) : (tensor<1x?xf32>) -> tensor<1x?xf16>
+  onnx.Return %4, %5 : tensor<1x?xf16>, tensor<1x?xf16>
+
+// CHECK-LABEL:  func.func @test_delay_dlf16_to_f32_multiple_outputs
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x?xf16>) -> (tensor<1x?xf16>, tensor<1x?xf16>) {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK:           [[VAR_1_:%.+]]:2 = "onnx.Split"([[PARAM_0_]], [[VAR_0_]]) <{axis = 0 : si64}> : (tensor<2x?xf16>, none) -> (tensor<1x?xf16>, tensor<1x?xf16>)
+// CHECK:           onnx.Return [[VAR_1_]]#0, [[VAR_1_]]#1 : tensor<1x?xf16>, tensor<1x?xf16>
+// CHECK:         }
+}
+
+// -----
+
 // COM: Roberta pattern with BS=1
 
 func.func @test_Roberta_bs1(%arg0: tensor<12x384x384xf32>, %arg1: tensor<12x384x64xf32>, %arg2: tensor<768x768xf32>) -> tensor<1x384x768xf32> {
