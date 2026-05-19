@@ -215,20 +215,31 @@ def print_file(file_name):
 
 def get_check_prefix_from_line(line):
     """
-    Given a line, return the CHECK prefix if it matches any prefix in prefix_ordered_list.
+    Given a line, extract and return the CHECK prefix if it's a CHECK line.
     Returns None if the line is not a CHECK line or doesn't match any known prefix.
+    The pattern matches lines like "// CHECK-LABEL:" or "// CHECK-Z16:" etc.
+    Handles CHECK line directives like -LABEL, -NOT, -DAG, -SAME, -NEXT by stripping them.
     """
-    global prefix_ordered_list
+    global prefix_ordered_list, debug
 
-    if not re.match(r"\s*//", line):
-        # Not a comment line.
-        return None
-
-    for prefix in prefix_ordered_list:
-        pattern = r"\s*// " + re.escape(prefix) + r"[-:]"
-        if re.match(pattern, line):
-            return prefix
-
+    # Match pattern: "//\s+([^:]*):" to extract the full prefix with potential suffix.
+    m = re.match(r"//\s+([^:]*):", line)
+    if m:
+        extracted_full = m.group(1)
+        
+        # Check if the full extracted string is in the list (handles plain CHECK: lines).
+        if extracted_full in prefix_ordered_list:
+            return extracted_full
+        
+        # Otherwise, try to find the base prefix by removing known CHECK directives.
+        # Common directives: LABEL, NOT, DAG, SAME, NEXT, COUNT, EMPTY, etc.
+        directives = ['LABEL', 'NOT', 'DAG', 'SAME', 'NEXT', 'COUNT', 'EMPTY']
+        for directive in directives:
+            if extracted_full.endswith('-' + directive):
+                base_prefix = extracted_full[:-len(directive)-1]  # Remove '-DIRECTIVE'
+                if base_prefix in prefix_ordered_list:
+                    return base_prefix
+    
     return None
 
 
@@ -261,9 +272,9 @@ def emit_modified_segment(i, has_test):
     # This covers CHECK-LABEL, CHECK-NOT, CHECK-DAG, CHECK-SAME, etc.
     check_prefix_pattern = r"\s*// " + re.escape(prefix_str) + r"[-:]"
 
-    # Print separator.
+    # Print separator. (hi alex is is right?)
     if i > 0:
-        print("// -----\n")
+        print("// -----")
     gen_orig_model(i, flt_orig_model_file_name)
     run_onnx_mlir_opt(flt_orig_model_file_name, run_command, flt_compiled_file_name)
 
@@ -290,15 +301,34 @@ def emit_modified_segment(i, has_test):
     for prefix in prefix_ordered_list:
         saved_check_lines[prefix] = []
 
-    # First pass: print non-CHECK lines and collect CHECK lines by prefix.
+    # First pass: collect non-CHECK lines in a buffer and CHECK lines by prefix.
+    # Track previous line to avoid collecting multiple consecutive empty lines.
+    non_check_lines = []
+    prev_was_empty = False
     for l in segment_text[i]:
         check_prefix = get_check_prefix_from_line(l)
         if check_prefix is not None:
             # This is a CHECK line - save it to the appropriate prefix list.
             saved_check_lines[check_prefix].append(l)
         else:
-            # Not a CHECK line - print it immediately.
-            print(l)
+            # Not a CHECK line - add to buffer.
+            # Skip if this is an empty line and the previous was also empty.
+            is_empty = len(l.strip()) == 0
+            if not (is_empty and prev_was_empty):
+                non_check_lines.append(l)
+            prev_was_empty = is_empty
+
+    # Find and remove the last closing brace from non-CHECK lines.
+    # The strip() method matches any line with only whitespace + "}".
+    last_closing_brace = None
+    for idx in range(len(non_check_lines) - 1, -1, -1):
+        if non_check_lines[idx].strip() == "}":
+            last_closing_brace = non_check_lines.pop(idx)
+            break
+
+    # Print non-CHECK lines (without the last closing brace).
+    for line in non_check_lines:
+        print(line)
 
     # Second pass: print CHECK lines in prefix order.
     for prefix in prefix_ordered_list:
@@ -312,6 +342,12 @@ def emit_modified_segment(i, has_test):
             # Print the saved original CHECK lines for this prefix.
             for line in saved_check_lines[prefix]:
                 print(line)
+        print("") # add empty line
+
+    # Third pass: print the deferred closing brace if any.
+    if last_closing_brace is not None:
+        print(last_closing_brace)
+    print("") # add empty line
 
     if has_test:
         run_FileCheck(

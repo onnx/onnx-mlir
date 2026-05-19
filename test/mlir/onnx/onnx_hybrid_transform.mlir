@@ -5,8 +5,6 @@
 
 // -----
 
-
-
 // Illustrates the back and forth between shape inference and the
 // BinaryOpBroadcastAxisPattern canonicalization pattern:
 // First shape inference finds the shape 64x3x7x7 for %lhs in
@@ -103,9 +101,6 @@ func.func @test_inception_v2_6_snippet(%arg0: tensor<1x3x224x224xf32>, %arg1: te
     %528 = "onnx.Add"(%527, %48) {axis = 1 : si64, broadcast = 1 : si64} : (tensor<*xf32>, tensor<64xf32>) -> tensor<*xf32>
     %529 = "onnx.Relu"(%528) : (tensor<*xf32>) -> tensor<*xf32>
     return %529 : tensor<*xf32>
-}
-
-
 
 // CHECK-LABEL:  func.func @test_inception_v2_6_snippet
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x224x224xf32>, [[PARAM_1_:%.+]]: tensor<64x3x7x7xf32>) -> tensor<1x64x28x28xf32> {
@@ -413,3 +408,4 @@ func.func @test_inception_v2_6_snippet(%arg0: tensor<1x3x224x224xf32>, %arg1: te
 // CONSTPROP:         }
 // LIMIT: Warning: onnx-hybrid-transform didn't converge with max-num-rewrites-offset=1, max-num-rewrites-multiplier=0.000000e+00
 // LIMIT-LABEL:  func.func @test_inception_v2_6_snippet
+}

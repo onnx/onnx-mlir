@@ -2,7 +2,6 @@
 
 // -----
 
-
 // Test 1: Basic 2D convolution with 3x3 kernel should be decomposed
 func.func @test_conv_2d_3x3(%arg0: tensor<1x3x32x32xf32>, %arg1: tensor<64x3x3x3xf32>) -> tensor<1x64x30x30xf32> {
   %none = "onnx.NoValue"() {value} : () -> none
@@ -14,8 +13,6 @@ func.func @test_conv_2d_3x3(%arg0: tensor<1x3x32x32xf32>, %arg1: tensor<64x3x3x3
     group = 1 : si64
   } : (tensor<1x3x32x32xf32>, tensor<64x3x3x3xf32>, none) -> tensor<1x64x30x30xf32>
   return %0 : tensor<1x64x30x30xf32>
-}
-
 
 // CHECK-LABEL:  func.func @test_conv_2d_3x3
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x32x32xf32>, [[PARAM_1_:%.+]]: tensor<64x3x3x3xf32>) -> tensor<1x64x30x30xf32> {
@@ -45,8 +42,9 @@ func.func @test_conv_2d_3x3(%arg0: tensor<1x3x32x32xf32>, %arg1: tensor<64x3x3x3
 // CHECK:           [[VAR_21_:%.+]] = "onnx.Reshape"([[VAR_15_]], [[VAR_20_]]) <{allowzero = 0 : si64}> : (tensor<64x?xf32>, tensor<4xi64>) -> tensor<1x64x30x30xf32>
 // CHECK:           return [[VAR_21_]] : tensor<1x64x30x30xf32>
 // CHECK:         }
-// -----
+}
 
+// -----
 
 // Test 2: Conv with bias should include Add operation
 func.func @test_conv_with_bias(%arg0: tensor<1x3x32x32xf32>, %arg1: tensor<64x3x3x3xf32>, %arg2: tensor<64xf32>) -> tensor<1x64x30x30xf32> {
@@ -58,8 +56,6 @@ func.func @test_conv_with_bias(%arg0: tensor<1x3x32x32xf32>, %arg1: tensor<64x3x
     group = 1 : si64
   } : (tensor<1x3x32x32xf32>, tensor<64x3x3x3xf32>, tensor<64xf32>) -> tensor<1x64x30x30xf32>
   return %0 : tensor<1x64x30x30xf32>
-}
-
 
 // CHECK-LABEL:  func.func @test_conv_with_bias
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x32x32xf32>, [[PARAM_1_:%.+]]: tensor<64x3x3x3xf32>, [[PARAM_2_:%.+]]: tensor<64xf32>) -> tensor<1x64x30x30xf32> {
@@ -90,6 +86,8 @@ func.func @test_conv_with_bias(%arg0: tensor<1x3x32x32xf32>, %arg1: tensor<64x3x
 // CHECK:           [[VAR_22_:%.+]] = "onnx.Reshape"([[VAR_16_]], [[VAR_21_]]) <{allowzero = 0 : si64}> : (tensor<64x?xf32>, tensor<4xi64>) -> tensor<1x64x30x30xf32>
 // CHECK:           return [[VAR_22_]] : tensor<1x64x30x30xf32>
 // CHECK:         }
+}
+
 // -----
 
 // Test 3: 1x1 convolution should be decomposed to MatMul (not Im2Col)
@@ -103,7 +101,6 @@ func.func @test_conv_1x1(%arg0: tensor<1x3x32x32xf32>, %arg1: tensor<64x3x1x1xf3
     group = 1 : si64
   } : (tensor<1x3x32x32xf32>, tensor<64x3x1x1xf32>, none) -> tensor<1x64x32x32xf32>
   return %0 : tensor<1x64x32x32xf32>
-}
 
 // CHECK-LABEL: func.func @test_conv_1x1
 // CHECK-NOT: "onnx.Conv"
@@ -111,6 +108,7 @@ func.func @test_conv_1x1(%arg0: tensor<1x3x32x32xf32>, %arg1: tensor<64x3x1x1xf3
 // CHECK: "onnx.Reshape"
 // CHECK: "onnx.MatMul"
 // CHECK: "onnx.Reshape"
+}
 
 // -----
 
@@ -125,11 +123,11 @@ func.func @test_grouped_conv(%arg0: tensor<1x6x32x32xf32>, %arg1: tensor<64x3x3x
     group = 2 : si64
   } : (tensor<1x6x32x32xf32>, tensor<64x3x3x3xf32>, none) -> tensor<1x64x30x30xf32>
   return %0 : tensor<1x64x30x30xf32>
-}
 
 // CHECK-LABEL: func.func @test_grouped_conv
 // CHECK: "onnx.Conv"
 // CHECK-NOT: "onnx.Im2Col"
+}
 
 // -----
 
@@ -144,7 +142,6 @@ func.func @test_conv_stride_pad(%arg0: tensor<1x3x32x32xf32>, %arg1: tensor<64x3
     group = 1 : si64
   } : (tensor<1x3x32x32xf32>, tensor<64x3x3x3xf32>, none) -> tensor<1x64x16x16xf32>
   return %0 : tensor<1x64x16x16xf32>
-}
 
 // CHECK-LABEL: func.func @test_conv_stride_pad
 // CHECK: [[IM2COL:%.+]] = "onnx.Im2Col"(%arg0)
@@ -155,6 +152,7 @@ func.func @test_conv_stride_pad(%arg0: tensor<1x3x32x32xf32>, %arg1: tensor<64x3
 // CHECK: [[MATMUL:%.+]] = "onnx.MatMul"
 // CHECK: [[RESHAPE:%.+]] = "onnx.Reshape"
 // CHECK: return [[RESHAPE]]
+}
 
 // -----
 
@@ -169,7 +167,6 @@ func.func @test_conv_dilation(%arg0: tensor<1x3x32x32xf32>, %arg1: tensor<64x3x3
     group = 1 : si64
   } : (tensor<1x3x32x32xf32>, tensor<64x3x3x3xf32>, none) -> tensor<1x64x28x28xf32>
   return %0 : tensor<1x64x28x28xf32>
-}
 
 // CHECK-LABEL: func.func @test_conv_dilation
 // CHECK: [[IM2COL:%.+]] = "onnx.Im2Col"(%arg0)
@@ -177,9 +174,9 @@ func.func @test_conv_dilation(%arg0: tensor<1x3x32x32xf32>, %arg1: tensor<64x3x3
 // CHECK: [[MATMUL:%.+]] = "onnx.MatMul"
 // CHECK: [[RESHAPE:%.+]] = "onnx.Reshape"
 // CHECK: return [[RESHAPE]]
+}
 
 // -----
-
 
 // Test 7: 5x5 kernel convolution
 func.func @test_conv_5x5(%arg0: tensor<1x3x32x32xf32>, %arg1: tensor<64x3x5x5xf32>) -> tensor<1x64x28x28xf32> {
@@ -192,8 +189,6 @@ func.func @test_conv_5x5(%arg0: tensor<1x3x32x32xf32>, %arg1: tensor<64x3x5x5xf3
     group = 1 : si64
   } : (tensor<1x3x32x32xf32>, tensor<64x3x5x5xf32>, none) -> tensor<1x64x28x28xf32>
   return %0 : tensor<1x64x28x28xf32>
-}
-
 
 // CHECK-LABEL:  func.func @test_conv_5x5
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x32x32xf32>, [[PARAM_1_:%.+]]: tensor<64x3x5x5xf32>) -> tensor<1x64x28x28xf32> {
@@ -223,6 +218,8 @@ func.func @test_conv_5x5(%arg0: tensor<1x3x32x32xf32>, %arg1: tensor<64x3x5x5xf3
 // CHECK:           [[VAR_21_:%.+]] = "onnx.Reshape"([[VAR_15_]], [[VAR_20_]]) <{allowzero = 0 : si64}> : (tensor<64x?xf32>, tensor<4xi64>) -> tensor<1x64x28x28xf32>
 // CHECK:           return [[VAR_21_]] : tensor<1x64x28x28xf32>
 // CHECK:         }
+}
+
 // -----
 
 // Test 8: 1x1 convolution with stride > 1 should decompose to Im2Col+MatMul
@@ -236,7 +233,6 @@ func.func @test_conv_1x1_stride(%arg0: tensor<1x3x32x32xf32>, %arg1: tensor<64x3
     group = 1 : si64
   } : (tensor<1x3x32x32xf32>, tensor<64x3x1x1xf32>, none) -> tensor<1x64x16x16xf32>
   return %0 : tensor<1x64x16x16xf32>
-}
 
 // CHECK-LABEL: func.func @test_conv_1x1_stride
 // CHECK: [[IM2COL:%.+]] = "onnx.Im2Col"(%arg0)
@@ -245,6 +241,7 @@ func.func @test_conv_1x1_stride(%arg0: tensor<1x3x32x32xf32>, %arg1: tensor<64x3
 // CHECK: [[MATMUL:%.+]] = "onnx.MatMul"
 // CHECK: [[RESHAPE:%.+]] = "onnx.Reshape"
 // CHECK: return [[RESHAPE]]
+}
 
 // -----
 
@@ -259,7 +256,6 @@ func.func @test_conv_1x1_padding(%arg0: tensor<1x3x32x32xf32>, %arg1: tensor<64x
     group = 1 : si64
   } : (tensor<1x3x32x32xf32>, tensor<64x3x1x1xf32>, none) -> tensor<1x64x34x34xf32>
   return %0 : tensor<1x64x34x34xf32>
-}
 
 // CHECK-LABEL: func.func @test_conv_1x1_padding
 // CHECK: [[IM2COL:%.+]] = "onnx.Im2Col"(%arg0)
@@ -268,10 +264,9 @@ func.func @test_conv_1x1_padding(%arg0: tensor<1x3x32x32xf32>, %arg1: tensor<64x
 // CHECK: [[MATMUL:%.+]] = "onnx.MatMul"
 // CHECK: [[RESHAPE:%.+]] = "onnx.Reshape"
 // CHECK: return [[RESHAPE]]
+}
 
 // -----
-
-
 
 // Test 10: 1x1 convolution with bias should decompose to MatMul with Add
 func.func @test_conv_1x1_with_bias(%arg0: tensor<1x3x32x32xf32>, %arg1: tensor<64x3x1x1xf32>, %arg2: tensor<64xf32>) -> tensor<1x64x32x32xf32> {
@@ -283,7 +278,6 @@ func.func @test_conv_1x1_with_bias(%arg0: tensor<1x3x32x32xf32>, %arg1: tensor<6
     group = 1 : si64
   } : (tensor<1x3x32x32xf32>, tensor<64x3x1x1xf32>, tensor<64xf32>) -> tensor<1x64x32x32xf32>
   return %0 : tensor<1x64x32x32xf32>
-}
 
 // CHECK-LABEL:  func.func @test_conv_1x1_with_bias
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x32x32xf32>, [[PARAM_1_:%.+]]: tensor<64x3x1x1xf32>, [[PARAM_2_:%.+]]: tensor<64xf32>) -> tensor<1x64x32x32xf32> {
@@ -313,3 +307,4 @@ func.func @test_conv_1x1_with_bias(%arg0: tensor<1x3x32x32xf32>, %arg1: tensor<6
 // CHECK:           [[VAR_22_:%.+]] = "onnx.Reshape"([[VAR_20_]], [[VAR_21_]]) <{allowzero = 0 : si64}> : (tensor<64x1024xf32>, tensor<4xi64>) -> tensor<1x64x32x32xf32>
 // CHECK:           return [[VAR_22_]] : tensor<1x64x32x32xf32>
 // CHECK:         }
+}

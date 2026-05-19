@@ -2,13 +2,10 @@
 
 // -----
 
-
-
 // Test basic Im2Col with static shapes, no padding, unit stride
 func.func @test_im2col_basic(%arg0: tensor<1x2x5x5xf32>) -> tensor<*xf32> {
   %0 = "onnx.Im2Col"(%arg0) {kernel_shape = [3, 3]} : (tensor<1x2x5x5xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
-}
 
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0 floordiv 9)>
 // CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0) -> (d0 mod 9)>
@@ -85,15 +82,14 @@ func.func @test_im2col_basic(%arg0: tensor<1x2x5x5xf32>) -> tensor<*xf32> {
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<1x18x9xf32>
 // CHECK:         }
+}
+
 // -----
-
-
 
 // Test Im2Col with padding
 func.func @test_im2col_with_padding(%arg0: tensor<1x3x4x4xf32>) -> tensor<*xf32> {
   %0 = "onnx.Im2Col"(%arg0) {kernel_shape = [3, 3], pads = [1, 1, 1, 1]} : (tensor<1x3x4x4xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
-}
 
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0 floordiv 16)>
 // CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0) -> (d0 mod 16)>
@@ -169,15 +165,14 @@ func.func @test_im2col_with_padding(%arg0: tensor<1x3x4x4xf32>) -> tensor<*xf32>
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<1x27x16xf32>
 // CHECK:         }
+}
+
 // -----
-
-
 
 // Test Im2Col with strides
 func.func @test_im2col_with_strides(%arg0: tensor<2x1x7x7xf32>) -> tensor<*xf32> {
   %0 = "onnx.Im2Col"(%arg0) {kernel_shape = [3, 3], strides = [2, 2]} : (tensor<2x1x7x7xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
-}
 
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0 floordiv 9)>
 // CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0) -> (d0 mod 9)>
@@ -249,15 +244,14 @@ func.func @test_im2col_with_strides(%arg0: tensor<2x1x7x7xf32>) -> tensor<*xf32>
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<2x9x9xf32>
 // CHECK:         }
+}
+
 // -----
-
-
 
 // Test Im2Col with dilations
 func.func @test_im2col_with_dilations(%arg0: tensor<1x2x8x8xf32>) -> tensor<*xf32> {
   %0 = "onnx.Im2Col"(%arg0) {kernel_shape = [3, 3], dilations = [2, 2]} : (tensor<1x2x8x8xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
-}
 
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0 floordiv 16)>
 // CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0) -> (d0 mod 16)>
@@ -334,15 +328,14 @@ func.func @test_im2col_with_dilations(%arg0: tensor<1x2x8x8xf32>) -> tensor<*xf3
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<1x18x16xf32>
 // CHECK:         }
+}
+
 // -----
-
-
 
 // Test Im2Col with multiple channels and complex parameters
 func.func @test_im2col_complex(%arg0: tensor<2x4x10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Im2Col"(%arg0) {kernel_shape = [3, 3], pads = [1, 1, 1, 1], strides = [2, 2], dilations = [1, 1]} : (tensor<2x4x10x10xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
-}
 
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0 floordiv 25)>
 // CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0) -> (d0 mod 25)>
@@ -419,16 +412,14 @@ func.func @test_im2col_complex(%arg0: tensor<2x4x10x10xf32>) -> tensor<*xf32> {
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<2x36x25xf32>
 // CHECK:         }
+}
+
 // -----
-
-
-
 
 // Test Im2Col with dynamic batch dimension
 func.func @test_im2col_dynamic_batch(%arg0: tensor<?x3x6x6xf32>) -> tensor<*xf32> {
   %0 = "onnx.Im2Col"(%arg0) {kernel_shape = [2, 2]} : (tensor<?x3x6x6xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
-}
 
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0 * 25)>
 // CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0) -> (d0 floordiv 25)>
@@ -508,15 +499,14 @@ func.func @test_im2col_dynamic_batch(%arg0: tensor<?x3x6x6xf32>) -> tensor<*xf32
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<?x12x25xf32>
 // CHECK:         }
+}
+
 // -----
-
-
 
 // Test Im2Col with dynamic spatial dimensions
 func.func @test_im2col_dynamic_spatial(%arg0: tensor<1x2x?x?xf32>) -> tensor<*xf32> {
   %0 = "onnx.Im2Col"(%arg0) {kernel_shape = [3, 3], pads = [1, 1, 1, 1]} : (tensor<1x2x?x?xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
-}
 
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1) -> (d0 + d1)>
 // CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0, d1, d2) -> (d0 + d1 * 3 + d2 * 9)>
@@ -595,15 +585,14 @@ func.func @test_im2col_dynamic_spatial(%arg0: tensor<1x2x?x?xf32>) -> tensor<*xf
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<1x18x?xf32>
 // CHECK:         }
+}
+
 // -----
-
-
 
 // Test Im2Col with rectangular kernel
 func.func @test_im2col_rectangular_kernel(%arg0: tensor<1x1x8x12xf32>) -> tensor<*xf32> {
   %0 = "onnx.Im2Col"(%arg0) {kernel_shape = [2, 4], strides = [1, 2]} : (tensor<1x1x8x12xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
-}
 
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0 floordiv 35)>
 // CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0) -> (d0 mod 35)>
@@ -677,15 +666,14 @@ func.func @test_im2col_rectangular_kernel(%arg0: tensor<1x1x8x12xf32>) -> tensor
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<1x8x35xf32>
 // CHECK:         }
+}
+
 // -----
-
-
 
 // Test Im2Col with asymmetric padding
 func.func @test_im2col_asymmetric_padding(%arg0: tensor<1x2x5x5xf32>) -> tensor<*xf32> {
   %0 = "onnx.Im2Col"(%arg0) {kernel_shape = [3, 3], pads = [1, 2, 1, 0]} : (tensor<1x2x5x5xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
-}
 
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0 floordiv 25)>
 // CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0) -> (d0 mod 25)>
@@ -762,15 +750,14 @@ func.func @test_im2col_asymmetric_padding(%arg0: tensor<1x2x5x5xf32>) -> tensor<
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<1x18x25xf32>
 // CHECK:         }
+}
+
 // -----
-
-
 
 // Test Im2Col with small kernel (1x1 convolution case)
 func.func @test_im2col_1x1_kernel(%arg0: tensor<1x8x4x4xf32>) -> tensor<*xf32> {
   %0 = "onnx.Im2Col"(%arg0) {kernel_shape = [1, 1]} : (tensor<1x8x4x4xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
-}
 
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0 floordiv 16)>
 // CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0) -> (d0 mod 16)>
@@ -829,15 +816,14 @@ func.func @test_im2col_1x1_kernel(%arg0: tensor<1x8x4x4xf32>) -> tensor<*xf32> {
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<1x8x16xf32>
 // CHECK:         }
+}
+
 // -----
-
-
 
 // Test Im2Col with f16 type
 func.func @test_im2col_f16(%arg0: tensor<1x2x5x5xf16>) -> tensor<*xf16> {
   %0 = "onnx.Im2Col"(%arg0) {kernel_shape = [3, 3]} : (tensor<1x2x5x5xf16>) -> tensor<*xf16>
   return %0 : tensor<*xf16>
-}
 
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0 floordiv 9)>
 // CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0) -> (d0 mod 9)>
@@ -914,15 +900,15 @@ func.func @test_im2col_f16(%arg0: tensor<1x2x5x5xf16>) -> tensor<*xf16> {
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<1x18x9xf16>
 // CHECK:         }
+}
+
 // -----
-
-
 
 // Test Im2Col with f64 type
 func.func @test_im2col_f64(%arg0: tensor<1x2x5x5xf64>) -> tensor<*xf64> {
   %0 = "onnx.Im2Col"(%arg0) {kernel_shape = [3, 3]} : (tensor<1x2x5x5xf64>) -> tensor<*xf64>
   return %0 : tensor<*xf64>
-}
+
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0 floordiv 9)>
 // CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0) -> (d0 mod 9)>
 // CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<(d0) -> ((d0 mod 9) floordiv 3)>
@@ -998,3 +984,5 @@ func.func @test_im2col_f64(%arg0: tensor<1x2x5x5xf64>) -> tensor<*xf64> {
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<1x18x9xf64>
 // CHECK:         }
+}
+
