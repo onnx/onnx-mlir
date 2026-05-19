@@ -43,7 +43,7 @@ namespace zhigh {
 // void ZHighDLF16ToF32Op::getCanonicalizationPatterns(
 //     RewritePatternSet &results, MLIRContext *context) {
 //   results.insert<DelayDLF16ToF32Pattern<ONNXUnsqueezeOp>>(context);
-// } 
+// }
 static bool isDataMovementONNXOp(Operation *op) {
   return isa<ONNXExpandOp, ONNXFlattenOp, ONNXGatherOp, ONNXReshapeOp,
       ONNXSliceOp, ONNXSplitOp, ONNXSqueezeOp, ONNXTransposeOp,
