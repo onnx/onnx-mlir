@@ -188,3 +188,92 @@ func.func @rank3_min_axis1_keepdims1(%arg0: tensor<4x8x16x!quant.uniform<i8:f32,
   %1 = "onnx.ReduceMin"(%arg0, %0) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<4x8x16x!quant.uniform<i8:f32, 0.05:0>>, tensor<1xi64>) -> tensor<4x1x16x!quant.uniform<i8:f32, 0.05:0>>
   return %1 : tensor<4x1x16x!quant.uniform<i8:f32, 0.05:0>>
 }
+
+// -----
+
+// Branch 3: rank==4 + keep_dims=false, axes=[-1].
+// Same expected IR as @rank4_keepdims0_reemit but with axes=[3] (rank-1).
+// CHECK-LABEL: @rank4_keepdims0_negative_axis
+// CHECK-DAG:   %[[NEW_AXES:.+]]    = onnx.Constant dense<3> : tensor<1xi64>
+// CHECK-DAG:   %[[POSTSHAPE_C:.+]] = onnx.Constant dense<[1, 8, 4]> : tensor<3xi64>
+// CHECK:       %[[RED:.+]]  = "onnx.ReduceSum"(%arg0, %[[NEW_AXES]]) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<1x8x4x4x{{.*}}>, tensor<1xi64>) -> tensor<1x8x4x1x{{.*}}>
+// CHECK:       %[[POST:.+]] = "onnx.Reshape"(%[[RED]], %[[POSTSHAPE_C]])
+// CHECK:       return %[[POST]]
+func.func @rank4_keepdims0_negative_axis(%arg0: tensor<1x8x4x4x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<1x8x4x!quant.uniform<i8:f32, 0.05:0>> {
+  %0 = onnx.Constant dense<[-1]> : tensor<1xi64>
+  %1 = "onnx.ReduceSum"(%arg0, %0) {keepdims = 0 : si64, noop_with_empty_axes = 0 : si64} : (tensor<1x8x4x4x!quant.uniform<i8:f32, 0.05:0>>, tensor<1xi64>) -> tensor<1x8x4x!quant.uniform<i8:f32, 0.05:0>>
+  return %1 : tensor<1x8x4x!quant.uniform<i8:f32, 0.05:0>>
+}
+
+// -----
+
+// Branch 3: rank==4 + keep_dims=false, axes=[-3].  Equivalent to axes=[1];
+// must produce IR identical to @rank4_keepdims0_reemit.
+// CHECK-LABEL: @rank4_keepdims0_negative_axis_mid
+// CHECK-DAG:   %[[NEW_AXES:.+]]    = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK-DAG:   %[[POSTSHAPE_C:.+]] = onnx.Constant dense<[1, 4, 4]> : tensor<3xi64>
+// CHECK:       %[[RED:.+]]  = "onnx.ReduceSum"(%arg0, %[[NEW_AXES]]) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<1x8x4x4x{{.*}}>, tensor<1xi64>) -> tensor<1x1x4x4x{{.*}}>
+// CHECK:       %[[POST:.+]] = "onnx.Reshape"(%[[RED]], %[[POSTSHAPE_C]])
+// CHECK:       return %[[POST]]
+func.func @rank4_keepdims0_negative_axis_mid(%arg0: tensor<1x8x4x4x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<1x4x4x!quant.uniform<i8:f32, 0.05:0>> {
+  %0 = onnx.Constant dense<[-3]> : tensor<1xi64>
+  %1 = "onnx.ReduceSum"(%arg0, %0) {keepdims = 0 : si64, noop_with_empty_axes = 0 : si64} : (tensor<1x8x4x4x!quant.uniform<i8:f32, 0.05:0>>, tensor<1xi64>) -> tensor<1x4x4x!quant.uniform<i8:f32, 0.05:0>>
+  return %1 : tensor<1x4x4x!quant.uniform<i8:f32, 0.05:0>>
+}
+
+// -----
+
+// Branch 1: rank<4, axes=[-1] keepdims=0.  -1 normalises to 2 then the
+// rank-3->rank-4 prepend shifts it to 3.
+// CHECK-LABEL: @rank3_negative_axis_keepdims0
+// CHECK-DAG:   %[[PRESHAPE_C:.+]]  = onnx.Constant dense<[1, 150, 1, 768]> : tensor<4xi64>
+// CHECK-DAG:   %[[NEW_AXES:.+]]    = onnx.Constant dense<3> : tensor<1xi64>
+// CHECK-DAG:   %[[POSTSHAPE_C:.+]] = onnx.Constant dense<[150, 1]> : tensor<2xi64>
+// CHECK:       %[[PRE:.+]]  = "onnx.Reshape"(%arg0, %[[PRESHAPE_C]]) {{.*}} : (tensor<150x1x768x{{.*}}>, tensor<4xi64>) -> tensor<1x150x1x768x{{.*}}>
+// CHECK:       %[[RED:.+]]  = "onnx.ReduceMean"(%[[PRE]], %[[NEW_AXES]]) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<1x150x1x768x{{.*}}>, tensor<1xi64>) -> tensor<1x150x1x1x{{.*}}>
+// CHECK:       %[[POST:.+]] = "onnx.Reshape"(%[[RED]], %[[POSTSHAPE_C]]) {{.*}} : (tensor<1x150x1x1x{{.*}}>, tensor<2xi64>) -> tensor<150x1x{{.*}}>
+// CHECK:       return %[[POST]]
+func.func @rank3_negative_axis_keepdims0(%arg0: tensor<150x1x768x!quant.uniform<u16:f32, 2.7333E-4:43382>>) -> tensor<150x1x!quant.uniform<u16:f32, 7.842E-3:40316>> {
+  %0 = onnx.Constant dense<[-1]> : tensor<1xi64>
+  %1 = "onnx.ReduceMean"(%arg0, %0) {keepdims = 0 : si64, noop_with_empty_axes = 0 : si64} : (tensor<150x1x768x!quant.uniform<u16:f32, 2.7333E-4:43382>>, tensor<1xi64>) -> tensor<150x1x!quant.uniform<u16:f32, 7.842E-3:40316>>
+  return %1 : tensor<150x1x!quant.uniform<u16:f32, 7.842E-3:40316>>
+}
+
+// -----
+
+// Branch 5: rank>4 + last-axis fallback, axes=[-1] keepdims=1.  Without
+// normalisation the `axes[0] == rank-1` guard would compare -1 to 4 and
+// skip the rewrite silently; with the fix this collapses identically to
+// @rank5_collapse_middle_dims.
+// CHECK-LABEL: @rank5_collapse_middle_dims_negative_axis
+// CHECK-DAG:   %[[PRESHAPE_C:.+]]  = onnx.Constant dense<[2, 3, 20, 6]> : tensor<4xi64>
+// CHECK-DAG:   %[[NEW_AXES:.+]]    = onnx.Constant dense<3> : tensor<1xi64>
+// CHECK-DAG:   %[[POSTSHAPE_C:.+]] = onnx.Constant dense<[2, 3, 4, 5, 1]> : tensor<5xi64>
+// CHECK:       %[[PRE:.+]]  = "onnx.Reshape"(%arg0, %[[PRESHAPE_C]])
+// CHECK:       %[[RED:.+]]  = "onnx.ReduceMin"(%[[PRE]], %[[NEW_AXES]]) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64}
+// CHECK:       %[[POST:.+]] = "onnx.Reshape"(%[[RED]], %[[POSTSHAPE_C]])
+// CHECK:       return %[[POST]]
+func.func @rank5_collapse_middle_dims_negative_axis(%arg0: tensor<2x3x4x5x6x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<2x3x4x5x1x!quant.uniform<i8:f32, 0.05:0>> {
+  %0 = onnx.Constant dense<[-1]> : tensor<1xi64>
+  %1 = "onnx.ReduceMin"(%arg0, %0) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<2x3x4x5x6x!quant.uniform<i8:f32, 0.05:0>>, tensor<1xi64>) -> tensor<2x3x4x5x1x!quant.uniform<i8:f32, 0.05:0>>
+  return %1 : tensor<2x3x4x5x1x!quant.uniform<i8:f32, 0.05:0>>
+}
+
+// -----
+
+// Branch 4: rank>4 + leading-1 + last-axis in {2,3}, axes=[-3] keepdims=1.
+// -3 normalises to 2 (rank-3) on rank=5; equivalent to
+// @rank5_leading1_lastaxis_in_2_3.
+// CHECK-LABEL: @rank5_leading1_negative_axis
+// CHECK-DAG:   %[[PRESHAPE_C:.+]]  = onnx.Constant dense<[2, 4, 8, 16]> : tensor<4xi64>
+// CHECK-DAG:   %[[NEW_AXES:.+]]    = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK-DAG:   %[[POSTSHAPE_C:.+]] = onnx.Constant dense<[1, 2, 1, 8, 16]> : tensor<5xi64>
+// CHECK:       %[[PRE:.+]]  = "onnx.Reshape"(%arg0, %[[PRESHAPE_C]])
+// CHECK:       %[[RED:.+]]  = "onnx.ReduceMax"(%[[PRE]], %[[NEW_AXES]]) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64}
+// CHECK:       %[[POST:.+]] = "onnx.Reshape"(%[[RED]], %[[POSTSHAPE_C]])
+// CHECK:       return %[[POST]]
+func.func @rank5_leading1_negative_axis(%arg0: tensor<1x2x4x8x16x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<1x2x1x8x16x!quant.uniform<i8:f32, 0.05:0>> {
+  %0 = onnx.Constant dense<[-3]> : tensor<1xi64>
+  %1 = "onnx.ReduceMax"(%arg0, %0) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<1x2x4x8x16x!quant.uniform<i8:f32, 0.05:0>>, tensor<1xi64>) -> tensor<1x2x1x8x16x!quant.uniform<i8:f32, 0.05:0>>
+  return %1 : tensor<1x2x1x8x16x!quant.uniform<i8:f32, 0.05:0>>
+}
