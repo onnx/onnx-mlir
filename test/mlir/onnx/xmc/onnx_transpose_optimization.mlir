@@ -1446,3 +1446,33 @@ func.func @test_transpose_binary_per_axis_quant(%arg0: tensor<1x4x8x8x!quant.uni
 // CHECK: onnx.Reshape{{.*}}tensor<1x4x1x1x!quant.uniform<i8:f32:1, {1.000000e-02,2.000000e-02,3.000000e-02,4.000000e-02}>>
 // CHECK: onnx.Mul
 // CHECK: onnx.Transpose
+
+// Test: Transpose elimination at graph exit should use right ResultName
+func.func @transpose_removal_at_graph_exit(%858: tensor<1x1x480x2x!quant.uniform<u8:f32, 0.034579548984766006:125>>, %arg17: tensor<1x8x120x32xf32>) -> (tensor<1x1x120x32xf32>, tensor<1x32x9x120x!quant.uniform<u8:f32, 0.1946694403886795:126>>) {
+    %110 = onnx.Constant dense<126> : tensor<ui8>
+    %156 = onnx.Constant dense<133> : tensor<ui8>
+    %219 = onnx.Constant dense<0.15860267> : tensor<f32>
+    %220 = onnx.Constant {value = dense_resource<__elided__> : tensor<32x2x1x7xi8>} : tensor<32x2x1x7x!quant.uniform<i8:f32, 0.051385276019573212>>
+    %222 = onnx.Constant dense<0.19466944> : tensor<f32>
+    %264 = onnx.Constant {value = dense_resource<__elided__> : tensor<32xi32>} : tensor<32x!quant.uniform<i32:f32, 0.0017768796533346176>>
+    %859 = "onnx.Transpose"(%220) {perm = [0, 2, 3, 1]} : (tensor<32x2x1x7x!quant.uniform<i8:f32, 0.051385276019573212>>) -> tensor<32x1x7x2x!quant.uniform<i8:f32, 0.051385276019573212>>
+    %860 = "onnx.XFEConv"(%858, %859, %264) {ResultNames = [["Conv_QuantizeLinear_Output", ["Transpose", [1, 32, 1, 120], [0, 2, 3, 1], [1, 1, 120, 32]]]], activation = "NONE", auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [1, 7], pads = [0, 0, 0, 3], strides = [1, 4]} : (tensor<1x1x480x2x!quant.uniform<u8:f32, 0.034579548984766006:125>>, tensor<32x1x7x2x!quant.uniform<i8:f32, 0.051385276019573212>>, tensor<32x!quant.uniform<i32:f32, 0.0017768796533346176>>) -> tensor<1x1x120x32x!quant.uniform<u8:f32, 0.15860266983509064:133>>
+    %861 = "onnx.Transpose"(%860) {ResultNames = ["Conv_QuantizeLinear_Output"], perm = [0, 3, 1, 2]} : (tensor<1x1x120x32x!quant.uniform<u8:f32, 0.15860266983509064:133>>) -> tensor<1x32x1x120x!quant.uniform<u8:f32, 0.15860266983509064:133>>
+  
+    %862 = quant.scast %861 : tensor<1x32x1x120x!quant.uniform<u8:f32, 0.15860266983509064:133>> to tensor<1x32x1x120xui8>
+    %866 = quant.scast %862 : tensor<1x32x1x120xui8> to tensor<1x32x1x120x!quant.uniform<u8:f32, 0.1946694403886795:126>>
+    %863 = "onnx.QuantizeLinear"(%arg17, %222, %110) {ResultNames = ["input_QuantizeLinear_Output"], axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<1x8x120x32xf32>, tensor<f32>, tensor<ui8>) -> tensor<1x8x120x32xui8>
+    %864 = quant.scast %863 : tensor<1x8x120x32xui8> to tensor<1x8x120x32x!quant.uniform<u8:f32, 0.1946694403886795:126>>
+    %865 = "onnx.Transpose"(%864) {ResultNames = ["Transpose_QuantizeLinear_Output"], perm = [0, 3, 1, 2]} : (tensor<1x8x120x32x!quant.uniform<u8:f32, 0.1946694403886795:126>>) -> tensor<1x32x8x120x!quant.uniform<u8:f32, 0.1946694403886795:126>>
+    %867 = "onnx.Concat"(%865, %866) {ResultNames = ["Concat_QuantizeLinear_Output"], axis = 2 : si64} : (tensor<1x32x8x120x!quant.uniform<u8:f32, 0.1946694403886795:126>>, tensor<1x32x1x120x!quant.uniform<u8:f32, 0.1946694403886795:126>>) -> tensor<1x32x9x120x!quant.uniform<u8:f32, 0.1946694403886795:126>>
+
+    %989 = "onnx.Transpose"(%861) {ResultNames = ["output_QuantizeLinear_Output"], perm = [0, 2, 3, 1]} : (tensor<1x32x1x120x!quant.uniform<u8:f32, 0.15860266983509064:133>>) -> tensor<1x1x120x32x!quant.uniform<u8:f32, 0.15860266983509064:133>>
+    %990 = quant.scast %989 : tensor<1x1x120x32x!quant.uniform<u8:f32, 0.15860266983509064:133>> to tensor<1x1x120x32xui8>
+    %991 = "onnx.DequantizeLinear"(%990, %219, %156) {ResultNames = ["output"], axis = 1 : si64, block_size = 0 : si64} : (tensor<1x1x120x32xui8>, tensor<f32>, tensor<ui8>) -> tensor<1x1x120x32xf32>
+
+    return %991, %867: tensor<1x1x120x32xf32>, tensor<1x32x9x120x!quant.uniform<u8:f32, 0.1946694403886795:126>>
+}
+
+// CHECK-LABEL: @transpose_removal_at_graph_exit
+// CHECK: onnx.XFEConv
+// CHECK-SAME: ResultNames = ["output_QuantizeLinear_Output"]
