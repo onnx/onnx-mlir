@@ -38,6 +38,7 @@ void addXmcMlirPasses(mlir::OpPassManager &pm, OnnxToMlirOptions opts) {
       onnx_mlir::createTransferResizeLinearToDwConv());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvWithBiasPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createRemoveRedundantReshapePass());
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceQDQReductionPass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createTransferReduceMeanSumToConvPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createLowerReduceToPoolPass());
@@ -113,10 +114,9 @@ void addXmcMlirPasses(mlir::OpPassManager &pm, OnnxToMlirOptions opts) {
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createFuseConvActivationPass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createNormalizeConvActivationPass());
-  // Move ReduceSum/ReduceMean on non-last axis to last-axis reduction via a
-  // transpose-sandwich (or a W-dim reshape for degenerate rank-3).
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createTransferReduceHdimToReduceCdimPass());
+  // pm.addNestedPass<func::FuncOp>(
+  //     onnx_mlir::createTransferReduceHdimToReduceCdimPass());
+
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createConvertSCastPairToRequantizePass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());

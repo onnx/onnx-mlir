@@ -379,20 +379,6 @@ struct LowerReduceMeanToAvgPoolPattern
 
     SmallVector<int64_t> axes = *axesResult;
 
-    // Defer to TransferReduceHdimToReduceCdimPass for single-axis reductions
-    // it can shape into a C-axis reduction (transpose-sandwich form, matching
-    // xmodel's convention).  Keeping these as ReduceMean lets the shaping
-    // pass insert the cleaner `transpose -> reduce -> transpose` instead of
-    // `transpose -> reshape -> transpose -> AvgPool`.  Keep the condition in
-    // sync with TransferReduceHdimToReduceCdimPass.cpp.
-    if (axes.size() == 1 && reduceOp.getKeepdims() != 0) {
-      int64_t axis = axes[0];
-      if ((rank == 4 && axis == 1) ||
-          (rank == 3 && axis == 1 && inputShape[2] == 1))
-        return failure();
-    }
-
-    // Only support spatial reduction for ReduceMean
     if (!areAxesValidForSpatialPooling(axes, rank)) {
       return failure();
     }
@@ -685,19 +671,8 @@ struct LowerReduceSumToAvgPoolPattern
 
     SmallVector<int64_t> axes = *axesResult;
 
-    // Defer to TransferReduceHdimToReduceCdimPass for single-axis reductions
-    // it can shape into a C-axis reduction (transpose-sandwich form, matching
-    // xmodel's convention).  Keeping these as ReduceSum lets the shaping
-    // pass insert the cleaner `transpose -> reduce -> transpose` instead of
-    // `transpose -> reshape -> transpose -> AvgPool -> Mul(count)`.  Keep the
-    // condition in sync with TransferReduceHdimToReduceCdimPass.cpp.
-    if (axes.size() == 1 && reduceOp.getKeepdims() != 0) {
-      int64_t axis = axes[0];
-      if ((rank == 4 && axis == 1) ||
-          (rank == 3 && axis == 1 && inputShape[2] == 1))
-        return failure();
-    }
-
+    // Spatial reduction only.  Channel-axis (axis=1) is rejected here and
+    // handled by TransferReduceMeanSumToConvPass instead.
     if (!areAxesValidForSpatialPooling(axes, rank)) {
       return failure();
     }
