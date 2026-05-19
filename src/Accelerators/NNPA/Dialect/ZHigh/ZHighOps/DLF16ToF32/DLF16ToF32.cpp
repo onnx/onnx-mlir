@@ -25,17 +25,18 @@ namespace {
 // when it meets zhigh.F32ToDLF16.
 //===----------------------------------------------------------------------===//
 template <typename ONNX_OP>
-class DelayDLF16ToF32Pattern : public ::mlir::OpRewritePattern<ONNX_OP> {
+class DelayDLF16ToF32Pattern : public OpRewritePattern<ONNX_OP> {
 public:
-  using ::mlir::OpRewritePattern<ONNX_OP>::OpRewritePattern;
+  using OpRewritePattern<ONNX_OP>::OpRewritePattern;
 
-  ::llvm::LogicalResult matchAndRewrite(
-      ONNX_OP onnxOp, ::mlir::PatternRewriter &rewriter) const override {
-    ::mlir::Operation *op = onnxOp.getOperation();
+  LogicalResult matchAndRewrite(
+      ONNX_OP onnxOp, PatternRewriter &rewriter) const override {
+    Operation *op = onnxOp.getOperation();
+
     // Match: ONNX_Op (ZHighDLF16ToF32Op X), args, attrs
-    ::mlir::Value onnxInput = op->getOperands()[0];
-    ::onnx_mlir::zhigh::ZHighDLF16ToF32Op dlf16ToF32Op =
-        onnxInput.getDefiningOp<::onnx_mlir::zhigh::ZHighDLF16ToF32Op>();
+    Value onnxInput = op->getOperand(0);
+    zhigh::ZHighDLF16ToF32Op dlf16ToF32Op =
+        onnxInput.getDefiningOp<zhigh::ZHighDLF16ToF32Op>();
     if (!dlf16ToF32Op)
       return failure();
     Value X = dlf16ToF32Op.getOperand();
@@ -50,9 +51,8 @@ public:
     clonedONNXOp->setOperand(0, X);
     for (int64_t i = 0; i < op->getNumResults(); ++i) {
       // Set elementType of the cloned op to f16.
-      ShapedType f16Type =
-          ::mlir::dyn_cast<::mlir::ShapedType>(op->getResult(i).getType())
-              .clone(rewriter.getF16Type());
+      ShapedType f16Type = dyn_cast<ShapedType>(op->getResult(i).getType())
+                               .clone(rewriter.getF16Type());
       clonedONNXOp->getResult(i).setType(f16Type);
     }
 
@@ -67,7 +67,7 @@ public:
     }
 
     rewriter.replaceOp(onnxOp, newResults);
-    return ::mlir::success();
+    return success();
   }
 };
 } // end anonymous namespace
