@@ -209,6 +209,9 @@ public:
       auto replOp = rewriter.create<quant::StorageCastOp>(
           binLoc, outType.clone(newQType), scast);
       rewriter.replaceOp(binOp, replOp);
+      // Since we fold DQ -> Bin -> Q -> DQ into DQ, we should not be
+      // propagating the ResultNames of Q
+      replOp->removeAttr("ResultNames");
     }
 
     return success();
