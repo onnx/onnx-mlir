@@ -594,6 +594,8 @@ func.func @test_clip_max_and_min() -> tensor<3x2xbf16> {
   // CHECK-NOT: {{.*}} = "onnx.Clip"
 }
 
+// -----
+
 // CHECK-LABEL:  func @test_clip_no_min
 func.func @test_clip_no_min() -> tensor<3x2xbf16> {
   // Test Positive Clamped, Negative Clamped, In range, NaN, -Inf,  +Inf
@@ -605,6 +607,8 @@ func.func @test_clip_no_min() -> tensor<3x2xbf16> {
   // CHECK: {{.*}} = onnx.Constant dense<{{.}}[2.000000e+00, -2.125000e+00], [0.000000e+00, 0x7FC0], [-3.389530e+38, 2.000000e+00]]>
   // CHECK-NOT: {{.*}} = "onnx.Clip"
 }
+
+// -----
 
 // CHECK-LABEL:  func @test_clip_no_max
 func.func @test_clip_no_max() -> tensor<3x2xbf16> {
@@ -618,6 +622,8 @@ func.func @test_clip_no_max() -> tensor<3x2xbf16> {
   // CHECK-NOT: {{.*}} = "onnx.Clip"
 }
 
+// -----
+
 // CHECK-LABEL:  func @test_clip_no_min_no_max
 func.func @test_clip_no_min_no_max() -> tensor<3x2xbf16> {
   // Test Positive Clamped, Negative Clamped, In range, NaN, -Inf,  +Inf
@@ -628,6 +634,8 @@ func.func @test_clip_no_min_no_max() -> tensor<3x2xbf16> {
   // CHECK: {{.*}} = onnx.Constant dense<{{.}}[2.125000e+00, -2.125000e+00], [0.000000e+00, 0x7FC0], [-3.389530e+38, 3.389530e+38]]>
   // CHECK-NOT: {{.*}} = "onnx.Clip"
 }
+
+// -----
 
 // ONNX Specification does define what happens when min > max.
 // Use numpy's specification as discussed in https://github.com/onnx/onnx/issues/6165
@@ -643,6 +651,8 @@ func.func @test_clip_min_greater_than_max1() -> tensor<3x2xbf16> {
   // CHECK-NOT: {{.*}} = "onnx.Clip"
 }
 
+// -----
+
 // CHECK-LABEL:  func @test_clip_min_greater_than_max2
 func.func @test_clip_min_greater_than_max2() -> tensor<3x2xi32> {
   %cst = onnx.Constant dense<[[0, 1], [2, 3], [4, 5]]> : tensor<3x2xi32>
@@ -653,7 +663,6 @@ func.func @test_clip_min_greater_than_max2() -> tensor<3x2xi32> {
   // CHECK: {{.*}} = onnx.Constant dense<1>
   // CHECK-NOT: {{.*}} = "onnx.Clip"
 }
-
 
 // -----
 
@@ -732,6 +741,9 @@ func.func @test_and() -> tensor<3xi1> {
   // CHECK-NOT: "onnx.And"{{.*}}
 }
 
+// -----
+
+
 // CHECK-LABEL: @test_and2() -> tensor<3xi1>
 func.func @test_and2() -> tensor<3xi1> {
   %0 = onnx.Constant dense<[true, true, false]> : tensor<3xi1>
@@ -741,6 +753,9 @@ func.func @test_and2() -> tensor<3xi1> {
   // CHECK: onnx.Constant dense<[false, true, false]>
   // CHECK-NOT: "onnx.And"{{.*}}
 }
+
+// -----
+
 
 // CHECK-LABEL: @test_and3() -> tensor<3xi1>
 func.func @test_and3() -> tensor<3xi1> {
@@ -752,6 +767,9 @@ func.func @test_and3() -> tensor<3xi1> {
   // CHECK-NOT: "onnx.And"{{.*}}
 }
 
+// -----
+
+
 // CHECK-LABEL: @test_or() -> tensor<3xi1>
 func.func @test_or() -> tensor<3xi1> {
   %0 = onnx.Constant dense<[true, true, false]> : tensor<3xi1>
@@ -761,6 +779,9 @@ func.func @test_or() -> tensor<3xi1> {
   // CHECK: onnx.Constant dense<true>
   // CHECK-NOT: "onnx.Or"{{.*}}
 }
+
+// -----
+
 
 // CHECK-LABEL: @test_or2() -> tensor<3xi1>
 func.func @test_or2() -> tensor<3xi1> {
@@ -772,6 +793,9 @@ func.func @test_or2() -> tensor<3xi1> {
   // CHECK-NOT: "onnx.Or"{{.*}}
 }
 
+// -----
+
+
 // CHECK-LABEL: @test_xor() -> tensor<3xi1>
 func.func @test_xor() -> tensor<3xi1> {
   %0 = onnx.Constant dense<[true, true, false]> : tensor<3xi1>
@@ -781,6 +805,9 @@ func.func @test_xor() -> tensor<3xi1> {
   // CHECK: onnx.Constant dense<[false, false, true]>
   // CHECK-NOT: "onnx.Xor"{{.*}}
 }
+
+// -----
+
 
 // CHECK-LABEL: @test_xor2() -> tensor<3xi1>
 func.func @test_xor2() -> tensor<3xi1> {
@@ -1969,6 +1996,8 @@ func.func @test_pad() -> tensor<*xf32> {
 // CHECK:         }
 }
 
+// -----
+
 func.func @test_pad_rank0() -> tensor<*xf32> {
   %data = onnx.Constant dense<3.14> : tensor<f32>
   %pads = onnx.Constant dense<[]> : tensor<0xi64>
@@ -1982,6 +2011,8 @@ func.func @test_pad_rank0() -> tensor<*xf32> {
 // CHECK:           onnx.Return [[VAR_0_]] : tensor<f32>
 // CHECK:         }
 }
+
+// -----
 
 func.func @test_pad_empty() -> tensor<*xf16> {
   %data = onnx.Constant dense<[[], []]> : tensor<2x0xf16>
@@ -1997,6 +2028,8 @@ func.func @test_pad_empty() -> tensor<*xf16> {
 // CHECK:           onnx.Return [[VAR_0_]] : tensor<3x1xf16>
 // CHECK:         }
 }
+
+// -----
 
 // pad const prop doesn't support edge mode
 func.func @test_pad_edge() -> tensor<*xf16> {

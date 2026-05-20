@@ -130,6 +130,9 @@ func.func @qlinearmatmul_i8_f32(%arg0: tensor<16x32xi8>, %arg1: tensor<1xf32>, %
 // CHECK:         }
 }
 
+// -----
+
+
 //-----
 
 func.func @qlinearmatmul_ui8_f32(%arg0: tensor<16x32xui8>, %arg1: tensor<1xf32>, %arg2: tensor<1xui8>, %arg3: tensor<32x64xui8>, %arg4: tensor<1xf32>, %arg5: tensor<1xui8>, %arg6: tensor<1xf32>, %arg7: tensor<1xui8>) -> (tensor<16x64xui8>) {

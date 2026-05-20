@@ -58,8 +58,8 @@ def print_usage(error_msg="", options=False, usage=False, file_format=False):
         dprint("")
     if file_format:
         dprint("File format for input list-test files:")
-        dprint(' * A single "// RUN:" comment')
-        dprint(' * A "// -----" comment')
+        dprint(' * One or more "// RUN:" comment')
+        dprint(' * Optional "// -----" separator before first function')
         dprint(' * Subsequent functions separated by a "// -----" comment')
         dprint("")
     if usage:
@@ -441,6 +441,7 @@ def main(argv):
     run_command_num = 0
     fct_between_delimiters = 0
     found_fct_to_fix = False
+    first_segment = True
     # Scan file and write info into segment database.
     for line in open(lit_test_filename, "r"):
         # Handle segments.
@@ -453,6 +454,7 @@ def main(argv):
             segment_mlir2FileCheck_command.append(curr_segment_mlir2FileCheck_command)
             curr_segment_mlir2FileCheck_command = ""
             fct_between_delimiters = 0
+            first_segment = False
         else:
             # Not a new segment, append line to current segment.
             l = line.rstrip()
@@ -490,7 +492,8 @@ def main(argv):
         m = re.match(r"\s*func.*@(\w+)\(", line)
         if m is not None:
             curr_segment_fct_name = m.group(1)
-            if fct_between_delimiters > 0:
+            # Allow multiple functions only in the first segment (before any separator).
+            if fct_between_delimiters > 0 and not first_segment:
                 print_usage(
                     f'Got too many function bodies between "// -----" command starting with {curr_segment_fct_name}',
                     file_format=True,
@@ -511,9 +514,16 @@ def main(argv):
     segment_mlir2FileCheck_command.append(curr_segment_mlir2FileCheck_command)
 
     # Make sure we got what we were waiting for.
-    if len(segment_text) < 2:
+    if len(segment_text) < 1:
         print_usage(
-            'Expected at least 2 segments (text between "// -----"): one for RUN command and one for a function.',
+            'Expected at least 1 segment with a RUN command and a function.',
+            options=False,
+        )
+    # Check if we have at least one function.
+    has_function = any(name for name in segment_fct_name if name)
+    if not has_function:
+        print_usage(
+            'Expected at least one function in the file.',
             options=False,
         )
     dprint(f"//   File uses the following prefix(es): {', '.join(prefix_ordered_list)}")
@@ -525,9 +535,11 @@ def main(argv):
 
     # Process segments.
     dprint(f'// File runs "{run_command}" ')
-    if has_repair:
+    # Determine starting index: if first segment has a function, start from 0; otherwise start from 1.
+    start_idx = 0 if segment_fct_name[0] else 1
+    if has_repair and start_idx == 1:
         emit_unmodified_segment(0)
-    for i in range(1, len(segment_text)):
+    for i in range(start_idx, len(segment_text)):
         if has_fct:
             if segment_fct_name[i] == fix_fct_name:
                 # We have the selected function.

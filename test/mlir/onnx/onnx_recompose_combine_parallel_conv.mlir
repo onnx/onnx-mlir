@@ -1,6 +1,5 @@
 // RUN: onnx-mlir  --useOnnxModelTypes=false --disable-conv-to-matmul --EmitONNXIR --printIR %s | FileCheck %s
 
-
 // -----
 
 func.func @test_conv_concat_simple(%arg0: tensor<1x1x512x512xf32>) -> tensor<1x64x512x512xf32> {
@@ -23,7 +22,6 @@ func.func @test_conv_concat_simple(%arg0: tensor<1x1x512x512xf32>) -> tensor<1x6
   // CHECK-SAME:     : (tensor<1x1x512x512xf32>, tensor<64x1x3x3xf32>, tensor<64xf32>) -> tensor<1x64x512x512xf32>
   // CHECK-NEXT:     return [[VAR_2_]] : tensor<1x64x512x512xf32>
 }
-
 
 // -----
 
@@ -60,7 +58,6 @@ func.func @test_conv_concat_complex(%arg0: tensor<1x1x512x512xf32>) -> tensor<1x
   // CHECK-NEXT:     return [[VAR_2_]] : tensor<1x192x512x512xf32>
 }
 
-
 // -----
 
 func.func @test_conv_concat_fail(%arg0: tensor<1x3x64x64xf32>) -> tensor<1x64x66x66xf32> {
@@ -89,7 +86,6 @@ func.func @test_conv_concat_fail(%arg0: tensor<1x3x64x64xf32>) -> tensor<1x64x66
   // CHECK:     [[VAR_6_:%.+]] = "onnx.Concat"([[VAR_3_]], [[VAR_4_]], [[VAR_5_]])
   // CHECK-NEXT:     return [[VAR_6_]] : tensor<1x64x66x66xf32>
 }
-
 
 // -----
 
