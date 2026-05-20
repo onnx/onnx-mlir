@@ -1,6 +1,7 @@
 // Copyright (C) 2022 - 2025 Advanced Micro Devices, Inc. All rights reserved.
 
 #include <deque>
+#include <iterator>
 #include <memory>
 #include <unordered_set>
 
@@ -10,6 +11,7 @@
 #include <mlir/IR/Value.h>
 #include <mlir/Pass/Pass.h>
 #include <mlir/Support/LLVM.h>
+#include <mlir/Transforms/GreedyPatternRewriteDriver.h>
 
 #include "src/Dialect/ONNX/TensorName.hpp"
 #include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
@@ -56,11 +58,20 @@ void inferTensorNames(ValueRange replOperands) {
   } while (workList.size() > 0 && wlen > workList.size());
 }
 
+bool hasNameAndManyUses(Value value) {
+  auto numUses = std::distance(value.use_begin(), value.use_end());
+  return TensorName(value) && numUses > 1;
+}
+
 } // namespace
 
 void ResultNamesUpdater::notifyOperationReplaced(
     Operation *op, Operation *replacement) {
   if (!op->hasAttrOfType<ArrayAttr>("ResultNames"))
+    return;
+
+  // If replacements have existing name and many uses, don't update ResultNames
+  if (llvm::any_of(replacement->getResults(), hasNameAndManyUses))
     return;
 
   // First, copy the ResultNames attribute for the last value
@@ -78,11 +89,12 @@ void ResultNamesUpdater::notifyOperationReplaced(
 
   // If the op is replaced by a single op, use the simpler method
   if (Operation *replSingleOp = replacement.front().getDefiningOp();
-      replSingleOp &&
-      llvm::all_of(replacement, [replSingleOp](Value value) -> bool {
-        return value.getDefiningOp() == replSingleOp;
-      }))
+      replSingleOp && replSingleOp->getResults() == replacement)
     return notifyOperationReplaced(op, replSingleOp);
+
+  // If replacements have existing name and many uses, don't update ResultNames
+  if (llvm::any_of(replacement, hasNameAndManyUses))
+    return;
 
   // First, copy the ResultNames attribute for the last value
   auto resultNamesArray = op->getAttrOfType<ArrayAttr>("ResultNames");
@@ -129,6 +141,41 @@ public:
 
 std::unique_ptr<mlir::Pass> createInferTensorNames() {
   return std::make_unique<InferTensorNamesPass>();
+}
+
+// Canonicalizer that attaches a ResultNamesUpdater listener so that
+// ResultNames attributes survive op replacements during canonicalization.
+struct CanonicalizeWithResultNamesPass
+    : public mlir::PassWrapper<CanonicalizeWithResultNamesPass,
+          mlir::OperationPass<func::FuncOp>> {
+
+  llvm::StringRef getArgument() const override {
+    return "canonicalize-with-rn";
+  }
+
+  llvm::StringRef getDescription() const override {
+    return "Canonicalizer pass that preserves ResultNames attributes";
+  }
+
+  void runOnOperation() override {
+    auto *ctx = &getContext();
+    mlir::RewritePatternSet patterns(ctx);
+    for (auto *dialect : ctx->getLoadedDialects())
+      dialect->getCanonicalizationPatterns(patterns);
+    for (auto regOp : ctx->getRegisteredOperations())
+      regOp.getCanonicalizationPatterns(patterns, ctx);
+
+    GreedyRewriteConfig config;
+    ResultNamesUpdater rnUpdater;
+    config.listener = &rnUpdater;
+    if (failed(
+            applyPatternsGreedily(getOperation(), std::move(patterns), config)))
+      return signalPassFailure();
+  }
+};
+
+std::unique_ptr<Pass> createCanonicalizeWithResultNamesPass() {
+  return std::make_unique<CanonicalizeWithResultNamesPass>();
 }
 
 } // namespace onnx_mlir

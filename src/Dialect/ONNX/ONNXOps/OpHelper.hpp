@@ -10,10 +10,15 @@
 //
 // This file contains helper functions for lowering ONNX ops to Krnl Dialect.
 //
+// Modifications (c) Copyright 2026 Advanced Micro Devices, Inc. or its
+// affiliates
+//
 //===----------------------------------------------------------------------===//
 
 #ifndef ONNX_MLIR_OPS_HELPER_H
 #define ONNX_MLIR_OPS_HELPER_H
+
+#include <optional>
 
 #include "mlir/Dialect/Quant/IR/QuantTypes.h"
 #include "mlir/Dialect/Traits.h"
@@ -194,6 +199,16 @@ mlir::ONNXConstantOp getONNXConstantOp(mlir::Value value);
 bool getI64ValuesFromONNXConstantOp(
     mlir::Value val, mlir::SmallVectorImpl<int64_t> &iRes);
 
+// Read a single-element i64 ONNX constant `v` into `out`. Returns false if
+// the value is not a 1-element i64 constant.
+[[nodiscard]] bool extractI64Scalar(mlir::Value v, int64_t &out);
+
+// Destructure a single-axis onnx.Slice into (axis, start, end, step). Returns
+// false if any of starts/ends/axes/steps is not a single-element i64 constant
+// or if axes/steps were NoneType.
+[[nodiscard]] bool extractSlice1DConst(mlir::ONNXSliceOp sliceOp, int64_t &axis,
+    int64_t &start, int64_t &end, int64_t &step);
+
 // Test if the value is none. Since none is a unit value it never makes a
 // difference whether it's a constant (the result of ONNXNoneOp) or the
 // optional result of some other op (e.g. ONNXDropoutOp mask result).
@@ -262,7 +277,10 @@ mlir::ArrayAttr createArrayAttrFromConstantOp(mlir::ONNXConstantOp constOp);
 // Check whether a value is produced by a dense ONNXConstantOp.
 bool isDenseONNXConstant(mlir::Value result);
 
-// Get scalar value when it is a constant.
+// Get scalar value when it is a constant. If \p type is a shaped type whose
+// element type is `!quant.uniform<...>`, reads storage from \p denseAttr and
+// returns the expressed value `(storage - zp) * scale` (dense storage element
+// type must match the quant type's storage type).
 template <typename RESULT_TYPE>
 RESULT_TYPE getScalarValue(mlir::ElementsAttr denseAttr, mlir::Type type);
 
@@ -274,6 +292,10 @@ WideNum asWideNum(double n, mlir::Type elemType);
 
 /// Checks whether a constant tensor's elements are all equal to a given scalar.
 bool isConstOf(mlir::Value constValue, double n);
+
+/// True if \p attr is non-null and its numeric value differs from \p expected
+/// by at most \p epsilon (using \p attr's value converted to double).
+bool isFloatAttrApprox(mlir::FloatAttr attr, double expected, double epsilon);
 
 mlir::Type convertONNXTypeToMLIRType(
     mlir::Builder &builder, onnx::TensorProto_DataType onnxType);
@@ -472,6 +494,13 @@ bool isIdentityReshape(mlir::Value input, mlir::Value output,
 
 bool isDequantQuantSame(
     mlir::ONNXDequantizeLinearOp dqOp, mlir::ONNXQuantizeLinearOp qOp);
+
+/// Return true if the (element) type carries a `quant::QuantizedType`.
+/// Convenient for guarding rewrite patterns that are not valid on quantized
+/// values. Accepts either a raw `Type` (in which case `getElementTypeOrSelf`
+/// is applied) or a `Value` (whose type is inspected the same way).
+bool hasQuantizedElementType(mlir::Type type);
+bool hasQuantizedElementType(mlir::Value value);
 //===----------------------------------------------------------------------===//
 // Support for location.
 //===----------------------------------------------------------------------===//

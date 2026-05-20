@@ -59,14 +59,14 @@ def XCOMPILERFusedEltwiseOp:ONNX_Op<"XCOMPILERFusedEltwise",
   [Pure, OpVersionTrait<1>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "FusedEltwise operation";
   let description = [{
-  Quantized element-wise operation supporting arithmetic, trigonometric, activation, and comparision elementwise functions. Few eltwise ops support fusion with an optional activation.  Attributes: type specifies the element-wise operation (ADD, MUL, SUB, DIV, TANH, SQRT, etc); nonlinear specifies optional activation (NONE, RELU, LEAKYRELU); leakyrelu_alpha is the original LeakyReLU alpha; prelu_in is the fixed-point multiplier M for LeakyReLU (M/2^N); prelu_shift is the fixed-point shift N for LeakyReLU, clip_min is minimum value, under which element is replaced by min, clip_max is maximum value, over which element is replaced by max, nonlinear_in_qscales is the quantization scales for the input of the nonlinear activation, nonlinear_in_zeropoints is the quantization zero points for the input of the nonlinear activation.
+  Quantized element-wise operation supporting arithmetic, trigonometric, activation, and comparision elementwise functions. Few eltwise ops support fusion with an optional activation.  Attributes: type specifies the element-wise operation (ADD, MUL, SUB, DIV, TANH, SQRT, etc); nonlinear specifies optional activation (NONE, RELU, LEAKYRELU); leakyrelu_alpha is the original LeakyReLU alpha; prelu_in is the fixed-point multiplier M for LeakyReLU (M/2^N); prelu_shift is the fixed-point shift N for LeakyReLU, min is minimum value, under which element is replaced by min, max is maximum value, over which element is replaced by max, nonlinear_in_qscales is the quantization scales for the input of the nonlinear activation, nonlinear_in_zeropoints is the quantization zero points for the input of the nonlinear activation.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[quant_QuantizedType]>]>:$A,
     AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, NoneType, TensorOf<[quant_QuantizedType]>]>:$B,
-    OptionalAttr<SI64Attr>:$clip_max,
-    OptionalAttr<SI64Attr>:$clip_min,
     DefaultValuedAttr<BoolAttr, "false">:$enable_lut_sigmoid,
     OptionalAttr<F32Attr>:$leakyrelu_alpha,
+    OptionalAttr<I32Attr>:$max,
+    OptionalAttr<I32Attr>:$min,
     OptionalAttr<F32Attr>:$mul_y,
     DefaultValuedStrAttr<StrAttr, "NONE">:$nonlinear,
     OptionalAttr<F32Attr>:$nonlinear_in_scales,
@@ -103,12 +103,12 @@ def XCOMPILERRequantizeOp:ONNX_Op<"XCOMPILERRequantize",
   let description = [{
   Converts a quantized tensor from one quantization scheme (scale_in, zero_point_in) to another (scale_out, zero_point_out) without going through floating-point intermediate representation. Mathematical definition: q_out = round((q_in - zp_in) * (s_in / s_out)) + zp_out. This is a single fused operation that conceptually dequantizes and requantizes, all done in integer arithmetic with scaling factors. Attributes: a_scale and a_zero_point define the input quantization parameters; y_scale and y_zero_point define the output quantization parameters.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[quant_QuantizedType]>]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F32]>, TensorOf<[quant_QuantizedType]>, TensorOf<[quant_QuantizedType]>]>:$X,
     F32ArrayAttr:$a_scale,
     I64ArrayAttr:$a_zero_point,
     F32ArrayAttr:$y_scale,
     I64ArrayAttr:$y_zero_point);
-  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[quant_QuantizedType]>]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F32]>, TensorOf<[quant_QuantizedType]>, TensorOf<[quant_QuantizedType]>]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -117,7 +117,7 @@ def XCOMPILERRequantizeOp:ONNX_Op<"XCOMPILERRequantize",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {30};
+      return {-1};
     }
   }];
   let extraClassDefinition = [{

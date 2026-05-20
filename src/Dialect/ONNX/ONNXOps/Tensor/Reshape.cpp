@@ -10,6 +10,9 @@
 //
 // This file provides definition of ONNX dialect Reshape operation.
 //
+// Modifications (c) Copyright 2026 Advanced Micro Devices, Inc. or its
+// affiliates
+//
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
@@ -32,13 +35,22 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
 
   // Get info about input data operand.
   Value data = operandAdaptor.getData();
-  int64_t dataRank = mlir::cast<ShapedType>(data.getType()).getShape().size();
+  // dataRank is 0 when data is unranked. Shape inference can still determine
+  // the output rank from the shape tensor size; dims that depend on data's
+  // actual dimensions (shape value 0, or the -1 wildcard) become dynamic.
+  const int64_t dataRank =
+      createIE->hasShapeAndRank(data)
+          ? mlir::cast<ShapedType>(data.getType()).getRank()
+          : 0;
 
   // Get info about shape operand.
   Value shape = operandAdaptor.getShape();
+  if (!createIE->hasShapeAndRank(shape))
+    return failure();
   int64_t outputRank = createIE->getShape(shape, 0);
-  assert(outputRank != ShapedType::kDynamic &&
-         "Shape tensor must have constant shape");
+  if (outputRank == ShapedType::kDynamic)
+    return failure(); // shape tensor size not yet known; retry after
+                      // propagation
 
   // Initialize context and results.
   outputDims.resize(outputRank);

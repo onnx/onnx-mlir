@@ -10,6 +10,9 @@
 //
 // This file provides definition of ONNX dialect Slice operation.
 //
+// Modifications (c) Copyright 2026 Advanced Micro Devices, Inc. or its
+// affiliates
+//
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
@@ -156,6 +159,9 @@ LogicalResult ONNXSliceOp::inferShapes(
   if (!hasShapeAndRank(getData()))
     return success();
 
+  if (!hasShapeAndRank(getStarts()))
+    return success();
+
   Value axes = getAxes();
   Value steps = getSteps();
 
@@ -164,37 +170,116 @@ LogicalResult ONNXSliceOp::inferShapes(
   if (!isNoneValue(axes) && !isConstLikeValue(axes))
     return success();
 
-  const auto startsType =
-      mlir::dyn_cast<RankedTensorType>(getStarts().getType());
-  assert(startsType != nullptr && "starts type is not a RankedTensorType");
-  auto startsDim = startsType.getShape()[0];
   {
     OpBuilder builder(this->getContext());
     OnnxBuilder createONNX(builder, this->getLoc());
-    const Type elementType = builder.getIntegerType(64);
-    const auto tensorType = RankedTensorType::get({startsDim}, elementType);
+    builder.setInsertionPoint(*this);
 
-    // If axes is not specified, default to [0, ..., ndim-1]
+    auto buildI64Const = [&](ArrayRef<int64_t> vals) -> Value {
+      auto ty = RankedTensorType::get(
+          {static_cast<int64_t>(vals.size())}, builder.getI64Type());
+      return createONNX.constant(DenseElementsAttr::get(ty, vals));
+    };
+
+    // Helper: return the static length of the starts tensor, or -1 if not
+    // yet known (unranked type or dynamic first dim).  Callers skip
+    // materialisation and let a later inferShapes round handle it.
+    auto getStartsLen = [&]() -> std::optional<int64_t> {
+      auto ty = mlir::dyn_cast<RankedTensorType>(getStarts().getType());
+      if (!ty)
+        return std::nullopt;
+      int64_t n = ty.getShape()[0];
+      return (n == ShapedType::kDynamic) ? std::nullopt
+                                         : std::optional<int64_t>(n);
+    };
+
+    // If axes is not specified, default to [0, ..., len(starts)-1].
     if (isNoneValue(axes)) {
-      SmallVector<int64_t, 1> vals = {};
-      for (size_t s = 0; s < static_cast<size_t>(startsDim); ++s)
-        vals.emplace_back(s);
-      auto constantDenseAttribute =
-          DenseElementsAttr::get(tensorType, llvm::ArrayRef(vals));
-      builder.setInsertionPoint(*this);
-      Value constantResult = createONNX.constant(constantDenseAttribute);
-      this->setOperand(3, constantResult);
+      auto maybeN = getStartsLen();
+      if (!maybeN)
+        return success(); // starts shape not yet known; retry later
+      int64_t n = *maybeN;
+      SmallVector<int64_t> vals;
+      for (int64_t s = 0; s < n; ++s)
+        vals.push_back(s);
+      this->setOperand(3, buildI64Const(vals));
     }
 
-    // If steps is not specified, default to [1, ..., 1]
+    // If steps is not specified, default to [1, ..., 1] (same length as
+    // starts).
     if (isNoneValue(steps)) {
-      SmallVector<int64_t, 1> vals(startsDim, 1);
-      auto constantDenseAttribute =
-          DenseElementsAttr::get(tensorType, llvm::ArrayRef(vals));
-      builder.setInsertionPoint(*this);
-      Value constantResult = createONNX.constant(constantDenseAttribute);
-      this->setOperand(4, constantResult);
+      auto maybeN = getStartsLen();
+      if (!maybeN)
+        return success(); // starts shape not yet known; retry later
+      int64_t n = *maybeN;
+      SmallVector<int64_t> vals(n, 1);
+      this->setOperand(4, buildI64Const(vals));
     }
+
+    // Normalize axes to non-negative, and starts/ends steps. Ends are only
+    // normalized for positive steps. This runs after None axes/steps have been
+    // materialized above, so all four operands are now explicit constants.
+
+    auto canonicalize = [&]() {
+      const auto dataTy = mlir::dyn_cast<RankedTensorType>(getData().getType());
+      if (!dataTy || !dataTy.hasStaticShape()) {
+        return;
+      }
+      SmallVector<int64_t> axesVals, stepsVals, startsVals, endsVals;
+      if (!onnx_mlir::getI64ValuesFromONNXConstantOp(getAxes(), axesVals) ||
+          !onnx_mlir::getI64ValuesFromONNXConstantOp(getSteps(), stepsVals) ||
+          !onnx_mlir::getI64ValuesFromONNXConstantOp(getStarts(), startsVals) ||
+          !onnx_mlir::getI64ValuesFromONNXConstantOp(getEnds(), endsVals)) {
+        return;
+      }
+      const int64_t rank = dataTy.getRank();
+      const auto dataShape = dataTy.getShape();
+      const auto numAxes = static_cast<int64_t>(axesVals.size());
+      SmallVector<int64_t> newAxes(axesVals);
+      SmallVector<int64_t> newStarts(startsVals);
+      SmallVector<int64_t> newEnds(endsVals);
+
+      // A step of 0 is invalid
+      if (llvm::any_of(stepsVals, [](int64_t s) { return s == 0; })) {
+        return;
+      }
+
+      for (int64_t i = 0; i < numAxes; ++i) {
+        int64_t axis = newAxes[i];
+        if (axis < 0)
+          axis += rank;
+        if (axis < 0 || axis >= rank) {
+          return;
+        }
+        newAxes[i] = axis;
+
+        const int64_t step = stepsVals[i];
+        const int64_t dim = dataShape[axis];
+
+        auto wrapAndClamp = [dim](int64_t v) -> int64_t {
+          if (v < 0)
+            v = (v < -dim) ? 0 : v + dim;
+          return std::clamp<int64_t>(v, 0LL, dim);
+        };
+        const int64_t startHi =
+            (step > 0) ? dim : std::max<int64_t>(0, dim - 1);
+        newStarts[i] =
+            std::clamp<int64_t>(wrapAndClamp(newStarts[i]), 0, startHi);
+        if (step < 0)
+          continue; // skip end: negative-step -1 sentinel not
+                    // idempotent
+        newEnds[i] = wrapAndClamp(newEnds[i]);
+      }
+
+      if (newAxes != axesVals)
+        this->setOperand(3, buildI64Const(newAxes));
+      if (newStarts != startsVals)
+        this->setOperand(1, buildI64Const(newStarts));
+      if (newEnds != endsVals)
+        this->setOperand(2, buildI64Const(newEnds));
+    };
+
+    canonicalize();
   }
 
   Type elementType =

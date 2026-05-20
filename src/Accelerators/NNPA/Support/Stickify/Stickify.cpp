@@ -66,7 +66,7 @@ zdnn_status set_zdnn_status(zdnn_status status, const char *func_name,
 // Misc Macros
 // -----------------------------------------------------------------------------
 #define CEIL(a, b)                                                             \
-  static_cast<uint64_t>(((a) + (b)-1) / (b)) // positive numbers only
+  static_cast<uint64_t>(((a) + (b) - 1) / (b)) // positive numbers only
 #define MIN(a, b) (((a) > (b)) ? (b) : (a))
 #define MAX(a, b) (((a) < (b)) ? (b) : (a))
 #define BIT_SIZEOF(a) (sizeof(a) * 8)
@@ -897,7 +897,7 @@ zdnn_status transform_ztensor(const void *in_buf, zdnn_ztensor *ztensor) {
             // process each C-stick (i.e., every 64 elements or whatever
             // left in dim1)
             for (uint32_t e1x = 0; e1x < ztensor->transformed_desc->dim1;
-                 e1x += AIU_2BYTE_CELLS_PER_STICK) {
+                e1x += AIU_2BYTE_CELLS_PER_STICK) {
               // Prefetch to L1 newest offset to write that HW wouldn't
               // know about
 #if defined(__MVS__)
@@ -1082,7 +1082,7 @@ zdnn_status transform_ztensor(const void *in_buf, zdnn_ztensor *ztensor) {
           // process each K-stick (i.e., every 64 elements or whatever
           // left in dim1)
           for (uint32_t e1x = 0; e1x < ztensor->transformed_desc->dim1;
-               e1x += AIU_2BYTE_CELLS_PER_STICK) {
+              e1x += AIU_2BYTE_CELLS_PER_STICK) {
             // Prefetch (read) the next input buffer to be used. The HW should
             // "notice" our sequential accesses and continue them, so we won't
             // need to aggressively prefetch here.
@@ -1220,7 +1220,7 @@ zdnn_status transform_bidir_weight_ztensor(
       uint64_t out_offset_w = output_offset;
 
       for (uint32_t e1x = 0; e1x < ztensor->transformed_desc->dim1;
-           e1x += AIU_2BYTE_CELLS_PER_STICK) {
+          e1x += AIU_2BYTE_CELLS_PER_STICK) {
 #if defined(__MVS__)
         __dcbtst(reinterpret_cast<void *>(
             reinterpret_cast<uintptr_t>(ztensor->buffer) + output_offset));
@@ -1555,7 +1555,7 @@ zdnn_status transform_quantized_weights_ztensor_element_wise(
 
       // W, sticks are processed in pairs
       for (uint32_t e2x = 0; e2x < output->transformed_desc->dim2;
-           e2x = e2x + 2) {
+          e2x = e2x + 2) {
 
         // used for pushing out_offset from w to w+1 (i.e., +
         // AIU_BYTES_PER_STICK)
@@ -1572,8 +1572,8 @@ zdnn_status transform_quantized_weights_ztensor_element_wise(
         // this C loop takes care of the full VECPERM_MAX_INT8_ENTRIES-entries
         // groups
         for (uint32_t i = 0;
-             i < output->transformed_desc->dim1 / VECPERM_MAX_INT8_ENTRIES;
-             i++) {
+            i < output->transformed_desc->dim1 / VECPERM_MAX_INT8_ENTRIES;
+            i++) {
           ((int8_t *)output->buffer + output_offset)[0] = stick1[0];
           ((int8_t *)output->buffer + output_offset)[1] = stick2[0];
           ((int8_t *)output->buffer + output_offset)[2] = stick1[1];
@@ -1609,8 +1609,8 @@ zdnn_status transform_quantized_weights_ztensor_element_wise(
 
         // takes care of the leftover c entries
         for (uint32_t i = 0;
-             i < output->transformed_desc->dim1 % VECPERM_MAX_INT8_ENTRIES;
-             i++) {
+            i < output->transformed_desc->dim1 % VECPERM_MAX_INT8_ENTRIES;
+            i++) {
           ((int8_t *)output->buffer + output_offset)[0] = stick1[i];
           ((int8_t *)output->buffer + output_offset)[1] = stick2[i];
 

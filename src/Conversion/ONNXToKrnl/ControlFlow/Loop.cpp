@@ -288,8 +288,8 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
           if (mlir::cast<MemRefType>(output.getType()).isDynamicDim(0))
             allocParams.emplace_back(create.mem.dim(output, 0));
           for (auto i = 0;
-               i < mlir::cast<MemRefType>(firstElement.getType()).getRank();
-               i++) {
+              i < mlir::cast<MemRefType>(firstElement.getType()).getRank();
+              i++) {
             dims.emplace_back(
                 mlir::cast<MemRefType>(firstElement.getType()).getShape()[i]);
             if (mlir::cast<MemRefType>(firstElement.getType()).isDynamicDim(i))

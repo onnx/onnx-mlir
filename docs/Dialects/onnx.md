@@ -42,6 +42,84 @@ Effects: `MemoryEffects::Effect{}`
 | :----: | ----------- |
 | `Y` | tensor of 32-bit float values or tensor of bfloat16 type values
 
+### `onnx.AMDQuarkExtendedQuantizeLinearOp` (AMDQuarkExtendedQuantizeLinearOp)
+
+_ExtendedQuantizeLinear_
+
+Extended quantization operator from AMD's Quark quantizer. Consumes a high-precision tensor, a scale, and a zero point to compute the low-precision/quantized tensor. The quantization formula is `y = saturate((x / scale) + zero_point)`.
+
+This operator extends the official ONNX QuantizeLinear operator by adding early support for uint16 and int16 quantization, along with additional support for bfloat16, float16, int32 and uint32. It enables floating-point quantization to deploy models on edge devices and wide-bit quantization to facilitate detailed analysis of accuracy bottlenecks.
+
+The scale factor and zero point must have the same shape, determining the quantization granularity: a scalar for per-tensor/per-layer quantization, or a 1-D tensor for per-axis/per-channel quantization. Saturation is applied according to the target data type's representable range.
+
+This is part of the `com.amd.quark` ONNX custom domain. See https://quark.docs.amd.com/latest/onnx/custom_operators/ExtendedQuantizeLinear.html.
+
+Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<1>`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>axis</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `x` | tensor of 32-bit float values or tensor of 16-bit float values or tensor of bfloat16 type values
+| `y_scale` | tensor of 32-bit float values or tensor of 16-bit float values or tensor of bfloat16 type values
+| `y_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit signless integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 32-bit unsigned integer values or tensor of 16-bit float values or tensor of bfloat16 type values or none type
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `y` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit signless integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 32-bit unsigned integer values or tensor of 16-bit float values or tensor of bfloat16 type values
+
+### `onnx.AMDQuarkExtendedDequantizeLinearOp` (AMDQuarkExtendedDequantizeLinearOp)
+
+_ExtendedDequantizeLinear_
+
+Extended dequantization operator from AMD's Quark quantizer. Consumes a quantized tensor, a scale, and a zero point to compute the full-precision tensor. The dequantization formula is `y = (x - zero_point) * scale`.
+
+This operator extends the official ONNX DequantizeLinear operator by adding early support for uint16 and int16 quantization, along with additional support for bfloat16, float16, and uint32. It enables floating-point quantization to deploy models on edge devices and wide-bit quantization to facilitate detailed analysis of accuracy bottlenecks.
+
+`x_scale` and `x_zero_point` must have the same shape, determining the quantization granularity: a scalar for per-tensor/per-layer dequantization, or a 1-D tensor for per-axis/per-channel dequantization. `x_zero_point` and `x` must have the same type. The output type is the same as `x_scale`.
+
+This is part of the `com.amd.quark` ONNX custom domain. See https://quark.docs.amd.com/latest/onnx/custom_operators/ExtendedDequantizeLinear.html.
+
+Traits: `AlwaysSpeculatableImplTrait`, `OpVersionTrait<1>`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>axis</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `x` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit signless integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 32-bit unsigned integer values or tensor of 16-bit float values or tensor of bfloat16 type values
+| `x_scale` | tensor of 32-bit float values or tensor of 16-bit float values or tensor of bfloat16 type values
+| `x_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit signless integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 32-bit unsigned integer values or tensor of 16-bit float values or tensor of bfloat16 type values or none type
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `y` | tensor of 32-bit float values or tensor of 16-bit float values or tensor of bfloat16 type values
+
 ### `onnx.Abs` (ONNXAbsOp)
 
 _ONNX Abs operation_

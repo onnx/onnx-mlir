@@ -67,7 +67,7 @@ public:
       llvm::cl::desc("instrument runtime reports memory usage"),
       llvm::cl::init(false)};
 
-  InstrumentPass() : allowedOps(/*emptyIsNone*/ true){};
+  InstrumentPass() : allowedOps(/*emptyIsNone*/ true) {};
   InstrumentPass(const InstrumentPass &pass)
       : mlir::PassWrapper<InstrumentPass, OperationPass<func::FuncOp>>(),
         allowedOps(/*emptyIsNone*/ true) {}

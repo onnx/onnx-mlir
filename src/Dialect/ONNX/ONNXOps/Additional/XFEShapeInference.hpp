@@ -66,4 +66,8 @@ LogicalResult XFEGroupNormalizationOpShapeInference(
 LogicalResult XFEResizeOpShapeInference(
     Operation *op, std::function<void(Region &)> doShapeInference);
 
+// Shape inference for GridSample
+LogicalResult XFEGridSampleOpShapeInference(
+    Operation *op, std::function<void(Region &)> doShapeInference);
+
 } // namespace mlir

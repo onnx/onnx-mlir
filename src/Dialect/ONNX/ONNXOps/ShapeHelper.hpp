@@ -103,6 +103,7 @@ struct ONNXUnimplementedOpShapeHelper : public ONNXOpShapeHelper {
 
 // clang-format off
 using ONNXCallOpShapeHelper = ONNXUnimplementedOpShapeHelper;
+using ONNXConcatFromSequenceOpShapeHelper = ONNXUnimplementedOpShapeHelper; // inferShapes implemented in Tensor/ConcatFromSequence.cpp
 using ONNXIfOpShapeHelper = ONNXUnimplementedOpShapeHelper; // Reason: recursive, Opt, Seq
 using ONNXLoopOpShapeHelper = ONNXUnimplementedOpShapeHelper; // Reason: recursive, Opt, Seq
 using ONNXOptionalGetElementOpShapeHelper = ONNXUnimplementedOpShapeHelper; // Reason: Opt, Seq
@@ -414,6 +415,8 @@ using ONNXTanhOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXThresholdedReluOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXTriluOpShapeHelper = ONNXUnaryOpShapeHelper;
 using AMDQuarkBFPQuantizeDequantizeOpShapeHelper = ONNXUnaryOpShapeHelper;
+using AMDQuarkExtendedQuantizeLinearOpShapeHelper = ONNXUnaryOpShapeHelper;
+using AMDQuarkExtendedDequantizeLinearOpShapeHelper = ONNXUnaryOpShapeHelper;
 // clang-format on
 
 //===----------------------------------------------------------------------===//
@@ -519,7 +522,7 @@ using ONNXGlobalMaxPoolOpShapeHelper = ONNXGenericGlobalPoolOpShapeHelper<mlir::
 struct ONNXSliceOpShapeHelper : public ONNXOpShapeHelper {
   ONNXSliceOpShapeHelper(mlir::Operation *op, mlir::ValueRange operands,
       IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
-      : ONNXOpShapeHelper(op, operands, ieBuilder, scope){};
+      : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {};
   virtual ~ONNXSliceOpShapeHelper() {}
   mlir::LogicalResult computeShape() final;
   // Additional data for SliceOp.

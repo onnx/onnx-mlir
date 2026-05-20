@@ -1,0 +1,33 @@
+// RUN: onnx-mlir --EmitONNXBasic --printIR %s | FileCheck %s
+
+// Verify that importGraph correctly handles a Loop body that captures a value
+// ('delta') defined in the outer graph.  This exercises buildNodeCaptures and
+// the outer-scope reference path in computeTopologicalOrder.
+//
+// Inside the body, 'delta' is not a body input — it is a free variable that
+// refers to the outer graph's second argument.  In the imported MLIR the body
+// block argument corresponding to 'delta' is the main-graph's %arg1.
+<
+   ir_version: 8,
+   opset_import: ["" : 13]
+>
+agraph (int64[1] trip_count, float[1] delta, float[1] v_initial) => (float[1] final_v) {
+   final_v = Loop (trip_count, , v_initial) <body: graph = loop_body_cap (int64 iter, bool cond_in, float[1] v_in) => (bool cond_out, float[1] v_out) {
+      v_out = Add (v_in, delta)
+      cond_out = Identity (cond_in)
+   }>
+}
+// CHECK-LABEL:  func.func @main_graph
+// CHECK-SAME:   ([[PARAM_trip_:%.+]]: tensor<1xi64> {{.*}}, [[PARAM_delta_:%.+]]: tensor<1xf32> {{.*}}, [[PARAM_vinit_:%.+]]: tensor<1xf32> {{.*}}) -> (tensor<1xf32> {{.*}}) {
+// CHECK-DAG:       [[VAR_none_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK:           [[VAR_res_:%.+]] = "onnx.Loop"([[PARAM_trip_]], [[VAR_none_]], [[PARAM_vinit_]]) ({
+// CHECK:           ^bb0([[ITER_:%.+]]: tensor<i64>, [[COND_:%.+]]: tensor<i1>, [[VIN_:%.+]]: tensor<1xf32>):
+// delta is captured from the outer scope: it appears as the main-graph
+// argument [[PARAM_delta_]] directly inside the body block.
+// CHECK:             [[VOUT_:%.+]] = "onnx.Add"([[VIN_]], [[PARAM_delta_]]) : (tensor<1xf32>, tensor<1xf32>) -> tensor<1xf32>
+// CHECK:             [[COUT_:%.+]] = "onnx.Identity"([[COND_]]) : (tensor<i1>) -> tensor<i1>
+// CHECK:             onnx.Yield [[COUT_]], [[VOUT_]] : tensor<i1>, tensor<1xf32>
+// CHECK:           }) {{.*}} : (tensor<1xi64>, none, tensor<1xf32>) -> tensor<1xf32>
+// CHECK:           onnx.Return [[VAR_res_]] : tensor<1xf32>
+// CHECK:         }
+// CHECK:         "onnx.EntryPoint"() {func = @main_graph} : () -> ()

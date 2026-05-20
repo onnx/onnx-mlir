@@ -6,6 +6,9 @@
 //
 // Copyright 2019-2024 The IBM Research Authors.
 //
+// Modifications (c) Copyright 2026 Advanced Micro Devices, Inc. or its
+// affiliates
+//
 // =============================================================================
 //
 // This file implements a set of rewriters to decompose an ONNX operation into
@@ -3283,8 +3286,12 @@ struct MicrosoftSkipSimplifiedLayerNorm : public CustomOpToOnnxOps {
 };
 
 struct MicrosoftGroupQueryAttention : public CustomOpToOnnxOps {
-  MicrosoftGroupQueryAttention(MLIRContext *ctx, PatternBenefit b = 1)
-      : CustomOpToOnnxOps(ctx, MicrosoftDomainName, "GroupQueryAttention", b) {}
+  MicrosoftGroupQueryAttention(
+      MLIRContext *ctx, bool enableCacheSlicing = true, PatternBenefit b = 1)
+      : CustomOpToOnnxOps(ctx, MicrosoftDomainName, "GroupQueryAttention", b),
+        enableCacheSlicing(enableCacheSlicing) {}
+
+  bool enableCacheSlicing;
 
   LogicalResult matchAndRewriteImpl(
       ONNXCustomOp customOp, PatternRewriter &rewriter) const final {
@@ -3343,6 +3350,21 @@ struct MicrosoftGroupQueryAttention : public CustomOpToOnnxOps {
       return rewriter.notifyMatchFailure(
           customOp, "expected 'query' input to have static type");
     assert(queryType.getRank() == 3 && "Query input must have rank 3");
+    // Check pastKey shape requirements early, before any IR modifications.
+    auto doRotary = customOp->getAttrOfType<IntegerAttr>("do_rotary");
+    if (doRotary && doRotary.getSInt() > 0 &&
+        (numIn < 10 || isNoneValue(positionIds))) {
+      // We need to know the past sequence length to find the total sequence
+      // length (or vice versa). We could get the total sequence length from
+      // seqlens_k, but only if this input is a constant that we can read.
+      if (isNoneValue(pastKey))
+        return rewriter.notifyMatchFailure(
+            customOp, "expected 'past_ks' input to be provided");
+      auto pastKeyType = cast<ShapedType>(pastKey.getType());
+      if (!pastKeyType.hasStaticShape())
+        return rewriter.notifyMatchFailure(
+            customOp, "expected 'past_ks' input to have static type");
+    }
 
     auto none = rewriter.create<ONNXNoneOp>(loc);
     auto si64Type = rewriter.getIntegerType(64, true);
@@ -3390,77 +3412,96 @@ struct MicrosoftGroupQueryAttention : public CustomOpToOnnxOps {
 
     // If do_rotary = 1, query and key need to be passed through a rotary
     // embedding op
-    auto doRotary = customOp->getAttrOfType<IntegerAttr>("do_rotary");
     ONNXRotaryEmbeddingOp ropeQuery;
     ONNXRotaryEmbeddingOp ropeKey;
     if (doRotary && doRotary.getSInt() > 0) {
       assert(numIn >= 9 && !isNoneValue(cosCache) && !isNoneValue(sinCache));
-      // If do_rotary = 1 and no position ids are provided, we need to slice and
-      // transform the cos and sin caches to have shape:
-      // [batch_size, sequence_length, head_size / 2].
+      // If do_rotary = 1 and no position ids are provided, we need to slice
+      // and transform the cos and sin caches to have shape:
+      // [batch_size, sequence_length, head_size / 2]. When
+      // enableCacheSlicing is false, skip the slice/reshape/expand and pass
+      // the original cos/sin caches through unchanged.
       if (numIn < 10 || isNoneValue(positionIds)) {
         positionIds = none;
 
-        // We need to know the past sequence length to find the total sequence
-        // length (or vice versa). We could get the total sequence length from
-        // seqlens_k, but only if this input is a constant that we can read.
-        if (isNoneValue(pastKey))
-          return rewriter.notifyMatchFailure(
-              customOp, "expected 'past_ks' input to be provided");
-        auto pastKeyType = cast<ShapedType>(pastKey.getType());
-        if (!pastKeyType.hasStaticShape())
-          return rewriter.notifyMatchFailure(
-              customOp, "expected 'past_ks' input to have static type");
+        if (enableCacheSlicing) {
+          auto pastKeyType = cast<ShapedType>(pastKey.getType());
 
-        // Assuming the sequence length is the same kv_sequence_length
-        const int64_t seqLen = queryType.getShape()[1];
-        const int64_t pastSeqLen = pastKeyType.getShape()[2];
-        const int64_t totalSeqLen = pastSeqLen + seqLen;
+          // Assuming the sequence length is the same kv_sequence_length
+          const int64_t seqLen = queryType.getShape()[1];
+          const int64_t pastSeqLen = pastKeyType.getShape()[2];
+          const int64_t totalSeqLen = pastSeqLen + seqLen;
 
-        // The slice mimics indexing the cos/sin caches using the default
-        // pos_ids: [past_seq_len..total_seq_len].
-        onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
-            rewriter, loc);
-        Value startsConst = create.onnx.constantInt64({pastSeqLen});
-        Value endsConst = create.onnx.constantInt64({totalSeqLen});
-        Value axesConst = create.onnx.constantInt64({0});
-        Value stepsConst = create.onnx.constantInt64({1});
-        toCheck.append({startsConst, endsConst, axesConst, stepsConst});
+          // The slice mimics indexing the cos/sin caches using the default
+          // pos_ids: [past_seq_len..total_seq_len].
+          onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
+              rewriter, loc);
+          Value startsConst = create.onnx.constantInt64({pastSeqLen});
+          Value endsConst = create.onnx.constantInt64({totalSeqLen});
+          Value axesConst = create.onnx.constantInt64({0});
+          Value stepsConst = create.onnx.constantInt64({1});
+          toCheck.append({startsConst, endsConst, axesConst, stepsConst});
 
-        auto elementType = getElementTypeOrSelf(cosCache.getType());
-        auto cacheSlicedType =
-            RankedTensorType::get({seqLen, headSize / 2}, elementType);
-        auto cosCacheSliced = rewriter.create<ONNXSliceOp>(loc, cacheSlicedType,
-            cosCache, startsConst, endsConst, axesConst, stepsConst);
-        auto sinCacheSliced = rewriter.create<ONNXSliceOp>(loc, cacheSlicedType,
-            sinCache, startsConst, endsConst, axesConst, stepsConst);
-        toCheck.append({cosCacheSliced, sinCacheSliced});
+          auto elementType = getElementTypeOrSelf(cosCache.getType());
+          auto cacheSlicedType =
+              RankedTensorType::get({seqLen, headSize / 2}, elementType);
+          auto cosCacheSliced =
+              rewriter.create<ONNXSliceOp>(loc, cacheSlicedType, cosCache,
+                  startsConst, endsConst, axesConst, stepsConst);
+          auto sinCacheSliced =
+              rewriter.create<ONNXSliceOp>(loc, cacheSlicedType, sinCache,
+                  startsConst, endsConst, axesConst, stepsConst);
+          toCheck.append({cosCacheSliced, sinCacheSliced});
 
-        // reshape to [1, sequence_length, head_size / 2]
-        auto cache3dType =
-            RankedTensorType::get({1, seqLen, headSize / 2}, elementType);
-        auto reshapeShapeConst =
-            create.onnx.constantInt64({1, seqLen, headSize / 2});
-        cosCache =
-            create.onnx.reshape(cache3dType, cosCacheSliced, reshapeShapeConst);
-        sinCache =
-            create.onnx.reshape(cache3dType, sinCacheSliced, reshapeShapeConst);
-        toCheck.append({reshapeShapeConst, cosCache, sinCache});
+          // reshape to [1, sequence_length, head_size / 2]
+          auto cache3dType =
+              RankedTensorType::get({1, seqLen, headSize / 2}, elementType);
+          auto reshapeShapeConst =
+              create.onnx.constantInt64({1, seqLen, headSize / 2});
+          cosCache = create.onnx.reshape(
+              cache3dType, cosCacheSliced, reshapeShapeConst);
+          sinCache = create.onnx.reshape(
+              cache3dType, sinCacheSliced, reshapeShapeConst);
+          toCheck.append({reshapeShapeConst, cosCache, sinCache});
 
-        // Assume total/past sequence length is the same for every batch and
-        // broadcast the default pos_ids to get cos/sin caches with shape:
-        // [batch_size, sequence_length, head_size / 2]
-        int64_t batchSize = queryType.getShape()[0];
-        if (batchSize != 1) {
-          auto cacheBroadcastType = RankedTensorType::get(
-              {batchSize, seqLen, headSize / 2}, elementType);
-          auto broadcastShapeConst =
-              create.onnx.constantInt64({batchSize, seqLen, headSize / 2});
-          cosCache = create.onnx.expand(
-              cacheBroadcastType, cosCache, broadcastShapeConst);
-          sinCache = create.onnx.expand(
-              cacheBroadcastType, sinCache, broadcastShapeConst);
-          toCheck.append({broadcastShapeConst, cosCache, sinCache});
+          // Assume total/past sequence length is the same for every batch
+          // and broadcast the default pos_ids to get cos/sin caches with
+          // shape: [batch_size, sequence_length, head_size / 2]
+          int64_t batchSize = queryType.getShape()[0];
+          if (batchSize != 1) {
+            auto cacheBroadcastType = RankedTensorType::get(
+                {batchSize, seqLen, headSize / 2}, elementType);
+            auto broadcastShapeConst =
+                create.onnx.constantInt64({batchSize, seqLen, headSize / 2});
+            cosCache = create.onnx.expand(
+                cacheBroadcastType, cosCache, broadcastShapeConst);
+            sinCache = create.onnx.expand(
+                cacheBroadcastType, sinCache, broadcastShapeConst);
+            toCheck.append({broadcastShapeConst, cosCache, sinCache});
+          }
+        } else {
+          // Synthesize position_ids = [pastSeqLen, .., totalSeqLen-1]
+          // broadcast to [batch_size, seq_len]. Same semantics as the
+          // original slicing, but the cos/sin caches are passed through
+          // unchanged so the cache stays complete.
+          auto pastKeyType = cast<ShapedType>(pastKey.getType());
+          const int64_t seqLen = queryType.getShape()[1];
+          const int64_t pastSeqLen = pastKeyType.getShape()[2];
+          const int64_t totalSeqLen = pastSeqLen + seqLen;
+          const int64_t batchSize = queryType.getShape()[0];
+
+          SmallVector<Attribute> elements;
+          elements.reserve(batchSize * seqLen);
+          for (int64_t b = 0; b < batchSize; ++b)
+            for (int64_t i = pastSeqLen; i < totalSeqLen; ++i)
+              elements.push_back(rewriter.getI64IntegerAttr(i));
+
+          auto positionIdsType = RankedTensorType::get(
+              {batchSize, seqLen}, rewriter.getIntegerType(64));
+          positionIds = rewriter.create<ONNXConstantOp>(loc, Attribute(),
+              DenseElementsAttr::get(
+                  positionIdsType, ArrayRef<Attribute>(elements)));
+          toCheck.push_back(positionIds);
         }
       }
 
@@ -4251,6 +4292,24 @@ struct DecomposeGroupNormV18Pattern
 };
 
 // =============================================================================
+// Decompose ReduceL2 to Sqrt(ReduceSumSquare(x))
+// =============================================================================
+struct DecomposeReduceL2Pattern : public OpRewritePattern<ONNXReduceL2Op> {
+  using OpRewritePattern<ONNXReduceL2Op>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXReduceL2Op op, PatternRewriter &rewriter) const final {
+    auto sumSquare = rewriter.create<ONNXReduceSumSquareOp>(op.getLoc(),
+        op.getType(), op.getData(), op.getAxes(), op.getKeepdimsAttr(),
+        op.getNoopWithEmptyAxesAttr());
+    auto sqrtVal = rewriter.create<ONNXSqrtOp>(
+        op.getLoc(), op.getType(), sumSquare.getResult());
+    rewriter.replaceOp(op, sqrtVal.getResult());
+    return success();
+  }
+};
+
+// =============================================================================
 // Decompose InstanceNormalization to LayerNormalization
 // =============================================================================
 struct DecomposeInstanceNormPattern
@@ -4352,6 +4411,9 @@ struct SplitToSlicePattern : public OpRewritePattern<ONNXSplitOp> {
       // This correctly handles uneven splits (e.g., splitting 10 into 3 ->
       // [4,3,3])
       for (unsigned i = 0; i < outputNum; ++i) {
+        if (!onnx_mlir::isRankedShapedType(splitOp.getResult(i).getType()))
+          return rewriter.notifyMatchFailure(
+              splitOp, "output must be ranked; shape inference needed first");
         ShapedType outputType =
             mlir::cast<ShapedType>(splitOp.getResult(i).getType());
         int64_t outputDimSize = outputType.getDimSize(axis);
@@ -4484,6 +4546,184 @@ struct SplitToSlicePattern : public OpRewritePattern<ONNXSplitOp> {
 //   }
 // };
 
+// =============================================================================
+// LSTM Decomposition Pattern
+// =============================================================================
+
+// Unroll an onnx.LSTM with seq_len > 1 into seq_len individual onnx.LSTM
+// ops each with seq_len=1, chaining Y_h/Y_c between them.
+//
+// Example for seq_len = 2 (X: [2, B, I]):
+//
+//          X
+//          |
+//       +--+------------------+
+//       |                     |
+//     Slice                 Slice     // X_0 = X[0:1], X_1 = X[1:2]
+//       |                     |
+//       v                     v
+//     LSTM_0 --- h,c --->   LSTM_1    // each with seq_len = 1;
+//    (initial_h,c)         (Y_h_0, Y_c_0 fed as initial_h,c of LSTM_1)
+//       |                     |
+//       v                     v
+//      Y_0                   Y_1      // per-step Y's are independent
+//        \                   /
+//         \                 /
+//          Concat(axis=0) -> Y   ;  Y_h := Y_h_1 ;  Y_c := Y_c_1
+struct DecomposeLSTMSeqUnrollPattern : public OpRewritePattern<ONNXLSTMOp> {
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXLSTMOp lstmOp, PatternRewriter &rewriter) const final {
+    // Guards:
+    //   - direction must be "forward": the unroll below chains Y_h/Y_c linearly
+    //     in time order, which is incorrect for "reverse" (time order flipped)
+    //     and structurally impossible for "bidirectional" (Y has a separate
+    //     num_directions axis fed by a second, reversed pass).
+    //   - layout must be 0 so dim 0 of X is the sequence axis we slice on.
+    //   - X must have a static seq_len > 1.
+    //   - sequence_lens input must be absent (uniform sequence lengths only).
+    // X has shape [seq_len, batch_size, input_size]
+    if (lstmOp.getDirection() != "forward") {
+      return rewriter.notifyMatchFailure(
+          lstmOp, "only direction=forward is supported");
+    }
+    // num_directions == 2 also mean direction="bidirectional"
+    auto wType = mlir::dyn_cast<ShapedType>(lstmOp.getW().getType());
+    if (wType && wType.hasRank() && wType.getRank() >= 1 &&
+        !wType.isDynamicDim(0) && wType.getDimSize(0) != 1) {
+      return rewriter.notifyMatchFailure(
+          lstmOp, "num_directions=2 (direction=bidirectional) is unsupported");
+    }
+    if (lstmOp.getLayout() != 0) {
+      return rewriter.notifyMatchFailure(lstmOp, "layout must be 0");
+    }
+    Value inputVal = lstmOp.getX();
+    auto inputType = mlir::dyn_cast<ShapedType>(inputVal.getType());
+    if (!inputType || !inputType.hasRank() || inputType.isDynamicDim(0)) {
+      return rewriter.notifyMatchFailure(
+          lstmOp, "static sequence length dimension required");
+    }
+    auto seqLen = static_cast<int64_t>(inputType.getDimSize(0));
+    if (seqLen < 2) {
+      return rewriter.notifyMatchFailure(lstmOp, "sequence length must be > 1");
+    }
+    if (!onnx_mlir::isNoneValue(lstmOp.getSequenceLens())) {
+      return rewriter.notifyMatchFailure(
+          lstmOp, "non-uniform sequence lengths not supported");
+    }
+
+    onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
+        rewriter, lstmOp.getLoc());
+    auto unrankedType = UnrankedTensorType::get(inputType.getElementType());
+
+    // Detect which outputs of the original op are omitted (NoneType). The
+    // per-timestep sub-LSTMs always need Y_h/Y_c internally to chain state,
+    // but the final replacement must preserve the original result types.
+    bool yIsNone = mlir::isa<NoneType>(lstmOp.getY().getType());
+    bool yhIsNone = mlir::isa<NoneType>(lstmOp.getYH().getType());
+    bool ycIsNone = mlir::isa<NoneType>(lstmOp.getYC().getType());
+
+    // axes / steps constants reused for every per-timestep Slice.
+    Value zero = create.onnx.constantInt64({0});
+    Value one = create.onnx.constantInt64({1});
+
+    // Emit one seq_len=1 LSTM per timestep, chaining Y_h/Y_c through.
+    SmallVector<ONNXLSTMOp> lstmOps;
+    SmallVector<Value> yValues;
+    for (int64_t t = 0; t < seqLen; ++t) {
+      Value sliceVal = create.onnx.slice(unrankedType, inputVal,
+          create.onnx.constantInt64({t}), create.onnx.constantInt64({t + 1}),
+          zero, one);
+      Value hVal = (t == 0) ? lstmOp.getInitialH() : lstmOps[t - 1].getYH();
+      Value cVal = (t == 0) ? lstmOp.getInitialC() : lstmOps[t - 1].getYC();
+
+      lstmOps.push_back(create.onnx.createOpAndInferShapes<ONNXLSTMOp>(
+          unrankedType, unrankedType, unrankedType, sliceVal, lstmOp.getW(),
+          lstmOp.getR(), lstmOp.getB(), lstmOp.getSequenceLens(), hVal, cVal,
+          lstmOp.getP(), lstmOp.getActivationAlphaAttr(),
+          lstmOp.getActivationBetaAttr(), lstmOp.getActivationsAttr(),
+          lstmOp.getClipAttr(), lstmOp.getDirectionAttr(),
+          lstmOp.getHiddenSizeAttr(), lstmOp.getInputForgetAttr(),
+          lstmOp.getLayoutAttr()));
+      if (!yIsNone)
+        yValues.push_back(lstmOps.back().getY());
+    }
+
+    // Y = concat(Y_0, ..., Y_{seqLen-1}) along time; Y_h/Y_c from last step.
+    // Any output that was omitted on the original op is replaced with a
+    // NoneValue so the rewritten IR keeps the same result signature.
+    Value yRepl = yIsNone ? create.onnx.none()
+                          : create.onnx.concat(unrankedType, yValues, 0);
+    Value yhRepl = yhIsNone ? create.onnx.none() : lstmOps.back().getYH();
+    Value ycRepl = ycIsNone ? create.onnx.none() : lstmOps.back().getYC();
+    rewriter.replaceOp(lstmOp, {yRepl, yhRepl, ycRepl});
+    return success();
+  }
+};
+
+// Decompose Gather(data, scalar_constant_index, axis) into Slice + Reshape.
+class DecomposeGatherToSlicePattern : public OpRewritePattern<ONNXGatherOp> {
+public:
+  using OpRewritePattern<ONNXGatherOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXGatherOp gatherOp, PatternRewriter &rewriter) const override {
+    Location loc = gatherOp.getLoc();
+    Value data = gatherOp.getData();
+    Value indices = gatherOp.getIndices();
+    int64_t axis = gatherOp.getAxis();
+
+    auto inputType = dyn_cast<RankedTensorType>(data.getType());
+    if (!inputType || !inputType.hasStaticShape())
+      return failure();
+
+    auto indicesType = dyn_cast<RankedTensorType>(indices.getType());
+    if (!indicesType || indicesType.getRank() != 0)
+      return failure();
+
+    auto gatherOutputType = dyn_cast<RankedTensorType>(gatherOp.getType());
+    if (!gatherOutputType)
+      return failure();
+
+    auto indicesConstOp = indices.getDefiningOp<ONNXConstantOp>();
+    if (!indicesConstOp)
+      return failure();
+    auto idx = onnx_mlir::getScalarValue<int64_t>(indicesConstOp);
+
+    const int64_t inputRank = inputType.getRank();
+    if (axis < 0)
+      axis += inputRank;
+
+    ArrayRef<int64_t> inputShape = inputType.getShape();
+
+    if (idx < 0)
+      idx += inputShape[axis];
+
+    onnx_mlir::OnnxBuilder createONNX(rewriter, loc);
+
+    Value starts = createONNX.constantInt64({idx});
+    Value ends = createONNX.constantInt64({idx + 1});
+    Value axes = createONNX.constantInt64({axis});
+    Value steps = createONNX.constantInt64({1});
+
+    SmallVector<int64_t, 4> sliceShape(inputShape.begin(), inputShape.end());
+    sliceShape[axis] = 1;
+    auto sliceType =
+        RankedTensorType::get(sliceShape, inputType.getElementType());
+
+    Value sliceOp =
+        createONNX.slice(sliceType, data, starts, ends, axes, steps);
+
+    Value shapeConst = createONNX.constantInt64(
+        SmallVector<int64_t>(gatherOutputType.getShape()));
+    Value reshapeOp = createONNX.reshape(gatherOutputType, sliceOp, shapeConst);
+    rewriter.replaceOp(gatherOp, reshapeOp);
+
+    return success();
+  }
+};
+
 struct DecomposeONNXToONNXPass
     : public PassWrapper<DecomposeONNXToONNXPass, OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(DecomposeONNXToONNXPass)
@@ -4496,7 +4736,10 @@ struct DecomposeONNXToONNXPass
       bool enableGroupNormDecompose = true,
       bool enableMatmulNBitsDecompose = false,
       bool enableGroupQueryAttentionDecompose = true,
-      bool enableSplitToSliceDecompose = false) {
+      bool enableSplitToSliceDecompose = false, bool enableConcatFuse = true,
+      bool enableLstmSeqDecompose = false, bool enableReduceL2Decompose = true,
+      bool enableGatherToSlice = true, bool enableHardSwishDecompose = true,
+      bool enableGroupQueryAttentionCacheSlicing = true) {
     this->target = target;
     this->enableConvTransposeDecompose = enableConvTransposeDecompose;
     this->enableConvTransposeDecomposeToPhasedConv =
@@ -4509,6 +4752,13 @@ struct DecomposeONNXToONNXPass
     this->enableGroupQueryAttentionDecompose =
         enableGroupQueryAttentionDecompose;
     this->enableSplitToSliceDecompose = enableSplitToSliceDecompose;
+    this->enableConcatFuse = enableConcatFuse;
+    this->enableLstmSeqDecompose = enableLstmSeqDecompose;
+    this->enableReduceL2Decompose = enableReduceL2Decompose;
+    this->enableGatherToSlice = enableGatherToSlice;
+    this->enableHardSwishDecompose = enableHardSwishDecompose;
+    this->enableGroupQueryAttentionCacheSlicing =
+        enableGroupQueryAttentionCacheSlicing;
   }
 
   DecomposeONNXToONNXPass(const DecomposeONNXToONNXPass &pass)
@@ -4528,6 +4778,13 @@ struct DecomposeONNXToONNXPass
         pass.enableGroupQueryAttentionDecompose.getValue();
     this->enableSplitToSliceDecompose =
         pass.enableSplitToSliceDecompose.getValue();
+    this->enableConcatFuse = pass.enableConcatFuse.getValue();
+    this->enableLstmSeqDecompose = pass.enableLstmSeqDecompose.getValue();
+    this->enableReduceL2Decompose = pass.enableReduceL2Decompose.getValue();
+    this->enableGatherToSlice = pass.enableGatherToSlice.getValue();
+    this->enableHardSwishDecompose = pass.enableHardSwishDecompose.getValue();
+    this->enableGroupQueryAttentionCacheSlicing =
+        pass.enableGroupQueryAttentionCacheSlicing.getValue();
   }
 
   StringRef getArgument() const override { return "decompose-onnx"; }
@@ -4583,6 +4840,37 @@ struct DecomposeONNXToONNXPass
       llvm::cl::desc("Enable decomposition of Split to Slice operations"),
       ::llvm::cl::init(false)};
 
+  Option<bool> enableConcatFuse{*this, "enable-concat-fuse",
+      llvm::cl::desc("Enable ConcatFusePattern rewriter"),
+      ::llvm::cl::init(true)};
+
+  Option<bool> enableLstmSeqDecompose{*this, "enable-lstm-seq-decomposition",
+      llvm::cl::desc("Enable sequence-length decomposition of LSTM (unroll a "
+                     "seq_len>1 LSTM into a chain of seq_len=1 LSTMs)"),
+      ::llvm::cl::init(false)};
+
+  Option<bool> enableReduceL2Decompose{*this, "enable-reducel2-decompose",
+      llvm::cl::desc("Enable decomposition of ReduceL2 to "
+                     "Sqrt(ReduceSumSquare(x))"),
+      ::llvm::cl::init(true)};
+
+  Option<bool> enableGatherToSlice{*this, "enable-gather-to-slice",
+      llvm::cl::desc(
+          "Enable decomposition of Gather with scalar index to Slice+Reshape"),
+      ::llvm::cl::init(true)};
+
+  Option<bool> enableHardSwishDecompose{*this, "enable-hardswish-decompose",
+      llvm::cl::desc("Enable decomposition of HardSwish into "
+                     "x * HardSigmoid(x) (alpha=1/6, beta=0.5)"),
+      ::llvm::cl::init(true)};
+
+  Option<bool> enableGroupQueryAttentionCacheSlicing{*this,
+      "enable-groupqueryattention-cache-slicing",
+      llvm::cl::desc("Enable slicing of cos/sin caches during decomposing "
+                     "GroupQueryAttention. Set to false for keeping cache "
+                     "and synthesize position_ids instead."),
+      ::llvm::cl::init(true)};
+
   void runOnOperation() final;
 
   typedef PassWrapper<DecomposeONNXToONNXPass, OperationPass<func::FuncOp>>
@@ -4597,7 +4885,10 @@ void DecomposeONNXToONNXPass::runOnOperation() {
       enableConvTransposeDecompose, enableConvTransposeDecomposeToPhasedConv,
       enableConvTranspose1dDecomposeToPhasedConv, enableInstanceNormDecompose,
       enableGroupNormDecompose, enableMatmulNBitsDecompose,
-      enableGroupQueryAttentionDecompose, enableSplitToSliceDecompose);
+      enableGroupQueryAttentionDecompose, enableSplitToSliceDecompose,
+      enableConcatFuse, enableLstmSeqDecompose, enableReduceL2Decompose,
+      /*disableGenericDecompositions=*/false, enableGatherToSlice,
+      enableHardSwishDecompose, enableGroupQueryAttentionCacheSlicing);
   patterns.insert<ReplaceCastLikeByCastPattern>(context);
 
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
@@ -4620,15 +4911,21 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
     bool enableConvTranspose1dDecomposeToPhasedConv,
     bool enableInstanceNormDecompose, bool enableGroupNormDecompose,
     bool enableMatmulNBitsDecompose, bool enableGroupQueryAttentionDecompose,
-    bool enableSplitToSliceDecompose) {
+    bool enableSplitToSliceDecompose, bool enableConcatFuse,
+    bool enableLstmSeqDecompose, bool enableReduceL2Decompose,
+    bool disableGenericDecompositions, bool enableGatherToSlice,
+    bool enableHardSwishDecompose, bool enableGroupQueryAttentionCacheSlicing) {
   MLIRContext *context = patterns.getContext();
-  populateWithGenerated(patterns);
+  if (!disableGenericDecompositions)
+    populateWithGenerated(patterns);
   if (enableConvTransposeDecompose)
     convtranspose::populateWithGenerated(patterns);
   if (enableConvTransposeDecomposeToPhasedConv)
     convtranspose_phased::populateWithGenerated(patterns);
   if (enableConvTranspose1dDecomposeToPhasedConv)
     convtranspose_1d_phased::populateWithGenerated(patterns);
+  if (enableReduceL2Decompose)
+    patterns.insert<DecomposeReduceL2Pattern>(context);
   if (enableInstanceNormDecompose)
     patterns.insert<DecomposeInstanceNormPattern>(context);
   if (enableGroupNormDecompose) {
@@ -4637,33 +4934,45 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
   }
   if (enableSplitToSliceDecompose)
     patterns.insert<SplitToSlicePattern>(context);
-  patterns.insert<onnx_mlir::DecomposeEinsumPattern>(context);
-  patterns.insert<ConcatFusePattern>(context);
-  patterns.insert<DecomposeHardSwishPattern>(context);
-  // Decompose CustomOp FusedMatMul introduced by onnxruntime:
-  // https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#com.microsoft.FusedMatMul
-  patterns.insert<CustomOpFuseMatMulPattern>(context);
-  patterns.insert<CustomOpMicrosoftQDquantizeLinear<ONNXQuantizeLinearOp>>(
-      context, "QuantizeLinear");
-  patterns.insert<CustomOpMicrosoftQDquantizeLinear<ONNXDequantizeLinearOp>>(
-      context, "DequantizeLinear");
-  patterns.insert<CustomOpMicrosoftToSingleOnnxOp<ONNXGeluOp>>(context, "Gelu");
-  patterns.insert<MicrosoftBiasGelu>(context);
-  patterns.insert<MicrosoftFusedConv>(context);
-  patterns.insert<MicrosoftSkipLayerNorm>(context);
-  patterns.insert<SimplifiedLayerNorm>(context);
-  patterns.insert<MicrosoftSkipSimplifiedLayerNorm>(context);
+  if (!disableGenericDecompositions)
+    patterns.insert<onnx_mlir::DecomposeEinsumPattern>(context);
+  if (enableConcatFuse)
+    patterns.insert<ConcatFusePattern>(context);
+  if (enableHardSwishDecompose)
+    patterns.insert<DecomposeHardSwishPattern>(context);
+  if (!disableGenericDecompositions) {
+    // Decompose CustomOp FusedMatMul introduced by onnxruntime:
+    // https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#com.microsoft.FusedMatMul
+    patterns.insert<CustomOpFuseMatMulPattern>(context);
+    patterns.insert<CustomOpMicrosoftQDquantizeLinear<ONNXQuantizeLinearOp>>(
+        context, "QuantizeLinear");
+    patterns.insert<CustomOpMicrosoftQDquantizeLinear<ONNXDequantizeLinearOp>>(
+        context, "DequantizeLinear");
+    patterns.insert<CustomOpMicrosoftToSingleOnnxOp<ONNXGeluOp>>(
+        context, "Gelu");
+    patterns.insert<MicrosoftBiasGelu>(context);
+    patterns.insert<MicrosoftFusedConv>(context);
+    patterns.insert<MicrosoftSkipLayerNorm>(context);
+    patterns.insert<SimplifiedLayerNorm>(context);
+    patterns.insert<MicrosoftSkipSimplifiedLayerNorm>(context);
+  }
   if (enableGroupQueryAttentionDecompose)
-    patterns.insert<MicrosoftGroupQueryAttention>(context);
-  patterns.insert<MicrosoftRotaryEmbedding>(context);
+    patterns.insert<MicrosoftGroupQueryAttention>(
+        context, enableGroupQueryAttentionCacheSlicing);
+  if (!disableGenericDecompositions)
+    patterns.insert<MicrosoftRotaryEmbedding>(context);
   if (enableMatmulNBitsDecompose)
     patterns.insert<MicrosoftMatmulNBits>(context);
-  patterns.insert<DecomposeSlicePadPattern>(context);
-  patterns.insert<DecomposeScatterNDPattern>(context);
-  patterns.insert<SoftmaxCrossEntropyPattern>(context);
-  patterns.insert<SumToAddPattern>(context);
+  if (!disableGenericDecompositions) {
+    patterns.insert<DecomposeSlicePadPattern>(context);
+    patterns.insert<DecomposeScatterNDPattern>(context);
+    patterns.insert<SoftmaxCrossEntropyPattern>(context);
+    patterns.insert<SumToAddPattern>(context);
+  }
   if (enableSplitToSliceDecompose)
     patterns.insert<SplitToSlicePattern>(context);
+  if (enableLstmSeqDecompose)
+    patterns.insert<DecomposeLSTMSeqUnrollPattern>(context, PatternBenefit(0));
 
   //   for (const auto &op : onnx_mlir::decomposeOpsInONNX) {
   //     if (op == "HardSwish") {
@@ -4671,6 +4980,9 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
   //     }
   //   }
   // }
+
+  if (enableGatherToSlice)
+    patterns.insert<DecomposeGatherToSlicePattern>(context);
 
   // TODO: consider whether to include SoftmaxPattern here
 }
@@ -4684,10 +4996,16 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createDecomposeONNXToONNXPass(
     bool enableConvTranspose1dDecomposeToPhasedConv,
     bool enableInstanceNormDecompose, bool enableGroupNormDecompose,
     bool enableMatmulNBitsDecompose, bool enableGroupQueryAttentionDecompose,
-    bool enableSplitToSliceDecompose) {
+    bool enableSplitToSliceDecompose, bool enableConcatFuse,
+    bool enableLstmSeqDecompose, bool enableReduceL2Decompose,
+    bool enableGatherToSlice, bool enableHardSwishDecompose,
+    bool enableGroupQueryAttentionCacheSlicing) {
   return std::make_unique<DecomposeONNXToONNXPass>(target,
       enableConvTransposeDecompose, enableConvTransposeDecomposeToPhasedConv,
       enableConvTranspose1dDecomposeToPhasedConv, enableInstanceNormDecompose,
       enableGroupNormDecompose, enableMatmulNBitsDecompose,
-      enableGroupQueryAttentionDecompose, enableSplitToSliceDecompose);
+      enableGroupQueryAttentionDecompose, enableSplitToSliceDecompose,
+      enableConcatFuse, enableLstmSeqDecompose, enableReduceL2Decompose,
+      enableGatherToSlice, enableHardSwishDecompose,
+      enableGroupQueryAttentionCacheSlicing);
 }

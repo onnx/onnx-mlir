@@ -10,6 +10,9 @@
 //
 // This file contains helper functions for lowering ONNX ops to Krnl Dialect.
 //
+// Modifications (c) Copyright 2026 Advanced Micro Devices, Inc. or its
+// affiliates
+//
 //===----------------------------------------------------------------------===//
 
 #ifndef ONNX_MLIR_ONNX_DIALECT_BUILDER_H
@@ -31,7 +34,7 @@ struct OnnxBuilder : DialectBuilder {
   OnnxBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : DialectBuilder(b, loc) {}
   OnnxBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
-  virtual ~OnnxBuilder(){};
+  virtual ~OnnxBuilder() {};
 
   // Create operation and infer shape.
   template <typename OnnxOpType, typename... Args>
@@ -208,6 +211,10 @@ struct OnnxBuilder : DialectBuilder {
       mlir::Value steps) const;
   mlir::Value slice(mlir::Type outputType, mlir::Value input, int64_t start,
       int64_t end, int64_t step = 1) const; // 1D slice
+
+  // ONNXSoftmaxOp
+  mlir::Value softmax(
+      mlir::Type outputType, mlir::Value input, int64_t axis) const;
 
   // ONNXSqrtOp
   mlir::Value sqrt(mlir::Value input) const;

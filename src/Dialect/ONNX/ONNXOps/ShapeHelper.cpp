@@ -16,6 +16,7 @@
 #include "llvm/ADT/BitVector.h"
 #include "llvm/Support/Debug.h"
 
+#include "mlir/Dialect/Quant/IR/QuantTypes.h"
 #include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
@@ -593,7 +594,7 @@ bool ONNXBroadcastOpShapeHelper::hasManageableBroadcastForInnerDims(
                                 << " & " << d << "; abort\n");
         return collapsedInnermostLoops > 0;
       } // End for all non-scalars,
-    }   // End testing non-scalar compatibility.
+    } // End testing non-scalar compatibility.
 
     // 4) Since we have at least one non-scalar
     //   4.1) all the scalar inputs are now marked as having a broadcast.
@@ -849,6 +850,21 @@ void updateType(Operation *op, Value val, ArrayRef<int64_t> shape,
   // Get element type.
   if (!elementType)
     elementType = getElementType(val.getType());
+
+  // Preserve quantized element types that were set by QuantTypesPass.
+  // QuantTypesPass assigns calibrated scale/zero_point to each op's result
+  // based on the model's quantization metadata. Shape inference must only
+  // update the tensor shape, never the quantization parameters. Without
+  // this guard, inferShapes would overwrite the calibrated type with:
+  //   - the expressed type (f32, from a DequantizeLinear input), or
+  //   - the storage type (e.g. ui16, from a quant.scast input), or
+  //   - a different quantized type from an operand (e.g. Concat using
+  //     operand 0's scale instead of the output's calibrated scale).
+  if (auto valType = mlir::dyn_cast<RankedTensorType>(val.getType())) {
+    if (mlir::isa<mlir::quant::QuantizedType>(valType.getElementType())) {
+      elementType = valType.getElementType();
+    }
+  }
 
   // Get encoding.
   if (auto valType = mlir::dyn_cast<RankedTensorType>(val.getType()))

@@ -120,8 +120,8 @@ func.func @test_xfeconv_clip_relu6_fusion(
       -> tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>>
 
   %act = "onnx.XCOMPILERFusedEltwise"(%conv, %none)
-      {clip_max = 6 : si64, clip_min = 0 : si64, enable_lut_sigmoid = false,
-       nonlinear = "NONE", type = "CLIP"}
+      {max = 6 : i32, min = 0 : i32, enable_lut_sigmoid = false,
+       nonlinear = "NONE", type = "CLAMP"}
       : (tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>>, none)
       -> tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>>
 
@@ -150,8 +150,8 @@ func.func @test_no_fusion_clip_non_relu6(
       -> tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>>
 
   %act = "onnx.XCOMPILERFusedEltwise"(%conv, %none)
-      {clip_max = 255 : si64, clip_min = 0 : si64, enable_lut_sigmoid = false,
-       nonlinear = "NONE", type = "CLIP"}
+      {max = 255 : i32, min = 0 : i32, enable_lut_sigmoid = false,
+       nonlinear = "NONE", type = "CLAMP"}
       : (tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>>, none)
       -> tensor<1x4x4x16x!quant.uniform<u8:f32, 0.02:128>>
 
@@ -160,7 +160,7 @@ func.func @test_no_fusion_clip_non_relu6(
 // CHECK: "onnx.XFEConv"
 // CHECK-SAME: activation = "NONE"
 // CHECK: "onnx.XCOMPILERFusedEltwise"
-// CHECK-SAME: type = "CLIP"
+// CHECK-SAME: type = "CLAMP"
 
 // -----
 // Test: XFEConv + raw onnx.Clip(0,6) → RELU6 (not lowered to FusedEltwise)

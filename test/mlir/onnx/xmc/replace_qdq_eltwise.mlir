@@ -327,7 +327,7 @@ func.func @test_quantized_clip_no_activation(
   return %clip : tensor<1x4x8x8x!quant.uniform<i8:f32, 0.01:0>>
 
   // CHECK: %[[NOVAL:.*]] = "onnx.NoValue"()
-  // CHECK: %[[FUSED:.*]] = "onnx.XCOMPILERFusedEltwise"(%arg0, %[[NOVAL]]){{.*}}clip_max = 127 : si64{{.*}}clip_min = -128 : si64{{.*}}nonlinear = "NONE"{{.*}}type = "CLIP"
+  // CHECK: %[[FUSED:.*]] = "onnx.XCOMPILERFusedEltwise"(%arg0, %[[NOVAL]]){{.*}}max = 127 : i32{{.*}}min = -128 : i32{{.*}}nonlinear = "NONE"{{.*}}type = "CLAMP"
   // CHECK: return %[[FUSED]]
 }
 
@@ -648,7 +648,7 @@ func.func @test_pattern1_clip_and_pattern2(
       tensor<1x4x8x8x!quant.uniform<u8:f32, 0.1:128>>
 
   // CHECK-DAG: %[[NOVAL:.*]] = "onnx.NoValue"()
-  // CHECK-DAG: %[[CLIP:.*]] = "onnx.XCOMPILERFusedEltwise"(%arg0, %[[NOVAL]]){{.*}}clip_max = 127 : si64{{.*}}clip_min = -128 : si64{{.*}}nonlinear = "NONE"{{.*}}type = "CLIP"
+  // CHECK-DAG: %[[CLIP:.*]] = "onnx.XCOMPILERFusedEltwise"(%arg0, %[[NOVAL]]){{.*}}max = 127 : i32{{.*}}min = -128 : i32{{.*}}nonlinear = "NONE"{{.*}}type = "CLAMP"
   // CHECK-DAG: %[[SUBRELU:.*]] = "onnx.XCOMPILERFusedEltwise"(%arg1, %arg2){{.*}}nonlinear = "RELU"{{.*}}type = "SUB"
   // CHECK: return %[[CLIP]], %[[SUBRELU]]
 }
@@ -737,9 +737,10 @@ func.func @test_expand_to_eltwise_i8(
 }
 
 // -----
-// Negative: Pattern 5 should NOT fire when 4D input has W (dim 3) != 1
-// CHECK-LABEL: func.func @test_expand_no_match_w_not_one
-func.func @test_expand_no_match_w_not_one(
+// Pattern 5: 4D input with dim[2] == 1 should fire even if W (dim 3) != 1
+// (gate is now only on dim[2]; matches xcompiler's ReplaceQDQExpandToEltwisePass)
+// CHECK-LABEL: func.func @test_expand_match_w_not_one
+func.func @test_expand_match_w_not_one(
     %arg0: tensor<1x1x1x4x!quant.uniform<u8:f32, 0.05:128>>)
     -> tensor<1x1x8x4x!quant.uniform<u8:f32, 0.05:128>> {
   %shape = "onnx.Constant"() {value = dense<[1, 1, 8, 4]> : tensor<4xi64>} : () -> tensor<4xi64>
@@ -748,14 +749,18 @@ func.func @test_expand_no_match_w_not_one(
       -> tensor<1x1x8x4x!quant.uniform<u8:f32, 0.05:128>>
   return %expand : tensor<1x1x8x4x!quant.uniform<u8:f32, 0.05:128>>
 
-  // CHECK: "onnx.Expand"
-  // CHECK-NOT: "onnx.XCOMPILERFusedEltwise"
+  // CHECK: %[[ZEROS:.*]] = onnx.Constant {value = dense<0> : tensor<1x1x8x4xui8>}
+  // CHECK: %[[FUSED:.*]] = "onnx.XCOMPILERFusedEltwise"(%arg0, %[[ZEROS]])
+  // CHECK-SAME: nonlinear = "NONE"
+  // CHECK-SAME: type = "ADD"
+  // CHECK: return %[[FUSED]]
 }
 
 // -----
-// Negative: Pattern 5 should NOT fire when 4D input has C (dim 1) != 1
-// CHECK-LABEL: func.func @test_expand_no_match_c_not_one
-func.func @test_expand_no_match_c_not_one(
+// Pattern 5: 4D input with dim[2] == 1 should fire even if C (dim 1) != 1
+// (gate is now only on dim[2]; matches xcompiler's ReplaceQDQExpandToEltwisePass)
+// CHECK-LABEL: func.func @test_expand_match_c_not_one
+func.func @test_expand_match_c_not_one(
     %arg0: tensor<1x16x1x1x!quant.uniform<u8:f32, 0.05:128>>)
     -> tensor<1x16x32x32x!quant.uniform<u8:f32, 0.05:128>> {
   %shape = "onnx.Constant"() {value = dense<[1, 16, 32, 32]> : tensor<4xi64>} : () -> tensor<4xi64>
@@ -763,6 +768,26 @@ func.func @test_expand_no_match_c_not_one(
       (tensor<1x16x1x1x!quant.uniform<u8:f32, 0.05:128>>, tensor<4xi64>)
       -> tensor<1x16x32x32x!quant.uniform<u8:f32, 0.05:128>>
   return %expand : tensor<1x16x32x32x!quant.uniform<u8:f32, 0.05:128>>
+
+  // CHECK: %[[ZEROS:.*]] = onnx.Constant {value = dense<0> : tensor<1x16x32x32xui8>}
+  // CHECK: %[[FUSED:.*]] = "onnx.XCOMPILERFusedEltwise"(%arg0, %[[ZEROS]])
+  // CHECK-SAME: nonlinear = "NONE"
+  // CHECK-SAME: type = "ADD"
+  // CHECK: return %[[FUSED]]
+}
+
+// -----
+// Negative: Pattern 5 should NOT fire when 4D input has dim[2] != 1
+// (only dim[2] is gated under the new behavior)
+// CHECK-LABEL: func.func @test_expand_no_match_dim2_not_one
+func.func @test_expand_no_match_dim2_not_one(
+    %arg0: tensor<1x1x4x1x!quant.uniform<u8:f32, 0.05:128>>)
+    -> tensor<1x1x4x8x!quant.uniform<u8:f32, 0.05:128>> {
+  %shape = "onnx.Constant"() {value = dense<[1, 1, 4, 8]> : tensor<4xi64>} : () -> tensor<4xi64>
+  %expand = "onnx.Expand"(%arg0, %shape) :
+      (tensor<1x1x4x1x!quant.uniform<u8:f32, 0.05:128>>, tensor<4xi64>)
+      -> tensor<1x1x4x8x!quant.uniform<u8:f32, 0.05:128>>
+  return %expand : tensor<1x1x4x8x!quant.uniform<u8:f32, 0.05:128>>
 
   // CHECK: "onnx.Expand"
   // CHECK-NOT: "onnx.XCOMPILERFusedEltwise"

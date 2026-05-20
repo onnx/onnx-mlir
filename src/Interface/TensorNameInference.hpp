@@ -4,45 +4,53 @@
 
 #include <memory>
 
-#include <mlir/IR/DialectRegistry.h>
-
-#include "src/Dialect/ONNX/TensorName.hpp"
-#include "src/Interface/TensorNameInference.hpp.inc"
+#include <mlir/IR/BuiltinAttributes.h>
+#include <mlir/IR/OpDefinition.h>
 
 namespace onnx_mlir {
 
-class ReshapeOpTensorNameInference
-    : public mlir::TensorNameInference::ExternalModel<
-          ReshapeOpTensorNameInference, mlir::ONNXReshapeOp> {
+/// Base class that represents Transformations applied on an original ONNX
+/// Tensor to obtain respective tensor in the modified graph
+class Transform {
 public:
-  std::unique_ptr<onnx_mlir::Transform> inferTensorNameTransform(
-      mlir::Operation *op) const;
-};
+  /// Enum to allow LLVM-style casting with isa<>, dyn_cast<> etc.
+  enum class Kind {
+    Reshape,
+    Transpose,
+    Pad,
+    Slice,
+    Tile,
+    Dequantize,
+    Quantize,
+    List,
+  };
 
-class TransposeOpTensorNameInference
-    : public mlir::TensorNameInference::ExternalModel<
-          TransposeOpTensorNameInference, mlir::ONNXTransposeOp> {
-public:
-  std::unique_ptr<onnx_mlir::Transform> inferTensorNameTransform(
-      mlir::Operation *op) const;
-};
+  Transform(
+      Kind k, mlir::ArrayRef<int64_t> inShape, mlir::ArrayRef<int64_t> outShape)
+      : kind(k), inShape(inShape), outShape(outShape) {}
 
-class PadOpTensorNameInference
-    : public mlir::TensorNameInference::ExternalModel<PadOpTensorNameInference,
-          mlir::ONNXPadOp> {
-public:
-  std::unique_ptr<onnx_mlir::Transform> inferTensorNameTransform(
-      mlir::Operation *op) const;
-};
+  // Attribute conversion
+  [[nodiscard]] virtual mlir::Attribute toAttr(
+      mlir::MLIRContext *context) const = 0;
 
-class SliceOpTensorNameInference
-    : public mlir::TensorNameInference::ExternalModel<
-          SliceOpTensorNameInference, mlir::ONNXSliceOp> {
-public:
-  std::unique_ptr<onnx_mlir::Transform> inferTensorNameTransform(
-      mlir::Operation *op) const;
-};
+  /// Creates a new transform which is inversion of the current transform
+  [[nodiscard]] virtual std::unique_ptr<Transform> invert() const = 0;
 
-void registerTensorNameInferenceExternalModels(mlir::DialectRegistry &registry);
+  virtual ~Transform() = default;
+
+  [[nodiscard]] Kind getKind() const { return kind; };
+
+  [[nodiscard]] mlir::ArrayRef<int64_t> getInShape() const { return inShape; }
+  [[nodiscard]] mlir::ArrayRef<int64_t> getOutShape() const { return outShape; }
+
+private:
+  const Kind kind;
+
+protected:
+  mlir::SmallVector<int64_t> inShape;
+  mlir::SmallVector<int64_t> outShape;
+};
 
 } // namespace onnx_mlir
+
+#include "src/Interface/TensorNameInference.hpp.inc"

@@ -5,6 +5,7 @@
 //===------------------------ CompilerOptions.cpp -------------------------===//
 //
 // Copyright 2022-2025 The IBM Research Authors.
+// Copyright 2026 Advanced Micro Devices, Inc. or its affiliates
 //
 // =============================================================================
 //
@@ -45,6 +46,7 @@ std::vector<std::string> functionsToDecompose;         // common for both
 std::string opsForCall;                                // common for both
 bool disableKrnlOpFusion;                              // common for both
 bool disableQuantZeroPoint;                            // common for both
+bool enableUnsafeMathOptimizations;                    // common for both
 bool enableKrnlBufferReuse;                            // common for both
 bool enableConvTransposeDecomposeToPhasedConv;         // common for both
 bool enableConvTranspose1dDecomposeToPhasedConv;       // common for both
@@ -254,6 +256,16 @@ static llvm::cl::opt<bool, true> disable_quantization_zero_point(
         "Set to 'true' if you want to disable the use of zero-point\n"
         "in dyn/static quantization/dequantization."),
     llvm::cl::location(disableQuantZeroPoint), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<bool, true> enableUnsafeMathOptimizationsOpt(
+    "unsafe-math-optimizations",
+    llvm::cl::desc(
+        "Enable ONNX-level optimizations that may not be fully numerically "
+        "equivalent due to continuous to quantized conversion (like "
+        "quantization operations or floating-point arithmetic) "
+        "(default=true)."),
+    llvm::cl::location(enableUnsafeMathOptimizations), llvm::cl::init(true),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
 static llvm::cl::opt<bool, true> enableKrnlBufferReuseOpt(

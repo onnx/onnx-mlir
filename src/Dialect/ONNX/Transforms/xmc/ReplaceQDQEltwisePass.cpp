@@ -11,7 +11,7 @@
 //    - Quantized eltwise ops are replaced by onnx.XCOMPILERFusedEltwise with
 //      nonlinear="NONE".
 //    - Clip is supported via a dedicated pattern that converts constant min/max
-//      operands into clip_min/clip_max attributes.
+//      operands into min/max attributes.
 // 2. Element-wise + activation fusion
 //    - Quantized binary eltwise ops (Add/Mul/Sub/Div) followed by Relu or
 //      LeakyRelu are fused into a single onnx.XCOMPILERFusedEltwise.
@@ -19,9 +19,8 @@
 // 4. Post-Quantized ReLU for IPU Strix (2 combinations)
 // 5. Replace Expand with Eltwise ADD
 //    - Quantized Expand ops are replaced by XCOMPILERFusedEltwise ADD with a
-//      zero constant at the target shape. For 4D (NCHW) inputs, only fires
-//      when W (dim index 2) is 1; non-4D inputs have no spatial constraint.
-//      Mirrors xcompiler's ReplaceQDQExpandToEltwisePass.
+//      zero constant at the target shape. No spatial constraints (matches
+//      xcompiler's ReplaceQDQExpandToEltwisePass behavior for quantized ops).
 //
 // Note: This pass assumes quant-types pass has already run, so operations
 // already have !quant.uniform types instead of explicit Q/DQ operations.
@@ -70,6 +69,11 @@ static IntegerAttr getSI64Attr(PatternRewriter &rewriter, int64_t value) {
   auto si64 =
       IntegerType::get(ctx, 64, IntegerType::SignednessSemantics::Signed);
   return rewriter.getIntegerAttr(si64, value);
+}
+
+// XCOMPILERFusedEltwise CLAMP min/max are signless i32 (matches XIR/xmodel).
+static IntegerAttr getI32Attr(PatternRewriter &rewriter, int64_t value) {
+  return rewriter.getI32IntegerAttr(static_cast<int32_t>(value));
 }
 
 // Canonicalize activation op types following the xcompiler ReplaceQDQConvPass
@@ -334,11 +338,6 @@ struct FuseQuantizedEltwiseWithoutActivation
                << "Fusing quantized eltwise into onnx.XCOMPILERFusedEltwise: "
                << eltwiseOp->getName() << "\n");
 
-    // ReLU on UINT8 with zero_point=0 is a no-op: remove it entirely.
-    if (isUnary && isReluNoOp(eltwiseOp.getOperation())) {
-      rewriter.replaceOp(eltwiseOp, a);
-      return success();
-    }
     // Only create IR (e.g. onnx.NoValue) after we know we will rewrite.
     if (isUnary)
       b = rewriter.create<ONNXNoneOp>(eltwiseOp.getLoc()).getResult();
@@ -354,10 +353,10 @@ struct FuseQuantizedEltwiseWithoutActivation
 
     auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(eltwiseOp.getLoc(),
         resultType, a, b,
-        /*clip_max=*/IntegerAttr(),
-        /*clip_min=*/IntegerAttr(),
         /*enable_lut_sigmoid=*/rewriter.getBoolAttr(false),
         /*leakyrelu_alpha=*/leakyAlpha,
+        /*max=*/IntegerAttr(),
+        /*min=*/IntegerAttr(),
         /*mul_y=*/FloatAttr(),
         /*nonlinear=*/rewriter.getStringAttr(nonlinear),
         /*nonlinear_in_scales=*/FloatAttr(),
@@ -372,8 +371,8 @@ struct FuseQuantizedEltwiseWithoutActivation
 };
 
 // Pattern 1b: Quantized Clip fusion (no activation).
-// onnx.Clip(input, min, max) -> onnx.XCOMPILERFusedEltwise(type="CLIP")
-// Clip min/max are operands but fused op expects clip_min/clip_max attrs.
+// onnx.Clip(input, min, max) -> onnx.XCOMPILERFusedEltwise(type="CLAMP")
+// Clip min/max are operands but fused op expects min/max attrs.
 struct FuseQuantizedClipWithoutActivation
     : public OpRewritePattern<ONNXClipOp> {
   using OpRewritePattern<ONNXClipOp>::OpRewritePattern;
@@ -393,12 +392,12 @@ struct FuseQuantizedClipWithoutActivation
     // present.
     IntegerAttr clipMinAttr, clipMaxAttr;
     if (auto mn = getConstScalarI64(clipOp.getMin()))
-      clipMinAttr = getSI64Attr(rewriter, *mn);
+      clipMinAttr = getI32Attr(rewriter, *mn);
     else if (clipOp.getMin() && !isa<NoneType>(clipOp.getMin().getType()))
       return rewriter.notifyMatchFailure(clipOp, "min not constant/none");
 
     if (auto mx = getConstScalarI64(clipOp.getMax()))
-      clipMaxAttr = getSI64Attr(rewriter, *mx);
+      clipMaxAttr = getI32Attr(rewriter, *mx);
     else if (clipOp.getMax() && !isa<NoneType>(clipOp.getMax().getType()))
       return rewriter.notifyMatchFailure(clipOp, "max not constant/none");
 
@@ -411,17 +410,17 @@ struct FuseQuantizedClipWithoutActivation
     auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(clipOp.getLoc(),
         clipOp.getType(), // result type (quantized)
         clipOp.getInput(), noneB,
-        /*clip_max=*/clipMaxAttr,
-        /*clip_min=*/clipMinAttr,
         /*enable_lut_sigmoid=*/rewriter.getBoolAttr(false),
         /*leakyrelu_alpha=*/FloatAttr(),
+        /*max=*/clipMaxAttr,
+        /*min=*/clipMinAttr,
         /*mul_y=*/FloatAttr(),
         /*nonlinear=*/rewriter.getStringAttr("NONE"),
         /*nonlinear_in_scales=*/FloatAttr(),
         /*nonlinear_in_zeropoints=*/IntegerAttr(),
         /*prelu_in=*/IntegerAttr(),
         /*prelu_shift=*/IntegerAttr(),
-        /*type=*/rewriter.getStringAttr("CLIP"));
+        /*type=*/rewriter.getStringAttr("CLAMP"));
 
     rewriter.replaceOp(clipOp, fusedOp.getResult());
     return success();
@@ -564,10 +563,10 @@ struct FuseQuantizedEltwiseActivation : public OpRewritePattern<ActivationOp> {
         b = rewriter.create<ONNXNoneOp>(eltwiseOp.getLoc()).getResult();
       auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(
           eltwiseOp.getLoc(), activationOp.getType(), a, b,
-          /*clip_max=*/IntegerAttr(),
-          /*clip_min=*/IntegerAttr(),
           /*enable_lut_sigmoid=*/rewriter.getBoolAttr(false),
           /*leakyrelu_alpha=*/FloatAttr(),
+          /*max=*/IntegerAttr(),
+          /*min=*/IntegerAttr(),
           /*mul_y=*/FloatAttr(),
           /*nonlinear=*/rewriter.getStringAttr("NONE"),
           /*nonlinear_in_scales=*/FloatAttr(),
@@ -612,10 +611,10 @@ struct FuseQuantizedEltwiseActivation : public OpRewritePattern<ActivationOp> {
     auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(eltwiseOp.getLoc(),
         activationOp.getType(), // Result type (quantized)
         a, b,
-        /*clip_max=*/IntegerAttr(),
-        /*clip_min=*/IntegerAttr(),
         /*enable_lut_sigmoid=*/rewriter.getBoolAttr(false),
         /*leakyrelu_alpha=*/alphaAttr,
+        /*max=*/IntegerAttr(),
+        /*min=*/IntegerAttr(),
         /*mul_y=*/FloatAttr(),
         /*nonlinear=*/rewriter.getStringAttr(nonlinear),
         /*nonlinear_in_scales=*/FloatAttr(),
@@ -776,11 +775,8 @@ struct FusePostQuantizedReLUStrix : public OpRewritePattern<ONNXReluOp> {
 //===----------------------------------------------------------------------===//
 // Pattern 5: Replace Expand with Eltwise ADD
 // Quantized Expand(input, shape) -> XCOMPILERFusedEltwise(input, zeros, "ADD")
-// For 4D (NCHW) inputs:
-//   - W (dim[3]) == 1 is required (mirrors QDQ version, NHWC dim[2]).
-//   - C (dim[1]) == 1 is also required (mirrors fixed-point version, NHWC
-//   dim[3]).
-// Non-4D inputs have no spatial constraint.
+// Mirrors xcompiler's ReplaceQDQExpandToEltwisePass: no spatial constraints
+// since we already gate on quantized types.
 //===----------------------------------------------------------------------===//
 
 struct ReplaceExpandWithEltwise : public OpRewritePattern<ONNXExpandOp> {
@@ -800,13 +796,9 @@ struct ReplaceExpandWithEltwise : public OpRewritePattern<ONNXExpandOp> {
       return rewriter.notifyMatchFailure(expandOp, "not ranked tensors");
 
     auto inputShape = inputRankedType.getShape();
-
-    // For 4D (NCHW) tensors, require both C==1 (dim[1]) and W==1 (dim[3]).
-    // NHWC equivalents: W=dim[2], C=dim[3] in xcompiler's fixed-point version.
-    // Non-4D tensors are accepted without spatial-dim constraints.
-    if (inputShape.size() == 4 && (inputShape[1] != 1 || inputShape[3] != 1))
+    if (inputShape.size() == 4 && inputShape[2] != 1)
       return rewriter.notifyMatchFailure(
-          expandOp, "4D input requires C (dim[1]) == 1 and W (dim[3]) == 1");
+          expandOp, "4D input requires dim[2] == 1");
 
     LLVM_DEBUG(llvm::dbgs() << "Replacing quantized Expand with eltwise ADD: "
                             << expandOp->getName() << "\n");
@@ -831,10 +823,10 @@ struct ReplaceExpandWithEltwise : public OpRewritePattern<ONNXExpandOp> {
 
     auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(expandOp.getLoc(),
         resultType, input, zeroConst.getResult(),
-        /*clip_max=*/IntegerAttr(),
-        /*clip_min=*/IntegerAttr(),
         /*enable_lut_sigmoid=*/rewriter.getBoolAttr(false),
         /*leakyrelu_alpha=*/FloatAttr(),
+        /*max=*/IntegerAttr(),
+        /*min=*/IntegerAttr(),
         /*mul_y=*/FloatAttr(),
         /*nonlinear=*/rewriter.getStringAttr("NONE"),
         /*nonlinear_in_scales=*/FloatAttr(),

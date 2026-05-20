@@ -1,4 +1,4 @@
-// Copyright 2025 Advanced Micro Devices, Inc. or its affiliates
+// Copyright 2025-2026 Advanced Micro Devices, Inc. or its affiliates
 // RUN: onnx-mlir-opt --recompose-onnx --canonicalize %s -split-input-file | FileCheck %s
 
 // -----
@@ -872,3 +872,172 @@ func.func @test_depth_to_space_DCR_not_static_shapes(%arg0: tensor<*xf32>) -> te
   return %4 : tensor<*xf32>
 }
 // CHECK-NOT: onnx.DepthToSpace
+
+// -----
+
+// HardSigmoid(x) = clip(x * a + b, 0, 1) with alpha=1/6, beta=0.5 in f32
+func.func @test_hardsigmoid_clip_mul_add_f32(%arg0 : tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32> {
+  %a = onnx.Constant dense<0.166666672> : tensor<f32>
+  %b = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %zero = onnx.Constant dense<0.000000e+00> : tensor<f32>
+  %one = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %0 = "onnx.Mul"(%arg0, %a) : (tensor<?x?x3072xf32>, tensor<f32>) -> tensor<?x?x3072xf32>
+  %1 = "onnx.Add"(%0, %b) : (tensor<?x?x3072xf32>, tensor<f32>) -> tensor<?x?x3072xf32>
+  %2 = "onnx.Clip"(%1, %zero, %one) : (tensor<?x?x3072xf32>, tensor<f32>, tensor<f32>) -> tensor<?x?x3072xf32>
+  return %2 : tensor<?x?x3072xf32>
+
+// CHECK-LABEL:  func.func @test_hardsigmoid_clip_mul_add_f32
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.HardSigmoid"([[PARAM_0_]]) {alpha = 0.166666672 : f32, beta = 5.000000e-01 : f32} : (tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+// CHECK:           return [[VAR_0_]] : tensor<?x?x3072xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_hardsigmoid_clip_mul_add_f32_dynamic_min(%arg0 : tensor<?x?x3072xf32>, %arg1 : tensor<f32>) -> tensor<?x?x3072xf32> {
+  %a = onnx.Constant dense<0.166666672> : tensor<f32>
+  %b = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %one = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %0 = "onnx.Mul"(%arg0, %a) : (tensor<?x?x3072xf32>, tensor<f32>) -> tensor<?x?x3072xf32>
+  %1 = "onnx.Add"(%0, %b) : (tensor<?x?x3072xf32>, tensor<f32>) -> tensor<?x?x3072xf32>
+  %2 = "onnx.Clip"(%1, %arg1, %one) : (tensor<?x?x3072xf32>, tensor<f32>, tensor<f32>) -> tensor<?x?x3072xf32>
+  return %2 : tensor<?x?x3072xf32>
+
+// CHECK-LABEL:  func.func @test_hardsigmoid_clip_mul_add_f32_dynamic_min
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x3072xf32>, [[PARAM_1_:%.+]]: tensor<f32>) -> tensor<?x?x3072xf32> {
+// CHECK-DAG:           [[VAR_A_:%.+]] = onnx.Constant dense<0.166666672> : tensor<f32>
+// CHECK-DAG:           [[VAR_B_:%.+]] = onnx.Constant dense<5.000000e-01> : tensor<f32>
+// CHECK-DAG:           [[VAR_ONE_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<f32>
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Mul"([[PARAM_0_]], [[VAR_A_]]) : (tensor<?x?x3072xf32>, tensor<f32>) -> tensor<?x?x3072xf32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Add"([[VAR_0_]], [[VAR_B_]]) : (tensor<?x?x3072xf32>, tensor<f32>) -> tensor<?x?x3072xf32>
+// CHECK-NOT:       "onnx.HardSigmoid"
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Clip"([[VAR_1_]], [[PARAM_1_]], [[VAR_ONE_]]) : (tensor<?x?x3072xf32>, tensor<f32>, tensor<f32>) -> tensor<?x?x3072xf32>
+// CHECK:           return [[VAR_2_]] : tensor<?x?x3072xf32>
+// CHECK:         }
+}
+
+// -----
+
+// HardSigmoid(x) = clip(x * a + b, 0, 1) with alpha=1/6, beta=0.5 in bf16
+func.func @test_hardsigmoid_clip_mul_add_bf16(%arg0 : tensor<?x?x3072xbf16>) -> tensor<?x?x3072xbf16> {
+  %a = onnx.Constant dense<0.166015625> : tensor<bf16>
+  %b = onnx.Constant dense<5.000000e-01> : tensor<bf16>
+  %zero = onnx.Constant dense<0.000000e+00> : tensor<bf16>
+  %one = onnx.Constant dense<1.000000e+00> : tensor<bf16>
+  %0 = "onnx.Mul"(%arg0, %a) : (tensor<?x?x3072xbf16>, tensor<bf16>) -> tensor<?x?x3072xbf16>
+  %1 = "onnx.Add"(%0, %b) : (tensor<?x?x3072xbf16>, tensor<bf16>) -> tensor<?x?x3072xbf16>
+  %2 = "onnx.Clip"(%1, %zero, %one) : (tensor<?x?x3072xbf16>, tensor<bf16>, tensor<bf16>) -> tensor<?x?x3072xbf16>
+  return %2 : tensor<?x?x3072xbf16>
+
+// CHECK-LABEL:  func.func @test_hardsigmoid_clip_mul_add_bf16
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x3072xbf16>) -> tensor<?x?x3072xbf16> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.HardSigmoid"([[PARAM_0_]]) {alpha = 0.166015625 : f32, beta = 5.000000e-01 : f32} : (tensor<?x?x3072xbf16>) -> tensor<?x?x3072xbf16>
+// CHECK:           return [[VAR_0_]] : tensor<?x?x3072xbf16>
+// CHECK:         }
+}
+
+// -----
+
+// HardSigmoid(x) = clip(x * a + b, 0, 1) with alpha=1/6, beta=0.5 in f16
+func.func @test_hardsigmoid_clip_mul_add_f16(%arg0 : tensor<?x?x3072xf16>) -> tensor<?x?x3072xf16> {
+  %a = onnx.Constant dense<0.166625977> : tensor<f16>
+  %b = onnx.Constant dense<5.000000e-01> : tensor<f16>
+  %zero = onnx.Constant dense<0.000000e+00> : tensor<f16>
+  %one = onnx.Constant dense<1.000000e+00> : tensor<f16>
+  %0 = "onnx.Mul"(%arg0, %a) : (tensor<?x?x3072xf16>, tensor<f16>) -> tensor<?x?x3072xf16>
+  %1 = "onnx.Add"(%0, %b) : (tensor<?x?x3072xf16>, tensor<f16>) -> tensor<?x?x3072xf16>
+  %2 = "onnx.Clip"(%1, %zero, %one) : (tensor<?x?x3072xf16>, tensor<f16>, tensor<f16>) -> tensor<?x?x3072xf16>
+  return %2 : tensor<?x?x3072xf16>
+
+// CHECK-LABEL:  func.func @test_hardsigmoid_clip_mul_add_f16
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x3072xf16>) -> tensor<?x?x3072xf16> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.HardSigmoid"([[PARAM_0_]]) {alpha = 0.166625977 : f32, beta = 5.000000e-01 : f32} : (tensor<?x?x3072xf16>) -> tensor<?x?x3072xf16>
+// CHECK:           return [[VAR_0_]] : tensor<?x?x3072xf16>
+// CHECK:         }
+}
+
+// -----
+
+// HardSigmoid(x) = clip(x * a + b, 0, 1) with alpha=0.2, beta=0.5 in f32
+func.func @test_hardsigmoid_clip_mul_add_default_alpha_beta(%arg0 : tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32> {
+  %a = onnx.Constant dense<2.000000e-01> : tensor<f32>
+  %b = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %zero = onnx.Constant dense<0.000000e+00> : tensor<f32>
+  %one = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %0 = "onnx.Mul"(%arg0, %a) : (tensor<?x?x3072xf32>, tensor<f32>) -> tensor<?x?x3072xf32>
+  %1 = "onnx.Add"(%0, %b) : (tensor<?x?x3072xf32>, tensor<f32>) -> tensor<?x?x3072xf32>
+  %2 = "onnx.Clip"(%1, %zero, %one) : (tensor<?x?x3072xf32>, tensor<f32>, tensor<f32>) -> tensor<?x?x3072xf32>
+  return %2 : tensor<?x?x3072xf32>
+
+// CHECK-LABEL:  func.func @test_hardsigmoid_clip_mul_add_default_alpha_beta
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.HardSigmoid"([[PARAM_0_]]) {alpha = 2.000000e-01 : f32, beta = 5.000000e-01 : f32} : (tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+// CHECK:           return [[VAR_0_]] : tensor<?x?x3072xf32>
+// CHECK:         }
+}
+
+// -----
+
+// HardSwish(x) = x * HardSigmoid(x) with alpha=1/6, beta=0.5
+func.func @test_hardswish_from_mul_hardsigmoid(%arg0 : tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32> {
+  %0 = "onnx.HardSigmoid"(%arg0) {alpha = 0.166666672 : f32, beta = 5.000000e-01 : f32} : (tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+  %1 = "onnx.Mul"(%arg0, %0) : (tensor<?x?x3072xf32>, tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+  return %1 : tensor<?x?x3072xf32>
+
+// CHECK-LABEL:  func.func @test_hardswish_from_mul_hardsigmoid
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32> {
+// CHECK-NOT:       "onnx.HardSigmoid"
+// CHECK-NOT:       "onnx.Mul"
+// CHECK:           [[VAR_0_:%.+]] = "onnx.HardSwish"([[PARAM_0_]]) : (tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+// CHECK:           return [[VAR_0_]] : tensor<?x?x3072xf32>
+// CHECK:         }
+}
+
+// -----
+
+// Mul(x, HardSigmoid(x)) with alpha=0.2 should not match HardSwish pattern
+func.func @test_hardswish_from_mul_hardsigmoid_wrong_alpha(%arg0 : tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32> {
+  %0 = "onnx.HardSigmoid"(%arg0) {alpha = 2.000000e-01 : f32, beta = 5.000000e-01 : f32} : (tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+  %1 = "onnx.Mul"(%arg0, %0) : (tensor<?x?x3072xf32>, tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+  return %1 : tensor<?x?x3072xf32>
+
+// CHECK-LABEL:  func.func @test_hardswish_from_mul_hardsigmoid_wrong_alpha
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32> {
+// CHECK-NOT:       "onnx.HardSwish"
+// CHECK:           [[VAR_0_:%.+]] = "onnx.HardSigmoid"([[PARAM_0_]]) {alpha = 2.000000e-01 : f32, beta = 5.000000e-01 : f32} : (tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Mul"([[PARAM_0_]], [[VAR_0_]]) : (tensor<?x?x3072xf32>, tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+// CHECK:           return [[VAR_1_]] : tensor<?x?x3072xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_hardswish_from_mul_hardsigmoid_wrong_beta(%arg0 : tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32> {
+  %0 = "onnx.HardSigmoid"(%arg0) {alpha = 0.166666672 : f32, beta = 3.000000e-01 : f32} : (tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+  %1 = "onnx.Mul"(%arg0, %0) : (tensor<?x?x3072xf32>, tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+  return %1 : tensor<?x?x3072xf32>
+
+// CHECK-LABEL:  func.func @test_hardswish_from_mul_hardsigmoid_wrong_beta
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32> {
+// CHECK-NOT:       "onnx.HardSwish"
+// CHECK:           [[VAR_0_:%.+]] = "onnx.HardSigmoid"([[PARAM_0_]]) {alpha = 0.166666672 : f32, beta = 3.000000e-01 : f32} : (tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Mul"([[PARAM_0_]], [[VAR_0_]]) : (tensor<?x?x3072xf32>, tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+// CHECK:           return [[VAR_1_]] : tensor<?x?x3072xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_hardswish_from_mul_hardsigmoid_wrong_input(%arg0 : tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32> {
+  %0 = "onnx.Constant"() {value=dense<[7.0]> : tensor<1xf32>} : () -> tensor<1xf32>
+  %1 = "onnx.HardSigmoid"(%arg0) {alpha = 0.166666672 : f32, beta = 5.000000e-01 : f32} : (tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+  %2 = "onnx.Mul"(%0, %1) : (tensor<1xf32>, tensor<?x?x3072xf32>) -> tensor<?x?x3072xf32>
+  return %2 : tensor<?x?x3072xf32>
+
+// CHECK-LABEL:  func.func @test_hardswish_from_mul_hardsigmoid_wrong_input
+// CHECK-NOT:       "onnx.HardSwish"
+// CHECK:           "onnx.HardSigmoid"
+// CHECK:           "onnx.Mul"
+// CHECK:         }
+}

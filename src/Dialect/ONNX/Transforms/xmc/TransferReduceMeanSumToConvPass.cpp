@@ -12,9 +12,9 @@
 #include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 
 #include "llvm/ADT/SmallVector.h"
-
 #include <cmath>
 #include <numeric>
+#include <type_traits>
 
 using namespace mlir;
 
@@ -173,10 +173,12 @@ llvm::SmallVector<int64_t> compute4DShape(llvm::ArrayRef<int64_t> inputShape) {
 /// Standard group=1 1x1 conv reduces inputShape[1] (C_in) to 1.
 ///   Input [N,C,H,W] → Conv(weight=[1,C,1,1], group=1) → [N,1,H,W]
 /// The downstream ONNXToXIR pass handles NCHW→NHWC layout conversion.
+/// \p outputElementType is the element type of the original reduction op's
+/// output, used for the Conv result so downstream ops see the correct type.
 mlir::Value convertReductionToConv(mlir::PatternRewriter &rewriter,
     mlir::Location loc, mlir::Value input,
     bool isMean, // true for mean, false for sum
-    llvm::ArrayRef<int64_t> originalOutputShape) {
+    llvm::ArrayRef<int64_t> originalOutputShape, mlir::Type outputElementType) {
 
   auto inputShape = getShape(input);
   int64_t rank = inputShape.size();
@@ -254,7 +256,7 @@ mlir::Value convertReductionToConv(mlir::PatternRewriter &rewriter,
   }
 
   auto convOutputType =
-      mlir::RankedTensorType::get(convOutputShape, inputType.getElementType());
+      mlir::RankedTensorType::get(convOutputShape, outputElementType);
 
   mlir::Value bias;
   if (auto inputQuantType = mlir::dyn_cast<mlir::quant::UniformQuantizedType>(
@@ -307,6 +309,21 @@ llvm::SmallVector<int64_t> getAxesFromReduceMean(mlir::ONNXReduceMeanOp op) {
   return axes;
 }
 
+/// Get reduction axes from ReduceMeanV13 op (axes are a ArrayAttr, not an SSA
+/// operand).
+llvm::SmallVector<int64_t> getAxesFromReduceMeanV13(
+    mlir::ONNXReduceMeanV13Op op) {
+  llvm::SmallVector<int64_t> axes;
+  mlir::ArrayAttr arrayAttr = op.getAxesAttr();
+  if (!arrayAttr)
+    return axes;
+  for (mlir::Attribute elem : arrayAttr) {
+    if (auto intAttr = mlir::dyn_cast<mlir::IntegerAttr>(elem))
+      axes.push_back(intAttr.getInt());
+  }
+  return axes;
+}
+
 /// Get reduction axes from ReduceSum op
 llvm::SmallVector<int64_t> getAxesFromReduceSum(mlir::Value axesInput) {
   llvm::SmallVector<int64_t> axes;
@@ -328,11 +345,12 @@ llvm::SmallVector<int64_t> getAxesFromReduceSum(mlir::Value axesInput) {
 // ReduceMeanToConvPattern
 //===----------------------------------------------------------------------===//
 
-struct ReduceMeanToConvPattern : public OpRewritePattern<ONNXReduceMeanOp> {
-  using OpRewritePattern<ONNXReduceMeanOp>::OpRewritePattern;
+template <typename ReduceMeanOpTy>
+struct ReduceMeanToConvPattern : public OpRewritePattern<ReduceMeanOpTy> {
+  using OpRewritePattern<ReduceMeanOpTy>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(
-      ONNXReduceMeanOp op, PatternRewriter &rewriter) const override {
+      ReduceMeanOpTy op, PatternRewriter &rewriter) const override {
 
     mlir::Location loc = op.getLoc();
     mlir::Value input = op.getData();
@@ -349,7 +367,14 @@ struct ReduceMeanToConvPattern : public OpRewritePattern<ONNXReduceMeanOp> {
 
     int64_t rank = inputShape.size();
 
-    auto axes = getAxesFromReduceMean(op);
+    llvm::SmallVector<int64_t> axes;
+    if constexpr (std::is_same_v<ReduceMeanOpTy, mlir::ONNXReduceMeanOp>) {
+      axes = getAxesFromReduceMean(op);
+    } else {
+      static_assert(std::is_same_v<ReduceMeanOpTy, mlir::ONNXReduceMeanV13Op>,
+          "ReduceMeanToConvPattern only supports ReduceMean and ReduceMeanV13");
+      axes = getAxesFromReduceMeanV13(op);
+    }
     if (axes.empty())
       return mlir::failure();
 
@@ -369,8 +394,11 @@ struct ReduceMeanToConvPattern : public OpRewritePattern<ONNXReduceMeanOp> {
     if (!validOutputShape)
       return mlir::failure();
 
+    auto outputElemType =
+        mlir::cast<mlir::ShapedType>(op.getReduced().getType())
+            .getElementType();
     mlir::Value result = convertReductionToConv(rewriter, loc, input,
-        /*isMean=*/true, outputShape);
+        /*isMean=*/true, outputShape, outputElemType);
 
     rewriter.replaceOp(op, result);
     return success();
@@ -384,13 +412,13 @@ struct ReduceMeanToConvPattern : public OpRewritePattern<ONNXReduceMeanOp> {
 // transposing the reduction axis to the channel position (axis 1), applying
 // channel-wise conv reduction, then transposing back.
 
+template <typename ReduceMeanOpTy>
 struct ReduceMeanSpatialAxisToConvPattern
-    : public OpRewritePattern<ONNXReduceMeanOp> {
-  using OpRewritePattern<ONNXReduceMeanOp>::OpRewritePattern;
+    : public OpRewritePattern<ReduceMeanOpTy> {
+  using OpRewritePattern<ReduceMeanOpTy>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(
-      ONNXReduceMeanOp op, PatternRewriter &rewriter) const override {
-
+      ReduceMeanOpTy op, PatternRewriter &rewriter) const override {
     mlir::Location loc = op.getLoc();
     mlir::Value input = op.getData();
 
@@ -400,7 +428,15 @@ struct ReduceMeanSpatialAxisToConvPattern
 
     int64_t rank = inputShape.size();
 
-    auto axes = getAxesFromReduceMean(op);
+    llvm::SmallVector<int64_t> axes;
+    if constexpr (std::is_same_v<ReduceMeanOpTy, mlir::ONNXReduceMeanOp>) {
+      axes = getAxesFromReduceMean(op);
+    } else {
+      static_assert(std::is_same_v<ReduceMeanOpTy, mlir::ONNXReduceMeanV13Op>,
+          "ReduceMeanSpatialAxisToConvPattern only supports ReduceMean and "
+          "ReduceMeanV13");
+      axes = getAxesFromReduceMeanV13(op);
+    }
     if (axes.size() != 1)
       return mlir::failure();
 
@@ -430,6 +466,9 @@ struct ReduceMeanSpatialAxisToConvPattern
       return mlir::failure();
 
     auto inputType = mlir::cast<mlir::ShapedType>(input.getType());
+    auto outputElemType =
+        mlir::cast<mlir::ShapedType>(op.getReduced().getType())
+            .getElementType();
 
     // If rank < 4, reshape to 4D first by appending size-1 dims.
     // This ensures our transpose and ConvertToChannelLastPass's transpose
@@ -476,8 +515,9 @@ struct ReduceMeanSpatialAxisToConvPattern
     for (int64_t i = 0; i < workingRank; ++i)
       transposedConvOutputShape.push_back(i == 1 ? 1 : transposedInputShape[i]);
 
-    mlir::Value convResult = convertReductionToConv(rewriter, loc,
-        transposedInput, /*isMean=*/true, transposedConvOutputShape);
+    mlir::Value convResult =
+        convertReductionToConv(rewriter, loc, transposedInput, /*isMean=*/true,
+            transposedConvOutputShape, outputElemType);
 
     // Compute inverse permutation and transpose back
     llvm::SmallVector<int64_t> inversePerm(workingRank);
@@ -489,8 +529,8 @@ struct ReduceMeanSpatialAxisToConvPattern
     for (auto p : inversePerm)
       untransposedShape.push_back(convResultShape[p]);
 
-    auto untransposedType = mlir::RankedTensorType::get(
-        untransposedShape, inputType.getElementType());
+    auto untransposedType =
+        mlir::RankedTensorType::get(untransposedShape, outputElemType);
 
     mlir::Value result = rewriter.create<mlir::ONNXTransposeOp>(loc,
         untransposedType, convResult, rewriter.getI64ArrayAttr(inversePerm));
@@ -545,6 +585,13 @@ struct ReduceSumToConvPattern : public OpRewritePattern<ONNXReduceSumOp> {
     if (axis != 1)
       return mlir::failure();
 
+    // Defer rank-4 quantized channel-axis reductions to
+    // ReplaceQDQReductionPass.
+    if (op.getKeepdims() != 0 && rank == 4 &&
+        mlir::isa<mlir::quant::QuantizedType>(inputElemType)) {
+      return mlir::failure();
+    }
+
     auto outputShape = getShape(op.getReduced());
     bool validOutputShape =
         (outputShape.size() == inputShape.size() - 1) ||
@@ -553,8 +600,11 @@ struct ReduceSumToConvPattern : public OpRewritePattern<ONNXReduceSumOp> {
     if (!validOutputShape)
       return mlir::failure();
 
+    auto outputElemType =
+        mlir::cast<mlir::ShapedType>(op.getReduced().getType())
+            .getElementType();
     mlir::Value result = convertReductionToConv(rewriter, loc, input,
-        /*isMean=*/false, outputShape);
+        /*isMean=*/false, outputShape, outputElemType);
 
     rewriter.replaceOp(op, result);
     return success();
@@ -607,6 +657,9 @@ struct ReduceSumSpatialAxisToConvPattern
       return mlir::failure();
 
     auto inputType = mlir::cast<mlir::ShapedType>(input.getType());
+    auto outputElemType =
+        mlir::cast<mlir::ShapedType>(op.getReduced().getType())
+            .getElementType();
 
     // If rank < 4, reshape to 4D first by appending size-1 dims.
     // This ensures our transpose and ConvertToChannelLastPass's transpose
@@ -646,8 +699,9 @@ struct ReduceSumSpatialAxisToConvPattern
     for (int64_t i = 0; i < workingRank; ++i)
       transposedConvOutputShape.push_back(i == 1 ? 1 : transposedInputShape[i]);
 
-    mlir::Value convResult = convertReductionToConv(rewriter, loc,
-        transposedInput, /*isMean=*/false, transposedConvOutputShape);
+    mlir::Value convResult =
+        convertReductionToConv(rewriter, loc, transposedInput, /*isMean=*/false,
+            transposedConvOutputShape, outputElemType);
 
     // Compute inverse permutation and transpose back
     llvm::SmallVector<int64_t> inversePerm(workingRank);
@@ -659,8 +713,8 @@ struct ReduceSumSpatialAxisToConvPattern
     for (auto p : inversePerm)
       untransposedShape.push_back(convResultShape[p]);
 
-    auto untransposedType = mlir::RankedTensorType::get(
-        untransposedShape, inputType.getElementType());
+    auto untransposedType =
+        mlir::RankedTensorType::get(untransposedShape, outputElemType);
 
     mlir::Value result = rewriter.create<mlir::ONNXTransposeOp>(loc,
         untransposedType, convResult, rewriter.getI64ArrayAttr(inversePerm));
@@ -752,10 +806,12 @@ struct ReduceMeanMulToConvPattern : public OpRewritePattern<ONNXMulOp> {
       return mlir::failure();
 
     auto outputShape = getShape(mulOp.getC());
+    auto outputElemType =
+        mlir::cast<mlir::ShapedType>(mulOp.getC().getType()).getElementType();
 
     mlir::Location loc = mulOp.getLoc();
     mlir::Value result = convertReductionToConv(rewriter, loc, input,
-        /*isMean=*/true, outputShape);
+        /*isMean=*/true, outputShape, outputElemType);
 
     rewriter.replaceOp(mulOp, result);
     return success();
@@ -805,10 +861,13 @@ struct ReduceMeanReluToConvPattern : public OpRewritePattern<ONNXReluOp> {
 
     auto reluOutputShape = getShape(reluOp.getY());
     auto reduceMeanOutputShape = getShape(reduceMean.getReduced());
+    auto reduceMeanOutputElemType =
+        mlir::cast<mlir::ShapedType>(reduceMean.getReduced().getType())
+            .getElementType();
 
     mlir::Location loc = reluOp.getLoc();
-    mlir::Value convResult = convertReductionToConv(
-        rewriter, loc, input, /*isMean=*/true, reduceMeanOutputShape);
+    mlir::Value convResult = convertReductionToConv(rewriter, loc, input,
+        /*isMean=*/true, reduceMeanOutputShape, reduceMeanOutputElemType);
 
     // Create new ReLU on conv output
     auto reluOutputType = mlir::RankedTensorType::get(reluOutputShape,
@@ -845,8 +904,12 @@ struct TransferReduceMeanSumToConvPass
     RewritePatternSet patterns(context);
     patterns.add<ReduceMeanMulToConvPattern>(context);
     patterns.add<ReduceMeanReluToConvPattern>(context);
-    patterns.add<ReduceMeanToConvPattern>(context);
-    patterns.add<ReduceMeanSpatialAxisToConvPattern>(context);
+    patterns.add<ReduceMeanToConvPattern<mlir::ONNXReduceMeanOp>>(context);
+    patterns.add<ReduceMeanToConvPattern<mlir::ONNXReduceMeanV13Op>>(context);
+    patterns.add<ReduceMeanSpatialAxisToConvPattern<mlir::ONNXReduceMeanOp>>(
+        context);
+    patterns.add<ReduceMeanSpatialAxisToConvPattern<mlir::ONNXReduceMeanV13Op>>(
+        context);
     patterns.add<ReduceSumToConvPattern>(context);
     patterns.add<ReduceSumSpatialAxisToConvPattern>(context);
 

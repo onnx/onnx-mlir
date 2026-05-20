@@ -1,0 +1,26 @@
+// RUN: onnx-mlir --EmitONNXBasic --printIR %s | FileCheck %s
+
+// Verify that importSubgraph silently skips duplicate initializer names in a
+// Loop body instead of asserting ("Object already exists.").  The second
+// occurrence of 'step' in the initializer list must be dropped; only one
+// onnx.Constant for 'step' should appear inside the loop body.
+<
+   ir_version: 8,
+   opset_import: ["" : 13]
+>
+main (int64 trip_count, int64[1] v_initial) => (int64[1] final_v) {
+   final_v = Loop (trip_count, , v_initial) <body: graph = loop_body (int64 iter, bool cond_in, int64[1] v_in) => (bool cond_out, int64[1] v_out)
+      <int64[1] step = {1}, int64[1] step = {1}>
+{
+      v_out = Add (v_in, step)
+      cond_out = Identity (cond_in)
+   }>
+}
+// CHECK-LABEL: func.func @main_graph
+// CHECK:         "onnx.Loop"
+// CHECK:         ^bb0
+// CHECK:           [[STEP:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK-NOT:       onnx.Constant
+// CHECK:           "onnx.Add"({{%.+}}, [[STEP]])
+// CHECK:           onnx.Yield
+// CHECK:         "onnx.EntryPoint"

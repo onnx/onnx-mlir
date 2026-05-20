@@ -206,3 +206,21 @@ func.func @test_split_uneven(%arg0: tensor<10x20xf32>) -> (tensor<4x20xf32>, ten
 // DISABLED-LABEL:  func.func @test_split_uneven
 // DISABLED:        "onnx.Split"
 }
+
+
+// -----
+
+// Test Split with unranked output types - pattern should not match (needs shape inference first)
+// When shape inference cannot fully resolve output types (e.g. dynamic input),
+// SplitToSlice should gracefully skip rather than crash.
+func.func @test_split_unranked_output(%arg0: tensor<*xf32>) -> (tensor<*xf32>, tensor<*xf32>) {
+  %split_sizes = onnx.Constant dense<[3, 7]> : tensor<2xi64>
+  %0:2 = "onnx.Split"(%arg0, %split_sizes) {axis = 0 : si64} : (tensor<*xf32>, tensor<2xi64>) -> (tensor<*xf32>, tensor<*xf32>) loc("Split7")
+  return %0#0, %0#1 : tensor<*xf32>, tensor<*xf32>
+
+// CHECK-LABEL:  func.func @test_split_unranked_output
+// CHECK:        "onnx.Split"
+
+// DISABLED-LABEL:  func.func @test_split_unranked_output
+// DISABLED:        "onnx.Split"
+}

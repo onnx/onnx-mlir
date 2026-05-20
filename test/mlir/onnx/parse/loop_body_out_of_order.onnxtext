@@ -1,0 +1,34 @@
+// RUN: onnx-mlir --EmitONNXBasic --printIR %s | FileCheck %s
+
+// Verify that importGraph correctly handles Loop body nodes listed in
+// non-topological order in the ONNX proto.  The ONNX spec permits any node
+// ordering inside a graph (opset ≥ 13; ONNX IR spec §2.4).
+//
+// In this model the body's Add node is listed FIRST and references 'one',
+// but 'one' is defined by the Constant node listed SECOND.
+// computeTopologicalOrder must reorder them so that the Constant precedes the
+// Add in the emitted MLIR region (otherwise the region would be invalid).
+//
+// Proto order:   Add(v_in, one),  Constant→one,  Identity(cond_in)
+// MLIR order:    Constant→one,    Identity,       Add(v_in, one)    [reordered]
+<
+   ir_version: 8,
+   opset_import: ["" : 13]
+>
+agraph (int64[1] trip_count, int64[1] v_initial) => (int64[1] final_v) {
+   final_v = Loop (trip_count, , v_initial) <body: graph = loop_body_ooo (int64 iter, bool cond_in, int64[1] v_in) => (bool cond_out, int64[1] v_out) {
+      v_out = Add (v_in, one)
+      one = Constant <value: tensor = int64[1] {1}> ()
+      cond_out = Identity (cond_in)
+   }>
+}
+// CHECK-LABEL:  func.func @main_graph
+// CHECK:           "onnx.Loop"({{.*}}) ({
+// CHECK:           ^bb0({{.*}}):
+// Constant must come before Add in the emitted region.
+// CHECK:             [[ONE_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK-NOT:         "onnx.Add"
+// The Identity may appear between Constant and Add (both are independent of
+// each other), so we only assert order relative to the Constant.
+// CHECK:             [[VOUT_:%.+]] = "onnx.Add"({{.*}}, [[ONE_]]) : (tensor<1xi64>, tensor<1xi64>) -> tensor<1xi64>
+// CHECK:           })

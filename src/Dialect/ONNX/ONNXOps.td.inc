@@ -6,6 +6,7 @@
 
 def ONNXAbsOp:ONNX_Op<"Abs",
   [Pure, OpVersionTrait<13>, SameOperandsAndResultShape, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Abs operation";
   let description = [{
   Absolute takes one input data (Tensor<T>) and produces one output data
@@ -1459,9 +1460,9 @@ def ONNXConcatOp:ONNX_Op<"Concat",
   let description = [{
   Concatenate a list of tensors into a single tensor. All input tensors must have the same shape, except for the dimension size of the axis to concatenate on.
   }];
-  let arguments = (ins Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, TensorOf<[quant_QuantizedType]>]>>:$inputs,
+  let arguments = (ins Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, TensorOf<[UI<4>]>, TensorOf<[I<4>]>, TensorOf<[quant_QuantizedType]>]>>:$inputs,
     SI64Attr:$axis);
-  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, TensorOf<[quant_QuantizedType]>]>:$concat_result);
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, TensorOf<[UI<4>]>, TensorOf<[I<4>]>, TensorOf<[quant_QuantizedType]>]>:$concat_result);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return -1;
@@ -2712,7 +2713,6 @@ def ONNXGRUOp:ONNX_Op<"GRU",
 
 def ONNXGatherOp:ONNX_Op<"Gather",
   [Pure, OpVersionTrait<13>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
-  let hasCanonicalizer = 1;
   let summary = "ONNX Gather operation";
   let description = [{
   Given `data` tensor of rank r >= 1, and `indices` tensor of rank q, gather
@@ -2861,8 +2861,9 @@ def ONNXGatherElementsOp:ONNX_Op<"GatherElements",
   ]
   ```
   }];
+  // DTYPE: uint16 to GatherElements indices
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, TensorOf<[quant_QuantizedType]>]>:$data,
-    AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>]>:$indices,
+    AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[UI16]>]>:$indices,
     DefaultValuedAttr<SI64Attr, "0">:$axis);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, TensorOf<[quant_QuantizedType]>]>:$output);
   let extraClassDeclaration = [{
@@ -7210,6 +7211,7 @@ def ONNXReduceMaxV13Op:ONNX_Op<"ReduceMaxV13",
 
 def ONNXReduceMeanOp:ONNX_Op<"ReduceMean",
   [Pure, OpVersionTrait<18>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX ReduceMean operation";
   let description = [{
   Computes the mean of the input tensor's elements along the provided axes. The resulting
@@ -9339,12 +9341,12 @@ def ONNXSliceOp:ONNX_Op<"Slice",
   ]
   ```
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, TensorOf<[quant_QuantizedType]>]>:$data,
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, TensorOf<[UI<4>]>, TensorOf<[I<4>]>, TensorOf<[quant_QuantizedType]>]>:$data,
     AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>]>:$starts,
     AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>]>:$ends,
     AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>, NoneType]>:$axes,
     AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>, NoneType]>:$steps);
-  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, TensorOf<[quant_QuantizedType]>]>:$output);
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, TensorOf<[UI<4>]>, TensorOf<[I<4>]>, TensorOf<[quant_QuantizedType]>]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 5;

@@ -5,7 +5,7 @@
 //===--------------------- FrontendDialectHelper.cpp ----------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
-// Modifications Copyright 2025 Advanced Micro Devices, Inc.
+// Modifications Copyright 2025-2026 Advanced Micro Devices, Inc.
 //
 // =============================================================================
 //
@@ -43,28 +43,43 @@ size_t parseOffsetOrLength(const std::string &value) {
   return offsetOrLength;
 }
 
+struct ExternalDataLoc {
+  std::string location;
+  uint64_t offset = 0;
+  uint64_t length = -1; // MemoryBuffer uses -1 to mean infinity
+
+  ExternalDataLoc(const onnx::TensorProto &tp) {
+    for (const onnx::StringStringEntryProto &entry : tp.external_data()) {
+      assert(entry.has_key() && "external_data entry must have key");
+      assert(entry.has_value() && "external_data entry must have value");
+      if (entry.key() == "location") {
+        location = entry.value();
+      } else if (entry.key() == "offset") {
+        offset = parseOffsetOrLength(entry.value());
+      } else if (entry.key() == "length") {
+        length = parseOffsetOrLength(entry.value());
+      }
+    }
+  }
+};
+
+// True if the location of a TensorProto::EXTERNAL is in-memory.
+bool isInMemoryExternal(std::string_view location) {
+  // onnxruntime#12465 kTensorProtoMemoryAddressTag = "*/_ORT_MEM_ADDR_/*"
+  return location == "*/_ORT_MEM_ADDR_/*";
+}
+
 // Reads external data from file location specified in tensor proto.
 // The data is little endian encoded.
 // See https://github.com/onnx/onnx/blob/main/docs/ExternalData.md
 std::unique_ptr<llvm::MemoryBuffer> readExternalData_LE(
-    const std::string &externalDataDir, const onnx::TensorProto &tp) {
-  std::string location;
-  uint64_t offset = 0;
-  uint64_t length = -1; // MemoryBuffer uses -1 to mean infinity
-  for (const onnx::StringStringEntryProto &entry : tp.external_data()) {
-    assert(entry.has_key() && "external_data entry must have key");
-    assert(entry.has_value() && "external_data entry must have value");
-    if (entry.key() == "location") {
-      location = entry.value();
-    } else if (entry.key() == "offset") {
-      offset = parseOffsetOrLength(entry.value());
-    } else if (entry.key() == "length") {
-      length = parseOffsetOrLength(entry.value());
-    }
-  }
-  assert(!location.empty() && "missing external data location");
+    const std::string &externalDataDir, const ExternalDataLoc &loc) {
+  assert(!loc.location.empty() && "missing external data location");
+  // This should only be used for on-file external data.
+  assert(!isInMemoryExternal(loc.location));
+
   SmallVector<char> path(externalDataDir.begin(), externalDataDir.end());
-  llvm::sys::path::append(path, location);
+  llvm::sys::path::append(path, loc.location);
   const std::string pathStr(path.data(), path.size());
 
   // Check file size before memory mapping to avoid Bus errors
@@ -75,22 +90,24 @@ std::unique_ptr<llvm::MemoryBuffer> readExternalData_LE(
     llvm::report_fatal_error("Cannot get external data file size");
   }
 
-  const uint64_t requiredSize = offset + length;
-  if (offset > fileSize ||
-      (length != uint64_t(-1) && requiredSize > fileSize)) {
+  const uint64_t requiredSize = loc.offset + loc.length;
+  if (loc.offset > fileSize ||
+      (loc.length != uint64_t(-1) && requiredSize > fileSize)) {
     llvm::errs() << "Error: External data file " << pathStr
                  << " is too small.\n"
                  << "  File size: " << fileSize << " bytes\n"
                  << "  Required:  " << requiredSize << " bytes "
-                 << "(offset=" << offset << " + length=" << length << ")\n";
+                 << "(offset=" << loc.offset << " + length=" << loc.length
+                 << ")\n";
     llvm::report_fatal_error("External data file is truncated or corrupted");
   }
 
   auto bufferOrError = llvm::MemoryBuffer::getFileSlice(
-      path, length, offset, /*IsVolatile=*/false);
+      path, loc.length, loc.offset, /*IsVolatile=*/false);
   if (std::error_code ec = bufferOrError.getError()) {
     llvm::errs() << "Error " << ec.message() << " reading from file " << pathStr
-                 << ", offset=" << offset << ", length=" << length << "\n";
+                 << ", offset=" << loc.offset << ", length=" << loc.length
+                 << "\n";
     llvm_unreachable("llvm::MemoryBuffer::getFileSlice failed");
   }
   return std::move(bufferOrError.get());
@@ -156,7 +173,7 @@ ElementsAttr createElmAttrFromArray(RankedTensorType tensorType,
   return OnnxElementsAttrBuilder(ctx).fromArray<T>(tensorType,
       [array, &transformation, tensorType](MutableArrayRef<T> copy) {
         for (int64_t idx = 0;
-             idx < cast<ShapedType>(tensorType).getNumElements(); ++idx)
+            idx < cast<ShapedType>(tensorType).getNumElements(); ++idx)
           transformation(array, copy, idx);
       });
 }
@@ -270,8 +287,13 @@ ElementsAttr createElmAttr(RankedTensorType tensorType,
     const onnx::TensorProto &tp, const std::string &externalDataDir) {
   if (tp.has_data_location() &&
       tp.data_location() == onnx::TensorProto::EXTERNAL) {
+    ExternalDataLoc loc(tp);
+    if (isInMemoryExternal(loc.location)) {
+      return createElmAttrFromRawBytes_LE<T>(tensorType,
+          llvm::ArrayRef(reinterpret_cast<char *>(loc.offset), loc.length));
+    }
     return createElementsAttrFromMemoryBuffer_LE<T>(
-        tensorType, readExternalData_LE(externalDataDir, tp));
+        tensorType, readExternalData_LE(externalDataDir, loc));
   }
   if (tp.has_raw_data()) {
     return createElmAttrFromRawBytes_LE<T>(

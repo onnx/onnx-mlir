@@ -14,6 +14,9 @@
 // implemented, some lowering to other dialects is additionally required, though
 // not reflected here.
 //
+// Modifications (c) Copyright 2026 Advanced Micro Devices, Inc. or its
+// affiliates
+//
 //===----------------------------------------------------------------------===//
 
 #ifndef UNSUPPORTED_OPS
@@ -30,7 +33,6 @@ UNSUPPORTED_OPS(ONNXBlackmanWindowOp)
 UNSUPPORTED_OPS(ONNXCastMapOp)
 UNSUPPORTED_OPS(ONNXCenterCropPadOp)
 UNSUPPORTED_OPS(ONNXCol2ImOp)
-UNSUPPORTED_OPS(ONNXConcatFromSequenceOp)
 UNSUPPORTED_OPS(ONNXDetOp)
 UNSUPPORTED_OPS(ONNXDeformConvOp)
 UNSUPPORTED_OPS(ONNXDictVectorizerOp)

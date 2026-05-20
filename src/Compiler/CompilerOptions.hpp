@@ -5,6 +5,7 @@
 //===------------------------ CompilerOptions.hpp -------------------------===//
 //
 // Copyright 2022-2025 The IBM Research Authors.
+// Copyright 2026 Advanced Micro Devices, Inc. or its affiliates
 //
 // =============================================================================
 //
@@ -80,6 +81,7 @@ extern std::vector<std::string> functionsToDecompose;         // common for both
 extern std::string opsForCall;                                // common for both
 extern bool disableKrnlOpFusion;                              // common for both
 extern bool disableQuantZeroPoint;                            // common for both
+extern bool enableUnsafeMathOptimizations;                    // common for both
 extern bool enableKrnlBufferReuse;                            // common for both
 extern bool enableSafeCodeGen;                                // common for both
 extern bool disableMemRefPrefetch;                            // common for both

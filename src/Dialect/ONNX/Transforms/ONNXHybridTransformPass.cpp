@@ -11,6 +11,9 @@
 // rewrite, not a partial conversion with "legalization" to ensure that every
 // decomposable op is decomposed.
 //
+// Modifications (c) Copyright 2026 Advanced Micro Devices, Inc. or its
+// affiliates
+//
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Pass/Pass.h"
@@ -73,6 +76,10 @@ struct ONNXHybridTransformPass
       llvm::cl::desc("Enable constant propagation in hybrid transform"),
       llvm::cl::init(true)};
 
+  Option<bool> qdqConstProp{*this, "qdq-const-prop",
+      llvm::cl::desc("Enable constant propagation for QDQ"),
+      llvm::cl::init(false)};
+
   Option<bool> decomposition{*this, "decomposition",
       llvm::cl::desc("Enable decomposition in hybrid transform"),
       llvm::cl::init(true)};
@@ -112,6 +119,11 @@ struct ONNXHybridTransformPass
           "phased Conv"),
       ::llvm::cl::init(false)};
 
+  Option<bool> enableReduceL2Decompose{*this, "enable-reducel2-decompose",
+      llvm::cl::desc("Enable decomposition of ReduceL2 to "
+                     "Sqrt(ReduceSumSquare(x))"),
+      ::llvm::cl::init(true)};
+
   Option<bool> enableInstanceNormDecompose{*this,
       "enable-instancenorm-decompose",
       llvm::cl::desc("Enable decomposition of InstanceNormalization to "
@@ -139,10 +151,42 @@ struct ONNXHybridTransformPass
       llvm::cl::desc("Enable decomposition of Split to Slice"),
       ::llvm::cl::init(false)};
 
-  Option<bool> enablGAPToReduceMean{*this,
+  Option<bool> enableConcatFuse{*this, "enable-concat-fuse",
+      llvm::cl::desc("Enable ConcatFusePattern in decomposition pass"),
+      ::llvm::cl::init(true)};
+
+  Option<bool> enableGAPToReduceMean{*this,
       "enable-globalaveragepool-to-reducemean",
       llvm::cl::desc(
           "Enable canonicalize from GlobalAveragePool to ReduceMean"),
+      ::llvm::cl::init(true)};
+
+  Option<bool> enableLstmSeqDecompose{*this, "enable-lstm-seq-decomposition",
+      llvm::cl::desc("Enable sequence-length decomposition of LSTM (unroll a "
+                     "seq_len>1 LSTM into a chain of seq_len=1 LSTMs)"),
+      ::llvm::cl::init(false)};
+
+  Option<bool> enableGatherToSlice{*this, "enable-gather-to-slice",
+      llvm::cl::desc(
+          "Enable decomposition of Gather with scalar index to Slice+Reshape"),
+      ::llvm::cl::init(true)};
+
+  Option<bool> enableRotaryEmbeddingRecompose{*this,
+      "enable-rotary-embedding-recompose",
+      llvm::cl::desc("Recompose LlamaRotaryEmbedding style RoPE "
+                     "into onnx.RotaryEmbedding"),
+      ::llvm::cl::init(false)};
+
+  Option<bool> enableHardSwishDecompose{*this, "enable-hardswish-decompose",
+      llvm::cl::desc("Enable decomposition of HardSwish into "
+                     "x * HardSigmoid(x) (alpha=1/6, beta=0.5)"),
+      ::llvm::cl::init(true)};
+
+  Option<bool> enableGroupQueryAttentionCacheSlicing{*this,
+      "enable-groupqueryattention-cache-slicing",
+      llvm::cl::desc("Enable slicing of cos/sin caches during decomposing "
+                     "GroupQueryAttention. Set to false for keeping cache "
+                     "and synthesize position_ids instead."),
       ::llvm::cl::init(true)};
 
   FrozenRewritePatternSet patterns;
@@ -154,7 +198,12 @@ struct ONNXHybridTransformPass
       bool enableConvTranspose1dDecomposeToPhasedConv,
       bool enableInstanceNormDecompose, bool enableGroupNormDecompose,
       bool enableMatmulNBitsDecompose, bool enableGroupQueryAttentionDecompose,
-      bool enableSplitToSliceDecompose, bool enablGAPToReduceMean) {
+      bool enableSplitToSliceDecompose, bool enableConcatFuse,
+      bool enableGAPToReduceMean, bool enableLstmSeqDecompose = false,
+      bool enableGatherToSlice = true, bool enableReduceL2Decompose = true,
+      bool enableRotaryEmbeddingRecompose = false,
+      bool enableQDQConstProp = false, bool enableHardSwishDecompose = true,
+      bool enableGroupQueryAttentionCacheSlicing = true) {
     this->recomposition = enableRecomposition;
     this->quarkQuantizedOpsLegalization = enableQuarkQuantizedOpsLegalization;
     this->enableConvTransposeDecompose = enableConvTransposeDecompose;
@@ -168,7 +217,16 @@ struct ONNXHybridTransformPass
     this->enableGroupQueryAttentionDecompose =
         enableGroupQueryAttentionDecompose;
     this->enableSplitToSliceDecompose = enableSplitToSliceDecompose;
-    this->enablGAPToReduceMean = enablGAPToReduceMean;
+    this->enableConcatFuse = enableConcatFuse;
+    this->enableGAPToReduceMean = enableGAPToReduceMean;
+    this->enableLstmSeqDecompose = enableLstmSeqDecompose;
+    this->enableReduceL2Decompose = enableReduceL2Decompose;
+    this->enableGatherToSlice = enableGatherToSlice;
+    this->enableRotaryEmbeddingRecompose = enableRotaryEmbeddingRecompose;
+    this->qdqConstProp = enableQDQConstProp;
+    this->enableHardSwishDecompose = enableHardSwishDecompose;
+    this->enableGroupQueryAttentionCacheSlicing =
+        enableGroupQueryAttentionCacheSlicing;
   }
 
   ONNXHybridTransformPass(const ONNXHybridTransformPass &pass)
@@ -206,7 +264,7 @@ struct ONNXHybridTransformPass
           continue;
         }
 
-        if (!enablGAPToReduceMean &&
+        if (!enableGAPToReduceMean &&
             op.getStringRef() == "onnx.GlobalAveragePool") {
           continue;
         }
@@ -215,7 +273,7 @@ struct ONNXHybridTransformPass
     }
 
     if (constantPropagation) {
-      getConstPropONNXToONNXPatterns(cumulativePatterns);
+      getConstPropONNXToONNXPatterns(cumulativePatterns, qdqConstProp);
     }
 
     if (decomposition) {
@@ -225,11 +283,15 @@ struct ONNXHybridTransformPass
           enableConvTranspose1dDecomposeToPhasedConv,
           enableInstanceNormDecompose, enableGroupNormDecompose,
           enableMatmulNBitsDecompose, enableGroupQueryAttentionDecompose,
-          enableSplitToSliceDecompose);
+          enableSplitToSliceDecompose, enableConcatFuse, enableLstmSeqDecompose,
+          enableReduceL2Decompose,
+          /*disableGenericDecompositions=*/false, enableGatherToSlice,
+          enableHardSwishDecompose, enableGroupQueryAttentionCacheSlicing);
     }
 
     if (recomposition) {
-      getRecomposeONNXToONNXPatterns(cumulativePatterns);
+      getRecomposeONNXToONNXPatterns(
+          cumulativePatterns, enableRotaryEmbeddingRecompose);
     }
 
     patterns = FrozenRewritePatternSet(std::move(cumulativePatterns));
@@ -247,8 +309,12 @@ struct ONNXHybridTransformPass
     if (maxNumRewritesOffset == -1) {
       config.maxNumRewrites = GreedyRewriteConfig::kNoLimit;
     } else {
-      // Count the top level ops in f, i.e., excluding sub-regions.
-      float numOps = std::distance(body.op_begin(), body.op_end());
+      // Count all ops reachable from the function body, including ops inside
+      // loop/if sub-regions.  Loop unrolling moves sub-region ops to the top
+      // level, so the budget must account for them to avoid false convergence
+      // failures on models with unrollable loops.
+      int64_t numOps = 0;
+      body.walk([&](Operation *) { ++numOps; });
       config.maxNumRewrites =
           maxNumRewritesOffset + maxNumRewritesMultiplier * numOps;
     }
@@ -262,7 +328,7 @@ struct ONNXHybridTransformPass
 
     inferFunctionReturnShapes(f);
   }
-};
+}; // namespace
 
 } // namespace
 
@@ -273,12 +339,19 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createONNXHybridTransformPass(
     bool enableConvTranspose1dDecomposeToPhasedConv,
     bool enableInstanceNormDecompose, bool enableGroupNormDecompose,
     bool enableMatmulNBitsDecompose, bool enableGroupQueryAttentionDecompose,
-    bool enableSplitToSliceDecompose, bool enablGAPToReduceMean) {
+    bool enableSplitToSliceDecompose, bool enableConcatFuse,
+    bool enableGAPToReduceMean, bool enableLstmSeqDecompose,
+    bool enableGatherToSlice, bool enableReduceL2Decompose,
+    bool enableRotaryEmbeddingRecompose, bool enableQDQConstProp,
+    bool enableHardSwishDecompose, bool enableGroupQueryAttentionCacheSlicing) {
   return std::make_unique<ONNXHybridTransformPass>(enableRecomposition,
       enableQuarkQuantizedOpsLegalization, enableConvTransposeDecompose,
       enableConvTransposeDecomposeToPhasedConv,
       enableConvTranspose1dDecomposeToPhasedConv, enableInstanceNormDecompose,
       enableGroupNormDecompose, enableMatmulNBitsDecompose,
       enableGroupQueryAttentionDecompose, enableSplitToSliceDecompose,
-      enablGAPToReduceMean);
+      enableConcatFuse, enableGAPToReduceMean, enableLstmSeqDecompose,
+      enableGatherToSlice, enableReduceL2Decompose,
+      enableRotaryEmbeddingRecompose, enableQDQConstProp,
+      enableHardSwishDecompose, enableGroupQueryAttentionCacheSlicing);
 }

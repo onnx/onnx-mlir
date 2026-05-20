@@ -3,6 +3,8 @@
 // Move to: src/Dialect/ONNX/ONNXOps/Additional/XFEShapeInference.cpp
 // and add it to the CMakeLists.txt in src/Dialect/ONNX/
 
+#include "mlir/IR/TypeUtilities.h"
+
 #include "XFEShapeInference.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
@@ -126,7 +128,7 @@ LogicalResult XFEConvOpShapeInference(
   if (dilationsAttr.has_value()) {
     auto dilationsArray = dilationsAttr.value();
     for (size_t i = 0; i < std::min(dilationsArray.size(), dilations.size());
-         ++i) {
+        ++i) {
       dilations[i] = mlir::cast<IntegerAttr>(dilationsArray[i]).getInt();
     }
   }
@@ -240,7 +242,7 @@ LogicalResult XFEConvTransposeOpShapeInference(
   if (dilationsAttr.has_value()) {
     auto dilationsArray = dilationsAttr.value();
     for (size_t i = 0; i < std::min(dilationsArray.size(), dilations.size());
-         ++i) {
+        ++i) {
       dilations[i] = mlir::cast<IntegerAttr>(dilationsArray[i]).getInt();
     }
   }
@@ -248,7 +250,7 @@ LogicalResult XFEConvTransposeOpShapeInference(
   if (outputPaddingAttr.has_value()) {
     auto outputPaddingArray = outputPaddingAttr.value();
     for (size_t i = 0;
-         i < std::min(outputPaddingArray.size(), outputPadding.size()); ++i) {
+        i < std::min(outputPaddingArray.size(), outputPadding.size()); ++i) {
       outputPadding[i] =
           mlir::cast<IntegerAttr>(outputPaddingArray[i]).getInt();
     }
@@ -475,7 +477,7 @@ LogicalResult XFEMaxPoolOpShapeInference(
   SmallVector<int64_t, 4> dilations(numSpatialDims, 1);
   if (dilationsAttr.has_value()) {
     for (size_t i = 0; i < std::min(dilationsAttr->size(), dilations.size());
-         ++i) {
+        ++i) {
       dilations[i] = mlir::cast<IntegerAttr>((*dilationsAttr)[i]).getInt();
     }
   }
@@ -748,6 +750,9 @@ LogicalResult XFEDepthToSpaceOpShapeInference(
   SmallVector<int64_t, 4> outputShape = {N, H_out, W_out, C_out};
 
   Type elementType = inputType.getElementType();
+  if (auto existingType = dyn_cast<ShapedType>(d2sOp.getResult().getType())) {
+    elementType = existingType.getElementType();
+  }
   auto resultType = RankedTensorType::get(outputShape, elementType);
   d2sOp.getResult().setType(resultType);
 
@@ -803,6 +808,9 @@ LogicalResult XFESpaceToDepthOpShapeInference(
   SmallVector<int64_t, 4> outputShape = {N, H_out, W_out, C_out};
 
   Type elementType = inputType.getElementType();
+  if (auto existingType = dyn_cast<ShapedType>(s2dOp.getResult().getType())) {
+    elementType = existingType.getElementType();
+  }
   auto resultType = RankedTensorType::get(outputShape, elementType);
   s2dOp.getResult().setType(resultType);
 
@@ -914,6 +922,42 @@ LogicalResult XFEResizeOpShapeInference(
   }
   auto resultType = RankedTensorType::get(outputShape, elementType);
   resizeOp.getResult().setType(resultType);
+
+  return success();
+}
+
+LogicalResult XFEGridSampleOpShapeInference(
+    Operation *op, std::function<void(Region &)> doShapeInference) {
+  auto gsOp = dyn_cast<XFEGridSampleOp>(op);
+  if (!gsOp)
+    return failure();
+
+  Value X = gsOp.getX();
+  Value grid = gsOp.getGrid();
+  if (!hasShapeAndRank(X) || !hasShapeAndRank(grid))
+    return success();
+
+  auto xType = mlir::cast<ShapedType>(X.getType());
+  auto gridType = mlir::cast<ShapedType>(grid.getType());
+  const int64_t xRank = xType.getRank();
+  const int64_t gridRank = gridType.getRank();
+  // Match XFEGridSampleOpVerify / ONNX: X and grid same rank; grid[..., r] with
+  // r = #spatial = rank - 2. Skip inference if ranks are inconsistent.
+  if (xRank < 3 || xRank != gridRank)
+    return success();
+
+  auto xShape = xType.getShape();
+  auto gridShape = gridType.getShape();
+  // Channel-last: [N, spatial_out..., C] from grid[1 : rank-1) and X channels.
+  SmallVector<int64_t> outputShape;
+  outputShape.push_back(xShape[0]);
+  for (int64_t i = 1; i < gridRank - 1; ++i)
+    outputShape.push_back(gridShape[i]);
+  outputShape.push_back(xShape[xRank - 1]);
+
+  Type elementType = getElementTypeOrSelf(gsOp.getResult().getType());
+  auto resultType = RankedTensorType::get(outputShape, elementType);
+  gsOp.getResult().setType(resultType);
 
   return success();
 }

@@ -40,9 +40,36 @@
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
 #include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
+
+#include "mlir/Dialect/Quant/IR/QuantTypes.h"
+
 #include <iostream>
 
 using namespace mlir;
+
+/// Remap per-axis quantization dimension through a transpose permutation.
+/// For perm[i] == oldAxis, the new axis becomes i.
+static Type remapPerAxisQuantType(Type elementType, ArrayRef<int64_t> perm) {
+  auto perAxisType = dyn_cast<quant::UniformQuantizedPerAxisType>(elementType);
+  if (!perAxisType)
+    return elementType;
+
+  int32_t oldAxis = perAxisType.getQuantizedDimension();
+  int32_t newAxis = oldAxis;
+  for (int64_t i = 0, e = perm.size(); i < e; ++i) {
+    if (perm[i] == oldAxis) {
+      newAxis = static_cast<int32_t>(i);
+      break;
+    }
+  }
+  if (newAxis == oldAxis)
+    return elementType;
+
+  return quant::UniformQuantizedPerAxisType::get(perAxisType.getFlags(),
+      perAxisType.getStorageType(), perAxisType.getExpressedType(),
+      perAxisType.getScales(), perAxisType.getZeroPoints(), newAxis,
+      perAxisType.getStorageTypeMin(), perAxisType.getStorageTypeMax());
+}
 
 namespace {
 
@@ -226,11 +253,10 @@ struct ConvertXFEConvToDepthwiseConvPattern
     auto newWConst =
         rewriter.create<ONNXConstantOp>(loc, Attribute(), transposedDense);
 
-    // Preserve the original element type (including quant type) with
-    // the new IHWO shape. The DenseElementsAttr uses storage types
-    // (e.g. i8) but the value flowing through the graph may carry a
-    // quant type (e.g. !quant.uniform<i8:f32, ...>).
-    auto newWType = RankedTensorType::get(newWShape, wType.getElementType());
+    // Remap per-axis quantization dimension through the transpose perm,
+    // then set the new IHWO shape with the (possibly remapped) element type.
+    auto newElemType = remapPerAxisQuantType(wType.getElementType(), perm);
+    auto newWType = RankedTensorType::get(newWShape, newElemType);
     newWConst.getResult().setType(newWType);
 
     // Copy activation-related attributes from the source XFEConv op

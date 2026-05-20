@@ -15,6 +15,9 @@
 // implement shape inference for the decomposed operation. Hence, it is expected
 // that there is no knowledge about tensor shape at this point.
 //
+// Modifications (c) Copyright 2026 Advanced Micro Devices, Inc. or its
+// affiliates
+//
 //===----------------------------------------------------------------------===//
 
 #ifndef ONNX_MLIR_DECOMPOSE_H
@@ -32,7 +35,11 @@ void getDecomposeONNXToONNXPatterns(mlir::RewritePatternSet &patterns,
     bool enableConvTranspose1dDecomposeToPhasedConv,
     bool enableInstanceNormDecompose, bool enableGroupNormDecompose,
     bool enableMatmulNBitsDecompose, bool enableGroupQueryAttentionDecompose,
-    bool enableSplitToSliceDecompose = false);
+    bool enableSplitToSliceDecompose, bool enableConcatFuse,
+    bool enableLstmSeqDecompose = false, bool enableReduceL2Decompose = true,
+    bool disableGenericDecompositions = false, bool enableGatherToSlice = true,
+    bool enableHardSwishDecompose = true,
+    bool enableGroupQueryAttentionCacheSlicing = true);
 
 } // namespace onnx_mlir
 #endif

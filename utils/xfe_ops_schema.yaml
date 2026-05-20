@@ -766,3 +766,72 @@
   max_input: 4
   min_output: 1
   max_output: 1
+
+# ==============================================================================
+# GridSample: channel-last layout; rank R >= 3 (ONNX GridSample ND semantics)
+# Grid last dim = number of spatial axes (R - 2).
+# ==============================================================================
+- name: GridSample
+  domain: com.amd.xfe
+  since_version: 1
+  support_level: COMMON
+  description: 'GridSample with channel-last layout. All tensor ranks R >= 3: X is [N, spatial..., C]; grid is [N, out_spatial..., (R-2)] per ONNX. Examples: R=3 (1 spatial), R=4 NHWC, R=5 NDHWC, and higher-D. Typical lowering uses NCHW-to-channel-last transposes around onnx.GridSample.'
+  meta_attributes:
+  - onnx_opset: 22
+  - verify: True
+  - fold: False
+  inputs:
+  - name: X
+    description: Input in channel-last layout [N, spatial..., C] for rank R >= 3 (e.g. NLC for R=3, NHWC for R=4, NDHWC for R=5)
+    type_str: T1
+  - name: grid
+    description: ONNX grid [N, out_spatial..., (R-2)] with normalized coordinates (e.g. last dim 1, 2, or 3 for 1D, 2D, or 3D spatial sampling)
+    type_str: T2
+  outputs:
+  - name: Y
+    description: Sampled output in channel-last layout (batch, then output spatial dims, then channels)
+    type_str: T1
+  attributes:
+  - name: align_corners
+    description: If 1, corner pixels align to corners; if 0, align to centers
+    type: int
+    default_value: 0
+  - name: mode
+    description: Interpolation mode (linear for bilinear, nearest, cubic)
+    type: string
+    default_value: linear
+  - name: padding_mode
+    description: Padding for out-of-bounds grid coordinates (zeros, border, reflection)
+    type: string
+    default_value: zeros
+  type_constraints:
+  - type_param: T1
+    description: Constrain input and output types to all tensor types supported by XFEGridSample.
+    allowed_types:
+    - tensor(uint8)
+    - tensor(uint16)
+    - tensor(uint32)
+    - tensor(uint64)
+    - tensor(int8)
+    - tensor(int16)
+    - tensor(int32)
+    - tensor(int64)
+    - tensor(bfloat16)
+    - tensor(float16)
+    - tensor(float)
+    - tensor(double)
+    - tensor(string)
+    - tensor(bool)
+    - tensor(complex64)
+    - tensor(complex128)
+  - type_param: T2
+    description: Constrain grid to floating-point or quantized types (matches ONNX GridSample grid).
+    allowed_types:
+    - tensor(bfloat16)
+    - tensor(float16)
+    - tensor(float)
+    - tensor(double)
+  min_input: 2
+  max_input: 2
+  min_output: 1
+  max_output: 1

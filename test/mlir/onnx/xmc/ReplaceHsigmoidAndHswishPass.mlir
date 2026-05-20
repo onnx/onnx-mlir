@@ -15,7 +15,7 @@ func.func @hardsigmoid_quantized_u8_pass(%arg0: tensor<1x3x224x224x!quant.unifor
 // CHECK: %[[NONE:.*]] = "onnx.NoValue"()
 // CHECK: %[[ELTWISE:.*]] = "onnx.XCOMPILERFusedEltwise"
 // CHECK-SAME: nonlinear = "NONE"
-// CHECK-SAME: type = "QLINEARSIGMOID"
+// CHECK-SAME: type = "HSIGMOID"
 // CHECK-SAME: (tensor<1x3x224x224x!quant.uniform<u8:f32, 0.05000000074505806:128>>, none) -> tensor<1x3x224x224x!quant.uniform<u8:f32, 0.0039215697906911373>>
 // -----
 
@@ -27,7 +27,7 @@ func.func @hardsigmoid_quantized_i8_pass(%arg0: tensor<1x16x28x28x!quant.uniform
 // CHECK-NOT: "onnx.HardSigmoid"
 // CHECK: %[[NONE:.*]] = "onnx.NoValue"()
 // CHECK: %[[ELTWISE:.*]] = "onnx.XCOMPILERFusedEltwise"
-// CHECK-SAME: type = "QLINEARSIGMOID"
+// CHECK-SAME: type = "HSIGMOID"
 // CHECK-SAME: (tensor<1x16x28x28x!quant.uniform<i8:f32, 1.000000e-01>>, none) -> tensor<1x16x28x28x!quant.uniform<i8:f32, 5.000000e-02>>
 
 // -----
@@ -39,7 +39,7 @@ func.func @hardsigmoid_quantized_same_scale_zp_pass(%arg0: tensor<2x3x4x5x!quant
 }
 // CHECK-NOT: "onnx.HardSigmoid"
 // CHECK: "onnx.XCOMPILERFusedEltwise"
-// CHECK-SAME: type = "QLINEARSIGMOID"
+// CHECK-SAME: type = "HSIGMOID"
 
 // ============================================================================
 // FAIL CASES: HardSigmoid that should NOT be transformed

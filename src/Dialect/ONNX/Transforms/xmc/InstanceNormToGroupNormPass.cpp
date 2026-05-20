@@ -162,9 +162,13 @@ struct MergeReshapeInstanceNormPattern
           bottomReshape, "Only 3D/4D tensors supported, got " +
                              std::to_string(inputShape.size()) + "D");
 
-    // Calculate group count
-    int64_t gnChannel = inputShape[1];    // Original channel count
-    int64_t inChannel = instanceShape[1]; // InstanceNorm channel count
+    // Calculate group count.
+    // GroupNorm is decomposed as Reshape → InstanceNorm → Reshape using the
+    // spatial-merge approach: [N, C, H, W] → [N, G, (C/G)*H, W].
+    // InstanceNorm's channel dim (axis 1) IS the number of groups G, because
+    // the C/G channels are merged into the spatial dimensions.
+    int64_t gnChannel = inputShape[1];    // Original channel count (C)
+    int64_t inChannel = instanceShape[1]; // InstanceNorm channel count (G)
 
     if (inChannel == 0 || gnChannel < inChannel || gnChannel % inChannel != 0)
       return rewriter.notifyMatchFailure(
@@ -172,7 +176,7 @@ struct MergeReshapeInstanceNormPattern
                              std::to_string(gnChannel) +
                              ", inChannel=" + std::to_string(inChannel));
 
-    int64_t numGroups = gnChannel / inChannel;
+    int64_t numGroups = inChannel;
 
     // Get scale and bias from InstanceNorm
     Value instanceScale = instanceNorm.getScale();

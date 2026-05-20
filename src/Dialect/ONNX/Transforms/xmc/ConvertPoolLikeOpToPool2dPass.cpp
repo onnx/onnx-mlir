@@ -379,7 +379,6 @@ struct LowerReduceMeanToAvgPoolPattern
 
     SmallVector<int64_t> axes = *axesResult;
 
-    // Only support spatial reduction for ReduceMean
     if (!areAxesValidForSpatialPooling(axes, rank)) {
       return failure();
     }
@@ -672,6 +671,8 @@ struct LowerReduceSumToAvgPoolPattern
 
     SmallVector<int64_t> axes = *axesResult;
 
+    // Spatial reduction only.  Channel-axis (axis=1) is rejected here and
+    // handled by TransferReduceMeanSumToConvPass instead.
     if (!areAxesValidForSpatialPooling(axes, rank)) {
       return failure();
     }

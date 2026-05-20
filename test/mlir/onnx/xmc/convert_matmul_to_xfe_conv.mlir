@@ -152,10 +152,149 @@ func.func @matmul_to_xfe_conv_batch(%arg0: tensor<4x64x!quant.uniform<u8:f32, 2.
   %1 = "onnx.MatMul"(%arg0, %0) : (tensor<4x64x!quant.uniform<u8:f32, 2.500000e-01>>, tensor<64x32x!quant.uniform<u8:f32, 2.500000e-01>>) -> tensor<4x32x!quant.uniform<u8:f32, 2.500000e-01>>
   return %1 : tensor<4x32x!quant.uniform<u8:f32, 2.500000e-01>>
 }
+// M=4 goes into spatial W: [1, 1, 4, 64]
 // CHECK: %[[RESHAPE1:.*]] = "onnx.Reshape"
-// CHECK-SAME: tensor<4x1x1x64x!quant.uniform<u8:f32, 2.500000e-01>>
+// CHECK-SAME: tensor<1x1x4x64x!quant.uniform<u8:f32, 2.500000e-01>>
 // CHECK: %[[XFE_CONV:.*]] = "onnx.XFEConv"
-// CHECK-SAME: tensor<4x1x1x32x!quant.uniform<u8:f32, 2.500000e-01>>
+// CHECK-SAME: tensor<1x1x4x32x!quant.uniform<u8:f32, 2.500000e-01>>
 // CHECK: %[[RESHAPE2:.*]] = "onnx.Reshape"
 // CHECK-SAME: tensor<4x32x!quant.uniform<u8:f32, 2.500000e-01>>
 // CHECK-NOT: "onnx.MatMul"
+
+// -----
+
+//===----------------------------------------------------------------------===//
+// MatMul with per-axis quantized weight
+//===----------------------------------------------------------------------===//
+
+// CHECK-LABEL: @matmul_per_axis_quant_weight
+// Weight [K=4, N=2] with per-axis quant on axis 1 (N = output features).
+// After transpose to [N, K] = [2, 4], per-axis dim should become 0.
+func.func @matmul_per_axis_quant_weight(%arg0: tensor<1x4x!quant.uniform<u8:f32, 0.1:128>>) -> tensor<1x2x!quant.uniform<u8:f32, 0.1:128>> {
+  %w = onnx.Constant {value = dense<1> : tensor<4x2xi8>} : tensor<4x2x!quant.uniform<i8:f32:1, {0.05, 0.06}>>
+  %0 = "onnx.MatMul"(%arg0, %w) : (tensor<1x4x!quant.uniform<u8:f32, 0.1:128>>, tensor<4x2x!quant.uniform<i8:f32:1, {0.05, 0.06}>>) -> tensor<1x2x!quant.uniform<u8:f32, 0.1:128>>
+  return %0 : tensor<1x2x!quant.uniform<u8:f32, 0.1:128>>
+}
+// Per-axis dim 1 (N) should remap to axis 0 in the conv weight [N, 1, 1, K]
+// CHECK: tensor<2x1x1x4x!quant.uniform<i8:f32:0, {5.000000e-02,6.000000e-02}>>
+// CHECK: onnx.XFEConv
+// CHECK-NOT: onnx.MatMul
+
+// -----
+
+//===----------------------------------------------------------------------===//
+// MatMul + Add (bias) fusion: quantized
+// MatMul followed by Add with constant bias should fuse into XFEConv with bias.
+// Bias is re-quantized into conv accumulation domain (int32).
+//===----------------------------------------------------------------------===//
+
+// CHECK-LABEL: @matmul_add_bias_fusion_quantized
+func.func @matmul_add_bias_fusion_quantized(
+    %arg0: tensor<1x4x!quant.uniform<u16:f32, 2.5E-4:30000>>
+) -> tensor<1x2x!quant.uniform<u16:f32, 4.5E-4:25000>> {
+  %weight = onnx.Constant {value = dense<[[1, 2], [3, 4], [5, 6], [7, 8]]> : tensor<4x2xi8>} : tensor<4x2x!quant.uniform<i8:f32, 5.0E-3>>
+  %bias = onnx.Constant {value = dense<[100, 200]> : tensor<2xi16>} : tensor<2x!quant.uniform<u16:f32, 4.5E-5:40>>
+  %mm = "onnx.MatMul"(%arg0, %weight) {onnx_node_name = "qkv_matmul"} :
+      (tensor<1x4x!quant.uniform<u16:f32, 2.5E-4:30000>>,
+       tensor<4x2x!quant.uniform<i8:f32, 5.0E-3>>)
+      -> tensor<1x2x!quant.uniform<u16:f32, 4.5E-4:25000>>
+  %out = "onnx.Add"(%mm, %bias) :
+      (tensor<1x2x!quant.uniform<u16:f32, 4.5E-4:25000>>,
+       tensor<2x!quant.uniform<u16:f32, 4.5E-5:40>>)
+      -> tensor<1x2x!quant.uniform<u16:f32, 4.5E-4:25000>>
+  return %out : tensor<1x2x!quant.uniform<u16:f32, 4.5E-4:25000>>
+}
+// Bias should be fused into XFEConv as 3rd operand (not none), re-quantized to i32
+// bias_scale=4.5E-5, x_scale=2.5E-4, w_scale=5.0E-3 => accumScale=1.25E-6
+// biasMul = round(4.5E-5 / 1.25E-6) = 36
+// new_bias[0] = (100 - 40) * 36 = 2160
+// new_bias[1] = (200 - 40) * 36 = 5760
+// Re-quantized bias constant: dense<[2160, 5760]> with i32 quant type
+// CHECK: onnx.Constant {value = dense<[2160, 5760]>
+// CHECK-SAME: tensor<2x!quant.uniform<i32:f32, 1.250000e-06>>
+// CHECK: onnx.XFEConv
+// CHECK-SAME: onnx_node_name = "qkv_matmul"
+// CHECK-NOT: onnx.Add
+// CHECK-NOT: onnx.MatMul
+
+// -----
+
+//===----------------------------------------------------------------------===//
+// MatMul + Add (bias) fusion: float (no re-quantization needed)
+//===----------------------------------------------------------------------===//
+
+// CHECK-LABEL: @matmul_add_bias_fusion_float
+func.func @matmul_add_bias_fusion_float(
+    %arg0: tensor<4x64xf32>
+) -> tensor<4x32xf32> {
+  %weight = onnx.Constant {value = dense_resource<__elided__> : tensor<64x32xf32>} : tensor<64x32xf32>
+  %bias = onnx.Constant dense<1.0> : tensor<32xf32>
+  %mm = "onnx.MatMul"(%arg0, %weight) {onnx_node_name = "fc_matmul"} :
+      (tensor<4x64xf32>, tensor<64x32xf32>) -> tensor<4x32xf32>
+  %out = "onnx.Add"(%mm, %bias) :
+      (tensor<4x32xf32>, tensor<32xf32>) -> tensor<4x32xf32>
+  return %out : tensor<4x32xf32>
+}
+// Bias should be fused as 3rd operand (float, no re-quantization)
+// CHECK: onnx.XFEConv
+// CHECK-SAME: onnx_node_name = "fc_matmul"
+// CHECK-SAME: tensor<32xf32>
+// CHECK-NOT: onnx.Add
+// CHECK-NOT: onnx.MatMul
+
+// -----
+
+//===----------------------------------------------------------------------===//
+// MatMul without Add should NOT have bias (regression guard)
+//===----------------------------------------------------------------------===//
+
+// CHECK-LABEL: @matmul_no_add_no_bias
+func.func @matmul_no_add_no_bias(
+    %arg0: tensor<4x64x!quant.uniform<u8:f32, 0.25>>
+) -> tensor<4x32x!quant.uniform<u8:f32, 0.25>> {
+  %weight = onnx.Constant {value = dense_resource<__elided__> : tensor<64x32xi8>} : tensor<64x32x!quant.uniform<u8:f32, 0.25>>
+  %mm = "onnx.MatMul"(%arg0, %weight) :
+      (tensor<4x64x!quant.uniform<u8:f32, 0.25>>,
+       tensor<64x32x!quant.uniform<u8:f32, 0.25>>)
+      -> tensor<4x32x!quant.uniform<u8:f32, 0.25>>
+  return %mm : tensor<4x32x!quant.uniform<u8:f32, 0.25>>
+}
+// No Add follows MatMul — conv bias should be none
+// CHECK: onnx.XFEConv
+// CHECK-SAME: none)
+// CHECK-NOT: onnx.MatMul
+
+// -----
+
+//===----------------------------------------------------------------------===//
+// MatMul + Add bias fusion: per-channel weight, per-tensor bias
+// Uses scale[0] from weight for accumScale (matches golden behavior).
+//===----------------------------------------------------------------------===//
+
+// CHECK-LABEL: @matmul_add_bias_perchannel_weight
+func.func @matmul_add_bias_perchannel_weight(
+    %arg0: tensor<1x4x!quant.uniform<u16:f32, 0.01:100>>
+) -> tensor<1x2x!quant.uniform<u16:f32, 0.05:200>> {
+  %weight = onnx.Constant {value = dense<[[1, 2], [3, 4], [5, 6], [7, 8]]> : tensor<4x2xi8>} : tensor<4x2x!quant.uniform<i8:f32:1, {0.002, 0.004}>>
+  %bias = onnx.Constant {value = dense<[500, 600]> : tensor<2xi16>} : tensor<2x!quant.uniform<u16:f32, 1.0E-4:50>>
+  %mm = "onnx.MatMul"(%arg0, %weight) {onnx_node_name = "pc_matmul"} :
+      (tensor<1x4x!quant.uniform<u16:f32, 0.01:100>>,
+       tensor<4x2x!quant.uniform<i8:f32:1, {0.002, 0.004}>>)
+      -> tensor<1x2x!quant.uniform<u16:f32, 0.05:200>>
+  %out = "onnx.Add"(%mm, %bias) :
+      (tensor<1x2x!quant.uniform<u16:f32, 0.05:200>>,
+       tensor<2x!quant.uniform<u16:f32, 1.0E-4:50>>)
+      -> tensor<1x2x!quant.uniform<u16:f32, 0.05:200>>
+  return %out : tensor<1x2x!quant.uniform<u16:f32, 0.05:200>>
+}
+// accumScale = inputScale * weightScale[0] = 0.01 * 0.002 = 2e-5
+// biasScale = 1e-4, biasZP = 50
+// new_bias[0] = round((500 - 50) * 1e-4 / 2e-5) = round(2250.0) = 2250
+// new_bias[1] = round((600 - 50) * 1e-4 / 2e-5) = round(2750.0) = 2750
+// Re-quantized bias: accumScale = 0.01 * 0.002 = 2e-5 (uses weightScale[0])
+// CHECK: onnx.Constant {value = dense<[2250, 2750]>
+// CHECK-SAME: tensor<2x!quant.uniform<i32:f32, 2.000000e-05>>
+// CHECK: onnx.XFEConv
+// CHECK-SAME: onnx_node_name = "pc_matmul"
+// CHECK-NOT: onnx.Add
+// CHECK-NOT: onnx.MatMul

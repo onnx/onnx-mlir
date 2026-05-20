@@ -5,7 +5,7 @@
 //===----------- ONNXRecompose.cpp - ONNX High Level Rewriting ------------===//
 //
 // Copyright 2023 The IBM Research Authors.
-// Copyright 2025 Advanced Micro Devices, Inc. or its affiliates
+// Copyright 2025-2026 Advanced Micro Devices, Inc. or its affiliates
 //
 // =============================================================================
 //
@@ -21,6 +21,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <cassert>
 #include <numeric>
 
 #include "mlir/Analysis/TopologicalSortUtils.h"
@@ -747,6 +748,103 @@ private:
   }
 };
 
+// Recompose HardSigmoid from `clip(x * a + b, 0, 1)`.
+struct RecomposeHardSigmoidFromMulClipPattern
+    : public OpRewritePattern<ONNXClipOp> {
+  using OpRewritePattern<ONNXClipOp>::OpRewritePattern;
+
+  static bool matchScalarConstant(Value v, double &out) {
+    using namespace onnx_mlir;
+    if (!isDenseONNXConstant(v))
+      return false;
+    ElementsAttr attr = getElementAttributeFromONNXValue(v);
+    if (!attr || attr.getNumElements() != 1)
+      return false;
+    out = getScalarValue<double>(attr, attr.getElementType());
+    return true;
+  }
+
+  LogicalResult matchAndRewrite(
+      ONNXClipOp clipOp, PatternRewriter &rewriter) const final {
+    using namespace onnx_mlir;
+
+    auto elementType = getElementTypeOrSelf(clipOp.getType());
+    if (!isa<Float32Type, BFloat16Type, Float16Type>(elementType))
+      return failure();
+
+    // clip(input, 0, 1)
+    Value clipMin = clipOp.getMin();
+    Value clipMax = clipOp.getMax();
+    if (isNoneValue(clipMin) || isNoneValue(clipMax) ||
+        !isConstOf(clipMin, 0.0) || !isConstOf(clipMax, 1.0))
+      return failure();
+
+    // add(mul(x, a), b)
+    auto addOp = clipOp.getInput().getDefiningOp<ONNXAddOp>();
+    if (!addOp)
+      return failure();
+
+    auto mulOp = addOp.getOperand(0).getDefiningOp<ONNXMulOp>();
+    if (!mulOp)
+      return failure();
+
+    Value x = mulOp.getOperand(0);
+    double alpha;
+    if (!matchScalarConstant(mulOp.getOperand(1), alpha) || alpha <= 0.0)
+      return failure();
+
+    double beta;
+    if (!matchScalarConstant(addOp.getOperand(1), beta))
+      return failure();
+
+    auto alphaAttr = rewriter.getF32FloatAttr(alpha);
+    auto betaAttr = rewriter.getF32FloatAttr(beta);
+
+    auto loc = mlir::FusedLoc::get(rewriter.getContext(),
+        {clipOp.getLoc(), addOp.getLoc(), mulOp.getLoc()});
+    Value hardSigmoidOp = rewriter.create<ONNXHardSigmoidOp>(
+        loc, clipOp.getType(), x, alphaAttr, betaAttr);
+    rewriter.replaceOp(clipOp, hardSigmoidOp);
+    return success();
+  }
+};
+
+/// Recomposes Mul(x, HardSigmoid(x)) {alpha=1/6, beta=0.5} back into HardSwish
+struct RecomposeHardSwishFromMulPattern : public OpRewritePattern<ONNXMulOp> {
+  using OpRewritePattern<ONNXMulOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXMulOp mulOp, PatternRewriter &rewriter) const final {
+    using namespace onnx_mlir;
+
+    if (hasQuantizedElementType(mulOp.getResult()))
+      return rewriter.notifyMatchFailure(
+          mulOp, "HardSwish recompose is not valid on quantized types");
+
+    Value x = mulOp.getOperand(0);
+    auto hardSigmoidOp = mulOp.getOperand(1).getDefiningOp<ONNXHardSigmoidOp>();
+    if (!hardSigmoidOp)
+      return failure();
+    if (hardSigmoidOp.getX() != x)
+      return rewriter.notifyMatchFailure(
+          mulOp, "Mul lhs and HardSigmoid input are not the same SSA value");
+    FloatAttr alphaAttr = hardSigmoidOp.getAlphaAttr();
+    FloatAttr betaAttr = hardSigmoidOp.getBetaAttr();
+    constexpr double eps = 1e-5;
+    if (!isFloatAttrApprox(alphaAttr, 1.0 / 6.0, eps) ||
+        !isFloatAttrApprox(betaAttr, 0.5, eps))
+      return rewriter.notifyMatchFailure(
+          hardSigmoidOp, "alpha or beta is not 1/6 or 0.5");
+
+    auto loc = mlir::FusedLoc::get(
+        rewriter.getContext(), {mulOp.getLoc(), hardSigmoidOp.getLoc()});
+    Value hardSwishOp =
+        rewriter.create<ONNXHardSwishOp>(loc, mulOp.getType(), x);
+    rewriter.replaceOp(mulOp, hardSwishOp);
+    return success();
+  }
+};
+
 struct RecomposeGeluFromMulPattern : public OpRewritePattern<ONNXMulOp> {
   using OpRewritePattern<ONNXMulOp>::OpRewritePattern;
 
@@ -1191,6 +1289,72 @@ struct RecomposeDepthToSpaceCRD
   }
 };
 
+// Recompose `ReduceSum(Mul(x, x))` into `ReduceSumSquare(x)`. This inverts
+// `ReduceSumSquareOpPattern` from Decompose.td and is the first stage of the
+// staged recomposition that ultimately rebuilds `ReduceL2`.
+struct RecomposeReduceSumSquareFromMulReduceSumPattern
+    : public OpRewritePattern<ONNXReduceSumOp> {
+  using OpRewritePattern<ONNXReduceSumOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXReduceSumOp reduceSumOp, PatternRewriter &rewriter) const final {
+    auto mulOp = reduceSumOp.getData().getDefiningOp<ONNXMulOp>();
+    if (!mulOp)
+      return failure();
+    if (!mulOp->hasOneUse())
+      return failure();
+    if (mulOp.getA() != mulOp.getB())
+      return failure();
+
+    // pessimistic: bail out if any involved value carries a quantized
+    if (onnx_mlir::hasQuantizedElementType(mulOp.getA()) ||
+        onnx_mlir::hasQuantizedElementType(mulOp.getC()) ||
+        onnx_mlir::hasQuantizedElementType(reduceSumOp.getReduced()))
+      return failure();
+
+    const Value x = mulOp.getA();
+    const auto loc = mlir::FusedLoc::get(
+        rewriter.getContext(), {reduceSumOp.getLoc(), mulOp.getLoc()});
+    const Value reduceSumSquare = rewriter.create<ONNXReduceSumSquareOp>(loc,
+        reduceSumOp.getType(), x, reduceSumOp.getAxes(),
+        reduceSumOp.getKeepdimsAttr(), reduceSumOp.getNoopWithEmptyAxesAttr());
+    rewriter.replaceOp(reduceSumOp, reduceSumSquare);
+    return success();
+  }
+};
+
+// Recompose `Sqrt(ReduceSumSquare(x))` into `ReduceL2(x)`. This inverts
+// `DecomposeReduceL2Pattern` from Decompose.cpp.
+struct RecomposeReduceL2FromSqrtReduceSumSquarePattern
+    : public OpRewritePattern<ONNXSqrtOp> {
+  using OpRewritePattern<ONNXSqrtOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXSqrtOp sqrtOp, PatternRewriter &rewriter) const final {
+    auto reduceSumSquareOp =
+        sqrtOp.getX().getDefiningOp<ONNXReduceSumSquareOp>();
+    if (!reduceSumSquareOp)
+      return failure();
+    if (!reduceSumSquareOp->hasOneUse())
+      return failure();
+
+    // pessimistic: bail out if any involved value carries a quantized
+    if (onnx_mlir::hasQuantizedElementType(reduceSumSquareOp.getData()) ||
+        onnx_mlir::hasQuantizedElementType(sqrtOp.getX()) ||
+        onnx_mlir::hasQuantizedElementType(sqrtOp.getY()))
+      return failure();
+
+    const auto loc = mlir::FusedLoc::get(
+        rewriter.getContext(), {sqrtOp.getLoc(), reduceSumSquareOp.getLoc()});
+    const Value reduceL2 = rewriter.create<ONNXReduceL2Op>(loc,
+        sqrtOp.getType(), reduceSumSquareOp.getData(),
+        reduceSumSquareOp.getAxes(), reduceSumSquareOp.getKeepdimsAttr(),
+        reduceSumSquareOp.getNoopWithEmptyAxesAttr());
+    rewriter.replaceOp(sqrtOp, reduceL2);
+    return success();
+  }
+};
+
 struct RecomposeQLinearMatMulFromQuantizeLinearPattern
     : public OpRewritePattern<ONNXQuantizeLinearOp> {
   using OpRewritePattern<ONNXQuantizeLinearOp>::OpRewritePattern;
@@ -1472,15 +1636,387 @@ struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
   }
 };
 
+//===----------------------------------------------------------------------===//
+// RecomposeRotaryEmbeddingPattern
+//
+// Match the LlamaRotaryEmbedding RoPE pattern rooted at the
+// final `onnx.Add`:
+//
+//   half_lo = onnx.Slice(patches, axes=[-1], starts=[0],   ends=[d/2])
+//   half_hi = onnx.Slice(patches, axes=[-1], starts=[d/2], ends=[d])
+//   neg     = onnx.Neg(half_hi)
+//   rot     = onnx.Concat(neg, half_lo, axis=-1)
+//   cos_full = onnx.Constant(...)
+//   sin_full = onnx.Constant(...)
+//   m_rot   = onnx.Mul(rot,    sin_full)
+//   m_data  = onnx.Mul(patches, cos_full)
+//   add     = onnx.Add(m_data, m_rot)
+//
+// and rewrite it to a single onnx.RotaryEmbedding(interleaved=0). Cos/sin
+// constants must satisfy the duplicate-half property along the last axis
+// (cos[..,:d/2] == cos[..,d/2:]); they are halved and squeezed to the rank-3
+// shape the op expects. For 4D inputs whose layout is [B,S,N,D] the pattern
+// emits a transpose pair around the op so the op sees its required [B,N,S,D].
+//
+//===----------------------------------------------------------------------===//
+
+[[nodiscard]] bool hasRopeFloatElementType(mlir::Type type) {
+  return mlir::isa<mlir::Float32Type, mlir::Float16Type, mlir::BFloat16Type>(
+      getElementTypeOrSelf(type));
+}
+
+// Verify the duplicate-half-along-last-axis invariant
+// (`src[..,:d/2] == src[..,d/2:]`) and produce the halved+reshaped constant
+// `[batch, seq, lastDim/2]` in a single pass over the source. Returns
+// `failure()` if the two halves disagree at any element.
+//
+// Caller guarantees that `srcShape.back()` is the (even) `lastDim`, that
+// `batch * seq * (lastDim/2)` equals the source's halved element count, and
+// that squeezing-out broadcast-1 dims preserves the seq order. The element
+// type must be one of f32/f16/bf16 (matcher precondition).
+mlir::FailureOr<mlir::DenseElementsAttr> checkAndHalveLastAxis(
+    mlir::ElementsAttr src, llvm::ArrayRef<int64_t> srcShape, int64_t batch,
+    int64_t seq, mlir::Type elementType) {
+  assert(!srcShape.empty() && "expected a shaped RoPE constant");
+  const int64_t lastDim = srcShape.back();
+  assert(lastDim % 2 == 0 && "expected an even RoPE last dimension");
+  const int64_t halfDim = lastDim / 2;
+  const int64_t total = src.getNumElements();
+  assert(batch * seq * halfDim == total / 2 &&
+         "halved RoPE constant shape must match target shape");
+  assert(hasRopeFloatElementType(elementType) &&
+         "expected a supported RoPE float element type");
+  auto outType =
+      mlir::RankedTensorType::get({batch, seq, halfDim}, elementType);
+
+  if (src.isSplat())
+    return mlir::DenseElementsAttr::get(
+        outType, src.getSplatValue<llvm::APFloat>());
+
+  if (total % lastDim != 0)
+    return mlir::failure();
+  const int64_t numStripes = total / lastDim;
+
+  auto values = src.getValues<llvm::APFloat>();
+  auto stripeBegin = values.begin();
+  llvm::SmallVector<llvm::APFloat> outValues;
+  outValues.reserve(numStripes * halfDim);
+  for (int64_t s = 0; s < numStripes; ++s) {
+    auto loIt = stripeBegin;
+    auto hiIt = std::next(stripeBegin, halfDim);
+    for (int64_t i = 0; i < halfDim; ++i, ++loIt, ++hiIt) {
+      llvm::APFloat lo = *loIt;
+      if (!lo.bitwiseIsEqual(*hiIt))
+        return mlir::failure();
+      outValues.push_back(lo);
+    }
+    std::advance(stripeBegin, lastDim);
+  }
+  return mlir::DenseElementsAttr::get(
+      outType, llvm::ArrayRef<llvm::APFloat>(outValues));
+}
+
+// Returns the index of the unique non-broadcast-1 axis among the leading
+// axes (i.e. excluding the last). Fails if there is no such axis or more
+// than one.
+mlir::FailureOr<int64_t> uniqueNonBroadcastLeadingAxis(
+    llvm::ArrayRef<int64_t> shape) {
+  std::optional<int64_t> found;
+  for (const auto [i, dim] : llvm::enumerate(shape.drop_back())) {
+    if (dim == 1)
+      continue;
+    if (found)
+      return mlir::failure();
+    found = i;
+  }
+  if (!found)
+    return mlir::failure();
+  return *found;
+}
+
+// Find the unique non-broadcast-1 axis (other than the last) common to both
+// cos and sin shapes. This is the seq axis in HF-style RoPE, where cos/sin
+// are broadcast over batch and num_heads but vary along seq. Returns the
+// axis index, or failure if cos and sin disagree on its position/size, if
+// either has more than one such axis, or if neither has any.
+mlir::FailureOr<int64_t> findSeqAxis(
+    llvm::ArrayRef<int64_t> cosShape, llvm::ArrayRef<int64_t> sinShape) {
+  if (cosShape.size() != sinShape.size() || cosShape.size() < 2)
+    return mlir::failure();
+  const auto cosSeqAxis = uniqueNonBroadcastLeadingAxis(cosShape);
+  const auto sinSeqAxis = uniqueNonBroadcastLeadingAxis(sinShape);
+  if (mlir::failed(cosSeqAxis) || mlir::failed(sinSeqAxis))
+    return mlir::failure();
+  if (*cosSeqAxis != *sinSeqAxis ||
+      cosShape[*cosSeqAxis] != sinShape[*sinSeqAxis])
+    return mlir::failure();
+  return *cosSeqAxis;
+}
+
+struct RecomposeRotaryEmbeddingPattern
+    : public mlir::OpRewritePattern<mlir::ONNXAddOp> {
+  using mlir::OpRewritePattern<mlir::ONNXAddOp>::OpRewritePattern;
+
+  mlir::LogicalResult matchAndRewrite(
+      mlir::ONNXAddOp addOp, mlir::PatternRewriter &rewriter) const final {
+    using namespace mlir;
+
+    if (!hasRopeFloatElementType(addOp.getResult().getType()))
+      return rewriter.notifyMatchFailure(
+          addOp, "unsupported element type for RoPE recompose");
+    const Type elemType = getElementTypeOrSelf(addOp.getType());
+
+    // Both Add operands must be Mul ops, both single-use.
+    auto mul0 = addOp.getA().getDefiningOp<ONNXMulOp>();
+    auto mul1 = addOp.getB().getDefiningOp<ONNXMulOp>();
+    if (!mul0 || !mul1)
+      return rewriter.notifyMatchFailure(addOp, "Add operands are not Muls");
+    if (!mul0->hasOneUse() || !mul1->hasOneUse())
+      return rewriter.notifyMatchFailure(addOp, "Mul operands have other uses");
+
+    // Assume canonicalization has been run, so the constant operand is on
+    // the RHS.
+    const auto pickMulOperands = [](ONNXMulOp mul, Value &nonConst,
+                                     Value &constVal) -> LogicalResult {
+      Value a = mul.getA();
+      Value b = mul.getB();
+      if (!onnx_mlir::isDenseONNXConstant(b) ||
+          onnx_mlir::isDenseONNXConstant(a))
+        return failure();
+      nonConst = a;
+      constVal = b;
+      return success();
+    };
+
+    Value nc0, c0, nc1, c1;
+    if (failed(pickMulOperands(mul0, nc0, c0)) ||
+        failed(pickMulOperands(mul1, nc1, c1)))
+      return rewriter.notifyMatchFailure(
+          addOp, "Mul is not in canonical (data, const) form");
+
+    // Identify which non-constant operand is the rotate_half concat output.
+    // The other must be `patches`.
+    const auto isConcat = [](Value v) -> bool {
+      return v.getDefiningOp<ONNXConcatOp>();
+    };
+    Value patches, rotConcatVal, cosFull, sinFull;
+    ONNXMulOp mDataOp, mRotOp;
+    if (isConcat(nc0) && !isConcat(nc1)) {
+      rotConcatVal = nc0;
+      sinFull = c0;
+      mRotOp = mul0;
+      patches = nc1;
+      cosFull = c1;
+      mDataOp = mul1;
+    } else if (!isConcat(nc0) && isConcat(nc1)) {
+      rotConcatVal = nc1;
+      sinFull = c1;
+      mRotOp = mul1;
+      patches = nc0;
+      cosFull = c0;
+      mDataOp = mul0;
+    } else {
+      return rewriter.notifyMatchFailure(
+          addOp, "exactly one Mul must consume a Concat (rotate_half)");
+    }
+
+    // Verify the rotate_half pattern.
+    auto rotConcat = rotConcatVal.getDefiningOp<ONNXConcatOp>();
+    if (!rotConcat || !rotConcat->hasOneUse())
+      return rewriter.notifyMatchFailure(addOp, "rot concat invalid");
+    if (rotConcat.getInputs().size() != 2)
+      return rewriter.notifyMatchFailure(addOp, "rot concat is not 2-arm");
+    auto patchesType = dyn_cast<RankedTensorType>(patches.getType());
+    if (!patchesType || !patchesType.hasStaticShape())
+      return rewriter.notifyMatchFailure(
+          addOp, "patches must have static ranked shape");
+    const int64_t rank = patchesType.getRank();
+    if (rank != 4)
+      return rewriter.notifyMatchFailure(
+          addOp, "only rank-4 patches supported for now");
+    const int64_t lastAxis = rank - 1;
+    int64_t concatAxis = rotConcat.getAxis();
+    if (concatAxis < 0)
+      concatAxis += rank;
+    if (concatAxis != lastAxis)
+      return rewriter.notifyMatchFailure(
+          addOp, "rot concat axis must be the last axis");
+
+    // The first operand must be Neg(half_hi); the second must be half_lo.
+    auto negOp = rotConcat.getInputs()[0].getDefiningOp<ONNXNegOp>();
+    if (!negOp || !negOp->hasOneUse())
+      return rewriter.notifyMatchFailure(
+          addOp, "first concat arm must be Neg(half_hi)");
+    auto halfHi = negOp.getX().getDefiningOp<ONNXSliceOp>();
+    auto halfLo = rotConcat.getInputs()[1].getDefiningOp<ONNXSliceOp>();
+    if (!halfHi || !halfLo || !halfHi->hasOneUse() || !halfLo->hasOneUse())
+      return rewriter.notifyMatchFailure(
+          addOp, "rotate_half slices must exist and be single-use");
+    if (halfHi.getData() != patches || halfLo.getData() != patches)
+      return rewriter.notifyMatchFailure(
+          addOp, "rotate_half slices must read from patches");
+
+    for (Value v : {patches, cosFull, sinFull, halfHi.getResult(),
+             halfLo.getResult(), negOp.getResult(), rotConcatVal,
+             mDataOp.getResult(), mRotOp.getResult()})
+      if (!hasRopeFloatElementType(v.getType()))
+        return rewriter.notifyMatchFailure(addOp,
+            "value in matched subgraph has non-whitelisted element type "
+            "(e.g. quantized or integer)");
+
+    // Verify slice axes/starts/ends/steps partition the last axis in half,
+    // with the negated slice covering the high half (HF order).
+    int64_t hiAxis, hiStart, hiEnd, hiStep;
+    int64_t loAxis, loStart, loEnd, loStep;
+    if (!onnx_mlir::extractSlice1DConst(
+            halfHi, hiAxis, hiStart, hiEnd, hiStep) ||
+        !onnx_mlir::extractSlice1DConst(halfLo, loAxis, loStart, loEnd, loStep))
+      return rewriter.notifyMatchFailure(
+          addOp, "slice operands are not single-axis i64 constants");
+    if (hiAxis != lastAxis || loAxis != lastAxis)
+      return rewriter.notifyMatchFailure(
+          addOp, "rotate_half slices must operate on the last axis");
+    if (hiStep != 1 || loStep != 1)
+      return rewriter.notifyMatchFailure(addOp, "slice steps must be 1");
+    const int64_t d = patchesType.getShape()[lastAxis];
+    if (d % 2 != 0)
+      return rewriter.notifyMatchFailure(addOp, "head_size must be even");
+    const int64_t halfD = d / 2;
+
+    if (loStart != 0 || loEnd != halfD)
+      return rewriter.notifyMatchFailure(
+          addOp, "low-half slice must be [0, d/2)");
+    if (hiStart != halfD || hiEnd != d)
+      return rewriter.notifyMatchFailure(
+          addOp, "high-half slice must be [d/2, d)");
+
+    // cos/sin constants: last axis equals d, broadcast-1
+    // pattern compatible with patches.
+    auto cosConst = cosFull.getDefiningOp<ONNXConstantOp>();
+    auto sinConst = sinFull.getDefiningOp<ONNXConstantOp>();
+    if (!cosConst || !sinConst)
+      return rewriter.notifyMatchFailure(addOp, "cos/sin must be constants");
+    auto cosType = dyn_cast<RankedTensorType>(cosFull.getType());
+    auto sinType = dyn_cast<RankedTensorType>(sinFull.getType());
+    if (!cosType || !sinType || !cosType.hasStaticShape() ||
+        !sinType.hasStaticShape())
+      return rewriter.notifyMatchFailure(
+          addOp, "cos/sin must have static ranked shape");
+    auto cosShape = cosType.getShape();
+    auto sinShape = sinType.getShape();
+    if (static_cast<int64_t>(cosShape.size()) != rank ||
+        static_cast<int64_t>(sinShape.size()) != rank)
+      return rewriter.notifyMatchFailure(
+          addOp, "cos/sin rank must match patches rank");
+    if (cosShape.back() != d || sinShape.back() != d)
+      return rewriter.notifyMatchFailure(
+          addOp, "cos/sin last axis must equal d");
+
+    auto cosAttr = dyn_cast<ElementsAttr>(cosConst.getValueAttr());
+    auto sinAttr = dyn_cast<ElementsAttr>(sinConst.getValueAttr());
+    if (!cosAttr || !sinAttr)
+      return rewriter.notifyMatchFailure(
+          addOp, "cos/sin must carry an ElementsAttr");
+
+    // Layout classification: find the seq axis from cos/sin and determine
+    // whether patches is [B, N, S, D] (Q-side, no transpose) or [B, S, N,
+    // D] (K-side, transpose pair).
+    const auto seqAxisOr = findSeqAxis(cosShape, sinShape);
+    if (failed(seqAxisOr))
+      return rewriter.notifyMatchFailure(
+          addOp, "cannot identify seq axis from cos/sin shape");
+    const int64_t seqLen = cosShape[*seqAxisOr];
+    if (patchesType.getShape()[*seqAxisOr] != seqLen)
+      return rewriter.notifyMatchFailure(
+          addOp, "patches seq dim does not match cos/sin");
+    bool kSide;
+    if (*seqAxisOr == 2) {
+      kSide = false; // Q-side: [B, N, S, D]
+    } else if (*seqAxisOr == 1) {
+      kSide = true; // K-side: [B, S, N, D]
+    } else {
+      return rewriter.notifyMatchFailure(
+          addOp, "patches seq dim does not match cos/sin");
+    }
+
+    // Materialize the halved+squeezed cos/sin constants as rank-3
+    // [1, seqLen, d/2] in a single pass. The helper also enforces the
+    // duplicate-half-along-last-axis invariant
+    if (cosShape[0] != 1 || sinShape[0] != 1)
+      return rewriter.notifyMatchFailure(
+          addOp, "cos/sin must broadcast on the batch axis");
+    const auto cosHalfOr =
+        checkAndHalveLastAxis(cosAttr, cosShape, 1, seqLen, elemType);
+    const auto sinHalfOr =
+        checkAndHalveLastAxis(sinAttr, sinShape, 1, seqLen, elemType);
+    if (failed(cosHalfOr) || failed(sinHalfOr))
+      return rewriter.notifyMatchFailure(
+          addOp, "cos/sin tables are not duplicate-half (non-HF RoPE variant)");
+    DenseElementsAttr cosHalf = *cosHalfOr;
+    DenseElementsAttr sinHalf = *sinHalfOr;
+
+    // Build the new IR.
+    Location loc = FusedLoc::get(rewriter.getContext(),
+        {addOp.getLoc(), mDataOp.getLoc(), mRotOp.getLoc(), rotConcat.getLoc(),
+            negOp.getLoc(), halfHi.getLoc(), halfLo.getLoc()});
+    onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
+        rewriter, loc);
+
+    Value ropeInput = patches;
+    int64_t numHeads = patchesType.getShape()[1];
+    Type ropeResultType = addOp.getType();
+    if (kSide) {
+      // K-side: insert Transpose(perm=[0,2,1,3]) to bring [B,S,N,D] ->
+      // [B,N,S,D].
+      llvm::SmallVector<int64_t, 4> permVec{0, 2, 1, 3};
+      auto pShape = patchesType.getShape();
+      auto preTransposeType = RankedTensorType::get(
+          {pShape[0], pShape[2], pShape[1], pShape[3]}, elemType);
+      ropeInput = create.onnx.transpose(
+          preTransposeType, patches, rewriter.getI64ArrayAttr(permVec));
+      numHeads = patchesType.getShape()[2];
+      ropeResultType = preTransposeType;
+    }
+
+    Value cosVal = create.onnx.constant(cosHalf);
+    Value sinVal = create.onnx.constant(sinHalf);
+    Value none = create.onnx.none();
+
+    auto ropeOp = rewriter.create<ONNXRotaryEmbeddingOp>(loc,
+        TypeRange{ropeResultType}, ValueRange{ropeInput, cosVal, sinVal, none});
+    auto si64 = rewriter.getIntegerType(64, /*isSigned=*/true);
+    ropeOp.setInterleavedAttr(IntegerAttr::get(si64, 0));
+    ropeOp.setNumHeadsAttr(IntegerAttr::get(si64, numHeads));
+    ropeOp.setRotaryEmbeddingDimAttr(IntegerAttr::get(si64, 0));
+
+    Value finalVal = ropeOp.getResult();
+    if (kSide) {
+      llvm::SmallVector<int64_t, 4> permVec{0, 2, 1, 3};
+      finalVal = create.onnx.transpose(
+          addOp.getType(), finalVal, rewriter.getI64ArrayAttr(permVec));
+    }
+
+    rewriter.replaceOp(addOp, finalVal);
+    return success();
+  }
+};
+
 struct RecomposeONNXToONNXPass
     : public PassWrapper<RecomposeONNXToONNXPass, OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(RecomposeONNXToONNXPass)
 
-  RecomposeONNXToONNXPass(const std::string &target) { this->target = target; }
+  RecomposeONNXToONNXPass(const std::string &target,
+      bool enableRotaryEmbeddingRecompose, bool enableReduceL2Recompositions) {
+    this->target = target;
+    this->enableRotaryEmbeddingRecompose = enableRotaryEmbeddingRecompose;
+    this->enableReduceL2Recompositions = enableReduceL2Recompositions;
+  }
   RecomposeONNXToONNXPass(const RecomposeONNXToONNXPass &pass)
       : mlir::PassWrapper<RecomposeONNXToONNXPass,
             OperationPass<func::FuncOp>>() {
     this->target = pass.target.getValue();
+    this->enableRotaryEmbeddingRecompose =
+        pass.enableRotaryEmbeddingRecompose.getValue();
   }
 
   StringRef getArgument() const override { return "recompose-onnx"; }
@@ -1493,6 +2029,19 @@ struct RecomposeONNXToONNXPass
   Option<std::string> target{*this, "target",
       llvm::cl::desc("Target Dialect to Recompose into"), ::llvm::cl::init("")};
 
+  Option<bool> enableRotaryEmbeddingRecompose{*this,
+      "enable-rotary-embedding-recompose",
+      llvm::cl::desc(
+          "Recompose HuggingFace-style RoPE elementwise subgraphs "
+          "(rotate_half + 2 muls + 1 add) into onnx.RotaryEmbedding"),
+      ::llvm::cl::init(false)};
+
+  Option<bool> enableReduceL2Recompositions{*this,
+      "enable-reducel2-recompositions",
+      llvm::cl::desc("Recompose ReduceL2 from Sqrt(ReduceSumSquare(x)) and "
+                     "ReduceSumSquare from ReduceSum(Mul(x, x))"),
+      ::llvm::cl::init(false)};
+
   void runOnOperation() final;
 
   typedef PassWrapper<RecomposeONNXToONNXPass, OperationPass<func::FuncOp>>
@@ -1504,7 +2053,8 @@ void RecomposeONNXToONNXPass::runOnOperation() {
   MLIRContext *context = &getContext();
 
   RewritePatternSet patterns(context);
-  onnx_mlir::getRecomposeONNXToONNXPatterns(patterns);
+  onnx_mlir::getRecomposeONNXToONNXPatterns(
+      patterns, enableRotaryEmbeddingRecompose, enableReduceL2Recompositions);
 
   onnx_mlir::ResultNamesUpdater rnUpdater;
   if (failed(applyPatternsGreedily(function, std::move(patterns),
@@ -1515,8 +2065,11 @@ void RecomposeONNXToONNXPass::runOnOperation() {
 } // namespace
 
 void onnx_mlir::getRecomposeONNXToONNXPatterns(
-    mlir::RewritePatternSet &patterns) {
+    mlir::RewritePatternSet &patterns, bool enableRotaryEmbeddingRecompose,
+    bool enableReduceL2Recompositions) {
   MLIRContext *context = patterns.getContext();
+  patterns.insert<RecomposeHardSwishFromMulPattern>(context);
+  patterns.insert<RecomposeHardSigmoidFromMulClipPattern>(context);
   patterns.insert<RecomposeGeluFromMulPattern>(context);
   patterns.insert<RecomposeLayerNormFromDivPattern<ONNXDivOp, false>>(context);
   patterns.insert<RecomposeLayerNormFromDivPattern<ONNXMulOp, false>>(context);
@@ -1526,6 +2079,13 @@ void onnx_mlir::getRecomposeONNXToONNXPatterns(
   patterns.insert<RecomposeLayerNormFromDivPattern<ONNXPowOp, true>>(context);
   patterns.insert<RecomposeDepthToSpaceCRD>(context);
   patterns.insert<RecomposeDepthToSpaceDCR>(context);
+  if (enableRotaryEmbeddingRecompose)
+    patterns.insert<RecomposeRotaryEmbeddingPattern>(context);
+  if (enableReduceL2Recompositions) {
+    patterns.insert<RecomposeReduceSumSquareFromMulReduceSumPattern>(context);
+    patterns.insert<RecomposeReduceL2FromSqrtReduceSumSquarePattern>(context);
+  }
+
   // AMD Disabled as downstream has no special support for it
   // patterns.insert<RecomposeQLinearMatMulFromQuantizeLinearPattern>(context);
   // patterns.insert<CombineParallelConv2DPattern>(context);
@@ -1535,6 +2095,8 @@ void onnx_mlir::getRecomposeONNXToONNXPatterns(
  * Create a RecomposeONNX pass.
  */
 std::unique_ptr<mlir::Pass> onnx_mlir::createRecomposeONNXToONNXPass(
-    const std::string &target) {
-  return std::make_unique<RecomposeONNXToONNXPass>(target);
+    const std::string &target, bool enableRotaryEmbeddingRecompose,
+    bool enableReduceL2Recompositions) {
+  return std::make_unique<RecomposeONNXToONNXPass>(
+      target, enableRotaryEmbeddingRecompose, enableReduceL2Recompositions);
 }

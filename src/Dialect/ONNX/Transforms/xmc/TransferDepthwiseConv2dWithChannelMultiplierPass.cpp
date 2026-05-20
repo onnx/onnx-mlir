@@ -6,6 +6,7 @@
 // TransferDepthwiseConv2dwithChannelMultiplierPass to MLIR.
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Quant/IR/QuantTypes.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/PatternMatch.h"
@@ -26,6 +27,29 @@
 using namespace mlir;
 
 namespace {
+
+/// Slice per-axis quantization scales/zeroPoints for a sub-range of the
+/// quantized dimension (e.g. when splitting weights along output channels).
+/// Returns the original type unchanged if not per-axis quantized.
+static Type slicePerAxisQuantType(
+    Type elementType, int64_t start, int64_t count) {
+  auto perAxisType = dyn_cast<quant::UniformQuantizedPerAxisType>(elementType);
+  if (!perAxisType)
+    return elementType;
+
+  auto scales = perAxisType.getScales();
+  auto zeroPoints = perAxisType.getZeroPoints();
+
+  SmallVector<double> slicedScales(
+      scales.begin() + start, scales.begin() + start + count);
+  SmallVector<int64_t> slicedZeroPoints(
+      zeroPoints.begin() + start, zeroPoints.begin() + start + count);
+
+  return quant::UniformQuantizedPerAxisType::get(perAxisType.getFlags(),
+      perAxisType.getStorageType(), perAxisType.getExpressedType(),
+      slicedScales, slicedZeroPoints, perAxisType.getQuantizedDimension(),
+      perAxisType.getStorageTypeMin(), perAxisType.getStorageTypeMax());
+}
 
 //===----------------------------------------------------------------------===//
 // Helper Functions
@@ -353,11 +377,12 @@ struct SplitDepthwiseConvPattern : public OpRewritePattern<ONNXConvOp> {
     onnx_mlir::OnnxBuilder onnxBuilder(rewriter, loc);
 
     for (int64_t cmIdx = 0; cmIdx < channelMultiplier; cmIdx++) {
-      // Create split weight constant using templatized helper.
-      // Pass the full weight element type (may be quantized) for the result.
+      // Slice per-axis quant scales/zp for this split's output channels.
+      auto splitWeightElemType = slicePerAxisQuantType(
+          weightType.getElementType(), cmIdx * inputChannels, inputChannels);
       Value splitWeight = createSplitWeightConstant(rewriter, loc,
           denseWeightAttr, cmIdx, inputChannels, weightsPerChannel,
-          splitWeightShape, weightType.getElementType());
+          splitWeightShape, splitWeightElemType);
       if (!splitWeight) {
         LLVM_DEBUG(
             llvm::dbgs() << "Unsupported weight element type, skipping\n");
@@ -368,8 +393,10 @@ struct SplitDepthwiseConvPattern : public OpRewritePattern<ONNXConvOp> {
       Value splitBias;
       if (hasBias && denseBiasAttr) {
         auto biasType = cast<RankedTensorType>(origBias.getType());
+        auto splitBiasElemType = slicePerAxisQuantType(
+            biasType.getElementType(), cmIdx * inputChannels, inputChannels);
         splitBias = createSplitBiasConstant(rewriter, loc, denseBiasAttr, cmIdx,
-            inputChannels, biasType.getElementType());
+            inputChannels, splitBiasElemType);
         if (!splitBias) {
           LLVM_DEBUG(
               llvm::dbgs() << "Unsupported bias element type, skipping\n");
@@ -518,11 +545,12 @@ struct SplitXFEDepthwiseConvPattern : public OpRewritePattern<XFEConvOp> {
     onnx_mlir::OnnxBuilder onnxBuilder(rewriter, loc);
 
     for (int64_t cmIdx = 0; cmIdx < channelMultiplier; cmIdx++) {
-      // Create split weight constant using templatized helper.
-      // Pass the full weight element type (may be quantized) for the result.
+      // Slice per-axis quant scales/zp for this split's output channels.
+      auto splitWeightElemType = slicePerAxisQuantType(
+          weightType.getElementType(), cmIdx * inputChannels, inputChannels);
       Value splitWeight = createSplitWeightConstant(rewriter, loc,
           denseWeightAttr, cmIdx, inputChannels, weightsPerChannel,
-          splitWeightShape, weightType.getElementType());
+          splitWeightShape, splitWeightElemType);
       if (!splitWeight) {
         LLVM_DEBUG(
             llvm::dbgs() << "Unsupported weight element type, skipping\n");
@@ -533,8 +561,10 @@ struct SplitXFEDepthwiseConvPattern : public OpRewritePattern<XFEConvOp> {
       Value splitBias;
       if (hasBias && denseBiasAttr) {
         auto biasType = cast<RankedTensorType>(origBias.getType());
+        auto splitBiasElemType = slicePerAxisQuantType(
+            biasType.getElementType(), cmIdx * inputChannels, inputChannels);
         splitBias = createSplitBiasConstant(rewriter, loc, denseBiasAttr, cmIdx,
-            inputChannels, biasType.getElementType());
+            inputChannels, splitBiasElemType);
         if (!splitBias) {
           LLVM_DEBUG(
               llvm::dbgs() << "Unsupported bias element type, skipping\n");

@@ -1,5 +1,6 @@
 
 #include "XCOMPILERShapeInference.hpp"
+#include "mlir/Dialect/Quant/IR/QuantTypes.h"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
@@ -26,6 +27,19 @@ LogicalResult XCOMPILERFusedEltwiseOpShapeInference(
   ArrayRef<int64_t> aShape = aType.getShape();
   Type elementType = aType.getElementType();
 
+  // Preserve existing quantized element type if already set (e.g., quantized
+  // types with independently calibrated scale/zero_point). Only fall back to
+  // input A's element type when the result is unranked or has a non-quantized
+  // element type. This prevents intermediate passes (e.g.,
+  // RemovePairsAndMoveDownReshapePass) that set the result type to f32
+  // from permanently losing quantized type information.
+  if (auto existingType =
+          dyn_cast<RankedTensorType>(eltwiseOp.getResult().getType())) {
+    if (mlir::isa<mlir::quant::QuantizedType>(existingType.getElementType())) {
+      elementType = existingType.getElementType();
+    }
+  }
+
   SmallVector<int64_t> outputShape;
 
   // Check if B is provided (not None)
@@ -38,11 +52,6 @@ LogicalResult XCOMPILERFusedEltwiseOpShapeInference(
     ArrayRef<int64_t> bShape = bType.getShape();
 
     // Compute output shape using NumPy-style broadcasting
-    // Broadcasting rules:
-    // - Shapes are right-aligned (compare from trailing dimensions)
-    // - Dimensions are compatible if equal OR one of them is 1
-    // - Output shape is maximum along each dimension
-    // - Shorter shape is implicitly padded with 1s on the left
     if (!OpTrait::util::getBroadcastedShape(aShape, bShape, outputShape)) {
       return op->emitError("FusedEltwise: incompatible shapes for broadcasting")
              << " A shape: [" << aShape << "], B shape: [" << bShape << "]";
@@ -72,6 +81,13 @@ LogicalResult XCOMPILERDepthwiseConvOpShapeInference(
   auto xType = mlir::cast<ShapedType>(X.getType());
   ArrayRef<int64_t> xShape = xType.getShape();
   Type elementType = xType.getElementType();
+
+  if (auto existingType =
+          dyn_cast<RankedTensorType>(convOp.getResult().getType())) {
+    if (mlir::isa<mlir::quant::QuantizedType>(existingType.getElementType())) {
+      elementType = existingType.getElementType();
+    }
+  }
 
   // Input must be 4D [N, H, W, C] or 5D [N, D, H, W, C]
   size_t rank = xShape.size();
@@ -175,12 +191,25 @@ LogicalResult XCOMPILERRequantizeOpShapeInference(
   if (!requantizeOp)
     return failure();
 
-  // Requantize: output shape is identical to input shape
+  // Requantize: output shape is identical to input shape, but the element
+  // type must be preserved from the result (not copied from X). The result
+  // carries the output quantization parameters (y_scale, y_zero_point) which
+  // are independently calibrated and differ from X's input parameters
+  // (a_scale, a_zero_point). Copying X's element type would lose the output
+  // calibration. Additionally, X's defining op may have lost its quantized
+  // type during shape inference (becoming f32 or integer).
   Value X = requantizeOp.getX();
   if (!hasShapeAndRank(X))
     return success();
 
-  requantizeOp.getResult().setType(X.getType());
+  auto xType = mlir::cast<ShapedType>(X.getType());
+  Type elementType = xType.getElementType();
+  if (auto existingType =
+          dyn_cast<RankedTensorType>(requantizeOp.getResult().getType())) {
+    elementType = existingType.getElementType();
+  }
+  auto resultType = RankedTensorType::get(xType.getShape(), elementType);
+  requantizeOp.getResult().setType(resultType);
   return success();
 }
 

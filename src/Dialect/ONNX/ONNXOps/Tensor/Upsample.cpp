@@ -95,7 +95,7 @@ LogicalResult ONNXUpsampleOp::verify() {
 
   int scaleIdx = 0;
   for (auto it = valueAttr.getValues<FloatAttr>().begin();
-       it != valueAttr.getValues<FloatAttr>().end(); ++it) {
+      it != valueAttr.getValues<FloatAttr>().end(); ++it) {
     if (scaleIdx >= inputRank) {
       return emitError("Scales tensor shape doesn't match # of scale values");
     }
