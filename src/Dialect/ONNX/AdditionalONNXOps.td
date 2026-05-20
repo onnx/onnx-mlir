@@ -721,4 +721,80 @@ def ONNXUpsampleAndPadOp : ONNX_Op<"UpsampleAndPad",
 
   let hasVerifier = 1;
 }
+//===----------------------------------------------------------------------===//
+// ONNXIm2ColOp
+def ONNXIm2ColOp: ONNX_Op<"Im2Col",
+    [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+     DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ONNX Im2Col operation for convolution via matrix multiplication";
+  let description = [{
+    Transforms N-dimensional convolution input into column format to enable
+    convolution via matrix multiplication.
+    
+    For input X: [N, CI, D1, D2, ..., DN]
+    With kernel: [K1, K2, ..., KN]
+    And output spatial dims: [O1, O2, ..., ON]
+    
+    Output shape: [N, CI * K1 * K2 * ... * KN, O1 * O2 * ... * ON]
+                   ↑  ↑                             ↑
+                 batch flattened receptive field    flattened output positions
+    
+    For each batch n and output position q, output[n, :, q] contains the
+    flattened receptive field ordered as:
+    [c0_k0...kN, c1_k0...kN, ..., cCI_k0...kN]
+    where c is the channel index and k0...kN are kernel spatial indices.
+  
+    This layout matches the common lowering pattern where weights are reshaped
+    to [CO, CI * K1 * ... * KN], Im2Col(X)[n] is viewed as
+    [CI * K1 * ... * KN, O1 * ... * ON], and convolution is computed as a
+    matrix multiplication for each batch.
+    
+    Parameters match ONNX Conv operation (excluding group):
+    - auto_pad: Padding strategy (NOTSET, SAME_UPPER, SAME_LOWER, VALID).
+                Default is NOTSET.
+    - dilations: Dilation values for each spatial dimension.
+                 Default is 1 for each spatial dimension.
+    - kernel_shape: Size of convolution kernel (required).
+    - pads: Padding for each spatial dimension. Format is [x1_begin, x2_begin, ..., x1_end, x2_end, ...]
+            where n is the number of spatial dimensions. Total length is 2*n.
+            Default is 0 for all dimensions.
+    - strides: Stride values for each spatial dimension.
+               Default is 1 for each spatial dimension.
+    
+    This operation is not part of the standard and was added to assist onnx-mlir.
+  }];
+
+  let arguments = (ins 
+    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X,
+    DefaultValuedStrAttr<StrAttr, "NOTSET">:$auto_pad,
+    OptionalAttr<I64ArrayAttr>:$dilations,
+    I64ArrayAttr:$kernel_shape,
+    OptionalAttr<I64ArrayAttr>:$pads,
+    OptionalAttr<I64ArrayAttr>:$strides
+  );
+  
+  let results = (outs 
+    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output
+  );
+
+  let hasVerifier = 1;
+
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() { return 1; }
+    static int getNumberOfResults() { return 1; }
+    static std::vector<int> getTypeMap() { return {30}; }
+  }];
+
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ONNXIm2ColOp::getShapeHelper(
+        mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper,
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = 
+          new onnx_mlir::ONNXIm2ColOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "Failed to allocate shape helper.");
+      return sh;
+    }
+  }];
+}
+
 

@@ -30,7 +30,7 @@ def dprint(msg):
 
 def print_usage(error_msg="", options=False, usage=False, file_format=False):
     if error_msg:
-        dprint("ERROR: " + error_msg)
+        dprint(f"ERROR: {error_msg}")
         dprint("")
     if options:
         dprint("")
@@ -176,26 +176,31 @@ def run_FileCheck(test_name, compiled_file_name, model_file_name, silent):
         res = subprocess.run(command, capture_output=True, text=True).stderr
     except FileNotFoundError:
         # FileCheck not found, assume test failed so repair can proceed.
-        dprint(
-            '// >> FileCheck not found, assuming test failed for "' + test_name + '".'
-        )
+        dprint(f'// >> FileCheck not found, assuming test failed for "{test_name}".')
         return False
     if len(res) == 0:
         # Success.
         if not silent:
-            dprint('// >> Successful test of "' + test_name + '".')
+            dprint(f'// >> Successful test of "{test_name}".')
+        return True
+    # Check if test was skipped due to missing prefix requirements
+    if (
+        res.startswith("error: no check strings found with prefix")
+        and len(prefix_ordered_list) > 1
+    ):
+        # Test skipped because it doesn't have checks for this prefix
+        if not silent:
+            dprint(
+                f'// >> Test skipped for "{test_name}" because it did not have requirement for the prefix "{prefix_str}".'
+            )
         return True
     # Failure
     if not silent:
         test_error_functions.append(test_name)
-        dprint('// >> Start failure report of test "' + test_name + '".')
+        dprint(f'// >> Start failure report of test "{test_name}".')
         dprint(res)
-        dprint('// >> Stop failure report of test "' + test_name + '".')
-        dprint(
-            '// >> run again with option "-tdf '
-            + test_name
-            + '" to focus on this test.'
-        )
+        dprint(f'// >> Stop failure report of test "{test_name}".')
+        dprint(f'// >> run again with option "-tdf {test_name}" to focus on this test.')
     return False
 
 
@@ -210,19 +215,32 @@ def print_file(file_name):
 
 def get_check_prefix_from_line(line):
     """
-    Given a line, return the CHECK prefix if it matches any prefix in prefix_ordered_list.
+    Given a line, extract and return the CHECK prefix if it's a CHECK line.
     Returns None if the line is not a CHECK line or doesn't match any known prefix.
+    The pattern matches lines like "// CHECK-LABEL:" or "// CHECK-Z16:" etc.
+    Handles CHECK line directives like -LABEL, -NOT, -DAG, -SAME, -NEXT by stripping them.
     """
-    global prefix_ordered_list
+    global prefix_ordered_list, debug
 
-    if not re.match(r"\s*//", line):
-        # Not a comment line.
-        return None
+    # Match pattern: "//\s+([^:]*):" to extract the full prefix with potential suffix.
+    m = re.match(r"//\s+([^:]*):", line)
+    if m:
+        extracted_full = m.group(1)
 
-    for prefix in prefix_ordered_list:
-        pattern = r"\s*// " + re.escape(prefix) + r"[-:]"
-        if re.match(pattern, line):
-            return prefix
+        # Check if the full extracted string is in the list (handles plain CHECK: lines).
+        if extracted_full in prefix_ordered_list:
+            return extracted_full
+
+        # Otherwise, try to find the base prefix by removing known CHECK directives.
+        # Common directives: LABEL, NOT, DAG, SAME, NEXT, COUNT, EMPTY, etc.
+        directives = ["LABEL", "NOT", "DAG", "SAME", "NEXT", "COUNT", "EMPTY"]
+        for directive in directives:
+            if extracted_full.endswith("-" + directive):
+                base_prefix = extracted_full[
+                    : -len(directive) - 1
+                ]  # Remove '-DIRECTIVE'
+                if base_prefix in prefix_ordered_list:
+                    return base_prefix
 
     return None
 
@@ -256,9 +274,9 @@ def emit_modified_segment(i, has_test):
     # This covers CHECK-LABEL, CHECK-NOT, CHECK-DAG, CHECK-SAME, etc.
     check_prefix_pattern = r"\s*// " + re.escape(prefix_str) + r"[-:]"
 
-    # Print separator.
+    # Print separator. (hi alex is is right?)
     if i > 0:
-        print("// -----\n")
+        print("// -----")
     gen_orig_model(i, flt_orig_model_file_name)
     run_onnx_mlir_opt(flt_orig_model_file_name, run_command, flt_compiled_file_name)
 
@@ -285,15 +303,34 @@ def emit_modified_segment(i, has_test):
     for prefix in prefix_ordered_list:
         saved_check_lines[prefix] = []
 
-    # First pass: print non-CHECK lines and collect CHECK lines by prefix.
+    # First pass: collect non-CHECK lines in a buffer and CHECK lines by prefix.
+    # Track previous line to avoid collecting multiple consecutive empty lines.
+    non_check_lines = []
+    prev_was_empty = False
     for l in segment_text[i]:
         check_prefix = get_check_prefix_from_line(l)
         if check_prefix is not None:
             # This is a CHECK line - save it to the appropriate prefix list.
             saved_check_lines[check_prefix].append(l)
         else:
-            # Not a CHECK line - print it immediately.
-            print(l)
+            # Not a CHECK line - add to buffer.
+            # Skip if this is an empty line and the previous was also empty.
+            is_empty = len(l.strip()) == 0
+            if not (is_empty and prev_was_empty):
+                non_check_lines.append(l)
+            prev_was_empty = is_empty
+
+    # Find and remove the last closing brace from non-CHECK lines.
+    # The strip() method matches any line with only whitespace + "}".
+    last_closing_brace = None
+    for idx in range(len(non_check_lines) - 1, -1, -1):
+        if non_check_lines[idx].strip() == "}":
+            last_closing_brace = non_check_lines.pop(idx)
+            break
+
+    # Print non-CHECK lines (without the last closing brace).
+    for line in non_check_lines:
+        print(line)
 
     # Second pass: print CHECK lines in prefix order.
     for prefix in prefix_ordered_list:
@@ -307,6 +344,12 @@ def emit_modified_segment(i, has_test):
             # Print the saved original CHECK lines for this prefix.
             for line in saved_check_lines[prefix]:
                 print(line)
+        print("")  # add empty line
+
+    # Third pass: print the deferred closing brace if any.
+    if last_closing_brace is not None:
+        print(last_closing_brace)
+    print("")  # add empty line
 
     if has_test:
         run_FileCheck(
@@ -383,9 +426,9 @@ def main(argv):
         directory += "/../test/mlir/"
         lit_test_filename = directory + lit_test_filename
     if debug:
-        dprint('// Process lit test file "' + lit_test_filename + '".')
+        dprint(f'// Process lit test file "{lit_test_filename}".')
     if not os.access(lit_test_filename, os.R_OK):
-        print_usage('could not open file "' + lit_test_filename + '"')
+        print_usage(f'could not open file "{lit_test_filename}"')
 
     # Process the lit test file.
     # Segments are all of the text between "// -----".
@@ -418,7 +461,7 @@ def main(argv):
         m = re.match(r"// RUN:\s*(.*)\|", line)
         if m is not None:
             # Check for --check-prefix in the line.
-            prefix_match = re.search(r"--check-prefix=(\w+)", line)
+            prefix_match = re.search(r"--check-prefix=([\w-]+)", line)
             if prefix_match:
                 # Has explicit prefix.
                 found_prefix = prefix_match.group(1)
@@ -430,8 +473,7 @@ def main(argv):
                 prefix_ordered_list.append(found_prefix)
             else:
                 print_usage(
-                    'Got too many "// RUN:" command with the same prefix '
-                    + found_prefix,
+                    f'Got too many "// RUN:" command with the same prefix {found_prefix}',
                     file_format=True,
                 )
             # Gather run command only if it matches the desired prefix_str
@@ -450,15 +492,14 @@ def main(argv):
             curr_segment_fct_name = m.group(1)
             if fct_between_delimiters > 0:
                 print_usage(
-                    'Got too many function bodies between "// -----" command starting with '
-                    + curr_segment_fct_name,
+                    f'Got too many function bodies between "// -----" command starting with {curr_segment_fct_name}',
                     file_format=True,
                 )
             fct_between_delimiters = 1
             if has_fct and curr_segment_fct_name == fix_fct_name:
                 found_fct_to_fix = True
                 if debug:
-                    dprint("// Found function to fix: " + curr_segment_fct_name)
+                    dprint(f"// Found function to fix: {curr_segment_fct_name}")
             continue
         # Handle mlir2FileCheck command
         m = re.match(r"\s*//\s*(mlir2FileCheck.py.*)$", line)
@@ -475,15 +516,15 @@ def main(argv):
             'Expected at least 2 segments (text between "// -----"): one for RUN command and one for a function.',
             options=False,
         )
-    dprint("//   File uses the following prefix(es): " + ", ".join(prefix_ordered_list))
+    dprint(f"//   File uses the following prefix(es): {', '.join(prefix_ordered_list)}")
     if has_fct and not found_fct_to_fix:
-        dprint("Did not find function to fix: '" + fix_fct_name + "'.")
+        dprint(f"Did not find function to fix: '{fix_fct_name}'.")
         sys.exit()
     if run_command_num == 0:
         print_usage('Expected "// RUN:" command.', file_format=True)
 
     # Process segments.
-    dprint('// File runs "' + run_command + '" ')
+    dprint(f'// File runs "{run_command}" ')
     if has_repair:
         emit_unmodified_segment(0)
     for i in range(1, len(segment_text)):
@@ -491,22 +532,22 @@ def main(argv):
             if segment_fct_name[i] == fix_fct_name:
                 # We have the selected function.
                 if has_repair:
-                    dprint("// > repair " + segment_fct_name[i])
+                    dprint(f"// > repair {segment_fct_name[i]}")
                     emit_modified_segment(i, has_test)
                 elif has_test:
                     test_orig_model(i, silent=False)
             elif has_print:
                 # We don't have the selected function but we want to print the others.
                 if debug:
-                    dprint("// > print " + segment_fct_name[i])
+                    dprint(f"// > print {segment_fct_name[i]}")
                 emit_unmodified_segment(i)
         elif has_repair:
             # Has repair for all (failing) tests.
             if test_orig_model(i, silent=True):
-                dprint(" // > successful test; print " + segment_fct_name[i])
+                dprint(f" // > successful test; print {segment_fct_name[i]}")
                 emit_unmodified_segment(i)
             else:
-                dprint(" // > failed test; repair " + segment_fct_name[i])
+                dprint(f" // > failed test; repair {segment_fct_name[i]}")
                 emit_modified_segment(i, has_test)
         elif has_test:
             test_orig_model(i, silent=False)
@@ -520,10 +561,10 @@ def main(argv):
         if test_error_num == 0:
             dprint("\n>> Tested successfully without errors.")
         else:
-            dprint("\n>> Tested with " + str(test_error_num) + " errors:")
+            dprint(f"\n>> Tested with {test_error_num} errors:")
             for f in test_error_functions:
                 dprint(">>   " + f)
-    dprint(">> Completed processing of " + lit_test_filename + "\n")
+    dprint(f">> Completed processing of {lit_test_filename}\n")
 
 
 if __name__ == "__main__":
