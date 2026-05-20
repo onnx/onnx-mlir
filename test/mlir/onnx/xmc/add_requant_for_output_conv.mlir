@@ -159,11 +159,12 @@ func.func @fused_eltwise_multi_fanout_output(
 
 // -----
 
-// Test 4: XCOMPILERDepthwiseConv producer with multi-fanout.
+// Test 4: XCOMPILERDepthwiseConv producer with multi-fanout. Weight uses
+// IHWO format: channel-multiplier (first dim) = 1, channels (last dim) = C.
 // CHECK-LABEL: @depthwise_conv_multi_fanout_output
 func.func @depthwise_conv_multi_fanout_output(
     %arg0: tensor<1x8x8x16x!quant.uniform<u8:f32, 0.04:128>>,
-    %weight: tensor<16x3x3x1x!quant.uniform<i8:f32, 0.01>>,
+    %weight: tensor<1x3x3x16x!quant.uniform<i8:f32, 0.01>>,
     %bias: tensor<16x!quant.uniform<i32:f32, 4.000000e-04>>,
     %dq_scale: tensor<f32>, %dq_zp: tensor<ui8>)
     -> (tensor<1x8x8x16xf32>,
@@ -173,7 +174,7 @@ func.func @depthwise_conv_multi_fanout_output(
        group = 16 : si64, kernel_shape = [3, 3], pads = [1, 1, 1, 1],
        strides = [1, 1]}
       : (tensor<1x8x8x16x!quant.uniform<u8:f32, 0.04:128>>,
-         tensor<16x3x3x1x!quant.uniform<i8:f32, 0.01>>,
+         tensor<1x3x3x16x!quant.uniform<i8:f32, 0.01>>,
          tensor<16x!quant.uniform<i32:f32, 4.000000e-04>>)
       -> tensor<1x8x8x16x!quant.uniform<u8:f32, 0.05:140>>
 
