@@ -11,17 +11,19 @@ Releases are extensively tested, including the following steps.
 
 # Current releases
 
-## Prerelease 0.5.1.0
+## Prerelease 0.5.1
 < current main branch >
 
-## Prerelease 0.5.0.1
-
+## Prerelease 0.5.0
 This prerelease was cut from commit on May 19, 2026.
 There are no security issues that we know of.
 
-## Prerelease 0.5.0.0
+## Prerelease 0.4.3
+This prerelease was cut from commit on Oct 21, 2024.
+There are no security issues that we know of.
 
-This prerelease was cut from commit on May 12, 2025.
+## Prerelease 0.4.2
+This prerelease was cut from commit on April 11, 2024.
 There are no security issues that we know of.
 
 ## Prerelease 0.4.1
