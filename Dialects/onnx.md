@@ -4158,6 +4158,76 @@ Effects: `MemoryEffects::Effect{}`
 
 
 
+### `onnx.Im2Col` (ONNXIm2ColOp)
+
+_ONNX Im2Col operation for convolution via matrix multiplication_
+
+Transforms N-dimensional convolution input into column format to enable
+convolution via matrix multiplication.
+
+For input X: [N, CI, D1, D2, ..., DN]
+With kernel: [K1, K2, ..., KN]
+And output spatial dims: [O1, O2, ..., ON]
+
+Output shape: [N, CI * K1 * K2 * ... * KN, O1 * O2 * ... * ON]
+               ↑  ↑                             ↑
+             batch flattened receptive field    flattened output positions
+
+For each batch n and output position q, output[n, :, q] contains the
+flattened receptive field ordered as:
+[c0_k0...kN, c1_k0...kN, ..., cCI_k0...kN]
+where c is the channel index and k0...kN are kernel spatial indices.
+
+This layout matches the common lowering pattern where weights are reshaped
+to [CO, CI * K1 * ... * KN], Im2Col(X)[n] is viewed as
+[CI * K1 * ... * KN, O1 * ... * ON], and convolution is computed as a
+matrix multiplication for each batch.
+
+Parameters match ONNX Conv operation (excluding group):
+- auto_pad: Padding strategy (NOTSET, SAME_UPPER, SAME_LOWER, VALID).
+            Default is NOTSET.
+- dilations: Dilation values for each spatial dimension.
+             Default is 1 for each spatial dimension.
+- kernel_shape: Size of convolution kernel (required).
+- pads: Padding for each spatial dimension. Format is [x1_begin, x2_begin, ..., x1_end, x2_end, ...]
+        where n is the number of spatial dimensions. Total length is 2*n.
+        Default is 0 for all dimensions.
+- strides: Stride values for each spatial dimension.
+           Default is 1 for each spatial dimension.
+
+This operation is not part of the standard and was added to assist onnx-mlir.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>auto_pad</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+<tr><td><code>dilations</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+<tr><td><code>kernel_shape</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+<tr><td><code>pads</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+<tr><td><code>strides</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
+
+
 ### `onnx.Imputer` (ONNXImputerOp)
 
 _ONNX Imputer operation_
