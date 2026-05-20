@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+
+# SPDX-License-Identifier: Apache-2.0
+
 """
 Script to fix // ----- separators in .mlir files.
 Ensures there's always an empty line before and after each separator.

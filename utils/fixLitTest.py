@@ -516,14 +516,14 @@ def main(argv):
     # Make sure we got what we were waiting for.
     if len(segment_text) < 1:
         print_usage(
-            'Expected at least 1 segment with a RUN command and a function.',
+            "Expected at least 1 segment with a RUN command and a function.",
             options=False,
         )
     # Check if we have at least one function.
     has_function = any(name for name in segment_fct_name if name)
     if not has_function:
         print_usage(
-            'Expected at least one function in the file.',
+            "Expected at least one function in the file.",
             options=False,
         )
     dprint(f"//   File uses the following prefix(es): {', '.join(prefix_ordered_list)}")
