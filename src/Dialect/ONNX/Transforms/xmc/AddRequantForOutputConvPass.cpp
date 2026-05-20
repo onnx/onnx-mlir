@@ -3,41 +3,17 @@
 //===----------------------------------------------------------------------===//
 // AddRequantForOutputConvPass
 //
-// Mirrors xcompiler's
-// xcompiler-src/src/pass/passes/AddRequantForOutputConvPass.cpp
-//
-// When a quantized-output op has multiple fanouts AND one fanout is the
-// `quant.scast -> onnx.DequantizeLinear` "output edge" of the quantized
-// region, REPLACE the scast with a placeholder XCOMPILERRequantize that
-// produces the same storage type so the DQ has its own dedicated
-// requantize handle for downstream passes. This mirrors the shape used by
-// ConvertScastAndDQToRequantizePattern in ConvertSCastPairToRequantizePass.
-//
-// Real post-QuantTypes IR shape:
-//   producer (!quant.uniform[s,zp])
-//     |---> quant.scast (!quant.uniform -> ui8) -> DQ -> ... f32 output
-//     |---> (other quantized consumers ...)
-//
-// After:
-//   producer (!quant.uniform[s,zp])
-//     |---> XCOMPILERRequantize(a_scale=[1.0],a_zp=[0];
-//     |                        y_scale=[1.0],y_zp=[0]) -> ui8
-//     |       \---> DQ -> ... f32 output
-//     |---> (other quantized consumers, unchanged)
-//
-// The a/y placeholder values (scale=1.0, zp=0) mirror xcompiler's flow
-// exactly -- they are intentionally NOT derived from the producer's quant
-// type. Downstream passes overwrite them with the real per-output
-// requantize parameters. The new XCOMPILERRequantize absorbs the scast's
-// type-unwrap role while providing the explicit requantize hook the
-// xcompiler pass was designed to introduce.
-//
-// Producer allow-list (verified mapping of xcompiler's
-// {qlinear-conv2d, qlinear-eltwise}):
+// Ports xcompiler's AddRequantForOutputConvPass. For a producer in
 //   { XFEConvOp, XCOMPILERDepthwiseConvOp, XCOMPILERFusedEltwiseOp }
+// whose `!quant.uniform` result has multiple fanouts and one fanout is
+// `quant.scast -> ONNXDequantizeLinearOp` (the "output edge"), replace the
+// scast with a placeholder XCOMPILERRequantize that produces the same
+// storage type. Placeholder attrs `a_scale=[1.0], a_zp=[0], y_scale=[1.0],
+// y_zp=[0]` mirror xcompiler's flow exactly; downstream passes overwrite
+// them with the real per-output requantize parameters.
 //
-// xcompiler gates that are dropped here: is_4x4_cmc_overlay, and the
-// qlinear-l2_normalize producer (no xmc representation today).
+// xcompiler gates dropped: is_4x4_cmc_overlay; qlinear-l2_normalize
+// producer (no xmc representation today).
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -55,94 +31,59 @@ using namespace mlir;
 
 namespace {
 
-//===----------------------------------------------------------------------===//
-// Pattern: replace the producer->scast edge with a placeholder
-// XCOMPILERRequantize when the producer has multiple fanouts and feeds
-// DequantizeLinear. Placeholder attributes (a/y scale = 1.0, a/y zp = 0)
-// mirror xcompiler's flow; downstream passes will fill in the real
-// requantize parameters later.
-//===----------------------------------------------------------------------===//
-
-/// Anchor on `ONNXDequantizeLinearOp` (the "output edge" of the quantized
-/// region) and look through `quant::StorageCastOp` to find the producer.
-/// Fires only when the producer is one of the verified xcompiler-mapped
-/// quantized compute ops AND its quant-typed result has multiple uses
-/// (matches xcompiler's `!if_single_fanout(qconv)`). The scast is then
-/// replaced by a placeholder XCOMPILERRequantize that produces the same
-/// storage type, so the DQ ends up consuming the requantize directly.
 struct AddRequantForOutputConvPattern
     : public OpRewritePattern<ONNXDequantizeLinearOp> {
   using OpRewritePattern<ONNXDequantizeLinearOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(
       ONNXDequantizeLinearOp dqOp, PatternRewriter &rewriter) const override {
-    // 1. Look through quant.scast: !quant.uniform -> storage type -> DQ.
     auto scast = dqOp.getX().getDefiningOp<quant::StorageCastOp>();
     if (!scast)
       return failure();
 
     Value producerQuantVal = scast.getOperand();
 
-    // 2. Producer allow-list (verified mapping of xcompiler's
-    //    {qlinear-conv2d, qlinear-eltwise}).
+    // Producer allow-list mirrors xcompiler's {qlinear-conv2d,
+    // qlinear-eltwise}.
     Operation *producer = producerQuantVal.getDefiningOp();
     if (!producer ||
         !isa<XFEConvOp, XCOMPILERDepthwiseConvOp, XCOMPILERFusedEltwiseOp>(
             producer))
       return failure();
 
-    // 3. Multi-fanout check on the producer's QUANT result (matches
-    //    xcompiler AddRequantForOutputConvPass: !internal::if_single_fanout).
+    // Mirrors xcompiler's `!internal::if_single_fanout(qconv)`.
     if (producerQuantVal.hasOneUse())
       return failure();
 
-    // 4. Element-type check: must be a uniform-quantized tensor type. We
-    //    only fire when the producer's result is genuinely quantized.
     auto rtt = dyn_cast<RankedTensorType>(producerQuantVal.getType());
     if (!rtt)
       return failure();
-    Type elt = rtt.getElementType();
     if (!isa<quant::UniformQuantizedType, quant::UniformQuantizedPerAxisType>(
-            elt))
+            rtt.getElementType()))
       return failure();
 
-    // 5. Build placeholder a_*/y_* attrs identical to xcompiler's flow:
-    //    a_scale=[1.0], a_zero_point=[0], y_scale=[1.0], y_zero_point=[0].
-    //    These are intentionally NOT derived from the producer's quant
-    //    type; downstream passes overwrite them with the real requantize
-    //    parameters. The XCOMPILERRequantize verifier only requires
-    //    a_scale/a_zp and y_scale/y_zp shape consistency, not consistency
-    //    with the input/output tensor quant types, so size-1 placeholders
-    //    are legal regardless of whether the producer is per-tensor or
-    //    per-axis quantized.
-    ArrayAttr aScale =
-        rewriter.getArrayAttr({rewriter.getF32FloatAttr(1.0f)});
+    // Placeholder a/y attrs (scale=1.0, zp=0) match xcompiler exactly --
+    // downstream passes overwrite them with the real requantize params.
+    // The XCOMPILERRequantize verifier only checks a/y mutual shape
+    // consistency, so size-1 attrs are legal for per-tensor and per-axis
+    // producers alike.
+    ArrayAttr aScale = rewriter.getArrayAttr({rewriter.getF32FloatAttr(1.0f)});
     ArrayAttr aZp = rewriter.getI64ArrayAttr({0});
     ArrayAttr yScale = aScale;
     ArrayAttr yZp = aZp;
 
-    // 6. Create the placeholder XCOMPILERRequantizeOp with the SCAST's
-    //    result type (storage type, e.g. ui8) so it can replace the scast
-    //    wholesale. Propagate ResultNames via the canonical helper, then
-    //    replace the scast with the requantize's result (other uses of the
-    //    producer's quant-typed value are untouched).
     rewriter.setInsertionPoint(scast);
     auto rq = rewriter.create<XCOMPILERRequantizeOp>(producer->getLoc(),
         scast.getResult().getType(), producerQuantVal, aScale, aZp, yScale,
         yZp);
 
-    // ResultNamesUpdater::notifyOperationReplaced(producer, rq) is the
-    // canonical helper that copies ResultNames AND runs inferTensorNames on
-    // the new op's operands. The greedy-rewriter listener machinery only
-    // auto-invokes it on op REPLACEMENT of the LISTENED rewrite; here we
-    // call it explicitly so the new Requantize inherits the producer's
-    // ResultNames in the same way a true replacement would.
+    // Explicit notify: the greedy-rewriter listener only fires on op
+    // replacement, but here we INSERT a new op then modify-in-place, so we
+    // call the helper ourselves to copy ResultNames from the producer (not
+    // the scast) onto the new Requantize.
     onnx_mlir::ResultNamesUpdater rnUpdater;
     rnUpdater.notifyOperationReplaced(producer, rq.getOperation());
 
-    // Replace the scast with the requantize result. The DQ (and any other
-    // user of the scast's storage-typed result, though typically there is
-    // none) now consumes the requantize directly.
     rewriter.replaceOp(scast, rq.getResult());
     return success();
   }
@@ -151,10 +92,6 @@ struct AddRequantForOutputConvPattern
 } // namespace
 
 namespace onnx_mlir {
-
-//===----------------------------------------------------------------------===//
-// Pass Definition
-//===----------------------------------------------------------------------===//
 
 struct AddRequantForOutputConvPass
     : public PassWrapper<AddRequantForOutputConvPass,
@@ -177,13 +114,10 @@ struct AddRequantForOutputConvPass
     RewritePatternSet patterns(context);
     patterns.add<AddRequantForOutputConvPattern>(context);
 
-    // ResultNamesUpdater listener is intentionally NOT attached. Our
-    // pattern manually invokes notifyOperationReplaced(producer, rq) to
-    // copy ResultNames from the *producer* (not the scast) onto the new
-    // Requantize. If the listener were attached, the subsequent
-    // replaceOp(scast, rq.getResult()) would re-fire the listener and
-    // overwrite the producer-sourced ResultNames with the scast's (or
-    // unset them), which is not what we want.
+    // ResultNamesUpdater listener is NOT attached: the pattern's
+    // replaceOp(scast, ...) would fire it and overwrite the
+    // producer-sourced ResultNames that the pattern just copied onto the
+    // new Requantize.
     GreedyRewriteConfig config;
     config.strictMode = GreedyRewriteStrictness::ExistingAndNewOps;
     if (failed(applyPatternsGreedily(
