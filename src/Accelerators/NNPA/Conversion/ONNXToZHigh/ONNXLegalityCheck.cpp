@@ -1465,9 +1465,8 @@ static bool checkConv2DParamRestrictions(Operation *op, int64_t inputDim,
           std::to_string(kernelDim) + ") must be less than or equal to 64.";
       return onnxToZHighUnsupportedReport(op, message);
     }
-    if (paddingType == "SAME_PADDING") {
-      // No output shape restriction.
-    } else { // VALID_PADDING
+    // No constraints for SAME_PADDING.
+    if (paddingType == "VALID_PADDING") {
       // If we need to enforce the shape restrictions.
       if (!nnpaDisableShapeRestriction) {
         // Input shape must be static.
