@@ -1,20 +1,8 @@
 // Copyright (C) 2026 Advanced Micro Devices, Inc. All rights reserved.
 //
-//===----------------------------------------------------------------------===//
-// AddRequantForOutputConvPass
-//
-// Ports xcompiler's AddRequantForOutputConvPass. For a producer in
-//   { XFEConvOp, XCOMPILERDepthwiseConvOp, XCOMPILERFusedEltwiseOp }
-// whose `!quant.uniform` result has multiple fanouts and one fanout is
-// `quant.scast -> ONNXDequantizeLinearOp` (the "output edge"), replace the
-// scast with a placeholder XCOMPILERRequantize that produces the same
-// storage type. Placeholder attrs `a_scale=[1.0], a_zp=[0], y_scale=[1.0],
-// y_zp=[0]` mirror xcompiler's flow exactly; downstream passes overwrite
-// them with the real per-output requantize parameters.
-//
-// xcompiler gates dropped: is_4x4_cmc_overlay; qlinear-l2_normalize
-// producer (no xmc representation today).
-//===----------------------------------------------------------------------===//
+// AddRequantForOutputConvPass: on a quantized compute op with multi-fanout
+// where one fanout is `quant.scast -> DequantizeLinear`, replace the scast
+// with a placeholder XCOMPILERRequantize on that output edge.
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Quant/IR/Quant.h"
@@ -43,15 +31,12 @@ struct AddRequantForOutputConvPattern
 
     Value producerQuantVal = scast.getOperand();
 
-    // Producer allow-list mirrors xcompiler's {qlinear-conv2d,
-    // qlinear-eltwise}.
     Operation *producer = producerQuantVal.getDefiningOp();
     if (!producer ||
         !isa<XFEConvOp, XCOMPILERDepthwiseConvOp, XCOMPILERFusedEltwiseOp>(
             producer))
       return failure();
 
-    // Mirrors xcompiler's `!internal::if_single_fanout(qconv)`.
     if (producerQuantVal.hasOneUse())
       return failure();
 
@@ -62,11 +47,10 @@ struct AddRequantForOutputConvPattern
             rtt.getElementType()))
       return failure();
 
-    // Placeholder a/y attrs (scale=1.0, zp=0) match xcompiler exactly --
-    // downstream passes overwrite them with the real requantize params.
-    // The XCOMPILERRequantize verifier only checks a/y mutual shape
-    // consistency, so size-1 attrs are legal for per-tensor and per-axis
-    // producers alike.
+    // Placeholder a/y attrs (scale=1.0, zp=0); downstream passes overwrite
+    // them with the real requantize params. The XCOMPILERRequantize
+    // verifier only checks a/y mutual shape consistency, so size-1 attrs
+    // are legal for both per-tensor and per-axis producers.
     ArrayAttr aScale = rewriter.getArrayAttr({rewriter.getF32FloatAttr(1.0f)});
     ArrayAttr aZp = rewriter.getI64ArrayAttr({0});
     ArrayAttr yScale = aScale;
@@ -100,9 +84,8 @@ struct AddRequantForOutputConvPass
     return "add-requant-for-output-conv";
   }
   StringRef getDescription() const override {
-    return "Insert no-op XCOMPILERRequantize on quantized-op -> "
-           "DequantizeLinear edges where the producer has multiple fanouts "
-           "(mirrors xcompiler AddRequantForOutputConvPass).";
+    return "Insert placeholder XCOMPILERRequantize on quantized-op -> "
+           "DequantizeLinear edges where the producer has multiple fanouts.";
   }
 
   void getDependentDialects(DialectRegistry &registry) const override {
