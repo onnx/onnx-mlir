@@ -1,5 +1,10 @@
 // Copyright (C) 2023 - 2026 Advanced Micro Devices, Inc. All rights reserved.
 //
+// MoveBroadcastTileForward: PSA2.2-style reshape+tile on TopK indices is moved
+// onto the TopK data path (tile before TopK); gather takes cast(TopK indices)
+// directly. Tile/indices may be integer (e.g. i32); TopK data stays quantized.
+// No Q/DQ nodes are inserted.
+//
 // Replaces onnx.Tile with onnx.Add: A=input, B=splat(identity additive) where
 // B has the tiled output shape.
 // - Uniformly quantized tensors: B is splat(zero_point); input/output must
@@ -51,6 +56,175 @@ bool broadcastMatchesExpectedShape(
     return false;
   return ArrayRef<int64_t>(bcastShape) == expected;
 }
+
+static int64_t getTopKStaticK(ONNXTopKOp topk) {
+  auto kValue = topk.getK();
+  if (!kValue)
+    return ShapedType::kDynamic;
+  auto kConst = kValue.getDefiningOp<ONNXConstantOp>();
+  if (!kConst)
+    return ShapedType::kDynamic;
+  auto valueAttr = kConst.getValueAttr();
+  if (!valueAttr)
+    return ShapedType::kDynamic;
+  if (auto dense = dyn_cast<DenseElementsAttr>(valueAttr)) {
+    if (dense.isSplat())
+      return dense.getSplatValue<APInt>().getSExtValue();
+    if (dense.getNumElements() == 1)
+      return dense.getValues<APInt>()[0].getSExtValue();
+  }
+  return ShapedType::kDynamic;
+}
+
+/// ONNX attrs are often si64; IntegerAttr::getInt() requires signless integer.
+static int64_t getIntegerAttrSExt(IntegerAttr attr) {
+  if (attr.getType().isSignlessInteger() || attr.getType().isIndex())
+    return attr.getInt();
+  if (attr.getType().isSignedInteger())
+    return attr.getSInt();
+  return static_cast<int64_t>(attr.getUInt());
+}
+
+/// Mirrors xcompiler TransferBroadcastTileToAddPass::
+/// transfer_move_broadcast_tile_forward (no DQ/Q on the indices path).
+struct MoveBroadcastTileForwardPattern : public OpRewritePattern<ONNXTileOp> {
+  using OpRewritePattern<ONNXTileOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXTileOp tileOp, PatternRewriter &rewriter) const override {
+    auto tileOutTy = dyn_cast<RankedTensorType>(tileOp.getType());
+    if (!tileOutTy || !tileOutTy.hasStaticShape())
+      return rewriter.notifyMatchFailure(tileOp, "tile result must be static");
+
+    if (!tileOp->hasOneUse())
+      return rewriter.notifyMatchFailure(tileOp, "tile must have a single user");
+
+    auto gatherOp = dyn_cast<ONNXGatherElementsOp>(*tileOp->user_begin());
+    if (!gatherOp)
+      return rewriter.notifyMatchFailure(
+          tileOp, "tile user must be onnx.GatherElements");
+    if (!gatherOp->hasOneUse())
+      return rewriter.notifyMatchFailure(
+          gatherOp, "gather_elements must have a single user");
+    auto gatherIndicesTy =
+        dyn_cast<RankedTensorType>(gatherOp.getIndices().getType());
+    if (!gatherIndicesTy || gatherIndicesTy.getElementType() !=
+                                tileOutTy.getElementType())
+      return rewriter.notifyMatchFailure(
+          tileOp, "tile output type must match gather indices type");
+
+    auto reshapeOp = tileOp.getInput().getDefiningOp<ONNXReshapeOp>();
+    if (!reshapeOp || !reshapeOp->hasOneUse())
+      return rewriter.notifyMatchFailure(
+          tileOp, "tile input must be a single-use onnx.Reshape");
+    ONNXCastOp castOp;
+    ONNXTopKOp topkOp;
+    if (failed(matchTopKIndicesChain(reshapeOp.getData(), castOp, topkOp)))
+      return rewriter.notifyMatchFailure(
+          tileOp, "reshape input must reach TopK indices via Cast");
+    Value topkDataIn = topkOp.getOperand(0);
+    auto topkDataTy = dyn_cast<RankedTensorType>(topkDataIn.getType());
+    if (!topkDataTy || !topkDataTy.hasStaticShape())
+      return rewriter.notifyMatchFailure(
+          topkOp, "TopK data input must be a static ranked tensor");
+
+    if (!topkOp.getAxisAttr())
+      return rewriter.notifyMatchFailure(topkOp, "TopK requires static axis");
+
+    int64_t k = getTopKStaticK(topkOp);
+    if (k == ShapedType::kDynamic)
+      return rewriter.notifyMatchFailure(topkOp, "TopK K must be a constant");
+
+    Location loc = tileOp.getLoc();
+
+    llvm::SmallVector<int64_t, 4> newReshapeShape(topkDataTy.getShape());
+    newReshapeShape.push_back(1);
+
+    auto shapeConst = rewriter.create<ONNXConstantOp>(loc,
+        RankedTensorType::get(
+            {static_cast<int64_t>(newReshapeShape.size())}, rewriter.getI64Type()),
+        nullptr, rewriter.getI64TensorAttr(newReshapeShape), nullptr, nullptr,
+        nullptr, nullptr, nullptr, nullptr);
+    auto newReshapeTy =
+        RankedTensorType::get(newReshapeShape, topkDataTy.getElementType());
+    auto newReshape = rewriter.create<ONNXReshapeOp>(
+        loc, newReshapeTy, topkDataIn, shapeConst.getResult());
+
+    llvm::SmallVector<int64_t, 4> newTileOutShape(topkDataTy.getShape());
+    newTileOutShape.push_back(tileOutTy.getShape().back());
+    // Tile on the TopK *data* path uses the data tensor element type (quant).
+    auto newTileOutTy =
+        RankedTensorType::get(newTileOutShape, topkDataTy.getElementType());
+    auto newTile = rewriter.create<ONNXTileOp>(
+        loc, newTileOutTy, newReshape.getResult(), tileOp.getRepeats());
+
+    int64_t axis = getIntegerAttrSExt(cast<IntegerAttr>(topkOp.getAxisAttr()));
+    if (axis < 0)
+      axis += static_cast<int64_t>(newTileOutShape.size());
+    llvm::SmallVector<int64_t, 4> topkOutShape(newTileOutShape);
+    topkOutShape[axis] = k;
+
+    auto oldValuesTy = dyn_cast<RankedTensorType>(topkOp.getValues().getType());
+    auto oldIndicesTy = dyn_cast<RankedTensorType>(topkOp.getIndices().getType());
+    if (!oldValuesTy || !oldIndicesTy)
+      return rewriter.notifyMatchFailure(topkOp, "TopK results must be ranked");
+
+    auto newValuesTy =
+        RankedTensorType::get(topkOutShape, oldValuesTy.getElementType());
+    auto newIndicesTy =
+        RankedTensorType::get(topkOutShape, oldIndicesTy.getElementType());
+    auto newTopk = rewriter.create<ONNXTopKOp>(
+        topkOp.getLoc(), newValuesTy, newIndicesTy, newTile.getResult(),
+        topkOp.getK(), topkOp.getAxisAttr(), topkOp.getLargestAttr(),
+        topkOp.getSortedAttr());
+
+    auto castOutTy = dyn_cast<RankedTensorType>(castOp.getType());
+    if (!castOutTy)
+      return rewriter.notifyMatchFailure(castOp, "Cast must be ranked tensor");
+    // onnx.Cast has SameOperandsAndResultShape: output shape must match indices.
+    auto newCastTy =
+        RankedTensorType::get(topkOutShape, castOutTy.getElementType());
+    int64_t saturate = getIntegerAttrSExt(castOp.getSaturateAttr());
+    Value newCast = rewriter.create<ONNXCastOp>(
+        castOp.getLoc(), newCastTy, newTopk.getIndices(), saturate,
+        castOutTy.getElementType());
+    rewriter.modifyOpInPlace(gatherOp,
+        [&]() { gatherOp.getOperation()->setOperand(1, newCast); });
+    rewriter.replaceOp(topkOp, newTopk->getResults());
+    rewriter.eraseOp(tileOp);
+    rewriter.eraseOp(reshapeOp);
+    rewriter.eraseOp(castOp);
+    return success();
+  }
+
+private:
+  static LogicalResult matchTopKIndicesChain(
+      Value reshapeInput, ONNXCastOp &castOp, ONNXTopKOp &topkOp) {
+    Value v = reshapeInput;
+    ONNXCastOp lastCast;
+    for (int i = 0; i < 8; ++i) {
+      if (auto cast = v.getDefiningOp<ONNXCastOp>()) {
+        lastCast = cast;
+        v = cast.getInput();
+        continue;
+      }
+      if (auto topk = v.getDefiningOp<ONNXTopKOp>()) {
+        if (!lastCast)
+          return failure();
+        if (v != topk.getIndices())
+          return failure();
+        castOp = lastCast;
+        topkOp = topk;
+        return success();
+      }
+      Operation *def = v.getDefiningOp();
+      if (!def || def->getNumOperands() != 1)
+        return failure();
+      v = def->getOperand(0);
+    }
+    return failure();
+  }
+};
 
 struct ReplaceQuantizedTileToAddPattern : public OpRewritePattern<ONNXTileOp> {
   using OpRewritePattern<ONNXTileOp>::OpRewritePattern;
@@ -231,13 +405,14 @@ struct ReplaceQuantizedTileToAddPass
     return "replace-quantized-tile-to-add";
   }
   StringRef getDescription() const override {
-    return "Lower onnx.Tile to onnx.Add: quantized tile uses "
-           "splat(zero_point); non-quantized tile uses splat(0)";
+    return "Move broadcast tile before TopK (quant or integer indices), then "
+           "lower onnx.Tile to onnx.Add (splat zero_point or splat 0)";
   }
 
   void runOnOperation() override {
     MLIRContext *context = &getContext();
     RewritePatternSet patterns(context);
+    patterns.add<MoveBroadcastTileForwardPattern>(context);
     patterns.add<ReplaceQuantizedTileToAddPattern>(context);
     patterns.add<ReplaceIntegerTileToQuantizedTile>(context);
 
