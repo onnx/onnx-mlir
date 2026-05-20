@@ -23,6 +23,9 @@ namespace {
 //===----------------------------------------------------------------------===//
 // Delay zhigh.DLF16ToF32 as long as possible, and finally it can be cancelled
 // when it meets zhigh.F32ToDLF16.
+//
+// This pattern works on ONNX operations that have one main input and other
+// inputs are, for example, indices or shapes, etc.
 //===----------------------------------------------------------------------===//
 template <typename ONNX_OP>
 class DelayDLF16ToF32Pattern : public OpRewritePattern<ONNX_OP> {
@@ -106,6 +109,9 @@ LogicalResult ZHighDLF16ToF32Op::inferShapes(
 void ZHighDLF16ToF32Op::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<ConversionRemovalPattern>(context);
+
+  // This pattern works on ONNX operations that have one main input and other
+  // inputs are, for example, indices or shapes, etc.
   results.insert<DelayDLF16ToF32Pattern<ONNXExpandOp>>(context);
   results.insert<DelayDLF16ToF32Pattern<ONNXFlattenOp>>(context);
   results.insert<DelayDLF16ToF32Pattern<ONNXGatherOp>>(context);
@@ -115,6 +121,7 @@ void ZHighDLF16ToF32Op::getCanonicalizationPatterns(
   results.insert<DelayDLF16ToF32Pattern<ONNXSqueezeOp>>(context);
   results.insert<DelayDLF16ToF32Pattern<ONNXTransposeOp>>(context);
   results.insert<DelayDLF16ToF32Pattern<ONNXUnsqueezeOp>>(context);
+
   results.insert<DimDLF16ToF32RemovalPattern>(context);
 }
 } // namespace zhigh
