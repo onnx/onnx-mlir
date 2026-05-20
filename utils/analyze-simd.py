@@ -148,14 +148,20 @@ def define_arch_op_names(arch):
         # .  d and s should be excluded as they're typically scalar FP
         # To be very precise, we may need context.
         # vld1-4: load 1-4 element structures | ld1-4 with vector regs | ldr/ldp with vector regs (q/v only for strict SIMD)
-        op_name["vload"] = "(vld[1-4]|ld[1-4].*\{v[0-9]+|ldr\s+[qv][0-9]+|ldp\s+[qv][0-9]+)"
+        op_name["vload"] = (
+            "(vld[1-4]|ld[1-4].*\{v[0-9]+|ldr\s+[qv][0-9]+|ldp\s+[qv][0-9]+)"
+        )
         # vdup: duplicate scalar to all lanes | dup with vector dest
         op_name["vload-splat"] = "(vdup|dup\s+v[0-9]+)"
         # vst1-4: store 1-4 element structures | st1-4 with vector regs | str/stp with vector regs (q/v only for strict SIMD)
-        op_name["vstore"] = "(vst[1-4]|st[1-4].*\{v[0-9]+|str\s+[qv][0-9]+|stp\s+[qv][0-9]+)"
+        op_name["vstore"] = (
+            "(vst[1-4]|st[1-4].*\{v[0-9]+|str\s+[qv][0-9]+|stp\s+[qv][0-9]+)"
+        )
         # vtbl/tbl: table lookup | vext/ext: extract | vrev/rev: reverse | vtrn/trn: transpose
         # vzip/zip/vuzp/uzp: zip/unzip | vmov with vector | ins: insert element
-        op_name["vshuffle"] = "(vtbl|tbl\.[0-9]+|vext|ext\.[0-9]+|vrev|rev[0-9]+\.[0-9]+|vtrn|trn[0-9]+\.[0-9]+|vzip|zip[0-9]+\.[0-9]+|vuzp|uzp[0-9]+\.[0-9]+|vmov\.[0-9]+|ins\s+v[0-9]+)"
+        op_name["vshuffle"] = (
+            "(vtbl|tbl\.[0-9]+|vext|ext\.[0-9]+|vrev|rev[0-9]+\.[0-9]+|vtrn|trn[0-9]+\.[0-9]+|vzip|zip[0-9]+\.[0-9]+|vuzp|uzp[0-9]+\.[0-9]+|vmov\.[0-9]+|ins\s+v[0-9]+)"
+        )
         # vfma/fmla: fused multiply-add | vfms/fmls: fused multiply-subtract (with SIMD suffix)
         op_name["vfma"] = "(vfma|fmla\.[0-9]+[sdh]|vfms|fmls\.[0-9]+[sdh])"
         # vmul/fmul: multiply with SIMD suffix | mul with vector operands
@@ -164,7 +170,9 @@ def define_arch_op_names(arch):
         op_name["vdiv"] = "(vdiv|fdiv\.[0-9]+[sdh])"
         # vcvt/fcvt: convert | scvtf/ucvtf: int to float | fcvtzs/fcvtzu: float to int (with vector operands)
         # vqmovn/sqxtn/uqxtn: narrow | vmovl/sxtl/uxtl: widen | xtn: extract narrow
-        op_name["vconv"] = "(vcvt|fcvt\.[0-9]+|scvtf\s+v[0-9]+|ucvtf\s+v[0-9]+|fcvtzs\s+v[0-9]+|fcvtzu\s+v[0-9]+|vqmovn|sqxtn|uqxtn|vmovl|sxtl|uxtl|xtn[0-9]*)"
+        op_name["vconv"] = (
+            "(vcvt|fcvt\.[0-9]+|scvtf\s+v[0-9]+|ucvtf\s+v[0-9]+|fcvtzs\s+v[0-9]+|fcvtzu\s+v[0-9]+|vqmovn|sqxtn|uqxtn|vmovl|sxtl|uxtl|xtn[0-9]*)"
+        )
         # vadd/vsub: vector add/sub | fadd/fsub: fp add/sub with SIMD suffix (.2s, .4s, .2d, etc.)
         # vmax/vmin: vector max/min | smax/umax/fmax/smin/umin/fmin with SIMD suffix
         # vceq/vcge/vcgt/vcle/vclt: vector compare | cmeq/cmge/cmgt/cmle/cmlt with SIMD suffix
