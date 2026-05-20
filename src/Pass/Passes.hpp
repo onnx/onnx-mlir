@@ -79,6 +79,10 @@ std::unique_ptr<mlir::Pass> createQDQCanonicalizePass(
 
 std::unique_ptr<mlir::Pass> createFoldQuantizedBinary();
 
+/// XMC variant of FoldQuantizedBinary with an extra Add/Sub scale-equality
+/// guard to avoid folding Add/Sub when input and output scales differ.
+std::unique_ptr<mlir::Pass> createXmcFoldQuantizedBinary();
+
 std::unique_ptr<mlir::Pass> createONNXCSEPass();
 
 std::unique_ptr<mlir::Pass> createQuantTypesPass();
