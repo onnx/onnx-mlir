@@ -97,7 +97,8 @@ struct MoveBroadcastTileForwardPattern : public OpRewritePattern<ONNXTileOp> {
       return rewriter.notifyMatchFailure(tileOp, "tile result must be static");
 
     if (!tileOp->hasOneUse())
-      return rewriter.notifyMatchFailure(tileOp, "tile must have a single user");
+      return rewriter.notifyMatchFailure(
+          tileOp, "tile must have a single user");
 
     auto gatherOp = dyn_cast<ONNXGatherElementsOp>(*tileOp->user_begin());
     if (!gatherOp)
@@ -108,8 +109,8 @@ struct MoveBroadcastTileForwardPattern : public OpRewritePattern<ONNXTileOp> {
           gatherOp, "gather_elements must have a single user");
     auto gatherIndicesTy =
         dyn_cast<RankedTensorType>(gatherOp.getIndices().getType());
-    if (!gatherIndicesTy || gatherIndicesTy.getElementType() !=
-                                tileOutTy.getElementType())
+    if (!gatherIndicesTy ||
+        gatherIndicesTy.getElementType() != tileOutTy.getElementType())
       return rewriter.notifyMatchFailure(
           tileOp, "tile output type must match gather indices type");
 
@@ -141,8 +142,8 @@ struct MoveBroadcastTileForwardPattern : public OpRewritePattern<ONNXTileOp> {
     newReshapeShape.push_back(1);
 
     auto shapeConst = rewriter.create<ONNXConstantOp>(loc,
-        RankedTensorType::get(
-            {static_cast<int64_t>(newReshapeShape.size())}, rewriter.getI64Type()),
+        RankedTensorType::get({static_cast<int64_t>(newReshapeShape.size())},
+            rewriter.getI64Type()),
         nullptr, rewriter.getI64TensorAttr(newReshapeShape), nullptr, nullptr,
         nullptr, nullptr, nullptr, nullptr);
     auto newReshapeTy =
@@ -165,7 +166,8 @@ struct MoveBroadcastTileForwardPattern : public OpRewritePattern<ONNXTileOp> {
     topkOutShape[axis] = k;
 
     auto oldValuesTy = dyn_cast<RankedTensorType>(topkOp.getValues().getType());
-    auto oldIndicesTy = dyn_cast<RankedTensorType>(topkOp.getIndices().getType());
+    auto oldIndicesTy =
+        dyn_cast<RankedTensorType>(topkOp.getIndices().getType());
     if (!oldValuesTy || !oldIndicesTy)
       return rewriter.notifyMatchFailure(topkOp, "TopK results must be ranked");
 
@@ -173,23 +175,22 @@ struct MoveBroadcastTileForwardPattern : public OpRewritePattern<ONNXTileOp> {
         RankedTensorType::get(topkOutShape, oldValuesTy.getElementType());
     auto newIndicesTy =
         RankedTensorType::get(topkOutShape, oldIndicesTy.getElementType());
-    auto newTopk = rewriter.create<ONNXTopKOp>(
-        topkOp.getLoc(), newValuesTy, newIndicesTy, newTile.getResult(),
-        topkOp.getK(), topkOp.getAxisAttr(), topkOp.getLargestAttr(),
-        topkOp.getSortedAttr());
+    auto newTopk = rewriter.create<ONNXTopKOp>(topkOp.getLoc(), newValuesTy,
+        newIndicesTy, newTile.getResult(), topkOp.getK(), topkOp.getAxisAttr(),
+        topkOp.getLargestAttr(), topkOp.getSortedAttr());
 
     auto castOutTy = dyn_cast<RankedTensorType>(castOp.getType());
     if (!castOutTy)
       return rewriter.notifyMatchFailure(castOp, "Cast must be ranked tensor");
-    // onnx.Cast has SameOperandsAndResultShape: output shape must match indices.
+    // onnx.Cast has SameOperandsAndResultShape: output shape must match
+    // indices.
     auto newCastTy =
         RankedTensorType::get(topkOutShape, castOutTy.getElementType());
     int64_t saturate = getIntegerAttrSExt(castOp.getSaturateAttr());
-    Value newCast = rewriter.create<ONNXCastOp>(
-        castOp.getLoc(), newCastTy, newTopk.getIndices(), saturate,
-        castOutTy.getElementType());
-    rewriter.modifyOpInPlace(gatherOp,
-        [&]() { gatherOp.getOperation()->setOperand(1, newCast); });
+    Value newCast = rewriter.create<ONNXCastOp>(castOp.getLoc(), newCastTy,
+        newTopk.getIndices(), saturate, castOutTy.getElementType());
+    rewriter.modifyOpInPlace(
+        gatherOp, [&]() { gatherOp.getOperation()->setOperand(1, newCast); });
     rewriter.replaceOp(topkOp, newTopk->getResults());
     rewriter.eraseOp(tileOp);
     rewriter.eraseOp(reshapeOp);
