@@ -41,18 +41,31 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
           ln -sf /usr/share/zoneinfo/${TZ} /etc/localtime && \
           ([ -x /usr/bin/microdnf ] && microdnf install -y yum) && \
           RHEL_VERSION=$(grep CPE_NAME /etc/os-release | cut -d':' -f5) && \
-          # Install clang from UBI8 AppStream BEFORE enabling EPEL so we get
-          # llvm-toolset 19.1.7 instead of EPEL's rolling clang (currently 21+).
-          yum install -q -y clang-19.1.7 && \
+          # --- Commented out: clang version pinning attempt ---
+          # Installing clang separately before EPEL and using excludes
+          # would let us pin a specific version. However, the UBI8 free
+          # repos only carry the latest clang (currently 21.1.8). Older
+          # versions (19.1.7, 20.1.8) are only in the full RHEL repos,
+          # which require a subscription/entitlement the Jenkins node
+          # does not have. Podman on subscribed RHEL hosts auto-mounts
+          # entitlements so local testing may see more versions than
+          # Jenkins (Docker) does.
+          #
+          # yum install -q -y clang && \
+          # yum install -q -y \
+          #     https://dl.fedoraproject.org/pub/epel/epel-release-latest-${RHEL_VERSION}.noarch.rpm && \
+          # # Exclude the entire LLVM toolchain from further updates so
+          # # EPEL can't bump them. clang depends on llvm-libs,
+          # # compiler-rt, and libomp. Upgrading any of these
+          # # independently would create a version mismatch.
+          # yum update -q -y --exclude=clang* --exclude=llvm* --exclude=compiler-rt* --exclude=libomp* && \
+          # yum install -q -y --exclude=clang* --exclude=llvm* --exclude=compiler-rt* --exclude=libomp* \
+          # --- End commented out ---
           yum install -q -y \
               https://dl.fedoraproject.org/pub/epel/epel-release-latest-${RHEL_VERSION}.noarch.rpm && \
-          # Exclude the entire LLVM toolchain from further updates so EPEL
-          # can't bump them. clang depends on llvm-libs, compiler-rt, and
-          # libomp. Upgrading any of these independently would create a
-          # version mismatch that breaks the pinned clang.
-          yum update -q -y --exclude=clang* --exclude=llvm* --exclude=compiler-rt* --exclude=libomp* && \
-          yum install -q -y --exclude=clang* --exclude=llvm* --exclude=compiler-rt* --exclude=libomp* \
-              autoconf automake ca-certificates cmake diffutils \
+          yum update -q -y && \
+          yum install -q -y \
+              autoconf automake ca-certificates clang cmake diffutils \
               file java-11-openjdk-devel java-11-openjdk-headless \
               gcc gcc-c++ git libtool make ncurses-devel ninja-build \
               python39 python39-devel python39-pip python39-setuptools \
@@ -88,10 +101,15 @@ RUN JSONITER_URL=https://repo1.maven.org/maven2/com/jsoniter/jsoniter/${JSONITER
     && curl -s ${JSONITER_URL}/${JSONITER_FILE} -o /usr/share/java/${JSONITER_FILE}
 
 # Clone and build llvm-project and run tests
+# Clang 21+ is stricter about implicit includes. The SPIRV Deserialization
+# header uses uint32_t without including <cstdint>, causing a build failure.
+# Patch it after checkout until the fix lands upstream in llvm-project.
 ARG BUILD_SHARED_LIBS=OFF
 RUN git clone -n https://github.com/llvm/llvm-project.git \
     && cd llvm-project \
     && git checkout ${LLVM_PROJECT_SHA1} \
+    && sed -i '/#include "mlir\/Support\/LLVM.h"/a #include <cstdint>' \
+    mlir/include/mlir/Target/SPIRV/Deserialization.h \
     && mkdir -p build && cd build \
 # Build with clang since gcc on ppc64le doesn't support __builtin_thread_pointer
     && CC=clang CXX=clang++ \
