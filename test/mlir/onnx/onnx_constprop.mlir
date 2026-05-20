@@ -743,7 +743,6 @@ func.func @test_and() -> tensor<3xi1> {
 
 // -----
 
-
 // CHECK-LABEL: @test_and2() -> tensor<3xi1>
 func.func @test_and2() -> tensor<3xi1> {
   %0 = onnx.Constant dense<[true, true, false]> : tensor<3xi1>
@@ -755,7 +754,6 @@ func.func @test_and2() -> tensor<3xi1> {
 }
 
 // -----
-
 
 // CHECK-LABEL: @test_and3() -> tensor<3xi1>
 func.func @test_and3() -> tensor<3xi1> {
@@ -769,7 +767,6 @@ func.func @test_and3() -> tensor<3xi1> {
 
 // -----
 
-
 // CHECK-LABEL: @test_or() -> tensor<3xi1>
 func.func @test_or() -> tensor<3xi1> {
   %0 = onnx.Constant dense<[true, true, false]> : tensor<3xi1>
@@ -781,7 +778,6 @@ func.func @test_or() -> tensor<3xi1> {
 }
 
 // -----
-
 
 // CHECK-LABEL: @test_or2() -> tensor<3xi1>
 func.func @test_or2() -> tensor<3xi1> {
@@ -795,7 +791,6 @@ func.func @test_or2() -> tensor<3xi1> {
 
 // -----
 
-
 // CHECK-LABEL: @test_xor() -> tensor<3xi1>
 func.func @test_xor() -> tensor<3xi1> {
   %0 = onnx.Constant dense<[true, true, false]> : tensor<3xi1>
@@ -807,7 +802,6 @@ func.func @test_xor() -> tensor<3xi1> {
 }
 
 // -----
-
 
 // CHECK-LABEL: @test_xor2() -> tensor<3xi1>
 func.func @test_xor2() -> tensor<3xi1> {
