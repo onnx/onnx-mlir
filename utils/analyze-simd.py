@@ -142,25 +142,40 @@ def define_arch_op_names(arch):
         op_name["load"] = "mov"
         op_name["store"] = "mov"
     elif arch == "neon":  # ARM NEON
-        # vld1-4: load 1-4 element structures | ldr with vector regs (q/d/s/v)
-        op_name["vload"] = "(vld[1-4]|ldr\s+[qdsv][0-9]+)"
-        # vdup: duplicate scalar to all lanes
-        op_name["vload-splat"] = "vdup"
-        # vst1-4: store 1-4 element structures | str with vector regs (q/d/s/v)
-        op_name["vstore"] = "(vst[1-4]|str\s+[qdsv][0-9]+)"
-        # vtbl: table lookup | vext: extract | vrev: reverse | vtrn: transpose | vzip/vuzp: zip/unzip | vmov: move
-        op_name["vshuffle"] = "(vtbl|vext|vrev|vtrn|vzip|vuzp|vmov)"
-        # vfma: fused multiply-add
-        op_name["vfma"] = "vfma"
-        # vmul: multiply
-        op_name["vmul"] = "vmul"
-        # vdiv: divide
-        op_name["vdiv"] = "vdiv"
-        # vcvt: convert | vqmovn/vmovn: narrow | vmovl: widen | vqmovun: saturating narrow unsigned
-        op_name["vconv"] = "(vcvt|vqmovn|vmovn|vmovl|vqmovun)"
-        # vadd/vsub: add/sub | vmax/vmin: max/min | vceq/vcge/vcgt/vcle/vclt: compare | vand/vorr/veor/vbic/vorn: logic
+        # General rules
+        # .  q registers are always SIMD (128-bit)
+        # .  v registers are always SIMD (with suffixes like .4s)
+        # .  d and s should be excluded as they're typically scalar FP
+        # To be very precise, we may need context.
+        # vld1-4: load 1-4 element structures | ld1-4 with vector regs | ldr/ldp with vector regs (q/v only for strict SIMD)
+        op_name["vload"] = "(vld[1-4]|ld[1-4].*\{v[0-9]+|ldr\s+[qv][0-9]+|ldp\s+[qv][0-9]+)"
+        # vdup: duplicate scalar to all lanes | dup with vector dest
+        op_name["vload-splat"] = "(vdup|dup\s+v[0-9]+)"
+        # vst1-4: store 1-4 element structures | st1-4 with vector regs | str/stp with vector regs (q/v only for strict SIMD)
+        op_name["vstore"] = "(vst[1-4]|st[1-4].*\{v[0-9]+|str\s+[qv][0-9]+|stp\s+[qv][0-9]+)"
+        # vtbl/tbl: table lookup | vext/ext: extract | vrev/rev: reverse | vtrn/trn: transpose
+        # vzip/zip/vuzp/uzp: zip/unzip | vmov with vector | ins: insert element
+        op_name["vshuffle"] = "(vtbl|tbl\.[0-9]+|vext|ext\.[0-9]+|vrev|rev[0-9]+\.[0-9]+|vtrn|trn[0-9]+\.[0-9]+|vzip|zip[0-9]+\.[0-9]+|vuzp|uzp[0-9]+\.[0-9]+|vmov\.[0-9]+|ins\s+v[0-9]+)"
+        # vfma/fmla: fused multiply-add | vfms/fmls: fused multiply-subtract (with SIMD suffix)
+        op_name["vfma"] = "(vfma|fmla\.[0-9]+[sdh]|vfms|fmls\.[0-9]+[sdh])"
+        # vmul/fmul: multiply with SIMD suffix | mul with vector operands
+        op_name["vmul"] = "(vmul|fmul\.[0-9]+[sdh]|mul\.[0-9]+[sdh])"
+        # vdiv/fdiv: divide with SIMD suffix
+        op_name["vdiv"] = "(vdiv|fdiv\.[0-9]+[sdh])"
+        # vcvt/fcvt: convert | scvtf/ucvtf: int to float | fcvtzs/fcvtzu: float to int (with vector operands)
+        # vqmovn/sqxtn/uqxtn: narrow | vmovl/sxtl/uxtl: widen | xtn: extract narrow
+        op_name["vconv"] = "(vcvt|fcvt\.[0-9]+|scvtf\s+v[0-9]+|ucvtf\s+v[0-9]+|fcvtzs\s+v[0-9]+|fcvtzu\s+v[0-9]+|vqmovn|sqxtn|uqxtn|vmovl|sxtl|uxtl|xtn[0-9]*)"
+        # vadd/vsub: vector add/sub | fadd/fsub: fp add/sub with SIMD suffix (.2s, .4s, .2d, etc.)
+        # vmax/vmin: vector max/min | smax/umax/fmax/smin/umin/fmin with SIMD suffix
+        # vceq/vcge/vcgt/vcle/vclt: vector compare | cmeq/cmge/cmgt/cmle/cmlt with SIMD suffix
+        # fcmeq/fcmge/fcmgt/fcmle/fcmlt: fp compare with SIMD suffix
+        # vand/vorr/veor/vbic/vorn: vector logic
         op_name["vadd"] = (
-            "(vadd|vsub|vmax|vmin|vceq|vcge|vcgt|vcle|vclt|vand|vorr|veor|vbic|vorn)"
+            "(vadd|vsub|fadd\.[0-9]+[sdh]|fsub\.[0-9]+[sdh]|"
+            "vmax|vmin|smax\.[0-9]+[bhsd]|umax\.[0-9]+[bhsd]|fmax\.[0-9]+[sdh]|smin\.[0-9]+[bhsd]|umin\.[0-9]+[bhsd]|fmin\.[0-9]+[sdh]|"
+            "vceq|vcge|vcgt|vcle|vclt|cmeq\.[0-9]+|cmge\.[0-9]+|cmgt\.[0-9]+|cmle\.[0-9]+|cmlt\.[0-9]+|"
+            "fcmeq\.[0-9]+|fcmge\.[0-9]+|fcmgt\.[0-9]+|fcmle\.[0-9]+|fcmlt\.[0-9]+|"
+            "vand|vorr|veor|vbic|vorn)"
         )
         # ldr/ldp with scalar regs (x/w/sp/lr) - exclude vector regs
         op_name["load"] = "(ldr|ldp)\s+[xw][0-9]+|ldr\s+(sp|lr)"
