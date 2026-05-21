@@ -1370,7 +1370,8 @@ public:
 // %new_shape = onnx.Concat(%new_dim1, %new_dim2, %new_dim3)
 // %s = onnx.Expand(%input, %new_shape)
 //
-// where dimensions are adjusted based on the slice parameters.
+// where dimensions are adjusted based on the slice parameters,
+// and all sliced dimensions are static at compile time.
 class ReplaceSliceOfExpandRewritePattern
     : public OpRewritePattern<ONNXSliceOp> {
 public:
@@ -1386,12 +1387,11 @@ public:
     Value data = sliceOp.getData();
     Value output = sliceOp.getOutput();
     Value starts = sliceOp.getStarts();
-    Value ends = sliceOp.getEnds();
     Value axes = sliceOp.getAxes();
-    Value steps = sliceOp.getSteps();
 
     // Match
-    if (!hasShapeAndRank(data) || !hasShapeAndRank(output))
+    if (!hasShapeAndRank(data) || !hasShapeAndRank(starts) ||
+        !hasShapeAndRank(output))
       return failure();
     int64_t outputRank = getRank(output.getType());
 
@@ -1409,30 +1409,24 @@ public:
     if (!areDims(expandOp.getShape()))
       return failure();
 
-    // Slice parameters must be constants.
-    if (!definedBy<ONNXConstantOp>(starts) || !definedBy<ONNXConstantOp>(ends))
-      return failure();
-
-    // Slice's axes and steps are optional, but if present must be constants.
+    // Slice's axes are optional, but if present must be constants.
     if (!isNoneValue(axes) && !definedBy<ONNXConstantOp>(axes))
-      return failure();
-    if (!isNoneValue(steps) && !definedBy<ONNXConstantOp>(steps))
       return failure();
 
     // Get starts to determine the size of axes when axes is None.
-    ElementsAttr startsAttr = getElementAttributeFromONNXValue(starts);
-    SmallVector<int64_t> startsI64(startsAttr.getValues<int64_t>());
+    int64_t axesSize = getShape(starts.getType())[0];
+    if (axesSize == ShapedType::kDynamic)
+      return failure();
 
     // Get axes (default to [0, 1, 2, ...]).
     SmallVector<int64_t> axesI64;
     if (isNoneValue(axes)) {
-      for (int64_t i = 0; i < static_cast<int64_t>(startsI64.size()); ++i)
+      for (int64_t i = 0; i < axesSize; ++i)
         axesI64.push_back(i);
     } else {
       ElementsAttr axesAttr = getElementAttributeFromONNXValue(axes);
-      for (int64_t v : axesAttr.getValues<int64_t>()) {
+      for (int64_t v : axesAttr.getValues<int64_t>())
         axesI64.emplace_back(v >= 0 ? v : v + outputRank);
-      }
     }
 
     // Check that all sliced dimensions of the input data are static.
