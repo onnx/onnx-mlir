@@ -18,14 +18,13 @@ from .utils import (
     run_model_with_input_output_arrays,
     compare_result,
 )
-
-from .CompileWithContainer import CompileWithContainer
+from .PyOMCompile import OMCompile as CompileSession
 
 __all__ = [
     "InferenceSession",
+    "CompileSession",
     "parse_args",
     "run_model_with_input_output_files",
     "run_model_with_input_output_arrays",
     "compare_result",
-    "CompileWithContainer",
 ]

@@ -27,27 +27,59 @@ except ImportError:
 class OMCompile(OMCompile_):
     def __init__(
         self,
-        input_model_path,
-        flags,
         compiler_path="",
-        log_file_name="",
-        reuse_compiled_model=False,
+        compile_policy="local",
+        compiler_image="",
+        auto_pull=True,
+        engine="auto",
+        cache=None,
+        verbose=False
     ):
-        if __package__ and not compiler_path:
-            from . import compiler_path as compiler_path_in_package
+        
+        self.cache = cache
+        # Check legality of the parameter combination
+        if compiler_image and not compiler_path:
+            print("When compiler image is used, the compiler_path has to be provided")
+            exit(-1)
+        if compile_policy == "standalone" and (compiler_image or compiler_path):
+            print("Choose exactly one compiler")
+            exit(-1)
+
+        if compile_policy == "standalone":
+            # Import the package for standalone compile
+            try:
+                import OMPyCompile
+            except ImportError as e:
+                print(f"Error: {e.msg}")
+                print(f"Module name: {e.name}")
+                print("Please install package for standalone compiler")
+                exit(-1)
 
             super().__init__(
-                input_model_path,
-                flags,
-                compiler_path_in_package,
-                log_file_name,
-                reuse_compiled_model,
+                OMPyCompile.get_compiler_path(),
+                verbose
+            )
+
+        elif compiler_image:
+            super().__init__(
+                compiler_image,
+                compiler_path,
+                engine,
+                auto_pull,
+                verbose
             )
         else:
             super().__init__(
-                input_model_path,
-                flags,
                 compiler_path,
-                log_file_name,
-                reuse_compiled_model,
+                verbose
             )
+
+    def compile(self, model_path, flags, compiler_path="", log_file_name=""):
+        if self.cache:
+            # Check cache policy to decide whether a cached .so can be used
+            exit(-1)
+        super().compile(model_path, flags, compiler_path, log_file_name)
+        if self.cache:
+            # Update cache
+            exit(-1)
+

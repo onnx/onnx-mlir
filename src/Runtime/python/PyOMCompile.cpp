@@ -13,52 +13,41 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if 0
-#include "src/Support/SuppressWarnings.h"
-
-SUPPRESS_WARNINGS_PUSH
-#include "onnx/onnx_pb.h"
-SUPPRESS_WARNINGS_POP
-#endif
-
 #include "PyOMCompile.hpp"
 
 namespace onnx_mlir {
 
 // =============================================================================
-// Constructor
+// Constructors
 
-PyOMCompile::PyOMCompile(const std::string &modelPath, const std::string &flags,
-    const std::string &compilerPath, const std::string &logFilename,
-    bool reuseCompiledModel)
-    : OMcompile() /* constructor without compilation */ {
+// Constructor for local compilation
+PyOMCompile::PyOMCompile(const std::string &compilerPath, bool verbose)
+    : OMcompile(compilerPath, verbose) {}
 
-  // See if we can reuse a compilation (no check on model or flag
-  // equivalencies).
-  if (reuseCompiledModel) {
-    reuseCompiledModel = false; // Assume failure unless otherwise proven.
-    std::string filename = OMCompile::getOutputFilename(modelPath, flags);
-    if (!filename.empty()) {
-      FILE *file = fopen(filename.c_str(), "r");
-      if (file) {
-        // File exists, save
-        reuseCompiledModel = true;
-        fclose(file);
-      }
-    }
-  }
-  // Must compile?
-  if (!reuseCompiledModel) {
-    // Let compilation exceptions propagate naturally to Python without
-    // printing to stderr. Python code can handle and display exceptions
-    // as needed, avoiding duplicate error messages.
-    // Old version caught and re-threw with stderr output, causing duplicates.
-    OMcompile.compile(modelPath, flags, compilerPath, logFilename);
-  }
+// Constructor for container-based compilation
+PyOMCompile::PyOMCompile(const std::string &containerImage,
+    const std::string &compilerPathInContainer, const std::string &engine,
+    bool autoPull, bool verbose)
+    : OMcompile(containerImage, compilerPathInContainer,
+          engine == "docker"   ? OMCompile::ContainerEngine::Docker
+          : engine == "podman" ? OMCompile::ContainerEngine::Podman
+                               : OMCompile::ContainerEngine::Auto,
+          autoPull, verbose) {}
+
+// =============================================================================
+// Compile method
+
+void PyOMCompile::compile(const std::string &modelPath,
+    const std::string &flags, const std::string &compilerPath,
+    const std::string &logFilename) {
+  // Let compilation exceptions propagate naturally to Python without
+  // printing to stderr. Python code can handle and display exceptions
+  // as needed, avoiding duplicate error messages.
+  OMcompile.compile(modelPath, flags, compilerPath, logFilename);
 }
 
 // =============================================================================
-// Custom getters
+// Getters
 
 std::string PyOMCompile::pyGetOutputFilename() {
   return OMcompile.getOutputFilename();
@@ -69,5 +58,13 @@ std::string PyOMCompile::pyGetOutputConstantFilename() {
 }
 
 std::string PyOMCompile::pyGetModelTag() { return OMcompile.getModelTag(); }
+
+bool PyOMCompile::pyIsSuccessfullyCompiled() {
+  return OMcompile.isSuccessfullyCompiled();
+}
+
+bool PyOMCompile::pyHasOutputConstantFilename() {
+  return OMcompile.hasOutputConstantFilename();
+}
 
 } // namespace onnx_mlir
