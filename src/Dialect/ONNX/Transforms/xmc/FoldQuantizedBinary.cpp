@@ -171,12 +171,16 @@ public:
       return rewriter.notifyMatchFailure(
           binOp, "Not Quantized input and output types");
 
-    // Add/Sub zp-shift fold is only valid when input and output scales match.
     if constexpr (std::is_same_v<ONNXBinOp, ONNXAddOp> ||
                   std::is_same_v<ONNXBinOp, ONNXSubOp>) {
       if (std::fabs(lhsQType.getScale() - outQType.getScale()) > 1e-6f)
         return rewriter.notifyMatchFailure(
             binOp, "Add/Sub input/output scales differ; cannot fold");
+    } else if constexpr (std::is_same_v<ONNXBinOp, ONNXMulOp>) {
+      if (std::fabs(lhsQType.getScale() - outQType.getScale()) > 1e-6f ||
+          lhsQType.getZeroPoint() != outQType.getZeroPoint())
+        return rewriter.notifyMatchFailure(
+            binOp, "Mul input/output quant params differ; cannot fold");
     }
 
     // No need of checking if constant passes through reshape, etc
