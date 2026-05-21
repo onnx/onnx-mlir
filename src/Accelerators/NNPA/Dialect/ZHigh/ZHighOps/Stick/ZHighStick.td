@@ -339,4 +339,14 @@ def Stick3DSSqueezeUnstick4DSPattern: Pat<
   ]
 >;
 
+// Pattern to rewrite
+// ZHighStick (ONNXExpand $constant_scalar, $shape), $layout
+// into
+// ZHighStickifiedConstantOfShapeOp $shape, $scalarAttr, $layout
+def StickExpandConstantPattern : Pat<
+  (ZHighStickOp (ONNXExpandOp $constant_scalar, $shape), $layout, $_),
+  (ZHighStickifiedConstantOfShapeOp $shape, (GetScalarF32AttrFromConstant $constant_scalar), $layout),
+  [(IsScalarConstantTensor $constant_scalar)]
+>;
+
 #endif // STICK_TD

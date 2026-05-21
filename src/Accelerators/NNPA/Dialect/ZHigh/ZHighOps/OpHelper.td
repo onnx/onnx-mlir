@@ -296,4 +296,11 @@ def IsCompatibleWithNNPALevelArch15: Constraint<
   "Input level is compatible with NNPA level"
 >;
 
+def IsScalarConstantTensor: Constraint<
+    CPred<"onnx_mlir::isScalarConstantTensor($0)">,
+    "Is a scalar constant ">;
+
+def GetScalarF32AttrFromConstant :
+        NativeCodeCall<"onnx_mlir::zhigh::getScalarF32AttrFromConstant($0)">;
+
 #endif // OP_HELPER
