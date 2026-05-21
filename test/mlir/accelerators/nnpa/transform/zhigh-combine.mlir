@@ -320,18 +320,42 @@ func.func @test_dlf16_to_f32(%arg0: tensor<1x3x5x?xf16, #zhigh.layout<{dataLayou
 
 // COM: DLF16ToF32 is delayed and pushed down through Reshape and Transpose,
 // and it is removed when combined with F32ToDLF16.
-func.func @test_delay_dlf16_to_f32(%arg0: tensor<1x3x5x?xf16>, %arg1: tensor<3xi64>) -> tensor<5x3x?xf16> {
+func.func @test_delay_dlf16_to_f32(%arg0: tensor<1x3x5x?xf16>, %arg1: tensor<3xi64>, %arg2: tensor<7xi64>) -> tensor<35x?xf16> {
   %1 = "zhigh.DLF16ToF32"(%arg0) : (tensor<1x3x5x?xf16>) -> tensor<1x3x5x?xf32>
   %2 = "onnx.Reshape"(%1, %arg1) {allowzero = 0 : si64} : (tensor<1x3x5x?xf32>, tensor<3xi64>) -> tensor<3x5x?xf32>
   %3 = "onnx.Transpose"(%2) {perm = [1, 0, 2]} : (tensor<3x5x?xf32>) -> tensor<5x3x?xf32>
-  %4 = "zhigh.F32ToDLF16"(%3) : (tensor<5x3x?xf32>) -> tensor<5x3x?xf16>
-  onnx.Return %4 : tensor<5x3x?xf16>
+  %4 = "onnx.Gather"(%3, %arg2) <{axis = 1 : si64}> : (tensor<5x3x?xf32>, tensor<7xi64>) -> tensor<5x7x?xf32>
+  %5 = "onnx.Flatten"(%4) {axis = 1 : si64} : (tensor<5x7x?xf32>) -> tensor<35x?xf32>
+  %6 = "zhigh.F32ToDLF16"(%5) : (tensor<35x?xf32>) -> tensor<35x?xf16>
+  onnx.Return %6 : tensor<35x?xf16>
 
 // CHECK-LABEL:  func.func @test_delay_dlf16_to_f32
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x5x?xf16>, [[PARAM_1_:%.+]]: tensor<3xi64>) -> tensor<5x3x?xf16> {
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x5x?xf16>, [[PARAM_1_:%.+]]: tensor<3xi64>, [[PARAM_2_:%.+]]: tensor<7xi64>) -> tensor<35x?xf16> {
 // CHECK:           [[VAR_0_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[PARAM_1_]]) <{allowzero = 0 : si64}> : (tensor<1x3x5x?xf16>, tensor<3xi64>) -> tensor<3x5x?xf16>
 // CHECK:           [[VAR_1_:%.+]] = "onnx.Transpose"([[VAR_0_]]) <{perm = [1, 0, 2]}> : (tensor<3x5x?xf16>) -> tensor<5x3x?xf16>
-// CHECK:           onnx.Return [[VAR_1_]] : tensor<5x3x?xf16>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Gather"([[VAR_1_]], [[PARAM_2_]]) <{axis = 1 : si64}> : (tensor<5x3x?xf16>, tensor<7xi64>) -> tensor<5x7x?xf16>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Flatten"([[VAR_2_]]) <{axis = 1 : si64}> : (tensor<5x7x?xf16>) -> tensor<35x?xf16>
+// CHECK:           onnx.Return [[VAR_3_]] : tensor<35x?xf16>
+// CHECK:         }
+}
+
+// -----
+
+// COM: DLF16ToF32 is delayed and pushed down through Split that has multiple outputs,
+// and it is removed when combined with F32ToDLF16.
+func.func @test_delay_dlf16_to_f32_multiple_outputs(%arg0: tensor<2x?xf16>) -> (tensor<1x?xf16>, tensor<1x?xf16>) {
+  %cst = "onnx.NoValue"() {value} : () -> none
+  %1 = "zhigh.DLF16ToF32"(%arg0) : (tensor<2x?xf16>) -> tensor<2x?xf32>
+  %2, %3 = "onnx.Split"(%1, %cst) { axis = 0 : si64} : (tensor<2x?xf32>, none) -> (tensor<1x?xf32>, tensor<1x?xf32>)
+  %4 = "zhigh.F32ToDLF16"(%2) : (tensor<1x?xf32>) -> tensor<1x?xf16>
+  %5 = "zhigh.F32ToDLF16"(%3) : (tensor<1x?xf32>) -> tensor<1x?xf16>
+  onnx.Return %4, %5 : tensor<1x?xf16>, tensor<1x?xf16>
+
+// CHECK-LABEL:  func.func @test_delay_dlf16_to_f32_multiple_outputs
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x?xf16>) -> (tensor<1x?xf16>, tensor<1x?xf16>) {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK:           [[VAR_1_:%.+]]:2 = "onnx.Split"([[PARAM_0_]], [[VAR_0_]]) <{axis = 0 : si64}> : (tensor<2x?xf16>, none) -> (tensor<1x?xf16>, tensor<1x?xf16>)
+// CHECK:           onnx.Return [[VAR_1_]]#0, [[VAR_1_]]#1 : tensor<1x?xf16>, tensor<1x?xf16>
 // CHECK:         }
 }
 
