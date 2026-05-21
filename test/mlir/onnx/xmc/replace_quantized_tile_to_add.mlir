@@ -57,7 +57,12 @@ func.func @topk_tile(%arg0: tensor<1x3600x!quant.uniform<u16:f32, 2.375711483182
 
 // CHECK-LABEL: @topk_tile
 // CHECK-NOT: "onnx.Tile"
+// CHECK-DAG: dense<[1, 3600, 1]>
+// CHECK: "onnx.Reshape"(%arg0
 // CHECK: "onnx.Add"
-// CHECK-SAME: (tensor<1x300x1x!quant.uniform<u16:f32, 1.000000e+00>>,
-// CHECK-SAME: tensor<1x300x4x!quant.uniform<u16:f32, 1.000000e+00>>)
-// CHECK-SAME: -> tensor<1x300x4x!quant.uniform<u16:f32, 1.000000e+00>>
+// CHECK-SAME: (tensor<1x3600x1x!quant.uniform<u16:f32, 2.3757114831823856E-4:51533>>,
+// CHECK-SAME: tensor<1x3600x4x!quant.uniform<u16:f32, 2.3757114831823856E-4:51533>>)
+// CHECK-SAME: -> tensor<1x3600x4x!quant.uniform<u16:f32, 2.3757114831823856E-4:51533>>
+// CHECK: "onnx.TopK"
+// CHECK: "onnx.Cast"
+// CHECK: "onnx.GatherElements"(%arg1

@@ -1,6 +1,6 @@
 // Copyright (C) 2023 - 2026 Advanced Micro Devices, Inc. All rights reserved.
 //
-// MoveBroadcastTileForward: PSA2.2-style reshape+tile on TopK indices is moved
+// MoveBroadcastTileForward: reshape+tile on TopK indices is moved
 // onto the TopK data path (tile before TopK); gather takes cast(TopK indices)
 // directly. Tile/indices may be integer (e.g. i32); TopK data stays quantized.
 // No Q/DQ nodes are inserted.
