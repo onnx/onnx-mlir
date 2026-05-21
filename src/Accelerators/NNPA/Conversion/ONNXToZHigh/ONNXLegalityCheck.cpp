@@ -1406,7 +1406,8 @@ bool isSuitableForZDNN<ONNXAveragePoolOp>(
 
 /// Check if input, output, kernel, strides, and paddingType for each axis
 /// meet parameter restrictions for conv2d. See "Conv2D Parameter
-/// Restrictions" in "zDNN API Reference"
+/// Restrictions" in "zDNN API Reference". Note that input/output shapes may be
+/// dynamic, need to be tested needing to use the values.
 static bool checkConv2DParamRestrictions(Operation *op, int64_t inputDim,
     int64_t kernelDim, int64_t stride, int64_t outputDim,
     StringRef paddingType) {
@@ -1418,35 +1419,45 @@ static bool checkConv2DParamRestrictions(Operation *op, int64_t inputDim,
                             ") must be VALID_PADDING.";
       return onnxToZHighUnsupportedReport(op, message);
     }
-    // inputDim must be = kernel dim.
-    if (inputDim != kernelDim) {
-      std::string message = "When the strides (" + std::to_string(stride) +
-                            ") is zero, both input tensor's "
-                            "Height or Width dimension (" +
-                            std::to_string(inputDim) +
-                            ")  and the kernel_height or width (" +
-                            std::to_string(kernelDim) + ") must match.";
-      return onnxToZHighUnsupportedReport(op, message);
-    }
-    // inputDim and kernelDim are less than or equal to 448.
-    if (inputDim > 448) {
-      std::string message =
-          "When the strides (" + std::to_string(stride) +
-          ") is zero, the input tensor's Height or Width dimension (" +
-          std::to_string(inputDim) + ") must be less than or equal to 448.";
-      return onnxToZHighUnsupportedReport(op, message);
-    }
-    // outputDim must be 1.
-    if (outputDim != 1) {
-      std::string message = "When the strides (" + std::to_string(stride) +
-                            ") is zero, output tensor's height "
-                            "or width dimensions (" +
-                            std::to_string(outputDim) + ") must be 1.";
-      return onnxToZHighUnsupportedReport(op, message);
+    // If we need to enforce the shape restrictions.
+    if (!nnpaDisableShapeRestriction) {
+      // Check the shapes are static.
+      if (ShapedType::isDynamic(inputDim) || ShapedType::isDynamic(outputDim))
+        return onnxToZHighUnsupportedReport(op,
+            "Height and/or width have dynamic dimensions. They are not "
+            "supported for the VALID padding mode. Use "
+            "--nnpa-disable-shape-restriction to assume "
+            "dynamic shapes will satisfy NNPA constraints at runtime.");
+      // inputDim must be = kernel dim.
+      if (inputDim != kernelDim) {
+        std::string message = "When the strides (" + std::to_string(stride) +
+                              ") is zero, both input tensor's "
+                              "Height or Width dimension (" +
+                              std::to_string(inputDim) +
+                              ")  and the kernel_height or width (" +
+                              std::to_string(kernelDim) + ") must match.";
+        return onnxToZHighUnsupportedReport(op, message);
+      }
+      // inputDim and kernelDim are less than or equal to 448.
+      if (inputDim > 448) {
+        std::string message =
+            "When the strides (" + std::to_string(stride) +
+            ") is zero, the input tensor's Height or Width dimension (" +
+            std::to_string(inputDim) + ") must be less than or equal to 448.";
+        return onnxToZHighUnsupportedReport(op, message);
+      }
+      // outputDim must be 1.
+      if (outputDim != 1) {
+        std::string message = "When the strides (" + std::to_string(stride) +
+                              ") is zero, output tensor's height "
+                              "or width dimensions (" +
+                              std::to_string(outputDim) + ") must be 1.";
+        return onnxToZHighUnsupportedReport(op, message);
+      }
     }
   } else if (stride > 0 && stride <= 13) {
-    // stride is greater than zero and less than or equal to 13.
-    // kernel dim must be less than or equal to 64.
+    // Value of stride is greater than zero and less than or equal to 13.
+    // Value of kernel dim must be less than or equal to 64.
     if (kernelDim > 64) {
       std::string message =
           "When the strides (" + std::to_string(stride) +
@@ -1455,48 +1466,31 @@ static bool checkConv2DParamRestrictions(Operation *op, int64_t inputDim,
           std::to_string(kernelDim) + ") must be less than or equal to 64.";
       return onnxToZHighUnsupportedReport(op, message);
     }
-    if (paddingType == "SAME_PADDING") {
-      // height_out restriction.
-      int64_t reqOutputShape = ceil(static_cast<float>(inputDim) / stride);
-      if (outputDim != reqOutputShape) {
-        std::string message =
-            "When the strides (" + std::to_string(stride) +
-            ")  is greater than zero and less than or equal to 13, output "
-            "tensor's height or width dimensions (" +
-            std::to_string(outputDim) +
-            ") must be equal with ceil((float)inputShape / stride)) (=" +
-            std::to_string(reqOutputShape) + ").";
-        return onnxToZHighUnsupportedReport(op, message);
+    // No constraints for SAME_PADDING.
+    if (paddingType == "VALID_PADDING") {
+      // If we need to enforce the shape restrictions.
+      if (!nnpaDisableShapeRestriction) {
+        // Input shape must be static.
+        if (ShapedType::isDynamic(inputDim))
+          return onnxToZHighUnsupportedReport(op,
+              "Height and/or width have dynamic dimensions. They are not "
+              "supported for the VALID padding mode. Use "
+              "--nnpa-disable-shape-restriction to assume "
+              "dynamic shapes will satisfy NNPA constraints at runtime.");
+        // Value of inputDim must be >= kernelDim.
+        if (inputDim < kernelDim) {
+          std::string message =
+              "When the strides (" + std::to_string(stride) +
+              ") is greater than zero and less than or equal to 13 and the "
+              "padding type is VALID_PADDING, input tensor's height or width "
+              "dimensions (" +
+              std::to_string(inputDim) +
+              ") must be less than kernel height or width dimension (" +
+              std::to_string(kernelDim) + ").";
+          return onnxToZHighUnsupportedReport(op, message);
+        }
       }
-    } else { // VALID_PADDING
-      // inputDim must be >= kernelDim.
-      if (inputDim < kernelDim) {
-        std::string message =
-            "When the strides (" + std::to_string(stride) +
-            ") is greater than zero and less than or equal to 13 and the "
-            "padding type is VALID_PADDING, input tensor's height or width "
-            "dimensions (" +
-            std::to_string(inputDim) +
-            ") must be less than kernel height or width dimension (" +
-            std::to_string(kernelDim) + ").";
-        return onnxToZHighUnsupportedReport(op, message);
-      }
-      // height_out restriction.
-      int64_t reqOutputShape =
-          ceil(static_cast<float>(inputDim - kernelDim + 1) / stride);
-      if (outputDim != reqOutputShape) {
-        std::string message =
-            "When the strides (" + std::to_string(stride) +
-            ") is greater than zero and less than or equal to "
-            "13 and the padding type is VALID_PADDING, output "
-            "tensor's height or width dimensions (" +
-            std::to_string(outputDim) +
-            ") must be equal with ceil((float)(inputShape - "
-            "kernelShape + 1) / strides)) (= " +
-            std::to_string(reqOutputShape) + ").";
-        return onnxToZHighUnsupportedReport(op, message);
-      }
-    }
+    } // Padding type.
   } else {
     std::string message = "When the strides (" + std::to_string(stride) +
                           ") must be less than or equal to 13.";
@@ -1575,26 +1569,6 @@ bool isSuitableForZDNN<ONNXConvOp>(
     return onnxToZHighUnsupportedReport(op, message);
   }
 
-  // Check for dynamic height and width dimensions.
-  // When nnpaDisableShapeRestriction is enabled, allow dynamic shapes and
-  // assume they will satisfy constraints at runtime.
-  if (ShapedType::isDynamic(shapeInput[2]) ||
-      ShapedType::isDynamic(shapeInput[3]) ||
-      ShapedType::isDynamic(shapeOutput[2]) ||
-      ShapedType::isDynamic(shapeOutput[3])) {
-    if (nnpaDisableShapeRestriction) {
-      // When nnpaDisableShapeRestriction is enabled, skip static checks for
-      // dynamic shapes and defer validation to runtime.
-      return true;
-    }
-    // We cannot assume that the dynamic shapes will have the right shapes, so
-    // we disable NNPA for this op.
-    return onnxToZHighUnsupportedReport(op,
-        "Height and/or width have dynamic dimensions. They are not "
-        "supported. Use --nnpa-disable-shape-restriction to assume "
-        "dynamic shapes will satisfy NNPA constraints at runtime.");
-  }
-
   int64_t inputShapeH = shapeInput[2];
   int64_t inputShapeW = shapeInput[3];
   int64_t outputShapeH = shapeOutput[2];
@@ -1604,7 +1578,8 @@ bool isSuitableForZDNN<ONNXConvOp>(
   int64_t stridesH = shapeHelper.strides[0];
   int64_t stridesW = shapeHelper.strides[1];
 
-  // Check parameter restrictions for conv2d for each axis.
+  // Check parameter restrictions for conv2d for each axis. Input/output shapes
+  // may be dynamic.
   bool isHOK = checkConv2DParamRestrictions(
       op, inputShapeH, kernelShapeH, stridesH, outputShapeH, paddingType);
   if (!isHOK)
