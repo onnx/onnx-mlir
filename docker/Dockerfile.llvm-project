@@ -40,7 +40,7 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
        elif [ "${distro}" = "rhel" ] || [ "${distro}" = "fedora" ]; then \
           ln -sf /usr/share/zoneinfo/${TZ} /etc/localtime && \
           ([ -x /usr/bin/microdnf ] && microdnf install -y yum) && \
-          RHEL_VERSION=$(grep CPE_NAME /etc/os-release | cut -d':' -f5) && \
+          RHEL_VERSION=$(grep CPE_NAME /etc/os-release | cut -d':' -f5) && \        
           yum install -q -y \
               https://dl.fedoraproject.org/pub/epel/epel-release-latest-${RHEL_VERSION}.noarch.rpm && \
           yum update -q -y && \
@@ -81,13 +81,15 @@ RUN JSONITER_URL=https://repo1.maven.org/maven2/com/jsoniter/jsoniter/${JSONITER
     && curl -s ${JSONITER_URL}/${JSONITER_FILE} -o /usr/share/java/${JSONITER_FILE}
 
 # Clone and build llvm-project and run tests
+# Clang 21+ is stricter about implicit includes. Use CXXFLAGS to globally
+# include <cstdint> to handle missing includes across all compilation units.
 ARG BUILD_SHARED_LIBS=OFF
 RUN git clone -n https://github.com/llvm/llvm-project.git \
     && cd llvm-project \
     && git checkout ${LLVM_PROJECT_SHA1} \
     && mkdir -p build && cd build \
 # Build with clang since gcc on ppc64le doesn't support __builtin_thread_pointer
-    && CC=clang CXX=clang++ \
+    && CC=clang CXX=clang++ CXXFLAGS="-include cstdint" \
        cmake -G Ninja ../llvm \
              -DLLVM_ENABLE_PROJECTS=mlir \
              -DLLVM_TARGETS_TO_BUILD="host" \
