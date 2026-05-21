@@ -1384,46 +1384,44 @@ public:
     Operation *op = sliceOp.getOperation();
     Location loc = sliceOp.getLoc();
     Value data = sliceOp.getData();
+    Value output = sliceOp.getOutput();
     Value starts = sliceOp.getStarts();
     Value ends = sliceOp.getEnds();
     Value axes = sliceOp.getAxes();
     Value steps = sliceOp.getSteps();
 
     // Match
-    // 1. data is from ExpandOp.
+    if (!hasShapeAndRank(data) || !hasShapeAndRank(output))
+      return failure();
+    int64_t outputRank = getRank(output.getType());
+
+    // data is from ExpandOp.
     if (!definedBy<ONNXExpandOp>(data))
       return failure();
     auto expandOp = mlir::cast<ONNXExpandOp>(data.getDefiningOp());
 
-    // 2. ExpandOp's input is a scalar tensor so that it's safe to use a new
+    // ExpandOp's input is a scalar tensor so that it's safe to use a new
     // shape that does not violate the broadcasting rule.
     if (!isScalarTensor(expandOp.getInput()))
       return failure();
 
-    // 3. ExpandOp's shape is defined by dimensions.
+    // ExpandOp's shape is defined by dimensions.
     if (!areDims(expandOp.getShape()))
       return failure();
 
-    // 4. Slice parameters must be constants.
+    // Slice parameters must be constants.
     if (!definedBy<ONNXConstantOp>(starts) || !definedBy<ONNXConstantOp>(ends))
       return failure();
 
-    // 5. Slice's axes and steps are optional, but if present must be constants.
+    // Slice's axes and steps are optional, but if present must be constants.
     if (!isNoneValue(axes) && !definedBy<ONNXConstantOp>(axes))
       return failure();
     if (!isNoneValue(steps) && !definedBy<ONNXConstantOp>(steps))
       return failure();
 
-    // Get the old shape dimensions.
-    SmallVector<Value, 4> oldDims;
-    getDims(expandOp.getShape(), oldDims);
-    int64_t oldRank = oldDims.size();
-
-    // Get slice parameters.
+    // Get starts to determine the size of axes when axes is None.
     ElementsAttr startsAttr = getElementAttributeFromONNXValue(starts);
-    ElementsAttr endsAttr = getElementAttributeFromONNXValue(ends);
     SmallVector<int64_t> startsI64(startsAttr.getValues<int64_t>());
-    SmallVector<int64_t> endsI64(endsAttr.getValues<int64_t>());
 
     // Get axes (default to [0, 1, 2, ...]).
     SmallVector<int64_t> axesI64;
@@ -1433,22 +1431,11 @@ public:
     } else {
       ElementsAttr axesAttr = getElementAttributeFromONNXValue(axes);
       for (int64_t v : axesAttr.getValues<int64_t>()) {
-        axesI64.emplace_back(v >= 0 ? v : v + oldRank);
+        axesI64.emplace_back(v >= 0 ? v : v + outputRank);
       }
     }
 
-    // Get steps (default to all 1s).
-    SmallVector<int64_t> stepsI64;
-    if (isNoneValue(steps)) {
-      for (int64_t i = 0; i < static_cast<int64_t>(startsI64.size()); ++i)
-        stepsI64.emplace_back(1);
-    } else {
-      ElementsAttr stepsAttr = getElementAttributeFromONNXValue(steps);
-      for (int64_t v : stepsAttr.getValues<int64_t>())
-        stepsI64.emplace_back(v);
-    }
-
-    // 6. Check that all sliced dimensions of the input data are static.
+    // Check that all sliced dimensions of the input data are static.
     if (!hasShapeAndRank(data))
       return failure();
     ArrayRef<int64_t> dataShape = getShape(data.getType());
@@ -1457,42 +1444,35 @@ public:
         return failure();
     }
 
-    // Rewrite
+    // Rewrite: construct new shape by using dynamic dims from Expand's shape
+    // and static dim from Slice's output shape.
     MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
 
-    // Construct new shape by modifying dimensions based on slice.
+    // Get the old shape of Expand.
+    SmallVector<Value, 4> oldExpandShape;
+    getDims(expandOp.getShape(), oldExpandShape);
+
+    // Get the old shape of Slice.
+    ArrayRef<int64_t> oldSliceShape = getShape(output.getType());
+
     SmallVector<Value, 4> newDims;
-    for (int64_t i = 0; i < oldRank; ++i) {
+    for (int64_t i = 0; i < outputRank; ++i) {
       // Check if this dimension is being sliced.
       auto it = std::find(axesI64.begin(), axesI64.end(), i);
       if (it != axesI64.end()) {
-        // This dimension is sliced.
-        int64_t idx = std::distance(axesI64.begin(), it);
-        int64_t start = startsI64[idx];
-        int64_t end = endsI64[idx];
-        int64_t step = stepsI64[idx];
-
-        // For constant dimensions, compute the new size
-        // new_size = ceil((end - start) / step)
-        if (start >= 0 && end >= 0 && step > 0) {
-          int64_t newSize = (end - start + step - 1) / step;
-          newDims.emplace_back(
-              create.onnx.constantInt64(ArrayRef<int64_t>({newSize})));
-        } else {
-          // For dynamic or complex cases, keep the original dimension.
-          newDims.emplace_back(oldDims[i]);
-        }
+        // This dimension is sliced and it must be static.
+        newDims.emplace_back(create.onnx.constantInt64({oldSliceShape[i]}));
       } else {
         // This dimension is not sliced, keep original.
-        newDims.emplace_back(oldDims[i]);
+        newDims.emplace_back(oldExpandShape[i]);
       }
     }
 
     Value newShape = create.onnx.concat(
-        RankedTensorType::get({oldRank}, rewriter.getI64Type()), newDims, 0);
+        RankedTensorType::get({outputRank}, rewriter.getI64Type()), newDims, 0);
 
-    Value res = create.onnx.expand(
-        op->getResult(0).getType(), expandOp.getInput(), newShape);
+    Value res =
+        create.onnx.expand(output.getType(), expandOp.getInput(), newShape);
     rewriter.replaceOp(op, {res});
     return success();
   };
