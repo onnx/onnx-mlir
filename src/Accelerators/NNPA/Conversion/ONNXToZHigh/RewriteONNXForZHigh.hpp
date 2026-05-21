@@ -21,12 +21,12 @@
 namespace onnx_mlir {
 
 // Exports RewriteONNXForZHigh patterns.
-void getRewriteONNXForZHighPatterns(
-    mlir::RewritePatternSet &patterns, DimAnalysis *dimAnalysis);
+void getRewriteONNXForZHighPatterns(mlir::RewritePatternSet &patterns,
+    DimAnalysis *dimAnalysis, bool enableConvToMatmul = true);
 
 // Exports RewriteONNXForZHigh dynamically legal checks.
-void getRewriteONNXForZHighDynamicallyLegal(
-    mlir::ConversionTarget *target, const DimAnalysis *dimAnalysis);
+void getRewriteONNXForZHighDynamicallyLegal(mlir::ConversionTarget *target,
+    const DimAnalysis *dimAnalysis, bool enableConvToMatmul = true);
 
 } // namespace onnx_mlir
 #endif
