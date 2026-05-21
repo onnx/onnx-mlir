@@ -73,7 +73,8 @@ quant::UniformQuantizedType getDivOutQuantType(
     quant::UniformQuantizedType inQType, double binConst, Location loc) {
   if (binConst == 0.0)
     return nullptr;
-  double newScale = convertToExpressedType(inQType.getScale() / binConst, inQType);
+  double newScale =
+      convertToExpressedType(inQType.getScale() / binConst, inQType);
   return quant::UniformQuantizedType::getChecked(
       [&loc]() { return emitWarning(loc); }, inQType.getFlags(),
       inQType.getStorageType(), inQType.getExpressedType(), newScale,
