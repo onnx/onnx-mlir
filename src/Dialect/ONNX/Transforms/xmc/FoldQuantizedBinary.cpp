@@ -1,9 +1,9 @@
 // (c) Copyright 2026 Advanced Micro Devices, Inc. All Rights Reserved.
 //
-// XMC variant of FoldQuantizedBinary. Identical to the common pass except
-// for an extra guard that prevents folding Add/Sub when input and output
-// scales differ -- in that case a pure zero-point shift would lose the
-// rescale and produce incorrect integer values.
+// XMC variant of FoldQuantizedBinary. Folds only quantized Div with a
+// scalar constant RHS, matching xcompiler's
+// TransferScalarConstInputDivToRequantizePass. Add/Sub/Mul are intentionally
+// not folded here.
 
 #include <cmath>
 #include <llvm/ADT/APFloat.h>
@@ -58,11 +58,6 @@ std::optional<double> getConstant(Value rhs) {
   return {};
 }
 
-bool isZPOutOfBounds(int64_t newZP, quant::UniformQuantizedType qType) {
-  return ((newZP < qType.getStorageTypeMin()) ||
-          (newZP > qType.getStorageTypeMax()));
-}
-
 double convertToExpressedType(double value, quant::UniformQuantizedType qType) {
   if (auto fltType = dyn_cast<FloatType>(qType.getExpressedType())) {
     APFloat ap(value);
@@ -74,94 +69,41 @@ double convertToExpressedType(double value, quant::UniformQuantizedType qType) {
   return value;
 }
 
-template <typename ONNXBinOp>
-quant::UniformQuantizedType getInQuantType(
-    quant::UniformQuantizedType outQType, double binConst, Location loc) {
-  double newScale = outQType.getScale();
-  int64_t newZP = outQType.getZeroPoint();
-
-  if constexpr (std::is_same_v<ONNXBinOp, ONNXAddOp>) {
-    newZP += std::round(binConst / newScale);
-  } else if constexpr (std::is_same_v<ONNXBinOp, ONNXSubOp>) {
-    newZP -= std::round(binConst / newScale);
-  } else if constexpr (std::is_same_v<ONNXBinOp, ONNXMulOp>) {
-    if (binConst == 0.0)
-      return nullptr;
-    newScale /= binConst;
-    newScale = convertToExpressedType(newScale, outQType);
-  } else if constexpr (std::is_same_v<ONNXBinOp, ONNXDivOp>) {
-    newScale *= binConst;
-    newScale = convertToExpressedType(newScale, outQType);
-  } else {
-    static_assert(false, "Unsupported binary operation");
-    return nullptr;
-  }
-
-  if (isZPOutOfBounds(newZP, outQType))
-    return nullptr;
-
-  return quant::UniformQuantizedType::getChecked(
-      [&loc]() { return emitWarning(loc); }, outQType.getFlags(),
-      outQType.getStorageType(), outQType.getExpressedType(), newScale, newZP,
-      outQType.getStorageTypeMin(), outQType.getStorageTypeMax());
-}
-
-template <typename ONNXBinOp>
-quant::UniformQuantizedType getOutQuantType(
+quant::UniformQuantizedType getDivOutQuantType(
     quant::UniformQuantizedType inQType, double binConst, Location loc) {
-  double newScale = inQType.getScale();
-  int64_t newZP = inQType.getZeroPoint();
-
-  if constexpr (std::is_same_v<ONNXBinOp, ONNXAddOp>) {
-    newZP -= std::round(binConst / newScale);
-  } else if constexpr (std::is_same_v<ONNXBinOp, ONNXSubOp>) {
-    newZP += std::round(binConst / newScale);
-  } else if constexpr (std::is_same_v<ONNXBinOp, ONNXMulOp>) {
-    newScale *= binConst;
-    newScale = convertToExpressedType(newScale, inQType);
-  } else if constexpr (std::is_same_v<ONNXBinOp, ONNXDivOp>) {
-    if (binConst == 0.0)
-      return nullptr;
-    newScale /= binConst;
-    newScale = convertToExpressedType(newScale, inQType);
-  } else {
-    static_assert(false, "Unsupported binary operation");
+  if (binConst == 0.0)
     return nullptr;
-  }
-
-  if (isZPOutOfBounds(newZP, inQType))
-    return nullptr;
-
+  double newScale = convertToExpressedType(inQType.getScale() / binConst, inQType);
   return quant::UniformQuantizedType::getChecked(
       [&loc]() { return emitWarning(loc); }, inQType.getFlags(),
-      inQType.getStorageType(), inQType.getExpressedType(), newScale, newZP,
-      inQType.getStorageTypeMin(), inQType.getStorageTypeMax());
+      inQType.getStorageType(), inQType.getExpressedType(), newScale,
+      inQType.getZeroPoint(), inQType.getStorageTypeMin(),
+      inQType.getStorageTypeMax());
 }
 
 } // namespace
 
 namespace onnx_mlir {
 
-template <typename ONNXBinOp>
-class XmcFoldQuantized : public OpRewritePattern<ONNXBinOp> {
+class XmcFoldQuantizedDiv : public OpRewritePattern<ONNXDivOp> {
 public:
-  using OpRewritePattern<ONNXBinOp>::OpRewritePattern;
+  using OpRewritePattern<ONNXDivOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(
-      ONNXBinOp binOp, PatternRewriter &rewriter) const override {
-    auto lhs = binOp->getOperand(0);
-    auto rhs = binOp->getOperand(1);
-    auto out = binOp->getResult(0);
+      ONNXDivOp divOp, PatternRewriter &rewriter) const override {
+    auto lhs = divOp->getOperand(0);
+    auto rhs = divOp->getOperand(1);
+    auto out = divOp->getResult(0);
 
     // No need of swapping inputs if first input is constant
     // Canonicalization takes care of that
-    if (lhs.template getDefiningOp<ONNXConstantOp>())
-      return rewriter.notifyMatchFailure(binOp, "LHS should not be a constant");
+    if (lhs.getDefiningOp<ONNXConstantOp>())
+      return rewriter.notifyMatchFailure(divOp, "LHS should not be a constant");
 
     auto lhsType = dyn_cast<RankedTensorType>(lhs.getType());
     auto outType = dyn_cast<RankedTensorType>(out.getType());
     if (!lhsType || !outType)
-      return rewriter.notifyMatchFailure(binOp, "Not Ranked TensorTypes");
+      return rewriter.notifyMatchFailure(divOp, "Not Ranked TensorTypes");
 
     auto lhsQType =
         dyn_cast<quant::UniformQuantizedType>(lhsType.getElementType());
@@ -169,74 +111,44 @@ public:
         dyn_cast<quant::UniformQuantizedType>(outType.getElementType());
     if (!lhsQType || !outQType)
       return rewriter.notifyMatchFailure(
-          binOp, "Not Quantized input and output types");
+          divOp, "Not Quantized input and output types");
 
-    if constexpr (std::is_same_v<ONNXBinOp, ONNXAddOp> ||
-                  std::is_same_v<ONNXBinOp, ONNXSubOp>) {
-      if (std::fabs(lhsQType.getScale() - outQType.getScale()) > 1e-6f)
-        return rewriter.notifyMatchFailure(
-            binOp, "Add/Sub input/output scales differ; cannot fold");
-    } else if constexpr (std::is_same_v<ONNXBinOp, ONNXMulOp>) {
-      if (std::fabs(lhsQType.getScale() - outQType.getScale()) > 1e-6f ||
-          lhsQType.getZeroPoint() != outQType.getZeroPoint())
-        return rewriter.notifyMatchFailure(
-            binOp, "Mul input/output quant params differ; cannot fold");
-    }
-
-    // No need of checking if constant passes through reshape, etc
-    // Constant folding takes care of that
     double binConst;
     if (auto constOpt = getConstant(rhs))
       binConst = *constOpt;
     else
-      return rewriter.notifyMatchFailure(binOp, "RHS not scalar constant");
+      return rewriter.notifyMatchFailure(divOp, "RHS not scalar constant");
 
-    // Either input/output with only ONNX ops are considered
-    // scast or fused kernels will not be considered
     auto isONNXOp = [](Operation *op) -> bool {
       if (isa<ONNXDequantizeLinearOp, ONNXQuantizeLinearOp>(op))
         return false;
       return isa<ONNXDialect>(op->getDialect());
     };
 
-    bool updateInput = isONNXOp(lhs.getDefiningOp()) && lhs.hasOneUse();
-    bool updateOutput = llvm::all_of(out.getUsers(), isONNXOp);
-    if (!updateInput && !updateOutput)
+    // Mirror xcompiler: only ever rewrite the Div's OUTPUT into a
+    // requantize. Never modify the upstream LHS quant type annotation.
+    if (!llvm::all_of(out.getUsers(), isONNXOp))
       return rewriter.notifyMatchFailure(
-          binOp, "Cannot update quant params on either input or output");
+          divOp, "Output has non-ONNX users; cannot fold");
 
-    Location binLoc = binOp->getLoc();
-    auto newQType =
-        updateInput ? getInQuantType<ONNXBinOp>(outQType, binConst, binLoc)
-                    : getOutQuantType<ONNXBinOp>(lhsQType, binConst, binLoc);
+    Location binLoc = divOp->getLoc();
+    auto newQType = getDivOutQuantType(lhsQType, binConst, binLoc);
     if (!newQType)
-      return rewriter.notifyMatchFailure(binOp, "Cannot get new QType");
+      return rewriter.notifyMatchFailure(divOp, "Cannot get new QType");
 
-    if (updateInput) {
-      rewriter.modifyOpInPlace(
-          binOp, [&]() { lhs.setType(lhsType.clone(newQType)); });
-      auto scast = rewriter.create<quant::StorageCastOp>(
-          binLoc, lhsType.clone(newQType.getStorageType()), lhs);
-      auto replOp =
-          rewriter.create<quant::StorageCastOp>(binLoc, outType, scast);
-      rewriter.replaceOp(binOp, replOp);
-    } else {
-      auto scast = rewriter.create<quant::StorageCastOp>(
-          binLoc, lhsType.clone(lhsQType.getStorageType()), lhs);
-      auto replOp = rewriter.create<quant::StorageCastOp>(
-          binLoc, outType.clone(newQType), scast);
-      rewriter.replaceOp(binOp, replOp);
-      // Since we fold DQ -> Bin -> Q -> DQ into DQ, we should not be
-      // propagating the ResultNames of Q
-      replOp->removeAttr("ResultNames");
-    }
+    auto scast = rewriter.create<quant::StorageCastOp>(
+        binLoc, lhsType.clone(lhsQType.getStorageType()), lhs);
+    auto replOp = rewriter.create<quant::StorageCastOp>(
+        binLoc, outType.clone(newQType), scast);
+    rewriter.replaceOp(divOp, replOp);
+    // Since we fold DQ -> Div -> Q -> DQ into DQ, we should not be
+    // propagating the ResultNames of Q
+    replOp->removeAttr("ResultNames");
 
     return success();
   }
 };
 
-/// XMC variant of FoldQuantizedBinary. Same Q-DQ folding for Add/Sub/Mul/Div
-/// with an extra Add/Sub scale-equality guard.
 class XmcFoldQuantizedBinary
     : public PassWrapper<XmcFoldQuantizedBinary, OperationPass<func::FuncOp>> {
 public:
@@ -247,8 +159,7 @@ public:
   void runOnOperation() override {
     auto *ctx = &getContext();
     RewritePatternSet patterns(ctx);
-    patterns.add<XmcFoldQuantized<ONNXAddOp>, XmcFoldQuantized<ONNXSubOp>,
-        XmcFoldQuantized<ONNXMulOp>, XmcFoldQuantized<ONNXDivOp>>(ctx);
+    patterns.add<XmcFoldQuantizedDiv>(ctx);
 
     GreedyRewriteConfig config;
     ResultNamesUpdater rnUpdater;
