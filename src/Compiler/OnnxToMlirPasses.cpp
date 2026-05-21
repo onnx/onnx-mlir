@@ -77,6 +77,8 @@ void addXmcMlirPasses(mlir::OpPassManager &pm, OnnxToMlirOptions opts) {
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::createConvertMatMulToXFEConvPass());
   pm.addNestedPass<func::FuncOp>(
+      onnx_mlir::createConvertSCastPairToRequantizePass());
+  pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createONNXTransposeOptimizationPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
   pm.addNestedPass<func::FuncOp>(
@@ -117,8 +119,6 @@ void addXmcMlirPasses(mlir::OpPassManager &pm, OnnxToMlirOptions opts) {
   // pm.addNestedPass<func::FuncOp>(
   //     onnx_mlir::createTransferReduceHdimToReduceCdimPass());
 
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createConvertSCastPairToRequantizePass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createAddRequantForOutputConvPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
