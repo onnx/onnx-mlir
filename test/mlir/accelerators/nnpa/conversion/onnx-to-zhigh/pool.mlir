@@ -89,6 +89,7 @@ func.func @averagepool_should_lower_to_zhigh_same_upper(%arg0: tensor<1x3x32x32x
 }
 
 // -----
+
 // COM: Pooling in zDNN only support 4D input (MaxPool1D and MaxPool3D not suported)
 // CHECK-LABEL:  func @test_pool_not_lowered_pool1d
 func.func @test_pool_not_lowered_pool1d(%arg0: tensor<1x3x32xf32>) -> (tensor<1x3x31xf32>, tensor<1x3x31xf32>) {
@@ -102,6 +103,7 @@ func.func @test_pool_not_lowered_pool1d(%arg0: tensor<1x3x32xf32>) -> (tensor<1x
 }
 
 // -----
+
 // COM: Pooling in zDNN only support 4D input (MaxPool1D and MaxPool3D not suported)
 // CHECK-LABEL:  func @test_pool_not_lowered_pool3d
 func.func @test_pool_not_lowered_pool3d(%arg0: tensor<1x3x32x32x32xf32>) -> (tensor<1x3x31x31x31xf32>, tensor<1x3x31x31x31xf32>) {
