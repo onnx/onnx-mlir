@@ -237,6 +237,15 @@ Value TosaBuilder::erf(Value &input) {
       rewriter(), loc(), newValueType, input);
 }
 
+Value TosaBuilder::tanh(Value &input) {
+  auto inputType = mlir::cast<ShapedType>(input.getType());
+  Type newValueType = RankedTensorType::get(
+      llvm::SmallVector<int64_t, 4>(inputType.getRank(), ShapedType::kDynamic),
+      inputType.getElementType());
+  return tosa::CreateOpAndInfer<mlir::tosa::TanhOp>(
+      rewriter(), loc(), newValueType, input);
+}
+
 template <typename T>
 Value TosaBuilder::binaryOp(Value &lhs, Value &rhs) {
   if (needsRankBroadcast({lhs, rhs})) {

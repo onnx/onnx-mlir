@@ -49,6 +49,7 @@ struct TosaBuilder : DialectBuilder {
   mlir::Value reshape(mlir::Value &value, llvm::ArrayRef<int64_t> shape);
   mlir::Value reciprocal(mlir::Value &input);
   mlir::Value erf(mlir::Value &input);
+  mlir::Value tanh(mlir::Value &input);
 
   mlir::Value getConst(
       llvm::ArrayRef<int64_t> vec, llvm::ArrayRef<int64_t> shape);
