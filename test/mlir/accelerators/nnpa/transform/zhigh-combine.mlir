@@ -591,3 +591,18 @@ func.func @replace_unstick_squeeze_stick_dynamic(%arg0: tensor<?x1x?x200xf16, #z
 // CHECK:         }
 }
 
+// -----
+
+// Replace ZHighStick(ONNXExpand(constant_scalar, shape)) with ZHighStickifiedConstantOfShape.
+func.func @replace_stick_expand_constant(%arg0: tensor<3xi64>) -> tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>> {
+  %0 = onnx.Constant dense<1.5> : tensor<f32>
+  %1 = "onnx.Expand"(%0, %arg0) : (tensor<f32>, tensor<3xi64>) -> tensor<?x?x?xf32>
+  %2 = "zhigh.Stick"(%1) {layout = "3DS"} : (tensor<?x?x?xf32>) -> tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  return %2 : tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+
+// CHECK-LABEL:  func.func @replace_stick_expand_constant
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3xi64>) -> tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>> {
+// CHECK:           [[VAR_0_:%.+]] = "zhigh.StickifiedConstantOfShape"([[PARAM_0_]]) <{layout = "3DS", value = 1.500000e+00 : f32}> : (tensor<3xi64>) -> tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:           return [[VAR_0_]] : tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:         }
+}

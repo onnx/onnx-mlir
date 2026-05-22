@@ -116,9 +116,6 @@ def IsF32ScalarConstantTensor: Constraint<
   "The value is a constant tensor of a single f32 value"
 >;
 
-def GetScalarF32AttrFromConstant :
-        NativeCodeCall<"getScalarF32AttrFromConstant($0)">;
-
 def IsConstOfHalf : Constraint<
   CPred<"isDenseONNXConstant($_self) && isConstOf($_self, 0.5)">,
   "Value is all halves (0.5) for a constant tensor">;

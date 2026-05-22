@@ -21,6 +21,7 @@
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
 #include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
@@ -445,10 +446,10 @@ bool isSuitableForZDNN<ONNXDivOp>(
     return onnxToZHighInCompatibilityReport(op.getOperation(), NNPALevel::M14);
   // Broadcast with a scalar operand.
   if (isEnableScalarBcastBinary()) {
-    if (isF32ScalarConstantTensor(A) &&
+    if (zhigh::isF32ScalarConstantTensor(A) &&
         isValidElementTypeAndRank(op.getOperation(), B))
       return true;
-    if (isF32ScalarConstantTensor(B) &&
+    if (zhigh::isF32ScalarConstantTensor(B) &&
         isValidElementTypeAndRank(op.getOperation(), A))
       return true;
   }

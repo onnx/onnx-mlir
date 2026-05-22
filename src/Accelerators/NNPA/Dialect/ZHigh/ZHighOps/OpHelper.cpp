@@ -257,6 +257,20 @@ Value getConstantOfType(
   return create.onnx.constant(denseAttr);
 }
 
+bool isF32ScalarConstantTensor(Value v) {
+  if (!isScalarConstantTensor(v))
+    return false;
+  auto t = mlir::dyn_cast<ShapedType>(v.getType());
+  return t.getElementType().isF32();
+}
+
+FloatAttr getScalarF32AttrFromConstant(Value v) {
+  if (!isF32ScalarConstantTensor(v))
+    return nullptr;
+  ElementsAttr constElements = onnx_mlir::getElementAttributeFromONNXValue(v);
+  return constElements.getSplatValue<FloatAttr>();
+}
+
 bool oneIsOfLayout(Type t1, Type t2,
     onnx_mlir::zhigh::ZTensorEncodingAttr::DataLayout layout) {
   if (auto rtp1 = llvm::dyn_cast<RankedTensorType>(t1)) {
