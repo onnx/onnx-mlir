@@ -33,6 +33,29 @@ using namespace onnx_mlir::zhigh;
 namespace onnx_mlir {
 namespace zhigh {
 
+// Test if the operation is a data movement ONNX operation that just shuffles
+// elements without any computation.
+// Note: when adding a new operator into this list, let's add a new
+// canonicalization pattern for that operator in
+// src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/DLF16ToF32/DLF16ToF32.cpp, for
+// example:
+//
+// void ZHighDLF16ToF32Op::getCanonicalizationPatterns(
+//     RewritePatternSet &results, MLIRContext *context) {
+//   results.insert<DelayDLF16ToF32Pattern<ONNXUnsqueezeOp>>(context);
+// }
+static bool isDataMovementONNXOp(Operation *op) {
+  return isa<ONNXExpandOp, ONNXFlattenOp, ONNXGatherOp, ONNXReshapeOp,
+      ONNXSliceOp, ONNXSplitOp, ONNXSqueezeOp, ONNXTransposeOp,
+      ONNXUnsqueezeOp>(op);
+}
+
+// Test if the operation is a view ONNX operation that just changes the shape
+// without data copying.
+static bool isViewONNXOp(Operation *op) {
+  return isa<ONNXReshapeOp, ONNXSqueezeOp, ONNXUnsqueezeOp>(op);
+}
+
 bool canDecomposeUnstick(Value val) {
   ZHighUnstickOp unstickOp = val.getDefiningOp<ZHighUnstickOp>();
   assert(unstickOp && "Expected zhigh.UnstickOp");
@@ -180,6 +203,8 @@ struct ZHighDecomposeStickUnstickPass
     populateWithGenerated(patterns);
 
     // Get canonicalization rules for some important operations.
+    // For example, to propagate ZHighDLF16ToF32Op down through data movement
+    // ops.
     ZHighDLF16ToF32Op::getCanonicalizationPatterns(patterns, &getContext());
     ZHighF32ToDLF16Op::getCanonicalizationPatterns(patterns, &getContext());
     ONNXLayoutTransformOp::getCanonicalizationPatterns(patterns, &getContext());

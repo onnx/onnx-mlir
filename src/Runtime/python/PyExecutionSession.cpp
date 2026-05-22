@@ -79,7 +79,7 @@ static void *generateOMTensorBufferForStringData(py::array pyArray) {
   //
   // In the code below, since we have std::strings, use string.length() as it is
   // generally more reliable as strlen(string) which relies on the '\0' char.
-  for (int64_t i = 0; i < numElem; ++i)
+  for (int64_t i = 0; i < (int64_t)numElem; ++i)
     strLenTotal += vec[i].length() + 1;
   dataBuffer = malloc(sizeof(char *) * numElem + strLenTotal);
   if (dataBuffer == NULL)
@@ -88,7 +88,7 @@ static void *generateOMTensorBufferForStringData(py::array pyArray) {
   char **strArray = (char **)dataBuffer;
   // strPos points to the string data (second data region above)
   char *strPos = (char *)(((char *)dataBuffer) + sizeof(char *) * numElem);
-  for (int64_t i = 0; i < numElem; ++i) {
+  for (int64_t i = 0; i < (int64_t)numElem; ++i) {
     // Copy the i-th string's data to the current position in the string data
     // region. Use length() and memcpy for safer copying that handles embedded
     // nulls and avoids redundant strlen calls.

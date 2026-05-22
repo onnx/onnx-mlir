@@ -157,6 +157,8 @@ func.func @test_nd_qlinearmatmul_nd_nd(%arg0: tensor<?x?x384x64xf32> {onnx.dim_p
   // CHECK:         }
 }
 
+// -----
+
 func.func @test_nd_qlinearmatmul_nd_2d(%arg0: tensor<?x?x384x64xf32> {onnx.dim_params = "0:bs,1:sl"}, %arg1: tensor<64x384xf32>, %arg2: tensor<f32>, %arg3: tensor<i8>) -> tensor<?x?x384x384xf32> {
   %0 = "onnx.QuantizeLinear"(%arg0, %arg2, %arg3) : (tensor<?x?x384x64xf32>, tensor<f32>, tensor<i8>) -> tensor<?x?x384x64xi8>
   %1 = "onnx.QuantizeLinear"(%arg1, %arg2, %arg3) : (tensor<64x384xf32>, tensor<f32>, tensor<i8>) -> tensor<64x384xi8>
@@ -190,6 +192,8 @@ func.func @test_nd_qlinearmatmul_nd_2d(%arg0: tensor<?x?x384x64xf32> {onnx.dim_p
 // CHECK:           return [[VAR_19_]] : tensor<?x?x384x384xf32>
 // CHECK:         }
 }
+
+// -----
 
 func.func @test_nd_qlinearmatmul_2d_nd(%arg0: tensor<384x64xf32>, %arg1: tensor<?x?x64x384xf32> {onnx.dim_params = "0:bs,1:sl"}, %arg2: tensor<f32>, %arg3: tensor<i8>) -> tensor<?x?x384x384xf32> {
   %0 = "onnx.QuantizeLinear"(%arg0, %arg2, %arg3) : (tensor<384x64xf32>, tensor<f32>, tensor<i8>) -> tensor<384x64xi8>
@@ -225,6 +229,8 @@ func.func @test_nd_qlinearmatmul_2d_nd(%arg0: tensor<384x64xf32>, %arg1: tensor<
 // CHECK:           return [[VAR_20_]] : tensor<?x?x384x384xf32>
 // CHECK:         }
 }
+
+// -----
 
 // Do not rewrite because of potential broadcasting.
 func.func @test_nd_qlinearmatmul_nd_nd_not_rewriting(%arg0: tensor<?x?x384x64xf32> {onnx.dim_params = "0:bs,1:sl"}, %arg1: tensor<1x?x64x384xf32> {onnx.dim_params = "1:sl"}, %arg2: tensor<f32>, %arg3: tensor<i8>) -> tensor<?x?x384x384xf32> {

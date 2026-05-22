@@ -16,6 +16,7 @@ func.func @test_no_normalization(%arg0: memref<16x8x128xf32>) -> memref<16x8x128
 // CHECK:           [[RES_:%.+]] = memref.alloc() {alignment = 4096 : i64} : memref<16x8x128xf16, #map>
 // CHECK:         }
 }
+
 // -----
 
 // Here the value being stickified is from an alloc memref in the model, so normalize to 4k.
