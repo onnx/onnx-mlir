@@ -232,6 +232,7 @@ func.func @test_prelu_broadcast_ruled_out_by_dim_analysis(%arg0: tensor<?x4x5xi3
 }
 
 // -----
+
 // COM: Check PRelu with unidirectional broadcasting.
 // COM: Tensor slope should be unidirectional broadcastable to input tensor X
 func.func @test_prelu_broadcast3(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x1x5xf32>) -> tensor<*xf32> {
@@ -256,6 +257,7 @@ func.func @test_prelu_broadcast3(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x1x5xf
 }
 
 // -----
+
 // COM: Check PRelu with unidirectional broadcasting.
 // COM: Tensor slope should be unidirectional broadcastable to input tensor X
 func.func @test_prelu_broadcast4(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x1x5xf32>) -> tensor<*xf32> {
@@ -1183,6 +1185,7 @@ func.func private @test_leakyrelu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 }
 
 // -----
+
 func.func private @test_bitwise_not(%arg0 : tensor<128x512xi32>) -> tensor<*xi32> {
   %0 = "onnx.BitwiseNot"(%arg0) : (tensor<128x512xi32>) -> tensor<*xi32>
   "func.return"(%0) : (tensor<*xi32>) -> ()
@@ -1200,6 +1203,7 @@ func.func private @test_bitwise_not(%arg0 : tensor<128x512xi32>) -> tensor<*xi32
 // CHECK:           return [[RES_]] : memref<128x512xi32>
 // CHECK:         }
 }
+
 // -----
 
 func.func private @test_celu(%arg0 : tensor<?x3x224x224xf32>) -> tensor<?x3x224x224xf32> {
