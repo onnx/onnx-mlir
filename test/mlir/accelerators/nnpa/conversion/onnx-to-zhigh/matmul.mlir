@@ -192,6 +192,7 @@ func.func @test_onnx_to_matmul_add_bcast1(%arg0 : tensor<4x8xf32>, %arg1 : tenso
 }
 
 // -----
+
 // const has wrong shape for bcast23
 func.func @test_onnx_to_matmul_add_bcast23(%arg0 : tensor<100x4x8xf32>, %arg1 : tensor<8x16xf32>) -> tensor<*xf32> {
   %const = onnx.Constant dense<1.000000e+00> : tensor<100x4x16xf32>
