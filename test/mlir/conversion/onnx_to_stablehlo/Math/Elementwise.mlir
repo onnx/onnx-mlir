@@ -480,26 +480,28 @@ func.func @test_prelu_dynamic(%arg0 : tensor<?x10x12x12xf32>, %arg1: tensor<10x1
 func.func @test_neg(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "onnx.Neg"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
   "func.return"(%0) : (tensor<10x10xf32>) -> ()
-}
 
 // CHECK-LABEL:  func.func @test_neg
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
 // CHECK:           [[VAR_0_:%.+]] = stablehlo.negate [[PARAM_0_]] : tensor<10x10xf32>
 // CHECK:           return [[VAR_0_]] : tensor<10x10xf32>
 // CHECK:         }
+}
 
 // -----
 
 func.func @test_sin(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "onnx.Sin"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
   "func.return"(%0) : (tensor<10x10xf32>) -> ()
-}
 
 // CHECK-LABEL:  func.func @test_sin
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
 // CHECK:           [[VAR_0_:%.+]] = stablehlo.sine [[PARAM_0_]] : tensor<10x10xf32>
 // CHECK:           return [[VAR_0_]] : tensor<10x10xf32>
 // CHECK:         }
+}
+
+// -----
 
 func.func @test_where(%arg0 : tensor<16x24x36xi1>, %arg1 : tensor<16x24x36xi64>, %arg2 : tensor<16x24x36xi64>) -> tensor<16x24x36xi64> {
   %0 = "onnx.Where"(%arg0, %arg1, %arg2) : (tensor<16x24x36xi1>, tensor<16x24x36xi64>, tensor<16x24x36xi64>) -> tensor<16x24x36xi64>

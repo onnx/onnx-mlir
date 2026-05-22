@@ -29,6 +29,7 @@ func.func @test_seqextract_nocopy(%arg1: memref<?xmemref<?x3xf32>>, %arg2: index
 }
 
 // -----
+
 func.func @test_seqextract(%arg1: memref<?xmemref<?x3xf32>>, %arg2: index) -> memref<?x3xf32>  {
     %0 = "krnl.seqextract"(%arg1, %arg2) {copy = 1 : ui1} : (memref<?xmemref<?x3xf32>>, index) -> (memref<?x3xf32>)
     return %0 : memref<?x3xf32>
@@ -44,6 +45,7 @@ func.func @test_seqextract(%arg1: memref<?xmemref<?x3xf32>>, %arg2: index) -> me
 }
 
 // -----
+
 func.func @test_seqdealloc(%arg1: memref<?xmemref<?x3xf32>>, %arg2: index) -> index  {
     // Just for test. The input argument should not be freed
     "krnl.seqdealloc"(%arg1) : (memref<?xmemref<?x3xf32>>) -> ()

@@ -74,3 +74,18 @@ add_onnx_mlir_library(OMWriteOpStatsToModuleAttribute
   MLIRFuncDialect
   MLIRTransforms
   )
+
+add_onnx_mlir_library(OMONNXCSEWithNodeName
+  ONNXCSEWithNodeName.cpp
+
+  DEPENDS
+  OMTransformsPassIncGen
+
+  INCLUDE_DIRS PUBLIC
+  ${ONNX_MLIR_SRC_ROOT}/include
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  MLIRPass
+  MLIRTransforms
+  )

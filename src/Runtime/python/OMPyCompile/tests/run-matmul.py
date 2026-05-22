@@ -1,5 +1,5 @@
 import numpy as np
-import OMPyInfer
+import om_pyrt
 import OMPyCompile
 from pathlib import Path
 
@@ -15,7 +15,7 @@ def main():
         "--hiddenState", type=int, default=768, help="hidden state size"
     )
     parser.add_argument("--flags", type=str, default="-O3", help="compiler flags")
-    args = OMPyInfer.parse_args(parser)
+    args = om_pyrt.parse_args(parser)
 
     # Use "matmul.mlir" as model
     # Path to make sure the script can be invoked in other directory.
@@ -40,8 +40,8 @@ def main():
 
         compiled_model = compile_session.get_output_file_name()
 
-    run_session = OMPyInfer.InferenceSession(compiled_model)
-    outputs = OMPyInfer.run_model_with_input_output_arrays(
+    run_session = om_pyrt.InferenceSession(compiled_model)
+    outputs = om_pyrt.run_model_with_input_output_arrays(
         run_session,
         [input1, input2],
         None,

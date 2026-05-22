@@ -4,13 +4,13 @@
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 [project]
-name = "OMPyInfer"
+name = "om_pyrt"
 version = "1.0.0"
 authors = [
   { name="Tong Chen", email="chentong@us.ibm.com" },
   { name="Sunny Anand", email="sunny.anand79@ibm.com" },
 ]
-description = "Python driver to run inference on onnx model compiled with zdlc"
+description = "Python driver to run inference on onnx model compiled with onnx-mlir"
 readme = "README.md"
 requires-python = ">=3.9"
 license = "Apache-2.0"
@@ -28,11 +28,11 @@ Homepage = "https://github.com/onnx/onnx-mlir"
 Issues = "https://github.com/onnx/onnx-mlir/issues"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/OMPyInfer"]
+packages = ["src/om_pyrt"]
 
 [tool.hatch.build]
 include = [
-  "src/OMPyInfer/libs/*"
+  "src/om_pyrt/libs/*"
 ]
 
 
