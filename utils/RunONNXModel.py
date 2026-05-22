@@ -37,7 +37,9 @@ VERBOSE = os.environ.get("VERBOSE", False)
 
 def import_driver():
     from .PyRuntime import OMExecutionSession as SessionWrapper
+
     return SessionWrapper
+
 
 ################################################################################
 # Support functions for parsing environment.
@@ -810,6 +812,7 @@ class InferenceSession:
                 # Compile. Can be controlled with args.
                 # Here is an example of using standalone compiler
                 from .CompileDriver import compile
+
                 model = compile(model, "standalone", **args_dict)
             session = self.session_wrapper(model)
             self.session = session
