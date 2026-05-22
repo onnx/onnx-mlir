@@ -20,11 +20,13 @@ model_file = str(script_dir / "test_add.mlir")
 # compile_args is the flags passed to onnx-mlir
 import om_pyrt
 
-compiled_model = om_pyrt.CompileWithStandalone(
-    "./test_add.mlir",
-    "-O3",
+compile_session = om_pyrt.CompileSession(
+    compile_policy="standalone"
 )
-print(compiled_model)
+
+compile_session.compile(model_file, "-O3")
+
+compiled_model = compile_session.get_output_file_name()
 
 # Prepare input data
 import numpy as np
@@ -33,7 +35,6 @@ a = np.arange(3 * 4 * 5, dtype=np.float32).reshape((3, 4, 5))
 b = a + 4
 
 # Run inference
-
 sess = om_pyrt.InferenceSession(compiled_model)
 r = sess.run([a, b])
 print(r)

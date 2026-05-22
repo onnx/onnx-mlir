@@ -20,14 +20,14 @@ model_file = str(script_dir / "test_add.mlir")
 # compile_args is the flags passed to onnx-mlir
 import om_pyrt
 
-compiled_model = om_pyrt.CompileWithContainer(
-    model_file,
-    compile_options="-O3",
-    container_engine="docker",
-    compiler_image_name="ghcr.io/onnxmlir/onnx-mlir-dev:s390x",
-    compiler_path="/workdir/onnx-mlir/build/Debug/bin/onnx-mlir",
+compile_session = om_pyrt.CompileSession(
+    compiler_image="ghcr.io/onnxmlir/onnx-mlir-dev:s390x",
+    compiler_path="/workdir/onnx-mlir/build/Debug/bin/onnx-mlir"
 )
-print(compiled_model)
+
+compile_session.compile(model_file, "-O3")
+
+compiled_model = compile_session.get_output_file_name()
 
 # Prepare input data
 import numpy as np
@@ -36,8 +36,6 @@ a = np.arange(3 * 4 * 5, dtype=np.float32).reshape((3, 4, 5))
 b = a + 4
 
 # Run inference
-
 sess = om_pyrt.InferenceSession(compiled_model)
-
 r = sess.run([a, b])
 print(r)
