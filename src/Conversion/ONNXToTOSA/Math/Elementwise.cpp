@@ -156,8 +156,7 @@ public:
       Value coeffXCubed = tosaBuilder.mul(coeff, xCubed);
       Value sum = tosaBuilder.binaryOp<mlir::tosa::AddOp>(x, coeffXCubed);
       Value scaled = tosaBuilder.mul(sqrt2OverPi, sum);
-      inner =
-          mlir::tosa::TanhOp::create(rewriter, loc, scaled.getType(), scaled);
+      inner = tosaBuilder.tanh(scaled);
     } else {
       return rewriter.notifyMatchFailure(
           op, "unsupported 'approximate' attribute value");
@@ -190,8 +189,9 @@ public:
   using OpAdaptor = typename ONNXTanhOp::Adaptor;
   LogicalResult matchAndRewrite(ONNXTanhOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
-    rewriter.replaceOpWithNewOp<mlir::tosa::TanhOp>(
-        op, op.getType(), adaptor.getInput());
+    TosaBuilder tosaBuilder(rewriter, op->getLoc());
+    Value input = adaptor.getInput();
+    rewriter.replaceOp(op, tosaBuilder.tanh(input));
     return success();
   }
 };
