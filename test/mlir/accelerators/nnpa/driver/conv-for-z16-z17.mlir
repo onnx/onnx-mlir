@@ -20,6 +20,22 @@ func.func @conv_3x3_dyn(%arg0: tensor<?x?x?x?xf32>, %arg1: tensor<64x3x3x3xf32>)
 
 // -----
 
+func.func @conv_3x3_dyn_same(%arg0: tensor<?x?x?x?xf32>, %arg1: tensor<64x3x3x3xf32>) -> tensor<?x?x?x?xf32> {
+  %0 = "onnx.NoValue"() <{value}> : () -> none
+  %1 = "onnx.Conv"(%arg0, %arg1, %0) <{auto_pad = "SAME_UPPER", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], strides = [1, 1]}> : (tensor<?x?x?x?xf32>, tensor<64x3x3x3xf32>, none) -> tensor<?x?x?x?xf32>
+  return %1 : tensor<?x?x?x?xf32>
+
+// COM: SAME is ok with dyn shapes
+// CHECK-Z17-LABEL:  func.func @conv_3x3_dyn_same
+// CHECK-Z17:        zhigh.Conv2D
+
+// COM: SAME is ok with dyn shapes
+// CHECK-Z16-LABEL:  func.func @conv_3x3_dyn_same
+// CHECK-Z16:        zhigh.Conv2D
+}
+
+// -----
+
 func.func @conv_3x3_dyn_bs1(%arg0: tensor<1x?x?x?xf32>, %arg1: tensor<64x3x3x3xf32>) -> tensor<1x?x?x?xf32> {
   %0 = "onnx.NoValue"() <{value}> : () -> none
   %1 = "onnx.Conv"(%arg0, %arg1, %0) <{auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [3, 3], pads = [0, 0, 0, 0], strides = [1, 1]}> : (tensor<1x?x?x?xf32>, tensor<64x3x3x3xf32>, none) -> tensor<1x?x?x?xf32>
