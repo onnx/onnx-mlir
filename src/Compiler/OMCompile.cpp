@@ -718,6 +718,18 @@ std::string OMCompile::getOutputFilename() {
   return outputFilename;
 }
 
+std::string OMCompile::getPredictOutputFilename(
+    const std::string &modelPath, const std::string &flags) {
+  // Code copied from method compile()
+  // ToFix: use the outputDir?
+  std::vector<std::string> flagVect;
+  flagVect = parseFlags(flags);
+  std::string inputFilename = onnx_mlir::getInputFilename(modelPath, flagVect);
+  std::string name = onnx_mlir::getOutputFilename(inputFilename, flagVect);
+  outputFilename = getAbsolutePathUsingCurrentDir(name);
+  return outputFilename;
+}
+
 std::string OMCompile::getOutputConstantFilename() {
   if (!successfullyCompiled) {
     throw OMCompileException(

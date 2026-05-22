@@ -33,9 +33,9 @@ class OMCompile(OMCompile_):
         auto_pull=True,
         engine="auto",
         cache=None,
-        verbose=False
+        verbose=False,
     ):
-        
+
         self.cache = cache
         # Check legality of the parameter combination
         if compiler_image and not compiler_path:
@@ -55,31 +55,24 @@ class OMCompile(OMCompile_):
                 print("Please install package for standalone compiler")
                 exit(-1)
 
-            super().__init__(
-                OMPyCompile.get_compiler_path(),
-                verbose
-            )
+            super().__init__(OMPyCompile.get_compiler_path(), verbose)
 
         elif compiler_image:
-            super().__init__(
-                compiler_image,
-                compiler_path,
-                engine,
-                auto_pull,
-                verbose
-            )
+            super().__init__(compiler_image, compiler_path, engine, auto_pull, verbose)
         else:
-            super().__init__(
-                compiler_path,
-                verbose
-            )
+            super().__init__(compiler_path, verbose)
 
-    def compile(self, model_path, flags, compiler_path="", log_file_name=""):
+    def compile(
+        self,
+        model_path,
+        flags,
+        compiler_path="",
+        log_file_name="",
+        reuse_compiled_model=False,
+    ):
         if self.cache:
             # Check cache policy to decide whether a cached .so can be used
             exit(-1)
-        super().compile(model_path, flags, compiler_path, log_file_name)
-        if self.cache:
-            # Update cache
-            exit(-1)
-
+        super().compile(
+            model_path, flags, compiler_path, log_file_name, reuse_compiled_model
+        )

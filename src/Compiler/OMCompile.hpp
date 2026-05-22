@@ -243,6 +243,17 @@ public:
   std::string getOutputFilename();
 
   /**
+   * @brief Get the predict output filename if the model is compiled.
+   *
+   * Returns the absolute path to the file that will be generated if the
+   * model is compiled with the flags.
+   *
+   * @return Absolute path to the compiled output file
+   */
+  std::string getPredictOutputFilename(
+      const std::string &model, const std::string &flags);
+
+  /**
    * @brief Get the output constant filename of the compiled model.
    *
    * When compiling large models, the compiler may generate a separate output

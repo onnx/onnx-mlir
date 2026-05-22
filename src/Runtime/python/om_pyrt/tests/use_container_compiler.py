@@ -3,7 +3,7 @@
 
 ############# use_compiler_container.py #######################################
 #
-# Copyright 2021-2025 The IBM Research Authors.
+# Copyright 2021-2026 The IBM Research Authors.
 #
 ################################################################################
 # Test case to compile a model with compiler container
@@ -20,14 +20,18 @@ model_file = str(script_dir / "test_add.mlir")
 # compile_args is the flags passed to onnx-mlir
 import om_pyrt
 
-compile_session = om_pyrt.CompileSession(
-    compiler_image="ghcr.io/onnxmlir/onnx-mlir-dev:s390x",
-    compiler_path="/workdir/onnx-mlir/build/Debug/bin/onnx-mlir"
-)
+try:
+    compile_session = om_pyrt.CompileSession(
+        compiler_image="ghcr.io/onnxmlir/onnx-mlir-dev:s390x",
+        compiler_path="/workdir/onnx-mlir/build/Debug/bin/onnx-mlir",
+    )
 
-compile_session.compile(model_file, "-O3")
+    compile_session.compile(model_file, "-O3", reuse_compiled_model=True)
+except Exception as e:
+    print("Failed to compile")
+    exit(-1)
 
-compiled_model = compile_session.get_output_file_name()
+compiled_model = compile_session.get_predict_output_file_name(model_file, "-O3")
 
 # Prepare input data
 import numpy as np

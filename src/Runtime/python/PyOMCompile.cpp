@@ -39,11 +39,27 @@ PyOMCompile::PyOMCompile(const std::string &containerImage,
 
 void PyOMCompile::compile(const std::string &modelPath,
     const std::string &flags, const std::string &compilerPath,
-    const std::string &logFilename) {
-  // Let compilation exceptions propagate naturally to Python without
-  // printing to stderr. Python code can handle and display exceptions
-  // as needed, avoiding duplicate error messages.
-  OMcompile.compile(modelPath, flags, compilerPath, logFilename);
+    const std::string &logFilename, bool reuseCompiledModel) {
+  if (reuseCompiledModel) {
+    reuseCompiledModel = false; // Assume failure unless otherwise proven.
+    std::string filename = OMcompile.getPredictOutputFilename(modelPath, flags);
+    if (!filename.empty()) {
+      FILE *file = fopen(filename.c_str(), "r");
+      if (file) {
+        // File exists, save
+        reuseCompiledModel = true;
+        fclose(file);
+      }
+    }
+  }
+
+  // Must compile?
+  if (!reuseCompiledModel) {
+    // Let compilation exceptions propagate naturally to Python without
+    // printing to stderr. Python code can handle and display exceptions
+    // as needed, avoiding duplicate error messages.
+    OMcompile.compile(modelPath, flags, compilerPath, logFilename);
+  }
 }
 
 // =============================================================================
@@ -51,6 +67,11 @@ void PyOMCompile::compile(const std::string &modelPath,
 
 std::string PyOMCompile::pyGetOutputFilename() {
   return OMcompile.getOutputFilename();
+}
+
+std::string PyOMCompile::pyGetPredictOutputFilename(
+    const std::string &modelPath, const std::string &flags) {
+  return OMcompile.getPredictOutputFilename(modelPath, flags);
 }
 
 std::string PyOMCompile::pyGetOutputConstantFilename() {

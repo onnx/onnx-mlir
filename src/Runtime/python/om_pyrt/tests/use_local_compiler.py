@@ -3,7 +3,7 @@
 
 ################# use_local_compiler.py  #######################################
 #
-# Copyright 2021-2025 The IBM Research Authors.
+# Copyright 2021-2026 The IBM Research Authors.
 #
 ################################################################################
 # Test case to use the local compiler to compile the model
@@ -15,16 +15,18 @@ from pathlib import Path
 script_dir = Path(__file__).resolve().parent
 model_file = str(script_dir / "test_add.mlir")
 
-# When compiler_image_name is None, local compiler will be used.
 # The compiler_path is used to locate the compiler.
 # compile_args is the flags passed to onnx-mlir
 import om_pyrt
 
-compile_session = om_pyrt.CompileSession(
-    compiler_path="/Users/chentong/Projects/onnx-mlir/build/Debug/bin/onnx-mlir"
-)
-
-compile_session.compile(model_file, "-O3")
+try:
+    compile_session = om_pyrt.CompileSession(
+        compiler_path="/Users/chentong/Projects/onnx-mlir/build/Debug/bin/onnx-mlir"
+    )
+    compile_session.compile(model_file, "-O3")
+except Exception as e:
+    print("Fialed to compile")
+    exit(-1)
 
 compiled_model = compile_session.get_output_file_name()
 
