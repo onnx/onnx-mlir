@@ -116,20 +116,6 @@ public:
   }
 };
 
-// Create a splatted constant tensor whose element type matches `elementType`
-// and whose shape is the same rank as `referenceShape` with all dims equal
-// to 1 so it can broadcast against tensors of that rank.
-static Value createFloatSplatConst(PatternRewriter &rewriter, Location loc,
-    double value, FloatType elementType, ArrayRef<int64_t> referenceShape) {
-  APFloat apVal(value);
-  bool losesInfo = false;
-  apVal.convert(elementType.getFloatSemantics(), APFloat::rmNearestTiesToEven,
-      &losesInfo);
-  auto constType = tosa::reduceAxisToOne(referenceShape, elementType);
-  auto constAttr = DenseElementsAttr::get(constType, apVal);
-  return mlir::tosa::ConstOp::create(rewriter, loc, constType, constAttr);
-}
-
 class ONNXGeluOpLoweringToTOSA : public OpConversionPattern<ONNXGeluOp> {
 public:
   using OpConversionPattern<ONNXGeluOp>::OpConversionPattern;
@@ -150,23 +136,22 @@ public:
     TosaBuilder tosaBuilder(rewriter, loc);
     StringRef approximate = adaptor.getApproximate();
     ArrayRef<int64_t> shape = inputType.getShape();
-    Value half = createFloatSplatConst(rewriter, loc, 0.5, elementType, shape);
-    Value one = createFloatSplatConst(rewriter, loc, 1.0, elementType, shape);
+    Value half = tosaBuilder.getSplattedConst(0.5, shape, elementType);
+    Value one = tosaBuilder.getSplattedConst(1.0, shape, elementType);
 
     Value inner;
     if (approximate == "none") {
       // y = 0.5 * x * (1 + erf(x / sqrt(2)))
-      Value invSqrt2 = createFloatSplatConst(
-          rewriter, loc, 0.70710678118654752440, elementType, shape);
+      Value invSqrt2 = tosaBuilder.getSplattedConst(
+          0.70710678118654752440, shape, elementType);
       Value scaled = tosaBuilder.mul(x, invSqrt2);
       inner =
           mlir::tosa::ErfOp::create(rewriter, loc, scaled.getType(), scaled);
     } else if (approximate == "tanh") {
       // y = 0.5 * x * (1 + tanh(sqrt(2/pi) * (x + 0.044715 * x^3)))
-      Value coeff =
-          createFloatSplatConst(rewriter, loc, 0.044715, elementType, shape);
-      Value sqrt2OverPi = createFloatSplatConst(
-          rewriter, loc, 0.79788456080286535588, elementType, shape);
+      Value coeff = tosaBuilder.getSplattedConst(0.044715, shape, elementType);
+      Value sqrt2OverPi = tosaBuilder.getSplattedConst(
+          0.79788456080286535588, shape, elementType);
       Value xSquared = tosaBuilder.mul(x, x);
       Value xCubed = tosaBuilder.mul(xSquared, x);
       Value coeffXCubed = tosaBuilder.mul(coeff, xCubed);
