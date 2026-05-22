@@ -4,6 +4,7 @@
 // which are otherwise before the function, and thus are hard to test.
 
 // Test fast math where the divide by scale is replaced by mutiply by the reciprocal of the scale.
+
 // -----
 
 

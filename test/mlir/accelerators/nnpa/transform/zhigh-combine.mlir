@@ -18,6 +18,7 @@ func.func @remove_stick_and_unstick_same_layout(%arg0 : tensor<10x10xf32>) -> te
   // CHECK: zhigh.Relu
   // CHECK: zhigh.Unstick
 }
+
 // -----
 
 func.func @remove_stick_only(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
@@ -84,6 +85,7 @@ func.func @donot_replace_stick_and_unstick_by_layout_transform(%arg0 : tensor<5x
   // CHECK: zhigh.Relu
   // CHECK: zhigh.Unstick
 }
+
 // -----
 
 // Remove Stick with NoneType input.

@@ -72,7 +72,6 @@ func.func @test_softmax_dynamic(%arg0 : tensor<?x20x30xf32>) -> tensor<?x20x30xf
 // CHECK:           return [[VAR_28_]] : tensor<?x20x30xf32>
 // CHECK:         }
 
-
 // -----
 
 func.func @test_softmax_2d(%arg0 : tensor<1x10xf32>) -> tensor<1x10xf32> {
