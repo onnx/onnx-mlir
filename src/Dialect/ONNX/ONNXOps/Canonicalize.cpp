@@ -1362,16 +1362,17 @@ public:
 // Rewrite a pattern like the following:
 //
 // %shape = onnx.Concat(%dim1, %dim2, %dim3)
-// %data = onnx.Expand(%input, %shape)
+// %data = onnx.Expand(%scalar, %shape)
 // %s = "onnx.Slice"(%data, %starts, %ends, %axes, %steps)
 //
 // into
 //
 // %new_shape = onnx.Concat(%new_dim1, %new_dim2, %new_dim3)
-// %s = onnx.Expand(%input, %new_shape)
+// %s = onnx.Expand(%scalar, %new_shape)
 //
 // where dimensions are adjusted based on the slice parameters,
-// and all sliced dimensions are static at compile time.
+// and all sliced dimensions are static at compile time,
+// and the input of Expand is a scalar tensor.
 class ReplaceSliceOfExpandRewritePattern
     : public OpRewritePattern<ONNXSliceOp> {
 public:
