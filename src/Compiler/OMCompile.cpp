@@ -567,7 +567,8 @@ std::unique_ptr<Command> OMCompile::createContainerCompileCommand(
 //===----------------------------------------------------------------------===//
 
 void OMCompile::compile(const std::string &modelPath, const std::string &flags,
-    const std::string &compilerPath, const std::string &logFilename) {
+    const std::string &outputPath, const std::string &compilerPath,
+    const std::string &logFilename) {
 
   // Handle legacy compilerPath parameter for backward compatibility.
   // In local mode, if compilerPath is provided, it overrides the constructor
@@ -590,6 +591,11 @@ void OMCompile::compile(const std::string &modelPath, const std::string &flags,
   // Parse flags and determine input/output files (shared logic).
   flagVect = parseFlags(flags);
   std::string inputFilename = onnx_mlir::getInputFilename(modelPath, flagVect);
+
+  // Apply output path if provided.
+  if (!outputPath.empty()) {
+    onnx_mlir::applyOutputPath(flagVect, outputPath, inputFilename);
+  }
 
   if (inputFilename.empty())
     throw OMCompileException("Compilation failed: missing input model file");

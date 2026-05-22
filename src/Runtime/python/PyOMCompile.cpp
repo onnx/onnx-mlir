@@ -29,8 +29,8 @@ namespace onnx_mlir {
 // Constructor
 
 PyOMCompile::PyOMCompile(const std::string &modelPath, const std::string &flags,
-    const std::string &compilerPath, const std::string &logFilename,
-    bool reuseCompiledModel)
+    const std::string &outputPath, const std::string &compilerPath,
+    const std::string &logFilename, bool reuseCompiledModel)
     : OMcompile() /* constructor without compilation */ {
 
   // See if we can reuse a compilation (no check on model or flag
@@ -53,7 +53,7 @@ PyOMCompile::PyOMCompile(const std::string &modelPath, const std::string &flags,
     // printing to stderr. Python code can handle and display exceptions
     // as needed, avoiding duplicate error messages.
     // Old version caught and re-threw with stderr output, causing duplicates.
-    OMcompile.compile(modelPath, flags, compilerPath, logFilename);
+    OMcompile.compile(modelPath, flags, outputPath, compilerPath, logFilename);
   }
 }
 
