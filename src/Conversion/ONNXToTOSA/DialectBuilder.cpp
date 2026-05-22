@@ -119,9 +119,17 @@ Value TosaBuilder::getConst(ArrayRef<float> vec, ArrayRef<int64_t> shape) {
   return constOp;
 }
 
-Value TosaBuilder::getSplattedConst(float val, llvm::ArrayRef<int64_t> shape) {
-  auto constType = tosa::reduceAxisToOne(shape, rewriter().getF32Type());
-  auto constAttr = DenseElementsAttr::get(constType, val);
+Value TosaBuilder::getSplattedConst(
+    float val, llvm::ArrayRef<int64_t> shape, Type elementType) {
+  if (!elementType)
+    elementType = rewriter().getF32Type();
+  auto floatType = mlir::cast<FloatType>(elementType);
+  APFloat apVal(val);
+  bool losesInfo = false;
+  apVal.convert(
+      floatType.getFloatSemantics(), APFloat::rmNearestTiesToEven, &losesInfo);
+  auto constType = tosa::reduceAxisToOne(shape, elementType);
+  auto constAttr = DenseElementsAttr::get(constType, apVal);
 
   auto constOp =
       mlir::tosa::ConstOp::create(rewriter(), loc(), constType, constAttr);
