@@ -145,8 +145,7 @@ public:
       Value invSqrt2 = tosaBuilder.getSplattedConst(
           0.70710678118654752440, shape, elementType);
       Value scaled = tosaBuilder.mul(x, invSqrt2);
-      inner =
-          mlir::tosa::ErfOp::create(rewriter, loc, scaled.getType(), scaled);
+      inner = tosaBuilder.erf(scaled);
     } else if (approximate == "tanh") {
       // y = 0.5 * x * (1 + tanh(sqrt(2/pi) * (x + 0.044715 * x^3)))
       Value coeff = tosaBuilder.getSplattedConst(0.044715, shape, elementType);
@@ -178,8 +177,9 @@ public:
   using OpAdaptor = typename ONNXErfOp::Adaptor;
   LogicalResult matchAndRewrite(ONNXErfOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
-    rewriter.replaceOpWithNewOp<mlir::tosa::ErfOp>(
-        op, op.getType(), adaptor.getInput());
+    TosaBuilder tosaBuilder(rewriter, op->getLoc());
+    Value input = adaptor.getInput();
+    rewriter.replaceOp(op, tosaBuilder.erf(input));
     return success();
   }
 };
