@@ -60,7 +60,6 @@ std::string getTargetFilename(
 // Get the model tag by scanning the compilation flags.
 std::string getModelTag(const std::vector<std::string> &flagVect);
 
-
 } // namespace onnx_mlir
 
 #endif // ONNX_MLIR_DRIVER_UTILS_H
