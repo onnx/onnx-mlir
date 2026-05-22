@@ -34,6 +34,7 @@ func.func private @test_hammingwindow(%arg0 : tensor<i32>) -> tensor<?xf32> {
 // CHECK:         }
 }
 
+// -----
 
 func.func private @test_blackmanwindow(%arg0 : tensor<i32>) -> tensor<?xf32> {
   %0 = "onnx.BlackmanWindow"(%arg0) {output_datatype = 1 : si64 , periodic = 0 : si64} : (tensor<i32>) -> tensor<?xf32>
