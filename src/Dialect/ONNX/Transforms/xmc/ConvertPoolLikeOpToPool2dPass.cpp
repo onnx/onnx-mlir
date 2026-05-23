@@ -318,7 +318,7 @@ struct LowerReduceMeanV13ToAvgPoolPattern
     SmallVector<int64_t> poolOutputShape = {
         poolShape[0], poolShape[1], outH, outW};
     auto poolOutputType =
-        RankedTensorType::get(poolOutputShape, inputType.getElementType());
+        RankedTensorType::get(poolOutputShape, outputType.getElementType());
 
     auto si64Type =
         IntegerType::get(rewriter.getContext(), 64, IntegerType::Signed);
@@ -402,7 +402,7 @@ struct LowerReduceMeanToAvgPoolPattern
     SmallVector<int64_t> poolOutputShape = {
         poolShape[0], poolShape[1], outH, outW};
     auto poolOutputType =
-        RankedTensorType::get(poolOutputShape, inputType.getElementType());
+        RankedTensorType::get(poolOutputShape, outputType.getElementType());
 
     // Create signed i64 type for ONNX attributes (si64)
     auto si64Type =
@@ -702,7 +702,7 @@ struct LowerReduceSumToAvgPoolPattern
     SmallVector<int64_t> poolOutputShape = {
         poolShape[0], poolShape[1], outH, outW};
     auto poolOutputType =
-        RankedTensorType::get(poolOutputShape, inputType.getElementType());
+        RankedTensorType::get(poolOutputShape, outputType.getElementType());
 
     // Create signed i64 type for ONNX attributes (si64)
     auto si64Type =
