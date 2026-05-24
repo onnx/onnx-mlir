@@ -17,17 +17,17 @@
 // CHECK-LABEL: @reduce_mean_spatial_hw
 // NCHW: tensor<1x3x4x4> - N=1, C=3, H=4, W=4
 // Reduce axes [2, 3] (H, W) -> output tensor<1x3x1x1>
+// Full-spatial reduction with keepdims=true is emitted as ONNXGlobalAveragePool
+// to preserve the natural [H, W] kernel downstream (matches legacy xmodel flow).
 func.func @reduce_mean_spatial_hw(%arg0: tensor<1x3x4x4x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<1x3x1x1x!quant.uniform<i8:f32, 0.1:1>> {
     %0 = onnx.Constant dense<[2, 3]> : tensor<2xi64>
     %1 = "onnx.ReduceMean"(%arg0, %0) {keepdims = 1 : si64} : (tensor<1x3x4x4x!quant.uniform<i8:f32, 0.05:0>>, tensor<2xi64>) -> tensor<1x3x1x1x!quant.uniform<i8:f32, 0.1:1>>
     return %1 : tensor<1x3x1x1x!quant.uniform<i8:f32, 0.1:1>>
 }
-// Pool result must carry the *output* quant scale (1e-1:1), not the input
-// scale (5e-2). The same-line check guarantees the AveragePool op itself
-// produces the output element type.
-// CHECK: "onnx.AveragePool"
+// CHECK: "onnx.GlobalAveragePool"
 // CHECK-SAME: !quant.uniform<i8:f32, 1.000000e-01:1>>
 // CHECK-NOT: onnx.ReduceMean
+// CHECK-NOT: onnx.AveragePool
 
 // -----
 
@@ -174,14 +174,17 @@ func.func @reduce_mean_trivial_axis(%arg0: tensor<1x3x1x4x!quant.uniform<i8:f32,
 
 // CHECK-LABEL: @reduce_mean_larger_spatial
 // NCHW: tensor<1x64x16x16> - reduce axes [2, 3] (H, W)
+// Full-spatial reduction -> emitted as ONNXGlobalAveragePool with output
+// quant scale preserved (PR #780 invariant).
 func.func @reduce_mean_larger_spatial(%arg0: tensor<1x64x16x16x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<1x64x1x1x!quant.uniform<i8:f32, 0.1:1>> {
     %0 = onnx.Constant dense<[2, 3]> : tensor<2xi64>
     %1 = "onnx.ReduceMean"(%arg0, %0) {keepdims = 1 : si64} : (tensor<1x64x16x16x!quant.uniform<i8:f32, 0.05:0>>, tensor<2xi64>) -> tensor<1x64x1x1x!quant.uniform<i8:f32, 0.1:1>>
     return %1 : tensor<1x64x1x1x!quant.uniform<i8:f32, 0.1:1>>
 }
-// CHECK: "onnx.AveragePool"
+// CHECK: "onnx.GlobalAveragePool"
 // CHECK-SAME: !quant.uniform<i8:f32, 1.000000e-01:1>
 // CHECK-NOT: onnx.ReduceMean
+// CHECK-NOT: onnx.AveragePool
 
 // -----
 
@@ -219,12 +222,51 @@ func.func @reduce_sum_larger_spatial(%arg0: tensor<1x32x8x8x!quant.uniform<i8:f3
 // CHECK-LABEL: @reduce_mean_v13_spatial_hw
 // NCHW: tensor<1x3x4x4> - N=1, C=3, H=4, W=4
 // Reduce axes [2, 3] (H, W) -> output tensor<1x3x1x1>
+// V13 (attribute-based axes) full-spatial reduction -> ONNXGlobalAveragePool.
 func.func @reduce_mean_v13_spatial_hw(%arg0: tensor<1x3x4x4x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<1x3x1x1x!quant.uniform<i8:f32, 0.1:1>> {
     %0 = "onnx.ReduceMeanV13"(%arg0) {axes = [2, 3], keepdims = 1 : si64} : (tensor<1x3x4x4x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<1x3x1x1x!quant.uniform<i8:f32, 0.1:1>>
     return %0 : tensor<1x3x1x1x!quant.uniform<i8:f32, 0.1:1>>
 }
-// CHECK: "onnx.AveragePool"
+// CHECK: "onnx.GlobalAveragePool"
 // CHECK-SAME: !quant.uniform<i8:f32, 1.000000e-01:1>>
+// CHECK-NOT: onnx.ReduceMeanV13
+// CHECK-NOT: onnx.AveragePool
+
+// -----
+
+// CHECK-LABEL: @reduce_mean_v13_psv_global_avgpool
+// Regression test for the PSV global-average-pool path.
+// NCHW: tensor<1x256x64x64> - reduce axes [2, 3] -> tensor<1x256x1x1>.
+// Previously this was lowered to ONNXAveragePool with a flattened
+// kernel = [1, 4096] (forced by MAX_KERNEL_SIZE = 16), which downstream
+// xir lowered to qlinear_pool {kernel=[1,4096], global=true} -- bit-different
+// from the golden xmodel flow (kernel=[64,64], global=true) and the cause of
+// the accuracy regression observed after PR #780. The fast path now emits
+// ONNXGlobalAveragePool directly so the natural [64, 64] kernel is preserved
+// all the way through to xir.qlinear_pool, matching legacy ReplaceQDQPoolPass.
+func.func @reduce_mean_v13_psv_global_avgpool(%arg0: tensor<1x256x64x64x!quant.uniform<u8:f32, 0.05:0>>) -> tensor<1x256x1x1x!quant.uniform<u8:f32, 0.1:1>> {
+    %0 = "onnx.ReduceMeanV13"(%arg0) {axes = [2, 3], keepdims = 1 : si64} : (tensor<1x256x64x64x!quant.uniform<u8:f32, 0.05:0>>) -> tensor<1x256x1x1x!quant.uniform<u8:f32, 0.1:1>>
+    return %0 : tensor<1x256x1x1x!quant.uniform<u8:f32, 0.1:1>>
+}
+// CHECK: "onnx.GlobalAveragePool"
+// CHECK-SAME: tensor<1x256x64x64
+// CHECK-SAME: -> tensor<1x256x1x1
+// CHECK-SAME: !quant.uniform<u8:f32, 1.000000e-01:1>>
+// CHECK-NOT: onnx.Reshape
+// CHECK-NOT: onnx.AveragePool
+// CHECK-NOT: onnx.ReduceMeanV13
+
+// -----
+
+// CHECK-LABEL: @reduce_mean_v13_keepdims_false_no_fast_path
+// keepdims=false produces a rank-2 output, so the GlobalAveragePool fast path
+// is NOT taken. The original AveragePool + Reshape flatten path still applies.
+func.func @reduce_mean_v13_keepdims_false_no_fast_path(%arg0: tensor<1x3x4x4x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<1x3x!quant.uniform<i8:f32, 0.1:1>> {
+    %0 = "onnx.ReduceMeanV13"(%arg0) {axes = [2, 3], keepdims = 0 : si64} : (tensor<1x3x4x4x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<1x3x!quant.uniform<i8:f32, 0.1:1>>
+    return %0 : tensor<1x3x!quant.uniform<i8:f32, 0.1:1>>
+}
+// CHECK: "onnx.AveragePool"
+// CHECK-NOT: onnx.GlobalAveragePool
 // CHECK-NOT: onnx.ReduceMeanV13
 
 // -----
