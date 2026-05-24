@@ -452,3 +452,202 @@ func.func @diamond_two_chains_into_add(%arg0: tensor<6xi8>) -> tensor<3x2x!quant
   %a = "onnx.Add"(%t1, %r2) : (tensor<3x2xf32>, tensor<3x2xf32>) -> tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>
   return %a : tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>
 }
+
+// -----
+// Forward through Expand: broadcast replicates input values, result becomes quant.
+// CHECK-LABEL: func @fwd_expand
+// CHECK: %[[E:.+]] = "onnx.Expand"(%{{.+}}, %{{.+}}) : (tensor<1x4x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<2xi64>) -> tensor<3x4x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: return %[[E]]
+func.func @fwd_expand(%arg0: tensor<1x4xi8>) -> tensor<3x4x!quant.uniform<i8:f32, 5.000000e-01>> {
+  %shape = "onnx.Constant"() {value = dense<[3, 4]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %q = quant.scast %arg0 : tensor<1x4xi8> to tensor<1x4x!quant.uniform<i8:f32, 5.000000e-01>>
+  %e = "onnx.Expand"(%q, %shape) : (tensor<1x4x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<2xi64>) -> tensor<3x4xf32>
+  %back = "builtin.unrealized_conversion_cast"(%e) : (tensor<3x4xf32>) -> tensor<3x4x!quant.uniform<i8:f32, 5.000000e-01>>
+  return %back : tensor<3x4x!quant.uniform<i8:f32, 5.000000e-01>>
+}
+
+// -----
+// Forward through Neg: same scale and zp propagated (accepted approximation
+// for asymmetric quant; exact for symmetric).
+// CHECK-LABEL: func @fwd_neg
+// CHECK: %[[N:.+]] = "onnx.Neg"(%{{.+}}) : (tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>) -> tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: return %[[N]]
+func.func @fwd_neg(%arg0: tensor<2x3xi8>) -> tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>> {
+  %q = quant.scast %arg0 : tensor<2x3xi8> to tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+  %n = "onnx.Neg"(%q) : (tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>) -> tensor<2x3xf32>
+  %back = "builtin.unrealized_conversion_cast"(%n) : (tensor<2x3xf32>) -> tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+  return %back : tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+}
+
+// -----
+// Forward through Clip: input range envelopes output range; same params OK.
+// CHECK-LABEL: func @fwd_clip
+// CHECK: %[[C:.+]] = "onnx.Clip"(%{{.+}}, %{{.+}}, %{{.+}}) : (tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<f32>, tensor<f32>) -> tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: return %[[C]]
+func.func @fwd_clip(%arg0: tensor<2x3xi8>) -> tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>> {
+  %min = "onnx.Constant"() {value = dense<-1.0> : tensor<f32>} : () -> tensor<f32>
+  %max = "onnx.Constant"() {value = dense<1.0> : tensor<f32>} : () -> tensor<f32>
+  %q = quant.scast %arg0 : tensor<2x3xi8> to tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+  %c = "onnx.Clip"(%q, %min, %max) : (tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<f32>, tensor<f32>) -> tensor<2x3xf32>
+  %back = "builtin.unrealized_conversion_cast"(%c) : (tensor<2x3xf32>) -> tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+  return %back : tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+}
+
+// -----
+// Forward through Resize (nearest mode): each output equals an input value.
+// CHECK-LABEL: func @fwd_resize_nearest
+// CHECK: %[[R:.+]] = "onnx.Resize"(%{{.+}}, %{{.+}}, %{{.+}}, %{{.+}}) {{.+}}: (tensor<1x3x4x4x!quant.uniform<i8:f32, 5.000000e-01>>, none, tensor<4xf32>, none) -> tensor<1x3x8x8x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: return %[[R]]
+func.func @fwd_resize_nearest(%arg0: tensor<1x3x4x4xi8>) -> tensor<1x3x8x8x!quant.uniform<i8:f32, 5.000000e-01>> {
+  %roi = "onnx.NoValue"() {value} : () -> none
+  %scales = "onnx.Constant"() {value = dense<[1.0, 1.0, 2.0, 2.0]> : tensor<4xf32>} : () -> tensor<4xf32>
+  %sizes = "onnx.NoValue"() {value} : () -> none
+  %q = quant.scast %arg0 : tensor<1x3x4x4xi8> to tensor<1x3x4x4x!quant.uniform<i8:f32, 5.000000e-01>>
+  %r = "onnx.Resize"(%q, %roi, %scales, %sizes) {mode = "nearest", coordinate_transformation_mode = "half_pixel", nearest_mode = "round_prefer_floor"} : (tensor<1x3x4x4x!quant.uniform<i8:f32, 5.000000e-01>>, none, tensor<4xf32>, none) -> tensor<1x3x8x8xf32>
+  %back = "builtin.unrealized_conversion_cast"(%r) : (tensor<1x3x8x8xf32>) -> tensor<1x3x8x8x!quant.uniform<i8:f32, 5.000000e-01>>
+  return %back : tensor<1x3x8x8x!quant.uniform<i8:f32, 5.000000e-01>>
+}
+
+// -----
+// Resize with non-nearest mode is filtered out - leave mismatch as-is for
+// other passes to handle.
+// CHECK-LABEL: func @skip_resize_linear
+// CHECK: %[[R:.+]] = "onnx.Resize"(%{{.+}}, %{{.+}}, %{{.+}}, %{{.+}}) {{.+}} -> tensor<1x3x8x8xf32>
+func.func @skip_resize_linear(%arg0: tensor<1x3x4x4xi8>) -> tensor<1x3x8x8xf32> {
+  %roi = "onnx.NoValue"() {value} : () -> none
+  %scales = "onnx.Constant"() {value = dense<[1.0, 1.0, 2.0, 2.0]> : tensor<4xf32>} : () -> tensor<4xf32>
+  %sizes = "onnx.NoValue"() {value} : () -> none
+  %q = quant.scast %arg0 : tensor<1x3x4x4xi8> to tensor<1x3x4x4x!quant.uniform<i8:f32, 5.000000e-01>>
+  %r = "onnx.Resize"(%q, %roi, %scales, %sizes) {mode = "linear", coordinate_transformation_mode = "half_pixel"} : (tensor<1x3x4x4x!quant.uniform<i8:f32, 5.000000e-01>>, none, tensor<4xf32>, none) -> tensor<1x3x8x8xf32>
+  return %r : tensor<1x3x8x8xf32>
+}
+
+// -----
+// Forward through Concat: all input operands share the same quant type, so
+// the f32 result is retyped to that common quant.
+// CHECK-LABEL: func @fwd_concat
+// CHECK: %[[C:.+]] = "onnx.Concat"(%{{.+}}, %{{.+}}) {{.+}}: (tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>) -> tensor<4x3x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: return %[[C]]
+func.func @fwd_concat(%a: tensor<2x3xi8>, %b: tensor<2x3xi8>) -> tensor<4x3x!quant.uniform<i8:f32, 5.000000e-01>> {
+  %qa = quant.scast %a : tensor<2x3xi8> to tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+  %qb = quant.scast %b : tensor<2x3xi8> to tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+  %c = "onnx.Concat"(%qa, %qb) {axis = 0 : si64} : (tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>) -> tensor<4x3xf32>
+  %back = "builtin.unrealized_conversion_cast"(%c) : (tensor<4x3xf32>) -> tensor<4x3x!quant.uniform<i8:f32, 5.000000e-01>>
+  return %back : tensor<4x3x!quant.uniform<i8:f32, 5.000000e-01>>
+}
+
+// -----
+// Concat with operands carrying different quant types - skip (different
+// scales mean a real requantization, not a propagation).
+// CHECK-LABEL: func @noop_concat_mismatched_inputs
+// CHECK: %[[C:.+]] = "onnx.Concat"(%{{.+}}, %{{.+}}) {{.+}} -> tensor<4x3xf32>
+func.func @noop_concat_mismatched_inputs(%a: tensor<2x3xi8>, %b: tensor<2x3xi8>) -> tensor<4x3xf32> {
+  %qa = quant.scast %a : tensor<2x3xi8> to tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+  %qb = quant.scast %b : tensor<2x3xi8> to tensor<2x3x!quant.uniform<i8:f32, 2.500000e-01>>
+  %c = "onnx.Concat"(%qa, %qb) {axis = 0 : si64} : (tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<2x3x!quant.uniform<i8:f32, 2.500000e-01>>) -> tensor<4x3xf32>
+  return %c : tensor<4x3xf32>
+}
+
+// -----
+// Backward through Concat: f32 operands feeding Concat whose result is quant.
+// All operand producers (Relu's here) get their results retyped to the common
+// quant.
+// CHECK-LABEL: func @bwd_concat
+// CHECK: %[[RA:.+]] = "onnx.Relu"(%{{.+}}) : (tensor<2x3xf32>) -> tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: %[[RB:.+]] = "onnx.Relu"(%{{.+}}) : (tensor<2x3xf32>) -> tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: %[[C:.+]] = "onnx.Concat"(%[[RA]], %[[RB]]) {{.+}}: (tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>) -> tensor<4x3x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: return %[[C]]
+func.func @bwd_concat(%a: tensor<2x3xf32>, %b: tensor<2x3xf32>) -> tensor<4x3x!quant.uniform<i8:f32, 5.000000e-01>> {
+  %ra = "onnx.Relu"(%a) : (tensor<2x3xf32>) -> tensor<2x3xf32>
+  %rb = "onnx.Relu"(%b) : (tensor<2x3xf32>) -> tensor<2x3xf32>
+  %c = "onnx.Concat"(%ra, %rb) {axis = 0 : si64} : (tensor<2x3xf32>, tensor<2x3xf32>) -> tensor<4x3x!quant.uniform<i8:f32, 5.000000e-01>>
+  return %c : tensor<4x3x!quant.uniform<i8:f32, 5.000000e-01>>
+}
+
+// -----
+// Forward through Where: X and Y share the same quant; condition stays i1.
+// CHECK-LABEL: func @fwd_where
+// CHECK: %[[W:.+]] = "onnx.Where"(%{{.+}}, %{{.+}}, %{{.+}}) : (tensor<2x3xi1>, tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>) -> tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: return %[[W]]
+func.func @fwd_where(%cond: tensor<2x3xi1>, %x: tensor<2x3xi8>, %y: tensor<2x3xi8>) -> tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>> {
+  %qx = quant.scast %x : tensor<2x3xi8> to tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+  %qy = quant.scast %y : tensor<2x3xi8> to tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+  %w = "onnx.Where"(%cond, %qx, %qy) : (tensor<2x3xi1>, tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>) -> tensor<2x3xf32>
+  %back = "builtin.unrealized_conversion_cast"(%w) : (tensor<2x3xf32>) -> tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+  return %back : tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+}
+
+// -----
+// Where with X and Y carrying different quant types - skip.
+// CHECK-LABEL: func @noop_where_mismatched_xy
+// CHECK: %[[W:.+]] = "onnx.Where"(%{{.+}}, %{{.+}}, %{{.+}}) : {{.+}} -> tensor<2x3xf32>
+func.func @noop_where_mismatched_xy(%cond: tensor<2x3xi1>, %x: tensor<2x3xi8>, %y: tensor<2x3xi8>) -> tensor<2x3xf32> {
+  %qx = quant.scast %x : tensor<2x3xi8> to tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+  %qy = quant.scast %y : tensor<2x3xi8> to tensor<2x3x!quant.uniform<i8:f32, 2.500000e-01>>
+  %w = "onnx.Where"(%cond, %qx, %qy) : (tensor<2x3xi1>, tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<2x3x!quant.uniform<i8:f32, 2.500000e-01>>) -> tensor<2x3xf32>
+  return %w : tensor<2x3xf32>
+}
+
+// -----
+// Backward through Where: both X and Y producers retyped; condition operand
+// (i1) is left alone.
+// CHECK-LABEL: func @bwd_where
+// CHECK: %[[RX:.+]] = "onnx.Relu"(%{{.+}}) : (tensor<2x3xf32>) -> tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: %[[RY:.+]] = "onnx.Relu"(%{{.+}}) : (tensor<2x3xf32>) -> tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: %[[W:.+]] = "onnx.Where"(%{{.+}}, %[[RX]], %[[RY]]) : (tensor<2x3xi1>, tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>) -> tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: return %[[W]]
+func.func @bwd_where(%cond: tensor<2x3xi1>, %x: tensor<2x3xf32>, %y: tensor<2x3xf32>) -> tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>> {
+  %rx = "onnx.Relu"(%x) : (tensor<2x3xf32>) -> tensor<2x3xf32>
+  %ry = "onnx.Relu"(%y) : (tensor<2x3xf32>) -> tensor<2x3xf32>
+  %w = "onnx.Where"(%cond, %rx, %ry) : (tensor<2x3xi1>, tensor<2x3xf32>, tensor<2x3xf32>) -> tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+  return %w : tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+}
+
+// -----
+// Partial backward through Concat: one operand already quant (matching
+// result), the other is f32 from a polymorphic producer. Only the f32
+// operand's producer is retyped; the already-quant operand is untouched.
+// CHECK-LABEL: func @bwd_concat_partial
+// CHECK: %[[Q:.+]] = quant.scast
+// CHECK: %[[R:.+]] = "onnx.Relu"(%{{.+}}) : (tensor<2x3xf32>) -> tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: %[[C:.+]] = "onnx.Concat"(%[[Q]], %[[R]]) {{.+}}: (tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>) -> tensor<4x3x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: return %[[C]]
+func.func @bwd_concat_partial(%a: tensor<2x3xi8>, %b: tensor<2x3xf32>) -> tensor<4x3x!quant.uniform<i8:f32, 5.000000e-01>> {
+  %qa = quant.scast %a : tensor<2x3xi8> to tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+  %rb = "onnx.Relu"(%b) : (tensor<2x3xf32>) -> tensor<2x3xf32>
+  %c = "onnx.Concat"(%qa, %rb) {axis = 0 : si64} : (tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<2x3xf32>) -> tensor<4x3x!quant.uniform<i8:f32, 5.000000e-01>>
+  return %c : tensor<4x3x!quant.uniform<i8:f32, 5.000000e-01>>
+}
+
+// -----
+// Partial backward through Concat with an already-quant operand carrying
+// DIFFERENT quant params from the result. The mismatched operand is left
+// alone; only the f32 operand is retyped to the result's quant. The pre-pass
+// mismatch (q1 input + q2 output) is preserved and surfaces for later passes
+// to materialize an explicit requantize.
+// CHECK-LABEL: func @bwd_concat_partial_with_mismatched_quant
+// CHECK: %[[Q1:.+]] = quant.scast %{{.+}} : tensor<2x3xi8> to tensor<2x3x!quant.uniform<i8:f32, 2.500000e-01>>
+// CHECK: %[[R:.+]] = "onnx.Relu"(%{{.+}}) : (tensor<2x3xf32>) -> tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: %[[C:.+]] = "onnx.Concat"(%[[Q1]], %[[R]]) {{.+}}: (tensor<2x3x!quant.uniform<i8:f32, 2.500000e-01>>, tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>) -> tensor<4x3x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: return %[[C]]
+func.func @bwd_concat_partial_with_mismatched_quant(%a: tensor<2x3xi8>, %b: tensor<2x3xf32>) -> tensor<4x3x!quant.uniform<i8:f32, 5.000000e-01>> {
+  %qa = quant.scast %a : tensor<2x3xi8> to tensor<2x3x!quant.uniform<i8:f32, 2.500000e-01>>
+  %rb = "onnx.Relu"(%b) : (tensor<2x3xf32>) -> tensor<2x3xf32>
+  %c = "onnx.Concat"(%qa, %rb) {axis = 0 : si64} : (tensor<2x3x!quant.uniform<i8:f32, 2.500000e-01>>, tensor<2x3xf32>) -> tensor<4x3x!quant.uniform<i8:f32, 5.000000e-01>>
+  return %c : tensor<4x3x!quant.uniform<i8:f32, 5.000000e-01>>
+}
+
+// -----
+// Partial backward through Where: X is already quant (matching result), Y is
+// f32. Only Y's producer is retyped.
+// CHECK-LABEL: func @bwd_where_partial
+// CHECK: %[[QX:.+]] = quant.scast
+// CHECK: %[[RY:.+]] = "onnx.Relu"(%{{.+}}) : (tensor<2x3xf32>) -> tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: %[[W:.+]] = "onnx.Where"(%{{.+}}, %[[QX]], %[[RY]]) : (tensor<2x3xi1>, tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>) -> tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK: return %[[W]]
+func.func @bwd_where_partial(%cond: tensor<2x3xi1>, %x: tensor<2x3xi8>, %y: tensor<2x3xf32>) -> tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>> {
+  %qx = quant.scast %x : tensor<2x3xi8> to tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+  %ry = "onnx.Relu"(%y) : (tensor<2x3xf32>) -> tensor<2x3xf32>
+  %w = "onnx.Where"(%cond, %qx, %ry) : (tensor<2x3xi1>, tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<2x3xf32>) -> tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+  return %w : tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
+}
