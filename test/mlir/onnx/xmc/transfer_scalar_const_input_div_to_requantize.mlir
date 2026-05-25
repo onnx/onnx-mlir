@@ -128,13 +128,19 @@ func.func @add_scalar_ui16_const_no_match(%arg0: tensor<1x32x7x7x!quant.uniform<
 
 // -----
 
-// Test 9: Div consumed directly by func.return -- guard skips because the
-// rewrite would change the result type but func.return is not an ONNX op.
-// CHECK-LABEL: @div_consumed_by_return_no_match
-func.func @div_consumed_by_return_no_match(%arg0: tensor<1x32x7x7x!quant.uniform<u8:f32, 5.000000e-01:0>>) -> tensor<1x32x7x7x!quant.uniform<u8:f32, 2.500000e-01:0>> {
+// Test 9: Div consumed directly by func.return - still rewrites. The new
+// pass keeps the result tensor's advertised quant type identical to the
+// original Div output and only embeds the kernel scale in y_scale, so the
+// type signature (and therefore the func.return contract) is preserved.
+// real_c = (2 - 0) * 0.5 = 1.0; kernel y_scale = 0.25 * 1.0 = 0.25.
+// CHECK-LABEL: @div_consumed_by_return
+func.func @div_consumed_by_return(%arg0: tensor<1x32x7x7x!quant.uniform<u8:f32, 5.000000e-01:0>>) -> tensor<1x32x7x7x!quant.uniform<u8:f32, 2.500000e-01:0>> {
   %c = onnx.Constant {value = dense<2> : tensor<1xui16>} : tensor<1x!quant.uniform<u16:f32, 5.000000e-01:0>>
   %0 = "onnx.Div"(%arg0, %c) : (tensor<1x32x7x7x!quant.uniform<u8:f32, 5.000000e-01:0>>, tensor<1x!quant.uniform<u16:f32, 5.000000e-01:0>>) -> tensor<1x32x7x7x!quant.uniform<u8:f32, 2.500000e-01:0>>
   return %0 : tensor<1x32x7x7x!quant.uniform<u8:f32, 2.500000e-01:0>>
 }
-// CHECK: onnx.Div
-// CHECK-NOT: onnx.XCOMPILERRequantize
+// CHECK-NOT: onnx.Div
+// CHECK: "onnx.XCOMPILERRequantize"
+// CHECK-SAME: a_scale = [5.000000e-01
+// CHECK-SAME: y_scale = [2.500000e-01
+// CHECK-SAME: -> tensor<1x32x7x7x!quant.uniform<u8:f32, 2.500000e-01

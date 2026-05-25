@@ -15,15 +15,21 @@
 //          tensor<1x!quant.uniform<ui16:f32,c_s,c_zp>>
 //          -> tensor<...,!quant.uniform<...,s_y,zp_y>>
 //
-// For DIV (real_y = real_x / real_c) the pure-rescale equivalent is:
-//   new_y_scale_onnx = s_y * real_c
-// For MUL (real_y = real_x * real_c) the pure-rescale equivalent is:
-//   new_y_scale_onnx = s_y / real_c
+// For DIV (real_y = real_x / real_c) the equivalent REQUANTIZE kernel scale
+// (i.e. the y_scale used inside the rescale arithmetic) is:
+//   kernel_y_scale = s_y * real_c
+// For MUL (real_y = real_x * real_c) it is:
+//   kernel_y_scale = s_y / real_c
 //
 // where real_c = (q_c - c_zp) * c_s.  The output zero point is preserved.
-// The op is replaced by an XCOMPILERRequantize whose result tensor carries
-// the new (scale, zp) on its quantized element type, so that downstream
-// consumers see the updated quantization parameters.
+//
+// IMPORTANT: only the REQUANTIZE op's `y_scale` *attribute* takes the new
+// kernel scale.  The result tensor's quantized element type retains the
+// ORIGINAL (s_y, zp_y) of the Div / Mul output, so downstream consumers see
+// the same advertised scale they would have seen for the original Div / Mul.
+// The integer values produced by the new REQUANTIZE with kernel scale
+// (s_y * real_c) are exactly the integers that DIV would have produced and,
+// when interpreted with the advertised scale s_y, represent real_x / real_c.
 //
 // Only scalar (single-element) quantized constants are matched, matching
 // the xcompiler template filter that limits this to per-tensor constants.
@@ -132,23 +138,6 @@ public:
     if (!lhsType || !outType)
       return rewriter.notifyMatchFailure(binOp, "Operands not ranked tensors");
 
-    // The rewrite changes the result's quantized element type (new y_scale).
-    // That type change propagates into every user of the op's result, so we
-    // can only safely apply it when all users can absorb the new quant type
-    // -- i.e. all users are ONNX ops other than Q/DQ. func.return, quant
-    // ops, etc. have fixed operand types and would become ill-typed.
-    auto isAllowedUser = [](Operation *user) -> bool {
-      if (!user)
-        return false;
-      if (isa<ONNXDequantizeLinearOp, ONNXQuantizeLinearOp>(user))
-        return false;
-      return isa<ONNXDialect>(user->getDialect());
-    };
-    if (!llvm::all_of(out.getUsers(), isAllowedUser))
-      return rewriter.notifyMatchFailure(binOp,
-          "Output has a non-ONNX consumer; cannot update its quant "
-          "type without invalidating downstream IR");
-
     auto lhsQType =
         dyn_cast<quant::UniformQuantizedType>(lhsType.getElementType());
     auto outQType =
@@ -183,43 +172,39 @@ public:
       return rewriter.notifyMatchFailure(
           binOp, "Dequantized scalar constant is zero");
 
-    // Compute new output scale so that REQUANTIZE alone reproduces the
-    // integer values that DIV / MUL would have produced.
-    double newYScale = outQType.getScale();
+    // Compute the kernel y_scale that the REQUANTIZE math must use so that
+    // it reproduces the integer values that DIV / MUL would have produced.
+    // The advertised tensor type retains the original output scale, so the
+    // consumers continue to see (s_y, zp_y).
+    double kernelYScale = outQType.getScale();
     if constexpr (std::is_same_v<ONNXBinOp, ONNXDivOp>) {
-      newYScale *= realC;
+      kernelYScale *= realC;
     } else {
-      newYScale /= realC;
+      kernelYScale /= realC;
     }
-    newYScale = convertToExpressedType(newYScale, outQType);
-    if (!std::isfinite(newYScale) || newYScale == 0.0)
+    kernelYScale = convertToExpressedType(kernelYScale, outQType);
+    if (!std::isfinite(kernelYScale) || kernelYScale == 0.0)
       return rewriter.notifyMatchFailure(
-          binOp, "Computed new y_scale is not finite / non-zero");
+          binOp, "Computed kernel y_scale is not finite / non-zero");
 
-    int64_t newYZp = outQType.getZeroPoint();
-
-    auto newOutQType = quant::UniformQuantizedType::getChecked(
-        [&]() { return binOp->emitOpError(); }, outQType.getFlags(),
-        outQType.getStorageType(), outQType.getExpressedType(), newYScale,
-        newYZp, outQType.getStorageTypeMin(), outQType.getStorageTypeMax());
-    if (!newOutQType)
-      return rewriter.notifyMatchFailure(
-          binOp, "Failed to build new output quant type");
-
-    auto newOutType = outType.clone(newOutQType);
+    int64_t yZp = outQType.getZeroPoint();
 
     // Build XCOMPILERRequantize attributes:
     //   a_scale, a_zp   = LHS quant params (unchanged)
-    //   y_scale, y_zp   = new output quant params
+    //   y_scale         = kernel scale (s_y * real_c for Div, s_y / real_c
+    //                     for Mul) used by the rescale kernel
+    //   y_zp            = original output zero point
     ArrayAttr aScaleAttr = rewriter.getArrayAttr(
         {rewriter.getF32FloatAttr(static_cast<float>(lhsQType.getScale()))});
     ArrayAttr aZpAttr = rewriter.getI64ArrayAttr({lhsQType.getZeroPoint()});
     ArrayAttr yScaleAttr = rewriter.getArrayAttr(
-        {rewriter.getF32FloatAttr(static_cast<float>(newYScale))});
-    ArrayAttr yZpAttr = rewriter.getI64ArrayAttr({newYZp});
+        {rewriter.getF32FloatAttr(static_cast<float>(kernelYScale))});
+    ArrayAttr yZpAttr = rewriter.getI64ArrayAttr({yZp});
 
+    // Keep the result tensor type identical to the original Div / Mul output,
+    // so downstream ops continue to see (s_y, zp_y) on their input.
     auto requantize = rewriter.create<XCOMPILERRequantizeOp>(binOp->getLoc(),
-        newOutType, lhs, aScaleAttr, aZpAttr, yScaleAttr, yZpAttr);
+        outType, lhs, aScaleAttr, aZpAttr, yScaleAttr, yZpAttr);
 
     rewriter.replaceOp(binOp, requantize.getResult());
     return success();
