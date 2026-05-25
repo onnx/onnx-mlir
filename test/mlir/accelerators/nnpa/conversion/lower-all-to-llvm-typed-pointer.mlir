@@ -450,7 +450,6 @@ func.func @test_call_zdnn_maxpool2d() -> () {
   // CHECK: {{.*}} = llvm.call @zdnn_maxpool2d(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr, i64, i64, i64, i64, i64, !llvm.ptr) -> i32
 }
 
-
 // -----
 
 // Check whether meanreduce2d calls the correct zDNN API or not.
