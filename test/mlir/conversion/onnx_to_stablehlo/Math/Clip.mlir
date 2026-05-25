@@ -25,6 +25,8 @@ func.func @test_clip_default_min_f32(%arg0: tensor<3xf32>, %arg1: tensor<f32>, %
 // CHECK-NEXT:   }
 }
 
+// -----
+
 // Test when min is none
 func.func @test_clip_default_min_f64(%arg0: tensor<3xf64>, %arg1: tensor<f64>, %arg2: tensor<f64>) -> tensor<3xf64> {
   %cst = "onnx.NoValue"() {value} : () -> none
@@ -37,6 +39,8 @@ func.func @test_clip_default_min_f64(%arg0: tensor<3xf64>, %arg1: tensor<f64>, %
 // CHECK-NEXT:     return [[VAR_1_]] : tensor<3xf64>
 // CHECK-NEXT:   }
 }
+
+// -----
 
 // Test when min is none
 func.func @test_clip_default_min_i32(%arg0: tensor<3xi32>, %arg1: tensor<i32>, %arg2: tensor<i32>) -> tensor<3xi32> {
@@ -66,6 +70,8 @@ func.func @test_clip_default_max_f32(%arg0: tensor<3xf32>, %arg1: tensor<f32>, %
 // CHECK-NEXT:   }
 }
 
+// -----
+
 // Test when max is none
 func.func @test_clip_default_max_f64(%arg0: tensor<3xf64>, %arg1: tensor<f64>, %arg2: tensor<f64>) -> tensor<3xf64> {
   %cst = "onnx.NoValue"() {value} : () -> none
@@ -78,6 +84,8 @@ func.func @test_clip_default_max_f64(%arg0: tensor<3xf64>, %arg1: tensor<f64>, %
 // CHECK-NEXT:     return [[VAR_1_]] : tensor<3xf64>
 // CHECK-NEXT:   }
 }
+
+// -----
 
 // Test when max is none
 func.func @test_clip_default_max_i32(%arg0: tensor<3xi32>, %arg1: tensor<i32>, %arg2: tensor<i32>) -> tensor<3xi32> {

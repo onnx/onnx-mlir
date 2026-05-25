@@ -123,7 +123,6 @@ func.func @omploop_hoist_defined_inside(%arg0 : memref<1x?x768xf32>) {
 // CHECK:           return
 }
 
-
 // -----
 
 func.func @omploop_hoisting_defined_outside(%arg0 : memref<1x?x768xf32>) {
@@ -163,7 +162,6 @@ func.func @omploop_hoisting_defined_outside(%arg0 : memref<1x?x768xf32>) {
 // CHECK:           }
 // CHECK:           return
 }
-
 
 // -----
 

@@ -197,6 +197,9 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
   // Last shape inference to make sure all ops have good shapes.
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
 
+  // Remove common sub-expressions.
+  pm.addPass(onnx_mlir::createONNXCSEWithNodeNamePass());
+
   // Profiling ZHighIR.
   unsigned instrumentActions = instrumentControlBits;
   if (profileIR == onnx_mlir::ProfileIRs::ZHigh ||

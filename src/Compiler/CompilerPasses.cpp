@@ -202,6 +202,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
 
   // Clean dead code.
   pm.addPass(mlir::createSymbolDCEPass());
+  // Apply CSE while preserving onnx_node_name attributes.
+  pm.addPass(onnx_mlir::createONNXCSEWithNodeNamePass());
 
   // Replace every DisposableElementsAttr with DenseElementsAttr.
   if (!donotScrubDisposableElementsAttr)

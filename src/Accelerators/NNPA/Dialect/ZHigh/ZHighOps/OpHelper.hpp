@@ -78,6 +78,12 @@ mlir::Value getMinusBcastConst(mlir::OpBuilder &builder, mlir::Location loc,
 mlir::Value getConstantOfType(
     mlir::OpBuilder &builder, mlir::Location loc, mlir::Type type, float val);
 
+// Check if a value is a constant tensor of a single f32 value or not.
+bool isF32ScalarConstantTensor(mlir::Value v);
+
+// Get FloatAttr from a constant tensor of a single f32 value.
+mlir::FloatAttr getScalarF32AttrFromConstant(mlir::Value v);
+
 /// True if at least one of the types is `layout`.
 bool oneIsOfLayout(
     mlir::Type t1, mlir::Type t2, ZTensorEncodingAttr::DataLayout layout);
