@@ -37,6 +37,7 @@
 
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/IndexExpr.hpp"
+#include "src/Dialect/Mlir/IndexExprValueProvider.hpp"
 
 namespace onnx_mlir {
 
@@ -56,9 +57,9 @@ namespace onnx_mlir {
   expression; symbol is not changing in the given context (e.g. batch size in a
   given loop), and dim are changing (e.g. the loop index inside a given loop).
 
-  This class cannot be directly used, as subclasses must redefine 3 pure virtual
-  functions (getConst, getVal, and getShape) to provide the proper values for
-  the methods defined in this class.
+  Subclasses must either redefine 3 pure virtual functions (getConst, getVal,
+  and getShapeVal), or use an external IndexExprValueProvider via the
+  composition constructor (see IndexExprBuilderWithProvider).
 
   A first subclass is IndexExprBuilderForAnalysis and is used during the
   analysis phase; runtime values are described by questionmark index
@@ -81,6 +82,9 @@ struct IndexExprBuilder : DialectBuilder {
   IndexExprBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : DialectBuilder(b, loc) {}
   IndexExprBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
+  // Use an external provider for runtime value extraction (composition).
+  IndexExprBuilder(const DialectBuilder &db, IndexExprValueProvider &provider)
+      : DialectBuilder(db), externalProvider(&provider) {}
   virtual ~IndexExprBuilder() {}
 
   using IndexExprList = llvm::SmallVectorImpl<IndexExpr>;
@@ -223,11 +227,31 @@ protected:
       mlir::Value tensorOrMemrefValue, uint64_t i) = 0;
 
 private:
+  IndexExprValueProvider *externalProvider = nullptr;
+
+  mlir::ElementsAttr queryConst(mlir::Value value);
+  mlir::Value queryVal(mlir::Value arrayVal, uint64_t i);
+  mlir::Value queryShapeVal(mlir::Value tensorOrMemrefValue, uint64_t i);
+
   // Returns a SymbolIndexExpr/DimIndexExpr when makeSymbol is true/false.
   // 'array' element type must match 'isFloat'. If arraySize >=0, use that size.
   // Otherwise, get the size from the array value.
   IndexExpr getValFromArray(mlir::Value array, uint64_t i, bool makeSymbol,
       bool isFloat, int64_t arraySize);
+};
+
+// IndexExprBuilder that delegates runtime value extraction to an external
+// IndexExprValueProvider. Shape algorithms use the base class public API.
+struct IndexExprBuilderWithProvider : IndexExprBuilder {
+  IndexExprBuilderWithProvider(
+      const DialectBuilder &db, IndexExprValueProvider &provider)
+      : IndexExprBuilder(db, provider) {}
+  virtual ~IndexExprBuilderWithProvider() {}
+
+protected:
+  mlir::ElementsAttr getConst(mlir::Value value) final;
+  mlir::Value getVal(mlir::Value intArrayVal, uint64_t i) final;
+  mlir::Value getShapeVal(mlir::Value tensorOrMemrefValue, uint64_t i) final;
 };
 
 } // namespace onnx_mlir

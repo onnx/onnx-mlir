@@ -19,6 +19,7 @@
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/ONNX/ReifyIndexExprValueProvider.hpp"
 
 using namespace mlir;
 using namespace mlir::OpTrait::util;
@@ -108,7 +109,9 @@ LogicalResult ONNXAddOp::reifyResultShapes(
     return failure();
 
   Location loc = getLoc();
-  IndexExprBuilderForReify createIE(builder, loc);
+  DialectBuilder db(builder, loc);
+  ReifyIndexExprValueProvider valueProvider(db);
+  IndexExprBuilderWithProvider createIE(db, valueProvider);
   IndexExprScope scope(&builder, loc);
   ONNXBroadcastOpShapeHelper shapeHelper(
       getOperation(), getOperands(), &createIE, &scope);
