@@ -337,3 +337,21 @@ func.func @ResultNames_update_output(%arg0: tensor<1x4xf32>) -> (tensor<1x4xf32>
 // CHECK-NOT: ResultNames = ["add_Quant_output"]
 // CHECK-SAME: quant.uniform<i8:f32, 0.10000000149011612:-100>
 // CHECK-NEXT: onnx.Identity
+
+// Binary followed by scast should be replaced with a single scast
+func.func @dq_dq_mul_scast_update_input(%arg0: tensor<10x512x!quant.uniform<u16:f32, 1.152162531070644E-5:15586>>, %arg1: tensor<512x1x!quant.uniform<u16:f32, 1.4544223631673958E-5:16488>>) -> tensor<10x1xf32> {
+  %0 = onnx.Constant dense<6.14215212E-4> : tensor<f32>
+  %1 = onnx.Constant dense<922> : tensor<ui16>
+  %2 = onnx.Constant {value = dense<65535> : tensor<ui16>} : tensor<!quant.uniform<u16:f32, 0.0015259023057296872>>
+  %3 = "onnx.MatMul"(%arg0, %arg1) {ResultNames = ["MatMul_QuantizeLinear_Output"]} : (tensor<10x512x!quant.uniform<u16:f32, 1.152162531070644E-5:15586>>, tensor<512x1x!quant.uniform<u16:f32, 1.4544223631673958E-5:16488>>) -> tensor<10x1x!quant.uniform<u16:f32, 6.1421515056281351E-6:922>>
+  %4 = "onnx.Mul"(%3, %2) {ResultNames = ["Mul_QuantizeLinear_Output"]} : (tensor<10x1x!quant.uniform<u16:f32, 6.1421515056281351E-6:922>>, tensor<!quant.uniform<u16:f32, 0.0015259023057296872>>) -> tensor<10x1x!quant.uniform<u16:f32, 6.1421521240845323E-4:922>>
+  %5 = quant.scast %4 : tensor<10x1x!quant.uniform<u16:f32, 6.1421521240845323E-4:922>> to tensor<10x1xui16>
+  %6 = "onnx.DequantizeLinear"(%5, %0, %1) {ResultNames = ["Graph_Output"], axis = 1 : si64, block_size = 0 : si64, dtype_frozen = 1 : i64} : (tensor<10x1xui16>, tensor<f32>, tensor<ui16>) -> tensor<10x1xf32>
+  return %6 : tensor<10x1xf32>
+}
+
+// CHECK-LABEL: @dq_dq_mul_scast_update_input
+// CHECK: onnx.MatMul
+// CHECK-NEXT: quant.scast
+// CHECK-SAME: quant.uniform<u16:f32, 6.1421515056281351E-6:922>
+// CHECK-NEXT: onnx.DequantizeLinear

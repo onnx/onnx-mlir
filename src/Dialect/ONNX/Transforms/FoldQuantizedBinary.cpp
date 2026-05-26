@@ -203,11 +203,26 @@ public:
 
       auto qScast = rewriter.create<quant::StorageCastOp>(
           binLoc, lhsType.clone(newQType.getStorageType()), lhs);
+      // If original Q Scast exists, just replace it with the new one
+      if (auto oqScast = dyn_cast<quant::StorageCastOp>(*binOp->user_begin());
+          binOp->hasOneUse() && oqScast) {
+        rewriter.replaceOp(oqScast, qScast);
+        return success();
+      }
+
       auto dqScast =
           rewriter.create<quant::StorageCastOp>(binLoc, outType, qScast);
       rewriter.replaceOp(binOp, dqScast);
       return success();
     } else {
+      // If original DQ Scast exists, just replace it with new one
+      if (auto odqScast = lhs.template getDefiningOp<quant::StorageCastOp>()) {
+        auto dqScast = rewriter.create<quant::StorageCastOp>(
+            binLoc, outType.clone(newQType), odqScast->getOperand(0));
+        rewriter.replaceOp(binOp, dqScast);
+        return success();
+      }
+
       auto qScast = rewriter.create<quant::StorageCastOp>(
           binLoc, lhsType.clone(lhsQType.getStorageType()), lhs);
       auto dqScast = rewriter.create<quant::StorageCastOp>(
