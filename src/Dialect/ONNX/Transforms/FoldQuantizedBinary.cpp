@@ -177,7 +177,7 @@ public:
     // Either input/output with only ONNX ops are considered
     // scast or fused kernels will not be considered
     auto isONNXOp = [](Operation *op) -> bool {
-      if (isa<ONNXDequantizeLinearOp, ONNXQuantizeLinearOp>(op))
+      if (!op || isa<ONNXDequantizeLinearOp, ONNXQuantizeLinearOp>(op))
         return false;
       return isa<ONNXDialect>(op->getDialect());
     };
