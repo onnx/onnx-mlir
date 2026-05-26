@@ -614,12 +614,11 @@ void OMCompile::compile(const std::string &modelPath, const std::string &flags,
   std::string outputDir;
   std::string predictedOutput =
       onnx_mlir::getOutputFilename(inputFilename, flagVect);
-  if (!predictedOutput.empty()) {
-    fs::path outputPath = fs::absolute(predictedOutput);
-    outputDir = outputPath.parent_path().string();
-  } else {
-    outputDir = modelDir;
-  }
+  if (predictedOutput.empty())
+    throw OMCompileException(
+        "Compilation failed: could not determine output model file name");
+  fs::path outputFSPath = fs::absolute(predictedOutput);
+  outputDir = outputFSPath.parent_path().string();
 
   // Create the appropriate Command based on mode.
   std::unique_ptr<Command> cmd;
@@ -751,7 +750,7 @@ std::string OMCompile::getContainerEngineName() const {
 // Static Helper Methods
 //===----------------------------------------------------------------------===//
 
-/* static */ std::string OMCompile::getInputFilename(
+/* static */ std::string OMCompile::predictInputFilename(
     const std::string &modelPath, const std::string &flags) {
   std::vector<std::string> flagVect = parseFlags(flags);
   std::string filename = onnx_mlir::getInputFilename(modelPath, flagVect);
@@ -761,16 +760,19 @@ std::string OMCompile::getContainerEngineName() const {
   return filename;
 }
 
-/* static */ std::string OMCompile::getOutputFilename(
-    const std::string &modelPath, const std::string &flags) {
+/* static */ std::string OMCompile::predictOutputFilename(
+    const std::string &modelPath, const std::string &flags,
+    const std::string &outputPath) {
   std::vector<std::string> flagVect = parseFlags(flags);
+  // Apply the output path as needed.
+  onnx_mlir::applyOutputPath(flagVect, outputPath, modelPath);
   // Success, save filename of output, using an absolute path to increase
   // success of dlopen calls.
   std::string name = onnx_mlir::getOutputFilename(modelPath, flagVect);
   return getAbsolutePathUsingCurrentDir(name);
 }
 
-/* static */ std::string OMCompile::getModelTag(const std::string &flags) {
+/* static */ std::string OMCompile::predictModelTag(const std::string &flags) {
   std::vector<std::string> flagVect = parseFlags(flags);
   return onnx_mlir::getModelTag(flagVect);
 }

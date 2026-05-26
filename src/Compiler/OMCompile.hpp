@@ -326,7 +326,7 @@ public:
    * @param flags Compilation flags string
    * @return The input filename that would be used for compilation
    */
-  static std::string getInputFilename(
+  static std::string predictInputFilename(
       const std::string &modelPath, const std::string &flags);
 
   /**
@@ -338,10 +338,12 @@ public:
    *
    * @param modelPath Model path parameter (may be empty)
    * @param flags Compilation flags string
+   * @param outputPath Optional directory where the output files should go, in
+   * case no explict path is given in the flags "-o" option.
    * @return The output filename that would be generated
    */
-  static std::string getOutputFilename(
-      const std::string &modelPath, const std::string &flags);
+  static std::string predictOutputFilename(const std::string &modelPath,
+      const std::string &flags, const std::string &outputPath = {});
 
   /**
    * @brief Static helper to extract model tag from compilation flags.
@@ -351,7 +353,7 @@ public:
    * @param flags Compilation flags string
    * @return The model tag if specified in flags, empty string otherwise
    */
-  static std::string getModelTag(const std::string &flags);
+  static std::string predictModelTag(const std::string &flags);
 
 private:
   // Compilation mode.

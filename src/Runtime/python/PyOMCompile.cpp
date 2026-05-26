@@ -37,7 +37,8 @@ PyOMCompile::PyOMCompile(const std::string &modelPath, const std::string &flags,
   // equivalencies).
   if (reuseCompiledModel) {
     reuseCompiledModel = false; // Assume failure unless otherwise proven.
-    std::string filename = OMCompile::getOutputFilename(modelPath, flags);
+    std::string filename =
+        OMCompile::predictOutputFilename(modelPath, flags, outputPath);
     if (!filename.empty()) {
       FILE *file = fopen(filename.c_str(), "r");
       if (file) {
