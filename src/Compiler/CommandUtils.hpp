@@ -39,6 +39,13 @@ std::string getAbsolutePathUsingCurrentDir(const std::string &filename);
 std::string getInputFilename(
     const std::string &inputFilename, const std::vector<std::string> &flags);
 
+// Apply output path to flags. If outputPath is not empty and flags contain
+// a -o option without a path component, prepend outputPath to the output name.
+// If no -o option exists, add one using outputPath and input file basename.
+// Modifies flagVect in place.
+void applyOutputPath(std::vector<std::string> &flagVect,
+    const std::string &outputPath, const std::string &inputFilename);
+
 // Get the name of the output, first from scanning the compiler flags for a -o
 // option, and if not found, from the basename of the input file name (using
 // getInputFilename above).

@@ -274,7 +274,7 @@ def emit_modified_segment(i, has_test):
     # This covers CHECK-LABEL, CHECK-NOT, CHECK-DAG, CHECK-SAME, etc.
     check_prefix_pattern = r"\s*// " + re.escape(prefix_str) + r"[-:]"
 
-    # Print separator. (hi alex is is right?)
+    # Print separator.
     if i > 0:
         print("// -----")
     gen_orig_model(i, flt_orig_model_file_name)

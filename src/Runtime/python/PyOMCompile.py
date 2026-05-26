@@ -29,6 +29,7 @@ class OMCompile(OMCompile_):
         self,
         input_model_path,
         flags,
+        output_path="",
         compiler_path="",
         log_file_name="",
         reuse_compiled_model=False,
@@ -39,6 +40,7 @@ class OMCompile(OMCompile_):
             super().__init__(
                 input_model_path,
                 flags,
+                output_path,
                 compiler_path_in_package,
                 log_file_name,
                 reuse_compiled_model,
@@ -47,6 +49,7 @@ class OMCompile(OMCompile_):
             super().__init__(
                 input_model_path,
                 flags,
+                output_path,
                 compiler_path,
                 log_file_name,
                 reuse_compiled_model,
