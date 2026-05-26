@@ -29,8 +29,8 @@ namespace onnx_mlir {
 class PyOMCompile {
 public:
   PyOMCompile(const std::string &modelPath, const std::string &flags,
-      const std::string &compilerPath, const std::string &logFilename,
-      bool reuseCompiledModel);
+      const std::string &outputPath, const std::string &compilerPath,
+      const std::string &logFilename, bool reuseCompiledModel);
   std::string pyGetOutputFilename();
   std::string pyGetOutputConstantFilename();
   std::string pyGetModelTag();
@@ -58,9 +58,10 @@ PYBIND11_MODULE(PyOMCompileC, m) {
       "    >>> output_file = compiler.get_output_file_name()\n"
       "    >>> print(f'Compiled to: {output_file}')")
       .def(py::init<const std::string &, const std::string &, const std::string &,
-               const std::string &, bool>(),
+               const std::string &, const std::string &, bool>(),
           py::arg("input_model_path"),
           py::arg("flags"),
+          py::arg("output_path") = "",
           py::arg("compiler_path") = "",
           py::arg("log_file_name") = "",
           py::arg("reuse_compiled_model") = false,
@@ -71,6 +72,10 @@ PYBIND11_MODULE(PyOMCompileC, m) {
           "    flags (str): Compilation flags as a single string.\n"
           "        Examples: '-O3', '-O3 -o output_name', '--EmitLib'.\n"
           "        All onnx-mlir command-line options are supported.\n"
+          "    output_path (str, optional): Output directory path. If provided and flags\n"
+          "        contain a -o option without a path, the output path will be prepended.\n"
+          "        If no -o option exists, one will be added using this path and the\n"
+          "        input file basename. Default: empty (use current directory).\n"
           "    compiler_path (str, optional): Path to onnx-mlir compiler binary,\n"
           "        namely path plus binary name. If empty (default), use onnx-mlir\n"
           "        at its default location.\n"
