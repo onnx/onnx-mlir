@@ -201,18 +201,18 @@ public:
           binOp, [&]() { lhs.setType(lhsType.clone(newQType)); });
       ResultNamesUpdater().notifyOperationReplaced(binOp, lhs.getDefiningOp());
 
-      auto scast = rewriter.create<quant::StorageCastOp>(
+      auto qScast = rewriter.create<quant::StorageCastOp>(
           binLoc, lhsType.clone(newQType.getStorageType()), lhs);
-      auto replOp =
-          rewriter.create<quant::StorageCastOp>(binLoc, outType, scast);
-      rewriter.replaceOp(binOp, replOp);
+      auto dqScast =
+          rewriter.create<quant::StorageCastOp>(binLoc, outType, qScast);
+      rewriter.replaceOp(binOp, dqScast);
       return success();
     } else {
-      auto scast = rewriter.create<quant::StorageCastOp>(
+      auto qScast = rewriter.create<quant::StorageCastOp>(
           binLoc, lhsType.clone(lhsQType.getStorageType()), lhs);
-      auto replOp = rewriter.create<quant::StorageCastOp>(
-          binLoc, outType.clone(newQType), scast);
-      rewriter.replaceOp(binOp, replOp);
+      auto dqScast = rewriter.create<quant::StorageCastOp>(
+          binLoc, outType.clone(newQType), qScast);
+      rewriter.replaceOp(binOp, dqScast);
       return success();
 
       // Since we fold DQ -> Bin -> Q -> DQ into DQ, we should not be
