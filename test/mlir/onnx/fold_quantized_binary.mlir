@@ -1,5 +1,5 @@
-// RUN: onnx-mlir-opt %s -fold-quantized-binary | FileCheck %s
-// RUN: onnx-mlir-opt %s -canonicalize -fold-quantized-binary | FileCheck --check-prefix=CANON %s
+// RUN: onnx-mlir-opt --split-input-file %s -fold-quantized-binary | FileCheck %s
+// RUN: onnx-mlir-opt --split-input-file %s -canonicalize -fold-quantized-binary | FileCheck --check-prefix=CANON %s
 
 // from: @test_fold_mul_case_b_safe
 func.func @dq_dq_mul_update_input(%arg0: tensor<10x1xf32>) -> tensor<10x1xf32> {
@@ -25,6 +25,8 @@ func.func @dq_dq_mul_update_input(%arg0: tensor<10x1xf32>) -> tensor<10x1xf32> {
 // CHECK-NEXT: quant.scast
 // CHECK-NEXT: onnx.Identity
 
+// -----
+
 // from: @caseB_bothDQ_constViaDQ1_foldIntoQ
 func.func @dq_dq_add_update_input(%arg0: tensor<1x4xf32>) -> tensor<1x4xi8> {
   %0 = onnx.Constant {value = dense<10> : tensor<i8>} : tensor<!quant.uniform<i8:f32, 5.000000e+00>>
@@ -46,6 +48,8 @@ func.func @dq_dq_add_update_input(%arg0: tensor<1x4xf32>) -> tensor<1x4xi8> {
 // CHECK-NEXT: quant.scast
 // CHECK-NEXT: onnx.Identity
 
+// -----
+
 // from: @caseA_lhsDQ_rhsConst_foldIntoQ
 func.func @dq_const_add_update_input(%arg0: tensor<1x4xf32>) -> tensor<1x4xi8> {
   %0 = onnx.Constant dense<1.000000e+01> : tensor<f32>
@@ -66,6 +70,8 @@ func.func @dq_const_add_update_input(%arg0: tensor<1x4xf32>) -> tensor<1x4xi8> {
 // CHECK-SAME: tensor<1x4x!quant.uniform<i8:f32, 0.10000000149011612:100>>
 // CHECK-NEXT: quant.scast
 // CHECK-NEXT: onnx.Identity
+
+// -----
 
 // from: @caseA_rev_rhsDQ_lhsConst_foldIntoQ
 func.func @const_dq_add_update_input(%arg0: tensor<1x4xf32>) -> tensor<1x4xi8> {
@@ -91,6 +97,8 @@ func.func @const_dq_add_update_input(%arg0: tensor<1x4xf32>) -> tensor<1x4xi8> {
 // skipped: @caseB_constViaReshape_foldIntoQ
 // reason: When constprop is applied, Reshape will be folded.
 
+// -----
+
 // from: @branchBefore_foldIntoDQ
 func.func @dq_const_add_multiuse_update_output(%arg0: tensor<1x4xf32>) -> (tensor<1x4xf32>, tensor<1x4x!quant.uniform<i8:f32, 0.10000000149011612>>) {
   %0 = onnx.Constant dense<2.000000e-01> : tensor<f32>
@@ -115,6 +123,8 @@ func.func @dq_const_add_multiuse_update_output(%arg0: tensor<1x4xf32>) -> (tenso
 // CHECK-SAME: quant.uniform<i8:f32, 0.10000000149011612:-100>
 // CHECK-NEXT: onnx.Identity
 
+// -----
+
 // from: @test_kval_0_dst_q_mul
 func.func @div_by_zero_update_input(%arg0: tensor<10x1xf32>) -> tensor<10x1xf32> {
   %0 = onnx.Constant dense<0> : tensor<ui16>
@@ -134,6 +144,8 @@ func.func @div_by_zero_update_input(%arg0: tensor<10x1xf32>) -> tensor<10x1xf32>
 // CHECK-LABEL: @div_by_zero_update_input
 // CHECK: onnx.Mul
 
+// -----
+
 // from: @guard_div_into_dq_k_zero
 func.func @div_by_zero_update_output(%arg0: tensor<1x4xf32>) -> tensor<1x4xf32> {
   %0 = onnx.Constant {value = dense<7> : tensor<i8>} : tensor<!quant.uniform<i8:f32, 5.000000e-01:7>>
@@ -151,6 +163,8 @@ func.func @div_by_zero_update_output(%arg0: tensor<1x4xf32>) -> tensor<1x4xf32> 
 // CHECK-LABEL: @div_by_zero_update_output
 // CHECK: onnx.Div
 
+// -----
+
 // from: @sub_weight_first_operand_no_fold
 func.func @const_act_sub_negative(%arg0: tensor<1x4xi8>) -> tensor<1x4xi8> {
   %0 = onnx.Constant dense<1.000000e+01> : tensor<f32>
@@ -165,6 +179,7 @@ func.func @const_act_sub_negative(%arg0: tensor<1x4xi8>) -> tensor<1x4xi8> {
 // CHECK-LABEL: @const_act_sub_negative
 // CHECK: onnx.Sub
 
+// -----
 
 // from: @div_weight_first_operand_no_fold
 func.func @const_act_div_negative(%arg0: tensor<1x4xi8>) -> tensor<1x4xi8> {
@@ -180,6 +195,8 @@ func.func @const_act_div_negative(%arg0: tensor<1x4xi8>) -> tensor<1x4xi8> {
 // CHECK-LABEL: @const_act_div_negative
 // CHECK : onnx.Div
 
+// -----
+
 // from: @zp_overflow_ui8
 func.func @zp_overflow_ui8_negative(%arg0: tensor<1x4xui8>) -> tensor<1x4xui8> {
   %0 = onnx.Constant dense<1.000000e+03> : tensor<f32>
@@ -193,6 +210,8 @@ func.func @zp_overflow_ui8_negative(%arg0: tensor<1x4xui8>) -> tensor<1x4xui8> {
 
 // CHECK-LABEL: @zp_overflow_ui8_negative
 // CHECK: onnx.Add
+
+// -----
 
 // from: @zp_underflow_i8
 func.func @zp_underflow_i8_negative(%arg0: tensor<1x4xi8>) -> tensor<1x4xi8> {
@@ -210,6 +229,8 @@ func.func @zp_underflow_i8_negative(%arg0: tensor<1x4xi8>) -> tensor<1x4xi8> {
 
 // skipped: @mul_by_zero_fold_into_q
 // reason: duplicate
+
+// -----
 
 // from: @zp_overflow_ui4
 func.func @zp_overflow_ui4_negative(%arg0: tensor<1x4xui4>) -> tensor<1x4xui4> {
@@ -238,6 +259,8 @@ func.func @zp_overflow_ui4_negative(%arg0: tensor<1x4xui4>) -> tensor<1x4xui4> {
 // skipped: @div_by_zero_fold_into_dq
 // reason: redundant
 
+// -----
+
 // Multi-element splat constant should still fold (getConstant accepts splats of any shape)
 func.func @dq_splat_const_add_update_input(%arg0: tensor<1x4xf32>) -> tensor<1x4xi8> {
   %0 = onnx.Constant dense<1.000000e+01> : tensor<1x4xf32>
@@ -259,6 +282,8 @@ func.func @dq_splat_const_add_update_input(%arg0: tensor<1x4xf32>) -> tensor<1x4
 // CHECK-NEXT: quant.scast
 // CHECK-NEXT: onnx.Identity
 
+// -----
+
 // Non-splat constant should not fold
 func.func @non_splat_const_add_negative(%arg0: tensor<1x4xi8>) -> tensor<1x4xi8> {
   %0 = onnx.Constant dense<[1.0, 2.0, 3.0, 4.0]> : tensor<4xf32>
@@ -272,6 +297,8 @@ func.func @non_splat_const_add_negative(%arg0: tensor<1x4xi8>) -> tensor<1x4xi8>
 
 // CHECK-LABEL: @non_splat_const_add_negative
 // CHECK: onnx.Add
+
+// -----
 
 // Proper conversion to float type
 func.func @dq_dq_mul_update_input_conversion(%arg0: tensor<1x1x1x3072xui16>) -> tensor<1x1x1x3072xui16> {
@@ -290,6 +317,8 @@ func.func @dq_dq_mul_update_input_conversion(%arg0: tensor<1x1x1x3072xui16>) -> 
 // CHECK-SAME: -> [[qType]]
 // CHECK-NEXT: quant.scast
 // CHECK-SAME: tensor<1x1x1x3072x!quant.uniform<u16:f32, 1.5259021893143654E-5:65535>> to tensor<1x1x1x3072xui16>
+
+// -----
 
 // ResultNames propagation
 func.func @ResultNames_update_input(%arg0: tensor<1x4xf32>) -> tensor<1x4xi8> {
@@ -312,6 +341,8 @@ func.func @ResultNames_update_input(%arg0: tensor<1x4xf32>) -> tensor<1x4xi8> {
 // CHECK-SAME: quant.uniform<i8:f32, 5.000000e-01:100>
 // CHECK-NEXT: quant.scast
 // CHECK-NEXT: onnx.Identity
+
+// -----
 
 func.func @ResultNames_update_output(%arg0: tensor<1x4xf32>) -> (tensor<1x4xf32>, tensor<1x4x!quant.uniform<i8:f32, 0.10000000149011612>>) {
   %0 = onnx.Constant dense<2.000000e-01> : tensor<f32>
@@ -337,6 +368,8 @@ func.func @ResultNames_update_output(%arg0: tensor<1x4xf32>) -> (tensor<1x4xf32>
 // CHECK-NOT: ResultNames = ["add_Quant_output"]
 // CHECK-SAME: quant.uniform<i8:f32, 0.10000000149011612:-100>
 // CHECK-NEXT: onnx.Identity
+
+// -----
 
 // Binary followed by scast should be replaced with a single scast
 func.func @dq_dq_mul_scast_update_input(%arg0: tensor<10x512x!quant.uniform<u16:f32, 1.152162531070644E-5:15586>>, %arg1: tensor<512x1x!quant.uniform<u16:f32, 1.4544223631673958E-5:16488>>) -> tensor<10x1xf32> {
