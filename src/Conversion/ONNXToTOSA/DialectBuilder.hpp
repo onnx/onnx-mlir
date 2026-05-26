@@ -48,6 +48,8 @@ struct TosaBuilder : DialectBuilder {
       llvm::ArrayRef<int64_t> start);
   mlir::Value reshape(mlir::Value &value, llvm::ArrayRef<int64_t> shape);
   mlir::Value reciprocal(mlir::Value &input);
+  mlir::Value erf(mlir::Value &input);
+  mlir::Value tanh(mlir::Value &input);
 
   mlir::Value getConst(
       llvm::ArrayRef<int64_t> vec, llvm::ArrayRef<int64_t> shape);
@@ -55,10 +57,12 @@ struct TosaBuilder : DialectBuilder {
       llvm::ArrayRef<int32_t> vec, llvm::ArrayRef<int64_t> shape);
   mlir::Value getConst(
       llvm::ArrayRef<float> vec, llvm::ArrayRef<int64_t> shape);
-  // Create a 32-bit float constant operator from a float
+  // Create a float constant operator from a value.
   // The tensor will have the same rank as shape but all dimensions will
   // have size 1 (differs from tensorflow impl.)
-  mlir::Value getSplattedConst(float val, llvm::ArrayRef<int64_t> shape = {});
+  // If elementType is null, defaults to 32-bit float.
+  mlir::Value getSplattedConst(float val, llvm::ArrayRef<int64_t> shape = {},
+      mlir::Type elementType = nullptr);
 
   // Adds reshape ops to expand the rank to the max rank of the values.
   llvm::SmallVector<mlir::Value, 4> equalizeRanks(mlir::ValueRange valueRange);
