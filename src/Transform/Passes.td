@@ -69,5 +69,22 @@ def BufferOMPLoopHoistingPass : Pass<"buffer-omploop-hoisting", "func::FuncOp"> 
   }];
 }
 
+def WriteOpStatsToModuleAttributePass : Pass<"write-op-stats-to-module-attribute"> {
+  let summary = "Write statistics of operations to an attribute in ModuleOp";
+}
+
+def ONNXCSEWithNodeNamePass : Pass<"onnx-cse-with-node-name", "ModuleOp"> {
+  let summary = "CSE for ONNX operations preserving node names";
+  let description = [{
+    Performs Common Subexpression Elimination on ONNX operations while
+    preserving onnx_node_name attributes. The pass:
+    1. Saves onnx_node_name attributes
+    2. Removes them temporarily to enable CSE
+    3. Applies MLIR CSE pass
+    4. Restores node names (keeping first occurrence's name for merged ops)
+    
+    This pass only operates on ONNX dialect operations.
+  }];
+}
 
 #endif

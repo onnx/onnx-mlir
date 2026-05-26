@@ -66,7 +66,7 @@ list_operation_version = args.list_operation_version
 
 # ==UPDATE_ONNX_VERSION_OPSET==
 # Look for tag above and update all references when upgrading the ONNX support within ONNX-MLIR.
-current_onnx_version = "1.20.1"
+current_onnx_version = "1.21.0"
 
 # Check the version of onnx package being used.
 if (
@@ -484,6 +484,11 @@ OpsWithHelpers = {
 # Type inference are usually done with the type string for Op definition.
 # This dictionary provides special code for type inference for some Ops.
 # The type inference is used only in Builder before constant canonicalization.
+# Ops that declare MLIR ReifyRankedShapedTypeOpInterface (reifyResultShapes).
+OpsWithReifyResultShapes = {
+    "Add",
+}
+
 OpsWithResultTypeInference = [
     "Bernoulli",
     "Constant",
@@ -1215,6 +1220,11 @@ def gen_op_def(schema, with_version=False):
     # Error will be report if these operations are encountered at runtime.
     traits.append("DeclareOpInterfaceMethods<ShapeInferenceOpInterface>")
     traits.append("DeclareOpInterfaceMethods<ShapeHelperOpInterface>")
+    if opName in OpsWithReifyResultShapes:
+        traits.append(
+            "DeclareOpInterfaceMethods<ReifyRankedShapedTypeOpInterface, "
+            '["reifyResultShapes"]>'
+        )
     if opName in OpsWithResultTypeInference:
         traits.append("DeclareOpInterfaceMethods<ResultTypeInferenceOpInterface>")
     if len(regions):

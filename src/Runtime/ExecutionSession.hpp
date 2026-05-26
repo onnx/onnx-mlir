@@ -48,6 +48,7 @@ namespace onnx_mlir {
 using entryPointFuncType = OMTensorList *(*)(OMTensorList *);
 using queryEntryPointsFuncType = const char **(*)(int64_t *);
 using signatureFuncType = const char *(*)(const char *);
+using compilationInfoFuncType = const char *(*)(void);
 using printInstrumentationFuncType = void (*)(void);
 using OMTensorUniquePtr = std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>;
 
@@ -72,13 +73,13 @@ public:
   // Create an execution session using the model given in sharedLibPath.
   // This path must point to the actual file, local directory is not searched.
   // Throw errors on failure.
-  ExecutionSession(std::string sharedLibPath, std::string tag = "",
-      bool defaultEntryPoint = true);
+  ExecutionSession(const std::string &sharedLibPath,
+      const std::string &tag = "", const bool defaultEntryPoint = true);
   ~ExecutionSession();
 
   // Initialization of library. Called by public constructor, or by subclasses.
-  void loadModel(std::string sharedLibPath, std::string tag = "",
-      bool defaultEntryPoint = true);
+  void loadModel(const std::string &sharedLibPath, const std::string &tag = "",
+      const bool defaultEntryPoint = true);
 
   // Get a NULL-terminated array of entry point names.
   // For example {"run_addition, "run_subtraction", NULL}
@@ -99,14 +100,29 @@ public:
   std::vector<OMTensorUniquePtr> run(std::vector<OMTensorUniquePtr>);
 
   // Run using public interface. Explicit calls are needed to free tensor &
-  // tensor lists. Using a signal handler is only a debugging option; it is not
-  // safe to continue after catching a signal, not thread safe.
-  OMTensorList *run(OMTensorList *input, bool useSignalHandler = false);
+  // tensor lists. On error, the return value is null. Call may throw exceptions
+  // (ExecutionSessionException) on error. Otherwise, the return values contain
+  // the output tensor list. Explicit calls are needed to free tensor & tensor
+  // lists.
+  OMTensorList *run(OMTensorList *input);
+
+  // Debug version of run interface, with additional hooks to enable debugging.
+  // This version should not be used in production mode, and may be
+  // enhanced/deprecated between releases.
+  // * When useSignalHandler is true, the inference occurs in a code region that
+  //   is guarded by signal handler, which catch segmentation faults and
+  //   asserts. The code will catch such signals and throw exceptions. It is
+  //   generally unsafe to continue execution after such exceptions, as memory
+  //   can be irremediably corrupted.
+  //.
+  OMTensorList *runDebug(OMTensorList *input, bool useSignalHandler = false);
 
   // Get input and output signature as a Json string. For example for nminst:
   // `[ { "type" : "f32" , "dims" : [1 , 1 , 28 , 28] , "name" : "image" } ]`
   const std::string inputSignature() const;
   const std::string outputSignature() const;
+  // Get compilation information as a Json string.
+  const std::string compilationInfo() const;
   void printInstrumentation();
 
 protected:
@@ -127,10 +143,6 @@ protected:
   // Handler to the shared library file being loaded.
   DynamicLibraryHandleType _sharedLibraryHandle;
 
-  // Tag used to compile the model. By default, it is the model filename without
-  // extension.
-  std::string tag;
-
   // Entry point function.
   std::string _entryPointName;
   entryPointFuncType _entryPointFunc = nullptr;
@@ -145,10 +157,18 @@ protected:
   signatureFuncType _inputSignatureFunc = nullptr;
   signatureFuncType _outputSignatureFunc = nullptr;
 
+  // Entry point for compilation information
+  const std::string _compilationInfoName = "omCompilationInfo";
+  compilationInfoFuncType _compilationInfoFunc = nullptr;
+
   // Entry point for printing instrumentation
   const std::string _printInstrumentationName = "omInstrumentPrint";
   const bool silentlyIgnoreMissingPrintInstrumentationFunc = true;
   printInstrumentationFuncType _printInstrumentationFunc = nullptr;
+
+protected:
+  // Common implementation for both public run methods.
+  OMTensorList *runImplementation(OMTensorList *input, bool useSignalHandler);
 
 private:
   // Run with without signal handler.

@@ -13,11 +13,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if 0
 #include "src/Support/SuppressWarnings.h"
 
 SUPPRESS_WARNINGS_PUSH
 #include "onnx/onnx_pb.h"
 SUPPRESS_WARNINGS_POP
+#endif
 
 #include "PyOMCompile.hpp"
 
@@ -26,7 +28,7 @@ namespace onnx_mlir {
 // =============================================================================
 // Constructor
 
-PyOMCompile::PyOMCompile(std::string modelPath, std::string flags,
+PyOMCompile::PyOMCompile(const std::string &modelPath, const std::string &flags,
     const std::string &compilerPath, const std::string &logFilename,
     bool reuseCompiledModel)
     : OMcompile() /* constructor without compilation */ {
@@ -51,7 +53,7 @@ PyOMCompile::PyOMCompile(std::string modelPath, std::string flags,
     // printing to stderr. Python code can handle and display exceptions
     // as needed, avoiding duplicate error messages.
     // Old version caught and re-threw with stderr output, causing duplicates.
-    OMcompile.compile(modelPath, flags, logFilename);
+    OMcompile.compile(modelPath, flags, compilerPath, logFilename);
   }
 }
 

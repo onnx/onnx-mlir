@@ -49,13 +49,15 @@ model = 'model.so' # LeNet from ONNX Zoo compiled with onnx-mlir
 session = OMExecutionSession(shared_lib_path=model)
 # Input and output signatures of the default entry point.
 print("input signature in json", session.input_signature())
-print("output signature in json",session.output_signature())
+print("output signature in json", session.output_signature())
 # Do inference using the default entry point.
 a = np.full((1, 1, 28, 28), 1, np.dtype(np.float32))
-outputs = session.run(input=[a])
-
-for output in outputs:
-    print(output.shape)
+try:
+    outputs = session.run(inputs=[a])
+    for output in outputs:
+        print(output.shape)
+except RuntimeError as e:
+    print(f"Inference failed: {e}")
 ```
 
 In case a computation graph has multiple entry points, users have to set a specific
@@ -78,13 +80,16 @@ for entry_point in entry_points:
   session.set_entry_point(name=entry_point)
   # Input and output signatures of the current entry point.
   print("input signature in json", session.input_signature())
-  print("output signature in json",session.output_signature())
+  print("output signature in json", session.output_signature())
   # Do inference using the current entry point.
   a = np.arange(10).astype('float32')
   b = np.arange(10).astype('float32')
-  outputs = session.run(input=[a, b])
-  for output in outputs:
-    print(output.shape)
+  try:
+      outputs = session.run(inputs=[a, b])
+      for output in outputs:
+          print(output.shape)
+  except RuntimeError as e:
+      print(f"Inference failed: {e}")
 ```
 
 ### Using model tags
@@ -128,24 +133,58 @@ To use functions without tags, e.g. `run_main_graph`, set `tag = "NONE"`.
 The complete interface to `OMExecutionSession` can be seen in the sources mentioned previously.
 However, using the constructor and run method is enough to perform inferences.
 
+For detailed API documentation with all parameters, examples, and error handling, use Python's help system:
 ```python
-def __init__(self, shared_lib_path: str, tag: str, use_default_entry_point: bool):
-    """
-    Args:
-        shared_lib_path: relative or absolute path to your .so model.
-        tag: a string that was passed to `--tag` when compiling the .so model. By default, it is the output file name without its extension, namely, `filename` in `filename.so`
-        use_default_entry_point: use the default entry point that is `run_main_graph_{tag}` or not. Set to True by default.
-    """
+from PyRuntime import OMExecutionSession
+help(OMExecutionSession)
+help(OMExecutionSession.run)
+```
 
-def run(self, input: List[ndarray]) -> List[ndarray]:
+### Constructor
+```python
+def __init__(self, shared_lib_path: str, tag: str = "", use_default_entry_point: bool = True):
     """
     Args:
-        input: A list of NumPy arrays, the inputs of your model.
+        shared_lib_path: Relative or absolute path to your .so model.
+        tag: A string that was passed to `--tag` when compiling the .so model.
+             By default, it is the output file name without its extension,
+             namely, `filename` in `filename.so`.
+        use_default_entry_point: Use the default entry point ('run_main_graph')
+                                 or not. Set to True by default.
+    """
+```
+
+### Inference Methods
+```python
+def run(self, inputs: List[ndarray]) -> List[ndarray]:
+    """
+    Run inference on the model.
+
+    Args:
+        inputs: A list of NumPy arrays, the inputs of your model.
 
     Returns:
         A list of NumPy arrays, the outputs of your model.
     """
 
+def run_debug(self, inputs: List[ndarray],
+             with_signal_handler: bool = False,
+             force_output_data_copy: bool = False) -> List[ndarray]:
+    """
+    Run inference with debugging options enabled.
+
+    Args:
+        inputs: A list of NumPy arrays, the inputs of your model.
+        with_signal_handler: Enable signal handler for catching crashes (POSIX only).
+        force_output_data_copy: Force copying of output data (for debugging).
+
+    Returns:
+        A list of NumPy arrays, the outputs of your model.
+    """
+```
+
+### Model Introspection
+```python
 def input_signature(self) -> str:
     """
     Returns:
@@ -161,13 +200,23 @@ def output_signature(self) -> str:
 def entry_points(self) -> List[str]:
     """
     Returns:
-        A list of entry point names.
+        A list of entry point names available in the model.
     """
 
 def set_entry_point(self, name: str):
     """
+    Set the active entry point for inference.
+
     Args:
-        name: an entry point name.
+        name: An entry point name from entry_points().
+    """
+
+def print_instrumentation(self):
+    """
+    Print instrumentation data from model execution.
+
+    If the model was compiled with instrumentation enabled, prints performance
+    metrics and profiling information. Does nothing if instrumentation is not available.
     """
 ```
 
@@ -177,7 +226,7 @@ def set_entry_point(self, name: str):
 
 An ONNX model can be compiled directly from the command line. The resulting library can then be executed using Python as shown in the previous sections. At times, it might be convenient to also compile a model directly in Python. This section explores the Python methods to do so.
 
-The OMCompile object will take a file name while constructing. For the compilation, `compile()` will take a `flags` string as an input which will override any default options set from the env var.
+The OMCompile constructor takes the input model path and compilation flags. Compilation happens during object construction.
 
 ```python
 import numpy as np
@@ -189,50 +238,82 @@ try:
 except RuntimeError as e:
     print(f"Compilation failed: {e}")
     exit(1)
-# Get the output file name
+# Get the output file name.
 compiled_model = compiler.get_output_file_name()
-print("Compiled onnx file", model, "to", compiled_model)
+print("Compiled onnx file to", compiled_model)
 ```
 
 The `PyOMCompile` module exports the `OMCompile` class to drive the
-compilation of a ONNX model into an executable model.
-Typically, a compiler object is created for a given model by giving it the file name of the ONNX model.
-Then, all the compiler options can be set as a whole `std::string` to generate the desired executable.
-Because different Operating Systems may have different suffixes for libraries,
-the output file name can be retrieved using the `get_compiled_file_name()` method.
+compilation of an ONNX model into an executable model.
+The compiler object is created by providing the input model file name and compilation flags.
+Compilation occurs during construction, and the resulting output file name can be retrieved
+using the `get_output_file_name()` method. Because different Operating Systems may have
+different suffixes for libraries, always use this method to get the actual output filename.
 
 ## PyOMCompile model API
 
-The complete interface to OnnxMlirCompiler can be seen in the sources mentioned previously.
+The complete interface to OMCompile can be seen in the sources mentioned previously.
 However, using the constructor and the methods below are enough to compile models.
 
+For detailed API documentation with all parameters, examples, and error handling, use Python's help system:
 ```python
-def __init__(self, file_name: str):
+from PyOMCompile import OMCompile
+help(OMCompile)
+```
+
+### Constructor
+```python
+def __init__(self, input_model_path: str, flags: str,
+             compiler_path: str = "", log_file_name: str = "",
+             reuse_compiled_model: bool = False):
     """
-    Constructor for an ONNX / MLIR model contained in a file.
+    Compile an ONNX model.
+
     Args:
-        file_name:   Relative or absolute path to your ONNX / MLIR model.
-        flags:       Compiler options to compile the model
-        logFilename: File in which to save the compilation std out/err.
-                     When empty, print to console.
-        reuse_compiled_model: If true, check if the output file already exists,
-                              in which case the compilation step is skipped.
-    Throw runtime exceptions on failure.
+        input_model_path: Relative or absolute path to your ONNX/MLIR model file.
+        flags: Compilation flags as a single string (e.g., '-O3', '-O3 -o output_name').
+        compiler_path: Path to onnx-mlir compiler binary. If empty, use default location.
+        log_file_name: Path to log file for compilation output. If empty, output to stdout/stderr.
+        reuse_compiled_model: If True, reuse existing compiled model if it exists. Default: False.
+
+    Raises:
+        RuntimeError: If the model file doesn't exist, compilation fails, or no input model provided.
     """
-def get_output_file_name(self):
+```
+
+### Output Methods
+```python
+def get_output_file_name(self) -> str:
     """
-    Method to provide the full (absolute or relative) output compiled file name, including
-    its suffix.
+    Get the output filename of the compiled model.
+
     Returns:
-        String containing the fle name after successful compilation.
-    Throw runtime exceptions on failure.
+        Full path to the compiled model output file.
+
+    Raises:
+        RuntimeError: If the compilation failed.
     """
-def get_model_tag(self):
+
+def get_output_constant_file_name(self) -> str:
     """
-    Method to provide the model tag for the compiled model.
+    Get the output filename of the compiled model constant file, if any.
+
     Returns:
-        String containing the model tag; empty string on failure.
-    Throw runtime exceptions on failure.
+        Full path to the constant file of the compiled model, or empty string if none.
+
+    Raises:
+        RuntimeError: If the compilation failed.
+    """
+
+def get_model_tag(self) -> str:
+    """
+    Get the model tag for the compiled model.
+
+    Returns:
+        Model tag string based on compilation flags.
+
+    Raises:
+        RuntimeError: If the compilation failed.
     """
 ```
 

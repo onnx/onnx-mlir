@@ -636,6 +636,7 @@ func.func @test_conv_transpose_output_shape(%arg0 : tensor<1x64x36x48xf32>, %arg
 }
 
 // -----
+
 //===----------------------------------------------------------------------===//
 
 /// Test Pad_1
@@ -1007,6 +1008,67 @@ func.func @test_reshape_dim_bijective_at_last_dim(%arg0: tensor<?x?x2048xf32>) -
 // CHECK:           [[VAR_4_:%.+]] = "onnx.Concat"([[VAR_3_]], [[VAR_1_]], [[VAR_0_]], [[VAR_2_]]) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
 // CHECK:           [[VAR_5_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_4_]]) <{allowzero = 0 : si64}> : (tensor<?x?x2048xf32>, tensor<4xi64>) -> tensor<?x32x64x?xf32>
 // CHECK:           return [[VAR_5_]] : tensor<?x32x64x?xf32>
+// CHECK:         }
+}
+
+// -----
+
+// COM: Test if reshape's shape inference can use DimAnalysis to enhance shape inference.
+// COM: By using DimAnalysis, we can infer the output shape of [1x?x16x128]. Otherwise, it is only [1x?x?x128].
+
+func.func @test_reshape_use_dim_analysis(%arg0: tensor<1x?x2048xf32> {onnx.dim_params = "1:s0"}, %arg1: tensor<1x?x2048xf32> {onnx.dim_params = "1:s0"}) -> tensor<*xf32> {
+  %0 = onnx.Constant dense<1> : tensor<1xi64>
+  %1 = "onnx.Dim"(%arg1) <{axis = 1 : si64}> : (tensor<1x?x2048xf32>) -> tensor<1xi64>
+  %2 = onnx.Constant dense<-1> : tensor<1xi64>
+  %3 = onnx.Constant dense<128> : tensor<1xi64>
+  %4 = "onnx.Concat"(%0, %1, %2, %3) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
+  %5 = "onnx.Reshape"(%arg0, %4) <{allowzero = 0 : si64}> : (tensor<1x?x2048xf32>, tensor<4xi64>) -> tensor<*xf32>
+  return %5 : tensor<*xf32>
+
+// CHECK-LABEL:  func.func @test_reshape_use_dim_analysis
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x?x2048xf32> {onnx.dim_params = "1:s0"}, [[PARAM_1_:%.+]]: tensor<1x?x2048xf32> {onnx.dim_params = "1:s0"}) -> tensor<1x?x16x128xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<128> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<-1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Dim"([[PARAM_1_]]) <{axis = 1 : si64}> : (tensor<1x?x2048xf32>) -> tensor<1xi64>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Concat"([[VAR_2_]], [[VAR_3_]], [[VAR_1_]], [[VAR_0_]]) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
+// CHECK:           [[VAR_5_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_4_]]) <{allowzero = 0 : si64}> : (tensor<1x?x2048xf32>, tensor<4xi64>) -> tensor<1x?x16x128xf32>
+// CHECK:           return [[VAR_5_]] : tensor<1x?x16x128xf32>
+// CHECK:         }
+}
+
+// -----
+
+// COM: Test if DimAnalysis works well in the reshape's shape inference when there are two Reshape ops in the IR.
+
+func.func @test_reshape_using_dim_analysis_two_reshapes(%arg0: tensor<256x?xf32>, %arg1: tensor<4x12x?x?xf32>) -> tensor<*xf32> {
+   %0 = onnx.Constant dense<12> : tensor<1xi64>
+   %1 = onnx.Constant dense<4> : tensor<1xi64>
+   %2 = onnx.Constant dense<256> : tensor<1xi64>
+   %3 = onnx.Constant dense<48> : tensor<1xi64>
+   %4 = "onnx.Dim"(%arg1) <{axis = 2 : si64}> : (tensor<4x12x?x?xf32>) -> tensor<1xi64>
+   %5 = "onnx.Dim"(%arg1) <{axis = 3 : si64}> : (tensor<4x12x?x?xf32>) -> tensor<1xi64>
+   %6 = "onnx.Concat"(%3, %4, %5) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+   %7 = "onnx.Reshape"(%arg1, %6) <{allowzero = 0 : si64}> : (tensor<4x12x?x?xf32>, tensor<3xi64>) -> tensor<*xf32>
+   %8 = "onnx.MatMul"(%arg0, %7) : (tensor<256x?xf32>, tensor<*xf32>) -> tensor<*xf32>
+   %10 = "onnx.Concat"(%1, %0, %2, %5) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
+   %11 = "onnx.Reshape"(%8, %10) <{allowzero = 0 : si64}> : (tensor<*xf32>, tensor<4xi64>) -> tensor<*xf32>
+   return %11 : tensor<*xf32>
+
+// CHECK-LABEL:  func.func @test_reshape_using_dim_analysis_two_reshapes
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<256x?xf32>, [[PARAM_1_:%.+]]: tensor<4x12x?x?xf32>) -> tensor<4x12x256x?xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<12> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<4> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<256> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<48> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Dim"([[PARAM_1_]]) <{axis = 2 : si64}> : (tensor<4x12x?x?xf32>) -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Dim"([[PARAM_1_]]) <{axis = 3 : si64}> : (tensor<4x12x?x?xf32>) -> tensor<1xi64>
+// CHECK:           [[VAR_6_:%.+]] = "onnx.Concat"([[VAR_3_]], [[VAR_4_]], [[VAR_5_]]) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+// CHECK:           [[VAR_7_:%.+]] = "onnx.Reshape"([[PARAM_1_]], [[VAR_6_]]) <{allowzero = 0 : si64}> : (tensor<4x12x?x?xf32>, tensor<3xi64>) -> tensor<48x?x?xf32>
+// CHECK-DAG:       [[VAR_8_:%.+]] = "onnx.MatMul"([[PARAM_0_]], [[VAR_7_]]) : (tensor<256x?xf32>, tensor<48x?x?xf32>) -> tensor<48x256x?xf32>
+// CHECK-DAG:       [[VAR_9_:%.+]] = "onnx.Concat"([[VAR_1_]], [[VAR_0_]], [[VAR_2_]], [[VAR_5_]]) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
+// CHECK:           [[VAR_10_:%.+]] = "onnx.Reshape"([[VAR_8_]], [[VAR_9_]]) <{allowzero = 0 : si64}> : (tensor<48x256x?xf32>, tensor<4xi64>) -> tensor<4x12x256x?xf32>
+// CHECK:           return [[VAR_10_]] : tensor<4x12x256x?xf32>
 // CHECK:         }
 }
 
@@ -2266,7 +2328,6 @@ func.func @test_gather_negative_axis(%arg0 : tensor<3x3xf32>, %arg1 : tensor<1x2
   // CHECK: onnx.Return [[RES]] : tensor<3x1x2xf32>
 }
 
-
 // -----
 
 func.func @test_gather_nd_1(%arg0 : tensor<2x2xf32>, %arg1 : tensor<2x2xi64>) -> tensor<*xf32> {
@@ -3368,6 +3429,7 @@ func.func @test_random_normal_like_type_default1(%arg0: tensor<1x1x28x28xf64>) -
   // CHECK: [[R0:%.+]] = "onnx.RandomUniformLike"(%arg0) <{high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32}> : (tensor<1x1x28x28xf64>) -> tensor<1x1x28x28xf64>
 }
 
+// -----
 
 //===----------------------------------------------------------------------===//
 // Test NonMaxSuppression
@@ -3570,6 +3632,7 @@ func.func @test_scatternd_float32(%arg0: tensor<4x4x4xf32>) -> tensor<*xf32> {
 }
 
 // -----
+
 func.func @test_seqence_length(%arg0 : !onnx.Seq<tensor<*xf32>>) -> tensor<*xi64> {
   %0 = "onnx.SequenceLength"(%arg0) : (!onnx.Seq<tensor<*xf32>>) -> tensor<*xi64>
   onnx.Return %0 : tensor<*xi64>
@@ -3581,6 +3644,7 @@ func.func @test_seqence_length(%arg0 : !onnx.Seq<tensor<*xf32>>) -> tensor<*xi64
 }
 
 // -----
+
 func.func @test_sequence_construct(%arg0 : tensor<2x3xf16>, %arg1 : tensor<4x3xf16>) -> !onnx.Seq<tensor<*xf16>> {
   %0 = "onnx.SequenceConstruct"(%arg0, %arg1) : (tensor<2x3xf16>, tensor<4x3xf16>) -> !onnx.Seq<tensor<*xf16>>
   onnx.Return %0 : !onnx.Seq<tensor<*xf16>>
@@ -3592,6 +3656,7 @@ func.func @test_sequence_construct(%arg0 : tensor<2x3xf16>, %arg1 : tensor<4x3xf
 }
 
 // -----
+
 func.func @test_seqence_1(%arg0: tensor<2x4xf32>, %arg1: tensor<2x6xf32>) -> !onnx.Seq<tensor<*xf32>> {
   %0 = "onnx.SequenceEmpty"() : () -> !onnx.Seq<tensor<*xf32>>
   %cst = "onnx.NoValue"() {value} : () -> none
@@ -4112,7 +4177,6 @@ func.func @test_custom3(%arg0: tensor<1024xi32>, %arg1: tensor<4xf32>) -> tensor
 // CHECK:           return [[VAR_0_]] : tensor<4xf32>
 // CHECK:         }
 
-
 // -----
 
 // Test layer norm when not decomposed
@@ -4337,6 +4401,7 @@ func.func @test_random_uniform_static_f32() -> tensor<*xf32> {
 // CHECK-LABEL:  func.func @test_random_uniform_static_f32
 // CHECK:           [[VAR_0_:%.+]] = "onnx.RandomUniform"() <{dtype = 1 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32, shape = [3, 4, 5]}> : () -> tensor<3x4x5xf32>
 }
+
 // -----
 
 func.func @test_random_uniform_static_f64() -> tensor<*xf64> {

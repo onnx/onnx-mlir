@@ -1,5 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
+# Check whether the build is for a tool (sub-project for now)
+# Otherwise, continue with default onnx-mlir project
+choose_build_target()
+
 # Include "Tools" before "Compiler" so that LRODATA_SCRIPT
 # is set before ExternalUtil.hpp.in is processed.
 if (LRODATA_SCRIPT)

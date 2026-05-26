@@ -208,14 +208,31 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
             // When indices.shape[-1] is less than (rank(data) - b) the
             // `reshapedDataAccessFct` computed so far yields a slice which
             // needs to be inserted into the output buffer.
-            Value zero = create.math.constantIndex(0);
-            IndexExpr reshapedDataLastDimExpr = dataDims[dataRank - 1];
-            Value last = reshapedDataLastDimExpr.getValue();
-            ValueRange innerLoopDef = create.krnl.defineLoops(1);
-            create.krnl.iterate(innerLoopDef, innerLoopDef, {zero}, {last},
+            // We need to iterate over all remaining dimensions.
+            int64_t numRemainingDims =
+                reshapedDataRank -
+                static_cast<int64_t>(reshapedDataAccessFct.size());
+            assert(numRemainingDims > 0 &&
+                   "Should have remaining dimensions to iterate");
+
+            // Build loop bounds for remaining dimensions.
+            SmallVector<Value, 4> lowerBounds, upperBounds;
+            for (int64_t i = 0; i < numRemainingDims; ++i) {
+              lowerBounds.push_back(create.math.constantIndex(0));
+              int64_t dimIdx = b + indicesLastDim + i;
+              upperBounds.push_back(dataDims[dimIdx].getValue());
+            }
+
+            ValueRange innerLoopDef = create.krnl.defineLoops(numRemainingDims);
+            create.krnl.iterate(innerLoopDef, innerLoopDef, lowerBounds,
+                upperBounds,
                 [&](const KrnlBuilder &createKrnl, ValueRange innerLoopInd) {
-                  IndexExpr ind = SymIE(innerLoopInd[0]);
-                  reshapedDataAccessFct.emplace_back(ind);
+                  // Add all remaining dimension indices.
+                  for (int64_t i = 0; i < numRemainingDims; ++i) {
+                    IndexExpr ind = SymIE(innerLoopInd[i]);
+                    reshapedDataAccessFct.emplace_back(ind);
+                  }
+
                   assert(static_cast<int64_t>(reshapedDataAccessFct.size()) ==
                              reshapedDataRank &&
                          "Access function should have the same rank as "
@@ -229,7 +246,11 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
                   // 'outputDataBuffer'.
                   Value val =
                       createKrnl.loadIE(reshapedData, reshapedDataAccessFct);
-                  reshapedDataAccessFct.pop_back();
+
+                  // Remove the indices we just added.
+                  for (int64_t i = 0; i < numRemainingDims; ++i) {
+                    reshapedDataAccessFct.pop_back();
+                  }
 
                   if (emitPrintStmts) {
                     createKrnl.printf("val = ", val);

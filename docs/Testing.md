@@ -305,12 +305,15 @@ Currently we provide testing for accelerator NNPA. It is described [here](AccelN
 
 ## Use gdb
 ### Get source code for ONNX model
-When you compile an ONNX model, add option `--preserveMLIR`. A source code for the  model in MLIR format, named your_model_name.input.mlir,  will be created. The line information for operation will be attached and propagated all the way to binary.
-When you run the compiled library in gdb, you can stop in the model and step through with respect to the ONNX operations. Here is an example for model test_add.onnx:
-
+When you compile an ONNX model, add option `--preserveMLIR --enable-debug-info`. A source code for the  model in MLIR format, named your_model_name.input.mlir,  will be created. The line information for operation will be attached and propagated all the way to binary.
+When you compile an .mlir file, add option `--enable-debug-info`. The input mlir file will be used for debug info. If you want track the execution at different level, create the .mlir file from different output of the pass in onnx-mlir. For example, you can use `--EmitONNXBasic`, or `--EmitMLIR`. The flag `--preserveMLIR` uses the output of `--EmitONNXBasic`.
+Example: compile test_add.onnx in compiler container in your onnx-mlir/build directory:
 ```
-$Debug/bin/onnx-mlir --preserveMLIR test_add.onnx
-$. ../utils/build-run-onnx-lib.sh
+$Debug/bin/onnx-mlir --preserveMLIR --enable-debug-info test_add.onnx
+$LLVM_PROJECT=path/to/your/llvm-prject . ../utils/build-run-onnx-lib.sh
+```
+When you run the compiled library with gdb outside of the compiler container, you can stop in the model and step through with respect to the ONNX operations. Here is an example for model test_add.onnx:
+```
 $gdb Debug/bin/run-onnx-lib
 (gdb) b run_main_graph
 (gdb) run ./test_add.so
@@ -328,15 +331,37 @@ Continuing.
 Breakpoint 2, main_graph () at /home/chentong/onnx-mlir/build/test_add.input.mlir:3
 3	    %0 = "onnx.Add"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
 (gdb) n
-[Detaching after vfork from child process 2333437]
-#  0) before op=     Add VMem:  6804
-[Detaching after vfork from child process 2333470]
-#  1) after  op=     Add VMem:  6804
 4	    return %0 : tensor<3x4x5xf32>
 (gdb)
 ```
 Note that the output of instrumentation showed that the gdb step at the onnx op level correctly. You need extra flags for onnx-mlir to run on instrumentation, which is not necessary for gdb. The source file is test_add.input.mlir.
 One of furtuer works is to support symbols at onnx level in gdb. It would be really useful if tensors can be printed out in gdb.
+
+Another example is to debug at MLIR level. First compile the model:
+```
+Debug/bin/onnx-mlir test_add.onnx --EmitMLIR
+Debug/bin/onnx-mlir test_add.onnx.mlir --enable-debug-info
+```
+It is assumed that Debug/bin/run-lib already built. 
+Now you can run gdb with this .so:
+
+```
+$gdb Debug/bin/run-onnx-lib
+(gdb) b run_main_graph
+(gdb) run ./test_add.onnx.so
+(gdb) list 4
+1       module attributes {llvm.data_layout = "E-S64-m:e-i1:8:16-i8:8:16-i64:64-f128:64-v128:64-a:8:16-n32:64", llvm.target_triple = "s390x-unknown-linux-gnu", "onnx-mlir.symbol-postfix" = "test_add"} {
+2         func.func @main_graph(%arg0: memref<3x4x5xf32> {onnx.name = "x"}, %arg1: memref<3x4x5xf32> {onnx.name = "y"}) -> (memref<3x4x5xf32> {onnx.name = "sum"}) attributes {llvm.emit_c_interface} {
+3           %alloc = memref.alloc() {alignment = 16 : i64} : memref<3x4x5xf32>
+4           affine.for %arg2 = 0 to 3 {
+5             affine.for %arg3 = 0 to 4 {
+6               affine.for %arg4 = 0 to 5 {
+7                 %0 = affine.load %arg0[%arg2, %arg3, %arg4] : memref<3x4x5xf32>
+8                 %1 = affine.load %arg1[%arg2, %arg3, %arg4] : memref<3x4x5xf32>
+9                 %2 = arith.addf %0, %1 : f32
+10                affine.store %2, %alloc[%arg2, %arg3, %arg4] : memref<3x4x5xf32>
+```
+It can be noticed that the IR is in MLIR dialect level.
 
 ## Use LLVM debug support
 

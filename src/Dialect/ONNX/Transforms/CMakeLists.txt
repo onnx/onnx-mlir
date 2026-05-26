@@ -17,11 +17,13 @@ add_onnx_mlir_library(OMShapeInference
 
 add_onnx_mlir_library(OMShapeInferencePass
   ShapeInferencePass.cpp
+  TestReifyResultShapesPass.cpp
 
   LINK_LIBS PUBLIC
   OMONNXOps
   OMShapeInferenceOpInterface
   MLIRFuncDialect
+  MLIRInferTypeOpInterface
   MLIRPass
   OMShapeInference
   )

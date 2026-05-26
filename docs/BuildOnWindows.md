@@ -71,7 +71,6 @@ call cmake %root_dir%\llvm-project\llvm -G "Ninja" ^
    -DLLVM_ENABLE_RTTI=ON ^
    -DLLVM_ENABLE_ZLIB=OFF ^
    -DLLVM_INSTALL_UTILS=ON ^
-   -DENABLE_LIBOMPTARGET=OFF ^
    -DLLVM_ENABLE_LIBEDIT=OFF
 
 call cmake --build . --config Release

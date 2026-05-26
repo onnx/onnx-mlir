@@ -386,8 +386,8 @@ func.func @test_resize_empty_tensor_inputs(%8: tensor<0xf32>, %714: tensor<*xf32
   onnx.Return %720 : tensor<*xf32>
   // CHECK-LABEL: func @test_resize_empty_tensor_inputs
   // CHECK-SAME:  ([[PARAM_0:%.+]]: tensor<0xf32>, [[PARAM_1:%.+]]: tensor<*xf32>, [[PARAM_2:%.+]]: tensor<*xi64>) -> tensor<*xf32> {
-  // CHECK:         [[NONE_1:%.+]] = "onnx.NoValue"() <{value}> : () -> none
-  // CHECK:         [[NONE_2:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+  // CHECK:         [[NONE_1:%.+]] = "onnx.NoValue"() : () -> none
+  // CHECK:         [[NONE_2:%.+]] = "onnx.NoValue"() : () -> none
   // CHECK:         [[RES:%.+]] = "onnx.Resize"([[PARAM_1]], [[NONE_1]], [[NONE_2]], [[PARAM_2]]) <{antialias = 0 : si64, coordinate_transformation_mode = "half_pixel", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, keep_aspect_ratio_policy = "stretch", mode = "nearest", nearest_mode = "floor"}> : (tensor<*xf32>, none, none, tensor<*xi64>) -> tensor<*xf32>
   // CHECK:         onnx.Return [[RES]] : tensor<*xf32>
 }
@@ -542,7 +542,6 @@ func.func @test_shape2(%arg0 : tensor<?x4x8x16xf32>) -> tensor<*xi64> {
   // CHECK-NEXT: %0 = "onnx.Shape"(%arg0) <{start = 0 : si64}> : (tensor<?x4x8x16xf32>) -> tensor<*xi64>
   // CHECK-NEXT: onnx.Return %0 : tensor<*xi64>
 }
-
 
 // -----
 
@@ -1184,7 +1183,7 @@ func.func @test_lstm_seq_lens_bs1_in_X(%X: tensor<7x1x3xf32>, %W: tensor<1x16x3x
 // CHECK-LABEL:  func.func @test_lstm_seq_lens_bs1_in_X
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<7x1x3xf32>, [[PARAM_1_:%.+]]: tensor<1x16x3xf32>, [[PARAM_2_:%.+]]: tensor<1x16x4xf32>, [[PARAM_3_:%.+]]: tensor<1x32xf32>, [[PARAM_4_:%.+]]: tensor<?xi32>, [[PARAM_5_:%.+]]: tensor<1x?x4xf32>) -> tensor<*xf32> {
 // CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
-// CHECK:           [[VAR_1_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK:           [[VAR_1_:%.+]] = "onnx.NoValue"() : () -> none
 // CHECK:           %{{.+}}, [[Y_h_:%.+]], %{{.+}} = "onnx.LSTM"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[VAR_1_]], [[PARAM_5_]], [[VAR_0_]], [[VAR_0_]]) <{direction = "forward", hidden_size = 4 : si64, input_forget = 0 : si64, layout = 0 : si64}> : (tensor<7x1x3xf32>, tensor<1x16x3xf32>, tensor<1x16x4xf32>, tensor<1x32xf32>, none, tensor<1x?x4xf32>, none, none) -> (none, tensor<*xf32>, none)
 // CHECK:           return [[Y_h_]] : tensor<*xf32>
 // CHECK:         }
@@ -1200,7 +1199,7 @@ func.func @test_lstm_seq_lens_bs1_in_seq_lens(%X: tensor<*xf32>, %W: tensor<1x16
 // CHECK-LABEL:  func.func @test_lstm_seq_lens_bs1_in_seq_lens
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>, [[PARAM_1_:%.+]]: tensor<1x16x3xf32>, [[PARAM_2_:%.+]]: tensor<1x16x4xf32>, [[PARAM_3_:%.+]]: tensor<1x32xf32>, [[PARAM_4_:%.+]]: tensor<1xi32>, [[PARAM_5_:%.+]]: tensor<1x?x4xf32>) -> tensor<*xf32> {
 // CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
-// CHECK:           [[VAR_1_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK:           [[VAR_1_:%.+]] = "onnx.NoValue"() : () -> none
 // CHECK:           %{{.+}}, [[Y_h_:%.+]], %{{.+}} = "onnx.LSTM"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[VAR_1_]], [[PARAM_5_]], [[VAR_0_]], [[VAR_0_]]) <{direction = "forward", hidden_size = 4 : si64, input_forget = 0 : si64, layout = 0 : si64}> : (tensor<*xf32>, tensor<1x16x3xf32>, tensor<1x16x4xf32>, tensor<1x32xf32>, none, tensor<1x?x4xf32>, none, none) -> (none, tensor<*xf32>, none)
 // CHECK:           return [[Y_h_]] : tensor<*xf32>
 // CHECK:         }
@@ -1216,7 +1215,7 @@ func.func @test_lstm_seq_lens_bs1_in_initial_h(%X: tensor<*xf32>, %W: tensor<1x1
 // CHECK-LABEL:  func.func @test_lstm_seq_lens_bs1_in_initial_h
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>, [[PARAM_1_:%.+]]: tensor<1x16x3xf32>, [[PARAM_2_:%.+]]: tensor<1x16x4xf32>, [[PARAM_3_:%.+]]: tensor<1x32xf32>, [[PARAM_4_:%.+]]: tensor<?xi32>, [[PARAM_5_:%.+]]: tensor<1x1x4xf32>) -> tensor<*xf32> {
 // CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
-// CHECK:           [[VAR_1_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK:           [[VAR_1_:%.+]] = "onnx.NoValue"() : () -> none
 // CHECK:           %{{.+}}, [[Y_h_:%.+]], %{{.+}} = "onnx.LSTM"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[VAR_1_]], [[PARAM_5_]], [[VAR_0_]], [[VAR_0_]]) <{direction = "forward", hidden_size = 4 : si64, input_forget = 0 : si64, layout = 0 : si64}> : (tensor<*xf32>, tensor<1x16x3xf32>, tensor<1x16x4xf32>, tensor<1x32xf32>, none, tensor<1x1x4xf32>, none, none) -> (none, tensor<*xf32>, none)
 // CHECK:           return [[Y_h_]] : tensor<*xf32>
 // CHECK:         }
@@ -1230,7 +1229,7 @@ func.func @test_gru_seq_lens_bs1_in_X(%X: tensor<7x1x3xf32>, %W: tensor<1x12x3xf
 
 // CHECK-LABEL:  func.func @test_gru_seq_lens_bs1_in_X
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<7x1x3xf32>, [[PARAM_1_:%.+]]: tensor<1x12x3xf32>, [[PARAM_2_:%.+]]: tensor<1x12x4xf32>, [[PARAM_3_:%.+]]: tensor<1x24xf32>, [[PARAM_4_:%.+]]: tensor<?xi32>, [[PARAM_5_:%.+]]: tensor<1x?x4xf32>) -> tensor<*xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() : () -> none
 // CHECK:           %{{.+}}, [[VAR_Y_h_:%.+]] = "onnx.GRU"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[VAR_0_]], [[PARAM_5_]]) <{direction = "forward", hidden_size = 4 : si64, layout = 0 : si64, linear_before_reset = 0 : si64}> : (tensor<7x1x3xf32>, tensor<1x12x3xf32>, tensor<1x12x4xf32>, tensor<1x24xf32>, none, tensor<1x?x4xf32>) -> (none, tensor<*xf32>)
 // CHECK:           return [[VAR_Y_h_]] : tensor<*xf32>
 // CHECK:         }
@@ -1244,7 +1243,7 @@ func.func @test_gru_seq_lens_bs1_in_seq_lens(%X: tensor<*xf32>, %W: tensor<1x12x
 
 // CHECK-LABEL:  func.func @test_gru_seq_lens_bs1_in_seq_lens
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>, [[PARAM_1_:%.+]]: tensor<1x12x3xf32>, [[PARAM_2_:%.+]]: tensor<1x12x4xf32>, [[PARAM_3_:%.+]]: tensor<1x24xf32>, [[PARAM_4_:%.+]]: tensor<1xi32>, [[PARAM_5_:%.+]]: tensor<1x?x4xf32>) -> tensor<*xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() : () -> none
 // CHECK:           %{{.+}}, [[VAR_Y_h_:%.+]] = "onnx.GRU"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[VAR_0_]], [[PARAM_5_]]) <{direction = "forward", hidden_size = 4 : si64, layout = 0 : si64, linear_before_reset = 0 : si64}> : (tensor<*xf32>, tensor<1x12x3xf32>, tensor<1x12x4xf32>, tensor<1x24xf32>, none, tensor<1x?x4xf32>) -> (none, tensor<*xf32>)
 // CHECK:           return [[VAR_Y_h_]] : tensor<*xf32>
 // CHECK:         }
@@ -1258,7 +1257,7 @@ func.func @test_gru_seq_lens_bs1_in_initial_h(%X: tensor<*xf32>, %W: tensor<1x12
 
 // CHECK-LABEL:  func.func @test_gru_seq_lens_bs1_in_initial_h
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>, [[PARAM_1_:%.+]]: tensor<1x12x3xf32>, [[PARAM_2_:%.+]]: tensor<1x12x4xf32>, [[PARAM_3_:%.+]]: tensor<1x24xf32>, [[PARAM_4_:%.+]]: tensor<?xi32>, [[PARAM_5_:%.+]]: tensor<1x1x4xf32>) -> tensor<*xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() : () -> none
 // CHECK:           %{{.+}}, [[VAR_Y_h_:%.+]] = "onnx.GRU"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[VAR_0_]], [[PARAM_5_]]) <{direction = "forward", hidden_size = 4 : si64, layout = 0 : si64, linear_before_reset = 0 : si64}> : (tensor<*xf32>, tensor<1x12x3xf32>, tensor<1x12x4xf32>, tensor<1x24xf32>, none, tensor<1x1x4xf32>) -> (none, tensor<*xf32>)
 // CHECK:           return [[VAR_Y_h_]] : tensor<*xf32>
 // CHECK:         }
@@ -1272,7 +1271,7 @@ func.func @test_rnn_seq_lens_bs1_in_X(%X: tensor<7x1x3xf32>, %W: tensor<1x4x3xf3
 
 // CHECK-LABEL:  func.func @test_rnn_seq_lens_bs1_in_X
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<7x1x3xf32>, [[PARAM_1_:%.+]]: tensor<1x4x3xf32>, [[PARAM_2_:%.+]]: tensor<1x4x4xf32>, [[PARAM_3_:%.+]]: tensor<1x8xf32>, [[PARAM_4_:%.+]]: tensor<?xi32>, [[PARAM_5_:%.+]]: tensor<1x?x4xf32>) -> tensor<*xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() : () -> none
 // CHECK:           %{{.+}}, [[VAR_Y_h_:%.+]] = "onnx.RNN"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[VAR_0_]], [[PARAM_5_]]) <{activations = ["Tanh", "Tanh"], direction = "forward", hidden_size = 4 : si64, layout = 0 : si64}> : (tensor<7x1x3xf32>, tensor<1x4x3xf32>, tensor<1x4x4xf32>, tensor<1x8xf32>, none, tensor<1x?x4xf32>) -> (none, tensor<*xf32>)
 // CHECK:           return [[VAR_Y_h_]] : tensor<*xf32>
 // CHECK:         }
@@ -1286,7 +1285,7 @@ func.func @test_rnn_seq_lens_bs1_in_seq_lens(%X: tensor<*xf32>, %W: tensor<1x4x3
 
 // CHECK-LABEL:  func.func @test_rnn_seq_lens_bs1_in_seq_lens
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>, [[PARAM_1_:%.+]]: tensor<1x4x3xf32>, [[PARAM_2_:%.+]]: tensor<1x4x4xf32>, [[PARAM_3_:%.+]]: tensor<1x8xf32>, [[PARAM_4_:%.+]]: tensor<1xi32>, [[PARAM_5_:%.+]]: tensor<1x?x4xf32>) -> tensor<*xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() : () -> none
 // CHECK:           %{{.+}}, [[VAR_Y_h_:%.+]] = "onnx.RNN"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[VAR_0_]], [[PARAM_5_]]) <{activations = ["Tanh", "Tanh"], direction = "forward", hidden_size = 4 : si64, layout = 0 : si64}> : (tensor<*xf32>, tensor<1x4x3xf32>, tensor<1x4x4xf32>, tensor<1x8xf32>, none, tensor<1x?x4xf32>) -> (none, tensor<*xf32>)
 // CHECK:           return [[VAR_Y_h_]] : tensor<*xf32>
 // CHECK:         }
@@ -1300,7 +1299,7 @@ func.func @test_rnn_seq_lens_bs1_in_initial_h(%X: tensor<*xf32>, %W: tensor<1x4x
 
 // CHECK-LABEL:  func.func @test_rnn_seq_lens_bs1_in_initial_h
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>, [[PARAM_1_:%.+]]: tensor<1x4x3xf32>, [[PARAM_2_:%.+]]: tensor<1x4x4xf32>, [[PARAM_3_:%.+]]: tensor<1x8xf32>, [[PARAM_4_:%.+]]: tensor<?xi32>, [[PARAM_5_:%.+]]: tensor<1x1x4xf32>) -> tensor<*xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() : () -> none
 // CHECK:           %{{.+}}, [[VAR_Y_h_:%.+]] = "onnx.RNN"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[VAR_0_]], [[PARAM_5_]]) <{activations = ["Tanh", "Tanh"], direction = "forward", hidden_size = 4 : si64, layout = 0 : si64}> : (tensor<*xf32>, tensor<1x4x3xf32>, tensor<1x4x4xf32>, tensor<1x8xf32>, none, tensor<1x1x4xf32>) -> (none, tensor<*xf32>)
 // CHECK:           return [[VAR_Y_h_]] : tensor<*xf32>
 // CHECK:         }
@@ -1617,6 +1616,7 @@ func.func @expand_pow_into_mul_f32_int_exponent(%arg0: tensor<3x4x5xf32>) -> ten
 // CHECK:           onnx.Return [[VAR_3_]] : tensor<3x4x5xf32>
 // CHECK:        }
 }
+
 // -----
 
 // Check BinaryOpBroadcastAxisPattern. Example from inception-v2-6 model.
@@ -2475,5 +2475,63 @@ func.func @splice_concat_nop(%arg0: tensor<1x12x?x64xf32> {onnx.name = "x"}) -> 
 // CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<6.400000e+01> : tensor<1xf32>
 // CHECK:           [[VAR_1_:%.+]] = "onnx.Add"([[PARAM_0_]], [[VAR_0_]]) : (tensor<1x12x?x64xf32>, tensor<1xf32>) -> tensor<1x12x?x64xf32>
 // CHECK:           return [[VAR_1_]] : tensor<1x12x?x64xf32>
+// CHECK:         }
+}
+
+// -----
+
+// COM: Test canonicalization pattern for Expand followed by Slice.
+// COM: When Slice extracts a subset along a dimension that was expanded from a scalar,
+// COM: we can optimize by adjusting the Expand's shape instead of performing the Slice.
+func.func @test_expand_slice(%arg0: tensor<?x?x44xf32>) -> tensor<1x?x128xf32> {
+  %0 = onnx.Constant dense<1> : tensor<1xi64>
+  %1 = onnx.Constant dense<128> : tensor<1xi64>
+  %2 = onnx.Constant dense<0.000000e+00> : tensor<f32>
+  %3 = "onnx.Dim"(%arg0) <{axis = 0 : si64}> {onnx_node_name = "/lstm/Shape_0"} : (tensor<?x?x44xf32>) -> tensor<1xi64>
+  %4 = "onnx.Concat"(%0, %3, %1) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+  %5 = "onnx.Expand"(%2, %4) : (tensor<f32>, tensor<3xi64>) -> tensor<1x?x128xf32>
+  return %5 : tensor<1x?x128xf32>
+
+// CHECK-LABEL:  func.func @test_expand_slice
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x44xf32>) -> tensor<1x?x128xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<128> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<f32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Dim"([[PARAM_0_]]) <{axis = 0 : si64}> {onnx_node_name = "/lstm/Shape_0"} : (tensor<?x?x44xf32>) -> tensor<1xi64>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Concat"([[VAR_0_]], [[VAR_3_]], [[VAR_1_]]) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+// CHECK:           [[VAR_5_:%.+]] = "onnx.Expand"([[VAR_2_]], [[VAR_4_]]) : (tensor<f32>, tensor<3xi64>) -> tensor<1x?x128xf32>
+// CHECK:           return [[VAR_5_]] : tensor<1x?x128xf32>
+// CHECK:         }
+}
+
+
+// -----
+
+// COM: Test that Expand+Slice is NOT optimized when the sliced dimension is dynamic.
+// COM: The pattern requires the sliced dimension to be static for safe optimization.
+func.func @test_expand_slice_dynamic_sliced_dim(%arg0: tensor<?x?x44xf32>) -> tensor<2x?x128xf32> {
+  %0 = onnx.Constant dense<128> : tensor<1xi64>
+  %1 = onnx.Constant dense<1> : tensor<1xi64>
+  %2 = onnx.Constant dense<2> : tensor<1xi64>
+  %3 = onnx.Constant dense<0> : tensor<1xi64>
+  %4 = onnx.Constant dense<0.000000e+00> : tensor<f32>
+  %5 = "onnx.Dim"(%arg0) <{axis = 0 : si64}> {onnx_node_name = "/lstm/Shape_0"} : (tensor<?x?x44xf32>) -> tensor<1xi64>
+  %6 = "onnx.Concat"(%2, %5, %0) <{axis = 0 : si64}> {onnx_node_name = "/lstm/Concat"} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+  %7 = "onnx.Expand"(%4, %6) {onnx_node_name = "/lstm/ConstantOfShape_1"} : (tensor<f32>, tensor<3xi64>) -> tensor<2x?x128xf32>
+  %8 = "onnx.Slice"(%7, %3, %1, %1, %1) {onnx_node_name = "/lstm/Slice"} : (tensor<2x?x128xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<2x?x128xf32>
+  return %8 : tensor<2x?x128xf32>
+
+// CHECK-LABEL:  func.func @test_expand_slice_dynamic_sliced_dim
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x44xf32>) -> tensor<2x?x128xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<128> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<2> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<0> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_4_:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<f32>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Dim"([[PARAM_0_]]) <{axis = 0 : si64}> {onnx_node_name = "/lstm/Shape_0"} : (tensor<?x?x44xf32>) -> tensor<1xi64>
+// CHECK:           [[VAR_6_:%.+]] = "onnx.Concat"([[VAR_2_]], [[VAR_5_]], [[VAR_0_]]) <{axis = 0 : si64}> {onnx_node_name = "/lstm/Concat"} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+// CHECK:           [[VAR_7_:%.+]] = "onnx.Expand"([[VAR_4_]], [[VAR_6_]]) {onnx_node_name = "/lstm/ConstantOfShape_1"} : (tensor<f32>, tensor<3xi64>) -> tensor<2x?x128xf32>
+// CHECK:           [[VAR_8_:%.+]] = "onnx.Slice"([[VAR_7_]], [[VAR_3_]], [[VAR_1_]], [[VAR_1_]], [[VAR_1_]]) {onnx_node_name = "/lstm/Slice"} : (tensor<2x?x128xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<2x?x128xf32>
+// CHECK:           return [[VAR_8_]] : tensor<2x?x128xf32>
 // CHECK:         }
 }

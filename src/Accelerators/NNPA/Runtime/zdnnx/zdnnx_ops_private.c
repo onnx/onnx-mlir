@@ -29,24 +29,40 @@ static uint64_t nnpa_max_tensor_size = 0;
 uint32_t zdnnx_get_nnpa_max_dim_size(zdnnx_axis dim_index) {
   switch (dim_index) {
   case E4:
-    if (nnpa_max_dim_size_e4 == 0)
+    if (nnpa_max_dim_size_e4 == 0) {
       nnpa_max_dim_size_e4 = zdnnx_is_telum_1 ? zdnn_get_nnpa_max_dim_idx_size()
                                               : zdnn_get_max_for_dim(4);
+#ifdef ZDNNX_DEBUG
+      printf("max_dim_size_e4: %d\n", nnpa_max_dim_size_e4);
+#endif
+    }
     return nnpa_max_dim_size_e4;
   case E3:
-    if (nnpa_max_dim_size_e3 == 0)
+    if (nnpa_max_dim_size_e3 == 0) {
       nnpa_max_dim_size_e3 = zdnnx_is_telum_1 ? zdnn_get_nnpa_max_dim_idx_size()
                                               : zdnn_get_max_for_dim(3);
+#ifdef ZDNNX_DEBUG
+      printf("max_dim_size_e3: %d\n", nnpa_max_dim_size_e3);
+#endif
+    }
     return nnpa_max_dim_size_e3;
   case E2:
-    if (nnpa_max_dim_size_e2 == 0)
+    if (nnpa_max_dim_size_e2 == 0) {
       nnpa_max_dim_size_e2 = zdnnx_is_telum_1 ? zdnn_get_nnpa_max_dim_idx_size()
                                               : zdnn_get_max_for_dim(2);
+#ifdef ZDNNX_DEBUG
+      printf("max_dim_size_e2: %d\n", nnpa_max_dim_size_e2);
+#endif
+    }
     return nnpa_max_dim_size_e2;
   case E1:
-    if (nnpa_max_dim_size_e1 == 0)
+    if (nnpa_max_dim_size_e1 == 0) {
       nnpa_max_dim_size_e1 = zdnnx_is_telum_1 ? zdnn_get_nnpa_max_dim_idx_size()
                                               : zdnn_get_max_for_dim(1);
+#ifdef ZDNNX_DEBUG
+      printf("max_dim_size_e1: %d\n", nnpa_max_dim_size_e1);
+#endif
+    }
     return nnpa_max_dim_size_e1;
   }
   return 0;
@@ -56,6 +72,9 @@ uint64_t zdnnx_get_nnpa_max_tensor_size() {
   if (nnpa_max_tensor_size == 0) {
     // zdnn_get_nnpa_max_tensor_size() returns size in bytes.
     nnpa_max_tensor_size = zdnn_get_nnpa_max_tensor_size() / 2;
+#ifdef ZDNNX_DEBUG
+    printf("max_tensor_size: %ld\n", nnpa_max_tensor_size);
+#endif
   }
   return nnpa_max_tensor_size;
 }

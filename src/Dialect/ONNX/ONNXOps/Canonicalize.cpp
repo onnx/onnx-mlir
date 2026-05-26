@@ -1359,6 +1359,120 @@ public:
   };
 };
 
+// Rewrite a pattern like the following:
+//
+// %shape = onnx.Concat(%dim1, %dim2, %dim3)
+// %data = onnx.Expand(%scalar, %shape)
+// %s = "onnx.Slice"(%data, %starts, %ends, %axes, %steps)
+//
+// into
+//
+// %new_shape = onnx.Concat(%new_dim1, %new_dim2, %new_dim3)
+// %s = onnx.Expand(%scalar, %new_shape)
+//
+// where dimensions are adjusted based on the slice parameters,
+// and all sliced dimensions are static at compile time,
+// and the input of Expand is a scalar tensor.
+class ReplaceSliceOfExpandRewritePattern
+    : public OpRewritePattern<ONNXSliceOp> {
+public:
+  using OpRewritePattern<ONNXSliceOp>::OpRewritePattern;
+
+  ReplaceSliceOfExpandRewritePattern(MLIRContext *context)
+      : OpRewritePattern(context) {}
+
+  LogicalResult matchAndRewrite(
+      ONNXSliceOp sliceOp, PatternRewriter &rewriter) const override {
+    Operation *op = sliceOp.getOperation();
+    Location loc = sliceOp.getLoc();
+    Value data = sliceOp.getData();
+    Value output = sliceOp.getOutput();
+    Value starts = sliceOp.getStarts();
+    Value axes = sliceOp.getAxes();
+
+    // Match
+    if (!hasShapeAndRank(data) || !hasShapeAndRank(starts) ||
+        !hasShapeAndRank(output))
+      return failure();
+    int64_t outputRank = getRank(output.getType());
+
+    // data is from ExpandOp.
+    if (!definedBy<ONNXExpandOp>(data))
+      return failure();
+    auto expandOp = mlir::cast<ONNXExpandOp>(data.getDefiningOp());
+
+    // ExpandOp's input is a scalar tensor so that it's safe to use a new
+    // shape that does not violate the broadcasting rule.
+    if (!isScalarTensor(expandOp.getInput()))
+      return failure();
+
+    // ExpandOp's shape is defined by dimensions.
+    if (!areDims(expandOp.getShape()))
+      return failure();
+
+    // Slice's axes are optional, but if present must be constants.
+    if (!isNoneValue(axes) && !definedBy<ONNXConstantOp>(axes))
+      return failure();
+
+    // Get starts to determine the size of axes when axes is None.
+    int64_t axesSize = getShape(starts.getType())[0];
+    if (axesSize == ShapedType::kDynamic)
+      return failure();
+
+    // Get axes (default to [0, 1, 2, ...]).
+    SmallVector<int64_t> axesI64;
+    if (isNoneValue(axes)) {
+      for (int64_t i = 0; i < axesSize; ++i)
+        axesI64.push_back(i);
+    } else {
+      ElementsAttr axesAttr = getElementAttributeFromONNXValue(axes);
+      for (int64_t v : axesAttr.getValues<int64_t>())
+        axesI64.emplace_back(v >= 0 ? v : v + outputRank);
+    }
+
+    // Check that all sliced dimensions of the input data are static.
+    if (!hasShapeAndRank(data))
+      return failure();
+    ArrayRef<int64_t> dataShape = getShape(data.getType());
+    for (int64_t axis : axesI64) {
+      if (dataShape[axis] == ShapedType::kDynamic)
+        return failure();
+    }
+
+    // Rewrite: construct new shape by using dynamic dims from Expand's shape
+    // and static dim from Slice's output shape.
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+
+    // Get the old shape of Expand.
+    SmallVector<Value, 4> oldExpandShape;
+    getDims(expandOp.getShape(), oldExpandShape);
+
+    // Get the old shape of Slice.
+    ArrayRef<int64_t> oldSliceShape = getShape(output.getType());
+
+    SmallVector<Value, 4> newDims;
+    for (int64_t i = 0; i < outputRank; ++i) {
+      // Check if this dimension is being sliced.
+      auto it = std::find(axesI64.begin(), axesI64.end(), i);
+      if (it != axesI64.end()) {
+        // This dimension is sliced and it must be static.
+        newDims.emplace_back(create.onnx.constantInt64({oldSliceShape[i]}));
+      } else {
+        // This dimension is not sliced, keep original.
+        newDims.emplace_back(oldExpandShape[i]);
+      }
+    }
+
+    Value newShape = create.onnx.concat(
+        RankedTensorType::get({outputRank}, rewriter.getI64Type()), newDims, 0);
+
+    Value res =
+        create.onnx.expand(output.getType(), expandOp.getInput(), newShape);
+    rewriter.replaceOp(op, {res});
+    return success();
+  };
+};
+
 /// The pattern is to replace two consecutive ReshapeOp with a single ReshapeOp.
 /// It's not successful for arbitrary ReshapeOp, so let's consider necessary
 /// condition for the replacement.
@@ -1899,7 +2013,7 @@ public:
 
     // Check if the condition of WhereOp matches EqualOp, the X of it matches
     // ConstantOp, and the Y of it matches ConcatOp.
-    Operation *equalOp, *constantOp, *concatOp;
+    Operation *equalOp = nullptr, *constantOp = nullptr, *concatOp = nullptr;
     Value equalOpResVal, constantOpResVal, concatOpResVal;
     bool isEqualOp = operandOfOpDefinedBy<ONNXEqualOp>(
         equalOp, onnxWhereOp.getOperation(), equalOpResVal, 0);
@@ -2624,6 +2738,7 @@ void ONNXShapeOp::getCanonicalizationPatterns(
 void ONNXSliceOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<SliceConcatNoOpPattern>(context);
+  results.insert<ReplaceSliceOfExpandRewritePattern>(context);
 }
 
 /// on the ONNXSubOp.

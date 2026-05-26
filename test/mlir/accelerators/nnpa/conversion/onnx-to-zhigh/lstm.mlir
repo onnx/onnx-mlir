@@ -411,6 +411,7 @@ func.func @test_onnx_to_zhigh_ccfd1_bidir_dyn(%X: tensor<?x?x?xf32>, %W: tensor<
 // CHECK:           return [[VAR_12_]], [[VAR_21_]], [[VAR_23_]] : tensor<?x2x?x200xf32>, tensor<2x?x200xf32>, tensor<2x?x200xf32>
 // CHECK:         }
 }
+
 // -----
 
 // COM : Maximum hidden_size in LSTM is 8192. Not lowered when using 8193.

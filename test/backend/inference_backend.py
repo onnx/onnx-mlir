@@ -3826,6 +3826,7 @@ def JniExecutionSession(jar_name, inputs):
     # print('stdin=' + str(procStdin), file=sys.stderr)
     cmd = [
         "java",
+        "-XX:-UsePerfData",
         "-cp",
         jar_name + ":" + os.getenv("JSONITER_JAR"),
         "com.ibm.onnxmlir.OMRunner",

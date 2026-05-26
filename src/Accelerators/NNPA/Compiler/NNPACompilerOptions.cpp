@@ -130,4 +130,12 @@ llvm::cl::opt<bool> nnpaDisableFusionOpStickUnstick(
                    " surrounding stick and unstick ops. Default is false"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
 
+llvm::cl::opt<bool> nnpaDisableShapeRestriction(
+    "nnpa-disable-shape-restriction",
+    llvm::cl::desc("Disable shape restriction checks for operations with "
+                   "dynamic shapes. When enabled, the compiler assumes that "
+                   "dynamic shapes will satisfy NNPA constraints at runtime. "
+                   "Default is false"),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
+
 } // namespace onnx_mlir

@@ -165,6 +165,11 @@ parser.add_argument(
     help="Print out the input and output signatures of the model.",
 )
 parser.add_argument(
+    "--print-compilation-info",
+    action="store_true",
+    help="Print out the compilation info stored in the compiled model.",
+)
+parser.add_argument(
     "--save-onnx",
     metavar="PATH",
     type=str,
@@ -209,7 +214,6 @@ parser.add_argument(
     default="",
     help="Options passed to onnxmlir. Used with --use-onnxmlir",
 )
-
 
 lib_group = parser.add_mutually_exclusive_group()
 lib_group.add_argument(
@@ -362,7 +366,6 @@ def verify_arg():
 ################################################################################
 # Support functions for RunONNXModel functionality.
 # Functions are free of args (all needed parameters are passed to the function).
-
 
 # A type mapping from MLIR to Numpy.
 MLIR_TYPE_TO_NP_TYPE = {
@@ -837,6 +840,7 @@ class InferenceSession:
         start = time.perf_counter()
         self.model_dir = self.temp_dir.name
         output_path = os.path.join(self.model_dir, self.default_model_name)
+        compiler_log_file = ""
         # When use onnxmlir package, use different wrapper class no matter the
         # model is compiled or not.
         if args.use_onnxmlir:
@@ -919,21 +923,20 @@ class InferenceSession:
             except ImportError:
                 raise RuntimeError("Set PyOMCompile in your python env.")
             # Prepare compiler arguments.
-            log_file = ""
             if args.write_compile_log:
-                log_file = (
+                compiler_log_file = (
                     args.write_compile_log
                     if args.write_compile_log.startswith("/")
                     else os.path.join(os.getcwd(), args.write_compile_log)
                 )
-                print("  Compilation log is dumped into {}".format(log_file))
+                print("  Compilation log is dumped into {}".format(compiler_log_file))
             # Invoke the compiler.
             start = time.perf_counter()
             try:
                 compiler = OMCompile(
                     input_model_path,
                     args.compile_args + " -o " + output_path,
-                    log_file_name=log_file,
+                    log_file_name=compiler_log_file,
                 )
             except RuntimeError as e:
                 raise RuntimeError(f"Compilation failed: {e}")
@@ -965,19 +968,19 @@ class InferenceSession:
                 self.model_dir, f"{self.default_model_name}.constants.bin"
             )
             if os.path.exists(constants_file_path):
-                print("Saving the constants file to", args.save_model, "\n")
+                print("Saving the constants file to", args.save_model)
                 shutil.copy2(constants_file_path, args.save_model)
-            # Compilation log.
-            log_file_path = os.path.join(args.save_model, "compile.log")
-            with open(log_file_path, "w") as f:
-                print("Saving the compilation log to", args.save_model, "\n")
-                f.write(msg)
+            # Saving the compiler log file, if any.
+            if compiler_log_file and os.path.exists(compiler_log_file):
+                print("Saving the log file file to", args.save_model)
+                shutil.copy2(compiler_log_file, args.save_model)
+            # Saving compiler options.
             compiler_option_file_path = os.path.join(
                 args.save_model, "compiler_option.txt"
             )
             expected_string = cache_string(args.model, args.compile_args)
             with open(compiler_option_file_path, "w") as ff:
-                print("Saving the compilation options to", args.save_model, "\n")
+                print("Saving the compilation options to", args.save_model)
                 ff.write(expected_string)
 
         # Exit if only compiling the model.
@@ -1009,6 +1012,11 @@ class InferenceSession:
         if args.print_signatures:
             print("Model's input signature: ", input_signature.strip())
             print("Model's output signature: ", output_signature.strip())
+        if args.print_compilation_info:
+            print(
+                "Compilation info stored in the compiled model: ",
+                self.session.compilation_info().strip(),
+            )
 
         # Let onnx-mlir know where to find the constants file.
         os.environ["OM_CONSTANT_PATH"] = self.model_dir

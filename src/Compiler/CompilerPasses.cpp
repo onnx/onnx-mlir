@@ -26,6 +26,7 @@
 #include "mlir/Conversion/VectorToSCF/VectorToSCF.h"
 #include "mlir/Dialect/Bufferization/Pipelines/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
+#include "mlir/Dialect/LLVMIR/Transforms/Passes.h"
 #include "mlir/Dialect/Linalg/Passes.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Pass/Pass.h"
@@ -127,25 +128,34 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
         /*nodeNameRegexList=*/replaceOpWithItsOperand));
 
   // Decompose first. Eliminates some unsupported ops without shape inference.
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createDecomposeONNXToONNXPass());
-
+  pm.addNestedPass<func::FuncOp>(
+      onnx_mlir::createDecomposeONNXToONNXPass("", /* enable conv to matmul */
+          /* If we use hybrid, there will be a decompose there that can handle
+             the decomposition of conv to matmul. By delaying to hybrid, we give
+             the recompose of similar conv into one larger conv a chance. In
+             such case, disable enableConvToMatmul here. */
+          targetCPU && !disableConvToMatmul && !enableONNXHybridPass));
   if (!disableRecomposeOption)
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createRecomposeONNXToONNXPass());
   if (enableONNXHybridPass) {
     pm.addNestedPass<func::FuncOp>(
-        onnx_mlir::createONNXHybridTransformPass(!disableRecomposeOption));
+        onnx_mlir::createONNXHybridTransformPass(!disableRecomposeOption,
+            /* enableConvToMatmul */ targetCPU && !disableConvToMatmul));
     // Convolution Optimization for CPU: enable when there are no accelerators.
+    // TODO: we may want to remove this pass.
     if (targetCPU && enableConvOptPass) {
       pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvOptONNXToONNXPass(
           enableSimdDataLayout && !disableSimdOption));
       pm.addNestedPass<func::FuncOp>(
-          onnx_mlir::createONNXHybridTransformPass(!disableRecomposeOption));
+          onnx_mlir::createONNXHybridTransformPass(!disableRecomposeOption,
+              /* enableConvToMatmul */ targetCPU && !disableConvToMatmul));
     }
   } else {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
     pm.addPass(mlir::createCanonicalizerPass());
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
     // Convolution Optimization for CPU: enable when there are no accelerators.
+    // TODO: we may want to remove this pass.
     if (targetCPU && enableConvOptPass) {
       pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvOptONNXToONNXPass(
           enableSimdDataLayout && !disableSimdOption));
@@ -176,14 +186,15 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   // shape if possible.
   if (enableONNXHybridPass) {
     pm.addNestedPass<func::FuncOp>(
-        onnx_mlir::createONNXHybridTransformPass(!disableRecomposeOption));
+        onnx_mlir::createONNXHybridTransformPass(!disableRecomposeOption,
+            /* enableConvToMatmul */ targetCPU && !disableConvToMatmul));
   } else {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
     pm.addPass(mlir::createCanonicalizerPass());
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
   }
 
-  // Remove onnx.Dim operations that refer to the same dynamid dimension.
+  // Remove onnx.Dim operations that refer to the same dynamic dimension.
   pm.addPass(onnx_mlir::createRemoveSameONNXDimPass());
 
   // Replace ONNXReturnOp with func::ReturnOp.
@@ -191,6 +202,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
 
   // Clean dead code.
   pm.addPass(mlir::createSymbolDCEPass());
+  // Apply CSE while preserving onnx_node_name attributes.
+  pm.addPass(onnx_mlir::createONNXCSEWithNodeNamePass());
 
   // Replace every DisposableElementsAttr with DenseElementsAttr.
   if (!donotScrubDisposableElementsAttr)
@@ -278,6 +291,9 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
                    << ONNXOpsStatFormat << "\"\n";
     }
   }
+
+  // Store the op statistics in an attribute of ModuleOp.
+  pm.addPass(onnx_mlir::createWriteOpStatsToModuleAttributePass());
 
   pm.addPass(onnx_mlir::createLowerToKrnlPass(/*enableTiling*/ optLevel >= 3,
       /*enableSIMD*/ optLevel >= 3 && !disableSimdOption, enableParallel,
@@ -401,13 +417,13 @@ void addLinalgToLLVMPasses(mlir::PassManager &pm, std::string outputNameNoExt) {
   // 3. KrnlEntryPointOp → LLVM conversion (dynamic entry point functions,
   //    OMTensor conversion, accelerator initialization, signature recording)
   // 4. Runtime function generation (omQueryEntryPoints, omInputSignature,
-  //    omOutputSignature)
+  //    omOutputSignature, omCompilationInfo)
   // 5. Other features (constants file storage, C wrapper, .lrodata section)
   pm.addPass(krnl::createConvertKrnlToLLVMPass(verifyInputTensors,
       /*useLRODATA=*/(modelSize == ModelSize::large),
       /*storeConstantsToFile=*/storeConstantsToFile,
       constantsToFileSingleThreshold, constantsToFileTotalThreshold,
-      outputNameNoExt, enableParallel));
+      omitCompileInfo, outputNameNoExt, enableParallel));
   pm.addPass(mlir::createReconcileUnrealizedCastsPass());
   pm.addPass(mlir::createCanonicalizerPass());
 }
@@ -442,7 +458,7 @@ void addKrnlToLLVMPasses(
         /*useLRODATA=*/(modelSize == ModelSize::large),
         /*storeConstantsToFile=*/storeConstantsToFile,
         constantsToFileSingleThreshold, constantsToFileTotalThreshold,
-        outputNameNoExt, enableParallel));
+        omitCompileInfo, outputNameNoExt, enableParallel));
     pm.addPass(mlir::createReconcileUnrealizedCastsPass());
     pm.addPass(mlir::createCanonicalizerPass());
     return;
@@ -518,9 +534,11 @@ void addKrnlToLLVMPasses(
       /*useLRODATA=*/(modelSize == ModelSize::large),
       /*storeConstantsToFile=*/storeConstantsToFile,
       constantsToFileSingleThreshold, constantsToFileTotalThreshold,
-      outputNameNoExt, enableParallel));
+      omitCompileInfo, outputNameNoExt, enableParallel));
   pm.addPass(mlir::createReconcileUnrealizedCastsPass());
   pm.addPass(mlir::createCanonicalizerPass());
+  if (enableDebugInfo)
+    pm.addPass(mlir::LLVM::createDIScopeForLLVMFuncOpPass());
 }
 
 InputIRLevelType determineInputIRLevel(mlir::OwningOpRef<ModuleOp> &module) {
@@ -566,8 +584,9 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
     // Always call addONNXToMLIRPasses first for preprocessing (ONNXReturnOp ->
     // func::ReturnOp, etc.) This is needed for both Krnl and Linalg paths
     // The function now handles the shouldCallONNXToMLIR check internally and
-    // automatically calls addONNXToLinalgPasses if needed
-    addONNXToMLIRPasses(pm, /*target CPU*/ maccel.empty());
+    // automatically calls addONNXToLinalgPasses if needed.
+    // CPU can handle fast matmul with any broadcast patterns.
+    addONNXToMLIRPasses(pm, /*target CPU*/ targetNoAccelerators());
   }
 
   // Step 2: Lower to Affine dialect (for EmitMLIR)
