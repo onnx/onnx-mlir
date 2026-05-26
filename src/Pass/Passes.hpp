@@ -79,10 +79,6 @@ std::unique_ptr<mlir::Pass> createQDQCanonicalizePass(
 
 std::unique_ptr<mlir::Pass> createFoldQuantizedBinary();
 
-/// XMC variant of FoldQuantizedBinary with an extra Add/Sub scale-equality
-/// guard to avoid folding Add/Sub when input and output scales differ.
-std::unique_ptr<mlir::Pass> createXmcFoldQuantizedBinary();
-
 /// Converts quantized Div / Mul by a scalar quantized constant into a
 /// single XCOMPILERRequantize op. XMC analogue of xcompiler's
 /// TransferScalarConstInputDivToRequantizePass.
