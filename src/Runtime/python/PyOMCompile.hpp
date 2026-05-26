@@ -28,9 +28,9 @@ namespace onnx_mlir {
 
 class PyOMCompile {
 public:
-  PyOMCompile(std::string modelPath, std::string flags,
-      const std::string &compilerPath = {}, const std::string &logFilename = {},
-      bool reuseCompiledModel = true);
+  PyOMCompile(const std::string &modelPath, const std::string &flags,
+      const std::string &compilerPath, const std::string &logFilename,
+      bool reuseCompiledModel);
   std::string pyGetOutputFilename();
   std::string pyGetOutputConstantFilename();
   std::string pyGetModelTag();
@@ -58,7 +58,7 @@ PYBIND11_MODULE(PyOMCompileC, m) {
       "    >>> output_file = compiler.get_output_file_name()\n"
       "    >>> print(f'Compiled to: {output_file}')")
       .def(py::init<const std::string &, const std::string &, const std::string &,
-               const std::string &, const bool>(),
+               const std::string &, bool>(),
           py::arg("input_model_path"),
           py::arg("flags"),
           py::arg("compiler_path") = "",

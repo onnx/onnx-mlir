@@ -28,7 +28,7 @@ namespace onnx_mlir {
 // =============================================================================
 // Constructor
 
-PyOMCompile::PyOMCompile(std::string modelPath, std::string flags,
+PyOMCompile::PyOMCompile(const std::string &modelPath, const std::string &flags,
     const std::string &compilerPath, const std::string &logFilename,
     bool reuseCompiledModel)
     : OMcompile() /* constructor without compilation */ {
