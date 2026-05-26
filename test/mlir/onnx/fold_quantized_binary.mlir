@@ -307,10 +307,10 @@ func.func @ResultNames_update_input(%arg0: tensor<1x4xf32>) -> tensor<1x4xi8> {
 
 // CHECK-LABEL: @ResultNames_update_input
 // CHECK: onnx.Identity
+// CHECK-SAME: ResultNames = ["add_Quant_output"]
 // CHECK-NEXT: quant.scast
 // CHECK-SAME: quant.uniform<i8:f32, 5.000000e-01:100>
 // CHECK-NEXT: quant.scast
-// CHECK-SAME: ResultNames = ["add_Quant_output"]
 // CHECK-NEXT: onnx.Identity
 
 func.func @ResultNames_update_output(%arg0: tensor<1x4xf32>) -> (tensor<1x4xf32>, tensor<1x4x!quant.uniform<i8:f32, 0.10000000149011612>>) {

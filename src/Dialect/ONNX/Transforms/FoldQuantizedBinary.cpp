@@ -196,25 +196,28 @@ public:
       return rewriter.notifyMatchFailure(binOp, "Cannot get new QType");
 
     if (updateInput) {
+      // Update the input op to have the right quant type and ResultNames
       rewriter.modifyOpInPlace(
           binOp, [&]() { lhs.setType(lhsType.clone(newQType)); });
+      ResultNamesUpdater().notifyOperationReplaced(binOp, lhs.getDefiningOp());
+
       auto scast = rewriter.create<quant::StorageCastOp>(
           binLoc, lhsType.clone(newQType.getStorageType()), lhs);
       auto replOp =
           rewriter.create<quant::StorageCastOp>(binLoc, outType, scast);
       rewriter.replaceOp(binOp, replOp);
+      return success();
     } else {
       auto scast = rewriter.create<quant::StorageCastOp>(
           binLoc, lhsType.clone(lhsQType.getStorageType()), lhs);
       auto replOp = rewriter.create<quant::StorageCastOp>(
           binLoc, outType.clone(newQType), scast);
       rewriter.replaceOp(binOp, replOp);
+      return success();
+
       // Since we fold DQ -> Bin -> Q -> DQ into DQ, we should not be
       // propagating the ResultNames of Q
-      replOp->removeAttr("ResultNames");
     }
-
-    return success();
   }
 };
 
@@ -243,11 +246,7 @@ public:
     patterns.add<FoldQuantized<ONNXAddOp>, FoldQuantized<ONNXSubOp>,
         FoldQuantized<ONNXMulOp>, FoldQuantized<ONNXDivOp>>(ctx);
 
-    GreedyRewriteConfig config;
-    ResultNamesUpdater rnUpdater;
-    config.listener = &rnUpdater;
-    if (failed(
-            applyPatternsGreedily(getOperation(), std::move(patterns), config)))
+    if (failed(applyPatternsGreedily(getOperation(), std::move(patterns))))
       return signalPassFailure();
   }
 };
