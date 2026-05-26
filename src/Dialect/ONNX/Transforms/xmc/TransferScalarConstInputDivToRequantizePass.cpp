@@ -120,9 +120,10 @@ public:
 
   LogicalResult matchAndRewrite(
       ONNXBinOp binOp, PatternRewriter &rewriter) const override {
-    static_assert(std::is_same_v<ONNXBinOp, ONNXDivOp> ||
-                      std::is_same_v<ONNXBinOp, ONNXMulOp>,
-        "Only Div / Mul are supported by this pattern");
+    if constexpr (!std::is_same_v<ONNXBinOp, ONNXDivOp> &&
+                  !std::is_same_v<ONNXBinOp, ONNXMulOp>)
+      return rewriter.notifyMatchFailure(
+          binOp, "Only Div / Mul are supported by this pattern");
 
     Value lhs = binOp->getOperand(0);
     Value rhs = binOp->getOperand(1);
