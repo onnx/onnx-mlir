@@ -1347,6 +1347,125 @@ def map_offsets_to_mnemonics(offset_counts, instructions, load_addr):
     return mnem_counts, mapped, unmapped
 
 
+def write_annotated_disasm(so_path, offset_counts, load_addr, output_path):
+    """Re-disassemble model.so via `objdump -d` and write a copy of
+    the listing to `output_path`, appending `<<<=== X.XX%` to every
+    instruction that received samples (percentage is over total mapped
+    samples in offset_counts).
+
+    Functions are sorted hottest-first and cold functions (zero
+    samples) are omitted so the file stays scannable. Within each
+    kept function the full body is preserved verbatim — register
+    spills, jumps, and all — so you can see the local context around
+    every hot line.
+    """
+    if not offset_counts:
+        print(f"\nNot writing annotated disassembly: no sample data.")
+        return
+    print(f"\nGenerating annotated disassembly -> {output_path}")
+    r = subprocess.run(["objdump", "-d", so_path],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        print(f"  objdump failed: {r.stderr.strip()[:200]}")
+        return
+    lines = r.stdout.splitlines()
+
+    # Rank-based markers between `<<<===` and the percentage:
+    #   ***  → top 5 hottest single instructions across the whole .so
+    #   **   → top 10 (rank 6-10)
+    #   *    → top 25 (rank 11-25)
+    # Ties at rank boundaries can include slightly more than the
+    # nominal cutoff because we sort then assign rank by index — fine,
+    # the goal is "is this one of the hottest" not exact rank precision.
+    ranked = sorted(offset_counts.items(), key=lambda kv: -kv[1])
+    rank_marker = {}
+    for i, (offset, _) in enumerate(ranked):
+        if i < 5:
+            rank_marker[offset] = '***'
+        elif i < 10:
+            rank_marker[offset] = '**'
+        elif i < 25:
+            rank_marker[offset] = '*'
+        else:
+            break
+
+    # Function header, e.g. "0000000000001dc0 <_init>:"
+    header_re = re.compile(r'^[0-9a-f]+\s+<([^>]+)>:\s*$', re.IGNORECASE)
+
+    # First pass: split into (preamble, [functions]), accumulating each
+    # function's sample total so we can sort+filter before writing.
+    preamble_lines = []
+    funcs = []   # list of [label, [line indices], total_samples]
+    cur = None
+    for i, line in enumerate(lines):
+        h = header_re.match(line)
+        if h:
+            if cur is not None:
+                funcs.append(cur)
+            cur = [h.group(1), [i], 0]
+            continue
+        if cur is None:
+            preamble_lines.append(i)
+            continue
+        cur[1].append(i)
+        m = _INSTR_RE.match(line)
+        if m:
+            offset = int(m.group(1), 16) - load_addr
+            cur[2] += offset_counts.get(offset, 0)
+    if cur is not None:
+        funcs.append(cur)
+
+    total = sum(offset_counts.values())
+    hot = [f for f in funcs if f[2] > 0]
+    hot.sort(key=lambda f: -f[2])
+
+    with open(output_path, "w") as fh:
+        fh.write(f"; Annotated disassembly of {so_path}\n")
+        fh.write(f"; Total mapped samples: {total}\n")
+        fh.write(f"; Showing {len(hot)} of {len(funcs)} functions "
+                 "(only those with sampled instructions).\n;\n")
+        fh.write("; Functions by sample share (decreasing):\n")
+        for label, _, t in hot:
+            pct = 100.0 * t / total
+            fh.write(f";   {pct:6.2f}%  ({t:8d})  {label}\n")
+        fh.write("\n")
+
+        for label, idxs, t in hot:
+            pct = 100.0 * t / total
+            fh.write(f"\n; ============================================="
+                     "============\n")
+            fh.write(f"; {label}\n")
+            fh.write(f";   {t} samples ({pct:.2f}% of total)\n")
+            fh.write("; ============================================="
+                     "============\n")
+            for i in idxs:
+                line = lines[i]
+                m = _INSTR_RE.match(line)
+                if m:
+                    offset = int(m.group(1), 16) - load_addr
+                    c = offset_counts.get(offset, 0)
+                    if c > 0:
+                        ipct = 100.0 * c / total
+                        marker = rank_marker.get(offset)
+                        suffix = f" {marker}" if marker else ""
+                        # Pad so the annotation always starts in the
+                        # same column. expandtabs(8) makes the length
+                        # match the visual width of the objdump line
+                        # (which uses tabs at 8-col stops).
+                        base = line.rstrip().expandtabs(8)
+                        pad_to = max(len(base), 60)
+                        # Append the absolute count too — at 2 decimals
+                        # of percent, a line with 1 sample still shows
+                        # "0.00%", which can look like a 0-sample
+                        # annotation. Including the count removes the
+                        # ambiguity.
+                        line = (base.ljust(pad_to)
+                                + f"  <<<==={suffix} {ipct:.2f}% ({c})")
+                fh.write(line + "\n")
+    print(f"  wrote {len(hot)} functions, "
+          f"{sum(f[2] for f in hot)} samples annotated")
+
+
 def print_instruction_mix(mnem_counts, mapped_total, unmapped_total, limit=40):
     if not mnem_counts:
         print("  (no instruction samples to report)")
@@ -1945,7 +2064,7 @@ def print_report(total_samples, inside_samples, per_binary_counts, top_inside):
 
 
 def analyze_profile(json_path, so_override=None, op_regex=None,
-                    not_op_regex=None):
+                    not_op_regex=None, annotate_path=None):
     """Re-print the report from a saved JSON profile, plus the
     instruction-mix breakdown derived from disassembling the .so.
     `so_override` lets you re-disassemble a different copy of the .so
@@ -2000,6 +2119,9 @@ def analyze_profile(json_path, so_override=None, op_regex=None,
         print_instruction_mix(mnem_counts, mapped, unmapped)
     run_per_op_analysis(so_path, offset_counts, instructions, load_addr,
                         op_regex=op_regex, not_op_regex=not_op_regex)
+    if annotate_path:
+        write_annotated_disasm(so_path, offset_counts, load_addr,
+                               annotate_path)
 
 
 def run_per_op_analysis(so_path, offset_counts, instructions, load_addr,
@@ -2125,6 +2247,12 @@ def main():
                         "including the instruction-mix breakdown and "
                         "per-ONNX-op attribution. Use either --load OR "
                         "the (--init, --model) pair, not both.")
+    p.add_argument("--annotate", metavar="FILE", default=None,
+                   help="Write an annotated disassembly of model.so "
+                        "to FILE. Each instruction that received "
+                        "samples gets a `<<<=== X.XX%%` annotation "
+                        "appended; functions with zero samples are "
+                        "omitted, kept ones sorted hottest-first.")
     p.add_argument("--sampler",
                    choices=["auto", "sample", "perf", "inproc"],
                    default="auto",
@@ -2175,7 +2303,8 @@ def main():
             p.error("--load is mutually exclusive with --init (analyze "
                     "mode reads the cpp path from the saved JSON).")
         analyze_profile(args.load, so_override=args.model,
-                        op_regex=args.op, not_op_regex=args.not_op)
+                        op_regex=args.op, not_op_regex=args.not_op,
+                        annotate_path=args.annotate)
         return
 
     if not args.init or not args.model:
@@ -2256,6 +2385,9 @@ def main():
             run_per_op_analysis(args.model, offset_counts, instructions,
                                 load_addr, op_regex=args.op,
                                 not_op_regex=args.not_op)
+            if args.annotate:
+                write_annotated_disasm(args.model, offset_counts,
+                                       load_addr, args.annotate)
 
 
 if __name__ == "__main__":
