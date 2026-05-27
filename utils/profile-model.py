@@ -40,6 +40,7 @@ Pipeline
 """
 
 import argparse
+import atexit
 import datetime
 import json
 import os
@@ -380,8 +381,14 @@ int main(int argc, char *argv[]) {
 # Where to write the workload .cpp + the binary it builds. /tmp keeps
 # both out of the user's source tree and avoids surprise file creation
 # next to their init .cpp.
-WORKLOAD_CPP_PATH = "/tmp/profile-static-workload-v2.cpp"
-DEFAULT_BINARY_PATH = "/tmp/profile-cpp-model-static-v2"
+#
+# All scratch paths embed a `<uid>-<pid>` tag so concurrent users on a
+# shared host don't clobber each other's files. PIDs are unique system-
+# wide at any given time, and uid breaks ties across users (or across
+# rapid reuse of the same PID in long-lived sessions).
+_RUN_TAG = f"{os.getuid()}-{os.getpid()}"
+WORKLOAD_CPP_PATH = f"/tmp/profile-model-workload-{_RUN_TAG}.cpp"
+DEFAULT_BINARY_PATH = f"/tmp/profile-model-bin-{_RUN_TAG}"
 
 # Sample init .cpp printed by `--help init`. This mirrors the granite
 # example shipped alongside the script — keep them in sync if the input
@@ -499,28 +506,73 @@ def compile_workload(init_cpp, model_so, verbose=False, extra_cflags=None):
     return DEFAULT_BINARY_PATH
 
 
-SAMPLE_FILE_PATH = "/tmp/profile_cpp_sample.txt"
-LINUX_PERF_DATA_PATH = "/tmp/profile_cpp_perf.data"
+SAMPLE_FILE_PATH = f"/tmp/profile-model-sample-{_RUN_TAG}.txt"
+LINUX_PERF_DATA_PATH = f"/tmp/profile-model-perf-{_RUN_TAG}.data"
 LINUX_MAPS_PATH = SAMPLE_FILE_PATH + ".maps"
-WORKLOAD_STDOUT_LOG = "/tmp/profile_cpp_stdout.log"
-WORKLOAD_STDERR_LOG = "/tmp/profile_cpp_stderr.log"
+WORKLOAD_STDOUT_LOG = f"/tmp/profile-model-stdout-{_RUN_TAG}.log"
+WORKLOAD_STDERR_LOG = f"/tmp/profile-model-stderr-{_RUN_TAG}.log"
 
 # In-process sampler: env var name the workload reads to enable
 # itself, the binary dump path it writes to, and the magic value the
 # parser expects in the header. If you change WORKLOAD_CPP's header
 # layout, bump the trailing two chars of "PMSAMP01" on both sides.
-INPROC_DUMP_PATH = "/tmp/profile_inproc_dump.bin"
+INPROC_DUMP_PATH = f"/tmp/profile-model-inproc-{_RUN_TAG}.bin"
+
+# All scratch files we generate at /tmp during a run. They're removed
+# at process exit (atexit hook) so a clean exit leaves no debris;
+# crashes preserve them for post-mortem (an exception or kill -9
+# bypasses atexit). Use --keep-temp to disable cleanup entirely.
+_SCRATCH_PATHS = (
+    WORKLOAD_CPP_PATH,
+    DEFAULT_BINARY_PATH,
+    SAMPLE_FILE_PATH,
+    LINUX_PERF_DATA_PATH,
+    LINUX_MAPS_PATH,
+    WORKLOAD_STDOUT_LOG,
+    WORKLOAD_STDERR_LOG,
+    INPROC_DUMP_PATH,
+)
+_keep_scratch = False
+
+
+def _cleanup_scratch():
+    if _keep_scratch:
+        return
+    import shutil
+    for p in _SCRATCH_PATHS:
+        try:
+            os.unlink(p)
+        except FileNotFoundError:
+            pass
+        except OSError:
+            # Don't crash on shutdown if /tmp got weird; the worst
+            # case is a stale file, and the next run overwrites it.
+            pass
+    # macOS clang -g drops a `<binary>.dSYM/` directory next to the
+    # produced binary (debug symbol bundle); Linux doesn't have an
+    # equivalent. rmtree handles "missing" without raising.
+    try:
+        shutil.rmtree(DEFAULT_BINARY_PATH + ".dSYM", ignore_errors=True)
+    except OSError:
+        pass
+
+
+atexit.register(_cleanup_scratch)
 INPROC_ENV_VAR = "PROFILE_INPROC_DUMP"
 INPROC_MAGIC = 0x3130504D41534D50  # "PMSAMP01" little-endian
 
 
 def _resolve_sampler(name):
-    """Map `auto` to the OS-default backend; pass everything else
-    through. macOS gets `sample`, Linux gets `perf`. inproc is opt-in
-    on either platform.
+    """Map `auto` to `inproc` on every platform. inproc is the default
+    because it produces the cleanest per-PC histogram (the kernel-side
+    `sample`/`perf` paths aggregate sibling PCs into call-tree rows,
+    which our parser must redistribute uniformly — that adds artificial
+    blur to the instruction-mix output). The kernel-side paths are
+    still useful when you need the per-binary leaf / top-frame tables,
+    which require captured call stacks.
     """
     if name == 'auto':
-        return 'sample' if IS_MAC else 'perf'
+        return 'inproc'
     return name
 
 
@@ -2001,7 +2053,8 @@ def print_per_op_instruction_mix(per_op_offsets, instructions, load_addr,
 
 def save_profile(out_path, cpp_path, binary_path, model_so, duration,
                  total_samples, inside_samples, per_binary_counts,
-                 top_inside, runtime_base, load_addr, offset_counts):
+                 top_inside, runtime_base, load_addr, offset_counts,
+                 sampler):
     payload = {
         "version": PROFILE_FORMAT_VERSION,
         "so_path": os.path.abspath(model_so),
@@ -2010,6 +2063,11 @@ def save_profile(out_path, cpp_path, binary_path, model_so, duration,
         "duration": duration,
         "timestamp": datetime.datetime.now().isoformat(timespec="seconds"),
         "inside_marker": INSIDE_MARKER,
+        # The resolved sampler name (one of `sample`, `perf`, `inproc`
+        # — never `auto`); recorded so re-analysis later can tell what
+        # backend produced the data and which biases to expect (e.g.
+        # `sample`'s aggregation blur on the per-PC histogram).
+        "sampler": sampler,
         "total_samples": total_samples,
         "inside_samples": inside_samples,
         "per_binary_counts": per_binary_counts,
@@ -2256,15 +2314,27 @@ def main():
     p.add_argument("--sampler",
                    choices=["auto", "sample", "perf", "inproc"],
                    default="auto",
-                   help="Which sampler backend to use. `auto` picks "
-                        "`sample` on macOS and `perf` on Linux. "
-                        "`inproc` runs an in-process SIGPROF sampler "
-                        "embedded in the workload — useful in "
-                        "restricted containers where perf_event_open "
-                        "is blocked. inproc does not capture stacks, "
-                        "so the per-binary leaf and top-frame "
-                        "sections are empty (instruction mix and "
-                        "per-ONNX-op breakdown still work).")
+                   help=(
+                     "Which sampler backend to use. "
+                     "`auto` resolves to `inproc` on every platform "
+                     "(the cleanest histogram, see below). "
+                     "`inproc` runs an in-process SIGPROF/ITIMER_PROF "
+                     "sampler embedded in the workload, recording the "
+                     "exact leaf PC at every tick — no kernel "
+                     "privilege, no aggregation blur, but no stacks "
+                     "(per-binary leaf and top-frame tables stay empty). "
+                     "`sample` is macOS-only and captures full call "
+                     "stacks via Apple's `sample` tool, but compresses "
+                     "sibling PCs into call-tree rows that our parser "
+                     "must redistribute uniformly, so the per-PC "
+                     "histogram (and the annotated disassembly) is "
+                     "artificially blurred. "
+                     "`perf` is Linux-only and gives exact per-PC "
+                     "counts plus stacks, but requires "
+                     "perf_event_open (kernel privilege; blocked in "
+                     "many container configs). "
+                     "Rule of thumb: stick with `auto` (inproc) "
+                     "unless you specifically need stacks."))
     op_group = p.add_mutually_exclusive_group()
     op_group.add_argument("--op", metavar="REGEX", default=None,
                    help="Restrict the instruction mix to PCs that fall "
@@ -2284,7 +2354,19 @@ def main():
                         "Mutually exclusive with --op.")
     p.add_argument("-v", "--verbose", action="store_true",
                    help="Echo the compile command and its stderr.")
+    p.add_argument("--keep-temp", action="store_true",
+                   dest="keep_temp",
+                   help="Don't delete the scratch files in /tmp at "
+                        "exit (the compiled binary, the workload "
+                        ".cpp, sampler output, perf data, the inproc "
+                        "PC dump, stdout/stderr logs). Useful when "
+                        "something looks wrong and you want to "
+                        "re-run the binary by hand or inspect the "
+                        "raw sampler output.")
     args = p.parse_args()
+    if args.keep_temp:
+        global _keep_scratch
+        _keep_scratch = True
 
     # Custom help dispatch — `-h init` prints a sample init .cpp,
     # `-h` (or no arg passed) prints the standard usage block.
@@ -2366,7 +2448,8 @@ def main():
         + ".profile.json")
     save_profile(out_path, args.init, binary, args.model, args.time,
                  total_samples, inside_samples, per_binary_counts,
-                 top_inside, runtime_base, load_addr, offset_counts)
+                 top_inside, runtime_base, load_addr, offset_counts,
+                 sampler)
     print_report(total_samples, inside_samples, per_binary_counts, top_inside)
 
     # Disassemble + map (the JSON has all the data needed to re-run
