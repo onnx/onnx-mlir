@@ -160,6 +160,24 @@ Type getMatMulResultType(
   return RankedTensorType::get(resultShape, elementType);
 }
 
+// Get result type of transpose.
+Type getTransposeResultType(
+    PatternRewriter &rewriter, Location loc, Value input, ArrayAttr permAttr) {
+  Type elementType = getElementType(input.getType());
+  int64_t rank = getRank(input.getType());
+  assert((rank >= 2) && "Input rank must be >= 2");
+  assert(static_cast<int64_t>(permAttr.size()) == rank &&
+         "Permutation attribute size is not equal to the input rank");
+
+  ArrayRef<int64_t> shape = getShape(input.getType());
+  SmallVector<int64_t, 4> resultShape;
+  for (int64_t i = 0; i < rank; ++i) {
+    int64_t ind = dyn_cast<IntegerAttr>(permAttr[i]).getInt();
+    resultShape.emplace_back(shape[ind]);
+  }
+  return RankedTensorType::get(resultShape, elementType);
+}
+
 /// Check if A is unidirectionally broadcastable to B, e.g.
 /// A: [256], B: [128x256]
 /// A: [1], B: [128x256]
@@ -294,6 +312,29 @@ Type CreatePaddedXType(Value x, ArrayAttr pads) {
       inputShape[3] + paddingShape[1] + paddingShape[3]};
   Type paddedType = RankedTensorType::get(paddedShape, elementType);
   return paddedType;
+}
+
+// Check that the permutation array is to permute the last two dimensions only.
+bool isLastTwoDimsPerm(ArrayAttr permAttr) {
+  int64_t size = permAttr.size();
+  assert(size >= 2 && "Permutation array must have at least two values");
+  // First dimensions are unchanged, so the indices are 0, 1, 2, etc.
+  if (size > 2) {
+    for (int64_t i = 0; i < size - 2; ++i) {
+      auto v = dyn_cast<IntegerAttr>(permAttr[i]);
+      if (!v)
+        return false;
+      if (v.getInt() != i)
+        return false;
+    }
+  }
+  // Last two dimensions are permuted.
+  auto last_dim = dyn_cast<IntegerAttr>(permAttr[size - 1]);
+  auto last_second_dim = dyn_cast<IntegerAttr>(permAttr[size - 2]);
+  if (!last_dim || !last_second_dim)
+    return false;
+  return ((last_dim.getInt() == size - 2) &&
+          (last_second_dim.getInt() == size - 1));
 }
 
 /// This pattern is to split a large MatMul into smaller ones that fit into
