@@ -2006,6 +2006,7 @@ func.func private @test_celu(%arg0 : tensor<?x3x224x224xf32>) -> tensor<?x3x224x
 // CHECK:     return [[RES_ALLOC_]] : memref<?x3x224x224xf32>
 
 }
+
 // -----
 
 func.func private @test_bitwise_not(%arg0 : tensor<128x512xi32>) -> tensor<*xi32> {

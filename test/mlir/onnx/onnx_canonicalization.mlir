@@ -543,7 +543,6 @@ func.func @test_shape2(%arg0 : tensor<?x4x8x16xf32>) -> tensor<*xi64> {
   // CHECK-NEXT: onnx.Return %0 : tensor<*xi64>
 }
 
-
 // -----
 
 func.func @test_size1(%arg0 : tensor<2x4x8x16xf32>) -> tensor<i64> {
@@ -1617,6 +1616,7 @@ func.func @expand_pow_into_mul_f32_int_exponent(%arg0: tensor<3x4x5xf32>) -> ten
 // CHECK:           onnx.Return [[VAR_3_]] : tensor<3x4x5xf32>
 // CHECK:        }
 }
+
 // -----
 
 // Check BinaryOpBroadcastAxisPattern. Example from inception-v2-6 model.
@@ -2475,5 +2475,63 @@ func.func @splice_concat_nop(%arg0: tensor<1x12x?x64xf32> {onnx.name = "x"}) -> 
 // CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<6.400000e+01> : tensor<1xf32>
 // CHECK:           [[VAR_1_:%.+]] = "onnx.Add"([[PARAM_0_]], [[VAR_0_]]) : (tensor<1x12x?x64xf32>, tensor<1xf32>) -> tensor<1x12x?x64xf32>
 // CHECK:           return [[VAR_1_]] : tensor<1x12x?x64xf32>
+// CHECK:         }
+}
+
+// -----
+
+// COM: Test canonicalization pattern for Expand followed by Slice.
+// COM: When Slice extracts a subset along a dimension that was expanded from a scalar,
+// COM: we can optimize by adjusting the Expand's shape instead of performing the Slice.
+func.func @test_expand_slice(%arg0: tensor<?x?x44xf32>) -> tensor<1x?x128xf32> {
+  %0 = onnx.Constant dense<1> : tensor<1xi64>
+  %1 = onnx.Constant dense<128> : tensor<1xi64>
+  %2 = onnx.Constant dense<0.000000e+00> : tensor<f32>
+  %3 = "onnx.Dim"(%arg0) <{axis = 0 : si64}> {onnx_node_name = "/lstm/Shape_0"} : (tensor<?x?x44xf32>) -> tensor<1xi64>
+  %4 = "onnx.Concat"(%0, %3, %1) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+  %5 = "onnx.Expand"(%2, %4) : (tensor<f32>, tensor<3xi64>) -> tensor<1x?x128xf32>
+  return %5 : tensor<1x?x128xf32>
+
+// CHECK-LABEL:  func.func @test_expand_slice
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x44xf32>) -> tensor<1x?x128xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<128> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<f32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Dim"([[PARAM_0_]]) <{axis = 0 : si64}> {onnx_node_name = "/lstm/Shape_0"} : (tensor<?x?x44xf32>) -> tensor<1xi64>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Concat"([[VAR_0_]], [[VAR_3_]], [[VAR_1_]]) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+// CHECK:           [[VAR_5_:%.+]] = "onnx.Expand"([[VAR_2_]], [[VAR_4_]]) : (tensor<f32>, tensor<3xi64>) -> tensor<1x?x128xf32>
+// CHECK:           return [[VAR_5_]] : tensor<1x?x128xf32>
+// CHECK:         }
+}
+
+
+// -----
+
+// COM: Test that Expand+Slice is NOT optimized when the sliced dimension is dynamic.
+// COM: The pattern requires the sliced dimension to be static for safe optimization.
+func.func @test_expand_slice_dynamic_sliced_dim(%arg0: tensor<?x?x44xf32>) -> tensor<2x?x128xf32> {
+  %0 = onnx.Constant dense<128> : tensor<1xi64>
+  %1 = onnx.Constant dense<1> : tensor<1xi64>
+  %2 = onnx.Constant dense<2> : tensor<1xi64>
+  %3 = onnx.Constant dense<0> : tensor<1xi64>
+  %4 = onnx.Constant dense<0.000000e+00> : tensor<f32>
+  %5 = "onnx.Dim"(%arg0) <{axis = 0 : si64}> {onnx_node_name = "/lstm/Shape_0"} : (tensor<?x?x44xf32>) -> tensor<1xi64>
+  %6 = "onnx.Concat"(%2, %5, %0) <{axis = 0 : si64}> {onnx_node_name = "/lstm/Concat"} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+  %7 = "onnx.Expand"(%4, %6) {onnx_node_name = "/lstm/ConstantOfShape_1"} : (tensor<f32>, tensor<3xi64>) -> tensor<2x?x128xf32>
+  %8 = "onnx.Slice"(%7, %3, %1, %1, %1) {onnx_node_name = "/lstm/Slice"} : (tensor<2x?x128xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<2x?x128xf32>
+  return %8 : tensor<2x?x128xf32>
+
+// CHECK-LABEL:  func.func @test_expand_slice_dynamic_sliced_dim
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x44xf32>) -> tensor<2x?x128xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<128> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<2> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<0> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_4_:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<f32>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Dim"([[PARAM_0_]]) <{axis = 0 : si64}> {onnx_node_name = "/lstm/Shape_0"} : (tensor<?x?x44xf32>) -> tensor<1xi64>
+// CHECK:           [[VAR_6_:%.+]] = "onnx.Concat"([[VAR_2_]], [[VAR_5_]], [[VAR_0_]]) <{axis = 0 : si64}> {onnx_node_name = "/lstm/Concat"} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+// CHECK:           [[VAR_7_:%.+]] = "onnx.Expand"([[VAR_4_]], [[VAR_6_]]) {onnx_node_name = "/lstm/ConstantOfShape_1"} : (tensor<f32>, tensor<3xi64>) -> tensor<2x?x128xf32>
+// CHECK:           [[VAR_8_:%.+]] = "onnx.Slice"([[VAR_7_]], [[VAR_3_]], [[VAR_1_]], [[VAR_1_]], [[VAR_1_]]) {onnx_node_name = "/lstm/Slice"} : (tensor<2x?x128xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<2x?x128xf32>
+// CHECK:           return [[VAR_8_]] : tensor<2x?x128xf32>
 // CHECK:         }
 }

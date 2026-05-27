@@ -115,6 +115,7 @@ func.func @not_a_layer_norm(%x: tensor<1x384x768xf32>, %scale: tensor<768xf32>, 
 }
 
 // -----
+
 // Check alternative layer norm with reciprocal instead of div
 func.func @layer_norm_with_reciprocal(%input: tensor<1x384x768xf32>, %scale: tensor<768xf32>, %bias: tensor<768xf32>) -> (tensor<1x384x768xf32>) {
   %eps = onnx.Constant dense<9.99999974E-6> : tensor<f32>
