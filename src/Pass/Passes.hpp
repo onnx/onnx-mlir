@@ -57,6 +57,10 @@ std::unique_ptr<mlir::Pass> createRemoveSameONNXDimPass();
 
 std::unique_ptr<mlir::Pass> createShapeInferencePass();
 
+/// Test-only: reify ranked result shapes for ONNX ops that implement the
+/// interface (used by lit tests).
+std::unique_ptr<mlir::Pass> createTestONNXReifyResultShapesPass();
+
 // To configure ConstPropONNXToONNXPass at program start.
 void configureConstPropONNXToONNXPass(bool roundFPToInt, int expansionBound,
     llvm::ArrayRef<std::string> disabledPatterns, bool constantPropIsDisabled);
