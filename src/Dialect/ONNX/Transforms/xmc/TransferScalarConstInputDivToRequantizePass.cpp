@@ -235,8 +235,12 @@ struct TransferScalarConstInputDivToRequantizePass
   void runOnOperation() override {
     auto *ctx = &getContext();
     RewritePatternSet patterns(ctx);
-    patterns.add<TransferScalarConstInputBinToRequantizePattern<ONNXDivOp>,
-        TransferScalarConstInputBinToRequantizePattern<ONNXMulOp>>(ctx);
+    // NOTE: the pattern is templated on the binary op and also supports
+    // ONNXMulOp. MUL is intentionally not registered here; to enable it,
+    // add `TransferScalarConstInputBinToRequantizePattern<ONNXMulOp>` to
+    // the `patterns.add<...>` list below.
+    patterns.add<TransferScalarConstInputBinToRequantizePattern<ONNXDivOp>>(
+        ctx);
 
     GreedyRewriteConfig config;
     ResultNamesUpdater rnUpdater;
