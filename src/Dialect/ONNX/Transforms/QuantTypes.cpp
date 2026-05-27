@@ -178,6 +178,11 @@ public:
           qOp, "Cannot convert Q input from BlockArg");
     }
 
+    if (!qOp.getOperand(0).hasOneUse()) {
+      return rewriter.notifyMatchFailure(
+          qOp, "Cannot convert Q whose operand has multiple uses");
+    }
+
     auto qTypeErr = getQuantType(qOp);
     if (std::holds_alternative<StringLiteral>(qTypeErr))
       return rewriter.notifyMatchFailure(
