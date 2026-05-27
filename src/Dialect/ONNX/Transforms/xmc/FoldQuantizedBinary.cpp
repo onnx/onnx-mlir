@@ -1,4 +1,9 @@
 // (c) Copyright 2026 Advanced Micro Devices, Inc. All Rights Reserved.
+//
+// XMC variant of FoldQuantizedBinary. Identical to the common pass except
+// for an extra guard that prevents folding Add/Sub when input and output
+// scales differ -- in that case a pure zero-point shift would lose the
+// rescale and produce incorrect integer values.
 
 #include <cmath>
 #include <llvm/ADT/APFloat.h>
@@ -138,7 +143,7 @@ quant::UniformQuantizedType getOutQuantType(
 namespace onnx_mlir {
 
 template <typename ONNXBinOp>
-class FoldQuantized : public OpRewritePattern<ONNXBinOp> {
+class XmcFoldQuantized : public OpRewritePattern<ONNXBinOp> {
 public:
   using OpRewritePattern<ONNXBinOp>::OpRewritePattern;
 
@@ -166,6 +171,18 @@ public:
       return rewriter.notifyMatchFailure(
           binOp, "Not Quantized input and output types");
 
+    if constexpr (std::is_same_v<ONNXBinOp, ONNXAddOp> ||
+                  std::is_same_v<ONNXBinOp, ONNXSubOp>) {
+      if (std::fabs(lhsQType.getScale() - outQType.getScale()) > 1e-6f)
+        return rewriter.notifyMatchFailure(
+            binOp, "Add/Sub input/output scales differ; cannot fold");
+    } else if constexpr (std::is_same_v<ONNXBinOp, ONNXMulOp>) {
+      if (std::fabs(lhsQType.getScale() - outQType.getScale()) > 1e-6f ||
+          lhsQType.getZeroPoint() != outQType.getZeroPoint())
+        return rewriter.notifyMatchFailure(
+            binOp, "Mul input/output quant params differ; cannot fold");
+    }
+
     // No need of checking if constant passes through reshape, etc
     // Constant folding takes care of that
     double binConst;
@@ -177,7 +194,7 @@ public:
     // Either input/output with only ONNX ops are considered
     // scast or fused kernels will not be considered
     auto isONNXOp = [](Operation *op) -> bool {
-      if (!op || isa<ONNXDequantizeLinearOp, ONNXQuantizeLinearOp>(op))
+      if (isa<ONNXDequantizeLinearOp, ONNXQuantizeLinearOp>(op))
         return false;
       return isa<ONNXDialect>(op->getDialect());
     };
@@ -196,78 +213,54 @@ public:
       return rewriter.notifyMatchFailure(binOp, "Cannot get new QType");
 
     if (updateInput) {
-      // Update the input op to have the right quant type and ResultNames
       rewriter.modifyOpInPlace(
           binOp, [&]() { lhs.setType(lhsType.clone(newQType)); });
-      ResultNamesUpdater().notifyOperationReplaced(binOp, lhs.getDefiningOp());
-
-      auto qScast = rewriter.create<quant::StorageCastOp>(
+      auto scast = rewriter.create<quant::StorageCastOp>(
           binLoc, lhsType.clone(newQType.getStorageType()), lhs);
-      // If original Q Scast exists, just replace it with the new one
-      if (auto oqScast = dyn_cast<quant::StorageCastOp>(*binOp->user_begin());
-          binOp->hasOneUse() && oqScast) {
-        rewriter.replaceOp(oqScast, qScast);
-        return success();
-      }
-
-      auto dqScast =
-          rewriter.create<quant::StorageCastOp>(binLoc, outType, qScast);
-      rewriter.replaceOp(binOp, dqScast);
-      return success();
+      auto replOp =
+          rewriter.create<quant::StorageCastOp>(binLoc, outType, scast);
+      rewriter.replaceOp(binOp, replOp);
     } else {
-      // If original DQ Scast exists, just replace it with new one
-      if (auto odqScast = lhs.template getDefiningOp<quant::StorageCastOp>()) {
-        auto dqScast = rewriter.create<quant::StorageCastOp>(
-            binLoc, outType.clone(newQType), odqScast->getOperand(0));
-        rewriter.replaceOp(binOp, dqScast);
-        return success();
-      }
-
-      auto qScast = rewriter.create<quant::StorageCastOp>(
+      auto scast = rewriter.create<quant::StorageCastOp>(
           binLoc, lhsType.clone(lhsQType.getStorageType()), lhs);
-      auto dqScast = rewriter.create<quant::StorageCastOp>(
-          binLoc, outType.clone(newQType), qScast);
-      rewriter.replaceOp(binOp, dqScast);
-      return success();
-
+      auto replOp = rewriter.create<quant::StorageCastOp>(
+          binLoc, outType.clone(newQType), scast);
+      rewriter.replaceOp(binOp, replOp);
       // Since we fold DQ -> Bin -> Q -> DQ into DQ, we should not be
       // propagating the ResultNames of Q
+      replOp->removeAttr("ResultNames");
     }
+
+    return success();
   }
 };
 
-/// Folds binary ops Add, Sub, Mul, Div with Q-DQ by adjusting the scale and
-/// zero-point parameters. It works with 2 patterns:
-/// Q -> DQ -> Add -> Q   => Q(x, oscale, ozp + round(C/oscale))
-/// DQ -> Add -> Q -> DQ => DQ(x, iscale, izp - round(C/iscale))
-/// iscale, izp refer to quant params on the input of binary op
-/// oscale, ozp refer to quant params on the output of binary op
-///
-/// Converting above patterns to quant types
-/// not_scast --iqType-> Add --oqType->
-/// => not_scast --newQType-> scast -> scast --oqType->
-/// --iqType-> Add --oqType-> not_scast
-/// => --iqType-> scast -> scast --newQType-> not_scast
-class FoldQuantizedBinary
-    : public PassWrapper<FoldQuantizedBinary, OperationPass<func::FuncOp>> {
+/// XMC variant of FoldQuantizedBinary. Same Q-DQ folding for Add/Sub/Mul/Div
+/// with an extra Add/Sub scale-equality guard.
+class XmcFoldQuantizedBinary
+    : public PassWrapper<XmcFoldQuantizedBinary, OperationPass<func::FuncOp>> {
 public:
   [[nodiscard]] StringRef getArgument() const override {
-    return "fold-quantized-binary";
+    return "xmc-fold-quantized-binary";
   }
 
   void runOnOperation() override {
     auto *ctx = &getContext();
     RewritePatternSet patterns(ctx);
-    patterns.add<FoldQuantized<ONNXAddOp>, FoldQuantized<ONNXSubOp>,
-        FoldQuantized<ONNXMulOp>, FoldQuantized<ONNXDivOp>>(ctx);
+    patterns.add<XmcFoldQuantized<ONNXAddOp>, XmcFoldQuantized<ONNXSubOp>,
+        XmcFoldQuantized<ONNXMulOp>, XmcFoldQuantized<ONNXDivOp>>(ctx);
 
-    if (failed(applyPatternsGreedily(getOperation(), std::move(patterns))))
+    GreedyRewriteConfig config;
+    ResultNamesUpdater rnUpdater;
+    config.listener = &rnUpdater;
+    if (failed(
+            applyPatternsGreedily(getOperation(), std::move(patterns), config)))
       return signalPassFailure();
   }
 };
 
-std::unique_ptr<mlir::Pass> createFoldQuantizedBinary() {
-  return std::make_unique<FoldQuantizedBinary>();
+std::unique_ptr<mlir::Pass> createXmcFoldQuantizedBinary() {
+  return std::make_unique<XmcFoldQuantizedBinary>();
 }
 
 } // namespace onnx_mlir

@@ -79,6 +79,10 @@ std::unique_ptr<mlir::Pass> createQDQCanonicalizePass(
 
 std::unique_ptr<mlir::Pass> createFoldQuantizedBinary();
 
+/// XMC variant of FoldQuantizedBinary with an extra Add/Sub scale-equality
+/// guard to avoid folding Add/Sub when input and output scales differ.
+std::unique_ptr<mlir::Pass> createXmcFoldQuantizedBinary();
+
 std::unique_ptr<mlir::Pass> createONNXCSEPass();
 
 std::unique_ptr<mlir::Pass> createQuantTypesPass();
@@ -294,6 +298,11 @@ std::unique_ptr<mlir::Pass> createDQBinaryQOptPass();
 
 /// Pass for converting back-to-back quant.scast pairs to XCOMPILERRequantize.
 std::unique_ptr<mlir::Pass> createConvertSCastPairToRequantizePass();
+
+/// Pass for inserting a placeholder XCOMPILERRequantize on
+/// `producer -> quant.scast -> DequantizeLinear` output edges when the
+/// quantized producer has multiple fanouts (XMC).
+std::unique_ptr<mlir::Pass> createAddRequantForOutputConvPass();
 
 /// Pass for folding equal Q(DQ(x)) and inserting XCOMPILERRequantize between
 /// DQ -> Q pairs whose quantization parameters differ. Runs before
