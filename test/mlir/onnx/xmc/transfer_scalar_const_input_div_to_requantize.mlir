@@ -3,9 +3,9 @@
 // Copyright (C) 2026 Advanced Micro Devices, Inc. All rights reserved.
 
 //===----------------------------------------------------------------------===//
-// Positive Tests: Should convert Div (with scalar UI16 const RHS) to
+// Positive Tests: Should convert Div / Mul (with scalar UI16 const RHS) to
 // XCOMPILERRequantize. All scales are chosen to be exactly representable in
-// f32 so the rewrite is bit-exact. The Div result is consumed by an
+// f32 so the rewrite is bit-exact. The Div / Mul result is consumed by an
 // ONNX Relu so the rewrite is allowed to retype the result.
 //===----------------------------------------------------------------------===//
 
@@ -43,22 +43,25 @@ func.func @div_scalar_ui16_const_half(%arg0: tensor<1x32x7x7x!quant.uniform<u8:f
 
 // -----
 
-//===----------------------------------------------------------------------===//
-// Negative Tests: Should NOT convert.
-//===----------------------------------------------------------------------===//
-
-// Test 3: Mul is not supported by this pass - only Div matches.
-// CHECK-LABEL: @mul_scalar_ui16_const_no_match
-func.func @mul_scalar_ui16_const_no_match(%arg0: tensor<1x16x14x14x!quant.uniform<u8:f32, 2.500000e-01:0>>) -> tensor<1x16x14x14x!quant.uniform<u8:f32, 1.250000e-01:0>> {
+// Test 3: Mul by a scalar UI16 quantized constant, real_c = 2.0.
+// real_c = (4 - 0) * 0.5 = 2.0; new_y_scale = 0.5 / 2.0 = 0.25.
+// CHECK-LABEL: @mul_scalar_ui16_const
+func.func @mul_scalar_ui16_const(%arg0: tensor<1x16x14x14x!quant.uniform<u8:f32, 2.500000e-01:0>>) -> tensor<1x16x14x14x!quant.uniform<u8:f32, 1.250000e-01:0>> {
   %c = onnx.Constant {value = dense<4> : tensor<1xui16>} : tensor<1x!quant.uniform<u16:f32, 5.000000e-01:0>>
   %0 = "onnx.Mul"(%arg0, %c) : (tensor<1x16x14x14x!quant.uniform<u8:f32, 2.500000e-01:0>>, tensor<1x!quant.uniform<u16:f32, 5.000000e-01:0>>) -> tensor<1x16x14x14x!quant.uniform<u8:f32, 5.000000e-01:0>>
   %1 = "onnx.Relu"(%0) : (tensor<1x16x14x14x!quant.uniform<u8:f32, 5.000000e-01:0>>) -> tensor<1x16x14x14x!quant.uniform<u8:f32, 1.250000e-01:0>>
   return %1 : tensor<1x16x14x14x!quant.uniform<u8:f32, 1.250000e-01:0>>
 }
-// CHECK: onnx.Mul
-// CHECK-NOT: onnx.XCOMPILERRequantize
+// CHECK-NOT: onnx.Mul
+// CHECK: "onnx.XCOMPILERRequantize"
+// CHECK-SAME: a_scale = [2.500000e-01
+// CHECK-SAME: y_scale = [2.500000e-01
 
 // -----
+
+//===----------------------------------------------------------------------===//
+// Negative Tests: Should NOT convert.
+//===----------------------------------------------------------------------===//
 
 // Test 4: RHS constant is not UI16 (use I8) - storage type guard.
 // CHECK-LABEL: @div_scalar_i8_const_no_match
@@ -112,7 +115,7 @@ func.func @div_zero_dq_const_no_match(%arg0: tensor<1x32x7x7x!quant.uniform<u8:f
 
 // -----
 
-// Test 8: Add is not supported - only Div matches this pass.
+// Test 8: Add is not supported - only Div / Mul match this pass.
 // CHECK-LABEL: @add_scalar_ui16_const_no_match
 func.func @add_scalar_ui16_const_no_match(%arg0: tensor<1x32x7x7x!quant.uniform<u8:f32, 5.000000e-01:0>>) -> tensor<1x32x7x7x!quant.uniform<u8:f32, 1.250000e-01:0>> {
   %c = onnx.Constant {value = dense<2> : tensor<1xui16>} : tensor<1x!quant.uniform<u16:f32, 5.000000e-01:0>>
