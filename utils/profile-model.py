@@ -68,19 +68,27 @@ DYLIB_PATH_ENV = 'DYLD_LIBRARY_PATH' if IS_MAC else 'LD_LIBRARY_PATH'
 
 
 def _so_arch(so_path):
-    """Return 'arm64', 'x86_64', or 'unknown' for the .so's machine type.
+    """Return a short architecture name for the .so's machine type
+    ('arm64', 'x86_64', 's390x', 'ppc64', or 'unknown').
 
     Used to gate the per-ONNX-op OMInstrumentPoint dataflow recovery —
-    the adrp+add+mov chain it walks is arm64-specific. x86_64 would
-    need a separate implementation (RIP-relative LEA + reg moves), so
-    we silently skip it for now.
+    the adrp+add+mov chain it walks is arm64-specific. Each non-arm64
+    target would need its own pattern (x86_64: RIP-relative LEA + reg
+    moves; s390x: LARL + LA; ppc64: addis+addi). Until those are
+    written, all non-arm64 paths skip per-op recovery and surface the
+    arch in the skip message so the user knows what's needed.
     """
     r = subprocess.run(['file', so_path], capture_output=True, text=True)
     out = (r.stdout or '').lower()
+    # `file`'s wording varies by version; match generously.
     if 'aarch64' in out or 'arm64' in out:
         return 'arm64'
-    if 'x86-64' in out or 'x86_64' in out:
+    if 'x86-64' in out or 'x86_64' in out or 'x86 64' in out:
         return 'x86_64'
+    if 's/390' in out or 's390' in out:
+        return 's390x'
+    if 'powerpc' in out or 'ppc' in out:
+        return 'ppc64'
     return 'unknown'
 
 # A row of the macOS `sample` Call graph section, post-parse. `depth` is
@@ -166,8 +174,18 @@ static void handler(int, siginfo_t *, void *ctx_) {
   pc = (uint64_t)ctx->uc_mcontext.pc;
 #elif defined(__linux__) && defined(__x86_64__)
   pc = (uint64_t)ctx->uc_mcontext.gregs[REG_RIP];
+#elif defined(__linux__) && defined(__s390x__)
+  // The Program Status Word's addr field holds the current
+  // instruction address on z/Architecture. For 64-bit user code the
+  // high bits aren't mode flags so we can use the value as-is.
+  pc = (uint64_t)ctx->uc_mcontext.psw.addr;
+#elif defined(__linux__) && defined(__powerpc64__)
+  // ppc64 Linux: NIP (next instruction pointer) is the equivalent of
+  // RIP/PC; on ELFv2 it's the regular PC at sample time.
+  pc = (uint64_t)ctx->uc_mcontext.gp_regs[32];  // PT_NIP
 #else
-  pc = 0;  // unknown arch — sample stays zero, parser will see junk
+#warning "in-process sampler: unknown architecture; PCs will be 0"
+  pc = 0;
 #endif
   size_t i = sample_count.fetch_add(1, std::memory_order_relaxed);
   if (i < kMaxSamples) sample_buffer[i] = pc;
@@ -208,6 +226,24 @@ static bool init() {
   return true;
 }
 
+// Write `v` to `fp` as 8 little-endian bytes, regardless of host
+// endianness. We can't `fwrite(&v, 8, 1, fp)` because that emits the
+// host byte order — and the python parser is hard-coded to LE — so on
+// big-endian hosts (s390x, ppc64be) the bytes would land reversed
+// relative to what the parser expects.
+static void fwrite_le64(uint64_t v, std::FILE *fp) {
+  unsigned char b[8];
+  b[0] = (unsigned char)(v & 0xff);
+  b[1] = (unsigned char)((v >> 8) & 0xff);
+  b[2] = (unsigned char)((v >> 16) & 0xff);
+  b[3] = (unsigned char)((v >> 24) & 0xff);
+  b[4] = (unsigned char)((v >> 32) & 0xff);
+  b[5] = (unsigned char)((v >> 40) & 0xff);
+  b[6] = (unsigned char)((v >> 48) & 0xff);
+  b[7] = (unsigned char)((v >> 56) & 0xff);
+  std::fwrite(b, 1, 8, fp);
+}
+
 static void finalize() {
   if (!dump_path || !sample_buffer) return;
   // Stop the timer first so the buffer doesn't grow under us during
@@ -231,13 +267,17 @@ static void finalize() {
     return;
   }
   // Header: magic (8B) + runtime_base (8B) + n_samples (8B) +
-  // reserved (8B). Magic is "PMSAMP01" little-endian; if you ever
-  // change the layout, bump the trailing two chars and update
-  // INPROC_MAGIC in the python parser.
-  uint64_t magic = 0x3130504D41534D50ULL;  // "PMSAMP01"
-  uint64_t hdr[4] = {magic, runtime_base, (uint64_t)n, 0};
-  std::fwrite(hdr, sizeof(hdr), 1, fp);
-  std::fwrite(sample_buffer, sizeof(uint64_t), n, fp);
+  // reserved (8B). All written little-endian so the layout is host-
+  // endian-agnostic. If you ever change the layout, bump the trailing
+  // two chars of "PMSAMP01" and update INPROC_MAGIC on the python
+  // side to match.
+  fwrite_le64(0x3130504D41534D50ULL, fp);  // magic = "PMSAMP01"
+  fwrite_le64(runtime_base, fp);
+  fwrite_le64((uint64_t)n, fp);
+  fwrite_le64(0, fp);                       // reserved
+  for (size_t i = 0; i < n; ++i) {
+    fwrite_le64(sample_buffer[i], fp);
+  }
   std::fclose(fp);
   std::cout << "[inproc-sampler] wrote " << n << " samples to "
             << dump_path << std::endl;
@@ -1230,15 +1270,28 @@ def _get_load_address_linux(so_path):
     return 0
 
 
-# objdump line on macOS arm64 looks like:
-#   "     67c: 6d0133ed     \tstp\td13, d12, [sp, #0x10]"
-# i.e. <addr>:<spaces><packed-hex-bytes><spaces>\t<mnemonic>\t<operands>.
-# Bytes can be packed (`6d0133ed`) or space-separated (`6d 01 33 ed`)
-# depending on toolchain version; the TAB before the mnemonic is the
-# reliable delimiter. We capture the operand tail too so the OMIP
-# dataflow pass can resolve adrp/add/mov chains.
+# objdump line layouts we need to handle:
+#   macOS arm64 :  "     67c: 6d0133ed     \tstp\td13, d12, [sp, #0x10]"
+#                  (one packed 8-hex-char encoding per instruction)
+#   Linux arm64 :  "  680:\td10043ff \tsub\tsp, sp, #0x10"
+#                  (same shape — a single 8-hex blob)
+#   Linux x86_64:  "1234:\t48 89 e5             \tmov    %rsp,%rbp"
+#                  (variable-length, space-separated 2-hex pairs)
+#   Linux s390x :  "    1dc0:\teb 6f f0 30 00 24\tstmg\t%r6,%r15,48(%r15)"
+#                  (variable-length, 2-hex pairs, tab between addr and bytes)
+# The old "anything up to the first tab, then the mnemonic" pattern
+# silently mis-parses the s390x layout (no separator between `:` and
+# the bytes column → matches empty + grabs first byte as mnemonic).
+# Skip the bytes column explicitly: either a single 2-8-char hex blob
+# OR a sequence of 2-hex-pair groups with optional whitespace between.
+# Mnemonic is anchored on a leading letter so a hex-only token can't
+# masquerade as one (avoids `b.eq` confusion in arm conditional
+# branches).
 _INSTR_RE = re.compile(
-    r'^\s*([0-9a-f]+):[^\t\n]*\t(\S+)(?:\t([^\n]*))?',
+    r'^\s*([0-9a-f]+):\s+'
+    r'(?:[0-9a-f]{2,8}(?:\s+[0-9a-f]{2})*)\s+'
+    r'([a-z][\w.]*)'
+    r'(?:\s+([^\n]*))?',
     re.IGNORECASE)
 
 
@@ -1330,7 +1383,12 @@ def print_instruction_mix(mnem_counts, mapped_total, unmapped_total, limit=40):
 # op-body spans. Sample weights from offset_counts that fall into each
 # span are attributed to that op type.
 
-OMIP_SYMBOL = "_OMInstrumentPoint"
+# Substring we look for in objdump's `<symbol>` comment to identify
+# OMInstrumentPoint call sites. We deliberately drop the leading
+# underscore that Mach-O prefixes onto C names — that way the substring
+# matches both `<_OMInstrumentPoint>` (macOS) and the ELF forms
+# `<OMInstrumentPoint>` and `<OMInstrumentPoint@plt>` (Linux).
+OMIP_SYMBOL = "OMInstrumentPoint"
 
 
 def _load_const_section(so_path):
@@ -1469,13 +1527,26 @@ _NON_WRITERS = {
 _BL_CLOBBER_REGS = {f'x{i}' for i in range(19)} | {'x29', 'x30'}
 
 
-def extract_omip_calls(instructions, const_info):
+def extract_omip_calls(instructions, const_info, arch):
     """Walk the disassembly and resolve (opName, nodeName) at each
-    `bl _OMInstrumentPoint` call site.
+    OMInstrumentPoint call site. Dispatches to the per-arch dataflow
+    because the address-load + reg-move + call instructions differ.
 
     Returns a list of dicts with keys: pc, op_name, node_name,
     op_va, node_va. Either string field is None when the dataflow
     couldn't recover it (e.g. register clobbered by intervening code).
+    """
+    if arch == 'arm64':
+        return _extract_omip_calls_arm64(instructions, const_info)
+    if arch == 's390x':
+        return _extract_omip_calls_s390x(instructions, const_info)
+    return []
+
+
+def _extract_omip_calls_arm64(instructions, const_info):
+    """arm64: address comes from an adrp+add pair (page + 12-bit imm),
+    propagated through `mov xN, xM` to x0/x2 at the `bl` call site.
+    Args go in x0 (opName), x1 (iTag), x2 (nodeName).
     """
     # Sort by PC so we walk in execution order. Branches/loops aren't
     # modelled — basic-block-local information only — but that's fine
@@ -1560,6 +1631,93 @@ def extract_omip_calls(instructions, const_info):
                 reg = 'x' + reg[1:]
             reg_va.pop(reg, None)
             pending_adrp.pop(reg, None)
+
+    return calls
+
+
+# s390x patterns. Address loads use `larl %rN, 0xADDR` (single
+# instruction, PC-relative). Register copies use `lgr %rDST, %rSRC`
+# (load grand register, 64-bit). Calls use `brasl %r14, target`. The
+# ELF s390x ABI puts the first three args in %r2, %r3, %r4 — so
+# OMInstrumentPoint(opName, iTag, nodeName) maps to %r2/%r3/%r4.
+_S390X_LARL_RE = re.compile(
+    r'^\s*(%r\d+)\s*,\s*0?x?([0-9a-f]+)', re.IGNORECASE)
+_S390X_LGR_RE = re.compile(
+    r'^\s*(%r\d+)\s*,\s*(%r\d+)\s*$', re.IGNORECASE)
+_S390X_FIRST_REG_RE = re.compile(r'^\s*(%r\d+)\b', re.IGNORECASE)
+# Caller-saved per s390x ELF ABI: r0-r5 (the arg regs) + r14
+# (link/return address). r6-r13 are callee-saved so we leave their
+# tracking in place across calls.
+_S390X_BRASL_CLOBBER = {f'%r{i}' for i in range(6)} | {'%r14'}
+
+
+def _extract_omip_calls_s390x(instructions, const_info):
+    """s390x equivalent of the arm64 dataflow. Tracks the most recent
+    constant address loaded into each general register via `larl`,
+    propagates through `lgr`, snapshots %r2 (opName) and %r4 (nodeName)
+    at each `brasl` call site whose target symbol contains
+    OMInstrumentPoint. Other instructions writing to a tracked register
+    invalidate that register's value (conservative — false-positive
+    kills only cost recovery rate, not correctness).
+    """
+    addrs = sorted(instructions.keys())
+    reg_va = {}  # reg name (e.g. '%r2') -> known VA
+    calls = []
+    for pc in addrs:
+        mnem, raw_ops = instructions[pc]
+        ops = _clean_ops(raw_ops)
+        m = mnem.lower()
+
+        if m == 'larl':
+            mm = _S390X_LARL_RE.match(ops)
+            if mm:
+                reg_va[mm.group(1)] = int(mm.group(2), 16)
+            continue
+
+        # lgr is the 64-bit reg-to-reg copy; lgfr sign-extends a 32-bit
+        # source but for tracking VAs (which are always already 64-bit
+        # on s390x user code) we treat both as straight propagation.
+        if m == 'lgr' or m == 'lgfr':
+            mm = _S390X_LGR_RE.match(ops)
+            if mm:
+                dst, src = mm.group(1), mm.group(2)
+                if src in reg_va:
+                    reg_va[dst] = reg_va[src]
+                else:
+                    reg_va.pop(dst, None)
+                continue
+            # Fall through to the kill path on weird operand forms.
+
+        if m == 'brasl':
+            # The OMInstrumentPoint identifier lives inside the
+            # `<symbol>` annotation that _clean_ops strips, so match
+            # against raw_ops. Substring covers both bare
+            # `<OMInstrumentPoint>` and the PLT-trampoline form
+            # `<OMInstrumentPoint@plt>`.
+            if OMIP_SYMBOL in raw_ops:
+                calls.append({
+                    'pc': pc,
+                    'op_va': reg_va.get('%r2'),
+                    'node_va': reg_va.get('%r4'),
+                    'op_name': (
+                        _read_cstring(const_info, reg_va['%r2'])
+                        if '%r2' in reg_va else None),
+                    'node_name': (
+                        _read_cstring(const_info, reg_va['%r4'])
+                        if '%r4' in reg_va else None),
+                })
+            for r in _S390X_BRASL_CLOBBER:
+                reg_va.pop(r, None)
+            continue
+
+        # Generic kill: any other instruction whose first operand is a
+        # register invalidates that register's tracked VA. False
+        # positives (e.g. compare/store instructions whose first
+        # operand is read-only) only reduce recovery rate, never
+        # produce incorrect strings.
+        rm = _S390X_FIRST_REG_RE.match(ops)
+        if rm:
+            reg_va.pop(rm.group(1), None)
 
     return calls
 
@@ -1862,22 +2020,24 @@ def run_per_op_analysis(so_path, offset_counts, instructions, load_addr,
     """
     assert not (op_regex and not_op_regex), \
         "op_regex and not_op_regex are mutually exclusive"
-    # The OMIP dataflow walks arm64 `adrp + add + mov` chains; on x86_64
-    # the equivalent (RIP-relative `lea` + reg moves) needs different
-    # patterns we haven't ported. Bail with a clear note instead of
-    # producing garbage spans.
+    # OMIP dataflow is per-arch (different address-load + reg-move +
+    # call instruction patterns). arm64 and s390x are wired up; x86_64
+    # / ppc64 still need their patterns ported. Bail cleanly when we
+    # can't recover.
     arch = _so_arch(so_path)
-    if arch != 'arm64':
+    supported = {'arm64', 's390x'}
+    if arch not in supported:
         if op_regex or not_op_regex:
             sys.exit(f"Error: --op / --not-op require per-op recovery, "
-                     f"which is currently arm64-only (.so arch: {arch}).")
-        print(f"\n(per-ONNX-op recovery skipped: requires arm64 .so, "
-              f"got {arch})")
+                     f"which is implemented for {sorted(supported)} "
+                     f"(.so arch: {arch}).")
+        print(f"\n(per-ONNX-op recovery skipped: arch {arch} not yet "
+              f"supported; have {sorted(supported)})")
         return
     const_info = _load_const_section(so_path)
     if const_info is None:
         return
-    calls = extract_omip_calls(instructions, const_info)
+    calls = extract_omip_calls(instructions, const_info, arch)
     if not calls:
         return
     spans, unpaired = build_op_spans(calls)
