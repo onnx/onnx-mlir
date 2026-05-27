@@ -234,7 +234,7 @@ static inline void printStartReport() {
 }
 
 static void flushRecordBuffer() {
-  if (bufferIndex <= 0)
+  if (instrumentReportTimeDisabled || bufferIndex <= 0)
     return;
   // We have entries, print them now.
   printStartReport();
@@ -377,9 +377,5 @@ void OMInstrumentPoint(const char *opName, int64_t iTag, const char *nodeName) {
         instrumentReportOpName, instrumentReportNodeName,
         (isBefore ? "before" : "after"));
     ReportMemory();
-  }
-  if (!reportTime && !reportMem) {
-    printStartReport();
-    fprintf(instrumentFout, "==TICK-REPORT==, %i\n", instrumentCounter++);
   }
 }
