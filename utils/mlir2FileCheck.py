@@ -5,6 +5,7 @@
 ##################### mlir2FileCheck.py ########################################
 #
 # Copyright 2020-2022 The IBM Research Authors.
+# Copyright 2026 Advanced Micro Devices, Inc. or its affiliates
 #
 ################################################################################
 #
@@ -201,7 +202,7 @@ def process_line(i, line):
     # Has a new function?
     if (
         re.match(r"#map", line) is not None
-        or re.match(r"\s+(func\.)?func", line) is not None
+        or re.match(r"\s+(func\.)?func\b", line) is not None
     ):
         # have a function or a map on first char... Is is the first occurrence
         if not is_new_function_stuff:
@@ -231,7 +232,7 @@ def process_line(i, line):
         new_line = process_name(new_line, def_map_pat, "MAP", " =", 1, "#")
         has_affine_map_def = True
     # Special handling of function header.
-    elif re.match(r"\s+(func\.)?func", line) is not None:
+    elif re.match(r"\s+(func\.)?func\b", line) is not None:
         new_line = process_name(new_line, def_arg_pat, "PARAM", ":", 1)
         squash_before_fct = 0  # After function, disable squashing
     # Special handling of loop iterations.
@@ -320,7 +321,7 @@ def process_line(i, line):
     new_line = re.sub(r"\[\[\s*-\s*(\d)", r"{{.}}[-\g<1>", new_line)
     # change a]] -> 1]*
     new_line = re.sub(r"(\d)\s*\]\]", r"\g<1>]{{.}}", new_line)
-    if re.match(r"\s+(func\.)?func", line) is not None:
+    if re.match(r"\s+(func\.)?func\b", line) is not None:
         # Split function line into 2 lines. Should make private optional
         new_line = re.sub(
             r"(\s+)((func\.)?func(\s+private)?\s+@[\w]+)\s*(\(.*)",
