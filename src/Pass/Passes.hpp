@@ -307,6 +307,12 @@ std::unique_ptr<mlir::Pass> createAddRequantForOutputConvPass();
 /// QuantTypesPass on the f32 boundary.
 std::unique_ptr<mlir::Pass> createConvertQDQToRequantizePass();
 
+/// Post-quant-types pass that unifies f32 <-> !quant.uniform element types
+/// across pure data-flow ops (Reshape/Transpose/Squeeze/Unsqueeze/Flatten/
+/// Identity/DepthToSpace/SpaceToDepth/ReverseSequence). The f32 side is
+/// retyped in place to the quant type; scast ops are left untouched.
+std::unique_ptr<mlir::Pass> createPropagateQuantTypeThroughDataFlowPass();
+
 /// Pass for splitting group convolutions (XMC).
 std::unique_ptr<mlir::Pass> createSplitGroupConvPass();
 
