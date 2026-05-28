@@ -2,7 +2,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-- ReifyIndexExprValueProvider.cpp - shape IR for reifyResultShapes ---===//
+//===-- ReifyIndexExprValueProvider.cpp - shape IR for reifyResultShapes
+//---===//
 //
 // Copyright 2019-2024 The IBM Research Authors.
 //
