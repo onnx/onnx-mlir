@@ -70,31 +70,6 @@ if not (IS_MAC or IS_LINUX):
 DYLIB_PATH_ENV = "DYLD_LIBRARY_PATH" if IS_MAC else "LD_LIBRARY_PATH"
 
 
-def _so_arch(so_path):
-    """Return a short architecture name for the .so's machine type
-    ('arm64', 'x86_64', 's390x', 'ppc64', or 'unknown').
-
-    Used to gate the per-ONNX-op OMInstrumentPoint dataflow recovery —
-    the adrp+add+mov chain it walks is arm64-specific. Each non-arm64
-    target would need its own pattern (x86_64: RIP-relative LEA + reg
-    moves; s390x: LARL + LA; ppc64: addis+addi). Until those are
-    written, all non-arm64 paths skip per-op recovery and surface the
-    arch in the skip message so the user knows what's needed.
-    """
-    r = subprocess.run(["file", so_path], capture_output=True, text=True)
-    out = (r.stdout or "").lower()
-    # `file`'s wording varies by version; match generously.
-    if "aarch64" in out or "arm64" in out:
-        return "arm64"
-    if "x86-64" in out or "x86_64" in out or "x86 64" in out:
-        return "x86_64"
-    if "s/390" in out or "s390" in out:
-        return "s390x"
-    if "powerpc" in out or "ppc" in out:
-        return "ppc64"
-    return "unknown"
-
-
 # A row of the macOS `sample` Call graph section, post-parse. `depth` is
 # the unified tree depth (indent + 1 if the line was a '+' continuation
 # of its parent). `pcs` is the list of integer PCs from the bracketed
@@ -1489,28 +1464,14 @@ def write_annotated_disasm(so_path, offset_counts, load_addr, output_path):
         else:
             break
 
-    # Recover OMInstrumentPoint begin/end markers so each call site
-    # can be annotated with the op it brackets. We re-parse `lines`
-    # into the (mnem, ops) dict the dataflow expects (vs. re-running
-    # objdump) — the parse is O(N) over text we already have. Silent
-    # no-op when the .so wasn't built with --profile-ir, or when the
-    # arch's OMIP dataflow isn't implemented.
+    # Annotate each OMInstrumentPoint call site with which op it
+    # brackets, sourced from `__omip:` DWARF subprograms. Silent
+    # no-op if the .so wasn't built with --profile-ir.
     omip_pc_info = {}
-    arch = _so_arch(so_path)
-    if arch in ("arm64", "s390x"):
-        instr_for_omip = {}
-        for line in lines:
-            m = _INSTR_RE.match(line)
-            if m:
-                ops = m.group(3) or ""
-                instr_for_omip[int(m.group(1), 16)] = (m.group(2), ops.rstrip())
-        const_info = _load_const_section(so_path)
-        if const_info is not None:
-            calls = extract_omip_calls(instr_for_omip, const_info, arch)
-            spans, _unpaired = build_op_spans(calls)
-            for s in spans:
-                omip_pc_info[s["begin_pc"]] = ("begin", s["op_name"], s["node_name"])
-                omip_pc_info[s["end_pc"]] = ("end", s["op_name"], s["node_name"])
+    spans, _ = extract_op_spans_via_dwarf(so_path)
+    for s in spans:
+        omip_pc_info[s["begin_pc"]] = ("begin", s["op_name"], s["node_name"])
+        omip_pc_info[s["end_pc"]] = ("end", s["op_name"], s["node_name"])
 
     # Function header, e.g. "0000000000001dc0 <_init>:"
     header_re = re.compile(r"^[0-9a-f]+\s+<([^>]+)>:\s*$", re.IGNORECASE)
@@ -1653,546 +1614,186 @@ def print_instruction_mix(mnem_counts, mapped_total, unmapped_total, limit=40):
         )
 
 
-# ---- Per-ONNX-op attribution via OMInstrumentPoint marker calls ------
+# Per-ONNX-op attribution. Each `OMInstrumentPoint` call site emitted
+# by onnx-mlir's KrnlInstrument lowering carries a DISubprogram named
+# `__omip:<opName>:<nodeName>`. We recover op spans by reading those
+# DIEs via `llvm-dwarfdump` — see extract_op_spans_via_dwarf below.
+
+
+
+# DWARF-based op-span recovery -----------------------------------------
 #
-# When model.so is compiled with `--profile-ir`, the compiler emits
-#     void OMInstrumentPoint(const char *opName, int64_t iTag,
-#                            const char *nodeName);
-# calls in pairs around every ONNX op (one "before", one "after").
-# We can recover the (opName, nodeName) at each call by static dataflow:
-# the strings are C literals in __TEXT,__const, and the registers x0
-# (opName) and x2 (nodeName) are set up by the standard arm64 pattern
-#     adrp xN, page          ; high bits
-#     add  xN, xN, #imm      ; low 12 bits
-#     ...
-#     mov  x0, xN            ; (or x2, xM)
-#     bl   _OMInstrumentPoint
-# Once we have the (opName, nodeName, pc) tuples, sorting by pc and
-# pairing consecutive same-nodeName calls partitions the function into
-# op-body spans. Sample weights from offset_counts that fall into each
-# span are attributed to that op type.
+# Recent onnx-mlir builds (with the KrnlInstrument lowering pass that
+# attaches a DISubprogramAttr to each OMInstrumentPoint call) emit a
+# `DW_TAG_subprogram` DIE with name `__omip:<opName>:<nodeName>` and an
+# explicit DW_AT_low_pc / DW_AT_high_pc range covering the call site.
+# When those DIEs are present we read them via `llvm-dwarfdump`,
+# producing op spans directly — no per-arch register dataflow, no
+# .rodata C-string reads, no risk of misattribution between
+# `onnx.<X>` and `zhigh.<X>` due to symbol-name vs string-content
+# drift. The compiler chose the name AT lowering time, after the
+# ZHigh conversion pass, so it always reflects the post-conversion
+# op identity.
+#
+# Each ONNX op produces TWO subprograms (one per OMInstrumentPoint
+# call: begin and end), both with the same name. We sort by PC and
+# pair adjacent same-name subprograms into (begin, end) op spans.
 
-# Substring we look for in objdump's `<symbol>` comment to identify
-# OMInstrumentPoint call sites. We deliberately drop the leading
-# underscore that Mach-O prefixes onto C names — that way the substring
-# matches both `<_OMInstrumentPoint>` (macOS) and the ELF forms
-# `<OMInstrumentPoint>` and `<OMInstrumentPoint@plt>` (Linux).
-OMIP_SYMBOL = "OMInstrumentPoint"
+# Subprograms emitted by KrnlInstrument.cpp use this prefix on their
+# DW_AT_name. Anything else in the .so (regular C/C++ code, helper
+# functions) is filtered out.
+_OMIP_DWARF_PREFIX = "__omip:"
+
+_DWARF_TAG_RE = re.compile(r"^\s*0x[0-9a-f]+:\s+DW_TAG_(\w+)", re.IGNORECASE)
+_DWARF_NAME_RE = re.compile(
+    r'DW_AT_(?:linkage_)?name\s+\("([^"]+)"\)', re.IGNORECASE)
+_DWARF_LOW_PC_RE = re.compile(
+    r"DW_AT_low_pc\s+\(0x([0-9a-fA-F]+)\)", re.IGNORECASE)
+_DWARF_HIGH_PC_RE = re.compile(
+    r"DW_AT_high_pc\s+\(0x([0-9a-fA-F]+)\)", re.IGNORECASE)
+# `DW_AT_abstract_origin (0x.... "name")` — llvm-dwarfdump resolves the
+# offset to the referenced DIE's name in the same line.
+_DWARF_ABSTRACT_ORIGIN_RE = re.compile(
+    r'DW_AT_abstract_origin\s+\([^"]*"([^"]+)"\)', re.IGNORECASE)
 
 
-def _load_const_section(so_path):
-    """Return (vmaddr, fileoff, blob) describing the read-only data
-    section that holds C-string literals — Mach-O `__TEXT,__const` on
-    macOS, ELF `.rodata` on Linux — so callers can read a C-string at
-    a given virtual address. Returns None if the section can't be
-    located.
+def _read_omip_subprograms(so_path):
+    """Walk `llvm-dwarfdump --debug-info` and return a list of
+    {name, low_pc, high_pc} dicts for every DWARF entry whose effective
+    name starts with `__omip:` and that carries a PC range.
+
+    The KrnlInstrument lowering emits each call site as a
+    `CallSiteLoc(callee=fused<DISubprogram>, caller=fused<funcDISP>)`,
+    which mlir-translate turns into an `inlinedAt` chain. After codegen,
+    the abstract `__omip:<opName>:<nodeName>` `DW_TAG_subprogram` has
+    no PC range (it's marked `DW_AT_inline = DW_INL_inlined`); the
+    PC range lives on the corresponding `DW_TAG_inlined_subroutine`
+    DIE whose `DW_AT_abstract_origin` resolves back to that subprogram.
+    We pick up either form: a concrete subprogram whose name starts
+    with `__omip:`, OR an inlined_subroutine whose abstract_origin
+    resolves to one. Returns [] if llvm-dwarfdump isn't available, the
+    binary has no debug info, or no `__omip:` markers are present.
+
+    On macOS, `clang -g` emits DWARF to a sibling `<binary>.dSYM/`
+    bundle rather than embedding it in the .so itself. The bundle is
+    a directory tree; the actual Mach-O carrying the DWARF lives at
+    `<binary>.dSYM/Contents/Resources/DWARF/<basename>`. We point
+    llvm-dwarfdump at that inner file directly because some versions
+    don't auto-resolve when given just the bundle root. Linux keeps
+    debug info directly in the .so.
     """
-    return (_load_const_section_macos if IS_MAC else _load_const_section_linux)(so_path)
-
-
-def _load_const_section_macos(so_path):
-    r = subprocess.run(["otool", "-l", so_path], capture_output=True, text=True)
+    target = so_path
+    dsym = so_path + ".dSYM"
+    if os.path.isdir(dsym):
+        inner = os.path.join(
+            dsym, "Contents", "Resources", "DWARF", os.path.basename(so_path))
+        target = inner if os.path.isfile(inner) else dsym
+    try:
+        r = subprocess.run(
+            ["llvm-dwarfdump", "--debug-info", target],
+            capture_output=True, text=True)
+    except FileNotFoundError:
+        return []
     if r.returncode != 0:
-        return None
-    sections = []
-    cur = {}
-    for ln in r.stdout.splitlines():
-        s = ln.strip()
-        if s.startswith("Section"):
-            if cur:
-                sections.append(cur)
-            cur = {}
-        elif s.startswith("sectname "):
-            cur["sectname"] = s.split()[1]
-        elif s.startswith("segname "):
-            cur["segname"] = s.split()[1]
-        elif s.startswith("addr "):
-            try:
-                cur["addr"] = int(s.split()[1], 16)
-            except (ValueError, IndexError):
-                pass
-        elif s.startswith("offset "):
-            try:
-                cur["offset"] = int(s.split()[1])
-            except (ValueError, IndexError):
-                pass
-    if cur:
-        sections.append(cur)
-    const = next(
-        (
-            s
-            for s in sections
-            if s.get("segname") == "__TEXT" and s.get("sectname") == "__const"
-        ),
-        None,
-    )
-    if not const or "addr" not in const or "offset" not in const:
-        return None
-    with open(so_path, "rb") as fh:
-        blob = fh.read()
-    return (const["addr"], const["offset"], blob)
+        return []
 
+    subprograms = []
+    cur = None  # in-progress DIE dict (or None outside a relevant DIE)
 
-# readelf -SW row example (the W flag forces a single line per section):
-#   "  [13] .rodata   PROGBITS  0000000000003000 003000 000abc 00 A 0 0 16"
-# The columns we want — addr, offset, size — are positionally fixed at
-# 4/5/6 after the section name; using -W keeps them on one line.
-_READELF_SECTION_RE = re.compile(
-    r"^\s*\[\s*\d+\s*\]\s+(\S+)\s+\S+\s+" r"([0-9a-f]+)\s+([0-9a-f]+)\s+([0-9a-f]+)",
-    re.IGNORECASE,
-)
+    def flush():
+        nonlocal cur
+        if (cur is not None
+                and cur.get("name", "").startswith(_OMIP_DWARF_PREFIX)
+                and "low_pc" in cur and "high_pc" in cur):
+            low = cur["low_pc"]
+            high = cur["high_pc"]
+            # DW_AT_high_pc is either an absolute address (DWARF v2/v3)
+            # or an offset from low_pc (DWARF v4+). Detect by magnitude:
+            # if it's smaller than low_pc, it must be an offset.
+            if high < low:
+                high = low + high
+            subprograms.append(
+                {"name": cur["name"], "low_pc": low, "high_pc": high})
+        cur = None
 
-
-def _load_const_section_linux(so_path):
-    r = subprocess.run(["readelf", "-SW", so_path], capture_output=True, text=True)
-    if r.returncode != 0:
-        return None
-    rodata = None
     for line in r.stdout.splitlines():
-        m = _READELF_SECTION_RE.match(line)
-        if m and m.group(1) == ".rodata":
-            rodata = (
-                int(m.group(2), 16),  # vmaddr
-                int(m.group(3), 16),  # file offset
-                int(m.group(4), 16),
-            )  # size
-            break
-    if rodata is None:
-        return None
-    with open(so_path, "rb") as fh:
-        blob = fh.read()
-    return (rodata[0], rodata[1], blob)
-
-
-def _read_cstring(const_info, va, max_len=512):
-    """Read a NUL-terminated C-string at virtual address `va`. Returns
-    None if `va` is outside the section we know how to read.
-    """
-    if const_info is None:
-        return None
-    vmaddr, fileoff, blob = const_info
-    file_off = fileoff + (va - vmaddr)
-    if file_off < 0 or file_off >= len(blob):
-        return None
-    end = blob.find(b"\x00", file_off, file_off + max_len)
-    if end < 0:
-        return None
-    try:
-        return blob[file_off:end].decode("utf-8")
-    except UnicodeDecodeError:
-        return None
-
-
-# Strip objdump's trailing "<symbol+off>" annotation from operand text
-# so register-name parsing isn't fooled by names containing commas.
-_OPS_ANNOT_RE = re.compile(r"\s*<[^>]*>\s*$")
-
-
-def _clean_ops(ops):
-    return _OPS_ANNOT_RE.sub("", ops or "").strip()
-
-
-# Dataflow pass: walk instructions in PC order, track which registers
-# hold known-value VAs (computed from adrp+add pairs and propagated
-# through `mov dst, src`). At each `bl _OMInstrumentPoint`, snapshot
-# x0 and x2. Any other instruction that writes a tracked register
-# kills its value (conservative).
-_ADRP_RE = re.compile(r"^\s*(x\d+)\s*,\s*0x([0-9a-f]+)", re.IGNORECASE)
-_ADD_IMM_RE = re.compile(
-    r"^\s*(x\d+)\s*,\s*(x\d+)\s*,\s*#0x([0-9a-f]+)\s*$", re.IGNORECASE
-)
-_MOV_RR_RE = re.compile(r"^\s*(x\d+|w\d+)\s*,\s*(x\d+|w\d+)\s*$", re.IGNORECASE)
-_FIRST_REG_RE = re.compile(r"^\s*(x\d+|w\d+)\b", re.IGNORECASE)
-
-# Instructions whose first operand is a SOURCE, not a destination —
-# treating these as writes would pessimistically kill our tracking.
-_NON_WRITERS = {
-    "cmp",
-    "cmn",
-    "tst",
-    "ccmp",
-    "ccmn",
-    "str",
-    "strb",
-    "strh",
-    "stur",
-    "sturb",
-    "sturh",
-    "stp",
-    "stnp",
-    "cbz",
-    "cbnz",
-    "tbz",
-    "tbnz",
-    "b",
-    "bl",
-    "br",
-    "blr",
-    "ret",
-    "b.eq",
-    "b.ne",
-    "b.lt",
-    "b.gt",
-    "b.le",
-    "b.ge",
-    "b.cs",
-    "b.cc",
-    "b.hi",
-    "b.ls",
-    "b.mi",
-    "b.pl",
-    "b.vs",
-    "b.vc",
-}
-
-# bl clobbers x0..x18 + x29/x30 per the arm64 PCS; we reset our tracked
-# values for those after every call so a stale value doesn't leak.
-_BL_CLOBBER_REGS = {f"x{i}" for i in range(19)} | {"x29", "x30"}
-
-
-def extract_omip_calls(instructions, const_info, arch):
-    """Walk the disassembly and resolve (opName, nodeName) at each
-    OMInstrumentPoint call site. Dispatches to the per-arch dataflow
-    because the address-load + reg-move + call instructions differ.
-
-    Returns a list of dicts with keys: pc, op_name, node_name,
-    op_va, node_va. Either string field is None when the dataflow
-    couldn't recover it (e.g. register clobbered by intervening code).
-    """
-    if arch == "arm64":
-        return _extract_omip_calls_arm64(instructions, const_info)
-    if arch == "s390x":
-        return _extract_omip_calls_s390x(instructions, const_info)
-    return []
-
-
-def _extract_omip_calls_arm64(instructions, const_info):
-    """arm64: address comes from an adrp+add pair (page + 12-bit imm),
-    propagated through `mov xN, xM` to x0/x2 at the `bl` call site.
-    Args go in x0 (opName), x1 (iTag), x2 (nodeName).
-    """
-    # Sort by PC so we walk in execution order. Branches/loops aren't
-    # modelled — basic-block-local information only — but that's fine
-    # because the OMIP setup pattern (adrp+add+...+mov+bl) always lives
-    # within a single basic block.
-    addrs = sorted(instructions.keys())
-    reg_va = {}  # reg name -> VA the register currently holds
-    pending_adrp = {}  # reg name -> page VA from the most recent adrp
-
-    calls = []
-    for pc in addrs:
-        mnem, raw_ops = instructions[pc]
-        ops = _clean_ops(raw_ops)
-        # Lower-case mnemonic (objdump already emits lowercase, but be safe).
-        m = mnem.lower()
-
-        if m == "adrp":
-            am = _ADRP_RE.match(ops)
-            if am:
-                dst = am.group(1)
-                pending_adrp[dst] = int(am.group(2), 16)
-                reg_va.pop(dst, None)
+        m = _DWARF_TAG_RE.match(line)
+        if m:
+            flush()
+            tag = m.group(1).lower()
+            if tag in ("subprogram", "inlined_subroutine"):
+                cur = {}
             continue
-
-        if m == "add":
-            am = _ADD_IMM_RE.match(ops)
-            if am:
-                dst, src, imm_s = am.group(1), am.group(2), am.group(3)
-                if dst == src and src in pending_adrp:
-                    reg_va[dst] = pending_adrp[src] + int(imm_s, 16)
-                else:
-                    reg_va.pop(dst, None)
-                pending_adrp.pop(dst, None)
-                continue
-            # `add` with non-immediate operands (e.g. `add x21, x21, x4`)
-            # falls through to the generic kill path below.
-
-        if m == "mov":
-            mm = _MOV_RR_RE.match(ops)
-            if mm:
-                dst, src = mm.group(1), mm.group(2)
-                # Only x* registers carry pointers; w* moves are 32-bit.
-                if dst.startswith("x"):
-                    if src in reg_va:
-                        reg_va[dst] = reg_va[src]
-                    else:
-                        reg_va.pop(dst, None)
-                pending_adrp.pop(dst, None)
-                continue
-            # Non-register-to-register mov (immediate) falls through.
-
-        if m == "bl":
-            # The OMInstrumentPoint identifier lives inside the
-            # `<symbol>` annotation that _clean_ops strips, so match
-            # against the raw operand text here.
-            if OMIP_SYMBOL in raw_ops:
-                calls.append(
-                    {
-                        "pc": pc,
-                        "op_va": reg_va.get("x0"),
-                        "node_va": reg_va.get("x2"),
-                        "op_name": (
-                            _read_cstring(const_info, reg_va["x0"])
-                            if "x0" in reg_va
-                            else None
-                        ),
-                        "node_name": (
-                            _read_cstring(const_info, reg_va["x2"])
-                            if "x2" in reg_va
-                            else None
-                        ),
-                    }
-                )
-            for r in _BL_CLOBBER_REGS:
-                reg_va.pop(r, None)
-                pending_adrp.pop(r, None)
+        if cur is None:
             continue
-
-        # Generic kill path: any instruction whose first operand is a
-        # register and whose mnemonic is not in the non-writer set
-        # invalidates that register. False positives (e.g. fancy load
-        # forms) only cost precision, not correctness.
-        if m in _NON_WRITERS:
+        if (m := _DWARF_NAME_RE.search(line)) and "name" not in cur:
+            # Take the FIRST DW_AT_name (DW_AT_linkage_name follows
+            # right after with the same content for our markers).
+            cur["name"] = m.group(1)
             continue
-        rm = _FIRST_REG_RE.match(ops)
-        if rm:
-            reg = rm.group(1)
-            if reg.startswith("w"):
-                # w<N> writes alias x<N>'s low half + zeroes high half.
-                reg = "x" + reg[1:]
-            reg_va.pop(reg, None)
-            pending_adrp.pop(reg, None)
+        if (m := _DWARF_ABSTRACT_ORIGIN_RE.search(line)) and "name" not in cur:
+            # Inlined subroutines don't carry their own DW_AT_name —
+            # llvm-dwarfdump prints the resolved referent's name on the
+            # same line as `DW_AT_abstract_origin`. That's where the PC
+            # range lives for our `__omip:` markers.
+            cur["name"] = m.group(1)
+            continue
+        if (m := _DWARF_LOW_PC_RE.search(line)):
+            cur["low_pc"] = int(m.group(1), 16)
+            continue
+        if (m := _DWARF_HIGH_PC_RE.search(line)):
+            cur["high_pc"] = int(m.group(1), 16)
+            continue
+    flush()
 
-    return calls
-
-
-# s390x patterns. Address-load instructions we track for OMIP arg
-# recovery:
-#   `larl %rN, 0xADDR`         — PC-relative absolute load (single instr)
-#   `la   %rN, IMM(%rBASE)`    — base + 12-bit displacement
-#   `lay  %rN, IMM(%rBASE)`    — base + 20-bit displacement
-#   `aghi %rN, IMM`            — add 16-bit signed imm to register
-#   `agfi %rN, IMM`            — add 32-bit signed imm to register
-#   `lgr  %rDST, %rSRC`        — register copy (64-bit)
-# The displaced/incremental forms matter because the compiler will
-# sometimes hoist a single `larl` to a string-pool base and slice
-# individual strings out via per-call-site la/aghi displacements.
-# Without tracking those, we'd report whatever string sits at the
-# pool base for every call — which in at least one observed
-# onnx-mlir/zhigh build means every "MatMul" call mis-attributes to
-# `onnx.MatMul` because that string happens to be at offset 0 of the
-# pool.
-#
-# Calls use `brasl %r14, target`. ELF s390x ABI puts args 1/2/3 in
-# %r2/%r3/%r4, so OMInstrumentPoint(opName, iTag, nodeName) maps to
-# %r2/%r3/%r4.
-_S390X_LARL_RE = re.compile(r"^\s*(%r\d+)\s*,\s*0?x?([0-9a-f]+)", re.IGNORECASE)
-_S390X_LGR_RE = re.compile(r"^\s*(%r\d+)\s*,\s*(%r\d+)\s*$", re.IGNORECASE)
-# la/lay operand forms:
-#   `%r2,80(%r1)`        dst, displacement(base)
-#   `%r2,80(0,%r1)`      dst, displacement(index,base)  index=0
-#   `%r2,80(%r5,%r1)`    dst, displacement(index,base)
-#   `%r2,80`             dst, immediate (no base/index)
-#   `%r2,80(,%r1)`       dst, displacement(,base)  empty index slot
-# Displacement may be decimal, hex, or signed.
-_S390X_LA_RE = re.compile(
-    r"^\s*(%r\d+)\s*,\s*"
-    r"(-?\d+|-?0x[0-9a-f]+)"
-    r"(?:\s*\(([^)]*)\))?\s*$",
-    re.IGNORECASE,
-)
-# aghi / agfi: dst, signed immediate.
-_S390X_AGHI_RE = re.compile(
-    r"^\s*(%r\d+)\s*,\s*(-?\d+|-?0x[0-9a-f]+)\s*$",
-    re.IGNORECASE,
-)
-_S390X_FIRST_REG_RE = re.compile(r"^\s*(%r\d+)\b", re.IGNORECASE)
-# Caller-saved per s390x ELF ABI: r0-r5 (the arg regs) + r14
-# (link/return address). r6-r13 are callee-saved so we leave their
-# tracking in place across calls.
-_S390X_BRASL_CLOBBER = {f"%r{i}" for i in range(6)} | {"%r14"}
+    return subprograms
 
 
-def _parse_signed_int(s):
-    """Parse a decimal or hex signed integer string."""
-    if s is None:
-        return None
-    s = s.strip()
-    try:
-        if s.lower().startswith(("0x", "-0x")):
-            return int(s, 16)
-        return int(s, 10)
-    except ValueError:
-        return None
+def extract_op_spans_via_dwarf(so_path):
+    """Build op spans from `__omip:` DWARF subprograms emitted by the
+    onnx-mlir KrnlInstrument lowering pass. Replaces the per-arch
+    register-dataflow recovery (`extract_omip_calls`) when DWARF
+    markers are present. Returns ([], 0) when no markers are found
+    (signaling the caller to fall back).
 
-
-def _resolve_la_addr(inner, reg_va):
-    """Compute the extra address contribution from the `(idx,base)`
-    payload inside la/lay's parens. Returns (extra, ok). ok=False
-    when we reference a register whose value isn't tracked."""
-    if inner is None or not inner.strip():
-        return 0, True
-    parts = [p.strip() for p in inner.split(",")]
-    if len(parts) == 1:
-        base_s = parts[0]
-        if not base_s:
-            return 0, True
-        if base_s in reg_va:
-            return reg_va[base_s], True
-        return 0, False
-    if len(parts) == 2:
-        idx_s, base_s = parts
-        idx = 0 if not idx_s or idx_s == "%r0" else reg_va.get(idx_s)
-        base = 0 if not base_s or base_s == "%r0" else reg_va.get(base_s)
-        if idx is None or base is None:
-            return 0, False
-        return idx + base, True
-    return 0, False
-
-
-def _extract_omip_calls_s390x(instructions, const_info):
-    """s390x equivalent of the arm64 dataflow. Tracks the most recent
-    constant address loaded into each general register via `larl`,
-    propagates through `lgr`, snapshots %r2 (opName) and %r4 (nodeName)
-    at each `brasl` call site whose target symbol contains
-    OMInstrumentPoint. Other instructions writing to a tracked register
-    invalidate that register's value (conservative — false-positive
-    kills only cost recovery rate, not correctness).
+    Each ONNX op invocation produces two adjacent subprograms (one
+    per OMInstrumentPoint begin/end call) sharing the same name. We
+    sort by PC and pair them; the op body sits between them at
+    [begin.high_pc, end.low_pc).
     """
-    addrs = sorted(instructions.keys())
-    reg_va = {}  # reg name (e.g. '%r2') -> known VA
-    calls = []
-    for pc in addrs:
-        mnem, raw_ops = instructions[pc]
-        ops = _clean_ops(raw_ops)
-        m = mnem.lower()
+    subs = _read_omip_subprograms(so_path)
+    if not subs:
+        return [], 0
 
-        if m == "larl":
-            mm = _S390X_LARL_RE.match(ops)
-            if mm:
-                reg_va[mm.group(1)] = int(mm.group(2), 16)
-            continue
-
-        # lgr is the 64-bit reg-to-reg copy; lgfr sign-extends a 32-bit
-        # source but for tracking VAs (which are always already 64-bit
-        # on s390x user code) we treat both as straight propagation.
-        if m == "lgr" or m == "lgfr":
-            mm = _S390X_LGR_RE.match(ops)
-            if mm:
-                dst, src = mm.group(1), mm.group(2)
-                if src in reg_va:
-                    reg_va[dst] = reg_va[src]
-                else:
-                    reg_va.pop(dst, None)
-                continue
-            # Fall through to the kill path on weird operand forms.
-
-        # la / lay: address-load with displacement + optional base/index.
-        # `la %rDST, IMM(%rBASE)` => reg_va[%rDST] = reg_va[%rBASE] + IMM.
-        # If base is unknown (or any referenced reg is), invalidate
-        # %rDST so we don't propagate a stale value.
-        if m == "la" or m == "lay":
-            mm = _S390X_LA_RE.match(ops)
-            if mm:
-                dst = mm.group(1)
-                imm = _parse_signed_int(mm.group(2))
-                extra, ok = _resolve_la_addr(mm.group(3), reg_va)
-                if ok and imm is not None:
-                    reg_va[dst] = (imm + extra) & 0xFFFFFFFFFFFFFFFF
-                else:
-                    reg_va.pop(dst, None)
-                continue
-            # Fall through to the kill path on weird operand forms.
-
-        # aghi / agfi: register += signed immediate.
-        # The compiler uses these to bump a string-pool base register
-        # to a per-call-site offset.
-        if m == "aghi" or m == "agfi":
-            mm = _S390X_AGHI_RE.match(ops)
-            if mm:
-                dst = mm.group(1)
-                imm = _parse_signed_int(mm.group(2))
-                if imm is not None and dst in reg_va:
-                    reg_va[dst] = (reg_va[dst] + imm) & 0xFFFFFFFFFFFFFFFF
-                else:
-                    # Either the imm didn't parse or we don't have a
-                    # base value to add to; either way the result is
-                    # unknown.
-                    reg_va.pop(dst, None)
-                continue
-            # Fall through to the kill path on weird operand forms.
-
-        if m == "brasl":
-            # The OMInstrumentPoint identifier lives inside the
-            # `<symbol>` annotation that _clean_ops strips, so match
-            # against raw_ops. Substring covers both bare
-            # `<OMInstrumentPoint>` and the PLT-trampoline form
-            # `<OMInstrumentPoint@plt>`.
-            if OMIP_SYMBOL in raw_ops:
-                calls.append(
-                    {
-                        "pc": pc,
-                        "op_va": reg_va.get("%r2"),
-                        "node_va": reg_va.get("%r4"),
-                        "op_name": (
-                            _read_cstring(const_info, reg_va["%r2"])
-                            if "%r2" in reg_va
-                            else None
-                        ),
-                        "node_name": (
-                            _read_cstring(const_info, reg_va["%r4"])
-                            if "%r4" in reg_va
-                            else None
-                        ),
-                    }
-                )
-            for r in _S390X_BRASL_CLOBBER:
-                reg_va.pop(r, None)
-            continue
-
-        # Generic kill: any other instruction whose first operand is a
-        # register invalidates that register's tracked VA. False
-        # positives (e.g. compare/store instructions whose first
-        # operand is read-only) only reduce recovery rate, never
-        # produce incorrect strings.
-        rm = _S390X_FIRST_REG_RE.match(ops)
-        if rm:
-            reg_va.pop(rm.group(1), None)
-
-    return calls
-
-
-def build_op_spans(calls):
-    """Pair OMIP calls into (begin, end) per ONNX op and return ordered
-    spans. Pairing rule: walk calls in PC order; consecutive calls with
-    matching node_name form a (begin, end) pair. Calls that don't pair
-    cleanly are dropped from the span list (but kept in the unpaired
-    count so the caller can surface them).
-
-    Each span is a dict: {op_name, node_name, begin_pc, end_pc, body_pc}
-    where body_pc is begin_pc + 4 (the first instruction strictly after
-    the begin call's `bl`).
-    """
+    subs.sort(key=lambda s: s["low_pc"])
     spans = []
     unpaired = 0
     i = 0
-    while i < len(calls):
-        c = calls[i]
-        if c["node_name"] is None:
-            unpaired += 1
-            i += 1
-            continue
-        if i + 1 < len(calls) and calls[i + 1]["node_name"] == c["node_name"]:
-            end = calls[i + 1]
-            spans.append(
-                {
-                    "op_name": c["op_name"] or "<unknown>",
-                    "node_name": c["node_name"],
-                    "begin_pc": c["pc"],
-                    "end_pc": end["pc"],
-                    "body_pc": c["pc"] + 4,
-                }
-            )
+    while i < len(subs):
+        a = subs[i]
+        if i + 1 < len(subs) and subs[i + 1]["name"] == a["name"]:
+            b = subs[i + 1]
+            # Strip the `__omip:` prefix and split at the first ':'
+            # to recover (op_name, node_name). Node names contain '/'
+            # but never ':', so a single split is unambiguous.
+            payload = a["name"][len(_OMIP_DWARF_PREFIX):]
+            sep = payload.find(":")
+            if sep < 0:
+                unpaired += 2
+                i += 2
+                continue
+            op_name = payload[:sep]
+            node_name = payload[sep + 1:]
+            spans.append({
+                "op_name": op_name,
+                "node_name": node_name,
+                "begin_pc": a["low_pc"],
+                "end_pc": b["low_pc"],
+                # `body_pc` is the first instruction strictly after the
+                # begin call — i.e. just past the end of the begin
+                # subprogram's PC range.
+                "body_pc": a["high_pc"],
+            })
             i += 2
         else:
             unpaired += 1
@@ -2497,62 +2098,36 @@ def run_per_op_analysis(
     not_op_regex=None,
     debug_omip=False,
 ):
-    """If both op_regex and not_op_regex are None: produce the full
-    per-ONNX-op breakdown (sample counts per op type + top-N op
-    instruction mix).
+    """Produce the per-ONNX-op breakdown by reading `__omip:` DWARF
+    subprograms emitted by onnx-mlir's KrnlInstrument lowering pass.
+    Silent no-op when no markers are present (i.e. the .so wasn't
+    built with --profile-ir against a recent enough onnx-mlir).
 
-    If exactly one is set: skip both of those and instead print a
-    single instruction mix restricted to PCs that land inside op spans
-    whose op_name matches (--op) or does NOT match (--not-op) the
-    regex. Mutually exclusive — argparse enforces this; the assert
-    here is just a defensive double-check. The caller is expected to
-    skip the unfiltered instruction mix in this mode.
-
-    Silent no-op when the .so wasn't built with --profile-ir (no
-    OMInstrumentPoint markers exist).
+    With `op_regex` / `not_op_regex`: print only an instruction mix
+    restricted to PCs inside op spans whose name matches (or doesn't
+    match) the regex; suppress the per-op summary + top-N mix.
     """
     assert not (
         op_regex and not_op_regex
     ), "op_regex and not_op_regex are mutually exclusive"
-    # OMIP dataflow is per-arch (different address-load + reg-move +
-    # call instruction patterns). arm64 and s390x are wired up; x86_64
-    # / ppc64 still need their patterns ported. Bail cleanly when we
-    # can't recover.
-    arch = _so_arch(so_path)
-    supported = {"arm64", "s390x"}
-    if arch not in supported:
+    spans, unpaired = extract_op_spans_via_dwarf(so_path)
+    if not spans:
         if op_regex or not_op_regex:
             sys.exit(
-                f"Error: --op / --not-op require per-op recovery, "
-                f"which is implemented for {sorted(supported)} "
-                f"(.so arch: {arch})."
+                "Error: --op / --not-op require `__omip:` DWARF markers "
+                "which weren't found in the .so. Recompile with a recent "
+                "onnx-mlir + --profile-ir."
             )
-        print(
-            f"\n(per-ONNX-op recovery skipped: arch {arch} not yet "
-            f"supported; have {sorted(supported)})"
-        )
         return
-    const_info = _load_const_section(so_path)
-    if const_info is None:
-        return
-    calls = extract_omip_calls(instructions, const_info, arch)
-    if not calls:
-        return
-    spans, unpaired = build_op_spans(calls)
     print(
-        f"\nOMInstrumentPoint markers: {len(calls)} calls, "
-        f"{len(spans)} op spans, {unpaired} unpaired"
+        f"\nOMInstrumentPoint markers (DWARF): {len(spans)} op spans, "
+        f"{unpaired} unpaired"
     )
-    if not spans:
-        return
 
     if debug_omip:
-        # For diagnosing dataflow misattribution: list every distinct
-        # op_name we recovered, how many spans use it, and a sample of
-        # (pc, op_name, node_name) triples per name. If the .so's
-        # MLIR/IR says certain ops should be present but they don't
-        # appear here (or appear under a different name), the
-        # dataflow is missing an instruction pattern.
+        # List every distinct op name recovered with span counts and
+        # a few example PC ranges. Useful when you want to cross-check
+        # the recovery against the source MLIR or post-instrument IR.
         from collections import defaultdict
         by_name = defaultdict(list)
         for s in spans:
@@ -2560,8 +2135,6 @@ def run_per_op_analysis(
         print(f"\n[--debug-omip] {len(by_name)} distinct op names recovered:")
         for name, ss in sorted(by_name.items(), key=lambda kv: -len(kv[1])):
             print(f"  {len(ss):6d} spans  {name!r}")
-            # Up to 3 example call sites per op so the user can
-            # cross-reference against `objdump -d` output.
             for s in ss[:3]:
                 print(
                     f"      pc=0x{s['begin_pc']:x}..0x{s['end_pc']:x}  "
