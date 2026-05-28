@@ -184,6 +184,10 @@ mlir::ElementsAttr getElementAttributeFromONNXValue(mlir::Value value);
 // folds to an ElementsAttr
 mlir::ElementsAttr getElementAttributeFromConstLikeValue(mlir::Value value);
 
+// Returns Dense- or DisposableElementsAttr of any ConstantLike producer,
+// or nullptr if the value is not a dense/disposable constant.
+mlir::ElementsAttr getDenseOrDisposableConstLikeElements(mlir::Value value);
+
 [[nodiscard]] bool isConstLikeValue(mlir::Value value);
 
 [[nodiscard]] bool isConstLikeOperation(mlir::Operation *op);

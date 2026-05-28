@@ -90,20 +90,27 @@ We first add a pattern to
 ```mlir
 // Constant Propagation for Add
 def AddConstProp : Pat<
-    // source patten: From add(lhs, rhs).
-    (ONNXAddOp:$addOp (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
-                      (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
+    // source pattern: From add(lhs, rhs).
+    (ONNXAddOp:$addOp $lhs, $rhs),
     // result pattern: To c = lhs + rhs
     (CreateAddOfTwoConst $addOp, $lhs, $rhs),
     // Additional constraints: if both lhs and rhs are dense constants.
-    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs)]>;
+    [(IsFromDenseConstLike:$lhs), (IsFromDenseConstLike:$rhs)]>;
 ```
 
 The above pattern will replace an ONNXAddOp whose inputs are constants
-by a new constant by adding the inputs at compile time. To check if an input is
-a constant, using ONNXConstantOp is not enough since the constant tensor can be
-sparse and we now support dense constant tensors only. We need additionallly
-check a dense constant tensor by using `IsFromDenseONNXConstantOp`.
+by a new constant by adding the inputs at compile time. To check if an
+input is a constant, we use `IsFromDenseConstLike` which accepts any
+op with the `ConstantLike` trait whose `fold()` returns a dense
+`ElementsAttr` (`DenseElementsAttr` or onnx-mlir's `DisposableElementsAttr`).
+Sparse constants are excluded since they cannot be propagated.
+
+**Mixed-dialect constant inputs**: `--constprop-onnx` accepts constant
+inputs from any dialect as long as the producer has the `ConstantLike`
+MLIR op trait and folds to a dense `ElementsAttr`. This includes, for
+example, `tosa.const` and `arith.constant` in addition to `onnx.Constant`.
+The output of every rewrite is always `onnx.Constant`, regardless of the
+input producer dialect.
 
 In the result pattern, to produce a ONNXConstantOp, we will add `lhs`
 and `rhs` at compile time, and emit an ONNXConstantOp. To minimize the
