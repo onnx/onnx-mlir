@@ -5,7 +5,7 @@
 
 //===------ KrnlInstrument.cpp - Lower KrnlInstrumentOp -------------------===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -56,8 +56,8 @@ static constexpr llvm::StringLiteral kInstrumentCUAttrName =
 // DWARF entirely from the final `.dSYM`. The path is never opened, so
 // "/" works; only its presence and shape matter.
 static LLVM::DICompileUnitAttr getOrCreateInstrumentCU(ModuleOp module) {
-  if (auto cached = module->getAttrOfType<LLVM::DICompileUnitAttr>(
-          kInstrumentCUAttrName))
+  if (auto cached =
+          module->getAttrOfType<LLVM::DICompileUnitAttr>(kInstrumentCUAttrName))
     return cached;
 
   MLIRContext *ctx = module.getContext();
@@ -94,8 +94,8 @@ static Location syntheticAnchorLoc(MLIRContext *ctx) {
 // `kind` is "begin" / "end" so begin and end calls get distinct DIEs
 // even though they share opName + nodeName.
 static LLVM::DISubprogramAttr buildInstrumentSubprogram(MLIRContext *ctx,
-    LLVM::DICompileUnitAttr cuAttr, LLVM::DIFileAttr fileAttr,
-    StringRef opName, StringRef nodeName) {
+    LLVM::DICompileUnitAttr cuAttr, LLVM::DIFileAttr fileAttr, StringRef opName,
+    StringRef nodeName) {
   std::string label = ("__omip:" + opName + ":" + nodeName).str();
   auto nameAttr = StringAttr::get(ctx, label);
   auto srTypeAttr = LLVM::DISubroutineTypeAttr::get(
@@ -105,8 +105,7 @@ static LLVM::DISubprogramAttr buildInstrumentSubprogram(MLIRContext *ctx,
       /*compileUnit=*/cuAttr, /*scope=*/fileAttr,
       /*name=*/nameAttr, /*linkageName=*/nameAttr, fileAttr,
       /*line=*/0, /*scopeLine=*/0,
-      LLVM::DISubprogramFlags::Definition |
-          LLVM::DISubprogramFlags::Optimized,
+      LLVM::DISubprogramFlags::Definition | LLVM::DISubprogramFlags::Optimized,
       srTypeAttr, /*retainedNodes=*/{}, /*annotations=*/{});
 }
 
@@ -134,8 +133,7 @@ static Location getOrAttachFuncDISubprogram(
       /*name=*/funcOp.getSymNameAttr(),
       /*linkageName=*/funcOp.getSymNameAttr(), fileAttr,
       /*line=*/0, /*scopeLine=*/0,
-      LLVM::DISubprogramFlags::Definition |
-          LLVM::DISubprogramFlags::Optimized,
+      LLVM::DISubprogramFlags::Definition | LLVM::DISubprogramFlags::Optimized,
       srTypeAttr, /*retainedNodes=*/{}, /*annotations=*/{});
   Location funcLoc = FusedLocWith<LLVM::DISubprogramAttr>::get(
       {syntheticAnchorLoc(ctx)}, funcSP, ctx);
@@ -164,8 +162,8 @@ static Location buildInstrumentMarkerLoc(MLIRContext *ctx,
   Location funcLoc = getOrAttachFuncDISubprogram(funcOp, cuAttr);
 
   // Inline scope for THIS call site.
-  auto inlineSP = buildInstrumentSubprogram(
-      ctx, cuAttr, fileAttr, opName, nodeName);
+  auto inlineSP =
+      buildInstrumentSubprogram(ctx, cuAttr, fileAttr, opName, nodeName);
   (void)originalLoc; // intentionally not embedded; see syntheticAnchorLoc
   auto inlineLoc = FusedLocWith<LLVM::DISubprogramAttr>::get(
       {syntheticAnchorLoc(ctx)}, inlineSP, ctx);
