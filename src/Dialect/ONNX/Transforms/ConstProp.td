@@ -51,23 +51,23 @@ def IsNoneType : Constraint<CPred<"isa<NoneType>(($_self).getType())">>;
 def IsIntOrFloatType : Constraint<CPred<"isa<IntegerType, FloatType>(mlir::cast<ShapedType>(($_self).getType()).getElementType())">>;
 
 def IsNotAConstant :
-  Constraint<CPred<"! isa_and_nonnull<ONNXConstantOp>(($_self).getDefiningOp())">,
+  Constraint<CPred<"! static_cast<bool>(getDenseOrDisposableConstLikeElements($_self))">,
   "operation is not a constant">;
 
-def IsFromDenseONNXConstantOp:
-    Constraint<CPred<"isDenseONNXConstant($_self)">,
-  "Value is produced by a dense ONNXConstantOp that can be linked with "
-  "a buffer during constant propagation">;
+def IsFromDenseConstLike:
+    Constraint<CPred<"static_cast<bool>(getDenseOrDisposableConstLikeElements($_self))">,
+  "Value is produced by any ConstantLike op that folds to a dense "
+  "ElementsAttr (DenseElementsAttr or DisposableElementsAttr)">;
 
-def IsFromDenseONNXConstantOpOrNone:
+def IsFromDenseConstLikeOrNone:
   Constraint<
-    CPred<"isDenseONNXConstant($_self) || mlir::isa<NoneType>($_self.getType())">,
-    "Value is none or produced by a true dense ONNXConstantOp"
+    CPred<"static_cast<bool>(getDenseOrDisposableConstLikeElements($_self)) || mlir::isa<NoneType>($_self.getType())">,
+    "Value is none or produced by any ConstantLike op that folds to a dense ElementsAttr"
   >;
 
 def IsVariadicOperandDenseONNXConstantOp:
     Constraint<CPred<"isVariadicOperandFromDenseONNXConstantOp($_self)">,
-  "Variadic operand is produced by dense ONNXConstantOps">;
+  "All variadic operands are produced by dense ConstantLike ops">;
 
 def HasStaticShape: Constraint<CPred<
   "hasStaticShape($_self.getType())">,
@@ -85,11 +85,11 @@ def HasIntegerElementType: Constraint<CPred<
 >;
 
 def IsConstOfZeros : Constraint<
-  CPred<"isDenseONNXConstant($_self) && isConstOf($_self, 0.0)">,
+  CPred<"isConstOf($_self, 0.0)">,
   "Value is an all-zeros constant tensor">;
 
 def IsConstOfOnes : Constraint<
-  CPred<"isDenseONNXConstant($_self) && isConstOf($_self, 1.0)">,
+  CPred<"isConstOf($_self, 1.0)">,
   "Value is an all-ones constant tensor">;
 
 def IsNotScalar: Constraint<
@@ -341,35 +341,36 @@ def CreateScatterNDOfConst :
 // Use commutativity to normalize constants in the second position of Add.
 def AddConstCommutative1 : NamedPat<"AddConstCommutative1",
   // From add(c, x).
-  (ONNXAddOp:$addOp (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_), $x),
+  (ONNXAddOp:$addOp $c, $x),
   // To add(x, c).
   (ONNXAddOp $x, $c, (location $addOp)),
-  // To avoid infinite loop, constrain the first arguments to be anything but a constant.
-  [(IsNotAConstant:$x)]>;
+  // To avoid infinite loop, constrain the first argument to be a dense constant
+  // and the second to not be one.
+  [(IsFromDenseConstLike:$c), (IsNotAConstant:$x)]>;
 
 // Use associativity to add constants together.
 def AddConstAssociative1 : NamedPat<"AddConstAssociative1",
   // From add(add(x, c1), c2).
   (ONNXAddOp
-    (ONNXAddOp:$lhs $x, (ONNXConstantOp:$c1 $_, $_, $_, $_, $_, $_, $_, $_)),
-    (ONNXConstantOp:$c2 $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXAddOp:$lhs $x, $c1),
+    $c2),
   // To add(x, add(c1, c2)).
   (ONNXAddOp
     $x,
     (ONNXAddOp $c1, $c2)),
-  [(IsNotAConstant:$x), (HasOneUse:$lhs)]>;
+  [(IsFromDenseConstLike:$c1), (IsFromDenseConstLike:$c2), (IsNotAConstant:$x), (HasOneUse:$lhs)]>;
 
 // Do not apply this when both x and c are scalar since it is cheap to do.
 def AddConstAssociative2 : NamedPat<"AddConstAssociative2",
   // From add(add(x, c), y).
   (ONNXAddOp
-    (ONNXAddOp:$lhs $x, (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXAddOp:$lhs $x, $c),
     $y),
   // To add(add(x, y), c).
   (ONNXAddOp
     (ONNXAddOp $x, $y),
     $c),
-  [(IsNotAConstant:$x), (OpIsUnlikelyToBeFusedWithBias:$x), (IsNotAConstant:$y), (HasOneUse:$lhs),
+  [(IsFromDenseConstLike:$c), (IsNotAConstant:$x), (OpIsUnlikelyToBeFusedWithBias:$x), (IsNotAConstant:$y), (HasOneUse:$lhs),
    (IsNotScalar:$x), (IsNotScalar:$c)]>;
 
 // Do not apply this when both y and c are scalar since it is cheap to do.
@@ -377,64 +378,67 @@ def AddConstAssociative3 : NamedPat<"AddConstAssociative3",
   // From add(x, add(y, c)).
   (ONNXAddOp
     $x,
-    (ONNXAddOp:$rhs $y, (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_))),
+    (ONNXAddOp:$rhs $y, $c)),
   // To add(add(x, y), c).
   (ONNXAddOp
     (ONNXAddOp $x, $y),
     $c),
-  [(IsNotAConstant:$x), (IsNotAConstant:$y), (OpIsUnlikelyToBeFusedWithBias:$y), (HasOneUse:$rhs),
+  [(IsFromDenseConstLike:$c), (IsNotAConstant:$x), (IsNotAConstant:$y), (OpIsUnlikelyToBeFusedWithBias:$y), (HasOneUse:$rhs),
    (IsNotScalar:$y), (IsNotScalar:$c)]>;
 
 def AddConstAssociative4NoFuse : NamedPat<"AddConstAssociative4NoFuse",
   // From add(add(x, c1), add(y, c2)), if both x and y are not likely to be fused with bias
   (ONNXAddOp
-    (ONNXAddOp:$lhs $x, (ONNXConstantOp:$c1 $_, $_, $_, $_, $_, $_, $_, $_)),
-    (ONNXAddOp:$rhs $y, (ONNXConstantOp:$c2 $_, $_, $_, $_, $_, $_, $_, $_))),
+    (ONNXAddOp:$lhs $x, $c1),
+    (ONNXAddOp:$rhs $y, $c2)),
   // To add(add(x, y), c1+c2).
   (ONNXAddOp
     (ONNXAddOp $x, $y),
     (ONNXAddOp $c1, $c2)),
-  [(IsNotAConstant:$x), (IsNotAConstant:$y), 
+  [(IsFromDenseConstLike:$c1), (IsFromDenseConstLike:$c2),
+   (IsNotAConstant:$x), (IsNotAConstant:$y), 
    (OpIsUnlikelyToBeFusedWithBias:$x), (OpIsUnlikelyToBeFusedWithBias:$y),
    (HasOneUse:$lhs), (HasOneUse:$rhs)]>;
 
 def AddConstAssociative4LhsFuse : NamedPat<"AddConstAssociativeLhsFuse",
   // From add(add(x, c1), add(y, c2)), if x is likely to be fused with bias
   (ONNXAddOp
-    (ONNXAddOp:$lhs $x, (ONNXConstantOp:$c1 $_, $_, $_, $_, $_, $_, $_, $_)),
-    (ONNXAddOp:$rhs $y, (ONNXConstantOp:$c2 $_, $_, $_, $_, $_, $_, $_, $_))),
+    (ONNXAddOp:$lhs $x, $c1),
+    (ONNXAddOp:$rhs $y, $c2)),
   // To add(add(x, c1+c2), y).
   (ONNXAddOp
     (ONNXAddOp $x, (ONNXAddOp $c1, $c2)),
      $y
     ),
-  [(IsNotAConstant:$x), (IsNotAConstant:$y), 
+  [(IsFromDenseConstLike:$c1), (IsFromDenseConstLike:$c2),
+   (IsNotAConstant:$x), (IsNotAConstant:$y), 
    (OpIsLikelyToBeFusedWithBias:$x),
    (HasOneUse:$lhs), (HasOneUse:$rhs)]>;
 
 def AddConstAssociative4RhsFuse : NamedPat<"AddConstAssociativeRhsFuse",
   // From add(add(x, c1), add(y, c2)), if y is likely to be fused with bias and x is not
   (ONNXAddOp
-    (ONNXAddOp:$lhs $x, (ONNXConstantOp:$c1 $_, $_, $_, $_, $_, $_, $_, $_)),
-    (ONNXAddOp:$rhs $y, (ONNXConstantOp:$c2 $_, $_, $_, $_, $_, $_, $_, $_))),
+    (ONNXAddOp:$lhs $x, $c1),
+    (ONNXAddOp:$rhs $y, $c2)),
   // To add(x, add(y, c1+c2)).
   (ONNXAddOp
     $x,
     (ONNXAddOp $y, (ONNXAddOp $c1, $c2))
     ),
-  [(IsNotAConstant:$x), (IsNotAConstant:$y), 
+  [(IsFromDenseConstLike:$c1), (IsFromDenseConstLike:$c2),
+   (IsNotAConstant:$x), (IsNotAConstant:$y), 
    (OpIsUnlikelyToBeFusedWithBias:$x), (OpIsLikelyToBeFusedWithBias:$y),
    (HasOneUse:$lhs), (HasOneUse:$rhs)]>;
 
 // Constant Propagation for Add
 def AddConstProp : NamedPat<"AddConstProp",
     // From add(c1, c2).
-    (ONNXAddOp:$addOp (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
-                      (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXAddOp:$addOp $lhs,
+                      $rhs),
     // To c1+c2
     (CreateAddOfTwoConst $addOp, $lhs, $rhs),
     // Additional constraints (dense)
-    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs),
+    [(IsFromDenseConstLike:$lhs), (IsFromDenseConstLike:$rhs),
      (IsIntOrFloatType:$lhs), (IsIntOrFloatType:$rhs),
      (SatisfiesExpansionBound:$addOp), (HasStaticShape:$addOp)]>;
 
@@ -443,7 +447,7 @@ def AddZerosOnRhs : NamedPat<"AddZerosOnRhs",
     // From add(x, c).
     (ONNXAddOp:$result
       $x,
-      (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)
+      $c
     ),
     // To x.
     (replaceWithValue $x),
@@ -456,11 +460,11 @@ def AddZerosOnRhs : NamedPat<"AddZerosOnRhs",
 // Constant Propagation for Sub
 def SubConstProp : NamedPat<"SubConstProp",
     // From sub(c1, c2).
-    (ONNXSubOp:$subOp (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
-                      (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXSubOp:$subOp $lhs,
+                      $rhs),
     // To c1-c2
     (CreateSubOfTwoConst $subOp, $lhs, $rhs),
-    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs),
+    [(IsFromDenseConstLike:$lhs), (IsFromDenseConstLike:$rhs),
      (IsIntOrFloatType:$lhs), (IsIntOrFloatType:$rhs),
      (SatisfiesExpansionBound:$subOp), (HasStaticShape:$subOp)]>;
 
@@ -469,7 +473,7 @@ def SubZerosOnRhs : NamedPat<"SubZerosOnRhs",
     // From sub(x, c).
     (ONNXSubOp:$result
       $x,
-      (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)
+      $c
     ),
     // To x.
     (replaceWithValue $x),
@@ -478,90 +482,90 @@ def SubZerosOnRhs : NamedPat<"SubZerosOnRhs",
 // Cast of constant is simply a constant with the new type.
 def CastofConst : NamedPat<"CastofConst",
     // From (c)
-    (ONNXCastOp:$castOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_), $saturate, $to),
+    (ONNXCastOp:$castOp $input, $saturate, $to),
     // To (c)
     (CreateCastOfConst $castOp, $input, $saturate, $to),
-    [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
+    [(IsFromDenseConstLike:$input), (IsIntOrFloatType:$input)]>;
 
 // Constant Propagation for BitwiseNot
 def BitwiseNotConstProp : NamedPat<"BitwiseNotofConst",
     // From bitwise_not(c).
-    (ONNXBitwiseNotOp:$bitwiseNotOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXBitwiseNotOp:$bitwiseNotOp $input),
     // To ~c
     (CreateBitwiseNotOfConst $bitwiseNotOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
+    [(IsFromDenseConstLike:$input), (IsIntOrFloatType:$input)]>;
 
 // Constant Propagation for Abs
 def AbsConstProp : NamedPat<"AbsofConst",
     // From abs(c).
-    (ONNXAbsOp:$ceilOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXAbsOp:$ceilOp $input),
     // To new_c
     (CreateAbsOfConst $ceilOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
+    [(IsFromDenseConstLike:$input), (IsIntOrFloatType:$input)]>;
 
 // Constant Propagation for Ceil
 def CeilConstProp : NamedPat<"CeilofConst",
     // From ceil(c).
-    (ONNXCeilOp:$ceilOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXCeilOp:$ceilOp $input),
     // To new_c
     (CreateCeilOfConst $ceilOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
+    [(IsFromDenseConstLike:$input), (IsIntOrFloatType:$input)]>;
 
 // Constant Propagation for Cos
 def CosConstProp : NamedPat<"CosofConst",
     // From cos(c).
-    (ONNXCosOp:$cosOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXCosOp:$cosOp $input),
     // To new_c.
     (CreateCosOfConst $cosOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
+    [(IsFromDenseConstLike:$input), (IsIntOrFloatType:$input)]>;
 
 // Constant Propagation for Erf
 def ErfConstProp : NamedPat<"ErfofConst",
     // From erf(c)
-    (ONNXErfOp:$erfOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXErfOp:$erfOp $input),
     // To new_c.
     (CreateErfOfConst $erfOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
+    [(IsFromDenseConstLike:$input), (IsIntOrFloatType:$input)]>;
 
 // Constant Propagation for Exp
 def ExpConstProp : NamedPat<"ExpofConst",
     // From exp(c).
-    (ONNXExpOp:$expOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXExpOp:$expOp $input),
     // To new_c.
     (CreateExpOfConst $expOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
+    [(IsFromDenseConstLike:$input), (IsIntOrFloatType:$input)]>;
 
 // Constant Propagation for Floor
 def FloorConstProp : NamedPat<"FloorofConst",
     // From floor(c).
-    (ONNXFloorOp:$floorOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXFloorOp:$floorOp $input),
     // To new_c.
     (CreateFloorOfConst $floorOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
+    [(IsFromDenseConstLike:$input), (IsIntOrFloatType:$input)]>;
 
 // Constant Propagation for Log
 def LogConstProp : NamedPat<"LogofConst",
     // From log(c)
-    (ONNXLogOp:$logOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXLogOp:$logOp $input),
     // To new_c.
     (CreateLogOfConst $logOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
+    [(IsFromDenseConstLike:$input), (IsIntOrFloatType:$input)]>;
 
 // Neg of constant is simply -const
 def NegofConst : NamedPat<"NegofConst",
     // From - (c)
-    (ONNXNegOp:$negOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXNegOp:$negOp $input),
     // To (-c)
     (CreateNegOfConst $negOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
+    [(IsFromDenseConstLike:$input), (IsIntOrFloatType:$input)]>;
 
 // Not of constant is simply !const
 def NotofConst : NamedPat<"NotofConst",
     // From c
-    (ONNXNotOp:$notOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXNotOp:$notOp $input),
     // To !c
     (CreateNotOfConst $notOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
+    [(IsFromDenseConstLike:$input), (IsIntOrFloatType:$input)]>;
 
 // Constant Propagation for Shape
 def ShapeConstProp : NamedPat<"ShapeofConst",
@@ -572,76 +576,76 @@ def ShapeConstProp : NamedPat<"ShapeofConst",
 // Constant Propagation for Sin
 def SinConstProp : NamedPat<"SinofConst",
     // From sin(c).
-    (ONNXSinOp:$sinOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXSinOp:$sinOp $input),
     // To new_c
     (CreateSinOfConst $sinOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
+    [(IsFromDenseConstLike:$input), (IsIntOrFloatType:$input)]>;
 
 // Constant Propagation for Sigmoid
 def SigmoidConstProp : NamedPat<"SigmoidofConst",
     // From 1 / (1 + exp(-c)).
-    (ONNXSigmoidOp:$sigmoidOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXSigmoidOp:$sigmoidOp $input),
     // To new_c
     (CreateSigmoidOfConst $sigmoidOp, $input),
-    [(HasStaticShape:$input), (IsIntOrFloatType:$input)]>;
+    [(IsFromDenseConstLike:$input), (HasStaticShape:$input), (IsIntOrFloatType:$input)]>;
 
 // Constant Propagation for Reciprocal
 def ReciprocalConstProp : NamedPat<"ReciprocalofConst",
     // From 1/c.
-    (ONNXReciprocalOp:$reciprocalOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXReciprocalOp:$reciprocalOp $input),
     // To new_c
     (CreateReciprocalOfConst $reciprocalOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
+    [(IsFromDenseConstLike:$input), (IsIntOrFloatType:$input)]>;
 
 // Constant Propagation for Round
 def RoundConstProp : NamedPat<"RoundofConst",
     // From round(c)
-    (ONNXRoundOp:$roundOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXRoundOp:$roundOp $input),
     // To new_c.
     (CreateRoundOfConst $roundOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
+    [(IsFromDenseConstLike:$input), (IsIntOrFloatType:$input)]>;
 
 // Change a subtraction of a constant c by an addition of -c. Helpfull to combine
 // with other add optimizations.
 def SubConstToNeg : NamedPat<"SubConstToNeg",
     // From x - c.
-    (ONNXSubOp:$subOp $x, (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXSubOp:$subOp $x, $input),
     // To x + (-c).
     (ONNXAddOp $x, (CreateNegOfConst $input, $input)),
-    [(IsNotAConstant:$x), (IsFromDenseONNXConstantOp:$input),
+    [(IsNotAConstant:$x), (IsFromDenseConstLike:$input),
      (IsIntOrFloatType:$input)]>;
 
 // Constant Propagation for Sqrt
 def SqrtofConst : NamedPat<"SqrtofConst",
     // From  onnx.Sqrt(c)
-    (ONNXSqrtOp:$sqrtOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXSqrtOp:$sqrtOp $input),
     // To sqrt(c)
     (CreateSqrtOfConst $sqrtOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
+    [(IsFromDenseConstLike:$input), (IsIntOrFloatType:$input)]>;
 
 // Constant Propagation for Relu
 def ReluofConst : NamedPat<"ReluofConst",
     // From  onnx.Relu(c)
-    (ONNXReluOp:$reluOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXReluOp:$reluOp $input),
     // To relu(c)
     (CreateReluOfConst $reluOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
+    [(IsFromDenseConstLike:$input), (IsIntOrFloatType:$input)]>;
 
 // Constant Propagation for Reciprocal
 def ReciprocalOfConst : NamedPat<"ReciprocalOfConst",
     // From  onnx.Reciprocal(c)
-    (ONNXReciprocalOp:$reciprocalOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXReciprocalOp:$reciprocalOp $input),
     // To reciprocal(c)
     (CreateReciprocalOfConst $reciprocalOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
+    [(IsFromDenseConstLike:$input), (IsIntOrFloatType:$input)]>;
 
 // Constant Propagation for Round
 def RoundofConst : NamedPat<"RoundofConst",
     // From  onnx.Round(c)
-    (ONNXRoundOp:$reluOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXRoundOp:$reluOp $input),
     // To round_even(c)
     (CreateRoundOfConst $reluOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
+    [(IsFromDenseConstLike:$input), (IsIntOrFloatType:$input)]>;
 
 //===----------------------------------------------------------------------===//
 // Const propagation patterns for variadic elementwise operations.
@@ -688,35 +692,34 @@ def SumConstProp : NamedPat<"SumConstProp",
 // Use commutativity to normalize constants in the second position of Mul.
 def MulConstCommutative1 : NamedPat<"MulConstCommutative1",
   // From mul(c, x).
-  (ONNXMulOp:$mulOp (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_), $x),
+  (ONNXMulOp:$mulOp $c, $x),
   // To mul(x, c).
   (ONNXMulOp $x, $c, (location $mulOp)),
-  // To avoid infinite loop, constrain the first arguments to be anything but a constant.
-  [(IsNotAConstant:$x)]>;
+  [(IsFromDenseConstLike:$c), (IsNotAConstant:$x)]>;
 
 // Use associativity to mul constants together.
 def MulConstAssociative1 : NamedPat<"MulConstAssociative1",
   // From mul(mul(x, c1), c2).
   (ONNXMulOp
-    (ONNXMulOp:$lhs $x, (ONNXConstantOp:$c1 $_, $_, $_, $_, $_, $_, $_, $_)),
-    (ONNXConstantOp:$c2 $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXMulOp:$lhs $x, $c1),
+    $c2),
   // To mul(x, mul(c1, c2)).
   (ONNXMulOp
     $x,
     (ONNXMulOp $c1, $c2)),
-  [(IsNotAConstant:$x), (HasOneUse:$lhs)]>;
+  [(IsFromDenseConstLike:$c1), (IsFromDenseConstLike:$c2), (IsNotAConstant:$x), (HasOneUse:$lhs)]>;
 
 // Do not apply this when both x and c are scalar since it is cheap to do.
 def MulConstAssociative2 : NamedPat<"MulConstAssociative2",
   // From mul(mul(x, c), y).
   (ONNXMulOp
-    (ONNXMulOp:$lhs $x, (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXMulOp:$lhs $x, $c),
     $y),
   // To mul(mul(x, y), c).
   (ONNXMulOp
     (ONNXMulOp $x, $y),
     $c),
-  [(IsNotAConstant:$x), (IsNotAConstant:$y), (HasOneUse:$lhs),
+  [(IsFromDenseConstLike:$c), (IsNotAConstant:$x), (IsNotAConstant:$y), (HasOneUse:$lhs),
    (IsNotScalar:$x), (IsNotScalar:$c)]>;
 
 // Do not apply this when both y and c are scalar since it is cheap to do.
@@ -724,37 +727,39 @@ def MulConstAssociative3 : NamedPat<"MulConstAssociative3",
   // From mul(x, mul(y, c)).
   (ONNXMulOp
     $x,
-    (ONNXMulOp:$rhs $y, (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_))),
+    (ONNXMulOp:$rhs $y, $c)),
   // To mul(mul(x, y), c).
   (ONNXMulOp
     (ONNXMulOp $x, $y),
     $c),
-  [(IsNotAConstant:$x), (IsNotAConstant:$y), (HasOneUse:$rhs),
+  [(IsFromDenseConstLike:$c), (IsNotAConstant:$x), (IsNotAConstant:$y), (HasOneUse:$rhs),
    (IsNotScalar:$y), (IsNotScalar:$c)]>;
 
 def MulConstAssociative4 : NamedPat<"MulConstAssociative4",
   // From mul(mul(x, c1), mul(y, c2)).
   (ONNXMulOp
-    (ONNXMulOp:$lhs $x, (ONNXConstantOp:$c1 $_, $_, $_, $_, $_, $_, $_, $_)),
-    (ONNXMulOp:$rhs $y, (ONNXConstantOp:$c2 $_, $_, $_, $_, $_, $_, $_, $_))),
+    (ONNXMulOp:$lhs $x, $c1),
+    (ONNXMulOp:$rhs $y, $c2)),
   // To mul(mul(x, y), c1+c2).
   (ONNXMulOp
     (ONNXMulOp $x, $y),
     (ONNXMulOp $c1, $c2)),
-  [(IsNotAConstant:$x), (IsNotAConstant:$y), (HasOneUse:$lhs), (HasOneUse:$rhs)]>;
+  [(IsFromDenseConstLike:$c1), (IsFromDenseConstLike:$c2),
+   (IsNotAConstant:$x), (IsNotAConstant:$y), (HasOneUse:$lhs), (HasOneUse:$rhs)]>;
 
 // mul(add(x, b), a) -> add(mul(x, a), mul(a, b)).
 // mul(a, b) is folded to a single constant by MulConstProp.
 def MulAddConstDistributive : NamedPat<"MulAddConstDistributive",
   // From mul(add(x, b), a) where a, b are constants.
   (ONNXMulOp
-    (ONNXAddOp:$addOp $x, (ONNXConstantOp:$b $_, $_, $_, $_, $_, $_, $_, $_)),
-    (ONNXConstantOp:$a $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXAddOp:$addOp $x, $b),
+    $a),
   // To add(mul(x, a), mul(a, b)).
   (ONNXAddOp
     (ONNXMulOp $x, $a),
     (ONNXMulOp $a, $b)),
-  [(IsNotAConstant:$x), (HasOneUse:$addOp), (IsIntOrFloatType:$a),
+  [(IsFromDenseConstLike:$a), (IsFromDenseConstLike:$b),
+   (IsNotAConstant:$x), (HasOneUse:$addOp), (IsIntOrFloatType:$a),
   (IsIntOrFloatType:$b), (IsIntOrFloatType:$x)]>;
 
 // Distribute multiplication into clip: mul(clip(x, l, u), a) -> clip(mul(x, a), mul(a, l), mul(a, u)).
@@ -763,26 +768,27 @@ def MulClipConstDistributive : NamedPat<"MulClipConstDistributive",
   // From mul(clip(x, l, u), a) where a, l, u are constants.
   (ONNXMulOp
     (ONNXClipOp:$clipOp $x,
-      (ONNXConstantOp:$l $_, $_, $_, $_, $_, $_, $_, $_),
-      (ONNXConstantOp:$u $_, $_, $_, $_, $_, $_, $_, $_)),
-    (ONNXConstantOp:$a $_, $_, $_, $_, $_, $_, $_, $_)),
+      $l,
+      $u),
+    $a),
   // To clip(mul(x, a), mul(a, l), mul(a, u)).
   (ONNXClipOp
     (ONNXMulOp $x, $a),
     (ONNXMulOp $a, $l),
     (ONNXMulOp $a, $u)),
-  [(IsNotAConstant:$x), (HasOneUse:$clipOp),  (IsIntOrFloatType:$x), 
+  [(IsFromDenseConstLike:$a), (IsFromDenseConstLike:$l), (IsFromDenseConstLike:$u),
+   (IsNotAConstant:$x), (HasOneUse:$clipOp), (IsIntOrFloatType:$x), 
   (IsIntOrFloatType:$a), (IsIntOrFloatType:$l), (IsIntOrFloatType:$u)]>;
 
 // Constant Propagation for Mul
 def MulConstProp : NamedPat<"MulConstProp",
     // From mul(c1, c2).
-    (ONNXMulOp:$mulOp (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
-                      (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXMulOp:$mulOp $lhs,
+                      $rhs),
     // To c1+c2
     (CreateMulOfTwoConst $mulOp, $lhs, $rhs),
     // Multiplication constraints
-    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs),
+    [(IsFromDenseConstLike:$lhs), (IsFromDenseConstLike:$rhs),
      (IsIntOrFloatType:$lhs), (IsIntOrFloatType:$rhs),
      (SatisfiesExpansionBound:$mulOp), (HasStaticShape:$mulOp)]>;
 
@@ -791,7 +797,7 @@ def MulOnesOnRhs : NamedPat<"MulOnesOnRhs",
     // From mul(x, c).
     (ONNXMulOp:$result
       $x,
-      (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)
+      $c
     ),
     // To x.
     (replaceWithValue $x),
@@ -803,12 +809,12 @@ def MulOnesOnRhs : NamedPat<"MulOnesOnRhs",
 // Constant Propagation for Div
 def DivConstProp : NamedPat<"DivConstProp",
     // From div(c1, c2).
-    (ONNXDivOp:$divOp (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
-                      (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXDivOp:$divOp $lhs,
+                      $rhs),
     // To c1/c2
     (CreateDivOfTwoConst $divOp, $lhs, $rhs),
     // Division constraints
-    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs),
+    [(IsFromDenseConstLike:$lhs), (IsFromDenseConstLike:$rhs),
      (IsIntOrFloatType:$lhs), (IsIntOrFloatType:$rhs),
      (SatisfiesExpansionBound:$divOp), (HasStaticShape:$divOp)]>;
 
@@ -817,7 +823,7 @@ def DivOnesOnRhs : NamedPat<"DivOnesOnRhs",
     // From div(x, c).
     (ONNXDivOp:$result
       $x,
-      (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)
+      $c
     ),
     // To x.
     (replaceWithValue $x),
@@ -832,10 +838,10 @@ def DivOnesOnRhs : NamedPat<"DivOnesOnRhs",
 
 def BitwiseAndConstPropPattern : NamedPat<"BitwiseAndConstPropPattern",
     (ONNXBitwiseAndOp:$result
-      (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
-      (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
+      $lhs,
+      $rhs),
     (CreateBitwiseAndOfTwoConst $result, $lhs, $rhs),
-    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs),
+    [(IsFromDenseConstLike:$lhs), (IsFromDenseConstLike:$rhs),
      (IsIntOrFloatType:$lhs), (IsIntOrFloatType:$rhs),
      (SatisfiesExpansionBound:$result), (HasStaticShape:$result)]>;
 
@@ -845,10 +851,10 @@ def BitwiseAndConstPropPattern : NamedPat<"BitwiseAndConstPropPattern",
 
 def BitwiseOrConstPropPattern : NamedPat<"BitwiseOrConstPropPattern",
     (ONNXBitwiseOrOp:$result
-      (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
-      (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
+      $lhs,
+      $rhs),
     (CreateBitwiseOrOfTwoConst $result, $lhs, $rhs),
-    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs),
+    [(IsFromDenseConstLike:$lhs), (IsFromDenseConstLike:$rhs),
      (IsIntOrFloatType:$lhs), (IsIntOrFloatType:$rhs),
      (SatisfiesExpansionBound:$result), (HasStaticShape:$result)]>;
 
@@ -858,10 +864,10 @@ def BitwiseOrConstPropPattern : NamedPat<"BitwiseOrConstPropPattern",
 
 def AndConstPropPattern : NamedPat<"AndConstPropPattern",
     (ONNXAndOp:$result
-      (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
-      (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
+      $lhs,
+      $rhs),
     (CreateAndOfTwoConst $result, $lhs, $rhs),
-    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs),
+    [(IsFromDenseConstLike:$lhs), (IsFromDenseConstLike:$rhs),
      (IsIntOrFloatType:$lhs), (IsIntOrFloatType:$rhs),
      (SatisfiesExpansionBound:$result), (HasStaticShape:$result)]>;
 
@@ -871,10 +877,10 @@ def AndConstPropPattern : NamedPat<"AndConstPropPattern",
 
 def OrConstPropPattern : NamedPat<"OrConstPropPattern",
     (ONNXOrOp:$result
-      (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
-      (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
+      $lhs,
+      $rhs),
     (CreateOrOfTwoConst $result, $lhs, $rhs),
-    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs),
+    [(IsFromDenseConstLike:$lhs), (IsFromDenseConstLike:$rhs),
      (IsIntOrFloatType:$lhs), (IsIntOrFloatType:$rhs),
      (SatisfiesExpansionBound:$result), (HasStaticShape:$result)]>;
 
@@ -884,10 +890,10 @@ def OrConstPropPattern : NamedPat<"OrConstPropPattern",
 
 def XorConstPropPattern : NamedPat<"XorConstPropPattern",
     (ONNXXorOp:$result
-      (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
-      (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
+      $lhs,
+      $rhs),
     (CreateXorOfTwoConst $result, $lhs, $rhs),
-    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs),
+    [(IsFromDenseConstLike:$lhs), (IsFromDenseConstLike:$rhs),
      (IsIntOrFloatType:$lhs), (IsIntOrFloatType:$rhs),
      (SatisfiesExpansionBound:$result), (HasStaticShape:$result)]>;
 
@@ -898,12 +904,12 @@ def XorConstPropPattern : NamedPat<"XorConstPropPattern",
 def EqualConstProp : NamedPat<"EqualConstProp",
     // From equal(c1, c2).
     (ONNXEqualOp:$result
-      (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
-      (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
+      $lhs,
+      $rhs),
     // To c1 == c2
     (CreateEqualOfTwoConst $result, $lhs, $rhs),
     // constraints
-    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs),
+    [(IsFromDenseConstLike:$lhs), (IsFromDenseConstLike:$rhs),
      (IsIntOrFloatType:$lhs), (IsIntOrFloatType:$rhs),
      (SatisfiesExpansionBound:$result), (HasStaticShape:$result)]>;
 
@@ -913,10 +919,10 @@ def EqualConstProp : NamedPat<"EqualConstProp",
 
 def LessConstPropPattern : NamedPat<"LessConstPropPattern",
     (ONNXLessOp:$result
-      (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
-      (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
+      $lhs,
+      $rhs),
     (CreateLessOfTwoConst $result, $lhs, $rhs),
-    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs),
+    [(IsFromDenseConstLike:$lhs), (IsFromDenseConstLike:$rhs),
      (IsIntOrFloatType:$lhs), (IsIntOrFloatType:$rhs),
      (SatisfiesExpansionBound:$result), (HasStaticShape:$result)]>;
 
@@ -926,10 +932,10 @@ def LessConstPropPattern : NamedPat<"LessConstPropPattern",
 
 def GreaterConstPropPattern : NamedPat<"GreaterConstPropPattern",
     (ONNXGreaterOp:$result
-      (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
-      (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
+      $lhs,
+      $rhs),
     (CreateGreaterOfTwoConst $result, $lhs, $rhs),
-    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs),
+    [(IsFromDenseConstLike:$lhs), (IsFromDenseConstLike:$rhs),
      (IsIntOrFloatType:$lhs), (IsIntOrFloatType:$rhs),
      (SatisfiesExpansionBound:$result), (HasStaticShape:$result)]>;
 
@@ -939,10 +945,10 @@ def GreaterConstPropPattern : NamedPat<"GreaterConstPropPattern",
 
 def LessOrEqualConstPropPattern : NamedPat<"LessOrEqualConstPropPattern",
     (ONNXLessOrEqualOp:$result
-      (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
-      (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
+      $lhs,
+      $rhs),
     (CreateLessOrEqualOfTwoConst $result, $lhs, $rhs),
-    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs),
+    [(IsFromDenseConstLike:$lhs), (IsFromDenseConstLike:$rhs),
      (IsIntOrFloatType:$lhs), (IsIntOrFloatType:$rhs),
      (SatisfiesExpansionBound:$result), (HasStaticShape:$result)]>;
 
@@ -952,10 +958,10 @@ def LessOrEqualConstPropPattern : NamedPat<"LessOrEqualConstPropPattern",
 
 def GreaterOrEqualConstPropPattern : NamedPat<"GreaterOrEqualConstPropPattern",
     (ONNXGreaterOrEqualOp:$result
-      (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
-      (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
+      $lhs,
+      $rhs),
     (CreateGreaterOrEqualOfTwoConst $result, $lhs, $rhs),
-    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs),
+    [(IsFromDenseConstLike:$lhs), (IsFromDenseConstLike:$rhs),
      (IsIntOrFloatType:$lhs), (IsIntOrFloatType:$rhs),
      (SatisfiesExpansionBound:$result), (HasStaticShape:$result)]>;
 
@@ -965,11 +971,11 @@ def GreaterOrEqualConstPropPattern : NamedPat<"GreaterOrEqualConstPropPattern",
 
 def ModConstPropPattern : NamedPat<"ModConstPropPattern",
     (ONNXModOp:$modOp
-      (ONNXConstantOp:$A $_, $_, $_, $_, $_, $_, $_, $_),
-      (ONNXConstantOp:$B $_, $_, $_, $_, $_, $_, $_, $_),
+      $A,
+      $B,
       $fmod),
     (CreateModOfTwoConst  $modOp, $A, $B),
-    [(IsFromDenseONNXConstantOp:$A), (IsFromDenseONNXConstantOp:$B),
+    [(IsFromDenseConstLike:$A), (IsFromDenseConstLike:$B),
     (IsIntOrFloatType:$A), (IsIntOrFloatType:$B),
     (SatisfiesExpansionBound:$modOp), (HasStaticShape:$modOp)]>;
 
@@ -984,7 +990,7 @@ def ModConstPropPattern : NamedPat<"ModConstPropPattern",
 // Constant Propagation for Clip
 def ClipConstProp : NamedPat<"ClipConstProp",
     // From clip(c0, c1, c2).
-    (ONNXClipOp:$clipOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_),
+    (ONNXClipOp:$clipOp $input,
                          $min, $max),
     // To min(max(c0, c1), c2).
     (CreateONNXMinOp
@@ -992,8 +998,8 @@ def ClipConstProp : NamedPat<"ClipConstProp",
       (CreateONNXMaxOp $clipOp, $input, (CreateMinimumValueForClip $input, $min)),
       (CreateMaximumValueForClip $input, $max)),
     // Clip constraints
-    [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input),
-     (IsFromDenseONNXConstantOpOrNone:$min), (IsFromDenseONNXConstantOpOrNone:$max),
+    [(IsFromDenseConstLike:$input), (IsIntOrFloatType:$input),
+     (IsFromDenseConstLikeOrNone:$min), (IsFromDenseConstLikeOrNone:$max),
      (SatisfiesExpansionBound:$clipOp)]>;
 
 //===----------------------------------------------------------------------===//
@@ -1003,14 +1009,14 @@ def ClipConstProp : NamedPat<"ClipConstProp",
 // Constant Propagation for Where
 def WhereConstProp : NamedPat<"WhereConstProp",
     // From where(c0, c1, c2).
-    (ONNXWhereOp:$whereOp (ONNXConstantOp:$condition $_, $_, $_, $_, $_, $_, $_, $_),
-                      (ONNXConstantOp:$X $_, $_, $_, $_, $_, $_, $_, $_),
-                      (ONNXConstantOp:$Y $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXWhereOp:$whereOp $condition,
+                      $X,
+                      $Y),
     // To c0?c1:c2
     (CreateWhereOfThreeConst $whereOp, $condition, $X, $Y),
     // Where constraints
-    [(IsFromDenseONNXConstantOp:$condition),
-     (IsFromDenseONNXConstantOp:$X), (IsFromDenseONNXConstantOp:$Y),
+    [(IsFromDenseConstLike:$condition),
+     (IsFromDenseConstLike:$X), (IsFromDenseConstLike:$Y),
      (IsIntOrFloatType:$X), (IsIntOrFloatType:$Y),
      (SatisfiesExpansionBound:$whereOp), (HasStaticShape:$whereOp)]>;
 
@@ -1020,57 +1026,57 @@ def WhereConstProp : NamedPat<"WhereConstProp",
 
 def ReduceSumConstProp : NamedPat<"ReduceSumConstProp",
       (ONNXReduceSumOp:$reduceSumOp
-        (ONNXConstantOp:$data $_, $_, $_, $_, $_, $_, $_, $_),
+        $data,
         $axes,
         $_,
         $_),
     (CreateReduceSumConst $reduceSumOp, $data, $axes),
-    [(IsFromDenseONNXConstantOp:$data), (IsIntOrFloatType:$data),
-     (IsFromDenseONNXConstantOpOrNone:$axes)]
+    [(IsFromDenseConstLike:$data), (IsIntOrFloatType:$data),
+     (IsFromDenseConstLikeOrNone:$axes)]
     >;
 
 def ReduceProdConstProp : NamedPat<"ReduceProdConstProp",
       (ONNXReduceProdOp:$reduceProdOp
-        (ONNXConstantOp:$data $_, $_, $_, $_, $_, $_, $_, $_),
+        $data,
         $axes,
         $_,
         $_),
     (CreateReduceProdConst $reduceProdOp, $data, $axes),
-    [(IsFromDenseONNXConstantOp:$data), (IsIntOrFloatType:$data),
-     (IsFromDenseONNXConstantOpOrNone:$axes)]
+    [(IsFromDenseConstLike:$data), (IsIntOrFloatType:$data),
+     (IsFromDenseConstLikeOrNone:$axes)]
     >;
 
 def ReduceMinConstProp : NamedPat<"ReduceMinConstProp",
       (ONNXReduceMinOp:$reduceMinOp
-        (ONNXConstantOp:$data $_, $_, $_, $_, $_, $_, $_, $_),
+        $data,
         $axes,
         $_,
         $_),
     (CreateReduceMinConst $reduceMinOp, $data, $axes),
-    [(IsFromDenseONNXConstantOp:$data), (IsIntOrFloatType:$data),
-     (IsFromDenseONNXConstantOpOrNone:$axes)]
+    [(IsFromDenseConstLike:$data), (IsIntOrFloatType:$data),
+     (IsFromDenseConstLikeOrNone:$axes)]
     >;
 
 def ReduceMaxConstProp : NamedPat<"ReduceMaxConstProp",
       (ONNXReduceMaxOp:$reduceMaxOp
-        (ONNXConstantOp:$data $_, $_, $_, $_, $_, $_, $_, $_),
+        $data,
         $axes,
         $_,
         $_),
     (CreateReduceMaxConst $reduceMaxOp, $data, $axes),
-    [(IsFromDenseONNXConstantOp:$data), (IsIntOrFloatType:$data),
-     (IsFromDenseONNXConstantOpOrNone:$axes)]
+    [(IsFromDenseConstLike:$data), (IsIntOrFloatType:$data),
+     (IsFromDenseConstLikeOrNone:$axes)]
     >;
 
 def ReduceMeanConstProp : NamedPat<"ReduceMeanConstProp",
       (ONNXReduceMeanOp:$reduceMeanOp
-        (ONNXConstantOp:$data $_, $_, $_, $_, $_, $_, $_, $_),
+        $data,
         $axes,
         $_,
         $_),
     (CreateReduceMeanConst $reduceMeanOp, $data, $axes),
-    [(IsFromDenseONNXConstantOp:$data), (IsIntOrFloatType:$data),
-     (IsFromDenseONNXConstantOpOrNone:$axes)]
+    [(IsFromDenseConstLike:$data), (IsIntOrFloatType:$data),
+     (IsFromDenseConstLikeOrNone:$axes)]
     >;
 
 //===----------------------------------------------------------------------===//
@@ -1080,7 +1086,7 @@ def ReduceMeanConstProp : NamedPat<"ReduceMeanConstProp",
 // Limited to integers because 0 * NaN is NaN, not 0.
 def MatMulZerosOnLhs : NamedPat<"MatMulZerosOnLhs",
     (ONNXMatMulOp:$resOp
-      (ONNXConstantOp:$A $_, $_, $_, $_, $_, $_, $_, $_),
+      $A,
       $B
     ),
     (CreateZeroTensorOfType $resOp),
@@ -1092,7 +1098,7 @@ def MatMulZerosOnLhs : NamedPat<"MatMulZerosOnLhs",
 def MatMulZerosOnRhs : NamedPat<"MatMulZerosOnRhs",
     (ONNXMatMulOp:$resOp
       $A,
-      (ONNXConstantOp:$B $_, $_, $_, $_, $_, $_, $_, $_)
+      $B
     ),
     (CreateZeroTensorOfType $resOp),
     [(IsNotAConstant:$A), (HasIntegerElementType:$resOp),
@@ -1101,11 +1107,11 @@ def MatMulZerosOnRhs : NamedPat<"MatMulZerosOnRhs",
 
 def MatMulOfConsts : NamedPat<"MatMulOfConsts",
     (ONNXMatMulOp:$resOp
-      (ONNXConstantOp:$A $_, $_, $_, $_, $_, $_, $_, $_),
-      (ONNXConstantOp:$B $_, $_, $_, $_, $_, $_, $_, $_)
+      $A,
+      $B
     ),
     (CreateMatMulOfConsts $resOp, $A, $B),
-    [(IsFromDenseONNXConstantOp:$A), (IsFromDenseONNXConstantOp:$B),
+    [(IsFromDenseConstLike:$A), (IsFromDenseConstLike:$B),
      (IsIntOrFloatType:$A), (IsIntOrFloatType:$B),
      (SatisfiesExpansionBound:$resOp)]
     >;
@@ -1116,35 +1122,35 @@ def MatMulOfConsts : NamedPat<"MatMulOfConsts",
 
 def MatMulIntegerConstZeroLhs : NamedPat<"MatMulIntegerConstZeroLhs",
     (ONNXMatMulIntegerOp:$resOp
-      (ONNXConstantOp:$A $_, $_, $_, $_, $_, $_, $_, $_),
+      $A,
       $B,
       $a_zero_point, $b_zero_point
     ),
     (CreateZeroTensorOfType $resOp),
-    [(IsFromDenseONNXConstantOp:$A), (IsFromDenseONNXConstantOpOrNone:$a_zero_point),
+    [(IsFromDenseConstLike:$A), (IsFromDenseConstLikeOrNone:$a_zero_point),
      (IsMatMulIntegerLhsZero $A, $a_zero_point), (HasStaticShape:$resOp)]
     >;
 
 def MatMulIntegerConstZeroRhs : NamedPat<"MatMulIntegerConstZeroRhs",
     (ONNXMatMulIntegerOp:$resOp
       $A,
-      (ONNXConstantOp:$B $_, $_, $_, $_, $_, $_, $_, $_),
+      $B,
       $a_zero_point, $b_zero_point
     ),
     (CreateZeroTensorOfType $resOp),
-    [(IsFromDenseONNXConstantOp:$B), (IsFromDenseONNXConstantOpOrNone:$b_zero_point),
+    [(IsFromDenseConstLike:$B), (IsFromDenseConstLikeOrNone:$b_zero_point),
      (IsMatMulIntegerRhsZero $B, $b_zero_point), (HasStaticShape:$resOp)]
     >;
 
 def MatMulIntegerOfConsts : NamedPat<"MatMulIntegerOfConsts",
     (ONNXMatMulIntegerOp:$resOp
-      (ONNXConstantOp:$A $_, $_, $_, $_, $_, $_, $_, $_),
-      (ONNXConstantOp:$B $_, $_, $_, $_, $_, $_, $_, $_),
+      $A,
+      $B,
       $a_zero_point, $b_zero_point
     ),
     (CreateMatMulIntegerOfConsts $resOp, $A, $B, $a_zero_point, $b_zero_point),
-    [(IsFromDenseONNXConstantOp:$A), (IsFromDenseONNXConstantOpOrNone:$a_zero_point),
-     (IsFromDenseONNXConstantOp:$B), (IsFromDenseONNXConstantOpOrNone:$b_zero_point),
+    [(IsFromDenseConstLike:$A), (IsFromDenseConstLikeOrNone:$a_zero_point),
+     (IsFromDenseConstLike:$B), (IsFromDenseConstLikeOrNone:$b_zero_point),
      (SatisfiesExpansionBound:$resOp)]
     >;
 
@@ -1155,13 +1161,13 @@ def MatMulIntegerOfConsts : NamedPat<"MatMulIntegerOfConsts",
 // Attributes are not passed to CreateGemmOfConsts. It reads them from gemmOp.
 def GemmConstProp : NamedPat<"GemmConstProp",
     (ONNXGemmOp:$gemmOp
-      (ONNXConstantOp:$A $_, $_, $_, $_, $_, $_, $_, $_),
-      (ONNXConstantOp:$B $_, $_, $_, $_, $_, $_, $_, $_),
+      $A,
+      $B,
       $C, $alpha, $beta, $transA, $transB),
     (CreateGemmOfConsts $gemmOp, $A, $B, $C),
-    [(IsFromDenseONNXConstantOp:$A), (IsFromDenseONNXConstantOp:$B),
+    [(IsFromDenseConstLike:$A), (IsFromDenseConstLike:$B),
      (IsIntOrFloatType:$A), (IsIntOrFloatType:$B),
-     (IsFromDenseONNXConstantOpOrNone:$C),
+     (IsFromDenseConstLikeOrNone:$C),
      (SatisfiesExpansionBound:$gemmOp), (HasStaticShape:$gemmOp)]>;
 
 //===----------------------------------------------------------------------===//
@@ -1170,10 +1176,10 @@ def GemmConstProp : NamedPat<"GemmConstProp",
 
 def TransposeofConst : NamedPat<"TransposeofConst",
     // From TransposeOp(c, p)
-    (ONNXTransposeOp:$resOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_), $_),
+    (ONNXTransposeOp:$resOp $input, $_),
     // To c' where c' is transposed attribute
     (CreateTransposeOfConst $resOp, $input),
-    [(IsFromDenseONNXConstantOp:$input),
+    [(IsFromDenseConstLike:$input),
      (TransposeConstPropTypesMatch $resOp, $input)]>;
 
 //===----------------------------------------------------------------------===//
@@ -1182,10 +1188,10 @@ def TransposeofConst : NamedPat<"TransposeofConst",
 
 def ReverseSequenceofConst : NamedPat<"ReverseSequenceofConst",
     // From ReverseSequenceOp(c, ba, ta)    
-    (ONNXReverseSequenceOp:$resOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_),
-                      (ONNXConstantOp:$sequence_lens $_, $_, $_, $_, $_, $_, $_, $_), $batch_axis, $time_axis),
+    (ONNXReverseSequenceOp:$resOp $input,
+                      $sequence_lens, $batch_axis, $time_axis),
     (CreateReverseSequenceOfConst $resOp, $input, $sequence_lens),
-    [(IsFromDenseONNXConstantOp:$input), (IsFromDenseONNXConstantOp:$sequence_lens),
+    [(IsFromDenseConstLike:$input), (IsFromDenseConstLike:$sequence_lens),
      (ValuesHaveSameDType $resOp, $input)]>;
 
 //===----------------------------------------------------------------------===//
@@ -1194,18 +1200,18 @@ def ReverseSequenceofConst : NamedPat<"ReverseSequenceofConst",
 
 def UnsqueezeofConst : NamedPat<"UnsqueezeofConst",
     // From Unsqueeze (c, axis)
-    (ONNXUnsqueezeOp:$resOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_), $_),
+    (ONNXUnsqueezeOp:$resOp $input, $_),
     // To c' where c' is the unsqueezed value.
     (CreateUnsqueezeOfConst $resOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (HasStaticShape:$resOp),
+    [(IsFromDenseConstLike:$input), (HasStaticShape:$resOp),
      (ValuesHaveSameDType $resOp, $input)]>;
 
 def UnsqueezeV11ofConst : NamedPat<"UnsqueezeV11ofConst",
     // From Unsqueeze (c, axis)
-    (ONNXUnsqueezeV11Op:$resOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_), $_),
+    (ONNXUnsqueezeV11Op:$resOp $input, $_),
     // To c' where c' is the unsqueezed value.
     (CreateUnsqueezeOfConst $resOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (HasStaticShape:$resOp),
+    [(IsFromDenseConstLike:$input), (HasStaticShape:$resOp),
      (ValuesHaveSameDType $resOp, $input)]>;
 
 //===----------------------------------------------------------------------===//
@@ -1214,18 +1220,18 @@ def UnsqueezeV11ofConst : NamedPat<"UnsqueezeV11ofConst",
 
 def SqueezeofConst : NamedPat<"SqueezeofConst",
     // From Squeeze (c, axis)
-    (ONNXSqueezeOp:$resOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_), $_),
+    (ONNXSqueezeOp:$resOp $input, $_),
     // To c' where c' is the unsqueezed value.
     (CreateSqueezeOfConst $resOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (HasStaticShape:$resOp),
+    [(IsFromDenseConstLike:$input), (HasStaticShape:$resOp),
      (ValuesHaveSameDType $resOp, $input)]>;
 
 def SqueezeV11ofConst : NamedPat<"SqueezeV11ofConst",
     // From Squeeze (c, axis)
-    (ONNXSqueezeV11Op:$resOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_), $_),
+    (ONNXSqueezeV11Op:$resOp $input, $_),
     // To c' where c' is the unsqueezed value.
     (CreateSqueezeOfConst $resOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (HasStaticShape:$resOp),
+    [(IsFromDenseConstLike:$input), (HasStaticShape:$resOp),
      (ValuesHaveSameDType $resOp, $input)]>;
 
 //===----------------------------------------------------------------------===//
@@ -1234,13 +1240,13 @@ def SqueezeV11ofConst : NamedPat<"SqueezeV11ofConst",
 
 def SliceofConst : NamedPat<"SliceofConst",
     // From Slice (x, starts, ends, axes, steps)
-    (ONNXSliceOp:$resOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_),
+    (ONNXSliceOp:$resOp $input,
                         $starts, $ends, $axes, $steps),
     // To c' where c' is the sliced value.
     (CreateSliceOfConst $resOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsFromDenseONNXConstantOp:$starts),
-     (IsFromDenseONNXConstantOp:$ends), (IsFromDenseONNXConstantOpOrNone:$axes),
-     (IsFromDenseONNXConstantOpOrNone:$steps), (HasStaticShape:$resOp),
+    [(IsFromDenseConstLike:$input), (IsFromDenseConstLike:$starts),
+     (IsFromDenseConstLike:$ends), (IsFromDenseConstLikeOrNone:$axes),
+     (IsFromDenseConstLikeOrNone:$steps), (HasStaticShape:$resOp),
      (ValuesHaveSameDType $resOp, $input)]>;
 
 //===----------------------------------------------------------------------===//
@@ -1250,12 +1256,13 @@ def SliceofConst : NamedPat<"SliceofConst",
 // TODO: Support axes. For now it's required to be none.
 def PadOfConst : NamedPat<"PadOfConst",
     // From Pad (x, pads, constant_value, axes)
-    (ONNXPadOp:$resOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_),
+    (ONNXPadOp:$resOp $input,
                       $pads, $constant_value, $axes, $mode),
     // To c where c is the padded value.
     (CreatePadOfConst $resOp, $input, $constant_value),
-    [(IsFromDenseONNXConstantOp:$pads),
-     (IsFromDenseONNXConstantOpOrNone:$constant_value),
+    [(IsFromDenseConstLike:$input),
+     (IsFromDenseConstLike:$pads),
+     (IsFromDenseConstLikeOrNone:$constant_value),
      (IsNoneType:$axes), (IsIntOrFloatType:$input),
      (EqualString<"constant"> $mode),
      (HasStaticShape:$resOp),
@@ -1278,11 +1285,11 @@ def ConcatofConst : NamedPat<"ConcatofConst",
 
 def ExpandofConst : NamedPat<"ExpandofConst",
     // From Expand (x, shape)
-    (ONNXExpandOp:$resOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_),
-                         (ONNXConstantOp:$shape $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXExpandOp:$resOp $input,
+                         $shape),
     // To c where c is the expanded value.
     (CreateExpandOfConst $resOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsFromDenseONNXConstantOp:$shape),
+    [(IsFromDenseConstLike:$input), (IsFromDenseConstLike:$shape),
      (HasStaticShape:$resOp), (ValuesHaveSameDType $resOp, $input),
      (SatisfiesExpansionBound:$resOp)]>;
 
@@ -1292,12 +1299,12 @@ def ExpandofConst : NamedPat<"ExpandofConst",
 
 def GatherofConst : NamedPat<"GatherofConst",
     // From Gather (x, indices, axis)
-    (ONNXGatherOp:$resOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_),
-                         (ONNXConstantOp:$indices $_, $_, $_, $_, $_, $_, $_, $_),
+    (ONNXGatherOp:$resOp $input,
+                         $indices,
                          $_),
     // To c' where c' is the gathered value.
     (CreateGatherOfConst $resOp, $input, $indices),
-    [(IsFromDenseONNXConstantOp:$input), (IsFromDenseONNXConstantOp:$indices),
+    [(IsFromDenseConstLike:$input), (IsFromDenseConstLike:$indices),
      (ValuesHaveSameDType $resOp, $input)]>;
 
 //===----------------------------------------------------------------------===//
@@ -1306,12 +1313,12 @@ def GatherofConst : NamedPat<"GatherofConst",
 
 def ReshapeofConst : NamedPat<"ReshapeofConst",
     // From Reshape (x, shape)
-    (ONNXReshapeOp:$resOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_),
-                          (ONNXConstantOp:$shape $_, $_, $_, $_, $_, $_, $_, $_),
+    (ONNXReshapeOp:$resOp $input,
+                          $shape,
                           $_),
     // To c where c is the reshaped value.
     (CreateReshapeOfConst $resOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsFromDenseONNXConstantOp:$shape),
+    [(IsFromDenseConstLike:$input), (IsFromDenseConstLike:$shape),
      (HasStaticShape:$resOp), (ValuesHaveSameDType $resOp, $input)]>;
 
 //===----------------------------------------------------------------------===//
@@ -1320,10 +1327,10 @@ def ReshapeofConst : NamedPat<"ReshapeofConst",
 
 def ConstantOfShapeofConst : NamedPat<"ConstantOfShapeofConst",
     // From ConstantOfShape (shape, x)
-    (ONNXConstantOfShapeOp:$resOp (ONNXConstantOp:$shape $_, $_, $_, $_, $_, $_, $_, $_), $value),
+    (ONNXConstantOfShapeOp:$resOp $shape, $value),
     // To c where c is the expanded value.
     (CreateConstantOfShapeOfConst $resOp, $shape, $value),
-    [(IsFromDenseONNXConstantOp:$shape),
+    [(IsFromDenseConstLike:$shape),
      (HasStaticShape:$resOp), (IsIntOrFloatType:$resOp)]>;
 
 //===----------------------------------------------------------------------===//
@@ -1333,14 +1340,14 @@ def ConstantOfShapeofConst : NamedPat<"ConstantOfShapeofConst",
 // Constant Propagation for Range if shape inference has calculated the length.
 def RangeConstProp : NamedPat<"RangeConstProp",
     // From range(c0, c1, c2).
-    (ONNXRangeOp:$rangeOp (ONNXConstantOp:$start $_, $_, $_, $_, $_, $_, $_, $_),
-                      (ONNXConstantOp:$limit $_, $_, $_, $_, $_, $_, $_, $_),
-                      (ONNXConstantOp:$delta $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXRangeOp:$rangeOp $start,
+                      $limit,
+                      $delta),
     // To [c0, c0 + c2, c0 + c2 * 2, ...] assuming shape inference calculated
     // dim size max(ceil((c1 - c0) / c2), 0).
     (CreateRangeOfThreeConst $rangeOp, $start, $limit, $delta),
-    [(IsFromDenseONNXConstantOp:$start), (IsFromDenseONNXConstantOp:$limit),
-     (IsFromDenseONNXConstantOp:$delta), (HasStaticShape:$rangeOp),
+    [(IsFromDenseConstLike:$start), (IsFromDenseConstLike:$limit),
+     (IsFromDenseConstLike:$delta), (HasStaticShape:$rangeOp),
      (IsIntOrFloatType:$start), (IsIntOrFloatType:$limit),
      (IsIntOrFloatType:$delta)]>;
 
@@ -1349,9 +1356,9 @@ def RangeConstProp : NamedPat<"RangeConstProp",
 //===----------------------------------------------------------------------===//
 
 def NonZeroOfConst : NamedPat<"NonZeroOfConst",
-    (ONNXNonZeroOp:$nonZeroOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXNonZeroOp:$nonZeroOp $input),
     (CreateNonZeroOfConst $nonZeroOp, $input),
-    [(IsFromDenseONNXConstantOp:$input), (IsIntOrFloatType:$input)]>;
+    [(IsFromDenseConstLike:$input), (IsIntOrFloatType:$input)]>;
 
 //===----------------------------------------------------------------------===//
 // Patterns for ScatterND.
@@ -1359,14 +1366,14 @@ def NonZeroOfConst : NamedPat<"NonZeroOfConst",
 
 def ScatterNDOfConst : NamedPat<"ScatterNDOfConst",
     (ONNXScatterNDOp:$scatterNDOp
-      (ONNXConstantOp:$data $_, $_, $_, $_, $_, $_, $_, $_),
-      (ONNXConstantOp:$indices $_, $_, $_, $_, $_, $_, $_, $_),
-      (ONNXConstantOp:$updates $_, $_, $_, $_, $_, $_, $_, $_),
+      $data,
+      $indices,
+      $updates,
       $reduction),
     (CreateScatterNDOfConst $scatterNDOp, $data, $indices, $updates),
-    [(IsFromDenseONNXConstantOp:$data),
-     (IsFromDenseONNXConstantOp:$indices),
-     (IsFromDenseONNXConstantOp:$updates),
+    [(IsFromDenseConstLike:$data),
+     (IsFromDenseConstLike:$indices),
+     (IsFromDenseConstLike:$updates),
      (IsIntOrFloatType:$data), (IsIntOrFloatType:$updates),
      (EqualString<"none"> $reduction)]>;
 
@@ -1376,12 +1383,12 @@ def ScatterNDOfConst : NamedPat<"ScatterNDOfConst",
 
 def PowConstProp : NamedPat<"PowConstProp",
     // From pow(c1, c2).
-    (ONNXPowOp:$powOp (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
-                      (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXPowOp:$powOp $lhs,
+                      $rhs),
     // To c1^c2
     (CreatePowOfTwoConst $powOp, $lhs, $rhs),
     // Power constraints
-    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs),
+    [(IsFromDenseConstLike:$lhs), (IsFromDenseConstLike:$rhs),
      (IsIntOrFloatType:$lhs), (IsIntOrFloatType:$rhs),
      (SatisfiesExpansionBound:$powOp), (ValuesHaveSameDType $lhs, $rhs),
      (HasStaticShape:$powOp)]>;
