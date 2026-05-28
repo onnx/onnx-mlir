@@ -1,6 +1,19 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: Apache-2.0
+
+##################### profile-model.py #########################################
+#
+# Copyright 2026 The IBM Research Authors.
+#
+################################################################################
+#
+# This script help do instruction profiling custom to onnx-mlir generated model.so.
+#
+################################################################################
+
+
 """
-v2 driver — the inference workload .cpp (main(), the invoke_run wrapper,
+Driver — the inference workload .cpp (main(), the invoke_run wrapper,
 argv parsing, the timing loop) is embedded in this script as a string
 constant. The user only writes one function:
 
@@ -697,7 +710,7 @@ def _parse_inproc_dump(path):
         if len(data) < pos + length:
             sys.exit(f"Error: inproc dump truncated string body: {path}")
         try:
-            str_table[ptr] = data[pos:pos + length].decode("utf-8", errors="replace")
+            str_table[ptr] = data[pos : pos + length].decode("utf-8", errors="replace")
         except Exception:
             str_table[ptr] = ""
         # Skip the length bytes plus 0..7 zero-pad bytes that align the
@@ -707,15 +720,17 @@ def _parse_inproc_dump(path):
     ordered_samples = []
     counts = {}
     for i in range(n_samples):
-        pc, op_ptr, node_ptr, tag = raw[i * 4:i * 4 + 4]
+        pc, op_ptr, node_ptr, tag = raw[i * 4 : i * 4 + 4]
         offset = pc - runtime_base
         counts[offset] = counts.get(offset, 0) + 1
-        ordered_samples.append({
-            "offset": offset,
-            "op_name": str_table.get(op_ptr) if op_ptr else None,
-            "node_name": str_table.get(node_ptr) if node_ptr else None,
-            "tag": tag,
-        })
+        ordered_samples.append(
+            {
+                "offset": offset,
+                "op_name": str_table.get(op_ptr) if op_ptr else None,
+                "node_name": str_table.get(node_ptr) if node_ptr else None,
+                "tag": tag,
+            }
+        )
     return n_samples, runtime_base, counts, ordered_samples
 
 
@@ -1445,11 +1460,13 @@ def extract_offset_counts_inside_marker(
         for i, offset in enumerate(frame_offsets):
             weight = base + (rem if i == 0 else 0)
             counts[offset] = counts.get(offset, 0) + weight
-            leaves.append({
-                "offset": offset,
-                "count": weight,
-                "ancestors": ancestor_chain,
-            })
+            leaves.append(
+                {
+                    "offset": offset,
+                    "count": weight,
+                    "ancestors": ancestor_chain,
+                }
+            )
     return counts, leaves
 
 
@@ -1778,7 +1795,6 @@ def print_instruction_mix(mnem_counts, mapped_total, unmapped_total, limit=40):
 # DIEs via `llvm-dwarfdump` — see extract_op_spans_via_dwarf below.
 
 
-
 # DWARF-based op-span recovery -----------------------------------------
 #
 # Recent onnx-mlir builds (with the KrnlInstrument lowering pass that
@@ -1803,16 +1819,14 @@ def print_instruction_mix(mnem_counts, mapped_total, unmapped_total, limit=40):
 _OMIP_DWARF_PREFIX = "__omip:"
 
 _DWARF_TAG_RE = re.compile(r"^\s*0x[0-9a-f]+:\s+DW_TAG_(\w+)", re.IGNORECASE)
-_DWARF_NAME_RE = re.compile(
-    r'DW_AT_(?:linkage_)?name\s+\("([^"]+)"\)', re.IGNORECASE)
-_DWARF_LOW_PC_RE = re.compile(
-    r"DW_AT_low_pc\s+\(0x([0-9a-fA-F]+)\)", re.IGNORECASE)
-_DWARF_HIGH_PC_RE = re.compile(
-    r"DW_AT_high_pc\s+\(0x([0-9a-fA-F]+)\)", re.IGNORECASE)
+_DWARF_NAME_RE = re.compile(r'DW_AT_(?:linkage_)?name\s+\("([^"]+)"\)', re.IGNORECASE)
+_DWARF_LOW_PC_RE = re.compile(r"DW_AT_low_pc\s+\(0x([0-9a-fA-F]+)\)", re.IGNORECASE)
+_DWARF_HIGH_PC_RE = re.compile(r"DW_AT_high_pc\s+\(0x([0-9a-fA-F]+)\)", re.IGNORECASE)
 # `DW_AT_abstract_origin (0x.... "name")` — llvm-dwarfdump resolves the
 # offset to the referenced DIE's name in the same line.
 _DWARF_ABSTRACT_ORIGIN_RE = re.compile(
-    r'DW_AT_abstract_origin\s+\([^"]*"([^"]+)"\)', re.IGNORECASE)
+    r'DW_AT_abstract_origin\s+\([^"]*"([^"]+)"\)', re.IGNORECASE
+)
 
 
 def _read_omip_subprograms(so_path):
@@ -1844,12 +1858,13 @@ def _read_omip_subprograms(so_path):
     dsym = so_path + ".dSYM"
     if os.path.isdir(dsym):
         inner = os.path.join(
-            dsym, "Contents", "Resources", "DWARF", os.path.basename(so_path))
+            dsym, "Contents", "Resources", "DWARF", os.path.basename(so_path)
+        )
         target = inner if os.path.isfile(inner) else dsym
     try:
         r = subprocess.run(
-            ["llvm-dwarfdump", "--debug-info", target],
-            capture_output=True, text=True)
+            ["llvm-dwarfdump", "--debug-info", target], capture_output=True, text=True
+        )
     except FileNotFoundError:
         return []
     if r.returncode != 0:
@@ -1860,9 +1875,12 @@ def _read_omip_subprograms(so_path):
 
     def flush():
         nonlocal cur
-        if (cur is not None
-                and cur.get("name", "").startswith(_OMIP_DWARF_PREFIX)
-                and "low_pc" in cur and "high_pc" in cur):
+        if (
+            cur is not None
+            and cur.get("name", "").startswith(_OMIP_DWARF_PREFIX)
+            and "low_pc" in cur
+            and "high_pc" in cur
+        ):
             low = cur["low_pc"]
             high = cur["high_pc"]
             # DW_AT_high_pc is either an absolute address (DWARF v2/v3)
@@ -1870,8 +1888,7 @@ def _read_omip_subprograms(so_path):
             # if it's smaller than low_pc, it must be an offset.
             if high < low:
                 high = low + high
-            subprograms.append(
-                {"name": cur["name"], "low_pc": low, "high_pc": high})
+            subprograms.append({"name": cur["name"], "low_pc": low, "high_pc": high})
         cur = None
 
     for line in r.stdout.splitlines():
@@ -1896,10 +1913,10 @@ def _read_omip_subprograms(so_path):
             # range lives for our `__omip:` markers.
             cur["name"] = m.group(1)
             continue
-        if (m := _DWARF_LOW_PC_RE.search(line)):
+        if m := _DWARF_LOW_PC_RE.search(line):
             cur["low_pc"] = int(m.group(1), 16)
             continue
-        if (m := _DWARF_HIGH_PC_RE.search(line)):
+        if m := _DWARF_HIGH_PC_RE.search(line):
             cur["high_pc"] = int(m.group(1), 16)
             continue
     flush()
@@ -1934,24 +1951,26 @@ def extract_op_spans_via_dwarf(so_path):
             # Strip the `__omip:` prefix and split at the first ':'
             # to recover (op_name, node_name). Node names contain '/'
             # but never ':', so a single split is unambiguous.
-            payload = a["name"][len(_OMIP_DWARF_PREFIX):]
+            payload = a["name"][len(_OMIP_DWARF_PREFIX) :]
             sep = payload.find(":")
             if sep < 0:
                 unpaired += 2
                 i += 2
                 continue
             op_name = payload[:sep]
-            node_name = payload[sep + 1:]
-            spans.append({
-                "op_name": op_name,
-                "node_name": node_name,
-                "begin_pc": a["low_pc"],
-                "end_pc": b["low_pc"],
-                # `body_pc` is the first instruction strictly after the
-                # begin call — i.e. just past the end of the begin
-                # subprogram's PC range.
-                "body_pc": a["high_pc"],
-            })
+            node_name = payload[sep + 1 :]
+            spans.append(
+                {
+                    "op_name": op_name,
+                    "node_name": node_name,
+                    "begin_pc": a["low_pc"],
+                    "end_pc": b["low_pc"],
+                    # `body_pc` is the first instruction strictly after the
+                    # begin call — i.e. just past the end of the begin
+                    # subprogram's PC range.
+                    "body_pc": a["high_pc"],
+                }
+            )
             i += 2
         else:
             unpaired += 1
@@ -1999,8 +2018,11 @@ def filter_offsets_by_op_regex(offset_counts, spans, load_addr, op_regex, invert
 
 
 def attribute_offsets_to_ops(
-    offset_counts, spans, load_addr,
-    ordered_samples=None, kernel_leaves=None,
+    offset_counts,
+    spans,
+    load_addr,
+    ordered_samples=None,
+    kernel_leaves=None,
 ):
     """Attribute each sample to an ONNX op span.
 
@@ -2030,11 +2052,7 @@ def attribute_offsets_to_ops(
         later instruction-mix breakdown
       attributed_total, unattributed_total
     """
-    if (
-        not spans
-        and ordered_samples is None
-        and kernel_leaves is None
-    ):
+    if not spans and ordered_samples is None and kernel_leaves is None:
         return {}, {}, 0, sum(offset_counts.values())
 
     per_op = {}
@@ -2372,6 +2390,7 @@ def run_per_op_analysis(
         # a few example PC ranges. Useful when you want to cross-check
         # the recovery against the source MLIR or post-instrument IR.
         from collections import defaultdict
+
         by_name = defaultdict(list)
         for s in spans:
             by_name[s["op_name"]].append(s)
@@ -2416,7 +2435,9 @@ def run_per_op_analysis(
         return
 
     per_op, per_op_offsets, attributed, unattributed = attribute_offsets_to_ops(
-        offset_counts, spans, load_addr,
+        offset_counts,
+        spans,
+        load_addr,
         ordered_samples=ordered_samples,
         kernel_leaves=kernel_leaves,
     )
@@ -2750,5 +2771,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-# Made with Bob
