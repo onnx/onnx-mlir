@@ -2527,6 +2527,7 @@ def main():
         "the (--init, --model) pair, not both.",
     )
     p.add_argument(
+        "-a",
         "--annotate",
         metavar="FILE",
         default=None,
