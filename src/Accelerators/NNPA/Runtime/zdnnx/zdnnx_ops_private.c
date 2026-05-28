@@ -72,13 +72,11 @@ uint32_t zdnnx_get_nnpa_max_dim_size(zdnnx_axis dim_index) {
 
 uint64_t zdnnx_get_nnpa_max_tensor_size() {
   if (nnpa_max_tensor_size == 0) {
+    // zdnn_get_nnpa_max_tensor_size() returns size in bytes.
+    nnpa_max_tensor_size = zdnn_get_nnpa_max_tensor_size() / 2;
     // Check the enviroment variable.
     const char *env = getenv("ZDNNX_MAX_TILE_SIZE_IN_MB");
-    if (env == NULL) {
-      // The environment variable is not set.
-      // zdnn_get_nnpa_max_tensor_size() returns size in bytes.
-      nnpa_max_tensor_size = zdnn_get_nnpa_max_tensor_size() / 2;
-    } else {
+    if (env != NULL) {
       errno = 0;
       char *endptr;
       double mb = strtod(env, &endptr);
@@ -86,18 +84,16 @@ uint64_t zdnnx_get_nnpa_max_tensor_size() {
         printf("Error when reading the enviroment variable "
                "ZDNNX_MAX_TILE_SIZE_IN_MB. Use the max tensor size in zdnn "
                "instead");
-        nnpa_max_tensor_size = zdnn_get_nnpa_max_tensor_size() / 2;
       } else if (mb < 0) {
         printf("Value of ZDNNX_MAX_TILE_SIZE_IN_MB cannot be negative. Use the "
                "max tensor size in zdnn instead");
-        nnpa_max_tensor_size = zdnn_get_nnpa_max_tensor_size() / 2;
       } else {
         double bytes_d = mb * 1024 * 1024;
-        if (bytes_d > (double)UINT64_MAX) {
+        if (bytes_d > (double)nnpa_max_tensor_size) {
           printf("ZDNNX_MAX_TILE_SIZE_IN_MB is too large. Use the max tensor "
                  "size in zdnn instead");
-          nnpa_max_tensor_size = zdnn_get_nnpa_max_tensor_size() / 2;
         } else {
+          // Update max tensor size.
           nnpa_max_tensor_size = (uint64_t)bytes_d;
         }
       }
