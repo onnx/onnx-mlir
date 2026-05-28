@@ -22,6 +22,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSet.h"
 
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/Transforms/ConstProp.hpp"
 #include "src/Dialect/ONNX/Transforms/ConvOpt.hpp"
@@ -185,6 +186,8 @@ struct ONNXHybridTransformPass
   void runOnOperation() override {
     func::FuncOp f = getOperation();
     Region &body = f.getBody();
+    onnx_mlir::enableDepthToSpaceForConvTranspose =
+        this->enableDepthToSpaceForConvTranspose.getValue();
 
     GreedyRewriteConfig config;
     ResultNamesUpdater rnUpdater;

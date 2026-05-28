@@ -1655,7 +1655,8 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
     };
     auto stridesArrayAttr = rewriter.getI64ArrayAttr({1, 1});
     Value conv;
-    if (needWeightsPadding || (kernelShape[0] == 4)) {
+    if (needWeightsPadding || (kernelShape[0] == 4) ||
+        enableDepthToSpaceForConvTranspose) {
       Value conv1 = getActivationAppliedToConv(
           addQDQNodesForActivationIfNeeded(rewriter.create<ONNXConvOp>(loc,
               convOutputType, input, addDequantizeNodeIfNeeded(weightSlices[3]),
@@ -1790,13 +1791,26 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
           combinedConvOutputType);
     }
 
-    // Here we are reshaping the concatenated conv channels of 4*Conv_channels
-    // into groups of 2x2 channels. This can be visualized as
-    // H_chan(2) * W_Chan(2) * C_real,  then doing the transpose into
-    // Conv_channels H H_chan W W_chan. The adjecent H and H_chan will be merged
+    SmallVector<int64_t> outputShapeForResult = {
+        1, convOutputShape[1], convOutputShape[2] * 2, convOutputShape[3] * 2};
+    auto finalOutputType =
+        RankedTensorType::get(outputShapeForResult, elementType);
+
+    if (enableDepthToSpaceForConvTranspose) {
+      auto si64Ty = rewriter.getIntegerType(64, /*isSigned=*/true);
+      auto finalOutput = rewriter.create<ONNXDepthToSpaceOp>(loc,
+          finalOutputType, conv,
+          rewriter.getIntegerAttr(si64Ty, stridesShape[0]),
+          rewriter.getStringAttr("DCR"));
+      return finalOutput;
+    }
+
+    // Reshape the concatenated conv channels of 4*Conv_channels into groups
+    // of 2x2 channels. This can be visualized as
+    // H_chan(2) * W_Chan(2) * C_real, then doing the transpose into
+    // Conv_channels H H_chan W W_chan. Adjacent H and H_chan will be merged
     // into H, same way W and W_chan will be merged into W. This leads to
     // doubling of the H and W. Keeping the channels same.
-
     SmallVector<int64_t> outputShapeForDimAdjust = {
         2, 2, convOutputShape[1], convOutputShape[2], convOutputShape[3]};
 
@@ -1819,16 +1833,9 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
     auto transpose = rewriter.create<ONNXTransposeOp>(
         loc, transposeOutputType, reshapeOutputDimAdjust, permArrayAttr);
 
-    SmallVector<int64_t> outputShapeForResult = {
-        1, convOutputShape[1], convOutputShape[2] * 2, convOutputShape[3] * 2};
-
     auto onnxConstForLastReshape =
         getONNXConstOpFromVector(rewriter, loc, outputShapeForResult);
 
-    auto finalOutputType =
-        RankedTensorType::get(outputShapeForResult, elementType);
-    // Result is reshaped back to match the original convtranspose output
-    // dimensions
     auto finalOutput = rewriter.create<ONNXReshapeOp>(
         loc, finalOutputType, transpose, onnxConstForLastReshape);
     return finalOutput;
@@ -4743,6 +4750,8 @@ struct DecomposeONNXToONNXPass
 void DecomposeONNXToONNXPass::runOnOperation() {
   func::FuncOp function = getOperation();
   MLIRContext *context = &getContext();
+  onnx_mlir::enableDepthToSpaceForConvTranspose =
+      this->enableDepthToSpaceForConvTranspose.getValue();
   RewritePatternSet patterns(context);
   onnx_mlir::getDecomposeONNXToONNXPatterns(patterns,
       enableConvTransposeDecompose, enableConvTransposeDecomposeToPhasedConv,

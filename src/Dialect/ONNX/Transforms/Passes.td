@@ -86,7 +86,13 @@ def ONNXDecomposePatternOptions {
            "bool", /*default=*/"true",
            "Enable slicing of cos/sin caches during GroupQueryAttention "
            "decomposition. Set to false to keep the cache and synthesize "
-           "position_ids instead.">
+           "position_ids instead.">,
+
+    Option<"enableDepthToSpaceForConvTranspose",
+           "enable-depth2space-for-convtranspose",
+           "bool", /*default=*/"false",
+           "In 4-phase ConvTranspose decomposition, force 4 separate Conv ops "
+           "and use DepthToSpace instead of Reshape-Transpose-Reshape.">
   ];
 }
 
