@@ -1966,18 +1966,88 @@ def _extract_omip_calls_arm64(instructions, const_info):
     return calls
 
 
-# s390x patterns. Address loads use `larl %rN, 0xADDR` (single
-# instruction, PC-relative). Register copies use `lgr %rDST, %rSRC`
-# (load grand register, 64-bit). Calls use `brasl %r14, target`. The
-# ELF s390x ABI puts the first three args in %r2, %r3, %r4 — so
-# OMInstrumentPoint(opName, iTag, nodeName) maps to %r2/%r3/%r4.
+# s390x patterns. Address-load instructions we track for OMIP arg
+# recovery:
+#   `larl %rN, 0xADDR`         — PC-relative absolute load (single instr)
+#   `la   %rN, IMM(%rBASE)`    — base + 12-bit displacement
+#   `lay  %rN, IMM(%rBASE)`    — base + 20-bit displacement
+#   `aghi %rN, IMM`            — add 16-bit signed imm to register
+#   `agfi %rN, IMM`            — add 32-bit signed imm to register
+#   `lgr  %rDST, %rSRC`        — register copy (64-bit)
+# The displaced/incremental forms matter because the compiler will
+# sometimes hoist a single `larl` to a string-pool base and slice
+# individual strings out via per-call-site la/aghi displacements.
+# Without tracking those, we'd report whatever string sits at the
+# pool base for every call — which in at least one observed
+# onnx-mlir/zhigh build means every "MatMul" call mis-attributes to
+# `onnx.MatMul` because that string happens to be at offset 0 of the
+# pool.
+#
+# Calls use `brasl %r14, target`. ELF s390x ABI puts args 1/2/3 in
+# %r2/%r3/%r4, so OMInstrumentPoint(opName, iTag, nodeName) maps to
+# %r2/%r3/%r4.
 _S390X_LARL_RE = re.compile(r"^\s*(%r\d+)\s*,\s*0?x?([0-9a-f]+)", re.IGNORECASE)
 _S390X_LGR_RE = re.compile(r"^\s*(%r\d+)\s*,\s*(%r\d+)\s*$", re.IGNORECASE)
+# la/lay operand forms:
+#   `%r2,80(%r1)`        dst, displacement(base)
+#   `%r2,80(0,%r1)`      dst, displacement(index,base)  index=0
+#   `%r2,80(%r5,%r1)`    dst, displacement(index,base)
+#   `%r2,80`             dst, immediate (no base/index)
+#   `%r2,80(,%r1)`       dst, displacement(,base)  empty index slot
+# Displacement may be decimal, hex, or signed.
+_S390X_LA_RE = re.compile(
+    r"^\s*(%r\d+)\s*,\s*"
+    r"(-?\d+|-?0x[0-9a-f]+)"
+    r"(?:\s*\(([^)]*)\))?\s*$",
+    re.IGNORECASE,
+)
+# aghi / agfi: dst, signed immediate.
+_S390X_AGHI_RE = re.compile(
+    r"^\s*(%r\d+)\s*,\s*(-?\d+|-?0x[0-9a-f]+)\s*$",
+    re.IGNORECASE,
+)
 _S390X_FIRST_REG_RE = re.compile(r"^\s*(%r\d+)\b", re.IGNORECASE)
 # Caller-saved per s390x ELF ABI: r0-r5 (the arg regs) + r14
 # (link/return address). r6-r13 are callee-saved so we leave their
 # tracking in place across calls.
 _S390X_BRASL_CLOBBER = {f"%r{i}" for i in range(6)} | {"%r14"}
+
+
+def _parse_signed_int(s):
+    """Parse a decimal or hex signed integer string."""
+    if s is None:
+        return None
+    s = s.strip()
+    try:
+        if s.lower().startswith(("0x", "-0x")):
+            return int(s, 16)
+        return int(s, 10)
+    except ValueError:
+        return None
+
+
+def _resolve_la_addr(inner, reg_va):
+    """Compute the extra address contribution from the `(idx,base)`
+    payload inside la/lay's parens. Returns (extra, ok). ok=False
+    when we reference a register whose value isn't tracked."""
+    if inner is None or not inner.strip():
+        return 0, True
+    parts = [p.strip() for p in inner.split(",")]
+    if len(parts) == 1:
+        base_s = parts[0]
+        if not base_s:
+            return 0, True
+        if base_s in reg_va:
+            return reg_va[base_s], True
+        return 0, False
+    if len(parts) == 2:
+        idx_s, base_s = parts
+        idx = 0 if not idx_s or idx_s == "%r0" else reg_va.get(idx_s)
+        base = 0 if not base_s or base_s == "%r0" else reg_va.get(base_s)
+        if idx is None or base is None:
+            return 0, False
+        return idx + base, True
+    return 0, False
 
 
 def _extract_omip_calls_s390x(instructions, const_info):
@@ -2013,6 +2083,41 @@ def _extract_omip_calls_s390x(instructions, const_info):
                 if src in reg_va:
                     reg_va[dst] = reg_va[src]
                 else:
+                    reg_va.pop(dst, None)
+                continue
+            # Fall through to the kill path on weird operand forms.
+
+        # la / lay: address-load with displacement + optional base/index.
+        # `la %rDST, IMM(%rBASE)` => reg_va[%rDST] = reg_va[%rBASE] + IMM.
+        # If base is unknown (or any referenced reg is), invalidate
+        # %rDST so we don't propagate a stale value.
+        if m == "la" or m == "lay":
+            mm = _S390X_LA_RE.match(ops)
+            if mm:
+                dst = mm.group(1)
+                imm = _parse_signed_int(mm.group(2))
+                extra, ok = _resolve_la_addr(mm.group(3), reg_va)
+                if ok and imm is not None:
+                    reg_va[dst] = (imm + extra) & 0xFFFFFFFFFFFFFFFF
+                else:
+                    reg_va.pop(dst, None)
+                continue
+            # Fall through to the kill path on weird operand forms.
+
+        # aghi / agfi: register += signed immediate.
+        # The compiler uses these to bump a string-pool base register
+        # to a per-call-site offset.
+        if m == "aghi" or m == "agfi":
+            mm = _S390X_AGHI_RE.match(ops)
+            if mm:
+                dst = mm.group(1)
+                imm = _parse_signed_int(mm.group(2))
+                if imm is not None and dst in reg_va:
+                    reg_va[dst] = (reg_va[dst] + imm) & 0xFFFFFFFFFFFFFFFF
+                else:
+                    # Either the imm didn't parse or we don't have a
+                    # base value to add to; either way the result is
+                    # unknown.
                     reg_va.pop(dst, None)
                 continue
             # Fall through to the kill path on weird operand forms.
@@ -2308,7 +2413,12 @@ def print_report(total_samples, inside_samples, per_binary_counts, top_inside):
 
 
 def analyze_profile(
-    json_path, so_override=None, op_regex=None, not_op_regex=None, annotate_path=None
+    json_path,
+    so_override=None,
+    op_regex=None,
+    not_op_regex=None,
+    annotate_path=None,
+    debug_omip=False,
 ):
     """Re-print the report from a saved JSON profile, plus the
     instruction-mix breakdown derived from disassembling the .so.
@@ -2372,13 +2482,20 @@ def analyze_profile(
         load_addr,
         op_regex=op_regex,
         not_op_regex=not_op_regex,
+        debug_omip=debug_omip,
     )
     if annotate_path:
         write_annotated_disasm(so_path, offset_counts, load_addr, annotate_path)
 
 
 def run_per_op_analysis(
-    so_path, offset_counts, instructions, load_addr, op_regex=None, not_op_regex=None
+    so_path,
+    offset_counts,
+    instructions,
+    load_addr,
+    op_regex=None,
+    not_op_regex=None,
+    debug_omip=False,
 ):
     """If both op_regex and not_op_regex are None: produce the full
     per-ONNX-op breakdown (sample counts per op type + top-N op
@@ -2428,6 +2545,30 @@ def run_per_op_analysis(
     )
     if not spans:
         return
+
+    if debug_omip:
+        # For diagnosing dataflow misattribution: list every distinct
+        # op_name we recovered, how many spans use it, and a sample of
+        # (pc, op_name, node_name) triples per name. If the .so's
+        # MLIR/IR says certain ops should be present but they don't
+        # appear here (or appear under a different name), the
+        # dataflow is missing an instruction pattern.
+        from collections import defaultdict
+        by_name = defaultdict(list)
+        for s in spans:
+            by_name[s["op_name"]].append(s)
+        print(f"\n[--debug-omip] {len(by_name)} distinct op names recovered:")
+        for name, ss in sorted(by_name.items(), key=lambda kv: -len(kv[1])):
+            print(f"  {len(ss):6d} spans  {name!r}")
+            # Up to 3 example call sites per op so the user can
+            # cross-reference against `objdump -d` output.
+            for s in ss[:3]:
+                print(
+                    f"      pc=0x{s['begin_pc']:x}..0x{s['end_pc']:x}  "
+                    f"node={s['node_name']!r}"
+                )
+            if len(ss) > 3:
+                print(f"      ... +{len(ss) - 3} more")
 
     active_regex = op_regex if op_regex else not_op_regex
     if active_regex is not None:
@@ -2615,6 +2756,16 @@ def main():
         help="Echo the compile command and its stderr.",
     )
     p.add_argument(
+        "--debug-omip",
+        action="store_true",
+        dest="debug_omip",
+        help="Dump every distinct OMInstrumentPoint opName the dataflow "
+        "recovered, with span counts and example call sites. Use this "
+        "when the per-ONNX-op breakdown looks wrong (e.g. a `zhigh.X` "
+        "op is reported as `onnx.X`) to see what strings the dataflow "
+        "is actually reading.",
+    )
+    p.add_argument(
         "--keep-temp",
         action="store_true",
         dest="keep_temp",
@@ -2655,6 +2806,7 @@ def main():
             op_regex=args.op,
             not_op_regex=args.not_op,
             annotate_path=args.annotate,
+            debug_omip=args.debug_omip,
         )
         return
 
@@ -2757,6 +2909,7 @@ def main():
                 load_addr,
                 op_regex=args.op,
                 not_op_regex=args.not_op,
+                debug_omip=args.debug_omip,
             )
             if args.annotate:
                 write_annotated_disasm(
