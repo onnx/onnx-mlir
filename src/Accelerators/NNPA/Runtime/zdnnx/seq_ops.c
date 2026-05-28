@@ -404,16 +404,14 @@ zdnn_status zdnnx_seq_softmax(const zdnn_ztensor *input, void *save_area,
 static inline zdnn_status call_zdnn_matmul_op(const zdnn_ztensor *input_a,
     const zdnn_ztensor *input_b, const zdnn_ztensor *input_c, bool transpose_a,
     bool transpose_b, int op_type, zdnn_ztensor *output, bool is_bcast) {
-  if (!transpose_a && !transpose_b) {
-    if (is_bcast)
-      return zdnn_matmul_bcast_op(
-          input_a, input_b, input_c, (zdnn_matmul_bcast_ops)op_type, output);
-    return zdnn_matmul_op(
-        input_a, input_b, input_c, (zdnn_matmul_ops)op_type, output);
-  } else {
+  if (transpose_a || transpose_b)
     return zdnn_matmul_transpose_op(input_a, input_b, input_c,
         transpose_a ? 1 : 0, transpose_b ? 1 : 0, op_type, output);
-  }
+  if (is_bcast)
+    return zdnn_matmul_bcast_op(
+        input_a, input_b, input_c, (zdnn_matmul_bcast_ops)op_type, output);
+  return zdnn_matmul_op(
+      input_a, input_b, input_c, (zdnn_matmul_ops)op_type, output);
 }
 
 zdnn_status zdnnx_seq_matmul(const zdnn_ztensor *input_a,

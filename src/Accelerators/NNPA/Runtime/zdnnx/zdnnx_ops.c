@@ -71,8 +71,7 @@ zdnn_status zdnnx_matmul_transpose_op(const zdnn_ztensor *input_a,
   zdnn_status status;
   ZDNNX_CALL_FUNC("Transposed MatMul", zdnnx_seq_matmul, zdnnx_omp_matmul,
       input_a, input_b, input_c, transpose_a != 0, transpose_b != 0, op_type,
-      output,
-      /*is_bcast (not used)*/ false);
+      output, /*is_bcast (not used)*/ false);
   ZDNNX_CHECK_STATUS(status, "zdnn_matmul_transpose");
   return status;
 }
