@@ -48,7 +48,8 @@ zdnn_status zdnnx_matmul_op(const zdnn_ztensor *input_a,
     zdnn_ztensor *output) {
   zdnn_status status;
   ZDNNX_CALL_FUNC("MatMul", zdnnx_seq_matmul, zdnnx_omp_matmul, input_a,
-      input_b, input_c, op_type, output, /*is_bcast=*/false);
+      input_b, input_c, /*transpose_a*/ false, /*transpose_b*/ false, op_type,
+      output, /*is_bcast*/ false);
   ZDNNX_CHECK_STATUS(status, "zdnn_matmul");
   return status;
 }
@@ -58,18 +59,20 @@ zdnn_status zdnnx_matmul_bcast_op(const zdnn_ztensor *input_a,
     zdnn_ztensor *output) {
   zdnn_status status;
   ZDNNX_CALL_FUNC("MatMul", zdnnx_seq_matmul, zdnnx_omp_matmul, input_a,
-      input_b, input_c, op_type, output, /*is_bcast=*/true);
+      input_b, input_c, /*transpose_a*/ false, /*transpose_b*/ false, op_type,
+      output, /*is_bcast*/ true);
   ZDNNX_CHECK_STATUS(status, "zdnn_matmul_bcast");
   return status;
 }
 
 zdnn_status zdnnx_matmul_transpose_op(const zdnn_ztensor *input_a,
     const zdnn_ztensor *input_b, const zdnn_ztensor *input_c, int transpose_a,
-    int transpose_b, int opType, zdnn_ztensor *output) {
+    int transpose_b, int op_type, zdnn_ztensor *output) {
   zdnn_status status;
-  ZDNNX_CALL_FUNC("Transposed MatMul", zdnn_matmul_transpose_op,
-      zdnn_matmul_transpose_op, input_a, input_b, input_c, transpose_a,
-      transpose_b, opType, output);
+  ZDNNX_CALL_FUNC("Transposed MatMul", zdnnx_seq_matmul, zdnnx_omp_matmul,
+      input_a, input_b, input_c, transpose_a != 0, transpose_b != 0, op_type,
+      output,
+      /*is_bcast (not used)*/ false);
   ZDNNX_CHECK_STATUS(status, "zdnn_matmul_transpose");
   return status;
 }
