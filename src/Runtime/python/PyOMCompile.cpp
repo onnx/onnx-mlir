@@ -29,18 +29,18 @@ PyOMCompile::PyOMCompile(const std::string &containerImage,
     const std::string &compilerPathInContainer, const std::string &engine,
     bool autoPull, bool verbose)
     : OMcompile(containerImage, compilerPathInContainer,
-          engine == "docker"
-              ? OMCompile::ContainerEngine::Docker
-              : engine == "podman" ? OMCompile::ContainerEngine::Podman
-                                   : OMCompile::ContainerEngine::Auto,
+          engine == "docker"   ? OMCompile::ContainerEngine::Docker
+          : engine == "podman" ? OMCompile::ContainerEngine::Podman
+                               : OMCompile::ContainerEngine::Auto,
           autoPull, verbose) {}
 
 // =============================================================================
 // Compile method
 
 std::string PyOMCompile::compile(const std::string &modelPath,
-    const std::string &flags, const std::string &outputPath,  const std::string &compilerPath,
-    const std::string &logFilename, bool reuseCompiledModel) {
+    const std::string &flags, const std::string &outputPath,
+    const std::string &compilerPath, const std::string &logFilename,
+    bool reuseCompiledModel) {
   std::string filename = pyPredictOutputFilename(modelPath, flags, outputPath);
   if (reuseCompiledModel) {
     if (!filename.empty()) {
@@ -59,7 +59,8 @@ std::string PyOMCompile::compile(const std::string &modelPath,
   // Old version caught and re-threw with stderr output, causing duplicates.
   OMcompile.compile(modelPath, flags, outputPath, compilerPath, logFilename);
   // Check for compiler consistency
-  assert(filename == OMcompile.getOutputFilename() && "Something wrong with OMCompile.cpp");
+  assert(filename == OMcompile.getOutputFilename() &&
+         "Something wrong with OMCompile.cpp");
   return OMcompile.getOutputFilename();
 }
 
@@ -71,8 +72,10 @@ std::string PyOMCompile::pyGetOutputFilename() {
 }
 
 /* static */ std::string PyOMCompile::pyPredictOutputFilename(
-    const std::string &modelPath, const std::string &flags, const std::string &outputPath) {
-  return  onnx_mlir::OMCompile::predictOutputFilename(modelPath, flags, outputPath);
+    const std::string &modelPath, const std::string &flags,
+    const std::string &outputPath) {
+  return onnx_mlir::OMCompile::predictOutputFilename(
+      modelPath, flags, outputPath);
 }
 
 std::string PyOMCompile::pyGetOutputConstantFilename() {

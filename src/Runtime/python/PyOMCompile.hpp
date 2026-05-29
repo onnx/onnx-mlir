@@ -33,18 +33,17 @@ public:
 
   // Constructor for container-based compilation
   PyOMCompile(const std::string &containerImage,
-      const std::string &compilerPathInContainer,
-      const std::string &engine, bool autoPull,
-      bool verbose);
+      const std::string &compilerPathInContainer, const std::string &engine,
+      bool autoPull, bool verbose);
 
   // Compile method
-  std::string compile(const std::string &modelPath, const std::string &flags, const std::string &outputPath,
-      const std::string &compilerPath, const std::string &logFilename,
-      bool reuseCompiledModel);
+  std::string compile(const std::string &modelPath, const std::string &flags,
+      const std::string &outputPath, const std::string &compilerPath,
+      const std::string &logFilename, bool reuseCompiledModel);
 
   std::string pyGetOutputFilename();
-  static std::string pyPredictOutputFilename(
-      const std::string &modelPath, const std::string &flags, const std::string &outputPath);
+  static std::string pyPredictOutputFilename(const std::string &modelPath,
+      const std::string &flags, const std::string &outputPath);
   std::string pyGetOutputConstantFilename();
   std::string pyGetModelTag();
   bool pyIsSuccessfullyCompiled();
@@ -133,11 +132,17 @@ PYBIND11_MODULE(PyOMCompileC, m) {
           "        Only used in local mode. If empty (default), uses the path from constructor.\n"
           "    log_file_name (str, optional): Path to log file for compilation output.\n"
           "        If empty (default), output goes to stdout/stderr.\n\n"
+          "Returns:\n"
+          "    str: Full path to the compiled model output file.\n"
           "Raises:\n"
           "    RuntimeError: If compilation fails.\n\n"
           "Example:\n"
           "    >>> compiler = OMCompile()\n"
           "    >>> compiler.compile('mnist.onnx', '-O3')\n"
+          "    >>> \n"
+          "    >>> # Try to reuse ompiled model if available\n"
+          "    >>> compiler = OMCompile()\n"
+          "    >>> output = compiler.compile('mnist.onnx', '-O3', reuse_compiled_model=true)\n"
           "    >>> \n"
           "    >>> # With custom output name\n"
           "    >>> compiler.compile('model.onnx', '-O3 -o my_model')")

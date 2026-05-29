@@ -75,5 +75,10 @@ class OMCompile(OMCompile_):
             # Check cache policy to decide whether a cached .so can be used
             exit(-1)
         return super().compile(
-            model_path, flags, output_path, compiler_path, log_file_name, reuse_compiled_model
+            model_path,
+            flags,
+            output_path,
+            compiler_path,
+            log_file_name,
+            reuse_compiled_model,
         )

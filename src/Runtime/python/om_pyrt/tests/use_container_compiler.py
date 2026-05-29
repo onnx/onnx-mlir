@@ -26,12 +26,12 @@ try:
         compiler_path="/workdir/onnx-mlir/build/Debug/bin/onnx-mlir",
     )
 
-    compile_session.compile(model_file, "-O3", reuse_compiled_model=True)
+    compiled_model = compile_session.compile(
+        model_file, "-O3", reuse_compiled_model=True
+    )
 except Exception as e:
     print("Failed to compile")
     exit(-1)
-
-compiled_model = compile_session.get_predict_output_file_name(model_file, "-O3")
 
 # Prepare input data
 import numpy as np

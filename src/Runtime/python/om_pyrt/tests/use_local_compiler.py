@@ -23,12 +23,10 @@ try:
     compile_session = om_pyrt.CompileSession(
         compiler_path="/Users/chentong/Projects/onnx-mlir/build/Debug/bin/onnx-mlir"
     )
-    compile_session.compile(model_file, "-O3")
+    compiled_model = compile_session.compile(model_file, "-O3")
 except Exception as e:
     print("Fialed to compile")
     exit(-1)
-
-compiled_model = compile_session.get_output_file_name()
 
 # Prepare input data
 import numpy as np
