@@ -1639,14 +1639,50 @@ def write_annotated_disasm(so_path, offset_counts, load_addr, output_path):
         else:
             break
 
-    # Annotate each OMInstrumentPoint call site with which op it
-    # brackets, sourced from `__omip:` DWARF subprograms. Silent
-    # no-op if the .so wasn't built with --profile-ir.
-    omip_pc_info = {}
-    spans, _ = extract_op_spans_via_dwarf(so_path)
-    for s in spans:
-        omip_pc_info[s["begin_pc"]] = ("begin", s["op_name"], s["node_name"])
-        omip_pc_info[s["end_pc"]] = ("end", s["op_name"], s["node_name"])
+    # Build a list of `__omip:` DWARF call ranges so we can attach a
+    # `>>> BEGIN` / `<<< END` comment ABOVE the `bl <OMInstrumentPoint>`
+    # instruction inside each one. Anchoring on the bl (rather than on
+    # the first instruction of the call sequence) keeps the marker
+    # right next to the call the user reads — the address-load
+    # prologue can be 4-6 instructions, often pushing the marker
+    # off-screen from the bl itself. We use the raw (unpaired)
+    # subprogram list rather than `extract_op_spans_via_dwarf` so every
+    # marker gets annotated even when its sibling didn't pair: at -O3
+    # post-instrumentation code motion sometimes shuffles markers out
+    # of strict begin/end-adjacent order, and pairing silently drops
+    # those, leaving bare bl instructions with no `>>> BEGIN` /
+    # `<<< END` nearby. Within each name group, the lowest-PC marker
+    # is the begin call and the next is the end call (ops don't nest);
+    # any further occurrences (rare) are labelled `#N`. Silent no-op
+    # if the .so wasn't built with --profile-ir.
+    omip_ranges = []  # list of (low_pc, high_pc, kind, op_name, node_name)
+    raw_subs = _read_omip_subprograms(so_path)
+    by_name = {}
+    for sp in raw_subs:
+        by_name.setdefault(sp["name"], []).append(sp)
+    for name, group in by_name.items():
+        group.sort(key=lambda s: s["low_pc"])
+        payload = name[len(_OMIP_DWARF_PREFIX) :]
+        sep = payload.find(":")
+        if sep < 0:
+            continue
+        op_name = payload[:sep]
+        node_name = payload[sep + 1 :]
+        for i, sp in enumerate(group):
+            if i == 0:
+                kind = "begin"
+            elif i == 1:
+                kind = "end"
+            else:
+                kind = f"#{i + 1}"
+            omip_ranges.append((sp["low_pc"], sp["high_pc"], kind, op_name, node_name))
+    omip_ranges.sort(key=lambda r: r[0])
+    omip_low_pcs = [r[0] for r in omip_ranges]
+    import bisect
+
+    # `bl <_OMInstrumentPoint>` (Mach-O) and `bl <OMInstrumentPoint@plt>`
+    # (ELF) — match either with a single forgiving regex.
+    omip_call_re = re.compile(r"\bbl\b.*OMInstrumentPoint")
 
     # Function header, e.g. "0000000000001dc0 <_init>:"
     header_re = re.compile(r"^[0-9a-f]+\s+<([^>]+)>:\s*$", re.IGNORECASE)
@@ -1735,14 +1771,27 @@ def write_annotated_disasm(so_path, offset_counts, load_addr, output_path):
                 if m:
                     addr = int(m.group(1), 16)
                     offset = addr - load_addr
-                    # Emit a BEGIN/END marker comment BEFORE the call
-                    # instruction so reading top-to-bottom shows op
-                    # boundaries in the natural execution order.
-                    info = omip_pc_info.get(addr)
-                    if info:
-                        kind, op_name, node_name = info
-                        arrow = ">>> BEGIN" if kind == "begin" else "<<< END  "
-                        fh.write(f"; {arrow}  {op_name}   ({node_name})\n")
+                    # Emit a BEGIN/END marker comment BEFORE the
+                    # `bl <OMInstrumentPoint>` instruction itself so
+                    # the marker is right next to the call the user
+                    # reads. We binary-search the addr against the
+                    # sorted __omip range list and only fire when the
+                    # current line is actually the bl — putting it on
+                    # the prologue's adrp / mov instructions would
+                    # leave the bl 4-6 lines below with nothing
+                    # nearby.
+                    if omip_ranges and omip_call_re.search(line):
+                        idx = bisect.bisect_right(omip_low_pcs, addr) - 1
+                        if 0 <= idx < len(omip_ranges):
+                            low, high, kind, op_name, node_name = omip_ranges[idx]
+                            if low <= addr < high:
+                                if kind == "begin":
+                                    arrow = ">>> BEGIN"
+                                elif kind == "end":
+                                    arrow = "<<< END  "
+                                else:
+                                    arrow = f"--- OMIP {kind}"
+                                fh.write(f"; {arrow}  {op_name}   ({node_name})\n")
                     c = offset_counts.get(offset, 0)
                     if c > 0:
                         ipct = 100.0 * c / total
