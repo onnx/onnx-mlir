@@ -325,9 +325,8 @@ ElementsAttr getElementAttributeFromONNXValue(Value value) {
 
 ElementsAttr getElementAttributeFromConstLikeValue(Value value) {
   auto *definingOp = value.getDefiningOp();
-  if (!isConstLikeOperation(definingOp)) {
+  if (!isConstLikeOperation(definingOp))
     return nullptr;
-  }
   SmallVector<OpFoldResult, 1> foldResults;
   [[maybe_unused]] const LogicalResult folded = definingOp->fold(foldResults);
   assert(succeeded(folded) && "ConstantLike op failed to fold");
@@ -336,6 +335,20 @@ ElementsAttr getElementAttributeFromConstLikeValue(Value value) {
   auto foldAttr = dyn_cast<Attribute>(foldResults[0]);
   assert(foldAttr && "ConstantLike op fold did not return an Attribute");
   return dyn_cast<ElementsAttr>(foldAttr);
+}
+
+/// Returns the dense (or disposable) elements of any ConstantLike producer,
+/// or nullptr if the value is not a dense (or disposable) constant.
+/// Fast path for ONNXConstantOp avoids calling fold().
+ElementsAttr getDenseOrDisposableConstLikeElements(Value value) {
+  ElementsAttr elements = getONNXConstantOp(value)
+                              ? getElementAttributeFromONNXValue(value)
+                              : getElementAttributeFromConstLikeValue(value);
+
+  if (!elements || !isa<DenseElementsAttr, DisposableElementsAttr>(elements))
+    return nullptr;
+
+  return elements;
 }
 
 bool isConstLikeValue(Value value) {
@@ -505,6 +518,28 @@ bool hasShapeAndRank(Operation *op) {
     if (!hasShapeAndRank(op->getOperand(i)))
       return false;
   return true;
+}
+
+bool isInQuantizedDomain(Operation *op, Value result) {
+  auto hasQuantElt = [](Type t) -> bool {
+    auto shaped = mlir::dyn_cast_if_present<ShapedType>(t);
+    if (!shaped)
+      return false;
+    Type elt = shaped.getElementType();
+    return elt && mlir::isa<mlir::quant::QuantizedType>(elt);
+  };
+  if (result && hasQuantElt(result.getType()))
+    return true;
+  // `op` may be null when `updateType` is invoked outside an op-typing
+  // context (e.g. ONNXToTOSALegalizeUtils::CreateOpAndInfer passes
+  // `nullptr` because it is updating a freshly produced TOSA value, not an
+  // ONNX op result). In that case, fall back to the result-only check.
+  if (!op)
+    return false;
+  for (Value operand : op->getOperands())
+    if (operand && hasQuantElt(operand.getType()))
+      return true;
+  return false;
 }
 
 /// Test if a value has only one use except ONNXDimOp.
@@ -703,9 +738,10 @@ WideNum asWideNum(double n, Type elemType) {
 }
 
 /// Checks whether a constant tensor's elements are all equal to a given scalar.
-/// Returns false if constValue is not a constant.
+/// Returns false if constValue is not a dense constant.
 bool isConstOf(Value constValue, double n) {
-  ElementsAttr constElements = getElementAttributeFromONNXValue(constValue);
+  ElementsAttr constElements =
+      getDenseOrDisposableConstLikeElements(constValue);
   if (!constElements)
     return false;
   Type elemType = constElements.getElementType();

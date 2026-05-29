@@ -79,9 +79,10 @@ std::unique_ptr<mlir::Pass> createQDQCanonicalizePass(
 
 std::unique_ptr<mlir::Pass> createFoldQuantizedBinary();
 
-/// XMC variant of FoldQuantizedBinary with an extra Add/Sub scale-equality
-/// guard to avoid folding Add/Sub when input and output scales differ.
-std::unique_ptr<mlir::Pass> createXmcFoldQuantizedBinary();
+/// Converts quantized Div / Mul by a scalar quantized constant into a
+/// single XCOMPILERRequantize op. XMC analogue of xcompiler's
+/// TransferScalarConstInputDivToRequantizePass.
+std::unique_ptr<mlir::Pass> createTransferScalarConstInputDivToRequantizePass();
 
 std::unique_ptr<mlir::Pass> createONNXCSEPass();
 
@@ -308,6 +309,12 @@ std::unique_ptr<mlir::Pass> createAddRequantForOutputConvPass();
 /// DQ -> Q pairs whose quantization parameters differ. Runs before
 /// QuantTypesPass on the f32 boundary.
 std::unique_ptr<mlir::Pass> createConvertQDQToRequantizePass();
+
+/// Post-quant-types pass that unifies f32 <-> !quant.uniform element types
+/// across pure data-flow ops (Reshape/Transpose/Squeeze/Unsqueeze/Flatten/
+/// Identity/DepthToSpace/SpaceToDepth/ReverseSequence). The f32 side is
+/// retyped in place to the quant type; scast ops are left untouched.
+std::unique_ptr<mlir::Pass> createPropagateQuantTypeThroughDataFlowPass();
 
 /// Pass for splitting group convolutions (XMC).
 std::unique_ptr<mlir::Pass> createSplitGroupConvPass();
