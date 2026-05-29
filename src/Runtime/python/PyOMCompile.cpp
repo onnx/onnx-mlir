@@ -29,9 +29,10 @@ PyOMCompile::PyOMCompile(const std::string &containerImage,
     const std::string &compilerPathInContainer, const std::string &engine,
     bool autoPull, bool verbose)
     : OMcompile(containerImage, compilerPathInContainer,
-          engine == "docker"   ? OMCompile::ContainerEngine::Docker
-          : engine == "podman" ? OMCompile::ContainerEngine::Podman
-                               : OMCompile::ContainerEngine::Auto,
+          engine == "docker"
+              ? OMCompile::ContainerEngine::Docker
+              : engine == "podman" ? OMCompile::ContainerEngine::Podman
+                                   : OMCompile::ContainerEngine::Auto,
           autoPull, verbose) {}
 
 // =============================================================================
