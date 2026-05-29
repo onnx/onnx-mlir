@@ -165,8 +165,8 @@ static inline zdnn_status compute_tile_sizes_for_matmul(
 }
 
 zdnn_status zdnnx_omp_matmul(const zdnn_ztensor *input_a,
-    const zdnn_ztensor *input_b, const zdnn_ztensor *input_c, int op_type,
-    zdnn_ztensor *output, bool is_bcast) {
+    const zdnn_ztensor *input_b, const zdnn_ztensor *input_c, bool transpose_a,
+    bool transpose_b, int op_type, zdnn_ztensor *output, bool is_bcast) {
 #ifdef ZDNNX_DEBUG
   printf("[OMP MatMul]\n");
 #endif
@@ -199,8 +199,8 @@ zdnn_status zdnnx_omp_matmul(const zdnn_ztensor *input_a,
 #ifdef ZDNNX_DEBUG
     printf("[MatMul] calling the original zdnn matmul.\n");
 #endif
-    zdnn_status status =
-        zdnnx_seq_matmul(input_a, input_b, input_c, op_type, output, is_bcast);
+    zdnn_status status = zdnnx_seq_matmul(input_a, input_b, input_c,
+        transpose_a, transpose_b, op_type, output, is_bcast);
     return status;
   }
 
@@ -238,8 +238,8 @@ zdnn_status zdnnx_omp_matmul(const zdnn_ztensor *input_a,
         zdnnx_set_tile(&si_y, &ty, NULL, bs, 0, m, n);
 
         /* Operation */
-        zdnn_status status = zdnnx_seq_matmul(
-            &ta.data, &tb.data, &tc.data, op_type, &ty.data, is_bcast);
+        zdnn_status status = zdnnx_seq_matmul(&ta.data, &tb.data, &tc.data,
+            transpose_a, transpose_b, op_type, &ty.data, is_bcast);
         assert(status == ZDNN_OK);
 
         /* Copy the output tile at (0, 0, m, n) to the full output. */

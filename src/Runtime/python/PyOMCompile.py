@@ -66,6 +66,7 @@ class OMCompile(OMCompile_):
         self,
         model_path,
         flags,
+        output_path="",
         compiler_path="",
         log_file_name="",
         reuse_compiled_model=False,
@@ -73,6 +74,6 @@ class OMCompile(OMCompile_):
         if self.cache:
             # Check cache policy to decide whether a cached .so can be used
             exit(-1)
-        super().compile(
-            model_path, flags, compiler_path, log_file_name, reuse_compiled_model
+        return super().compile(
+            model_path, flags, output_path, compiler_path, log_file_name, reuse_compiled_model
         )

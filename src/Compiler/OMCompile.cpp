@@ -567,7 +567,8 @@ std::unique_ptr<Command> OMCompile::createContainerCompileCommand(
 //===----------------------------------------------------------------------===//
 
 void OMCompile::compile(const std::string &modelPath, const std::string &flags,
-    const std::string &compilerPath, const std::string &logFilename) {
+    const std::string &outputPath, const std::string &compilerPath,
+    const std::string &logFilename) {
 
   // Handle legacy compilerPath parameter for backward compatibility.
   // In local mode, if compilerPath is provided, it overrides the constructor
@@ -591,6 +592,11 @@ void OMCompile::compile(const std::string &modelPath, const std::string &flags,
   flagVect = parseFlags(flags);
   std::string inputFilename = onnx_mlir::getInputFilename(modelPath, flagVect);
 
+  // Apply output path if provided.
+  if (!outputPath.empty()) {
+    onnx_mlir::applyOutputPath(flagVect, outputPath, inputFilename);
+  }
+
   if (inputFilename.empty())
     throw OMCompileException("Compilation failed: missing input model file");
 
@@ -608,12 +614,11 @@ void OMCompile::compile(const std::string &modelPath, const std::string &flags,
   std::string outputDir;
   std::string predictedOutput =
       onnx_mlir::getOutputFilename(inputFilename, flagVect);
-  if (!predictedOutput.empty()) {
-    fs::path outputPath = fs::absolute(predictedOutput);
-    outputDir = outputPath.parent_path().string();
-  } else {
-    outputDir = modelDir;
-  }
+  if (predictedOutput.empty())
+    throw OMCompileException(
+        "Compilation failed: could not determine output model file name");
+  fs::path outputFSPath = fs::absolute(predictedOutput);
+  outputDir = outputFSPath.parent_path().string();
 
   // Create the appropriate Command based on mode.
   std::unique_ptr<Command> cmd;
@@ -718,18 +723,6 @@ std::string OMCompile::getOutputFilename() {
   return outputFilename;
 }
 
-std::string OMCompile::getPredictOutputFilename(
-    const std::string &modelPath, const std::string &flags) {
-  // Code copied from method compile()
-  // ToFix: use the outputDir?
-  std::vector<std::string> flagVect;
-  flagVect = parseFlags(flags);
-  std::string inputFilename = onnx_mlir::getInputFilename(modelPath, flagVect);
-  std::string name = onnx_mlir::getOutputFilename(inputFilename, flagVect);
-  outputFilename = getAbsolutePathUsingCurrentDir(name);
-  return outputFilename;
-}
-
 std::string OMCompile::getOutputConstantFilename() {
   if (!successfullyCompiled) {
     throw OMCompileException(
@@ -757,7 +750,7 @@ std::string OMCompile::getContainerEngineName() const {
 // Static Helper Methods
 //===----------------------------------------------------------------------===//
 
-/* static */ std::string OMCompile::getInputFilename(
+/* static */ std::string OMCompile::predictInputFilename(
     const std::string &modelPath, const std::string &flags) {
   std::vector<std::string> flagVect = parseFlags(flags);
   std::string filename = onnx_mlir::getInputFilename(modelPath, flagVect);
@@ -767,16 +760,19 @@ std::string OMCompile::getContainerEngineName() const {
   return filename;
 }
 
-/* static */ std::string OMCompile::getOutputFilename(
-    const std::string &modelPath, const std::string &flags) {
+/* static */ std::string OMCompile::predictOutputFilename(
+    const std::string &modelPath, const std::string &flags,
+    const std::string &outputPath) {
   std::vector<std::string> flagVect = parseFlags(flags);
+  // Apply the output path as needed.
+  onnx_mlir::applyOutputPath(flagVect, outputPath, modelPath);
   // Success, save filename of output, using an absolute path to increase
   // success of dlopen calls.
   std::string name = onnx_mlir::getOutputFilename(modelPath, flagVect);
   return getAbsolutePathUsingCurrentDir(name);
 }
 
-/* static */ std::string OMCompile::getModelTag(const std::string &flags) {
+/* static */ std::string OMCompile::predictModelTag(const std::string &flags) {
   std::vector<std::string> flagVect = parseFlags(flags);
   return onnx_mlir::getModelTag(flagVect);
 }

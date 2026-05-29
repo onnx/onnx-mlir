@@ -28,7 +28,7 @@ zdnn_status zdnnx_seq_softmax(const zdnn_ztensor *input, void *save_area,
     zdnn_softmax_act act_func, zdnn_ztensor *output);
 
 zdnn_status zdnnx_seq_matmul(const zdnn_ztensor *input_a,
-    const zdnn_ztensor *input_b, const zdnn_ztensor *input_c, int op_type,
-    zdnn_ztensor *output, bool is_bcast);
+    const zdnn_ztensor *input_b, const zdnn_ztensor *input_c, bool transpose_a,
+    bool transpose_b, int op_type, zdnn_ztensor *output, bool is_bcast);
 
 #endif // ZDNNX_SEQ_OPS_H

@@ -29,22 +29,22 @@ namespace onnx_mlir {
 class PyOMCompile {
 public:
   // Constructor for local compilation
-  PyOMCompile(const std::string &compilerPath = {}, bool verbose = false);
+  PyOMCompile(const std::string &compilerPath, bool verbose);
 
   // Constructor for container-based compilation
   PyOMCompile(const std::string &containerImage,
       const std::string &compilerPathInContainer,
-      const std::string &engine = "auto", bool autoPull = true,
-      bool verbose = false);
+      const std::string &engine, bool autoPull,
+      bool verbose);
 
   // Compile method
-  void compile(const std::string &modelPath, const std::string &flags,
-      const std::string &compilerPath = {}, const std::string &logFilename = {},
-      bool reuseCompiledModel = false);
+  std::string compile(const std::string &modelPath, const std::string &flags, const std::string &outputPath,
+      const std::string &compilerPath, const std::string &logFilename,
+      bool reuseCompiledModel);
 
   std::string pyGetOutputFilename();
-  std::string pyGetPredictOutputFilename(
-      const std::string &modelPath, const std::string &flags);
+  static std::string pyPredictOutputFilename(
+      const std::string &modelPath, const std::string &flags, const std::string &outputPath);
   std::string pyGetOutputConstantFilename();
   std::string pyGetModelTag();
   bool pyIsSuccessfullyCompiled();
@@ -119,9 +119,10 @@ PYBIND11_MODULE(PyOMCompileC, m) {
           &onnx_mlir::PyOMCompile::compile,
           py::arg("model_path"),
           py::arg("flags"),
+          py::arg("output_path") = "",
           py::arg("compiler_path") = "",
           py::arg("log_file_name") = "",
-	  py::arg("reuse_compiled_model") = false,
+          py::arg("reuse_compiled_model") = false,
           "Compile an ONNX model with specified flags.\n\n"
           "Args:\n"
           "    model_path (str): Path to the input ONNX model file (.onnx, .mlir, or .onnxtext).\n"
@@ -155,8 +156,11 @@ PYBIND11_MODULE(PyOMCompileC, m) {
           "    >>> compiler.compile('mnist.onnx', '-O3 -o mnist_opt')\n"
           "    >>> output = compiler.get_output_file_name()\n"
           "    >>> print(output)  # e.g., '/home/me/mnist_opt.so' on Linux")
-      .def("get_predict_output_file_name",
-          &onnx_mlir::PyOMCompile::pyGetPredictOutputFilename,
+      .def_static("predict_output_file_name",
+          &onnx_mlir::PyOMCompile::pyPredictOutputFilename,
+          py::arg("model_path"),
+          py::arg("flags"),
+          py::arg("output_path") = "",
           "Get the predicted output filename of to-be-compiled model.\n\n"
           "Returns the absolute path to the compiled model file. The filename is\n"
           "determined by the input model name and compilation flags (especially\n"
@@ -164,8 +168,7 @@ PYBIND11_MODULE(PyOMCompileC, m) {
           "Returns:\n"
           "    str: Full path to the compiled model output file.\n"
           "Example:\n"
-          "    >>> compiler = OMCompile()\n"
-          "    >>> output = compiler.get_predict_output_file_name('mnist.onnx', '-O3 -o mnist_opt')\n"
+          "    >>> output = PyOMCompiler.get_predict_output_file_name('mnist.onnx', '-O3 -o mnist_opt')\n"
           "    >>> print(output)  # e.g., '/home/me/mnist_opt.so' on Linux")
       .def("get_output_constant_file_name",
           &onnx_mlir::PyOMCompile::pyGetOutputConstantFilename,

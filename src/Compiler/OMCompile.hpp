@@ -217,18 +217,24 @@ public:
    * Can include a directory path. If empty, the flags parameter must contain
    * the input filename.
    * @param flags Compilation flags as a single string (e.g., "-O3 -o output").
-   *              Supports quoted strings for paths with spaces.
+   * Supports quoted strings for paths with spaces.
+   * @param outputPath Optional output directory path. Ensure that when no
+   * explicit path is already specified for the output files, and an
+   * outputPath is provided, then the compiler's output files will reside in
+   * that directory. Namely, if provided and flags contain a -o option without a
+   * path, the output path will be prepended. If no -o option exists, one will
+   * be added using this path and the input file basename.
    * @param compilerPath Optional path to the compiler binary, including the
    * binary name. If empty (default) standard onnx-mlir binary will be used at
    * standard location. Only used in local mode.
    * @param logFilename Optional path to a file where compilation logs will be
-   *                    written. If empty, logs go to stdout/stderr.
+   * written. If empty, logs go to stdout/stderr.
    *
    * @throws OMCompileException if compilation fails for any reason
-   *         (invalid input, compiler errors, missing dependencies, etc.)
+   * (invalid input, compiler errors, missing dependencies, etc.)
    */
   void compile(const std::string &modelPath, const std::string &flags,
-      const std::string &compilerPath = {},
+      const std::string &outputPath = {}, const std::string &compilerPath = {},
       const std::string &logFilename = {});
 
   /**
@@ -241,17 +247,6 @@ public:
    * @throws std::runtime_error if called before a successful compilation
    */
   std::string getOutputFilename();
-
-  /**
-   * @brief Get the predict output filename if the model is compiled.
-   *
-   * Returns the absolute path to the file that will be generated if the
-   * model is compiled with the flags.
-   *
-   * @return Absolute path to the compiled output file
-   */
-  std::string getPredictOutputFilename(
-      const std::string &model, const std::string &flags);
 
   /**
    * @brief Get the output constant filename of the compiled model.
@@ -331,7 +326,7 @@ public:
    * @param flags Compilation flags string
    * @return The input filename that would be used for compilation
    */
-  static std::string getInputFilename(
+  static std::string predictInputFilename(
       const std::string &modelPath, const std::string &flags);
 
   /**
@@ -343,10 +338,12 @@ public:
    *
    * @param modelPath Model path parameter (may be empty)
    * @param flags Compilation flags string
+   * @param outputPath Optional directory where the output files should go, in
+   * case no explict path is given in the flags "-o" option.
    * @return The output filename that would be generated
    */
-  static std::string getOutputFilename(
-      const std::string &modelPath, const std::string &flags);
+  static std::string predictOutputFilename(const std::string &modelPath,
+      const std::string &flags, const std::string &outputPath = {});
 
   /**
    * @brief Static helper to extract model tag from compilation flags.
@@ -356,7 +353,7 @@ public:
    * @param flags Compilation flags string
    * @return The model tag if specified in flags, empty string otherwise
    */
-  static std::string getModelTag(const std::string &flags);
+  static std::string predictModelTag(const std::string &flags);
 
 private:
   // Compilation mode.
