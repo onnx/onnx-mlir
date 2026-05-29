@@ -1680,9 +1680,14 @@ def write_annotated_disasm(so_path, offset_counts, load_addr, output_path):
     omip_low_pcs = [r[0] for r in omip_ranges]
     import bisect
 
-    # `bl <_OMInstrumentPoint>` (Mach-O) and `bl <OMInstrumentPoint@plt>`
-    # (ELF) — match either with a single forgiving regex.
-    omip_call_re = re.compile(r"\bbl\b.*OMInstrumentPoint")
+    # The call mnemonic is per-architecture: arm64 / ppc64 use `bl`,
+    # s390x uses `brasl` (Branch Relative And Save Long), x86_64 uses
+    # `call` / `callq`. Match any of them; the `OMInstrumentPoint`
+    # substring in the operand column is shared across formats
+    # (`<_OMInstrumentPoint>` on Mach-O, `<OMInstrumentPoint@plt>` on
+    # ELF). The PC-range check below catches the very rare line
+    # mentioning the symbol that isn't the actual call.
+    omip_call_re = re.compile(r"\b(bl|brasl|bras|callq?|jal[ar]?)\b.*OMInstrumentPoint")
 
     # Function header, e.g. "0000000000001dc0 <_init>:"
     header_re = re.compile(r"^[0-9a-f]+\s+<([^>]+)>:\s*$", re.IGNORECASE)
