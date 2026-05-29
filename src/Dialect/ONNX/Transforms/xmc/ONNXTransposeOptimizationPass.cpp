@@ -218,6 +218,50 @@ struct FuseConsecutiveTransposes : public OpRewritePattern<ONNXTransposeOp> {
       if (inputType && outputType &&
           inputType.getElementType() != outputType.getElementType()) {
 
+        // At function ABI boundaries, fold the pair by retyping the
+        // neighbour data-flow op rather than materializing a Q/DQ bridge.
+        Value producerValue = prevTranspose.getOperand();
+
+        auto isTypePinned = [](Operation *u) {
+          return isa<ONNXConstantOp, ONNXConstantOfShapeOp, ONNXCastOp,
+              ONNXCastLikeOp, ONNXQuantizeLinearOp, ONNXDequantizeLinearOp,
+              quant::StorageCastOp>(u);
+        };
+
+        bool atOutputBoundary =
+            !op->use_empty() && llvm::any_of(op->getUsers(), [](Operation *u) {
+              return isa<func::ReturnOp>(u);
+            });
+        Operation *producerOp = producerValue.getDefiningOp();
+        bool otherProducerUsesTolerant =
+            llvm::all_of(producerValue.getUsers(), [&](Operation *u) {
+              return u == prevTranspose ||
+                     (!isTypePinned(u) && !isa<func::ReturnOp>(u));
+            });
+        bool producerRetypable = producerOp && !isTypePinned(producerOp) &&
+                                 otherProducerUsesTolerant;
+        if (atOutputBoundary && producerRetypable) {
+          Type newProducerTy = RankedTensorType::get(
+              inputType.getShape(), outputType.getElementType());
+          producerValue.setType(newProducerTy);
+          rewriter.replaceOp(op, producerValue);
+          return success();
+        }
+
+        auto blockArg = mlir::dyn_cast<BlockArgument>(producerValue);
+        bool atInputBoundary =
+            blockArg && blockArg.getOwner() &&
+            isa<func::FuncOp>(blockArg.getOwner()->getParentOp());
+        bool consumersRetypable =
+            atInputBoundary && !op->use_empty() &&
+            llvm::all_of(op->getUsers(), [&](Operation *u) {
+              return !isTypePinned(u) && !isa<func::ReturnOp>(u);
+            });
+        if (atInputBoundary && consumersRetypable) {
+          rewriter.replaceOp(op, producerValue);
+          return success();
+        }
+
         auto inputQuantType = mlir::dyn_cast<quant::UniformQuantizedType>(
             inputType.getElementType());
         auto outputQuantType = mlir::dyn_cast<quant::UniformQuantizedType>(
