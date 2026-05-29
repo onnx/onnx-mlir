@@ -99,7 +99,8 @@ void configurePassesNNPA() {
     }
   }
   // Set the proper instrumentation stage before we add any passes.
-  if (profileIR == onnx_mlir::ProfileIRs::ZHigh)
+  if (profileIR == onnx_mlir::ProfileIRs::ZHigh ||
+      profileIRWithSig == onnx_mlir::ProfileIRs::ZHigh)
     instrumentStage = onnx_mlir::InstrumentStages::ZHigh;
 
   configureONNXToZHighLoweringPass(optReport == OptReport::NNPAUnsupportedOps,
