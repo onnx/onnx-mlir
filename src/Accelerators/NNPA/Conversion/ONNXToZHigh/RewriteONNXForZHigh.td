@@ -48,6 +48,9 @@ def GetSqrtResultBatchNormA :
 def GetShapeAndElemType: NativeCodeCall<
  "RankedTensorType::get(getShape($0.getType()), getElementType($1.getType()))">;
 
+// Check that the permutation array is to permute the last two dimensions only.
+def IsLastTwoDimsPerm: Constraint<CPred<"isLastTwoDimsPerm($_self)">>;
+
 //===----------------------------------------------------------------------===//
 // Rewrite
 //
@@ -182,6 +185,10 @@ def ReshapeTo3D: NativeCodeCall<
   "reshapeTo3D($_builder, $_loc, $0)"
 >;
 
+def GetPerm3DLast: NativeCodeCall<
+  "$_builder.getI64ArrayAttr(mlir::ArrayRef<int64_t>{0, 2, 1})"
+>;
+
 def GetMatMulResultShape: NativeCodeCall<
   "getMatMulResultShape($_builder, $_loc, $0, $1)"
 >;
@@ -190,15 +197,76 @@ def GetMatMulResultType: NativeCodeCall<
   "getMatMulResultType($_builder, $_loc, $0, $1)"
 >;
 
-def rewriteMatMulNDto3D_NonBroadcast: Pat<
+def GetTransposeResultType: NativeCodeCall<
+  "getTransposeResultType($_builder, $_loc, $0, $1)"
+>;
+
+def rewriteMatMulNDto3D_NonBroadcast: Pattern<
   (ONNXMatMulOp:$c $a, $b),
-  (ONNXReshapeOp (ONNXMatMulOp
+  [(ONNXReshapeOp (ONNXMatMulOp
                     (ReshapeTo3D:$a_r $a),
                     (ReshapeTo3D:$b_r $b),
                     (returnType (GetMatMulResultType $a_r, $b_r))),
                  (GetMatMulResultShape $a, $b),
-                 (GetZeroI64Attr)),
-  [(HasRankGT<3> $a), (HasRankGT<3> $b)]
+                 (GetZeroI64Attr))],
+  [(HasRankGT<3> $a), (HasRankGT<3> $b)],
+  [],
+  (addBenefit 1)
+>;
+
+// Z Arch15 supports transposed MatMul. Thus, rewriting a N-D transpose-matmul pattern into 3D pattern.
+def rewriteMatMulNDto3D_NonBroadcast_TransposeA: Pattern<
+  (ONNXMatMulOp:$c (ONNXTransposeOp:$t_a $a, $perm), $b),
+  [(ONNXReshapeOp (ONNXMatMulOp
+                    (ONNXTransposeOp:$a_r (ReshapeTo3D:$t_input_a $a), (GetPerm3DLast:$t_attr_a),
+                     (returnType (GetTransposeResultType $t_input_a, $t_attr_a))),
+                    (ReshapeTo3D:$b_r $b),
+                    (returnType (GetMatMulResultType $a_r, $b_r))),
+                 (GetMatMulResultShape $t_a, $b),
+                 (GetZeroI64Attr))],
+  [(IsCompatibleWithNNPALevelArch15),
+   (HasRankGT<3> $a), (HasRankGT<3> $b),
+   (IsLastTwoDimsPerm:$perm)],
+  [],
+  (addBenefit 2)
+>;
+
+// Z Arch15 supports transposed MatMul. Thus, rewriting a N-D transpose-matmul pattern into 3D pattern.
+def rewriteMatMulNDto3D_NonBroadcast_TransposeB: Pattern<
+  (ONNXMatMulOp:$c $a, (ONNXTransposeOp:$t_b $b, $perm)),
+  [(ONNXReshapeOp (ONNXMatMulOp
+                    (ReshapeTo3D:$a_r $a),
+                    (ONNXTransposeOp:$b_r (ReshapeTo3D:$t_input_a $b), (GetPerm3DLast:$t_attr_b),
+                     (returnType (GetTransposeResultType $t_input_a, $t_attr_b))),
+                    (returnType (GetMatMulResultType $a_r, $b_r))),
+                 (GetMatMulResultShape $a, $t_b),
+                 (GetZeroI64Attr))],
+  [(IsCompatibleWithNNPALevelArch15),
+   (HasRankGT<3> $a),
+   (HasRankGT<3> $b),
+   (IsLastTwoDimsPerm:$perm)],
+  [],
+  (addBenefit 2)
+>;
+
+// Z Arch15 supports transposed MatMul. Thus, rewriting a N-D transpose-matmul pattern into 3D pattern.
+def rewriteMatMulNDto3D_NonBroadcast_TransposeA_TransposeB: Pattern<
+  (ONNXMatMulOp:$c (ONNXTransposeOp:$t_a $a, $perm_a), (ONNXTransposeOp:$t_b $b, $perm_b)),
+  [(ONNXReshapeOp (ONNXMatMulOp
+                    (ONNXTransposeOp:$a_r (ReshapeTo3D:$t_input_a $a), (GetPerm3DLast:$t_attr_a),
+                     (returnType (GetTransposeResultType $t_input_a, $t_attr_a))),
+                    (ONNXTransposeOp:$b_r (ReshapeTo3D:$t_input_b $b), (GetPerm3DLast:$t_attr_b),
+                     (returnType (GetTransposeResultType $t_input_b, $t_attr_b))),
+                    (returnType (GetMatMulResultType $a_r, $b_r))),
+                 (GetMatMulResultShape $t_a, $t_b),
+                 (GetZeroI64Attr))],
+  [(IsCompatibleWithNNPALevelArch15),
+   (HasRankGT<3> $a),
+   (HasRankGT<3> $b),
+   (IsLastTwoDimsPerm:$perm_a),
+   (IsLastTwoDimsPerm:$perm_b)],
+  [],
+  (addBenefit 3)
 >;
 
 def rewriteMatMulNDto3D_Broadcast_1: Pat<
