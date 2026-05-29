@@ -1123,22 +1123,22 @@ struct DQBinaryQOptPass
     MLIRContext *context = &getContext();
     RewritePatternSet patterns(context);
     // Existing: DQ -> BinaryOp(constant) -> Q
-    patterns.add<FoldBinaryThroughQDQ<ONNXDivOp>>(context);
-    patterns.add<FoldBinaryThroughQDQ<ONNXSubOp>>(context);
-    patterns.add<FoldBinaryThroughQDQ<ONNXMulOp>>(context);
-    patterns.add<FoldBinaryThroughQDQ<ONNXAddOp>>(context);
+    // patterns.add<FoldBinaryThroughQDQ<ONNXDivOp>>(context);
+    // patterns.add<FoldBinaryThroughQDQ<ONNXSubOp>>(context);
+    // patterns.add<FoldBinaryThroughQDQ<ONNXMulOp>>(context);
+    // patterns.add<FoldBinaryThroughQDQ<ONNXAddOp>>(context);
 
     // Case 1: activation -> BinaryOp(constant) -> Q  (no DQ before)
-    patterns.add<FoldBinaryIntoQ<ONNXAddOp>>(context);
-    patterns.add<FoldBinaryIntoQ<ONNXSubOp>>(context);
+    // patterns.add<FoldBinaryIntoQ<ONNXAddOp>>(context);
+    // patterns.add<FoldBinaryIntoQ<ONNXSubOp>>(context);
     patterns.add<FoldBinaryIntoQ<ONNXMulOp>>(context);
-    patterns.add<FoldBinaryIntoQ<ONNXDivOp>>(context);
+    // patterns.add<FoldBinaryIntoQ<ONNXDivOp>>(context);
 
     // Case 2: DQ -> BinaryOp(constant) -> consumer  (no Q after)
-    patterns.add<FoldBinaryIntoDQ<ONNXAddOp>>(context);
-    patterns.add<FoldBinaryIntoDQ<ONNXSubOp>>(context);
+    // patterns.add<FoldBinaryIntoDQ<ONNXAddOp>>(context);
+    // patterns.add<FoldBinaryIntoDQ<ONNXSubOp>>(context);
     patterns.add<FoldBinaryIntoDQ<ONNXMulOp>>(context);
-    patterns.add<FoldBinaryIntoDQ<ONNXDivOp>>(context);
+    // patterns.add<FoldBinaryIntoDQ<ONNXDivOp>>(context);
 
     GreedyRewriteConfig config;
     ResultNamesUpdater rnUpdater;
