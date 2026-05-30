@@ -207,6 +207,9 @@ void registerOMPasses(int optLevel) {
     return createOptimizeOnnxRequantizationPass();
   });
 
+  mlir::registerPass(
+      []() -> std::unique_ptr<mlir::Pass> { return createDQBinaryQOptPass(); });
+
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createConvertSCastPairToRequantizePass();
   });
@@ -217,6 +220,10 @@ void registerOMPasses(int optLevel) {
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createConvertQDQToRequantizePass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createPropagateQuantTypeThroughDataFlowPass();
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
@@ -380,7 +387,7 @@ void registerOMPasses(int optLevel) {
   mlir::registerPass(createInferTensorNames);
   mlir::registerPass(createCanonicalizeWithResultNamesPass);
   mlir::registerPass(createFoldQuantizedBinary);
-  mlir::registerPass(createXmcFoldQuantizedBinary);
+  mlir::registerPass(createTransferScalarConstInputDivToRequantizePass);
 
   mlir::PassPipelineRegistration<>("xmc-passes", "Run all XMC xcompiler passes",
       [](mlir::OpPassManager &pm) { addXmcMlirPasses(pm); });

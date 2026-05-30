@@ -100,8 +100,9 @@ add_onnx_mlir_library(OMONNXRewrite
   xmc/OptimizeOnnxRequantizationPass.cpp
   xmc/ConvertSCastPairToRequantizePass.cpp
   xmc/AddRequantForOutputConvPass.cpp
-  xmc/FoldQuantizedBinary.cpp
   xmc/ConvertQDQToRequantizePass.cpp
+  xmc/TransferScalarConstInputDivToRequantizePass.cpp
+  xmc/PropagateQuantTypeThroughDataFlowPass.cpp
   xmc/SplitGroupConvPass.cpp
   xmc/ConvertMatMulToXFEConvPass.cpp
   xmc/ReplaceNDimTransposePass.cpp
@@ -116,6 +117,7 @@ add_onnx_mlir_library(OMONNXRewrite
   xmc/ConvertXFEConvToDepthwiseConvPass.cpp
   xmc/FuseConvActivationPass.cpp
   xmc/NormalizeConvActivationPass.cpp
+  xmc/DQBinaryQOptPass.cpp
 
   DEPENDS
   OMONNXDecomposeIncGen

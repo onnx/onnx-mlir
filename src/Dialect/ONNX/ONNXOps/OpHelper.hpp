@@ -184,6 +184,10 @@ mlir::ElementsAttr getElementAttributeFromONNXValue(mlir::Value value);
 // folds to an ElementsAttr
 mlir::ElementsAttr getElementAttributeFromConstLikeValue(mlir::Value value);
 
+// Returns Dense- or DisposableElementsAttr of any ConstantLike producer,
+// or nullptr if the value is not a dense/disposable constant.
+mlir::ElementsAttr getDenseOrDisposableConstLikeElements(mlir::Value value);
+
 [[nodiscard]] bool isConstLikeValue(mlir::Value value);
 
 [[nodiscard]] bool isConstLikeOperation(mlir::Operation *op);
@@ -243,6 +247,14 @@ bool isScalarConstantTensor(mlir::Value v);
 /// Test if 'val' has shape and rank or not.
 bool hasShapeAndRank(mlir::Value val);
 bool hasShapeAndRank(mlir::Operation *op);
+
+/// Returns true if `op` is in a quantization domain — i.e. either `result`
+/// already has a `!quant.uniform<...>` element type, or at least one of
+/// `op`'s operands does. Shape inference uses this to decide whether to
+/// preserve the result's element type verbatim (so an operand's quant type
+/// cannot leak onto a non-quant result, and vice versa) instead of copying
+/// the operand's element type onto the result.
+bool isInQuantizedDomain(mlir::Operation *op, mlir::Value result);
 
 /// Test if a value has only one use except ONNXDimOp.
 bool hasOneUseExceptDimOp(mlir::Value val);

@@ -570,6 +570,10 @@ struct ReduceSumToConvPattern : public OpRewritePattern<ONNXReduceSumOp> {
 
     int64_t rank = inputShape.size();
 
+    // Leave rank-5+ ReduceSums for ReduceOpWithAxesInputConverter downstream.
+    if (rank > 4)
+      return mlir::failure();
+
     auto axes = getAxesFromReduceSum(axesInput);
     if (axes.size() != 1)
       return mlir::failure();
