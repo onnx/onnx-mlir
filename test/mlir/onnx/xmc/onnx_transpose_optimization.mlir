@@ -643,21 +643,13 @@ func.func @test_move_transpose_through_reshape_merge_dims(%arg0: tensor<2x4x8x16
   // Algorithm trace:
   //   transposeOutputShape = [2, 8, 16, 4]
   //   reshapeOutputShape = [2, 128, 4]
-  //   dimGroups: [2]→[2], [8,16]→[128,-1], [4]→[4]
-  //   invPerm = [0, 3, 1, 2]
-  //   Pre-transpose shape (in original dim order):
-  //     origDim 0 (N=2) at transposed pos 0 → [2]
-  //     origDim 1 (C=4) at transposed pos 3 → [4]
-  //     origDim 2 (H=8) at transposed pos 1 → [128] (merged with W)
-  //     origDim 3 (W=16) at transposed pos 2 → [-1] (skip, merged)
-  //   Result: [2, 4, 128] (N, C, H*W)
-  //   New perm: [0, 2, 1] to get (N, H*W, C) → [2, 128, 4]
+  //   8*16=128: two post-transpose dims merge into one reshape output dim.
+  //   Vaip golden's create_reshape_rule refuses N->1 merging via
+  //   guess_result[i].first.size() == 1, so we refuse it here too.
 
-  // CHECK: %[[SHAPE:.*]] = onnx.Constant dense<[2, 4, 128]>
-  // CHECK: %[[RESHAPE:.*]] = "onnx.Reshape"(%arg0, %[[SHAPE]])
-  // CHECK-SAME: (tensor<2x4x8x16xf32>, tensor<3xi64>) -> tensor<2x4x128xf32>
-  // CHECK: %[[TRANS:.*]] = "onnx.Transpose"(%[[RESHAPE]]) {perm = [0, 2, 1]}
-  // CHECK-SAME: (tensor<2x4x128xf32>) -> tensor<2x128x4xf32>
+  // CHECK: onnx.Transpose
+  // CHECK: onnx.Reshape
+  // CHECK-NOT: onnx.Transpose
   %0 = "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]} : (tensor<2x4x8x16xf32>) -> tensor<2x8x16x4xf32>
   %shape = "onnx.Constant"() {value = dense<[2, 128, 4]> : tensor<3xi64>} : () -> tensor<3xi64>
   %1 = "onnx.Reshape"(%0, %shape) {allowzero = 0 : si64} : (tensor<2x8x16x4xf32>, tensor<3xi64>) -> tensor<2x128x4xf32>
@@ -712,15 +704,19 @@ func.func @test_no_move_transpose_through_reshape_mixing(%arg0: tensor<2x4x8x16x
 }
 
 // -----
-// Test: Trailing singleton - NOT supported (doesn't factor cleanly)
-// CHECK-LABEL: func @test_no_move_transpose_through_reshape_add_singleton
-func.func @test_no_move_transpose_through_reshape_add_singleton(%arg0: tensor<1x3x224x224xf32>) -> tensor<1x224x224x3x1xf32> {
+// Test: Trailing singleton on reshape side - supported (trailing 1 absorbed)
+// CHECK-LABEL: func @test_move_transpose_through_reshape_add_singleton
+func.func @test_move_transpose_through_reshape_add_singleton(%arg0: tensor<1x3x224x224xf32>) -> tensor<1x224x224x3x1xf32> {
   // Original: [1,3,224,224] → Transpose[0,2,3,1] → [1,224,224,3]
   //           → Reshape[1,224,224,3,1] (adds trailing 1)
-  // Trailing singleton doesn't map cleanly to any transposed dim - NOT supported
-  // CHECK: onnx.Transpose
-  // CHECK: onnx.Reshape
-  // CHECK-NOT: onnx.Transpose
+  // Vaip golden's guess_reshape absorbs trailing 1s into the last group; we
+  // mirror that by appending an identity entry to the new transpose perm.
+
+  // CHECK: %[[SHAPE:.*]] = onnx.Constant dense<[1, 3, 224, 224, 1]>
+  // CHECK: %[[RESHAPE:.*]] = "onnx.Reshape"(%arg0, %[[SHAPE]])
+  // CHECK-SAME: (tensor<1x3x224x224xf32>, tensor<5xi64>) -> tensor<1x3x224x224x1xf32>
+  // CHECK: %[[TRANS:.*]] = "onnx.Transpose"(%[[RESHAPE]]) {perm = [0, 2, 3, 1, 4]}
+  // CHECK-SAME: (tensor<1x3x224x224x1xf32>) -> tensor<1x224x224x3x1xf32>
   %0 = "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]} : (tensor<1x3x224x224xf32>) -> tensor<1x224x224x3xf32>
   %shape = "onnx.Constant"() {value = dense<[1, 224, 224, 3, 1]> : tensor<5xi64>} : () -> tensor<5xi64>
   %1 = "onnx.Reshape"(%0, %shape) {allowzero = 0 : si64} : (tensor<1x224x224x3xf32>, tensor<5xi64>) -> tensor<1x224x224x3x1xf32>
@@ -780,28 +776,14 @@ func.func @test_move_transpose_through_reshape_merge_spatial(%arg0: tensor<2x64x
   // Original: [2,64,8,8] NCHW → Transpose[0,2,3,1] → [2,8,8,64] NHWC
   //           → Reshape[2,64,64] (merges H and W: 8*8=64)
   //
-  // Algorithm trace:
   //   transposeOutputShape = [2, 8, 8, 64]
   //   reshapeOutputShape = [2, 64, 64]
-  //   Iteration 1: 2==2 identity → dimGroups[0] = [2]
-  //   Iteration 2: 8<64 merge → accumulate 8*8=64 → dimGroups[1] = [64], dimGroups[2] = [-1]
-  //   Iteration 4: 64==64 identity → dimGroups[3] = [64]
-  //
-  // Pre-transpose reshape:
-  //   invPerm = [0, 3, 1, 2]
-  //   origDim 0 (N) → transposed pos 0 → [2]
-  //   origDim 1 (C) → transposed pos 3 → [64]
-  //   origDim 2 (H) → transposed pos 1 → [64] (merged with W)
-  //   origDim 3 (W) → transposed pos 2 → [-1] (skip)
-  //   Pre-transpose shape: [2, 64, 64] (N, C, H*W)
-  //
-  // New permutation: [0, 2, 1] to get (N, H*W, C)
+  //   8*8=64: two post-transpose dims merge into one reshape output dim.
+  //   Vaip golden refuses N->1 merging; refused here too.
 
-  // CHECK: %[[SHAPE:.*]] = onnx.Constant dense<[2, 64, 64]>
-  // CHECK: %[[RESHAPE:.*]] = "onnx.Reshape"(%arg0, %[[SHAPE]])
-  // CHECK-SAME: (tensor<2x64x8x8xf32>, tensor<3xi64>) -> tensor<2x64x64xf32>
-  // CHECK: %[[TRANS:.*]] = "onnx.Transpose"(%[[RESHAPE]]) {perm = [0, 2, 1]}
-  // CHECK-SAME: (tensor<2x64x64xf32>) -> tensor<2x64x64xf32>
+  // CHECK: onnx.Transpose
+  // CHECK: onnx.Reshape
+  // CHECK-NOT: onnx.Transpose
   %0 = "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]} : (tensor<2x64x8x8xf32>) -> tensor<2x8x8x64xf32>
   %shape = "onnx.Constant"() {value = dense<[2, 64, 64]> : tensor<3xi64>} : () -> tensor<3xi64>
   %1 = "onnx.Reshape"(%0, %shape) {allowzero = 0 : si64} : (tensor<2x8x8x64xf32>, tensor<3xi64>) -> tensor<2x64x64xf32>
