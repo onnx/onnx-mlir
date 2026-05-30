@@ -364,6 +364,23 @@ protected:
   mlir::Value getShapeVal(mlir::Value tensorOrMemrefValue, uint64_t i) final;
 };
 
+// =============================================================================
+// IndexExpr Builder for reifyResultShapes (emits shape/shape:: IR).
+// =============================================================================
+
+struct IndexExprBuilderForReify : IndexExprBuilder {
+  IndexExprBuilderForReify(mlir::Location loc) : IndexExprBuilder(loc) {}
+  IndexExprBuilderForReify(mlir::OpBuilder &b, mlir::Location loc)
+      : IndexExprBuilder(b, loc) {}
+  IndexExprBuilderForReify(const DialectBuilder &db) : IndexExprBuilder(db) {}
+  virtual ~IndexExprBuilderForReify() {}
+
+protected:
+  mlir::ElementsAttr getConst(mlir::Value value) final;
+  mlir::Value getVal(mlir::Value intArrayVal, uint64_t i) final;
+  mlir::Value getShapeVal(mlir::Value tensorOrMemrefValue, uint64_t i) final;
+};
+
 // Include inline code definitions.
 #include "DialectBuilder.hpp.inc"
 
