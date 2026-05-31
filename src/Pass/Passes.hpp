@@ -294,6 +294,9 @@ std::unique_ptr<mlir::Pass> createRemoveRedundantReluPass();
 /// Pass for optimizing requantization in ONNX operations (XMC).
 std::unique_ptr<mlir::Pass> createOptimizeOnnxRequantizationPass();
 
+/// Pass for folding DQ-Binary-Q chains into quantization parameters (XMC).
+std::unique_ptr<mlir::Pass> createDQBinaryQOptPass();
+
 /// Pass for converting back-to-back quant.scast pairs to XCOMPILERRequantize.
 std::unique_ptr<mlir::Pass> createConvertSCastPairToRequantizePass();
 

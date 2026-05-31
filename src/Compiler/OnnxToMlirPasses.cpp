@@ -23,6 +23,7 @@ namespace onnx_mlir {
 
 void addXmcMlirPasses(mlir::OpPassManager &pm, OnnxToMlirOptions opts) {
   pm.addNestedPass<func::FuncOp>(createFixNegScalePass());
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createDQBinaryQOptPass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createOptimizeOnnxRequantizationPass());
   pm.addNestedPass<func::FuncOp>(createONNXCSEPass());
