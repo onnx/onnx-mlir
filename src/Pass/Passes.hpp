@@ -185,6 +185,8 @@ std::unique_ptr<mlir::Pass> createRemoveUselessQLinearPoolPass();
 /// Pass for replacing quantized HardSigmoid with XCOMPILERFusedEltwise.
 std::unique_ptr<mlir::Pass> createReplaceHsigmoidAndHswishPass();
 
+std::unique_ptr<mlir::Pass> createRecomposeHardSigmoidPass();
+
 /// Pass for replacing quantized Erf-based GELU subgraph with
 /// XCOMPILERFusedEltwise(GELU).
 std::unique_ptr<mlir::Pass> createReplaceErfToGeluPass();
