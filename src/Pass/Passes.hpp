@@ -316,6 +316,15 @@ std::unique_ptr<mlir::Pass> createConvertQDQToRequantizePass();
 /// retyped in place to the quant type; scast ops are left untouched.
 std::unique_ptr<mlir::Pass> createPropagateQuantTypeThroughDataFlowPass();
 
+/// Post-`PropagateQuantTypeThroughDataFlow` pass. For data-flow ops with
+/// mismatched operand/result quant types (Group B), inserts an
+/// XCOMPILERRequantize op directly between the producer's quant value and
+/// the data-flow op (Concat: per-operand) or between the data-flow op's
+/// result and the consumer (single-input ops). Replicates the union of
+/// `OptimizeOnnxRequantizationPass`'s op set plus the extra shape-only ops
+/// Squeeze / SqueezeV11 / Unsqueeze / UnsqueezeV11 / Flatten / Identity.
+std::unique_ptr<mlir::Pass> createXmcRequantizePass();
+
 /// Pass for splitting group convolutions (XMC).
 std::unique_ptr<mlir::Pass> createSplitGroupConvPass();
 

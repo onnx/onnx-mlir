@@ -133,13 +133,31 @@ static bool isTypeBoundConsumer(Operation *op) {
       func::ReturnOp>(op);
 }
 
+// Group A: input and output quant types are required to match
+// (no Requantize support downstream). Higher pattern benefit gives these
+// ops priority in the greedy driver, so forward / backward propagation
+// converges on the Group A ops first before Group B ops settle.
+//
+// Group B = whitelisted ops NOT in Group A. Their mid-op (Q_a vs Q_c)
+// mismatches, if any, are handled by `XmcRequantizePass`.
+static bool isGroupA(Operation *op) {
+  return isa<mlir::ONNXReverseSequenceOp, mlir::ONNXExpandOp, mlir::ONNXNegOp,
+      mlir::ONNXClipOp, mlir::ONNXResizeOp, mlir::ONNXWhereOp>(op);
+}
+
 struct PropagateQuantTypePattern : public RewritePattern {
-  PropagateQuantTypePattern(MLIRContext *context)
-      : RewritePattern(MatchAnyOpTypeTag(), /*benefit=*/1, context) {}
+  PropagateQuantTypePattern(MLIRContext *context, PatternBenefit benefit)
+      : RewritePattern(MatchAnyOpTypeTag(), benefit, context) {}
+
+  // Subclasses restrict which whitelisted ops match. Returns true if `op`
+  // is in this pattern's group.
+  virtual bool acceptsOp(Operation *op) const = 0;
 
   LogicalResult matchAndRewrite(
       Operation *op, PatternRewriter &rewriter) const override {
     if (!isWhitelistedDataFlow(op))
+      return failure();
+    if (!acceptsOp(op))
       return failure();
     if (!passesAttributeFilter(op))
       return failure();
@@ -165,10 +183,8 @@ struct PropagateQuantTypePattern : public RewritePattern {
     bool anyOperandF32 = llvm::any_of(
         io.operands, [](Value v) { return isF32Tensor(v.getType()); });
 
-    // Forward: data operands share a common quant type, results are all f32.
+    // State (Q_a, F32): forward — propagate operand quant to f32 results.
     if (operandQ && resultsF32) {
-      // Skip if any user of any result is type-bound. This includes func.return
-      // (graph output boundary) and Cast/CastLike/QuantizeLinear.
       for (Value r : io.results)
         for (Operation *u : r.getUsers())
           if (isTypeBoundConsumer(u))
@@ -182,23 +198,20 @@ struct PropagateQuantTypePattern : public RewritePattern {
       return success();
     }
 
-    // Backward: at least one data operand is f32, all data results share a
-    // common quant type. Retype per-operand: skip operands at the function
-    // input boundary (block-arg) or with type-bound siblings; retype the rest
-    // via in-place setType on the producer.
+    // State (any-F32, Q_c): backward — per-operand retype of f32 operands to
+    // the common result quant. Mismatched quant operands (if any) are left
+    // for `XmcRequantizePass` (Group B) or flagged (Group A) below.
     if (resultQ && anyOperandF32) {
       SmallVector<bool> retypeThis(io.operands.size(), false);
       SmallVector<Operation *> producers(io.operands.size(), nullptr);
       for (auto [i, opnd] : llvm::enumerate(io.operands)) {
         if (!isF32Tensor(opnd.getType()))
-          continue; // already quant
+          continue;
         Operation *p = opnd.getDefiningOp();
         if (!p)
-          continue; // function block argument: at boundary, skip
+          continue;
         if (isTypeBoundProducer(p))
-          continue; // hard skip for type-bound producer
-        // Check siblings of this operand. If any is a type-bound consumer
-        // (Cast/CastLike/Q/func.return), skip retyping this operand.
+          continue;
         bool hasBadSibling = false;
         for (Operation *u : opnd.getUsers()) {
           if (u == op)
@@ -213,7 +226,6 @@ struct PropagateQuantTypePattern : public RewritePattern {
         retypeThis[i] = true;
         producers[i] = p;
       }
-      // Nothing to retype? Bail out.
       if (!llvm::any_of(retypeThis, [](bool b) { return b; }))
         return failure();
       for (auto [i, opnd] : llvm::enumerate(io.operands)) {
@@ -226,8 +238,25 @@ struct PropagateQuantTypePattern : public RewritePattern {
       return success();
     }
 
+    // Any other state (including all-quant operand+result mismatches):
+    // not handled here — left for `XmcRequantizePass` on Group B ops.
     return failure();
   }
+};
+
+// Higher-benefit pattern: only matches Group A ops, so the greedy driver
+// tries to propagate through Group A first.
+struct PropagateQuantTypeGroupAPattern : public PropagateQuantTypePattern {
+  PropagateQuantTypeGroupAPattern(MLIRContext *context)
+      : PropagateQuantTypePattern(context, /*benefit=*/2) {}
+  bool acceptsOp(Operation *op) const override { return isGroupA(op); }
+};
+
+// Lower-benefit pattern: matches the remaining whitelisted (Group B) ops.
+struct PropagateQuantTypeGroupBPattern : public PropagateQuantTypePattern {
+  PropagateQuantTypeGroupBPattern(MLIRContext *context)
+      : PropagateQuantTypePattern(context, /*benefit=*/1) {}
+  bool acceptsOp(Operation *op) const override { return !isGroupA(op); }
 };
 
 } // namespace
@@ -254,10 +283,22 @@ struct PropagateQuantTypeThroughDataFlowPass
   }
 
   void runOnOperation() override {
-    RewritePatternSet patterns(&getContext());
-    patterns.add<PropagateQuantTypePattern>(&getContext());
-    if (failed(applyPatternsGreedily(getOperation(), std::move(patterns))))
-      signalPassFailure();
+    // Phase 1: Group A only — propagate to fixed point before Group B runs.
+    {
+      RewritePatternSet patterns(&getContext());
+      patterns.add<PropagateQuantTypeGroupAPattern>(&getContext());
+      if (failed(applyPatternsGreedily(getOperation(), std::move(patterns)))) {
+        signalPassFailure();
+        return;
+      }
+    }
+    // Phase 2: Group B — process the rest.
+    {
+      RewritePatternSet patterns(&getContext());
+      patterns.add<PropagateQuantTypeGroupBPattern>(&getContext());
+      if (failed(applyPatternsGreedily(getOperation(), std::move(patterns))))
+        signalPassFailure();
+    }
   }
 };
 
