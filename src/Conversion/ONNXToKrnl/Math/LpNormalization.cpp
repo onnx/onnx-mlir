@@ -50,8 +50,11 @@ public:
     auto resMemRefType = dyn_cast<MemRefType>(
         typeConverter->convertType(lpNormOp.getResult().getType()));
     Type elementType = resMemRefType.getElementType();
+    int64_t rank = inputType.getRank();
 
     int64_t axis = adaptor.getAxis();
+    if (axis<0) axis += rank;
+    assert(axis>=0 && axis<rank && "out of bound axis");
     double p = adaptor.getP();
     llvm::SmallVector<int64_t> reductionShape(
         inputType.getShape().begin(), inputType.getShape().end());
@@ -63,13 +66,23 @@ public:
     TensorType reductionType =
         RankedTensorType::get(reductionShape, elementType);
     Value res = nullptr;
+    // TODO: the algorithm below does not follow the specs in the aspect listed
+    // below. The output is computed as: output = input / Lp_norm(input, axis).
+    // When the Lp norm is zero (i.e., all elements along the axis are zero),
+    // the output is defined to be zero to avoid division by zero.
+
+    // TODO: if the performance of this op matters, then we should do an
+    // integrated loop that compute the LPnorm in one pass, and then apply it to
+    // the input in a SIMD fashion.
+
+
     if (p == 1) {
-      // Y =  x / sum (abs(x), axis)
+      // Y =  x / (sum(abs(x), axis) + eps)
       Value abs = create.onnx.abs(input);
       Value sumAbs = create.onnx.reduceSum(reductionType, abs, axes);
       res = create.onnx.div(input, sumAbs);
     } else if (p == 2) {
-      // Y =  x / sqrt(sum((x^2),axis))
+      // Y =  x / (sqrt(sum(x^2, axis)) + eps)
       Value mul = create.onnx.mul(input, input);
       Value sumMul = create.onnx.reduceSum(reductionType, mul, axes);
       Value sqrtSumMul = create.onnx.sqrt(sumMul);
@@ -79,7 +92,7 @@ public:
           "The order of the normalization, only 1 or 2 are supported.");
     }
 
-    rewriter.replaceOp(op, {create.onnx.toMemref(input)});
+    rewriter.replaceOp(op, res);
     return success();
   }
 };
