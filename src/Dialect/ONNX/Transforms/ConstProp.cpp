@@ -1799,163 +1799,98 @@ public:
   }
 };
 
-// Fold a Const -> DQ -> Q chain where the Q is a genuine requantization
-// (different scale, zp, or output dtype than the DQ undoes). Computes the
-// requantized integer constant element-wise and replaces the Q's result with
-// it. Pattern:
-//   Const(intT1, s1, z1) -> DQ(s1, z1) -> Q(s2, z2, intT2) -> user
+// Drop a widening requantize sitting on a bare integer constant when the
+// requantize result is only consumed by DequantizeLinear ops. Pattern:
+//   Const(intT1) -> DQ(s1, z1) -> Q(s2, z2, intT2) -> user_DQ(s2, z2) -> ...
 // is rewritten to:
-//   Const(intT2, s2, z2) -> user
-// Guards: per-tensor scales/zps only (per-channel needs op-specific
-// permutation handled elsewhere); static shape; integer output dtype; respect
-// SatisfiesExpansionBound to avoid blowing up huge constants; a dense
-// ElementsAttr on the const (splat / elided values bail).
-class FoldRequantizeOnConst : public OpRewritePattern<ONNXQuantizeLinearOp> {
+//   Const(intT1) -> DQ(s1, z1) -> ...
+// (each user_DQ is rebuilt to read (s1, z1) from the original Const directly,
+// and the Q is left dead.)
+//
+// "Widening" here means intT2's storage width is strictly greater than
+// intT1's. Same-width or narrowing requantizes change numerics in a way that
+// might be intentional, so they are left alone.
+//
+// Why this is a win even though Q∘DQ_inner on the constant looks lossless:
+// each user_DQ today reads (s2, z2) and produces f32 values restricted to
+// the ui16/etc. representable grid. Retargeting to the original (s1, z1)
+// makes the user_DQ produce the higher-precision ui8/etc. representation
+// instead. Crucially, it also lets downstream kernel selectors see the
+// original storage type (e.g. ui8 weights for a MatMul), which can unlock
+// kernels that exist for ui8 but not for the widened type.
+//
+// Guards:
+//   * All Q users must be ONNXDequantizeLinearOp.
+//   * Each user_DQ must read with the same (s2, z2) the Q produced.
+//   * Per-tensor only (scalar scale/zp). Per-channel needs axis/shape
+//     reasoning we don't do here.
+//   * Output integer type must be strictly wider than input integer type.
+class DropWideningRequantizeOnConst
+    : public OpRewritePattern<ONNXQuantizeLinearOp> {
 public:
   using OpRewritePattern<ONNXQuantizeLinearOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(
       ONNXQuantizeLinearOp qOp, PatternRewriter &rewriter) const override {
-    auto dqOp = qOp.getX().getDefiningOp<ONNXDequantizeLinearOp>();
-    if (!dqOp)
+    auto dqInner = qOp.getX().getDefiningOp<ONNXDequantizeLinearOp>();
+    if (!dqInner)
       return rewriter.notifyMatchFailure(qOp, "Q input is not a DQ");
 
-    auto constOp = dqOp.getX().getDefiningOp<ONNXConstantOp>();
+    auto constOp = dqInner.getX().getDefiningOp<ONNXConstantOp>();
     if (!constOp)
       return rewriter.notifyMatchFailure(qOp, "DQ input is not a constant");
 
-    auto qResultType = mlir::dyn_cast<RankedTensorType>(qOp.getY().getType());
-    if (!qResultType || !qResultType.hasStaticShape())
-      return rewriter.notifyMatchFailure(
-          qOp, "Q result must be statically shaped");
-    auto outIntType = mlir::dyn_cast<IntegerType>(qResultType.getElementType());
-    if (!outIntType)
-      return rewriter.notifyMatchFailure(qOp, "Q output must be integer");
+    auto inIntType = mlir::dyn_cast<IntegerType>(
+        getElementTypeOrSelf(dqInner.getX()));
+    auto outIntType = mlir::dyn_cast<IntegerType>(
+        getElementTypeOrSelf(qOp.getY()));
+    if (!inIntType || !outIntType)
+      return rewriter.notifyMatchFailure(qOp, "non-integer storage");
+    if (outIntType.getWidth() <= inIntType.getWidth())
+      return rewriter.notifyMatchFailure(qOp, "not a widening requantize");
 
-    // Per-tensor only -- both Q and DQ must have scalar scale/zp.
+    // Per-tensor only.
     auto isPerTensor = [](Value v) -> bool {
       if (!v || mlir::isa<NoneType>(v.getType()))
         return true;
       return isScalarTensor(v);
     };
-    if (!isPerTensor(dqOp.getXScale()) || !isPerTensor(dqOp.getXZeroPoint()) ||
+    if (!isPerTensor(dqInner.getXScale()) ||
+        !isPerTensor(dqInner.getXZeroPoint()) ||
         !isPerTensor(qOp.getYScale()) || !isPerTensor(qOp.getYZeroPoint()))
       return rewriter.notifyMatchFailure(qOp, "per-channel not supported");
 
-    // Both scale/zp ops must themselves be constants so we can read their
-    // values at compile time.
-    auto dqScaleConst = dqOp.getXScale().getDefiningOp<ONNXConstantOp>();
-    auto qScaleConst = qOp.getYScale().getDefiningOp<ONNXConstantOp>();
-    if (!dqScaleConst || !qScaleConst)
-      return rewriter.notifyMatchFailure(qOp, "scales must be constants");
-    auto dqZpConst = dqOp.getXZeroPoint()
-                         ? dqOp.getXZeroPoint().getDefiningOp<ONNXConstantOp>()
-                         : nullptr;
-    auto qZpConst = qOp.getYZeroPoint()
-                        ? qOp.getYZeroPoint().getDefiningOp<ONNXConstantOp>()
-                        : nullptr;
-
-    // Skip the trivial case (same scale, zp, dtype) -- DropIdempotentQDQOnConst
-    // is cheaper.
-    if (dqOp.getXScale() == qOp.getYScale() &&
-        dqOp.getXZeroPoint() == qOp.getYZeroPoint() &&
-        getElementTypeOrSelf(dqOp.getX()) == getElementTypeOrSelf(qOp.getY()))
-      return rewriter.notifyMatchFailure(qOp, "use idempotent pattern");
-
-    // Respect the global expansion bound: the rewrite creates a new constant
-    // of size = qResultType. Comparison is against the input const's bytes.
-    auto inputType = mlir::dyn_cast<RankedTensorType>(constOp.getType());
-    if (!inputType || !inputType.hasStaticShape())
-      return rewriter.notifyMatchFailure(
-          qOp, "input const not statically shaped");
-    if (ConstPropONNXToONNXPassConfiguration::expansionBound >= 0) {
-      int64_t inBytes = getSizeInBytes(inputType);
-      int64_t outBytes = getSizeInBytes(qResultType);
-      if (inBytes * ConstPropONNXToONNXPassConfiguration::expansionBound <
-          outBytes)
-        return rewriter.notifyMatchFailure(qOp, "exceeds expansion bound");
+    // All users of the Q must be DequantizeLinear ops reading with exactly
+    // (s2, z2). Collect them first so we don't mutate while iterating.
+    SmallVector<ONNXDequantizeLinearOp> userDQs;
+    for (Operation *user : qOp.getY().getUsers()) {
+      auto userDQ = dyn_cast<ONNXDequantizeLinearOp>(user);
+      if (!userDQ)
+        return rewriter.notifyMatchFailure(qOp, "non-DQ user of Q");
+      if (userDQ.getXScale() != qOp.getYScale() ||
+          userDQ.getXZeroPoint() != qOp.getYZeroPoint())
+        return rewriter.notifyMatchFailure(qOp, "user DQ scale/zp mismatch");
+      userDQs.push_back(userDQ);
     }
-    constexpr int64_t kMaxConstPropElements =
-        static_cast<int64_t>(std::numeric_limits<uint32_t>::max());
-    if (qResultType.getNumElements() > kMaxConstPropElements)
-      return rewriter.notifyMatchFailure(qOp, "too many elements");
+    if (userDQs.empty())
+      return rewriter.notifyMatchFailure(qOp, "Q has no users");
 
-    // Read scalar scale/zp values.
-    auto getScalarFloat = [](ONNXConstantOp op) -> double {
-      auto elems = mlir::cast<ElementsAttr>(op.getValueAttr());
-      auto t = elems.getElementType();
-      if (mlir::isa<FloatType>(t)) {
-        APFloat f = *elems.value_begin<APFloat>();
-        return f.convertToDouble();
+    // Replace each user DQ with one that reads (s1, z1) from the original
+    // Const directly. The user's result type (f32 tensor, same shape) is
+    // unchanged.
+    for (ONNXDequantizeLinearOp userDQ : userDQs) {
+      auto newUserDQ = rewriter.create<ONNXDequantizeLinearOp>(
+          userDQ.getLoc(), userDQ.getY().getType(), constOp.getResult(),
+          dqInner.getXScale(), dqInner.getXZeroPoint());
+      for (NamedAttribute attr : dqInner->getAttrs()) {
+        auto name = attr.getName().strref();
+        if (name == "onnx_node_name" || name == "ResultNames")
+          continue;
+        newUserDQ->setAttr(attr.getName(), attr.getValue());
       }
-      return 0.0;
-    };
-    auto getScalarInt = [](ONNXConstantOp op) -> int64_t {
-      if (!op)
-        return 0;
-      auto elems = mlir::cast<ElementsAttr>(op.getValueAttr());
-      auto t = elems.getElementType();
-      if (auto it = mlir::dyn_cast<IntegerType>(t)) {
-        APInt v = *elems.value_begin<APInt>();
-        return it.isUnsigned() ? static_cast<int64_t>(v.getZExtValue())
-                               : v.getSExtValue();
-      }
-      return 0;
-    };
-
-    double dqScale = getScalarFloat(dqScaleConst);
-    double qScale = getScalarFloat(qScaleConst);
-    int64_t dqZp = getScalarInt(dqZpConst);
-    int64_t qZp = getScalarInt(qZpConst);
-
-    if (qScale == 0.0)
-      return rewriter.notifyMatchFailure(qOp, "Q scale is zero");
-
-    // Output range from the storage type.
-    unsigned outBits = outIntType.getWidth();
-    bool outUnsigned = outIntType.isUnsigned();
-    int64_t outMin =
-        outUnsigned ? 0 : -(static_cast<int64_t>(1) << (outBits - 1));
-    int64_t outMax = outUnsigned
-                         ? (static_cast<int64_t>(1) << outBits) - 1
-                         : (static_cast<int64_t>(1) << (outBits - 1)) - 1;
-
-    // Build the requantized constant by transforming each input element
-    // through  q' = round((x - dqZp) * dqScale / qScale) + qZp, saturated.
-    ElementsAttr inputElems =
-        getDenseOrDisposableConstLikeElements(constOp.getResult());
-    if (!inputElems)
-      return rewriter.notifyMatchFailure(qOp, "input const must be dense");
-
-    auto inIntType = mlir::dyn_cast<IntegerType>(inputElems.getElementType());
-    if (!inIntType)
-      return rewriter.notifyMatchFailure(qOp, "input const must be integer");
-    bool inSigned = !inIntType.isUnsigned();
-
-    double scaleRatio = dqScale / qScale;
-
-    OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
-    ElementsAttr requantElems = elementsBuilder.transform(
-        inputElems, outIntType, [=](WideNum n) -> WideNum {
-          int64_t in = inSigned
-                           ? n.narrow<BType::INT64>()
-                           : static_cast<int64_t>(n.narrow<BType::UINT64>());
-          double scaled = static_cast<double>(in - dqZp) * scaleRatio;
-          // Round to nearest, ties to even (ONNX QuantizeLinear semantics).
-          double rounded = std::nearbyint(scaled);
-          int64_t out64 = static_cast<int64_t>(rounded) + qZp;
-          if (out64 < outMin)
-            out64 = outMin;
-          if (out64 > outMax)
-            out64 = outMax;
-          return outUnsigned ? WideNum::widen<BType::UINT64>(
-                                   static_cast<uint64_t>(out64))
-                             : WideNum::widen<BType::INT64>(out64);
-        });
-
-    Value newConst =
-        createReplacingConstantOp(rewriter, qOp.getY(), requantElems);
-    rewriter.replaceOp(qOp, newConst);
+      rewriter.replaceOp(userDQ, newUserDQ.getResult());
+    }
+    rewriter.eraseOp(qOp);
     return success();
   }
 };
@@ -2019,7 +1954,7 @@ void onnx_mlir::getConstPropONNXToONNXPatterns(
         BypassShapeOpThroughDQ<ONNXReshapeOp>,
         BypassShapeOpThroughDQ<ONNXSqueezeOp>,
         BypassShapeOpThroughDQ<ONNXUnsqueezeOp>>(patterns.getContext());
-    patterns.add<DropIdempotentQDQOnConst, FoldRequantizeOnConst>(
+    patterns.add<DropIdempotentQDQOnConst, DropWideningRequantizeOnConst>(
         patterns.getContext());
   }
 }
