@@ -186,9 +186,10 @@ func.func @transpose_qdq_diff_scale() -> tensor<2x1xui8> {
 }
 
 // CHECK-LABEL: @transpose_qdq_diff_scale
-// CHECK: onnx.DequantizeLinear
-// CHECK: onnx.Transpose
-// CHECK: onnx.QuantizeLinear
+// CHECK: onnx.Constant dense<{{\[}}[20], [40]]> : tensor<2x1xui8>
+// CHECK-NOT: onnx.DequantizeLinear
+// CHECK-NOT: onnx.Transpose
+// CHECK-NOT: onnx.QuantizeLinear
 
 // -----
 
@@ -205,9 +206,10 @@ func.func @transpose_qdq_diff_zp() -> tensor<2x1xui8> {
 }
 
 // CHECK-LABEL: @transpose_qdq_diff_zp
-// CHECK: onnx.DequantizeLinear
-// CHECK: onnx.Transpose
-// CHECK: onnx.QuantizeLinear
+// CHECK: onnx.Constant dense<{{\[}}[20], [30]]> : tensor<2x1xui8>
+// CHECK-NOT: onnx.DequantizeLinear
+// CHECK-NOT: onnx.Transpose
+// CHECK-NOT: onnx.QuantizeLinear
 
 // -----
 
@@ -240,9 +242,11 @@ func.func @transpose_qdq_multi_use() -> (tensor<2x1xui8>, tensor<2x1xf32>) {
 }
 
 // CHECK-LABEL: @transpose_qdq_multi_use
-// CHECK: onnx.DequantizeLinear
-// CHECK: onnx.Transpose
-// CHECK: onnx.QuantizeLinear
+// CHECK: %[[C:.*]] = onnx.Constant dense<{{\[}}[10], [20]]> : tensor<2x1xui8>
+// CHECK: %[[DQ:.*]] = "onnx.DequantizeLinear"(%[[C]],
+// CHECK: return %[[C]], %[[DQ]]
+// CHECK-NOT: onnx.Transpose
+// CHECK-NOT: onnx.QuantizeLinear
 
 // -----
 
@@ -257,9 +261,10 @@ func.func @transpose_qdq_diff_types() -> tensor<2x1xi8> {
 }
 
 // CHECK-LABEL: @transpose_qdq_diff_types
-// CHECK: onnx.DequantizeLinear
-// CHECK: onnx.Transpose
-// CHECK: onnx.QuantizeLinear
+// CHECK: onnx.Constant dense<{{\[}}[10], [20]]> : tensor<2x1xi8>
+// CHECK-NOT: onnx.DequantizeLinear
+// CHECK-NOT: onnx.Transpose
+// CHECK-NOT: onnx.QuantizeLinear
 
 // -----
 
@@ -290,6 +295,7 @@ func.func @transpose_no_q(%arg0: tensor<2x1xf32>) -> tensor<2x1xf32> {
 }
 
 // CHECK-LABEL: @transpose_no_q
+// CHECK: onnx.Constant dense<{{\[}}[10], [20]]> : tensor<2x1xui8>
 // CHECK: onnx.DequantizeLinear
-// CHECK: onnx.Transpose
+// CHECK-NOT: onnx.Transpose
 // CHECK-NOT: onnx.QuantizeLinear
