@@ -34,8 +34,7 @@ static bool hasMatchingUniformQuant(
          typeA.getZeroPoint() == typeB.getZeroPoint();
 }
 
-struct ReplaceQDQResizeToAddPattern
-    : public OpRewritePattern<XFEResizeOp> {
+struct ReplaceQDQResizeToAddPattern : public OpRewritePattern<XFEResizeOp> {
   using OpRewritePattern<XFEResizeOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(
@@ -65,8 +64,8 @@ struct ReplaceQDQResizeToAddPattern
       return rewriter.notifyMatchFailure(
           resizeOp, "input spatial dims (H, W) must both be 1");
     if (outShape[0] != inShape[0] || outShape[3] != inShape[3])
-      return rewriter.notifyMatchFailure(
-          resizeOp, "batch and channel dims must match between input and output");
+      return rewriter.notifyMatchFailure(resizeOp,
+          "batch and channel dims must match between input and output");
     if (outShape[1] <= 1 && outShape[2] <= 1)
       return rewriter.notifyMatchFailure(
           resizeOp, "output spatial dims must be larger than 1");
@@ -81,7 +80,8 @@ struct ReplaceQDQResizeToAddPattern
 
     if (!hasMatchingUniformQuant(inQuant, outQuant))
       return rewriter.notifyMatchFailure(resizeOp,
-          "input and output quant types must have matching scale and zero_point");
+          "input and output quant types must have matching scale and "
+          "zero_point");
 
     Location loc = resizeOp.getLoc();
 
@@ -92,8 +92,8 @@ struct ReplaceQDQResizeToAddPattern
     auto zpSplatAttr = DenseElementsAttr::get(
         zpStorageType, rewriter.getIntegerAttr(storageTy, zeroPoint));
     auto valueNamedAttr = rewriter.getNamedAttr("value", zpSplatAttr);
-    auto zpTensorConst = rewriter.create<ONNXConstantOp>(loc, outType,
-        ValueRange{}, ArrayRef<NamedAttribute>{valueNamedAttr});
+    auto zpTensorConst = rewriter.create<ONNXConstantOp>(
+        loc, outType, ValueRange{}, ArrayRef<NamedAttribute>{valueNamedAttr});
 
     auto addOp = rewriter.create<ONNXAddOp>(
         loc, outType, input, zpTensorConst.getResult());
