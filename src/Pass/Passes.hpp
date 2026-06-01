@@ -271,6 +271,10 @@ std::unique_ptr<mlir::Pass> createReplaceQDQEltwisePass();
 /// Pass for lowering quantized onnx.Tile to XCOMPILERFusedEltwise ADD (XMC).
 std::unique_ptr<mlir::Pass> createReplaceQuantizedTileToAddPass();
 
+/// Pass for replacing quantized XFEResize with 1x1 spatial input by a
+/// broadcasting onnx.Add against a splat zero_point constant (XMC).
+std::unique_ptr<mlir::Pass> createReplaceQDQResizePass();
+
 /// Pass for merging nested concats and splitting duplicate inputs.
 std::unique_ptr<mlir::Pass> createReplaceAdjacentOpPass();
 

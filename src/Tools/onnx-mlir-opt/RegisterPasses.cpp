@@ -178,6 +178,9 @@ void registerOMPasses(int optLevel) {
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createReplaceQuantizedTileToAddPass();
   });
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createReplaceQDQResizePass();
+  });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createReplaceAdjacentOpPass();
