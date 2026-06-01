@@ -4,9 +4,9 @@
 //     is fed by an integer constant so the *OfConst folders can fire.
 //   * DropIdempotentQDQOnConst -- drop a Const -> DQ(s,z) -> Q(s,z,intT)
 //     round trip back to the original constant.
-//   * FoldRequantizeOnConst -- element-wise rewrite of
-//     Const -> DQ(s1,z1) -> Q(s2,z2,intT2) into a single requantized
-//     constant.
+//   * DropWideningRequantizeOnConst -- on a Const -> DQ -> Q chain whose
+//     Q output only feeds DequantizeLinear users, drop the widening Q (and
+//     the user DQs) by retargeting them to read the original Const directly.
 
 // RUN: onnx-mlir-opt --split-input-file %s -constprop-onnx=enable-qdq | FileCheck %s
 
@@ -81,29 +81,33 @@ func.func @drop_idempotent_qdq_on_const() -> tensor<4xui8> {
 // -----
 
 //===----------------------------------------------------------------------===//
-// FoldRequantizeOnConst: a genuine requantization (different output dtype,
-// different scale, different zero point) is computed at compile time.
-// Input  : ui8,  scale=0.5,  zp=0   -> floats: 10, 20, 30, 40
-// Output : ui16, scale=1.0,  zp=5   -> q' = round(x * 0.5 / 1.0) + 5
-//                                        = 10, 15, 20, 25
+// DropWideningRequantizeOnConst: a Const -> DQ(s1,z1) -> Q(s2,z2,wider) chain
+// whose Q result feeds only DequantizeLinear users is rewritten so each user
+// DQ reads the original Const with (s1,z1). The widening Q + the user DQ
+// drop out; the inner DQ is kept (now the only DQ on the original Const).
+// Input  : ui8,  scale=0.5,  zp=0
+// Output : ui16, scale=1.0,  zp=5   (strictly wider -> pattern fires)
 //===----------------------------------------------------------------------===//
 
-func.func @fold_requantize_on_const() -> tensor<4xui16> {
+func.func @fold_requantize_on_const() -> tensor<4xf32> {
   %a = onnx.Constant dense<[20, 30, 40, 50]> : tensor<4xui8>
   %s1 = onnx.Constant dense<5.000000e-01> : tensor<f32>
   %z1 = onnx.Constant dense<0> : tensor<ui8>
   %s2 = onnx.Constant dense<1.000000e+00> : tensor<f32>
   %z2 = onnx.Constant dense<5> : tensor<ui16>
-  %dq = "onnx.DequantizeLinear"(%a, %s1, %z1) {axis = 0 : si64, block_size = 0 : si64} : (tensor<4xui8>, tensor<f32>, tensor<ui8>) -> tensor<4xf32>
-  %q = "onnx.QuantizeLinear"(%dq, %s2, %z2) {axis = 0 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<4xf32>, tensor<f32>, tensor<ui16>) -> tensor<4xui16>
-  return %q : tensor<4xui16>
+  %dq1 = "onnx.DequantizeLinear"(%a, %s1, %z1) {axis = 0 : si64, block_size = 0 : si64} : (tensor<4xui8>, tensor<f32>, tensor<ui8>) -> tensor<4xf32>
+  %q = "onnx.QuantizeLinear"(%dq1, %s2, %z2) {axis = 0 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<4xf32>, tensor<f32>, tensor<ui16>) -> tensor<4xui16>
+  %dq2 = "onnx.DequantizeLinear"(%q, %s2, %z2) {axis = 0 : si64, block_size = 0 : si64} : (tensor<4xui16>, tensor<f32>, tensor<ui16>) -> tensor<4xf32>
+  return %dq2 : tensor<4xf32>
 }
 
+// The widening Q and its user DQ collapse; only the inner Const->DQ remains.
 // CHECK-LABEL: @fold_requantize_on_const
-// CHECK-NOT: onnx.DequantizeLinear
 // CHECK-NOT: onnx.QuantizeLinear
-// CHECK: %[[C:.*]] = onnx.Constant dense<[15, 20, 25, 30]> : tensor<4xui16>
-// CHECK: return %[[C]] : tensor<4xui16>
+// CHECK: %[[C:.*]] = onnx.Constant dense<[20, 30, 40, 50]> : tensor<4xui8>
+// CHECK: %[[DQ:.*]] = "onnx.DequantizeLinear"(%[[C]],
+// CHECK-SAME: (tensor<4xui8>, tensor<f32>, tensor<ui8>) -> tensor<4xf32>
+// CHECK: return %[[DQ]] : tensor<4xf32>
 
 // -----
 
@@ -198,30 +202,27 @@ func.func @transpose_bypass_dq_per_channel_unchanged() -> tensor<2x1xf32> {
 // -----
 
 //===----------------------------------------------------------------------===//
-// FoldRequantizeOnConst: saturation -- values that fall outside the output
-// integer range must be clamped to the output min/max, not wrapped.
-// Input  : ui8  (raw 50, 200, 250),  scale=1.0, zp=0   -> f32 50, 200, 250
-// Output : i8,  scale=1.0, zp=0
-//   q' = round(x) saturated to [-128, 127]
-//      = 50, 127, 127
+// Negative: DropWideningRequantizeOnConst must NOT fire on a same-width
+// requantize (ui8 -> i8). The chain has to be left intact so downstream
+// passes can deal with the (potentially saturating) reinterpretation.
 //===----------------------------------------------------------------------===//
 
-func.func @fold_requantize_saturates() -> tensor<3xi8> {
+func.func @requantize_same_width_unchanged() -> tensor<3xf32> {
   %a = onnx.Constant dense<[50, 200, 250]> : tensor<3xui8>
   %s1 = onnx.Constant dense<1.000000e+00> : tensor<f32>
   %z1 = onnx.Constant dense<0> : tensor<ui8>
   %s2 = onnx.Constant dense<1.000000e+00> : tensor<f32>
   %z2 = onnx.Constant dense<0> : tensor<i8>
-  %dq = "onnx.DequantizeLinear"(%a, %s1, %z1) {axis = 0 : si64, block_size = 0 : si64} : (tensor<3xui8>, tensor<f32>, tensor<ui8>) -> tensor<3xf32>
-  %q = "onnx.QuantizeLinear"(%dq, %s2, %z2) {axis = 0 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<3xf32>, tensor<f32>, tensor<i8>) -> tensor<3xi8>
-  return %q : tensor<3xi8>
+  %dq1 = "onnx.DequantizeLinear"(%a, %s1, %z1) {axis = 0 : si64, block_size = 0 : si64} : (tensor<3xui8>, tensor<f32>, tensor<ui8>) -> tensor<3xf32>
+  %q = "onnx.QuantizeLinear"(%dq1, %s2, %z2) {axis = 0 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<3xf32>, tensor<f32>, tensor<i8>) -> tensor<3xi8>
+  %dq2 = "onnx.DequantizeLinear"(%q, %s2, %z2) {axis = 0 : si64, block_size = 0 : si64} : (tensor<3xi8>, tensor<f32>, tensor<i8>) -> tensor<3xf32>
+  return %dq2 : tensor<3xf32>
 }
 
-// CHECK-LABEL: @fold_requantize_saturates
-// CHECK-NOT: onnx.DequantizeLinear
-// CHECK-NOT: onnx.QuantizeLinear
-// CHECK: %[[C:.*]] = onnx.Constant dense<[50, 127, 127]> : tensor<3xi8>
-// CHECK: return %[[C]] : tensor<3xi8>
+// CHECK-LABEL: @requantize_same_width_unchanged
+// CHECK: "onnx.DequantizeLinear"
+// CHECK: "onnx.QuantizeLinear"
+// CHECK: "onnx.DequantizeLinear"
 
 // -----
 
