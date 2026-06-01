@@ -91,6 +91,7 @@ func.func @test_convtranspose_output_shape_positive_pads(%arg0: tensor<1x1x5x5xf
 // CHECK:           return [[VAR_12_]] : tensor<1x1x10x10xf32>
 // CHECK:         }
 }
+
 // -----
 
 // Test ConvTranspose with non-uniform strides and output_shape.

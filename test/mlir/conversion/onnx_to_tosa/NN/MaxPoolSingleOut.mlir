@@ -104,6 +104,7 @@ func.func @test_default_maxpoolsingleout_autopad_valid(%arg0 : tensor<5x5x16x13x
 // CHECK:           return [[VAR_2_]] : tensor<5x5x14x11xf32>
 // CHECK:         }
 }
+
 // -----
 
 func.func @test_default_maxpoolsingleout_same_upper_ceil_mode(%arg0 : tensor<5x5x16x13xf32>) -> tensor<5x5x4x4xf32> {

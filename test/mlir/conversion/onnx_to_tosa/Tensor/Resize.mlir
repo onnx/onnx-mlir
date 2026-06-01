@@ -16,6 +16,7 @@ func.func @test_resize_pytorch_half_pixel_linear(%arg0: tensor<1x1x2x4xf32>) -> 
 // CHECK:           return [[VAR_7_]] : tensor<1x1x4x8xf32>
 // CHECK:           }
 }
+
 // -----
 
 
@@ -247,7 +248,9 @@ func.func @test_resize_cubic_disallowed(%arg0: tensor<1x1x2x4xf32>) -> tensor<1x
 }
 
  // > successful test; print test_resize_linear_int_disallowed
+
 // -----
+
 func.func @test_resize_linear_int_disallowed(%arg0: tensor<1x1x2x4xi32>) -> tensor<1x1x4x8xi32> {
     %0 = "onnx.NoValue"() {value} : () -> none
     %1 = "onnx.Constant"() {value = dense<[1.000000e+00, 1.000000e+00, 2.000000e+00, 2.000000e+00]> : tensor<4xf32>} : () -> tensor<4xf32>
@@ -258,7 +261,6 @@ func.func @test_resize_linear_int_disallowed(%arg0: tensor<1x1x2x4xi32>) -> tens
 }
 
 // -----
-
 
 func.func @test_resize_pytorch_half_pixel_linear_other_axis_allowed_negative_axis(%arg0: tensor<1x1x2x4xf32>) -> tensor<1x1x2x8xf32> {
     %0 = "onnx.NoValue"() {value} : () -> none
