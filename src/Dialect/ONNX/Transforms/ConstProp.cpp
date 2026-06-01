@@ -1840,10 +1840,10 @@ public:
     if (!constOp)
       return rewriter.notifyMatchFailure(qOp, "DQ input is not a constant");
 
-    auto inIntType = mlir::dyn_cast<IntegerType>(
-        getElementTypeOrSelf(dqInner.getX()));
-    auto outIntType = mlir::dyn_cast<IntegerType>(
-        getElementTypeOrSelf(qOp.getY()));
+    auto inIntType =
+        mlir::dyn_cast<IntegerType>(getElementTypeOrSelf(dqInner.getX()));
+    auto outIntType =
+        mlir::dyn_cast<IntegerType>(getElementTypeOrSelf(qOp.getY()));
     if (!inIntType || !outIntType)
       return rewriter.notifyMatchFailure(qOp, "non-integer storage");
     if (outIntType.getWidth() <= inIntType.getWidth())
@@ -1879,9 +1879,9 @@ public:
     // Const directly. The user's result type (f32 tensor, same shape) is
     // unchanged.
     for (ONNXDequantizeLinearOp userDQ : userDQs) {
-      auto newUserDQ = rewriter.create<ONNXDequantizeLinearOp>(
-          userDQ.getLoc(), userDQ.getY().getType(), constOp.getResult(),
-          dqInner.getXScale(), dqInner.getXZeroPoint());
+      auto newUserDQ = rewriter.create<ONNXDequantizeLinearOp>(userDQ.getLoc(),
+          userDQ.getY().getType(), constOp.getResult(), dqInner.getXScale(),
+          dqInner.getXZeroPoint());
       for (NamedAttribute attr : dqInner->getAttrs()) {
         auto name = attr.getName().strref();
         if (name == "onnx_node_name" || name == "ResultNames")
