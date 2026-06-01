@@ -121,6 +121,7 @@ add_onnx_mlir_library(OMONNXRewrite
   xmc/NormalizeConvActivationPass.cpp
   xmc/DQBinaryQOptPass.cpp
   xmc/RecomposeHardSigmoidPass.cpp
+  xmc/TransferSoftmaxAxisToLastPass.cpp
 
   DEPENDS
   OMONNXDecomposeIncGen

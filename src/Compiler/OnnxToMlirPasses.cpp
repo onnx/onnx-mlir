@@ -86,6 +86,8 @@ void addXmcMlirPasses(mlir::OpPassManager &pm, OnnxToMlirOptions opts) {
   // pm.addNestedPass<func::FuncOp>(
   //     onnx_mlir::createConvertSCastPairToRequantizePass());
   pm.addNestedPass<func::FuncOp>(
+      onnx_mlir::createTransferSoftmaxAxisToLastPass());
+  pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createONNXTransposeOptimizationPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
   pm.addNestedPass<func::FuncOp>(
