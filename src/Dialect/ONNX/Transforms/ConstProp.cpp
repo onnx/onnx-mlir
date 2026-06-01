@@ -82,31 +82,6 @@ int ConstPropONNXToONNXPassConfiguration::expansionBound = -1; // -1 == no bound
 StringSet<> ConstPropONNXToONNXPassConfiguration::disabledPatterns = {};
 bool ConstPropONNXToONNXPassConfiguration::constantPropIsDisabled = false;
 
-// Precondition: result has ranked tensor type with static shape and int or
-// float element type.
-bool satisfiesExpansionBound(Value result) {
-  auto resultType = dyn_cast<RankedTensorType>(result.getType());
-  if (!resultType || !resultType.hasStaticShape())
-    return true;
-  // SmallVector<WideNum> uses uint32_t for capacity when sizeof(WideNum) >= 4
-  // thus capping at UINT32_MAX elements.
-  constexpr auto kMaxConstPropElements =
-      static_cast<int64_t>(std::numeric_limits<uint32_t>::max());
-  if (resultType.getNumElements() > kMaxConstPropElements)
-    return false;
-  if (ConstPropONNXToONNXPassConfiguration::expansionBound < 0) {
-    return true; // -1 == no bound
-  }
-  int64_t sum = 0;
-  for (auto operand : result.getDefiningOp()->getOperands()) {
-    if (auto type = dyn_cast<RankedTensorType>(operand.getType()))
-      if (type.hasStaticShape())
-        sum += getSizeInBytes(type);
-  }
-  return sum * ConstPropONNXToONNXPassConfiguration::expansionBound >=
-         getSizeInBytes(resultType);
-}
-
 /// True if the transpose result's element type matches the constant input's
 /// element type after remapping per-axis quantization through `perm` (same
 /// rule as ConvertToChannelLast: output axis i reads input axis perm[i]).
@@ -1808,8 +1783,8 @@ public:
 //   Const(intT2, s2, z2) -> user
 // Guards: per-tensor scales/zps only (per-channel needs op-specific
 // permutation handled elsewhere); static shape; integer output dtype; respect
-// SatisfiesExpansionBound to avoid blowing up huge constants; a dense
-// ElementsAttr on the const (splat / elided values bail).
+// the global expansionBound to avoid blowing up huge constants; and require a
+// dense/disposable ElementsAttr on the const.
 class FoldRequantizeOnConst : public OpRewritePattern<ONNXQuantizeLinearOp> {
 public:
   using OpRewritePattern<ONNXQuantizeLinearOp>::OpRewritePattern;
@@ -1922,7 +1897,11 @@ public:
 
     // Build the requantized constant by transforming each input element
     // through  q' = round((x - dqZp) * dqScale / qScale) + qZp, saturated.
-    ElementsAttr inputElems = getConstValueElements(constOp.getResult());
+    ElementsAttr inputElems =
+        getDenseOrDisposableConstLikeElements(constOp.getResult());
+    if (!inputElems)
+      return rewriter.notifyMatchFailure(qOp, "input const must be dense");
+
     auto inIntType = mlir::dyn_cast<IntegerType>(inputElems.getElementType());
     if (!inIntType)
       return rewriter.notifyMatchFailure(qOp, "input const must be integer");
