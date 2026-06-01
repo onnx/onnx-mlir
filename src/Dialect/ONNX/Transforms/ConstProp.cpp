@@ -1655,7 +1655,7 @@ public:
 //   Const(intT) -> ShapeOp -> DQ(scale, zp) -> ...
 // Safe for per-tensor quantization only (scalar scale/zp): per-channel would
 // require permuting/slicing the scale and zp vectors alongside the data, which
-// is op-specific. The DQ is allowed to have multiple users â€” in that case each
+// is op-specific. The DQ is allowed to have multiple users -- in that case each
 // shape-op match clones a per-branch DQ that now sees a (smaller) const-folded
 // input, and the original DQ is left for DCE.
 template <typename ONNXOp>
@@ -1680,10 +1680,10 @@ public:
       return rewriter.notifyMatchFailure(op, "DQ scale is not per-tensor");
     Value zp = dqOp.getXZeroPoint();
     if (zp && !mlir::isa<NoneType>(zp.getType()) && !isScalarTensor(zp))
-      return rewriter.notifyMatchFailure(
-          op, "DQ zero point is not per-tensor");
+      return rewriter.notifyMatchFailure(op, "DQ zero point is not per-tensor");
 
-    auto opResultType = mlir::dyn_cast<RankedTensorType>(op->getResult(0).getType());
+    auto opResultType =
+        mlir::dyn_cast<RankedTensorType>(op->getResult(0).getType());
     auto constType = mlir::dyn_cast<RankedTensorType>(constOp.getType());
     if (!opResultType || !constType)
       return rewriter.notifyMatchFailure(op, "result or const is not ranked");
@@ -1691,11 +1691,11 @@ public:
     // Build a new ShapeOp that operates on the integer Const directly. Its
     // result type matches the original ShapeOp's output shape but with the
     // constant's (integer) element type.
-    auto newShapeOpType =
-        RankedTensorType::get(opResultType.getShape(), constType.getElementType());
+    auto newShapeOpType = RankedTensorType::get(
+        opResultType.getShape(), constType.getElementType());
 
-    SmallVector<Value> newShapeOperands(op->getOperands().begin(),
-                                       op->getOperands().end());
+    SmallVector<Value> newShapeOperands(
+        op->getOperands().begin(), op->getOperands().end());
     newShapeOperands[0] = constOp.getResult();
 
     SmallVector<NamedAttribute> shapeAttrs(op->getAttrs());
@@ -1708,9 +1708,9 @@ public:
         op.getLoc(), newShapeOpType, newShapeOperands, shapeAttrs);
 
     // Rebuild the DequantizeLinear on the new (still-integer) ShapeOp result.
-    auto newDqOp = rewriter.create<ONNXDequantizeLinearOp>(dqOp.getLoc(),
-        opResultType, newShapeOp.getResult(), dqOp.getXScale(),
-        dqOp.getXZeroPoint());
+    auto newDqOp =
+        rewriter.create<ONNXDequantizeLinearOp>(dqOp.getLoc(), opResultType,
+            newShapeOp.getResult(), dqOp.getXScale(), dqOp.getXZeroPoint());
     for (auto namedAttr : dqOp->getAttrs()) {
       auto name = namedAttr.getName().strref();
       if (name == "onnx_node_name" || name == "ResultNames")
@@ -1767,16 +1767,15 @@ public:
   }
 };
 
-// Drop an idempotent Qâˆ˜DQ pair sitting on a bare integer constant. Pattern:
+// Drop an idempotent Q/DQ pair sitting on a bare integer constant. Pattern:
 //   Const(intT) -> DequantizeLinear(s, z) -> QuantizeLinear(s, z, intT) -> user
 // is rewritten to:
 //   Const(intT) -> user
 // Guard: the DQ input dtype must equal the Q output dtype, and the DQ's
 // scale/zp must be the same SSA value as the Q's (i.e. truly idempotent).
-// Per-tensor and per-channel are both safe â€” the same scale/zp on both sides
+// Per-tensor and per-channel are both safe -- the same scale/zp on both sides
 // means the round-trip is a no-op regardless of channel layout.
-class DropIdempotentQDQOnConst
-    : public OpRewritePattern<ONNXQuantizeLinearOp> {
+class DropIdempotentQDQOnConst : public OpRewritePattern<ONNXQuantizeLinearOp> {
 public:
   using OpRewritePattern<ONNXQuantizeLinearOp>::OpRewritePattern;
 
@@ -1827,13 +1826,13 @@ public:
 
     auto qResultType = mlir::dyn_cast<RankedTensorType>(qOp.getY().getType());
     if (!qResultType || !qResultType.hasStaticShape())
-      return rewriter.notifyMatchFailure(qOp, "Q result must be statically shaped");
-    auto outIntType =
-        mlir::dyn_cast<IntegerType>(qResultType.getElementType());
+      return rewriter.notifyMatchFailure(
+          qOp, "Q result must be statically shaped");
+    auto outIntType = mlir::dyn_cast<IntegerType>(qResultType.getElementType());
     if (!outIntType)
       return rewriter.notifyMatchFailure(qOp, "Q output must be integer");
 
-    // Per-tensor only â€” both Q and DQ must have scalar scale/zp.
+    // Per-tensor only -- both Q and DQ must have scalar scale/zp.
     auto isPerTensor = [](Value v) -> bool {
       if (!v || mlir::isa<NoneType>(v.getType()))
         return true;
@@ -1856,7 +1855,7 @@ public:
                         ? qOp.getYZeroPoint().getDefiningOp<ONNXConstantOp>()
                         : nullptr;
 
-    // Skip the trivial case (same scale, zp, dtype) â€” DropIdempotentQDQOnConst
+    // Skip the trivial case (same scale, zp, dtype) -- DropIdempotentQDQOnConst
     // is cheaper.
     if (dqOp.getXScale() == qOp.getYScale() &&
         dqOp.getXZeroPoint() == qOp.getYZeroPoint() &&
@@ -1865,15 +1864,14 @@ public:
 
     // Respect the global expansion bound: the rewrite creates a new constant
     // of size = qResultType. Comparison is against the input const's bytes.
-    auto inputType =
-        mlir::dyn_cast<RankedTensorType>(constOp.getType());
+    auto inputType = mlir::dyn_cast<RankedTensorType>(constOp.getType());
     if (!inputType || !inputType.hasStaticShape())
-      return rewriter.notifyMatchFailure(qOp, "input const not statically shaped");
+      return rewriter.notifyMatchFailure(
+          qOp, "input const not statically shaped");
     if (ConstPropONNXToONNXPassConfiguration::expansionBound >= 0) {
       int64_t inBytes = getSizeInBytes(inputType);
       int64_t outBytes = getSizeInBytes(qResultType);
-      if (inBytes *
-              ConstPropONNXToONNXPassConfiguration::expansionBound <
+      if (inBytes * ConstPropONNXToONNXPassConfiguration::expansionBound <
           outBytes)
         return rewriter.notifyMatchFailure(qOp, "exceeds expansion bound");
     }
@@ -1916,9 +1914,8 @@ public:
     // Output range from the storage type.
     unsigned outBits = outIntType.getWidth();
     bool outUnsigned = outIntType.isUnsigned();
-    int64_t outMin = outUnsigned
-                         ? 0
-                         : -(static_cast<int64_t>(1) << (outBits - 1));
+    int64_t outMin =
+        outUnsigned ? 0 : -(static_cast<int64_t>(1) << (outBits - 1));
     int64_t outMax = outUnsigned
                          ? (static_cast<int64_t>(1) << outBits) - 1
                          : (static_cast<int64_t>(1) << (outBits - 1)) - 1;
@@ -1926,8 +1923,7 @@ public:
     // Build the requantized constant by transforming each input element
     // through  q' = round((x - dqZp) * dqScale / qScale) + qZp, saturated.
     ElementsAttr inputElems = getConstValueElements(constOp.getResult());
-    auto inIntType =
-        mlir::dyn_cast<IntegerType>(inputElems.getElementType());
+    auto inIntType = mlir::dyn_cast<IntegerType>(inputElems.getElementType());
     if (!inIntType)
       return rewriter.notifyMatchFailure(qOp, "input const must be integer");
     bool inSigned = !inIntType.isUnsigned();
@@ -1943,14 +1939,14 @@ public:
           double scaled = static_cast<double>(in - dqZp) * scaleRatio;
           // Round to nearest, ties to even (ONNX QuantizeLinear semantics).
           double rounded = std::nearbyint(scaled);
-          int64_t out64 =
-              static_cast<int64_t>(rounded) + qZp;
-          if (out64 < outMin) out64 = outMin;
-          if (out64 > outMax) out64 = outMax;
-          return outUnsigned
-                     ? WideNum::widen<BType::UINT64>(
-                           static_cast<uint64_t>(out64))
-                     : WideNum::widen<BType::INT64>(out64);
+          int64_t out64 = static_cast<int64_t>(rounded) + qZp;
+          if (out64 < outMin)
+            out64 = outMin;
+          if (out64 > outMax)
+            out64 = outMax;
+          return outUnsigned ? WideNum::widen<BType::UINT64>(
+                                   static_cast<uint64_t>(out64))
+                             : WideNum::widen<BType::INT64>(out64);
         });
 
     Value newConst =
