@@ -67,7 +67,6 @@ public:
     TensorType reductionType =
         RankedTensorType::get(reductionShape, elementType);
 
-#if 1
     // TODO: if the performance of this op matters, we should introduce an
     // efficient divide by 0 results in zero operator. Also, the ReduceL1 &
     // ReduceL2 ops should be natively implemented; currently the onnx ops are
@@ -84,6 +83,8 @@ public:
       llvm_unreachable(
           "The order of the normalization, only 1 or 2 are supported.");
     }
+
+    // Handle the divide by zero as a zero in the final result.
     RankedTensorType scalarType = RankedTensorType::get({}, elementType);
     Value zero = create.onnx.constant(
         DenseElementsAttr::get(scalarType, static_cast<float>(0.0)));
@@ -95,30 +96,8 @@ public:
     Value saveDividend = create.onnx.where(inputType, isZero, zero, input);
     Value safeDivisor = create.onnx.where(reductionType, isZero, one, divisor);
     Value res = create.onnx.div(saveDividend, safeDivisor);
-#else
-    // TODO: the algorithm below does not follow the specs in the aspect listed
-    // below. The output is computed as: output = input / Lp_norm(input, axis).
-    // When the Lp norm is zero (i.e., all elements along the axis are zero),
-    // the output is defined to be zero to avoid division by zero.
 
-    if (p == 1) {
-      // Y =  x / (sum(abs(x), axis) + eps)
-      Value abs = create.onnx.abs(input);
-      Value sumAbs = create.onnx.reduceSum(reductionType, abs, axes);
-      res = create.onnx.div(input, sumAbs);
-    } else if (p == 2) {
-      // Y =  x / (sqrt(sum(x^2, axis)) + eps)
-      Value mul = create.onnx.mul(input, input);
-      Value sumMul = create.onnx.reduceSum(reductionType, mul, axes);
-      Value sqrtSumMul = create.onnx.sqrt(sumMul);
-      res = create.onnx.div(input, sqrtSumMul);
-    } else {
-      llvm_unreachable(
-          "The order of the normalization, only 1 or 2 are supported.");
-    }
-
-#endif
-
+    // Replace the op.
     rewriter.replaceOp(op, res);
     return success();
   }
