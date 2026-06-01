@@ -1655,9 +1655,9 @@ public:
 //   Const(intT) -> ShapeOp -> DQ(scale, zp) -> ...
 // Safe for per-tensor quantization only (scalar scale/zp): per-channel would
 // require permuting/slicing the scale and zp vectors alongside the data, which
-// is op-specific. The DQ is allowed to have multiple users -- in that case each
-// shape-op match clones a per-branch DQ that now sees a (smaller) const-folded
-// input, and the original DQ is left for DCE.
+// is op-specific. The DQ is allowed to have multiple users -- in that case
+// each shape-op match clones a per-branch DQ that now sees a (smaller)
+// const-folded input, and the original DQ is left for DCE.
 template <typename ONNXOp>
 class BypassShapeOpThroughDQ : public OpRewritePattern<ONNXOp> {
 public:
@@ -1767,7 +1767,7 @@ public:
   }
 };
 
-// Drop an idempotent Q/DQ pair sitting on a bare integer constant. Pattern:
+// Drop an idempotent Q-DQ pair sitting on a bare integer constant. Pattern:
 //   Const(intT) -> DequantizeLinear(s, z) -> QuantizeLinear(s, z, intT) -> user
 // is rewritten to:
 //   Const(intT) -> user
@@ -1808,8 +1808,8 @@ public:
 //   Const(intT2, s2, z2) -> user
 // Guards: per-tensor scales/zps only (per-channel needs op-specific
 // permutation handled elsewhere); static shape; integer output dtype; respect
-// the global expansionBound to avoid blowing up huge constants; and require a
-// dense/disposable ElementsAttr on the const.
+// SatisfiesExpansionBound to avoid blowing up huge constants; a dense
+// ElementsAttr on the const (splat / elided values bail).
 class FoldRequantizeOnConst : public OpRewritePattern<ONNXQuantizeLinearOp> {
 public:
   using OpRewritePattern<ONNXQuantizeLinearOp>::OpRewritePattern;
