@@ -19,10 +19,10 @@
 #include <pthread.h>
 
 #include <errno.h>
-#include <sys/mman.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/mman.h>
 
 #include "zdnn.h"
 #include "zdnnx/zdnnx.h"
@@ -248,16 +248,20 @@ void OMShutdownAccelNNPA() {
   }
 }
 
+/*!
+ *  \brief Function that allocates a buffer with huge page advice.
+ */
 void *OMHugePageMalloc(size_t size) {
   if (size == 0 || size < HUGE_PAGE_SIZE)
     return malloc(size);
 
   void *ptr = NULL;
-  if (posix_memalign(&ptr, HUGE_PAGE_SIZE, size) != 0) {
+  if (posix_memalign(&ptr, HUGE_PAGE_SIZE, size) != 0)
     return malloc(size); // Fallback.
-  }
 
   // Give the kernel the transparent huge page advice.
+  // It is ok to failed since the memory is still usable but may not use huge
+  // pages.
   madvise(ptr, size, MADV_HUGEPAGE);
 
   return ptr;
