@@ -19,6 +19,7 @@
 #include <pthread.h>
 
 #include <errno.h>
+#include <sys/mman.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -29,6 +30,9 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+// IBM Z uses 1 MB huge pages.
+#define HUGE_PAGE_SIZE (1024 * 1024)
 
 /* Interface for device init and shutdown.
  *
@@ -242,6 +246,21 @@ void OMShutdownAccelNNPA() {
     /* Release mutex. */
     pthread_mutex_unlock(&OMMutexForInitShutdownNNPA);
   }
+}
+
+void *OMHugePageMalloc(size_t size) {
+  if (size == 0 || size < HUGE_PAGE_SIZE)
+    return malloc(size);
+
+  void *ptr = NULL;
+  if (posix_memalign(&ptr, HUGE_PAGE_SIZE, size) != 0) {
+    return malloc(size); // Fallback.
+  }
+
+  // Give the kernel the transparent huge page advice.
+  madvise(ptr, size, MADV_HUGEPAGE);
+
+  return ptr;
 }
 
 #ifdef __cplusplus

@@ -342,9 +342,12 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
     }
   }
 
-  if (emissionTarget >= EmitLLVMIR)
+  if (emissionTarget >= EmitLLVMIR) {
     // Lower the remaining Krnl and all ZLow ops to LLVM dialect.
     addKrnlToLLVMPasses(pm, outputNameNoExt, /*enableCSE=*/true);
+    // Replace malloc with omHugePageMalloc for better performance on Z.
+    pm.addPass(onnx_mlir::createReplaceMallocByHugePageMallocPass());
+  }
 }
 
 } // namespace onnx_mlir
