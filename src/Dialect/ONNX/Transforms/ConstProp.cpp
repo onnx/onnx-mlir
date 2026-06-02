@@ -1647,6 +1647,82 @@ public:
   }
 };
 
+// Bypass a shape-only ONNX op past a DequantizeLinear that feeds it from a
+// constant, so the standard *OfConst patterns can fold the (now integer-typed)
+// shape op away. Pattern:
+//   Const(intT) -> DQ(scale, zp) -> ShapeOp -> ...
+// is rewritten to:
+//   Const(intT) -> ShapeOp -> DQ(scale, zp) -> ...
+// Safe for per-tensor quantization only (scalar scale/zp): per-channel would
+// require permuting/slicing the scale and zp vectors alongside the data, which
+// is op-specific. The DQ is allowed to have multiple users -- in that case
+// each shape-op match clones a per-branch DQ that now sees a (smaller)
+// const-folded input, and the original DQ is left for DCE.
+template <typename ONNXOp>
+class BypassShapeOpThroughDQ : public OpRewritePattern<ONNXOp> {
+public:
+  using OpRewritePattern<ONNXOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXOp op, PatternRewriter &rewriter) const override {
+    auto dqOp =
+        op->getOperand(0).template getDefiningOp<ONNXDequantizeLinearOp>();
+    if (!dqOp)
+      return rewriter.notifyMatchFailure(op, "operand 0 is not a DQ");
+
+    auto constOp = dqOp.getX().template getDefiningOp<ONNXConstantOp>();
+    if (!constOp)
+      return rewriter.notifyMatchFailure(op, "DQ input is not a constant");
+
+    // Only handle per-tensor quantization: scale (and zp, if present) must be
+    // scalar tensors. Per-channel needs op-specific scale/zp reordering.
+    if (!isScalarTensor(dqOp.getXScale()))
+      return rewriter.notifyMatchFailure(op, "DQ scale is not per-tensor");
+    Value zp = dqOp.getXZeroPoint();
+    if (zp && !mlir::isa<NoneType>(zp.getType()) && !isScalarTensor(zp))
+      return rewriter.notifyMatchFailure(op, "DQ zero point is not per-tensor");
+
+    auto opResultType =
+        mlir::dyn_cast<RankedTensorType>(op->getResult(0).getType());
+    auto constType = mlir::dyn_cast<RankedTensorType>(constOp.getType());
+    if (!opResultType || !constType)
+      return rewriter.notifyMatchFailure(op, "result or const is not ranked");
+
+    // Build a new ShapeOp that operates on the integer Const directly. Its
+    // result type matches the original ShapeOp's output shape but with the
+    // constant's (integer) element type.
+    auto newShapeOpType = RankedTensorType::get(
+        opResultType.getShape(), constType.getElementType());
+
+    SmallVector<Value> newShapeOperands(
+        op->getOperands().begin(), op->getOperands().end());
+    newShapeOperands[0] = constOp.getResult();
+
+    SmallVector<NamedAttribute> shapeAttrs(op->getAttrs());
+    llvm::erase_if(shapeAttrs, [](NamedAttribute attr) {
+      auto strRef = attr.getName().strref();
+      return (strRef == "onnx_node_name" || strRef == "ResultNames");
+    });
+
+    auto newShapeOp = rewriter.create<ONNXOp>(
+        op.getLoc(), newShapeOpType, newShapeOperands, shapeAttrs);
+
+    // Rebuild the DequantizeLinear on the new (still-integer) ShapeOp result.
+    auto newDqOp =
+        rewriter.create<ONNXDequantizeLinearOp>(dqOp.getLoc(), opResultType,
+            newShapeOp.getResult(), dqOp.getXScale(), dqOp.getXZeroPoint());
+    for (auto namedAttr : dqOp->getAttrs()) {
+      auto name = namedAttr.getName().strref();
+      if (name == "onnx_node_name" || name == "ResultNames")
+        continue;
+      newDqOp->setAttr(namedAttr.getName(), namedAttr.getValue());
+    }
+
+    rewriter.replaceOp(op, newDqOp.getResult());
+    return success();
+  }
+};
+
 // Q-DQ Removal to enable const-folding through data reformatting ops
 template <typename ONNXOp>
 class RemoveQDQForConst : public OpRewritePattern<ONNXOp> {
@@ -1687,6 +1763,134 @@ public:
 
     rewriter.replaceOpWithNewOp<ONNXOp>(qOp, qOp.getType(), operands, attrs);
 
+    return success();
+  }
+};
+
+// Drop an idempotent Q-DQ pair sitting on a bare integer constant. Pattern:
+//   Const(intT) -> DequantizeLinear(s, z) -> QuantizeLinear(s, z, intT) -> user
+// is rewritten to:
+//   Const(intT) -> user
+// Guard: the DQ input dtype must equal the Q output dtype, and the DQ's
+// scale/zp must be the same SSA value as the Q's (i.e. truly idempotent).
+// Per-tensor and per-channel are both safe -- the same scale/zp on both sides
+// means the round-trip is a no-op regardless of channel layout.
+class DropIdempotentQDQOnConst : public OpRewritePattern<ONNXQuantizeLinearOp> {
+public:
+  using OpRewritePattern<ONNXQuantizeLinearOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXQuantizeLinearOp qOp, PatternRewriter &rewriter) const override {
+    auto dqOp = qOp.getX().getDefiningOp<ONNXDequantizeLinearOp>();
+    if (!dqOp)
+      return rewriter.notifyMatchFailure(qOp, "Q input is not a DQ");
+
+    auto constOp = dqOp.getX().getDefiningOp<ONNXConstantOp>();
+    if (!constOp)
+      return rewriter.notifyMatchFailure(qOp, "DQ input is not a constant");
+
+    if (dqOp.getXScale() != qOp.getYScale() ||
+        dqOp.getXZeroPoint() != qOp.getYZeroPoint() ||
+        getElementTypeOrSelf(dqOp.getX()) != getElementTypeOrSelf(qOp.getY()))
+      return rewriter.notifyMatchFailure(qOp, "Q & DQ are not equivalent");
+
+    rewriter.replaceOp(qOp, constOp.getResult());
+    return success();
+  }
+};
+
+// Drop a widening requantize sitting on a bare integer constant when the
+// requantize result is only consumed by DequantizeLinear ops. Pattern:
+//   Const(intT1) -> DQ(s1, z1) -> Q(s2, z2, intT2) -> user_DQ(s2, z2) -> ...
+// is rewritten to:
+//   Const(intT1) -> DQ(s1, z1) -> ...
+// (each user_DQ is rebuilt to read (s1, z1) from the original Const directly,
+// and the Q is left dead.)
+//
+// "Widening" here means intT2's storage width is strictly greater than
+// intT1's. Same-width or narrowing requantizes change numerics in a way that
+// might be intentional, so they are left alone.
+//
+// Why this is a win even though Q∘DQ_inner on the constant looks lossless:
+// each user_DQ today reads (s2, z2) and produces f32 values restricted to
+// the ui16/etc. representable grid. Retargeting to the original (s1, z1)
+// makes the user_DQ produce the higher-precision ui8/etc. representation
+// instead. Crucially, it also lets downstream kernel selectors see the
+// original storage type (e.g. ui8 weights for a MatMul), which can unlock
+// kernels that exist for ui8 but not for the widened type.
+//
+// Guards:
+//   * All Q users must be ONNXDequantizeLinearOp.
+//   * Each user_DQ must read with the same (s2, z2) the Q produced.
+//   * Per-tensor only (scalar scale/zp). Per-channel needs axis/shape
+//     reasoning we don't do here.
+//   * Output integer type must be strictly wider than input integer type.
+class DropWideningRequantizeOnConst
+    : public OpRewritePattern<ONNXQuantizeLinearOp> {
+public:
+  using OpRewritePattern<ONNXQuantizeLinearOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXQuantizeLinearOp qOp, PatternRewriter &rewriter) const override {
+    auto dqInner = qOp.getX().getDefiningOp<ONNXDequantizeLinearOp>();
+    if (!dqInner)
+      return rewriter.notifyMatchFailure(qOp, "Q input is not a DQ");
+
+    auto constOp = dqInner.getX().getDefiningOp<ONNXConstantOp>();
+    if (!constOp)
+      return rewriter.notifyMatchFailure(qOp, "DQ input is not a constant");
+
+    auto inIntType =
+        mlir::dyn_cast<IntegerType>(getElementTypeOrSelf(dqInner.getX()));
+    auto outIntType =
+        mlir::dyn_cast<IntegerType>(getElementTypeOrSelf(qOp.getY()));
+    if (!inIntType || !outIntType)
+      return rewriter.notifyMatchFailure(qOp, "non-integer storage");
+    if (outIntType.getWidth() <= inIntType.getWidth())
+      return rewriter.notifyMatchFailure(qOp, "not a widening requantize");
+
+    // Per-tensor only.
+    auto isPerTensor = [](Value v) -> bool {
+      if (!v || mlir::isa<NoneType>(v.getType()))
+        return true;
+      return isScalarTensor(v);
+    };
+    if (!isPerTensor(dqInner.getXScale()) ||
+        !isPerTensor(dqInner.getXZeroPoint()) ||
+        !isPerTensor(qOp.getYScale()) || !isPerTensor(qOp.getYZeroPoint()))
+      return rewriter.notifyMatchFailure(qOp, "per-channel not supported");
+
+    // All users of the Q must be DequantizeLinear ops reading with exactly
+    // (s2, z2). Collect them first so we don't mutate while iterating.
+    SmallVector<ONNXDequantizeLinearOp> userDQs;
+    for (Operation *user : qOp.getY().getUsers()) {
+      auto userDQ = dyn_cast<ONNXDequantizeLinearOp>(user);
+      if (!userDQ)
+        return rewriter.notifyMatchFailure(qOp, "non-DQ user of Q");
+      if (userDQ.getXScale() != qOp.getYScale() ||
+          userDQ.getXZeroPoint() != qOp.getYZeroPoint())
+        return rewriter.notifyMatchFailure(qOp, "user DQ scale/zp mismatch");
+      userDQs.push_back(userDQ);
+    }
+    if (userDQs.empty())
+      return rewriter.notifyMatchFailure(qOp, "Q has no users");
+
+    // Replace each user DQ with one that reads (s1, z1) from the original
+    // Const directly. The user's result type (f32 tensor, same shape) is
+    // unchanged.
+    for (ONNXDequantizeLinearOp userDQ : userDQs) {
+      auto newUserDQ = rewriter.create<ONNXDequantizeLinearOp>(userDQ.getLoc(),
+          userDQ.getY().getType(), constOp.getResult(), dqInner.getXScale(),
+          dqInner.getXZeroPoint());
+      for (NamedAttribute attr : dqInner->getAttrs()) {
+        auto name = attr.getName().strref();
+        if (name == "onnx_node_name" || name == "ResultNames")
+          continue;
+        newUserDQ->setAttr(attr.getName(), attr.getValue());
+      }
+      rewriter.replaceOp(userDQ, newUserDQ.getResult());
+    }
+    rewriter.eraseOp(qOp);
     return success();
   }
 };
@@ -1740,11 +1944,19 @@ void onnx_mlir::getConstPropONNXToONNXPatterns(
   patterns.insert<IfOfConst>(patterns.getContext());
   patterns.insert<LoopUnroll>(patterns.getContext());
   patterns.insert<ConstPropConcatFromSequence>(patterns.getContext());
-  if (enableQDQ)
+  if (enableQDQ) {
     patterns.add<RemoveQDQForConst<ONNXSliceOp>,
         RemoveQDQForConst<ONNXTransposeOp>, RemoveQDQForConst<ONNXReshapeOp>,
         RemoveQDQForConst<ONNXSqueezeOp>, RemoveQDQForConst<ONNXUnsqueezeOp>,
         RemoveQDQForConst<ONNXGatherOp>>(patterns.getContext());
+    patterns.add<BypassShapeOpThroughDQ<ONNXSliceOp>,
+        BypassShapeOpThroughDQ<ONNXTransposeOp>,
+        BypassShapeOpThroughDQ<ONNXReshapeOp>,
+        BypassShapeOpThroughDQ<ONNXSqueezeOp>,
+        BypassShapeOpThroughDQ<ONNXUnsqueezeOp>>(patterns.getContext());
+    patterns.add<DropIdempotentQDQOnConst, DropWideningRequantizeOnConst>(
+        patterns.getContext());
+  }
 }
 
 void onnx_mlir::configureConstPropONNXToONNXPass(bool roundFPToInt,
