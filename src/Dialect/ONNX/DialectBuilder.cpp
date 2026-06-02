@@ -171,6 +171,13 @@ Value OnnxBuilder::div(Value A, Value B) const {
   return createOpAndInferShapes<ONNXDivOp>(toTensor(A), toTensor(B));
 }
 
+Value OnnxBuilder::equal(Value A, Value B) const {
+  assert((mlir::cast<ShapedType>(A.getType()).getElementType() ==
+             mlir::cast<ShapedType>(B.getType()).getElementType()) &&
+         "A and B must have the same element type");
+  return createOpAndInferShapes<ONNXEqualOp>(toTensor(A), toTensor(B));
+}
+
 Value OnnxBuilder::expand(Type outputType, Value input, Value shape) const {
   return createOpAndInferShapes<ONNXExpandOp>(
       outputType, toTensor(input), toTensor(shape));
@@ -299,6 +306,22 @@ Value OnnxBuilder::padZero(Value input, Value pads) const {
 
 Value OnnxBuilder::pow(Value input, Value exp) const {
   return createOpAndInferShapes<ONNXPowOp>(toTensor(input), toTensor(exp));
+}
+
+Value OnnxBuilder::reduceL1(Type outputType, Value data, Value axes,
+    bool keepDims, bool noop_with_empty_axes) const {
+  int64_t i_keepDims = keepDims; // 0 if false, 1 if true
+  int64_t i_noop_with_empty_axes = noop_with_empty_axes; // ditto
+  return createTypedOpAndInferShapes<ONNXReduceL1Op>(toTensor(outputType),
+      toTensor(data), toTensor(axes), i_keepDims, i_noop_with_empty_axes);
+}
+
+Value OnnxBuilder::reduceL2(Type outputType, Value data, Value axes,
+    bool keepDims, bool noop_with_empty_axes) const {
+  int64_t i_keepDims = keepDims; // 0 if false, 1 if true
+  int64_t i_noop_with_empty_axes = noop_with_empty_axes; // ditto
+  return createTypedOpAndInferShapes<ONNXReduceL2Op>(toTensor(outputType),
+      toTensor(data), toTensor(axes), i_keepDims, i_noop_with_empty_axes);
 }
 
 Value OnnxBuilder::reduceMax(Type outputType, Value data, Value axes,

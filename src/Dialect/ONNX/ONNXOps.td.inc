@@ -4268,6 +4268,7 @@ def ONNXLpNormalizationOp:ONNX_Op<"LpNormalization",
       return sh;
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXLpPoolOp:ONNX_Op<"LpPool",
