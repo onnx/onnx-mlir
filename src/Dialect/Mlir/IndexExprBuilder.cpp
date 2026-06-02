@@ -74,47 +74,21 @@ APInt getIntValue(ElementsAttr elementsAttr, Type elType, uint64_t i) {
 namespace onnx_mlir {
 
 //===----------------------------------------------------------------------===//
-// IndexExprBuilder - value provider dispatch
-//===----------------------------------------------------------------------===//
-
-mlir::ElementsAttr IndexExprBuilder::queryConst(mlir::Value value) {
-  if (externalProvider)
-    return externalProvider->getConst(value);
-  return getConst(value);
-}
-
-mlir::Value IndexExprBuilder::queryVal(mlir::Value arrayVal, uint64_t i) {
-  if (externalProvider)
-    return externalProvider->getVal(arrayVal, i);
-  return getVal(arrayVal, i);
-}
-
-mlir::Value IndexExprBuilder::queryShapeVal(
-    mlir::Value tensorOrMemrefValue, uint64_t i) {
-  if (externalProvider)
-    return externalProvider->getShapeVal(tensorOrMemrefValue, i);
-  return getShapeVal(tensorOrMemrefValue, i);
-}
-
-//===----------------------------------------------------------------------===//
 // IndexExprBuilderWithProvider
 //===----------------------------------------------------------------------===//
 
 mlir::ElementsAttr IndexExprBuilderWithProvider::getConst(mlir::Value value) {
-  llvm_unreachable(
-      "IndexExprBuilderWithProvider uses an external IndexExprValueProvider");
+  return valueProvider.getConst(value);
 }
 
 mlir::Value IndexExprBuilderWithProvider::getVal(
     mlir::Value intArrayVal, uint64_t i) {
-  llvm_unreachable(
-      "IndexExprBuilderWithProvider uses an external IndexExprValueProvider");
+  return valueProvider.getVal(intArrayVal, i);
 }
 
 mlir::Value IndexExprBuilderWithProvider::getShapeVal(
     mlir::Value tensorOrMemrefValue, uint64_t i) {
-  llvm_unreachable(
-      "IndexExprBuilderWithProvider uses an external IndexExprValueProvider");
+  return valueProvider.getShapeVal(tensorOrMemrefValue, i);
 }
 
 //===----------------------------------------------------------------------===//
@@ -245,7 +219,7 @@ IndexExpr IndexExprBuilder::getValFromArray(
   if (size == ShapedType::kDynamic || i >= static_cast<uint64_t>(size)) {
     return UndefinedIndexExpr();
   }
-  if (ElementsAttr elementsAttr = queryConst(array)) {
+  if (ElementsAttr elementsAttr = getConst(array)) {
     if (isFloat) {
       double floatVal =
           getFloatValue(elementsAttr, elType, i).convertToDouble();
@@ -258,10 +232,10 @@ IndexExpr IndexExprBuilder::getValFromArray(
   // If our scalar array is not a constant; we have a runtime value.
   // Sometimes, a specific value can be a constant. E.g. the array is defined by
   // a ONNXConcat that mixes constant and runtime values.
-  if (Value val = queryVal(array, i)) {
+  if (Value val = getVal(array, i)) {
     // getVal may be smart enough to derive a constant value at index i.
     // In such a case, we can return a literal.
-    if (ElementsAttr elementsAttr = queryConst(val)) {
+    if (ElementsAttr elementsAttr = getConst(val)) {
       if (isFloat) {
         double floatVal =
             getFloatValue(elementsAttr, elType, 0).convertToDouble();
@@ -428,7 +402,7 @@ IndexExpr IndexExprBuilder::getShapeAsSymbol(
     Value tensorOrMemrefValue, uint64_t i) {
   if (isLiteralShape(tensorOrMemrefValue, i))
     return getShapeAsLiteral(tensorOrMemrefValue, i);
-  if (Value val = queryShapeVal(tensorOrMemrefValue, i))
+  if (Value val = getShapeVal(tensorOrMemrefValue, i))
     return SymIE(val);
   return QuestionmarkIndexExpr(tensorOrMemrefValue, i);
 }
@@ -437,7 +411,7 @@ IndexExpr IndexExprBuilder::getShapeAsDim(
     Value tensorOrMemrefValue, uint64_t i) {
   if (isLiteralShape(tensorOrMemrefValue, i))
     return getShapeAsLiteral(tensorOrMemrefValue, i);
-  if (Value val = queryShapeVal(tensorOrMemrefValue, i))
+  if (Value val = getShapeVal(tensorOrMemrefValue, i))
     return DimIE(val);
   return QuestionmarkIndexExpr(tensorOrMemrefValue, i);
 }

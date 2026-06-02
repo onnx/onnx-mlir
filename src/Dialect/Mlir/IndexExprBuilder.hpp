@@ -57,9 +57,9 @@ namespace onnx_mlir {
   expression; symbol is not changing in the given context (e.g. batch size in a
   given loop), and dim are changing (e.g. the loop index inside a given loop).
 
-  Subclasses must either redefine 3 pure virtual functions (getConst, getVal,
-  and getShapeVal), or use an external IndexExprValueProvider via the
-  composition constructor (see IndexExprBuilderWithProvider).
+  Subclasses implement IndexExprValueProvider (getConst, getVal, getShapeVal)
+  for dialect-specific value extraction, or use IndexExprBuilderWithProvider to
+  delegate to an external provider (e.g. ReifyIndexExprValueProvider).
 
   A first subclass is IndexExprBuilderForAnalysis and is used during the
   analysis phase; runtime values are described by questionmark index
@@ -75,17 +75,14 @@ namespace onnx_mlir {
    virtual subclass method implementation for getConst, getVal, getShapeVal.
 */
 
-struct IndexExprBuilder : DialectBuilder {
+struct IndexExprBuilder : public DialectBuilder, public IndexExprValueProvider {
   // Constructor for analysis (no code generation, will assert if it tries).
   IndexExprBuilder(mlir::Location loc) : DialectBuilder(loc) {}
   // Constructors for code generation.
   IndexExprBuilder(mlir::OpBuilder &b, mlir::Location loc)
       : DialectBuilder(b, loc) {}
   IndexExprBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
-  // Use an external provider for runtime value extraction (composition).
-  IndexExprBuilder(const DialectBuilder &db, IndexExprValueProvider &provider)
-      : DialectBuilder(db), externalProvider(&provider) {}
-  virtual ~IndexExprBuilder() {}
+  ~IndexExprBuilder() override = default;
 
   using IndexExprList = llvm::SmallVectorImpl<IndexExpr>;
 
@@ -209,30 +206,7 @@ struct IndexExprBuilder : DialectBuilder {
   // The trip count within the tile, regardless of if full or partial
   IndexExpr tileSize(IndexExpr i, IndexExpr block, IndexExpr UB);
 
-protected:
-  //===--------------------------------------------------------------------===//
-  // Subclasses must define these pure virtual functions.
-
-  // Locate an elements attribute associated with the defining op given by
-  // value. Return nullptr if none exists.
-  virtual mlir::ElementsAttr getConst(mlir::Value value) = 0;
-  // Locate/generate a value that represents a value given by the op defining
-  // arrayVal at position i in the array. Return nullptr if cannot
-  // locate/generate the value.
-  virtual mlir::Value getVal(mlir::Value arrayVal, uint64_t i) = 0;
-  // Locate/generate a value that represents the integer value of the shape
-  // given by a tensor or memref at position i. Return nullptr if cannot
-  // locate/generate the value.
-  virtual mlir::Value getShapeVal(
-      mlir::Value tensorOrMemrefValue, uint64_t i) = 0;
-
 private:
-  IndexExprValueProvider *externalProvider = nullptr;
-
-  mlir::ElementsAttr queryConst(mlir::Value value);
-  mlir::Value queryVal(mlir::Value arrayVal, uint64_t i);
-  mlir::Value queryShapeVal(mlir::Value tensorOrMemrefValue, uint64_t i);
-
   // Returns a SymbolIndexExpr/DimIndexExpr when makeSymbol is true/false.
   // 'array' element type must match 'isFloat'. If arraySize >=0, use that size.
   // Otherwise, get the size from the array value.
@@ -245,13 +219,15 @@ private:
 struct IndexExprBuilderWithProvider : IndexExprBuilder {
   IndexExprBuilderWithProvider(
       const DialectBuilder &db, IndexExprValueProvider &provider)
-      : IndexExprBuilder(db, provider) {}
-  virtual ~IndexExprBuilderWithProvider() {}
+      : IndexExprBuilder(db), valueProvider(provider) {}
+  ~IndexExprBuilderWithProvider() override = default;
 
-protected:
-  mlir::ElementsAttr getConst(mlir::Value value) final;
-  mlir::Value getVal(mlir::Value intArrayVal, uint64_t i) final;
-  mlir::Value getShapeVal(mlir::Value tensorOrMemrefValue, uint64_t i) final;
+  mlir::ElementsAttr getConst(mlir::Value value) override;
+  mlir::Value getVal(mlir::Value intArrayVal, uint64_t i) override;
+  mlir::Value getShapeVal(mlir::Value tensorOrMemrefValue, uint64_t i) override;
+
+private:
+  IndexExprValueProvider &valueProvider;
 };
 
 } // namespace onnx_mlir
