@@ -260,7 +260,7 @@ void *OMHugePageMalloc(size_t size) {
     return malloc(size); // Fallback.
 
   // Give the kernel the transparent huge page advice.
-  // It is ok to failed since the memory is still usable but may not use huge
+  // It is ok to fail since the memory is still usable but may not use huge
   // pages.
   madvise(ptr, size, MADV_HUGEPAGE);
 
