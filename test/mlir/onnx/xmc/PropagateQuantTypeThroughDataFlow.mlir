@@ -168,26 +168,29 @@ func.func @fwd_skip_cast_consumer(%arg0: tensor<6xi8>) -> tensor<1x2x3xi64> {
 }
 
 // -----
-// Graph output bridge: result feeds func.return -> retype result to quant, insert scast + DequantizeLinear.
-// CHECK-LABEL: func @fwd_return_bridge
-// CHECK: %[[T:.+]] = "onnx.Transpose"(%{{.+}}) {{.+}} -> tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>
-// CHECK: %[[S:.+]] = quant.scast %[[T]] : tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>> to tensor<3x2xi8>
-// CHECK: %[[DQ:.+]] = "onnx.DequantizeLinear"(%[[S]], %{{.+}}, %{{.+}})
-// CHECK: return %[[DQ]] : tensor<3x2xf32>
-func.func @fwd_return_bridge(%arg0: tensor<2x3xi8>) -> tensor<3x2xf32> {
+// Graph output boundary: result feeds func.return -> skip; Transpose stays
+// mismatched (quant in, f32 out). No bridge inserted; function ABI untouched.
+// CHECK-LABEL: func @fwd_return_skip
+// CHECK: %[[T:.+]] = "onnx.Transpose"(%{{.+}}) {{.+}}: (tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>) -> tensor<3x2xf32>
+// CHECK-NOT: quant.scast
+// CHECK-NOT: onnx.DequantizeLinear
+// CHECK: return %[[T]] : tensor<3x2xf32>
+func.func @fwd_return_skip(%arg0: tensor<2x3xi8>) -> tensor<3x2xf32> {
   %q = quant.scast %arg0 : tensor<2x3xi8> to tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
   %t = "onnx.Transpose"(%q) {perm = [1, 0]} : (tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>) -> tensor<3x2xf32>
   return %t : tensor<3x2xf32>
 }
 
 // -----
-// Graph input bridge: f32 block-arg feeds an op whose result is quant -> insert QuantizeLinear + scast locally before op.
-// CHECK-LABEL: func @bwd_block_arg_bridge
-// CHECK: %[[Q:.+]] = "onnx.QuantizeLinear"(%arg0, %{{.+}}, %{{.+}})
-// CHECK: %[[S:.+]] = quant.scast %[[Q]]
-// CHECK: %[[T:.+]] = "onnx.Transpose"(%[[S]]) {{.+}} -> tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>
+// Graph input boundary: f32 block-arg feeds an op with quant result -> skip;
+// block-arg type untouched, Transpose stays mismatched (f32 in, quant out).
+// No bridge inserted.
+// CHECK-LABEL: func @bwd_block_arg_skip
+// CHECK-NOT: onnx.QuantizeLinear
+// CHECK-NOT: quant.scast
+// CHECK: %[[T:.+]] = "onnx.Transpose"(%arg0) {{.+}}: (tensor<2x3xf32>) -> tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>
 // CHECK: return %[[T]]
-func.func @bwd_block_arg_bridge(%arg0: tensor<2x3xf32>) -> tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>> {
+func.func @bwd_block_arg_skip(%arg0: tensor<2x3xf32>) -> tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>> {
   %t = "onnx.Transpose"(%arg0) {perm = [1, 0]} : (tensor<2x3xf32>) -> tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>
   return %t : tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>
 }
@@ -234,16 +237,16 @@ func.func @idempotent(%arg0: tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>) -
 }
 
 // -----
-// Forward + multi-consumer including func.return AND a polymorphic op.
-// Retype the f32 result to quant, insert scast+DQ bridge only for the return.
-// The polymorphic sibling adopts the new quant operand type directly.
-// CHECK-LABEL: func @fwd_return_plus_polymorphic
-// CHECK: %[[T:.+]] = "onnx.Transpose"(%{{.+}}) {{.+}} -> tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>
-// CHECK: %[[RELU:.+]] = "onnx.Relu"(%[[T]])
-// CHECK: %[[S:.+]] = quant.scast %[[T]] : tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>> to tensor<3x2xi8>
-// CHECK: %[[DQ:.+]] = "onnx.DequantizeLinear"(%[[S]], %{{.+}}, %{{.+}})
-// CHECK: return %[[DQ]], %[[RELU]]
-func.func @fwd_return_plus_polymorphic(%arg0: tensor<2x3xi8>) -> (tensor<3x2xf32>, tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>) {
+// Forward + multi-consumer where one consumer is func.return -> skip whole
+// rewrite (return user blocks forward propagation). Transpose stays
+// mismatched; polymorphic Relu sibling is left as-is.
+// CHECK-LABEL: func @fwd_return_plus_polymorphic_skip
+// CHECK: %[[T:.+]] = "onnx.Transpose"(%{{.+}}) {{.+}}: (tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>) -> tensor<3x2xf32>
+// CHECK: %[[RELU:.+]] = "onnx.Relu"(%[[T]]) : (tensor<3x2xf32>) -> tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK-NOT: quant.scast
+// CHECK-NOT: onnx.DequantizeLinear
+// CHECK: return %[[T]], %[[RELU]]
+func.func @fwd_return_plus_polymorphic_skip(%arg0: tensor<2x3xi8>) -> (tensor<3x2xf32>, tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>) {
   %q = quant.scast %arg0 : tensor<2x3xi8> to tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
   %t = "onnx.Transpose"(%q) {perm = [1, 0]} : (tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>) -> tensor<3x2xf32>
   %r = "onnx.Relu"(%t) : (tensor<3x2xf32>) -> tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>
@@ -265,16 +268,16 @@ func.func @fwd_return_plus_cast_skips(%arg0: tensor<2x3xi8>) -> (tensor<3x2xf32>
 }
 
 // -----
-// Backward + producer also feeds func.return as sibling.
-// Retype producer; bridge the return sibling with scast+DQ; quant-using op
-// (Transpose) sees quant directly.
-// CHECK-LABEL: func @bwd_producer_return_sibling
-// CHECK: %[[R:.+]] = "onnx.Relu"(%{{.+}}) {{.+}} -> tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
-// CHECK: %[[T:.+]] = "onnx.Transpose"(%[[R]]) {{.+}} -> tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>
-// CHECK: %[[S:.+]] = quant.scast %[[R]] : tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>> to tensor<2x3xi8>
-// CHECK: %[[DQ:.+]] = "onnx.DequantizeLinear"(%[[S]], %{{.+}}, %{{.+}})
-// CHECK: return %[[T]], %[[DQ]]
-func.func @bwd_producer_return_sibling(%arg0: tensor<2x3xf32>) -> (tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<2x3xf32>) {
+// Backward + producer's result also feeds func.return as sibling -> skip
+// (we don't retype Relu's result because that would change return's operand
+// type). Relu and Transpose stay as in the input IR. No bridge inserted.
+// CHECK-LABEL: func @bwd_producer_return_sibling_skip
+// CHECK: %[[R:.+]] = "onnx.Relu"(%{{.+}}) : (tensor<2x3xf32>) -> tensor<2x3xf32>
+// CHECK: %[[T:.+]] = "onnx.Transpose"(%[[R]]) {{.+}}: (tensor<2x3xf32>) -> tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>
+// CHECK-NOT: quant.scast
+// CHECK-NOT: onnx.DequantizeLinear
+// CHECK: return %[[T]], %[[R]]
+func.func @bwd_producer_return_sibling_skip(%arg0: tensor<2x3xf32>) -> (tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<2x3xf32>) {
   %r = "onnx.Relu"(%arg0) : (tensor<2x3xf32>) -> tensor<2x3xf32>
   %t = "onnx.Transpose"(%r) {perm = [1, 0]} : (tensor<2x3xf32>) -> tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>
   return %t, %r : tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<2x3xf32>
@@ -296,29 +299,29 @@ func.func @bwd_producer_cast_sibling_skips(%arg0: tensor<2x3xf32>) -> (tensor<3x
 }
 
 // -----
-// Graph input that also feeds a sibling (and that sibling also goes to return).
-// Block-arg branch fires for our op only; sibling is untouched; block-arg type
-// stays f32 (ABI preserved).
-// CHECK-LABEL: func @bwd_block_arg_with_other_users
-// CHECK: %[[Q:.+]] = "onnx.QuantizeLinear"(%arg0, %{{.+}}, %{{.+}})
-// CHECK: %[[S:.+]] = quant.scast %[[Q]]
-// CHECK: %[[T:.+]] = "onnx.Transpose"(%[[S]]) {{.+}} -> tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>
+// Block-arg with multiple uses (Transpose + func.return) -> skip.
+// Block-arg untouched; Transpose stays mismatched. No bridge inserted.
+// CHECK-LABEL: func @bwd_block_arg_other_users_skip
+// CHECK-NOT: onnx.QuantizeLinear
+// CHECK-NOT: quant.scast
+// CHECK: %[[T:.+]] = "onnx.Transpose"(%arg0) {{.+}}: (tensor<2x3xf32>) -> tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>
 // CHECK: return %[[T]], %arg0
-func.func @bwd_block_arg_with_other_users(%arg0: tensor<2x3xf32>) -> (tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<2x3xf32>) {
+func.func @bwd_block_arg_other_users_skip(%arg0: tensor<2x3xf32>) -> (tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<2x3xf32>) {
   %t = "onnx.Transpose"(%arg0) {perm = [1, 0]} : (tensor<2x3xf32>) -> tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>
   return %t, %arg0 : tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<2x3xf32>
 }
 
 // -----
-// Long data-flow-only chain ending at func.return: every op converges to quant
-// and a single scast+DequantizeLinear bridge is inserted just before return.
+// Long data-flow-only chain ending at func.return: forward propagation walks
+// through Reshape and Transpose but stops at Flatten (whose result feeds
+// func.return). Flatten stays at q -> f32 (mismatched); no bridge inserted.
 // CHECK-LABEL: func @chain_dataflow_only_to_return
 // CHECK: %[[R:.+]] = "onnx.Reshape"(%{{.+}}, %{{.+}}) {{.+}} -> tensor<2x3x!quant.uniform<i8:f32, 5.000000e-01>>
 // CHECK: %[[T:.+]] = "onnx.Transpose"(%[[R]]) {{.+}} -> tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>
-// CHECK: %[[F:.+]] = "onnx.Flatten"(%[[T]]) {{.+}} -> tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>
-// CHECK: %[[SC:.+]] = quant.scast %[[F]] : tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>> to tensor<3x2xi8>
-// CHECK: %[[DQ:.+]] = "onnx.DequantizeLinear"(%[[SC]], %{{.+}}, %{{.+}})
-// CHECK: return %[[DQ]]
+// CHECK: %[[F:.+]] = "onnx.Flatten"(%[[T]]) {{.+}}: (tensor<3x2x!quant.uniform<i8:f32, 5.000000e-01>>) -> tensor<3x2xf32>
+// CHECK-NOT: quant.scast
+// CHECK-NOT: onnx.DequantizeLinear
+// CHECK: return %[[F]]
 func.func @chain_dataflow_only_to_return(%arg0: tensor<6xi8>) -> tensor<3x2xf32> {
   %sh = "onnx.Constant"() {value = dense<[2, 3]> : tensor<2xi64>} : () -> tensor<2xi64>
   %q = quant.scast %arg0 : tensor<6xi8> to tensor<6x!quant.uniform<i8:f32, 5.000000e-01>>

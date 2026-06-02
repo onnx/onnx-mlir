@@ -147,6 +147,12 @@ static bool isInputFromPattern2Eltwise(Value v) {
   Operation *def = v.getDefiningOp();
   if (!def)
     return false;
+  // Multi-user eltwise: Pattern 2 won't fuse (it would clone the eltwise and
+  // duplicate compute), so do not defer here. Letting this return false lets
+  // Pattern 1 emit a standalone activation op (matches the xmodel-flow
+  // "golden" form: bare eltwise + standalone Relu).
+  if (!def->hasOneUse())
+    return false;
   if (!isa<ONNXAddOp, ONNXSubOp, ONNXMulOp, ONNXDivOp, ONNXTanhOp, ONNXSqrtOp>(
           def))
     return false;
@@ -500,6 +506,17 @@ struct FuseQuantizedEltwiseActivation : public OpRewritePattern<ActivationOp> {
     if (!eltwiseOp)
       return rewriter.notifyMatchFailure(
           activationOp, "input not from eltwise operation");
+
+    // Multi-user eltwise: refuse to fuse so we do not clone the eltwise into
+    // the activation slot (which duplicates compute for every non-activation
+    // consumer of the eltwise). Pattern 1 then emits the activation as a
+    // standalone XCOMPILERFusedEltwise, matching the xmodel-flow "golden"
+    // form (e.g. ADD + standalone RELU for an Add whose result feeds both a
+    // Relu and another consumer such as Concat).
+    if (!eltwiseOp->hasOneUse())
+      return rewriter.notifyMatchFailure(activationOp,
+          "eltwise has multiple users; emit standalone activation instead "
+          "of cloning the eltwise");
 
     // Handle unary and binary eltwise ops.
     Value a = nullptr, b = nullptr;

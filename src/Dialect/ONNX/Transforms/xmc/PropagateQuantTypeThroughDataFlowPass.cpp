@@ -7,9 +7,13 @@
 // output value equals some input value, all sharing the same quantization
 // parameters), unifies an f32 <-> !quant.uniform mismatch between the data
 // operand(s) and result(s) by retyping the f32 side to the quant type in place
-// via Value::setType. At function input/output boundaries an
-// ONNXQuantizeLinear+scast or scast+ONNXDequantizeLinear bridge is inserted so
-// the ABI stays f32.
+// via Value::setType.
+//
+// At function input/output boundaries the pass DOES NOT propagate. If a data
+// operand is a function block argument, or any user of a data result is a
+// `func.return`, that side is treated as a hard skip — no quant type transfer
+// occurs there and no bridging Q/scast/DQ ops are inserted. The function ABI
+// stays untouched.
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -61,33 +65,18 @@ static bool allF32Tensors(ArrayRef<Value> values) {
   return !values.empty();
 }
 
-// True if `op` is a data-flow op (every output value equals some input value
-// with the same quant params). The data operands and results may be a subset
-// of all operands/results; see getDataIO().
-//
-// Whitelist matches xcompiler's QDQStandardizeQuantizationPass:
-//   {transpose, reshape, pixel-shuffle, expand, neg, clamp, concat, resize,
-//    where}
-// plus basic shape-only ops (Squeeze/Unsqueeze/Flatten/Identity/
-// ReverseSequence/SpaceToDepth) which are trivial extensions of Reshape that
-// some models don't pre-decompose.
+// Whitelist matches xcompiler's QDQStandardizeQuantizationPass plus basic
+// shape-only ops that are trivial extensions of Reshape.
 static bool isWhitelistedDataFlow(Operation *op) {
-  return isa<
-      // Basic shape-only / no-computation (same element count, rearrangement)
-      mlir::ONNXReshapeOp, mlir::ONNXTransposeOp, mlir::ONNXSqueezeOp,
+  return isa<mlir::ONNXReshapeOp, mlir::ONNXTransposeOp, mlir::ONNXSqueezeOp,
       mlir::ONNXSqueezeV11Op, mlir::ONNXUnsqueezeOp, mlir::ONNXUnsqueezeV11Op,
       mlir::ONNXFlattenOp, mlir::ONNXIdentityOp, mlir::ONNXDepthToSpaceOp,
-      mlir::ONNXSpaceToDepthOp, mlir::ONNXReverseSequenceOp,
-      // QDQStandardize: value-preserving / accepted-approximation single-input
-      mlir::ONNXExpandOp, mlir::ONNXNegOp, mlir::ONNXClipOp,
-      // QDQStandardize: single input, attribute-filtered
-      mlir::ONNXResizeOp,
-      // QDQStandardize: multi-input
-      mlir::ONNXConcatOp, mlir::ONNXWhereOp>(op);
+      mlir::ONNXSpaceToDepthOp, mlir::ONNXReverseSequenceOp, mlir::ONNXExpandOp,
+      mlir::ONNXNegOp, mlir::ONNXClipOp, mlir::ONNXResizeOp, mlir::ONNXConcatOp,
+      mlir::ONNXWhereOp>(op);
 }
 
-// Attribute-filter gate. Returns true if `op` either has no filter or passes
-// the filter (currently: Resize only when mode=="nearest").
+// Attribute-filter gate. Resize is only safe for nearest mode.
 static bool passesAttributeFilter(Operation *op) {
   if (auto resize = dyn_cast<mlir::ONNXResizeOp>(op))
     return resize.getMode() == "nearest";
@@ -96,8 +85,7 @@ static bool passesAttributeFilter(Operation *op) {
 
 // Returns the data operand and data result Values for `op`. Metadata operands
 // (shape / axes / indices / pads / constant_value / scales / sizes / repeats /
-// condition / sequence_lens / roi) and metadata results (indices) are
-// excluded.
+// condition / sequence_lens / roi) and metadata results are excluded.
 struct DataIO {
   SmallVector<Value> operands;
   SmallVector<Value> results;
@@ -138,94 +126,38 @@ static bool isTypeBoundProducer(Operation *op) {
       mlir::ONNXLoopOp, mlir::ONNXScanOp>(op);
 }
 
-// Consumers whose f32 operand type is interpreted literally (Cast/CastLike)
-// or paired with the op's own quantization attributes (Q).
+// Consumers whose f32 operand type is semantically bound. Includes
+// func.return: at function output boundary we never retype, never bridge.
 static bool isTypeBoundConsumer(Operation *op) {
-  return isa<mlir::ONNXCastOp, mlir::ONNXCastLikeOp,
-      mlir::ONNXQuantizeLinearOp>(op);
+  return isa<mlir::ONNXCastOp, mlir::ONNXCastLikeOp, mlir::ONNXQuantizeLinearOp,
+      func::ReturnOp>(op);
 }
 
-static std::pair<Value, Value> buildScaleZpConstants(
-    PatternRewriter &rewriter, Location loc, quant::UniformQuantizedType q) {
-  auto scaleTT = RankedTensorType::get({}, rewriter.getF32Type());
-  auto scaleAttr =
-      DenseElementsAttr::get(scaleTT, rewriter.getF32FloatAttr(q.getScale()));
-  auto scaleC =
-      rewriter.create<mlir::ONNXConstantOp>(loc, Attribute(), scaleAttr);
-  Type storageTy = q.getStorageType();
-  auto zpTT = RankedTensorType::get({}, storageTy);
-  auto zpAttr = DenseElementsAttr::get(
-      zpTT, rewriter.getIntegerAttr(storageTy, q.getZeroPoint()));
-  auto zpC = rewriter.create<mlir::ONNXConstantOp>(loc, Attribute(), zpAttr);
-  return {scaleC.getResult(), zpC.getResult()};
-}
-
-// f32Val -> ONNXQuantizeLinear -> quant.scast -> returned !quant.uniform value.
-static Value insertF32ToQuantBridge(PatternRewriter &rewriter, Location loc,
-    Value f32Val, quant::UniformQuantizedType q) {
-  auto f32TT = cast<TensorType>(f32Val.getType());
-  auto [scaleC, zpC] = buildScaleZpConstants(rewriter, loc, q);
-  auto qOp = rewriter.create<mlir::ONNXQuantizeLinearOp>(loc,
-      f32TT.clone(q.getStorageType()), f32Val, scaleC, zpC,
-      /*axis=*/IntegerAttr(), /*saturate=*/IntegerAttr(),
-      /*block_size=*/IntegerAttr());
-  return rewriter.create<quant::StorageCastOp>(loc, f32TT.clone(q), qOp)
-      .getResult();
-}
-
-// quantVal -> quant.scast -> ONNXDequantizeLinear -> returned f32 value.
-static Value insertQuantToF32Bridge(PatternRewriter &rewriter, Location loc,
-    Value quantVal, quant::UniformQuantizedType q) {
-  auto qTT = cast<TensorType>(quantVal.getType());
-  auto scast = rewriter.create<quant::StorageCastOp>(
-      loc, qTT.clone(q.getStorageType()), quantVal);
-  auto [scaleC, zpC] = buildScaleZpConstants(rewriter, loc, q);
-  return rewriter
-      .create<mlir::ONNXDequantizeLinearOp>(loc,
-          qTT.clone(rewriter.getF32Type()), scast.getResult(), scaleC, zpC,
-          /*axis=*/IntegerAttr(), /*block_size=*/IntegerAttr())
-      .getResult();
-}
-
-// Examines users of `v`. Collects `func.return` users into `returnUsers`;
-// returns failure() if any non-return user is type-bound.
-static LogicalResult classifyUsers(
-    Value v, SmallVector<func::ReturnOp> &returnUsers) {
-  for (Operation *u : v.getUsers()) {
-    if (auto r = dyn_cast<func::ReturnOp>(u)) {
-      returnUsers.push_back(r);
-      continue;
-    }
-    if (isTypeBoundConsumer(u))
-      return failure();
-  }
-  return success();
-}
-
-// Examines sibling users of `v` (users that are not `self`). Collects return
-// siblings; fails on any non-return type-bound sibling.
-static LogicalResult classifySiblings(
-    Value v, Operation *self, SmallVector<func::ReturnOp> &returnSiblings) {
-  for (Operation *u : v.getUsers()) {
-    if (u == self)
-      continue;
-    if (auto r = dyn_cast<func::ReturnOp>(u)) {
-      returnSiblings.push_back(r);
-      continue;
-    }
-    if (isTypeBoundConsumer(u))
-      return failure();
-  }
-  return success();
+// Group A: input and output quant types are required to match
+// (no Requantize support downstream). Higher pattern benefit gives these
+// ops priority in the greedy driver, so forward / backward propagation
+// converges on the Group A ops first before Group B ops settle.
+//
+// Group B = whitelisted ops NOT in Group A. Their mid-op (Q_a vs Q_c)
+// mismatches, if any, are handled by `XmcRequantizePass`.
+static bool isGroupA(Operation *op) {
+  return isa<mlir::ONNXReverseSequenceOp, mlir::ONNXExpandOp, mlir::ONNXNegOp,
+      mlir::ONNXClipOp, mlir::ONNXResizeOp, mlir::ONNXWhereOp>(op);
 }
 
 struct PropagateQuantTypePattern : public RewritePattern {
-  PropagateQuantTypePattern(MLIRContext *context)
-      : RewritePattern(MatchAnyOpTypeTag(), /*benefit=*/1, context) {}
+  PropagateQuantTypePattern(MLIRContext *context, PatternBenefit benefit)
+      : RewritePattern(MatchAnyOpTypeTag(), benefit, context) {}
+
+  // Subclasses restrict which whitelisted ops match. Returns true if `op`
+  // is in this pattern's group.
+  virtual bool acceptsOp(Operation *op) const = 0;
 
   LogicalResult matchAndRewrite(
       Operation *op, PatternRewriter &rewriter) const override {
     if (!isWhitelistedDataFlow(op))
+      return failure();
+    if (!acceptsOp(op))
       return failure();
     if (!passesAttributeFilter(op))
       return failure();
@@ -251,113 +183,80 @@ struct PropagateQuantTypePattern : public RewritePattern {
     bool anyOperandF32 = llvm::any_of(
         io.operands, [](Value v) { return isF32Tensor(v.getType()); });
 
-    // Forward: data operands share a common quant type, results are all f32.
+    // State (Q_a, F32): forward — propagate operand quant to f32 results.
     if (operandQ && resultsF32) {
-      auto uQ = dyn_cast<quant::UniformQuantizedType>(operandQ);
-      SmallVector<SmallVector<func::ReturnOp>> resultReturns(io.results.size());
-      for (auto [i, r] : llvm::enumerate(io.results)) {
-        if (failed(classifyUsers(r, resultReturns[i])))
-          return failure();
-      }
-      // Function-return bridges require a per-tensor uniform quant.
-      for (auto &rus : resultReturns)
-        if (!rus.empty() && !uQ)
-          return failure();
-      // Retype all data results in place.
+      for (Value r : io.results)
+        for (Operation *u : r.getUsers())
+          if (isTypeBoundConsumer(u))
+            return failure();
       rewriter.modifyOpInPlace(op, [&]() {
         for (Value r : io.results) {
           Type newTy = cast<TensorType>(r.getType()).clone(operandQ);
           r.setType(newTy);
         }
       });
-      // Bridge func.return users back to f32.
-      for (auto [i, r] : llvm::enumerate(io.results)) {
-        for (func::ReturnOp ret : resultReturns[i]) {
-          rewriter.setInsertionPoint(ret);
-          Value bridge = insertQuantToF32Bridge(rewriter, op->getLoc(), r, uQ);
-          rewriter.modifyOpInPlace(ret, [&]() {
-            for (OpOperand &opnd : ret->getOpOperands())
-              if (opnd.get() == r)
-                opnd.set(bridge);
-          });
-        }
-      }
       return success();
     }
 
-    // Backward: data results share a common quant type, AT LEAST one data
-    // operand is f32 (matching xcompiler's case 2 "all-missing" and case 3
-    // "partial-missing" together). Already-quant operands are left untouched
-    // even if they disagree with resultQ -- their pre-pass mismatch state is
-    // preserved (no worse than skipping the rewrite entirely).
+    // State (any-F32, Q_c): backward — per-operand retype of f32 operands to
+    // the common result quant. Mismatched quant operands (if any) are left
+    // for `XmcRequantizePass` (Group B) or flagged (Group A) below.
     if (resultQ && anyOperandF32) {
-      auto uQ = dyn_cast<quant::UniformQuantizedType>(resultQ);
-      // Classify each f32 operand independently. Any single classification
-      // failure aborts the whole rewrite so we don't half-apply.
       SmallVector<bool> retypeThis(io.operands.size(), false);
-      SmallVector<bool> isBlockArg(io.operands.size(), false);
       SmallVector<Operation *> producers(io.operands.size(), nullptr);
-      SmallVector<SmallVector<func::ReturnOp>> operandReturnSiblings(
-          io.operands.size());
       for (auto [i, opnd] : llvm::enumerate(io.operands)) {
         if (!isF32Tensor(opnd.getType()))
-          continue; // skip already-quant operand; leave it as-is
-        retypeThis[i] = true;
-        if (isa<BlockArgument>(opnd)) {
-          if (!uQ)
-            return failure();
-          isBlockArg[i] = true;
           continue;
-        }
         Operation *p = opnd.getDefiningOp();
-        if (!p || isTypeBoundProducer(p))
-          return failure();
-        if (failed(classifySiblings(opnd, op, operandReturnSiblings[i])))
-          return failure();
-        if (!operandReturnSiblings[i].empty() && !uQ)
-          return failure();
+        if (!p)
+          continue;
+        if (isTypeBoundProducer(p))
+          continue;
+        bool hasBadSibling = false;
+        for (Operation *u : opnd.getUsers()) {
+          if (u == op)
+            continue;
+          if (isTypeBoundConsumer(u)) {
+            hasBadSibling = true;
+            break;
+          }
+        }
+        if (hasBadSibling)
+          continue;
+        retypeThis[i] = true;
         producers[i] = p;
       }
-      // Apply: for block-arg operands, insert local Q+scast bridge; for
-      // regular operands, retype the producer's result in place. Skip
-      // already-quant operands entirely.
+      if (!llvm::any_of(retypeThis, [](bool b) { return b; }))
+        return failure();
       for (auto [i, opnd] : llvm::enumerate(io.operands)) {
         if (!retypeThis[i])
           continue;
-        if (isBlockArg[i]) {
-          rewriter.setInsertionPoint(op);
-          Value bridge =
-              insertF32ToQuantBridge(rewriter, op->getLoc(), opnd, uQ);
-          unsigned operandIdx = 0;
-          for (OpOperand &use : op->getOpOperands()) {
-            if (use.get() == opnd && operandIdx == i) {
-              use.set(bridge);
-              break;
-            }
-            if (use.get() == opnd)
-              ++operandIdx;
-          }
-        } else {
-          Operation *p = producers[i];
-          Type newTy = cast<TensorType>(opnd.getType()).clone(resultQ);
-          rewriter.modifyOpInPlace(p, [&]() { opnd.setType(newTy); });
-          for (func::ReturnOp ret : operandReturnSiblings[i]) {
-            rewriter.setInsertionPoint(ret);
-            Value bridge =
-                insertQuantToF32Bridge(rewriter, op->getLoc(), opnd, uQ);
-            rewriter.modifyOpInPlace(ret, [&]() {
-              for (OpOperand &use : ret->getOpOperands())
-                if (use.get() == opnd)
-                  use.set(bridge);
-            });
-          }
-        }
+        Operation *p = producers[i];
+        Type newTy = cast<TensorType>(opnd.getType()).clone(resultQ);
+        rewriter.modifyOpInPlace(p, [&]() { opnd.setType(newTy); });
       }
       return success();
     }
 
+    // Any other state (including all-quant operand+result mismatches):
+    // not handled here — left for `XmcRequantizePass` on Group B ops.
     return failure();
   }
+};
+
+// Higher-benefit pattern: only matches Group A ops, so the greedy driver
+// tries to propagate through Group A first.
+struct PropagateQuantTypeGroupAPattern : public PropagateQuantTypePattern {
+  PropagateQuantTypeGroupAPattern(MLIRContext *context)
+      : PropagateQuantTypePattern(context, /*benefit=*/2) {}
+  bool acceptsOp(Operation *op) const override { return isGroupA(op); }
+};
+
+// Lower-benefit pattern: matches the remaining whitelisted (Group B) ops.
+struct PropagateQuantTypeGroupBPattern : public PropagateQuantTypePattern {
+  PropagateQuantTypeGroupBPattern(MLIRContext *context)
+      : PropagateQuantTypePattern(context, /*benefit=*/1) {}
+  bool acceptsOp(Operation *op) const override { return !isGroupA(op); }
 };
 
 } // namespace
@@ -375,8 +274,8 @@ struct PropagateQuantTypeThroughDataFlowPass
            "xcompiler's QDQStandardizeQuantizationPass: Reshape/Transpose/"
            "Squeeze/Unsqueeze/Flatten/Identity/DepthToSpace/SpaceToDepth/"
            "ReverseSequence/Expand/Neg/Clip/Resize(nearest)/Concat/Where. "
-           "Function inputs and outputs are bridged with QuantizeLinear+"
-           "scast or scast+DequantizeLinear so the ABI stays f32.";
+           "Function input and output boundaries are skipped (no Q/DQ/scast "
+           "bridging at the ABI).";
   }
 
   void getDependentDialects(DialectRegistry &registry) const override {
@@ -384,10 +283,22 @@ struct PropagateQuantTypeThroughDataFlowPass
   }
 
   void runOnOperation() override {
-    RewritePatternSet patterns(&getContext());
-    patterns.add<PropagateQuantTypePattern>(&getContext());
-    if (failed(applyPatternsGreedily(getOperation(), std::move(patterns))))
-      signalPassFailure();
+    // Phase 1: Group A only — propagate to fixed point before Group B runs.
+    {
+      RewritePatternSet patterns(&getContext());
+      patterns.add<PropagateQuantTypeGroupAPattern>(&getContext());
+      if (failed(applyPatternsGreedily(getOperation(), std::move(patterns)))) {
+        signalPassFailure();
+        return;
+      }
+    }
+    // Phase 2: Group B — process the rest.
+    {
+      RewritePatternSet patterns(&getContext());
+      patterns.add<PropagateQuantTypeGroupBPattern>(&getContext());
+      if (failed(applyPatternsGreedily(getOperation(), std::move(patterns))))
+        signalPassFailure();
+    }
   }
 };
 
