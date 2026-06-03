@@ -140,6 +140,10 @@ void NNPAAccelerator::registerPasses(int optLevel) const {
       []() -> std::unique_ptr<mlir::Pass> { return createFoldStdAllocPass(); });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createReplaceMallocByHugePageMallocPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return onnx_mlir::zhigh::createZHighConstPropagationPass();
   });
 
