@@ -99,7 +99,8 @@ void configurePassesNNPA() {
     }
   }
   // Set the proper instrumentation stage before we add any passes.
-  if (profileIR == onnx_mlir::ProfileIRs::ZHigh)
+  if (profileIR == onnx_mlir::ProfileIRs::ZHigh ||
+      profileIRWithSig == onnx_mlir::ProfileIRs::ZHigh)
     instrumentStage = onnx_mlir::InstrumentStages::ZHigh;
 
   configureONNXToZHighLoweringPass(optReport == OptReport::NNPAUnsupportedOps,
@@ -341,9 +342,13 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
     }
   }
 
-  if (emissionTarget >= EmitLLVMIR)
+  if (emissionTarget >= EmitLLVMIR) {
     // Lower the remaining Krnl and all ZLow ops to LLVM dialect.
     addKrnlToLLVMPasses(pm, outputNameNoExt, /*enableCSE=*/true);
+    // Replace malloc with OMHugePageMalloc for better performance on Z.
+    if (!nnpaDisableHugePageMalloc)
+      pm.addPass(onnx_mlir::createReplaceMallocByHugePageMallocPass());
+  }
 }
 
 } // namespace onnx_mlir
