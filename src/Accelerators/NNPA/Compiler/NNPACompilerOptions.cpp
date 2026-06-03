@@ -138,4 +138,9 @@ llvm::cl::opt<bool> nnpaDisableShapeRestriction(
                    "Default is false"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
 
+llvm::cl::opt<bool> nnpaDisableHugePageMalloc("nnpa-disable-hugepage-malloc",
+    llvm::cl::desc("Disable replacement of malloc with OMHugePageMalloc. "
+                   "Default is false"),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
 } // namespace onnx_mlir
