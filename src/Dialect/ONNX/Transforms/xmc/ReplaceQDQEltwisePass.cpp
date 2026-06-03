@@ -28,17 +28,23 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Quant/IR/Quant.h"
 #include "mlir/Dialect/Quant/IR/QuantTypes.h"
 #include "mlir/Dialect/Traits.h"
+#include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
+#include "mlir/Support/LLVM.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 #include "src/Pass/Passes.hpp"
 
+#include "llvm/ADT/APInt.h"
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Debug.h"
 
 #include <cmath>
@@ -211,6 +217,89 @@ static Type recoverRankedResultType(Type resultType, Value a, Value b) {
   return resultType;
 }
 
+static void maybeWidenNarrowConstOperand(PatternRewriter &rewriter,
+    Location loc, StringRef opType, Value &a, Value &b) {
+  if (opType != "ADD" && opType != "MUL" && opType != "SUB" && opType != "DIV")
+    return;
+  if (!a || !b || mlir::isa<NoneType>(b.getType()))
+    return;
+
+  auto aTy = mlir::dyn_cast<RankedTensorType>(a.getType());
+  auto bTy = mlir::dyn_cast<RankedTensorType>(b.getType());
+  if (!aTy || !bTy)
+    return;
+
+  auto aQ =
+      mlir::dyn_cast<mlir::quant::UniformQuantizedType>(aTy.getElementType());
+  auto bQ =
+      mlir::dyn_cast<mlir::quant::UniformQuantizedType>(bTy.getElementType());
+  if (!aQ || !bQ)
+    return;
+
+  auto aStor = mlir::dyn_cast<IntegerType>(aQ.getStorageType());
+  auto bStor = mlir::dyn_cast<IntegerType>(bQ.getStorageType());
+  if (!aStor || !bStor)
+    return;
+
+  unsigned aW = aStor.getWidth();
+  unsigned bW = bStor.getWidth();
+  if (aW == bW)
+    return;
+
+  bool narrowIsA = aW < bW;
+  Value narrowSide = narrowIsA ? a : b;
+  mlir::quant::UniformQuantizedType narrowQ = narrowIsA ? aQ : bQ;
+  RankedTensorType narrowTy = narrowIsA ? aTy : bTy;
+  unsigned narrowW = narrowIsA ? aW : bW;
+  unsigned wideW = narrowIsA ? bW : aW;
+
+  if (narrowW != 8 || wideW != 16)
+    return;
+
+  auto constOp = narrowSide.getDefiningOp<ONNXConstantOp>();
+  if (!constOp || !constOp->hasOneUse())
+    return;
+
+  auto valueAttr =
+      mlir::dyn_cast_or_null<DenseElementsAttr>(constOp.getValueAttr());
+  if (!valueAttr || !valueAttr.getElementType().isIntOrIndex())
+    return;
+
+  bool isSigned = narrowQ.isSigned();
+  auto wideStorTy = rewriter.getIntegerType(16);
+
+  auto wideQ = mlir::quant::UniformQuantizedType::get(narrowQ.getFlags(),
+      wideStorTy, narrowQ.getExpressedType(), narrowQ.getScale(),
+      narrowQ.getZeroPoint(),
+      mlir::quant::UniformQuantizedType::getDefaultMinimumForInteger(
+          isSigned, 16),
+      mlir::quant::UniformQuantizedType::getDefaultMaximumForInteger(
+          isSigned, 16));
+
+  auto wideTensorTy = RankedTensorType::get(narrowTy.getShape(), wideQ);
+  auto wideStorageTensorTy =
+      RankedTensorType::get(narrowTy.getShape(), wideStorTy);
+
+  llvm::SmallVector<llvm::APInt, 16> widened;
+  widened.reserve(valueAttr.getNumElements());
+  for (llvm::APInt v : valueAttr.getValues<llvm::APInt>())
+    widened.push_back(isSigned ? v.sext(16) : v.zext(16));
+  auto wideDense = DenseElementsAttr::get(
+      wideStorageTensorTy, llvm::ArrayRef<llvm::APInt>(widened));
+  auto wideValueAttr = rewriter.getNamedAttr("value", wideDense);
+
+  auto wideConstOp = rewriter.create<ONNXConstantOp>(loc, wideTensorTy,
+      ValueRange{}, llvm::ArrayRef<NamedAttribute>{wideValueAttr});
+
+  if (narrowIsA)
+    a = wideConstOp.getResult();
+  else
+    b = wideConstOp.getResult();
+
+  if (constOp->use_empty())
+    rewriter.eraseOp(constOp);
+}
+
 // Check if type is BFloat16
 bool isBFloat16Type(Type type) {
   if (auto tensorType = mlir::dyn_cast<RankedTensorType>(type)) {
@@ -356,6 +445,8 @@ struct FuseQuantizedEltwiseWithoutActivation
     StringRef nonlinear = "NONE";
 
     Type resultType = recoverRankedResultType(eltwiseOp.getType(), a, b);
+
+    maybeWidenNarrowConstOperand(rewriter, eltwiseOp.getLoc(), opType, a, b);
 
     auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(eltwiseOp.getLoc(),
         resultType, a, b,
@@ -578,6 +669,7 @@ struct FuseQuantizedEltwiseActivation : public OpRewritePattern<ActivationOp> {
     if (isReluNoOp(activationOp.getOperation())) {
       if (isUnary)
         b = rewriter.create<ONNXNoneOp>(eltwiseOp.getLoc()).getResult();
+      maybeWidenNarrowConstOperand(rewriter, eltwiseOp.getLoc(), opType, a, b);
       auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(
           eltwiseOp.getLoc(), activationOp.getType(), a, b,
           /*enable_lut_sigmoid=*/rewriter.getBoolAttr(false),
@@ -624,6 +716,8 @@ struct FuseQuantizedEltwiseActivation : public OpRewritePattern<ActivationOp> {
     // Only create IR (e.g. onnx.NoValue) after we know we will rewrite.
     if (isUnary)
       b = rewriter.create<ONNXNoneOp>(eltwiseOp.getLoc()).getResult();
+
+    maybeWidenNarrowConstOperand(rewriter, eltwiseOp.getLoc(), opType, a, b);
 
     auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(eltwiseOp.getLoc(),
         activationOp.getType(), // Result type (quantized)
