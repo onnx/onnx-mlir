@@ -28,7 +28,6 @@ class OMCompile(OMCompile_):
     def __init__(
         self,
         compiler_path="",
-        compile_policy="local",
         compiler_image="",
         auto_pull=True,
         engine="auto",
@@ -37,29 +36,18 @@ class OMCompile(OMCompile_):
     ):
 
         self.cache = cache
-        # Check legality of the parameter combination
-        if compiler_image and not compiler_path:
-            print("When compiler image is used, the compiler_path has to be provided")
-            exit(-1)
-        if compile_policy == "standalone" and (compiler_image or compiler_path):
-            print("Choose exactly one compiler")
-            exit(-1)
-
-        if compile_policy == "standalone":
-            # Import the package for standalone compile
-            try:
-                import OMPyCompile
-            except ImportError as e:
-                print(f"Error: {e.msg}")
-                print(f"Module name: {e.name}")
-                print("Please install package for standalone compiler")
-                exit(-1)
-
-            super().__init__(OMPyCompile.get_compiler_path(), verbose)
-
-        elif compiler_image:
+        if compiler_image:
             super().__init__(compiler_image, compiler_path, engine, auto_pull, verbose)
         else:
+            if not compiler_path:
+                # Import the package for standalone compile
+                try:
+                    import OMPyCompile
+
+                    compiler_path = OMPyCompile.get_compiler_path()
+                except ImportError as e:
+                    # No standalone compiler, use local PATH
+                    pass
             super().__init__(compiler_path, verbose)
 
     def compile(

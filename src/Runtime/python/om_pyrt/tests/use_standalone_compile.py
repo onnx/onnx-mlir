@@ -18,7 +18,8 @@ model_file = str(script_dir / "test_add.mlir")
 import om_pyrt
 
 try:
-    compile_session = om_pyrt.CompileSession(compile_policy="standalone")
+    # Assume the package for standalone compiler is installed
+    compile_session = om_pyrt.CompileSession()
     compile_session.compile(model_file, "-O3")
 except Exception as e:
     print("Fialed to compile")
