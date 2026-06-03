@@ -94,11 +94,15 @@ choose_build_target()
 option(ONNX_MLIR_ENABLE_STABLEHLO "Enable StableHLO support." ON)
 option(ONNX_MLIR_ENABLE_JAVA "Set to ON for building the Java runtime, tools, and tests" ON)
 
-# Disable StableHLO in standalone mode to reduce dependencies
+# Disable StableHLO in standalone and pyruntime light modes to reduce dependencies
 # Note: Java/JNI support is compatible with standalone builds as it uses static libraries
 if(ONNX_MLIR_BUILD_STANDALONE)
   set(ONNX_MLIR_ENABLE_STABLEHLO OFF CACHE BOOL "" FORCE)
   message(STATUS "ONNX_MLIR_BUILD_STANDALONE: ON - Disabling StableHLO support")
+endif()
+if(ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
+  set(ONNX_MLIR_ENABLE_STABLEHLO OFF CACHE BOOL "" FORCE)
+  message(STATUS "ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT: ON - Disabling StableHLO support")
 endif()
 
 include(CTest)
@@ -232,13 +236,15 @@ endif()
 # compile flags updated via llvm_update_compile_flags, so we need to do that to
 # benchmark and rapidcheck as well, so that we can successfully link against them.
 # Otherwise, some of the flags for exceptions (among others) are not set correctly.
-llvm_update_compile_flags(benchmark)
-llvm_update_compile_flags(benchmark_main)
-llvm_update_compile_flags(rapidcheck)
+if (NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
+  llvm_update_compile_flags(benchmark)
+  llvm_update_compile_flags(benchmark_main)
+  llvm_update_compile_flags(rapidcheck)
 
-if (ONNX_MLIR_ENABLE_STABLEHLO)
-  llvm_update_compile_flags(stablehlo-opt)
-  llvm_update_compile_flags(stablehlo-translate)
+  if (ONNX_MLIR_ENABLE_STABLEHLO)
+    llvm_update_compile_flags(stablehlo-opt)
+    llvm_update_compile_flags(stablehlo-translate)
+  endif()
 endif()
 
 # Increase the log level for onnx-mlir
