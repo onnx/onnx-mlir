@@ -185,6 +185,9 @@ std::unique_ptr<mlir::Pass> createRemoveUselessQLinearPoolPass();
 /// Pass for replacing quantized HardSigmoid with XCOMPILERFusedEltwise.
 std::unique_ptr<mlir::Pass> createReplaceHsigmoidAndHswishPass();
 
+std::unique_ptr<mlir::Pass> createRecomposeHardSigmoidPass();
+std::unique_ptr<mlir::Pass> createTransferSoftmaxAxisToLastPass();
+
 /// Pass for replacing quantized Erf-based GELU subgraph with
 /// XCOMPILERFusedEltwise(GELU).
 std::unique_ptr<mlir::Pass> createReplaceErfToGeluPass();
@@ -268,6 +271,10 @@ std::unique_ptr<mlir::Pass> createReplaceQDQEltwisePass();
 
 /// Pass for lowering quantized onnx.Tile to XCOMPILERFusedEltwise ADD (XMC).
 std::unique_ptr<mlir::Pass> createReplaceQuantizedTileToAddPass();
+
+/// Pass for replacing quantized XFEResize with 1x1 spatial input by a
+/// broadcasting onnx.Add against a splat zero_point constant (XMC).
+std::unique_ptr<mlir::Pass> createReplaceQDQResizePass();
 
 /// Pass for merging nested concats and splitting duplicate inputs.
 std::unique_ptr<mlir::Pass> createReplaceAdjacentOpPass();

@@ -67,6 +67,7 @@ add_onnx_mlir_library(OMONNXRewrite
   xmc/ReplaceHsigmoidAndHswishPass.cpp
   xmc/ReplaceQDQSigmoidPass.cpp
   xmc/ReplaceQDQEltwisePass.cpp
+  xmc/ReplaceQDQResizePass.cpp
   xmc/ReplaceQuantizedTileToAddPass.cpp
   xmc/MergeStridedSliceConcatConvPass.cpp
   xmc/ConvertPoolLikeOpToPool2dPass.cpp
@@ -119,6 +120,8 @@ add_onnx_mlir_library(OMONNXRewrite
   xmc/FuseConvActivationPass.cpp
   xmc/NormalizeConvActivationPass.cpp
   xmc/DQBinaryQOptPass.cpp
+  xmc/RecomposeHardSigmoidPass.cpp
+  xmc/TransferSoftmaxAxisToLastPass.cpp
 
   DEPENDS
   OMONNXDecomposeIncGen

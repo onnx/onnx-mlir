@@ -3,9 +3,6 @@
 // This pass replaces quantized HardSigmoid operations with
 // XCOMPILERFusedEltwise ops that work directly with quantized tensor types.
 // TODO: Replacing HSwish
-
-// This pass implements ReplaceQDQSigmoid pass for hard-sigmoid pattern, and
-// converts to eltwise op.
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Quant/IR/QuantTypes.h"
 #include "mlir/IR/BuiltinAttributes.h"
@@ -105,6 +102,11 @@ struct ReplaceQuantizedHardSigmoidPattern
         /*prelu_in=*/IntegerAttr(),
         /*prelu_shift=*/IntegerAttr(),
         /*type=*/rewriter.getStringAttr("HSIGMOID"));
+
+    if (FloatAttr alphaAttr = hardSigmoidOp.getAlphaAttr())
+      fusedEltwiseOp->setAttr("alpha", alphaAttr);
+    if (FloatAttr betaAttr = hardSigmoidOp.getBetaAttr())
+      fusedEltwiseOp->setAttr("beta", betaAttr);
 
     // Replace HardSigmoid directly with XCOMPILERFusedEltwise output
     rewriter.replaceOp(hardSigmoidOp, fusedEltwiseOp.getResult());

@@ -1954,6 +1954,9 @@ struct ONNXTransposeOptimizationPass
     patterns.add<PushTransposeThroughUnaryOp<ONNXIdentityOp>>(context);
     patterns.add<PushTransposeThroughUnaryOp<ONNXLogOp>>(context);
     patterns.add<PushTransposeThroughUnaryOp<ONNXGeluOp>>(context);
+    patterns.add<PushTransposeThroughUnaryOp<ONNXSoftplusOp>>(context);
+    patterns.add<PushTransposeThroughUnaryOp<ONNXNotOp>>(context);
+    patterns.add<PushTransposeThroughUnaryOp<ONNXErfOp>>(context);
 
     patterns.add<PushTransposeThroughClip>(context);
     patterns.add<PushTransposeThroughHardSigmoid>(context);
@@ -1972,6 +1975,7 @@ struct ONNXTransposeOptimizationPass
     patterns.add<FuseBinaryOpTransposes<ONNXDivOp>>(context);
     patterns.add<FuseBinaryOpTransposes<ONNXPowOp>>(context);
     patterns.add<FuseBinaryOpTransposes<ONNXGreaterOp>>(context);
+    patterns.add<FuseBinaryOpTransposes<ONNXModOp>>(context);
 
     patterns.add<FuseTransposeImmuneBinaryOp<ONNXAddOp>>(context);
     patterns.add<FuseTransposeImmuneBinaryOp<ONNXSubOp>>(context);
@@ -1980,6 +1984,7 @@ struct ONNXTransposeOptimizationPass
     patterns.add<FuseTransposeImmuneBinaryOp<ONNXPowOp>>(context);
     patterns.add<FuseTransposeImmuneBinaryOp<ONNXGreaterOp>>(context);
     patterns.add<FuseTransposeImmuneBinaryOp<ONNXPReluOp>>(context);
+    patterns.add<FuseTransposeImmuneBinaryOp<ONNXModOp>>(context);
 
     patterns.add<PushTransposeThroughBinaryWithConst<ONNXAddOp>>(context);
     patterns.add<PushTransposeThroughBinaryWithConst<ONNXSubOp>>(context);
@@ -1988,11 +1993,12 @@ struct ONNXTransposeOptimizationPass
     patterns.add<PushTransposeThroughBinaryWithConst<ONNXPowOp>>(context);
     patterns.add<PushTransposeThroughBinaryWithConst<ONNXGreaterOp>>(context);
     patterns.add<PushTransposeThroughBinaryWithConst<ONNXPReluOp>>(context);
+    patterns.add<PushTransposeThroughBinaryWithConst<ONNXModOp>>(context);
 
     patterns.add<PushTransposeThroughVariadicWithConst<ONNXMinOp>>(context);
     patterns.add<PushTransposeThroughVariadicWithConst<ONNXMaxOp>>(context);
 
-    patterns.add<PushTransposeThroughWhere>(context);
+    // patterns.add<PushTransposeThroughWhere>(context);
 
     patterns.add<PushTransposeThroughAxisOp<ONNXPadOp>>(context);
     patterns.add<PushTransposeThroughAxisOp<ONNXSliceOp>>(context);
@@ -2001,7 +2007,9 @@ struct ONNXTransposeOptimizationPass
 
     patterns.add<PushTransposeThroughAxisOp<ONNXSqueezeOp>>(context);
     patterns.add<PushTransposeThroughAxisOp<ONNXArgMaxOp>>(context);
+    // Softmax move-through is gated to the LogSoftmax pattern (Softmax -> Log).
     patterns.add<PushTransposeThroughAxisOp<ONNXSoftmaxOp>>(context);
+    patterns.add<PushTransposeThroughAxisOp<ONNXLogSoftmaxOp>>(context);
 
     patterns.add<PushTransposeThroughAxisOp<ONNXReduceMeanOp>>(context);
     patterns.add<PushTransposeThroughAxisOp<ONNXReduceMaxOp>>(context);
