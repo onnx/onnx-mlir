@@ -32,43 +32,39 @@ func.func @reduce_mean_spatial_hw(%arg0: tensor<1x3x4x4x!quant.uniform<i8:f32, 0
 // -----
 
 // CHECK-LABEL: @reduce_mean_single_axis_h
-// NCHW: tensor<1x3x8x4> - N=1, C=3, H=8, W=4
-// Reduce axis [2] (H) -> output tensor<1x3x1x4>
+// NCHW: tensor<1x3x8x4> - reduce axis [2] (H); single-axis mean is not lowered
+// (aligned with xcompiler QDQ mean template: axes.size() == 2).
 func.func @reduce_mean_single_axis_h(%arg0: tensor<1x3x8x4x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<1x3x1x4x!quant.uniform<i8:f32, 0.1:1>> {
     %0 = onnx.Constant dense<[2]> : tensor<1xi64>
     %1 = "onnx.ReduceMean"(%arg0, %0) {keepdims = 1 : si64} : (tensor<1x3x8x4x!quant.uniform<i8:f32, 0.05:0>>, tensor<1xi64>) -> tensor<1x3x1x4x!quant.uniform<i8:f32, 0.1:1>>
     return %1 : tensor<1x3x1x4x!quant.uniform<i8:f32, 0.1:1>>
 }
-// CHECK: "onnx.AveragePool"
-// CHECK-SAME: !quant.uniform<i8:f32, 1.000000e-01:1>>
-// CHECK-NOT: onnx.ReduceMean
+// CHECK: "onnx.ReduceMean"
+// CHECK-NOT: onnx.AveragePool
 
 // -----
 
 // CHECK-LABEL: @reduce_mean_single_axis_w
-// NCHW: tensor<1x3x4x8> - N=1, C=3, H=4, W=8
-// Reduce axis [3] (W) -> output tensor<1x3x4x1>
+// NCHW: tensor<1x3x4x8> - reduce axis [3] (W); not lowered (axes.size() == 2).
 func.func @reduce_mean_single_axis_w(%arg0: tensor<1x3x4x8x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<1x3x4x1x!quant.uniform<i8:f32, 0.1:1>> {
     %0 = onnx.Constant dense<[3]> : tensor<1xi64>
     %1 = "onnx.ReduceMean"(%arg0, %0) {keepdims = 1 : si64} : (tensor<1x3x4x8x!quant.uniform<i8:f32, 0.05:0>>, tensor<1xi64>) -> tensor<1x3x4x1x!quant.uniform<i8:f32, 0.1:1>>
     return %1 : tensor<1x3x4x1x!quant.uniform<i8:f32, 0.1:1>>
 }
-// CHECK: "onnx.AveragePool"
-// CHECK-SAME: !quant.uniform<i8:f32, 1.000000e-01:1>>
-// CHECK-NOT: onnx.ReduceMean
+// CHECK: "onnx.ReduceMean"
+// CHECK-NOT: onnx.AveragePool
 
 // -----
 
 // CHECK-LABEL: @reduce_mean_negative_axis
-// NCHW: tensor<1x3x4x4> - reduce axis [-2] = axis 2 (H)
+// NCHW: tensor<1x3x4x4> - reduce axis [-2] = axis 2 (H); not lowered.
 func.func @reduce_mean_negative_axis(%arg0: tensor<1x3x4x4x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<1x3x1x4x!quant.uniform<i8:f32, 0.1:1>> {
     %0 = onnx.Constant dense<[-2]> : tensor<1xi64>
     %1 = "onnx.ReduceMean"(%arg0, %0) {keepdims = 1 : si64} : (tensor<1x3x4x4x!quant.uniform<i8:f32, 0.05:0>>, tensor<1xi64>) -> tensor<1x3x1x4x!quant.uniform<i8:f32, 0.1:1>>
     return %1 : tensor<1x3x1x4x!quant.uniform<i8:f32, 0.1:1>>
 }
-// CHECK: "onnx.AveragePool"
-// CHECK-SAME: !quant.uniform<i8:f32, 1.000000e-01:1>>
-// CHECK-NOT: onnx.ReduceMean
+// CHECK: "onnx.ReduceMean"
+// CHECK-NOT: onnx.AveragePool
 
 // -----
 
