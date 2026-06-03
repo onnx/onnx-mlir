@@ -125,7 +125,6 @@ add_onnx_mlir_library(OMONNXOps
   OMONNXElementsAttr
   onnx
   MLIRFuncDialect
-  MLIRInferTypeOpInterface
   MLIRMemRefTransforms
   )
 
