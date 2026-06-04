@@ -449,6 +449,7 @@ OpsWithVerifier = [
     "SequenceEmpty",
     "SequenceInsert",
     "Shape",
+    "Softmax",
     "SpaceToDepth",
     "Split",
     "SplitToSequence",
