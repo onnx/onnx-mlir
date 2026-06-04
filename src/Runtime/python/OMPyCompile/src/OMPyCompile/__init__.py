@@ -16,4 +16,4 @@ compiler_path = os.path.join(
 compiler_lib = os.path.join(os.path.dirname(loader.get_filename(__package__)), "lib")
 sys.path.append(compiler_lib)
 
-from .PyOMCompile import OMCompile
+from .standalone_driver import get_compiler_path
