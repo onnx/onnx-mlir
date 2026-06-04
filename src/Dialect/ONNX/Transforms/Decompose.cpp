@@ -1773,7 +1773,7 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
     auto finalOutputType =
         RankedTensorType::get(outputShapeForResult, elementType);
 
-    if (enableDepthToSpaceForConvTranspose) {
+    if (enableDepthToSpaceForConvTranspose && isConvOutChannelsDmaAligned) {
       auto si64Ty = rewriter.getIntegerType(64, /*isSigned=*/true);
       auto finalOutput =
           rewriter.create<ONNXDepthToSpaceOp>(loc, finalOutputType, conv,
