@@ -78,6 +78,7 @@ extern llvm::cl::opt<bool> nnpaUseDynamicQuantizeLinearOnCPU;
 extern llvm::cl::opt<bool> nnpaUseDynamicQuantizeLinearOnCPUForScaleOffset;
 extern llvm::cl::opt<bool> nnpaDisableFusionOpStickUnstick;
 extern llvm::cl::opt<bool> nnpaDisableShapeRestriction;
+extern llvm::cl::opt<bool> nnpaDisableHugePageMalloc;
 extern std::vector<NNPAQuantOptions> nnpaQuantDynamic;
 extern std::vector<std::string> nnpaQuantOpTypes;
 

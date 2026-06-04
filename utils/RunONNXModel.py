@@ -933,7 +933,8 @@ class InferenceSession:
             # Invoke the compiler.
             start = time.perf_counter()
             try:
-                compiler = OMCompile(
+                compilerSession = OMCompile()
+                compiler = compilerSession.compile(
                     input_model_path,
                     args.compile_args + " -o " + output_path,
                     log_file_name=compiler_log_file,
