@@ -111,6 +111,7 @@ RUN if [ "$(uname -m)" = "s390x" ]; then \
       cmake -DCMAKE_BUILD_TYPE=Debug \
             -DONNX_MLIR_TARGET_TO_BUILD=OMPyRt .. && \
       cmake --build . --parallel ${NPROC} --target OMCreateOMPyRtPackage && \
+      pip3 install hatchling --prefix=/usr && \
       pip3 install src/Runtime/python/om_pyrt --prefix=/usr --no-build-isolation && \
       cd src/Runtime/python/om_pyrt/tests && \
       pytnon use_local_compiler_compiler.py && \
