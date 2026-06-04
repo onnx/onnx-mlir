@@ -22,6 +22,9 @@ namespace {
 /// Relu is idempotent (Relu(Relu(x)) == Relu(x)), so this bypasses one level
 /// per application. The greedy driver re-runs until the whole chain collapses
 /// and DCEs the now-dead inner Relus.
+///
+/// Only clean chains are collapsed: if the inner Relu fans out (has consumers
+/// other than this Relu) we skip it, leaving the chain untouched.
 struct RemoveRedundantReluPattern : public OpRewritePattern<ONNXReluOp> {
   using OpRewritePattern<ONNXReluOp>::OpRewritePattern;
 
@@ -29,6 +32,10 @@ struct RemoveRedundantReluPattern : public OpRewritePattern<ONNXReluOp> {
       ONNXReluOp reluOp, PatternRewriter &rewriter) const override {
     auto prevRelu = reluOp.getX().getDefiningOp<ONNXReluOp>();
     if (!prevRelu)
+      return failure();
+
+    // Skip fan-out: only collapse when the inner Relu feeds this Relu alone.
+    if (!prevRelu->hasOneUse())
       return failure();
 
     // Rebuild this Relu on the inner input and replace through the rewriter so

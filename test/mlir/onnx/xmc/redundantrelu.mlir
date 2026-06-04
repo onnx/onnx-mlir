@@ -18,10 +18,9 @@ func.func @test_relu_chain(%arg0: tensor<1xf32>) -> tensor<1xf32> {
 
 // -----
 
-// Inner Relu fans out: %0 feeds both the redundant outer Relu (%1) and an
-// independent consumer (Sigmoid). The outer Relu must collapse onto %arg0 and
-// keep its own ResultNames ("outer"), while the inner Relu must survive (with
-// its "inner" ResultNames) because Sigmoid still uses it.
+// Inner Relu fans out: %0 feeds both the outer Relu (%1) and an independent
+// consumer (Sigmoid). Because the inner Relu has more than one use, the pass
+// skips it and leaves the chain untouched.
 func.func @test_relu_inner_fanout(%arg0: tensor<1xf32>)
     -> (tensor<1xf32>, tensor<1xf32>) {
   %0 = "onnx.Relu"(%arg0) {ResultNames = ["inner"]} : (tensor<1xf32>) -> tensor<1xf32>
@@ -31,7 +30,7 @@ func.func @test_relu_inner_fanout(%arg0: tensor<1xf32>)
 }
 
 // CHECK-LABEL: func.func @test_relu_inner_fanout
-// CHECK-DAG: %[[INNER:.*]] = "onnx.Relu"(%arg0) {{.*}}ResultNames = ["inner"]
-// CHECK-DAG: %[[OUTER:.*]] = "onnx.Relu"(%arg0) {{.*}}ResultNames = ["outer"]
+// CHECK: %[[INNER:.*]] = "onnx.Relu"(%arg0) {{.*}}ResultNames = ["inner"]
+// CHECK: %[[OUTER:.*]] = "onnx.Relu"(%[[INNER]]) {{.*}}ResultNames = ["outer"]
 // CHECK: %[[SIG:.*]] = "onnx.Sigmoid"(%[[INNER]])
 // CHECK: return %[[OUTER]], %[[SIG]]
