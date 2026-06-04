@@ -114,7 +114,7 @@ RUN if [ "$(uname -m)" = "s390x" ]; then \
       pip3 install hatchling --prefix=/usr && \
       pip3 install src/Runtime/python/om_pyrt --prefix=/usr --no-build-isolation && \
       cd src/Runtime/python/om_pyrt/tests && \
-      pytnon use_local_compiler_compiler.py && \
+      python use_local_compiler_compiler.py && \
       cd .. && rm -rf build-light; \
     fi
 
