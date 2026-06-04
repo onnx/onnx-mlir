@@ -41,6 +41,11 @@ def FromDLF16ToF32Op:
   "The value is produced by ZHighDLF16ToF32Op"
 >; 
 
+
+def GetF16TensorType: NativeCodeCall<
+  "dyn_cast<ShapedType>($0.getType()).clone($_builder.getF16Type())"
+>;
+
 def CanDecomposeUnstick:
   Constraint<CPred<"onnx_mlir::zhigh::canDecomposeUnstick($_self)">,
   "The unstick op that produces this can be decomposed for optimizations"
@@ -54,6 +59,21 @@ def DecomposeStickPattern: Pat<
   (ZHighStickOp $input, $layout, $noSaturation),
   (ONNXLayoutTransformOp (ZHighF32ToDLF16Op $input, $noSaturation), (CreateZTensorEncodingAttr $layout)),
   [(IsNotNHWCLayout $layout), (FromDLF16ToF32Op:$input)]
+>;
+
+def DecomposeStickReshapeExpandPattern: Pat<
+  (ZHighStickOp (ONNXReshapeOp:$reshape_f32 (ONNXExpandOp:$expand_f32 $input, $expand_shape), $reshape_shape, $az), $layout, $noSaturation),
+  (ONNXLayoutTransformOp
+       (ONNXReshapeOp
+            (ONNXExpandOp
+                 (ZHighF32ToDLF16Op $input, $noSaturation),
+                 $expand_shape,
+                 (returnType (GetF16TensorType $expand_f32))),
+            $reshape_shape,
+            $az,
+            (returnType (GetF16TensorType $reshape_f32))),
+       (CreateZTensorEncodingAttr $layout)),
+  [(IsNotNHWCLayout $layout)] // TODO: check one-use of intermediate outputs
 >;
 
 // zhigh.Unstick $input = zhigh.F32ToDLF16 (onnx.LayoutTransform $input, $none_layout)
