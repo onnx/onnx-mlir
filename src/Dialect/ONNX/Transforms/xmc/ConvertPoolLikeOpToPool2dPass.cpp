@@ -846,7 +846,7 @@ struct LowerReduceToPoolPass
     patterns.add<LowerReduceMeanV13ToAvgPoolPattern>(context);
     // ReduceMean → AveragePool (operand-based axes)
     patterns.add<LowerReduceMeanToAvgPoolPattern>(context);
- 
+
     // ReduceMax → MaxPool (spatial) - higher priority
     patterns.add<LowerReduceMaxToMaxPoolSpatialPattern>(context);
     // ReduceMax → MaxPool (channel via reshape) - lower priority
