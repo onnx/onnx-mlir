@@ -101,6 +101,11 @@ if(ONNX_MLIR_BUILD_STANDALONE)
   message(STATUS "ONNX_MLIR_BUILD_STANDALONE: ON - Disabling StableHLO support")
 endif()
 
+if(ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
+  set(ONNX_MLIR_ENABLE_STABLEHLO OFF CACHE BOOL "" FORCE)
+  message(STATUS "ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT: ON - Disabling StableHLO support")
+endif()
+
 include(CTest)
 include(ExternalProject)
 
@@ -232,9 +237,11 @@ endif()
 # compile flags updated via llvm_update_compile_flags, so we need to do that to
 # benchmark and rapidcheck as well, so that we can successfully link against them.
 # Otherwise, some of the flags for exceptions (among others) are not set correctly.
-llvm_update_compile_flags(benchmark)
-llvm_update_compile_flags(benchmark_main)
-llvm_update_compile_flags(rapidcheck)
+if (NOT ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
+  llvm_update_compile_flags(benchmark)
+  llvm_update_compile_flags(benchmark_main)
+  llvm_update_compile_flags(rapidcheck)
+endif()
 
 if (ONNX_MLIR_ENABLE_STABLEHLO)
   llvm_update_compile_flags(stablehlo-opt)
