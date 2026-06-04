@@ -1,45 +1,117 @@
-# How to build and use PyRuntimeC in a light way
+# Building and Using PyRuntimeC in Lightweight Mode
 
 ## Overview
 
-onnx-mlir compiler can compile an ONNX model into a shared library (.so), and also provide a python driver, PyRuntimeC, to run the generated shared library through python code. Originally, the PyRuntimeC is built with the onnx-mlir compiler, and consequently need the build of llvm_project.
-Here a light way to build PyRuntimeC without llvm_project nor the other part of onnx-mlir compiler is provided.
-Therefore, user can easily build the python driver for the model execution on different systems. The compilation can be done either with a local compiler, or with compiler container image through docker or podman package.
-Currently, only the OMTenserUtils (src/Runtime), Python driver (src/Runtime/python), third_party/onnx and third_party/pybind11 are built.
-The build of light PyRuntime is controlled by a CMake option: ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT. When this option is set to 'OFF' (the default value), there is no change to the build of onnx-mlir.
+The onnx-mlir compiler can compile an ONNX model into a shared library (`.so` file) and provides a Python driver called PyRuntimeC to execute the generated shared library through Python code. 
 
-## How to build
+Traditionally, PyRuntimeC is built alongside the onnx-mlir compiler, which requires building the entire llvm_project. This document describes a lightweight approach to build PyRuntimeC **without** requiring llvm_project or other onnx-mlir compiler components. This enables users to easily build the Python driver for model execution on different systems.
 
-Assume that you have cloned onnx-mlir source code, and is using `build` directory for you normal onnx-mlir compiler build. You need to create a new build directory for PyRuntimeC light, for example, build-light.
-In the build-light directory, you can execute the following commands:
-```
-cmake .. -DONNX_MLIR_ENABLE_PYRUNTIME_LIGHT=ON
-make
-make OMCreatePyRuntimePackage
-```
-Please refer to [script](../util/build-pyruntime-light.sh)
+### What Gets Built
 
+In lightweight mode, only the following components are built:
+- **OMTensorUtils** (`src/Runtime`)
+- **Python driver** (`src/Runtime/python`)
+- **Utility functions**
+- **third_party/pybind11**
 
-## How to install
-First, you need to create a python virtual env to be able to install python package, depending on the setup on your machine. For example,
-```
+The lightweight PyRuntimeC build is controlled by the CMake option: `ONNX_MLIR_TARGET_TO_BUILD=OMPyRt`
+
+## Prerequisites
+
+- CMake (version 3.15 or higher recommended)
+- Python 3.x with pip
+- C++ compiler with C++17 support
+- onnx-mlir source code (cloned from repository)
+
+## Building PyRuntimeC
+
+Assuming you have cloned the onnx-mlir source code and are using a `build` directory for your normal onnx-mlir compiler build, you need to create a separate build directory for the lightweight PyRuntimeC build.
+
+### Build Steps
+
+1. **Create a new build directory:**
+   ```bash
+   mkdir build-light
+   cd build-light
+   ```
+
+2. **Configure and build:**
+   ```bash
+   cmake .. -DONNX_MLIR_TARGET_TO_BUILD=OMPyRt
+   make
+   ```
+
+## Installing PyRuntimeC
+
+### 1. Set Up Python Virtual Environment
+
+First, create and activate a Python virtual environment (recommended):
+
+```bash
 python -m venv path/to/store/your/venv
-. path/to/store/your/venv/bin/activate
+source path/to/store/your/venv/bin/activate
 ```
 
-Then you can install the onnxmlir package that contains the python driver.
-```
-#!/bin/bash
+### 2. Build and Install the Package
+
+From the `build-light` directory, execute:
+
+```bash
+# Create the package
+cmake --build . --target OMCreateOMPyRtPackage
 
 # Install the package
-pip3 install -e src/Runtime/python/onnxmlir[docker]
-# The option -e is necessary for current package.
-# To use podman, replace the previous command with the following one
-# pip3 install -e src/Runtime/python/onnxmlir[podman]
+pip3 install src/Runtime/python/om_pyrt
 ```
 
-## Run test case
+Alternatively, for development mode (editable install):
+```bash
+pip3 install -e src/Runtime/python/om_pyrt
 ```
-cd src/Runtime/python/onnxmlir/tests
-python3 helloworld_with_precompiled_model.py
+
+## Using PyRuntimeC
+
+The Python driver can be integrated with different Python packages:
+
+### Recommended Package: `om_pyrt`
+
+The `om_pyrt` package (located in `src/Runtime/python/om_pyrt`) provides:
+- Python code for model compilation
+- Inference capabilities
+- Test utilities
+
+**Basic usage example:**
+```python
+import numpy as np
+import om_pyrt
+
+# Initialize the inference session with a compiled model
+sess = om_pyrt.InferenceSession("./model.so")
+
+# Prepare inputs
+input_data = np.random.randn(1, 3, 224, 224).astype(np.float32)
+
+# Run inference
+outputs = sess.run([input_data])
+
+# Process outputs
+print(outputs)
 ```
+
+### Integration with PyTorch: `torch_onnxmlir`
+
+The driver is also used by `torch_onnxmlir`, which enables onnx-mlir to function as a PyTorch backend. Refer to [doc](RunTorchModel.md)
+
+## Additional Resources
+
+- For detailed information about the `om_pyrt` package, see `src/Runtime/python/om_pyrt/README.md`
+- For model compilation utilities, see `src/Runtime/python/OMPyCompile/README.md`
+- For general onnx-mlir build instructions, refer to the main documentation
+
+## Troubleshooting
+
+### Common Issues
+
+- **CMake configuration fails**: Ensure you're using CMake 3.15 or higher
+- **Python package installation fails**: Verify your virtual environment is activated
+- **Import errors**: Confirm the package was installed successfully with `pip list | grep om_pyrt`%  
