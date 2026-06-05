@@ -252,10 +252,8 @@ void OMShutdownAccelNNPA() {
  *  \brief Function that allocates a buffer with huge page advice.
  */
 void *OMHugePageMalloc(size_t size) {
-#ifdef __MVS__
-  // On z/OS, rely on the native memory management.
-  return malloc(size);
-#else
+// MADV_HUGEPAGE is Linux-specific (Transparent Huge Page).
+#if defined(__linux__) && defined(MADV_HUGEPAGE)
   if (size == 0 || size < HUGE_PAGE_SIZE)
     return malloc(size);
 
@@ -269,6 +267,9 @@ void *OMHugePageMalloc(size_t size) {
   madvise(ptr, size, MADV_HUGEPAGE);
 
   return ptr;
+#else
+  // Otherwise, rely on the native memory management.
+  return malloc(size);
 #endif
 }
 
