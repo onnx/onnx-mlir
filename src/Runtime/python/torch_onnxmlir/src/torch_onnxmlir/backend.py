@@ -22,6 +22,7 @@ import functools
 import pickle
 import pickletools
 from collections import deque
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -37,7 +38,7 @@ from torch._subclasses.fake_tensor import (
     FakeTensor,
 )
 
-from .onnxmlirdocker import InferenceSession
+from om_pyrt import CompileSession, InferenceSession
 from .sessioncache import SessionCache, CacheValue
 from . import config, fx_utils
 
@@ -77,7 +78,6 @@ with torch.no_grad():
     outputs = compiled_model(**inputs)
 ```
 """
-
 
 logger = logging.getLogger(__name__)
 
@@ -254,6 +254,7 @@ def generate_hash_key(
 
 
 class TorchONNXMLIR:
+
     def __init__(self, gm: torch.fx.GraphModule, *args, **kwargs):
         global global_uncompilable_graphs
         # Input graph module.
@@ -358,8 +359,23 @@ class TorchONNXMLIR:
                 global_uncompilable_graphs.add(self.cache_key)
                 return eager_forward_fn(self.gm)(*example_inputs)
 
-            # Create a session for compiling and running the onnx model.
-            sess = self.create_onnxmlir_session()
+            # Compile the model.
+            compiler_image_name = ""
+            if "compiler_image_name" in self.onnxmlir_kwargs:
+                if self.onnxmlir_kwargs["compiler_image_name"] is not None:
+                    compiler_image_name = self.onnxmlir_kwargs["compiler_image_name"]
+            compiler_path = self.onnxmlir_kwargs["compiler_path"]
+            tag = self.onnxmlir_kwargs["compile_tag"]
+            compile_options = self.onnxmlir_kwargs["compile_options"]
+            compile_options += f" --tag={tag}"
+            compiler = CompileSession(
+                compiler_image=compiler_image_name, compiler_path=compiler_path
+            )
+            compiled_model = compiler.compile(self.onnx_model, compile_options)
+
+            # Create a session for running the onnx model.
+            # This session is cached for next use.
+            sess = InferenceSession(compiled_model, tag=tag)
 
             # Replace the victim cache entry.
             cache_value = CacheValue(
@@ -367,7 +383,11 @@ class TorchONNXMLIR:
                 sess=sess,
                 example_inputs_indices=self.example_inputs_indices,
             )
-            global_session_cache.put(self.cache_key, cache_value)
+            onnx_model_dir = Path(self.onnx_model).resolve().parent
+            compiled_model_dir = Path(compiled_model).resolve().parent
+            global_session_cache.put(
+                self.cache_key, cache_value, True, onnx_model_dir, compiled_model_dir
+            )
         else:
             logger.info("Found the model in the cache. No recompilation.")
             # Use the InferenceSession in the cache.
@@ -539,14 +559,6 @@ class TorchONNXMLIR:
                 logger.debug(f"Fx Graph: {self.gm}")
 
         return succeeded
-
-    def create_onnxmlir_session(self) -> InferenceSession:
-        # Return a session to compile and run the onnx model.
-        return InferenceSession(
-            self.onnx_model,
-            temp_dir=self.workdir,
-            **self.onnxmlir_kwargs,
-        )
 
     def cleanup_onnxmlir_files(self, tag_id):
         base = os.path.join(self.workdir.name, self.default_model_name + str(tag_id))

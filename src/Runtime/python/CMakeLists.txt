@@ -159,7 +159,6 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/torch_onnxmlir/src/torch_onnxmli
 add_custom_target(OMCreateTorchONNXMLIRPackage
         COMMAND cp -r ${CMAKE_CURRENT_SOURCE_DIR}/torch_onnxmlir ${CMAKE_CURRENT_BINARY_DIR}
         COMMAND cp ${ONNX_MLIR_BIN_ROOT}/${CMAKE_BUILD_TYPE}/lib/PyRuntimeC.*.so ${CMAKE_CURRENT_BINARY_DIR}/torch_onnxmlir/src/torch_onnxmlir/libs
-        COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/onnxmlirdocker.py ${CMAKE_CURRENT_BINARY_DIR}/torch_onnxmlir/src/torch_onnxmlir
         COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/PyRuntime.py ${CMAKE_CURRENT_BINARY_DIR}/torch_onnxmlir/src/torch_onnxmlir
 	DEPENDS PyRuntimeC
      )
