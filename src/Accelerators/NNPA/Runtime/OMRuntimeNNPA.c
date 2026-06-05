@@ -262,7 +262,10 @@ void *OMHugePageMalloc(size_t size) {
   // Give the kernel the transparent huge page advice.
   // It is ok to fail since the memory is still usable but may not use huge
   // pages.
+  #ifndef __MVS__
+  // MADV_HUGEPAGE is not available on z/OS
   madvise(ptr, size, MADV_HUGEPAGE);
+  #endif
 
   return ptr;
 }
