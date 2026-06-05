@@ -2117,7 +2117,6 @@ def ONNXDivOp:ONNX_Op<"Div",
   
   This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md).
   
-  For integer inputs, the result is computed using truncating division (rounding toward zero).
   (Opset 14 change): Extend supported types to include uint8, int8, uint16, and int16.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[quant_QuantizedType]>]>:$A,
@@ -2227,7 +2226,7 @@ def ONNXDynamicQuantizeLinearOp:ONNX_Op<"DynamicQuantizeLinear",
   Zero point is calculated as:
   ```
   intermediate_zero_point = qmin - min(x)/y_scale
-  y_zero_point = cast(round(saturate(intermediate_zero_point)))
+  y_zero_point = cast(round(saturate(itermediate_zero_point)))
   ```
   
   * where qmax and qmin are max and min values for quantization range .i.e [0, 255] in case of uint8
@@ -2418,8 +2417,8 @@ def ONNXErfOp:ONNX_Op<"Erf",
   let description = [{
   Computes the error function of the given input tensor element-wise.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[quant_QuantizedType]>]>:$input);
-  let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[quant_QuantizedType]>]>:$output);
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[quant_QuantizedType]>]>:$input);
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[quant_QuantizedType]>]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -4482,7 +4481,7 @@ def ONNXLoopOp:ONNX_Op<"Loop",
   1) Values from the enclosing scope (i.e. variable \"a\" here) are in scope and can
      be referenced in the inputs of the loop.
   2) Any values computed in the loop body that needs to be used in a subsequent
-     iteration or after the loop are modeled using a pair of variables in the loop-body,
+     iteration or after the loop are modelled using a pair of variables in the loop-body,
      consisting of an input variable (eg., b_in) and an output variable (eg., b_out).
      These are referred to as loop-carried dependences. The loop operation node
      supplies the input value of the input variable for the first iteration, and
@@ -4543,9 +4542,6 @@ def ONNXLpNormalizationOp:ONNX_Op<"LpNormalization",
   let summary = "ONNX LpNormalization operation";
   let description = [{
   Given a matrix, apply Lp-normalization along the provided axis.
-  The output is computed as: `output = input / Lp_norm(input, axis)`.
-  When the Lp norm is zero (i.e., all elements along the axis are zero),
-  the output is defined to be zero to avoid division by zero.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[quant_QuantizedType]>]>:$input,
     DefaultValuedAttr<SI64Attr, "-1">:$axis,
@@ -5367,7 +5363,6 @@ def ONNXNonMaxSuppressionOp:ONNX_Op<"NonMaxSuppression",
   let description = [{
   Filter out boxes that have high intersection-over-union (IOU) overlap with previously selected boxes.
   Bounding boxes with score less than score_threshold are removed. Bounding box format is indicated by attribute center_point_box.
-  Boxes are suppressed if their IOU with a previously selected box is strictly greater than iou_threshold (i.e., boxes with IOU exactly equal to the threshold are kept).
   Note that this algorithm is agnostic to where the origin is in the coordinate system and more generally is invariant to
   orthogonal transformations and translations of the coordinate system; thus translating or reflections of the coordinate system
   result in the same boxes being selected by the algorithm.
@@ -8678,7 +8673,7 @@ def ONNXScatterNDOp:ONNX_Op<"ScatterND",
   output = np.copy(data)
   update_indices = indices.shape[:-1]
   for idx in np.ndindex(update_indices):
-      output[tuple(indices[idx])] = updates[idx]
+      output[indices[idx]] = updates[idx]
   ```
   
   The order of iteration in the above loop is not specified.
@@ -8695,7 +8690,7 @@ def ONNXScatterNDOp:ONNX_Op<"ScatterND",
   output = np.copy(data)
   update_indices = indices.shape[:-1]
   for idx in np.ndindex(update_indices):
-      output[tuple(indices[idx])] = f(output[tuple(indices[idx])], updates[idx])
+      output[indices[idx]] = f(output[indices[idx]], updates[idx])
   ```
   
   where the `f` is `+`, `*`, `max` or `min` as specified.
@@ -10367,16 +10362,9 @@ def ONNXTransposeOp:ONNX_Op<"Transpose",
   let hasCanonicalizer = 1;
   let summary = "ONNX Transpose operation";
   let description = [{
-  Returns a transpose of the input tensor. (Similar to `numpy.transpose`).
-  The optional attribute `perm` must be a permutation of the dimensions of
-  the input tensor. Axis `i` of the output tensor corresponds to the axis
-  `perm[i]` of the input tensor.
-  For example, when perm=(1, 0, 2), given an input tensor of shape (1, 2, 3),
-  the output shape will be (2, 1, 3).
-  When perm=(1, 2, 0), given an input tensor of shape (1, 2, 3),
-  the output shape will be (2, 3, 1).
-  If the attribute `perm` is omitted, its default value is `(n-1, ..., 0)`,
-  where `n` is the rank of the input tensor.
+  Transpose the input tensor similar to numpy.transpose. For example, when
+  perm=(1, 0, 2), given an input tensor of shape (1, 2, 3), the output shape
+  will be (2, 1, 3).
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>, TensorOf<[UI<4>]>, TensorOf<[I<4>]>, TensorOf<[quant_QuantizedType]>]>:$data,
     OptionalAttr<I64ArrayAttr>:$perm);
