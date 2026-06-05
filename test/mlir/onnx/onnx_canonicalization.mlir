@@ -2535,3 +2535,53 @@ func.func @test_expand_slice_dynamic_sliced_dim(%arg0: tensor<?x?x44xf32>) -> te
 // CHECK:           return [[VAR_8_]] : tensor<2x?x128xf32>
 // CHECK:         }
 }
+
+
+// -----
+
+// COM: Test rewriting Reshape with allowzero=1 to allowzero=0 when all dimensions are static.
+func.func @test_reshape_allowzero_all_static(%arg0: tensor<2x3x4xf32>) -> tensor<6x4xf32> {
+  %0 = onnx.Constant dense<[6, 4]> : tensor<2xi64>
+  %1 = "onnx.Reshape"(%arg0, %0) {allowzero = 1 : si64} : (tensor<2x3x4xf32>, tensor<2xi64>) -> tensor<6x4xf32>
+  onnx.Return %1 : tensor<6x4xf32>
+
+// CHECK-LABEL:  func.func @test_reshape_allowzero_all_static
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x3x4xf32>) -> tensor<6x4xf32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<[6, 4]> : tensor<2xi64>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_0_]]) <{allowzero = 0 : si64}> : (tensor<2x3x4xf32>, tensor<2xi64>) -> tensor<6x4xf32>
+// CHECK:           onnx.Return [[VAR_1_]] : tensor<6x4xf32>
+// CHECK:         }
+}
+
+// -----
+
+// COM: Test rewriting Reshape with allowzero=1 to allowzero=0 when there is a single dynamic dimension.
+func.func @test_reshape_allowzero_single_dynamic(%arg0: tensor<2x?x4xf32>) -> tensor<8x?x1xf32> {
+  %0 = onnx.Constant dense<[8, -1, 1]> : tensor<3xi64>
+  %1 = "onnx.Reshape"(%arg0, %0) {allowzero = 1 : si64} : (tensor<2x?x4xf32>, tensor<3xi64>) -> tensor<8x?x1xf32>
+  onnx.Return %1 : tensor<8x?x1xf32>
+
+// CHECK-LABEL:  func.func @test_reshape_allowzero_single_dynamic
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x?x4xf32>) -> tensor<8x?x1xf32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<[8, -1, 1]> : tensor<3xi64>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_0_]]) <{allowzero = 0 : si64}> : (tensor<2x?x4xf32>, tensor<3xi64>) -> tensor<8x?x1xf32>
+// CHECK:           onnx.Return [[VAR_1_]] : tensor<8x?x1xf32>
+// CHECK:         }
+}
+
+// -----
+
+// COM: Test that Reshape with allowzero=1 is NOT rewritten when there are multiple dynamic dimensions.
+func.func @test_reshape_allowzero_multiple_dynamic(%arg0: tensor<2x?x?xf32>) -> tensor<2x?x?xf32> {
+  %0 = onnx.Constant dense<[2, -1, 0]> : tensor<3xi64>
+  %1 = "onnx.Reshape"(%arg0, %0) {allowzero = 1 : si64} : (tensor<2x?x?xf32>, tensor<3xi64>) -> tensor<2x?x?xf32>
+  onnx.Return %1 : tensor<2x?x?xf32>
+
+// CHECK-LABEL:  func.func @test_reshape_allowzero_multiple_dynamic
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x?x?xf32>) -> tensor<2x?x?xf32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<[2, -1, 0]> : tensor<3xi64>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_0_]]) <{allowzero = 1 : si64}> : (tensor<2x?x?xf32>, tensor<3xi64>) -> tensor<2x?x?xf32>
+// CHECK:           onnx.Return [[VAR_1_]] : tensor<2x?x?xf32>
+// CHECK:         }
+}
+
