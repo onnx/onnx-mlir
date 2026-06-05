@@ -130,6 +130,11 @@ bool areAxesValidForSpatialPooling(ArrayRef<int64_t> axes, int64_t /*rank*/) {
   return areAxesContinuous(axes);
 }
 
+/// Require exactly two reduction axes after trivial-axis removal.
+bool hasExactlyTwoReductionAxes(ArrayRef<int64_t> axes) {
+  return axes.size() == 2;
+}
+
 /// Check if reduction includes channel dimension (index 1 in NCHW)
 bool includesChannelDimension(ArrayRef<int64_t> axes, int64_t /*rank*/) {
   return std::find(axes.begin(), axes.end(), 1) != axes.end();
@@ -317,6 +322,9 @@ struct LowerReduceMeanV13ToAvgPoolPattern
     if (!areAxesValidForSpatialPooling(axes, rank))
       return failure();
 
+    if (!hasExactlyTwoReductionAxes(axes))
+      return failure();
+
     // Fast path: morally an ONNXGlobalAveragePool. Emit it directly so the
     // natural [H, W] kernel survives, matching the legacy xmodel flow.
     if (isGlobalAveragePoolEquivalent(
@@ -407,6 +415,10 @@ struct LowerReduceMeanToAvgPoolPattern
     SmallVector<int64_t> axes = *axesResult;
 
     if (!areAxesValidForSpatialPooling(axes, rank)) {
+      return failure();
+    }
+
+    if (!hasExactlyTwoReductionAxes(axes)) {
       return failure();
     }
 
@@ -834,8 +846,7 @@ struct LowerReduceToPoolPass
     patterns.add<LowerReduceMeanV13ToAvgPoolPattern>(context);
     // ReduceMean → AveragePool (operand-based axes)
     patterns.add<LowerReduceMeanToAvgPoolPattern>(context);
-    // ReduceSum → AveragePool + Mul
-    patterns.add<LowerReduceSumToAvgPoolPattern>(context);
+
     // ReduceMax → MaxPool (spatial) - higher priority
     patterns.add<LowerReduceMaxToMaxPoolSpatialPattern>(context);
     // ReduceMax → MaxPool (channel via reshape) - lower priority
