@@ -1686,6 +1686,123 @@ private:
   }
 };
 
+// ONNXReshapeOp with allowzero = 0 is more friendly when doing dimension
+// analysis and optimization.
+//
+// The pattern is to turn ONNXReshapeOp with allowzero = 1 to the one with
+// allowzero = 0 for some specific cases where the semantics are equivalent.
+//
+// Case 1: All static dimensions
+// When both input and output have all static dimensions, allowzero can be
+// safely changed to 0 since there are no dynamic dimensions to consider.
+//
+// Example:
+// ```mlir
+// %6 = "onnx.Reshape"(%arg0, %5) <{allowzero = 1 : si64}> :
+// (tensor<1x4x4x8x64xf32>, tensor<4xi64>) -> tensor<1x16x8x64xf32>
+// ```
+// can be rewritten into:
+// ```mlir
+// %6 = "onnx.Reshape"(%arg0, %5) <{allowzero = 0 : si64}> :
+// (tensor<1x4x4x8x64xf32>, tensor<4xi64>) -> tensor<1x16x8x64xf32>
+// ```
+//
+// Case 2: Single dynamic dimension with reshape on static dimensions only
+// When there is exactly one dynamic dimension in both input and output, and
+// the product of static dimensions is the same, the reshape only affects
+// static dimensions. The dynamic dimension must remain unchanged to preserve
+// the total number of elements.
+//
+// Example:
+// ```mlir
+// %6 = "onnx.Reshape"(%arg0, %5) <{allowzero = 1 : si64}> :
+// (tensor<1x4x4x?x64xf32>, tensor<4xi64>) -> tensor<1x16x?x64xf32>
+// ```
+// can be rewritten into:
+// ```mlir
+// %6 = "onnx.Reshape"(%arg0, %5) <{allowzero = 0 : si64}> :
+// (tensor<1x4x4x?x64xf32>, tensor<4xi64>) -> tensor<1x16x?x64xf32>
+// ```
+// where `allowzero=1` becomes `allowzero=0`.
+//
+// In both cases, allowzero does not change the reshape's semantics.
+//
+class RewriteReshapeAllowZeroPattern : public OpRewritePattern<ONNXReshapeOp> {
+public:
+  using OpRewritePattern<ONNXReshapeOp>::OpRewritePattern;
+
+  RewriteReshapeAllowZeroPattern(MLIRContext *context)
+      : OpRewritePattern(context) {}
+
+  LogicalResult matchAndRewrite(
+      ONNXReshapeOp reshapeOp, PatternRewriter &rewriter) const override {
+    // Only rewrite if allowzero is 1.
+    if (reshapeOp.getAllowzero() != 1)
+      return failure();
+
+    Value data = reshapeOp.getData();
+    Value output = reshapeOp.getResult();
+
+    // Input and output must have static rank.
+    if (!hasShapeAndRank(data) || !hasShapeAndRank(output))
+      return failure();
+
+    ArrayRef<int64_t> inputShape = getShape(data.getType());
+    ArrayRef<int64_t> outputShape = getShape(output.getType());
+
+    // Count dynamic dimensions in input.
+    int64_t numDynamicDims = 0;
+    for (int64_t dim : inputShape) {
+      if (dim == ShapedType::kDynamic)
+        numDynamicDims++;
+    }
+
+    // Count dynamic dimensions in output.
+    int64_t numDynamicInOutput = 0;
+    for (int64_t dim : outputShape) {
+      if (dim == ShapedType::kDynamic)
+        numDynamicInOutput++;
+    }
+
+    // Case 1: Both input and output have all static dimensions.
+    // In this case, allowzero can be safely changed to 0.
+    bool allStaticDims = (numDynamicDims == 0 && numDynamicInOutput == 0);
+
+    // Case 2: Exactly one dynamic dimension in both input and output.
+    bool singleDynamicDim = (numDynamicDims == 1 && numDynamicInOutput == 1);
+
+    if (!(allStaticDims || singleDynamicDim))
+      return failure();
+
+    if (singleDynamicDim) {
+      // Verify that the product of static dimensions is the same in input and
+      // output. This ensures the reshape only affects static dimensions.
+      int64_t inputStaticProduct = 1;
+      for (int64_t dim : inputShape) {
+        if (dim != ShapedType::kDynamic)
+          inputStaticProduct *= dim;
+      }
+
+      int64_t outputStaticProduct = 1;
+      for (int64_t dim : outputShape) {
+        if (dim != ShapedType::kDynamic)
+          outputStaticProduct *= dim;
+      }
+
+      if (inputStaticProduct != outputStaticProduct)
+        return failure();
+    }
+
+    // Rewrite: change allowzero from 1 to 0.
+    rewriter.modifyOpInPlace(reshapeOp, [&]() {
+      reshapeOp.setAllowzeroAttr(
+          IntegerAttr::get(rewriter.getIntegerType(64, /*isSigned=*/true), 0));
+    });
+
+    return success();
+  }
+};
+
 // =============================================================================
 // Rewrite pattern concat
 // =============================================================================
@@ -2712,6 +2829,7 @@ void ONNXReshapeOp::getCanonicalizationPatterns(
   result.insert<FuseTwoReshapesAllowZeroPattern>(context);
   result.insert<RemoveIdentityReshapePattern1>(context);
   result.insert<RemoveIdentityReshapePattern2>(context);
+  result.insert<RewriteReshapeAllowZeroPattern>(context);
   result.insert<SwapReshapeMatMulPattern>(context);
 }
 
