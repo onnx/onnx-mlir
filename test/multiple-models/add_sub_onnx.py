@@ -93,8 +93,10 @@ if args.run_models:
         raise ie
     # compile the models.
     try:
-        add_compiler = OMCompile(add_model, "-O3", reuse_compiled_model=0)
-        sub_compiler = OMCompile(sub_model, "-O3", reuse_compiled_model=0)
+        add_compiler = OMCompile()
+        add_compiler.compile(add_model, "-O3", reuse_compiled_model=0)
+        sub_compiler = OMCompile()
+        sub_compiler.compile(sub_model, "-O3", reuse_compiled_model=0)
     except RuntimeError as e:
         print(f"Compilation failed: {e}")
         exit(1)
