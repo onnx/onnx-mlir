@@ -257,7 +257,7 @@ static void maybeWidenNarrowConstOperand(PatternRewriter &rewriter,
     return;
 
   auto constOp = narrowSide.getDefiningOp<ONNXConstantOp>();
-  if (!constOp || !constOp->hasOneUse())
+  if (!constOp)
     return;
 
   auto valueAttr =
