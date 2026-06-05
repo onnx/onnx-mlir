@@ -18,6 +18,7 @@ op_dialect_version_map_["Asin"] = {22};
 op_dialect_version_map_["Asinh"] = {22};
 op_dialect_version_map_["Atan"] = {22};
 op_dialect_version_map_["Atanh"] = {22};
+op_dialect_version_map_["Attention"] = {24};
 op_dialect_version_map_["AveragePool"] = {22};
 op_dialect_version_map_["BatchNormalization"] = {15};
 op_dialect_version_map_["Bernoulli"] = {22};
@@ -236,6 +237,8 @@ import_handler_map_["Atan"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAtanOp>;
 import_handler_map_["Atanh"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAtanhOp>;
+import_handler_map_["Attention"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAttentionOp>;
 import_handler_map_["AveragePool"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAveragePoolOp>;
 import_handler_map_["BatchNormalization"] = 
