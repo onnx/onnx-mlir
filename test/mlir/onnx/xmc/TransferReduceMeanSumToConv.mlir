@@ -174,13 +174,28 @@ func.func @reduce_mean_non_pow2_no_convert(%arg0: tensor<1x7x4x4x!quant.uniform<
 // ReduceSum Spatial Axis → Conv Tests (non-channel axis via transpose)
 //===----------------------------------------------------------------------===//
 
-// CHECK-LABEL: @reduce_sum_spatial_axis2_keepdims
+// CHECK-LABEL: @reduce_sum_spatial_axis2_keepdims_quant_defer
 // NCHW: tensor<1x8x4x4> - reduce axis [2] (H)
-// Transposes H to channel position, Conv reduces, transpose back
-func.func @reduce_sum_spatial_axis2_keepdims(%arg0: tensor<1x8x4x4x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<1x8x1x4x!quant.uniform<i8:f32, 0.05:0>> {
+// Quantized rank-4 spatial-axis ReduceSum with keepdims=true is deferred to
+// ReplaceQDQReductionPass so the DPU's native qlinear_reduction_sum kernel
+// can handle it. The pass leaves the op unchanged.
+func.func @reduce_sum_spatial_axis2_keepdims_quant_defer(%arg0: tensor<1x8x4x4x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<1x8x1x4x!quant.uniform<i8:f32, 0.05:0>> {
     %0 = onnx.Constant dense<[2]> : tensor<1xi64>
     %1 = "onnx.ReduceSum"(%arg0, %0) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<1x8x4x4x!quant.uniform<i8:f32, 0.05:0>>, tensor<1xi64>) -> tensor<1x8x1x4x!quant.uniform<i8:f32, 0.05:0>>
     return %1 : tensor<1x8x1x4x!quant.uniform<i8:f32, 0.05:0>>
+}
+// CHECK: "onnx.ReduceSum"
+// CHECK-NOT: "onnx.Conv"
+// CHECK-NOT: "onnx.Transpose"
+
+// CHECK-LABEL: @reduce_sum_spatial_axis2_keepdims_f32_convert
+// NCHW: tensor<1x8x4x4xf32> - same shape/axis, but f32. The quant-rank-4-
+// keepdims deferral does not apply, so spatial-axis pattern still emits the
+// transpose+Conv+transpose triplet for the float path.
+func.func @reduce_sum_spatial_axis2_keepdims_f32_convert(%arg0: tensor<1x8x4x4xf32>) -> tensor<1x8x1x4xf32> {
+    %0 = onnx.Constant dense<[2]> : tensor<1xi64>
+    %1 = "onnx.ReduceSum"(%arg0, %0) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<1x8x4x4xf32>, tensor<1xi64>) -> tensor<1x8x1x4xf32>
+    return %1 : tensor<1x8x1x4xf32>
 }
 // CHECK: "onnx.Transpose"
 // CHECK: "onnx.Conv"
@@ -292,3 +307,80 @@ func.func @reduce_mean_f32_input_should_convert(%arg0: tensor<1x8x4x4xf32>) -> t
 }
 // CHECK: "onnx.Conv"
 // CHECK-NOT: onnx.ReduceMean
+
+// -----
+
+//===----------------------------------------------------------------------===//
+// Gate Tests: single-fanout (C1) and spatial-axis rank floor (C3)
+//===----------------------------------------------------------------------===//
+
+// CHECK-LABEL: @reduce_mean_channel_multi_user_no_convert
+// Channel-axis ReduceMean (would normally convert), but its result feeds
+// TWO consumers. The single-fanout gate refuses to rewrite so neither
+// consumer is forced to take a conv replacement of an op it didn't ask for.
+func.func @reduce_mean_channel_multi_user_no_convert(%arg0: tensor<1x8x4x4xf32>) -> (tensor<1x1x4x4xf32>, tensor<1x1x4x4xf32>) {
+    %0 = onnx.Constant dense<[1]> : tensor<1xi64>
+    %1 = "onnx.ReduceMean"(%arg0, %0) {keepdims = 1 : si64} : (tensor<1x8x4x4xf32>, tensor<1xi64>) -> tensor<1x1x4x4xf32>
+    %2 = "onnx.Relu"(%1) : (tensor<1x1x4x4xf32>) -> tensor<1x1x4x4xf32>
+    return %1, %2 : tensor<1x1x4x4xf32>, tensor<1x1x4x4xf32>
+}
+// CHECK: "onnx.ReduceMean"
+// CHECK-NOT: "onnx.Conv"
+
+// -----
+
+// CHECK-LABEL: @reduce_sum_channel_multi_user_no_convert
+// Channel-axis ReduceSum (f32, would normally convert), but its result feeds
+// TWO consumers. Single-fanout gate keeps the original ReduceSum.
+func.func @reduce_sum_channel_multi_user_no_convert(%arg0: tensor<1x8x4x4xf32>) -> (tensor<1x1x4x4xf32>, tensor<1x1x4x4xf32>) {
+    %0 = onnx.Constant dense<[1]> : tensor<1xi64>
+    %1 = "onnx.ReduceSum"(%arg0, %0) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<1x8x4x4xf32>, tensor<1xi64>) -> tensor<1x1x4x4xf32>
+    %2 = "onnx.Relu"(%1) : (tensor<1x1x4x4xf32>) -> tensor<1x1x4x4xf32>
+    return %1, %2 : tensor<1x1x4x4xf32>, tensor<1x1x4x4xf32>
+}
+// CHECK: "onnx.ReduceSum"
+// CHECK-NOT: "onnx.Conv"
+
+// -----
+
+// CHECK-LABEL: @reduce_mean_spatial_rank3_no_convert
+// Rank-3 input with a spatial-axis ReduceMean. The spatial pattern's rank
+// floor (>= 4) rejects this; the rank-3 ReduceMean stays as-is.
+func.func @reduce_mean_spatial_rank3_no_convert(%arg0: tensor<1x8x4xf32>) -> tensor<1x8x1xf32> {
+    %0 = onnx.Constant dense<[2]> : tensor<1xi64>
+    %1 = "onnx.ReduceMean"(%arg0, %0) {keepdims = 1 : si64} : (tensor<1x8x4xf32>, tensor<1xi64>) -> tensor<1x8x1xf32>
+    return %1 : tensor<1x8x1xf32>
+}
+// CHECK: "onnx.ReduceMean"
+// CHECK-NOT: "onnx.Conv"
+// CHECK-NOT: "onnx.Transpose"
+
+// -----
+
+// CHECK-LABEL: @reduce_sum_spatial_rank3_no_convert
+// Rank-3 input with a spatial-axis ReduceSum. The spatial pattern's rank
+// floor (>= 4) rejects this; the rank-3 ReduceSum stays as-is.
+func.func @reduce_sum_spatial_rank3_no_convert(%arg0: tensor<1x8x4xf32>) -> tensor<1x8x1xf32> {
+    %0 = onnx.Constant dense<[2]> : tensor<1xi64>
+    %1 = "onnx.ReduceSum"(%arg0, %0) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<1x8x4xf32>, tensor<1xi64>) -> tensor<1x8x1xf32>
+    return %1 : tensor<1x8x1xf32>
+}
+// CHECK: "onnx.ReduceSum"
+// CHECK-NOT: "onnx.Conv"
+// CHECK-NOT: "onnx.Transpose"
+
+// -----
+
+// CHECK-LABEL: @reduce_sum_spatial_axis3_quant_keepdims_defer
+// Rank-4 quantized spatial-axis ReduceSum on axis=[3] (W=4, power of 2)
+// with keepdims=true. Even though axis is spatial and W is a power of 2,
+// the quantized-rank-4-keepdims deferral applies so it falls through to
+// ReplaceQDQReductionPass.
+func.func @reduce_sum_spatial_axis3_quant_keepdims_defer(%arg0: tensor<1x8x4x4x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<1x8x4x1x!quant.uniform<i8:f32, 0.05:0>> {
+    %0 = onnx.Constant dense<[3]> : tensor<1xi64>
+    %1 = "onnx.ReduceSum"(%arg0, %0) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<1x8x4x4x!quant.uniform<i8:f32, 0.05:0>>, tensor<1xi64>) -> tensor<1x8x4x1x!quant.uniform<i8:f32, 0.05:0>>
+    return %1 : tensor<1x8x4x1x!quant.uniform<i8:f32, 0.05:0>>
+}
+// CHECK: "onnx.ReduceSum"
+// CHECK-NOT: "onnx.Conv"
+// CHECK-NOT: "onnx.Transpose"
