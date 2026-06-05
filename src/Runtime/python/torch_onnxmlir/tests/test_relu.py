@@ -41,6 +41,7 @@ print(opt_mod(input))
 import torch_onnxmlir
 
 my_option = {
+    "compiler_image_name": None,
     "compile_options": "-O3",
     "compiler_path": "/workdir/onnx-mlir/build/Debug/bin/onnx-mlir",
 }
