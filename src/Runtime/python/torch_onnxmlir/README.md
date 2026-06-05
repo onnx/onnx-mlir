@@ -68,9 +68,9 @@ The package torch_onnxmlir depends on the package `om_pyrt`. Follow the instruct
 ```bash
 $ git clone --recursive https://github.com/onnx/onnx-mlir.git
 $ cd onnx-mlir
-$ pip3 install -e src/Runtime/python/torch_onnxmlir --prefix=/usr
+$ pip install -e src/Runtime/python/torch_onnxmlir
 ```
 
-### Install from repo
-After the package is uploaded to pip server, you can install with 'pip3 install torch_onnxmlir`
+### Install from pip repository
+After the package is uploaded to pip server, you can install with 'pip install torch_onnxmlir`.
 

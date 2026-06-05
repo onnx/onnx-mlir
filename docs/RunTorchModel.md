@@ -1,7 +1,8 @@
 <!--- SPDX-License-Identifier: Apache-2.0 -->
 
 # Outlines
-This document describes how to use onnx-mlir compiler to compile and run a torch model. 
+This document describes how to install a torch_onnxmlir package and use it to run a torch model. 
+The torch_onnxmlir package provides an onnxmlir-based compiler backend for torch.compile().
 
 1. [Installation](#installation)
 2. [How to use](#howto)
@@ -16,7 +17,7 @@ If onnx-mlir source code already exists locally, the step of git clone can be sk
 ```bash
 git clone --recursive https://github.com/onnx/onnx-mlir.git
 cd onnx-mlir
-pip3 install -e src/Runtime/python/torch_onnxmlir --prefix=/usr
+pip install -e src/Runtime/python/torch_onnxmlir
 ```
 
 ## Install from pip repository
@@ -24,4 +25,4 @@ Not supported yet.
 
 # How to use <a name="howto"></a>
 
-Plese refer to [Readme.md](https://github.com/onnx/onnx-mlir/blob/main/src/Runtime/python/torch_onnxmlir/README.md) of the package.
+Plese refer to [README.md](https://github.com/onnx/onnx-mlir/blob/main/src/Runtime/python/torch_onnxmlir/README.md) of the package.
