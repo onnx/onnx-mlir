@@ -27,6 +27,7 @@ Interfaces: `MemoryEffectOpInterface`
 | `Out` | memref of dlfloat16 type values |
 
 
+
 ### `zlow.avgpool2d` (::onnx_mlir::zlow::ZLowAvgPool2DOp)
 
 _ZLow 2D average pooling operation_
@@ -65,6 +66,7 @@ Interfaces: `MemoryEffectOpInterface`
 | `output` | memref of dlfloat16 type values |
 
 
+
 ### `zlow.batchnorm` (::onnx_mlir::zlow::ZLowBatchNormOp)
 
 _ZLow batchnorm operation_
@@ -89,6 +91,7 @@ Interfaces: `MemoryEffectOpInterface`
 | `B` | memref of dlfloat16 type values |
 | `shape` | memref of 64-bit signless integer values |
 | `output` | memref of dlfloat16 type values |
+
 
 
 ### `zlow.conv2d` (::onnx_mlir::zlow::ZLowConv2DOp)
@@ -134,107 +137,6 @@ Interfaces: `MemoryEffectOpInterface`
 | `output` | memref of dlfloat16 type values |
 
 
-### `zlow.dlf16_to_f32` (::onnx_mlir::zlow::ZLowConvertDLF16ToF32Op)
-
-_Convert a dlfloat16 value to a float32 value_
-
-This operation converts a dlfloat16 value to a float32 value. 
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `input` | dlfloat16 type |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `output` | 32-bit float |
-
-
-### `zlow.vec_dlf16_to_f32` (::onnx_mlir::zlow::ZLowConvertDLF16ToF32VectorOp)
-
-_Convert dlfloat16 values to float32 values_
-
-This operation converts dlfloat16 values to float32 values. 
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `input` | vector of 16-bit float values of length 8 |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `output1` | vector of 32-bit float values of length 4 |
-| `output2` | vector of 32-bit float values of length 4 |
-
-
-### `zlow.f32_to_dlf16` (::onnx_mlir::zlow::ZLowConvertF32ToDLF16Op)
-
-_Convert a float32 value to a dlfloat16 value_
-
-This operation converts a float32 value to a dlfloat16 value. 
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `input` | 32-bit float |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `output` | dlfloat16 type |
-
-
-### `zlow.vec_f32_to_dlf16` (::onnx_mlir::zlow::ZLowConvertF32ToDLF16VectorOp)
-
-_Convert float32 values to dlfloat16 values_
-
-This operation converts float32 values to dlfloat16 values. 
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `input1` | vector of 32-bit float values of length 4 |
-| `input2` | vector of 32-bit float values of length 4 |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `output` | vector of 16-bit float values of length 8 |
-
 
 ### `zlow.div` (::onnx_mlir::zlow::ZLowDivOp)
 
@@ -263,6 +165,33 @@ Interfaces: `MemoryEffectOpInterface`
 | `Out` | memref of dlfloat16 type values |
 
 
+
+### `zlow.dlf16_to_f32` (::onnx_mlir::zlow::ZLowConvertDLF16ToF32Op)
+
+_Convert a dlfloat16 value to a float32 value_
+
+This operation converts a dlfloat16 value to a float32 value. 
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `input` | dlfloat16 type |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | 32-bit float |
+
+
+
 ### `zlow.dummy` (::onnx_mlir::zlow::ZLowDummyOp)
 
 _ZLow dummy operation that behaves like identity_
@@ -283,6 +212,7 @@ Traits: `MemRefsNormalizable`
 | Result | Description |
 | :----: | ----------- |
 | `output` | any type |
+
 
 
 ### `zlow.exp` (::onnx_mlir::zlow::ZLowExpOp)
@@ -309,6 +239,58 @@ Interfaces: `MemoryEffectOpInterface`
 | `X` | memref of dlfloat16 type values |
 | `shape` | memref of 64-bit signless integer values |
 | `Out` | memref of dlfloat16 type values |
+
+
+
+### `zlow.f32_to_dlf16` (::onnx_mlir::zlow::ZLowConvertF32ToDLF16Op)
+
+_Convert a float32 value to a dlfloat16 value_
+
+This operation converts a float32 value to a dlfloat16 value. 
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `input` | 32-bit float |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | dlfloat16 type |
+
+
+
+### `zlow.gelu` (::onnx_mlir::zlow::ZLowGeluOp)
+
+_ZLow gelu operation_
+
+ZLow operation to perform a gelu.
+
+Traits: `MemRefsNormalizable`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>layout</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `X` | memref of dlfloat16 type values |
+| `shape` | memref of 64-bit signless integer values |
+| `Out` | memref of dlfloat16 type values |
+
 
 
 ### `zlow.gru` (::onnx_mlir::zlow::ZLowGRUOp)
@@ -355,29 +337,6 @@ Interfaces: `MemoryEffectOpInterface`
 | `hn_output` | memref of dlfloat16 type values |
 
 
-### `zlow.gelu` (::onnx_mlir::zlow::ZLowGeluOp)
-
-_ZLow gelu operation_
-
-ZLow operation to perform a gelu.
-
-Traits: `MemRefsNormalizable`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>layout</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `X` | memref of dlfloat16 type values |
-| `shape` | memref of 64-bit signless integer values |
-| `Out` | memref of dlfloat16 type values |
-
 
 ### `zlow.invsqrt` (::onnx_mlir::zlow::ZLowInvSqrtOp)
 
@@ -401,6 +360,60 @@ Traits: `MemRefsNormalizable`
 | `X` | memref of dlfloat16 type values |
 | `shape` | memref of 64-bit signless integer values |
 | `Out` | memref of dlfloat16 type values |
+
+
+
+### `zlow.leakyrelu` (::onnx_mlir::zlow::ZLowLeakyReluOp)
+
+_ZLow leakyrelu operation_
+
+ZLow operation to perform a leakyrelu.
+
+Traits: `MemRefsNormalizable`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>alpha</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
+<tr><td><code>layout</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `X` | memref of dlfloat16 type values |
+| `shape` | memref of 64-bit signless integer values |
+| `Out` | memref of dlfloat16 type values |
+
+
+
+### `zlow.log` (::onnx_mlir::zlow::ZLowLogOp)
+
+_ZLow log operation_
+
+ZLow operation to perform a log.
+
+Traits: `MemRefsNormalizable`
+
+Interfaces: `MemoryEffectOpInterface`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>layout</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `X` | memref of dlfloat16 type values |
+| `shape` | memref of 64-bit signless integer values |
+| `Out` | memref of dlfloat16 type values |
+
 
 
 ### `zlow.lstm` (::onnx_mlir::zlow::ZLowLSTMOp)
@@ -448,56 +461,6 @@ Interfaces: `MemoryEffectOpInterface`
 | `hn_output` | memref of dlfloat16 type values |
 | `cf_output` | memref of dlfloat16 type values |
 
-
-### `zlow.leakyrelu` (::onnx_mlir::zlow::ZLowLeakyReluOp)
-
-_ZLow leakyrelu operation_
-
-ZLow operation to perform a leakyrelu.
-
-Traits: `MemRefsNormalizable`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>alpha</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
-<tr><td><code>layout</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `X` | memref of dlfloat16 type values |
-| `shape` | memref of 64-bit signless integer values |
-| `Out` | memref of dlfloat16 type values |
-
-
-### `zlow.log` (::onnx_mlir::zlow::ZLowLogOp)
-
-_ZLow log operation_
-
-ZLow operation to perform a log.
-
-Traits: `MemRefsNormalizable`
-
-Interfaces: `MemoryEffectOpInterface`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>layout</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `X` | memref of dlfloat16 type values |
-| `shape` | memref of 64-bit signless integer values |
-| `Out` | memref of dlfloat16 type values |
 
 
 ### `zlow.matmul` (::onnx_mlir::zlow::ZLowMatMulOp)
@@ -550,6 +513,7 @@ Interfaces: `MemoryEffectOpInterface`
 | `Out` | memref of dlfloat16 type values |
 
 
+
 ### `zlow.max` (::onnx_mlir::zlow::ZLowMaxOp)
 
 _ZLow max operation_
@@ -575,6 +539,7 @@ Interfaces: `MemoryEffectOpInterface`
 | `Y` | memref of dlfloat16 type values |
 | `shape` | memref of 64-bit signless integer values |
 | `Out` | memref of dlfloat16 type values |
+
 
 
 ### `zlow.maxpool2d` (::onnx_mlir::zlow::ZLowMaxPool2DOp)
@@ -615,6 +580,7 @@ Interfaces: `MemoryEffectOpInterface`
 | `output` | memref of dlfloat16 type values |
 
 
+
 ### `zlow.meanreduce2d` (::onnx_mlir::zlow::ZLowMeanReduce2DOp)
 
 _ZLow 2D mean reduce operation_
@@ -637,6 +603,7 @@ Interfaces: `MemoryEffectOpInterface`
 | `input` | memref of dlfloat16 type values |
 | `shape` | memref of 64-bit signless integer values |
 | `output` | memref of dlfloat16 type values |
+
 
 
 ### `zlow.min` (::onnx_mlir::zlow::ZLowMinOp)
@@ -666,6 +633,7 @@ Interfaces: `MemoryEffectOpInterface`
 | `Out` | memref of dlfloat16 type values |
 
 
+
 ### `zlow.mul` (::onnx_mlir::zlow::ZLowMulOp)
 
 _ZLow mul operation_
@@ -691,6 +659,7 @@ Interfaces: `MemoryEffectOpInterface`
 | `Y` | memref of dlfloat16 type values |
 | `shape` | memref of 64-bit signless integer values |
 | `Out` | memref of dlfloat16 type values |
+
 
 
 ### `zlow.quantizedMatmul` (::onnx_mlir::zlow::ZLowQuantizedMatMulOp)
@@ -756,6 +725,7 @@ Traits: `MemRefsNormalizable`
 | `out_offset` | 0D memref of 32-bit float values |
 
 
+
 ### `zlow.quantizedStick` (::onnx_mlir::zlow::ZLowQuantizedStickOp)
 
 _ZLow stick operation for quantization_
@@ -783,6 +753,7 @@ Traits: `MemRefsNormalizable`
 | `out` | memref of dlfloat16 type or 8-bit signless integer values |
 
 
+
 ### `zlow.reducemax` (::onnx_mlir::zlow::ZLowReduceMaxOp)
 
 _ZLow reducemax operation_
@@ -808,6 +779,7 @@ Traits: `MemRefsNormalizable`
 | `Out` | memref of dlfloat16 type values |
 
 
+
 ### `zlow.reducemin` (::onnx_mlir::zlow::ZLowReduceMinOp)
 
 _ZLow reducemin operation_
@@ -831,6 +803,7 @@ Traits: `MemRefsNormalizable`
 | `work_area` | memref of 8-bit signless integer values |
 | `shape` | memref of 64-bit signless integer values |
 | `Out` | memref of dlfloat16 type values |
+
 
 
 ### `zlow.relu` (::onnx_mlir::zlow::ZLowReluOp)
@@ -859,6 +832,7 @@ Interfaces: `MemoryEffectOpInterface`
 | `Out` | memref of dlfloat16 type values |
 
 
+
 ### `zlow.reshape` (::onnx_mlir::zlow::ZLowReshapeOp)
 
 _ZLow Reshape operation_
@@ -881,6 +855,7 @@ Traits: `MemRefsNormalizable`
 | :-----: | ----------- |
 | `X` | memref of dlfloat16 type values |
 | `Out` | memref of dlfloat16 type values |
+
 
 
 ### `zlow.sigmoid` (::onnx_mlir::zlow::ZLowSigmoidOp)
@@ -907,6 +882,7 @@ Interfaces: `MemoryEffectOpInterface`
 | `X` | memref of dlfloat16 type values |
 | `shape` | memref of 64-bit signless integer values |
 | `Out` | memref of dlfloat16 type values |
+
 
 
 ### `zlow.softmax` (::onnx_mlir::zlow::ZLowSoftmaxOp)
@@ -938,6 +914,7 @@ Interfaces: `MemoryEffectOpInterface`
 | `Out` | memref of dlfloat16 type values |
 
 
+
 ### `zlow.sqrt` (::onnx_mlir::zlow::ZLowSqrtOp)
 
 _ZLow sqrt operation_
@@ -961,64 +938,6 @@ Traits: `MemRefsNormalizable`
 | `shape` | memref of 64-bit signless integer values |
 | `Out` | memref of dlfloat16 type values |
 
-
-### `zlow.stickForGRU` (::onnx_mlir::zlow::ZLowStickForGRUOp)
-
-_ZLow stick operation for GRU_
-
-ZLow operation to perform a stick for GRU.
-Variadic: list of pointers for input data to be transformed: 
-  - GRU concatenated: 3 data pointers, one for each input gate in (Z)update, Reset, Hidden, (ZRH) gate order.
-
-Traits: `MemRefsNormalizable`
-
-Interfaces: `MemoryEffectOpInterface`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>prev_layer</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `z_gate` | memref of 16-bit float or 32-bit float values |
-| `r_gate` | memref of 16-bit float or 32-bit float values |
-| `h_gate` | memref of 16-bit float or 32-bit float values |
-| `out` | memref of dlfloat16 type values |
-
-
-### `zlow.stickForLSTM` (::onnx_mlir::zlow::ZLowStickForLSTMOp)
-
-_ZLow stick operation for LSTM_
-
-ZLow operation to perform a stick for LSTM.
-Variadic: list of pointers for input data to be transformed: 
-  - LSTM concatenated: 4 data pointers, one for each input gate in Forget, Input, Cell, Output (FICO) order.
-
-Traits: `MemRefsNormalizable`
-
-Interfaces: `MemoryEffectOpInterface`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>prev_layer</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `f_gate` | memref of 16-bit float or 32-bit float values |
-| `i_gate` | memref of 16-bit float or 32-bit float values |
-| `c_gate` | memref of 16-bit float or 32-bit float values |
-| `o_gate` | memref of 16-bit float or 32-bit float values |
-| `out` | memref of dlfloat16 type values |
 
 
 ### `zlow.stick` (::onnx_mlir::zlow::ZLowStickOp)
@@ -1052,6 +971,68 @@ Interfaces: `MemoryEffectOpInterface`
 | `Out` | memref of dlfloat16 type values |
 
 
+
+### `zlow.stickForGRU` (::onnx_mlir::zlow::ZLowStickForGRUOp)
+
+_ZLow stick operation for GRU_
+
+ZLow operation to perform a stick for GRU.
+Variadic: list of pointers for input data to be transformed: 
+  - GRU concatenated: 3 data pointers, one for each input gate in (Z)update, Reset, Hidden, (ZRH) gate order.
+
+Traits: `MemRefsNormalizable`
+
+Interfaces: `MemoryEffectOpInterface`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>prev_layer</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `z_gate` | memref of 16-bit float or 32-bit float values |
+| `r_gate` | memref of 16-bit float or 32-bit float values |
+| `h_gate` | memref of 16-bit float or 32-bit float values |
+| `out` | memref of dlfloat16 type values |
+
+
+
+### `zlow.stickForLSTM` (::onnx_mlir::zlow::ZLowStickForLSTMOp)
+
+_ZLow stick operation for LSTM_
+
+ZLow operation to perform a stick for LSTM.
+Variadic: list of pointers for input data to be transformed: 
+  - LSTM concatenated: 4 data pointers, one for each input gate in Forget, Input, Cell, Output (FICO) order.
+
+Traits: `MemRefsNormalizable`
+
+Interfaces: `MemoryEffectOpInterface`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>prev_layer</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `f_gate` | memref of 16-bit float or 32-bit float values |
+| `i_gate` | memref of 16-bit float or 32-bit float values |
+| `c_gate` | memref of 16-bit float or 32-bit float values |
+| `o_gate` | memref of 16-bit float or 32-bit float values |
+| `out` | memref of dlfloat16 type values |
+
+
+
 ### `zlow.sub` (::onnx_mlir::zlow::ZLowSubOp)
 
 _ZLow sub operation_
@@ -1077,6 +1058,7 @@ Interfaces: `MemoryEffectOpInterface`
 | `Y` | memref of dlfloat16 type values |
 | `shape` | memref of 64-bit signless integer values |
 | `Out` | memref of dlfloat16 type values |
+
 
 
 ### `zlow.tanh` (::onnx_mlir::zlow::ZLowTanhOp)
@@ -1105,6 +1087,7 @@ Interfaces: `MemoryEffectOpInterface`
 | `Out` | memref of dlfloat16 type values |
 
 
+
 ### `zlow.unstick` (::onnx_mlir::zlow::ZLowUnstickOp)
 
 _ZLow unstick operation_
@@ -1128,4 +1111,59 @@ Interfaces: `MemoryEffectOpInterface`
 | :-----: | ----------- |
 | `X` | memref of dlfloat16 type values |
 | `Out` | memref of 16-bit float or 32-bit float values |
+
+
+
+### `zlow.vec_dlf16_to_f32` (::onnx_mlir::zlow::ZLowConvertDLF16ToF32VectorOp)
+
+_Convert dlfloat16 values to float32 values_
+
+This operation converts dlfloat16 values to float32 values. 
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `input` | vector of 16-bit float values of length 8 |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output1` | vector of 32-bit float values of length 4 |
+| `output2` | vector of 32-bit float values of length 4 |
+
+
+
+### `zlow.vec_f32_to_dlf16` (::onnx_mlir::zlow::ZLowConvertF32ToDLF16VectorOp)
+
+_Convert float32 values to dlfloat16 values_
+
+This operation converts float32 values to dlfloat16 values. 
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `input1` | vector of 32-bit float values of length 4 |
+| `input2` | vector of 32-bit float values of length 4 |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | vector of 16-bit float values of length 8 |
+
 

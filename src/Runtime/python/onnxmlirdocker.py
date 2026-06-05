@@ -319,6 +319,7 @@ class InferenceSession:
                     "You may need to set ONNX_MLIR_HOME to `onnx-mlir/build/Debug` since `make PyRuntimeC` outputs to `build/Debug` by default"
                 )
 
+        os.environ["OM_CONSTANT_PATH"] = os.path.dirname(self.compiled_model)
         return OMExecutionSession(self.compiled_model, self.compile_tag)
 
     # wrapper for onnxruntime interface

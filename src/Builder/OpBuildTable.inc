@@ -18,6 +18,7 @@ op_dialect_version_map_["Asin"] = {22};
 op_dialect_version_map_["Asinh"] = {22};
 op_dialect_version_map_["Atan"] = {22};
 op_dialect_version_map_["Atanh"] = {22};
+op_dialect_version_map_["Attention"] = {24};
 op_dialect_version_map_["AveragePool"] = {22};
 op_dialect_version_map_["BatchNormalization"] = {15};
 op_dialect_version_map_["Bernoulli"] = {22};
@@ -236,6 +237,8 @@ import_handler_map_["Atan"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAtanOp>;
 import_handler_map_["Atanh"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAtanhOp>;
+import_handler_map_["Attention"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAttentionOp>;
 import_handler_map_["AveragePool"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAveragePoolOp>;
 import_handler_map_["BatchNormalization"] = 
@@ -714,6 +717,7 @@ op_opsets_map_["Attention"] = {24, 23};
 op_opsets_map_["AveragePool"] = {22, 19, 11, 10, 7, 1};
 op_opsets_map_["BatchNormalization"] = {15, 14, 9, 7, 6, 1};
 op_opsets_map_["Bernoulli"] = {22, 15};
+op_opsets_map_["BitCast"] = {26};
 op_opsets_map_["BitShift"] = {11};
 op_opsets_map_["BitwiseAnd"] = {18};
 op_opsets_map_["BitwiseNot"] = {18};
@@ -737,6 +741,7 @@ op_opsets_map_["ConvInteger"] = {10};
 op_opsets_map_["ConvTranspose"] = {22, 11, 1};
 op_opsets_map_["Cos"] = {22, 7};
 op_opsets_map_["Cosh"] = {22, 9};
+op_opsets_map_["CumProd"] = {26};
 op_opsets_map_["CumSum"] = {14, 11};
 op_opsets_map_["DFT"] = {20, 17};
 op_opsets_map_["DeformConv"] = {22, 19};

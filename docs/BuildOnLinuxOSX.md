@@ -30,7 +30,6 @@ cmake -G Ninja ../llvm \
    -DCMAKE_BUILD_TYPE=Release \
    -DLLVM_ENABLE_ASSERTIONS=ON \
    -DLLVM_ENABLE_RTTI=ON \
-   -DENABLE_LIBOMPTARGET=OFF \
    -DLLVM_ENABLE_LIBEDIT=OFF
 
 cmake --build . -- ${MAKEFLAGS}

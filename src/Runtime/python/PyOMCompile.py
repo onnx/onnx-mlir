@@ -13,9 +13,8 @@
 import numpy as np
 
 try:
-    from PyOMCompileC import (
-        OMCompile,
-    )
+    from PyOMCompileC import OMCompile as OMCompile_
+
 except ImportError:
     raise ImportError(
         "Looks like you did not build the PyOMCompileC target, build it by\n"
@@ -23,3 +22,51 @@ except ImportError:
         "include `onnx-mlir/build/Debug/lib` since `make PyOMCompileC` outputs\n"
         "to `build/Debug` by default (or Release if building Release)."
     )
+
+
+class OMCompile(OMCompile_):
+    def __init__(
+        self,
+        compiler_path="",
+        compiler_image="",
+        auto_pull=True,
+        engine="auto",
+        cache=None,
+        verbose=False,
+    ):
+
+        self.cache = cache
+        if compiler_image:
+            super().__init__(compiler_image, compiler_path, engine, auto_pull, verbose)
+        else:
+            if not compiler_path:
+                # Import the package for standalone compile
+                try:
+                    import OMPyCompile
+
+                    compiler_path = OMPyCompile.get_compiler_path()
+                except ImportError as e:
+                    # No standalone compiler, use local PATH
+                    pass
+            super().__init__(compiler_path, verbose)
+
+    def compile(
+        self,
+        model_path,
+        flags,
+        output_path="",
+        compiler_path="",
+        log_file_name="",
+        reuse_compiled_model=False,
+    ):
+        if self.cache:
+            # Check cache policy to decide whether a cached .so can be used
+            exit(-1)
+        return super().compile(
+            model_path,
+            flags,
+            output_path,
+            compiler_path,
+            log_file_name,
+            reuse_compiled_model,
+        )

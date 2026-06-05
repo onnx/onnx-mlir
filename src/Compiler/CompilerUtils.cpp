@@ -43,6 +43,8 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
 
+#include "llvm/Support/FileSystem.h"
+
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Builder/FrontendDialectTransformer.hpp"
 #include "src/Builder/ModelInputShaper.hpp"
@@ -259,10 +261,12 @@ static void tailorLLVMIR(llvm::Module &llvmModule) {
   exportedFuncs.emplace_back(StringRef("omInputSignature"));
   exportedFuncs.emplace_back(StringRef("omOutputSignature"));
   exportedFuncs.emplace_back(StringRef("omQueryEntryPoints"));
+  exportedFuncs.emplace_back(StringRef("omCompilationInfo"));
   if (!tag.empty()) {
     exportedFuncs.emplace_back(StringRef("omInputSignature" + tag));
     exportedFuncs.emplace_back(StringRef("omOutputSignature" + tag));
     exportedFuncs.emplace_back(StringRef("omQueryEntryPoints" + tag));
+    exportedFuncs.emplace_back(StringRef("omCompilationInfo" + tag));
   }
   // Entry point fuctions.
   if (llvm::GlobalVariable *GV =
@@ -468,6 +472,8 @@ static int genSharedLib(std::string sharedLibNameWithExt,
 #else
   std::vector<std::string> outputOpt = {"-o", sharedLibNameWithExt};
   std::vector<std::string> sharedLibOpts = {"-shared", "-fPIC"};
+  if (enableDebugInfo)
+    sharedLibOpts.emplace_back("-g");
   llvm::for_each(libs, [](std::string &lib) { lib = "-l" + lib; });
   llvm::for_each(libDirs, [](std::string &libDir) { libDir = "-L" + libDir; });
 #ifdef __s390x__
@@ -506,7 +512,23 @@ static int genSharedLib(std::string sharedLibNameWithExt,
     }
     rc = 1; // Failure.
   }
-  return rc != 0 ? CompilerFailureInObjToLib : CompilerSuccess;
+  if (rc != 0)
+    return CompilerFailureInObjToLib;
+#ifdef __APPLE__
+  // On macOS, run dsymutil to generate .dSYM with debug info.
+  try {
+    Command dsym(/*exePath=*/"dsymutil", VerboseOutput);
+    dsym.appendStr(sharedLibNameWithExt).exec();
+  } catch (const onnx_mlir::CommandException &error) {
+    if (Verbose) {
+      std::string errorMessage = error.what();
+      fprintf(stderr, "Return message from command exception (dsymutil): %s\n",
+          errorMessage.c_str());
+    }
+    // dsymutil failure is non-fatal; continue without debug symbols.
+  }
+#endif
+  return CompilerSuccess;
 }
 
 // Create jar containing java runtime and model shared library (which includes
@@ -638,6 +660,19 @@ std::string dirName(StringRef inputFilename) {
   llvm::sys::path::remove_filename(path);
   return std::string(path.data(), path.size());
 }
+
+// TODO: Remove after onnx 1.21.0 update (see
+// https://github.com/onnx/onnx-mlir/issues/3455).
+// Check if a file is a hardlink. Hardlinks are detected by checking if the
+// file has more than one link (link count > 1). This mitigates path traversal
+// attacks (CVE-2026-34446) where a hardlink to a sensitive file bypasses
+// symlink checks because it appears as a regular file.
+bool isHardlink(StringRef filepath) {
+  llvm::sys::fs::file_status fileStat;
+  if (llvm::sys::fs::status(filepath, fileStat))
+    return false; // Cannot stat file; let later code handle the error.
+  return fileStat.getLinkCount() > 1;
+}
 } // namespace
 
 // Return 0 on success, error number on failure.
@@ -658,6 +693,16 @@ int processInputFile(StringRef inputFilename, mlir::MLIRContext &context,
                     "\": Either an ONNX model (.onnx or .onnxtext or .json), "
                     "or an MLIR file (.mlir) needs to be provided.";
     return InvalidInputFile;
+  }
+
+  // TODO: Remove after onnx 1.21.0 update (see
+  // https://github.com/onnx/onnx-mlir/issues/3455).
+  // Reject hardlinks to prevent path traversal attacks (CVE-2026-34446).
+  if (!inputIsSTDIN && isHardlink(inputFilename)) {
+    *errorMessage = "Input file \"" + inputFilename.str() +
+                    "\" is a hardlink, which is not allowed for "
+                    "security reasons.";
+    return InvalidInputFileLink;
   }
 
   if (inputIsSTDIN || inputIsONNX || inputIsONNXText || inputIsJSON) {

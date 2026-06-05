@@ -19,6 +19,8 @@
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/Value.h"
 
+#include "src/Interface/ShapeHelperOpInterface.hpp"
+
 namespace onnx_mlir {
 
 class DimAnalysis {
@@ -33,12 +35,23 @@ public:
   using DimSetMapT = llvm::SmallDenseMap<uint64_t, DimSetT, 4>;
 
 public:
-  /// Create a new analysis for specific values.
-  DimAnalysis(llvm::ArrayRef<mlir::Value> vals);
-
   /// Create a new analysis for all values in a module.
+  /// @param op ModuleOp to analyze dynamics dimensions.
   DimAnalysis(mlir::ModuleOp op);
 
+protected:
+  /// Create a scoped analysis by tracing back from a given operation.
+  /// Only analyzes operations within 'upwardLevel' steps back from 'op'.
+  /// This is a lightweight alternative to full module analysis.
+  /// @param op The starting operation to trace back from.
+  /// @param upwardLevel Maximum number of levels to trace back (0 = only op
+  /// itself).
+  /// @param shapeHelper ShapeHelper inside which this DimAnalysis is
+  /// constructed.
+  DimAnalysis(mlir::Operation *op, uint64_t upwardLevel,
+      ONNXOpShapeHelper *shapeHelper);
+
+public:
   /// Analyzes the relationship among dynamic dimensions.
   /// Current implementation uses a fixed-point iteration algorithm,
   /// where there are two phases at each iteration:
@@ -99,9 +112,9 @@ private:
   int64_t build(DimT d, int64_t setID = -1);
 
   /// Initializes the internal mappings for function arguments and resutls.
-  void buildFunctionArgsRes(mlir::func::FuncOp funcOp);
+  void buildFunctionArgsRes(
+      mlir::func::FuncOp funcOp, bool buildForInputs, bool buildForOutputs);
 
-  // Create dims for function arguments.
   /// Update each set of dynamic dimensions to include the same dynamic
   /// dimensions. This is a local update in the sense that the search space
   /// includes dynamic dimensions that directly link to the dimensions in the
@@ -127,6 +140,26 @@ private:
   /// This mapping maps each dynamic dimension in the tensor to a set of same
   /// dynamic dimensions.
   DimSetMapT dimSetMap;
+  /// Set of operations for analysis. Contains either all operations from the
+  /// module (when constructed with ModuleOp) or operations within the specified
+  /// upwardLevel scope (when constructed with Operation* and upwardLevel).
+  const llvm::SmallPtrSet<mlir::Operation *, 32> targetOps;
+};
+
+/// Scoped dimension analysis that only analyzes operations within a limited
+/// scope from a starting operation.
+/// This class is recommended for using inside ShapeHelper.
+class ScopedDimAnalysis : public DimAnalysis {
+public:
+  /// Create a scoped analysis by tracing back from a given operation.
+  /// Only analyzes operations within 'upwardLevel' steps back from 'op'.
+  /// @param op The starting operation to trace back from.
+  /// @param upwardLevel Maximum number of levels to trace back (0 = only op
+  /// itself).
+  /// @param shapeHelper ShapeHelper inside which this DimAnalysis is
+  /// constructed.
+  ScopedDimAnalysis(mlir::Operation *op, uint64_t upwardLevel,
+      ONNXOpShapeHelper *shapeHelper);
 };
 
 } // namespace onnx_mlir

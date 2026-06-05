@@ -16,24 +16,7 @@ By default, `onnx-mlir` is built with shared libraries, which requires LLVM/MLIR
 - Faster build times
 - Smaller disk footprint
 
-**Build Commands:**
-```bash
-# Build LLVM/MLIR with shared libraries
-cmake -G Ninja \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DLLVM_ENABLE_PROJECTS="mlir;clang" \
-  -DLLVM_ENABLE_RUNTIMES="compiler-rt;openmp" \
-  -DBUILD_SHARED_LIBS=ON \
-  ../llvm
-ninja
-
-# Build onnx-mlir (default mode)
-cmake -G Ninja \
-  -DMLIR_DIR=/path/to/llvm-build/lib/cmake/mlir \
-  -DCMAKE_BUILD_TYPE=Release \
-  ..
-ninja onnx-mlir
-```
+Build: see [Linux or OSX](BuildOnLinuxOSX.md).
 
 ### Standalone Build
 
@@ -47,18 +30,30 @@ ninja onnx-mlir
 
 **Build Commands:**
 
+In the commands below, we build the compilers in a custom `build_standalone` directory. Users may 
+decide whether to use the traditional `build` or a custom `build_standalone` directory. Both solutions work.
+
 **Step 1: Build LLVM/MLIR with static libraries**
 ```bash
-cmake -G Ninja \
-  -DCMAKE_BUILD_TYPE=Release \
+# Clean build directory (needed if you already have a build directory).
+rm -rf build_standalone
+mkdir build_standalone && cd build_standalone
+
+cmake -G Ninja ../llvm \
   -DLLVM_ENABLE_PROJECTS="mlir;clang" \
-  -DLLVM_ENABLE_RUNTIMES="compiler-rt;openmp" \
+  -DLLVM_ENABLE_RUNTIMES="openmp" \
+  -DLLVM_TARGETS_TO_BUILD="host" \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DLLVM_ENABLE_ASSERTIONS=ON \
+  -DLLVM_ENABLE_RTTI=ON \
+  -DLLVM_ENABLE_LIBEDIT=OFF \
   -DBUILD_SHARED_LIBS=OFF \
   -DLLVM_BUILD_LLVM_DYLIB=OFF \
   -DLLVM_LINK_LLVM_DYLIB=OFF \
-  -DLLVM_ENABLE_ZSTD=OFF \
-  ../llvm
-ninja
+  -DLLVM_ENABLE_ZSTD=OFF
+
+cmake --build . -- ${MAKEFLAGS}
+cmake --build . --target check-mlir
 ```
 
 **Notes:**
@@ -68,19 +63,35 @@ ninja
 
 **Step 2: Build onnx-mlir as standalone**
 ```bash
-# Clean build directory
-rm -rf build
-mkdir build && cd build
+# Clean build directory (needed if you already have a build directory).
+rm -rf build_standalone
+mkdir build_standalone && cd build_standalone
 
 # Configure with standalone mode (Linux example)
-cmake -G Ninja \
-  -DMLIR_DIR=/path/to/llvm-build/lib/cmake/mlir \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DONNX_MLIR_BUILD_STANDALONE=ON \
-  -DCMAKE_IGNORE_PATH="/usr/local;/opt" \
-  ..
-
-ninja onnx-mlir
+MLIR_DIR=$(pwd)/llvm-project/build_standalone/lib/cmake/mlir
+mkdir onnx-mlir/build_standalone && cd onnx-mlir/build_standalone
+if [[ -z "$pythonLocation" ]]; then
+  cmake -G "Unix Makefiles" \
+        -DCMAKE_CXX_COMPILER=/usr/bin/c++ \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DLLVM_ENABLE_ASSERTIONS=ON \
+        -DMLIR_DIR=${MLIR_DIR} \
+        -DONNX_MLIR_BUILD_STANDALONE=ON \
+        -DCMAKE_IGNORE_PATH="/usr/local;/opt" \
+        ..
+else
+  cmake -G "Unix Makefiles" \
+        -DCMAKE_CXX_COMPILER=/usr/bin/c++ \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DLLVM_ENABLE_ASSERTIONS=ON \
+        -DPython3_ROOT_DIR=$pythonLocation \
+        -DMLIR_DIR=${MLIR_DIR} \
+        -DONNX_MLIR_BUILD_STANDALONE=ON \
+        -DCMAKE_IGNORE_PATH="/usr/local;/opt" \
+        ..
+fi
+cmake --build . --parallel 12
+cmake --build . --target check-onnx-lit
 ```
 
 **Important Notes:**
@@ -228,8 +239,8 @@ otool -L Debug/bin/onnx-mlir | grep -E "absl|protobuf|homebrew"
 
 **Solution:** You forgot to use `CMAKE_IGNORE_PATH`. Clean and rebuild:
 ```bash
-rm -rf build
-mkdir build && cd build
+rm -rf build_standalone
+mkdir build_standalone && cd build_standalone
 cmake -DONNX_MLIR_BUILD_STANDALONE=ON \
       -DCMAKE_IGNORE_PATH="/opt/homebrew;/usr/local" \
       ..

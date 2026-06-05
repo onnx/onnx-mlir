@@ -1359,6 +1359,120 @@ public:
   };
 };
 
+// Rewrite a pattern like the following:
+//
+// %shape = onnx.Concat(%dim1, %dim2, %dim3)
+// %data = onnx.Expand(%scalar, %shape)
+// %s = "onnx.Slice"(%data, %starts, %ends, %axes, %steps)
+//
+// into
+//
+// %new_shape = onnx.Concat(%new_dim1, %new_dim2, %new_dim3)
+// %s = onnx.Expand(%scalar, %new_shape)
+//
+// where dimensions are adjusted based on the slice parameters,
+// and all sliced dimensions are static at compile time,
+// and the input of Expand is a scalar tensor.
+class ReplaceSliceOfExpandRewritePattern
+    : public OpRewritePattern<ONNXSliceOp> {
+public:
+  using OpRewritePattern<ONNXSliceOp>::OpRewritePattern;
+
+  ReplaceSliceOfExpandRewritePattern(MLIRContext *context)
+      : OpRewritePattern(context) {}
+
+  LogicalResult matchAndRewrite(
+      ONNXSliceOp sliceOp, PatternRewriter &rewriter) const override {
+    Operation *op = sliceOp.getOperation();
+    Location loc = sliceOp.getLoc();
+    Value data = sliceOp.getData();
+    Value output = sliceOp.getOutput();
+    Value starts = sliceOp.getStarts();
+    Value axes = sliceOp.getAxes();
+
+    // Match
+    if (!hasShapeAndRank(data) || !hasShapeAndRank(starts) ||
+        !hasShapeAndRank(output))
+      return failure();
+    int64_t outputRank = getRank(output.getType());
+
+    // data is from ExpandOp.
+    if (!definedBy<ONNXExpandOp>(data))
+      return failure();
+    auto expandOp = mlir::cast<ONNXExpandOp>(data.getDefiningOp());
+
+    // ExpandOp's input is a scalar tensor so that it's safe to use a new
+    // shape that does not violate the broadcasting rule.
+    if (!isScalarTensor(expandOp.getInput()))
+      return failure();
+
+    // ExpandOp's shape is defined by dimensions.
+    if (!areDims(expandOp.getShape()))
+      return failure();
+
+    // Slice's axes are optional, but if present must be constants.
+    if (!isNoneValue(axes) && !definedBy<ONNXConstantOp>(axes))
+      return failure();
+
+    // Get starts to determine the size of axes when axes is None.
+    int64_t axesSize = getShape(starts.getType())[0];
+    if (axesSize == ShapedType::kDynamic)
+      return failure();
+
+    // Get axes (default to [0, 1, 2, ...]).
+    SmallVector<int64_t> axesI64;
+    if (isNoneValue(axes)) {
+      for (int64_t i = 0; i < axesSize; ++i)
+        axesI64.push_back(i);
+    } else {
+      ElementsAttr axesAttr = getElementAttributeFromONNXValue(axes);
+      for (int64_t v : axesAttr.getValues<int64_t>())
+        axesI64.emplace_back(v >= 0 ? v : v + outputRank);
+    }
+
+    // Check that all sliced dimensions of the input data are static.
+    if (!hasShapeAndRank(data))
+      return failure();
+    ArrayRef<int64_t> dataShape = getShape(data.getType());
+    for (int64_t axis : axesI64) {
+      if (dataShape[axis] == ShapedType::kDynamic)
+        return failure();
+    }
+
+    // Rewrite: construct new shape by using dynamic dims from Expand's shape
+    // and static dim from Slice's output shape.
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+
+    // Get the old shape of Expand.
+    SmallVector<Value, 4> oldExpandShape;
+    getDims(expandOp.getShape(), oldExpandShape);
+
+    // Get the old shape of Slice.
+    ArrayRef<int64_t> oldSliceShape = getShape(output.getType());
+
+    SmallVector<Value, 4> newDims;
+    for (int64_t i = 0; i < outputRank; ++i) {
+      // Check if this dimension is being sliced.
+      auto it = std::find(axesI64.begin(), axesI64.end(), i);
+      if (it != axesI64.end()) {
+        // This dimension is sliced and it must be static.
+        newDims.emplace_back(create.onnx.constantInt64({oldSliceShape[i]}));
+      } else {
+        // This dimension is not sliced, keep original.
+        newDims.emplace_back(oldExpandShape[i]);
+      }
+    }
+
+    Value newShape = create.onnx.concat(
+        RankedTensorType::get({outputRank}, rewriter.getI64Type()), newDims, 0);
+
+    Value res =
+        create.onnx.expand(output.getType(), expandOp.getInput(), newShape);
+    rewriter.replaceOp(op, {res});
+    return success();
+  };
+};
+
 /// The pattern is to replace two consecutive ReshapeOp with a single ReshapeOp.
 /// It's not successful for arbitrary ReshapeOp, so let's consider necessary
 /// condition for the replacement.
@@ -1569,6 +1683,123 @@ private:
     }
 
     return false;
+  }
+};
+
+// ONNXReshapeOp with allowzero = 0 is more friendly when doing dimension
+// analysis and optimization.
+//
+// The pattern is to turn ONNXReshapeOp with allowzero = 1 to the one with
+// allowzero = 0 for some specific cases where the semantics are equivalent.
+//
+// Case 1: All static dimensions
+// When both input and output have all static dimensions, allowzero can be
+// safely changed to 0 since there are no dynamic dimensions to consider.
+//
+// Example:
+// ```mlir
+// %6 = "onnx.Reshape"(%arg0, %5) <{allowzero = 1 : si64}> :
+// (tensor<1x4x4x8x64xf32>, tensor<4xi64>) -> tensor<1x16x8x64xf32>
+// ```
+// can be rewritten into:
+// ```mlir
+// %6 = "onnx.Reshape"(%arg0, %5) <{allowzero = 0 : si64}> :
+// (tensor<1x4x4x8x64xf32>, tensor<4xi64>) -> tensor<1x16x8x64xf32>
+// ```
+//
+// Case 2: Single dynamic dimension with reshape on static dimensions only
+// When there is exactly one dynamic dimension in both input and output, and
+// the product of static dimensions is the same, the reshape only affects
+// static dimensions. The dynamic dimension must remain unchanged to preserve
+// the total number of elements.
+//
+// Example:
+// ```mlir
+// %6 = "onnx.Reshape"(%arg0, %5) <{allowzero = 1 : si64}> :
+// (tensor<1x4x4x?x64xf32>, tensor<4xi64>) -> tensor<1x16x?x64xf32>
+// ```
+// can be rewritten into:
+// ```mlir
+// %6 = "onnx.Reshape"(%arg0, %5) <{allowzero = 0 : si64}> :
+// (tensor<1x4x4x?x64xf32>, tensor<4xi64>) -> tensor<1x16x?x64xf32>
+// ```
+// where `allowzero=1` becomes `allowzero=0`.
+//
+// In both cases, allowzero does not change the reshape's semantics.
+//
+class RewriteReshapeAllowZeroPattern : public OpRewritePattern<ONNXReshapeOp> {
+public:
+  using OpRewritePattern<ONNXReshapeOp>::OpRewritePattern;
+
+  RewriteReshapeAllowZeroPattern(MLIRContext *context)
+      : OpRewritePattern(context) {}
+
+  LogicalResult matchAndRewrite(
+      ONNXReshapeOp reshapeOp, PatternRewriter &rewriter) const override {
+    // Only rewrite if allowzero is 1.
+    if (reshapeOp.getAllowzero() != 1)
+      return failure();
+
+    Value data = reshapeOp.getData();
+    Value output = reshapeOp.getResult();
+
+    // Input and output must have static rank.
+    if (!hasShapeAndRank(data) || !hasShapeAndRank(output))
+      return failure();
+
+    ArrayRef<int64_t> inputShape = getShape(data.getType());
+    ArrayRef<int64_t> outputShape = getShape(output.getType());
+
+    // Count dynamic dimensions in input.
+    int64_t numDynamicDims = 0;
+    for (int64_t dim : inputShape) {
+      if (dim == ShapedType::kDynamic)
+        numDynamicDims++;
+    }
+
+    // Count dynamic dimensions in output.
+    int64_t numDynamicInOutput = 0;
+    for (int64_t dim : outputShape) {
+      if (dim == ShapedType::kDynamic)
+        numDynamicInOutput++;
+    }
+
+    // Case 1: Both input and output have all static dimensions.
+    // In this case, allowzero can be safely changed to 0.
+    bool allStaticDims = (numDynamicDims == 0 && numDynamicInOutput == 0);
+
+    // Case 2: Exactly one dynamic dimension in both input and output.
+    bool singleDynamicDim = (numDynamicDims == 1 && numDynamicInOutput == 1);
+
+    if (!(allStaticDims || singleDynamicDim))
+      return failure();
+
+    if (singleDynamicDim) {
+      // Verify that the product of static dimensions is the same in input and
+      // output. This ensures the reshape only affects static dimensions.
+      int64_t inputStaticProduct = 1;
+      for (int64_t dim : inputShape) {
+        if (dim != ShapedType::kDynamic)
+          inputStaticProduct *= dim;
+      }
+
+      int64_t outputStaticProduct = 1;
+      for (int64_t dim : outputShape) {
+        if (dim != ShapedType::kDynamic)
+          outputStaticProduct *= dim;
+      }
+
+      if (inputStaticProduct != outputStaticProduct)
+        return failure();
+    }
+
+    // Rewrite: change allowzero from 1 to 0.
+    rewriter.modifyOpInPlace(reshapeOp, [&]() {
+      reshapeOp.setAllowzeroAttr(
+          IntegerAttr::get(rewriter.getIntegerType(64, /*isSigned=*/true), 0));
+    });
+
+    return success();
   }
 };
 
@@ -1899,7 +2130,7 @@ public:
 
     // Check if the condition of WhereOp matches EqualOp, the X of it matches
     // ConstantOp, and the Y of it matches ConcatOp.
-    Operation *equalOp, *constantOp, *concatOp;
+    Operation *equalOp = nullptr, *constantOp = nullptr, *concatOp = nullptr;
     Value equalOpResVal, constantOpResVal, concatOpResVal;
     bool isEqualOp = operandOfOpDefinedBy<ONNXEqualOp>(
         equalOp, onnxWhereOp.getOperation(), equalOpResVal, 0);
@@ -2598,6 +2829,7 @@ void ONNXReshapeOp::getCanonicalizationPatterns(
   result.insert<FuseTwoReshapesAllowZeroPattern>(context);
   result.insert<RemoveIdentityReshapePattern1>(context);
   result.insert<RemoveIdentityReshapePattern2>(context);
+  result.insert<RewriteReshapeAllowZeroPattern>(context);
   result.insert<SwapReshapeMatMulPattern>(context);
 }
 
@@ -2624,6 +2856,7 @@ void ONNXShapeOp::getCanonicalizationPatterns(
 void ONNXSliceOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<SliceConcatNoOpPattern>(context);
+  results.insert<ReplaceSliceOfExpandRewritePattern>(context);
 }
 
 /// on the ONNXSubOp.

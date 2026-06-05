@@ -1,0 +1,3 @@
+# Ignore directories for build or install with -e
+dist/
+src/OMPyInfer/__pycache__/

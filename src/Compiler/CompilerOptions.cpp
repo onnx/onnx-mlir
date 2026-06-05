@@ -4,7 +4,7 @@
 
 //===------------------------ CompilerOptions.cpp -------------------------===//
 //
-// Copyright 2022-2025 The IBM Research Authors.
+// Copyright 2022-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/TargetParser/Host.h"
 
@@ -63,6 +64,7 @@ bool preserveLocations;                                // onnx-mlir only
 bool printIR;                                          // onnx-mlir only
 int printONNXBasicIR;                                  // onnx-mlir only
 bool doNotEmitFullMLIRCode;                            // onnx-mlir only
+bool omitCompileInfo;                                  // onnx-mlir only
 bool preserveBitcode;                                  // onnx-mlir only
 bool preserveLLVMIR;                                   // onnx-mlir only
 bool preserveMLIR;                                     // onnx-mlir only
@@ -97,6 +99,7 @@ std::vector<std::string> reportHeapBefore;             // onnx-mlir only
 std::vector<std::string> reportHeapAfter;              // onnx-mlir only
 std::string modelTag;                                  // onnx-mlir only
 bool enableConvOptPass;                                // onnx-mlir only
+bool disableConvToMatmul;                              // onnx-mlir only
 std::vector<std::string> replaceOpWithItsOperand;      // onnx-mlir only
 bool disableConstantProp;                              // onnx-mlir only
 bool disableCountIncludePad;                           // onnx-mlir only
@@ -108,6 +111,7 @@ OptReport optReport;                                   // onnx-mlir only
 bool enableTiming;                                     // onnx-mlir only
 bool enableBoundCheck;                                 // onnx-mlir only
 bool useLinalgPath;                                    // onnx-mlir only
+bool enableDebugInfo;                                  // onnx-mlir only
 std::string configFile;                                // onnx-mlir only
 std::string saveConfigFile;                            // onnx-mlir only
 bool appendDecodingStrategy;                           // onnx-mlir only
@@ -382,6 +386,13 @@ static llvm::cl::opt<bool, true> doNotEmitFullMLIRCodeOpt(
         "(<name>.tmp). Need to be used with emitting MLIR options such as "
         "--EmitONNXIR and --EmitMLIR."),
     llvm::cl::location(doNotEmitFullMLIRCode), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<bool, true> omitCompileInfoOpt("omit-compile-info",
+    llvm::cl::desc("Do not embed compilation information such as compiler "
+                   "version, compile options, and ONNX operation statistics "
+                   "into the generated shared library."),
+    llvm::cl::location(omitCompileInfo), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<bool, true> preserveBitcodeOpt("preserveBitcode",
@@ -683,6 +694,14 @@ static llvm::cl::opt<bool, true> useLinalgPathOpt("use-linalg-path",
     llvm::cl::location(useLinalgPath), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
+static llvm::cl::opt<bool, true> enableDebugInfoOpt("enable-debug-info",
+    llvm::cl::desc(
+        "Add the debug information to .so file. Such information can be used "
+        "by gdb. If the input is .onnx file, please also use --preserveMLIR "
+        "flag. Check docs/Testing.md for details"),
+    llvm::cl::location(enableDebugInfo), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
+
 static llvm::cl::opt<std::string, true> linalgOpsOpt("linalg-ops",
     llvm::cl::desc(
         "Specify which operations should be lowered to Linalg dialect.\n"
@@ -736,6 +755,13 @@ static llvm::cl::opt<std::string, true> modelTagOpt("tag",
 static llvm::cl::opt<bool, true> enableConvOptPassOpt("enable-conv-opt-pass",
     llvm::cl::desc("Enable the ConvOptPass. Default is true."),
     llvm::cl::location(enableConvOptPass), llvm::cl::init(true),
+    llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<bool, true> disableConvToMatmulOpt(
+    "disable-conv-to-matmul",
+    llvm::cl::desc(
+        "Disable Conv to Im2Col+MatMul decomposition. Default is false."),
+    llvm::cl::location(disableConvToMatmul), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::list<std::string, std::vector<std::string>>
@@ -1131,6 +1157,13 @@ std::string getTargetAccel() {
   if (!accelCount)
     ss << "--maccel=NONE";
   return ss.str();
+}
+
+bool targetNoAccelerators() {
+  // Cannot simply use maccel.empty() because maccel = {NONE} is valid and means
+  // no accelerator too.
+  return llvm::none_of(
+      maccel, [](auto a) { return a != accel::Accelerator::Kind::NONE; });
 }
 
 // Support for Optimization level.

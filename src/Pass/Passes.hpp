@@ -39,7 +39,7 @@ std::unique_ptr<mlir::Pass> createONNXOpTransformPass(int threshold,
 
 /// Pass for rewriting inside frontend dialect.
 std::unique_ptr<mlir::Pass> createDecomposeONNXToONNXPass(
-    const std::string &target = "");
+    const std::string &target = "", bool enableConvToMatmul = true);
 std::unique_ptr<mlir::Pass> createRecomposeONNXToONNXPass(
     const std::string &target = "");
 
@@ -56,6 +56,10 @@ std::unique_ptr<mlir::Pass> createReplaceOpWithItsOperandPass(
 std::unique_ptr<mlir::Pass> createRemoveSameONNXDimPass();
 
 std::unique_ptr<mlir::Pass> createShapeInferencePass();
+
+/// Test-only: reify ranked result shapes for ONNX ops that implement the
+/// interface (used by lit tests).
+std::unique_ptr<mlir::Pass> createTestONNXReifyResultShapesPass();
 
 // To configure ConstPropONNXToONNXPass at program start.
 void configureConstPropONNXToONNXPass(bool roundFPToInt, int expansionBound,
@@ -74,6 +78,10 @@ std::unique_ptr<mlir::Pass> createInstrumentPass(
 #define GEN_PASS_DECL_INSTRUMENTCLEANUPPASS
 #include "src/Transform/Passes.h.inc"
 
+/// Pass for writing operation statistics to a module attribute.
+#define GEN_PASS_DECL_WRITEOPSTATSTOMODULEATTRIBUTEPASS
+#include "src/Transform/Passes.h.inc"
+
 /// Passes for instrumenting the ONNX ops to print their operand type
 /// signatures at runtime.
 std::unique_ptr<mlir::Pass> createInstrumentONNXSignaturePass(
@@ -88,13 +96,16 @@ std::unique_ptr<mlir::Pass> createStandardFuncReturnPass();
 /// Pass that combines multiple ONNX dialect transformations,
 /// including shape inference.
 std::unique_ptr<mlir::Pass> createONNXHybridTransformPass(
-    bool enableRecomposition);
+    bool enableRecomposition, bool enableConvToMatmul);
 
 /// Pass for analyzing unknown dimension in ONNX operations.
 std::unique_ptr<mlir::Pass> createONNXDimAnalysisPass();
 
 /// Pass for setting onnx_node_name attribute if absent.
 std::unique_ptr<mlir::Pass> createSetONNXNodeNamePass();
+
+/// Pass for CSE on ONNX operations preserving node names.
+std::unique_ptr<mlir::Pass> createONNXCSEWithNodeNamePass();
 
 /// Pass for verifying Onnx ops before lowering to Krnl
 std::unique_ptr<mlir::Pass> createONNXPreKrnlVerifyPass();
@@ -139,7 +150,7 @@ std::unique_ptr<mlir::Pass> createConvertKrnlToLLVMPass();
 std::unique_ptr<mlir::Pass> createConvertKrnlToLLVMPass(bool verifyInputTensors,
     bool useLRODATA, bool storeConstantsToFile,
     float constantsToFileSingleThreshold, float constantsToFileTotalThreshold,
-    std::string outputNameNoExt, bool enableParallel);
+    bool omitCompileInfo, std::string outputNameNoExt, bool enableParallel);
 
 } // namespace krnl
 

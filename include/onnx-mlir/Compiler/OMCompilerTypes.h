@@ -52,7 +52,10 @@ typedef enum {
   X(CompilerCrashed, 15, "Compiler failed to execute successfully")            \
   X(CommandNotFound, 16, "Command executable not found (check PATH)")          \
   X(CommandNotExecutable, 17, "Command not executable")                        \
-  X(CommandExecutionFailed, 18, "Command execution failed")
+  X(CommandExecutionFailed, 18, "Command execution failed")                    \
+  /* TODO: Remove after onnx 1.21.0 update (see                             */ \
+  /*   https://github.com/onnx/onnx-mlir/issues/3455).                      */ \
+  X(InvalidInputFileLink, 19, "Input file is a hardlink, which is not allowed")
 
 /* Generate enum from the macro */
 typedef enum {

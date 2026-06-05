@@ -50,8 +50,12 @@ public:
     auto resMemRefType = dyn_cast<MemRefType>(
         typeConverter->convertType(lpNormOp.getResult().getType()));
     Type elementType = resMemRefType.getElementType();
+    int64_t rank = inputType.getRank();
 
     int64_t axis = adaptor.getAxis();
+    if (axis < 0)
+      axis += rank;
+    assert(axis >= 0 && axis < rank && "out of bound axis");
     double p = adaptor.getP();
     llvm::SmallVector<int64_t> reductionShape(
         inputType.getShape().begin(), inputType.getShape().end());
@@ -62,24 +66,39 @@ public:
         create.getBuilder().getI64TensorAttr(axesIntArray));
     TensorType reductionType =
         RankedTensorType::get(reductionShape, elementType);
-    Value res = nullptr;
-    if (p == 1) {
-      // Y =  x / sum (abs(x), axis)
+
+    // TODO: if the performance of this op matters, we should introduce an
+    // efficient divide by 0 results in zero operator. Also, the ReduceL1 &
+    // ReduceL2 ops should be natively implemented; currently the onnx ops are
+    // decomposed in element operations.
+    Value divisor;
+    if (p == 1.0) {
       Value abs = create.onnx.abs(input);
-      Value sumAbs = create.onnx.reduceSum(reductionType, abs, axes);
-      res = create.onnx.div(input, sumAbs);
-    } else if (p == 2) {
-      // Y =  x / sqrt(sum((x^2),axis))
+      divisor = create.onnx.reduceSum(reductionType, abs, axes);
+    } else if (p == 2.0) {
       Value mul = create.onnx.mul(input, input);
       Value sumMul = create.onnx.reduceSum(reductionType, mul, axes);
-      Value sqrtSumMul = create.onnx.sqrt(sumMul);
-      res = create.onnx.div(input, sqrtSumMul);
+      divisor = create.onnx.sqrt(sumMul);
     } else {
       llvm_unreachable(
           "The order of the normalization, only 1 or 2 are supported.");
     }
 
-    rewriter.replaceOp(op, {create.onnx.toMemref(input)});
+    // Handle the divide by zero as a zero in the final result.
+    RankedTensorType scalarType = RankedTensorType::get({}, elementType);
+    Value zero = create.onnx.constant(
+        DenseElementsAttr::get(scalarType, static_cast<float>(0.0)));
+    Value one = create.onnx.constant(
+        DenseElementsAttr::get(scalarType, static_cast<float>(1.0)));
+    Value isZero = create.onnx.equal(divisor, zero);
+    // When divisor is zero, then saveDividend = 0, saveDivisor = 1.0,
+    // and we have 0/1 = 0. Otherwise we have the normal input / divisor.
+    Value saveDividend = create.onnx.where(inputType, isZero, zero, input);
+    Value safeDivisor = create.onnx.where(reductionType, isZero, one, divisor);
+    Value res = create.onnx.div(saveDividend, safeDivisor);
+
+    // Replace the op.
+    rewriter.replaceOp(op, res);
     return success();
   }
 };

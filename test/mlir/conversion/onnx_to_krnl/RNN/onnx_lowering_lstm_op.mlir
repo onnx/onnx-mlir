@@ -440,7 +440,6 @@ func.func private @test_lstm_reverse_mode(%arg0: tensor<7x2x3xf32>, %arg1: tenso
 // CHECK:         }
 }
 
-
 // -----
 
 func.func private @test_lstm_bidirectional_mode(%arg0: tensor<7x2x3xf32>, %arg1: tensor<2x16x3xf32>, %arg2: tensor<2x16x4xf32>, %arg3: tensor<2x32xf32>, %arg4: tensor<2x2x4xf32>, %arg5: tensor<2x2x4xf32>, %arg6: tensor<2x12xf32>) -> tensor<*xf32> {
