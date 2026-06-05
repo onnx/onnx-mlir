@@ -1409,8 +1409,8 @@ bool isSuitableForZDNN<ONNXAveragePoolOp>(
 /// Restrictions" in "zDNN API Reference". Note that input/output shapes may be
 /// dynamic, need to be tested needing to use the values.
 static bool checkConv2DParamRestrictions(Operation *op, int64_t inputDim,
-    int64_t kernelDim, int64_t stride, int64_t outputDim, StringRef paddingType,
-    bool inputFromUpsampleAndPad) {
+    int64_t kernelDim, int64_t stride, int64_t outputDim,
+    StringRef paddingType) {
   if (stride == 0) {
     // paddingType must be VALID_PADDING.
     if (!(paddingType == "VALID_PADDING")) {
@@ -1468,12 +1468,17 @@ static bool checkConv2DParamRestrictions(Operation *op, int64_t inputDim,
     }
     // No constraints for SAME_PADDING.
     if (paddingType == "VALID_PADDING") {
+      // Check whether the Conv's input was produced by UpsampleAndPad, which
+      // occurs when this Conv was lowered from a ConvTranspose. In that case
+      // the UpsampleAndPad guarantees inputDim >= kernelDim, so the
+      // corresponding shape restriction can be skipped.
+      ONNXConvOp convOp = mlir::dyn_cast<ONNXConvOp>(op);
+      bool inputFromUpsampleAndPad =
+          convOp.getX().getDefiningOp<mlir::ONNXUpsampleAndPadOp>() != nullptr;
+
       // If we need to enforce the shape restrictions. First condition: test
       // disabled. Second condition, test trivially true because of the reason
-      // listed below. When the Conv's input comes from UpsampleAndPad (i.e. it
-      // was produced by a ConvTranspose decomposition), the padding applied by
-      // UpsampleAndPad mathematically guarantees inputDim >= kernelDim (for
-      // dilation=1), so the check is unnecessary.
+      // upsample operation.
       if (!nnpaDisableShapeRestriction && !inputFromUpsampleAndPad) {
         // Input shape must be static.
         if (ShapedType::isDynamic(inputDim))
@@ -1583,21 +1588,14 @@ bool isSuitableForZDNN<ONNXConvOp>(
   int64_t stridesH = shapeHelper.strides[0];
   int64_t stridesW = shapeHelper.strides[1];
 
-  // Check whether the Conv's input was produced by UpsampleAndPad, which
-  // occurs when this Conv was lowered from a ConvTranspose. In that case the
-  // UpsampleAndPad guarantees inputDim >= kernelDim, so the corresponding
-  // shape restriction can be skipped.
-  bool inputFromUpsampleAndPad =
-      op.getX().getDefiningOp<mlir::ONNXUpsampleAndPadOp>() != nullptr;
-
   // Check parameter restrictions for conv2d for each axis. Input/output shapes
   // may be dynamic.
-  bool isHOK = checkConv2DParamRestrictions(op, inputShapeH, kernelShapeH,
-      stridesH, outputShapeH, paddingType, inputFromUpsampleAndPad);
+  bool isHOK = checkConv2DParamRestrictions(
+      op, inputShapeH, kernelShapeH, stridesH, outputShapeH, paddingType);
   if (!isHOK)
     return false;
-  bool isWOK = checkConv2DParamRestrictions(op, inputShapeW, kernelShapeW,
-      stridesW, outputShapeW, paddingType, inputFromUpsampleAndPad);
+  bool isWOK = checkConv2DParamRestrictions(
+      op, inputShapeW, kernelShapeW, stridesW, outputShapeW, paddingType);
   if (!isWOK)
     return false;
   return true;
