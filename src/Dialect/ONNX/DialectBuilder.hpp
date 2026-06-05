@@ -95,6 +95,8 @@ struct OnnxBuilder : DialectBuilder {
   // ONNXDimGroupOp
   void dimGroup(mlir::Value input, int axis, int groupID) const;
 
+  mlir::Value equal(mlir::Value A, mlir::Value B) const;
+
   // ONNXExpandOp
   mlir::Value expand(
       mlir::Type outputType, mlir::Value input, mlir::Value shape) const;
@@ -147,6 +149,16 @@ struct OnnxBuilder : DialectBuilder {
       mlir::Value constantValue, std::string mode = "constant") const;
   // Zero padding
   mlir::Value padZero(mlir::Value input, mlir::Value pads) const;
+
+  // ONNXReduceL1Op
+  mlir::Value reduceL1(mlir::Type outputType, mlir::Value data,
+      mlir::Value axes, bool keepDims = true,
+      bool noop_with_empty_axes = false) const;
+
+  // ONNXReduceL2Op
+  mlir::Value reduceL2(mlir::Type outputType, mlir::Value data,
+      mlir::Value axes, bool keepDims = true,
+      bool noop_with_empty_axes = false) const;
 
   // ONNXReduceMaxOp
   mlir::Value reduceMax(mlir::Type outputType, mlir::Value data,
@@ -357,6 +369,23 @@ struct IndexExprBuilderForAnalysis : IndexExprBuilder {
   IndexExprBuilderForAnalysis(const DialectBuilder &db)
       : IndexExprBuilder(db.getLoc()) {} // Builder omitted during analysis.
   virtual ~IndexExprBuilderForAnalysis() {}
+
+protected:
+  mlir::ElementsAttr getConst(mlir::Value value) final;
+  mlir::Value getVal(mlir::Value intArrayVal, uint64_t i) final;
+  mlir::Value getShapeVal(mlir::Value tensorOrMemrefValue, uint64_t i) final;
+};
+
+// =============================================================================
+// IndexExpr Builder for reifyResultShapes (emits shape/shape:: IR).
+// =============================================================================
+
+struct IndexExprBuilderForReify : IndexExprBuilder {
+  IndexExprBuilderForReify(mlir::Location loc) : IndexExprBuilder(loc) {}
+  IndexExprBuilderForReify(mlir::OpBuilder &b, mlir::Location loc)
+      : IndexExprBuilder(b, loc) {}
+  IndexExprBuilderForReify(const DialectBuilder &db) : IndexExprBuilder(db) {}
+  virtual ~IndexExprBuilderForReify() {}
 
 protected:
   mlir::ElementsAttr getConst(mlir::Value value) final;

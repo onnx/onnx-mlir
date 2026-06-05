@@ -4,7 +4,7 @@
 
 //===------------------------- RegisterPasses.cpp -------------------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -88,11 +88,16 @@ void registerOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return createONNXHybridTransformPass(/*recompose ops*/ true);
+    return createONNXHybridTransformPass(
+        /*recompose ops*/ true, /*enableConvToMatmul*/ true);
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createShapeInferencePass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createTestONNXReifyResultShapesPass();
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {

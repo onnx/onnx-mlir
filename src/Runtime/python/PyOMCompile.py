@@ -27,27 +27,46 @@ except ImportError:
 class OMCompile(OMCompile_):
     def __init__(
         self,
-        input_model_path,
+        compiler_path="",
+        compiler_image="",
+        auto_pull=True,
+        engine="auto",
+        cache=None,
+        verbose=False,
+    ):
+
+        self.cache = cache
+        if compiler_image:
+            super().__init__(compiler_image, compiler_path, engine, auto_pull, verbose)
+        else:
+            if not compiler_path:
+                # Import the package for standalone compile
+                try:
+                    import OMPyCompile
+
+                    compiler_path = OMPyCompile.get_compiler_path()
+                except ImportError as e:
+                    # No standalone compiler, use local PATH
+                    pass
+            super().__init__(compiler_path, verbose)
+
+    def compile(
+        self,
+        model_path,
         flags,
+        output_path="",
         compiler_path="",
         log_file_name="",
         reuse_compiled_model=False,
     ):
-        if __package__ and not compiler_path:
-            from . import compiler_path as compiler_path_in_package
-
-            super().__init__(
-                input_model_path,
-                flags,
-                compiler_path_in_package,
-                log_file_name,
-                reuse_compiled_model,
-            )
-        else:
-            super().__init__(
-                input_model_path,
-                flags,
-                compiler_path,
-                log_file_name,
-                reuse_compiled_model,
-            )
+        if self.cache:
+            # Check cache policy to decide whether a cached .so can be used
+            exit(-1)
+        return super().compile(
+            model_path,
+            flags,
+            output_path,
+            compiler_path,
+            log_file_name,
+            reuse_compiled_model,
+        )

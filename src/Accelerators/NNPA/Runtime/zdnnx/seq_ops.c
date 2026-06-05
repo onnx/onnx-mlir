@@ -402,8 +402,11 @@ zdnn_status zdnnx_seq_softmax(const zdnn_ztensor *input, void *save_area,
 }
 
 static inline zdnn_status call_zdnn_matmul_op(const zdnn_ztensor *input_a,
-    const zdnn_ztensor *input_b, const zdnn_ztensor *input_c, int op_type,
-    zdnn_ztensor *output, bool is_bcast) {
+    const zdnn_ztensor *input_b, const zdnn_ztensor *input_c, bool transpose_a,
+    bool transpose_b, int op_type, zdnn_ztensor *output, bool is_bcast) {
+  if (transpose_a || transpose_b)
+    return zdnn_matmul_transpose_op(input_a, input_b, input_c,
+        transpose_a ? 1 : 0, transpose_b ? 1 : 0, op_type, output);
   if (is_bcast)
     return zdnn_matmul_bcast_op(
         input_a, input_b, input_c, (zdnn_matmul_bcast_ops)op_type, output);
@@ -412,8 +415,8 @@ static inline zdnn_status call_zdnn_matmul_op(const zdnn_ztensor *input_a,
 }
 
 zdnn_status zdnnx_seq_matmul(const zdnn_ztensor *input_a,
-    const zdnn_ztensor *input_b, const zdnn_ztensor *input_c, int op_type,
-    zdnn_ztensor *output, bool is_bcast) {
+    const zdnn_ztensor *input_b, const zdnn_ztensor *input_c, bool transpose_a,
+    bool transpose_b, int op_type, zdnn_ztensor *output, bool is_bcast) {
 #ifdef ZDNNX_DEBUG
   printf("[MatMul]\n");
 #endif
@@ -429,10 +432,12 @@ zdnn_status zdnnx_seq_matmul(const zdnn_ztensor *input_a,
       (a_layout == ZDNN_3DS && b_layout == ZDNN_3DS && c_layout == ZDNN_2DS);
 
   // Select suitable tile sizes for E4, E2, E1 tile size. E3 is always 1.
+  // If a tensor is transposed,  only split its E4.
   uint32_t ts_e4 = 0, ts_e2 = 0, ts_e1 = 0;
-  select_tile_sizes(input_a, &ts_e4, NULL, &ts_e2, NULL);
-  select_tile_sizes(input_b, &ts_e4, NULL, NULL, &ts_e1);
-  select_tile_sizes(output, &ts_e4, NULL, &ts_e2, &ts_e1);
+  select_tile_sizes(input_a, &ts_e4, NULL, transpose_a ? NULL : &ts_e2, NULL);
+  select_tile_sizes(input_b, &ts_e4, NULL, NULL, transpose_b ? NULL : &ts_e1);
+  select_tile_sizes(output, &ts_e4, NULL, transpose_a ? NULL : &ts_e2,
+      transpose_b ? NULL : &ts_e1);
 
   zdnnx_split_info si_a, si_b, si_c, si_y;
   zdnnx_prepare_split_info(&si_a, input_a, ts_e4, 0, ts_e2, 0, "MatMul A");
@@ -445,8 +450,8 @@ zdnn_status zdnnx_seq_matmul(const zdnn_ztensor *input_a,
 #ifdef ZDNNX_DEBUG
     printf("[MatMul] calling the original zdnn matmul.\n");
 #endif
-    zdnn_status status = call_zdnn_matmul_op(
-        input_a, input_b, input_c, op_type, output, is_bcast);
+    zdnn_status status = call_zdnn_matmul_op(input_a, input_b, input_c,
+        transpose_a, transpose_b, op_type, output, is_bcast);
     return status;
   }
 
@@ -491,8 +496,8 @@ zdnn_status zdnnx_seq_matmul(const zdnn_ztensor *input_a,
         zdnnx_set_tile(&si_y, &ty, tile_buff_y, b, 0, m, n);
 
         /* Operation */
-        zdnn_status status = call_zdnn_matmul_op(
-            &ta.data, &tb.data, &tc.data, op_type, &ty.data, is_bcast);
+        zdnn_status status = call_zdnn_matmul_op(&ta.data, &tb.data, &tc.data,
+            transpose_a, transpose_b, op_type, &ty.data, is_bcast);
         assert(status == ZDNN_OK);
 
         /* Copy the output tile at (0, 0, m, n) to the full output. */

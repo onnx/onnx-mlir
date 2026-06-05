@@ -277,7 +277,7 @@ This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; fo
 
 Traits: `AlwaysSpeculatableImplTrait`
 
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ReifyRankedShapedTypeOpInterface`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
 Effects: `MemoryEffects::Effect{}`
 
@@ -537,6 +537,108 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
+
+
+### `onnx.Attention` (ONNXAttentionOp)
+
+_ONNX Attention operation_
+
+Computes scaled dot product attention on query, key and value tensors, using an optional attention mask if passed.
+
+This operator covers self and cross variants of the attention operation based on sequence lengths of K, Q and V.
+
+For self attention, `kv_sequence_length` equals to `q_sequence_length`.
+
+For cross attention, query and key might have different lengths.
+
+This operator also covers the 3 following variants based on the number of heads:
+1) Multi-headed Attention (MHA): Described in the paper https://arxiv.org/pdf/1706.03762, `q_num_heads = kv_num_heads`.
+2) Group-query Attention (GQA): Described in the paper https://arxiv.org/pdf/2305.13245, `q_num_heads > kv_num_heads`, `q_num_heads % kv_num_heads == 0`.
+3) Multi-query Attention (MQA): Described in the paper https://arxiv.org/pdf/1911.02150, `q_num_heads > kv_num_heads`, `kv_num_heads=1`.
+
+Attention bias to be added is calculated based on `attn_mask` input and `is_causal` attribute:
+1) `attn_mask`: A boolean mask where a value of `True` indicates that the element should take part in attention or a float mask of the same type as query, key, value that is added to the attention score.
+2) If `is_causal` is set to `1`, attention scores above the diagonal are masked out, regardless of the `attn_mask` input.
+
+With respect to KV cache update, this operator allows the following two use cases:
+
+1) Cache update happens inside the Attention operator. In this case, the `K` and `V` inputs contain only the incoming
+tokens for the current autoregressive step, and the four optional inputs/outputs past and present key and value are
+all needed. The Attention op performs a Concat operation on the past and incoming key and value to form the present
+key and value, respectively. Note that this only works correctly for the special case where the past key and value
+do not contain padded tokens.
+2) Cache update happens outside the Attention operator (for example, through the `TensorScatter` operator). In this
+case, the `K` and `V` inputs correspond to the entire cache tensor, so the four optional inputs/outputs past and
+present key and value should not be used. An additional input `nonpad_kv_seqlen` of shape (batch_size,) may be
+provided to indicate the number of non-padding tokens in each sample of the batch to save unnecessary computation.
+Here, the kv_sequence dimension of `attn_mask` can be shorter than `K` and `V`, but still needs to be at least as long
+as the maximum value of `nonpad_kv_seqlen`.
+
+Both past and present state key/values are optional. They shall be used together, and not allowed to use only one of them.
+The following pattern is applied to the Q, K and V inputs after appropriate reshaping of K and V inputs based on sequence lengths and num heads provided:
+
+```
+  The following pattern is applied by this operator:
+      Q          K          V
+      |          |          |
+Q*sqrt(scale) K*sqrt(scale) |
+      |          |          |
+      |       Transpose     |
+      |          |          |
+      ---MatMul---          |
+            |               |
+ at_mask---Add              |
+            |               |
+  softcap (if provided)     |
+            |               |
+         Softmax            |
+            |               |
+            -----MatMul------
+                   |
+                   Y
+```
+
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>is_causal</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>kv_num_heads</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>q_num_heads</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>qk_matmul_output_mode</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>scale</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
+<tr><td><code>softcap</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
+<tr><td><code>softmax_precision</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `Q` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `K` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `V` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `attn_mask` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 1-bit signless integer values or none type |
+| `past_key` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
+| `past_value` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
+| `nonpad_kv_seqlen` | tensor of 64-bit signless integer values or none type |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `present_key` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
+| `present_value` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
+| `qk_matmul_output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
 
 
 
@@ -4158,6 +4260,76 @@ Effects: `MemoryEffects::Effect{}`
 
 
 
+### `onnx.Im2Col` (ONNXIm2ColOp)
+
+_ONNX Im2Col operation for convolution via matrix multiplication_
+
+Transforms N-dimensional convolution input into column format to enable
+convolution via matrix multiplication.
+
+For input X: [N, CI, D1, D2, ..., DN]
+With kernel: [K1, K2, ..., KN]
+And output spatial dims: [O1, O2, ..., ON]
+
+Output shape: [N, CI * K1 * K2 * ... * KN, O1 * O2 * ... * ON]
+               ↑  ↑                             ↑
+             batch flattened receptive field    flattened output positions
+
+For each batch n and output position q, output[n, :, q] contains the
+flattened receptive field ordered as:
+[c0_k0...kN, c1_k0...kN, ..., cCI_k0...kN]
+where c is the channel index and k0...kN are kernel spatial indices.
+
+This layout matches the common lowering pattern where weights are reshaped
+to [CO, CI * K1 * ... * KN], Im2Col(X)[n] is viewed as
+[CI * K1 * ... * KN, O1 * ... * ON], and convolution is computed as a
+matrix multiplication for each batch.
+
+Parameters match ONNX Conv operation (excluding group):
+- auto_pad: Padding strategy (NOTSET, SAME_UPPER, SAME_LOWER, VALID).
+            Default is NOTSET.
+- dilations: Dilation values for each spatial dimension.
+             Default is 1 for each spatial dimension.
+- kernel_shape: Size of convolution kernel (required).
+- pads: Padding for each spatial dimension. Format is [x1_begin, x2_begin, ..., x1_end, x2_end, ...]
+        where n is the number of spatial dimensions. Total length is 2*n.
+        Default is 0 for all dimensions.
+- strides: Stride values for each spatial dimension.
+           Default is 1 for each spatial dimension.
+
+This operation is not part of the standard and was added to assist onnx-mlir.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>auto_pad</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+<tr><td><code>dilations</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+<tr><td><code>kernel_shape</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+<tr><td><code>pads</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+<tr><td><code>strides</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
+
+
 ### `onnx.Imputer` (ONNXImputerOp)
 
 _ONNX Imputer operation_
@@ -6117,7 +6289,7 @@ This operation is not part of the standard and was added to assist onnx-mlir.
 
 Traits: `AlwaysSpeculatableImplTrait`
 
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`
+Interfaces: `ConditionallySpeculatable`, `InferTypeOpInterface`, `NoMemoryEffect (MemoryEffectOpInterface)`
 
 Effects: `MemoryEffects::Effect{}`
 

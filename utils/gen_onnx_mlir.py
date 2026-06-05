@@ -99,6 +99,7 @@ version_dict = {
     "Asinh": [22],
     "Atan": [22],
     "Atanh": [22],
+    "Attention": [24],
     "AveragePool": [22],
     "BatchNormalization": [15],
     "Bernoulli": [22],
@@ -417,6 +418,7 @@ OpsWithVerifier = [
     "Less",
     "LessOrEqual",
     "LogSoftmax",
+    "LpNormalization",
     "Max",
     "MatMulInteger",
     "Mean",
@@ -447,6 +449,7 @@ OpsWithVerifier = [
     "SequenceEmpty",
     "SequenceInsert",
     "Shape",
+    "Softmax",
     "SpaceToDepth",
     "Split",
     "SplitToSequence",
@@ -484,6 +487,11 @@ OpsWithHelpers = {
 # Type inference are usually done with the type string for Op definition.
 # This dictionary provides special code for type inference for some Ops.
 # The type inference is used only in Builder before constant canonicalization.
+# Ops that declare MLIR ReifyRankedShapedTypeOpInterface (reifyResultShapes).
+OpsWithReifyResultShapes = {
+    "Add",
+}
+
 OpsWithResultTypeInference = [
     "Bernoulli",
     "Constant",
@@ -1215,6 +1223,11 @@ def gen_op_def(schema, with_version=False):
     # Error will be report if these operations are encountered at runtime.
     traits.append("DeclareOpInterfaceMethods<ShapeInferenceOpInterface>")
     traits.append("DeclareOpInterfaceMethods<ShapeHelperOpInterface>")
+    if opName in OpsWithReifyResultShapes:
+        traits.append(
+            "DeclareOpInterfaceMethods<ReifyRankedShapedTypeOpInterface, "
+            '["reifyResultShapes"]>'
+        )
     if opName in OpsWithResultTypeInference:
         traits.append("DeclareOpInterfaceMethods<ResultTypeInferenceOpInterface>")
     if len(regions):

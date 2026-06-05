@@ -4,7 +4,7 @@
 
 //===--- RewriteONNXForZHigh.cpp - Rewrite ONNX ops for ZHigh lowering ----===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -38,7 +38,12 @@
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
+#include "src/Dialect/ONNX/Transforms/Decompose.hpp"
 #include "src/Support/TypeUtilities.hpp"
+
+#include "llvm/Support/Debug.h"
+
+#define DEBUG_TYPE "rewrite-for-zhigh"
 
 using namespace mlir;
 
@@ -152,6 +157,24 @@ Type getMatMulResultType(
   SmallVector<int64_t, 4> resultShape(rhsShape.begin(), rhsShape.end());
   resultShape[rank - 2] = lhsShape[lhsRank - 2];
   resultShape[rank - 1] = rhsShape[rhsRank - 1];
+  return RankedTensorType::get(resultShape, elementType);
+}
+
+// Get result type of transpose.
+Type getTransposeResultType(
+    PatternRewriter &rewriter, Location loc, Value input, ArrayAttr permAttr) {
+  Type elementType = getElementType(input.getType());
+  int64_t rank = getRank(input.getType());
+  assert((rank >= 2) && "Input rank must be >= 2");
+  assert(static_cast<int64_t>(permAttr.size()) == rank &&
+         "Permutation attribute size is not equal to the input rank");
+
+  ArrayRef<int64_t> shape = getShape(input.getType());
+  SmallVector<int64_t, 4> resultShape;
+  for (int64_t i = 0; i < rank; ++i) {
+    int64_t ind = dyn_cast<IntegerAttr>(permAttr[i]).getInt();
+    resultShape.emplace_back(shape[ind]);
+  }
   return RankedTensorType::get(resultShape, elementType);
 }
 
@@ -289,6 +312,29 @@ Type CreatePaddedXType(Value x, ArrayAttr pads) {
       inputShape[3] + paddingShape[1] + paddingShape[3]};
   Type paddedType = RankedTensorType::get(paddedShape, elementType);
   return paddedType;
+}
+
+// Check that the permutation array is to permute the last two dimensions only.
+bool isLastTwoDimsPerm(ArrayAttr permAttr) {
+  int64_t size = permAttr.size();
+  assert(size >= 2 && "Permutation array must have at least two values");
+  // First dimensions are unchanged, so the indices are 0, 1, 2, etc.
+  if (size > 2) {
+    for (int64_t i = 0; i < size - 2; ++i) {
+      auto v = dyn_cast<IntegerAttr>(permAttr[i]);
+      if (!v)
+        return false;
+      if (v.getInt() != i)
+        return false;
+    }
+  }
+  // Last two dimensions are permuted.
+  auto last_dim = dyn_cast<IntegerAttr>(permAttr[size - 1]);
+  auto last_second_dim = dyn_cast<IntegerAttr>(permAttr[size - 2]);
+  if (!last_dim || !last_second_dim)
+    return false;
+  return ((last_dim.getInt() == size - 2) &&
+          (last_second_dim.getInt() == size - 1));
 }
 
 /// This pattern is to split a large MatMul into smaller ones that fit into
@@ -657,8 +703,8 @@ public:
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXRewriteONNXForZHigh.inc"
 
-void getRewriteONNXForZHighPatterns(
-    RewritePatternSet &patterns, DimAnalysis *dimAnalysis) {
+void getRewriteONNXForZHighPatterns(RewritePatternSet &patterns,
+    DimAnalysis *dimAnalysis, bool enableConvToMatmul) {
   populateWithGenerated(patterns);
   patterns.insert<SplitLargeMatMulPattern>(patterns.getContext());
   patterns.insert<ExpandAddConstantPattern>(patterns.getContext());
@@ -668,10 +714,16 @@ void getRewriteONNXForZHighPatterns(
       patterns.getContext(), dimAnalysis);
   patterns.insert<RemoveReshapeWithIdentityPattern>(
       patterns.getContext(), dimAnalysis);
+
+  // Add Conv to Matmul decomposition pattern for Conv ops that cannot use NNPA.
+  // This reuses the existing ConvToIm2ColPattern from Decompose.cpp.
+  if (enableConvToMatmul) {
+    addConvToMatmulPattern(patterns, isCompatibleWithNNPALevel(NNPALevel::M15));
+  }
 }
 
-void getRewriteONNXForZHighDynamicallyLegal(
-    mlir::ConversionTarget *target, const DimAnalysis *dimAnalysis) {
+void getRewriteONNXForZHighDynamicallyLegal(mlir::ConversionTarget *target,
+    const DimAnalysis *dimAnalysis, bool enableConvToMatmul) {
   // `ONNXBatchNormalizationInferenceModeOp` to `ZHigh.BatchNorm`,
   // generating `ONNX.Add`, `ONNX.Sub`, `ONNX.Mul`, `ONNX.Div`,
   // and `ONNX.Sqrt` to calculate inputs(`a` and `b`)
@@ -992,11 +1044,33 @@ void getRewriteONNXForZHighDynamicallyLegal(
         return true;
       });
 
-  addDynamicallyLegalOpFor<ONNXConvOp>(
-      target, dimAnalysis, [](ONNXConvOp op, const DimAnalysis *dimAnalysis) {
-        return isSuitableForZDNN<ONNXConvOp>(op) ||
-               !canInferencePadsForNNPAConv(op);
-      });
+  // Conv: Decompose to Im2Col+MatMul when NNPA cannot be used.
+  if (enableConvToMatmul) {
+    addDynamicallyLegalOpFor<ONNXConvOp>(
+        target, dimAnalysis, [](ONNXConvOp op, const DimAnalysis *dimAnalysis) {
+          // Rule to change Conv with padding  => Pad -> Conv
+          bool suitableForZDNN = isSuitableForZDNN<ONNXConvOp>(op);
+          bool canDecomposeToPadAndConv = canInferencePadsForNNPAConv(op);
+          bool canDecompose1x1ToAMatmul = shouldDecomposeConv1x1ToMatmul(op);
+          // Rule to change to conv -> im2Col -> matmul.
+          // NNPA has fast 1xN broadcast, for M15+.
+          bool canDecomposeToIm2ColAndMatmul = shouldDecomposeConvToIm2Col(
+              op, /*hasFastBroadcast1xN=*/isCompatibleWithNNPALevel(M15));
+          bool canApplyRule = canDecomposeToPadAndConv ||
+                              canDecompose1x1ToAMatmul ||
+                              canDecomposeToIm2ColAndMatmul;
+          bool legal = suitableForZDNN || !canApplyRule;
+          LLVM_DEBUG({
+            llvm::dbgs() << "Decompose to im2col "
+                         << canDecomposeToIm2ColAndMatmul << ", pad "
+                         << canDecomposeToPadAndConv << ", can apply rule "
+                         << canApplyRule << ", suitable " << suitableForZDNN
+                         << ", legal " << legal << "\n  ";
+            op.dump();
+          });
+          return legal;
+        });
+  }
   addDynamicallyLegalOpFor<ONNXReshapeOp>(target, dimAnalysis,
       [](ONNXReshapeOp op, const DimAnalysis *dimAnalysis) {
         // Get rid of identity reshape here, as it impacts stick/unstick.
@@ -1008,6 +1082,7 @@ void getRewriteONNXForZHighDynamicallyLegal(
 
 struct RewriteONNXForZHighPass
     : public PassWrapper<RewriteONNXForZHighPass, OperationPass<ModuleOp>> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(RewriteONNXForZHighPass)
 
   StringRef getArgument() const override { return "rewrite-onnx-for-zhigh"; }
 
@@ -1016,6 +1091,18 @@ struct RewriteONNXForZHighPass
   }
 
   RewriteONNXForZHighPass() = default;
+  RewriteONNXForZHighPass(bool enableConvToMatmul) {
+    this->enableConvToMatmul = enableConvToMatmul;
+  }
+  RewriteONNXForZHighPass(const RewriteONNXForZHighPass &pass)
+      : mlir::PassWrapper<RewriteONNXForZHighPass, OperationPass<ModuleOp>>() {
+    this->enableConvToMatmul = pass.enableConvToMatmul.getValue();
+  }
+
+  Option<bool> enableConvToMatmul{*this, "nnpa-enable-conv-to-matmul",
+      llvm::cl::desc("Enable Conv to Im2Col+MatMul decomposition for NNPA"),
+      ::llvm::cl::init(true)};
+
   void runOnOperation() final;
 };
 
@@ -1034,11 +1121,13 @@ void RewriteONNXForZHighPass::runOnOperation() {
   // We define the specific operations, or dialects, that are legal targets
   // for this lowering.
   target.addLegalDialect<ONNXDialect, zhigh::ZHighDialect, func::FuncDialect>();
-  onnx_mlir::getRewriteONNXForZHighDynamicallyLegal(&target, &dimAnalysis);
+  onnx_mlir::getRewriteONNXForZHighDynamicallyLegal(
+      &target, &dimAnalysis, this->enableConvToMatmul);
 
   // Single ONNX to ZHigh operation lowering.
   RewritePatternSet patterns(&getContext());
-  onnx_mlir::getRewriteONNXForZHighPatterns(patterns, &dimAnalysis);
+  onnx_mlir::getRewriteONNXForZHighPatterns(
+      patterns, &dimAnalysis, this->enableConvToMatmul);
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`
@@ -1049,6 +1138,10 @@ void RewriteONNXForZHighPass::runOnOperation() {
 
 std::unique_ptr<Pass> createRewriteONNXForZHighPass() {
   return std::make_unique<RewriteONNXForZHighPass>();
+}
+
+std::unique_ptr<Pass> createRewriteONNXForZHighPass(bool enableConvToMatmul) {
+  return std::make_unique<RewriteONNXForZHighPass>(enableConvToMatmul);
 }
 
 } // namespace onnx_mlir

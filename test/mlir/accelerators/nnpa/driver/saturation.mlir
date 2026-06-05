@@ -5,6 +5,8 @@
 // RUN: onnx-mlir --march=z16 --maccel=NNPA --EmitMLIR --nnpa-disable-saturation --printIR %s | FileCheck --check-prefix=COMPILER_STICK_OFF %s
 // RUN: onnx-mlir --march=z16 --maccel=NNPA --EmitMLIR --printIR %s | FileCheck --check-prefix=COMPILER_STICK_ON %s
 
+// -----
+
 // COM: for each case, check saturation ON and OFF.
 
 func.func @saturation(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
