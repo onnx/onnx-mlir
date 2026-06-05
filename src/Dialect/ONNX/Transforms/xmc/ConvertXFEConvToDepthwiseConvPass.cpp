@@ -105,6 +105,13 @@ bool isDepthwiseConv(XFEConvOp convOp) {
   // Get group attribute (defaults to 1)
   int64_t group = convOp.getGroup();
 
+  // A grouped/depthwise conv requires group > 1. With group == 1 the op is an
+  // ordinary convolution; for a single-channel input (C_in == 1) the condition
+  // group == input_channels would otherwise be trivially satisfied (1 == 1) and
+  // misclassify a regular conv as depthwise.
+  if (group <= 1)
+    return false;
+
   // Get input X shape to determine number of channels
   Value X = convOp.getX();
   auto xType = mlir::dyn_cast<RankedTensorType>(X.getType());

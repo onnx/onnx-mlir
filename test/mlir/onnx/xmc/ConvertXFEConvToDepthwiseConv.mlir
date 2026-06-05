@@ -435,3 +435,30 @@ func.func @depthwise_conv2d_per_axis_quant(%arg0: tensor<1x8x8x4x!quant.uniform<
 // Weight transposed OHWI→IHWO: [4,3,3,1]->[1,3,3,4], per-axis dim 0→3
 // CHECK: tensor<1x3x3x4x!quant.uniform<i8:f32:3, {1.000000e-02,2.000000e-02,3.000000e-02,4.000000e-02}>>
 // CHECK: onnx.XCOMPILERDepthwiseConv
+
+// -----
+
+// =============================================================================
+// Test 16: Single-channel conv (C_in == 1, group == 1) - SHOULD NOT CONVERT
+// =============================================================================
+// Degenerate case: group == input_channels is trivially satisfied (1 == 1),
+// but group == 1 means this is an ordinary convolution, not depthwise.
+// CHECK-LABEL: @single_channel_conv_not_depthwise
+func.func @single_channel_conv_not_depthwise(%arg0: tensor<1x720x1280x1x!quant.uniform<i8:f32, 2.0:0>>) -> tensor<1x180x320x1x!quant.uniform<i8:f32, 2.0:0>> {
+    // Weight in OHWI format: [C_out=1, kH=4, kW=4, C_in/group=1]
+    %weights = onnx.Constant {value = dense<1> : tensor<1x4x4x1xi8>} : tensor<1x4x4x1x!quant.uniform<i8:f32, 9.765625E-4:0>>
+    %none = "onnx.NoValue"() {value} : () -> none
+
+    %conv = "onnx.XFEConv"(%arg0, %weights, %none) {
+        auto_pad = "NOTSET",
+        dilations = [1, 1],
+        group = 1 : si64,
+        kernel_shape = [4, 4],
+        pads = [0, 0, 0, 0],
+        strides = [4, 4]
+    } : (tensor<1x720x1280x1x!quant.uniform<i8:f32, 2.0:0>>, tensor<1x4x4x1x!quant.uniform<i8:f32, 9.765625E-4:0>>, none) -> tensor<1x180x320x1x!quant.uniform<i8:f32, 2.0:0>>
+
+    return %conv : tensor<1x180x320x1x!quant.uniform<i8:f32, 2.0:0>>
+}
+// CHECK-NOT: onnx.XCOMPILERDepthwiseConv
+// CHECK: onnx.XFEConv
