@@ -43,7 +43,6 @@ mod = AddModel()
 
 # Compile the model using onnxmlir backend in the torch_onnxmlir package.
 om_option = {
-    "compiler_image_name": None,
     "compile_options": "-O3",
     "compiler_path": "/workdir/onnx-mlir/build/Debug/bin/onnx-mlir",
 }
@@ -63,11 +62,13 @@ To avoid recompling models, the backend caches compiled models in the folder `${
 
 ## Installation
 
+The package torch_onnxmlir depends on the package `om_pyrt`. Follow the instruction [here](https://github.com/onnx/onnx-mlir/tree/main/src/Runtime/python/om_pyrt) to install `om_pyrt`. 
+
 ### Install from local directory
 ```bash
-$ cd onnx-mlir/build
-$ cmake --build . --target OMCreateTorchONNXMLIRPackage
-$ pip3 install -e src/Runtime/python/torch_onnxmlir
+$ git clone --recursive https://github.com/onnx/onnx-mlir.git
+$ cd onnx-mlir
+$ pip3 install -e src/Runtime/python/torch_onnxmlir --prefix=/usr
 ```
 
 ### Install from repo
