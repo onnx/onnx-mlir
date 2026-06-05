@@ -1,6 +1,7 @@
 * @jorickert @p-lanza
 
 # Files/Folders excluded from default ownership
+/src/Compiler/XmcMlirPasses.cpp
 /src/Dialect/ONNX/Transforms/xmc/
 /src/Dialect/ONNX/XCOMPILEROps.td
 /src/Dialect/ONNX/ONNXOps/Additional/XCOMPILER*
