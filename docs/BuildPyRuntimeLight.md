@@ -25,7 +25,7 @@ The lightweight PyRuntimeC build is controlled by the CMake option: `ONNX_MLIR_T
 
 ## Building PyRuntimeC
 
-Assuming you have cloned the onnx-mlir source code and are using a `build` directory for your normal onnx-mlir compiler build, you need to create a separate build directory for the lightweight PyRuntimeC build.
+Assuming you have cloned the onnx-mlir source code and are using a `build` directory for your normal onnx-mlir compiler build, you need to create a separate build directory for the lightweight PyRuntimeC build, for example build-light.
 
 ### Build Steps
 
