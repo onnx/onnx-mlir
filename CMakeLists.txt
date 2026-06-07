@@ -105,6 +105,11 @@ if(ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
   message(STATUS "ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT: ON - Disabling StableHLO support")
 endif()
 
+if(ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
+  set(ONNX_MLIR_ENABLE_STABLEHLO OFF CACHE BOOL "" FORCE)
+  message(STATUS "ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT: ON - Disabling StableHLO support")
+endif()
+
 include(CTest)
 include(ExternalProject)
 
