@@ -266,6 +266,9 @@ std::unique_ptr<mlir::Pass> createTransfer5dStridedSliceTo4d();
 /// Pass for transferring SpaceToDepth patterns to Conv2D.
 std::unique_ptr<mlir::Pass> createTransferSpaceToDepthToConv2dPass();
 
+/// Pass for fusing onnx.Clip(quantized->f32)+Cast(f32->uint) into CLAMP (XMC).
+std::unique_ptr<mlir::Pass> createReplaceQDQClipCastPass();
+
 /// Pass for fusing quantized eltwise+activation patterns (XMC).
 std::unique_ptr<mlir::Pass> createReplaceQDQEltwisePass();
 
