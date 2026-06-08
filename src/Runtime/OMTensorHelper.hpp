@@ -23,6 +23,8 @@
 #include <string>
 #include <vector>
 
+#include "onnx-mlir/Runtime/OnnxDataType.h"
+
 struct OMTensor;
 
 /* Helper function to compute cartesian product */
@@ -119,6 +121,30 @@ unsigned int omDefineSeed(unsigned int seed, unsigned int hasSeedValue);
 template <typename T>
 OMTensor *omTensorCreateWithRandomData(
     const std::vector<int64_t> &dataSizes, T lbound = -1.0, T ubound = 1.0);
+
+/**
+ * OMTensor creator with OM_DATA_TYPE and double-precision bounds.
+ *
+ * Non-template overload of omTensorCreateWithRandomData that accepts the
+ * element type as a runtime OM_DATA_TYPE value and dispatches to the typed
+ * template for every supported numeric type. This makes it possible to create
+ * randomly-filled tensors when the element type is only known at runtime (e.g.
+ * when driving a model from its input signature).
+ *
+ * When lbound == ubound every element is set to that constant value (no RNG
+ * is invoked). For ONNX_TYPE_BOOL, lbound/ubound are ignored and the tensor
+ * is filled with a uniform {false, true} distribution.
+ *
+ * Unsupported types (ONNX_TYPE_FLOAT16, complex, string) return NULL.
+ *
+ * @param shape   shape of the tensor to create.
+ * @param omType  element type expressed as an OM_DATA_TYPE enum value.
+ * @param lbound  lower bound of the random distribution (double, cast to T).
+ * @param ubound  upper bound of the random distribution (double, cast to T).
+ * @return pointer to the OMTensor created, or NULL on failure.
+ */
+OMTensor *omTensorCreateWithRandomData(const std::vector<int64_t> &shape,
+    OM_DATA_TYPE omType, double lbound = -1.0, double ubound = 1.0);
 
 /**
  * OMTensor data element getter by offset

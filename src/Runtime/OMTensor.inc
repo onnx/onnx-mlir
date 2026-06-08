@@ -21,6 +21,7 @@
 #include <numeric>
 #include <random>
 #include <string>
+#include <type_traits>
 #include <typeinfo>
 #include <vector>
 #else
@@ -344,7 +345,7 @@ void omTensorSetStridesWithPyArrayStrides(
   if (dataTypeSize == 0) {
     fprintf(stderr, "Error, unknown data type in tensor\n");
     assert(dataTypeSize != 0); // Zero for unknown.
-    return; // In case asserts are turned off.
+    return;                    // In case asserts are turned off.
   }
   for (int64_t i = 0; i < tensor->_rank; i++)
     tensor->_strides[i] = stridesInBytes[i] / dataTypeSize;
@@ -794,16 +795,79 @@ OMTensor *omTensorCreateWithRandomData(
     // Standard mersenne_twister_engine seeded with rd()
     omRandomGenerator.seed(rd());
   }
-  std::uniform_real_distribution<> dis(lbound, ubound);
-
   auto omt = omTensorCreateWithShape<T>(shape);
   if (omt == NULL)
     return NULL;
 
-  std::generate((T *)omt->_alignedPtr,
-      (T *)omt->_alignedPtr + getNumElems(omt->_shape, omt->_rank),
-      [&]() { return dis(omRandomGenerator); });
+  T *begin = (T *)omt->_alignedPtr;
+  T *end = begin + getNumElems(omt->_shape, omt->_rank);
+  if (lbound == ubound) {
+    std::fill(begin, end, lbound);
+  } else if constexpr (std::is_integral<T>::value) {
+    // Uniform_int_distribution only supports int16_t and wider types.
+    // bool, int8_t, uint8_t and any other narrow type use int32_t internally.
+    if constexpr (sizeof(T) <= 4) {
+      std::uniform_int_distribution<int32_t> dis(
+          static_cast<int32_t>(lbound), static_cast<int32_t>(ubound));
+      std::generate(
+          begin, end, [&]() { return static_cast<T>(dis(omRandomGenerator)); });
+    } else {
+      std::uniform_int_distribution<int64_t> dis(
+          static_cast<int64_t>(lbound), static_cast<int64_t>(ubound));
+      std::generate(
+          begin, end, [&]() { return static_cast<T>(dis(omRandomGenerator)); });
+    }
+  } else {
+    std::uniform_real_distribution<T> dis(lbound, ubound);
+    std::generate(begin, end, [&]() { return dis(omRandomGenerator); });
+  }
   return omt;
+}
+
+// Non-template overload: dispatch to the typed omTensorCreateWithRandomData
+// based on a runtime OM_DATA_TYPE value. All dispatch targets are explicitly
+// instantiated below.
+OMTensor *omTensorCreateWithRandomData(const std::vector<int64_t> &shape,
+    OM_DATA_TYPE omType, double lbound, double ubound) {
+  switch (omType) {
+  case ONNX_TYPE_BOOL:
+    return omTensorCreateWithRandomData<bool>(shape, false, true);
+  case ONNX_TYPE_INT8:
+    return omTensorCreateWithRandomData<int8_t>(
+        shape, (int8_t)lbound, (int8_t)ubound);
+  case ONNX_TYPE_UINT8:
+    return omTensorCreateWithRandomData<uint8_t>(
+        shape, (uint8_t)lbound, (uint8_t)ubound);
+  case ONNX_TYPE_INT16:
+    return omTensorCreateWithRandomData<int16_t>(
+        shape, (int16_t)lbound, (int16_t)ubound);
+  case ONNX_TYPE_UINT16:
+    return omTensorCreateWithRandomData<uint16_t>(
+        shape, (uint16_t)lbound, (uint16_t)ubound);
+  case ONNX_TYPE_INT32:
+    return omTensorCreateWithRandomData<int32_t>(
+        shape, (int32_t)lbound, (int32_t)ubound);
+  case ONNX_TYPE_UINT32:
+    return omTensorCreateWithRandomData<uint32_t>(
+        shape, (uint32_t)lbound, (uint32_t)ubound);
+  case ONNX_TYPE_INT64:
+    return omTensorCreateWithRandomData<int64_t>(
+        shape, (int64_t)lbound, (int64_t)ubound);
+  case ONNX_TYPE_UINT64:
+    return omTensorCreateWithRandomData<uint64_t>(
+        shape, (uint64_t)lbound, (uint64_t)ubound);
+  case ONNX_TYPE_FLOAT:
+    return omTensorCreateWithRandomData<float>(
+        shape, (float)lbound, (float)ubound);
+  case ONNX_TYPE_DOUBLE:
+    return omTensorCreateWithRandomData<double>(shape, lbound, ubound);
+  default:
+    fprintf(stderr,
+        "omTensorCreateWithRandomData: OM_DATA_TYPE %d is not currently "
+        "supported for random data generation.\n",
+        (int)omType);
+    return nullptr;
+  }
 }
 
 /* Access an element (by reference) at offset computed by index array */
@@ -920,19 +984,47 @@ inline bool omTensorAreTwoOmtsClose(
 
 // Explicit instantiation of all templated API functions.
 
+template OMTensor *omTensorCreateWithShape<bool>(
+    const std::vector<int64_t> &shape);
+template OMTensor *omTensorCreateWithShape<int8_t>(
+    const std::vector<int64_t> &shape);
+template OMTensor *omTensorCreateWithShape<uint8_t>(
+    const std::vector<int64_t> &shape);
+template OMTensor *omTensorCreateWithShape<int16_t>(
+    const std::vector<int64_t> &shape);
+template OMTensor *omTensorCreateWithShape<uint16_t>(
+    const std::vector<int64_t> &shape);
 template OMTensor *omTensorCreateWithShape<int32_t>(
     const std::vector<int64_t> &shape);
+template OMTensor *omTensorCreateWithShape<uint32_t>(
+    const std::vector<int64_t> &shape);
 template OMTensor *omTensorCreateWithShape<int64_t>(
+    const std::vector<int64_t> &shape);
+template OMTensor *omTensorCreateWithShape<uint64_t>(
     const std::vector<int64_t> &shape);
 template OMTensor *omTensorCreateWithShape<float>(
     const std::vector<int64_t> &shape);
 template OMTensor *omTensorCreateWithShape<double>(
     const std::vector<int64_t> &shape);
 
+template OMTensor *omTensorCreateWithRandomData<bool>(
+    const std::vector<int64_t> &shape, bool lbound, bool ubound);
+template OMTensor *omTensorCreateWithRandomData<int8_t>(
+    const std::vector<int64_t> &shape, int8_t lbound, int8_t ubound);
+template OMTensor *omTensorCreateWithRandomData<uint8_t>(
+    const std::vector<int64_t> &shape, uint8_t lbound, uint8_t ubound);
+template OMTensor *omTensorCreateWithRandomData<int16_t>(
+    const std::vector<int64_t> &shape, int16_t lbound, int16_t ubound);
+template OMTensor *omTensorCreateWithRandomData<uint16_t>(
+    const std::vector<int64_t> &shape, uint16_t lbound, uint16_t ubound);
 template OMTensor *omTensorCreateWithRandomData<int32_t>(
     const std::vector<int64_t> &shape, int32_t lbound, int32_t ubound);
+template OMTensor *omTensorCreateWithRandomData<uint32_t>(
+    const std::vector<int64_t> &shape, uint32_t lbound, uint32_t ubound);
 template OMTensor *omTensorCreateWithRandomData<int64_t>(
     const std::vector<int64_t> &shape, int64_t lbound, int64_t ubound);
+template OMTensor *omTensorCreateWithRandomData<uint64_t>(
+    const std::vector<int64_t> &shape, uint64_t lbound, uint64_t ubound);
 template OMTensor *omTensorCreateWithRandomData<float>(
     const std::vector<int64_t> &shape, float lbound, float ubound);
 template OMTensor *omTensorCreateWithRandomData<double>(
