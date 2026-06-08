@@ -31,8 +31,9 @@ Assuming you have cloned the onnx-mlir source code and are using a `build` direc
 
 1. **Create a new build directory:**
    ```bash
-   mkdir build-light
-   cd build-light
+   git clone --recursive https://github.com/onnx/onnx-mlir.git
+   mkdir onnx-mlir/build-light
+   cd onnx-mlir/build-light
    ```
 
 2. **Configure and build:**
