@@ -89,6 +89,8 @@ function(add_onnx_mlir_dialect_doc dialect dialect_tablegen_file)
 endfunction()
 add_custom_target(onnx-mlir-docs)
 
+add_custom_target(OMPublicPassIncGen)
+
 # Create the list of supported ops. Pass the input file to scan, and the target architecture.
 # Target will create a docs/SupportedONNXOps-<arch>.md file listed
 # Useful options are "--notes", "--unsupported". Check python documentOps.py -h for more info.
@@ -181,6 +183,7 @@ function(add_onnx_mlir_library name)
 
   add_library(${name} ${ARG_UNPARSED_ARGUMENTS})
   llvm_update_compile_flags(${name})
+  add_dependencies(${name} OMPublicPassIncGen)
 
   if (ARG_DEPENDS)
     add_dependencies(${name} ${ARG_DEPENDS})
@@ -260,6 +263,7 @@ function(add_onnx_mlir_executable name)
   endif()
 
   llvm_update_compile_flags(${name})
+  add_dependencies(${name} OMPublicPassIncGen)
 
   if (ARG_DEPENDS)
     add_dependencies(${name} ${ARG_DEPENDS})
