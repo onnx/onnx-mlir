@@ -18,7 +18,7 @@ cd onnx-mlir
 mkdir build-light
 cd build-light
 cmake -DCMAKE_CXX_COMPILER=/usr/bin/c++ \
-      -DONNX_MLIR_ENABLE_PYRUNTIME_LIGHT=ON \
+      -DONNX_MLIR_TARGET_TO_BUILD=OMPyRt \
       ..
 make OMCreateTorchONNXMLIRPackage
 pip3 install -e src/Runtime/python/torch_onnxmlir
