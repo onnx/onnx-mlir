@@ -36,10 +36,17 @@ include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.td"
 
 def NoneLayoutAttr: NativeCodeCall<"StringAttr()">;
 
+def HasOneUse : Constraint<CPred<"$_self.hasOneUse()">, "op has exactly one use">;
+
 def FromDLF16ToF32Op:
   Constraint<CPred<"$_self.getDefiningOp<onnx_mlir::zhigh::ZHighDLF16ToF32Op>()">,
   "The value is produced by ZHighDLF16ToF32Op"
 >; 
+
+
+def GetF16TensorType: NativeCodeCall<
+  "dyn_cast<ShapedType>($0.getType()).clone($_builder.getF16Type())"
+>;
 
 def CanDecomposeUnstick:
   Constraint<CPred<"onnx_mlir::zhigh::canDecomposeUnstick($_self)">,
@@ -54,6 +61,28 @@ def DecomposeStickPattern: Pat<
   (ZHighStickOp $input, $layout, $noSaturation),
   (ONNXLayoutTransformOp (ZHighF32ToDLF16Op $input, $noSaturation), (CreateZTensorEncodingAttr $layout)),
   [(IsNotNHWCLayout $layout), (FromDLF16ToF32Op:$input)]
+>;
+
+// Rewrite
+//    onnx.Expand -> onnx.Reshape -> zhigh.Stick
+//
+// into 
+//    zhigh.F32ToDLF16 -> onnx.Expand -> onnx.Reshape -> onnx.LayoutTransform
+// so that onnx.Expand operates on f16 instead of f32, which reduces the memory footprint.
+// This pattern is found in decoder models, which is to handle KV cache for the decoding phase.
+def DecomposeStickReshapeExpandPattern: Pat<
+  (ZHighStickOp (ONNXReshapeOp:$reshape_f32 (ONNXExpandOp:$expand_f32 $input, $expand_shape), $reshape_shape, $az), $layout, $saturation),
+  (ONNXLayoutTransformOp
+       (ONNXReshapeOp
+            (ONNXExpandOp
+                 (ZHighF32ToDLF16Op $input, $saturation),
+                 $expand_shape,
+                 (returnType (GetF16TensorType $expand_f32))),
+            $reshape_shape,
+            $az,
+            (returnType (GetF16TensorType $reshape_f32))),
+       (CreateZTensorEncodingAttr $layout)),
+  [(IsNotNHWCLayout $layout), (HasOneUse:$reshape_f32), (HasOneUse:$expand_f32), (HasOneUse:$input)]
 >;
 
 // zhigh.Unstick $input = zhigh.F32ToDLF16 (onnx.LayoutTransform $input, $none_layout)
