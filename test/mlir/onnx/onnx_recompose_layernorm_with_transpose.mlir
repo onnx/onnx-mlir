@@ -254,3 +254,35 @@ func.func @partly_decomposition_to_layernorm_non_constant_mul(%arg0: tensor<1x4x
 // CHECK:           "onnx.LayerNormalization"
 // CHECK:           [[VAR_T_:%.+]] = "onnx.Transpose"
 // CHECK:           "onnx.Mul"([[VAR_T_]], [[PARAM_1_]]) : (tensor<1x4x128x128xf32>, tensor<4x1x1xf32>)
+
+// -----
+
+func.func @decomposition_to_layernorm_axis_1_f16(%arg0: tensor<1x4x8x8xf16>) -> tensor<1x4x8x8xf16> {
+  %eps = onnx.Constant dense<9.99999997E-7> : tensor<f16>
+  %scale = onnx.Constant dense<[[[1.000000e+00]], [[2.000000e+00]], [[3.000000e+00]], [[4.000000e+00]]]> : tensor<4x1x1xf16>
+  %bias = onnx.Constant dense<[[[0.125000e+00]], [[0.250000e+00]], [[0.375000e+00]], [[0.500000e+00]]]> : tensor<4x1x1xf16>
+  %mean = "onnx.ReduceMeanV13"(%arg0) {axes = [1], keepdims = 1 : si64} : (tensor<1x4x8x8xf16>) -> tensor<1x1x8x8xf16>
+  %d = "onnx.Sub"(%arg0, %mean) : (tensor<1x4x8x8xf16>, tensor<1x1x8x8xf16>) -> tensor<1x4x8x8xf16>
+  %dd = "onnx.Mul"(%d, %d) : (tensor<1x4x8x8xf16>, tensor<1x4x8x8xf16>) -> tensor<1x4x8x8xf16>
+  %var = "onnx.ReduceMeanV13"(%dd) {axes = [1], keepdims = 1 : si64} : (tensor<1x4x8x8xf16>) -> tensor<1x1x8x8xf16>
+  %varEps = "onnx.Add"(%var, %eps) : (tensor<1x1x8x8xf16>, tensor<f16>) -> tensor<1x1x8x8xf16>
+  %stdDev = "onnx.Sqrt"(%varEps) : (tensor<1x1x8x8xf16>) -> tensor<1x1x8x8xf16>
+  %norm = "onnx.Div"(%d, %stdDev) : (tensor<1x4x8x8xf16>, tensor<1x1x8x8xf16>) -> tensor<1x4x8x8xf16>
+  %normScaled = "onnx.Mul"(%norm, %scale) : (tensor<1x4x8x8xf16>, tensor<4x1x1xf16>) -> tensor<1x4x8x8xf16>
+  %y = "onnx.Add"(%normScaled, %bias) : (tensor<1x4x8x8xf16>, tensor<4x1x1xf16>) -> tensor<1x4x8x8xf16>
+  return %y : tensor<1x4x8x8xf16>
+}
+// CHECK-LABEL:  func.func @decomposition_to_layernorm_axis_1_f16
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x4x8x8xf16>) -> tensor<1x4x8x8xf16> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant {{.*}} : tensor<4x1x1xf16>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant {{.*}} : tensor<4x1x1xf16>
+// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<[1, 4, 1, 1]> : tensor<4xi64>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Reshape"([[VAR_0_]], [[VAR_2_]]) {allowzero = 0 : si64} : (tensor<4x1x1xf16>, tensor<4xi64>) -> tensor<1x4x1x1xf16>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Transpose"([[VAR_3_]]) {perm = [0, 2, 3, 1]} : (tensor<1x4x1x1xf16>) -> tensor<1x1x1x4xf16>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Transpose"([[PARAM_0_]]) {perm = [0, 2, 3, 1]} : (tensor<1x4x8x8xf16>) -> tensor<1x8x8x4xf16>
+// CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.Reshape"([[VAR_1_]], [[VAR_2_]]) {allowzero = 0 : si64} : (tensor<4x1x1xf16>, tensor<4xi64>) -> tensor<1x4x1x1xf16>
+// CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.Transpose"([[VAR_6_]]) {perm = [0, 2, 3, 1]} : (tensor<1x4x1x1xf16>) -> tensor<1x1x1x4xf16>
+// CHECK-DAG:       [[VAR_Y_:%.+]], [[VAR_Mean_:%.+]], [[VAR_InvStdDev_:%.+]] = "onnx.LayerNormalization"([[VAR_5_]], [[VAR_4_]], [[VAR_7_]]) {axis = 3 : si64, epsilon = {{.*}} : f32, stash_type = 1 : si64} : (tensor<1x8x8x4xf16>, tensor<1x1x1x4xf16>, tensor<1x1x1x4xf16>) -> (tensor<1x8x8x4xf16>, none, none)
+// CHECK:           [[VAR_8_:%.+]] = "onnx.Transpose"([[VAR_Y_]]) {perm = [0, 3, 1, 2]} : (tensor<1x8x8x4xf16>) -> tensor<1x4x8x8xf16>
+// CHECK:           return [[VAR_8_]] : tensor<1x4x8x8xf16>
+// CHECK:         }
