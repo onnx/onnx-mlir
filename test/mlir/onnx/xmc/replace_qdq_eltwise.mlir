@@ -902,11 +902,10 @@ func.func @widen_skipped_same_width_i16(
 }
 
 // -----
-// Multi-use narrow constant: helper refuses to widen (single-use gate).
-// The original i8 onnx.Constant survives; nothing prevents fusion, but the
-// fused op may end up with mismatched-width operands (handled later).
-// CHECK-LABEL: func.func @widen_skipped_multi_use_const
-func.func @widen_skipped_multi_use_const(
+// Multi-use narrow constant: each use gets its own widened i16 copy.
+// The original i8 constant is erased once all uses are replaced.
+// CHECK-LABEL: func.func @widen_multi_use_const
+func.func @widen_multi_use_const(
     %arg0: tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>>,
     %arg1: tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>>)
     -> (tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>>,
@@ -924,6 +923,8 @@ func.func @widen_skipped_multi_use_const(
   return %m0, %m1 : tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>>,
                     tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>>
 
-  // CHECK: onnx.Constant {{.*}} : tensor<1x16x1x1x!quant.uniform<i8:f32, 2.500000e-01>>
-  // CHECK-NOT: : tensor<1x16x1x1x!quant.uniform<i16
+  // CHECK-NOT: !quant.uniform<i8
+  // CHECK: onnx.Constant {{.*}} : tensor<1x16x1x1x!quant.uniform<i16:f32, 2.500000e-01>>
+  // CHECK: "onnx.XCOMPILERFusedEltwise"
+  // CHECK-NOT: !quant.uniform<i8
 }
