@@ -109,10 +109,12 @@ install(TARGETS PyRuntimeC
 add_custom_target(OMCreateOMPyRtPackage
         COMMAND rm -rf ${CMAKE_CURRENT_BINARY_DIR}/om_pyrt
         COMMAND cp -r ${CMAKE_CURRENT_SOURCE_DIR}/om_pyrt ${CMAKE_CURRENT_BINARY_DIR}
-	COMMAND cp -r ${CMAKE_CURRENT_SOURCE_DIR}/PyRuntime.py ${CMAKE_CURRENT_BINARY_DIR}/om_pyrt/src/om_pyrt
+	COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/PyRuntime.py ${CMAKE_CURRENT_BINARY_DIR}/om_pyrt/src/om_pyrt
+	COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/PyOMCompile.py ${CMAKE_CURRENT_BINARY_DIR}/om_pyrt/src/om_pyrt
         COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/om_pyrt/src/om_pyrt/libs
         COMMAND cp ${ONNX_MLIR_BIN_ROOT}/${CMAKE_BUILD_TYPE}/lib/PyRuntimeC.*.so ${CMAKE_CURRENT_BINARY_DIR}/om_pyrt/src/om_pyrt/libs
-        DEPENDS PyRuntimeC
+        COMMAND cp ${ONNX_MLIR_BIN_ROOT}/${CMAKE_BUILD_TYPE}/lib/PyOMCompileC.*.so ${CMAKE_CURRENT_BINARY_DIR}/om_pyrt/src/om_pyrt/libs
+        DEPENDS PyRuntimeC PyOMCompileC
      )
 
 # Target to run om_pyrt package with newly built PyRuntimeC, not the new
@@ -129,7 +131,6 @@ if (ONNX_MLIR_STANDALONE_DIR)
     add_custom_target(OMCreateOMPyCompilePackage
         COMMAND rm -rf ${CMAKE_CURRENT_BINARY_DIR}/OMPyCompile
         COMMAND cp -r ${CMAKE_CURRENT_SOURCE_DIR}/OMPyCompile ${CMAKE_CURRENT_BINARY_DIR}
-	COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/PyOMCompile.py ${CMAKE_CURRENT_BINARY_DIR}/OMPyCompile/src/OMPyCompile
 	COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/OMPyCompile/src/OMPyCompile/lib
 	COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/OMPyCompile/src/OMPyCompile/bin
 	COMMAND cp ${ONNX_MLIR_STANDALONE_DIR}/bin/onnx-mlir ${CMAKE_CURRENT_BINARY_DIR}/OMPyCompile/src/OMPyCompile/bin
@@ -139,8 +140,6 @@ if (ONNX_MLIR_STANDALONE_DIR)
 	COMMAND cp ${ONNX_MLIR_STANDALONE_DIR}/lib/libompruntime.a ${CMAKE_CURRENT_BINARY_DIR}/OMPyCompile/src/OMPyCompile/lib
 	COMMAND cp ${ONNX_MLIR_STANDALONE_DIR}/lib/libzdnn.a ${CMAKE_CURRENT_BINARY_DIR}/OMPyCompile/src/OMPyCompile/lib
 	COMMAND cp ${ONNX_MLIR_STANDALONE_DIR}/lib/libRuntimeNNPA.a ${CMAKE_CURRENT_BINARY_DIR}/OMPyCompile/src/OMPyCompile/lib
-	COMMAND cp ${ONNX_MLIR_BIN_ROOT}/${CMAKE_BUILD_TYPE}/lib/PyOMCompileC.*.so ${CMAKE_CURRENT_BINARY_DIR}/OMPyCompile/src/OMPyCompile/lib
-	DEPENDS PyOMCompileC
      )
 endif()
 
@@ -153,16 +152,6 @@ add_custom_target(OMCreatePyRuntimePackage
         COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/PyRuntime.py ${CMAKE_CURRENT_BINARY_DIR}/onnxmlir/src/onnxmlir
         COMMAND cp ${ONNX_MLIR_BIN_ROOT}/${CMAKE_BUILD_TYPE}/lib/PyRuntimeC.*.so ${CMAKE_CURRENT_BINARY_DIR}/onnxmlir/src/onnxmlir/libs
         DEPENDS PyRuntimeC
-     )
-
-# Target to prepare torch_onnxmlir package
-file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/torch_onnxmlir/src/torch_onnxmlir/libs)
-add_custom_target(OMCreateTorchONNXMLIRPackage
-        COMMAND cp -r ${CMAKE_CURRENT_SOURCE_DIR}/torch_onnxmlir ${CMAKE_CURRENT_BINARY_DIR}
-        COMMAND cp ${ONNX_MLIR_BIN_ROOT}/${CMAKE_BUILD_TYPE}/lib/PyRuntimeC.*.so ${CMAKE_CURRENT_BINARY_DIR}/torch_onnxmlir/src/torch_onnxmlir/libs
-        COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/onnxmlirdocker.py ${CMAKE_CURRENT_BINARY_DIR}/torch_onnxmlir/src/torch_onnxmlir
-        COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/PyRuntime.py ${CMAKE_CURRENT_BINARY_DIR}/torch_onnxmlir/src/torch_onnxmlir
-	DEPENDS PyRuntimeC
      )
 
 #if(ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)

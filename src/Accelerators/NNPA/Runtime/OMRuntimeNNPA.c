@@ -4,7 +4,7 @@
 
 //===-------------------------- OMRuntimeNNPA.c ---------------------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -18,10 +18,12 @@
 #endif
 #include <pthread.h>
 
+#include <assert.h>
 #include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/mman.h>
 
 #include "zdnn.h"
 #include "zdnnx/zdnnx.h"
@@ -29,6 +31,9 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+// IBM Z uses 1 MB huge pages.
+#define HUGE_PAGE_SIZE (1024 * 1024)
 
 /* Interface for device init and shutdown.
  *
@@ -242,6 +247,39 @@ void OMShutdownAccelNNPA() {
     /* Release mutex. */
     pthread_mutex_unlock(&OMMutexForInitShutdownNNPA);
   }
+}
+
+/*!
+ *  \brief Function that allocates a buffer with huge page advice.
+ */
+void *OMHugePageMalloc(size_t size) {
+// MADV_HUGEPAGE is Linux-specific (Transparent Huge Page).
+#if defined(__linux__) && defined(MADV_HUGEPAGE)
+  if (size == 0 || size < HUGE_PAGE_SIZE)
+    return malloc(size);
+
+  void *ptr = NULL;
+  if (posix_memalign(&ptr, HUGE_PAGE_SIZE, size) != 0)
+    return malloc(size); // Fallback.
+
+#ifndef MADV_HUGEPAGE
+  // Delay error to runtime if MADV_HUGEPAGE is not known at compile time.
+  // Enable compilation of nonfunctional of NNPA code on other systems, which is
+  // useful for debugging.
+  assert(false && "use of madvise with unknown MADV_HUGEPAGE value");
+  // Enable compilation of remaining of the function
+#define MADV_HUGEPAGE 0
+#endif
+
+  // Give the kernel the transparent huge page advice.
+  // It is ok to fail since the memory is still usable but may not use huge
+  // pages.
+  madvise(ptr, size, MADV_HUGEPAGE);
+  return ptr;
+#else
+  // Otherwise, rely on the native memory management.
+  return malloc(size);
+#endif
 }
 
 #ifdef __cplusplus
