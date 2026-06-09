@@ -85,7 +85,7 @@ static void fillBufferWithRandom(T *buf, int64_t n, T lbound, T ubound) {
 
 template <typename T>
 static OMTensor *omTensorCreateWithRandomData(
-    const std::vector<int64_t> &shape, T lbound, T ubound) {
+    const std::vector<int64_t> &shape, T lbound, T ubound, OM_DATA_TYPE dtype) {
   int64_t numElems = 1;
   for (auto d : shape)
     numElems *= d;
@@ -93,8 +93,6 @@ static OMTensor *omTensorCreateWithRandomData(
   if (!buf)
     return nullptr;
   fillBufferWithRandom<T>(buf, numElems, lbound, ubound);
-  OM_DATA_TYPE dtype =
-      OM_DATA_TYPE_CPP_TO_ONNX.at(std::string(typeid(T).name()));
   int64_t rank = (int64_t)shape.size();
   OMTensor *t = omTensorCreateWithOwnership(
       buf, const_cast<int64_t *>(shape.data()), rank, dtype, /*owning=*/1);
@@ -102,30 +100,6 @@ static OMTensor *omTensorCreateWithRandomData(
     free(buf);
   return t;
 }
-
-// Explicit instantiations.
-template OMTensor *omTensorCreateWithRandomData<bool>(
-    const std::vector<int64_t> &, bool, bool);
-template OMTensor *omTensorCreateWithRandomData<int8_t>(
-    const std::vector<int64_t> &, int8_t, int8_t);
-template OMTensor *omTensorCreateWithRandomData<uint8_t>(
-    const std::vector<int64_t> &, uint8_t, uint8_t);
-template OMTensor *omTensorCreateWithRandomData<int16_t>(
-    const std::vector<int64_t> &, int16_t, int16_t);
-template OMTensor *omTensorCreateWithRandomData<uint16_t>(
-    const std::vector<int64_t> &, uint16_t, uint16_t);
-template OMTensor *omTensorCreateWithRandomData<int32_t>(
-    const std::vector<int64_t> &, int32_t, int32_t);
-template OMTensor *omTensorCreateWithRandomData<uint32_t>(
-    const std::vector<int64_t> &, uint32_t, uint32_t);
-template OMTensor *omTensorCreateWithRandomData<int64_t>(
-    const std::vector<int64_t> &, int64_t, int64_t);
-template OMTensor *omTensorCreateWithRandomData<uint64_t>(
-    const std::vector<int64_t> &, uint64_t, uint64_t);
-template OMTensor *omTensorCreateWithRandomData<float>(
-    const std::vector<int64_t> &, float, float);
-template OMTensor *omTensorCreateWithRandomData<double>(
-    const std::vector<int64_t> &, double, double);
 
 // Forward declaration — defined below with the other float16/string helpers.
 static OMTensor *omTensorCreateFloat16WithRandomData(
@@ -140,36 +114,36 @@ OMTensor *omTensorCreateWithRandomData(const std::vector<int64_t> &shape,
   case ONNX_TYPE_BOOL:
     // Clamp bounds to {false, true}: values > 0.5 → true, ≤ 0.5 → false.
     return omTensorCreateWithRandomData<bool>(
-        shape, lbound > 0.5, ubound > 0.5);
+        shape, lbound > 0.5, ubound > 0.5, omType);
   case ONNX_TYPE_INT8:
     return omTensorCreateWithRandomData<int8_t>(
-        shape, (int8_t)lbound, (int8_t)ubound);
+        shape, (int8_t)lbound, (int8_t)ubound, omType);
   case ONNX_TYPE_UINT8:
     return omTensorCreateWithRandomData<uint8_t>(
-        shape, (uint8_t)lbound, (uint8_t)ubound);
+        shape, (uint8_t)lbound, (uint8_t)ubound, omType);
   case ONNX_TYPE_INT16:
     return omTensorCreateWithRandomData<int16_t>(
-        shape, (int16_t)lbound, (int16_t)ubound);
+        shape, (int16_t)lbound, (int16_t)ubound, omType);
   case ONNX_TYPE_UINT16:
     return omTensorCreateWithRandomData<uint16_t>(
-        shape, (uint16_t)lbound, (uint16_t)ubound);
+        shape, (uint16_t)lbound, (uint16_t)ubound, omType);
   case ONNX_TYPE_INT32:
     return omTensorCreateWithRandomData<int32_t>(
-        shape, (int32_t)lbound, (int32_t)ubound);
+        shape, (int32_t)lbound, (int32_t)ubound, omType);
   case ONNX_TYPE_UINT32:
     return omTensorCreateWithRandomData<uint32_t>(
-        shape, (uint32_t)lbound, (uint32_t)ubound);
+        shape, (uint32_t)lbound, (uint32_t)ubound, omType);
   case ONNX_TYPE_INT64:
     return omTensorCreateWithRandomData<int64_t>(
-        shape, (int64_t)lbound, (int64_t)ubound);
+        shape, (int64_t)lbound, (int64_t)ubound, omType);
   case ONNX_TYPE_UINT64:
     return omTensorCreateWithRandomData<uint64_t>(
-        shape, (uint64_t)lbound, (uint64_t)ubound);
+        shape, (uint64_t)lbound, (uint64_t)ubound, omType);
   case ONNX_TYPE_FLOAT:
     return omTensorCreateWithRandomData<float>(
-        shape, (float)lbound, (float)ubound);
+        shape, (float)lbound, (float)ubound, omType);
   case ONNX_TYPE_DOUBLE:
-    return omTensorCreateWithRandomData<double>(shape, lbound, ubound);
+    return omTensorCreateWithRandomData<double>(shape, lbound, ubound, omType);
   case ONNX_TYPE_FLOAT16:
     return omTensorCreateFloat16WithRandomData(
         shape, (float)lbound, (float)ubound);
