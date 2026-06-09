@@ -1608,6 +1608,7 @@ void ONNXDimAnalysisPass::runOnOperation() {
   LLVM_DEBUG({
     llvm::dbgs() << "\n";
     testOp.dump();
+    testOp.dumpOffsetRelations();
   });
 
   // Add onnx.DimGroup into the IR for LIT tests.
