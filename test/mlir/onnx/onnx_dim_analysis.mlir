@@ -641,3 +641,50 @@ func.func @test_rnn_input_dims(%X: tensor<?x?x10xf32>, %W: tensor<1x4x10xf32>, %
 // CHECK:         }
 }
 
+// -----
+
+// COM: Testing the case of "dim_1 + 1 = dim_2 + 1" when "dim_1 = dim2".
+// COM: This is the pattern in handling KV cache in decoder models where dim_1 and dim_2 are the previous sequence length.
+func.func @test_dim_offset(%arg0: tensor<1x4x?x64xf32> {onnx.dim_params = "2:dims53", onnx.name = "L_kwargs_past_key_values_layers_0_keys"}, %arg1: tensor<1x4x1x64xf32>, %arg2: tensor<1x4x?x64xf32> {onnx.dim_params = "2:dims53", onnx.name = "L_kwargs_past_key_values_layers_3_values"}) -> tensor<1x4x4x?x64xf32> {
+    %0 = onnx.Constant dense<0> : tensor<1xi64>
+    %1 = onnx.Constant dense<1> : tensor<i64>
+    %2 = onnx.Constant dense<-1> : tensor<1xi64>
+    %3 = onnx.Constant dense<1> : tensor<1xi64>
+    %4 = onnx.Constant dense<2> : tensor<1xi64>
+    %5 = onnx.Constant dense<4> : tensor<1xi64>
+    %6 = onnx.Constant dense<64> : tensor<1xi64>
+    %7 = "onnx.Dim"(%arg2) <{axis = 2 : si64}> : (tensor<1x4x?x64xf32>) -> tensor<1xi64>
+    %8 = "onnx.Squeeze"(%7, %0) : (tensor<1xi64>, tensor<1xi64>) -> tensor<i64>
+    %9 = "onnx.Add"(%8, %1) : (tensor<i64>, tensor<i64>) -> tensor<i64>
+    %10 = "onnx.Reshape"(%9, %2) <{allowzero = 0 : si64}> : (tensor<i64>, tensor<1xi64>) -> tensor<1xi64>
+    %11 = "onnx.Concat"(%3, %5, %5, %10, %6) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<5xi64>
+    %12 = "onnx.Concat"(%arg0, %arg1) <{axis = 2 : si64}> : (tensor<1x4x?x64xf32>, tensor<1x4x1x64xf32>) -> tensor<1x4x?x64xf32>
+    %13 = "onnx.Unsqueeze"(%12, %4) : (tensor<1x4x?x64xf32>, tensor<1xi64>) -> tensor<1x4x1x?x64xf32>
+    %14 = "onnx.Expand"(%13, %11) : (tensor<1x4x1x?x64xf32>, tensor<5xi64>) -> tensor<1x4x4x?x64xf32>
+    onnx.Return %14 : tensor<1x4x4x?x64xf32>
+
+// CHECK-LABEL:  func.func @test_dim_offset
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x4x?x64xf32> {onnx.dim_params = "2:dims53", onnx.name = "L_kwargs_past_key_values_layers_0_keys"}, [[PARAM_1_:%.+]]: tensor<1x4x1x64xf32>, [[PARAM_2_:%.+]]: tensor<1x4x?x64xf32> {onnx.dim_params = "2:dims53", onnx.name = "L_kwargs_past_key_values_layers_3_values"}) -> tensor<1x4x4x?x64xf32> {
+// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) <{axis = 2 : si64, group_id = [[GROUP_0_:.*]] : si64}> : (tensor<1x4x?x64xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[PARAM_2_]]) <{axis = 2 : si64, group_id = [[GROUP_0_]] : si64}> : (tensor<1x4x?x64xf32>) -> ()
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<0> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<1> : tensor<i64>
+// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<-1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_4_:%.+]] = onnx.Constant dense<2> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_5_:%.+]] = onnx.Constant dense<4> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_6_:%.+]] = onnx.Constant dense<64> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.Dim"([[PARAM_2_]]) <{axis = 2 : si64}> : (tensor<1x4x?x64xf32>) -> tensor<1xi64>
+// CHECK:           [[VAR_8_:%.+]] = "onnx.Squeeze"([[VAR_7_]], [[VAR_0_]]) : (tensor<1xi64>, tensor<1xi64>) -> tensor<i64>
+// CHECK:           [[VAR_9_:%.+]] = "onnx.Add"([[VAR_8_]], [[VAR_1_]]) : (tensor<i64>, tensor<i64>) -> tensor<i64>
+// CHECK:           [[VAR_10_:%.+]] = "onnx.Reshape"([[VAR_9_]], [[VAR_2_]]) <{allowzero = 0 : si64}> : (tensor<i64>, tensor<1xi64>) -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_11_:%.+]] = "onnx.Concat"([[VAR_3_]], [[VAR_5_]], [[VAR_5_]], [[VAR_10_]], [[VAR_6_]]) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<5xi64>
+// CHECK-DAG:       [[VAR_12_:%.+]] = "onnx.Concat"([[PARAM_0_]], [[PARAM_1_]]) <{axis = 2 : si64}> : (tensor<1x4x?x64xf32>, tensor<1x4x1x64xf32>) -> tensor<1x4x?x64xf32>
+// CHECK:           "onnx.DimGroup"([[VAR_12_]]) <{axis = 2 : si64, group_id = [[GROUP_1_:.*]] : si64}> : (tensor<1x4x?x64xf32>) -> ()
+// CHECK:           [[VAR_13_:%.+]] = "onnx.Unsqueeze"([[VAR_12_]], [[VAR_4_]]) : (tensor<1x4x?x64xf32>, tensor<1xi64>) -> tensor<1x4x1x?x64xf32>
+// CHECK:           "onnx.DimGroup"([[VAR_13_]]) <{axis = 3 : si64, group_id = [[GROUP_1_]] : si64}> : (tensor<1x4x1x?x64xf32>) -> ()
+// CHECK:           [[VAR_14_:%.+]] = "onnx.Expand"([[VAR_13_]], [[VAR_11_]]) : (tensor<1x4x1x?x64xf32>, tensor<5xi64>) -> tensor<1x4x4x?x64xf32>
+// CHECK:           "onnx.DimGroup"([[VAR_14_]]) <{axis = 3 : si64, group_id = [[GROUP_1_]] : si64}> : (tensor<1x4x4x?x64xf32>) -> ()
+// CHECK:           onnx.Return [[VAR_14_]] : tensor<1x4x4x?x64xf32>
+// CHECK:         }
+}
