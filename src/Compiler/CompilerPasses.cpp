@@ -524,7 +524,8 @@ void addKrnlToLLVMPasses(
   // are properly lowered to LLVM dialect. (e.g., vector.to_elements)
   pm.addPass(mlir::createConvertVectorToLLVMPass());
 
-  if (profileIR || profileIRWithSig)
+  if (profileIR != onnx_mlir::ProfileIRs::None ||
+      profileIRWithSig != onnx_mlir::ProfileIRs::None)
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentCleanupPass());
 
   if (enableBoundCheck)
