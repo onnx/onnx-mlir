@@ -183,10 +183,13 @@ OMTensor *omTensorCreateWithRandomData(const std::vector<int64_t> &shape,
     int64_t numElems = 1;
     for (auto d : shape)
       numElems *= d;
+    // Create strings into a vector of strings.
     std::uniform_int_distribution<int> dist((int)lbound, (int)ubound);
     std::vector<std::string> strings((size_t)numElems);
     for (int64_t e = 0; e < numElems; ++e)
       strings[e] = std::to_string(dist(omRandomGenerator));
+    // Converts the strings in a proper omTensor data of strings, where all
+    // pointers and actual strings are co-located in a single buffer.
     void *buf = omTensorBuildStringBuffer(strings);
     if (!buf)
       return nullptr;

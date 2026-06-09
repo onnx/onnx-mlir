@@ -408,7 +408,7 @@ std::vector<py::array> PyExecutionSession::pyFillInputDebug(
 
   // Convert the C++ OMTensorList to a Python list of numpy arrays so that:
   // 1. Python callers can inspect and modify individual inputs before
-  // inference.
+  //    inference.
   // 2. The result slots directly into run(inputs), which expects numpy arrays.
   // 3. Memory ownership transfers to numpy/Python; OMTensorList is destroyed
   //    below once all tensors have been copied out.
