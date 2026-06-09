@@ -4,7 +4,7 @@
 
 //===----- OMTensorListHelper.hpp - OMTensor List Helper Func header ------===//
 //
-// Copyright 2022-2024 The IBM Research Authors.
+// Copyright 2022-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -54,8 +54,8 @@ void omTensorListDestroyShallow(OMTensorList *list);
  *   String tensors are not supported. Pass nullptr to leave data buffers null.
  * @param defaultLowerBound Optional per-type lower bound overrides (priority 2).
  *   Format: "typename:value, typename:value, ..."
- *   Supported type names: bool, int8, uint8, int16, uint16, int32, uint32,
- *   int64, uint64, float16, float32, float64.
+ *   Supported type names: bool_ (or bool), int8, uint8, int16, uint16, int32,
+ *   uint32, int64, uint64, float16, float32, float64.
  *   Applied when valueInfo does not supply an explicit min for a tensor.
  *   Pass nullptr to use the built-in defaults (priority 3).
  * @param defaultUpperBound Same format as defaultLowerBound, for upper bounds.

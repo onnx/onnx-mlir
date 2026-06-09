@@ -117,6 +117,17 @@ public:
   //.
   OMTensorList *runDebug(OMTensorList *input, bool useSignalHandler = false);
 
+  // Create an OMTensorList populated with debug/test data using this session's
+  // input signature. Forwards to omTensorListCreateFromInputSignature; see that
+  // function for full parameter documentation.
+  // seed >= 0 seeds the C++ RNG for reproducibility (mirrors np.random.seed).
+  // seed < 0 (default) uses a random seed from std::random_device.
+  OMTensorList *fillInputDebug(const char *shapeInfo = nullptr,
+      const char *valueInfo = nullptr,
+      const char *defaultLowerBound = nullptr,
+      const char *defaultUpperBound = nullptr, int seed = -1,
+      bool verbose = false);
+
   // Get input and output signature as a Json string. For example for nminst:
   // `[ { "type" : "f32" , "dims" : [1 , 1 , 28 , 28] , "name" : "image" } ]`
   const std::string inputSignature() const;
