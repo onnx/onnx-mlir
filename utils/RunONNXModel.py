@@ -877,10 +877,14 @@ class InferenceSession:
                 print(f"Input model {shared_lib_path} does not exist")
                 exit(0)
             print("Loading the compiled model ...")
-            if args.load_model:
-                session = self.session_wrapper(shared_lib_path, tag="None")
-            else:
-                session = self.session_wrapper(shared_lib_path)
+            try:
+                if args.load_model:
+                    session = self.session_wrapper(shared_lib_path, tag="None")
+                else:
+                    session = self.session_wrapper(shared_lib_path)
+            except RuntimeError:
+                # The C++ layer already printed the specific error to stderr.
+                sys.exit(1)
             end = time.perf_counter()
             print("  took ", end - start, " seconds.\n")
             self.session = session
@@ -941,14 +945,18 @@ class InferenceSession:
             # Get input from array.
             self.inputs = args.inputs_from_arrays
         else:
-            self.inputs = self.session.fill_input_debug(
-                shape_info=args.shape_info or "",
-                value_info=args.input_value or "",
-                default_lower_bound=args.lower_bound or "",
-                default_upper_bound=args.upper_bound or "",
-                seed=int(float(args.seed)),
-                verbose=True,
-            )
+            try:
+                self.inputs = self.session.fill_input_debug(
+                    shape_info=args.shape_info or "",
+                    value_info=args.input_value or "",
+                    default_lower_bound=args.lower_bound or "",
+                    default_upper_bound=args.upper_bound or "",
+                    seed=int(float(args.seed)),
+                    verbose=True,
+                )
+            except RuntimeError:
+                # The C++ layer already printed the specific error to stderr.
+                sys.exit(1)
 
         # Print the input if required.
         if args.print_input:
@@ -1125,7 +1133,10 @@ class InferenceSession:
 
         for i in range(args.warmup):
             start = time.perf_counter()
-            outs = self.run_inference()  # Using inputs from self.inputs.
+            try:
+                outs = self.run_inference()  # Using inputs from self.inputs.
+            except RuntimeError:
+                sys.exit(1)
             end = time.perf_counter()
             print("  {} warmup: {} seconds".format(ordinal(i + 1), end - start))
             self.print_instrumentation()
@@ -1133,7 +1144,10 @@ class InferenceSession:
         perf_results = []
         for i in range(args.n_iteration):
             start = time.perf_counter()
-            outs = self.run_inference()  # Using inputs from self.inputs.
+            try:
+                outs = self.run_inference()  # Using inputs from self.inputs.
+            except RuntimeError:
+                sys.exit(1)
             end = time.perf_counter()
             elapsed = end - start
             perf_results += [elapsed]

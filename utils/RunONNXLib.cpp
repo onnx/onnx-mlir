@@ -96,6 +96,8 @@ auto printUsage = [](auto &out, const char *name) {
 
 #include <algorithm>
 #include <assert.h>
+#include <cmath>
+#include <cstring>
 #include <dlfcn.h>
 #include <getopt.h>
 #include <iostream>
