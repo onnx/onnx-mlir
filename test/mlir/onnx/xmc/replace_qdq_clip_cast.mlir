@@ -24,5 +24,5 @@ func.func @test_quantized_clip_cast_ui8(
   // CHECK-SAME: min = 0 : i32
   // CHECK-SAME: nonlinear = "NONE"
   // CHECK-SAME: type = "CLAMP"
-  // CHECK: return %[[FUSED]] : tensor<1x256x256x3x!quant.uniform<u8:f32, 1.000000e+00:0>>
+  // CHECK: return %[[FUSED]] : tensor<1x256x256x3x!quant.uniform<u8:f32, 1.000000e+00>>
 }
