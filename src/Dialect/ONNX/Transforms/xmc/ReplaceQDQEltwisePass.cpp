@@ -290,7 +290,8 @@ static void maybeWidenNarrowConstOperand(PatternRewriter &rewriter,
       continue;
     auto candidateVal =
         mlir::dyn_cast_or_null<DenseElementsAttr>(candidate.getValueAttr());
-    if (candidateVal && candidateVal.getNumElements() == valueAttr.getNumElements()) {
+    if (candidateVal &&
+        candidateVal.getNumElements() == valueAttr.getNumElements()) {
       bool valuesMatch = true;
       auto candIt = candidateVal.getValues<llvm::APInt>().begin();
       for (llvm::APInt v : valueAttr.getValues<llvm::APInt>()) {
