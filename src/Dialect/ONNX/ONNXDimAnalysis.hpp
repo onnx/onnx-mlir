@@ -34,6 +34,24 @@ public:
   // analysis.
   using DimSetMapT = llvm::SmallDenseMap<uint64_t, DimSetT, 4>;
 
+  // Represents a relationship: dim1 + offset1 == dim2 + offset2.
+  struct DimRelation {
+    DimT dim1;
+    int64_t offset1;
+    DimT dim2;
+    int64_t offset2;
+
+    DimRelation(DimT d1, int64_t o1, DimT d2, int64_t o2)
+        : dim1(d1), offset1(o1), dim2(d2), offset2(o2) {}
+
+    // Normalized form: dim1 + (offset1 - offset2) == dim2.
+    int64_t getRelativeOffset() const { return offset1 - offset2; }
+  };
+
+  // Map from a dimension to its related dimensions with offsets.
+  using DimRelationMapT =
+      llvm::DenseMap<DimT, llvm::SmallVector<DimRelation, 4>>;
+
 public:
   /// Create a new analysis for all values in a module.
   /// @param op ModuleOp to analyze dynamics dimensions.
@@ -97,8 +115,24 @@ public:
   /// Note that: broadcasting direction is important.
   bool broadcastLastDim(mlir::Value tensor1, mlir::Value tensor2) const;
 
+  /// Returns the offset if tensor1[dimAxis1] + offset == tensor2[dimAxis2].
+  /// Returns std::nullopt if no offset relationship is found.
+  /// Negative axis is interpreted as index from the innermost dimension.
+  std::optional<int64_t> getDimOffset(mlir::Value tensor1, int64_t dimAxis1,
+      mlir::Value tensor2, int64_t dimAxis2) const;
+
+  /// Test if dim1 + offset1 == dim2 + offset2.
+  /// Each dimension is identified by its tensor and axis. Negative axis is
+  /// interpreted as index from the innermost dimension.
+  bool sameDimWithOffset(mlir::Value tensor1, int64_t dimAxis1,
+      int64_t offset1, mlir::Value tensor2, int64_t dimAxis2,
+      int64_t offset2) const;
+
   /// Dumps the analysis information.
   void dump() const;
+
+  /// Dumps the offset relationship information.
+  void dumpOffsetRelations() const;
 
 private:
   /// Initializes the internal mappings.
@@ -128,11 +162,19 @@ private:
   /// Visit a dynamic dimension and find new same dynamic dimensions.
   void visitDim(DimT &dim, DimSetT &sameDims) const;
 
+  /// Visit a dynamic dimension and find offset relationships.
+  void visitDimForOffsets(DimT &dim) const;
+
   /// Get onnx.dim_params value from a function argument/result and put it into
   /// a map.
   /// TODO: find a new home for this function.
   void getONNXDimParams(std::map<unsigned, std::string> &indexParamMap,
       mlir::ArrayAttr argResAttr, unsigned index);
+
+  /// Propagate offset relationships based on equality relationships.
+  /// If dim_s == dim_t and dim_p = dim_s + k and dim_q = dim_t + k,
+  /// then dim_p == dim_q.
+  void propagateOffsetRelations();
 
 private:
   int64_t setCounter = 0;
@@ -144,6 +186,8 @@ private:
   /// module (when constructed with ModuleOp) or operations within the specified
   /// upwardLevel scope (when constructed with Operation* and upwardLevel).
   const llvm::SmallPtrSet<mlir::Operation *, 32> targetOps;
+  /// Mapping from dimensions to their offset relationships.
+  mutable DimRelationMapT dimRelations;
 };
 
 /// Scoped dimension analysis that only analyzes operations within a limited

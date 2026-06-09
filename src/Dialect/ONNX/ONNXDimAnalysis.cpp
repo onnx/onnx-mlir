@@ -732,7 +732,7 @@ int64_t DimAnalysis::build(DimT d, int64_t setID) {
 void DimAnalysis::buildFunctionArgsRes(
     func::FuncOp funcOp, bool buildForInputs, bool buildForOutputs) {
   // If dim_params are available, try to group dims using dim_params because
-  // dimensions wih the same dim_param are supposed to be the same at runtime.
+  // dimensions with the same dim_param are supposed to be the same at runtime.
 
   // Keep dynamic dimensions with the same dim_param.
   std::map<std::string, DimSetT> paramSetMap;
@@ -911,6 +911,69 @@ bool DimAnalysis::broadcastLastDim(Value tensor1, Value tensor2) const {
   return true;
 }
 
+std::optional<int64_t> DimAnalysis::getDimOffset(Value tensor1,
+    int64_t dimAxis1, Value tensor2, int64_t dimAxis2) const {
+  // Handle negative axis and test if in bound.
+  ShapedType tensor1Type = mlir::cast<ShapedType>(tensor1.getType());
+  ShapedType tensor2Type = mlir::cast<ShapedType>(tensor2.getType());
+  if (!handleAndTestInBound(dimAxis1, tensor1Type) ||
+      !handleAndTestInBound(dimAxis2, tensor2Type))
+    return std::nullopt;
+
+  // Check direct equality first (offset = 0).
+  if (sameDim(tensor1, dimAxis1, tensor2, dimAxis2))
+    return 0;
+
+  // Check offset relationships.
+  DimT dim1(tensor1, (uint64_t)dimAxis1);
+  DimT dim2(tensor2, (uint64_t)dimAxis2);
+
+  if (auto it = dimRelations.find(dim1); it != dimRelations.end()) {
+    for (const DimRelation &rel : it->second) {
+      if (rel.dim2 == dim2) {
+        return rel.getRelativeOffset();
+      }
+    }
+  }
+
+  // Check reverse direction: dim2 -> dim1.
+  if (auto it = dimRelations.find(dim2); it != dimRelations.end()) {
+    for (const DimRelation &rel : it->second) {
+      if (rel.dim2 == dim1) {
+        return -rel.getRelativeOffset();
+      }
+    }
+  }
+
+  return std::nullopt;
+}
+
+bool DimAnalysis::sameDimWithOffset(Value tensor1, int64_t dimAxis1,
+    int64_t offset1, Value tensor2, int64_t dimAxis2, int64_t offset2) const {
+  // Handle negative axis and test if in bound.
+  ShapedType tensor1Type = mlir::cast<ShapedType>(tensor1.getType());
+  ShapedType tensor2Type = mlir::cast<ShapedType>(tensor2.getType());
+  if (!handleAndTestInBound(dimAxis1, tensor1Type) ||
+      !handleAndTestInBound(dimAxis2, tensor2Type))
+    return false;
+
+  // Check if dim1 + offset1 == dim2 + offset2.
+  // This is equivalent to: dim1 + (offset1 - offset2) == dim2.
+  int64_t relativeOffset = offset1 - offset2;
+
+  if (relativeOffset == 0) {
+    // No offset, just check equality.
+    return sameDim(tensor1, dimAxis1, tensor2, dimAxis2);
+  }
+
+  // Check if there's an offset relationship.
+  if (auto offset = getDimOffset(tensor1, dimAxis1, tensor2, dimAxis2)) {
+    return *offset == relativeOffset;
+  }
+
+  return false;
+}
+
 void DimAnalysis::dump() const {
   llvm::outs() << numOfDynamicDims
                << " dynamic dimensions (not including block arguments) are "
@@ -922,6 +985,24 @@ void DimAnalysis::dump() const {
     llvm::outs() << "\n- Set " << i << " (size: " << dimSet.size() << "):\n";
     for (auto &ti : dimSet)
       llvm::outs() << "  - Dim " << ti.second << " of " << ti.first << "\n";
+  }
+}
+
+void DimAnalysis::dumpOffsetRelations() const {
+  llvm::outs() << "\nOffset relationships (" << dimRelations.size()
+               << " dimensions with offsets):\n";
+  for (auto &entry : dimRelations) {
+    DimT dim = entry.first;
+    const auto &relations = entry.second;
+    llvm::outs() << "\n- Dim(" << dim.first << ", " << dim.second
+                 << ") has " << relations.size() << " offset relation(s):\n";
+    for (const DimRelation &rel : relations) {
+      llvm::outs() << "  - Dim(" << rel.dim1.first << ", " << rel.dim1.second
+                   << ") + " << rel.offset1 << " == Dim(" << rel.dim2.first
+                   << ", " << rel.dim2.second << ") + " << rel.offset2
+                   << " (relative offset: " << rel.getRelativeOffset()
+                   << ")\n";
+    }
   }
 }
 
@@ -971,6 +1052,22 @@ void DimAnalysis::analyze() {
   LLVM_DEBUG(
       llvm::dbgs() << "\nThe number of sets of same dynamic dims in the IR: "
                    << dimSetMap.size() << "\n");
+
+  // After establishing equality relationships, detect offset relationships.
+  LLVM_DEBUG(llvm::dbgs() << "\nDetecting offset relationships...\n");
+  for (auto &entry : dimSetMap) {
+    DimSetT &dimSet = entry.second;
+    for (auto &dim : dimSet) {
+      visitDimForOffsets(dim);
+    }
+  }
+
+  // Propagate offset relationships to infer new equalities.
+  propagateOffsetRelations();
+
+  LLVM_DEBUG(llvm::dbgs() << "\nOffset analysis complete. Found "
+                          << dimRelations.size()
+                          << " dimensions with offset relationships.\n");
 }
 
 bool DimAnalysis::updateDimSets() {
@@ -1220,6 +1317,328 @@ void DimAnalysis::visitDim(
         }
       }
     }
+  }
+}
+
+void DimAnalysis::propagateOffsetRelations() {
+  LLVM_DEBUG(llvm::dbgs() << "\nPropagating offset relationships...\n");
+  
+  bool updated = true;
+  while (updated) {
+    updated = false;
+    
+    // Step 1: Share offset relations among equal dimensions.
+    // If dim1 == dim2 and dim1 + k == target, then dim2 + k == target.
+    for (auto &entry : dimSetMap) {
+      DimSetT &dimSet = entry.second;
+      
+      // Collect all unique offset relations from this set.
+      llvm::DenseMap<int64_t, DimT> offsetToTarget;
+      for (auto &dim : dimSet) {
+        if (auto relIt = dimRelations.find(dim); relIt != dimRelations.end()) {
+          for (const DimRelation &rel : relIt->second) {
+            int64_t offset = rel.getRelativeOffset();
+            if (!offsetToTarget.count(offset))
+              offsetToTarget[offset] = rel.dim2;
+          }
+        }
+      }
+      
+      // Propagate each offset to all dimensions in the set.
+      for (auto &[offset, target] : offsetToTarget) {
+        for (auto &dim : dimSet) {
+          // Check if this dimension already has this offset.
+          bool hasOffset = false;
+          if (auto relIt = dimRelations.find(dim); relIt != dimRelations.end()) {
+            for (const DimRelation &rel : relIt->second) {
+              if (rel.getRelativeOffset() == offset) {
+                hasOffset = true;
+                break;
+              }
+            }
+          }
+          
+          if (!hasOffset) {
+            DimRelation newRel(dim, offset, target, 0);
+            dimRelations[dim].push_back(newRel);
+            updated = true;
+            LLVM_DEBUG(llvm::dbgs()
+                       << "  - Propagated offset: dim(" << dim.first << ", "
+                       << dim.second << ") + " << offset << " == dim("
+                       << target.first << ", " << target.second << ")\n");
+          }
+        }
+      }
+    }
+    
+    // Step 2: Infer equality from matching offsets.
+    // If dim1 == dim2 and both have offset k to different targets,
+    // then those targets are equal.
+    llvm::SmallVector<std::pair<DimT, DimT>, 4> newEqualities;
+    
+    for (auto &entry : dimSetMap) {
+      DimSetT &dimSet = entry.second;
+      if (dimSet.size() < 2)
+        continue;
+      
+      // Group targets by offset across all dimensions in this set.
+      llvm::DenseMap<int64_t, llvm::SmallVector<DimT, 2>> offsetToTargets;
+      for (auto &dim : dimSet) {
+        if (auto relIt = dimRelations.find(dim); relIt != dimRelations.end()) {
+          for (const DimRelation &rel : relIt->second)
+            offsetToTargets[rel.getRelativeOffset()].push_back(rel.dim2);
+        }
+      }
+      
+      // For each offset with multiple targets, record new equalities.
+      for (auto &[offset, targets] : offsetToTargets) {
+        if (targets.size() < 2)
+          continue;
+        
+        // Check if all targets are already in the same set.
+        bool allSame = true;
+        for (size_t i = 1; i < targets.size(); ++i) {
+          if (!sameDim(targets[0].first, targets[0].second,
+                       targets[i].first, targets[i].second)) {
+            allSame = false;
+            // Record this pair for later processing.
+            newEqualities.push_back({targets[0], targets[i]});
+          }
+        }
+        
+        if (!allSame) {
+          LLVM_DEBUG(llvm::dbgs()
+                     << "  - Inferred equality from offset " << offset
+                     << " across " << targets.size() << " targets\n");
+        }
+      }
+    }
+    
+    // Apply new equalities outside the iteration.
+    for (auto &[dim1, dim2] : newEqualities) {
+      int64_t setID = build(dim1);
+      build(dim2, setID);
+      updated = true;
+    }
+    
+    if (updated)
+      mergeDimSets();
+  }
+}
+
+void DimAnalysis::visitDimForOffsets(DimT &dim) const {
+  Value tensor = dim.first;
+  uint64_t dimIndex = dim.second;
+
+  LLVM_DEBUG(llvm::dbgs() << "\nVisiting dim for offsets(" << tensor << ", "
+                          << dimIndex << ")\n");
+
+  // Tensor is a block argument. There is no defining operator to explore.
+  if (mlir::isa<BlockArgument>(tensor))
+    return;
+
+  // Get the defining operator.
+  Operation *op = tensor.getDefiningOp();
+
+  // Tensor is from a constant. Nothing to do further.
+  if (isa<ONNXConstantOp>(op))
+    return;
+
+  // Handle ONNXAddOp: if output = input + constant, track the offset.
+  // This handles scalar addition where one operand is a constant.
+  if (auto addOp = mlir::dyn_cast<ONNXAddOp>(op)) {
+    Value A = addOp.getA();
+    Value B = addOp.getB();
+    
+    // Check if one operand is a constant scalar.
+    std::optional<int64_t> constValue;
+    Value nonConstOperand;
+    
+    if (auto constOp = A.getDefiningOp<ONNXConstantOp>()) {
+      if (auto attr = mlir::dyn_cast<DenseElementsAttr>(constOp.getValueAttr())) {
+        if (attr.isSplat() && attr.getElementType().isInteger(64)) {
+          constValue = attr.getSplatValue<int64_t>();
+          nonConstOperand = B;
+        }
+      }
+    } else if (auto constOp = B.getDefiningOp<ONNXConstantOp>()) {
+      if (auto attr = mlir::dyn_cast<DenseElementsAttr>(constOp.getValueAttr())) {
+        if (attr.isSplat() && attr.getElementType().isInteger(64)) {
+          constValue = attr.getSplatValue<int64_t>();
+          nonConstOperand = A;
+        }
+      }
+    }
+    
+    if (constValue && nonConstOperand) {
+      // output[dimIndex] = nonConstOperand[dimIndex] + constValue.
+      DimT inputDim(nonConstOperand, dimIndex);
+      DimRelation rel(inputDim, *constValue, dim, 0);
+      dimRelations[inputDim].push_back(rel);
+      LLVM_DEBUG(llvm::dbgs() << "  - [Add] Found offset relation: dim("
+                              << inputDim.first << ", " << inputDim.second
+                              << ") + " << *constValue << " == dim("
+                              << dim.first << ", " << dim.second << ")\n");
+    }
+    return;
+  }
+
+  // Handle ONNXConcatOp: output dim = sum of input dims along concat axis.
+  // For the concat axis, if there's one dynamic input and static inputs,
+  // track the offset relationship: output = dynamic_input + static_sizes.
+  if (auto concatOp = mlir::dyn_cast<ONNXConcatOp>(op)) {
+    int64_t axis = concatOp.getAxis();
+    auto outputType = mlir::cast<ShapedType>(tensor.getType());
+    int64_t rank = outputType.getRank();
+    
+    // Normalize negative axis.
+    if (axis < 0)
+      axis += rank;
+    
+    // Only handle the concat axis dimension.
+    if (dimIndex == (uint64_t)axis) {
+      Value dynamicInput;
+      int64_t totalStaticSize = 0;
+      bool foundDynamic = false;
+      
+      for (Value input : concatOp.getInputs()) {
+        auto inputType = mlir::cast<ShapedType>(input.getType());
+        int64_t inputDimSize = inputType.getShape()[axis];
+        
+        if (ShapedType::isDynamic(inputDimSize)) {
+          if (!foundDynamic) {
+            dynamicInput = input;
+            foundDynamic = true;
+          } else {
+            // Multiple dynamic inputs, can't determine simple offset.
+            dynamicInput = Value();
+            break;
+          }
+        } else {
+          totalStaticSize += inputDimSize;
+        }
+      }
+      
+      if (dynamicInput && totalStaticSize > 0) {
+        // output[axis] = dynamicInput[axis] + totalStaticSize.
+        DimT inputDim(dynamicInput, axis);
+        DimRelation rel(inputDim, totalStaticSize, dim, 0);
+        dimRelations[inputDim].push_back(rel);
+        LLVM_DEBUG(llvm::dbgs()
+                   << "  - [Concat] Found offset relation: dim("
+                   << inputDim.first << ", " << inputDim.second << ") + "
+                   << totalStaticSize << " == dim(" << dim.first << ", "
+                   << dim.second << ")\n");
+      }
+    }
+    return;
+  }
+
+  // Handle ONNXUnsqueezeOp: dimensions are preserved with axis shift.
+  // Map output dimension back to input dimension accounting for inserted axes.
+  if (auto unsqueezeOp = mlir::dyn_cast<ONNXUnsqueezeOp>(op)) {
+    Value input = unsqueezeOp.getData();
+    Value axes = unsqueezeOp.getAxes();
+    
+    if (auto constOp = axes.getDefiningOp<ONNXConstantOp>()) {
+      if (auto attr = mlir::dyn_cast<DenseElementsAttr>(constOp.getValueAttr())) {
+        llvm::SmallVector<int64_t, 4> axesVec;
+        for (auto val : attr.getValues<int64_t>())
+          axesVec.push_back(val);
+        
+        std::sort(axesVec.begin(), axesVec.end());
+        
+        // Map output dimension to input dimension.
+        int64_t inputDimIndex = dimIndex;
+        for (int64_t axis : axesVec) {
+          if (axis <= (int64_t)dimIndex)
+            inputDimIndex--;
+        }
+        
+        if (inputDimIndex >= 0) {
+          auto inputType = mlir::cast<ShapedType>(input.getType());
+          if (inputDimIndex < inputType.getRank()) {
+            DimT inputDim(input, inputDimIndex);
+            DimRelation rel(inputDim, 0, dim, 0);
+            dimRelations[inputDim].push_back(rel);
+            LLVM_DEBUG(llvm::dbgs()
+                       << "  - [Unsqueeze] Found equality: dim("
+                       << inputDim.first << ", " << inputDim.second
+                       << ") == dim(" << dim.first << ", " << dim.second
+                       << ")\n");
+          }
+        }
+      }
+    }
+    return;
+  }
+
+  // Handle ONNXExpandOp: output dimensions come from the shape input.
+  // Trace through shape computation to find source dimensions and offsets.
+  if (auto expandOp = mlir::dyn_cast<ONNXExpandOp>(op)) {
+    Value shape = expandOp.getShape();
+    
+    // Shape is typically a Concat of dimension values.
+    auto concatOp = shape.getDefiningOp<ONNXConcatOp>();
+    if (!concatOp)
+      return;
+    
+    // Find which concat input corresponds to our dimension index.
+    int64_t currentIndex = 0;
+    for (Value shapeInput : concatOp.getInputs()) {
+      auto shapeInputType = mlir::cast<ShapedType>(shapeInput.getType());
+      int64_t numElements = shapeInputType.getNumElements();
+      
+      if (currentIndex <= (int64_t)dimIndex &&
+          (int64_t)dimIndex < currentIndex + numElements) {
+        // Found the input containing our dimension.
+        Operation *shapeInputOp = shapeInput.getDefiningOp();
+        
+        // Skip Reshape wrapper (common pattern for scalars).
+        if (auto reshapeOp = mlir::dyn_cast_or_null<ONNXReshapeOp>(shapeInputOp))
+          shapeInputOp = reshapeOp.getData().getDefiningOp();
+        
+        // Check for Add operation (dimension + offset pattern).
+        if (auto addOp = mlir::dyn_cast_or_null<ONNXAddOp>(shapeInputOp)) {
+          Value dimValue;
+          std::optional<int64_t> offset;
+          
+          // Find constant operand and dimension operand.
+          for (Value operand : {addOp.getA(), addOp.getB()}) {
+            if (auto constOp = operand.getDefiningOp<ONNXConstantOp>()) {
+              if (auto attr = mlir::dyn_cast<DenseElementsAttr>(constOp.getValueAttr())) {
+                if (attr.isSplat() && attr.getElementType().isInteger(64)) {
+                  offset = attr.getSplatValue<int64_t>();
+                  dimValue = (operand == addOp.getA()) ? addOp.getB() : addOp.getA();
+                  break;
+                }
+              }
+            }
+          }
+          
+          if (offset && dimValue) {
+            // Skip Squeeze wrapper if present.
+            if (auto squeezeOp = dimValue.getDefiningOp<ONNXSqueezeOp>())
+              dimValue = squeezeOp.getData();
+            
+            // Extract source dimension from Dim operation.
+            if (auto dimOp = dimValue.getDefiningOp<ONNXDimOp>()) {
+              DimT sourceDim(dimOp.getData(), dimOp.getAxis());
+              DimRelation rel(sourceDim, *offset, dim, 0);
+              dimRelations[sourceDim].push_back(rel);
+              LLVM_DEBUG(llvm::dbgs()
+                         << "  - [Expand] Found offset relation: dim("
+                         << sourceDim.first << ", " << sourceDim.second
+                         << ") + " << *offset << " == dim(" << dim.first
+                         << ", " << dim.second << ")\n");
+            }
+          }
+        }
+        break;
+      }
+      currentIndex += numElements;
+    }
+    return;
   }
 }
 
