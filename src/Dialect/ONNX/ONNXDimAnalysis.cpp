@@ -1319,6 +1319,33 @@ void DimAnalysis::visitDim(
   }
 }
 
+// Propagate offset relationships using a fixed-point iteration algorithm.
+//
+// Algorithm: Two-phase propagation that runs until no new information is found.
+//
+// Core Concept:
+//   If dim_a == dim_b (from equality analysis), and dim_a + k == target,
+//   then dim_b + k == target. Conversely, if dim_a + k == target1 and
+//   dim_b + k == target2, then target1 == target2.
+//
+// Phase 1: Share offsets among equal dimensions
+//   For each equality set, propagate offset relations to all members.
+//   Example:
+//     Given: dim_a == dim_b (in same set)
+//            dim_a + 5 == target_x
+//     After: dim_a + 5 == target_x
+//            dim_b + 5 == target_x (propagated)
+//
+// Phase 2: Infer new equalities from matching offsets
+//   If multiple dimensions in a set have the same offset to different targets,
+//   those targets must be equal.
+//   Example:
+//     Given: dim_a == dim_b (in same set)
+//            dim_a + 5 == target_x
+//            dim_b + 5 == target_y
+//     Infer: target_x == target_y (new equality)
+//
+// Termination: Algorithm stops when no updates occur in a full iteration.
 void DimAnalysis::propagateOffsetRelations() {
   LLVM_DEBUG(llvm::dbgs() << "\nPropagating offset relationships...\n");
 
@@ -1326,7 +1353,7 @@ void DimAnalysis::propagateOffsetRelations() {
   while (updated) {
     updated = false;
 
-    // Step 1: Share offset relations among equal dimensions.
+    // Phase 1: Share offset relations among equal dimensions.
     for (auto &[setID, dimSet] : dimSetMap) {
       if (dimSet.empty())
         continue;
