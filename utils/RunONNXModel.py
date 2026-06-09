@@ -309,7 +309,12 @@ parser.add_argument(
     " and each spec is one of:"
     " min<num> (lower bound for random fill),"
     " max<num> (upper bound for random fill),"
-    " val<num> (constant fill, equivalent to min=max=num)."
+    " val<num> (constant fill, equivalent to min=max=num),"
+    " soz<num> (sequence-of-ones-then-zeros along the innermost dimension:"
+    " <num> leading ones per row followed by zeros;"
+    " use soz-1 to pick a random count in [1, innerDim-1] for each row independently;"
+    " values >= innerDim are capped to all ones;"
+    " well suited for sequence-length and attention-mask inputs)."
     " E.g. --input-value=0:min-1.0max1.0,1:val0 sets input 0 to random in [-1,1]"
     " and input 1 to all zeros."
     " Per-input specs take priority over --lower-bound and --upper-bound.",

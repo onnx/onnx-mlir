@@ -49,11 +49,16 @@ void omTensorListDestroyShallow(OMTensorList *list);
  *   A dimension value of -1 keeps the value from the signature.
  *   Pass nullptr to use the signature dims unchanged.
  * @param valueInfo Optional per-tensor data fill specification. Format:
- *   "INPUT_ID:spec1spec2..., ..." where each spec is one of:
+ *   "INPUT_ID:spec1 spec2 ..., ..." where each spec is one of:
  *   - min<num>  lower bound for random fill (overrides priority 2 and 3)
  *   - max<num>  upper bound for random fill (overrides priority 2 and 3)
  *   - val<num>  constant fill, equivalent to min=max=num
- *   String tensors are not supported. Pass nullptr to leave data buffers null.
+ *   - soz<num>  sequence-of-ones-then-zeros along the innermost dimension:
+ *               <num> leading ones per row followed by zeros. <num>=-1 picks
+ *               a random count in [1, innerDim-1] for each row independently.
+ *               Values >= innerDim are capped (all ones). Well suited for
+ *               sequence-length and attention-mask inputs.
+ *   Pass nullptr to leave data buffers null.
  * @param defaultLowerBound Optional per-type lower bound overrides (priority
  * 2). Format: "typename:value, typename:value, ..." Supported type names: bool_
  * (or bool), int8, uint8, int16, uint16, int32, uint32, int64, uint64, float16,

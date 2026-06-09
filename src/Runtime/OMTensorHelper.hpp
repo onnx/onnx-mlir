@@ -104,6 +104,24 @@ OMTensor *omTensorCreateWithRandomData(const std::vector<int64_t> &shape,
 void *omTensorBuildStringBuffer(const std::vector<std::string> &strings);
 
 /**
+ * Create an OMTensor with a "sequence of ones followed by zeros" (soz) fill
+ * along the innermost dimension.
+ *
+ * For each row (product of all but the last dimension), the first sozCount
+ * elements are set to 1 and the remaining elements to 0.  Well suited for
+ * sequence-length masks and attention-mask inputs.
+ *
+ * @param shape    shape of the tensor; must have rank >= 1.
+ * @param omType   element type (any numeric type supporting 0 and 1).
+ * @param sozCount number of leading ones per row (>= 0), or -1 to choose
+ *                 independently and randomly for each row in [1, innerDim-1].
+ *                 Values >= innerDim are capped at innerDim (all ones).
+ * @return pointer to the OMTensor created, or nullptr on failure.
+ */
+OMTensor *omTensorCreateSozData(
+    const std::vector<int64_t> &shape, OM_DATA_TYPE omType, int64_t sozCount);
+
+/**
  * OMTensor data element getter by offset
  *
  * @param omt, pointer to the OMTensor

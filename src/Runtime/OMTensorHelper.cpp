@@ -235,6 +235,93 @@ static OMTensor *omTensorCreateFloat16WithRandomData(
   return t;
 }
 
+// Create Sequences of zozCount Ones, followed by Zeros. Count of -1 means each
+// sequence length has a random number of ones.
+OMTensor *omTensorCreateSozData(
+    const std::vector<int64_t> &shape, OM_DATA_TYPE omType, int64_t sozCount) {
+  if (shape.empty())
+    return nullptr;
+  int64_t innerDim = shape.back();
+  int64_t numRows = 1;
+  for (size_t i = 0; i + 1 < shape.size(); ++i)
+    numRows *= shape[i];
+  int64_t numElems = numRows * innerDim;
+  int64_t elemSize = (int64_t)OM_DATA_TYPE_SIZE[omType];
+  if (elemSize <= 0)
+    return nullptr;
+
+  void *buf = calloc((size_t)numElems, (size_t)elemSize);
+  if (!buf)
+    return nullptr;
+
+  // Only seed and construct the distribution when sozCount == -1 (random mode).
+  std::uniform_int_distribution<int64_t> dist(
+      1, (innerDim > 1) ? innerDim - 1 : 1);
+  if (sozCount < 0 && !omUseOneSeed) {
+    std::random_device rd;
+    omRandomGenerator.seed(rd());
+  }
+  int64_t fixedN = (sozCount >= 0) ? std::min(sozCount, innerDim) : 0;
+
+  // Generic lambda: fill the first count elements of a typed pointer with 1.
+  // n is passed as a parameter rather than captured so the lambda can be
+  // defined before the loop where n is computed.
+  auto fillOnes = [](auto *p, int64_t count) {
+    using T = std::remove_reference_t<decltype(*p)>;
+    std::fill(p, p + count, T(1));
+  };
+
+  for (int64_t row = 0; row < numRows; ++row) {
+    int64_t n = (sozCount < 0) ? dist(omRandomGenerator) : fixedN;
+    char *rowPtr = (char *)buf + row * innerDim * elemSize;
+    switch (omType) {
+    case ONNX_TYPE_BOOL:
+      fillOnes((bool *)rowPtr, n);
+      break;
+    case ONNX_TYPE_INT8:
+      fillOnes((int8_t *)rowPtr, n);
+      break;
+    case ONNX_TYPE_UINT8:
+      fillOnes((uint8_t *)rowPtr, n);
+      break;
+    case ONNX_TYPE_INT16:
+      fillOnes((int16_t *)rowPtr, n);
+      break;
+    case ONNX_TYPE_UINT16:
+      fillOnes((uint16_t *)rowPtr, n);
+      break;
+    case ONNX_TYPE_INT32:
+      fillOnes((int32_t *)rowPtr, n);
+      break;
+    case ONNX_TYPE_UINT32:
+      fillOnes((uint32_t *)rowPtr, n);
+      break;
+    case ONNX_TYPE_INT64:
+      fillOnes((int64_t *)rowPtr, n);
+      break;
+    case ONNX_TYPE_UINT64:
+      fillOnes((uint64_t *)rowPtr, n);
+      break;
+    case ONNX_TYPE_FLOAT:
+      fillOnes((float *)rowPtr, n);
+      break;
+    case ONNX_TYPE_DOUBLE:
+      fillOnes((double *)rowPtr, n);
+      break;
+    default:
+      free(buf);
+      return nullptr;
+    }
+  }
+
+  int64_t rank = (int64_t)shape.size();
+  OMTensor *t = omTensorCreateWithOwnership(
+      buf, const_cast<int64_t *>(shape.data()), rank, omType, /*owning=*/1);
+  if (!t)
+    free(buf);
+  return t;
+}
+
 void *omTensorBuildStringBuffer(const std::vector<std::string> &strings) {
   size_t n = strings.size();
   size_t totalStrLen = 0;

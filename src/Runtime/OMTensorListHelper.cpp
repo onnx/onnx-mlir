@@ -130,6 +130,8 @@ struct ValueSpec {
   double maxVal = 0.0;
   bool hasMin = false;
   bool hasMax = false;
+  int64_t sozCount = 0; // leading-ones count: -1 = random per row, >= 0 = fixed
+  bool hasSoz = false;
 };
 
 static bool parseValueInfo(
@@ -144,17 +146,26 @@ static bool parseValueInfo(
     if (!parseEntry(entry, numInputs, idLow, idHigh, content))
       return reportFailure("Failed to parse valueInfo entry");
 
+    // Parse specs from content: space-separated or concatenated (e.g.
+    // "min1.0max2.0" and "min1.0 max2.0" are both valid).
     ValueSpec vspec;
-    std::istringstream specStream(content);
-    std::string token;
-    while (specStream >> token) {
-      if (token.size() < 4)
-        return reportFailure("Unrecognized value spec token '" + token + "'");
-      std::string key = token.substr(0, 3);
-      std::istringstream valStream(token.substr(3));
-      double v;
-      if (!(valStream >> v))
-        return reportFailure("Failed to parse number from '" + token + "'");
+    std::string remaining = content;
+    while (!remaining.empty()) {
+      size_t ws = remaining.find_first_not_of(" \t");
+      if (ws == std::string::npos)
+        break;
+      remaining = remaining.substr(ws);
+      if (remaining.size() < 4)
+        return reportFailure(
+            "Unrecognized value spec '" + remaining + "' in '" + entry + "'");
+      std::string key = remaining.substr(0, 3);
+      const char *numStart = remaining.c_str() + 3;
+      char *numEnd;
+      double v = strtod(numStart, &numEnd);
+      if (numEnd == numStart)
+        return reportFailure(
+            "Failed to parse number after '" + key + "' in '" + entry + "'");
+      remaining = remaining.substr(3 + (size_t)(numEnd - numStart));
       if (key == "min") {
         vspec.minVal = v;
         vspec.hasMin = true;
@@ -164,10 +175,20 @@ static bool parseValueInfo(
       } else if (key == "val") {
         vspec.minVal = vspec.maxVal = v;
         vspec.hasMin = vspec.hasMax = true;
+      } else if (key == "soz") {
+        int64_t n = (int64_t)v;
+        if (n < -1)
+          return reportFailure("soz value must be -1 (random) or >= 0, got '" +
+                               std::to_string(n) + "'");
+        vspec.sozCount = n;
+        vspec.hasSoz = true;
       } else {
         return reportFailure("Unrecognized value spec keyword '" + key + "'");
       }
     }
+    if (vspec.hasSoz && (vspec.hasMin || vspec.hasMax))
+      return reportFailure(
+          "soz cannot be combined with min, max, or val in '" + entry + "'");
     if (idLow == -1) {
       for (int i = 0; i < numInputs; ++i)
         specs[i] = vspec;
@@ -513,7 +534,10 @@ OMTensorList *omTensorListCreateFromInputSignature(
     }
     double lo = vspec.hasMin ? vspec.minVal : lb[entry.type];
     double hi = vspec.hasMax ? vspec.maxVal : ub[entry.type];
-    tensor = omTensorCreateWithRandomData(entry.dims, entry.type, lo, hi);
+    if (vspec.hasSoz)
+      tensor = omTensorCreateSozData(entry.dims, entry.type, vspec.sozCount);
+    else
+      tensor = omTensorCreateWithRandomData(entry.dims, entry.type, lo, hi);
     if (!tensor)
       return abortWithCleanup(i);
     inputTensors[i] = tensor;
@@ -522,10 +546,16 @@ OMTensorList *omTensorListCreateFromInputSignature(
           omDataTypeToString(entry.type));
       for (int d = 0; d < rank; ++d)
         printf(" %lld", (long long)entry.dims[d]);
-      if (entry.type == ONNX_TYPE_STRING)
+      if (vspec.hasSoz) {
+        if (vspec.sozCount < 0)
+          printf(", soz pattern (random count in [1, innerDim-1])\n");
+        else
+          printf(", soz pattern (count=%lld)\n", (long long)vspec.sozCount);
+      } else if (entry.type == ONNX_TYPE_STRING) {
         printf(", value range [\"%g\", \"%g\"]\n", lo, hi);
-      else
+      } else {
         printf(", value range [%g, %g]\n", lo, hi);
+      }
     }
   }
 
