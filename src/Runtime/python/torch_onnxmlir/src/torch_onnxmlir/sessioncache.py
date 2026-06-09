@@ -16,7 +16,7 @@ import shutil
 from dataclasses import dataclass
 from typing import Any
 
-from .onnxmlirdocker import InferenceSession
+from om_pyrt import InferenceSession
 
 
 @dataclass
@@ -39,6 +39,7 @@ def default_cache_dir() -> str:
 
 
 class SessionCache:
+
     def __init__(self, capacity=3):
         self.capacity = capacity
         self.cache = dict()
@@ -59,17 +60,19 @@ class SessionCache:
         # Get from the cache dir.
         cache_value = self.load_from_disk(key)
         if cache_value:
-            self.put(key, cache_value, write_to_disk=False)
+            self.put(key, cache_value, False, "", "")
         return cache_value
 
     # The put is assumed to be called after victim()
-    def put(self, key, value: CacheValue, write_to_disk=True):
+    def put(
+        self, key, value: CacheValue, write_to_disk, onnx_model_dir, compiled_model_dir
+    ):
         self.cache[key] = value
         self.access_order.append(key)
         if len(self.cache) != len(self.access_order):
             print("Error: the len of cache and access_order doesnot match")
         if write_to_disk:
-            self.write_to_disk(key, value)
+            self.write_to_disk(key, value, onnx_model_dir, compiled_model_dir)
 
     # Load data from disk into a CacheValue. If data is not found, return None.
     def load_from_disk(self, key):
@@ -81,7 +84,14 @@ class SessionCache:
             model_dir = os.path.join(self.cache_path, key)
             model_so = os.path.join(model_dir, f"model{key}.so")
             config_file = os.path.join(model_dir, "config.json")
-            sess = InferenceSession(model_so)
+            old_constant_path = os.environ.get("OM_CONSTANT_PATH")
+            os.environ["OM_CONSTANT_PATH"] = model_dir
+            sess = InferenceSession(model_so, tag=key)
+            if old_constant_path is None:
+                # Remove if it wasn't set.
+                os.environ.pop("OM_CONSTANT_PATH", None)
+            else:
+                os.environ["OM_CONSTANT_PATH"] = old_constant_path
             try:
                 with open(config_file, "r") as f:
                     config = json.load(f)
@@ -95,15 +105,11 @@ class SessionCache:
         return None
 
     # Write a CacheValue into a folder whose name is key.
-    def write_to_disk(self, key, value: CacheValue):
+    def write_to_disk(self, key, value: CacheValue, onnx_model_dir, compiled_model_dir):
         # Cache folder: create if it does not exist.
         dst_dir = os.path.join(self.cache_path, key)
         os.makedirs(dst_dir, exist_ok=True)
-        # Copy the input model from the model folder to the cache folder.
-        model_dir = value.sess.model_dirname
-        # Copy compiled models from the output folder to the cache folder.
-        output_dir = value.sess.output_dirname
-        for src_dir in [model_dir, output_dir]:
+        for src_dir in [onnx_model_dir, compiled_model_dir]:
             for filename in os.listdir(src_dir):
                 src_file = os.path.join(src_dir, filename)
                 dst_file = os.path.join(dst_dir, filename)

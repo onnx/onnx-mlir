@@ -213,3 +213,20 @@ func.func @test_nhwc(%arg0: tensor<1x3x5x?xf16, #zhigh.layout<{dataLayout = "NHW
 // CHECK:         }
 }
 
+// -----
+
+// COM: This pattern is found in decoder models, which is to handle KV cache for the decoding phase.
+func.func @test_expand_reshape_stick(%arg0 : tensor<1x4x1x?x64xf32>, %arg1: tensor<5xi64>, %arg2: tensor<3xi64>) -> tensor<16x?x64xf16, #zhigh.layout<{dataLayout = "3DS"}>> {
+  %0 = "onnx.Expand"(%arg0, %arg1) {onnx_node_name = "node_expand_2"} : (tensor<1x4x1x?x64xf32>, tensor<5xi64>) -> tensor<1x4x4x?x64xf32>
+  %1 = "onnx.Reshape"(%0, %arg2) <{allowzero = 0 : si64}> : (tensor<1x4x4x?x64xf32>, tensor<3xi64>) -> tensor<16x?x64xf32>
+  %2 = "zhigh.Stick"(%1) <{layout = "3DS"}> : (tensor<16x?x64xf32>) -> tensor<16x?x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  onnx.Return %2 : tensor<16x?x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+
+// CHECK-LABEL:  func.func @test_expand_reshape_stick
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x4x1x?x64xf32>, [[PARAM_1_:%.+]]: tensor<5xi64>, [[PARAM_2_:%.+]]: tensor<3xi64>) -> tensor<16x?x64xf16, #zhigh.layout<{dataLayout = "3DS"}>> {
+// CHECK:           [[VAR_0_:%.+]] = "zhigh.F32ToDLF16"([[PARAM_0_]]) : (tensor<1x4x1x?x64xf32>) -> tensor<1x4x1x?x64xf16>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Expand"([[VAR_0_]], [[PARAM_1_]]) : (tensor<1x4x1x?x64xf16>, tensor<5xi64>) -> tensor<1x4x4x?x64xf16>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Reshape"([[VAR_1_]], [[PARAM_2_]]) <{allowzero = 0 : si64}> : (tensor<1x4x4x?x64xf16>, tensor<3xi64>) -> tensor<16x?x64xf16>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.LayoutTransform"([[VAR_2_]]) <{target_layout = #zhigh.layout<{dataLayout = "3DS"}>}> : (tensor<16x?x64xf16>) -> tensor<16x?x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:           onnx.Return [[VAR_3_]] : tensor<16x?x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+}
