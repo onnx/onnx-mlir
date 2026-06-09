@@ -374,13 +374,14 @@ int main(int argc, char **argv) {
   omDefineSeed((unsigned int)seed, /*hasSeedValue=*/1);
 
   // Create input tensors with random data from the model's signature.
+  // Always verbose so the shape and value range of each input is printed.
   OMTensorList *tensorListIn = omTensorListCreateFromInputSignature(
       sigIn,
       shapeInfo.empty()  ? nullptr : shapeInfo.c_str(),
       inputValue.empty() ? nullptr : inputValue.c_str(),
       lowerBound.empty() ? nullptr : lowerBound.c_str(),
       upperBound.empty() ? nullptr : upperBound.c_str(),
-      verbose);
+      /*verbose=*/true);
   if (!tensorListIn) {
     cerr << "Error: failed to create input tensors from signature" << endl;
     return 1;
