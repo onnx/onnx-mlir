@@ -31,11 +31,13 @@ void omTensorListDestroyShallow(OMTensorList *list);
  * Parses the JSON signature returned by inputSignature() and creates one
  * OMTensor per entry. Shapes are taken from the signature; dynamic (negative)
  * dimensions are kept as-is unless overridden by shapeInfo. Data buffers are
- * filled with random values when valueInfo is provided, and left null otherwise.
+ * filled with random values when valueInfo is provided, and left null
+ * otherwise.
  *
  * Bound resolution follows a three-level priority (highest to lowest):
  *   1. Per-tensor explicit bounds set via valueInfo (min/max/val).
- *   2. Per-type default bounds supplied via defaultLowerBound/defaultUpperBound.
+ *   2. Per-type default bounds supplied via
+ * defaultLowerBound/defaultUpperBound.
  *   3. Built-in per-type defaults (floats: [-0.1, 0.1]; signed ints: [-10, 10];
  *      unsigned ints: [0, 10]; bool: {false, true}).
  *
@@ -52,19 +54,18 @@ void omTensorListDestroyShallow(OMTensorList *list);
  *   - max<num>  upper bound for random fill (overrides priority 2 and 3)
  *   - val<num>  constant fill, equivalent to min=max=num
  *   String tensors are not supported. Pass nullptr to leave data buffers null.
- * @param defaultLowerBound Optional per-type lower bound overrides (priority 2).
- *   Format: "typename:value, typename:value, ..."
- *   Supported type names: bool_ (or bool), int8, uint8, int16, uint16, int32,
- *   uint32, int64, uint64, float16, float32, float64.
- *   Applied when valueInfo does not supply an explicit min for a tensor.
- *   Pass nullptr to use the built-in defaults (priority 3).
+ * @param defaultLowerBound Optional per-type lower bound overrides (priority
+ * 2). Format: "typename:value, typename:value, ..." Supported type names: bool_
+ * (or bool), int8, uint8, int16, uint16, int32, uint32, int64, uint64, float16,
+ * float32, float64. Applied when valueInfo does not supply an explicit min for
+ * a tensor. Pass nullptr to use the built-in defaults (priority 3).
  * @param defaultUpperBound Same format as defaultLowerBound, for upper bounds.
  * @param verbose When true, print the shape of each created tensor to stdout.
  * @return Pointer to the newly created OMTensorList, or null on error.
  */
-OMTensorList *omTensorListCreateFromInputSignature(const char *inputSignatureStr,
-    const char *shapeInfo = nullptr, const char *valueInfo = nullptr,
-    const char *defaultLowerBound = nullptr,
+OMTensorList *omTensorListCreateFromInputSignature(
+    const char *inputSignatureStr, const char *shapeInfo = nullptr,
+    const char *valueInfo = nullptr, const char *defaultLowerBound = nullptr,
     const char *defaultUpperBound = nullptr, bool verbose = false);
 
 #endif

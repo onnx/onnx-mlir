@@ -129,8 +129,8 @@ extern "C" const char *omOutputSignature(const char *);
 extern "C" const char *omCompilationInfo(void);
 
 #if LOAD_MODEL_STATICALLY
-#define RUN_MAIN_GRAPH      run_main_graph
-#define OM_INPUT_SIGNATURE  omInputSignature
+#define RUN_MAIN_GRAPH run_main_graph
+#define OM_INPUT_SIGNATURE omInputSignature
 #define OM_OUTPUT_SIGNATURE omOutputSignature
 #define OM_COMPILATION_INFO omCompilationInfo
 #define OPTIONS "hs:i:l:u:k:n:m:vr:"
@@ -139,8 +139,8 @@ OMTensorList *(*dll_run_main_graph)(OMTensorList *);
 const char *(*dll_omInputSignature)(const char *);
 const char *(*dll_omOutputSignature)(const char *);
 const char *(*dll_omCompilationInfo)(void);
-#define RUN_MAIN_GRAPH      dll_run_main_graph
-#define OM_INPUT_SIGNATURE  dll_omInputSignature
+#define RUN_MAIN_GRAPH dll_run_main_graph
+#define OM_INPUT_SIGNATURE dll_omInputSignature
 #define OM_OUTPUT_SIGNATURE dll_omOutputSignature
 #define OM_COMPILATION_INFO dll_omCompilationInfo
 #define OPTIONS "e:hs:i:l:u:k:n:m:vr:"
@@ -200,18 +200,15 @@ void loadDLL(const string &name, const string &epName) {
 void parseArgs(int argc, char **argv) {
   int c;
   static struct option long_options[] = {
-      {"shape-info",  required_argument, 0, 's'},
+      {"shape-info", required_argument, 0, 's'},
       {"input-value", required_argument, 0, 'i'},
       {"lower-bound", required_argument, 0, 'l'},
       {"upper-bound", required_argument, 0, 'u'},
-      {"seed",        required_argument, 0, 'k'},
-      {"entry-point", required_argument, 0, 'e'},
-      {"help",        no_argument,       0, 'h'},
-      {"iterations",  required_argument, 0, 'n'},
-      {"meas",        required_argument, 0, 'm'},
-      {"reuse",       required_argument, 0, 'r'},
-      {"verbose",     no_argument,       0, 'v'},
-      {0, 0, 0, 0}};
+      {"seed", required_argument, 0, 'k'},
+      {"entry-point", required_argument, 0, 'e'}, {"help", no_argument, 0, 'h'},
+      {"iterations", required_argument, 0, 'n'},
+      {"meas", required_argument, 0, 'm'}, {"reuse", required_argument, 0, 'r'},
+      {"verbose", no_argument, 0, 'v'}, {0, 0, 0, 0}};
 
   while (true) {
     int index = 0;
@@ -375,9 +372,8 @@ int main(int argc, char **argv) {
 
   // Create input tensors with random data from the model's signature.
   // Always verbose so the shape and value range of each input is printed.
-  OMTensorList *tensorListIn = omTensorListCreateFromInputSignature(
-      sigIn,
-      shapeInfo.empty()  ? nullptr : shapeInfo.c_str(),
+  OMTensorList *tensorListIn = omTensorListCreateFromInputSignature(sigIn,
+      shapeInfo.empty() ? nullptr : shapeInfo.c_str(),
       inputValue.empty() ? nullptr : inputValue.c_str(),
       lowerBound.empty() ? nullptr : lowerBound.c_str(),
       upperBound.empty() ? nullptr : upperBound.c_str(),
@@ -398,9 +394,8 @@ int main(int argc, char **argv) {
       cout << "  computed " << i << " iterations" << endl;
     if (!reuseInput) {
       omTensorListDestroy(tensorListIn);
-      tensorListIn = omTensorListCreateFromInputSignature(
-          sigIn,
-          shapeInfo.empty()  ? nullptr : shapeInfo.c_str(),
+      tensorListIn = omTensorListCreateFromInputSignature(sigIn,
+          shapeInfo.empty() ? nullptr : shapeInfo.c_str(),
           inputValue.empty() ? nullptr : inputValue.c_str(),
           lowerBound.empty() ? nullptr : lowerBound.c_str(),
           upperBound.empty() ? nullptr : upperBound.c_str(),

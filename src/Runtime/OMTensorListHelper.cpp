@@ -55,8 +55,7 @@ static bool parseEntry(const std::string &entry, int numInputs, int64_t &idLow,
     int64_t &idHigh, std::string &content) {
   auto parts = splitByChar(entry, ':');
   if (parts.size() != 2)
-    return reportFailure(
-        "Expected one ':' separator in '" + entry + "'");
+    return reportFailure("Expected one ':' separator in '" + entry + "'");
   const std::string &indexStr = parts[0];
   content = parts[1];
 
@@ -75,8 +74,7 @@ static bool parseEntry(const std::string &entry, int numInputs, int64_t &idLow,
     if (iss.peek() == '-') {
       iss.get();
       if (!(iss >> idHigh))
-        return reportFailure(
-            "Failed to parse range end from '" + entry + "'");
+        return reportFailure("Failed to parse range end from '" + entry + "'");
       if (idHigh < idLow || idHigh >= numInputs)
         return reportFailure("Range end " + std::to_string(idHigh) +
                              " invalid (must be " + std::to_string(idLow) +
@@ -107,12 +105,10 @@ static bool parseShapeInfo(const char *shapeInfo, int numInputs,
       ds >> std::ws;
       int64_t d;
       if (!(ds >> d))
-        return reportFailure(
-            "Failed to parse dimension from '" + dimStr + "'");
+        return reportFailure("Failed to parse dimension from '" + dimStr + "'");
       if (d < -1)
-        return reportFailure(
-            "expected dimension value: -1 or positive, got " +
-            std::to_string(d));
+        return reportFailure("expected dimension value: -1 or positive, got " +
+                             std::to_string(d));
       dims.push_back(d);
     }
     if (idLow == -1) {
@@ -153,14 +149,12 @@ static bool parseValueInfo(
     std::string token;
     while (specStream >> token) {
       if (token.size() < 4)
-        return reportFailure(
-            "Unrecognized value spec token '" + token + "'");
+        return reportFailure("Unrecognized value spec token '" + token + "'");
       std::string key = token.substr(0, 3);
       std::istringstream valStream(token.substr(3));
       double v;
       if (!(valStream >> v))
-        return reportFailure(
-            "Failed to parse number from '" + token + "'");
+        return reportFailure("Failed to parse number from '" + token + "'");
       if (key == "min") {
         vspec.minVal = v;
         vspec.hasMin = true;
@@ -171,8 +165,7 @@ static bool parseValueInfo(
         vspec.minVal = vspec.maxVal = v;
         vspec.hasMin = vspec.hasMax = true;
       } else {
-        return reportFailure(
-            "Unrecognized value spec keyword '" + key + "'");
+        return reportFailure("Unrecognized value spec keyword '" + key + "'");
       }
     }
     if (idLow == -1) {
@@ -275,7 +268,10 @@ static bool parseSignatureInfo(
     skipWS(s);
     if (s.empty() || s[0] == ']')
       break;
-    if (s[0] == ',') { s = s.substr(1); continue; }
+    if (s[0] == ',') {
+      s = s.substr(1);
+      continue;
+    }
     if (!consume(s, '{'))
       return false;
 
@@ -284,8 +280,14 @@ static bool parseSignatureInfo(
       skipWS(s);
       if (s.empty())
         return false;
-      if (s[0] == '}') { s = s.substr(1); break; }
-      if (s[0] == ',') { s = s.substr(1); continue; }
+      if (s[0] == '}') {
+        s = s.substr(1);
+        break;
+      }
+      if (s[0] == ',') {
+        s = s.substr(1);
+        continue;
+      }
 
       std::string key;
       if (!parseJsonStr(s, key) || !consume(s, ':'))
@@ -308,8 +310,14 @@ static bool parseSignatureInfo(
           skipWS(s);
           if (s.empty())
             return false;
-          if (s[0] == ']') { s = s.substr(1); break; }
-          if (s[0] == ',') { s = s.substr(1); continue; }
+          if (s[0] == ']') {
+            s = s.substr(1);
+            break;
+          }
+          if (s[0] == ',') {
+            s = s.substr(1);
+            continue;
+          }
           int64_t dim;
           if (!parseJsonInt(s, dim))
             return false;
@@ -351,8 +359,8 @@ static bool parseInputSpecs(const char *inputSignatureStr,
         if (sigDim >= 0 && overDim >= 0) {
           if (sigDim != overDim)
             return reportFailure(
-                "parseInputSpecs: tensor " + std::to_string(i) +
-                " dim " + std::to_string(d) + ": signature value " +
+                "parseInputSpecs: tensor " + std::to_string(i) + " dim " +
+                std::to_string(d) + ": signature value " +
                 std::to_string(sigDim) + " conflicts with shapeInfo value " +
                 std::to_string(overDim));
         } else if (sigDim < 0 && overDim >= 0) {
@@ -360,11 +368,10 @@ static bool parseInputSpecs(const char *inputSignatureStr,
         } else if (sigDim >= 0) {
           // keep sigDim
         } else {
-          return reportFailure(
-              "parseInputSpecs: tensor " + std::to_string(i) +
-              " dim " + std::to_string(d) +
-              " is dynamic in both signature and shapeInfo; "
-              "provide a static value");
+          return reportFailure("parseInputSpecs: tensor " + std::to_string(i) +
+                               " dim " + std::to_string(d) +
+                               " is dynamic in both signature and shapeInfo; "
+                               "provide a static value");
         }
       }
     }
@@ -389,7 +396,7 @@ static double defaultRandLB(OM_DATA_TYPE t) {
   case ONNX_TYPE_BOOL:
     return 0.0;
   case ONNX_TYPE_STRING:
-    return 0.0;  // strings: random integers in [0, 64)
+    return 0.0; // strings: random integers in [0, 64)
   default:
     return 0.0;
   }
@@ -404,7 +411,7 @@ static double defaultRandUB(OM_DATA_TYPE t) {
   case ONNX_TYPE_BOOL:
     return 1.0;
   case ONNX_TYPE_STRING:
-    return 63.0;  // strings: random integers in [0, 64)
+    return 63.0; // strings: random integers in [0, 64)
   default:
     return 10.0;
   }
@@ -434,8 +441,7 @@ static bool parseBoundOverrides(const char *bounds, double *arr) {
     std::istringstream typeStream(parts[0]);
     std::string typeName;
     if (!(typeStream >> typeName))
-      return reportFailure(
-          "Empty type name in bound entry '" + entry + "'");
+      return reportFailure("Empty type name in bound entry '" + entry + "'");
     std::istringstream valStream(parts[1]);
     double val;
     if (!(valStream >> val))
@@ -454,9 +460,9 @@ static bool parseBoundOverrides(const char *bounds, double *arr) {
 // Public entry point.
 
 OMTensorList *omTensorListCreateFromInputSignature(
-    const char *inputSignatureStr, const char *shapeInfo,
-    const char *valueInfo, const char *defaultLowerBound,
-    const char *defaultUpperBound, bool verbose) {
+    const char *inputSignatureStr, const char *shapeInfo, const char *valueInfo,
+    const char *defaultLowerBound, const char *defaultUpperBound,
+    bool verbose) {
 
   std::vector<SigEntry> entries;
   if (!parseInputSpecs(inputSignatureStr, shapeInfo, entries))

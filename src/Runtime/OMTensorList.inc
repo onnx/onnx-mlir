@@ -138,4 +138,3 @@ OMTensor *omTensorListGetOmtByIndex(const OMTensorList *rlist, int64_t index) {
     return NULL;
   return rlist->_omts[index];
 }
-

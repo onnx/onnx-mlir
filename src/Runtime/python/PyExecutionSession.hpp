@@ -97,7 +97,7 @@ PYBIND11_MODULE(PyRuntimeC, m) {
           "Args:\n"
           "    shared_lib_path (str): Path to the compiled model shared library.\n"
           "        Examples: './model.so' (Linux), 'model.dll' (Windows).\n"
-          "        Absolute path are preferred (otherwise see default search for given OS)"
+          "        Absolute path are preferred (otherwise see default search for given OS).\n"
           "    tag (str, optional): Model tag for identification. If provided, must\n"
           "        match the tag used during compilation. Default: ''.\n"
           "    use_default_entry_point (bool, optional): If True, use the default\n"
