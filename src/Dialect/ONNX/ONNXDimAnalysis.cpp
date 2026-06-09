@@ -1481,7 +1481,7 @@ void DimAnalysis::visitDimForOffsets(DimT &dim) const {
         int64_t size = mlir::cast<ShapedType>(input.getType()).getShape()[axis];
         if (ShapedType::isDynamic(size)) {
           if (dynamicInput)
-            return; // Multiple dynamic inputs.
+            return; // Multiple dynamic dims at the concat axis.
           dynamicInput = input;
         } else {
           totalStaticSize += size;

@@ -124,9 +124,8 @@ public:
   /// Test if dim1 + offset1 == dim2 + offset2.
   /// Each dimension is identified by its tensor and axis. Negative axis is
   /// interpreted as index from the innermost dimension.
-  bool sameDimWithOffset(mlir::Value tensor1, int64_t dimAxis1,
-      int64_t offset1, mlir::Value tensor2, int64_t dimAxis2,
-      int64_t offset2) const;
+  bool sameDimWithOffset(mlir::Value tensor1, int64_t dimAxis1, int64_t offset1,
+      mlir::Value tensor2, int64_t dimAxis2, int64_t offset2) const;
 
   /// Dumps the analysis information.
   void dump() const;
