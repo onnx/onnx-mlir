@@ -313,7 +313,8 @@ std::vector<py::array> PyExecutionSession::pyRunImplementation(
     auto shape = std::vector<int64_t>(
         omTensorGetShape(omt), omTensorGetShape(omt) + omTensorGetRank(omt));
 
-    const char *dtypeName = omDataTypeToNumpyDtypeName(omTensorGetDataType(omt));
+    const char *dtypeName =
+        omDataTypeToNumpyDtypeName(omTensorGetDataType(omt));
     if (!dtypeName) {
       omTensorListDestroy(wrappedOutput);
       omTensorListDestroy(wrappedInput);
@@ -398,15 +399,16 @@ std::vector<py::array> PyExecutionSession::pyFillInputDebug(
     const std::string &defaultLowerBound, const std::string &defaultUpperBound,
     int seed, bool verbose) {
   // fillInputDebug throws ExecutionSessionException on failure.
-  OMTensorList *inputs = fillInputDebug(
-      shapeInfo.empty() ? nullptr : shapeInfo.c_str(),
-      valueInfo.empty() ? nullptr : valueInfo.c_str(),
-      defaultLowerBound.empty() ? nullptr : defaultLowerBound.c_str(),
-      defaultUpperBound.empty() ? nullptr : defaultUpperBound.c_str(), seed,
-      verbose);
+  OMTensorList *inputs =
+      fillInputDebug(shapeInfo.empty() ? nullptr : shapeInfo.c_str(),
+          valueInfo.empty() ? nullptr : valueInfo.c_str(),
+          defaultLowerBound.empty() ? nullptr : defaultLowerBound.c_str(),
+          defaultUpperBound.empty() ? nullptr : defaultUpperBound.c_str(), seed,
+          verbose);
 
   // Convert the C++ OMTensorList to a Python list of numpy arrays so that:
-  // 1. Python callers can inspect and modify individual inputs before inference.
+  // 1. Python callers can inspect and modify individual inputs before
+  // inference.
   // 2. The result slots directly into run(inputs), which expects numpy arrays.
   // 3. Memory ownership transfers to numpy/Python; OMTensorList is destroyed
   //    below once all tensors have been copied out.
@@ -415,7 +417,8 @@ std::vector<py::array> PyExecutionSession::pyFillInputDebug(
     auto *omt = omTensorListGetOmtByIndex(inputs, i);
     auto shape = std::vector<int64_t>(
         omTensorGetShape(omt), omTensorGetShape(omt) + omTensorGetRank(omt));
-    const char *dtypeName = omDataTypeToNumpyDtypeName(omTensorGetDataType(omt));
+    const char *dtypeName =
+        omDataTypeToNumpyDtypeName(omTensorGetDataType(omt));
     if (!dtypeName) {
       omTensorListDestroy(inputs);
       throw onnx_mlir::ExecutionSessionException(

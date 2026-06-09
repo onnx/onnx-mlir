@@ -123,8 +123,7 @@ public:
   // seed >= 0 seeds the C++ RNG for reproducibility (mirrors np.random.seed).
   // seed < 0 (default) uses a random seed from std::random_device.
   OMTensorList *fillInputDebug(const char *shapeInfo = nullptr,
-      const char *valueInfo = nullptr,
-      const char *defaultLowerBound = nullptr,
+      const char *valueInfo = nullptr, const char *defaultLowerBound = nullptr,
       const char *defaultUpperBound = nullptr, int seed = -1,
       bool verbose = false);
 

@@ -488,11 +488,12 @@ OMTensorList *ExecutionSession::fillInputDebug(const char *shapeInfo,
     const char *defaultUpperBound, int seed, bool verbose) {
   if (seed >= 0)
     omDefineSeed((unsigned int)seed, /*hasSeedValue=*/1);
-  OMTensorList *inputs = omTensorListCreateFromInputSignature(
-      inputSignature().c_str(), shapeInfo, valueInfo, defaultLowerBound,
-      defaultUpperBound, verbose);
+  OMTensorList *inputs =
+      omTensorListCreateFromInputSignature(inputSignature().c_str(), shapeInfo,
+          valueInfo, defaultLowerBound, defaultUpperBound, verbose);
   if (!inputs)
-    throw ExecutionSessionException("fillInputDebug: failed to create input list");
+    throw ExecutionSessionException(
+        "fillInputDebug: failed to create input list");
   return inputs;
 }
 
