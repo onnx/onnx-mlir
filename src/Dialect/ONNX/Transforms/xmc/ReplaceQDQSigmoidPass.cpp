@@ -79,7 +79,8 @@ static XCOMPILERFusedEltwiseOp createQLinearSigmoidOp(PatternRewriter &rewriter,
       mulY ? rewriter.getFloatAttr(rewriter.getF32Type(), *mulY) : FloatAttr();
   BoolAttr enableLutAttr = rewriter.getBoolAttr(enableLutSigmoid);
   return rewriter.create<XCOMPILERFusedEltwiseOp>(loc, outputType, inputA,
-      inputB, enableLutAttr,
+      inputB,
+      /*approximate=*/StringAttr(), enableLutAttr,
       /*leakyrelu_alpha=*/FloatAttr(),
       /*max=*/IntegerAttr(),
       /*min=*/IntegerAttr(), mulYAttr,
