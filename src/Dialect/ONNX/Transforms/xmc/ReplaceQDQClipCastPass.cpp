@@ -121,6 +121,29 @@ static Type buildFusedClampCastResultType(
   return RankedTensorType::get(castOutTy.getShape(), quantElemTy);
 }
 
+// Fusion changes cast output from raw uint to quant.uniform; update the
+// enclosing function signature before RAUW so mid-rewrite verification passes.
+static void updateFuncReturnTypeForFusedCast(
+    PatternRewriter &rewriter, Value castResult, Type fusedResultTy) {
+  for (Operation *user : castResult.getUsers()) {
+    auto returnOp = dyn_cast<func::ReturnOp>(user);
+    if (!returnOp)
+      continue;
+
+    func::FuncOp funcOp = returnOp->getParentOfType<func::FuncOp>();
+    FunctionType oldFuncTy = funcOp.getFunctionType();
+    SmallVector<Type> newResultTypes(oldFuncTy.getResults());
+    for (auto [idx, operand] : llvm::enumerate(returnOp.getOperands())) {
+      if (operand == castResult)
+        newResultTypes[idx] = fusedResultTy;
+    }
+    rewriter.modifyOpInPlace(funcOp, [&]() {
+      funcOp.setType(FunctionType::get(
+          rewriter.getContext(), oldFuncTy.getInputs(), newResultTypes));
+    });
+  }
+}
+
 // onnx.Clip(quantized, min, max) -> f32 -> onnx.Cast(->uint) =>
 // onnx.XCOMPILERFusedEltwise(type="CLAMP")
 struct FuseQuantizedClipCastPattern : public OpRewritePattern<ONNXCastOp> {
@@ -185,6 +208,8 @@ struct FuseQuantizedClipCastPattern : public OpRewritePattern<ONNXCastOp> {
         /*prelu_shift=*/IntegerAttr(),
         /*type=*/rewriter.getStringAttr("CLAMP"));
 
+    updateFuncReturnTypeForFusedCast(
+        rewriter, castOp.getResult(), fusedResultTy);
     rewriter.replaceOp(castOp, fusedOp.getResult());
     if (clipOp->use_empty())
       rewriter.eraseOp(clipOp);
