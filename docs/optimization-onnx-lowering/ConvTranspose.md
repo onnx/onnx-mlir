@@ -306,6 +306,20 @@ Final size = stride × (input_size - 1) + output_padding +
              ((kernel_size - 1) × dilation + 1) - pads[start] - pads[end]  ✓
 ```
 
+### Input Size ≥ Kernel Size After Upsampling (dilation = 1)
+
+With `dilation = 1` the effective kernel size equals `kH`, and the central condition for `H_padded ≥ kH` reduces to:
+
+```
+(H - 1) × stride + (kH - 1) + output_padding  ≥  padTotal        [★]
+```
+
+- **VALID** (`padTotal = 0`): all terms are non-negative, so [★] holds trivially.
+- **SAME_UPPER / SAME_LOWER** (`padTotal = max(0, output_padding + kH - stride)`): when `padTotal > 0`, [★] simplifies to `H × stride ≥ 1`, which is always true since `H ≥ 1` and `stride ≥ 1`.
+- **NOTSET** (explicit pads): [★] is algebraically equivalent to `output_size ≥ 1`, which must hold for the ConvTranspose to produce a valid (non-empty) output.
+
+Therefore, for any valid ONNX ConvTranspose with `dilation = 1`, the spatial size of the padded-and-upsampled input fed into the subsequent Conv is guaranteed to be ≥ the original ConvTranspose kernel spatial dimension.
+
 ### Test Results
 
 Comprehensive testing validates the implementation:
