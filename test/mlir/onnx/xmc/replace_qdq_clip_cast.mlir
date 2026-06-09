@@ -12,7 +12,7 @@ func.func @test_quantized_clip_cast_ui8(
   %clip = "onnx.Clip"(%arg0, %min, %max) :
       (tensor<1x256x256x3x!quant.uniform<u8:f32, 2.000000e+00:128>>, tensor<f32>, tensor<f32>)
       -> tensor<1x256x256x3xf32>
-  %cast = "onnx.Cast"(%clip) {saturate = 1 : si64, to = 2 : si64} :
+  %cast = "onnx.Cast"(%clip) {saturate = 1 : si64, to = ui8} :
       (tensor<1x256x256x3xf32>) -> tensor<1x256x256x3xui8>
   return %cast : tensor<1x256x256x3xui8>
 
