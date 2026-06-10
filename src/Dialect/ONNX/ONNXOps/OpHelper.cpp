@@ -1012,9 +1012,41 @@ bool isIdentityReshape(
   return isIdentityReshape(inputTensor, outputTensor, dimAnalysis);
 }
 
-bool isDequantQuantSame(
-    mlir::ONNXDequantizeLinearOp dqOp, mlir::ONNXQuantizeLinearOp qOp) {
+/// Element-wise approximate scale comparison used by isDequantQuantSame when
+/// tolerant=true.  Returns false if element counts differ or any pair fails
+///   |a - b| <= max(atol, rtol * max(|a|, |b|)).
+///
+/// Threshold rationale:
+///   rtol = 1e-3  FP16 machine epsilon is ~9.77e-4, so 1e-3 is just above
+///                the worst-case round-trip rounding error when a scale is
+///                stored as FP16 by one tool and reloaded by another.
+///   atol = 1e-5  Guards the near-zero case where rtol * max(|a|,|b|) would
+///                underflow to a meaninglessly tight bound; 1e-5 is safely
+///                below any realistic quantization scale value.
+static bool scaleWithinTolerance(mlir::ElementsAttr dqScale,
+    mlir::ElementsAttr qScale, double rtol = 1e-3, double atol = 1e-5) {
+  if (dqScale.getNumElements() != qScale.getNumElements())
+    return false;
+  bool losesInfo = false;
+  // The structured binding gives per-iteration APFloat copies, so in-place
+  // conversion to double precision is safe.
+  for (auto [a, b] : llvm::zip(dqScale.getValues<mlir::APFloat>(),
+                               qScale.getValues<mlir::APFloat>())) {
+    a.convert(llvm::APFloat::IEEEdouble(),
+        llvm::APFloat::rmNearestTiesToEven, &losesInfo);
+    b.convert(llvm::APFloat::IEEEdouble(),
+        llvm::APFloat::rmNearestTiesToEven, &losesInfo);
+    double da = a.convertToDouble();
+    double db = b.convertToDouble();
+    if (std::abs(da - db) >
+        std::max(atol, rtol * std::max(std::abs(da), std::abs(db))))
+      return false;
+  }
+  return true;
+}
 
+bool isDequantQuantSame(mlir::ONNXDequantizeLinearOp dqOp,
+    mlir::ONNXQuantizeLinearOp qOp, bool tolerant) {
   // Helper lambda to check if a value is a scalar (rank 0 or shape [1]).
   auto isScalar = [](Value v) -> bool {
     if (!v)
@@ -1052,6 +1084,9 @@ bool isDequantQuantSame(
   auto scaleAttr2 = getElementAttributeFromONNXValue(qOp.getYScale());
   if (!scaleAttr1 || !scaleAttr2)
     return false;
+
+  if (tolerant)
+    return scaleWithinTolerance(scaleAttr1, scaleAttr2);
 
   if (!compareValueFromElementAttribute(scaleAttr1, scaleAttr2)) {
     return false;

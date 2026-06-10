@@ -496,8 +496,17 @@ bool isIdentityReshape(
 bool isIdentityReshape(mlir::Value input, mlir::Value output,
     const DimAnalysis *dimAnalysis = nullptr);
 
-bool isDequantQuantSame(
-    mlir::ONNXDequantizeLinearOp dqOp, mlir::ONNXQuantizeLinearOp qOp);
+/// Returns true if the DQ→Q pair is redundant (same scale, zero-point,
+/// axis, block-size, and storage type).
+///
+/// \p tolerant  When true, the scale comparison uses an element-wise
+///              approximate check instead of exact equality:
+///                |a - b| <= max(atol, rtol * max(|a|, |b|))
+///              with rtol = 1e-3, atol = 1e-5 (suitable for FP16 scales).
+///              All other checks (zero-point, axis, block-size, storage type)
+///              remain exact regardless of this flag.
+bool isDequantQuantSame(mlir::ONNXDequantizeLinearOp dqOp,
+    mlir::ONNXQuantizeLinearOp qOp, bool tolerant = false);
 
 /// Return true if the (element) type carries a `quant::QuantizedType`.
 /// Convenient for guarding rewrite patterns that are not valid on quantized
