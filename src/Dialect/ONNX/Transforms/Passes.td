@@ -13,6 +13,10 @@ include "mlir/Pass/PassBase.td"
 
 def ONNXDecomposePatternOptions {
   list<Option> options = [
+    Option<"target", "target", "std::string", /*default=*/"\"\"",
+           "Target dialect to decompose into (e.g. stablehlo); "
+           "empty string means the default ONNX-to-ONNX decomposition.">,
+
     Option<"enableConvTransposeDecompose", "enable-convtranspose",
            "bool", /*default=*/"false",
            "Enable decomposition of ConvTranspose.">,
@@ -86,14 +90,6 @@ def ONNXDecomposePatternOptions {
   ];
 }
 
-def ONNXDecomposePassOptions {
-  list<Option> options = [
-    Option<"target", "target", "std::string", /*default=*/"\"\"",
-           "Target dialect to decompose into (e.g. stablehlo); "
-           "empty string means the default ONNX-to-ONNX decomposition.">
-  ] # ONNXDecomposePatternOptions.options;
-}
-
 def ONNXHybridTransformOptions {
   list<Option> options = [
     Option<"shapeInference", "shape-inference",
@@ -149,7 +145,7 @@ def DecomposeONNXToONNXPass : Pass<"decompose-onnx", "::mlir::func::FuncOp"> {
     createDecomposeONNXToONNXPass().
   }];
 
-  let options = ONNXDecomposePassOptions.options;
+  let options = ONNXDecomposePatternOptions.options;
 }
 
 def ONNXHybridTransformPass
@@ -162,5 +158,5 @@ def ONNXHybridTransformPass
   }];
 
   let options =
-      ONNXHybridTransformOptions.options # ONNXDecomposePassOptions.options;
+      ONNXHybridTransformOptions.options # ONNXDecomposePatternOptions.options;
 }
