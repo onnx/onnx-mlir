@@ -12,6 +12,7 @@ add_onnx_mlir_library(OMONNXToTOSA
   Math/Conv2D.cpp
   NN/MaxPoolSingleOut.cpp
   NN/AveragePool.cpp
+  Tensor/Concat.cpp
   Tensor/Constant.cpp
   Tensor/Reshape.cpp
   Tensor/Resize.cpp
