@@ -196,6 +196,7 @@ struct FuseQuantizedClipCastPattern : public OpRewritePattern<ONNXCastOp> {
     Value noneB = rewriter.create<ONNXNoneOp>(castOp.getLoc()).getResult();
     auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(castOp.getLoc(),
         fusedResultTy, clipOp.getInput(), noneB,
+        /*approximate=*/StringAttr(),
         /*enable_lut_sigmoid=*/rewriter.getBoolAttr(false),
         /*leakyrelu_alpha=*/FloatAttr(),
         /*max=*/clipMaxAttr,
