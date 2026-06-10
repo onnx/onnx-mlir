@@ -481,8 +481,15 @@ struct FuseQuantizedEltwiseWithoutActivation
 
     maybeWidenNarrowConstOperand(rewriter, eltwiseOp.getLoc(), opType, a, b);
 
+    // Carry GELU's approximation mode ("none"/"tanh") onto the fused op so the
+    // kernel can pick the matching GELU formulation. Null for non-GELU types.
+    StringAttr approximateAttr;
+    if constexpr (std::is_same_v<EltwiseOp, ONNXGeluOp>)
+      approximateAttr = rewriter.getStringAttr(eltwiseOp.getApproximate());
+
     auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(eltwiseOp.getLoc(),
         resultType, a, b,
+        /*approximate=*/approximateAttr,
         /*enable_lut_sigmoid=*/rewriter.getBoolAttr(false),
         /*leakyrelu_alpha=*/leakyAlpha,
         /*max=*/IntegerAttr(),
@@ -540,6 +547,7 @@ struct FuseQuantizedClipWithoutActivation
     auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(clipOp.getLoc(),
         clipOp.getType(), // result type (quantized)
         clipOp.getInput(), noneB,
+        /*approximate=*/StringAttr(),
         /*enable_lut_sigmoid=*/rewriter.getBoolAttr(false),
         /*leakyrelu_alpha=*/FloatAttr(),
         /*max=*/clipMaxAttr,
@@ -705,6 +713,7 @@ struct FuseQuantizedEltwiseActivation : public OpRewritePattern<ActivationOp> {
       maybeWidenNarrowConstOperand(rewriter, eltwiseOp.getLoc(), opType, a, b);
       auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(
           eltwiseOp.getLoc(), activationOp.getType(), a, b,
+          /*approximate=*/StringAttr(),
           /*enable_lut_sigmoid=*/rewriter.getBoolAttr(false),
           /*leakyrelu_alpha=*/FloatAttr(),
           /*max=*/IntegerAttr(),
@@ -755,6 +764,7 @@ struct FuseQuantizedEltwiseActivation : public OpRewritePattern<ActivationOp> {
     auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(eltwiseOp.getLoc(),
         activationOp.getType(), // Result type (quantized)
         a, b,
+        /*approximate=*/StringAttr(),
         /*enable_lut_sigmoid=*/rewriter.getBoolAttr(false),
         /*leakyrelu_alpha=*/alphaAttr,
         /*max=*/IntegerAttr(),
@@ -967,6 +977,7 @@ struct ReplaceExpandWithEltwise : public OpRewritePattern<ONNXExpandOp> {
 
     auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(expandOp.getLoc(),
         resultType, input, zeroConst.getResult(),
+        /*approximate=*/StringAttr(),
         /*enable_lut_sigmoid=*/rewriter.getBoolAttr(false),
         /*leakyrelu_alpha=*/FloatAttr(),
         /*max=*/IntegerAttr(),

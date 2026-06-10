@@ -91,6 +91,7 @@ struct ReplaceQuantizedHardSigmoidPattern
         output.getType(),   // Output type (quant tensor)
         input,              // A - quantized tensor input
         noneOp.getResult(), // B - none for unary op
+        /*approximate=*/StringAttr(),
         /*enable_lut_sigmoid=*/rewriter.getBoolAttr(false),
         /*leakyrelu_alpha=*/FloatAttr(),
         /*max=*/IntegerAttr(),
@@ -196,6 +197,7 @@ struct FuseHardSigmoidMulToFusedEltwisePattern
 
     auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(loc, mulOutputType,
         hsigmoidInput, noneOp.getResult(),
+        /*approximate=*/StringAttr(),
         /*enable_lut_sigmoid=*/rewriter.getBoolAttr(false),
         /*leakyrelu_alpha=*/FloatAttr(),
         /*max=*/IntegerAttr(),
