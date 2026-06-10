@@ -6,7 +6,7 @@
   domain: com.amd.xcompiler
   since_version: 1
   support_level: COMMON
-  description: 'Quantized element-wise operation supporting arithmetic, trigonometric, activation, and comparision elementwise functions. Few eltwise ops support fusion with an optional activation.  Attributes: type specifies the element-wise operation (ADD, MUL, SUB, DIV, TANH, SQRT, etc); nonlinear specifies optional activation (NONE, RELU, LEAKYRELU); leakyrelu_alpha is the original LeakyReLU alpha; prelu_in is the fixed-point multiplier M for LeakyReLU (M/2^N); prelu_shift is the fixed-point shift N for LeakyReLU, min is minimum value, under which element is replaced by min, max is maximum value, over which element is replaced by max, nonlinear_in_qscales is the quantization scales for the input of the nonlinear activation, nonlinear_in_zeropoints is the quantization zero points for the input of the nonlinear activation.'
+  description: 'Quantized element-wise operation supporting arithmetic, trigonometric, activation, and comparision elementwise functions. Few eltwise ops support fusion with an optional activation.  Attributes: type specifies the element-wise operation (ADD, MUL, SUB, DIV, TANH, SQRT, etc); approximate optionally selects the GELU approximation mode ("none" or "tanh"), valid only when type is GELU; nonlinear specifies optional activation (NONE, RELU, LEAKYRELU); leakyrelu_alpha is the original LeakyReLU alpha; prelu_in is the fixed-point multiplier M for LeakyReLU (M/2^N); prelu_shift is the fixed-point shift N for LeakyReLU, min is minimum value, under which element is replaced by min, max is maximum value, over which element is replaced by max, nonlinear_in_qscales is the quantization scales for the input of the nonlinear activation, nonlinear_in_zeropoints is the quantization zero points for the input of the nonlinear activation.'
   meta_attributes:
   - onnx_opset: 1
   - verify: True
@@ -27,6 +27,9 @@
     description: Element-wise operation type (ADD, MUL, SUB, DIV, EXP, SIN, COS, CLAMP, etc.).
     type: string
     required: true
+  - name: approximate
+    description: GELU approximation mode ("none" for the exact erf-based formulation, "tanh" for the tanh approximation). Optional; valid only when type is GELU.
+    type: string
   - name: nonlinear
     description: Fused activation type (NONE, RELU, LEAKYRELU).
     type: string

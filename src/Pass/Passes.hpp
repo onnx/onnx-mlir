@@ -192,6 +192,10 @@ std::unique_ptr<mlir::Pass> createTransferSoftmaxAxisToLastPass();
 /// XCOMPILERFusedEltwise(GELU).
 std::unique_ptr<mlir::Pass> createReplaceErfToGeluPass();
 
+/// Pass for replacing quantized tanh-approximation GELU subgraph with
+/// onnx.Gelu(approximate="tanh").
+std::unique_ptr<mlir::Pass> createReplaceTanhToGeluPass();
+
 /// Pass for replacing quantized Sigmoid with XCOMPILERFusedEltwise
 /// QLINEARSIGMOID.
 std::unique_ptr<mlir::Pass> createReplaceQDQSigmoidPass();

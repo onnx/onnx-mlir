@@ -257,7 +257,7 @@ static void maybeWidenNarrowConstOperand(PatternRewriter &rewriter,
     return;
 
   auto constOp = narrowSide.getDefiningOp<ONNXConstantOp>();
-  if (!constOp || !constOp->hasOneUse())
+  if (!constOp)
     return;
 
   auto valueAttr =
@@ -277,24 +277,57 @@ static void maybeWidenNarrowConstOperand(PatternRewriter &rewriter,
           isSigned, 16));
 
   auto wideTensorTy = RankedTensorType::get(narrowTy.getShape(), wideQ);
-  auto wideStorageTensorTy =
-      RankedTensorType::get(narrowTy.getShape(), wideStorTy);
 
-  llvm::SmallVector<llvm::APInt, 16> widened;
-  widened.reserve(valueAttr.getNumElements());
-  for (llvm::APInt v : valueAttr.getValues<llvm::APInt>())
-    widened.push_back(isSigned ? v.sext(16) : v.zext(16));
-  auto wideDense = DenseElementsAttr::get(
-      wideStorageTensorTy, llvm::ArrayRef<llvm::APInt>(widened));
-  auto wideValueAttr = rewriter.getNamedAttr("value", wideDense);
+  // Reuse an existing widened constant if a previous pattern match already
+  // created one for the same narrow constant (avoids duplicating memory).
+  // Match requires identical type AND identical dense values.
+  Value wideResult;
+  for (Operation &sibling : constOp->getBlock()->getOperations()) {
+    auto candidate = mlir::dyn_cast<ONNXConstantOp>(&sibling);
+    if (!candidate || candidate == constOp)
+      continue;
+    if (candidate.getResult().getType() != wideTensorTy)
+      continue;
+    auto candidateVal =
+        mlir::dyn_cast_or_null<DenseElementsAttr>(candidate.getValueAttr());
+    if (candidateVal &&
+        candidateVal.getNumElements() == valueAttr.getNumElements()) {
+      bool valuesMatch = true;
+      auto candIt = candidateVal.getValues<llvm::APInt>().begin();
+      for (llvm::APInt v : valueAttr.getValues<llvm::APInt>()) {
+        llvm::APInt expected = isSigned ? v.sext(16) : v.zext(16);
+        if (*candIt != expected) {
+          valuesMatch = false;
+          break;
+        }
+        ++candIt;
+      }
+      if (valuesMatch) {
+        wideResult = candidate.getResult();
+        break;
+      }
+    }
+  }
 
-  auto wideConstOp = rewriter.create<ONNXConstantOp>(loc, wideTensorTy,
-      ValueRange{}, llvm::ArrayRef<NamedAttribute>{wideValueAttr});
+  if (!wideResult) {
+    auto wideStorageTensorTy =
+        RankedTensorType::get(narrowTy.getShape(), wideStorTy);
+    llvm::SmallVector<llvm::APInt, 16> widened;
+    widened.reserve(valueAttr.getNumElements());
+    for (llvm::APInt v : valueAttr.getValues<llvm::APInt>())
+      widened.push_back(isSigned ? v.sext(16) : v.zext(16));
+    auto wideDense = DenseElementsAttr::get(
+        wideStorageTensorTy, llvm::ArrayRef<llvm::APInt>(widened));
+    auto wideValueAttr = rewriter.getNamedAttr("value", wideDense);
+    auto wideConstOp = rewriter.create<ONNXConstantOp>(loc, wideTensorTy,
+        ValueRange{}, llvm::ArrayRef<NamedAttribute>{wideValueAttr});
+    wideResult = wideConstOp.getResult();
+  }
 
   if (narrowIsA)
-    a = wideConstOp.getResult();
+    a = wideResult;
   else
-    b = wideConstOp.getResult();
+    b = wideResult;
 
   if (constOp->use_empty())
     rewriter.eraseOp(constOp);
@@ -448,8 +481,15 @@ struct FuseQuantizedEltwiseWithoutActivation
 
     maybeWidenNarrowConstOperand(rewriter, eltwiseOp.getLoc(), opType, a, b);
 
+    // Carry GELU's approximation mode ("none"/"tanh") onto the fused op so the
+    // kernel can pick the matching GELU formulation. Null for non-GELU types.
+    StringAttr approximateAttr;
+    if constexpr (std::is_same_v<EltwiseOp, ONNXGeluOp>)
+      approximateAttr = rewriter.getStringAttr(eltwiseOp.getApproximate());
+
     auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(eltwiseOp.getLoc(),
         resultType, a, b,
+        /*approximate=*/approximateAttr,
         /*enable_lut_sigmoid=*/rewriter.getBoolAttr(false),
         /*leakyrelu_alpha=*/leakyAlpha,
         /*max=*/IntegerAttr(),
@@ -507,6 +547,7 @@ struct FuseQuantizedClipWithoutActivation
     auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(clipOp.getLoc(),
         clipOp.getType(), // result type (quantized)
         clipOp.getInput(), noneB,
+        /*approximate=*/StringAttr(),
         /*enable_lut_sigmoid=*/rewriter.getBoolAttr(false),
         /*leakyrelu_alpha=*/FloatAttr(),
         /*max=*/clipMaxAttr,
@@ -672,6 +713,7 @@ struct FuseQuantizedEltwiseActivation : public OpRewritePattern<ActivationOp> {
       maybeWidenNarrowConstOperand(rewriter, eltwiseOp.getLoc(), opType, a, b);
       auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(
           eltwiseOp.getLoc(), activationOp.getType(), a, b,
+          /*approximate=*/StringAttr(),
           /*enable_lut_sigmoid=*/rewriter.getBoolAttr(false),
           /*leakyrelu_alpha=*/FloatAttr(),
           /*max=*/IntegerAttr(),
@@ -722,6 +764,7 @@ struct FuseQuantizedEltwiseActivation : public OpRewritePattern<ActivationOp> {
     auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(eltwiseOp.getLoc(),
         activationOp.getType(), // Result type (quantized)
         a, b,
+        /*approximate=*/StringAttr(),
         /*enable_lut_sigmoid=*/rewriter.getBoolAttr(false),
         /*leakyrelu_alpha=*/alphaAttr,
         /*max=*/IntegerAttr(),
@@ -934,6 +977,7 @@ struct ReplaceExpandWithEltwise : public OpRewritePattern<ONNXExpandOp> {
 
     auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(expandOp.getLoc(),
         resultType, input, zeroConst.getResult(),
+        /*approximate=*/StringAttr(),
         /*enable_lut_sigmoid=*/rewriter.getBoolAttr(false),
         /*leakyrelu_alpha=*/FloatAttr(),
         /*max=*/IntegerAttr(),
