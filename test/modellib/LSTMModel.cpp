@@ -4,7 +4,7 @@
 
 //=============-- LSTMModel.cpp - Building LSTM Models for tests -============//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -53,15 +53,15 @@ bool LSTMLibBuilder::build() {
     B1 = ShapedType::kDynamic;
 
   xShape = perm3(S, B, I);
-  SmallVector<int64_t, 3> xShapeSymbol = perm3(S1, B1, I);
-  SmallVector<int64_t, 3> wShape = {D, 4 * H, I};
-  SmallVector<int64_t, 3> rShape = {D, 4 * H, H};
-  SmallVector<int64_t, 2> bShape = {D, 8 * H};
+  std::vector<int64_t> xShapeSymbol = perm3(S1, B1, I);
+  std::vector<int64_t> wShape = {D, 4 * H, I};
+  std::vector<int64_t> rShape = {D, 4 * H, H};
+  std::vector<int64_t> bShape = {D, 8 * H};
   hShape = perm3(D, B, H);
-  SmallVector<int64_t, 3> hShapeSymbol = perm3(D, B1, H);
+  std::vector<int64_t> hShapeSymbol = perm3(D, B1, H);
   cShape = perm3(D, B, H);
-  SmallVector<int64_t, 3> cShapeSymbol = perm3(D, B1, H);
-  SmallVector<int64_t, 2> pShape = {D, 3 * H};
+  std::vector<int64_t> cShapeSymbol = perm3(D, B1, H);
+  std::vector<int64_t> pShape = {D, 3 * H};
 
   auto xType = RankedTensorType::get(xShapeSymbol, builder.getF32Type());
   auto wType = RankedTensorType::get(wShape, builder.getF32Type());
@@ -103,11 +103,11 @@ bool LSTMLibBuilder::build() {
       IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
           APInt(64, layout, /*isSigned=*/true));
 
-  wOmt = omTensorCreateWithRandomData<float>(llvm::ArrayRef(wShape), 0, 1);
-  rOmt = omTensorCreateWithRandomData<float>(llvm::ArrayRef(rShape), 0, 1);
-  bOmt = omTensorCreateWithRandomData<float>(llvm::ArrayRef(bShape), 0, 1);
-  pOmt = omTensorCreateWithRandomData<float>(
-      llvm::ArrayRef(pShape), 0.0, (isNoneP) ? 0.0 : 1.0);
+  wOmt = omTensorCreateWithRandomData(wShape, ONNX_TYPE_FLOAT, 0, 1);
+  rOmt = omTensorCreateWithRandomData(rShape, ONNX_TYPE_FLOAT, 0, 1);
+  bOmt = omTensorCreateWithRandomData(bShape, ONNX_TYPE_FLOAT, 0, 1);
+  pOmt = omTensorCreateWithRandomData(
+      pShape, ONNX_TYPE_FLOAT, 0.0, (isNoneP) ? 0.0 : 1.0);
   auto wConstant = buildONNXConstantOp(wOmt, wType);
   auto rConstant = buildONNXConstantOp(rOmt, rType);
   auto bConstant = buildONNXConstantOp(bOmt, bType);
@@ -141,12 +141,12 @@ bool LSTMLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   float dataRangeHUL = (isNoneH) ? 0.0 : dataRangeUB;
   float dataRangeCLL = (isNoneC) ? 0.0 : dataRangeLB;
   float dataRangeCUL = (isNoneC) ? 0.0 : dataRangeUB;
-  list[0] = omTensorCreateWithRandomData<float>(
-      llvm::ArrayRef(xShape), dataRangeLB, dataRangeUB);
-  list[1] = omTensorCreateWithRandomData<float>(
-      llvm::ArrayRef(hShape), dataRangeHLL, dataRangeHUL);
-  list[2] = omTensorCreateWithRandomData<float>(
-      llvm::ArrayRef(cShape), dataRangeCLL, dataRangeCUL);
+  list[0] = omTensorCreateWithRandomData(
+      xShape, ONNX_TYPE_FLOAT, dataRangeLB, dataRangeUB);
+  list[1] = omTensorCreateWithRandomData(
+      hShape, ONNX_TYPE_FLOAT, dataRangeHLL, dataRangeHUL);
+  list[2] = omTensorCreateWithRandomData(
+      cShape, ONNX_TYPE_FLOAT, dataRangeCLL, dataRangeCUL);
   inputs = omTensorListCreate(list, num);
   return inputs && list[0] && list[1] && list[2];
 }
@@ -166,9 +166,9 @@ bool LSTMLibBuilder::verifyOutputs() {
   if (!inputs || !outputs)
     return false;
 
-  auto refY = omTensorCreateWithShape<float>(llvm::ArrayRef(perm4(S, D, B, H)));
-  auto refYh = omTensorCreateWithShape<float>(llvm::ArrayRef(perm3(D, B, H)));
-  auto refYc = omTensorCreateWithShape<float>(llvm::ArrayRef(perm3(D, B, H)));
+  auto refY = omTensorCreateWithShape<float>(perm4(S, D, B, H));
+  auto refYh = omTensorCreateWithShape<float>(perm3(D, B, H));
+  auto refYc = omTensorCreateWithShape<float>(perm3(D, B, H));
   // Naive LSTM implementation.
   // Equations for LSTM.
   // it = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Pi (.) Ct-1 + Wbi + Rbi)
@@ -195,7 +195,7 @@ bool LSTMLibBuilder::verifyOutputs() {
   for (int64_t d = 0; d < D; d++)
     for (int64_t b = 0; b < B; b++)
       for (int64_t h = 0; h < H; h++) {
-        std::vector<int64_t> p3 = llvm::ArrayRef(perm3(d, b, h));
+        std::vector<int64_t> p3 = perm3(d, b, h);
         omTensorGetElem<float>(refYh, p3) =
             omTensorGetElem<float>(initialH, p3);
         omTensorGetElem<float>(refYc, p3) =
@@ -224,7 +224,7 @@ bool LSTMLibBuilder::verifyOutputs() {
           omTensorGetElem<float>(XtWf, {b, h}) = 0;
           omTensorGetElem<float>(XtWc, {b, h}) = 0;
           for (int64_t k = 0; k < I; k++) {
-            std::vector<int64_t> p3 = llvm::ArrayRef(perm3(seq, b, k));
+            std::vector<int64_t> p3 = perm3(seq, b, k);
             float xt = omTensorGetElem<float>(input, p3);
             omTensorGetElem<float>(XtWi, {b, h}) +=
                 xt * omTensorGetElem<float>(weight, {d, h, k});
@@ -240,7 +240,7 @@ bool LSTMLibBuilder::verifyOutputs() {
           omTensorGetElem<float>(HtRf, {b, h}) = 0;
           omTensorGetElem<float>(HtRc, {b, h}) = 0;
           for (int64_t k = 0; k < H; k++) {
-            std::vector<int64_t> p3 = llvm::ArrayRef(perm3(d, b, k));
+            std::vector<int64_t> p3 = perm3(d, b, k);
             float previousHt = omTensorGetElem<float>(refYh, p3);
             omTensorGetElem<float>(HtRi, {b, h}) +=
                 previousHt * omTensorGetElem<float>(recurr, {d, h, k});
@@ -255,7 +255,7 @@ bool LSTMLibBuilder::verifyOutputs() {
       }
       for (int64_t b = 0; b < B; b++) {
         for (int64_t h = 0; h < H; h++) {
-          std::vector<int64_t> p3 = llvm::ArrayRef(perm3(d, b, h));
+          std::vector<int64_t> p3 = perm3(d, b, h);
           float previousCt = omTensorGetElem<float>(refYc, p3);
           // it = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Pi (.) Ct-1 + Wbi + Rbi)
           float it =
@@ -289,7 +289,7 @@ bool LSTMLibBuilder::verifyOutputs() {
           // Ht = ot (.) h(Ct)
           float Ht = ot * tanh(Ct);
           omTensorGetElem<float>(refYh, p3) = Ht;
-          std::vector<int64_t> p4 = llvm::ArrayRef(perm4(seq, d, b, h));
+          std::vector<int64_t> p4 = perm4(seq, d, b, h);
           omTensorGetElem<float>(refY, p4) = Ht;
         }
       }

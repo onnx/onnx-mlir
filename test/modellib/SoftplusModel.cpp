@@ -4,7 +4,7 @@
 
 //==========-- SoftplusModel.cpp - Building Softplus Models for tests -=====//
 //
-// Copyright 2022,2023 The IBM Research Authors.
+// Copyright 2022-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -64,7 +64,7 @@ bool SoftplusLibBuilder::build() {
 bool SoftplusLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   constexpr int num = 1;
   OMTensor *list[num];
-  list[0] = omTensorCreateWithRandomData<float>({N}, dataRangeLB, dataRangeUB);
+  list[0] = omTensorCreateWithRandomData({N}, ONNX_TYPE_FLOAT, dataRangeLB, dataRangeUB);
   inputs = omTensorListCreate(list, num);
   return inputs && list[0];
 }
