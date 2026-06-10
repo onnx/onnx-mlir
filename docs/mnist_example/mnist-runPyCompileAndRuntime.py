@@ -6,7 +6,8 @@ from PyRuntime import OMExecutionSession
 
 # Compile the model
 try:
-    compiler = OMCompile("./mnist.onnx", "-O3 -o mnist2", reuse_compiled_model=1)
+    compiler = OMCompile()
+    compiler.compile("./mnist.onnx", "-O3 -o mnist2", reuse_compiled_model=True)
 except RuntimeError as e:
     print(f"Compilation failed: {e}")
     exit(1)
