@@ -124,6 +124,7 @@ add_onnx_mlir_library(OMONNXRewrite
   xmc/NormalizeConvActivationPass.cpp
 
   DEPENDS
+  OMONNXTransformsIncGen
   OMONNXDecomposeIncGen
   OMONNXDecomposeConvTransposeIncGen
   OMPublicPassIncGen
@@ -152,6 +153,7 @@ add_onnx_mlir_library(OMHybridTransform
   ONNXHybridTransformPass.cpp
 
   DEPENDS
+  OMONNXTransformsIncGen
   OMPublicPassIncGen
 
   LINK_LIBS PUBLIC
