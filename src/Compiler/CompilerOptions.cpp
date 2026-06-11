@@ -48,8 +48,7 @@ bool disableKrnlOpFusion;                              // common for both
 bool disableQuantZeroPoint;                            // common for both
 bool enableUnsafeMathOptimizations;                    // common for both
 bool enableKrnlBufferReuse;                            // common for both
-bool enableConvTransposeDecomposeToPhasedConv;         // common for both
-bool enableConvTranspose1dDecomposeToPhasedConv;       // common for both
+std::string onnxTransformOptions;                      // onnx-mlir only
 bool enableQuarkQuantizerLegalization;                 // common for both
 bool disableBatchNormDecompose;                        // common for both
 bool enableSafeCodeGen;                                // common for both
@@ -93,7 +92,6 @@ bool enableParallel;                       // onnx-mlir only
 bool disableSimdOption;                    // onnx-mlir only
 bool enableFastMathOption;                 // onnx-mlir only
 bool disableRecomposeOption;               // onnx-mlir only
-bool enableConvTransposeDecomposeOption;   // onnx-mlir only
 bool enableSimdDataLayout;                 // onnx-mlir only
 bool verifyInputTensors;                   // onnx-mlir only
 bool allowSorting;                         // onnx-mlir only
@@ -307,27 +305,14 @@ static llvm::cl::opt<bool, true> disableRecomposeOptionOpt("disable-recompose",
     llvm::cl::location(disableRecomposeOption), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
-static llvm::cl::opt<bool, true> disableConvTranposeDecomposeOptionOpt(
-    "enable-convtranspose-decompose",
-    llvm::cl::desc("Enable decomposition of ONNX ConvTranspose operator."),
-    llvm::cl::location(enableConvTransposeDecomposeOption),
-    llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
-
-static llvm::cl::opt<bool, true> enableConvTransposeDecomposeTo4ConvOptionOpt(
-    "enable-convtranspose-decompose-phased-conv",
-    llvm::cl::desc("Enable decomposition of ONNX ConvTranspose operator to 4 "
-                   "phased Conv."),
-    llvm::cl::location(enableConvTransposeDecomposeToPhasedConv),
-    llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
-
-static llvm::cl::opt<bool, true>
-    enableConvTranspose1dDecomposeToPhasedConvOptionOpt(
-        "enable-convtranspose-1d-decompose-phased-conv",
-        llvm::cl::desc(
-            "Enable decomposition of ONNX ConvTranspose 1D operator to "
-            "phased Conv."),
-        llvm::cl::location(enableConvTranspose1dDecomposeToPhasedConv),
-        llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
+static llvm::cl::opt<std::string, true> onnxTransformOptionsOpt(
+    "onnx-transform-options",
+    llvm::cl::desc("Options forwarded to ONNX transform passes. Syntax is "
+                   "space-separated pass options, e.g. "
+                   "\"enable-convtranspose=true "
+                   "enable-instancenorm-decompose=false\"."),
+    llvm::cl::location(onnxTransformOptions), llvm::cl::init(""),
+    llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<bool, true> enableQuarkQuantizerLegalizationOptionOpt(
     "enable-quark-quantizer-legalization",

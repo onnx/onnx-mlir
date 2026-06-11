@@ -70,3 +70,34 @@ func.func @test_batch_reduction_3d(%arg0: tensor<16x300x4xf32>) -> tensor<16x300
 // CHECK: %[[REDUCE:.*]] = "onnx.ReduceSum"(%[[QUANT]]
 // CHECK: %[[DEQUANT:.*]] = "onnx.DequantizeLinear"(%[[REDUCE]]
 // CHECK: return %[[DEQUANT]]
+
+// -----
+// keepdims = 1 : the new ReduceSum must keep the reduced axis as size-1,
+// so its result type stays rank-4 ([1, 256, 300, 1]) and the post-reshape
+// restores the original rank-4 output. Regression test for PSA2.
+func.func @test_batch_reduction_keepdims_1(%arg0: tensor<16x16x300x4x!quant.uniform<u16:f32, 1.0e-4:31222>>) -> tensor<16x16x300x1x!quant.uniform<u16:f32, 2.0e-4:32629>> {
+  %axes = onnx.Constant dense<3> : tensor<1xi64>
+  %0 = "onnx.ReduceSum"(%arg0, %axes) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64}
+    : (tensor<16x16x300x4x!quant.uniform<u16:f32, 1.0e-4:31222>>, tensor<1xi64>)
+    -> tensor<16x16x300x1x!quant.uniform<u16:f32, 2.0e-4:32629>>
+  return %0 : tensor<16x16x300x1x!quant.uniform<u16:f32, 2.0e-4:32629>>
+}
+// CHECK-LABEL: func.func @test_batch_reduction_keepdims_1
+// CHECK:       %[[PRE:.+]] = "onnx.Reshape"(%arg0, {{.+}}) {{.*allowzero = 0.+}} : (tensor<16x16x300x4x!quant.uniform<u16:f32, 1.000000e-04:31222>>, tensor<4xi64>) -> tensor<1x256x300x4x!quant.uniform<u16:f32, 1.000000e-04:31222>>
+// CHECK:       %[[R:.+]] = "onnx.ReduceSum"(%[[PRE]], {{.+}}) {{.*keepdims = 1.+}} : (tensor<1x256x300x4x!quant.uniform<u16:f32, 1.000000e-04:31222>>, tensor<1xi64>) -> tensor<1x256x300x1x!quant.uniform<u16:f32, 2.000000e-04:32629>>
+// CHECK:       %[[POST:.+]] = "onnx.Reshape"(%[[R]], {{.+}}) {{.*allowzero = 0.+}} : (tensor<1x256x300x1x!quant.uniform<u16:f32, 2.000000e-04:32629>>, tensor<4xi64>) -> tensor<16x16x300x1x!quant.uniform<u16:f32, 2.000000e-04:32629>>
+// CHECK:       return %[[POST]]
+
+// -----
+// dim0 == 1 : pass must not fire (no leading batch dim to flatten).
+func.func @test_batch_reduction_dim0_is_one_unchanged(%arg0: tensor<1x16x300x4x!quant.uniform<u16:f32, 1.0e-4:31222>>) -> tensor<1x16x300x!quant.uniform<u16:f32, 2.0e-4:32629>> {
+  %axes = onnx.Constant dense<3> : tensor<1xi64>
+  %0 = "onnx.ReduceSum"(%arg0, %axes) {keepdims = 0 : si64, noop_with_empty_axes = 0 : si64}
+    : (tensor<1x16x300x4x!quant.uniform<u16:f32, 1.0e-4:31222>>, tensor<1xi64>)
+    -> tensor<1x16x300x!quant.uniform<u16:f32, 2.0e-4:32629>>
+  return %0 : tensor<1x16x300x!quant.uniform<u16:f32, 2.0e-4:32629>>
+}
+// CHECK-LABEL: func.func @test_batch_reduction_dim0_is_one_unchanged
+// CHECK-NOT:   "onnx.Reshape"
+// CHECK:       "onnx.ReduceSum"
+// CHECK:       return

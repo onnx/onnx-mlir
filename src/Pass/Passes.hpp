@@ -19,6 +19,7 @@
 #define ONNX_MLIR_PASSES_H
 
 #include <memory>
+#include <optional>
 #include <string>
 
 #include "llvm/ADT/ArrayRef.h"
@@ -30,6 +31,13 @@ class Pass;
 
 namespace onnx_mlir {
 
+#define GEN_PASS_DECL
+#include "src/Dialect/ONNX/Transforms/Passes.h.inc"
+#undef GEN_PASS_DECL
+
+[[nodiscard]] std::optional<ONNXHybridTransformPassOptions>
+parseONNXHybridTransformPassOptions(const std::string &options);
+
 /// Pass for removing DisposableElementsAttr attributes.
 std::unique_ptr<mlir::Pass> createScrubDisposablePass(bool closeAfter = true);
 
@@ -39,19 +47,6 @@ std::unique_ptr<mlir::Pass> createONNXOpTransformPass(int threshold,
     bool report, bool targetCPU, bool enableSimdDataLayoutOpt,
     bool enableConvOptPass, bool enableRecomposeOptPass);
 
-/// Pass for rewriting inside frontend dialect.
-std::unique_ptr<mlir::Pass> createDecomposeONNXToONNXPass(
-    const std::string &target = "", bool enableConvTransposeDecompose = false,
-    bool enableConvTransposeDecomposeToPhasedConv = false,
-    bool enableConvTranspose1dDecomposeToPhasedConv = false,
-    bool enableInstanceNormDecompose = true,
-    bool enableGroupNormDecompose = true,
-    bool enableMatmulNBitsDecompose = false,
-    bool enableGroupQueryAttentionDecompose = true,
-    bool enableSplitToSliceDecompose = false, bool enableConcatFuse = false,
-    bool enableLstmSeqDecompose = false, bool enableReduceL2Decompose = true,
-    bool enableGatherToSlice = true, bool enableHardSwishDecompose = true,
-    bool enableGroupQueryAttentionCacheSlicing = true);
 std::unique_ptr<mlir::Pass> createRecomposeONNXToONNXPass(
     const std::string &target = "", bool enableRotaryEmbeddingRecompose = false,
     bool enableReduceL2Recompositions = false);
@@ -116,24 +111,6 @@ std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass(
 /// Pass for replacing ONNXReturnOp with func::ReturnOp.
 std::unique_ptr<mlir::Pass> createStandardFuncReturnPass();
 
-/// Pass that combines multiple ONNX dialect transformations,
-/// including shape inference.
-std::unique_ptr<mlir::Pass> createONNXHybridTransformPass(
-    bool enableRecomposition, bool enableQuarkQuantizedOpsLegalization = false,
-    bool enableConvTransposeDecompose = false,
-    bool enableConvTransposeDecomposeToPhasedConv = false,
-    bool enableConvTranspose1dDecomposeToPhasedConv = false,
-    bool enableInstanceNormDecompose = true,
-    bool enableGroupNormDecompose = true,
-    bool enableMatmulNBitsDecompose = false,
-    bool enableGroupQueryAttentionDecompose = true,
-    bool enableSplitToSliceDecompose = false, bool enableConcatFuse = true,
-    bool enablGAPToReduceMean = true, bool enableLstmSeqDecompose = false,
-    bool enableGatherToSlice = true, bool enableReduceL2Decompose = true,
-    bool enableRotaryEmbeddingRecompose = false,
-    bool enableQDQConstProp = false, bool enableHardSwishDecompose = true,
-    bool enableGroupQueryAttentionCacheSlicing = true);
-
 /// Pass for analyzing unknown dimension in ONNX operations.
 std::unique_ptr<mlir::Pass> createONNXDimAnalysisPass();
 
@@ -191,6 +168,10 @@ std::unique_ptr<mlir::Pass> createTransferSoftmaxAxisToLastPass();
 /// Pass for replacing quantized Erf-based GELU subgraph with
 /// XCOMPILERFusedEltwise(GELU).
 std::unique_ptr<mlir::Pass> createReplaceErfToGeluPass();
+
+/// Pass for replacing quantized tanh-approximation GELU subgraph with
+/// onnx.Gelu(approximate="tanh").
+std::unique_ptr<mlir::Pass> createReplaceTanhToGeluPass();
 
 /// Pass for replacing quantized Sigmoid with XCOMPILERFusedEltwise
 /// QLINEARSIGMOID.
@@ -265,6 +246,9 @@ std::unique_ptr<mlir::Pass> createTransfer5dStridedSliceTo4d();
 
 /// Pass for transferring SpaceToDepth patterns to Conv2D.
 std::unique_ptr<mlir::Pass> createTransferSpaceToDepthToConv2dPass();
+
+/// Pass for fusing onnx.Clip(quantized->f32)+Cast(f32->uint) into CLAMP (XMC).
+std::unique_ptr<mlir::Pass> createReplaceQDQClipCastPass();
 
 /// Pass for fusing quantized eltwise+activation patterns (XMC).
 std::unique_ptr<mlir::Pass> createReplaceQDQEltwisePass();

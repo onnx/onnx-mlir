@@ -97,6 +97,10 @@ void registerOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createReplaceTanhToGeluPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createReplaceQDQSigmoidPass();
   });
 
@@ -173,6 +177,10 @@ void registerOMPasses(int optLevel) {
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createTransferSpaceToDepthToConv2dPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createReplaceQDQClipCastPass();
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
@@ -306,7 +314,7 @@ void registerOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return createONNXHybridTransformPass(/*recompose ops*/ true);
+    return createONNXHybridTransformPass();
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {

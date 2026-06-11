@@ -33,6 +33,7 @@ void addXmcMlirPasses(mlir::OpPassManager &pm, OnnxToMlirOptions opts) {
       onnx_mlir::createPropagateQuantTypeThroughDataFlowPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createXmcRequantizePass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceErfToGeluPass());
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceTanhToGeluPass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createConvertInstanceNormToGroupNormPass());
   //  pm.addNestedPass<func::FuncOp>(onnx_mlir::createSplitGroupConvPass());
@@ -107,6 +108,7 @@ void addXmcMlirPasses(mlir::OpPassManager &pm, OnnxToMlirOptions opts) {
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceQDQResizePass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createReplaceQuantizedTileToAddPass());
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceQDQClipCastPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceQDQEltwisePass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceQDQSigmoidPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceAdjacentOpPass());

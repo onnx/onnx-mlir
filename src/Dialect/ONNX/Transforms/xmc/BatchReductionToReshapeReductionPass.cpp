@@ -74,7 +74,8 @@ struct BatchReductionToReshapeReductionPattern
 
     // Shapes:
     //   preReshape  [1, dim0*dim1, dim2, dim3]
-    //   reduceShape [1, dim0*dim1, dim2]
+    //   reduceShape [1, dim0*dim1, dim2]      when keepdims = 0
+    //               [1, dim0*dim1, dim2, 1]   when keepdims = 1
     //   postReshape original ReduceSum output shape
     int64_t dim0 = inputShape[0];
     int64_t dim1 = inputShape[1];
@@ -82,9 +83,24 @@ struct BatchReductionToReshapeReductionPattern
     int64_t dim3 = inputShape[3];
     int64_t flattenedDims = dim0 * dim1;
 
+    // Inherit keepdims so the new ReduceSum's result rank stays consistent.
+    int64_t origKeepdims = reduceOp.getKeepdims();
+
     SmallVector<int64_t, 4> preReshapeShape = {1, flattenedDims, dim2, dim3};
-    SmallVector<int64_t, 3> reduceShape = {1, flattenedDims, dim2};
-    SmallVector<int64_t, 3> postReshapeShape(
+
+    // Normalize negative axis against the new (post-flatten) rank.
+    int64_t reduceAxis = axesVec[0];
+    if (reduceAxis < 0)
+      reduceAxis += static_cast<int64_t>(preReshapeShape.size());
+
+    // keepdims=1: keep reduced axis as size-1; keepdims=0: drop it.
+    SmallVector<int64_t, 4> reduceShape(
+        preReshapeShape.begin(), preReshapeShape.end());
+    if (origKeepdims != 0)
+      reduceShape[reduceAxis] = 1;
+    else
+      reduceShape.erase(reduceShape.begin() + reduceAxis);
+    SmallVector<int64_t, 4> postReshapeShape(
         outputType.getShape().begin(), outputType.getShape().end());
 
     rewriter.setInsertionPoint(reduceOp);

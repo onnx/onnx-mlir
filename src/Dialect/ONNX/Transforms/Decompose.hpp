@@ -41,5 +41,10 @@ void getDecomposeONNXToONNXPatterns(mlir::RewritePatternSet &patterns,
     bool enableHardSwishDecompose = true,
     bool enableGroupQueryAttentionCacheSlicing = true);
 
+#ifdef ONNX_MLIR_ENABLE_STABLEHLO
+void populateDecomposingONNXBeforeStablehloPatterns(
+    mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
+#endif
+
 } // namespace onnx_mlir
 #endif

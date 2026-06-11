@@ -31,6 +31,7 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Transforms/Passes.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -234,14 +235,14 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
   //       the CPU specific transformations.
   if (inputIRLevel <= ONNXLevel && emissionTarget >= EmitONNXIR) {
     OnnxToMlirOptions opts;
-    opts.enableQuarkQuantizedLegalization = enableQuarkQuantizedLegalization;
-    opts.enableConvTransposeDecompose = enableConvTransposeDecomposeOption;
-    opts.enableConvTransposeDecomposeToPhasedConv =
-        enableConvTransposeDecomposeToPhasedConv;
-    opts.enableConvTranspose1dDecomposeToPhasedConv =
-        enableConvTranspose1dDecomposeToPhasedConv;
+    if (auto parsed = parseONNXHybridTransformPassOptions(onnxTransformOptions))
+      opts.hybrid = std::move(*parsed);
+    else
+      llvm::report_fatal_error("failed to parse --onnx-transform-options");
+    opts.hybrid.quarkQuantizedOpsLegalization =
+        enableQuarkQuantizedLegalization;
+    opts.hybrid.recomposition &= !disableRecomposeOption;
     opts.disableBatchNormDecompose = disableBatchNormDecompose;
-    opts.disableRecomposeOption = disableRecomposeOption;
     opts.enableUnsafeMathOptimizations = enableUnsafeMathOptimizations;
     opts.enableONNXHybridPass = enableONNXHybridPass;
     opts.enableConvOptPass = enableConvOptPass;
@@ -258,9 +259,9 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
     opts.instrumentStage = instrumentStage;
     opts.enableXMCPasses = enableXMCPasses;
     if (enableXMCPasses) {
-      opts.enableInstanceNormDecompose = false;
-      opts.enableGroupNormDecompose = false;
-      opts.enableConvTransposeDecomposeToPhasedConv = false;
+      opts.hybrid.enableInstanceNormDecompose = false;
+      opts.hybrid.enableGroupNormDecompose = false;
+      opts.hybrid.enableConvTransposeDecomposeToPhasedConv = false;
     }
 
     addONNXToMLIRPasses(pm, /*target CPU*/ false,
