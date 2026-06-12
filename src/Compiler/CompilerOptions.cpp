@@ -51,9 +51,9 @@ bool enableKrnlBufferReuse;                            // common for both
 std::string onnxTransformOptions;                      // onnx-mlir only
 // Runtime-only bridge flag (not a command-line option). It is set by the
 // decompose-onnx / onnx-hybrid-transform passes from their
-// enable-depth2space-for-convtranspose pass option and read by the
+// enable-separate-phased-convs-for-convtranspose pass option and read by the
 // decomposeIntoPhasedConvs() helper.
-bool enableDepthToSpaceForConvTranspose = false;       // common for both
+bool enableSeparatePhasedConvsForConvTranspose = false; // common for both
 bool enableQuarkQuantizerLegalization;                 // common for both
 bool disableBatchNormDecompose;                        // common for both
 bool enableSafeCodeGen;                                // common for both

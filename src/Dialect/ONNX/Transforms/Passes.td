@@ -88,11 +88,12 @@ def ONNXDecomposePatternOptions {
            "decomposition. Set to false to keep the cache and synthesize "
            "position_ids instead.">,
 
-    Option<"enableDepthToSpaceForConvTranspose",
-           "enable-depth2space-for-convtranspose",
+    Option<"enableSeparatePhasedConvsForConvTranspose",
+           "enable-separate-phased-convs-for-convtranspose",
            "bool", /*default=*/"false",
            "In 4-phase ConvTranspose decomposition, force 4 separate Conv ops "
-           "and use DepthToSpace instead of Reshape-Transpose-Reshape.">
+           "(concatenated) instead of combining the phased weights into a "
+           "single Conv, when the conv output channels are DMA-aligned.">
   ];
 }
 

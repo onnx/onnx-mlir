@@ -1664,7 +1664,7 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
     // When conv output channels are not DMA aligned, the individual conv
     // outputs contain padding garbage in the channel dimension, making
     // channel-wise concat of 4 convs inefficient. For the
-    // enableDepthToSpaceForConvTranspose path, only use the 4-conv
+    // enableSeparatePhasedConvsForConvTranspose path, only use the 4-conv
     // decomposition when output channels are DMA-aligned.
     const int64_t dmaWidthInBytes = 32;
     const int64_t elementSizeInBytes =
@@ -1673,7 +1673,8 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
     const bool isConvOutChannelsDmaAligned =
         (convOutputShape[1] % dmaAlignmentInChannels == 0);
     if (needWeightsPadding || (kernelShape[0] == 4) ||
-        (enableDepthToSpaceForConvTranspose && isConvOutChannelsDmaAligned)) {
+        (enableSeparatePhasedConvsForConvTranspose &&
+            isConvOutChannelsDmaAligned)) {
       Value conv1 = getActivationAppliedToConv(
           addQDQNodesForActivationIfNeeded(rewriter.create<ONNXConvOp>(loc,
               convOutputType, input, addDequantizeNodeIfNeeded(weightSlices[3]),
@@ -1772,15 +1773,6 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
         1, convOutputShape[1], convOutputShape[2] * 2, convOutputShape[3] * 2};
     auto finalOutputType =
         RankedTensorType::get(outputShapeForResult, elementType);
-
-    if (enableDepthToSpaceForConvTranspose && isConvOutChannelsDmaAligned) {
-      auto si64Ty = rewriter.getIntegerType(64, /*isSigned=*/true);
-      auto finalOutput =
-          rewriter.create<ONNXDepthToSpaceOp>(loc, finalOutputType, conv,
-              rewriter.getIntegerAttr(si64Ty, stridesShape[0]),
-              rewriter.getStringAttr("DCR"));
-      return finalOutput;
-    }
 
     // Reshape the concatenated conv channels of 4*Conv_channels into groups
     // of 2x2 channels. This can be visualized as
@@ -4727,8 +4719,8 @@ struct DecomposeONNXToONNXPass
 void DecomposeONNXToONNXPass::runOnOperation() {
   func::FuncOp function = getOperation();
   MLIRContext *context = &getContext();
-  onnx_mlir::enableDepthToSpaceForConvTranspose =
-      this->enableDepthToSpaceForConvTranspose.getValue();
+  onnx_mlir::enableSeparatePhasedConvsForConvTranspose =
+      this->enableSeparatePhasedConvsForConvTranspose.getValue();
   RewritePatternSet patterns(context);
   onnx_mlir::getDecomposeONNXToONNXPatterns(patterns,
       enableConvTransposeDecompose, enableConvTransposeDecomposeToPhasedConv,

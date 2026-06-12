@@ -186,8 +186,8 @@ struct ONNXHybridTransformPass
   void runOnOperation() override {
     func::FuncOp f = getOperation();
     Region &body = f.getBody();
-    onnx_mlir::enableDepthToSpaceForConvTranspose =
-        this->enableDepthToSpaceForConvTranspose.getValue();
+    onnx_mlir::enableSeparatePhasedConvsForConvTranspose =
+        this->enableSeparatePhasedConvsForConvTranspose.getValue();
 
     GreedyRewriteConfig config;
     ResultNamesUpdater rnUpdater;
