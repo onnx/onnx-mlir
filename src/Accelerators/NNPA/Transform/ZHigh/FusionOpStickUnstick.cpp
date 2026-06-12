@@ -29,8 +29,11 @@
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/RewriteONNXForZHigh.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpFusionHelper.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Pass/Passes.hpp"
 
 #define DEBUG_TYPE "fusion-op-stick-unstick"
@@ -826,6 +829,171 @@ public:
     return success();
   }
 };
+
+//===----------------------------------------------------------------------===//
+// FusedOp variant of PatternsForExtendedLayoutTransform.
+//
+// Creates an ONNXFusedOp(kind="zhigh.extended_layout_transform") in place of
+// ZHighExtendedLayoutTransformOp.  The body region is IsolatedFromAbove:
+// - The source ZTensor is threaded in as block argument 0.
+// - Constant-producing ops needed by inner ops (e.g. ONNXReshapeOp's shape
+//   tensor) are cloned inside the region rather than threaded as inputs.
+// - ONNXYieldOp terminates the body, yielding the final result value.
+//
+// This class inherits from PatternsForExtendedLayoutTransform to reuse its
+// matching helpers (locateReshapeSplit, locateReshapeMerge, locatePattern).
+//===----------------------------------------------------------------------===//
+
+// Walk the use-def chain from initialLT's output to finalResult, collecting
+// each single-use op in order.  locatePattern's usedOnlyBy<> checks already
+// guarantee exactly one use at each step.
+
+// Hi alex: this code works because at this time, there are no side use of any
+// of the temporary results. Will have to revisit this if there are uses of
+// intermediary results.
+static SmallVector<Operation *> collectExtLayoutTransformOps(
+    ONNXLayoutTransformOp initialLT, Value finalResult) {
+  SmallVector<Operation *> ops;
+  ops.push_back(initialLT.getOperation());
+  Value current = initialLT.getOutput();
+  while (current != finalResult) {
+    Operation *user = *current.getUsers().begin();
+    ops.push_back(user);
+    current = user->getResult(0);
+  }
+  return ops;
+}
+
+class FusedPatternsForExtendedLayoutTransform
+    : public PatternsForExtendedLayoutTransform {
+public:
+  FusedPatternsForExtendedLayoutTransform(
+      MLIRContext *context, DimAnalysis *dimAnalysis)
+      : PatternsForExtendedLayoutTransform(context, dimAnalysis) {}
+
+  LogicalResult matchAndRewrite(ONNXLayoutTransformOp layoutTransformOp,
+      PatternRewriter &rewriter) const override {
+    // Do not fire on ops that are already inside an ONNXFusedOp body:
+    // the cloned chain ops look identical to the original pattern, which
+    // would cause the greedy rewriter to recurse infinitely.
+    if (mlir::isa<ONNXFusedOp>(layoutTransformOp->getParentOp()))
+      return failure();
+
+    // Use the shared fusion helper — no dependency on the inherited
+    // locatePattern or DimAnalysis.
+    auto chainOrFailure = locateExtLayoutTransformFusion(layoutTransformOp);
+    if (failed(chainOrFailure))
+      return failure();
+    ExtLayoutTransformChain &chain = chainOrFailure.value();
+
+    Location loc = layoutTransformOp.getLoc();
+    Value sourceVal = layoutTransformOp.getData();
+
+    // Build the set of values produced by the chain ops themselves; these
+    // are visible inside the body via the clone mapping and never external.
+    DenseSet<Value> chainProduced;
+    for (Operation *op : chain.ops)
+      for (Value result : op->getResults())
+        chainProduced.insert(result);
+
+    // Pre-scan: collect ALL external values the chain ops need.
+    //   - Constant-like ops (ONNXConstantOp, ConstantLike trait) will be
+    //     cloned inside the body — they do NOT become block arguments.
+    //   - Everything else (non-constant tensors, e.g. dynamically-computed
+    //     reshape shape vectors) becomes an additional FusedOp input.
+    // Source ZTensor is always inputs[0].
+    SmallVector<Value> fusedInputs = {sourceVal};
+    DenseSet<Value> inputSet;
+    inputSet.insert(sourceVal);
+
+    std::function<void(Value)> collectExternals = [&](Value v) {
+      // Already tracked or produced by a chain op → nothing to do.
+      if (inputSet.contains(v) || chainProduced.contains(v))
+        return;
+      Operation *defOp = v.getDefiningOp();
+      if (!defOp)
+        return; // bare block argument — should already be tracked
+      if (defOp->hasTrait<mlir::OpTrait::ConstantLike>() ||
+          mlir::isa<ONNXNoneOp, ONNXConstantOp>(defOp)) {
+        // Constant: will be cloned inside; recurse for its own operands.
+        for (Value operand : defOp->getOperands())
+          collectExternals(operand);
+      } else {
+        // Non-constant external tensor: thread through as a FusedOp input.
+        inputSet.insert(v);
+        fusedInputs.push_back(v);
+      }
+    };
+    for (Operation *op : chain.ops)
+      for (Value operand : op->getOperands())
+        collectExternals(operand);
+
+    // Insert the FusedOp just before the last chain op so that all fusedInputs
+    // (including non-constant shape tensors defined between chain ops in the
+    // original IR) are guaranteed to dominate the insertion point.
+    rewriter.setInsertionPoint(chain.finalResult.getDefiningOp());
+
+    // Build FusedOp with the complete input list.
+    SmallVector<Type> outputTypes = {chain.finalResult.getType()};
+    auto fusedOp = ONNXFusedOp::create(rewriter, loc, outputTypes,
+        rewriter.getStringAttr("zhigh.extended_layout_transform"), fusedInputs);
+
+    // Build the isolated body: one block argument per fusedInput.
+    SmallVector<Type> argTypes;
+    SmallVector<Location> argLocs;
+    for (Value v : fusedInputs) {
+      argTypes.push_back(v.getType());
+      argLocs.push_back(v.getLoc());
+    }
+    Block *body =
+        rewriter.createBlock(&fusedOp.getBody(), {}, argTypes, argLocs);
+    OpBuilder::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointToStart(body);
+
+    // Map every fusedInput to its corresponding block argument.
+    IRMapping mapping;
+    for (auto [v, arg] : llvm::zip(fusedInputs, body->getArguments()))
+      mapping.map(v, arg);
+
+    // Recursively clone constant-producing ops inside the body on demand.
+    std::function<void(Value)> ensureInBody = [&](Value v) {
+      if (mapping.contains(v) || chainProduced.contains(v))
+        return;
+      Operation *defOp = v.getDefiningOp();
+      if (!defOp)
+        return;
+      // All remaining unmapped externals must be constant-like; non-constants
+      // were added to fusedInputs above and are already in the mapping.
+      assert((defOp->hasTrait<mlir::OpTrait::ConstantLike>() ||
+                 mlir::isa<ONNXNoneOp, ONNXConstantOp>(defOp)) &&
+             "non-constant external value not collected in pre-scan");
+      for (Value operand : defOp->getOperands())
+        ensureInBody(operand);
+      rewriter.clone(*defOp, mapping);
+    };
+
+    for (Operation *op : chain.ops) {
+      for (Value operand : op->getOperands())
+        ensureInBody(operand);
+      rewriter.clone(*op, mapping);
+    }
+
+    // Yield the mapped result of the last chain op.
+    Value yieldVal = mapping.lookup(chain.finalResult);
+    ONNXYieldOp::create(rewriter, loc, ValueRange{yieldVal});
+
+    // Replace the final op in the outer IR with the FusedOp's output, then
+    // erase the remaining chain ops back-to-front.  Each op becomes dead
+    // (use_empty) once the op that consumed its result has been removed,
+    // so reverse order is required by PatternRewriter::eraseOp's precondition.
+    rewriter.replaceOp(
+        chain.finalResult.getDefiningOp(), fusedOp.getOutputs()[0]);
+    for (int i = static_cast<int>(chain.ops.size()) - 2; i >= 0; --i)
+      rewriter.eraseOp(chain.ops[i]);
+    return success();
+  }
+};
+
 //===----------------------------------------------------------------------===//
 // Pass.
 
@@ -862,8 +1030,12 @@ struct FusionOpStickUnstick
     RewritePatternSet patterns(&getContext());
     patterns.insert<PatternsStartingFromUnstick>(&getContext(), dimAnalysis);
     patterns.insert<PatternsEndingWithStick>(&getContext(), dimAnalysis);
-    patterns.insert<PatternsForExtendedLayoutTransform>(
-        &getContext(), dimAnalysis);
+    if (useFusedOp)
+      patterns.insert<FusedPatternsForExtendedLayoutTransform>(
+          &getContext(), dimAnalysis);
+    else
+      patterns.insert<PatternsForExtendedLayoutTransform>(
+          &getContext(), dimAnalysis);
 
     if (failed(applyPatternsGreedily(module, std::move(patterns))))
       return signalPassFailure();

@@ -18,6 +18,7 @@
 #include "llvm/Support/Debug.h"
 
 #include "src/Accelerators/NNPA/Compiler/NNPACompilerUtils.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXLegalityCheck.hpp"
 #include "src/Accelerators/NNPA/Conversion/ZHighToZLow/ZHighToZLow.hpp"
 #include "src/Accelerators/NNPA/Conversion/ZLowToLLVM/ZLowToLLVM.hpp"
@@ -193,6 +194,22 @@ int64_t NNPAAccelerator::getDefaultAllocAlignment(
 void NNPAAccelerator::conversionTargetONNXToKrnl(
     mlir::ConversionTarget &target) const {
   target.addLegalDialect<zlow::ZLowDialect>();
+  // ONNXFusedOp instances with ZHigh-specific kinds must be lowered by
+  // ZHighToZLow patterns registered above.  All other kinds are left for
+  // other lowering passes (or are not yet supported).
+  // Use DynamicLegalityCallbackFn (Operation* overload) to avoid the
+  // cast<ONNXFusedOp> wrapper that MLIR generates for typed callbacks;
+  // that wrapper's debug-mode isa<> assertion can crash on ops in
+  // transitional states during conversion.
+  target.addDynamicallyLegalOp<mlir::ONNXFusedOp>(
+      mlir::ConversionTarget::DynamicLegalityCallbackFn(
+          [](mlir::Operation *op) -> std::optional<bool> {
+            auto kindAttr =
+                op->getAttrOfType<mlir::StringAttr>("kind");
+            if (!kindAttr)
+              return true; // no kind — not a ZHigh fused op, legal
+            return !kindAttr.getValue().starts_with("zhigh.");
+          }));
 }
 
 void NNPAAccelerator::rewritePatternONNXToKrnl(
