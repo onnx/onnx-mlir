@@ -2,9 +2,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---------- OMTensorList.cpp - OMTensor C/C++ Implementation ----------===//
+//===---------- OMTensorList.inc - OMTensor C/C++ Implementation ----------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //

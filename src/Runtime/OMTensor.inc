@@ -17,10 +17,12 @@
 #include <array>
 #include <cassert>
 #include <complex>
+#include <iostream>
 #include <map>
 #include <numeric>
 #include <random>
 #include <string>
+#include <type_traits>
 #include <typeinfo>
 #include <vector>
 #else
@@ -344,7 +346,7 @@ void omTensorSetStridesWithPyArrayStrides(
   if (dataTypeSize == 0) {
     fprintf(stderr, "Error, unknown data type in tensor\n");
     assert(dataTypeSize != 0); // Zero for unknown.
-    return; // In case asserts are turned off.
+    return;                    // In case asserts are turned off.
   }
   for (int64_t i = 0; i < tensor->_rank; i++)
     tensor->_strides[i] = stridesInBytes[i] / dataTypeSize;
@@ -727,6 +729,52 @@ void omTensorPrint(const char *msg, const OMTensor *tensor) {
  * asserts are present to ensure that we do not perform a null ptr access.
  */
 
+/* Helper function to compute cartesian product */
+static inline std::vector<std::vector<int64_t>> CartProduct(
+    const std::vector<std::vector<int64_t>> &v) {
+  std::vector<std::vector<int64_t>> s = {{}};
+  for (const auto &u : v) {
+    std::vector<std::vector<int64_t>> r;
+    for (const auto &x : s) {
+      for (const auto y : u) {
+        r.push_back(x);
+        r.back().push_back(y);
+      }
+    }
+    s = std::move(r);
+  }
+  return s;
+}
+
+/* Helper function to compute data strides from a size array */
+static inline std::vector<int64_t> computeStridesFromShape(
+    const int64_t *dataSizes, int rank) {
+  std::vector<int64_t> sizesVec(dataSizes + 1, dataSizes + rank);
+  sizesVec.push_back(1);
+  std::vector<int64_t> dimStrides(rank);
+  std::partial_sum(sizesVec.rbegin(), sizesVec.rend(), dimStrides.rbegin(),
+      std::multiplies<>());
+  return dimStrides;
+}
+
+/* Helper function to compute linear offset from a multi-dimensional index */
+static inline int64_t computeElemOffset(
+    const int64_t *dataStrides, int rank, const std::vector<int64_t> &indexes) {
+  std::vector<int64_t> dimStrides(dataStrides, dataStrides + rank);
+  return inner_product(indexes.begin(), indexes.end(), dimStrides.begin(), 0);
+}
+
+/* Helper function to print a vector with delimiter */
+template <typename T>
+static inline void printVector(const std::vector<T> &vec,
+    const std::string &delimiter = ",", std::ostream &stream = std::cout) {
+  std::string sep;
+  for (const auto &elem : vec) {
+    stream << sep << elem;
+    sep = delimiter;
+  }
+}
+
 /* OMTensor creator with data shape and element type  */
 template <typename T>
 OMTensor *omTensorCreateWithShape(const std::vector<int64_t> &shape) {
@@ -764,45 +812,6 @@ OMTensor *omTensorCreateWithShape(const std::vector<int64_t> &shape) {
 
   /* Set flag for destructor */
   omt->_owning = true;
-  return omt;
-}
-
-// Static variables used by omDefineSeed and omTensorCreateWithRandomData.
-static unsigned int omUseOneSeed = 0;
-static std::mt19937 omRandomGenerator(0);
-
-// When called, a single seed will be used, either from the given seed or from
-// another random number generator.
-unsigned int omDefineSeed(unsigned int seed, unsigned int hasSeedValue) {
-  /* Define our onw seed when requested. */
-  if (!hasSeedValue) {
-    std::random_device rd;
-    seed = rd();
-  }
-  omUseOneSeed = 1;
-  omRandomGenerator.seed(seed);
-  return seed;
-}
-
-/* OMTensor creator with data shape, element type and random data */
-template <typename T>
-OMTensor *omTensorCreateWithRandomData(
-    const std::vector<int64_t> &shape, T lbound, T ubound) {
-  if (!omUseOneSeed) {
-    // Will be used to obtain a seed for the random number engine.
-    std::random_device rd;
-    // Standard mersenne_twister_engine seeded with rd()
-    omRandomGenerator.seed(rd());
-  }
-  std::uniform_real_distribution<> dis(lbound, ubound);
-
-  auto omt = omTensorCreateWithShape<T>(shape);
-  if (omt == NULL)
-    return NULL;
-
-  std::generate((T *)omt->_alignedPtr,
-      (T *)omt->_alignedPtr + getNumElems(omt->_shape, omt->_rank),
-      [&]() { return dis(omRandomGenerator); });
   return omt;
 }
 
@@ -920,23 +929,28 @@ inline bool omTensorAreTwoOmtsClose(
 
 // Explicit instantiation of all templated API functions.
 
+template OMTensor *omTensorCreateWithShape<bool>(
+    const std::vector<int64_t> &shape);
+template OMTensor *omTensorCreateWithShape<int8_t>(
+    const std::vector<int64_t> &shape);
+template OMTensor *omTensorCreateWithShape<uint8_t>(
+    const std::vector<int64_t> &shape);
+template OMTensor *omTensorCreateWithShape<int16_t>(
+    const std::vector<int64_t> &shape);
+template OMTensor *omTensorCreateWithShape<uint16_t>(
+    const std::vector<int64_t> &shape);
 template OMTensor *omTensorCreateWithShape<int32_t>(
     const std::vector<int64_t> &shape);
+template OMTensor *omTensorCreateWithShape<uint32_t>(
+    const std::vector<int64_t> &shape);
 template OMTensor *omTensorCreateWithShape<int64_t>(
+    const std::vector<int64_t> &shape);
+template OMTensor *omTensorCreateWithShape<uint64_t>(
     const std::vector<int64_t> &shape);
 template OMTensor *omTensorCreateWithShape<float>(
     const std::vector<int64_t> &shape);
 template OMTensor *omTensorCreateWithShape<double>(
     const std::vector<int64_t> &shape);
-
-template OMTensor *omTensorCreateWithRandomData<int32_t>(
-    const std::vector<int64_t> &shape, int32_t lbound, int32_t ubound);
-template OMTensor *omTensorCreateWithRandomData<int64_t>(
-    const std::vector<int64_t> &shape, int64_t lbound, int64_t ubound);
-template OMTensor *omTensorCreateWithRandomData<float>(
-    const std::vector<int64_t> &shape, float lbound, float ubound);
-template OMTensor *omTensorCreateWithRandomData<double>(
-    const std::vector<int64_t> &shape, double lbound, double ubound);
 
 template bool &omTensorGetElem<bool>(
     const OMTensor *, const std::vector<int64_t> &indexes);

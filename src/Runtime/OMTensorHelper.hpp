@@ -17,66 +17,12 @@
 #ifndef ONNX_MLIR_TENSOR_HELPER_H
 #define ONNX_MLIR_TENSOR_HELPER_H
 
-#include <functional>
-#include <iostream>
-#include <numeric>
 #include <string>
 #include <vector>
 
+#include "onnx-mlir/Runtime/OnnxDataType.h"
+
 struct OMTensor;
-
-/* Helper function to compute cartesian product */
-static inline std::vector<std::vector<int64_t>> CartProduct(
-    const std::vector<std::vector<int64_t>> &v) {
-  std::vector<std::vector<int64_t>> s = {{}};
-  for (const auto &u : v) {
-    std::vector<std::vector<int64_t>> r;
-    for (const auto &x : s) {
-      for (const auto y : u) {
-        r.push_back(x);
-        r.back().push_back(y);
-      }
-    }
-    s = std::move(r);
-  }
-  return s;
-}
-
-/* Helper function to compute data strides from sizes */
-static inline std::vector<int64_t> computeStridesFromShape(
-    const int64_t *dataSizes, int rank) {
-  // Shift dimension sizes one to the left, fill in the vacated rightmost
-  // element with 1; this gets us a vector that'll be more useful for computing
-  // strides of memory access along each dimension using prefix product (aka
-  // partial_sum with a multiply operator below). The intuition is that the size
-  // of the leading dimension does not matter when computing strides.
-  std::vector<int64_t> sizesVec(dataSizes + 1, dataSizes + rank);
-  sizesVec.push_back(1);
-
-  std::vector<int64_t> dimStrides(rank);
-  std::partial_sum(sizesVec.rbegin(), sizesVec.rend(), dimStrides.rbegin(),
-      std::multiplies<>());
-  return dimStrides;
-}
-
-/* Helper function to compute linear offset from a multi-dimensional index array
- */
-static inline int64_t computeElemOffset(
-    const int64_t *dataStrides, int rank, const std::vector<int64_t> &indexes) {
-  std::vector<int64_t> dimStrides(dataStrides, dataStrides + rank);
-  return inner_product(indexes.begin(), indexes.end(), dimStrides.begin(), 0);
-}
-
-/* Helper function to print a vector with delimiter */
-template <typename T>
-static inline void printVector(const std::vector<T> &vec,
-    const std::string &_delimiter = ",", std::ostream &stream = std::cout) {
-  std::string delimiter;
-  for (const auto &elem : vec) {
-    stream << delimiter << elem;
-    delimiter = _delimiter;
-  }
-}
 
 /**
  * OMTensor creator with data sizes and element type
@@ -105,20 +51,75 @@ OMTensor *omTensorCreateWithShape(const std::vector<int64_t> &dataSizes);
 unsigned int omDefineSeed(unsigned int seed, unsigned int hasSeedValue);
 
 /**
- * OMTensor creator with data sizes, element type and random data
+ * Create an OMTensor filled with random data for a given OM_DATA_TYPE.
  *
- * @param dataSizes, data sizes array
- * @param lbound (optional), lower bound of the random distribution
- * @param ubound (optional), upper bound of the random distribution
- * @return pointer to OMTensor created, NULL if creation failed.
+ * Accepts the element type as a runtime OM_DATA_TYPE value, making it possible
+ * to create randomly-filled tensors when the type is only known at runtime
+ * (e.g. when driving a model from its input signature).
  *
- * Create a full OMTensor like what omTensorCreateWithShape does
- * and also fill the OMTensor data buffer with randomly generated
- * real numbers from a uniform distribution between lbound and ubound.
+ * Type-specific behaviour:
+ *   - Numeric types: uniform distribution over [lbound, ubound].
+ *   - ONNX_TYPE_BOOL: lbound/ubound are clamped to {false, true} (threshold
+ *     0.5); default [0, 1] gives equal probability of false and true.
+ *   - ONNX_TYPE_FLOAT16: lbound/ubound are cast to float, converted via
+ *     om_f32_to_f16, and stored as uint16_t raw bits.
+ *   - ONNX_TYPE_STRING: lbound/ubound are cast to int and used as the range
+ *     for random integers whose decimal representations become the elements.
+ *     Default bounds [0, 63] can be overridden like any numeric type.
+ *     The tensor data buffer uses the packed layout of
+ *     omTensorBuildStringBuffer: [ptr0..ptrN-1][str0\0 str1\0 ... strN-1\0].
+ *   - Complex and sub-byte types (float8, int4, uint4): unsupported and will
+ *     return NULL.
+ *
+ * @param shape   shape of the tensor to create.
+ * @param omType  element type expressed as an OM_DATA_TYPE enum value.
+ * @param lbound  lower bound of the random distribution (default -1.0).
+ * @param ubound  upper bound of the random distribution (default  1.0).
+ * @return pointer to the OMTensor created, or NULL on failure.
  */
-template <typename T>
-OMTensor *omTensorCreateWithRandomData(
-    const std::vector<int64_t> &dataSizes, T lbound = -1.0, T ubound = 1.0);
+OMTensor *omTensorCreateWithRandomData(const std::vector<int64_t> &shape,
+    OM_DATA_TYPE omType, double lbound = -1.0, double ubound = 1.0);
+
+/**
+ * Build the flat pointer+data buffer required by ONNX_TYPE_STRING OMTensors.
+ *
+ * ONNX string tensors are not stored as an array of std::string.  Instead, the
+ * OMTensor data pointer must point to a single contiguous allocation with this
+ * layout:
+ *
+ *   [ptr0][ptr1]...[ptrN-1][str0\0][str1\0]...[strN-1\0]
+ *    <---- N char* pointers ---->  <----- packed string data ---->
+ *
+ * Each ptrK points into the string-data region of the same buffer.  Callers
+ * read elements as ((const char **)dataPtr)[k].
+ *
+ * Use this helper whenever you need to create or populate a string OMTensor
+ * from a std::vector<std::string>.  The returned buffer is a single malloc
+ * allocation; pass it (with owning=1) to omTensorCreateWithOwnership so the
+ * tensor destructor frees it correctly.
+ *
+ * @param strings  string values to pack, one per tensor element.
+ * @return malloc'd buffer in the layout above, or nullptr on failure.
+ */
+void *omTensorBuildStringBuffer(const std::vector<std::string> &strings);
+
+/**
+ * Create an OMTensor with a "sequence of ones followed by zeros" (soz) fill
+ * along the innermost dimension.
+ *
+ * For each row (product of all but the last dimension), the first sozCount
+ * elements are set to 1 and the remaining elements to 0.  Well suited for
+ * sequence-length masks and attention-mask inputs.
+ *
+ * @param shape    shape of the tensor; must have rank >= 1.
+ * @param omType   element type (any numeric type supporting 0 and 1).
+ * @param sozCount number of leading ones per row (>= 0), or -1 to choose
+ *                 independently and randomly for each row in [1, innerDim-1].
+ *                 Values >= innerDim are capped at innerDim (all ones).
+ * @return pointer to the OMTensor created, or nullptr on failure.
+ */
+OMTensor *omTensorCreateSozData(
+    const std::vector<int64_t> &shape, OM_DATA_TYPE omType, int64_t sozCount);
 
 /**
  * OMTensor data element getter by offset
