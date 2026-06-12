@@ -54,11 +54,11 @@ std::string onnxTransformOptions;                      // onnx-mlir only
 // enable-separate-phased-convs-for-convtranspose pass option and read by the
 // decomposeIntoPhasedConvs() helper.
 bool enableSeparatePhasedConvsForConvTranspose = false; // common for both
-bool enableQuarkQuantizerLegalization;                 // common for both
-bool disableBatchNormDecompose;                        // common for both
-bool enableSafeCodeGen;                                // common for both
-bool disableMemRefPrefetch;                            // common for both
-uint64_t compilationNumThreads;                        // common for both
+bool enableQuarkQuantizerLegalization;                  // common for both
+bool disableBatchNormDecompose;                         // common for both
+bool enableSafeCodeGen;                                 // common for both
+bool disableMemRefPrefetch;                             // common for both
+uint64_t compilationNumThreads;                         // common for both
 // AMD: Decompose unconditionally
 // std::vector<std::string> decomposeOpsInONNX;           // common for both
 EmissionTargetType emissionTarget;         // onnx-mlir only

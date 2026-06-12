@@ -89,10 +89,10 @@ extern std::string onnxTransformOptions;                      // onnx-mlir only
 // Runtime-only bridge flag (not a command-line option), set by the
 // decompose-onnx / onnx-hybrid-transform passes and read by
 // decomposeIntoPhasedConvs().
-extern bool enableSeparatePhasedConvsForConvTranspose;        // common for both
-extern bool enableQuarkQuantizerLegalization;                 // common for both
-extern bool disableBatchNormDecompose;                        // common for both
-extern uint64_t compilationNumThreads;                        // common for both
+extern bool enableSeparatePhasedConvsForConvTranspose; // common for both
+extern bool enableQuarkQuantizerLegalization;          // common for both
+extern bool disableBatchNormDecompose;                 // common for both
+extern uint64_t compilationNumThreads;                 // common for both
 // AMD: Decompose unconditionally
 // extern std::vector<std::string> decomposeOpsInONNX; // common for both
 extern EmissionTargetType emissionTarget;         // onnx-mlir only
