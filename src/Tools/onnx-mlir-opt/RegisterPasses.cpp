@@ -180,6 +180,10 @@ void registerOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createReplaceQDQClipCastPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createReplaceQDQEltwisePass();
   });
 
@@ -215,7 +219,7 @@ void registerOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return createRemoveRedundantReluPass();
+    return createRemoveRedundantReluLikeOpsPass();
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {

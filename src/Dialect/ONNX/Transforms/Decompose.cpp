@@ -2144,7 +2144,7 @@ Value normalizeConstantOp(
 
 namespace onnx_mlir {
 #define GEN_PASS_DEF_DECOMPOSEONNXTOONNXPASS
-#include "Passes.h.inc"
+#include "src/Dialect/ONNX/Transforms/Passes.h.inc"
 } // namespace onnx_mlir
 
 namespace {
