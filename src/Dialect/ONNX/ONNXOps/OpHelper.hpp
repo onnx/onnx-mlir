@@ -504,17 +504,18 @@ bool isIdentityReshape(
 bool isIdentityReshape(mlir::Value input, mlir::Value output,
     const DimAnalysis *dimAnalysis = nullptr);
 
-/// Returns true if the DQ→Q pair is redundant (same scale, zero-point,
-/// axis, block-size, and storage type).
+/// Returns true if the DequantizeLinear -> QuantizeLinear pair is redundant and
+/// can be bypassed. Only per-tensor (scalar scale/zero-point) pairs with an
+/// integer storage type are eligible; per-axis/blocked quantization and
+/// non-integer storage are never bypassed.
 ///
-/// \p tolerant  When true, the scale comparison uses an element-wise
-///              approximate check instead of exact equality:
-///                |a - b| <= max(atol, rtol * max(|a|, |b|))
-///              with rtol = 1e-3, atol = 1e-5 (suitable for FP16 scales).
-///              All other checks (zero-point, axis, block-size, storage type)
-///              remain exact regardless of this flag.
+/// Scale and zero-point are judged jointly: the pair is redundant when the
+/// composite DQ->Q maps every storage integer back to within \p
+/// maxRoundTripDiff codes over the full range, using the same
+/// round-to-nearest-even semantics as the QuantizeLinear lowering.
+/// maxRoundTripDiff = 0 (the default) requires an exact round-trip identity.
 bool isDequantQuantSame(mlir::ONNXDequantizeLinearOp dqOp,
-    mlir::ONNXQuantizeLinearOp qOp, bool tolerant = false);
+    mlir::ONNXQuantizeLinearOp qOp, int64_t maxRoundTripDiff = 0);
 
 /// Return true if the (element) type carries a `quant::QuantizedType`.
 /// Convenient for guarding rewrite patterns that are not valid on quantized
