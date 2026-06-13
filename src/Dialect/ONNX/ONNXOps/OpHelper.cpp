@@ -2,6 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <algorithm>
 #include <cmath>
 #include <optional>
 
@@ -1012,41 +1013,78 @@ bool isIdentityReshape(
   return isIdentityReshape(inputTensor, outputTensor, dimAnalysis);
 }
 
-/// Element-wise approximate scale comparison used by isDequantQuantSame when
-/// tolerant=true.  Returns false if element counts differ or any pair fails
-///   |a - b| <= max(atol, rtol * max(|a|, |b|)).
-///
-/// Threshold rationale:
-///   rtol = 1e-3  FP16 machine epsilon is ~9.77e-4, so 1e-3 is just above
-///                the worst-case round-trip rounding error when a scale is
-///                stored as FP16 by one tool and reloaded by another.
-///   atol = 1e-5  Guards the near-zero case where rtol * max(|a|,|b|) would
-///                underflow to a meaninglessly tight bound; 1e-5 is safely
-///                below any realistic quantization scale value.
-static bool scaleWithinTolerance(mlir::ElementsAttr dqScale,
-    mlir::ElementsAttr qScale, double rtol = 1e-3, double atol = 1e-5) {
-  if (dqScale.getNumElements() != qScale.getNumElements())
+// True if the composite DQ->Q maps every representable storage integer back to
+// within maxDiff codes, judging scale and zero-point jointly. Rounding matches
+// the QuantizeLinear lowering: round-to-nearest-even of (x / scale), then add
+// the zero-point. Only per-tensor (splat) qparams over 8/16-bit integer storage
+// are supported; anything else returns false.
+static bool isQDQWithinRoundTripTolerance(mlir::Type storageElemType,
+    ElementsAttr dqScale, ElementsAttr dqZp, ElementsAttr qScale,
+    ElementsAttr qZp, int64_t maxDiff) {
+  assert(maxDiff >= 0 && "maxDiff must be non-negative");
+
+  auto storageType = mlir::dyn_cast<IntegerType>(storageElemType);
+  if (!storageType)
     return false;
-  bool losesInfo = false;
-  // The structured binding gives per-iteration APFloat copies, so in-place
-  // conversion to double precision is safe.
-  for (auto [a, b] : llvm::zip(dqScale.getValues<mlir::APFloat>(),
-                               qScale.getValues<mlir::APFloat>())) {
-    a.convert(llvm::APFloat::IEEEdouble(),
-        llvm::APFloat::rmNearestTiesToEven, &losesInfo);
-    b.convert(llvm::APFloat::IEEEdouble(),
-        llvm::APFloat::rmNearestTiesToEven, &losesInfo);
-    double da = a.convertToDouble();
-    double db = b.convertToDouble();
-    if (std::abs(da - db) >
-        std::max(atol, rtol * std::max(std::abs(da), std::abs(db))))
+  // 8/16-bit storage only; wider would scan billions of values.
+  unsigned width = storageType.getWidth();
+  if (width > 16)
+    return false;
+  // Per-tensor qparams only, so getSplatValue below is always valid.
+  if (!dqScale.isSplat() || !dqZp.isSplat() || !qScale.isSplat() ||
+      !qZp.isSplat())
+    return false;
+
+  bool isSigned = !storageType.isUnsignedInteger();
+  int64_t storageMin =
+      mlir::quant::QuantizedType::getDefaultMinimumForInteger(isSigned, width);
+  int64_t storageMax =
+      mlir::quant::QuantizedType::getDefaultMaximumForInteger(isSigned, width);
+  auto readZp = [isSigned](ElementsAttr zp) {
+    APInt v = zp.getSplatValue<APInt>();
+    return isSigned ? v.getSExtValue() : static_cast<int64_t>(v.getZExtValue());
+  };
+  double inScale = dqScale.getSplatValue<APFloat>().convertToDouble();
+  double outScale = qScale.getSplatValue<APFloat>().convertToDouble();
+  int64_t inZp = readZp(dqZp), outZp = readZp(qZp);
+
+  // A zero / subnormal / non-finite scale cannot describe an invertible DQ->Q.
+  if (!std::isnormal(inScale) || !std::isnormal(outScale))
+    return false;
+  // Exact inverse: the round-trip is the identity everywhere.
+  if (inScale == outScale && inZp == outZp)
+    return true;
+
+  // Round-half-to-even, matching ONNX QuantizeLinear and independent of the
+  // global FP rounding mode.
+  auto roundToEven = [](double v) {
+    double lower = std::floor(v);
+    double frac = v - lower;
+    if (frac < 0.5)
+      return lower;
+    if (frac > 0.5)
+      return lower + 1.0;
+    return (std::fmod(lower, 2.0) == 0.0) ? lower : lower + 1.0; // tie -> even
+  };
+
+  const double minD = static_cast<double>(storageMin);
+  const double maxD = static_cast<double>(storageMax);
+  const double outZpD = static_cast<double>(outZp);
+  for (int64_t x = storageMin; x <= storageMax; ++x) {
+    double dequant = (static_cast<double>(x) - inZp) * inScale;
+    // Clamp in the double domain: with an extreme scale ratio the rounded
+    // quotient can exceed int64, and casting an out-of-range double is UB.
+    double roundTrip =
+        std::clamp(roundToEven(dequant / outScale) + outZpD, minD, maxD);
+    int64_t diff = static_cast<int64_t>(roundTrip) - x; // within storage range
+    if (diff > maxDiff || diff < -maxDiff)
       return false;
   }
   return true;
 }
 
 bool isDequantQuantSame(mlir::ONNXDequantizeLinearOp dqOp,
-    mlir::ONNXQuantizeLinearOp qOp, bool tolerant) {
+    mlir::ONNXQuantizeLinearOp qOp, int64_t maxRoundTripDiff) {
   // Helper lambda to check if a value is a scalar (rank 0 or shape [1]).
   auto isScalar = [](Value v) -> bool {
     if (!v)
@@ -1070,7 +1108,7 @@ bool isDequantQuantSame(mlir::ONNXDequantizeLinearOp dqOp,
                                    qOp.getBlockSize() != dqOp.getBlockSize()))
     return false;
 
-  // 2. Check zero-points
+  // 2. Check zero-points (always exact).
   auto zpAttr1 = getElementAttributeFromONNXValue(dqOp.getXZeroPoint());
   auto zpAttr2 = getElementAttributeFromONNXValue(qOp.getYZeroPoint());
   if (!zpAttr1 || !zpAttr2)
@@ -1085,10 +1123,15 @@ bool isDequantQuantSame(mlir::ONNXDequantizeLinearOp dqOp,
   if (!scaleAttr1 || !scaleAttr2)
     return false;
 
-  if (tolerant)
-    return scaleWithinTolerance(scaleAttr1, scaleAttr2);
-
-  if (!compareValueFromElementAttribute(scaleAttr1, scaleAttr2)) {
+  // With a tolerance the scales may differ, provided the DQ->Q round-trip stays
+  // within maxRoundTripDiff codes; only per-tensor scalar params qualify.
+  // Otherwise the scales must match bit-for-bit.
+  if (maxRoundTripDiff > 0 && bothHaveScalarParams) {
+    if (!isQDQWithinRoundTripTolerance(
+            getElementTypeOrSelf(dqOp.getX().getType()), scaleAttr1, zpAttr1,
+            scaleAttr2, zpAttr2, maxRoundTripDiff))
+      return false;
+  } else if (!compareValueFromElementAttribute(scaleAttr1, scaleAttr2)) {
     return false;
   }
 
