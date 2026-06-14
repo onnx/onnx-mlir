@@ -300,6 +300,26 @@ parser.add_argument(
     " uint64, int64, float16, float32, float64.",
 )
 parser.add_argument(
+    "--input-value",
+    type=str,
+    help="Per-input data fill specification, overriding --lower-bound/--upper-bound"
+    " for individual tensors."
+    " Format: INPUT_ID:spec1 spec2 ..., INPUT_ID:spec, ..."
+    " where INPUT_ID is an integer >= 0, a range (e.g. 2-5), or -1 for all inputs,"
+    " and each spec is one of:"
+    " min<num> (lower bound for random fill),"
+    " max<num> (upper bound for random fill),"
+    " val<num> (constant fill, equivalent to min=max=num),"
+    " soz<num> (sequence-of-ones-then-zeros along the innermost dimension:"
+    " <num> leading ones per row followed by zeros;"
+    " use soz-1 to pick a random count in [1, innerDim-1] for each row independently;"
+    " values >= innerDim are capped to all ones;"
+    " well suited for sequence-length and attention-mask inputs)."
+    " E.g. --input-value=0:min-1.0max1.0,1:val0 sets input 0 to random in [-1,1]"
+    " and input 1 to all zeros."
+    " Per-input specs take priority over --lower-bound and --upper-bound.",
+)
+parser.add_argument(
     "-w",
     "--warmup",
     type=lambda s: check_non_negative("--warmup", s),
@@ -538,140 +558,6 @@ def read_output_from_refs(num_outputs, load_ref_filename, is_load_ref):
         )
     print("  done.\n")
     return reference_output
-
-
-def generate_random_input(input_signature, shape_info, seed, lower_bound, upper_bound):
-    # Load random values: first get shape info, where shape_info in the form of
-    # 'input_index:d1xd2, input_index:d1xd2'
-    input_shapes = {}
-    if shape_info:
-        for input_shape in shape_info.strip().split(","):
-            input_index_shape = input_shape.split(":")
-            input_index = input_index_shape[0]
-            assert not (input_index in input_shapes), "Duplicate input indices"
-            dims = [int(d) for d in input_index_shape[1].split("x")]
-            input_shapes[int(input_index)] = dims
-
-    # Then fill shapes with random numbers.
-    # Numpy expect an int, tolerate int/float strings.
-    curr_seed = int(float(seed))
-    print("Generating random inputs using seed", curr_seed, "...")
-    # Generate random data as input.
-    inputs = []
-
-    # Load the input signature.
-    signature = json.loads(input_signature)
-
-    np.random.seed(curr_seed)
-    for i, sig in enumerate(signature):
-        # Get shape.
-        explicit_shape = []
-        for d, dim in enumerate(sig["dims"]):
-            if dim >= 0:
-                explicit_shape.append(dim)
-                continue
-            if i in input_shapes:
-                if d < len(input_shapes[i]):
-                    explicit_shape.append(input_shapes[i][d])
-                else:
-                    print(
-                        "The {} dim".format(ordinal(d + 1)),
-                        "of the {} input is unknown.".format(ordinal(i + 1)),
-                        "Use --shape-info to set.",
-                    )
-                    print(" - The input signature: ", sig)
-                    exit(1)
-            else:
-                print(
-                    "The shape of the {} input".format(ordinal(i + 1)),
-                    "is unknown. Use --shape-info to set.",
-                )
-                print(" - The input signature: ", sig)
-                exit(1)
-        # Get element type.
-        elem_type = sig["type"]
-        np_elem_type = MLIR_TYPE_TO_NP_TYPE[elem_type]
-
-        # Set a range for random values.
-        custom_lb = {}
-        custom_ub = {}
-        # Get user's range if any.
-        if lower_bound:
-            for type_lbs in lower_bound.strip().split(","):
-                type_lb = type_lbs.split(":")
-                assert not (type_lb[0] in custom_lb), "Duplicate types"
-                custom_lb[type_lb[0]] = type_lb[1]
-        if upper_bound:
-            for type_ubs in upper_bound.strip().split(","):
-                type_ub = type_ubs.split(":")
-                assert not (type_ub[0] in custom_ub), "Duplicate types"
-                custom_ub[type_ub[0]] = type_ub[1]
-        DEFAULT_LB.update(custom_lb)
-        DEFAULT_UB.update(custom_ub)
-
-        lb = ub = 0
-        random_element_type = np_elem_type
-        if np.issubdtype(np_elem_type, np.dtype(bool).type):
-            # For some reason, random.uniform with lb/ub to 0/1 resulted in 1 only.
-            lb = int(DEFAULT_LB["bool"])
-            ub = int(DEFAULT_UB["bool"])
-            random_element_type = np.dtype("int32")
-        elif np.issubdtype(np_elem_type, np.uint8):
-            lb = int(DEFAULT_LB["uint8"])
-            ub = int(DEFAULT_UB["uint8"])
-        elif np.issubdtype(np_elem_type, np.uint16):
-            lb = int(DEFAULT_LB["uint16"])
-            ub = int(DEFAULT_UB["uint16"])
-        elif np.issubdtype(np_elem_type, np.uint32):
-            lb = int(DEFAULT_LB["uint32"])
-            ub = int(DEFAULT_UB["uint32"])
-        elif np.issubdtype(np_elem_type, np.uint64):
-            lb = int(DEFAULT_LB["uint64"])
-            ub = int(DEFAULT_UB["uint64"])
-        elif np.issubdtype(np_elem_type, np.int8):
-            lb = int(DEFAULT_LB["int8"])
-            ub = int(DEFAULT_UB["int8"])
-        elif np.issubdtype(np_elem_type, np.int16):
-            lb = int(DEFAULT_LB["int16"])
-            ub = int(DEFAULT_UB["int16"])
-        elif np.issubdtype(np_elem_type, np.int32):
-            lb = int(DEFAULT_LB["int32"])
-            ub = int(DEFAULT_UB["int32"])
-        elif np.issubdtype(np_elem_type, np.int64):
-            lb = int(DEFAULT_LB["int64"])
-            ub = int(DEFAULT_UB["int64"])
-        elif np.issubdtype(np_elem_type, np.float64):
-            lb = float(DEFAULT_LB["float64"])
-            ub = float(DEFAULT_UB["float64"])
-        elif np.issubdtype(np_elem_type, np.float32):
-            lb = float(DEFAULT_LB["float32"])
-            ub = float(DEFAULT_UB["float32"])
-        elif np.issubdtype(np_elem_type, np.float16):
-            lb = float(DEFAULT_LB["float16"])
-            ub = float(DEFAULT_UB["float16"])
-        elif np.issubdtype(np_elem_type, np.str_):
-            lb = 0
-            ub = 64
-            random_element_type = np.dtype("int32")
-        else:
-            raise AssertionError("Unsupported element type")
-        rinput = np.random.uniform(lb, ub, explicit_shape).astype(random_element_type)
-        # For boolean, transform range into True/False using greater_equal
-        if np.issubdtype(np_elem_type, np.dtype(bool).type):
-            rinput = np.greater_equal(rinput, [0])
-        elif np.issubdtype(np_elem_type, np.str_):
-            rinput = np.array(rinput, dtype=np.str_)
-            # rinput = np.array(["ab", "defg"], dtype=np.str_)
-            rinput = np.array(rinput, dtype=object)
-        print(
-            "  - {} input's shape {}, element type {}.".format(
-                ordinal(i + 1), rinput.shape, np_elem_type
-            ),
-            "Value ranges [{}, {}]".format(lb, ub),
-        )
-        inputs.append(rinput)
-    print("  done.\n")
-    return inputs
 
 
 def verify_outs(actual_outs, ref_outs, atol, rtol):
@@ -996,10 +882,14 @@ class InferenceSession:
                 print(f"Input model {shared_lib_path} does not exist")
                 exit(0)
             print("Loading the compiled model ...")
-            if args.load_model:
-                session = self.session_wrapper(shared_lib_path, tag="None")
-            else:
-                session = self.session_wrapper(shared_lib_path)
+            try:
+                if args.load_model:
+                    session = self.session_wrapper(shared_lib_path, tag="None")
+                else:
+                    session = self.session_wrapper(shared_lib_path)
+            except RuntimeError:
+                # The C++ layer already printed the specific error to stderr.
+                sys.exit(1)
             end = time.perf_counter()
             print("  took ", end - start, " seconds.\n")
             self.session = session
@@ -1060,13 +950,18 @@ class InferenceSession:
             # Get input from array.
             self.inputs = args.inputs_from_arrays
         else:
-            self.inputs = generate_random_input(
-                self.session.input_signature(),
-                args.shape_info,
-                args.seed,
-                args.lower_bound,
-                args.upper_bound,
-            )
+            try:
+                self.inputs = self.session.fill_input_debug(
+                    shape_info=args.shape_info or "",
+                    value_info=args.input_value or "",
+                    default_lower_bound=args.lower_bound or "",
+                    default_upper_bound=args.upper_bound or "",
+                    seed=int(float(args.seed)),
+                    verbose=True,
+                )
+            except RuntimeError:
+                # The C++ layer already printed the specific error to stderr.
+                sys.exit(1)
 
         # Print the input if required.
         if args.print_input:
@@ -1243,7 +1138,10 @@ class InferenceSession:
 
         for i in range(args.warmup):
             start = time.perf_counter()
-            outs = self.run_inference()  # Using inputs from self.inputs.
+            try:
+                outs = self.run_inference()  # Using inputs from self.inputs.
+            except RuntimeError:
+                sys.exit(1)
             end = time.perf_counter()
             print("  {} warmup: {} seconds".format(ordinal(i + 1), end - start))
             self.print_instrumentation()
@@ -1251,7 +1149,10 @@ class InferenceSession:
         perf_results = []
         for i in range(args.n_iteration):
             start = time.perf_counter()
-            outs = self.run_inference()  # Using inputs from self.inputs.
+            try:
+                outs = self.run_inference()  # Using inputs from self.inputs.
+            except RuntimeError:
+                sys.exit(1)
             end = time.perf_counter()
             elapsed = end - start
             perf_results += [elapsed]

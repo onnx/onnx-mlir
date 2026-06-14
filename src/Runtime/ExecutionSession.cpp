@@ -33,6 +33,7 @@
 
 #include "ExecutionSession.hpp"
 #include "OMTensorListHelper.hpp"
+#include "src/Runtime/OMTensorHelper.hpp"
 
 namespace onnx_mlir {
 
@@ -480,6 +481,20 @@ OMTensorList *ExecutionSession::run(OMTensorList *input) {
 OMTensorList *ExecutionSession::runDebug(
     OMTensorList *input, bool useSignalHandler) {
   return runImplementation(input, useSignalHandler);
+}
+
+OMTensorList *ExecutionSession::fillInputDebug(const char *shapeInfo,
+    const char *valueInfo, const char *defaultLowerBound,
+    const char *defaultUpperBound, int seed, bool verbose) {
+  if (seed >= 0)
+    omDefineSeed((unsigned int)seed, /*hasSeedValue=*/1);
+  OMTensorList *inputs =
+      omTensorListCreateFromInputSignature(inputSignature().c_str(), shapeInfo,
+          valueInfo, defaultLowerBound, defaultUpperBound, verbose);
+  if (!inputs)
+    throw ExecutionSessionException(
+        "fillInputDebug: failed to create input list");
+  return inputs;
 }
 
 // =============================================================================

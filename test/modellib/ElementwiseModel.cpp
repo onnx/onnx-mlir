@@ -4,7 +4,7 @@
 
 //========-- Elementwise.cpp - Building Elementwise Models for tests -========//
 //
-// Copyright 2023 The IBM Research Authors.
+// Copyright 2023-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -115,16 +115,16 @@ bool Elementwise2DLibBuilder::prepareInputs(
   if (inputNum == 1) {
     // Unary operation.
     list[0] =
-        omTensorCreateWithRandomData<float>({I, J}, dataRangeLB, dataRangeUB);
+        omTensorCreateWithRandomData({I, J}, ONNX_TYPE_FLOAT, dataRangeLB, dataRangeUB);
     if (!list[0])
       return false;
 
   } else if (inputNum == 2) {
     // Binary operation.
     list[0] =
-        omTensorCreateWithRandomData<float>({I, J}, dataRangeLB, dataRangeUB);
+        omTensorCreateWithRandomData({I, J}, ONNX_TYPE_FLOAT, dataRangeLB, dataRangeUB);
     list[1] =
-        omTensorCreateWithRandomData<float>({I, J}, dataRangeLB, dataRangeUB);
+        omTensorCreateWithRandomData({I, J}, ONNX_TYPE_FLOAT, dataRangeLB, dataRangeUB);
     if (!list[0] || !list[1])
       return false;
   } else

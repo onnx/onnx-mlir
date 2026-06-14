@@ -1468,8 +1468,18 @@ static bool checkConv2DParamRestrictions(Operation *op, int64_t inputDim,
     }
     // No constraints for SAME_PADDING.
     if (paddingType == "VALID_PADDING") {
-      // If we need to enforce the shape restrictions.
-      if (!nnpaDisableShapeRestriction) {
+      // Check whether the Conv's input was produced by UpsampleAndPad, which
+      // occurs when this Conv was lowered from a ConvTranspose. In that case
+      // the UpsampleAndPad guarantees inputDim >= kernelDim, so the
+      // corresponding shape restriction can be skipped.
+      ONNXConvOp convOp = mlir::dyn_cast<ONNXConvOp>(op);
+      bool inputFromUpsampleAndPad =
+          convOp.getX().getDefiningOp<mlir::ONNXUpsampleAndPadOp>() != nullptr;
+
+      // If we need to enforce the shape restrictions. First condition: test
+      // disabled. Second condition, test trivially true because of the reason
+      // upsample operation.
+      if (!nnpaDisableShapeRestriction && !inputFromUpsampleAndPad) {
         // Input shape must be static.
         if (ShapedType::isDynamic(inputDim))
           return onnxToZHighUnsupportedReport(op,
