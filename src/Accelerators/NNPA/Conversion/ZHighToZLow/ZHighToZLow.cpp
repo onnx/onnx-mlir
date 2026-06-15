@@ -2487,7 +2487,6 @@ struct ZHighToZLowExtendedLayoutTransformLowering
 // ONNXFusedOp lowering for kind "zhigh.extended_layout_transform"
 //===----------------------------------------------------------------------===//
 
-
 struct ZHighToZLowFusedExtLayoutTransformLowering
     : public OpConversionPattern<ONNXFusedOp> {
   using OpAdaptor = typename ONNXFusedOp::Adaptor;
@@ -2506,8 +2505,10 @@ struct ZHighToZLowFusedExtLayoutTransformLowering
 
   LogicalResult matchAndRewrite(ONNXFusedOp fusedOp, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
+    fprintf(stderr, "hi alex, fused op\n");
     if (fusedOp.getKind() != "zhigh.extended_layout_transform")
       return failure();
+    fprintf(stderr, "hi alex, fused op of kind extended layout transfer\n");
 
     Location loc = fusedOp.getLoc();
     MDBuilder create(rewriter, loc);
