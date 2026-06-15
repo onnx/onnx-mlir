@@ -61,6 +61,11 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
+// Storage for the pass->pattern flag declared in Decompose.hpp. Owned by
+// OMONNXRewrite so the rewrite/transform libraries do not need to link
+// OMCompilerOptions (see Decompose.hpp for the rationale).
+bool separatePhasedConvsForConvTransposeActive = false;
+
 // Create an DenseElementsAttr of ArrayAttr.
 // This function is used to get Value Type of an EXISTING ArrayAttr for Scaler
 // function.
@@ -1673,7 +1678,7 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
     const bool isConvOutChannelsDmaAligned =
         (convOutputShape[1] % dmaAlignmentInChannels == 0);
     if (needWeightsPadding || (kernelShape[0] == 4) ||
-        (enableSeparatePhasedConvsForConvTranspose &&
+        (separatePhasedConvsForConvTransposeActive &&
             isConvOutChannelsDmaAligned)) {
       Value conv1 = getActivationAppliedToConv(
           addQDQNodesForActivationIfNeeded(rewriter.create<ONNXConvOp>(loc,
@@ -4719,7 +4724,7 @@ struct DecomposeONNXToONNXPass
 void DecomposeONNXToONNXPass::runOnOperation() {
   func::FuncOp function = getOperation();
   MLIRContext *context = &getContext();
-  onnx_mlir::enableSeparatePhasedConvsForConvTranspose =
+  onnx_mlir::separatePhasedConvsForConvTransposeActive =
       this->enableSeparatePhasedConvsForConvTranspose.getValue();
   RewritePatternSet patterns(context);
   onnx_mlir::getDecomposeONNXToONNXPatterns(patterns,
