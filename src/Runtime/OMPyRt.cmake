@@ -25,6 +25,27 @@ set_target_properties(OMTensorUtils
   POSITION_INDEPENDENT_CODE TRUE
   )
 
+# C++ debug/test helpers compiled separately so they can be linked alongside a
+# statically compiled model without conflicting with its bundled cruntime.
+# These files use only the public C API and do not access OMTensor internals.
+add_onnx_mlir_library(OMDebugRuntime
+  OMTensorHelper.cpp
+  OMTensorListHelper.cpp
+
+  EXCLUDE_FROM_OM_LIBS
+
+  LINK_LIBS PUBLIC
+  cruntime
+  OMSmallFPConversion
+
+  INCLUDE_DIRS PUBLIC
+  ${ONNX_MLIR_SRC_ROOT}/include
+  )
+set_target_properties(OMDebugRuntime
+  PROPERTIES
+  POSITION_INDEPENDENT_CODE TRUE
+  )
+
 add_onnx_mlir_library(OMExecutionSession
   ExecutionSession.cpp
 
@@ -32,6 +53,7 @@ add_onnx_mlir_library(OMExecutionSession
 
   LINK_LIBS PUBLIC
   OMTensorUtils
+  OMDebugRuntime
   # Needed?
   OMSmallFPConversion
   )
