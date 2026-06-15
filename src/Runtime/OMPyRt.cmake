@@ -35,8 +35,8 @@ add_onnx_mlir_library(OMDebugRuntime
   EXCLUDE_FROM_OM_LIBS
 
   LINK_LIBS PUBLIC
-  cruntime
   OMSmallFPConversion
+  OMTensorUtils
 
   INCLUDE_DIRS PUBLIC
   ${ONNX_MLIR_SRC_ROOT}/include
