@@ -226,29 +226,30 @@ def print_instrumentation(self):
 
 An ONNX model can be compiled directly from the command line. The resulting library can then be executed using Python as shown in the previous sections. At times, it might be convenient to also compile a model directly in Python. This section explores the Python methods to do so.
 
-The OMCompile constructor takes the input model path and compilation flags. Compilation happens during object construction.
+The `OMCompile` constructor sets up the compiler (local or container-based), and the `compile()` method performs the actual compilation.
 
 ```python
 import numpy as np
 from PyOMCompile import OMCompile
 
-# Load onnx model, compile, and create OMCompile object.
+# Create compiler and compile the model.
 try:
-    compiler = OMCompile('./mnist.onnx', '-O3 -o mnist')
+    compiler = OMCompile()
+    compiled_model = compiler.compile('./mnist.onnx', '-O3 -o mnist')
 except RuntimeError as e:
     print(f"Compilation failed: {e}")
     exit(1)
-# Get the output file name.
-compiled_model = compiler.get_output_file_name()
 print("Compiled onnx file to", compiled_model)
 ```
 
 The `PyOMCompile` module exports the `OMCompile` class to drive the
 compilation of an ONNX model into an executable model.
-The compiler object is created by providing the input model file name and compilation flags.
-Compilation occurs during construction, and the resulting output file name can be retrieved
-using the `get_output_file_name()` method. Because different Operating Systems may have
-different suffixes for libraries, always use this method to get the actual output filename.
+The compiler object is created first (optionally providing a `compiler_path` or
+`compiler_image`), and then `compile()` is called with the model path and flags.
+The `compile()` method returns the output filename directly. Alternatively,
+`get_output_file_name()` can be called after a successful compilation. Because
+different Operating Systems may have different suffixes for libraries, always use
+one of these methods to get the actual output filename.
 
 ## PyOMCompile model API
 
