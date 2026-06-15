@@ -24,8 +24,8 @@
       _Pragma("clang diagnostic ignored \"-Wstring-conversion\"")           \
       _Pragma("clang diagnostic ignored \"-Wmissing-field-initializers\"")  \
       _Pragma("clang diagnostic ignored \"-Wsuggest-override\"")            \
-      _Pragma("clang diagnostic ignored \"-Wc++98-compat-extra-semi\"")
-
+      _Pragma("clang diagnostic ignored \"-Wc++98-compat-extra-semi\"") \
+      _Pragma("clang diagnostic ignored \"-Wgnu-zero-variadic-macro-arguments\"")
     #define SUPPRESS_WARNINGS_POP _Pragma("clang diagnostic pop")
   #elif defined(__GNUC__)
     #define SUPPRESS_WARNINGS_PUSH                                          \
