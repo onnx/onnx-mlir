@@ -20,18 +20,28 @@ using namespace mlir;
 namespace onnx_mlir {
 
 struct FoldQDQPattern : public OpRewritePattern<ONNXQuantizeLinearOp> {
-  using OpRewritePattern<ONNXQuantizeLinearOp>::OpRewritePattern;
+  FoldQDQPattern(MLIRContext *context, int64_t maxRoundTripDiff = 0)
+      : OpRewritePattern<ONNXQuantizeLinearOp>(context),
+        maxRoundTripDiff(maxRoundTripDiff) {}
+
   LogicalResult matchAndRewrite(
       ONNXQuantizeLinearOp qOp, PatternRewriter &rewriter) const override {
 
     auto dqOp = qOp.getX().getDefiningOp<ONNXDequantizeLinearOp>();
     if (!dqOp)
       return failure();
-    if (!isDequantQuantSame(dqOp, qOp))
+    if (!isDequantQuantSame(dqOp, qOp, maxRoundTripDiff))
       return failure();
     rewriter.replaceOp(qOp, dqOp.getX());
     return success();
   }
+
+private:
+  // Maximum allowed per-code difference for the DQ->Q round-trip. 0 requires an
+  // exact (bit-for-bit scale/zero-point) match; larger values allow folding
+  // when the round-trip over the full storage range stays within this many
+  // codes (per-tensor scalar params only).
+  int64_t maxRoundTripDiff;
 };
 
 void getDQBinaryQPatterns(RewritePatternSet &patterns, MLIRContext *context);
@@ -45,12 +55,18 @@ public:
   Option<bool> removeBinary{*this, "remove-binary", llvm::cl::init(false)};
   Option<bool> removeQDQAroundOps{
       *this, "remove-qdq-around-ops", llvm::cl::init(false)};
+  Option<int64_t> maxRoundTripDiff{*this, "max-round-trip-diff",
+      llvm::cl::desc("Max per-code DQ->Q round-trip difference tolerated when "
+                     "folding a redundant QDQ pair (0 = exact match)"),
+      llvm::cl::init(0)};
 
   StringRef getArgument() const override { return "qdq-canonicalize"; }
 
-  QDQCanonicalizePass(bool removeBinary, bool removeQDQAroundOps) {
+  QDQCanonicalizePass(
+      bool removeBinary, bool removeQDQAroundOps, int64_t maxRoundTripDiff) {
     this->removeBinary = removeBinary;
     this->removeQDQAroundOps = removeQDQAroundOps;
+    this->maxRoundTripDiff = maxRoundTripDiff;
   }
 
   QDQCanonicalizePass(const QDQCanonicalizePass &pass)
@@ -64,7 +80,7 @@ public:
       getDQBinaryQPatterns(patterns, context);
     if (removeQDQAroundOps)
       getRemoveQDQAroundOpPatterns(patterns, context);
-    patterns.add<FoldQDQPattern>(context);
+    patterns.add<FoldQDQPattern>(context, maxRoundTripDiff);
     frozenPatterns = std::move(patterns);
     return success();
   }
@@ -81,9 +97,9 @@ private:
 };
 
 std::unique_ptr<mlir::Pass> createQDQCanonicalizePass(
-    bool removeBinary, bool removeQDQAroundOps) {
+    bool removeBinary, bool removeQDQAroundOps, int64_t maxRoundTripDiff) {
   return std::make_unique<QDQCanonicalizePass>(
-      removeBinary, removeQDQAroundOps);
+      removeBinary, removeQDQAroundOps, maxRoundTripDiff);
 }
 
 } // namespace onnx_mlir
