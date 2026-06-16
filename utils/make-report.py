@@ -641,6 +641,8 @@ def print_compile_info():
         info = json.loads(compile_info_str)
         print("  compiler_version:", info.get("compiler_version", ""))
         print("  compile_options: ", info.get("compile_options", ""))
+        for name, accel_info in info.get("accelerators", {}).items():
+            print("  accelerator", name + ":", accel_info)
     except json.JSONDecodeError:
         print("Compile info:", compile_info_str)
 

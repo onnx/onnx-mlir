@@ -863,10 +863,25 @@ void emitCompilationInfo(ModuleOp &module) {
     }
   }
 
+  // Collect compile-time info from active accelerators.
+  std::string acceleratorsInfo = "{";
+  bool firstAccel = true;
+  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
+    std::string info = accel->getAccelCompileInfo();
+    if (info.empty())
+      continue;
+    if (!firstAccel)
+      acceleratorsInfo += ", ";
+    acceleratorsInfo += "\"" + accel->getName() + "\": " + info;
+    firstAccel = false;
+  }
+  acceleratorsInfo += "}";
+
   // Construct the JSON string.
   std::string jsonString = "{\n\"compiler_version\": \"" + compilerVersion +
                            "\",\n\"compile_options\": \"" + compileOptions +
-                           "\",\n\"op_stats\": " + opStats + "}";
+                           "\",\n\"accelerators\": " + acceleratorsInfo +
+                           ",\n\"op_stats\": " + opStats + "}";
 
   LLVM_DEBUG(llvm::dbgs() << "Compilation Info: " << jsonString << "\n");
 
