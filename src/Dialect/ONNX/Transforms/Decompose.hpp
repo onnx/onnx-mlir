@@ -27,6 +27,14 @@
 
 namespace onnx_mlir {
 
+// Communication channel between the ConvTranspose decomposition passes
+// (DecomposeONNXToONNXPass / ONNXHybridTransformPass) and the DRR-invoked
+// native helper `decomposeIntoPhasedConvs`. A DRR NativeCodeCall cannot take a
+// runtime pass option, so the pass copies its option here before applying
+// patterns. Defined in Decompose.cpp (OMONNXRewrite) on purpose so the rewrite
+// libraries do not need to link OMCompilerOptions
+extern bool separatePhasedConvsForConvTransposeActive;
+
 // Exports the DecomposeONNXToONNXPass patterns. They are all plain rewrite
 // patterns that can be used with any PatternRewriter, not conversion patterns.
 void getDecomposeONNXToONNXPatterns(mlir::RewritePatternSet &patterns,
