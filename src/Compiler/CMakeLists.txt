@@ -103,8 +103,12 @@ endif()
 
 add_onnx_mlir_library(OMOnnxToMlirPasses
   OnnxToMlirPasses.cpp
+  XmcMlirPasses.cpp
   
   EXCLUDE_FROM_OM_LIBS
+
+  DEPENDS
+  OMPublicPassIncGen
 
   INCLUDE_DIRS PRIVATE
   ${FILE_GENERATE_DIR}
@@ -128,6 +132,9 @@ add_onnx_mlir_library(OMCompilerPasses
   CompilerPasses.cpp
 
   EXCLUDE_FROM_OM_LIBS
+
+  DEPENDS
+  OMPublicPassIncGen
 
   INCLUDE_DIRS PRIVATE
   ${FILE_GENERATE_DIR}

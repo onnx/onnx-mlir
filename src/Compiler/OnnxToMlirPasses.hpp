@@ -13,6 +13,7 @@
 #define ONNX_MLIR_ONNX_TO_MLIR_PASSES_H
 
 #include "src/Compiler/CompilerOptionEnums.hpp"
+#include "src/Pass/Passes.hpp"
 #include <string>
 
 namespace mlir {
@@ -24,36 +25,18 @@ class PassManager;
 namespace onnx_mlir {
 
 struct OnnxToMlirOptions {
-  bool enableQuarkQuantizedLegalization = false;
-  bool enableConvTransposeDecompose = false;
-  bool enableConvTransposeDecomposeToPhasedConv = false;
-  bool enableConvTranspose1dDecomposeToPhasedConv = false;
-  bool enableInstanceNormDecompose = true;
-  bool enableGroupNormDecompose = true;
-  bool enableReduceL2Decompose = true;
-  bool enableMatmulNBitsDecompose = false;
-  bool enableGroupQueryAttentionDecompose = true;
-  bool enableConcatFuse = true;
-  bool enableGroupQueryAttentionCacheSlicing = true;
+  ONNXHybridTransformPassOptions hybrid;
   bool enableRemoveDqQAroundOp = false;
   bool enableRemoveBinary = false;
   bool enableFusePadIntoAvgpool = false;
   bool enableXMCPasses = false;
-  bool enableSplitToSliceDecompose = false;
-  bool enableLstmSeqDecompose = false;
-  bool enableGatherToSlice = true;
-  bool enableRotaryEmbeddingRecompose = false;
-  bool enableQDQConstProp = false;
-  bool enableHardSwishDecompose = true;
 
   bool disableBatchNormDecompose = false;
-  bool disableRecomposeOption = false;
   bool enableUnsafeMathOptimizations = true;
   bool enableONNXHybridPass = true;
   bool enableConvOptPass = true;
   bool enableSimdDataLayout = false;
   bool disableSimdOption = false;
-  bool enableGAPToReduceMean = true;
 
   bool enableMatmulAddFusion = true;
   bool enableMatmulToConv = true;

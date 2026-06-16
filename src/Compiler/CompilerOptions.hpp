@@ -85,8 +85,7 @@ extern bool enableUnsafeMathOptimizations;                    // common for both
 extern bool enableKrnlBufferReuse;                            // common for both
 extern bool enableSafeCodeGen;                                // common for both
 extern bool disableMemRefPrefetch;                            // common for both
-extern bool enableConvTransposeDecomposeToPhasedConv;         // common for both
-extern bool enableConvTranspose1dDecomposeToPhasedConv;       // common for both
+extern std::string onnxTransformOptions;                      // onnx-mlir only
 extern bool enableQuarkQuantizerLegalization;                 // common for both
 extern bool disableBatchNormDecompose;                        // common for both
 extern uint64_t compilationNumThreads;                        // common for both
@@ -128,7 +127,6 @@ extern bool enableParallel;                       // onnx-mlir only
 extern bool disableSimdOption;                    // onnx-mlir only
 extern bool enableFastMathOption;                 // onnx-mlir only
 extern bool disableRecomposeOption;               // onnx-mlir only
-extern bool enableConvTransposeDecomposeOption;   // onnx-mlir only
 extern bool enableSimdDataLayout;                 // onnx-mlir only
 extern bool verifyInputTensors;                   // onnx-mlir only
 extern bool allowSorting;                         // onnx-mlir only

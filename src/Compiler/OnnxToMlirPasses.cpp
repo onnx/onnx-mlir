@@ -13,7 +13,6 @@
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Pass/PassManager.h"
-#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
 #include "src/Compiler/DisposableGarbageCollector.hpp"
 #include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
@@ -21,106 +20,19 @@
 using namespace mlir;
 namespace onnx_mlir {
 
-void addXmcMlirPasses(mlir::OpPassManager &pm, OnnxToMlirOptions opts) {
-  pm.addNestedPass<func::FuncOp>(createFixNegScalePass());
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createOptimizeOnnxRequantizationPass());
-  pm.addNestedPass<func::FuncOp>(createONNXCSEPass());
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvertQDQToRequantizePass());
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createQuantTypesPass());
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createXmcFoldQuantizedBinary());
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceErfToGeluPass());
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createConvertInstanceNormToGroupNormPass());
-  //  pm.addNestedPass<func::FuncOp>(onnx_mlir::createSplitGroupConvPass());
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createRemoveDilationConv());
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createTransferResizeLinearToDwConv());
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvWithBiasPass());
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createRemoveRedundantReshapePass());
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceQDQReductionPass());
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createTransferReduceMeanSumToConvPass());
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createLowerReduceToPoolPass());
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createTransferPoolFixToDownsampleFixPass());
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createRemoveRedundantReluPass());
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createStandardizeSliceOpsPass());
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createMergeContinuousStridedSlicePass());
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createConvertMulToDepthwiseConv2dPass());
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createTransferDepthwiseConv2dWithChannelMultiplierPass());
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createRemoveUselessQLinearPoolPass());
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createOptimizeSliceReshapeTransposeBlockPass());
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createTransferSpaceToDepthToConv2dPass());
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createMergeBatchnormToConvPass());
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createEliminateReshapeAroundSlicePass());
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createMergeSliceConcatPass());
-
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createTransferConvSliceToConvPass());
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createTransferOp1dToOp2dPass());
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createTransferScaleToDwConv2dPass());
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvertToChannelLastPass());
-  if (opts.enableMatmulAddFusion)
-    pm.addNestedPass<func::FuncOp>(
-        onnx_mlir::createFuseMatMulAddToXFEMatMulBiasPass());
-  if (opts.enableMatmulToConv)
-    pm.addNestedPass<func::FuncOp>(
-        onnx_mlir::createConvertMatMulToXFEConvPass());
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createConvertSCastPairToRequantizePass());
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createONNXTransposeOptimizationPass());
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createRemoveContinuousTransposeWithReshapePass());
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createTransferOp3dToOp2dPass());
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createTransformReshapelikeOpToReshapePass());
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createRemoveSemanticallyUselessOpsPass());
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createTransfer5dBlockTo4dPass());
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createTransform5DTransposeTo4DPass());
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createCombineTransposePairPass());
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceNDimTransposePass());
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createTransfer5dStridedSliceTo4d());
-  // Note: architecture specific pass.
-  // pm.addNestedPass<func::FuncOp>(onnx_mlir::createTransferOpShapeTo4dPass());
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createBatchReductionToReshapeReductionPass());
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createReplaceQuantizedTileToAddPass());
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceQDQEltwisePass());
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceQDQSigmoidPass());
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceAdjacentOpPass());
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createRemovePairsAndMoveDownReshapePass());
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceContainedConcatPass());
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createOptimizeSiblingConcatPass());
-
-  pm.addNestedPass<func::FuncOp>(createCanonicalizeWithResultNamesPass());
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createReplaceHsigmoidAndHswishPass());
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createConvertXFEConvToDepthwiseConvPass());
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createFuseConvActivationPass());
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createNormalizeConvActivationPass());
-  // pm.addNestedPass<func::FuncOp>(
-  //     onnx_mlir::createTransferReduceHdimToReduceCdimPass());
-
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createAddRequantForOutputConvPass());
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
+// Return a copy of the hybrid options with the sub-passes that are not
+// not part of the decompose-only stage disabled.
+static ONNXHybridTransformPassOptions getDecomposeOnlyOptions(
+    ONNXHybridTransformPassOptions options) {
+  options.shapeInference = false;
+  options.canonicalization = false;
+  options.constantPropagation = false;
+  options.qdqConstProp = false;
+  options.decomposition = true;
+  options.recomposition = false;
+  options.quarkQuantizedOpsLegalization = false;
+  options.enableRotaryEmbeddingRecompose = false;
+  return options;
 }
 
 void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
@@ -143,64 +55,33 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
         std::make_unique<DisposableGarbageCollector>(pm.getContext()));
 
   // Decompose first. Eliminates some unsupported ops without shape inference.
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createDecomposeONNXToONNXPass(
-      /*target=*/"", opts.enableConvTransposeDecompose,
-      opts.enableConvTransposeDecomposeToPhasedConv,
-      opts.enableConvTranspose1dDecomposeToPhasedConv,
-      opts.enableInstanceNormDecompose, opts.enableGroupNormDecompose,
-      opts.enableMatmulNBitsDecompose, opts.enableGroupQueryAttentionDecompose,
-      opts.enableSplitToSliceDecompose, opts.enableConcatFuse,
-      opts.enableLstmSeqDecompose, opts.enableReduceL2Decompose,
-      opts.enableGatherToSlice, opts.enableHardSwishDecompose,
-      opts.enableGroupQueryAttentionCacheSlicing));
-  if (!opts.disableRecomposeOption)
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createONNXHybridTransformPass(
+      getDecomposeOnlyOptions(opts.hybrid)));
+  if (opts.hybrid.recomposition)
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createRecomposeONNXToONNXPass(
-        /*target=*/"", opts.enableRotaryEmbeddingRecompose));
+        /*target=*/"", opts.hybrid.enableRotaryEmbeddingRecompose));
 
   if (opts.enableONNXHybridPass) {
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createONNXHybridTransformPass(
-        !opts.disableRecomposeOption, opts.enableQuarkQuantizedLegalization,
-        opts.enableConvTransposeDecompose,
-        opts.enableConvTransposeDecomposeToPhasedConv,
-        opts.enableConvTranspose1dDecomposeToPhasedConv,
-        opts.enableInstanceNormDecompose, opts.enableGroupNormDecompose,
-        opts.enableMatmulNBitsDecompose,
-        opts.enableGroupQueryAttentionDecompose,
-        opts.enableSplitToSliceDecompose, opts.enableConcatFuse,
-        opts.enableGAPToReduceMean, opts.enableLstmSeqDecompose,
-        opts.enableGatherToSlice, opts.enableReduceL2Decompose,
-        opts.enableRotaryEmbeddingRecompose, opts.enableQDQConstProp,
-        opts.enableHardSwishDecompose,
-        opts.enableGroupQueryAttentionCacheSlicing));
+    pm.addNestedPass<func::FuncOp>(
+        onnx_mlir::createONNXHybridTransformPass(opts.hybrid));
     // Convolution Optimization for CPU: enable when there are no accelerators.
     if (targetCPU && opts.enableConvOptPass) {
       pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvOptONNXToONNXPass(
           opts.enableSimdDataLayout && !opts.disableSimdOption));
+      ONNXHybridTransformPassOptions hybridOptions = opts.hybrid;
+      hybridOptions.quarkQuantizedOpsLegalization = false;
       pm.addNestedPass<func::FuncOp>(
-          onnx_mlir::createONNXHybridTransformPass(!opts.disableRecomposeOption,
-              /*enableQuarkQuantizedOpsLegalization=*/false,
-              opts.enableConvTransposeDecompose,
-              opts.enableConvTransposeDecomposeToPhasedConv,
-              opts.enableConvTranspose1dDecomposeToPhasedConv,
-              opts.enableInstanceNormDecompose, opts.enableGroupNormDecompose,
-              opts.enableMatmulNBitsDecompose,
-              opts.enableGroupQueryAttentionDecompose,
-              opts.enableSplitToSliceDecompose, opts.enableConcatFuse,
-              opts.enableGAPToReduceMean, opts.enableLstmSeqDecompose,
-              opts.enableGatherToSlice, opts.enableReduceL2Decompose,
-              opts.enableRotaryEmbeddingRecompose, opts.enableQDQConstProp,
-              opts.enableHardSwishDecompose,
-              opts.enableGroupQueryAttentionCacheSlicing));
+          onnx_mlir::createONNXHybridTransformPass(hybridOptions));
     }
     // If quark quantized legalization is enabled, do a last const prop after it
     // so that we cover any remaining Cast -> Cast patterns that weren't covered
     // by the pass.
-    if (opts.enableQuarkQuantizedLegalization) {
+    if (opts.hybrid.quarkQuantizedOpsLegalization) {
       configureConstPropONNXToONNXPass(/*roundFPToInt=*/false,
           /*expansionBound=*/-1, /*disabledPatterns=*/{""},
           /*constantPropIsDisabled=*/false);
       pm.addNestedPass<func::FuncOp>(
-          onnx_mlir::createConstPropONNXToONNXPass(opts.enableQDQConstProp));
+          onnx_mlir::createConstPropONNXToONNXPass(opts.hybrid.qdqConstProp));
     }
   } else {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
@@ -215,27 +96,28 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::createLegalizeQuarkQuantizedOpsPass());
     pm.addNestedPass<func::FuncOp>(
-        onnx_mlir::createConstPropONNXToONNXPass(opts.enableQDQConstProp));
+        onnx_mlir::createConstPropONNXToONNXPass(opts.hybrid.qdqConstProp));
     if (opts.onnxOpTransformThreshold > 0) {
       // Dynamic iterate in ONNXOpTransformPass
       pm.addPass(onnx_mlir::createONNXOpTransformPass(
           opts.onnxOpTransformThreshold, opts.onnxOpTransformReport, targetCPU,
           opts.enableSimdDataLayout && !opts.disableSimdOption,
-          opts.enableConvOptPass, !opts.disableRecomposeOption));
+          opts.enableConvOptPass, opts.hybrid.recomposition));
     } else {
       // Statically add extra passes
       for (int i = 0; i < opts.repeatOnnxTransform; i++) {
         pm.addPass(onnx_mlir::createCanonicalizeWithResultNamesPass());
         pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
         pm.addNestedPass<func::FuncOp>(
-            onnx_mlir::createConstPropONNXToONNXPass(opts.enableQDQConstProp));
+            onnx_mlir::createConstPropONNXToONNXPass(opts.hybrid.qdqConstProp));
       }
     }
   }
 
   // Simplify shape-related ops.
   pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass(
-      opts.enableQuarkQuantizedLegalization, opts.enableGAPToReduceMean));
+      opts.hybrid.quarkQuantizedOpsLegalization,
+      opts.hybrid.enableGAPToReduceMean));
 
   // Canonicalizing Q-DQ related ops
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createQDQCanonicalizePass(
@@ -244,20 +126,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   // One more call to ONNX shape inference/canonicalization/... to update
   // shape if possible.
   if (opts.enableONNXHybridPass) {
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createONNXHybridTransformPass(
-        !opts.disableRecomposeOption, opts.enableQuarkQuantizedLegalization,
-        opts.enableConvTransposeDecompose,
-        opts.enableConvTransposeDecomposeToPhasedConv,
-        opts.enableConvTranspose1dDecomposeToPhasedConv,
-        opts.enableInstanceNormDecompose, opts.enableGroupNormDecompose,
-        opts.enableMatmulNBitsDecompose,
-        opts.enableGroupQueryAttentionDecompose,
-        opts.enableSplitToSliceDecompose, opts.enableConcatFuse,
-        opts.enableGAPToReduceMean, opts.enableLstmSeqDecompose,
-        opts.enableGatherToSlice, opts.enableReduceL2Decompose,
-        opts.enableRotaryEmbeddingRecompose, opts.enableQDQConstProp,
-        opts.enableHardSwishDecompose,
-        opts.enableGroupQueryAttentionCacheSlicing));
+    pm.addNestedPass<func::FuncOp>(
+        onnx_mlir::createONNXHybridTransformPass(opts.hybrid));
   } else {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
     pm.addPass(onnx_mlir::createCanonicalizeWithResultNamesPass());

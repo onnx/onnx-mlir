@@ -1,5 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
+set(LLVM_TARGET_DEFINITIONS Passes.td)
+mlir_tablegen(Passes.h.inc -gen-pass-decls -name ONNXTransforms
+              "-I${ONNX_MLIR_SRC_ROOT}")
+add_public_tablegen_target(OMONNXTransformsIncGen)
+add_dependencies(OMPublicPassIncGen OMONNXTransformsIncGen)
+
 add_onnx_mlir_rewriter(Decompose)
 add_onnx_mlir_rewriter(DecomposeConvTranspose)
 add_onnx_mlir_rewriter(DecomposeConvTransposePhased)
@@ -118,8 +124,10 @@ add_onnx_mlir_library(OMONNXRewrite
   xmc/NormalizeConvActivationPass.cpp
 
   DEPENDS
+  OMONNXTransformsIncGen
   OMONNXDecomposeIncGen
   OMONNXDecomposeConvTransposeIncGen
+  OMPublicPassIncGen
   OMONNXDecomposeConvTransposePhasedIncGen
   OMONNXDecomposeConvTranspose1dPhasedIncGen
   OMONNXConstPropIncGen
@@ -143,6 +151,10 @@ add_onnx_mlir_library(OMOpTransform
 
 add_onnx_mlir_library(OMHybridTransform
   ONNXHybridTransformPass.cpp
+
+  DEPENDS
+  OMONNXTransformsIncGen
+  OMPublicPassIncGen
 
   LINK_LIBS PUBLIC
   OMONNXOps
