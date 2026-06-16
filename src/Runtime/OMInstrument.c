@@ -224,11 +224,17 @@ static void ProcessName(
 // =============================================================================
 // Buffer management
 
+// Weak ref: symbol is absent when compiled with --omit-compile-info.
+__attribute__((weak)) const char *omCompilationInfo(void);
+
 static inline void printStartReport() {
   if (!startReportPrinted) {
     assert(instrumentFout); // Error  "expected instrumentInitialized
                             // instrumentFout for reporting".
     fprintf(instrumentFout, "==START-REPORT==\n");
+    if (omCompilationInfo)
+      fprintf(instrumentFout, "==COMPILE-INFO-REPORT==, %s\n",
+          omCompilationInfo());
     startReportPrinted = true;
   }
 }
