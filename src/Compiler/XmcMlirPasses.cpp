@@ -77,9 +77,6 @@ void addXmcMlirPasses(mlir::OpPassManager &pm, OnnxToMlirOptions opts) {
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createTransferScaleToDwConv2dPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvertToChannelLastPass());
-  if (opts.enableMatmulAddFusion)
-    pm.addNestedPass<func::FuncOp>(
-        onnx_mlir::createFuseMatMulAddToXFEMatMulBiasPass());
   if (opts.enableMatmulToConv)
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::createConvertMatMulToXFEConvPass());
@@ -112,6 +109,12 @@ void addXmcMlirPasses(mlir::OpPassManager &pm, OnnxToMlirOptions opts) {
       onnx_mlir::createReplaceQuantizedTileToAddPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceQDQClipCastPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceQDQEltwisePass());
+  // Must run after ReplaceQDQEltwisePass: the quantized bias add is rewritten
+  // into onnx.XCOMPILERFusedEltwise[ADD] here, which is the form the fusion
+  // pattern matches. Running earlier (before this op exists) fuses nothing.
+  if (opts.enableMatmulAddFusion)
+    pm.addNestedPass<func::FuncOp>(
+        onnx_mlir::createFuseMatMulAddToXFEMatMulBiasPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceQDQSigmoidPass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createTransferBatchXCompilerFusedEltwisePass());
