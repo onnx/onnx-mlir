@@ -57,20 +57,30 @@ static Type elementTypeFor1DBias(Type elemType) {
       perAxis.getStorageTypeMax());
 }
 
-/// Mirrors the xcompiler ReplaceQDQMatmulPass `const-fix` gate
-/// (get_matmul_add_template, line 127): only a per-tensor (single-scale)
-/// quantized bias is foldable into the matmul. A genuine per-channel bias
-/// (per-axis with one scale per output channel) is intentionally left as a
-/// separate Add, reproducing the xcompiler non-fusion behavior for per-channel
-/// quantization.
-static bool isBiasPerTensorFoldable(Type biasElemType) {
-  auto perAxis = dyn_cast<quant::UniformQuantizedPerAxisType>(biasElemType);
-  if (!perAxis)
-    return true; // per-tensor uniform quant or non-quantized constant
-  // A single-scale per-axis type collapses to per-tensor (see
-  // elementTypeFor1DBias); anything with more than one scale is genuine
-  // per-channel quantization and must NOT be fused.
-  return perAxis.getScales().size() == 1;
+/// Number of quantization scales along the quantized axis: 1 for a per-tensor
+/// (uniform) quantized type, N for a per-axis (per-channel) type, and 0 for a
+/// non-quantized (float) type.
+static int64_t quantScaleCount(Type elemType) {
+  if (auto perAxis = dyn_cast<quant::UniformQuantizedPerAxisType>(elemType))
+    return static_cast<int64_t>(perAxis.getScales().size());
+  if (isa<quant::UniformQuantizedType>(elemType))
+    return 1;
+  return 0; // non-quantized (float)
+}
+
+/// The bias is foldable into the matmul only when it is quantized at the same
+/// granularity as the weight along the output channel:
+///   - per-tensor weight  (1 scale)  needs a per-tensor bias  (1 scale)
+///   - per-channel weight (N scales) needs a matching per-channel bias
+///     (N scales, one per output channel)
+/// A per-channel-weight matmul with a per-tensor bias cannot be folded into the
+/// INT32 accumulator (the requantization scale x_scale*w_scale[c] differs per
+/// output channel), so it must be left as a separate Add. This reproduces the
+/// xcompiler/xmodel non-fusion behavior, where exactly the matmuls whose bias
+/// granularity matches the weight are fused. Float (non-quantized) tensors have
+/// 0 scales on both sides and so remain foldable.
+static bool isBiasGranularityCompatible(Type biasElemType, Type weightElemType) {
+  return quantScaleCount(biasElemType) == quantScaleCount(weightElemType);
 }
 
 /// Returns the ONNXConstantOp feeding `v`, looking through a single
@@ -86,11 +96,13 @@ static ONNXConstantOp getDefiningConstantThroughDequant(Value v) {
 }
 
 /// Bias must be a constant whose total element count == N (last dim of B), be
-/// effectively 1-D ([N], leading dims == 1), and be per-tensor quantized.
-/// Together these mirror the xcompiler ReplaceQDQMatmulPass fusion gates:
-/// const-fix addend (per-tensor) + const.shape[0] == output channel (1-D bias).
-/// A 2-D [seq, N] broadcast bias or a per-channel bias is kept as a separate
-/// Add (non-fusion).
+/// effectively 1-D ([N], leading dims == 1), and be quantized at the same
+/// granularity as the weight (per-tensor bias with per-tensor weight, or
+/// matching per-channel bias with per-channel weight). Together these mirror
+/// the xcompiler ReplaceQDQMatmulPass fusion gates: const.shape[0] == output
+/// channel (1-D bias) plus a bias that can fold into the INT32 accumulator.
+/// A 2-D [seq, N] broadcast bias, or a per-tensor bias on a per-channel-weight
+/// matmul, is kept as a separate Add (non-fusion).
 static bool isBiasCompatibleWithMatMul(Value biasVal, Value bVal) {
   auto bType = mlir::dyn_cast<RankedTensorType>(bVal.getType());
   if (!bType || bType.getRank() < 1)
@@ -124,7 +136,8 @@ static bool isBiasCompatibleWithMatMul(Value biasVal, Value bVal) {
     if (biasShape[d] != 1)
       return false;
 
-  return isBiasPerTensorFoldable(biasTy.getElementType());
+  return isBiasGranularityCompatible(
+      biasTy.getElementType(), bType.getElementType());
 }
 
 /// Reshape constant bias to rank-1 [N] and fix quantized element type for the
@@ -263,10 +276,13 @@ struct FuseMatMulAddToXFEMatMulBiasPass
   StringRef getDescription() const override {
     return "Fuse Add(MatMul(A, B), constant bias) -- or the lowered "
            "XCOMPILERFusedEltwise[ADD](MatMul, const) form -- into "
-           "onnx.XFEMatMulBias when the bias is an effectively 1-D, per-tensor "
-           "quantized constant with one element per output channel (last dim of "
-           "B). Per-channel bias and 2-D broadcast bias are left as a separate "
-           "Add, matching the xcompiler ReplaceQDQMatmulPass fusion gates.";
+           "onnx.XFEMatMulBias when the bias is an effectively 1-D constant "
+           "with one element per output channel (last dim of B) and is "
+           "quantized at the same granularity as the weight (per-tensor bias "
+           "with per-tensor weight, or matching per-channel bias with "
+           "per-channel weight). A per-tensor bias on a per-channel-weight "
+           "matmul, and a 2-D broadcast bias, are left as a separate Add, "
+           "matching the xcompiler ReplaceQDQMatmulPass fusion gates.";
   }
 
   void runOnOperation() override {
