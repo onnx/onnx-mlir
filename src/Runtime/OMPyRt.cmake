@@ -25,6 +25,25 @@ set_target_properties(OMTensorUtils
   POSITION_INDEPENDENT_CODE TRUE
   )
 
+add_onnx_mlir_library(OMDebugRuntime
+  OMTensorHelper.cpp
+  OMTensorListHelper.cpp
+
+  EXCLUDE_FROM_OM_LIBS
+
+  LINK_LIBS PUBLIC
+  OMTensorUtils
+  OMSmallFPConversion
+
+  INCLUDE_DIRS PUBLIC
+  OMTensorUtils
+  ${ONNX_MLIR_SRC_ROOT}/include
+  )
+set_target_properties(OMDebugRuntime
+  PROPERTIES
+  POSITION_INDEPENDENT_CODE TRUE
+  )
+
 add_onnx_mlir_library(OMExecutionSession
   ExecutionSession.cpp
 
@@ -32,6 +51,7 @@ add_onnx_mlir_library(OMExecutionSession
 
   LINK_LIBS PUBLIC
   OMTensorUtils
+  OMDebugRuntime
   # Needed?
   OMSmallFPConversion
   )
