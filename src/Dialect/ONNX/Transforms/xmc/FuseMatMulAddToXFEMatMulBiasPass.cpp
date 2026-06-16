@@ -57,17 +57,40 @@ static Type elementTypeFor1DBias(Type elemType) {
       perAxis.getStorageTypeMax());
 }
 
-/// Per-axis bias must broadcast one scale or one scale per output channel.
-static bool isBiasQuantParamsCompatible(Type biasElemType, int64_t nOut) {
+/// Mirrors the xcompiler ReplaceQDQMatmulPass `const-fix` gate
+/// (get_matmul_add_template, line 127): only a per-tensor (single-scale)
+/// quantized bias is foldable into the matmul. A genuine per-channel bias
+/// (per-axis with one scale per output channel) is intentionally left as a
+/// separate Add, reproducing the xcompiler non-fusion behavior for per-channel
+/// quantization.
+static bool isBiasPerTensorFoldable(Type biasElemType) {
   auto perAxis = dyn_cast<quant::UniformQuantizedPerAxisType>(biasElemType);
   if (!perAxis)
-    return true;
-  const int64_t nScales = static_cast<int64_t>(perAxis.getScales().size());
-  return nScales == 1 || nScales == nOut;
+    return true; // per-tensor uniform quant or non-quantized constant
+  // A single-scale per-axis type collapses to per-tensor (see
+  // elementTypeFor1DBias); anything with more than one scale is genuine
+  // per-channel quantization and must NOT be fused.
+  return perAxis.getScales().size() == 1;
 }
 
-/// Bias must be a constant with total element count == N (last dim of B), and
-/// per-axis quant scale count must be 1 or N when applicable.
+/// Returns the ONNXConstantOp feeding `v`, looking through a single
+/// DequantizeLinear if present. Mirrors the xcompiler get_matmul_add_template
+/// chain (const-fix -> dequantize-linear -> add), so a bias constant behind a
+/// DequantizeLinear is still recognized.
+static ONNXConstantOp getDefiningConstantThroughDequant(Value v) {
+  if (auto c = v.getDefiningOp<ONNXConstantOp>())
+    return c;
+  if (auto dq = v.getDefiningOp<ONNXDequantizeLinearOp>())
+    return dq.getX().getDefiningOp<ONNXConstantOp>();
+  return nullptr;
+}
+
+/// Bias must be a constant whose total element count == N (last dim of B), be
+/// effectively 1-D ([N], leading dims == 1), and be per-tensor quantized.
+/// Together these mirror the xcompiler ReplaceQDQMatmulPass fusion gates:
+/// const-fix addend (per-tensor) + const.shape[0] == output channel (1-D bias).
+/// A 2-D [seq, N] broadcast bias or a per-channel bias is kept as a separate
+/// Add (non-fusion).
 static bool isBiasCompatibleWithMatMul(Value biasVal, Value bVal) {
   auto bType = mlir::dyn_cast<RankedTensorType>(bVal.getType());
   if (!bType || bType.getRank() < 1)
@@ -76,8 +99,7 @@ static bool isBiasCompatibleWithMatMul(Value biasVal, Value bVal) {
   if (nOut == ShapedType::kDynamic)
     return false;
 
-  auto constOp =
-      mlir::dyn_cast_or_null<ONNXConstantOp>(biasVal.getDefiningOp());
+  auto constOp = getDefiningConstantThroughDequant(biasVal);
   if (!constOp)
     return false;
 
@@ -92,7 +114,17 @@ static bool isBiasCompatibleWithMatMul(Value biasVal, Value bVal) {
   if (static_cast<int64_t>(elms.getNumElements()) != nOut)
     return false;
 
-  return isBiasQuantParamsCompatible(biasTy.getElementType(), nOut);
+  // Require an effectively 1-D per-output-channel bias [N]: innermost dim == N
+  // and every leading dim == 1. A genuine 2-D [seq, N] broadcast constant is
+  // left as a separate Add (xcompiler keeps these unfused).
+  ArrayRef<int64_t> biasShape = biasTy.getShape();
+  if (biasShape.empty() || biasShape.back() != nOut)
+    return false;
+  for (int64_t d = 0, e = biasTy.getRank() - 1; d < e; ++d)
+    if (biasShape[d] != 1)
+      return false;
+
+  return isBiasPerTensorFoldable(biasTy.getElementType());
 }
 
 /// Reshape constant bias to rank-1 [N] and fix quantized element type for the
@@ -100,8 +132,7 @@ static bool isBiasCompatibleWithMatMul(Value biasVal, Value bVal) {
 /// per-tensor). Returns the original bias value if no rewrite is needed.
 static Value create1DBiasFromConstant(
     PatternRewriter &rewriter, Value biasVal, Location loc, int64_t n) {
-  auto constOp =
-      mlir::dyn_cast_or_null<ONNXConstantOp>(biasVal.getDefiningOp());
+  auto constOp = getDefiningConstantThroughDequant(biasVal);
   if (!constOp)
     return biasVal;
 
@@ -134,57 +165,88 @@ static Value create1DBiasFromConstant(
       .getResult();
 }
 
+/// Shared core: try to fuse an add-like op (`onnx.Add` or
+/// `onnx.XCOMPILERFusedEltwise` with type=ADD) whose operands are
+/// (MatMul, constant bias) into `onnx.XFEMatMulBias`.
+static LogicalResult tryFuseMatMulBias(
+    Operation *addLikeOp, Value lhs, Value rhs, PatternRewriter &rewriter) {
+  ONNXMatMulOp matmulOp = nullptr;
+  Value biasConstant = nullptr;
+
+  if (auto mm = lhs.getDefiningOp<ONNXMatMulOp>()) {
+    if (getDefiningConstantThroughDequant(rhs)) {
+      matmulOp = mm;
+      biasConstant = rhs;
+    }
+  }
+  if (!matmulOp) {
+    if (auto mm = rhs.getDefiningOp<ONNXMatMulOp>()) {
+      if (getDefiningConstantThroughDequant(lhs)) {
+        matmulOp = mm;
+        biasConstant = lhs;
+      }
+    }
+  }
+
+  if (!matmulOp || !biasConstant)
+    return failure();
+
+  if (!matmulOp.getResult().hasOneUse())
+    return failure();
+
+  Value bVal = matmulOp.getB();
+  auto bType = mlir::dyn_cast<RankedTensorType>(bVal.getType());
+  if (!bType || bType.getShape().back() == ShapedType::kDynamic)
+    return failure();
+  int64_t nOut = bType.getShape().back();
+
+  if (!isBiasCompatibleWithMatMul(biasConstant, bVal))
+    return failure();
+
+  Location loc = addLikeOp->getLoc();
+  Value bias1D = create1DBiasFromConstant(rewriter, biasConstant, loc, nOut);
+
+  auto fused = rewriter.create<XFEMatMulBiasOp>(loc,
+      addLikeOp->getResult(0).getType(), matmulOp.getA(), matmulOp.getB(),
+      bias1D);
+
+  rewriter.replaceOp(addLikeOp, fused.getY());
+  rewriter.eraseOp(matmulOp);
+  return success();
+}
+
+/// Float / element-type-quant form: fuse `Add(MatMul, const)`.
 struct FuseMatMulAddToXFEMatMulBiasPattern
     : public OpRewritePattern<ONNXAddOp> {
   using OpRewritePattern<ONNXAddOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(
       ONNXAddOp addOp, PatternRewriter &rewriter) const override {
-    Value lhs = addOp.getA();
-    Value rhs = addOp.getB();
+    return tryFuseMatMulBias(addOp, addOp.getA(), addOp.getB(), rewriter);
+  }
+};
 
-    ONNXMatMulOp matmulOp = nullptr;
-    Value biasConstant = nullptr;
+/// Quantized form after the Add -> XCOMPILERFusedEltwise lowering: fuse
+/// `XCOMPILERFusedEltwise[ADD](MatMul, const)` with no fused activation.
+struct FuseMatMulFusedEltwiseToXFEMatMulBiasPattern
+    : public OpRewritePattern<XCOMPILERFusedEltwiseOp> {
+  using OpRewritePattern<XCOMPILERFusedEltwiseOp>::OpRewritePattern;
 
-    if (auto mm = lhs.getDefiningOp<ONNXMatMulOp>()) {
-      if (rhs.getDefiningOp<ONNXConstantOp>()) {
-        matmulOp = mm;
-        biasConstant = rhs;
-      }
-    }
-    if (!matmulOp) {
-      if (auto mm = rhs.getDefiningOp<ONNXMatMulOp>()) {
-        if (lhs.getDefiningOp<ONNXConstantOp>()) {
-          matmulOp = mm;
-          biasConstant = lhs;
-        }
-      }
-    }
-
-    if (!matmulOp || !biasConstant)
+  LogicalResult matchAndRewrite(XCOMPILERFusedEltwiseOp eltwiseOp,
+      PatternRewriter &rewriter) const override {
+    // Only a plain quantized ADD (no fused activation) maps to a matmul bias.
+    auto typeAttr = eltwiseOp->getAttrOfType<StringAttr>("type");
+    if (!typeAttr || typeAttr.getValue() != "ADD")
+      return failure();
+    auto nonlinearAttr = eltwiseOp->getAttrOfType<StringAttr>("nonlinear");
+    if (nonlinearAttr && nonlinearAttr.getValue() != "NONE")
       return failure();
 
-    if (!matmulOp.getResult().hasOneUse())
+    Value b = eltwiseOp.getB();
+    if (!b || mlir::isa<NoneType>(b.getType()))
       return failure();
 
-    Value bVal = matmulOp.getB();
-    auto bType = mlir::dyn_cast<RankedTensorType>(bVal.getType());
-    if (!bType || bType.getShape().back() == ShapedType::kDynamic)
-      return failure();
-    int64_t nOut = bType.getShape().back();
-
-    if (!isBiasCompatibleWithMatMul(biasConstant, bVal))
-      return failure();
-
-    Location loc = addOp.getLoc();
-    Value bias1D = create1DBiasFromConstant(rewriter, biasConstant, loc, nOut);
-
-    auto fused = rewriter.create<XFEMatMulBiasOp>(loc,
-        addOp.getResult().getType(), matmulOp.getA(), matmulOp.getB(), bias1D);
-
-    rewriter.replaceOp(addOp, fused.getY());
-    rewriter.eraseOp(matmulOp);
-    return success();
+    return tryFuseMatMulBias(eltwiseOp, eltwiseOp.getA(), b, rewriter);
   }
 };
 
@@ -199,16 +261,19 @@ struct FuseMatMulAddToXFEMatMulBiasPass
     return "fuse-matmul-add-to-xfe-matmul-bias";
   }
   StringRef getDescription() const override {
-    return "Fuse Add(MatMul(A, B), constant bias) into onnx.XFEMatMulBias when "
-           "the constant has one element per output channel (size of last dim "
-           "of B). Supports float and quantized tensors (per-tensor and "
-           "per-axis bias); constant data may be dense or disposable elements.";
+    return "Fuse Add(MatMul(A, B), constant bias) -- or the lowered "
+           "XCOMPILERFusedEltwise[ADD](MatMul, const) form -- into "
+           "onnx.XFEMatMulBias when the bias is an effectively 1-D, per-tensor "
+           "quantized constant with one element per output channel (last dim of "
+           "B). Per-channel bias and 2-D broadcast bias are left as a separate "
+           "Add, matching the xcompiler ReplaceQDQMatmulPass fusion gates.";
   }
 
   void runOnOperation() override {
     MLIRContext *context = &getContext();
     RewritePatternSet patterns(context);
-    patterns.add<FuseMatMulAddToXFEMatMulBiasPattern>(context);
+    patterns.add<FuseMatMulAddToXFEMatMulBiasPattern,
+        FuseMatMulFusedEltwiseToXFEMatMulBiasPattern>(context);
 
     GreedyRewriteConfig config;
     ResultNamesUpdater rnUpdater;
