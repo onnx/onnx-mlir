@@ -42,6 +42,7 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/ControlFlow/Scan.cpp
   ONNXOps/ML/CategoryMapper.cpp
   ONNXOps/ML/OneHotEncoder.cpp
+  ONNXOps/Math/Attention.cpp
   ONNXOps/Math/Bernoulli.cpp
   ONNXOps/Math/DFT.cpp
   ONNXOps/Math/Einsum.cpp
