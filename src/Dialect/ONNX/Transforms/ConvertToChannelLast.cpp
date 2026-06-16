@@ -1122,7 +1122,7 @@ struct ConvertToChannelLastPass : public PassWrapper<ConvertToChannelLastPass,
     RewritePatternSet patterns(context);
     patterns.add<ConvToChannelLastPattern>(context);
     patterns.add<ConvTransposeToChannelLastPattern>(context);
-//    patterns.add<AveragePoolToChannelLastPattern>(context);
+    patterns.add<AveragePoolToChannelLastPattern>(context);
     patterns.add<MaxPoolToChannelLastPattern>(context);
     patterns.add<GlobalAveragePoolToChannelLastPattern>(context);
     patterns.add<GlobalMaxPoolToChannelLastPattern>(context);
