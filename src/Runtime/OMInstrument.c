@@ -233,8 +233,8 @@ static inline void printStartReport() {
                             // instrumentFout for reporting".
     fprintf(instrumentFout, "==START-REPORT==\n");
     if (omCompilationInfo)
-      fprintf(instrumentFout, "==COMPILE-INFO-REPORT==, %s\n",
-          omCompilationInfo());
+      fprintf(
+          instrumentFout, "==COMPILE-INFO-REPORT==, %s\n", omCompilationInfo());
     startReportPrinted = true;
   }
 }

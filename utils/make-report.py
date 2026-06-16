@@ -153,7 +153,7 @@ def match_compile_info_report(line):
 
 
 def collect_multiline_json(first_fragment, file_iter):
-    depth = first_fragment.count('{') - first_fragment.count('}')
+    depth = first_fragment.count("{") - first_fragment.count("}")
     lines = [first_fragment]
     while depth > 0:
         cont = next(file_iter, None)
@@ -161,8 +161,8 @@ def collect_multiline_json(first_fragment, file_iter):
             break
         cont = cont.rstrip()
         lines.append(cont)
-        depth += cont.count('{') - cont.count('}')
-    return '\n'.join(lines)
+        depth += cont.count("{") - cont.count("}")
+    return "\n".join(lines)
 
 
 # ==SIMD-REPORT==, ..., <explanations>, <VL>, <simd-trip-count>
