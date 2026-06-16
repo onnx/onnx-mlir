@@ -12,7 +12,7 @@
 from pathlib import Path
 import argparse
 
-parser = argparse.ArgumentParser(description='Flags to run the test')
+parser = argparse.ArgumentParser(description="Flags to run the test")
 parser.add_argument("--tag", type=str, default="s390x", help="docker image tag")
 args = parser.parse_args()
 
