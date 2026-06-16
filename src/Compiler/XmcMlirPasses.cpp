@@ -109,9 +109,6 @@ void addXmcMlirPasses(mlir::OpPassManager &pm, OnnxToMlirOptions opts) {
       onnx_mlir::createReplaceQuantizedTileToAddPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceQDQClipCastPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceQDQEltwisePass());
-  // Must run after ReplaceQDQEltwisePass: the quantized bias add is rewritten
-  // into onnx.XCOMPILERFusedEltwise[ADD] here, which is the form the fusion
-  // pattern matches. Running earlier (before this op exists) fuses nothing.
   if (opts.enableMatmulAddFusion)
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::createFuseMatMulAddToXFEMatMulBiasPass());
