@@ -13,7 +13,7 @@ docker_usr_image_full = (
 
 BUILD_DIR = "build-ompyrt"
 
-workspace_workdir = os.path.join(jenkins_workspace_dir, BUILD_DIR)
+build_dir = os.path.join(jenkins_workspace_dir, BUILD_DIR)
 test_dir = os.path.join(workspace_workdir, "src/Runtime/python/om_pyrt/tests")
 
 
@@ -36,7 +36,14 @@ def main():
     ]
 
     # pip install
-    cmd_pip = [
+    cmd_pip_1 = [
+        "pip3",
+        "install",
+        "hatchling",
+        "--prefix=/usr",
+    ]
+    
+    cmd_pip_2 = [
         "pip3",
         "install",
         "src/Runtime/python/om_pyrt",
@@ -44,7 +51,7 @@ def main():
         "--no-build-isolation",
     ]
 
-    for cmd in [cmd_configure, cmd_build, cmd_pip]:
+    for cmd in [cmd_configure, cmd_build, cmd_pip_1, cmd_pip_2]:
         logging.info(" ".join(cmd))
         proc = subprocess.Popen(cmd, cwd=build_dir, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         for line in proc.stdout:
