@@ -49,11 +49,11 @@ bool disableQuantZeroPoint;                            // common for both
 bool enableUnsafeMathOptimizations;                    // common for both
 bool enableKrnlBufferReuse;                            // common for both
 std::string onnxTransformOptions;                      // onnx-mlir only
-bool enableQuarkQuantizerLegalization;                  // common for both
-bool disableBatchNormDecompose;                         // common for both
-bool enableSafeCodeGen;                                 // common for both
-bool disableMemRefPrefetch;                             // common for both
-uint64_t compilationNumThreads;                         // common for both
+bool enableQuarkQuantizerLegalization;                 // common for both
+bool disableBatchNormDecompose;                        // common for both
+bool enableSafeCodeGen;                                // common for both
+bool disableMemRefPrefetch;                            // common for both
+uint64_t compilationNumThreads;                        // common for both
 // AMD: Decompose unconditionally
 // std::vector<std::string> decomposeOpsInONNX;           // common for both
 EmissionTargetType emissionTarget;         // onnx-mlir only
