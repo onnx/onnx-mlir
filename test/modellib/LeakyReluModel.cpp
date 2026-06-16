@@ -4,7 +4,7 @@
 
 //==========-- LeakyReluModel.cpp - Building LeakyRelu Models for tests -=====//
 //
-// Copyright 2022,2023 The IBM Research Authors.
+// Copyright 2022-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -65,7 +65,7 @@ bool LeakyReluLibBuilder::build() {
 bool LeakyReluLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   constexpr int num = 1;
   OMTensor *list[num];
-  list[0] = omTensorCreateWithRandomData<float>({N}, dataRangeLB, dataRangeUB);
+  list[0] = omTensorCreateWithRandomData({N}, ONNX_TYPE_FLOAT, dataRangeLB, dataRangeUB);
   inputs = omTensorListCreate(list, num);
   return inputs && list[0];
 }

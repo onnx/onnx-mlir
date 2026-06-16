@@ -16,6 +16,7 @@ add_onnx_mlir_dialect_doc(onnx ONNX.td)
 add_onnx_mlir_library(OMONNXOps
   # Top files for ONNX dialect
   DialectBuilder.cpp
+  ReifyIndexExprValueProvider.cpp
   OnnxElementsAttrBuilder.cpp
   ONNXAttributes.cpp
   ONNXDialect.cpp
