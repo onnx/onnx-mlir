@@ -224,17 +224,19 @@ static void ProcessName(
 // =============================================================================
 // Buffer management
 
-// Weak ref: symbol is absent when compiled with --omit-compile-info.
-__attribute__((weak)) const char *omCompilationInfo(void);
+// Weak default: returns NULL when no model .so provides omCompilationInfo
+// (i.e. compiled with --omit-compile-info). The model's strong definition
+// overrides this at link time on all platforms.
+__attribute__((weak)) const char *omCompilationInfo(void) { return NULL; }
 
 static inline void printStartReport() {
   if (!startReportPrinted) {
     assert(instrumentFout); // Error  "expected instrumentInitialized
                             // instrumentFout for reporting".
     fprintf(instrumentFout, "==START-REPORT==\n");
-    if (omCompilationInfo)
-      fprintf(
-          instrumentFout, "==COMPILE-INFO-REPORT==, %s\n", omCompilationInfo());
+    const char *info = omCompilationInfo();
+    if (info)
+      fprintf(instrumentFout, "==COMPILE-INFO-REPORT==, %s\n", info);
     startReportPrinted = true;
   }
 }
