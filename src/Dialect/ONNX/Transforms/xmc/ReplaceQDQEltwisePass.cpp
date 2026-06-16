@@ -243,18 +243,41 @@ static void maybeWidenNarrowConstOperand(PatternRewriter &rewriter,
 
   unsigned aW = aStor.getWidth();
   unsigned bW = bStor.getWidth();
-  if (aW == bW)
-    return;
 
-  bool narrowIsA = aW < bW;
-  Value narrowSide = narrowIsA ? a : b;
-  mlir::quant::UniformQuantizedType narrowQ = narrowIsA ? aQ : bQ;
-  RankedTensorType narrowTy = narrowIsA ? aTy : bTy;
-  unsigned narrowW = narrowIsA ? aW : bW;
-  unsigned wideW = narrowIsA ? bW : aW;
+  bool narrowIsA;
+  Value narrowSide;
+  mlir::quant::UniformQuantizedType narrowQ;
+  RankedTensorType narrowTy;
 
-  if (narrowW != 8 || wideW != 16)
-    return;
+  if (aW != bW) {
+    // Width mismatch: widen the narrow 8-bit operand to its 16-bit sibling.
+    narrowIsA = aW < bW;
+    narrowSide = narrowIsA ? a : b;
+    narrowQ = narrowIsA ? aQ : bQ;
+    narrowTy = narrowIsA ? aTy : bTy;
+    unsigned narrowW = narrowIsA ? aW : bW;
+    unsigned wideW = narrowIsA ? bW : aW;
+    if (narrowW != 8 || wideW != 16)
+      return;
+  } else {
+    // Same-width mixed signedness: promote INT8 const to INT16 (golden).
+    if (aW != 8)
+      return;
+    if (aQ.isSigned() && !bQ.isSigned() && a.getDefiningOp<ONNXConstantOp>()) {
+      narrowIsA = true;
+      narrowSide = a;
+      narrowQ = aQ;
+      narrowTy = aTy;
+    } else if (bQ.isSigned() && !aQ.isSigned() &&
+               b.getDefiningOp<ONNXConstantOp>()) {
+      narrowIsA = false;
+      narrowSide = b;
+      narrowQ = bQ;
+      narrowTy = bTy;
+    } else {
+      return;
+    }
+  }
 
   auto constOp = narrowSide.getDefiningOp<ONNXConstantOp>();
   if (!constOp)

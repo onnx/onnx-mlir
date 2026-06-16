@@ -247,6 +247,9 @@ std::unique_ptr<mlir::Pass> createTransfer5dStridedSliceTo4d();
 /// Pass for transferring SpaceToDepth patterns to Conv2D.
 std::unique_ptr<mlir::Pass> createTransferSpaceToDepthToConv2dPass();
 
+/// Pass for fusing onnx.Clip(quantized->f32)+Cast(f32->uint) into CLAMP (XMC).
+std::unique_ptr<mlir::Pass> createReplaceQDQClipCastPass();
+
 /// Pass for fusing quantized eltwise+activation patterns (XMC).
 std::unique_ptr<mlir::Pass> createReplaceQDQEltwisePass();
 
@@ -276,8 +279,9 @@ std::unique_ptr<mlir::Pass> createMergeBatchnormToConvPass();
 /// ReduceSum (XMC).
 std::unique_ptr<mlir::Pass> createBatchReductionToReshapeReductionPass();
 
-/// Pass for deleting redundant Relu chains (XMC).
-std::unique_ptr<mlir::Pass> createRemoveRedundantReluPass();
+/// Pass for deleting redundant Relu/LeakyRelu-like ops: collapse Relu chains,
+/// drop Relu/LeakyRelu on non-negative inputs, fold adjacent LeakyRelu (XMC).
+std::unique_ptr<mlir::Pass> createRemoveRedundantReluLikeOpsPass();
 
 /// Pass for optimizing requantization in ONNX operations (XMC).
 std::unique_ptr<mlir::Pass> createOptimizeOnnxRequantizationPass();

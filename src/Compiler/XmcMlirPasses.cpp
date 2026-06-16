@@ -48,7 +48,8 @@ void addXmcMlirPasses(mlir::OpPassManager &pm, OnnxToMlirOptions opts) {
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createLowerReduceToPoolPass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createTransferPoolFixToDownsampleFixPass());
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createRemoveRedundantReluPass());
+  pm.addNestedPass<func::FuncOp>(
+      onnx_mlir::createRemoveRedundantReluLikeOpsPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createStandardizeSliceOpsPass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createMergeContinuousStridedSlicePass());
@@ -107,11 +108,13 @@ void addXmcMlirPasses(mlir::OpPassManager &pm, OnnxToMlirOptions opts) {
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceQDQResizePass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createReplaceQuantizedTileToAddPass());
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceQDQClipCastPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceQDQEltwisePass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceQDQSigmoidPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceAdjacentOpPass());
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createRemovePairsAndMoveDownReshapePass());
+  if (opts.enableRemovePairsReshape)
+    pm.addNestedPass<func::FuncOp>(
+        onnx_mlir::createRemovePairsAndMoveDownReshapePass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceContainedConcatPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createOptimizeSiblingConcatPass());
 
