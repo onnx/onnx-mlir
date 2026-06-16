@@ -472,7 +472,14 @@ static int genSharedLib(std::string sharedLibNameWithExt,
 #else
   std::vector<std::string> outputOpt = {"-o", sharedLibNameWithExt};
   std::vector<std::string> sharedLibOpts = {"-shared", "-fPIC"};
-  if (enableDebugInfo)
+  // `-g` here is what makes macOS ld write the N_OSO debugmap entries
+  // dsymutil follows, and what makes Linux ld preserve DWARF in the
+  // .so. We enable it whenever the IR carries debug info we want to
+  // surface — either an explicit --enable-debug-info, or any of the
+  // --profile-ir flavors (KrnlInstrument lowering attaches synthetic
+  // DISubprograms whose DWARF emission depends on this).
+  if (enableDebugInfo || profileIR != onnx_mlir::ProfileIRs::None ||
+      profileIRWithSig != onnx_mlir::ProfileIRs::None)
     sharedLibOpts.emplace_back("-g");
   llvm::for_each(libs, [](std::string &lib) { lib = "-l" + lib; });
   llvm::for_each(libDirs, [](std::string &libDir) { libDir = "-L" + libDir; });

@@ -49,6 +49,14 @@ public:
       const std::vector<py::array> &stridesPyArray,
       bool useSignalHandler,     // Debug flags.
       bool forceOutputDataCopy); // Debug flags.
+  // Create input tensors populated with debug/test data using this session's
+  // input signature. Returns a list of numpy arrays ready to pass to run().
+  // Empty string arguments are treated as "not provided" (same as nullptr in
+  // the C++ fillInputDebug). See omTensorListCreateFromInputSignature for full
+  // parameter documentation.
+  std::vector<py::array> pyFillInputDebug(const std::string &shapeInfo,
+      const std::string &valueInfo, const std::string &defaultLowerBound,
+      const std::string &defaultUpperBound, int seed, bool verbose);
   std::string pyInputSignature() const;
   std::string pyOutputSignature() const;
   std::string pyCompilationInfo() const;
@@ -89,7 +97,7 @@ PYBIND11_MODULE(PyRuntimeC, m) {
           "Args:\n"
           "    shared_lib_path (str): Path to the compiled model shared library.\n"
           "        Examples: './model.so' (Linux), 'model.dll' (Windows).\n"
-          "        Absolute path are preferred (otherwise see default search for given OS)"
+          "        Absolute path are preferred (otherwise see default search for given OS).\n"
           "    tag (str, optional): Model tag for identification. If provided, must\n"
           "        match the tag used during compilation. Default: ''.\n"
           "    use_default_entry_point (bool, optional): If True, use the default\n"
@@ -206,6 +214,68 @@ PYBIND11_MODULE(PyRuntimeC, m) {
           "    ...     outputs = session.run_debug([img], with_signal_handler=True)\n"
           "    ... except RuntimeError as e:\n"
           "    ...     print(f'Caught error: {e}')")
+      .def("fill_input_debug",
+          &onnx_mlir::PyExecutionSession::pyFillInputDebug,
+          py::arg("shape_info") = "",
+          py::arg("value_info") = "",
+          py::arg("default_lower_bound") = "",
+          py::arg("default_upper_bound") = "",
+          py::arg("seed") = -1,
+          py::arg("verbose") = false,
+          "Create input tensors populated with debug/test data.\n\n"
+          "Generates one numpy array per model input, using the session's input\n"
+          "signature to determine shapes and types. Shapes are taken from the\n"
+          "signature; dynamic dimensions must be resolved via shape_info.\n"
+          "Data is filled with random values according to the bound parameters.\n\n"
+          "Args:\n"
+          "    shape_info (str, optional): Dimension overrides for dynamic axes.\n"
+          "        Format: 'INPUT_ID:D1xD2x...xDn, ...' where INPUT_ID is an integer\n"
+          "        >= 0 for a single input, a range (e.g. '2-5'), or -1 for all inputs.\n"
+          "        A dim value of -1 keeps the value from the signature.\n"
+          "        Example: '0:1x28x28,1:4' sets input 0 to shape [1,28,28] and\n"
+          "        input 1 to shape [4]. Default: '' (use the signature dims unchanged).\n"
+          "    value_info (str, optional): Per-input fill specification, overriding\n"
+          "        default_lower_bound/default_upper_bound for individual inputs.\n"
+          "        Format: 'INPUT_ID:spec1 spec2 ..., ...' where each spec is one of:\n"
+          "          min<n>  sets the lower bound for that input\n"
+          "          max<n>  sets the upper bound for that input\n"
+          "          val<n>  constant fill (equivalent to min=max=n)\n"
+          "          soz<n>  sequence-of-ones-then-zeros along the innermost\n"
+          "                  dimension: n leading ones per row, rest zeros.\n"
+          "                  n=-1 picks a random count in [1, innerDim-1] per row.\n"
+          "                  n >= innerDim is capped (all ones). Well suited for\n"
+          "                  sequence-length and attention-mask inputs.\n"
+          "        Example 1: '0:min-1.0max1.0,1:val0' fills input 0 randomly in\n"
+          "          [-1,1] and input 1 with all zeros.\n"
+          "        Example 2: '0:soz-1' fills input 0 with random soz masks.\n"
+          "        Default: '' (use type defaults).\n"
+          "    default_lower_bound (str, optional): Per-type lower bound overrides.\n"
+          "        Format: 'typename:value, typename:value, ...'\n"
+          "        Supported types: bool_ (or bool), int8, uint8, int16, uint16,\n"
+          "        int32, uint32, int64, uint64, float16, float32, float64.\n"
+          "        Built-in defaults when not overridden:\n"
+          "          floats: -0.1,  signed ints: -10,  unsigned: 0,\n"
+          "          bool_: 0 (false),  string: 0.\n"
+          "        Example: 'float32:-0.5,int64:-100'. Default: ''.\n"
+          "    default_upper_bound (str, optional): Per-type upper bound overrides.\n"
+          "        Same format as default_lower_bound.\n"
+          "        Built-in defaults when not overridden:\n"
+          "          floats: 0.1,  signed ints: 10,  unsigned: 10,\n"
+          "          bool_: 1 (true),  string: 63.\n"
+          "        Example: 'float32:0.5,int64:100'. Default: ''.\n"
+          "    verbose (bool, optional): Print shape and value range of each created\n"
+          "        tensor to stdout. Default: False.\n"
+          "    seed (int, optional): Seed for the C++ RNG for reproducibility, mirroring\n"
+          "        np.random.seed(). Pass -1 (default) to use a random seed.\n\n"
+          "Returns:\n"
+          "    list[numpy.ndarray]: One array per model input, ready to pass to run().\n\n"
+          "Raises:\n"
+          "    RuntimeError: If signature parsing fails or a dynamic dimension is\n"
+          "        not resolved.\n\n"
+          "Example:\n"
+          "    >>> session = OMExecutionSession('mnist.so')\n"
+          "    >>> inputs = session.fill_input_debug()\n"
+          "    >>> outputs = session.run(inputs)")
       .def("_runImplementation",
           &onnx_mlir::PyExecutionSession::pyRunImplementation,
           py::arg("input"),

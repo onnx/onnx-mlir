@@ -15,6 +15,7 @@
 
 #include "PyExecutionSession.hpp"
 #include "PyFloat16.hpp"
+#include "src/Runtime/OMTensorHelper.hpp"
 
 #define OM_DRIVER_TIMING 0 /* 1 for timing, 0 for no timing/overheads */
 #include "src/Runtime/OMInstrumentHelper.h"
@@ -62,47 +63,8 @@ namespace onnx_mlir {
 // better way for fixing it is found.
 //
 static void *generateOMTensorBufferForStringData(py::array pyArray) {
-  // Since we only handle 1D elements here, we can shape the pyArray as a vector
-  // of strings.
   assert(pyArray.ndim() == 1 && "input pyArray should be flatten");
-  // Init local values.
-  uint64_t numElem = pyArray.size();
-  uint64_t strLenTotal = 0;
-  uint64_t off = 0;
-  void *dataBuffer = NULL;
-  auto vec = pyArray.cast<std::vector<std::string>>();
-  // Allocate a data buffer with the following memory layout, taking the example
-  // of strings 3 "hi", "bye", "ok". Layout is as follow:
-  //
-  // [ptr0][ptr1][ptr2]['h']['i']['\0']['b']['y']['e']['\0']['o']['k']['\0']
-  // | <--pointers--> || < -- -- -- -string data-- -- -- -- -- -- -- -- -->|
-  //
-  // In the code below, since we have std::strings, use string.length() as it is
-  // generally more reliable as strlen(string) which relies on the '\0' char.
-  for (int64_t i = 0; i < (int64_t)numElem; ++i)
-    strLenTotal += vec[i].length() + 1;
-  dataBuffer = malloc(sizeof(char *) * numElem + strLenTotal);
-  if (dataBuffer == NULL)
-    return NULL;
-  // strArray points to the pointers (first data region above).
-  char **strArray = (char **)dataBuffer;
-  // strPos points to the string data (second data region above)
-  char *strPos = (char *)(((char *)dataBuffer) + sizeof(char *) * numElem);
-  for (int64_t i = 0; i < (int64_t)numElem; ++i) {
-    // Copy the i-th string's data to the current position in the string data
-    // region. Use length() and memcpy for safer copying that handles embedded
-    // nulls and avoids redundant strlen calls.
-    size_t len = vec[i].length();
-    memcpy(strPos, vec[i].data(), len);
-    strPos[len] = '\0';
-    // Store the pointer to this string in the pointer array. off increments
-    // after assignment.
-    strArray[off++] = strPos;
-    // Move strPos forward by the string length + 1 (for null terminator) to
-    // position for next string.
-    strPos += len + 1;
-  }
-  return dataBuffer;
+  return omTensorBuildStringBuffer(pyArray.cast<std::vector<std::string>>());
 }
 
 PyExecutionSession::PyExecutionSession(const std::string &sharedLibPath,
@@ -146,6 +108,19 @@ static py::array copyTensorToPyArray(
   // Copy data using memcopy.
   std::memcpy(out.mutable_data(), dataPtr, dataByteSize);
   return out;
+}
+
+// Map OM_DATA_TYPE to the numpy dtype string expected by py::dtype().
+// Driven by OnnxDataTypeMetaData.inc. Returns nullptr for unmapped types.
+static const char *omDataTypeToNumpyDtypeName(OM_DATA_TYPE type) {
+  static const char *names[] = {
+#define OM_TYPE_METADATA_DEF(E, V, S, D, M, N) N,
+#include "onnx-mlir/Runtime/OnnxDataTypeMetaData.inc"
+#undef OM_TYPE_METADATA_DEF
+  };
+  if (type >= 0 && type <= ONNX_TYPE_LAST && names[type][0] != '\0')
+    return names[type];
+  return nullptr;
 }
 
 // =============================================================================
@@ -338,61 +313,16 @@ std::vector<py::array> PyExecutionSession::pyRunImplementation(
     auto shape = std::vector<int64_t>(
         omTensorGetShape(omt), omTensorGetShape(omt) + omTensorGetRank(omt));
 
-    // https://numpy.org/devdocs/user/basics.types.html
-    py::dtype dtype;
-    switch (omTensorGetDataType(omt)) {
-    case ONNX_TYPE_FLOAT:
-      dtype = py::dtype("float32");
-      break;
-    case ONNX_TYPE_UINT8:
-      dtype = py::dtype("uint8");
-      break;
-    case ONNX_TYPE_INT8:
-      dtype = py::dtype("int8");
-      break;
-    case ONNX_TYPE_UINT16:
-      dtype = py::dtype("uint16");
-      break;
-    case ONNX_TYPE_INT16:
-      dtype = py::dtype("int16");
-      break;
-    case ONNX_TYPE_INT32:
-      dtype = py::dtype("int32");
-      break;
-    case ONNX_TYPE_INT64:
-      dtype = py::dtype("int64");
-      break;
-    case ONNX_TYPE_STRING:
-      dtype = py::dtype("str");
-      break;
-    case ONNX_TYPE_BOOL:
-      dtype = py::dtype("bool_");
-      break;
-    case ONNX_TYPE_FLOAT16:
-      dtype = py::dtype("float16");
-      break;
-    case ONNX_TYPE_DOUBLE:
-      dtype = py::dtype("float64");
-      break;
-    case ONNX_TYPE_UINT32:
-      dtype = py::dtype("uint32");
-      break;
-    case ONNX_TYPE_UINT64:
-      dtype = py::dtype("uint64");
-      break;
-    case ONNX_TYPE_COMPLEX64:
-      dtype = py::dtype("csingle");
-      break;
-    case ONNX_TYPE_COMPLEX128:
-      dtype = py::dtype("cdouble");
-      break;
-    default: {
-      std::stringstream errStr;
-      errStr << "Unsupported ONNX type in OMTensor: "
-             << omTensorGetDataType(omt) << std::endl;
-      throw onnx_mlir::ExecutionSessionException(errStr.str());
+    const char *dtypeName =
+        omDataTypeToNumpyDtypeName(omTensorGetDataType(omt));
+    if (!dtypeName) {
+      omTensorListDestroy(wrappedOutput);
+      omTensorListDestroy(wrappedInput);
+      throw onnx_mlir::ExecutionSessionException(
+          "Unsupported ONNX type in OMTensor: " +
+          std::to_string(omTensorGetDataType(omt)));
     }
-    }
+    py::dtype dtype(dtypeName);
     TIMING_STOP_PRINT(process_output_types);
 
     TIMING_INIT_START(process_output_pyarray);
@@ -459,6 +389,46 @@ std::vector<py::array> PyExecutionSession::pyRunImplementation(
   TIMING_STOP_PRINT(delete_in_lists);
 
   return outputPyArrays;
+}
+
+// =============================================================================
+// Fill input debug.
+
+std::vector<py::array> PyExecutionSession::pyFillInputDebug(
+    const std::string &shapeInfo, const std::string &valueInfo,
+    const std::string &defaultLowerBound, const std::string &defaultUpperBound,
+    int seed, bool verbose) {
+  // fillInputDebug throws ExecutionSessionException on failure.
+  OMTensorList *inputs =
+      fillInputDebug(shapeInfo.empty() ? nullptr : shapeInfo.c_str(),
+          valueInfo.empty() ? nullptr : valueInfo.c_str(),
+          defaultLowerBound.empty() ? nullptr : defaultLowerBound.c_str(),
+          defaultUpperBound.empty() ? nullptr : defaultUpperBound.c_str(), seed,
+          verbose);
+
+  // Convert the C++ OMTensorList to a Python list of numpy arrays so that:
+  // 1. Python callers can inspect and modify individual inputs before
+  //    inference.
+  // 2. The result slots directly into run(inputs), which expects numpy arrays.
+  // 3. Memory ownership transfers to numpy/Python; OMTensorList is destroyed
+  //    below once all tensors have been copied out.
+  std::vector<py::array> result;
+  for (int64_t i = 0; i < omTensorListGetSize(inputs); i++) {
+    auto *omt = omTensorListGetOmtByIndex(inputs, i);
+    auto shape = std::vector<int64_t>(
+        omTensorGetShape(omt), omTensorGetShape(omt) + omTensorGetRank(omt));
+    const char *dtypeName =
+        omDataTypeToNumpyDtypeName(omTensorGetDataType(omt));
+    if (!dtypeName) {
+      omTensorListDestroy(inputs);
+      throw onnx_mlir::ExecutionSessionException(
+          "pyFillInputDebug: unsupported tensor type at index " +
+          std::to_string(i));
+    }
+    result.emplace_back(copyTensorToPyArray(py::dtype(dtypeName), shape, omt));
+  }
+  omTensorListDestroy(inputs);
+  return result;
 }
 
 // =============================================================================

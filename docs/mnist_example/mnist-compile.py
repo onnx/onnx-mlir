@@ -18,11 +18,9 @@ if False:
     flags = "-O3"
 
 try:
-    compiler = OMCompile(model, flags)
+    compiler = OMCompile()
+    compiled_model = compiler.compile(model, flags)
 except RuntimeError as e:
     print(f"Compilation failed: {e}")
     exit(1)
-
-# Get the output file name
-compiled_model = compiler.get_output_file_name()
 print("Compiled onnx file", model, "to", compiled_model)

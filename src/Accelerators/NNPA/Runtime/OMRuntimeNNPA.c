@@ -4,7 +4,7 @@
 
 //===-------------------------- OMRuntimeNNPA.c ---------------------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -18,6 +18,7 @@
 #endif
 #include <pthread.h>
 
+#include <assert.h>
 #include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -252,6 +253,8 @@ void OMShutdownAccelNNPA() {
  *  \brief Function that allocates a buffer with huge page advice.
  */
 void *OMHugePageMalloc(size_t size) {
+// MADV_HUGEPAGE is Linux-specific (Transparent Huge Page).
+#if defined(__linux__) && defined(MADV_HUGEPAGE)
   if (size == 0 || size < HUGE_PAGE_SIZE)
     return malloc(size);
 
@@ -259,12 +262,24 @@ void *OMHugePageMalloc(size_t size) {
   if (posix_memalign(&ptr, HUGE_PAGE_SIZE, size) != 0)
     return malloc(size); // Fallback.
 
+#ifndef MADV_HUGEPAGE
+  // Delay error to runtime if MADV_HUGEPAGE is not known at compile time.
+  // Enable compilation of nonfunctional of NNPA code on other systems, which is
+  // useful for debugging.
+  assert(false && "use of madvise with unknown MADV_HUGEPAGE value");
+  // Enable compilation of remaining of the function
+#define MADV_HUGEPAGE 0
+#endif
+
   // Give the kernel the transparent huge page advice.
   // It is ok to fail since the memory is still usable but may not use huge
   // pages.
   madvise(ptr, size, MADV_HUGEPAGE);
-
   return ptr;
+#else
+  // Otherwise, rely on the native memory management.
+  return malloc(size);
+#endif
 }
 
 #ifdef __cplusplus
