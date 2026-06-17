@@ -18,8 +18,8 @@
 
 using namespace mlir;
 
-// ReplaceQDQReductionPass: canonicalise Q/DQ-bracketed
-// Reduce(Sum/Mean/Max/Min) to a rank-4 input with keep_dims=true by adding
+// ReplaceQDQReductionPass: canonicalises Q/DQ-bracketed
+// Reduce(Sum/Mean/Max/Min/ReduceMaxV13) to a rank-4 input with keep_dims=true by adding
 // leading/trailing reshapes.  Cast-bracketed reduction chains are skipped.
 
 namespace {
@@ -49,9 +49,41 @@ bool isReshapeShapingCompatibleElementType(mlir::Type elementType) {
          mlir::isa<mlir::IntegerType>(elementType);
 }
 
-/// Extract a constant axes vector from a Reduce op's `axes` operand.
-template <typename ONNX_OP>
-std::optional<llvm::SmallVector<int64_t>> getConstantAxes(ONNX_OP op) {
+/// Parse a constant axes list from an `ArrayAttr` (integer elements).
+std::optional<llvm::SmallVector<int64_t>> axesValuesFromArrayAttr(
+    mlir::ArrayAttr attr) {
+  if (!attr || attr.empty())
+    return std::nullopt;
+  llvm::SmallVector<int64_t> axes;
+  for (mlir::Attribute a : attr) {
+    auto intAttr = mlir::dyn_cast<mlir::IntegerAttr>(a);
+    if (!intAttr)
+      return std::nullopt;
+    axes.push_back(intAttr.getValue().getSExtValue());
+  }
+  return axes;
+}
+
+/// ReduceMaxV13 carries `axes` as an attribute (`I64ArrayAttr`), not an SSA
+/// operand. Accept both `ArrayAttr` and `DenseI64ArrayAttr` storage.
+std::optional<llvm::SmallVector<int64_t>> getConstantAxesFromReduceMaxV13(
+    mlir::ONNXReduceMaxV13Op op) {
+  mlir::Attribute axesAttr = op->getAttr(op.getAxesAttrName());
+  if (!axesAttr)
+    return std::nullopt;
+  if (auto dense = mlir::dyn_cast<mlir::DenseI64ArrayAttr>(axesAttr))
+    return llvm::SmallVector<int64_t>(
+        dense.asArrayRef().begin(), dense.asArrayRef().end());
+  if (auto arr = mlir::dyn_cast<mlir::ArrayAttr>(axesAttr))
+    return axesValuesFromArrayAttr(arr);
+  return std::nullopt;
+}
+
+/// Operand-axes reduce ops (ReduceSum / Mean / Max / Min): axes from an
+/// `onnx.Constant` feeding the `axes` SSA value.
+template <typename OpTy>
+std::optional<llvm::SmallVector<int64_t>> getConstantAxesFromOperandReduce(
+    OpTy op) {
   mlir::Value axesOperand = op.getAxes();
   if (!axesOperand)
     return std::nullopt;
@@ -91,6 +123,48 @@ mlir::Value createReshape(mlir::PatternRewriter &rewriter, mlir::Location loc,
   return rewriter.create<mlir::ONNXReshapeOp>(
       loc, outputType, input, shapeConst, /*allowzero=*/0);
 }
+
+/// Per-op wiring for constant axes extraction and for re-emitting the reduce.
+template <typename OpTy>
+struct ReduceReshape4DTraits {
+  static std::optional<llvm::SmallVector<int64_t>> getConstantAxes(OpTy op) {
+    return getConstantAxesFromOperandReduce(op);
+  }
+
+  static mlir::Value createReducedValue(mlir::PatternRewriter &rewriter,
+      mlir::Location loc, mlir::RankedTensorType newReduceOutType,
+      mlir::Value newReduceInput, llvm::ArrayRef<int64_t> newAxes, OpTy op) {
+    mlir::Value newAxesVal =
+        createInt64Const1D(rewriter, loc, newAxes);
+    auto trueKeepdims = mlir::IntegerAttr::get(
+        rewriter.getIntegerType(64, /*isSigned=*/true), 1);
+    auto newReduce =
+        rewriter.create<OpTy>(loc, newReduceOutType, newReduceInput,
+            newAxesVal, trueKeepdims, op.getNoopWithEmptyAxesAttr());
+    return newReduce.getReduced();
+  }
+};
+
+template <>
+struct ReduceReshape4DTraits<mlir::ONNXReduceMaxV13Op> {
+  static std::optional<llvm::SmallVector<int64_t>> getConstantAxes(
+      mlir::ONNXReduceMaxV13Op op) {
+    return getConstantAxesFromReduceMaxV13(op);
+  }
+
+  static mlir::Value createReducedValue(mlir::PatternRewriter &rewriter,
+      mlir::Location loc, mlir::RankedTensorType newReduceOutType,
+      mlir::Value newReduceInput, llvm::ArrayRef<int64_t> newAxes,
+      mlir::ONNXReduceMaxV13Op op) {
+    (void)op;
+    mlir::ArrayAttr axesAttr = rewriter.getI64ArrayAttr(newAxes);
+    auto trueKeepdims = mlir::IntegerAttr::get(
+        rewriter.getIntegerType(64, /*isSigned=*/true), 1);
+    auto newReduce = rewriter.create<mlir::ONNXReduceMaxV13Op>(
+        loc, newReduceOutType, newReduceInput, axesAttr, trueKeepdims);
+    return newReduce.getReduced();
+  }
+};
 
 /// True iff the reduction is in a `Dequant -> Reduce -> Quant` chain
 /// (single fanout).  Accepts explicit Q/DQ ops or implicit quant tensor types.
@@ -133,7 +207,7 @@ struct ReshapeReduceTo4DPattern : public mlir::OpRewritePattern<ONNX_OP> {
     if (!isReshapeShapingCompatibleElementType(inputType.getElementType()))
       return mlir::failure();
 
-    auto axesOpt = getConstantAxes(op);
+    auto axesOpt = ReduceReshape4DTraits<ONNX_OP>::getConstantAxes(op);
     if (!axesOpt || axesOpt->empty())
       return mlir::failure();
     llvm::SmallVector<int64_t> axes = *axesOpt;
@@ -197,16 +271,11 @@ struct ReshapeReduceTo4DPattern : public mlir::OpRewritePattern<ONNX_OP> {
     auto newReduceOutType =
         mlir::RankedTensorType::get(newReduceOutShape, outElemType);
 
-    mlir::Value newAxesVal = createInt64Const1D(rewriter, loc, newAxes);
-    auto trueKeepdims = mlir::IntegerAttr::get(
-        rewriter.getIntegerType(64, /*isSigned=*/true), 1);
-    auto newReduce =
-        rewriter.create<ONNX_OP>(loc, newReduceOutType, newReduceInput,
-            newAxesVal, trueKeepdims, op.getNoopWithEmptyAxesAttr());
+    mlir::Value result = ReduceReshape4DTraits<ONNX_OP>::createReducedValue(
+        rewriter, loc, newReduceOutType, newReduceInput, newAxes, op);
 
     // Trailing reshape iff canonical 4D shape differs from original.
     auto origOutShape = getShape(op.getReduced());
-    mlir::Value result = newReduce.getReduced();
     if (newReduceOutShape != origOutShape)
       result = createReshape(rewriter, loc, result, origOutShape);
 
@@ -226,7 +295,7 @@ struct ReplaceQDQReductionPass
     return "replace-qdq-reduction";
   }
   llvm::StringRef getDescription() const override {
-    return "Reshape Reduce(Sum/Mean/Max/Min) to rank-4 + keep_dims=true.";
+    return "Reshape Reduce(Sum/Mean/Max/Min/ReduceMaxV13) to rank-4 + keep_dims=true.";
   }
 
   void runOnOperation() override {
@@ -236,6 +305,7 @@ struct ReplaceQDQReductionPass
     patterns.add<ReshapeReduceTo4DPattern<mlir::ONNXReduceSumOp>,
         ReshapeReduceTo4DPattern<mlir::ONNXReduceMeanOp>,
         ReshapeReduceTo4DPattern<mlir::ONNXReduceMaxOp>,
+        ReshapeReduceTo4DPattern<mlir::ONNXReduceMaxV13Op>,
         ReshapeReduceTo4DPattern<mlir::ONNXReduceMinOp>>(context);
 
     mlir::GreedyRewriteConfig config;
