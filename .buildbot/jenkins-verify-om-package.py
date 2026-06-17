@@ -39,8 +39,8 @@ def main():
     cmd_pip_1 = [
         "pip3",
         "install",
+        "--user"
         "hatchling",
-        "--prefix=/usr",
     ]
     
     cmd_pip_2 = [
