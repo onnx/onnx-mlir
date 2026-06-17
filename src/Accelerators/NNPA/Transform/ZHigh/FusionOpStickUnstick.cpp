@@ -925,8 +925,15 @@ public:
       }
     };
     for (Operation *op : chain.ops)
-      for (Value operand : op->getOperands())
+      for (Value operand : op->getOperands()) {
+        // Reshape shape tensors are replaced by self-contained constants in the
+        // body (locateExtLayoutTransformFusion reads types only, not values).
+        // Skip them here so the outer Concat ops never become FusedOp inputs.
+        if (auto reshape = dyn_cast<ONNXReshapeOp>(op))
+          if (operand == reshape.getShape())
+            continue;
         collectExternals(operand);
+      }
 
     // Insert the FusedOp just before the last chain op so that all fusedInputs
     // (including non-constant shape tensors defined between chain ops in the
@@ -973,6 +980,27 @@ public:
     };
 
     for (Operation *op : chain.ops) {
+      // For Reshape ops, the shape-tensor operand is not needed by the lowering
+      // (locateExtLayoutTransformFusion reads output types, not runtime values).
+      // Map it to a self-contained constant inside the body so the outer Concat
+      // ops are never referenced and become dead immediately after fusion.
+      if (auto reshape = dyn_cast<ONNXReshapeOp>(op)) {
+        Value shapeOperand = reshape.getShape();
+        if (!mapping.contains(shapeOperand)) {
+          auto outType = cast<ShapedType>(reshape.getReshaped().getType());
+          SmallVector<int64_t> shape(
+              outType.getShape().begin(), outType.getShape().end());
+          for (int64_t &d : shape)
+            if (d == ShapedType::kDynamic)
+              d = -1;
+          auto constType = RankedTensorType::get(
+              {(int64_t)shape.size()}, rewriter.getI64Type());
+          auto constAttr = DenseIntElementsAttr::get(constType, shape);
+          Value shapeConst = rewriter.create<ONNXConstantOp>(
+              op->getLoc(), Attribute(), constAttr);
+          mapping.map(shapeOperand, shapeConst);
+        }
+      }
       for (Value operand : op->getOperands())
         ensureInBody(operand);
       rewriter.clone(*op, mapping);
