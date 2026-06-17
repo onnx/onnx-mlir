@@ -285,8 +285,7 @@ const std::string ExecutionSession::compilationInfo() const {
   errno = 0; // No errors.
   if (!_compilationInfoFunc)
     return "{}";
-  const char *info = _compilationInfoFunc();
-  return info ? info : "{}";
+  return _compilationInfoFunc();
 }
 
 void ExecutionSession::printInstrumentation() {

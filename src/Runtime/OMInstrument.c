@@ -224,10 +224,9 @@ static void ProcessName(
 // =============================================================================
 // Buffer management
 
-// Weak default: returns NULL when no model .so provides omCompilationInfo
-// (i.e. compiled with --omit-compile-info). The model's strong definition
-// overrides this at link time on all platforms.
-__attribute__((weak)) const char *omCompilationInfo(void) { return NULL; }
+// Declared here; always defined in the model .so by emitCompilationInfo().
+// Returns "{}" when compiled with --omit-compile-info, full JSON otherwise.
+extern const char *omCompilationInfo(void);
 
 static inline void printStartReport() {
   if (!startReportPrinted) {
@@ -235,7 +234,7 @@ static inline void printStartReport() {
                             // instrumentFout for reporting".
     fprintf(instrumentFout, "==START-REPORT==\n");
     const char *info = omCompilationInfo();
-    if (info)
+    if (info && info[0] != '\0' && !(info[0] == '{' && info[1] == '}'))
       fprintf(instrumentFout, "==COMPILE-INFO-REPORT==, %s\n", info);
     startReportPrinted = true;
   }
