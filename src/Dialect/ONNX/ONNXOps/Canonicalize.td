@@ -810,6 +810,15 @@ def GetReturnTypeForMatMulOpND2D: NativeCodeCall<
   "onnx_mlir::getReturnTypeForMatMulOpND2D($0, $1)"
 >;
 
+// A tensor whose element type is not a quantized type. Reusable guard so that
+// canonicalizations which rebuild a value's type from one of its operands are
+// not applied to quantized values (doing so would silently drop the real
+// output scale/zero-point).
+def IsNotQuantizedTensor: Constraint<
+    CPred<"!mlir::isa<mlir::quant::QuantizedType>("
+          "getElementTypeOrSelf($0.getType()))">,
+    "tensor element type is not quantized">;
+
 def SwapReshapeMatMulPattern: Pattern<
  // If the input of Reshape is suitable for the next MatMul, use the input directly
  // for MatMul. In other words, swapping Reshape and MatMul.
@@ -822,7 +831,10 @@ def SwapReshapeMatMulPattern: Pattern<
                  ), $az)],
  [(HasRankGT<2> $A), (HasRankOf<2> $res1), (HasRankOf<2> $B), // A is reshaped to 2D.
   (HaveSameLastDim $A, $res1), // The last dim of A is unchanged by reshape.
-  (IsStaticShapeTensor:$res2)  // $res2 has static dims in order to create ReshapeOp.
+  (IsStaticShapeTensor:$res2), // $res2 has static dims in order to create ReshapeOp.
+  // Do not rewrite quantized matmuls: the rebuilt result type would take the
+  // input's quant params and an inserted Reshape would break MatMul+Add fusion.
+  (IsNotQuantizedTensor $A), (IsNotQuantizedTensor $B), (IsNotQuantizedTensor $res2)
  ]
 >;
 

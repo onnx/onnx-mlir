@@ -272,6 +272,47 @@ func.func @test_reshape_should_not_remove(%arg0: tensor<3x5x10x20xf32>, %arg1: t
 
 // -----
 
+// SwapReshapeMatMulPattern must NOT fire on a quantized MatMul. Swapping would
+// rebuild the MatMul result type from the (input-reshaped) operand and insert a
+// Reshape between the MatMul and its consumer, dropping the real output
+// scale/zero-point and breaking MatMul+Add fusion. The IsNotQuantizedTensor
+// guard keeps the Reshape -> MatMul order intact.
+
+// CHECK-LABEL: func @test_swap_reshape_matmul_quantized_not_swapped
+func.func @test_swap_reshape_matmul_quantized_not_swapped(%arg0: tensor<3x5x10x20x!quant.uniform<i8:f32, 2.000000e-02>>, %arg1: tensor<20x1x!quant.uniform<i8:f32, 3.000000e-02>>) -> tensor<3x5x10x1x!quant.uniform<i8:f32, 5.000000e-02>> {
+  %shape1 = onnx.Constant dense<[150, 20]> : tensor<2xi64>
+  %shape2 = onnx.Constant dense<[3, 5, 10, 1]> : tensor<4xi64>
+  %0 = "onnx.Reshape"(%arg0, %shape1) : (tensor<3x5x10x20x!quant.uniform<i8:f32, 2.000000e-02>>, tensor<2xi64>) -> tensor<150x20x!quant.uniform<i8:f32, 2.000000e-02>>
+  %1 = "onnx.MatMul"(%0, %arg1) : (tensor<150x20x!quant.uniform<i8:f32, 2.000000e-02>>, tensor<20x1x!quant.uniform<i8:f32, 3.000000e-02>>) -> tensor<150x1x!quant.uniform<i8:f32, 5.000000e-02>>
+  %2 = "onnx.Reshape"(%1, %shape2) : (tensor<150x1x!quant.uniform<i8:f32, 5.000000e-02>>, tensor<4xi64>) -> tensor<3x5x10x1x!quant.uniform<i8:f32, 5.000000e-02>>
+  onnx.Return %2 : tensor<3x5x10x1x!quant.uniform<i8:f32, 5.000000e-02>>
+  // The MatMul still consumes the reshaped input (no swap), and the output
+  // Reshape is preserved.
+  // CHECK: [[REIN:%.+]] = "onnx.Reshape"(%arg0,
+  // CHECK: [[MM:%.+]] = "onnx.MatMul"([[REIN]], %arg1)
+  // CHECK: "onnx.Reshape"([[MM]],
+}
+
+// -----
+
+// Float counterpart of the test above: with no quant types the guard does not
+// apply, so SwapReshapeMatMulPattern fires and the input Reshape is pushed past
+// the MatMul (here it folds away, leaving MatMul directly on %arg0).
+
+// CHECK-LABEL: func @test_swap_reshape_matmul_float_swapped
+func.func @test_swap_reshape_matmul_float_swapped(%arg0: tensor<3x5x10x20xf32>, %arg1: tensor<20x1xf32>) -> tensor<3x5x10x1xf32> {
+  %shape1 = onnx.Constant dense<[150, 20]> : tensor<2xi64>
+  %shape2 = onnx.Constant dense<[3, 5, 10, 1]> : tensor<4xi64>
+  %0 = "onnx.Reshape"(%arg0, %shape1) : (tensor<3x5x10x20xf32>, tensor<2xi64>) -> tensor<150x20xf32>
+  %1 = "onnx.MatMul"(%0, %arg1) : (tensor<150x20xf32>, tensor<20x1xf32>) -> tensor<150x1xf32>
+  %2 = "onnx.Reshape"(%1, %shape2) : (tensor<150x1xf32>, tensor<4xi64>) -> tensor<3x5x10x1xf32>
+  onnx.Return %2 : tensor<3x5x10x1xf32>
+  // CHECK-NEXT: "onnx.MatMul"(%arg0, %arg1) : (tensor<3x5x10x20xf32>, tensor<20x1xf32>) -> tensor<3x5x10x1xf32>
+  // CHECK-NOT: "onnx.Reshape"
+}
+
+// -----
+
 func.func @test_reshape_propagate_through_elementwise_ops(%arg0: tensor<3x5x10x20xf32>, %arg1: tensor<1xf32>) -> tensor<150x20xf32> {
   %shape1 = onnx.Constant dense<[150, 20]> : tensor<2xi64>
   %0 = "onnx.Reshape"(%arg0, %shape1) : (tensor<3x5x10x20xf32>, tensor<2xi64>) -> tensor<150x20xf32>

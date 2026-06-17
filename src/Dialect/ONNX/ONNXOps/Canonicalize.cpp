@@ -3877,23 +3877,6 @@ void ONNXReduceMeanOp::getCanonicalizationPatterns(
   result.insert<DropUnitAxesFromReduceMeanPattern>(context);
 }
 
-struct SwapReshapeMatMulPatternQuantGuard : public SwapReshapeMatMulPattern {
-  using SwapReshapeMatMulPattern::SwapReshapeMatMulPattern;
-  LogicalResult matchAndRewrite(
-      Operation *op, PatternRewriter &rewriter) const override {
-    if (auto matMulOp = mlir::dyn_cast<ONNXMatMulOp>(op)) {
-      if (mlir::isa<quant::QuantizedType>(
-              getElementTypeOrSelf(matMulOp.getA().getType())) ||
-          mlir::isa<quant::QuantizedType>(
-              getElementTypeOrSelf(matMulOp.getB().getType())) ||
-          mlir::isa<quant::QuantizedType>(
-              getElementTypeOrSelf(matMulOp.getResult().getType())))
-        return failure();
-    }
-    return SwapReshapeMatMulPattern::matchAndRewrite(op, rewriter);
-  }
-};
-
 /// on the ONNXReshapeOp.
 void ONNXReshapeOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
@@ -3901,7 +3884,7 @@ void ONNXReshapeOp::getCanonicalizationPatterns(
   result.insert<FuseTwoReshapesAllowZeroPattern>(context);
   result.insert<RemoveIdentityReshapePattern1>(context);
   result.insert<RemoveIdentityReshapePattern2>(context);
-  result.insert<SwapReshapeMatMulPatternQuantGuard>(context);
+  result.insert<SwapReshapeMatMulPattern>(context);
   result.insert<ReplaceReshapeAllowZeroByReshape>(context);
 }
 
