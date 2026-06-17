@@ -77,6 +77,9 @@ void addXmcMlirPasses(mlir::OpPassManager &pm, OnnxToMlirOptions opts) {
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createTransferScaleToDwConv2dPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvertToChannelLastPass());
+  if (opts.enableMatmulAddFusion)
+    pm.addNestedPass<func::FuncOp>(
+        onnx_mlir::createFuseMatMulAddToXFEMatMulBiasPass());
   if (opts.enableMatmulToConv)
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::createConvertMatMulToXFEConvPass());
@@ -109,9 +112,6 @@ void addXmcMlirPasses(mlir::OpPassManager &pm, OnnxToMlirOptions opts) {
       onnx_mlir::createReplaceQuantizedTileToAddPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceQDQClipCastPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceQDQEltwisePass());
-  if (opts.enableMatmulAddFusion)
-    pm.addNestedPass<func::FuncOp>(
-        onnx_mlir::createFuseMatMulAddToXFEMatMulBiasPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceQDQSigmoidPass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createTransferBatchXCompilerFusedEltwisePass());
