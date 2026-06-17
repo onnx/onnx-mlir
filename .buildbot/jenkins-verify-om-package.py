@@ -18,7 +18,7 @@ test_dir = os.path.join(build_dir, "src/Runtime/python/om_pyrt/tests")
 
 
 def main():
-    os.makedirs(workspace_workdir)
+    os.makedirs(build_dir)
 
     cmd_configure = [
         "cmake",
