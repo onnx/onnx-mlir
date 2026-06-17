@@ -36,8 +36,8 @@
 #include <malloc.h>
 #endif // #ifdef __APPLE__
 
-#include <stdio.h>
 #include <onnx-mlir/Compiler/OMCompilerMacros.h>
+#include <stdio.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -54,6 +54,18 @@ extern "C" {
  *
  */
 OM_EXTERNAL_VISIBILITY void omInstrumentPrint();
+
+/**
+ * Initialize the instrumentation runtime for a new inference run. Called once
+ * per run, before any OMInstrumentPoint calls. The compilationInfo parameter is
+ * expected to be the JSON string returned by omCompilationInfo() in the
+ * model.so Additional runtime info could potentially be added too.
+ *
+ * @param tag carries the time/memory action flags for this run.
+ * @param compilationInfo JSON metadata string from the model .so.
+ */
+OM_EXTERNAL_VISIBILITY void OMInstrumentPointInit(
+    int64_t tag, const char *compilationInfo);
 
 /**
  * Create an instrument point.
