@@ -39,16 +39,17 @@ def main():
     cmd_pip_1 = [
         "pip3",
         "install",
-        "--user",
+        "--break-system-packages",
         "hatchling",
     ]
     
     cmd_pip_2 = [
         "pip3",
         "install",
+        "--break-system-packages",
         "src/Runtime/python/om_pyrt",
-        "--prefix=/usr",
-        "--no-build-isolation",
+        #"--prefix=/usr",
+        #"--no-build-isolation",
     ]
 
     for cmd in [cmd_configure, cmd_build, cmd_pip_1, cmd_pip_2]:
