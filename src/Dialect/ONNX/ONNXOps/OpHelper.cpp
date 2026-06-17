@@ -1070,9 +1070,6 @@ static bool isQDQWithinRoundTripTolerance(mlir::Type storageElemType,
   // A zero / subnormal / non-finite scale cannot describe an invertible DQ->Q.
   if (!std::isnormal(inScale) || !std::isnormal(outScale))
     return false;
-  // Exact inverse: the round-trip is the identity everywhere.
-  if (inScale == outScale && inZp == outZp)
-    return true;
 
   // Round-half-to-even, matching ONNX QuantizeLinear and independent of the
   // global FP rounding mode.
@@ -1086,6 +1083,10 @@ static bool isQDQWithinRoundTripTolerance(mlir::Type storageElemType,
     return (std::fmod(lower, 2.0) == 0.0) ? lower : lower + 1.0; // tie -> even
   };
 
+  // All arithmetic is in double precision rather than the model's DQ output
+  // type (f32, f16, or bf16). This avoids introducing extra rounding noise
+  // into the check itself, so maxDiff reflects only the scale/zero-point
+  // mismatch and not the precision of the intermediate float representation.
   const double minD = static_cast<double>(storageMin);
   const double maxD = static_cast<double>(storageMax);
   const double outZpD = static_cast<double>(outZp);
@@ -1127,31 +1128,36 @@ bool isDequantQuantSame(mlir::ONNXDequantizeLinearOp dqOp,
                                    qOp.getBlockSize() != dqOp.getBlockSize()))
     return false;
 
-  // 2. Check zero-points (always exact).
+  // 2. Fetch zero-point attrs (null-check only; value comparison is mode-
+  //    dependent below).
   auto zpAttr1 = getElementAttributeFromONNXValue(dqOp.getXZeroPoint());
   auto zpAttr2 = getElementAttributeFromONNXValue(qOp.getYZeroPoint());
   if (!zpAttr1 || !zpAttr2)
     return false;
 
-  if (!compareValueFromElementAttribute(zpAttr1, zpAttr2)) {
-    return false;
-  }
-  // 3. Check Scales.
+  // 3. Fetch scale attrs.
   auto scaleAttr1 = getElementAttributeFromONNXValue(dqOp.getXScale());
   auto scaleAttr2 = getElementAttributeFromONNXValue(qOp.getYScale());
   if (!scaleAttr1 || !scaleAttr2)
     return false;
 
-  // With a tolerance the scales may differ, provided the DQ->Q round-trip stays
-  // within maxRoundTripDiff codes; only per-tensor scalar params qualify.
-  // Otherwise the scales must match bit-for-bit.
-  if (maxRoundTripDiff > 0 && bothHaveScalarParams) {
+  // Fast path: bit-identical scale and zero-point is unconditionally a no-op.
+  // Only run the round-trip scan when params differ (tolerant mode) or reject
+  // immediately (exact mode).
+  bool paramsIdentical =
+      (zpAttr1 == zpAttr2 ||
+          compareValueFromElementAttribute(zpAttr1, zpAttr2)) &&
+      (scaleAttr1 == scaleAttr2 ||
+          compareValueFromElementAttribute(scaleAttr1, scaleAttr2));
+  if (!paramsIdentical) {
+    // exact mode or non-scalar: params must match exactly. If not return false.
+    if (!(maxRoundTripDiff > 0 && bothHaveScalarParams))
+      return false;
+    // Tolerant: scale and zero-point judged jointly by the round-trip.
     if (!isQDQWithinRoundTripTolerance(
             getElementTypeOrSelf(dqOp.getX().getType()), scaleAttr1, zpAttr1,
             scaleAttr2, zpAttr2, maxRoundTripDiff))
       return false;
-  } else if (!compareValueFromElementAttribute(scaleAttr1, scaleAttr2)) {
-    return false;
   }
 
   // 4. Check data type consistency of the entire DQ->Q chain.

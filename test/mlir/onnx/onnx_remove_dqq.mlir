@@ -174,10 +174,10 @@ return %4 : tensor<1x128x768xui16>
 
 // -----
 
-// Zero-points must match exactly regardless of the round-trip tolerance. Here
-// the scales are identical but the zero-points differ (39664 vs 39665); even
-// though the round-trip diff would be small, the exact zero-point requirement
-// keeps the pair in both modes.
+// Zero-points differ by 1 (39664 vs 39665) with identical scales. In exact
+// mode (default) the zp mismatch is caught before the round-trip and the pair
+// is kept. In tolerant mode the round-trip judges zp and scale jointly: the
+// diff is 1 <= 2, so the pair folds.
 func.func @test_qdq_tol_zp_mismatch(%arg0: tensor<1x128x768xui16>) -> tensor<1x128x768xui16> {
 %0 = onnx.Constant dense<2.57987776E-5> : tensor<f32>
 %1 = onnx.Constant dense<39664> : tensor<ui16>
@@ -191,9 +191,12 @@ return %4 : tensor<1x128x768xui16>
 // CHECK: onnx.DequantizeLinear
 // CHECK: onnx.QuantizeLinear
 
-// TOL-LABEL: func.func @test_qdq_tol_zp_mismatch(%arg0: tensor<1x128x768xui16>) -> tensor<1x128x768xui16>
-// TOL: onnx.DequantizeLinear
-// TOL: onnx.QuantizeLinear
+// TOL-LABEL: func.func @test_qdq_tol_zp_mismatch(
+// TOL-SAME:   %[[ARG0:[A-Za-z0-9_]+]]: tensor<1x128x768xui16>
+// TOL-SAME: ) -> tensor<1x128x768xui16>
+// TOL:   return %[[ARG0]] : tensor<1x128x768xui16>
+// TOL-NOT: onnx.DequantizeLinear
+// TOL-NOT: onnx.QuantizeLinear
 
 // -----
 

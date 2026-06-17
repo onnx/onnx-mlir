@@ -37,10 +37,13 @@ struct FoldQDQPattern : public OpRewritePattern<ONNXQuantizeLinearOp> {
   }
 
 private:
-  // Maximum allowed per-code difference for the DQ->Q round-trip. 0 requires an
-  // exact (bit-for-bit scale/zero-point) match; larger values allow folding
-  // when the round-trip over the full storage range stays within this many
-  // codes (per-tensor scalar params only).
+  // Controls how closely the DQ->Q pair must act as an identity. For every
+  // quantized integer x in the storage range, DequantizeLinear(x) followed
+  // by QuantizeLinear must produce a value no further than this from x
+  // (e.g. maxRoundTripDiff=2 allows x=1000 to come back as 999..1002).
+  // 0 requires bit-for-bit identical scale and zero-point; a small positive
+  // value (e.g. 8) tolerates tiny floating-point scale differences.
+  // Only applies to per-tensor (scalar) quantization params.
   int64_t maxRoundTripDiff;
 };
 
@@ -56,8 +59,10 @@ public:
   Option<bool> removeQDQAroundOps{
       *this, "remove-qdq-around-ops", llvm::cl::init(false)};
   Option<int64_t> maxRoundTripDiff{*this, "max-round-trip-diff",
-      llvm::cl::desc("Max per-code DQ->Q round-trip difference tolerated when "
-                     "folding a redundant QDQ pair (0 = exact match)"),
+      llvm::cl::desc("Maximum absolute difference allowed between an input "
+                     "integer and its DQ->Q output, checked over the full "
+                     "storage range. 0 requires bit-exact scale and "
+                     "zero-point; >0 tolerates near-equal parameters."),
       llvm::cl::init(0)};
 
   StringRef getArgument() const override { return "qdq-canonicalize"; }
