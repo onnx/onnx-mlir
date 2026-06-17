@@ -86,7 +86,14 @@ def ONNXDecomposePatternOptions {
            "bool", /*default=*/"true",
            "Enable slicing of cos/sin caches during GroupQueryAttention "
            "decomposition. Set to false to keep the cache and synthesize "
-           "position_ids instead.">
+           "position_ids instead.">,
+
+    Option<"enableSeparatePhasedConvsForConvTranspose",
+           "enable-separate-phased-convs-for-convtranspose",
+           "bool", /*default=*/"false",
+           "In 4-phase ConvTranspose decomposition, force 4 separate Conv ops "
+           "(concatenated) instead of combining the phased weights into a "
+           "single Conv, when the conv output channels are DMA-aligned.">
   ];
 }
 

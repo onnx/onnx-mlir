@@ -1077,8 +1077,13 @@ struct GridSampleToChannelLastPattern
     Value grid = op.getGrid();
 
     auto xNhwcType = mlir::cast<RankedTensorType>(xNhwc.getType());
+
+    Type resultElemTy = xNhwcType.getElementType();
+    if (auto outRtt = mlir::dyn_cast<RankedTensorType>(op.getType()))
+      resultElemTy = remapQuantTypeNchw2Nhwc(outRtt.getElementType(), rank);
+
     auto xfeOp = rewriter.create<XFEGridSampleOp>(loc,
-        UnrankedTensorType::get(xNhwcType.getElementType()), xNhwc, grid,
+        UnrankedTensorType::get(resultElemTy), xNhwc, grid,
         op.getAlignCornersAttr(), op.getModeAttr(), op.getPaddingModeAttr());
 
     transferOnnxNodeName(op, xfeOp);

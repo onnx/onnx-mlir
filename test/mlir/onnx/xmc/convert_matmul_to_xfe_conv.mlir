@@ -298,3 +298,74 @@ func.func @matmul_add_bias_perchannel_weight(
 // CHECK-SAME: onnx_node_name = "pc_matmul"
 // CHECK-NOT: onnx.Add
 // CHECK-NOT: onnx.MatMul
+
+// -----
+
+//===----------------------------------------------------------------------===//
+// (f1) Former-NHWC recovery (golden find_former_nhwc): the MatMul input is a
+// flatten of a 4-D NHWC tensor [1,7,7,16] -> [1,784], and the contraction
+// K (784) == H*W*C (7*7*16). The flattening Reshape is consumed and the conv is
+// fed the 4-D producer (%arg0) directly, as a "global" conv with
+// kernel = stride = [7,7] and output [1,1,1,32].
+//===----------------------------------------------------------------------===//
+
+// CHECK-LABEL: @matmul_former_nhwc_recovery
+func.func @matmul_former_nhwc_recovery(
+    %arg0: tensor<1x7x7x16x!quant.uniform<u8:f32, 0.25>>
+) -> tensor<1x32x!quant.uniform<u8:f32, 0.25>> {
+  %shape = onnx.Constant dense<[1, 784]> : tensor<2xi64>
+  %r = "onnx.Reshape"(%arg0, %shape) {allowzero = 0 : si64} :
+      (tensor<1x7x7x16x!quant.uniform<u8:f32, 0.25>>, tensor<2xi64>)
+      -> tensor<1x784x!quant.uniform<u8:f32, 0.25>>
+  %weight = onnx.Constant {value = dense_resource<__elided__> : tensor<784x32xi8>} : tensor<784x32x!quant.uniform<u8:f32, 0.25>>
+  %mm = "onnx.MatMul"(%r, %weight) {onnx_node_name = "fc_matmul"} :
+      (tensor<1x784x!quant.uniform<u8:f32, 0.25>>,
+       tensor<784x32x!quant.uniform<u8:f32, 0.25>>)
+      -> tensor<1x32x!quant.uniform<u8:f32, 0.25>>
+  return %mm : tensor<1x32x!quant.uniform<u8:f32, 0.25>>
+}
+// Conv weight is reshaped to [32, 7, 7, 16] (K = 7*7*16 = 784).
+// CHECK: onnx.Constant dense<[32, 7, 7, 16]>
+// The conv is fed %arg0 directly (the [1,784] reshape is consumed), global
+// kernel = stride = [7,7], output [1,1,1,32].
+// CHECK: "onnx.XFEConv"(%arg0,
+// CHECK-SAME: kernel_shape = [7, 7]
+// CHECK-SAME: strides = [7, 7]
+// CHECK-SAME: -> tensor<1x1x1x32x!quant.uniform<u8:f32, 2.500000e-01>>
+// CHECK: "onnx.Reshape"
+// CHECK-SAME: -> tensor<1x32x!quant.uniform<u8:f32, 2.500000e-01>>
+// CHECK-NOT: onnx.MatMul
+
+// -----
+
+//===----------------------------------------------------------------------===//
+// (f1b) Leading-flatten pointwise recovery: the 2-D input is a flatten over the
+// leading (spatial) dims of a 4-D NHWC tensor [1,8,8,16] -> [64,16]. The matmul
+// contracts channels (K=16=last dim, M=64=1*8*8), so the conv reuses the 8x8
+// spatial as a 1x1 conv on [1,8,8,16] -> [1,8,8,32] (matches golden is_3dim
+// reuse), instead of re-factoring M=64. The flatten Reshape is consumed.
+//===----------------------------------------------------------------------===//
+
+// CHECK-LABEL: @matmul_leading_flatten_pointwise
+func.func @matmul_leading_flatten_pointwise(
+    %arg0: tensor<1x8x8x16x!quant.uniform<u8:f32, 0.25>>
+) -> tensor<64x32x!quant.uniform<u8:f32, 0.25>> {
+  %shape = onnx.Constant dense<[64, 16]> : tensor<2xi64>
+  %r = "onnx.Reshape"(%arg0, %shape) {allowzero = 0 : si64} :
+      (tensor<1x8x8x16x!quant.uniform<u8:f32, 0.25>>, tensor<2xi64>)
+      -> tensor<64x16x!quant.uniform<u8:f32, 0.25>>
+  %weight = onnx.Constant {value = dense_resource<__elided__> : tensor<16x32xi8>} : tensor<16x32x!quant.uniform<u8:f32, 0.25>>
+  %mm = "onnx.MatMul"(%r, %weight) {onnx_node_name = "pw_matmul"} :
+      (tensor<64x16x!quant.uniform<u8:f32, 0.25>>,
+       tensor<16x32x!quant.uniform<u8:f32, 0.25>>)
+      -> tensor<64x32x!quant.uniform<u8:f32, 0.25>>
+  return %mm : tensor<64x32x!quant.uniform<u8:f32, 0.25>>
+}
+// Conv fed %arg0 directly (flatten consumed), 1x1 kernel, output [1,8,8,32].
+// CHECK: "onnx.XFEConv"(%arg0,
+// CHECK-SAME: kernel_shape = [1, 1]
+// CHECK-SAME: strides = [1, 1]
+// CHECK-SAME: -> tensor<1x8x8x32x!quant.uniform<u8:f32, 2.500000e-01>>
+// CHECK: "onnx.Reshape"
+// CHECK-SAME: -> tensor<64x32x!quant.uniform<u8:f32, 2.500000e-01>>
+// CHECK-NOT: onnx.MatMul
