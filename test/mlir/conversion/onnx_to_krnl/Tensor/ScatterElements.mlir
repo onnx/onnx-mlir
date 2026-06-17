@@ -46,3 +46,33 @@ func.func @test_scatter_elements1(%arg0: tensor<3x3xf32>, %arg1: tensor<3x2xi64>
 // CHECK-NEXT:      }
 // CHECK:           return [[RES1]], [[RES2]] : memref<3x3xf32>, memref<3x3xf32>
 }
+
+// -----
+
+func.func @test_scatter_elements_add(
+    %arg0: tensor<1x5xf32>,
+    %arg1: tensor<1x2xi64>,
+    %arg2: tensor<1x2xf32>) -> tensor<*xf32> {
+  %0 = "onnx.ScatterElements"(%arg0, %arg1, %arg2) {axis = 1 : si64, reduction = "add"} : (tensor<1x5xf32>, tensor<1x2xi64>, tensor<1x2xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+
+// CHECK-LABEL:  @test_scatter_elements_add
+// CHECK-SAME:   ([[PARAM_0:%.+]]: memref<1x5xf32>, [[PARAM_1:%.+]]: memref<1x2xi64>, [[PARAM_2:%.+]]: memref<1x2xf32>) -> memref<1x5xf32> {
+// CHECK-DAG:       [[RES:%.+]] = memref.alloc() {alignment = 16 : i64} : memref<1x5xf32>
+// CHECK:           "krnl.memcpy"([[RES]], [[PARAM_0]]
+// CHECK:           krnl.iterate
+// CHECK:             [[IV:%.+]]:2 = krnl.get_induction_var_value
+// CHECK-DAG:         [[INDEX:%.+]] = krnl.load [[PARAM_1]]{{.}}[[IV]]#0, [[IV]]#1{{.}} : memref<1x2xi64>
+// CHECK-DAG:         [[UPDATE_VAL:%.+]] = krnl.load [[PARAM_2]]{{.}}[[IV]]#0, [[IV]]#1{{.}} : memref<1x2xf32>
+// CHECK:             [[CAST_INDEX:%.+]] = arith.index_cast [[INDEX]] : i64 to index
+// CHECK-DAG:         [[ZERO:%.+]] = arith.constant 0 : index
+// CHECK-DAG:         [[FIVE:%.+]] = arith.constant 5 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:         [[CMP:%.+]] = arith.cmpi slt, [[CAST_INDEX]], [[ZERO]] : index
+// CHECK-DAG:         [[ADDI:%.+]] = arith.addi [[CAST_INDEX]], [[FIVE]] : index
+// CHECK:             [[SEL:%.+]] = arith.select [[CMP]], [[ADDI]], [[CAST_INDEX]] : index
+// CHECK:             [[OLD_VAL:%.+]] = krnl.load [[RES]]{{.}}[[IV]]#0, [[SEL]]{{.}} : memref<1x5xf32>
+// CHECK:             [[NEW_VAL:%.+]] = arith.addf [[OLD_VAL]], [[UPDATE_VAL]] : f32
+// CHECK:             krnl.store [[NEW_VAL]], [[RES]]{{.}}[[IV]]#0, [[SEL]]{{.}} : memref<1x5xf32>
+// CHECK:           return [[RES]] : memref<1x5xf32>
+}
