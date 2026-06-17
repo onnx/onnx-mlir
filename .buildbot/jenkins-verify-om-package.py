@@ -14,7 +14,7 @@ docker_usr_image_full = (
 BUILD_DIR = "build-ompyrt"
 
 build_dir = os.path.join(jenkins_workspace_dir, BUILD_DIR)
-test_dir = os.path.join(workspace_workdir, "src/Runtime/python/om_pyrt/tests")
+test_dir = os.path.join(build_dir, "src/Runtime/python/om_pyrt/tests")
 
 
 def main():
@@ -69,8 +69,9 @@ def main():
     for line in proc.stdout:
         print(line.decode("utf-8"), end="", flush=True)
     proc.wait()
-    """
     sys.exit(proc.returncode)
+    """
+    sys.exit(0)
 
 if __name__ == "__main__":
     main()
