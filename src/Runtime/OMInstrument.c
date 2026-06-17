@@ -57,7 +57,7 @@ static FILE *instrumentFout = 0; // For file output; none: undef; stdout.
 static bool instrumentInitialized = false;
 bool startReportPrinted = false;
 // Compilation info passed by new-protocol model .so via OMInstrumentPointInit.
-// NULL means old protocol: fall back to calling omCompilationInfo() directly.
+// NULL means old protocol, don't print any info.
 static const char *instrumentCompilationInfo = NULL;
 
 // Buffer data structure and array.
@@ -327,9 +327,13 @@ static void startInstrumentation() {
       instrumentReportTimeDisabled = true;
       instrumentReportMemoryDisabled = true;
     }
-    // Always open the output file so instrumentFout is valid for any
-    // reporting path (e.g. memory-only when time is disabled).
-    getInstrumentFile(/*print report will be on demand in flush buffer*/ false);
+    // Open the output file only when reporting is active, so that
+    // ONNX_MLIR_NO_INSTRUMENT never touches the output file at all.
+    // Still open when only time or only memory is disabled, since the
+    // other path may still need to write (e.g. memory-only reporting).
+    if (!instrumentReportDisabled)
+      getInstrumentFile(
+          /*print report will be on demand in flush buffer*/ false);
   }
 
   // Init as appropriate.
