@@ -30,7 +30,8 @@ struct ONNXScatterElementsOpLowering
     Operation *op = scatterElementsOp.getOperation();
     Location loc = ONNXLoc<ONNXScatterElementsOp>(op);
 
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder>
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder,
+        MathBuilder>
         create(rewriter, loc);
 
     // Operands and attributes.
@@ -38,6 +39,12 @@ struct ONNXScatterElementsOpLowering
     Value updates = adaptor.getUpdates();
     Value indices = adaptor.getIndices();
     int64_t axis = adaptor.getAxis();
+    StringRef reduction = scatterElementsOp.getReduction();
+
+    if (reduction != "none" && reduction != "add")
+      return rewriter.notifyMatchFailure(
+          op, "unsupported ScatterElements reduction");
+
     int64_t dataRank = mlir::cast<MemRefType>(data.getType()).getRank();
     int64_t updatesRank = mlir::cast<MemRefType>(updates.getType()).getRank();
     int64_t indicesRank = mlir::cast<MemRefType>(indices.getType()).getRank();
@@ -102,7 +109,13 @@ struct ONNXScatterElementsOpLowering
             outputAccessFct.emplace_back((i == axis) ? index : accessFct[i]);
 
           // Scatter updateVal into the output tensor.
-          createKrnl.storeIE(updateVal, output, outputAccessFct);
+          if (reduction == "add") {
+            Value oldVal = createKrnl.loadIE(output, outputAccessFct);
+            Value newVal = create.math.add(oldVal, updateVal);
+            createKrnl.storeIE(newVal, output, outputAccessFct);
+          } else {
+            createKrnl.storeIE(updateVal, output, outputAccessFct);
+          }
         });
 
     rewriter.replaceOp(op, output);
