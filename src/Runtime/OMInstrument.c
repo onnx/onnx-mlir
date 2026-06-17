@@ -225,7 +225,8 @@ static void ProcessName(
 // Buffer management
 
 // Weak fallback for unit tests and any context where the model .so is not
-// linked. The model .so always provides a strong override via emitCompilationInfo().
+// linked. The model .so always provides a strong override via
+// emitCompilationInfo().
 __attribute__((weak)) const char *omCompilationInfo(void) { return "{}"; }
 
 static inline void printStartReport() {
