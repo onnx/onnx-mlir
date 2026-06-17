@@ -60,7 +60,7 @@ struct ExtLayoutTransformChain {
   ExtLayoutTransformFusionParams params;
 };
 
-/// Locate and parameterise an extended layout transform chain.
+/// Locate and parameterize an extended layout transform chain.
 ///
 /// Starting from \p startOp (an ONNXLayoutTransformOp), traverses the chain
 /// via single-use edges, validates ZTensor / static-dim / layout / beneficial
