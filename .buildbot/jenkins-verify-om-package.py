@@ -39,7 +39,7 @@ def main():
     cmd_pip_1 = [
         "pip3",
         "install",
-        "--user"
+        "--user",
         "hatchling",
     ]
     
