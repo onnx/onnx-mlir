@@ -45,8 +45,8 @@ llvm_config.add_tool_substitutions(tools, tool_dirs)
 # Release/ prefix under build/).  build-run-onnx-lib.sh expects ONNX_MLIR_HOME
 # to point there so it can locate bin/, lib/, and the source tree.
 config.substitutions.append(
-    ('%onnx-mlir-home',
-     os.path.dirname(os.path.normpath(config.onnx_mlir_tools_dir))))
+    ("%onnx-mlir-home", os.path.dirname(os.path.normpath(config.onnx_mlir_tools_dir)))
+)
 
 # This is based on the same code in llvm and it is meant to determine what
 # the supported targets for llvm & friends are - this allow us to filter test
