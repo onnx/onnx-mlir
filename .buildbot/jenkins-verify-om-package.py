@@ -61,7 +61,6 @@ def main():
         if proc.returncode != 0:
             sys.exit(proc.returncode)
 
-    """
     # commands in test_dir
     cmd_use_local = ["python", "use_local_compiler.py", "--image", docker_usr_image_full]
 
@@ -71,8 +70,6 @@ def main():
         print(line.decode("utf-8"), end="", flush=True)
     proc.wait()
     sys.exit(proc.returncode)
-    """
-    sys.exit(0)
 
 if __name__ == "__main__":
     main()
