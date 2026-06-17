@@ -388,3 +388,20 @@ func.func @dq_dq_mul_scast_update_input(%arg0: tensor<10x512x!quant.uniform<u16:
 // CHECK-NEXT: quant.scast
 // CHECK-SAME: quant.uniform<u16:f32, 6.1421515056281351E-6:922>
 // CHECK-NEXT: onnx.DequantizeLinear
+
+// -----
+
+// Broadcasting binary must not fold: the non-constant operand (1x1x4) is
+// broadcast to the output (1x8x4), and quant.scast cannot change shape.
+func.func @broadcast_add_negative(%arg0: tensor<1x1x4xi8>) -> tensor<1x8x4xi8> {
+  %0 = onnx.Constant dense<1.000000e+01> : tensor<1x8x4xf32>
+  %1 = quant.scast %arg0 : tensor<1x1x4xi8> to tensor<1x1x4x!quant.uniform<i8:f32, 5.000000e-01>>
+  %2 = "onnx.Identity"(%1) : (tensor<1x1x4x!quant.uniform<i8:f32, 5.000000e-01>>) -> tensor<1x1x4x!quant.uniform<i8:f32, 5.000000e-01>>
+  %3 = "onnx.Add"(%2, %0) : (tensor<1x1x4x!quant.uniform<i8:f32, 5.000000e-01>>, tensor<1x8x4xf32>) -> tensor<1x8x4x!quant.uniform<i8:f32, 0.10000000149011612>>
+  %4 = "onnx.Identity"(%3) : (tensor<1x8x4x!quant.uniform<i8:f32, 0.10000000149011612>>) -> tensor<1x8x4x!quant.uniform<i8:f32, 0.10000000149011612>>
+  %5 = quant.scast %4 : tensor<1x8x4x!quant.uniform<i8:f32, 0.10000000149011612>> to tensor<1x8x4xi8>
+  return %5 : tensor<1x8x4xi8>
+}
+
+// CHECK-LABEL: @broadcast_add_negative
+// CHECK: onnx.Add

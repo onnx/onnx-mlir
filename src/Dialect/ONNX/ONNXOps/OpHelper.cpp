@@ -804,9 +804,12 @@ Type convertONNXTypeToMLIRType(
     return builder.getIntegerType(/*width=*/4);
   case onnx::TensorProto_DataType::TensorProto_DataType_UINT4:
     return builder.getIntegerType(/*width=*/4, false);
-
   case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX64:
   case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX128:
+  case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT4E2M1:
+  case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT8E8M0:
+  case onnx::TensorProto_DataType::TensorProto_DataType_INT2:
+  case onnx::TensorProto_DataType::TensorProto_DataType_UINT2:
   case onnx::TensorProto_DataType::TensorProto_DataType_UNDEFINED:
     llvm_unreachable("Unsupported data type encountered.");
     return nullptr;

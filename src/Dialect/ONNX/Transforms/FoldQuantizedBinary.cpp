@@ -158,6 +158,12 @@ public:
     if (!lhsType || !outType)
       return rewriter.notifyMatchFailure(binOp, "Not Ranked TensorTypes");
 
+    // quant.scast cannot change shape; folding a broadcasting binary would
+    // drop the broadcast and create a mismatched-shape scast.
+    if (lhsType.getShape() != outType.getShape())
+      return rewriter.notifyMatchFailure(
+          binOp, "Cannot fold quantized binary with broadcasting operand");
+
     auto lhsQType =
         dyn_cast<quant::UniformQuantizedType>(lhsType.getElementType());
     auto outQType =

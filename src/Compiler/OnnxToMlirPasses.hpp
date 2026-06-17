@@ -40,6 +40,7 @@ struct OnnxToMlirOptions {
 
   bool enableMatmulAddFusion = true;
   bool enableMatmulToConv = true;
+  bool enableRemovePairsReshape = false;
 
   int onnxOpTransformThreshold = 3;
   bool onnxOpTransformReport = false;
