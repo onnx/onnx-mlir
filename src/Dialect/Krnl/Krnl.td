@@ -1318,6 +1318,23 @@ def KrnlInstrumentOp : Op<Krnl_Dialect, "runtime_instrument",
   let builders = [ OpBuilder<(ins "Operation *": $op, "int ": $tag)> ];
 }
 
+def KrnlInstrumentInitOp : Op<Krnl_Dialect, "runtime_instrument_init",
+    [DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]
+  > {
+  let summary = "instrumentation init point.";
+  let description = [{
+    Operation that initializes the runtime instrumentation. Emitted once before
+    the first KrnlInstrumentOp in a function. Lowers to a call to
+    OMInstrumentPointInit(tag, omCompilationInfo()) so the runtime receives
+    model compilation metadata without relying on the weak/strong symbol
+    override mechanism at print time.
+  }];
+
+  let arguments = (ins I64Attr:$tag);
+
+  let builders = [ OpBuilder<(ins "int": $tag)> ];
+}
+
 def KrnlMemsetOp : Op<Krnl_Dialect, "memset", [MemRefsNormalizable,
     DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
     TypesMatchWith<"type of 'value' matches element type of 'dest'",
