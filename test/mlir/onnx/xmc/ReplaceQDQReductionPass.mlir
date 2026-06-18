@@ -185,9 +185,10 @@ func.func @rank3_max_axis1_keepdims1(%arg0: tensor<4x8x16x!quant.uniform<i8:f32,
 // CHECK:       %[[PRE:.+]]  = "onnx.Reshape"(%arg0, %[[PRESHAPE_C]])
 // CHECK:       %[[RED:.+]]  = "onnx.ReduceMaxV13"(%[[PRE]]) {axes = [2], keepdims = 1 : si64}
 // CHECK:       %[[POST:.+]] = "onnx.Reshape"(%[[RED]], %[[POSTSHAPE_C]])
+// CHECK-SAME:  ResultNames = ["rank3_reducemaxv13_out"]
 // CHECK:       return %[[POST]]
 func.func @rank3_reducemaxv13_axis1_keepdims1(%arg0: tensor<4x8x16x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<4x1x16x!quant.uniform<i8:f32, 0.05:0>> {
-  %0 = "onnx.ReduceMaxV13"(%arg0) {axes = [1], keepdims = 1 : si64} : (tensor<4x8x16x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<4x1x16x!quant.uniform<i8:f32, 0.05:0>>
+  %0 = "onnx.ReduceMaxV13"(%arg0) {axes = [1], keepdims = 1 : si64, ResultNames = ["rank3_reducemaxv13_out"]} : (tensor<4x8x16x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<4x1x16x!quant.uniform<i8:f32, 0.05:0>>
   return %0 : tensor<4x1x16x!quant.uniform<i8:f32, 0.05:0>>
 }
 
