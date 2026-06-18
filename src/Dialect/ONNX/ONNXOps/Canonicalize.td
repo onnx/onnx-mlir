@@ -834,7 +834,11 @@ def SwapReshapeMatMulPattern: Pattern<
   (IsStaticShapeTensor:$res2), // $res2 has static dims in order to create ReshapeOp.
   // Do not rewrite quantized matmuls: the rebuilt result type would take the
   // input's quant params and an inserted Reshape would break MatMul+Add fusion.
-  (IsNotQuantizedTensor $A), (IsNotQuantizedTensor $B), (IsNotQuantizedTensor $res2)
+  // $res1 is the value the MatMul actually consumes; guard it directly instead
+  // of assuming Reshape preserves $A's element type (the verifier does not
+  // enforce that, even though shape inference copies it).
+  (IsNotQuantizedTensor $A), (IsNotQuantizedTensor $res1),
+  (IsNotQuantizedTensor $B), (IsNotQuantizedTensor $res2)
  ]
 >;
 
