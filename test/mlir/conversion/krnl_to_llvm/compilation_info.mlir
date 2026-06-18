@@ -7,7 +7,11 @@ module attributes {"onnx-mlir.compile_options" = "test-options", "onnx-mlir.op_s
   }
   "krnl.entry_point"() {func = @main_graph, numInputs = 1 : i32, numOutputs = 1 : i32, signature = "[in_sig]\00@[out_sig]\00"} : () -> ()
 
-// CHECK:         llvm.mlir.global internal constant @om_compilation_info_json("{\0A\22compiler_version\22: \22\22,\0A\22compile_options\22: \22test-options\22,\0A\22op_stats\22: {\22op1\22: 5}}\00") {addr_space = 0 : i32}
+// CHECK:         llvm.mlir.global internal constant @om_compilation_info_json(
+// CHECK-SAME:      \22compiler_version\22: \22\22
+// CHECK-SAME:      \22compile_options\22: \22test-options\22
+// CHECK-SAME:      \22accelerators\22: {}
+// CHECK-SAME:      \22op_stats\22: {\22op1\22: 5}
 
 // CHECK:         llvm.func @omCompilationInfo() -> !llvm.ptr {
 // CHECK:           [[VAR_0:%.+]] = llvm.mlir.addressof @om_compilation_info_json : !llvm.ptr
@@ -24,7 +28,11 @@ module attributes {"onnx-mlir.compile_options" = "--tag=test", "onnx-mlir.op_sta
   }
   "krnl.entry_point"() {func = @tagged_entry, numInputs = 1 : i32, numOutputs = 1 : i32, signature = "[tagged_in]\00@[tagged_out]\00"} : () -> ()
 
-// CHECK:         llvm.mlir.global internal constant @om_compilation_info_json_tag("{\0A\22compiler_version\22: \22\22,\0A\22compile_options\22: \22--tag=test\22,\0A\22op_stats\22: {\22onnx.Add\22: 2}}\00") {addr_space = 0 : i32}
+// CHECK:         llvm.mlir.global internal constant @om_compilation_info_json_tag(
+// CHECK-SAME:      \22compiler_version\22: \22\22
+// CHECK-SAME:      \22compile_options\22: \22--tag=test\22
+// CHECK-SAME:      \22accelerators\22: {}
+// CHECK-SAME:      \22op_stats\22: {\22onnx.Add\22: 2}
 
 // CHECK:         llvm.func @omCompilationInfo_tag() -> !llvm.ptr {
 // CHECK:           [[VAR_0:%.+]] = llvm.mlir.addressof @om_compilation_info_json_tag : !llvm.ptr
@@ -46,7 +54,11 @@ module attributes {"onnx-mlir.compile_options" = "-O3 --EmitLib", "onnx-mlir.op_
   }
   "krnl.entry_point"() {func = @test_entry, numInputs = 1 : i32, numOutputs = 1 : i32, signature = "[test_in]\00@[test_out]\00"} : () -> ()
 
-// CHECK:         llvm.mlir.global internal constant @om_compilation_info_json("{\0A\22compiler_version\22: \22\22,\0A\22compile_options\22: \22-O3 --EmitLib\22,\0A\22op_stats\22: }\00") {addr_space = 0 : i32}
+// CHECK:         llvm.mlir.global internal constant @om_compilation_info_json(
+// CHECK-SAME:      \22compiler_version\22: \22\22
+// CHECK-SAME:      \22compile_options\22: \22-O3 --EmitLib\22
+// CHECK-SAME:      \22accelerators\22: {}
+// CHECK-SAME:      \22op_stats\22:
 
 // CHECK:         llvm.func @omCompilationInfo() -> !llvm.ptr {
 // CHECK:           [[VAR_0:%.+]] = llvm.mlir.addressof @om_compilation_info_json : !llvm.ptr
@@ -63,7 +75,11 @@ module {
   }
   "krnl.entry_point"() {func = @simple_entry, numInputs = 1 : i32, numOutputs = 1 : i32, signature = "[simple_in]\00@[simple_out]\00"} : () -> ()
 
-// CHECK:         llvm.mlir.global internal constant @om_compilation_info_json("{\0A\22compiler_version\22: \22\22,\0A\22compile_options\22: \22\22,\0A\22op_stats\22: }\00") {addr_space = 0 : i32}
+// CHECK:         llvm.mlir.global internal constant @om_compilation_info_json(
+// CHECK-SAME:      \22compiler_version\22: \22\22
+// CHECK-SAME:      \22compile_options\22: \22\22
+// CHECK-SAME:      \22accelerators\22: {}
+// CHECK-SAME:      \22op_stats\22:
 
 // CHECK:         llvm.func @omCompilationInfo() -> !llvm.ptr {
 // CHECK:           [[VAR_0:%.+]] = llvm.mlir.addressof @om_compilation_info_json : !llvm.ptr

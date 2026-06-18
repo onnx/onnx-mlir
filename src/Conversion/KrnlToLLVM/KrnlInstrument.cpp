@@ -255,7 +255,8 @@ public:
 
 private:
   // Create a function declaration for OMInstrumentPoint, the signature is:
-  //   `void (ptr, i64, ptr)`
+  //   `void (ptr, i64, ptr)`. Not part of RuntimeAPI.hpp because we need this
+  //   only when instrumentation is present.
   FlatSymbolRefAttr getOrInsertInstrument(
       PatternRewriter &rewriter, ModuleOp module) const {
     MLIRContext *context = module.getContext();
@@ -269,9 +270,65 @@ private:
   }
 };
 
+class KrnlInstrumentInitOpLowering : public ConversionPattern {
+public:
+  explicit KrnlInstrumentInitOpLowering(
+      LLVMTypeConverter &typeConverter, MLIRContext *context)
+      : ConversionPattern(typeConverter,
+            KrnlInstrumentInitOp::getOperationName(), 1, context) {}
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const override {
+    auto *context = op->getContext();
+    Location loc = op->getLoc();
+    KrnlInstrumentInitOp initOp = llvm::dyn_cast<KrnlInstrumentInitOp>(op);
+
+    ModuleOp parentModule = op->getParentOfType<ModuleOp>();
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
+    Type opaquePtrTy = getI8PointerType(context);
+    Type llvmI64Ty = IntegerType::get(context, 64);
+
+    // omCompilationInfo is always defined in the same module by
+    // KrnlEntryPointOpLowering. Reference it by name without inserting a
+    // separate declaration, which would cause a redefinition conflict when
+    // the definition is emitted later in the same pass.
+    auto compilationInfoRef =
+        FlatSymbolRefAttr::get(context, "omCompilationInfo");
+    auto infoCall = LLVM::CallOp::create(rewriter, loc, TypeRange{opaquePtrTy},
+        compilationInfoRef, ValueRange{});
+    Value compilationInfoPtr = infoCall.getResult();
+
+    Value tag =
+        create.llvm.constant(llvmI64Ty, static_cast<int64_t>(initOp.getTag()));
+
+    auto initRef = getOrInsertInstrumentInit(rewriter, parentModule);
+    LLVM::CallOp::create(rewriter, loc, TypeRange{}, initRef,
+        ValueRange{tag, compilationInfoPtr});
+
+    rewriter.eraseOp(op);
+    return success();
+  }
+
+private:
+  // Declare OMInstrumentPointInit: void (i64, ptr). Not part of RuntimeAPI.hpp
+  // because we need this only when instrumentation is present.
+  FlatSymbolRefAttr getOrInsertInstrumentInit(
+      PatternRewriter &rewriter, ModuleOp module) const {
+    MLIRContext *context = module.getContext();
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
+    Type llvmVoidTy = LLVM::LLVMVoidType::get(context);
+    Type llvmI64Ty = IntegerType::get(context, 64);
+    Type opaquePtrTy = getI8PointerType(context);
+    return create.llvm.getOrInsertSymbolRef(module,
+        StringRef("OMInstrumentPointInit"), llvmVoidTy,
+        {llvmI64Ty, opaquePtrTy});
+  }
+};
+
 void populateLoweringKrnlInstrumentOpPattern(LLVMTypeConverter &typeConverter,
     RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<KrnlInstrumentOpLowering>(typeConverter, ctx);
+  patterns.insert<KrnlInstrumentInitOpLowering>(typeConverter, ctx);
 }
 
 } // namespace krnl

@@ -99,16 +99,10 @@ public:
 
   StringRef getDescription() const override { return "instrument on ops."; }
 
-  // merge all action options into a bitset
-  // used to create tags for instrumentation ops
-  uint64_t actions() const {
+  // Base tag: time/memory report flags only, no before/after position bits.
+  uint64_t reportFlagsTag() const {
     int64_t tag;
-
     INIT_INSTRUMENT(tag);
-    if (instrumentBefore)
-      SET_INSTRUMENT_BEFORE_OP(tag);
-    if (instrumentAfter)
-      SET_INSTRUMENT_AFTER_OP(tag);
     if (reportTime)
       SET_INSTRUMENT_REPORT_TIME(tag);
     if (reportMemory)
@@ -116,15 +110,17 @@ public:
     return tag;
   }
 
+  uint64_t initTag() const { return reportFlagsTag(); }
+
   uint64_t beforeTag() const {
-    int64_t tag = actions();
-    CLEAR_INSTRUMENT_AFTER_OP(tag);
+    int64_t tag = reportFlagsTag();
+    SET_INSTRUMENT_BEFORE_OP(tag);
     return tag;
   }
 
   uint64_t afterTag() const {
-    int64_t tag = actions();
-    CLEAR_INSTRUMENT_BEFORE_OP(tag);
+    int64_t tag = reportFlagsTag();
+    SET_INSTRUMENT_AFTER_OP(tag);
     return tag;
   }
 
@@ -155,28 +151,27 @@ public:
       if (op->getNumResults() == 1 && isa<NoneType>(op->getResult(0).getType()))
         return WalkResult::advance();
       // Skip other instrument ops.
-      if (isa<KrnlInstrumentOp>(op) || isa<ONNXPrintSignatureOp>(op))
+      if (isa<KrnlInstrumentOp>(op) || isa<KrnlInstrumentInitOp>(op) ||
+          isa<ONNXPrintSignatureOp>(op))
         return WalkResult::advance();
 
       if (allowedOps.isEnabled(opName)) {
         if (instrumentBefore) {
-          uint64_t tag = beforeTag();
           if (!hasInitializedRuntime) {
-            SET_INSTRUMENT_INIT(tag);
+            mlir::KrnlInstrumentInitOp::create(opBuilder, loc, initTag());
             hasInitializedRuntime = true;
           }
-          mlir::KrnlInstrumentOp::create(opBuilder, loc, op, tag);
+          mlir::KrnlInstrumentOp::create(opBuilder, loc, op, beforeTag());
         }
 
         // Can not insert after Op (e.g. ONNXYieldOP) with IsTerminator Trait
         if (instrumentAfter && !op->hasTrait<OpTrait::IsTerminator>()) {
           opBuilder.setInsertionPointAfter(op);
-          uint64_t tag = afterTag();
           if (!hasInitializedRuntime) {
-            SET_INSTRUMENT_INIT(tag);
+            mlir::KrnlInstrumentInitOp::create(opBuilder, loc, initTag());
             hasInitializedRuntime = true;
           }
-          mlir::KrnlInstrumentOp::create(opBuilder, loc, op, tag);
+          mlir::KrnlInstrumentOp::create(opBuilder, loc, op, afterTag());
         }
       }
       return WalkResult::advance();

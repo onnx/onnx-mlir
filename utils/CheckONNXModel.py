@@ -187,6 +187,20 @@ parser.add_argument(
     " Supported types are bool, uint8, int8, uint16, int16, uint32, int32,"
     " uint64, int64, float16, float32, float64",
 )
+parser.add_argument(
+    "--input-value",
+    type=str,
+    help="Per-input data fill specification, overriding --lower-bound/--upper-bound"
+    " for individual tensors."
+    " Format: INPUT_ID:spec1 spec2 ..., INPUT_ID:spec, ..."
+    " where INPUT_ID is an integer >= 0, a range (e.g. 2-5), or -1 for all inputs,"
+    " and each spec is one of:"
+    " min<num> (lower bound for random fill),"
+    " max<num> (upper bound for random fill),"
+    " val<num> (constant fill, equivalent to min=max=num),"
+    " soz<num> (sequence-of-ones-then-zeros along the innermost dimension)."
+    " E.g. --input-value=0:min-1.0max1.0,1:val0.",
+)
 
 parser.add_argument(
     "--rtol", type=str, default="", help="Relative tolerance for verification."
@@ -312,6 +326,8 @@ def main():
         ref_cmd += ["--lower-bound=" + args.lower_bound]
     if args.upper_bound:
         ref_cmd += ["--upper-bound=" + args.upper_bound]
+    if args.input_value:
+        ref_cmd += ["--input-value=" + args.input_value]
     if args.cache_ref_model:
         ref_cmd += ["--cache-model=" + args.cache_ref_model]
     # Model name.
