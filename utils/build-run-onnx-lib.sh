@@ -75,7 +75,8 @@ if [ "$STATIC_FLAG" -eq 0 ] ; then
   g++ -g $DRIVER_NAME $DEBUG_SRCS -o $RUN_BIN -std=c++17 \
     -D LOAD_MODEL_STATICALLY=0 \
     $INCLUDES \
-    -L $ONNX_MLIR_LIB -lcruntime -lOMSmallFPConversion \
+    -L $ONNX_MLIR_LIB -Wl,-rpath,$ONNX_MLIR_LIB \
+    -lcruntime -lOMSmallFPConversion \
     -lpthread -ldl &&
   echo "Success, built $(basename $RUN_BIN) (dynamic)"
 else
@@ -86,7 +87,8 @@ else
   g++ -g $DRIVER_NAME $DEBUG_SRCS -o $RUN_BIN -std=c++17 \
     -D LOAD_MODEL_STATICALLY=1 \
     $INCLUDES \
-    -L $ONNX_MLIR_LIB -lOMSmallFPConversion \
+    -L $ONNX_MLIR_LIB -Wl,-rpath,$ONNX_MLIR_LIB \
+    -lOMSmallFPConversion \
     -lpthread -ldl "$MODEL_ABS" &&
   if [ $(uname -s) = Darwin ] ; then
     # The model's install name is typically just its basename (e.g. "model.so").
