@@ -25,6 +25,7 @@ Effects: `MemoryEffects::Effect{}`
 | `out` | floating-point |
 
 
+
 ### `krnl.acosh` (KrnlAcoshOp)
 
 _Krnl acosh scalar operation_
@@ -48,6 +49,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `out` | floating-point |
+
 
 
 ### `krnl.asin` (KrnlAsinOp)
@@ -75,6 +77,7 @@ Effects: `MemoryEffects::Effect{}`
 | `out` | floating-point |
 
 
+
 ### `krnl.asinh` (KrnlAsinhOp)
 
 _Krnl asinh scalar operation_
@@ -98,6 +101,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `out` | floating-point |
+
 
 
 ### `krnl.atan` (KrnlAtanOp)
@@ -125,6 +129,7 @@ Effects: `MemoryEffects::Effect{}`
 | `out` | floating-point |
 
 
+
 ### `krnl.atanh` (KrnlAtanhOp)
 
 _Krnl atanh scalar operation_
@@ -148,6 +153,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `out` | floating-point |
+
 
 
 ### `krnl.block` (KrnlBlockOp)
@@ -185,6 +191,7 @@ means to block the for loop referred to by %i using a tile size of 4.
 | :----: | ----------- |
 | `loop_block` | any type |
 | `loop_local` | any type |
+
 
 
 ### `krnl.call` (KrnlCallOp)
@@ -241,6 +248,7 @@ Interfaces: `MemoryEffectOpInterface`
 | `returnValue` | variadic of floating-point or integer |
 
 
+
 ### `krnl.copy_from_tile_buffer` (KrnlCopyFromBufferOp)
 
 _Copy from buffer._
@@ -277,6 +285,7 @@ Traits: `MemRefsNormalizable`
 | `buffer` | memref of any type values |
 | `dest` | memref of any type values |
 | `starts` | variadic of index |
+
 
 
 ### `krnl.copy_to_tile_buffer` (KrnlCopyToBufferOp)
@@ -349,6 +358,7 @@ Traits: `MemRefsNormalizable`
 | `padValue` | any type |
 
 
+
 ### `krnl.define_loops` (KrnlDefineLoopsOp)
 
 _Define_loops operation_
@@ -368,12 +378,14 @@ Effects: `MemoryEffects::Effect{}`
 | &laquo;unnamed&raquo; | variadic of any type |
 
 
+
 ### `krnl.entry_point` (KrnlEntryPointOp)
 
 _Indicate ONNX entry point_
 
 The "krnl.entry_point" function indicates the main entry
                            point of ONNX model.
+
 
 
 ### `krnl.erf` (KrnlErfOp)
@@ -399,6 +411,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `out` | floating-point |
+
 
 
 ### `krnl.find_index` (KrnlFindIndexOp)
@@ -430,6 +443,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `index` | index |
+
 
 
 ### `krnl.get_induction_var_value` (KrnlGetInductionVariableValueOp)
@@ -467,6 +481,7 @@ Effects: `MemoryEffects::Effect{}`
 | `ind_var_vals` | variadic of any type |
 
 
+
 ### `krnl.get_linear_offset_index` (KrnlGetLinearOffsetIndexOp)
 
 _A Krnl operation to compute a linear offset index from a N-D index._
@@ -497,6 +512,7 @@ Interfaces: `AffineMapAccessInterface`, `AffineReadOpInterface`
 | Result | Description |
 | :----: | ----------- |
 | `result` | index |
+
 
 
 ### `krnl.global` (KrnlGlobalOp)
@@ -531,24 +547,6 @@ Effects: `MemoryEffects::Effect{}`
 | `output` | memref of any type values |
 
 
-### `krnl.runtime_instrument` (KrnlInstrumentOp)
-
-_Instrumentation point._
-
-Operation that invokes the runtime instrument utility.
-May be used for gdb.
-
-Interfaces: `MemoryEffectOpInterface`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>opName</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
-<tr><td><code>tag</code></td><td>::mlir::IntegerAttr</td><td>64-bit signless integer attribute</td></tr>
-<tr><td><code>nodeName</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
-</table>
-
 
 ### `krnl.isinf` (KrnlIsInfOp)
 
@@ -575,6 +573,7 @@ Effects: `MemoryEffects::Effect{}`
 | `out` | 1-bit signless integer |
 
 
+
 ### `krnl.isnan` (KrnlIsNaNOp)
 
 _Krnl isnan scalar operation_
@@ -598,6 +597,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `out` | 1-bit signless integer |
+
 
 
 ### `krnl.iterate` (KrnlIterateOp)
@@ -646,6 +646,7 @@ Interfaces: `LoopLikeOpInterface`
 | `results` | variadic of any type |
 
 
+
 ### `krnl.load` (KrnlLoadOp)
 
 _A Krnl operation to load data from the memref._
@@ -676,6 +677,7 @@ Traits: `MemRefsNormalizable`
 | Result | Description |
 | :----: | ----------- |
 | `result` | any type |
+
 
 
 ### `krnl.matmul` (KrnlMatMulOp)
@@ -891,6 +893,7 @@ Interfaces: `SpecializedKernelOpInterface`
 | `kGlobalUB` | index |
 
 
+
 ### `krnl.memcpy` (KrnlMemcpyOp)
 
 _Krnl memcpy operation_
@@ -915,6 +918,7 @@ Interfaces: `MemoryEffectOpInterface`
 | `num_elems` | 64-bit signless integer |
 | `dest_offset` | index |
 | `src_offset` | index |
+
 
 
 ### `krnl.memset` (KrnlMemsetOp)
@@ -967,6 +971,7 @@ Interfaces: `MemoryEffectOpInterface`
 | `value` | any type |
 
 
+
 ### `krnl.movable` (KrnlMovableOp)
 
 _Krnl movable operation_
@@ -987,6 +992,7 @@ This construct is particularly helpful, for example, for lowering statements tha
 are nested imperfectly between an "eager" and a "lazy" loop.
 
 Traits: `SingleBlockImplicitTerminator<KrnlTerminatorOp>`, `SingleBlock`
+
 
 
 ### `krnl.noValue` (KrnlNoneOp)
@@ -1011,34 +1017,6 @@ Typically it is used for optional arguments used in KrnlCallop.
 | :----: | ----------- |
 | `none_val` | none type |
 
-
-### `krnl.parallel_clause` (KrnlParallelClauseOp)
-
-_Attach OpenMP clauses to an index varialbe_
-
-Syntax:
-
-```
-operation ::= `krnl.parallel_clause` `(` $parallel_loop_index `)` (`,` `num_threads` `(` $num_threads^ `)`)?
-              attr-dict `:` type($parallel_loop_index)
-```
-
-Attach OpenMP clauses to an index variable. That index variable
-is used to uniquely associate a parallel loop with its clauses.
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>proc_bind</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `parallel_loop_index` | index |
-| `num_threads` | 32-bit signless integer |
 
 
 ### `krnl.parallel` (KrnlParallelOp)
@@ -1080,6 +1058,37 @@ Traits: `AttrSizedOperandSegments`
 | :-----: | ----------- |
 | `loops` | variadic of any type |
 | `num_threads` | 32-bit signless integer |
+
+
+
+### `krnl.parallel_clause` (KrnlParallelClauseOp)
+
+_Attach OpenMP clauses to an index varialbe_
+
+Syntax:
+
+```
+operation ::= `krnl.parallel_clause` `(` $parallel_loop_index `)` (`,` `num_threads` `(` $num_threads^ `)`)?
+              attr-dict `:` type($parallel_loop_index)
+```
+
+Attach OpenMP clauses to an index variable. That index variable
+is used to uniquely associate a parallel loop with its clauses.
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>proc_bind</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `parallel_loop_index` | index |
+| `num_threads` | 32-bit signless integer |
+
 
 
 ### `krnl.permute` (KrnlPermuteOp)
@@ -1161,6 +1170,7 @@ affine.for %arg0 = 0 to 1024 step 4 {
 | `loops` | variadic of any type |
 
 
+
 ### `krnl.prefetch` (KrnlPrefetchOp)
 
 _A Krnl operation to compute a linear offset index from a N-D index._
@@ -1190,6 +1200,7 @@ Interfaces: `AffineMapAccessInterface`
 | `indices` | variadic of index |
 
 
+
 ### `krnl.print` (KrnlPrintOp)
 
 _Print a value._
@@ -1214,6 +1225,7 @@ Interfaces: `MemoryEffectOpInterface`
 | Operand | Description |
 | :-----: | ----------- |
 | `input` | any type |
+
 
 
 ### `krnl.print_tensor` (KrnlPrintTensorOp)
@@ -1248,6 +1260,7 @@ Interfaces: `MemoryEffectOpInterface`
 | `input` | memref of any type values |
 
 
+
 ### `krnl.random_normal` (KrnlRandomNormalOp)
 
 _Generate a random normal tensor._
@@ -1267,6 +1280,7 @@ Traits: `MemRefsNormalizable`
 | `seed` | floating-point |
 
 
+
 ### `krnl.region` (KrnlRegionOp)
 
 _Affine boundary for krnl loops_
@@ -1283,6 +1297,7 @@ ToFix: current `krnl.region` does not have input and output. You cannot
 create a new memref inside the region and use it outside of the region.
 
 Traits: `AffineScope`, `NoTerminator`, `SingleBlock`
+
 
 
 ### `krnl.round_even` (KrnlRoundEvenOp)
@@ -1311,6 +1326,27 @@ Effects: `MemoryEffects::Effect{}`
 | `out` | floating-point-like |
 
 
+
+### `krnl.runtime_instrument` (KrnlInstrumentOp)
+
+_Instrumentation point._
+
+Operation that invokes the runtime instrument utility.
+May be used for gdb.
+
+Interfaces: `MemoryEffectOpInterface`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>opName</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+<tr><td><code>tag</code></td><td>::mlir::IntegerAttr</td><td>64-bit signless integer attribute</td></tr>
+<tr><td><code>nodeName</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+</table>
+
+
+
 ### `krnl.seqalloc` (KrnlSeqAllocOp)
 
 _Krnl create a sequence_
@@ -1337,6 +1373,7 @@ Interfaces: `AllocationOpInterface`, `MemoryEffectOpInterface`
 | `output` | memref of any type values |
 
 
+
 ### `krnl.seqdealloc` (KrnlSeqDeallocOp)
 
 _Krnl dealloc a sequence_
@@ -1351,6 +1388,7 @@ Traits: `MemRefsNormalizable`
 | Operand | Description |
 | :-----: | ----------- |
 | `input_sequence` | memref of any type values |
+
 
 
 ### `krnl.seqextract` (KrnlSeqExtractOp)
@@ -1396,6 +1434,7 @@ Interfaces: `AllocationOpInterface`, `MemoryEffectOpInterface`
 | `output` | any type |
 
 
+
 ### `krnl.seqstore` (KrnlSeqStoreOp)
 
 _Krnl store into a seq_
@@ -1420,6 +1459,7 @@ Interfaces: `MemoryEffectOpInterface`
 | `index` | index |
 
 
+
 ### `krnl.specialized_kernel` (KrnlSpecializedKernel)
 
 _Krnl specialized kernel op_
@@ -1439,6 +1479,7 @@ Interfaces: `SpecializedKernelOpInterface`
 | Operand | Description |
 | :-----: | ----------- |
 | `loops` | variadic of any type |
+
 
 
 ### `krnl.store` (KrnlStoreOp)
@@ -1467,6 +1508,7 @@ Traits: `MemRefsNormalizable`
 | `indices` | variadic of index |
 
 
+
 ### `krnl.strlen` (KrnlStrlenOp)
 
 _Compute the length of a string._
@@ -1490,6 +1532,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `res` | 64-bit signless integer |
+
 
 
 ### `krnl.strncmp` (KrnlStrncmpOp)
@@ -1519,6 +1562,7 @@ Effects: `MemoryEffects::Effect{}`
 | `res` | 32-bit signless integer |
 
 
+
 ### `krnl.tan` (KrnlTanOp)
 
 _Krnl tan scalar operation_
@@ -1544,6 +1588,7 @@ Effects: `MemoryEffects::Effect{}`
 | `out` | floating-point |
 
 
+
 ### `krnl.terminate` (KrnlTerminatorOp)
 
 _Krnl terminator operation_
@@ -1560,6 +1605,7 @@ Traits: `ReturnLike`, `Terminator`
 Interfaces: `NoMemoryEffect (MemoryEffectOpInterface)`, `RegionBranchTerminatorOpInterface`
 
 Effects: `MemoryEffects::Effect{}`
+
 
 
 ### `krnl.unroll` (KrnlUnrollOp)
@@ -1583,6 +1629,7 @@ unrolls the loop referred to by %i fully.
 | Operand | Description |
 | :-----: | ----------- |
 | `loop` | any type |
+
 
 
 ### `krnl.vector_type_cast` (KrnlVectorTypeCastOp)
@@ -1625,6 +1672,7 @@ Effects: `MemoryEffects::Effect{}`
 | `result` | memref of any type values |
 
 
+
 ### `krnl.yield` (KrnlYieldOp)
 
 _Yield values to parent operation_
@@ -1656,4 +1704,5 @@ Effects: `MemoryEffects::Effect{}`
 | Operand | Description |
 | :-----: | ----------- |
 | `operands` | variadic of any type |
+
 
