@@ -42,6 +42,8 @@ void addXmcMlirPasses(mlir::OpPassManager &pm, OnnxToMlirOptions opts) {
       onnx_mlir::createTransferResizeLinearToDwConv());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvWithBiasPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createRemoveRedundantReshapePass());
+    pm.addNestedPass<func::FuncOp>(
+      onnx_mlir::createBatchReductionToReshapeReductionPass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createTransferReduceMeanSumToConvPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceQDQReductionPass());
@@ -103,8 +105,7 @@ void addXmcMlirPasses(mlir::OpPassManager &pm, OnnxToMlirOptions opts) {
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createTransfer5dStridedSliceTo4d());
   // Note: architecture specific pass.
   // pm.addNestedPass<func::FuncOp>(onnx_mlir::createTransferOpShapeTo4dPass());
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createBatchReductionToReshapeReductionPass());
+
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createReplaceQDQResizePass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createReplaceQuantizedTileToAddPass());
