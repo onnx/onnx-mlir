@@ -12,6 +12,21 @@ add_onnx_mlir_library(OMFoldStdAlloc
   ${NNPA_BIN_ROOT}
    )
 
+add_onnx_mlir_library(OMEliminateWriteOnlyAlloc
+  EliminateWriteOnlyAlloc.cpp
+
+  LINK_LIBS PUBLIC
+  OMKrnlOps
+  MLIRAffineDialect
+  MLIRFuncDialect
+  MLIRMemRefDialect
+  MLIRSideEffectInterfaces
+
+  ACCEL_INCLUDE_DIRS PRIVATE
+  ${NNPA_SRC_ROOT}
+  ${NNPA_BIN_ROOT}
+   )
+
 add_onnx_mlir_library(OMReplaceMallocByHugePageMalloc
   ReplaceMallocByHugePageMalloc.cpp
 

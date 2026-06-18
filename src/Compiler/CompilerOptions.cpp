@@ -100,7 +100,7 @@ std::vector<std::string> reportHeapAfter;              // onnx-mlir only
 std::string modelTag;                                  // onnx-mlir only
 bool enableConvOptPass;                                // onnx-mlir only
 bool disableConvToMatmul;                              // onnx-mlir only
-bool useFusedOp;                                       // common for both
+bool disableFusedOp;                                   // common for both
 std::vector<std::string> replaceOpWithItsOperand;      // onnx-mlir only
 bool disableConstantProp;                              // onnx-mlir only
 bool disableCountIncludePad;                           // onnx-mlir only
@@ -758,11 +758,11 @@ static llvm::cl::opt<bool, true> enableConvOptPassOpt("enable-conv-opt-pass",
     llvm::cl::location(enableConvOptPass), llvm::cl::init(true),
     llvm::cl::cat(OnnxMlirOptions));
 
-static llvm::cl::opt<bool, true> useFusedOpOpt("use-fused-op",
-    llvm::cl::desc("Use ONNXFusedOp (region-based) container for supported "
-                   "fusion patterns instead of hardcoded composite ops. "
-                   "Experimental. Default is false."),
-    llvm::cl::location(useFusedOp), llvm::cl::init(false),
+static llvm::cl::opt<bool, true> disableFusedOpOpt("disable-fused-op",
+    llvm::cl::desc("Disable ONNXFusedOp (region-based) container for supported "
+                   "fusion patterns; fall back to hardcoded composite ops. "
+                   "Default is false (fused-op is on)."),
+    llvm::cl::location(disableFusedOp), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<bool, true> disableConvToMatmulOpt(
