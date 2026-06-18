@@ -227,7 +227,7 @@ def call() {
         }
       }
 
-      stage('Verify OM Package') {
+      stage('Build om_pyrt_light') {
         when { not { environment name: 'GITHUB_PR_ACTION',
                      value: 'closed' } }
         steps {

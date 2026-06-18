@@ -2,74 +2,75 @@
 
 from jenkins_common import *
 
-docker_usr_image_workdir = "/workdir"
-docker_usr_image_full = (
-    (docker_registry_host_name + "/" if docker_registry_host_name else "")
-    + (docker_registry_user_name + "/" if docker_registry_user_name else "")
-    + docker_usr_image_name
-    + ":"
-    + pr_image_tag
-)
-
-BUILD_DIR = "build-ompyrt"
-
-build_dir = os.path.join(jenkins_workspace_dir, BUILD_DIR)
-test_dir = os.path.join(build_dir, "src/Runtime/python/om_pyrt/tests")
+OM_PYRT_LIGHT_DOCKERFILE = "docker/Dockerfile.om-pyrt-light"
 
 
 def main():
-    os.makedirs(build_dir)
+    image_name = github_repo_name + "-om-pyrt-light"
+    image_tag = pr_image_tag
+    image_full = image_name + ":" + image_tag
 
-    cmd_configure = [
-        "cmake",
-        "-DCMAKE_BUILD_TYPE=Debug",
-        "-DONNX_MLIR_TARGET_TO_BUILD=OMPyRt",
-        "..",
+    layer_sha256 = ""
+    for line in docker_api.build(
+        path=".",
+        dockerfile=OM_PYRT_LIGHT_DOCKERFILE,
+        tag=image_full,
+        decode=True,
+        rm=True,
+        buildargs={
+            "NPROC": NPROC,
+            GITHUB_REPO_NAME2 + "_PR_NUMBER": github_pr_number,
+            GITHUB_REPO_NAME2 + "_PR_NUMBER2": github_pr_number2,
+        },
+    ):
+        if "stream" in line:
+            m = re.match(r"^\s*---> ([0-9a-f]+)$", line["stream"])
+            if m:
+                layer_sha256 = m.group(1)
+            print(line["stream"], end="", flush=True)
+
+        if "error" in line:
+            if layer_sha256:
+                image_layer = "sha256:" + layer_sha256
+                remove_dependent_containers(image_layer)
+                logging.info(
+                    "tagging %s -> %s for debugging", image_layer, image_full
+                )
+                docker_api.tag(image_layer, image_name, image_tag, force=True)
+            else:
+                logging.info("no successful image layer for tagging")
+            raise Exception(line["error"])
+
+    id = docker_api.images(name=image_full, all=False, quiet=True)
+    logging.info("image %s (%s) built", image_full, id[0][0:19])
+
+    # Run test inside the built image
+    docker_usr_image_full = (
+        (docker_registry_host_name + "/" if docker_registry_host_name else "")
+        + (docker_registry_user_name + "/" if docker_registry_user_name else "")
+        + docker_usr_image_name
+        + ":"
+        + pr_image_tag
+    )
+
+    cmd = [
+        "docker",
+        "run",
+        "--rm",
+        "-v", "/var/run/docker.sock:/var/run/docker.sock",
+        image_full,
+        "python3",
+        "/workdir/onnx-mlir/src/Runtime/python/om_pyrt/tests/use_container_compiler.py",
+        "--image", docker_usr_image_full,
     ]
 
-    cmd_build = [
-        "cmake",
-        "--build",
-        ".",
-        "--target",
-        "OMCreateOMPyRtPackage",
-    ]
-
-    # pip install
-    cmd_pip_1 = [
-        "pip3",
-        "install",
-        "--break-system-packages",
-        "hatchling",
-    ]
-    
-    cmd_pip_2 = [
-        "pip3",
-        "install",
-        "--break-system-packages",
-        "src/Runtime/python/om_pyrt",
-        #"--prefix=/usr",
-        #"--no-build-isolation",
-    ]
-
-    for cmd in [cmd_configure, cmd_build, cmd_pip_1, cmd_pip_2]:
-        logging.info(" ".join(cmd))
-        proc = subprocess.Popen(cmd, cwd=build_dir, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        for line in proc.stdout:
-            print(line.decode("utf-8"), end="", flush=True)
-        proc.wait()
-        if proc.returncode != 0:
-            sys.exit(proc.returncode)
-
-    # commands in test_dir
-    cmd_use_local = ["python", "use_local_compiler.py", "--image", docker_usr_image_full]
-
-    logging.info(" ".join(cmd_use_local))
-    proc = subprocess.Popen(cmd_use_local, cwd=test_dir, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    logging.info(" ".join(cmd))
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     for line in proc.stdout:
         print(line.decode("utf-8"), end="", flush=True)
     proc.wait()
     sys.exit(proc.returncode)
+
 
 if __name__ == "__main__":
     main()
