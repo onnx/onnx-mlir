@@ -183,7 +183,7 @@ func.func @rank3_max_axis1_keepdims1(%arg0: tensor<4x8x16x!quant.uniform<i8:f32,
 // CHECK-DAG:   %[[PRESHAPE_C:.+]] = onnx.Constant dense<[1, 4, 8, 16]> : tensor<4xi64>
 // CHECK-DAG:   %[[POSTSHAPE_C:.+]] = onnx.Constant dense<[4, 1, 16]> : tensor<3xi64>
 // CHECK:       %[[PRE:.+]]  = "onnx.Reshape"(%arg0, %[[PRESHAPE_C]])
-// CHECK:       %[[RED:.+]]  = "onnx.ReduceMaxV13"(%[[PRE]]) {axes = [2], keepdims = 1 : si64}
+// CHECK:       %[[RED:.+]]  = "onnx.ReduceMaxV13"(%[[PRE]]){{.*}}axes = [2], keepdims = 1 : si64
 // CHECK:       %[[POST:.+]] = "onnx.Reshape"(%[[RED]], %[[POSTSHAPE_C]])
 // CHECK-SAME:  ResultNames = ["rank3_reducemaxv13_out"]
 // CHECK:       return %[[POST]]

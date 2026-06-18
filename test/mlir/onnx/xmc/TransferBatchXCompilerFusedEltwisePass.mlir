@@ -19,9 +19,9 @@ func.func @batch_fused_add(%arg0: tensor<16x16x300x4x!quant.uniform<i8:f32, 0.01
 // CHECK-DAG: type = "ADD"
 // CHECK-DAG: nonlinear = "NONE"
 // ResultNamesUpdater moves the fused op's ResultNames onto the value-replacement root
-// (the trailing reshape), matching other XMC passes.
-// CHECK: %[[OUT:.*]] = "onnx.Reshape"(%[[E]], %[[OUTSHAPE]])
-// CHECK-SAME: ResultNames = ["batch_fused_add_out"]
+// (the trailing reshape). Use a single CHECK so ResultNames matches regardless of
+// attribute order vs allowzero (same class of issue as ReplaceQDQReductionPass.mlir).
+// CHECK: %[[OUT:.*]] = "onnx.Reshape"(%[[E]], %[[OUTSHAPE]]){{.*}}ResultNames = ["batch_fused_add_out"]
 // CHECK: return %[[OUT]]
 
 // -----
