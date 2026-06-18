@@ -177,6 +177,11 @@ std::unique_ptr<mlir::Pass> createReplaceTanhToGeluPass();
 /// QLINEARSIGMOID.
 std::unique_ptr<mlir::Pass> createReplaceQDQSigmoidPass();
 
+/// Pass for folding batch on quantized onnx.XCOMPILERFusedEltwise into
+/// reshape + eltwise + reshape (XMC; aligns with xcompiler batch-eltwise
+/// transfer).
+std::unique_ptr<mlir::Pass> createTransferBatchXCompilerFusedEltwisePass();
+
 /// Pass for transferring ReduceMean/Sum operations to Conv operations.
 std::unique_ptr<mlir::Pass> createTransferReduceMeanSumToConvPass();
 

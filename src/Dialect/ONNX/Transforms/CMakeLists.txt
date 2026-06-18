@@ -73,6 +73,7 @@ add_onnx_mlir_library(OMONNXRewrite
   xmc/ReplaceTanhToGeluPass.cpp
   xmc/ReplaceHsigmoidAndHswishPass.cpp
   xmc/ReplaceQDQSigmoidPass.cpp
+  xmc/TransferBatchXCompilerFusedEltwisePass.cpp
   xmc/ReplaceQDQClipCastPass.cpp
   xmc/ReplaceQDQEltwisePass.cpp
   xmc/ReplaceQDQResizePass.cpp

@@ -10,6 +10,7 @@
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 #include "src/Pass/Passes.hpp"
 
@@ -44,23 +45,23 @@ struct BatchReductionToReshapeReductionPattern
     if (inputShape[0] == 1)
       return failure();
 
-    // Axes must be a constant equal to [3].
     Value axesValue = reduceOp.getAxes();
     if (!axesValue)
       return failure();
-    auto axesConst = axesValue.getDefiningOp<ONNXConstantOp>();
-    if (!axesConst)
+    ElementsAttr axesAttr =
+        onnx_mlir::getDenseOrDisposableConstLikeElements(axesValue);
+    if (!axesAttr || !axesAttr.getElementType().isIntOrIndex())
       return failure();
-    auto axesAttrOpt = axesConst.getValue();
-    if (!axesAttrOpt)
-      return failure();
-    auto axesDense = dyn_cast<DenseElementsAttr>(*axesAttrOpt);
-    if (!axesDense)
-      return failure();
-    SmallVector<int64_t, 1> axesVec;
-    for (auto v : axesDense.getValues<APInt>())
+    SmallVector<int64_t, 4> axesVec;
+    for (APInt v : axesAttr.getValues<APInt>())
       axesVec.push_back(v.getSExtValue());
-    if (axesVec.size() != 1 || axesVec[0] != 3)
+    if (axesVec.size() != 1)
+      return failure();
+    constexpr int64_t kInputRank = 4;
+    int64_t canonicalInputAxis = axesVec[0];
+    if (canonicalInputAxis < 0)
+      canonicalInputAxis += kInputRank;
+    if (canonicalInputAxis != 3)
       return failure();
 
     auto outputType =
