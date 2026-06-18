@@ -42,7 +42,7 @@ void addXmcMlirPasses(mlir::OpPassManager &pm, OnnxToMlirOptions opts) {
       onnx_mlir::createTransferResizeLinearToDwConv());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvWithBiasPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createRemoveRedundantReshapePass());
-    pm.addNestedPass<func::FuncOp>(
+  pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createBatchReductionToReshapeReductionPass());
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::createTransferReduceMeanSumToConvPass());

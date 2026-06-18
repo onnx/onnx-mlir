@@ -19,8 +19,9 @@
 using namespace mlir;
 
 // ReplaceQDQReductionPass: canonicalises Q/DQ-bracketed
-// Reduce(Sum/Mean/Max/Min/ReduceMaxV13) to a rank-4 input with keep_dims=true by adding
-// leading/trailing reshapes.  Cast-bracketed reduction chains are skipped.
+// Reduce(Sum/Mean/Max/Min/ReduceMaxV13) to a rank-4 input with keep_dims=true
+// by adding leading/trailing reshapes.  Cast-bracketed reduction chains are
+// skipped.
 
 namespace {
 
@@ -134,13 +135,12 @@ struct ReduceReshape4DTraits {
   static mlir::Value createReducedValue(mlir::PatternRewriter &rewriter,
       mlir::Location loc, mlir::RankedTensorType newReduceOutType,
       mlir::Value newReduceInput, llvm::ArrayRef<int64_t> newAxes, OpTy op) {
-    mlir::Value newAxesVal =
-        createInt64Const1D(rewriter, loc, newAxes);
+    mlir::Value newAxesVal = createInt64Const1D(rewriter, loc, newAxes);
     auto trueKeepdims = mlir::IntegerAttr::get(
         rewriter.getIntegerType(64, /*isSigned=*/true), 1);
     auto newReduce =
-        rewriter.create<OpTy>(loc, newReduceOutType, newReduceInput,
-            newAxesVal, trueKeepdims, op.getNoopWithEmptyAxesAttr());
+        rewriter.create<OpTy>(loc, newReduceOutType, newReduceInput, newAxesVal,
+            trueKeepdims, op.getNoopWithEmptyAxesAttr());
     return newReduce.getReduced();
   }
 };
@@ -295,7 +295,8 @@ struct ReplaceQDQReductionPass
     return "replace-qdq-reduction";
   }
   llvm::StringRef getDescription() const override {
-    return "Reshape Reduce(Sum/Mean/Max/Min/ReduceMaxV13) to rank-4 + keep_dims=true.";
+    return "Reshape Reduce(Sum/Mean/Max/Min/ReduceMaxV13) to rank-4 + "
+           "keep_dims=true.";
   }
 
   void runOnOperation() override {

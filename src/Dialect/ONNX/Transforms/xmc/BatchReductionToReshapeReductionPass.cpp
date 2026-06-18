@@ -45,9 +45,6 @@ struct BatchReductionToReshapeReductionPattern
     if (inputShape[0] == 1)
       return failure();
 
-    // Axes must be a compile-time constant (onnx.Constant, arith.constant,
-    // etc.) with a single element. Only reduction over the last axis (axis 3
-    // for rank-4, or -1 meaning last axis) is supported.
     Value axesValue = reduceOp.getAxes();
     if (!axesValue)
       return failure();
