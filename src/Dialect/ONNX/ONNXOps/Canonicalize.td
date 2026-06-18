@@ -204,7 +204,7 @@ def IsDequantQuantSame : Constraint<
     CPred<"onnx_mlir::isDequantQuantSame("
           "$0.getDefiningOp<ONNXDequantizeLinearOp>(), "
           "$1.getDefiningOp<ONNXQuantizeLinearOp>())">,
-    "Q -> DQ pair has matching scale, zero-point, axis and block size">;
+    "DQ -> Q pair acts as near-identity on the storage integers">;
 
 // Whether the bound value is an ONNXConstantOp containing exactly one
 // element (any rank). Used to gate FuseAddConvQDQBiasPattern, whose
