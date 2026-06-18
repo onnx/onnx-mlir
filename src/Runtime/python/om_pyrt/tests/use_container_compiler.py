@@ -29,7 +29,8 @@ model_file = str(script_dir / "test_add.mlir")
 # compile_args is the flags passed to onnx-mlir
 import om_pyrt
 
-try:
+
+if True:
     compile_session = om_pyrt.CompileSession(
         compiler_image=args.image,
         compiler_path="onnx-mlir",
@@ -39,9 +40,6 @@ try:
     compiled_model = compile_session.compile(
         model_file, "-O3", reuse_compiled_model=True
     )
-except Exception as e:
-    print("Failed to compile")
-    exit(-1)
 
 # Prepare input data
 import numpy as np
