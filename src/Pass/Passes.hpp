@@ -322,6 +322,9 @@ std::unique_ptr<mlir::Pass> createPropagateQuantTypeThroughDataFlowPass();
 /// Squeeze / SqueezeV11 / Unsqueeze / UnsqueezeV11 / Flatten / Identity.
 std::unique_ptr<mlir::Pass> createXmcRequantizePass();
 
+/// Pass that removes a no-op XCOMPILERRequantize (input quant == output quant).
+std::unique_ptr<mlir::Pass> createRemoveNoOpRequantizePass();
+
 /// Pass for splitting group convolutions (XMC).
 std::unique_ptr<mlir::Pass> createSplitGroupConvPass();
 
