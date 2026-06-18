@@ -69,8 +69,8 @@ void configureUnsafeMathCanonicalization(bool enableUnsafeMathOptimizations);
 std::unique_ptr<mlir::Pass> createConstPropONNXToONNXPass(
     bool enableQDQ = false);
 
-std::unique_ptr<mlir::Pass> createQDQCanonicalizePass(
-    bool removeBinary = false, bool removeQDQAroundOps = false);
+std::unique_ptr<mlir::Pass> createQDQCanonicalizePass(bool removeBinary = false,
+    bool removeQDQAroundOps = false, int64_t maxRoundTripDiff = 0);
 
 std::unique_ptr<mlir::Pass> createFoldQuantizedBinary();
 
