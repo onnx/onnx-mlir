@@ -60,7 +60,7 @@ def main():
         "-v", "/var/run/docker.sock:/var/run/docker.sock",
         image_full,
         "python3",
-        "/workdir/onnx-mlir/build-om-pyrt-light/src/Runtime/python/om_pyrt/tests/use_container_compiler.py",
+        "/workdir/onnx-mlir/src/Runtime/python/om_pyrt/tests/use_container_compiler.py",
         "--image", docker_usr_image_full,
     ]
 
