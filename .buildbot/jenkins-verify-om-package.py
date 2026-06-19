@@ -53,14 +53,20 @@ def main():
         + pr_image_tag
     )
 
+    test_script = os.path.join(
+        jenkins_workspace_dir,
+        "src/Runtime/python/om_pyrt/tests/use_container_compiler.py",
+    )
+
     cmd = [
         "docker",
         "run",
         "--rm",
         "-v", "/var/run/docker.sock:/var/run/docker.sock",
+        "-v", jenkins_workspace_dir + ":" + jenkins_workspace_dir,
         image_full,
         "python3",
-        "/workdir/onnx-mlir/src/Runtime/python/om_pyrt/tests/use_container_compiler.py",
+        test_script,
         "--image", docker_usr_image_full,
     ]
 
