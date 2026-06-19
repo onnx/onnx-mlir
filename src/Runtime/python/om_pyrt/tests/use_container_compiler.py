@@ -34,12 +34,9 @@ if True:
     compile_session = om_pyrt.CompileSession(
         compiler_image=args.image,
         compiler_path="onnx-mlir",
-        # compiler_path="/workdir/onnx-mlir/build/Debug/bin/onnx-mlir",
     )
 
-    compiled_model = compile_session.compile(
-        model_file, "-O3", reuse_compiled_model=True
-    )
+    compiled_model = compile_session.compile(model_file, "-O3")
 
 # Prepare input data
 import numpy as np
