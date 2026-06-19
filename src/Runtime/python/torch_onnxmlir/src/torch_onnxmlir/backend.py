@@ -25,7 +25,6 @@ from collections import deque
 from pathlib import Path
 
 import numpy as np
-import onnx
 import torch
 from torch.export import Dim
 from torch._inductor.codecache import (
@@ -41,7 +40,7 @@ from torch._subclasses.fake_tensor import (
 
 from om_pyrt import CompileSession, InferenceSession
 from .sessioncache import SessionCache, CacheValue
-from . import config, fx_utils
+from . import config, fx_utils, onnx_utils
 
 """
 This file provides an onnx-mlir compiler backend for torch.compile().
@@ -169,7 +168,10 @@ class OMFxGraphHashDetails(FxGraphHashDetails):
 
 
 def generate_hash_key(
-    gm: torch.fx.GraphModule, example_inputs, compile_options, use_lightweight_hashing=True
+    gm: torch.fx.GraphModule,
+    example_inputs,
+    compile_options,
+    use_lightweight_hashing=True,
 ) -> str:
     start = time.perf_counter()
     if use_lightweight_hashing:
@@ -337,13 +339,6 @@ class TorchONNXMLIR:
         # Use the cache key as a tag when compiling the onnx model.
         self.tag = self.cache_key
 
-        # Path to the onnx model
-        if self.cached_session and self.cached_session.onnx_file:
-            self.onnx_model = self.cached_session.onnx_file
-        else:
-            model_name = self.default_model_name + str(self.tag) + ".onnx"
-            self.onnx_model = os.path.join(self.workdir.name, model_name)
-
         # Args passed to onnx-mlir.
         self.onnxmlir_kwargs = {"compile_tag": str(self.tag)}
         if kwargs["options"] is not None:
@@ -356,7 +351,7 @@ class TorchONNXMLIR:
 
     def forward(self, *example_inputs):
         global global_uncompilable_graphs
-        if self.cached_session is None or self.cached_session.sess is None:
+        if self.cached_session is None:
             if self.cache_key in global_uncompilable_graphs:
                 logger.info("Found the uncompilable model. Switch to the eager mode")
                 return eager_forward_fn(self.gm)(*example_inputs)
@@ -380,21 +375,21 @@ class TorchONNXMLIR:
             self.cleanup_onnxmlir_files(tag_id)
 
             # Export the graph module to onnx.
-            onnx_model_dir = Path(self.onnx_model).resolve().parent
-            if self.cached_session is None or self.cached_session.onnx_file is None:
-                # If failed, use the graph as it is without compilation.
-                logger.info("Export and compile the model.")
-                succeeded = self.export_gm_to_onnx(example_inputs)
-                if not succeeded:
-                    logger.info("Failed to export the model. Switch to the eager mode.")
-                    global_uncompilable_graphs.add(self.cache_key)
-                    return eager_forward_fn(self.gm)(*example_inputs)
-                # Save the onnx model.
-                global_session_cache.write_to_disk(
-                    self.cache_key, self.example_inputs_indices, onnx_model_dir, None
-                )
+            # If failed, use the graph as it is without compilation.
+            logger.info("Export the pytorch model to ONNX.")
+            succeeded = self.export_gm_to_onnx(example_inputs)
+            if not succeeded:
+                logger.info("Failed to export the model. Switch to the eager mode.")
+                global_uncompilable_graphs.add(self.cache_key)
+                return eager_forward_fn(self.gm)(*example_inputs)
+            # Save the onnx model.
+            if config.keep_onnx_files:
+                logger.info("Write ONNX files to disk")
+                onnx_model_dir = Path(self.onnx_model).resolve().parent
+                global_session_cache.write_onnx_to_disk(self.cache_key, onnx_model_dir)
 
-            # Compile the model.
+            # Compile the onnx model.
+            # If failed, use the graph as it is without compilation.
             compiler_image_name = ""
             if "compiler_image_name" in self.onnxmlir_kwargs:
                 if self.onnxmlir_kwargs["compiler_image_name"] is not None:
@@ -403,33 +398,33 @@ class TorchONNXMLIR:
             tag = self.onnxmlir_kwargs["compile_tag"]
             compile_options = self.onnxmlir_kwargs["compile_options"]
             compile_options += f" --tag={tag}"
-            compiler = CompileSession(
-                compiler_image=compiler_image_name, compiler_path=compiler_path
-            )
-            compiled_model = compiler.compile(self.onnx_model, compile_options)
-            compiled_model_dir = Path(compiled_model).resolve().parent
+            try:
+                logger.info("Compile the onnx model.")
+                compiler = CompileSession(
+                    compiler_image=compiler_image_name, compiler_path=compiler_path
+                )
+                compiled_model = compiler.compile(self.onnx_model, compile_options)
+            except Exception as e:
+                logger.info(
+                    "Failed to compile the onnx model. Switch to the eager mode."
+                )
+                global_uncompilable_graphs.add(self.cache_key)
+                return eager_forward_fn(self.gm)(*example_inputs)
 
             # Create a session for running the onnx model.
             # This session is cached for next use.
-            old_constant_path = os.environ.get("OM_CONSTANT_PATH")
-            os.environ["OM_CONSTANT_PATH"] = str(compiled_model_dir)
             sess = InferenceSession(compiled_model, tag=tag)
-            if old_constant_path is None:
-                # Remove if it wasn't set.
-                os.environ.pop("OM_CONSTANT_PATH", None)
-            else:
-                os.environ["OM_CONSTANT_PATH"] = old_constant_path
 
             # Replace the victim cache entry.
             cache_value = CacheValue(
                 tag=self.tag,
                 sess=sess,
-                onnx_file=None,  # It was stored before.
                 example_inputs_indices=self.example_inputs_indices,
             )
-            global_session_cache.put(
-                self.cache_key, cache_value, True, onnx_model_dir, compiled_model_dir
-            )
+
+            # Enhance InferenceSession to return its model_dir.
+            compiled_model_dir = Path(compiled_model).resolve().parent
+            global_session_cache.put(self.cache_key, cache_value, compiled_model_dir)
         else:
             logger.info("Found the model in the cache. No recompilation.")
             # Use the InferenceSession in the cache.
@@ -572,6 +567,9 @@ class TorchONNXMLIR:
         return constant_values
 
     def export_gm_to_onnx(self, example_inputs):
+        model_name = self.default_model_name + str(self.tag) + ".onnx"
+        self.onnx_model = os.path.join(self.workdir.name, model_name)
+
         input_names, dynamic_shapes = self.build_dynamic_shapes_for_export()
 
         if logger.isEnabledFor(logging.DEBUG):
@@ -593,7 +591,7 @@ class TorchONNXMLIR:
                     # dynamo=False,
                     report=False,
                 )
-                self.sanitize_onnx_after_export(tmp_onnx, self.onnx_model)
+                onnx_utils.sanitize_onnx_after_export(tmp_onnx, self.onnx_model)
                 succeeded = True
             except torch.onnx.errors.UnsupportedOperatorError as e:
                 if logger.isEnabledFor(logging.DEBUG):
@@ -606,67 +604,14 @@ class TorchONNXMLIR:
 
         return succeeded
 
-    def sanitize_onnx_after_export(self, input_path, output_path):
-        model = onnx.load(input_path)
-        graph = model.graph
-
-        # ---------------------------------------
-        # Sanitize Identity nodes. The exporter sometimes produces
-        # Identity nodes whose input and output names are the same,
-        # which is invalid in ONNX.
-        # ---------------------------------------
-        new_nodes = []
-        rename_map = {}
-        counter = 0
-        for node in graph.node:
-            if node.op_type == "Identity":
-                src = node.input[0]
-                dst = node.output[0]
-                if src == dst:
-                    # Same name: create new name.
-                    new_name = f"{dst}_id_{counter}"
-                    counter += 1
-                    rename_map[dst] = new_name
-                    rename_map[new_name] = src
-                else:
-                    # Normal identity.
-                    rename_map[dst] = src
-            else:
-                new_nodes.append(node)
-
-        # Resolve chains.
-        def resolve(name):
-            visited = set()
-            while name in rename_map and name not in visited:
-                visited.add(name)
-                name = rename_map[name]
-            return name
-
-        # Rewrite inputs.
-        for node in new_nodes:
-            for i in range(len(node.input)):
-                node.input[i] = resolve(node.input[i])
-        # Rewrite outputs.
-        for out in graph.output:
-            out.name = resolve(out.name)
-        # Replace node list.
-        graph.ClearField("node")
-        graph.node.extend(new_nodes)
-
-        try:
-            onnx.save_model(
-                model,
-                output_path,
-                save_as_external_data=True,
-                all_tensors_to_one_file=True,
-            )
-        except Exception as e:
-            if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(f"Saving the sanitized ONNX model failed: {e}")
-
     def cleanup_onnxmlir_files(self, tag_id):
         base = os.path.join(self.workdir.name, self.default_model_name + str(tag_id))
-        old_files = [base + ".onnx", base + ".constants.bin", base + ".so"]
+        old_files = [
+            base + ".onnx",
+            base + ".onnx.data",
+            base + ".constants.bin",
+            base + ".so",
+        ]
         for f in old_files:
             if os.path.exists(f):
                 os.remove(f)

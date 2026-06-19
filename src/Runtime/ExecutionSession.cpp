@@ -207,6 +207,13 @@ void ExecutionSession::loadModel(const std::string &sharedLibPath,
   // Successful completion of initialization.
   isInitialized = true;
 
+  // Unset OM_CONSTANT_PATH to avoid conflict with the load of another model.
+#if defined(_WIN32)
+  _putenv_s("OM_CONSTANT_PATH", ""); // unsets it
+#else
+  unsetenv("OM_CONSTANT_PATH");
+#endif
+
   // Set default entry point if requested.
   if (defaultEntryPoint)
     setEntryPoint("run_main_graph" + lowDashTag);

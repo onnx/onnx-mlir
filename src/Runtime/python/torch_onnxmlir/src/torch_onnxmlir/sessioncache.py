@@ -24,7 +24,6 @@ from om_pyrt import InferenceSession
 class CacheValue:
     tag: Any = None
     sess: Any = None
-    onnx_file: Any = None
     example_inputs_indices: Any = None
 
 
@@ -62,21 +61,17 @@ class SessionCache:
         # Get from the cache dir.
         cache_value = self.load_from_disk(key)
         if cache_value:
-            self.put(key, cache_value, False, "", "")
+            self.put(key, cache_value)
         return cache_value
 
     # The put is assumed to be called after victim()
-    def put(
-        self, key, value: CacheValue, write_to_disk, onnx_model_dir, compiled_model_dir
-    ):
+    def put(self, key, value: CacheValue, compiled_model_dir=None):
         self.cache[key] = value
         self.access_order.append(key)
         if len(self.cache) != len(self.access_order):
             print("Error: the len of cache and access_order doesnot match")
-        if write_to_disk:
-            self.write_to_disk(
-                key, value.example_inputs_indices, onnx_model_dir, compiled_model_dir
-            )
+        if compiled_model_dir:
+            self.write_to_disk(key, value, compiled_model_dir)
 
     # Load data from disk into a CacheValue. If data is not found, return None.
     def load_from_disk(self, key):
@@ -85,25 +80,12 @@ class SessionCache:
             if key not in dirnames:
                 continue
             model_dir = os.path.join(self.cache_path, key)
-            # The onnx model.
-            onnx_model_path = os.path.join(model_dir, f"model{key}.onnx")
-            if Path(onnx_model_path).exists():
-                onnx_file = onnx_model_path
-            else:
-                onnx_file = None
             # Create an inference session.
             model_so = os.path.join(model_dir, f"model{key}.so")
             if Path(model_so).exists():
-                old_constant_path = os.environ.get("OM_CONSTANT_PATH")
-                os.environ["OM_CONSTANT_PATH"] = model_dir
                 sess = InferenceSession(model_so, tag=key)
-                if old_constant_path is None:
-                    # Remove if it wasn't set.
-                    os.environ.pop("OM_CONSTANT_PATH", None)
-                else:
-                    os.environ["OM_CONSTANT_PATH"] = old_constant_path
             else:
-                sess = None
+                return None
             # Load config file.
             config_file = os.path.join(model_dir, "config.json")
             try:
@@ -117,31 +99,40 @@ class SessionCache:
             cache_value = CacheValue(
                 tag=key,
                 sess=sess,
-                onnx_file=onnx_file,
                 example_inputs_indices=inputs_indices,
             )
             return cache_value
         return None
 
-    # Write a CacheValue into a folder whose name is key.
-    def write_to_disk(
-        self, key, example_inputs_indices, onnx_model_dir, compiled_model_dir
-    ):
+    # Write an onnx model into a folder whose name is key.
+    def write_onnx_to_disk(self, key, src_dir):
         # Cache folder: create if it does not exist.
         dst_dir = os.path.join(self.cache_path, key)
         os.makedirs(dst_dir, exist_ok=True)
-        src_dir_list = []
-        if onnx_model_dir is not None:
-            src_dir_list += [onnx_model_dir]
-        if compiled_model_dir is not None:
-            src_dir_list += [compiled_model_dir]
-        for src_dir in src_dir_list:
-            for filename in os.listdir(src_dir):
-                src_file = os.path.join(src_dir, filename)
-                dst_file = os.path.join(dst_dir, filename)
-                if os.path.isfile(src_file):
-                    shutil.copy2(src_file, dst_file)
+        for filename in os.listdir(src_dir):
+            if not filename.lower().endswith((".onnx", ".onnx.data")):
+                continue
+            src_file = os.path.join(src_dir, filename)
+            dst_file = os.path.join(dst_dir, filename)
+            if os.path.isfile(src_file):
+                shutil.copy2(src_file, dst_file)
+
+    # Write a CacheValue into a folder whose name is key.
+    # TODO: get src_dir from value.sess. Need to update InferenceSession to return src_dir.
+    def write_to_disk(self, key, value: CacheValue, src_dir):
+        # Cache folder: create if it does not exist.
+        dst_dir = os.path.join(self.cache_path, key)
+        os.makedirs(dst_dir, exist_ok=True)
+        # Write the compiled model (.so file).
+        for filename in os.listdir(src_dir):
+            if not filename.lower().endswith((".so", ".constants.bin")):
+                continue
+            src_file = os.path.join(src_dir, filename)
+            dst_file = os.path.join(dst_dir, filename)
+            if os.path.isfile(src_file):
+                shutil.copy2(src_file, dst_file)
         # Create a config json file.
+        example_inputs_indices = value.example_inputs_indices
         if example_inputs_indices is not None:
             config_file = os.path.join(dst_dir, "config.json")
             json_data = json.dumps(
