@@ -45,6 +45,7 @@ public:
   static bool classof(const NNPAAccelerator *) { return true; }
 
   uint64_t getVersionNumber() const final;
+  std::string getAccelCompileInfo() const final;
 
   //===--------------------------------------------------------------------===//
   // Hooks for onnx-mlir driver

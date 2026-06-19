@@ -8,7 +8,8 @@ func.func @test_instrument_add_onnx(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10
 }
 
 // CHECK-LABEL:  func.func @test_instrument_add_onnx
-// CHECK:           "krnl.runtime_instrument"() <{nodeName = "onnx.Add", opName = "onnx.Add", tag = 21 : i64}> : () -> ()
+// CHECK:           "krnl.runtime_instrument_init"() <{tag = 4 : i64}> : () -> ()
+// CHECK:           "krnl.runtime_instrument"() <{nodeName = "onnx.Add", opName = "onnx.Add", tag = 5 : i64}> : () -> ()
 // CHECK:           "zhigh.Stick"
 // CHECK:           "zhigh.Stick"
 // CHECK:           "zhigh.Add"
