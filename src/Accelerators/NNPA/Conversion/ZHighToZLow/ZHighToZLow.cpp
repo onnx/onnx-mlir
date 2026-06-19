@@ -2505,10 +2505,8 @@ struct ZHighToZLowFusedExtLayoutTransformLowering
 
   LogicalResult matchAndRewrite(ONNXFusedOp fusedOp, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    fprintf(stderr, "hi alex, fused op\n");
     if (fusedOp.getKind() != "zhigh.extended_layout_transform")
       return failure();
-    fprintf(stderr, "hi alex, fused op of kind extended layout transfer\n");
 
     Location loc = fusedOp.getLoc();
     MDBuilder create(rewriter, loc);
@@ -2539,7 +2537,7 @@ struct ZHighToZLowFusedExtLayoutTransformLowering
     int64_t reshapeMergeAxis = params.reshapeMergeAxis;
     bool dlf16ToF32 = params.dlf16ToF32;
     std::optional<mlir::ArrayAttr> transposePattern = params.transposePattern;
-    std::optional<mlir::StringAttr> finalLayout = params.finalLayout;
+    (void)params.finalLayout; // target layout encoded in outputVal's type
 
     int64_t inputRank = getRank(inputVal.getType());
     int64_t outputRank = getRank(outputVal.getType());

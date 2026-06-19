@@ -848,22 +848,6 @@ public:
 // each single-use op in order.  locatePattern's usedOnlyBy<> checks already
 // guarantee exactly one use at each step.
 
-// Hi alex: this code works because at this time, there are no side use of any
-// of the temporary results. Will have to revisit this if there are uses of
-// intermediary results.
-static SmallVector<Operation *> collectExtLayoutTransformOps(
-    ONNXLayoutTransformOp initialLT, Value finalResult) {
-  SmallVector<Operation *> ops;
-  ops.push_back(initialLT.getOperation());
-  Value current = initialLT.getOutput();
-  while (current != finalResult) {
-    Operation *user = *current.getUsers().begin();
-    ops.push_back(user);
-    current = user->getResult(0);
-  }
-  return ops;
-}
-
 class FusedPatternsForExtendedLayoutTransform
     : public PatternsForExtendedLayoutTransform {
 public:
@@ -1007,6 +991,14 @@ struct FusionOpStickUnstick
   FusionOpStickUnstick(const FusionOpStickUnstick &pass)
       : PassWrapper<FusionOpStickUnstick, OperationPass<ModuleOp>>() {}
 
+  // Pass-level option: disables the ONNXFusedOp path for this pass invocation.
+  // Used by onnx-mlir-opt via --fusion-op-stick-unstick="disable-fused-op".
+  // The compiler-level --disable-fused-op flag also disables the path.
+  Option<bool> disableFusedOpOption{*this, "disable-fused-op",
+      llvm::cl::desc("Disable ONNXFusedOp for extended layout transform; "
+                     "fall back to hardcoded composite op."),
+      llvm::cl::init(false)};
+
   StringRef getArgument() const override { return "fusion-op-stick-unstick"; }
 
   StringRef getDescription() const override {
@@ -1030,7 +1022,7 @@ struct FusionOpStickUnstick
     RewritePatternSet patterns(&getContext());
     patterns.insert<PatternsStartingFromUnstick>(&getContext(), dimAnalysis);
     patterns.insert<PatternsEndingWithStick>(&getContext(), dimAnalysis);
-    if (!disableFusedOp)
+    if (!disableFusedOpOption && !disableFusedOp)
       patterns.insert<FusedPatternsForExtendedLayoutTransform>(
           &getContext(), dimAnalysis);
     else

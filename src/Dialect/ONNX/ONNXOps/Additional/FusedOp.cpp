@@ -75,13 +75,17 @@ LogicalResult ONNXFusedOp::verify() {
 // Shape inference
 //===----------------------------------------------------------------------===//
 
-// Shape inference delegates entirely to the inner ops.  The ShapeInferencePass
-// runs applyPatternsGreedily top-down, so inner ops are visited and their
-// result types are set before this function is called via YieldShapesPattern.
-// All we do here is copy the yield operand types to the FusedOp results.
+// Body op types are set correctly at construction time (the ops are cloned
+// from already-inferred ops).  Re-running doShapeInference on the body would
+// degrade those types: when a Reshape's shape tensor is a block argument
+// (threaded in from an outer concat), the Reshape shape helper cannot recover
+// the static split factor (e.g. 32 or 64) and marks all dims dynamic.  That
+// degraded type then propagates to the lowering helper, which constructs a
+// LiteralIndexExpr(-1) for loop bounds, triggering a refineDims assertion.
+// Skipping body re-inference preserves the correct, more specific types.
+// We simply propagate the yield operand types — already correct — to results.
 LogicalResult ONNXFusedOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  doShapeInference(getBody());
   auto yieldOp =
       cast<ONNXYieldOp>(getBody().front().getTerminator());
   for (auto [i, operand] : llvm::enumerate(yieldOp.getOperands()))
@@ -95,16 +99,22 @@ LogicalResult ONNXFusedOp::inferShapes(
 
 namespace onnx_mlir {
 
-// computeShape reads already-inferred result types and sets the output dims
-// for each result.  By the time lowering calls this, shape inference has
-// already run and all result types carry concrete static shapes.
+// computeShape reads already-inferred result types and sets the output dims.
+// Result types may contain dynamic dimensions (e.g. tensor<96x?x64xf16>);
+// setOutputDimsFromLiterals correctly converts kDynamic to QuestionmarkExpr
+// rather than LiteralExpr(kDynamic), which would violate the refineDims
+// invariant and trigger an assertion.
 template <>
 LogicalResult ONNXFusedOpShapeHelper::computeShape() {
   ONNXFusedOp fusedOp = cast<ONNXFusedOp>(op);
   for (int64_t n = 0, numResults = fusedOp.getNumResults(); n < numResults;
        ++n) {
-    if (failed(setOutputDimsFromTypeWithConstantShape(
-            fusedOp.getResult(n).getType(), n)))
+    auto rankedType =
+        mlir::dyn_cast<RankedTensorType>(fusedOp.getResult(n).getType());
+    if (!rankedType)
+      return failure();
+    SmallVector<int64_t, 4> shape(rankedType.getShape());
+    if (failed(setOutputDimsFromLiterals(shape, n)))
       return failure();
   }
   return success();
