@@ -422,7 +422,7 @@ class TorchONNXMLIR:
                 example_inputs_indices=self.example_inputs_indices,
             )
 
-            # Enhance InferenceSession to return its model_dir.
+            # TODO: Enhance InferenceSession to return its model_dir.
             compiled_model_dir = Path(compiled_model).resolve().parent
             global_session_cache.put(self.cache_key, cache_value, compiled_model_dir)
         else:
@@ -569,7 +569,6 @@ class TorchONNXMLIR:
     def export_gm_to_onnx(self, example_inputs):
         model_name = self.default_model_name + str(self.tag) + ".onnx"
         self.onnx_model = os.path.join(self.workdir.name, model_name)
-
         input_names, dynamic_shapes = self.build_dynamic_shapes_for_export()
 
         if logger.isEnabledFor(logging.DEBUG):
@@ -591,7 +590,10 @@ class TorchONNXMLIR:
                     # dynamo=False,
                     report=False,
                 )
-                onnx_utils.sanitize_onnx_after_export(tmp_onnx, self.onnx_model)
+
+                # Sanitize the onnx model.
+                onnx_utils.sanitize_onnx(tmp_onnx, self.onnx_model)
+
                 succeeded = True
             except torch.onnx.errors.UnsupportedOperatorError as e:
                 if logger.isEnabledFor(logging.DEBUG):
