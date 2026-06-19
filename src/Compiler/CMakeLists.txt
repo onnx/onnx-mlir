@@ -175,6 +175,7 @@ add_onnx_mlir_library(OMCommandUtils
 
   LINK_LIBS PUBLIC
   )
+set_target_properties(OMCommandUtils PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
   add_onnx_mlir_library(OMCompile
   OMCompile.cpp
@@ -190,6 +191,7 @@ add_onnx_mlir_library(OMCommandUtils
   LINK_LIBS PRIVATE
   OMCommandUtils
   )
+set_target_properties(OMCompile PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 add_onnx_mlir_library(OMCompilerUtils
   CompilerUtils.cpp
