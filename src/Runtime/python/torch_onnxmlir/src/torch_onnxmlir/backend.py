@@ -169,10 +169,26 @@ class OMFxGraphHashDetails(FxGraphHashDetails):
 
 
 def generate_hash_key(
-    gm: torch.fx.GraphModule, compile_options, use_lightweight_hashing=True
+    gm: torch.fx.GraphModule, example_inputs, compile_options, use_lightweight_hashing=True
 ) -> str:
     start = time.perf_counter()
     if use_lightweight_hashing:
+        # Build a string from examples inputs and hash it.
+        # The string uses input ranks to make it stable.
+        t_info = [str(len(example_inputs))]
+        for t in example_inputs:
+            if t is None:
+                t_info.append("None")
+            elif isinstance(t, torch.Tensor):
+                if t.dim() == 0:
+                    t_info.append("tensor_0d")
+                else:
+                    t_info.append(f"tensor_{len(t.shape)}d")
+            else:
+                t_info.append(f"{type(t).__name__}")
+        example_inputs_str = ",".join(t_info)
+        example_inputs_hash = sha256_hash(example_inputs_str.encode())
+
         # Hash the graph module.
         # Touch the code to materialize.
         _ = gm.code
@@ -241,7 +257,8 @@ def generate_hash_key(
             options_data = pickle.dumps(compile_options)
             options_opt = pickletools.optimize(options_data)
             options_hash = sha256_hash(options_opt)
-        key = graph_hash + options_hash
+
+        key = graph_hash + options_hash + example_inputs_hash
     else:
         pickler = OMFxGraphCachePickler(gm)
         details = OMFxGraphHashDetails(gm, compile_options)
@@ -280,7 +297,7 @@ class TorchONNXMLIR:
             if len(same_hash_counter) == same_hash_size and all(same_hash_counter):
                 self.cache_key = self.gm.meta["om_hash"]
             else:
-                self.cache_key = generate_hash_key(self.gm, kwargs["options"])
+                self.cache_key = generate_hash_key(self.gm, args, kwargs["options"])
                 if self.cache_key == self.gm.meta["om_hash"]:
                     same_hash_counter.append(True)
                 else:
@@ -295,7 +312,7 @@ class TorchONNXMLIR:
         if need_rewrite:
             # Rewrite the graph for exporting to onnx.
             self.example_inputs_indices = self.rewrite_gm_for_export(*args)
-            self.cache_key = generate_hash_key(self.gm, kwargs["options"])
+            self.cache_key = generate_hash_key(self.gm, args, kwargs["options"])
             self.gm.meta["om_hash"] = self.cache_key
             self.gm.meta["om_example_inputs_indices"] = self.example_inputs_indices
         else:
