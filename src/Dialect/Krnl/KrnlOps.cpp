@@ -667,8 +667,19 @@ void KrnlInstrumentOp::build(
 void KrnlInstrumentOp::getEffects(
     SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
         &effects) {
+  effects.emplace_back(
+      MemoryEffects::Write::get(), SideEffects::DefaultResource::get());
+}
 
-  // KrnlInstrumentOp writes to output stream
+void KrnlInstrumentInitOp::build(
+    OpBuilder &builder, OperationState &state, int tag = 0) {
+  IntegerAttr tagAttr = builder.getI64IntegerAttr(tag);
+  build(builder, state, tagAttr);
+}
+
+void KrnlInstrumentInitOp::getEffects(
+    SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
+        &effects) {
   effects.emplace_back(
       MemoryEffects::Write::get(), SideEffects::DefaultResource::get());
 }
