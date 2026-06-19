@@ -93,7 +93,14 @@ def ONNXDecomposePatternOptions {
            "bool", /*default=*/"false",
            "In 4-phase ConvTranspose decomposition, force 4 separate Conv ops "
            "(concatenated) instead of combining the phased weights into a "
-           "single Conv, when the conv output channels are DMA-aligned.">
+           "single Conv, when the conv output channels are DMA-aligned.">,
+
+    Option<"enableConvTransposeDecomposeToDepthToSpace",
+           "enable-convtranspose-depthtospace",
+           "bool", /*default=*/"false",
+           "In the phased ConvTranspose decomposition, emit a DepthToSpace "
+           "(DCR) as the final interleave instead of "
+           "Reshape/Transpose/Reshape.">
   ];
 }
 

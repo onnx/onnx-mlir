@@ -187,6 +187,8 @@ struct ONNXHybridTransformPass
     Region &body = f.getBody();
     onnx_mlir::separatePhasedConvsForConvTransposeActive =
         this->enableSeparatePhasedConvsForConvTranspose.getValue();
+    onnx_mlir::convTransposeDepthToSpaceActive =
+        this->enableConvTransposeDecomposeToDepthToSpace.getValue();
 
     GreedyRewriteConfig config;
     ResultNamesUpdater rnUpdater;
