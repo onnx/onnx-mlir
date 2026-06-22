@@ -70,9 +70,13 @@ add_onnx_mlir_library(OMONNXRewrite
   xmc/RemoveContinuousTransposeWithReshape.cpp
   xmc/RemoveUselessQLinearPoolPass.cpp
   xmc/ReplaceErfToGeluPass.cpp
+  xmc/ReplaceTanhToGeluPass.cpp
   xmc/ReplaceHsigmoidAndHswishPass.cpp
   xmc/ReplaceQDQSigmoidPass.cpp
+  xmc/TransferBatchXCompilerFusedEltwisePass.cpp
+  xmc/ReplaceQDQClipCastPass.cpp
   xmc/ReplaceQDQEltwisePass.cpp
+  xmc/ReplaceQDQResizePass.cpp
   xmc/ReplaceQuantizedTileToAddPass.cpp
   xmc/MergeStridedSliceConcatConvPass.cpp
   xmc/ConvertPoolLikeOpToPool2dPass.cpp
@@ -102,12 +106,15 @@ add_onnx_mlir_library(OMONNXRewrite
   xmc/RemovePairsAndMoveDownReshapePass.cpp
   xmc/MergeBatchnormToConvPass.cpp
   xmc/BatchReductionToReshapeReductionPass.cpp
-  xmc/RemoveRedundantReluPass.cpp
+  xmc/RemoveRedundantReluLikeOpsPass.cpp
   xmc/OptimizeOnnxRequantizationPass.cpp
   xmc/ConvertSCastPairToRequantizePass.cpp
   xmc/AddRequantForOutputConvPass.cpp
-  xmc/FoldQuantizedBinary.cpp
   xmc/ConvertQDQToRequantizePass.cpp
+  xmc/TransferScalarConstInputDivToRequantizePass.cpp
+  xmc/PropagateQuantTypeThroughDataFlowPass.cpp
+  xmc/XmcRequantizePass.cpp
+  xmc/RemoveNoOpRequantizePass.cpp
   xmc/SplitGroupConvPass.cpp
   xmc/ConvertMatMulToXFEConvPass.cpp
   xmc/ReplaceNDimTransposePass.cpp
@@ -122,6 +129,9 @@ add_onnx_mlir_library(OMONNXRewrite
   xmc/ConvertXFEConvToDepthwiseConvPass.cpp
   xmc/FuseConvActivationPass.cpp
   xmc/NormalizeConvActivationPass.cpp
+  xmc/DQBinaryQOptPass.cpp
+  xmc/RecomposeHardSigmoidPass.cpp
+  xmc/TransferSoftmaxAxisToLastPass.cpp
 
   DEPENDS
   OMONNXTransformsIncGen

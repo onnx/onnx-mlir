@@ -82,3 +82,4 @@ func.func @hardsigmoid_f16_fail(%arg0: tensor<1x3x224x224xf16>) -> tensor<1x3x22
 }
 // CHECK: "onnx.HardSigmoid"
 // CHECK-NOT: "onnx.XCOMPILERFusedEltwise"
+

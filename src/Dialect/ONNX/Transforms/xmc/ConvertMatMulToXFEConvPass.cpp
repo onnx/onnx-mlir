@@ -263,6 +263,62 @@ std::optional<ConvShapes> computeConvShapes(
   return shapes;
 }
 
+/// Kernel-size limit for the former-NHWC (global-conv) recovery. Mirrors
+/// golden's conv_limit().kernel_size() range (target reports "1-15", i.e. max
+/// 15); kept as a constant here since this pass does not plumb the target.
+/// Recovered H/W beyond this fall back to the K decomposition path.
+static constexpr int64_t kMaxKernelSizeDefault = 15;
+
+/// (f1) golden find_former_nhwc: recover a 4-D NHWC producer [N,H,W,C]
+/// flattened into the 2-D input where H*W*C == K (flatten->FC), batch matches,
+/// and H,W are within the kernel-size limit. The producer feeds the conv
+/// directly. Returns the deepest valid {source, N, H, W, C} or nullopt.
+static std::optional<std::tuple<Value, int64_t, int64_t, int64_t, int64_t>>
+findFormerNHWC(Value input, int64_t K, int64_t batch, Type elemType,
+    int64_t maxKernel = kMaxKernelSizeDefault) {
+  std::optional<std::tuple<Value, int64_t, int64_t, int64_t, int64_t>> best;
+  Value cur = input;
+  while (auto rs = cur.getDefiningOp<ONNXReshapeOp>()) {
+    cur = rs.getData();
+    auto t = dyn_cast<RankedTensorType>(cur.getType());
+    if (!t || !t.hasStaticShape() || t.getRank() != 4)
+      continue;
+    if (t.getElementType() != elemType)
+      continue;
+    auto s = t.getShape();
+    int64_t N = s[0], H = s[1], W = s[2], C = s[3];
+    if (N != batch || H < 1 || W < 1 || H > maxKernel || W > maxKernel)
+      continue;
+    if (H * W * C != K)
+      continue;
+    best = std::make_tuple(cur, N, H, W, C); // keep the deepest valid candidate
+  }
+  return best;
+}
+
+/// (f1b) golden is_3dim reuse: recover a 4-D NHWC producer [N,H,W,C] flattened
+/// over its leading dims into the 2-D input where last dim C == K and N*H*W ==
+/// M (channels-last pointwise/1x1 case), keeping e.g. 56x56 instead of 49x64.
+/// Returns the deepest valid {producer, [N,H,W,C]} or nullopt.
+static std::optional<std::pair<Value, SmallVector<int64_t>>>
+findFormerNHWCLeadingFlatten(Value input, int64_t K, int64_t M, Type elemType) {
+  std::optional<std::pair<Value, SmallVector<int64_t>>> best;
+  Value cur = input;
+  while (auto rs = cur.getDefiningOp<ONNXReshapeOp>()) {
+    cur = rs.getData();
+    auto t = dyn_cast<RankedTensorType>(cur.getType());
+    if (!t || !t.hasStaticShape() || t.getRank() != 4)
+      continue;
+    if (t.getElementType() != elemType)
+      continue;
+    auto s = t.getShape();
+    if (s[3] != K || s[0] * s[1] * s[2] != M)
+      continue;
+    best = std::make_pair(cur, SmallVector<int64_t>(s.begin(), s.end()));
+  }
+  return best;
+}
+
 /// Helper function to transfer onnx_node_name attribute from source to target
 /// op
 void transferOnnxNodeName(Operation *sourceOp, Operation *targetOp) {
@@ -502,6 +558,15 @@ struct MatMulToXFEConvPattern : public OpRewritePattern<ONNXMatMulOp> {
     if (inputShape.empty() || inputShape.back() != weightShape[0])
       return failure();
 
+    // (d) golden: the input must be >= 2-D.
+    if (inputShape.size() < 2)
+      return failure();
+
+    // (b) golden: MatMul must have a single fan-out (requant/relu; requant is
+    // folded into the quantized result type after quant-types).
+    if (!matMulOp.getResult().hasOneUse())
+      return failure();
+
     auto convShapesOpt = computeConvShapes(inputShape, weightShape);
     if (!convShapesOpt)
       return failure();
@@ -513,6 +578,34 @@ struct MatMulToXFEConvPattern : public OpRewritePattern<ONNXMatMulOp> {
 
     // Check for a fusible bias Add following the MatMul
     int64_t N = weightShape[1];
+
+    // (f1) golden find_former_nhwc: K == H*W*C -> global conv
+    // (kernel=stride=H,W).
+    Value formerNHWCInput = nullptr;
+    if (auto rec = findFormerNHWC(input, /*K=*/weightShape[0],
+            /*batch=*/inputShape[0], inputType.getElementType())) {
+      auto [src, Nn, H, W, C] = *rec;
+      convShapes.inputShape = {Nn, H, W, C};
+      convShapes.weightShape = {N, H, W, C};
+      convShapes.stride = {H, W};
+      formerNHWCInput = src;
+    }
+
+    // (f1b) golden is_3dim reuse: reuse the 4-D producer's spatial for a 1x1
+    // conv.
+    if (!formerNHWCInput && convShapes.weightShape.size() == 4 &&
+        convShapes.weightShape[1] == 1 && convShapes.weightShape[2] == 1) {
+      int64_t M = 1;
+      for (size_t i = 0; i + 1 < inputShape.size(); ++i)
+        M *= inputShape[i];
+      if (auto rec = findFormerNHWCLeadingFlatten(
+              input, /*K=*/weightShape[0], M, inputType.getElementType())) {
+        convShapes.inputShape = rec->second;
+        convShapes.stride = {1, 1};
+        formerNHWCInput = rec->first;
+      }
+    }
+
     auto [addOp, biasVal] = findFusibleBiasAdd(matMulOp, N);
     Operation *opToReplace =
         addOp ? addOp.getOperation() : matMulOp.getOperation();
@@ -521,13 +614,19 @@ struct MatMulToXFEConvPattern : public OpRewritePattern<ONNXMatMulOp> {
                     .getElementType()
               : outputElementType;
 
-    // Create first Reshape: [D1, D2, ..., Dn, K] -> [M, H, W, C]
-    auto reshape1OutputType =
-        RankedTensorType::get(convShapes.inputShape, inputElementType);
-    auto shapeConst1 =
-        createShapeConstant(rewriter, loc, convShapes.inputShape);
-    Value reshape1Output = rewriter.create<ONNXReshapeOp>(
-        loc, reshape1OutputType, input, shapeConst1);
+    // First Reshape -> [M,H,W,C]; or feed the recovered 4-D producer directly
+    // (the flattening reshape is consumed).
+    Value reshape1Output;
+    if (formerNHWCInput) {
+      reshape1Output = formerNHWCInput;
+    } else {
+      auto reshape1OutputType =
+          RankedTensorType::get(convShapes.inputShape, inputElementType);
+      auto shapeConst1 =
+          createShapeConstant(rewriter, loc, convShapes.inputShape);
+      reshape1Output = rewriter.create<ONNXReshapeOp>(
+          loc, reshape1OutputType, input, shapeConst1);
+    }
 
     // Format weight: [K, N] -> transpose to [N, K] -> reshape to [N, 1, 1, K].
     auto weightElementType = weightType.getElementType();
@@ -652,6 +751,11 @@ struct GemmToXFEConvPattern : public OpRewritePattern<ONNXGemmOp> {
     if (!bConstOp)
       return failure();
 
+    // (b) golden: single fan-out (requant/relu consumer; requant is folded into
+    // the quantized result type after quant-types).
+    if (!gemmOp.getResult().hasOneUse())
+      return failure();
+
     int64_t K_A = (transA == 0) ? aShape[1] : aShape[0];
     int64_t K_B = (transB == 0) ? bShape[0] : bShape[1];
     if (K_A != K_B)
@@ -682,6 +786,29 @@ struct GemmToXFEConvPattern : public OpRewritePattern<ONNXGemmOp> {
     Type outputElementType = resultType.getElementType();
     Type inputElementType = aType.getElementType();
 
+    // (f1/f1b) golden NHWC recovery (transA==0): K == H*W*C -> global conv, or
+    // leading-flatten pointwise -> reuse the 4-D producer's spatial.
+    Value formerNHWCInput = nullptr;
+    if (transA == 0) {
+      if (auto rec =
+              findFormerNHWC(A, /*K=*/K_A, /*batch=*/M, inputElementType)) {
+        auto [src, Nn, H, W, C] = *rec;
+        convShapes.inputShape = {Nn, H, W, C};
+        convShapes.weightShape = {N, H, W, C};
+        convShapes.stride = {H, W};
+        formerNHWCInput = src;
+      }
+      if (!formerNHWCInput && convShapes.weightShape.size() == 4 &&
+          convShapes.weightShape[1] == 1 && convShapes.weightShape[2] == 1) {
+        if (auto rec = findFormerNHWCLeadingFlatten(
+                A, /*K=*/K_A, /*M=*/M, inputElementType)) {
+          convShapes.inputShape = rec->second;
+          convShapes.stride = {1, 1};
+          formerNHWCInput = rec->first;
+        }
+      }
+    }
+
     // Effective input A: [M, K]. Transpose if transA=1 (A is [K, M])
     Value effectiveA = A;
     if (transA != 0) {
@@ -692,13 +819,20 @@ struct GemmToXFEConvPattern : public OpRewritePattern<ONNXGemmOp> {
           rewriter.create<ONNXTransposeOp>(loc, transposedAType, A, permAttr);
     }
 
-    // Create first Reshape: [M, K] -> [M, H, W, C]
-    auto reshape1OutputType =
-        RankedTensorType::get(convShapes.inputShape, inputElementType);
-    auto shapeConst1 =
-        createShapeConstant(rewriter, loc, convShapes.inputShape);
-    Value reshape1Output = rewriter.create<ONNXReshapeOp>(
-        loc, reshape1OutputType, effectiveA, shapeConst1);
+    // Create first Reshape: [M, K] -> [M, H, W, C]. When the former NHWC layout
+    // was recovered (f1), feed the producer's 4-D value directly (the
+    // flattening reshape is consumed).
+    Value reshape1Output;
+    if (formerNHWCInput) {
+      reshape1Output = formerNHWCInput;
+    } else {
+      auto reshape1OutputType =
+          RankedTensorType::get(convShapes.inputShape, inputElementType);
+      auto shapeConst1 =
+          createShapeConstant(rewriter, loc, convShapes.inputShape);
+      reshape1Output = rewriter.create<ONNXReshapeOp>(
+          loc, reshape1OutputType, effectiveA, shapeConst1);
+    }
 
     // Format weight: [K, N] -> transpose to [N, K] -> reshape to [N, H, W, C]
     // (or [N, K] -> reshape directly when transB=1)

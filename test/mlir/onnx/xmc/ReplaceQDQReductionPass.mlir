@@ -2,7 +2,7 @@
 
 // Copyright (C) 2026 Advanced Micro Devices, Inc. All rights reserved.
 // Tests for ReplaceQDQReductionPass: canonicalises Q/DQ-bracketed
-// Reduce(Sum/Mean/Max/Min) to rank-4 + keep_dims=true.
+// Reduce(Sum/Mean/Max/Min/ReduceMaxV13) to rank-4 + keep_dims=true.
 
 // Branch 1: rank<4 -- prepend size-1 dim, bump axis (PSO3-style).
 // CHECK-LABEL: @rank3_axis0_keepdims0_pso3
@@ -161,9 +161,8 @@ func.func @negative_non_constant_axes(%arg0: tensor<150x1x768x!quant.uniform<u16
 
 // -----
 
-// Coverage: all four reduce ops (Sum / Mean / Max / Min) are templated and
-// share the algorithm.  Branch 1 already covers Sum & Mean; this section
-// adds rank<4 Max & Min to confirm the templated registration.
+// Coverage: Sum / Mean / Max / Min / ReduceMaxV13 share the algorithm; this
+// section adds rank<4 Max, Min, and ReduceMaxV13 to confirm registration.
 
 // CHECK-LABEL: @rank3_max_axis1_keepdims1
 // CHECK:       "onnx.Reshape"
@@ -174,6 +173,23 @@ func.func @rank3_max_axis1_keepdims1(%arg0: tensor<4x8x16x!quant.uniform<i8:f32,
   %0 = onnx.Constant dense<[1]> : tensor<1xi64>
   %1 = "onnx.ReduceMax"(%arg0, %0) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<4x8x16x!quant.uniform<i8:f32, 0.05:0>>, tensor<1xi64>) -> tensor<4x1x16x!quant.uniform<i8:f32, 0.05:0>>
   return %1 : tensor<4x1x16x!quant.uniform<i8:f32, 0.05:0>>
+}
+
+// -----
+
+// ReduceMaxV13: `axes` is an attribute (not an SSA operand); same reshape
+// plan as @rank3_max_axis1_keepdims1.
+// CHECK-LABEL: @rank3_reducemaxv13_axis1_keepdims1
+// CHECK-DAG:   %[[PRESHAPE_C:.+]] = onnx.Constant dense<[1, 4, 8, 16]> : tensor<4xi64>
+// CHECK-DAG:   %[[POSTSHAPE_C:.+]] = onnx.Constant dense<[4, 1, 16]> : tensor<3xi64>
+// CHECK:       %[[PRE:.+]]  = "onnx.Reshape"(%arg0, %[[PRESHAPE_C]])
+// CHECK:       %[[RED:.+]]  = "onnx.ReduceMaxV13"(%[[PRE]]){{.*}}axes = [2], keepdims = 1 : si64
+// CHECK:       %[[POST:.+]] = "onnx.Reshape"(%[[RED]], %[[POSTSHAPE_C]])
+// CHECK-SAME:  ResultNames = ["rank3_reducemaxv13_out"]
+// CHECK:       return %[[POST]]
+func.func @rank3_reducemaxv13_axis1_keepdims1(%arg0: tensor<4x8x16x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<4x1x16x!quant.uniform<i8:f32, 0.05:0>> {
+  %0 = "onnx.ReduceMaxV13"(%arg0) {axes = [1], keepdims = 1 : si64, ResultNames = ["rank3_reducemaxv13_out"]} : (tensor<4x8x16x!quant.uniform<i8:f32, 0.05:0>>) -> tensor<4x1x16x!quant.uniform<i8:f32, 0.05:0>>
+  return %0 : tensor<4x1x16x!quant.uniform<i8:f32, 0.05:0>>
 }
 
 // -----

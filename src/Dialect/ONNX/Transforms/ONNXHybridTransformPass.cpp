@@ -185,6 +185,8 @@ struct ONNXHybridTransformPass
   void runOnOperation() override {
     func::FuncOp f = getOperation();
     Region &body = f.getBody();
+    onnx_mlir::separatePhasedConvsForConvTransposeActive =
+        this->enableSeparatePhasedConvsForConvTranspose.getValue();
 
     GreedyRewriteConfig config;
     ResultNamesUpdater rnUpdater;

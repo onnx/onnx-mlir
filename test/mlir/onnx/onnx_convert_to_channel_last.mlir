@@ -598,3 +598,27 @@ func.func @test_gridsample_5d_to_xfe_channel_last(
   // CHECK: "onnx.Transpose"({{.*}}) {perm = [0, 4, 1, 2, 3]}
 }
 
+// -----
+
+//===----------------------------------------------------------------------===//
+/// GridSample → XFEGridSample (4D per-tensor quant)
+//===----------------------------------------------------------------------===//
+
+// CHECK-LABEL: func.func @test_gridsample_quant_per_tensor
+func.func @test_gridsample_quant_per_tensor(
+    %arg0: tensor<1x3x4x4x!quant.uniform<u8:f32, 0.05:128>>,
+    %arg1: tensor<1x2x2x2xf32>) -> tensor<1x3x2x2x!quant.uniform<u8:f32, 0.1:128>> {
+  %0 = "onnx.GridSample"(%arg0, %arg1) {
+    align_corners = 0 : si64,
+    mode = "linear",
+    padding_mode = "zeros"
+  } : (tensor<1x3x4x4x!quant.uniform<u8:f32, 0.05:128>>, tensor<1x2x2x2xf32>)
+    -> tensor<1x3x2x2x!quant.uniform<u8:f32, 0.1:128>>
+  onnx.Return %0 : tensor<1x3x2x2x!quant.uniform<u8:f32, 0.1:128>>
+
+  // CHECK: [[IN_NHWC:%.+]] = "onnx.Transpose"(%arg0) {perm = [0, 2, 3, 1]} : (tensor<1x3x4x4x!quant.uniform<u8:f32, 5.000000e-02:128>>) -> tensor<1x4x4x3x!quant.uniform<u8:f32, 5.000000e-02:128>>
+  // CHECK: [[GS:%.+]] = "onnx.XFEGridSample"([[IN_NHWC]], %arg1) {{{.*}}align_corners = 0 : si64{{.*}}mode = "linear"{{.*}}padding_mode = "zeros"{{.*}}} : (tensor<1x4x4x3x!quant.uniform<u8:f32, 5.000000e-02:128>>, tensor<1x2x2x2xf32>) -> tensor<1x2x2x3x!quant.uniform<u8:f32, 1.000000e-01:128>>
+  // CHECK: [[OUT:%.+]] = "onnx.Transpose"([[GS]]) {perm = [0, 3, 1, 2]} : (tensor<1x2x2x3x!quant.uniform<u8:f32, 1.000000e-01:128>>) -> tensor<1x3x2x2x!quant.uniform<u8:f32, 1.000000e-01:128>>
+  // CHECK: onnx.Return [[OUT]] : tensor<1x3x2x2x!quant.uniform<u8:f32, 1.000000e-01:128>>
+}
+

@@ -1,6 +1,5 @@
 
 #include "XCOMPILERShapeInference.hpp"
-#include "mlir/Dialect/Quant/IR/QuantTypes.h"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
@@ -25,20 +24,14 @@ LogicalResult XCOMPILERFusedEltwiseOpShapeInference(
 
   auto aType = mlir::cast<ShapedType>(A.getType());
   ArrayRef<int64_t> aShape = aType.getShape();
-  Type elementType = aType.getElementType();
 
-  // Preserve existing quantized element type if already set (e.g., quantized
-  // types with independently calibrated scale/zero_point). Only fall back to
-  // input A's element type when the result is unranked or has a non-quantized
-  // element type. This prevents intermediate passes (e.g.,
-  // RemovePairsAndMoveDownReshapePass) that set the result type to f32
-  // from permanently losing quantized type information.
-  if (auto existingType =
-          dyn_cast<RankedTensorType>(eltwiseOp.getResult().getType())) {
-    if (mlir::isa<mlir::quant::QuantizedType>(existingType.getElementType())) {
-      elementType = existingType.getElementType();
-    }
-  }
+  // In a quantization domain (any operand or the result has a quant element
+  // type), preserve the result's element type so shape inference never
+  // changes types; otherwise default to operand A's element type.
+  Type elementType = aType.getElementType();
+  if (isInQuantizedDomain(op, eltwiseOp.getResult()))
+    elementType = mlir::cast<ShapedType>(eltwiseOp.getResult().getType())
+                      .getElementType();
 
   SmallVector<int64_t> outputShape;
 
@@ -80,14 +73,14 @@ LogicalResult XCOMPILERDepthwiseConvOpShapeInference(
 
   auto xType = mlir::cast<ShapedType>(X.getType());
   ArrayRef<int64_t> xShape = xType.getShape();
-  Type elementType = xType.getElementType();
 
-  if (auto existingType =
-          dyn_cast<RankedTensorType>(convOp.getResult().getType())) {
-    if (mlir::isa<mlir::quant::QuantizedType>(existingType.getElementType())) {
-      elementType = existingType.getElementType();
-    }
-  }
+  // In a quantization domain (any operand or the result has a quant element
+  // type), preserve the result's element type so shape inference never
+  // changes types; otherwise default to X's element type.
+  Type elementType = xType.getElementType();
+  if (isInQuantizedDomain(op, convOp.getResult()))
+    elementType =
+        mlir::cast<ShapedType>(convOp.getResult().getType()).getElementType();
 
   // Input must be 4D [N, H, W, C] or 5D [N, D, H, W, C]
   size_t rank = xShape.size();
@@ -191,23 +184,19 @@ LogicalResult XCOMPILERRequantizeOpShapeInference(
   if (!requantizeOp)
     return failure();
 
-  // Requantize: output shape is identical to input shape, but the element
-  // type must be preserved from the result (not copied from X). The result
-  // carries the output quantization parameters (y_scale, y_zero_point) which
-  // are independently calibrated and differ from X's input parameters
-  // (a_scale, a_zero_point). Copying X's element type would lose the output
-  // calibration. Additionally, X's defining op may have lost its quantized
-  // type during shape inference (becoming f32 or integer).
+  // Requantize: output shape == input shape. In a quant domain, preserve
+  // the result's element type (Requantize bridges distinct quant grids, so
+  // the result carries its own y_scale/y_zero_point). Otherwise default to
+  // X's element type.
   Value X = requantizeOp.getX();
   if (!hasShapeAndRank(X))
     return success();
 
   auto xType = mlir::cast<ShapedType>(X.getType());
   Type elementType = xType.getElementType();
-  if (auto existingType =
-          dyn_cast<RankedTensorType>(requantizeOp.getResult().getType())) {
-    elementType = existingType.getElementType();
-  }
+  if (isInQuantizedDomain(op, requantizeOp.getResult()))
+    elementType = mlir::cast<ShapedType>(requantizeOp.getResult().getType())
+                      .getElementType();
   auto resultType = RankedTensorType::get(xType.getShape(), elementType);
   requantizeOp.getResult().setType(resultType);
   return success();

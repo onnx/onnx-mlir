@@ -521,6 +521,28 @@ bool hasShapeAndRank(Operation *op) {
   return true;
 }
 
+bool isInQuantizedDomain(Operation *op, Value result) {
+  auto hasQuantElt = [](Type t) -> bool {
+    auto shaped = mlir::dyn_cast_if_present<ShapedType>(t);
+    if (!shaped)
+      return false;
+    Type elt = shaped.getElementType();
+    return elt && mlir::isa<mlir::quant::QuantizedType>(elt);
+  };
+  if (result && hasQuantElt(result.getType()))
+    return true;
+  // `op` may be null when `updateType` is invoked outside an op-typing
+  // context (e.g. ONNXToTOSALegalizeUtils::CreateOpAndInfer passes
+  // `nullptr` because it is updating a freshly produced TOSA value, not an
+  // ONNX op result). In that case, fall back to the result-only check.
+  if (!op)
+    return false;
+  for (Value operand : op->getOperands())
+    if (operand && hasQuantElt(operand.getType()))
+      return true;
+  return false;
+}
+
 /// Test if a value has only one use except ONNXDimOp.
 bool hasOneUseExceptDimOp(Value val) {
   int64_t numOfUsersExceptDim = 0;
