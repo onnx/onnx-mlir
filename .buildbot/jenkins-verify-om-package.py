@@ -56,6 +56,9 @@ def main():
         "src/Runtime/python/om_pyrt/tests/use_container_compiler.py",
     )
 
+    # Test example use_container_compiler.py through docker instead of
+    # indrect call inside the om_pyrt_light image because om_pyrt_light image
+    # is not expsed according to AI tool.
     cmd = [
         "docker",
         "run",
