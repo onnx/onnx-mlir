@@ -87,7 +87,7 @@ message(STATUS "CMAKE_INSTALL_PREFIX     : " ${CMAKE_INSTALL_PREFIX})
 function(add_onnx_mlir_dialect_doc dialect dialect_tablegen_file)
   # Generate Dialect Documentation
   set(LLVM_TARGET_DEFINITIONS ${dialect_tablegen_file})
-  tablegen(MLIR ${dialect}.md -gen-op-doc "-I${ONNX_MLIR_SRC_ROOT}")
+  tablegen(MLIR ${dialect}.md -gen-op-doc "-I${ONNX_MLIR_SRC_ROOT}" "-dialect=${dialect}")
   set(GEN_DOC_FILE ${ONNX_MLIR_SRC_ROOT}/docs/Dialects/${dialect}.md)
   add_custom_command(
           OUTPUT ${GEN_DOC_FILE}

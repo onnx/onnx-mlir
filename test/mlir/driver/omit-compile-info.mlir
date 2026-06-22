@@ -6,7 +6,8 @@ module {
     onnx.Return %0 : tensor<?x?x?xf32>
   }
   "onnx.EntryPoint"() {func = @main_graph} : () -> ()
+
+// CHECK:     om_compilation_info_json{{.*}}("{}\00")
+// CHECK:     llvm.func @omCompilationInfo
 }
 
-// CHECK-NOT: llvm.mlir.global internal constant @om_compilation_info_json
-// CHECK-NOT: llvm.func @omCompilationInfo
