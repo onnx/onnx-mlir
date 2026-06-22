@@ -2,7 +2,7 @@
 
 ##################### sessioncache.py *******###################################
 #
-# Copyright 2025 The IBM Research Authors.
+# Copyright 2025-2026 The IBM Research Authors.
 #
 ################################################################################
 #
@@ -144,8 +144,8 @@ class SessionCache:
                 f.write(json_data)
 
     # Find the index of the victim entry.
-    # If the cache is not full, get the next free entry
-    # If the cache is full, delete the oldest key and return its index
+    # If the cache is not full, get the next free entry.
+    # If the cache is full, delete the oldest key and return its index.
     def victim(self):
         if len(self.cache) >= self.capacity:
             oldest_key = self.access_order.pop()

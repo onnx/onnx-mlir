@@ -61,6 +61,7 @@ def rename_identity_output(graph):
     graph.node.extend(new_nodes)
 
 
+# Sanitize an ONNX model and save it to disk.
 def sanitize_onnx(input_path, output_path):
     model = onnx.load(input_path)
     graph = model.graph

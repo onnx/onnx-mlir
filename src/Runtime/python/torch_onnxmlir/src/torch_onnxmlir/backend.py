@@ -2,7 +2,7 @@
 
 ##################### backend.py *******########################################
 #
-# Copyright 2025 The IBM Research Authors.
+# Copyright 2025-2026 The IBM Research Authors.
 #
 ################################################################################
 #
@@ -591,7 +591,7 @@ class TorchONNXMLIR:
                     report=False,
                 )
 
-                # Sanitize the onnx model.
+                # Sanitize the onnx model and save it to disk.
                 onnx_utils.sanitize_onnx(tmp_onnx, self.onnx_model)
 
                 succeeded = True
