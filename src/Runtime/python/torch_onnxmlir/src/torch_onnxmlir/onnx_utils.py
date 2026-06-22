@@ -17,9 +17,8 @@ import onnx
 # Sanitize Identity nodes. The exporter sometimes produces
 # Identity nodes whose input and output names are the same,
 # which is invalid in ONNX.
-# In this case, we rename the output.
 # ---------------------------------------
-def rename_identity_output(graph):
+def remove_identity_ops(graph):
     new_nodes = []
     rename_map = {}
     counter = 0
@@ -27,17 +26,12 @@ def rename_identity_output(graph):
         if node.op_type == "Identity":
             src = node.input[0]
             dst = node.output[0]
-            if src == dst:
-                # Same name: create new name.
-                counter += 1
-                rename_map[dst] = f"{dst}_id_{counter}"
-            else:
-                # Normal identity.
-                rename_map[dst] = src
+            rename_map[dst] = src
+            counter += 1
         else:
             new_nodes.append(node)
 
-    # Nothing to do if all identity ops are well-defined.
+    # Nothing to do if there is no identity op.
     if counter == 0:
         return
 
@@ -69,7 +63,7 @@ def sanitize_onnx(input_path, output_path):
     # Sanitize Identity nodes. The exporter sometimes produces
     # Identity nodes whose input and output names are the same,
     # which is invalid in ONNX.
-    rename_identity_output(graph)
+    remove_identity_ops(graph)
 
     try:
         onnx.save_model(
