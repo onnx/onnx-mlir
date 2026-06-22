@@ -59,7 +59,8 @@ void ExecutionSession::signalHandler(int signum) {
 // Constructor, destructor, and init.
 
 ExecutionSession::ExecutionSession(const std::string &sharedLibPath,
-    const std::string &tag, const bool defaultEntryPoint) {
+    const std::string &tag, const bool defaultEntryPoint)
+    : sharedLibPath(sharedLibPath) {
   loadModel(sharedLibPath, tag, defaultEntryPoint);
 }
 
@@ -302,6 +303,10 @@ void ExecutionSession::printInstrumentation() {
   errno = 0; // No errors.
   if (_printInstrumentationFunc)
     _printInstrumentationFunc();
+}
+
+const std::string ExecutionSession::getSharedLibPath() const {
+  return sharedLibPath;
 }
 
 // =============================================================================

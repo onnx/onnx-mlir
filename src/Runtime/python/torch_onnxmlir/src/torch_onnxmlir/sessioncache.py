@@ -61,17 +61,17 @@ class SessionCache:
         # Get from the cache dir.
         cache_value = self.load_from_disk(key)
         if cache_value:
-            self.put(key, cache_value)
+            self.put(key, cache_value, False)
         return cache_value
 
     # The put is assumed to be called after victim()
-    def put(self, key, value: CacheValue, compiled_model_dir=None):
+    def put(self, key, value: CacheValue, write_to_disk=True):
         self.cache[key] = value
         self.access_order.append(key)
         if len(self.cache) != len(self.access_order):
             print("Error: the len of cache and access_order doesnot match")
-        if compiled_model_dir:
-            self.write_to_disk(key, value, compiled_model_dir)
+        if write_to_disk:
+            self.write_to_disk(key, value)
 
     # Load data from disk into a CacheValue. If data is not found, return None.
     def load_from_disk(self, key):
@@ -118,12 +118,13 @@ class SessionCache:
                 shutil.copy2(src_file, dst_file)
 
     # Write a CacheValue into a folder whose name is key.
-    # TODO: get src_dir from value.sess. Need to update InferenceSession to return src_dir.
-    def write_to_disk(self, key, value: CacheValue, src_dir):
+    def write_to_disk(self, key, value: CacheValue):
         # Cache folder: create if it does not exist.
         dst_dir = os.path.join(self.cache_path, key)
         os.makedirs(dst_dir, exist_ok=True)
         # Write the compiled model (.so file).
+        compiled_model = value.sess.get_compiled_model_path()
+        src_dir = Path(compiled_model).resolve().parent
         for filename in os.listdir(src_dir):
             if not filename.lower().endswith((".so", ".constants.bin")):
                 continue

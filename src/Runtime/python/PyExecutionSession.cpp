@@ -466,6 +466,10 @@ std::string PyExecutionSession::pyCompilationInfo() const {
   return compilationInfo();
 }
 
+std::string PyExecutionSession::pyCompiledModelPath() const {
+  return getSharedLibPath();
+}
+
 // =============================================================================
 // Error reporting
 

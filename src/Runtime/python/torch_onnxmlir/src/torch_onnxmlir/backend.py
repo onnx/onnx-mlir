@@ -422,9 +422,7 @@ class TorchONNXMLIR:
                 example_inputs_indices=self.example_inputs_indices,
             )
 
-            # TODO: Enhance InferenceSession to return its model_dir.
-            compiled_model_dir = Path(compiled_model).resolve().parent
-            global_session_cache.put(self.cache_key, cache_value, compiled_model_dir)
+            global_session_cache.put(self.cache_key, cache_value)
         else:
             logger.info("Found the model in the cache. No recompilation.")
             # Use the InferenceSession in the cache.
