@@ -95,7 +95,6 @@ struct MoveBroadcastTileForwardPattern : public OpRewritePattern<ONNXTileOp> {
     auto tileOutTy = dyn_cast<RankedTensorType>(tileOp.getType());
     if (!tileOutTy || !tileOutTy.hasStaticShape())
       return rewriter.notifyMatchFailure(tileOp, "tile result must be static");
-
     if (!tileOp->hasOneUse())
       return rewriter.notifyMatchFailure(
           tileOp, "tile must have a single user");
@@ -104,9 +103,7 @@ struct MoveBroadcastTileForwardPattern : public OpRewritePattern<ONNXTileOp> {
     if (!gatherOp)
       return rewriter.notifyMatchFailure(
           tileOp, "tile user must be onnx.GatherElements");
-    if (!gatherOp->hasOneUse())
-      return rewriter.notifyMatchFailure(
-          gatherOp, "gather_elements must have a single user");
+
     auto gatherIndicesTy =
         dyn_cast<RankedTensorType>(gatherOp.getIndices().getType());
     if (!gatherIndicesTy ||
@@ -150,7 +147,6 @@ struct MoveBroadcastTileForwardPattern : public OpRewritePattern<ONNXTileOp> {
         RankedTensorType::get(newReshapeShape, topkDataTy.getElementType());
     auto newReshape = rewriter.create<ONNXReshapeOp>(
         loc, newReshapeTy, topkDataIn, shapeConst.getResult());
-
     llvm::SmallVector<int64_t, 4> newTileOutShape(topkDataTy.getShape());
     newTileOutShape.push_back(tileOutTy.getShape().back());
     // Tile on the TopK *data* path uses the data tensor element type (quant).
@@ -178,7 +174,6 @@ struct MoveBroadcastTileForwardPattern : public OpRewritePattern<ONNXTileOp> {
     auto newTopk = rewriter.create<ONNXTopKOp>(topkOp.getLoc(), newValuesTy,
         newIndicesTy, newTile.getResult(), topkOp.getK(), topkOp.getAxisAttr(),
         topkOp.getLargestAttr(), topkOp.getSortedAttr());
-
     auto castOutTy = dyn_cast<RankedTensorType>(castOp.getType());
     if (!castOutTy)
       return rewriter.notifyMatchFailure(castOp, "Cast must be ranked tensor");
@@ -195,6 +190,7 @@ struct MoveBroadcastTileForwardPattern : public OpRewritePattern<ONNXTileOp> {
     rewriter.eraseOp(tileOp);
     rewriter.eraseOp(reshapeOp);
     rewriter.eraseOp(castOp);
+
     return success();
   }
 

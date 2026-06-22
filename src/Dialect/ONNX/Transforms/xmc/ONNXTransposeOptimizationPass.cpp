@@ -218,6 +218,50 @@ struct FuseConsecutiveTransposes : public OpRewritePattern<ONNXTransposeOp> {
       if (inputType && outputType &&
           inputType.getElementType() != outputType.getElementType()) {
 
+        // At function ABI boundaries, fold the pair by retyping the
+        // neighbour data-flow op rather than materializing a Q/DQ bridge.
+        Value producerValue = prevTranspose.getOperand();
+
+        auto isTypePinned = [](Operation *u) {
+          return isa<ONNXConstantOp, ONNXConstantOfShapeOp, ONNXCastOp,
+              ONNXCastLikeOp, ONNXQuantizeLinearOp, ONNXDequantizeLinearOp,
+              quant::StorageCastOp>(u);
+        };
+
+        bool atOutputBoundary =
+            !op->use_empty() && llvm::any_of(op->getUsers(), [](Operation *u) {
+              return isa<func::ReturnOp>(u);
+            });
+        Operation *producerOp = producerValue.getDefiningOp();
+        bool otherProducerUsesTolerant =
+            llvm::all_of(producerValue.getUsers(), [&](Operation *u) {
+              return u == prevTranspose ||
+                     (!isTypePinned(u) && !isa<func::ReturnOp>(u));
+            });
+        bool producerRetypable = producerOp && !isTypePinned(producerOp) &&
+                                 otherProducerUsesTolerant;
+        if (atOutputBoundary && producerRetypable) {
+          Type newProducerTy = RankedTensorType::get(
+              inputType.getShape(), outputType.getElementType());
+          producerValue.setType(newProducerTy);
+          rewriter.replaceOp(op, producerValue);
+          return success();
+        }
+
+        auto blockArg = mlir::dyn_cast<BlockArgument>(producerValue);
+        bool atInputBoundary =
+            blockArg && blockArg.getOwner() &&
+            isa<func::FuncOp>(blockArg.getOwner()->getParentOp());
+        bool consumersRetypable =
+            atInputBoundary && !op->use_empty() &&
+            llvm::all_of(op->getUsers(), [&](Operation *u) {
+              return !isTypePinned(u) && !isa<func::ReturnOp>(u);
+            });
+        if (atInputBoundary && consumersRetypable) {
+          rewriter.replaceOp(op, producerValue);
+          return success();
+        }
+
         auto inputQuantType = mlir::dyn_cast<quant::UniformQuantizedType>(
             inputType.getElementType());
         auto outputQuantType = mlir::dyn_cast<quant::UniformQuantizedType>(
@@ -389,8 +433,9 @@ struct MoveTransposeThroughReshape : public OpRewritePattern<ONNXReshapeOp> {
     // Check if reshape is "factorizable" - only splits/merges within
     // each transposed dimension (no cross-dimension data mixing)
     SmallVector<SmallVector<int64_t>> dimGroups;
-    if (!isSafeToSwapTransposeReshape(
-            transposeOutputShape, reshapeOutputShape, dimGroups, *perm))
+    size_t trailingOnes = 0;
+    if (!isSafeToSwapTransposeReshape(transposeOutputShape, reshapeOutputShape,
+            dimGroups, *perm, trailingOnes))
       return failure();
 
     LLVM_DEBUG(llvm::dbgs()
@@ -402,6 +447,11 @@ struct MoveTransposeThroughReshape : public OpRewritePattern<ONNXReshapeOp> {
 
     // Compute new transpose permutation (to apply after new reshape)
     SmallVector<int64_t> newPerm = computeAdjustedPermutation(dimGroups, *perm);
+
+    for (size_t k = 0; k < trailingOnes; ++k) {
+      newPerm.push_back(static_cast<int64_t>(newReshapeShape.size()));
+      newReshapeShape.push_back(1);
+    }
 
     // Create new Reshape (before transpose)
     auto newReshapeShapeType = RankedTensorType::get(
@@ -433,14 +483,17 @@ private:
     SmallVector<int64_t> reshapeSizes;    // Sizes after factorization
   };
 
-  // Check if reshape only splits/merges within each dimension
-  // Returns true if safe, and populates dimGroups with the factorization
-  // perm: the transpose permutation (perm[output_dim] = input_dim)
+  // Returns true if the reshape only splits per transpose-output dim (no
+  // N→1 merging, mirroring vaip's `guess_reshape` safety check). Trailing
+  // 1s on the reshape side are reported in `outTrailingOnes` so the caller
+  // can append them to the new reshape shape and new transpose perm.
   static bool isSafeToSwapTransposeReshape(
       ArrayRef<int64_t> transposeOutputShape,
       ArrayRef<int64_t> reshapeOutputShape,
-      SmallVector<SmallVector<int64_t>> &outDimGroups, ArrayRef<int64_t> perm) {
+      SmallVector<SmallVector<int64_t>> &outDimGroups, ArrayRef<int64_t> perm,
+      size_t &outTrailingOnes) {
     outDimGroups.clear();
+    outTrailingOnes = 0;
 
     // Check for dynamic dimensions
     for (auto dim : transposeOutputShape) {
@@ -507,9 +560,10 @@ private:
         outDimGroups.push_back(group);
         transposeIdx++;
       } else {
-        // Case 3: Merging - multiple transpose dims → one reshape dim
-        // Accumulate consecutive transpose dims until we match the reshape
-        // dim
+        // N->1 merging is disabled by default to match the vaip golden.
+#ifndef ONNX_MLIR_TRANSPOSE_RESHAPE_ALLOW_MERGE
+        return false;
+#else
         int64_t accumulatedSize = transposeSize;
         size_t startIdx = transposeIdx;
         transposeIdx++;
@@ -521,62 +575,37 @@ private:
         }
 
         if (accumulatedSize != reshapeSize)
-          return false; // Can't merge cleanly
+          return false;
 
-        // FIX: When merging dimensions, we need to ensure that the merged
-        // transpose output dimensions correspond to consecutive AND ascending
-        // input dimensions. This is because reshape merges in memory order,
-        // and if the input dims are not consecutive/ascending, the data will
-        // be incorrectly reordered.
-        //
-        // For merge to be safe, the input dims (perm[i] for each merged
-        // output dim i) must be consecutive (e.g., [2,3,4]) AND in ascending
-        // order.
         if (transposeIdx - startIdx > 1) {
-          // Collect input dims for the merged output dims
           SmallVector<int64_t> inputDims;
-          for (size_t i = startIdx; i < transposeIdx; ++i) {
+          for (size_t i = startIdx; i < transposeIdx; ++i)
             inputDims.push_back(perm[i]);
-          }
 
-          // Check 1: Input dims must be in ascending order in the perm
-          // (meaning they appear in memory order in the output)
-          for (size_t i = 1; i < inputDims.size(); ++i) {
-            if (inputDims[i] <= inputDims[i - 1]) {
-              LLVM_DEBUG(llvm::dbgs()
-                         << "Rejecting merge: input dims not ascending (["
-                         << inputDims[i - 1] << "," << inputDims[i] << "])\n");
+          for (size_t i = 1; i < inputDims.size(); ++i)
+            if (inputDims[i] <= inputDims[i - 1])
               return false;
-            }
-          }
 
-          // Check 2: Input dims must be consecutive (no gaps)
-          for (size_t i = 1; i < inputDims.size(); ++i) {
-            if (inputDims[i] != inputDims[i - 1] + 1) {
-              LLVM_DEBUG(llvm::dbgs()
-                         << "Rejecting merge: input dims not consecutive (["
-                         << inputDims[i - 1] << "," << inputDims[i] << "])\n");
+          for (size_t i = 1; i < inputDims.size(); ++i)
+            if (inputDims[i] != inputDims[i - 1] + 1)
               return false;
-            }
-          }
-
-          LLVM_DEBUG(llvm::dbgs() << "Merge of " << (transposeIdx - startIdx)
-                                  << " dims is safe (consecutive ascending)\n");
         }
 
-        // Record merge: multiple transpose dims map to single reshape dim
-        // We use negative values to indicate merged dimensions
-        // The first group gets the reshape size, subsequent groups get -1
         outDimGroups.push_back({reshapeSize});
-        for (size_t i = startIdx + 1; i < transposeIdx; ++i) {
-          outDimGroups.push_back({-1}); // Marker for merged dimension
-        }
+        for (size_t i = startIdx + 1; i < transposeIdx; ++i)
+          outDimGroups.push_back({-1});
 
         reshapeIdx++;
+#endif
       }
     }
 
-    // All dims must be consumed
+    while (reshapeIdx < reshapeOutputShape.size() &&
+           reshapeOutputShape[reshapeIdx] == 1) {
+      ++outTrailingOnes;
+      ++reshapeIdx;
+    }
+
     return transposeIdx == transposeOutputShape.size() &&
            reshapeIdx == reshapeOutputShape.size();
   }
@@ -1925,6 +1954,9 @@ struct ONNXTransposeOptimizationPass
     patterns.add<PushTransposeThroughUnaryOp<ONNXIdentityOp>>(context);
     patterns.add<PushTransposeThroughUnaryOp<ONNXLogOp>>(context);
     patterns.add<PushTransposeThroughUnaryOp<ONNXGeluOp>>(context);
+    patterns.add<PushTransposeThroughUnaryOp<ONNXSoftplusOp>>(context);
+    patterns.add<PushTransposeThroughUnaryOp<ONNXNotOp>>(context);
+    patterns.add<PushTransposeThroughUnaryOp<ONNXErfOp>>(context);
 
     patterns.add<PushTransposeThroughClip>(context);
     patterns.add<PushTransposeThroughHardSigmoid>(context);
@@ -1943,6 +1975,7 @@ struct ONNXTransposeOptimizationPass
     patterns.add<FuseBinaryOpTransposes<ONNXDivOp>>(context);
     patterns.add<FuseBinaryOpTransposes<ONNXPowOp>>(context);
     patterns.add<FuseBinaryOpTransposes<ONNXGreaterOp>>(context);
+    patterns.add<FuseBinaryOpTransposes<ONNXModOp>>(context);
 
     patterns.add<FuseTransposeImmuneBinaryOp<ONNXAddOp>>(context);
     patterns.add<FuseTransposeImmuneBinaryOp<ONNXSubOp>>(context);
@@ -1951,6 +1984,7 @@ struct ONNXTransposeOptimizationPass
     patterns.add<FuseTransposeImmuneBinaryOp<ONNXPowOp>>(context);
     patterns.add<FuseTransposeImmuneBinaryOp<ONNXGreaterOp>>(context);
     patterns.add<FuseTransposeImmuneBinaryOp<ONNXPReluOp>>(context);
+    patterns.add<FuseTransposeImmuneBinaryOp<ONNXModOp>>(context);
 
     patterns.add<PushTransposeThroughBinaryWithConst<ONNXAddOp>>(context);
     patterns.add<PushTransposeThroughBinaryWithConst<ONNXSubOp>>(context);
@@ -1959,11 +1993,12 @@ struct ONNXTransposeOptimizationPass
     patterns.add<PushTransposeThroughBinaryWithConst<ONNXPowOp>>(context);
     patterns.add<PushTransposeThroughBinaryWithConst<ONNXGreaterOp>>(context);
     patterns.add<PushTransposeThroughBinaryWithConst<ONNXPReluOp>>(context);
+    patterns.add<PushTransposeThroughBinaryWithConst<ONNXModOp>>(context);
 
     patterns.add<PushTransposeThroughVariadicWithConst<ONNXMinOp>>(context);
     patterns.add<PushTransposeThroughVariadicWithConst<ONNXMaxOp>>(context);
 
-    patterns.add<PushTransposeThroughWhere>(context);
+    // patterns.add<PushTransposeThroughWhere>(context);
 
     patterns.add<PushTransposeThroughAxisOp<ONNXPadOp>>(context);
     patterns.add<PushTransposeThroughAxisOp<ONNXSliceOp>>(context);
@@ -1972,7 +2007,9 @@ struct ONNXTransposeOptimizationPass
 
     patterns.add<PushTransposeThroughAxisOp<ONNXSqueezeOp>>(context);
     patterns.add<PushTransposeThroughAxisOp<ONNXArgMaxOp>>(context);
+    // Softmax move-through is gated to the LogSoftmax pattern (Softmax -> Log).
     patterns.add<PushTransposeThroughAxisOp<ONNXSoftmaxOp>>(context);
+    patterns.add<PushTransposeThroughAxisOp<ONNXLogSoftmaxOp>>(context);
 
     patterns.add<PushTransposeThroughAxisOp<ONNXReduceMeanOp>>(context);
     patterns.add<PushTransposeThroughAxisOp<ONNXReduceMaxOp>>(context);

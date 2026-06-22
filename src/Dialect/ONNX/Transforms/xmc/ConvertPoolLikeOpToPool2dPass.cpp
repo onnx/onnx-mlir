@@ -130,9 +130,31 @@ bool areAxesValidForSpatialPooling(ArrayRef<int64_t> axes, int64_t /*rank*/) {
   return areAxesContinuous(axes);
 }
 
+/// Require exactly two reduction axes after trivial-axis removal.
+bool hasExactlyTwoReductionAxes(ArrayRef<int64_t> axes) {
+  return axes.size() == 2;
+}
+
 /// Check if reduction includes channel dimension (index 1 in NCHW)
 bool includesChannelDimension(ArrayRef<int64_t> axes, int64_t /*rank*/) {
   return std::find(axes.begin(), axes.end(), 1) != axes.end();
+}
+
+/// Detect a ReduceMean that is morally an ONNXGlobalAveragePool: rank-4
+/// input, axes cover all trailing spatial dims [2, 3], keepdims=true (output
+/// is [N, C, 1, 1]). When this holds the lowering can emit
+/// ONNXGlobalAveragePoolOp directly and skip the MAX_KERNEL_SIZE reshape
+/// + flatten, preserving the natural [H, W] kernel for downstream xir
+/// qlinear-pool consumers (matches legacy ReplaceQDQPoolPass behavior).
+bool isGlobalAveragePoolEquivalent(ArrayRef<int64_t> axes,
+    ArrayRef<int64_t> inputShape, ArrayRef<int64_t> outputShape) {
+  if (inputShape.size() != 4 || outputShape.size() != 4)
+    return false;
+  if (axes.size() != 2 || axes[0] != 2 || axes[1] != 3)
+    return false;
+  if (outputShape[0] != inputShape[0] || outputShape[1] != inputShape[1])
+    return false;
+  return outputShape[2] == 1 && outputShape[3] == 1;
 }
 
 /// Calculate pool parameters for SPATIAL reduction
@@ -300,6 +322,19 @@ struct LowerReduceMeanV13ToAvgPoolPattern
     if (!areAxesValidForSpatialPooling(axes, rank))
       return failure();
 
+    if (!hasExactlyTwoReductionAxes(axes))
+      return failure();
+
+    // Fast path: morally an ONNXGlobalAveragePool. Emit it directly so the
+    // natural [H, W] kernel survives, matching the legacy xmodel flow.
+    if (isGlobalAveragePoolEquivalent(
+            axes, inputShape, outputType.getShape())) {
+      auto globalAvgPoolOp = rewriter.create<ONNXGlobalAveragePoolOp>(
+          loc, outputType, reduceOp.getData());
+      rewriter.replaceOp(reduceOp, globalAvgPoolOp.getResult());
+      return success();
+    }
+
     auto [poolShape, kernelH, kernelW] =
         calculateSpatialPoolParameters(inputShape, axes);
 
@@ -318,7 +353,7 @@ struct LowerReduceMeanV13ToAvgPoolPattern
     SmallVector<int64_t> poolOutputShape = {
         poolShape[0], poolShape[1], outH, outW};
     auto poolOutputType =
-        RankedTensorType::get(poolOutputShape, inputType.getElementType());
+        RankedTensorType::get(poolOutputShape, outputType.getElementType());
 
     auto si64Type =
         IntegerType::get(rewriter.getContext(), 64, IntegerType::Signed);
@@ -383,6 +418,20 @@ struct LowerReduceMeanToAvgPoolPattern
       return failure();
     }
 
+    if (!hasExactlyTwoReductionAxes(axes)) {
+      return failure();
+    }
+
+    // Fast path: morally an ONNXGlobalAveragePool. Emit it directly so the
+    // natural [H, W] kernel survives, matching the legacy xmodel flow.
+    if (isGlobalAveragePoolEquivalent(
+            axes, inputShape, outputType.getShape())) {
+      auto globalAvgPoolOp = rewriter.create<ONNXGlobalAveragePoolOp>(
+          loc, outputType, reduceOp.getData());
+      rewriter.replaceOp(reduceOp, globalAvgPoolOp.getResult());
+      return success();
+    }
+
     auto [poolShape, kernelH, kernelW] =
         calculateSpatialPoolParameters(inputShape, axes);
 
@@ -402,7 +451,7 @@ struct LowerReduceMeanToAvgPoolPattern
     SmallVector<int64_t> poolOutputShape = {
         poolShape[0], poolShape[1], outH, outW};
     auto poolOutputType =
-        RankedTensorType::get(poolOutputShape, inputType.getElementType());
+        RankedTensorType::get(poolOutputShape, outputType.getElementType());
 
     // Create signed i64 type for ONNX attributes (si64)
     auto si64Type =
@@ -702,7 +751,7 @@ struct LowerReduceSumToAvgPoolPattern
     SmallVector<int64_t> poolOutputShape = {
         poolShape[0], poolShape[1], outH, outW};
     auto poolOutputType =
-        RankedTensorType::get(poolOutputShape, inputType.getElementType());
+        RankedTensorType::get(poolOutputShape, outputType.getElementType());
 
     // Create signed i64 type for ONNX attributes (si64)
     auto si64Type =
@@ -797,8 +846,7 @@ struct LowerReduceToPoolPass
     patterns.add<LowerReduceMeanV13ToAvgPoolPattern>(context);
     // ReduceMean → AveragePool (operand-based axes)
     patterns.add<LowerReduceMeanToAvgPoolPattern>(context);
-    // ReduceSum → AveragePool + Mul
-    patterns.add<LowerReduceSumToAvgPoolPattern>(context);
+
     // ReduceMax → MaxPool (spatial) - higher priority
     patterns.add<LowerReduceMaxToMaxPoolSpatialPattern>(context);
     // ReduceMax → MaxPool (channel via reshape) - lower priority

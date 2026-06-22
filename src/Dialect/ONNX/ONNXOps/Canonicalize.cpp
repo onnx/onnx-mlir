@@ -2430,8 +2430,7 @@ struct FuseScaleIntoRotaryEmbeddingPattern
     if (!isPlainFloatType(scaleTy))
       return rewriter.notifyMatchFailure(
           mulOp, "scale element type is not a plain float");
-    auto mulResultTy = dyn_cast<RankedTensorType>(mulOp.getResult().getType());
-    if (!isPlainFloatType(mulResultTy))
+    if (!isPlainFloatType(mulOp.getResult().getType()))
       return rewriter.notifyMatchFailure(
           mulOp, "Mul result element type is not a plain float");
 

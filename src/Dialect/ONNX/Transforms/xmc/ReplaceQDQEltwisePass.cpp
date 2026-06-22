@@ -28,17 +28,23 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Quant/IR/Quant.h"
 #include "mlir/Dialect/Quant/IR/QuantTypes.h"
 #include "mlir/Dialect/Traits.h"
+#include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
+#include "mlir/Support/LLVM.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
 #include "src/Pass/Passes.hpp"
 
+#include "llvm/ADT/APInt.h"
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Debug.h"
 
 #include <cmath>
@@ -147,6 +153,12 @@ static bool isInputFromPattern2Eltwise(Value v) {
   Operation *def = v.getDefiningOp();
   if (!def)
     return false;
+  // Multi-user eltwise: Pattern 2 won't fuse (it would clone the eltwise and
+  // duplicate compute), so do not defer here. Letting this return false lets
+  // Pattern 1 emit a standalone activation op (matches the xmodel-flow
+  // "golden" form: bare eltwise + standalone Relu).
+  if (!def->hasOneUse())
+    return false;
   if (!isa<ONNXAddOp, ONNXSubOp, ONNXMulOp, ONNXDivOp, ONNXTanhOp, ONNXSqrtOp>(
           def))
     return false;
@@ -203,6 +215,145 @@ static Type recoverRankedResultType(Type resultType, Value a, Value b) {
     return RankedTensorType::get(
         bType.getShape(), unrankedType.getElementType());
   return resultType;
+}
+
+static void maybeWidenNarrowConstOperand(PatternRewriter &rewriter,
+    Location loc, StringRef opType, Value &a, Value &b) {
+  if (opType != "ADD" && opType != "MUL" && opType != "SUB" && opType != "DIV")
+    return;
+  if (!a || !b || mlir::isa<NoneType>(b.getType()))
+    return;
+
+  auto aTy = mlir::dyn_cast<RankedTensorType>(a.getType());
+  auto bTy = mlir::dyn_cast<RankedTensorType>(b.getType());
+  if (!aTy || !bTy)
+    return;
+
+  auto aQ =
+      mlir::dyn_cast<mlir::quant::UniformQuantizedType>(aTy.getElementType());
+  auto bQ =
+      mlir::dyn_cast<mlir::quant::UniformQuantizedType>(bTy.getElementType());
+  if (!aQ || !bQ)
+    return;
+
+  auto aStor = mlir::dyn_cast<IntegerType>(aQ.getStorageType());
+  auto bStor = mlir::dyn_cast<IntegerType>(bQ.getStorageType());
+  if (!aStor || !bStor)
+    return;
+
+  unsigned aW = aStor.getWidth();
+  unsigned bW = bStor.getWidth();
+
+  bool narrowIsA;
+  Value narrowSide;
+  mlir::quant::UniformQuantizedType narrowQ;
+  RankedTensorType narrowTy;
+
+  if (aW != bW) {
+    // Width mismatch: widen the narrow 8-bit operand to its 16-bit sibling.
+    narrowIsA = aW < bW;
+    narrowSide = narrowIsA ? a : b;
+    narrowQ = narrowIsA ? aQ : bQ;
+    narrowTy = narrowIsA ? aTy : bTy;
+    unsigned narrowW = narrowIsA ? aW : bW;
+    unsigned wideW = narrowIsA ? bW : aW;
+    if (narrowW != 8 || wideW != 16)
+      return;
+  } else {
+    // Same-width mixed signedness: promote INT8 const to INT16 (golden).
+    if (aW != 8)
+      return;
+    if (aQ.isSigned() && !bQ.isSigned() && a.getDefiningOp<ONNXConstantOp>()) {
+      narrowIsA = true;
+      narrowSide = a;
+      narrowQ = aQ;
+      narrowTy = aTy;
+    } else if (bQ.isSigned() && !aQ.isSigned() &&
+               b.getDefiningOp<ONNXConstantOp>()) {
+      narrowIsA = false;
+      narrowSide = b;
+      narrowQ = bQ;
+      narrowTy = bTy;
+    } else {
+      return;
+    }
+  }
+
+  auto constOp = narrowSide.getDefiningOp<ONNXConstantOp>();
+  if (!constOp)
+    return;
+
+  auto valueAttr =
+      mlir::dyn_cast_or_null<DenseElementsAttr>(constOp.getValueAttr());
+  if (!valueAttr || !valueAttr.getElementType().isIntOrIndex())
+    return;
+
+  bool isSigned = narrowQ.isSigned();
+  auto wideStorTy = rewriter.getIntegerType(16);
+
+  auto wideQ = mlir::quant::UniformQuantizedType::get(narrowQ.getFlags(),
+      wideStorTy, narrowQ.getExpressedType(), narrowQ.getScale(),
+      narrowQ.getZeroPoint(),
+      mlir::quant::UniformQuantizedType::getDefaultMinimumForInteger(
+          isSigned, 16),
+      mlir::quant::UniformQuantizedType::getDefaultMaximumForInteger(
+          isSigned, 16));
+
+  auto wideTensorTy = RankedTensorType::get(narrowTy.getShape(), wideQ);
+
+  // Reuse an existing widened constant if a previous pattern match already
+  // created one for the same narrow constant (avoids duplicating memory).
+  // Match requires identical type AND identical dense values.
+  Value wideResult;
+  for (Operation &sibling : constOp->getBlock()->getOperations()) {
+    auto candidate = mlir::dyn_cast<ONNXConstantOp>(&sibling);
+    if (!candidate || candidate == constOp)
+      continue;
+    if (candidate.getResult().getType() != wideTensorTy)
+      continue;
+    auto candidateVal =
+        mlir::dyn_cast_or_null<DenseElementsAttr>(candidate.getValueAttr());
+    if (candidateVal &&
+        candidateVal.getNumElements() == valueAttr.getNumElements()) {
+      bool valuesMatch = true;
+      auto candIt = candidateVal.getValues<llvm::APInt>().begin();
+      for (llvm::APInt v : valueAttr.getValues<llvm::APInt>()) {
+        llvm::APInt expected = isSigned ? v.sext(16) : v.zext(16);
+        if (*candIt != expected) {
+          valuesMatch = false;
+          break;
+        }
+        ++candIt;
+      }
+      if (valuesMatch) {
+        wideResult = candidate.getResult();
+        break;
+      }
+    }
+  }
+
+  if (!wideResult) {
+    auto wideStorageTensorTy =
+        RankedTensorType::get(narrowTy.getShape(), wideStorTy);
+    llvm::SmallVector<llvm::APInt, 16> widened;
+    widened.reserve(valueAttr.getNumElements());
+    for (llvm::APInt v : valueAttr.getValues<llvm::APInt>())
+      widened.push_back(isSigned ? v.sext(16) : v.zext(16));
+    auto wideDense = DenseElementsAttr::get(
+        wideStorageTensorTy, llvm::ArrayRef<llvm::APInt>(widened));
+    auto wideValueAttr = rewriter.getNamedAttr("value", wideDense);
+    auto wideConstOp = rewriter.create<ONNXConstantOp>(loc, wideTensorTy,
+        ValueRange{}, llvm::ArrayRef<NamedAttribute>{wideValueAttr});
+    wideResult = wideConstOp.getResult();
+  }
+
+  if (narrowIsA)
+    a = wideResult;
+  else
+    b = wideResult;
+
+  if (constOp->use_empty())
+    rewriter.eraseOp(constOp);
 }
 
 // Check if type is BFloat16
@@ -351,8 +502,17 @@ struct FuseQuantizedEltwiseWithoutActivation
 
     Type resultType = recoverRankedResultType(eltwiseOp.getType(), a, b);
 
+    maybeWidenNarrowConstOperand(rewriter, eltwiseOp.getLoc(), opType, a, b);
+
+    // Carry GELU's approximation mode ("none"/"tanh") onto the fused op so the
+    // kernel can pick the matching GELU formulation. Null for non-GELU types.
+    StringAttr approximateAttr;
+    if constexpr (std::is_same_v<EltwiseOp, ONNXGeluOp>)
+      approximateAttr = rewriter.getStringAttr(eltwiseOp.getApproximate());
+
     auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(eltwiseOp.getLoc(),
         resultType, a, b,
+        /*approximate=*/approximateAttr,
         /*enable_lut_sigmoid=*/rewriter.getBoolAttr(false),
         /*leakyrelu_alpha=*/leakyAlpha,
         /*max=*/IntegerAttr(),
@@ -410,6 +570,7 @@ struct FuseQuantizedClipWithoutActivation
     auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(clipOp.getLoc(),
         clipOp.getType(), // result type (quantized)
         clipOp.getInput(), noneB,
+        /*approximate=*/StringAttr(),
         /*enable_lut_sigmoid=*/rewriter.getBoolAttr(false),
         /*leakyrelu_alpha=*/FloatAttr(),
         /*max=*/clipMaxAttr,
@@ -501,6 +662,17 @@ struct FuseQuantizedEltwiseActivation : public OpRewritePattern<ActivationOp> {
       return rewriter.notifyMatchFailure(
           activationOp, "input not from eltwise operation");
 
+    // Multi-user eltwise: refuse to fuse so we do not clone the eltwise into
+    // the activation slot (which duplicates compute for every non-activation
+    // consumer of the eltwise). Pattern 1 then emits the activation as a
+    // standalone XCOMPILERFusedEltwise, matching the xmodel-flow "golden"
+    // form (e.g. ADD + standalone RELU for an Add whose result feeds both a
+    // Relu and another consumer such as Concat).
+    if (!eltwiseOp->hasOneUse())
+      return rewriter.notifyMatchFailure(activationOp,
+          "eltwise has multiple users; emit standalone activation instead "
+          "of cloning the eltwise");
+
     // Handle unary and binary eltwise ops.
     Value a = nullptr, b = nullptr;
     bool isUnary = false;
@@ -561,8 +733,10 @@ struct FuseQuantizedEltwiseActivation : public OpRewritePattern<ActivationOp> {
     if (isReluNoOp(activationOp.getOperation())) {
       if (isUnary)
         b = rewriter.create<ONNXNoneOp>(eltwiseOp.getLoc()).getResult();
+      maybeWidenNarrowConstOperand(rewriter, eltwiseOp.getLoc(), opType, a, b);
       auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(
           eltwiseOp.getLoc(), activationOp.getType(), a, b,
+          /*approximate=*/StringAttr(),
           /*enable_lut_sigmoid=*/rewriter.getBoolAttr(false),
           /*leakyrelu_alpha=*/FloatAttr(),
           /*max=*/IntegerAttr(),
@@ -608,9 +782,12 @@ struct FuseQuantizedEltwiseActivation : public OpRewritePattern<ActivationOp> {
     if (isUnary)
       b = rewriter.create<ONNXNoneOp>(eltwiseOp.getLoc()).getResult();
 
+    maybeWidenNarrowConstOperand(rewriter, eltwiseOp.getLoc(), opType, a, b);
+
     auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(eltwiseOp.getLoc(),
         activationOp.getType(), // Result type (quantized)
         a, b,
+        /*approximate=*/StringAttr(),
         /*enable_lut_sigmoid=*/rewriter.getBoolAttr(false),
         /*leakyrelu_alpha=*/alphaAttr,
         /*max=*/IntegerAttr(),
@@ -823,6 +1000,7 @@ struct ReplaceExpandWithEltwise : public OpRewritePattern<ONNXExpandOp> {
 
     auto fusedOp = rewriter.create<XCOMPILERFusedEltwiseOp>(expandOp.getLoc(),
         resultType, input, zeroConst.getResult(),
+        /*approximate=*/StringAttr(),
         /*enable_lut_sigmoid=*/rewriter.getBoolAttr(false),
         /*leakyrelu_alpha=*/FloatAttr(),
         /*max=*/IntegerAttr(),

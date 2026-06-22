@@ -74,9 +74,10 @@ std::unique_ptr<mlir::Pass> createQDQCanonicalizePass(bool removeBinary = false,
 
 std::unique_ptr<mlir::Pass> createFoldQuantizedBinary();
 
-/// XMC variant of FoldQuantizedBinary with an extra Add/Sub scale-equality
-/// guard to avoid folding Add/Sub when input and output scales differ.
-std::unique_ptr<mlir::Pass> createXmcFoldQuantizedBinary();
+/// Converts quantized Div / Mul by a scalar quantized constant into a
+/// single XCOMPILERRequantize op. XMC analogue of xcompiler's
+/// TransferScalarConstInputDivToRequantizePass.
+std::unique_ptr<mlir::Pass> createTransferScalarConstInputDivToRequantizePass();
 
 std::unique_ptr<mlir::Pass> createONNXCSEPass();
 
@@ -161,13 +162,25 @@ std::unique_ptr<mlir::Pass> createRemoveUselessQLinearPoolPass();
 /// Pass for replacing quantized HardSigmoid with XCOMPILERFusedEltwise.
 std::unique_ptr<mlir::Pass> createReplaceHsigmoidAndHswishPass();
 
+std::unique_ptr<mlir::Pass> createRecomposeHardSigmoidPass();
+std::unique_ptr<mlir::Pass> createTransferSoftmaxAxisToLastPass();
+
 /// Pass for replacing quantized Erf-based GELU subgraph with
 /// XCOMPILERFusedEltwise(GELU).
 std::unique_ptr<mlir::Pass> createReplaceErfToGeluPass();
 
+/// Pass for replacing quantized tanh-approximation GELU subgraph with
+/// onnx.Gelu(approximate="tanh").
+std::unique_ptr<mlir::Pass> createReplaceTanhToGeluPass();
+
 /// Pass for replacing quantized Sigmoid with XCOMPILERFusedEltwise
 /// QLINEARSIGMOID.
 std::unique_ptr<mlir::Pass> createReplaceQDQSigmoidPass();
+
+/// Pass for folding batch on quantized onnx.XCOMPILERFusedEltwise into
+/// reshape + eltwise + reshape (XMC; aligns with xcompiler batch-eltwise
+/// transfer).
+std::unique_ptr<mlir::Pass> createTransferBatchXCompilerFusedEltwisePass();
 
 /// Pass for transferring ReduceMean/Sum operations to Conv operations.
 std::unique_ptr<mlir::Pass> createTransferReduceMeanSumToConvPass();
@@ -239,11 +252,18 @@ std::unique_ptr<mlir::Pass> createTransfer5dStridedSliceTo4d();
 /// Pass for transferring SpaceToDepth patterns to Conv2D.
 std::unique_ptr<mlir::Pass> createTransferSpaceToDepthToConv2dPass();
 
+/// Pass for fusing onnx.Clip(quantized->f32)+Cast(f32->uint) into CLAMP (XMC).
+std::unique_ptr<mlir::Pass> createReplaceQDQClipCastPass();
+
 /// Pass for fusing quantized eltwise+activation patterns (XMC).
 std::unique_ptr<mlir::Pass> createReplaceQDQEltwisePass();
 
 /// Pass for lowering quantized onnx.Tile to XCOMPILERFusedEltwise ADD (XMC).
 std::unique_ptr<mlir::Pass> createReplaceQuantizedTileToAddPass();
+
+/// Pass for replacing quantized XFEResize with 1x1 spatial input by a
+/// broadcasting onnx.Add against a splat zero_point constant (XMC).
+std::unique_ptr<mlir::Pass> createReplaceQDQResizePass();
 
 /// Pass for merging nested concats and splitting duplicate inputs.
 std::unique_ptr<mlir::Pass> createReplaceAdjacentOpPass();
@@ -264,11 +284,15 @@ std::unique_ptr<mlir::Pass> createMergeBatchnormToConvPass();
 /// ReduceSum (XMC).
 std::unique_ptr<mlir::Pass> createBatchReductionToReshapeReductionPass();
 
-/// Pass for deleting redundant Relu chains (XMC).
-std::unique_ptr<mlir::Pass> createRemoveRedundantReluPass();
+/// Pass for deleting redundant Relu/LeakyRelu-like ops: collapse Relu chains,
+/// drop Relu/LeakyRelu on non-negative inputs, fold adjacent LeakyRelu (XMC).
+std::unique_ptr<mlir::Pass> createRemoveRedundantReluLikeOpsPass();
 
 /// Pass for optimizing requantization in ONNX operations (XMC).
 std::unique_ptr<mlir::Pass> createOptimizeOnnxRequantizationPass();
+
+/// Pass for folding DQ-Binary-Q chains into quantization parameters (XMC).
+std::unique_ptr<mlir::Pass> createDQBinaryQOptPass();
 
 /// Pass for converting back-to-back quant.scast pairs to XCOMPILERRequantize.
 std::unique_ptr<mlir::Pass> createConvertSCastPairToRequantizePass();
@@ -282,6 +306,24 @@ std::unique_ptr<mlir::Pass> createAddRequantForOutputConvPass();
 /// DQ -> Q pairs whose quantization parameters differ. Runs before
 /// QuantTypesPass on the f32 boundary.
 std::unique_ptr<mlir::Pass> createConvertQDQToRequantizePass();
+
+/// Post-quant-types pass that unifies f32 <-> !quant.uniform element types
+/// across pure data-flow ops (Reshape/Transpose/Squeeze/Unsqueeze/Flatten/
+/// Identity/DepthToSpace/SpaceToDepth/ReverseSequence). The f32 side is
+/// retyped in place to the quant type; scast ops are left untouched.
+std::unique_ptr<mlir::Pass> createPropagateQuantTypeThroughDataFlowPass();
+
+/// Post-`PropagateQuantTypeThroughDataFlow` pass. For data-flow ops with
+/// mismatched operand/result quant types (Group B), inserts an
+/// XCOMPILERRequantize op directly between the producer's quant value and
+/// the data-flow op (Concat: per-operand) or between the data-flow op's
+/// result and the consumer (single-input ops). Replicates the union of
+/// `OptimizeOnnxRequantizationPass`'s op set plus the extra shape-only ops
+/// Squeeze / SqueezeV11 / Unsqueeze / UnsqueezeV11 / Flatten / Identity.
+std::unique_ptr<mlir::Pass> createXmcRequantizePass();
+
+/// Pass that removes a no-op XCOMPILERRequantize (input quant == output quant).
+std::unique_ptr<mlir::Pass> createRemoveNoOpRequantizePass();
 
 /// Pass for splitting group convolutions (XMC).
 std::unique_ptr<mlir::Pass> createSplitGroupConvPass();

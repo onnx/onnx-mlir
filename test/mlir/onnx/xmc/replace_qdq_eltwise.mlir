@@ -827,3 +827,223 @@ func.func @test_expand_to_eltwise_3d(
   // CHECK-SAME: type = "ADD"
   // CHECK: return %[[FUSED]]
 }
+
+// -----
+//===----------------------------------------------------------------------===//
+// maybeWidenNarrowConstOperand: i8/u8 constant operand widened to match the
+// i16/u16 activation in an arithmetic ADD/MUL/SUB/DIV fusion. Scale and
+// zero_point are preserved on the widened type; the original narrow constant
+// becomes dead and is removed.
+//===----------------------------------------------------------------------===//
+
+// -----
+// Signed i16 activation x signed i8 single-use constant in MUL fusion.
+// Helper sign-extends the constant to i16, emits a new wider onnx.Constant,
+// and the XCOMPILERFusedEltwise consumes the i16 operand. No i8 storage
+// quant type remains in the fused op's operand list.
+// CHECK-LABEL: func.func @widen_signed_i8_const_to_i16_in_mul
+func.func @widen_signed_i8_const_to_i16_in_mul(
+    %arg0: tensor<1x16x32x32x!quant.uniform<i16:f32, 0.05:0>>)
+    -> tensor<1x16x32x32x!quant.uniform<i16:f32, 0.05:0>> {
+  %c = "onnx.Constant"() {value = dense<5> : tensor<1x16x1x1xi8>} :
+      () -> tensor<1x16x1x1x!quant.uniform<i8:f32, 0.25:0>>
+  %m = "onnx.Mul"(%arg0, %c) :
+      (tensor<1x16x32x32x!quant.uniform<i16:f32, 0.05:0>>,
+       tensor<1x16x1x1x!quant.uniform<i8:f32, 0.25:0>>)
+      -> tensor<1x16x32x32x!quant.uniform<i16:f32, 0.05:0>>
+  return %m : tensor<1x16x32x32x!quant.uniform<i16:f32, 0.05:0>>
+
+  // CHECK: onnx.Constant {{.*}} : tensor<1x16x1x1x!quant.uniform<i16:f32, 2.500000e-01>>
+  // CHECK: "onnx.XCOMPILERFusedEltwise"
+  // CHECK-SAME: type = "MUL"
+  // CHECK-NOT: !quant.uniform<i8
+}
+
+// -----
+// Unsigned u16 activation + unsigned u8 single-use constant in ADD fusion.
+// Helper zero-extends the constant to u16 and rewires the fused op.
+// CHECK-LABEL: func.func @widen_unsigned_u8_const_to_u16_in_add
+func.func @widen_unsigned_u8_const_to_u16_in_add(
+    %arg0: tensor<1x8x4x4x!quant.uniform<u16:f32, 0.04:32768>>)
+    -> tensor<1x8x4x4x!quant.uniform<u16:f32, 0.04:32768>> {
+  %c = "onnx.Constant"() {value = dense<200> : tensor<1x8x1x1xui8>} :
+      () -> tensor<1x8x1x1x!quant.uniform<u8:f32, 0.04:128>>
+  %a = "onnx.Add"(%arg0, %c) :
+      (tensor<1x8x4x4x!quant.uniform<u16:f32, 0.04:32768>>,
+       tensor<1x8x1x1x!quant.uniform<u8:f32, 0.04:128>>)
+      -> tensor<1x8x4x4x!quant.uniform<u16:f32, 0.04:32768>>
+  return %a : tensor<1x8x4x4x!quant.uniform<u16:f32, 0.04:32768>>
+
+  // CHECK: onnx.Constant {{.*}} : tensor<1x8x1x1x!quant.uniform<u16:f32, 4.000000e-02:128>>
+  // CHECK: "onnx.XCOMPILERFusedEltwise"
+  // CHECK-SAME: type = "ADD"
+  // CHECK-NOT: !quant.uniform<u8
+}
+
+// -----
+// Same width, mixed signedness: unsigned u8 activation + signed i8 single-use
+// constant in a SUB fusion. The golden ReplaceQDQEltwisePass treats this as
+// "mixed accumulation" and promotes the i8 const to i16 (sign-extended). The
+// widened const has i16 storage and the same scale/zero_point; no i8 storage
+// quant type remains in the fused op.
+// CHECK-LABEL: func.func @widen_signed_i8_const_to_i16_in_sub_mixed_signedness
+func.func @widen_signed_i8_const_to_i16_in_sub_mixed_signedness(
+    %arg0: tensor<1x8x4x4x!quant.uniform<u8:f32, 0.04:128>>)
+    -> tensor<1x8x4x4x!quant.uniform<u8:f32, 0.04:128>> {
+  %c = "onnx.Constant"() {value = dense<5> : tensor<1x8x1x1xi8>} :
+      () -> tensor<1x8x1x1x!quant.uniform<i8:f32, 0.25:0>>
+  %s = "onnx.Sub"(%arg0, %c) :
+      (tensor<1x8x4x4x!quant.uniform<u8:f32, 0.04:128>>,
+       tensor<1x8x1x1x!quant.uniform<i8:f32, 0.25:0>>)
+      -> tensor<1x8x4x4x!quant.uniform<u8:f32, 0.04:128>>
+  return %s : tensor<1x8x4x4x!quant.uniform<u8:f32, 0.04:128>>
+
+  // CHECK: onnx.Constant {{.*}} : tensor<1x8x1x1x!quant.uniform<i16:f32, 2.500000e-01>>
+  // CHECK: "onnx.XCOMPILERFusedEltwise"
+  // CHECK-SAME: type = "SUB"
+  // CHECK-NOT: !quant.uniform<i8
+}
+
+// -----
+// Same width, same signedness (u8 + u8): no mixed accumulation, so the helper
+// leaves the constant untouched (the golden only promotes a signed i8 const).
+// CHECK-LABEL: func.func @widen_skipped_same_width_u8
+func.func @widen_skipped_same_width_u8(
+    %arg0: tensor<1x8x4x4x!quant.uniform<u8:f32, 0.04:128>>)
+    -> tensor<1x8x4x4x!quant.uniform<u8:f32, 0.04:128>> {
+  %c = "onnx.Constant"() {value = dense<200> : tensor<1x8x1x1xui8>} :
+      () -> tensor<1x8x1x1x!quant.uniform<u8:f32, 0.04:128>>
+  %s = "onnx.Sub"(%arg0, %c) :
+      (tensor<1x8x4x4x!quant.uniform<u8:f32, 0.04:128>>,
+       tensor<1x8x1x1x!quant.uniform<u8:f32, 0.04:128>>)
+      -> tensor<1x8x4x4x!quant.uniform<u8:f32, 0.04:128>>
+  return %s : tensor<1x8x4x4x!quant.uniform<u8:f32, 0.04:128>>
+
+  // CHECK: "onnx.XCOMPILERFusedEltwise"
+  // CHECK-SAME: type = "SUB"
+  // CHECK-NOT: !quant.uniform<i16
+}
+
+// -----
+// Both operands are already i16: helper is a no-op (aW == bW). Fusion still
+// proceeds; the constant tensor in the fused op stays at i16 storage.
+// CHECK-LABEL: func.func @widen_skipped_same_width_i16
+func.func @widen_skipped_same_width_i16(
+    %arg0: tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>>)
+    -> tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>> {
+  %c = "onnx.Constant"() {value = dense<300> : tensor<1x16x1x1xi16>} :
+      () -> tensor<1x16x1x1x!quant.uniform<i16:f32, 0.25:0>>
+  %m = "onnx.Mul"(%arg0, %c) :
+      (tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>>,
+       tensor<1x16x1x1x!quant.uniform<i16:f32, 0.25:0>>)
+      -> tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>>
+  return %m : tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>>
+
+  // CHECK: "onnx.XCOMPILERFusedEltwise"
+  // CHECK-SAME: type = "MUL"
+  // CHECK-NOT: !quant.uniform<i8
+  // CHECK-NOT: !quant.uniform<u8
+}
+
+// -----
+// Multi-use narrow constant: a single widened i16 constant is created and
+// shared by all users. The original i8 constant is erased.
+// CHECK-LABEL: func.func @widen_multi_use_const
+func.func @widen_multi_use_const(
+    %arg0: tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>>,
+    %arg1: tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>>)
+    -> (tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>>,
+        tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>>) {
+  %c = "onnx.Constant"() {value = dense<5> : tensor<1x16x1x1xi8>} :
+      () -> tensor<1x16x1x1x!quant.uniform<i8:f32, 0.25:0>>
+  %m0 = "onnx.Mul"(%arg0, %c) :
+      (tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>>,
+       tensor<1x16x1x1x!quant.uniform<i8:f32, 0.25:0>>)
+      -> tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>>
+  %m1 = "onnx.Mul"(%arg1, %c) :
+      (tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>>,
+       tensor<1x16x1x1x!quant.uniform<i8:f32, 0.25:0>>)
+      -> tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>>
+  return %m0, %m1 : tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>>,
+                    tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>>
+
+  // No i8 constant should remain (original erased).
+  // CHECK-NOT: !quant.uniform<i8
+  // Exactly one i16 constant created and reused by both fused ops.
+  // CHECK: onnx.Constant {{.*}} : tensor<1x16x1x1x!quant.uniform<i16:f32, 2.500000e-01>>
+  // CHECK-NOT: onnx.Constant {{.*}} : tensor<1x16x1x1x!quant.uniform<i16:f32, 2.500000e-01>>
+  // CHECK: "onnx.XCOMPILERFusedEltwise"
+  // CHECK: "onnx.XCOMPILERFusedEltwise"
+  // CHECK-NOT: !quant.uniform<i8
+}
+
+// -----
+// Three users sharing the same i8 constant, all with i16 on the other side.
+// A single widened i16 constant is created and reused by all three.
+// CHECK-LABEL: func.func @widen_reuse_three_users
+func.func @widen_reuse_three_users(
+    %arg0: tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>>,
+    %arg1: tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>>,
+    %arg2: tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>>)
+    -> (tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>>,
+        tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>>,
+        tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>>) {
+  %c = "onnx.Constant"() {value = dense<42> : tensor<1x16x1x1xi8>} :
+      () -> tensor<1x16x1x1x!quant.uniform<i8:f32, 0.1:0>>
+  %m0 = "onnx.Mul"(%arg0, %c) :
+      (tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>>,
+       tensor<1x16x1x1x!quant.uniform<i8:f32, 0.1:0>>)
+      -> tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>>
+  %m1 = "onnx.Add"(%arg1, %c) :
+      (tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>>,
+       tensor<1x16x1x1x!quant.uniform<i8:f32, 0.1:0>>)
+      -> tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>>
+  %m2 = "onnx.Sub"(%arg2, %c) :
+      (tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>>,
+       tensor<1x16x1x1x!quant.uniform<i8:f32, 0.1:0>>)
+      -> tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>>
+  return %m0, %m1, %m2 :
+      tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>>,
+      tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>>,
+      tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>>
+
+  // No i8 remaining.
+  // CHECK-NOT: !quant.uniform<i8
+  // One i16 constant, reused by all three fused ops.
+  // CHECK: onnx.Constant {{.*}} : tensor<1x16x1x1x!quant.uniform<i16:f32, 1.000000e-01>>
+  // CHECK-NOT: onnx.Constant {{.*}} : tensor<1x16x1x1x!quant.uniform<i16:f32, 1.000000e-01>>
+  // CHECK: "onnx.XCOMPILERFusedEltwise"
+  // CHECK: "onnx.XCOMPILERFusedEltwise"
+  // CHECK: "onnx.XCOMPILERFusedEltwise"
+  // CHECK-NOT: !quant.uniform<i8
+}
+
+// -----
+// Mixed-width users: shared i8 constant has one user with i16 activation
+// and another with i8 activation. Only the i16 user gets a widened copy;
+// the i8 user keeps the original constant.
+// CHECK-LABEL: func.func @widen_per_user_mixed_width
+func.func @widen_per_user_mixed_width(
+    %arg0: tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>>,
+    %arg1: tensor<1x16x8x8x!quant.uniform<i8:f32, 0.03:0>>)
+    -> (tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>>,
+        tensor<1x16x8x8x!quant.uniform<i8:f32, 0.03:0>>) {
+  %c = "onnx.Constant"() {value = dense<5> : tensor<1x16x1x1xi8>} :
+      () -> tensor<1x16x1x1x!quant.uniform<i8:f32, 0.25:0>>
+  %m0 = "onnx.Mul"(%arg0, %c) :
+      (tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>>,
+       tensor<1x16x1x1x!quant.uniform<i8:f32, 0.25:0>>)
+      -> tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>>
+  %m1 = "onnx.Mul"(%arg1, %c) :
+      (tensor<1x16x8x8x!quant.uniform<i8:f32, 0.03:0>>,
+       tensor<1x16x1x1x!quant.uniform<i8:f32, 0.25:0>>)
+      -> tensor<1x16x8x8x!quant.uniform<i8:f32, 0.03:0>>
+  return %m0, %m1 : tensor<1x16x8x8x!quant.uniform<i16:f32, 0.05:0>>,
+                    tensor<1x16x8x8x!quant.uniform<i8:f32, 0.03:0>>
+
+  // i16 user gets widened constant, i8 user keeps original
+  // CHECK-DAG: onnx.Constant {{.*}} : tensor<1x16x1x1x!quant.uniform<i16:f32, 2.500000e-01>>
+  // CHECK-DAG: onnx.Constant {{.*}} : tensor<1x16x1x1x!quant.uniform<i8:f32, 2.500000e-01>>
+  // CHECK: "onnx.XCOMPILERFusedEltwise"
+  // CHECK: "onnx.XCOMPILERFusedEltwise"
+}

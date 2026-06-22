@@ -9,3 +9,6 @@
 /test/mlir/onnx/onnx_xcompiler_shape_inference.mlir
 /test/mlir/onnx/onnx_xcompiler_verify.mlir
 /utils/xcompiler_ops_schema.yaml
+src/Dialect/ONNX/Transforms/CMakeLists.txt
+src/Pass/Passes.hpp
+src/Tools/onnx-mlir-opt/RegisterPasses.cpp

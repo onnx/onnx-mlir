@@ -158,6 +158,12 @@ public:
     if (!lhsType || !outType)
       return rewriter.notifyMatchFailure(binOp, "Not Ranked TensorTypes");
 
+    // quant.scast cannot change shape; folding a broadcasting binary would
+    // drop the broadcast and create a mismatched-shape scast.
+    if (lhsType.getShape() != outType.getShape())
+      return rewriter.notifyMatchFailure(
+          binOp, "Cannot fold quantized binary with broadcasting operand");
+
     auto lhsQType =
         dyn_cast<quant::UniformQuantizedType>(lhsType.getElementType());
     auto outQType =
@@ -177,7 +183,7 @@ public:
     // Either input/output with only ONNX ops are considered
     // scast or fused kernels will not be considered
     auto isONNXOp = [](Operation *op) -> bool {
-      if (isa<ONNXDequantizeLinearOp, ONNXQuantizeLinearOp>(op))
+      if (!op || isa<ONNXDequantizeLinearOp, ONNXQuantizeLinearOp>(op))
         return false;
       return isa<ONNXDialect>(op->getDialect());
     };
@@ -196,25 +202,43 @@ public:
       return rewriter.notifyMatchFailure(binOp, "Cannot get new QType");
 
     if (updateInput) {
+      // Update the input op to have the right quant type and ResultNames
       rewriter.modifyOpInPlace(
           binOp, [&]() { lhs.setType(lhsType.clone(newQType)); });
-      auto scast = rewriter.create<quant::StorageCastOp>(
+      ResultNamesUpdater().notifyOperationReplaced(binOp, lhs.getDefiningOp());
+
+      auto qScast = rewriter.create<quant::StorageCastOp>(
           binLoc, lhsType.clone(newQType.getStorageType()), lhs);
-      auto replOp =
-          rewriter.create<quant::StorageCastOp>(binLoc, outType, scast);
-      rewriter.replaceOp(binOp, replOp);
+      // If original Q Scast exists, just replace it with the new one
+      if (auto oqScast = dyn_cast<quant::StorageCastOp>(*binOp->user_begin());
+          binOp->hasOneUse() && oqScast) {
+        rewriter.replaceOp(oqScast, qScast);
+        return success();
+      }
+
+      auto dqScast =
+          rewriter.create<quant::StorageCastOp>(binLoc, outType, qScast);
+      rewriter.replaceOp(binOp, dqScast);
+      return success();
     } else {
-      auto scast = rewriter.create<quant::StorageCastOp>(
+      // If original DQ Scast exists, just replace it with new one
+      if (auto odqScast = lhs.template getDefiningOp<quant::StorageCastOp>()) {
+        auto dqScast = rewriter.create<quant::StorageCastOp>(
+            binLoc, outType.clone(newQType), odqScast->getOperand(0));
+        rewriter.replaceOp(binOp, dqScast);
+        return success();
+      }
+
+      auto qScast = rewriter.create<quant::StorageCastOp>(
           binLoc, lhsType.clone(lhsQType.getStorageType()), lhs);
-      auto replOp = rewriter.create<quant::StorageCastOp>(
-          binLoc, outType.clone(newQType), scast);
-      rewriter.replaceOp(binOp, replOp);
+      auto dqScast = rewriter.create<quant::StorageCastOp>(
+          binLoc, outType.clone(newQType), qScast);
+      rewriter.replaceOp(binOp, dqScast);
+      return success();
+
       // Since we fold DQ -> Bin -> Q -> DQ into DQ, we should not be
       // propagating the ResultNames of Q
-      replOp->removeAttr("ResultNames");
     }
-
-    return success();
   }
 };
 
@@ -243,11 +267,7 @@ public:
     patterns.add<FoldQuantized<ONNXAddOp>, FoldQuantized<ONNXSubOp>,
         FoldQuantized<ONNXMulOp>, FoldQuantized<ONNXDivOp>>(ctx);
 
-    GreedyRewriteConfig config;
-    ResultNamesUpdater rnUpdater;
-    config.listener = &rnUpdater;
-    if (failed(
-            applyPatternsGreedily(getOperation(), std::move(patterns), config)))
+    if (failed(applyPatternsGreedily(getOperation(), std::move(patterns))))
       return signalPassFailure();
   }
 };

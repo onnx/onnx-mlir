@@ -157,7 +157,9 @@ func.func @test_XCOMPILER_fused_eltwise_preserve_quant_type(
 
 // -----
 
-// COM: Test that unranked quantized result falls back to input A's element type
+// COM: Test that an unranked result with a quantized element type keeps that
+// COM: element type verbatim after shape inference — only the shape is
+// COM: refined to match the broadcasted operand shape.
 func.func @test_XCOMPILER_fused_eltwise_unranked_quant(
     %arg0: tensor<1x64x28x28x!quant.uniform<u16:f32, 0.001:100>>,
     %arg1: tensor<1x64x28x28x!quant.uniform<u16:f32, 0.002:200>>) ->
@@ -177,11 +179,11 @@ func.func @test_XCOMPILER_fused_eltwise_unranked_quant(
 
 // -----
 
-// COM: Test that f32 result type is NOT preserved — falls back to input A's
-// COM: element type. This covers the regression where RemovePairsAndMoveDown-
-// COM: ReshapePass sets the FusedEltwise result to f32 and shape inference
-// COM: must recover the quantized type from operand A.
-func.func @test_XCOMPILER_fused_eltwise_f32_result_uses_a_type(
+// COM: Test that an f32 result is PRESERVED — shape inference infers shape
+// COM: only and must not overwrite the result element type with operand A's
+// COM: quantized type, even when both operands are quantized. Only the shape
+// COM: should be refined; the f32 element type stays.
+func.func @test_XCOMPILER_fused_eltwise_f32_result_preserved(
     %arg0: tensor<1x300x1x!quant.uniform<u8:f32, 0.1:128>>,
     %arg1: tensor<1x300x1x!quant.uniform<u8:f32, 0.2:64>>) ->
     tensor<1x300x1xf32> {
@@ -193,9 +195,9 @@ func.func @test_XCOMPILER_fused_eltwise_f32_result_uses_a_type(
        tensor<1x300x1xf32>
   onnx.Return %0 : tensor<1x300x1xf32>
 
-  // CHECK-LABEL: test_XCOMPILER_fused_eltwise_f32_result_uses_a_type
-  // CHECK: [[RES:%.+]] = "onnx.XCOMPILERFusedEltwise"(%arg0, %arg1) {{.*}} -> tensor<1x300x1x!quant.uniform<u8:f32, 1.000000e-01:128>>
-  // CHECK: onnx.Return [[RES]] : tensor<1x300x1x!quant.uniform<u8:f32, 1.000000e-01:128>>
+  // CHECK-LABEL: test_XCOMPILER_fused_eltwise_f32_result_preserved
+  // CHECK: [[RES:%.+]] = "onnx.XCOMPILERFusedEltwise"(%arg0, %arg1) {{.*}} -> tensor<1x300x1xf32>
+  // CHECK: onnx.Return [[RES]] : tensor<1x300x1xf32>
 }
 
 // -----
