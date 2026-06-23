@@ -86,6 +86,7 @@ global_session_cache = SessionCache(config.session_cache_limit)
 
 global_uncompilable_graphs = set()
 
+
 # Check if the graph has no inputs or outputs or not.
 def has_no_inputs_or_outputs(gm: torch.fx.GraphModule):
     def is_none_like(x):
