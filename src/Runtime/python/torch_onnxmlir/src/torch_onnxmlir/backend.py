@@ -86,6 +86,29 @@ global_session_cache = SessionCache(config.session_cache_limit)
 
 global_uncompilable_graphs = set()
 
+# Check if the graph has no inputs or outputs or not.
+def has_no_inputs_or_outputs(gm: torch.fx.GraphModule):
+    def is_none_like(x):
+        if x is None:
+            return True
+        if isinstance(x, (list, tuple)):
+            return all(is_none_like(v) for v in x)
+        if isinstance(x, dict):
+            return all(is_none_like(v) for v in x.values())
+        return False
+
+    # Has no inputs.
+    if all(node.op != "placeholder" for node in gm.graph.nodes):
+        return True
+
+    # Has no outputs.
+    for node in gm.graph.nodes:
+        if node.op == "output":
+            if is_none_like(node.args[0]):
+                return True
+
+    return False
+
 
 def has_unsupported_onnx_ops(gm: torch.fx.GraphModule):
     # Detect unsupported ops. Add unsupported ops here.
@@ -110,6 +133,10 @@ def eager_forward_fn(gm: torch.fx.GraphModule):
 
 # Backend function for torch.compile.
 def onnxmlir_backend(gm: torch.fx.GraphModule, *args, **kwargs):
+    # Switch back to the eager mode if the graph has no inputs or outputs.
+    if has_no_inputs_or_outputs(gm):
+        return eager_forward_fn(gm)
+
     # Switch back to the eager mode if the graph has unsupported onnx ops.
     if has_unsupported_onnx_ops(gm):
         return eager_forward_fn(gm)
