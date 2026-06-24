@@ -379,6 +379,7 @@ OpsWithVerifier = [
     "And",
     "ArgMax",
     "ArgMin",
+    "Attention",
     "AveragePool",
     "Bernoulli",
     "BitShift",
