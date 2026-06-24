@@ -2325,6 +2325,27 @@ func.func @test_remove_where_equal_5(%arg0: tensor<?x?xi64>, %arg1: tensor<1xi64
 
 // -----
 
+// Check a transformer-style reshape/transpose/transpose/reshape round trip.
+// This pattern appears around attention head reshaping and should collapse back
+// to the original tensor when the transpose permutations cancel and the final
+// reshape restores the original static shape.
+func.func @test_transformer_reshape_transpose_roundtrip(%arg0: tensor<1x4x8xf32>) -> tensor<1x4x8xf32> {
+  %shape_heads = onnx.Constant dense<[1, 4, 2, 4]> : tensor<4xi64>
+  %shape_hidden = onnx.Constant dense<[1, 4, 8]> : tensor<3xi64>
+  %0 = "onnx.Reshape"(%arg0, %shape_heads) {allowzero = 0 : si64} : (tensor<1x4x8xf32>, tensor<4xi64>) -> tensor<1x4x2x4xf32>
+  %1 = "onnx.Transpose"(%0) {perm = [0, 2, 1, 3]} : (tensor<1x4x2x4xf32>) -> tensor<1x2x4x4xf32>
+  %2 = "onnx.Transpose"(%1) {perm = [0, 2, 1, 3]} : (tensor<1x2x4x4xf32>) -> tensor<1x4x2x4xf32>
+  %3 = "onnx.Reshape"(%2, %shape_hidden) {allowzero = 0 : si64} : (tensor<1x4x2x4xf32>, tensor<3xi64>) -> tensor<1x4x8xf32>
+  return %3 : tensor<1x4x8xf32>
+
+// CHECK-LABEL:  func.func @test_transformer_reshape_transpose_roundtrip
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x4x8xf32>) -> tensor<1x4x8xf32> {
+// CHECK-NEXT:      return [[PARAM_0_]] : tensor<1x4x8xf32>
+// CHECK-NEXT:    }
+}
+
+// -----
+
 func.func @test_reorder_relu_maxpool(%arg0: tensor<1x64x32x32xf32>) -> tensor<1x64x16x16xf32> {
   %0 = "onnx.Relu"(%arg0) {onnx_node_name = "onnx.Relu_0"} : (tensor<1x64x32x32xf32>) -> tensor<1x64x32x32xf32>
   %1 = "onnx.MaxPoolSingleOut"(%0) {auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [2, 2], onnx_node_name = "onnx.MaxPoolSingleOut_1", storage_order = 0 : si64, strides = [2, 2]} : (tensor<1x64x32x32xf32>) -> tensor<1x64x16x16xf32>
