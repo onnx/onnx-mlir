@@ -421,6 +421,12 @@ bool isIdentityReshape(mlir::Value input, mlir::Value output,
 std::string getNodeNameInPresenceOfOpt(
     mlir::Operation *op, bool useFileLine = true);
 
+/// For an ONNXFusedOp, returns the profiling name "onnx.fused.<kind>".
+/// For any other op, returns the MLIR dialect op name (e.g. "onnx.Add").
+/// Use this name for both KrnlInstrumentOp and ONNXPrintSignatureOp so that
+/// profiling tools always see a consistent, human-readable identifier.
+std::string getProfilingName(mlir::Operation *op);
+
 //===----------------------------------------------------------------------===//
 // Support for DenseElementsAttr.
 //===----------------------------------------------------------------------===//

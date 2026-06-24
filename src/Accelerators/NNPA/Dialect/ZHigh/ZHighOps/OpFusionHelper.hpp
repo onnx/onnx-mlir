@@ -25,6 +25,7 @@
 #include "mlir/Support/LogicalResult.h"
 
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
+#include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
 namespace onnx_mlir {
@@ -76,8 +77,14 @@ struct ExtLayoutTransformChain {
 ///    naturally at the last real op.
 ///
 /// Returns failure() without side effects if no valid/beneficial chain is found.
+///
+/// \p dimAnalysis is optional.  When provided (pattern-creation pass), dim
+/// comparisons inside reshape detection use DimAnalysis::sameDim for full
+/// precision.  When null (lowering pass), shape-value comparison is used as a
+/// conservative approximation.
 mlir::FailureOr<ExtLayoutTransformChain>
-locateExtLayoutTransformFusion(mlir::ONNXLayoutTransformOp startOp);
+locateExtLayoutTransformFusion(mlir::ONNXLayoutTransformOp startOp,
+    const DimAnalysis *dimAnalysis = nullptr);
 
 } // namespace zhigh
 } // namespace onnx_mlir

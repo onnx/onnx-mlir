@@ -656,12 +656,14 @@ void KrnlEntryPointOp::build(OpBuilder &builder, OperationState &state,
 
 void KrnlInstrumentOp::build(
     OpBuilder &builder, OperationState &state, Operation *op, int tag = 0) {
-  const char *opName = op->getName().getStringRef().data();
-  StringAttr opNameAttr = builder.getStringAttr(StringRef(opName));
-  IntegerAttr tagAttr = builder.getI64IntegerAttr(tag);
-  std::string fullNodeNameStr = getNodeNameInPresenceOfOpt(op);
-  StringAttr fullNodeNameAttr = builder.getStringAttr(fullNodeNameStr);
-  build(builder, state, opNameAttr, tagAttr, fullNodeNameAttr);
+  build(builder, state, getProfilingName(op),
+      getNodeNameInPresenceOfOpt(op), tag);
+}
+
+void KrnlInstrumentOp::build(OpBuilder &builder, OperationState &state,
+    StringRef opName, StringRef nodeName, int tag) {
+  build(builder, state, builder.getStringAttr(opName),
+      builder.getI64IntegerAttr(tag), builder.getStringAttr(nodeName));
 }
 
 void KrnlInstrumentOp::getEffects(

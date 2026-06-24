@@ -2522,12 +2522,17 @@ struct ZHighToZLowFusedExtLayoutTransformLowering
     Value outputVal = fusedOp.getOutputs()[0];
 
     // Re-use the same locateExtLayoutTransformFusion that created this FusedOp.
-    // The body's first op is the initial ONNXLayoutTransformOp; the single-use
-    // traversal works identically on the body chain because each op feeds the
-    // next one exactly once and the YieldOp terminator does not match any of
-    // the expected op types, so traversal stops naturally.
+    // The body's first chain op is always ONNXLayoutTransformOp; scan rather
+    // than blindly casting front() so that any ops inserted before it (e.g.
+    // instrument ops from a profiling pass) do not cause a cast assertion.
     auto &bodyBlock = fusedOp.getBody().front();
-    auto startOp = cast<ONNXLayoutTransformOp>(&bodyBlock.front());
+    ONNXLayoutTransformOp startOp;
+    for (Operation &bodyOp : bodyBlock)
+      if ((startOp = dyn_cast<ONNXLayoutTransformOp>(&bodyOp)))
+        break;
+    if (!startOp)
+      return rewriter.notifyMatchFailure(
+          fusedOp, "body does not contain ONNXLayoutTransformOp");
     auto chainOrFailure = locateExtLayoutTransformFusion(startOp);
     assert(succeeded(chainOrFailure) &&
            "FusedOp body must match the extended layout transform pattern");

@@ -51,42 +51,115 @@ static bool transposeKeepsLastDim(ArrayAttr perm) {
   return ArrayAttrIntVal(perm, rank - 1) == rank - 1;
 }
 
+/// Return true if dim \p dinA of \p valA and dim \p dinB of \p valB represent
+/// the same dimension.  Uses DimAnalysis when available (full precision);
+/// falls back to static-value comparison with a conservative treatment of
+/// dynamic dims when dimAnalysis is null.
+static bool sameDim(const DimAnalysis *dimAnalysis, Value valA, int64_t dinA,
+    Value valB, int64_t dinB) {
+  if (dimAnalysis)
+    return dimAnalysis->sameDim(valA, dinA, valB, dinB);
+  // Fallback: compare the static shape values directly.
+  int64_t a = cast<ShapedType>(valA.getType()).getShape()[dinA];
+  int64_t b = cast<ShapedType>(valB.getType()).getShape()[dinB];
+  if (a != ShapedType::kDynamic && b != ShapedType::kDynamic)
+    return a == b;
+  // Both dynamic: treat conservatively as the same (approximation).
+  return a == ShapedType::kDynamic && b == ShapedType::kDynamic;
+}
+
 /// Try to interpret \p reshape as a split (outRank == inRank + 1).
+/// Mirrors PatternsForExtendedLayoutTransform::locateReshapeSplit exactly.
 /// On success fills \p axis and \p factor and returns true.
-static bool detectSplitReshape(
-    ONNXReshapeOp reshape, int64_t &axis, int64_t &factor) {
-  auto inType = cast<ShapedType>(reshape.getData().getType());
-  auto outType = cast<ShapedType>(reshape.getReshaped().getType());
-  if (outType.getRank() != inType.getRank() + 1)
+/// On failure sets \p msg to a human-readable reason.
+static bool detectSplitReshape(ONNXReshapeOp reshape, int64_t &axis,
+    int64_t &factor, std::string &msg, const DimAnalysis *dimAnalysis) {
+  Value inputVal = reshape.getData();
+  Value reshapedVal = reshape.getReshaped();
+  int64_t inputRank = cast<ShapedType>(inputVal.getType()).getRank();
+  int64_t reshapedRank = cast<ShapedType>(reshapedVal.getType()).getRank();
+  if (reshapedRank != inputRank + 1) {
+    msg = "Reshape expected to split one dim (ranks)";
     return false;
-  auto inShape = inType.getShape();
-  auto outShape = outType.getShape();
-  for (int64_t d = 0, e = inType.getRank(); d < e; ++d) {
-    if (inShape[d] != outShape[d]) {
-      axis = d;
-      factor = outShape[d + 1];
-      return true;
-    }
   }
-  return false;
+
+  // Walk dimensions in parallel; find the single axis where the split occurs.
+  axis = -1;
+  int64_t din = 0, dout = 0;
+  for (; din < inputRank; ++din, ++dout) {
+    if (dout >= reshapedRank) {
+      msg = "Reshape expected to split one dim (out of dout)";
+      return false;
+    }
+    if (sameDim(dimAnalysis, inputVal, din, reshapedVal, dout))
+      continue;
+    // Found a difference — this must be the only split axis.
+    if (axis != -1) {
+      msg = "Reshape expected to split one dim (second split)";
+      return false;
+    }
+    axis = din;
+    ++dout; // skip the extra output dim introduced by the split
+  }
+  if (din != inputRank || dout != inputRank + 1) {
+    msg = "Reshape expected to split one dim (end condition)";
+    return false;
+  }
+
+  // The second split component is at outShape[axis + 1].
+  factor = cast<ShapedType>(reshapedVal.getType()).getShape()[axis + 1];
+  // Factor must be a static constant so the lowering can emit LitIE(factor).
+  if (factor == ShapedType::kDynamic) {
+    msg = "Reshape expected to split one dim (const in 2nd place)";
+    return false;
+  }
+  // When splitting the last (innermost) dimension, the factor must be a
+  // multiple of 64 to remain compatible with NNPA stick alignment.
+  if (axis == inputRank - 1 && factor % 64 != 0) {
+    msg = "Reshape of last dim supports only 0 mod 64 static shape";
+    return false;
+  }
+  return true;
 }
 
 /// Try to interpret \p reshape as a merge (outRank == inRank - 1).
+/// Mirrors PatternsForExtendedLayoutTransform::locateReshapeMerge exactly.
 /// On success fills \p axis and returns true.
-static bool detectMergeReshape(ONNXReshapeOp reshape, int64_t &axis) {
-  auto inType = cast<ShapedType>(reshape.getData().getType());
-  auto outType = cast<ShapedType>(reshape.getReshaped().getType());
-  if (outType.getRank() != inType.getRank() - 1)
+/// On failure sets \p msg to a human-readable reason.
+static bool detectMergeReshape(ONNXReshapeOp reshape, int64_t &axis,
+    std::string &msg, const DimAnalysis *dimAnalysis) {
+  Value inputVal = reshape.getData();
+  Value reshapedVal = reshape.getReshaped();
+  int64_t inputRank = cast<ShapedType>(inputVal.getType()).getRank();
+  int64_t reshapedRank = cast<ShapedType>(reshapedVal.getType()).getRank();
+  if (reshapedRank != inputRank - 1) {
+    msg = "Reshape expected to merge two dims (ranks)";
     return false;
-  auto inShape = inType.getShape();
-  auto outShape = outType.getShape();
-  for (int64_t d = 0, e = outType.getRank(); d < e; ++d) {
-    if (inShape[d] != outShape[d]) {
-      axis = d;
-      return true;
-    }
   }
-  return false;
+
+  // Walk dimensions in parallel; find the single axis where the merge occurs.
+  axis = -1;
+  int64_t din = 0, dout = 0;
+  for (; dout < reshapedRank; ++dout, ++din) {
+    if (din >= inputRank) {
+      msg = "Reshape expected to merge one dim (out of din)";
+      return false;
+    }
+    if (sameDim(dimAnalysis, inputVal, din, reshapedVal, dout))
+      continue;
+    // Found a difference — this must be the only merge axis.
+    if (axis != -1) {
+      msg = "Reshape expected to merge one dim (second merge)";
+      return false;
+    }
+    axis = din;
+    ++din; // skip the extra input dim consumed by the merge
+  }
+  if (din != reshapedRank + 1 || dout != reshapedRank) {
+    msg = "Reshape expected to merge one dim (end condition)";
+    return false;
+  }
+  return true;
 }
 
 //===----------------------------------------------------------------------===//
@@ -94,7 +167,8 @@ static bool detectMergeReshape(ONNXReshapeOp reshape, int64_t &axis) {
 //===----------------------------------------------------------------------===//
 
 FailureOr<ExtLayoutTransformChain>
-locateExtLayoutTransformFusion(ONNXLayoutTransformOp startOp) {
+locateExtLayoutTransformFusion(
+    ONNXLayoutTransformOp startOp, const DimAnalysis *dimAnalysis) {
   ExtLayoutTransformChain chain;
   ExtLayoutTransformFusionParams &p = chain.params;
 
@@ -116,7 +190,9 @@ locateExtLayoutTransformFusion(ONNXLayoutTransformOp startOp) {
   // ---- Step 2: optional split reshape ----------------------------------
   bool reshapeMayBeMerge = false;
   if (auto splitReshape = singleUserOfType<ONNXReshapeOp>(current)) {
-    if (detectSplitReshape(splitReshape, p.reshapeSplitAxis, p.reshapeSplitFactor)) {
+    std::string splitMsg;
+    if (detectSplitReshape(splitReshape, p.reshapeSplitAxis,
+            p.reshapeSplitFactor, splitMsg, dimAnalysis)) {
       chain.ops.push_back(splitReshape.getOperation());
       current = splitReshape.getReshaped();
     } else {
@@ -140,7 +216,9 @@ locateExtLayoutTransformFusion(ONNXLayoutTransformOp startOp) {
 
   // ---- Step 4: optional merge reshape ----------------------------------
   if (auto mergeReshape = singleUserOfType<ONNXReshapeOp>(current)) {
-    if (detectMergeReshape(mergeReshape, p.reshapeMergeAxis)) {
+    std::string mergeMsg;
+    if (detectMergeReshape(
+            mergeReshape, p.reshapeMergeAxis, mergeMsg, dimAnalysis)) {
       chain.ops.push_back(mergeReshape.getOperation());
       current = mergeReshape.getReshaped();
     }

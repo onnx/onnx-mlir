@@ -863,9 +863,9 @@ public:
     if (mlir::isa<ONNXFusedOp>(layoutTransformOp->getParentOp()))
       return failure();
 
-    // Use the shared fusion helper — no dependency on the inherited
-    // locatePattern or DimAnalysis.
-    auto chainOrFailure = locateExtLayoutTransformFusion(layoutTransformOp);
+    // Use the shared fusion helper with dimAnalysis for precise dim comparison.
+    auto chainOrFailure =
+        locateExtLayoutTransformFusion(layoutTransformOp, dimAnalysis);
     if (failed(chainOrFailure))
       return failure();
     ExtLayoutTransformChain &chain = chainOrFailure.value();

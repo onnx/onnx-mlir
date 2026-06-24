@@ -80,20 +80,24 @@ public:
 
     traceSpecificOpPattern.setRegexString(signaturePattern);
     traceSpecificNodePattern.setRegexString(nodeNamePattern);
-    // Iterate on the operations nested in this function.
-    getOperation().walk([&](mlir::Operation *op) {
+    // Pre-order walk so we can skip ONNXFusedOp bodies with WalkResult::skip().
+    getOperation().walk<mlir::WalkOrder::PreOrder>(
+        [&](mlir::Operation *op) -> WalkResult {
       auto dialect = op->getDialect();
       Location loc = op->getLoc();
       // Define a lambda function to check whether the node is selected by
-      // its op name or node name, and if yes, insert ONNXSignatureOp
+      // its op name or node name, and if yes, insert ONNXSignatureOp.
+      // displayName overrides the op-name component in the printed header.
       auto checkAndInsert = [&](onnx_mlir::EnableByRegexOption &pattern,
-                                std::string matchString, int detail) -> bool {
+                                std::string matchString, int detail,
+                                std::string displayName = "") -> bool {
         if (pattern.isEnabled(matchString)) {
           // Add signature printing op.
           OpBuilder builder(op);
-          std::string opName = op->getName().getStringRef().str();
+          if (displayName.empty())
+            displayName = op->getName().getStringRef().str();
           std::string nodeName = onnx_mlir::getNodeNameInPresenceOfOpt(op);
-          std::string fullName = opName + ", " + nodeName;
+          std::string fullName = displayName + ", " + nodeName;
           StringAttr fullNameAttr = builder.getStringAttr(fullName);
           // Enqueue all input operands, and then the results.
           llvm::SmallVector<Value, 6> operAndRes(op->getOperands());
@@ -113,24 +117,44 @@ public:
           isa<ONNXPrintSignatureOp, KrnlInstrumentOp>(op)) {
         // Always skip function dialects (such as function call/return), as well
         // as ONNX instrument operations.
-      } else {
-        // If has both a print of data and print of signature, favor the
-        // printing of data as it also will print the signature.
+        return WalkResult::advance();
+      }
+
+      // ONNXFusedOp: report once as "onnx.fused.<kind>" and skip the body.
+      if (isa<ONNXFusedOp>(op)) {
+        std::string fusedName = onnx_mlir::getProfilingName(op);
         bool gotOne = false;
         if (nodeNamePattern != "NONE" && nodeNamePattern != "") {
           StringAttr onnxNodeName =
               op->getAttrOfType<mlir::StringAttr>("onnx_node_name");
           if (onnxNodeName && !onnxNodeName.getValue().empty()) {
-            std::string nodeNameString = onnxNodeName.getValue().str();
-            gotOne =
-                checkAndInsert(traceSpecificNodePattern, nodeNameString, 1);
+            gotOne = checkAndInsert(
+                traceSpecificNodePattern, onnxNodeName.getValue().str(), 1,
+                fusedName);
           }
         }
         if (!gotOne && signaturePattern != "NONE" && signaturePattern != "") {
-          std::string opName = op->getName().getStringRef().str();
-          checkAndInsert(traceSpecificOpPattern, opName, 0);
+          checkAndInsert(traceSpecificOpPattern, fusedName, 0, fusedName);
+        }
+        return WalkResult::skip(); // don't recurse into body
+      }
+
+      // Normal ops.
+      bool gotOne = false;
+      if (nodeNamePattern != "NONE" && nodeNamePattern != "") {
+        StringAttr onnxNodeName =
+            op->getAttrOfType<mlir::StringAttr>("onnx_node_name");
+        if (onnxNodeName && !onnxNodeName.getValue().empty()) {
+          std::string nodeNameString = onnxNodeName.getValue().str();
+          gotOne =
+              checkAndInsert(traceSpecificNodePattern, nodeNameString, 1);
         }
       }
+      if (!gotOne && signaturePattern != "NONE" && signaturePattern != "") {
+        std::string opName = op->getName().getStringRef().str();
+        checkAndInsert(traceSpecificOpPattern, opName, 0);
+      }
+      return WalkResult::advance();
     });
   }
 };
