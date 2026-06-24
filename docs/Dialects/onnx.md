@@ -18,13 +18,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `X` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `Y` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -44,13 +44,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `input` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `output` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -70,13 +70,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `input` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `output` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -154,15 +154,15 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `R` | tensor of 32-bit float values or tensor of 64-bit float values |
-| `T` | tensor of 64-bit signless integer values |
-| `inputs` | variadic of tensor of 32-bit float values or tensor of 64-bit float values |
+| `R` | Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
+| `T` | Tensor or MemRef of 64-bit signless integer values |
+| `inputs` | variadic of Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `outputs` | variadic of tensor of 32-bit float values or tensor of 64-bit float values |
+| `outputs` | variadic of Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -253,15 +253,15 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `R` | tensor of 32-bit float values or tensor of 64-bit float values |
-| `T` | tensor of 64-bit signless integer values |
-| `inputs` | variadic of tensor of 32-bit float values or tensor of 64-bit float values |
+| `R` | Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
+| `T` | Tensor or MemRef of 64-bit signless integer values |
+| `inputs` | variadic of Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `outputs` | variadic of tensor of 32-bit float values or tensor of 64-bit float values |
+| `outputs` | variadic of Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -285,14 +285,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `A` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `B` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `A` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
+| `B` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `C` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `C` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -315,14 +315,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `A` | tensor of 1-bit signless integer values |
-| `B` | tensor of 1-bit signless integer values |
+| `A` | Tensor or MemRef of 1-bit signless integer values |
+| `B` | Tensor or MemRef of 1-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `C` | tensor of 1-bit signless integer values |
+| `C` | Tensor or MemRef of 1-bit signless integer values |
 
 
 
@@ -357,13 +357,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `data` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `reduced` | tensor of 64-bit signless integer values |
+| `reduced` | Tensor or MemRef of 64-bit signless integer values |
 
 
 
@@ -398,13 +398,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `data` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `reduced` | tensor of 64-bit signless integer values |
+| `reduced` | Tensor or MemRef of 64-bit signless integer values |
 
 
 
@@ -425,14 +425,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 64-bit signless integer values or tensor of 32-bit signless integer values or tensor of string type values |
-| `Y` | tensor of 64-bit signless integer values |
+| `X` | Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of string type values |
+| `Y` | Tensor or MemRef of 64-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Z` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 64-bit signless integer values or tensor of 32-bit signless integer values or tensor of string type values |
+| `Z` | Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of string type values |
 
 
 
@@ -452,13 +452,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `input` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `output` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -478,13 +478,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `input` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `output` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -504,13 +504,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `input` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `output` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -530,13 +530,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `input` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `output` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -702,13 +702,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `X` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `Y` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -775,19 +775,19 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `scale` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `B` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `input_mean` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `input_var` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `X` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
+| `scale` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
+| `B` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
+| `input_mean` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
+| `input_var` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `running_mean` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or none type |
-| `running_var` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or none type |
+| `Y` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
+| `running_mean` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values or none type |
+| `running_var` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values or none type |
 
 
 
@@ -873,13 +873,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `input` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 1-bit signless integer values |
+| `output` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of 1-bit signless integer values |
 
 
 
@@ -906,13 +906,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 64-bit signless integer values or tensor of 32-bit signless integer values |
+| `X` | Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 32-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 64-bit signless integer values or tensor of 32-bit signless integer values |
+| `Y` | Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 32-bit signless integer values |
 
 
 
@@ -950,14 +950,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values |
-| `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values |
+| `X` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values |
+| `Y` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Z` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values |
+| `Z` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values |
 
 
 
@@ -980,14 +980,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `A` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
-| `B` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
+| `A` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values |
+| `B` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `C` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
+| `C` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values |
 
 
 
@@ -1007,13 +1007,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
+| `X` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
+| `Y` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values |
 
 
 
@@ -1036,14 +1036,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `A` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
-| `B` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
+| `A` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values |
+| `B` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `C` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
+| `C` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values |
 
 
 
@@ -1066,14 +1066,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `A` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
-| `B` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
+| `A` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values |
+| `B` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `C` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
+| `C` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values |
 
 
 
@@ -1101,13 +1101,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `size` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
+| `size` | Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `output` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -1201,13 +1201,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 1-bit signless integer values or tensor of string type values or tensor of bfloat16 type values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values |
+| `input` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of string type values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of f8E4M3FN type values or Tensor or MemRef of f8E4M3FNUZ type values or Tensor or MemRef of f8E5M2 type values or Tensor or MemRef of f8E5M2FNUZ type values or Tensor or MemRef of 4-bit unsigned integer values or Tensor or MemRef of 4-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 1-bit signless integer values or tensor of string type values or tensor of bfloat16 type values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values |
+| `output` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of string type values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of f8E4M3FN type values or Tensor or MemRef of f8E4M3FNUZ type values or Tensor or MemRef of f8E5M2 type values or Tensor or MemRef of f8E5M2FNUZ type values or Tensor or MemRef of 4-bit unsigned integer values or Tensor or MemRef of 4-bit signless integer values |
 
 
 
@@ -1236,14 +1236,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 1-bit signless integer values or tensor of string type values or tensor of bfloat16 type values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values |
-| `target_type` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 1-bit signless integer values or tensor of string type values or tensor of bfloat16 type values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values |
+| `input` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of string type values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of f8E4M3FN type values or Tensor or MemRef of f8E4M3FNUZ type values or Tensor or MemRef of f8E5M2 type values or Tensor or MemRef of f8E5M2FNUZ type values |
+| `target_type` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of string type values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of f8E4M3FN type values or Tensor or MemRef of f8E4M3FNUZ type values or Tensor or MemRef of f8E5M2 type values or Tensor or MemRef of f8E5M2FNUZ type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 1-bit signless integer values or tensor of string type values or tensor of bfloat16 type values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values |
+| `output` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of string type values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of f8E4M3FN type values or Tensor or MemRef of f8E4M3FNUZ type values or Tensor or MemRef of f8E5M2 type values or Tensor or MemRef of f8E5M2FNUZ type values |
 
 
 
@@ -1280,7 +1280,7 @@ Effects: `MemoryEffects::Effect{}`
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of string type values or tensor of 32-bit float values or tensor of 64-bit signless integer values |
+| `Y` | Tensor or MemRef of string type values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit signless integer values |
 
 
 
@@ -1317,13 +1317,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of string type values or tensor of 64-bit signless integer values |
+| `X` | Tensor or MemRef of string type values or Tensor or MemRef of 64-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of string type values or tensor of 64-bit signless integer values |
+| `Y` | Tensor or MemRef of string type values or Tensor or MemRef of 64-bit signless integer values |
 
 
 
@@ -1345,13 +1345,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `X` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `Y` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -1384,13 +1384,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 32-bit float values |
+| `X` | Tensor or MemRef of 32-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 32-bit float values |
+| `Y` | Tensor or MemRef of 32-bit float values |
 
 
 
@@ -1430,14 +1430,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input_data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-| `shape` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
+| `input_data` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
+| `shape` | Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output_data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `output_data` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 
 
@@ -1461,15 +1461,15 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `min` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or none type |
-| `max` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or none type |
+| `input` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
+| `min` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values or none type |
+| `max` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `output` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -1491,15 +1491,15 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `min` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
-| `max` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
+| `input` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
+| `min` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or none type |
+| `max` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `output` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -1521,15 +1521,15 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `min` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
-| `max` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
+| `input` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
+| `min` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or none type |
+| `max` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `output` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -1559,13 +1559,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `input` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `output` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -1603,15 +1603,15 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-| `image_shape` | tensor of 64-bit signless integer values |
-| `block_shape` | tensor of 64-bit signless integer values |
+| `input` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
+| `image_shape` | Tensor or MemRef of 64-bit signless integer values |
+| `block_shape` | Tensor or MemRef of 64-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `output` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 
 
@@ -1641,14 +1641,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-| `condition` | tensor of 1-bit signless integer values |
+| `input` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
+| `condition` | Tensor or MemRef of 1-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `output` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 
 
@@ -1675,13 +1675,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `inputs` | variadic of tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `inputs` | variadic of Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `concat_result` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `concat_result` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 
 
@@ -1712,13 +1712,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input_sequence` | SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values |
+| `input_sequence` | SeqType of Tensor or MemRef of 8-bit unsigned integer values values or SeqType of Tensor or MemRef of 16-bit unsigned integer values values or SeqType of Tensor or MemRef of 32-bit unsigned integer values values or SeqType of Tensor or MemRef of 64-bit unsigned integer values values or SeqType of Tensor or MemRef of 8-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit signless integer values values or SeqType of Tensor or MemRef of 32-bit signless integer values values or SeqType of Tensor or MemRef of 64-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit float values values or SeqType of Tensor or MemRef of 32-bit float values values or SeqType of Tensor or MemRef of 64-bit float values values or SeqType of Tensor or MemRef of string type values values or SeqType of Tensor or MemRef of 1-bit signless integer values values or SeqType of Tensor or MemRef of complex type with 32-bit float elements values values or SeqType of Tensor or MemRef of complex type with 64-bit float elements values values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `concat_result` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `concat_result` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 
 
@@ -1753,14 +1753,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `inputs` | variadic of tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `inputs` | variadic of Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `shape` | tensor of 64-bit signless integer values |
-| `transposed` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `shape` | Tensor or MemRef of 64-bit signless integer values |
+| `transposed` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 
 
@@ -1795,7 +1795,7 @@ Effects: `MemoryEffects::Effect{}`
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values |
+| `output` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values or Tensor or MemRef of f8E4M3FN type values or Tensor or MemRef of f8E4M3FNUZ type values or Tensor or MemRef of f8E5M2 type values or Tensor or MemRef of f8E5M2FNUZ type values |
 
 
 
@@ -1822,13 +1822,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 64-bit signless integer values |
+| `input` | Tensor or MemRef of 64-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 1-bit signless integer values or tensor of bfloat16 type values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values |
+| `output` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of f8E4M3FN type values or Tensor or MemRef of f8E4M3FNUZ type values or Tensor or MemRef of f8E5M2 type values or Tensor or MemRef of f8E5M2FNUZ type values |
 
 
 
@@ -1861,15 +1861,15 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `W` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `B` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
+| `X` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
+| `W` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
+| `B` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `Y` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -1902,16 +1902,16 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `x` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values |
-| `w` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values |
-| `x_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or none type |
-| `w_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or none type |
+| `x` | Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 8-bit unsigned integer values |
+| `w` | Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 8-bit unsigned integer values |
+| `x_zero_point` | Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 8-bit unsigned integer values or none type |
+| `w_zero_point` | Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 8-bit unsigned integer values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `y` | tensor of 32-bit signless integer values |
+| `y` | Tensor or MemRef of 32-bit signless integer values |
 
 
 
@@ -1958,15 +1958,15 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `W` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `B` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
+| `X` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
+| `W` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
+| `B` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `Y` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -1986,13 +1986,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `input` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `output` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -2012,13 +2012,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `input` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `output` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -2065,14 +2065,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `x` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `axis` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
+| `x` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
+| `axis` | Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `y` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `y` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -2152,13 +2152,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `inputs` | variadic of tensor of any type values or memref of any type values or none type |
+| `inputs` | variadic of memref of any type values or tensor of any type values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `outputs` | variadic of tensor of any type values or memref of any type values or none type |
+| `outputs` | variadic of memref of any type values or tensor of any type values or none type |
 
 
 
@@ -2191,17 +2191,17 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `W` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `offset` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `B` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
-| `mask` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
+| `X` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
+| `W` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
+| `offset` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
+| `B` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or none type |
+| `mask` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `Y` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -2251,13 +2251,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `input` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `output` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 
 
@@ -2290,15 +2290,15 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `x` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values |
-| `x_scale` | tensor of 32-bit float values or tensor of 16-bit float values or tensor of bfloat16 type values |
-| `x_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or none type |
+| `x` | Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of f8E4M3FN type values or Tensor or MemRef of f8E4M3FNUZ type values or Tensor or MemRef of f8E5M2 type values or Tensor or MemRef of f8E5M2FNUZ type values |
+| `x_scale` | Tensor or MemRef of 32-bit float values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of bfloat16 type values |
+| `x_zero_point` | Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of f8E4M3FN type values or Tensor or MemRef of f8E4M3FNUZ type values or Tensor or MemRef of f8E5M2 type values or Tensor or MemRef of f8E5M2FNUZ type values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `y` | tensor of 32-bit float values or tensor of 16-bit float values or tensor of bfloat16 type values |
+| `y` | Tensor or MemRef of 32-bit float values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -2322,13 +2322,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `X` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `Y` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -2372,15 +2372,15 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `dft_length` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or none type |
-| `axis` | tensor of 64-bit signless integer values or none type |
+| `input` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
+| `dft_length` | Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or none type |
+| `axis` | Tensor or MemRef of 64-bit signless integer values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `output` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -2409,14 +2409,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `dft_length` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or none type |
+| `input` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
+| `dft_length` | Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `output` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -2461,7 +2461,7 @@ Effects: `MemoryEffects::Effect{}`
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 64-bit signless integer values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values |
+| `Y` | Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values |
 
 
 
@@ -2496,13 +2496,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `data` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `dim` | tensor of 64-bit signless integer values |
+| `dim` | Tensor or MemRef of 64-bit signless integer values |
 
 
 
@@ -2540,7 +2540,7 @@ This operation is not part of the standard and was added to assist onnx-mlir.
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `data` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 
 
@@ -2565,14 +2565,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `A` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `B` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `A` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
+| `B` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `C` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `C` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -2610,16 +2610,16 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values |
-| `ratio` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or none type |
-| `training_mode` | tensor of 1-bit signless integer values or none type |
+| `data` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of f8E4M3FN type values or Tensor or MemRef of f8E4M3FNUZ type values or Tensor or MemRef of f8E5M2 type values or Tensor or MemRef of f8E5M2FNUZ type values |
+| `ratio` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of f8E4M3FN type values or Tensor or MemRef of f8E4M3FNUZ type values or Tensor or MemRef of f8E5M2 type values or Tensor or MemRef of f8E5M2FNUZ type values or none type |
+| `training_mode` | Tensor or MemRef of 1-bit signless integer values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values |
-| `mask` | tensor of 1-bit signless integer values or none type |
+| `output` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of f8E4M3FN type values or Tensor or MemRef of f8E4M3FNUZ type values or Tensor or MemRef of f8E5M2 type values or Tensor or MemRef of f8E5M2FNUZ type values |
+| `mask` | Tensor or MemRef of 1-bit signless integer values or none type |
 
 
 
@@ -2665,15 +2665,15 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `x` | tensor of 32-bit float values |
+| `x` | Tensor or MemRef of 32-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `y` | tensor of 8-bit unsigned integer values |
-| `y_scale` | tensor of 32-bit float values |
-| `y_zero_point` | tensor of 8-bit unsigned integer values |
+| `y` | Tensor or MemRef of 8-bit unsigned integer values |
+| `y_scale` | Tensor or MemRef of 32-bit float values |
+| `y_zero_point` | Tensor or MemRef of 8-bit unsigned integer values |
 
 
 
@@ -2724,13 +2724,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `Inputs` | variadic of tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `Inputs` | variadic of Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `Output` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -2760,13 +2760,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `X` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `Y` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -2806,14 +2806,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `A` | tensor of 1-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of string type values |
-| `B` | tensor of 1-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of string type values |
+| `A` | Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of string type values |
+| `B` | Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of string type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `C` | tensor of 1-bit signless integer values |
+| `C` | Tensor or MemRef of 1-bit signless integer values |
 
 
 
@@ -2833,13 +2833,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `input` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `output` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -2859,13 +2859,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `input` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `output` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -2892,14 +2892,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-| `shape` | tensor of 64-bit signless integer values |
+| `input` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
+| `shape` | Tensor or MemRef of 64-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `output` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 
 
@@ -2933,13 +2933,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 1-bit signless integer values |
+| `input` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of 1-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 1-bit signless integer values |
+| `output` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of 1-bit signless integer values |
 
 
 
@@ -2969,13 +2969,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | variadic of tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `X` | variadic of Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 32-bit float values |
+| `Y` | Tensor or MemRef of 32-bit float values |
 
 
 
@@ -3004,13 +3004,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values |
+| `input` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values or Tensor or MemRef of f8E4M3FN type values or Tensor or MemRef of f8E4M3FNUZ type values or Tensor or MemRef of f8E5M2 type values or Tensor or MemRef of f8E5M2FNUZ type values or Tensor or MemRef of 4-bit unsigned integer values or Tensor or MemRef of 4-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values |
+| `output` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values or Tensor or MemRef of f8E4M3FN type values or Tensor or MemRef of f8E4M3FNUZ type values or Tensor or MemRef of f8E5M2 type values or Tensor or MemRef of f8E5M2FNUZ type values or Tensor or MemRef of 4-bit unsigned integer values or Tensor or MemRef of 4-bit signless integer values |
 
 
 
@@ -3032,13 +3032,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `X` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `Y` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -3127,14 +3127,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-| `indices` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
+| `data` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
+| `indices` | Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `output` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 
 
@@ -3211,14 +3211,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-| `indices` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
+| `data` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
+| `indices` | Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `output` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 
 
@@ -3328,14 +3328,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-| `indices` | tensor of 64-bit signless integer values |
+| `data` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
+| `indices` | Tensor or MemRef of 64-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `output` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 
 
@@ -3368,13 +3368,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `X` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `Y` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -3415,15 +3415,15 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `A` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values |
-| `B` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values |
-| `C` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or none type |
+| `A` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values |
+| `B` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values |
+| `C` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values |
+| `Y` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -3445,13 +3445,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `X` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `Y` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -3480,13 +3480,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `X` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `Y` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -3508,13 +3508,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `X` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `Y` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -3665,13 +3665,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `Inputs` | variadic of tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `Inputs` | variadic of Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Outputs` | variadic of tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `Outputs` | variadic of Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -3694,14 +3694,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `A` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `B` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `A` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
+| `B` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `C` | tensor of 1-bit signless integer values |
+| `C` | Tensor or MemRef of 1-bit signless integer values |
 
 
 
@@ -3724,14 +3724,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `A` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `B` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `A` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
+| `B` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `C` | tensor of 1-bit signless integer values |
+| `C` | Tensor or MemRef of 1-bit signless integer values |
 
 
 
@@ -3777,14 +3777,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-| `grid` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `X` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
+| `grid` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `Y` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 
 
@@ -3825,14 +3825,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-| `grid` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `X` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
+| `grid` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `Y` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 
 
@@ -3883,15 +3883,15 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `scale` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `bias` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `X` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
+| `scale` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
+| `bias` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `Y` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -3933,15 +3933,15 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `scale` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `bias` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `X` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
+| `scale` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
+| `bias` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `Y` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -4021,19 +4021,19 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `W` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `R` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `B` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
-| `sequence_lens` | tensor of 32-bit signless integer values or none type |
-| `initial_h` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
+| `X` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
+| `W` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
+| `R` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
+| `B` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or none type |
+| `sequence_lens` | Tensor or MemRef of 32-bit signless integer values or none type |
+| `initial_h` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
-| `Y_h` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
+| `Y` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or none type |
+| `Y_h` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or none type |
 
 
 
@@ -4061,13 +4061,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `size` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
+| `size` | Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `output` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -4095,13 +4095,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `size` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
+| `size` | Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `output` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -4134,13 +4134,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `input` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `output` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -4170,13 +4170,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `X` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `Y` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -4198,13 +4198,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `X` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `Y` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -4224,13 +4224,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values or SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values or OptType of SeqType of tensor of 8-bit unsigned integer values values values or OptType of SeqType of tensor of 16-bit unsigned integer values values values or OptType of SeqType of tensor of 32-bit unsigned integer values values values or OptType of SeqType of tensor of 64-bit unsigned integer values values values or OptType of SeqType of tensor of 8-bit signless integer values values values or OptType of SeqType of tensor of 16-bit signless integer values values values or OptType of SeqType of tensor of 32-bit signless integer values values values or OptType of SeqType of tensor of 64-bit signless integer values values values or OptType of SeqType of tensor of 16-bit float values values values or OptType of SeqType of tensor of 32-bit float values values values or OptType of SeqType of tensor of 64-bit float values values values or OptType of SeqType of tensor of string type values values values or OptType of SeqType of tensor of 1-bit signless integer values values values or OptType of SeqType of tensor of complex type with 32-bit float elements values values values or OptType of SeqType of tensor of complex type with 64-bit float elements values values values or OptType of tensor of 8-bit unsigned integer values values or OptType of tensor of 16-bit unsigned integer values values or OptType of tensor of 32-bit unsigned integer values values or OptType of tensor of 64-bit unsigned integer values values or OptType of tensor of 8-bit signless integer values values or OptType of tensor of 16-bit signless integer values values or OptType of tensor of 32-bit signless integer values values or OptType of tensor of 64-bit signless integer values values or OptType of tensor of 16-bit float values values or OptType of tensor of 32-bit float values values or OptType of tensor of 64-bit float values values or OptType of tensor of string type values values or OptType of tensor of 1-bit signless integer values values or OptType of tensor of complex type with 32-bit float elements values values or OptType of tensor of complex type with 64-bit float elements values values |
+| `input` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values or Tensor or MemRef of f8E4M3FN type values or Tensor or MemRef of f8E4M3FNUZ type values or Tensor or MemRef of f8E5M2 type values or Tensor or MemRef of f8E5M2FNUZ type values or Tensor or MemRef of 4-bit unsigned integer values or Tensor or MemRef of 4-bit signless integer values or SeqType of Tensor or MemRef of 8-bit unsigned integer values values or SeqType of Tensor or MemRef of 16-bit unsigned integer values values or SeqType of Tensor or MemRef of 32-bit unsigned integer values values or SeqType of Tensor or MemRef of 64-bit unsigned integer values values or SeqType of Tensor or MemRef of 8-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit signless integer values values or SeqType of Tensor or MemRef of 32-bit signless integer values values or SeqType of Tensor or MemRef of 64-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit float values values or SeqType of Tensor or MemRef of 32-bit float values values or SeqType of Tensor or MemRef of 64-bit float values values or SeqType of Tensor or MemRef of string type values values or SeqType of Tensor or MemRef of 1-bit signless integer values values or SeqType of Tensor or MemRef of complex type with 32-bit float elements values values or SeqType of Tensor or MemRef of complex type with 64-bit float elements values values or OptType of SeqType of Tensor or MemRef of 8-bit unsigned integer values values values or OptType of SeqType of Tensor or MemRef of 16-bit unsigned integer values values values or OptType of SeqType of Tensor or MemRef of 32-bit unsigned integer values values values or OptType of SeqType of Tensor or MemRef of 64-bit unsigned integer values values values or OptType of SeqType of Tensor or MemRef of 8-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of 16-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of 32-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of 64-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of 16-bit float values values values or OptType of SeqType of Tensor or MemRef of 32-bit float values values values or OptType of SeqType of Tensor or MemRef of 64-bit float values values values or OptType of SeqType of Tensor or MemRef of string type values values values or OptType of SeqType of Tensor or MemRef of 1-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of complex type with 32-bit float elements values values values or OptType of SeqType of Tensor or MemRef of complex type with 64-bit float elements values values values or OptType of Tensor or MemRef of 8-bit unsigned integer values values or OptType of Tensor or MemRef of 16-bit unsigned integer values values or OptType of Tensor or MemRef of 32-bit unsigned integer values values or OptType of Tensor or MemRef of 64-bit unsigned integer values values or OptType of Tensor or MemRef of 8-bit signless integer values values or OptType of Tensor or MemRef of 16-bit signless integer values values or OptType of Tensor or MemRef of 32-bit signless integer values values or OptType of Tensor or MemRef of 64-bit signless integer values values or OptType of Tensor or MemRef of 16-bit float values values or OptType of Tensor or MemRef of 32-bit float values values or OptType of Tensor or MemRef of 64-bit float values values or OptType of Tensor or MemRef of string type values values or OptType of Tensor or MemRef of 1-bit signless integer values values or OptType of Tensor or MemRef of complex type with 32-bit float elements values values or OptType of Tensor or MemRef of complex type with 64-bit float elements values values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values or SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values or OptType of SeqType of tensor of 8-bit unsigned integer values values values or OptType of SeqType of tensor of 16-bit unsigned integer values values values or OptType of SeqType of tensor of 32-bit unsigned integer values values values or OptType of SeqType of tensor of 64-bit unsigned integer values values values or OptType of SeqType of tensor of 8-bit signless integer values values values or OptType of SeqType of tensor of 16-bit signless integer values values values or OptType of SeqType of tensor of 32-bit signless integer values values values or OptType of SeqType of tensor of 64-bit signless integer values values values or OptType of SeqType of tensor of 16-bit float values values values or OptType of SeqType of tensor of 32-bit float values values values or OptType of SeqType of tensor of 64-bit float values values values or OptType of SeqType of tensor of string type values values values or OptType of SeqType of tensor of 1-bit signless integer values values values or OptType of SeqType of tensor of complex type with 32-bit float elements values values values or OptType of SeqType of tensor of complex type with 64-bit float elements values values values or OptType of tensor of 8-bit unsigned integer values values or OptType of tensor of 16-bit unsigned integer values values or OptType of tensor of 32-bit unsigned integer values values or OptType of tensor of 64-bit unsigned integer values values or OptType of tensor of 8-bit signless integer values values or OptType of tensor of 16-bit signless integer values values or OptType of tensor of 32-bit signless integer values values or OptType of tensor of 64-bit signless integer values values or OptType of tensor of 16-bit float values values or OptType of tensor of 32-bit float values values or OptType of tensor of 64-bit float values values or OptType of tensor of string type values values or OptType of tensor of 1-bit signless integer values values or OptType of tensor of complex type with 32-bit float elements values values or OptType of tensor of complex type with 64-bit float elements values values |
+| `output` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values or Tensor or MemRef of f8E4M3FN type values or Tensor or MemRef of f8E4M3FNUZ type values or Tensor or MemRef of f8E5M2 type values or Tensor or MemRef of f8E5M2FNUZ type values or Tensor or MemRef of 4-bit unsigned integer values or Tensor or MemRef of 4-bit signless integer values or SeqType of Tensor or MemRef of 8-bit unsigned integer values values or SeqType of Tensor or MemRef of 16-bit unsigned integer values values or SeqType of Tensor or MemRef of 32-bit unsigned integer values values or SeqType of Tensor or MemRef of 64-bit unsigned integer values values or SeqType of Tensor or MemRef of 8-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit signless integer values values or SeqType of Tensor or MemRef of 32-bit signless integer values values or SeqType of Tensor or MemRef of 64-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit float values values or SeqType of Tensor or MemRef of 32-bit float values values or SeqType of Tensor or MemRef of 64-bit float values values or SeqType of Tensor or MemRef of string type values values or SeqType of Tensor or MemRef of 1-bit signless integer values values or SeqType of Tensor or MemRef of complex type with 32-bit float elements values values or SeqType of Tensor or MemRef of complex type with 64-bit float elements values values or OptType of SeqType of Tensor or MemRef of 8-bit unsigned integer values values values or OptType of SeqType of Tensor or MemRef of 16-bit unsigned integer values values values or OptType of SeqType of Tensor or MemRef of 32-bit unsigned integer values values values or OptType of SeqType of Tensor or MemRef of 64-bit unsigned integer values values values or OptType of SeqType of Tensor or MemRef of 8-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of 16-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of 32-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of 64-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of 16-bit float values values values or OptType of SeqType of Tensor or MemRef of 32-bit float values values values or OptType of SeqType of Tensor or MemRef of 64-bit float values values values or OptType of SeqType of Tensor or MemRef of string type values values values or OptType of SeqType of Tensor or MemRef of 1-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of complex type with 32-bit float elements values values values or OptType of SeqType of Tensor or MemRef of complex type with 64-bit float elements values values values or OptType of Tensor or MemRef of 8-bit unsigned integer values values or OptType of Tensor or MemRef of 16-bit unsigned integer values values or OptType of Tensor or MemRef of 32-bit unsigned integer values values or OptType of Tensor or MemRef of 64-bit unsigned integer values values or OptType of Tensor or MemRef of 8-bit signless integer values values or OptType of Tensor or MemRef of 16-bit signless integer values values or OptType of Tensor or MemRef of 32-bit signless integer values values or OptType of Tensor or MemRef of 64-bit signless integer values values or OptType of Tensor or MemRef of 16-bit float values values or OptType of Tensor or MemRef of 32-bit float values values or OptType of Tensor or MemRef of 64-bit float values values or OptType of Tensor or MemRef of string type values values or OptType of Tensor or MemRef of 1-bit signless integer values values or OptType of Tensor or MemRef of complex type with 32-bit float elements values values or OptType of Tensor or MemRef of complex type with 64-bit float elements values values |
 
 
 
@@ -4250,13 +4250,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `cond` | tensor of 1-bit signless integer values |
+| `cond` | Tensor or MemRef of 1-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `outputs` | variadic of tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values or SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of bfloat16 type values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values or SeqType of tensor of f8E4M3FN type values values or SeqType of tensor of f8E4M3FNUZ type values values or SeqType of tensor of f8E5M2 type values values or SeqType of tensor of f8E5M2FNUZ type values values or SeqType of tensor of 4-bit unsigned integer values values or SeqType of tensor of 4-bit signless integer values values or OptType of SeqType of tensor of 8-bit unsigned integer values values values or OptType of SeqType of tensor of 16-bit unsigned integer values values values or OptType of SeqType of tensor of 32-bit unsigned integer values values values or OptType of SeqType of tensor of 64-bit unsigned integer values values values or OptType of SeqType of tensor of 8-bit signless integer values values values or OptType of SeqType of tensor of 16-bit signless integer values values values or OptType of SeqType of tensor of 32-bit signless integer values values values or OptType of SeqType of tensor of 64-bit signless integer values values values or OptType of SeqType of tensor of bfloat16 type values values values or OptType of SeqType of tensor of 16-bit float values values values or OptType of SeqType of tensor of 32-bit float values values values or OptType of SeqType of tensor of 64-bit float values values values or OptType of SeqType of tensor of string type values values values or OptType of SeqType of tensor of 1-bit signless integer values values values or OptType of SeqType of tensor of complex type with 32-bit float elements values values values or OptType of SeqType of tensor of complex type with 64-bit float elements values values values or OptType of tensor of 8-bit unsigned integer values values or OptType of tensor of 16-bit unsigned integer values values or OptType of tensor of 32-bit unsigned integer values values or OptType of tensor of 64-bit unsigned integer values values or OptType of tensor of 8-bit signless integer values values or OptType of tensor of 16-bit signless integer values values or OptType of tensor of 32-bit signless integer values values or OptType of tensor of 64-bit signless integer values values or OptType of tensor of bfloat16 type values values or OptType of tensor of 16-bit float values values or OptType of tensor of 32-bit float values values or OptType of tensor of 64-bit float values values or OptType of tensor of string type values values or OptType of tensor of 1-bit signless integer values values or OptType of tensor of complex type with 32-bit float elements values values or OptType of tensor of complex type with 64-bit float elements values values or OptType of tensor of f8E4M3FN type values values or OptType of tensor of f8E4M3FNUZ type values values or OptType of tensor of f8E5M2 type values values or OptType of tensor of f8E5M2FNUZ type values values or OptType of tensor of 4-bit unsigned integer values values or OptType of tensor of 4-bit signless integer values values |
+| `outputs` | variadic of Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values or Tensor or MemRef of f8E4M3FN type values or Tensor or MemRef of f8E4M3FNUZ type values or Tensor or MemRef of f8E5M2 type values or Tensor or MemRef of f8E5M2FNUZ type values or Tensor or MemRef of 4-bit unsigned integer values or Tensor or MemRef of 4-bit signless integer values or SeqType of Tensor or MemRef of 8-bit unsigned integer values values or SeqType of Tensor or MemRef of 16-bit unsigned integer values values or SeqType of Tensor or MemRef of 32-bit unsigned integer values values or SeqType of Tensor or MemRef of 64-bit unsigned integer values values or SeqType of Tensor or MemRef of 8-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit signless integer values values or SeqType of Tensor or MemRef of 32-bit signless integer values values or SeqType of Tensor or MemRef of 64-bit signless integer values values or SeqType of Tensor or MemRef of bfloat16 type values values or SeqType of Tensor or MemRef of 16-bit float values values or SeqType of Tensor or MemRef of 32-bit float values values or SeqType of Tensor or MemRef of 64-bit float values values or SeqType of Tensor or MemRef of string type values values or SeqType of Tensor or MemRef of 1-bit signless integer values values or SeqType of Tensor or MemRef of complex type with 32-bit float elements values values or SeqType of Tensor or MemRef of complex type with 64-bit float elements values values or SeqType of Tensor or MemRef of f8E4M3FN type values values or SeqType of Tensor or MemRef of f8E4M3FNUZ type values values or SeqType of Tensor or MemRef of f8E5M2 type values values or SeqType of Tensor or MemRef of f8E5M2FNUZ type values values or SeqType of Tensor or MemRef of 4-bit unsigned integer values values or SeqType of Tensor or MemRef of 4-bit signless integer values values or OptType of SeqType of Tensor or MemRef of 8-bit unsigned integer values values values or OptType of SeqType of Tensor or MemRef of 16-bit unsigned integer values values values or OptType of SeqType of Tensor or MemRef of 32-bit unsigned integer values values values or OptType of SeqType of Tensor or MemRef of 64-bit unsigned integer values values values or OptType of SeqType of Tensor or MemRef of 8-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of 16-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of 32-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of 64-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of bfloat16 type values values values or OptType of SeqType of Tensor or MemRef of 16-bit float values values values or OptType of SeqType of Tensor or MemRef of 32-bit float values values values or OptType of SeqType of Tensor or MemRef of 64-bit float values values values or OptType of SeqType of Tensor or MemRef of string type values values values or OptType of SeqType of Tensor or MemRef of 1-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of complex type with 32-bit float elements values values values or OptType of SeqType of Tensor or MemRef of complex type with 64-bit float elements values values values or OptType of Tensor or MemRef of 8-bit unsigned integer values values or OptType of Tensor or MemRef of 16-bit unsigned integer values values or OptType of Tensor or MemRef of 32-bit unsigned integer values values or OptType of Tensor or MemRef of 64-bit unsigned integer values values or OptType of Tensor or MemRef of 8-bit signless integer values values or OptType of Tensor or MemRef of 16-bit signless integer values values or OptType of Tensor or MemRef of 32-bit signless integer values values or OptType of Tensor or MemRef of 64-bit signless integer values values or OptType of Tensor or MemRef of bfloat16 type values values or OptType of Tensor or MemRef of 16-bit float values values or OptType of Tensor or MemRef of 32-bit float values values or OptType of Tensor or MemRef of 64-bit float values values or OptType of Tensor or MemRef of string type values values or OptType of Tensor or MemRef of 1-bit signless integer values values or OptType of Tensor or MemRef of complex type with 32-bit float elements values values or OptType of Tensor or MemRef of complex type with 64-bit float elements values values or OptType of Tensor or MemRef of f8E4M3FN type values values or OptType of Tensor or MemRef of f8E4M3FNUZ type values values or OptType of Tensor or MemRef of f8E5M2 type values values or OptType of Tensor or MemRef of f8E5M2FNUZ type values values or OptType of Tensor or MemRef of 4-bit unsigned integer values values or OptType of Tensor or MemRef of 4-bit signless integer values values |
 
 
 
@@ -4363,13 +4363,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 64-bit signless integer values or tensor of 32-bit signless integer values |
+| `X` | Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 32-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 64-bit signless integer values or tensor of 32-bit signless integer values |
+| `Y` | Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 32-bit signless integer values |
 
 
 
@@ -4401,15 +4401,15 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `scale` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `B` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `input` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
+| `scale` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
+| `B` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `output` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -4437,13 +4437,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values |
+| `X` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of f8E4M3FN type values or Tensor or MemRef of f8E4M3FNUZ type values or Tensor or MemRef of f8E5M2 type values or Tensor or MemRef of f8E5M2FNUZ type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 1-bit signless integer values |
+| `Y` | Tensor or MemRef of 1-bit signless integer values |
 
 
 
@@ -4463,13 +4463,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values |
+| `X` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of f8E4M3FN type values or Tensor or MemRef of f8E4M3FNUZ type values or Tensor or MemRef of f8E5M2 type values or Tensor or MemRef of f8E5M2FNUZ type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 1-bit signless integer values |
+| `Y` | Tensor or MemRef of 1-bit signless integer values |
 
 
 
@@ -4520,13 +4520,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of string type values or tensor of 64-bit signless integer values or tensor of 32-bit float values |
+| `X` | Tensor or MemRef of string type values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 32-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of string type values or tensor of 64-bit signless integer values or tensor of 32-bit float values |
+| `Y` | Tensor or MemRef of string type values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 32-bit float values |
 
 
 
@@ -4595,17 +4595,17 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `Scale` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `B` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or none type |
+| `X` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
+| `Scale` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
+| `B` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `Mean` | tensor of 32-bit float values or tensor of bfloat16 type values or none type |
-| `InvStdDev` | tensor of 32-bit float values or tensor of bfloat16 type values or none type |
+| `Y` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
+| `Mean` | Tensor or MemRef of 32-bit float values or Tensor or MemRef of bfloat16 type values or none type |
+| `InvStdDev` | Tensor or MemRef of 32-bit float values or Tensor or MemRef of bfloat16 type values or none type |
 
 
 
@@ -4644,13 +4644,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 16-bit float or 32-bit float values |
+| `data` | Tensor or MemRef of 16-bit float or 32-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 16-bit float or 32-bit float values |
+| `output` | Tensor or MemRef of 16-bit float or 32-bit float values |
 
 
 
@@ -4679,13 +4679,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `X` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `Y` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -4708,14 +4708,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `A` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `B` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `A` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
+| `B` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `C` | tensor of 1-bit signless integer values |
+| `C` | Tensor or MemRef of 1-bit signless integer values |
 
 
 
@@ -4738,14 +4738,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `A` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `B` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `A` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
+| `B` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `C` | tensor of 1-bit signless integer values |
+| `C` | Tensor or MemRef of 1-bit signless integer values |
 
 
 
@@ -4777,14 +4777,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 64-bit signless integer values or tensor of 32-bit signless integer values |
+| `X` | Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 32-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of string type values or tensor of 64-bit signless integer values |
-| `Z` | tensor of 32-bit float values |
+| `Y` | Tensor or MemRef of string type values or Tensor or MemRef of 64-bit signless integer values |
+| `Z` | Tensor or MemRef of 32-bit float values |
 
 
 
@@ -4819,13 +4819,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 64-bit signless integer values or tensor of 32-bit signless integer values |
+| `X` | Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 32-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 32-bit float values |
+| `Y` | Tensor or MemRef of 32-bit float values |
 
 
 
@@ -4845,13 +4845,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `input` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `output` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -4884,13 +4884,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `input` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `output` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -5044,15 +5044,15 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `M` | tensor of 64-bit signless integer values or none type |
-| `cond` | tensor of 1-bit signless integer values or none type |
-| `v_initial` | variadic of tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values or SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of bfloat16 type values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values or SeqType of tensor of f8E4M3FN type values values or SeqType of tensor of f8E4M3FNUZ type values values or SeqType of tensor of f8E5M2 type values values or SeqType of tensor of f8E5M2FNUZ type values values or SeqType of tensor of 4-bit unsigned integer values values or SeqType of tensor of 4-bit signless integer values values or OptType of SeqType of tensor of 8-bit unsigned integer values values values or OptType of SeqType of tensor of 16-bit unsigned integer values values values or OptType of SeqType of tensor of 32-bit unsigned integer values values values or OptType of SeqType of tensor of 64-bit unsigned integer values values values or OptType of SeqType of tensor of 8-bit signless integer values values values or OptType of SeqType of tensor of 16-bit signless integer values values values or OptType of SeqType of tensor of 32-bit signless integer values values values or OptType of SeqType of tensor of 64-bit signless integer values values values or OptType of SeqType of tensor of bfloat16 type values values values or OptType of SeqType of tensor of 16-bit float values values values or OptType of SeqType of tensor of 32-bit float values values values or OptType of SeqType of tensor of 64-bit float values values values or OptType of SeqType of tensor of string type values values values or OptType of SeqType of tensor of 1-bit signless integer values values values or OptType of SeqType of tensor of complex type with 32-bit float elements values values values or OptType of SeqType of tensor of complex type with 64-bit float elements values values values or OptType of tensor of 8-bit unsigned integer values values or OptType of tensor of 16-bit unsigned integer values values or OptType of tensor of 32-bit unsigned integer values values or OptType of tensor of 64-bit unsigned integer values values or OptType of tensor of 8-bit signless integer values values or OptType of tensor of 16-bit signless integer values values or OptType of tensor of 32-bit signless integer values values or OptType of tensor of 64-bit signless integer values values or OptType of tensor of bfloat16 type values values or OptType of tensor of 16-bit float values values or OptType of tensor of 32-bit float values values or OptType of tensor of 64-bit float values values or OptType of tensor of string type values values or OptType of tensor of 1-bit signless integer values values or OptType of tensor of complex type with 32-bit float elements values values or OptType of tensor of complex type with 64-bit float elements values values or OptType of tensor of f8E4M3FN type values values or OptType of tensor of f8E4M3FNUZ type values values or OptType of tensor of f8E5M2 type values values or OptType of tensor of f8E5M2FNUZ type values values or OptType of tensor of 4-bit unsigned integer values values or OptType of tensor of 4-bit signless integer values values |
+| `M` | Tensor or MemRef of 64-bit signless integer values or none type |
+| `cond` | Tensor or MemRef of 1-bit signless integer values or none type |
+| `v_initial` | variadic of Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values or Tensor or MemRef of f8E4M3FN type values or Tensor or MemRef of f8E4M3FNUZ type values or Tensor or MemRef of f8E5M2 type values or Tensor or MemRef of f8E5M2FNUZ type values or Tensor or MemRef of 4-bit unsigned integer values or Tensor or MemRef of 4-bit signless integer values or SeqType of Tensor or MemRef of 8-bit unsigned integer values values or SeqType of Tensor or MemRef of 16-bit unsigned integer values values or SeqType of Tensor or MemRef of 32-bit unsigned integer values values or SeqType of Tensor or MemRef of 64-bit unsigned integer values values or SeqType of Tensor or MemRef of 8-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit signless integer values values or SeqType of Tensor or MemRef of 32-bit signless integer values values or SeqType of Tensor or MemRef of 64-bit signless integer values values or SeqType of Tensor or MemRef of bfloat16 type values values or SeqType of Tensor or MemRef of 16-bit float values values or SeqType of Tensor or MemRef of 32-bit float values values or SeqType of Tensor or MemRef of 64-bit float values values or SeqType of Tensor or MemRef of string type values values or SeqType of Tensor or MemRef of 1-bit signless integer values values or SeqType of Tensor or MemRef of complex type with 32-bit float elements values values or SeqType of Tensor or MemRef of complex type with 64-bit float elements values values or SeqType of Tensor or MemRef of f8E4M3FN type values values or SeqType of Tensor or MemRef of f8E4M3FNUZ type values values or SeqType of Tensor or MemRef of f8E5M2 type values values or SeqType of Tensor or MemRef of f8E5M2FNUZ type values values or SeqType of Tensor or MemRef of 4-bit unsigned integer values values or SeqType of Tensor or MemRef of 4-bit signless integer values values or OptType of SeqType of Tensor or MemRef of 8-bit unsigned integer values values values or OptType of SeqType of Tensor or MemRef of 16-bit unsigned integer values values values or OptType of SeqType of Tensor or MemRef of 32-bit unsigned integer values values values or OptType of SeqType of Tensor or MemRef of 64-bit unsigned integer values values values or OptType of SeqType of Tensor or MemRef of 8-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of 16-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of 32-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of 64-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of bfloat16 type values values values or OptType of SeqType of Tensor or MemRef of 16-bit float values values values or OptType of SeqType of Tensor or MemRef of 32-bit float values values values or OptType of SeqType of Tensor or MemRef of 64-bit float values values values or OptType of SeqType of Tensor or MemRef of string type values values values or OptType of SeqType of Tensor or MemRef of 1-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of complex type with 32-bit float elements values values values or OptType of SeqType of Tensor or MemRef of complex type with 64-bit float elements values values values or OptType of Tensor or MemRef of 8-bit unsigned integer values values or OptType of Tensor or MemRef of 16-bit unsigned integer values values or OptType of Tensor or MemRef of 32-bit unsigned integer values values or OptType of Tensor or MemRef of 64-bit unsigned integer values values or OptType of Tensor or MemRef of 8-bit signless integer values values or OptType of Tensor or MemRef of 16-bit signless integer values values or OptType of Tensor or MemRef of 32-bit signless integer values values or OptType of Tensor or MemRef of 64-bit signless integer values values or OptType of Tensor or MemRef of bfloat16 type values values or OptType of Tensor or MemRef of 16-bit float values values or OptType of Tensor or MemRef of 32-bit float values values or OptType of Tensor or MemRef of 64-bit float values values or OptType of Tensor or MemRef of string type values values or OptType of Tensor or MemRef of 1-bit signless integer values values or OptType of Tensor or MemRef of complex type with 32-bit float elements values values or OptType of Tensor or MemRef of complex type with 64-bit float elements values values or OptType of Tensor or MemRef of f8E4M3FN type values values or OptType of Tensor or MemRef of f8E4M3FNUZ type values values or OptType of Tensor or MemRef of f8E5M2 type values values or OptType of Tensor or MemRef of f8E5M2FNUZ type values values or OptType of Tensor or MemRef of 4-bit unsigned integer values values or OptType of Tensor or MemRef of 4-bit signless integer values values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `v_final_and_scan_outputs` | variadic of tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values or SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of bfloat16 type values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values or SeqType of tensor of f8E4M3FN type values values or SeqType of tensor of f8E4M3FNUZ type values values or SeqType of tensor of f8E5M2 type values values or SeqType of tensor of f8E5M2FNUZ type values values or SeqType of tensor of 4-bit unsigned integer values values or SeqType of tensor of 4-bit signless integer values values or OptType of SeqType of tensor of 8-bit unsigned integer values values values or OptType of SeqType of tensor of 16-bit unsigned integer values values values or OptType of SeqType of tensor of 32-bit unsigned integer values values values or OptType of SeqType of tensor of 64-bit unsigned integer values values values or OptType of SeqType of tensor of 8-bit signless integer values values values or OptType of SeqType of tensor of 16-bit signless integer values values values or OptType of SeqType of tensor of 32-bit signless integer values values values or OptType of SeqType of tensor of 64-bit signless integer values values values or OptType of SeqType of tensor of bfloat16 type values values values or OptType of SeqType of tensor of 16-bit float values values values or OptType of SeqType of tensor of 32-bit float values values values or OptType of SeqType of tensor of 64-bit float values values values or OptType of SeqType of tensor of string type values values values or OptType of SeqType of tensor of 1-bit signless integer values values values or OptType of SeqType of tensor of complex type with 32-bit float elements values values values or OptType of SeqType of tensor of complex type with 64-bit float elements values values values or OptType of tensor of 8-bit unsigned integer values values or OptType of tensor of 16-bit unsigned integer values values or OptType of tensor of 32-bit unsigned integer values values or OptType of tensor of 64-bit unsigned integer values values or OptType of tensor of 8-bit signless integer values values or OptType of tensor of 16-bit signless integer values values or OptType of tensor of 32-bit signless integer values values or OptType of tensor of 64-bit signless integer values values or OptType of tensor of bfloat16 type values values or OptType of tensor of 16-bit float values values or OptType of tensor of 32-bit float values values or OptType of tensor of 64-bit float values values or OptType of tensor of string type values values or OptType of tensor of 1-bit signless integer values values or OptType of tensor of complex type with 32-bit float elements values values or OptType of tensor of complex type with 64-bit float elements values values or OptType of tensor of f8E4M3FN type values values or OptType of tensor of f8E4M3FNUZ type values values or OptType of tensor of f8E5M2 type values values or OptType of tensor of f8E5M2FNUZ type values values or OptType of tensor of 4-bit unsigned integer values values or OptType of tensor of 4-bit signless integer values values |
+| `v_final_and_scan_outputs` | variadic of Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values or Tensor or MemRef of f8E4M3FN type values or Tensor or MemRef of f8E4M3FNUZ type values or Tensor or MemRef of f8E5M2 type values or Tensor or MemRef of f8E5M2FNUZ type values or Tensor or MemRef of 4-bit unsigned integer values or Tensor or MemRef of 4-bit signless integer values or SeqType of Tensor or MemRef of 8-bit unsigned integer values values or SeqType of Tensor or MemRef of 16-bit unsigned integer values values or SeqType of Tensor or MemRef of 32-bit unsigned integer values values or SeqType of Tensor or MemRef of 64-bit unsigned integer values values or SeqType of Tensor or MemRef of 8-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit signless integer values values or SeqType of Tensor or MemRef of 32-bit signless integer values values or SeqType of Tensor or MemRef of 64-bit signless integer values values or SeqType of Tensor or MemRef of bfloat16 type values values or SeqType of Tensor or MemRef of 16-bit float values values or SeqType of Tensor or MemRef of 32-bit float values values or SeqType of Tensor or MemRef of 64-bit float values values or SeqType of Tensor or MemRef of string type values values or SeqType of Tensor or MemRef of 1-bit signless integer values values or SeqType of Tensor or MemRef of complex type with 32-bit float elements values values or SeqType of Tensor or MemRef of complex type with 64-bit float elements values values or SeqType of Tensor or MemRef of f8E4M3FN type values values or SeqType of Tensor or MemRef of f8E4M3FNUZ type values values or SeqType of Tensor or MemRef of f8E5M2 type values values or SeqType of Tensor or MemRef of f8E5M2FNUZ type values values or SeqType of Tensor or MemRef of 4-bit unsigned integer values values or SeqType of Tensor or MemRef of 4-bit signless integer values values or OptType of SeqType of Tensor or MemRef of 8-bit unsigned integer values values values or OptType of SeqType of Tensor or MemRef of 16-bit unsigned integer values values values or OptType of SeqType of Tensor or MemRef of 32-bit unsigned integer values values values or OptType of SeqType of Tensor or MemRef of 64-bit unsigned integer values values values or OptType of SeqType of Tensor or MemRef of 8-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of 16-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of 32-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of 64-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of bfloat16 type values values values or OptType of SeqType of Tensor or MemRef of 16-bit float values values values or OptType of SeqType of Tensor or MemRef of 32-bit float values values values or OptType of SeqType of Tensor or MemRef of 64-bit float values values values or OptType of SeqType of Tensor or MemRef of string type values values values or OptType of SeqType of Tensor or MemRef of 1-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of complex type with 32-bit float elements values values values or OptType of SeqType of Tensor or MemRef of complex type with 64-bit float elements values values values or OptType of Tensor or MemRef of 8-bit unsigned integer values values or OptType of Tensor or MemRef of 16-bit unsigned integer values values or OptType of Tensor or MemRef of 32-bit unsigned integer values values or OptType of Tensor or MemRef of 64-bit unsigned integer values values or OptType of Tensor or MemRef of 8-bit signless integer values values or OptType of Tensor or MemRef of 16-bit signless integer values values or OptType of Tensor or MemRef of 32-bit signless integer values values or OptType of Tensor or MemRef of 64-bit signless integer values values or OptType of Tensor or MemRef of bfloat16 type values values or OptType of Tensor or MemRef of 16-bit float values values or OptType of Tensor or MemRef of 32-bit float values values or OptType of Tensor or MemRef of 64-bit float values values or OptType of Tensor or MemRef of string type values values or OptType of Tensor or MemRef of 1-bit signless integer values values or OptType of Tensor or MemRef of complex type with 32-bit float elements values values or OptType of Tensor or MemRef of complex type with 64-bit float elements values values or OptType of Tensor or MemRef of f8E4M3FN type values values or OptType of Tensor or MemRef of f8E4M3FNUZ type values values or OptType of Tensor or MemRef of f8E5M2 type values values or OptType of Tensor or MemRef of f8E5M2FNUZ type values values or OptType of Tensor or MemRef of 4-bit unsigned integer values values or OptType of Tensor or MemRef of 4-bit signless integer values values |
 
 
 
@@ -5083,13 +5083,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `input` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `output` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -5144,13 +5144,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `X` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `Y` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -5189,13 +5189,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `X` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `Y` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -5278,22 +5278,22 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `W` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `R` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `B` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
-| `sequence_lens` | tensor of 32-bit signless integer values or none type |
-| `initial_h` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
-| `initial_c` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
-| `P` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
+| `X` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
+| `W` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
+| `R` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
+| `B` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or none type |
+| `sequence_lens` | Tensor or MemRef of 32-bit signless integer values or none type |
+| `initial_h` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or none type |
+| `initial_c` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or none type |
+| `P` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
-| `Y_h` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
-| `Y_c` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
+| `Y` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or none type |
+| `Y_h` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or none type |
+| `Y_c` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or none type |
 
 
 
@@ -5313,14 +5313,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `A` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values |
-| `B` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values |
+| `A` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values |
+| `B` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values |
+| `Y` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -5341,16 +5341,16 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `A` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values |
-| `B` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values |
-| `a_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or none type |
-| `b_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or none type |
+| `A` | Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 8-bit unsigned integer values |
+| `B` | Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 8-bit unsigned integer values |
+| `a_zero_point` | Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 8-bit unsigned integer values or none type |
+| `b_zero_point` | Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 8-bit unsigned integer values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 32-bit signless integer values |
+| `Y` | Tensor or MemRef of 32-bit signless integer values |
 
 
 
@@ -5372,13 +5372,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data_0` | variadic of tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `data_0` | variadic of Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `max` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `max` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -5442,14 +5442,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values |
+| `X` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 8-bit unsigned integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values |
-| `Indices` | tensor of 64-bit signless integer values or none type |
+| `Y` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 8-bit unsigned integer values |
+| `Indices` | Tensor or MemRef of 64-bit signless integer values or none type |
 
 
 
@@ -5521,14 +5521,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `rois` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `X` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
+| `rois` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `Y` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -5574,15 +5574,15 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `I` | tensor of 64-bit signless integer values |
-| `output_shape` | tensor of 64-bit signless integer values or none type |
+| `X` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
+| `I` | Tensor or MemRef of 64-bit signless integer values |
+| `output_shape` | Tensor or MemRef of 64-bit signless integer values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `output` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -5604,13 +5604,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data_0` | variadic of tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `data_0` | variadic of Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `mean` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `mean` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -5638,13 +5638,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `X` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `Y` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -5678,17 +5678,17 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `num_mel_bins` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
-| `dft_length` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
-| `sample_rate` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
-| `lower_edge_hertz` | tensor of 32-bit float values or tensor of 16-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `upper_edge_hertz` | tensor of 32-bit float values or tensor of 16-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `num_mel_bins` | Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values |
+| `dft_length` | Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values |
+| `sample_rate` | Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values |
+| `lower_edge_hertz` | Tensor or MemRef of 32-bit float values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
+| `upper_edge_hertz` | Tensor or MemRef of 32-bit float values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `output` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -5710,13 +5710,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data_0` | variadic of tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `data_0` | variadic of Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `min` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `min` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -5742,13 +5742,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `X` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `Y` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -5791,14 +5791,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `A` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `B` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `A` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
+| `B` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `C` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `C` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -5887,15 +5887,15 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `R` | tensor of 32-bit float values or tensor of 64-bit float values |
-| `T` | tensor of 64-bit signless integer values |
-| `inputs` | variadic of tensor of 32-bit float values or tensor of 64-bit float values |
+| `R` | Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
+| `T` | Tensor or MemRef of 64-bit signless integer values |
+| `inputs` | variadic of Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `outputs` | variadic of tensor of 32-bit float values or tensor of 64-bit float values |
+| `outputs` | variadic of Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -5919,14 +5919,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `A` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `B` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `A` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
+| `B` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `C` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `C` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -5956,13 +5956,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `input` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
+| `output` | Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values |
 
 
 
@@ -5984,13 +5984,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 32-bit float values or tensor of 32-bit signless integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `X` | Tensor or MemRef of 32-bit float values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 32-bit float values or tensor of 32-bit signless integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `Y` | Tensor or MemRef of 32-bit float values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -6118,15 +6118,15 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `target` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
-| `weight` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
+| `input` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
+| `target` | Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values |
+| `weight` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `loss` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `loss` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -6160,17 +6160,17 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `boxes` | tensor of 32-bit float values |
-| `scores` | tensor of 32-bit float values |
-| `max_output_boxes_per_class` | tensor of 64-bit signless integer values or none type |
-| `iou_threshold` | tensor of 32-bit float values or none type |
-| `score_threshold` | tensor of 32-bit float values or none type |
+| `boxes` | Tensor or MemRef of 32-bit float values |
+| `scores` | Tensor or MemRef of 32-bit float values |
+| `max_output_boxes_per_class` | Tensor or MemRef of 64-bit signless integer values or none type |
+| `iou_threshold` | Tensor or MemRef of 32-bit float values or none type |
+| `score_threshold` | Tensor or MemRef of 32-bit float values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `selected_indices` | tensor of 64-bit signless integer values |
+| `selected_indices` | Tensor or MemRef of 64-bit signless integer values |
 
 
 
@@ -6194,13 +6194,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `X` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 64-bit signless integer values |
+| `Y` | Tensor or MemRef of 64-bit signless integer values |
 
 
 
@@ -6236,13 +6236,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 64-bit signless integer values or tensor of 32-bit signless integer values |
+| `X` | Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 32-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 32-bit float values |
+| `Y` | Tensor or MemRef of 32-bit float values |
 
 
 
@@ -6262,13 +6262,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 1-bit signless integer values |
+| `X` | Tensor or MemRef of 1-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 1-bit signless integer values |
+| `Y` | Tensor or MemRef of 1-bit signless integer values |
 
 
 
@@ -6349,15 +6349,15 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `indices` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `depth` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `values` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `indices` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
+| `depth` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
+| `values` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `output` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 
 
@@ -6393,13 +6393,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of string type values or tensor of 64-bit signless integer values or tensor of 32-bit signless integer values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `X` | Tensor or MemRef of string type values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 32-bit float values |
+| `Y` | Tensor or MemRef of 32-bit float values |
 
 
 
@@ -6427,13 +6427,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values or none type |
+| `input` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values or SeqType of Tensor or MemRef of 8-bit unsigned integer values values or SeqType of Tensor or MemRef of 16-bit unsigned integer values values or SeqType of Tensor or MemRef of 32-bit unsigned integer values values or SeqType of Tensor or MemRef of 64-bit unsigned integer values values or SeqType of Tensor or MemRef of 8-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit signless integer values values or SeqType of Tensor or MemRef of 32-bit signless integer values values or SeqType of Tensor or MemRef of 64-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit float values values or SeqType of Tensor or MemRef of 32-bit float values values or SeqType of Tensor or MemRef of 64-bit float values values or SeqType of Tensor or MemRef of string type values values or SeqType of Tensor or MemRef of 1-bit signless integer values values or SeqType of Tensor or MemRef of complex type with 32-bit float elements values values or SeqType of Tensor or MemRef of complex type with 64-bit float elements values values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | OptType of SeqType of tensor of 8-bit unsigned integer values values values or OptType of SeqType of tensor of 16-bit unsigned integer values values values or OptType of SeqType of tensor of 32-bit unsigned integer values values values or OptType of SeqType of tensor of 64-bit unsigned integer values values values or OptType of SeqType of tensor of 8-bit signless integer values values values or OptType of SeqType of tensor of 16-bit signless integer values values values or OptType of SeqType of tensor of 32-bit signless integer values values values or OptType of SeqType of tensor of 64-bit signless integer values values values or OptType of SeqType of tensor of 16-bit float values values values or OptType of SeqType of tensor of 32-bit float values values values or OptType of SeqType of tensor of 64-bit float values values values or OptType of SeqType of tensor of string type values values values or OptType of SeqType of tensor of 1-bit signless integer values values values or OptType of SeqType of tensor of complex type with 32-bit float elements values values values or OptType of SeqType of tensor of complex type with 64-bit float elements values values values or OptType of tensor of 8-bit unsigned integer values values or OptType of tensor of 16-bit unsigned integer values values or OptType of tensor of 32-bit unsigned integer values values or OptType of tensor of 64-bit unsigned integer values values or OptType of tensor of 8-bit signless integer values values or OptType of tensor of 16-bit signless integer values values or OptType of tensor of 32-bit signless integer values values or OptType of tensor of 64-bit signless integer values values or OptType of tensor of 16-bit float values values or OptType of tensor of 32-bit float values values or OptType of tensor of 64-bit float values values or OptType of tensor of string type values values or OptType of tensor of 1-bit signless integer values values or OptType of tensor of complex type with 32-bit float elements values values or OptType of tensor of complex type with 64-bit float elements values values |
+| `output` | OptType of SeqType of Tensor or MemRef of 8-bit unsigned integer values values values or OptType of SeqType of Tensor or MemRef of 16-bit unsigned integer values values values or OptType of SeqType of Tensor or MemRef of 32-bit unsigned integer values values values or OptType of SeqType of Tensor or MemRef of 64-bit unsigned integer values values values or OptType of SeqType of Tensor or MemRef of 8-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of 16-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of 32-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of 64-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of 16-bit float values values values or OptType of SeqType of Tensor or MemRef of 32-bit float values values values or OptType of SeqType of Tensor or MemRef of 64-bit float values values values or OptType of SeqType of Tensor or MemRef of string type values values values or OptType of SeqType of Tensor or MemRef of 1-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of complex type with 32-bit float elements values values values or OptType of SeqType of Tensor or MemRef of complex type with 64-bit float elements values values values or OptType of Tensor or MemRef of 8-bit unsigned integer values values or OptType of Tensor or MemRef of 16-bit unsigned integer values values or OptType of Tensor or MemRef of 32-bit unsigned integer values values or OptType of Tensor or MemRef of 64-bit unsigned integer values values or OptType of Tensor or MemRef of 8-bit signless integer values values or OptType of Tensor or MemRef of 16-bit signless integer values values or OptType of Tensor or MemRef of 32-bit signless integer values values or OptType of Tensor or MemRef of 64-bit signless integer values values or OptType of Tensor or MemRef of 16-bit float values values or OptType of Tensor or MemRef of 32-bit float values values or OptType of Tensor or MemRef of 64-bit float values values or OptType of Tensor or MemRef of string type values values or OptType of Tensor or MemRef of 1-bit signless integer values values or OptType of Tensor or MemRef of complex type with 32-bit float elements values values or OptType of Tensor or MemRef of complex type with 64-bit float elements values values |
 
 
 
@@ -6455,13 +6455,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | OptType of SeqType of tensor of 8-bit unsigned integer values values values or OptType of SeqType of tensor of 16-bit unsigned integer values values values or OptType of SeqType of tensor of 32-bit unsigned integer values values values or OptType of SeqType of tensor of 64-bit unsigned integer values values values or OptType of SeqType of tensor of 8-bit signless integer values values values or OptType of SeqType of tensor of 16-bit signless integer values values values or OptType of SeqType of tensor of 32-bit signless integer values values values or OptType of SeqType of tensor of 64-bit signless integer values values values or OptType of SeqType of tensor of 16-bit float values values values or OptType of SeqType of tensor of 32-bit float values values values or OptType of SeqType of tensor of 64-bit float values values values or OptType of SeqType of tensor of string type values values values or OptType of SeqType of tensor of 1-bit signless integer values values values or OptType of SeqType of tensor of complex type with 32-bit float elements values values values or OptType of SeqType of tensor of complex type with 64-bit float elements values values values or OptType of tensor of 8-bit unsigned integer values values or OptType of tensor of 16-bit unsigned integer values values or OptType of tensor of 32-bit unsigned integer values values or OptType of tensor of 64-bit unsigned integer values values or OptType of tensor of 8-bit signless integer values values or OptType of tensor of 16-bit signless integer values values or OptType of tensor of 32-bit signless integer values values or OptType of tensor of 64-bit signless integer values values or OptType of tensor of 16-bit float values values or OptType of tensor of 32-bit float values values or OptType of tensor of 64-bit float values values or OptType of tensor of string type values values or OptType of tensor of 1-bit signless integer values values or OptType of tensor of complex type with 32-bit float elements values values or OptType of tensor of complex type with 64-bit float elements values values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values |
+| `input` | OptType of SeqType of Tensor or MemRef of 8-bit unsigned integer values values values or OptType of SeqType of Tensor or MemRef of 16-bit unsigned integer values values values or OptType of SeqType of Tensor or MemRef of 32-bit unsigned integer values values values or OptType of SeqType of Tensor or MemRef of 64-bit unsigned integer values values values or OptType of SeqType of Tensor or MemRef of 8-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of 16-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of 32-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of 64-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of 16-bit float values values values or OptType of SeqType of Tensor or MemRef of 32-bit float values values values or OptType of SeqType of Tensor or MemRef of 64-bit float values values values or OptType of SeqType of Tensor or MemRef of string type values values values or OptType of SeqType of Tensor or MemRef of 1-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of complex type with 32-bit float elements values values values or OptType of SeqType of Tensor or MemRef of complex type with 64-bit float elements values values values or OptType of Tensor or MemRef of 8-bit unsigned integer values values or OptType of Tensor or MemRef of 16-bit unsigned integer values values or OptType of Tensor or MemRef of 32-bit unsigned integer values values or OptType of Tensor or MemRef of 64-bit unsigned integer values values or OptType of Tensor or MemRef of 8-bit signless integer values values or OptType of Tensor or MemRef of 16-bit signless integer values values or OptType of Tensor or MemRef of 32-bit signless integer values values or OptType of Tensor or MemRef of 64-bit signless integer values values or OptType of Tensor or MemRef of 16-bit float values values or OptType of Tensor or MemRef of 32-bit float values values or OptType of Tensor or MemRef of 64-bit float values values or OptType of Tensor or MemRef of string type values values or OptType of Tensor or MemRef of 1-bit signless integer values values or OptType of Tensor or MemRef of complex type with 32-bit float elements values values or OptType of Tensor or MemRef of complex type with 64-bit float elements values values or Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values or SeqType of Tensor or MemRef of 8-bit unsigned integer values values or SeqType of Tensor or MemRef of 16-bit unsigned integer values values or SeqType of Tensor or MemRef of 32-bit unsigned integer values values or SeqType of Tensor or MemRef of 64-bit unsigned integer values values or SeqType of Tensor or MemRef of 8-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit signless integer values values or SeqType of Tensor or MemRef of 32-bit signless integer values values or SeqType of Tensor or MemRef of 64-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit float values values or SeqType of Tensor or MemRef of 32-bit float values values or SeqType of Tensor or MemRef of 64-bit float values values or SeqType of Tensor or MemRef of string type values values or SeqType of Tensor or MemRef of 1-bit signless integer values values or SeqType of Tensor or MemRef of complex type with 32-bit float elements values values or SeqType of Tensor or MemRef of complex type with 64-bit float elements values values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values |
+| `output` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values or SeqType of Tensor or MemRef of 8-bit unsigned integer values values or SeqType of Tensor or MemRef of 16-bit unsigned integer values values or SeqType of Tensor or MemRef of 32-bit unsigned integer values values or SeqType of Tensor or MemRef of 64-bit unsigned integer values values or SeqType of Tensor or MemRef of 8-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit signless integer values values or SeqType of Tensor or MemRef of 32-bit signless integer values values or SeqType of Tensor or MemRef of 64-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit float values values or SeqType of Tensor or MemRef of 32-bit float values values or SeqType of Tensor or MemRef of 64-bit float values values or SeqType of Tensor or MemRef of string type values values or SeqType of Tensor or MemRef of 1-bit signless integer values values or SeqType of Tensor or MemRef of complex type with 32-bit float elements values values or SeqType of Tensor or MemRef of complex type with 64-bit float elements values values |
 
 
 
@@ -6483,13 +6483,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | OptType of SeqType of tensor of 8-bit unsigned integer values values values or OptType of SeqType of tensor of 16-bit unsigned integer values values values or OptType of SeqType of tensor of 32-bit unsigned integer values values values or OptType of SeqType of tensor of 64-bit unsigned integer values values values or OptType of SeqType of tensor of 8-bit signless integer values values values or OptType of SeqType of tensor of 16-bit signless integer values values values or OptType of SeqType of tensor of 32-bit signless integer values values values or OptType of SeqType of tensor of 64-bit signless integer values values values or OptType of SeqType of tensor of 16-bit float values values values or OptType of SeqType of tensor of 32-bit float values values values or OptType of SeqType of tensor of 64-bit float values values values or OptType of SeqType of tensor of string type values values values or OptType of SeqType of tensor of 1-bit signless integer values values values or OptType of SeqType of tensor of complex type with 32-bit float elements values values values or OptType of SeqType of tensor of complex type with 64-bit float elements values values values or OptType of tensor of 8-bit unsigned integer values values or OptType of tensor of 16-bit unsigned integer values values or OptType of tensor of 32-bit unsigned integer values values or OptType of tensor of 64-bit unsigned integer values values or OptType of tensor of 8-bit signless integer values values or OptType of tensor of 16-bit signless integer values values or OptType of tensor of 32-bit signless integer values values or OptType of tensor of 64-bit signless integer values values or OptType of tensor of 16-bit float values values or OptType of tensor of 32-bit float values values or OptType of tensor of 64-bit float values values or OptType of tensor of string type values values or OptType of tensor of 1-bit signless integer values values or OptType of tensor of complex type with 32-bit float elements values values or OptType of tensor of complex type with 64-bit float elements values values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values or none type |
+| `input` | OptType of SeqType of Tensor or MemRef of 8-bit unsigned integer values values values or OptType of SeqType of Tensor or MemRef of 16-bit unsigned integer values values values or OptType of SeqType of Tensor or MemRef of 32-bit unsigned integer values values values or OptType of SeqType of Tensor or MemRef of 64-bit unsigned integer values values values or OptType of SeqType of Tensor or MemRef of 8-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of 16-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of 32-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of 64-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of 16-bit float values values values or OptType of SeqType of Tensor or MemRef of 32-bit float values values values or OptType of SeqType of Tensor or MemRef of 64-bit float values values values or OptType of SeqType of Tensor or MemRef of string type values values values or OptType of SeqType of Tensor or MemRef of 1-bit signless integer values values values or OptType of SeqType of Tensor or MemRef of complex type with 32-bit float elements values values values or OptType of SeqType of Tensor or MemRef of complex type with 64-bit float elements values values values or OptType of Tensor or MemRef of 8-bit unsigned integer values values or OptType of Tensor or MemRef of 16-bit unsigned integer values values or OptType of Tensor or MemRef of 32-bit unsigned integer values values or OptType of Tensor or MemRef of 64-bit unsigned integer values values or OptType of Tensor or MemRef of 8-bit signless integer values values or OptType of Tensor or MemRef of 16-bit signless integer values values or OptType of Tensor or MemRef of 32-bit signless integer values values or OptType of Tensor or MemRef of 64-bit signless integer values values or OptType of Tensor or MemRef of 16-bit float values values or OptType of Tensor or MemRef of 32-bit float values values or OptType of Tensor or MemRef of 64-bit float values values or OptType of Tensor or MemRef of string type values values or OptType of Tensor or MemRef of 1-bit signless integer values values or OptType of Tensor or MemRef of complex type with 32-bit float elements values values or OptType of Tensor or MemRef of complex type with 64-bit float elements values values or Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values or SeqType of Tensor or MemRef of 8-bit unsigned integer values values or SeqType of Tensor or MemRef of 16-bit unsigned integer values values or SeqType of Tensor or MemRef of 32-bit unsigned integer values values or SeqType of Tensor or MemRef of 64-bit unsigned integer values values or SeqType of Tensor or MemRef of 8-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit signless integer values values or SeqType of Tensor or MemRef of 32-bit signless integer values values or SeqType of Tensor or MemRef of 64-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit float values values or SeqType of Tensor or MemRef of 32-bit float values values or SeqType of Tensor or MemRef of 64-bit float values values or SeqType of Tensor or MemRef of string type values values or SeqType of Tensor or MemRef of 1-bit signless integer values values or SeqType of Tensor or MemRef of complex type with 32-bit float elements values values or SeqType of Tensor or MemRef of complex type with 64-bit float elements values values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 1-bit signless integer values |
+| `output` | Tensor or MemRef of 1-bit signless integer values |
 
 
 
@@ -6512,14 +6512,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `A` | tensor of 1-bit signless integer values |
-| `B` | tensor of 1-bit signless integer values |
+| `A` | Tensor or MemRef of 1-bit signless integer values |
+| `B` | Tensor or MemRef of 1-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `C` | tensor of 1-bit signless integer values |
+| `C` | Tensor or MemRef of 1-bit signless integer values |
 
 
 
@@ -6645,16 +6645,16 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values |
-| `pads` | tensor of 64-bit signless integer values |
-| `constant_value` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values or none type |
-| `axes` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or none type |
+| `data` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values or Tensor or MemRef of f8E4M3FN type values or Tensor or MemRef of f8E4M3FNUZ type values or Tensor or MemRef of f8E5M2 type values or Tensor or MemRef of f8E5M2FNUZ type values or Tensor or MemRef of 4-bit unsigned integer values or Tensor or MemRef of 4-bit signless integer values |
+| `pads` | Tensor or MemRef of 64-bit signless integer values |
+| `constant_value` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values or Tensor or MemRef of f8E4M3FN type values or Tensor or MemRef of f8E4M3FNUZ type values or Tensor or MemRef of f8E5M2 type values or Tensor or MemRef of f8E5M2FNUZ type values or Tensor or MemRef of 4-bit unsigned integer values or Tensor or MemRef of 4-bit signless integer values or none type |
+| `axes` | Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values |
+| `output` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values or Tensor or MemRef of f8E4M3FN type values or Tensor or MemRef of f8E4M3FNUZ type values or Tensor or MemRef of f8E5M2 type values or Tensor or MemRef of f8E5M2FNUZ type values or Tensor or MemRef of 4-bit unsigned integer values or Tensor or MemRef of 4-bit signless integer values |
 
 
 
@@ -6755,15 +6755,15 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `pads` | tensor of 64-bit signless integer values |
-| `constant_value` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
+| `data` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
+| `pads` | Tensor or MemRef of 64-bit signless integer values |
+| `constant_value` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `output` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -6864,15 +6864,15 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-| `pads` | tensor of 64-bit signless integer values |
-| `constant_value` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or none type |
+| `data` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
+| `pads` | Tensor or MemRef of 64-bit signless integer values |
+| `constant_value` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `output` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 
 
@@ -6973,16 +6973,16 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-| `pads` | tensor of 64-bit signless integer values |
-| `constant_value` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or none type |
-| `axes` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or none type |
+| `data` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
+| `pads` | Tensor or MemRef of 64-bit signless integer values |
+| `constant_value` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values or none type |
+| `axes` | Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `output` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 
 
@@ -7026,13 +7026,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `data` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `output` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -7055,14 +7055,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `X` | Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
+| `Y` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Z` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `Z` | Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -7085,14 +7085,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
-| `slope` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
+| `X` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values |
+| `slope` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
+| `Y` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values |
 
 
 
@@ -7123,7 +7123,7 @@ This operation is not part of the standard and was added to assist onnx-mlir.
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | variadic of tensor of any type values or none type |
+| `input` | variadic of memref of any type values or tensor of any type values or none type |
 
 
 
@@ -7161,21 +7161,21 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `x` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values |
-| `x_scale` | tensor of 32-bit float values |
-| `x_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values |
-| `w` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values |
-| `w_scale` | tensor of 32-bit float values |
-| `w_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values |
-| `y_scale` | tensor of 32-bit float values |
-| `y_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values |
-| `B` | tensor of 32-bit signless integer values or none type |
+| `x` | Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 8-bit unsigned integer values |
+| `x_scale` | Tensor or MemRef of 32-bit float values |
+| `x_zero_point` | Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 8-bit unsigned integer values |
+| `w` | Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 8-bit unsigned integer values |
+| `w_scale` | Tensor or MemRef of 32-bit float values |
+| `w_zero_point` | Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 8-bit unsigned integer values |
+| `y_scale` | Tensor or MemRef of 32-bit float values |
+| `y_zero_point` | Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 8-bit unsigned integer values |
+| `B` | Tensor or MemRef of 32-bit signless integer values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `y` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values |
+| `y` | Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 8-bit unsigned integer values |
 
 
 
@@ -7205,20 +7205,20 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `a` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values |
-| `a_scale` | tensor of 32-bit float values |
-| `a_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values |
-| `b` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values |
-| `b_scale` | tensor of 32-bit float values |
-| `b_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values |
-| `y_scale` | tensor of 32-bit float values |
-| `y_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values |
+| `a` | Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 8-bit unsigned integer values |
+| `a_scale` | Tensor or MemRef of 32-bit float values |
+| `a_zero_point` | Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 8-bit unsigned integer values |
+| `b` | Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 8-bit unsigned integer values |
+| `b_scale` | Tensor or MemRef of 32-bit float values |
+| `b_zero_point` | Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 8-bit unsigned integer values |
+| `y_scale` | Tensor or MemRef of 32-bit float values |
+| `y_zero_point` | Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 8-bit unsigned integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `y` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values |
+| `y` | Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 8-bit unsigned integer values |
 
 
 
@@ -7254,15 +7254,15 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `x` | tensor of 32-bit float values or tensor of 16-bit float values or tensor of bfloat16 type values or tensor of 32-bit signless integer values |
-| `y_scale` | tensor of 32-bit float values or tensor of 16-bit float values or tensor of bfloat16 type values or tensor of 32-bit signless integer values |
-| `y_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or none type |
+| `x` | Tensor or MemRef of 32-bit float values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 32-bit signless integer values |
+| `y_scale` | Tensor or MemRef of 32-bit float values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 32-bit signless integer values |
+| `y_zero_point` | Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of f8E4M3FN type values or Tensor or MemRef of f8E4M3FNUZ type values or Tensor or MemRef of f8E5M2 type values or Tensor or MemRef of f8E5M2FNUZ type values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `y` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values |
+| `y` | Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of f8E4M3FN type values or Tensor or MemRef of f8E4M3FNUZ type values or Tensor or MemRef of f8E5M2 type values or Tensor or MemRef of f8E5M2FNUZ type values |
 
 
 
@@ -7299,7 +7299,7 @@ Effects: `MemoryEffects::Effect{}`
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `output` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -7335,13 +7335,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `input` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `output` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -7377,7 +7377,7 @@ Effects: `MemoryEffects::Effect{}`
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `output` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -7413,13 +7413,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `input` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `output` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -7468,15 +7468,15 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `start` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
-| `limit` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
-| `delta` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
+| `start` | Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values |
+| `limit` | Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values |
+| `delta` | Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
+| `output` | Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values |
 
 
 
@@ -7498,13 +7498,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `X` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `Y` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -7539,14 +7539,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `axes` | tensor of 64-bit signless integer values or none type |
+| `data` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
+| `axes` | Tensor or MemRef of 64-bit signless integer values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `reduced` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -7581,13 +7581,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `data` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `reduced` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -7622,14 +7622,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `axes` | tensor of 64-bit signless integer values or none type |
+| `data` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
+| `axes` | Tensor or MemRef of 64-bit signless integer values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `reduced` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -7664,13 +7664,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `data` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `reduced` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -7705,14 +7705,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `axes` | tensor of 64-bit signless integer values or none type |
+| `data` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
+| `axes` | Tensor or MemRef of 64-bit signless integer values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `reduced` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -7747,14 +7747,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `axes` | tensor of 64-bit signless integer values or none type |
+| `data` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
+| `axes` | Tensor or MemRef of 64-bit signless integer values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `reduced` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -7789,13 +7789,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `data` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `reduced` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -7830,13 +7830,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `data` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `reduced` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -7873,14 +7873,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 1-bit signless integer values |
-| `axes` | tensor of 64-bit signless integer values or none type |
+| `data` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 1-bit signless integer values |
+| `axes` | Tensor or MemRef of 64-bit signless integer values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 1-bit signless integer values |
+| `reduced` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 1-bit signless integer values |
 
 
 
@@ -7915,13 +7915,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values |
+| `data` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values |
+| `reduced` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values |
 
 
 
@@ -7956,14 +7956,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values |
-| `axes` | tensor of 64-bit signless integer values or none type |
+| `data` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values |
+| `axes` | Tensor or MemRef of 64-bit signless integer values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values |
+| `reduced` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values |
 
 
 
@@ -7998,14 +7998,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `axes` | tensor of 64-bit signless integer values or none type |
+| `data` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
+| `axes` | Tensor or MemRef of 64-bit signless integer values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `reduced` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -8040,13 +8040,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `data` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `reduced` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -8083,14 +8083,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 1-bit signless integer values |
-| `axes` | tensor of 64-bit signless integer values or none type |
+| `data` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 1-bit signless integer values |
+| `axes` | Tensor or MemRef of 64-bit signless integer values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 1-bit signless integer values |
+| `reduced` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 1-bit signless integer values |
 
 
 
@@ -8125,13 +8125,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values |
+| `data` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values |
+| `reduced` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values |
 
 
 
@@ -8166,14 +8166,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values |
-| `axes` | tensor of 64-bit signless integer values or none type |
+| `data` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values |
+| `axes` | Tensor or MemRef of 64-bit signless integer values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values |
+| `reduced` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values |
 
 
 
@@ -8208,14 +8208,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `axes` | tensor of 64-bit signless integer values or none type |
+| `data` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
+| `axes` | Tensor or MemRef of 64-bit signless integer values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `reduced` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -8250,13 +8250,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `data` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `reduced` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -8291,14 +8291,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `axes` | tensor of 64-bit signless integer values or none type |
+| `data` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
+| `axes` | Tensor or MemRef of 64-bit signless integer values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `reduced` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -8333,14 +8333,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `axes` | tensor of 64-bit signless integer values or none type |
+| `data` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
+| `axes` | Tensor or MemRef of 64-bit signless integer values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `reduced` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -8375,13 +8375,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `data` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `reduced` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -8414,13 +8414,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `data` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `reduced` | Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -8442,13 +8442,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 32-bit float values or tensor of 32-bit signless integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `X` | Tensor or MemRef of 32-bit float values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 32-bit float values or tensor of 32-bit signless integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `Y` | Tensor or MemRef of 32-bit float values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -8487,14 +8487,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values |
-| `shape` | tensor of 64-bit signless integer values |
+| `data` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values or Tensor or MemRef of f8E4M3FN type values or Tensor or MemRef of f8E4M3FNUZ type values or Tensor or MemRef of f8E5M2 type values or Tensor or MemRef of f8E5M2FNUZ type values or Tensor or MemRef of 4-bit unsigned integer values or Tensor or MemRef of 4-bit signless integer values |
+| `shape` | Tensor or MemRef of 64-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `reshaped` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values |
+| `reshaped` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values or Tensor or MemRef of f8E4M3FN type values or Tensor or MemRef of f8E4M3FNUZ type values or Tensor or MemRef of f8E5M2 type values or Tensor or MemRef of f8E5M2FNUZ type values or Tensor or MemRef of 4-bit unsigned integer values or Tensor or MemRef of 4-bit signless integer values |
 
 
 
@@ -8534,16 +8534,16 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-| `roi` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
-| `scales` | tensor of 32-bit float values or none type |
-| `sizes` | tensor of 64-bit signless integer values or none type |
+| `X` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
+| `roi` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or none type |
+| `scales` | Tensor or MemRef of 32-bit float values or none type |
+| `sizes` | Tensor or MemRef of 64-bit signless integer values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `Y` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 
 
@@ -8572,14 +8572,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-| `scales` | tensor of 32-bit float values |
+| `X` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
+| `scales` | Tensor or MemRef of 32-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `Y` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 
 
@@ -8613,16 +8613,16 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-| `roi` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `scales` | tensor of 32-bit float values |
-| `sizes` | tensor of 64-bit signless integer values or none type |
+| `X` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
+| `roi` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
+| `scales` | Tensor or MemRef of 32-bit float values |
+| `sizes` | Tensor or MemRef of 64-bit signless integer values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `Y` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 
 
@@ -8656,16 +8656,16 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-| `roi` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
-| `scales` | tensor of 32-bit float values or none type |
-| `sizes` | tensor of 64-bit signless integer values or none type |
+| `X` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
+| `roi` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or none type |
+| `scales` | Tensor or MemRef of 32-bit float values or none type |
+| `sizes` | Tensor or MemRef of 64-bit signless integer values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `Y` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 
 
@@ -8703,16 +8703,16 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-| `roi` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
-| `scales` | tensor of 32-bit float values or none type |
-| `sizes` | tensor of 64-bit signless integer values or none type |
+| `X` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
+| `roi` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or none type |
+| `scales` | Tensor or MemRef of 32-bit float values or none type |
+| `sizes` | Tensor or MemRef of 64-bit signless integer values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `Y` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 
 
@@ -8806,14 +8806,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-| `sequence_lens` | tensor of 64-bit signless integer values |
+| `input` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
+| `sequence_lens` | Tensor or MemRef of 64-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `Y` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 
 
@@ -8878,16 +8878,16 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `Scale` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `B` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or none type |
+| `X` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
+| `Scale` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
+| `B` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `InvStdDev` | tensor of 32-bit float values or tensor of bfloat16 type values or none type |
+| `Y` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
+| `InvStdDev` | Tensor or MemRef of 32-bit float values or Tensor or MemRef of bfloat16 type values or none type |
 
 
 
@@ -8959,19 +8959,19 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `W` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `R` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `B` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
-| `sequence_lens` | tensor of 32-bit signless integer values or none type |
-| `initial_h` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
+| `X` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
+| `W` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
+| `R` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
+| `B` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or none type |
+| `sequence_lens` | Tensor or MemRef of 32-bit signless integer values or none type |
+| `initial_h` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
-| `Y_h` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
+| `Y` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or none type |
+| `Y_h` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or none type |
 
 
 
@@ -9013,15 +9013,15 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `rois` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `batch_indices` | tensor of 64-bit signless integer values |
+| `X` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
+| `rois` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
+| `batch_indices` | Tensor or MemRef of 64-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `Y` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -9054,13 +9054,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `X` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `Y` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -9088,13 +9088,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 64-bit signless integer values or tensor of 32-bit signless integer values |
+| `X` | Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 32-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 32-bit float values |
+| `Y` | Tensor or MemRef of 32-bit float values |
 
 
 
@@ -9245,13 +9245,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `initial_state_and_scan_inputs` | variadic of tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values |
+| `initial_state_and_scan_inputs` | variadic of Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values or Tensor or MemRef of f8E4M3FN type values or Tensor or MemRef of f8E4M3FNUZ type values or Tensor or MemRef of f8E5M2 type values or Tensor or MemRef of f8E5M2FNUZ type values or Tensor or MemRef of 4-bit unsigned integer values or Tensor or MemRef of 4-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `final_state_and_scan_outputs` | variadic of tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values |
+| `final_state_and_scan_outputs` | variadic of Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values or Tensor or MemRef of f8E4M3FN type values or Tensor or MemRef of f8E4M3FNUZ type values or Tensor or MemRef of f8E5M2 type values or Tensor or MemRef of f8E5M2FNUZ type values or Tensor or MemRef of 4-bit unsigned integer values or Tensor or MemRef of 4-bit signless integer values |
 
 
 
@@ -9330,15 +9330,15 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-| `indices` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
-| `updates` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `data` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
+| `indices` | Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values |
+| `updates` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `output` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 
 
@@ -9427,15 +9427,15 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-| `indices` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
-| `updates` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `data` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
+| `indices` | Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values |
+| `updates` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `output` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 
 
@@ -9536,15 +9536,15 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-| `indices` | tensor of 64-bit signless integer values |
-| `updates` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `data` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
+| `indices` | Tensor or MemRef of 64-bit signless integer values |
+| `updates` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `output` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 
 
@@ -9575,13 +9575,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `X` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `Y` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -9603,14 +9603,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input_sequence` | SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values |
-| `position` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
+| `input_sequence` | SeqType of Tensor or MemRef of 8-bit unsigned integer values values or SeqType of Tensor or MemRef of 16-bit unsigned integer values values or SeqType of Tensor or MemRef of 32-bit unsigned integer values values or SeqType of Tensor or MemRef of 64-bit unsigned integer values values or SeqType of Tensor or MemRef of 8-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit signless integer values values or SeqType of Tensor or MemRef of 32-bit signless integer values values or SeqType of Tensor or MemRef of 64-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit float values values or SeqType of Tensor or MemRef of 32-bit float values values or SeqType of Tensor or MemRef of 64-bit float values values or SeqType of Tensor or MemRef of string type values values or SeqType of Tensor or MemRef of 1-bit signless integer values values or SeqType of Tensor or MemRef of complex type with 32-bit float elements values values or SeqType of Tensor or MemRef of complex type with 64-bit float elements values values |
+| `position` | Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `tensor` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `tensor` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 
 
@@ -9631,13 +9631,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `inputs` | variadic of tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `inputs` | variadic of Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output_sequence` | SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values |
+| `output_sequence` | SeqType of Tensor or MemRef of 8-bit unsigned integer values values or SeqType of Tensor or MemRef of 16-bit unsigned integer values values or SeqType of Tensor or MemRef of 32-bit unsigned integer values values or SeqType of Tensor or MemRef of 64-bit unsigned integer values values or SeqType of Tensor or MemRef of 8-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit signless integer values values or SeqType of Tensor or MemRef of 32-bit signless integer values values or SeqType of Tensor or MemRef of 64-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit float values values or SeqType of Tensor or MemRef of 32-bit float values values or SeqType of Tensor or MemRef of 64-bit float values values or SeqType of Tensor or MemRef of string type values values or SeqType of Tensor or MemRef of 1-bit signless integer values values or SeqType of Tensor or MemRef of complex type with 32-bit float elements values values or SeqType of Tensor or MemRef of complex type with 64-bit float elements values values |
 
 
 
@@ -9664,7 +9664,7 @@ Effects: `MemoryEffects::Effect{}`
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values |
+| `output` | SeqType of Tensor or MemRef of 8-bit unsigned integer values values or SeqType of Tensor or MemRef of 16-bit unsigned integer values values or SeqType of Tensor or MemRef of 32-bit unsigned integer values values or SeqType of Tensor or MemRef of 64-bit unsigned integer values values or SeqType of Tensor or MemRef of 8-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit signless integer values values or SeqType of Tensor or MemRef of 32-bit signless integer values values or SeqType of Tensor or MemRef of 64-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit float values values or SeqType of Tensor or MemRef of 32-bit float values values or SeqType of Tensor or MemRef of 64-bit float values values or SeqType of Tensor or MemRef of string type values values or SeqType of Tensor or MemRef of 1-bit signless integer values values or SeqType of Tensor or MemRef of complex type with 32-bit float elements values values or SeqType of Tensor or MemRef of complex type with 64-bit float elements values values |
 
 
 
@@ -9687,14 +9687,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input_sequence` | SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values |
-| `position` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or none type |
+| `input_sequence` | SeqType of Tensor or MemRef of 8-bit unsigned integer values values or SeqType of Tensor or MemRef of 16-bit unsigned integer values values or SeqType of Tensor or MemRef of 32-bit unsigned integer values values or SeqType of Tensor or MemRef of 64-bit unsigned integer values values or SeqType of Tensor or MemRef of 8-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit signless integer values values or SeqType of Tensor or MemRef of 32-bit signless integer values values or SeqType of Tensor or MemRef of 64-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit float values values or SeqType of Tensor or MemRef of 32-bit float values values or SeqType of Tensor or MemRef of 64-bit float values values or SeqType of Tensor or MemRef of string type values values or SeqType of Tensor or MemRef of 1-bit signless integer values values or SeqType of Tensor or MemRef of complex type with 32-bit float elements values values or SeqType of Tensor or MemRef of complex type with 64-bit float elements values values |
+| `position` | Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output_sequence` | SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values |
+| `output_sequence` | SeqType of Tensor or MemRef of 8-bit unsigned integer values values or SeqType of Tensor or MemRef of 16-bit unsigned integer values values or SeqType of Tensor or MemRef of 32-bit unsigned integer values values or SeqType of Tensor or MemRef of 64-bit unsigned integer values values or SeqType of Tensor or MemRef of 8-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit signless integer values values or SeqType of Tensor or MemRef of 32-bit signless integer values values or SeqType of Tensor or MemRef of 64-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit float values values or SeqType of Tensor or MemRef of 32-bit float values values or SeqType of Tensor or MemRef of 64-bit float values values or SeqType of Tensor or MemRef of string type values values or SeqType of Tensor or MemRef of 1-bit signless integer values values or SeqType of Tensor or MemRef of complex type with 32-bit float elements values values or SeqType of Tensor or MemRef of complex type with 64-bit float elements values values |
 
 
 
@@ -9718,15 +9718,15 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input_sequence` | SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values |
-| `tensor` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-| `position` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or none type |
+| `input_sequence` | SeqType of Tensor or MemRef of 8-bit unsigned integer values values or SeqType of Tensor or MemRef of 16-bit unsigned integer values values or SeqType of Tensor or MemRef of 32-bit unsigned integer values values or SeqType of Tensor or MemRef of 64-bit unsigned integer values values or SeqType of Tensor or MemRef of 8-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit signless integer values values or SeqType of Tensor or MemRef of 32-bit signless integer values values or SeqType of Tensor or MemRef of 64-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit float values values or SeqType of Tensor or MemRef of 32-bit float values values or SeqType of Tensor or MemRef of 64-bit float values values or SeqType of Tensor or MemRef of string type values values or SeqType of Tensor or MemRef of 1-bit signless integer values values or SeqType of Tensor or MemRef of complex type with 32-bit float elements values values or SeqType of Tensor or MemRef of complex type with 64-bit float elements values values |
+| `tensor` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
+| `position` | Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output_sequence` | SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values |
+| `output_sequence` | SeqType of Tensor or MemRef of 8-bit unsigned integer values values or SeqType of Tensor or MemRef of 16-bit unsigned integer values values or SeqType of Tensor or MemRef of 32-bit unsigned integer values values or SeqType of Tensor or MemRef of 64-bit unsigned integer values values or SeqType of Tensor or MemRef of 8-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit signless integer values values or SeqType of Tensor or MemRef of 32-bit signless integer values values or SeqType of Tensor or MemRef of 64-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit float values values or SeqType of Tensor or MemRef of 32-bit float values values or SeqType of Tensor or MemRef of 64-bit float values values or SeqType of Tensor or MemRef of string type values values or SeqType of Tensor or MemRef of 1-bit signless integer values values or SeqType of Tensor or MemRef of complex type with 32-bit float elements values values or SeqType of Tensor or MemRef of complex type with 64-bit float elements values values |
 
 
 
@@ -9746,13 +9746,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input_sequence` | SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values |
+| `input_sequence` | SeqType of Tensor or MemRef of 8-bit unsigned integer values values or SeqType of Tensor or MemRef of 16-bit unsigned integer values values or SeqType of Tensor or MemRef of 32-bit unsigned integer values values or SeqType of Tensor or MemRef of 64-bit unsigned integer values values or SeqType of Tensor or MemRef of 8-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit signless integer values values or SeqType of Tensor or MemRef of 32-bit signless integer values values or SeqType of Tensor or MemRef of 64-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit float values values or SeqType of Tensor or MemRef of 32-bit float values values or SeqType of Tensor or MemRef of 64-bit float values values or SeqType of Tensor or MemRef of string type values values or SeqType of Tensor or MemRef of 1-bit signless integer values values or SeqType of Tensor or MemRef of complex type with 32-bit float elements values values or SeqType of Tensor or MemRef of complex type with 64-bit float elements values values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `length` | tensor of 64-bit signless integer values |
+| `length` | Tensor or MemRef of 64-bit signless integer values |
 
 
 
@@ -9785,14 +9785,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input_sequence` | SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values |
-| `additional_inputs` | variadic of tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values |
+| `input_sequence` | SeqType of Tensor or MemRef of 8-bit unsigned integer values values or SeqType of Tensor or MemRef of 16-bit unsigned integer values values or SeqType of Tensor or MemRef of 32-bit unsigned integer values values or SeqType of Tensor or MemRef of 64-bit unsigned integer values values or SeqType of Tensor or MemRef of 8-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit signless integer values values or SeqType of Tensor or MemRef of 32-bit signless integer values values or SeqType of Tensor or MemRef of 64-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit float values values or SeqType of Tensor or MemRef of 32-bit float values values or SeqType of Tensor or MemRef of 64-bit float values values or SeqType of Tensor or MemRef of string type values values or SeqType of Tensor or MemRef of 1-bit signless integer values values or SeqType of Tensor or MemRef of complex type with 32-bit float elements values values or SeqType of Tensor or MemRef of complex type with 64-bit float elements values values |
+| `additional_inputs` | variadic of Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values or SeqType of Tensor or MemRef of 8-bit unsigned integer values values or SeqType of Tensor or MemRef of 16-bit unsigned integer values values or SeqType of Tensor or MemRef of 32-bit unsigned integer values values or SeqType of Tensor or MemRef of 64-bit unsigned integer values values or SeqType of Tensor or MemRef of 8-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit signless integer values values or SeqType of Tensor or MemRef of 32-bit signless integer values values or SeqType of Tensor or MemRef of 64-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit float values values or SeqType of Tensor or MemRef of 32-bit float values values or SeqType of Tensor or MemRef of 64-bit float values values or SeqType of Tensor or MemRef of string type values values or SeqType of Tensor or MemRef of 1-bit signless integer values values or SeqType of Tensor or MemRef of complex type with 32-bit float elements values values or SeqType of Tensor or MemRef of complex type with 64-bit float elements values values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `out_sequence` | variadic of SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values |
+| `out_sequence` | variadic of SeqType of Tensor or MemRef of 8-bit unsigned integer values values or SeqType of Tensor or MemRef of 16-bit unsigned integer values values or SeqType of Tensor or MemRef of 32-bit unsigned integer values values or SeqType of Tensor or MemRef of 64-bit unsigned integer values values or SeqType of Tensor or MemRef of 8-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit signless integer values values or SeqType of Tensor or MemRef of 32-bit signless integer values values or SeqType of Tensor or MemRef of 64-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit float values values or SeqType of Tensor or MemRef of 32-bit float values values or SeqType of Tensor or MemRef of 64-bit float values values or SeqType of Tensor or MemRef of string type values values or SeqType of Tensor or MemRef of 1-bit signless integer values values or SeqType of Tensor or MemRef of complex type with 32-bit float elements values values or SeqType of Tensor or MemRef of complex type with 64-bit float elements values values |
 
 
 
@@ -9857,13 +9857,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values |
+| `data` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values or Tensor or MemRef of f8E4M3FN type values or Tensor or MemRef of f8E4M3FNUZ type values or Tensor or MemRef of f8E5M2 type values or Tensor or MemRef of f8E5M2FNUZ type values or Tensor or MemRef of 4-bit unsigned integer values or Tensor or MemRef of 4-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `shape` | tensor of 64-bit signless integer values |
+| `shape` | Tensor or MemRef of 64-bit signless integer values |
 
 
 
@@ -9919,13 +9919,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 32-bit float values |
+| `input` | Tensor or MemRef of 32-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 32-bit float values |
+| `output` | Tensor or MemRef of 32-bit float values |
 
 
 
@@ -9956,13 +9956,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `input` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `output` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -9984,13 +9984,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `X` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `Y` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -10011,13 +10011,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `input` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `output` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -10037,13 +10037,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `input` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `output` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -10063,13 +10063,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `input` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `output` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -10089,13 +10089,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values |
+| `data` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values or Tensor or MemRef of f8E4M3FN type values or Tensor or MemRef of f8E4M3FNUZ type values or Tensor or MemRef of f8E5M2 type values or Tensor or MemRef of f8E5M2FNUZ type values or Tensor or MemRef of 4-bit unsigned integer values or Tensor or MemRef of 4-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `size` | tensor of 64-bit signless integer values |
+| `size` | Tensor or MemRef of 64-bit signless integer values |
 
 
 
@@ -10176,17 +10176,17 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-| `starts` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
-| `ends` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
-| `axes` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or none type |
-| `steps` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or none type |
+| `data` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
+| `starts` | Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values |
+| `ends` | Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values |
+| `axes` | Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or none type |
+| `steps` | Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `output` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 
 
@@ -10219,13 +10219,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `input` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `output` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -10292,16 +10292,16 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `scores` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `labels` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
-| `weights` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or none type |
+| `scores` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
+| `labels` | Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values |
+| `weights` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `log_prob` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or none type |
+| `output` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
+| `log_prob` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values or none type |
 
 
 
@@ -10341,13 +10341,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `input` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `output` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -10369,13 +10369,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `X` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `Y` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -10395,13 +10395,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `input` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `output` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -10430,13 +10430,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `input` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `output` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 
 
@@ -10468,14 +10468,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-| `split` | tensor of 64-bit signless integer values or none type |
+| `input` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
+| `split` | Tensor or MemRef of 64-bit signless integer values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `outputs` | variadic of tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `outputs` | variadic of Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 
 
@@ -10514,14 +10514,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-| `split` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or none type |
+| `input` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
+| `split` | Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output_sequence` | SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values |
+| `output_sequence` | SeqType of Tensor or MemRef of 8-bit unsigned integer values values or SeqType of Tensor or MemRef of 16-bit unsigned integer values values or SeqType of Tensor or MemRef of 32-bit unsigned integer values values or SeqType of Tensor or MemRef of 64-bit unsigned integer values values or SeqType of Tensor or MemRef of 8-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit signless integer values values or SeqType of Tensor or MemRef of 32-bit signless integer values values or SeqType of Tensor or MemRef of 64-bit signless integer values values or SeqType of Tensor or MemRef of 16-bit float values values or SeqType of Tensor or MemRef of 32-bit float values values or SeqType of Tensor or MemRef of 64-bit float values values or SeqType of Tensor or MemRef of string type values values or SeqType of Tensor or MemRef of 1-bit signless integer values values or SeqType of Tensor or MemRef of complex type with 32-bit float elements values values or SeqType of Tensor or MemRef of complex type with 64-bit float elements values values |
 
 
 
@@ -10551,13 +10551,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `input` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `outputs` | variadic of tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `outputs` | variadic of Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 
 
@@ -10586,14 +10586,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-| `split` | tensor of 64-bit signless integer values or none type |
+| `input` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
+| `split` | Tensor or MemRef of 64-bit signless integer values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `outputs` | variadic of tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `outputs` | variadic of Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 
 
@@ -10615,13 +10615,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `X` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `Y` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -10644,14 +10644,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values |
-| `axes` | tensor of 64-bit signless integer values or none type |
+| `data` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values or Tensor or MemRef of f8E4M3FN type values or Tensor or MemRef of f8E4M3FNUZ type values or Tensor or MemRef of f8E5M2 type values or Tensor or MemRef of f8E5M2FNUZ type values or Tensor or MemRef of 4-bit unsigned integer values or Tensor or MemRef of 4-bit signless integer values |
+| `axes` | Tensor or MemRef of 64-bit signless integer values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `squeezed` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values |
+| `squeezed` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values or Tensor or MemRef of f8E4M3FN type values or Tensor or MemRef of f8E4M3FNUZ type values or Tensor or MemRef of f8E5M2 type values or Tensor or MemRef of f8E5M2FNUZ type values or Tensor or MemRef of 4-bit unsigned integer values or Tensor or MemRef of 4-bit signless integer values |
 
 
 
@@ -10681,13 +10681,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `data` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `squeezed` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `squeezed` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 
 
@@ -10714,16 +10714,16 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `signal` | tensor of 32-bit float values or tensor of 16-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `frame_step` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
-| `window` | tensor of 32-bit float values or tensor of 16-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or none type |
-| `frame_length` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or none type |
+| `signal` | Tensor or MemRef of 32-bit float values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
+| `frame_step` | Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values |
+| `window` | Tensor or MemRef of 32-bit float values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values or none type |
+| `frame_length` | Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 32-bit float values or tensor of 16-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `output` | Tensor or MemRef of 32-bit float values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -10761,13 +10761,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of string type values |
+| `X` | Tensor or MemRef of string type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of string type values |
+| `Y` | Tensor or MemRef of string type values |
 
 
 
@@ -10791,14 +10791,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `A` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `B` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `A` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
+| `B` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `C` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `C` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -10820,13 +10820,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data_0` | variadic of tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `data_0` | variadic of Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `sum` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `sum` | Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of bfloat16 type values |
 
 
 
@@ -10863,14 +10863,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 64-bit signless integer values or tensor of 32-bit signless integer values |
+| `X` | Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 32-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of string type values or tensor of 64-bit signless integer values |
-| `Z` | tensor of 32-bit float values |
+| `Y` | Tensor or MemRef of string type values or Tensor or MemRef of 64-bit signless integer values |
+| `Z` | Tensor or MemRef of 32-bit float values |
 
 
 
@@ -10904,13 +10904,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 64-bit signless integer values or tensor of 32-bit signless integer values |
+| `X` | Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 32-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 32-bit float values |
+| `Y` | Tensor or MemRef of 32-bit float values |
 
 
 
@@ -10930,13 +10930,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `input` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `output` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -10956,13 +10956,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `input` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `output` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -11023,13 +11023,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of string type values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
+| `X` | Tensor or MemRef of string type values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 32-bit float values |
+| `Y` | Tensor or MemRef of 32-bit float values |
 
 
 
@@ -11058,13 +11058,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `X` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `Y` | Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -11086,14 +11086,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-| `repeats` | tensor of 64-bit signless integer values |
+| `input` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
+| `repeats` | Tensor or MemRef of 64-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `output` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 
 
@@ -11136,15 +11136,15 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `K` | tensor of 64-bit signless integer values |
+| `X` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
+| `K` | Tensor or MemRef of 64-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Values` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `Indices` | tensor of 64-bit signless integer values |
+| `Values` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
+| `Indices` | Tensor or MemRef of 64-bit signless integer values |
 
 
 
@@ -11180,13 +11180,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values |
+| `data` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values or Tensor or MemRef of f8E4M3FN type values or Tensor or MemRef of f8E4M3FNUZ type values or Tensor or MemRef of f8E5M2 type values or Tensor or MemRef of f8E5M2FNUZ type values or Tensor or MemRef of 4-bit unsigned integer values or Tensor or MemRef of 4-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `transposed` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values |
+| `transposed` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values or Tensor or MemRef of f8E4M3FN type values or Tensor or MemRef of f8E4M3FNUZ type values or Tensor or MemRef of f8E5M2 type values or Tensor or MemRef of f8E5M2FNUZ type values or Tensor or MemRef of 4-bit unsigned integer values or Tensor or MemRef of 4-bit signless integer values |
 
 
 
@@ -11237,14 +11237,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 64-bit signless integer values or tensor of 32-bit signless integer values |
+| `X` | Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 32-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of string type values or tensor of 64-bit signless integer values |
-| `Z` | tensor of 32-bit float values |
+| `Y` | Tensor or MemRef of string type values or Tensor or MemRef of 64-bit signless integer values |
+| `Z` | Tensor or MemRef of 32-bit float values |
 
 
 
@@ -11296,13 +11296,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 64-bit signless integer values or tensor of 32-bit signless integer values |
+| `X` | Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 32-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 32-bit float values |
+| `Y` | Tensor or MemRef of 32-bit float values |
 
 
 
@@ -11340,14 +11340,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-| `k` | tensor of 64-bit signless integer values or none type |
+| `input` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
+| `k` | Tensor or MemRef of 64-bit signless integer values or none type |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `output` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 
 
@@ -11471,16 +11471,16 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `X` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-| `indices` | tensor of 64-bit signless integer values or none type |
-| `inverse_indices` | tensor of 64-bit signless integer values or none type |
-| `counts` | tensor of 64-bit signless integer values or none type |
+| `Y` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
+| `indices` | Tensor or MemRef of 64-bit signless integer values or none type |
+| `inverse_indices` | Tensor or MemRef of 64-bit signless integer values or none type |
+| `counts` | Tensor or MemRef of 64-bit signless integer values or none type |
 
 
 
@@ -11509,14 +11509,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values |
-| `axes` | tensor of 64-bit signless integer values |
+| `data` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values or Tensor or MemRef of f8E4M3FN type values or Tensor or MemRef of f8E4M3FNUZ type values or Tensor or MemRef of f8E5M2 type values or Tensor or MemRef of f8E5M2FNUZ type values or Tensor or MemRef of 4-bit unsigned integer values or Tensor or MemRef of 4-bit signless integer values |
+| `axes` | Tensor or MemRef of 64-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `expanded` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values |
+| `expanded` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values or Tensor or MemRef of f8E4M3FN type values or Tensor or MemRef of f8E4M3FNUZ type values or Tensor or MemRef of f8E5M2 type values or Tensor or MemRef of f8E5M2FNUZ type values or Tensor or MemRef of 4-bit unsigned integer values or Tensor or MemRef of 4-bit signless integer values |
 
 
 
@@ -11554,13 +11554,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `data` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `expanded` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `expanded` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 
 
@@ -11589,14 +11589,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-| `scales` | tensor of 32-bit float values |
+| `X` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
+| `scales` | Tensor or MemRef of 32-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `Y` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 
 
@@ -11651,13 +11651,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `X` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `output` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values |
 
 
 
@@ -11687,13 +11687,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `X` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `Y` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 
 
@@ -11718,15 +11718,15 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `condition` | tensor of 1-bit signless integer values |
-| `X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-| `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `condition` | Tensor or MemRef of 1-bit signless integer values |
+| `X` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
+| `Y` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `output` | Tensor or MemRef of 8-bit unsigned integer values or Tensor or MemRef of 16-bit unsigned integer values or Tensor or MemRef of 32-bit unsigned integer values or Tensor or MemRef of 64-bit unsigned integer values or Tensor or MemRef of 8-bit signless integer values or Tensor or MemRef of 16-bit signless integer values or Tensor or MemRef of 32-bit signless integer values or Tensor or MemRef of 64-bit signless integer values or Tensor or MemRef of bfloat16 type values or Tensor or MemRef of 16-bit float values or Tensor or MemRef of 32-bit float values or Tensor or MemRef of 64-bit float values or Tensor or MemRef of string type values or Tensor or MemRef of 1-bit signless integer values or Tensor or MemRef of complex type with 32-bit float elements values or Tensor or MemRef of complex type with 64-bit float elements values |
 
 
 
@@ -11749,14 +11749,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `A` | tensor of 1-bit signless integer values |
-| `B` | tensor of 1-bit signless integer values |
+| `A` | Tensor or MemRef of 1-bit signless integer values |
+| `B` | Tensor or MemRef of 1-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `C` | tensor of 1-bit signless integer values |
+| `C` | Tensor or MemRef of 1-bit signless integer values |
 
 
 
@@ -11817,7 +11817,7 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 32-bit float values |
+| `X` | Tensor or MemRef of 32-bit float values |
 
 #### Results:
 
