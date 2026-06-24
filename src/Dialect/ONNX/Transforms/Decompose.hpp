@@ -53,7 +53,16 @@ void getDecomposeONNXToONNXPatterns(mlir::RewritePatternSet &patterns,
     bool enableLstmSeqDecompose = false, bool enableReduceL2Decompose = true,
     bool disableGenericDecompositions = false, bool enableGatherToSlice = true,
     bool enableHardSwishDecompose = true,
-    bool enableGroupQueryAttentionCacheSlicing = true);
+    bool enableGroupQueryAttentionCacheSlicing = true,
+    bool enableDepthToSpaceDecompose = false);
+
+// Decompose onnx.DepthToSpace (DCR and CRD) into Reshape/Transpose/Reshape
+void populateDecomposeDepthToSpacePattern(mlir::RewritePatternSet &patterns,
+    mlir::PatternBenefit benefit = mlir::PatternBenefit(1));
+
+// Decompose ConvTranspose (phased) into Conv + DepthToSpace
+void populateConvTransposeToConvDepthToSpacePatterns(
+    mlir::RewritePatternSet &patterns);
 
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
 void populateDecomposingONNXBeforeStablehloPatterns(

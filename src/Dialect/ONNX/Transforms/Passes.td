@@ -100,7 +100,14 @@ def ONNXDecomposePatternOptions {
            "bool", /*default=*/"false",
            "In the phased ConvTranspose decomposition, emit a DepthToSpace "
            "(DCR) as the final interleave instead of "
-           "Reshape/Transpose/Reshape.">
+           "Reshape/Transpose/Reshape.">,
+
+    Option<"enableDepthToSpaceDecompose",
+           "enable-depthtospace-decompose",
+           "bool", /*default=*/"false",
+           "Decompose onnx.DepthToSpace (DCR and CRD) into "
+           "Reshape/Transpose/Reshape so backends without a DepthToSpace "
+           "kernel can run it.">
   ];
 }
 

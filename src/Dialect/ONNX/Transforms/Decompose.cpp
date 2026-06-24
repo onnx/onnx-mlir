@@ -4357,6 +4357,66 @@ struct DecomposeReduceL2Pattern : public OpRewritePattern<ONNXReduceL2Op> {
 };
 
 // =============================================================================
+// Decompose DepthToSpace into Reshape -> Transpose -> Reshape
+// =============================================================================
+// onnx.DepthToSpace rearranges [N, C*bs*bs, H, W] into [N, C, H*bs, W*bs].
+struct DecomposeDepthToSpacePattern
+    : public OpRewritePattern<ONNXDepthToSpaceOp> {
+  using OpRewritePattern<ONNXDepthToSpaceOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXDepthToSpaceOp op, PatternRewriter &rewriter) const final {
+    Value input = op.getInput();
+    auto inputType = mlir::dyn_cast<ShapedType>(input.getType());
+    auto outputType = mlir::dyn_cast<ShapedType>(op.getResult().getType());
+    if (!inputType || !inputType.hasStaticShape() || inputType.getRank() != 4 ||
+        !outputType || !outputType.hasStaticShape())
+      return rewriter.notifyMatchFailure(
+          op, "expected static 4D input and output");
+
+    const int64_t bs = op.getBlocksize();
+    if (bs <= 1)
+      return rewriter.notifyMatchFailure(op, "blocksize must be > 1");
+
+    const ArrayRef<int64_t> inShape = inputType.getShape();
+    const int64_t N = inShape[0];
+    const int64_t C = inShape[1];
+    const int64_t H = inShape[2];
+    const int64_t W = inShape[3];
+    if (C % (bs * bs) != 0)
+      return rewriter.notifyMatchFailure(
+          op, "channel dim not divisible by blocksize^2");
+    const int64_t cOut = C / (bs * bs);
+
+    const Type elemType = inputType.getElementType();
+    const bool isDCR = op.getMode() == "DCR";
+
+    // Split the channel dim into block dims, transpose each block dim next to
+    // its spatial dim, then collapse. Both modes land on [N, C, H, bs, W, bs]
+    // after the transpose, before the final merge to [N, C, H*bs, W*bs].
+    const SmallVector<int64_t> splitShape =
+        isDCR ? SmallVector<int64_t>{N, bs, bs, cOut, H, W}
+              : SmallVector<int64_t>{N, cOut, bs, bs, H, W};
+    const SmallVector<int64_t> perm =
+        isDCR ? SmallVector<int64_t>{0, 3, 4, 1, 5, 2}
+              : SmallVector<int64_t>{0, 1, 4, 2, 5, 3};
+    const SmallVector<int64_t> permShape{N, cOut, H, bs, W, bs};
+
+    onnx_mlir::OnnxBuilder create(rewriter, op.getLoc());
+    Value reshaped = create.reshape(RankedTensorType::get(splitShape, elemType),
+        input, create.constantInt64(splitShape));
+    Value transposed =
+        create.transpose(RankedTensorType::get(permShape, elemType), reshaped,
+            rewriter.getI64ArrayAttr(perm));
+    Value result = create.reshape(op.getResult().getType(), transposed,
+        create.constantInt64(SmallVector<int64_t>{N, cOut, H * bs, W * bs}));
+
+    rewriter.replaceOp(op, result);
+    return success();
+  }
+};
+
+// =============================================================================
 // Decompose InstanceNormalization to LayerNormalization
 // =============================================================================
 struct DecomposeInstanceNormPattern
@@ -4793,7 +4853,8 @@ void DecomposeONNXToONNXPass::runOnOperation() {
       enableGroupQueryAttentionDecompose, enableSplitToSliceDecompose,
       enableConcatFuse, enableLstmSeqDecompose, enableReduceL2Decompose,
       /*disableGenericDecompositions=*/false, enableGatherToSlice,
-      enableHardSwishDecompose, enableGroupQueryAttentionCacheSlicing);
+      enableHardSwishDecompose, enableGroupQueryAttentionCacheSlicing,
+      enableDepthToSpaceDecompose);
 
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
   if (this->target == "stablehlo") {
@@ -4818,7 +4879,8 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
     bool enableSplitToSliceDecompose, bool enableConcatFuse,
     bool enableLstmSeqDecompose, bool enableReduceL2Decompose,
     bool disableGenericDecompositions, bool enableGatherToSlice,
-    bool enableHardSwishDecompose, bool enableGroupQueryAttentionCacheSlicing) {
+    bool enableHardSwishDecompose, bool enableGroupQueryAttentionCacheSlicing,
+    bool enableDepthToSpaceDecompose) {
   MLIRContext *context = patterns.getContext();
   if (!disableGenericDecompositions)
     populateWithGenerated(patterns);
@@ -4888,9 +4950,25 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
   if (enableGatherToSlice)
     patterns.insert<DecomposeGatherToSlicePattern>(context);
 
+  if (enableDepthToSpaceDecompose)
+    populateDecomposeDepthToSpacePattern(patterns);
+
   patterns.insert<ReplaceCastLikeByCastPattern>(context);
 
   // TODO: consider whether to include SoftmaxPattern here
+}
+
+void onnx_mlir::populateDecomposeDepthToSpacePattern(
+    mlir::RewritePatternSet &patterns, mlir::PatternBenefit benefit) {
+  patterns.insert<DecomposeDepthToSpacePattern>(patterns.getContext(), benefit);
+}
+
+void onnx_mlir::populateConvTransposeToConvDepthToSpacePatterns(
+    mlir::RewritePatternSet &patterns) {
+  // set the global flag of this file since we have no communication over
+  // tablegen, setting benefit does no work with tablegen generated patterns
+  convTransposeDepthToSpaceActive = true;
+  convtranspose_phased::populateWithGenerated(patterns);
 }
 
 // createDecomposeONNXToONNXPass() and createDecomposeONNXToONNXPass(options)
