@@ -857,123 +857,27 @@ public:
 
   LogicalResult matchAndRewrite(ONNXLayoutTransformOp layoutTransformOp,
       PatternRewriter &rewriter) const override {
-    // Do not fire on ops that are already inside an ONNXFusedOp body:
-    // the cloned chain ops look identical to the original pattern, which
-    // would cause the greedy rewriter to recurse infinitely.
-    if (mlir::isa<ONNXFusedOp>(layoutTransformOp->getParentOp()))
+    ExtLayoutTransformFusion fusion;
+    // detectIfBeneficial also guards against ops already inside a FusedOp body.
+    if (!fusion.detectIfBeneficial(dimAnalysis, layoutTransformOp))
       return failure();
-
-    // Use the shared fusion helper with dimAnalysis for precise dim comparison.
-    auto chainOrFailure =
-        locateExtLayoutTransformFusion(layoutTransformOp, dimAnalysis);
-    if (failed(chainOrFailure))
-      return failure();
-    ExtLayoutTransformChain &chain = chainOrFailure.value();
 
     Location loc = layoutTransformOp.getLoc();
-    Value sourceVal = layoutTransformOp.getData();
 
-    // Build the set of values produced by the chain ops themselves; these
-    // are visible inside the body via the clone mapping and never external.
-    DenseSet<Value> chainProduced;
-    for (Operation *op : chain.ops)
-      for (Value result : op->getResults())
-        chainProduced.insert(result);
-
-    // Pre-scan: collect ALL external values the chain ops need.
-    //   - Constant-like ops (ONNXConstantOp, ConstantLike trait) will be
-    //     cloned inside the body — they do NOT become block arguments.
-    //   - Everything else (non-constant tensors, e.g. dynamically-computed
-    //     reshape shape vectors) becomes an additional FusedOp input.
-    // Source ZTensor is always inputs[0].
-    SmallVector<Value> fusedInputs = {sourceVal};
-    DenseSet<Value> inputSet;
-    inputSet.insert(sourceVal);
-
-    std::function<void(Value)> collectExternals = [&](Value v) {
-      // Already tracked or produced by a chain op → nothing to do.
-      if (inputSet.contains(v) || chainProduced.contains(v))
-        return;
-      Operation *defOp = v.getDefiningOp();
-      if (!defOp)
-        return; // bare block argument — should already be tracked
-      if (defOp->hasTrait<mlir::OpTrait::ConstantLike>() ||
-          mlir::isa<ONNXNoneOp, ONNXConstantOp>(defOp)) {
-        // Constant: will be cloned inside; recurse for its own operands.
-        for (Value operand : defOp->getOperands())
-          collectExternals(operand);
-      } else {
-        // Non-constant external tensor: thread through as a FusedOp input.
-        inputSet.insert(v);
-        fusedInputs.push_back(v);
-      }
-    };
-    for (Operation *op : chain.ops)
-      for (Value operand : op->getOperands())
-        collectExternals(operand);
-
-    // Insert the FusedOp just before the last chain op so that all fusedInputs
+    // Insert the FusedOp just before the last chain op so that all inputs
     // (including non-constant shape tensors defined between chain ops in the
     // original IR) are guaranteed to dominate the insertion point.
-    rewriter.setInsertionPoint(chain.finalResult.getDefiningOp());
+    rewriter.setInsertionPoint(fusion.finalResults[0].getDefiningOp());
 
-    // Build FusedOp with the complete input list.
-    SmallVector<Type> outputTypes = {chain.finalResult.getType()};
-    auto fusedOp = ONNXFusedOp::create(rewriter, loc, outputTypes,
-        rewriter.getStringAttr("zhigh.extended_layout_transform"), fusedInputs);
-
-    // Build the isolated body: one block argument per fusedInput.
-    SmallVector<Type> argTypes;
-    SmallVector<Location> argLocs;
-    for (Value v : fusedInputs) {
-      argTypes.push_back(v.getType());
-      argLocs.push_back(v.getLoc());
-    }
-    Block *body =
-        rewriter.createBlock(&fusedOp.getBody(), {}, argTypes, argLocs);
-    OpBuilder::InsertionGuard guard(rewriter);
-    rewriter.setInsertionPointToStart(body);
-
-    // Map every fusedInput to its corresponding block argument.
-    IRMapping mapping;
-    for (auto [v, arg] : llvm::zip(fusedInputs, body->getArguments()))
-      mapping.map(v, arg);
-
-    // Recursively clone constant-producing ops inside the body on demand.
-    std::function<void(Value)> ensureInBody = [&](Value v) {
-      if (mapping.contains(v) || chainProduced.contains(v))
-        return;
-      Operation *defOp = v.getDefiningOp();
-      if (!defOp)
-        return;
-      // All remaining unmapped externals must be constant-like; non-constants
-      // were added to fusedInputs above and are already in the mapping.
-      assert((defOp->hasTrait<mlir::OpTrait::ConstantLike>() ||
-                 mlir::isa<ONNXNoneOp, ONNXConstantOp>(defOp)) &&
-             "non-constant external value not collected in pre-scan");
-      for (Value operand : defOp->getOperands())
-        ensureInBody(operand);
-      rewriter.clone(*defOp, mapping);
-    };
-
-    for (Operation *op : chain.ops) {
-      for (Value operand : op->getOperands())
-        ensureInBody(operand);
-      rewriter.clone(*op, mapping);
-    }
-
-    // Yield the mapped result of the last chain op.
-    Value yieldVal = mapping.lookup(chain.finalResult);
-    ONNXYieldOp::create(rewriter, loc, ValueRange{yieldVal});
+    auto fusedOp = fusion.create(rewriter, loc);
 
     // Replace the final op in the outer IR with the FusedOp's output, then
     // erase the remaining chain ops back-to-front.  Each op becomes dead
     // (use_empty) once the op that consumed its result has been removed,
     // so reverse order is required by PatternRewriter::eraseOp's precondition.
-    rewriter.replaceOp(
-        chain.finalResult.getDefiningOp(), fusedOp.getOutputs()[0]);
-    for (int i = static_cast<int>(chain.ops.size()) - 2; i >= 0; --i)
-      rewriter.eraseOp(chain.ops[i]);
+    rewriter.replaceOp(fusion.ops.back(), fusedOp.getOutputs()[0]);
+    for (int i = static_cast<int>(fusion.ops.size()) - 2; i >= 0; --i)
+      rewriter.eraseOp(fusion.ops[i]);
     return success();
   }
 };

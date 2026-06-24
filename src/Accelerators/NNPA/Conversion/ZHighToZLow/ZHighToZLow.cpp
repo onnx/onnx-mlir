@@ -2521,28 +2521,21 @@ struct ZHighToZLowFusedExtLayoutTransformLowering
     Value inputVal = adaptor.getInputs()[0];
     Value outputVal = fusedOp.getOutputs()[0];
 
-    // Re-use the same locateExtLayoutTransformFusion that created this FusedOp.
-    // The body's first chain op is always ONNXLayoutTransformOp; scan rather
-    // than blindly casting front() so that any ops inserted before it (e.g.
-    // instrument ops from a profiling pass) do not cause a cast assertion.
-    auto &bodyBlock = fusedOp.getBody().front();
-    ONNXLayoutTransformOp startOp;
-    for (Operation &bodyOp : bodyBlock)
-      if ((startOp = dyn_cast<ONNXLayoutTransformOp>(&bodyOp)))
-        break;
-    if (!startOp)
+    // Retrieve and verify the fusion parameters stored as attributes when the
+    // FusedOp was created.  verifyAndRetrieveAttrs cross-checks the body ops
+    // against the stored params; if an optimisation pass altered the body, we
+    // fall back to failure so the generic inlining pattern can take over.
+    ExtLayoutTransformFusion fusion;
+    fusion.retrieveOpsAndOutputValues(fusedOp);
+    if (!fusion.verifyAndRetrieveAttrs(fusedOp))
       return rewriter.notifyMatchFailure(
-          fusedOp, "body does not contain ONNXLayoutTransformOp");
-    auto chainOrFailure = locateExtLayoutTransformFusion(startOp);
-    assert(succeeded(chainOrFailure) &&
-           "FusedOp body must match the extended layout transform pattern");
-    ExtLayoutTransformFusionParams &params = chainOrFailure.value().params;
-    int64_t reshapeSplitAxis = params.reshapeSplitAxis;
-    int64_t reshapeSplitFactor = params.reshapeSplitFactor;
-    int64_t reshapeMergeAxis = params.reshapeMergeAxis;
-    bool dlf16ToF32 = params.dlf16ToF32;
-    std::optional<mlir::ArrayAttr> transposePattern = params.transposePattern;
-    (void)params.finalLayout; // target layout encoded in outputVal's type
+          fusedOp, "body does not match stored extended layout transform params");
+    int64_t reshapeSplitAxis = fusion.reshapeSplitAxis;
+    int64_t reshapeSplitFactor = fusion.reshapeSplitFactor;
+    int64_t reshapeMergeAxis = fusion.reshapeMergeAxis;
+    bool dlf16ToF32 = fusion.dlf16ToF32;
+    std::optional<mlir::ArrayAttr> transposePattern = fusion.transposePattern;
+    (void)fusion.finalLayout; // target layout encoded in outputVal's type
 
     int64_t inputRank = getRank(inputVal.getType());
     int64_t outputRank = getRank(outputVal.getType());
