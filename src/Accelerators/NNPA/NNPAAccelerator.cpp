@@ -89,6 +89,17 @@ uint64_t NNPAAccelerator::getVersionNumber() const {
   return NNPA_ZDNN_VERSIONS[NNPALevel::M14];
 }
 
+std::string NNPAAccelerator::getAccelCompileInfo() const {
+  NNPALevel level = isCompatibleWithNNPALevel(NNPALevel::M15) ? NNPALevel::M15
+                                                              : NNPALevel::M14;
+  uint64_t ver = NNPA_ZDNN_VERSIONS[level];
+  std::string zdnnVer = std::to_string((ver >> 16) & 0xFF) + "." +
+                        std::to_string((ver >> 8) & 0xFF) + "." +
+                        std::to_string(ver & 0xFF);
+  return "{\"nnpa_level\": \"" + getNNPAString(level) +
+         "\", \"zdnn_version\": \"" + zdnnVer + "\"}";
+}
+
 void NNPAAccelerator::addPasses(mlir::OwningOpRef<mlir::ModuleOp> &module,
     mlir::PassManager &pm, onnx_mlir::EmissionTargetType &emissionTarget,
     std::string outputNameNoExt) const {
