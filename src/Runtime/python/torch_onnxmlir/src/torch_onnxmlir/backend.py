@@ -532,6 +532,10 @@ class TorchONNXMLIR:
         constant_values = self.extract_scalar_constant_args(example_inputs)
         self.gm = fx_utils.freeze_scalar_constant_args(self.gm, constant_values)
 
+        # Rewrite .item() calls on integer tensors used in shape construction.
+        # This handles StaticCache patterns where cache length tensors are used.
+        self.gm = fx_utils.rewrite_item_calls_for_shape_construction(self.gm)
+
         # Since onnx does not support scalar inputs, symbolic integer arguments
         # are converted to tensor arguments.
         self.gm = fx_utils.convert_symint_args_to_tensors(self.gm)
