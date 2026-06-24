@@ -31,7 +31,7 @@ jobs:
 
     - name: restore MLIR cache
       id: restore-mlir-cache
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
         path: ~/work/onnx-mlir/llvm-project
         key: ${{ runner.os }}-mlir-${{ hashFiles('**/clone-mlir.sh', '**/build-mlir.sh') }}-${{ steps.get-protobuf-version.outputs.protobuf_version }}
@@ -46,7 +46,7 @@ jobs:
     - name: save MLIR cache
       id: save-mlir-cache
       if: steps.restore-mlir-cache.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       with:
         path: ~/work/onnx-mlir/llvm-project
         key: ${{ steps.restore-mlir-cache.outputs.cache-primary-key }}
