@@ -244,6 +244,17 @@ ONNXFusedOp FusionOpChain::createFusedOp(
   return fusedOp;
 }
 
+ONNXFusedOp FusionOpChain::fuse(PatternRewriter &rewriter, Location loc) {
+  // Insert the FusedOp just before the last chain op.  ops is in chain order,
+  // so ops.back() is defined after every non-constant external input to any
+  // chain op — guaranteeing that all fusedInputs dominate the insertion point.
+  assert(!ops.empty() && "fuse() called with empty ops list");
+  rewriter.setInsertionPoint(ops.back());
+  ONNXFusedOp fusedOp = create(rewriter, loc);
+  replaceAndErase(rewriter, fusedOp);
+  return fusedOp;
+}
+
 ONNXFusedOp FusionOpChain::create(PatternRewriter &rewriter, Location loc) {
   ONNXFusedOp fusedOp = createFusedOp(rewriter, loc, getKind());
   embedAttrs(fusedOp);
@@ -261,6 +272,26 @@ void FusionOpChain::retrieveOpsAndOutputValues(ONNXFusedOp fusedOp) {
     } else {
       ops.push_back(&op);
     }
+  }
+}
+
+void FusionOpChain::replaceAndErase(
+    PatternRewriter &rewriter, ONNXFusedOp fusedOp) {
+  // Map each finalResult value to its FusedOp output index.
+  DenseMap<Value, unsigned> outputMap;
+  for (auto [idx, v] : llvm::enumerate(finalResults))
+    outputMap[v] = idx;
+
+  // Process ops back-to-front.  For output ops, replaceOp() rewires external
+  // uses and erases the op.  For internal ops, eraseOp() is safe because the
+  // next chain op (the sole consumer of its result) was removed in the
+  // previous iteration.
+  for (int i = (int)ops.size() - 1; i >= 0; --i) {
+    auto it = outputMap.find(ops[i]->getResult(0));
+    if (it != outputMap.end())
+      rewriter.replaceOp(ops[i], fusedOp.getOutputs()[it->second]);
+    else
+      rewriter.eraseOp(ops[i]);
   }
 }
 

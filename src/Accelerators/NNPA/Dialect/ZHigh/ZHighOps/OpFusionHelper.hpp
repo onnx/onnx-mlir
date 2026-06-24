@@ -19,17 +19,12 @@
 //   if (!fusion.detectIfBeneficial(dimAnalysis, layoutTransformOp))
 //     return failure();
 //
-//   // Set insertion point before the last chain op so all inputs dominate it.
-//   rewriter.setInsertionPoint(fusion.finalResults[0].getDefiningOp());
-//   ONNXFusedOp fusedOp = fusion.create(rewriter, loc);
-//   // => FusionOpChain::create: scans fusion.ops for inputs, builds isolated
-//   //    body, clones ops, emits YieldOp, then calls embedAttrs() to store
-//   //    all parameters as named MLIR attributes on the FusedOp.
-//
-//   // Erase the original chain ops back-to-front.
-//   rewriter.replaceOp(fusion.ops.back(), fusedOp.getOutputs()[0]);
-//   for (int i = (int)fusion.ops.size() - 2; i >= 0; --i)
-//     rewriter.eraseOp(fusion.ops[i]);
+//   fusion.fuse(rewriter, loc);
+//   // => sets insertion point to ops.back() internally (last chain op
+//   //    dominates all non-constant inputs to the chain).
+//   // => private create(): builds body, embedAttrs() stores params as attrs.
+//   // => private replaceAndErase(): back-to-front, handles any number of
+//   //    outputs at any chain position.
 //
 // -- Lowering pass (code generation) ------------------------------------------
 //
@@ -83,8 +78,13 @@ namespace zhigh {
 
 class FusionOpChain {
 public:
-  /// Chain ops in order, populated by detectIfBeneficial() or
-  /// retrieveOpsAndOutputValues().
+  /// Chain ops in chain order: ops[i]'s output feeds ops[i+1] as an input,
+  /// and ops.back() is the last op whose result becomes the FusedOp output.
+  /// This ordering is required for the back-to-front erasure after create():
+  /// replaceOp(ops.back(), ...) must come first (it removes external uses and
+  /// erases ops.back()), then eraseOp(ops[size-2]) down to eraseOp(ops[0]),
+  /// each of which is safe because its sole consumer was erased in the previous
+  /// step.  Populated by detectIfBeneficial() or retrieveOpsAndOutputValues().
   llvm::SmallVector<mlir::Operation *> ops;
 
   /// Values yielded by the body, one per ONNXFusedOp result.  Populated by
@@ -96,13 +96,13 @@ public:
 
   // -- Non-virtual template methods (calling sequences) ----------------------
 
-  /// Build the ONNXFusedOp: scans this->ops to classify external operands
-  /// (constants => cloned inside the body; others => block arguments), builds
-  /// the isolated body region, clones the chain ops, emits YieldOp over
-  /// this->finalResults, calls the virtual embedAttrs(), and returns the op.
-  /// The caller is responsible for setting the rewriter insertion point before
-  /// calling this method.
-  mlir::ONNXFusedOp create(
+  /// Build the FusedOp, replace the original chain ops with its outputs, and
+  /// erase the chain ops — the single atomic entry point for the fusion pass.
+  /// create() and replaceAndErase() are always one step; calling them
+  /// separately would leave the IR in an inconsistent state.
+  /// The caller must set the rewriter insertion point before calling this
+  /// (typically just before the last chain op so all inputs dominate it).
+  mlir::ONNXFusedOp fuse(
       mlir::PatternRewriter &rewriter, mlir::Location loc);
 
   /// Walk fusedOp.getBody().front(): collect non-YieldOp ops => this->ops and
@@ -136,7 +136,15 @@ protected:
   virtual bool verify() const = 0;
 
 private:
-  /// Internal body-building helper called by create().
+  /// Build the ONNXFusedOp body — called by fuse().
+  mlir::ONNXFusedOp create(
+      mlir::PatternRewriter &rewriter, mlir::Location loc);
+
+  /// Replace output ops and erase internal ops — called by fuse().
+  void replaceAndErase(
+      mlir::PatternRewriter &rewriter, mlir::ONNXFusedOp fusedOp);
+
+  /// Body-building implementation used by create().
   mlir::ONNXFusedOp createFusedOp(mlir::PatternRewriter &rewriter,
       mlir::Location loc, llvm::StringRef kind);
 };

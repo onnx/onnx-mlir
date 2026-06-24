@@ -863,21 +863,7 @@ public:
       return failure();
 
     Location loc = layoutTransformOp.getLoc();
-
-    // Insert the FusedOp just before the last chain op so that all inputs
-    // (including non-constant shape tensors defined between chain ops in the
-    // original IR) are guaranteed to dominate the insertion point.
-    rewriter.setInsertionPoint(fusion.finalResults[0].getDefiningOp());
-
-    auto fusedOp = fusion.create(rewriter, loc);
-
-    // Replace the final op in the outer IR with the FusedOp's output, then
-    // erase the remaining chain ops back-to-front.  Each op becomes dead
-    // (use_empty) once the op that consumed its result has been removed,
-    // so reverse order is required by PatternRewriter::eraseOp's precondition.
-    rewriter.replaceOp(fusion.ops.back(), fusedOp.getOutputs()[0]);
-    for (int i = static_cast<int>(fusion.ops.size()) - 2; i >= 0; --i)
-      rewriter.eraseOp(fusion.ops[i]);
+    fusion.fuse(rewriter, loc);
     return success();
   }
 };
