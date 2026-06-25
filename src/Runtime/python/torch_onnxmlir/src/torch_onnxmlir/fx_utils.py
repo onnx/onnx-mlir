@@ -19,6 +19,7 @@ import torch.fx as fx
 from torch.fx.experimental.symbolic_shapes import (
     sym_eq,
 )
+import torch._subclasses.fake_tensor as fake_tensor_module
 
 logger = logging.getLogger(__name__)
 
@@ -320,9 +321,19 @@ def convert_symint_args_to_tensors(gm: fx.GraphModule) -> fx.GraphModule:
         if node.type in [torch.SymInt]:
             with graph.inserting_before(node):
                 tensor_node = graph.placeholder(f"{node.name}_tensor")
-                tensor_node.meta = node.meta
+                # Keep the SymInt as symbolic in the tensor's shape.
+                # This allows the dimension to remain dynamic during export.
+                symint_value = node.meta.get("example_value", None)
+                # Create a fake tensor with symbolic shape for the metadata.
+                fake_mode = fake_tensor_module.FakeTensorMode()
+                with fake_mode:
+                    if symint_value is not None:
+                        fake_t = torch.empty(symint_value, dtype=torch.int64)
+                    else:
+                        fake_t = torch.empty(1, dtype=torch.int64)
+                tensor_node.meta["example_value"] = fake_t
                 tensor_node.meta["tensor_meta"] = {
-                    "sizes": (1,),
+                    "sizes": (symint_value,) if symint_value is not None else (1,),
                     "dtype": torch.int64,
                 }
                 tensor_node.type = torch.Tensor

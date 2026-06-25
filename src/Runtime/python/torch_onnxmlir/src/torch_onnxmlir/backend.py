@@ -472,7 +472,10 @@ class TorchONNXMLIR:
         for i in self.example_inputs_indices:
             x = example_inputs[i]
             if isinstance(x, int):
-                tensor_inputs.append(torch.tensor(x, dtype=torch.int64).reshape((1,)))
+                # Create a 1D tensor with shape [x] where x is the scalar value.
+                # This allows sym_size(tensor, 0) to return the actual value x.
+                # Use empty instead of zeros since we only care about shape, not values.
+                tensor_inputs.append(torch.empty(x, dtype=torch.int64))
             elif isinstance(x, torch.Tensor):
                 tensor_inputs.append(x)
             else:
