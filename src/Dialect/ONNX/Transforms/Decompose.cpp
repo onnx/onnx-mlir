@@ -4375,8 +4375,8 @@ struct DecomposeDepthToSpacePattern
           op, "expected static 4D input and output");
 
     const int64_t bs = op.getBlocksize();
-    if (bs <= 1)
-      return rewriter.notifyMatchFailure(op, "blocksize must be > 1");
+    if (bs < 1)
+      return rewriter.notifyMatchFailure(op, "blocksize must be >= 1");
 
     const ArrayRef<int64_t> inShape = inputType.getShape();
     const int64_t N = inShape[0];

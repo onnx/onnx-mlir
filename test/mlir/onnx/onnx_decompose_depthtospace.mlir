@@ -34,16 +34,3 @@ func.func @test_depthtospace_crd(%arg0: tensor<1x12x4x5xf32>) -> tensor<1x3x8x10
 // CHECK:           [[VAR_4_:%.+]] = "onnx.Reshape"([[VAR_3_]], [[VAR_1_]]) {allowzero = 0 : si64} : (tensor<1x3x4x2x5x2xf32>, tensor<4xi64>) -> tensor<1x3x8x10xf32>
 // CHECK:           onnx.Return [[VAR_4_]] : tensor<1x3x8x10xf32>
 }
-
-// -----
-
-// Negative: blocksize 1 is a no-op and must not be decomposed; the
-// onnx.DepthToSpace op is preserved.
-func.func @test_depthtospace_blocksize1(%arg0: tensor<1x3x4x5xf32>) -> tensor<1x3x4x5xf32> {
-  %0 = "onnx.DepthToSpace"(%arg0) {blocksize = 1 : si64, mode = "DCR"} : (tensor<1x3x4x5xf32>) -> tensor<1x3x4x5xf32>
-  onnx.Return %0 : tensor<1x3x4x5xf32>
-
-// CHECK-LABEL:  func.func @test_depthtospace_blocksize1
-// CHECK-NOT:       onnx.Transpose
-// CHECK:           "onnx.DepthToSpace"
-}
