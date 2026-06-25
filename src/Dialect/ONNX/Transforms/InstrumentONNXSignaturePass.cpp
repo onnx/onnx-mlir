@@ -83,79 +83,79 @@ public:
     // Pre-order walk so we can skip ONNXFusedOp bodies with WalkResult::skip().
     getOperation().walk<mlir::WalkOrder::PreOrder>(
         [&](mlir::Operation *op) -> WalkResult {
-      auto dialect = op->getDialect();
-      Location loc = op->getLoc();
-      // Define a lambda function to check whether the node is selected by
-      // its op name or node name, and if yes, insert ONNXSignatureOp.
-      // displayName overrides the op-name component in the printed header.
-      auto checkAndInsert = [&](onnx_mlir::EnableByRegexOption &pattern,
-                                std::string matchString, int detail,
-                                std::string displayName = "") -> bool {
-        if (pattern.isEnabled(matchString)) {
-          // Add signature printing op.
-          OpBuilder builder(op);
-          if (displayName.empty())
-            displayName = op->getName().getStringRef().str();
-          std::string nodeName = onnx_mlir::getNodeNameInPresenceOfOpt(op);
-          std::string fullName = displayName + ", " + nodeName;
-          StringAttr fullNameAttr = builder.getStringAttr(fullName);
-          // Enqueue all input operands, and then the results.
-          llvm::SmallVector<Value, 6> operAndRes(op->getOperands());
-          for (Value res : op->getResults())
-            operAndRes.emplace_back(res);
-          // Since we may use the result of an operation, we must insert the
-          // print operation after the operation.
-          builder.setInsertionPointAfter(op);
-          // When one node is selected, print the details of the tensor.
-          ONNXPrintSignatureOp::create(
-              builder, loc, fullNameAttr, detail, operAndRes);
-          return true;
-        }
-        return false;
-      };
-      if (isa<func::FuncDialect>(dialect) ||
-          isa<ONNXPrintSignatureOp, KrnlInstrumentOp>(op)) {
-        // Always skip function dialects (such as function call/return), as well
-        // as ONNX instrument operations.
-        return WalkResult::advance();
-      }
-
-      // ONNXFusedOp: report once as "onnx.fused.<kind>" and skip the body.
-      if (isa<ONNXFusedOp>(op)) {
-        std::string fusedName = onnx_mlir::getProfilingName(op);
-        bool gotOne = false;
-        if (nodeNamePattern != "NONE" && nodeNamePattern != "") {
-          StringAttr onnxNodeName =
-              op->getAttrOfType<mlir::StringAttr>("onnx_node_name");
-          if (onnxNodeName && !onnxNodeName.getValue().empty()) {
-            gotOne = checkAndInsert(
-                traceSpecificNodePattern, onnxNodeName.getValue().str(), 1,
-                fusedName);
+          auto dialect = op->getDialect();
+          Location loc = op->getLoc();
+          // Define a lambda function to check whether the node is selected by
+          // its op name or node name, and if yes, insert ONNXSignatureOp.
+          // displayName overrides the op-name component in the printed header.
+          auto checkAndInsert = [&](onnx_mlir::EnableByRegexOption &pattern,
+                                    std::string matchString, int detail,
+                                    std::string displayName = "") -> bool {
+            if (pattern.isEnabled(matchString)) {
+              // Add signature printing op.
+              OpBuilder builder(op);
+              if (displayName.empty())
+                displayName = op->getName().getStringRef().str();
+              std::string nodeName = onnx_mlir::getNodeNameInPresenceOfOpt(op);
+              std::string fullName = displayName + ", " + nodeName;
+              StringAttr fullNameAttr = builder.getStringAttr(fullName);
+              // Enqueue all input operands, and then the results.
+              llvm::SmallVector<Value, 6> operAndRes(op->getOperands());
+              for (Value res : op->getResults())
+                operAndRes.emplace_back(res);
+              // Since we may use the result of an operation, we must insert the
+              // print operation after the operation.
+              builder.setInsertionPointAfter(op);
+              // When one node is selected, print the details of the tensor.
+              ONNXPrintSignatureOp::create(
+                  builder, loc, fullNameAttr, detail, operAndRes);
+              return true;
+            }
+            return false;
+          };
+          if (isa<func::FuncDialect>(dialect) ||
+              isa<ONNXPrintSignatureOp, KrnlInstrumentOp>(op)) {
+            // Always skip function dialects (such as function call/return), as
+            // well as ONNX instrument operations.
+            return WalkResult::advance();
           }
-        }
-        if (!gotOne && signaturePattern != "NONE" && signaturePattern != "") {
-          checkAndInsert(traceSpecificOpPattern, fusedName, 0, fusedName);
-        }
-        return WalkResult::skip(); // don't recurse into body
-      }
 
-      // Normal ops.
-      bool gotOne = false;
-      if (nodeNamePattern != "NONE" && nodeNamePattern != "") {
-        StringAttr onnxNodeName =
-            op->getAttrOfType<mlir::StringAttr>("onnx_node_name");
-        if (onnxNodeName && !onnxNodeName.getValue().empty()) {
-          std::string nodeNameString = onnxNodeName.getValue().str();
-          gotOne =
-              checkAndInsert(traceSpecificNodePattern, nodeNameString, 1);
-        }
-      }
-      if (!gotOne && signaturePattern != "NONE" && signaturePattern != "") {
-        std::string opName = op->getName().getStringRef().str();
-        checkAndInsert(traceSpecificOpPattern, opName, 0);
-      }
-      return WalkResult::advance();
-    });
+          // ONNXFusedOp: report once as "onnx.fused.<kind>" and skip the body.
+          if (isa<ONNXFusedOp>(op)) {
+            std::string fusedName = onnx_mlir::getProfilingName(op);
+            bool gotOne = false;
+            if (nodeNamePattern != "NONE" && nodeNamePattern != "") {
+              StringAttr onnxNodeName =
+                  op->getAttrOfType<mlir::StringAttr>("onnx_node_name");
+              if (onnxNodeName && !onnxNodeName.getValue().empty()) {
+                gotOne = checkAndInsert(traceSpecificNodePattern,
+                    onnxNodeName.getValue().str(), 1, fusedName);
+              }
+            }
+            if (!gotOne && signaturePattern != "NONE" &&
+                signaturePattern != "") {
+              checkAndInsert(traceSpecificOpPattern, fusedName, 0, fusedName);
+            }
+            return WalkResult::skip(); // don't recurse into body
+          }
+
+          // Normal ops.
+          bool gotOne = false;
+          if (nodeNamePattern != "NONE" && nodeNamePattern != "") {
+            StringAttr onnxNodeName =
+                op->getAttrOfType<mlir::StringAttr>("onnx_node_name");
+            if (onnxNodeName && !onnxNodeName.getValue().empty()) {
+              std::string nodeNameString = onnxNodeName.getValue().str();
+              gotOne =
+                  checkAndInsert(traceSpecificNodePattern, nodeNameString, 1);
+            }
+          }
+          if (!gotOne && signaturePattern != "NONE" && signaturePattern != "") {
+            std::string opName = op->getName().getStringRef().str();
+            checkAndInsert(traceSpecificOpPattern, opName, 0);
+          }
+          return WalkResult::advance();
+        });
   }
 };
 
