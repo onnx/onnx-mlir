@@ -62,9 +62,8 @@ static bool transposeKeepsLastDim(ArrayAttr perm) {
 /// Try to interpret \p reshape as a split (outRank == inRank + 1).
 /// Mirrors PatternsForExtendedLayoutTransform::locateReshapeSplit exactly.
 /// On success fills \p axis and \p factor and returns true.
-static bool detectSplitReshape(
-    ONNXReshapeOp reshape, int64_t &axis, int64_t &factor,
-    const DimAnalysis *dimAnalysis) {
+static bool detectSplitReshape(ONNXReshapeOp reshape, int64_t &axis,
+    int64_t &factor, const DimAnalysis *dimAnalysis) {
   assert(dimAnalysis && "detectSplitReshape requires a non-null DimAnalysis");
   auto returnFailure = [](llvm::StringRef msg) -> bool {
     LLVM_DEBUG(llvm::dbgs() << "detectSplitReshape failed: " << msg << "\n");
@@ -202,8 +201,7 @@ ONNXFusedOp FusionOpChain::createFusedOp(
     argTypes.push_back(v.getType());
     argLocs.push_back(v.getLoc());
   }
-  Block *body =
-      rewriter.createBlock(&fusedOp.getBody(), {}, argTypes, argLocs);
+  Block *body = rewriter.createBlock(&fusedOp.getBody(), {}, argTypes, argLocs);
   OpBuilder::InsertionGuard guard(rewriter);
   rewriter.setInsertionPointToStart(body);
 
@@ -297,15 +295,13 @@ void FusionOpChain::replaceAndErase(
 
 bool FusionOpChain::verifyAndRetrieveAttrs(ONNXFusedOp fusedOp) {
   if (!retrieveAttrs(fusedOp)) {
-    LLVM_DEBUG(llvm::dbgs()
-               << "FusionOpChain: retrieveAttrs failed for kind '"
-               << fusedOp.getKind() << "'\n");
+    LLVM_DEBUG(llvm::dbgs() << "FusionOpChain: retrieveAttrs failed for kind '"
+                            << fusedOp.getKind() << "'\n");
     return false;
   }
   if (!verify()) {
-    LLVM_DEBUG(llvm::dbgs()
-               << "FusionOpChain: verify failed for kind '"
-               << fusedOp.getKind() << "'\n");
+    LLVM_DEBUG(llvm::dbgs() << "FusionOpChain: verify failed for kind '"
+                            << fusedOp.getKind() << "'\n");
     return false;
   }
   return true;
@@ -338,7 +334,8 @@ bool ExtLayoutTransformFusion::detectIfBeneficial(
   Value inputData = startOp.getData();
   if (!isZTensor(inputData.getType()))
     return false;
-  if (!supportedLayoutForCompilerGeneratedStickUnstick(inputData, /*nhwc=*/false))
+  if (!supportedLayoutForCompilerGeneratedStickUnstick(
+          inputData, /*nhwc=*/false))
     return false;
   if (!hasStaticInnermostDimMod(inputData, 64))
     return false;
@@ -390,8 +387,8 @@ bool ExtLayoutTransformFusion::detectIfBeneficial(
             finalLT.getOutput(), /*nhwc=*/false))
       return false;
     OpBuilder b(finalLT);
-    finalLayout = getZTensorLayoutAttr(
-        b, cast<ZTensorEncodingAttr>(layoutAttr.value()));
+    finalLayout =
+        getZTensorLayoutAttr(b, cast<ZTensorEncodingAttr>(layoutAttr.value()));
     ops.push_back(finalLT.getOperation());
     current = finalLT.getOutput();
   } else if (auto dlf = singleUserOfType<ZHighDLF16ToF32Op>(current)) {
@@ -498,8 +495,7 @@ bool ExtLayoutTransformFusion::verify() const {
       return false;
     }
     if (outType.getShape()[reshapeSplitAxis + 1] != reshapeSplitFactor) {
-      LLVM_DEBUG(
-          llvm::dbgs() << "ELT verify: split factor mismatch\n");
+      LLVM_DEBUG(llvm::dbgs() << "ELT verify: split factor mismatch\n");
       return false;
     }
   }

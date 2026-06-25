@@ -656,8 +656,8 @@ void KrnlEntryPointOp::build(OpBuilder &builder, OperationState &state,
 
 void KrnlInstrumentOp::build(
     OpBuilder &builder, OperationState &state, Operation *op, int tag = 0) {
-  build(builder, state, getProfilingName(op),
-      getNodeNameInPresenceOfOpt(op), tag);
+  build(builder, state, getProfilingName(op), getNodeNameInPresenceOfOpt(op),
+      tag);
 }
 
 void KrnlInstrumentOp::build(OpBuilder &builder, OperationState &state,

@@ -2528,8 +2528,8 @@ struct ZHighToZLowFusedExtLayoutTransformLowering
     ExtLayoutTransformFusion fusion;
     fusion.retrieveOpsAndOutputValues(fusedOp);
     if (!fusion.verifyAndRetrieveAttrs(fusedOp))
-      return rewriter.notifyMatchFailure(
-          fusedOp, "body does not match stored extended layout transform params");
+      return rewriter.notifyMatchFailure(fusedOp,
+          "body does not match stored extended layout transform params");
     int64_t reshapeSplitAxis = fusion.reshapeSplitAxis;
     int64_t reshapeSplitFactor = fusion.reshapeSplitFactor;
     int64_t reshapeMergeAxis = fusion.reshapeMergeAxis;

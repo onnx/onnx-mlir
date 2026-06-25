@@ -18,7 +18,6 @@
 #include "llvm/Support/Debug.h"
 
 #include "src/Accelerators/NNPA/Compiler/NNPACompilerUtils.hpp"
-#include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXLegalityCheck.hpp"
 #include "src/Accelerators/NNPA/Conversion/ZHighToZLow/ZHighToZLow.hpp"
 #include "src/Accelerators/NNPA/Conversion/ZLowToLLVM/ZLowToLLVM.hpp"
@@ -28,6 +27,7 @@
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Accelerators/NNPA/Support/NNPALimit.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "zdnn.h"
 
 #include <memory>
@@ -215,8 +215,7 @@ void NNPAAccelerator::conversionTargetONNXToKrnl(
   target.addDynamicallyLegalOp<mlir::ONNXFusedOp>(
       mlir::ConversionTarget::DynamicLegalityCallbackFn(
           [](mlir::Operation *op) -> std::optional<bool> {
-            auto kindAttr =
-                op->getAttrOfType<mlir::StringAttr>("kind");
+            auto kindAttr = op->getAttrOfType<mlir::StringAttr>("kind");
             if (!kindAttr)
               return true; // no kind — not a ZHigh fused op, legal
             return !kindAttr.getValue().starts_with("zhigh.");

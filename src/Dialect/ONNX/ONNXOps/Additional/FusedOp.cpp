@@ -49,24 +49,24 @@ LogicalResult ONNXFusedOp::verify() {
   // Yield operand count must match result count.
   if (yieldOp.getNumOperands() != getNumResults())
     return emitOpError("yield operand count (")
-           << yieldOp.getNumOperands()
-           << ") must match result count (" << getNumResults() << ")";
+           << yieldOp.getNumOperands() << ") must match result count ("
+           << getNumResults() << ")";
 
   // Block argument count must match inputs count (isolated region: every
   // external tensor is threaded through as a block argument; NoneType values
   // are recreated inside and are not block arguments).
   if (body.getNumArguments() != getInputs().size())
     return emitOpError("body block argument count (")
-           << body.getNumArguments()
-           << ") must match inputs count (" << getInputs().size() << ")";
+           << body.getNumArguments() << ") must match inputs count ("
+           << getInputs().size() << ")";
 
   // Each block argument type must match the corresponding input type.
-  for (auto [idx, argType, inputType] : llvm::enumerate(
-           body.getArgumentTypes(), getInputs().getTypes()))
+  for (auto [idx, argType, inputType] :
+      llvm::enumerate(body.getArgumentTypes(), getInputs().getTypes()))
     if (argType != inputType)
       return emitOpError("body block argument ")
-             << idx << " type " << argType
-             << " does not match input type " << inputType;
+             << idx << " type " << argType << " does not match input type "
+             << inputType;
 
   return success();
 }
@@ -86,8 +86,7 @@ LogicalResult ONNXFusedOp::verify() {
 // We simply propagate the yield operand types — already correct — to results.
 LogicalResult ONNXFusedOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  auto yieldOp =
-      cast<ONNXYieldOp>(getBody().front().getTerminator());
+  auto yieldOp = cast<ONNXYieldOp>(getBody().front().getTerminator());
   for (auto [i, operand] : llvm::enumerate(yieldOp.getOperands()))
     getResult(i).setType(operand.getType());
   return success();

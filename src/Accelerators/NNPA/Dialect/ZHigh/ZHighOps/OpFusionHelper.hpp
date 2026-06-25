@@ -53,9 +53,9 @@
 #include <optional>
 #include <string>
 
-#include "llvm/ADT/SmallVector.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/Support/LogicalResult.h"
+#include "llvm/ADT/SmallVector.h"
 
 namespace mlir {
 class PatternRewriter;
@@ -102,8 +102,7 @@ public:
   /// separately would leave the IR in an inconsistent state.
   /// The caller must set the rewriter insertion point before calling this
   /// (typically just before the last chain op so all inputs dominate it).
-  mlir::ONNXFusedOp fuse(
-      mlir::PatternRewriter &rewriter, mlir::Location loc);
+  mlir::ONNXFusedOp fuse(mlir::PatternRewriter &rewriter, mlir::Location loc);
 
   /// Walk fusedOp.getBody().front(): collect non-YieldOp ops => this->ops and
   /// YieldOp operands => this->finalResults.  Resets both fields on entry.
@@ -112,7 +111,8 @@ public:
 
   /// Template method: calls the virtual retrieveAttrs() then verify().
   /// Returns false (and emits LLVM_DEBUG) on any failure.
-  /// this->ops must already be populated (call retrieveOpsAndOutputValues first).
+  /// this->ops must already be populated (call retrieveOpsAndOutputValues
+  /// first).
   bool verifyAndRetrieveAttrs(mlir::ONNXFusedOp fusedOp);
 
 protected:
@@ -137,8 +137,7 @@ protected:
 
 private:
   /// Build the ONNXFusedOp body — called by fuse().
-  mlir::ONNXFusedOp create(
-      mlir::PatternRewriter &rewriter, mlir::Location loc);
+  mlir::ONNXFusedOp create(mlir::PatternRewriter &rewriter, mlir::Location loc);
 
   /// Replace output ops and erase internal ops — called by fuse().
   void replaceAndErase(
@@ -165,24 +164,23 @@ private:
 
 class ExtLayoutTransformFusion : public FusionOpChain {
 public:
-  static constexpr llvm::StringLiteral kKind{
-      "zhigh.extended_layout_transform"};
+  static constexpr llvm::StringLiteral kKind{"zhigh.extended_layout_transform"};
 
   // -- Kind-specific parameters (raw C++ values) -----------------------------
-  int64_t reshapeSplitAxis = -1;   ///< axis split by step-2 Reshape (-1=absent)
-  int64_t reshapeSplitFactor = 1;  ///< static size of second split fragment
-  int64_t reshapeMergeAxis = -1;   ///< axis merged by step-4 Reshape (-1=absent)
+  int64_t reshapeSplitAxis = -1;  ///< axis split by step-2 Reshape (-1=absent)
+  int64_t reshapeSplitFactor = 1; ///< static size of second split fragment
+  int64_t reshapeMergeAxis = -1;  ///< axis merged by step-4 Reshape (-1=absent)
   std::optional<mlir::ArrayAttr> transposePattern; ///< perm of step-3 Transpose
-  bool dlf16ToF32 = false;         ///< true when step-5 is DLF16=>F32
-  std::optional<mlir::StringAttr> finalLayout;     ///< target layout for step-5a LT
+  bool dlf16ToF32 = false; ///< true when step-5 is DLF16=>F32
+  std::optional<mlir::StringAttr> finalLayout; ///< target layout for step-5a LT
 
   // -- Non-virtual public methods ---------------------------------------------
 
   /// Detect and parameterize the extended layout transform chain.
   /// Resets ops, finalResults, and all param fields on entry.
-  /// \p dimAnalysis must be non-null; dim comparisons use it for full precision.
-  /// Returns true (and populates all fields) only when the chain passes all
-  /// validation and the beneficial threshold.
+  /// \p dimAnalysis must be non-null; dim comparisons use it for full
+  /// precision. Returns true (and populates all fields) only when the chain
+  /// passes all validation and the beneficial threshold.
   bool detectIfBeneficial(
       const DimAnalysis *dimAnalysis, mlir::ONNXLayoutTransformOp startOp);
 
