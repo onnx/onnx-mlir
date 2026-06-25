@@ -548,6 +548,18 @@ struct ONNXSliceOpShapeHelper : public ONNXOpShapeHelper {
 };
 
 //===----------------------------------------------------------------------===//
+// Attention Op
+//===----------------------------------------------------------------------===//
+
+struct ONNXAttentionOpShapeHelper : public ONNXOpShapeHelper {
+  ONNXAttentionOpShapeHelper(mlir::Operation *op, mlir::ValueRange operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
+  virtual ~ONNXAttentionOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+};
+
+//===----------------------------------------------------------------------===//
 // Gemm Op
 //===----------------------------------------------------------------------===//
 

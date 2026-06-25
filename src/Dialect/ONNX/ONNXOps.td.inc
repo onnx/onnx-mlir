@@ -505,6 +505,7 @@ def ONNXAttentionOp:ONNX_Op<"Attention",
       return sh;
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXAveragePoolOp:ONNX_Op<"AveragePool",
