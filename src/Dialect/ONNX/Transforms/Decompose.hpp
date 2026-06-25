@@ -35,6 +35,12 @@ namespace onnx_mlir {
 // libraries do not need to link OMCompilerOptions
 extern bool separatePhasedConvsForConvTransposeActive;
 
+// Same communication channel as above, for the
+// enable-convtranspose-depthtospace option. When true, the phased
+// ConvTranspose decomposition emits a DepthToSpace (DCR) as its final
+// interleave instead of Reshape/Transpose/Reshape. Defined in Decompose.cpp.
+extern bool convTransposeDepthToSpaceActive;
+
 // Exports the DecomposeONNXToONNXPass patterns. They are all plain rewrite
 // patterns that can be used with any PatternRewriter, not conversion patterns.
 void getDecomposeONNXToONNXPatterns(mlir::RewritePatternSet &patterns,
@@ -47,7 +53,16 @@ void getDecomposeONNXToONNXPatterns(mlir::RewritePatternSet &patterns,
     bool enableLstmSeqDecompose = false, bool enableReduceL2Decompose = true,
     bool disableGenericDecompositions = false, bool enableGatherToSlice = true,
     bool enableHardSwishDecompose = true,
-    bool enableGroupQueryAttentionCacheSlicing = true);
+    bool enableGroupQueryAttentionCacheSlicing = true,
+    bool enableDepthToSpaceDecompose = false);
+
+// Decompose onnx.DepthToSpace (DCR and CRD) into Reshape/Transpose/Reshape
+void populateDecomposeDepthToSpacePattern(mlir::RewritePatternSet &patterns,
+    mlir::PatternBenefit benefit = mlir::PatternBenefit(1));
+
+// Decompose ConvTranspose (phased) into Conv + DepthToSpace
+void populateConvTransposeToConvDepthToSpacePatterns(
+    mlir::RewritePatternSet &patterns);
 
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
 void populateDecomposingONNXBeforeStablehloPatterns(

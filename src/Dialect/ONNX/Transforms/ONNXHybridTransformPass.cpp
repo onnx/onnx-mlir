@@ -163,7 +163,8 @@ struct ONNXHybridTransformPass
           enableSplitToSliceDecompose, enableConcatFuse, enableLstmSeqDecompose,
           enableReduceL2Decompose,
           /*disableGenericDecompositions=*/false, enableGatherToSlice,
-          enableHardSwishDecompose, enableGroupQueryAttentionCacheSlicing);
+          enableHardSwishDecompose, enableGroupQueryAttentionCacheSlicing,
+          enableDepthToSpaceDecompose);
 
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
       if (target == "stablehlo") {
@@ -187,6 +188,8 @@ struct ONNXHybridTransformPass
     Region &body = f.getBody();
     onnx_mlir::separatePhasedConvsForConvTransposeActive =
         this->enableSeparatePhasedConvsForConvTranspose.getValue();
+    onnx_mlir::convTransposeDepthToSpaceActive =
+        this->enableConvTransposeDecomposeToDepthToSpace.getValue();
 
     GreedyRewriteConfig config;
     ResultNamesUpdater rnUpdater;

@@ -66,6 +66,11 @@ namespace onnx_mlir {
 // OMCompilerOptions (see Decompose.hpp for the rationale).
 bool separatePhasedConvsForConvTransposeActive = false;
 
+// Storage for the enable-convtranspose-depthtospace pass->pattern flag declared
+// in Decompose.hpp. When true, decomposeIntoPhasedConvs emits a DepthToSpace
+// (DCR) as its final interleave instead of Reshape/Transpose/Reshape.
+bool convTransposeDepthToSpaceActive = false;
+
 // Create an DenseElementsAttr of ArrayAttr.
 // This function is used to get Value Type of an EXISTING ArrayAttr for Scaler
 // function.
@@ -689,6 +694,21 @@ SmallVector<int64_t> getIntVectorFromArrayAttr(ArrayAttr arrayAttr) {
   return elements;
 }
 
+// derive kernel shape from weight tensor. Returns std::nullopt for dynamic
+// weights.
+std::optional<SmallVector<int64_t>> getConvTransposeKernelShape(
+    ONNXConvTransposeOp op, ArrayAttr kernelShapeAttr) {
+  if (kernelShapeAttr)
+    return getIntVectorFromArrayAttr(kernelShapeAttr);
+  auto wType = mlir::dyn_cast<ShapedType>(op.getW().getType());
+  if (!wType || !wType.hasRank())
+    return std::nullopt;
+  ArrayRef<int64_t> spatialDims = wType.getShape().drop_front(2);
+  if (llvm::any_of(spatialDims, ShapedType::isDynamic))
+    return std::nullopt;
+  return SmallVector<int64_t>(spatialDims);
+}
+
 bool hasDefaultDilation(ArrayAttr dilation) {
   if (dilation == nullptr)
     return true;
@@ -741,14 +761,16 @@ bool ShouldDecomposeConvTransposeOp1dToPhasedConvs(Value convTransposeResult,
                               hasStaticSpatialDims(op.getW());
   if (!areSpatialDimsStatic)
     return false;
-  // kernel shape is required for decomposition, Not supporting the case where
-  // kernel shape can be inferred. Not supporting the case where pad values are
-  // to be inferred automatically from outputShape.
-  if (!kernelShapeAttr || outputShapeAttr) {
+  // Not supporting the case where pad values are to be inferred automatically
+  // from outputShape.
+  if (outputShapeAttr) {
     return false;
   }
 
-  auto kernelShape = getIntVectorFromArrayAttr(kernelShapeAttr);
+  auto kernelShapeOpt = getConvTransposeKernelShape(op, kernelShapeAttr);
+  if (!kernelShapeOpt)
+    return false;
+  auto kernelShape = *kernelShapeOpt;
   auto padsShape = (padsShapeAttr) ? getIntVectorFromArrayAttr(padsShapeAttr)
                                    : SmallVector<int64_t>({0, 0});
   auto stridesShape = (stridesShapeAttr)
@@ -823,14 +845,16 @@ bool ShouldDecomposeConvTransposeOpToPhasedConvs(Value convTransposeResult,
                               hasStaticSpatialDims(op.getW());
   if (!areSpatialDimsStatic)
     return false;
-  // kernel shape is required for decomposition, Not supporting the case where
-  // kernel shape can be inferred. Not supporting the case where pad values are
-  // to be inferred automatically from outputShape.
-  if (!kernelShapeAttr || outputShapeAttr) {
+  // Not supporting the case where pad values are to be inferred automatically
+  // from outputShape.
+  if (outputShapeAttr) {
     return false;
   }
 
-  auto kernelShape = getIntVectorFromArrayAttr(kernelShapeAttr);
+  auto kernelShapeOpt = getConvTransposeKernelShape(op, kernelShapeAttr);
+  if (!kernelShapeOpt)
+    return false;
+  auto kernelShape = *kernelShapeOpt;
   auto padsShape = (padsShapeAttr) ? getIntVectorFromArrayAttr(padsShapeAttr)
                                    : SmallVector<int64_t>({0, 0, 0, 0});
   auto stridesShape = (stridesShapeAttr)
@@ -962,7 +986,10 @@ Value decomposeConvT1dIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
   RankedTensorType outputType =
       mlir::cast<RankedTensorType>(convTransposeResult.getType());
   auto convTransposeOutputShape = outputType.getShape();
-  auto kernelShape = getIntVectorFromArrayAttr(inputKernelShape);
+  auto kernelShapeOpt = getConvTransposeKernelShape(op, inputKernelShape);
+  // dynamic input is checked in the constraint phase already
+  assert(kernelShapeOpt && "kernel shape must be derivable from the weights");
+  auto kernelShape = *kernelShapeOpt;
   auto padsShape =
       (pads) ? getIntVectorFromArrayAttr(pads) : SmallVector<int64_t>({0, 0});
   auto stridesShape = (strides) ? getIntVectorFromArrayAttr(strides)
@@ -1410,6 +1437,13 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
   RankedTensorType outputType =
       mlir::cast<RankedTensorType>(convTransposeResult.getType());
   auto convTransposeOutputShape = outputType.getShape();
+
+  if (!kernel_shape) {
+    auto kernelShapeOpt = getConvTransposeKernelShape(op, nullptr);
+    // dynamic input is checked in the constraint phase already
+    assert(kernelShapeOpt && "kernel shape must be derivable from the weights");
+    kernel_shape = rewriter.getI64ArrayAttr(*kernelShapeOpt);
+  }
   auto kernelShape = getIntVectorFromArrayAttr(kernel_shape);
   auto padsShape = (pads) ? getIntVectorFromArrayAttr(pads)
                           : SmallVector<int64_t>({0, 0, 0, 0});
@@ -1779,6 +1813,11 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
     auto finalOutputType =
         RankedTensorType::get(outputShapeForResult, elementType);
 
+    if (convTransposeDepthToSpaceActive) {
+      return create.onnx.createOpAndInferShapes<ONNXDepthToSpaceOp>(
+          finalOutputType, conv, /*blocksize=*/stridesShape[0], /*mode=*/"DCR");
+    }
+
     // Reshape the concatenated conv channels of 4*Conv_channels into groups
     // of 2x2 channels. This can be visualized as
     // H_chan(2) * W_Chan(2) * C_real, then doing the transpose into
@@ -1872,6 +1911,24 @@ Value decomposeIntoPhasedConvs(PatternRewriter &rewriter, Location loc,
             bias, mlir::StringAttr(), dilations, group,
             convKernelShapeArrayAttr, padsArrayAttr, stridesArrayAttr)),
         convOutputType);
+
+    if (convTransposeDepthToSpaceActive) {
+      // concat over the channel
+      auto concatType =
+          RankedTensorType::get({convOutputShape[0], convOutputShape[1] * 9,
+                                    convOutputShape[2], convOutputShape[3]},
+              elementType);
+      Value channelConcat = rewriter.create<ONNXConcatOp>(loc, concatType,
+          ValueRange{
+              conv1, conv2, conv7, conv4, conv5, conv6, conv3, conv8, conv9},
+          /*axis=*/1);
+      auto d2sType = RankedTensorType::get(
+          {convOutputShape[0], convOutputShape[1], convOutputShape[2] * 3,
+              convOutputShape[3] * 3},
+          elementType);
+      return create.onnx.createOpAndInferShapes<ONNXDepthToSpaceOp>(d2sType,
+          channelConcat, /*blocksize=*/stridesShape[0], /*mode=*/"DCR");
+    }
 
     // The nine convOutputs are adjusted to add an extra dimension at the
     // innermost level.
@@ -4300,6 +4357,66 @@ struct DecomposeReduceL2Pattern : public OpRewritePattern<ONNXReduceL2Op> {
 };
 
 // =============================================================================
+// Decompose DepthToSpace into Reshape -> Transpose -> Reshape
+// =============================================================================
+// onnx.DepthToSpace rearranges [N, C*bs*bs, H, W] into [N, C, H*bs, W*bs].
+struct DecomposeDepthToSpacePattern
+    : public OpRewritePattern<ONNXDepthToSpaceOp> {
+  using OpRewritePattern<ONNXDepthToSpaceOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXDepthToSpaceOp op, PatternRewriter &rewriter) const final {
+    Value input = op.getInput();
+    auto inputType = mlir::dyn_cast<ShapedType>(input.getType());
+    auto outputType = mlir::dyn_cast<ShapedType>(op.getResult().getType());
+    if (!inputType || !inputType.hasStaticShape() || inputType.getRank() != 4 ||
+        !outputType || !outputType.hasStaticShape())
+      return rewriter.notifyMatchFailure(
+          op, "expected static 4D input and output");
+
+    const int64_t bs = op.getBlocksize();
+    if (bs < 1)
+      return rewriter.notifyMatchFailure(op, "blocksize must be >= 1");
+
+    const ArrayRef<int64_t> inShape = inputType.getShape();
+    const int64_t N = inShape[0];
+    const int64_t C = inShape[1];
+    const int64_t H = inShape[2];
+    const int64_t W = inShape[3];
+    if (C % (bs * bs) != 0)
+      return rewriter.notifyMatchFailure(
+          op, "channel dim not divisible by blocksize^2");
+    const int64_t cOut = C / (bs * bs);
+
+    const Type elemType = inputType.getElementType();
+    const bool isDCR = op.getMode() == "DCR";
+
+    // Split the channel dim into block dims, transpose each block dim next to
+    // its spatial dim, then collapse. Both modes land on [N, C, H, bs, W, bs]
+    // after the transpose, before the final merge to [N, C, H*bs, W*bs].
+    const SmallVector<int64_t> splitShape =
+        isDCR ? SmallVector<int64_t>{N, bs, bs, cOut, H, W}
+              : SmallVector<int64_t>{N, cOut, bs, bs, H, W};
+    const SmallVector<int64_t> perm =
+        isDCR ? SmallVector<int64_t>{0, 3, 4, 1, 5, 2}
+              : SmallVector<int64_t>{0, 1, 4, 2, 5, 3};
+    const SmallVector<int64_t> permShape{N, cOut, H, bs, W, bs};
+
+    onnx_mlir::OnnxBuilder create(rewriter, op.getLoc());
+    Value reshaped = create.reshape(RankedTensorType::get(splitShape, elemType),
+        input, create.constantInt64(splitShape));
+    Value transposed =
+        create.transpose(RankedTensorType::get(permShape, elemType), reshaped,
+            rewriter.getI64ArrayAttr(perm));
+    Value result = create.reshape(op.getResult().getType(), transposed,
+        create.constantInt64(SmallVector<int64_t>{N, cOut, H * bs, W * bs}));
+
+    rewriter.replaceOp(op, result);
+    return success();
+  }
+};
+
+// =============================================================================
 // Decompose InstanceNormalization to LayerNormalization
 // =============================================================================
 struct DecomposeInstanceNormPattern
@@ -4726,6 +4843,8 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   MLIRContext *context = &getContext();
   onnx_mlir::separatePhasedConvsForConvTransposeActive =
       this->enableSeparatePhasedConvsForConvTranspose.getValue();
+  onnx_mlir::convTransposeDepthToSpaceActive =
+      this->enableConvTransposeDecomposeToDepthToSpace.getValue();
   RewritePatternSet patterns(context);
   onnx_mlir::getDecomposeONNXToONNXPatterns(patterns,
       enableConvTransposeDecompose, enableConvTransposeDecomposeToPhasedConv,
@@ -4734,7 +4853,8 @@ void DecomposeONNXToONNXPass::runOnOperation() {
       enableGroupQueryAttentionDecompose, enableSplitToSliceDecompose,
       enableConcatFuse, enableLstmSeqDecompose, enableReduceL2Decompose,
       /*disableGenericDecompositions=*/false, enableGatherToSlice,
-      enableHardSwishDecompose, enableGroupQueryAttentionCacheSlicing);
+      enableHardSwishDecompose, enableGroupQueryAttentionCacheSlicing,
+      enableDepthToSpaceDecompose);
 
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
   if (this->target == "stablehlo") {
@@ -4759,7 +4879,8 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
     bool enableSplitToSliceDecompose, bool enableConcatFuse,
     bool enableLstmSeqDecompose, bool enableReduceL2Decompose,
     bool disableGenericDecompositions, bool enableGatherToSlice,
-    bool enableHardSwishDecompose, bool enableGroupQueryAttentionCacheSlicing) {
+    bool enableHardSwishDecompose, bool enableGroupQueryAttentionCacheSlicing,
+    bool enableDepthToSpaceDecompose) {
   MLIRContext *context = patterns.getContext();
   if (!disableGenericDecompositions)
     populateWithGenerated(patterns);
@@ -4829,9 +4950,25 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
   if (enableGatherToSlice)
     patterns.insert<DecomposeGatherToSlicePattern>(context);
 
+  if (enableDepthToSpaceDecompose)
+    populateDecomposeDepthToSpacePattern(patterns);
+
   patterns.insert<ReplaceCastLikeByCastPattern>(context);
 
   // TODO: consider whether to include SoftmaxPattern here
+}
+
+void onnx_mlir::populateDecomposeDepthToSpacePattern(
+    mlir::RewritePatternSet &patterns, mlir::PatternBenefit benefit) {
+  patterns.insert<DecomposeDepthToSpacePattern>(patterns.getContext(), benefit);
+}
+
+void onnx_mlir::populateConvTransposeToConvDepthToSpacePatterns(
+    mlir::RewritePatternSet &patterns) {
+  // set the global flag of this file since we have no communication over
+  // tablegen, setting benefit does no work with tablegen generated patterns
+  convTransposeDepthToSpaceActive = true;
+  convtranspose_phased::populateWithGenerated(patterns);
 }
 
 // createDecomposeONNXToONNXPass() and createDecomposeONNXToONNXPass(options)
