@@ -237,71 +237,6 @@ def rewrite_torch_sym_sum(gm: fx.GraphModule) -> fx.GraphModule:
     return gm
 
 
-def rewrite_item_calls_for_shape_construction(gm: fx.GraphModule) -> fx.GraphModule:
-    """
-    Rewrite .item() calls on integer scalar tensors that are used in shape construction.
-    
-    This handles patterns like:
-        item_x = cache_len_tensor.item()
-        keys = torch.zeros((1, 4, item_x, 128), ...)
-    
-    The rewrite replaces .item() with sym_size to preserve symbolic information,
-    avoiding data-dependent scalars that torch.export cannot handle.
-    """
-    g = gm.graph
-    changed = False
-    
-    # Find all .item() calls on integer scalar tensors.
-    for node in g.nodes:
-        if not _is_item_of_tensor(node):
-            continue
-        tensor_node = node.args[0]
-        if not isinstance(tensor_node, fx.Node):
-            continue
-        
-        # Check if the tensor is an integer tensor (int32 or int64).
-        dtype = _get_dtype_from_meta(tensor_node)
-        if dtype not in [torch.int32, torch.int64]:
-            continue
-        
-        # Check if the tensor is a scalar (0-d or 1-d with size 1).
-        if not _is_singleton_from_meta(tensor_node):
-            continue
-        
-        # Replace .item() with sym_size to extract the value symbolically.
-        with g.inserting_before(node):
-            val = node.meta.get("tensor_meta", None)
-            if val and "shape" in val and len(val["shape"]) == 0:
-                # 0-d tensor: First unsqueeze to make it 1-d, then use sym_size.
-                unsqueezed = g.call_function(
-                    torch.ops.aten.unsqueeze.default,
-                    args=(tensor_node, 0),
-                    kwargs={}
-                )
-                size_node = g.call_function(
-                    torch.ops.aten.sym_size,
-                    args=(unsqueezed, 0),
-                    kwargs={}
-                )
-            else:
-                # 1-d tensor with size 1: Use sym_size directly on dimension 0.
-                size_node = g.call_function(
-                    torch.ops.aten.sym_size,
-                    args=(tensor_node, 0),
-                    kwargs={}
-                )
-        
-        node.replace_all_uses_with(size_node)
-        g.erase_node(node)
-        changed = True
-    
-    if changed:
-        g.lint()
-        gm.recompile()
-    
-    return gm
-
-
 def convert_symint_args_to_tensors(gm: fx.GraphModule) -> fx.GraphModule:
     """
     Convert symbolic integer arguments into tensor arguments of type [1xint64].
@@ -373,10 +308,10 @@ def convert_symint_args_to_tensors(gm: fx.GraphModule) -> fx.GraphModule:
                         torch.ops.aten.sym_size, args=(carrier, dim)
                     )
                 else:
-                    # Use sym_size instead of .item() to preserve symbolic information.
+                    # Use sym_numel instead of .item() to preserve symbolic information.
                     # This avoids creating data-dependent scalars that torch.export cannot handle.
                     item_node = graph.call_function(
-                        torch.ops.aten.sym_size, args=(tensor_node, 0)
+                        torch.ops.aten.sym_numel, args=(tensor_node,)
                     )
                 user.replace_input_with(symint_node, item_node)
                 changed = True

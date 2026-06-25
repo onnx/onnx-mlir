@@ -110,7 +110,7 @@ class SessionCache:
         dst_dir = os.path.join(self.cache_path, key)
         os.makedirs(dst_dir, exist_ok=True)
         for filename in os.listdir(src_dir):
-            if not filename.lower().endswith((".onnx", ".onnx.data")):
+            if not filename.lower().endswith((".onnx", ".onnx.data", ".data")):
                 continue
             src_file = os.path.join(src_dir, filename)
             dst_file = os.path.join(dst_dir, filename)

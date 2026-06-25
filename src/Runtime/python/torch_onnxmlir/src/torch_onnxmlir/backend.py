@@ -473,8 +473,7 @@ class TorchONNXMLIR:
             x = example_inputs[i]
             if isinstance(x, int):
                 # Create a 1D tensor with shape [x] where x is the scalar value.
-                # This allows sym_size(tensor, 0) to return the actual value x.
-                # Use empty instead of zeros since we only care about shape, not values.
+                # sym_numel(tensor) will return x, extracting the scalar value.
                 tensor_inputs.append(torch.empty(x, dtype=torch.int64))
             elif isinstance(x, torch.Tensor):
                 tensor_inputs.append(x)
@@ -534,10 +533,6 @@ class TorchONNXMLIR:
         # epsilon value, from the config file of the model and they are constants.
         constant_values = self.extract_scalar_constant_args(example_inputs)
         self.gm = fx_utils.freeze_scalar_constant_args(self.gm, constant_values)
-
-        # Rewrite .item() calls on integer tensors used in shape construction.
-        # This handles StaticCache patterns where cache length tensors are used.
-        self.gm = fx_utils.rewrite_item_calls_for_shape_construction(self.gm)
 
         # Since onnx does not support scalar inputs, symbolic integer arguments
         # are converted to tensor arguments.
