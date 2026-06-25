@@ -11,6 +11,7 @@ add_onnx_mlir_library(OMShapeInferenceOpInterface
   ShapeInferenceOpInterface.cpp
 
   DEPENDS
+  OMONNXIncGen
   OMShapeInferenceOpInterfaceIncGen
 
   LINK_LIBS PUBLIC
