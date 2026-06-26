@@ -23,7 +23,7 @@ def main():
             GITHUB_REPO_NAME2 + "_PR_NUMBER2": github_pr_number2,
         },
         pull=True,
-        work_mode="host",
+        network_mode="host",
     ):
         if "stream" in line:
             m = re.match(r"^\s*---> ([0-9a-f]+)$", line["stream"])
