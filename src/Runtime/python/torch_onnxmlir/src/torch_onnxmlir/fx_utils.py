@@ -259,13 +259,6 @@ def convert_symint_args_to_tensors(gm: fx.GraphModule) -> fx.GraphModule:
                 # Keep the SymInt as symbolic in the tensor's shape.
                 # This allows the dimension to remain dynamic during export.
                 symint_value = node.meta.get("example_value", None)
-                # logger.info(f"\n node info: {node.meta}")
-                # logger.info(f"node name: {node.name}")
-                # logger.info(f"node target: {node.target}")
-                # logger.info(f"is constant: {symint_value.node.is_constant()}")
-                # logger.info(f"is symbol: {symint_value.node.is_symbolic()}")
-                # logger.info(f"expr: {symint_value.node.expr}")
-                # logger.info(f"expr is number: {symint_value.node.expr.is_number}")
                 # Create a fake tensor with symbolic shape for the metadata.
                 fake_mode = fake_tensor_module.FakeTensorMode()
                 with fake_mode:
@@ -304,7 +297,7 @@ def convert_symint_args_to_tensors(gm: fx.GraphModule) -> fx.GraphModule:
                     found = True
 
     # Remove the SymInt input and get the dimension size from the tensor node if possible.
-    # Otherwise replace its uses with sym_size to preserve symbolic information.
+    # Otherwise replace its uses with sym_numel to preserve symbolic information.
     for symint_node, tensor_node in symint_placeholders:
         for user in list(symint_node.users):
             with graph.inserting_before(user):
@@ -328,78 +321,4 @@ def convert_symint_args_to_tensors(gm: fx.GraphModule) -> fx.GraphModule:
         gm.graph.lint()
         gm.recompile()
 
-    return gm
-
-
-def convert_symint_args_to_tensors_test(gm):
-    graph = gm.graph
-
-    placeholders = [n for n in graph.nodes if n.op == "placeholder"]
-    logger.info(f"num of places before {len(placeholders)}")
-
-    names = [n.target for n in placeholders]
-    print("duplicates:", [n for n in names if n.endswith("_tensor")])
-
-    # Build lookup: existing placeholder names
-    placeholder_by_name = {n.target: n for n in placeholders}
-
-    for node in placeholders:
-
-        if node.type is not torch.SymInt:
-            continue
-
-        desired_name = node.target + "_omtensor"
-
-        # ------------------------------------------------------------
-        # CASE 1: tensor placeholder already exists → reuse it
-        # ------------------------------------------------------------
-        if desired_name in placeholder_by_name:
-            tensor_node = placeholder_by_name[desired_name]
-
-            # create sym_size AFTER tensor_node
-            with graph.inserting_after(tensor_node):
-                new_sym = graph.call_function(
-                    torch.ops.aten.sym_size,
-                    args=(tensor_node, 0),
-                )
-
-            # replace all uses of SymInt
-            for user in list(node.users):
-                user.replace_input_with(node, new_sym)
-
-            # remove old SymInt placeholder
-            graph.erase_node(node)
-            continue
-
-        # ------------------------------------------------------------
-        # CASE 2: no tensor yet → rename in-place
-        # ------------------------------------------------------------
-        node.target = desired_name
-        node.type = torch.Tensor
-
-        sym_val = node.meta.get("example_value", None)
-        if sym_val is not None:
-            node.meta["tensor_meta"] = {
-                "sizes": (sym_val,),
-                "dtype": torch.int64,
-            }
-
-        # create sym_size AFTER placeholder
-        with graph.inserting_after(node):
-            new_sym = graph.call_function(
-                torch.ops.aten.sym_size,
-                args=(node, 0),
-            )
-
-        # replace users (but not the sym_size input itself)
-        for user in list(node.users):
-            if user is new_sym:
-                continue
-            user.replace_input_with(node, new_sym)
-
-    graph.lint()
-    gm.recompile()
-
-    a_placeholders = [n for n in graph.nodes if n.op == "placeholder"]
-    logger.info(f"num of places aftter {len(a_placeholders)}")
     return gm
