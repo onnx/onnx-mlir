@@ -474,7 +474,7 @@ class TorchONNXMLIR:
             if isinstance(x, int):
                 # Create a 1D tensor with shape [x] where x is the scalar value.
                 # sym_numel(tensor) will return x, extracting the scalar value.
-                tensor_inputs.append(torch.empty(x, dtype=torch.int64))
+                tensor_inputs.append(torch.empty((x,), dtype=torch.int64))
             elif isinstance(x, torch.Tensor):
                 tensor_inputs.append(x)
             else:
