@@ -31,6 +31,6 @@ RUN cd onnx-mlir \
              -DONNX_MLIR_TARGET_TO_BUILD=OMPyRt .. \
     && cmake --build . --parallel ${NPROC} --target OMCreateOMPyRtPackage \
     && pip3 install --break-system-packages src/Runtime/python/om_pyrt \
-    && python src/Runtime/python/om_pyrt/tests/use_container_compiler.py
+    && python3 src/Runtime/python/om_pyrt/tests/use_container_compiler.py
 
 LABEL om_pyrt_light_successfully_built=yes
