@@ -858,7 +858,6 @@ public:
   LogicalResult matchAndRewrite(ONNXLayoutTransformOp layoutTransformOp,
       PatternRewriter &rewriter) const override {
     ExtLayoutTransformFusion fusion;
-    // detectIfBeneficial also guards against ops already inside a FusedOp body.
     if (!fusion.detectIfBeneficial(dimAnalysis, layoutTransformOp))
       return failure();
 

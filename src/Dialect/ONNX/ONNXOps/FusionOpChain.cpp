@@ -26,6 +26,10 @@ namespace onnx_mlir {
 // FusionOpChain — non-virtual method implementations
 //===----------------------------------------------------------------------===//
 
+bool FusionOpChain::isInsideFusedOp(Operation *op) {
+  return mlir::isa<ONNXFusedOp>(op->getParentOp());
+}
+
 ONNXFusedOp FusionOpChain::createFusedOp(
     PatternRewriter &rewriter, Location loc, StringRef kind) {
   // Build the set of values produced by the chain ops themselves; these

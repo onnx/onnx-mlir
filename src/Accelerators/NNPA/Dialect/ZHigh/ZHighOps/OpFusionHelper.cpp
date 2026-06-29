@@ -64,7 +64,7 @@ static bool detectSplitReshape(ONNXReshapeOp reshape, int64_t &axis,
     int64_t &factor, const DimAnalysis *dimAnalysis) {
   assert(dimAnalysis && "detectSplitReshape requires a non-null DimAnalysis");
   auto returnFailure = [](llvm::StringRef msg) -> bool {
-    LLVM_DEBUG(llvm::dbgs() << "detectSplitReshape failed: " << msg << "\n");
+    LLVM_DEBUG(llvm::dbgs() << "  detectSplitReshape failed: " << msg << "\n");
     return false;
   };
 
@@ -111,7 +111,7 @@ static bool detectMergeReshape(
     ONNXReshapeOp reshape, int64_t &axis, const DimAnalysis *dimAnalysis) {
   assert(dimAnalysis && "detectMergeReshape requires a non-null DimAnalysis");
   auto returnFailure = [](llvm::StringRef msg) -> bool {
-    LLVM_DEBUG(llvm::dbgs() << "detectMergeReshape failed: " << msg << "\n");
+    LLVM_DEBUG(llvm::dbgs() << "  detectMergeReshape failed: " << msg << "\n");
     return false;
   };
 
@@ -147,6 +147,12 @@ static bool detectMergeReshape(
 
 bool ExtLayoutTransformFusion::detectIfBeneficial(
     const DimAnalysis *dimAnalysis, ONNXLayoutTransformOp startOp) {
+  auto returnFailure = [](llvm::StringRef msg) -> bool {
+    LLVM_DEBUG(llvm::dbgs() << "  detectIfBeneficial ext-layout-trans failed: "
+                            << msg << "\n");
+    return false;
+  };
+
   // Reset all fields.
   ops.clear();
   finalResults.clear();
@@ -157,22 +163,26 @@ bool ExtLayoutTransformFusion::detectIfBeneficial(
   dlf16ToF32 = false;
   finalLayout = std::nullopt;
 
-  // Do not fire on ops that are already inside an ONNXFusedOp body.
-  if (mlir::isa<ONNXFusedOp>(startOp->getParentOp()))
-    return false;
+  LLVM_DEBUG({
+    llvm::dbgs() << "Attempt to fuse op\n  ";
+    startOp.dump();
+  });
+
+  if (isInsideFusedOp(startOp))
+    return returnFailure("already inside a fused op body");
 
   // ---- Step 1: validate and record the initial layout transform --------
   // Must be a ZTensor -> CPU conversion (no target layout means CPU).
   if (startOp.getTargetLayout().has_value())
-    return false;
+    return returnFailure("has no target layout");
   Value inputData = startOp.getData();
   if (!isZTensor(inputData.getType()))
-    return false;
+    return returnFailure("has no zTensor input type");
   if (!supportedLayoutForCompilerGeneratedStickUnstick(
           inputData, /*nhwc=*/false))
-    return false;
+    return returnFailure("zTensor layout not supported");
   if (!hasStaticInnermostDimMod(inputData, 64))
-    return false;
+    return returnFailure("zTensor inner dim is not 0 mod 64");
 
   ops.push_back(startOp.getOperation());
   Value current = startOp.getOutput();
@@ -194,9 +204,9 @@ bool ExtLayoutTransformFusion::detectIfBeneficial(
     if (auto transpose = singleUserOfType<ONNXTransposeOp>(current)) {
       auto perm = transpose.getPerm();
       if (!perm.has_value())
-        return false; // default perm moves last dim — unsupported
+        return returnFailure("default perm unsupported");
       if (!transposeKeepsLastDim(perm.value()))
-        return false;
+        return returnFailure("perm last dim");
       transposePattern = perm;
       ops.push_back(transpose.getOperation());
       current = transpose.getTransposed();
@@ -216,10 +226,10 @@ bool ExtLayoutTransformFusion::detectIfBeneficial(
   if (auto finalLT = singleUserOfType<ONNXLayoutTransformOp>(current)) {
     auto layoutAttr = finalLT.getTargetLayout();
     if (!layoutAttr.has_value())
-      return false; // second LT must target a ZTensor layout
+      return returnFailure("second LT must target a zTensor layout");
     if (!supportedLayoutForCompilerGeneratedStickUnstick(
             finalLT.getOutput(), /*nhwc=*/false))
-      return false;
+      return returnFailure("unsupported target zTensor type");
     OpBuilder b(finalLT);
     finalLayout =
         getZTensorLayoutAttr(b, cast<ZTensorEncodingAttr>(layoutAttr.value()));
@@ -239,8 +249,9 @@ bool ExtLayoutTransformFusion::detectIfBeneficial(
   bool hasReshape = reshapeSplitAxis != -1 || reshapeMergeAxis != -1;
   bool hasFinalConv = finalLayout.has_value() || dlf16ToF32;
   if (!hasTranspose && !(hasReshape && hasFinalConv))
-    return false;
+    return returnFailure("successful but NOT beneficial");
 
+  LLVM_DEBUG(llvm::dbgs() << "  successful and beneficial\n");
   return true;
 }
 

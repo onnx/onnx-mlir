@@ -14,6 +14,20 @@
 // encode the canonical calling sequences for the fusion pass and the lowering
 // pass.
 //
+// -- Guard against infinite loops --------------------------------------------
+//
+// Fusion passes rewrite matched op chains into an ONNXFusedOp but do NOT
+// erase the original ops — they are moved into the FusedOp body instead.
+// Because the same pattern can therefore match the original ops a second time
+// (now living inside the body), every subclass detectIfBeneficial() override
+// MUST call the base-class helper as its very first check:
+//
+//   if (isInsideFusedOp(startOp))
+//     return false; // already inside a fused op body — skip to avoid loop
+//
+// Without this guard the rewrite pattern would fire repeatedly on the same
+// ops and the pass would diverge.
+//
 // -- Fusion pass (pattern creation) ------------------------------------------
 //
 //   MyFusion fusion;
@@ -43,8 +57,9 @@
 #include "llvm/ADT/SmallVector.h"
 
 namespace mlir {
-class PatternRewriter;
 class Location;
+class Operation;
+class PatternRewriter;
 } // namespace mlir
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -84,6 +99,13 @@ public:
   bool verifyAndRetrieveAttrs(mlir::ONNXFusedOp fusedOp);
 
 protected:
+  // -- Helper for subclass detect methods ------------------------------------
+
+  /// Returns true when \p op is directly nested inside an ONNXFusedOp body.
+  /// Call this first in every detectIfBeneficial() override to avoid infinite
+  /// rewrite loops (see the "Guard against infinite loops" note above).
+  static bool isInsideFusedOp(mlir::Operation *op);
+
   // -- Pure-virtual subclass contract ----------------------------------------
 
   /// Returns the kind string that identifies this pattern on the ONNXFusedOp.
