@@ -6,16 +6,6 @@ The onnx-mlir compiler can compile an ONNX model into a shared library (`.so` fi
 
 Traditionally, PyRuntimeC is built alongside the onnx-mlir compiler, which requires building the entire llvm_project. This document describes a lightweight approach to build PyRuntimeC **without** requiring llvm_project or other onnx-mlir compiler components. This enables users to easily build the Python driver for model execution on different systems.
 
-### What Gets Built
-
-In lightweight mode, only the following components are built:
-- **OMTensorUtils** (`src/Runtime`)
-- **Python driver** (`src/Runtime/python`)
-- **Utility functions**
-- **third_party/pybind11**
-
-The lightweight PyRuntimeC build is controlled by the CMake option: `ONNX_MLIR_TARGET_TO_BUILD=OMPyRt`
-
 ## Prerequisites
 
 - CMake (version 3.15 or higher recommended)
@@ -125,3 +115,14 @@ The driver is also used by `torch_onnxmlir`, which enables onnx-mlir to function
 - **CMake configuration fails**: Ensure you're using CMake 3.15 or higher
 - **Python package installation fails**: Verify your virtual environment is activated
 - **Import errors**: Confirm the package was installed successfully with `pip list | grep om_pyrt`
+
+### Some details
+
+In lightweight mode, only the following components are built:
+- **OMTensorUtils** (`src/Runtime`)
+- **Python driver** (`src/Runtime/python`)
+- **Utility functions**
+- **third_party/pybind11**
+
+The lightweight PyRuntimeC build is controlled by the CMake option: `ONNX_MLIR_TARGET_TO_BUILD=OMPyRt`
+
