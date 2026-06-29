@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --eliminate-write-only-alloc %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --march=z16 --maccel=NNPA --eliminate-write-only-alloc %s -split-input-file | FileCheck %s
 
 // -----
 
@@ -166,4 +166,97 @@ func.func @keep_when_returned() -> memref<1xi64> {
   // CHECK-LABEL: keep_when_returned
   // CHECK: memref.alloc
   // CHECK: affine.store
+}
+
+// -----
+
+// An op (zlow.lstm) writes to two allocs: hn_output (live — returned) and
+// cf_output (write-only from the alloc's perspective).  The fixpoint rule must
+// keep BOTH allocs and the LSTM: cf_output cannot be removed because its only
+// writer (the LSTM) also writes to the live hn_output.
+func.func @keep_lstm_with_live_cowrite(
+    %input: memref<1xf16>, %h0: memref<1xf16>, %c0: memref<1xf16>,
+    %wi: memref<1xf16>, %ib: memref<1xf16>,
+    %wh: memref<1xf16>, %hb: memref<1xf16>,
+    %work: memref<1xi8>, %shape: memref<5xi64>) -> memref<1xf16> {
+  %hn = memref.alloc() : memref<1xf16>
+  %cf = memref.alloc() : memref<1xf16>
+  "zlow.lstm"(%input, %h0, %c0, %wi, %ib, %wh, %hb, %work, %shape, %hn, %cf)
+      <{direction = "forward", return_all_steps = -1 : si64,
+        prev_layer = "none"}>
+      : (memref<1xf16>, memref<1xf16>, memref<1xf16>, memref<1xf16>,
+         memref<1xf16>, memref<1xf16>, memref<1xf16>,
+         memref<1xi8>, memref<5xi64>, memref<1xf16>, memref<1xf16>) -> ()
+  return %hn : memref<1xf16>
+
+  // CHECK-LABEL: keep_lstm_with_live_cowrite
+  // CHECK-DAG:   memref.alloc() : memref<1xf16>
+  // CHECK-DAG:   memref.alloc() : memref<1xf16>
+  // CHECK:       zlow.lstm
+}
+
+// -----
+
+// Both LSTM outputs are write-only (neither is returned or read).  Since every
+// Write-target of the LSTM is itself a dead candidate, the fixpoint keeps both
+// in the candidate set and all three (hn alloc, cf alloc, LSTM) are erased.
+func.func @eliminate_lstm_both_outputs_dead(
+    %input: memref<1xf16>, %h0: memref<1xf16>, %c0: memref<1xf16>,
+    %wi: memref<1xf16>, %ib: memref<1xf16>,
+    %wh: memref<1xf16>, %hb: memref<1xf16>,
+    %work: memref<1xi8>, %shape: memref<5xi64>) {
+  %hn = memref.alloc() : memref<1xf16>
+  %cf = memref.alloc() : memref<1xf16>
+  "zlow.lstm"(%input, %h0, %c0, %wi, %ib, %wh, %hb, %work, %shape, %hn, %cf)
+      <{direction = "forward", return_all_steps = -1 : si64,
+        prev_layer = "none"}>
+      : (memref<1xf16>, memref<1xf16>, memref<1xf16>, memref<1xf16>,
+         memref<1xf16>, memref<1xf16>, memref<1xf16>,
+         memref<1xi8>, memref<5xi64>, memref<1xf16>, memref<1xf16>) -> ()
+  return
+
+  // CHECK-LABEL: eliminate_lstm_both_outputs_dead
+  // CHECK-NOT:   memref.alloc
+  // CHECK-NOT:   zlow.lstm
+}
+
+// -----
+
+// Fixpoint chain (two iterations required):
+//   lstm1 writes to %alloc_a (candidate) and %alloc_b (candidate).
+//   lstm2 writes to %alloc_b (candidate) and %hn2 (live — returned).
+// Iteration 1: %alloc_b is pruned because lstm2 also writes to live %hn2.
+// Iteration 2: %alloc_a is pruned because lstm1 also writes to %alloc_b
+//              which is no longer a candidate.
+// Result: neither alloc nor either LSTM is eliminated.
+func.func @keep_lstm_fixpoint_chain(
+    %input: memref<1xf16>, %h0: memref<1xf16>, %c0: memref<1xf16>,
+    %wi: memref<1xf16>, %ib: memref<1xf16>,
+    %wh: memref<1xf16>, %hb: memref<1xf16>,
+    %work: memref<1xi8>, %shape: memref<5xi64>) -> memref<1xf16> {
+  %alloc_a = memref.alloc() : memref<1xf16>
+  %alloc_b = memref.alloc() : memref<1xf16>
+  %hn2     = memref.alloc() : memref<1xf16>
+  "zlow.lstm"(%input, %h0, %c0, %wi, %ib, %wh, %hb, %work, %shape,
+              %alloc_a, %alloc_b)
+      <{direction = "forward", return_all_steps = -1 : si64,
+        prev_layer = "none"}>
+      : (memref<1xf16>, memref<1xf16>, memref<1xf16>, memref<1xf16>,
+         memref<1xf16>, memref<1xf16>, memref<1xf16>,
+         memref<1xi8>, memref<5xi64>, memref<1xf16>, memref<1xf16>) -> ()
+  "zlow.lstm"(%input, %h0, %c0, %wi, %ib, %wh, %hb, %work, %shape,
+              %hn2, %alloc_b)
+      <{direction = "forward", return_all_steps = -1 : si64,
+        prev_layer = "none"}>
+      : (memref<1xf16>, memref<1xf16>, memref<1xf16>, memref<1xf16>,
+         memref<1xf16>, memref<1xf16>, memref<1xf16>,
+         memref<1xi8>, memref<5xi64>, memref<1xf16>, memref<1xf16>) -> ()
+  return %hn2 : memref<1xf16>
+
+  // CHECK-LABEL: keep_lstm_fixpoint_chain
+  // CHECK-DAG:   memref.alloc() : memref<1xf16>
+  // CHECK-DAG:   memref.alloc() : memref<1xf16>
+  // CHECK-DAG:   memref.alloc() : memref<1xf16>
+  // CHECK:       zlow.lstm
+  // CHECK:       zlow.lstm
 }

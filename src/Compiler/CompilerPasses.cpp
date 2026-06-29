@@ -311,7 +311,8 @@ void addKrnlToAffinePasses(mlir::PassManager &pm) {
   // Eliminate locally-allocated memrefs that are only written to (e.g.
   // shape buffers from concat ops used for shape inference but not needed
   // at runtime).
-  pm.addNestedPass<func::FuncOp>(createEliminateWriteOnlyAllocPass());
+  if (!disableEliminateWriteOnlyAlloc)
+    pm.addNestedPass<func::FuncOp>(createEliminateWriteOnlyAllocPass());
 }
 
 void addONNXToLinalgPasses(mlir::PassManager &pm) {

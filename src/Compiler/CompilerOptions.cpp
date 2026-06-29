@@ -101,6 +101,7 @@ std::string modelTag;                                  // onnx-mlir only
 bool enableConvOptPass;                                // onnx-mlir only
 bool disableConvToMatmul;                              // onnx-mlir only
 bool disableFusedOp;                                   // common for both
+bool disableEliminateWriteOnlyAlloc;                   // common for both
 std::vector<std::string> replaceOpWithItsOperand;      // onnx-mlir only
 bool disableConstantProp;                              // onnx-mlir only
 bool disableCountIncludePad;                           // onnx-mlir only
@@ -757,6 +758,14 @@ static llvm::cl::opt<bool, true> enableConvOptPassOpt("enable-conv-opt-pass",
     llvm::cl::desc("Enable the ConvOptPass. Default is true."),
     llvm::cl::location(enableConvOptPass), llvm::cl::init(true),
     llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<bool, true> disableEliminateWriteOnlyAllocOpt(
+    "disable-eliminate-write-only-alloc",
+    llvm::cl::desc("Disable the EliminateWriteOnlyAllocPass that removes "
+                   "locally-allocated memrefs that are only written to. "
+                   "Default is false."),
+    llvm::cl::location(disableEliminateWriteOnlyAlloc), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirCommonOptions));
 
 static llvm::cl::opt<bool, true> disableFusedOpOpt("disable-fused-op",
     llvm::cl::desc("Disable ONNXFusedOp (region-based) container for supported "

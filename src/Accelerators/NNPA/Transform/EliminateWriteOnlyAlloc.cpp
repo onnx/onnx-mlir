@@ -16,6 +16,13 @@
 // cleans up any dead read-only ops (loads) that fed them, and removes
 // affine.for loops whose bodies have become side-effect-free.
 //
+// Safety rule (fixpoint):
+//   An alloc is safe to eliminate only when EVERY op that writes to it has ALL
+//   of its other Write-target operands also in the safe-to-eliminate set.
+//   This prevents erasing an op (e.g. zlow.lstm) that writes to both a dead
+//   alloc and a live alloc: erasing the op would silently drop the live write.
+//   The fixpoint iterates until no more candidates are pruned.
+//
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
@@ -23,9 +30,13 @@
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
 #include "mlir/Pass/Pass.h"
+#include "llvm/ADT/DenseSet.h"
+#include "llvm/Support/Debug.h"
 
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
+
+#define DEBUG_TYPE "eliminate-write-only-alloc"
 
 using namespace mlir;
 
@@ -50,6 +61,32 @@ static bool isWriteOnlyAlloc(memref::AllocOp allocOp) {
         return false;
   }
   return true;
+}
+
+/// Returns true when any user of `allocVal` also writes to a memref that is
+/// NOT in `candidates`.  Such a user cannot be safely erased (it has a live
+/// write-target), so `allocVal` itself must survive.
+static bool hasLiveCoWrite(
+    Value allocVal, const llvm::DenseSet<Value> &candidates) {
+  for (Operation *user : allocVal.getUsers()) {
+    auto iface = dyn_cast<MemoryEffectOpInterface>(user);
+    if (!iface)
+      // isWriteOnlyAlloc guarantees this branch is unreachable for any
+      // candidate.  Return true conservatively so that if the assumption
+      // ever breaks the alloc is pruned rather than silently mis-erased.
+      return true;
+    for (Value operand : user->getOperands()) {
+      if (operand == allocVal)
+        continue; // skip the candidate itself
+      SmallVector<MemoryEffects::EffectInstance> effects;
+      iface.getEffectsOnValue(operand, effects);
+      for (auto &eff : effects)
+        if (isa<MemoryEffects::Write>(eff.getEffect()) &&
+            !candidates.count(operand))
+          return true;
+    }
+  }
+  return false;
 }
 
 /// Returns true when an affine.for loop has no SSA results and every op in its
@@ -113,15 +150,65 @@ public:
   void runOnOperation() override {
     func::FuncOp func = getOperation();
 
-    // Collect in a separate walk to avoid mutating the IR while iterating.
-    SmallVector<memref::AllocOp> toEliminate;
+    // Phase 1: Build the initial candidate set — allocs where every user only
+    // has Write/Free effects on the alloc (no reads, no unknown ops).
+    llvm::DenseSet<Value> candidates;
     func.walk([&](memref::AllocOp allocOp) {
       if (isWriteOnlyAlloc(allocOp))
+        candidates.insert(allocOp.getResult());
+    });
+
+    LLVM_DEBUG(llvm::dbgs() << "[eliminate-write-only-alloc] "
+                            << candidates.size() << " initial candidate(s)\n");
+
+    // Phase 2: Fixpoint pruning.
+    // Remove any candidate whose writer also writes to a live (non-candidate)
+    // memref.  Erasing such a writer would silently drop a needed write.
+    // Repeat until stable because pruning one candidate can expose another.
+    bool changed = true;
+    while (changed) {
+      changed = false;
+      SmallVector<Value> toRemove;
+      for (Value allocVal : candidates)
+        if (hasLiveCoWrite(allocVal, candidates))
+          toRemove.push_back(allocVal);
+      for (Value v : toRemove) {
+        LLVM_DEBUG({
+          llvm::dbgs()
+              << "[eliminate-write-only-alloc] pruned (live co-write): ";
+          v.getDefiningOp<memref::AllocOp>().print(llvm::dbgs());
+          llvm::dbgs() << "\n";
+        });
+        candidates.erase(v);
+        changed = true;
+      }
+    }
+
+    LLVM_DEBUG(llvm::dbgs()
+               << "[eliminate-write-only-alloc] " << candidates.size()
+               << " alloc(s) to eliminate after pruning\n");
+
+    // Collect surviving candidates in program order for deterministic erasure.
+    SmallVector<memref::AllocOp> toEliminate;
+    func.walk([&](memref::AllocOp allocOp) {
+      if (candidates.count(allocOp.getResult()))
         toEliminate.push_back(allocOp);
     });
 
+    // Phase 3: Erase each dead alloc and its writers.
     for (memref::AllocOp allocOp : toEliminate) {
       Value memRef = allocOp.getResult();
+      LLVM_DEBUG({
+        llvm::dbgs() << "[eliminate-write-only-alloc] removing alloc: ";
+        allocOp.print(llvm::dbgs());
+        llvm::dbgs() << "\n";
+        llvm::dbgs() << "  users to erase:\n";
+        for (Operation *u : memRef.getUsers()) {
+          llvm::dbgs() << "    ";
+          u->print(llvm::dbgs());
+          llvm::dbgs() << "\n";
+        }
+      });
 
       SmallVector<Value> storedValues;
       llvm::SmallSetVector<Operation *, 4> parentLoops;
