@@ -26,7 +26,7 @@ try:
     )
     compiled_model = compile_session.compile(model_file, "-O3")
 except Exception as e:
-    print("Fialed to compile")
+    print("Failed to compile")
     exit(-1)
 
 # Prepare input data
