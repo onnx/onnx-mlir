@@ -176,13 +176,6 @@ DenseElementsAttr createDenseElementsAttrFromShape(PatternRewriter &rewriter,
   int64_t endValue = end.has_value() ? end.value() : rank;
 
   SmallVector<int64_t, 1> dims = {endValue - start};
-
-  if (rank == 0) {
-    auto tensorType = RankedTensorType::get({1}, rewriter.getIntegerType(64));
-    auto zero = IntegerAttr::get(tensorType.getElementType(), 0);
-    return DenseElementsAttr::get(tensorType, zero);
-  }
-
   SmallVector<int64_t, 4> values(
       shape.begin() + start, shape.begin() + endValue);
   auto tensorType = RankedTensorType::get(dims, rewriter.getIntegerType(64));
