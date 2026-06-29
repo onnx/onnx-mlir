@@ -11,6 +11,9 @@
 // ZHigh-specific fusion subclass built on top of the generic FusionOpChain
 // base class (src/Dialect/ONNX/ONNXOps/FusionOpChain.hpp).
 //
+// Convention: all zhigh related fusion should use a "zhigh." prefixed kind
+// name, to facilitate the lowering of fused ops.
+//
 // -- Fusion pass (pattern creation) ------------------------------------------
 //
 //   ExtLayoutTransformFusion fusion;

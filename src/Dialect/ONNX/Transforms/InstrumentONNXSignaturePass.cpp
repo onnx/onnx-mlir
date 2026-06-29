@@ -120,41 +120,26 @@ public:
             return WalkResult::advance();
           }
 
-          // ONNXFusedOp: report once as "onnx.fused.<kind>" and skip the body.
-          if (isa<ONNXFusedOp>(op)) {
-            std::string fusedName = onnx_mlir::getProfilingName(op);
-            bool gotOne = false;
-            if (nodeNamePattern != "NONE" && nodeNamePattern != "") {
-              StringAttr onnxNodeName =
-                  op->getAttrOfType<mlir::StringAttr>("onnx_node_name");
-              if (onnxNodeName && !onnxNodeName.getValue().empty()) {
-                gotOne = checkAndInsert(traceSpecificNodePattern,
-                    onnxNodeName.getValue().str(), 1, fusedName);
-              }
-            }
-            if (!gotOne && signaturePattern != "NONE" &&
-                signaturePattern != "") {
-              checkAndInsert(traceSpecificOpPattern, fusedName, 0, fusedName);
-            }
-            return WalkResult::skip(); // don't recurse into body
-          }
-
-          // Normal ops.
+          // getProfilingName returns "onnx.fused.<kind>" for ONNXFusedOp and
+          // the dialect op-name for every other op, so it drives both the
+          // match string and the display name uniformly.
+          std::string opName = onnx_mlir::getProfilingName(op);
           bool gotOne = false;
           if (nodeNamePattern != "NONE" && nodeNamePattern != "") {
             StringAttr onnxNodeName =
                 op->getAttrOfType<mlir::StringAttr>("onnx_node_name");
             if (onnxNodeName && !onnxNodeName.getValue().empty()) {
-              std::string nodeNameString = onnxNodeName.getValue().str();
-              gotOne =
-                  checkAndInsert(traceSpecificNodePattern, nodeNameString, 1);
+              gotOne = checkAndInsert(traceSpecificNodePattern,
+                  onnxNodeName.getValue().str(), 1, opName);
             }
           }
           if (!gotOne && signaturePattern != "NONE" && signaturePattern != "") {
-            std::string opName = op->getName().getStringRef().str();
-            checkAndInsert(traceSpecificOpPattern, opName, 0);
+            checkAndInsert(traceSpecificOpPattern, opName, 0, opName);
           }
-          return WalkResult::advance();
+          // Skip the body of ONNXFusedOp — its inner ops are not individually
+          // profiled; the fused op itself was already reported above.
+          return isa<ONNXFusedOp>(op) ? WalkResult::skip()
+                                      : WalkResult::advance();
         });
   }
 };
