@@ -4,7 +4,7 @@
 
 //===------------ FusionOpChain.hpp - ONNXFusedOp builder base -----------===//
 //
-// Copyright 2025 The IBM Research Authors.
+// Copyright 2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -39,8 +39,8 @@
 #ifndef ONNX_MLIR_FUSION_OP_CHAIN_H
 #define ONNX_MLIR_FUSION_OP_CHAIN_H
 
-#include "llvm/ADT/SmallVector.h"
 #include "mlir/Support/LogicalResult.h"
+#include "llvm/ADT/SmallVector.h"
 
 namespace mlir {
 class PatternRewriter;

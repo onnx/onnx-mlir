@@ -4,7 +4,7 @@
 
 //===------------ FusionOpChain.cpp - ONNXFusedOp builder base -----------===//
 //
-// Copyright 2025 The IBM Research Authors.
+// Copyright 2026 The IBM Research Authors.
 //
 // =============================================================================
 
