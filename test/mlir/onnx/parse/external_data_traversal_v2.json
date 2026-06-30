@@ -1,0 +1,59 @@
+// RUN: not --crash onnx-mlir --EmitONNXBasic %s 2>&1 | FileCheck %s
+
+// Regression test for path traversal via external data location.
+// ONNX spec (https://github.com/onnx/onnx/blob/main/docs/ExternalData.md):
+//   "Up-directory path components such as .. are disallowed."
+// A model with location="../../evil" must be rejected before any file is opened.
+
+{
+  "irVersion": "8",
+  "graph": {
+    "node": [
+      {
+        "output": ["output0"],
+        "opType": "Constant",
+        "attribute": [
+          {
+            "name": "value",
+            "t": {
+              "dims": ["1"],
+              "dataType": 1,
+              "name": "tensor0",
+              "externalData": [
+                {
+                  "key": "location",
+                  "value": "/truly/truly/evil"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                },
+                {
+                  "key": "length",
+                  "value": "4"
+                }
+              ],
+              "dataLocation": "EXTERNAL"
+            },
+            "type": "TENSOR"
+          }
+        ]
+      }
+    ],
+    "name": "traversal_test",
+    "output": [
+      {
+        "name": "output0",
+        "type": {
+          "tensorType": {
+            "elemType": 1,
+            "shape": {"dim": [{"dimValue": "1"}]}
+          }
+        }
+      }
+    ]
+  },
+  "opsetImport": [{"version": "16"}]
+}
+
+// CHECK: Error: external data location "/truly/truly/evil" must be a relative path
