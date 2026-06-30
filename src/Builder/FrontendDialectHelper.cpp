@@ -45,6 +45,9 @@ size_t parseOffsetOrLength(const std::string &value) {
 // Reads external data from file location specified in tensor proto.
 // The data is little endian encoded.
 // See https://github.com/onnx/onnx/blob/main/docs/ExternalData.md
+
+// TODO: having a more friendly error reporting method than an assert or
+// unreachable would be a plus.
 std::unique_ptr<llvm::MemoryBuffer> readExternalData_LE(
     const std::string &externalDataDir, const onnx::TensorProto &tp) {
   std::string location;
@@ -62,6 +65,27 @@ std::unique_ptr<llvm::MemoryBuffer> readExternalData_LE(
     }
   }
   assert(!location.empty() && "missing external data location");
+
+  // ONNX external data spec
+  // (https://github.com/onnx/onnx/blob/main/docs/ExternalData.md): "file path
+  // relative to the filesystem directory where the ONNX protobuf model was
+  // stored" "Up-directory path components such as .. are disallowed and should
+  // be stripped when parsing."
+  if (llvm::sys::path::is_absolute(location)) {
+    llvm::errs() << "Error: external data location \"" << location
+                 << "\" must be a relative path.\n";
+    llvm_unreachable("external data location is an absolute path");
+  }
+  for (auto it = llvm::sys::path::begin(location),
+            end = llvm::sys::path::end(location);
+       it != end; ++it) {
+    if (*it == "..") {
+      llvm::errs() << "Error: external data location \"" << location
+                   << "\" contains up-directory component '..'.\n";
+      llvm_unreachable("external data location contains '..'");
+    }
+  }
+
   SmallVector<char> path(externalDataDir.begin(), externalDataDir.end());
   llvm::sys::path::append(path, location);
   std::string pathStr(path.data(), path.size());
@@ -167,9 +191,8 @@ ElementsAttr createElmAttrFromArray(RankedTensorType tensorType,
 // Don't byte swap single byte types, because that's unnecessary
 // and llvm::sys::getSwappedBytes(bool) also happens to be broken.
 template <typename T>
-constexpr bool
-    shouldSwapLEBytes = sizeof(T) > 1 && llvm::endianness::native
-                                             != llvm::endianness::little;
+constexpr bool shouldSwapLEBytes =
+    sizeof(T) > 1 && llvm::endianness::native != llvm::endianness::little;
 // Extension of llvm::sys::getSwappedBytes to also handle float_16, bfloat_16.
 template <typename T>
 T swappedBytes(T x) {
