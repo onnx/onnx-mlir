@@ -105,6 +105,22 @@ install(TARGETS PyRuntimeC
   DESTINATION lib
   )
 
+# Install targets for pip/scikit-build-core: place compiled extensions and
+# Python wrappers into the om_pyrt package layout so that "pip install ."
+# from the repo root produces a working wheel.
+if (SKBUILD)
+  install(TARGETS PyRuntimeC
+    LIBRARY DESTINATION om_pyrt/libs
+    COMPONENT om_pyrt
+  )
+  install(FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/PyRuntime.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/PyOMCompile.py
+    DESTINATION om_pyrt
+    COMPONENT om_pyrt
+  )
+endif()
+
 # Target to prepare om_pyrt package
 add_custom_target(OMCreateOMPyRtPackage
         COMMAND rm -rf ${CMAKE_CURRENT_BINARY_DIR}/om_pyrt
@@ -175,4 +191,11 @@ llvm_update_compile_flags(PyOMCompileC)
 install(TARGETS PyOMCompileC
   DESTINATION lib
   )
+
+if (SKBUILD)
+  install(TARGETS PyOMCompileC
+    LIBRARY DESTINATION om_pyrt/libs
+    COMPONENT om_pyrt
+  )
+endif()
 
