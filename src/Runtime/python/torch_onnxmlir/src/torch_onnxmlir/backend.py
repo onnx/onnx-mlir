@@ -39,7 +39,12 @@ from torch._subclasses.fake_tensor import (
 )
 
 from om_pyrt import CompileSession, InferenceSession
-from .sessioncache import SessionCache, CacheValue
+from .sessioncache import (
+    SessionCache,
+    CacheValue,
+    ONNX_FILE_EXTS,
+    OM_COMPILED_FILE_EXTS,
+)
 from . import config, fx_utils, onnx_utils
 
 """
@@ -282,9 +287,10 @@ def generate_hash_key(
         graph_str = " ".join(graph_info)
         graph_hash = sha256_hash(graph_str.encode())
 
-        # Hash the options.
+        # Hash the options. Sort the options by key to make it stable.
         with io.BytesIO() as stream:
-            options_data = pickle.dumps(compile_options)
+            sorted_options = dict(sorted(compile_options.items()))
+            options_data = pickle.dumps(sorted_options)
             options_opt = pickletools.optimize(options_data)
             options_hash = sha256_hash(options_opt)
 
@@ -636,12 +642,7 @@ class TorchONNXMLIR:
 
     def cleanup_onnxmlir_files(self, tag_id):
         base = os.path.join(self.workdir.name, self.default_model_name + str(tag_id))
-        old_files = [
-            base + ".onnx",
-            base + ".onnx.data",
-            base + ".constants.bin",
-            base + ".so",
-        ]
+        old_files = [base + ext for ext in ONNX_FILE_EXTS + OM_COMPILED_FILE_EXTS]
         for f in old_files:
             if os.path.exists(f):
                 os.remove(f)

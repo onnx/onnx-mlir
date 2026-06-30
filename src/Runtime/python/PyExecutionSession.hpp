@@ -61,7 +61,7 @@ public:
   std::string pyOutputSignature() const;
   std::string pyCompilationInfo() const;
   void pyPrintInstrumentation(); // Print instrumentation (if any).
-  std::string pyCompiledModelPath() const;
+  std::string pyGetSharedLibPath() const;
 
 protected:
   // Constructor that build the object without initialization (for use by
@@ -347,14 +347,14 @@ PYBIND11_MODULE(PyRuntimeC, m) {
           "    >>> outputs = session.run(inputs, shapes, strides)\n"
           "    >>> session.print_instrumentation()\n"
           "    # Prints timing and performance data if instrumentation was enabled")
-      .def("get_compiled_model_path",
-          &onnx_mlir::PyExecutionSession::pyCompiledModelPath,
+      .def("get_shared_lib_path",
+          &onnx_mlir::PyExecutionSession::pyGetSharedLibPath,
           "Get path to the .so model file.\n"
           "Returns:\n"
           "    str: path to the .so model file.\n"
           "Example:\n"
           "    >>> session = OMExecutionSession('/model/mnist.so')\n"
-          "    >>> print(session.get_compiled_model_path())\n"
+          "    >>> print(session.get_shared_lib_path())\n"
           "    # Output: /model/mnist.so")
       ;
 }

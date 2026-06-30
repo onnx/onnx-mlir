@@ -466,7 +466,7 @@ std::string PyExecutionSession::pyCompilationInfo() const {
   return compilationInfo();
 }
 
-std::string PyExecutionSession::pyCompiledModelPath() const {
+std::string PyExecutionSession::pyGetSharedLibPath() const {
   return getSharedLibPath();
 }
 
