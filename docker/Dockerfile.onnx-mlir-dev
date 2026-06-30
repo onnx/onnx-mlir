@@ -31,22 +31,6 @@ ARG ACCEL=NNPA
 ARG TEST_NOFLOAT16
 ARG TEST_MARCH
 
-# Build Python Inference Driver, om_pyrt.
-# ToFix: move this test after compiler has been built and compile the onnx model
-# with the newly built onnx-mlir for all platform.
-# The driver could be tested with
-#     "cmake --build . --target OMTestOMPyRtPackage"
-# Issue: venv is needed to installed om_pyrt package, and venv requires some
-# more installation. Delay the test.
-RUN if [ "$(uname -m)" = "s390x" ]; then \
-      cd ${WORK_DIR}/onnx-mlir && \
-      rm -rf build-light && mkdir -p build-light && cd build-light && \
-      cmake -DCMAKE_BUILD_TYPE=Debug \
-            -DONNX_MLIR_TARGET_TO_BUILD=OMPyRt .. && \
-      cmake --build . --parallel ${NPROC} && \
-      cd .. && rm -rf build-light; \
-    fi
-
 RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
     && ONNX_MLIR_ROOT=${WORK_DIR}/onnx-mlir \
 # Build onnx-mlir and run tests
@@ -104,6 +88,21 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
 # Install joblib for model zoo tests
     && pip3 install -q joblib --prefix=/usr \
     && rm -rf /tmp/*
+
+# Build Python Inference Driver, om_pyrt.
+# Test to use the recently built compiler locally
+RUN if [ "$(uname -m)" = "s390x" ]; then \
+      cd ${WORK_DIR}/onnx-mlir && \
+      rm -rf build-light && mkdir -p build-light && cd build-light && \
+      cmake -DCMAKE_BUILD_TYPE=Debug \
+            -DONNX_MLIR_TARGET_TO_BUILD=OMPyRt .. && \
+      cmake --build . --parallel ${NPROC} --target OMCreateOMPyRtPackage && \
+      pip3 install hatchling --prefix=/usr && \
+      pip3 install src/Runtime/python/om_pyrt --prefix=/usr --no-build-isolation && \
+      cd src/Runtime/python/om_pyrt/tests && \
+      python use_local_compiler.py && \
+      cd .. && rm -rf build-light; \
+    fi
 
 # Copy from onnx-mlir-dev-test to squash removed source layer and
 # remove dependency on base image (onnx-mlir-llvm-static)
