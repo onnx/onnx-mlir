@@ -45,7 +45,7 @@ size_t parseOffsetOrLength(const std::string &value) {
 // Reads external data from file location specified in tensor proto.
 // The data is little endian encoded.
 // See https://github.com/onnx/onnx/blob/main/docs/ExternalData.md
-
+//
 // TODO: having a more friendly error reporting method than an assert or
 // unreachable would be a plus.
 std::unique_ptr<llvm::MemoryBuffer> readExternalData_LE(
