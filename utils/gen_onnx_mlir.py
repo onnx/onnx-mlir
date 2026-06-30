@@ -350,6 +350,7 @@ OpsWithCanonicalizer = [
     "Less",
     "Loop",
     "LSTM",
+    "MatMul",
     "Mul",
     "Or",
     "Pow",
