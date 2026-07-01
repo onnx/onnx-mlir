@@ -2,7 +2,7 @@
 
 ##################### config.py *******#########################################
 #
-# Copyright 2025 The IBM Research Authors.
+# Copyright 2025-2026 The IBM Research Authors.
 #
 ################################################################################
 #
@@ -27,3 +27,6 @@ sample_parameter_values_limit = 3
 
 # Control the maximum number of compiler sessions to be cached at runtime.
 session_cache_limit = 3
+
+# Whether to keep ONNX files or not.
+keep_onnx_files = False

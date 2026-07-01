@@ -59,7 +59,8 @@ void ExecutionSession::signalHandler(int signum) {
 // Constructor, destructor, and init.
 
 ExecutionSession::ExecutionSession(const std::string &sharedLibPath,
-    const std::string &tag, const bool defaultEntryPoint) {
+    const std::string &tag, const bool defaultEntryPoint)
+    : sharedLibPath(sharedLibPath) {
   loadModel(sharedLibPath, tag, defaultEntryPoint);
 }
 
@@ -74,16 +75,21 @@ void ExecutionSession::loadModel(const std::string &sharedLibPath,
         "Execution session must be initialized once at most.");
 
   std::string tag = modelTag;
-  // Set OM_CONSTANT_PATH for loading constants from file if required.
-  // Do this before dlopen since OM_CONSTANT_PATH is used by constructors.
-  std::size_t found = sharedLibPath.find_last_of("/\\");
-  if (found != std::string::npos) {
-    std::string basePath = sharedLibPath.substr(0, found);
+
+  // If OM_CONSTANT_PATH is not set, set it for loading constants from file. Do
+  // this before dlopen since OM_CONSTANT_PATH is used by constructors.
+  bool setOMConstantPath = false;
+  if (!std::getenv("OM_CONSTANT_PATH")) {
+    std::size_t found = sharedLibPath.find_last_of("/\\");
+    if (found != std::string::npos) {
+      std::string basePath = sharedLibPath.substr(0, found);
 #if defined(_WIN32)
-    _putenv_s("OM_CONSTANT_PATH", basePath.c_str());
+      _putenv_s("OM_CONSTANT_PATH", basePath.c_str());
 #else
-    setenv("OM_CONSTANT_PATH", basePath.c_str(), /*overwrite=*/0);
+      setenv("OM_CONSTANT_PATH", basePath.c_str(), /*overwrite=*/0);
 #endif
+      setOMConstantPath = true;
+    }
   }
 
   // If there is no tag, use the model filename without extension as a tag.
@@ -207,6 +213,15 @@ void ExecutionSession::loadModel(const std::string &sharedLibPath,
   // Successful completion of initialization.
   isInitialized = true;
 
+  // Unset OM_CONSTANT_PATH to avoid conflict with the load of another model.
+  if (setOMConstantPath) {
+#if defined(_WIN32)
+    _putenv_s("OM_CONSTANT_PATH", "");
+#else
+    unsetenv("OM_CONSTANT_PATH");
+#endif
+  }
+
   // Set default entry point if requested.
   if (defaultEntryPoint)
     setEntryPoint("run_main_graph" + lowDashTag);
@@ -295,6 +310,10 @@ void ExecutionSession::printInstrumentation() {
   errno = 0; // No errors.
   if (_printInstrumentationFunc)
     _printInstrumentationFunc();
+}
+
+const std::string ExecutionSession::getSharedLibPath() const {
+  return sharedLibPath;
 }
 
 // =============================================================================
