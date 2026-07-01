@@ -6,9 +6,6 @@
 #
 ################################################################################
 
-import tempfile
-import shutil
-from pathlib import Path
 import unittest
 import logging
 
@@ -16,15 +13,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch_onnxmlir
-
 from utils import TorchOMTestCase
 
-TMP_DIR = Path(tempfile.mkdtemp())
-torch_onnxmlir.config.cache_dir = TMP_DIR
-
-
-def tearDownModule():
-    shutil.rmtree(TMP_DIR)
+logger = logging.basicConfig(level=logging.INFO)
 
 
 class AddModel(nn.Module):
@@ -52,6 +43,8 @@ logger = logging.basicConfig(level=logging.INFO)  # Or INFO, WARNING, etc.
 class TestSessionCache(TorchOMTestCase):
 
     def test_cache(self):
+        torch_onnxmlir.config.cache_dir = self.TMP_DIR
+
         # First inference.
         with self.assertLogs(logger) as cm:
             print("\n1st inference: should compile")

@@ -7,8 +7,21 @@
 ################################################################################
 
 import unittest
+import tempfile
+import shutil
+from pathlib import Path
+
 
 class TorchOMTestCase(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.TMP_DIR = Path(tempfile.mkdtemp())
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.TMP_DIR, ignore_errors=True)
+
     def assertCompile(self, all_logs):
         self.assertIn("Export the pytorch model to ONNX", all_logs)
         self.assertIn("Compile the onnx model", all_logs)
@@ -19,4 +32,3 @@ class TorchOMTestCase(unittest.TestCase):
         self.assertNotIn("Export the pytorch model to ONNX", all_logs)
         self.assertNotIn("Compile the onnx model", all_logs)
         self.assertNotIn("Switch to the eager mode", all_logs)
-

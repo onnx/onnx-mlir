@@ -72,5 +72,24 @@ $ pip install -e src/Runtime/python/torch_onnxmlir
 ```
 
 ### Install from pip repository
-After the package is uploaded to pip server, you can install with 'pip install torch_onnxmlir`.
+After the package is uploaded to pip server, you can install with `pip install torch_onnxmlir`.
 
+## Run tests
+
+### Run all tests
+
+The folder `tests` contains many testcases to verify if the package works well or not.
+These are steps to run tests:
+```bash
+$ cd tests
+$ mkdir build
+$ cd build
+$ cmake ..
+$ make run-testcases
+$ ctest
+```
+
+### Run a single test
+```bash
+$ pytest test_add.py
+```
