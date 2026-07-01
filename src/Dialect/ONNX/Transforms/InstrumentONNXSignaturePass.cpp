@@ -80,58 +80,67 @@ public:
 
     traceSpecificOpPattern.setRegexString(signaturePattern);
     traceSpecificNodePattern.setRegexString(nodeNamePattern);
-    // Iterate on the operations nested in this function.
-    getOperation().walk([&](mlir::Operation *op) {
-      auto dialect = op->getDialect();
-      Location loc = op->getLoc();
-      // Define a lambda function to check whether the node is selected by
-      // its op name or node name, and if yes, insert ONNXSignatureOp
-      auto checkAndInsert = [&](onnx_mlir::EnableByRegexOption &pattern,
-                                std::string matchString, int detail) -> bool {
-        if (pattern.isEnabled(matchString)) {
-          // Add signature printing op.
-          OpBuilder builder(op);
-          std::string opName = op->getName().getStringRef().str();
-          std::string nodeName = onnx_mlir::getNodeNameInPresenceOfOpt(op);
-          std::string fullName = opName + ", " + nodeName;
-          StringAttr fullNameAttr = builder.getStringAttr(fullName);
-          // Enqueue all input operands, and then the results.
-          llvm::SmallVector<Value, 6> operAndRes(op->getOperands());
-          for (Value res : op->getResults())
-            operAndRes.emplace_back(res);
-          // Since we may use the result of an operation, we must insert the
-          // print operation after the operation.
-          builder.setInsertionPointAfter(op);
-          // When one node is selected, print the details of the tensor.
-          ONNXPrintSignatureOp::create(
-              builder, loc, fullNameAttr, detail, operAndRes);
-          return true;
-        }
-        return false;
-      };
-      if (isa<func::FuncDialect>(dialect) ||
-          isa<ONNXPrintSignatureOp, KrnlInstrumentOp>(op)) {
-        // Always skip function dialects (such as function call/return), as well
-        // as ONNX instrument operations.
-      } else {
-        // If has both a print of data and print of signature, favor the
-        // printing of data as it also will print the signature.
-        bool gotOne = false;
-        if (nodeNamePattern != "NONE" && nodeNamePattern != "") {
-          StringAttr onnxNodeName =
-              op->getAttrOfType<mlir::StringAttr>("onnx_node_name");
-          if (onnxNodeName && !onnxNodeName.getValue().empty()) {
-            std::string nodeNameString = onnxNodeName.getValue().str();
-            gotOne =
-                checkAndInsert(traceSpecificNodePattern, nodeNameString, 1);
+    // Pre-order walk so we can skip ONNXFusedOp bodies with WalkResult::skip().
+    getOperation().walk<mlir::WalkOrder::PreOrder>(
+        [&](mlir::Operation *op) -> WalkResult {
+          auto dialect = op->getDialect();
+          Location loc = op->getLoc();
+          // Define a lambda function to check whether the node is selected by
+          // its op name or node name, and if yes, insert ONNXSignatureOp.
+          // displayName overrides the op-name component in the printed header.
+          auto checkAndInsert = [&](onnx_mlir::EnableByRegexOption &pattern,
+                                    std::string matchString, int detail,
+                                    std::string displayName = "") -> bool {
+            if (pattern.isEnabled(matchString)) {
+              // Add signature printing op.
+              OpBuilder builder(op);
+              if (displayName.empty())
+                displayName = op->getName().getStringRef().str();
+              std::string nodeName = onnx_mlir::getNodeNameInPresenceOfOpt(op);
+              std::string fullName = displayName + ", " + nodeName;
+              StringAttr fullNameAttr = builder.getStringAttr(fullName);
+              // Enqueue all input operands, and then the results.
+              llvm::SmallVector<Value, 6> operAndRes(op->getOperands());
+              for (Value res : op->getResults())
+                operAndRes.emplace_back(res);
+              // Since we may use the result of an operation, we must insert the
+              // print operation after the operation.
+              builder.setInsertionPointAfter(op);
+              // When one node is selected, print the details of the tensor.
+              ONNXPrintSignatureOp::create(
+                  builder, loc, fullNameAttr, detail, operAndRes);
+              return true;
+            }
+            return false;
+          };
+          if (isa<func::FuncDialect>(dialect) ||
+              isa<ONNXPrintSignatureOp, KrnlInstrumentOp>(op)) {
+            // Always skip function dialects (such as function call/return), as
+            // well as ONNX instrument operations.
+            return WalkResult::advance();
           }
-        }
-        if (!gotOne && signaturePattern != "NONE" && signaturePattern != "") {
-          std::string opName = op->getName().getStringRef().str();
-          checkAndInsert(traceSpecificOpPattern, opName, 0);
-        }
-      }
-    });
+
+          // getProfilingName returns "onnx.fused.<kind>" for ONNXFusedOp and
+          // the dialect op-name for every other op, so it drives both the
+          // match string and the display name uniformly.
+          std::string opName = onnx_mlir::getProfilingName(op);
+          bool gotOne = false;
+          if (nodeNamePattern != "NONE" && nodeNamePattern != "") {
+            StringAttr onnxNodeName =
+                op->getAttrOfType<mlir::StringAttr>("onnx_node_name");
+            if (onnxNodeName && !onnxNodeName.getValue().empty()) {
+              gotOne = checkAndInsert(traceSpecificNodePattern,
+                  onnxNodeName.getValue().str(), 1, opName);
+            }
+          }
+          if (!gotOne && signaturePattern != "NONE" && signaturePattern != "") {
+            checkAndInsert(traceSpecificOpPattern, opName, 0, opName);
+          }
+          // Skip the body of ONNXFusedOp — its inner ops are not individually
+          // profiled; the fused op itself was already reported above.
+          return isa<ONNXFusedOp>(op) ? WalkResult::skip()
+                                      : WalkResult::advance();
+        });
   }
 };
 

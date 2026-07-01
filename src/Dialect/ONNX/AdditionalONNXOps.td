@@ -25,6 +25,7 @@
 //===----------------------------------------------------------------------===//
 
 include "mlir/Interfaces/CallInterfaces.td"
+include "mlir/IR/RegionKindInterface.td"
 include "mlir/IR/SymbolInterfaces.td"
 include "src/IR/AttrBase.td"
 
@@ -345,6 +346,60 @@ def ONNXPrintSignatureOp:ONNX_Op<"PrintSignature", []> {
   }];
 
   let arguments = (ins StrAttr:$op_name, SI64Attr:$print_data, Variadic<AnyTypeOf<[AnyTensor, NoneType]>>:$input);
+}
+
+//===----------------------------------------------------------------------===//
+// ONNXFusedOp
+def ONNXFusedOp : ONNX_Op<"Fused", [
+    Pure,
+    IsolatedFromAbove,
+    DeclareOpInterfaceMethods<RegionKindInterface>,
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>,
+    OpInterface<"HasOnnxSubgraphOpInterface">]> {
+  let summary = "Fused ONNX operation container";
+  let description = [{
+    A container for a sequence of ONNX operations to be lowered jointly in one
+    custom code-generation step.  The `kind` attribute identifies the specific
+    fusion pattern so the lowering pass can dispatch to the right generator.
+
+    The body region is IsolatedFromAbove: all external tensor values must be
+    listed as `inputs` and are available inside as block arguments in the same
+    order.  Optional (NoneType) values are NOT threaded through `inputs`;
+    instead an ONNXNoneOp is created inside the body for each None operand.
+
+    Shape inference delegates to the contained operations: the greedy rewriter
+    visits every inner op and infers its output types; the YieldOp terminator
+    then drives re-inference of the FusedOp's own result types.
+
+    This operation is not part of the ONNX standard and was added to assist
+    onnx-mlir.
+  }];
+  let arguments = (ins
+      StrAttr:$kind,
+      Variadic<AnyType>:$inputs);
+  let results = (outs
+      Variadic<AnyType>:$outputs);
+  let regions = (region SizedRegion<1>:$body);
+
+  let extraClassDeclaration = [{
+    int64_t getSubgraphRegionIdx(const std::string &name) {
+      if (name == "body") return 0;
+      llvm_unreachable("unknown subgraph name for ONNXFusedOp");
+    }
+  }];
+
+  let hasVerifier = 1;
+
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper *ONNXFusedOp::getShapeHelper(
+        mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper,
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      auto *sh = new onnx_mlir::ONNXFusedOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 //===----------------------------------------------------------------------===//
