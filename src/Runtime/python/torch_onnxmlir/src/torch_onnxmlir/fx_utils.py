@@ -2,7 +2,7 @@
 
 ##################### fx_utils.py *******#######################################
 #
-# Copyright 2025 The IBM Research Authors.
+# Copyright 2025-2026 The IBM Research Authors.
 #
 ################################################################################
 #
@@ -19,6 +19,7 @@ import torch.fx as fx
 from torch.fx.experimental.symbolic_shapes import (
     sym_eq,
 )
+import torch._subclasses.fake_tensor as fake_tensor_module
 
 logger = logging.getLogger(__name__)
 
@@ -254,10 +255,20 @@ def convert_symint_args_to_tensors(gm: fx.GraphModule) -> fx.GraphModule:
             continue
         if node.type in [torch.SymInt]:
             with graph.inserting_before(node):
-                tensor_node = graph.placeholder(f"{node.name}_tensor")
-                tensor_node.meta = node.meta
+                tensor_node = graph.placeholder(f"{node.target}_omtensor")
+                # Keep the SymInt as symbolic in the tensor's shape.
+                # This allows the dimension to remain dynamic during export.
+                symint_value = node.meta.get("example_value", None)
+                # Create a fake tensor with symbolic shape for the metadata.
+                fake_mode = fake_tensor_module.FakeTensorMode()
+                with fake_mode:
+                    if symint_value is not None:
+                        fake_t = torch.empty((symint_value,), dtype=torch.int64)
+                    else:
+                        fake_t = torch.empty((1,), dtype=torch.int64)
+                tensor_node.meta["example_value"] = fake_t
                 tensor_node.meta["tensor_meta"] = {
-                    "sizes": (1,),
+                    "sizes": (symint_value,) if symint_value is not None else (1,),
                     "dtype": torch.int64,
                 }
                 tensor_node.type = torch.Tensor
@@ -286,7 +297,7 @@ def convert_symint_args_to_tensors(gm: fx.GraphModule) -> fx.GraphModule:
                     found = True
 
     # Remove the SymInt input and get the dimension size from the tensor node if possible.
-    # Otherwise replace its uses with .item() calls.
+    # Otherwise replace its uses with sym_numel to preserve symbolic information.
     for symint_node, tensor_node in symint_placeholders:
         for user in list(symint_node.users):
             with graph.inserting_before(user):
@@ -297,7 +308,11 @@ def convert_symint_args_to_tensors(gm: fx.GraphModule) -> fx.GraphModule:
                         torch.ops.aten.sym_size, args=(carrier, dim)
                     )
                 else:
-                    item_node = graph.call_method("item", args=(tensor_node,))
+                    # Use sym_numel instead of .item() to preserve symbolic information.
+                    # This avoids creating data-dependent scalars that torch.export cannot handle.
+                    item_node = graph.call_function(
+                        torch.ops.aten.sym_numel, args=(tensor_node,)
+                    )
                 user.replace_input_with(symint_node, item_node)
                 changed = True
         graph.erase_node(symint_node)

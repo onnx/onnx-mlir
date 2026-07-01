@@ -134,6 +134,8 @@ public:
   // Get compilation information as a Json string.
   const std::string compilationInfo() const;
   void printInstrumentation();
+  // Get path to the .so file.
+  const std::string getSharedLibPath() const;
 
 protected:
   // Error reporting processing when throwing runtime errors.
@@ -175,6 +177,9 @@ protected:
   const std::string _printInstrumentationName = "omInstrumentPrint";
   const bool silentlyIgnoreMissingPrintInstrumentationFunc = true;
   printInstrumentationFuncType _printInstrumentationFunc = nullptr;
+
+  // Path to the .so file.
+  std::string sharedLibPath = "";
 
 protected:
   // Common implementation for both public run methods.

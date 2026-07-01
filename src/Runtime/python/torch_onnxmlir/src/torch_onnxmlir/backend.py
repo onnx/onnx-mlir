@@ -2,7 +2,7 @@
 
 ##################### backend.py *******########################################
 #
-# Copyright 2025 The IBM Research Authors.
+# Copyright 2025-2026 The IBM Research Authors.
 #
 ################################################################################
 #
@@ -39,8 +39,13 @@ from torch._subclasses.fake_tensor import (
 )
 
 from om_pyrt import CompileSession, InferenceSession
-from .sessioncache import SessionCache, CacheValue
-from . import config, fx_utils
+from .sessioncache import (
+    SessionCache,
+    CacheValue,
+    ONNX_FILE_EXTS,
+    OM_COMPILED_FILE_EXTS,
+)
+from . import config, fx_utils, onnx_utils
 
 """
 This file provides an onnx-mlir compiler backend for torch.compile().
@@ -87,6 +92,30 @@ global_session_cache = SessionCache(config.session_cache_limit)
 global_uncompilable_graphs = set()
 
 
+# Check if the graph has no inputs or outputs or not.
+def has_no_inputs_or_outputs(gm: torch.fx.GraphModule):
+    def is_none_like(x):
+        if x is None:
+            return True
+        if isinstance(x, (list, tuple)):
+            return all(is_none_like(v) for v in x)
+        if isinstance(x, dict):
+            return all(is_none_like(v) for v in x.values())
+        return False
+
+    # Has no inputs.
+    if all(node.op != "placeholder" for node in gm.graph.nodes):
+        return True
+
+    # Has no outputs.
+    for node in gm.graph.nodes:
+        if node.op == "output":
+            if is_none_like(node.args[0]):
+                return True
+
+    return False
+
+
 def has_unsupported_onnx_ops(gm: torch.fx.GraphModule):
     # Detect unsupported ops. Add unsupported ops here.
     return False
@@ -110,6 +139,10 @@ def eager_forward_fn(gm: torch.fx.GraphModule):
 
 # Backend function for torch.compile.
 def onnxmlir_backend(gm: torch.fx.GraphModule, *args, **kwargs):
+    # Switch back to the eager mode if the graph has no inputs or outputs.
+    if has_no_inputs_or_outputs(gm):
+        return eager_forward_fn(gm)
+
     # Switch back to the eager mode if the graph has unsupported onnx ops.
     if has_unsupported_onnx_ops(gm):
         return eager_forward_fn(gm)
@@ -168,10 +201,29 @@ class OMFxGraphHashDetails(FxGraphHashDetails):
 
 
 def generate_hash_key(
-    gm: torch.fx.GraphModule, compile_options, use_lightweight_hashing=True
+    gm: torch.fx.GraphModule,
+    example_inputs,
+    compile_options,
+    use_lightweight_hashing=True,
 ) -> str:
     start = time.perf_counter()
     if use_lightweight_hashing:
+        # Build a string from examples inputs and hash it.
+        # The string uses input ranks to make it stable.
+        t_info = [str(len(example_inputs))]
+        for t in example_inputs:
+            if t is None:
+                t_info.append("None")
+            elif isinstance(t, torch.Tensor):
+                if t.dim() == 0:
+                    t_info.append("tensor_0d")
+                else:
+                    t_info.append(f"tensor_{len(t.shape)}d")
+            else:
+                t_info.append(f"{type(t).__name__}")
+        example_inputs_str = ",".join(t_info)
+        example_inputs_hash = sha256_hash(example_inputs_str.encode())
+
         # Hash the graph module.
         # Touch the code to materialize.
         _ = gm.code
@@ -235,12 +287,14 @@ def generate_hash_key(
         graph_str = " ".join(graph_info)
         graph_hash = sha256_hash(graph_str.encode())
 
-        # Hash the options.
+        # Hash the options. Sort the options by key to make it stable.
         with io.BytesIO() as stream:
-            options_data = pickle.dumps(compile_options)
+            sorted_options = dict(sorted(compile_options.items()))
+            options_data = pickle.dumps(sorted_options)
             options_opt = pickletools.optimize(options_data)
             options_hash = sha256_hash(options_opt)
-        key = graph_hash + options_hash
+
+        key = graph_hash + options_hash + example_inputs_hash
     else:
         pickler = OMFxGraphCachePickler(gm)
         details = OMFxGraphHashDetails(gm, compile_options)
@@ -279,7 +333,7 @@ class TorchONNXMLIR:
             if len(same_hash_counter) == same_hash_size and all(same_hash_counter):
                 self.cache_key = self.gm.meta["om_hash"]
             else:
-                self.cache_key = generate_hash_key(self.gm, kwargs["options"])
+                self.cache_key = generate_hash_key(self.gm, args, kwargs["options"])
                 if self.cache_key == self.gm.meta["om_hash"]:
                     same_hash_counter.append(True)
                 else:
@@ -294,18 +348,19 @@ class TorchONNXMLIR:
         if need_rewrite:
             # Rewrite the graph for exporting to onnx.
             self.example_inputs_indices = self.rewrite_gm_for_export(*args)
-            self.cache_key = generate_hash_key(self.gm, kwargs["options"])
+            self.cache_key = generate_hash_key(self.gm, args, kwargs["options"])
             self.gm.meta["om_hash"] = self.cache_key
             self.gm.meta["om_example_inputs_indices"] = self.example_inputs_indices
+        else:
+            self.example_inputs_indices = self.gm.meta["om_example_inputs_indices"]
 
         # Cache the rewritten graph module.
         assert self.cache_key, "cache key does not exist"
         self.cached_session = global_session_cache.get(self.cache_key)
         if self.cached_session:
             self.example_inputs_indices = self.cached_session.example_inputs_indices
-        elif self.cache_key in global_uncompilable_graphs:
-            self.example_inputs_indices = self.gm.meta["om_example_inputs_indices"]
-        assert self.example_inputs_indices, "example_inputs_indices is None"
+        # Use "not None" to distinguish with [].
+        assert self.example_inputs_indices is not None, "example_inputs_indices is None"
 
         # Touch the code to materialize before exporting.
         _ = self.gm.code
@@ -334,6 +389,9 @@ class TorchONNXMLIR:
             if self.cache_key in global_uncompilable_graphs:
                 logger.info("Found the uncompilable model. Switch to the eager mode")
                 return eager_forward_fn(self.gm)(*example_inputs)
+            if self.example_inputs_indices == []:
+                logger.info("Model has no input. Switch to the eager mode")
+                return eager_forward_fn(self.gm)(*example_inputs)
 
             # When there is no cached compiled lib, export the torch model
             # to an onnx model and compile it to a .so file.
@@ -352,14 +410,20 @@ class TorchONNXMLIR:
 
             # Export the graph module to onnx.
             # If failed, use the graph as it is without compilation.
-            logger.info("Export and compile the model.")
+            logger.info("Export the pytorch model to ONNX.")
             succeeded = self.export_gm_to_onnx(example_inputs)
             if not succeeded:
                 logger.info("Failed to export the model. Switch to the eager mode.")
                 global_uncompilable_graphs.add(self.cache_key)
                 return eager_forward_fn(self.gm)(*example_inputs)
+            # Save the onnx model.
+            if config.keep_onnx_files:
+                logger.info("Write ONNX files to disk")
+                onnx_model_dir = Path(self.onnx_model).resolve().parent
+                global_session_cache.write_onnx_to_disk(self.cache_key, onnx_model_dir)
 
-            # Compile the model.
+            # Compile the onnx model.
+            # If failed, use the graph as it is without compilation.
             compiler_image_name = ""
             if "compiler_image_name" in self.onnxmlir_kwargs:
                 if self.onnxmlir_kwargs["compiler_image_name"] is not None:
@@ -368,10 +432,18 @@ class TorchONNXMLIR:
             tag = self.onnxmlir_kwargs["compile_tag"]
             compile_options = self.onnxmlir_kwargs["compile_options"]
             compile_options += f" --tag={tag}"
-            compiler = CompileSession(
-                compiler_image=compiler_image_name, compiler_path=compiler_path
-            )
-            compiled_model = compiler.compile(self.onnx_model, compile_options)
+            try:
+                logger.info("Compile the onnx model.")
+                compiler = CompileSession(
+                    compiler_image=compiler_image_name, compiler_path=compiler_path
+                )
+                compiled_model = compiler.compile(self.onnx_model, compile_options)
+            except Exception as e:
+                logger.info(
+                    "Failed to compile the onnx model. Switch to the eager mode."
+                )
+                global_uncompilable_graphs.add(self.cache_key)
+                return eager_forward_fn(self.gm)(*example_inputs)
 
             # Create a session for running the onnx model.
             # This session is cached for next use.
@@ -383,11 +455,8 @@ class TorchONNXMLIR:
                 sess=sess,
                 example_inputs_indices=self.example_inputs_indices,
             )
-            onnx_model_dir = Path(self.onnx_model).resolve().parent
-            compiled_model_dir = Path(compiled_model).resolve().parent
-            global_session_cache.put(
-                self.cache_key, cache_value, True, onnx_model_dir, compiled_model_dir
-            )
+
+            global_session_cache.put(self.cache_key, cache_value)
         else:
             logger.info("Found the model in the cache. No recompilation.")
             # Use the InferenceSession in the cache.
@@ -409,7 +478,9 @@ class TorchONNXMLIR:
         for i in self.example_inputs_indices:
             x = example_inputs[i]
             if isinstance(x, int):
-                tensor_inputs.append(torch.tensor(x, dtype=torch.int64).reshape((1,)))
+                # Create a 1D tensor with shape [x] where x is the scalar value.
+                # sym_numel(tensor) will return x, extracting the scalar value.
+                tensor_inputs.append(torch.empty((x,), dtype=torch.int64))
             elif isinstance(x, torch.Tensor):
                 tensor_inputs.append(x)
             else:
@@ -447,7 +518,9 @@ class TorchONNXMLIR:
             for dim_idx, dim_size in enumerate(input_arg.shape):
                 if isinstance(dim_size, torch.SymInt):
                     if not str(dim_size).isdigit():
-                        dim_str = "dim" + str(dim_size)
+                        dim_str = "dim" + str(dim_size).replace("+", "plus").replace(
+                            " ", "_"
+                        )
                         if dim_str in dim_tables:
                             dim = dim_tables[dim_str]
                         else:
@@ -536,33 +609,40 @@ class TorchONNXMLIR:
             logger.debug(f"Fx Graph for exporting to onnx: {self.gm}")
 
         succeeded = False
-        try:
-            torch.onnx.export(
-                self.gm,
-                example_inputs,
-                self.onnx_model,
-                input_names=input_names,
-                dynamic_shapes=dynamic_shapes,
-                dynamo=True,
-                # dynamic_axes=dynamic_shapes,
-                # dynamo=False,
-                report=False,
-            )
-            succeeded = True
-        except torch.onnx.errors.UnsupportedOperatorError as e:
-            if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(f"ONNX export unsupported: {e}")
-                logger.debug(f"Fx Graph: {self.gm}")
-        except Exception as e:
-            if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(f"ONNX export failure: {e}")
-                logger.debug(f"Fx Graph: {self.gm}")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_onnx = os.path.join(tmpdir, "tmp_model.onnx")
+            try:
+                torch.onnx.export(
+                    self.gm,
+                    example_inputs,
+                    tmp_onnx,
+                    input_names=input_names,
+                    dynamic_shapes=dynamic_shapes,
+                    dynamo=True,
+                    # dynamic_axes=dynamic_shapes,
+                    # dynamo=False,
+                    report=False,
+                )
+
+                # Sanitize the onnx model and save it to disk.
+                onnx_utils.sanitize_onnx(tmp_onnx, self.onnx_model)
+
+                succeeded = True
+            except torch.onnx.errors.UnsupportedOperatorError as e:
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(f"ONNX export unsupported: {e}")
+                    logger.debug(f"Fx Graph: {self.gm}")
+            except Exception as e:
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(f"ONNX export failure: {e}")
+                    logger.debug(f"Fx Graph: {self.gm}")
 
         return succeeded
 
     def cleanup_onnxmlir_files(self, tag_id):
         base = os.path.join(self.workdir.name, self.default_model_name + str(tag_id))
-        old_files = [base + ".onnx", base + ".constants.bin", base + ".so"]
+        old_files = [base + ext for ext in ONNX_FILE_EXTS + OM_COMPILED_FILE_EXTS]
         for f in old_files:
             if os.path.exists(f):
                 os.remove(f)
