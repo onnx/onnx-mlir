@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===-- EliminateWriteOnlyAlloc.cpp - Remove write-only local allocs ------===//
 //
 // Copyright 2026 The IBM Research Authors.
