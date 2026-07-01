@@ -2803,19 +2803,13 @@ void ONNXMaxPoolSingleOutOp::getCanonicalizationPatterns(
   results.insert<ReorderReluMaxPoolPattern>(context);
 }
 
-// hi alex
-#include "src/Compiler/CompilerOptions.hpp"
-
 /// on the ONNXMatMulOp.
 void ONNXMatMulOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
-  if (debugTestCompilerOpt) {
-    fprintf(stderr, "use new optimization\n");
-    results.insert<FuseTransposedScalarMulBeforeMatMulLhsPattern>(context);
-    results.insert<FuseTransposedScalarMulBeforeMatMulRhsPattern>(context);
-    results.insert<FuseTransposedScalarDivBeforeMatMulLhsPattern>(context);
-    results.insert<FuseTransposedScalarDivBeforeMatMulRhsPattern>(context);
-  }
+  results.insert<FuseTransposedScalarMulBeforeMatMulLhsPattern>(context);
+  results.insert<FuseTransposedScalarMulBeforeMatMulRhsPattern>(context);
+  results.insert<FuseTransposedScalarDivBeforeMatMulLhsPattern>(context);
+  results.insert<FuseTransposedScalarDivBeforeMatMulRhsPattern>(context);
 }
 
 /// on the ONNXMulOp.
