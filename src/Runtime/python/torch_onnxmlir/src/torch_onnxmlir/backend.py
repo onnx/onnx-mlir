@@ -45,7 +45,7 @@ from .sessioncache import (
     ONNX_FILE_EXTS,
     OM_COMPILED_FILE_EXTS,
 )
-from . import config, fx_utils, onnx_utils
+from . import config, fx_utils
 
 """
 This file provides an onnx-mlir compiler backend for torch.compile().
@@ -610,33 +610,28 @@ class TorchONNXMLIR:
 
         succeeded = False
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_onnx = os.path.join(tmpdir, "tmp_model.onnx")
-            try:
-                torch.onnx.export(
-                    self.gm,
-                    example_inputs,
-                    tmp_onnx,
-                    input_names=input_names,
-                    dynamic_shapes=dynamic_shapes,
-                    dynamo=True,
-                    # dynamic_axes=dynamic_shapes,
-                    # dynamo=False,
-                    report=False,
-                )
+        try:
+            torch.onnx.export(
+                self.gm,
+                example_inputs,
+                self.onnx_model,
+                input_names=input_names,
+                dynamic_shapes=dynamic_shapes,
+                dynamo=True,
+                # dynamic_axes=dynamic_shapes,
+                # dynamo=False,
+                report=False,
+            )
 
-                # Sanitize the onnx model and save it to disk.
-                onnx_utils.sanitize_onnx(tmp_onnx, self.onnx_model)
-
-                succeeded = True
-            except torch.onnx.errors.UnsupportedOperatorError as e:
-                if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug(f"ONNX export unsupported: {e}")
-                    logger.debug(f"Fx Graph: {self.gm}")
-            except Exception as e:
-                if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug(f"ONNX export failure: {e}")
-                    logger.debug(f"Fx Graph: {self.gm}")
+            succeeded = True
+        except torch.onnx.errors.UnsupportedOperatorError as e:
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f"ONNX export unsupported: {e}")
+                logger.debug(f"Fx Graph: {self.gm}")
+        except Exception as e:
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f"ONNX export failure: {e}")
+                logger.debug(f"Fx Graph: {self.gm}")
 
         return succeeded
 
