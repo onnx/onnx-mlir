@@ -86,7 +86,7 @@ $ mkdir build
 $ cd build
 $ cmake ..
 $ make run-testcases
-$ ctest
+$ ctest -j 8
 ```
 
 ### Run a single test

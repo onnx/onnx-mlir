@@ -28,6 +28,8 @@ class AddModel(nn.Module):
 
 
 model = AddModel()
+model.eval()
+
 model = torch.compile(
     model,
     backend="onnxmlir",
@@ -50,7 +52,8 @@ class TestSessionCache(TorchOMTestCase):
             print("\n1st inference: should compile")
             x = torch.randn(2, 3)
             y = torch.randn(2, 3)
-            z = model(x, y)
+            with torch.no_grad():
+                z = model(x, y)
             assert np.array_equal(z, x + y)
         self.assertCompile("\n".join(cm.output))
 
@@ -59,7 +62,8 @@ class TestSessionCache(TorchOMTestCase):
             print("\n2nd inference: should reuse")
             x = torch.randn(3, 3)
             y = torch.randn(3, 3)
-            z = model(x, y)
+            with torch.no_grad():
+                z = model(x, y)
             assert np.array_equal(z, x + y)
         self.assertInCache("\n".join(cm.output))
 
@@ -68,7 +72,8 @@ class TestSessionCache(TorchOMTestCase):
             print("\n3rd inference: should compile")
             x = torch.randn(5)
             y = torch.randn(5)
-            z = model(x, y)
+            with torch.no_grad():
+                z = model(x, y)
             assert np.array_equal(z, x + y)
         self.assertCompile("\n".join(cm.output))
 
@@ -77,7 +82,8 @@ class TestSessionCache(TorchOMTestCase):
             print("\n4th inference: should reuse")
             x = torch.randn(2, 5)
             y = torch.randn(2, 5)
-            z = model(x, y)
+            with torch.no_grad():
+                z = model(x, y)
             assert np.array_equal(z, x + y)
         self.assertInCache("\n".join(cm.output))
 
@@ -86,6 +92,7 @@ class TestSessionCache(TorchOMTestCase):
             print("\n5th inference: should reuse")
             x = torch.randn(7)
             y = torch.randn(7)
-            z = model(x, y)
+            with torch.no_grad():
+                z = model(x, y)
             assert np.array_equal(z, x + y)
         self.assertInCache("\n".join(cm.output))
