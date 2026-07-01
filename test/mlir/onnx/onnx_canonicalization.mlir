@@ -2585,3 +2585,66 @@ func.func @test_reshape_allowzero_multiple_dynamic(%arg0: tensor<2x?x?xf32>) -> 
 // CHECK:         }
 }
 
+// -----
+
+// Mul(Transpose(x, [1,0]), scalar) on LHS of MatMul: the Transpose is moved
+// before the Mul so that Transpose feeds MatMul directly, enabling
+// transpose-matmul fusion by later passes.
+func.func @test_transpose_scalar_mul_matmul_lhs(
+    %x: tensor<4x3xf32>, %z: tensor<4x5xf32>) -> tensor<3x5xf32> {
+  %scalar = onnx.Constant dense<5.0> : tensor<f32>
+  %x_t  = "onnx.Transpose"(%x)   {perm = [1, 0]} : (tensor<4x3xf32>) -> tensor<3x4xf32>
+  %mul  = "onnx.Mul"(%x_t, %scalar) : (tensor<3x4xf32>, tensor<f32>) -> tensor<3x4xf32>
+  %y    = "onnx.MatMul"(%mul, %z)   : (tensor<3x4xf32>, tensor<4x5xf32>) -> tensor<3x5xf32>
+  onnx.Return %y : tensor<3x5xf32>
+
+// CHECK-LABEL: func.func @test_transpose_scalar_mul_matmul_lhs
+// CHECK-SAME:  ([[PARAM_0_:%.+]]: tensor<4x3xf32>, [[PARAM_1_:%.+]]: tensor<4x5xf32>) -> tensor<3x5xf32> {
+// CHECK-DAG:   [[CST_:%.+]] = onnx.Constant dense<5.000000e+00> : tensor<f32>
+// CHECK:       [[VAR_0_:%.+]] = "onnx.Mul"([[PARAM_0_]], [[CST_]]) : (tensor<4x3xf32>, tensor<f32>) -> tensor<4x3xf32>
+// CHECK:       [[VAR_1_:%.+]] = "onnx.Transpose"([[VAR_0_]]) <{perm = [1, 0]}> : (tensor<4x3xf32>) -> tensor<3x4xf32>
+// CHECK:       [[VAR_2_:%.+]] = "onnx.MatMul"([[VAR_1_]], [[PARAM_1_]]) : (tensor<3x4xf32>, tensor<4x5xf32>) -> tensor<3x5xf32>
+// CHECK:       onnx.Return [[VAR_2_]] : tensor<3x5xf32>
+// CHECK:     }
+}
+
+// -----
+
+// Mul(Transpose(x, [1,0]), scalar) on RHS of MatMul: same rewrite applied to
+// the second operand.
+func.func @test_transpose_scalar_mul_matmul_rhs(
+    %x: tensor<5x3xf32>, %z: tensor<4x3xf32>) -> tensor<4x5xf32> {
+  %scalar = onnx.Constant dense<2.0> : tensor<f32>
+  %x_t  = "onnx.Transpose"(%x)   {perm = [1, 0]} : (tensor<5x3xf32>) -> tensor<3x5xf32>
+  %mul  = "onnx.Mul"(%x_t, %scalar) : (tensor<3x5xf32>, tensor<f32>) -> tensor<3x5xf32>
+  %y    = "onnx.MatMul"(%z, %mul)   : (tensor<4x3xf32>, tensor<3x5xf32>) -> tensor<4x5xf32>
+  onnx.Return %y : tensor<4x5xf32>
+
+// CHECK-LABEL: func.func @test_transpose_scalar_mul_matmul_rhs
+// CHECK-SAME:  ([[PARAM_0_:%.+]]: tensor<5x3xf32>, [[PARAM_1_:%.+]]: tensor<4x3xf32>) -> tensor<4x5xf32> {
+// CHECK-DAG:   [[CST_:%.+]] = onnx.Constant dense<2.000000e+00> : tensor<f32>
+// CHECK:       [[VAR_0_:%.+]] = "onnx.Mul"([[PARAM_0_]], [[CST_]]) : (tensor<5x3xf32>, tensor<f32>) -> tensor<5x3xf32>
+// CHECK:       [[VAR_1_:%.+]] = "onnx.Transpose"([[VAR_0_]]) <{perm = [1, 0]}> : (tensor<5x3xf32>) -> tensor<3x5xf32>
+// CHECK:       [[VAR_2_:%.+]] = "onnx.MatMul"([[PARAM_1_]], [[VAR_1_]]) : (tensor<4x3xf32>, tensor<3x5xf32>) -> tensor<4x5xf32>
+// CHECK:       onnx.Return [[VAR_2_]] : tensor<4x5xf32>
+// CHECK:     }
+}
+
+// -----
+
+// The Transpose has two uses (feeds both Mul and the return), so HasOneUse
+// fails and the pattern must NOT fire.
+func.func @test_transpose_scalar_mul_matmul_no_fuse_multi_use(
+    %x: tensor<4x3xf32>, %z: tensor<4x5xf32>) -> (tensor<3x5xf32>, tensor<3x4xf32>) {
+  %scalar = onnx.Constant dense<5.0> : tensor<f32>
+  %x_t  = "onnx.Transpose"(%x)   {perm = [1, 0]} : (tensor<4x3xf32>) -> tensor<3x4xf32>
+  %mul  = "onnx.Mul"(%x_t, %scalar) : (tensor<3x4xf32>, tensor<f32>) -> tensor<3x4xf32>
+  %y    = "onnx.MatMul"(%mul, %z)   : (tensor<3x4xf32>, tensor<4x5xf32>) -> tensor<3x5xf32>
+  onnx.Return %y, %x_t : tensor<3x5xf32>, tensor<3x4xf32>
+
+// CHECK-LABEL: func.func @test_transpose_scalar_mul_matmul_no_fuse_multi_use
+// CHECK:       "onnx.Transpose"
+// CHECK:       "onnx.Mul"
+// CHECK:       "onnx.MatMul"
+}
+

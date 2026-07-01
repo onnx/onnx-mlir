@@ -448,6 +448,22 @@ bool IsIdentityPermuteVector(ArrayAttr permAttr) {
   return true;
 }
 
+/// Test if the permute pattern only swaps the last two dimensions, i.e.
+/// perm = {0, 1, ..., rank-3, rank-1, rank-2}.
+bool isTransposeSwappingLastTwoDims(ArrayAttr permAttr) {
+  if (!permAttr)
+    return false;
+  auto perm = permAttr.getValue();
+  int64_t rank = static_cast<int64_t>(perm.size());
+  if (rank < 2)
+    return false;
+  for (int64_t i = 0; i < rank - 2; ++i)
+    if (mlir::cast<IntegerAttr>(perm[i]).getInt() != i)
+      return false;
+  return mlir::cast<IntegerAttr>(perm[rank - 2]).getInt() == rank - 1 &&
+         mlir::cast<IntegerAttr>(perm[rank - 1]).getInt() == rank - 2;
+}
+
 //===----------------------------------------------------------------------===//
 // Support for rewrite patterns.
 //===----------------------------------------------------------------------===//

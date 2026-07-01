@@ -453,6 +453,83 @@ def FuseScalarDivMatMulPattern: Pat<
  [(IsFromONNXConstantOp $b), (IsScalarConstantTensor $c)]
 >;
 
+//===----------------------------------------------------------------------===//
+// Fuse Transpose + scalar Mul/Div before MatMul, enabling transpose-matmul
+// fusion by later passes (e.g. transposed dgemm, NNPA TransposeA/B patterns).
+//
+//   x' = Transpose(x, perm)       (perm swaps only the last two dims)
+//   x'' = Mul(x', scalar)         (scalar constant)
+//   y = MatMul(x'', z)            (z not a constant)
+//
+// transforms to:
+//   a' = Mul(x, scalar)
+//   a'' = Transpose(a', perm)
+//   y = MatMul(a'', z)
+//
+// Requires x' to have a single use (the Mul) to avoid duplicating the
+// Transpose when it feeds other ops. Same rewrite for z on the LHS.
+// Div variants handle Div(x', scalar) (non-commutative, no 'either').
+//===----------------------------------------------------------------------===//
+def IsTransposeSwappingLastTwoDims: Constraint<
+  CPred<"onnx_mlir::isTransposeSwappingLastTwoDims($_self)">,
+  "permutation only swaps the last two dimensions">;
+
+// Mul: x'' on LHS of MatMul
+def FuseTransposedScalarMulBeforeMatMulLhsPattern: Pat<
+  (ONNXMatMulOp
+    (ONNXMulOp (either (ONNXTransposeOp:$xprime $x, $perm), $scalar)),
+    $z),
+  (ONNXMatMulOp
+    (ONNXTransposeOp (ONNXMulOp $x, $scalar, (returnType $x)), $perm,
+                     (returnType $xprime)),
+    $z),
+  [(IsScalarConstantTensor $scalar),
+   (IsTransposeSwappingLastTwoDims:$perm),
+   (IsNotFromONNXConstantOp $z),
+   (HasOneUse $xprime)]>;
+
+// Mul: x'' on RHS of MatMul
+def FuseTransposedScalarMulBeforeMatMulRhsPattern: Pat<
+  (ONNXMatMulOp
+    $z,
+    (ONNXMulOp (either (ONNXTransposeOp:$xprime $x, $perm), $scalar))),
+  (ONNXMatMulOp
+    $z,
+    (ONNXTransposeOp (ONNXMulOp $x, $scalar, (returnType $x)), $perm,
+                     (returnType $xprime))),
+  [(IsScalarConstantTensor $scalar),
+   (IsTransposeSwappingLastTwoDims:$perm),
+   (IsNotFromONNXConstantOp $z),
+   (HasOneUse $xprime)]>;
+
+// Div: x'' on LHS of MatMul (Div(x', scalar), not commutative so no 'either')
+def FuseTransposedScalarDivBeforeMatMulLhsPattern: Pat<
+  (ONNXMatMulOp
+    (ONNXDivOp (ONNXTransposeOp:$xprime $x, $perm), $scalar),
+    $z),
+  (ONNXMatMulOp
+    (ONNXTransposeOp (ONNXDivOp $x, $scalar, (returnType $x)), $perm,
+                     (returnType $xprime)),
+    $z),
+  [(IsScalarConstantTensor $scalar),
+   (IsTransposeSwappingLastTwoDims:$perm),
+   (IsNotFromONNXConstantOp $z),
+   (HasOneUse $xprime)]>;
+
+// Div: x'' on RHS of MatMul (Div(x', scalar), not commutative so no 'either')
+def FuseTransposedScalarDivBeforeMatMulRhsPattern: Pat<
+  (ONNXMatMulOp
+    $z,
+    (ONNXDivOp (ONNXTransposeOp:$xprime $x, $perm), $scalar)),
+  (ONNXMatMulOp
+    $z,
+    (ONNXTransposeOp (ONNXDivOp $x, $scalar, (returnType $x)), $perm,
+                     (returnType $xprime))),
+  [(IsScalarConstantTensor $scalar),
+   (IsTransposeSwappingLastTwoDims:$perm),
+   (IsNotFromONNXConstantOp $z),
+   (HasOneUse $xprime)]>;
+
 
 // TODO add pattern for non-null bias with constraints:
 // - bias must be have rank equal to 1 and
