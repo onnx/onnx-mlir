@@ -885,6 +885,7 @@ llvm::cl::opt<bool, true> appendDecodingStrategyOpt{"append-decoding-strategy",
 
   #include "src/Compiler/CompilerOptions.hpp"
 
+  // use --test-compiler-opt to invoke the new optimization.
   if (debugTestCompilerOpt) {
     fprintf(stderr, "use new optimization\n");
     // invoke optimization.
