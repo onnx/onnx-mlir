@@ -29,8 +29,11 @@
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/RewriteONNXForZHigh.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpFusionHelper.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Pass/Passes.hpp"
 
 #define DEBUG_TYPE "fusion-op-stick-unstick"
@@ -826,6 +829,44 @@ public:
     return success();
   }
 };
+
+//===----------------------------------------------------------------------===//
+// FusedOp variant of PatternsForExtendedLayoutTransform.
+//
+// Creates an ONNXFusedOp(kind="zhigh.extended_layout_transform") in place of
+// ZHighExtendedLayoutTransformOp.  The body region is IsolatedFromAbove:
+// - The source ZTensor is threaded in as block argument 0.
+// - Constant-producing ops needed by inner ops (e.g. ONNXReshapeOp's shape
+//   tensor) are cloned inside the region rather than threaded as inputs.
+// - ONNXYieldOp terminates the body, yielding the final result value.
+//
+// This class inherits from PatternsForExtendedLayoutTransform to reuse its
+// matching helpers (locateReshapeSplit, locateReshapeMerge, locatePattern).
+//===----------------------------------------------------------------------===//
+
+// Walk the use-def chain from initialLT's output to finalResult, collecting
+// each single-use op in order.  locatePattern's usedOnlyBy<> checks already
+// guarantee exactly one use at each step.
+
+class FusedPatternsForExtendedLayoutTransform
+    : public PatternsForExtendedLayoutTransform {
+public:
+  FusedPatternsForExtendedLayoutTransform(
+      MLIRContext *context, DimAnalysis *dimAnalysis)
+      : PatternsForExtendedLayoutTransform(context, dimAnalysis) {}
+
+  LogicalResult matchAndRewrite(ONNXLayoutTransformOp layoutTransformOp,
+      PatternRewriter &rewriter) const override {
+    ExtLayoutTransformFusion fusion;
+    if (!fusion.detectIfBeneficial(dimAnalysis, layoutTransformOp))
+      return failure();
+
+    Location loc = layoutTransformOp.getLoc();
+    fusion.fuse(rewriter, loc);
+    return success();
+  }
+};
+
 //===----------------------------------------------------------------------===//
 // Pass.
 
@@ -838,6 +879,14 @@ struct FusionOpStickUnstick
   FusionOpStickUnstick() = default;
   FusionOpStickUnstick(const FusionOpStickUnstick &pass)
       : PassWrapper<FusionOpStickUnstick, OperationPass<ModuleOp>>() {}
+
+  // Pass-level option: disables the ONNXFusedOp path for this pass invocation.
+  // Used by onnx-mlir-opt via --fusion-op-stick-unstick="disable-fused-op".
+  // The compiler-level --disable-fused-op flag also disables the path.
+  Option<bool> disableFusedOpOption{*this, "disable-fused-op",
+      llvm::cl::desc("Disable ONNXFusedOp for extended layout transform; "
+                     "fall back to hardcoded composite op."),
+      llvm::cl::init(false)};
 
   StringRef getArgument() const override { return "fusion-op-stick-unstick"; }
 
@@ -862,8 +911,12 @@ struct FusionOpStickUnstick
     RewritePatternSet patterns(&getContext());
     patterns.insert<PatternsStartingFromUnstick>(&getContext(), dimAnalysis);
     patterns.insert<PatternsEndingWithStick>(&getContext(), dimAnalysis);
-    patterns.insert<PatternsForExtendedLayoutTransform>(
-        &getContext(), dimAnalysis);
+    if (!disableFusedOpOption && !disableFusedOp)
+      patterns.insert<FusedPatternsForExtendedLayoutTransform>(
+          &getContext(), dimAnalysis);
+    else
+      patterns.insert<PatternsForExtendedLayoutTransform>(
+          &getContext(), dimAnalysis);
 
     if (failed(applyPatternsGreedily(module, std::move(patterns))))
       return signalPassFailure();

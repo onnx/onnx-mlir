@@ -22,6 +22,7 @@ add_onnx_mlir_library(OMONNXOps
   ONNXDialect.cpp
   ONNXDimAnalysis.cpp
   ONNXOps.cpp
+  ONNXOps/FusionOpChain.cpp
   ONNXOps/OpHelper.cpp
   ONNXOps/Canonicalize.cpp
   ONNXOps/ShapeHelper.cpp
@@ -31,6 +32,7 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/Additional/ConcatShapeTranspose.cpp
   ONNXOps/Additional/Custom.cpp
   ONNXOps/Additional/Dim.cpp
+  ONNXOps/Additional/FusedOp.cpp
   ONNXOps/Additional/EntryPoint.cpp
   ONNXOps/Additional/Im2Col.cpp
   ONNXOps/Additional/Return.cpp
