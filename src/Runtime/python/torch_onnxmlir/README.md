@@ -76,6 +76,14 @@ After the package is uploaded to pip server, you can install with `pip install t
 
 ## Run tests
 
+By default, the tests use a local compiler specified in `utils.py`:
+```
+COMPILER_IMAGE_NAME = None
+COMPILER_PATH = "/workdir/onnx-mlir/build/Debug/bin/onnx-mlir"
+```
+
+If using a remote compiler from a docker image, please change the two above variables.
+
 ### Run all tests
 
 The folder `tests` contains many testcases to verify if the package works well or not.
@@ -90,6 +98,7 @@ $ ctest -j 8
 ```
 
 ### Run a single test
+- Use pytest to run a single test. For example,
 ```bash
-$ pytest test_add.py
+$ python -m pytest test_add.py
 ```
