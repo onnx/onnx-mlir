@@ -36,6 +36,11 @@ file(GENERATE
   INPUT ${CMAKE_CURRENT_SOURCE_DIR}/test_encoder_models.py
   )
 
+file(GENERATE
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/test_decoder_models.py
+  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/test_decoder_models.py
+  )
+
 file(GLOB PY_TEST_FILES
   "${CMAKE_CURRENT_BINARY_DIR}/test_sessioncache.py"
   "${CMAKE_CURRENT_BINARY_DIR}/test_add.py"
@@ -58,8 +63,11 @@ foreach(testfile ${PY_TEST_FILES})
 endforeach()
 
 # Tests for encoder models.
+# Enable one model only to keep the runtime short.
 set(ENCODER_MODELS
   "granite-embedding-30m-english"
+  # "granite-embedding-278m-multilingual"
+  # "bert-base-uncased"
 )
 
 foreach(model ${ENCODER_MODELS})
@@ -70,6 +78,27 @@ foreach(model ${ENCODER_MODELS})
                 ${Python3_EXECUTABLE}
                 -m pytest
                 ${CMAKE_CURRENT_BINARY_DIR}/test_encoder_models.py
+                -v
+    )
+endforeach()
+
+# Tests for decoder models.
+# Enable one model only to keep the runtime short.
+set(DECODER_MODELS
+  # "gpt2"
+  # "Qwen2-0.5B-Instruct"
+  # "granite-3.3-2b-instruct"
+  "granite-4.0-350M"
+)
+
+foreach(model ${DECODER_MODELS})
+    add_test(
+        NAME test_${model}
+        COMMAND ${CMAKE_COMMAND} -E env
+                DECODER_MODEL=${model}
+                ${Python3_EXECUTABLE}
+                -m pytest
+                ${CMAKE_CURRENT_BINARY_DIR}/test_decoder_models.py
                 -v
     )
 endforeach()

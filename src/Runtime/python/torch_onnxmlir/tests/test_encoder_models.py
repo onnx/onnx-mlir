@@ -7,11 +7,10 @@
 ################################################################################
 
 import os
-import sys
 import torch
 import logging
-
 from transformers import AutoModel, AutoTokenizer
+
 import torch_onnxmlir
 from utils import TorchOMTestCase, COMPILER_IMAGE_NAME, COMPILER_PATH
 
@@ -28,35 +27,10 @@ elif model_name == "bert-base-uncased":
 else:
     assert False, "Wrong arguments"
 
-model = AutoModel.from_pretrained(model_path, torch_dtype=torch.float32)
-tokenizer = AutoTokenizer.from_pretrained(model_path)
 
-# Turn to inference mode.
-model.eval()
-
-# Compile the model for NNPA
-om_options = {
-    "compiler_image_name": COMPILER_IMAGE_NAME,
-    "compiler_path": COMPILER_PATH,
-    "compile_options": "-O3 -march=z16 -maccel=NNPA",
-}
-
-compiled_model = torch.compile(
-    model,
-    backend="onnxmlir",
-    options=om_options,
-)
-
-
-def get_cls_embedding(inputs):
+def get_cls_embedding(model, inputs):
     with torch.no_grad():
         outputs = model(**inputs)
-    return outputs.last_hidden_state[:, 0, :]  # CLS token
-
-
-def get_cls_embedding_onnxmlir(inputs):
-    with torch.no_grad():
-        outputs = compiled_model(**inputs)
     return outputs.last_hidden_state[:, 0, :]  # CLS token
 
 
@@ -65,6 +39,28 @@ class TestEncoderModel(TorchOMTestCase):
     def test_encoder_model(self):
         torch_onnxmlir.config.cache_dir = self.TMP_DIR
 
+        # Load model and tokenizer.
+        model = AutoModel.from_pretrained(
+            model_path, dtype="float32", cache_dir=self.TMP_DIR
+        )
+        tokenizer = AutoTokenizer.from_pretrained(model_path, cache_dir=self.TMP_DIR)
+
+        # Turn the model to inference mode.
+        model.eval()
+
+        # Compile the model for NNPA.
+        om_options = {
+            "compiler_image_name": COMPILER_IMAGE_NAME,
+            "compiler_path": COMPILER_PATH,
+            "compile_options": "-O3 -march=z16 -maccel=NNPA",
+        }
+        compiled_model = torch.compile(
+            model,
+            backend="onnxmlir",
+            options=om_options,
+        )
+
+        # Prepare inputs.
         text1 = "I love machine learning."
         text1_tok = tokenizer(text1, return_tensors="pt")
         text2 = "AI is fascinating."
@@ -73,16 +69,16 @@ class TestEncoderModel(TorchOMTestCase):
         )
 
         # Reference output from pytorch using CPU.
-        emb1 = get_cls_embedding(text1_tok)
-        emb2 = get_cls_embedding(text2_tok)
+        emb1 = get_cls_embedding(model, text1_tok)
+        emb2 = get_cls_embedding(model, text2_tok)
 
         # Use torch.compile for NNPA.
         with self.assertLogs(logger) as cm:
-            emb1_onnxmlir = get_cls_embedding_onnxmlir(text1_tok)
+            emb1_onnxmlir = get_cls_embedding(compiled_model, text1_tok)
         self.assertCompile(cm.output)
 
         with self.assertLogs(logger) as cm:
-            emb2_onnxmlir = get_cls_embedding_onnxmlir(text2_tok)
+            emb2_onnxmlir = get_cls_embedding(compiled_model, text2_tok)
         self.assertInCache(cm.output)
 
         similarity_torch_onnxmlir1 = torch.nn.functional.cosine_similarity(

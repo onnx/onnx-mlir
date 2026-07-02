@@ -37,3 +37,14 @@ class TorchOMTestCase(unittest.TestCase):
         self.assertNotIn("Export the pytorch model to ONNX", joined_logs)
         self.assertNotIn("Compile the onnx model", joined_logs)
         self.assertNotIn("Switch to the eager mode", joined_logs)
+
+    def assertNumCompile(self, all_logs, num_compile):
+        count = 0
+        for line in all_logs:
+            if "Compile the onnx model" in line:
+                count += 1
+        assert count == num_compile
+
+    def assertNoEagerMode(self, all_logs):
+        joined_logs = "\n".join(all_logs)
+        self.assertNotIn("Switch to the eager mode", joined_logs)
