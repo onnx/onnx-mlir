@@ -4,7 +4,7 @@
 
 //===------------------------- CompilerPasses.cpp -------------------------===//
 //
-// Copyright 2022-2024 The IBM Research Authors.
+// Copyright 2022-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -308,6 +308,11 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
 void addKrnlToAffinePasses(mlir::PassManager &pm) {
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::krnl::createConvertKrnlToAffinePass(enableParallel));
+  // Eliminate locally-allocated memrefs that are only written to (e.g.
+  // shape buffers from concat ops used for shape inference but not needed
+  // at runtime).
+  if (!disableEliminateWriteOnlyAlloc)
+    pm.addNestedPass<func::FuncOp>(createEliminateWriteOnlyAllocPass());
 }
 
 void addONNXToLinalgPasses(mlir::PassManager &pm) {

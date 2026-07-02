@@ -156,6 +156,10 @@ void registerOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createEliminateWriteOnlyAllocPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createSimplifyShapeRelatedOpsPass();
   });
 
