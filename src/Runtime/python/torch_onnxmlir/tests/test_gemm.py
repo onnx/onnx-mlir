@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
-##################### test_add.py ##############################################
+##################### test_gemm.py #############################################
 #
 # Copyright 2026 The IBM Research Authors.
 #
@@ -17,20 +17,24 @@ from utils import TorchOMTestCase, COMPILER_IMAGE_NAME, COMPILER_PATH
 
 logger = logging.basicConfig(level=logging.INFO)
 
+const_N = 10
+const_M = 10
 
-class AddModel(nn.Module):
+
+class MyModule(torch.nn.Module):
 
     def __init__(self):
-        super(AddModel, self).__init__()
+        super().__init__()
+        self.lin = torch.nn.Linear(const_N, const_M)
 
-    def forward(self, x, y):
-        return x + y
+    def forward(self, x):
+        return self.lin(x)
 
 
-model = AddModel()
+model = MyModule()
 model.eval()
 
-model = torch.compile(
+compiled_model = torch.compile(
     model,
     backend="onnxmlir",
     options={
@@ -41,13 +45,19 @@ model = torch.compile(
 )
 
 
-class TestAdd(TorchOMTestCase):
-    def test_add(self):
+class TestGemm(TorchOMTestCase):
+
+    def test_gemm(self):
         torch_onnxmlir.config.cache_dir = self.TMP_DIR
+        x = torch.randn(const_N, const_M)
         with self.assertLogs(logger) as cm:
-            x = torch.randn(2, 3)
-            y = torch.randn(2, 3)
             with torch.no_grad():
-                z = model(x, y)
-            assert np.array_equal(z, x + y)
+                y = model(x)
+                y_compiled = compiled_model(x)
+            np.testing.assert_allclose(
+                y.contiguous().numpy(),
+                y_compiled.contiguous().numpy(),
+                rtol=1e-5,
+                atol=1e-5,
+            )
         self.assertCompile(cm.output)

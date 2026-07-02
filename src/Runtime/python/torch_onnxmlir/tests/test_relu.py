@@ -6,48 +6,52 @@
 #
 ################################################################################
 
+import unittest
+import logging
+
 import numpy as np
 import torch
+import torch.nn as nn
+import torch_onnxmlir
+from utils import TorchOMTestCase, COMPILER_IMAGE_NAME, COMPILER_PATH
+
+logger = logging.basicConfig(level=logging.INFO)
 
 const_N = 10
 const_M = 10
 
 
 class MyModule(torch.nn.Module):
+
     def __init__(self):
         super().__init__()
-        self.lin = torch.nn.Linear(const_N, const_M)
 
     def forward(self, x):
-        return torch.nn.functional.relu(self.lin(x))
+        return torch.nn.functional.relu(x)
 
 
-mod = MyModule()
+model = MyModule()
+model.eval()
+
+compiled_model = torch.compile(
+    model,
+    backend="onnxmlir",
+    options={
+        "compiler_image_name": COMPILER_IMAGE_NAME,
+        "compiler_path": COMPILER_PATH,
+        "compile_options": "-O3",
+    },
+)
 
 
-"""
-# Torch code
-opt_mod = torch.compile(mod)
+class TestRelu(TorchOMTestCase):
 
-#print(opt_mod(torch.randn(const_N, const_M)))
-input=torch.randn(const_N, const_M)
-
-# Be careful of the default data type of torch tensor and np tensor
-#input=np.random.rand(const_N, const_M)
-print(opt_mod(input))
-"""
-
-
-import torch_onnxmlir
-
-my_option = {
-    "compiler_image_name": None,
-    "compile_options": "-O3",
-    "compiler_path": "/workdir/onnx-mlir/build/Debug/bin/onnx-mlir",
-}
-
-opt_mod = torch.compile(mod, backend="onnxmlir", options=my_option)
-
-input = torch.randn(const_N, const_M)
-output = opt_mod(input)
-print(output)
+    def test_relu(self):
+        torch_onnxmlir.config.cache_dir = self.TMP_DIR
+        x = torch.randn(const_N, const_M)
+        with self.assertLogs(logger) as cm:
+            with torch.no_grad():
+                y = model(x)
+                y_compiled = compiled_model(x)
+            assert np.array_equal(y, y_compiled)
+        self.assertCompile(cm.output)
