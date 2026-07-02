@@ -1,4 +1,4 @@
-# Command to run: OMP_NUM_THREADS=6 python test_bert.py
+# SPDX-License-Identifier: Apache-2.0
 
 ##################### test_encoder_models.py ###################################
 #
@@ -6,30 +6,39 @@
 #
 ################################################################################
 
+import os
+import sys
 import torch
 import logging
-import time
 
 from transformers import AutoModel, AutoTokenizer
 import torch_onnxmlir
+from utils import TorchOMTestCase, COMPILER_IMAGE_NAME, COMPILER_PATH
 
-logging.basicConfig(level=logging.INFO)  # Or INFO, WARNING, etc.
+logger = logging.basicConfig(level=logging.INFO)
 
-# model_path = "google-bert/bert-base-uncased"
-model_path = "ibm-granite/granite-embedding-30m-english"
-# model_path = "ibm-granite/granite-embedding-278m-multilingual"
+model_name = os.environ["ENCODER_MODEL"]
+
+if model_name == "granite-embedding-30m-english":
+    model_path = "ibm-granite/granite-embedding-30m-english"
+elif model_name == "granite-embedding-278m-multilingual":
+    model_path = "ibm-granite/granite-embedding-278m-multilingual"
+elif model_name == "bert-base-uncased":
+    model_path = "google-bert/bert-base-uncased"
+else:
+    assert False, "Wrong arguments"
+
 model = AutoModel.from_pretrained(model_path, torch_dtype=torch.float32)
 tokenizer = AutoTokenizer.from_pretrained(model_path)
-
 
 # Turn to inference mode.
 model.eval()
 
-# Compile the model
+# Compile the model for NNPA
 om_options = {
-    "compiler_image_name": None,
-    "compile_options": "-O3 -march=z17 -maccel=NNPA --parallel --enable-zhigh-decompose-stick-unstick",
-    "compiler_path": "/workdir/onnx-mlir/build/Debug/bin/onnx-mlir",
+    "compiler_image_name": COMPILER_IMAGE_NAME,
+    "compiler_path": COMPILER_PATH,
+    "compile_options": "-O3 -march=z16 -maccel=NNPA",
 }
 
 compiled_model = torch.compile(
@@ -51,41 +60,36 @@ def get_cls_embedding_onnxmlir(inputs):
     return outputs.last_hidden_state[:, 0, :]  # CLS token
 
 
-text1 = "I love machine learning."
-text1_tok = tokenizer(text1, return_tensors="pt")
-text2 = "AI is fascinating."
-text2_tok = tokenizer(text2, return_tensors="pt", max_length=256, padding="max_length")
-print("text1: ", text1)
-print("text2: (padding to 256)", text2)
+class TestEncoderModel(TorchOMTestCase):
 
-start = time.time()
-emb1 = get_cls_embedding(text1_tok)
-print(f"[pytorch-cpu], embedding text1 took", (time.time() - start) * 1000, "ms")
+    def test_encoder_model(self):
+        torch_onnxmlir.config.cache_dir = self.TMP_DIR
 
-start = time.time()
-emb2 = get_cls_embedding(text2_tok)
-print(f"[pytorch-cpu], embedding text2 took", (time.time() - start) * 1000, "ms")
-similarity = torch.nn.functional.cosine_similarity(emb1, emb2)
+        text1 = "I love machine learning."
+        text1_tok = tokenizer(text1, return_tensors="pt")
+        text2 = "AI is fascinating."
+        text2_tok = tokenizer(
+            text2, return_tensors="pt", max_length=256, padding="max_length"
+        )
 
-start = time.time()
-emb1_onnxmlir = get_cls_embedding_onnxmlir(text1_tok)
-print(f"[onnxmlir-zaiu], embedding text1 took", (time.time() - start) * 1000, "ms")
+        # Reference output from pytorch using CPU.
+        emb1 = get_cls_embedding(text1_tok)
+        emb2 = get_cls_embedding(text2_tok)
 
-start = time.time()
-emb2_onnxmlir = get_cls_embedding_onnxmlir(text2_tok)
-print(f"[onnxmlir-zaiu], embedding text2 took", (time.time() - start) * 1000, "ms")
+        # Use torch.compile for NNPA.
+        with self.assertLogs(logger) as cm:
+            emb1_onnxmlir = get_cls_embedding_onnxmlir(text1_tok)
+        self.assertCompile(cm.output)
 
-similarity_onnxmlir = torch.nn.functional.cosine_similarity(
-    emb1_onnxmlir, emb2_onnxmlir
-)
+        with self.assertLogs(logger) as cm:
+            emb2_onnxmlir = get_cls_embedding_onnxmlir(text2_tok)
+        self.assertInCache(cm.output)
 
-similarity_torch_onnxmlir1 = torch.nn.functional.cosine_similarity(emb1, emb1_onnxmlir)
-similarity_torch_onnxmlir2 = torch.nn.functional.cosine_similarity(emb2, emb2_onnxmlir)
-print("Cosine similarity [pytorch] text1 vs text2:", similarity.item())
-print("Cosine similarity [onnxmlir] text1 vs text2:", similarity_onnxmlir.item())
-print(
-    "Cosine similarity [text1] pytorch vs onnxmlir:", similarity_torch_onnxmlir1.item()
-)
-print(
-    "Cosine similarity [text2] pytorch vs onnxmlir:", similarity_torch_onnxmlir2.item()
-)
+        similarity_torch_onnxmlir1 = torch.nn.functional.cosine_similarity(
+            emb1, emb1_onnxmlir
+        )
+        similarity_torch_onnxmlir2 = torch.nn.functional.cosine_similarity(
+            emb2, emb2_onnxmlir
+        )
+        assert similarity_torch_onnxmlir1.item() > 0.98, "Accuracy does not match"
+        assert similarity_torch_onnxmlir2.item() > 0.98, "Accuracy does not match"

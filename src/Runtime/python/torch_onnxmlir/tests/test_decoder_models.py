@@ -21,7 +21,7 @@ from transformers import (
 import torch_onnxmlir
 import logging
 
-# logging.basicConfig(level=logging.INFO)  # Or INFO, WARNING, etc.
+logger = logging.basicConfig(level=logging.INFO)  # Or INFO, WARNING, etc.
 
 torch_onnxmlir.config.session_cache_limit = 200
 torch_onnxmlir.config.same_hash_size = 0

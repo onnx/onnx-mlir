@@ -13,7 +13,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch_onnxmlir
-from utils import TorchOMTestCase
+from utils import TorchOMTestCase, COMPILER_IMAGE_NAME, COMPILER_PATH
 
 logger = logging.basicConfig(level=logging.INFO)
 
@@ -34,8 +34,9 @@ model = torch.compile(
     model,
     backend="onnxmlir",
     options={
+        "compiler_image_name": COMPILER_IMAGE_NAME,
+        "compiler_path": COMPILER_PATH,
         "compile_options": "-O3",
-        "compiler_path": "/workdir/onnx-mlir/build/Debug/bin/onnx-mlir",
     },
 )
 
@@ -55,7 +56,7 @@ class TestSessionCache(TorchOMTestCase):
             with torch.no_grad():
                 z = model(x, y)
             assert np.array_equal(z, x + y)
-        self.assertCompile("\n".join(cm.output))
+        self.assertCompile(cm.output)
 
         # Second inference.
         with self.assertLogs(logger) as cm:
@@ -65,7 +66,7 @@ class TestSessionCache(TorchOMTestCase):
             with torch.no_grad():
                 z = model(x, y)
             assert np.array_equal(z, x + y)
-        self.assertInCache("\n".join(cm.output))
+        self.assertInCache(cm.output)
 
         # Third inference.
         with self.assertLogs(logger) as cm:
@@ -75,7 +76,7 @@ class TestSessionCache(TorchOMTestCase):
             with torch.no_grad():
                 z = model(x, y)
             assert np.array_equal(z, x + y)
-        self.assertCompile("\n".join(cm.output))
+        self.assertCompile(cm.output)
 
         # Forth inference.
         with self.assertLogs(logger) as cm:
@@ -85,7 +86,7 @@ class TestSessionCache(TorchOMTestCase):
             with torch.no_grad():
                 z = model(x, y)
             assert np.array_equal(z, x + y)
-        self.assertInCache("\n".join(cm.output))
+        self.assertInCache(cm.output)
 
         # Fifth inference.
         with self.assertLogs(logger) as cm:
@@ -95,4 +96,4 @@ class TestSessionCache(TorchOMTestCase):
             with torch.no_grad():
                 z = model(x, y)
             assert np.array_equal(z, x + y)
-        self.assertInCache("\n".join(cm.output))
+        self.assertInCache(cm.output)

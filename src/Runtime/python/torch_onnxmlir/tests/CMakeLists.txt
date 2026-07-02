@@ -31,6 +31,11 @@ file(GENERATE
   INPUT ${CMAKE_CURRENT_SOURCE_DIR}/test_relu.py
   )
 
+file(GENERATE
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/test_encoder_models.py
+  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/test_encoder_models.py
+  )
+
 file(GLOB PY_TEST_FILES
   "${CMAKE_CURRENT_BINARY_DIR}/test_sessioncache.py"
   "${CMAKE_CURRENT_BINARY_DIR}/test_add.py"
@@ -43,11 +48,28 @@ enable_testing()
 
 add_custom_target(run-testcases ALL)
 
+# Tests for single operation.
 foreach(testfile ${PY_TEST_FILES})
     get_filename_component(testname ${testfile} NAME_WE)
-
     add_test(
         NAME ${testname}
         COMMAND ${Python3_EXECUTABLE} -m pytest -v ${testfile}
+    )
+endforeach()
+
+# Tests for encoder models.
+set(ENCODER_MODELS
+  "granite-embedding-30m-english"
+)
+
+foreach(model ${ENCODER_MODELS})
+    add_test(
+        NAME test_${model}
+        COMMAND ${CMAKE_COMMAND} -E env
+                ENCODER_MODEL=${model}
+                ${Python3_EXECUTABLE}
+                -m pytest
+                ${CMAKE_CURRENT_BINARY_DIR}/test_encoder_models.py
+                -v
     )
 endforeach()

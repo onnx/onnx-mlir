@@ -11,6 +11,9 @@ import tempfile
 import shutil
 from pathlib import Path
 
+COMPILER_IMAGE_NAME = None
+COMPILER_PATH = "/workdir/onnx-mlir/build/Debug/bin/onnx-mlir"
+
 
 class TorchOMTestCase(unittest.TestCase):
 
@@ -23,12 +26,14 @@ class TorchOMTestCase(unittest.TestCase):
         shutil.rmtree(cls.TMP_DIR, ignore_errors=True)
 
     def assertCompile(self, all_logs):
-        self.assertIn("Export the pytorch model to ONNX", all_logs)
-        self.assertIn("Compile the onnx model", all_logs)
-        self.assertNotIn("Switch to the eager mode", all_logs)
+        joined_logs = "\n".join(all_logs)
+        self.assertIn("Export the pytorch model to ONNX", joined_logs)
+        self.assertIn("Compile the onnx model", joined_logs)
+        self.assertNotIn("Switch to the eager mode", joined_logs)
 
     def assertInCache(self, all_logs):
-        self.assertIn("Found the model in the cache. No recompilation.", all_logs)
-        self.assertNotIn("Export the pytorch model to ONNX", all_logs)
-        self.assertNotIn("Compile the onnx model", all_logs)
-        self.assertNotIn("Switch to the eager mode", all_logs)
+        joined_logs = "\n".join(all_logs)
+        self.assertIn("Found the model in the cache. No recompilation.", joined_logs)
+        self.assertNotIn("Export the pytorch model to ONNX", joined_logs)
+        self.assertNotIn("Compile the onnx model", joined_logs)
+        self.assertNotIn("Switch to the eager mode", joined_logs)
