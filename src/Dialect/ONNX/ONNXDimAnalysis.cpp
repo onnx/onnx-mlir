@@ -1425,7 +1425,6 @@ void DimAnalysis::propagateOffsetRelations() {
     // Apply new equalities.
     for (auto &[dim1, dim2] : newEqualities) {
       build(dim2, build(dim1));
-      updated = true;
     }
 
     mergeDimSets();
