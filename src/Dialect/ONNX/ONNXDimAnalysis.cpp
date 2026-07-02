@@ -1390,6 +1390,10 @@ void DimAnalysis::propagateOffsetRelations() {
       }
     }
 
+    // Exit if there is no update.
+    if (!updated)
+      break;
+
     // Step 2: Infer equality from matching offsets.
     llvm::SmallVector<std::pair<DimT, DimT>, 4> newEqualities;
 
@@ -1424,8 +1428,7 @@ void DimAnalysis::propagateOffsetRelations() {
       updated = true;
     }
 
-    if (updated)
-      mergeDimSets();
+    mergeDimSets();
   }
 }
 
