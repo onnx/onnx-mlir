@@ -176,7 +176,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
 | **Scaler** |none | | | |
 | **Scan** |8 - * |Does not support dynamic shapes. Does not support int4 and uint4. |Precision issue with newer opset, maybe just unsupported. Dynamic shape?. |
 | **Scatter** |none | | | |
-| **ScatterElements** |11 - * |Does not support duplicate indices. | |
+| **ScatterElements** |11 - * | |Supports reductions `none` and `add`; duplicate indices are supported for `add`. |
 | **ScatterND** |11 - * |Does not support scatternd add/multiply. | |
 | **Selu** |6 - * | | |
 | **SequenceAt** |none | | | |
