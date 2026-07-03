@@ -46,8 +46,6 @@ logger = logging.basicConfig(level=logging.INFO)  # Or INFO, WARNING, etc.
 class TestSessionCache(TorchOMTestCase):
 
     def test_cache(self):
-        torch_onnxmlir.config.cache_dir = self.TMP_DIR
-
         # First inference.
         with self.assertLogs(logger) as cm:
             print("\n1st inference: should compile")

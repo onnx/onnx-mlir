@@ -10,6 +10,7 @@ import unittest
 import tempfile
 import shutil
 from pathlib import Path
+import torch_onnxmlir
 
 COMPILER_IMAGE_NAME = None
 COMPILER_PATH = "/workdir/onnx-mlir/build/Debug/bin/onnx-mlir"
@@ -20,6 +21,7 @@ class TorchOMTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.TMP_DIR = Path(tempfile.mkdtemp())
+        torch_onnxmlir.config.cache_dir = cls.TMP_DIR
 
     @classmethod
     def tearDownClass(cls):

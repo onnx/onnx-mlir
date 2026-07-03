@@ -48,7 +48,6 @@ compiled_model = torch.compile(
 class TestGemm(TorchOMTestCase):
 
     def test_gemm(self):
-        torch_onnxmlir.config.cache_dir = self.TMP_DIR
         x = torch.randn(const_N, const_M)
         with self.assertLogs(logger) as cm:
             with torch.no_grad():

@@ -35,8 +35,6 @@ else:
 class TestDecoderModel(TorchOMTestCase):
 
     def test_decoder_model(self):
-        torch_onnxmlir.config.cache_dir = self.TMP_DIR
-
         # Load model and tokenizer.
         # attn_implementation="eager" is needed to decompose sdpa ops.
         model = AutoModelForCausalLM.from_pretrained(

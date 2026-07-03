@@ -47,7 +47,6 @@ compiled_model = torch.compile(
 class TestRelu(TorchOMTestCase):
 
     def test_relu(self):
-        torch_onnxmlir.config.cache_dir = self.TMP_DIR
         x = torch.randn(const_N, const_M)
         with self.assertLogs(logger) as cm:
             with torch.no_grad():

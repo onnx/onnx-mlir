@@ -43,7 +43,6 @@ model = torch.compile(
 
 class TestAdd(TorchOMTestCase):
     def test_add(self):
-        torch_onnxmlir.config.cache_dir = self.TMP_DIR
         with self.assertLogs(logger) as cm:
             x = torch.randn(2, 3)
             y = torch.randn(2, 3)
