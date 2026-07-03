@@ -70,14 +70,14 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
     && make check-docs \
     && make check-unittest \
     && make check-multiple-models \
-    # && make NPROC=${NPROC} \
-    #         CTEST_PARALLEL_LEVEL=${NPROC} \
-    #         TEST_NOFLOAT16=${TEST_NOFLOAT16} \
-    #         TEST_MARCH=${TEST_MARCH} \
-    #         TEST_ARGS="${TEST_ARGS}" \
-    #         TEST_OPTLEVEL=${TEST_OPTLEVEL} \
-    #         -j${NPROC} \
-    #         check-onnx-backend-numerical \
+    && make NPROC=${NPROC} \
+            CTEST_PARALLEL_LEVEL=${NPROC} \
+            TEST_NOFLOAT16=${TEST_NOFLOAT16} \
+            TEST_MARCH=${TEST_MARCH} \
+            TEST_ARGS="${TEST_ARGS}" \
+            TEST_OPTLEVEL=${TEST_OPTLEVEL} \
+            -j${NPROC} \
+            check-onnx-backend-numerical \
     && rm -f Debug/bin/*Test Debug/bin/Perf* Debug/bin/Test* \
 # When building for push event to publish the image, unshallow and
 # rename origin to upstream to make the repo a bit more dev friendly.
@@ -106,7 +106,6 @@ RUN if [ "$(uname -m)" = "s390x" ]; then \
 
 # Build torch_onnxmlir and test it.
 RUN if [ "$(uname -m)" = "s390x" ]; then \
-      apt-get update -qq && apt-get install -qq -y --no-install-recommends libopenblas0 && \
       pip3 install onnxscript==0.5.7 --prefix=/usr && \
       pip3 install torch==2.10.0+cpu -f https://download.pytorch.org/whl/torch/ --prefix=/usr && \
       pip3 install transformers==5.8.0 --prefix=/usr && \
