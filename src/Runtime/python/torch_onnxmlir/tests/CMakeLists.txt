@@ -41,20 +41,20 @@ file(GENERATE
   INPUT ${CMAKE_CURRENT_SOURCE_DIR}/test_decoder_models.py
   )
 
-file(GLOB PY_TEST_FILES
-  "${CMAKE_CURRENT_BINARY_DIR}/test_sessioncache.py"
-  "${CMAKE_CURRENT_BINARY_DIR}/test_add.py"
-  "${CMAKE_CURRENT_BINARY_DIR}/test_gemm.py"
-  "${CMAKE_CURRENT_BINARY_DIR}/test_relu.py"
-)
-
 # Use ctest.
 enable_testing()
 
 add_custom_target(run-testcases ALL)
 
 # Tests for single operation.
-foreach(testfile ${PY_TEST_FILES})
+set(OP_LIST
+  "${CMAKE_CURRENT_BINARY_DIR}/test_sessioncache.py"
+  "${CMAKE_CURRENT_BINARY_DIR}/test_add.py"
+  "${CMAKE_CURRENT_BINARY_DIR}/test_gemm.py"
+  "${CMAKE_CURRENT_BINARY_DIR}/test_relu.py"
+)
+
+foreach(testfile ${OP_LIST})
     get_filename_component(testname ${testfile} NAME_WE)
     add_test(
         NAME ${testname}

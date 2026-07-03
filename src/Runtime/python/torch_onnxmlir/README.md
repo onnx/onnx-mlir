@@ -93,7 +93,6 @@ $ cd tests
 $ mkdir build
 $ cd build
 $ cmake ..
-$ make run-testcases
 $ ctest -j 8
 ```
 
