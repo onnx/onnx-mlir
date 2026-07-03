@@ -106,7 +106,7 @@ RUN if [ "$(uname -m)" = "s390x" ]; then \
 
 # Build torch_onnxmlir and test it.
 RUN if [ "$(uname -m)" = "s390x" ]; then \
-      apt install -y libopenblas0 && \
+      apt-get update && apt-get install -y libopenblas0 && \
       pip3 install onnxscript==0.5.7 --prefix=/usr && \
       pip3 install torch==2.10.0+cpu -f https://download.pytorch.org/whl/torch/ --prefix=/usr && \
       pip3 install transformers==5.8.0 --prefix=/usr && \
