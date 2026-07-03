@@ -44,8 +44,6 @@ file(GENERATE
 # Use ctest.
 enable_testing()
 
-add_custom_target(run-testcases ALL)
-
 # Tests for single operation.
 set(OP_LIST
   "${CMAKE_CURRENT_BINARY_DIR}/test_sessioncache.py"
