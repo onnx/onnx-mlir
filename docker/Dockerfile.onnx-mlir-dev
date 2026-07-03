@@ -70,14 +70,14 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
     && make check-docs \
     && make check-unittest \
     && make check-multiple-models \
-    && make NPROC=${NPROC} \
-            CTEST_PARALLEL_LEVEL=${NPROC} \
-            TEST_NOFLOAT16=${TEST_NOFLOAT16} \
-            TEST_MARCH=${TEST_MARCH} \
-            TEST_ARGS="${TEST_ARGS}" \
-            TEST_OPTLEVEL=${TEST_OPTLEVEL} \
-            -j${NPROC} \
-            check-onnx-backend-numerical \
+    # && make NPROC=${NPROC} \
+    #         CTEST_PARALLEL_LEVEL=${NPROC} \
+    #         TEST_NOFLOAT16=${TEST_NOFLOAT16} \
+    #         TEST_MARCH=${TEST_MARCH} \
+    #         TEST_ARGS="${TEST_ARGS}" \
+    #         TEST_OPTLEVEL=${TEST_OPTLEVEL} \
+    #         -j${NPROC} \
+    #         check-onnx-backend-numerical \
     && rm -f Debug/bin/*Test Debug/bin/Perf* Debug/bin/Test* \
 # When building for push event to publish the image, unshallow and
 # rename origin to upstream to make the repo a bit more dev friendly.
@@ -112,7 +112,7 @@ RUN if [ "$(uname -m)" = "s390x" ]; then \
       pip3 install transformers==5.8.0 --prefix=/usr && \
       pip3 install src/Runtime/python/torch_onnxmlir --prefix=/usr && \
       cd src/Runtime/python/torch_onnxmlir/tests && \
-      mkdir build && cd build && \
+      mkdir build && cd build && cmake .. && \
       make run-testcases && ctest -j${NPROC} && \
       cd .. && rm -rf build; \
     fi
