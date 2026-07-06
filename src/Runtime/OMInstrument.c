@@ -319,14 +319,15 @@ static void initPerfCounterConfig() {
 
 static inline int start_perf_counter(struct perf_event_attr *pe) {
   memset(pe, 0, sizeof(*pe));
-  pe->type = PERF_TYPE_HARDWARE;
+  pe->type = 10; // cpum_cf PMU type for s390
   pe->size = sizeof(*pe);
 
   pe->config = perfCounterConfig;
 
   pe->disabled = 1;
-  pe->exclude_kernel = 1;
-  pe->exclude_hv = 1;
+
+  pe->exclude_kernel = 0;
+  pe->exclude_hv = 0;
 
   int fd = perf_event_open(pe, 0, -1, -1, 0);
   if (fd == -1) {
