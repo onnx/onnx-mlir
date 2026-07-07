@@ -75,6 +75,17 @@ add_onnx_mlir_library(OMWriteOpStatsToModuleAttribute
   MLIRTransforms
   )
 
+add_onnx_mlir_library(OMEliminateWriteOnlyAlloc
+  EliminateWriteOnlyAlloc.cpp
+
+  LINK_LIBS PUBLIC
+  OMKrnlOps
+  MLIRAffineDialect
+  MLIRFuncDialect
+  MLIRMemRefDialect
+  MLIRSideEffectInterfaces
+  )
+
 add_onnx_mlir_library(OMONNXCSEWithNodeName
   ONNXCSEWithNodeName.cpp
 
