@@ -291,7 +291,7 @@ static const struct {
 // `perfCounterCount`. Returns true and bumps perfCounterCount on success.
 static bool addPerfCounter(const char *token) {
   for (size_t i = 0; i < sizeof(perfCounterTable) / sizeof(perfCounterTable[0]);
-      ++i) {
+       ++i) {
     if (strcmp(token, perfCounterTable[i].name) == 0) {
       perfCounterConfigs[perfCounterCount] = perfCounterTable[i].config;
       strncpy(perfCounterNames[perfCounterCount], perfCounterTable[i].name,
@@ -308,7 +308,7 @@ static bool addPerfCounter(const char *token) {
     perfCounterConfigs[perfCounterCount] = (uint64_t)val;
     const char *resolvedName = token;
     for (size_t i = 0;
-        i < sizeof(perfCounterTable) / sizeof(perfCounterTable[0]); ++i) {
+         i < sizeof(perfCounterTable) / sizeof(perfCounterTable[0]); ++i) {
       if (perfCounterTable[i].config == (uint64_t)val) {
         resolvedName = perfCounterTable[i].name;
         break;
@@ -400,7 +400,7 @@ static inline void read_perf_counter(int index, bool isBefore) {
     perror("read");
     exit(-1);
   }
-  fprintf(instrumentFout, "==PERF-REPORT==, %s, %s, %s, %s, %lu\n",
+  fprintf(instrumentFout, "==CNTR-REPORT==, %s, %s, %s, %s, %lu\n",
       instrumentReportOpName, instrumentReportNodeName,
       (isBefore ? "before" : "after"), perfCounterNames[index], count);
 }
