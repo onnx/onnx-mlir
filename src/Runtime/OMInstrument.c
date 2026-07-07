@@ -247,43 +247,7 @@ static int perf_event_open(struct perf_event_attr *hw_event, pid_t pid, int cpu,
   return syscall(SYS_perf_event_open, hw_event, pid, cpu, group_fd, flags);
 }
 
-// Perf hardware counters to measure, selected at runtime via the
-// ONNX_MLIR_INSTRUMENT_PERF_COUNTER environment variable as a space-separated
-// list (e.g. "INSTRUCTIONS DTLB2_MISSES"). Each entry accepts a raw numeric
-// PERF_TYPE_HARDWARE config value (decimal or 0x-prefixed hex) as a fallback
-// for counters not in the name table below. When the variable is not set,
-// perf counter collection is disabled entirely: no perf_event_open call is
-// ever made, so the same binary keeps working for users without the
-// privileges perf_event_open requires.
-#define MAX_PERF_COUNTERS 8
-static uint64_t perfCounterConfigs[MAX_PERF_COUNTERS];
-static char perfCounterNames[MAX_PERF_COUNTERS][64];
-static struct perf_event_attr perfCounterAttrs[MAX_PERF_COUNTERS];
-static int perfCounterFds[MAX_PERF_COUNTERS];
-
-// s390 cpum_cf PMU (type=10) hardware counter events: name-to-code table,
-// kept consistent with the event list documented in s390_memory_hierarchy.c.
-static const struct {
-  const char *name;
-  uint64_t config;
-} perfCounterTable[] = {
-    {"CPU_CYCLES", 0x0000},
-    {"INSTRUCTIONS", 0x0001},
-    {"L1I_DIR_WRITES", 0x0002},
-    {"L1I_PENALTY_CYCLES", 0x0003},
-    {"L1D_DIR_WRITES", 0x0004},
-    {"L1D_PENALTY_CYCLES", 0x0005},
-    {"DTLB2_WRITES", 0x0081},
-    {"DTLB2_MISSES", 0x0082},
-    {"CRSTE_1MB_WRITES", 0x0083},
-    {"DTLB2_GPAGE_WRITES", 0x0084},
-    {"ITLB2_WRITES", 0x0086},
-    {"ITLB2_MISSES", 0x0087},
-    {"TLB2_PTE_WRITES", 0x0089},
-    {"TLB2_CRSTE_WRITES", 0x008a},
-    {"TLB2_ENGINES_BUSY", 0x008b},
-    {"L1C_TLB2_MISSES", 0x008f},
-};
+#include "PerfData.inc"
 
 // Resolve a single counter token (name or raw numeric config) into slot
 // `perfCounterCount`. Returns true and bumps perfCounterCount on success.
