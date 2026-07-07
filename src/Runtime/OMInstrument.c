@@ -228,15 +228,15 @@ static void ProcessName(
 // =============================================================================
 // Perf Utilities
 
-// #define _GNU_SOURCE
+static bool perfCounterEnabled = false;
+static int perfCounterCount = 0;
 
+#ifdef __s390x__
+#define _GNU_SOURCE
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-// #include <unistd.h>
 #include <sys/ioctl.h>
-// #include <sys/syscall.h>
-// #include <linux/perf_event.h>
 #include <linux/hw_breakpoint.h> /* Definition of HW_* constants */
 #include <linux/perf_event.h>    /* Definition of PERF_* constants */
 #include <sys/syscall.h>         /* Definition of SYS_* constants */
@@ -256,8 +256,6 @@ static int perf_event_open(struct perf_event_attr *hw_event, pid_t pid, int cpu,
 // ever made, so the same binary keeps working for users without the
 // privileges perf_event_open requires.
 #define MAX_PERF_COUNTERS 8
-static bool perfCounterEnabled = false;
-static int perfCounterCount = 0;
 static uint64_t perfCounterConfigs[MAX_PERF_COUNTERS];
 static char perfCounterNames[MAX_PERF_COUNTERS][64];
 static struct perf_event_attr perfCounterAttrs[MAX_PERF_COUNTERS];
@@ -404,6 +402,13 @@ static inline void read_perf_counter(int index, bool isBefore) {
       instrumentReportOpName, instrumentReportNodeName,
       (isBefore ? "before" : "after"), perfCounterNames[index], count);
 }
+#else
+// Empty functions for systems not implemented for perf
+static void initPerfCounterConfig() {
+}
+static inline void read_perf_counter(int index, bool isBefore) {
+}
+#endif
 
 // =============================================================================
 // Buffer management
@@ -416,11 +421,6 @@ static inline void printStartReport() {
   if (instrumentCompilationInfo)
     fprintf(instrumentFout, "==COMPILE-INFO-REPORT==, %s\n",
         instrumentCompilationInfo);
-  if (perfCounterEnabled) {
-    for (int i = 0; i < perfCounterCount; ++i)
-      fprintf(
-          instrumentFout, "==HW-COUNTER-REPORT==, %s\n", perfCounterNames[i]);
-  }
   startReportPrinted = true;
 }
 
