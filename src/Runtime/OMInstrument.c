@@ -247,82 +247,96 @@ static int perf_event_open(struct perf_event_attr *hw_event, pid_t pid, int cpu,
   return syscall(SYS_perf_event_open, hw_event, pid, cpu, group_fd, flags);
 }
 
-static struct perf_event_attr pe;
-static int g_fd;
-
-// Perf hardware counter to measure, selected at runtime via the
-// ONNX_MLIR_INSTRUMENT_PERF_COUNTER environment variable (e.g. "cycles",
-// "cache-misses"). Accepts a raw numeric PERF_TYPE_HARDWARE config value
-// (decimal or 0x-prefixed hex) as a fallback for counters not in the name
-// table below. When the variable is not set, perf counter collection is
-// disabled entirely: no perf_event_open call is ever made, so the same
-// binary keeps working for users without the privileges perf_event_open
-// requires.
+// Perf hardware counters to measure, selected at runtime via the
+// ONNX_MLIR_INSTRUMENT_PERF_COUNTER environment variable as a space-separated
+// list (e.g. "INSTRUCTIONS DTLB2_MISSES"). Each entry accepts a raw numeric
+// PERF_TYPE_HARDWARE config value (decimal or 0x-prefixed hex) as a fallback
+// for counters not in the name table below. When the variable is not set,
+// perf counter collection is disabled entirely: no perf_event_open call is
+// ever made, so the same binary keeps working for users without the
+// privileges perf_event_open requires.
+#define MAX_PERF_COUNTERS 8
 static bool perfCounterEnabled = false;
-static uint64_t perfCounterConfig;
-static char perfCounterName[64];
+static int perfCounterCount = 0;
+static uint64_t perfCounterConfigs[MAX_PERF_COUNTERS];
+static char perfCounterNames[MAX_PERF_COUNTERS][64];
+static struct perf_event_attr perfCounterAttrs[MAX_PERF_COUNTERS];
+static int perfCounterFds[MAX_PERF_COUNTERS];
 
-static void initPerfCounterConfig() {
-  const char *name = getenv("ONNX_MLIR_INSTRUMENT_PERF_COUNTER");
-  if (!name)
-    return; // Not set: leave perf counter collection disabled.
-  static const struct {
-    const char *name;
-    uint64_t config;
-  } table[] = {
-      {"cpu-cycles", PERF_COUNT_HW_CPU_CYCLES},
-      {"instructions", PERF_COUNT_HW_INSTRUCTIONS},
-      /* Other PERF_COUNT is not support on s390x */
-      /*
-      {"cache-references", PERF_COUNT_HW_CACHE_REFERENCES},
-      {"cache-misses", PERF_COUNT_HW_CACHE_MISSES},
-      {"branch-instructions", PERF_COUNT_HW_BRANCH_INSTRUCTIONS},
-      {"branches", PERF_COUNT_HW_BRANCH_INSTRUCTIONS},
-      {"branch-misses", PERF_COUNT_HW_BRANCH_MISSES},
-      {"bus-cycles", PERF_COUNT_HW_BUS_CYCLES},
-      {"stalled-cycles-frontend", PERF_COUNT_HW_STALLED_CYCLES_FRONTEND},
-      {"stalled-cycles-backend", PERF_COUNT_HW_STALLED_CYCLES_BACKEND},
-      {"ref-cycles", PERF_COUNT_HW_REF_CPU_CYCLES},
-      */
+// s390 cpum_cf PMU (type=10) hardware counter events: name-to-code table,
+// kept consistent with the event list documented in s390_memory_hierarchy.c.
+static const struct {
+  const char *name;
+  uint64_t config;
+} perfCounterTable[] = {
+    {"CPU_CYCLES", 0x0000},
+    {"INSTRUCTIONS", 0x0001},
+    {"L1I_DIR_WRITES", 0x0002},
+    {"L1I_PENALTY_CYCLES", 0x0003},
+    {"L1D_DIR_WRITES", 0x0004},
+    {"L1D_PENALTY_CYCLES", 0x0005},
+    {"DTLB2_WRITES", 0x0081},
+    {"DTLB2_MISSES", 0x0082},
+    {"CRSTE_1MB_WRITES", 0x0083},
+    {"DTLB2_GPAGE_WRITES", 0x0084},
+    {"ITLB2_WRITES", 0x0086},
+    {"ITLB2_MISSES", 0x0087},
+    {"TLB2_PTE_WRITES", 0x0089},
+    {"TLB2_CRSTE_WRITES", 0x008a},
+    {"TLB2_ENGINES_BUSY", 0x008b},
+    {"L1C_TLB2_MISSES", 0x008f},
+};
 
-      /*
-      {"DTLB2_GPAGE_WRITES", DTLB2_GPAGE_WRITES}, //DTLB2 Two-Gigabyte Page
-      Writes. Unit: cpum_cf
-      {"DTLB2_MISSES", DTLB2_MISSES}, //[DTLB2 Misses. Unit: cpum_cf]
-      {"DCW_REQ", DCW_REQ},
-      {"DCW_REQ_CHIP_HIT", DCW_REQ_CHIP_HIT},
-      {"DCW_REQ_DRAWER_HIT", DCW_REQ_DRAWER_HIT},
-      */
-  };
-  for (size_t i = 0; i < sizeof(table) / sizeof(table[0]); ++i) {
-    if (strcmp(name, table[i].name) == 0) {
-      perfCounterConfig = table[i].config;
-      strncpy(perfCounterName, table[i].name, sizeof(perfCounterName) - 1);
-      perfCounterEnabled = true;
-      return;
+// Resolve a single counter token (name or raw numeric config) into slot
+// `perfCounterCount`. Returns true and bumps perfCounterCount on success.
+static bool addPerfCounter(const char *token) {
+  for (size_t i = 0; i < sizeof(perfCounterTable) / sizeof(perfCounterTable[0]);
+      ++i) {
+    if (strcmp(token, perfCounterTable[i].name) == 0) {
+      perfCounterConfigs[perfCounterCount] = perfCounterTable[i].config;
+      strncpy(perfCounterNames[perfCounterCount], perfCounterTable[i].name,
+          sizeof(perfCounterNames[0]) - 1);
+      perfCounterCount++;
+      return true;
     }
   }
-  // Fall back: allow a raw numeric config value.
+  // Fall back: allow a raw numeric config value. Resolve it back to its
+  // symbolic name (if known) so reports print a name instead of a number.
   char *end;
-  long val = strtol(name, &end, 0);
-  if (end != name && *end == '\0') {
-    perfCounterConfig = (uint64_t)val;
-    strncpy(perfCounterName, name, sizeof(perfCounterName) - 1);
-    perfCounterEnabled = true;
-  } else {
-    fprintf(stderr,
-        "Warning: unknown ONNX_MLIR_INSTRUMENT_PERF_COUNTER '%s', "
-        "perf counter collection disabled\n",
-        name);
+  long val = strtol(token, &end, 0);
+  if (end != token && *end == '\0') {
+    perfCounterConfigs[perfCounterCount] = (uint64_t)val;
+    const char *resolvedName = token;
+    for (size_t i = 0;
+        i < sizeof(perfCounterTable) / sizeof(perfCounterTable[0]); ++i) {
+      if (perfCounterTable[i].config == (uint64_t)val) {
+        resolvedName = perfCounterTable[i].name;
+        break;
+      }
+    }
+    strncpy(perfCounterNames[perfCounterCount], resolvedName,
+        sizeof(perfCounterNames[0]) - 1);
+    perfCounterCount++;
+    return true;
   }
+  fprintf(stderr,
+      "Warning: unknown ONNX_MLIR_INSTRUMENT_PERF_COUNTER entry '%s', "
+      "skipping\n",
+      token);
+  return false;
 }
 
-static inline int start_perf_counter(struct perf_event_attr *pe) {
+// Starts (opens, resets, enables) the perf counter for slot `index` of
+// perfCounterConfigs/perfCounterAttrs, storing its fd in perfCounterFds. The
+// counter then runs continuously (it is not reset or disabled per op); use
+// read_perf_counter() to sample it and end_perf_counter() to close it.
+static inline void start_perf_counter(int index) {
+  struct perf_event_attr *pe = &perfCounterAttrs[index];
   memset(pe, 0, sizeof(*pe));
   pe->type = 10; // cpum_cf PMU type for s390
   pe->size = sizeof(*pe);
 
-  pe->config = perfCounterConfig;
+  pe->config = perfCounterConfigs[index];
 
   pe->disabled = 1;
 
@@ -337,23 +351,58 @@ static inline int start_perf_counter(struct perf_event_attr *pe) {
 
   ioctl(fd, PERF_EVENT_IOC_RESET, 0);
   ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
-  return fd;
+  perfCounterFds[index] = fd;
 }
 
-static inline uint64_t end_perf_counter(struct perf_event_attr *pe, int fd) {
-  uint64_t count;
+// Disables and closes the perf counter for slot `index`.
+static inline void end_perf_counter(int index) {
+  int fd = perfCounterFds[index];
   ioctl(fd, PERF_EVENT_IOC_DISABLE, 0);
+  close(fd);
+}
 
-  if (read(fd, &count, sizeof(count)) != sizeof(count)) {
+static void initPerfCounterConfig() {
+  // Close any counters still open from a previous run before reopening.
+  for (int i = 0; i < perfCounterCount; ++i)
+    end_perf_counter(i);
+  perfCounterCount = 0;
+  perfCounterEnabled = false;
+
+  const char *env = getenv("ONNX_MLIR_INSTRUMENT_PERF_COUNTER");
+  if (!env)
+    return; // Not set: leave perf counter collection disabled.
+  // Tokenize a private copy of the env value on spaces; strtok_r needs a
+  // mutable buffer and getenv's result must not be modified.
+  char buf[256];
+  strncpy(buf, env, sizeof(buf) - 1);
+  buf[sizeof(buf) - 1] = '\0';
+  char *saveptr;
+  char *token = strtok_r(buf, " ", &saveptr);
+  while (token && perfCounterCount < MAX_PERF_COUNTERS) {
+    addPerfCounter(token);
+    token = strtok_r(NULL, " ", &saveptr);
+  }
+  if (token)
+    fprintf(stderr,
+        "Warning: ONNX_MLIR_INSTRUMENT_PERF_COUNTER has more than %d "
+        "counters, extra entries ignored\n",
+        MAX_PERF_COUNTERS);
+  perfCounterEnabled = perfCounterCount > 0;
+  for (int i = 0; i < perfCounterCount; ++i)
+    start_perf_counter(i);
+}
+
+// Reads the current (cumulative, since start_perf_counter) value of the perf
+// counter for slot `index` and prints it; the counter is left running.
+static inline void read_perf_counter(int index, bool isBefore) {
+  uint64_t count;
+  if (read(perfCounterFds[index], &count, sizeof(count)) != sizeof(count)) {
     perror("read");
     exit(-1);
   }
-
-  fprintf(instrumentFout, "==HW-COUNTER-REPORT==, %s, %lu\n", perfCounterName,
-      count);
-
-  close(fd);
-  return count;
+  fprintf(instrumentFout, "==PERF-REPORT==, %s, %s, %s, %s, %lu\n",
+      instrumentReportOpName, instrumentReportNodeName,
+      (isBefore ? "before" : "after"), perfCounterNames[index], count);
 }
 
 // =============================================================================
@@ -367,8 +416,11 @@ static inline void printStartReport() {
   if (instrumentCompilationInfo)
     fprintf(instrumentFout, "==COMPILE-INFO-REPORT==, %s\n",
         instrumentCompilationInfo);
-  if (perfCounterEnabled)
-    fprintf(instrumentFout, "==HW-COUNTER-REPORT==, %s\n", perfCounterName);
+  if (perfCounterEnabled) {
+    for (int i = 0; i < perfCounterCount; ++i)
+      fprintf(
+          instrumentFout, "==HW-COUNTER-REPORT==, %s\n", perfCounterNames[i]);
+  }
   startReportPrinted = true;
 }
 
@@ -551,11 +603,13 @@ void OMInstrumentPoint(const char *opName, int64_t iTag, const char *nodeName) {
   }
   // Code for perf counter. Only touches perf_event_open when the user opted
   // in via ONNX_MLIR_INSTRUMENT_PERF_COUNTER, so users without permission to
-  // call perf_event_open are unaffected.
+  // call perf_event_open are unaffected. Counters are started once (see
+  // initPerfCounterConfig) and simply sampled here at each op boundary.
   if (perfCounterEnabled) {
-    if (IS_INSTRUMENT_BEFORE_OP(tag))
-      g_fd = start_perf_counter(&pe);
-    else
-      end_perf_counter(&pe, g_fd);
+    printStartReport();
+    ProcessName(opName, tag, nodeName);
+    bool isBefore = IS_INSTRUMENT_BEFORE_OP(tag);
+    for (int i = 0; i < perfCounterCount; ++i)
+      read_perf_counter(i, isBefore);
   }
 }
