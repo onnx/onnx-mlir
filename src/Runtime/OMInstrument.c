@@ -233,13 +233,13 @@ static int perfCounterCount = 0;
 
 #ifdef __s390x__
 #define _GNU_SOURCE
+#include <linux/hw_breakpoint.h> /* Definition of HW_* constants */
+#include <linux/perf_event.h>    /* Definition of PERF_* constants */
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/ioctl.h>
-#include <linux/hw_breakpoint.h> /* Definition of HW_* constants */
-#include <linux/perf_event.h>    /* Definition of PERF_* constants */
-#include <sys/syscall.h>         /* Definition of SYS_* constants */
+#include <sys/syscall.h> /* Definition of SYS_* constants */
 #include <unistd.h>
 
 static int perf_event_open(struct perf_event_attr *hw_event, pid_t pid, int cpu,
@@ -404,10 +404,8 @@ static inline void read_perf_counter(int index, bool isBefore) {
 }
 #else
 // Empty functions for systems not implemented for perf
-static void initPerfCounterConfig() {
-}
-static inline void read_perf_counter(int index, bool isBefore) {
-}
+static void initPerfCounterConfig() {}
+static inline void read_perf_counter(int index, bool isBefore) {}
 #endif
 
 // =============================================================================
