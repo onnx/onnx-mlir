@@ -37,6 +37,8 @@ void populateONNXToTOSAConversionPattern(ConversionTarget &target,
   populateLoweringONNXAveragePoolOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
   // Tensor
+  populateLoweringONNXConcatOpToTOSAPattern(
+      target, patterns, typeConverter, ctx);
   populateLoweringONNXConstOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
   populateLoweringONNXReshapeOpToTOSAPattern(
@@ -46,6 +48,8 @@ void populateONNXToTOSAConversionPattern(ConversionTarget &target,
   populateLoweringONNXSqueezeOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
   populateLoweringONNXUnsqueezeOpToTOSAPattern(
+      target, patterns, typeConverter, ctx);
+  populateLoweringONNXSplitOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
 }
 
