@@ -121,6 +121,7 @@ void ZHighUnstickOp::getCanonicalizationPatterns(
   results.insert<UnstickStickRemovalPattern>(context);
   results.insert<DimUnstickRemovalPattern>(context);
   results.insert<DimUnstickNHWCRemovalPattern>(context);
+  results.insert<UnstickConstantOfShapeStaticPattern>(context);
   results.insert<UnstickConstantOfShapePattern>(context);
 }
 
