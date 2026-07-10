@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from om_pyrt import InferenceSession
+from . import config
 
 # This file stored information about the backend, for example, indices of example inputs to restore a cached session.
 OM_BACKEND_CONFIG_FILE = "om_backend_config.json"
@@ -35,6 +36,8 @@ class CacheValue:
 
 
 def cache_dir() -> str:
+    if config.cache_dir is not None:
+        return config.cache_dir
     cache_dir = os.environ.get("TORCHONNXMLIR_CACHE_DIR")
     if cache_dir is None:
         os.environ["TORCHONNXMLIR_CACHE_DIR"] = cache_dir = default_cache_dir()

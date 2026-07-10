@@ -104,6 +104,17 @@ RUN if [ "$(uname -m)" = "s390x" ]; then \
       cd .. && rm -rf build-light; \
     fi
 
+# Build torch_onnxmlir and test it.
+RUN if [ "$(uname -m)" = "s390x" ]; then \
+      pip3 install onnxscript==0.5.7 --prefix=/usr && \
+      pip3 install torch==2.10.0+cpu -f https://download.pytorch.org/whl/torch/ --prefix=/usr && \
+      pip3 install transformers==5.8.0 --prefix=/usr && \
+      cd ${WORK_DIR}/onnx-mlir/src/Runtime/python/torch_onnxmlir && \
+      pip3 install . --prefix=/usr && \
+      cd tests && mkdir build && cd build && cmake .. && ctest -j${NPROC} --output-on-failure && \
+      cd .. && rm -rf build; \
+    fi
+
 # Copy from onnx-mlir-dev-test to squash removed source layer and
 # remove dependency on base image (onnx-mlir-llvm-static)
 FROM scratch
