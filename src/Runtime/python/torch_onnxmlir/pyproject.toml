@@ -23,8 +23,10 @@ dependencies = [
     "numpy",
     "onnxscript>=0.5.7",
     "torch>=2.10.0",
-    "om_pyrt @ git+https://github.com/onnx/onnx-mlir.git",
 ]
+
+[project.optional-dependencies]
+om_pyrt = ["om_pyrt @ git+https://github.com/onnx/onnx-mlir.git"]
 
 [project.urls]
 Homepage = "https://github.com/onnx/onnx-mlir"
