@@ -56,4 +56,15 @@ def DimUnstickRemovalPattern : Pat<
   [(TensorHasNoNHWCLayout $arg), (HasNNPAUse $arg)]
 >;
 
+// Create a DenseElementsAttr from a float attribute and an element type.
+def createDenseElementsAttrFromFloatAttr : NativeCodeCall<
+  "onnx_mlir::createDenseElementsAttrFromFloatAttr($_builder, mlir::cast<ShapedType>($0.getType()).getElementType(), $1)">;
+
+// zhigh.Unstick (zhigh.StickifiedConstantOfShape $shape, $value_attr, $layout)
+def UnstickConstantOfShapePattern: Pat<
+  (ZHighUnstickOp:$unstick (ZHighStickifiedConstantOfShapeOp:$stick $shape, $value_attr, $layout)),
+  (ONNXExpandOp (ONNXConstantOpFromDenseAttr (createDenseElementsAttrFromFloatAttr $unstick, $value_attr)), $shape),
+  [(TensorHasNoNHWCLayout $stick)]
+>;
+
 #endif // UNSTICK_TD

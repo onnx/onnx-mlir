@@ -642,6 +642,28 @@ IntegerAttr getAxisNHWC(IntegerAttr axisNCHWAttr) {
   return IntegerAttr::get(axisNCHWAttr.getType(), axisNHWC);
 }
 
+IntegerAttr getAxisNCHW(IntegerAttr axisNHWCAttr) {
+  int64_t axisNHWC = axisNHWCAttr.getSInt();
+  int64_t axisNCHW;
+  switch (axisNHWC) {
+  case 0: // N
+    axisNCHW = 0;
+    break;
+  case 1: // H
+    axisNCHW = 2;
+    break;
+  case 2: // W
+    axisNCHW = 3;
+    break;
+  case 3: // C
+    axisNCHW = 1;
+    break;
+  default:
+    axisNCHW = axisNHWC;
+  }
+  return IntegerAttr::get(axisNHWCAttr.getType(), axisNCHW);
+}
+
 //===----------------------------------------------------------------------===//
 
 bool hasNNPAUse(Value v) {

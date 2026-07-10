@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/ShapeHelper.hpp"
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -120,6 +121,7 @@ void ZHighUnstickOp::getCanonicalizationPatterns(
   results.insert<UnstickStickRemovalPattern>(context);
   results.insert<DimUnstickRemovalPattern>(context);
   results.insert<DimUnstickNHWCRemovalPattern>(context);
+  results.insert<UnstickConstantOfShapePattern>(context);
 }
 
 } // namespace zhigh
