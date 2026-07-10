@@ -221,6 +221,10 @@ mlir::ArrayAttr CombinedTransposePattern(mlir::PatternRewriter &rewriter,
 /// Identity patterns are {0, 1, 2, ... , rank -1}.
 bool IsIdentityPermuteVector(mlir::ArrayAttr permAttr);
 
+/// Test if the permute pattern only swaps the last two dimensions, i.e.
+/// perm = {0, 1, ..., rank-3, rank-1, rank-2}.
+bool isTransposeSwappingLastTwoDims(mlir::ArrayAttr permAttr);
+
 //===----------------------------------------------------------------------===//
 // Support for Rewrite.
 //===----------------------------------------------------------------------===//
