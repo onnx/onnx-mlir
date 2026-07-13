@@ -25,6 +25,9 @@ same_hash_size = 3
 # read more values and hash more data.
 sample_parameter_values_limit = 3
 
+# Custom cache_dir
+cache_dir = None
+
 # Control the maximum number of compiler sessions to be cached at runtime.
 session_cache_limit = 3
 

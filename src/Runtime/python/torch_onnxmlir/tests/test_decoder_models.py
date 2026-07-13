@@ -6,93 +6,91 @@
 #
 ################################################################################
 
-# Usage: MODEL=granite4 && OMP_NUM_THREADS=6 TORCHONNXMLIR_CACHE_DIR=./cache_${MODEL} python ./generate.py ${MODEL} 2>&1 | tee ${MODEL}.log
-
-import sys
-import time
-import numpy as np
+import os
+import logging
 import torch
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
-    TextStreamer,
 )
 
 import torch_onnxmlir
-import logging
+from utils import TorchOMTestCase, COMPILER_IMAGE_NAME, COMPILER_PATH
 
-# logging.basicConfig(level=logging.INFO)  # Or INFO, WARNING, etc.
+logger = logging.basicConfig(level=logging.INFO)
 
-torch_onnxmlir.config.session_cache_limit = 200
-torch_onnxmlir.config.same_hash_size = 0
-
-model_name = sys.argv[1]
+model_name = os.environ["DECODER_MODEL"]
 if model_name == "gpt2":
     model_path = "openai-community/gpt2"
-elif model_name == "qwen":
+elif model_name == "Qwen2-0.5B-Instruct":
     model_path = "Qwen/Qwen2-0.5B-Instruct"
-elif model_name == "granite3":
+elif model_name == "granite-3.3-2b-instruct":
     model_path = "ibm-granite/granite-3.3-2b-instruct"
-elif model_name == "granite4":
+elif model_name == "granite-4.0-350M":
     model_path = "ibm-granite/granite-4.0-350M"
 else:
-    print("Usage: generate.py gpt2/qwen/granite3/granite4")
-    sys.exit()
+    assert False, "Wrong arguments"
 
-tokenizer = AutoTokenizer.from_pretrained(model_path)
-# attn_implementation="eager" is needed to decompose sdpa ops
-model = AutoModelForCausalLM.from_pretrained(
-    model_path, attn_implementation="eager", torch_dtype=torch.float32
-)
-model.eval()
 
-om_options = {
-    "compiler_image_name": None,
-    "compile_options": "-O3 -march=z17 -maccel=NNPA --parallel --printONNXBasicIR=10 -v --onnx-op-stats TXT",
-    "compiler_path": "/workdir/onnx-mlir/build/Debug/bin/onnx-mlir",
-}
-model.forward = torch.compile(
-    model.forward,
-    backend="onnxmlir",
-    options=om_options,
-)
+class TestDecoderModel(TorchOMTestCase):
 
-# Change input text as desired
-content = "Please list one IBM Research laboratory located in the United States. You should only output its name and location."
-chat = [
-    {"role": "user", "content": content},
-]
-prompt = tokenizer.apply_chat_template(chat, tokenize=False, add_generation_prompt=True)
+    def test_decoder_model(self):
+        # Load model and tokenizer.
+        # attn_implementation="eager" is needed to decompose sdpa ops.
+        model = AutoModelForCausalLM.from_pretrained(
+            model_path,
+            attn_implementation="eager",
+            dtype="float32",
+            cache_dir=self.TMP_DIR,
+        )
+        tokenizer = AutoTokenizer.from_pretrained(model_path, cache_dir=self.TMP_DIR)
 
-# prompt = "What is quantum computing?"
+        # Turn the model to inference mode.
+        model.eval()
 
-print(f"Prompt: {content}")
-input_tokens = tokenizer(prompt, return_tensors="pt")
-original_inputs_len = len(input_tokens["input_ids"][0])
+        # Compile the model for NNPA.
+        # TODO: remove --disable-fused-op once it works with these models.
+        om_options = {
+            "compiler_image_name": COMPILER_IMAGE_NAME,
+            "compiler_path": COMPILER_PATH,
+            "compile_options": "-O3 -march=z16 -maccel=NNPA --disable-fused-op",
+        }
+        model.forward = torch.compile(
+            model.forward,
+            backend="onnxmlir",
+            options=om_options,
+        )
 
-streamer = TextStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
+        # Prepare inputs.
+        if model_name == "gpt2":
+            prompt = "Hello, I'm a language model,"
+        else:
+            prompt = "The capital of Japan is"
+        input_tokens = tokenizer(prompt, return_tensors="pt")
+        original_inputs_len = len(input_tokens["input_ids"][0])
 
-# Generate output tokens
-t = []
-for i in range(3):
-    start = time.perf_counter()
-    with torch.no_grad():
-        output = model.generate(**input_tokens, max_new_tokens=100, streamer=streamer)
-    end = time.perf_counter()
-    t_elap = end - start
-    t += [t_elap]
-    output_ids = output[0, original_inputs_len:]
+        # Generate output tokens.
+        with self.assertLogs(logger) as cm:
+            with torch.no_grad():
+                output = model.generate(**input_tokens, max_new_tokens=11)
+        # Verify that there is no eager mode.
+        self.assertNoEagerMode(cm.output)
+        # Verify that the model is compiled twice for prefill and decode phases.
+        self.assertNumCompile(cm.output, 2)
 
-real_output_len = len(output_ids)
-print("\nQuery Info:")
-print(" Input tokens:", original_inputs_len)
-print(" Output tokens:", real_output_len)
-print(" Times", t)
+        output_ids = output[0, original_inputs_len:]
+        answer = tokenizer.decode(output_ids)
+        print(answer)
 
-t_elap = np.min(t)
-print(" Best elapsed time: %.2f seconds" % (t_elap))
-print(
-    " Latency: {} msec/token, throughput: {} tokens/sec".format(
-        t_elap / real_output_len * 1000, real_output_len / t_elap
-    )
-)
+        # Verify the output sentence.
+        if model_name == "gpt2":
+            ref_answer = " and I'm not a programmer. I'm a programmer"
+            assert answer == ref_answer, "Wrong answer"
+        elif model_name == "granite-4.0-350M":
+            ref_answer = " Tokyo, which is located on the eastern coast of the"
+            assert answer == ref_answer, "Wrong answer"
+
+
+if __name__ == "__main__":
+    testcase = TestDecoderModel()
+    testcase.test_decoder_model()

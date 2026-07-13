@@ -87,7 +87,7 @@ with torch.no_grad():
 logger = logging.getLogger(__name__)
 
 # An instance to cache onnx_mlir session so that there is no need to recompile the same model.
-global_session_cache = SessionCache(config.session_cache_limit)
+global_session_cache = None
 
 global_uncompilable_graphs = set()
 
@@ -139,6 +139,10 @@ def eager_forward_fn(gm: torch.fx.GraphModule):
 
 # Backend function for torch.compile.
 def onnxmlir_backend(gm: torch.fx.GraphModule, *args, **kwargs):
+    global global_session_cache
+    if global_session_cache is None:
+        global_session_cache = SessionCache(config.session_cache_limit)
+
     # Switch back to the eager mode if the graph has no inputs or outputs.
     if has_no_inputs_or_outputs(gm):
         return eager_forward_fn(gm)
