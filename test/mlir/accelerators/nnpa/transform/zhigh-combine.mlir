@@ -627,6 +627,27 @@ func.func @unstick_stickified_constant_3ds_mixed_dims(%arg0: tensor<3xi64>) -> t
 
 // -----
 
+// COM: UnstickConstantOfShapePattern - Basic Pattern with 3DS Layout - Multiple uses of StickifiedConstantOfShape.
+func.func @unstick_stickified_constant_3ds_mixed_dims_multiple_uses(%arg0: tensor<3xi64>) -> (tensor<4x?x16xf32>, tensor<4x?x16xf16, #zhigh.layout<{dataLayout = "3DS"}>>) {
+  %0 = "zhigh.StickifiedConstantOfShape"(%arg0) {value = 1.0 : f32, layout = "3DS"}
+       : (tensor<3xi64>) -> tensor<4x?x16xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  %1 = "zhigh.Unstick"(%0) : (tensor<4x?x16xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<4x?x16xf32>
+  %2 = "zhigh.Relu"(%0) : (tensor<4x?x16xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> (tensor<4x?x16xf16, #zhigh.layout<{dataLayout = "3DS"}>>)
+  return %1, %2 : tensor<4x?x16xf32>, tensor<4x?x16xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+
+// CHECK-LABEL:  func.func @unstick_stickified_constant_3ds_mixed_dims_multiple_uses
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3xi64>) -> (tensor<4x?x16xf32>, tensor<4x?x16xf16, #zhigh.layout<{dataLayout = "3DS"}>>) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<1xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.StickifiedConstantOfShape"([[PARAM_0_]]) <{layout = "3DS", value = 1.000000e+00 : f32}> : (tensor<3xi64>) -> tensor<4x?x16xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Expand"([[VAR_0_]], [[PARAM_0_]]) : (tensor<1xf32>, tensor<3xi64>) -> tensor<4x?x16xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Relu"([[VAR_1_]]) : (tensor<4x?x16xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<4x?x16xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:           return [[VAR_2_]], [[VAR_3_]] : tensor<4x?x16xf32>, tensor<4x?x16xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:         }
+}
+
+// -----
+
 // COM: UnstickConstantOfShapePattern - Pattern with NHWC Layout.
 func.func @unstick_stickified_constant_nhwc_mixed(%arg0: tensor<4xi64>) -> tensor<2x64x?x?xf32> {
   %0 = "zhigh.StickifiedConstantOfShape"(%arg0) {value = -1.0 : f32, layout = "NHWC"} 
