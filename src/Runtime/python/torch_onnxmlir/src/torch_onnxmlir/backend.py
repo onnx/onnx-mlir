@@ -389,6 +389,7 @@ class TorchONNXMLIR:
 
     def forward(self, *example_inputs):
         global global_uncompilable_graphs
+        first_compilation = False
         if self.cached_session is None:
             if self.cache_key in global_uncompilable_graphs:
                 logger.info("Found the uncompilable model. Switch to the eager mode")
@@ -461,6 +462,7 @@ class TorchONNXMLIR:
             )
 
             global_session_cache.put(self.cache_key, cache_value)
+            first_compilation = True
         else:
             logger.info("Found the model in the cache. No recompilation.")
             # Use the InferenceSession in the cache.
@@ -472,9 +474,21 @@ class TorchONNXMLIR:
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f"onnx_mlir input sig: {sess.input_signature()}")
             logger.debug(f"onnx_mlir output sig: {sess.output_signature()}")
-        start = time.perf_counter()
+        if logger.isEnabledFor(logging.INFO):
+            start = time.perf_counter()
         om_outputs = sess.run(om_inputs)
-        logger.info(f"sess.run took {(time.perf_counter() - start)*1000} ms")
+        if logger.isEnabledFor(logging.INFO):
+            logger.info(f"sess.run took {(time.perf_counter() - start)*1000} ms")
+
+        # Generate test_data_set if required.
+        if config.generate_test_data_set and first_compilation:
+            global_session_cache.write_tensor_to_disk(
+                self.cache_key, "input", om_inputs
+            )
+            global_session_cache.write_tensor_to_disk(
+                self.cache_key, "output", om_outputs
+            )
+
         return [torch.from_numpy(output) for output in om_outputs]
 
     def get_tensor_example_inputs(self, example_inputs):
