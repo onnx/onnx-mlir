@@ -1316,6 +1316,35 @@ void DimAnalysis::visitDim(
       }
     }
   }
+
+  // RangeOp has a special case: when start == 0 and delta == 1 (scalar
+  // constants), the number of elements in the output is exactly `limit`,
+  // since num = max(ceil((limit-start)/delta), 0) = max(limit, 0). If `limit`
+  // is (possibly via a Squeeze) the result of a Dim on some tensor, that
+  // tensor's dimension is never negative, so the output dimension is the same
+  // as that source dimension.
+  if (auto rangeOp = mlir::dyn_cast<ONNXRangeOp>(op)) {
+    Value startVal = rangeOp.getStart();
+    Value limitVal = rangeOp.getLimit();
+    Value deltaVal = rangeOp.getDelta();
+
+    auto startConstOp = startVal.getDefiningOp<ONNXConstantOp>();
+    auto deltaConstOp = deltaVal.getDefiningOp<ONNXConstantOp>();
+    if (startConstOp && deltaConstOp &&
+        getScalarValue<int64_t>(startConstOp) == 0 &&
+        getScalarValue<int64_t>(deltaConstOp) == 1) {
+      Value v = limitVal;
+      if (auto squeezeOp = v.getDefiningOp<ONNXSqueezeOp>())
+        v = squeezeOp.getData();
+      if (auto dimOp = v.getDefiningOp<ONNXDimOp>()) {
+        if (auto d =
+                insertDimWhenUseful(dimOp.getData(), dimOp.getAxis(), sameDims))
+          LLVM_DEBUG(llvm::dbgs()
+                     << "  - [Range] Added a new dim(" << d.value().first
+                     << ", " << d.value().second << ")\n");
+      }
+    }
+  }
 }
 
 // Propagate offset relationships using a fixed-point iteration algorithm.
