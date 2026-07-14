@@ -73,10 +73,10 @@ struct ONNXExpandOpLowering : public OpConversionPattern<ONNXExpandOp> {
 
     create.krnl.iterateIE(outputLoopDef, outputLoopDef, lbs, ubs,
         [&](const KrnlBuilder &createKrnl, ValueRange outputLoopInd) {
-          IndexExprScope outputScope(createKrnl, shapeHelper.getScope());
-          SmallVector<IndexExpr, 4> outputLoopIndices, lhsAccessExprs;
-          getIndexExprList<DimIndexExpr>(outputLoopInd, outputLoopIndices);
           if (!val) {
+            IndexExprScope outputScope(createKrnl, shapeHelper.getScope());
+            SmallVector<IndexExpr, 4> outputLoopIndices, lhsAccessExprs;
+            getIndexExprList<DimIndexExpr>(outputLoopInd, outputLoopIndices);
             LogicalResult res = shapeHelper.getAccessExprs(
                 input, 0, outputLoopIndices, lhsAccessExprs);
             assert(succeeded(res) && "Could not compute access indices");
