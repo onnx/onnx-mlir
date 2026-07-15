@@ -1113,4 +1113,16 @@ void genSafeCodeForGatherAlike(mlir::ConversionPatternRewriter &rewriter,
       });
 }
 
+//===----------------------------------------------------------------------===//
+// FusedOpInlineFallback
+//===----------------------------------------------------------------------===//
+
+LogicalResult FusedOpInlineFallback::matchAndRewrite(
+    ONNXFusedOp fusedOp, OpAdaptor, ConversionPatternRewriter &rewriter) const {
+  fusedOp.emitWarning()
+      << "no dedicated lowering for onnx.Fused (kind='" << fusedOp.getKind()
+      << "'); inlining body as fallback — add a FusedOpKindLowering subclass";
+  return FusionOpKindHelper::unFuse(rewriter, fusedOp);
+}
+
 } // namespace onnx_mlir
