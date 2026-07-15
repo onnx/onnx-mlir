@@ -6,6 +6,13 @@ add_onnx_mlir_rewriter(ConvOpt)
 
 add_onnx_mlir_pass(ONNXTransforms Passes ONNXTransforms)
 
+add_onnx_mlir_library(OMFusionOpHelper
+  FusionOpHelper.cpp
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  )
+
 add_onnx_mlir_library(OMShapeInference
   ShapeInference.cpp
 

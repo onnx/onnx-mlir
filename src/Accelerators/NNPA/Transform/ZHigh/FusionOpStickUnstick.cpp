@@ -29,14 +29,15 @@
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/RewriteONNXForZHigh.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
-#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpFusionHelper.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/ZHighFusionOpHelper.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/ONNX/Transforms/FusionOpBasePattern.hpp"
 #include "src/Pass/Passes.hpp"
 
-#define DEBUG_TYPE "fusion-op-stick-unstick"
+#define DEBUG_TYPE "op-fusion"
 
 // If set to 1, enable multiple distinct layouts to elementwise compute
 // operations; 0 otherwise. We can support the "compiler supported" layouts
@@ -831,41 +832,28 @@ public:
 };
 
 //===----------------------------------------------------------------------===//
-// FusedOp variant of PatternsForExtendedLayoutTransform.
-//
-// Creates an ONNXFusedOp(kind="zhigh.extended_layout_transform") in place of
-// ZHighExtendedLayoutTransformOp.  The body region is IsolatedFromAbove:
+// FusedOp patterns: match an anchor op, detect a fusible chain starting from
+// it, and replace the chain with an ONNXFusedOp of the corresponding kind.
+// The body region is IsolatedFromAbove:
 // - The source ZTensor is threaded in as block argument 0.
 // - Constant-producing ops needed by inner ops (e.g. ONNXReshapeOp's shape
 //   tensor) are cloned inside the region rather than threaded as inputs.
 // - ONNXYieldOp terminates the body, yielding the final result value.
 //
-// This class inherits from PatternsForExtendedLayoutTransform to reuse its
-// matching helpers (locateReshapeSplit, locateReshapeMerge, locatePattern).
+// FusedPatternForOpKind is generic, non-accelerator infrastructure; see
+// src/Dialect/ONNX/Transforms/FusionOpBasePattern.hpp.
 //===----------------------------------------------------------------------===//
 
-// Walk the use-def chain from initialLT's output to finalResult, collecting
-// each single-use op in order.  locatePattern's usedOnlyBy<> checks already
-// guarantee exactly one use at each step.
+// Anchors on ONNXLayoutTransformOp; ExtLayoutTransformFusionHelper walks
+// forward through the optional Reshape/Transpose/Reshape/LayoutTransform chain.
+using FusedPatternsForExtendedLayoutTransform =
+    FusedPatternForOpKind<ONNXLayoutTransformOp,
+        ExtLayoutTransformFusionHelper>;
 
-class FusedPatternsForExtendedLayoutTransform
-    : public PatternsForExtendedLayoutTransform {
-public:
-  FusedPatternsForExtendedLayoutTransform(
-      MLIRContext *context, DimAnalysis *dimAnalysis)
-      : PatternsForExtendedLayoutTransform(context, dimAnalysis) {}
-
-  LogicalResult matchAndRewrite(ONNXLayoutTransformOp layoutTransformOp,
-      PatternRewriter &rewriter) const override {
-    ExtLayoutTransformFusion fusion;
-    if (!fusion.detectIfBeneficial(dimAnalysis, layoutTransformOp))
-      return failure();
-
-    Location loc = layoutTransformOp.getLoc();
-    fusion.fuse(rewriter, loc);
-    return success();
-  }
-};
+// Anchors on ONNXUnsqueezeOp (head of the chain); ExpandMulStickFusionHelper
+// walks forward through Expand -> Mul -> Reshape -> ZHighStickOp.
+using FusedPatternsForExpandMulStick =
+    FusedPatternForOpKind<ONNXUnsqueezeOp, ExpandMulStickFusionHelper>;
 
 //===----------------------------------------------------------------------===//
 // Pass.
@@ -911,10 +899,12 @@ struct FusionOpStickUnstick
     RewritePatternSet patterns(&getContext());
     patterns.insert<PatternsStartingFromUnstick>(&getContext(), dimAnalysis);
     patterns.insert<PatternsEndingWithStick>(&getContext(), dimAnalysis);
-    if (!disableFusedOpOption && !disableFusedOp)
+    if (!disableFusedOpOption && !disableFusedOp) {
       patterns.insert<FusedPatternsForExtendedLayoutTransform>(
           &getContext(), dimAnalysis);
-    else
+      patterns.insert<FusedPatternsForExpandMulStick>(
+          &getContext(), dimAnalysis);
+    } else
       patterns.insert<PatternsForExtendedLayoutTransform>(
           &getContext(), dimAnalysis);
 

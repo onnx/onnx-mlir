@@ -2,13 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------------ FusionOpChain.hpp - ONNXFusedOp builder base -----------===//
+//===------------ FusionOpHelper.hpp - ONNXFusedOp builder base ----------===//
 //
 // Copyright 2026 The IBM Research Authors.
 //
 // =============================================================================
 //
-// FusionOpChain is the generic base class for building and consuming
+// FusionOpKindHelper is the generic base class for building and consuming
 // ONNXFusedOp regions.  It owns the op list and output values that every
 // fusion pattern populates, plus the three non-virtual template methods that
 // encode the canonical calling sequences for the fusion pass and the lowering
@@ -50,8 +50,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef ONNX_MLIR_FUSION_OP_CHAIN_H
-#define ONNX_MLIR_FUSION_OP_CHAIN_H
+#ifndef ONNX_MLIR_FUSION_OP_HELPER_H
+#define ONNX_MLIR_FUSION_OP_HELPER_H
 
 #include "mlir/Support/LogicalResult.h"
 #include "llvm/ADT/SmallVector.h"
@@ -67,10 +67,10 @@ class PatternRewriter;
 namespace onnx_mlir {
 
 //===----------------------------------------------------------------------===//
-// FusionOpChain  - generic base, never instantiated directly.
+// FusionOpKindHelper  - generic base, never instantiated directly.
 //===----------------------------------------------------------------------===//
 
-class FusionOpChain {
+class FusionOpKindHelper {
 public:
   /// Chain ops in chain order: ops[i]'s output feeds ops[i+1] as an input,
   /// and ops.back() is the last op whose result becomes the FusedOp output.
@@ -79,7 +79,7 @@ public:
   /// Values yielded by the body, one per ONNXFusedOp result.
   llvm::SmallVector<mlir::Value> finalResults;
 
-  virtual ~FusionOpChain() = default;
+  virtual ~FusionOpKindHelper() = default;
 
   // -- Non-virtual template methods (calling sequences) ----------------------
 
@@ -97,6 +97,20 @@ public:
   /// this->ops must already be populated (call retrieveOpsAndOutputValues
   /// first).
   bool verifyAndRetrieveAttrs(mlir::ONNXFusedOp fusedOp);
+
+  /// Fallback: inline the FusedOp body back into the enclosing function.
+  /// Call this when a dedicated lowering cannot proceed (verify() failed,
+  /// or the kind has no lowering yet).  Uses the original pre-conversion
+  /// FusedOp inputs so that block-argument types are preserved; the caller's
+  /// PatternRewriter then converts the newly exposed ops in the same pass.
+  /// Always returns LogicalResult::success().
+  /// Static so that callers without a FusionOpKindHelper instance (e.g. the
+  /// generic FusedOpInlineFallback catch-all) can invoke it directly.
+  /// Per-kind lowerings that do have an instance can still call it as
+  /// fusion.unFuse(...) — calling a static method via an instance
+  /// is valid C++.
+  static mlir::LogicalResult unFuse(
+      mlir::PatternRewriter &rewriter, mlir::ONNXFusedOp fusedOp);
 
 protected:
   // -- Helper for subclass detect methods ------------------------------------
@@ -122,6 +136,22 @@ protected:
   /// Returns false when the body no longer matches the stored parameters.
   virtual bool verify() const = 0;
 
+  // -- Additional subclass contract member (not a virtual) -------------------
+  //
+  // Every subclass must also define:
+  //
+  //   bool detectIfBeneficial(const DimAnalysis *dimAnalysis, AnchorOpType
+  //   startOp);
+  //
+  // where AnchorOpType is the op the subclass anchors its match on (e.g.
+  // ONNXLayoutTransformOp, ONNXUnsqueezeOp).  It cannot be declared here as a
+  // virtual: AnchorOpType differs per subclass, and virtual dispatch requires
+  // a uniform signature across overrides.  Instead it is enforced at compile
+  // time wherever the subclass is plugged into a pattern, e.g.
+  // FusedPatternForOpKind<AnchorOpType, FusionT> (see FusionOpBasePattern.hpp)
+  // — omitting detectIfBeneficial fails to compile at that instantiation, not
+  // here.  Must call isInsideFusedOp(startOp) first (see above).
+
 private:
   /// Build the ONNXFusedOp body — called by fuse().
   mlir::ONNXFusedOp create(mlir::PatternRewriter &rewriter, mlir::Location loc);
@@ -137,4 +167,4 @@ private:
 
 } // namespace onnx_mlir
 
-#endif // ONNX_MLIR_FUSION_OP_CHAIN_H
+#endif // ONNX_MLIR_FUSION_OP_HELPER_H
