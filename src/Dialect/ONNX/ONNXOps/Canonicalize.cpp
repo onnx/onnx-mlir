@@ -2803,6 +2803,15 @@ void ONNXMaxPoolSingleOutOp::getCanonicalizationPatterns(
   results.insert<ReorderReluMaxPoolPattern>(context);
 }
 
+/// on the ONNXMatMulOp.
+void ONNXMatMulOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<FuseTransposedScalarMulBeforeMatMulLhsPattern>(context);
+  results.insert<FuseTransposedScalarMulBeforeMatMulRhsPattern>(context);
+  results.insert<FuseTransposedScalarDivBeforeMatMulLhsPattern>(context);
+  results.insert<FuseTransposedScalarDivBeforeMatMulRhsPattern>(context);
+}
+
 /// on the ONNXMulOp.
 void ONNXMulOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {

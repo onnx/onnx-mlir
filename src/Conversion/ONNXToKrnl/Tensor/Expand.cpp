@@ -66,15 +66,22 @@ struct ONNXExpandOpLowering : public OpConversionPattern<ONNXExpandOp> {
     if (enableParallel)
       tryCreateKrnlParallel(create.krnl, op, "expand", outputLoopDef, lbs, ubs);
 
+    // If input is a scalar, load its value outside the loop.
+    Value val = nullptr;
+    if (isScalarTensor(input))
+      val = create.krnl.load(input);
+
     create.krnl.iterateIE(outputLoopDef, outputLoopDef, lbs, ubs,
         [&](const KrnlBuilder &createKrnl, ValueRange outputLoopInd) {
-          IndexExprScope outputScope(createKrnl, shapeHelper.getScope());
-          SmallVector<IndexExpr, 4> outputLoopIndices, lhsAccessExprs;
-          getIndexExprList<DimIndexExpr>(outputLoopInd, outputLoopIndices);
-          LogicalResult res = shapeHelper.getAccessExprs(
-              input, 0, outputLoopIndices, lhsAccessExprs);
-          assert(succeeded(res) && "Could not compute access indices");
-          Value val = createKrnl.loadIE(input, lhsAccessExprs);
+          if (!val) {
+            IndexExprScope outputScope(createKrnl, shapeHelper.getScope());
+            SmallVector<IndexExpr, 4> outputLoopIndices, lhsAccessExprs;
+            getIndexExprList<DimIndexExpr>(outputLoopInd, outputLoopIndices);
+            LogicalResult res = shapeHelper.getAccessExprs(
+                input, 0, outputLoopIndices, lhsAccessExprs);
+            assert(succeeded(res) && "Could not compute access indices");
+            val = createKrnl.loadIE(input, lhsAccessExprs);
+          }
           createKrnl.store(val, alloc, outputLoopInd);
         });
 

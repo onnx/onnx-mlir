@@ -114,6 +114,8 @@ extern bool enableONNXHybridPass;                             // common for both
 extern std::vector<std::string> functionsToDecompose;         // common for both
 extern std::string opsForCall;                                // common for both
 extern bool disableKrnlOpFusion;                              // common for both
+extern bool disableFusedOp;                                   // common for both
+extern bool disableEliminateWriteOnlyAlloc;                   // common for both
 extern bool disableQuantZeroPoint;                            // common for both
 extern bool enableKrnlBufferReuse;                            // common for both
 extern bool enableSafeCodeGen;                                // common for both

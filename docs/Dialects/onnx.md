@@ -3042,6 +3042,53 @@ Effects: `MemoryEffects::Effect{}`
 
 
 
+### `onnx.Fused` (ONNXFusedOp)
+
+_Fused ONNX operation container_
+
+A container for a sequence of ONNX operations to be lowered jointly in one
+custom code-generation step.  The `kind` attribute identifies the specific
+fusion pattern so the lowering pass can dispatch to the right generator.
+
+The body region is IsolatedFromAbove: all external tensor values must be
+listed as `inputs` and are available inside as block arguments in the same
+order.  Optional (NoneType) values are NOT threaded through `inputs`;
+instead an ONNXNoneOp is created inside the body for each None operand.
+
+Shape inference delegates to the contained operations: the greedy rewriter
+visits every inner op and infers its output types; the YieldOp terminator
+then drives re-inference of the FusedOp's own result types.
+
+This operation is not part of the ONNX standard and was added to assist
+onnx-mlir.
+
+Traits: `AlwaysSpeculatableImplTrait`, `IsolatedFromAbove`
+
+Interfaces: `ConditionallySpeculatable`, `HasOnnxSubgraphOpInterface`, `NoMemoryEffect (MemoryEffectOpInterface)`, `RegionKindInterface`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>kind</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `inputs` | variadic of any type |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `outputs` | variadic of any type |
+
+
+
 ### `onnx.Gather` (ONNXGatherOp)
 
 _ONNX Gather operation_

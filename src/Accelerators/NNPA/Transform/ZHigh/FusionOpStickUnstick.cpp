@@ -30,10 +30,14 @@
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/RewriteONNXForZHigh.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/ZHighFusionOpHelper.hpp"
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/ONNX/Transforms/FusionOpBasePattern.hpp"
 #include "src/Pass/Passes.hpp"
 
-#define DEBUG_TYPE "fusion-op-stick-unstick"
+#define DEBUG_TYPE "op-fusion"
 
 // If set to 1, enable multiple distinct layouts to elementwise compute
 // operations; 0 otherwise. We can support the "compiler supported" layouts
@@ -826,6 +830,31 @@ public:
     return success();
   }
 };
+
+//===----------------------------------------------------------------------===//
+// FusedOp patterns: match an anchor op, detect a fusible chain starting from
+// it, and replace the chain with an ONNXFusedOp of the corresponding kind.
+// The body region is IsolatedFromAbove:
+// - The source ZTensor is threaded in as block argument 0.
+// - Constant-producing ops needed by inner ops (e.g. ONNXReshapeOp's shape
+//   tensor) are cloned inside the region rather than threaded as inputs.
+// - ONNXYieldOp terminates the body, yielding the final result value.
+//
+// FusedPatternForOpKind is generic, non-accelerator infrastructure; see
+// src/Dialect/ONNX/Transforms/FusionOpBasePattern.hpp.
+//===----------------------------------------------------------------------===//
+
+// Anchors on ONNXLayoutTransformOp; ExtLayoutTransformFusionHelper walks
+// forward through the optional Reshape/Transpose/Reshape/LayoutTransform chain.
+using FusedPatternsForExtendedLayoutTransform =
+    FusedPatternForOpKind<ONNXLayoutTransformOp,
+        ExtLayoutTransformFusionHelper>;
+
+// Anchors on ONNXUnsqueezeOp (head of the chain); ExpandMulStickFusionHelper
+// walks forward through Expand -> Mul -> Reshape -> ZHighStickOp.
+using FusedPatternsForExpandMulStick =
+    FusedPatternForOpKind<ONNXUnsqueezeOp, ExpandMulStickFusionHelper>;
+
 //===----------------------------------------------------------------------===//
 // Pass.
 
@@ -838,6 +867,14 @@ struct FusionOpStickUnstick
   FusionOpStickUnstick() = default;
   FusionOpStickUnstick(const FusionOpStickUnstick &pass)
       : PassWrapper<FusionOpStickUnstick, OperationPass<ModuleOp>>() {}
+
+  // Pass-level option: disables the ONNXFusedOp path for this pass invocation.
+  // Used by onnx-mlir-opt via --fusion-op-stick-unstick="disable-fused-op".
+  // The compiler-level --disable-fused-op flag also disables the path.
+  Option<bool> disableFusedOpOption{*this, "disable-fused-op",
+      llvm::cl::desc("Disable ONNXFusedOp for extended layout transform; "
+                     "fall back to hardcoded composite op."),
+      llvm::cl::init(false)};
 
   StringRef getArgument() const override { return "fusion-op-stick-unstick"; }
 
@@ -862,8 +899,14 @@ struct FusionOpStickUnstick
     RewritePatternSet patterns(&getContext());
     patterns.insert<PatternsStartingFromUnstick>(&getContext(), dimAnalysis);
     patterns.insert<PatternsEndingWithStick>(&getContext(), dimAnalysis);
-    patterns.insert<PatternsForExtendedLayoutTransform>(
-        &getContext(), dimAnalysis);
+    if (!disableFusedOpOption && !disableFusedOp) {
+      patterns.insert<FusedPatternsForExtendedLayoutTransform>(
+          &getContext(), dimAnalysis);
+      patterns.insert<FusedPatternsForExpandMulStick>(
+          &getContext(), dimAnalysis);
+    } else
+      patterns.insert<PatternsForExtendedLayoutTransform>(
+          &getContext(), dimAnalysis);
 
     if (failed(applyPatternsGreedily(module, std::move(patterns))))
       return signalPassFailure();

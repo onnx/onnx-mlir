@@ -221,6 +221,10 @@ mlir::ArrayAttr CombinedTransposePattern(mlir::PatternRewriter &rewriter,
 /// Identity patterns are {0, 1, 2, ... , rank -1}.
 bool IsIdentityPermuteVector(mlir::ArrayAttr permAttr);
 
+/// Test if the permute pattern only swaps the last two dimensions, i.e.
+/// perm = {0, 1, ..., rank-3, rank-1, rank-2}.
+bool isTransposeSwappingLastTwoDims(mlir::ArrayAttr permAttr);
+
 //===----------------------------------------------------------------------===//
 // Support for Rewrite.
 //===----------------------------------------------------------------------===//
@@ -420,6 +424,12 @@ bool isIdentityReshape(mlir::Value input, mlir::Value output,
 
 std::string getNodeNameInPresenceOfOpt(
     mlir::Operation *op, bool useFileLine = true);
+
+/// For an ONNXFusedOp, returns the profiling name "onnx.fused.<kind>".
+/// For any other op, returns the MLIR dialect op name (e.g. "onnx.Add").
+/// Use this name for both KrnlInstrumentOp and ONNXPrintSignatureOp so that
+/// profiling tools always see a consistent, human-readable identifier.
+std::string getProfilingName(mlir::Operation *op);
 
 //===----------------------------------------------------------------------===//
 // Support for DenseElementsAttr.

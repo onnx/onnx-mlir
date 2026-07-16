@@ -688,3 +688,31 @@ func.func @test_dim_offset(%arg0: tensor<1x4x?x64xf32> {onnx.dim_params = "2:dim
 // CHECK:           onnx.Return [[VAR_14_]] : tensor<1x4x4x?x64xf32>
 // CHECK:         }
 }
+
+// -----
+
+// COM: Testing the case of "Range(0, Squeeze(Dim(X, axis)), 1)", where the
+// COM: output dimension of Range must be the same as dim(X, axis).
+func.func @test_range_from_dim(%arg0: tensor<?x?xi64>) -> tensor<?xi64> {
+  %start = onnx.Constant dense<0> : tensor<i64>
+  %delta = onnx.Constant dense<1> : tensor<i64>
+  %axis = onnx.Constant dense<0> : tensor<1xi64>
+  %dim = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<?x?xi64>) -> tensor<1xi64>
+  %limit = "onnx.Squeeze"(%dim, %axis) : (tensor<1xi64>, tensor<1xi64>) -> tensor<i64>
+  %0 = "onnx.Range"(%start, %limit, %delta) : (tensor<i64>, tensor<i64>, tensor<i64>) -> tensor<?xi64>
+  return %0 : tensor<?xi64>
+
+// CHECK-LABEL:  func.func @test_range_from_dim
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?xi64>) -> tensor<?xi64> {
+// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) <{axis = 0 : si64, group_id = [[GROUP_0_:.*]] : si64}> : (tensor<?x?xi64>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) <{axis = 1 : si64, group_id = [[GROUP_1_:.*]] : si64}> : (tensor<?x?xi64>) -> ()
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<0> : tensor<i64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<1> : tensor<i64>
+// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<0> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Dim"([[PARAM_0_]]) <{axis = 1 : si64}> : (tensor<?x?xi64>) -> tensor<1xi64>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Squeeze"([[VAR_3_]], [[VAR_2_]]) : (tensor<1xi64>, tensor<1xi64>) -> tensor<i64>
+// CHECK:           [[VAR_5_:%.+]] = "onnx.Range"([[VAR_0_]], [[VAR_4_]], [[VAR_1_]]) : (tensor<i64>, tensor<i64>, tensor<i64>) -> tensor<?xi64>
+// CHECK:           "onnx.DimGroup"([[VAR_5_]]) <{axis = 0 : si64, group_id = [[GROUP_1_]] : si64}> : (tensor<?xi64>) -> ()
+// CHECK:           return [[VAR_5_]] : tensor<?xi64>
+// CHECK:         }
+}

@@ -415,7 +415,18 @@ def print_pass(filename, id, after, pass_name=None):
     if id < 0 or id >= len(pass_listing):
         print(f"Out of bound id {id}, should be in [0..{len(pass_listing)}) range.")
         exit(1)
-    message = f"// Printing pass with id {id}"
+    # Expand to the full block of consecutive same-named passes so that
+    # function-level passes (which emit one header per function) are shown
+    # together rather than in isolation.
+    target_name = id_to_pass_name[id]
+    start_id = id
+    while start_id > 0 and id_to_pass_name[start_id - 1] == target_name:
+        start_id -= 1
+    end_id = id
+    while end_id + 1 < len(pass_listing) and id_to_pass_name[end_id + 1] == target_name:
+        end_id += 1
+    id_range = f"{start_id}" if start_id == end_id else f"{start_id}..{end_id}"
+    message = f"// Printing pass with id {id_range}"
     if pass_name:
         if n != 0:
             if n > 0:
@@ -426,7 +437,7 @@ def print_pass(filename, id, after, pass_name=None):
             message += f" with name {pass_name}"
     message += f' from file "{filename}".'
     # Actual printing
-    mlir_text = pass_listing[id]
+    mlir_text = "".join(pass_listing[i] for i in range(start_id, end_id + 1))
     if args.comments:
         use_counts = count_output_uses(mlir_text)
         mlir_text = annotate_mlir_with_use_counts(mlir_text, use_counts)

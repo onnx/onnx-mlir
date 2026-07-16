@@ -1315,7 +1315,11 @@ def KrnlInstrumentOp : Op<Krnl_Dialect, "runtime_instrument",
                        I64Attr:$tag,
                        OptionalAttr<StrAttr>:$nodeName);
 
-  let builders = [ OpBuilder<(ins "Operation *": $op, "int ": $tag)> ];
+  let builders = [
+    OpBuilder<(ins "Operation *": $op, "int ": $tag)>,
+    OpBuilder<(ins "llvm::StringRef":$opName, "llvm::StringRef":$nodeName,
+                   "int":$tag)>,
+  ];
 }
 
 def KrnlInstrumentInitOp : Op<Krnl_Dialect, "runtime_instrument_init",

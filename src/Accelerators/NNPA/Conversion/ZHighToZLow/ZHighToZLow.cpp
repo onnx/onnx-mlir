@@ -25,6 +25,7 @@
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/ShapeHelper.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/ZHighFusionOpHelper.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/DialectBuilder.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
@@ -2483,6 +2484,448 @@ struct ZHighToZLowExtendedLayoutTransformLowering
 };
 
 //===----------------------------------------------------------------------===//
+//===----------------------------------------------------------------------===//
+// ONNXFusedOp lowering — one struct per zhigh.* kind.
+// Each struct inherits FusedOpKindLowering<FusionT> which handles kind
+// dispatch, retrieve/verify, and the inline fallback automatically.
+// A benefit-0 FusedOpInlineFallback catch-all is registered in the general
+// ONNX→Krnl pass (ConvertONNXToKrnl.cpp) for any unregistered kind.
+//===----------------------------------------------------------------------===//
+
+struct ZHighToZLowFusedExtLayoutTransformLowering
+    : public FusedOpKindLowering<ExtLayoutTransformFusionHelper> {
+  using Base = FusedOpKindLowering<ExtLayoutTransformFusionHelper>;
+  using OpAdaptor = typename ONNXFusedOp::Adaptor;
+  bool enableParallel = false;
+  bool disableSaturation = false;
+
+  ZHighToZLowFusedExtLayoutTransformLowering(TypeConverter &typeConverter,
+      MLIRContext *ctx, bool enableParallel, bool disableSaturation)
+      : Base(typeConverter, ctx), disableSaturation(disableSaturation) {
+    this->enableParallel =
+        enableParallel &&
+        OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
+            ONNXFusedOp::getOperationName());
+  }
+
+  FailureOr<Value> lowerVerified(ONNXFusedOp fusedOp, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter,
+      ExtLayoutTransformFusionHelper &fusion) const override {
+    Location loc = fusedOp.getLoc();
+    MDBuilder create(rewriter, loc);
+    // Single function-level scope: all DimsExpr must outlive the nested
+    // blocks and loop lambdas where they are used, so one scope here is the
+    // correct lifetime.  Local scopes inside nested {} would be destroyed
+    // before the DimsExpr are consumed → dangling scope pointer → crash.
+    IndexExprScope funcScope(create.krnl);
+
+    Operation *op = fusedOp.getOperation();
+    // inputs[0] is the single source ZTensor (isolated region contract).
+    Value inputVal = adaptor.getInputs()[0];
+    Value outputVal = fusedOp.getOutputs()[0];
+    int64_t reshapeSplitAxis = fusion.reshapeSplitAxis;
+    int64_t reshapeSplitFactor = fusion.reshapeSplitFactor;
+    int64_t reshapeMergeAxis = fusion.reshapeMergeAxis;
+    bool dlf16ToF32 = fusion.dlf16ToF32;
+    std::optional<mlir::ArrayAttr> transposePattern = fusion.transposePattern;
+    (void)fusion.finalLayout; // target layout encoded in outputVal's type
+
+    int64_t inputRank = getRank(inputVal.getType());
+    int64_t outputRank = getRank(outputVal.getType());
+
+    // Compute all derived DimsExpr from the source memref (inputVal).
+    // inputVal is already lowered to memref; outputVal and body op results are
+    // still tensor-typed, so we must NOT call getShapeAsDims on them (it would
+    // emit memref.dim on a tensor, which is invalid).
+    // Instead, derive outputDims and transposeDims from inputDims + params,
+    // mirroring ZHighExtendedLayoutTransformOpShapeHelper::computeShape().
+
+    // Step 0: source dims from the lowered input memref.
+    DimsExpr inputDims;
+    create.krnlIE.getShapeAsDims(inputVal, inputDims);
+
+    // Step 1: apply optional split reshape.
+    DimsExpr splitDims = inputDims;
+    int64_t splitRank = inputRank;
+    if (reshapeSplitAxis != -1) {
+      splitDims.clear();
+      for (int64_t d = 0; d < inputRank; ++d) {
+        if (d != reshapeSplitAxis) {
+          splitDims.emplace_back(inputDims[d]);
+        } else {
+          splitDims.emplace_back(inputDims[d].ceilDiv(reshapeSplitFactor));
+          splitDims.emplace_back(LitIE(reshapeSplitFactor));
+        }
+      }
+      splitRank = inputRank + 1;
+    }
+
+    // Step 2: apply optional transpose permutation.
+    DimsExpr transposeDims = splitDims;
+    if (transposePattern.has_value()) {
+      transposeDims.clear();
+      for (int64_t d = 0; d < splitRank; ++d) {
+        int64_t permuteIndex = ArrayAttrIntVal(transposePattern, d);
+        transposeDims.emplace_back(splitDims[permuteIndex]);
+      }
+    }
+
+    // Step 3: apply optional merge reshape → these are the final output dims.
+    DimsExpr outputDims = transposeDims;
+    if (reshapeMergeAxis != -1) {
+      outputDims.clear();
+      for (int64_t d = 0; d < splitRank; ++d) {
+        if (d != reshapeMergeAxis) {
+          outputDims.emplace_back(transposeDims[d]);
+        } else {
+          outputDims.emplace_back(transposeDims[d] * transposeDims[d + 1]);
+          ++d; // skip the merged dim
+        }
+      }
+    }
+    assert((int64_t)outputDims.size() == outputRank && "output dims mismatch");
+
+    // Allocate the output buffer.
+    Value allocVal;
+    if (isZTensor(outputVal.getType())) {
+      ZMemRefType zMemRefType = convertZTensorToMemRefType(outputVal.getType());
+      allocVal = insertAllocForZMemRef(zMemRefType, outputDims, op, rewriter);
+    } else {
+      Type outputTensorType = outputVal.getType();
+      Type convertedType = this->typeConverter->convertType(outputTensorType);
+      int64_t alignment =
+          KrnlTypeConverter::getDefaultAllocAlignment(outputTensorType);
+      assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
+             "Failed to convert type to MemRefType");
+      int64_t totVL = 64;
+      MemRefType outputMemRefType = mlir::cast<MemRefType>(convertedType);
+      allocVal = create.mem.alignedAllocWithSimdPadding(
+          outputMemRefType, outputDims, totVL, alignment);
+    }
+
+    // Loop over the split iteration space, same as the original lowering.
+    int64_t loopRank = (reshapeSplitAxis != -1) ? inputRank + 1 : inputRank;
+    ValueRange loopDef = create.krnl.defineLoops(loopRank);
+    DimsExpr lbs(loopRank, LitIE(0));
+    DimsExpr ubs;
+    for (int64_t din = 0; din < inputRank; ++din) {
+      if (din == reshapeSplitAxis) {
+        ubs.emplace_back(inputDims[din].ceilDiv(reshapeSplitFactor));
+        ubs.emplace_back(LitIE(reshapeSplitFactor));
+      } else {
+        ubs.emplace_back(inputDims[din]);
+      }
+    }
+    assert((int64_t)ubs.size() == loopRank && "missing ubs values");
+    ubs[loopRank - 1] = ubs[loopRank - 1].ceilDiv(64);
+
+    if (enableParallel) {
+      int maxId = std::min(loopRank - 1, (int64_t)2);
+      tryCreateKrnlParallel(create.krnl, op,
+          "dlf16-f32 conversion fully parallelized", loopDef, lbs, ubs, 0,
+          maxId, {}, /*min iter for going parallel*/ 4,
+          /*createKrnlParallel=*/true);
+    }
+
+    UnifiedStickSupportList conversionSupportUSS;
+    if (dlf16ToF32) {
+      assert(UnifiedStickSupport::stickLen == 64 &&
+             "used 64 in FusedExtendedLayoutTransform");
+      UnifiedStickSupport inputUSS(create.krnl, fusedOp.getInputs()[0],
+          inputVal, /*read*/ true, false, disableSaturation);
+      UnifiedStickSupport outputUSS(create.krnl, outputVal, allocVal,
+          /*write*/ false, true, disableSaturation);
+      conversionSupportUSS.list = {inputUSS, outputUSS};
+    }
+
+    create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
+        [&](const KrnlBuilder &ck, ValueRange indices) {
+          MDBuilder create(ck);
+          IndexExprScope outerScope(ck);
+          DimsExpr loopIndices = DimListIE(indices);
+          loopIndices[loopRank - 1] = loopIndices[loopRank - 1] * 64;
+
+          // Input access function: merge split dims back.
+          DimsExpr inputAF;
+          for (int64_t d = 0; d < loopRank; ++d) {
+            if (d == reshapeSplitAxis) {
+              IndexExpr i = loopIndices[d] * reshapeSplitFactor;
+              inputAF.emplace_back(i + loopIndices[d + 1]);
+              ++d;
+            } else {
+              inputAF.emplace_back(loopIndices[d]);
+            }
+          }
+          assert((int64_t)inputAF.size() == inputRank && "input issue");
+
+          // Output access function: apply transpose then merge.
+          DimsExpr outputAF = loopIndices;
+          if (transposePattern.has_value()) {
+            DimsExpr tmpAF = outputAF;
+            outputAF.clear();
+            for (int64_t d = 0; d < loopRank; ++d) {
+              int64_t permuteIndex = ArrayAttrIntVal(transposePattern, d);
+              outputAF.emplace_back(tmpAF[permuteIndex]);
+            }
+          }
+          if (reshapeMergeAxis != -1) {
+            DimsExpr tmpAF = outputAF;
+            outputAF.clear();
+            for (int64_t d = 0; d < loopRank; ++d) {
+              if (d == reshapeMergeAxis) {
+                IndexExpr i = tmpAF[d] * DimIE(transposeDims[d + 1]);
+                outputAF.emplace_back(i + tmpAF[d + 1]);
+                ++d;
+              } else {
+                outputAF.emplace_back(tmpAF[d]);
+              }
+            }
+          }
+          assert((int64_t)outputAF.size() == outputRank && "output issue");
+
+          if (!dlf16ToF32) {
+            Value inputOffset =
+                create.krnl.getLinearOffsetIndexIE(inputVal, inputAF);
+            Value outputOffset =
+                create.krnl.getLinearOffsetIndexIE(allocVal, outputAF);
+            Value len = create.math.constant(rewriter.getI64Type(), 64);
+            create.krnl.memcpy(
+                allocVal, inputVal, len, outputOffset, inputOffset);
+          } else {
+            conversionSupportUSS.list[0].beforeStickLoop(create.krnl, inputAF);
+            conversionSupportUSS.list[1].beforeStickLoop(create.krnl, outputAF);
+            int64_t U = 4;
+            int64_t totVL = U * UnifiedStickSupport::archVL;
+            UnifiedStickSupportList::IterateFctOver4xF32 fct =
+                [&](const KrnlBuilder &b,
+                    mlir::SmallVectorImpl<Value> &inputOfF32Vals) {
+                  return inputOfF32Vals[0];
+                };
+            create.krnl.forLoopIE(LitIE(0), LitIE(64), totVL, /*par*/ false,
+                [&](const KrnlBuilder kb, ValueRange loopInd) {
+                  IndexExprScope innerScope(kb, &outerScope);
+                  MDBuilder create(ck);
+                  IndexExpr l = DimIE(loopInd[0]);
+                  for (int64_t u = 0; u < U; ++u)
+                    conversionSupportUSS.loadComputeStore(
+                        create.krnl, fct, l, u);
+                });
+          }
+        });
+
+    return allocVal;
+  }
+};
+
+//===----------------------------------------------------------------------===//
+// Lowering for kind "zhigh.expand-mul-stick":
+//   Unsqueeze(axis P) -> Expand(dim P: 1->N) -> Mul(scalar) -> Reshape
+//   (collapses mid-space dims [F, F+C-1]) -> ZHighStick
+//
+// Computed as a single tiled loop nest over the *original* (pre-unsqueeze)
+// input's iteration space: the scalar-multiplied value is computed once per
+// input element and fanned out to the N stickified output locations it is
+// broadcast to, without ever materializing the intermediate
+// unsqueeze/expand/reshape tensors.
+//===----------------------------------------------------------------------===//
+
+// Build the Rout-length output access function for expand-index n, given the
+// R-length loop indices over the original (pre-unsqueeze) iteration space.
+// midDims are the (R+1)-length conceptual unsqueeze+expand sizes: dims
+// [0,P) come straight from the input, dim P is the expand axis (size N),
+// dims (P,R] come from the input shifted by one. They are used as
+// multipliers when re-flattening the reshape's collapsed run [F, F+C-1]
+// (F == -1 means the reshape did not collapse anything).
+static DimsExpr buildExpandMulStickOutputAF(DimsExpr &loopIndices, int64_t n,
+    int64_t P, int64_t F, int64_t C, int64_t inputRank, DimsExpr &midDims) {
+  DimsExpr midAF;
+  for (int64_t d = 0; d <= inputRank; ++d) {
+    if (d < P)
+      midAF.emplace_back(loopIndices[d]);
+    else if (d == P)
+      midAF.emplace_back(LitIE(n));
+    else
+      midAF.emplace_back(loopIndices[d - 1]);
+  }
+  if (F == -1)
+    return midAF;
+  DimsExpr outAF;
+  for (int64_t d = 0; d < F; ++d)
+    outAF.emplace_back(midAF[d]);
+  IndexExpr merged = midAF[F];
+  for (int64_t k = 1; k < C; ++k)
+    merged = merged * DimIE(midDims[F + k]) + midAF[F + k];
+  outAF.emplace_back(merged);
+  for (int64_t d = F + C; d <= inputRank; ++d)
+    outAF.emplace_back(midAF[d]);
+  return outAF;
+}
+
+struct ZHighToZLowFusedExpandMulStickLowering
+    : public FusedOpKindLowering<ExpandMulStickFusionHelper> {
+  using Base = FusedOpKindLowering<ExpandMulStickFusionHelper>;
+  using OpAdaptor = typename ONNXFusedOp::Adaptor;
+  bool disableSaturation = false;
+
+  ZHighToZLowFusedExpandMulStickLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx, bool disableSaturation)
+      : Base(typeConverter, ctx), disableSaturation(disableSaturation) {}
+
+  FailureOr<Value> lowerVerified(ONNXFusedOp fusedOp, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter,
+      ExpandMulStickFusionHelper &fusion) const override {
+    Location loc = fusedOp.getLoc();
+    MDBuilder create(rewriter, loc);
+    // Single function-level scope: all DimsExpr must outlive the nested
+    // blocks and loop lambdas where they are used, so one scope here is the
+    // correct lifetime (same rationale as
+    // ZHighToZLowFusedExtLayoutTransformLowering above).
+    IndexExprScope funcScope(create.krnl);
+
+    Operation *op = fusedOp.getOperation();
+    Value inputMemRef = adaptor.getInputs()[0]; // lowered memref, plain F32
+    Value inputTensor =
+        fusedOp.getInputs()[0]; // tensor, for UnifiedStickSupport
+    Value outputTensor = fusedOp.getOutputs()[0]; // tensor-typed zTensor result
+
+    int64_t P = fusion.unsqueezedPosition;
+    int64_t N = fusion.expansionN;
+    int64_t F = fusion.reshapeFirstCollapsedDim;
+    int64_t C = fusion.reshapeCollapsedCount;
+    float mulScalar = fusion.mulScalar;
+
+    int64_t inputRank = getRank(inputMemRef.getType());   // R
+    int64_t outputRank = getRank(outputTensor.getType()); // Rout
+
+    // Step 0: source dims from the lowered (plain, unstickified) input.
+    DimsExpr inputDims;
+    create.krnlIE.getShapeAsDims(inputMemRef, inputDims);
+
+    // Step 1: conceptual unsqueeze+expand sizes (rank R+1): insert the
+    // expand axis (size N) at position P.
+    DimsExpr midDims;
+    for (int64_t d = 0; d <= inputRank; ++d) {
+      if (d < P)
+        midDims.emplace_back(inputDims[d]);
+      else if (d == P)
+        midDims.emplace_back(LitIE(N));
+      else
+        midDims.emplace_back(inputDims[d - 1]);
+    }
+
+    // Step 2: apply the reshape's head-collapse to get the final output
+    // dims, used for allocation.
+    DimsExpr outputDims;
+    if (F == -1) {
+      outputDims = midDims; // Rout == R + 1
+    } else {
+      for (int64_t d = 0; d < F; ++d)
+        outputDims.emplace_back(midDims[d]);
+      IndexExpr mergedSize = midDims[F];
+      for (int64_t k = 1; k < C; ++k)
+        mergedSize = mergedSize * midDims[F + k];
+      outputDims.emplace_back(mergedSize);
+      for (int64_t d = F + C; d <= inputRank; ++d)
+        outputDims.emplace_back(midDims[d]);
+    }
+    assert((int64_t)outputDims.size() == outputRank && "output dims mismatch");
+
+    // Allocate the output buffer: always a ZTensor (the chain always ends in
+    // ZHighStickOp).
+    ZMemRefType zMemRefType =
+        convertZTensorToMemRefType(outputTensor.getType());
+    Value allocVal =
+        insertAllocForZMemRef(zMemRefType, outputDims, op, rewriter);
+
+    // Loop over the *original* input's iteration space (rank R), tiling only
+    // the innermost dim by 64 (exact division, guaranteed by fusion
+    // detection: the original input's innermost dim is always static and a
+    // multiple of 64, and is never touched by unsqueeze/expand/reshape).
+    int64_t loopRank = inputRank;
+    ValueRange loopDef = create.krnl.defineLoops(loopRank);
+    DimsExpr lbs(loopRank, LitIE(0));
+    DimsExpr ubs = inputDims;
+    ubs[loopRank - 1] = ubs[loopRank - 1].ceilDiv(64);
+
+    // USS list: 1 read (input) + N writes (same output tensor/alloc, N
+    // distinct instances so each can carry its own beforeStickLoop offset).
+    SmallVector<Value, 8> ussVals{inputTensor}, ussMemRefs{inputMemRef};
+    BitVector isReads(1 + N, false), isWrites(1 + N, false);
+    isReads[0] = true;
+    for (int64_t n = 0; n < N; ++n) {
+      ussVals.push_back(outputTensor);
+      ussMemRefs.push_back(allocVal);
+      isWrites[1 + n] = true;
+    }
+    UnifiedStickSupportList uss(
+        create.krnl, ussVals, ussMemRefs, isReads, isWrites, disableSaturation);
+    // A neutral (1.f) scalar means the source chain had no Mul op at all
+    // (ExpandMulStickFusionHelper::detectIfBeneficial leaves mulScalar at its
+    // default when the Mul step is absent); skip the multiply entirely
+    // rather than emitting a multiply-by-one.
+    bool hasMulScalar = mulScalar != 1.0f;
+    Value scalarConst =
+        hasMulScalar
+            ? create.math.constant(rewriter.getF32Type(), (double)mulScalar)
+            : nullptr;
+
+    create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
+        [&](const KrnlBuilder &ck, ValueRange indices) {
+          MDBuilder create(ck);
+          IndexExprScope outerScope(ck);
+          DimsExpr loopIndices = DimListIE(indices);
+          loopIndices[loopRank - 1] = loopIndices[loopRank - 1] * 64;
+
+          // Input access function: the original loop indices, unchanged.
+          uss.list[0].beforeStickLoop(create.krnl, loopIndices);
+          // Output access functions: one per expand index n, mapping through
+          // the unsqueeze/expand/reshape index-space transformation.
+          for (int64_t n = 0; n < N; ++n) {
+            DimsExpr outputAF = buildExpandMulStickOutputAF(
+                loopIndices, n, P, F, C, inputRank, midDims);
+            uss.list[1 + n].beforeStickLoop(create.krnl, outputAF);
+          }
+
+          int64_t U = 4;
+          int64_t totVL = U * UnifiedStickSupport::archVL;
+          create.krnl.forLoopIE(LitIE(0), LitIE(64), totVL, /*par*/ false,
+              [&](const KrnlBuilder kb, ValueRange loopInd) {
+                IndexExprScope innerScope(kb, &outerScope);
+                MDBuilder create(ck);
+                IndexExpr l = DimIE(loopInd[0]);
+                for (int64_t u = 0; u < U; ++u) {
+                  // Load the (sole) read reference; no-op for write-only ones.
+                  uss.beforeCompute(create.krnl, l, u);
+                  Value highIn, lowIn;
+                  uss.list[0].get4xF32Vals(highIn, lowIn);
+
+                  // Scale once (if there is a scalar to apply) and convert to
+                  // dlf16 once, then reuse the same converted vector for all
+                  // N write slots — avoids redoing the saturate+convert step
+                  // N times for identical values.
+                  MultiDialectBuilder<MathBuilder, ZLowBuilder> mcreate(
+                      create.krnl);
+                  Value highScaled = hasMulScalar
+                                         ? mcreate.math.mul(highIn, scalarConst)
+                                         : highIn;
+                  Value lowScaled = hasMulScalar
+                                        ? mcreate.math.mul(lowIn, scalarConst)
+                                        : lowIn;
+                  Value dlf16 = mcreate.zlow.convertF32ToDLF16(
+                      highScaled, lowScaled, disableSaturation);
+
+                  for (int64_t n = 0; n < N; ++n)
+                    uss.list[1 + n].storeConvertedDLF16(
+                        create.krnl, dlf16, l, u);
+                }
+              });
+        });
+
+    return allocVal;
+  }
+};
+
+//===----------------------------------------------------------------------===//
 // Populate all the patterns.
 //===----------------------------------------------------------------------===//
 void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
@@ -2548,6 +2991,12 @@ void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
   // Extended transpose
   patterns.insert<ZHighToZLowExtendedLayoutTransformLowering>(
       typeConverter, ctx, enableParallel, disableSaturation);
+  // FusedOp: one pattern per zhigh.* kind.  The benefit-0 FusedOpInlineFallback
+  // catch-all for unregistered kinds is in populateONNXToKrnlConversionPattern.
+  patterns.insert<ZHighToZLowFusedExtLayoutTransformLowering>(
+      typeConverter, ctx, enableParallel, disableSaturation);
+  patterns.insert<ZHighToZLowFusedExpandMulStickLowering>(
+      typeConverter, ctx, disableSaturation);
 }
 
 } // namespace zhigh
