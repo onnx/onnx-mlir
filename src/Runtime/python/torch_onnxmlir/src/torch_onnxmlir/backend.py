@@ -481,7 +481,7 @@ class TorchONNXMLIR:
             logger.info(f"sess.run took {(time.perf_counter() - start)*1000} ms")
 
         # Generate test_data_set if required.
-        if config.generate_test_data_set and first_compilation:
+        if config.regenerate_test_data_set or (config.generate_test_data_set and first_compilation):
             global_session_cache.write_tensor_to_disk(
                 self.cache_key, "input", om_inputs
             )

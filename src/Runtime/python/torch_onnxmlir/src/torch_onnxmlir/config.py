@@ -37,4 +37,10 @@ keep_onnx_files = False
 # Whether to generate test data sets (inputs/outputs) for the .so file in the cache.
 # This is useful for debugging where we can use them to run the .so file in the cache by using [RunONNXModel.py](https://github.com/onnx/onnx-mlir/blob/main/utils/RunONNXModel.py).
 # When enabled, a folder `test_data_set` is created in the cache folder containing multiple files for inputs (input_0.pb, input_1.pb, ...) and outputs (output_0.pb, output_1.pb, ...).
+# The generation is done once after compiling a model, which makes the first run slower and does not affect next runs.
 generate_test_data_set = False
+
+# Whether to regenerate test data sets or not. When enabled, the folder test_data_set is rewritten with new data.
+# This regeneration is called on every run, and the data of the last run is used. Thus, only use it for debugging. 
+regenerate_test_data_set = False
+
