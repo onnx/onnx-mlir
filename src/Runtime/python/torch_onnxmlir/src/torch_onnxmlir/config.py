@@ -41,6 +41,5 @@ keep_onnx_files = False
 generate_test_data_set = False
 
 # Whether to regenerate test data sets or not. When enabled, the folder test_data_set is rewritten with new data.
-# This regeneration is called on every run, and the data of the last run is used. Thus, only use it for debugging. 
+# This regeneration is called on every run, and the data of the last run is used. Thus, only use it for debugging.
 regenerate_test_data_set = False
-
