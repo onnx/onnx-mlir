@@ -128,10 +128,10 @@ class SessionCache:
                 shutil.copy2(src_file, dst_file)
 
     # Write tensors into a folder `test_data_set` inside the folder whose name is key.
-    # Each tensor is saved into a file `prefix_{index}.pb`.
+    # Each tensor is saved into a file `prefix_{index}.npy`.
     # This function is used to save example inputs and outputs for the model in the cache.
     def write_tensor_to_disk(self, key, prefix, tensors):
-        from onnx import numpy_helper
+        import numpy as np
 
         # Cache folder: create if it does not exist.
         dst_dir = os.path.join(self.cache_path, key)
@@ -140,10 +140,8 @@ class SessionCache:
         data_set_dir = os.path.join(dst_dir, "test_data_set")
         os.makedirs(data_set_dir, exist_ok=True)
         for i in range(len(tensors)):
-            tensor = numpy_helper.from_array(tensors[i])
-            tensor_path = os.path.join(data_set_dir, f"{prefix}_{i}.pb")
-            with open(tensor_path, "wb") as f:
-                f.write(tensor.SerializeToString())
+            tensor_path = os.path.join(data_set_dir, f"{prefix}_{i}.npy")
+            np.save(tensor_path, tensors[i])
 
     # Write a CacheValue into a folder whose name is key.
     def write_to_disk(self, key, value: CacheValue):
