@@ -259,7 +259,7 @@ parser.add_argument(
 parser.add_argument(
     "--use-npy",
     action="store_true",
-    help="Use .npy format instead of .pb format when reading reference inputs/outputs.",
+    help="Use .npy format instead of .pb format when reading/writing reference inputs/outputs.",
 )
 data_group = parser.add_mutually_exclusive_group()
 data_group.add_argument(
