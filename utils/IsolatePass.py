@@ -34,6 +34,12 @@ debug = 0
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
+        "input_pos",
+        nargs="?",
+        help="Same as -i/--input, provided as a positional argument.",
+        metavar="NAME",
+    )
+    parser.add_argument(
         "-i",
         "--input",
         help="Provide the NAME input log file to parse, e.g. a file "
@@ -145,6 +151,26 @@ def scan_listing(filename, print_list_name):
                     current_name = pass_name
                     current_listing = []
                 current_listing.append(process_line(line))
+            # Flush the last pass listing (no subsequent header to trigger it).
+            if current_name and current_listing:
+                id = len(pass_listing)
+                pass_listing.append("".join(current_listing))
+                id_to_pass_name.append(current_name)
+                if current_name in pass_name_to_id:
+                    pass_name_to_id[current_name].append(id)
+                else:
+                    pass_name_to_id[current_name] = [id]
+                if print_list_name:
+                    print(f"{id}: {current_name}")
+            elif not pass_listing and current_listing:
+                # No IR Dump After header was ever found in the file. Treat
+                # the whole content as a single unnamed pass so that "-n 0"
+                # (with no -p) still works on plain, headerless MLIR files.
+                id = len(pass_listing)
+                pass_listing.append("".join(current_listing))
+                id_to_pass_name.append("")
+                if print_list_name:
+                    print(f"{id}: (no pass header found)")
     except FileNotFoundError:
         print(f"Error: The file '{filename}' was not found.")
         raise
@@ -447,6 +473,8 @@ def print_pass(filename, id, after, pass_name=None):
 
 # Process arguments
 args = get_args()
+if args.input == None:
+    args.input = args.input_pos
 if args.input == None:
     usage("missing file name")
 if args.pass_name == None and args.num == None:

@@ -144,9 +144,13 @@ private:
   /// This method returns the set ID that contains the dimension.
   int64_t build(DimT d, int64_t setID = -1);
 
-  /// Initializes the internal mappings for function arguments and resutls.
+  /// Initializes the internal mappings for function arguments and results.
   void buildFunctionArgsRes(
       mlir::func::FuncOp funcOp, bool buildForInputs, bool buildForOutputs);
+
+  /// Initializes the internal mappings for ONNXFusedOp's arguments and results.
+  void buildForONNXFusedOpArgsRes(
+      mlir::Operation *op, bool buildForInputs, bool buildForOutputs);
 
   /// Update each set of dynamic dimensions to include the same dynamic
   /// dimensions. This is a local update in the sense that the search space
