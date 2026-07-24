@@ -41,8 +41,38 @@ file(GENERATE
   INPUT ${CMAKE_CURRENT_SOURCE_DIR}/test_decoder_models.py
   )
 
+file(GENERATE
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/test_explain.py
+  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/test_explain.py
+  )
+
+file(GENERATE
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/test_explain_integration.py
+  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/test_explain_integration.py
+  )
+
+file(GENERATE
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/test_explain_simple_model.py
+  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/test_explain_simple_model.py
+  )
+
 # Use ctest.
 enable_testing()
+
+# Tests for general features.
+set(FEATURE_LIST
+  "${CMAKE_CURRENT_BINARY_DIR}/test_explain.py"
+  "${CMAKE_CURRENT_BINARY_DIR}/test_explain_integration.py"
+  "${CMAKE_CURRENT_BINARY_DIR}/test_explain_simple_model.py"
+)
+
+foreach(testfile ${FEATURE_LIST})
+    get_filename_component(testname ${testfile} NAME_WE)
+    add_test(
+        NAME ${testname}
+        COMMAND ${Python3_EXECUTABLE} -m pytest -v ${testfile}
+    )
+endforeach()
 
 # Tests for single operation.
 set(OP_LIST

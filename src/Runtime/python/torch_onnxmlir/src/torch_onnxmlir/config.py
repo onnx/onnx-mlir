@@ -43,3 +43,9 @@ generate_test_data_set = False
 # Whether to regenerate test data sets or not. When enabled, the folder test_data_set is rewritten with new data.
 # This regeneration is called on every run, and the data of the last run is used. Thus, only use it for debugging.
 regenerate_test_data_set = False
+
+# Enable metrics collection for explain() feature.
+# Designed for single-threaded debugging use.
+# When False: Single boolean check overhead per operation.
+# When True: Direct dict updates (no locks).
+enable_explain = False
