@@ -622,6 +622,9 @@ bool isShapeDimMultipleOf(Value val, int64_t index, int64_t multipleVal) {
 
 IntegerAttr getAxisNHWC(IntegerAttr axisNCHWAttr) {
   int64_t axisNCHW = axisNCHWAttr.getSInt();
+  // Normalize negative axes for 4D tensors (allow -1, -2, ...)
+  if (axisNCHW < 0)
+    axisNCHW += 4;
   int64_t axisNHWC;
   switch (axisNCHW) {
   case 0: // N
@@ -640,6 +643,31 @@ IntegerAttr getAxisNHWC(IntegerAttr axisNCHWAttr) {
     axisNHWC = axisNCHW;
   }
   return IntegerAttr::get(axisNCHWAttr.getType(), axisNHWC);
+}
+
+IntegerAttr getAxisNCHW(IntegerAttr axisNHWCAttr) {
+  int64_t axisNHWC = axisNHWCAttr.getSInt();
+  // Normalize negative axes for 4D tensors (allow -1, -2, ...)
+  if (axisNHWC < 0)
+    axisNHWC += 4;
+  int64_t axisNCHW;
+  switch (axisNHWC) {
+  case 0: // N
+    axisNCHW = 0;
+    break;
+  case 1: // H
+    axisNCHW = 2;
+    break;
+  case 2: // W
+    axisNCHW = 3;
+    break;
+  case 3: // C
+    axisNCHW = 1;
+    break;
+  default:
+    axisNCHW = axisNHWC;
+  }
+  return IntegerAttr::get(axisNHWCAttr.getType(), axisNCHW);
 }
 
 //===----------------------------------------------------------------------===//
