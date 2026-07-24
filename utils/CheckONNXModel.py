@@ -107,7 +107,7 @@ test_group.add_argument(
     "-t",
     "--test-compile-args",
     type=str,
-    default="-O3",
+    default="",
     help="Reference arguments passed directly to onnx-mlir command."
     " Use either the -t or -a argument but not both."
     " See bin/onnx-mlir --help.",
