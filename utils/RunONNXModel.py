@@ -256,6 +256,11 @@ parser.add_argument(
     type=str,
     help="Path to a folder to save the inputs and outputs in protobuf.",
 )
+parser.add_argument(
+    "--use-npy",
+    action="store_true",
+    help="Use .npy format instead of .pb format when reading/writing reference inputs/outputs.",
+)
 data_group = parser.add_mutually_exclusive_group()
 data_group.add_argument(
     "--load-ref",
@@ -489,21 +494,27 @@ def get_names_in_signature(signature):
     return names
 
 
-def read_input_from_refs(num_inputs, load_ref_filename, is_load_ref):
+def read_input_from_refs(num_inputs, load_ref_filename, is_load_ref, use_npy=False):
     print("Reading inputs from {} ...".format(load_ref_filename))
     inputs = []
 
     if is_load_ref:
-        import onnx
-        from onnx import numpy_helper
+        if use_npy:
+            for i in range(num_inputs):
+                input_file = load_ref_filename + "/input_{}.npy".format(i)
+                input_np = np.load(input_file)
+                inputs += [input_np]
+        else:
+            import onnx
+            from onnx import numpy_helper
 
-        for i in range(num_inputs):
-            input_file = load_ref_filename + "/input_{}.pb".format(i)
-            input_ts = onnx.TensorProto()
-            with open(input_file, "rb") as f:
-                input_ts.ParseFromString(f.read())
-            input_np = numpy_helper.to_array(input_ts)
-            inputs += [input_np]
+            for i in range(num_inputs):
+                input_file = load_ref_filename + "/input_{}.pb".format(i)
+                input_ts = onnx.TensorProto()
+                with open(input_file, "rb") as f:
+                    input_ts.ParseFromString(f.read())
+                input_np = numpy_helper.to_array(input_ts)
+                inputs += [input_np]
     else:
         spec = importlib.util.spec_from_file_location("om_load_ref", load_ref_filename)
         module = importlib.util.module_from_spec(spec)
@@ -524,21 +535,27 @@ def read_input_from_refs(num_inputs, load_ref_filename, is_load_ref):
     return inputs
 
 
-def read_output_from_refs(num_outputs, load_ref_filename, is_load_ref):
+def read_output_from_refs(num_outputs, load_ref_filename, is_load_ref, use_npy=False):
     print("Reading reference outputs from {} ...".format(load_ref_filename))
     reference_output = []
 
     if is_load_ref:
-        import onnx
-        from onnx import numpy_helper
+        if use_npy:
+            for i in range(num_outputs):
+                output_file = load_ref_filename + "/output_{}.npy".format(i)
+                output_np = np.load(output_file)
+                reference_output += [output_np]
+        else:
+            import onnx
+            from onnx import numpy_helper
 
-        for i in range(num_outputs):
-            output_file = load_ref_filename + "/output_{}.pb".format(i)
-            output_ts = onnx.TensorProto()
-            with open(output_file, "rb") as f:
-                output_ts.ParseFromString(f.read())
-            output_np = numpy_helper.to_array(output_ts)
-            reference_output += [output_np]
+            for i in range(num_outputs):
+                output_file = load_ref_filename + "/output_{}.pb".format(i)
+                output_ts = onnx.TensorProto()
+                with open(output_file, "rb") as f:
+                    output_ts.ParseFromString(f.read())
+                output_np = numpy_helper.to_array(output_ts)
+                reference_output += [output_np]
     else:
         spec = importlib.util.spec_from_file_location(
             "om_load_ref_output", load_ref_filename
@@ -939,12 +956,18 @@ class InferenceSession:
         elif args.load_ref:
             # Get input from reference file.
             self.inputs = read_input_from_refs(
-                len(self.input_names), args.load_ref, is_load_ref=True
+                len(self.input_names),
+                args.load_ref,
+                is_load_ref=True,
+                use_npy=args.use_npy,
             )
         elif args.load_ref_from_numpy:
             # Get input from numpy.
             self.inputs = read_input_from_refs(
-                len(self.input_names), args.load_ref_from_numpy, is_load_ref=False
+                len(self.input_names),
+                args.load_ref_from_numpy,
+                is_load_ref=False,
+                use_npy=args.use_npy,
             )
         elif args.inputs_from_arrays:
             # Get input from array.
@@ -1006,21 +1029,32 @@ class InferenceSession:
 
         # Store the input and output if required.
         if args.save_ref:
-            from onnx import numpy_helper
-
             load_ref = args.save_ref
             if not os.path.exists(load_ref):
                 os.mkdir(load_ref)
-            for i in range(len(self.inputs)):
-                tensor = numpy_helper.from_array(self.inputs[i])
-                tensor_path = os.path.join(load_ref, "input_{}.pb".format(i))
-                with open(tensor_path, "wb") as f:
-                    f.write(tensor.SerializeToString())
-            for i in range(len(outs)):
-                tensor = numpy_helper.from_array(outs[i])
-                tensor_path = os.path.join(load_ref, "output_{}.pb".format(i))
-                with open(tensor_path, "wb") as f:
-                    f.write(tensor.SerializeToString())
+
+            if args.use_npy:
+                # Save as .npy files.
+                for i in range(len(self.inputs)):
+                    tensor_path = os.path.join(load_ref, "input_{}.npy".format(i))
+                    np.save(tensor_path, self.inputs[i])
+                for i in range(len(outs)):
+                    tensor_path = os.path.join(load_ref, "output_{}.npy".format(i))
+                    np.save(tensor_path, outs[i])
+            else:
+                # Save as .pb files.
+                from onnx import numpy_helper
+
+                for i in range(len(self.inputs)):
+                    tensor = numpy_helper.from_array(self.inputs[i])
+                    tensor_path = os.path.join(load_ref, "input_{}.pb".format(i))
+                    with open(tensor_path, "wb") as f:
+                        f.write(tensor.SerializeToString())
+                for i in range(len(outs)):
+                    tensor = numpy_helper.from_array(outs[i])
+                    tensor_path = os.path.join(load_ref, "output_{}.pb".format(i))
+                    with open(tensor_path, "wb") as f:
+                        f.write(tensor.SerializeToString())
 
         # Verify the output if required.
         if args.verify:
@@ -1041,13 +1075,17 @@ class InferenceSession:
                 # Reference output available in protobuf.
                 if args.load_ref:
                     ref_outs = read_output_from_refs(
-                        len(self.output_names), args.load_ref, is_load_ref=True
+                        len(self.output_names),
+                        args.load_ref,
+                        is_load_ref=True,
+                        use_npy=args.use_npy,
                     )
                 elif args.load_ref_from_numpy:
                     ref_outs = read_output_from_refs(
                         len(self.output_names),
                         args.load_ref_from_numpy,
                         is_load_ref=False,
+                        use_npy=args.use_npy,
                     )
             else:
                 print("Invalid verify option")
