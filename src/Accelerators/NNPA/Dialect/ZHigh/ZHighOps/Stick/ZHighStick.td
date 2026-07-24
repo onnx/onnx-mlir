@@ -59,6 +59,22 @@ def StickUnstickDiffLayoutRemovalPattern : Pat<
    (NoOneIsOf1DLayout $arg, $stick), (NoOneIsOf2DSLayout $arg, $stick)]
 >;
 
+// onnx.Dim (zhigh.Stick (%X)) = onnx.Dim %X
+// For non-NHWC layout.
+def DimStickRemovalPattern : Pat<
+  (ONNXDimOp (ZHighStickOp $arg, $layout, $_), $axis),
+  (ONNXDimOp $arg, $axis),
+  [(IsNotNHWCLayout $layout)]
+>;
+
+// onnx.Dim (zhigh.Stick (%X)) = onnx.Dim %X
+// For NHWC layout.
+def DimStickNHWCRemovalPattern: Pat<
+  (ONNXDimOp (ZHighStickOp $arg, $layout, $_), $axis),
+  (ONNXDimOp $arg, (GetAxisNCHW $axis)),
+  [(IsNHWCLayout $layout)]
+>;
+
 // The pattern
 //   zhigh.Stick (onnx.LeakyRelu (zhigh.Unstick (%X)))
 // can be replaced by
