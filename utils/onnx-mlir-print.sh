@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # SPDX-License-Identifier: Apache-2.0
 
@@ -21,5 +21,5 @@
 # that pass, user should add "--mlir-print-ir-after-change" to the list of
 # onnx-mlir options. It is not added by default
 
-onnx-mlir-truncate.sh ${@:1:$#-1} --mlir-print-ir-after-all ${@: -1}
+onnx-mlir-truncate.sh ${@:1:$#-1} --mlir-print-ir-after-all --mlir-print-ir-after-change ${@: -1}
   

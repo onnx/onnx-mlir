@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # MLIR_DIR must be set with cmake option now
 MLIR_DIR=$(pwd)/llvm-project/build/lib/cmake/mlir
 mkdir onnx-mlir/build && cd onnx-mlir/build
