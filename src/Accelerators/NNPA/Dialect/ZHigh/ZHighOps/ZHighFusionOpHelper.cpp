@@ -972,6 +972,9 @@ bool ConcatExpandStickFusionHelper::retrieveAttrs(ONNXFusedOp fusedOp) {
 }
 
 bool ConcatExpandStickFusionHelper::verify() const {
+  fprintf(stderr, "hi alex: disable lowerin gof concat expand stick fusion\n");
+  return false;
+
   constexpr int expected = 6; // concat + unsqueeze + f32-to-dlf16 + expand +
                               // reshape + layout-transform
   if ((int64_t)ops.size() != expected) {
@@ -1066,8 +1069,9 @@ bool ConcatExpandStickFusionHelper::verify() const {
   // populated it.
   size_t expectedResults = yieldConcatResult ? 2 : 1;
   if (finalResults.size() != expectedResults) {
-    LLVM_DEBUG(llvm::dbgs() << "CES verify: result count " << finalResults.size()
-                            << " != " << expectedResults << "\n");
+    LLVM_DEBUG(llvm::dbgs()
+               << "CES verify: result count " << finalResults.size()
+               << " != " << expectedResults << "\n");
     return false;
   }
   if (yieldConcatResult && finalResults[1] != concat.getConcatResult()) {
