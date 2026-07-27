@@ -12,7 +12,7 @@ Releases are extensively tested, including the following steps.
 # Current releases
 
 ## Prerelease 0.5.0
-This prerelease was cut from commit on May 19, 2026.
+This prerelease was cut from commit on July 27, 2026.
 There are no security issues that we know of.
 
 ## Prerelease 0.4.3
