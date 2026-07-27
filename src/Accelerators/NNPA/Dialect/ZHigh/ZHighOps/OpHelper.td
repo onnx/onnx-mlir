@@ -158,6 +158,11 @@ def Is3DSLayout : Constraint<
   "Is 3DS layout"
 >;
 
+def IsNHWCLayout : Constraint<
+  CPred<"::onnx_mlir::isNHWCLayout($0)">,
+  "Is NHWC layout"
+>;
+
 def IsNotNHWCLayout : Constraint<
   CPred<"!::onnx_mlir::isNHWCLayout($0)">,
   "Is not NHWC layout"
@@ -250,6 +255,10 @@ def IsIdentityAffineMap : Constraint<
 
 def GetAxisNHWC : NativeCodeCall<
   "::onnx_mlir::zhigh::getAxisNHWC($0)"
+>;
+
+def GetAxisNCHW : NativeCodeCall<
+  "::onnx_mlir::zhigh::getAxisNCHW($0)"
 >;
 
 def NoneIntegerAttr: NativeCodeCall<"IntegerAttr()">;
