@@ -784,6 +784,9 @@ bool ConcatExpandStickFusionHelper::detectIfBeneficial(
                << "  detectIfBeneficial concat-expand-stick: " << msg << "\n");
     return false;
   };
+  fprintf(stderr,
+      "hi alex, disable concat expand stick for now at the detection phase\n");
+  return returnFailure("hi alex, disabled at detection phase");
 
   // Reset all fields.
   ops.clear();
