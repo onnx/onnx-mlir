@@ -133,7 +133,7 @@ parser.add_argument(
     "-m",
     "--model",
     type=lambda s: valid_onnx_input(s),
-    help="Path to an ONNX model (.onnx or .mlir).",
+    help="Path to an ONNX model (.onnx, .mlir, or .onnxtext).",
 )
 parser.add_argument(
     "--config-file",
@@ -1172,6 +1172,12 @@ class InferenceSession:
                 else os.path.join(os.getcwd(), args.write_runtime_log)
             )
             print("  Runtime log is dumped into {}".format(log_file))
+            # The runtime instrumentation opens this file in append mode, so
+            # remove any stale log from a previous run to avoid mixing it in.
+            try:
+                os.remove(log_file)
+            except FileNotFoundError:
+                pass
             os.environ["ONNX_MLIR_INSTRUMENT_FILE"] = log_file
 
         for i in range(args.warmup):

@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # This script behaves like onnx-mlir (same arguments and behavior) but
 # with the necessary setup and execution environment to report heap usage.
 # Use only on module level compiler passes or with multithreading disabled

@@ -47,6 +47,8 @@ toc:
         url:  Options.html
       - page: Instrumentation
         url:  Instrumentation.html
+      - page: Performance Testing
+        url:  PerformanceTesting.html
       - page: Constant Propagation
         url:  ConstPropagationPass.html
       - page: Add an Accelerator

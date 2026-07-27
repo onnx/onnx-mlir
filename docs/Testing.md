@@ -7,11 +7,12 @@ In onnx-mlir, there are three types of tests to ensure correctness of implementa
 2. [LLVM FileCheck Tests](#llvm-filecheck-tests)
 3. [Numerical Tests](#numerical-tests)
 4. [Use gdb](#use-gdb)
-4. [ONNX Model Zoo](#onnx-model-zoo)
+5. [ONNX Model Zoo](#onnx-model-zoo)
 
 ## ONNX Backend Tests
 
 Backend tests are end-to-end tests for onnx-mlir based on onnx node and model tests. They are available for testing both the C/C++ .so library and the JNI .jar archive. For each C/C++ test target, adding the `-jni` suffix gives the corresponding JNI test target.
+
 To invoke the test, use the following command:
 
 ```
@@ -21,7 +22,7 @@ Packages, such as third_party/onnx, needs to be installed to run the backend tes
 JNI test requires the jsoniter jar which is downloaded from its maven repository by default if no installed version is found on the system. If the user turns on the cmake option `ONNX_MLIR_BUILD_JSONITER` when building ONNX-MLIR, the jsoniter jar will be built locally from the source cloned from its github repository. Note that building jsoniter jar locally requires the maven build tool to be installed.
 
 All the test cases provided by onnx package are listed in file `test/backend/all_test_names.txt`. check-onnx-backend will selectively run some of them. 
-The node and model tests in onnx that will be run by check-onnx-backend is defined by variable test_to_enable in `test/backend/test.py`. User can test one test case by environment variable `TEST_CASE_BY_USER`. For example,
+The node and model tests in onnx that will be run by check-onnx-backend are defined by the `test_to_enable_dict`/`node_test_to_enable_dict`/`model_test_to_enable_dict` dictionaries in `test/backend/inference_backend.py` (filtered down to the enabled `test_to_enable` list at runtime). User can test one test case by environment variable `TEST_CASE_BY_USER`. For example,
 ```
 TEST_CASE_BY_USER=selected_test_name cmake --build . --config Release --target check-onnx-backend[-jni]
 ```
@@ -36,11 +37,11 @@ The all_test_names.txt is automatically generated with command "make check-onnx-
 
 ### Adding ONNX-supported test cases to the current set of backend tests
 
-When the ONNX-to-Krnl conversion of an operator is added, the corresponding backend tests for this operator should be added to test.py. The available test cases can be found in `third_party/onnx/onnx/backend/test/case/node`. You can identify new tests by looking for the new operator in `test/backend/all_test_names.txt`. Once you have located new tests, you may add the new tests in the `test/backend/inference_backend.py.` Please note to add suffix `_cpu` to the onnx test name. Associated with the test, you can define how to run the tests for the new operator. For example:
+When the ONNX-to-Krnl conversion of an operator is added, the corresponding backend tests for this operator should be added to `test/backend/inference_backend.py`. The available test cases can be found in `third_party/onnx/onnx/backend/test/case/node`. You can identify new tests by looking for the new operator in `test/backend/all_test_names.txt`. Once you have located new tests, you may add the new tests to the `test_to_enable_dict`/`node_test_to_enable_dict`/`model_test_to_enable_dict` dictionaries in `test/backend/inference_backend.py`. Please note to add suffix `_cpu` to the onnx test name. Associated with the test, you can define how to run the tests for the new operator. For example:
 ```
         "test_and2d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 ```
-indicates that the test `test_and2d_cpu` can run (1) with static shape, (2) with all of its inputs forced to be dynamic shapes, or (3) with all of its input forced to be defined constants. This is the recommended setting for most operators. However, some do not tolerate dynamic shapes for certain arguments; for these, one can explicitly decide which argument to the function can be of dynamic shape. This is specified with the `{-1:{-1}}` expression. The `test/backend/inference_backend.py.` file contains explicit instructions on how to specify which argument and/or argument dimensions can be set to dynamic.
+indicates that the test `test_and2d_cpu` can run (1) with static shape, (2) with all of its inputs forced to be dynamic shapes, or (3) with all of its input forced to be defined constants. This is the recommended setting for most operators. However, some do not tolerate dynamic shapes for certain arguments; for these, one can explicitly decide which argument to the function can be of dynamic shape. This is specified with the `{-1:{-1}}` expression. The `test/backend/inference_backend.py` file contains explicit instructions on how to specify which argument and/or argument dimensions can be set to dynamic.
 
 ### Tests with unknown dimensions
 
@@ -49,7 +50,7 @@ Testing with dynamic tensor sizes is most easily performed by using the followin
 cmake --build . --config Release --target check-onnx-backend-dynamic[-jni]
 ``` 
 
-The onnx node tests usually have known dimension size for input tensors. So, to test tensor with unknown dimension, the model importer (Build/FrontendONNXTransformer.cpp) provides a functionality to generate such cases. When the environment variable, `IMPORTER_FORCE_DYNAMIC`, is set, the frontend import will turn the all the dimensions (by default) of all the input tensors of the model into -1. For example,
+The onnx node tests usually have known dimension size for input tensors. So, to test tensor with unknown dimension, the model importer (`src/Builder/ModelInputShaper.cpp`, invoked from `src/Builder/FrontendDialectTransformer.cpp`) provides a functionality to generate such cases. When the environment variable, `IMPORTER_FORCE_DYNAMIC`, is set, the frontend import will turn the all the dimensions (by default) of all the input tensors of the model into -1. For example,
 ```
 IMPORTER_FORCE_DYNAMIC='-1:-1' all dimensions of all the inputs will be changed
 IMPORTER_FORCE_DYNAMIC='0:-1' all dimensions of the first input will be changed
@@ -72,21 +73,21 @@ Value `-1` semantically represents all inputs or all dimensions, and it has the 
 
 For example, the default model for test_add_cpu is:
 ```
-func @main_graph(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
+func.func @main_graph(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
 ```
 with `IMPORTER_FORCE_DYNAMIC='-1:-1'`, the result is:
 ```
-func @main_graph(%arg0: tensor<?x?x?xf32>, %arg1: tensor<?x?x?xf32>) -> tensor<?x?x?xf32>
+func.func @main_graph(%arg0: tensor<?x?x?xf32>, %arg1: tensor<?x?x?xf32>) -> tensor<?x?x?xf32>
 ```
 with `IMPORTER_FORCE_DYNAMIC='0:-1'`, the result is:
 ```
-func @main_graph(%arg0: tensor<?x?x?xf32>, %arg1: tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
+func.func @main_graph(%arg0: tensor<?x?x?xf32>, %arg1: tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
 ```
 with `IMPORTER_FORCE_DYNAMIC='0:0,2|1:1'`, the result is:
 ```
-func @main_graph(%arg0: tensor<?x4x?xf32>, %arg1: tensor<3x?x5xf32>) -> tensor<3x4x5xf32>
+func.func @main_graph(%arg0: tensor<?x4x?xf32>, %arg1: tensor<3x?x5xf32>) -> tensor<3x4x5xf32>
 ```
-This is a way to use existing node test for dynamic tensors. Since not all test case can pass with dynamic tensor, there is a list in test/backend/test.py, test_not_for_dynamic, to specify which test can not pass with `IMPORTER_FORCE_DYNAMIC` is defined.
+This is a way to use existing node test for dynamic tensors. Since not all test cases can pass with dynamic tensor, running with dynamic shapes is opt-in per test: only test cases whose entry in `test_to_enable_dict` (in `test/backend/inference_backend.py`) includes the `DYNAMIC_SHAPE` key (see the `test_and2d_cpu` example above) are exercised by `check-onnx-backend-dynamic`.
 
 ### Tests with constant inputs
 
@@ -131,16 +132,18 @@ TEST_MARCH=z16 cmake --build . --config Release --target check-onnx-backend[-jni
 
 A tool defined in `utils/RunONNXLib.cpp` can be used to easily execute files from their `.so`
 models, such as the ones generated using the
-`TEST_CASE_BY_USER=selected_test_name make check-onnx-backend` command.
+`TEST_CASE_BY_USER=selected_test_name make check-onnx-backend` command. Such runs preserve
+their `.onnx`/`.so` files under `build/test/backend/<Config>/check-onnx-backend/<test_name>/`
+(`<Config>` is `Debug` or `Release`, matching how you configured the build).
 Models can also be preserved when built in other manners by setting the
 `overridePreserveFiles` value in the `onnx-mlir/src/Compiler/CompilerUtils.cpp` file to
 `KeepFilesOfType::All`, for example.
 
 When the onnx model is older than the current version supported by onnx-mlir, 
-onnx version converter can be invoked with environment variable `INVOKECONVERTER` set 
+onnx version converter can be invoked with environment variable `TEST_INVOKECONVERTER` set 
 to true. For example, converter will be called for all test cases for 
-`INVOKECONVERTER=true make check-onnx-backend`. 
-In test.py, there is a list called `test_need_converter` for you to invoke converter on individual cases.
+`TEST_INVOKECONVERTER=true make check-onnx-backend`. 
+In `test/backend/inference_backend.py`, there is a list called `test_need_converter` for you to invoke converter on individual cases.
 
 The tool directly scans the signature provided by the model, initializes the needed inputs with random
 values, and then makes a function call into the model. The program can then be used in conjunction
@@ -149,34 +152,32 @@ To list the utility options, simply use the `-h` or `--help` flags at runtime.
 
 We first need to compile the tool, which can be done in one of two modes.
 In the first mode, the tool is compiled with a statically linked model.
-This mode requires the `-D LOAD_MODEL_STATICALLY=0` option during compilation in addition to including the `.so` file.
-Best is to use the `build-run-onnx-lib.sh` script in the `onnx-mlir/utils` directory to compile the tool with its model, which is passed as a parameter to the script.
+This mode requires the `-D LOAD_MODEL_STATICALLY=1` option during compilation in addition to including the `.so` file.
+Best is to use the `build-run-onnx-lib.sh` script in the `onnx-mlir/utils` directory to compile the tool with its model, which is passed as a parameter to the script (the script sets `-D LOAD_MODEL_STATICALLY` for you based on whether you pass it a model).
 To avoid library path issues on Mac, run the compiled tool in the directory where the model was built.
 
 ``` sh
 # Compile tool with model.
 cd onnx-mlir/build
-sh ../utils/build-run-onnx-lib.sh test/backend/test_add/test_add.so
+../utils/build-run-onnx-lib.sh test/backend/Debug/check-onnx-backend/test_add/test_add.so
 # Run the tool to run the model (substitute `Release` for `Debug` for the release version).
 Debug/bin/run-onnx-lib
 # or, on Mac, run the tool in the directory where the model was built
-(cd test/backend; ../../Debug/bin/run-onnx-lib)
-# if test_add.so was built in `test/backend`:
-cd test/backend; ../../Debug/bin/onnx-mlir --EmitLib test_add/test_add.onnx
+(cd test/backend/Debug/check-onnx-backend/test_add; ../../../../../Debug/bin/run-onnx-lib)
 ```
 (You can see the path of the library with `otool -L test_add.so` on Mac.)
 
 In the second mode, the tool is compiled without models, which will be passed at runtime.
-To enable this option, simply compile the tool with the `-D LOAD_MODEL_STATICALLY=1` option.
+To enable this option, simply compile the tool with the `-D LOAD_MODEL_STATICALLY=0` option.
 You may use the same script as above but without arguments. The tool can then be be run from
 any directories as long as you pass the `.so` model file at runtime to the tool.
 
 ``` sh
 # Compile tool without a model.
 cd onnx-mlir/build
-sh ../utils/build-run-onnx-lib.sh
+../utils/build-run-onnx-lib.sh
 # Run the tool with an argument pointing to the model.
-Debug/bin/run-onnx-lib test/backend/test_add/test_add.so
+Debug/bin/run-onnx-lib test/backend/Debug/check-onnx-backend/test_add/test_add.so
 ```
 
 ## LLVM FileCheck Tests
@@ -185,18 +186,19 @@ We can test the functionality of one pass by giving intermediate representation
 as input and checking the output IR with LLVM FileCheck utility.
 For example, we have a test case, test.mlir,  for shape inference.
 ```
-func @test_default_transpose(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xf32> {
+func.func @test_default_transpose(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xf32> {
   %0 = "onnx.Transpose"(%arg0) : (tensor<5x5x1x32xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}
 ```
 
 You can run the shape inference pass  on this test case, and get the following 
 output:
 ```
-module  {
-  func @test_default_transpose(%arg0: tensor<5x5x1x32xf32>) -> tensor<32x1x5x5xf32> {
-    %0 = "onnx.Transpose"(%arg0) {perm = [3, 2, 1, 0]} : (tensor<5x5x1x32xf32>) -> tensor<32x1x5x5xf32>
-    return %0 : tensor<32x1x5x5xf32>
+module {
+  func.func @test_default_transpose(%arg0: tensor<5x5x1x32xf32>) -> tensor<32x1x5x5xf32> {
+    %0 = "onnx.Transpose"(%arg0) <{perm = [3, 2, 1, 0]}> : (tensor<5x5x1x32xf32>) -> tensor<32x1x5x5xf32>
+    onnx.Return %0 : tensor<32x1x5x5xf32>
   }
 }
 ```
@@ -204,15 +206,15 @@ Manually check whether the output is correct.
 If the output is correct, cover the output to what can be automatically checked
 in future. Use command:
 ```
-Debug/bin/onnx-mlir-opt --shape-inference test.mlir | python ../utils/mlir2FileCheck.py 
+Debug/bin/onnx-mlir-opt --shape-inference test.mlir | ../utils/mlir2FileCheck.py 
 ```
 You will get the following:
 ```
 // mlir2FileCheck.py
-// CHECK-LABEL:  func @test_default_transpose
+// CHECK-LABEL:  func.func @test_default_transpose
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x5x1x32xf32>) -> tensor<32x1x5x5xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "onnx.Transpose"([[PARAM_0_]]) {perm = [3, 2, 1, 0]} : (tensor<5x5x1x32xf32>) -> tensor<32x1x5x5xf32>
-// CHECK:           return [[VAR_0_]] : tensor<32x1x5x5xf32>
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Transpose"([[PARAM_0_]]) <{perm = [3, 2, 1, 0]}> : (tensor<5x5x1x32xf32>) -> tensor<32x1x5x5xf32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<32x1x5x5xf32>
 // CHECK:         }
 ```
 Combine the source and the check code and add to the adequate test cases. 
@@ -307,42 +309,54 @@ Currently we provide testing for accelerator NNPA. It is described [here](AccelN
 ### Get source code for ONNX model
 When you compile an ONNX model, add option `--preserveMLIR --enable-debug-info`. A source code for the  model in MLIR format, named your_model_name.input.mlir,  will be created. The line information for operation will be attached and propagated all the way to binary.
 When you compile an .mlir file, add option `--enable-debug-info`. The input mlir file will be used for debug info. If you want track the execution at different level, create the .mlir file from different output of the pass in onnx-mlir. For example, you can use `--EmitONNXBasic`, or `--EmitMLIR`. The flag `--preserveMLIR` uses the output of `--EmitONNXBasic`.
-Example: compile test_add.onnx in compiler container in your onnx-mlir/build directory:
+Example: compile test_add.onnx in your onnx-mlir/build directory:
 ```
-$Debug/bin/onnx-mlir --preserveMLIR --enable-debug-info test_add.onnx
-$LLVM_PROJECT=path/to/your/llvm-prject . ../utils/build-run-onnx-lib.sh
+Debug/bin/onnx-mlir --preserveMLIR --enable-debug-info test_add.onnx
+../utils/build-run-onnx-lib.sh test_add.so
 ```
-When you run the compiled library with gdb outside of the compiler container, you can stop in the model and step through with respect to the ONNX operations. Here is an example for model test_add.onnx:
+This produces `test_add.input.mlir`, which now looks like:
+```
+module attributes {..., "onnx-mlir.symbol-postfix" = "test_add"} {
+  func.func @main_graph(%arg0: tensor<3x4x5xf32> {onnx.name = "x"}, %arg1: tensor<3x4x5xf32> {onnx.name = "y"}) -> (tensor<3x4x5xf32> {onnx.name = "sum"}) {
+    %0 = "onnx.Add"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
+    onnx.Return %0 : tensor<3x4x5xf32>
+  }
+  "onnx.EntryPoint"() <{func = @main_graph}> : () -> ()
+}
+```
+By default, every compiled model gets a `symbol-postfix` (derived from the input file name, here `test_add`), and each entry point is emitted twice: a thin `run_main_graph` trampoline plus the real body under `run_main_graph_<postfix>` (here `run_main_graph_test_add`). This lets several models be loaded into the same process without symbol clashes, but it means breaking on plain `run_main_graph` only stops in the 2-instruction trampoline. To step through the ONNX ops directly, either break on `run_main_graph_<postfix>`, or compile with `--tag=NONE` so no postfix is added and `run_main_graph` contains the real body, as in the original (pre-postfix) examples below.
+
+When you run the compiled library with gdb, you can stop in the model and step through with respect to the ONNX operations. Here is an example for model test_add.onnx compiled with `--tag=NONE`:
 ```
 $gdb Debug/bin/run-onnx-lib
 (gdb) b run_main_graph
 (gdb) run ./test_add.so
 (gdb) list
-1	builtin.module  {
-2	  builtin.func @main_graph(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x4x5xf32>) -> tensor<3x4x5xf32> {
+1	module attributes {...} {
+2	  func.func @main_graph(%arg0: tensor<3x4x5xf32> {onnx.name = "x"}, %arg1: tensor<3x4x5xf32> {onnx.name = "y"}) -> (tensor<3x4x5xf32> {onnx.name = "sum"}) {
 3	    %0 = "onnx.Add"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
-4	    return %0 : tensor<3x4x5xf32>
+4	    onnx.Return %0 : tensor<3x4x5xf32>
 5	  }
 (gdb) b 3
-Breakpoint 2 at 0x3fffdf01778: file /home/chentong/onnx-mlir/build/test_add.input.mlir, line 3.
+Breakpoint 2 at 0x3fffdf01778: file /path/to/onnx-mlir/build/test_add.input.mlir, line 3.
 (gdb) c
 Continuing.
 
-Breakpoint 2, main_graph () at /home/chentong/onnx-mlir/build/test_add.input.mlir:3
+Breakpoint 2, main_graph () at /path/to/onnx-mlir/build/test_add.input.mlir:3
 3	    %0 = "onnx.Add"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
 (gdb) n
-4	    return %0 : tensor<3x4x5xf32>
+4	    onnx.Return %0 : tensor<3x4x5xf32>
 (gdb)
 ```
 Note that the output of instrumentation showed that the gdb step at the onnx op level correctly. You need extra flags for onnx-mlir to run on instrumentation, which is not necessary for gdb. The source file is test_add.input.mlir.
 One of furtuer works is to support symbols at onnx level in gdb. It would be really useful if tensors can be printed out in gdb.
 
-Another example is to debug at MLIR level. First compile the model:
+Another example is to debug at MLIR level. First compile the model (again with `--tag=NONE`, for the same reason as above, so that `run_main_graph` is the real entry point rather than a trampoline):
 ```
-Debug/bin/onnx-mlir test_add.onnx --EmitMLIR
-Debug/bin/onnx-mlir test_add.onnx.mlir --enable-debug-info
+Debug/bin/onnx-mlir --tag=NONE test_add.onnx --EmitMLIR
+Debug/bin/onnx-mlir --tag=NONE test_add.onnx.mlir --enable-debug-info
 ```
-It is assumed that Debug/bin/run-lib already built. 
+It is assumed that Debug/bin/run-onnx-lib already built. 
 Now you can run gdb with this .so:
 
 ```
@@ -395,8 +409,8 @@ LLVM_DEBUG({
 
 Some examples that uses this support in the project are in these files.
 
-* src/Conversion/KrnlToAffine/KrnlToAffine.cpp
-* src/Conversion/ONNXToKrnl/Math/Gemm/Gemm.cpp
+* src/Conversion/KrnlToAffine/ConvertKrnlToAffine.cpp
+* src/Conversion/ONNXToKrnl/Math/Gemm.cpp
 
 Again, these debug statements can then be activated by adding the `--debug-only=my_opt_name_here` option to `onnx-mlir` or `onnx-mlir-opt`.
 
@@ -408,7 +422,7 @@ We provide a Python script [RunONNXModelZoo.py](../utils/RunONNXModelZoo.py) to 
 $ mkdir test && cd test
 $ ln -s /onnx-mlir/utils/RunONNXModel.py
 $ ln -s /onnx-mlir/utils/RunONNXModelZoo.py
-$ ONNX_MLIR_HOME=/onnx-mlir/build/Release/ python RunONNXModelZoo.py -m mnist-8 -c="-O3"
+$ ONNX_MLIR_HOME=/onnx-mlir/build/Release/ ./RunONNXModelZoo.py -m mnist-8 -c="-O3"
 ```
 Run the script with `-h` to see all the options. In addition to the `-m` flag to specify a model and `-c` flag to specify the compile options, useful options are the `-k` flag to leave the onnx model in the current directory as a `.tgz` file, and the `-l debug` flag to print lots of debugging info.
 
@@ -431,18 +445,4 @@ Statistics start (all ops).
   onnx.Constant, 473, 0.0008220
 ```
 
-The runtime profiling info can be combined with specific compile-time statistics as well. Let's say that we are interested in SIMD statistics. We inform the compiler of the compile-time statistic to emit using `-opt-report` option, and inform `RunONNXModelZoo.py` that we want to preserve the compiler output using the `--log-to-file` option. For example
-```
-> ONNX_MLIR_INSTRUMENT_FILE=run.log RunONNXModelZoo.py -c "-O3 --march=arm64 -opt-report=Simd --profile-ir=Onnx" -m bertsquad-10 --log-to-file compile.log
-...
-> make-report.py -c compile.log -r run.log
-...
-Statistics start (all ops).
-  onnx.Add-simd, 112, 0.0130570
-  onnx.Cast, 23, 0.0000650
-  onnx.Gemm, 1, 0.0003570
-  onnx.Gemm-simd, 72, 0.8109330
-```
-In the listing above, the operations that were vectorized are summarized separately with a  `-simd` postfix appended to their respective operation names.
-
-The same options and environment variables works equally well for `RunONNXModel.py` and `RunONNXModelZoo.py`.
+The same options and environment variables work equally well for `RunONNXModel.py` and `RunONNXModelZoo.py`. For the full set of `RunONNXModel.py`/`make-report.py` flags (warmup/iteration counts, units, per-shape signature profiling with `--profile-ir-with-sig`, combining with `--opt-report` SIMD/parallel stats, and recovering compile-time info), see [PerformanceTesting.md](PerformanceTesting.md).

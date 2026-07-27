@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 This script is intended to display, verify or convert an onnx model.
 With option -v or --VERBOSE, the model will be displayed on output

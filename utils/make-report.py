@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 # SPDX-License-Identifier: Apache-2.0
 
@@ -65,6 +65,7 @@ Parameters on inputs:
 
 Parameters to focus analysis:
   -f/--focus <regexp>: Focus only on ops that match the regexp pattern.
+                       Implies `-l 1` if a `-l` level was not otherwise given.
   -m/--min <num>:      Focus on operations with at least <num>% of exec time.
   --supported:         Focus only on ops that are supported. Namely, the report
                        will skip ops for which compile-time statistics list
@@ -752,12 +753,12 @@ def main(argv):
             elif re.match(r"\s*perf\s*", arg):
                 make_stats = "PERF"
                 make_legend = perf_legend
-            elif re.match(r"\s*sig?\s*", arg):
-                make_stats = "SIG"
-                make_legend = sig_legend
             elif re.match(r"\s*simd\s*", arg):
                 make_stats = "SIMD"
                 make_legend = simd_legend
+            elif re.match(r"\s*sig?\s*", arg):
+                make_stats = "SIG"
+                make_legend = sig_legend
             else:
                 print_usage("statistics options are 'par', 'perf', 'sig', or 'simd'")
         elif opt in ("--supported"):
@@ -795,7 +796,7 @@ def main(argv):
             # Default for perf only (no compile)
             make_stats = "PERF"
             make_legend = perf_legend
-    print("Analyse", make_stats)
+    print("Analyze", make_stats)
     # Default compile file for sig
     if make_stats != "PERF" and not compile_file_name:
         compile_file_name = runtime_file_name
