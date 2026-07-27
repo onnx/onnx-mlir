@@ -9,19 +9,29 @@
 // =============================================================================
 /*
   This file helps run an onnx model as simply as possible for testing.
-  Compile as follows in the onnx-mlir build subdirectory.
+  Build it with utils/build-run-onnx-lib.sh. Set ONNX_MLIR_HOME to your
+  onnx-mlir build's HOME dir (e.g. onnx-mlir/build/Debug, same
+  convention as RunONNXModel.py) to run the build script from any
+  directory; the binary is placed under $ONNX_MLIR_HOME/bin (so under
+  Debug or Release depending on which HOME you point at), and the
+  script prints the exact path when it's done. Without ONNX_MLIR_HOME,
+  the script must be run from the onnx-mlir/build subdirectory and
+  defaults to Debug/bin.
 
-  For dynamically loaded models (default):
+  For dynamically loaded models (default): model.so is passed on the
+  command line at runtime, so one binary can drive any model.
 
-    cd onnx-mlir/build
-    sh ../utils/build-run-onnx-lib.sh
-    Debug/bin/run-onnx-lib test/backend/test_add/test_add.so
+    sh <onnx-mlir>/utils/build-run-onnx-lib.sh
+    <bin-dir>/run-onnx-lib test/backend/test_add/test_add.so
 
-  For statically loaded models:
+  For statically loaded models: the model is linked directly into the
+  executable. Prefer this form when debugging crashes or memory issues
+  (e.g. under valgrind) -- a statically-linked binary is much easier to
+  work with, since there's no dlopen/dlsym indirection to step through
+  and no separate .so to keep track of.
 
-    cd onnx-mlir/build
-    sh ../utils/build-run-onnx-lib.sh test/backend/test_add/test_add.so
-    Debug/bin/run-onnx-lib
+    sh <onnx-mlir>/utils/build-run-onnx-lib.sh test/backend/test_add/test_add.so
+    <bin-dir>/run-onnx-lib
 
   See printUsage() below for usage of the program.
 */

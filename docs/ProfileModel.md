@@ -8,8 +8,10 @@ instructions and basic blocks.
 
 The script handles the workload C++, the timing loop, the SIGPROF
 sampler, the symbolisation, and the DWARF-based op-attribution. The
-only piece you write per model is an `initialize_model_input()`
-C++ function describing the input tensors.
+only thing you provide per model is the input tensors — either via
+`--shape-info` / `--input-value` / `--lower-bound` / `--upper-bound`
+flags (no C++ required), or by writing an `initialize_model_input()`
+C++ function yourself for cases the flags can't express.
 
 ## 1. Compile the model with `--profile-ir`
 
@@ -41,7 +43,52 @@ or `--profile-ir=ZHigh` to see ops post-conversion (with
 The output is `roberta-base-11.so` plus, on macOS, a `.dSYM` bundle
 holding the DWARF.
 
-## 2. Write `initialize_model_input.cpp`
+## 2. Provide the model's inputs
+
+The workload needs input tensors before it can run. There are two
+ways to supply them:
+
+- **Option A — auto-generate from flags**, no C++ required. Covers
+  the common case: dynamic-dimension overrides and random/constant
+  fill of the input buffers.
+- **Option B — write `initialize_model_input.cpp`**, for cases the
+  flags can't express (data read from a file, a specific non-random
+  pattern, per-element logic, etc.).
+
+### Option A: auto-generate inputs from flags
+
+Pass `--shape-info` / `--input-value` / `--lower-bound` /
+`--upper-bound` / `--seed` directly to `profile-model.py` and it
+builds `initialize_model_input()` for you, reading the model's own
+input signature and filling buffers accordingly — no `-i`/`--init`
+needed:
+
+```bash
+profile-model.py -m roberta-base-11.so -t 30 \
+  --shape-info 0:1x384 \
+  --input-value 0:min0max50264
+```
+
+| flag | purpose |
+|---|---|
+| `--shape-info STR` | Dimension overrides for dynamic inputs. Format: `INPUT_ID:D1xD2x...xDn, ...`. `INPUT_ID` is an integer, a range (`5-17`), or `-1` for all inputs; a dimension of `-1` keeps the signature's value. E.g. `--shape-info 0:1x180,1:1x180`. |
+| `--input-value STR` | Per-input fill spec. Format: `INPUT_ID:spec1 spec2 ..., ...` where each spec is `min<n>`, `max<n>`, `val<n>` (constant fill), or `soz<n>` (sequence of `<n>` ones then zeros along the innermost dim — handy for attention masks; `soz-1` picks a random count per row). E.g. `--input-value 0:min0max30000,1:soz-1`. |
+| `--lower-bound STR` | Per-type default lower bounds, used when `--input-value` doesn't set an explicit `min` for a tensor. Format: `typename:value, ...` (`bool`, `int8`, `uint8`, ..., `float32`, `float64`). E.g. `--lower-bound float32:-0.1,int64:0`. |
+| `--upper-bound STR` | Same format as `--lower-bound`, for upper bounds. E.g. `--upper-bound float32:0.1,int64:30000`. |
+| `--seed N` | RNG seed for reproducibility (default 42). |
+
+Passing any one of these flags is enough to trigger auto-generation.
+Anything you don't set falls back first to onnx-mlir's built-in
+per-type defaults (floats `[-0.1, 0.1]`, signed ints `[-10, 10]`,
+unsigned ints `[0, 10]`, bool `{false, true}`), then to whatever
+shape the model's signature already specifies. These flags are
+mutually exclusive with `-i`/`--init` (Option B).
+
+### Option B: write `initialize_model_input.cpp`
+
+Reach for this when the auto-generated fill isn't flexible enough —
+e.g. you need values loaded from a file, a specific non-random
+pattern, or logic that varies per element.
 
 The script needs one C++ function:
 
@@ -121,8 +168,17 @@ it is part of libc.
 
 ## 3. Run the profiler
 
+With a custom init `.cpp` (Option B):
+
 ```bash
 profile-model.py -m roberta-base-11.so -i init-roberta.cpp -t 30
+```
+
+Or with auto-generated inputs (Option A), no `.cpp` needed:
+
+```bash
+profile-model.py -m roberta-base-11.so -t 30 \
+  --shape-info 0:1x384 --input-value 0:min0max50264
 ```
 
 Common flags:
@@ -131,12 +187,16 @@ Common flags:
 |---|---|
 | `-t SECONDS` | sampling duration (default 30) |
 | `-s FILE.json` | save the raw profile to JSON for later replay |
-| `-l FILE.json` | replay a saved profile (`-l` instead of `-i`/`-m`) |
+| `-l FILE.json` | replay a saved profile (`-l` instead of `-i`/`-m`/auto-init flags) |
 | `-a FILE.s` | write annotated disassembly with `<<<= X.XX%` markers |
 | `--op REGEX` | restrict instruction mix to ops whose name matches |
 | `--not-op REGEX` | inverse: restrict to ops NOT matching |
 | `--sampler {auto,inproc,sample,perf}` | sampler backend (default `auto` → `inproc`) |
 | `--debug-omip` | dump every recovered op span with PC ranges |
+
+(See [Option A](#option-a-auto-generate-inputs-from-flags) above for
+`--shape-info` / `--input-value` / `--lower-bound` / `--upper-bound` /
+`--seed`.)
 
 ### Sampler choice
 
