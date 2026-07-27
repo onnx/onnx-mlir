@@ -167,10 +167,10 @@ def _format_as_table(
             hdrs = [
                 "Order",
                 "Graph ID",
-                "Compile(s)",
                 "Calls",
                 "Hits",
-                "Avg(ms)",
+                "Compile(s)",
+                "Avg Inference(ms)",
                 "Total(s)",
                 "%",
             ]
@@ -181,17 +181,17 @@ def _format_as_table(
                 "Hits",
                 "Hit%",
                 "Compile(s)",
-                "Avg(ms)",
+                "Avg Inference(ms)",
                 "Total(s)",
                 "%",
             ]
         else:
             hdrs = [
                 "Graph ID",
-                "Compile(s)",
                 "Calls",
                 "Hits",
-                "Avg(ms)",
+                "Compile(s)",
+                "Avg Inference(ms)",
                 "Total(s)",
                 "%",
             ]
@@ -208,9 +208,9 @@ def _format_as_table(
                 row = [
                     str(m.call_order),
                     mid,
-                    f"{m.compilation_time:.3f}",
                     str(m.inference_count),
                     str(m.cache_hits),
+                    f"{m.compilation_time:.3f}",
                     f"{m.avg_inference_time * 1000:.2f}",
                     f"{m.total_time:.3f}",
                     f"{pct:.1f}%",
@@ -229,9 +229,9 @@ def _format_as_table(
             else:
                 row = [
                     mid,
-                    f"{m.compilation_time:.3f}",
                     str(m.inference_count),
                     str(m.cache_hits),
+                    f"{m.compilation_time:.3f}",
                     f"{m.avg_inference_time * 1000:.2f}",
                     f"{m.total_time:.3f}",
                     f"{pct:.1f}%",

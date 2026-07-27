@@ -7,7 +7,7 @@
 ################################################################################
 #
 # This file implements metrics collection for the torch_onnxmlir.explain()
-# feature. Designed for single-threaded debugging use with no locks.
+# feature.
 #
 ################################################################################
 
@@ -61,10 +61,10 @@ class EagerFallbackInfo:
 
 class MetricsCollector:
     """
-    Lock-free metrics collector for single-threaded debugging.
+    Metrics collector for debugging and performance analysis.
 
-    When disabled: Single boolean check (1-2 CPU cycles).
-    When enabled: Direct dict updates (no lock overhead).
+    When disabled: Single boolean check (minimal overhead).
+    When enabled: Direct dict updates for fast metric recording.
     """
 
     def __init__(self):
@@ -74,7 +74,7 @@ class MetricsCollector:
         self._call_counter: int = 0
 
     def record_compilation(self, cache_key: str, compilation_time: float):
-        """Record compilation metrics. No locks."""
+        """Record compilation metrics."""
         if not config.enable_explain:
             return
 
@@ -88,7 +88,7 @@ class MetricsCollector:
     def record_inference(
         self, cache_key: str, inference_time: float, is_cache_hit: bool
     ):
-        """Record inference metrics. No locks."""
+        """Record inference metrics."""
         if not config.enable_explain:
             return
 
@@ -105,7 +105,7 @@ class MetricsCollector:
             m.cache_hits += 1
 
     def record_eager_fallback(self, reason: str, cache_key: Optional[str] = None):
-        """Record eager mode fallback. No locks."""
+        """Record eager mode fallback."""
         if not config.enable_explain:
             return
 

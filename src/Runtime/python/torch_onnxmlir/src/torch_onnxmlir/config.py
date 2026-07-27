@@ -45,7 +45,6 @@ generate_test_data_set = False
 regenerate_test_data_set = False
 
 # Enable metrics collection for explain() feature.
-# Designed for single-threaded debugging use.
-# When False: Single boolean check overhead per operation.
-# When True: Direct dict updates (no locks).
+# When False: Minimal overhead (single boolean check per operation).
+# When True: Metrics are collected for performance analysis.
 enable_explain = False
