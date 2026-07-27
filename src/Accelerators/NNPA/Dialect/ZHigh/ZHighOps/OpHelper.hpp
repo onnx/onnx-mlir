@@ -117,6 +117,8 @@ bool isTransposePermutationEqualTo(
 bool isShapeDimMultipleOf(mlir::Value val, int64_t index, int64_t multipleVal);
 /// Get an axis for NHWC layout given an axis for NCHW layout.
 mlir::IntegerAttr getAxisNHWC(mlir::IntegerAttr axisNCHWAttr);
+/// Get an axis for NCHW layout given an axis for NHWC layout.
+mlir::IntegerAttr getAxisNCHW(mlir::IntegerAttr axisNHWCAttr);
 
 /// Check if the value has NNPA users (or is consumed by an NNPA op).
 bool hasNNPAUse(mlir::Value v);
