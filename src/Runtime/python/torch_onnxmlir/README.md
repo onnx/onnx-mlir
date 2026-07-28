@@ -58,7 +58,20 @@ For more information about `torch.compile`, see its [document](https://docs.pyto
 
 ## Caching the exported models and compiled libraries
 
-To avoid recompling models, the backend caches compiled models in the folder `${HOME}/.cache`. Users can change the cache folder by setting an environment variable, i.e, `TORCHONNXMLIR_CACHE_DIR=path_to_cache_folder`.
+To avoid recompiling models, the backend caches compiled models in the folder `${HOME}/.cache/torch_onnxmlir`. Users can change the cache folder by setting an environment variable, i.e, `TORCHONNXMLIR_CACHE_DIR=path_to_cache_folder`.
+
+You can view the current cache directory using the explain() feature:
+```python
+import torch_onnxmlir
+torch_onnxmlir.config.enable_explain = True
+# ... run your model ...
+print(torch_onnxmlir.explain())  # Shows "Cache Directory: ..." in output
+```
+
+To clean the cache and save disk space:
+```bash
+rm -rf ~/.cache/torch_onnxmlir
+```
 
 ## Performance Analysis with explain()
 
