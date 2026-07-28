@@ -33,11 +33,26 @@
 //   MyFusion fusion;
 //   if (!fusion.detect(...))
 //     return failure();
+//   if (!fusion.computeInputsAndInsertionPoint())
+//     return failure(); // no valid single insertion point exists -- decline
 //
 //   fusion.fuse(rewriter, loc);
-//   // => sets insertion point to ops.back() internally.
+//   // => uses the insertion point cached by computeInputsAndInsertionPoint().
 //   // => private create(): builds body, embedAttrs() stores params as attrs.
 //   // => private replaceAndErase(): back-to-front.
+//
+// computeInputsAndInsertionPoint() is called automatically by
+// FusedPatternForOpKind::matchAndRewrite (FusionOpBasePattern.hpp) right
+// after detectIfBeneficial() succeeds -- subclasses do not need to call it
+// themselves. It exists as a separate step (rather than being folded into
+// fuse()) because it can fail: it is a pure query (no IR mutation) that
+// determines whether a single insertion point exists which is simultaneously
+// after every external input this->ops needs, and before every use -- outside
+// this->ops -- of every value in finalResults. Without this check, an
+// intermediate chain value with an outside use that itself (transitively)
+// feeds one of this->ops' own external inputs would make ops.back() an
+// unsafe insertion point -- the FusedOp's own input would end up depending on
+// its own not-yet-defined output. See FusionOpHelper.cpp for the algorithm.
 //
 // -- Lowering pass (code generation) -----------------------------------------
 //
@@ -84,9 +99,23 @@ public:
   // -- Non-virtual template methods (calling sequences) ----------------------
 
   /// Build the FusedOp, replace the original chain ops with its outputs, and
-  /// erase the chain ops.  The caller must set the rewriter insertion point
-  /// before calling this (typically just before ops.back()).
+  /// erase the chain ops.  computeInputsAndInsertionPoint() must have already
+  /// been called successfully (it sets the rewriter insertion point
+  /// internally, at the cached anchor -- normally FusedPatternForOpKind calls
+  /// it automatically; see the file header comment).
   mlir::ONNXFusedOp fuse(mlir::PatternRewriter &rewriter, mlir::Location loc);
+
+  /// Pure query (no IR mutation): computes the FusedOp's external input list
+  /// and determines whether a single insertion point exists that is
+  /// simultaneously after every one of those inputs' definitions and before
+  /// every outside (non-chain) use of every value in finalResults. Caches the
+  /// input list and insertion point on success for fuse()/createFusedOp() to
+  /// reuse. Returns false -- meaning the match must be treated as a failure,
+  /// do not call fuse() -- when no such point exists. Must be called exactly
+  /// once, after this->ops and this->finalResults are fully populated (i.e.
+  /// after detectIfBeneficial() would otherwise return true) and before
+  /// fuse().
+  bool computeInputsAndInsertionPoint();
 
   /// Walk fusedOp.getBody().front(): collect non-YieldOp ops => this->ops and
   /// YieldOp operands => this->finalResults.  Resets both fields on entry.
@@ -153,6 +182,16 @@ protected:
   // here.  Must call isInsideFusedOp(startOp) first (see above).
 
 private:
+  // -- Cache populated by computeInputsAndInsertionPoint(), consumed by
+  // fuse()/createFusedOp(). Not meaningful until that call has returned true.
+  llvm::SmallVector<mlir::Value> cachedFusedInputs;
+  mlir::Operation *cachedInsertionAnchor = nullptr;
+  // true: insert immediately after cachedInsertionAnchor (it is the latest
+  // external input's defining op). false: insert immediately before
+  // cachedInsertionAnchor (the old ops.back()-relative default, still valid
+  // whenever no outside use of a yielded value forces an earlier point).
+  bool cachedInsertAfterAnchor = false;
+
   /// Build the ONNXFusedOp body — called by fuse().
   mlir::ONNXFusedOp create(mlir::PatternRewriter &rewriter, mlir::Location loc);
 
