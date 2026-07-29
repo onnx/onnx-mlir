@@ -1595,7 +1595,7 @@ bool ImportFrontendModelInternal(onnx::ModelProto &model, MLIRContext &context,
   // ToFix: the shape-inference-pattern should be added and used in Importer.
 
   // Did not do downward convert because support for BatchNorm is missing
-  if (options.invokeOnnxVersionConverter && 
+  if (options.invokeOnnxVersionConverter &&
       originVersion < CURRENT_ONNX_OPSET) {
     // CVE guard: Gemm 7→6 adapter reads B_shape[1] / A_shape[0] / A_shape[1]
     // without bounds checking. Reject any model where a Gemm input A or B has
