@@ -110,12 +110,15 @@ def _format_as_table(
     all_metrics: Dict, eager_fallbacks: Dict, total_eager_fallbacks: int, sort_by: str
 ) -> str:
     """Format metrics as a table."""
+    from . import sessioncache
+
     out = ["=" * 80, "TORCH_ONNXMLIR PERFORMANCE METRICS", "=" * 80, ""]
 
     # Summary statistics
     total_inferences = sum(m.inference_count for m in all_metrics.values())
     total_cache_hits = sum(m.cache_hits for m in all_metrics.values())
 
+    out.append(f"Cache Directory: {sessioncache.cache_dir()}")
     out.append(f"Unique Graphs: {len(all_metrics)}")
     out.append(f"Total Inference Calls: {total_inferences}")
     if total_inferences > 0:

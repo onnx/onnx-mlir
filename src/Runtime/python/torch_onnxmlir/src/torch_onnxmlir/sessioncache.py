@@ -46,7 +46,7 @@ def cache_dir() -> str:
 
 
 def default_cache_dir() -> str:
-    return os.path.expanduser("~/.cache/")
+    return os.path.expanduser("~/.cache/torch_onnxmlir/")
 
 
 class SessionCache:
