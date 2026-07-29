@@ -636,6 +636,20 @@ def cache_string(model_name, compile_option):
     return "model: " + model_name + "; compile option: " + compile_option
 
 
+def check_mlir_has_entry_point(mlir_path):
+    # A .mlir model with no "onnx.EntryPoint" compiles successfully but has no
+    # function to call at runtime, so it silently fails to run. Catch it early.
+    with open(mlir_path, "r") as f:
+        if "onnx.EntryPoint" not in f.read():
+            print(
+                'Invalid mlir model "'
+                + mlir_path
+                + '": missing "onnx.EntryPoint". The model would compile but '
+                "silently fail to run."
+            )
+            exit(1)
+
+
 ################################################################################
 # Inference Session implementing RunONNXModel.
 #
@@ -830,6 +844,8 @@ class InferenceSession:
                     input_model_path = args.model
             elif args.model.endswith(".mlir") or args.model.endswith(".onnxtext"):
                 input_model_path = args.model
+                if args.model.endswith(".mlir") and not args.compile_only:
+                    check_mlir_has_entry_point(args.model)
             else:
                 print(
                     "Invalid input model path. Must end with .onnx or .mlir or .onnxtext"
@@ -859,7 +875,7 @@ class InferenceSession:
                     log_file_name=compiler_log_file,
                 )
             except RuntimeError as e:
-                raise RuntimeError(f"Compilation failed: {e}")
+                raise RuntimeError(f"Compilation failed: {e}") from None
 
         end = time.perf_counter()
         print("  took ", end - start, " seconds.\n")
@@ -1316,7 +1332,11 @@ def main():
     session_wrapper = import_driver()
     # Create inference session and perform a performance run test, which load,
     # compute, and possibly verify data.
-    session = InferenceSession(session_wrapper=session_wrapper)
+    try:
+        session = InferenceSession(session_wrapper=session_wrapper)
+    except RuntimeError as e:
+        print(f"error: {e}")
+        sys.exit(1)
     return session.run_performance_test()
 
 
