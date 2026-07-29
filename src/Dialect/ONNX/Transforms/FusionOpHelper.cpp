@@ -51,14 +51,33 @@ bool isDimOfChainProduced(Operation *op, const DenseSet<Value> &chainProduced) {
   return dimOp && chainProduced.contains(dimOp.getData());
 }
 
+// Bounds how much a Concat absorption can ever duplicate. i64 element type
+// alone isn't enough: a Concat can be i64-typed and depend on a chain Dim
+// while one of its OTHER operands is large real data (e.g. an i64 index
+// tensor), not shape metadata -- absorbing that would clone the Concat's
+// data movement, not a cheap scalar recompute. A genuine shape descriptor
+// (Expand/Reshape's "shape" operand) is bounded by tensor rank -- never
+// more than a handful of elements -- so this is a real discriminator, not
+// an arbitrary cutoff. Static-shape check first: an unranked/dynamic result
+// can't be bounded at all, so it's conservatively rejected. Shared by
+// isShapeConcatDependentOnChain() and isAbsorbedPlumbing() so creation and
+// retrieval can never disagree on what counts as "small enough."
+constexpr int64_t kMaxAbsorbableShapeElements = 8;
+
+bool isSmallI64ShapeTensor(Type type) {
+  auto shapedType = dyn_cast<ShapedType>(type);
+  if (!shapedType || !shapedType.getElementType().isInteger(64))
+    return false;
+  return shapedType.hasStaticShape() &&
+         shapedType.getNumElements() <= kMaxAbsorbableShapeElements;
+}
+
 bool isShapeConcatDependentOnChain(
     Operation *op, const DenseSet<Value> &chainProduced) {
   auto concatOp = dyn_cast<ONNXConcatOp>(op);
   if (!concatOp)
     return false;
-  Type elemType =
-      cast<ShapedType>(concatOp.getConcatResult().getType()).getElementType();
-  if (!elemType.isInteger(64))
+  if (!isSmallI64ShapeTensor(concatOp.getConcatResult().getType()))
     return false;
   for (Value operand : concatOp.getInputs()) {
     Operation *operandDef = operand.getDefiningOp();
@@ -80,20 +99,23 @@ bool isAbsorbable(Operation *op, const DenseSet<Value> &chainProduced) {
 
 // Retrieval-side counterpart of isAbsorbable(): recognizes the same
 // body-implementation-detail ops when walking a rebuilt fused body, but
-// without needing chainProduced -- once rebuilt, ANY onnx.Dim or
-// i64-element onnx.Concat is unambiguously absorbed plumbing, never a
+// without needing chainProduced -- once rebuilt, ANY onnx.Dim or small
+// i64-shape onnx.Concat is unambiguously absorbed plumbing, never a
 // semantic chain member, for every FusionOpKindHelper subclass today
 // (their anchor/chain ops are always f32/f16-typed compute ops, never a
-// bare Dim or an integer-typed Concat). Kept separate from isAbsorbable()
-// rather than reconstructing chainProduced from a rebuilt body.
+// bare Dim or a small-integer-shape Concat). Kept separate from
+// isAbsorbable() rather than reconstructing chainProduced from a rebuilt
+// body -- but shares isSmallI64ShapeTensor() with
+// isShapeConcatDependentOnChain() so the two sides can never disagree on
+// what counts as absorbable: creation never clones a large i64 Concat into
+// the body, so retrieval never needs to (and must not) treat one as
+// plumbing either.
 bool isAbsorbedPlumbing(Operation *op) {
   if (op->hasTrait<mlir::OpTrait::ConstantLike>() ||
       mlir::isa<ONNXNoneOp, ONNXConstantOp, ONNXDimOp>(op))
     return true;
   if (auto concatOp = dyn_cast<ONNXConcatOp>(op))
-    return cast<ShapedType>(concatOp.getConcatResult().getType())
-        .getElementType()
-        .isInteger(64);
+    return isSmallI64ShapeTensor(concatOp.getConcatResult().getType());
   return false;
 }
 
@@ -101,18 +123,19 @@ bool isAbsorbedPlumbing(Operation *op) {
 
 //===----------------------------------------------------------------------===//
 // FusionOpKindHelper — non-virtual method implementations
+//
+// Defined in the same order as declared in the header: the two fusion-pass
+// (creation) methods first, in call order, then the two lowering-pass
+// methods, in call order, then the shared unFuse() fallback -- then the
+// protected/private helpers those public methods are built from.
 //===----------------------------------------------------------------------===//
-
-bool FusionOpKindHelper::isInsideFusedOp(Operation *op) {
-  return mlir::isa<ONNXFusedOp>(op->getParentOp());
-}
 
 bool FusionOpKindHelper::computeInputsAndInsertionPoint() {
   assert(!ops.empty() &&
          "computeInputsAndInsertionPoint() called with empty ops list");
-  cachedFusedInputs.clear();
-  cachedInsertionAnchor = nullptr;
-  cachedInsertAfterAnchor = false;
+  fusedInputs.clear();
+  insertionAnchor = nullptr;
+  insertAfterAnchor = false;
 
   // Build the set of values produced by the chain ops themselves; these
   // are visible inside the body via the clone mapping and never external.
@@ -138,7 +161,7 @@ bool FusionOpKindHelper::computeInputsAndInsertionPoint() {
     if (!defOp) {
       // Block argument (e.g. function parameter) — thread through as an input.
       inputSet.insert(v);
-      cachedFusedInputs.push_back(v);
+      fusedInputs.push_back(v);
       return;
     }
     if (isAbsorbable(defOp, chainProduced)) {
@@ -152,7 +175,7 @@ bool FusionOpKindHelper::computeInputsAndInsertionPoint() {
         collectExternals(operand);
     } else {
       inputSet.insert(v);
-      cachedFusedInputs.push_back(v);
+      fusedInputs.push_back(v);
     }
   };
   for (Operation *op : ops)
@@ -163,7 +186,7 @@ bool FusionOpKindHelper::computeInputsAndInsertionPoint() {
   // Block arguments (no defining op) dominate everything, so they impose no
   // ordering constraint and are skipped here.
   Operation *latestInputDef = nullptr;
-  for (Value v : cachedFusedInputs) {
+  for (Value v : fusedInputs) {
     Operation *defOp = v.getDefiningOp();
     if (!defOp)
       continue;
@@ -192,8 +215,8 @@ bool FusionOpKindHelper::computeInputsAndInsertionPoint() {
   // chain member consumes it, and every chain member precedes-or-is
   // ops.back()). Only unsafe if some outside use sits before ops.back().
   if (!earliestUse || ops.back()->isBeforeInBlock(earliestUse)) {
-    cachedInsertionAnchor = ops.back();
-    cachedInsertAfterAnchor = false;
+    insertionAnchor = ops.back();
+    insertAfterAnchor = false;
     return true;
   }
 
@@ -205,13 +228,13 @@ bool FusionOpKindHelper::computeInputsAndInsertionPoint() {
     // of some chain-produced value, which (in valid pre-existing IR) must
     // already be positioned after whichever chain member produced it, which
     // is at-or-after ops.front().
-    cachedInsertionAnchor = ops.front();
-    cachedInsertAfterAnchor = false;
+    insertionAnchor = ops.front();
+    insertAfterAnchor = false;
     return true;
   }
   if (latestInputDef->isBeforeInBlock(earliestUse)) {
-    cachedInsertionAnchor = latestInputDef;
-    cachedInsertAfterAnchor = true;
+    insertionAnchor = latestInputDef;
+    insertAfterAnchor = true;
     return true;
   }
 
@@ -228,6 +251,87 @@ bool FusionOpKindHelper::computeInputsAndInsertionPoint() {
   return false;
 }
 
+ONNXFusedOp FusionOpKindHelper::fuse(PatternRewriter &rewriter, Location loc) {
+  assert(!ops.empty() && "fuse() called with empty ops list");
+  assert(insertionAnchor &&
+         "computeInputsAndInsertionPoint() must be called (and must return "
+         "true) before fuse()");
+  if (insertAfterAnchor)
+    rewriter.setInsertionPointAfter(insertionAnchor);
+  else
+    rewriter.setInsertionPoint(insertionAnchor);
+  ONNXFusedOp fusedOp = create(rewriter, loc);
+  replaceAndErase(rewriter, fusedOp);
+  return fusedOp;
+}
+
+void FusionOpKindHelper::retrieveOpsAndOutputValues(ONNXFusedOp fusedOp) {
+  ops.clear();
+  finalResults.clear();
+  Block &body = fusedOp.getBody().front();
+  for (Operation &op : body) {
+    if (isa<ONNXYieldOp>(&op)) {
+      for (Value v : op.getOperands())
+        finalResults.push_back(v);
+    } else if (!isAbsorbedPlumbing(&op)) {
+      // Constants, Dims, and shape-Concats are body implementation details
+      // (cloned from the outer IR by createFusedOp() -- see isAbsorbable()
+      // near the top of this file). Exclude them so that ops[] always
+      // contains exactly the semantic chain ops — the same set that
+      // detectIfBeneficial() collected — making verify() reliable at all
+      // times. isAbsorbedPlumbing() must stay in sync with what
+      // createFusedOp() actually clones (isAbsorbable()), or an absorbed op
+      // would leak into ops[] here and desync every subclass's positional
+      // indexing in verify().
+      ops.push_back(&op);
+    }
+  }
+}
+
+bool FusionOpKindHelper::verifyAndRetrieveAttrs(ONNXFusedOp fusedOp) {
+  if (!retrieveAttrs(fusedOp)) {
+    LLVM_DEBUG(llvm::dbgs()
+               << "FusionOpKindHelper: retrieveAttrs failed for kind '"
+               << fusedOp.getKind() << "'\n");
+    return false;
+  }
+  if (!verify()) {
+    LLVM_DEBUG(llvm::dbgs() << "FusionOpKindHelper: verify failed for kind '"
+                            << fusedOp.getKind() << "'\n");
+    return false;
+  }
+  return true;
+}
+
+LogicalResult FusionOpKindHelper::unFuse(
+    PatternRewriter &rewriter, ONNXFusedOp fusedOp) {
+  LLVM_DEBUG(llvm::dbgs() << "FusionOpKindHelper::unFuse: inlining "
+                          << "onnx.Fused (kind='" << fusedOp.getKind()
+                          << "') — no dedicated lowering or verify failed\n");
+  Block &body = fusedOp.getBody().front();
+  auto yieldOp = cast<ONNXYieldOp>(body.getTerminator());
+  // Snapshot yield operands before they move during inlining.
+  SmallVector<Value> results(yieldOp.getOperands());
+  // Inline the body just before the FusedOp.  Pass the original
+  // (pre-conversion) FusedOp inputs so that block-argument types match;
+  // the rewriter then converts the newly exposed ops in the same pass.
+  rewriter.inlineBlockBefore(&body, fusedOp, fusedOp.getInputs());
+  rewriter.eraseOp(yieldOp);
+  rewriter.replaceOp(fusedOp, results);
+  return success();
+}
+
+bool FusionOpKindHelper::isInsideFusedOp(Operation *op) {
+  return mlir::isa<ONNXFusedOp>(op->getParentOp());
+}
+
+ONNXFusedOp FusionOpKindHelper::create(
+    PatternRewriter &rewriter, Location loc) {
+  ONNXFusedOp fusedOp = createFusedOp(rewriter, loc, getKind());
+  embedAttrs(fusedOp);
+  return fusedOp;
+}
+
 ONNXFusedOp FusionOpKindHelper::createFusedOp(
     PatternRewriter &rewriter, Location loc, StringRef kind) {
   // Build the set of values produced by the chain ops themselves; these
@@ -237,12 +341,11 @@ ONNXFusedOp FusionOpKindHelper::createFusedOp(
     for (Value result : op->getResults())
       chainProduced.insert(result);
 
-  // The external input list was already computed (and used to determine the
-  // insertion point) by computeInputsAndInsertionPoint() -- reuse it rather
-  // than recomputing, so the inputs actually threaded through are guaranteed
+  // fusedInputs was already computed (and used to determine the insertion
+  // point) by computeInputsAndInsertionPoint() -- reuse it rather than
+  // recomputing, so the inputs actually threaded through are guaranteed
   // identical to the ones the insertion-point feasibility check reasoned
   // about.
-  SmallVector<Value> &fusedInputs = cachedFusedInputs;
 
   // Build FusedOp with the complete input list.
   SmallVector<Type, 4> outputTypes;
@@ -301,50 +404,6 @@ ONNXFusedOp FusionOpKindHelper::createFusedOp(
   return fusedOp;
 }
 
-ONNXFusedOp FusionOpKindHelper::fuse(PatternRewriter &rewriter, Location loc) {
-  assert(!ops.empty() && "fuse() called with empty ops list");
-  assert(cachedInsertionAnchor &&
-         "computeInputsAndInsertionPoint() must be called (and must return "
-         "true) before fuse()");
-  if (cachedInsertAfterAnchor)
-    rewriter.setInsertionPointAfter(cachedInsertionAnchor);
-  else
-    rewriter.setInsertionPoint(cachedInsertionAnchor);
-  ONNXFusedOp fusedOp = create(rewriter, loc);
-  replaceAndErase(rewriter, fusedOp);
-  return fusedOp;
-}
-
-ONNXFusedOp FusionOpKindHelper::create(
-    PatternRewriter &rewriter, Location loc) {
-  ONNXFusedOp fusedOp = createFusedOp(rewriter, loc, getKind());
-  embedAttrs(fusedOp);
-  return fusedOp;
-}
-
-void FusionOpKindHelper::retrieveOpsAndOutputValues(ONNXFusedOp fusedOp) {
-  ops.clear();
-  finalResults.clear();
-  Block &body = fusedOp.getBody().front();
-  for (Operation &op : body) {
-    if (isa<ONNXYieldOp>(&op)) {
-      for (Value v : op.getOperands())
-        finalResults.push_back(v);
-    } else if (!isAbsorbedPlumbing(&op)) {
-      // Constants, Dims, and shape-Concats are body implementation details
-      // (cloned from the outer IR by createFusedOp() -- see isAbsorbable()
-      // near the top of this file). Exclude them so that ops[] always
-      // contains exactly the semantic chain ops — the same set that
-      // detectIfBeneficial() collected — making verify() reliable at all
-      // times. isAbsorbedPlumbing() must stay in sync with what
-      // createFusedOp() actually clones (isAbsorbable()), or an absorbed op
-      // would leak into ops[] here and desync every subclass's positional
-      // indexing in verify().
-      ops.push_back(&op);
-    }
-  }
-}
-
 void FusionOpKindHelper::replaceAndErase(
     PatternRewriter &rewriter, ONNXFusedOp fusedOp) {
   DenseMap<Value, unsigned> outputMap;
@@ -358,39 +417,6 @@ void FusionOpKindHelper::replaceAndErase(
     else
       rewriter.eraseOp(ops[i]);
   }
-}
-
-bool FusionOpKindHelper::verifyAndRetrieveAttrs(ONNXFusedOp fusedOp) {
-  if (!retrieveAttrs(fusedOp)) {
-    LLVM_DEBUG(llvm::dbgs()
-               << "FusionOpKindHelper: retrieveAttrs failed for kind '"
-               << fusedOp.getKind() << "'\n");
-    return false;
-  }
-  if (!verify()) {
-    LLVM_DEBUG(llvm::dbgs() << "FusionOpKindHelper: verify failed for kind '"
-                            << fusedOp.getKind() << "'\n");
-    return false;
-  }
-  return true;
-}
-
-LogicalResult FusionOpKindHelper::unFuse(
-    PatternRewriter &rewriter, ONNXFusedOp fusedOp) {
-  LLVM_DEBUG(llvm::dbgs() << "FusionOpKindHelper::unFuse: inlining "
-                          << "onnx.Fused (kind='" << fusedOp.getKind()
-                          << "') — no dedicated lowering or verify failed\n");
-  Block &body = fusedOp.getBody().front();
-  auto yieldOp = cast<ONNXYieldOp>(body.getTerminator());
-  // Snapshot yield operands before they move during inlining.
-  SmallVector<Value> results(yieldOp.getOperands());
-  // Inline the body just before the FusedOp.  Pass the original
-  // (pre-conversion) FusedOp inputs so that block-argument types match;
-  // the rewriter then converts the newly exposed ops in the same pass.
-  rewriter.inlineBlockBefore(&body, fusedOp, fusedOp.getInputs());
-  rewriter.eraseOp(yieldOp);
-  rewriter.replaceOp(fusedOp, results);
-  return success();
 }
 
 } // namespace onnx_mlir

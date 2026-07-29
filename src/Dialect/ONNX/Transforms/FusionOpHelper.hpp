@@ -37,7 +37,7 @@
 //     return failure(); // no valid single insertion point exists -- decline
 //
 //   fusion.fuse(rewriter, loc);
-//   // => uses the insertion point cached by computeInputsAndInsertionPoint().
+//   // => uses the insertion point computeInputsAndInsertionPoint() found.
 //   // => private create(): builds body, embedAttrs() stores params as attrs.
 //   // => private replaceAndErase(): back-to-front.
 //
@@ -87,28 +87,26 @@ namespace onnx_mlir {
 
 class FusionOpKindHelper {
 public:
-  /// Chain ops in chain order: ops[i]'s output feeds ops[i+1] as an input,
-  /// and ops.back() is the last op whose result becomes the FusedOp output.
-  llvm::SmallVector<mlir::Operation *> ops;
-
-  /// Values yielded by the body, one per ONNXFusedOp result.
-  llvm::SmallVector<mlir::Value> finalResults;
-
   virtual ~FusionOpKindHelper() = default;
 
   // -- Non-virtual template methods (calling sequences) ----------------------
-
-  /// Build the FusedOp, replace the original chain ops with its outputs, and
-  /// erase the chain ops.  computeInputsAndInsertionPoint() must have already
-  /// been called successfully (it sets the rewriter insertion point
-  /// internally, at the cached anchor -- normally FusedPatternForOpKind calls
-  /// it automatically; see the file header comment).
-  mlir::ONNXFusedOp fuse(mlir::PatternRewriter &rewriter, mlir::Location loc);
+  //
+  // Listed in the same order as the two calling sequences in the file header
+  // comment. computeInputsAndInsertionPoint() and fuse() (the fusion-pass
+  // pair) are called only from FusedPatternForOpKind::matchAndRewrite
+  // (FusionOpBasePattern.hpp) -- listed first, in call order.
+  // retrieveOpsAndOutputValues() and verifyAndRetrieveAttrs() (the
+  // lowering-pass pair) are called only from
+  // FusedOpKindLowering<FusionT>::matchAndRewrite (ONNXToKrnlCommon.hpp) --
+  // listed next, in call order. unFuse() is called from there too, plus
+  // directly by the generic FusedOpInlineFallback::matchAndRewrite
+  // (ONNXToKrnlCommon.cpp) for a kind with no dedicated lowering, so it
+  // comes last.
 
   /// Pure query (no IR mutation): computes the FusedOp's external input list
   /// and determines whether a single insertion point exists that is
   /// simultaneously after every one of those inputs' definitions and before
-  /// every outside (non-chain) use of every value in finalResults. Caches the
+  /// every outside (non-chain) use of every value in finalResults. Stores the
   /// input list and insertion point on success for fuse()/createFusedOp() to
   /// reuse. Returns false -- meaning the match must be treated as a failure,
   /// do not call fuse() -- when no such point exists. Must be called exactly
@@ -116,6 +114,13 @@ public:
   /// after detectIfBeneficial() would otherwise return true) and before
   /// fuse().
   bool computeInputsAndInsertionPoint();
+
+  /// Build the FusedOp, replace the original chain ops with its outputs, and
+  /// erase the chain ops.  computeInputsAndInsertionPoint() must have already
+  /// been called successfully (it sets the rewriter insertion point
+  /// internally, at the anchor it found -- normally FusedPatternForOpKind
+  /// calls it automatically; see the file header comment).
+  mlir::ONNXFusedOp fuse(mlir::PatternRewriter &rewriter, mlir::Location loc);
 
   /// Walk fusedOp.getBody().front(): collect non-YieldOp ops => this->ops and
   /// YieldOp operands => this->finalResults.  Resets both fields on entry.
@@ -142,6 +147,20 @@ public:
       mlir::PatternRewriter &rewriter, mlir::ONNXFusedOp fusedOp);
 
 protected:
+  // -- State populated by the base class, read by subclass overrides --------
+  //
+  // Not public: nothing outside this class hierarchy touches these fields
+  // directly (every external caller -- FusedPatternForOpKind,
+  // FusedOpKindLowering, etc. -- goes through the methods above/below
+  // instead), so subclass-only access is all that's needed.
+
+  /// Chain ops in chain order: ops[i]'s output feeds ops[i+1] as an input,
+  /// and ops.back() is the last op whose result becomes the FusedOp output.
+  llvm::SmallVector<mlir::Operation *> ops;
+
+  /// Values yielded by the body, one per ONNXFusedOp result.
+  llvm::SmallVector<mlir::Value> finalResults;
+
   // -- Helper for subclass detect methods ------------------------------------
 
   /// Returns true when \p op is directly nested inside an ONNXFusedOp body.
@@ -182,26 +201,27 @@ protected:
   // here.  Must call isInsideFusedOp(startOp) first (see above).
 
 private:
-  // -- Cache populated by computeInputsAndInsertionPoint(), consumed by
+  // -- State populated by computeInputsAndInsertionPoint(), consumed by
   // fuse()/createFusedOp(). Not meaningful until that call has returned true.
-  llvm::SmallVector<mlir::Value> cachedFusedInputs;
-  mlir::Operation *cachedInsertionAnchor = nullptr;
-  // true: insert immediately after cachedInsertionAnchor (it is the latest
+  llvm::SmallVector<mlir::Value> fusedInputs;
+  mlir::Operation *insertionAnchor = nullptr;
+  // true: insert immediately after insertionAnchor (it is the latest
   // external input's defining op). false: insert immediately before
-  // cachedInsertionAnchor (the old ops.back()-relative default, still valid
+  // insertionAnchor (the old ops.back()-relative default, still valid
   // whenever no outside use of a yielded value forces an earlier point).
-  bool cachedInsertAfterAnchor = false;
+  bool insertAfterAnchor = false;
 
   /// Build the ONNXFusedOp body — called by fuse().
   mlir::ONNXFusedOp create(mlir::PatternRewriter &rewriter, mlir::Location loc);
 
-  /// Replace output ops and erase internal ops — called by fuse().
-  void replaceAndErase(
-      mlir::PatternRewriter &rewriter, mlir::ONNXFusedOp fusedOp);
-
   /// Body-building implementation used by create().
   mlir::ONNXFusedOp createFusedOp(mlir::PatternRewriter &rewriter,
       mlir::Location loc, llvm::StringRef kind);
+
+  /// Replace output ops and erase internal ops — called by fuse(), after
+  /// create() returns.
+  void replaceAndErase(
+      mlir::PatternRewriter &rewriter, mlir::ONNXFusedOp fusedOp);
 };
 
 } // namespace onnx_mlir

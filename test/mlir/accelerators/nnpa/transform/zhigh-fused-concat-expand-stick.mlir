@@ -255,6 +255,57 @@ func.func @concat_expand_stick_dim_plus_one_beyond_absorption_reach(
 
 // -----
 
+// A Concat can be i64-typed and depend directly on an absorbable Dim (both
+// conditions isShapeConcatDependentOnChain() checks) while one of its OTHER
+// operands is large real data rather than shape metadata -- here %arg2
+// stands in for e.g. a precomputed index tensor. Absorbing this Concat would
+// duplicate that data's own Concat/movement, not a cheap scalar recompute --
+// exactly what the shape-metadata absorption is meant to avoid. The size
+// bound in isSmallI64ShapeTensor() (kMaxAbsorbableShapeElements = 8; this
+// Concat's result has 10) catches this: the Concat falls through to being an
+// ordinary external input, downstream of the chain-produced concat as
+// before, and computeInputsAndInsertionPoint() declines to fuse -- same
+// outcome as @concat_expand_stick_dim_plus_one_beyond_absorption_reach
+// above, reached via a different route (too large, not too many hops).
+
+func.func @concat_expand_stick_large_shape_concat_operand(
+    %arg0: tensor<2x4x3x64xf32>, %arg1: tensor<2x4x5x64xf32>,
+    %arg2: tensor<9xi64>)
+    -> tensor<24x8x64xf16, #zhigh.layout<{dataLayout = "3DS"}>> {
+  %axes  = onnx.Constant dense<2>               : tensor<1xi64>
+  %shre  = onnx.Constant dense<[24, 8, 64]>      : tensor<3xi64>
+  %cat  = "onnx.Concat"(%arg0, %arg1) <{axis = 2 : si64}>
+            : (tensor<2x4x3x64xf32>, tensor<2x4x5x64xf32>) -> tensor<2x4x8x64xf32>
+  %dim  = "onnx.Dim"(%cat) <{axis = 2 : si64}> : (tensor<2x4x8x64xf32>) -> tensor<1xi64>
+  %shexp = "onnx.Concat"(%arg2, %dim) <{axis = 0 : si64}>
+            : (tensor<9xi64>, tensor<1xi64>) -> tensor<10xi64>
+  %unsq = "onnx.Unsqueeze"(%cat, %axes)
+            : (tensor<2x4x8x64xf32>, tensor<1xi64>) -> tensor<2x4x1x8x64xf32>
+  %dlf  = "zhigh.F32ToDLF16"(%unsq)
+            : (tensor<2x4x1x8x64xf32>) -> tensor<2x4x1x8x64xf16>
+  %exp  = "onnx.Expand"(%dlf, %shexp)
+            : (tensor<2x4x1x8x64xf16>, tensor<10xi64>) -> tensor<2x4x3x8x64xf16>
+  %resh = "onnx.Reshape"(%exp, %shre) <{allowzero = 0 : si64}>
+            : (tensor<2x4x3x8x64xf16>, tensor<3xi64>) -> tensor<24x8x64xf16>
+  %out  = "onnx.LayoutTransform"(%resh) {target_layout = #zhigh.layout<{dataLayout = "3DS"}>}
+            : (tensor<24x8x64xf16>) -> tensor<24x8x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  return %out : tensor<24x8x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+
+// CHECK-LABEL:  func.func @concat_expand_stick_large_shape_concat_operand
+// CHECK-NOT:       "onnx.Fused"
+// CHECK:           "onnx.Concat"
+// CHECK:           "onnx.Dim"
+// CHECK:           "onnx.Concat"
+// CHECK:           "onnx.Unsqueeze"
+// CHECK:           "zhigh.F32ToDLF16"
+// CHECK:           "onnx.Expand"
+// CHECK:           "onnx.Reshape"
+// CHECK:           "onnx.LayoutTransform"
+// CHECK:           return
+}
+
+// -----
+
 // The concat's result may also have an outside use that is early
 // (positioned before the last chain op) but genuinely unrelated -- it does
 // not feed back into anything the chain itself needs. Here a valid single

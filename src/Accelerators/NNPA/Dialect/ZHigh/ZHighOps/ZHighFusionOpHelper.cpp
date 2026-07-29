@@ -977,8 +977,15 @@ bool ConcatExpandStickFusionHelper::retrieveAttrs(ONNXFusedOp fusedOp) {
 }
 
 bool ConcatExpandStickFusionHelper::verify() const {
-#if 0
-  fprintf(stderr, "hi alex: disable lowerin gof concat expand stick fusion\n");
+#if 1
+   static int count = 0;
+    if (count++ > 0) {
+      fprintf(stderr, "hi alex: disable lowering ces concat expand stick fusion %i\n", count);
+      return false;
+    }
+    fprintf(stderr, "hi alex: enable lowerin ces concat expand stick fusion %i\n", count);
+#elif 0
+  fprintf(stderr, "hi alex: disable lowering ces concat expand stick fusion\n");
   return false;
 #endif
 
