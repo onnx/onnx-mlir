@@ -3,7 +3,7 @@
 
 ##################### RunONNXModel.py #########################################
 #
-# Copyright 2019-2025 The IBM Research Authors.
+# Copyright 2019-2026 The IBM Research Authors.
 #
 ################################################################################
 #
@@ -634,6 +634,20 @@ def cache_string(model_name, compile_option):
     return "model: " + model_name + "; compile option: " + compile_option
 
 
+def check_mlir_has_entry_point(mlir_path):
+    # A .mlir model with no "onnx.EntryPoint" compiles successfully but has no
+    # function to call at runtime, so it silently fails to run. Catch it early.
+    with open(mlir_path, "r") as f:
+        if "onnx.EntryPoint" not in f.read():
+            print(
+                'Invalid mlir model "'
+                + mlir_path
+                + '": missing "onnx.EntryPoint". The model would compile but '
+                "silently fail to run."
+            )
+            exit(1)
+
+
 ################################################################################
 # Inference Session implementing RunONNXModel.
 #
@@ -828,6 +842,8 @@ class InferenceSession:
                     input_model_path = args.model
             elif args.model.endswith(".mlir") or args.model.endswith(".onnxtext"):
                 input_model_path = args.model
+                if args.model.endswith(".mlir") and not args.compile_only:
+                    check_mlir_has_entry_point(args.model)
             else:
                 print(
                     "Invalid input model path. Must end with .onnx or .mlir or .onnxtext"
@@ -857,7 +873,7 @@ class InferenceSession:
                     log_file_name=compiler_log_file,
                 )
             except RuntimeError as e:
-                raise RuntimeError(f"Compilation failed: {e}")
+                raise RuntimeError(f"Compilation failed: {e}") from None
 
         end = time.perf_counter()
         print("  took ", end - start, " seconds.\n")
@@ -1105,9 +1121,12 @@ class InferenceSession:
                 print("Invalid verify option")
                 exit(1)
 
-            # Verify using softmax first.
+            # Verify using softmax first. Keep verifying the remaining outputs
+            # even if an earlier one is erroneous, so that every output's
+            # status is known instead of stopping on the first failure.
             if args.verify_with_softmax is not None:
                 axis = int(args.verify_with_softmax)
+                softmax_status = []
                 for i, name in enumerate(self.output_names):
                     print(
                         "Verifying using softmax along with "
@@ -1117,7 +1136,24 @@ class InferenceSession:
                     )
                     softmax_outs = softmax(outs[i], axis)
                     softmax_ref_outs = softmax(ref_outs[i], axis)
-                    verify_outs(softmax_outs, softmax_ref_outs, args.atol, args.rtol)
+                    is_correct = verify_outs(
+                        softmax_outs, softmax_ref_outs, args.atol, args.rtol
+                    )
+                    softmax_status.append((name, is_correct))
+
+                # Only print the summary (and stay silent otherwise) when at
+                # least one output is erroneous.
+                if not all(is_correct for _, is_correct in softmax_status):
+                    print(
+                        "Summary of softmax verification for {} output(s):".format(
+                            len(softmax_status)
+                        )
+                    )
+                    for name, is_correct in softmax_status:
+                        status = "correct" if is_correct else "ERRONEOUS"
+                        print("  {}: {}".format(name, status))
+                    print()
+                    exit(1)
 
             # For each output tensor, compare every value. Keep verifying the
             # remaining outputs even if an earlier one is erroneous, so that
@@ -1294,7 +1330,11 @@ def main():
     session_wrapper = import_driver()
     # Create inference session and perform a performance run test, which load,
     # compute, and possibly verify data.
-    session = InferenceSession(session_wrapper=session_wrapper)
+    try:
+        session = InferenceSession(session_wrapper=session_wrapper)
+    except RuntimeError as e:
+        print(f"error: {e}")
+        sys.exit(1)
     return session.run_performance_test()
 
 
