@@ -977,7 +977,7 @@ bool ConcatExpandStickFusionHelper::retrieveAttrs(ONNXFusedOp fusedOp) {
 }
 
 bool ConcatExpandStickFusionHelper::verify() const {
-#if 1
+#if 0
    static int count = 0;
     if (count++ > 0) {
       fprintf(stderr, "hi alex: disable lowering ces concat expand stick fusion %i\n", count);
