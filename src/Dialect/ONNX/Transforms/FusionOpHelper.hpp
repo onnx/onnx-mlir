@@ -200,6 +200,12 @@ protected:
   // — omitting detectIfBeneficial fails to compile at that instantiation, not
   // here.  Must call isInsideFusedOp(startOp) first (see above).
 
+  // TODO:  when detecting the pattern, we often require "ops" to have only one
+  // use... which has worked so far. But if we detect a situation where there
+  // are multiple use, but only one uses the actual data and not dims for
+  // internal-only consumption, that could be allowed. May add this when we see
+  // a need.
+
 private:
   // -- State populated by computeInputsAndInsertionPoint(), consumed by
   // fuse()/createFusedOp(). Not meaningful until that call has returned true.
