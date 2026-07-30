@@ -25,7 +25,7 @@ namespace onnx_mlir {
 
 namespace {
 
-// -- Part B: absorbing shape-metadata ops into the fused body --------------
+// Absorbing shape-metadata ops into the fused body --------------
 //
 // In addition to constants, two more op shapes are safe to clone into the
 // body rather than thread through as external inputs -- and only these:
@@ -90,6 +90,12 @@ bool isShapeConcatDependentOnChain(
 // True for anything createFusedOp()/computeInputsAndInsertionPoint() clone
 // into the body rather than expose as an external input: constants (as
 // before), plus the two shape-metadata shapes above.
+//
+// TODO: at some times, we may want to consider simple shape arithmetic (e.g. a
+// small Add or Mul) to be cheap enough to clone into the body as well.  If so,
+// add a new isAbsorbableShapeArithmetic() helper and call it here (and in the
+// retrieval-side isAbsorbedPlumbing() too, so that the two sides never disagree
+// on what counts as plumbing).
 bool isAbsorbable(Operation *op, const DenseSet<Value> &chainProduced) {
   return op->hasTrait<mlir::OpTrait::ConstantLike>() ||
          mlir::isa<ONNXNoneOp, ONNXConstantOp>(op) ||

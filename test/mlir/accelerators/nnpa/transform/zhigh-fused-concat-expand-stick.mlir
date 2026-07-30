@@ -540,3 +540,233 @@ func.func @no_fuse_layout_transform_unsupported_layout(
 // CHECK:           "onnx.LayoutTransform"
 // CHECK:           return
 }
+
+// -----
+
+// F32ToDLF16's no_saturation attr is threaded through to the stored
+// noSaturation param -- otherwise identical to @concat_expand_stick_basic.
+
+func.func @concat_expand_stick_no_saturation(
+    %arg0: tensor<2x4x3x64xf32>, %arg1: tensor<2x4x5x64xf32>)
+    -> tensor<24x8x64xf16, #zhigh.layout<{dataLayout = "3DS"}>> {
+  %axes  = onnx.Constant dense<2>               : tensor<1xi64>
+  %shexp = onnx.Constant dense<[2, 4, 3, 8, 64]> : tensor<5xi64>
+  %shre  = onnx.Constant dense<[24, 8, 64]>      : tensor<3xi64>
+  %cat  = "onnx.Concat"(%arg0, %arg1) <{axis = 2 : si64}>
+            : (tensor<2x4x3x64xf32>, tensor<2x4x5x64xf32>) -> tensor<2x4x8x64xf32>
+  %unsq = "onnx.Unsqueeze"(%cat, %axes)
+            : (tensor<2x4x8x64xf32>, tensor<1xi64>) -> tensor<2x4x1x8x64xf32>
+  %dlf  = "zhigh.F32ToDLF16"(%unsq) {no_saturation = 1 : si64}
+            : (tensor<2x4x1x8x64xf32>) -> tensor<2x4x1x8x64xf16>
+  %exp  = "onnx.Expand"(%dlf, %shexp)
+            : (tensor<2x4x1x8x64xf16>, tensor<5xi64>) -> tensor<2x4x3x8x64xf16>
+  %resh = "onnx.Reshape"(%exp, %shre) <{allowzero = 0 : si64}>
+            : (tensor<2x4x3x8x64xf16>, tensor<3xi64>) -> tensor<24x8x64xf16>
+  %out  = "onnx.LayoutTransform"(%resh) {target_layout = #zhigh.layout<{dataLayout = "3DS"}>}
+            : (tensor<24x8x64xf16>) -> tensor<24x8x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  return %out : tensor<24x8x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+
+// CHECK-LABEL:  func.func @concat_expand_stick_no_saturation
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x4x3x64xf32>, [[PARAM_1_:%.+]]: tensor<2x4x5x64xf32>)
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Fused"([[PARAM_0_]], [[PARAM_1_]]) <{kind = "zhigh.concat-expand-stick"}>
+// CHECK:           "zhigh.F32ToDLF16"{{.*}}no_saturation = 1{{.*}}-> tensor<2x4x1x8x64xf16>
+// CHECK:           onnx.Yield
+// CHECK:           concatAxis = 2{{.*}}expansionN = 3{{.*}}finalLayout = "3DS"{{.*}}noSaturation = true{{.*}}reshapeCollapsedCount = 3{{.*}}reshapeFirstCollapsedDim = 0{{.*}}unsqueezedPosition = 2{{.*}}yieldConcatResult = false
+// CHECK:           return [[VAR_0_]] : tensor<24x8x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:           }
+}
+
+// -----
+
+// finalLayout = "4D": the third option in the {3D, 3DS, 4D} allow-list,
+// reached with unsqueezedPosition = 1 and reshapeCollapsedCount = 2 (only
+// dims [0, 1] collapse, leaving 4 result dims) instead of the 3DS cases'
+// unsqueezedPosition = 2 / reshapeCollapsedCount = 3.
+
+func.func @concat_expand_stick_layout_4d(
+    %arg0: tensor<2x4x3x64xf32>, %arg1: tensor<2x4x5x64xf32>)
+    -> tensor<6x4x8x64xf16, #zhigh.layout<{dataLayout = "4D"}>> {
+  %axes  = onnx.Constant dense<1>              : tensor<1xi64>
+  %shexp = onnx.Constant dense<[2, 3, 4, 8, 64]> : tensor<5xi64>
+  %shre  = onnx.Constant dense<[6, 4, 8, 64]>    : tensor<4xi64>
+  %cat  = "onnx.Concat"(%arg0, %arg1) <{axis = 2 : si64}>
+            : (tensor<2x4x3x64xf32>, tensor<2x4x5x64xf32>) -> tensor<2x4x8x64xf32>
+  %unsq = "onnx.Unsqueeze"(%cat, %axes)
+            : (tensor<2x4x8x64xf32>, tensor<1xi64>) -> tensor<2x1x4x8x64xf32>
+  %dlf  = "zhigh.F32ToDLF16"(%unsq)
+            : (tensor<2x1x4x8x64xf32>) -> tensor<2x1x4x8x64xf16>
+  %exp  = "onnx.Expand"(%dlf, %shexp)
+            : (tensor<2x1x4x8x64xf16>, tensor<5xi64>) -> tensor<2x3x4x8x64xf16>
+  %resh = "onnx.Reshape"(%exp, %shre) <{allowzero = 0 : si64}>
+            : (tensor<2x3x4x8x64xf16>, tensor<4xi64>) -> tensor<6x4x8x64xf16>
+  %out  = "onnx.LayoutTransform"(%resh) {target_layout = #zhigh.layout<{dataLayout = "4D"}>}
+            : (tensor<6x4x8x64xf16>) -> tensor<6x4x8x64xf16, #zhigh.layout<{dataLayout = "4D"}>>
+  return %out : tensor<6x4x8x64xf16, #zhigh.layout<{dataLayout = "4D"}>>
+
+// CHECK-LABEL:  func.func @concat_expand_stick_layout_4d
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x4x3x64xf32>, [[PARAM_1_:%.+]]: tensor<2x4x5x64xf32>)
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Fused"([[PARAM_0_]], [[PARAM_1_]]) <{kind = "zhigh.concat-expand-stick"}>
+// CHECK:           "onnx.Concat"{{.*}}-> tensor<2x4x8x64xf32>
+// CHECK:           "onnx.Unsqueeze"{{.*}}-> tensor<2x1x4x8x64xf32>
+// CHECK:           "zhigh.F32ToDLF16"{{.*}}-> tensor<2x1x4x8x64xf16>
+// CHECK:           "onnx.Expand"{{.*}}-> tensor<2x3x4x8x64xf16>
+// CHECK:           "onnx.Reshape"{{.*}}-> tensor<6x4x8x64xf16>
+// CHECK:           "onnx.LayoutTransform"{{.*}}-> tensor<6x4x8x64xf16, #zhigh.layout<{dataLayout = "4D"}>>
+// CHECK:           onnx.Yield
+// CHECK:           concatAxis = 2{{.*}}expansionN = 3{{.*}}finalLayout = "4D"{{.*}}noSaturation = false{{.*}}reshapeCollapsedCount = 2{{.*}}reshapeFirstCollapsedDim = 0{{.*}}unsqueezedPosition = 1{{.*}}yieldConcatResult = false
+// CHECK:           return [[VAR_0_]] : tensor<6x4x8x64xf16, #zhigh.layout<{dataLayout = "4D"}>>
+// CHECK:           }
+}
+
+// -----
+
+// Unsqueeze: rejected when the axes constant has more than one element
+// (axesAttr.getNumElements() != 1).
+
+func.func @no_fuse_unsqueeze_multi_axis(
+    %arg0: tensor<2x4x3x64xf32>, %arg1: tensor<2x4x5x64xf32>)
+    -> tensor<4x8x128xf16, #zhigh.layout<{dataLayout = "3D"}>> {
+  %axes  = onnx.Constant dense<[0, 1]>            : tensor<2xi64>
+  %shexp = onnx.Constant dense<[1, 1, 2, 4, 8, 64]> : tensor<6xi64>
+  %shre  = onnx.Constant dense<[4, 8, 128]>         : tensor<3xi64>
+  %cat  = "onnx.Concat"(%arg0, %arg1) <{axis = 2 : si64}>
+            : (tensor<2x4x3x64xf32>, tensor<2x4x5x64xf32>) -> tensor<2x4x8x64xf32>
+  %unsq = "onnx.Unsqueeze"(%cat, %axes)
+            : (tensor<2x4x8x64xf32>, tensor<2xi64>) -> tensor<1x1x2x4x8x64xf32>
+  %dlf  = "zhigh.F32ToDLF16"(%unsq)
+            : (tensor<1x1x2x4x8x64xf32>) -> tensor<1x1x2x4x8x64xf16>
+  %exp  = "onnx.Expand"(%dlf, %shexp)
+            : (tensor<1x1x2x4x8x64xf16>, tensor<6xi64>) -> tensor<1x1x2x4x8x64xf16>
+  %resh = "onnx.Reshape"(%exp, %shre) <{allowzero = 0 : si64}>
+            : (tensor<1x1x2x4x8x64xf16>, tensor<3xi64>) -> tensor<4x8x128xf16>
+  %out  = "onnx.LayoutTransform"(%resh) {target_layout = #zhigh.layout<{dataLayout = "3D"}>}
+            : (tensor<4x8x128xf16>) -> tensor<4x8x128xf16, #zhigh.layout<{dataLayout = "3D"}>>
+  return %out : tensor<4x8x128xf16, #zhigh.layout<{dataLayout = "3D"}>>
+
+// CHECK-LABEL:  func.func @no_fuse_unsqueeze_multi_axis
+// CHECK-NOT:       "onnx.Fused"
+// CHECK:           "onnx.Concat"
+// CHECK:           "onnx.Unsqueeze"
+// CHECK:           "zhigh.F32ToDLF16"
+// CHECK:           "onnx.Expand"
+// CHECK:           "onnx.Reshape"
+// CHECK:           "onnx.LayoutTransform"
+// CHECK:           return
+}
+
+// -----
+
+// Unsqueeze: rejected when the (normalized) axis equals concatRank exactly
+// -- the new dim would be appended past the concat result's last dim,
+// violating the "P must be < concatRank" check. This is distinct from the
+// general axis-range check (P=3 here still satisfies 0 <= P < outputRank=4).
+
+func.func @no_fuse_unsqueeze_axis_at_concat_rank(
+    %arg0: tensor<3x2x64xf32>, %arg1: tensor<3x2x64xf32>)
+    -> tensor<3x4x512xf16, #zhigh.layout<{dataLayout = "3D"}>> {
+  %axes  = onnx.Constant dense<3>             : tensor<1xi64>
+  %shexp = onnx.Constant dense<[3, 4, 64, 8]> : tensor<4xi64>
+  %shre  = onnx.Constant dense<[3, 4, 512]>   : tensor<3xi64>
+  %cat  = "onnx.Concat"(%arg0, %arg1) <{axis = 1 : si64}>
+            : (tensor<3x2x64xf32>, tensor<3x2x64xf32>) -> tensor<3x4x64xf32>
+  %unsq = "onnx.Unsqueeze"(%cat, %axes)
+            : (tensor<3x4x64xf32>, tensor<1xi64>) -> tensor<3x4x64x1xf32>
+  %dlf  = "zhigh.F32ToDLF16"(%unsq)
+            : (tensor<3x4x64x1xf32>) -> tensor<3x4x64x1xf16>
+  %exp  = "onnx.Expand"(%dlf, %shexp)
+            : (tensor<3x4x64x1xf16>, tensor<4xi64>) -> tensor<3x4x64x8xf16>
+  %resh = "onnx.Reshape"(%exp, %shre) <{allowzero = 0 : si64}>
+            : (tensor<3x4x64x8xf16>, tensor<3xi64>) -> tensor<3x4x512xf16>
+  %out  = "onnx.LayoutTransform"(%resh) {target_layout = #zhigh.layout<{dataLayout = "3D"}>}
+            : (tensor<3x4x512xf16>) -> tensor<3x4x512xf16, #zhigh.layout<{dataLayout = "3D"}>>
+  return %out : tensor<3x4x512xf16, #zhigh.layout<{dataLayout = "3D"}>>
+
+// CHECK-LABEL:  func.func @no_fuse_unsqueeze_axis_at_concat_rank
+// CHECK-NOT:       "onnx.Fused"
+// CHECK:           "onnx.Concat"
+// CHECK:           "onnx.Unsqueeze"
+// CHECK:           "zhigh.F32ToDLF16"
+// CHECK:           "onnx.Expand"
+// CHECK:           "onnx.Reshape"
+// CHECK:           "onnx.LayoutTransform"
+// CHECK:           return
+}
+
+// -----
+
+// Unsqueeze: rejected when the concat result has two distinct
+// ONNXUnsqueezeOp users -- ambiguous, so uniqueUserOfType returns null even
+// though each individual Unsqueeze looks otherwise valid.
+
+func.func @no_fuse_unsqueeze_ambiguous_user(
+    %arg0: tensor<2x4x3x64xf32>, %arg1: tensor<2x4x5x64xf32>)
+    -> (tensor<24x8x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<2x4x1x8x64xf32>) {
+  %axes  = onnx.Constant dense<2>               : tensor<1xi64>
+  %shexp = onnx.Constant dense<[2, 4, 3, 8, 64]> : tensor<5xi64>
+  %shre  = onnx.Constant dense<[24, 8, 64]>      : tensor<3xi64>
+  %cat  = "onnx.Concat"(%arg0, %arg1) <{axis = 2 : si64}>
+            : (tensor<2x4x3x64xf32>, tensor<2x4x5x64xf32>) -> tensor<2x4x8x64xf32>
+  %unsq = "onnx.Unsqueeze"(%cat, %axes)
+            : (tensor<2x4x8x64xf32>, tensor<1xi64>) -> tensor<2x4x1x8x64xf32>
+  %unsq2 = "onnx.Unsqueeze"(%cat, %axes)
+            : (tensor<2x4x8x64xf32>, tensor<1xi64>) -> tensor<2x4x1x8x64xf32>
+  %dlf  = "zhigh.F32ToDLF16"(%unsq)
+            : (tensor<2x4x1x8x64xf32>) -> tensor<2x4x1x8x64xf16>
+  %exp  = "onnx.Expand"(%dlf, %shexp)
+            : (tensor<2x4x1x8x64xf16>, tensor<5xi64>) -> tensor<2x4x3x8x64xf16>
+  %resh = "onnx.Reshape"(%exp, %shre) <{allowzero = 0 : si64}>
+            : (tensor<2x4x3x8x64xf16>, tensor<3xi64>) -> tensor<24x8x64xf16>
+  %out  = "onnx.LayoutTransform"(%resh) {target_layout = #zhigh.layout<{dataLayout = "3DS"}>}
+            : (tensor<24x8x64xf16>) -> tensor<24x8x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  return %out, %unsq2 : tensor<24x8x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<2x4x1x8x64xf32>
+
+// CHECK-LABEL:  func.func @no_fuse_unsqueeze_ambiguous_user
+// CHECK-NOT:       "onnx.Fused"
+// CHECK:           "onnx.Concat"
+// CHECK:           "onnx.Unsqueeze"
+// CHECK:           "onnx.Unsqueeze"
+// CHECK:           "zhigh.F32ToDLF16"
+// CHECK:           "onnx.Expand"
+// CHECK:           "onnx.Reshape"
+// CHECK:           "onnx.LayoutTransform"
+// CHECK:           return
+}
+
+// -----
+
+// F32ToDLF16: rejected when the Unsqueeze result has more than one use --
+// singleUserOfType requires val.hasOneUse(), so this declines even though a
+// ZHighF32ToDLF16Op user does exist among the (now two) uses.
+
+func.func @no_fuse_dlf16_not_single_user(
+    %arg0: tensor<2x4x3x64xf32>, %arg1: tensor<2x4x5x64xf32>)
+    -> (tensor<24x8x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<1xi64>) {
+  %axes  = onnx.Constant dense<2>               : tensor<1xi64>
+  %shexp = onnx.Constant dense<[2, 4, 3, 8, 64]> : tensor<5xi64>
+  %shre  = onnx.Constant dense<[24, 8, 64]>      : tensor<3xi64>
+  %cat  = "onnx.Concat"(%arg0, %arg1) <{axis = 2 : si64}>
+            : (tensor<2x4x3x64xf32>, tensor<2x4x5x64xf32>) -> tensor<2x4x8x64xf32>
+  %unsq = "onnx.Unsqueeze"(%cat, %axes)
+            : (tensor<2x4x8x64xf32>, tensor<1xi64>) -> tensor<2x4x1x8x64xf32>
+  %extra = "onnx.Dim"(%unsq) <{axis = 0 : si64}> : (tensor<2x4x1x8x64xf32>) -> tensor<1xi64>
+  %dlf  = "zhigh.F32ToDLF16"(%unsq)
+            : (tensor<2x4x1x8x64xf32>) -> tensor<2x4x1x8x64xf16>
+  %exp  = "onnx.Expand"(%dlf, %shexp)
+            : (tensor<2x4x1x8x64xf16>, tensor<5xi64>) -> tensor<2x4x3x8x64xf16>
+  %resh = "onnx.Reshape"(%exp, %shre) <{allowzero = 0 : si64}>
+            : (tensor<2x4x3x8x64xf16>, tensor<3xi64>) -> tensor<24x8x64xf16>
+  %out  = "onnx.LayoutTransform"(%resh) {target_layout = #zhigh.layout<{dataLayout = "3DS"}>}
+            : (tensor<24x8x64xf16>) -> tensor<24x8x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  return %out, %extra : tensor<24x8x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<1xi64>
+
+// CHECK-LABEL:  func.func @no_fuse_dlf16_not_single_user
+// CHECK-NOT:       "onnx.Fused"
+// CHECK:           "onnx.Concat"
+// CHECK:           "onnx.Unsqueeze"
+// CHECK:           "onnx.Dim"
+// CHECK:           "zhigh.F32ToDLF16"
+// CHECK:           "onnx.Expand"
+// CHECK:           "onnx.Reshape"
+// CHECK:           "onnx.LayoutTransform"
+// CHECK:           return
+}

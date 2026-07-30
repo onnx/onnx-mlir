@@ -180,7 +180,7 @@ public:
   int64_t reshapeCollapsedCount = 0; ///< # consecutive input dims merged into 1
   std::optional<mlir::StringAttr> finalLayout; ///< "3D", "3DS", or "4D"
   bool yieldConcatResult = false; ///< concat result used outside the chain
-                                   ///< too => it becomes FusedOp output 1
+                                  ///< too => it becomes FusedOp output 1
 
   /// Detect and parameterize the concat-expand-stick chain.
   /// \p dimAnalysis must be non-null.

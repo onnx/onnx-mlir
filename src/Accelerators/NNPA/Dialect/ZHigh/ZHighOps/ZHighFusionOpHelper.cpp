@@ -784,11 +784,6 @@ bool ConcatExpandStickFusionHelper::detectIfBeneficial(
                << "  detectIfBeneficial concat-expand-stick: " << msg << "\n");
     return false;
   };
-#if 0
-  fprintf(stderr,
-      "hi alex, disable concat expand stick for now at the detection phase\n");
-  return returnFailure("hi alex, disabled at detection phase");
-#endif
 
   // Reset all fields.
   ops.clear();
@@ -977,18 +972,6 @@ bool ConcatExpandStickFusionHelper::retrieveAttrs(ONNXFusedOp fusedOp) {
 }
 
 bool ConcatExpandStickFusionHelper::verify() const {
-#if 0
-   static int count = 0;
-    if (count++ > 0) {
-      fprintf(stderr, "hi alex: disable lowering ces concat expand stick fusion %i\n", count);
-      return false;
-    }
-    fprintf(stderr, "hi alex: enable lowerin ces concat expand stick fusion %i\n", count);
-#elif 0
-  fprintf(stderr, "hi alex: disable lowering ces concat expand stick fusion\n");
-  return false;
-#endif
-
   constexpr int expected = 6; // concat + unsqueeze + f32-to-dlf16 + expand +
                               // reshape + layout-transform
   if ((int64_t)ops.size() != expected) {

@@ -2950,11 +2950,17 @@ struct ZHighToZLowFusedConcatExpandStickLowering
     : public FusedOpKindLowering<ConcatExpandStickFusionHelper> {
   using Base = FusedOpKindLowering<ConcatExpandStickFusionHelper>;
   using OpAdaptor = typename ONNXFusedOp::Adaptor;
+  bool enableParallel = false;
   bool disableSaturation = false;
 
-  ZHighToZLowFusedConcatExpandStickLowering(
-      TypeConverter &typeConverter, MLIRContext *ctx, bool disableSaturation)
-      : Base(typeConverter, ctx), disableSaturation(disableSaturation) {}
+  ZHighToZLowFusedConcatExpandStickLowering(TypeConverter &typeConverter,
+      MLIRContext *ctx, bool enableParallel, bool disableSaturation)
+      : Base(typeConverter, ctx), disableSaturation(disableSaturation) {
+    this->enableParallel =
+        enableParallel &&
+        OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
+            ONNXFusedOp::getOperationName());
+  }
 
   // Emit the vectorized read-convert-store chunk (64 elements, U=4 SIMD
   // registers of archVL each) for one tile: load the operand's converted
@@ -3204,8 +3210,13 @@ struct ZHighToZLowFusedConcatExpandStickLowering
       DimsExpr outerUbs;
       for (int64_t d = 0; d < A; ++d)
         outerUbs.emplace_back(concatDims[d]);
-      // TODO: enable parallelization of the outer loop when A > 0 (currently
-      // disabled)
+      if (enableParallel) {
+        int64_t maxId = std::min(A, (int64_t)2);
+        tryCreateKrnlParallel(create.krnl, op,
+            "concat-expand-stick fused outer loop", outerLoopDef, outerLbs,
+            outerUbs, 0, maxId, {}, /*min iter for going parallel*/ 4,
+            /*createKrnlParallel=*/true);
+      }
       create.krnl.iterateIE(outerLoopDef, outerLoopDef, outerLbs, outerUbs,
           [&](const KrnlBuilder &ck, ValueRange indices) {
             MDBuilder create(ck);
@@ -3307,7 +3318,7 @@ void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
   patterns.insert<ZHighToZLowFusedExpandMulStickLowering>(
       typeConverter, ctx, disableSaturation);
   patterns.insert<ZHighToZLowFusedConcatExpandStickLowering>(
-      typeConverter, ctx, disableSaturation);
+      typeConverter, ctx, enableParallel, disableSaturation);
 }
 
 } // namespace zhigh
