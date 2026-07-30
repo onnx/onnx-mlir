@@ -3,7 +3,7 @@
 
 ##################### RunONNXModel.py #########################################
 #
-# Copyright 2019-2025 The IBM Research Authors.
+# Copyright 2019-2026 The IBM Research Authors.
 #
 ################################################################################
 #
@@ -577,9 +577,18 @@ def read_output_from_refs(num_outputs, load_ref_filename, is_load_ref, use_npy=F
     return reference_output
 
 
-def verify_outs(actual_outs, ref_outs, atol, rtol):
+# Cap how many individual mismatches get printed for a single output tensor,
+# so that one badly-mismatched output doesn't flood stdout and hide the
+# status of the other outputs.
+MAX_ERRORS_TO_PRINT = 10
+
+
+def verify_outs(
+    actual_outs, ref_outs, atol, rtol, max_errors_to_print=MAX_ERRORS_TO_PRINT
+):
     total_elements = 0
     mismatched_elements = 0
+    printed_errors = 0
     for index, actual_val in np.ndenumerate(actual_outs):
         total_elements += 1
         ref_val = ref_outs[index]
@@ -592,19 +601,26 @@ def verify_outs(actual_outs, ref_outs, atol, rtol):
             if abs(actual_val - ref_val) <= diff:
                 continue
         mismatched_elements += 1
-        print(
-            "  at {}".format(index),
-            "mismatch {} (actual)".format(actual_val),
-            "vs {} (reference)".format(ref_val),
-        )
+        if printed_errors < max_errors_to_print:
+            print(
+                "  at {}".format(index),
+                "mismatch {} (actual)".format(actual_val),
+                "vs {} (reference)".format(ref_val),
+            )
+            printed_errors += 1
     if mismatched_elements == 0:
         print("  correct.\n")
-    else:
-        raise AssertionError(
-            "  got mismatched elements {}/{}, abort.\n".format(
-                mismatched_elements, total_elements
+        return True
+    if mismatched_elements > printed_errors:
+        print(
+            "  ... {} more mismatch(es) not shown.".format(
+                mismatched_elements - printed_errors
             )
         )
+    print(
+        "  got mismatched elements {}/{}.\n".format(mismatched_elements, total_elements)
+    )
+    return False
 
 
 def data_without_top_bottom_quartile(data, percent):
@@ -618,6 +634,20 @@ def data_without_top_bottom_quartile(data, percent):
 
 def cache_string(model_name, compile_option):
     return "model: " + model_name + "; compile option: " + compile_option
+
+
+def check_mlir_has_entry_point(mlir_path):
+    # A .mlir model with no "onnx.EntryPoint" compiles successfully but has no
+    # function to call at runtime, so it silently fails to run. Catch it early.
+    with open(mlir_path, "r") as f:
+        if "onnx.EntryPoint" not in f.read():
+            print(
+                'Invalid mlir model "'
+                + mlir_path
+                + '": missing "onnx.EntryPoint". The model would compile but '
+                "silently fail to run."
+            )
+            exit(1)
 
 
 ################################################################################
@@ -814,6 +844,8 @@ class InferenceSession:
                     input_model_path = args.model
             elif args.model.endswith(".mlir") or args.model.endswith(".onnxtext"):
                 input_model_path = args.model
+                if args.model.endswith(".mlir") and not args.compile_only:
+                    check_mlir_has_entry_point(args.model)
             else:
                 print(
                     "Invalid input model path. Must end with .onnx or .mlir or .onnxtext"
@@ -843,7 +875,7 @@ class InferenceSession:
                     log_file_name=compiler_log_file,
                 )
             except RuntimeError as e:
-                raise RuntimeError(f"Compilation failed: {e}")
+                raise RuntimeError(f"Compilation failed: {e}") from None
 
         end = time.perf_counter()
         print("  took ", end - start, " seconds.\n")
@@ -1091,9 +1123,12 @@ class InferenceSession:
                 print("Invalid verify option")
                 exit(1)
 
-            # Verify using softmax first.
+            # Verify using softmax first. Keep verifying the remaining outputs
+            # even if an earlier one is erroneous, so that every output's
+            # status is known instead of stopping on the first failure.
             if args.verify_with_softmax is not None:
                 axis = int(args.verify_with_softmax)
+                softmax_status = []
                 for i, name in enumerate(self.output_names):
                     print(
                         "Verifying using softmax along with "
@@ -1103,16 +1138,52 @@ class InferenceSession:
                     )
                     softmax_outs = softmax(outs[i], axis)
                     softmax_ref_outs = softmax(ref_outs[i], axis)
-                    verify_outs(softmax_outs, softmax_ref_outs, args.atol, args.rtol)
+                    is_correct = verify_outs(
+                        softmax_outs, softmax_ref_outs, args.atol, args.rtol
+                    )
+                    softmax_status.append((name, is_correct))
 
-            # For each output tensor, compare every value.
+                # Only print the summary (and stay silent otherwise) when at
+                # least one output is erroneous.
+                if not all(is_correct for _, is_correct in softmax_status):
+                    print(
+                        "Summary of softmax verification for {} output(s):".format(
+                            len(softmax_status)
+                        )
+                    )
+                    for name, is_correct in softmax_status:
+                        status = "correct" if is_correct else "ERRONEOUS"
+                        print("  {}: {}".format(name, status))
+                    print()
+                    exit(1)
+
+            # For each output tensor, compare every value. Keep verifying the
+            # remaining outputs even if an earlier one is erroneous, so that
+            # every output's status is known instead of aborting on the first
+            # failure.
             if args.verify_every_value:
+                output_status = []
                 for i, name in enumerate(self.output_names):
                     print(
                         "Verifying value of {}:{}".format(name, list(outs[i].shape)),
                         "using atol={}, rtol={} ...".format(args.atol, args.rtol),
                     )
-                    verify_outs(outs[i], ref_outs[i], args.atol, args.rtol)
+                    is_correct = verify_outs(outs[i], ref_outs[i], args.atol, args.rtol)
+                    output_status.append((name, is_correct))
+
+                # Only print the summary (and stay silent otherwise) when at
+                # least one output is erroneous.
+                if not all(is_correct for _, is_correct in output_status):
+                    print(
+                        "Summary of value verification for {} output(s):".format(
+                            len(output_status)
+                        )
+                    )
+                    for name, is_correct in output_status:
+                        status = "correct" if is_correct else "ERRONEOUS"
+                        print("  {}: {}".format(name, status))
+                    print()
+                    exit(1)
 
     """
     Perform a short analysis of time spent in the model.
@@ -1261,7 +1332,11 @@ def main():
     session_wrapper = import_driver()
     # Create inference session and perform a performance run test, which load,
     # compute, and possibly verify data.
-    session = InferenceSession(session_wrapper=session_wrapper)
+    try:
+        session = InferenceSession(session_wrapper=session_wrapper)
+    except RuntimeError as e:
+        print(f"error: {e}")
+        sys.exit(1)
     return session.run_performance_test()
 
 
