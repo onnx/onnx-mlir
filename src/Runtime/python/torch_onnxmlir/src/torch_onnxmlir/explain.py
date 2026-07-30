@@ -367,13 +367,13 @@ class ExplainContext:
         data = ctx.data
     """
 
-    def __init__(self, format="dict", sort_by="time", export_to=None):
+    def __init__(self, format="table", sort_by="time", export_to=None):
         """
         Initialize context manager.
 
         Args:
-            format: Output format ('table', 'dict', 'json').
-            sort_by: Sort order ('time', 'calls', 'order').
+            format: Output format ('table', 'dict', 'json'). Default: 'table'.
+            sort_by: Sort order ('time', 'calls', 'order'). Default: 'time'.
             export_to: Optional file path to automatically export metrics on exit.
         """
         self.format = format
@@ -459,7 +459,7 @@ class ExplainContext:
         return self.metrics
 
 
-def explain_context(format="dict", sort_by="time", export_to=None):
+def explain_context(format="table", sort_by="time", export_to=None):
     """
     Create a context manager for automatic metrics collection.
 
@@ -467,7 +467,7 @@ def explain_context(format="dict", sort_by="time", export_to=None):
     captures metrics on exit, and provides access to the metrics.
 
     Args:
-        format: Output format - 'table', 'dict', or 'json' (default: 'dict').
+        format: Output format - 'table', 'dict', or 'json' (default: 'table').
         sort_by: Sort order - 'time', 'calls', or 'order' (default: 'time').
         export_to: Optional file path to automatically export metrics on exit (default: None).
 
