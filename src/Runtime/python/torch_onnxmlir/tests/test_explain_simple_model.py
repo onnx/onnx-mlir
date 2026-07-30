@@ -6,7 +6,7 @@
 #
 ################################################################################
 #
-# Integration test for torch_onnxmlir.explain() with real model compilation.
+# Integration test for torch_onnxmlir.explain_context() with real model compilation.
 # Tests metrics collection with actual model compilation and inference.
 #
 ################################################################################
