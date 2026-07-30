@@ -45,7 +45,7 @@ from .sessioncache import (
     ONNX_FILE_EXTS,
     OM_COMPILED_FILE_EXTS,
 )
-from . import config, fx_utils
+from . import config, fx_utils, metrics
 
 """
 This file provides an onnx-mlir compiler backend for torch.compile().
@@ -145,10 +145,14 @@ def onnxmlir_backend(gm: torch.fx.GraphModule, *args, **kwargs):
 
     # Switch back to the eager mode if the graph has no inputs or outputs.
     if has_no_inputs_or_outputs(gm):
+        if config.enable_explain:
+            metrics.global_metrics_collector.record_eager_fallback("no_inputs_outputs")
         return eager_forward_fn(gm)
 
     # Switch back to the eager mode if the graph has unsupported onnx ops.
     if has_unsupported_onnx_ops(gm):
+        if config.enable_explain:
+            metrics.global_metrics_collector.record_eager_fallback("unsupported_ops")
         return eager_forward_fn(gm)
 
     # Options provided at torch.compile will determine how the torch model
@@ -390,13 +394,28 @@ class TorchONNXMLIR:
     def forward(self, *example_inputs):
         global global_uncompilable_graphs
         first_compilation = False
+        compilation_start = None
+        is_cache_hit = False
+
         if self.cached_session is None:
             if self.cache_key in global_uncompilable_graphs:
                 logger.info("Found the uncompilable model. Switch to the eager mode")
+                if config.enable_explain:
+                    metrics.global_metrics_collector.record_eager_fallback(
+                        "previously_failed", self.cache_key
+                    )
                 return eager_forward_fn(self.gm)(*example_inputs)
             if self.example_inputs_indices == []:
                 logger.info("Model has no input. Switch to the eager mode")
+                if config.enable_explain:
+                    metrics.global_metrics_collector.record_eager_fallback(
+                        "no_inputs", self.cache_key
+                    )
                 return eager_forward_fn(self.gm)(*example_inputs)
+
+            # Start timing compilation
+            if config.enable_explain:
+                compilation_start = time.perf_counter()
 
             # When there is no cached compiled lib, export the torch model
             # to an onnx model and compile it to a .so file.
@@ -420,6 +439,10 @@ class TorchONNXMLIR:
             if not succeeded:
                 logger.info("Failed to export the model. Switch to the eager mode.")
                 global_uncompilable_graphs.add(self.cache_key)
+                if config.enable_explain:
+                    metrics.global_metrics_collector.record_eager_fallback(
+                        "export_failed", self.cache_key
+                    )
                 return eager_forward_fn(self.gm)(*example_inputs)
             # Save the onnx model.
             if config.keep_onnx_files:
@@ -448,11 +471,22 @@ class TorchONNXMLIR:
                     "Failed to compile the onnx model. Switch to the eager mode."
                 )
                 global_uncompilable_graphs.add(self.cache_key)
+                if config.enable_explain:
+                    metrics.global_metrics_collector.record_eager_fallback(
+                        "compilation_failed", self.cache_key
+                    )
                 return eager_forward_fn(self.gm)(*example_inputs)
 
             # Create a session for running the onnx model.
             # This session is cached for next use.
             sess = InferenceSession(compiled_model, tag=tag)
+
+            # Record compilation time
+            if config.enable_explain and compilation_start is not None:
+                compilation_time = time.perf_counter() - compilation_start
+                metrics.global_metrics_collector.record_compilation(
+                    self.cache_key, compilation_time
+                )
 
             # Replace the victim cache entry.
             cache_value = CacheValue(
@@ -467,6 +501,7 @@ class TorchONNXMLIR:
             logger.info("Found the model in the cache. No recompilation.")
             # Use the InferenceSession in the cache.
             sess = self.cached_session.sess
+            is_cache_hit = True
 
         # onnx_mlir accepts numpy arrays as inputs and outputs.
         om_inputs = [arg.contiguous().numpy() for arg in example_inputs]
@@ -474,11 +509,23 @@ class TorchONNXMLIR:
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f"onnx_mlir input sig: {sess.input_signature()}")
             logger.debug(f"onnx_mlir output sig: {sess.output_signature()}")
+
+        # Measure inference time
+        if config.enable_explain:
+            inference_start = time.perf_counter()
+
         if logger.isEnabledFor(logging.INFO):
             start = time.perf_counter()
         om_outputs = sess.run(om_inputs)
         if logger.isEnabledFor(logging.INFO):
             logger.info(f"sess.run took {(time.perf_counter() - start)*1000} ms")
+
+        # Record inference metrics
+        if config.enable_explain:
+            inference_time = time.perf_counter() - inference_start
+            metrics.global_metrics_collector.record_inference(
+                self.cache_key, inference_time, is_cache_hit
+            )
 
         # Generate test_data_set if required.
         if config.regenerate_test_data_set or (

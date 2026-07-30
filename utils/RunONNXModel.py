@@ -583,7 +583,9 @@ def read_output_from_refs(num_outputs, load_ref_filename, is_load_ref, use_npy=F
 MAX_ERRORS_TO_PRINT = 10
 
 
-def verify_outs(actual_outs, ref_outs, atol, rtol, max_errors_to_print=MAX_ERRORS_TO_PRINT):
+def verify_outs(
+    actual_outs, ref_outs, atol, rtol, max_errors_to_print=MAX_ERRORS_TO_PRINT
+):
     total_elements = 0
     mismatched_elements = 0
     printed_errors = 0

@@ -58,7 +58,114 @@ For more information about `torch.compile`, see its [document](https://docs.pyto
 
 ## Caching the exported models and compiled libraries
 
-To avoid recompling models, the backend caches compiled models in the folder `${HOME}/.cache`. Users can change the cache folder by setting an environment variable, i.e, `TORCHONNXMLIR_CACHE_DIR=path_to_cache_folder`.
+To avoid recompiling models, the backend caches compiled models in the folder `${HOME}/.cache/torch_onnxmlir`. 
+
+Users can change the cache folder in two ways:
+
+1. **Using environment variable**:
+   ```bash
+   export TORCHONNXMLIR_CACHE_DIR=/path/to/cache_folder
+   ```
+
+2. **Using config in Python**:
+   ```python
+   import torch_onnxmlir
+   torch_onnxmlir.config.cache_dir = "/path/to/cache_folder"
+   ```
+
+You can view the current cache directory using the explain() feature:
+```python
+import torch_onnxmlir
+torch_onnxmlir.config.enable_explain = True
+# ... run your model ...
+print(torch_onnxmlir.explain())  # Shows "Cache Directory: ..." in output
+```
+
+To clean the cache and save disk space:
+```bash
+rm -rf ~/.cache/torch_onnxmlir
+```
+
+## Performance Analysis with explain()
+
+The `explain()` feature provides insights into compilation and inference performance, helping you understand cache efficiency and identify bottlenecks.
+
+### Basic Usage
+
+```python
+import torch
+import torch.nn as nn
+import torch_onnxmlir
+
+# Enable explain feature
+torch_onnxmlir.config.enable_explain = True
+
+# Create and compile your model
+model = MyModel()
+compiled_model = torch.compile(model, backend="onnxmlir", options=om_options)
+
+# Run inference
+for _ in range(10):
+    output = compiled_model(input_tensor)
+
+# View performance metrics
+print(torch_onnxmlir.explain())
+```
+
+### Output Formats
+
+```python
+# Table format (default) - human-readable
+print(torch_onnxmlir.explain())
+
+# Dictionary format - for programmatic access
+metrics = torch_onnxmlir.explain(format="dict")
+print(f"Cache hit rate: {metrics['summary']['total_cache_hits'] / metrics['summary']['total_inference_calls'] * 100:.1f}%")
+
+# JSON format - for logging or external tools
+json_output = torch_onnxmlir.explain(format="json")
+```
+
+### Sorting Options
+
+```python
+# Sort by total time (default)
+print(torch_onnxmlir.explain(sort_by="time"))
+
+# Sort by number of calls
+print(torch_onnxmlir.explain(sort_by="calls"))
+
+# Sort by chronological order
+print(torch_onnxmlir.explain(sort_by="order"))
+```
+
+### Clearing Metrics
+
+```python
+# Clear all collected metrics to start fresh
+torch_onnxmlir.clear_metrics()
+```
+
+### Example Output
+
+```
+================================================================================
+TORCH_ONNXMLIR PERFORMANCE METRICS
+================================================================================
+
+Unique Graphs: 1
+Total Inference Calls: 10
+Cache Hit Rate: 9/10 (90.0%)
+Eager Fallbacks: 0
+
+Per-Graph Statistics (sorted by Total Time):
+--------------------------------------------------------------------------------
++------------------+-------+------+------------+-------------------+----------+-------+
+| Graph ID         | Calls | Hits | Compile(s) | Avg Inference(ms) | Total(s) | %     |
++==================+=======+======+============+===================+==========+=======+
+| model_hash_abc...| 10    | 9    | 1.234      | 5.20              | 1.286    | 100%  |
++------------------+-------+------+------------+-------------------+----------+-------+
+```
 
 ## Installation
 
