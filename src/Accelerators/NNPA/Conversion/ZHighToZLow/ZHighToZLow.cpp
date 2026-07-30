@@ -3226,8 +3226,8 @@ struct ZHighToZLowFusedConcatExpandStickLowering
                 N, P, F, C, midDims, concatWriteIdx, uss,
                 effectiveDisableSaturation);
             emitOperandLoop(ck, outerIndices, 1, input2Dims,
-                DimIE(input1Dims[A]), A, R, N, P, F, C, midDims,
-                concatWriteIdx, uss, effectiveDisableSaturation);
+                DimIE(input1Dims[A]), A, R, N, P, F, C, midDims, concatWriteIdx,
+                uss, effectiveDisableSaturation);
           });
     } else {
       DimsExpr emptyOuter;
