@@ -33,6 +33,7 @@
 
 #include "src/Accelerators/NNPA/Compiler/NNPACompilerOptions.hpp"
 #include "src/Accelerators/NNPA/Compiler/NNPACompilerUtils.hpp"
+#include "src/Accelerators/NNPA/Compiler/NNPAPlacementReporter.hpp"
 #include "src/Accelerators/NNPA/Compiler/ZHighDisposableGarbageCollector.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
@@ -299,6 +300,12 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
         optLevel = OptLevel::O2;
       else if (optStr == "-O3")
         optLevel = OptLevel::O3;
+      // Add instrumentation to print NNPA placement information before
+      // convert-onnx-to-krnl. Currently reports ONNX operations that will run
+      // on CPU (not accelerated by NNPA).
+      pm.addInstrumentation(
+          std::make_unique<onnx_mlir::zhigh::NNPAPlacementReporter>(
+              pm.getContext()));
       // Lower ONNX to Krnl, ZHigh to ZLow.
       addONNXToKrnlPasses(pm, optLevel, /*enableCSE*/ true, ONNXOpStats);
       // Optimizations at ZLow that needs affine map in MemRef.
