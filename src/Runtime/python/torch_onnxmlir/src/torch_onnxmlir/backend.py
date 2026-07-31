@@ -45,7 +45,7 @@ from .sessioncache import (
     ONNX_FILE_EXTS,
     OM_COMPILED_FILE_EXTS,
 )
-from . import config, fx_utils, metrics
+from . import config, explain, fx_utils, metrics
 
 """
 This file provides an onnx-mlir compiler backend for torch.compile().
@@ -145,13 +145,13 @@ def onnxmlir_backend(gm: torch.fx.GraphModule, *args, **kwargs):
 
     # Switch back to the eager mode if the graph has no inputs or outputs.
     if has_no_inputs_or_outputs(gm):
-        if config.enable_explain:
+        if explain.is_enabled():
             metrics.global_metrics_collector.record_eager_fallback("no_inputs_outputs")
         return eager_forward_fn(gm)
 
     # Switch back to the eager mode if the graph has unsupported onnx ops.
     if has_unsupported_onnx_ops(gm):
-        if config.enable_explain:
+        if explain.is_enabled():
             metrics.global_metrics_collector.record_eager_fallback("unsupported_ops")
         return eager_forward_fn(gm)
 
@@ -400,21 +400,21 @@ class TorchONNXMLIR:
         if self.cached_session is None:
             if self.cache_key in global_uncompilable_graphs:
                 logger.info("Found the uncompilable model. Switch to the eager mode")
-                if config.enable_explain:
+                if explain.is_enabled():
                     metrics.global_metrics_collector.record_eager_fallback(
                         "previously_failed", self.cache_key
                     )
                 return eager_forward_fn(self.gm)(*example_inputs)
             if self.example_inputs_indices == []:
                 logger.info("Model has no input. Switch to the eager mode")
-                if config.enable_explain:
+                if explain.is_enabled():
                     metrics.global_metrics_collector.record_eager_fallback(
                         "no_inputs", self.cache_key
                     )
                 return eager_forward_fn(self.gm)(*example_inputs)
 
             # Start timing compilation
-            if config.enable_explain:
+            if explain.is_enabled():
                 compilation_start = time.perf_counter()
 
             # When there is no cached compiled lib, export the torch model
@@ -439,7 +439,7 @@ class TorchONNXMLIR:
             if not succeeded:
                 logger.info("Failed to export the model. Switch to the eager mode.")
                 global_uncompilable_graphs.add(self.cache_key)
-                if config.enable_explain:
+                if explain.is_enabled():
                     metrics.global_metrics_collector.record_eager_fallback(
                         "export_failed", self.cache_key
                     )
@@ -471,7 +471,7 @@ class TorchONNXMLIR:
                     "Failed to compile the onnx model. Switch to the eager mode."
                 )
                 global_uncompilable_graphs.add(self.cache_key)
-                if config.enable_explain:
+                if explain.is_enabled():
                     metrics.global_metrics_collector.record_eager_fallback(
                         "compilation_failed", self.cache_key
                     )
@@ -482,7 +482,7 @@ class TorchONNXMLIR:
             sess = InferenceSession(compiled_model, tag=tag)
 
             # Record compilation time
-            if config.enable_explain and compilation_start is not None:
+            if explain.is_enabled() and compilation_start is not None:
                 compilation_time = time.perf_counter() - compilation_start
                 metrics.global_metrics_collector.record_compilation(
                     self.cache_key, compilation_time
@@ -511,7 +511,7 @@ class TorchONNXMLIR:
             logger.debug(f"onnx_mlir output sig: {sess.output_signature()}")
 
         # Measure inference time
-        if config.enable_explain:
+        if explain.is_enabled():
             inference_start = time.perf_counter()
 
         if logger.isEnabledFor(logging.INFO):
@@ -521,7 +521,7 @@ class TorchONNXMLIR:
             logger.info(f"sess.run took {(time.perf_counter() - start)*1000} ms")
 
         # Record inference metrics
-        if config.enable_explain:
+        if explain.is_enabled():
             inference_time = time.perf_counter() - inference_start
             metrics.global_metrics_collector.record_inference(
                 self.cache_key, inference_time, is_cache_hit
