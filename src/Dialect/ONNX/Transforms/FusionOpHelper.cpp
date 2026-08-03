@@ -125,6 +125,30 @@ bool isAbsorbedPlumbing(Operation *op) {
   return false;
 }
 
+// FusedOp node_name: the chain ops' own node names (falling back to their
+// operation name when absent), "-"-joined. Below this length, prefer each
+// op's onnx_node_name; once the name-so-far has reached it, switch to the
+// (typically much shorter) operation name for the rest of the chain so a
+// long chain of verbosely-named ops can't produce an unbounded attribute
+// string.
+constexpr size_t kMaxFusedNodeNameLength = 64;
+
+std::string buildFusedNodeName(ArrayRef<Operation *> ops) {
+  std::string name;
+  for (Operation *op : ops) {
+    std::string part;
+    StringAttr nodeName = op->getAttrOfType<StringAttr>("onnx_node_name");
+    if (nodeName && name.size() < kMaxFusedNodeNameLength)
+      part = nodeName.str();
+    else
+      part = op->getName().getStringRef().str();
+    if (!name.empty())
+      name += "-";
+    name += part;
+  }
+  return name;
+}
+
 } // namespace
 
 //===----------------------------------------------------------------------===//
@@ -335,6 +359,8 @@ ONNXFusedOp FusionOpKindHelper::create(
     PatternRewriter &rewriter, Location loc) {
   ONNXFusedOp fusedOp = createFusedOp(rewriter, loc, getKind());
   embedAttrs(fusedOp);
+  fusedOp->setAttr(
+      "onnx_node_name", rewriter.getStringAttr(buildFusedNodeName(ops)));
   return fusedOp;
 }
 
