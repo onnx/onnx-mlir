@@ -23,13 +23,48 @@ except ImportError:
     HAS_TABULATE = False
 
 
-def explain(
+# Private flag for explain metrics collection.
+# This is controlled internally by ExplainContext and should not be accessed directly.
+_enable_explain = False
+
+
+def is_enabled() -> bool:
+    """
+    Check if explain metrics collection is currently enabled.
+
+    This function is used by backend.py and metrics.py to check if metrics
+    should be collected. The flag is controlled automatically by explain_context().
+
+    Returns:
+        bool: True if explain metrics collection is enabled, False otherwise.
+    """
+    return _enable_explain
+
+
+def _set_enable_explain(value: bool):
+    """
+    Internal setter for enable_explain flag.
+
+    This function is for internal use only by ExplainContext.
+    Do not call this directly. Use explain_context() instead.
+
+    Args:
+        value: Boolean value to set for enable_explain.
+    """
+    global _enable_explain
+    _enable_explain = value
+
+
+def _explain(
     format: str = "table",
     detailed: bool = False,
     sort_by: Literal["time", "order", "calls"] = "time",
 ) -> Optional[str]:
     """
-    Display performance metrics for compiled models.
+    Internal function to format and return performance metrics.
+
+    This is used internally by ExplainContext. Do not call directly.
+    Use explain_context() instead.
 
     Args:
         format: "table", "json", or "dict"
@@ -38,16 +73,11 @@ def explain(
 
     Returns:
         Formatted string or dict
-
-    Example:
-        >>> import torch_onnxmlir
-        >>> torch_onnxmlir.config.enable_explain = True
-        >>> # ... compile and run models ...
-        >>> print(torch_onnxmlir.explain())
-        >>> print(torch_onnxmlir.explain(sort_by="calls"))
     """
-    if not config.enable_explain:
-        return "Explain feature is not enabled. Set torch_onnxmlir.config.enable_explain = True"
+    if not _enable_explain:
+        return (
+            "Explain feature is not enabled. Use explain_context() to collect metrics."
+        )
 
     all_metrics = metrics.global_metrics_collector.get_metrics()
     eager_fallbacks = metrics.global_metrics_collector.get_eager_fallbacks()
@@ -314,6 +344,160 @@ def _format_as_dict(
     return result
 
 
-def clear_metrics():
-    """Clear all collected metrics."""
+class ExplainContext:
+    """
+    Context manager for automatic metrics collection.
+
+    Automatically enables metrics collection on entry and captures
+    metrics on exit. Provides access to metrics during and after
+    the context.
+
+    Attributes:
+        format: Output format ('table', 'dict', 'json').
+        sort_by: Sort order ('time', 'calls', 'order').
+        export_to: Optional file path to automatically export metrics on exit.
+        metrics: Captured metrics (available after __exit__).
+
+    Example:
+        with torch_onnxmlir.explain_context() as ctx:
+            output = model(input)
+            print(ctx)  # Print formatted metrics.
+
+        # Access metrics after context.
+        data = ctx.data
+    """
+
+    def __init__(self, format="table", sort_by="time", export_to=None):
+        """
+        Initialize context manager.
+
+        Args:
+            format: Output format ('table', 'dict', 'json'). Default: 'table'.
+            sort_by: Sort order ('time', 'calls', 'order'). Default: 'time'.
+            export_to: Optional file path to automatically export metrics on exit.
+        """
+        self.format = format
+        self.sort_by = sort_by
+        self.export_to = export_to
+        self.metrics = None
+        self._previous_enable_state = None
+
+    def __enter__(self):
+        """Enable metrics collection and clear existing metrics."""
+        # Save previous state.
+        self._previous_enable_state = _enable_explain
+
+        # Enable metrics collection using internal setter.
+        _set_enable_explain(True)
+
+        # Clear any existing metrics.
+        _clear_metrics()
+
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Capture metrics and restore previous state."""
+        # Capture metrics before disabling.
+        self.metrics = _explain(format=self.format, sort_by=self.sort_by)
+
+        # Export to file if specified.
+        if self.export_to is not None:
+            self._export_metrics()
+
+        # Restore previous state using internal setter.
+        _set_enable_explain(self._previous_enable_state)
+
+        # Don't suppress exceptions.
+        return False
+
+    def _export_metrics(self):
+        """Export metrics to file."""
+        import os
+
+        if self.metrics is None:
+            return
+
+        # Create directory if it doesn't exist.
+        export_dir = os.path.dirname(os.path.abspath(self.export_to))
+        if export_dir:
+            os.makedirs(export_dir, exist_ok=True)
+
+        with open(self.export_to, "w") as f:
+            if isinstance(self.metrics, str):
+                # For table or json format, write as-is.
+                f.write(self.metrics)
+            else:
+                # For dict format, convert to JSON.
+                json.dump(self.metrics, f, indent=2)
+
+    def __str__(self):
+        """Return formatted metrics as string."""
+        if self.metrics is None:
+            return "ExplainContext: No metrics collected yet"
+
+        if isinstance(self.metrics, str):
+            return self.metrics
+
+        # For dict/json, format nicely.
+        if isinstance(self.metrics, dict):
+            return json.dumps(self.metrics, indent=2)
+
+        return str(self.metrics)
+
+    def __repr__(self):
+        """Return representation of context manager."""
+        return f"ExplainContext(format={self.format!r}, sort_by={self.sort_by!r})"
+
+    @property
+    def data(self):
+        """
+        Access raw metrics data.
+
+        Returns:
+            Metrics in the specified format (dict, str, or json str).
+        """
+        return self.metrics
+
+
+def explain_context(format="table", sort_by="time", export_to=None):
+    """
+    Create a context manager for automatic metrics collection.
+
+    This context manager automatically enables metrics collection on entry,
+    captures metrics on exit, and provides access to the metrics.
+
+    Args:
+        format: Output format - 'table', 'dict', or 'json' (default: 'table').
+        sort_by: Sort order - 'time', 'calls', or 'order' (default: 'time').
+        export_to: Optional file path to automatically export metrics on exit (default: None).
+
+    Returns:
+        ExplainContext: Context manager instance.
+
+    Example:
+        Basic usage:
+        >>> with torch_onnxmlir.explain_context() as metrics:
+        ...     output = compiled_model(input)
+        ...     print(metrics)
+
+        Access metrics data:
+        >>> with torch_onnxmlir.explain_context(format="dict") as metrics:
+        ...     output = compiled_model(input)
+        ...     cache_hits = metrics.data['summary']['total_cache_hits']
+
+        Automatic export:
+        >>> with torch_onnxmlir.explain_context(export_to="metrics.json") as metrics:
+        ...     output = compiled_model(input)
+        ...     # Metrics automatically saved to metrics.json on exit.
+    """
+    return ExplainContext(format=format, sort_by=sort_by, export_to=export_to)
+
+
+def _clear_metrics():
+    """
+    Internal function to clear all collected metrics.
+
+    This is used internally by ExplainContext. Do not call directly.
+    Use explain_context() instead which handles metrics lifecycle automatically.
+    """
     metrics.global_metrics_collector.clear()

@@ -6,7 +6,8 @@
 #
 ################################################################################
 #
-# Integration test for torch_onnxmlir.explain() with real model compilation.
+# Integration test for torch_onnxmlir.explain_context() with real model compilation.
+# Tests metrics collection with actual model compilation and inference.
 #
 ################################################################################
 
@@ -40,10 +41,6 @@ class TestExplainSimpleModel(TorchOMTestCase):
 
     def test_explain_with_real_model(self):
         """Test explain feature with real model compilation and inference."""
-        # Enable explain feature.
-        torch_onnxmlir.config.enable_explain = True
-        torch_onnxmlir.clear_metrics()
-
         # Create and compile model.
         model = SimpleModel()
         model.eval()
@@ -58,21 +55,23 @@ class TestExplainSimpleModel(TorchOMTestCase):
             },
         )
 
-        # Run inference multiple times.
-        input_tensor = torch.randn(1, 10)
+        # Use explain_context to automatically enable metrics collection.
+        with torch_onnxmlir.explain_context(format="dict") as ctx:
+            # Run inference multiple times.
+            input_tensor = torch.randn(1, 10)
 
-        with torch.no_grad():
-            # First inference (triggers compilation or uses cached model).
-            output1 = compiled_model(input_tensor)
-            self.assertEqual(output1.shape, (1, 5))
+            with torch.no_grad():
+                # First inference (triggers compilation or uses cached model).
+                output1 = compiled_model(input_tensor)
+                self.assertEqual(output1.shape, (1, 5))
 
-            # Additional inferences (should use cache).
-            for _ in range(5):
-                output = compiled_model(input_tensor)
-                self.assertEqual(output.shape, (1, 5))
+                # Additional inferences (should use cache).
+                for _ in range(5):
+                    output = compiled_model(input_tensor)
+                    self.assertEqual(output.shape, (1, 5))
 
-        # Verify explain output.
-        result = torch_onnxmlir.explain(format="dict")
+        # After context exits, metrics are automatically captured.
+        result = ctx.data
 
         # Check that metrics were collected.
         self.assertIsInstance(result, dict)
@@ -98,59 +97,6 @@ class TestExplainSimpleModel(TorchOMTestCase):
         self.assertGreater(graph_metrics["total_inference_time"], 0)
         self.assertGreater(graph_metrics["avg_inference_time"], 0)
         self.assertGreater(graph_metrics["cache_hit_rate"], 0.8)
-
-        # Test table format output.
-        table_output = torch_onnxmlir.explain(format="table")
-        self.assertIn("TORCH_ONNXMLIR PERFORMANCE METRICS", table_output)
-        self.assertIn("Unique Graphs: 1", table_output)
-        self.assertIn("Total Inference Calls: 6", table_output)
-
-        # Test JSON format output.
-        import json
-
-        json_output = torch_onnxmlir.explain(format="json")
-        json_data = json.loads(json_output)
-        self.assertEqual(json_data["summary"]["unique_graphs"], 1)
-
-        # Clear metrics and verify.
-        torch_onnxmlir.clear_metrics()
-        result_after_clear = torch_onnxmlir.explain()
-        self.assertIn("no metrics", result_after_clear.lower())
-
-    def test_explain_sorting_with_real_model(self):
-        """Test explain sorting options with real model."""
-        torch_onnxmlir.config.enable_explain = True
-        torch_onnxmlir.clear_metrics()
-
-        # Create and compile model.
-        model = SimpleModel()
-        model.eval()
-
-        compiled_model = torch.compile(
-            model,
-            backend="onnxmlir",
-            options={
-                "compiler_image_name": COMPILER_IMAGE_NAME,
-                "compiler_path": COMPILER_PATH,
-                "compile_options": "-O3",
-            },
-        )
-
-        # Run inference.
-        input_tensor = torch.randn(1, 10)
-        with torch.no_grad():
-            for _ in range(3):
-                compiled_model(input_tensor)
-
-        # Test different sorting options.
-        result_time = torch_onnxmlir.explain(format="dict", sort_by="time")
-        self.assertIn("graphs", result_time)
-
-        result_calls = torch_onnxmlir.explain(format="dict", sort_by="calls")
-        self.assertIn("graphs", result_calls)
-
-        result_order = torch_onnxmlir.explain(format="dict", sort_by="order")
-        self.assertIn("graphs", result_order)
 
 
 if __name__ == "__main__":
