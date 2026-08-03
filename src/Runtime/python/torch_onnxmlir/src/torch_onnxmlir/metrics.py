@@ -13,7 +13,7 @@
 
 from dataclasses import dataclass
 from typing import Dict, Optional
-from . import config
+from . import config, explain
 
 
 @dataclass
@@ -75,7 +75,7 @@ class MetricsCollector:
 
     def record_compilation(self, cache_key: str, compilation_time: float):
         """Record compilation metrics."""
-        if not config.enable_explain:
+        if not explain.is_enabled():
             return
 
         if cache_key not in self.models:
@@ -89,7 +89,7 @@ class MetricsCollector:
         self, cache_key: str, inference_time: float, is_cache_hit: bool
     ):
         """Record inference metrics."""
-        if not config.enable_explain:
+        if not explain.is_enabled():
             return
 
         if cache_key not in self.models:
@@ -106,7 +106,7 @@ class MetricsCollector:
 
     def record_eager_fallback(self, reason: str, cache_key: Optional[str] = None):
         """Record eager mode fallback."""
-        if not config.enable_explain:
+        if not explain.is_enabled():
             return
 
         self.total_eager_fallbacks += 1
