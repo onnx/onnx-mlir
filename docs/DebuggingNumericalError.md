@@ -213,6 +213,40 @@ list, or `*`-glob patterns. This is a different mechanism from the
 family described in [Instrumentation.md](Instrumentation.md) — that
 one reports timing and memory, not values.
 
+### Comparing tensors across two runs without parsing logs
+
+`--instrument-onnx-node`'s printed data is fine for a quick look at a
+small tensor, but unreadable for a large one and gives you no way to
+diff two runs (e.g. before/after a compiler change, or a fused vs.
+unfused lowering) other than eyeballing two dumps side by side.
+
+`--instrument-onnx-node-return=REGEX[:inN+outN]` uses the exact same
+node-selection syntax as `--instrument-onnx-node` (find node names the
+same way, via `--EmitONNXIR`), but instead of printing the matched
+tensor(s), it appends them as **extra outputs** of the compiled model.
+This lets you reuse `RunONNXModel.py`'s existing numeric-comparison
+machinery instead of parsing text:
+
+```bash
+# Baseline: compile with the tensor(s) you care about as extra outputs,
+# and snapshot inputs+outputs.
+utils/RunONNXModel.py --model model.onnx \
+  -c "-O3 --instrument-onnx-node-return=/encoder/layer.0/attention/MatMul" \
+  --save-ref=refA
+
+# After a change (e.g. different compile flags, or a compiler rebuild):
+utils/RunONNXModel.py --model model.onnx \
+  -c "-O3 --instrument-onnx-node-return=/encoder/layer.0/attention/MatMul" \
+  --verify=ref --load-ref=refA --verify-every-value --rtol=1e-3 --atol=1e-5
+```
+
+The extra output's name is `__instrumented__<node name>__<in/outN>`, so
+it's easy to spot in `RunONNXModel.py`'s output list among the model's
+real outputs. Only tensors reachable at the top level of the entry
+function are supported — a node matched only inside a `Loop`/`If`/`Scan`
+body is not added, since returning it would require threading the value
+out through that op's own results, which this flag doesn't do.
+
 ### Injecting print calls into the compiler source
 
 For anything the flags above can't express — custom formatting,

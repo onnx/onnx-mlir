@@ -4,7 +4,7 @@
 
 //===------- InstrumentONNXSignaturePass.cpp - Instrumentation ------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,12 +12,6 @@
 // the operation name and its input type signature at runtime.
 //
 //===----------------------------------------------------------------------===//
-
-#include <algorithm>
-#include <cctype>
-#include <regex>
-#include <set>
-#include <sstream>
 
 #include "onnx-mlir/Compiler/OMCompilerTypes.h"
 
@@ -31,94 +25,15 @@
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/ONNX/Transforms/NodeNamePattern.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
 
 using namespace mlir;
+using onnx_mlir::NodeIOEntry;
+using onnx_mlir::parseNodeNamePattern;
 
 namespace {
-
-// Parsed representation of one comma-separated entry of the
-// --instrument-onnx-node option: a node-name pattern plus an optional
-// operand/result index filter. Syntax: "pattern[:selector(+selector)*]",
-// where each selector is "inN" or "outN" (0-based). When no ":" suffix is
-// given, hasIOFilter is false and every operand/result of a matched node is
-// printed, preserving the flag's original (pre-filter) behavior.
-struct NodeIOEntry {
-  std::regex nameRegex;
-  bool hasIOFilter = false;
-  std::set<int64_t> inputIdx;
-  std::set<int64_t> outputIdx;
-};
-
-static bool isAllDigits(const std::string &s) {
-  return !s.empty() &&
-         std::all_of(s.begin(), s.end(), [](unsigned char c) {
-           return std::isdigit(c);
-         });
-}
-
-// Parse the --instrument-onnx-node option string into a list of NodeIOEntry.
-// The '.'/'*' literal-vs-regex convention matches the rest of onnx-mlir's
-// instrument options (EnableByRegexOption), applied per entry here rather
-// than to the whole option string, so an io-filter suffix on one entry
-// cannot suppress '*' expansion on another.
-static std::vector<NodeIOEntry> parseNodeNamePattern(const std::string &opt) {
-  std::vector<NodeIOEntry> entries;
-  if (opt.empty() || opt == "NONE")
-    return entries;
-  std::stringstream ss(opt);
-  std::string token;
-  while (std::getline(ss, token, ',')) {
-    size_t b = token.find_first_not_of(" \t");
-    size_t e = token.find_last_not_of(" \t");
-    if (b == std::string::npos)
-      continue;
-    token = token.substr(b, e - b + 1);
-
-    std::string namePart = token;
-    std::string ioPart;
-    size_t colon = token.find(':');
-    if (colon != std::string::npos) {
-      namePart = token.substr(0, colon);
-      ioPart = token.substr(colon + 1);
-    }
-
-    bool hasRegexPattern = namePart.find(".*") != std::string::npos ||
-                           namePart.find("\\.") != std::string::npos ||
-                           namePart.find("^") != std::string::npos ||
-                           namePart.find("$") != std::string::npos ||
-                           namePart.find("[") != std::string::npos ||
-                           namePart.find("+") != std::string::npos ||
-                           namePart.find("?") != std::string::npos;
-    if (!hasRegexPattern) {
-      namePart = std::regex_replace(namePart, std::regex("\\."), "\\.");
-      namePart = std::regex_replace(namePart, std::regex("\\*"), ".*");
-    }
-
-    NodeIOEntry entry;
-    entry.nameRegex = std::regex(namePart);
-    if (!ioPart.empty()) {
-      entry.hasIOFilter = true;
-      std::stringstream ioss(ioPart);
-      std::string sel;
-      while (std::getline(ioss, sel, '+')) {
-        if (sel.compare(0, 2, "in") == 0 && isAllDigits(sel.substr(2))) {
-          entry.inputIdx.insert(std::stoll(sel.substr(2)));
-        } else if (sel.compare(0, 3, "out") == 0 &&
-                   isAllDigits(sel.substr(3))) {
-          entry.outputIdx.insert(std::stoll(sel.substr(3)));
-        } else {
-          llvm::errs() << "Warning: ignoring malformed --instrument-onnx-node"
-                        << " selector \"" << sel
-                        << "\" (expected inN or outN)\n";
-        }
-      }
-    }
-    entries.emplace_back(std::move(entry));
-  }
-  return entries;
-}
 
 /*!
  * This pass insert ONNXPrintSignatureOp before each ONNX ops to print
