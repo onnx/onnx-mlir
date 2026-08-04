@@ -45,9 +45,8 @@ struct NodeIOEntry {
 };
 
 inline bool isAllDigits(const std::string &s) {
-  return !s.empty() &&
-         std::all_of(s.begin(), s.end(),
-             [](unsigned char c) { return std::isdigit(c); });
+  return !s.empty() && std::all_of(s.begin(), s.end(),
+                           [](unsigned char c) { return std::isdigit(c); });
 }
 
 // Parse a --instrument-onnx-node/--instrument-onnx-node-return option string
@@ -109,8 +108,8 @@ inline std::vector<NodeIOEntry> parseNodeNamePattern(const std::string &opt) {
           entry.outputIdx.insert(std::stoll(sel.substr(3)));
         } else {
           llvm::errs() << "Warning: ignoring malformed node-name-pattern"
-                        << " selector \"" << sel
-                        << "\" (expected inN or outN)\n";
+                       << " selector \"" << sel
+                       << "\" (expected inN or outN)\n";
         }
       }
     }

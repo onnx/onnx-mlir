@@ -53,7 +53,8 @@ struct ONNXPrintSignatureLowering
       if (mlir::isa<NoneType>(oper.getType()))
         continue;
       printVal.emplace_back(oper);
-      printLabel.emplace_back(hasLabels
+      printLabel.emplace_back(
+          hasLabels
               ? mlir::cast<StringAttr>(labelsAttr[it.index()]).getValue().str()
               : std::string());
     }

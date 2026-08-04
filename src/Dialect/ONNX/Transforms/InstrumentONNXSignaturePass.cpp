@@ -113,10 +113,9 @@ public:
             ioLabels.emplace_back(
                 builder.getStringAttr("in" + std::to_string(idx)));
           } else
-            llvm::errs() << "Warning: --instrument-onnx-node selector in"
-                          << idx << " out of range for node \"" << nodeName
-                          << "\" (" << operands.size()
-                          << " operand(s)); ignoring.\n";
+            llvm::errs() << "Warning: --instrument-onnx-node selector in" << idx
+                         << " out of range for node \"" << nodeName << "\" ("
+                         << operands.size() << " operand(s)); ignoring.\n";
         }
         ResultRange results = op->getResults();
         for (int64_t idx : entry.outputIdx) {
@@ -126,9 +125,9 @@ public:
                 builder.getStringAttr("out" + std::to_string(idx)));
           } else
             llvm::errs() << "Warning: --instrument-onnx-node selector out"
-                          << idx << " out of range for node \"" << nodeName
-                          << "\" (" << results.size()
-                          << " result(s)); ignoring.\n";
+                         << idx << " out of range for node \"" << nodeName
+                         << "\" (" << results.size()
+                         << " result(s)); ignoring.\n";
         }
       }
       builder.setInsertionPointAfter(op);

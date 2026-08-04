@@ -221,8 +221,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   // final and the terminator is already func::ReturnOp (set above by
   // createStandardFuncReturnPass()).
   if (instrumentOnnxNodeReturn != "" && instrumentOnnxNodeReturn != "NONE")
-    pm.addPass(
-        onnx_mlir::createAppendInstrumentedOutputsPass(instrumentOnnxNodeReturn));
+    pm.addPass(onnx_mlir::createAppendInstrumentedOutputsPass(
+        instrumentOnnxNodeReturn));
 
   // Add instrumentation for profiling/ signature for Onnx Ops. Keep this pass
   // at the end of this function.

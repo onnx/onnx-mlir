@@ -77,8 +77,7 @@ public:
       return;
 
     ModuleOp moduleOp = getOperation();
-    for (ONNXEntryPointOp entryPointOp :
-        moduleOp.getOps<ONNXEntryPointOp>())
+    for (ONNXEntryPointOp entryPointOp : moduleOp.getOps<ONNXEntryPointOp>())
       processEntryPoint(moduleOp, entryPointOp, nodeNameEntries);
   }
 
@@ -118,8 +117,8 @@ private:
     auto tryAdd = [&](Value v, StringRef nodeName, StringRef label) {
       if (mlir::isa<NoneType>(v.getType())) {
         llvm::errs() << "Warning: --instrument-onnx-node-return match \""
-                      << nodeName << "\" " << label
-                      << " is absent (NoneType); skipping.\n";
+                     << nodeName << "\" " << label
+                     << " is absent (NoneType); skipping.\n";
         return;
       }
       if (!existing.insert(v).second)
@@ -153,8 +152,8 @@ private:
               tryAdd(operands[idx], name, "in" + std::to_string(idx));
             else
               llvm::errs()
-                  << "Warning: --instrument-onnx-node-return selector in"
-                  << idx << " out of range for node \"" << name << "\" ("
+                  << "Warning: --instrument-onnx-node-return selector in" << idx
+                  << " out of range for node \"" << name << "\" ("
                   << operands.size() << " operand(s)); ignoring.\n";
           }
           ResultRange results = op.getResults();
