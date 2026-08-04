@@ -1,6 +1,6 @@
 // RUN: onnx-mlir --march=z16 --maccel=NNPA --printIR --EmitMLIR %s 2>&1 | FileCheck %s
 
-// CHECK: [Warning] There are 1 onnx.Conv, 1 onnx.Gemm, 1 onnx.GRU, 1 onnx.LSTM, 1 onnx.MatMul, 1 onnx.MatMulInteger, 1 onnx.QLinearMatMul, 1 onnx.Softmax operations that run on CPU (not accelerated by NNPA).
+// CHECK: [Warning] There are 1 onnx.Conv, 1 onnx.Gemm, 1 onnx.GRU, 1 onnx.LSTM, 1 onnx.MatMul, 1 onnx.MatMulInteger, 1 onnx.QLinearMatMul, 1 onnx.Softmax operations that run on CPU (not accelerated by NNPA). To get more information, recompile the model with the --onnx-op-stats option.
 
 module {
 
