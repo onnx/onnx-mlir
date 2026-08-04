@@ -352,7 +352,7 @@ def main():
     if args.rtol:
         test_cmd += ["--rtol=" + args.rtol]
     if args.cache_test_model:
-        ref_cmd += ["--cache-model=" + args.cache_test_model]
+        test_cmd += ["--cache-model=" + args.cache_test_model]
     # Model name.
     test_cmd += [model_str]
 
