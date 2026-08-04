@@ -92,58 +92,37 @@ The `explain()` feature provides insights into compilation and inference perform
 
 ### Basic Usage
 
+Use the context manager for automatic metrics collection:
+
 ```python
-import torch
-import torch.nn as nn
 import torch_onnxmlir
 
-# Enable explain feature
-torch_onnxmlir.config.enable_explain = True
+# Basic usage - metrics collected automatically
+with torch_onnxmlir.explain_context() as metrics:
+    output = compiled_model(input)
+    print(metrics)  # Print formatted metrics
 
-# Create and compile your model
-model = MyModel()
-compiled_model = torch.compile(model, backend="onnxmlir", options=om_options)
+# Access metrics data programmatically
+with torch_onnxmlir.explain_context(format="dict") as metrics:
+    output = compiled_model(input)
+    data = metrics.data
+    print(f"Cache hits: {data['summary']['total_cache_hits']}")
+    print(f"Total inferences: {data['summary']['total_inference_calls']}")
 
-# Run inference
-for _ in range(10):
-    output = compiled_model(input_tensor)
+# Table format with custom sorting
+with torch_onnxmlir.explain_context(format="table", sort_by="calls") as metrics:
+    output = compiled_model(input)
+    print(metrics)  # Prints formatted table
 
-# View performance metrics
-print(torch_onnxmlir.explain())
-```
+# Automatic export to file (simplifies logging)
+with torch_onnxmlir.explain_context(format="json", export_to="metrics.json") as metrics:
+    output = compiled_model(input)
+    # Metrics automatically saved to metrics.json on exit
 
-### Output Formats
-
-```python
-# Table format (default) - human-readable
-print(torch_onnxmlir.explain())
-
-# Dictionary format - for programmatic access
-metrics = torch_onnxmlir.explain(format="dict")
-print(f"Cache hit rate: {metrics['summary']['total_cache_hits'] / metrics['summary']['total_inference_calls'] * 100:.1f}%")
-
-# JSON format - for logging or external tools
-json_output = torch_onnxmlir.explain(format="json")
-```
-
-### Sorting Options
-
-```python
-# Sort by total time (default)
-print(torch_onnxmlir.explain(sort_by="time"))
-
-# Sort by number of calls
-print(torch_onnxmlir.explain(sort_by="calls"))
-
-# Sort by chronological order
-print(torch_onnxmlir.explain(sort_by="order"))
-```
-
-### Clearing Metrics
-
-```python
-# Clear all collected metrics to start fresh
-torch_onnxmlir.clear_metrics()
+# Export with nested directories (auto-created)
+with torch_onnxmlir.explain_context(export_to="logs/experiment1/metrics.json") as metrics:
+    output = compiled_model(input)
+    # Creates logs/experiment1/ directory if it doesn't exist
 ```
 
 ### Example Output

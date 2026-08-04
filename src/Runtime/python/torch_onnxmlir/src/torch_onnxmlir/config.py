@@ -43,8 +43,3 @@ generate_test_data_set = False
 # Whether to regenerate test data sets or not. When enabled, the folder test_data_set is rewritten with new data.
 # This regeneration is called on every run, and the data of the last run is used. Thus, only use it for debugging.
 regenerate_test_data_set = False
-
-# Enable metrics collection for explain() feature.
-# When False: Minimal overhead (single boolean check per operation).
-# When True: Metrics are collected for performance analysis.
-enable_explain = False

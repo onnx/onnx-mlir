@@ -42,13 +42,8 @@ file(GENERATE
   )
 
 file(GENERATE
-  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/test_explain.py
-  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/test_explain.py
-  )
-
-file(GENERATE
-  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/test_explain_integration.py
-  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/test_explain_integration.py
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/test_explain_context.py
+  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/test_explain_context.py
   )
 
 file(GENERATE
@@ -61,8 +56,7 @@ enable_testing()
 
 # Tests for general features.
 set(FEATURE_LIST
-  "${CMAKE_CURRENT_BINARY_DIR}/test_explain.py"
-  "${CMAKE_CURRENT_BINARY_DIR}/test_explain_integration.py"
+  "${CMAKE_CURRENT_BINARY_DIR}/test_explain_context.py"
   "${CMAKE_CURRENT_BINARY_DIR}/test_explain_simple_model.py"
 )
 
