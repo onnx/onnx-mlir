@@ -618,7 +618,17 @@ static llvm::cl::opt<std::string, true> instrumentONNXNodeOpt(
         "Asterisk is also available. For example:\n"
         "\"onnx.Add_*\" for all AddOp. This feature allows you to specify\n"
         "part of the target of onnx_node_name, as long as it is long enough\n"
-        "to be unique.\n"),
+        "to be unique.\n"
+        "By default, all input and output tensors of a matched node are\n"
+        "printed. To print only a subset, append a ':' and a '+'-separated\n"
+        "list of 'inN'/'outN' selectors (0-based) after the node name/pattern.\n"
+        "e.g. \"/layer1/MatMul:out0\" prints only output 0 of that node.\n"
+        "e.g. \"onnx.Add_*:in1+out0\" prints input 1 and output 0 of every\n"
+        "matched Add node.\n"
+        "Selectors are per comma-separated entry, so plain entries with no\n"
+        "':' suffix still print all tensors, e.g.\n"
+        "\"onnx.Add_0:out0, onnx.Sub_1\" prints only output 0 of Add_0, but\n"
+        "all operands/results of Sub_1.\n"),
     llvm::cl::location(instrumentOnnxNode), llvm::cl::init("NONE"),
     llvm::cl::cat(OnnxMlirOptions));
 
