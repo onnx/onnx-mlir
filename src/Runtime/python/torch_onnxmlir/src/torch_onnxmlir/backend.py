@@ -668,7 +668,7 @@ class TorchONNXMLIR:
         return constant_values
 
     def export_gm_to_onnx(self, example_inputs):
-        model_name = self.default_model_name + str(self.tag) + ".onnx"
+        model_name = self.default_model_name + ".onnx"
         self.onnx_model = os.path.join(self.workdir.name, model_name)
         input_names, dynamic_shapes = self.build_dynamic_shapes_for_export()
 
@@ -703,7 +703,7 @@ class TorchONNXMLIR:
         return succeeded
 
     def cleanup_onnxmlir_files(self, tag_id):
-        base = os.path.join(self.workdir.name, self.default_model_name + str(tag_id))
+        base = os.path.join(self.workdir.name, self.default_model_name)
         old_files = [base + ext for ext in ONNX_FILE_EXTS + OM_COMPILED_FILE_EXTS]
         for f in old_files:
             if os.path.exists(f):
