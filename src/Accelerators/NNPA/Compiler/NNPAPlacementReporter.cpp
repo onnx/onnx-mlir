@@ -78,7 +78,8 @@ void NNPAPlacementReporter::runBeforePass(Pass *pass, Operation *op) {
     }
     llvm::outs()
         << " operations that run on CPU (not accelerated by NNPA). To get more "
-           "information, recompile the model with the --onnx-op-stats option.\n";
+           "information, recompile the model with the --onnx-op-stats "
+           "option.\n";
   }
 }
 
