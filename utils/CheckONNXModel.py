@@ -94,13 +94,7 @@ parser.add_argument(
     type=str,
     default="",
     help="Reference arguments passed directly to onnx-mlir command."
-    " See bin/onnx-mlir --help."
-    " Default is empty (no --compile-args forwarded), so that with"
-    " --cache-ref-model, a cache hit is loaded as-is regardless of the"
-    " options it was originally built with. Passing any value here"
-    " (including '-O0') is checked for an exact match against the"
-    " cached model's saved options and aborts on mismatch"
-    " (see RunONNXModel.py's --cache-model/--load-model handling).",
+    " See bin/onnx-mlir --help. Default is empty.",
 )
 test_group = parser.add_mutually_exclusive_group()
 test_group.add_argument(
@@ -110,7 +104,7 @@ test_group.add_argument(
     default="",
     help="Reference arguments passed directly to onnx-mlir command."
     " Use either the -t or -a argument but not both."
-    " See bin/onnx-mlir --help.",
+    " See bin/onnx-mlir --help. Default is empty.",
 )
 test_group.add_argument(
     "-a",
@@ -350,7 +344,11 @@ def main():
     else:
         compile_args = args.test_compile_args
     test_cmd = [cmd]
-    test_cmd += ["--compile-args=" + compile_args]
+    # Compile options for test. Omit entirely when empty (default) so
+    # that, combined with --cache-test-model, a cache hit is loaded as-is
+    # instead of tripping RunONNXModel.py's saved-options mismatch check.
+    if compile_args:
+        test_cmd += ["--compile-args=" + compile_args]
     # Where to load the ref from.
     test_cmd += ["--load-ref=" + test_dir]
     # How to verify.
