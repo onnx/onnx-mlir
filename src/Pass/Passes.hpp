@@ -89,6 +89,10 @@ std::unique_ptr<mlir::Pass> createInstrumentONNXSignaturePass(
 
 /// Pass that appends tensors matched by onnx_node_name (same syntax as
 /// --instrument-onnx-node) as extra outputs of the entry function(s).
+#define GEN_PASS_DECL_APPENDINSTRUMENTEDOUTPUTSPASS
+#include "src/Dialect/ONNX/Transforms/Passes.h.inc"
+// GEN_PASS_DEF method only adds default constructor only,
+// we add custom constructor with an explicit nodePattern argument.
 std::unique_ptr<mlir::Pass> createAppendInstrumentedOutputsPass(
     const std::string nodePattern);
 

@@ -34,6 +34,13 @@ using namespace mlir;
 using onnx_mlir::NodeIOEntry;
 using onnx_mlir::parseNodeNamePattern;
 
+namespace onnx_mlir {
+
+#define GEN_PASS_DEF_APPENDINSTRUMENTEDOUTPUTSPASS
+#include "src/Dialect/ONNX/Transforms/Passes.h.inc"
+
+} // namespace onnx_mlir
+
 namespace {
 
 /*!
@@ -42,16 +49,16 @@ namespace {
  */
 
 class AppendInstrumentedOutputsPass
-    : public mlir::PassWrapper<AppendInstrumentedOutputsPass,
-          OperationPass<ModuleOp>> {
+    : public onnx_mlir::impl::AppendInstrumentedOutputsPassBase<
+          AppendInstrumentedOutputsPass> {
 
 public:
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(AppendInstrumentedOutputsPass)
 
   AppendInstrumentedOutputsPass() = default;
   AppendInstrumentedOutputsPass(const AppendInstrumentedOutputsPass &pass)
-      : mlir::PassWrapper<AppendInstrumentedOutputsPass,
-            OperationPass<ModuleOp>>() {
+      : onnx_mlir::impl::AppendInstrumentedOutputsPassBase<
+            AppendInstrumentedOutputsPass>() {
     nodeNamePattern = pass.nodeNamePattern;
   }
   AppendInstrumentedOutputsPass(const std::string nodePattern)
@@ -61,15 +68,6 @@ private:
   std::string nodeNamePattern;
 
 public:
-  StringRef getArgument() const override {
-    return "append-instrumented-outputs";
-  }
-
-  StringRef getDescription() const override {
-    return "append tensors matched by onnx_node_name as extra outputs of "
-           "the entry function(s)";
-  }
-
   void runOnOperation() override {
     std::vector<NodeIOEntry> nodeNameEntries =
         parseNodeNamePattern(nodeNamePattern);
