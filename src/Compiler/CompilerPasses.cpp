@@ -213,6 +213,17 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   // function and just before instrumentation.
   pm.addPass(createSetONNXNodeNamePass());
 
+  // Append tensors selected by --instrument-onnx-node-return as extra
+  // outputs of the entry function(s). Not gated by
+  // hasSignatureInstrumentation/--instrument-stage: that machinery
+  // interlocks with the timing/memory instrumentation family, which is
+  // unrelated to this. Must run here too, so onnx_node_name values are
+  // final and the terminator is already func::ReturnOp (set above by
+  // createStandardFuncReturnPass()).
+  if (instrumentOnnxNodeReturn != "" && instrumentOnnxNodeReturn != "NONE")
+    pm.addPass(onnx_mlir::createAppendInstrumentedOutputsPass(
+        instrumentOnnxNodeReturn));
+
   // Add instrumentation for profiling/ signature for Onnx Ops. Keep this pass
   // at the end of this function.
   unsigned instrumentActions = instrumentControlBits;

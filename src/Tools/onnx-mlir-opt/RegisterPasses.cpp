@@ -116,6 +116,10 @@ void registerOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createAppendInstrumentedOutputsPass("NONE");
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createSetONNXNodeNamePass();
   });
 
