@@ -4,7 +4,7 @@
 
 ####################### onnx-mlir-print.sh #####################################
 #
-# Copyright 2025 The IBM Research Authors.
+# Copyright 202-2026 The IBM Research Authors.
 #
 ################################################################################
 #
@@ -21,5 +21,5 @@
 # that pass, user should add "--mlir-print-ir-after-change" to the list of
 # onnx-mlir options. It is not added by default
 
-onnx-mlir-truncate.sh ${@:1:$#-1} --mlir-print-ir-after-all --mlir-print-ir-after-change ${@: -1}
+onnx-mlir-truncate.py ${@:1:$#-1} --mlir-print-ir-after-all --mlir-print-ir-after-change ${@: -1}
   

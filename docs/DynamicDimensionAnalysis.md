@@ -15,6 +15,7 @@ is a companion pass for inspecting and debugging its results.
   - [Getting a `.mlir` File to Analyze](#getting-a-mlir-file-to-analyze)
   - [Reading `onnx.DimGroup`](#reading-onnxdimgroup)
   - [Worked Example](#worked-example)
+  - [Folding Groups into Types with `AnalyzeShape.py`](#folding-groups-into-types-with-analyzeshapepy)
   - [Debugging the Analysis Itself](#debugging-the-analysis-itself)
 - [Other Notable Capabilities](#other-notable-capabilities)
 
@@ -222,6 +223,28 @@ Because the group ids are unstable, the LIT tests under
 counterpart in [test/mlir/accelerators/nnpa/analysis/dyn-dim-analysis.mlir](../test/mlir/accelerators/nnpa/analysis/dyn-dim-analysis.mlir))
 typically use `FileCheck`'s `[[GROUP_n_:.*]]` capture-and-reuse pattern rather than hardcoding
 group id values, except where the id is known to be deterministic for a given test.
+
+### Folding Groups into Types with `AnalyzeShape.py`
+
+Cross-referencing separate `onnx.DimGroup` ops by `group_id` gets tedious once a function has more
+than a couple of dynamic dimensions. [`utils/AnalyzeShape.py`](../utils/AnalyzeShape.py) automates
+the process shown in the worked example above: given a `.mlir` file, it runs `--onnx-dim-analysis`
+for you, then folds each dimension's group info directly into its tensor type as a `#onnx.dg<>`
+encoding attribute, so equal dimensions are visible right where the type is used instead of in a
+separate op.
+
+```shell
+python3 utils/AnalyzeShape.py model.onnx.mlir
+```
+
+This writes `model.onnx-dg.mlir` (the raw `--onnx-dim-analysis` output) and
+`model.onnx-annotated.mlir` (with the folded `#onnx.dg<>` annotations). For the worked example
+above, the annotated result would show `%arg0` as `tensor<d0x3xd1xf32, #onnx.dg<...>>` and `%0` as
+`tensor<u0x3xu1xf32, #onnx.dg<...>>` — the first occurrence of a group is named `d{id}` and later
+occurrences sharing that group are named `u{id}`, so it is immediately visible that `%arg0`'s dim 0
+matches `%0`'s dim 0, instead of the fixed `tensor<?x3x?xf32>` with `onnx.DimGroup` ops elsewhere in
+the file. See `python3 utils/AnalyzeShape.py -h` for details, including how it locates
+`onnx-mlir-opt`.
 
 ### Debugging the Analysis Itself
 

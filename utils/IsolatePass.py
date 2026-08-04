@@ -3,7 +3,7 @@
 
 ####################### IsolatePass.py #########################################
 #
-# Copyright 2025 The IBM Research Authors.
+# Copyright 2025-2026 The IBM Research Authors.
 #
 ################################################################################
 #
@@ -17,6 +17,8 @@ import os
 import re
 from collections import Counter
 
+from mlir_log_utils import clean_line
+
 # Global variables.
 
 # Id is the entry number in the array. Each entry contains a string with all of
@@ -26,8 +28,6 @@ pass_listing = []
 pass_name_to_id = {}
 # Map the id to the pass name that represented it.
 id_to_pass_name = []
-# Max length of a single line. If there are very long constants, truncate them.
-max_line_length = 800
 debug = 0
 
 
@@ -104,18 +104,10 @@ def extract_ir_pass_name(text):
         return None
 
 
-def process_line(str, length=max_line_length):
-    # Cap length.
-    if len(str) > length:
-        str = str[:length]
-    # Remove end of line,
+def process_line(str):
     if str.endswith("\n"):
         str = str[:-1]
-    # Ensure even number of '"".
-    if str.count('"') % 2 == 1:
-        # Add '"'.
-        str += '"'
-    return str + "\n"
+    return clean_line(str) + "\n"
 
 
 def scan_listing(filename, print_list_name):
