@@ -1594,6 +1594,21 @@ bool ImportFrontendModelInternal(onnx::ModelProto &model, MLIRContext &context,
   // trouble.
   // ToFix: the shape-inference-pattern should be added and used in Importer.
 
+  // Validate the original model before any processing. This rejects malformed
+  // models (e.g. Gemm inputs with rank < 2) that would cause undefined
+  // behaviour inside the ONNX version-conversion adapters.
+  // check_model(full_check=true) runs shape inference internally and may throw
+  // either ValidationError or InferenceError; catch both.
+  try {
+    onnx::checker::check_model(model, true);
+  } catch (const onnx::checker::ValidationError &e) {
+    llvm::errs() << "ONNX model validation failed: " << e.what() << "\n";
+    return false;
+  } catch (const onnx::InferenceError &e) {
+    llvm::errs() << "ONNX model validation failed: " << e.what() << "\n";
+    return false;
+  }
+
   // Did not do downward convert because support for BatchNorm is missing
   if (options.invokeOnnxVersionConverter &&
       originVersion < CURRENT_ONNX_OPSET) {

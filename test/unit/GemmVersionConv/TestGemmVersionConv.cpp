@@ -73,16 +73,27 @@ static ModelProto buildGemmRank1BModel() {
   btt->set_elem_type(floatType);
   btt->mutable_shape()->add_dim()->set_dim_value(28);
 
-  // Output Y
+  // Input C (bias): shape [4] — Gemm opset 7 requires exactly 3 inputs
+  ValueInfoProto *c = graph->add_input();
+  c->set_name("C");
+  auto *ctt = c->mutable_type()->mutable_tensor_type();
+  ctt->set_elem_type(floatType);
+  ctt->mutable_shape()->add_dim()->set_dim_value(4);
+
+  // Output Y: shape [2, 4] — A[2,3] x B[3,4] = [2,4]
   ValueInfoProto *y = graph->add_output();
   y->set_name("Y");
-  y->mutable_type()->mutable_tensor_type()->set_elem_type(floatType);
+  auto *ytt = y->mutable_type()->mutable_tensor_type();
+  ytt->set_elem_type(floatType);
+  ytt->mutable_shape()->add_dim()->set_dim_value(2);
+  ytt->mutable_shape()->add_dim()->set_dim_value(4);
 
   // Gemm node
   NodeProto *node = graph->add_node();
   node->set_op_type("Gemm");
   node->add_input("A");
   node->add_input("B");
+  node->add_input("C");
   node->add_output("Y");
 
   return model;
@@ -119,16 +130,27 @@ static ModelProto buildGemmRank2BModel() {
   btt->mutable_shape()->add_dim()->set_dim_value(3);
   btt->mutable_shape()->add_dim()->set_dim_value(4);
 
-  // Output Y
+  // Input C (bias): shape [4] — Gemm opset 7 requires exactly 3 inputs
+  ValueInfoProto *c = graph->add_input();
+  c->set_name("C");
+  auto *ctt = c->mutable_type()->mutable_tensor_type();
+  ctt->set_elem_type(floatType);
+  ctt->mutable_shape()->add_dim()->set_dim_value(4);
+
+  // Output Y: shape [2, 4] — A[2,3] x B[3,4] = [2,4]
   ValueInfoProto *y = graph->add_output();
   y->set_name("Y");
-  y->mutable_type()->mutable_tensor_type()->set_elem_type(floatType);
+  auto *ytt2 = y->mutable_type()->mutable_tensor_type();
+  ytt2->set_elem_type(floatType);
+  ytt2->mutable_shape()->add_dim()->set_dim_value(2);
+  ytt2->mutable_shape()->add_dim()->set_dim_value(4);
 
   // Gemm node
   NodeProto *node = graph->add_node();
   node->set_op_type("Gemm");
   node->add_input("A");
   node->add_input("B");
+  node->add_input("C");
   node->add_output("Y");
 
   return model;
