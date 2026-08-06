@@ -822,11 +822,12 @@ bool ConcatExpandStickFusionHelper::detectIfBeneficial(
   if (A == concatRank - 1)
     return returnFailure("concat: do not support concat on innermost dim");
   concatAxis = A;
-
-  for (Value input : concatInputs) {
-    if (!hasStaticInnermostDimMod(input, 64))
-      return returnFailure("concat: input innermost dim not static mod 64");
-  }
+  // Because of limitation in the code gen scheme to innermost dims being
+  // multiple of 64, check that assertion here. Since innermost is not the
+  // concat dim, by definition all inputs must have the same size in the
+  // innermost dim, so we can just check the first input.
+  if (!hasStaticInnermostDimMod(concatInputs[0], 64))
+    return returnFailure("concat: input innermost dim not static mod 64");
 
   ops.push_back(startOp.getOperation());
   Value current = concatOut;

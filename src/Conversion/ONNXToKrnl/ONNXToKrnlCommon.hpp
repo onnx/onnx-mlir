@@ -658,14 +658,6 @@ struct FusedOpKindLowering
     // (or the benefit-0 catch-all) can process the op instead.
     if (fusedOp.getKind() != FusionT::kKind)
       return mlir::failure();
-    // --disable-fused-op: force every kind's dedicated lowering to unfuse,
-    // even for an ONNXFusedOp that was already built (e.g. handed directly
-    // to a lowering test, or surviving from a run where the flag was not yet
-    // set). This is the single choke point shared by every per-kind
-    // FusedOpKindLowering<FusionT> instantiation, so no other lowering needs
-    // its own copy of this check.
-    if (onnx_mlir::disableFusedOp)
-      return FusionOpKindHelper::unFuse(rewriter, fusedOp);
     // Retrieve body ops and cross-check stored params.  If the body was
     // altered by an optimisation pass, fall back to inline.
     fusion.retrieveOpsAndOutputValues(fusedOp);
