@@ -281,7 +281,7 @@ def generate_hash_key(
                         if t is not None and isinstance(t, torch.nn.Parameter):
                             sample_values = [
                                 str(s)
-                                for s in t.view(-1)[
+                                for s in t.reshape(-1)[
                                     : config.sample_parameter_values_limit
                                 ].tolist()
                             ]
