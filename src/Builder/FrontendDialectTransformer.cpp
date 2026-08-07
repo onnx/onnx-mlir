@@ -487,7 +487,7 @@ private:
    * input/output names.
    * @param useReturn if set to true, will emit ONNXReturnOp as
    * terminator, otherwise, will use ONNXYieldOp as terminator.
-   * @return function type corresponding to the subgraph input/output signature.
+   * @return function type corresponding to the subgraph input/output signature
    */
   FunctionType importGraph(const onnx::GraphProto &graph, Region &region,
       Operation *op, bool useReturn) {
