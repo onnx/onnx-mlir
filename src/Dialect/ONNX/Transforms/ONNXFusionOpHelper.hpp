@@ -65,6 +65,21 @@ namespace onnx_mlir {
 //    half (no broadcasting), and must not be the other half's slice result
 //    directly (no transitive cross-half check).
 //
+// Chain-op order convention (specific to this kind -- the base class
+// imposes no particular order, each kind picks its own): `ops` (the
+// FusionOpKindHelper base class's chain-op list, populated by
+// detectIfBeneficial and re-derived by retrieveOpsAndOutputValues) is
+// always laid out low-half-first --
+//   [sliceLow, opLow?, sliceHigh, opHigh?, concatOp]
+// -- regardless of which half happens to be Concat's first operand in the
+// actual IR. This fixed order is what lets verify() re-check the chain
+// positionally despite two independently optional ops (hasOpForSplitLow/
+// High give 4 presence combinations, which ops.size() alone can't
+// disambiguate). It also means the ops as cloned into the FusedOp body are
+// printed low-then-high even when the source IR had them the other way --
+// see detectIfBeneficial's "Fixed, deterministic op order" comment and
+// verify()'s indexed walk, both in ONNXFusionOpHelper.cpp.
+//
 // Unique-use invariant: every intermediate value (each Slice result, and
 // each per-half op's result) has exactly one use.
 //===----------------------------------------------------------------------===//
