@@ -85,6 +85,9 @@ add_onnx_mlir_library(OMCompilerPasses
 
   EXCLUDE_FROM_OM_LIBS
 
+  DEPENDS
+  OMONNXTransformsPassIncGen
+  
   INCLUDE_DIRS PRIVATE
   ${FILE_GENERATE_DIR}
 
