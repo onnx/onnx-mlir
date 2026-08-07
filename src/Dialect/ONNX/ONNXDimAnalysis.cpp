@@ -525,9 +525,10 @@ static bool exploreSameDimsUsingShapeInput(const DimAnalysis::DimT &dim,
     if (!isNoneValue(onnxOp.getOutputShape()))
       shapeInput = onnxOp.getOutputShape();
   } else if (auto onnxOp = mlir::dyn_cast<ONNXReshapeOp>(op)) {
-    // `shape` stores shape information. Only support `allow_zero == 0`.
-    if (onnxOp.getAllowzero() == 0)
-      shapeInput = onnxOp.getShape();
+    // `shape` stores shape information. Both allowzero=0 and allowzero=1 are supported.
+    // When allowzero=1, explicit zeros in shape become static dimensions and are
+    // automatically filtered out by insertDimWhenUseful().
+    shapeInput = onnxOp.getShape();
   } else if (auto onnxOp = mlir::dyn_cast<ONNXTileOp>(op)) {
     // If input dimension i is 1, `repeats` i stores shape information.
     Type inputType = onnxOp.getInput().getType();
@@ -1343,7 +1344,6 @@ void DimAnalysis::visitDim(
   if (auto reshapeOp = mlir::dyn_cast<ONNXReshapeOp>(op)) {
     if (reshapeOp.getAllowzero() != 0)
       return;
-
     LLVM_DEBUG(llvm::dbgs() << "Special case for Reshape\n");
 
     Value data = reshapeOp.getData();
