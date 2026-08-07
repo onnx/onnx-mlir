@@ -203,7 +203,7 @@ private:
   std::map<std::string, ImportHandlerType> import_handler_map_;
 
   // The total number of elements in all initializers. This value is a rough
-  // counter of the number of parameters in a model. 
+  // counter of the number of parameters in a model.
   int64_t num_of_parameters_ = 0;
 
   // onnx_type_map: a map from ONNX tensor name to ONNX TypeProto.
