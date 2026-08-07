@@ -35,6 +35,7 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/Transforms/FusionOpBasePattern.hpp"
+#include "src/Dialect/ONNX/Transforms/FusionOpTransform.hpp"
 #include "src/Pass/Passes.hpp"
 
 #define DEBUG_TYPE "op-fusion"
@@ -912,6 +913,13 @@ struct FusionOpStickUnstick
           &getContext(), dimAnalysis);
       patterns.insert<FusedPatternsForConcatExpandStick>(
           &getContext(), dimAnalysis);
+      // Merge in the general (non-accelerator-specific) fusion kinds here
+      // too, so NNPA builds only ever run one fusion pass, at the point
+      // this pass already forms fused ops (late, after most optimizations).
+      // See FusionOpTransform.hpp for the CPU-only counterpart, which this
+      // pass supersedes whenever NNPA is active (targetCPU is false then).
+      onnx_mlir::populateONNXFusionOpPatterns(
+          patterns, &getContext(), dimAnalysis);
     } else
       patterns.insert<PatternsForExtendedLayoutTransform>(
           &getContext(), dimAnalysis);

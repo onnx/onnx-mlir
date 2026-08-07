@@ -43,6 +43,13 @@ std::unique_ptr<mlir::Pass> createDecomposeONNXToONNXPass(
 std::unique_ptr<mlir::Pass> createRecomposeONNXToONNXPass(
     const std::string &target = "");
 
+// Pass for fusing chains of ONNX operations into a single ONNXFusedOp, for
+// kinds that are not accelerator-specific -- declared via TableGen, see
+// src/Dialect/ONNX/Transforms/Passes.td (FusionOpTransformPass) and
+// src/Dialect/ONNX/Transforms/ONNXFusionOpHelper.hpp.
+#define GEN_PASS_DECL_FUSIONOPTRANSFORMPASS
+#include "src/Dialect/ONNX/Transforms/Passes.h.inc"
+
 // Pass for appending a decoding strategy into the main graph.
 #define GEN_PASS_DECL_APPENDDECODINGSTRATEGYPASS
 std::unique_ptr<::mlir::Pass> createAppendDecodingStrategyPass();
