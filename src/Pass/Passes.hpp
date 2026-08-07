@@ -45,6 +45,7 @@ std::unique_ptr<mlir::Pass> createRecomposeONNXToONNXPass(
 
 // Pass for appending a decoding strategy into the main graph.
 #define GEN_PASS_DECL_APPENDDECODINGSTRATEGYPASS
+#include "src/Dialect/ONNX/Transforms/Passes.h.inc"
 std::unique_ptr<::mlir::Pass> createAppendDecodingStrategyPass();
 
 std::unique_ptr<mlir::Pass> createConvOptONNXToONNXPass(
