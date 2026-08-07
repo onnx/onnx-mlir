@@ -36,24 +36,24 @@ namespace {
 // Per-half allow-list: every ONNX op with the standard elementwise Krnl
 // lowering (i.e. an emitScalarOpFor<T>, used identically for scalar and SIMD
 // operands -- see Elementwise.hpp's own STEP 1/2 comments), reusing the same
-// canonical op-type list `FusionOpStickUnstick.cpp`'s `canOpFuseWithStickUnstick`
-// pulls in via this file's X-macro trick, rather than hand-picking a subset.
-// ELEMENTWISE_UNARY ops take exactly one operand (the half itself);
-// ELEMENTWISE_BINARY/_VARIADIC ops, when actually applied with 2 operands
-// here, take the half plus exactly one external operand.
+// canonical op-type list `FusionOpStickUnstick.cpp`'s
+// `canOpFuseWithStickUnstick` pulls in via this file's X-macro trick, rather
+// than hand-picking a subset. ELEMENTWISE_UNARY ops take exactly one operand
+// (the half itself); ELEMENTWISE_BINARY/_VARIADIC ops, when actually applied
+// with 2 operands here, take the half plus exactly one external operand.
 bool isUnaryAllowedOpType(Operation *op) {
-#define ELEMENTWISE_UNARY(_OP_TYPE)                                          \
-  if (mlir::isa<_OP_TYPE>(op))                                               \
+#define ELEMENTWISE_UNARY(_OP_TYPE)                                            \
+  if (mlir::isa<_OP_TYPE>(op))                                                 \
     return true;
 #include "src/Conversion/ONNXToKrnl/Math/Elementwise.hpp"
   return false;
 }
 bool isBinaryAllowedOpType(Operation *op) {
-#define ELEMENTWISE_BINARY(_OP_TYPE)                                         \
-  if (mlir::isa<_OP_TYPE>(op))                                               \
+#define ELEMENTWISE_BINARY(_OP_TYPE)                                           \
+  if (mlir::isa<_OP_TYPE>(op))                                                 \
     return true;
-#define ELEMENTWISE_VARIADIC(_OP_TYPE)                                       \
-  if (mlir::isa<_OP_TYPE>(op))                                               \
+#define ELEMENTWISE_VARIADIC(_OP_TYPE)                                         \
+  if (mlir::isa<_OP_TYPE>(op))                                                 \
     return true;
 #include "src/Conversion/ONNXToKrnl/Math/Elementwise.hpp"
   return false;
@@ -134,6 +134,9 @@ bool checkBranchOp(const Branch &b, ONNXSliceOp otherSlice) {
   auto sliceType = dyn_cast<ShapedType>(sliceOp.getResult().getType());
   if (!extType || !sliceType)
     return false;
+  // hi alex: this actually does not work for dynamic shapes; we need to ensure
+  // that they have the same dynamic shape. Use dynamic shape analysis here. But
+  // do this later, when explicitly promoted for.
   return extType.getShape() == sliceType.getShape(); // no broadcasting
 }
 
@@ -175,6 +178,9 @@ bool SplitOpGatherFusionHelper::detectIfBeneficial(
     return returnFailure("concat: axis out of range after normalization");
   if (A != rank - 1)
     return returnFailure("concat: only innermost-axis split supported (v1)");
+
+  // hi alex: we have a lot of concats that are for shapes; if useful, we could
+  // quickly weed out concat of scalars tensors here. Do it when prompted for.
 
   // ---- Resolve both branches -----------------------------------------------
   Branch branch0, branch1;
@@ -315,8 +321,10 @@ void SplitOpGatherFusionHelper::embedAttrs(ONNXFusedOp fusedOp) const {
   fusedOp->setAttr("splitPoint", b.getI64IntegerAttr(splitPoint));
   fusedOp->setAttr("hasOpForSplitLow", b.getBoolAttr(hasOpForSplitLow));
   fusedOp->setAttr("hasOpForSplitHigh", b.getBoolAttr(hasOpForSplitHigh));
-  fusedOp->setAttr("outputOffsetForSplitLow", b.getI64IntegerAttr(outputOffsetForSplitLow));
-  fusedOp->setAttr("outputOffsetForSplitHigh", b.getI64IntegerAttr(outputOffsetForSplitHigh));
+  fusedOp->setAttr(
+      "outputOffsetForSplitLow", b.getI64IntegerAttr(outputOffsetForSplitLow));
+  fusedOp->setAttr("outputOffsetForSplitHigh",
+      b.getI64IntegerAttr(outputOffsetForSplitHigh));
 }
 
 bool SplitOpGatherFusionHelper::retrieveAttrs(ONNXFusedOp fusedOp) {
@@ -350,7 +358,8 @@ bool SplitOpGatherFusionHelper::retrieveAttrs(ONNXFusedOp fusedOp) {
 }
 
 bool SplitOpGatherFusionHelper::verify() const {
-  size_t expected = 3 + (hasOpForSplitLow ? 1 : 0) + (hasOpForSplitHigh ? 1 : 0);
+  size_t expected =
+      3 + (hasOpForSplitLow ? 1 : 0) + (hasOpForSplitHigh ? 1 : 0);
   if (ops.size() != expected)
     return false;
   size_t idx = 0;
@@ -371,6 +380,23 @@ bool SplitOpGatherFusionHelper::verify() const {
   if (A < 0)
     A += rank;
   return A == axis;
+}
+
+ONNXSliceOp SplitOpGatherFusionHelper::getSliceLowOp() const {
+  return cast<ONNXSliceOp>(ops[0]);
+}
+
+Operation *SplitOpGatherFusionHelper::getOpLowNode() const {
+  return hasOpForSplitLow ? ops[1] : nullptr;
+}
+
+ONNXSliceOp SplitOpGatherFusionHelper::getSliceHighOp() const {
+  return cast<ONNXSliceOp>(ops[hasOpForSplitLow ? 2 : 1]);
+}
+
+Operation *SplitOpGatherFusionHelper::getOpHighNode() const {
+  size_t idx = (hasOpForSplitLow ? 2 : 1) + 1;
+  return hasOpForSplitHigh ? ops[idx] : nullptr;
 }
 
 } // namespace onnx_mlir

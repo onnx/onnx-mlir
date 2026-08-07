@@ -118,6 +118,17 @@ public:
   void embedAttrs(mlir::ONNXFusedOp fusedOp) const override;
   bool retrieveAttrs(mlir::ONNXFusedOp fusedOp) override;
   bool verify() const override;
+
+  /// Accessors into the (protected, base-class) `ops` vector, following the
+  /// "Chain-op order convention" above -- the mechanism Part 2's lowering
+  /// uses to dispatch per-op codegen without needing raw access to `ops`
+  /// itself (kept protected on purpose, per FusionOpHelper.hpp's own design
+  /// note: callers go through kind-specific accessors, not the raw vector).
+  /// Valid only after retrieveOpsAndOutputValues() + a successful verify().
+  mlir::ONNXSliceOp getSliceLowOp() const;
+  mlir::Operation *getOpLowNode() const;  // null if !hasOpForSplitLow
+  mlir::ONNXSliceOp getSliceHighOp() const;
+  mlir::Operation *getOpHighNode() const; // null if !hasOpForSplitHigh
 };
 
 } // namespace onnx_mlir
