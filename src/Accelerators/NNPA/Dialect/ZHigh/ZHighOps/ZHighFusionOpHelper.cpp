@@ -51,6 +51,24 @@ static T singleUserOfType(Value val) {
   return dyn_cast<T>(*val.getUsers().begin());
 }
 
+/// Return the unique user of \p val that is of type \p T, or null if there
+/// isn't exactly one such user.  Unlike singleUserOfType, \p val is allowed
+/// to have other, non-T-typed uses as well (e.g. a value that also escapes
+/// to a function result); callers that need to know about those other uses
+/// should check val.hasOneUse() themselves after a successful match.
+template <typename T>
+static T uniqueUserOfType(Value val) {
+  T found = nullptr;
+  for (Operation *user : val.getUsers()) {
+    if (auto typed = dyn_cast<T>(user)) {
+      if (found)
+        return nullptr; // more than one T-typed user -- ambiguous
+      found = typed;
+    }
+  }
+  return found;
+}
+
 /// Return true if \p perm keeps the last dimension in place.
 static bool transposeKeepsLastDim(ArrayAttr perm) {
   int64_t rank = static_cast<int64_t>(perm.size());
@@ -750,6 +768,320 @@ bool ExpandMulStickFusionHelper::verify() const {
       LLVM_DEBUG(llvm::dbgs() << "EMS verify: stick layout mismatch\n");
       return false;
     }
+  }
+
+  return true;
+}
+
+//===----------------------------------------------------------------------===//
+// ConcatExpandStickFusionHelper — virtual method implementations
+//===----------------------------------------------------------------------===//
+
+bool ConcatExpandStickFusionHelper::detectIfBeneficial(
+    const DimAnalysis *dimAnalysis, ONNXConcatOp startOp) {
+  auto returnFailure = [](llvm::StringRef msg) -> bool {
+    LLVM_DEBUG(llvm::dbgs()
+               << "  detectIfBeneficial concat-expand-stick: " << msg << "\n");
+    return false;
+  };
+
+  // Reset all fields.
+  ops.clear();
+  finalResults.clear();
+  concatAxis = -1;
+  unsqueezedPosition = -1;
+  expansionN = -1;
+  noSaturation = false;
+  reshapeFirstCollapsedDim = -1;
+  reshapeCollapsedCount = 0;
+  finalLayout = std::nullopt;
+  yieldConcatResult = false;
+
+  if (isInsideFusedOp(startOp))
+    return returnFailure("already inside a fused op body");
+
+  LLVM_DEBUG({
+    llvm::dbgs() << "Attempt to fuse concat-expand-stick from\n  ";
+    startOp.dump();
+  });
+
+  // ---- Step 1: Concat -----------------------------------------------------
+  auto concatInputs = startOp.getInputs();
+  if (concatInputs.size() != 2)
+    return returnFailure("concat: must have exactly two inputs");
+
+  Value concatOut = startOp.getConcatResult();
+  if (!hasShapeAndRank(concatOut))
+    return returnFailure("concat: output has no shape/rank");
+  int64_t concatRank = cast<ShapedType>(concatOut.getType()).getRank();
+  int64_t A = startOp.getAxis();
+  if (A < 0)
+    A += concatRank; // normalize negative axis
+  if (A < 0 || A >= concatRank)
+    return returnFailure("concat: axis out of range after normalization");
+  if (A == concatRank - 1)
+    return returnFailure("concat: do not support concat on innermost dim");
+  concatAxis = A;
+  // Because of limitation in the code gen scheme to innermost dims being
+  // multiple of 64, check that assertion here. Since innermost is not the
+  // concat dim, by definition all inputs must have the same size in the
+  // innermost dim, so we can just check the first input.
+  if (!hasStaticInnermostDimMod(concatInputs[0], 64))
+    return returnFailure("concat: input innermost dim not static mod 64");
+
+  ops.push_back(startOp.getOperation());
+  Value current = concatOut;
+
+  // ---- Step 2: Unsqueeze ---------------------------------------------------
+  // The concat result may have other, non-chain uses (e.g. it also feeds a
+  // KV-cache passthrough output) -- allow that here, as long as exactly one
+  // of its users is the Unsqueeze that starts the rest of the chain.  When
+  // such other uses exist, the concat result is threaded through as a
+  // second FusedOp output (see yieldConcatResult below).
+  auto unsqOp = uniqueUserOfType<ONNXUnsqueezeOp>(current);
+  if (!unsqOp)
+    return returnFailure(
+        "unsqueeze: not the unique user of type ONNXUnsqueezeOp");
+  yieldConcatResult = !current.hasOneUse();
+
+  Value axesVal = unsqOp.getAxes();
+  auto axesAttr = getElementAttributeFromONNXValue(axesVal);
+  if (!axesAttr || axesAttr.getNumElements() != 1)
+    return returnFailure("unsqueeze: must have exactly one axis");
+
+  int64_t P = (*axesAttr.getValues<int64_t>().begin());
+  int64_t outputRank = concatRank + 1;
+  if (P < 0)
+    P += outputRank; // normalize negative axis
+  if (P < 0 || P >= outputRank)
+    return returnFailure("unsqueeze: axis out of range after normalization");
+  if (P >= concatRank)
+    return returnFailure("unsqueeze: axis must be < concatRank");
+  ops.push_back(unsqOp.getOperation());
+  current = unsqOp.getExpanded();
+  unsqueezedPosition = P;
+
+  // ---- Step 3: F32ToDLF16 --------------------------------------------------
+  auto dlfOp = singleUserOfType<ZHighF32ToDLF16Op>(current);
+  if (!dlfOp)
+    return returnFailure(
+        "f32-to-dlf16: not single user of type ZHighF32ToDLF16Op");
+  if (auto ns = dlfOp.getNoSaturation())
+    noSaturation = (*ns != 0);
+  ops.push_back(dlfOp.getOperation());
+  current = dlfOp.getOut();
+
+  // ---- Step 4: Expand -------------------------------------------------------
+  auto expandOp = singleUserOfType<ONNXExpandOp>(current);
+  if (!expandOp)
+    return returnFailure("expand: not single user of type ONNXExpandOp");
+  int64_t N = detectExpandedDim(expandOp, P, dimAnalysis);
+  if (N < 0)
+    return returnFailure("expand: dim P not expanded to static N >= 2");
+  expansionN = N;
+  ops.push_back(expandOp.getOperation());
+  current = expandOp.getOutput();
+
+  // ---- Step 5: Reshape
+  // -------------------------------------------------------
+  auto reshapeOp = singleUserOfType<ONNXReshapeOp>(current);
+  if (!reshapeOp)
+    return returnFailure("reshape: not single user of type ONNXReshapeOp");
+  if (!detectUpperCollapse(reshapeOp, P, reshapeFirstCollapsedDim,
+          reshapeCollapsedCount, dimAnalysis))
+    return returnFailure("reshape: invalid collapse");
+  ops.push_back(reshapeOp.getOperation());
+  current = reshapeOp.getReshaped();
+
+  // ---- Step 6: LayoutTransform ---------------------------------------------
+  auto ltOp = singleUserOfType<ONNXLayoutTransformOp>(current);
+  if (!ltOp)
+    return returnFailure(
+        "layout-transform: not single user of type ONNXLayoutTransformOp");
+  auto layoutAttr = ltOp.getTargetLayout();
+  if (!layoutAttr.has_value())
+    return returnFailure("layout-transform: must target a zTensor layout");
+  if (!supportedLayoutForCompilerGeneratedStickUnstick(
+          ltOp.getOutput(), /*nhwc=*/false))
+    return returnFailure("layout-transform: unsupported target zTensor type");
+  OpBuilder b(ltOp);
+  StringAttr layoutStrAttr =
+      getZTensorLayoutAttr(b, cast<ZTensorEncodingAttr>(layoutAttr.value()));
+  StringRef layoutStr = layoutStrAttr.getValue();
+  if (layoutStr != LAYOUT_3D && layoutStr != LAYOUT_3DS &&
+      layoutStr != LAYOUT_4D)
+    return returnFailure(
+        "layout-transform: unsupported layout (need 3D, 3DS, or 4D)");
+  finalLayout = layoutStrAttr;
+  ops.push_back(ltOp.getOperation());
+  finalResults.push_back(ltOp.getOutput());
+  // The primary result is always output 0; the concat result, when also
+  // needed outside the chain, is threaded through as output 1.
+  if (yieldConcatResult)
+    finalResults.push_back(concatOut);
+
+  LLVM_DEBUG(llvm::dbgs() << "  concat-expand-stick: successful\n");
+  return true;
+}
+
+void ConcatExpandStickFusionHelper::embedAttrs(ONNXFusedOp fusedOp) const {
+  Builder b(fusedOp->getContext());
+  fusedOp->setAttr("concatAxis", b.getI64IntegerAttr(concatAxis));
+  fusedOp->setAttr(
+      "unsqueezedPosition", b.getI64IntegerAttr(unsqueezedPosition));
+  fusedOp->setAttr("expansionN", b.getI64IntegerAttr(expansionN));
+  fusedOp->setAttr("noSaturation", b.getBoolAttr(noSaturation));
+  fusedOp->setAttr("reshapeFirstCollapsedDim",
+      b.getI64IntegerAttr(reshapeFirstCollapsedDim));
+  fusedOp->setAttr(
+      "reshapeCollapsedCount", b.getI64IntegerAttr(reshapeCollapsedCount));
+  fusedOp->setAttr("finalLayout", *finalLayout);
+  fusedOp->setAttr("yieldConcatResult", b.getBoolAttr(yieldConcatResult));
+}
+
+bool ConcatExpandStickFusionHelper::retrieveAttrs(ONNXFusedOp fusedOp) {
+  auto getI64 = [&](StringRef name, int64_t &out) -> bool {
+    auto attr = fusedOp->getAttrOfType<IntegerAttr>(name);
+    if (!attr)
+      return false;
+    out = attr.getInt();
+    return true;
+  };
+  if (!getI64("concatAxis", concatAxis))
+    return false;
+  if (!getI64("unsqueezedPosition", unsqueezedPosition))
+    return false;
+  if (!getI64("expansionN", expansionN))
+    return false;
+  if (!getI64("reshapeFirstCollapsedDim", reshapeFirstCollapsedDim))
+    return false;
+  if (!getI64("reshapeCollapsedCount", reshapeCollapsedCount))
+    return false;
+  auto satAttr = fusedOp->getAttrOfType<BoolAttr>("noSaturation");
+  if (!satAttr)
+    return false;
+  noSaturation = satAttr.getValue();
+  auto layoutAttr = fusedOp->getAttrOfType<StringAttr>("finalLayout");
+  if (!layoutAttr)
+    return false;
+  finalLayout = layoutAttr;
+  auto yieldAttr = fusedOp->getAttrOfType<BoolAttr>("yieldConcatResult");
+  if (!yieldAttr)
+    return false;
+  yieldConcatResult = yieldAttr.getValue();
+  return true;
+}
+
+bool ConcatExpandStickFusionHelper::verify() const {
+#if 0
+  fprintf(
+      stderr, "hi alex, disable concat-expand-stick fusion lowering for now\n");
+  return false;
+#endif
+
+  constexpr int expected = 6; // concat + unsqueeze + f32-to-dlf16 + expand +
+                              // reshape + layout-transform
+  if ((int64_t)ops.size() != expected) {
+    LLVM_DEBUG(llvm::dbgs() << "CES verify: op count " << ops.size()
+                            << " != " << expected << "\n");
+    return false;
+  }
+  int idx = 0;
+
+  // ops[0]: ONNXConcatOp — exactly two inputs, axis matches concatAxis.
+  auto concat = dyn_cast<ONNXConcatOp>(ops[idx++]);
+  if (!concat || concat.getInputs().size() != 2) {
+    LLVM_DEBUG(llvm::dbgs() << "CES verify: ops[0] not a 2-input Concat\n");
+    return false;
+  }
+
+  // ops[1]: ONNXUnsqueezeOp — axes constant has exactly one element.
+  auto unsq = dyn_cast<ONNXUnsqueezeOp>(ops[idx++]);
+  if (!unsq) {
+    LLVM_DEBUG(llvm::dbgs() << "CES verify: ops[1] not Unsqueeze\n");
+    return false;
+  }
+  {
+    auto axesAttr = getElementAttributeFromONNXValue(unsq.getAxes());
+    if (!axesAttr || axesAttr.getNumElements() != 1) {
+      LLVM_DEBUG(llvm::dbgs() << "CES verify: unsqueeze axes changed\n");
+      return false;
+    }
+  }
+
+  // ops[2]: ZHighF32ToDLF16Op.
+  if (!dyn_cast<ZHighF32ToDLF16Op>(ops[idx++])) {
+    LLVM_DEBUG(llvm::dbgs() << "CES verify: ops[2] not F32ToDLF16\n");
+    return false;
+  }
+
+  // ops[3]: ONNXExpandOp — output dim P must equal expansionN.
+  auto exp = dyn_cast<ONNXExpandOp>(ops[idx++]);
+  if (!exp) {
+    LLVM_DEBUG(llvm::dbgs() << "CES verify: ops[3] not Expand\n");
+    return false;
+  }
+  {
+    auto outType = cast<ShapedType>(exp.getOutput().getType());
+    if (outType.getRank() <= unsqueezedPosition ||
+        outType.getShape()[unsqueezedPosition] != expansionN) {
+      LLVM_DEBUG(llvm::dbgs() << "CES verify: expand N mismatch\n");
+      return false;
+    }
+  }
+
+  // ops[4]: ONNXReshapeOp — rank delta consistent with reshapeCollapsedCount.
+  auto reshape = dyn_cast<ONNXReshapeOp>(ops[idx++]);
+  if (!reshape) {
+    LLVM_DEBUG(llvm::dbgs() << "CES verify: ops[4] not Reshape\n");
+    return false;
+  }
+  if (reshapeCollapsedCount > 0) {
+    int64_t inRank = cast<ShapedType>(reshape.getData().getType()).getRank();
+    int64_t outRank =
+        cast<ShapedType>(reshape.getReshaped().getType()).getRank();
+    if (inRank - outRank != reshapeCollapsedCount - 1) {
+      LLVM_DEBUG(llvm::dbgs() << "CES verify: reshape rank delta mismatch\n");
+      return false;
+    }
+  }
+
+  // ops[5]: ONNXLayoutTransformOp — target layout matches stored finalLayout.
+  auto lt = dyn_cast<ONNXLayoutTransformOp>(ops[idx++]);
+  if (!lt) {
+    LLVM_DEBUG(llvm::dbgs() << "CES verify: ops[5] not LayoutTransform\n");
+    return false;
+  }
+  {
+    auto layoutAttr = lt.getTargetLayout();
+    if (!layoutAttr.has_value() || !finalLayout.has_value()) {
+      LLVM_DEBUG(llvm::dbgs() << "CES verify: missing target layout\n");
+      return false;
+    }
+    OpBuilder b(lt.getContext());
+    StringAttr layoutStrAttr =
+        getZTensorLayoutAttr(b, cast<ZTensorEncodingAttr>(layoutAttr.value()));
+    if (layoutStrAttr != *finalLayout) {
+      LLVM_DEBUG(llvm::dbgs() << "CES verify: layout mismatch\n");
+      return false;
+    }
+  }
+
+  // finalResults: output 0 is always the primary (layout-transform) result;
+  // output 1, when yieldConcatResult is set, must be the concat's own
+  // result (i.e. the chain's first op), matching how detectIfBeneficial
+  // populated it.
+  size_t expectedResults = yieldConcatResult ? 2 : 1;
+  if (finalResults.size() != expectedResults) {
+    LLVM_DEBUG(llvm::dbgs()
+               << "CES verify: result count " << finalResults.size()
+               << " != " << expectedResults << "\n");
+    return false;
+  }
+  if (yieldConcatResult && finalResults[1] != concat.getConcatResult()) {
+    LLVM_DEBUG(llvm::dbgs() << "CES verify: second result is not the "
+                               "concat result\n");
+    return false;
   }
 
   return true;
