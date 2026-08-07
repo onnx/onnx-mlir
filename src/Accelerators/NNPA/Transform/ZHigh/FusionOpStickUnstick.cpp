@@ -855,6 +855,12 @@ using FusedPatternsForExtendedLayoutTransform =
 using FusedPatternsForExpandMulStick =
     FusedPatternForOpKind<ONNXUnsqueezeOp, ExpandMulStickFusionHelper>;
 
+// Anchors on ONNXConcatOp (head of the chain); ConcatExpandStickFusionHelper
+// walks forward through Unsqueeze -> F32ToDLF16 -> Expand -> Reshape ->
+// LayoutTransform.
+using FusedPatternsForConcatExpandStick =
+    FusedPatternForOpKind<ONNXConcatOp, ConcatExpandStickFusionHelper>;
+
 //===----------------------------------------------------------------------===//
 // Pass.
 
@@ -903,6 +909,8 @@ struct FusionOpStickUnstick
       patterns.insert<FusedPatternsForExtendedLayoutTransform>(
           &getContext(), dimAnalysis);
       patterns.insert<FusedPatternsForExpandMulStick>(
+          &getContext(), dimAnalysis);
+      patterns.insert<FusedPatternsForConcatExpandStick>(
           &getContext(), dimAnalysis);
     } else
       patterns.insert<PatternsForExtendedLayoutTransform>(

@@ -1233,6 +1233,7 @@ struct DecomposeHardSwishPattern : public OpRewritePattern<ONNXHardSwishOp> {
     return success();
   }
 };
+
 //===----------------------------------------------------------------------===//
 // Pattern: Conv to Im2Col + MatMul + Reshape
 //===----------------------------------------------------------------------===//
