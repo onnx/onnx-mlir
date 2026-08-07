@@ -92,19 +92,19 @@ parser.add_argument(
     "-r",
     "--ref-compile-args",
     type=str,
-    default="-O0",
+    default="",
     help="Reference arguments passed directly to onnx-mlir command."
-    " See bin/onnx-mlir --help.",
+    " See bin/onnx-mlir --help. Default is empty.",
 )
 test_group = parser.add_mutually_exclusive_group()
 test_group.add_argument(
     "-t",
     "--test-compile-args",
     type=str,
-    default="-O3",
+    default="",
     help="Reference arguments passed directly to onnx-mlir command."
     " Use either the -t or -a argument but not both."
-    " See bin/onnx-mlir --help.",
+    " See bin/onnx-mlir --help. Default is empty.",
 )
 test_group.add_argument(
     "-a",
@@ -306,8 +306,11 @@ def main():
 
     # Reference command.
     ref_cmd = [cmd]
-    # Compile options for reference.
-    ref_cmd += ["--compile-args=" + args.ref_compile_args]
+    # Compile options for reference. Omit entirely when empty (default) so
+    # that, combined with --cache-ref-model, a cache hit is loaded as-is
+    # instead of tripping RunONNXModel.py's saved-options mismatch check.
+    if args.ref_compile_args:
+        ref_cmd += ["--compile-args=" + args.ref_compile_args]
     # Where to load the ref.
     if args.load_ref:
         ref_cmd += ["--load-ref=" + args.load_ref]
@@ -341,7 +344,11 @@ def main():
     else:
         compile_args = args.test_compile_args
     test_cmd = [cmd]
-    test_cmd += ["--compile-args=" + compile_args]
+    # Compile options for test. Omit entirely when empty (default) so
+    # that, combined with --cache-test-model, a cache hit is loaded as-is
+    # instead of tripping RunONNXModel.py's saved-options mismatch check.
+    if compile_args:
+        test_cmd += ["--compile-args=" + compile_args]
     # Where to load the ref from.
     test_cmd += ["--load-ref=" + test_dir]
     # How to verify.
@@ -352,7 +359,7 @@ def main():
     if args.rtol:
         test_cmd += ["--rtol=" + args.rtol]
     if args.cache_test_model:
-        ref_cmd += ["--cache-model=" + args.cache_test_model]
+        test_cmd += ["--cache-model=" + args.cache_test_model]
     # Model name.
     test_cmd += [model_str]
 

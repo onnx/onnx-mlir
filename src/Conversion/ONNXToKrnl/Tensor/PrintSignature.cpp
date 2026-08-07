@@ -37,11 +37,27 @@ struct ONNXPrintSignatureLowering
     std::string opName(printSignatureOp.getOpName().data());
     std::string msg =
         "%i==SIG-REPORT==, " + opName + ", sig"; // meaningless secondary key.
+    // Per-input label (e.g. "in0", "out1"), only used when io_labels is
+    // present and aligned 1:1 with (pre-filtering) getInput(), so a
+    // caller-selected subset of operands/results can still be told apart in
+    // the printed output. Kept in lockstep with printVal below, since a
+    // NoneType operand is dropped from printVal but must also drop its label.
+    ArrayAttr labelsAttr = printSignatureOp.getIoLabelsAttr();
+    bool hasLabels =
+        labelsAttr && labelsAttr.size() == adaptor.getInput().size();
     // Discover the values to print, setting aside the last one.
     llvm::SmallVector<Value, 4> printVal;
-    for (Value oper : adaptor.getInput())
-      if (!mlir::isa<NoneType>(oper.getType()))
-        printVal.emplace_back(oper);
+    llvm::SmallVector<std::string, 4> printLabel;
+    for (auto it : llvm::enumerate(adaptor.getInput())) {
+      Value oper = it.value();
+      if (mlir::isa<NoneType>(oper.getType()))
+        continue;
+      printVal.emplace_back(oper);
+      printLabel.emplace_back(
+          hasLabels
+              ? mlir::cast<StringAttr>(labelsAttr[it.index()]).getValue().str()
+              : std::string());
+    }
     int64_t printNum = printVal.size();
     if (printNum == 0) {
       // Print tensor without any valid tensor.
@@ -50,6 +66,11 @@ struct ONNXPrintSignatureLowering
           op, msg + "(no tensors)\n%e", noneVal);
       return success();
     }
+    // Prefix a tensor's format string with its label, e.g. "in0, ", when one
+    // was given; otherwise leave the format string untouched.
+    auto withLabel = [](const std::string &label, const std::string &fmt) {
+      return label.empty() ? fmt : label + ", " + fmt;
+    };
     // Control how the tensor will be printed
     // Print the only the shape.
     std::string printControl = ", %t%e";
@@ -59,9 +80,11 @@ struct ONNXPrintSignatureLowering
       msg += "\n";
     }
     Value lastVal = printVal.pop_back_val();
+    std::string lastLabel = printLabel.pop_back_val();
     // Print all but the last one.
-    for (Value oper : printVal) {
-      create.krnl.printTensor(msg + printControl, oper);
+    for (size_t i = 0; i < printVal.size(); ++i) {
+      create.krnl.printTensor(
+          msg + withLabel(printLabel[i], printControl), printVal[i]);
       msg = "%i";
     }
     // Print the last one with replace with new op.
@@ -69,7 +92,7 @@ struct ONNXPrintSignatureLowering
       printControl = ", %t\n%e";
     }
     rewriter.replaceOpWithNewOp<KrnlPrintTensorOp>(
-        op, msg + printControl, lastVal);
+        op, msg + withLabel(lastLabel, printControl), lastVal);
     return success();
   }
 };

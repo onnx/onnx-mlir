@@ -4,7 +4,7 @@
 
 //===------- InstrumentONNXSignaturePass.cpp - Instrumentation ------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,8 +12,6 @@
 // the operation name and its input type signature at runtime.
 //
 //===----------------------------------------------------------------------===//
-
-#include <set>
 
 #include "onnx-mlir/Compiler/OMCompilerTypes.h"
 
@@ -27,10 +25,13 @@
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/ONNX/Transforms/NodeNamePattern.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
 
 using namespace mlir;
+using onnx_mlir::NodeIOEntry;
+using onnx_mlir::parseNodeNamePattern;
 
 namespace {
 
@@ -75,11 +76,65 @@ public:
     onnx_mlir::EnableByRegexOption traceSpecificOpPattern(
 
         /*emptyIsNone*/ false);
-    onnx_mlir::EnableByRegexOption traceSpecificNodePattern(
-        /*emptyIsNone*/ false);
-
     traceSpecificOpPattern.setRegexString(signaturePattern);
-    traceSpecificNodePattern.setRegexString(nodeNamePattern);
+    std::vector<NodeIOEntry> nodeNameEntries =
+        parseNodeNamePattern(nodeNamePattern);
+
+    // Insert an ONNXPrintSignatureOp for a node matched by name, printing
+    // only the operand/result indices selected by entry's io filter (or all
+    // of them, if the entry has no filter).
+    auto insertNodeSignature = [&](mlir::Operation *op,
+                                   const NodeIOEntry &entry,
+                                   const std::string &opName) {
+      OpBuilder builder(op);
+      std::string nodeName = onnx_mlir::getNodeNameInPresenceOfOpt(op);
+      std::string fullName = opName + ", " + nodeName;
+      StringAttr fullNameAttr = builder.getStringAttr(fullName);
+      llvm::SmallVector<Value, 6> operAndRes;
+      // Per-value label (e.g. "in0", "out1"), kept in lockstep with
+      // operAndRes so a caller-selected subset can still be told apart.
+      llvm::SmallVector<Attribute, 6> ioLabels;
+      if (!entry.hasIOFilter) {
+        for (auto it : llvm::enumerate(op->getOperands())) {
+          operAndRes.emplace_back(it.value());
+          ioLabels.emplace_back(
+              builder.getStringAttr("in" + std::to_string(it.index())));
+        }
+        for (auto it : llvm::enumerate(op->getResults())) {
+          operAndRes.emplace_back(it.value());
+          ioLabels.emplace_back(
+              builder.getStringAttr("out" + std::to_string(it.index())));
+        }
+      } else {
+        OperandRange operands = op->getOperands();
+        for (int64_t idx : entry.inputIdx) {
+          if (idx >= 0 && (size_t)idx < operands.size()) {
+            operAndRes.emplace_back(operands[idx]);
+            ioLabels.emplace_back(
+                builder.getStringAttr("in" + std::to_string(idx)));
+          } else
+            llvm::errs() << "Warning: --instrument-onnx-node selector in" << idx
+                         << " out of range for node \"" << nodeName << "\" ("
+                         << operands.size() << " operand(s)); ignoring.\n";
+        }
+        ResultRange results = op->getResults();
+        for (int64_t idx : entry.outputIdx) {
+          if (idx >= 0 && (size_t)idx < results.size()) {
+            operAndRes.emplace_back(results[idx]);
+            ioLabels.emplace_back(
+                builder.getStringAttr("out" + std::to_string(idx)));
+          } else
+            llvm::errs() << "Warning: --instrument-onnx-node selector out"
+                         << idx << " out of range for node \"" << nodeName
+                         << "\" (" << results.size()
+                         << " result(s)); ignoring.\n";
+        }
+      }
+      builder.setInsertionPointAfter(op);
+      ONNXPrintSignatureOp::create(builder, op->getLoc(), fullNameAttr,
+          /*detail=*/1, builder.getArrayAttr(ioLabels), operAndRes);
+    };
+
     // Pre-order walk so we can skip ONNXFusedOp bodies with WalkResult::skip().
     getOperation().walk<mlir::WalkOrder::PreOrder>(
         [&](mlir::Operation *op) -> WalkResult {
@@ -107,8 +162,10 @@ public:
               // print operation after the operation.
               builder.setInsertionPointAfter(op);
               // When one node is selected, print the details of the tensor.
-              ONNXPrintSignatureOp::create(
-                  builder, loc, fullNameAttr, detail, operAndRes);
+              // No io_labels here: this path (op-type pattern match) keeps
+              // its original, unlabeled output format.
+              ONNXPrintSignatureOp::create(builder, loc, fullNameAttr, detail,
+                  builder.getStrArrayAttr({}), operAndRes);
               return true;
             }
             return false;
@@ -125,12 +182,18 @@ public:
           // match string and the display name uniformly.
           std::string opName = onnx_mlir::getProfilingName(op);
           bool gotOne = false;
-          if (nodeNamePattern != "NONE" && nodeNamePattern != "") {
+          if (!nodeNameEntries.empty()) {
             StringAttr onnxNodeName =
                 op->getAttrOfType<mlir::StringAttr>("onnx_node_name");
             if (onnxNodeName && !onnxNodeName.getValue().empty()) {
-              gotOne = checkAndInsert(traceSpecificNodePattern,
-                  onnxNodeName.getValue().str(), 1, opName);
+              std::string name = onnxNodeName.getValue().str();
+              for (const NodeIOEntry &entry : nodeNameEntries) {
+                if (std::regex_match(name, entry.nameRegex)) {
+                  insertNodeSignature(op, entry, opName);
+                  gotOne = true;
+                  break;
+                }
+              }
             }
           }
           if (!gotOne && signaturePattern != "NONE" && signaturePattern != "") {

@@ -33,6 +33,7 @@
 #include "llvm/ADT/Sequence.h"
 #include "llvm/ADT/TypeSwitch.h"
 
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/OptionUtils.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
@@ -625,17 +626,18 @@ using ONNXConvOpToCall =
 // FusedOpKindLowering<FusionT>
 //
 // Template base for per-kind ONNXFusedOp lowering patterns.  Subclasses only
-// implement lowerVerified(), returning the Value that replaces the FusedOp;
-// the base handles kind dispatch, retrieve/verify, the inline fallback, and
-// (on success) dropping the body's intra-region def-use edges and replacing
-// the op.  Register one subclass per FusedOp kind.
+// implement lowerVerified(), returning the Values (one per FusedOp result,
+// in order) that replace the FusedOp; the base handles kind dispatch,
+// retrieve/verify, the inline fallback, and (on success) dropping the body's
+// intra-region def-use edges and replacing the op.  Register one subclass
+// per FusedOp kind.
 //
 // Usage:
 //   struct MyLowering : public FusedOpKindLowering<MyFusion> {
 //     MyLowering(TypeConverter &tc, MLIRContext *ctx, ...)
 //         : FusedOpKindLowering(tc, ctx) { ... }
 //
-//     FailureOr<Value> lowerVerified(ONNXFusedOp, OpAdaptor,
+//     FailureOr<llvm::SmallVector<Value>> lowerVerified(ONNXFusedOp, OpAdaptor,
 //         ConversionPatternRewriter &, MyFusion &) const override { ... }
 //   };
 //===----------------------------------------------------------------------===//
@@ -664,7 +666,7 @@ struct FusedOpKindLowering
       // lowered on their own.
       return FusionOpKindHelper::unFuse(rewriter, fusedOp);
 
-    mlir::FailureOr<mlir::Value> replacement =
+    mlir::FailureOr<llvm::SmallVector<mlir::Value>> replacement =
         lowerVerified(fusedOp, adaptor, rewriter, fusion);
     if (mlir::failed(replacement))
       return mlir::failure();
@@ -687,11 +689,12 @@ struct FusedOpKindLowering
 
   /// Implement the actual lowering.  Called only when the kind matches and
   /// verifyAndRetrieveAttrs() succeeded; fusion fields are fully populated.
-  /// Return the Value that replaces the FusedOp — do not call
-  /// rewriter.replaceOp() or drop body uses; the base class does both.
-  virtual mlir::FailureOr<mlir::Value> lowerVerified(mlir::ONNXFusedOp fusedOp,
-      OpAdaptor adaptor, mlir::ConversionPatternRewriter &rewriter,
-      FusionT &fusion) const = 0;
+  /// Return the Values that replace the FusedOp's results, in the same
+  /// order as fusedOp.getOutputs() (most kinds have exactly one) — do not
+  /// call rewriter.replaceOp() or drop body uses; the base class does both.
+  virtual mlir::FailureOr<llvm::SmallVector<mlir::Value>> lowerVerified(
+      mlir::ONNXFusedOp fusedOp, OpAdaptor adaptor,
+      mlir::ConversionPatternRewriter &rewriter, FusionT &fusion) const = 0;
 };
 
 //===----------------------------------------------------------------------===//

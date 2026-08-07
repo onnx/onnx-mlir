@@ -91,7 +91,7 @@ class SessionCache:
                 continue
             model_dir = os.path.join(self.cache_path, key)
             # Create an inference session.
-            model_so = os.path.join(model_dir, f"model{key}.so")
+            model_so = os.path.join(model_dir, f"model.so")
             if Path(model_so).exists():
                 sess = InferenceSession(model_so, tag=key)
             else:
