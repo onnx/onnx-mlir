@@ -114,6 +114,7 @@ struct ONNXScatterElementsOpLowering
             Value newVal = create.math.add(oldVal, updateVal);
             createKrnl.storeIE(newVal, output, outputAccessFct);
           } else {
+            // Previous check guarantees that reduction is "none".
             createKrnl.storeIE(updateVal, output, outputAccessFct);
           }
         });

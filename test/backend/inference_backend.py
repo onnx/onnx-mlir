@@ -3056,7 +3056,7 @@ def get_test_models():
         "test_scan9_sum_cpu": {STATIC_SHAPE: {}},
         # ==OP== ScatterElements
         # ==MIN== 11
-        # ==LIM== Does not support reductions "max" and "min". Duplicate indices are supported for reduction="add".
+        # ==LIM== Only reductions `none` and `add` are supported; duplicate indices are supported for `add`.
         "test_scatter_elements_without_axis_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
