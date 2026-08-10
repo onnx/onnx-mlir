@@ -262,7 +262,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXSpaceToDepthOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXShapeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXSliceOpPattern(patterns, typeConverter, ctx, enableParallel);
-  populateLoweringONNXFusedSplitOpGatherOpPattern(patterns, typeConverter, ctx, enableSIMD);
+  populateLoweringONNXFusedSplitOpGatherOpPattern(patterns, typeConverter, ctx, enableSIMD, enableParallel);
   populateLoweringONNXSqueezeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXSqueezeV11OpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXSplitOpPattern(patterns, typeConverter, ctx);

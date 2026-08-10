@@ -20,39 +20,30 @@
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/Transforms/ONNXFusionOpHelper.hpp"
 
+// emitScalarOpForElementwiseOp/getGenOpMixForElementwiseOp (declared here,
+// defined in Elementwise.cpp) dispatch by runtime Operation* over the same
+// canonical op-type list SplitOpGatherFusionHelper's allow-list check pulls
+// in (see ONNXFusionOpHelper.cpp) -- keeps detection and lowering
+// permanently in sync: adding an op to Elementwise.hpp's list makes it both
+// matchable and lowerable with no second list to touch. A null Operation*
+// means there is no per-half op at all (a plain copy/gather half); both
+// functions handle that case directly.
+#include "src/Conversion/ONNXToKrnl/Math/Elementwise.hpp"
+
 using namespace mlir;
 
 namespace onnx_mlir {
-
-namespace {
-
-// Dispatch to the same per-op scalar/SIMD codegen the regular elementwise
-// lowering uses (emitScalarOpFor<T>), over the exact same canonical
-// op-type list SplitOpGatherFusionHelper's allow-list check pulls in (see
-// ONNXFusionOpHelper.cpp) -- keeps detection and lowering permanently in
-// sync: adding an op to Elementwise.hpp's list makes it both matchable and
-// lowerable with no second list to touch.
-Value emitPerHalfOp(ConversionPatternRewriter &rewriter, Location loc,
-    Operation *opNode, Type elemType, ArrayRef<Value> scalarOperands) {
-#define ELEMENTWISE_ALL(_OP_TYPE)                                             \
-  if (isa<_OP_TYPE>(opNode))                                                  \
-    return emitScalarOpFor<_OP_TYPE>(                                         \
-        rewriter, loc, opNode, elemType, scalarOperands);
-#include "src/Conversion/ONNXToKrnl/Math/Elementwise.hpp"
-  llvm_unreachable(
-      "op type not in allow-list; verify() should have rejected it");
-}
-
-} // namespace
 
 struct ONNXFusedSplitOpGatherLowering
     : public FusedOpKindLowering<SplitOpGatherFusionHelper> {
   using Base = FusedOpKindLowering<SplitOpGatherFusionHelper>;
   bool enableSIMD;
+  bool enableParallel;
 
-  ONNXFusedSplitOpGatherLowering(
-      TypeConverter &tc, MLIRContext *ctx, bool enableSIMD)
-      : Base(tc, ctx), enableSIMD(enableSIMD) {}
+  ONNXFusedSplitOpGatherLowering(TypeConverter &tc, MLIRContext *ctx,
+      bool enableSIMD, bool enableParallel)
+      : Base(tc, ctx), enableSIMD(enableSIMD), enableParallel(enableParallel) {
+  }
 
   FailureOr<SmallVector<Value>> lowerVerified(ONNXFusedOp fusedOp,
       OpAdaptor adaptor, ConversionPatternRewriter &rewriter,
@@ -119,15 +110,30 @@ struct ONNXFusedSplitOpGatherLowering
     Value outputMemref =
         create.mem.alignedAlloc(outputMemRefType, outputDims, alignment);
 
-    // ---- Emit one half's simdIterateIE call, given the outer (non-axis)
-    // loop induction variables (empty when rank==1). ------------------------
-    auto lowerHalf = [&](ValueRange outerInd, int64_t start, int64_t len,
-                          int64_t outputOffset, bool hasOp, Operation *opNode,
-                          Value externalMemref, bool halfIsFirstOperand) {
-      int64_t VL = enableSIMD
-          ? VectorMachineSupport::getArchVectorLength(elemType)
-          : 1;
-      bool fullySimd = (len % VL == 0);
+    // ---- Emit one half's (low or high) simdIterateIE call, given the outer
+    // (non-axis) loop induction variables (empty when rank==1). -------------
+    auto emitCodeForHalf = [&](ValueRange outerInd, int64_t start, int64_t len,
+                         int64_t outputOffset, Operation *opNode,
+                         Value externalMemref, bool halfIsFirstOperand) {
+      int64_t VL = 1;
+      bool fullySimd = false;
+      if (enableSIMD) {
+        MemRefType halfMemRefType = MemRefType::get({len}, elemType);
+        GenOpMix mix = getGenOpMixForElementwiseOp(elemType, opNode);
+        // The two halves write into the SAME output buffer at fixed,
+        // adjacent offsets (outputOffsetForSplitLow/High) -- unlike ordinary
+        // elementwise ops, which own their whole output and may safely
+        // overcompute past the logical end (isOverComputeSafe), a wide SIMD
+        // store here that overruns `len` would clobber the neighboring
+        // half. canOverCompute must stay false regardless of the operands'
+        // provenance.
+        int64_t simdLoopStaticTripCount;
+        bool simdOnly;
+        VL = computeSuitableSimdUnrollFactor(halfMemRefType,
+            /*collapsedInnermostLoops=*/1, mix, /*canOverCompute=*/false,
+            simdLoopStaticTripCount, simdOnly);
+        fullySimd = simdOnly;
+      }
 
       DimsExpr dataAF, outAF;
       for (Value v : outerInd) {
@@ -151,16 +157,15 @@ struct ONNXFusedSplitOpGatherLowering
         inputAFs.push_back(extAF);
       }
 
-      KrnlBuilder::KrnlSimdIterateBodyFn bodyFn =
-          [&](const KrnlBuilder &, ArrayRef<Value> inputVals,
-              int64_t currVL) -> Value {
-        if (!hasOp)
-          return inputVals[0]; // zero op == copy.
+      KrnlBuilder::KrnlSimdIterateBodyFn bodyFn = [&](const KrnlBuilder &,
+                                                      ArrayRef<Value> inputVals,
+                                                      int64_t currVL) -> Value {
         SmallVector<Value, 2> scalarOperands;
         if (externalMemref)
-          scalarOperands = halfIsFirstOperand
-              ? SmallVector<Value, 2>{inputVals[0], inputVals[1]}
-              : SmallVector<Value, 2>{inputVals[1], inputVals[0]};
+          scalarOperands =
+              halfIsFirstOperand
+                  ? SmallVector<Value, 2>{inputVals[0], inputVals[1]}
+                  : SmallVector<Value, 2>{inputVals[1], inputVals[0]};
         else
           scalarOperands = {inputVals[0]};
         // emitScalarOpFor uses this type as the RESULT type of the op it
@@ -171,7 +176,8 @@ struct ONNXFusedSplitOpGatherLowering
         // own SIMD body construction of `currElementType` exactly.
         Type currElemType =
             currVL > 1 ? VectorType::get({currVL}, elemType) : elemType;
-        return emitPerHalfOp(rewriter, loc, opNode, currElemType, scalarOperands);
+        return emitScalarOpForElementwiseOp(
+            rewriter, loc, opNode, currElemType, scalarOperands);
       };
 
       create.krnl.simdIterateIE(LitIE(0), LitIE(len), VL, fullySimd,
@@ -185,22 +191,28 @@ struct ONNXFusedSplitOpGatherLowering
       SmallVector<IndexExpr, 4> ubs;
       for (int64_t d = 0; d < rank - 1; ++d)
         ubs.emplace_back(create.krnlIE.getShapeAsDim(dataMemref, d));
+      if (enableParallel) {
+        int64_t maxId = std::min(rank - 1, (int64_t)2);
+        tryCreateKrnlParallel(create.krnl, fusedOp.getOperation(),
+            "simd-split-op-gather fused outer loop", loopDef, lbs, ubs, 0,
+            maxId, {}, /*min iter for going parallel*/ 4,
+            /*createKrnlParallel=*/true);
+      }
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](const KrnlBuilder &, ValueRange outerInd) {
-            lowerHalf(outerInd, /*start=*/0, lenLow,
-                fusion.outputOffsetForSplitLow, fusion.hasOpForSplitLow,
-                opLowNode, externalLowMemref, lowHalfIsFirstOperand);
-            lowerHalf(outerInd, /*start=*/fusion.splitPoint, lenHigh,
-                fusion.outputOffsetForSplitHigh, fusion.hasOpForSplitHigh,
-                opHighNode, externalHighMemref, highHalfIsFirstOperand);
+            emitCodeForHalf(outerInd, /*start=*/0, lenLow,
+                fusion.outputOffsetForSplitLow, opLowNode, externalLowMemref,
+                lowHalfIsFirstOperand);
+            emitCodeForHalf(outerInd, /*start=*/fusion.splitPoint, lenHigh,
+                fusion.outputOffsetForSplitHigh, opHighNode, externalHighMemref,
+                highHalfIsFirstOperand);
           });
     } else {
-      lowerHalf({}, /*start=*/0, lenLow, fusion.outputOffsetForSplitLow,
-          fusion.hasOpForSplitLow, opLowNode, externalLowMemref,
-          lowHalfIsFirstOperand);
-      lowerHalf({}, /*start=*/fusion.splitPoint, lenHigh,
-          fusion.outputOffsetForSplitHigh, fusion.hasOpForSplitHigh,
-          opHighNode, externalHighMemref, highHalfIsFirstOperand);
+      emitCodeForHalf({}, /*start=*/0, lenLow, fusion.outputOffsetForSplitLow,
+          opLowNode, externalLowMemref, lowHalfIsFirstOperand);
+      emitCodeForHalf({}, /*start=*/fusion.splitPoint, lenHigh,
+          fusion.outputOffsetForSplitHigh, opHighNode, externalHighMemref,
+          highHalfIsFirstOperand);
     }
 
     return SmallVector<Value>{outputMemref};
@@ -208,10 +220,10 @@ struct ONNXFusedSplitOpGatherLowering
 };
 
 void populateLoweringONNXFusedSplitOpGatherOpPattern(
-    RewritePatternSet &patterns, TypeConverter &typeConverter,
-    MLIRContext *ctx, bool enableSIMD) {
+    RewritePatternSet &patterns, TypeConverter &typeConverter, MLIRContext *ctx,
+    bool enableSIMD, bool enableParallel) {
   patterns.insert<ONNXFusedSplitOpGatherLowering>(
-      typeConverter, ctx, enableSIMD);
+      typeConverter, ctx, enableSIMD, enableParallel);
 }
 
 } // namespace onnx_mlir

@@ -1461,6 +1461,40 @@ Value emitScalarOpFor<ONNXDequantizeLinearOp>(
 }
 
 //===----------------------------------------------------------------------===//
+// Runtime dispatch across the elementwise op-type list above, for callers
+// (e.g. fused-op lowerings) that only have an `Operation *` of unknown type
+// at hand rather than a template parameter. When opNode is null there is no
+// op at all, which is treated as a copy: emitScalarOpForElementwiseOp
+// returns its single scalar/vector operand verbatim, and
+// getGenOpMixForElementwiseOp reports it as cheaply as the simplest real op
+// (single register pressure) so downstream unroll decisions still treat it
+// as a highly-unrollable kernel.
+//===----------------------------------------------------------------------===//
+
+Value emitScalarOpForElementwiseOp(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *opNode, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  if (!opNode)
+    return scalarOperands[0];
+#define ELEMENTWISE_ALL(_OP_TYPE)                                            \
+  if (isa<_OP_TYPE>(opNode))                                                 \
+    return emitScalarOpFor<_OP_TYPE>(                                        \
+        rewriter, loc, opNode, elementType, scalarOperands);
+#include "src/Conversion/ONNXToKrnl/Math/Elementwise.hpp"
+  llvm_unreachable("op type not in the elementwise op-type list");
+}
+
+GenOpMix getGenOpMixForElementwiseOp(Type elementType, Operation *opNode) {
+  if (!opNode)
+    return {{GenericOps::ArithmeticGop, 1}};
+#define ELEMENTWISE_ALL(_OP_TYPE)                                            \
+  if (isa<_OP_TYPE>(opNode))                                                 \
+    return getGenOpMix<_OP_TYPE>(elementType, opNode);
+#include "src/Conversion/ONNXToKrnl/Math/Elementwise.hpp"
+  llvm_unreachable("op type not in the elementwise op-type list");
+}
+
+//===----------------------------------------------------------------------===//
 // SIMD code gen for kernels where data can be fully flattened.
 //===----------------------------------------------------------------------===//
 
