@@ -973,12 +973,6 @@ bool ConcatExpandStickFusionHelper::retrieveAttrs(ONNXFusedOp fusedOp) {
 }
 
 bool ConcatExpandStickFusionHelper::verify() const {
-#if 0
-  fprintf(
-      stderr, "hi alex, disable concat-expand-stick fusion lowering for now\n");
-  return false;
-#endif
-
   constexpr int expected = 6; // concat + unsqueeze + f32-to-dlf16 + expand +
                               // reshape + layout-transform
   if ((int64_t)ops.size() != expected) {

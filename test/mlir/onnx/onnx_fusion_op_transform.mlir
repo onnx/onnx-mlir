@@ -339,6 +339,65 @@ func.func @dynamic_non_split_dims(%arg0: tensor<?x4x?x128xf32>) -> tensor<?x4x?x
 
 // -----
 
+// Positive: binary per-half op whose external operand has a dynamic dim
+// (axis 0) -- proven, via onnx.dim_params ("M" on both %arg0 and %scale), to
+// be the exact same runtime dimension as the slice's own dynamic dim. Same
+// idea as @scaled_half_with_external_operand, but for a dim that DimAnalysis
+// must actively prove equal rather than one that's trivially static.
+
+func.func @scaled_half_with_external_dynamic_matching(%arg0: tensor<?x8xf32> {onnx.dim_params = "0:M"}, %scale: tensor<?x4xf32> {onnx.dim_params = "0:M"}) -> tensor<?x8xf32> {
+  %c0 = onnx.Constant dense<0> : tensor<1xi64>
+  %c4 = onnx.Constant dense<4> : tensor<1xi64>
+  %c1axis = onnx.Constant dense<1> : tensor<1xi64>
+  %c1 = onnx.Constant dense<1> : tensor<1xi64>
+  %cmax = onnx.Constant dense<9223372036854775807> : tensor<1xi64>
+  %0 = "onnx.Slice"(%arg0, %c0, %c4, %c1axis, %c1) : (tensor<?x8xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<?x4xf32>
+  %1 = "onnx.Slice"(%arg0, %c4, %cmax, %c1axis, %c1) : (tensor<?x8xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<?x4xf32>
+  %2 = "onnx.Mul"(%1, %scale) : (tensor<?x4xf32>, tensor<?x4xf32>) -> tensor<?x4xf32>
+  %3 = "onnx.Concat"(%0, %2) {axis = 1 : si64} : (tensor<?x4xf32>, tensor<?x4xf32>) -> tensor<?x8xf32>
+  return %3 : tensor<?x8xf32>
+
+// CHECK-LABEL:  func.func @scaled_half_with_external_dynamic_matching
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x8xf32> {onnx.dim_params = "0:M"}, [[PARAM_1_:%.+]]: tensor<?x4xf32> {onnx.dim_params = "0:M"})
+// CHECK:           "onnx.Fused"([[PARAM_0_]], [[PARAM_1_]]) <{kind = "simd-split-op-gather"}> ({
+// CHECK:           ^bb0([[PARAM_2_:%.+]]: tensor<?x8xf32>, [[PARAM_3_:%.+]]: tensor<?x4xf32>):
+// CHECK:               "onnx.Mul"({{.*}}, [[PARAM_3_]])
+// CHECK:               onnx.Yield
+// CHECK:           }) {axis = 1 : i64, hasOpForSplitHigh = true, hasOpForSplitLow = false, {{.*}}splitPoint = 4 : i64}
+}
+
+// -----
+
+// Negative: binary per-half op whose external operand has a dynamic dim
+// (axis 0) that is NOT proven the same as the slice's own dynamic dim --
+// %scale's batch dim is a plain, unrelated dynamic dim (no dim_params link
+// to %arg0's). Both dims print as "?" in the type, but that textual sameness
+// does not mean they're the same runtime value: %scale's dim 0 could well be
+// 1 at runtime, in which case an un-fused Mul legitimately broadcasts it
+// against the slice's batch dim -- valid ONNX semantics, but not something
+// this v1 (no-broadcast) fusion can support. So it must decline to fuse
+// rather than assume the two "?"s denote equal dims.
+
+func.func @no_fuse_external_dynamic_not_proven_same(%arg0: tensor<?x8xf32>, %scale: tensor<?x4xf32>) -> tensor<?x8xf32> {
+  %c0 = onnx.Constant dense<0> : tensor<1xi64>
+  %c4 = onnx.Constant dense<4> : tensor<1xi64>
+  %c1axis = onnx.Constant dense<1> : tensor<1xi64>
+  %c1 = onnx.Constant dense<1> : tensor<1xi64>
+  %cmax = onnx.Constant dense<9223372036854775807> : tensor<1xi64>
+  %0 = "onnx.Slice"(%arg0, %c0, %c4, %c1axis, %c1) : (tensor<?x8xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<?x4xf32>
+  %1 = "onnx.Slice"(%arg0, %c4, %cmax, %c1axis, %c1) : (tensor<?x8xf32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<?x4xf32>
+  %2 = "onnx.Mul"(%1, %scale) : (tensor<?x4xf32>, tensor<?x4xf32>) -> tensor<?x4xf32>
+  %3 = "onnx.Concat"(%0, %2) {axis = 1 : si64} : (tensor<?x4xf32>, tensor<?x4xf32>) -> tensor<?x8xf32>
+  return %3 : tensor<?x8xf32>
+
+// CHECK-LABEL:  func.func @no_fuse_external_dynamic_not_proven_same
+// CHECK-NOT:       "onnx.Fused"
+// CHECK:           "onnx.Mul"
+// CHECK:           return
+}
+
+// -----
+
 // Negative: the SPLIT axis itself (3) is dynamic -- required static (it's
 // what lets the "slice to the end" sentinel resolve to a literal, and what
 // Part 2's lowering needs for a compile-time SIMD length), so this must not

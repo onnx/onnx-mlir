@@ -124,20 +124,26 @@ bool resolveBranch(Value val, Branch &branch) {
 // exactly the same shape as the branch's own slice output (no broadcast),
 // and must not directly be the other branch's slice result (no cross-half
 // dependency, direct-use check only per v1 scope).
-bool checkBranchOp(const Branch &b, ONNXSliceOp otherSlice) {
+bool checkBranchOp(
+    const Branch &b, ONNXSliceOp otherSlice, const DimAnalysis *dimAnalysis) {
   if (!b.opNode || !b.externalOperand)
     return true;
   if (b.externalOperand == otherSlice.getResult())
     return false; // direct cross-half dependency
   ONNXSliceOp sliceOp = b.sliceOp;
-  auto extType = dyn_cast<ShapedType>(b.externalOperand.getType());
-  auto sliceType = dyn_cast<ShapedType>(sliceOp.getResult().getType());
-  if (!extType || !sliceType)
+  if (!isa<ShapedType>(b.externalOperand.getType()) ||
+      !isa<ShapedType>(sliceOp.getResult().getType()))
     return false;
-  // hi alex: this actually does not work for dynamic shapes; we need to ensure
-  // that they have the same dynamic shape. Use dynamic shape analysis here. But
-  // do this later, when explicitly promoted for.
-  return extType.getShape() == sliceType.getShape(); // no broadcasting
+  // Comparing the two static ArrayRef<int64_t> shapes directly would treat
+  // any two dynamic dims as equal, since both are encoded as the same
+  // ShapedType::kDynamic sentinel regardless of whether they are actually
+  // the same dimension at runtime -- e.g. the external operand's dim could
+  // turn out to be 1, which broadcasts against the slice's dim, but this v1
+  // fusion has no broadcast support. DimAnalysis::sameShape() instead checks
+  // dynamic dims for provable equality (same dynamic-dim set), so a pair
+  // that can't be proven equal is conservatively declined rather than
+  // assumed to match.
+  return dimAnalysis->sameShape(b.externalOperand, sliceOp.getResult());
 }
 
 } // namespace
@@ -281,9 +287,9 @@ bool SplitOpGatherFusionHelper::detectIfBeneficial(
   splitPoint = lowEnd;
 
   // ---- Validate each branch's optional op ----------------------------------
-  if (!checkBranchOp(*lowBranch, highBranch->sliceOp))
+  if (!checkBranchOp(*lowBranch, highBranch->sliceOp, dimAnalysis))
     return returnFailure("low half op: invalid external operand");
-  if (!checkBranchOp(*highBranch, lowBranch->sliceOp))
+  if (!checkBranchOp(*highBranch, lowBranch->sliceOp, dimAnalysis))
     return returnFailure("high half op: invalid external operand");
 
   // ---- Output placement, from Concat's actual operand order ---------------
