@@ -407,6 +407,38 @@ private:
     create.llvm.store(memRef, ptrToMemRef);
   }
 
+  // Helper function to extract symbols from a JSON signature.
+  void extractSymbolsFromJSON(StringRef sigJSON,
+      std::map<std::string, int> &symbolToIndexMap, int &symbolIndex) const {
+    auto JSONInput = llvm::json::parse(sigJSON.data());
+    if (!JSONInput)
+      return;
+
+    auto JSONArray = JSONInput->getAsArray();
+    if (!JSONArray)
+      return;
+
+    for (const auto &item : *JSONArray) {
+      auto JSONItem = item.getAsObject();
+      if (!JSONItem)
+        continue;
+
+      auto JSONDimArray = JSONItem->getArray("dims");
+      if (!JSONDimArray)
+        continue;
+
+      for (const auto &dimValue : *JSONDimArray) {
+        if (auto strValue = dimValue.getAsString()) {
+          std::string symbol = strValue.value().str();
+          // Add symbol if not already in map.
+          if (symbolToIndexMap.find(symbol) == symbolToIndexMap.end()) {
+            symbolToIndexMap[symbol] = symbolIndex++;
+          }
+        }
+      }
+    }
+  }
+
   // Helper function to build a compile-time map of unique symbols.
   // Returns a map from symbol name to array index.
   std::map<std::string, int> buildSymbolToIndexMap(
@@ -414,40 +446,9 @@ private:
     std::map<std::string, int> symbolToIndexMap;
     int symbolIndex = 0;
 
-    // Helper lambda to extract symbols from a JSON signature.
-    auto extractSymbols = [&](StringRef sigJSON) {
-      auto JSONInput = llvm::json::parse(sigJSON.data());
-      if (!JSONInput)
-        return;
-
-      auto JSONArray = JSONInput->getAsArray();
-      if (!JSONArray)
-        return;
-
-      for (const auto &item : *JSONArray) {
-        auto JSONItem = item.getAsObject();
-        if (!JSONItem)
-          continue;
-
-        auto JSONDimArray = JSONItem->getArray("dims");
-        if (!JSONDimArray)
-          continue;
-
-        for (const auto &dimValue : *JSONDimArray) {
-          if (auto strValue = dimValue.getAsString()) {
-            std::string symbol = strValue.value().str();
-            // Add symbol if not already in map.
-            if (symbolToIndexMap.find(symbol) == symbolToIndexMap.end()) {
-              symbolToIndexMap[symbol] = symbolIndex++;
-            }
-          }
-        }
-      }
-    };
-
     // Extract symbols from input and output signatures.
-    extractSymbols(inSigJSON);
-    extractSymbols(outSigJSON);
+    extractSymbolsFromJSON(inSigJSON, symbolToIndexMap, symbolIndex);
+    extractSymbolsFromJSON(outSigJSON, symbolToIndexMap, symbolIndex);
 
     return symbolToIndexMap;
   }
@@ -471,6 +472,15 @@ private:
         rewriter.getI64Type(), {rewriter.getI64Type()});
   }
 
+  // Helper function to emit error and return NULL.
+  void emitErrorAndReturnNull(ModuleOp &module, PatternRewriter &rewriter,
+      Location loc, MLIRContext *context, const std::string &errorMsg) const {
+    MultiDialectBuilder<KrnlBuilder, LLVMBuilder> create(rewriter, loc);
+    create.krnl.printf(StringRef(errorMsg));
+    krnl::emitErrNo(module, rewriter, loc, EINVAL);
+    create.llvm._return(create.llvm.null(getI8PointerType(context)));
+  }
+
   // Helper function to generate runtime symbol verification code.
   void emitSymbolConsistencyVerification(ModuleOp &module,
       PatternRewriter &rewriter, Location loc,
@@ -485,32 +495,27 @@ private:
     // Get the compile-time index for this symbol.
     int symbolIdx = symbolToIndexMap.at(dimParam);
 
-    // Generate code to load the stored value for this symbol.
-    Value symbolIdxVal =
-        create.llvm.constant(int64Ty, static_cast<int64_t>(symbolIdx));
+    // Load the stored value for this symbol.
     Value storedValuePtr =
         create.llvm.getElemPtr(getPointerType(context, int64Ty), int64Ty,
             symbolValuesArray, ArrayRef<LLVM::GEPArg>{symbolIdx});
     Value storedValue = create.llvm.load(int64Ty, storedValuePtr);
 
-    // Generate code to check if this is the first occurrence.
+    // Check if this is the first occurrence.
     Value minusOne = create.llvm.constant(int64Ty, static_cast<int64_t>(-1));
 
     create.llvm.ifThenElse(
         [&](const LLVMBuilder &createLLVM) {
-          // Condition: storedValue == -1 (first occurrence).
           return createLLVM.icmp(
               LLVM::ICmpPredicate::eq, storedValue, minusOne);
         },
         [&](const LLVMBuilder &createLLVM) {
-          // Then: Store the actual dimension value.
           createLLVM.store(actualDim, storedValuePtr);
         });
 
     // Check for inconsistency (not first occurrence and values don't match).
     create.llvm.ifThenElse(
         [&](const LLVMBuilder &createLLVM) {
-          // Condition: storedValue != -1 AND storedValue != actualDim.
           Value notFirstOccurrence =
               createLLVM.icmp(LLVM::ICmpPredicate::ne, storedValue, minusOne);
           Value valuesMismatch =
@@ -518,22 +523,18 @@ private:
           return createLLVM.andi(notFirstOccurrence, valuesMismatch);
         },
         [&](const LLVMBuilder &createLLVM) {
-          // Then: Report error and return NULL.
           MultiDialectBuilder<LLVMBuilder, KrnlBuilder> create(createLLVM);
 
-          // Build and print error message with expected value.
+          // Build and print error message.
           std::string msg = "Inconsistent dimension for symbol '" + dimParam +
                             "' at dimension " + std::to_string(dimIndex) +
                             " of input " + std::to_string(inputIndex) +
                             ": expect ";
           create.krnl.printf(
               StringRef(msg), storedValue, rewriter.getI64Type(), false);
-
-          // Print actual value.
           create.krnl.printf(
               StringRef(", but got "), actualDim, rewriter.getI64Type(), true);
 
-          // Set errno and return NULL.
           krnl::emitErrNo(module, rewriter, loc, EINVAL);
           create.llvm._return(create.llvm.null(getI8PointerType(context)));
         });
@@ -656,20 +657,12 @@ private:
                       LLVM::ICmpPredicate::slt, actualDim, zero);
                 }, /*then=*/
                 [&](const LLVMBuilder &createLLVM) {
-                  MultiDialectBuilder<LLVMBuilder, KrnlBuilder> create(
-                      createLLVM);
                   // Print an error message.
                   std::string msg = "Wrong size for the dimension " +
                                     std::to_string(d) + " of the input " +
                                     std::to_string(i) +
                                     ": expect a non-negative value\n";
-                  StringRef errorMsg(msg);
-                  create.krnl.printf(errorMsg);
-                  // Set errno.
-                  krnl::emitErrNo(module, rewriter, loc, EINVAL);
-                  // Return NULL.
-                  create.llvm._return(
-                      create.llvm.null(getI8PointerType(context)));
+                  emitErrorAndReturnNull(module, rewriter, loc, context, msg);
                 });
           } else {
             Value referenceDim =
@@ -693,20 +686,12 @@ private:
                       LLVM::ICmpPredicate::slt, actualDim, zero);
                 }, /*then=*/
                 [&](const LLVMBuilder &createLLVM) {
-                  MultiDialectBuilder<LLVMBuilder, KrnlBuilder> create(
-                      createLLVM);
                   // Print an error message with symbol name.
                   std::string msg = "Wrong size for dimension " +
                                     std::to_string(d) + " ('" + dimParam +
                                     "') of input " + std::to_string(i) +
                                     ": expect a non-negative value\n";
-                  StringRef errorMsg(msg);
-                  create.krnl.printf(errorMsg);
-                  // Set errno.
-                  krnl::emitErrNo(module, rewriter, loc, EINVAL);
-                  // Return NULL.
-                  create.llvm._return(
-                      create.llvm.null(getI8PointerType(context)));
+                  emitErrorAndReturnNull(module, rewriter, loc, context, msg);
                 });
 
             // Also verify consistency across tensors if we have a symbol table.

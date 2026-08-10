@@ -78,7 +78,7 @@ def load_model_tests(kind):
                 np.ones((4, 10)).astype("float32"),
                 np.ones((8, 10)).astype("float32"),
             ],
-            "Inconsistent dimension for symbol 'batch_size'",
+            "Inconsistent dimension for symbol 'batch_size' at dimension 0 of input 1: expect 4, but got 8",
         ),
         (
             "mixed_symbol_and_minus_one",
@@ -86,7 +86,7 @@ def load_model_tests(kind):
                 np.ones((4, 5, 10)).astype("float32"),
                 np.ones((8, 5, 10)).astype("float32"),
             ],
-            "Inconsistent dimension for symbol 'batch_size'",
+            "Inconsistent dimension for symbol 'batch_size' at dimension 0 of input 1: expect 4, but got 8",
         ),
     ]
 
