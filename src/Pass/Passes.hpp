@@ -44,7 +44,6 @@ std::unique_ptr<mlir::Pass> createRecomposeONNXToONNXPass(
     const std::string &target = "");
 
 // Pass for appending a decoding strategy into the main graph.
-#define GEN_PASS_DECL_APPENDDECODINGSTRATEGYPASS
 std::unique_ptr<::mlir::Pass> createAppendDecodingStrategyPass();
 
 std::unique_ptr<mlir::Pass> createConvOptONNXToONNXPass(
@@ -86,6 +85,13 @@ std::unique_ptr<mlir::Pass> createInstrumentPass(
 /// signatures at runtime.
 std::unique_ptr<mlir::Pass> createInstrumentONNXSignaturePass(
     const std::string opPattern, const std::string nodePattern);
+
+/// Pass that appends tensors matched by onnx_node_name (same syntax as
+/// --instrument-onnx-node) as extra outputs of the entry function(s).
+// GEN_PASS_DEF method only adds default constructor only,
+// we add custom constructor with an explicit nodePattern argument.
+std::unique_ptr<mlir::Pass> createAppendInstrumentedOutputsPass(
+    const std::string nodePattern);
 
 /// Pass for simplifying shape-related ONNX operations.
 std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass();
