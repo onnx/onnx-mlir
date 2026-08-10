@@ -8,6 +8,7 @@ add_onnx_mlir_library(OMONNXToLinalg
   ConvertONNXToLinalg.cpp
   DialectBuilder.cpp
   Math/MatMul.cpp
+  Math/Add.cpp
   NN/Conv.cpp
   Tensor/Constant.cpp
   Tensor/Identity.cpp
