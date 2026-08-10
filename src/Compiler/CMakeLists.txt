@@ -77,7 +77,9 @@ add_onnx_mlir_library(OMCompilerPasses
   DisposableGarbageCollector.cpp
 
   EXCLUDE_FROM_OM_LIBS
-
+  DEPENDS
+  OMONNXTransformsPassIncGen
+  
   INCLUDE_DIRS PRIVATE
   ${FILE_GENERATE_DIR}
 

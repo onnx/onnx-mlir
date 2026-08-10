@@ -487,7 +487,7 @@ private:
    * input/output names.
    * @param useReturn if set to true, will emit ONNXReturnOp as
    * terminator, otherwise, will use ONNXYieldOp as terminator.
-   * @return function type corresponding to the subgraph input/output signature.
+   * @return function type corresponding to the subgraph input/output signature
    */
   FunctionType importGraph(const onnx::GraphProto &graph, Region &region,
       Operation *op, bool useReturn) {
@@ -1588,6 +1588,39 @@ bool ImportFrontendModelInternal(onnx::ModelProto &model, MLIRContext &context,
   // Did not do downward convert because support for BatchNorm is missing
   if (options.invokeOnnxVersionConverter &&
       originVersion < CURRENT_ONNX_OPSET) {
+    // CVE guard: Gemm 7->6 adapter reads B_shape[1] / A_shape[0] / A_shape[1]
+    // without bounds checking. Reject any model where a Gemm input A or B has
+    // a known rank < 2 before calling ConvertVersion().
+    const onnx::GraphProto &graph = model.graph();
+    std::unordered_map<std::string, const onnx::TypeProto *> typeMap;
+    for (const auto &vi : graph.input())
+      typeMap[vi.name()] = &vi.type();
+    for (const auto &vi : graph.value_info())
+      typeMap[vi.name()] = &vi.type();
+    std::unordered_map<std::string, int> initRankMap;
+    for (const auto &t : graph.initializer())
+      initRankMap[t.name()] = t.dims_size();
+
+    for (const auto &node : graph.node()) {
+      if (node.op_type() != "Gemm")
+        continue;
+      for (int idx = 0; idx < 2 && idx < node.input_size(); ++idx) {
+        const std::string &name = node.input(idx);
+        auto it = typeMap.find(name);
+        if (it != typeMap.end()) {
+          const onnx::TypeProto &tp = *it->second;
+          if (tp.value_case() == onnx::TypeProto::kTensorType &&
+              tp.tensor_type().has_shape() &&
+              tp.tensor_type().shape().dim_size() < 2)
+            return false;
+          continue;
+        }
+        auto iit = initRankMap.find(name);
+        if (iit != initRankMap.end() && iit->second < 2)
+          return false;
+      }
+    }
+
     onnx::ModelProto convertModel =
         onnx::version_conversion::ConvertVersion(model, CURRENT_ONNX_OPSET);
     if (options.useOnnxModelTypes)
@@ -1612,7 +1645,10 @@ int ImportFrontendModelArray(const void *onnxBuffer, int size,
     *errorMessage = "Unable to parse onnxBuffer";
     return InvalidOnnxFormat;
   }
-  ImportFrontendModelInternal(model, context, module, options);
+  if (!ImportFrontendModelInternal(model, context, module, options)) {
+    *errorMessage = "Onnx Model Import Failed";
+    return CompilerFailure;
+  }
   return CompilerSuccess;
 }
 
