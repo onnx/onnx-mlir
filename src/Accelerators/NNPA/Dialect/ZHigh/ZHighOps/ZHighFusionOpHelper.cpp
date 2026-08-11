@@ -513,6 +513,71 @@ static bool detectUpperCollapse(ONNXReshapeOp reshapeOp, int64_t P,
 }
 
 //===----------------------------------------------------------------------===//
+// Shared tail-matching helpers -- used by both ExpandMulStickFusionHelper's
+// own tail (Expand -> Mul? -> Reshape -> Stick) and
+// ConcatExpandStickFusionHelper's 1-step stick tail, which is structurally
+// identical from Expand onward.
+//===----------------------------------------------------------------------===//
+
+/// If `current`'s single user is an ONNXMulOp by an F32/I32/I64 scalar
+/// constant (either operand order), sets `mulScalar` to that value and
+/// returns the ONNXMulOp. Otherwise returns null and leaves `mulScalar`
+/// untouched -- absence of a Mul is not a failure, just means the neutral
+/// (1.f) scalar applies; callers should keep matching against `current`
+/// unchanged in that case.
+static ONNXMulOp detectOptionalScalarMul(Value current, float &mulScalar) {
+  auto mulOp = singleUserOfType<ONNXMulOp>(current);
+  if (!mulOp)
+    return nullptr;
+  // Identify the scalar operand (accept either argument order): the other
+  // operand must be a constant, since both extraction paths below require
+  // one.
+  ONNXConstantOp cst;
+  if (!matchValueAndOp<ONNXConstantOp>(
+          mulOp.getA(), mulOp.getB(), current, cst)) {
+    LLVM_DEBUG(llvm::dbgs() << "  detectOptionalScalarMul: scalar operand "
+                               "not found or not a constant\n");
+    return nullptr;
+  }
+
+  std::optional<float> sv = std::nullopt;
+  // F32 path: reuse existing NNPA helper.
+  if (auto fa = getScalarF32AttrFromConstant(cst.getResult()))
+    sv = fa.getValue().convertToFloat();
+  // Integer path: fall back to getScalarValue (handles I32 / I64).
+  else {
+    Type et = cast<ShapedType>(cst.getType()).getElementType();
+    if (et.isInteger(32) || et.isInteger(64))
+      sv = static_cast<float>(getScalarValue<double>(cst));
+  }
+  if (!sv) {
+    LLVM_DEBUG(llvm::dbgs() << "  detectOptionalScalarMul: scalar operand is "
+                               "not F32/I32/I64 constant\n");
+    return nullptr;
+  }
+  mulScalar = *sv;
+  return mulOp;
+}
+
+/// If `current`'s single user is a ZHighStickOp targeting a supported layout
+/// (3D, 3DS, or 4D), sets `stickFormat` and returns the ZHighStickOp.
+/// Otherwise returns null.
+static ZHighStickOp detectStickTail(
+    Value current, std::optional<StringAttr> &stickFormat) {
+  auto stickOp = singleUserOfType<ZHighStickOp>(current);
+  if (!stickOp)
+    return nullptr;
+  auto layoutAttr = stickOp.getLayout();
+  if (!layoutAttr)
+    return nullptr;
+  if (*layoutAttr != LAYOUT_3D && *layoutAttr != LAYOUT_3DS &&
+      *layoutAttr != LAYOUT_4D)
+    return nullptr;
+  stickFormat = StringAttr::get(stickOp->getContext(), *layoutAttr);
+  return stickOp;
+}
+
+//===----------------------------------------------------------------------===//
 // ExpandMulStickFusionHelper — virtual method implementations
 //===----------------------------------------------------------------------===//
 
@@ -579,31 +644,11 @@ bool ExpandMulStickFusionHelper::detectIfBeneficial(
   current = expandOp.getOutput();
 
   // ---- Step 3: Mul (optional) ----------------------------------------------
-  // If the expand output's single user is not an ONNXMulOp, skip this step
-  // and leave mulScalar at its neutral default (1.f); `current` still points
-  // at the expand output, so Step 4 matches the reshape directly against it.
-  if (auto mulOp = singleUserOfType<ONNXMulOp>(current)) {
-    // Identify the scalar operand (accept either argument order): the other
-    // operand must be a constant, since both extraction paths below require
-    // one.
-    ONNXConstantOp cst;
-    if (!matchValueAndOp<ONNXConstantOp>(
-            mulOp.getA(), mulOp.getB(), current, cst))
-      return returnFailure("mul: scalar operand not found or not a constant");
-
-    std::optional<float> sv = std::nullopt;
-    // F32 path: reuse existing NNPA helper.
-    if (auto fa = getScalarF32AttrFromConstant(cst.getResult()))
-      sv = fa.getValue().convertToFloat();
-    // Integer path: fall back to getScalarValue (handles I32 / I64).
-    else {
-      Type et = cast<ShapedType>(cst.getType()).getElementType();
-      if (et.isInteger(32) || et.isInteger(64))
-        sv = static_cast<float>(getScalarValue<double>(cst));
-    }
-    if (!sv)
-      return returnFailure("mul: scalar operand is not F32/I32/I64 constant");
-    mulScalar = *sv;
+  // If the expand output's single user is not a viable scalar Mul, skip this
+  // step and leave mulScalar at its neutral default (1.f); `current` still
+  // points at the expand output, so Step 4 matches the reshape directly
+  // against it.
+  if (auto mulOp = detectOptionalScalarMul(current, mulScalar)) {
     ops.push_back(mulOp.getOperation());
     current = mulOp.getC();
   }
@@ -619,16 +664,10 @@ bool ExpandMulStickFusionHelper::detectIfBeneficial(
   current = reshapeOp.getReshaped();
 
   // ---- Step 5: Stick (single-use check included in singleUserOfType) ------
-  auto stickOp = singleUserOfType<ZHighStickOp>(current);
+  auto stickOp = detectStickTail(current, stickFormat);
   if (!stickOp)
-    return returnFailure("stick: not single user of type ZHighStickOp");
-  auto layoutAttr = stickOp.getLayout();
-  if (!layoutAttr)
-    return returnFailure("stick: no layout attribute");
-  if (*layoutAttr != LAYOUT_3D && *layoutAttr != LAYOUT_3DS &&
-      *layoutAttr != LAYOUT_4D)
-    return returnFailure("stick: unsupported layout (need 3D, 3DS, or 4D)");
-  stickFormat = StringAttr::get(stickOp->getContext(), *layoutAttr);
+    return returnFailure(
+        "stick: not single user of type ZHighStickOp, or unsupported layout");
   ops.push_back(stickOp.getOperation());
   finalResults.push_back(stickOp.getOut());
 
@@ -789,6 +828,8 @@ bool ConcatExpandStickFusionHelper::detectIfBeneficial(
   reshapeCollapsedCount = 0;
   finalLayout = std::nullopt;
   yieldConcatResult = false;
+  mulScalar = 1.f;
+  stickFormat = std::nullopt;
 
   if (isInsideFusedOp(startOp))
     return returnFailure("already inside a fused op body");
@@ -854,15 +895,22 @@ bool ConcatExpandStickFusionHelper::detectIfBeneficial(
   current = unsqOp.getExpanded();
   unsqueezedPosition = P;
 
-  // ---- Step 3: F32ToDLF16 --------------------------------------------------
-  auto dlfOp = singleUserOfType<ZHighF32ToDLF16Op>(current);
-  if (!dlfOp)
-    return returnFailure(
-        "f32-to-dlf16: not single user of type ZHighF32ToDLF16Op");
-  if (auto ns = dlfOp.getNoSaturation())
-    noSaturation = (*ns != 0);
-  ops.push_back(dlfOp.getOperation());
-  current = dlfOp.getOut();
+  // ---- Step 3: F32ToDLF16 (optional) ---------------------------------------
+  // Present <=> the existing 2-step tail (ends in a LayoutTransform);
+  // absent <=> the 1-step tail (ends in an explicit ZHighStickOp). Expand
+  // and Reshape are identical either way -- shared below -- only this step,
+  // the optional Mul (Step 5, stick-tail only -- see its own comment for
+  // why), and the final step (Step 6) differ per tail.
+  bool hasSingleStick;
+  if (auto dlfOp = singleUserOfType<ZHighF32ToDLF16Op>(current)) {
+    hasSingleStick = false;
+    if (auto ns = dlfOp.getNoSaturation())
+      noSaturation = (*ns != 0);
+    ops.push_back(dlfOp.getOperation());
+    current = dlfOp.getOut();
+  } else {
+    hasSingleStick = true;
+  }
 
   // ---- Step 4: Expand -------------------------------------------------------
   auto expandOp = singleUserOfType<ONNXExpandOp>(current);
@@ -875,8 +923,24 @@ bool ConcatExpandStickFusionHelper::detectIfBeneficial(
   ops.push_back(expandOp.getOperation());
   current = expandOp.getOutput();
 
-  // ---- Step 5: Reshape
-  // -------------------------------------------------------
+  // ---- Step 5: Mul (optional, stick-tail only) ------------------------------
+  // Only tried for the 1-step tail: by this point in the 2-step tail, data is
+  // already DLF16 (F32ToDLF16 ran in Step 3), so a real Mul here would need
+  // an F16-typed scalar constant (ONNX's Mul requires both operands to share
+  // one element type) -- detectOptionalScalarMul only recognizes F32/I32/I64
+  // scalars, so that combination could never actually match; skip trying it
+  // rather than leave dead code. If the expand output's single user is not a
+  // viable scalar Mul, skip this step and leave mulScalar at its neutral
+  // default (1.f); `current` still points at the expand output either way,
+  // so Step 5.5 matches the reshape directly against it.
+  if (hasSingleStick) {
+    if (auto mulOp = detectOptionalScalarMul(current, mulScalar)) {
+      ops.push_back(mulOp.getOperation());
+      current = mulOp.getC();
+    }
+  }
+
+  // ---- Step 5.5: Reshape -----------------------------------------------------
   auto reshapeOp = singleUserOfType<ONNXReshapeOp>(current);
   if (!reshapeOp)
     return returnFailure("reshape: not single user of type ONNXReshapeOp");
@@ -886,28 +950,39 @@ bool ConcatExpandStickFusionHelper::detectIfBeneficial(
   ops.push_back(reshapeOp.getOperation());
   current = reshapeOp.getReshaped();
 
-  // ---- Step 6: LayoutTransform ---------------------------------------------
-  auto ltOp = singleUserOfType<ONNXLayoutTransformOp>(current);
-  if (!ltOp)
-    return returnFailure(
-        "layout-transform: not single user of type ONNXLayoutTransformOp");
-  auto layoutAttr = ltOp.getTargetLayout();
-  if (!layoutAttr.has_value())
-    return returnFailure("layout-transform: must target a zTensor layout");
-  if (!supportedLayoutForCompilerGeneratedStickUnstick(
-          ltOp.getOutput(), /*nhwc=*/false))
-    return returnFailure("layout-transform: unsupported target zTensor type");
-  OpBuilder b(ltOp);
-  StringAttr layoutStrAttr =
-      getZTensorLayoutAttr(b, cast<ZTensorEncodingAttr>(layoutAttr.value()));
-  StringRef layoutStr = layoutStrAttr.getValue();
-  if (layoutStr != LAYOUT_3D && layoutStr != LAYOUT_3DS &&
-      layoutStr != LAYOUT_4D)
-    return returnFailure(
-        "layout-transform: unsupported layout (need 3D, 3DS, or 4D)");
-  finalLayout = layoutStrAttr;
-  ops.push_back(ltOp.getOperation());
-  finalResults.push_back(ltOp.getOutput());
+  // ---- Step 6: LayoutTransform or Stick, per hasSingleStick -----------------
+  if (!hasSingleStick) {
+    auto ltOp = singleUserOfType<ONNXLayoutTransformOp>(current);
+    if (!ltOp)
+      return returnFailure(
+          "layout-transform: not single user of type ONNXLayoutTransformOp");
+    auto layoutAttr = ltOp.getTargetLayout();
+    if (!layoutAttr.has_value())
+      return returnFailure("layout-transform: must target a zTensor layout");
+    if (!supportedLayoutForCompilerGeneratedStickUnstick(
+            ltOp.getOutput(), /*nhwc=*/false))
+      return returnFailure(
+          "layout-transform: unsupported target zTensor type");
+    OpBuilder b(ltOp);
+    StringAttr layoutStrAttr =
+        getZTensorLayoutAttr(b, cast<ZTensorEncodingAttr>(layoutAttr.value()));
+    StringRef layoutStr = layoutStrAttr.getValue();
+    if (layoutStr != LAYOUT_3D && layoutStr != LAYOUT_3DS &&
+        layoutStr != LAYOUT_4D)
+      return returnFailure(
+          "layout-transform: unsupported layout (need 3D, 3DS, or 4D)");
+    finalLayout = layoutStrAttr;
+    ops.push_back(ltOp.getOperation());
+    finalResults.push_back(ltOp.getOutput());
+  } else {
+    auto stickOp = detectStickTail(current, stickFormat);
+    if (!stickOp)
+      return returnFailure("stick: not single user of type ZHighStickOp, or "
+                            "unsupported layout");
+    ops.push_back(stickOp.getOperation());
+    finalResults.push_back(stickOp.getOut());
+  }
+
   // The primary result is always output 0; the concat result, when also
   // needed outside the chain, is threaded through as output 1.
   if (yieldConcatResult)
@@ -928,7 +1003,14 @@ void ConcatExpandStickFusionHelper::embedAttrs(ONNXFusedOp fusedOp) const {
       b.getI64IntegerAttr(reshapeFirstCollapsedDim));
   fusedOp->setAttr(
       "reshapeCollapsedCount", b.getI64IntegerAttr(reshapeCollapsedCount));
-  fusedOp->setAttr("finalLayout", *finalLayout);
+  fusedOp->setAttr("mulScalar",
+      b.getFloatAttr(b.getF32Type(), static_cast<double>(mulScalar)));
+  // Exactly one of the two is set after a successful match (2-step tail vs.
+  // 1-step stick tail) -- only write the one that applies.
+  if (finalLayout.has_value())
+    fusedOp->setAttr("finalLayout", *finalLayout);
+  if (stickFormat.has_value())
+    fusedOp->setAttr("stickFormat", *stickFormat);
   fusedOp->setAttr("yieldConcatResult", b.getBoolAttr(yieldConcatResult));
 }
 
@@ -954,28 +1036,58 @@ bool ConcatExpandStickFusionHelper::retrieveAttrs(ONNXFusedOp fusedOp) {
   if (!satAttr)
     return false;
   noSaturation = satAttr.getValue();
-  auto layoutAttr = fusedOp->getAttrOfType<StringAttr>("finalLayout");
-  if (!layoutAttr)
-    return false;
-  finalLayout = layoutAttr;
   auto yieldAttr = fusedOp->getAttrOfType<BoolAttr>("yieldConcatResult");
   if (!yieldAttr)
     return false;
   yieldConcatResult = yieldAttr.getValue();
+  auto scalarAttr = fusedOp->getAttrOfType<FloatAttr>("mulScalar");
+  if (!scalarAttr)
+    return false;
+  mulScalar = scalarAttr.getValue().convertToFloat();
+  // Optional attrs -- exactly one should be present after a successful
+  // match; verify() checks that (retrieveAttrs must not fail just because a
+  // chain-shape-specific attr is, correctly, absent).
+  if (auto attr = fusedOp->getAttrOfType<StringAttr>("finalLayout"))
+    finalLayout = attr;
+  else
+    finalLayout = std::nullopt;
+  if (auto attr = fusedOp->getAttrOfType<StringAttr>("stickFormat"))
+    stickFormat = attr;
+  else
+    stickFormat = std::nullopt;
   return true;
 }
 
 bool ConcatExpandStickFusionHelper::verify() const {
-  constexpr int expected = 6; // concat + unsqueeze + f32-to-dlf16 + expand +
-                              // reshape + layout-transform
-  if ((int64_t)ops.size() != expected) {
+  // Exactly one of the two tail shapes' target-layout field must be set --
+  // anything else means retrieveAttrs picked up an inconsistent op.
+  bool hasSingleStick = stickFormat.has_value();
+  if (hasSingleStick == finalLayout.has_value()) {
+    LLVM_DEBUG(llvm::dbgs() << "CES verify: expected exactly one of "
+                               "finalLayout/stickFormat to be set\n");
+    return false;
+  }
+
+  // Base count (no Mul): concat + unsqueeze + [f32-to-dlf16] + expand +
+  // reshape + [layout-transform | stick] -- 5 fixed ops, plus 1 more for
+  // f32-to-dlf16 when this is the 2-step tail. Mul, when present, adds one
+  // -- but only for the stick tail (see detectIfBeneficial's Step 5 comment
+  // for why the 2-step tail can never actually have one).
+  int64_t baseCount = hasSingleStick ? 5 : 6;
+  bool hasMul;
+  if (hasSingleStick && (int64_t)ops.size() == baseCount + 1) {
+    hasMul = true;
+  } else if ((int64_t)ops.size() == baseCount) {
+    hasMul = false;
+  } else {
     LLVM_DEBUG(llvm::dbgs() << "CES verify: op count " << ops.size()
-                            << " != " << expected << "\n");
+                            << " != " << baseCount << " or " << baseCount + 1
+                            << "\n");
     return false;
   }
   int idx = 0;
 
-  // ops[0]: ONNXConcatOp — exactly two inputs, axis matches concatAxis.
+  // ops[0]: ONNXConcatOp — exactly two inputs.
   auto concat = dyn_cast<ONNXConcatOp>(ops[idx++]);
   if (!concat || concat.getInputs().size() != 2) {
     LLVM_DEBUG(llvm::dbgs() << "CES verify: ops[0] not a 2-input Concat\n");
@@ -996,16 +1108,18 @@ bool ConcatExpandStickFusionHelper::verify() const {
     }
   }
 
-  // ops[2]: ZHighF32ToDLF16Op.
-  if (!dyn_cast<ZHighF32ToDLF16Op>(ops[idx++])) {
-    LLVM_DEBUG(llvm::dbgs() << "CES verify: ops[2] not F32ToDLF16\n");
-    return false;
+  // ops[idx]: ZHighF32ToDLF16Op (only present for the 2-step tail).
+  if (!hasSingleStick) {
+    if (!dyn_cast<ZHighF32ToDLF16Op>(ops[idx++])) {
+      LLVM_DEBUG(llvm::dbgs() << "CES verify: ops[idx] not F32ToDLF16\n");
+      return false;
+    }
   }
 
-  // ops[3]: ONNXExpandOp — output dim P must equal expansionN.
+  // ops[idx]: ONNXExpandOp — output dim P must equal expansionN.
   auto exp = dyn_cast<ONNXExpandOp>(ops[idx++]);
   if (!exp) {
-    LLVM_DEBUG(llvm::dbgs() << "CES verify: ops[3] not Expand\n");
+    LLVM_DEBUG(llvm::dbgs() << "CES verify: ops[idx] not Expand\n");
     return false;
   }
   {
@@ -1017,10 +1131,18 @@ bool ConcatExpandStickFusionHelper::verify() const {
     }
   }
 
-  // ops[4]: ONNXReshapeOp — rank delta consistent with reshapeCollapsedCount.
+  // ops[idx]: ONNXMulOp (only present when the pattern includes a Mul).
+  if (hasMul) {
+    if (!dyn_cast<ONNXMulOp>(ops[idx++])) {
+      LLVM_DEBUG(llvm::dbgs() << "CES verify: ops[idx] not Mul\n");
+      return false;
+    }
+  }
+
+  // ops[idx]: ONNXReshapeOp — rank delta consistent with reshapeCollapsedCount.
   auto reshape = dyn_cast<ONNXReshapeOp>(ops[idx++]);
   if (!reshape) {
-    LLVM_DEBUG(llvm::dbgs() << "CES verify: ops[4] not Reshape\n");
+    LLVM_DEBUG(llvm::dbgs() << "CES verify: ops[idx] not Reshape\n");
     return false;
   }
   if (reshapeCollapsedCount > 0) {
@@ -1033,15 +1155,15 @@ bool ConcatExpandStickFusionHelper::verify() const {
     }
   }
 
-  // ops[5]: ONNXLayoutTransformOp — target layout matches stored finalLayout.
-  auto lt = dyn_cast<ONNXLayoutTransformOp>(ops[idx++]);
-  if (!lt) {
-    LLVM_DEBUG(llvm::dbgs() << "CES verify: ops[5] not LayoutTransform\n");
-    return false;
-  }
-  {
+  // ops[idx]: ONNXLayoutTransformOp or ZHighStickOp, per hasSingleStick.
+  if (!hasSingleStick) {
+    auto lt = dyn_cast<ONNXLayoutTransformOp>(ops[idx++]);
+    if (!lt) {
+      LLVM_DEBUG(llvm::dbgs() << "CES verify: ops[idx] not LayoutTransform\n");
+      return false;
+    }
     auto layoutAttr = lt.getTargetLayout();
-    if (!layoutAttr.has_value() || !finalLayout.has_value()) {
+    if (!layoutAttr.has_value()) {
       LLVM_DEBUG(llvm::dbgs() << "CES verify: missing target layout\n");
       return false;
     }
@@ -1052,12 +1174,21 @@ bool ConcatExpandStickFusionHelper::verify() const {
       LLVM_DEBUG(llvm::dbgs() << "CES verify: layout mismatch\n");
       return false;
     }
+  } else {
+    auto stick = dyn_cast<ZHighStickOp>(ops[idx++]);
+    if (!stick) {
+      LLVM_DEBUG(llvm::dbgs() << "CES verify: ops[idx] not Stick\n");
+      return false;
+    }
+    auto layoutAttr = stick.getLayout();
+    if (!layoutAttr || *layoutAttr != stickFormat->getValue()) {
+      LLVM_DEBUG(llvm::dbgs() << "CES verify: stick layout mismatch\n");
+      return false;
+    }
   }
 
-  // finalResults: output 0 is always the primary (layout-transform) result;
-  // output 1, when yieldConcatResult is set, must be the concat's own
-  // result (i.e. the chain's first op), matching how detectIfBeneficial
-  // populated it.
+  // finalResults: output 0 is always the primary result; output 1, when
+  // yieldConcatResult is set, must be the concat's own result.
   size_t expectedResults = yieldConcatResult ? 2 : 1;
   if (finalResults.size() != expectedResults) {
     LLVM_DEBUG(llvm::dbgs()
