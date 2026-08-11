@@ -919,9 +919,7 @@ struct RecomposeAttentionFromMatMulPattern
   }
 
   // Match `Transpose` that only swaps the last two dimensions of its input,
-  // leaving all other dimensions in place. Requires an explicit `perm`
-  // attribute (the default, reversing all dims, only coincides with this for
-  // rank 2 inputs).
+  // leaving all other dimensions in place.
   static bool matchTransposeLastTwoDims(Value v, Value &original) {
     using namespace onnx_mlir;
     auto transposeOp = v.getDefiningOp<ONNXTransposeOp>();
@@ -930,18 +928,7 @@ struct RecomposeAttentionFromMatMulPattern
     original = transposeOp.getData();
     if (!hasShapeAndRank(original))
       return false;
-    int64_t rank = mlir::cast<ShapedType>(original.getType()).getRank();
-    if (rank < 2)
-      return false;
-    ArrayAttr permAttr = transposeOp.getPermAttr();
-    if (!permAttr || static_cast<int64_t>(permAttr.size()) != rank)
-      return false;
-    SmallVector<int64_t> perm;
-    ArrayAttrIntVals(permAttr, perm);
-    for (int64_t i = 0; i < rank - 2; ++i)
-      if (perm[i] != i)
-        return false;
-    return perm[rank - 2] == rank - 1 && perm[rank - 1] == rank - 2;
+    return isTransposeSwappingLastTwoDims(transposeOp.getPermAttr());
   }
 
   // Match the (optionally scaled) QK^T product feeding the softmax:
@@ -969,23 +956,15 @@ struct RecomposeAttentionFromMatMulPattern
     } else if (auto mulOp = v.getDefiningOp<ONNXMulOp>()) {
       if (!mulOp->hasOneUse())
         return false;
-      Value lhs = mulOp.getOperand(0);
-      Value rhs = mulOp.getOperand(1);
-      Value other;
-      ONNXConstantOp constOp;
-      bool lhsIsConst = isDenseONNXConstant(lhs) && isScalarTensor(lhs);
-      bool rhsIsConst = isDenseONNXConstant(rhs) && isScalarTensor(rhs);
-      if (lhsIsConst) {
-        constOp = lhs.getDefiningOp<ONNXConstantOp>();
-        other = rhs;
-      } else if (rhsIsConst) {
-        constOp = rhs.getDefiningOp<ONNXConstantOp>();
-        other = lhs;
-      }
-      if (!constOp)
+      Value matmulSide, constSide;
+      if (!areDefinedBy<ONNXMatMulOp, ONNXConstantOp>(mulOp.getOperand(0),
+              mulOp.getOperand(1), matmulSide, constSide))
         return false;
-      scaleVal = getScalarValue<double>(constOp);
-      qkVal = other;
+      if (!isDenseONNXConstant(constSide) || !isScalarTensor(constSide))
+        return false;
+      scaleVal =
+          getScalarValue<double>(constSide.getDefiningOp<ONNXConstantOp>());
+      qkVal = matmulSide;
     }
 
     auto qkMatMulOp = qkVal.getDefiningOp<ONNXMatMulOp>();
