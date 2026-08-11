@@ -587,7 +587,8 @@ bool ExpandMulStickFusionHelper::detectIfBeneficial(
     // operand must be a constant, since both extraction paths below require
     // one.
     ONNXConstantOp cst;
-    if (!matchValueAndOp<ONNXConstantOp>(mulOp.getA(), mulOp.getB(), current, cst))
+    if (!matchValueAndOp<ONNXConstantOp>(
+            mulOp.getA(), mulOp.getB(), current, cst))
       return returnFailure("mul: scalar operand not found or not a constant");
 
     std::optional<float> sv = std::nullopt;
