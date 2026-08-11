@@ -43,14 +43,6 @@ static bool hasStaticInnermostDimMod(Value val, int64_t mod) {
   return mod <= 1 || shape[rank - 1] % mod == 0;
 }
 
-/// Return the single user of \p val if it is of type \p T, null otherwise.
-template <typename T>
-static T singleUserOfType(Value val) {
-  if (!val.hasOneUse())
-    return nullptr;
-  return dyn_cast<T>(*val.getUsers().begin());
-}
-
 /// Return the unique user of \p val that is of type \p T, or null if there
 /// isn't exactly one such user.  Unlike singleUserOfType, \p val is allowed
 /// to have other, non-T-typed uses as well (e.g. a value that also escapes
@@ -591,20 +583,20 @@ bool ExpandMulStickFusionHelper::detectIfBeneficial(
   // and leave mulScalar at its neutral default (1.f); `current` still points
   // at the expand output, so Step 4 matches the reshape directly against it.
   if (auto mulOp = singleUserOfType<ONNXMulOp>(current)) {
-    // Identify the scalar operand (accept either argument order).
-    Value lhs = mulOp.getA();
-    Value rhs = mulOp.getB();
-    Value scalarVal = (lhs == current) ? rhs : (rhs == current) ? lhs : nullptr;
-    if (!scalarVal)
-      return returnFailure("mul: neither operand comes from the chain");
+    // Identify the scalar operand (accept either argument order): the other
+    // operand must be a constant, since both extraction paths below require
+    // one.
+    ONNXConstantOp cst;
+    if (!matchValueAndOp<ONNXConstantOp>(mulOp.getA(), mulOp.getB(), current, cst))
+      return returnFailure("mul: scalar operand not found or not a constant");
 
     std::optional<float> sv = std::nullopt;
     // F32 path: reuse existing NNPA helper.
-    if (auto fa = getScalarF32AttrFromConstant(scalarVal))
+    if (auto fa = getScalarF32AttrFromConstant(cst.getResult()))
       sv = fa.getValue().convertToFloat();
     // Integer path: fall back to getScalarValue (handles I32 / I64).
-    else if (auto cst = scalarVal.getDefiningOp<ONNXConstantOp>()) {
-      Type et = cast<ShapedType>(scalarVal.getType()).getElementType();
+    else {
+      Type et = cast<ShapedType>(cst.getType()).getElementType();
       if (et.isInteger(32) || et.isInteger(64))
         sv = static_cast<float>(getScalarValue<double>(cst));
     }

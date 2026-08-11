@@ -310,6 +310,11 @@ bool hasIntegerPowerExponent(mlir::ONNXPowOp *op, int64_t &exponentValue);
 template <typename OP>
 mlir::Operation *usedOnlyBy(mlir::Value val);
 
+/// Typed sibling of usedOnlyBy(): return the single user of val, already cast
+/// to OP, or null if val does not have exactly one use of that type.
+template <typename OP>
+OP singleUserOfType(mlir::Value val);
+
 /// Check the defining operation of a value.
 template <typename OP>
 bool definedBy(mlir::Value v);
