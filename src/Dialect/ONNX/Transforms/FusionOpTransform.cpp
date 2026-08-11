@@ -26,8 +26,9 @@ namespace onnx_mlir {
 
 void populateONNXFusionOpPatterns(RewritePatternSet &patterns,
     MLIRContext *context, DimAnalysis *dimAnalysis) {
-  patterns.insert<FusedPatternForOpKind<ONNXConcatOp, SplitOpGatherFusionHelper>>(
-      context, dimAnalysis);
+  patterns
+      .insert<FusedPatternForOpKind<ONNXConcatOp, SplitOpGatherFusionHelper>>(
+          context, dimAnalysis);
 }
 
 #define GEN_PASS_DEF_FUSIONOPTRANSFORMPASS
@@ -38,8 +39,7 @@ void populateONNXFusionOpPatterns(RewritePatternSet &patterns,
 namespace {
 
 class FusionOpTransformPass
-    : public onnx_mlir::impl::FusionOpTransformPassBase<
-          FusionOpTransformPass> {
+    : public onnx_mlir::impl::FusionOpTransformPassBase<FusionOpTransformPass> {
 public:
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(FusionOpTransformPass)
 

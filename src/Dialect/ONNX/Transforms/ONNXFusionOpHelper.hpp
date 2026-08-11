@@ -126,7 +126,7 @@ public:
   /// note: callers go through kind-specific accessors, not the raw vector).
   /// Valid only after retrieveOpsAndOutputValues() + a successful verify().
   mlir::ONNXSliceOp getSliceLowOp() const;
-  mlir::Operation *getOpLowNode() const;  // null if !hasOpForSplitLow
+  mlir::Operation *getOpLowNode() const; // null if !hasOpForSplitLow
   mlir::ONNXSliceOp getSliceHighOp() const;
   mlir::Operation *getOpHighNode() const; // null if !hasOpForSplitHigh
 };

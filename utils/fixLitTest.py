@@ -39,7 +39,9 @@ def print_usage(error_msg="", options=False, usage=False, file_format=False):
         )
         dprint("utility.")
         dprint("")
-        dprint("fixLitTest [-dhprt] [-f <func-name>] [-m <func-name>] <lit-test-filename>")
+        dprint(
+            "fixLitTest [-dhprt] [-f <func-name>] [-m <func-name>] <lit-test-filename>"
+        )
         dprint("  -t/--test   : Run FileCheck on each function individually.")
         dprint('                When combined with "--repair", test repaired lit test.')
         dprint("                Default flag is none is provided.")
@@ -48,9 +50,7 @@ def print_usage(error_msg="", options=False, usage=False, file_format=False):
         dprint(
             "  -m,--module <func-name>: Isolate given function (like -f) and print it"
         )
-        dprint(
-            '                as a standalone module, wrapped in "module {...}" and'
-        )
+        dprint('                as a standalone module, wrapped in "module {...}" and')
         dprint('                followed by an "onnx.EntryPoint" for that function.')
         dprint(
             '  --prefix <prefix>:     Set the FileCheck prefix for mlir2FileCheck (default: "").'

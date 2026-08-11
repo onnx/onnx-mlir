@@ -497,9 +497,9 @@ void populateLoweringONNXSliceOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
 // onnx.Fused(kind="simd-split-op-gather") -- see
 // src/Dialect/ONNX/Transforms/ONNXFusionOpHelper.hpp.
-void populateLoweringONNXFusedSplitOpGatherOpPattern(
-    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *,
-    bool enableSIMD, bool enableParallel);
+void populateLoweringONNXFusedSplitOpGatherOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableSIMD,
+    bool enableParallel);
 void populateLoweringONNXSqueezeOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXSqueezeV11OpPattern(

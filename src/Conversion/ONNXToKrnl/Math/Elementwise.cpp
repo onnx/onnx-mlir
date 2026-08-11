@@ -1476,9 +1476,9 @@ Value emitScalarOpForElementwiseOp(ConversionPatternRewriter &rewriter,
     ArrayRef<Value> scalarOperands) {
   if (!opNode)
     return scalarOperands[0];
-#define ELEMENTWISE_ALL(_OP_TYPE)                                            \
-  if (isa<_OP_TYPE>(opNode))                                                 \
-    return emitScalarOpFor<_OP_TYPE>(                                        \
+#define ELEMENTWISE_ALL(_OP_TYPE)                                              \
+  if (isa<_OP_TYPE>(opNode))                                                   \
+    return emitScalarOpFor<_OP_TYPE>(                                          \
         rewriter, loc, opNode, elementType, scalarOperands);
 #include "src/Conversion/ONNXToKrnl/Math/Elementwise.hpp"
   llvm_unreachable("op type not in the elementwise op-type list");
@@ -1487,8 +1487,8 @@ Value emitScalarOpForElementwiseOp(ConversionPatternRewriter &rewriter,
 GenOpMix getGenOpMixForElementwiseOp(Type elementType, Operation *opNode) {
   if (!opNode)
     return {{GenericOps::ArithmeticGop, 1}};
-#define ELEMENTWISE_ALL(_OP_TYPE)                                            \
-  if (isa<_OP_TYPE>(opNode))                                                 \
+#define ELEMENTWISE_ALL(_OP_TYPE)                                              \
+  if (isa<_OP_TYPE>(opNode))                                                   \
     return getGenOpMix<_OP_TYPE>(elementType, opNode);
 #include "src/Conversion/ONNXToKrnl/Math/Elementwise.hpp"
   llvm_unreachable("op type not in the elementwise op-type list");
