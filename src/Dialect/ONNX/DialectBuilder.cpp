@@ -184,6 +184,24 @@ Value OnnxBuilder::expand(Type outputType, Value input, Value shape) const {
       outputType, toTensor(input), toTensor(shape));
 }
 
+Value OnnxBuilder::attention(Type outputType, Value Q, Value K, Value V,
+    Value attnMask, FloatAttr scale) const {
+  Value noneVal = none();
+  Type noneType = noneVal.getType();
+  IntegerAttr isCausalAttr = getSignedInt64Attr(0);
+  IntegerAttr qkMatMulOutputModeAttr = getSignedInt64Attr(0);
+  FloatAttr softcapAttr = b().getF32FloatAttr(0.0);
+  ONNXAttentionOp attentionOp = createOpAndInferShapes<ONNXAttentionOp>(
+      /*Y type*/ toTensor(outputType), /*present_key*/ noneType,
+      /*present_value*/ noneType, /*qk_matmul_output*/ noneType, toTensor(Q),
+      toTensor(K), toTensor(V), toTensor(attnMask), /*past_key*/ noneVal,
+      /*past_value*/ noneVal, /*nonpad_kv_seqlen*/ noneVal, isCausalAttr,
+      /*kv_num_heads*/ nullptr, /*q_num_heads*/ nullptr,
+      qkMatMulOutputModeAttr, scale, softcapAttr,
+      /*softmax_precision*/ nullptr);
+  return attentionOp.getY();
+}
+
 Value OnnxBuilder::gelu(Value input, StringAttr approximateAttr) const {
   return createOpAndInferShapes<ONNXGeluOp>(
       toTensor(input.getType()), input, approximateAttr);
