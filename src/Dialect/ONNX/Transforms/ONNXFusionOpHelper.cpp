@@ -185,9 +185,6 @@ bool SplitOpGatherFusionHelper::detectIfBeneficial(
   if (A != rank - 1)
     return returnFailure("concat: only innermost-axis split supported (v1)");
 
-  // hi alex: we have a lot of concats that are for shapes; if useful, we could
-  // quickly weed out concat of scalars tensors here. Do it when prompted for.
-
   // ---- Resolve both branches -----------------------------------------------
   Branch branch0, branch1;
   if (!resolveBranch(concatInputs[0], branch0))

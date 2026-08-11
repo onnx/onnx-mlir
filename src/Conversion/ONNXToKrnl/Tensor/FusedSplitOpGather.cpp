@@ -34,16 +34,17 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
+// TODO: we could consider collapsing the outer loops for more parallelism.
+
 struct ONNXFusedSplitOpGatherLowering
     : public FusedOpKindLowering<SplitOpGatherFusionHelper> {
   using Base = FusedOpKindLowering<SplitOpGatherFusionHelper>;
   bool enableSIMD;
   bool enableParallel;
 
-  ONNXFusedSplitOpGatherLowering(TypeConverter &tc, MLIRContext *ctx,
-      bool enableSIMD, bool enableParallel)
-      : Base(tc, ctx), enableSIMD(enableSIMD), enableParallel(enableParallel) {
-  }
+  ONNXFusedSplitOpGatherLowering(
+      TypeConverter &tc, MLIRContext *ctx, bool enableSIMD, bool enableParallel)
+      : Base(tc, ctx), enableSIMD(enableSIMD), enableParallel(enableParallel) {}
 
   FailureOr<SmallVector<Value>> lowerVerified(ONNXFusedOp fusedOp,
       OpAdaptor adaptor, ConversionPatternRewriter &rewriter,
@@ -113,8 +114,8 @@ struct ONNXFusedSplitOpGatherLowering
     // ---- Emit one half's (low or high) simdIterateIE call, given the outer
     // (non-axis) loop induction variables (empty when rank==1). -------------
     auto emitCodeForHalf = [&](ValueRange outerInd, int64_t start, int64_t len,
-                         int64_t outputOffset, Operation *opNode,
-                         Value externalMemref, bool halfIsFirstOperand) {
+                               int64_t outputOffset, Operation *opNode,
+                               Value externalMemref, bool halfIsFirstOperand) {
       int64_t VL = 1;
       bool fullySimd = false;
       if (enableSIMD) {
