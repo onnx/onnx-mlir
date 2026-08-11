@@ -901,3 +901,57 @@ func.func @test_fused_op_dim_offset(%arg0: tensor<1x4x?x64xf32> {onnx.dim_params
 // CHECK:           onnx.Return [[VAR_12_]] : tensor<1x4x4x?x64xf32>
 // CHECK:         }
 }
+
+// -----
+
+// COM: Test that dimension analysis works with allowzero=1 when shape contains non-zero values
+// COM: Input: tensor<?x256xf32>, reshape to tensor<?x?x64xf32>
+// COM: Element count: ?*256 = ?*?*64, so the two dynamic dims must multiply to 4
+func.func @test_reshape_allowzero1_nonzero(%arg0: tensor<?x256xf32>) -> tensor<?x?x64xf32> {
+  %d1 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?x256xf32>) -> tensor<1xi64>
+  %c_neg1 = "onnx.Constant"() {value = dense<[-1]> : tensor<1xi64>} : () -> tensor<1xi64>
+  %c64 = "onnx.Constant"() {value = dense<[64]> : tensor<1xi64>} : () -> tensor<1xi64>
+  %shape = "onnx.Concat"(%d1, %c_neg1, %c64) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+  %result = "onnx.Reshape"(%arg0, %shape) {allowzero = 1 : si64} : (tensor<?x256xf32>, tensor<3xi64>) -> tensor<?x?x64xf32>
+  return %result : tensor<?x?x64xf32>
+
+// CHECK-LABEL:  func.func @test_reshape_allowzero1_nonzero
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x256xf32>) -> tensor<?x?x64xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<64> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<-1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Dim"([[PARAM_0_]]) <{axis = 0 : si64}> : (tensor<?x256xf32>) -> tensor<1xi64>
+// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) <{axis = 0 : si64, group_id = [[GROUP_0_:.*]] : si64}> : (tensor<?x256xf32>) -> ()
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Concat"([[VAR_2_]], [[VAR_1_]], [[VAR_0_]]) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_3_]]) <{allowzero = 1 : si64}> : (tensor<?x256xf32>, tensor<3xi64>) -> tensor<?x?x64xf32>
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_4_]]) <{axis = 1 : si64, group_id = {{.*}} : si64}> : (tensor<?x?x64xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_4_]]) <{axis = 0 : si64, group_id = [[GROUP_0_]] : si64}> : (tensor<?x?x64xf32>) -> ()
+// CHECK:           return [[VAR_4_]] : tensor<?x?x64xf32>
+// CHECK:         }
+}
+
+// -----
+
+// Test that dimension analysis skips explicit zeros in shape when allowzero=1
+// Input must have 0 elements for output to have 0 elements
+func.func @test_reshape_allowzero1_with_zero(%arg0: tensor<?x0x256xf32>) -> tensor<?x0x128xf32> {
+  %d1 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?x0x256xf32>) -> tensor<1xi64>
+  %c0 = "onnx.Constant"() {value = dense<[0]> : tensor<1xi64>} : () -> tensor<1xi64>
+  %c128 = "onnx.Constant"() {value = dense<[128]> : tensor<1xi64>} : () -> tensor<1xi64>
+  %shape = "onnx.Concat"(%d1, %c0, %c128) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+  %result = "onnx.Reshape"(%arg0, %shape) {allowzero = 1 : si64} : (tensor<?x0x256xf32>, tensor<3xi64>) -> tensor<?x0x128xf32>
+  return %result : tensor<?x0x128xf32>
+
+// CHECK-LABEL:  func.func @test_reshape_allowzero1_with_zero
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x0x256xf32>) -> tensor<?x0x128xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<128> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<0> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Dim"([[PARAM_0_]]) <{axis = 0 : si64}> : (tensor<?x0x256xf32>) -> tensor<1xi64>
+// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) <{axis = 0 : si64, group_id = [[GROUP_0_:.*]] : si64}> : (tensor<?x0x256xf32>) -> ()
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Concat"([[VAR_2_]], [[VAR_1_]], [[VAR_0_]]) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_3_]]) <{allowzero = {{0|1}} : si64}> : (tensor<?x0x256xf32>, tensor<3xi64>) -> tensor<?x0x128xf32>
+// CHECK:           "onnx.DimGroup"([[VAR_4_]]) <{axis = 0 : si64, group_id = [[GROUP_0_]] : si64}> : (tensor<?x0x128xf32>) -> ()
+// CHECK:           return [[VAR_4_]] : tensor<?x0x128xf32>
+// CHECK:         }
+}
+
+

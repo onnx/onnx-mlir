@@ -85,6 +85,7 @@ unsigned instrumentControlBits;                        // onnx-mlir only
 std::string parallelizeOps;                            // onnx-mlir only
 std::string instrumentSignatures;                      // onnx-mlir only
 std::string instrumentOnnxNode;                        // onnx-mlir only
+std::string instrumentOnnxNodeReturn;                  // onnx-mlir only
 std::string ONNXOpStats;                               // onnx-mlir only
 int onnxOpTransformThreshold;                          // onnx-mlir only
 bool onnxOpTransformReport;                            // onnx-mlir only
@@ -621,14 +622,45 @@ static llvm::cl::opt<std::string, true> instrumentONNXNodeOpt(
         "namely, the type of onnx operation, such Add, Matmul, and etc.\n"
         "This option is able to pinpoint to a particular node.\n"
         "The instrument-onnx-node defines the pattern to select.\n"
-        "\"NONE\" for no instrument (default).\n"
-        "Except for the special values, the regexp is used for matching.\n"
-        "\"/layer1/MatMul, onnx.Add_0, ...\" for the multiple nodes.\n"
-        "Asterisk is also available. For example:\n"
-        "\"onnx.Add_*\" for all AddOp. This feature allows you to specify\n"
-        "part of the target of onnx_node_name, as long as it is long enough\n"
-        "to be unique.\n"),
+        "\"NONE\" (or an empty string) for no instrument (default).\n"
+        "Except for the special values, the pattern is matched against\n"
+        "onnx_node_name; use a comma to select multiple nodes, e.g.\n"
+        "\"/layer1/MatMul,onnx.Add_0\" selects those two exact nodes.\n"
+        "A '*' acts as a wildcard, e.g. \"onnx.Add_*\" matches every node\n"
+        "whose name starts with \"onnx.Add_\" -- useful since default\n"
+        "(auto-generated) node names for Add ops look like \"onnx.Add_0\",\n"
+        "\"onnx.Add_1\", etc. This lets you specify only as much of the\n"
+        "onnx_node_name as needed to be unique.\n"
+        "By default, all input and output tensors of a matched node are\n"
+        "printed. To print only a subset, append a ':' and a '+'-separated\n"
+        "list of 'inN'/'outN' selectors (0-based) after the node "
+        "name/pattern.\n"
+        "e.g. \"/layer1/MatMul:out0\" prints only output 0 of that node.\n"
+        "e.g. \"onnx.Add_*:in1+out0\" prints input 1 and output 0 of every\n"
+        "matched Add node.\n"
+        "Selectors are per comma-separated entry, so plain entries with no\n"
+        "':' suffix still print all tensors, e.g.\n"
+        "\"onnx.Add_0:out0, onnx.Sub_1\" prints only output 0 of Add_0, but\n"
+        "all operands/results of Sub_1.\n"),
     llvm::cl::location(instrumentOnnxNode), llvm::cl::init("NONE"),
+    llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<std::string, true> instrumentONNXNodeReturnOpt(
+    "instrument-onnx-node-return",
+    llvm::cl::desc(
+        "Append the input and output tensors of the specified operations\n"
+        "as extra outputs of the compiled model, instead of printing them.\n"
+        "Uses the exact same node-selection syntax as --instrument-onnx-node\n"
+        "(REGEX or REGEX:inN+outN selectors, comma-separated entries,\n"
+        "\"NONE\" or an empty string for none (default)); see\n"
+        "--instrument-onnx-node's description for the full syntax.\n"
+        "Unlike --instrument-onnx-node,\n"
+        "this lets you compare the selected tensors between two runs using,\n"
+        "for example, the utils/RunONNXModel.py's --save-ref/--verify=ref\n"
+        "--verify-every-value, instead of parsing printed signature logs.\n"
+        "Only tensors reachable at the top level of the entry function are\n"
+        "supported; a match inside a Loop/If/Scan body is not added.\n"),
+    llvm::cl::location(instrumentOnnxNodeReturn), llvm::cl::init("NONE"),
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<std::string, true> ONNXOpStatsOpt("onnx-op-stats",

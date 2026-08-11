@@ -625,6 +625,35 @@ def make_report(stat_message):
                 plot_values = np.append(plot_values, t[1])
     print("Statistics end" + stat_details)
 
+    # Summarize CPU (onnx + zhigh Stick/Unstick) vs Zhigh time, only when
+    # there is at least one zhigh op in the report.
+    if has_timing:
+        cpu_time = 0.0
+        zhigh_time = 0.0
+        has_zhigh = False
+        for op in op_time_dict:
+            op_time = np.sum(op_time_dict[op])
+            if re.match(r"zhigh\.", op):
+                has_zhigh = True
+                if re.search(r".*Stick.*|.*Unstick.*", op):
+                    cpu_time += op_time
+                else:
+                    zhigh_time += op_time
+            elif re.match(r"onnx\.", op):
+                cpu_time += op_time
+        if has_zhigh:
+            print(
+                "Statistics summary: CPU time {:.7f}{} ({:.1f}% of tot), "
+                "Zhigh time {:.7f}{} ({:.1f}% of tot)".format(
+                    cpu_time * time_unit,
+                    unit_str,
+                    get_percent(cpu_time, tot_time),
+                    zhigh_time * time_unit,
+                    unit_str,
+                    get_percent(zhigh_time, tot_time),
+                )
+            )
+
     # Report spurious node name if any.
     if error_missing_time:
         print("> Timing information was missing for some of the nodes.")

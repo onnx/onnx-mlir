@@ -13,4 +13,16 @@ def AppendDecodingStrategyPass : Pass<"append-decoding-strategy", "ModuleOp"> {
   }];
 }
 
+def AppendInstrumentedOutputsPass : Pass<"append-instrumented-outputs", "ModuleOp"> {
+  let summary = "append tensors matched by onnx_node_name as extra outputs of the entry function(s)";
+  let description = [{
+    This pass appends selected intermediate tensors, matched by onnx_node_name
+    using the same "REGEX[:inN+outN]" syntax as --instrument-onnx-node, as extra
+    outputs of each entry function. Unlike --instrument-onnx-node (which prints
+    matched tensors as "==SIG-REPORT==" text at runtime), this lets tooling built
+    around comparing model outputs (e.g. utils/RunONNXModel.py's
+    --save-ref/--verify=ref) diff them directly, with no log parsing required.
+  }];
+}
+
 #endif

@@ -53,6 +53,13 @@ public:
     FusionT fusion;
     if (!fusion.detectIfBeneficial(dimAnalysis, anchorOp))
       return mlir::failure();
+    // Pure query: determines the FusedOp's external inputs and whether a
+    // valid single insertion point exists (see FusionOpHelper.hpp/.cpp).
+    // Can legitimately fail even though detectIfBeneficial() succeeded --
+    // e.g. when a chain-produced value's outside use transitively feeds back
+    // into one of the chain's own external inputs, no placement is safe.
+    if (!fusion.computeInputsAndInsertionPoint())
+      return mlir::failure();
     fusion.fuse(rewriter, anchorOp.getLoc());
     return mlir::success();
   }

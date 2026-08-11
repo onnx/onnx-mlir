@@ -341,11 +341,17 @@ def ONNXPrintSignatureOp:ONNX_Op<"PrintSignature", []> {
     When print_data == 1, the data of the tensor will be printed. Otherwise, just shape.
     The argument input specifies the tensor to be printed. They could be a list
     of the inputs and outputs of an ONNX op.
+    The optional argument io_labels, when present and of the same length as
+    input, gives a per-tensor label (e.g. "in0", "out1") printed right before
+    that tensor's signature/data, so a caller-selected subset of a node's
+    operands/results can still be told apart in the printed output.
 
     This operation is not part of the standard and was added to assist onnx-mlir.
   }];
 
-  let arguments = (ins StrAttr:$op_name, SI64Attr:$print_data, Variadic<AnyTypeOf<[AnyTensor, NoneType]>>:$input);
+  let arguments = (ins StrAttr:$op_name, SI64Attr:$print_data,
+      OptionalAttr<StrArrayAttr>:$io_labels,
+      Variadic<AnyTypeOf<[AnyTensor, NoneType]>>:$input);
 }
 
 //===----------------------------------------------------------------------===//
