@@ -78,7 +78,7 @@ std::unique_ptr<llvm::MemoryBuffer> readExternalData_LE(
   }
   for (auto it = llvm::sys::path::begin(location),
             end = llvm::sys::path::end(location);
-       it != end; ++it) {
+      it != end; ++it) {
     if (*it == "..") {
       llvm::errs() << "Error: external data location \"" << location
                    << "\" contains up-directory component '..'.\n";
@@ -180,6 +180,19 @@ ElementsAttr createElmAttrFromArray(RankedTensorType tensorType,
     const Range &array, const Transformation &transformation) {
   MLIRContext *ctx = tensorType.getContext();
   assert(tensorType.getElementType() == toMlirType<T>(ctx));
+
+  // Validate that source data size does not exceed destination buffer
+  // size. Prevents heap buffer overflow when tensor dims and data size
+  // mismatch.
+  auto srcSize = std::distance(array.begin(), array.end());
+  auto dstSize = tensorType.getNumElements();
+  if (srcSize > dstSize) {
+    llvm::errs() << "Error: tensor data size (" << srcSize
+                 << " elements) exceeds declared dimensions (" << dstSize
+                 << " elements)\n";
+    llvm_unreachable("tensor data size exceeds declared dimensions");
+  }
+
   return OnnxElementsAttrBuilder(ctx).fromArray<T>(
       tensorType, [array, &transformation](MutableArrayRef<T> copy) {
         std::transform(array.begin(), array.end(), copy.data(), transformation);
@@ -191,9 +204,8 @@ ElementsAttr createElmAttrFromArray(RankedTensorType tensorType,
 // Don't byte swap single byte types, because that's unnecessary
 // and llvm::sys::getSwappedBytes(bool) also happens to be broken.
 template <typename T>
-constexpr bool
-    shouldSwapLEBytes = sizeof(T) > 1 && llvm::endianness::native
-                                             != llvm::endianness::little;
+constexpr bool shouldSwapLEBytes =
+    sizeof(T) > 1 && llvm::endianness::native != llvm::endianness::little;
 // Extension of llvm::sys::getSwappedBytes to also handle float_16, bfloat_16.
 template <typename T>
 T swappedBytes(T x) {
