@@ -2935,7 +2935,6 @@ void ONNXTransposeOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<FuseTransposePattern>(context);
   result.insert<FuseTransposeAndAtanPattern>(context);
-  result.insert<FuseTransposeAndCastPattern>(context);
   result.insert<FuseTransposeAndCeilPattern>(context);
   result.insert<FuseTransposeAndCosPattern>(context);
   result.insert<FuseTransposeAndCoshPattern>(context);
