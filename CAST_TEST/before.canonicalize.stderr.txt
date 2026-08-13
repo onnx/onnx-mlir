@@ -1,0 +1,8 @@
+Command:
+  build-cast-test/Release/bin/onnx-mlir-opt --canonicalize --verify-each CAST_TEST/transpose_cast_transpose.mlir -o /tmp/before-should-not-exist.mlir
+Exit status: 1
+
+CAST_TEST/transpose_cast_transpose.mlir:7:10: error: 'onnx.Cast' op element type does not match the 'to' attribute
+    %2 = "onnx.Transpose"(%1) {perm = [0, 2, 3, 1]} :
+         ^
+CAST_TEST/transpose_cast_transpose.mlir:7:10: note: see current operation: %0 = "onnx.Cast"(%arg0) <{saturate = 1 : si64, to = i64}> : (tensor<1x2x3x4xf32>) -> tensor<1x2x3x4xf32>
