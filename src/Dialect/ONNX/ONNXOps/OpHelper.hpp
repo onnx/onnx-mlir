@@ -305,15 +305,16 @@ bool hasIntegerPowerExponent(mlir::ONNXPowOp *op, int64_t &exponentValue);
 // Support for dim operations.
 //===----------------------------------------------------------------------===//
 
-/// If the value val has only one use and that use is of type OP, return that
-/// op. Otherwise return null.
+/// If the value val has only one use and that use is of operation type OP,
+/// return that op. Otherwise return null.
 template <typename OP>
-mlir::Operation *usedOnlyBy(mlir::Value val);
+mlir::Operation *usedOnlyByOpType(mlir::Value val);
 
-/// Typed sibling of usedOnlyBy(): return the single user of val, already cast
-/// to OP, or null if val does not have exactly one use of that type.
+/// Typed sibling of usedOnlyByOpType(): return the single user of val,
+/// already cast to OP, or null if val does not have exactly one use of that
+/// operation type.
 template <typename OP>
-OP singleUserOfType(mlir::Value val);
+OP singleUserOfOpType(mlir::Value val);
 
 /// Check the defining operation of a value.
 template <typename OP>

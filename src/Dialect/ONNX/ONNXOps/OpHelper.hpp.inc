@@ -29,7 +29,7 @@ inline bool isNoneValue(mlir::Value value) {
 
 /// Check if this value has a single use by the given operation.
 template <typename OP>
-mlir::Operation *usedOnlyBy(mlir::Value val) {
+mlir::Operation *usedOnlyByOpType(mlir::Value val) {
   mlir::Operation *op = nullptr;
   for (mlir::OpOperand &use : val.getUses()) {
     mlir::Operation *useOp = use.getOwner();
@@ -40,11 +40,12 @@ mlir::Operation *usedOnlyBy(mlir::Value val) {
   return op;
 }
 
-/// Typed sibling of usedOnlyBy(): return the single user of val, already cast
-/// to OP, or null if val does not have exactly one use of that type.
+/// Typed sibling of usedOnlyByOpType(): return the single user of val,
+/// already cast to OP, or null if val does not have exactly one use of that
+/// type.
 template <typename OP>
-OP singleUserOfType(mlir::Value val) {
-  return mlir::dyn_cast_or_null<OP>(usedOnlyBy<OP>(val));
+OP singleUserOfOpType(mlir::Value val) {
+  return mlir::dyn_cast_or_null<OP>(usedOnlyByOpType<OP>(val));
 }
 
 /// Check the defining operation of a value.
