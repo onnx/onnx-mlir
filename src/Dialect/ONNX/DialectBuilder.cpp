@@ -196,8 +196,8 @@ Value OnnxBuilder::attention(Type outputType, Value Q, Value K, Value V,
       /*present_value*/ noneType, /*qk_matmul_output*/ noneType, toTensor(Q),
       toTensor(K), toTensor(V), toTensor(attnMask), /*past_key*/ noneVal,
       /*past_value*/ noneVal, /*nonpad_kv_seqlen*/ noneVal, isCausalAttr,
-      /*kv_num_heads*/ nullptr, /*q_num_heads*/ nullptr,
-      qkMatMulOutputModeAttr, scale, softcapAttr,
+      /*kv_num_heads*/ nullptr, /*q_num_heads*/ nullptr, qkMatMulOutputModeAttr,
+      scale, softcapAttr,
       /*softmax_precision*/ nullptr);
   return attentionOp.getY();
 }

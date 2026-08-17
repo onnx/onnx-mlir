@@ -906,7 +906,8 @@ struct RecomposeAttentionFromMatMulPattern
     Value Q, K, V, attnMask;
     bool hasMask;
     double scaleVal;
-    if (!matchAttentionPattern(avMatMulOp, Q, K, V, attnMask, hasMask, scaleVal))
+    if (!matchAttentionPattern(
+            avMatMulOp, Q, K, V, attnMask, hasMask, scaleVal))
       return failure();
 
     MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
@@ -935,8 +936,7 @@ struct RecomposeAttentionFromMatMulPattern
   // `MatMul(Q, Transpose(K))`, optionally wrapped in a `Div` or `Mul` by a
   // scalar constant. Sets scaleVal to the effective multiplicative scale
   // applied to the raw MatMul result (1.0 if no scaling op is present).
-  static bool matchScaledQK(
-      Value v, Value &Q, Value &K, double &scaleVal) {
+  static bool matchScaledQK(Value v, Value &Q, Value &K, double &scaleVal) {
     using namespace onnx_mlir;
     scaleVal = 1.0;
     Value qkVal = v;
@@ -957,8 +957,8 @@ struct RecomposeAttentionFromMatMulPattern
       if (!mulOp->hasOneUse())
         return false;
       Value matmulSide, constSide;
-      if (!areDefinedBy<ONNXMatMulOp, ONNXConstantOp>(mulOp.getOperand(0),
-              mulOp.getOperand(1), matmulSide, constSide))
+      if (!areDefinedBy<ONNXMatMulOp, ONNXConstantOp>(
+              mulOp.getOperand(0), mulOp.getOperand(1), matmulSide, constSide))
         return false;
       if (!isDenseONNXConstant(constSide) || !isScalarTensor(constSide))
         return false;
@@ -1031,8 +1031,8 @@ struct RecomposeAttentionFromMatMulPattern
 
   // Match, starting from the final `MatMul(softmax(...), V)`, the full basic
   // scaled dot product attention pattern described above the struct.
-  static bool matchAttentionPattern(ONNXMatMulOp avMatMulOp, Value &Q,
-      Value &K, Value &V, Value &attnMask, bool &hasMask, double &scaleVal) {
+  static bool matchAttentionPattern(ONNXMatMulOp avMatMulOp, Value &Q, Value &K,
+      Value &V, Value &attnMask, bool &hasMask, double &scaleVal) {
     using namespace onnx_mlir;
     Value probs = avMatMulOp.getA();
     V = avMatMulOp.getB();
