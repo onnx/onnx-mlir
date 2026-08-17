@@ -82,7 +82,7 @@ static LogicalResult verifySameElementTypeForCompareOps(Operation *op) {
     return success();
 
   return op->emitOpError("expected operands to have the same element "
-                          "type, but got ")
+                         "type, but got ")
          << lhsElemType << " and " << rhsElemType;
 }
 

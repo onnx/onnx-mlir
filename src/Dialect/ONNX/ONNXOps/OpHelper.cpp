@@ -647,8 +647,7 @@ std::optional<unsigned> getFloatVsIntegerZeroLiteralOperand(Operation *op) {
     Type literalElemType = elementTypeOf(literalOperand);
     Type floatElemType = elementTypeOf(floatOperand);
     if (isNonBoolInteger(literalElemType) &&
-        mlir::isa<FloatType>(floatElemType) &&
-        isConstOf(literalOperand, 0.0))
+        mlir::isa<FloatType>(floatElemType) && isConstOf(literalOperand, 0.0))
       return literalIdx;
   }
   return std::nullopt;

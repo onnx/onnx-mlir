@@ -2788,8 +2788,7 @@ void ONNXGlobalMaxPoolOp::getCanonicalizationPatterns(
 void ONNXGreaterOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<BinaryOpBroadcastAxisPattern<ONNXGreaterOp>>(context);
-  result.insert<CompareOpFloatVsIntegerZeroCastPattern<ONNXGreaterOp>>(
-      context);
+  result.insert<CompareOpFloatVsIntegerZeroCastPattern<ONNXGreaterOp>>(context);
 }
 
 /// on the ONNXGreaterOrEqualOp.
