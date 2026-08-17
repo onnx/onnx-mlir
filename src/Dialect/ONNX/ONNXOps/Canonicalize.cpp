@@ -450,6 +450,55 @@ public:
   }
 };
 
+// Rewrites a comparison op whose two operands have mismatched element
+// types because one of them is an integer literal equal to 0 being compared
+// against a float-typed operand (see getFloatVsIntegerZeroLiteralOperand for
+// why 0 specifically is safe to retype), by re-emitting that literal as a
+// constant of the other operand's float element type. This mismatched-type
+// shape is explicitly tolerated by the op's verifier (see
+// verifySameElementTypeForCompareOps in ElementwiseBroadcast.cpp) precisely
+// so that this pattern gets a chance to fix it up here.
+template <typename OP_TYPE>
+class CompareOpFloatVsIntegerZeroCastPattern
+    : public OpRewritePattern<OP_TYPE> {
+public:
+  using OpRewritePattern<OP_TYPE>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      OP_TYPE compareOp, PatternRewriter &rewriter) const override {
+    Operation *op = compareOp.getOperation();
+    std::optional<unsigned> literalIdx =
+        getFloatVsIntegerZeroLiteralOperand(op);
+    if (!literalIdx.has_value())
+      return failure();
+
+    Value literalOperand = op->getOperand(*literalIdx);
+    Value floatOperand = op->getOperand(1 - *literalIdx);
+    Type floatElemType =
+        mlir::cast<ShapedType>(floatOperand.getType()).getElementType();
+    ShapedType literalType = mlir::cast<ShapedType>(literalOperand.getType());
+    ShapedType newLiteralType =
+        mlir::cast<ShapedType>(literalType.clone(floatElemType));
+
+    OnnxBuilder createONNX(rewriter, op->getLoc());
+    Value newLiteral = createONNX.constant(DenseElementsAttr::get(
+        newLiteralType, rewriter.getFloatAttr(floatElemType, 0.0)));
+
+    SmallVector<Value, 2> newOperands(op->getOperands());
+    newOperands[*literalIdx] = newLiteral;
+    // Preserve the original (possibly dynamically-shaped) result type
+    // explicitly: OP_TYPE's (ValueRange, ArrayRef<NamedAttribute>) builder
+    // recomputes the result type by broadcasting the operand shapes and
+    // falls back to a fully unranked tensor whenever that broadcast isn't
+    // statically shaped, which would silently discard shape information
+    // the op already had (e.g. tensor<1x1x?x1xi1> would widen to
+    // tensor<*xi1>).
+    rewriter.replaceOpWithNewOp<OP_TYPE>(
+        op, op->getResultTypes(), newOperands, op->getAttrs());
+    return success();
+  }
+};
+
 // A pattern to turn
 //   `BinaryOp(Constant_X, ExpandOp(Constant_Y))`
 // into
@@ -2720,6 +2769,7 @@ void ONNXDimOp::getCanonicalizationPatterns(
 void ONNXEqualOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<BinaryOpBroadcastAxisPattern<ONNXEqualOp>>(context);
+  result.insert<CompareOpFloatVsIntegerZeroCastPattern<ONNXEqualOp>>(context);
 }
 
 /// on the ONNXGlobalAveragePoolOp.
@@ -2738,6 +2788,15 @@ void ONNXGlobalMaxPoolOp::getCanonicalizationPatterns(
 void ONNXGreaterOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<BinaryOpBroadcastAxisPattern<ONNXGreaterOp>>(context);
+  result.insert<CompareOpFloatVsIntegerZeroCastPattern<ONNXGreaterOp>>(
+      context);
+}
+
+/// on the ONNXGreaterOrEqualOp.
+void ONNXGreaterOrEqualOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<CompareOpFloatVsIntegerZeroCastPattern<ONNXGreaterOrEqualOp>>(
+      context);
 }
 
 /// on the ONNXGroupNormalizationOp and derivatives.
@@ -2782,6 +2841,14 @@ void ONNXLessOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<LessOpSameCastPattern>(context);
   results.insert<BinaryOpBroadcastAxisPattern<ONNXLessOp>>(context);
+  results.insert<CompareOpFloatVsIntegerZeroCastPattern<ONNXLessOp>>(context);
+}
+
+/// on the ONNXLessOrEqualOp.
+void ONNXLessOrEqualOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<CompareOpFloatVsIntegerZeroCastPattern<ONNXLessOrEqualOp>>(
+      context);
 }
 
 /// on the ONNXLoopOp.

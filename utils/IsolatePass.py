@@ -460,6 +460,7 @@ def print_pass(filename, id, after, pass_name=None):
         use_counts = count_output_uses(mlir_text)
         mlir_text = annotate_mlir_with_use_counts(mlir_text, use_counts)
         mlir_text = annotate_constant_uses_with_values(mlir_text)
+    print("// NOTE: not for compilation as literals have been elided.")
     print(f"{message}\n\n", mlir_text, f"\n\n{message}")
 
 
