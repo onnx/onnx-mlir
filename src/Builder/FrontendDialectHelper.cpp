@@ -78,7 +78,7 @@ std::unique_ptr<llvm::MemoryBuffer> readExternalData_LE(
   }
   for (auto it = llvm::sys::path::begin(location),
             end = llvm::sys::path::end(location);
-      it != end; ++it) {
+       it != end; ++it) {
     if (*it == "..") {
       llvm::errs() << "Error: external data location \"" << location
                    << "\" contains up-directory component '..'.\n";
@@ -204,8 +204,9 @@ ElementsAttr createElmAttrFromArray(RankedTensorType tensorType,
 // Don't byte swap single byte types, because that's unnecessary
 // and llvm::sys::getSwappedBytes(bool) also happens to be broken.
 template <typename T>
-constexpr bool shouldSwapLEBytes =
-    sizeof(T) > 1 && llvm::endianness::native != llvm::endianness::little;
+constexpr bool
+    shouldSwapLEBytes = sizeof(T) > 1 && llvm::endianness::native
+                                             != llvm::endianness::little;
 // Extension of llvm::sys::getSwappedBytes to also handle float_16, bfloat_16.
 template <typename T>
 T swappedBytes(T x) {
