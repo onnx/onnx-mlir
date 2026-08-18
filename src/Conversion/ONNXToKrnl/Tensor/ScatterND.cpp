@@ -42,6 +42,8 @@ struct ONNXScatterNDOpLowering : public OpConversionPattern<ONNXScatterNDOp> {
 
     assert(dataRank >= 1 && "The rank of 'data' must be >= 1");
     assert(indicesRank >= 1 && "The rank of 'indices' must be >= 1");
+    assert(adaptor.getReduction() == "none" &&
+           "ScatterND lowering only supports reduction 'none'");
 
     // Determine whether indices may be negative.
     bool indicesMayBeNegative = !indicesAreNonNegativeConstants(indices);
