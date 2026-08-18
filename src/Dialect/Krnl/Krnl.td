@@ -60,10 +60,10 @@ def KrnlCallOp : Op<Krnl_Dialect, "call",
     `parameters` is the inputs to Krnl.Call. It includes the outputs and inputs
     of the ONNX Op. The outputs and inputs are already lowered to MemRefs.
     The external function is assumed NOT to allocate or free any memory.
-    'numOfOutput` attribute to tell how manu outputs Memref in parameters.
+    'numOfOutput` attribute to tell how many outputs Memref in parameters.
     mlir::OpTrait::AttrSizedOperandSegments is not used to put outputs and
     inputs into separate variadic parameters because I am thinking of mixing
-    the inputs and outpus as required by external library.
+    the inputs and outputs as required by external library.
 
     The attributes of the ONNX Op will be copied to KrnlCallOp under the control
     of the user.
@@ -97,7 +97,7 @@ def KrnlCallOp : Op<Krnl_Dialect, "call",
 
   // builders to build KrnlCallOp from op and operands, helping conversion from
   // onnx to krnl.
-  // The name of function can be determined by the op name and elemnt type of
+  // The name of function can be determined by the op name and element type of
   // the return, or given to builder if the simple rule does not work.
   // Attributes of the op will be propagated to KrnlCallOp if the copyAttrs is
   // true. Or the attribute names can be specified.
@@ -268,7 +268,7 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [RecursiveMemoryEffects, Implici
 // copied and return. This copy can be further avoided if the extraction is
 // the last reference (by extract or erase from any sequence) of this element.
 // ToDo: handle an element in multiple sequences with copy
-// ToDo: use the one-shot interface for space manangement.
+// ToDo: use the one-shot interface for space management.
 
 def KrnlSeqAllocOp : Op<Krnl_Dialect, "seqalloc", [MemRefsNormalizable,
     DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
@@ -472,7 +472,7 @@ def KrnlPermuteOp : Op<Krnl_Dialect, "permute"> {
     %ib, %il = krnl.block %ii 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
     %jb, %jl = krnl.block %jj 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
     %kb, %kl = krnl.block %kk 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
-    // Move iteration over tile coordinates to be the outer loops and iterateion over
+    // Move iteration over tile coordinates to be the outer loops and iteration over
     // the inter-tile elements to be the inner loops.
     krnl.permute(%ib, %il, %jb, %jl, %kb, %kl) [0, 3, 1, 4, 2, 5] : !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop
     krnl.iterate(%ib, %il, %jb, %jl, %kb, %kl) with (%ii -> %i = 0 to 1024, %jj -> %j = 0 to 2048, %kk -> %k = 0 to 4096)  {
@@ -530,7 +530,7 @@ def KrnlParallelOp : Op<Krnl_Dialect, "parallel", [AttrSizedOperandSegments]> {
     Since we do not want to parallelize the loop until we interpret krnl.block,
     krnl.permute and krnl.unroll.
 
-    Optionally, a value may specifiy the number of threads requested for the
+    Optionally, a value may specify the number of threads requested for the
     parallel loop. A proc_bind string may also be specified; valid values are
     "primary", "close", or "spread". Default values are used when not specified.
 
@@ -549,7 +549,7 @@ def KrnlParallelOp : Op<Krnl_Dialect, "parallel", [AttrSizedOperandSegments]> {
 }
 
 def KrnlParallelClauseOp : Op<Krnl_Dialect, "parallel_clause"> {
-  let summary = "Attach OpenMP clauses to an index varialbe";
+  let summary = "Attach OpenMP clauses to an index variable";
   let description = [{
     Attach OpenMP clauses to an index variable. That index variable
     is used to uniquely associate a parallel loop with its clauses.
@@ -956,7 +956,7 @@ def KrnlSpecializedKernel : Op<Krnl_Dialect, "specialized_kernel",
 
 def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
        DeclareOpInterfaceMethods<SpecializedKernelOpInterface>, MemRefsNormalizable]> {
-  let summary = "Matmul operation for a single pannel.";
+  let summary = "Matmul operation for a single panel.";
   let description = [{
     Perform a matrix multiplication AA * BB + CC with sizes `[IxK] * [KxJ] + [IxJ]`.
     The original matrices AA, BB, and CC can be buffered in buffered arrays
@@ -1120,7 +1120,7 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
   }];
 
   let arguments = (ins
-    // Buffer/memory used and indices that correspoond to the beginning
+    // Buffer/memory used and indices that correspond to the beginning
     // of each buffer/memory.
     Arg<AnyMemRef, "Mult A [NxK]", [MemRead]>:$A,
     Variadic<Index>: $aGlobalIndexMemStart,
@@ -1244,11 +1244,11 @@ def KrnlCopyToBufferOp : Op<Krnl_Dialect, "copy_to_tile_buffer", [
 
   let arguments = (ins
     Arg<AnyMemRef, "buffer", [MemWrite]>:$buffer, // Buffer.
-    Arg<AnyMemRef, "memory", [MemRead]>:$source, // Source, possibly tranposed.
+    Arg<AnyMemRef, "memory", [MemRead]>:$source, // Source, possibly transposed.
     Variadic<Index>:$starts, // Rank of source, possibly transposed.
-    AnyType: $padValue, // Rank of bufffer.
-    OptionalAttr<I64ArrayAttr>:$tileSize, // Rank of bufffer.
-    OptionalAttr<I64ArrayAttr>:$padToNext, // Rank of bufffer.
+    AnyType: $padValue, // Rank of buffer.
+    OptionalAttr<I64ArrayAttr>:$tileSize, // Rank of buffer.
+    OptionalAttr<I64ArrayAttr>:$padToNext, // Rank of buffer.
     DefaultValuedAttr<BoolAttr, "false">:$transpose); // Transposed or not.
 
   let builders = [
@@ -1361,7 +1361,7 @@ def KrnlMemsetOp : Op<Krnl_Dialect, "memset", [MemRefsNormalizable,
     This extended iteration space has 8 elements in total.
 
     If `delayed = false`, the original iteration space is used to set values.
-    In the above example, only 5 out of 8 elementes will be set to the given value.
+    In the above example, only 5 out of 8 elements will be set to the given value.
 
     If `delayed = true`, the extended iteration space is used to set values.
     In the above example, all 8 elements will be set to the given value.
