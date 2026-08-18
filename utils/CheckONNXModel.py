@@ -25,6 +25,17 @@
 #   --test-compile-args. The values of this run are compared with the reference
 #   values.
 #
+# --compile-args/-c gives onnx-mlir options applied to BOTH runs, so a large
+# option string shared between reference and test does not need to be typed
+# twice in --ref-compile-args and --test-compile-args:
+#   ref  = c + r
+#   test = c + t        (if -t given -- independent of r, same base)
+#        = ref + a      (if -a given -- a delta on top of ref itself)
+#        = c            (if neither given -- t defaults to empty, same as r
+#                         does when -r is absent)
+# Reference and test must resolve to different options; the script errors out
+# otherwise, since there would be nothing to compare.
+#
 # Script will fail if the values are not identical. Currently only the
 # "--verify-every-value" option is supported.
 #
@@ -80,7 +91,11 @@ parser = argparse.ArgumentParser(
     "Once with reference compiler options (-r) to set the reference values. "
     "And once with test compiler options (-t or -a) to verify the validity of these options. "
     "When using -t option, a new set of optimizations is used; when using -a options, "
-    "the provided -a options are added to the options provided by the -r flag.",
+    "the provided -a options are added to the options provided by the -r flag. "
+    "-c gives options applied to BOTH runs, so a shared option string does not "
+    "need to be repeated in both -r and -t: ref=c+r, test=c+t (if -t given), "
+    "ref+a (if -a given), or c (if neither given). Reference and test must "
+    "resolve to different options.",
 )
 parser.add_argument(
     "-m",
@@ -89,12 +104,21 @@ parser.add_argument(
     help="Path to an ONNX model (.onnx or .mlir).",
 )
 parser.add_argument(
+    "-c",
+    "--compile-args",
+    type=str,
+    default="",
+    help="Arguments passed directly to onnx-mlir command for BOTH the "
+    "reference and the test run -- the shared prefix -r/-t/-a build on. "
+    "See bin/onnx-mlir --help. Default is empty.",
+)
+parser.add_argument(
     "-r",
     "--ref-compile-args",
     type=str,
     default="",
-    help="Reference arguments passed directly to onnx-mlir command."
-    " See bin/onnx-mlir --help. Default is empty.",
+    help="Reference arguments passed directly to onnx-mlir command, appended"
+    " after -c's. See bin/onnx-mlir --help. Default is empty.",
 )
 test_group = parser.add_mutually_exclusive_group()
 test_group.add_argument(
@@ -102,7 +126,8 @@ test_group.add_argument(
     "--test-compile-args",
     type=str,
     default="",
-    help="Reference arguments passed directly to onnx-mlir command."
+    help="Test arguments passed directly to onnx-mlir command, appended after"
+    " -c's -- independent of -r's options, not built on top of them."
     " Use either the -t or -a argument but not both."
     " See bin/onnx-mlir --help. Default is empty.",
 )
@@ -111,7 +136,8 @@ test_group.add_argument(
     "--additional-test-compile-args",
     type=str,
     default="",
-    help="Additional reference arguments passed directly to onnx-mlir command."
+    help="Additional test arguments passed directly to onnx-mlir command,"
+    " added on top of the full reference options (-c and -r together)."
     " Use either the -t or -a argument but not both."
     " See bin/onnx-mlir --help.",
 )
@@ -304,13 +330,37 @@ def main():
     if args.save_ref:
         test_dir = args.save_ref
 
+    # Resolve -c into both ref and test: ref = c+r, test = c+t (if -t given),
+    # ref+a (if -a given), or c (if neither given -- t defaults to empty, same
+    # as r does when -r is absent).
+    ref_compile_args = " ".join(
+        p for p in (args.compile_args, args.ref_compile_args) if p
+    ).strip()
+    if args.additional_test_compile_args:
+        test_compile_args = " ".join(
+            p for p in (ref_compile_args, args.additional_test_compile_args) if p
+        ).strip()
+    elif args.test_compile_args:
+        test_compile_args = " ".join(
+            p for p in (args.compile_args, args.test_compile_args) if p
+        ).strip()
+    else:
+        test_compile_args = args.compile_args
+    if set(ref_compile_args.split()) == set(test_compile_args.split()):
+        print(
+            "error: reference and test resolve to the same onnx-mlir options"
+            " ({!r}) -- there is nothing to compare. Set -t/-a to genuinely"
+            " different options.".format(ref_compile_args)
+        )
+        exit(1)
+
     # Reference command.
     ref_cmd = [cmd]
     # Compile options for reference. Omit entirely when empty (default) so
     # that, combined with --cache-ref-model, a cache hit is loaded as-is
     # instead of tripping RunONNXModel.py's saved-options mismatch check.
-    if args.ref_compile_args:
-        ref_cmd += ["--compile-args=" + args.ref_compile_args]
+    if ref_compile_args:
+        ref_cmd += ["--compile-args=" + ref_compile_args]
     # Where to load the ref.
     if args.load_ref:
         ref_cmd += ["--load-ref=" + args.load_ref]
@@ -338,17 +388,11 @@ def main():
 
     # Test command.
     test_cmd = [cmd]
-    # Compile options for test.
-    if args.additional_test_compile_args:
-        compile_args = args.ref_compile_args + " " + args.additional_test_compile_args
-    else:
-        compile_args = args.test_compile_args
-    test_cmd = [cmd]
     # Compile options for test. Omit entirely when empty (default) so
     # that, combined with --cache-test-model, a cache hit is loaded as-is
     # instead of tripping RunONNXModel.py's saved-options mismatch check.
-    if compile_args:
-        test_cmd += ["--compile-args=" + compile_args]
+    if test_compile_args:
+        test_cmd += ["--compile-args=" + test_compile_args]
     # Where to load the ref from.
     test_cmd += ["--load-ref=" + test_dir]
     # How to verify.
