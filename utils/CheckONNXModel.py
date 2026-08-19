@@ -87,168 +87,166 @@ def valid_onnx_input(fname):
 # Command arguments.
 parser = argparse.ArgumentParser(
     prog="CheckONNXModel.py",
-    description="Compile and run an ONNX/MLIR model twice. "
-    "Once with reference compiler options (-r) to set the reference values. "
-    "And once with test compiler options (-t or -a) to verify the validity of these options. "
-    "When using -t option, a new set of optimizations is used; when using -a options, "
-    "the provided -a options are added to the options provided by the -r flag. "
-    "-c gives options applied to BOTH runs, so a shared option string does not "
-    "need to be repeated in both -r and -t: ref=c+r, test=c+t (if -t given), "
-    "ref+a (if -a given), or c (if neither given). Reference and test must "
-    "resolve to different options.",
+    # Wrapped by hand: RawDescriptionHelpFormatter (needed for the epilog's
+    # option arithmetic to keep its shape) leaves this text exactly as given.
+    description="Compile and run an ONNX/MLIR model twice -- once with "
+    "reference onnx-mlir\noptions, once with the options under test -- and "
+    "verify that both runs\nproduce the same values.",
+    epilog="How the two option sets are built, with -c the shared prefix:\n"
+    "  ref  = c + r\n"
+    "  test = c + t        (if -t given -- independent of r, same base)\n"
+    "       = ref + a      (if -a given -- a delta on top of ref itself)\n"
+    "       = c            (if neither given -- t defaults to empty)\n"
+    "They must resolve to different options; there would otherwise be\n"
+    "nothing to compare. Use either -t or -a, not both.\n"
+    "See bin/onnx-mlir --help for the options themselves.",
+    formatter_class=argparse.RawDescriptionHelpFormatter,
+    # -h is added by hand below, so that it lands in the first group with
+    # everything else this script owns rather than in a section of its own.
+    add_help=False,
 )
-parser.add_argument(
+# Two groups, so that reading the help does not mean sorting out, flag by flag,
+# which ones are this script's own doing and which are just handed through to
+# RunONNXModel.py and mean there exactly what they mean there. The forwarded
+# ones are described in one line each, since RunONNXModel.py's own help is the
+# authority on them and copying it here only invites the copy going stale.
+own = parser.add_argument_group(f"{parser.prog}'s own options")
+forwarded = parser.add_argument_group(
+    "options forwarded to RunONNXModel.py",
+    "Same spelling and meaning as there; this script only passes them on.\n"
+    "See RunONNXModel.py --help for each one in full.",
+)
+
+own.add_argument("-h", "--help", action="help", help="Show this help message and exit.")
+own.add_argument(
     "-m",
     "--model",
     type=lambda s: valid_onnx_input(s),
-    help="Path to an ONNX model (.onnx or .mlir).",
+    help="Path to the model to check (.onnx, .mlir, or .onnxtext).",
 )
-parser.add_argument(
+own.add_argument(
     "-c",
     "--compile-args",
     type=str,
     default="",
-    help="Arguments passed directly to onnx-mlir command for BOTH the "
-    "reference and the test run -- the shared prefix -r/-t/-a build on. "
-    "See bin/onnx-mlir --help. Default is empty.",
+    help="onnx-mlir options for BOTH runs: the shared prefix -r/-t/-a build "
+    "on (see epilog). Default: empty.",
 )
-parser.add_argument(
+own.add_argument(
     "-r",
     "--ref-compile-args",
     type=str,
     default="",
-    help="Reference arguments passed directly to onnx-mlir command, appended"
-    " after -c's. See bin/onnx-mlir --help. Default is empty.",
+    help="Reference onnx-mlir options, appended after -c's. Default: empty.",
 )
-test_group = parser.add_mutually_exclusive_group()
+test_group = own.add_mutually_exclusive_group()
 test_group.add_argument(
     "-t",
     "--test-compile-args",
     type=str,
     default="",
-    help="Test arguments passed directly to onnx-mlir command, appended after"
-    " -c's -- independent of -r's options, not built on top of them."
-    " Use either the -t or -a argument but not both."
-    " See bin/onnx-mlir --help. Default is empty.",
+    help="Test onnx-mlir options, appended after -c's -- independent of -r's, "
+    "not built on top of them. Default: empty.",
 )
 test_group.add_argument(
     "-a",
     "--additional-test-compile-args",
     type=str,
     default="",
-    help="Additional test arguments passed directly to onnx-mlir command,"
-    " added on top of the full reference options (-c and -r together)."
-    " Use either the -t or -a argument but not both."
-    " See bin/onnx-mlir --help.",
+    help="Test onnx-mlir options, added on top of -c and -r together.",
 )
 
-data_group = parser.add_mutually_exclusive_group()
+data_group = forwarded.add_mutually_exclusive_group()
 data_group.add_argument(
     "--load-ref",
     metavar="PATH",
     type=str,
-    help="Path to a folder containing reference inputs and outputs stored in protobuf."
-    " If --verify=ref, inputs and outputs are reference data for verification.",
+    help="Folder of reference inputs and outputs, in protobuf, to run on.",
 )
 data_group.add_argument(
-    "--inputs-from-arrays", help="List of numpy arrays used as inputs for inference."
+    "--inputs-from-arrays", help="Numpy arrays to use as the inputs."
 )
 data_group.add_argument(
     "--load-ref-from-numpy",
     metavar="PATH",
     type=str,
-    help="Path to a python script that defines variables inputs and outputs that are"
-    " a list of numpy arrays. "
-    " For example, inputs = [np.array([1], dtype=np.int64), np.array([2], dtype=np.float32]."
-    " Variable outputs can be omitted if --verify is not used.",
+    help="Python script defining inputs and outputs as numpy arrays.",
 )
 data_group.add_argument(
     "--shape-info",
     type=str,
-    help="Shape for each dynamic input of the model, e.g. 0:1x10x20,1:7x5x3. "
-    "Used to generate random inputs for the model if --load-ref is not set.",
+    help="Shape of each dynamic input, e.g. 0:1x10x20,1:7x5x3. Used to "
+    "generate random inputs when no reference data is loaded.",
 )
 
-parser.add_argument(
+own.add_argument(
     "-s",
     "--save-ref",
     metavar="PATH",
     type=str,
-    help="Path to a folder to save the inputs and outputs" " in protobuf.",
+    help="Folder the reference run saves to and the test run verifies "
+    'against. Default: "check-ref".',
 )
 
-parser.add_argument(
+own.add_argument(
     "--skip-ref",
     action="store_true",
-    help="Skip building the ref compilation, assuming it was built before.",
+    help="Skip the reference run, assuming an earlier one already filled that "
+    "folder with the same compile options.",
 )
-parser.add_argument(
+own.add_argument(
     "-l",
     "--log-level",
     choices=["debug", "info", "warning", "error", "critical"],
     default="info",
-    help="log level, default info.",
+    help="Log level. Default: info.",
 )
-parser.add_argument(
+forwarded.add_argument(
     "--seed",
     type=str,
     default="42",
-    help="seed to initialize the random num generator for inputs.",
+    help="Seed for the random input generator. Default: 42.",
 )
 
-parser.add_argument(
+forwarded.add_argument(
     "--lower-bound",
     type=str,
-    help="Lower bound values for each data type. Used inputs."
-    " E.g. --lower-bound=int64:-10,float32:-0.2,uint8:1."
-    " Supported types are bool, uint8, int8, uint16, int16, uint32, int32,"
-    " uint64, int64,float16, float32, float64",
+    help="Lower bound per data type for random inputs, e.g. int64:-10.",
 )
 
-parser.add_argument(
+forwarded.add_argument(
     "--upper-bound",
     type=str,
-    help="Upper bound values for each data type. Used to generate random inputs."
-    " E.g. --upper-bound=int64:10,float32:0.2,uint8:9."
-    " Supported types are bool, uint8, int8, uint16, int16, uint32, int32,"
-    " uint64, int64, float16, float32, float64",
+    help="Upper bound per data type for random inputs, e.g. int64:10.",
 )
-parser.add_argument(
+forwarded.add_argument(
     "--input-value",
     type=str,
-    help="Per-input data fill specification, overriding --lower-bound/--upper-bound"
-    " for individual tensors."
-    " Format: INPUT_ID:spec1 spec2 ..., INPUT_ID:spec, ..."
-    " where INPUT_ID is an integer >= 0, a range (e.g. 2-5), or -1 for all inputs,"
-    " and each spec is one of:"
-    " min<num> (lower bound for random fill),"
-    " max<num> (upper bound for random fill),"
-    " val<num> (constant fill, equivalent to min=max=num),"
-    " soz<num> (sequence-of-ones-then-zeros along the innermost dimension)."
-    " E.g. --input-value=0:min-1.0max1.0,1:val0.",
+    help="Per-input fill spec, overriding --lower-bound/--upper-bound, e.g. "
+    "0:min-1.0max1.0,1:val0.",
 )
 
-parser.add_argument(
+forwarded.add_argument(
     "--rtol", type=str, default="", help="Relative tolerance for verification."
 )
 
-parser.add_argument(
+forwarded.add_argument(
     "--atol", type=str, default="", help="Absolute tolerance for verification."
 )
 
-parser.add_argument(
+own.add_argument(
     "--cache-ref-model",
     metavar="PATH",
     type=str,
-    help="Path to a folder to load a reference compiled model if the reference compiled model exists."
-    "Otherwise, compile the reference model and save it into this folder.",
+    help="Folder to load the reference compiled model from, compiling it into "
+    "that folder if it is not there yet.",
 )
-parser.add_argument(
+own.add_argument(
     "--cache-test-model",
     metavar="PATH",
     type=str,
-    help="Path to a folder to load a test compiled model if the test compiled model exists."
-    "Otherwise, compile the test model and save it into this folder.",
+    help="Folder to load the test compiled model from, compiling it into that "
+    "folder if it is not there yet.",
 )
 
 

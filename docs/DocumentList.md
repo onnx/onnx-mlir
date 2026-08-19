@@ -63,6 +63,7 @@ The compiled ONNX model can be executed with either a
 # Testing and Debugging
 The routine testing for onnx-mlir build is described in this [document](Testing.md).
 * [TestingHighLevel.md](TestingHighLevel.md) covers build trouble-shooting and higher-level testing.
+* [GroundedLitTests.md](GroundedLitTests.md) describes how to build a large body of trustworthy FileCheck tests when writing or changing a pass -- including adding an optimization to an existing one -- grounding each case by execution with `utils/GroundLitTest.py` before freezing its assertions with `utils/fixLitTest.py`.
 * [DebuggingNumericalError.md](DebuggingNumericalError.md) describes how to debug numerical errors between onnx-mlir and a reference implementation.
 * [ProfileModel.md](ProfileModel.md) describes profiling a compiled ONNX model with `utils/profile-model.py`.
 * [PerformanceTesting.md](PerformanceTesting.md) describes gathering and analyzing runtime/compile-time performance statistics with `RunONNXModel.py`, `--profile-ir`/`--profile-ir-with-sig`, and `utils/make-report.py`.

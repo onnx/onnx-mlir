@@ -435,6 +435,111 @@ def KrnlBlockOp : Op<Krnl_Dialect, "block"> {
   let assemblyFormat = [{
       $loop $tile_size attr-dict `:` functional-type($loop, results)
   }];
+  let hasVerifier = 1;
+}
+
+def KrnlCollapseOp : Op<Krnl_Dialect, "collapse"> {
+  let summary = "Krnl collapse operation";
+  let description = [{
+    Fuse two or more perfectly nested for loops into a single for loop whose
+    trip count is the product of the original trip counts. Operands are given
+    outer-to-inner, and the single result refers to the fused loop.
+
+    ```
+    %ii, %jj = krnl.define_loops 2
+    %f = krnl.collapse(%ii, %jj) : (!krnl.loop, !krnl.loop) -> !krnl.loop
+    krnl.iterate(%f) with (%ii -> %i = 0 to 10, %jj -> %j = 0 to 20) {
+      %idx = krnl.get_induction_var_value(%f) : (!krnl.loop) -> index
+      // %idx is the flat iteration number over the fused range, here 0 to 199.
+    }
+    ```
+
+    The fused index is a perfectly good index in its own right, and there are two
+    ways to use it. Use it **as is** whenever a linearized access is what the body
+    wants -- for a flat `memref<200xf32>` in the example above, `%idx` is already
+    the right subscript, and no division is emitted at all:
+
+    ```
+    %v = krnl.load %flat[%idx] : memref<200xf32>
+    ```
+
+    Pass it to **`krnl.collapse_indices`** only when the per-dimension indices are
+    actually needed, which is what costs the floordiv/mod chain:
+
+    ```
+    %i, %j = krnl.collapse_indices(%idx) : (index) -> (index, index)
+    %v = krnl.load %2d[%i, %j] : memref<10x20xf32>
+    ```
+
+    The main motivation is `krnl.parallel`, which can then spread a single
+    fused iteration space over the available threads instead of parallelizing
+    only the outermost dimension.
+
+    Restrictions in this first version:
+
+    * Every collapsed dimension must have a **lower bound of compile-time
+      constant 0** and a **step of 1**. A literal `0 to N` qualifies, and so
+      does a bound spelled as a constant SSA value such as `%c0 to N`, which is
+      folded before being checked. A non-zero bound (`5 to N`) or a bound that
+      is only known at run time (`%lb to N`) is rejected: the trip count of a
+      collapsed dimension is taken to be its upper bound, and recovering the
+      per-dimension indices would additionally have to add each dimension's
+      offset back in, which `krnl.collapse_indices` does not do.
+    * The enclosing `krnl.iterate` must have no reduction `iterArgs`.
+    * The operands may not themselves be results of `krnl.block` or
+      `krnl.collapse`. Conversely, the result may not be fed to `krnl.block` or
+      `krnl.unroll`.
+    * An **operand** loop reference is consumed by the collapse: after fusing it
+      no longer refers to a loop of its own, so nothing else may use it. In
+      particular `krnl.get_induction_var_value(%ii)` on a collapsed-away operand
+      is invalid, and so is naming that dimension's induction variable in the
+      `with` clause and then using it (the `%i` in `with (%ii -> %i = 0 to N)`) --
+      the fused loop has no per-dimension induction variables to hand back.
+
+      The **result** is the opposite, and is not restricted at all: `%f` is the
+      one surviving loop, and `krnl.get_induction_var_value(%f)` is exactly how
+      its index is obtained.
+
+    Only the two operand/result restrictions are enforced by this op's verifier.
+    The bound, `iterArgs` and use restrictions depend on the enclosing
+    `krnl.iterate`, which this op cannot see from its own operands, so they are
+    reported when the loop nest is lowered instead.
+  }];
+
+  let arguments = (ins Variadic<AnyType>:$loops);
+  let results = (outs AnyType:$collapsed_loop);
+
+  let builders = [ OpBuilder<(ins "ValueRange":$loops)> ];
+  let assemblyFormat = [{
+      `(` $loops `)` attr-dict `:` functional-type($loops, results)
+  }];
+  let hasVerifier = 1;
+}
+
+def KrnlCollapseIndicesOp : Op<Krnl_Dialect, "collapse_indices", [NoMemoryEffect]> {
+  let summary = "Krnl collapse indices operation";
+  let description = [{
+    Recover the per-dimension indices of a `krnl.collapse`d loop nest from the
+    fused (linear) index of the collapsed loop. Results are given
+    outer-to-inner, one per originally collapsed dimension.
+
+    ```
+    %idx = krnl.get_induction_var_value(%f) : (!krnl.loop) -> index
+    %i, %j = krnl.collapse_indices(%idx) : (index) -> (index, index)
+    ```
+
+    The operand must be the induction variable of a loop produced by
+    `krnl.collapse`, and the number of results must match the number of
+    collapsed dimensions.
+  }];
+
+  let arguments = (ins Index:$linear_index);
+  let results = (outs Variadic<Index>:$indices);
+
+  let builders = [ OpBuilder<(ins "Value":$linear_index, "int64_t":$num_indices)> ];
+  let assemblyFormat = [{
+      `(` $linear_index `)` attr-dict `:` functional-type($linear_index, results)
+  }];
 }
 
 def KrnlPermuteOp : Op<Krnl_Dialect, "permute"> {
@@ -519,23 +624,30 @@ def KrnlUnrollOp : Op<Krnl_Dialect, "unroll"> {
   let assemblyFormat = [{
       $loop attr-dict `:` type($loop)
   }];
+  let hasVerifier = 1;
 }
 
 def KrnlParallelOp : Op<Krnl_Dialect, "parallel", [AttrSizedOperandSegments]> {
   let summary = "Mark Krnl loops as parallel loops";
   let description = [{
-    Parallelize the specified loops. When multiple loop specifiers are passed
-    as parameters, there loops can be parallelized as a collapsed loop.
-    krnl.parallel should be placed as the last operator before krnl.iterate,
-    Since we do not want to parallelize the loop until we interpret krnl.block,
-    krnl.permute and krnl.unroll.
+    Parallelize the specified loops. `krnl.parallel` should be placed as the
+    last operator before krnl.iterate, since we do not want to parallelize the
+    loop until we interpret krnl.block, krnl.permute and krnl.unroll.
+
+    Parallelizing more than one loop of the same loop nest is **not
+    recommended**: each loop specifier is parallelized independently, giving one
+    nested `affine.parallel` per specifier rather than a single parallel region
+    over their combined iteration space, and the optional clauses below then
+    apply to the first (outermost) one only. To spread one fused iteration space
+    over the threads, `krnl.collapse` the dimensions first and parallelize the
+    resulting fused loop reference.
 
     Optionally, a value may specify the number of threads requested for the
     parallel loop. A proc_bind string may also be specified; valid values are
     "primary", "close", or "spread". Default values are used when not specified.
 
     ```
-    krnl.parallel (%i0, %i1) : !Krnl.loop, !Krnl.loop
+    krnl.parallel (%i0) : !Krnl.loop
     ```
   }];
 

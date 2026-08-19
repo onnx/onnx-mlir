@@ -724,6 +724,60 @@ void KrnlBlockOp::build(::OpBuilder &odsBuilder,
       odsBuilder.getI64IntegerAttr(odsTileSize));
 }
 
+LogicalResult KrnlBlockOp::verify() {
+  if (getLoop().getDefiningOp<KrnlCollapseOp>())
+    return emitOpError("cannot block a loop produced by krnl.collapse");
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// KrnlUnrollOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult KrnlUnrollOp::verify() {
+  if (getLoop().getDefiningOp<KrnlCollapseOp>())
+    return emitOpError("cannot unroll a loop produced by krnl.collapse");
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// KrnlCollapseOp
+//===----------------------------------------------------------------------===//
+
+void KrnlCollapseOp::build(::OpBuilder &odsBuilder,
+    ::mlir::OperationState &odsState, ValueRange odsLoops) {
+  assert(odsLoops.size() >= 2 && "collapse needs 2 or more loops");
+  build(odsBuilder, odsState, krnl::LoopType::get(odsBuilder.getContext()),
+      odsLoops);
+}
+
+LogicalResult KrnlCollapseOp::verify() {
+  if (getLoops().size() < 2)
+    return emitOpError("expects 2 or more loops to collapse");
+  // Restrictions of the first version: neither blocked nor already-collapsed
+  // loops may be collapsed. Both are meaningful extensions, but they need the
+  // trip counts of operands that are not plain original loop dimensions.
+  for (Value loop : getLoops()) {
+    if (loop.getDefiningOp<KrnlBlockOp>())
+      return emitOpError("cannot collapse a loop produced by krnl.block");
+    if (loop.getDefiningOp<KrnlCollapseOp>())
+      return emitOpError("cannot collapse a loop produced by krnl.collapse");
+  }
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// KrnlCollapseIndicesOp
+//===----------------------------------------------------------------------===//
+
+void KrnlCollapseIndicesOp::build(::OpBuilder &odsBuilder,
+    ::mlir::OperationState &odsState, Value odsLinearIndex,
+    int64_t odsNumIndices) {
+  assert(odsNumIndices >= 2 && "expected 2 or more collapsed dimensions");
+  SmallVector<Type, 4> types(odsNumIndices, odsBuilder.getIndexType());
+  build(odsBuilder, odsState, types, odsLinearIndex);
+}
+
 //===----------------------------------------------------------------------===//
 // KrnlPermuteOp
 //===----------------------------------------------------------------------===//

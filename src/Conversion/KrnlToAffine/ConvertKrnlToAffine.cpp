@@ -17,6 +17,7 @@
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Affine/LoopUtils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Utils/StaticValueUtils.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Types.h"
@@ -44,6 +45,19 @@ namespace krnl {
 
 UnrollAndJamMap unrollAndJamMap;
 std::mutex unrollAndJamMutex;
+
+// Per-dimension trip counts (outer-to-inner) of the loops fused by a
+// krnl.collapse, keyed by the induction variable of the resulting merged loop.
+// That induction variable is also what a krnl.collapse_indices operand resolves
+// to once krnl.get_induction_var_value has been interpreted, so the query op
+// needs nothing more than a lookup in this table.
+//
+// This is a plain C++ side-table, in the spirit of the loopRefToOp/opsToErase
+// tables already threaded through this file, rather than an IR op: unlike
+// krnl.parallel_clause, whose consumer is a genuinely later pass,
+// krnl.collapse is created and fully consumed within one run of this pass.
+using CollapseTripCounts =
+    llvm::DenseMap<mlir::Value, llvm::SmallVector<mlir::Value, 4>>;
 
 // Since Krnl Dialect allows optimizations to be specified in the form of
 // recipes without being applied, some IR block may exist under Krnl loops
@@ -366,8 +380,274 @@ static void lowerGetInductionVariableValueOp(
   }
 }
 
-static void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
-    llvm::SmallDenseMap<Value, Operation *, 4> &refToOps) {
+// Report whether this loop's lower bound is a compile-time zero, rewriting it
+// into a literal constant 0 when it is.
+//
+// A zero lower bound reaches here spelled in more than one way. `0 to N` gives a
+// genuine constant bound, but onnx-mlir also emits `%c0 to N`, which becomes a
+// single-result map over an operand instead -- canonicalization would normally
+// fold the two together, and it has not run at this point in the pass. Detecting
+// that is not sufficient on its own: affine::coalesceLoops tests the bound
+// syntactically with hasConstantLowerBound(), so the map form has to be rewritten
+// into the constant form or coalescing simply fails.
+//
+// There is no single upstream call for this. canonicalizeLoopBounds() would do it
+// but is file-static in AffineOps.cpp, its composeAffineMapAndOperands() helper is
+// in no public header, and no affine utility exposes a zero-lower-bound predicate
+// (normalizeAffineFor inline-checks the same thing). So compose two public APIs:
+// getConstantIntValue per operand, and AffineMap::constantFold on the bound map.
+static bool normalizeZeroLowerBound(AffineForOp forOp) {
+  if (forOp.hasConstantLowerBound())
+    return forOp.getConstantLowerBound() == 0;
+  AffineMap lbMap = forOp.getLowerBoundMap();
+  // A multi-result lower bound is a max, never a plain zero.
+  if (lbMap.getNumResults() != 1)
+    return false;
+  // The fold only succeeds if every operand is itself a compile-time constant.
+  // getConstantIntValue matches any op folding to an integer attribute, so this
+  // is not tied to arith.constant specifically.
+  Builder builder(forOp.getContext());
+  SmallVector<Attribute, 4> operandConsts;
+  for (Value operand : forOp.getLowerBoundOperands()) {
+    std::optional<int64_t> cst = getConstantIntValue(operand);
+    if (!cst)
+      return false;
+    operandConsts.emplace_back(builder.getIndexAttr(*cst));
+  }
+  SmallVector<Attribute, 1> folded;
+  if (failed(lbMap.constantFold(operandConsts, folded)) || folded.empty())
+    return false;
+  auto intAttr = mlir::dyn_cast<IntegerAttr>(folded[0]);
+  if (!intAttr || intAttr.getInt() != 0)
+    return false;
+  // Semantics-preserving now that the bound is known to evaluate to zero. This is
+  // the form coalesceLoops requires, and it drops the now-dead bound operand.
+  forOp.setConstantLowerBound(0);
+  return true;
+}
+
+// Resolve every krnl.collapse listed among iterateOp's optimized loops.
+//
+// This is called from lowerIterateOp, at the one point where the loop nest is
+// exactly what mlir::affine::coalesceLoops expects: a band of one plain
+// affine.for per original loop dimension, each nested directly inside the
+// previous one with nothing interspersed between the headers, and with the
+// iterate body already spliced into the innermost one. No block, permute or
+// unroll recipe has been applied yet.
+//
+// On success, each run of nestedForOps entries fused by a krnl.collapse is
+// replaced by a single entry mapping the collapse result to the merged loop, so
+// that the caller registers exactly the loop refs that survive and never the
+// erased ones.
+static LogicalResult resolveCollapseOps(KrnlIterateOp &iterateOp,
+    SmallVector<std::pair<Value, Operation *>, 4> &nestedForOps,
+    CollapseTripCounts &collapseTripCounts) {
+  // Gather the collapse ops among the optimized loops, in operand order.
+  SmallVector<KrnlCollapseOp, 2> collapseOps;
+  for (int64_t i = 0; i < iterateOp.getNumOptimizedLoops(); ++i)
+    if (auto collapseOp =
+            iterateOp.getOperand(i).getDefiningOp<KrnlCollapseOp>())
+      collapseOps.emplace_back(collapseOp);
+  if (collapseOps.empty())
+    return success();
+
+  // coalesceLoops discards the iterArgs of the loops it erases (it forwards
+  // them to their inits), so reductions cannot be collapsed correctly.
+  if (iterateOp.getNumIterArgs() > 0)
+    return iterateOp.emitOpError(
+        "krnl.collapse is not supported on an iterate with iterArgs");
+
+  for (KrnlCollapseOp collapseOp : collapseOps) {
+    ValueRange loopsToFuse = collapseOp.getLoops();
+
+    // Locate the affine.for ops built for the loop refs being fused. Indices
+    // are recomputed per collapse op because an earlier collapse may already
+    // have shortened nestedForOps.
+    SmallVector<size_t, 4> indices;
+    for (Value loopRef : loopsToFuse) {
+      auto it = llvm::find_if(nestedForOps,
+          [&](const std::pair<Value, Operation *> &pair) {
+            return pair.first == loopRef;
+          });
+      if (it == nestedForOps.end())
+        return collapseOp.emitOpError("collapses a loop that is not an "
+                                      "original loop of its krnl.iterate");
+      indices.emplace_back(std::distance(nestedForOps.begin(), it));
+    }
+    // coalesceLoops needs a perfectly nested band, which only holds for
+    // adjacent dimensions taken outer-to-inner.
+    for (size_t i = 1; i < indices.size(); ++i)
+      if (indices[i] != indices[i - 1] + 1)
+        return collapseOp.emitOpError(
+            "collapses loops that are not adjacent dimensions of its "
+            "krnl.iterate, listed outer-to-inner");
+
+    // The consumed-ref rule: a collapsed loop ref has no affine.for of its own
+    // once fused, so nothing outside the collapse may refer to it. This is what
+    // rejects sharing an operand with krnl.block/krnl.unroll/krnl.permute, and
+    // krnl.get_induction_var_value on a collapsed-away ref (the supported way
+    // to recover per-dimension indices is krnl.collapse_indices).
+    for (Value loopRef : loopsToFuse)
+      for (Operation *user : loopRef.getUsers())
+        if (user != collapseOp.getOperation() && !isa<KrnlIterateOp>(user))
+          return collapseOp.emitOpError("collapses a loop reference that is "
+                                        "also used by '")
+                 << user->getName()
+                 << "'; a collapsed loop reference may not be used elsewhere";
+
+    SmallVector<AffineForOp, 4> band;
+    for (size_t idx : indices)
+      band.emplace_back(llvm::cast<AffineForOp>(nestedForOps[idx].second));
+
+    // coalesceLoops only handles normalized loops, and the trip count recorded
+    // below is the upper bound, which is only the trip count when the lower bound
+    // is 0 and the step is 1. Check both here, with separate diagnostics, so that
+    // this reports what is actually wrong instead of a bare pass failure.
+    //
+    // These cannot live in KrnlCollapseOp's verifier: the bounds belong to the
+    // krnl.iterate, which the collapse op cannot see from its own operands.
+    for (AffineForOp forOp : band) {
+      if (forOp.getStepAsInt() != 1)
+        return collapseOp.emitOpError("can only collapse loops with a step of 1");
+      if (!normalizeZeroLowerBound(forOp))
+        return collapseOp.emitOpError(
+            "can only collapse loops whose lower bound is a compile-time "
+            "constant 0 (a literal 0, or a constant that folds to 0); a "
+            "non-zero lower bound would need its per-dimension offset added "
+            "back by krnl.collapse_indices, which is not supported");
+    }
+
+    // coalesceLoops rewrites uses of the collapsed induction variables only
+    // within the innermost loop's own region. By this point markLoopBodyAsMovable
+    // has typically parked the iterate body in a krnl.movable elsewhere in the
+    // function, so a use out there would survive that rewrite and then dangle
+    // when the loop defining it is erased -- an assertion failure inside
+    // coalesceLoops, or worse without assertions. Such uses come from naming a
+    // collapsed dimension in the `with (%ii -> %i = ...)` clause of the
+    // krnl.iterate; a collapsed nest has to recover its indices from the fused
+    // index instead.
+    Region &innermostRegion = band.back().getRegion();
+    for (AffineForOp forOp : band)
+      for (OpOperand &use : forOp.getInductionVar().getUses())
+        if (!innermostRegion.isAncestor(use.getOwner()->getParentRegion()))
+          return collapseOp.emitOpError(
+              "the induction variable of a collapsed dimension cannot be used "
+              "directly, as named by the 'with' clause of its krnl.iterate; "
+              "recover the per-dimension indices from the fused index with "
+              "krnl.collapse_indices instead");
+
+    // Materialize each dimension's trip count before coalescing, since
+    // coalesceLoops rewrites the outermost bound and erases the inner loops.
+    // With a zero lower bound and unit step the trip count is just the upper
+    // bound. These bound operands are operands of the krnl.iterate, so they are
+    // defined above the band and dominate this insertion point. coalesceLoops
+    // recomputes the very same values internally; the duplicates fold away
+    // under CSE/canonicalization.
+    AffineForOp outermost = band.front();
+    OpBuilder tcBuilder(outermost);
+    Location loc = outermost.getLoc();
+    SmallVector<Value, 4> tripCounts;
+    for (AffineForOp forOp : band) {
+      AffineMap ubMap = forOp.getUpperBoundMap();
+      ValueRange ubOperands = forOp.getUpperBoundOperands();
+      // A multi-result upper bound map denotes the min over its results.
+      if (llvm::hasSingleElement(ubMap.getResults()))
+        tripCounts.emplace_back(
+            AffineApplyOp::create(tcBuilder, loc, ubMap, ubOperands));
+      else
+        tripCounts.emplace_back(
+            AffineMinOp::create(tcBuilder, loc, ubMap, ubOperands));
+    }
+
+    if (failed(coalesceLoops(band)))
+      return collapseOp.emitOpError("failed to collapse the loop nest");
+
+    // coalesceLoops always materializes the per-dimension index recovery at the
+    // top of the merged loop, so that it can rewrite uses of the original
+    // induction variables -- namely the `%i` in `with (%ii -> %i = ...)`. A body
+    // that recovers its indices through krnl.collapse_indices instead leaves
+    // those ops dead on arrival, and dead ops sitting between the merged loop's
+    // header and its nested loop make the nest imperfect, which later recipes
+    // such as krnl.permute assert against. Drop them now instead of waiting for
+    // canonicalization. Walked back-to-front because the recovery is a chain:
+    // erasing a use can be what makes its producer dead.
+    SmallVector<Operation *, 8> maybeDead;
+    for (Operation &op : *outermost.getBody())
+      if (isa<AffineApplyOp>(op))
+        maybeDead.emplace_back(&op);
+    for (Operation *op : llvm::reverse(maybeDead))
+      if (op->use_empty())
+        op->erase();
+
+    // coalesceLoops turns the outermost loop into the merged loop in place and
+    // erases the rest, so the outermost's induction variable is the fused
+    // index. It stays valid across a later krnl.parallel too: AffineParallelOp
+    // takes over the body region, so that block argument object is unchanged.
+    collapseTripCounts[outermost.getInductionVar()] = tripCounts;
+
+    // Replace the fused run with a single entry for the collapse result. The
+    // erased affine.for ops must not be left behind for the caller to register.
+    nestedForOps[indices.front()] =
+        std::make_pair(collapseOp.getResult(), outermost.getOperation());
+    nestedForOps.erase(nestedForOps.begin() + indices.front() + 1,
+        nestedForOps.begin() + indices.back() + 1);
+  }
+  return success();
+}
+
+// Lower a krnl.collapse_indices query into the floordiv/mod chain that recovers
+// the per-dimension indices from the fused index. Must run after
+// lowerGetInductionVariableValueOp has rewritten the operand from the KRNL-level
+// placeholder to the merged loop's real induction variable, which is the key
+// this table is built on.
+static LogicalResult lowerCollapseIndicesOp(
+    KrnlCollapseIndicesOp &collapseIndicesOp,
+    const CollapseTripCounts &collapseTripCounts) {
+  Value linearIndex = collapseIndicesOp.getLinearIndex();
+  auto it = collapseTripCounts.find(linearIndex);
+  if (it == collapseTripCounts.end())
+    return collapseIndicesOp.emitOpError(
+        "operand is not the induction variable of a krnl.collapse'd loop");
+  ArrayRef<Value> tripCounts = it->second;
+  size_t rank = tripCounts.size();
+  if (collapseIndicesOp.getNumResults() != rank)
+    return collapseIndicesOp.emitOpError("expects ")
+           << rank << " results, one per collapsed dimension";
+
+  OpBuilder builder(collapseIndicesOp);
+  Location loc = collapseIndicesOp.getLoc();
+  // Same running-quotient chain as affine::coalesceLoops:
+  //   iv_i = floordiv(iv_linear, product of the trip counts nested in i)
+  //          mod tripCount_i
+  // built from the innermost dimension outwards.
+  SmallVector<Value, 4> indices(rank);
+  Value previous = linearIndex;
+  for (size_t idx = rank; idx > 0; --idx) {
+    if (idx != rank)
+      previous = AffineApplyOp::create(builder, loc,
+          AffineMap::get(/*dimCount=*/1, /*symbolCount=*/1,
+              builder.getAffineDimExpr(0).floorDiv(
+                  builder.getAffineSymbolExpr(0))),
+          ValueRange{previous, tripCounts[idx]});
+    if (idx == 1) {
+      // The outermost dimension needs no modulo: nothing remains above it.
+      indices[idx - 1] = previous;
+    } else {
+      indices[idx - 1] = AffineApplyOp::create(builder, loc,
+          AffineMap::get(/*dimCount=*/1, /*symbolCount=*/1,
+              builder.getAffineDimExpr(0) % builder.getAffineSymbolExpr(0)),
+          ValueRange{previous, tripCounts[idx - 1]});
+    }
+  }
+  for (auto [result, index] :
+      llvm::zip(collapseIndicesOp.getResults(), indices))
+    result.replaceAllUsesWith(index);
+  return success();
+}
+
+static LogicalResult lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
+    llvm::SmallDenseMap<Value, Operation *, 4> &refToOps,
+    CollapseTripCounts &collapseTripCounts) {
   builder.setInsertionPointAfter(iterateOp);
   // Map from unoptimizedLoopRef to the (original, unoptimized) AffineForOp.
   SmallVector<std::pair<Value, Operation *>, 4> currentNestedForOps;
@@ -617,8 +897,15 @@ static void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
     }
   }
 
+  // Fuse any collapsed dimensions now, while the band built above is still a
+  // pristine perfect nest, and before any loop ref is registered.
+  if (failed(resolveCollapseOps(
+          iterateOp, currentNestedForOps, collapseTripCounts)))
+    return failure();
+
   for (const auto &pair : currentNestedForOps)
     refToOps.try_emplace(pair.first, pair.second);
+  return success();
 }
 
 static void removeOps(llvm::SmallPtrSetImpl<Operation *> &opsToErase) {
@@ -655,7 +942,8 @@ static void removeOps(llvm::SmallPtrSetImpl<Operation *> &opsToErase) {
 
 static LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     llvm::SmallDenseMap<Value, Operation *, 4> &loopRefToOp,
-    llvm::SmallPtrSetImpl<Operation *> &opsToErase, LoopBodyMover &mover) {
+    llvm::SmallPtrSetImpl<Operation *> &opsToErase, LoopBodyMover &mover,
+    CollapseTripCounts &collapseTripCounts) {
 
   // Recursively interpret nested operations.
   for (auto &region : op->getRegions())
@@ -663,8 +951,8 @@ static LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
       auto &blockOps = block.getOperations();
       for (auto itr = blockOps.begin(); itr != blockOps.end();) {
         LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << " Call interpretOperation \n");
-        if (failed(interpretOperation(
-                &(*itr), builder, loopRefToOp, opsToErase, mover)))
+        if (failed(interpretOperation(&(*itr), builder, loopRefToOp, opsToErase,
+                mover, collapseTripCounts)))
           return failure();
         else
           ++itr;
@@ -677,9 +965,19 @@ static LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     // If an iterateOp has no unoptimized loop references, then we need to lower
     // them manually.
     if (opsToErase.count(op) == 0) {
-      lowerIterateOp(iterateOp, builder, loopRefToOp);
+      if (failed(lowerIterateOp(
+              iterateOp, builder, loopRefToOp, collapseTripCounts)))
+        return failure();
       opsToErase.insert(iterateOp);
     }
+    return success();
+  } else if (auto collapseOp = mlir::dyn_cast_or_null<KrnlCollapseOp>(op)) {
+    LLVM_DEBUG(llvm::dbgs()
+               << DEBUG_TYPE << " interpret collapse op " << collapseOp << "\n");
+    // krnl.collapse is resolved eagerly inside lowerIterateOp, where the naive
+    // per-dimension band is still pristine, so there is nothing left to do here
+    // beyond dropping the recipe op.
+    opsToErase.insert(op);
     return success();
   } else if (auto blockOp = mlir::dyn_cast_or_null<KrnlBlockOp>(op)) {
     LLVM_DEBUG(llvm::dbgs()
@@ -741,7 +1039,11 @@ static LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     // affine.parallel
     LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << " interpret parallel op "
                             << parallelOp << "\n");
-    // ToFix handle multiple parallel loop
+    // Each listed loop ref is parallelized on its own, giving one 1-D
+    // affine.parallel per ref, nested as the loops were. This does not fuse
+    // their iteration spaces: to spread a single fused space over the threads,
+    // krnl.collapse the dimensions first and parallelize the resulting fused
+    // loop ref, which yields one affine.parallel over the product range.
     ValueRange loopRefs = parallelOp.getLoops();
     Value numThreads = parallelOp.getNumThreads();
     StringAttr procBind = parallelOp.getProcBindAttr();
@@ -784,9 +1086,11 @@ static LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
       Operation *yieldOp = &parallelLoop.getBody()->back();
       yieldOp->setOperands(reducedValues);
       if (needParallelClause) {
-        // Use clause only for the first one (expected the outermost one).
-        // Ideally, we would generate here a single, multi-dimensional
-        // AffineParallelOp, and we would not need to reset the flag.
+        // The num_threads/proc_bind clause describes one parallel region, so it
+        // is attached to the first loop only (expected to be the outermost one)
+        // and the flag is reset for the remaining ones. Parallelizing a single
+        // krnl.collapse'd loop ref sidesteps this altogether: there is then one
+        // affine.parallel to carry the clause.
         needParallelClause = false;
         // Currently approach: insert after yield and then move before it.
         PatternRewriter::InsertionGuard insertGuard(builder);
@@ -898,11 +1202,14 @@ void ConvertKrnlToAffinePass::runOnOperation() {
   // only erase after iteration completes.
   llvm::SmallDenseMap<Value, Operation *, 4> loopRefToOp;
   llvm::SmallPtrSet<Operation *, 4> opsToErase;
+  // Connects a krnl.collapse to the krnl.collapse_indices queries against it.
+  CollapseTripCounts collapseTripCounts;
 
   // Lower `define_loops` first.
   // This is will make sure affine.for created for all the defined loops first.
   // Later when lower things like nested iteratorOp and blockOp, these
   // affine.for will be ready to use.
+  bool loweringFailed = false;
   funcOp->walk([&](KrnlDefineLoopsOp defineOp) {
     // Make sure define loop lowered first, so the iterateOp which create
     // affine.for can be lowered first.
@@ -924,16 +1231,22 @@ void ConvertKrnlToAffinePass::runOnOperation() {
     if (!iterateOps.empty()) {
       for (auto opToLower : iterateOps) {
         if (opsToErase.count(opToLower) == 0) {
-          lowerIterateOp(opToLower, builder, loopRefToOp);
+          if (failed(lowerIterateOp(
+                  opToLower, builder, loopRefToOp, collapseTripCounts)))
+            loweringFailed = true;
           opsToErase.insert(opToLower);
         }
       }
     }
     opsToErase.insert(defineOp);
   });
+  if (loweringFailed) {
+    signalPassFailure();
+    return;
+  }
 
-  if (failed(interpretOperation(
-          funcOp, builder, loopRefToOp, opsToErase, mover))) {
+  if (failed(interpretOperation(funcOp, builder, loopRefToOp, opsToErase, mover,
+          collapseTripCounts))) {
     signalPassFailure();
     return;
   }
@@ -991,7 +1304,22 @@ void ConvertKrnlToAffinePass::runOnOperation() {
       lowerGetInductionVariableValueOp(getIVOp, loopRefToOp);
       opsToErase.insert(op);
     }
+    // Must come after the krnl.get_induction_var_value case above, which is what
+    // rewrites this op's operand into the merged loop's induction variable, the
+    // key collapseTripCounts is built on. The walk reaches ops in program order
+    // within a block, and SSA dominance puts the defining
+    // krnl.get_induction_var_value ahead of every use of the fused index.
+    if (auto collapseIndicesOp =
+            mlir::dyn_cast_or_null<KrnlCollapseIndicesOp>(op)) {
+      if (failed(lowerCollapseIndicesOp(collapseIndicesOp, collapseTripCounts)))
+        loweringFailed = true;
+      opsToErase.insert(op);
+    }
   });
+  if (loweringFailed) {
+    signalPassFailure();
+    return;
+  }
   removeOps(opsToErase);
   assert(opsToErase.empty());
 
