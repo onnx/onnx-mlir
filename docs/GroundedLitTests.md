@@ -129,7 +129,7 @@ using directives that `GroundLitTest.py` reads out of `--model`:
 // GROUND-ALL: -c="-O3 -parallel"
 
 // Defaults for the next function only.
-// GROUND-HERE: -shape-info=0:10x20
+// GROUND-THIS: -shape-info=0:10x20
 func.func @my_dynamic_case(%arg0: memref<?x?xf32> {onnx.name = "x"}) -> ...
 ```
 
@@ -137,16 +137,15 @@ A directive line is options and nothing else: everything after the `:` is parsed
 so a trailing `// like this` explanation is read as arguments and rejected. Put
 the prose on its own comment line, as above.
 
-`// GROUND-THIS:` is a synonym for `// GROUND-HERE:`. Both take this tool's own
-options, in either the `--flag` or single-dash `-flag` spelling, and both may be
-repeated across several lines. Precedence is **per option**, most specific
-winning:
+Both directives take this tool's own options, in either the `--flag` or
+single-dash `-flag` spelling, and both may be repeated across several lines.
+Precedence is **per option**, most specific winning:
 
 ```
-command line  >  GROUND-HERE  >  GROUND-ALL  >  built-in default
+command line  >  GROUND-THIS  >  GROUND-ALL  >  built-in default
 ```
 
-so a `GROUND-HERE` that sets only `--shape-info` still inherits `GROUND-ALL`'s
+so a `GROUND-THIS` that sets only `--shape-info` still inherits `GROUND-ALL`'s
 `--compile-args`, and anything you type still overrides both. A directive may not
 set `-m`/`-f` -- a file does not get to name itself or choose which of its
 functions is tested. Only `--model` is scanned; a baseline file's directives are
@@ -185,7 +184,7 @@ function's leftovers would survive, which would be misleading.
    ```
    GroundLitTest.py -m mytest.mlir -f my_func [mode options]
    ```
-   Once it passes, move whatever options it needed into a `// GROUND-HERE:` line
+   Once it passes, move whatever options it needed into a `// GROUND-THIS:` line
    above the function (or `// GROUND-ALL:` if the whole file needs them), so the
    knowledge lives in the file. On failure, re-run with `-d` and `-v`; the kept
    `glt_test.mlir` / `glt_baseline.mlir` / `glt_ref/` in the working directory are
@@ -284,7 +283,7 @@ Concretely, dynamic shapes are the only way to reach:
 Requirements for these cases:
 
 1. Cover all three: all-dynamic, all-static, and mixed.
-2. Ground each with `--shape-info 0:10x20`, pinned in a `// GROUND-HERE:` line.
+2. Ground each with `--shape-info 0:10x20`, pinned in a `// GROUND-THIS:` line.
 3. **Run at least one dynamic case at more than one shape**, including a
    degenerate `1` and a size that is not a multiple of any tile or vector length.
    One shape proves the code runs; several prove nothing was baked in for that
@@ -319,7 +318,7 @@ in the pass and emit a proper error there.
 
 - `GroundLitTest.py -m <file>` with no other options grounds **every** function
   in the file and reports `Failed (0)`. The options each case needs live in its
-  `GROUND-ALL`/`GROUND-HERE` directives, so this one command is the gate.
+  `GROUND-ALL`/`GROUND-THIS` directives, so this one command is the gate.
 - The CHECK lines were generated *after* that passed, never before.
 - Dynamic dimensions are covered in all three forms (all-dynamic, all-static,
   mixed), and at least one dynamic case was grounded at more than one shape.
@@ -344,7 +343,7 @@ in the pass and emit a proper error there.
 | `fixLitTest.py` ignores your existing CHECK lines | They must start at **column 0**; the prefix scanner is anchored and does not see an indented `// CHECK`. |
 | `fixLitTest.py -r` leaves a function untouched | Bare `-r` only repairs functions whose test *fails*. Use `-r -f <fn>` to regenerate one unconditionally. |
 | A multi-prefix file skips some functions | Intended: a function carrying only another prefix's CHECK lines is skipped rather than failed, and never has assertions injected for a prefix it was not written for. |
-| A `GROUND-HERE` seems ignored | It applies to the *next function defined after it*, and only in `--model`; directives in a baseline file are not read. It also cannot set `-m`/`-f`. |
+| A `GROUND-THIS` seems ignored | It applies to the *next function defined after it*, and only in `--model`; directives in a baseline file are not read. It also cannot set `-m`/`-f`. |
 | `bad "GROUND-ALL" directive ... unrecognized arguments: // ...` | Everything after the `:` is options, so a trailing `//` explanation on the same line is parsed as arguments. Move the prose to its own comment line. |
 | A directive value starting with `-` is rejected | Use the `--flag=value` form (`-c="-O3 -parallel"`, `-shape-info=0:10x20`), exactly as on the command line. |
 | File mode reports FAILURE saying the variants are identical | The baseline is the same MLIR as the test modulo comments, so nothing was compared. Usually a copy-paste baseline that was never edited. |

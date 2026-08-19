@@ -51,7 +51,7 @@
 #
 #   // GROUND-ALL: <options>    in the header, before the first function:
 #                              defaults for every function in the file.
-#   // GROUND-HERE: <options>   anywhere before a function: defaults for that
+#   // GROUND-THIS: <options>   anywhere before a function: defaults for that
 #                              one function.
 #
 # Both take this tool's own options, in either the "--flag" or the single-dash
@@ -59,9 +59,9 @@
 # (a long option list can be spread over several lines). Precedence is per
 # option, most specific winning:
 #
-#   command line   >   GROUND-HERE   >   GROUND-ALL   >   built-in default
+#   command line   >   GROUND-THIS   >   GROUND-ALL   >   built-in default
 #
-# so a GROUND-HERE that sets only --shape-info still inherits GROUND-ALL's
+# so a GROUND-THIS that sets only --shape-info still inherits GROUND-ALL's
 # --compile-args, and anything typed on the command line still wins over both.
 # A directive cannot set -m/--model or -f/--func (a file naming itself, or
 # choosing which of its functions gets tested, is not something it should
@@ -108,16 +108,15 @@ GLT_REF_DIR = "glt_ref"
 # functions covers exactly the set fixLitTest.py can isolate.
 FUNC_RE = re.compile(r"\s*func.*@(\w+)\(")
 
-# In-file option directives. A "GROUND-HERE" (equivalently "GROUND-THIS")
-# applies to the next function defined after it; a "GROUND-ALL" applies to the
-# whole file and so has to sit in the header, before any function, where a
-# reader looks for file-wide statements. Both spellings of the per-function one
-# read naturally next to a function, so both are taken, and whichever a file
-# uses is the one reported back for it.
+# In-file option directives. A "GROUND-THIS" applies to the next function
+# defined after it; a "GROUND-ALL" applies to the whole file and so has to sit
+# in the header, before any function, where a reader looks for file-wide
+# statements. The two names quantify over the same thing -- all the functions,
+# or this one -- so that reading either tells you the scope of the other.
 GROUND_ALL = "GROUND-ALL"
-GROUND_ONE = ("GROUND-HERE", "GROUND-THIS")
+GROUND_ONE = "GROUND-THIS"
 GROUND_ALL_RE = re.compile(rf"\s*//\s*{GROUND_ALL}:(.*)$")
-GROUND_ONE_RE = re.compile(rf"\s*//\s*({'|'.join(GROUND_ONE)}):(.*)$")
+GROUND_ONE_RE = re.compile(rf"\s*//\s*{GROUND_ONE}:(.*)$")
 COMMAND_LINE = "command line"
 
 # Where each option can come from, in increasing order of precedence, and the
@@ -154,7 +153,7 @@ class SetupError(Exception):
     its options contradict each other, ...) as opposed to a genuine numerical
     mismatch. Fatal when a single function was named with -f; only that one
     function's failure when every function is being tested -- which matters
-    here, since each function can bring its own GROUND-HERE options and so its
+    here, since each function can bring its own GROUND-THIS options and so its
     own way of being misconfigured.
     """
 
@@ -162,7 +161,7 @@ class SetupError(Exception):
 class DirectiveError(Exception):
     """
     Raised instead of argparse's usual exit-with-usage when the options inside a
-    GROUND-ALL/GROUND-HERE directive don't parse, so that the message can name
+    GROUND-ALL/GROUND-THIS directive don't parse, so that the message can name
     the file and line the directive came from rather than a command line the
     user never typed.
     """
@@ -215,7 +214,7 @@ def build_parser(cls=argparse.ArgumentParser, model_required=True):
     neither can drift from the other. Defaults live in DEFAULTS rather than in
     the actions: with argument_default=SUPPRESS, an option missing from the
     parsed namespace means "not specified at this level", which is what the
-    command-line-over-GROUND-HERE-over-GROUND-ALL layering needs to know.
+    command-line-over-GROUND-THIS-over-GROUND-ALL layering needs to know.
     """
     parser = cls(
         prog=os.path.basename(__file__),
@@ -246,11 +245,11 @@ def build_parser(cls=argparse.ArgumentParser, model_required=True):
             "same flags:\n"
             f"  // {GROUND_ALL}: <options>   in the header, before the first\n"
             "                              function: defaults for the file.\n"
-            f"  // {GROUND_ONE[0]}: <options>  before one function: defaults for\n"
+            f"  // {GROUND_ONE}: <options>  before one function: defaults for\n"
             "                              that function only.\n"
             "Both may be repeated, and neither may set -m or -f. Precedence,\n"
             "per option:\n"
-            f"  {COMMAND_LINE} > {GROUND_ONE[0]} > {GROUND_ALL} > built-in default"
+            f"  {COMMAND_LINE} > {GROUND_ONE} > {GROUND_ALL} > built-in default"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         # -h is added by hand below, so that it lands in the first group with
@@ -493,11 +492,10 @@ def parse_directive(marker, model_path, lineno, tokens):
 def scan_directives(model_path):
     """
     Collect the file's own options: the file-wide GROUND-ALL, and one option set
-    per function that a GROUND-HERE precedes. Both markers may appear on several
+    per function that a GROUND-THIS precedes. Both markers may appear on several
     lines, whose options are simply gathered in order -- a file needing a long
     option list should be able to wrap it rather than run off the page. The
-    per-function sets come back as {func: (marker, options)}, carrying the
-    spelling the file used so that what is reported matches what is written.
+    per-function sets come back as {func: options}.
     """
     if not os.path.exists(model_path):
         sys.exit(f'ERROR: file "{model_path}" does not exist.')
@@ -507,7 +505,6 @@ def scan_directives(model_path):
     tokens_by_func = {}
     pending_tokens = []
     pending_lineno = None
-    pending_marker = None
     seen_func = False
 
     with open(model_path) as f:
@@ -519,7 +516,7 @@ def scan_directives(model_path):
                         f'ERROR: the "{GROUND_ALL}" directive at '
                         f"{model_path}:{lineno} comes after a function. It sets "
                         f"the whole file's options, so it belongs in the header, "
-                        f'before the first function -- use "{GROUND_ONE[0]}" for '
+                        f'before the first function -- use "{GROUND_ONE}" for '
                         f"options meant for one function only."
                     )
                 all_tokens += split_directive(
@@ -530,26 +527,25 @@ def scan_directives(model_path):
                 continue
             m = GROUND_ONE_RE.match(line)
             if m:
-                marker = m.group(1)
                 pending_tokens += split_directive(
-                    marker, model_path, lineno, m.group(2)
+                    GROUND_ONE, model_path, lineno, m.group(1)
                 )
                 if pending_lineno is None:
-                    pending_lineno, pending_marker = lineno, marker
+                    pending_lineno = lineno
                 continue
             m = FUNC_RE.match(line)
             if m:
                 seen_func = True
                 if pending_tokens:
                     tokens_by_func.setdefault(
-                        m.group(1), (pending_marker, pending_lineno, pending_tokens)
+                        m.group(1), (pending_lineno, pending_tokens)
                     )
                     pending_tokens = []
-                    pending_lineno = pending_marker = None
+                    pending_lineno = None
 
     if pending_tokens:
         sys.exit(
-            f'ERROR: the "{pending_marker}" directive at '
+            f'ERROR: the "{GROUND_ONE}" directive at '
             f"{model_path}:{pending_lineno} is not followed by any function, so "
             f"there is nothing for it to apply to."
         )
@@ -560,8 +556,8 @@ def scan_directives(model_path):
         else {}
     )
     per_func = {
-        func: (marker, parse_directive(marker, model_path, lineno, tokens))
-        for func, (marker, lineno, tokens) in tokens_by_func.items()
+        func: parse_directive(GROUND_ONE, model_path, lineno, tokens)
+        for func, (lineno, tokens) in tokens_by_func.items()
     }
     return ground_all, per_func
 
@@ -621,7 +617,7 @@ def effective_args(cli_opts, ground_all, own_opts):
     """
     merged, origin = merge_options(
         (GROUND_ALL, ground_all),
-        (GROUND_ONE[0], own_opts),
+        (GROUND_ONE, own_opts),
         (COMMAND_LINE, cli_opts),
     )
     opts = dict(DEFAULTS)
@@ -847,7 +843,7 @@ def resolve_compile_args(args, flag_mode):
 
 
 def compare_function(
-    args, flag_mode, func, ref_compile_args, test_compile_args, own_directive
+    args, flag_mode, func, ref_compile_args, test_compile_args, own_opts
 ):
     """
     Compare the two variants of one function; return True if they match. Raises
@@ -873,9 +869,8 @@ def compare_function(
         print(summary + ".")
     # Only what this one function's own directive adds: the file-wide and typed
     # options are reported once, for the whole run.
-    own_marker, own_opts = own_directive
     if own_opts:
-        print(f"{own_marker} options: {render_options(own_opts)}")
+        print(f"{GROUND_ONE} options: {render_options(own_opts)}")
 
     if not flag_mode and not os.path.exists(baseline_model):
         raise SetupError(
@@ -1038,8 +1033,8 @@ def main():
     for i, func in enumerate(funcs):
         if not single_func:
             print(f"=== [{i + 1}/{len(funcs)}] {func} ===")
-        own_directive = per_func_directive.get(func, (GROUND_ONE[0], {}))
-        args, merged, origin = effective_args(cli_opts, ground_all, own_directive[1])
+        own_opts = per_func_directive.get(func, {})
+        args, merged, origin = effective_args(cli_opts, ground_all, own_opts)
         try:
             flag_mode = resolve_mode(args, merged, origin)
             ref_compile_args, test_compile_args = resolve_compile_args(args, flag_mode)
@@ -1049,14 +1044,14 @@ def main():
                 func,
                 ref_compile_args,
                 test_compile_args,
-                own_directive,
+                own_opts,
             )
         except SetupError as e:
             # With -f, a setup problem is fatal, exactly as it was before.
             # Testing every function, it sinks only the function it happened
             # to: the remaining ones are still worth running, all the more so
             # now that a function can be misconfigured on its own by its
-            # GROUND-HERE directive.
+            # GROUND-THIS directive.
             if single_func:
                 sys.exit(str(e))
             print(str(e))
