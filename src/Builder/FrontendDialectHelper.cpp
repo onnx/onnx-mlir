@@ -17,6 +17,7 @@
 #include "mlir/IR/BuiltinAttributeInterfaces.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Endian.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
@@ -180,6 +181,21 @@ ElementsAttr createElmAttrFromArray(RankedTensorType tensorType,
     const Range &array, const Transformation &transformation) {
   MLIRContext *ctx = tensorType.getContext();
   assert(tensorType.getElementType() == toMlirType<T>(ctx));
+  // The destination buffer allocated by fromArray()/fromRawBytes() is sized
+  // from tensorType.getNumElements(), while std::transform below writes
+  // array.size() elements. Both the dims and the data payload originate from
+  // an untrusted TensorProto, so a mismatch would cause a heap buffer
+  // overflow (payload larger than dims imply) or leave uninitialized bytes in
+  // the attribute (payload smaller than dims imply). Reject such tensors.
+  const int64_t numElements = tensorType.getNumElements();
+  if (numElements < 0 ||
+      static_cast<uint64_t>(numElements) !=
+          static_cast<uint64_t>(array.size()))
+    llvm::report_fatal_error(
+        llvm::Twine("malformed TensorProto: data size (") +
+        llvm::Twine(static_cast<uint64_t>(array.size())) +
+        llvm::Twine(") does not match element count from dims (") +
+        llvm::Twine(numElements) + llvm::Twine(")"));
   return OnnxElementsAttrBuilder(ctx).fromArray<T>(
       tensorType, [array, &transformation](MutableArrayRef<T> copy) {
         std::transform(array.begin(), array.end(), copy.data(), transformation);
