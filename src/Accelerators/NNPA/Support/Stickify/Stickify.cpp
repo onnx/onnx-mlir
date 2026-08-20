@@ -268,8 +268,14 @@ void *malloc_aligned_4k(size_t size) {
   unsigned short extra_allocation =
       (AIU_PAGESIZE_IN_BYTES - 1) + sizeof(void *);
 
-  // make sure size is reasonable
-  if (!size || size > SIZE_MAX) {
+  // Make sure size is reasonable and that adding extra_allocation won't wrap.
+  // The original check "size > SIZE_MAX" is dead code: size_t can never exceed
+  // SIZE_MAX by definition. The real hazard is the malloc(size+extra_allocation)
+  // call below: if size lands within extra_allocation of SIZE_MAX, the addition
+  // wraps size_t back to a tiny value and malloc succeeds with a tiny block
+  // while the caller records the original near-SIZE_MAX size as buffer_size,
+  // causing subsequent writes (memset/transform_ztensor) to go far out of bounds.
+  if (!size || size > SIZE_MAX - extra_allocation) {
     return NULL;
   }
 
@@ -506,39 +512,38 @@ zdnn_status verify_transformed_descriptor(const zdnn_tensor_desc *tfrmd_desc) {
     return ZDNN_INVALID_TYPE;
   }
 
-  /* ToFix: the nnpa_query_result is not set up with onnx-mlir
-   * Temporarily commented out.
-   * Refer to issue #3034
+  /* Note: nnpa_query_result is not set up in onnx-mlir (issue #3034), so we
+   * cannot call zdnn_get_max_for_dim() / zdnn_get_nnpa_max_tensor_size().
+   * Instead, validate against the compile-time architectural limits from
+   * NNPALimit.hpp so that zero/oversized dims cannot reach the allocator.
+   * This re-enables validation that was wrapped in #if 0 since 2025-01-08
+   * (commit 86dbaf0470) as a workaround for the missing nnpa_query_result
+   * initialization. The zero-dim and total-size checks below are the only
+   * guards anywhere in the pipeline for those two conditions; the per-dim
+   * max check provides defence-in-depth alongside the legality gate in
+   * ONNXToZHighCommon.hpp's addDynamicallyLegalOpFor().
    */
-
-#if 0
   const uint32_t *dims_ptr = &(tfrmd_desc->dim4);
 
-  // is the dimension above the limit or zero?
-  // transformed layout uses all dim* entries, so we'll check them all
+  // Reject zero dims and dims exceeding the compile-time architectural limit.
+  // transformed layout uses all dim* entries, so we'll check them all.
   for (int i = 0; i < ZDNN_MAX_DIMS; i++) {
-    if (!dims_ptr[i] || dims_ptr[i] > NNPAGetMaxForDim(i, ZDNN_MAX_DIMS)) {
+    if (!dims_ptr[i]) {
       return ZDNN_INVALID_SHAPE;
     }
-   if (dims_ptr[i] > zdnn_get_max_for_dim(ZDNN_MAX_DIMS - i)) {
-
-      if (!zdnn_get_max_for_dim(ZDNN_MAX_DIMS - i)) {
-        return ZDNN_UNSUPPORTED_AIU_EXCEPTION;
-      } else {
-        return ZDNN_STATUS(
-            ZDNN_INVALID_SHAPE,
-            "Invalid shape for dim%d. (reason: dimension value %d exceeds %d)",
-            ZDNN_MAX_DIMS - i, dims_ptr[i],
-            zdnn_get_max_for_dim(ZDNN_MAX_DIMS - i));
-      }
+    int64_t maxDim = NNPAGetMaxForDim(i, ZDNN_MAX_DIMS);
+    if (maxDim > 0 && static_cast<int64_t>(dims_ptr[i]) > maxDim) {
+      return ZDNN_STATUS(ZDNN_INVALID_SHAPE,
+          "Invalid shape for dim%d. (reason: dimension value %d exceeds %d)",
+          ZDNN_MAX_DIMS - i, (int)dims_ptr[i], (int)maxDim);
     }
   }
 
-  // is stick area size above the limit?
-  if (getsize_ztensor(tfrmd_desc) > zdnn_get_nnpa_max_tensor_size()) {
+  // Reject if total stick-area size exceeds the compile-time architectural max.
+  if (getsize_ztensor(tfrmd_desc) >
+      static_cast<uint64_t>(NNPA_MAXIMUM_TENSOR_SIZE)) {
     return ZDNN_INVALID_SHAPE;
   }
-#endif
 
   return ZDNN_STATUS_OK;
 }
