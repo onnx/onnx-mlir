@@ -209,6 +209,18 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   if (!donotScrubDisposableElementsAttr)
     pm.addPass(createScrubDisposablePass());
 
+  // Fuse chains of ONNX operations into a single ONNXFusedOp (for kinds that
+  // are not accelerator-specific -- see ONNXFusionOpHelper.hpp). Keep this
+  // as late as possible, just before instrumentation, so other
+  // optimizations don't disturb the fused op once formed -- mirroring where
+  // NNPA's own fusion pass, FusionOpStickUnstick, sits relative to the end
+  // of its own pass-building function. Gated on targetCPU (false under any
+  // accelerator that merges these same patterns into its own fusion pass
+  // instead, e.g. NNPA's FusionOpStickUnstick) so exactly one fusion pass
+  // ever runs.
+  if (targetCPU && !disableFusedOp)
+    pm.addPass(onnx_mlir::createFusionOpTransformPass());
+
   // Set onnx_node_name if it is missing. Keep this pass at the end of this
   // function and just before instrumentation.
   pm.addPass(createSetONNXNodeNamePass());
