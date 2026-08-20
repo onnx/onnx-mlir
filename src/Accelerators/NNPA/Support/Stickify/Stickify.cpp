@@ -365,9 +365,27 @@ uint64_t getsize_ztensor(const zdnn_tensor_desc *tfrmd_desc) {
     cells_per_stick = AIU_2BYTE_CELLS_PER_STICK;
     number_of_sticks = tfrmd_desc->dim2;
   }
-  return static_cast<uint64_t>(tfrmd_desc->dim4) * tfrmd_desc->dim3 *
-         CEIL(number_of_sticks, AIU_STICKS_PER_PAGE) *
-         CEIL(tfrmd_desc->dim1, cells_per_stick) * AIU_PAGESIZE_IN_BYTES;
+  // Guard the dim4*dim3*ceil(dim2/sticks)*ceil(dim1/cells)*4096 product against
+  // uint64_t overflow. The per-dim and total-size caps that would otherwise
+  // bound these inputs are inside a #if 0 block (verify_transformed_descriptor),
+  // so attacker-controlled dims can wrap the product to a tiny value, causing
+  // malloc_aligned_4k to succeed with a tiny buffer that transform_ztensor then
+  // overruns. Return 0 on overflow so callers fail closed; malloc_aligned_4k's
+  // own existing !size check (Stickify.cpp:272) already handles this correctly.
+  uint64_t size = static_cast<uint64_t>(tfrmd_desc->dim4);
+  if (__builtin_mul_overflow(
+          size, static_cast<uint64_t>(tfrmd_desc->dim3), &size) ||
+      __builtin_mul_overflow(
+          size, static_cast<uint64_t>(CEIL(number_of_sticks,
+                                          AIU_STICKS_PER_PAGE)), &size) ||
+      __builtin_mul_overflow(
+          size, static_cast<uint64_t>(CEIL(tfrmd_desc->dim1,
+                                          cells_per_stick)), &size) ||
+      __builtin_mul_overflow(
+          size, static_cast<uint64_t>(AIU_PAGESIZE_IN_BYTES), &size)) {
+    return 0;
+  }
+  return size;
 }
 
 zdnn_status allochelper_ztensor_alloc(zdnn_ztensor *ztensor) {
@@ -1311,9 +1329,10 @@ zdnn_status stickify(zdnn_ztensor *ztensor, ...) {
    * b) buffer does not start on a 4k boundary
    * c) buffer_size is smaller than what's needed
    */
+  uint64_t required_size = getsize_ztensor(ztensor->transformed_desc);
   if (!ztensor->buffer ||
       reinterpret_cast<uintptr_t>(ztensor->buffer) & 0xFFF ||
-      ztensor->buffer_size < getsize_ztensor(ztensor->transformed_desc)) {
+      !required_size || ztensor->buffer_size < required_size) {
     return ZDNN_INVALID_BUFFER;
   }
 
