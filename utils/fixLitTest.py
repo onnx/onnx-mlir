@@ -39,12 +39,19 @@ def print_usage(error_msg="", options=False, usage=False, file_format=False):
         )
         dprint("utility.")
         dprint("")
-        dprint("fixLitTest [-dhprt] [-f <func-name>] <lit-test-filename>")
+        dprint(
+            "fixLitTest [-dhprt] [-f <func-name>] [-m <func-name>] <lit-test-filename>"
+        )
         dprint("  -t/--test   : Run FileCheck on each function individually.")
         dprint('                When combined with "--repair", test repaired lit test.')
         dprint("                Default flag is none is provided.")
         dprint("  -r/--repair : Repair lit test for each function individually.")
         dprint("  -f,--func <func-name>: Perform test/repair only on given function.")
+        dprint(
+            "  -m,--module <func-name>: Isolate given function (like -f) and print it"
+        )
+        dprint('                as a standalone module, wrapped in "module {...}" and')
+        dprint('                followed by an "onnx.EntryPoint" for that function.')
         dprint(
             '  --prefix <prefix>:     Set the FileCheck prefix for mlir2FileCheck (default: "").'
         )
@@ -97,6 +104,7 @@ def print_usage(error_msg="", options=False, usage=False, file_format=False):
 
 run_command = ""
 fix_fct_name = ""
+has_module = False
 prefix_str = "CHECK"
 debug = 0
 debug_command_str = ""
@@ -263,6 +271,16 @@ def emit_unmodified_segment(i):
         print(l)
 
 
+def emit_module_for_function(i):
+    global segment_text, segment_fct_name
+
+    print("module {")
+    for l in segment_text[i]:
+        print(l)
+    print(f'  "onnx.EntryPoint"() {{func = @{segment_fct_name[i]}}} : () -> ()')
+    print("}")
+
+
 def emit_modified_segment(i, has_test):
     global run_command, debug, prefix_str
     global flt_orig_model_file_name, flt_compiled_file_name
@@ -377,7 +395,7 @@ def test_orig_model(i, silent):
 
 
 def main(argv):
-    global run_command, fix_fct_name, prefix_str, debug
+    global run_command, fix_fct_name, has_module, prefix_str, debug
     global segment_text, segment_fct_name, segment_mlir2FileCheck_command
     input_command = "fixLitTest.py"
     has_fct = False
@@ -388,8 +406,17 @@ def main(argv):
     try:
         opts, args = getopt.gnu_getopt(
             argv,
-            "rtdf:hp",
-            ["repair", "test", "debug", "func=", "help", "print", "prefix="],
+            "rtdf:hpm:",
+            [
+                "repair",
+                "test",
+                "debug",
+                "func=",
+                "help",
+                "print",
+                "prefix=",
+                "module=",
+            ],
         )
     except getopt.GetoptError:
         print_usage("unknown options", options=True)
@@ -406,12 +433,17 @@ def main(argv):
             fix_fct_name = arg
             has_fct = True
             debug = 1  # debug on default with -f option
+        elif opt in ("-m", "--module"):
+            fix_fct_name = arg
+            has_fct = True
+            has_module = True
+            debug = 1  # debug on default with -m option
         elif opt == "--prefix":
             prefix_str = arg
         elif opt in ("-h", "--help"):
             print_usage(options=True, usage=True, file_format=True)
 
-    if not has_repair and not has_test:
+    if not has_repair and not has_test and not has_module:
         has_test = 1
 
     if len(args) != 1:
@@ -543,7 +575,10 @@ def main(argv):
         if has_fct:
             if segment_fct_name[i] == fix_fct_name:
                 # We have the selected function.
-                if has_repair:
+                if has_module:
+                    dprint(f"// > extract module for {segment_fct_name[i]}")
+                    emit_module_for_function(i)
+                elif has_repair:
                     dprint(f"// > repair {segment_fct_name[i]}")
                     emit_modified_segment(i, has_test)
                 elif has_test:

@@ -265,29 +265,29 @@ def print_cmd(cmd):
 
 def execute_commands(cmds, cwd=None, tmout=None):
     logger.debug("cmd={} cwd={}".format(" ".join(cmds), cwd))
+    # Merge stderr into stdout at the OS level (rather than capturing them
+    # separately and concatenating after the fact) so the combined output
+    # preserves the actual chronological order in which the child process
+    # wrote to each stream.
     out = subprocess.Popen(
-        cmds, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        cmds, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
     )
     try:
-        stdout, stderr = out.communicate(timeout=tmout)
+        stdout, _ = out.communicate(timeout=tmout)
     except subprocess.TimeoutExpired:
         # Kill the child process and finish communication.
         out.kill()
-        stdout, stderr = out.communicate()
+        stdout, _ = out.communicate()
         return (
             False,
-            (
-                stderr.decode("utf-8")
-                + stdout.decode("utf-8")
-                + "Timeout after {} seconds".format(tmout)
-            ),
+            stdout.decode("utf-8") + "Timeout after {} seconds".format(tmout),
         )
-    msg = stderr.decode("utf-8") + stdout.decode("utf-8")
+    msg = stdout.decode("utf-8")
     if out.returncode == -signal.SIGSEGV:
         return (False, msg + "Segfault")
     if out.returncode != 0:
         return (False, msg + "Return code {}".format(out.returncode))
-    return (True, stdout.decode("utf-8"))
+    return (True, msg)
 
 
 def main():
