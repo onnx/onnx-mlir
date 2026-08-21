@@ -231,11 +231,19 @@ public:
             : llvm::cast<AffineParallelOp>(loopRefToOp[loopRef])
                   .getRegion()
                   .front();
-    auto insertPt = loopBody.begin();
-    // If the first operation is not a loop, it must be inserted at the end of
+    // The moving plan positions movable blocks relative to the loops nested in
+    // this body, so the insertion point is the first such loop -- which is not
+    // necessarily the first operation of the block. A krnl.collapse'd band
+    // leaves the affine.apply ops that compute the merged loop's fused bound in
+    // front of it (affine::coalesceLoops materializes them there, and they have
+    // to stay above the loop whose bound they feed), so a body can well open
+    // with something other than its loop.
+    auto insertPt = llvm::find_if(loopBody,
+        [](Operation &op) { return isa<AffineForOp, AffineParallelOp>(op); });
+    // With no loop at all to position against, the content goes at the end of
     // the block. This situation arises when the loop of the first operation has
     // been unrolled.
-    if (!isa<AffineForOp, AffineParallelOp>(loopBody.getOperations().front()))
+    if (insertPt == loopBody.end())
       insertPt = loopBody.getTerminator()->getIterator();
 
     // Find the ops to transfer (saved into a Movable) associated with
@@ -278,15 +286,18 @@ public:
                 : llvm::cast<AffineForOp>(
                       loopRefToOp[transferPt.loopsToSkip.value().front()]);
 
-        // Move iterator to point to the next AffineFor Op.
-        while (insertPt != loopBody.end() &&
-               (!mlir::dyn_cast_or_null<AffineForOp>(&*insertPt) ||
-                   !mlir::dyn_cast_or_null<AffineParallelOp>(&*insertPt)) &&
-               loopToSkip) {
-          assert(mlir::dyn_cast_or_null<KrnlMovableOp>(&*insertPt) &&
-                 "Expecting a KrnlMovableOp");
-          insertPt++;
-        }
+        // Move iterator to point to the next AffineFor Op, when there still is
+        // one: an unrolled loop leaves none, and then the increment below just
+        // steps over whatever the unrolled body put here, as it always has.
+        // Anything sitting in front of that loop is not what this Movable
+        // stands for -- a krnl.movable still awaiting its own destination, or
+        // the affine.apply/affine.min ops computing the fused bound of a
+        // krnl.collapse'd band, which belong above the loop they bound.
+        auto loopIt = std::find_if(insertPt, loopBody.end(), [](Operation &op) {
+          return isa<AffineForOp, AffineParallelOp>(op);
+        });
+        if (loopIt != loopBody.end())
+          insertPt = loopIt;
 
         // Assert that now insertion point points to the loop to skip.
         if (loopToSkip)
