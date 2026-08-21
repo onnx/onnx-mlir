@@ -823,8 +823,7 @@ void KrnlGetInductionVariableValueOp::build(::OpBuilder &odsBuilder,
 }
 
 void KrnlGetInductionVariableValueOp::build(::OpBuilder &odsBuilder,
-    ::mlir::OperationState &odsState, ValueRange odsLoops,
-    bool odsFusedIndex) {
+    ::mlir::OperationState &odsState, ValueRange odsLoops, bool odsFusedIndex) {
   int64_t numResults =
       getExpectedNumInductionVarValues(odsLoops, odsFusedIndex);
   SmallVector<Type, 6> types(numResults, odsBuilder.getIndexType());
@@ -837,8 +836,7 @@ void KrnlGetInductionVariableValueOp::build(::OpBuilder &odsBuilder,
 
 LogicalResult KrnlGetInductionVariableValueOp::verify() {
   bool fusedIndex = getFusedIndex();
-  int64_t expected =
-      getExpectedNumInductionVarValues(getLoops(), fusedIndex);
+  int64_t expected = getExpectedNumInductionVarValues(getLoops(), fusedIndex);
   if (static_cast<int64_t>(getNumResults()) == expected)
     return success();
   InFlightDiagnostic diag = emitOpError("expects ")

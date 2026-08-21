@@ -472,19 +472,20 @@ static LogicalResult lowerGetInductionVariableValueOp(
 // Report whether this loop's lower bound is a compile-time zero, rewriting it
 // into a literal constant 0 when it is.
 //
-// A zero lower bound reaches here spelled in more than one way. `0 to N` gives a
-// genuine constant bound, but onnx-mlir also emits `%c0 to N`, which becomes a
-// single-result map over an operand instead -- canonicalization would normally
-// fold the two together, and it has not run at this point in the pass. Detecting
-// that is not sufficient on its own: affine::coalesceLoops tests the bound
-// syntactically with hasConstantLowerBound(), so the map form has to be rewritten
-// into the constant form or coalescing simply fails.
+// A zero lower bound reaches here spelled in more than one way. `0 to N` gives
+// a genuine constant bound, but onnx-mlir also emits `%c0 to N`, which becomes
+// a single-result map over an operand instead -- canonicalization would
+// normally fold the two together, and it has not run at this point in the pass.
+// Detecting that is not sufficient on its own: affine::coalesceLoops tests the
+// bound syntactically with hasConstantLowerBound(), so the map form has to be
+// rewritten into the constant form or coalescing simply fails.
 //
-// There is no single upstream call for this. canonicalizeLoopBounds() would do it
-// but is file-static in AffineOps.cpp, its composeAffineMapAndOperands() helper is
-// in no public header, and no affine utility exposes a zero-lower-bound predicate
-// (normalizeAffineFor inline-checks the same thing). So compose two public APIs:
-// getConstantIntValue per operand, and AffineMap::constantFold on the bound map.
+// There is no single upstream call for this. canonicalizeLoopBounds() would do
+// it but is file-static in AffineOps.cpp, its composeAffineMapAndOperands()
+// helper is in no public header, and no affine utility exposes a
+// zero-lower-bound predicate (normalizeAffineFor inline-checks the same thing).
+// So compose two public APIs: getConstantIntValue per operand, and
+// AffineMap::constantFold on the bound map.
 static bool normalizeZeroLowerBound(AffineForOp forOp) {
   if (forOp.hasConstantLowerBound())
     return forOp.getConstantLowerBound() == 0;
@@ -509,8 +510,9 @@ static bool normalizeZeroLowerBound(AffineForOp forOp) {
   auto intAttr = mlir::dyn_cast<IntegerAttr>(folded[0]);
   if (!intAttr || intAttr.getInt() != 0)
     return false;
-  // Semantics-preserving now that the bound is known to evaluate to zero. This is
-  // the form coalesceLoops requires, and it drops the now-dead bound operand.
+  // Semantics-preserving now that the bound is known to evaluate to zero. This
+  // is the form coalesceLoops requires, and it drops the now-dead bound
+  // operand.
   forOp.setConstantLowerBound(0);
   return true;
 }
@@ -554,8 +556,8 @@ static LogicalResult resolveCollapseOps(KrnlIterateOp &iterateOp,
     // have shortened nestedForOps.
     SmallVector<size_t, 4> indices;
     for (Value loopRef : loopsToFuse) {
-      auto it = llvm::find_if(nestedForOps,
-          [&](const std::pair<Value, Operation *> &pair) {
+      auto it = llvm::find_if(
+          nestedForOps, [&](const std::pair<Value, Operation *> &pair) {
             return pair.first == loopRef;
           });
       if (it == nestedForOps.end())
@@ -589,15 +591,17 @@ static LogicalResult resolveCollapseOps(KrnlIterateOp &iterateOp,
       band.emplace_back(llvm::cast<AffineForOp>(nestedForOps[idx].second));
 
     // coalesceLoops only handles normalized loops, and the trip count recorded
-    // below is the upper bound, which is only the trip count when the lower bound
-    // is 0 and the step is 1. Check both here, with separate diagnostics, so that
-    // this reports what is actually wrong instead of a bare pass failure.
+    // below is the upper bound, which is only the trip count when the lower
+    // bound is 0 and the step is 1. Check both here, with separate diagnostics,
+    // so that this reports what is actually wrong instead of a bare pass
+    // failure.
     //
     // These cannot live in KrnlCollapseOp's verifier: the bounds belong to the
     // krnl.iterate, which the collapse op cannot see from its own operands.
     for (AffineForOp forOp : band) {
       if (forOp.getStepAsInt() != 1)
-        return collapseOp.emitOpError("can only collapse loops with a step of 1");
+        return collapseOp.emitOpError(
+            "can only collapse loops with a step of 1");
       if (!normalizeZeroLowerBound(forOp))
         return collapseOp.emitOpError(
             "can only collapse loops whose lower bound is a compile-time "
@@ -607,14 +611,14 @@ static LogicalResult resolveCollapseOps(KrnlIterateOp &iterateOp,
     }
 
     // coalesceLoops rewrites uses of the collapsed induction variables only
-    // within the innermost loop's own region. By this point markLoopBodyAsMovable
-    // has typically parked the iterate body in a krnl.movable elsewhere in the
-    // function, so a use out there would survive that rewrite and then dangle
-    // when the loop defining it is erased -- an assertion failure inside
-    // coalesceLoops, or worse without assertions. Such uses come from naming a
-    // collapsed dimension in the `with (%ii -> %i = ...)` clause of the
-    // krnl.iterate; a collapsed nest has to obtain its indices from
-    // krnl.get_induction_var_value on the collapse result instead.
+    // within the innermost loop's own region. By this point
+    // markLoopBodyAsMovable has typically parked the iterate body in a
+    // krnl.movable elsewhere in the function, so a use out there would survive
+    // that rewrite and then dangle when the loop defining it is erased -- an
+    // assertion failure inside coalesceLoops, or worse without assertions. Such
+    // uses come from naming a collapsed dimension in the `with (%ii -> %i =
+    // ...)` clause of the krnl.iterate; a collapsed nest has to obtain its
+    // indices from krnl.get_induction_var_value on the collapse result instead.
     Region &innermostRegion = band.back().getRegion();
     for (AffineForOp forOp : band)
       for (OpOperand &use : forOp.getInductionVar().getUses())
@@ -686,8 +690,8 @@ static LogicalResult resolveCollapseOps(KrnlIterateOp &iterateOp,
   return success();
 }
 
-static LogicalResult lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
-    llvm::SmallDenseMap<Value, Operation *, 4> &refToOps,
+static LogicalResult lowerIterateOp(KrnlIterateOp &iterateOp,
+    OpBuilder &builder, llvm::SmallDenseMap<Value, Operation *, 4> &refToOps,
     CollapseTripCounts &collapseTripCounts) {
   builder.setInsertionPointAfter(iterateOp);
   // Map from unoptimizedLoopRef to the (original, unoptimized) AffineForOp.
@@ -769,11 +773,11 @@ static LogicalResult lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder
   }
 
   // The loop above stops at the "last optimized loop", leaving every loop after
-  // it without a terminator. Its index `i` counts *original* dimensions, though,
-  // while getNumOptimizedLoops() counts optimized loop references, so the break
-  // lands in the right place only when there is one optimized loop per original
-  // dimension. krnl.collapse breaks that correspondence: N original dimensions
-  // become a single optimized loop, so the loops at index
+  // it without a terminator. Its index `i` counts *original* dimensions,
+  // though, while getNumOptimizedLoops() counts optimized loop references, so
+  // the break lands in the right place only when there is one optimized loop
+  // per original dimension. krnl.collapse breaks that correspondence: N
+  // original dimensions become a single optimized loop, so the loops at index
   // [getNumOptimizedLoops(), rank - 2] are skipped.
   //
   // Being skipped is harmless for most of them. The innermost loop always
@@ -781,13 +785,13 @@ static LogicalResult lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder
   // below, and a skipped loop that sits strictly *inside* a collapsed band is
   // erased by affine::coalesceLoops. But the loop skipped at index
   // getNumOptimizedLoops() is the outermost of the *second* collapsed band when
-  // there are two, and coalesceLoops keeps that one -- turning it into the merged
-  // loop with an empty body, which LoopBodyMover::moveOne then walks into
-  // (front() on an empty block).
+  // there are two, and coalesceLoops keeps that one -- turning it into the
+  // merged loop with an empty body, which LoopBodyMover::moveOne then walks
+  // into (front() on an empty block).
   //
-  // So fill in what the loop above skipped. A loop that already has a terminator
-  // is left exactly as it made it, which keeps the iterArgs handling above and
-  // every non-collapse nest bit-for-bit unchanged.
+  // So fill in what the loop above skipped. A loop that already has a
+  // terminator is left exactly as it made it, which keeps the iterArgs handling
+  // above and every non-collapse nest bit-for-bit unchanged.
   for (int64_t i = 0; i < (int64_t)currentNestedForOps.size() - 1; i++) {
     auto forOp = llvm::cast<AffineForOp>(currentNestedForOps[i].second);
     if (forOp.getBody()->mightHaveTerminator())
@@ -1047,8 +1051,8 @@ static LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     }
     return success();
   } else if (auto collapseOp = mlir::dyn_cast_or_null<KrnlCollapseOp>(op)) {
-    LLVM_DEBUG(llvm::dbgs()
-               << DEBUG_TYPE << " interpret collapse op " << collapseOp << "\n");
+    LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << " interpret collapse op "
+                            << collapseOp << "\n");
     // krnl.collapse is resolved eagerly inside lowerIterateOp, where the naive
     // per-dimension band is still pristine, so there is nothing left to do here
     // beyond dropping the recipe op.
@@ -1352,8 +1356,8 @@ void ConvertKrnlToAffinePass::runOnOperation() {
                   mlir::dyn_cast_or_null<KrnlGetInductionVariableValueOp>(
                       genericOp)) {
             // A collapsed loop cannot itself be unrolled (KrnlUnrollOp's
-            // verifier rejects that), but a query *inside* the unrolled loop may
-            // still name an enclosing collapsed one, so this needs the trip
+            // verifier rejects that), but a query *inside* the unrolled loop
+            // may still name an enclosing collapsed one, so this needs the trip
             // counts just as the final walk does.
             if (failed(lowerGetInductionVariableValueOp(
                     getIVOp, loopRefToOp, collapseTripCounts))) {
