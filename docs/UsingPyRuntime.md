@@ -129,6 +129,12 @@ decoder_sess = OMExecutionSession(shared_lib_path=decoder_model) # tag will be `
 
 To use functions without tags, e.g. `run_main_graph`, set `tag = "NONE"`.
 
+> **Note:** Tags only namespace the model's entry-point and signature symbols
+> (`run_main_graph_<tag>`, `omInputSignature_<tag>`, etc.). Each model's
+> statically-linked runtime helpers (`omTensorCreate`, `omTensorDestroy`, and
+> others from `libcruntime.a`) are self-contained within that model's `.so` and
+> do not interfere with co-loaded models.
+
 ## PyRuntime model API
 The complete interface to `OMExecutionSession` can be seen in the sources mentioned previously.
 However, using the constructor and run method is enough to perform inferences.
