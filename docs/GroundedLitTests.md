@@ -118,6 +118,67 @@ are reported as a **FAILURE**, not a pass. Nothing was actually compared, so a
 "PASS" would be a lie. This is the guard against the most likely mistake -- a
 baseline copy-pasted from the test and then not edited.
 
+### Read the `-d` diff, and make it minimal
+
+The tool only checks that the two variants differ *somehow*. Keeping them
+differing **only** where the feature requires is your job. **When adding a new
+file-mode pair, run `-d` and read the diff line by line before generating any
+CHECK lines.** For each differing line, ask: *is this line different because the
+feature demands it?* If not, change the baseline until it is. Install `icdiff` for
+a side-by-side view; `-d` picks it up automatically.
+
+A gratuitous difference does not make the comparison wrong, so it is worth being
+clear on why this earns the effort:
+
+- **The diff is the feature's specification.** For a new op, `-d` is the clearest
+  statement anywhere of what the op changes, and the first thing a reviewer reads.
+  Noise buries the signal.
+- **It keeps failures pointed at one thing.** Every unrelated difference is also
+  being tested, so a variant that differs in four places takes four times as long
+  to bisect when it breaks.
+- **A large diff is a prompt to check the test's scope.** The usual cause is one
+  function testing two things; splitting it gives sharper failures for the same
+  coverage. A prompt, not a verdict -- see the essential list below.
+
+Almost always gratuitous, so fix the baseline:
+
+- a constant, `memref.dim` or `memref.alloc` declared at a different point --
+  hoisted in one variant, in the loop body in the other;
+- different SSA names for the same value, or a different order for independent
+  operations;
+- a memref shape, element type, or bound spelling the feature does not require;
+- arithmetic in one variant that the other does not need.
+
+Essential, so keep:
+
+- the ops the feature adds or removes, and any whose operands or result counts it
+  changes -- the point of the test;
+- arithmetic the baseline performs **by hand to derive what the compiler is
+  supposed to produce**. Whenever the test asks the compiler for a value, the
+  baseline must reach that value another way or there is nothing to compare
+  against. This legitimately makes some diffs large, and shrinking them would
+  delete the comparison. Say so in a comment so the next reader does not "clean it
+  up".
+
+What minimal looks like -- the whole diff for one function of a new-KRNL-op
+family, where the op replaces a loop reference and changes a query's result count:
+
+```
+-  krnl.iterate(%ii, %jj) with (%ii -> %i = 0 to 10, %jj -> %j = 0 to 20) {
+-    %a, %b = krnl.get_induction_var_value(%ii, %jj) : (!krnl.loop, !krnl.loop) -> (index, index)
++  %ff = krnl.collapse(%ii, %jj) : (!krnl.loop, !krnl.loop) -> !krnl.loop
++  krnl.iterate(%ff) with (%ii -> %i = 0 to 10, %jj -> %j = 0 to 20) {
++    %a, %b = krnl.get_induction_var_value(%ff) : (!krnl.loop) -> (index, index)
+```
+
+`krnl_to_affine_collapse.mlir` and its baseline are a worked family to copy the
+shape from, including one function whose diff is deliberately large for the
+by-hand-derivation reason above.
+
+For a new case that follows an existing pair's shape, a minimal diff comes for
+free and re-reading it is not worth the time. Do the review when the pair is new,
+or when you have reshaped an existing one.
+
 ## Let the file carry its own options
 
 Most cases need something to run: a shape for a dynamic input, a pipeline flag, a
@@ -129,7 +190,7 @@ using directives that `GroundLitTest.py` reads out of `--model`:
 // GROUND-ALL: -c="-O3 -parallel"
 
 // Defaults for the next function only.
-// GROUND-HERE: -shape-info=0:10x20
+// GROUND-THIS: -shape-info=0:10x20
 func.func @my_dynamic_case(%arg0: memref<?x?xf32> {onnx.name = "x"}) -> ...
 ```
 
@@ -137,16 +198,15 @@ A directive line is options and nothing else: everything after the `:` is parsed
 so a trailing `// like this` explanation is read as arguments and rejected. Put
 the prose on its own comment line, as above.
 
-`// GROUND-THIS:` is a synonym for `// GROUND-HERE:`. Both take this tool's own
-options, in either the `--flag` or single-dash `-flag` spelling, and both may be
-repeated across several lines. Precedence is **per option**, most specific
-winning:
+Both directives take this tool's own options, in either the `--flag` or
+single-dash `-flag` spelling, and both may be repeated across several lines.
+Precedence is **per option**, most specific winning:
 
 ```
-command line  >  GROUND-HERE  >  GROUND-ALL  >  built-in default
+command line  >  GROUND-THIS  >  GROUND-ALL  >  built-in default
 ```
 
-so a `GROUND-HERE` that sets only `--shape-info` still inherits `GROUND-ALL`'s
+so a `GROUND-THIS` that sets only `--shape-info` still inherits `GROUND-ALL`'s
 `--compile-args`, and anything you type still overrides both. A directive may not
 set `-m`/`-f` -- a file does not get to name itself or choose which of its
 functions is tested. Only `--model` is scanned; a baseline file's directives are
@@ -185,7 +245,7 @@ function's leftovers would survive, which would be misleading.
    ```
    GroundLitTest.py -m mytest.mlir -f my_func [mode options]
    ```
-   Once it passes, move whatever options it needed into a `// GROUND-HERE:` line
+   Once it passes, move whatever options it needed into a `// GROUND-THIS:` line
    above the function (or `// GROUND-ALL:` if the whole file needs them), so the
    knowledge lives in the file. On failure, re-run with `-d` and `-v`; the kept
    `glt_test.mlir` / `glt_baseline.mlir` / `glt_ref/` in the working directory are
@@ -225,6 +285,10 @@ choices are what turn a passing grounding run into real evidence:
 - **Pin the inputs** with `--seed` when chasing a specific failure, and
   `--lower-bound`/`--upper-bound`/`--input-value` when the default random range
   makes the output uninteresting (all-negative input into a ReLU, say).
+- **In file mode, keep the baseline differing only where the feature requires**,
+  and read the `-d` diff to confirm it. A pair that differs in several unrelated
+  places is testing several things at once, so a failure no longer points at one.
+  See "Read the `-d` diff, and make it minimal".
 
 ## Getting breadth: the scenario matrix
 
@@ -284,7 +348,7 @@ Concretely, dynamic shapes are the only way to reach:
 Requirements for these cases:
 
 1. Cover all three: all-dynamic, all-static, and mixed.
-2. Ground each with `--shape-info 0:10x20`, pinned in a `// GROUND-HERE:` line.
+2. Ground each with `--shape-info 0:10x20`, pinned in a `// GROUND-THIS:` line.
 3. **Run at least one dynamic case at more than one shape**, including a
    degenerate `1` and a size that is not a multiple of any tile or vector length.
    One shape proves the code runs; several prove nothing was baked in for that
@@ -319,8 +383,11 @@ in the pass and emit a proper error there.
 
 - `GroundLitTest.py -m <file>` with no other options grounds **every** function
   in the file and reports `Failed (0)`. The options each case needs live in its
-  `GROUND-ALL`/`GROUND-HERE` directives, so this one command is the gate.
+  `GROUND-ALL`/`GROUND-THIS` directives, so this one command is the gate.
 - The CHECK lines were generated *after* that passed, never before.
+- For every **new** file-mode pair, the `-d` diff was read line by line and every
+  remaining difference is one the feature requires. Not needed for a case that
+  follows an existing pair's shape.
 - Dynamic dimensions are covered in all three forms (all-dynamic, all-static,
   mixed), and at least one dynamic case was grounded at more than one shape.
 - Every documented restriction has a negative test.
@@ -344,9 +411,10 @@ in the pass and emit a proper error there.
 | `fixLitTest.py` ignores your existing CHECK lines | They must start at **column 0**; the prefix scanner is anchored and does not see an indented `// CHECK`. |
 | `fixLitTest.py -r` leaves a function untouched | Bare `-r` only repairs functions whose test *fails*. Use `-r -f <fn>` to regenerate one unconditionally. |
 | A multi-prefix file skips some functions | Intended: a function carrying only another prefix's CHECK lines is skipped rather than failed, and never has assertions injected for a prefix it was not written for. |
-| A `GROUND-HERE` seems ignored | It applies to the *next function defined after it*, and only in `--model`; directives in a baseline file are not read. It also cannot set `-m`/`-f`. |
+| A `GROUND-THIS` seems ignored | It applies to the *next function defined after it*, and only in `--model`; directives in a baseline file are not read. It also cannot set `-m`/`-f`. |
 | `bad "GROUND-ALL" directive ... unrecognized arguments: // ...` | Everything after the `:` is options, so a trailing `//` explanation on the same line is parsed as arguments. Move the prose to its own comment line. |
 | A directive value starting with `-` is rejected | Use the `--flag=value` form (`-c="-O3 -parallel"`, `-shape-info=0:10x20`), exactly as on the command line. |
 | File mode reports FAILURE saying the variants are identical | The baseline is the same MLIR as the test modulo comments, so nothing was compared. Usually a copy-paste baseline that was never edited. |
+| The `-d` diff is far larger than the feature warrants | Either the baseline differs gratuitously (a constant declared in a different place, renamed values, an unneeded shape) and should be brought into line, or the function is testing two things and wants splitting. Not always a defect: a baseline deriving by hand what the compiler is asked to produce is *supposed* to be longer. |
 | `glt_*.mlir` missing after a run | Only a single-`-f` run keeps them; an all-functions run clears them, since only the last function's leftovers would survive. |
 | `FileCheck: undefined variable` in generated output | A definition site `mlir2FileCheck.py` does not recognize. It detects definitions by the `%x =` shape, so anything binding a name without an `=` degrades to a dangling use. Fix the generator rather than hand-binding the line. |

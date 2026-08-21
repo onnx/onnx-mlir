@@ -28,8 +28,8 @@ func.func @block_shares_operand_with_collapse() {
 
 // -----
 
-// get_induction_var_value on a collapsed-away ref: use krnl.collapse_indices on
-// the fused index instead.
+// get_induction_var_value on a collapsed-away ref: query the collapse result
+// instead, which yields every collapsed dimension's index.
 func.func @get_induction_var_of_collapsed_ref() {
   %ii, %jj = krnl.define_loops 2
   // expected-error @+1 {{collapses a loop reference that is also used by 'krnl.get_induction_var_value'}}
@@ -63,7 +63,7 @@ func.func @use_original_induction_variables(%arg0: memref<10x20xf32>) -> memref<
 
 // A genuinely non-zero lower bound is out of scope. This is not merely passing
 // through affine::coalesceLoops' own "normalized loops only" precondition: the
-// trip count recorded for krnl.collapse_indices is taken to be the upper bound,
+// trip count recorded for the index recovery is taken to be the upper bound,
 // which is only the trip count when the lower bound is 0 and the step is 1.
 // Collapsing such a loop would silently mis-decompose every recovered index.
 // Note this rejects the bound's *value*, not how it is spelled -- see
@@ -74,8 +74,7 @@ func.func @lower_bound_not_zero(%arg0: memref<10x20xf32>) -> memref<10x20xf32> {
   // expected-error @+1 {{can only collapse loops whose lower bound is a compile-time constant 0}}
   %ff = krnl.collapse(%ii, %jj) : (!krnl.loop, !krnl.loop) -> !krnl.loop
   krnl.iterate(%ff) with (%ii -> %i = 5 to 10, %jj -> %j = 0 to 20) {
-    %idx = krnl.get_induction_var_value(%ff) : (!krnl.loop) -> index
-    %a, %b = krnl.collapse_indices(%idx) : (index) -> (index, index)
+    %a, %b = krnl.get_induction_var_value(%ff) : (!krnl.loop) -> (index, index)
     %v = krnl.load %arg0[%a, %b] : memref<10x20xf32>
     krnl.store %v, %alloc[%a, %b] : memref<10x20xf32>
   }
@@ -91,8 +90,7 @@ func.func @lower_bound_dynamic(%arg0: memref<10x20xf32>, %lb: index) -> memref<1
   // expected-error @+1 {{can only collapse loops whose lower bound is a compile-time constant 0}}
   %ff = krnl.collapse(%ii, %jj) : (!krnl.loop, !krnl.loop) -> !krnl.loop
   krnl.iterate(%ff) with (%ii -> %i = %lb to 10, %jj -> %j = 0 to 20) {
-    %idx = krnl.get_induction_var_value(%ff) : (!krnl.loop) -> index
-    %a, %b = krnl.collapse_indices(%idx) : (index) -> (index, index)
+    %a, %b = krnl.get_induction_var_value(%ff) : (!krnl.loop) -> (index, index)
     %v = krnl.load %arg0[%a, %b] : memref<10x20xf32>
     krnl.store %v, %alloc[%a, %b] : memref<10x20xf32>
   }

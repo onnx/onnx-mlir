@@ -46,21 +46,11 @@ def print_usage(error_msg="", options=False, usage=False, file_format=False):
         dprint('                When combined with "--repair", test repaired lit test.')
         dprint("                Default flag is none is provided.")
         dprint("  -r/--repair : Repair lit test for each function individually.")
-        dprint(
-            "                A function with no CHECK lines at all is treated as a"
-        )
-        dprint(
-            "                test being written from scratch, and gets a full set"
-        )
-        dprint(
-            '                generated for it. A function that only carries *other*'
-        )
-        dprint(
-            "                prefixes' CHECK lines is left alone, so a file with"
-        )
-        dprint(
-            "                several RUN/prefix pairs never gains assertions for a"
-        )
+        dprint("                A function with no CHECK lines at all is treated as a")
+        dprint("                test being written from scratch, and gets a full set")
+        dprint("                generated for it. A function that only carries *other*")
+        dprint("                prefixes' CHECK lines is left alone, so a file with")
+        dprint("                several RUN/prefix pairs never gains assertions for a")
         dprint("                prefix it was not written for.")
         dprint("  -f,--func <func-name>: Perform test/repair only on given function.")
         dprint(
@@ -472,9 +462,15 @@ def main(argv):
         has_test = 1
 
     if len(args) != 1:
-        # All commands after the file name seems to be added here!!!
-        dprint("Need an single input file as last option: ", args, ".")
-        return
+        # Everything getopt did not consume as an option ends up here, so a
+        # miscounted option is what usually lands us in this branch.
+        print_usage(
+            f"expected exactly one input file as the last argument, got"
+            f" {len(args)}: {args}."
+            ' Options come before the file name, and those taking a value ("-f",'
+            ' "-m", "--prefix") consume the argument after them.',
+            options=True,
+        )
     lit_test_filename = args[0]
     if not os.path.exists(lit_test_filename):
         # If don't find the path, try in the test/mlir sub directory.

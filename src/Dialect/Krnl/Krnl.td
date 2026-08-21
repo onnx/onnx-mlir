@@ -445,31 +445,32 @@ def KrnlCollapseOp : Op<Krnl_Dialect, "collapse"> {
     trip count is the product of the original trip counts. Operands are given
     outer-to-inner, and the single result refers to the fused loop.
 
+    `krnl.get_induction_var_value` hands the body one index **per original
+    dimension** by default, so a collapsed nest is queried exactly like an
+    uncollapsed one and a body does not have to know whether it was collapsed:
+
     ```
     %ii, %jj = krnl.define_loops 2
     %f = krnl.collapse(%ii, %jj) : (!krnl.loop, !krnl.loop) -> !krnl.loop
     krnl.iterate(%f) with (%ii -> %i = 0 to 10, %jj -> %j = 0 to 20) {
-      %idx = krnl.get_induction_var_value(%f) : (!krnl.loop) -> index
-      // %idx is the flat iteration number over the fused range, here 0 to 199.
+      %i, %j = krnl.get_induction_var_value(%f) : (!krnl.loop) -> (index, index)
+      %v = krnl.load %2d[%i, %j] : memref<10x20xf32>
     }
     ```
 
-    The fused index is a perfectly good index in its own right, and there are two
-    ways to use it. Use it **as is** whenever a linearized access is what the body
-    wants -- for a flat `memref<200xf32>` in the example above, `%idx` is already
-    the right subscript, and no division is emitted at all:
+    Recovering those per-dimension indices costs a floordiv/mod chain. When a
+    **linearized** access is what the body wants instead, ask for the fused index
+    with the `fusedIndex` attribute and no division is emitted at all -- for a flat
+    `memref<200xf32>`, the fused index is already the right subscript:
 
     ```
+    %idx = krnl.get_induction_var_value(%f) {fusedIndex} : (!krnl.loop) -> index
     %v = krnl.load %flat[%idx] : memref<200xf32>
+    // %idx is the flat iteration number over the fused range, here 0 to 199.
     ```
 
-    Pass it to **`krnl.collapse_indices`** only when the per-dimension indices are
-    actually needed, which is what costs the floordiv/mod chain:
-
-    ```
-    %i, %j = krnl.collapse_indices(%idx) : (index) -> (index, index)
-    %v = krnl.load %2d[%i, %j] : memref<10x20xf32>
-    ```
+    Both may appear in the same body, as two separate queries on the same loop
+    reference.
 
     The main motivation is `krnl.parallel`, which can then spread a single
     fused iteration space over the available threads instead of parallelizing
@@ -484,7 +485,7 @@ def KrnlCollapseOp : Op<Krnl_Dialect, "collapse"> {
       is only known at run time (`%lb to N`) is rejected: the trip count of a
       collapsed dimension is taken to be its upper bound, and recovering the
       per-dimension indices would additionally have to add each dimension's
-      offset back in, which `krnl.collapse_indices` does not do.
+      offset back in, which the recovery does not do.
     * The enclosing `krnl.iterate` must have no reduction `iterArgs`.
     * The operands may not themselves be results of `krnl.block` or
       `krnl.collapse`. Conversely, the result may not be fed to `krnl.block` or
@@ -493,12 +494,16 @@ def KrnlCollapseOp : Op<Krnl_Dialect, "collapse"> {
       no longer refers to a loop of its own, so nothing else may use it. In
       particular `krnl.get_induction_var_value(%ii)` on a collapsed-away operand
       is invalid, and so is naming that dimension's induction variable in the
-      `with` clause and then using it (the `%i` in `with (%ii -> %i = 0 to N)`) --
-      the fused loop has no per-dimension induction variables to hand back.
+      `with` clause and then using it (the `%i` in `with (%ii -> %i = 0 to N)`).
+      The latter is an implementation restriction rather than a fundamental one:
+      `affine::coalesceLoops` rewrites uses of the collapsed induction variables
+      only within the fused loop's own region, whereas the iterate body has by
+      then been parked elsewhere in the function.
 
       The **result** is the opposite, and is not restricted at all: `%f` is the
       one surviving loop, and `krnl.get_induction_var_value(%f)` is exactly how
-      its index is obtained.
+      its indices are obtained -- per-dimension by default, or the fused index
+      with `{fusedIndex}`.
 
     Only the two operand/result restrictions are enforced by this op's verifier.
     The bound, `iterArgs` and use restrictions depend on the enclosing
@@ -514,32 +519,6 @@ def KrnlCollapseOp : Op<Krnl_Dialect, "collapse"> {
       `(` $loops `)` attr-dict `:` functional-type($loops, results)
   }];
   let hasVerifier = 1;
-}
-
-def KrnlCollapseIndicesOp : Op<Krnl_Dialect, "collapse_indices", [NoMemoryEffect]> {
-  let summary = "Krnl collapse indices operation";
-  let description = [{
-    Recover the per-dimension indices of a `krnl.collapse`d loop nest from the
-    fused (linear) index of the collapsed loop. Results are given
-    outer-to-inner, one per originally collapsed dimension.
-
-    ```
-    %idx = krnl.get_induction_var_value(%f) : (!krnl.loop) -> index
-    %i, %j = krnl.collapse_indices(%idx) : (index) -> (index, index)
-    ```
-
-    The operand must be the induction variable of a loop produced by
-    `krnl.collapse`, and the number of results must match the number of
-    collapsed dimensions.
-  }];
-
-  let arguments = (ins Index:$linear_index);
-  let results = (outs Variadic<Index>:$indices);
-
-  let builders = [ OpBuilder<(ins "Value":$linear_index, "int64_t":$num_indices)> ];
-  let assemblyFormat = [{
-      `(` $linear_index `)` attr-dict `:` functional-type($linear_index, results)
-  }];
 }
 
 def KrnlPermuteOp : Op<Krnl_Dialect, "permute"> {
@@ -992,7 +971,7 @@ def KrnlMovableOp : Op<Krnl_Dialect, "movable", [ImplicitKrnlTerminator]> {
 }
 
 def KrnlGetInductionVariableValueOp : Op<Krnl_Dialect, "get_induction_var_value", [NoMemoryEffect]> {
-  let summary = "Krnl ";
+  let summary = "Krnl get induction variable value operation";
   let description = [{
      Krnl operation to convert loop references to corresponding induction
      variable values. This is useful for accessing optimized loop induction
@@ -1001,17 +980,53 @@ def KrnlGetInductionVariableValueOp : Op<Krnl_Dialect, "get_induction_var_value"
      For example, this operation can be applied to loop references corresponding to
      inter-tile iterations. The return values will be the starting index of the
      current tile being iterated over.
+
+     Every operand yields one result, **except** a loop reference produced by
+     `krnl.collapse`, which by default yields one result per originally collapsed
+     dimension, outer-to-inner. A body therefore reads the same whether or not its
+     nest was collapsed:
+
+     ```
+     %f = krnl.collapse(%d0, %d1) : (!krnl.loop, !krnl.loop) -> !krnl.loop
+     krnl.iterate(%f, %d2) with (%d0 -> %i0 = 0 to A, %d1 -> %i1 = 0 to B,
+                                 %d2 -> %i2 = 0 to C) {
+       // 2 operands, 3 results: %f contributes 2, %d2 contributes 1.
+       %a, %b, %c = krnl.get_induction_var_value(%f, %d2)
+           : (!krnl.loop, !krnl.loop) -> (index, index, index)
+     }
+     ```
+
+     Recovering those indices costs a floordiv/mod chain per collapsed group. Set
+     the **`fusedIndex`** attribute to get the single fused (linear) index of each
+     collapsed loop instead, which emits no division and is what a linearized
+     access wants:
+
+     ```
+     %lin, %c = krnl.get_induction_var_value(%f, %d2) {fusedIndex}
+         : (!krnl.loop, !krnl.loop) -> (index, index)
+     ```
+
+     The attribute applies to the whole operation, so a body needing both forms
+     issues two operations on the same loop references. It is permitted, and inert,
+     on an operation with no collapsed operand, where the two result counts
+     coincide.
+
+     Accordingly the number of results must be exactly the number of operands with
+     `fusedIndex`, and the sum over operands of the number of dimensions each
+     contributes without it.
   }];
 
-  let arguments = (ins Variadic<AnyType> : $loops);
+  let arguments = (ins Variadic<AnyType>:$loops, UnitAttr:$fusedIndex);
   let results = (outs Variadic<AnyType> : $ind_var_vals);
 
-  let builders = [ OpBuilder<(ins "ValueRange": $loops)>];
+  let builders = [ OpBuilder<(ins "ValueRange": $loops)>,
+                   OpBuilder<(ins "ValueRange":$loops, "bool":$fusedIndex)>];
 
   let assemblyFormat = [{
       `(` $loops `)` attr-dict `:` functional-type($loops, results)
   }];
 
+  let hasVerifier = 1;
 }
 
 // =============================================================================

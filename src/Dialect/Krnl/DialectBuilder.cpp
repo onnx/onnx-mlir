@@ -189,43 +189,24 @@ void KrnlBuilder::unroll(Value loop) const {
 }
 
 Value KrnlBuilder::collapse(ValueRange loops) const {
+  assert(!loops.empty() && "collapse needs at least one loop");
+  // Fusing one loop with nothing is the loop itself. Returning the ref instead
+  // of building a degenerate krnl.collapse keeps the IR identical to the
+  // uncollapsed case, and avoids consuming the ref for no benefit -- a
+  // collapsed operand may no longer be blocked, unrolled, permuted or queried.
+  if (loops.size() == 1)
+    return loops[0];
   return KrnlCollapseOp::create(b(), loc(), loops).getResult();
-}
-
-ValueRange KrnlBuilder::getCollapsedIndices(Value linearIndex) const {
-  // The number of collapsed dimensions is not carried by the fused index
-  // itself, so recover it from the krnl.collapse op that created the loop this
-  // index iterates over. The expected chain is
-  //   %f = krnl.collapse(%d1, ..., %dN)
-  //   %idx = krnl.get_induction_var_value(%f)
-  //
-  // A single step back per link is enough, with no need to walk further up:
-  // krnl.block and krnl.collapse are the only two ops that turn a loop
-  // reference into another loop reference, and both reject a krnl.collapse
-  // operand in their verifiers, so nothing can legally sit in between.
-  //
-  // Those verifiers only run at pass boundaries, though, whereas this runs while
-  // the IR is still being built. So the checks below are report_fatal_error and
-  // not assert: a misuse from C++ would otherwise sail past a compiled-out
-  // assert in a release build and dereference a null op.
-  auto getIVOp = linearIndex.getDefiningOp<KrnlGetInductionVariableValueOp>();
-  if (!getIVOp)
-    llvm::report_fatal_error("krnl.collapse_indices expects a fused index "
-                             "defined by krnl.get_induction_var_value");
-  // Locate which of the queried loops produced this particular index.
-  int64_t resNum = mlir::cast<OpResult>(linearIndex).getResultNumber();
-  auto collapseOp = getIVOp.getLoops()[resNum].getDefiningOp<KrnlCollapseOp>();
-  if (!collapseOp)
-    llvm::report_fatal_error(
-        "krnl.collapse_indices expects a fused index whose loop reference is "
-        "produced by krnl.collapse");
-  return KrnlCollapseIndicesOp::create(
-      b(), loc(), linearIndex, collapseOp.getLoops().size())
-      .getResults();
 }
 
 ValueRange KrnlBuilder::getInductionVarValue(ValueRange loops) const {
   return KrnlGetInductionVariableValueOp::create(b(), loc(), loops)
+      .getResults();
+}
+
+ValueRange KrnlBuilder::getFusedInductionVarValue(ValueRange loops) const {
+  return KrnlGetInductionVariableValueOp::create(
+      b(), loc(), loops, /*fusedIndex=*/true)
       .getResults();
 }
 
