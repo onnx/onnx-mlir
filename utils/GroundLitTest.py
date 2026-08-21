@@ -5,11 +5,16 @@
 # same computation and verify that they produce identical (within tolerance)
 # numerical results.
 #
+#   GroundLitTest.py [options] <lit-test-filename>
+#
+# The file under test is the one positional argument, spelled as fixLitTest.py
+# spells it: every run needs it, so a flag would only be a word to type.
+#
 # The "baseline" can be specified in one of two ways:
 #   - A separate .mlir file containing a function with the same name as the
 #     one being tested (file mode: -b, or the default
-#     "<model without extension>-baseline<ext>" next to --model).
-#   - The same --model file, compiled with different onnx-mlir options
+#     "<test file without extension>.baseline<ext>" next to it).
+#   - The same test file, compiled with different onnx-mlir options
 #     (flag mode: -r/-t/-a), mirroring CheckONNXModel.py's options. Note
 #     these are onnx-mlir options, NOT onnx-mlir-opt options -- a lit test's
 #     own "// RUN: onnx-mlir-opt ..." line is a different flag namespace and
@@ -39,14 +44,14 @@
 # *can* be toggled with a flag, flag mode here is equivalent to
 # CheckONNXModel.py, just scoped to a single isolated function.
 #
-# -f/--func picks one function. Without it, every function in --model is
+# -f/--func picks one function. Without it, every function in the test file is
 # tested, one at a time, each reporting what a single -f run reports (bar the
 # "reproduce this manually" recipe, which only a single -f run can hand out --
 # see below), followed by a summary of which functions succeeded and which
 # failed, in the order they appear in the file.
 #
 # A test file can carry the options it needs to be run with, so that a bare
-# "GroundLitTest.py -m <file>" is enough and nobody has to rediscover, months
+# "GroundLitTest.py <file>" is enough and nobody has to rediscover, months
 # later, that one function only means anything at --shape-info 0:10x20:
 #
 #   // GROUND-ALL: <options>    in the header, before the first function:
@@ -63,11 +68,11 @@
 #
 # so a GROUND-THIS that sets only --shape-info still inherits GROUND-ALL's
 # --compile-args, and anything typed on the command line still wins over both.
-# A directive cannot set -m/--model or -f/--func (a file naming itself, or
+# A directive cannot name a file, nor set -f/--func (a file naming itself, or
 # choosing which of its functions gets tested, is not something it should
 # decide). An option value that starts with "-" needs the "--flag=value" form,
-# just as it does on the command line. Only --model is scanned for directives;
-# a baseline file's own directives are ignored.
+# just as it does on the command line. Only the test file is scanned for
+# directives; a baseline file's own directives are ignored.
 #
 # Relies on:
 #   - fixLitTest.py -m <func-name> <file>: isolate a single function into a
@@ -103,6 +108,17 @@ RUN_ONNX_MODEL_NAME = os.path.basename(RUN_ONNX_MODEL)
 GLT_TEST_FILE = "glt_test.mlir"
 GLT_BASELINE_FILE = "glt_baseline.mlir"
 GLT_REF_DIR = "glt_ref"
+
+# Tag that turns a model's name into its file-mode baseline's: "foo.mlir" pairs
+# with "foo.baseline.mlir". A dot-delimited segment rather than a "-baseline"
+# one, because test/mlir names are kebab-case and already hold variant pairs
+# like "add-exec-cpu.mlir"/"add-exec-cpu-opt.mlir", where one more hyphenated
+# segment would be indistinguishable from part of a test's own name. A dot
+# segment reads as "companion of foo.mlir", maps back to it unambiguously, and
+# is safe to match with a glob. test/mlir/lit.cfg.py skips this suffix when
+# collecting tests, so a baseline needs no RUN line of its own -- the two must
+# be kept in step.
+BASELINE_TAG = ".baseline"
 
 # The same notion of "a function" as fixLitTest.py, so that testing all
 # functions covers exactly the set fixLitTest.py can isolate.
@@ -229,7 +245,7 @@ def build_parser(cls=argparse.ArgumentParser, model_required=True):
         epilog=(
             "Two mutually exclusive ways to specify the baseline:\n"
             "  file mode (-b):     a different .mlir file, same function name.\n"
-            "  flag mode (-r/-t/-a): the SAME --model, compiled twice with\n"
+            "  flag mode (-r/-t/-a): the SAME test file, compiled twice with\n"
             "                       different onnx-mlir options.\n"
             "-c/--compile-args applies in both modes, to every compile in the\n"
             "run. In flag mode it is the shared prefix -r/-t/-a build on:\n"
@@ -239,16 +255,17 @@ def build_parser(cls=argparse.ArgumentParser, model_required=True):
             "       = c            (if neither given -- t defaults to empty)\n"
             "Compatibility: -b excludes -r/-t/-a. -c combines with all of\n"
             "-b/-r/-t/-a. -t and -a are mutually exclusive with each other.\n"
-            "Without -f/--func, every function of --model is tested in turn.\n"
+            "Without -f/--func, every function of the test file is tested in\n"
+            "turn.\n"
             "\n"
-            "--model may also carry its own options, as comments holding these\n"
-            "same flags:\n"
+            "The test file may also carry its own options, as comments holding\n"
+            "these same flags:\n"
             f"  // {GROUND_ALL}: <options>   in the header, before the first\n"
             "                              function: defaults for the file.\n"
             f"  // {GROUND_ONE}: <options>  before one function: defaults for\n"
             "                              that function only.\n"
-            "Both may be repeated, and neither may set -m or -f. Precedence,\n"
-            "per option:\n"
+            "Both may be repeated, and neither may name a file or set -f.\n"
+            "Precedence, per option:\n"
             f"  {COMMAND_LINE} > {GROUND_ONE} > {GROUND_ALL} > built-in default"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -268,10 +285,14 @@ def build_parser(cls=argparse.ArgumentParser, model_required=True):
     own.add_argument(
         "-h", "--help", action="help", help="Show this help message and exit."
     )
+    # Positional, as in fixLitTest.py: every run needs it, so there is nothing
+    # for a flag to distinguish. "?" for the directive parser, which must be able
+    # to parse an option-only line -- and, having the argument declared, can then
+    # say what is wrong with a directive that does name a file.
     own.add_argument(
-        "-m",
-        "--model",
-        required=model_required,
+        "model",
+        nargs=None if model_required else "?",
+        metavar="lit-test-filename",
         help="Path to the test .mlir file.",
     )
     own.add_argument(
@@ -279,7 +300,7 @@ def build_parser(cls=argparse.ArgumentParser, model_required=True):
         "--func",
         help=(
             "Name of the function to isolate and compare. Default: test every "
-            "function of --model, one at a time."
+            "function of the test file, one at a time."
         ),
     )
 
@@ -289,7 +310,7 @@ def build_parser(cls=argparse.ArgumentParser, model_required=True):
         help=(
             "File mode: path to a baseline .mlir file containing a function "
             "with the same name as --func. Default: "
-            '"<model without extension>-baseline<ext>", next to --model. '
+            '"<test file without extension>.baseline<ext>", next to it. '
             "Mutually exclusive with -r/-t/-a. See epilog for the full "
             "compatibility rules."
         ),
@@ -308,7 +329,7 @@ def build_parser(cls=argparse.ArgumentParser, model_required=True):
         "-r",
         "--ref-compile-args",
         help=(
-            "Flag mode: compile the SAME --model twice instead of using a "
+            "Flag mode: compile the SAME test file twice instead of using a "
             "second file. These are the reference/baseline onnx-mlir "
             "options, appended after -c's (NOT onnx-mlir-opt options). "
             "Default: empty."
@@ -379,11 +400,15 @@ def flag_table(parser):
     exposes no public accessor for the arguments a parser was given, and the
     alternative is a hand-kept second copy of every flag spelling here, free to
     drift from the real one.
+
+    The model has no option strings, being positional, and so falls out of this
+    table -- which is what the option listings want anyway: it is reported as the
+    file being tested, not as one of the options applied to it.
     """
     table = {}
     for action in parser._actions:
         if action.option_strings and action.dest != "help":
-            # The last spelling is the long one ("--model" of "-m/--model").
+            # The last spelling is the long one ("--func" of "-f/--func").
             table[action.dest] = (action.option_strings[-1], action.nargs != 0)
     return table
 
@@ -392,6 +417,18 @@ CLI_PARSER = build_parser()
 DIRECTIVE_PARSER = build_parser(cls=DirectiveParser, model_required=False)
 FLAG_BY_DEST = flag_table(CLI_PARSER)
 KNOWN_FLAGS = {flag for action in CLI_PARSER._actions for flag in action.option_strings}
+
+
+def command_line_only_complaint(dest):
+    """
+    What a directive that reaches for a COMMAND_LINE_ONLY option is doing, named
+    the way its author would name it. The model is positional and so has no flag
+    to quote back -- and "names a file" says more about the mistake than any
+    spelling of it would, since what such a directive holds is a bare path.
+    """
+    if dest == "model":
+        return "names a file"
+    return f"sets {FLAG_BY_DEST[dest][0]}"
 
 
 def normalize_flags(tokens):
@@ -477,8 +514,9 @@ def parse_directive(marker, model_path, lineno, tokens):
     for dest in COMMAND_LINE_ONLY:
         if dest in opts:
             sys.exit(
-                f'ERROR: the "{marker}" directive at {model_path}:{lineno} sets '
-                f"{FLAG_BY_DEST[dest][0]}, which only the command line may set."
+                f'ERROR: the "{marker}" directive at {model_path}:{lineno} '
+                f"{command_line_only_complaint(dest)}, which only the command "
+                f"line may do."
             )
     conflict = check_conflicts(opts)
     if conflict:
@@ -585,9 +623,7 @@ def render_options(opts, origin=None):
     """
     parts = []
     for dest, (flag, takes_value) in FLAG_BY_DEST.items():
-        if dest == "model" or dest not in opts:
-            # --model is reported as the file being tested, not as one of the
-            # options applied to it.
+        if dest not in opts:
             continue
         if not takes_value:
             part = flag
@@ -627,7 +663,7 @@ def effective_args(cli_opts, ground_all, own_opts):
 
 def default_baseline_path(model_path):
     base, ext = os.path.splitext(model_path)
-    return base + "-baseline" + ext
+    return base + BASELINE_TAG + ext
 
 
 def list_functions(model_path):
@@ -878,7 +914,7 @@ def compare_function(
             f'  Tried baseline file "{baseline_model}" (not found).\n'
             f"  Either create that file (same function name as --func), "
             f"or pass -b/--baseline-model, or pass -r/-t/-a "
-            f"to compare --model against itself with different options."
+            f"to compare the test file against itself with different options."
         )
 
     logger = Logger(args.verbose)

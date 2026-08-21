@@ -45,6 +45,13 @@ that passes have you earned the right to record CHECK lines. If you freeze first
 and ground later, a green test tells you nothing -- you have pinned whatever the
 compiler happened to emit.
 
+It names the file it grounds the way `fixLitTest.py` does, as the one positional
+argument:
+
+```
+GroundLitTest.py [options] <lit-test-filename>
+```
+
 ## Prerequisites
 
 Build **both** driver binaries. They are separate targets, and the two tools use
@@ -78,7 +85,7 @@ Compile the **same file** twice with different `onnx-mlir` options. No baseline
 file to write, so each new test case is just one function:
 
 ```
-GroundLitTest.py -m mytest.mlir -f my_func -r=--O0 -t=--O3
+GroundLitTest.py -f my_func -r=--O0 -t=--O3 mytest.mlir
 ```
 
 `-r` is the reference options, `-t` the test options; `-a` adds to the reference
@@ -98,19 +105,23 @@ Write a second `.mlir` file holding a function with the **same name** and the
 **same computation**, expressed through a path you already trust:
 
 ```
-GroundLitTest.py -m mytest.mlir -f my_func        # baseline found automatically
-GroundLitTest.py -m mytest.mlir -f my_func -d     # plus a side-by-side body diff
+GroundLitTest.py -f my_func mytest.mlir        # baseline found automatically
+GroundLitTest.py -f my_func -d mytest.mlir     # plus a side-by-side body diff
 ```
 
-The baseline defaults to `<model>-baseline<ext>` next to the model, so
-`mytest-baseline.mlir` is picked up without `-b`. Use file mode when the variants
+The baseline defaults to `<test>.baseline<ext>` next to the test file, so
+`mytest.baseline.mlir` is picked up without `-b`. Use file mode when the variants
 are genuinely different source and no single flag switches between them -- for
 example a new KRNL op, where the baseline is the same loop nest written without
 it. `-d` prints the two isolated bodies side by side, which doubles as a readable
 summary of exactly what your feature changes.
 
 Keep the baseline file for as long as the feature is under active development.
-Whether it also ships as a committed regression artifact is a separate call.
+Whether it also ships as a committed regression artifact is a separate call; generally there are benefits in keeping such artifact for the long run. Either way it can sit next to the test it grounds: the `.baseline` tag is what
+keeps it out of the lit run. `test/mlir/lit.cfg.py` collects every `.mlir`,
+`.json` and `.onnxtext` it finds *except* those whose name ends in
+`.baseline<ext>`, so a baseline needs no RUN line and no CHECK lines of its own
+and never appears as a test.
 
 In file mode the two variants must genuinely differ: comments are stripped from
 both before comparing, and two variants that are the same MLIR modulo comments
@@ -183,7 +194,7 @@ or when you have reshaped an existing one.
 
 Most cases need something to run: a shape for a dynamic input, a pipeline flag, a
 tighter tolerance. Put those in the file rather than in your shell history,
-using directives that `GroundLitTest.py` reads out of `--model`:
+using directives that `GroundLitTest.py` reads out of the test file:
 
 ```mlir
 // Defaults for every function in this file.
@@ -207,17 +218,18 @@ command line  >  GROUND-THIS  >  GROUND-ALL  >  built-in default
 ```
 
 so a `GROUND-THIS` that sets only `--shape-info` still inherits `GROUND-ALL`'s
-`--compile-args`, and anything you type still overrides both. A directive may not
-set `-m`/`-f` -- a file does not get to name itself or choose which of its
-functions is tested. Only `--model` is scanned; a baseline file's directives are
-ignored. A value starting with `-` needs the `--flag=value` form.
+`--compile-args`, and anything you type still overrides both. A directive may
+neither name a file nor set `-f` -- a file does not get to name itself or choose
+which of its functions is tested. Only the test file is scanned; a baseline
+file's directives are ignored. A value starting with `-` needs the
+`--flag=value` form.
 
 This is what makes the whole suite runnable by one command, and it is the reason
 to do it: **without `-f`, every function in the file is grounded in turn**, each
 reporting as a single `-f` run would, followed by a pass/fail summary.
 
 ```
-GroundLitTest.py -m mytest.mlir
+GroundLitTest.py mytest.mlir
 ...
 === summary ===
 Options: --compile-args=-O3 -parallel (GROUND-ALL)
@@ -239,11 +251,11 @@ function's leftovers would survive, which would be misleading.
    parseable. One `// -----`-separated segment per scenario.
 
 2. **Set up the oracle.** Flag mode: nothing to do. File mode: add the
-   same-named function to `<model>-baseline<ext>`.
+   same-named function to `<test>.baseline<ext>`.
 
 3. **Ground it.** Iterate here, not later:
    ```
-   GroundLitTest.py -m mytest.mlir -f my_func [mode options]
+   GroundLitTest.py -f my_func [mode options] mytest.mlir
    ```
    Once it passes, move whatever options it needed into a `// GROUND-THIS:` line
    above the function (or `// GROUND-ALL:` if the whole file needs them), so the
@@ -381,7 +393,7 @@ in the pass and emit a proper error there.
 
 ## Definition of done
 
-- `GroundLitTest.py -m <file>` with no other options grounds **every** function
+- `GroundLitTest.py <file>` with no other options grounds **every** function
   in the file and reports `Failed (0)`. The options each case needs live in its
   `GROUND-ALL`/`GROUND-THIS` directives, so this one command is the gate.
 - The CHECK lines were generated *after* that passed, never before.
@@ -407,11 +419,11 @@ in the pass and emit a proper error there.
 | Dynamic input has no shape to run with | Use `--shape-info 0:10x20` (a *run-time* option of `RunONNXModel.py`). Not `--shapeInformation`, which rewrites ONNX graph inputs during shape inference and so has no effect on an already-lowered module. |
 | `failed to legalize operation 'scf.parallel'` | The parallel path needs `--compile-args=--parallel`; without it nothing in the pipeline lowers `scf.parallel`. |
 | A test file parses on its own but breaks under lit | Never write the split marker (`// ` followed by five dashes) inside a comment: `-split-input-file` cuts on that substring anywhere in the file, not just at line start, and splits your prose mid-sentence. |
-| `lit` reports your helper `.mlir` as UNRESOLVED | Every `.mlir` under `test/mlir` is collected as a test. A baseline file needs its own RUN line, plus one `CHECK-LABEL` inside each split segment. |
+| `lit` reports your helper `.mlir` as UNRESOLVED | Every `.mlir` under `test/mlir` is collected as a test, `.baseline<ext>` files aside. Name a file-mode baseline `<test>.baseline.mlir` and lit leaves it alone; any *other* helper file needs its own RUN line, plus one `CHECK-LABEL` inside each split segment. |
 | `fixLitTest.py` ignores your existing CHECK lines | They must start at **column 0**; the prefix scanner is anchored and does not see an indented `// CHECK`. |
 | `fixLitTest.py -r` leaves a function untouched | Bare `-r` only repairs functions whose test *fails*. Use `-r -f <fn>` to regenerate one unconditionally. |
 | A multi-prefix file skips some functions | Intended: a function carrying only another prefix's CHECK lines is skipped rather than failed, and never has assertions injected for a prefix it was not written for. |
-| A `GROUND-THIS` seems ignored | It applies to the *next function defined after it*, and only in `--model`; directives in a baseline file are not read. It also cannot set `-m`/`-f`. |
+| A `GROUND-THIS` seems ignored | It applies to the *next function defined after it*, and only in the test file named on the command line; directives in a baseline file are not read. It also cannot name a file or set `-f`. |
 | `bad "GROUND-ALL" directive ... unrecognized arguments: // ...` | Everything after the `:` is options, so a trailing `//` explanation on the same line is parsed as arguments. Move the prose to its own comment line. |
 | A directive value starting with `-` is rejected | Use the `--flag=value` form (`-c="-O3 -parallel"`, `-shape-info=0:10x20`), exactly as on the command line. |
 | File mode reports FAILURE saying the variants are identical | The baseline is the same MLIR as the test modulo comments, so nothing was compared. Usually a copy-paste baseline that was never edited. |
