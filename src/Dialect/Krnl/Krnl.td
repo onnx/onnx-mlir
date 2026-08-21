@@ -109,7 +109,7 @@ def KrnlCallOp : Op<Krnl_Dialect, "call",
       OpBuilder<(ins "std::string":$funcNameStr, "mlir::ValueRange":$results, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "bool":$copyAttrs)>];
 }
 
-def KrnlDefineLoopsOp : Op<Krnl_Dialect, "define_loops", [NoMemoryEffect]> {
+def KrnlDefineLoopsOp : Op<Krnl_Dialect, "define_loops"> {
   let summary = "define_loops operation";
   let description = [{
     The "krnl.define_loops" operation is used to define input loops,
