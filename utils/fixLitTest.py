@@ -462,9 +462,15 @@ def main(argv):
         has_test = 1
 
     if len(args) != 1:
-        # All commands after the file name seems to be added here!!!
-        dprint("Need an single input file as last option: ", args, ".")
-        return
+        # Everything getopt did not consume as an option ends up here, so a
+        # miscounted option is what usually lands us in this branch.
+        print_usage(
+            f"expected exactly one input file as the last argument, got"
+            f" {len(args)}: {args}."
+            ' Options come before the file name, and those taking a value ("-f",'
+            ' "-m", "--prefix") consume the argument after them.',
+            options=True,
+        )
     lit_test_filename = args[0]
     if not os.path.exists(lit_test_filename):
         # If don't find the path, try in the test/mlir sub directory.
