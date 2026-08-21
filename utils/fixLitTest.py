@@ -46,6 +46,12 @@ def print_usage(error_msg="", options=False, usage=False, file_format=False):
         dprint('                When combined with "--repair", test repaired lit test.')
         dprint("                Default flag is none is provided.")
         dprint("  -r/--repair : Repair lit test for each function individually.")
+        dprint("                A function with no CHECK lines at all is treated as a")
+        dprint("                test being written from scratch, and gets a full set")
+        dprint("                generated for it. A function that only carries *other*")
+        dprint("                prefixes' CHECK lines is left alone, so a file with")
+        dprint("                several RUN/prefix pairs never gains assertions for a")
+        dprint("                prefix it was not written for.")
         dprint("  -f,--func <func-name>: Perform test/repair only on given function.")
         dprint(
             "  -m,--module <func-name>: Isolate given function (like -f) and print it"
@@ -227,11 +233,14 @@ def get_check_prefix_from_line(line):
     Returns None if the line is not a CHECK line or doesn't match any known prefix.
     The pattern matches lines like "// CHECK-LABEL:" or "// CHECK-Z16:" etc.
     Handles CHECK line directives like -LABEL, -NOT, -DAG, -SAME, -NEXT by stripping them.
+    Leading whitespace is allowed, so an indented CHECK line is still recognized
+    as one; missing that used to make such a line invisible here, which in turn
+    made a segment look like it had no assertions at all.
     """
     global prefix_ordered_list, debug
 
-    # Match pattern: "//\s+([^:]*):" to extract the full prefix with potential suffix.
-    m = re.match(r"//\s+([^:]*):", line)
+    # Match pattern: "\s*//\s+([^:]*):" to extract the full prefix with potential suffix.
+    m = re.match(r"\s*//\s+([^:]*):", line)
     if m:
         extracted_full = m.group(1)
 
@@ -350,12 +359,18 @@ def emit_modified_segment(i, has_test):
     for line in non_check_lines:
         print(line)
 
+    # A segment carrying no assertions at all is a test being written from
+    # scratch, so the generated lines are exactly what it wants. A segment that
+    # carries only *other* prefixes' assertions is deliberately scoped to those
+    # prefixes, so it must not silently gain a full set for this one.
+    segment_has_check_lines = any(saved_check_lines.values())
+
     # Second pass: print CHECK lines in prefix order.
     for prefix in prefix_ordered_list:
         if prefix == prefix_str:
-            # Print the newly generated CHECK lines for this prefix only if
-            # there were original CHECK lines saved for this prefix.
-            if saved_check_lines[prefix]:
+            # Print the newly generated CHECK lines for this prefix if the
+            # segment had lines for it (a repair), or had none at all (bootstrap).
+            if saved_check_lines[prefix] or not segment_has_check_lines:
                 for line in new_check_lines_for_prefix:
                     print(line)
         else:
@@ -447,9 +462,15 @@ def main(argv):
         has_test = 1
 
     if len(args) != 1:
-        # All commands after the file name seems to be added here!!!
-        dprint("Need an single input file as last option: ", args, ".")
-        return
+        # Everything getopt did not consume as an option ends up here, so a
+        # miscounted option is what usually lands us in this branch.
+        print_usage(
+            f"expected exactly one input file as the last argument, got"
+            f" {len(args)}: {args}."
+            ' Options come before the file name, and those taking a value ("-f",'
+            ' "-m", "--prefix") consume the argument after them.',
+            options=True,
+        )
     lit_test_filename = args[0]
     if not os.path.exists(lit_test_filename):
         # If don't find the path, try in the test/mlir sub directory.
@@ -562,7 +583,12 @@ def main(argv):
     if has_fct and not found_fct_to_fix:
         dprint(f"Did not find function to fix: '{fix_fct_name}'.")
         sys.exit()
-    if run_command_num == 0:
+    # Isolating a function (-m) only copies text out of a segment: it never runs
+    # onnx-mlir-opt, so it has no use for the RUN command. Requiring one anyway
+    # would force a RUN line onto files that are never meant to be lit tests --
+    # GroundLitTest.py's ".baseline" files, which lit deliberately skips. Every
+    # other mode does run the command, so there the file still must carry one.
+    if run_command_num == 0 and not has_module:
         print_usage('Expected "// RUN:" command.', file_format=True)
 
     # Process segments.
