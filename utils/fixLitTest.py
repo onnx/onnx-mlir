@@ -583,7 +583,12 @@ def main(argv):
     if has_fct and not found_fct_to_fix:
         dprint(f"Did not find function to fix: '{fix_fct_name}'.")
         sys.exit()
-    if run_command_num == 0:
+    # Isolating a function (-m) only copies text out of a segment: it never runs
+    # onnx-mlir-opt, so it has no use for the RUN command. Requiring one anyway
+    # would force a RUN line onto files that are never meant to be lit tests --
+    # GroundLitTest.py's ".baseline" files, which lit deliberately skips. Every
+    # other mode does run the command, so there the file still must carry one.
+    if run_command_num == 0 and not has_module:
         print_usage('Expected "// RUN:" command.', file_format=True)
 
     # Process segments.
