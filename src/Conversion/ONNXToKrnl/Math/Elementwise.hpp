@@ -623,6 +623,21 @@ struct ScalarOp<mlir::ONNXXorOp> {
   using IOp = mlir::arith::XOrIOp;
 };
 
+// Runtime (rather than template-parameter) dispatch across the elementwise
+// op-type list above, for callers that only have an `Operation *` of
+// unknown type at hand (e.g. fused-op lowerings iterating over a
+// dynamically-discovered chain of ops). When opNode is null, regardless of
+// elementType, there is no op at all -- this is a copy, handled accordingly.
+// Defined once, in Elementwise.cpp, where every getGenOpMix<T>/
+// emitScalarOpFor<T> specialization this dispatches to is directly visible
+// -- callers do not instantiate those templates themselves.
+mlir::Value emitScalarOpForElementwiseOp(
+    mlir::ConversionPatternRewriter &rewriter, mlir::Location loc,
+    mlir::Operation *opNode, mlir::Type elementType,
+    mlir::ArrayRef<mlir::Value> scalarOperands);
+GenOpMix getGenOpMixForElementwiseOp(
+    mlir::Type elementType, mlir::Operation *opNode);
+
 } // namespace onnx_mlir
 
 //===----------------------------------------------------------------------===//
