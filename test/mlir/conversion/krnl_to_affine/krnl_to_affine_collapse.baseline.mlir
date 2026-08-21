@@ -1,4 +1,3 @@
-// RUN: onnx-mlir-opt %s -split-input-file | FileCheck %s
 
 // Baseline companion for krnl_to_affine_collapse.mlir, following
 // GroundLitTest.py's default "<model>-baseline<ext>" convention.
@@ -35,8 +34,6 @@ func.func @collapse_base(%arg0: memref<10x20xf32> {onnx.name = "x"}) -> (memref<
     krnl.store %w, %alloc[%a, %b] : memref<10x20xf32>
   }
   return %alloc : memref<10x20xf32>
-
-// CHECK-LABEL: func.func @collapse_base
 }
 
 // -----
@@ -56,8 +53,6 @@ func.func @collapse_then_parallel(%arg0: memref<10x20xf32> {onnx.name = "x"}) ->
     krnl.store %w, %alloc[%a, %b] : memref<10x20xf32>
   }
   return %alloc : memref<10x20xf32>
-
-// CHECK-LABEL: func.func @collapse_then_parallel
 }
 
 // -----
@@ -80,8 +75,6 @@ func.func @collapse_then_permute(%arg0: memref<4x5x6xf32> {onnx.name = "x"}) -> 
     krnl.store %w, %alloc[%a, %b, %c] : memref<4x5x6xf32>
   }
   return %alloc : memref<4x5x6xf32>
-
-// CHECK-LABEL: func.func @collapse_then_permute
 }
 
 // -----
@@ -104,8 +97,6 @@ func.func @collapse_three_dims(%arg0: memref<4x5x6xf32> {onnx.name = "x"}) -> (m
     krnl.store %w, %alloc[%a, %b, %c] : memref<4x5x6xf32>
   }
   return %alloc : memref<4x5x6xf32>
-
-// CHECK-LABEL: func.func @collapse_three_dims
 }
 
 // -----
@@ -126,8 +117,6 @@ func.func @collapse_lb_zero_via_constant(%arg0: memref<10x20xf32> {onnx.name = "
     krnl.store %w, %alloc[%a, %b] : memref<10x20xf32>
   }
   return %alloc : memref<10x20xf32>
-
-// CHECK-LABEL: func.func @collapse_lb_zero_via_constant
 }
 
 // -----
@@ -147,8 +136,6 @@ func.func @collapse_raw_fused_index(%arg0: memref<200xf32> {onnx.name = "x"}) ->
     krnl.store %w, %alloc[%idx] : memref<200xf32>
   }
   return %alloc : memref<200xf32>
-
-// CHECK-LABEL: func.func @collapse_raw_fused_index
 }
 
 // -----
@@ -171,8 +158,6 @@ func.func @collapse_dynamic_dims(%arg0: memref<?x?xf32> {onnx.name = "x"}) -> (m
     krnl.store %w, %alloc[%a, %b] : memref<?x?xf32>
   }
   return %alloc : memref<?x?xf32>
-
-// CHECK-LABEL: func.func @collapse_dynamic_dims
 }
 
 // -----
@@ -194,8 +179,6 @@ func.func @collapse_dynamic_and_static_dims(%arg0: memref<?x20xf32> {onnx.name =
     krnl.store %w, %alloc[%a, %b] : memref<?x20xf32>
   }
   return %alloc : memref<?x20xf32>
-
-// CHECK-LABEL: func.func @collapse_dynamic_and_static_dims
 }
 
 // -----
@@ -218,8 +201,6 @@ func.func @collapse_dynamic_then_parallel(%arg0: memref<?x?xf32> {onnx.name = "x
     krnl.store %w, %alloc[%a, %b] : memref<?x?xf32>
   }
   return %alloc : memref<?x?xf32>
-
-// CHECK-LABEL: func.func @collapse_dynamic_then_parallel
 }
 
 // -----
@@ -245,8 +226,6 @@ func.func @collapse_two_sibling_groups(%arg0: memref<4x5x6x7xf32> {onnx.name = "
     krnl.store %w, %alloc[%a, %b, %c, %d] : memref<4x5x6x7xf32>
   }
   return %alloc : memref<4x5x6x7xf32>
-
-// CHECK-LABEL: func.func @collapse_two_sibling_groups
 }
 
 // -----
@@ -278,8 +257,6 @@ func.func @collapse_two_groups_and_plain_loop(%arg0: memref<2x3x4x5x6x7xf32> {on
     krnl.store %w, %alloc[%a, %b, %c, %d, %e, %g] : memref<2x3x4x5x6x7xf32>
   }
   return %alloc : memref<2x3x4x5x6x7xf32>
-
-// CHECK-LABEL: func.func @collapse_two_groups_and_plain_loop
 }
 
 // -----
@@ -313,8 +290,6 @@ func.func @collapse_fused_index_two_groups(%arg0: memref<5040xf32> {onnx.name = 
     krnl.store %w, %alloc[%lin] : memref<5040xf32>
   }
   return %alloc : memref<5040xf32>
-
-// CHECK-LABEL: func.func @collapse_fused_index_two_groups
 }
 
 // -----
@@ -343,8 +318,6 @@ func.func @collapse_nested_iterate_outer(%arg0: memref<4x5x6x7xf32> {onnx.name =
     }
   }
   return %alloc : memref<4x5x6x7xf32>
-
-// CHECK-LABEL: func.func @collapse_nested_iterate_outer
 }
 
 // -----
@@ -373,8 +346,6 @@ func.func @collapse_nested_iterate_inner(%arg0: memref<4x5x6x7xf32> {onnx.name =
     }
   }
   return %alloc : memref<4x5x6x7xf32>
-
-// CHECK-LABEL: func.func @collapse_nested_iterate_inner
 }
 
 // -----
@@ -403,8 +374,6 @@ func.func @collapse_nested_iterate_both(%arg0: memref<4x5x6x7xf32> {onnx.name = 
     }
   }
   return %alloc : memref<4x5x6x7xf32>
-
-// CHECK-LABEL: func.func @collapse_nested_iterate_both
 }
 
 // -----
@@ -438,8 +407,6 @@ func.func @collapse_nested_iterate_both_dynamic(%arg0: memref<?x?x?x?xf32> {onnx
     }
   }
   return %alloc : memref<?x?x?x?xf32>
-
-// CHECK-LABEL: func.func @collapse_nested_iterate_both_dynamic
 }
 
 // -----
@@ -468,6 +435,4 @@ func.func @collapse_nested_iterate_both_then_parallel(%arg0: memref<4x5x6x7xf32>
     }
   }
   return %alloc : memref<4x5x6x7xf32>
-
-// CHECK-LABEL: func.func @collapse_nested_iterate_both_then_parallel
 }
