@@ -117,11 +117,19 @@ it. `-d` prints the two isolated bodies side by side, which doubles as a readabl
 summary of exactly what your feature changes.
 
 Keep the baseline file for as long as the feature is under active development.
-Whether it also ships as a committed regression artifact is a separate call; generally there are benefits in keeping such artifact for the long run. Either way it can sit next to the test it grounds: the `.baseline` tag is what
-keeps it out of the lit run. `test/mlir/lit.cfg.py` collects every `.mlir`,
-`.json` and `.onnxtext` it finds *except* those whose name ends in
-`.baseline<ext>`, so a baseline needs no RUN line and no CHECK lines of its own
-and never appears as a test.
+Whether it also ships as a committed regression artifact is a separate call;
+generally there are benefits in keeping such artifact for the long run. Either
+way it can sit next to the test it grounds: the `.baseline` tag is what keeps it
+out of the lit run. `test/mlir/lit.cfg.py` collects every `.mlir`, `.json` and
+`.onnxtext` it finds *except* those whose name ends in `.baseline<ext>`, so a
+baseline never appears as a test. It needs nothing but its functions: no `// RUN:`
+line and no CHECK lines, since `fixLitTest.py -m` -- the only thing that ever
+reads it -- copies the function out as text rather than running it.
+
+The flip side is that nothing in the lit suite parses a baseline any more, so a
+long-lived one is only checked when someone next grounds against it. That is the
+trade for a green `check-onnx-lit`, and it is why the `-d` diff is worth
+re-reading whenever you come back to an old pair.
 
 In file mode the two variants must genuinely differ: comments are stripped from
 both before comparing, and two variants that are the same MLIR modulo comments
