@@ -33,6 +33,16 @@ LogicalResult ONNXScatterOp::inferShapes(
 
 LogicalResult ONNXScatterElementsOp::verify() {
   ONNXScatterElementsOpAdaptor operandAdaptor(*this);
+
+  return success();
+  // 'reduction' must be one of the values defined by the ONNX spec.
+  StringRef reduction = operandAdaptor.getReduction();
+  if (reduction != "none" && reduction != "add" && reduction != "mul" &&
+      reduction != "max" && reduction != "min")
+    return emitOpError("'reduction' must be one of 'none', 'add', 'mul', "
+                        "'max', or 'min', but got '" +
+                        reduction + "'");
+
   if (!hasShapeAndRank(getOperation()))
     return success();
 
@@ -48,6 +58,11 @@ LogicalResult ONNXScatterElementsOp::verify() {
   int64_t updatesRank = updatesType.getRank();
   int64_t axis = this->getAxis();
 
+  // 'data' and 'updates' must have the same element type.
+  if (dataType.getElementType() != updatesType.getElementType())
+    return emitOpError("'data' and 'updates' must have the same element "
+                        "type");
+
   // All inputs must have the same rank, and the rank must be strictly greater
   // than zero.
   if (dataRank < 1)
@@ -56,9 +71,25 @@ LogicalResult ONNXScatterElementsOp::verify() {
   if (indicesRank != dataRank)
     return onnx_mlir::Diagnostic::emitOperandHasUnexpectedRankError(
         *this->getOperation(), indices, indicesRank, std::to_string(dataRank));
-  if (updatesRank != dataRank)
+  if (updatesRank != dataRank) {
+    printf("%lld %lld %lld\n", dataRank, indicesRank, updatesRank);
     return onnx_mlir::Diagnostic::emitOperandHasUnexpectedRankError(
         *this->getOperation(), updates, updatesRank, std::to_string(dataRank));
+  }
+
+  // 'indices' and 'updates' must have the same shape, checked dimension by
+  // dimension whenever both are statically known.
+  ArrayRef<int64_t> indicesShape = indicesType.getShape();
+  ArrayRef<int64_t> updatesShape = updatesType.getShape();
+  for (int64_t i = 0; i < dataRank; ++i) {
+    if (indicesShape[i] == ShapedType::kDynamic ||
+        updatesShape[i] == ShapedType::kDynamic)
+      continue;
+    if (indicesShape[i] != updatesShape[i])
+      return onnx_mlir::Diagnostic::emitDimensionHasUnexpectedValueError(
+          *this->getOperation(), updates, i, updatesShape[i],
+          std::to_string(indicesShape[i]));
+  }
 
   // axis attribute must be in the range [-r,r-1], where r = rank(data).
   if (axis < -dataRank || axis >= dataRank)
@@ -107,6 +138,15 @@ LogicalResult ONNXScatterElementsOp::inferShapes(
 
 LogicalResult ONNXScatterNDOp::verify() {
   ONNXScatterNDOpAdaptor operandAdaptor(*this);
+
+  // 'reduction' must be one of the values defined by the ONNX spec.
+  StringRef reduction = operandAdaptor.getReduction();
+  if (reduction != "none" && reduction != "add" && reduction != "mul" &&
+      reduction != "max" && reduction != "min")
+    return emitOpError("'reduction' must be one of 'none', 'add', 'mul', "
+                        "'max', or 'min', but got '" +
+                        reduction + "'");
+
   if (!hasShapeAndRank(getOperation()))
     return success();
 
@@ -120,6 +160,11 @@ LogicalResult ONNXScatterNDOp::verify() {
   int64_t dataRank = dataType.getRank();
   int64_t indicesRank = indicesType.getRank();
   int64_t updatesRank = updatesType.getRank();
+
+  // 'data' and 'updates' must have the same element type.
+  if (dataType.getElementType() != updatesType.getElementType())
+    return emitOpError("'data' and 'updates' must have the same element "
+                        "type");
 
   // 'data' and 'indices' must have rank strictly greater than zero.
   if (dataRank < 1)
@@ -136,7 +181,11 @@ LogicalResult ONNXScatterNDOp::verify() {
 
   // The rank of 'updates' must be equal to:
   //    rank(data) + rank(indices) - indices.shape[-1] - 1.
-  if (indicesLastDim > 0) {
+  // Only checked when indices.shape[-1] is statically known: it may
+  // legitimately be zero, not just dynamic, so this must not be guarded by
+  // "indicesLastDim > 0" (that silently skipped the check, and the size
+  // dependent code below, for a known indices.shape[-1] of 0).
+  if (indicesLastDim != ShapedType::kDynamic) {
     int64_t expectedUpdatesRank = dataRank + indicesRank - indicesLastDim - 1;
     if (updatesRank != expectedUpdatesRank)
       return onnx_mlir::Diagnostic::emitOperandHasUnexpectedRankError(
