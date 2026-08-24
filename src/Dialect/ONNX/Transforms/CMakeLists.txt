@@ -13,6 +13,28 @@ add_onnx_mlir_library(OMFusionOpHelper
   OMONNXOps
   )
 
+add_onnx_mlir_library(OMONNXFusionOpHelper
+  ONNXFusionOpHelper.cpp
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  OMFusionOpHelper
+  )
+
+add_onnx_mlir_library(OMFusionOpTransform
+  FusionOpTransform.cpp
+
+  DEPENDS
+  OMONNXTransformsPassIncGen
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  OMFusionOpHelper
+  OMONNXFusionOpHelper
+  OMCompilerOptions
+  MLIRPass
+  )
+
 add_onnx_mlir_library(OMShapeInference
   ShapeInference.cpp
 

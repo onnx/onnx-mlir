@@ -80,6 +80,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   Tensor/Shape.cpp
   Tensor/Size.cpp
   Tensor/Slice.cpp
+  Tensor/FusedSplitOpGather.cpp
   Tensor/SpaceToDepth.cpp
   Tensor/Split.cpp
   Tensor/Squeeze.cpp
@@ -92,6 +93,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   OMAccelerator
   OMCompilerOptions
   OMFusionOpHelper
+  OMONNXFusionOpHelper
   OMONNXConversionCommon
   OMONNXOps
   OMSupport

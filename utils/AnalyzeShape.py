@@ -29,9 +29,20 @@ import shutil
 import subprocess
 import sys
 
-from mlir_log_utils import clean_line
-
-VALUE = r"%[\w.]+"
+from mlir_log_utils import (
+    clean_line,
+    VALUE,
+    Annotator,
+    strip_suffix,
+    sanitize_ident,
+    find_matching_close,
+    split_top_level,
+    handle_func_signature,
+    handle_generic_op,
+    handle_return,
+    handle_pretty_result,
+    apply_comments,
+)
 
 DIMGROUP_RE = re.compile(
     r'^\s*"onnx\.DimGroup"\((' + VALUE + r")\)\s*<\{axis\s*=\s*(-?\d+)\s*:\s*si64,"
@@ -45,94 +56,6 @@ DIM_PARAMS_ARG_RE = re.compile(
 RETURN_VALUES_RE = re.compile(
     r"onnx\.Return\s+(" + VALUE + r"(?:\s*,\s*" + VALUE + r")*)"
 )
-FUNC_HEAD_RE = re.compile(r"func\.func\s+@[\w]+\s*\(")
-GENERIC_OP_HEAD_RE = re.compile(
-    r"^(\s*(?:" + VALUE + r"(?:\s*,\s*" + VALUE + r')*\s*=\s*)?)"[\w.]+"\('
-)
-RETURN_RE = re.compile(
-    r"^(\s*onnx\.Return\s+)(" + VALUE + r"(?:\s*,\s*" + VALUE + r")*)(\s*:\s*)(.+?)\s*$"
-)
-PRETTY_RESULT_LHS_RE = re.compile(
-    r"^(\s*(?:" + VALUE + r"(?:\s*,\s*" + VALUE + r")*\s*=\s*)?)(.*?):\s*$"
-)
-
-
-def tensor_type_span(text, start=0):
-    """Find `tensor<...>` in text starting at/after start, matching nested `<>` (e.g. zhigh
-    layout encodings). Returns (start_idx, open_idx, close_idx) of the outer tensor<...>, or
-    None if not found."""
-    idx = text.find("tensor<", start)
-    if idx == -1:
-        return None
-    open_idx = idx + len("tensor")
-    close_idx = find_matching_close(text, open_idx, "<", ">")
-    if close_idx == -1:
-        return None
-    return idx, open_idx, close_idx
-
-
-def strip_suffix(name):
-    return re.sub(r"/\d+$", "", name)
-
-
-def sanitize_ident(name):
-    s = re.sub(r"[^0-9a-zA-Z_]+", "_", name.strip())
-    s = re.sub(r"_+", "_", s).strip("_")
-    return s or "dim"
-
-
-def find_matching_close(s, open_idx, open_ch, close_ch):
-    depth = 0
-    i = open_idx
-    n = len(s)
-    in_str = False
-    while i < n:
-        c = s[i]
-        if in_str:
-            if c == "\\":
-                i += 1
-            elif c == '"':
-                in_str = False
-        elif c == '"':
-            in_str = True
-        elif c == open_ch:
-            depth += 1
-        elif c == close_ch:
-            depth -= 1
-            if depth == 0:
-                return i
-        i += 1
-    return -1
-
-
-def split_top_level(s, sep=","):
-    parts = []
-    depth = 0
-    in_str = False
-    start = 0
-    i = 0
-    n = len(s)
-    while i < n:
-        c = s[i]
-        if in_str:
-            if c == "\\":
-                i += 1
-            elif c == '"':
-                in_str = False
-        elif c == '"':
-            in_str = True
-        elif c == "-" and i + 1 < n and s[i + 1] == ">":
-            i += 1  # skip the "->" arrow so its '>' isn't read as a closing bracket
-        elif c in "([{<":
-            depth += 1
-        elif c in ")]}>":
-            depth -= 1
-        elif c == sep and depth == 0:
-            parts.append(s[start:i])
-            start = i + 1
-        i += 1
-    parts.append(s[start:])
-    return parts
 
 
 def parse_dimgroups(lines):
@@ -175,298 +98,6 @@ def parse_return_values(lines):
         if m:
             return [strip_suffix(v.strip()) for v in split_top_level(m.group(1), ",")]
     return []
-
-
-class Annotator:
-    def __init__(self, axis_to_group, name_of_group):
-        self.axis_to_group = axis_to_group
-        self.name_of_group = name_of_group
-        self.group_renumber = {}
-        self.next_id = 0
-
-    def annotate(self, inner, value):
-        if value is None:
-            return None
-        parts = inner.split("x")
-        if len(parts) < 2:
-            return None
-        dims = parts[:-1]
-        if not dims or any(d == "*" for d in dims):
-            return None
-        tokens = []
-        changed = False
-        for axis, d in enumerate(dims):
-            if d != "?":
-                tokens.append(d)
-                continue
-            group = self.axis_to_group.get((value, axis))
-            if group is None:
-                tokens.append("?")
-                continue
-            first_seen = group not in self.group_renumber
-            if first_seen:
-                self.group_renumber[group] = self.next_id
-                self.next_id += 1
-            name = self.name_of_group.get(group)
-            if name:
-                tokens.append(name)
-            else:
-                tokens.append(
-                    f"d{self.group_renumber[group]}"
-                    if first_seen
-                    else f"u{self.group_renumber[group]}"
-                )
-            changed = True
-        if not changed:
-            return None
-        dg = "#onnx.dg<[" + ", ".join(f'"{t}"' for t in tokens) + "]>"
-        return f"tensor<{inner}, {dg}>"
-
-    def annotate_str(self, type_text, value):
-        t = type_text.strip()
-        span = tensor_type_span(t)
-        if not span or span[0] != 0 or span[2] != len(t) - 1:
-            return type_text
-        _, open_idx, close_idx = span
-        replacement = self.annotate(t[open_idx + 1 : close_idx], value)
-        return replacement if replacement else t
-
-
-def unwrap_parens(text):
-    t = text.strip()
-    if (
-        t.startswith("(")
-        and t.endswith(")")
-        and find_matching_close(t, 0, "(", ")") == len(t) - 1
-    ):
-        return t[1:-1], True
-    return t, False
-
-
-MAX_LINE = 120
-INDENT_UNIT = "    "
-
-
-def indent_of(line):
-    return re.match(r"^\s*", line).group()
-
-
-def wrap_items(items, base_indent):
-    inner_indent = base_indent + INDENT_UNIT
-    pieces = [it + ("," if i < len(items) - 1 else "") for i, it in enumerate(items)]
-
-    lines = []
-    current = []
-    current_len = len(inner_indent)
-    for piece in pieces:
-        extra = len(piece) + (1 if current else 0)
-        if current and current_len + extra > MAX_LINE:
-            lines.append(inner_indent + " ".join(current))
-            current = []
-            current_len = len(inner_indent)
-            extra = len(piece)
-        current.append(piece)
-        current_len += extra
-    if current:
-        lines.append(inner_indent + " ".join(current))
-    return "\n".join(lines)
-
-
-def handle_func_signature(line, ann, return_values):
-    m = FUNC_HEAD_RE.search(line)
-    if not m:
-        return None
-    open_idx = m.end() - 1
-    close_idx = find_matching_close(line, open_idx, "(", ")")
-    if close_idx == -1:
-        return None
-    rest = line[close_idx + 1 :]
-    if "->" not in rest or not rest.rstrip().endswith("{"):
-        return None
-    arrow_idx = rest.index("->")
-    ret_section = rest[arrow_idx + 2 :]
-    brace_pos = ret_section.rfind("{")
-    ret_types_text, trailing = ret_section[:brace_pos], ret_section[brace_pos:]
-
-    args_text = line[open_idx + 1 : close_idx]
-    arg_items = [
-        process_arg_chunk(chunk, ann).strip()
-        for chunk in split_top_level(args_text, ",")
-    ]
-
-    inner, wrapped = unwrap_parens(ret_types_text)
-    ret_type_list = split_top_level(inner, ",") if inner.strip() else []
-    ret_items = [
-        ann.annotate_str(
-            t, return_values[i] if i < len(return_values) else None
-        ).strip()
-        for i, t in enumerate(ret_type_list)
-    ]
-    new_ret_text = ", ".join(ret_items)
-    if wrapped:
-        new_ret_text = f"({new_ret_text})"
-
-    oneline = (
-        line[: open_idx + 1]
-        + ", ".join(arg_items)
-        + ") -> "
-        + new_ret_text
-        + " "
-        + trailing
-    )
-    if len(oneline) <= MAX_LINE:
-        return oneline
-
-    base_indent = indent_of(line)
-    parts = [line[: open_idx + 1].rstrip()]
-    parts.append(wrap_items(arg_items, base_indent))
-    if wrapped:
-        parts.append(f"{base_indent}) -> (")
-        parts.append(wrap_items(ret_items, base_indent))
-        parts.append(f"{base_indent}) {trailing}")
-    else:
-        parts.append(f"{base_indent}) -> {new_ret_text} {trailing}")
-    return "\n".join(parts)
-
-
-def process_arg_chunk(chunk, ann):
-    m = re.match(r"^(\s*)(" + VALUE + r")(?:/\d+)?(\s*:\s*)", chunk)
-    if not m:
-        return chunk
-    lead, name, colon = m.groups()
-    rest = chunk[m.end() :]
-    span = tensor_type_span(rest)
-    if not span or span[0] != 0:
-        return chunk
-    _, open_idx, close_idx = span
-    typetext = rest[: close_idx + 1]
-    tail = rest[close_idx + 1 :]
-    replacement = ann.annotate(rest[open_idx + 1 : close_idx], name)
-    return f"{lead}{name}{colon}{replacement if replacement else typetext}{tail}"
-
-
-def handle_generic_op(line, ann):
-    m = GENERIC_OP_HEAD_RE.match(line)
-    if not m:
-        return None
-    open_idx = m.end() - 1
-    close_idx = find_matching_close(line, open_idx, "(", ")")
-    if close_idx == -1:
-        return None
-    operand_text = line[open_idx + 1 : close_idx]
-    operand_names = (
-        [strip_suffix(x.strip()) for x in split_top_level(operand_text, ",")]
-        if operand_text.strip()
-        else []
-    )
-
-    rest = line[close_idx + 1 :]
-    sig = re.search(r":\s*\(([^()]*)\)\s*->\s*(.+?)\s*$", rest)
-    if not sig:
-        return None
-
-    op_type_list = split_top_level(sig.group(1), ",") if sig.group(1).strip() else []
-    operand_items = [
-        ann.annotate_str(
-            t, operand_names[i] if i < len(operand_names) else None
-        ).strip()
-        for i, t in enumerate(op_type_list)
-    ]
-
-    lhs_names = []
-    lhs_part = m.group(1)
-    if "=" in lhs_part:
-        names_str = lhs_part[: lhs_part.rindex("=")]
-        lhs_names = [
-            strip_suffix(x.strip())
-            for x in split_top_level(names_str, ",")
-            if x.strip()
-        ]
-
-    res_inner, wrapped = unwrap_parens(sig.group(2))
-    result_list = split_top_level(res_inner, ",") if res_inner.strip() else []
-    result_items = [
-        ann.annotate_str(t, lhs_names[i] if i < len(lhs_names) else None).strip()
-        for i, t in enumerate(result_list)
-    ]
-    new_result_text = ", ".join(result_items)
-    if wrapped:
-        new_result_text = f"({new_result_text})"
-
-    abs_start = close_idx + 1 + sig.start()
-    abs_end = close_idx + 1 + sig.end()
-    new_sig = f": ({', '.join(operand_items)}) -> {new_result_text}"
-    oneline = line[:abs_start] + new_sig + line[abs_end:]
-    if len(oneline) <= MAX_LINE:
-        return oneline
-
-    base_indent = indent_of(line)
-    parts = [f"{line[:abs_start].rstrip()} : ("]
-    parts.append(wrap_items(operand_items, base_indent))
-    if wrapped:
-        parts.append(f"{base_indent}) -> (")
-        parts.append(wrap_items(result_items, base_indent))
-        parts.append(f"{base_indent})")
-    else:
-        parts.append(f"{base_indent}) -> {new_result_text}")
-    return "\n".join(parts)
-
-
-def handle_return(line, ann):
-    m = RETURN_RE.match(line)
-    if not m:
-        return None
-    lead, vals_text, colon, types_text = m.groups()
-    values = [strip_suffix(v.strip()) for v in split_top_level(vals_text, ",")]
-    types = split_top_level(types_text, ",")
-    new_types = [
-        ann.annotate_str(t, values[i] if i < len(values) else None).strip()
-        for i, t in enumerate(types)
-    ]
-    oneline = lead + vals_text + colon + ", ".join(new_types)
-    if len(oneline) <= MAX_LINE:
-        return oneline
-
-    base_indent = indent_of(line)
-    head = (lead + vals_text + colon).rstrip()
-    return f"{head}\n{wrap_items(new_types, base_indent)}"
-
-
-def handle_pretty_result(line, ann):
-    if "->" in line:
-        return None
-    stripped = line.rstrip()
-    idx = stripped.rfind("tensor<")
-    if idx == -1:
-        return None
-    open_idx = idx + len("tensor")
-    close_idx = find_matching_close(stripped, open_idx, "<", ">")
-    if close_idx == -1 or close_idx != len(stripped) - 1:
-        return None
-    lm = PRETTY_RESULT_LHS_RE.match(stripped[:idx])
-    if not lm:
-        return None
-    lhs_part = lm.group(1)
-    lhs_names = []
-    if "=" in lhs_part:
-        names_str = lhs_part[: lhs_part.rindex("=")]
-        lhs_names = [
-            strip_suffix(x.strip())
-            for x in split_top_level(names_str, ",")
-            if x.strip()
-        ]
-    value = lhs_names[0] if lhs_names else None
-    inner = stripped[open_idx + 1 : close_idx]
-    replacement = ann.annotate(inner, value)
-    if not replacement:
-        return None
-    oneline = stripped[:idx] + replacement
-    if len(oneline) <= MAX_LINE:
-        return oneline
-
-    base_indent = indent_of(line)
-    head = stripped[:idx].rstrip()
-    return f"{head}\n{base_indent}{INDENT_UNIT}{replacement}"
 
 
 def total_elements_from_shape(dims):
@@ -587,6 +218,21 @@ def main():
         metavar="input.mlir",
         help="mlir file to investigate (an isolated onnx/zhigh pass)",
     )
+    parser.add_argument(
+        "-c",
+        "--comments",
+        action="store_true",
+        help="Add useful comments to the annotated listing: use-count for each def; "
+        "values for scalar constant (same transform as IsolatePass.py -c).",
+    )
+    parser.add_argument(
+        "-w",
+        "--wrap",
+        action="store_true",
+        help="Reformat long func signatures / ops / returns across multiple indented "
+        "lines when they exceed the line-length limit. Off by default: without this "
+        "flag, annotated lines are kept as single lines no matter how long.",
+    )
     args = parser.parse_args()
 
     base, _ = os.path.splitext(args.input)
@@ -614,16 +260,20 @@ def main():
             continue
         line = clean_line(elide_long_constants(line))
         new_line = (
-            handle_func_signature(line, ann, return_values)
-            or handle_generic_op(line, ann)
-            or handle_return(line, ann)
-            or handle_pretty_result(line, ann)
+            handle_func_signature(line, ann, return_values, wrap=args.wrap)
+            or handle_generic_op(line, ann, wrap=args.wrap)
+            or handle_return(line, ann, wrap=args.wrap)
+            or handle_pretty_result(line, ann, wrap=args.wrap)
             or line
         )
         out_lines.append(new_line)
 
+    text = "\n".join(out_lines) + "\n"
+    if args.comments:
+        text = apply_comments(text)
+
     with open(annotated_path, "w") as f:
-        f.write("\n".join(out_lines) + "\n")
+        f.write(text)
     print(f"Wrote {annotated_path}", file=sys.stderr)
 
 
