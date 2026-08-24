@@ -222,6 +222,16 @@ All the test cases for onnx dialect are collected under test/mlir/onnx directory
 These test cases can be invoked with `make check-onnx-lit`. 
 This target is an essential requirement for a build.
 
+Note the weak step above: "manually check whether the output is correct". A
+FileCheck test asserts the *shape* of the output, never its correctness, so
+`mlir2FileCheck.py` will faithfully freeze wrong IR into a green test. When
+writing or changing a pass -- a new pass, or just as often a new optimization or
+op inside an existing one -- ground each case by actually running it, with
+`utils/GroundLitTest.py`, before recording its CHECK lines. See
+[GroundedLitTests.md](GroundedLitTests.md) for that workflow, `utils/fixLitTest.py`
+for generating and repairing the assertions per function, and a scenario matrix
+for getting breadth.
+
 ## Numerical Tests
 
 Numerical tests are used to test for numerical correctness in addition to the tests provided by the ONNX package.

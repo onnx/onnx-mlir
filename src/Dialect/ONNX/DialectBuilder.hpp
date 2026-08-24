@@ -97,6 +97,11 @@ struct OnnxBuilder : DialectBuilder {
 
   mlir::Value equal(mlir::Value A, mlir::Value B) const;
 
+  // ONNXAttentionOp, version with one output only (Y), no past/present KV
+  // cache, and no causal masking.
+  mlir::Value attention(mlir::Type outputType, mlir::Value Q, mlir::Value K,
+      mlir::Value V, mlir::Value attnMask, mlir::FloatAttr scale) const;
+
   // ONNXExpandOp
   mlir::Value expand(
       mlir::Type outputType, mlir::Value input, mlir::Value shape) const;
