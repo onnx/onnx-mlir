@@ -34,14 +34,13 @@ LogicalResult ONNXScatterOp::inferShapes(
 LogicalResult ONNXScatterElementsOp::verify() {
   ONNXScatterElementsOpAdaptor operandAdaptor(*this);
 
-  return success();
   // 'reduction' must be one of the values defined by the ONNX spec.
   StringRef reduction = operandAdaptor.getReduction();
   if (reduction != "none" && reduction != "add" && reduction != "mul" &&
       reduction != "max" && reduction != "min")
     return emitOpError("'reduction' must be one of 'none', 'add', 'mul', "
-                        "'max', or 'min', but got '" +
-                        reduction + "'");
+                       "'max', or 'min', but got '" +
+                       reduction + "'");
 
   if (!hasShapeAndRank(getOperation()))
     return success();
@@ -61,7 +60,7 @@ LogicalResult ONNXScatterElementsOp::verify() {
   // 'data' and 'updates' must have the same element type.
   if (dataType.getElementType() != updatesType.getElementType())
     return emitOpError("'data' and 'updates' must have the same element "
-                        "type");
+                       "type");
 
   // All inputs must have the same rank, and the rank must be strictly greater
   // than zero.
@@ -72,7 +71,6 @@ LogicalResult ONNXScatterElementsOp::verify() {
     return onnx_mlir::Diagnostic::emitOperandHasUnexpectedRankError(
         *this->getOperation(), indices, indicesRank, std::to_string(dataRank));
   if (updatesRank != dataRank) {
-    printf("%lld %lld %lld\n", dataRank, indicesRank, updatesRank);
     return onnx_mlir::Diagnostic::emitOperandHasUnexpectedRankError(
         *this->getOperation(), updates, updatesRank, std::to_string(dataRank));
   }
@@ -113,6 +111,7 @@ LogicalResult ONNXScatterElementsOp::verify() {
       }
       for (IntegerAttr value : valueAttribute.getValues<IntegerAttr>()) {
         int64_t index = value.getInt();
+        printf("Value %lld %lld\n", dataDimAtAxis, index);
         if (index >= -dataDimAtAxis && index < dataDimAtAxis)
           continue;
 
@@ -144,8 +143,8 @@ LogicalResult ONNXScatterNDOp::verify() {
   if (reduction != "none" && reduction != "add" && reduction != "mul" &&
       reduction != "max" && reduction != "min")
     return emitOpError("'reduction' must be one of 'none', 'add', 'mul', "
-                        "'max', or 'min', but got '" +
-                        reduction + "'");
+                       "'max', or 'min', but got '" +
+                       reduction + "'");
 
   if (!hasShapeAndRank(getOperation()))
     return success();
@@ -164,7 +163,7 @@ LogicalResult ONNXScatterNDOp::verify() {
   // 'data' and 'updates' must have the same element type.
   if (dataType.getElementType() != updatesType.getElementType())
     return emitOpError("'data' and 'updates' must have the same element "
-                        "type");
+                       "type");
 
   // 'data' and 'indices' must have rank strictly greater than zero.
   if (dataRank < 1)
@@ -226,7 +225,7 @@ LogicalResult ONNXScatterNDOp::verify() {
   // Let k = indices.shape[-1], r = rank(data), q = rank(indices). Check that
   // updates.shape[q:] matches data.shape[k:r-1].
   for (int64_t i = indicesLastDim, j = indicesRank - 1; i < dataRank;
-       ++i, ++j) {
+      ++i, ++j) {
     assert(j < updatesRank && "j is out of bounds");
     if (updatesShape[j] != dataShape[i])
       return onnx_mlir::Diagnostic::emitDimensionHasUnexpectedValueError(
