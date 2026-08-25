@@ -832,3 +832,23 @@ func.func @test_random_normal_like_wrong_dtype(%arg0: tensor<1x1x28x28xf32>) -> 
   "onnx.Return"(%0) : (tensor<*xf16>) -> ()
 }
 
+// -----
+
+// A mismatched-dtype comparison not covered by the float-vs-integer-zero-
+// literal exception (non-zero literal here) must be rejected by the
+// verifier, not silently accepted only to abort deep in ONNXToKrnl lowering.
+func.func @test_greater_or_equal_mismatched_types(%arg0: tensor<f32>) -> tensor<i1> {
+  %0 = onnx.Constant dense<1> : tensor<i64>
+  // expected-error @+1 {{'onnx.GreaterOrEqual' op expected operands to have the same element type, but got 'f32' and 'i64'}}
+  %1 = "onnx.GreaterOrEqual"(%arg0, %0) : (tensor<f32>, tensor<i64>) -> tensor<i1>
+  onnx.Return %1 : tensor<i1>
+}
+
+// -----
+
+func.func @test_less_or_equal_mismatched_types(%arg0: tensor<f32>, %arg1: tensor<i64>) -> tensor<i1> {
+  // expected-error @+1 {{'onnx.LessOrEqual' op expected operands to have the same element type, but got 'f32' and 'i64'}}
+  %0 = "onnx.LessOrEqual"(%arg0, %arg1) : (tensor<f32>, tensor<i64>) -> tensor<i1>
+  onnx.Return %0 : tensor<i1>
+}
+
