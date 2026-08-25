@@ -684,7 +684,7 @@ public:
     // Look for a reshape split.
     resultVal = layoutTransform.getOutput();
     std::string msg;
-    Operation *reshapeSplitOp = usedOnlyBy<ONNXReshapeOp>(resultVal);
+    Operation *reshapeSplitOp = usedOnlyByOpType<ONNXReshapeOp>(resultVal);
     bool reshapeMayBeMerge = false;
     if (reshapeSplitOp) {
       ONNXReshapeOp reshapeSplit = mlir::cast<ONNXReshapeOp>(reshapeSplitOp);
@@ -701,7 +701,7 @@ public:
     if (!reshapeMayBeMerge) {
       // Check transpose if we got a split; if we may have potentially a merge,
       // we cannot accommodate a transpose.
-      transposeOp = usedOnlyBy<ONNXTransposeOp>(resultVal);
+      transposeOp = usedOnlyByOpType<ONNXTransposeOp>(resultVal);
       if (transposeOp) {
         ONNXTransposeOp transpose = mlir::cast<ONNXTransposeOp>(transposeOp);
         transposePattern = transpose.getPerm();
@@ -717,7 +717,7 @@ public:
 
     // Check reshape merge.
     bool terminateMatch = false;
-    Operation *reshapeMergeOp = usedOnlyBy<ONNXReshapeOp>(resultVal);
+    Operation *reshapeMergeOp = usedOnlyByOpType<ONNXReshapeOp>(resultVal);
     if (reshapeMergeOp) {
       ONNXReshapeOp reshapeMerge = mlir::cast<ONNXReshapeOp>(reshapeMergeOp);
       if (!locateReshapeMerge(reshapeMerge, reshapeMergeAxis, msg)) {
@@ -735,8 +735,9 @@ public:
     Operation *finalLayoutTransformOp = nullptr;
     Operation *dlf16To32Op = nullptr;
     if (!terminateMatch) {
-      finalLayoutTransformOp = usedOnlyBy<ONNXLayoutTransformOp>(resultVal);
-      dlf16To32Op = usedOnlyBy<ZHighDLF16ToF32Op>(resultVal);
+      finalLayoutTransformOp =
+          usedOnlyByOpType<ONNXLayoutTransformOp>(resultVal);
+      dlf16To32Op = usedOnlyByOpType<ZHighDLF16ToF32Op>(resultVal);
       if (finalLayoutTransformOp) {
         ONNXLayoutTransformOp finalLayoutTransform =
             mlir::cast<ONNXLayoutTransformOp>(finalLayoutTransformOp);
@@ -917,19 +918,19 @@ struct FusionOpStickUnstick
     // Concat is ever visited, permanently losing the larger fusion
     // opportunity (the chain ops get cloned into the new FusedOp body and
     // the originals erased, so the Concat's Unsqueeze user is gone by the
-    // time it would be revisited). Instead, run FusedPatternsForConcatExpandStick
-    // to its own fixpoint first, in a separate applyPatternsGreedily call, so
-    // it always gets first crack at every ONNXConcatOp in the module before
-    // any other pattern can consume ops out from under it. See the
-    // kMaxOpCount contract note in FusionOpHelper.hpp and the doc comment on
+    // time it would be revisited). Instead, run
+    // FusedPatternsForConcatExpandStick to its own fixpoint first, in a
+    // separate applyPatternsGreedily call, so it always gets first crack at
+    // every ONNXConcatOp in the module before any other pattern can consume ops
+    // out from under it. See the kMaxOpCount contract note in
+    // FusionOpHelper.hpp and the doc comment on
     // ConcatExpandStickFusionHelper::kMaxOpCount for the general rule this
     // instantiates.
     if (!disableFusedOpOption && !disableFusedOp) {
       RewritePatternSet concatFirstPatterns(&getContext());
       concatFirstPatterns.insert<FusedPatternsForConcatExpandStick>(
           &getContext(), dimAnalysis);
-      if (failed(applyPatternsGreedily(
-              module, std::move(concatFirstPatterns))))
+      if (failed(applyPatternsGreedily(module, std::move(concatFirstPatterns))))
         return signalPassFailure();
     }
 
