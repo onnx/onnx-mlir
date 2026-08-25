@@ -104,7 +104,7 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
     sh -s -- -y --default-toolchain none \
     && . "${HOME}/.cargo/env" \
     && rustup install ${RUST_VERSION} \
-    && cargo install cargo-bazel --version ${CARGO_BAZEL_VERSION}
+    && cargo install cargo-bazel --version ${CARGO_BAZEL_VERSION} --locked
 
 # Install protobuf
 ARG PROTOBUF_VERSION=33.5
