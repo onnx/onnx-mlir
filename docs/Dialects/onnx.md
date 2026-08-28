@@ -7155,6 +7155,10 @@ The argument print_data control whether the data of the tensors to be printed.
 When print_data == 1, the data of the tensor will be printed. Otherwise, just shape.
 The argument input specifies the tensor to be printed. They could be a list
 of the inputs and outputs of an ONNX op.
+The optional argument io_labels, when present and of the same length as
+input, gives a per-tensor label (e.g. "in0", "out1") printed right before
+that tensor's signature/data, so a caller-selected subset of a node's
+operands/results can still be told apart in the printed output.
 
 This operation is not part of the standard and was added to assist onnx-mlir.
 
@@ -7164,6 +7168,7 @@ This operation is not part of the standard and was added to assist onnx-mlir.
 <tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
 <tr><td><code>op_name</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
 <tr><td><code>print_data</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>io_labels</code></td><td>::mlir::ArrayAttr</td><td>string array attribute</td></tr>
 </table>
 
 #### Operands:
