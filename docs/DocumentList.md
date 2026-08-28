@@ -59,6 +59,7 @@ The compiled ONNX model can be executed with either a
 * [PythonPackage.md](PythonPackage.md) describes the installable `onnxmlir` Python package.
 * [RunTorchModel.md](RunTorchModel.md) describes installing the `torch_onnxmlir` package to run a torch model via `torch.compile()`.
 * [JsonConfigFile.md](JsonConfigFile.md) describes the general JSON configuration file for specifying compile options.
+* [InputVerification.md](InputVerification.md) describes runtime input verification including symbolic dimension consistency checking.
 
 # Testing and Debugging
 The routine testing for onnx-mlir build is described in this [document](Testing.md).
