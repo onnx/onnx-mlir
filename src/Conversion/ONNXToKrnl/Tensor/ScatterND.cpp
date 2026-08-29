@@ -42,6 +42,11 @@ struct ONNXScatterNDOpLowering : public OpConversionPattern<ONNXScatterNDOp> {
 
     assert(dataRank >= 1 && "The rank of 'data' must be >= 1");
     assert(indicesRank >= 1 && "The rank of 'indices' must be >= 1");
+    assert(adaptor.getReduction() == "none" &&
+           "ScatterND lowering only supports reduction 'none'");
+
+    // Determine whether indices may be negative.
+    bool indicesMayBeNegative = !indicesAreNonNegativeConstants(indices);
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -84,22 +89,32 @@ struct ONNXScatterNDOpLowering : public OpConversionPattern<ONNXScatterNDOp> {
           getIndexExprList<DimIndexExpr>(loopInd, indicesAccessFctFirst);
           indicesAccessFctFirst.truncate(indicesRank - 1);
 
-          // Access function for the output. Let r=rank(data), q=rank(indices).
-          // The first indices.shape[-1] indexes are given by looking up the
-          // 'indices' tensor. The remaining (r-q-1) indexes are given by the
-          // loop iteration space.
+          // Access function for the output. Let r=rank(data), q=rank(indices),
+          // k=indices.shape[-1]. The first k indexes are given by looking up
+          // the 'indices' tensor. The remaining (r-k) indexes are given by
+          // the trailing (r-k) induction variables of the loop iteration
+          // space, i.e. those past the first (q-1) that were consumed above
+          // by the 'indices' access function.
+          int64_t indexDepth = indicesType.getShape()[indicesRank - 1];
+          assert(indexDepth != ShapedType::kDynamic &&
+                 "indices tensor's last dimension must be static");
           DimsExpr outputAccessFct;
-          for (unsigned i = 0; i < dataRank; ++i) {
-            if (i < indicesRank - 1) {
+          for (int64_t i = 0; i < dataRank; ++i) {
+            if (i < indexDepth) {
               IndexExpr ind = LitIE(i);
               DimsExpr indicesAccessFct(indicesAccessFctFirst);
               indicesAccessFct.emplace_back(ind);
               Value indexVal = createKrnl.loadIE(indices, indicesAccessFct);
               IndexExpr index = NonAffineIndexExpr(indexVal);
+              // Index values are allowed to be negative, counting dimensions
+              // from the back; normalize by adding the data dim in that case.
+              if (indicesMayBeNegative)
+                index = index.selectOrSelf(
+                    index < LitIE(0), index + SymIE(dataDims[i]));
               outputAccessFct.emplace_back(index);
             } else {
-              IndexExpr index =
-                  SymIE(loopInd[std::min<unsigned>(i, loopInd.size() - 1)]);
+              int64_t loopIdx = (indicesRank - 1) + (i - indexDepth);
+              IndexExpr index = SymIE(loopInd[loopIdx]);
               outputAccessFct.emplace_back(index);
             }
           }
