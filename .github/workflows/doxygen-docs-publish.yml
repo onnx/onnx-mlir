@@ -9,12 +9,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: checkout onnx-mlir source
-      uses: actions/checkout@v2
+      uses: actions/checkout@v6
       with:
         path: onnx-mlir
 
     - name: checkout gh-pages branch
-      uses: actions/checkout@v2
+      uses: actions/checkout@v6
       with:
         ref:  gh-pages
         path: gh-pages
