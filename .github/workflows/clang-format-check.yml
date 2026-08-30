@@ -15,9 +15,9 @@ jobs:
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5 # v2
     - name: clang-format lint
-      uses: DoozyX/clang-format-lint-action@v0.5
+      uses: DoozyX/clang-format-lint-action@0138140a2adaafd3032a3ff37f66366fd7dc88e0 # v0.5
       with:
         # Source folder to check formatting
         source: ./src
