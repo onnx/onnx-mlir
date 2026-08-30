@@ -82,6 +82,10 @@ void populateLoweringONNXMatMulOpToLinalgPattern(
     mlir::RewritePatternSet &patterns, mlir::TypeConverter &typeConverter,
     mlir::MLIRContext *ctx, const std::string &linalgOps, bool useLinalgPath);
 
+void populateLoweringONNXAddOpToLinalgPattern(mlir::RewritePatternSet &patterns,
+    mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx,
+    const std::string &linalgOps, bool useLinalgPath);
+
 // NN operations
 void populateLoweringONNXConvOpToLinalgPattern(
     mlir::RewritePatternSet &patterns, mlir::TypeConverter &typeConverter,
