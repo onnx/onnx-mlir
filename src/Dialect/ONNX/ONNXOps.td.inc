@@ -1320,6 +1320,7 @@ def ONNXCol2ImOp:ONNX_Op<"Col2Im",
       return sh;
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXCompressOp:ONNX_Op<"Compress",
