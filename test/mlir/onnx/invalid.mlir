@@ -476,10 +476,10 @@ func.func @test_scatterelements_verifier_3(%arg0 : tensor<5x5x1x32xf32>, %arg1 :
 
 // -----
 
-func.func @test_scatterelements_verifier_4(%arg0 : tensor<3xf32>, %arg1 : tensor<3xf32>) -> tensor<*xf32> {
+func.func @test_scatterelements_verifier_4(%arg0 : tensor<3xf32>, %arg1 : tensor<1xf32>) -> tensor<*xf32> {
   // expected-error @+2 {{onnx.ScatterElements: 'indices' value is 3, accepted range is [-3, 2]}}
   %indices = "onnx.Constant"() {value = dense<[3]> : tensor<1xi64>} : () -> tensor<1xi64>
-  %1 = "onnx.ScatterElements"(%arg0, %indices, %arg1) {axis = 0 : si64} : (tensor<3xf32>, tensor<1xi64>, tensor<3xf32>)  -> tensor<*xf32>
+  %1 = "onnx.ScatterElements"(%arg0, %indices, %arg1) {axis = 0 : si64} : (tensor<3xf32>, tensor<1xi64>, tensor<1xf32>)  -> tensor<*xf32>
   "onnx.Return"(%1) : (tensor<*xf32>) -> ()
 }
 
@@ -830,5 +830,25 @@ func.func @test_random_normal_like_wrong_dtype(%arg0: tensor<1x1x28x28xf32>) -> 
   // expected-error @+1 {{'onnx.RandomUniformLike' op result element type f16 does not match the expected type f32}}
   %0 = "onnx.RandomUniformLike"(%arg0) {dtype = 1 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x28xf32>) -> tensor<*xf16>
   "onnx.Return"(%0) : (tensor<*xf16>) -> ()
+}
+
+// -----
+
+// A mismatched-dtype comparison not covered by the float-vs-integer-zero-
+// literal exception (non-zero literal here) must be rejected by the
+// verifier, not silently accepted only to abort deep in ONNXToKrnl lowering.
+func.func @test_greater_or_equal_mismatched_types(%arg0: tensor<f32>) -> tensor<i1> {
+  %0 = onnx.Constant dense<1> : tensor<i64>
+  // expected-error @+1 {{'onnx.GreaterOrEqual' op expected operands to have the same element type, but got 'f32' and 'i64'}}
+  %1 = "onnx.GreaterOrEqual"(%arg0, %0) : (tensor<f32>, tensor<i64>) -> tensor<i1>
+  onnx.Return %1 : tensor<i1>
+}
+
+// -----
+
+func.func @test_less_or_equal_mismatched_types(%arg0: tensor<f32>, %arg1: tensor<i64>) -> tensor<i1> {
+  // expected-error @+1 {{'onnx.LessOrEqual' op expected operands to have the same element type, but got 'f32' and 'i64'}}
+  %0 = "onnx.LessOrEqual"(%arg0, %arg1) : (tensor<f32>, tensor<i64>) -> tensor<i1>
+  onnx.Return %0 : tensor<i1>
 }
 

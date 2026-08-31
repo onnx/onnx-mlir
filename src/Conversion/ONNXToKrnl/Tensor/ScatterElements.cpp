@@ -43,6 +43,8 @@ struct ONNXScatterElementsOpLowering
     int64_t indicesRank = mlir::cast<MemRefType>(indices.getType()).getRank();
     assert(updatesRank == dataRank && indicesRank == dataRank &&
            "All input tensors must have the same rank");
+    assert(adaptor.getReduction() == "none" &&
+           "ScatterElements lowering only supports reduction 'none'");
 
     // Determine whether indices may be negative.
     bool indicesMayBeNegative = !indicesAreNonNegativeConstants(indices);
