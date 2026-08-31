@@ -56,6 +56,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   Sequence/SequenceInsert.cpp
   Sequence/SequenceLength.cpp
   Tensor/ArgMinMax.cpp
+  Tensor/Col2Im.cpp
   Tensor/Compress.cpp
   Tensor/Concat.cpp
   Tensor/ConcatShapeTranspose.cpp
