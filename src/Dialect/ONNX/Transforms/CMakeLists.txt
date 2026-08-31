@@ -8,7 +8,8 @@ add_onnx_mlir_pass(ONNXTransforms Passes ONNXTransforms)
 
 add_onnx_mlir_library(OMFusionOpHelper
   FusionOpHelper.cpp
-
+  DEPENDS
+  OMONNXTransformsPassIncGen
   LINK_LIBS PUBLIC
   OMONNXOps
   )
