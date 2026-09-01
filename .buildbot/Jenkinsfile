@@ -193,6 +193,54 @@ def call() {
             env.JENKINS_BUILD_RESULT = 'UNKNOWN'
           }
 
+          /* Every buildbot script imports GitPython, whose gitdb/smmap
+           * dependency chain is a distro python install. A node python
+           * upgrade can leave that chain half migrated, e.g. with smmap
+           * reduced to an empty directory, and then every build fails at
+           * import time before anything is even compiled:
+           *
+           *   ImportError: cannot import name 'StaticWindowMapManager'
+           *                from 'smmap' (unknown location)
+           *
+           * We have no root on the build nodes, so repair it into the per
+           * user site directory instead, which takes precedence over the
+           * system dist-packages. This is a no-op on a healthy node.
+           */
+          sh '''#!/bin/bash +x
+            if python3 -c 'import git' 2>/dev/null; then
+                echo "GitPython imports fine, nothing to repair"
+                exit 0
+            fi
+
+            echo "GitPython is broken on this node, the error is:"
+            python3 -c 'import git' 2>&1 | sed 's/^/    /'
+            echo "Repairing into the per user site directory"
+
+            # pip 23.0 and later refuse to modify an externally managed
+            # python (PEP 668) unless told to, while older pip does not
+            # know the option at all. So only pass it when supported.
+            bsp=
+            if python3 -m pip install --help 2>/dev/null |
+               grep -q -- '--break-system-packages'; then
+                bsp=--break-system-packages
+            fi
+
+            # Install GitPython rather than just smmap so that pip resolves
+            # a mutually consistent GitPython/gitdb/smmap set into the user
+            # site directory, instead of leaving a mix of user and system
+            # versions that may not agree on their pinned versions.
+            if ! python3 -m pip install --user $bsp --upgrade GitPython; then
+                echo "ERROR: pip install failed. If this node cannot reach"
+                echo "       PyPI, then the system python3-smmap package has"
+                echo "       to be reinstalled by someone with root here."
+                exit 1
+            fi
+
+            # Fail the stage now, with the import error in the log, rather
+            # than let the next script fail with a confusing traceback.
+            python3 -c 'import git; print("repaired:", git.__file__, git.__version__)'
+          '''
+
           /* The stopped build will post github status with 'aborted'.
            * However, the status has already been updated with the new
            * commit sha with 'pending' by the frontend script. So the
