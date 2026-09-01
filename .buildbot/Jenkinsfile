@@ -225,11 +225,17 @@ def call() {
                 bsp=--break-system-packages
             fi
 
-            # Install GitPython rather than just smmap so that pip resolves
-            # a mutually consistent GitPython/gitdb/smmap set into the user
-            # site directory, instead of leaving a mix of user and system
-            # versions that may not agree on their pinned versions.
-            if ! python3 -m pip install --user $bsp --upgrade GitPython; then
+            # Name the whole GitPython/gitdb/smmap chain, so that all three
+            # come from the user site directory and the import cannot end
+            # up back in the broken system copy.
+            #
+            # --ignore-installed is essential here. pip decides that a
+            # requirement is already satisfied from the installed metadata
+            # alone, so the intact smmap dist-info makes it believe the
+            # gutted smmap package is fine and skip it. We cannot use
+            # --force-reinstall for this, since that also tries to
+            # uninstall the system copy, which needs root we do not have.
+            if ! python3 -m pip install --user $bsp --ignore-installed GitPython gitdb smmap; then
                 echo "ERROR: pip install failed. If this node cannot reach"
                 echo "       PyPI, then the system python3-smmap package has"
                 echo "       to be reinstalled by someone with root here."
@@ -238,7 +244,14 @@ def call() {
 
             # Fail the stage now, with the import error in the log, rather
             # than let the next script fail with a confusing traceback.
-            python3 -c 'import git; print("repaired:", git.__file__, git.__version__)'
+            if python3 -c 'import git'; then
+                python3 -c 'import git, gitdb, smmap; print("repaired:"); print("    git  ", git.__version__, git.__file__); print("    gitdb", gitdb.__file__); print("    smmap", smmap.__file__)'
+            else
+                echo "ERROR: still broken after the reinstall. Where things are:"
+                python3 -c 'import sys; print("  sys.path:"); [print("   ", p) for p in sys.path]'
+                python3 -c 'import importlib.util as u; s = u.find_spec("smmap"); print("  smmap origin:", s and s.origin); print("  smmap dirs:  ", s and list(s.submodule_search_locations or []))'
+                exit 1
+            fi
           '''
 
           /* The stopped build will post github status with 'aborted'.
