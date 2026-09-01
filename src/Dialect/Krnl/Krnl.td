@@ -60,10 +60,10 @@ def KrnlCallOp : Op<Krnl_Dialect, "call",
     `parameters` is the inputs to Krnl.Call. It includes the outputs and inputs
     of the ONNX Op. The outputs and inputs are already lowered to MemRefs.
     The external function is assumed NOT to allocate or free any memory.
-    'numOfOutput` attribute to tell how manu outputs Memref in parameters.
+    'numOfOutput` attribute to tell how many outputs Memref in parameters.
     mlir::OpTrait::AttrSizedOperandSegments is not used to put outputs and
     inputs into separate variadic parameters because I am thinking of mixing
-    the inputs and outpus as required by external library.
+    the inputs and outputs as required by external library.
 
     The attributes of the ONNX Op will be copied to KrnlCallOp under the control
     of the user.
@@ -97,7 +97,7 @@ def KrnlCallOp : Op<Krnl_Dialect, "call",
 
   // builders to build KrnlCallOp from op and operands, helping conversion from
   // onnx to krnl.
-  // The name of function can be determined by the op name and elemnt type of
+  // The name of function can be determined by the op name and element type of
   // the return, or given to builder if the simple rule does not work.
   // Attributes of the op will be propagated to KrnlCallOp if the copyAttrs is
   // true. Or the attribute names can be specified.
@@ -268,7 +268,7 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [RecursiveMemoryEffects, Implici
 // copied and return. This copy can be further avoided if the extraction is
 // the last reference (by extract or erase from any sequence) of this element.
 // ToDo: handle an element in multiple sequences with copy
-// ToDo: use the one-shot interface for space manangement.
+// ToDo: use the one-shot interface for space management.
 
 def KrnlSeqAllocOp : Op<Krnl_Dialect, "seqalloc", [MemRefsNormalizable,
     DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
@@ -435,6 +435,90 @@ def KrnlBlockOp : Op<Krnl_Dialect, "block"> {
   let assemblyFormat = [{
       $loop $tile_size attr-dict `:` functional-type($loop, results)
   }];
+  let hasVerifier = 1;
+}
+
+def KrnlCollapseOp : Op<Krnl_Dialect, "collapse"> {
+  let summary = "Krnl collapse operation";
+  let description = [{
+    Fuse two or more perfectly nested for loops into a single for loop whose
+    trip count is the product of the original trip counts. Operands are given
+    outer-to-inner, and the single result refers to the fused loop.
+
+    `krnl.get_induction_var_value` hands the body one index **per original
+    dimension** by default, so a collapsed nest is queried exactly like an
+    uncollapsed one and a body does not have to know whether it was collapsed:
+
+    ```
+    %ii, %jj = krnl.define_loops 2
+    %f = krnl.collapse(%ii, %jj) : (!krnl.loop, !krnl.loop) -> !krnl.loop
+    krnl.iterate(%f) with (%ii -> %i = 0 to 10, %jj -> %j = 0 to 20) {
+      %i, %j = krnl.get_induction_var_value(%f) : (!krnl.loop) -> (index, index)
+      %v = krnl.load %2d[%i, %j] : memref<10x20xf32>
+    }
+    ```
+
+    Recovering those per-dimension indices costs a floordiv/mod chain. When a
+    **linearized** access is what the body wants instead, ask for the fused index
+    with the `fusedIndex` attribute and no division is emitted at all -- for a flat
+    `memref<200xf32>`, the fused index is already the right subscript:
+
+    ```
+    %idx = krnl.get_induction_var_value(%f) {fusedIndex} : (!krnl.loop) -> index
+    %v = krnl.load %flat[%idx] : memref<200xf32>
+    // %idx is the flat iteration number over the fused range, here 0 to 199.
+    ```
+
+    Both may appear in the same body, as two separate queries on the same loop
+    reference.
+
+    The main motivation is `krnl.parallel`, which can then spread a single
+    fused iteration space over the available threads instead of parallelizing
+    only the outermost dimension.
+
+    Restrictions in this first version:
+
+    * Every collapsed dimension must have a **lower bound of compile-time
+      constant 0** and a **step of 1**. A literal `0 to N` qualifies, and so
+      does a bound spelled as a constant SSA value such as `%c0 to N`, which is
+      folded before being checked. A non-zero bound (`5 to N`) or a bound that
+      is only known at run time (`%lb to N`) is rejected: the trip count of a
+      collapsed dimension is taken to be its upper bound, and recovering the
+      per-dimension indices would additionally have to add each dimension's
+      offset back in, which the recovery does not do.
+    * The enclosing `krnl.iterate` must have no reduction `iterArgs`.
+    * The operands may not themselves be results of `krnl.block` or
+      `krnl.collapse`. Conversely, the result may not be fed to `krnl.block` or
+      `krnl.unroll`.
+    * An **operand** loop reference is consumed by the collapse: after fusing it
+      no longer refers to a loop of its own, so nothing else may use it. In
+      particular `krnl.get_induction_var_value(%ii)` on a collapsed-away operand
+      is invalid, and so is naming that dimension's induction variable in the
+      `with` clause and then using it (the `%i` in `with (%ii -> %i = 0 to N)`).
+      The latter is an implementation restriction rather than a fundamental one:
+      `affine::coalesceLoops` rewrites uses of the collapsed induction variables
+      only within the fused loop's own region, whereas the iterate body has by
+      then been parked elsewhere in the function.
+
+      The **result** is the opposite, and is not restricted at all: `%f` is the
+      one surviving loop, and `krnl.get_induction_var_value(%f)` is exactly how
+      its indices are obtained -- per-dimension by default, or the fused index
+      with `{fusedIndex}`.
+
+    Only the two operand/result restrictions are enforced by this op's verifier.
+    The bound, `iterArgs` and use restrictions depend on the enclosing
+    `krnl.iterate`, which this op cannot see from its own operands, so they are
+    reported when the loop nest is lowered instead.
+  }];
+
+  let arguments = (ins Variadic<AnyType>:$loops);
+  let results = (outs AnyType:$collapsed_loop);
+
+  let builders = [ OpBuilder<(ins "ValueRange":$loops)> ];
+  let assemblyFormat = [{
+      `(` $loops `)` attr-dict `:` functional-type($loops, results)
+  }];
+  let hasVerifier = 1;
 }
 
 def KrnlPermuteOp : Op<Krnl_Dialect, "permute"> {
@@ -472,7 +556,7 @@ def KrnlPermuteOp : Op<Krnl_Dialect, "permute"> {
     %ib, %il = krnl.block %ii 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
     %jb, %jl = krnl.block %jj 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
     %kb, %kl = krnl.block %kk 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
-    // Move iteration over tile coordinates to be the outer loops and iterateion over
+    // Move iteration over tile coordinates to be the outer loops and iteration over
     // the inter-tile elements to be the inner loops.
     krnl.permute(%ib, %il, %jb, %jl, %kb, %kl) [0, 3, 1, 4, 2, 5] : !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop
     krnl.iterate(%ib, %il, %jb, %jl, %kb, %kl) with (%ii -> %i = 0 to 1024, %jj -> %j = 0 to 2048, %kk -> %k = 0 to 4096)  {
@@ -519,23 +603,30 @@ def KrnlUnrollOp : Op<Krnl_Dialect, "unroll"> {
   let assemblyFormat = [{
       $loop attr-dict `:` type($loop)
   }];
+  let hasVerifier = 1;
 }
 
 def KrnlParallelOp : Op<Krnl_Dialect, "parallel", [AttrSizedOperandSegments]> {
   let summary = "Mark Krnl loops as parallel loops";
   let description = [{
-    Parallelize the specified loops. When multiple loop specifiers are passed
-    as parameters, there loops can be parallelized as a collapsed loop.
-    krnl.parallel should be placed as the last operator before krnl.iterate,
-    Since we do not want to parallelize the loop until we interpret krnl.block,
-    krnl.permute and krnl.unroll.
+    Parallelize the specified loops. `krnl.parallel` should be placed as the
+    last operator before krnl.iterate, since we do not want to parallelize the
+    loop until we interpret krnl.block, krnl.permute and krnl.unroll.
 
-    Optionally, a value may specifiy the number of threads requested for the
+    Parallelizing more than one loop of the same loop nest is **not
+    recommended**: each loop specifier is parallelized independently, giving one
+    nested `affine.parallel` per specifier rather than a single parallel region
+    over their combined iteration space, and the optional clauses below then
+    apply to the first (outermost) one only. To spread one fused iteration space
+    over the threads, `krnl.collapse` the dimensions first and parallelize the
+    resulting fused loop reference.
+
+    Optionally, a value may specify the number of threads requested for the
     parallel loop. A proc_bind string may also be specified; valid values are
     "primary", "close", or "spread". Default values are used when not specified.
 
     ```
-    krnl.parallel (%i0, %i1) : !Krnl.loop, !Krnl.loop
+    krnl.parallel (%i0) : !Krnl.loop
     ```
   }];
 
@@ -549,7 +640,7 @@ def KrnlParallelOp : Op<Krnl_Dialect, "parallel", [AttrSizedOperandSegments]> {
 }
 
 def KrnlParallelClauseOp : Op<Krnl_Dialect, "parallel_clause"> {
-  let summary = "Attach OpenMP clauses to an index varialbe";
+  let summary = "Attach OpenMP clauses to an index variable";
   let description = [{
     Attach OpenMP clauses to an index variable. That index variable
     is used to uniquely associate a parallel loop with its clauses.
@@ -880,7 +971,7 @@ def KrnlMovableOp : Op<Krnl_Dialect, "movable", [ImplicitKrnlTerminator]> {
 }
 
 def KrnlGetInductionVariableValueOp : Op<Krnl_Dialect, "get_induction_var_value", [NoMemoryEffect]> {
-  let summary = "Krnl ";
+  let summary = "Krnl get induction variable value operation";
   let description = [{
      Krnl operation to convert loop references to corresponding induction
      variable values. This is useful for accessing optimized loop induction
@@ -889,17 +980,53 @@ def KrnlGetInductionVariableValueOp : Op<Krnl_Dialect, "get_induction_var_value"
      For example, this operation can be applied to loop references corresponding to
      inter-tile iterations. The return values will be the starting index of the
      current tile being iterated over.
+
+     Every operand yields one result, **except** a loop reference produced by
+     `krnl.collapse`, which by default yields one result per originally collapsed
+     dimension, outer-to-inner. A body therefore reads the same whether or not its
+     nest was collapsed:
+
+     ```
+     %f = krnl.collapse(%d0, %d1) : (!krnl.loop, !krnl.loop) -> !krnl.loop
+     krnl.iterate(%f, %d2) with (%d0 -> %i0 = 0 to A, %d1 -> %i1 = 0 to B,
+                                 %d2 -> %i2 = 0 to C) {
+       // 2 operands, 3 results: %f contributes 2, %d2 contributes 1.
+       %a, %b, %c = krnl.get_induction_var_value(%f, %d2)
+           : (!krnl.loop, !krnl.loop) -> (index, index, index)
+     }
+     ```
+
+     Recovering those indices costs a floordiv/mod chain per collapsed group. Set
+     the **`fusedIndex`** attribute to get the single fused (linear) index of each
+     collapsed loop instead, which emits no division and is what a linearized
+     access wants:
+
+     ```
+     %lin, %c = krnl.get_induction_var_value(%f, %d2) {fusedIndex}
+         : (!krnl.loop, !krnl.loop) -> (index, index)
+     ```
+
+     The attribute applies to the whole operation, so a body needing both forms
+     issues two operations on the same loop references. It is permitted, and inert,
+     on an operation with no collapsed operand, where the two result counts
+     coincide.
+
+     Accordingly the number of results must be exactly the number of operands with
+     `fusedIndex`, and the sum over operands of the number of dimensions each
+     contributes without it.
   }];
 
-  let arguments = (ins Variadic<AnyType> : $loops);
+  let arguments = (ins Variadic<AnyType>:$loops, UnitAttr:$fusedIndex);
   let results = (outs Variadic<AnyType> : $ind_var_vals);
 
-  let builders = [ OpBuilder<(ins "ValueRange": $loops)>];
+  let builders = [ OpBuilder<(ins "ValueRange": $loops)>,
+                   OpBuilder<(ins "ValueRange":$loops, "bool":$fusedIndex)>];
 
   let assemblyFormat = [{
       `(` $loops `)` attr-dict `:` functional-type($loops, results)
   }];
 
+  let hasVerifier = 1;
 }
 
 // =============================================================================
@@ -956,7 +1083,7 @@ def KrnlSpecializedKernel : Op<Krnl_Dialect, "specialized_kernel",
 
 def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
        DeclareOpInterfaceMethods<SpecializedKernelOpInterface>, MemRefsNormalizable]> {
-  let summary = "Matmul operation for a single pannel.";
+  let summary = "Matmul operation for a single panel.";
   let description = [{
     Perform a matrix multiplication AA * BB + CC with sizes `[IxK] * [KxJ] + [IxJ]`.
     The original matrices AA, BB, and CC can be buffered in buffered arrays
@@ -1120,7 +1247,7 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
   }];
 
   let arguments = (ins
-    // Buffer/memory used and indices that correspoond to the beginning
+    // Buffer/memory used and indices that correspond to the beginning
     // of each buffer/memory.
     Arg<AnyMemRef, "Mult A [NxK]", [MemRead]>:$A,
     Variadic<Index>: $aGlobalIndexMemStart,
@@ -1244,11 +1371,11 @@ def KrnlCopyToBufferOp : Op<Krnl_Dialect, "copy_to_tile_buffer", [
 
   let arguments = (ins
     Arg<AnyMemRef, "buffer", [MemWrite]>:$buffer, // Buffer.
-    Arg<AnyMemRef, "memory", [MemRead]>:$source, // Source, possibly tranposed.
+    Arg<AnyMemRef, "memory", [MemRead]>:$source, // Source, possibly transposed.
     Variadic<Index>:$starts, // Rank of source, possibly transposed.
-    AnyType: $padValue, // Rank of bufffer.
-    OptionalAttr<I64ArrayAttr>:$tileSize, // Rank of bufffer.
-    OptionalAttr<I64ArrayAttr>:$padToNext, // Rank of bufffer.
+    AnyType: $padValue, // Rank of buffer.
+    OptionalAttr<I64ArrayAttr>:$tileSize, // Rank of buffer.
+    OptionalAttr<I64ArrayAttr>:$padToNext, // Rank of buffer.
     DefaultValuedAttr<BoolAttr, "false">:$transpose); // Transposed or not.
 
   let builders = [
@@ -1361,7 +1488,7 @@ def KrnlMemsetOp : Op<Krnl_Dialect, "memset", [MemRefsNormalizable,
     This extended iteration space has 8 elements in total.
 
     If `delayed = false`, the original iteration space is used to set values.
-    In the above example, only 5 out of 8 elementes will be set to the given value.
+    In the above example, only 5 out of 8 elements will be set to the given value.
 
     If `delayed = true`, the extended iteration space is used to set values.
     In the above example, all 8 elements will be set to the given value.
