@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --split-input-file %s -constprop-onnx=enable-quant-const-fold | FileCheck %s
+// RUN: onnx-mlir-opt --split-input-file %s -constprop-onnx=enable-dequant-const-fold | FileCheck %s
 // RUN: onnx-mlir-opt --split-input-file %s -constprop-onnx | FileCheck %s --check-prefix=DISABLED
 
 //===----------------------------------------------------------------------===//
@@ -6,7 +6,7 @@
 //===----------------------------------------------------------------------===//
 
 // Per-tensor, zero point = 0. (2-0)*0.5=1, (4-0)*0.5=2, (6-0)*0.5=3.
-// The fold is gated behind enable-quant-const-fold, so it is off by default.
+// The fold is gated behind enable-dequant-const-fold, so it is off by default.
 func.func @fold_dq_per_tensor() -> tensor<3xf32> {
   %x = onnx.Constant dense<[2, 4, 6]> : tensor<3xui8>
   %scale = onnx.Constant dense<5.000000e-01> : tensor<f32>

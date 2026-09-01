@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --split-input-file %s -constprop-onnx=enable-quant-const-fold | FileCheck %s
+// RUN: onnx-mlir-opt --split-input-file %s -constprop-onnx="enable-quant-const-fold enable-dequant-const-fold" | FileCheck %s
 // RUN: onnx-mlir-opt --split-input-file %s -constprop-onnx | FileCheck %s --check-prefix=DISABLED
 
 //===----------------------------------------------------------------------===//
@@ -101,7 +101,7 @@ func.func @fold_q_no_zp() -> tensor<1xi8> {
 // -----
 
 // End-to-end: Const(fp) -> Q -> DQ collapses all the way to a Const(fp), since
-// both the Q and DQ folders are enabled by enable-quant-const-fold.
+// the Q and DQ folders are enabled (enable-quant-const-fold + enable-dequant-const-fold).
 func.func @fold_q_then_dq() -> tensor<3xf32> {
   %x = onnx.Constant dense<[1.0, 2.0, 3.0]> : tensor<3xf32>
   %scale = onnx.Constant dense<5.000000e-01> : tensor<f32>
