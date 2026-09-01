@@ -271,6 +271,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXTileOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXFlattenOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXRangeOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXEyeLikeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXResizeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXNonZeroOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXReverseSequenceOpPattern(patterns, typeConverter, ctx);
