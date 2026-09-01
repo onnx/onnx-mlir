@@ -3120,9 +3120,9 @@ struct ZHighToZLowFusedConcatExpandStickLowering
     // ZHighToZLowFusedExpandMulStickLowering above.
     bool hasMulScalar = fusion.mulScalar != 1.0f;
     Value scalarConst = hasMulScalar
-                             ? create.math.constant(
-                                   rewriter.getF32Type(), (double)fusion.mulScalar)
-                             : nullptr;
+                            ? create.math.constant(rewriter.getF32Type(),
+                                  (double)fusion.mulScalar)
+                            : nullptr;
 
     int64_t R = getRank(input1MemRef.getType()); // concat rank
     int64_t outputRank = getRank(outputTensor.getType());
