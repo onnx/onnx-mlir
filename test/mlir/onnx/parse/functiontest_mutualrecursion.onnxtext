@@ -1,0 +1,41 @@
+// RUN: not onnx-mlir --EmitONNXBasic --printIR %s 2>&1 | FileCheck %s
+
+// Tests that a pair of mutually-recursive model-local functions (A calls B,
+// B calls A) is rejected with a clear diagnostic instead of overflowing the
+// C++ call stack.  This exercises the indirect cycle path of the recursion
+// guard in ImportFunctionCallNode.
+//
+// The guard works by recording each model-local FunctionProto* in
+// expandingModelFunctions_ before descending into its body, and checking
+// membership before making any new model-local call — so the cycle is caught
+// on the second encounter of funcA (when funcB tries to call it back), not
+// only on literal self-calls.
+
+<
+ir_version: 8,
+opset_import: [ "" : 16, "local" : 1 ]
+>
+agraph (float[N] x) => (float[N] y)
+{
+    y = local.funcA (x)
+}
+
+<
+opset_import: [ "" : 16, "local" : 1],
+domain: "local"
+>
+funcA (lx) => (ly) {
+    // funcA calls funcB — start of the mutual cycle.
+    ly = local.funcB (lx)
+}
+
+<
+opset_import: [ "" : 16, "local" : 1],
+domain: "local"
+>
+funcB (lx) => (ly) {
+    // funcB calls funcA — closes the cycle.  This must be caught.
+    ly = local.funcA (lx)
+}
+
+// CHECK: model-local function 'local:funcA' is directly or indirectly recursive
