@@ -208,6 +208,10 @@ def ONNXHybridTransformOptions {
            "bool", /*default=*/"false",
            "Enable folding of a constant QuantizeLinear into an integer "
            "constant.">,
+    Option<"dequantConstFold", "dequant-const-fold",
+           "bool", /*default=*/"false",
+           "Enable folding of a constant DequantizeLinear into a float "
+           "constant.">,
     Option<"decomposition", "decomposition",
            "bool", /*default=*/"true",
            "Enable decomposition in hybrid transform.">,
