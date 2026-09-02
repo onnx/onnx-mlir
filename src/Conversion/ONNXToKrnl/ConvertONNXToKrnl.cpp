@@ -330,12 +330,14 @@ struct FrontendToKrnlLoweringPass
   FrontendToKrnlLoweringPass(const FrontendToKrnlLoweringPass &pass)
       : PassWrapper<FrontendToKrnlLoweringPass, OperationPass<ModuleOp>>() {}
   FrontendToKrnlLoweringPass(bool enableTiling, bool enableSIMD,
-      bool enableParallel, bool enableFastMath, std::string opsForCall) {
+      bool enableParallel, bool enableCollapse, bool enableFastMath,
+      std::string opsForCall) {
     // Below, need explicit assignment to enable implicit conversion of bool to
     // Option<bool>.
     this->enableTiling = enableTiling;
     this->enableSIMD = enableSIMD;
     this->enableParallel = enableParallel;
+    this->enableCollapse = enableCollapse;
     this->enableFastMath = enableFastMath;
     this->opsForCall = opsForCall;
   }
@@ -365,6 +367,11 @@ public:
       llvm::cl::desc("Enable SIMD code gen"), llvm::cl::init(false)};
   Option<bool> enableParallel{*this, "enable-parallel",
       llvm::cl::desc("Enable parallelization"), llvm::cl::init(false)};
+  Option<bool> enableCollapse{*this, "enable-collapse",
+      llvm::cl::desc(
+          "Enable collapsing several loop levels into one parallel "
+          "region; only has an effect together with enable-parallel"),
+      llvm::cl::init(false)};
   Option<bool> enableFastMath{*this, "enable-fast-math",
       llvm::cl::desc("Enable fast math optimizations"), llvm::cl::init(false)};
   Option<std::string> opsForCall{*this, "ops-for-call",
@@ -474,9 +481,10 @@ std::unique_ptr<Pass> createLowerToKrnlPass() {
 }
 
 std::unique_ptr<Pass> createLowerToKrnlPass(bool enableTiling, bool enableSIMD,
-    bool enableParallel, bool enableFastMath, std::string opsForCall) {
-  return std::make_unique<FrontendToKrnlLoweringPass>(
-      enableTiling, enableSIMD, enableParallel, enableFastMath, opsForCall);
+    bool enableParallel, bool enableCollapse, bool enableFastMath,
+    std::string opsForCall) {
+  return std::make_unique<FrontendToKrnlLoweringPass>(enableTiling, enableSIMD,
+      enableParallel, enableCollapse, enableFastMath, opsForCall);
 }
 
 //===----------------------------------------------------------------------===//
