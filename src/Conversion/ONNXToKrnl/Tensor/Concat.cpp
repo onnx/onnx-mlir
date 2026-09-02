@@ -85,22 +85,22 @@ struct ONNXConcatOpLowering : public OpConversionPattern<ONNXConcatOp> {
       // Create loop.
       ValueRange loopDef = create.krnl.defineLoops(rank);
       SmallVector<IndexExpr, 4> lbs(rank, LitIE(0));
-      SmallVector<IndexExpr, 4> ubs;
-      create.krnlIE.getShapeAsDims(operands[i], ubs);
-      // For each input, only the dimension 'axis' is different
-      // Explore parallelism at the first two outermost dimensions and give up
-      // if the found dimension is 'axis'.
-      commonUB[axis] = ubs[axis];
+      // For each input, only the dimension 'axis' is different, so all the
+      // other dims keep the output's (possibly literal, and shared) values.
+      IndexExpr axisDim = create.krnlIE.getShapeAsDim(operands[i], axis);
+      commonUB[axis] = axisDim;
 
       // Enable parallelism if required. Do not parallel on the axis dimension.
+      // Explore parallelism at the first two outermost dimensions and give up
+      // if the found dimension is 'axis'.
       if (enableParallel)
         tryCreateKrnlParallel(
-            create.krnl, op, "concat", loopDef, lbs, ubs, 0, 2, {axis});
+            create.krnl, op, "concat", loopDef, lbs, commonUB, 0, 2, {axis});
 
       create.krnl.iterateIE(loopDef, loopDef, lbs, commonUB,
           [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
             // Indices for the read and write.
-            SmallVector<Value, 4> readIndices, writeIndices;
+            SmallVector<Value, 4> writeIndices;
             for (unsigned int r = 0; r < rank; ++r) {
               if (r != axis || i == 0)
                 writeIndices.emplace_back(loopInd[r]);
@@ -116,8 +116,7 @@ struct ONNXConcatOpLowering : public OpConversionPattern<ONNXConcatOp> {
             Value loadData = createKrnl.load(operands[i], loopInd);
             createKrnl.store(loadData, alloc, writeIndices);
           });
-      accumulatedOffset =
-          accumulatedOffset + create.krnlIE.getShapeAsDim(operands[i], axis);
+      accumulatedOffset = accumulatedOffset + axisDim;
     }
     rewriter.replaceOp(op, alloc);
     onnxToKrnlSimdReport(op);
