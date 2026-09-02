@@ -700,6 +700,9 @@ static llvm::cl::opt<bool, true> enableParallelOpt("parallel",
     llvm::cl::location(enableParallel), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
+// hi alex: not sure we want/need these specific options; leave them for now for
+// debugging.
+
 static llvm::cl::opt<bool, true> enableCollapseOpt("enable-collapse",
     llvm::cl::desc(
         "Enable collapsing several loop levels into one parallel region\n"
