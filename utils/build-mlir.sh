@@ -12,5 +12,5 @@ cmake -G Ninja ../llvm \
    -DLLVM_ENABLE_RTTI=ON \
    -DLLVM_ENABLE_LIBEDIT=OFF
 
-cmake --build . -- ${MAKEFLAGS}
+cmake --build . -- -j3 ${MAKEFLAGS}
 cmake --build . --target check-mlir
