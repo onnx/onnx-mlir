@@ -65,6 +65,28 @@ func.func @test_pass_dims_scalar(%arg0: tensor<?x?x200xf32>) -> tensor<i64> {
 
 // -----
 
+// Gather with a negative index must be normalized against the number of
+// dims represented by the Concat, not against the Concat value's own tensor
+// rank (which is always 1). Index -1 on a rank-3 shape must select the last
+// (3rd) dim, i.e. the static 200, not the first (dynamic) dim.
+func.func @test_pass_dims_negative_index(%arg0: tensor<?x?x200xf32>) -> tensor<i64> {
+  %0 = onnx.Constant dense<-1> : tensor<i64>
+  %1 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?x?x200xf32>) -> tensor<1xi64>
+  %2 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<?x?x200xf32>) -> tensor<1xi64>
+  %3 = onnx.Constant dense<200> : tensor<1xi64>
+  %4 = "onnx.Concat"(%1, %2, %3) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+  %5 = "onnx.Gather"(%4, %0) {axis = 0 : si64} : (tensor<3xi64>, tensor<i64>) -> tensor<i64>
+  onnx.Return %5 : tensor<i64>
+
+// CHECK-LABEL:  func.func @test_pass_dims_negative_index
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x200xf32>) -> tensor<i64> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<200> : tensor<i64>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<i64>
+// CHECK:         }
+}
+
+// -----
+
 func.func @test_pass_dims_through_cast(%arg0: tensor<?x256xi64>) -> (tensor<2xf32>) {
   %0 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?x256xi64>) -> tensor<1xi64>
   %1 = onnx.Constant dense<256> : tensor<1xi64>
