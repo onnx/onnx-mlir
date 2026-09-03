@@ -92,11 +92,11 @@ void IterateOverStickInputData(const BUILDER &b, mlir::Operation *op,
     // TODO: may want to check if ub of rank makes sense here.
     // Its ok here even to partition rank-1, included in (0..rank(, because
     // rank-1 is tiled. So we are still dealing with multiple of sticks.
-    auto plan = KrnlParallelPlan::noLoopRefs(/*first*/ 0,
-        /*last excl*/ rank, /*cost*/ {8});
+    auto plan = KrnlParallelPlan::noLoopRefs(
+        /*first*/ 0, /*last excl*/ rank, /*cost*/ {8});
     parId = plan.findParallelDim(
         op, "compiler-generated stickify", tiledLbs, tiledUbs);
-    if (parId == -1)
+    if (parId == NO_PAR_FOUND)
       enableParallel = false;
   }
 
