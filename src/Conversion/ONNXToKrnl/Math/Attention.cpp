@@ -29,8 +29,8 @@ struct ONNXAttentionOpLowering : public OpConversionPattern<ONNXAttentionOp> {
       : OpConversionPattern<ONNXAttentionOp>(typeConverter, ctx) {}
 
   LogicalResult matchAndRewrite(ONNXAttentionOp attentionOp,
-      ONNXAttentionOpAdaptor adaptor, ConversionPatternRewriter &rewriter)
-      const final {
+      ONNXAttentionOpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const final {
     Location loc = attentionOp.getLoc();
     MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
 
@@ -38,6 +38,10 @@ struct ONNXAttentionOpLowering : public OpConversionPattern<ONNXAttentionOp> {
     Value K = adaptor.getK();
     Value V = adaptor.getV();
     Value attnMask = adaptor.getAttnMask();
+    Value pastKey = adaptor.getPastKey();
+    Value pastValue = adaptor.getPastValue();
+    bool hasPastKey = !isNoneValue(pastKey);
+    bool hasPastValue = !isNoneValue(pastValue);
 
     // Get input rank to determine if it's 3D or 4D
     ShapedType qType = mlir::cast<ShapedType>(Q.getType());
@@ -69,7 +73,8 @@ struct ONNXAttentionOpLowering : public OpConversionPattern<ONNXAttentionOp> {
       int64_t headSize = qHiddenSize / qNumHeads;
 
       // Reshape Q: (B, S, H) -> (B, qNumHeads, S, H/qNumHeads)
-      SmallVector<int64_t> qNewShape = {batchSize, qNumHeads, qSeqLen, headSize};
+      SmallVector<int64_t> qNewShape = {
+          batchSize, qNumHeads, qSeqLen, headSize};
       Type qNewType = RankedTensorType::get(qNewShape, elementType);
       Value reshapeShapeQ = create.onnx.constantInt64(qNewShape);
       Q_reshaped = create.onnx.reshape(qNewType, Q, reshapeShapeQ);
@@ -84,8 +89,8 @@ struct ONNXAttentionOpLowering : public OpConversionPattern<ONNXAttentionOp> {
         return failure();
       }
 
-      SmallVector<int64_t> kNewShape = {batchSize, qNumHeads, kSeqLen,
-          kHiddenSize / qNumHeads};
+      SmallVector<int64_t> kNewShape = {
+          batchSize, qNumHeads, kSeqLen, kHiddenSize / qNumHeads};
       Type kNewType = RankedTensorType::get(kNewShape, elementType);
       Value reshapeShapeK = create.onnx.constantInt64(kNewShape);
       K_reshaped = create.onnx.reshape(kNewType, K, reshapeShapeK);
@@ -99,11 +104,41 @@ struct ONNXAttentionOpLowering : public OpConversionPattern<ONNXAttentionOp> {
         return failure();
       }
 
-      SmallVector<int64_t> vNewShape = {batchSize, qNumHeads, kSeqLen,
-          vHiddenSize / qNumHeads};
+      SmallVector<int64_t> vNewShape = {
+          batchSize, qNumHeads, kSeqLen, vHiddenSize / qNumHeads};
       Type vNewType = RankedTensorType::get(vNewShape, elementType);
       Value reshapeShapeV = create.onnx.constantInt64(vNewShape);
       V_reshaped = create.onnx.reshape(vNewType, V, reshapeShapeV);
+    }
+
+    // Concatenate past_key with K if present
+    if (hasPastKey) {
+      ShapedType kShape = mlir::cast<ShapedType>(K_reshaped.getType());
+      ShapedType pastKeyShape = mlir::cast<ShapedType>(pastKey.getType());
+      int64_t newKSeqLen =
+          ShapedType::isDynamic(kShape.getShape()[2]) ||
+                  ShapedType::isDynamic(pastKeyShape.getShape()[2])
+              ? ShapedType::kDynamic
+              : (kShape.getShape()[2] + pastKeyShape.getShape()[2]);
+      SmallVector<int64_t> kConcatShape = {kShape.getShape()[0],
+          kShape.getShape()[1], newKSeqLen, kShape.getShape()[3]};
+      Type kConcatType = RankedTensorType::get(kConcatShape, elementType);
+      K_reshaped = create.onnx.concat(kConcatType, {pastKey, K_reshaped}, 2);
+    }
+
+    // Concatenate past_value with V if present
+    if (hasPastValue) {
+      ShapedType vShape = mlir::cast<ShapedType>(V_reshaped.getType());
+      ShapedType pastValueShape = mlir::cast<ShapedType>(pastValue.getType());
+      int64_t newVSeqLen =
+          ShapedType::isDynamic(vShape.getShape()[2]) ||
+                  ShapedType::isDynamic(pastValueShape.getShape()[2])
+              ? ShapedType::kDynamic
+              : (vShape.getShape()[2] + pastValueShape.getShape()[2]);
+      SmallVector<int64_t> vConcatShape = {vShape.getShape()[0],
+          vShape.getShape()[1], newVSeqLen, vShape.getShape()[3]};
+      Type vConcatType = RankedTensorType::get(vConcatShape, elementType);
+      V_reshaped = create.onnx.concat(vConcatType, {pastValue, V_reshaped}, 2);
     }
 
     // Step 1: Transpose K: (B, num_heads, seq_len, head_size) -> (B,
@@ -139,17 +174,15 @@ struct ONNXAttentionOpLowering : public OpConversionPattern<ONNXAttentionOp> {
     }
 
     // Step 5: Apply softmax over the last axis
-    Value probs = rewriter.create<ONNXSoftmaxOp>(loc, qk_masked.getType(),
-        qk_masked, rewriter.getI64IntegerAttr(-1));
+    Value probs = rewriter.create<ONNXSoftmaxOp>(
+        loc, qk_masked.getType(), qk_masked, rewriter.getI64IntegerAttr(-1));
 
     // Step 6: MatMul(softmax(...), V)
     ShapedType vShape4D = mlir::cast<ShapedType>(V_reshaped.getType());
     SmallVector<int64_t> outputShape = {qShape4D.getShape()[0],
-        qShape4D.getShape()[1], qShape4D.getShape()[2],
-        vShape4D.getShape()[3]};
+        qShape4D.getShape()[1], qShape4D.getShape()[2], vShape4D.getShape()[3]};
     Type outputType4D = RankedTensorType::get(outputShape, elementType);
-    Value result =
-        create.onnx.matmul(outputType4D, probs, V_reshaped);
+    Value result = create.onnx.matmul(outputType4D, probs, V_reshaped);
 
     // Step 7: Reshape back to 3D if input was 3D
     Value result_final = result;
@@ -161,8 +194,8 @@ struct ONNXAttentionOpLowering : public OpConversionPattern<ONNXAttentionOp> {
       int64_t qSeqLen = resultShape[2];
       int64_t headSize = resultShape[3];
 
-      SmallVector<int64_t> finalShape = {batchSize, qSeqLen,
-          numHeads * headSize};
+      SmallVector<int64_t> finalShape = {
+          batchSize, qSeqLen, numHeads * headSize};
       Type finalType = RankedTensorType::get(finalShape, elementType);
       Value reshapeShapeFinal = create.onnx.constantInt64(finalShape);
       result_final = create.onnx.reshape(finalType, result, reshapeShapeFinal);
@@ -173,19 +206,28 @@ struct ONNXAttentionOpLowering : public OpConversionPattern<ONNXAttentionOp> {
 
     // Replace all 4 outputs of the AttentionOp
     SmallVector<Value, 4> replacementValues;
-    replacementValues.push_back(result_final);  // Result 0: Y
-    replacementValues.push_back(noneVal);       // Result 1: present_key
-    replacementValues.push_back(noneVal);       // Result 2: present_value
-    replacementValues.push_back(noneVal);       // Result 3: qk_matmul_output
+    replacementValues.push_back(result_final); // Result 0: Y
+
+    // Result 1: present_key - return concatenated K if past_key was used, else
+    // none Note: K_reshaped is either the original K (if no past) or K
+    // concatenated with past_key (if past was used)
+    replacementValues.push_back(hasPastKey ? K_reshaped : noneVal);
+
+    // Result 2: present_value - return concatenated V if past_value was used,
+    // else none Note: V_reshaped is either the original V (if no past) or V
+    // concatenated with past_value (if past was used)
+    replacementValues.push_back(hasPastValue ? V_reshaped : noneVal);
+
+    // Result 3: qk_matmul_output - not computed in this lowering
+    replacementValues.push_back(noneVal);
 
     rewriter.replaceOp(attentionOp, replacementValues);
     return success();
   }
 };
 
-void populateLoweringONNXAttentionOpPattern(
-    RewritePatternSet &patterns, TypeConverter &typeConverter,
-    MLIRContext *ctx) {
+void populateLoweringONNXAttentionOpPattern(RewritePatternSet &patterns,
+    TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXAttentionOpLowering>(typeConverter, ctx);
 }
 

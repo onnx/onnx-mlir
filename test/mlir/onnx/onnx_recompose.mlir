@@ -543,3 +543,65 @@ func.func @test_attention_dynamic_batch(%Q: tensor<?x8x16x32xf32>, %K: tensor<?x
 // ATTENTION:           return [[Y_]] : tensor<?x8x16x32xf32>
 // ATTENTION:         }
 }
+
+// -----
+
+// Attention with KV cache: past_key and past_value are concatenated with
+// current K and V to enable incremental decoding / autoregressive generation.
+// The concatenated K and V are returned as present_key and present_value outputs.
+
+func.func @test_attention_kv_cache(%Q: tensor<1x1x1x32xf32>, %K: tensor<1x1x1x32xf32>, %V: tensor<1x1x1x32xf32>, %past_key: tensor<1x1x10x32xf32>, %past_value: tensor<1x1x10x32xf32>) -> (tensor<1x1x1x32xf32>, tensor<1x1x11x32xf32>, tensor<1x1x11x32xf32>) {
+  %scale = onnx.Constant dense<0.176776692> : tensor<f32>
+  %concat_k = "onnx.Concat"(%past_key, %K) {axis = 2 : si64} : (tensor<1x1x10x32xf32>, tensor<1x1x1x32xf32>) -> tensor<1x1x11x32xf32>
+  %concat_v = "onnx.Concat"(%past_value, %V) {axis = 2 : si64} : (tensor<1x1x10x32xf32>, tensor<1x1x1x32xf32>) -> tensor<1x1x11x32xf32>
+  %kt = "onnx.Transpose"(%concat_k) {perm = [0, 1, 3, 2]} : (tensor<1x1x11x32xf32>) -> tensor<1x1x32x11xf32>
+  %qk = "onnx.MatMul"(%Q, %kt) : (tensor<1x1x1x32xf32>, tensor<1x1x32x11xf32>) -> tensor<1x1x1x11xf32>
+  %scaled = "onnx.Mul"(%qk, %scale) : (tensor<1x1x1x11xf32>, tensor<f32>) -> tensor<1x1x1x11xf32>
+  %probs = "onnx.Softmax"(%scaled) {axis = -1 : si64} : (tensor<1x1x1x11xf32>) -> tensor<1x1x1x11xf32>
+  %out = "onnx.MatMul"(%probs, %concat_v) : (tensor<1x1x1x11xf32>, tensor<1x1x11x32xf32>) -> tensor<1x1x1x32xf32>
+  return %out, %concat_k, %concat_v : tensor<1x1x1x32xf32>, tensor<1x1x11x32xf32>, tensor<1x1x11x32xf32>
+
+// CHECK-LABEL:  func.func @test_attention_kv_cache
+// CHECK:           "onnx.Concat"
+// CHECK:           "onnx.Transpose"
+// CHECK:           "onnx.MatMul"
+// CHECK-NOT:       "onnx.Attention"
+
+// ATTENTION-LABEL:  func.func @test_attention_kv_cache
+// ATTENTION-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x1x32xf32>, [[PARAM_1_:%.+]]: tensor<1x1x1x32xf32>, [[PARAM_2_:%.+]]: tensor<1x1x1x32xf32>, [[PARAM_3_:%.+]]: tensor<1x1x10x32xf32>, [[PARAM_4_:%.+]]: tensor<1x1x10x32xf32>) -> (tensor<1x1x1x32xf32>, tensor<1x1x11x32xf32>, tensor<1x1x11x32xf32>) {
+// ATTENTION:           [[VAR_0_:%.+]] = "onnx.NoValue"() : () -> none
+// ATTENTION:           [[Y_:%.+]], [[VAR_present_key_:%.+]], [[VAR_present_value_:%.+]], [[VAR_qk_matmul_output_:%.+]] = "onnx.Attention"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[VAR_0_]], [[PARAM_3_]], [[PARAM_4_]], [[VAR_0_]]) <{is_causal = 0 : si64, qk_matmul_output_mode = 0 : si64, scale = 0.176776692 : f32, softcap = 0.000000e+00 : f32}> : (tensor<1x1x1x32xf32>, tensor<1x1x1x32xf32>, tensor<1x1x1x32xf32>, none, tensor<1x1x10x32xf32>, tensor<1x1x10x32xf32>, none) -> (tensor<1x1x1x32xf32>, tensor<1x1x11x32xf32>, tensor<1x1x11x32xf32>, none)
+// ATTENTION:           return [[Y_]], [[VAR_present_key_]], [[VAR_present_value_]] : tensor<1x1x1x32xf32>, tensor<1x1x11x32xf32>, tensor<1x1x11x32xf32>
+// ATTENTION:         }
+}
+
+// -----
+
+// Attention with KV cache and dynamic sequence lengths. Same decomposition as above,
+// but with dynamic sequence dimensions for the current K and V, and dynamic past K and V.
+// The concatenated dimensions will be dynamic (sum of two dynamic values).
+
+func.func @test_attention_kv_cache_dynamic(%Q: tensor<1x1x?x32xf32>, %K: tensor<1x1x?x32xf32>, %V: tensor<1x1x?x32xf32>, %past_key: tensor<1x1x?x32xf32>, %past_value: tensor<1x1x?x32xf32>) -> (tensor<1x1x?x32xf32>, tensor<1x1x?x32xf32>, tensor<1x1x?x32xf32>) {
+  %scale = onnx.Constant dense<0.176776692> : tensor<f32>
+  %concat_k = "onnx.Concat"(%past_key, %K) {axis = 2 : si64} : (tensor<1x1x?x32xf32>, tensor<1x1x?x32xf32>) -> tensor<1x1x?x32xf32>
+  %concat_v = "onnx.Concat"(%past_value, %V) {axis = 2 : si64} : (tensor<1x1x?x32xf32>, tensor<1x1x?x32xf32>) -> tensor<1x1x?x32xf32>
+  %kt = "onnx.Transpose"(%concat_k) {perm = [0, 1, 3, 2]} : (tensor<1x1x?x32xf32>) -> tensor<1x1x32x?xf32>
+  %qk = "onnx.MatMul"(%Q, %kt) : (tensor<1x1x?x32xf32>, tensor<1x1x32x?xf32>) -> tensor<1x1x?x?xf32>
+  %scaled = "onnx.Mul"(%qk, %scale) : (tensor<1x1x?x?xf32>, tensor<f32>) -> tensor<1x1x?x?xf32>
+  %probs = "onnx.Softmax"(%scaled) {axis = -1 : si64} : (tensor<1x1x?x?xf32>) -> tensor<1x1x?x?xf32>
+  %out = "onnx.MatMul"(%probs, %concat_v) : (tensor<1x1x?x?xf32>, tensor<1x1x?x32xf32>) -> tensor<1x1x?x32xf32>
+  return %out, %concat_k, %concat_v : tensor<1x1x?x32xf32>, tensor<1x1x?x32xf32>, tensor<1x1x?x32xf32>
+
+// CHECK-LABEL:  func.func @test_attention_kv_cache_dynamic
+// CHECK:           "onnx.Concat"
+// CHECK:           "onnx.Transpose"
+// CHECK:           "onnx.MatMul"
+// CHECK-NOT:       "onnx.Attention"
+
+// ATTENTION-LABEL:  func.func @test_attention_kv_cache_dynamic
+// ATTENTION-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x?x32xf32>, [[PARAM_1_:%.+]]: tensor<1x1x?x32xf32>, [[PARAM_2_:%.+]]: tensor<1x1x?x32xf32>, [[PARAM_3_:%.+]]: tensor<1x1x?x32xf32>, [[PARAM_4_:%.+]]: tensor<1x1x?x32xf32>) -> (tensor<1x1x?x32xf32>, tensor<1x1x?x32xf32>, tensor<1x1x?x32xf32>) {
+// ATTENTION:           [[VAR_0_:%.+]] = "onnx.NoValue"() : () -> none
+// ATTENTION:           [[Y_:%.+]], [[VAR_present_key_:%.+]], [[VAR_present_value_:%.+]], [[VAR_qk_matmul_output_:%.+]] = "onnx.Attention"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[VAR_0_]], [[PARAM_3_]], [[PARAM_4_]], [[VAR_0_]]) <{is_causal = 0 : si64, qk_matmul_output_mode = 0 : si64, scale = 0.176776692 : f32, softcap = 0.000000e+00 : f32}> : (tensor<1x1x?x32xf32>, tensor<1x1x?x32xf32>, tensor<1x1x?x32xf32>, none, tensor<1x1x?x32xf32>, tensor<1x1x?x32xf32>, none) -> (tensor<1x1x?x32xf32>, tensor<1x1x?x32xf32>, tensor<1x1x?x32xf32>, none)
+// ATTENTION:           return [[Y_]], [[VAR_present_key_]], [[VAR_present_value_]] : tensor<1x1x?x32xf32>, tensor<1x1x?x32xf32>, tensor<1x1x?x32xf32>
+// ATTENTION:         }
+}
