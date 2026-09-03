@@ -204,10 +204,10 @@ to an external function at Krnl level.
 `parameters` is the inputs to Krnl.Call. It includes the outputs and inputs
 of the ONNX Op. The outputs and inputs are already lowered to MemRefs.
 The external function is assumed NOT to allocate or free any memory.
-'numOfOutput` attribute to tell how manu outputs Memref in parameters.
+'numOfOutput` attribute to tell how many outputs Memref in parameters.
 mlir::OpTrait::AttrSizedOperandSegments is not used to put outputs and
 inputs into separate variadic parameters because I am thinking of mixing
-the inputs and outpus as required by external library.
+the inputs and outputs as required by external library.
 
 The attributes of the ONNX Op will be copied to KrnlCallOp under the control
 of the user.
@@ -246,6 +246,99 @@ Interfaces: `MemoryEffectOpInterface`
 | Result | Description |
 | :----: | ----------- |
 | `returnValue` | variadic of floating-point or integer |
+
+
+
+### `krnl.collapse` (KrnlCollapseOp)
+
+_Krnl collapse operation_
+
+Syntax:
+
+```
+operation ::= `krnl.collapse` `(` $loops `)` attr-dict `:` functional-type($loops, results)
+```
+
+Fuse two or more perfectly nested for loops into a single for loop whose
+trip count is the product of the original trip counts. Operands are given
+outer-to-inner, and the single result refers to the fused loop.
+
+`krnl.get_induction_var_value` hands the body one index **per original
+dimension** by default, so a collapsed nest is queried exactly like an
+uncollapsed one and a body does not have to know whether it was collapsed:
+
+```
+%ii, %jj = krnl.define_loops 2
+%f = krnl.collapse(%ii, %jj) : (!krnl.loop, !krnl.loop) -> !krnl.loop
+krnl.iterate(%f) with (%ii -> %i = 0 to 10, %jj -> %j = 0 to 20) {
+  %i, %j = krnl.get_induction_var_value(%f) : (!krnl.loop) -> (index, index)
+  %v = krnl.load %2d[%i, %j] : memref<10x20xf32>
+}
+```
+
+Recovering those per-dimension indices costs a floordiv/mod chain. When a
+**linearized** access is what the body wants instead, ask for the fused index
+with the `fusedIndex` attribute and no division is emitted at all -- for a flat
+`memref<200xf32>`, the fused index is already the right subscript:
+
+```
+%idx = krnl.get_induction_var_value(%f) {fusedIndex} : (!krnl.loop) -> index
+%v = krnl.load %flat[%idx] : memref<200xf32>
+// %idx is the flat iteration number over the fused range, here 0 to 199.
+```
+
+Both may appear in the same body, as two separate queries on the same loop
+reference.
+
+The main motivation is `krnl.parallel`, which can then spread a single
+fused iteration space over the available threads instead of parallelizing
+only the outermost dimension.
+
+Restrictions in this first version:
+
+* Every collapsed dimension must have a **lower bound of compile-time
+  constant 0** and a **step of 1**. A literal `0 to N` qualifies, and so
+  does a bound spelled as a constant SSA value such as `%c0 to N`, which is
+  folded before being checked. A non-zero bound (`5 to N`) or a bound that
+  is only known at run time (`%lb to N`) is rejected: the trip count of a
+  collapsed dimension is taken to be its upper bound, and recovering the
+  per-dimension indices would additionally have to add each dimension's
+  offset back in, which the recovery does not do.
+* The enclosing `krnl.iterate` must have no reduction `iterArgs`.
+* The operands may not themselves be results of `krnl.block` or
+  `krnl.collapse`. Conversely, the result may not be fed to `krnl.block` or
+  `krnl.unroll`.
+* An **operand** loop reference is consumed by the collapse: after fusing it
+  no longer refers to a loop of its own, so nothing else may use it. In
+  particular `krnl.get_induction_var_value(%ii)` on a collapsed-away operand
+  is invalid, and so is naming that dimension's induction variable in the
+  `with` clause and then using it (the `%i` in `with (%ii -> %i = 0 to N)`).
+  The latter is an implementation restriction rather than a fundamental one:
+  `affine::coalesceLoops` rewrites uses of the collapsed induction variables
+  only within the fused loop's own region, whereas the iterate body has by
+  then been parked elsewhere in the function.
+
+  The **result** is the opposite, and is not restricted at all: `%f` is the
+  one surviving loop, and `krnl.get_induction_var_value(%f)` is exactly how
+  its indices are obtained -- per-dimension by default, or the fused index
+  with `{fusedIndex}`.
+
+Only the two operand/result restrictions are enforced by this op's verifier.
+The bound, `iterArgs` and use restrictions depend on the enclosing
+`krnl.iterate`, which this op cannot see from its own operands, so they are
+reported when the loop nest is lowered instead.
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `loops` | variadic of any type |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `collapsed_loop` | any type |
 
 
 
@@ -448,7 +541,7 @@ Effects: `MemoryEffects::Effect{}`
 
 ### `krnl.get_induction_var_value` (KrnlGetInductionVariableValueOp)
 
-_Krnl_
+_Krnl get induction variable value operation_
 
 Syntax:
 
@@ -464,9 +557,50 @@ For example, this operation can be applied to loop references corresponding to
 inter-tile iterations. The return values will be the starting index of the
 current tile being iterated over.
 
+Every operand yields one result, **except** a loop reference produced by
+`krnl.collapse`, which by default yields one result per originally collapsed
+dimension, outer-to-inner. A body therefore reads the same whether or not its
+nest was collapsed:
+
+```
+%f = krnl.collapse(%d0, %d1) : (!krnl.loop, !krnl.loop) -> !krnl.loop
+krnl.iterate(%f, %d2) with (%d0 -> %i0 = 0 to A, %d1 -> %i1 = 0 to B,
+                            %d2 -> %i2 = 0 to C) {
+  // 2 operands, 3 results: %f contributes 2, %d2 contributes 1.
+  %a, %b, %c = krnl.get_induction_var_value(%f, %d2)
+      : (!krnl.loop, !krnl.loop) -> (index, index, index)
+}
+```
+
+Recovering those indices costs a floordiv/mod chain per collapsed group. Set
+the **`fusedIndex`** attribute to get the single fused (linear) index of each
+collapsed loop instead, which emits no division and is what a linearized
+access wants:
+
+```
+%lin, %c = krnl.get_induction_var_value(%f, %d2) {fusedIndex}
+    : (!krnl.loop, !krnl.loop) -> (index, index)
+```
+
+The attribute applies to the whole operation, so a body needing both forms
+issues two operations on the same loop references. It is permitted, and inert,
+on an operation with no collapsed operand, where the two result counts
+coincide.
+
+Accordingly the number of results must be exactly the number of operands with
+`fusedIndex`, and the sum over operands of the number of dimensions each
+contributes without it.
+
 Interfaces: `NoMemoryEffect (MemoryEffectOpInterface)`
 
 Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>fusedIndex</code></td><td>::mlir::UnitAttr</td><td>unit attribute</td></tr>
+</table>
 
 #### Operands:
 
@@ -682,7 +816,7 @@ Traits: `MemRefsNormalizable`
 
 ### `krnl.matmul` (KrnlMatMulOp)
 
-_Matmul operation for a single pannel._
+_Matmul operation for a single panel._
 
 Syntax:
 
@@ -946,7 +1080,7 @@ an extended iteration space along two axes of sizes 2 and 4, respectively.
 This extended iteration space has 8 elements in total.
 
 If `delayed = false`, the original iteration space is used to set values.
-In the above example, only 5 out of 8 elementes will be set to the given value.
+In the above example, only 5 out of 8 elements will be set to the given value.
 
 If `delayed = true`, the extended iteration space is used to set values.
 In the above example, all 8 elements will be set to the given value.
@@ -1029,18 +1163,24 @@ Syntax:
 operation ::= `krnl.parallel` `(` $loops `)` (`,` `num_threads` `(` $num_threads^ `)`)? attr-dict `:` type($loops)
 ```
 
-Parallelize the specified loops. When multiple loop specifiers are passed
-as parameters, there loops can be parallelized as a collapsed loop.
-krnl.parallel should be placed as the last operator before krnl.iterate,
-Since we do not want to parallelize the loop until we interpret krnl.block,
-krnl.permute and krnl.unroll.
+Parallelize the specified loops. `krnl.parallel` should be placed as the
+last operator before krnl.iterate, since we do not want to parallelize the
+loop until we interpret krnl.block, krnl.permute and krnl.unroll.
 
-Optionally, a value may specifiy the number of threads requested for the
+Parallelizing more than one loop of the same loop nest is **not
+recommended**: each loop specifier is parallelized independently, giving one
+nested `affine.parallel` per specifier rather than a single parallel region
+over their combined iteration space, and the optional clauses below then
+apply to the first (outermost) one only. To spread one fused iteration space
+over the threads, `krnl.collapse` the dimensions first and parallelize the
+resulting fused loop reference.
+
+Optionally, a value may specify the number of threads requested for the
 parallel loop. A proc_bind string may also be specified; valid values are
 "primary", "close", or "spread". Default values are used when not specified.
 
 ```
-krnl.parallel (%i0, %i1) : !Krnl.loop, !Krnl.loop
+krnl.parallel (%i0) : !Krnl.loop
 ```
 
 Traits: `AttrSizedOperandSegments`
@@ -1063,7 +1203,7 @@ Traits: `AttrSizedOperandSegments`
 
 ### `krnl.parallel_clause` (KrnlParallelClauseOp)
 
-_Attach OpenMP clauses to an index varialbe_
+_Attach OpenMP clauses to an index variable_
 
 Syntax:
 
@@ -1133,7 +1273,7 @@ conjunction with krnl.permute:
 %ib, %il = krnl.block %ii 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
 %jb, %jl = krnl.block %jj 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
 %kb, %kl = krnl.block %kk 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
-// Move iteration over tile coordinates to be the outer loops and iterateion over
+// Move iteration over tile coordinates to be the outer loops and iteration over
 // the inter-tile elements to be the inner loops.
 krnl.permute(%ib, %il, %jb, %jl, %kb, %kl) [0, 3, 1, 4, 2, 5] : !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop
 krnl.iterate(%ib, %il, %jb, %jl, %kb, %kl) with (%ii -> %i = 0 to 1024, %jj -> %j = 0 to 2048, %kk -> %k = 0 to 4096)  {
