@@ -12,6 +12,7 @@
 #include "mlir/Dialect/Traits.h"
 #include "mlir/IR/Threading.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/Support/ErrorHandling.h"
 
 #include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/DisposablePool.hpp"
@@ -69,6 +70,19 @@ ElementsAttrBuilder::ElementsAttrBuilder(DisposablePool &disposablePool)
 ElementsAttr ElementsAttrBuilder::fromMemoryBuffer(
     ShapedType type, std::unique_ptr<llvm::MemoryBuffer> membuf) {
   BType btype = btypeOfMlirType(type.getElementType());
+  // Reject a buffer whose byte size doesn't match what the type's dims imply.
+  // This catches malformed EXTERNAL TensorProto data on little-endian hosts
+  // (and single-byte dtypes on any host) that bypass the createElmAttrFromArray
+  // chokepoint and reach here directly via createElementsAttrFromMemoryBuffer_LE.
+  const int64_t numElements = type.getNumElements();
+  const size_t expectedBytes =
+      static_cast<size_t>(numElements) * bytewidthOfBType(btype);
+  if (numElements < 0 || membuf->getBufferSize() != expectedBytes)
+    llvm::report_fatal_error(
+        llvm::Twine("malformed TensorProto: buffer size (") +
+        llvm::Twine(membuf->getBufferSize()) +
+        llvm::Twine(") does not match expected byte count from dims (") +
+        llvm::Twine(expectedBytes) + llvm::Twine(")"));
   return createWithDefaultStrides(type, btype, std::move(membuf));
 }
 
