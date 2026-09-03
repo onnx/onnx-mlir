@@ -180,6 +180,19 @@ ElementsAttr createElmAttrFromArray(RankedTensorType tensorType,
     const Range &array, const Transformation &transformation) {
   MLIRContext *ctx = tensorType.getContext();
   assert(tensorType.getElementType() == toMlirType<T>(ctx));
+
+  // Validate that source data size does not exceed destination buffer
+  // size. Prevents heap buffer overflow when tensor dims and data size
+  // mismatch.
+  auto srcSize = std::distance(array.begin(), array.end());
+  auto dstSize = tensorType.getNumElements();
+  if (srcSize > dstSize) {
+    llvm::errs() << "Error: tensor data size (" << srcSize
+                 << " elements) exceeds declared dimensions (" << dstSize
+                 << " elements)\n";
+    llvm_unreachable("tensor data size exceeds declared dimensions");
+  }
+
   return OnnxElementsAttrBuilder(ctx).fromArray<T>(
       tensorType, [array, &transformation](MutableArrayRef<T> copy) {
         std::transform(array.begin(), array.end(), copy.data(), transformation);
