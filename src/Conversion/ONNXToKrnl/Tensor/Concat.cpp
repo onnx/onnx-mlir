@@ -90,14 +90,14 @@ struct ONNXConcatOpLowering : public OpConversionPattern<ONNXConcatOp> {
       IndexExpr axisDim = create.krnlIE.getShapeAsDim(operands[i], axis);
       commonUB[axis] = axisDim;
 
-      // Enable parallelism if required. Do not parallel on the axis dimension.
-      // Explore parallelism at the first two outermost dimensions and give up
-      // if the found dimension is 'axis'.
+      // Explore the first two outermost dims, giving up if the found one is
+      // 'axis'. Plan is per-input like loopDef, so no ref leaks between inputs.
+      auto plan = KrnlParallelPlan::noCollapse(loopDef, /*first*/ 0,
+          /*last excl*/ 2, /*cost*/ {}, /*excl dims*/ {axis});
       if (enableParallel)
-        tryCreateKrnlParallel(
-            create.krnl, op, "concat", loopDef, lbs, commonUB, 0, 2, {axis});
+        plan.tryCreateParallel(create.krnl, op, "concat", lbs, commonUB);
 
-      create.krnl.iterateIE(loopDef, loopDef, lbs, commonUB,
+      create.krnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, commonUB,
           [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
             // Indices for the read and write.
             SmallVector<Value, 4> writeIndices;

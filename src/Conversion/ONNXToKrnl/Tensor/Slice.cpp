@@ -57,10 +57,12 @@ struct ONNXSliceOpLowering : public OpConversionPattern<ONNXSliceOp> {
     DimsExpr ubs = shapeHelper.getOutputDims();
 
     // Enable parallelism if required.
+    auto plan =
+        KrnlParallelPlan::noCollapse(loopDef, /*first*/ 0, /*last excl*/ 2);
     if (enableParallel)
-      tryCreateKrnlParallel(create.krnl, op, "slice", loopDef, lbs, ubs, 0, 2);
+      plan.tryCreateParallel(create.krnl, op, "slice", lbs, ubs);
 
-    create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
+    create.krnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, ubs,
         [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
           IndexExprScope loopScope(createKrnl);
 

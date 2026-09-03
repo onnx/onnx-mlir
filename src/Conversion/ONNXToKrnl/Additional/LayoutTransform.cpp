@@ -112,14 +112,16 @@ struct ONNXLayoutTransformOpLowering
     ubs[E1] = T1;
 
     // Parallel...
+    auto plan = KrnlParallelPlan::noCollapse(
+        loopDefs, /*first*/ 0, /*last excl*/ rank, /*cost*/ {8});
     if (enableParallel) {
       // TODO: may want to check if ub of rank makes sense here.
-      tryCreateKrnlParallel(create.krnl, op, "layout transform fast pattern",
-          loopDefs, lbs, ubs, 0, rank, {}, 8);
+      plan.tryCreateParallel(
+          create.krnl, op, "layout transform fast pattern", lbs, ubs);
     }
 
     //  Outer loop (E1 iterates over tiles of 64 elements).
-    create.krnl.iterateIE(loopDefs, loopDefs, lbs, ubs,
+    create.krnl.iterateIE(loopDefs, plan.optimizedLoopDef(), lbs, ubs,
         [&](const KrnlBuilder &b, ValueRange loopInd) {
           MDBuilder create(b);
           IndexExprScope outerScope(create.krnl);
@@ -242,12 +244,14 @@ struct ONNXLayoutTransformOpLowering
     // Insert loop over all inputs.
     ValueRange loopDef = create.krnl.defineLoops(rank);
 
+    auto plan = KrnlParallelPlan::noCollapse(
+        loopDef, /*first*/ 0, /*last excl*/ 1, /*cost*/ {128});
     if (enableParallel) {
-      tryCreateKrnlParallel(create.krnl, op,
+      plan.tryCreateParallel(create.krnl, op,
           "LayoutTransform op fully parallelized with perfectly nested loops",
-          loopDef, lbs, ubs, 0, 1, {}, /*min iter for going parallel*/ 128);
+          lbs, ubs);
     }
-    create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
+    create.krnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, ubs,
         [&](const KrnlBuilder &createKrnl, ValueRange indices) {
           // Simply copy the input into the output.
           Value val = createKrnl.load(data, indices);

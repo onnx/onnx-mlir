@@ -98,10 +98,11 @@ struct ONNXGatherOpLowering : public OpConversionPattern<ONNXGatherOp> {
     DimsExpr lbs(outputRank, zeroIE);
     DimsExpr ubs = shapeHelper.getOutputDims();
     // Enable parallelism if required.
+    auto plan = KrnlParallelPlan::noCollapse(
+        loopDef, /*first*/ 0, /*last excl*/ outputRank);
     if (enableParallel)
-      tryCreateKrnlParallel(
-          create.krnl, op, "gather", loopDef, lbs, ubs, 0, outputRank);
-    create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
+      plan.tryCreateParallel(create.krnl, op, "gather", lbs, ubs);
+    create.krnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, ubs,
         [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
           // Insert code inside the loop.
           IndexExprScope innerLoopScope(createKrnl);

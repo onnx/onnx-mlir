@@ -94,3 +94,31 @@ func.func @test_parallel_gather_all_narrow(%arg0: tensor<?x2xf32>, %arg1: tensor
 
 }
 
+// -----
+
+// A rank-0 output leaves no level to parallelize, so the window is empty and no
+// region is created. Gather asks for [0, outputRank), which is [0, 0) here, and
+// the plan holds no loop refs at all -- the case that must answer "no
+// parallelism" rather than fail on an empty optimized-loop list.
+func.func @test_parallel_gather_rank0_out(%arg0: tensor<4xf32>) -> tensor<f32> {
+  %i = onnx.Constant dense<2> : tensor<i64>
+  %0 = "onnx.Gather"(%arg0, %i) {axis = 0 : si64} : (tensor<4xf32>, tensor<i64>) -> tensor<f32>
+  return %0 : tensor<f32>
+
+// CHECK-LABEL:  func.func @test_parallel_gather_rank0_out
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<4xf32>) -> memref<f32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() <{name = "constant_{{[0-9]+}}", shape = [], value = dense<2> : tensor<i64>}> : () -> memref<i64>
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() : memref<f32>
+// CHECK:           krnl.define_loops 0
+// CHECK-NOT:       krnl.parallel
+// CHECK:           krnl.iterate() with (){
+// CHECK:             [[LOAD_VAR_0_MEM_:%.+]] = krnl.load [[VAR_0_]][] : memref<i64>
+// CHECK:             [[VAR_2_:%.+]] = arith.index_cast [[LOAD_VAR_0_MEM_]] : i64 to index
+// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_2_]]{{.}} : memref<4xf32>
+// CHECK:             krnl.store [[LOAD_PARAM_0_MEM_]], [[RES_]][] : memref<f32>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<f32>
+// CHECK:         }
+
+}
+

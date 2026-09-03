@@ -63,15 +63,17 @@ struct ONNXExpandOpLowering : public OpConversionPattern<ONNXExpandOp> {
     DimsExpr ubs = shapeHelper.getOutputDims();
 
     // Enable parallelism if required.
+    auto plan = KrnlParallelPlan::noCollapse(
+        outputLoopDef, /*first*/ 0, /*last excl*/ 2);
     if (enableParallel)
-      tryCreateKrnlParallel(create.krnl, op, "expand", outputLoopDef, lbs, ubs);
+      plan.tryCreateParallel(create.krnl, op, "expand", lbs, ubs);
 
     // If input is a scalar, load its value outside the loop.
     Value val = nullptr;
     if (isScalarTensor(input))
       val = create.krnl.load(input);
 
-    create.krnl.iterateIE(outputLoopDef, outputLoopDef, lbs, ubs,
+    create.krnl.iterateIE(outputLoopDef, plan.optimizedLoopDef(), lbs, ubs,
         [&](const KrnlBuilder &createKrnl, ValueRange outputLoopInd) {
           if (!val) {
             IndexExprScope outputScope(createKrnl, shapeHelper.getScope());

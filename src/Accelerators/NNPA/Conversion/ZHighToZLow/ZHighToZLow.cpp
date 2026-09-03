@@ -2233,12 +2233,10 @@ struct ZHighToZLowDataConversionLowering
     DimsExpr lbs = {LitIE(0)};
     bool useParallel = false;
     if (enableParallel) {
-      int64_t parId = tryCreateKrnlParallel(create.krnl, op,
-          "dlf16-f32 conversion fully parallelized", {}, lbs,
-          flattenedOutputDims, 0, 1, {},
-          /*min iter for going parallel*/ 1024,
-          /*createKrnlParallel=*/false);
-      if (parId != -1)
+      auto plan = KrnlParallelPlan::noLoopRefs(
+          /*first*/ 0, /*last excl*/ 1, /*cost*/ {1024});
+      if (plan.findParallelDim(op, "dlf16-f32 conversion fully parallelized",
+              lbs, flattenedOutputDims) != NO_PAR_FOUND)
         useParallel = true;
     }
     onnxToKrnlSimdReport(op, /*successful*/ true, archVL,
@@ -2376,12 +2374,12 @@ struct ZHighToZLowExtendedLayoutTransformLowering
     ubs[loopRank - 1] = ubs[loopRank - 1].ceilDiv(64);
 
     // Handle parallelism here.
+    int maxId = std::min(loopRank - 1, (int64_t)2);
+    auto plan = KrnlParallelPlan::noCollapse(
+        loopDef, /*first*/ 0, /*last excl*/ maxId, /*cost*/ {4});
     if (enableParallel) {
-      int maxId = std::min(loopRank - 1, (int64_t)2);
-      tryCreateKrnlParallel(create.krnl, op,
-          "dlf16-f32 conversion fully parallelized", loopDef, lbs, ubs, 0,
-          maxId, {}, /*min iter for going parallel*/ 4,
-          /*createKrnlParallel=*/true);
+      plan.tryCreateParallel(
+          create.krnl, op, "dlf16-f32 conversion fully parallelized", lbs, ubs);
     }
 
     // Prepare support for conversion of dlf16 to 64, if needed.
@@ -2395,7 +2393,7 @@ struct ZHighToZLowExtendedLayoutTransformLowering
           /*write*/ false, true, disableSaturation);
       conversionSupportUSS.list = {inputUSS, outputUSS};
     }
-    create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
+    create.krnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, ubs,
         [&](const KrnlBuilder &ck, ValueRange indices) {
           // Process 64 values here at a time.
           MDBuilder create(ck);
@@ -2619,12 +2617,12 @@ struct ZHighToZLowFusedExtLayoutTransformLowering
     assert((int64_t)ubs.size() == loopRank && "missing ubs values");
     ubs[loopRank - 1] = ubs[loopRank - 1].ceilDiv(64);
 
+    int maxId = std::min(loopRank - 1, (int64_t)2);
+    auto plan = KrnlParallelPlan::noCollapse(
+        loopDef, /*first*/ 0, /*last excl*/ maxId, /*cost*/ {4});
     if (enableParallel) {
-      int maxId = std::min(loopRank - 1, (int64_t)2);
-      tryCreateKrnlParallel(create.krnl, op,
-          "dlf16-f32 conversion fully parallelized", loopDef, lbs, ubs, 0,
-          maxId, {}, /*min iter for going parallel*/ 4,
-          /*createKrnlParallel=*/true);
+      plan.tryCreateParallel(
+          create.krnl, op, "dlf16-f32 conversion fully parallelized", lbs, ubs);
     }
 
     UnifiedStickSupportList conversionSupportUSS;
@@ -2638,7 +2636,7 @@ struct ZHighToZLowFusedExtLayoutTransformLowering
       conversionSupportUSS.list = {inputUSS, outputUSS};
     }
 
-    create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
+    create.krnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, ubs,
         [&](const KrnlBuilder &ck, ValueRange indices) {
           MDBuilder create(ck);
           IndexExprScope outerScope(ck);
@@ -3210,15 +3208,15 @@ struct ZHighToZLowFusedConcatExpandStickLowering
       DimsExpr outerUbs;
       for (int64_t d = 0; d < A; ++d)
         outerUbs.emplace_back(concatDims[d]);
+      int64_t maxId = std::min(A, (int64_t)2);
+      auto plan = KrnlParallelPlan::noCollapse(
+          outerLoopDef, /*first*/ 0, /*last excl*/ maxId, /*cost*/ {4});
       if (enableParallel) {
-        int64_t maxId = std::min(A, (int64_t)2);
-        tryCreateKrnlParallel(create.krnl, op,
-            "concat-expand-stick fused outer loop", outerLoopDef, outerLbs,
-            outerUbs, 0, maxId, {}, /*min iter for going parallel*/ 4,
-            /*createKrnlParallel=*/true);
+        plan.tryCreateParallel(create.krnl, op,
+            "concat-expand-stick fused outer loop", outerLbs, outerUbs);
       }
-      create.krnl.iterateIE(outerLoopDef, outerLoopDef, outerLbs, outerUbs,
-          [&](const KrnlBuilder &ck, ValueRange indices) {
+      create.krnl.iterateIE(outerLoopDef, plan.optimizedLoopDef(), outerLbs,
+          outerUbs, [&](const KrnlBuilder &ck, ValueRange indices) {
             MDBuilder create(ck);
             IndexExprScope outerScope(ck);
             DimsExpr outerIndices = DimListIE(indices);
