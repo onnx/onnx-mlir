@@ -22,6 +22,8 @@
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "mlir/Support/FileUtilities.h"
+#include "llvm/ADT/ScopeExit.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/LineIterator.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -215,6 +217,11 @@ private:
   OpsetImportsMap opset_map_;
 
   ModelLocalFunctionsMap in_model_functions_;
+
+  // Set of model-local FunctionProto pointers currently being expanded.
+  // Used to detect direct and indirect (mutual) recursion and emit a
+  // diagnostic instead of overflowing the C++ call stack.
+  llvm::SmallPtrSet<const onnx::FunctionProto *, 4> expandingModelFunctions_;
 
   Location UnknownLoc() const { return UnknownLoc::get(&context_); }
 
@@ -1355,6 +1362,13 @@ private:
         BindOnnxName(name, value);
       }
 
+      // Guard against recursive model-local functions: mark this function as
+      // currently expanding so that any re-entrant call to ImportNode for the
+      // same (domain, op_type) is caught before recursing again.
+      expandingModelFunctions_.insert(modelLocalFunction);
+      auto cleanupExpanding = llvm::make_scope_exit(
+          [&] { expandingModelFunctions_.erase(modelLocalFunction); });
+
       for (auto &fb_node : graph.node()) {
         ImportNode(fb_node);
       }
@@ -1429,6 +1443,18 @@ private:
     auto model_function = in_model_functions_.find(
         GetModelLocalFunctionsMapIdentifier(node.domain(), node.op_type()));
     if (model_function != in_model_functions_.end()) {
+      // Reject recursive model-local function calls (direct or indirect).
+      // ONNX model-local functions are required to be finite subgraphs;
+      // recursion is not part of the spec and would otherwise overflow the
+      // C++ call stack with a SIGSEGV instead of a recoverable diagnostic.
+      if (expandingModelFunctions_.count(model_function->second)) {
+        emitError(UnknownLoc())
+            << "model-local function '" << node.domain() << ":"
+            << node.op_type()
+            << "' is directly or indirectly recursive; "
+               "onnx-mlir does not support recursive model-local functions";
+        return;
+      }
       ImportFunctionCallNode(node, /*schema=*/nullptr, model_function->second);
       return;
     }
