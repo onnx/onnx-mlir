@@ -42,8 +42,7 @@ struct ONNXScatterNDOpLowering : public OpConversionPattern<ONNXScatterNDOp> {
 
     assert(dataRank >= 1 && "The rank of 'data' must be >= 1");
     assert(indicesRank >= 1 && "The rank of 'indices' must be >= 1");
-    assert(adaptor.getReduction() == "none" &&
-           "ScatterND lowering only supports reduction 'none'");
+    StringRef reduction = adaptor.getReduction();
 
     // Determine whether indices may be negative.
     bool indicesMayBeNegative = !indicesAreNonNegativeConstants(indices);
@@ -57,7 +56,8 @@ struct ONNXScatterNDOpLowering : public OpConversionPattern<ONNXScatterNDOp> {
     assert(outputRank == dataRank && "Output rank not equal to data rank");
 
     // Insert an allocation and deallocation for the result of this operation.
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder>
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder,
+        MathBuilder>
         create(rewriter, loc);
     IndexExprScope indexScope(create.krnl);
     DimsExpr dataDims;
@@ -119,9 +119,25 @@ struct ONNXScatterNDOpLowering : public OpConversionPattern<ONNXScatterNDOp> {
             }
           }
 
-          // Scatter 'update' values into the output tensor.
+          // Scatter 'update' values into the output tensor with the specified reduction.
           Value updateVal = createKrnl.load(updates, loopInd);
-          createKrnl.storeIE(updateVal, output, outputAccessFct);
+          Value result = updateVal;
+          if (reduction == "add") {
+            Value current = createKrnl.loadIE(output, outputAccessFct);
+            result = create.math.add(current, updateVal);
+          } else if (reduction == "mul") {
+            Value current = createKrnl.loadIE(output, outputAccessFct);
+            result = create.math.mul(current, updateVal);
+          } else if (reduction == "max") {
+            Value current = createKrnl.loadIE(output, outputAccessFct);
+            result = create.math.max(current, updateVal);
+          } else if (reduction == "min") {
+            Value current = createKrnl.loadIE(output, outputAccessFct);
+            result = create.math.min(current, updateVal);
+          } else if (reduction != "none") {
+            llvm_unreachable("Unknown reduction type");
+          }
+          createKrnl.storeIE(result, output, outputAccessFct);
         });
 
     rewriter.replaceOp(op, output);
