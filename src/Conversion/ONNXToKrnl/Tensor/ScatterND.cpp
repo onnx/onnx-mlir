@@ -119,7 +119,8 @@ struct ONNXScatterNDOpLowering : public OpConversionPattern<ONNXScatterNDOp> {
             }
           }
 
-          // Scatter 'update' values into the output tensor with the specified reduction.
+          // Scatter 'update' values into the output tensor with the specified
+          // reduction.
           Value updateVal = createKrnl.load(updates, loopInd);
           Value result = updateVal;
           if (reduction == "add") {

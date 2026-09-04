@@ -103,7 +103,8 @@ struct ONNXScatterElementsOpLowering
           for (int i = 0; i < dataRank; ++i)
             outputAccessFct.emplace_back((i == axis) ? index : accessFct[i]);
 
-          // Scatter updateVal into the output tensor with the specified reduction.
+          // Scatter updateVal into the output tensor with the specified
+          // reduction.
           Value result = updateVal;
           if (reduction == "add") {
             Value current = createKrnl.loadIE(output, outputAccessFct);
