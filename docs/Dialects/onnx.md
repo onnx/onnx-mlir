@@ -2523,6 +2523,11 @@ to be equal at runtime.
 `group_id` identifies the group id of the dimension. It is non-negative.
 Value -1 for `group_id` means the dimension does not belong to any group.
 
+`group_name` is the symbolic name of the group when it is known, either
+from the `onnx.dim_params` attribute of a function argument/result or
+synthesized from a function argument, e.g. `X_0` or `arg0_0`. It is absent
+when the group has no known name.
+
 This operation is currently used in the pass `--onnx-dim-analysis`
 for testing the unknown dimension analysis class.
 
@@ -2534,6 +2539,7 @@ This operation is not part of the standard and was added to assist onnx-mlir.
 <tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
 <tr><td><code>axis</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
 <tr><td><code>group_id</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>group_name</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
 </table>
 
 #### Operands:
