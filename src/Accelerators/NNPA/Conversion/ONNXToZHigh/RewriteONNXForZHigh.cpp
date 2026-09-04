@@ -720,6 +720,8 @@ void getRewriteONNXForZHighPatterns(RewritePatternSet &patterns,
   if (enableConvToMatmul) {
     addConvToMatmulPattern(patterns, isCompatibleWithNNPALevel(NNPALevel::M15));
   }
+  KrnlTypeConverter krnlTypeConverter;
+  populateLoweringONNXAttentionOpPattern(patterns, krnlTypeConverter, patterns.getContext());
 }
 
 void getRewriteONNXForZHighDynamicallyLegal(mlir::ConversionTarget *target,
