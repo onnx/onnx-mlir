@@ -3056,7 +3056,7 @@ def get_test_models():
         "test_scan9_sum_cpu": {STATIC_SHAPE: {}},
         # ==OP== ScatterElements
         # ==MIN== 11
-        # ==LIM== Does not support duplicate indices.
+        # ==LIM== Only reductions `none` and `add` are supported; duplicate indices are supported for `add`.
         "test_scatter_elements_without_axis_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {0: {-1}},
@@ -3072,7 +3072,11 @@ def get_test_models():
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
-        # "test_scatter_elements_with_duplicate_indices_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_scatter_elements_with_duplicate_indices_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
         # ==OP== ScatterND
         # ==MIN== 11
         # ==LIM== Does not support scatternd add/multiply.
