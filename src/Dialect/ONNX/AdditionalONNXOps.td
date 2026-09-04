@@ -220,6 +220,11 @@ def ONNXDimGroupOp : ONNX_Op<"DimGroup"> {
     `group_id` identifies the group id of the dimension. It is non-negative.
     Value -1 for `group_id` means the dimension does not belong to any group.
 
+    `group_name` is the symbolic name of the group when it is known, either
+    from the `onnx.dim_params` attribute of a function argument/result or
+    synthesized from a function argument, e.g. `X_0` or `arg0_0`. It is absent
+    when the group has no known name.
+
     This operation is currently used in the pass `--onnx-dim-analysis`
     for testing the unknown dimension analysis class.
 
@@ -228,7 +233,8 @@ def ONNXDimGroupOp : ONNX_Op<"DimGroup"> {
 
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$data,
                        DefaultValuedAttr<SI64Attr, "0">:$axis,
-                       DefaultValuedAttr<SI64Attr, "-1">:$group_id);
+                       DefaultValuedAttr<SI64Attr, "-1">:$group_id,
+                       OptionalAttr<StrAttr>:$group_name);
 }
 
 //===----------------------------------------------------------------------===//

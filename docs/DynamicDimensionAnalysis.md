@@ -105,10 +105,16 @@ std::optional<int64_t> offset =
 // Is dim1 + offset1 == dim2 + offset2 ?
 bool sameWithOffset = dimAnalysis.sameDimWithOffset(
     tensor1, dimAxis1, offset1, tensor2, dimAxis2, offset2);
+
+// What is this dynamic dimension called, e.g. "batch_size"? Returns std::nullopt
+// for a static dimension or one that nothing is known about. See "Dimension
+// names" under Other Notable Capabilities.
+std::optional<std::string> name = dimAnalysis.getDimName(tensor, dimAxis);
 ```
 
-`sameDim`/`sameDynDim`/`getDimOffset`/`sameDimWithOffset` take the pair `(tensor, axis)` directly;
-`sameShape`/`sameDynShape`/`broadcastLastDim` compare whole tensors instead of a single axis.
+`sameDim`/`sameDynDim`/`getDimOffset`/`sameDimWithOffset`/`getDimName` take the pair
+`(tensor, axis)` directly; `sameShape`/`sameDynShape`/`broadcastLastDim` compare whole tensors
+instead of a single axis.
 
 ## Scoped Analysis for ShapeHelper
 
@@ -178,7 +184,7 @@ for examples of `--onnx-dim-analysis` running on such IR.
 Each `onnx.DimGroup` op takes the form:
 
 ```mlir
-"onnx.DimGroup"(%tensor) {axis = 0 : si64, group_id = 1 : si64} : (tensor<?x3x5xf32>) -> ()
+"onnx.DimGroup"(%tensor) {axis = 0 : si64, group_id = 1 : si64, group_name = "batch_size"} : (tensor<?x3x5xf32>) -> ()
 ```
 
 - `%tensor` is the value whose dimension is being annotated.
@@ -190,33 +196,46 @@ Each `onnx.DimGroup` op takes the form:
   `group_id` values are just internal set identifiers with no meaning beyond identity/equality —
   do not rely on their numeric value or on the order in which they are assigned, only on whether
   two ops share the same one.
+- `group_name` is the name `getDimName` returns for the dimension, i.e. the name of its group. It is
+  optional and absent when the group has no known name. Unlike `group_id` it *is* stable: it is
+  derived from the function signature rather than from the order in which sets happen to be built,
+  and every op of one group carries the same name. A name normally identifies one group, since it
+  comes from a single argument dimension, or from a single `dim_param` whose dimensions all start
+  out in the same set. See "Dimension names" under
+  [Other Notable Capabilities](#other-notable-capabilities) for how a name is chosen.
 
 ### Worked Example
 
 For:
 
 ```mlir
-func.func @test(%arg0: tensor<?x3x?xf32>) -> tensor<?x3x?xf32> {
+func.func @test(%arg0: tensor<?x3x?xf32> {onnx.dim_params = "0:batch_size"}) -> tensor<?x3x?xf32> {
   %0 = "onnx.Sigmoid"(%arg0) : (tensor<?x3x?xf32>) -> tensor<?x3x?xf32>
   onnx.Return %0 : tensor<?x3x?xf32>
 }
 ```
 
-the pass produces (group ids may differ from run to run; what matters is which ops share one):
+where the model named dim 0 of `%arg0` but left dim 2 unnamed, the pass produces (group ids may
+differ from run to run; what matters is which ops share one):
 
 ```mlir
-func.func @test(%arg0: tensor<?x3x?xf32>) -> tensor<?x3x?xf32> {
-  "onnx.DimGroup"(%arg0) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x3x?xf32>) -> ()
-  "onnx.DimGroup"(%arg0) {axis = 2 : si64, group_id = 1 : si64} : (tensor<?x3x?xf32>) -> ()
+func.func @test(%arg0: tensor<?x3x?xf32> {onnx.dim_params = "0:batch_size"}) -> tensor<?x3x?xf32> {
+  "onnx.DimGroup"(%arg0) {axis = 0 : si64, group_id = 0 : si64, group_name = "batch_size"} : (tensor<?x3x?xf32>) -> ()
+  "onnx.DimGroup"(%arg0) {axis = 2 : si64, group_id = 2 : si64, group_name = "arg0_2"} : (tensor<?x3x?xf32>) -> ()
   %0 = "onnx.Sigmoid"(%arg0) : (tensor<?x3x?xf32>) -> tensor<?x3x?xf32>
-  "onnx.DimGroup"(%0) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x3x?xf32>) -> ()
-  "onnx.DimGroup"(%0) {axis = 2 : si64, group_id = 1 : si64} : (tensor<?x3x?xf32>) -> ()
+  "onnx.DimGroup"(%0) {axis = 0 : si64, group_id = 0 : si64, group_name = "batch_size"} : (tensor<?x3x?xf32>) -> ()
+  "onnx.DimGroup"(%0) {axis = 2 : si64, group_id = 2 : si64, group_name = "arg0_2"} : (tensor<?x3x?xf32>) -> ()
   onnx.Return %0 : tensor<?x3x?xf32>
 }
 ```
 
-showing that `%arg0`'s dim 0 is the same as `%0`'s dim 0 (both `group_id = 0`), and likewise for
-dim 2 (both `group_id = 1`), which is exactly what we expect since `Sigmoid` does not change shape.
+showing that `%arg0`'s dim 0 is the same as `%0`'s dim 0 (both `group_id = 0`, both named
+`batch_size`), and likewise for dim 2, which is exactly what we expect since `Sigmoid` does not
+change shape. Note how the two dimensions got their names differently: dim 0 is called `batch_size`
+because the model said so in `onnx.dim_params`, while dim 2 has no `dim_param` and falls back to a
+name synthesized from where it comes from, `arg0_2`, i.e. axis 2 of argument 0. Either way the name
+reaches `%0`, the result of an operation, because the analysis proved its dimensions equal to the
+argument's.
 
 Because the group ids are unstable, the LIT tests under
 [test/mlir/onnx/onnx_dim_analysis.mlir](../test/mlir/onnx/onnx_dim_analysis.mlir) (and the NNPA
@@ -266,6 +285,19 @@ which prints each iteration's set updates, the final `dump()` of the grouping re
   names dynamic dimensions. DimAnalysis seeds its initial sets using these names, so two arguments
   sharing a `dim_param` name are considered equal from the start, even before any operator-specific
   reasoning is applied.
+- **Dimension names**: `getDimName(tensor, axis)` returns the symbolic name of a dynamic dimension,
+  e.g. `batch_size`, or `std::nullopt` when nothing is known about it. Names are seeded from the
+  function arguments — their `onnx.dim_params` entry when there is one, otherwise synthesized from
+  the argument's `onnx.name` (`X_0`) or its position (`arg0_0`) — and then shared by the whole
+  group, so a dimension of an intermediate tensor is named as soon as the analysis proves it equal
+  to a named one. Since a group is named only once the sets are final, this sharing requires
+  `analyze()` to have run; before that, only the argument dimensions themselves are named. A
+  result's `onnx.dim_params` entry also seeds a name, but results get no synthesized one, so a name
+  always traces back to a value the caller supplies. When a group holds several candidates, one is
+  elected deterministically: `dim_params` names win over synthesized ones, then the lowest
+  `(argument position, axis)` wins. The `--onnx-dim-analysis` pass exposes the elected name as the
+  [`group_name`](#reading-onnxdimgroup) attribute of the `onnx.DimGroup` ops it emits, and `dump()`
+  prints it next to each set, e.g. `- Set 0 (size: 2) (name: batch_size)`.
 - **Offset relationships**: beyond plain equality, DimAnalysis tracks relations of the form
   `dim1 + offset1 == dim2 + offset2` (e.g. as produced by padding, slicing, or `Concat`-built
   shapes), exposed via `getDimOffset` and `sameDimWithOffset`.
