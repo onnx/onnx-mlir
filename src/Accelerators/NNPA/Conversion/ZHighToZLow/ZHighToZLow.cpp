@@ -2969,10 +2969,15 @@ struct ZHighToZLowFusedConcatExpandStickLowering
   // also store the same (pre-conversion) F32 halves to the plain concat
   // result buffer, so that instance shares this tile's read with the
   // stickified writes instead of being re-read by a separate loop nest.
+  // scalarConst, when non-null, is the (once-created) constant for the
+  // 1-step stick tail's optional Mul -- applied to the read values right
+  // before the DLF16 conversion, after the concatWriteIdx store below, since
+  // Concat's own result must reflect concat semantics, not the later Mul.
+  // Null for the existing 2-step tail (which has no Mul step at all).
   void emitVectorizedConversion(const KrnlBuilder &ck2,
       IndexExprScope &midScope, int64_t readIdx, int64_t N,
       std::optional<int64_t> concatWriteIdx, UnifiedStickSupportList &uss,
-      bool effectiveDisableSaturation) const {
+      bool effectiveDisableSaturation, Value scalarConst) const {
     MDBuilder create(ck2);
     int64_t U = 4;
     int64_t totVL = U * UnifiedStickSupport::archVL;
@@ -2991,8 +2996,12 @@ struct ZHighToZLowFusedConcatExpandStickLowering
                   create.krnl, l, u, /*tempBufferMemRef=*/nullptr);
             }
             MultiDialectBuilder<MathBuilder, ZLowBuilder> mcreate(create.krnl);
+            Value highScaled =
+                scalarConst ? mcreate.math.mul(highIn, scalarConst) : highIn;
+            Value lowScaled =
+                scalarConst ? mcreate.math.mul(lowIn, scalarConst) : lowIn;
             Value dlf16 = mcreate.zlow.convertF32ToDLF16(
-                highIn, lowIn, effectiveDisableSaturation);
+                highScaled, lowScaled, effectiveDisableSaturation);
             for (int64_t n = 0; n < N; ++n)
               uss.list[2 + n].storeConvertedDLF16(create.krnl, dlf16, l, u);
           }
@@ -3008,7 +3017,7 @@ struct ZHighToZLowFusedConcatExpandStickLowering
       int64_t R, int64_t N, int64_t P, int64_t F, int64_t C, DimsExpr &midDims,
       std::optional<IndexExpr> axisAShift,
       std::optional<int64_t> concatWriteIdx, UnifiedStickSupportList &uss,
-      bool effectiveDisableSaturation) const {
+      bool effectiveDisableSaturation, Value scalarConst) const {
     MDBuilder create(ck2);
     IndexExprScope midScope(ck2);
     // outerIndices are Dim-kind index exprs bound to the outer loop's own
@@ -3048,7 +3057,7 @@ struct ZHighToZLowFusedConcatExpandStickLowering
     }
 
     emitVectorizedConversion(ck2, midScope, readIdx, N, concatWriteIdx, uss,
-        effectiveDisableSaturation);
+        effectiveDisableSaturation, scalarConst);
   }
 
   // Emit the tiled loop nest for one concat operand: iterate over its own
@@ -3062,7 +3071,7 @@ struct ZHighToZLowFusedConcatExpandStickLowering
       std::optional<IndexExpr> axisAShift, int64_t A, int64_t R, int64_t N,
       int64_t P, int64_t F, int64_t C, DimsExpr &midDims,
       std::optional<int64_t> concatWriteIdx, UnifiedStickSupportList &uss,
-      bool effectiveDisableSaturation) const {
+      bool effectiveDisableSaturation, Value scalarConst) const {
     MDBuilder create(ck);
     int64_t innerRank = R - A; // always >= 2, since A <= R - 2.
     ValueRange innerLoopDef = create.krnl.defineLoops(innerRank);
@@ -3076,7 +3085,7 @@ struct ZHighToZLowFusedConcatExpandStickLowering
         [&](const KrnlBuilder &ck2, ValueRange indices) {
           emitOperandLoopBody(ck2, indices, outerIndices, readIdx, innerRank, A,
               R, N, P, F, C, midDims, axisAShift, concatWriteIdx, uss,
-              effectiveDisableSaturation);
+              effectiveDisableSaturation, scalarConst);
         });
   }
 
@@ -3104,6 +3113,16 @@ struct ZHighToZLowFusedConcatExpandStickLowering
     int64_t F = fusion.reshapeFirstCollapsedDim;
     int64_t C = fusion.reshapeCollapsedCount;
     bool effectiveDisableSaturation = fusion.noSaturation || disableSaturation;
+    // A neutral (1.f) scalar means either the 2-step tail (no Mul step at
+    // all) or a 1-step stick tail whose source chain had no Mul op (mulScalar
+    // stays at its default then) -- skip the multiply entirely rather than
+    // emitting a multiply-by-one, exactly like
+    // ZHighToZLowFusedExpandMulStickLowering above.
+    bool hasMulScalar = fusion.mulScalar != 1.0f;
+    Value scalarConst = hasMulScalar
+                            ? create.math.constant(rewriter.getF32Type(),
+                                  (double)fusion.mulScalar)
+                            : nullptr;
 
     int64_t R = getRank(input1MemRef.getType()); // concat rank
     int64_t outputRank = getRank(outputTensor.getType());
@@ -3171,7 +3190,8 @@ struct ZHighToZLowFusedConcatExpandStickLowering
     assert((int64_t)outputDims.size() == outputRank && "output dims mismatch");
 
     // Allocate the output buffer: always a ZTensor (the chain always ends in
-    // ONNXLayoutTransformOp targeting a ZTensor).
+    // either an ONNXLayoutTransformOp or a ZHighStickOp targeting a ZTensor,
+    // depending on which tail the fusion matched).
     ZMemRefType zMemRefType =
         convertZTensorToMemRefType(outputTensor.getType());
     Value allocVal =
@@ -3224,19 +3244,19 @@ struct ZHighToZLowFusedConcatExpandStickLowering
             DimsExpr outerIndices = DimListIE(indices);
             emitOperandLoop(ck, outerIndices, 0, input1Dims, std::nullopt, A, R,
                 N, P, F, C, midDims, concatWriteIdx, uss,
-                effectiveDisableSaturation);
+                effectiveDisableSaturation, scalarConst);
             emitOperandLoop(ck, outerIndices, 1, input2Dims,
                 DimIE(input1Dims[A]), A, R, N, P, F, C, midDims, concatWriteIdx,
-                uss, effectiveDisableSaturation);
+                uss, effectiveDisableSaturation, scalarConst);
           });
     } else {
       DimsExpr emptyOuter;
       emitOperandLoop(create.krnl, emptyOuter, 0, input1Dims, std::nullopt, A,
           R, N, P, F, C, midDims, concatWriteIdx, uss,
-          effectiveDisableSaturation);
+          effectiveDisableSaturation, scalarConst);
       emitOperandLoop(create.krnl, emptyOuter, 1, input2Dims,
           DimIE(input1Dims[A]), A, R, N, P, F, C, midDims, concatWriteIdx, uss,
-          effectiveDisableSaturation);
+          effectiveDisableSaturation, scalarConst);
     }
 
     if (!fusion.yieldConcatResult)

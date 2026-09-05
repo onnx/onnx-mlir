@@ -904,6 +904,36 @@ struct FusionOpStickUnstick
     dimAnalysis->analyze();
 
     ConversionTarget target(getContext());
+
+    // Phase ordering. ConcatExpandStickFusionHelper's chain (anchored on
+    // ONNXConcatOp) can subsume ExpandMulStickFusionHelper's chain entirely
+    // (a Concat heading the same Unsqueeze->Expand->Mul->Reshape->Stick
+    // tail that ExpandMulStickFusionHelper matches on its own). The two
+    // anchor on different op types, so mlir::PatternBenefit cannot express
+    // this precedence: PatternApplicator only ranks patterns that already
+    // compete for the *same* anchor op type (it looks candidates up by
+    // op->getName() -- see mlir/lib/Rewrite/PatternApplicator.cpp), and
+    // this pass's default (bottom-up) worklist traversal would otherwise
+    // let ExpandMulStickFusionHelper fire on the Unsqueeze before the
+    // Concat is ever visited, permanently losing the larger fusion
+    // opportunity (the chain ops get cloned into the new FusedOp body and
+    // the originals erased, so the Concat's Unsqueeze user is gone by the
+    // time it would be revisited). Instead, run
+    // FusedPatternsForConcatExpandStick to its own fixpoint first, in a
+    // separate applyPatternsGreedily call, so it always gets first crack at
+    // every ONNXConcatOp in the module before any other pattern can consume ops
+    // out from under it. See the kMaxOpCount contract note in
+    // FusionOpHelper.hpp and the doc comment on
+    // ConcatExpandStickFusionHelper::kMaxOpCount for the general rule this
+    // instantiates.
+    if (!disableFusedOpOption && !disableFusedOp) {
+      RewritePatternSet concatFirstPatterns(&getContext());
+      concatFirstPatterns.insert<FusedPatternsForConcatExpandStick>(
+          &getContext(), dimAnalysis);
+      if (failed(applyPatternsGreedily(module, std::move(concatFirstPatterns))))
+        return signalPassFailure();
+    }
+
     RewritePatternSet patterns(&getContext());
     patterns.insert<PatternsStartingFromUnstick>(&getContext(), dimAnalysis);
     patterns.insert<PatternsEndingWithStick>(&getContext(), dimAnalysis);
@@ -911,8 +941,6 @@ struct FusionOpStickUnstick
       patterns.insert<FusedPatternsForExtendedLayoutTransform>(
           &getContext(), dimAnalysis);
       patterns.insert<FusedPatternsForExpandMulStick>(
-          &getContext(), dimAnalysis);
-      patterns.insert<FusedPatternsForConcatExpandStick>(
           &getContext(), dimAnalysis);
       // Merge in the general (non-accelerator-specific) fusion kinds here
       // too, so NNPA builds only ever run one fusion pass, at the point
