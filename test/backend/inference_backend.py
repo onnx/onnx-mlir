@@ -610,6 +610,28 @@ def get_test_models():
         # "test_clip_default_int8_min_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
         # "test_clip_default_int8_max_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
         # "test_clip_default_int8_inbounds_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
+        # ==OP== Col2Im
+        # ==MIN== 18
+        "test_col2im_cpu": {
+            STATIC_SHAPE: {},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_col2im_strides_cpu": {
+            STATIC_SHAPE: {},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_col2im_pads_cpu": {
+            STATIC_SHAPE: {},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_col2im_dilations_cpu": {
+            STATIC_SHAPE: {},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_col2im_5d_cpu": {
+            STATIC_SHAPE: {},
+            CONSTANT_INPUT: {-1},
+        },
         # ==OP== Compress
         # ==MIN== 9
         "test_compress_0_cpu": {
