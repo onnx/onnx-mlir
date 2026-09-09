@@ -1080,6 +1080,13 @@ void getRewriteONNXForZHighDynamicallyLegal(mlir::ConversionTarget *target,
         // which case there is a rule here to remove it.
         return !isIdentityReshape(op, dimAnalysis);
       });
+  addDynamicallyLegalOpFor<ONNXAttentionOp>(target, dimAnalysis,
+      [](ONNXAttentionOp op, const DimAnalysis *dimAnalysis) {
+        // AttentionOp can be simply lowered to onnx ops, to different
+	// optimized implementation. Will be controlled by option or
+	// performance model in future.
+        return false;
+      });
 }
 
 struct RewriteONNXForZHighPass
