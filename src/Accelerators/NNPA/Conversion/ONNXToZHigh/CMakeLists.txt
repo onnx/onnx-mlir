@@ -30,6 +30,7 @@ add_onnx_mlir_library(OMRewriteONNXForZHigh
 
   DEPENDS
   OMONNXRewriteONNXForZHighIncGen
+  OMONNXToKrnl
   libzdnn
   
   LINK_LIBS PUBLIC
