@@ -4,6 +4,11 @@
 # Otherwise, continue with default onnx-mlir project
 choose_build_target()
 
+# WARNING: OMSmallFPConversion is MIRRORED in OMPyRt.cmake for the lightweight,
+# LLVM-free build behind the pip-installable om_pyrt package. Adding or removing
+# a source here does NOT update it: edit OMPyRt.cmake too, and keep
+# SmallFPConversion.c LLVM/MLIR free. See docs/BuildPyRuntimeLight.md.
+
 add_onnx_mlir_library(OMSmallFPConversion
   SmallFPConversion.c
   )

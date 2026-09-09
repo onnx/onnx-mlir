@@ -1,3 +1,10 @@
+//===----------------------------------------------------------------------===//
+// LLVM-FREE FILE -- DO NOT ADD LLVM / MLIR / ONNX-MLIR COMPILER DEPENDENCES.
+//
+// Part of the lightweight onnx-mlir build used for the pip-installable
+// packages (om_pyrt). Any LLVM/MLIR reference here will break those packages.
+//===----------------------------------------------------------------------===//
+
 // Perf hardware counters to measure, selected at runtime via the
 // ONNX_MLIR_INSTRUMENT_PERF_COUNTER environment variable as a space-separated
 // list (e.g. "INSTRUCTIONS DTLB2_MISSES"). Each entry accepts a raw numeric
