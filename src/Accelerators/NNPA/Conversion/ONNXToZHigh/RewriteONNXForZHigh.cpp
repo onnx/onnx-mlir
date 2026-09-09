@@ -721,7 +721,8 @@ void getRewriteONNXForZHighPatterns(RewritePatternSet &patterns,
     addConvToMatmulPattern(patterns, isCompatibleWithNNPALevel(NNPALevel::M15));
   }
   KrnlTypeConverter krnlTypeConverter;
-  populateLoweringONNXAttentionOpPattern(patterns, krnlTypeConverter, patterns.getContext());
+  populateLoweringONNXAttentionOpPattern(
+      patterns, krnlTypeConverter, patterns.getContext());
 }
 
 void getRewriteONNXForZHighDynamicallyLegal(mlir::ConversionTarget *target,
@@ -1083,8 +1084,8 @@ void getRewriteONNXForZHighDynamicallyLegal(mlir::ConversionTarget *target,
   addDynamicallyLegalOpFor<ONNXAttentionOp>(target, dimAnalysis,
       [](ONNXAttentionOp op, const DimAnalysis *dimAnalysis) {
         // AttentionOp can be simply lowered to onnx ops, to different
-	// optimized implementation. Will be controlled by option or
-	// performance model in future.
+        // optimized implementation. Will be controlled by option or
+        // performance model in future.
         return false;
       });
 }
