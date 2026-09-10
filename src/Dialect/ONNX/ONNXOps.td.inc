@@ -2029,6 +2029,7 @@ def ONNXDetOp:ONNX_Op<"Det",
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X);
   let results = (outs AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
+  let hasVerifier = 1;
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;

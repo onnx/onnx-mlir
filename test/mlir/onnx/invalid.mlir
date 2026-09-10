@@ -868,3 +868,11 @@ func.func @test_less_or_equal_mismatched_types(%arg0: tensor<f32>, %arg1: tensor
   onnx.Return %0 : tensor<i1>
 }
 
+
+// -----
+
+func.func @test_det_bf16(%arg0: tensor<3x3xbf16>) -> tensor<bf16> {
+  // expected-error @+1 {{'onnx.Det' op only f16, f32 and f64 element types are supported for Det}}
+  %0 = "onnx.Det"(%arg0) : (tensor<3x3xbf16>) -> tensor<bf16>
+  onnx.Return %0 : tensor<bf16>
+}
