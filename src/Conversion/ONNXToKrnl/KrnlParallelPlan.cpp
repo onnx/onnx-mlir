@@ -20,8 +20,10 @@
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/MathExtras.h"
 
 #include <algorithm>
+#include <limits>
 #include <string>
 
 #define DEBUG_TYPE "lowering-to-krnl"
@@ -30,12 +32,12 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
+// Legacy search when not considering collapse.
 // Return the outermost loop within [firstInclusiveDim, lastExclusiveDim) for
 // which (ub-lb) > minSize. Runtime dimensions are assumed to satisfy the size
 // requirement by definition. If found one, it is parDim and the function
 // returns true. Otherwise parDim is unchanged.
-
-bool findSuitableParallelDimension(ArrayRef<IndexExpr> lb,
+static bool findSuitableParallelDimension(ArrayRef<IndexExpr> lb,
     ArrayRef<IndexExpr> ub, int64_t firstInclusiveDim, int64_t lastExclusiveDim,
     int64_t &parDim, int64_t minSize) {
   assert(lb.size() == ub.size() && "expected identical ranks for lb/ub");
@@ -85,13 +87,13 @@ bool findSuitableParallelDimension(ArrayRef<IndexExpr> lb,
 //===----------------------------------------------------------------------===//
 // Helpers, shared by the frame and today's policy.
 //
-// Every quantity the policy compares is a *product of trip counts*: the width
-// of a fused loop, the number of times a region is entered, the work one fused
-// iteration covers. Some factors are unknown at compile time, and an unknown
-// factor is never counted as width -- trusting one as "large enough" is the
-// defect this whole change exists to fix -- so a product cannot be reduced to a
-// single number, and the comparisons over it are three-valued rather than
-// boolean.
+// Every quantity the policy compares is a *product of trip counts*: the trip
+// count of a fused loop, the number of times a region is entered, the work one
+// fused iteration covers. Some factors are unknown at compile time, and an
+// unknown factor is never counted toward the trip count -- trusting one as
+// "large enough" is the defect this whole change exists to fix -- so a product
+// cannot be reduced to a single number, and the comparisons over it are
+// three-valued rather than boolean.
 
 namespace {
 
@@ -104,20 +106,28 @@ bool isSafeDim(int64_t i, int64_t parFirstInclusiveDim,
          !llvm::is_contained(exclusiveDims, i);
 }
 
-// Products range over trip counts nothing has bounded, and every use of `known`
-// below is a comparison against a small threshold, so clamping far above any of
-// those thresholds loses no information while keeping the arithmetic in range.
-// Wrapping instead would silently turn an enormous width into a small or even
-// negative one, which is the one wrong answer that would look plausible.
-static constexpr int64_t maxTripCountProduct = 1ll << 40;
-
+// Products range over trip counts nothing has bounded, so a nest of large
+// literal extents can overflow the product. Saturating keeps that case honest,
+// and is not optional: signed overflow is undefined behaviour, and even
+// granting two's-complement wrapping the result is 0 or negative rather than
+// merely wrong. Those flip *gates* rather than reordering candidates -- a
+// `known` of 0 makes the widest possible nest read as too narrow to
+// parallelize, and a negative one sails through the `known > maxForkCount`
+// rejection. A saturated value instead does the right thing at every use: it is
+// above any threshold it is compared against, and as a divisor it drives the
+// quotient to 0.
+//
+// The ceiling is the type's, not a chosen one: any ceiling well above the
+// thresholds behaves identically, so picking a specific number would be
+// arbitrary, and the type's max is the only value that isn't.
 int64_t saturatingMul(int64_t a, int64_t b) {
   assert(a >= 0 && b >= 0 && "expected non-negative trip counts");
-  if (a == 0 || b == 0)
-    return 0;
-  if (a > maxTripCountProduct / b)
-    return maxTripCountProduct;
-  return a * b;
+  // MulOverflow leaves `r` holding the wrapped product on overflow; only the
+  // no-overflow branch may read it.
+  int64_t r;
+  if (llvm::MulOverflow(a, b, r))
+    return std::numeric_limits<int64_t>::max();
+  return r;
 }
 
 // A product of trip counts, with the literal factors and the unknown ones kept
@@ -128,9 +138,15 @@ struct TripCountProduct {
   int64_t dyn = 0;
 };
 
+// One trip count as a factor. A literal below zero is degenerate IR
+// -- an upper bound under its lower bound -- and is read as an empty loop, i.e.
+// a factor of 0.
+int64_t literalTripCountAsFactor(int64_t literal) {
+  return std::max<int64_t>(0, literal);
+}
+
 // The product of the trip counts of levels [firstIncl, lastExcl), clamped to
-// the bounds actually given. A literal trip count below zero is degenerate IR;
-// it is read as an empty loop rather than a negative factor.
+// the bounds actually given.
 TripCountProduct tripCountProduct(ArrayRef<IndexExpr> lbs,
     ArrayRef<IndexExpr> ubs, int64_t firstIncl, int64_t lastExcl) {
   TripCountProduct prod;
@@ -140,7 +156,7 @@ TripCountProduct tripCountProduct(ArrayRef<IndexExpr> lbs,
     IndexExpr tripCount = ubs[i] - lbs[i];
     if (tripCount.isLiteral())
       prod.known = saturatingMul(
-          prod.known, std::max<int64_t>(0, tripCount.getLiteral()));
+          prod.known, literalTripCountAsFactor(tripCount.getLiteral()));
     else
       ++prod.dyn;
   }
@@ -149,7 +165,7 @@ TripCountProduct tripCountProduct(ArrayRef<IndexExpr> lbs,
 
 // Three-valued "is this product at least `target`?". An unknown factor does not
 // count toward the target, but it is not nothing either: a group whose
-// *guaranteed* width falls short may still be the best option available, so
+// *guaranteed* trip count falls short may still be the best option, so
 // MAYBE has to stay distinguishable from NO rather than being folded into it.
 enum class AtLeast { NO = 0, MAYBE = 1, YES = 2 };
 
@@ -159,56 +175,79 @@ AtLeast atLeast(TripCountProduct prod, int64_t target) {
   return prod.dyn > 0 ? AtLeast::MAYBE : AtLeast::NO;
 }
 
-// What it costs to recover one collapsed level's original index from the fused
-// one, in milli-units so that dividing by an amortization factor stays
-// integral: a power-of-two extent is a shift and a mask, any other literal is a
-// real integer divide, and an unknown extent is a divide that cannot even be
-// strength-reduced.
-int64_t tierMilli(IndexExpr tripCount) {
+// What it costs to rematerialize one collapsed level's original index from the
+// fused one, in clock cycles. Three tiers, set by what the level's extent lets
+// the compiler emit for the rematerialization divide:
+//
+//   power-of-two literal extent  a shift and a mask                  2 cycles
+//   any other literal extent     a divide strength-reduced to a      6 cycles
+//                                multiply-high, a shift and a fixup
+//   unknown extent               a hardware divide that cannot be   40 cycles
+//                                strength-reduced at all
+//
+// Stated estimates for a modern out-of-order core, not measurements: the ALU
+// tier is two dependent single-cycle ops, the constant-divisor tier is
+// dominated by the multiply's latency, and 64-bit integer division lands
+// anywhere from ~20 to ~90 cycles depending on target and operand magnitude.
+// What the model relies on is the shape -- ALU cheap, constant divide a few
+// times that, hardware divide an order of magnitude above again -- so being off
+// by a factor of two in the same direction throughout changes no decision.
+int64_t overheadForIndexRematerializationInCycles(IndexExpr tripCount) {
   if (!tripCount.isLiteral())
-    return 8000;
+    return 40;
   int64_t t = tripCount.getLiteral();
   bool isPowerOfTwo = t > 0 && (t & (t - 1)) == 0;
-  return isPowerOfTwo ? 0 : 1000;
+  return isPowerOfTwo ? 2 : 6;
 }
 
 // One candidate group [firstDim, firstDim + numDims), with the tuple it is
 // ranked by. Ranked lexicographically rather than by a weighted sum because the
-// fields are not commensurable: a group whose width is guaranteed adequate
+// fields are not commensurable: a group whose trip count is guaranteed adequate
 // beats one that merely might be, at any price.
 struct GroupCandidate {
   int64_t firstDim = NO_PAR_FOUND; // The group's outermost level.
   int64_t numDims = 0;             // Members, so 1 means no fusion at all.
-  AtLeast width = AtLeast::NO;     // Is the fused width at least the target?
-  int64_t costMilli = 0; // Recovery chain + fork penalty; less better.
-  int64_t dynWidth = 0;  // Unknown factors in the width; more better.
+  // Is the fused trip count at least the target?
+  AtLeast tripCountVerdict = AtLeast::NO;
+  // Amortized index-rematerialization chain + fork penalty, in clock cycles;
+  // less is better. Integer division, so a chain spread over more elements than
+  // it costs cycles reads as 0 -- see where this is computed.
+  int64_t costInCycles = 0;
+  // Unknown trip counts among the fused levels; more better.
+  int64_t dynTripCounts = 0;
   bool isValid() const { return numDims > 0; }
-};
 
-// The lexicographic order: wider verdict first, then cheaper, then more dynamic
-// members, then fewer members, then a shallower start.
-//
-// The third field is the one that looks backwards and is not: among candidates
-// of equal verdict and equal cost, a group covering *more* dynamic levels is
-// preferred, because it is the one that stays wide when those levels turn out
-// to be 1 at run time. That robustness across shapes is the reason the fix is
-// needed at all.
-bool isBetterThan(const GroupCandidate &a, const GroupCandidate &b) {
-  if (!a.isValid())
-    return false;
-  if (!b.isValid())
-    return true;
-  if (a.width != b.width)
-    return a.width > b.width;
-  if (a.costMilli != b.costMilli)
-    return a.costMilli < b.costMilli;
-  if (a.dynWidth != b.dynWidth)
-    return a.dynWidth > b.dynWidth;
-  // Fewer members means a shorter recovery chain, the two being the same thing.
-  if (a.numDims != b.numDims)
-    return a.numDims < b.numDims;
-  return a.firstDim < b.firstDim;
-}
+  // The lexicographic order over the fields above: wider verdict first, then
+  // cheaper, then more dynamic members, then fewer members, then a shallower
+  // start.
+  //
+  // The third field is the one that looks backwards and is not: among
+  // candidates of equal verdict and equal cost, a group covering *more* dynamic
+  // levels is preferred, because it is the one that stays wide when those
+  // levels turn out to be 1 at run time. That robustness across shapes is the
+  // reason the fix is needed at all.
+  //
+  // Deliberately not operator<: the two early-outs below are a "nothing beats
+  // nothing" rule rather than a comparison, so this is not the strict weak
+  // ordering an operator would advertise to std::sort and friends.
+  bool isBetterThan(const GroupCandidate &other) const {
+    if (!isValid())
+      return false; // An invalid candidate is never better than anything.
+    if (!other.isValid())
+      return true; // ...and anything valid is better than an invalid one.
+    if (tripCountVerdict != other.tripCountVerdict)
+      return tripCountVerdict > other.tripCountVerdict;
+    if (costInCycles != other.costInCycles)
+      return costInCycles < other.costInCycles;
+    if (dynTripCounts != other.dynTripCounts)
+      return dynTripCounts > other.dynTripCounts;
+    // Fewer members means a shorter rematerialization chain, the same thing
+    // twice.
+    if (numDims != other.numDims)
+      return numDims < other.numDims;
+    return firstDim < other.firstDim;
+  }
+};
 
 //===----------------------------------------------------------------------===//
 // The policy: STEP 1, 2 and 3 of the cost model.
@@ -229,33 +268,34 @@ KrnlParallelDecision decideCollapseByCostModel(ArrayRef<IndexExpr> lbs,
   int64_t rank = lbs.size();
   KrnlParallelDecision decision;
   const ParallelTuning &tune = ParallelMachineSupport::getTuning();
+  // Is this iter safe for parallelization.
   auto isSafe = [&](int64_t i) {
     return isSafeDim(
         i, parFirstInclusiveDim, collapseLastExclusiveDim, exclusiveDims);
   };
-  // One width target, not two. The analysis had a per-target `minParTotal`
+  // One trip-count target, not two. The analysis had a per-target `minParTotal`
   // beside the per-site `minSize`, but they are the same quantity -- the
-  // smallest fused width worth a region -- so they are merged: the site's own
-  // floor, raised by the target's if the target has an opinion. That floor
-  // defaults to 0, which is what keeps this change additive, since a width
+  // smallest fused trip count worth a region -- so they are merged: the site's
+  // own floor, raised by the target's if the target has an opinion. That floor
+  // defaults to 0, which is what keeps this change additive, since a trip count
   // today's code accepts then still clears the bar.
-  int64_t widthTarget =
-      std::max(cost.minTripCountForParallel, tune.minParWidthFloor);
+  int64_t tripCountTarget =
+      std::max(cost.minTripCountForParallel, tune.minParTripCountFloor);
   // The elements one iteration of a group ending at `g` covers: the levels left
   // sequential inside it, times whatever bulk work the body does per iteration.
-  auto amortWork = [&](int64_t g) {
+  TripCountProduct amortWork = [&](int64_t g) {
     TripCountProduct prod = tripCountProduct(lbs, ubs, g, rank);
     prod.known =
-        saturatingMul(prod.known, std::max<int64_t>(0, cost.bodyElems));
+        saturatingMul(prod.known, literalTripCountAsFactor(cost.bodyElems));
     return prod;
   };
 
-  // STEP 1: a single level, so no fused space and no index recovery at all.
+  // STEP 1: a single level, so no fused space and no index rematerialization.
   // Preferred over a group whenever it is genuinely as good, and stricter than
   // STEP 0 in exactly two ways, both deliberate:
   //
   //  - the trip count must be *literally* wide. Trusting a dynamic extent as
-  //    width is the defect being fixed; it is what breaks on a level that
+  //    trip count is the defect being fixed; it is what breaks on a level that
   //    swings between 1 and 4096 across inference phases.
   //  - the prefix above it must be statically small. A wide level entered an
   //    unknown number of times is not a good answer, and absorbing that prefix
@@ -275,15 +315,17 @@ KrnlParallelDecision decideCollapseByCostModel(ArrayRef<IndexExpr> lbs,
     if (!isSafe(i))
       continue;
     IndexExpr tripCount = ubs[i] - lbs[i];
-    if (!tripCount.isLiteral() || tripCount.getLiteral() < widthTarget)
+    if (!tripCount.isLiteral() || tripCount.getLiteral() < tripCountTarget)
       continue;
+    // Number of times this region is entered (level i).
     TripCountProduct forkCount = tripCountProduct(lbs, ubs, 0, i);
+    // Called to many times, not an interesting solution.
     if (forkCount.dyn > 0 || forkCount.known > tune.maxForkCount)
       continue;
     LLVM_DEBUG(llvm::dbgs()
                << "Collapse STEP 1: single dim " << i
                << " with literal trip count " << tripCount.getLiteral()
-               << " >= " << widthTarget << " under a static prefix of "
+               << " >= " << tripCountTarget << " under a static prefix of "
                << forkCount.known << "\n");
     decision.firstDim = i;
     decision.numDims = 1;
@@ -292,7 +334,7 @@ KrnlParallelDecision decideCollapseByCostModel(ArrayRef<IndexExpr> lbs,
 
   // STEP 2: fuse a run of adjacent safe levels into one region. One candidate
   // per (run, start) pair, ranked by the tuple above -- the alternatives are
-  // not comparable on width alone.
+  // not comparable on trip count alone.
   GroupCandidate best;
   int64_t runStart = parFirstInclusiveDim;
   while (runStart < collapseLastExclusiveDim) {
@@ -309,9 +351,9 @@ KrnlParallelDecision decideCollapseByCostModel(ArrayRef<IndexExpr> lbs,
     // it costs no divisor at all.
     for (int64_t d = runStart; d < runEnd; ++d) {
       IndexExpr firstTripCount = ubs[d] - lbs[d];
-      // Never lead with a trip count of 1: it buys no width and costs a
-      // recovery level, and excluding it is free because the sequential wrapper
-      // it leaves behind is free.
+      // Never lead with a trip count of 1: it buys no trip count and costs a
+      // rematerialization level, and excluding it is free because the
+      // sequential wrapper it leaves behind is free.
       if (firstTripCount.isLiteral() && firstTripCount.getLiteral() == 1)
         continue;
       TripCountProduct forkCount = tripCountProduct(lbs, ubs, 0, d);
@@ -322,10 +364,10 @@ KrnlParallelDecision decideCollapseByCostModel(ArrayRef<IndexExpr> lbs,
       // decreed.
       if (forkCount.dyn == 0 && forkCount.known > tune.maxForkCount)
         continue;
-      // Grow while the *guaranteed* width falls short of the target, but never
-      // past the point where the recovery chain is known to have lost its
-      // amortization. That second guard is what keeps a group off the innermost
-      // level, preserving both the hoist of the recovery arithmetic and the
+      // Grow while the *guaranteed* trip count falls short of the target, but
+      // never past the point where the rematerialization chain is known to have
+      // lost its amortization. That second guard is what keeps a group off the
+      // innermost level, preserving both the hoist of that arithmetic and the
       // innermost dimension for vectorization. It is three-valued so that an
       // unknown inner level does not read as "inadequate" when it only means
       // "unresolved".
@@ -341,38 +383,47 @@ KrnlParallelDecision decideCollapseByCostModel(ArrayRef<IndexExpr> lbs,
       // measurement rather than another argument.
       int64_t g = d + 1;
       while (g < runEnd &&
-             tripCountProduct(lbs, ubs, d, g).known < widthTarget &&
+             tripCountProduct(lbs, ubs, d, g).known < tripCountTarget &&
              atLeast(amortWork(g + 1), tune.minAmortWork) != AtLeast::NO)
         ++g;
       // One index computation per member below the group's head -- the head's
       // own index needs no divisor -- amortized over the work one fused
       // iteration covers, since charging it per fused iteration overstates it
       // by orders of magnitude.
-      int64_t recoveryMilli = 0;
+      //
+      // Integer division, deliberately. A chain spread over more elements than
+      // it costs cycles amortizes to 0, and 0 is the honest answer: a fraction
+      // of a cycle per element is not a difference this model can see, and
+      // ranking two such candidates by it would be inventing precision the
+      // estimates do not have. Candidates that tie here fall through to the
+      // next field, which prefers the one that stays wide across shapes -- a
+      // better reason to choose than a rounding artifact.
+      int64_t rematerializationInCycles = 0;
       for (int64_t k = d + 1; k < g; ++k)
-        recoveryMilli += tierMilli(ubs[k] - lbs[k]);
+        rematerializationInCycles +=
+            overheadForIndexRematerializationInCycles(ubs[k] - lbs[k]);
       TripCountProduct work = tripCountProduct(lbs, ubs, d, g);
       GroupCandidate cand;
       cand.firstDim = d;
       cand.numDims = g - d;
-      cand.width = atLeast(work, widthTarget);
-      cand.dynWidth = work.dyn;
-      cand.costMilli =
-          recoveryMilli / std::max<int64_t>(1, amortWork(g).known) +
-          (forkCount.dyn > 0 ? tune.forkPenaltyMilli : 0);
+      cand.tripCountVerdict = atLeast(work, tripCountTarget);
+      cand.dynTripCounts = work.dyn;
+      cand.costInCycles =
+          rematerializationInCycles / std::max<int64_t>(1, amortWork(g).known) +
+          (forkCount.dyn > 0 ? tune.forkPenaltyCycles : 0);
       LLVM_DEBUG(llvm::dbgs()
                  << "Collapse STEP 2: candidate group [" << d << ", " << g
-                 << ") width known " << work.known << " dyn " << work.dyn
-                 << " verdict " << (int)cand.width << " cost " << cand.costMilli
-                 << "\n");
-      if (isBetterThan(cand, best))
+                 << ") trip count known " << work.known << " dyn " << work.dyn
+                 << " verdict " << (int)cand.tripCountVerdict << " cost "
+                 << cand.costInCycles << " cycles\n");
+      if (cand.isBetterThan(best))
         best = cand;
     }
     runStart = runEnd;
   }
-  // A width that is a small literal with no unknown factor in it is not worth a
+  // A trip count that is a small literal with no unknown factor is not worth a
   // region, whatever it scored on the other fields: fall through to STEP 3.
-  if (best.isValid() && best.width != AtLeast::NO) {
+  if (best.isValid() && best.tripCountVerdict != AtLeast::NO) {
     LLVM_DEBUG(llvm::dbgs() << "Collapse STEP 2: pick group [" << best.firstDim
                             << ", " << best.firstDim + best.numDims << ")\n");
     decision.firstDim = best.firstDim;
@@ -477,7 +528,7 @@ static int64_t reportKrnlParallelDecision(KrnlParallelDecision decision,
     return parId;
   }
   // A collapsed group needs both numbers restated. The region still sits at
-  // parId, but its width is the product of the group's trip counts, so the
+  // parId, but its trip count is the product of the group's own, so the
   // single level's own trip count would understate it -- and understating it is
   // exactly what would hide the diagnosis this report exists to confirm.
   //
@@ -489,19 +540,19 @@ static int64_t reportKrnlParallelDecision(KrnlParallelDecision decision,
   // what was emitted.
   assert(parId >= 0 && parId + decision.numDims <= (int64_t)lbs.size() &&
          "collapsed group must lie inside the bounds it is reported over");
-  int64_t width = 1;
+  int64_t fusedTripCount = 1;
   bool allLiteral = true;
   for (int64_t k = parId; k < parId + decision.numDims; ++k) {
     IndexExpr tripCount = ubs[k] - lbs[k];
     if (tripCount.isLiteral())
-      width *= tripCount.getLiteral();
+      fusedTripCount *= tripCount.getLiteral();
     else
       allLiteral = false;
   }
   // No comma in the comment: the report line is comma-separated and
   // impl::onnxToKrnlParallelReport asserts on one.
   onnxToKrnlParallelReport(op, /*successful*/ true, parId,
-      allLiteral ? width : -1,
+      allLiteral ? fusedTripCount : -1,
       msg + " with " + std::to_string(decision.numDims) +
           " loops collapsed at level " + std::to_string(parId));
   return parId;

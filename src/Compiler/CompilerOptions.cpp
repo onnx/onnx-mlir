@@ -91,10 +91,10 @@ int onnxOpTransformThreshold;                          // onnx-mlir only
 bool onnxOpTransformReport;                            // onnx-mlir only
 bool enableParallel;                                   // onnx-mlir only
 bool enableCollapse;                                   // onnx-mlir only
-int64_t collapseMinParWidthFloor;                      // common for both
+int64_t collapseMinParTripCountFloor;                  // common for both
 int64_t collapseMinAmortWork;                          // common for both
 int64_t collapseMaxForkCount;                          // common for both
-int64_t collapseForkPenaltyMilli;                      // common for both
+int64_t collapseForkPenaltyCycles;                     // common for both
 bool disableSimdOption;                                // onnx-mlir only
 bool enableFastMathOption;                             // onnx-mlir only
 bool disableRecomposeOption;                           // onnx-mlir only
@@ -716,19 +716,20 @@ static llvm::cl::opt<bool, true> enableCollapseOpt("enable-collapse",
 // common to both drivers on purpose: the lit tests that pin down a collapse
 // decision run under onnx-mlir-opt, which sees only the common and opt
 // categories.
-static llvm::cl::opt<int64_t, true> collapseMinParWidthFloorOpt(
-    "collapse-min-par-width-floor",
-    llvm::cl::desc("Floor on the fused loop width worth a parallel region\n"
-                   "(default=-1, meaning use the target's own value)."),
-    llvm::cl::location(collapseMinParWidthFloor), llvm::cl::init(-1),
+static llvm::cl::opt<int64_t, true> collapseMinParTripCountFloorOpt(
+    "collapse-min-par-trip-count-floor",
+    llvm::cl::desc(
+        "Floor on the fused loop trip count worth a parallel region\n"
+        "(default=-1, meaning use the target's own value)."),
+    llvm::cl::location(collapseMinParTripCountFloor), llvm::cl::init(-1),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
 static llvm::cl::opt<int64_t, true> collapseMinAmortWorkOpt(
     "collapse-min-amort-work",
     llvm::cl::desc(
         "Smallest number of elements one fused iteration must cover for\n"
-        "an index recovery chain to stay amortized (default=-1, meaning\n"
-        "use the target's own value)."),
+        "an index rematerialization chain to stay amortized (default=-1,\n"
+        "meaning use the target's own value)."),
     llvm::cl::location(collapseMinAmortWork), llvm::cl::init(-1),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
@@ -740,12 +741,12 @@ static llvm::cl::opt<int64_t, true> collapseMaxForkCountOpt(
     llvm::cl::location(collapseMaxForkCount), llvm::cl::init(-1),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
-static llvm::cl::opt<int64_t, true> collapseForkPenaltyMilliOpt(
+static llvm::cl::opt<int64_t, true> collapseForkPenaltyCyclesOpt(
     "collapse-fork-penalty",
-    llvm::cl::desc("Price of an unresolved (dynamic) fork count, in the same\n"
-                   "milli-units as the index recovery tiers (default=-1,\n"
-                   "meaning use the target's own value)."),
-    llvm::cl::location(collapseForkPenaltyMilli), llvm::cl::init(-1),
+    llvm::cl::desc("Price of an unresolved (dynamic) fork count, in clock\n"
+                   "cycles, standing for one OpenMP region entry\n"
+                   "(default=-1, meaning use the target's own value)."),
+    llvm::cl::location(collapseForkPenaltyCycles), llvm::cl::init(-1),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
 static llvm::cl::opt<bool, true> disableSimdOptionOpt("disable-simd",

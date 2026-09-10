@@ -52,16 +52,9 @@ namespace onnx_mlir {
 // sentinel.
 static constexpr int64_t NO_PAR_FOUND = -1;
 
-// Return the outermost loop within [firstDim, lastDim) for which (ub-lb) >=
-// minSize. Runtime dimensions are assumed to satisfy the size requirement by
-// definition. If found one, it is parDim and the function returns true.
-bool findSuitableParallelDimension(mlir::ArrayRef<IndexExpr> lb,
-    mlir::ArrayRef<IndexExpr> ub, int64_t firstInclusiveDim,
-    int64_t lastExclusiveDim, int64_t &parDim, int64_t minSize = 4);
-
-// The two numbers only the call site knows: the width worth a parallel region,
-// and how much work one innermost iteration covers. Kept together because both
-// feed the same width target, and kept apart from KrnlParallelPlan's window
+// The two numbers only the call site knows: the trip count worth a parallel
+// region, and how much work one innermost iteration covers. Kept together since
+// both feed the same trip-count target, and kept apart from KrnlParallelPlan's
 // bounds because those say *which loop refs* while these say *how much work* --
 // an orthogonal question with an orthogonal owner. Neither number indexes into
 // the loop list, so neither has any reason to travel with it.
@@ -186,7 +179,7 @@ public:
   // ask rather than emit hand the answer to forLoopIE/forLoopsIE's useParallel,
   // which parallelizes one level and cannot express a fused iteration space,
   // and several of them size per-thread reduction buffers off it. A group here
-  // would be justified by a width that never materializes.
+  // would be justified by a trip count that never materializes.
   int64_t findParallelDim(mlir::Operation *op, std::string msg,
       mlir::ArrayRef<IndexExpr> lbs, mlir::ArrayRef<IndexExpr> ubs) const;
 

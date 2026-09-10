@@ -4,7 +4,7 @@
 
 //===---------------- Slice.cpp - Lowering Slice Op ----------------------=== //
 //
-// Copyright 2020-2023 The IBM Research Authors.
+// Copyright 2020-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -20,13 +20,18 @@ using namespace mlir;
 namespace onnx_mlir {
 
 struct ONNXSliceOpLowering : public OpConversionPattern<ONNXSliceOp> {
-  ONNXSliceOpLowering(
-      TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
+  ONNXSliceOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
+      bool enableParallel, bool enableCollapse)
       : OpConversionPattern(typeConverter, ctx) {
     this->enableParallel =
         enableParallel &&
         OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
             ONNXSliceOp::getOperationName());
+    // Not and-ed with this->enableParallel: a collapse-eligible plan is built
+    // either way, and it is tryCreateParallel -- called only when parallelism
+    // is on -- that can act on it. Keeping the two bools independent is what
+    // makes the plan construction one unconditional statement.
+    this->enableCollapse = enableCollapse;
   }
 
   LogicalResult matchAndRewrite(ONNXSliceOp sliceOp, ONNXSliceOpAdaptor adaptor,
@@ -57,8 +62,8 @@ struct ONNXSliceOpLowering : public OpConversionPattern<ONNXSliceOp> {
     DimsExpr ubs = shapeHelper.getOutputDims();
 
     // Enable parallelism if required.
-    auto plan =
-        KrnlParallelPlan::noCollapse(loopDef, /*first*/ 0, /*last excl*/ 2);
+    KrnlParallelPlan plan(loopDef, enableCollapse, /*parFirstInclusiveDim=*/0,
+        /*parLastExclusiveDim=*/2, /*collapseLastExclusiveDim=*/2);
     if (enableParallel)
       plan.tryCreateParallel(create.krnl, op, "slice", lbs, ubs);
 
@@ -89,11 +94,14 @@ struct ONNXSliceOpLowering : public OpConversionPattern<ONNXSliceOp> {
 
 private:
   bool enableParallel = false;
+  bool enableCollapse = false;
 };
 
 void populateLoweringONNXSliceOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel) {
-  patterns.insert<ONNXSliceOpLowering>(typeConverter, ctx, enableParallel);
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel,
+    bool enableCollapse) {
+  patterns.insert<ONNXSliceOpLowering>(
+      typeConverter, ctx, enableParallel, enableCollapse);
 }
 
 } // namespace onnx_mlir

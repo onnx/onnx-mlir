@@ -35,26 +35,37 @@ namespace onnx_mlir {
 //===----------------------------------------------------------------------===//
 // The cost-model constants themselves.
 
+// Every cost in the collapse model is a count of clock cycles. The counts are
+// stated estimates, not measurements, and are deliberately coarse: only their
+// ratios are ever used, so being off by a factor of two in the same direction
+// everywhere changes nothing.
 struct ParallelTuning {
-  // Raises every site's floor on the width worth a parallel region. The width
+  // Raises every site's floor on the trip count worth a parallel region. The
   // target is max(this, the site's own minTripCountForParallel), so a value of
   // 0 leaves every site exactly where it is today. This is where a
   // "4 x threads" rule goes once someone has a thread count to put in it.
-  int64_t minParWidthFloor;
+  int64_t minParTripCountFloor;
   // Smallest number of elements one fused iteration must cover for an index
-  // recovery chain to stay amortized. Stops a collapsed group from growing
-  // onto the innermost level, which preserves both the recovery hoist and the
-  // innermost dimension for vectorization.
+  // rematerialization chain to stay amortized. Stops a collapsed group from
+  // growing onto the innermost level, which preserves both the hoist of that
+  // arithmetic and the innermost dimension for vectorization.
   int64_t minAmortWork;
   // Largest statically known fork count accepted without penalty, i.e. how
   // many times a region may be entered before its depth stops being free.
   int64_t maxForkCount;
-  // Price of an unresolved (dynamic) fork count, in the same milli-units as
-  // the index-recovery tiers, so absorbing a level and tolerating it can be
-  // compared rather than decreed. The weakest of the four: a threshold with a
-  // stated meaning, not a measured number, and the one most likely to differ
-  // per target since it prices an OpenMP region entry.
-  int64_t forkPenaltyMilli;
+  // Price of an unresolved (dynamic) fork count, in clock cycles, so absorbing
+  // a level and tolerating it can be compared rather than decreed. It stands
+  // for one OpenMP parallel region entry against a warm thread pool -- thread
+  // wake-up, the barrier, and the shared-work handshake.
+  //
+  // The weakest of the four: a stated estimate, not a measured number, and the
+  // one most likely to differ per target, since a region entry is the runtime's
+  // cost and not the hardware's. Note it is deliberately two orders of
+  // magnitude above the rematerialization tiers it is summed with -- a region
+  // entry really is that much more expensive than a divide -- so any candidate
+  // carrying an unresolved fork count loses the cost comparison to one that
+  // does not, unless the other's rematerialization is itself unamortized.
+  int64_t forkPenaltyCycles;
 };
 
 //===----------------------------------------------------------------------===//
@@ -116,8 +127,8 @@ public:
 
   std::string computeArchName() override { return "generic"; }
   ParallelTuning computeTuning() override {
-    return {/*minParWidthFloor=*/0, /*minAmortWork=*/16, /*maxForkCount=*/2,
-        /*forkPenaltyMilli=*/4000};
+    return {/*minParTripCountFloor=*/0, /*minAmortWork=*/16, /*maxForkCount=*/2,
+        /*forkPenaltyCycles=*/4000};
   }
 };
 

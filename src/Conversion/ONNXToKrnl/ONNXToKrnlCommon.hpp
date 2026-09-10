@@ -331,10 +331,14 @@ public:
 // Functions to add lowering patterns for frontend operations.
 //===----------------------------------------------------------------------===//
 
-// For all ONNX operations.
+// For all ONNX operations. Kept in sync with the definition by hand: it had
+// drifted by three parameters before enableCollapse was added, which is
+// possible because the only caller is in the defining file, so a stale
+// declaration here is never diagnosed.
 void populateONNXToKrnlConversionPattern(mlir::RewritePatternSet &,
-    mlir::TypeConverter &, mlir::MLIRContext *, bool enableTiling,
-    bool enableParallel, bool enableFastMath);
+    mlir::TypeConverter &, mlir::MLIRContext *, DimAnalysis *,
+    bool enableTiling, bool enableSIMD, bool enableParallel,
+    bool enableCollapse, bool enableFastMath, std::string opsForCall);
 
 // `ControlFlow` directory methods:
 void populateLoweringONNXIfOpPattern(
@@ -495,7 +499,8 @@ void populateLoweringONNXScatterNDOpPattern(
 void populateLoweringONNXShapeOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXSliceOpPattern(mlir::RewritePatternSet &,
-    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel,
+    bool enableCollapse);
 // onnx.Fused(kind="simd-split-op-gather") -- see
 // src/Dialect/ONNX/Transforms/ONNXFusionOpHelper.hpp.
 void populateLoweringONNXFusedSplitOpGatherOpPattern(mlir::RewritePatternSet &,
@@ -761,8 +766,8 @@ bool hasNonIdentityLayout(mlir::ValueRange operands);
 // The decision procedure (decideKrnlParallel), the plan that carries its answer
 // to the krnl.iterate that consumes it (KrnlParallelPlan) and the two entry
 // points onto them all live in KrnlParallelPlan.hpp, included above. They are
-// declared there rather than here because the decision is a self-contained piece
-// of reasoning about loop levels, trip counts and region cost, with one
+// declared there rather than here because the decision is a self-contained
+// piece of reasoning about loop levels, trip counts and region cost, with one
 // dependency on this file -- onnxToKrnlParallelReport, below -- and none on the
 // rest of it.
 

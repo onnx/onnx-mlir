@@ -194,10 +194,15 @@ void populateLoweringONNXEntryPointOpPattern(
   patterns.insert<ONNXEntryPointLowering>(ctx);
 }
 
+// enableCollapse is forwarded only to those populate* functions whose pattern
+// hosts a call site that has been migrated to a collapse-eligible plan -- not
+// to every pattern that takes enableParallel. A site becomes collapse-eligible
+// by gaining the bool, so which patterns are listed below is the record of how
+// far the migration has come, and no other pattern is touched.
 void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx, DimAnalysis *dimAnalysis,
     bool enableTiling, bool enableSIMD, bool enableParallel,
-    bool enableFastMath, std::string opsForCall) {
+    bool enableCollapse, bool enableFastMath, std::string opsForCall) {
   // clang-format off
   // Type conversion for function signatures.
   // Call MLIR FuncOp signature conversion when result type is a ranked tensor.
@@ -261,7 +266,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXScatterNDOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXSpaceToDepthOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXShapeOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXSliceOpPattern(patterns, typeConverter, ctx, enableParallel);
+  populateLoweringONNXSliceOpPattern(patterns, typeConverter, ctx, enableParallel, enableCollapse);
   populateLoweringONNXFusedSplitOpGatherOpPattern(patterns, typeConverter, ctx, enableSIMD, enableParallel);
   populateLoweringONNXSqueezeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXSqueezeV11OpPattern(patterns, typeConverter, ctx);
@@ -461,7 +466,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // Define patterns.
   populateONNXToKrnlConversionPattern(patterns, krnlTypeConverter,
       &getContext(), dimAnalysis, enableTiling, enableSIMD, enableParallel,
-      enableFastMath, opsForCall);
+      enableCollapse, enableFastMath, opsForCall);
 
   // Rewrite patterns for accelerators.
   for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())

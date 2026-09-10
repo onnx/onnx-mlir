@@ -39,23 +39,23 @@ namespace onnx_mlir {
   // being measured, per target, which is the only way the measurement means
   // anything.
   ParallelTuning tuning = globalParallelMachineSupport->computeTuning();
-  if (collapseMinParWidthFloor >= 0)
-    tuning.minParWidthFloor = collapseMinParWidthFloor;
+  if (collapseMinParTripCountFloor >= 0)
+    tuning.minParTripCountFloor = collapseMinParTripCountFloor;
   if (collapseMinAmortWork >= 0)
     tuning.minAmortWork = collapseMinAmortWork;
   if (collapseMaxForkCount >= 0)
     tuning.maxForkCount = collapseMaxForkCount;
-  if (collapseForkPenaltyMilli >= 0)
-    tuning.forkPenaltyMilli = collapseForkPenaltyMilli;
+  if (collapseForkPenaltyCycles >= 0)
+    tuning.forkPenaltyCycles = collapseForkPenaltyCycles;
   globalParallelMachineSupport->tuning = tuning;
 
   LLVM_DEBUG(llvm::dbgs() << "use parallel tuning " << getArchName()
                           << " for triple \"" << triple << "\" arch \"" << arch
-                          << "\" cpu \"" << cpu << "\": minParWidthFloor "
-                          << tuning.minParWidthFloor << ", minAmortWork "
+                          << "\" cpu \"" << cpu << "\": minParTripCountFloor "
+                          << tuning.minParTripCountFloor << ", minAmortWork "
                           << tuning.minAmortWork << ", maxForkCount "
-                          << tuning.maxForkCount << ", forkPenaltyMilli "
-                          << tuning.forkPenaltyMilli << "\n");
+                          << tuning.maxForkCount << ", forkPenaltyCycles "
+                          << tuning.forkPenaltyCycles << "\n");
 }
 
 /*static*/ void ParallelMachineSupport::clearGlobalParallelMachineSupport() {
