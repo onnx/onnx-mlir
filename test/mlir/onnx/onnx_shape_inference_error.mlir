@@ -117,3 +117,13 @@ func.func @test_category_mapper_diff_size_attrs (%arg0: tensor<20x1xi32>) -> ten
 }
 
 // -----
+
+func.func @test_det_non_square(%arg0 : tensor<2x3xf32>) -> tensor<*xf32> {
+  // expected-error @+3 {{Det: the innermost two dimensions must form a square matrix}}
+  // expected-error @+2 {{Failed to scan parameters successfully}}
+  // expected-error @+1 {{'onnx.Det' op shape inference failed}}
+  %0 = "onnx.Det"(%arg0) : (tensor<2x3xf32>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}
+
+// -----
