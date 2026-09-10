@@ -257,13 +257,14 @@ python3 utils/AnalyzeShape.py model.onnx.mlir
 ```
 
 This writes `model.onnx-dg.mlir` (the raw `--onnx-dim-analysis` output) and
-`model.onnx-annotated.mlir` (with the folded `#onnx.dg<>` annotations). For the worked example
-above, the annotated result would show `%arg0` as `tensor<d0x3xd1xf32, #onnx.dg<...>>` and `%0` as
-`tensor<u0x3xu1xf32, #onnx.dg<...>>` — the first occurrence of a group is named `d{id}` and later
-occurrences sharing that group are named `u{id}`, so it is immediately visible that `%arg0`'s dim 0
-matches `%0`'s dim 0, instead of the fixed `tensor<?x3x?xf32>` with `onnx.DimGroup` ops elsewhere in
-the file. See `python3 utils/AnalyzeShape.py -h` for details, including how it locates
-`onnx-mlir-opt`.
+`model.onnx-annotated.mlir` (with the folded `#onnx.dg<>` annotations). Each dynamic dimension gets
+one entry in its type's encoding: the [`group_name`](#reading-onnxdimgroup) of its group when the
+analysis named it, otherwise `d{id}` on the first occurrence of the group and `u{id}` on later ones.
+Either way the same dimension reads the same everywhere, so it is immediately visible which
+dimensions match, instead of the bare `tensor<?x3x?xf32>` with `onnx.DimGroup` ops elsewhere in the
+file. For the worked example above, both `%arg0` and `%0` come out as
+`tensor<?x3x?xf32, #onnx.dg<["batch_size", "3", "arg0_2"]>>`. See
+`python3 utils/AnalyzeShape.py -h` for details, including how it locates `onnx-mlir-opt`.
 
 ### Debugging the Analysis Itself
 
