@@ -285,6 +285,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   // Math
   populateLoweringONNXCumSumOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXDFTOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXDetOpPattern(patterns, typeConverter, ctx, enableParallel);
   populateLoweringONNXElementwiseOpPattern(patterns, typeConverter, ctx, dimAnalysis, enableSIMD, enableParallel);
   populateLoweringONNXGemmOpPattern(patterns, typeConverter, ctx, enableTiling, enableSIMD, enableParallel);
   populateLoweringONNXHardmaxOpPattern(patterns, typeConverter, ctx);
