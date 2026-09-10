@@ -16,13 +16,15 @@
 
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 
 namespace onnx_mlir {
 
 // Exports RewriteONNXForZHigh patterns.
 void getRewriteONNXForZHighPatterns(mlir::RewritePatternSet &patterns,
-    DimAnalysis *dimAnalysis, bool enableConvToMatmul = true);
+    DimAnalysis *dimAnalysis, KrnlTypeConverter &krnlTypeConverter,
+    bool enableConvToMatmul = true);
 
 // Exports RewriteONNXForZHigh dynamically legal checks.
 void getRewriteONNXForZHighDynamicallyLegal(mlir::ConversionTarget *target,

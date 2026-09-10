@@ -704,7 +704,8 @@ public:
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXRewriteONNXForZHigh.inc"
 
 void getRewriteONNXForZHighPatterns(RewritePatternSet &patterns,
-    DimAnalysis *dimAnalysis, bool enableConvToMatmul) {
+    DimAnalysis *dimAnalysis, KrnlTypeConverter &krnlTypeConverter,
+    bool enableConvToMatmul) {
   populateWithGenerated(patterns);
   patterns.insert<SplitLargeMatMulPattern>(patterns.getContext());
   patterns.insert<ExpandAddConstantPattern>(patterns.getContext());
@@ -720,7 +721,6 @@ void getRewriteONNXForZHighPatterns(RewritePatternSet &patterns,
   if (enableConvToMatmul) {
     addConvToMatmulPattern(patterns, isCompatibleWithNNPALevel(NNPALevel::M15));
   }
-  KrnlTypeConverter krnlTypeConverter;
   populateLoweringONNXAttentionOpPattern(
       patterns, krnlTypeConverter, patterns.getContext());
 }
@@ -1136,8 +1136,10 @@ void RewriteONNXForZHighPass::runOnOperation() {
 
   // Single ONNX to ZHigh operation lowering.
   RewritePatternSet patterns(&getContext());
+
+  KrnlTypeConverter krnlTypeConverter;
   onnx_mlir::getRewriteONNXForZHighPatterns(
-      patterns, &dimAnalysis, this->enableConvToMatmul);
+      patterns, &dimAnalysis, krnlTypeConverter, this->enableConvToMatmul);
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`
