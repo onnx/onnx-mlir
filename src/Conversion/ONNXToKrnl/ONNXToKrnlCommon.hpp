@@ -466,7 +466,8 @@ void populateLoweringONNXTransposeOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel,
     bool enableCollapse);
 void populateLoweringONNXGatherOpPattern(mlir::RewritePatternSet &,
-    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel,
+    bool enableCollapse);
 void populateLoweringONNXGatherElementsOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXGatherNDOpPattern(
@@ -538,7 +539,8 @@ void populateLoweringONNXCompressOpPattern(
 void populateLoweringONNXPrintSignaturePattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXLayoutTransformOpPattern(mlir::RewritePatternSet &,
-    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel,
+    bool enableCollapse);
 void populateLoweringONNXUniqueOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXIm2ColOpPattern(mlir::RewritePatternSet &,

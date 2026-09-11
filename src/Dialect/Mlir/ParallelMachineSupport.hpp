@@ -45,10 +45,19 @@ struct ParallelTuning {
   // 0 leaves every site exactly where it is today. This is where a
   // "4 x threads" rule goes once someone has a thread count to put in it.
   int64_t minParTripCountFloor;
-  // Smallest number of elements one fused iteration must cover for an index
-  // rematerialization chain to stay amortized. Stops a collapsed group from
-  // growing onto the innermost level, which preserves both the hoist of that
-  // arithmetic and the innermost dimension for vectorization.
+  // Smallest amount of work one fused iteration must cover for an index
+  // rematerialization chain to stay amortized, in KrnlParallelCost::bodyCost's
+  // work units -- one scalar op or one copied element per unit -- since that is
+  // what it is compared against.
+  //
+  // A *depth* guard, not a worth-it guard: it stops a collapsed group from
+  // growing onto the innermost level, preserving both the hoist of the recovery
+  // arithmetic and that level for vectorization. Raising it makes groups
+  // shallower, which is not the same as making them cheaper -- at
+  // LayoutTransform's fast path, raising it past the body's own cost drops the
+  // group entirely and lands the region on the innermost level under an unknown
+  // entry count, which is worse. Which *start* wins among candidate groups is
+  // decided by the ordering in GroupCandidate, not here.
   int64_t minAmortWork;
   // Largest statically known fork count accepted without penalty, i.e. how
   // many times a region may be entered before its depth stops being free.

@@ -275,10 +275,14 @@ struct GroupCandidate {
   // The gate: does a dynamic level remain above this group, making the number
   // of region entries unknown? False is better.
   bool hasDynamicForkCount = false;
-  // The price: index recovery as a percentage of the work one fused iteration
-  // does. Less is better. A percentage because the bare quotient
-  // integer-divides to 0 for any body above a few dozen instructions.
-  int64_t rematOverheadPercent = 0;
+  // The price: cycles of index recovery per 100 work units of body. Less is
+  // better. Scaled by 100 because the bare quotient integer-divides to 0 for
+  // any body above a few dozen work units.
+  //
+  // Not a share of runtime, though it coincides with one when a work unit costs
+  // about a cycle -- true for the scalar bodies the tiers were calibrated on,
+  // and optimistic by roughly the vector width for a bulk copy. See bodyCost.
+  int64_t rematOverhead = 0;
   // Unknown trip counts among the fused levels; more is better.
   int64_t dynTripCounts = 0;
   bool isValid() const { return numDims > 0; }
@@ -301,8 +305,8 @@ struct GroupCandidate {
       return tripCountVerdict > other.tripCountVerdict;
     if (hasDynamicForkCount != other.hasDynamicForkCount)
       return !hasDynamicForkCount;
-    if (rematOverheadPercent != other.rematOverheadPercent)
-      return rematOverheadPercent < other.rematOverheadPercent;
+    if (rematOverhead != other.rematOverhead)
+      return rematOverhead < other.rematOverhead;
     if (dynTripCounts != other.dynTripCounts)
       return dynTripCounts > other.dynTripCounts;
     // Fewer members means a shorter recovery chain, the same thing twice.
@@ -345,9 +349,9 @@ static KrnlParallelDecision decideCollapseByCostModel(ArrayRef<IndexExpr> lbs,
   // count the plain search accepts still clears the bar.
   int64_t tripCountTarget =
       std::max(cost.minTripCountForParallel, tune.minParTripCountFloor);
-  // The work one iteration of a group ending at `g` does, in instructions: the
-  // levels left sequential inside it, times the body. Denominator of both
-  // things bodyCost feeds -- the growth guard and the recovery percentage.
+  // The work one iteration of a group ending at `g` does, in bodyCost's work
+  // units: the levels left sequential inside it, times the body. Denominator of
+  // both things bodyCost feeds -- the growth guard and the recovery ratio.
   auto amortWork = [&](int64_t g) -> TripCountProduct {
     TripCountProduct prod = tripCountProduct(lbs, ubs, g, rank);
     prod.known =
@@ -451,16 +455,16 @@ static KrnlParallelDecision decideCollapseByCostModel(ArrayRef<IndexExpr> lbs,
       cand.tripCountVerdict = atLeast(work, tripCountTarget);
       cand.dynTripCounts = work.dyn;
       cand.hasDynamicForkCount = forkCount.dyn > 0;
-      cand.rematOverheadPercent = (100 * rematerializationInCycles) /
-                                  std::max<int64_t>(1, amortAtG.known);
+      cand.rematOverhead = (100 * rematerializationInCycles) /
+                           std::max<int64_t>(1, amortAtG.known);
       LLVM_DEBUG(llvm::dbgs()
                  << "Collapse STEP 2: candidate group [" << d << ", " << g
                  << ") trip count known " << work.known << " dyn " << work.dyn
                  << " verdict " << (int)cand.tripCountVerdict
                  << (cand.hasDynamicForkCount ? " dyn-fork" : " known-fork")
-                 << " remat " << rematerializationInCycles << " cycles over "
-                 << amortAtG.known << " instrs = " << cand.rematOverheadPercent
-                 << "%\n");
+                 << " remat " << rematerializationInCycles << " cyc / "
+                 << amortAtG.known << " work = " << cand.rematOverhead
+                 << " per 100\n");
       if (cand.isBetterThan(best))
         best = cand;
     }

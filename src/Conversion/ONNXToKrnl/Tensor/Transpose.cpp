@@ -295,10 +295,10 @@ private:
     // argument the comment below makes for a single level, which composes
     // across levels.
     //
-    // bodyCost is the block length: one innermost iteration here is a memcpy of
-    // elemsToCopy elements, roughly that many instructions, not the one a
-    // scalar body would cost. Declaring it is what lets a group be judged
-    // against the work it is amortized over. It only ever feeds the policy --
+    // bodyCost is the block length: one innermost iteration here copies
+    // elemsToCopy elements, so that many work units, not the one a scalar body
+    // would cost. Declaring it is what lets a group be judged against the work
+    // it is amortized over. It only ever feeds the policy --
     // STEP 0, and so the flag-off path, reads minTripCountForParallel alone.
     KrnlParallelPlan plan(loopDef, enableCollapse, /*parFirstInclusiveDim=*/0,
         /*parLastExclusiveDim=*/2, /*collapseLastExclusiveDim=*/2,

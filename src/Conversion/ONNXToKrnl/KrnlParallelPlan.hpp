@@ -56,23 +56,33 @@ static constexpr int64_t NO_PAR_FOUND = -1;
 struct KrnlParallelCost {
   // This site's floor on the trip count worth a parallel region.
   int64_t minTripCountForParallel = 4;
-  // Roughly what one iteration of this nest's innermost loop costs, in
-  // instructions -- an order of magnitude read off the body:
+  // Roughly how much work one iteration of this nest's innermost loop does, in
+  // *work units*: one scalar operation, or one element copied, counts as 1. An
+  // order of magnitude read off the body:
   //
   //      1   a copy: a load and a store
   //     10   a handful of arithmetic ops, an index computation, a compare
   //   1000   a transcendental, an interpolation kernel, a whole tile
   //
   // One digit is enough: it feeds only how far a group may grow and the
-  // denominator of the index-recovery percentage, and both ask whether the body
-  // is big enough to hide an integer divide.
+  // denominator of the index-recovery ratio, and both ask whether the body is
+  // big enough to hide an integer divide.
+  //
+  // Work units and not cycles, deliberately. Cycles would be the ideal unit --
+  // the recovery chain it is weighed against is measured in them -- but pricing
+  // a bulk copy in cycles needs a bytes-per-cycle or vector-width constant that
+  // no target here has measured, and guessing it *low* is the unsafe direction
+  // (see below). So a copied element counts as 1 even though vectorization
+  // makes it cheaper than a scalar op, which means the ratio in GroupCandidate
+  // understates the true fraction of runtime for bulk-copy bodies, by roughly
+  // the vector width. minAmortWork is calibrated in these same units.
   //
   // A body that loops or copies over N elements multiplies through: a
-  // 128-element memcpy is ~128, an scf loop of N iterations around ten
-  // instructions is ~10N. Any site whose innermost krnl iteration hides a
-  // memcpy, an scf loop or a SIMD span **must** set this -- under-declaring it
-  // stops a group from growing, which changes the candidate set rather than
-  // merely narrowing the winner, and can pick an answer worse than no collapse.
+  // 128-element memcpy is ~128, an scf loop of N iterations around ten ops is
+  // ~10N. Any site whose innermost krnl iteration hides a memcpy, an scf loop
+  // or a SIMD span **must** set this -- under-declaring it stops a group from
+  // growing, which changes the candidate set rather than merely narrowing the
+  // winner, and can pick an answer worse than no collapse at all.
   //
   // Cannot be inferred: when the decision runs the body is not built yet.
   int64_t bodyCost = 1;

@@ -252,7 +252,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXUnsqueezeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXUnsqueezeV11OpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXTransposeOpPattern(patterns, typeConverter, ctx, enableParallel, enableCollapse);
-  populateLoweringONNXGatherOpPattern(patterns, typeConverter, ctx, enableParallel);
+  populateLoweringONNXGatherOpPattern(patterns, typeConverter, ctx, enableParallel, enableCollapse);
   populateLoweringONNXGatherElementsOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXGatherNDOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXIm2ColOpPattern(patterns, typeConverter, ctx, enableParallel);
@@ -303,7 +303,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXEntryPointOpPattern(patterns, ctx);
   // Additional
   populateLoweringONNXCustomOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXLayoutTransformOpPattern(patterns, typeConverter, ctx, enableParallel);
+  populateLoweringONNXLayoutTransformOpPattern(patterns, typeConverter, ctx, enableParallel, enableCollapse);
   populateLoweringONNXShapeTransformOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXUpsampleAndPadOpPattern(patterns, typeConverter, ctx, enableParallel);
   // Safety net for ONNXFusedOp: inline any instance whose kind has no

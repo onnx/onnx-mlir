@@ -9,21 +9,21 @@
 // created, now spanning two levels instead of one -- rather than trading one
 // region for another.
 //
-// Covered here: Slice, Expand, Concat and Transpose's block path, the sites
-// migrated so far. All four declare a collapse window of 2, so a group starting
-// below level 0 still needs a wider one and arrives with Gather or
-// LayoutTransform. An excluded dimension that actually bites *is* covered, by
-// Concat below, since the exclusion narrows a window rather than widening it.
+// Covered here: Slice, Expand, Concat, Transpose's block path and Gather. Gather
+// is the one with a full-rank collapse window, so it hosts the cases the others
+// cannot express -- a group that starts below level 0, and a decision reached
+// over more than two levels. LayoutTransform's fast path also has a full-rank
+// window but needs a zTensor layout, so it lives under test/mlir/accelerators.
 
 // STEP 2: a dynamic outer level absorbed into the group above the static one it
 // sits on. This is the granite-4 shape, and the case the whole change exists
 // for: with collapse off the region is sized on a dynamic dimension alone, so at
 // batch 1 it forks a thread team around a single iteration.
 //
-// The trace shows why the group is {0,1} and not {1}: both candidates are wide
-// enough (verdict YES), and the single level loses on cost, 4000 against 0 --
-// the fork penalty for leaving the dynamic level *above* the region rather than
-// absorbing it. Absorb-versus-tolerate is decided by price, not by rule.
+// The trace shows why the group is {0,1} and not {1}: both are wide enough
+// (verdict YES), but {1} leaves the dynamic level *above* the region, so the
+// number of region entries is unknown and it loses on that gate. Absorbing that
+// level costs {0,1} one shift and mask, 3% of the work a fused iteration does.
 // GROUND-THIS: --shape-info=0:3x16x7x128
 func.func @test_collapse_dyn_outer(%arg0 : tensor<?x16x?x128xf32>) -> tensor<?x16x?x64xf32> {
   %axes = onnx.Constant dense<[3]> : tensor<1xi64>
@@ -137,7 +137,7 @@ func.func @test_par_one_member_group(%arg0 : tensor<?x1x1x2xf32>) -> tensor<?x1x
 // -----
 
 // Expand, the granite-4 shape. Same outcome and same reason as the Slice case
-// above -- {0,1} at cost 0 against {1} at 4000 -- but on a rank-5 nest, which is
+// above -- {0,1} has a known entry count and {1} does not -- but on a rank-5 nest, which is
 // what makes the point that the group is bounded by the site's window and not by
 // the nest: levels 2..4 stay sequential because Expand's window stops at 2, even
 // though absorbing level 2 would make the region 16-wide rather than 4-wide.
@@ -306,9 +306,9 @@ func.func @test_par_excluded_dim_bites(%arg0 : tensor<?x4x?x128xf32>, %arg1 : te
 // numLastDims is 1 and the nest is the outer [batch,16,seq] with a 128-element
 // memcpy as its body -- the one covered site whose bounds are a truncation of the
 // output rank and whose body is bulk work rather than one element. That body is
-// declared as bodyCost, which is what puts the group's index recovery at 1% of
-// its work: one shift and mask against a 128-instruction memcpy. Left at the
-// default of 1 the same group would be priced at 200%. It would still be formed
+// declared as bodyCost, which is what puts the group's index recovery at 1 cycle
+// per 100 work units: one shift and mask against a 128-element copy. Left at the
+// default of 1 the same group would be priced at 200. It would still be formed
 // here -- the level below it is dynamic, so the growth guard reads MAYBE rather
 // than NO -- so what the declaration buys at this site is an honest price rather
 // than a different answer. It is a site whose inner levels are *literal* that
@@ -371,5 +371,88 @@ func.func @test_collapse_block_transpose(%arg0 : tensor<?x16x?x128xf32>) -> tens
 // NOCOLLAPSE-NOT:      krnl.collapse
 // NOCOLLAPSE:          krnl.parallel([[LOOP_OFF_]]#0) : !krnl.loop
 // NOCOLLAPSE:          krnl.iterate([[LOOP_OFF_]]#0, [[LOOP_OFF_]]#1, [[LOOP_OFF_]]#2)
+}
+
+
+// -----
+
+// Gather, and the case no other covered site can produce: a group that starts
+// *below* level 0. Level 0 has a trip count of 1, which STEP 2 refuses to lead
+// with -- it buys no width and costs a recovery level -- so the run [0,4) yields
+// its best candidate at d = 1, and levels 1 and 2 fuse to a guaranteed 4 while
+// level 0 stays a sequential `0 to 1` wrapper above the region. Level 3 is
+// rejected outright: its prefix is a static 4, above maxForkCount.
+//
+// Gather is also the only migrated site whose windows are the whole rank, which
+// is what lets a run of three exist here at all.
+// GROUND-THIS: --shape-info=0:8x2x2x7,1:1 --lower-bound=int64:0 --upper-bound=int64:7
+func.func @test_collapse_gather_group_below_level_0(%arg0: tensor<8x2x2x?xf32>, %arg1: tensor<1xi64>) -> tensor<1x2x2x?xf32> {
+  %0 = "onnx.Gather"(%arg0, %arg1) {axis = 0 : si64} : (tensor<8x2x2x?xf32>, tensor<1xi64>) -> tensor<1x2x2x?xf32>
+  return %0 : tensor<1x2x2x?xf32>
+
+
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0)>
+// CHECK-LABEL:  func.func @test_collapse_gather_group_below_level_0
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<8x2x2x?xf32>, [[PARAM_1_:%.+]]: memref<1xi64>) -> memref<1x2x2x?xf32> {
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[CST_8_:%.+]] = arith.constant 8 : index
+// CHECK-DAG:       [[CST_3_:%.+]] = arith.constant 3 : index
+// CHECK:           [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_3_]] : memref<8x2x2x?xf32>
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_dim_]]) {{.*}}: memref<1x2x2x?xf32>
+// CHECK-DAG:       [[LOOP_0_:%.+]]:4 = krnl.define_loops 4
+// CHECK:           [[VAR_1_:%.+]] = krnl.collapse([[LOOP_0_]]#1, [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop) -> !krnl.loop
+// CHECK:           krnl.parallel([[VAR_1_]]) : !krnl.loop
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[VAR_1_]], [[LOOP_0_]]#3) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 1, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 2, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 2, [[LOOP_0_]]#3 -> [[I_3_:%.+]] = 0 to [[MAP_0_]]([[VAR_dim_]])){
+// CHECK:             [[VAR_2_:%.+]]:4 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[VAR_1_]], [[LOOP_0_]]#3) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index, index)
+// CHECK:             [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[VAR_2_]]#0] : memref<1xi64>
+// CHECK:             [[VAR_4_:%.+]] = arith.index_cast [[LOAD_PARAM_1_MEM_]] : i64 to index
+// CHECK-DAG:         [[VAR_5_:%.+]] = arith.cmpi slt, [[VAR_4_]], [[CST_0_]] : index
+// CHECK-DAG:         [[VAR_6_:%.+]] = arith.addi [[VAR_4_]], [[CST_8_]] : index
+// CHECK:             [[VAR_7_:%.+]] = arith.select [[VAR_5_]], [[VAR_6_]], [[VAR_4_]] : index
+// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_7_]], [[VAR_2_]]#1, [[VAR_2_]]#2, [[VAR_2_]]#3] : memref<8x2x2x?xf32>
+// CHECK:             krnl.store [[LOAD_PARAM_0_MEM_]], [[RES_]]{{.}}[[VAR_2_]]#0, [[VAR_2_]]#1, [[VAR_2_]]#2, [[VAR_2_]]#3] : memref<1x2x2x?xf32>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<1x2x2x?xf32>
+// CHECK:         }
+
+
+}
+
+// -----
+
+// Gather on an all-static shape, where the flag changes which level carries the
+// region rather than widening one. Flag off, the search takes the first level
+// wide enough and lands on level 2 (64), entered 2 x 2 = 4 times. Flag on, STEP 1
+// refuses it because that prefix is above maxForkCount, and STEP 2 fuses {0,1}
+// into a guaranteed 4 entered once. Narrower but entered once, which is the
+// trade maxForkCount encodes -- worth pinning because it is the clearest case of
+// the flag *moving* a region instead of growing one.
+// GROUND-THIS: --shape-info=0:2x2x64,1:2 --lower-bound=int64:0 --upper-bound=int64:1
+func.func @test_collapse_gather_static_moves_region(%arg0: tensor<2x2x64xf32>, %arg1: tensor<2xi64>) -> tensor<2x2x64xf32> {
+  %0 = "onnx.Gather"(%arg0, %arg1) {axis = 0 : si64} : (tensor<2x2x64xf32>, tensor<2xi64>) -> tensor<2x2x64xf32>
+  return %0 : tensor<2x2x64xf32>
+
+// CHECK-LABEL:  func.func @test_collapse_gather_static_moves_region
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<2x2x64xf32>, [[PARAM_1_:%.+]]: memref<2xi64>) -> memref<2x2x64xf32> {
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[CST_2_:%.+]] = arith.constant 2 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<2x2x64xf32>
+// CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
+// CHECK:           [[VAR_1_:%.+]] = krnl.collapse([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> !krnl.loop
+// CHECK:           krnl.parallel([[VAR_1_]]) : !krnl.loop
+// CHECK:           krnl.iterate([[VAR_1_]], [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 2, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 2, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 64){
+// CHECK:             [[VAR_2_:%.+]]:3 = krnl.get_induction_var_value([[VAR_1_]], [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop) -> (index, index, index)
+// CHECK:             [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[VAR_2_]]#0] : memref<2xi64>
+// CHECK:             [[VAR_4_:%.+]] = arith.index_cast [[LOAD_PARAM_1_MEM_]] : i64 to index
+// CHECK-DAG:         [[VAR_5_:%.+]] = arith.cmpi slt, [[VAR_4_]], [[CST_0_]] : index
+// CHECK-DAG:         [[VAR_6_:%.+]] = arith.addi [[VAR_4_]], [[CST_2_]] : index
+// CHECK:             [[VAR_7_:%.+]] = arith.select [[VAR_5_]], [[VAR_6_]], [[VAR_4_]] : index
+// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_7_]], [[VAR_2_]]#1, [[VAR_2_]]#2] : memref<2x2x64xf32>
+// CHECK:             krnl.store [[LOAD_PARAM_0_MEM_]], [[RES_]]{{.}}[[VAR_2_]]#0, [[VAR_2_]]#1, [[VAR_2_]]#2] : memref<2x2x64xf32>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<2x2x64xf32>
+// CHECK:         }
+
+
 }
 

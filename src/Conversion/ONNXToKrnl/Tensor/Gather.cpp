@@ -23,15 +23,19 @@ using namespace mlir;
 namespace onnx_mlir {
 
 struct ONNXGatherOpLowering : public OpConversionPattern<ONNXGatherOp> {
-  ONNXGatherOpLowering(
-      TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
+  ONNXGatherOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
+      bool enableParallel, bool enableCollapse)
       : OpConversionPattern(typeConverter, ctx) {
     this->enableParallel =
         enableParallel &&
         OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
             ONNXGatherOp::getOperationName());
+    // Not and-ed with this->enableParallel: see Slice.cpp for why the two bools
+    // stay independent.
+    this->enableCollapse = enableCollapse;
   }
   bool enableParallel;
+  bool enableCollapse = false;
 
   LogicalResult matchAndRewrite(ONNXGatherOp gatherOp,
       ONNXGatherOpAdaptor adaptor,
@@ -98,8 +102,17 @@ struct ONNXGatherOpLowering : public OpConversionPattern<ONNXGatherOp> {
     DimsExpr lbs(outputRank, zeroIE);
     DimsExpr ubs = shapeHelper.getOutputDims();
     // Enable parallelism if required.
-    auto plan = KrnlParallelPlan::noCollapse(
-        loopDef, /*first*/ 0, /*last excl*/ outputRank);
+    // out[ii + jj + kk] = data[ii + (indices[jj],) + kk] writes each output
+    // element exactly once and reads only operands, so the whole nest is
+    // order-independent and the collapse claim can be the whole window.
+    //
+    // bodyCost 10: one innermost iteration loads an index, clamps it with a
+    // compare and a select or two, loads through the resulting non-affine
+    // access function, and stores -- a handful of ops, not a plain copy.
+    KrnlParallelPlan plan(loopDef, enableCollapse, /*parFirstInclusiveDim=*/0,
+        /*parLastExclusiveDim=*/outputRank,
+        /*collapseLastExclusiveDim=*/outputRank,
+        {.minTripCountForParallel = 4, .bodyCost = 10});
     if (enableParallel)
       plan.tryCreateParallel(create.krnl, op, "gather", lbs, ubs);
     create.krnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, ubs,
@@ -151,8 +164,10 @@ struct ONNXGatherOpLowering : public OpConversionPattern<ONNXGatherOp> {
 };
 
 void populateLoweringONNXGatherOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel) {
-  patterns.insert<ONNXGatherOpLowering>(typeConverter, ctx, enableParallel);
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel,
+    bool enableCollapse) {
+  patterns.insert<ONNXGatherOpLowering>(
+      typeConverter, ctx, enableParallel, enableCollapse);
 }
 
 } // namespace onnx_mlir

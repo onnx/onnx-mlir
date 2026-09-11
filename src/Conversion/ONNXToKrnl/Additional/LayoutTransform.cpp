@@ -28,17 +28,21 @@ namespace onnx_mlir {
 struct ONNXLayoutTransformOpLowering
     : public OpConversionPattern<ONNXLayoutTransformOp> {
   bool enableParallel = false;
+  bool enableCollapse = false;
 
   using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder,
       MathBuilder, MemRefBuilder, VectorBuilder, AffineBuilder, SCFBuilder>;
 
-  ONNXLayoutTransformOpLowering(
-      TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
+  ONNXLayoutTransformOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
+      bool enableParallel, bool enableCollapse)
       : OpConversionPattern(typeConverter, ctx) {
     this->enableParallel =
         enableParallel &&
         OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
             ONNXLayoutTransformOp::getOperationName());
+    // Not and-ed with this->enableParallel: see Slice.cpp for why the two bools
+    // stay independent.
+    this->enableCollapse = enableCollapse;
   }
 
   // Look for layout pattern of the type "dx" or "dx mod c" where dx is the last
@@ -112,8 +116,36 @@ struct ONNXLayoutTransformOpLowering
     ubs[E1] = T1;
 
     // Parallel...
-    auto plan = KrnlParallelPlan::noCollapse(
-        loopDefs, /*first*/ 0, /*last excl*/ rank, /*cost*/ {8});
+    // Every level is an independent tile copy -- input and output are distinct
+    // memrefs and each tile is written once -- so any of them may carry the
+    // region, and the search window is the whole rank.
+    //
+    // The collapse claim stops one short of that, at E1. Level E1 is not a data
+    // dimension: it is the tile counter this pattern just created, and its body
+    // is the bulk memcpy that makes the pattern worth having. Fusing it into
+    // the parallel space dissolves that structure -- measured on ?x?x512, per
+    // 128-byte copy:
+    //
+    //   claim [0, rank)    42 instructions, 2 hardware divides
+    //   claim [0, rank-1)  13 instructions, 0.25 hardware divides
+    //
+    // an 8x difference in divides, because leaving E1 sequential keeps the
+    // recovery arithmetic -- and the layout map's own floordiv -- amortized
+    // over a whole row of tiles instead of one, and lets the backend unroll the
+    // tile loop. This is what minAmortWork is meant to prevent and cannot: a
+    // bodyCost of modVal is large enough to license growth onto E1, and only
+    // the site knows that E1 is a tiling artifact rather than work.
+    //
+    // bodyCost is still modVal, and still load-bearing: one innermost iteration
+    // copies a whole tile, and at the default of 1 the growth guard would
+    // refuse even the {0, E1} group and drop the region onto E1 alone under an
+    // unknown entry count -- worse than emitting no collapse.
+    //
+    // rank is >= 2 here, so the claim is never empty; at rank 2 it admits one
+    // level, no fusion is possible, and the site keeps today's behaviour.
+    KrnlParallelPlan plan(loopDefs, enableCollapse, /*parFirstInclusiveDim=*/0,
+        /*parLastExclusiveDim=*/rank, /*collapseLastExclusiveDim=*/E1,
+        {.minTripCountForParallel = 8, .bodyCost = modVal});
     if (enableParallel) {
       // TODO: may want to check if ub of rank makes sense here.
       plan.tryCreateParallel(
@@ -265,9 +297,10 @@ struct ONNXLayoutTransformOpLowering
 };
 
 void populateLoweringONNXLayoutTransformOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel) {
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel,
+    bool enableCollapse) {
   patterns.insert<ONNXLayoutTransformOpLowering>(
-      typeConverter, ctx, enableParallel);
+      typeConverter, ctx, enableParallel, enableCollapse);
 }
 
 } // namespace onnx_mlir
