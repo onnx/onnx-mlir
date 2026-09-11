@@ -2763,11 +2763,20 @@ struct ZHighToZLowFusedExpandMulStickLowering
     : public FusedOpKindLowering<ExpandMulStickFusionHelper> {
   using Base = FusedOpKindLowering<ExpandMulStickFusionHelper>;
   using OpAdaptor = typename ONNXFusedOp::Adaptor;
+  bool enableParallel = false;
+  bool enableCollapse = false;
   bool disableSaturation = false;
 
-  ZHighToZLowFusedExpandMulStickLowering(
-      TypeConverter &typeConverter, MLIRContext *ctx, bool disableSaturation)
-      : Base(typeConverter, ctx), disableSaturation(disableSaturation) {}
+  ZHighToZLowFusedExpandMulStickLowering(TypeConverter &typeConverter,
+      MLIRContext *ctx, bool enableParallel, bool enableCollapse,
+      bool disableSaturation)
+      : Base(typeConverter, ctx), enableCollapse(enableCollapse),
+        disableSaturation(disableSaturation) {
+    this->enableParallel =
+        enableParallel &&
+        OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
+            ONNXFusedOp::getOperationName());
+  }
 
   FailureOr<SmallVector<Value>> lowerVerified(ONNXFusedOp fusedOp,
       OpAdaptor adaptor, ConversionPatternRewriter &rewriter,
@@ -2845,6 +2854,39 @@ struct ZHighToZLowFusedExpandMulStickLowering
     DimsExpr ubs = inputDims;
     ubs[loopRank - 1] = ubs[loopRank - 1].ceilDiv(64);
 
+    // The two windows are deliberately different widths, because they answer
+    // different questions.
+    //
+    // Collapse-safety reaches every level above the tiled one: the index map
+    // this nest applies (buildExpandMulStickOutputAF) is injective -- distinct
+    // input coordinates land on distinct output coordinates, and the N slots
+    // one input element fans out to are N distinct coordinates too -- so no
+    // two iterations write the same location and any run of levels may be
+    // fused. Claiming less than that would not be conservatism, it would be a
+    // false statement about the kernel that permanently hides the only wide
+    // level this nest has (the sequence length at level 2 for a
+    // [batch, kv-heads, seq, tiles] nest) from the cost model.
+    //
+    // Single-level parallelism is capped at the top two levels instead, as
+    // every other site does. That is a judgement and not a safety claim: a
+    // lone region on a deep level is entered an unknown number of times when
+    // anything above it is dynamic, which is the case this whole cost model
+    // exists to avoid. A group may still extend past level 1, because a group
+    // *starts* at the top and so is entered once.
+    //
+    // The tiled innermost level is in neither window: it is the SIMD span
+    // (dim/64 tiles of a 64-element convert), so it is both the narrowest
+    // level and the one worth keeping vectorizable and sequential.
+    //
+    // bodyCost is per iteration of that innermost level: one 64-element
+    // stick tile converted once and stored to N slots, so the "whole tile"
+    // digit.
+    KrnlParallelPlan plan(loopDef, enableCollapse,
+        /*parFirstInclusiveDim=*/0,
+        /*parLastExclusiveDim=*/std::min(loopRank - 1, (int64_t)2),
+        /*collapseLastExclusiveDim=*/loopRank - 1,
+        {.minTripCountForParallel = 4, .bodyCost = 1000});
+
     // USS list: 1 read (input) + N writes (same output tensor/alloc, N
     // distinct instances so each can carry its own beforeStickLoop offset).
     SmallVector<Value, 8> ussVals{inputTensor}, ussMemRefs{inputMemRef};
@@ -2867,7 +2909,14 @@ struct ZHighToZLowFusedExpandMulStickLowering
             ? create.math.constant(rewriter.getF32Type(), (double)mulScalar)
             : nullptr;
 
-    create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
+    // Emitted immediately before the iterate that consumes the plan, as every
+    // other collapse site does: a krnl.collapse substitutes refs, so the
+    // iterate must be handed optimizedLoopDef() and not the original list.
+    if (enableParallel)
+      plan.tryCreateParallel(
+          create.krnl, op, "expand-mul-stick fused loop", lbs, ubs);
+
+    create.krnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, ubs,
         [&](const KrnlBuilder &ck, ValueRange indices) {
           MDBuilder create(ck);
           IndexExprScope outerScope(ck);
@@ -2949,11 +2998,14 @@ struct ZHighToZLowFusedConcatExpandStickLowering
   using Base = FusedOpKindLowering<ConcatExpandStickFusionHelper>;
   using OpAdaptor = typename ONNXFusedOp::Adaptor;
   bool enableParallel = false;
+  bool enableCollapse = false;
   bool disableSaturation = false;
 
   ZHighToZLowFusedConcatExpandStickLowering(TypeConverter &typeConverter,
-      MLIRContext *ctx, bool enableParallel, bool disableSaturation)
-      : Base(typeConverter, ctx), disableSaturation(disableSaturation) {
+      MLIRContext *ctx, bool enableParallel, bool enableCollapse,
+      bool disableSaturation)
+      : Base(typeConverter, ctx), enableCollapse(enableCollapse),
+        disableSaturation(disableSaturation) {
     this->enableParallel =
         enableParallel &&
         OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
@@ -3209,8 +3261,28 @@ struct ZHighToZLowFusedConcatExpandStickLowering
       for (int64_t d = 0; d < A; ++d)
         outerUbs.emplace_back(concatDims[d]);
       int64_t maxId = std::min(A, (int64_t)2);
-      auto plan = KrnlParallelPlan::noCollapse(
-          outerLoopDef, /*first*/ 0, /*last excl*/ maxId, /*cost*/ {4});
+      // Collapse-eligible over the whole outer window. The levels in it are
+      // plain iteration dims of the concatenated space with no exclusions --
+      // the concat axis A and everything below it belong to the inner
+      // per-operand nests, not here -- and the body indexes them verbatim
+      // (see emitOperandLoopBody's readAF), so a fused index recovered by
+      // div/mod is exactly as valid as the original one.
+      //
+      // This is the granite shape the collapse work exists for: with the
+      // window left single-level the region lands on dim 0 alone, which is
+      // the dynamic batch, so at decode (batch 1) it forks a thread team
+      // around one iteration while dim 1 (the kv-head count) sits
+      // sequentially inside it.
+      //
+      // bodyCost is measured per iteration of the *innermost level of the
+      // bounds handed over*, i.e. one iteration of outer level A-1, and that
+      // is both operand loops in full: seq times 128/64 tiles times a
+      // 64-element convert fanned out to N stick writes. Far past the "whole
+      // tile" digit, so 1000 is the honest floor rather than an estimate.
+      KrnlParallelPlan plan(outerLoopDef, enableCollapse,
+          /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/maxId,
+          /*collapseLastExclusiveDim=*/maxId,
+          {.minTripCountForParallel = 4, .bodyCost = 1000});
       if (enableParallel) {
         plan.tryCreateParallel(create.krnl, op,
             "concat-expand-stick fused outer loop", outerLbs, outerUbs);
@@ -3248,7 +3320,7 @@ struct ZHighToZLowFusedConcatExpandStickLowering
 //===----------------------------------------------------------------------===//
 void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
     mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx, bool enableSIMD,
-    bool enableParallel, bool disableSaturation) {
+    bool enableParallel, bool enableCollapse, bool disableSaturation) {
   // Stickify and unstickify operations.
   patterns.insert<ZHighToZLowStickifiedConstantOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowStickOpLowering>(typeConverter, ctx);
@@ -3314,9 +3386,9 @@ void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
   patterns.insert<ZHighToZLowFusedExtLayoutTransformLowering>(
       typeConverter, ctx, enableParallel, disableSaturation);
   patterns.insert<ZHighToZLowFusedExpandMulStickLowering>(
-      typeConverter, ctx, disableSaturation);
+      typeConverter, ctx, enableParallel, enableCollapse, disableSaturation);
   patterns.insert<ZHighToZLowFusedConcatExpandStickLowering>(
-      typeConverter, ctx, enableParallel, disableSaturation);
+      typeConverter, ctx, enableParallel, enableCollapse, disableSaturation);
 }
 
 } // namespace zhigh

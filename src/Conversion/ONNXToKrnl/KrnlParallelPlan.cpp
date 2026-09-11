@@ -550,8 +550,10 @@ static int64_t reportKrnlParallelDecision(KrnlParallelDecision decision,
     Operation *op, const std::string &msg, ArrayRef<IndexExpr> lbs,
     ArrayRef<IndexExpr> ubs) {
   if (!decision.hasParallel()) {
+    // Trip count 0, the report's "no parallel loop" value, rather than -1: -1
+    // is its "runtime only" sentinel and belongs to lines that did parallelize.
     onnxToKrnlParallelReport(
-        op, false, -1, -1, "no par dim with enough work in " + msg);
+        op, false, -1, 0, "no par dim with enough work in " + msg);
     return NO_PAR_FOUND;
   }
   int64_t parId = decision.firstDim;
@@ -576,12 +578,15 @@ static int64_t reportKrnlParallelDecision(KrnlParallelDecision decision,
     else
       allLiteral = false;
   }
-  // No comma in the comment: the report line is comma-separated and
-  // impl::onnxToKrnlParallelReport asserts on one.
+  // Name both ends of the group: the report's own loop-level column gives only
+  // where the region sits, so a lone "at level 0" leaves the reader to infer
+  // the rest of the group from the count. No comma in the comment: the report
+  // line is comma-separated and impl::onnxToKrnlParallelReport asserts on one.
   onnxToKrnlParallelReport(op, /*successful*/ true, parId,
       allLiteral ? fusedTripCount : -1,
       msg + " with " + std::to_string(decision.numDims) +
-          " loops collapsed at level " + std::to_string(parId));
+          " loops collapsed at levels " + std::to_string(parId) + "-" +
+          std::to_string(parId + decision.numDims - 1));
   return parId;
 }
 
@@ -698,7 +703,7 @@ int64_t KrnlParallelPlan::tryCreateParallel(const KrnlBuilder &createKrnl,
   // so the parallel report still accounts for every site it visits.
   if (optLoopDef.empty()) {
     onnxToKrnlParallelReport(
-        op, /*successful*/ false, -1, -1, "rank-0 nest in " + msg);
+        op, /*successful*/ false, -1, /*trip count*/ 0, "rank-0 nest in " + msg);
     return NO_PAR_FOUND;
   }
   // Lower an over-wide window to what these refs support, as the search lowers
