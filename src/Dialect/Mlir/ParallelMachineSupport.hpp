@@ -53,19 +53,19 @@ struct ParallelTuning {
   // Largest statically known fork count accepted without penalty, i.e. how
   // many times a region may be entered before its depth stops being free.
   int64_t maxForkCount;
-  // Price of an unresolved (dynamic) fork count, in clock cycles, so absorbing
-  // a level and tolerating it can be compared rather than decreed. It stands
-  // for one OpenMP parallel region entry against a warm thread pool -- thread
-  // wake-up, the barrier, and the shared-work handshake.
-  //
-  // The weakest of the four: a stated estimate, not a measured number, and the
-  // one most likely to differ per target, since a region entry is the runtime's
-  // cost and not the hardware's. Note it is deliberately two orders of
-  // magnitude above the rematerialization tiers it is summed with -- a region
-  // entry really is that much more expensive than a divide -- so any candidate
-  // carrying an unresolved fork count loses the cost comparison to one that
-  // does not, unless the other's rematerialization is itself unamortized.
-  int64_t forkPenaltyCycles;
+  // There is deliberately no price for an unresolved (dynamic) fork count.
+  // Earlier drafts carried one -- a flat ~4000 cycles for an OpenMP region
+  // entry
+  // -- summed into the candidate's cost beside the index-rematerialization
+  // estimate. That was removed rather than retuned, because pricing it is not
+  // possible with the information available: the cost of entering a region is
+  // paid per entry, and the number of entries is exactly what is unknown when a
+  // dynamic level sits above the group. See the "how a candidate is priced"
+  // banner in KrnlParallelPlan.cpp. An unresolved fork count is now a gate in
+  // the candidate ordering, which is what it always was in practice -- the flat
+  // penalty was two orders of magnitude above the tiers it was summed with, so
+  // it decided every comparison it appeared in. maxForkCount below is the knob
+  // for the case where the entry count *is* known.
 };
 
 //===----------------------------------------------------------------------===//
@@ -127,8 +127,8 @@ public:
 
   std::string computeArchName() override { return "generic"; }
   ParallelTuning computeTuning() override {
-    return {/*minParTripCountFloor=*/0, /*minAmortWork=*/16, /*maxForkCount=*/2,
-        /*forkPenaltyCycles=*/4000};
+    return {
+        /*minParTripCountFloor=*/0, /*minAmortWork=*/16, /*maxForkCount=*/2};
   }
 };
 

@@ -94,7 +94,6 @@ bool enableCollapse;                                   // onnx-mlir only
 int64_t collapseMinParTripCountFloor;                  // common for both
 int64_t collapseMinAmortWork;                          // common for both
 int64_t collapseMaxForkCount;                          // common for both
-int64_t collapseForkPenaltyCycles;                     // common for both
 bool disableSimdOption;                                // onnx-mlir only
 bool enableFastMathOption;                             // onnx-mlir only
 bool disableRecomposeOption;                           // onnx-mlir only
@@ -739,14 +738,6 @@ static llvm::cl::opt<int64_t, true> collapseMaxForkCountOpt(
         "Largest statically known fork count accepted without penalty\n"
         "(default=-1, meaning use the target's own value)."),
     llvm::cl::location(collapseMaxForkCount), llvm::cl::init(-1),
-    llvm::cl::cat(OnnxMlirCommonOptions));
-
-static llvm::cl::opt<int64_t, true> collapseForkPenaltyCyclesOpt(
-    "collapse-fork-penalty",
-    llvm::cl::desc("Price of an unresolved (dynamic) fork count, in clock\n"
-                   "cycles, standing for one OpenMP region entry\n"
-                   "(default=-1, meaning use the target's own value)."),
-    llvm::cl::location(collapseForkPenaltyCycles), llvm::cl::init(-1),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
 static llvm::cl::opt<bool, true> disableSimdOptionOpt("disable-simd",

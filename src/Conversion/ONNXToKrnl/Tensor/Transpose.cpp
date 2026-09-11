@@ -4,7 +4,7 @@
 
 //===---------------- Transpose.cpp - Lowering Transpose Op ---------------===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -26,14 +26,18 @@ struct ONNXTransposeOpLowering : public OpConversionPattern<ONNXTransposeOp> {
   using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
       MemRefBuilder, MathBuilder>;
   bool enableParallel = false;
+  bool enableCollapse = false;
 
-  ONNXTransposeOpLowering(
-      TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
+  ONNXTransposeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
+      bool enableParallel, bool enableCollapse)
       : OpConversionPattern(typeConverter, ctx) {
     this->enableParallel =
         enableParallel &&
         OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
             ONNXTransposeOp::getOperationName());
+    // Not and-ed with this->enableParallel: see Slice.cpp for why the two bools
+    // stay independent.
+    this->enableCollapse = enableCollapse;
   }
 
   LogicalResult matchAndRewrite(ONNXTransposeOp transposeOp,
@@ -81,8 +85,10 @@ struct ONNXTransposeOpLowering : public OpConversionPattern<ONNXTransposeOp> {
     int numLastDims =
         unchangedInnerDimensions(inMemRefType, outMemRefType, permAttr);
     if (numLastDims > 0) {
-      blockTranspose(
-          op, data, alloc, permAttr, &create, numLastDims, enableParallel);
+      // Only the block path is collapse-eligible;
+      // scalarTransposeOverOutputs blocks and unrolls its innermost level.
+      blockTranspose(op, data, alloc, permAttr, &create, numLastDims,
+          enableParallel, enableCollapse);
     } else {
       scalarTransposeOverOutputs(
           op, data, alloc, permAttr, &create, enableParallel);
@@ -239,7 +245,7 @@ private:
   // dimensions.
   void blockTranspose(Operation *op, Value inputMemRef, Value outputMemRef,
       std::optional<ArrayAttr> permAttr, MDBuilder *create, int numLastDims,
-      bool enableParallel) const {
+      bool enableParallel, bool enableCollapse) const {
     Type i64Ty = create->math.getBuilder().getI64Type();
     MemRefType inMemRefType = mlir::cast<MemRefType>(inputMemRef.getType());
     uint64_t rank = inMemRefType.getRank();
@@ -283,8 +289,22 @@ private:
     // Main loop defined over the outer-most dimensions.
     ValueRange loopDef = create->krnl.defineLoops(outerRank);
     SmallVector<IndexExpr, 4> lbs(outerRank, LitIE(0));
-    auto plan = KrnlParallelPlan::noCollapse(
-        loopDef, /*first*/ 0, /*last excl*/ 2, /*cost*/ {8});
+    // The collapse claim is the whole search window: permAttr is a bijection so
+    // the destination blocks are disjoint, source and destination are distinct
+    // memrefs, and the nest carries no recipe and no iterArgs -- the same
+    // argument the comment below makes for a single level, which composes
+    // across levels.
+    //
+    // bodyCost is the block length: one innermost iteration here is a memcpy of
+    // elemsToCopy elements, roughly that many instructions, not the one a
+    // scalar body would cost. Declaring it is what lets a group be judged
+    // against the work it is amortized over. It only ever feeds the policy --
+    // STEP 0, and so the flag-off path, reads minTripCountForParallel alone.
+    KrnlParallelPlan plan(loopDef, enableCollapse, /*parFirstInclusiveDim=*/0,
+        /*parLastExclusiveDim=*/2, /*collapseLastExclusiveDim=*/2,
+        {.minTripCountForParallel = 8,
+            .bodyCost =
+                elemsToCopy.isLiteral() ? elemsToCopy.getLiteral() : 1});
     if (enableParallel) {
       // Because we are doing block copying, there is no risk that the
       // parallelized dimension result in systematic false sharing of the
@@ -317,8 +337,10 @@ private:
 };
 
 void populateLoweringONNXTransposeOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel) {
-  patterns.insert<ONNXTransposeOpLowering>(typeConverter, ctx, enableParallel);
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel,
+    bool enableCollapse) {
+  patterns.insert<ONNXTransposeOpLowering>(
+      typeConverter, ctx, enableParallel, enableCollapse);
 }
 
 } // namespace onnx_mlir

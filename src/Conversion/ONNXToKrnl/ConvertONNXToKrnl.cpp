@@ -251,7 +251,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXPadOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXUnsqueezeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXUnsqueezeV11OpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXTransposeOpPattern(patterns, typeConverter, ctx, enableParallel);
+  populateLoweringONNXTransposeOpPattern(patterns, typeConverter, ctx, enableParallel, enableCollapse);
   populateLoweringONNXGatherOpPattern(patterns, typeConverter, ctx, enableParallel);
   populateLoweringONNXGatherElementsOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXGatherNDOpPattern(patterns, typeConverter, ctx);
@@ -259,7 +259,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXIdentityOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXConstantOfShapeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXConstantOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXConcatOpPattern(patterns, typeConverter, ctx, enableParallel);
+  populateLoweringONNXConcatOpPattern(patterns, typeConverter, ctx, enableParallel, enableCollapse);
   populateLoweringONNXConcatShapeTransposeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXDepthToSpaceOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXScatterElementsOpPattern(patterns, typeConverter, ctx);
@@ -279,7 +279,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXResizeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXNonZeroOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXReverseSequenceOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXExpandOpPattern(patterns, typeConverter, ctx, enableParallel);
+  populateLoweringONNXExpandOpPattern(patterns, typeConverter, ctx, enableParallel, enableCollapse);
   populateLoweringONNXOneHotOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXCompressOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXPrintSignaturePattern(patterns, typeConverter, ctx);

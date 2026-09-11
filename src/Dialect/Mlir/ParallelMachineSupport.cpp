@@ -45,8 +45,6 @@ namespace onnx_mlir {
     tuning.minAmortWork = collapseMinAmortWork;
   if (collapseMaxForkCount >= 0)
     tuning.maxForkCount = collapseMaxForkCount;
-  if (collapseForkPenaltyCycles >= 0)
-    tuning.forkPenaltyCycles = collapseForkPenaltyCycles;
   globalParallelMachineSupport->tuning = tuning;
 
   LLVM_DEBUG(llvm::dbgs() << "use parallel tuning " << getArchName()
@@ -54,8 +52,7 @@ namespace onnx_mlir {
                           << "\" cpu \"" << cpu << "\": minParTripCountFloor "
                           << tuning.minParTripCountFloor << ", minAmortWork "
                           << tuning.minAmortWork << ", maxForkCount "
-                          << tuning.maxForkCount << ", forkPenaltyCycles "
-                          << tuning.forkPenaltyCycles << "\n");
+                          << tuning.maxForkCount << "\n");
 }
 
 /*static*/ void ParallelMachineSupport::clearGlobalParallelMachineSupport() {

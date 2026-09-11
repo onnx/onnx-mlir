@@ -10,17 +10,13 @@
 //
 // Deciding where a parallel region goes, and emitting it.
 //
-// Every ONNX-to-Krnl site that wants a parallel region asks the same two
-// questions -- is one worth it here, and over which loop level -- so both the
-// decision procedure and the two entry points onto it live here rather than in
-// the general lowering support. A region may span several adjacent levels fused
-// into one by krnl.collapse, which makes the answer a *group* of levels and the
-// handoff to the following krnl.iterate a two-call protocol; KrnlParallelPlan
-// is what carries that handoff, and what a site uses to declare which of its
-// levels may be searched and which may be fused.
+// Every ONNX-to-Krnl site that wants a region asks the same two questions -- is
+// one worth it here, and over which loop level -- so the decision procedure and
+// the two entry points onto it live here. A region may span several adjacent
+// levels fused into one by krnl.collapse, which makes the answer a *group* of
+// levels; KrnlParallelPlan carries that answer to the following krnl.iterate.
 //
-// Included from ONNXToKrnlCommon.hpp, so every lowering site sees this without
-// an include of its own.
+// Included from ONNXToKrnlCommon.hpp, so every lowering site sees it.
 //
 //===----------------------------------------------------------------------===//
 
@@ -39,46 +35,47 @@
 
 namespace onnx_mlir {
 
-// "No loop level was found worth parallelizing." Returned by
-// KrnlParallelPlan::findParallelDim and ::tryCreateParallel, and the value of
-// KrnlParallelDecision::firstDim when there is no decision. A level is always a
-// valid index into the bounds, so any negative value would do; the point of the
-// name is that a call site reads the answer rather than the encoding.
+// "No loop level was found worth parallelizing." Returned by findParallelDim
+// and tryCreateParallel, and the value of KrnlParallelDecision::firstDim when
+// there is no decision.
 //
-// Deliberately not reused for the several other -1s in this area, which mean
-// different things: `collapseLastExclusiveDim == -1` is "this site makes no
-// collapse-safety claim", and the -1s handed to onnxToKrnlParallelReport /
-// onnxToKrnlSimdReport are that report's own "unknown at compile time"
-// sentinel.
+// Not reused for the other -1s here, which mean different things:
+// `collapseLastExclusiveDim == -1` is "this site makes no collapse-safety
+// claim", and the -1s handed to onnxToKrnlParallelReport are that report's own
+// "unknown at compile time" sentinel.
 static constexpr int64_t NO_PAR_FOUND = -1;
 
-// The two numbers only the call site knows: the trip count worth a parallel
-// region, and how much work one innermost iteration covers. Kept together since
-// both feed the same trip-count target, and kept apart from KrnlParallelPlan's
-// bounds because those say *which loop refs* while these say *how much work* --
-// an orthogonal question with an orthogonal owner. Neither number indexes into
-// the loop list, so neither has any reason to travel with it.
+// The two numbers only the call site knows. Kept apart from the plan's bounds:
+// those say *which loop refs*, these say *how much work*. Neither indexes into
+// the loop list.
 //
-// This is the single home for both. In particular it is where the predicate and
-// the emitter agree: a predicate has no plan to hang anything off, so putting
-// either number on the plan would make the two entry points take their cost
-// differently for no gain.
-// Note for anyone changing the plan factories' parameter order: this and the
-// `exclusiveDims` that follows it are both constructible from `{someInt}`, so a
-// site that passes exclusions while omitting the cost binds its exclusion list
-// to the cost and compiles clean. That happened once, at Concat, where a
-// `/*excl dims*/ {axis}` argument silently became a
-// `minTripCountForParallel` of `axis`. Keep `cost` ahead of `exclusiveDims`,
-// and keep both labelled at every call site.
+// Hazard: this and the `exclusiveDims` parameter that follows it at every
+// factory are both constructible from `{someInt}`, so a site passing exclusions
+// while omitting the cost binds its exclusion list to the cost and compiles
+// clean. Keep `cost` ahead of `exclusiveDims` and keep both labelled.
 struct KrnlParallelCost {
-  // This site's floor on the trip count worth a parallel region. Was the
-  // `minSize` argument.
+  // This site's floor on the trip count worth a parallel region.
   int64_t minTripCountForParallel = 4;
-  // Elements one iteration of the innermost surviving loop covers, e.g. a
-  // memcpy length or a tile width. Cannot be inferred instead of declared:
-  // when the decision runs the body has not been built yet, so this exists
-  // only in the caller's hand.
-  int64_t bodyElems = 1;
+  // Roughly what one iteration of this nest's innermost loop costs, in
+  // instructions -- an order of magnitude read off the body:
+  //
+  //      1   a copy: a load and a store
+  //     10   a handful of arithmetic ops, an index computation, a compare
+  //   1000   a transcendental, an interpolation kernel, a whole tile
+  //
+  // One digit is enough: it feeds only how far a group may grow and the
+  // denominator of the index-recovery percentage, and both ask whether the body
+  // is big enough to hide an integer divide.
+  //
+  // A body that loops or copies over N elements multiplies through: a
+  // 128-element memcpy is ~128, an scf loop of N iterations around ten
+  // instructions is ~10N. Any site whose innermost krnl iteration hides a
+  // memcpy, an scf loop or a SIMD span **must** set this -- under-declaring it
+  // stops a group from growing, which changes the candidate set rather than
+  // merely narrowing the winner, and can pick an answer worse than no collapse.
+  //
+  // Cannot be inferred: when the decision runs the body is not built yet.
+  int64_t bodyCost = 1;
 };
 
 // What the decision procedure concluded: no parallelism, one level, or a group
@@ -93,122 +90,98 @@ struct KrnlParallelDecision {
   bool isCollapse() const { return numDims > 1; }
 };
 
-// Shared decision core: pure, emits nothing, needs no builder.
-//
-// [parFirstInclusiveDim, parLastExclusiveDim) is the search window for a plain
-// (non-collapsed) parallel level -- a profitability bound, not a safety claim.
-// collapseLastExclusiveDim is the stronger, explicit claim that every level in
-// [parFirstInclusiveDim, collapseLastExclusiveDim) is individually parallel and
-// therefore safe to fuse; -1 means the site makes no such claim, and only the
-// single-level search runs.
-KrnlParallelDecision decideKrnlParallel(mlir::ArrayRef<IndexExpr> lbs,
-    mlir::ArrayRef<IndexExpr> ubs, int64_t parFirstInclusiveDim,
-    int64_t parLastExclusiveDim, mlir::ArrayRef<int64_t> exclusiveDims,
-    int64_t collapseLastExclusiveDim, KrnlParallelCost cost);
-
 // Everything a site knows about *which* loops a parallel decision may range
-// over, plus the two entry points that act on it. Every site builds one,
-// whether or not it can collapse and whether or not it emits, so the decision
-// is always made through the same object.
+// over, plus the two entry points that act on it. Every site builds one, so the
+// decision is always made through the same object.
 //
 // It also carries the optimized-loop list from the decision to the krnl.iterate
-// that consumes it. krnl.parallel is a label on an existing ref, so tagging it
-// is fire-and-forget; krnl.collapse *substitutes* refs, so the decision has to
-// be applied to the list the following iterate consumes -- a two-call protocol
-// where there was none. Making the plan the receiver keeps that handoff a
-// single token, and makes it plain that tryCreateParallel mutates it.
+// that consumes it: krnl.parallel is a label on an existing ref, but
+// krnl.collapse *substitutes* refs, so a site that may collapse must hand
+// optimizedLoopDef() to its iterate.
 class KrnlParallelPlan {
 public:
-  // Collapse-eligible when enableCollapse is set; degrades to exactly the
-  // noCollapse state when it is not, so a call site reads the same either way.
+  // Collapse-eligible when enableCollapse is set; otherwise exactly a
+  // noCollapse plan. Everything a site declares arrives here in one statement:
+  // which loop refs, which levels may be searched, which may be fused, which
+  // are excluded, and how much work there is. Only the iteration bounds stay a
+  // call argument, since a site that merely asks may pass bounds for a loop it
+  // never defined.
   //
-  // Everything a site declares about its own parallel decision arrives here, in
-  // one statement: which loop refs, which levels may be searched, which may be
-  // fused, which are excluded, and how much work there is. Only the iteration
-  // bounds stay a call argument, because they are the actual space rather than
-  // a declaration about it -- and because a site that only asks may hand in
-  // bounds belonging to a loop it never defined. See decideKrnlParallel for
-  // what the two windows mean.
+  // For every constructor, first dim is max-ed with 0 and last dim min-ed with
+  // the size of the bounds, so the search window is always valid.
   //
-  // For all constructors (incl noCollapse and noLoopRefs), first dim will be
-  // max-ed with 0 and last dim will be min-ed with the size of the lower/upper
-  // bounds, so that the search window is always valid.
+  // `cost` has no default here while the factories below keep theirs: bodyCost
+  // is read only when a group is possible, so at a noCollapse or noLoopRefs
+  // site it cannot be read, and at a collapse-eligible one its default can
+  // produce an answer worse than no collapse (see KrnlParallelCost). Write it
+  // with designated initializers, as the collapse sites do; that also makes a
+  // stray `{someInt}` in this slot visible.
   KrnlParallelPlan(mlir::ValueRange loopDef, bool enableCollapse,
       int64_t parFirstInclusiveDim, int64_t parLastExclusiveDim,
-      int64_t collapseLastExclusiveDim, KrnlParallelCost cost = {},
+      int64_t collapseLastExclusiveDim, KrnlParallelCost cost,
       mlir::ArrayRef<int64_t> exclusiveDims = {});
 
   // *Never* collapse-eligible, whatever the flag says: blocked or permuted
-  // refs, iterArgs, or a decision made over a subset of the iterate's loops. A
-  // distinct statement from `enableCollapse == false`, and named so the set of
-  // sites not yet migrated is greppable rather than inferred from the absence
-  // of an argument. Still takes the search window and exclusions, since the
-  // single-level search runs whether or not collapse is possible.
+  // refs, iterArgs, or a decision made over a subset of the iterate's loops.
+  // Named so the set of sites not yet migrated is greppable. Still takes the
+  // search window and exclusions, since the single-level search runs
+  // regardless.
   //
-  // The search window is spelled out here as it is in the constructor: which
-  // levels a site may parallelize is a statement about that loop nest, and a
-  // default would let a site inherit `[0, 2)` without ever having considered
-  // whether its own nest deserves it.
+  // The window has no default here or below: which levels a site may
+  // parallelize is a statement about that nest, not something to inherit.
   static KrnlParallelPlan noCollapse(mlir::ValueRange loopDef,
       int64_t parFirstInclusiveDim, int64_t parLastExclusiveDim,
       KrnlParallelCost cost = {}, mlir::ArrayRef<int64_t> exclusiveDims = {});
 
-  // For a site that asks the question but emits its own parallelism, through
+  // For a site that asks the question but emits its own parallelism through
   // forLoopIE/forLoopsIE's useParallel flag, and so has no krnl.iterate
-  // optimized-loop list at all. There are no refs to fuse, which is why such a
-  // site can never collapse -- a fact about the data here, not a convention.
+  // optimized-loop list at all. No refs to fuse, hence never collapse-eligible.
   // Use with findParallelDim; tryCreateParallel has nothing to emit onto.
-  // The search window is required here too, for the reason given above.
   static KrnlParallelPlan noLoopRefs(int64_t parFirstInclusiveDim,
       int64_t parLastExclusiveDim, KrnlParallelCost cost = {},
       mlir::ArrayRef<int64_t> exclusiveDims = {});
 
-  // Asserts that a plan which emitted a krnl.collapse was actually consumed.
-  // This closes the one hole the KrnlToAffine checks cannot see: a collapse
-  // absent from every iterate's optimized-loop list is never gathered, so none
-  // of them ever runs. Caught here, at the site that made the mistake.
+  // Asserts that a plan which emitted a krnl.collapse was actually consumed. A
+  // collapse absent from every iterate's optimized-loop list is never gathered,
+  // so it never runs, and nothing downstream can see that.
   ~KrnlParallelPlan();
 
   //===--------------------------------------------------------------------===//
   // The two entry points.
 
-  // Ask only: "is a parallel region here worth it, and over which level?"
-  // Returns the chosen level, or NO_PAR_FOUND. Emits nothing, mutates nothing.
+  // Ask only: "is a region here worth it, and over which level?" Returns the
+  // level or NO_PAR_FOUND. Emits nothing, mutates nothing.
   //
-  // Deliberately single-level even on a collapse-eligible plan. The sites that
-  // ask rather than emit hand the answer to forLoopIE/forLoopsIE's useParallel,
-  // which parallelizes one level and cannot express a fused iteration space,
-  // and several of them size per-thread reduction buffers off it. A group here
-  // would be justified by a trip count that never materializes.
+  // Single-level even on a collapse-eligible plan: the sites that ask hand the
+  // answer to forLoopIE/forLoopsIE's useParallel, which parallelizes one level
+  // and cannot express a fused iteration space, and several size per-thread
+  // buffers off it.
   int64_t findParallelDim(mlir::Operation *op, std::string msg,
       mlir::ArrayRef<IndexExpr> lbs, mlir::ArrayRef<IndexExpr> ubs) const;
 
   // Decide and emit: a krnl.collapse when the decision is a group, then the
-  // krnl.parallel. Returns the chosen level, or NO_PAR_FOUND having emitted
-  // nothing.
+  // krnl.parallel. Returns the level, or NO_PAR_FOUND having emitted nothing.
   // Substitutes any fused ref into this plan's loop list, so the following
   // krnl.iterate must be handed optimizedLoopDef().
   //
-  // A rank-0 nest yields NO_PAR_FOUND rather than an error: there is no level
-  // to parallelize, which is an answer and not a mistake. Sites therefore need
-  // no rank guard of their own around this call. Likewise a parLastExclusiveDim
-  // wider than this plan's loop refs is lowered to what the refs support, the
-  // same way the search lowers it to what the bounds support.
+  // Needs no rank guard at the call site: a rank-0 nest answers NO_PAR_FOUND,
+  // and a parLastExclusiveDim wider than this plan's refs is lowered to what
+  // the refs support.
   int64_t tryCreateParallel(const onnx_mlir::KrnlBuilder &createKrnl,
       mlir::Operation *op, std::string msg, mlir::ArrayRef<IndexExpr> lbs,
       mlir::ArrayRef<IndexExpr> ubs);
 
-  // The optimized-loop list, to be passed explicitly to whatever builds the
-  // krnl.iterate. Reading it marks the plan consumed.
+  // The optimized-loop list, to be passed to whatever builds the krnl.iterate.
+  // Reading it marks the plan consumed.
   mlir::ValueRange optimizedLoopDef() const;
 
   int64_t getNumLoopRefs() const { return optLoopDef.size(); }
 
 private:
   // Apply a decision to the loop list and return the ref to parallelize: the
-  // level itself for a single-level decision, or, for a group, the result of a
-  // krnl.collapse that replaces the group's entries. A group of one is the
-  // identity and emits nothing.
+  // level itself for a single-level decision, or the result of a krnl.collapse
+  // replacing the group's entries. A group of one is the identity, emitting
+  // nothing.
   mlir::Value collapseAndSubstitute(
       const onnx_mlir::KrnlBuilder &createKrnl, KrnlParallelDecision decision);
 
@@ -224,11 +197,9 @@ private:
   llvm::SmallVector<int64_t, 2> exclusiveDims;
   bool collapsed = false;
   mutable bool consumed = false;
-  // Set only by the noLoopRefs factory. Such a site has no krnl.iterate
-  // optimized-loop list at all, so calling tryCreateParallel on it is a
-  // site-authoring error worth catching. Deliberately not the same question as
-  // "is optLoopDef empty": a rank-0 nest legitimately gives a plan built from
-  // real refs an empty list, and that is an answer rather than a mistake.
+  // Set only by the noLoopRefs factory, so that tryCreateParallel can reject
+  // such a plan while still tolerating a rank-0 one, whose empty optLoopDef is
+  // an answer rather than a mistake.
   bool noLoopRefsByDesign = false;
 };
 
