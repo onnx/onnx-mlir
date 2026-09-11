@@ -953,8 +953,16 @@ llvm::cl::opt<bool, true> appendDecodingStrategyOpt{"append-decoding-strategy",
 
   onnx-mlir -test-compiler-opt
 */
-#if defined(_DEBUG)
+// Use the portable NDEBUG test rather than _DEBUG: _DEBUG is an MSVC-only
+// predefined macro (see the comment in src/Version/Version.cpp), so testing it
+// left this option unregistered on every gcc/clang build, Debug ones included.
+#if !defined(NDEBUG)
 
+// Registered in OnnxMlirCommonOptions, not OnnxMlirOptions, so that
+// onnx-mlir-opt also accepts it: onnx-mlir-opt keeps only the common and
+// opt-specific categories (see removeUnrelatedOptions in
+// src/Tools/onnx-mlir-opt/onnx-mlir-opt.cpp), and lit tests for a new
+// optimization run through onnx-mlir-opt.
 static llvm::cl::opt<bool, true> test_compiler_opt("test-compiler-opt",
     llvm::cl::desc(
         "Help compiler writers test a new (small) optimization. When false, "
@@ -966,7 +974,7 @@ static llvm::cl::opt<bool, true> test_compiler_opt("test-compiler-opt",
         "Once the new opt works, it should not rely this option any more.\n"
         "Only defined in DEBUG build and default to false.\n"),
     llvm::cl::location(debugTestCompilerOpt), llvm::cl::init(false),
-    llvm::cl::cat(OnnxMlirOptions));
+    llvm::cl::cat(OnnxMlirCommonOptions));
 bool debugTestCompilerOpt;
 #else
 // Option only available in debug mode: disable when not in debug.
