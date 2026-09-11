@@ -702,8 +702,8 @@ int64_t KrnlParallelPlan::tryCreateParallel(const KrnlBuilder &createKrnl,
   // parallelism" rather than an error. Reported rather than returned silently,
   // so the parallel report still accounts for every site it visits.
   if (optLoopDef.empty()) {
-    onnxToKrnlParallelReport(
-        op, /*successful*/ false, -1, /*trip count*/ 0, "rank-0 nest in " + msg);
+    onnxToKrnlParallelReport(op, /*successful*/ false, -1, /*trip count*/ 0,
+        "rank-0 nest in " + msg);
     return NO_PAR_FOUND;
   }
   // Lower an over-wide window to what these refs support, as the search lowers
