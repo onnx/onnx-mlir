@@ -1,5 +1,6 @@
 // RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-krnl %s -split-input-file | FileCheck %s
 // RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-krnl=enable-parallel %s -split-input-file | FileCheck %s --check-prefix=PAR
+// RUN: onnx-mlir-opt -O3 --march=z16 --shape-inference --convert-onnx-to-krnl %s -split-input-file | FileCheck %s --check-prefix=SIMD
 
 // NonZero lowers to a flat-tiled stream compaction: X is viewed as one flat run of
 // M elements cut into blocks; a per-block nonzero count is prefix-summed so every
@@ -10,6 +11,9 @@
 // time that no block is short and drops the guarded tail path. "arith.cmpi sle" is
 // the tell: it is the per-block "is this block full?" test, so its absence means
 // the tail path was proven away.
+//
+// The CHECK lines are the scalar lowering: onnx-mlir-opt only turns SIMD on at
+// -O3, which the SIMD-prefixed run below supplies.
 //
 // This file pins the shape of the generated IR only. The answers are checked
 // separately against numpy.nonzero, which is the specification for this op.
@@ -251,3 +255,57 @@ func.func @test_nonzero_rank2_i1(%arg0: tensor<2x2xi1>) -> tensor<2x?xi64> {
 // CHECK:              arith.floordivsi
 // CHECK:              krnl.store {{.*}}, [[OUT]]{{.}}%c1
 // CHECK:              krnl.store {{.*}}, [[OUT]]{{.}}%c0
+
+// -----
+
+// Pass 1 is a masked reduce-sum, so it vectorizes with krnl.simdReduceIE. VL comes
+// from the *input* element type, since the pass is memory bound and bytes per load
+// is what matters: 4 for f32 on z16. The accumulator is i64 regardless -- a count
+// does not fit in the narrower lanes -- so the partial sums are vector<4xi64>,
+// reduced to a scalar once per block.
+//
+// The tile size is also chosen to be a multiple of VL where that is compatible with
+// dividing M', so a full block is entirely SIMD and no scalar remainder loop is
+// emitted inside it -- hence exactly one inner loop below.
+//
+// Pass 3 stays scalar.
+func.func @test_nonzero_simd_f32(%arg0: tensor<4096x2048xf32>) -> tensor<2x?xi64> {
+  %0 = "onnx.NonZero"(%arg0) : (tensor<4096x2048xf32>) -> tensor<2x?xi64>
+  return %0 : tensor<2x?xi64>
+}
+
+// CHECK-LABEL:  func.func @test_nonzero_simd_f32
+// PAR-LABEL:    func.func @test_nonzero_simd_f32
+
+// SIMD-LABEL:  func.func @test_nonzero_simd_f32
+// The VL-wide partial sums, and their zero init.
+// SIMD:          [[TMP:%.+]] = memref.alloca() {{.*}} : memref<4xi64>
+// SIMD:          vector.broadcast {{.*}} : i64 to vector<4xi64>
+// SIMD:          vector.store {{.*}}, [[TMP]]{{.*}} : memref<4xi64>, vector<4xi64>
+// The counting loop: load 4 f32, compare to zero, select 0/1, accumulate.
+// SIMD:          vector.load {{.*}} : memref<8388608xf32>, vector<4xf32>
+// SIMD:          arith.cmpf oeq, {{.*}} : vector<4xf32>
+// SIMD:          arith.select {{.*}} : vector<4xi1>, vector<4xi64>
+// SIMD:          arith.addi {{.*}} : vector<4xi64>
+// SIMD:          vector.store {{.*}}, [[TMP]]
+// One horizontal reduction per block, then the count is cast to index.
+// SIMD:          vector.reduction <add>, {{.*}} : vector<4xi64> into i64
+// SIMD:          arith.index_cast
+
+// -----
+
+// i1 has no vector support on z (computeArchVectorLength returns UNSUPPORTED for a
+// 1-bit type), so a bool input counts scalar even at -O3. This is the element type
+// the real model uses.
+func.func @test_nonzero_simd_i1(%arg0: tensor<8192xi1>) -> tensor<1x?xi64> {
+  %0 = "onnx.NonZero"(%arg0) : (tensor<8192xi1>) -> tensor<1x?xi64>
+  return %0 : tensor<1x?xi64>
+}
+
+// CHECK-LABEL:  func.func @test_nonzero_simd_i1
+// PAR-LABEL:    func.func @test_nonzero_simd_i1
+
+// SIMD-LABEL:  func.func @test_nonzero_simd_i1
+// SIMD-NOT:      vector.load
+// SIMD-NOT:      vector.reduction
+// SIMD:          arith.cmpi eq, {{.*}} : i1

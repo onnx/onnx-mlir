@@ -24,7 +24,7 @@ namespace onnx_mlir {
 
 struct ONNXNonZeroOpLowering : public OpConversionPattern<ONNXNonZeroOp> {
   using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
-      MathBuilder, MemRefBuilder, SCFBuilder>;
+      MathBuilder, MemRefBuilder, SCFBuilder, VectorBuilder>;
 
   // Number of blocks aimed for; the tile size is derived from it (selectTileSize).
   static constexpr int64_t targetBlockNum = 64;
@@ -36,11 +36,12 @@ struct ONNXNonZeroOpLowering : public OpConversionPattern<ONNXNonZeroOp> {
   // Minimum block count for the block loops to be parallelized.
   static constexpr int64_t minBlocksForPar = 8;
 
+  bool enableSIMD = false;
   bool enableParallel = false;
 
-  ONNXNonZeroOpLowering(
-      TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
-      : OpConversionPattern(typeConverter, ctx) {
+  ONNXNonZeroOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
+      bool enableSIMD, bool enableParallel)
+      : OpConversionPattern(typeConverter, ctx), enableSIMD(enableSIMD) {
     this->enableParallel =
         enableParallel &&
         OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
@@ -86,7 +87,8 @@ private:
   // Coordinates are regenerated from the flat index by successive division (see
   // storeCoordinates), inside the "is it nonzero" test, so once per nonzero.
   //
-  // No SIMD yet.
+  // Pass 1 is vectorized with krnl.simdReduceIE when the element type has vector
+  // support. Pass 3 is still scalar.
   LogicalResult rewriteBlockCompaction(ONNXNonZeroOp nonZeroOp,
       ONNXNonZeroOpAdaptor adaptor, ConversionPatternRewriter &rewriter) const {
     Operation *op = nonZeroOp.getOperation();
@@ -146,14 +148,27 @@ private:
       mIE = mIE * xDims[a];
     Value mVal = mIE.getValue();
 
+    // SIMD for the counting pass. Vectorized when the element type has vector
+    // support; i1 does not, so a bool input counts scalar. VL comes from the input
+    // type rather than from the accumulator: this pass is memory bound, so bytes
+    // per load is what matters, and a wider accumulator only costs registers.
+    int64_t VL = VectorMachineSupport::getArchVectorLength(
+        GenericOps::ArithmeticGop, xElementType);
+    bool doSimd = enableSIMD && VL > 1;
+    if (!doSimd)
+      VL = 1;
+
     // Tile size, and whether a short final block is possible. staticSize is M',
     // the product of the static dims only. M = M' * (product of the dynamic
     // dims), so a tile dividing M' divides M, and needTail is false.
     int64_t staticSize;
     bool allStatic =
         MemRefBuilder::getStaticMemSize(xMemRefType, staticSize, xRank);
-    int64_t tileSize = selectTileSize(staticSize, allStatic);
+    int64_t tileSize = selectTileSize(staticSize, allStatic, VL);
     bool needTail = (staticSize % tileSize) != 0;
+    // With VL dividing the tile, a full block is entirely SIMD: simdReduceIE emits
+    // no scalar remainder loop at all.
+    bool fullySimd = tileSize % VL == 0;
 
     IndexExpr nbIE = mIE.ceilDiv(tileSize);
     IndexExpr nbPlus1IE = nbIE + 1;
@@ -178,7 +193,10 @@ private:
                    << staticSize << (allStatic ? " (exact)" : " (static part)")
                    << ", tileSize " << tileSize << " (" << why << ")"
                    << ", tail path " << needTail << ", NB "
-                   << (nbIE.isLiteral() ? nbIE.getLiteral() : -1) << "\n";
+                   << (nbIE.isLiteral() ? nbIE.getLiteral() : -1) << ", VL " << VL
+                   << (doSimd ? (fullySimd ? " (fully simd)" : " (simd + leftover)")
+                              : " (no simd)")
+                   << "\n";
     });
 
     // A flat 1-D view of X, walked by flat index by both scans. Rank 1 is already
@@ -220,26 +238,96 @@ private:
     //===------------------------------------------------------------------===//
     // Pass 1: count the nonzeros of every block.
     //===------------------------------------------------------------------===//
+    // The accumulator is i64, not the input type: a count does not fit in an i1 or
+    // an i8 lane, and i64 matches the index type that nzPerBlock holds.
+    Type accTy = rewriter.getIntegerType(64);
+    Value accZero = create.math.constant(accTy, 0);
+    Value accOne = create.math.constant(accTy, 1);
+    // simdReduceIE keeps VL partial sums in a temp, reduced to a scalar at the
+    // end. Allocated per block when parallel, once otherwise, as for seqTmp.
+    MemRefType simdTmpType = MemRefType::get({VL}, accTy);
+    // Assigned in an if, not a ternary: the ternary's common type would be
+    // memref::AllocaOp, so the null branch would build a null op and converting
+    // that to a Value dereferences it.
+    Value seqSimdTmp;
+    if (doSimd && !doPar)
+      seqSimdTmp = create.mem.alignedAlloca(simdTmpType);
+
+    onnxToKrnlSimdReport(op, doSimd, doSimd ? VL : 0, tileSize,
+        doSimd ? "counting pass" : "no simd for this element type");
+
     create.krnl.forLoopIE(LitIE(0), nbIE, /*step*/ 1, doPar,
         [&](const KrnlBuilder &kb, ValueRange blockInd) {
           MDBuilder create(kb);
+          IndexExprScope blockScope(create.krnl);
           Value b = blockInd[0];
           Value lo = create.math.mul(b, tVal);
-          Value cnt = runningTmp(create);
-          create.krnl.store(iZero, cnt);
-          emitBlockScan(create, lo, tVal, mVal, needTail,
-              [&](const MDBuilder &create, Value m) {
-                Value x = create.krnl.load(xFlat, {m});
-                // eq against zero inverted by the select, not neq:
-                // MathBuilder::neq emits arith.cmpf ONE for floats, which is
-                // false for NaN, and ONNX counts NaN as nonzero.
-                Value inc = create.math.select(
-                    create.math.eq(x, xZero), iZero, iOne);
-                create.krnl.store(
-                    create.math.add(create.krnl.load(cnt), inc), cnt);
+          DimsExpr outputAF = {DimIE(b) + 1};
+
+          // Count exactly tileSize elements from lo, in SIMD.
+          auto countFullSimd = [&](const MDBuilder &create) {
+            Value tmp = doPar ? create.mem.alignedAlloca(simdTmpType)
+                              : seqSimdTmp;
+            DimsExpr inputAF = {DimIE(lo)}, tmpAF = {LitIE(0)};
+            create.krnl.simdReduceIE(LitIE(0), LitIE(tileSize), VL, fullySimd,
+                {xFlat}, {inputAF}, {tmp},
+                {tmpAF}, {nzPerBlock}, {outputAF}, {accZero},
+                {[&](const KrnlBuilder &kb, Value in, Value acc, int64_t vl) {
+                  MathBuilder createMath(kb);
+                  // eq against zero inverted by the select, not neq:
+                  // MathBuilder::neq emits arith.cmpf ONE for floats, which is
+                  // false for NaN, and ONNX counts NaN as nonzero.
+                  Value inc = createMath.select(
+                      createMath.eq(in, xZero), accZero, accOne);
+                  return createMath.add(acc, inc);
+                }},
+                {[&](const KrnlBuilder &kb, Value acc, int64_t vl) {
+                  MDBuilder create(kb);
+                  Value sum = create.vec.reduction(
+                      VectorBuilder::CombiningKind::ADD, acc);
+                  return create.math.cast(indexTy, sum);
+                }});
+          };
+
+          // Scalar count, bound checked or not, into the running scalar.
+          auto countScalar = [&](const MDBuilder &create, bool guarded) {
+            Value cnt = runningTmp(create);
+            create.krnl.store(iZero, cnt);
+            emitScan(create, lo, tVal, mVal, guarded,
+                [&](const MDBuilder &create, Value m) {
+                  Value x = create.krnl.load(xFlat, {m});
+                  Value inc = create.math.select(
+                      create.math.eq(x, xZero), iZero, iOne);
+                  create.krnl.store(
+                      create.math.add(create.krnl.load(cnt), inc), cnt);
+                });
+            create.krnl.store(create.krnl.load(cnt), nzPerBlock,
+                {create.math.add(b, iOne)});
+          };
+
+          auto countFull = [&](const MDBuilder &create) {
+            if (doSimd)
+              countFullSimd(create);
+            else
+              countScalar(create, /*guarded*/ false);
+          };
+
+          if (!needTail) {
+            countFull(create);
+            return;
+          }
+          // A short final block cannot be vectorized over the full tile, so it
+          // takes the bound-checked scalar path.
+          create.scf.ifThenElse(
+              create.math.sle(create.math.add(lo, tVal), mVal),
+              [&](const SCFBuilder &sb) {
+                MDBuilder c(sb);
+                countFull(c);
+              },
+              [&](const SCFBuilder &sb) {
+                MDBuilder c(sb);
+                countScalar(c, /*guarded*/ true);
               });
-          create.krnl.store(create.krnl.load(cnt), nzPerBlock,
-              {create.math.add(b, iOne)});
         });
 
     //===------------------------------------------------------------------===//
@@ -305,15 +393,21 @@ private:
         });
 
     rewriter.replaceOp(op, resMemRef);
-    onnxToKrnlSimdReport(op, /*successful*/ false, /*vectorLength*/ 0,
-        /*simdLoopTripCount*/ 0, "no simd yet in flat tiling");
     return success();
   }
 
   // Pick the elements-per-block: aim for targetBlockNum blocks, then take a
   // divisor of staticSize (M') near the tile size that implies, searching outward
   // in both directions. A divisor of M' also divides M, so needTail is then false.
-  static int64_t selectTileSize(int64_t staticSize, bool allStatic) {
+  //
+  // Among those, a tile that is also a multiple of VL is preferred, because then a
+  // full block is entirely SIMD and simdReduceIE emits no scalar remainder. Such a
+  // tile exists only when VL divides M', so this is a preference and not a
+  // requirement -- and the right way round of the two: giving up divisibility by M'
+  // would leave one short block of up to T elements scalar (~1/targetBlockNum of
+  // the input), whereas giving up divisibility by VL leaves only (T mod VL)
+  // elements per block, which is smaller by orders of magnitude.
+  static int64_t selectTileSize(int64_t staticSize, bool allStatic, int64_t VL) {
     // Not fully static: M' is unrelated to the real element count, so use the
     // fixed tile as the target. The divisor search below still applies.
     int64_t target = defaultTileSize;
@@ -325,59 +419,64 @@ private:
     // A fully static input no bigger than one tile is exactly one block.
     if (allStatic && staticSize > 0 && staticSize <= target)
       return staticSize;
-    // A tile larger than M' cannot divide it.
+    // A tile larger than M' cannot divide it. First pass insists on a multiple of
+    // VL, second pass drops that.
     if (staticSize > 0)
-      for (int64_t d = 0; d < maxTileProbes; ++d)
-        for (int64_t t : {target - d, target + d}) {
-          if (t < minTileSize || t > staticSize)
-            continue;
-          if (staticSize % t == 0)
-            return t;
-          if (d == 0)
-            break; // target probed once, not twice.
-        }
+      for (int64_t vlStep : {VL, (int64_t)1})
+        for (int64_t d = 0; d < maxTileProbes; ++d)
+          for (int64_t t : {target - d, target + d}) {
+            if (t < minTileSize || t > staticSize)
+              continue;
+            if (t % vlStep == 0 && staticSize % t == 0)
+              return t;
+            if (d == 0)
+              break; // target probed once, not twice.
+          }
     // No divisor found: use the target, and needTail will be true.
     return target;
   }
 
-  // Scan the tileSize elements starting at flat index lo, invoking bodyFn on each.
-  // Emits an unguarded loop, plus, when needTail, a per-block test selecting a
-  // bound-checked loop for a short final block. Both loops have the same constant
-  // trip count; neither bound depends on the enclosing loop index.
+  // One scalar scan of the tileSize elements starting at flat index lo, invoking
+  // bodyFn on each. The trip count is the constant tileSize either way; when
+  // guarded, each element is bound checked against mVal, which is what makes the
+  // same constant-bounded loop usable for a short final block.
+  static void emitScan(const MDBuilder &create, Value lo, Value tVal, Value mVal,
+      bool guarded, function_ref<void(const MDBuilder &, Value)> bodyFn) {
+    Value zero = create.math.constantIndex(0);
+    ValueRange oLoop = create.krnl.defineLoops(1);
+    create.krnl.iterate(oLoop, oLoop, {zero}, {tVal},
+        [&](const KrnlBuilder &ck, ValueRange oInd) {
+          MDBuilder c(ck);
+          Value m = c.math.add(lo, oInd[0]);
+          if (!guarded) {
+            bodyFn(c, m);
+            return;
+          }
+          c.scf.ifThenElse(c.math.slt(m, mVal), [&](const SCFBuilder &b) {
+            MDBuilder c2(b);
+            bodyFn(c2, m);
+          });
+        });
+  }
+
+  // emitScan, plus a per-block test selecting the bound-checked variant for a
+  // short final block when one is possible at all.
   static void emitBlockScan(const MDBuilder &create, Value lo, Value tVal,
       Value mVal, bool needTail,
       function_ref<void(const MDBuilder &, Value)> bodyFn) {
-    auto emitLoop = [&](const MDBuilder &create, bool guarded) {
-      Value zero = create.math.constantIndex(0);
-      ValueRange oLoop = create.krnl.defineLoops(1);
-      create.krnl.iterate(oLoop, oLoop, {zero}, {tVal},
-          [&](const KrnlBuilder &ck, ValueRange oInd) {
-            MDBuilder c(ck);
-            Value m = c.math.add(lo, oInd[0]);
-            if (!guarded) {
-              bodyFn(c, m);
-              return;
-            }
-            c.scf.ifThenElse(c.math.slt(m, mVal), [&](const SCFBuilder &b) {
-              MDBuilder c2(b);
-              bodyFn(c2, m);
-            });
-          });
-    };
     if (!needTail) {
-      emitLoop(create, /*guarded*/ false);
+      emitScan(create, lo, tVal, mVal, /*guarded*/ false, bodyFn);
       return;
     }
-    Value isFull = create.math.sle(create.math.add(lo, tVal), mVal);
     create.scf.ifThenElse(
-        isFull,
+        create.math.sle(create.math.add(lo, tVal), mVal),
         [&](const SCFBuilder &b) {
           MDBuilder c(b);
-          emitLoop(c, /*guarded*/ false);
+          emitScan(c, lo, tVal, mVal, /*guarded*/ false, bodyFn);
         },
         [&](const SCFBuilder &b) {
           MDBuilder c(b);
-          emitLoop(c, /*guarded*/ true);
+          emitScan(c, lo, tVal, mVal, /*guarded*/ true, bodyFn);
         });
   }
 
@@ -410,8 +509,10 @@ private:
 };
 
 void populateLoweringONNXNonZeroOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel) {
-  patterns.insert<ONNXNonZeroOpLowering>(typeConverter, ctx, enableParallel);
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableSIMD,
+    bool enableParallel) {
+  patterns.insert<ONNXNonZeroOpLowering>(
+      typeConverter, ctx, enableSIMD, enableParallel);
 }
 
 } // namespace onnx_mlir
