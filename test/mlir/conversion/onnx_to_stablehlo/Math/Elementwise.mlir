@@ -23,13 +23,8 @@ func.func @test_add_dynamic(%arg0 : tensor<?x10xf32>, %arg1 : tensor<?x10xf32>) 
 
 // CHECK-LABEL:  func.func @test_add_dynamic
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x10xf32>, [[PARAM_1_:%.+]]: tensor<?x10xf32>) -> tensor<?x10xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = shape.shape_of [[PARAM_0_]] : tensor<?x10xf32> -> tensor<2xindex>
-// CHECK-DAG:       [[VAR_1_:%.+]] = shape.shape_of [[PARAM_1_]] : tensor<?x10xf32> -> tensor<2xindex>
-// CHECK:           [[VAR_2_:%.+]] = shape.broadcast [[VAR_0_]], [[VAR_1_]] : tensor<2xindex>, tensor<2xindex> -> tensor<2xindex>
-// CHECK-DAG:       [[VAR_3_:%.+]] = stablehlo.dynamic_broadcast_in_dim [[PARAM_0_]], [[VAR_2_]], dims = [0, 1] : (tensor<?x10xf32>, tensor<2xindex>) -> tensor<?x10xf32>
-// CHECK-DAG:       [[VAR_4_:%.+]] = stablehlo.dynamic_broadcast_in_dim [[PARAM_1_]], [[VAR_2_]], dims = [0, 1] : (tensor<?x10xf32>, tensor<2xindex>) -> tensor<?x10xf32>
-// CHECK:           [[VAR_5_:%.+]] = stablehlo.add [[VAR_3_]], [[VAR_4_]] : tensor<?x10xf32>
-// CHECK:           return [[VAR_5_]] : tensor<?x10xf32>
+// CHECK:           [[VAR_0_:%.+]] = stablehlo.add [[PARAM_0_]], [[PARAM_1_]] : tensor<?x10xf32>
+// CHECK:           return [[VAR_0_]] : tensor<?x10xf32>
 // CHECK:         }
 
 // -----
@@ -201,13 +196,8 @@ func.func @test_dyn_and(%arg0 : tensor<?x10xi1>, %arg1 : tensor<?x10xi1>) -> ten
 
 // CHECK-LABEL:  func.func @test_dyn_and
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x10xi1>, [[PARAM_1_:%.+]]: tensor<?x10xi1>) -> tensor<?x10xi1> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = shape.shape_of [[PARAM_0_]] : tensor<?x10xi1> -> tensor<2xindex>
-// CHECK-DAG:       [[VAR_1_:%.+]] = shape.shape_of [[PARAM_1_]] : tensor<?x10xi1> -> tensor<2xindex>
-// CHECK:           [[VAR_2_:%.+]] = shape.broadcast [[VAR_0_]], [[VAR_1_]] : tensor<2xindex>, tensor<2xindex> -> tensor<2xindex>
-// CHECK-DAG:       [[VAR_3_:%.+]] = stablehlo.dynamic_broadcast_in_dim [[PARAM_0_]], [[VAR_2_]], dims = [0, 1] : (tensor<?x10xi1>, tensor<2xindex>) -> tensor<?x10xi1>
-// CHECK-DAG:       [[VAR_4_:%.+]] = stablehlo.dynamic_broadcast_in_dim [[PARAM_1_]], [[VAR_2_]], dims = [0, 1] : (tensor<?x10xi1>, tensor<2xindex>) -> tensor<?x10xi1>
-// CHECK:           [[VAR_5_:%.+]] = stablehlo.and [[VAR_3_]], [[VAR_4_]] : tensor<?x10xi1>
-// CHECK:           return [[VAR_5_]] : tensor<?x10xi1>
+// CHECK:           [[VAR_0_:%.+]] = stablehlo.and [[PARAM_0_]], [[PARAM_1_]] : tensor<?x10xi1>
+// CHECK:           return [[VAR_0_]] : tensor<?x10xi1>
 // CHECK:         }
 
 // -----
