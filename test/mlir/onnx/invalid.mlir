@@ -476,10 +476,10 @@ func.func @test_scatterelements_verifier_3(%arg0 : tensor<5x5x1x32xf32>, %arg1 :
 
 // -----
 
-func.func @test_scatterelements_verifier_4(%arg0 : tensor<3xf32>, %arg1 : tensor<3xf32>) -> tensor<*xf32> {
+func.func @test_scatterelements_verifier_4(%arg0 : tensor<3xf32>, %arg1 : tensor<1xf32>) -> tensor<*xf32> {
   // expected-error @+2 {{onnx.ScatterElements: 'indices' value is 3, accepted range is [-3, 2]}}
   %indices = "onnx.Constant"() {value = dense<[3]> : tensor<1xi64>} : () -> tensor<1xi64>
-  %1 = "onnx.ScatterElements"(%arg0, %indices, %arg1) {axis = 0 : si64} : (tensor<3xf32>, tensor<1xi64>, tensor<3xf32>)  -> tensor<*xf32>
+  %1 = "onnx.ScatterElements"(%arg0, %indices, %arg1) {axis = 0 : si64} : (tensor<3xf32>, tensor<1xi64>, tensor<1xf32>)  -> tensor<*xf32>
   "onnx.Return"(%1) : (tensor<*xf32>) -> ()
 }
 
