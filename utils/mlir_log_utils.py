@@ -401,14 +401,15 @@ class Annotator:
             if group is None:
                 tokens.append("?")
                 continue
-            first_seen = group not in self.group_renumber
-            if first_seen:
-                self.group_renumber[group] = self.next_id
-                self.next_id += 1
             name = self.name_of_group.get(group)
             if name:
+                # A named group reads the same everywhere, so it needs no id.
                 tokens.append(name)
             else:
+                first_seen = group not in self.group_renumber
+                if first_seen:
+                    self.group_renumber[group] = self.next_id
+                    self.next_id += 1
                 tokens.append(
                     f"d{self.group_renumber[group]}"
                     if first_seen
