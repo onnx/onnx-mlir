@@ -198,8 +198,7 @@ void DevicePlacementPass::runOnOperation() {
 
   // Call RewriteONNXForZHigh pass.
   RewritePatternSet Patterns1(context);
-  KrnlTypeConverter krnlTypeConverter;
-  getRewriteONNXForZHighPatterns(Patterns1, &dimAnalysis, krnlTypeConverter);
+  getRewriteONNXForZHighPatterns(Patterns1, &dimAnalysis);
   getRewriteONNXForZHighDynamicallyLegal(&target, &dimAnalysis);
   (void)applyAnalysisConversion(module, target, std::move(Patterns1),
       ConversionConfig{.legalizableOps = &legalizedOps1});
