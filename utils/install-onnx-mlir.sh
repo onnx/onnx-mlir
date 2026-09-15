@@ -17,7 +17,7 @@ else
         -DMLIR_DIR=${MLIR_DIR} \
         ..
 fi
-cmake --build . -- -j3
+cmake --build .
 
 # Run lit tests:
 export LIT_OPTS=-v
