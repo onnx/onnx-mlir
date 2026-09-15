@@ -115,8 +115,7 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
   // Expand attention masks BEFORE the loop (if not disabled).
   // This pass uses DimAnalysis which is expensive, so run it only once.
   if (!nnpaDisableExpandAttentionMask)
-    pm.addNestedPass<func::FuncOp>(
-        onnx_mlir::createExpandAttentionMaskPass());
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createExpandAttentionMaskPass());
 
   for (unsigned i = 0; i < 3; i++) {
     // Repeat this process so that shape-related ops such as Shape, Expand,
