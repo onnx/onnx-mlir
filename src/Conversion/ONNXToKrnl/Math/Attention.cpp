@@ -174,8 +174,8 @@ struct ONNXAttentionOpLowering : public OpConversionPattern<ONNXAttentionOp> {
     }
 
     // Step 5: Apply softmax over the last axis
-    Value probs = rewriter.create<ONNXSoftmaxOp>(
-        loc, qk_masked.getType(), qk_masked, rewriter.getI64IntegerAttr(-1));
+    Value probs = ONNXSoftmaxOp::create(rewriter, loc, qk_masked.getType(),
+        qk_masked, rewriter.getI64IntegerAttr(-1));
 
     // Step 6: MatMul(softmax(...), V)
     ShapedType vShape4D = mlir::cast<ShapedType>(V_reshaped.getType());
