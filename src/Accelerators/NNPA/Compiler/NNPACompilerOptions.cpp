@@ -143,4 +143,10 @@ llvm::cl::opt<bool> nnpaDisableHugePageMalloc("nnpa-disable-hugepage-malloc",
                    "Default is false"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
+llvm::cl::opt<bool> nnpaDisableExpandAttentionMask(
+    "nnpa-disable-expand-attention-mask",
+    llvm::cl::desc("Disable expansion of attention masks for broadcasting Add "
+                   "operations. Default is false"),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
 } // namespace onnx_mlir

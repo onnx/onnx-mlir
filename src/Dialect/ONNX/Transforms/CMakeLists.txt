@@ -137,6 +137,20 @@ add_onnx_mlir_library(OMONNXSimplifyShapeRelatedOps
   MLIRTransforms
   )
 
+add_onnx_mlir_library(OMExpandAttentionMask
+  ExpandAttentionMask.cpp
+
+  DEPENDS
+  OMONNXTransformsPassIncGen
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  OMBuilder
+  MLIRFuncDialect
+  MLIRPass
+  OMSupport
+  )
+
 add_onnx_mlir_library(OMONNXStandardFuncReturnPass
   StandardFuncReturnPass.cpp
 
