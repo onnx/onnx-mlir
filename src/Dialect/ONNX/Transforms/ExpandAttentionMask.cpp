@@ -48,7 +48,7 @@ struct ExpandAttentionMaskPass
 
 private:
   DimAnalysis *dimAnalysis = nullptr;
-  
+
   // Minimum uses threshold for mask expansion.
   static constexpr unsigned minUses = 8;
 
@@ -182,13 +182,11 @@ void ExpandAttentionMaskPass::expandEligibleMasks() {
     // Determine output type for concat: tensor<NxI64> where N is rank.
     RankedTensorType shapeType = RankedTensorType::get(
         {static_cast<int64_t>(targetShape.size())}, builder.getI64Type());
-    Value shapeValue =
-        onnxBuilder.concat(shapeType, shapeParts, /*axis=*/0);
+    Value shapeValue = onnxBuilder.concat(shapeType, shapeParts, /*axis=*/0);
 
     // Create Expand operation.
     // Output type is same as target type.
-    Value expandedMask =
-        onnxBuilder.expand(targetType, maskTensor, shapeValue);
+    Value expandedMask = onnxBuilder.expand(targetType, maskTensor, shapeValue);
 
     // Replace all uses in Add operations.
     for (ONNXAddOp addOp : uses) {
