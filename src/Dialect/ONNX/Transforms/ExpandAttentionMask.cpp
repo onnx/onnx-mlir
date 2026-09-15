@@ -4,7 +4,7 @@
 
 //===------- ExpandAttentionMask.cpp - ONNX NNPA Optimization ------------===//
 //
-// Copyright 2024 The IBM Research Authors.
+// Copyright 2026 The IBM Research Authors.
 //
 // =============================================================================
 //
