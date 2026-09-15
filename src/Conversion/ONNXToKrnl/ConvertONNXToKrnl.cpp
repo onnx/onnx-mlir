@@ -39,6 +39,47 @@ public:
   // A type mapping used to generate a signature in JSON.
   static std::map<std::string, std::string> typeMap;
 
+  // Helper function to parse dim_params attribute into a map.
+  // Returns a map from dimension index to symbol name.
+  static std::map<int64_t, std::string> parseDimParams(
+      DictionaryAttr dictAttrs) {
+    std::map<int64_t, std::string> dimParamMap;
+
+    if (!dictAttrs || !dictAttrs.contains("onnx.dim_params"))
+      return dimParamMap;
+
+    StringRef dimParams = mlir::cast<StringAttr>(
+        dictAttrs.getNamed("onnx.dim_params").value().getValue())
+                              .getValue();
+
+    if (dimParams.empty())
+      return dimParamMap;
+
+    // Parse "0:batch,2:seq_len" into map: {0 -> "batch", 2 -> "seq_len"}.
+    SmallVector<StringRef, 4> pairs;
+    dimParams.split(pairs, ',');
+
+    for (StringRef pair : pairs) {
+      if (pair.empty())
+        continue;
+
+      auto splitResult = pair.split(':');
+      StringRef indexStr = splitResult.first;
+      StringRef paramName = splitResult.second;
+
+      if (indexStr.empty() || paramName.empty())
+        continue;
+
+      int64_t index = 0;
+      if (indexStr.getAsInteger(10, index))
+        continue; // Skip invalid index.
+
+      dimParamMap[index] = paramName.str();
+    }
+
+    return dimParamMap;
+  }
+
   LogicalResult matchAndRewrite(
       ONNXEntryPointOp op, PatternRewriter &rewriter) const override {
     ModuleOp module = op.getOperation()->getParentOfType<ModuleOp>();
@@ -70,12 +111,15 @@ private:
   // Construct JSON type from the argument type.
   // for example - a 3D array of f32 would produce something like
   //     {"type" : "f32" , "dims" : [4, 256, 16] , "name": "t1"}
+  // or with symbolic dimensions:
+  //     {"type" : "f32" , "dims" : [4, "batch_size", 16] , "name": "t1"}
   // data type list:
   //     "i1" / "i8" / "i16" / "i32" / "i64"
   //     "ui8" / "ui16" / "ui32" / "ui64"
   //     "f16" / "f32" / "f64"
-  void concatTypeString(
-      Type argType, Attribute attr, llvm::raw_ostream &dstream) const {
+  void concatTypeString(Type argType, Attribute attr,
+      llvm::raw_ostream &dstream,
+      const std::map<int64_t, std::string> &dimParamMap = {}) const {
     std::string comma = std::string("");
 
     TypeSwitch<Type>(argType)
@@ -100,9 +144,20 @@ private:
             int64_t rank = tensorTy.getRank();
             for (int j = 0; j < rank; j++) {
               int64_t dimSize = tensorTy.getDimSize(j);
-              if (dimSize == ShapedType::kDynamic)
-                dimSize = ModelInputShaper::kUserDynamic;
-              dstream << comma << dimSize;
+              if (dimSize == ShapedType::kDynamic) {
+                // Check if we have a dim_param for this dimension.
+                auto it = dimParamMap.find(j);
+                if (it != dimParamMap.end()) {
+                  // Use symbolic name.
+                  dstream << comma << "\"" << it->second << "\"";
+                } else {
+                  // Use -1 as fallback.
+                  dstream << comma << ModelInputShaper::kUserDynamic;
+                }
+              } else {
+                // Static dimension.
+                dstream << comma << dimSize;
+              }
               comma = std::string(" , ");
             }
           } else {
@@ -132,13 +187,21 @@ private:
     for (unsigned int i = 0; i < funcType.getNumInputs(); i++) {
       dstream << comma;
       StringAttr inputName = b.getStringAttr({"input_" + std::to_string(i)});
+      std::map<int64_t, std::string> dimParamMap;
+
       if (argAttrs) {
         DictionaryAttr dictAttrs = llvm::dyn_cast<DictionaryAttr>(argAttrs[i]);
-        if (dictAttrs && dictAttrs.contains("onnx.name"))
-          inputName = mlir::cast<StringAttr>(
-              dictAttrs.getNamed("onnx.name").value().getValue());
+        if (dictAttrs) {
+          // Extract name if available.
+          if (dictAttrs.contains("onnx.name"))
+            inputName = mlir::cast<StringAttr>(
+                dictAttrs.getNamed("onnx.name").value().getValue());
+
+          // Parse dim_params.
+          dimParamMap = parseDimParams(dictAttrs);
+        }
       }
-      concatTypeString(inputs[i], inputName, dstream);
+      concatTypeString(inputs[i], inputName, dstream, dimParamMap);
       comma = std::string(" , ");
     }
     dstream << "\n]";
@@ -150,13 +213,21 @@ private:
     for (unsigned int i = 0; i < funcType.getNumResults(); i++) {
       dstream << comma;
       StringAttr outputName = b.getStringAttr({"output_" + std::to_string(i)});
+      std::map<int64_t, std::string> dimParamMap;
+
       if (resAttrs) {
         DictionaryAttr dictAttrs = llvm::dyn_cast<DictionaryAttr>(resAttrs[i]);
-        if (dictAttrs && dictAttrs.contains("onnx.name"))
-          outputName = mlir::cast<StringAttr>(
-              dictAttrs.getNamed("onnx.name").value().getValue());
+        if (dictAttrs) {
+          // Extract name if available.
+          if (dictAttrs.contains("onnx.name"))
+            outputName = mlir::cast<StringAttr>(
+                dictAttrs.getNamed("onnx.name").value().getValue());
+
+          // Parse dim_params.
+          dimParamMap = parseDimParams(dictAttrs);
+        }
       }
-      concatTypeString(outputs[i], outputName, dstream);
+      concatTypeString(outputs[i], outputName, dstream, dimParamMap);
       comma = std::string(" , ");
     }
     dstream << "\n]";
