@@ -261,7 +261,7 @@ def UpsampleV7Pattern : Pat<
 def PadV2Pattern : Pat<
   (ONNXPadV2Op $x, $modeAttr, $padsAttr, $valueAttr),
   (ONNXPadOp $x, (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $padsAttr)),
-     (ONNXConstantOpFromDenseAttr(
+     (ONNXConstantOpFromDenseAttr
         (createDenseArrayAttrFromSingleFloatAttr $x, $valueAttr))),
      (CreateNoneValue),
      $modeAttr)
