@@ -3140,6 +3140,7 @@ def ONNXGreaterOp:ONNX_Op<"Greater",
 
 def ONNXGreaterOrEqualOp:ONNX_Op<"GreaterOrEqual",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX GreaterOrEqual operation";
   let description = [{
   Returns the tensor resulted from performing the `greater_equal` logical operation
@@ -4042,6 +4043,7 @@ def ONNXLessOp:ONNX_Op<"Less",
 
 def ONNXLessOrEqualOp:ONNX_Op<"LessOrEqual",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX LessOrEqual operation";
   let description = [{
   Returns the tensor resulted from performing the `less_equal` logical operation

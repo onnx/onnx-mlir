@@ -276,6 +276,15 @@ WideNum asWideNum(double n, mlir::Type elemType);
 /// Checks whether a constant tensor's elements are all equal to a given scalar.
 bool isConstOf(mlir::Value constValue, double n);
 
+/// For a binary op comparing a float-element-type operand against an
+/// integer-element-type operand that is a constant equal to 0 (the only
+/// integer literal value guaranteed to be exactly representable, bit for
+/// bit, in every float type onnx-mlir supports): returns the index (0 or 1)
+/// of the integer-literal operand. Returns std::nullopt for any other
+/// combination of operand types, including when both already match.
+std::optional<unsigned> getFloatVsIntegerZeroLiteralOperand(
+    mlir::Operation *op);
+
 mlir::Type convertONNXTypeToMLIRType(
     mlir::Builder &builder, onnx::TensorProto_DataType onnxType);
 

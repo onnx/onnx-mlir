@@ -2523,6 +2523,11 @@ to be equal at runtime.
 `group_id` identifies the group id of the dimension. It is non-negative.
 Value -1 for `group_id` means the dimension does not belong to any group.
 
+`group_name` is the symbolic name of the group when it is known, either
+from the `onnx.dim_params` attribute of a function argument/result or
+synthesized from a function argument, e.g. `X_0` or `arg0_0`. It is absent
+when the group has no known name.
+
 This operation is currently used in the pass `--onnx-dim-analysis`
 for testing the unknown dimension analysis class.
 
@@ -2534,6 +2539,7 @@ This operation is not part of the standard and was added to assist onnx-mlir.
 <tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
 <tr><td><code>axis</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
 <tr><td><code>group_id</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>group_name</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
 </table>
 
 #### Operands:
@@ -7155,6 +7161,10 @@ The argument print_data control whether the data of the tensors to be printed.
 When print_data == 1, the data of the tensor will be printed. Otherwise, just shape.
 The argument input specifies the tensor to be printed. They could be a list
 of the inputs and outputs of an ONNX op.
+The optional argument io_labels, when present and of the same length as
+input, gives a per-tensor label (e.g. "in0", "out1") printed right before
+that tensor's signature/data, so a caller-selected subset of a node's
+operands/results can still be told apart in the printed output.
 
 This operation is not part of the standard and was added to assist onnx-mlir.
 
@@ -7164,6 +7174,7 @@ This operation is not part of the standard and was added to assist onnx-mlir.
 <tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
 <tr><td><code>op_name</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
 <tr><td><code>print_data</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>io_labels</code></td><td>::mlir::ArrayAttr</td><td>string array attribute</td></tr>
 </table>
 
 #### Operands:
