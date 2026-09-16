@@ -1069,6 +1069,16 @@ private:
     std::array<Value, 5> inVals = {
         nullptr,
     };
+    // Reject malformed Slice nodes that carry more inputs than the ONNX
+    // spec permits (data, starts, ends, axes, steps). Without this guard a
+    // crafted model triggers an out-of-bounds write into the fixed-size
+    // inVals stack array below.
+    if (node.input_size() > static_cast<int>(inVals.size())) {
+      emitError(UnknownLoc())
+          << "Slice node '" << node.name() << "' has " << node.input_size()
+          << " inputs; at most " << inVals.size() << " are allowed.";
+      return;
+    }
 
     for (const auto &item : llvm::enumerate(node.input())) {
       if (const Value *valuePtr =
