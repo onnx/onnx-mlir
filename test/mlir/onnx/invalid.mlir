@@ -223,6 +223,14 @@ func.func @test_gatherElements_verifier_1(%data: tensor<2x2xf32>, %indices: tens
 
 // -----
 
+func.func @test_global_lp_pool_verifier_p(%arg0: tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32> {
+  // expected-error @+1 {{'onnx.GlobalLpPool' op p must be >= 1, got 0}}
+  %0 = "onnx.GlobalLpPool"(%arg0) {p = 0 : si64} : (tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32>
+  "onnx.Return"(%0) : (tensor<1x3x1x1xf32>) -> ()
+}
+
+// -----
+
 func.func @test_gatherElements_verifier_2(%data: tensor<2x2xf32>, %indices: tensor<2x2xi64>) -> tensor<*xf32> {
   // expected-error @+1 {{onnx.GatherElements: 'axis' value is 2, accepted range is [-2, 1]}}
   %1 = "onnx.GatherElements"(%data, %indices) {axis = 2 : si64} : (tensor<2x2xf32>, tensor<2x2xi64>) -> tensor<*xf32>

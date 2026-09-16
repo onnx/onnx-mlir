@@ -11,7 +11,6 @@ import numpy as np
 import tempfile
 
 from onnx import numpy_helper
-from onnx.mapping import TENSOR_TYPE_TO_NP_TYPE
 from collections import OrderedDict
 
 # This file provide utility to compile and run onnx model with onnx-mlir,

@@ -82,7 +82,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
 | **Gelu** |20 - * | | |
 | **Gemm** |6 - * | | |
 | **GlobalAveragePool** |6 - * | | |
-| **GlobalLpPool** |none | | | |
+| **GlobalLpPool** |2 - * | | |
 | **GlobalMaxPool** |6 - * | | |
 | **Gradient** |none | | | |
 | **Greater** |7 - * | | |

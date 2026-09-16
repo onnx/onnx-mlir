@@ -639,6 +639,62 @@ func.func @test_global_average_pool_dyn_dims(%arg0: tensor<1x?x?x5xf32>) -> tens
 
 // -----
 
+// COM: Test rewriting GlobalLpPool (p=2, the default) into Abs/ReduceSum/Pow.
+// Note: Pow(Abs(x), 2) is further canonicalized by PowToMulRewritePattern
+// into Mul(Abs(x), Abs(x)) since 2 is a small integer exponent.
+func.func @test_global_lp_pool_p2(%arg0: tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32> {
+  %0 = "onnx.GlobalLpPool"(%arg0) {p = 2 : si64} : (tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32>
+  onnx.Return %0 : tensor<1x3x1x1xf32>
+  // CHECK-LABEL:  func.func @test_global_lp_pool_p2
+  // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32> {
+  // CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  // CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<[2, 3]> : tensor<2xi64>
+  // CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Abs"([[PARAM_0_]]) : (tensor<1x3x5x5xf32>) -> tensor<1x3x5x5xf32>
+  // CHECK:           [[VAR_3_:%.+]] = "onnx.Mul"([[VAR_2_]], [[VAR_2_]]) : (tensor<1x3x5x5xf32>, tensor<1x3x5x5xf32>) -> tensor<1x3x5x5xf32>
+  // CHECK:           [[VAR_4_:%.+]] = "onnx.ReduceSum"([[VAR_3_]], [[VAR_1_]]) <{keepdims = 1 : si64, noop_with_empty_axes = 0 : si64}> : (tensor<1x3x5x5xf32>, tensor<2xi64>) -> tensor<1x3x1x1xf32>
+  // CHECK:           [[VAR_5_:%.+]] = "onnx.Pow"([[VAR_4_]], [[VAR_0_]]) : (tensor<1x3x1x1xf32>, tensor<f32>) -> tensor<1x3x1x1xf32>
+  // CHECK:           onnx.Return [[VAR_5_]] : tensor<1x3x1x1xf32>
+  // CHECK:         }
+}
+
+// -----
+
+// COM: Test rewriting GlobalLpPool (p=1) into Abs/ReduceSum, without any Pow
+// (raising to, or by, the power of 1 is a no-op).
+func.func @test_global_lp_pool_p1(%arg0: tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32> {
+  %0 = "onnx.GlobalLpPool"(%arg0) {p = 1 : si64} : (tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32>
+  onnx.Return %0 : tensor<1x3x1x1xf32>
+  // CHECK-LABEL:  func.func @test_global_lp_pool_p1
+  // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32> {
+  // CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[2, 3]> : tensor<2xi64>
+  // CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Abs"([[PARAM_0_]]) : (tensor<1x3x5x5xf32>) -> tensor<1x3x5x5xf32>
+  // CHECK:           [[VAR_2_:%.+]] = "onnx.ReduceSum"([[VAR_1_]], [[VAR_0_]]) <{keepdims = 1 : si64, noop_with_empty_axes = 0 : si64}> : (tensor<1x3x5x5xf32>, tensor<2xi64>) -> tensor<1x3x1x1xf32>
+  // CHECK:           onnx.Return [[VAR_2_]] : tensor<1x3x1x1xf32>
+  // CHECK:         }
+}
+
+// -----
+
+// COM: Test rewriting GlobalLpPool with a bfloat16 input/output (added to the
+// op's type constraints alongside the ONNX opset 22 update, which only added
+// bfloat16 support without changing the op's semantics).
+func.func @test_global_lp_pool_bf16(%arg0: tensor<1x3x5x5xbf16>) -> tensor<1x3x1x1xbf16> {
+  %0 = "onnx.GlobalLpPool"(%arg0) {p = 2 : si64} : (tensor<1x3x5x5xbf16>) -> tensor<1x3x1x1xbf16>
+  onnx.Return %0 : tensor<1x3x1x1xbf16>
+  // CHECK-LABEL:  func.func @test_global_lp_pool_bf16
+  // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x5x5xbf16>) -> tensor<1x3x1x1xbf16> {
+  // CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<5.000000e-01> : tensor<bf16>
+  // CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<[2, 3]> : tensor<2xi64>
+  // CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Abs"([[PARAM_0_]]) : (tensor<1x3x5x5xbf16>) -> tensor<1x3x5x5xbf16>
+  // CHECK:           [[VAR_3_:%.+]] = "onnx.Mul"([[VAR_2_]], [[VAR_2_]]) : (tensor<1x3x5x5xbf16>, tensor<1x3x5x5xbf16>) -> tensor<1x3x5x5xbf16>
+  // CHECK:           [[VAR_4_:%.+]] = "onnx.ReduceSum"([[VAR_3_]], [[VAR_1_]]) <{keepdims = 1 : si64, noop_with_empty_axes = 0 : si64}> : (tensor<1x3x5x5xbf16>, tensor<2xi64>) -> tensor<1x3x1x1xbf16>
+  // CHECK:           [[VAR_5_:%.+]] = "onnx.Pow"([[VAR_4_]], [[VAR_0_]]) : (tensor<1x3x1x1xbf16>, tensor<bf16>) -> tensor<1x3x1x1xbf16>
+  // CHECK:           onnx.Return [[VAR_5_]] : tensor<1x3x1x1xbf16>
+  // CHECK:         }
+}
+
+// -----
+
 // COM: Test removing squeeze/unsqueeze pairs when they use the same axes.
 
 func.func @test_remove_unsqueeze_squeeze(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
