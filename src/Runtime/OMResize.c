@@ -299,8 +299,8 @@ static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
   }
   // Guard: computed product must not exceed the pre-allocated output buffer
   // and must not overflow the malloc argument (outputSize * rank * sizeof).
-  if (outputSize > outputCap || rank > 0 &&
-      outputSize > (int64_t)(SIZE_MAX / sizeof(int64_t)) / rank) {
+  if (outputSize > outputCap ||
+      rank > 0 && outputSize > (int64_t)(SIZE_MAX / sizeof(int64_t)) / rank) {
     if (scale_factor_OMT != NULL)
       free(output_size);
     else
