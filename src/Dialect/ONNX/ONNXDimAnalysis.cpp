@@ -145,6 +145,21 @@ static bool handleAndTestInBound(int64_t &axis, ShapedType type) {
   return axis >= 0 && axis < rank;
 }
 
+/// Get the onnx.name value of a function argument/result, if any.
+static std::optional<StringRef> getONNXName(
+    ArrayAttr argResAttr, unsigned index) {
+  if (!argResAttr || index >= argResAttr.size())
+    return std::nullopt;
+  DictionaryAttr dictAttr = llvm::dyn_cast<DictionaryAttr>(argResAttr[index]);
+  if (!dictAttr || !dictAttr.contains("onnx.name"))
+    return std::nullopt;
+  auto nameAttr = mlir::dyn_cast<StringAttr>(
+      dictAttr.getNamed("onnx.name").value().getValue());
+  if (!nameAttr || nameAttr.getValue().empty())
+    return std::nullopt;
+  return nameAttr.getValue();
+}
+
 /// Given a QuestionMarkIndexExpr representing a dynamic dimension, find the
 /// same dynamic dimensions in the inputs.
 static void findAndAddSameDim(const QuestionmarkIndexExpr &qmOuputIE,
@@ -784,23 +799,41 @@ void DimAnalysis::buildFunctionArgsRes(
   // Keep dynamic dimensions with the same dim_param.
   std::map<std::string, DimSetT> paramSetMap;
 
-  auto buildFor = [&paramSetMap, this](ValueRange args, ArrayAttr argAttrs) {
+  // Number of arguments, used to make the names seeded by results sort after
+  // the ones seeded by arguments. See DimNameInfo.
+  unsigned numArgs = funcOp.getNumArguments();
+
+  // A value can be both an argument and a result, e.g. when a function returns
+  // one of its arguments, so keep the best name for each dimension.
+  auto recordName = [this](const DimT &d, DimNameInfo info) {
+    auto it = dimNameMap.find(d);
+    if (it == dimNameMap.end() || info.isBetterThan(it->second))
+      dimNameMap[d] = std::move(info);
+  };
+
+  auto buildFor = [&paramSetMap, &recordName, numArgs, this](
+                      ValueRange args, ArrayAttr argAttrs, bool isArg) {
     for (size_t argPos = 0; argPos < args.size(); ++argPos) {
       Value arg = args[argPos];
       auto tensorType = mlir::dyn_cast<RankedTensorType>(arg.getType());
       if (!tensorType)
         continue;
-      // Get dim_params if exists.
+      // Get dim_params and onnx.name if they exist.
       std::map<unsigned, std::string> indexParamMap;
       getONNXDimParams(indexParamMap, argAttrs, argPos);
+      std::optional<StringRef> onnxName = getONNXName(argAttrs, argPos);
+      // Position used to order the candidate names of a set.
+      unsigned namePos = (unsigned)(isArg ? argPos : numArgs + argPos);
       // Check and build each dynamic dimension.
       for (int64_t dimPos = 0; dimPos < tensorType.getRank(); ++dimPos) {
         if (!tensorType.isDynamicDim(dimPos))
           continue;
         DimT ti(arg, dimPos);
         if (auto dp = indexParamMap.find(dimPos); dp != indexParamMap.end()) {
-          // This arg has dim_param, build it later with other args of the
-          // same dim_param
+          // This arg has dim_param, use it as the name of this dimension.
+          recordName(ti, DimNameInfo(dp->second, /*fromDimParam=*/true, namePos,
+                             (unsigned)dimPos));
+          // Build it later with other args of the same dim_param.
           if (paramSetMap.find(dp->second) == paramSetMap.end()) {
             DimSetT dimSet;
             dimSet.insert(ti);
@@ -809,7 +842,17 @@ void DimAnalysis::buildFunctionArgsRes(
             paramSetMap[dp->second].insert(ti);
           }
         } else {
-          // This arg does not have dim_param, build it now.
+          // This arg does not have dim_param. Synthesize a name from the
+          // argument itself, e.g. "X_0" or "arg0_0". Results are left unnamed
+          // so that a name always refers to a value given by the caller.
+          if (isArg) {
+            std::string prefix =
+                onnxName ? onnxName->str() : ("arg" + std::to_string(argPos));
+            std::string name = prefix + "_" + std::to_string(dimPos);
+            recordName(ti, DimNameInfo(std::move(name), /*fromDimParam=*/false,
+                               namePos, (unsigned)dimPos));
+          }
+          // Build it now.
           build(ti);
         }
       }
@@ -820,7 +863,7 @@ void DimAnalysis::buildFunctionArgsRes(
   if (buildForInputs) {
     ArrayRef<BlockArgument> args = funcOp.getArguments();
     ArrayAttr argAttrs = funcOp.getArgAttrsAttr();
-    buildFor(args, argAttrs);
+    buildFor(args, argAttrs, /*isArg=*/true);
   }
 
   // Build internal mappings for results.
@@ -832,7 +875,7 @@ void DimAnalysis::buildFunctionArgsRes(
     else if (auto returnOp = mlir::dyn_cast<ONNXReturnOp>(terminator))
       resVals = returnOp.getOperands();
     ArrayAttr resAttrs = funcOp.getResAttrsAttr();
-    buildFor(resVals, resAttrs);
+    buildFor(resVals, resAttrs, /*isArg=*/false);
   }
 
   // Build dynamic dimensions using dim_param.
@@ -992,6 +1035,62 @@ bool DimAnalysis::broadcastLastDim(Value tensor1, Value tensor2) const {
   return true;
 }
 
+std::optional<uint64_t> DimAnalysis::getSetID(const DimT &d) const {
+  if (auto it = dimSetIDMap.find(d); it != dimSetIDMap.end())
+    return it->second;
+  return std::nullopt;
+}
+
+void DimAnalysis::buildSetNames() {
+  dimSetIDMap.clear();
+  setNameMap.clear();
+  for (auto &entry : dimSetMap) {
+    uint64_t setID = entry.first;
+    const DimNameInfo *best = nullptr;
+    for (const DimT &d : entry.second) {
+      dimSetIDMap[d] = setID;
+      auto it = dimNameMap.find(d);
+      if (it == dimNameMap.end())
+        continue;
+      const DimNameInfo &candidate = it->second;
+      LLVM_DEBUG({
+        if (best && best->fromDimParam && candidate.fromDimParam &&
+            best->name != candidate.name)
+          llvm::dbgs() << "Set " << setID << " has two dim_params: '"
+                       << best->name << "' and '" << candidate.name
+                       << "'. They are expected to be equal at runtime.\n";
+      });
+      if (!best || candidate.isBetterThan(*best))
+        best = &candidate;
+    }
+    if (best)
+      setNameMap[setID] = best->name;
+  }
+}
+
+std::optional<std::string> DimAnalysis::getDimName(
+    Value tensor, int64_t dimAxis) const {
+  // Handle negative axis and test if in bound.
+  ShapedType tensorType = mlir::cast<ShapedType>(tensor.getType());
+  if (!handleAndTestInBound(dimAxis, tensorType))
+    return std::nullopt;
+  // Only dynamic dimensions have a name.
+  if (!tensorType.isDynamicDim(dimAxis))
+    return std::nullopt;
+  DimT d(tensor, (uint64_t)dimAxis);
+  // All the dimensions of a set share the name of the set, so that a single
+  // name identifies a single group of same dimensions.
+  if (auto setID = getSetID(d)) {
+    if (auto it = setNameMap.find(*setID); it != setNameMap.end())
+      return it->second;
+  }
+  // No name for the set yet, e.g. `analyze()` has not been called. Fall back to
+  // the name of this dimension alone, if any.
+  if (auto it = dimNameMap.find(d); it != dimNameMap.end())
+    return it->second.name;
+  return std::nullopt;
+}
+
 std::optional<int64_t> DimAnalysis::getDimOffset(
     Value tensor1, int64_t dimAxis1, Value tensor2, int64_t dimAxis2) const {
   // Handle negative axis and test if in bound.
@@ -1063,7 +1162,10 @@ void DimAnalysis::dump() const {
   for (auto &entry : dimSetMap) {
     uint64_t i = entry.first;
     DimSetT dimSet = entry.second;
-    llvm::outs() << "\n- Set " << i << " (size: " << dimSet.size() << "):\n";
+    llvm::outs() << "\n- Set " << i << " (size: " << dimSet.size() << ")";
+    if (auto name = setNameMap.find(i); name != setNameMap.end())
+      llvm::outs() << " (name: " << name->second << ")";
+    llvm::outs() << ":\n";
     for (auto &ti : dimSet)
       llvm::outs() << "  - Dim " << ti.second << " of " << ti.first << "\n";
   }
@@ -1148,6 +1250,9 @@ void DimAnalysis::analyze() {
   LLVM_DEBUG(llvm::dbgs() << "\nOffset analysis complete. Found "
                           << dimRelations.size()
                           << " dimensions with offset relationships.\n");
+
+  // Sets are final now, elect a name for each of them.
+  buildSetNames();
 }
 
 bool DimAnalysis::updateDimSets() {
@@ -1781,8 +1886,12 @@ void ONNXDimAnalysisPass::runOnOperation() {
       // Ignore if a DimGroup was created for it.
       if (processed.contains(dim))
         continue;
+      // Query the name of the dimension the DimGroup is created for, which is
+      // `val` after the ONNXDimOp above was traced back to its data.
+      std::optional<std::string> groupName = testOp.getDimName(val, dimAxis);
       MultiDialectBuilder<OnnxBuilder> create(b, loc);
-      create.onnx.dimGroup(val, dimAxis, groupID);
+      create.onnx.dimGroup(
+          val, dimAxis, groupID, groupName ? *groupName : StringRef());
       processed.insert(dim);
     }
   }
