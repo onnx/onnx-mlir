@@ -10,12 +10,17 @@
 
 #include "src/Compiler/HeapReporter.hpp"
 
+#include "src/Compiler/Command.hpp"
+
 #include "mlir/Pass/Pass.h"
 #include "mlir/Support/LLVM.h"
 
+#include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
+
+#include <fstream>
 
 #if defined(__APPLE__)
 #include <unistd.h> // Unsupported on MSVC.
@@ -80,15 +85,47 @@ void HeapReporter::reportBegin(const std::string &heading) {
   }
   // Capture the first 40 lines of heap output, which include the top level
   // numbers and a handful of the largest allocation classes.
-  command =
-      "heap -s " + std::to_string(getpid()) + " | head -n40 >> " + logFilename;
+  command = "heap -s " + std::to_string(getpid());
   logMessage(logFilename,
       heading + "\nusing heap report command: '" + command + "'\n");
 }
 
 void HeapReporter::reportHeap(const std::string &heading) {
   logMessage(logFilename, "\n" + heading + ":\n", llvm::sys::fs::OF_Append);
-  std::system(command.c_str());
+
+  // 'heap' has no built-in way to cap its output, and Command has no shell
+  // pipe/redirect support, so run it into a temp file and copy over just the
+  // first 40 lines below (mirrors the old 'heap ... | head -n40 >> log').
+  llvm::SmallString<128> tmpPath;
+  if (llvm::sys::fs::createTemporaryFile("heap-report", "log", tmpPath)) {
+    llvm::errs() << "Error: could not create temporary file for heap report\n";
+    return;
+  }
+  std::string tmpFilename = tmpPath.str().str();
+
+  Command heapCmd("heap");
+  heapCmd.appendStr("-s").appendStr(std::to_string(getpid()));
+  heapCmd.redirectExecStreams(tmpFilename);
+  try {
+    heapCmd.exec();
+  } catch (const CommandException &e) {
+    llvm::errs() << "Error running heap command: " << e.what() << "\n";
+  }
+
+  std::error_code EC;
+  llvm::raw_fd_ostream os(
+      logFilename, EC, llvm::sys::fs::OF_Text | llvm::sys::fs::OF_Append);
+  if (EC) {
+    llvm::errs() << "Error: '" << EC.message() << "' opening heap report file '"
+                 << logFilename << "'\n";
+    exit(1);
+  }
+  std::ifstream ifs(tmpFilename);
+  std::string line;
+  for (int i = 0; i < 40 && std::getline(ifs, line); ++i)
+    os << line << "\n";
+  ifs.close();
+  llvm::sys::fs::remove(tmpFilename);
 }
 #else
 // TODO: Support heap reporting on more operating systems.
