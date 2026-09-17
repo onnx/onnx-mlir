@@ -43,21 +43,13 @@ static bool hasStaticInnermostDimMod(Value val, int64_t mod) {
   return mod <= 1 || shape[rank - 1] % mod == 0;
 }
 
-/// Return the single user of \p val if it is of type \p T, null otherwise.
-template <typename T>
-static T singleUserOfType(Value val) {
-  if (!val.hasOneUse())
-    return nullptr;
-  return dyn_cast<T>(*val.getUsers().begin());
-}
-
 /// Return the unique user of \p val that is of type \p T, or null if there
-/// isn't exactly one such user.  Unlike singleUserOfType, \p val is allowed
+/// isn't exactly one such user.  Unlike singleUserOfOpType, \p val is allowed
 /// to have other, non-T-typed uses as well (e.g. a value that also escapes
 /// to a function result); callers that need to know about those other uses
 /// should check val.hasOneUse() themselves after a successful match.
 template <typename T>
-static T uniqueUserOfType(Value val) {
+static T uniqueUserOfOpType(Value val) {
   T found = nullptr;
   for (Operation *user : val.getUsers()) {
     if (auto typed = dyn_cast<T>(user)) {
@@ -207,7 +199,7 @@ bool ExtLayoutTransformFusionHelper::detectIfBeneficial(
 
   // ---- Step 2: optional split reshape ----------------------------------
   bool reshapeMayBeMerge = false;
-  if (auto splitReshape = singleUserOfType<ONNXReshapeOp>(current)) {
+  if (auto splitReshape = singleUserOfOpType<ONNXReshapeOp>(current)) {
     if (detectSplitReshape(
             splitReshape, reshapeSplitAxis, reshapeSplitFactor, dimAnalysis)) {
       ops.push_back(splitReshape.getOperation());
@@ -219,7 +211,7 @@ bool ExtLayoutTransformFusionHelper::detectIfBeneficial(
 
   // ---- Step 3: optional transpose (only when no pending merge) ----------
   if (!reshapeMayBeMerge) {
-    if (auto transpose = singleUserOfType<ONNXTransposeOp>(current)) {
+    if (auto transpose = singleUserOfOpType<ONNXTransposeOp>(current)) {
       auto perm = transpose.getPerm();
       if (!perm.has_value())
         return returnFailure("default perm unsupported");
@@ -232,7 +224,7 @@ bool ExtLayoutTransformFusionHelper::detectIfBeneficial(
   }
 
   // ---- Step 4: optional merge reshape ----------------------------------
-  if (auto mergeReshape = singleUserOfType<ONNXReshapeOp>(current)) {
+  if (auto mergeReshape = singleUserOfOpType<ONNXReshapeOp>(current)) {
     if (detectMergeReshape(mergeReshape, reshapeMergeAxis, dimAnalysis)) {
       ops.push_back(mergeReshape.getOperation());
       current = mergeReshape.getReshaped();
@@ -241,7 +233,7 @@ bool ExtLayoutTransformFusionHelper::detectIfBeneficial(
   }
 
   // ---- Step 5: optional final layout transform or DLF16->F32 -----------
-  if (auto finalLT = singleUserOfType<ONNXLayoutTransformOp>(current)) {
+  if (auto finalLT = singleUserOfOpType<ONNXLayoutTransformOp>(current)) {
     auto layoutAttr = finalLT.getTargetLayout();
     if (!layoutAttr.has_value())
       return returnFailure("second LT must target a zTensor layout");
@@ -253,7 +245,7 @@ bool ExtLayoutTransformFusionHelper::detectIfBeneficial(
         getZTensorLayoutAttr(b, cast<ZTensorEncodingAttr>(layoutAttr.value()));
     ops.push_back(finalLT.getOperation());
     current = finalLT.getOutput();
-  } else if (auto dlf = singleUserOfType<ZHighDLF16ToF32Op>(current)) {
+  } else if (auto dlf = singleUserOfOpType<ZHighDLF16ToF32Op>(current)) {
     dlf16ToF32 = true;
     ops.push_back(dlf.getOperation());
     current = dlf.getOut();
@@ -576,7 +568,7 @@ bool ExpandMulStickFusionHelper::detectIfBeneficial(
   unsqueezedPosition = P;
 
   // ---- Step 2: Expand -----------------------------------------------------
-  auto expandOp = singleUserOfType<ONNXExpandOp>(current);
+  auto expandOp = singleUserOfOpType<ONNXExpandOp>(current);
   if (!expandOp)
     return returnFailure("expand: not single user of type ONNXExpandOp");
   int64_t N = detectExpandedDim(expandOp, P, dimAnalysis);
@@ -590,21 +582,22 @@ bool ExpandMulStickFusionHelper::detectIfBeneficial(
   // If the expand output's single user is not an ONNXMulOp, skip this step
   // and leave mulScalar at its neutral default (1.f); `current` still points
   // at the expand output, so Step 4 matches the reshape directly against it.
-  if (auto mulOp = singleUserOfType<ONNXMulOp>(current)) {
-    // Identify the scalar operand (accept either argument order).
-    Value lhs = mulOp.getA();
-    Value rhs = mulOp.getB();
-    Value scalarVal = (lhs == current) ? rhs : (rhs == current) ? lhs : nullptr;
-    if (!scalarVal)
-      return returnFailure("mul: neither operand comes from the chain");
+  if (auto mulOp = singleUserOfOpType<ONNXMulOp>(current)) {
+    // Identify the scalar operand (accept either argument order): the other
+    // operand must be a constant, since both extraction paths below require
+    // one.
+    ONNXConstantOp cst;
+    if (!matchValueAndOp<ONNXConstantOp>(
+            mulOp.getA(), mulOp.getB(), current, cst))
+      return returnFailure("mul: scalar operand not found or not a constant");
 
     std::optional<float> sv = std::nullopt;
     // F32 path: reuse existing NNPA helper.
-    if (auto fa = getScalarF32AttrFromConstant(scalarVal))
+    if (auto fa = getScalarF32AttrFromConstant(cst.getResult()))
       sv = fa.getValue().convertToFloat();
     // Integer path: fall back to getScalarValue (handles I32 / I64).
-    else if (auto cst = scalarVal.getDefiningOp<ONNXConstantOp>()) {
-      Type et = cast<ShapedType>(scalarVal.getType()).getElementType();
+    else {
+      Type et = cast<ShapedType>(cst.getType()).getElementType();
       if (et.isInteger(32) || et.isInteger(64))
         sv = static_cast<float>(getScalarValue<double>(cst));
     }
@@ -616,7 +609,7 @@ bool ExpandMulStickFusionHelper::detectIfBeneficial(
   }
 
   // ---- Step 4: Reshape ----------------------------------------------------
-  auto reshapeOp = singleUserOfType<ONNXReshapeOp>(current);
+  auto reshapeOp = singleUserOfOpType<ONNXReshapeOp>(current);
   if (!reshapeOp)
     return returnFailure("reshape: not single user of type ONNXReshapeOp");
   if (!detectUpperCollapse(reshapeOp, P, reshapeFirstCollapsedDim,
@@ -625,8 +618,8 @@ bool ExpandMulStickFusionHelper::detectIfBeneficial(
   ops.push_back(reshapeOp.getOperation());
   current = reshapeOp.getReshaped();
 
-  // ---- Step 5: Stick (single-use check included in singleUserOfType) ------
-  auto stickOp = singleUserOfType<ZHighStickOp>(current);
+  // ---- Step 5: Stick (single-use check included in singleUserOfOpType) ------
+  auto stickOp = singleUserOfOpType<ZHighStickOp>(current);
   if (!stickOp)
     return returnFailure("stick: not single user of type ZHighStickOp");
   auto layoutAttr = stickOp.getLayout();
@@ -838,7 +831,7 @@ bool ConcatExpandStickFusionHelper::detectIfBeneficial(
   // of its users is the Unsqueeze that starts the rest of the chain.  When
   // such other uses exist, the concat result is threaded through as a
   // second FusedOp output (see yieldConcatResult below).
-  auto unsqOp = uniqueUserOfType<ONNXUnsqueezeOp>(current);
+  auto unsqOp = uniqueUserOfOpType<ONNXUnsqueezeOp>(current);
   if (!unsqOp)
     return returnFailure(
         "unsqueeze: not the unique user of type ONNXUnsqueezeOp");
@@ -862,7 +855,7 @@ bool ConcatExpandStickFusionHelper::detectIfBeneficial(
   unsqueezedPosition = P;
 
   // ---- Step 3: F32ToDLF16 --------------------------------------------------
-  auto dlfOp = singleUserOfType<ZHighF32ToDLF16Op>(current);
+  auto dlfOp = singleUserOfOpType<ZHighF32ToDLF16Op>(current);
   if (!dlfOp)
     return returnFailure(
         "f32-to-dlf16: not single user of type ZHighF32ToDLF16Op");
@@ -872,7 +865,7 @@ bool ConcatExpandStickFusionHelper::detectIfBeneficial(
   current = dlfOp.getOut();
 
   // ---- Step 4: Expand -------------------------------------------------------
-  auto expandOp = singleUserOfType<ONNXExpandOp>(current);
+  auto expandOp = singleUserOfOpType<ONNXExpandOp>(current);
   if (!expandOp)
     return returnFailure("expand: not single user of type ONNXExpandOp");
   int64_t N = detectExpandedDim(expandOp, P, dimAnalysis);
@@ -884,7 +877,7 @@ bool ConcatExpandStickFusionHelper::detectIfBeneficial(
 
   // ---- Step 5: Reshape
   // -------------------------------------------------------
-  auto reshapeOp = singleUserOfType<ONNXReshapeOp>(current);
+  auto reshapeOp = singleUserOfOpType<ONNXReshapeOp>(current);
   if (!reshapeOp)
     return returnFailure("reshape: not single user of type ONNXReshapeOp");
   if (!detectUpperCollapse(reshapeOp, P, reshapeFirstCollapsedDim,
@@ -894,7 +887,7 @@ bool ConcatExpandStickFusionHelper::detectIfBeneficial(
   current = reshapeOp.getReshaped();
 
   // ---- Step 6: LayoutTransform ---------------------------------------------
-  auto ltOp = singleUserOfType<ONNXLayoutTransformOp>(current);
+  auto ltOp = singleUserOfOpType<ONNXLayoutTransformOp>(current);
   if (!ltOp)
     return returnFailure(
         "layout-transform: not single user of type ONNXLayoutTransformOp");
@@ -973,12 +966,6 @@ bool ConcatExpandStickFusionHelper::retrieveAttrs(ONNXFusedOp fusedOp) {
 }
 
 bool ConcatExpandStickFusionHelper::verify() const {
-#if 0
-  fprintf(
-      stderr, "hi alex, disable concat-expand-stick fusion lowering for now\n");
-  return false;
-#endif
-
   constexpr int expected = 6; // concat + unsqueeze + f32-to-dlf16 + expand +
                               // reshape + layout-transform
   if ((int64_t)ops.size() != expected) {

@@ -471,6 +471,8 @@ void populateLoweringONNXPadOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXRangeOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXEyeLikeOpPattern(
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXReshapeOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, DimAnalysis *);
 void populateLoweringONNXIdentityOpPattern(
@@ -495,6 +497,11 @@ void populateLoweringONNXShapeOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXSliceOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
+// onnx.Fused(kind="simd-split-op-gather") -- see
+// src/Dialect/ONNX/Transforms/ONNXFusionOpHelper.hpp.
+void populateLoweringONNXFusedSplitOpGatherOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableSIMD,
+    bool enableParallel);
 void populateLoweringONNXSqueezeOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXSqueezeV11OpPattern(

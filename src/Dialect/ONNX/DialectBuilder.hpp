@@ -92,10 +92,16 @@ struct OnnxBuilder : DialectBuilder {
   // ONNXDimOp
   mlir::Value dim(mlir::Value input, int axis) const;
 
-  // ONNXDimGroupOp
-  void dimGroup(mlir::Value input, int axis, int groupID) const;
+  // ONNXDimGroupOp. An empty groupName means the group has no name.
+  void dimGroup(mlir::Value input, int axis, int groupID,
+      mlir::StringRef groupName = "") const;
 
   mlir::Value equal(mlir::Value A, mlir::Value B) const;
+
+  // ONNXAttentionOp, version with one output only (Y), no past/present KV
+  // cache, and no causal masking.
+  mlir::Value attention(mlir::Type outputType, mlir::Value Q, mlir::Value K,
+      mlir::Value V, mlir::Value attnMask, mlir::FloatAttr scale) const;
 
   // ONNXExpandOp
   mlir::Value expand(
