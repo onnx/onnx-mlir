@@ -1752,7 +1752,7 @@ void DimAnalysis::visitDimForOffsets(DimT &dim) const {
   // Special case: ONNXExpandOp with Add(Dim, Constant) in shape input.
   if (auto expandOp = mlir::dyn_cast<ONNXExpandOp>(op)) {
     if (auto concatOp = resolveThroughFusedOp(expandOp.getShape())
-            .getDefiningOp<ONNXConcatOp>()) {
+                            .getDefiningOp<ONNXConcatOp>()) {
       int64_t currentIndex = 0;
       for (Value shapeInput : concatOp.getInputs()) {
         int64_t numElements =

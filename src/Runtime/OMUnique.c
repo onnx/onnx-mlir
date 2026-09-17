@@ -67,14 +67,12 @@ static void sliceTablePrint(sliceTable *table) {
       switch (table->dataType) {
       case ONNX_TYPE_INT64:
       case ONNX_TYPE_UINT64:
-        printf("%ld,",
-            ((int64_t *)(table
-                    ->sliceDataPtr))[i * table->numberOfElementsInSlice + j]);
+        printf("%ld,", ((int64_t *)(table->sliceDataPtr))
+                           [i * table->numberOfElementsInSlice + j]);
         break;
       case ONNX_TYPE_FLOAT:
-        printf("%f,",
-            ((float *)(table
-                    ->sliceDataPtr))[i * table->numberOfElementsInSlice + j]);
+        printf("%f,", ((float *)(table->sliceDataPtr))
+                          [i * table->numberOfElementsInSlice + j]);
         break;
       default:
         printf("XX, ");
@@ -454,7 +452,7 @@ void omTensorUnique(OMTensor *totalTensor, OMTensor *Y, OMTensor *indices,
         (uint64_t)numOfSlices, sliceDataPtr, (uint64_t *)indicesPtr,
         (uint64_t *)inverseIndicesPtr, (uint64_t *)countsPtr);
     for (int64_t idxInSliceAxis = 0; idxInSliceAxis < numOfSlices;
-        idxInSliceAxis++) {
+         idxInSliceAxis++) {
       getSliceData(inputTensor, sliceAxis, idxInSliceAxis, sliceData);
       if (sliceTableRegister(
               &sliceTable, sliceData, (uint64_t)idxInSliceAxis) == 0) {
