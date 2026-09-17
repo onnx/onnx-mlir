@@ -1044,6 +1044,41 @@ func.func @test_less_should_not_remove_cast(%arg0 : tensor<f32>, %arg1 : tensor<
 
 // -----
 
+// A float operand compared against an integer-literal 0 is retyped to match,
+// reproducing the mismatched-dtype crash from a GatherND(...) >= 0 pattern.
+func.func @test_greater_or_equal_float_vs_integer_zero_literal(%arg0 : tensor<1x1x?x1xf32>) -> tensor<1x1x?x1xi1> {
+  %0 = onnx.Constant dense<0> : tensor<i64>
+  %1 = "onnx.GreaterOrEqual"(%arg0, %0) : (tensor<1x1x?x1xf32>, tensor<i64>) -> tensor<1x1x?x1xi1>
+  onnx.Return %1 : tensor<1x1x?x1xi1>
+  // CHECK-LABEL: test_greater_or_equal_float_vs_integer_zero_literal
+  // CHECK: [[ZERO:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<f32>
+  // CHECK: [[RES:%.+]] = "onnx.GreaterOrEqual"(%arg0, [[ZERO]]) : (tensor<1x1x?x1xf32>, tensor<f32>) -> tensor<1x1x?x1xi1>
+  // CHECK: onnx.Return [[RES]]
+}
+
+// -----
+
+// Same fix-up, with the literal on the left-hand side, for LessOrEqual.
+func.func @test_less_or_equal_integer_zero_literal_vs_float(%arg0 : tensor<4xf32>) -> tensor<4xi1> {
+  %0 = onnx.Constant dense<0> : tensor<i32>
+  %1 = "onnx.LessOrEqual"(%0, %arg0) : (tensor<i32>, tensor<4xf32>) -> tensor<4xi1>
+  onnx.Return %1 : tensor<4xi1>
+  // CHECK-LABEL: test_less_or_equal_integer_zero_literal_vs_float
+  // CHECK: [[ZERO:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<f32>
+  // CHECK: [[RES:%.+]] = "onnx.LessOrEqual"([[ZERO]], %arg0) : (tensor<f32>, tensor<4xf32>) -> tensor<4xi1>
+  // CHECK: onnx.Return [[RES]]
+}
+
+// -----
+
+// Note: a non-zero integer literal mismatched against a float operand (e.g.
+// GreaterOrEqual(f32, dense<1>: tensor<i64>)) is deliberately NOT tested
+// here — that input is already invalid per verifySameElementTypeForCompareOps
+// (the canonicalizer's exception only covers literal 0), so it belongs in
+// invalid.mlir's -verify-diagnostics flow rather than this file's plain
+// --canonicalize | FileCheck flow. See test_greater_or_equal_mismatched_types
+// there.
+
 // Check deriving a new maximum trip count from the break condition of the loop.
 // In this test, the new maximum trip count is a constant.
 func.func @test_loop_derive_max_trip_count(%arg0: tensor<?x30xf32>) -> tensor<?x?x30xf32> {

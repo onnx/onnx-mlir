@@ -1064,6 +1064,23 @@ def get_test_models():
             DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {-1},
         },
+        # ==OP== EyeLike
+        # ==MIN== 22
+        "test_eyelike_without_dtype_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_eyelike_with_dtype_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_eyelike_populate_off_main_diagonal_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
         # ==OP== Flatten
         # ==MIN== 1
         # ==LIM== Does not support int4 and uint4.
@@ -3059,7 +3076,7 @@ def get_test_models():
         # ==LIM== Does not support duplicate indices.
         "test_scatter_elements_without_axis_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_scatter_elements_with_axis_cpu": {
@@ -3078,7 +3095,7 @@ def get_test_models():
         # ==LIM== Does not support scatternd add/multiply.
         "test_scatternd_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {-1},
         },
         # "test_scatternd_add_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},

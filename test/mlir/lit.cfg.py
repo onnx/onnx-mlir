@@ -21,6 +21,30 @@ config.suffixes = [".mlir", ".json", ".onnxtext"]
 # test_source_root: The root path where tests are located.
 config.test_source_root = os.path.dirname(__file__)
 
+# Tag marking a file as a GroundLitTest.py baseline rather than a test of its
+# own: "mytest.mlir" is grounded numerically against "mytest.baseline.mlir".
+# Keep in step with BASELINE_TAG in utils/GroundLitTest.py; the workflow is in
+# docs/GroundedLitTests.md.
+BASELINE_TAG = ".baseline"
+
+# A baseline is the reference variant a grounded test is compared against, not a
+# test: it carries no RUN line, so collecting it would only report UNRESOLVED and
+# redden the suite. lit cannot exclude by pattern -- config.excludes is a set of
+# exact names -- so the tag is expanded into that set here, by walking the suite
+# once at config time. Matched on the stem rather than as a literal
+# ".baseline.mlir", so it holds for every suffix above: exactly the set of names
+# GroundLitTest.py's default_baseline_path() can derive, since that keeps
+# whatever extension the file it grounds had. Excluding by bare name, as lit
+# does, cannot hit a real test here, because every name collected below is one no
+# test may have. A set comprehension, so its loop variables do not leak into the
+# config namespace.
+config.excludes = set(config.excludes) | {
+    filename
+    for _, _, filenames in os.walk(config.test_source_root)
+    for filename in filenames
+    if os.path.splitext(filename)[0].endswith(BASELINE_TAG)
+}
+
 # test_exec_root: The root path where tests should be run.
 config.test_exec_root = os.path.join(config.onnx_mlir_obj_root, "test", "mlir")
 

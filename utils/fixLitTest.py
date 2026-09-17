@@ -39,12 +39,25 @@ def print_usage(error_msg="", options=False, usage=False, file_format=False):
         )
         dprint("utility.")
         dprint("")
-        dprint("fixLitTest [-dhprt] [-f <func-name>] <lit-test-filename>")
+        dprint(
+            "fixLitTest [-dhprt] [-f <func-name>] [-m <func-name>] <lit-test-filename>"
+        )
         dprint("  -t/--test   : Run FileCheck on each function individually.")
         dprint('                When combined with "--repair", test repaired lit test.')
         dprint("                Default flag is none is provided.")
         dprint("  -r/--repair : Repair lit test for each function individually.")
+        dprint("                A function with no CHECK lines at all is treated as a")
+        dprint("                test being written from scratch, and gets a full set")
+        dprint("                generated for it. A function that only carries *other*")
+        dprint("                prefixes' CHECK lines is left alone, so a file with")
+        dprint("                several RUN/prefix pairs never gains assertions for a")
+        dprint("                prefix it was not written for.")
         dprint("  -f,--func <func-name>: Perform test/repair only on given function.")
+        dprint(
+            "  -m,--module <func-name>: Isolate given function (like -f) and print it"
+        )
+        dprint('                as a standalone module, wrapped in "module {...}" and')
+        dprint('                followed by an "onnx.EntryPoint" for that function.')
         dprint(
             '  --prefix <prefix>:     Set the FileCheck prefix for mlir2FileCheck (default: "").'
         )
@@ -97,6 +110,7 @@ def print_usage(error_msg="", options=False, usage=False, file_format=False):
 
 run_command = ""
 fix_fct_name = ""
+has_module = False
 prefix_str = "CHECK"
 debug = 0
 debug_command_str = ""
@@ -219,11 +233,14 @@ def get_check_prefix_from_line(line):
     Returns None if the line is not a CHECK line or doesn't match any known prefix.
     The pattern matches lines like "// CHECK-LABEL:" or "// CHECK-Z16:" etc.
     Handles CHECK line directives like -LABEL, -NOT, -DAG, -SAME, -NEXT by stripping them.
+    Leading whitespace is allowed, so an indented CHECK line is still recognized
+    as one; missing that used to make such a line invisible here, which in turn
+    made a segment look like it had no assertions at all.
     """
     global prefix_ordered_list, debug
 
-    # Match pattern: "//\s+([^:]*):" to extract the full prefix with potential suffix.
-    m = re.match(r"//\s+([^:]*):", line)
+    # Match pattern: "\s*//\s+([^:]*):" to extract the full prefix with potential suffix.
+    m = re.match(r"\s*//\s+([^:]*):", line)
     if m:
         extracted_full = m.group(1)
 
@@ -261,6 +278,16 @@ def emit_unmodified_segment(i):
         print("// -----")
     for l in segment_text[i]:
         print(l)
+
+
+def emit_module_for_function(i):
+    global segment_text, segment_fct_name
+
+    print("module {")
+    for l in segment_text[i]:
+        print(l)
+    print(f'  "onnx.EntryPoint"() {{func = @{segment_fct_name[i]}}} : () -> ()')
+    print("}")
 
 
 def emit_modified_segment(i, has_test):
@@ -332,12 +359,18 @@ def emit_modified_segment(i, has_test):
     for line in non_check_lines:
         print(line)
 
+    # A segment carrying no assertions at all is a test being written from
+    # scratch, so the generated lines are exactly what it wants. A segment that
+    # carries only *other* prefixes' assertions is deliberately scoped to those
+    # prefixes, so it must not silently gain a full set for this one.
+    segment_has_check_lines = any(saved_check_lines.values())
+
     # Second pass: print CHECK lines in prefix order.
     for prefix in prefix_ordered_list:
         if prefix == prefix_str:
-            # Print the newly generated CHECK lines for this prefix only if
-            # there were original CHECK lines saved for this prefix.
-            if saved_check_lines[prefix]:
+            # Print the newly generated CHECK lines for this prefix if the
+            # segment had lines for it (a repair), or had none at all (bootstrap).
+            if saved_check_lines[prefix] or not segment_has_check_lines:
                 for line in new_check_lines_for_prefix:
                     print(line)
         else:
@@ -377,7 +410,7 @@ def test_orig_model(i, silent):
 
 
 def main(argv):
-    global run_command, fix_fct_name, prefix_str, debug
+    global run_command, fix_fct_name, has_module, prefix_str, debug
     global segment_text, segment_fct_name, segment_mlir2FileCheck_command
     input_command = "fixLitTest.py"
     has_fct = False
@@ -388,8 +421,17 @@ def main(argv):
     try:
         opts, args = getopt.gnu_getopt(
             argv,
-            "rtdf:hp",
-            ["repair", "test", "debug", "func=", "help", "print", "prefix="],
+            "rtdf:hpm:",
+            [
+                "repair",
+                "test",
+                "debug",
+                "func=",
+                "help",
+                "print",
+                "prefix=",
+                "module=",
+            ],
         )
     except getopt.GetoptError:
         print_usage("unknown options", options=True)
@@ -406,18 +448,29 @@ def main(argv):
             fix_fct_name = arg
             has_fct = True
             debug = 1  # debug on default with -f option
+        elif opt in ("-m", "--module"):
+            fix_fct_name = arg
+            has_fct = True
+            has_module = True
+            debug = 1  # debug on default with -m option
         elif opt == "--prefix":
             prefix_str = arg
         elif opt in ("-h", "--help"):
             print_usage(options=True, usage=True, file_format=True)
 
-    if not has_repair and not has_test:
+    if not has_repair and not has_test and not has_module:
         has_test = 1
 
     if len(args) != 1:
-        # All commands after the file name seems to be added here!!!
-        dprint("Need an single input file as last option: ", args, ".")
-        return
+        # Everything getopt did not consume as an option ends up here, so a
+        # miscounted option is what usually lands us in this branch.
+        print_usage(
+            f"expected exactly one input file as the last argument, got"
+            f" {len(args)}: {args}."
+            ' Options come before the file name, and those taking a value ("-f",'
+            ' "-m", "--prefix") consume the argument after them.',
+            options=True,
+        )
     lit_test_filename = args[0]
     if not os.path.exists(lit_test_filename):
         # If don't find the path, try in the test/mlir sub directory.
@@ -530,7 +583,12 @@ def main(argv):
     if has_fct and not found_fct_to_fix:
         dprint(f"Did not find function to fix: '{fix_fct_name}'.")
         sys.exit()
-    if run_command_num == 0:
+    # Isolating a function (-m) only copies text out of a segment: it never runs
+    # onnx-mlir-opt, so it has no use for the RUN command. Requiring one anyway
+    # would force a RUN line onto files that are never meant to be lit tests --
+    # GroundLitTest.py's ".baseline" files, which lit deliberately skips. Every
+    # other mode does run the command, so there the file still must carry one.
+    if run_command_num == 0 and not has_module:
         print_usage('Expected "// RUN:" command.', file_format=True)
 
     # Process segments.
@@ -543,7 +601,10 @@ def main(argv):
         if has_fct:
             if segment_fct_name[i] == fix_fct_name:
                 # We have the selected function.
-                if has_repair:
+                if has_module:
+                    dprint(f"// > extract module for {segment_fct_name[i]}")
+                    emit_module_for_function(i)
+                elif has_repair:
                     dprint(f"// > repair {segment_fct_name[i]}")
                     emit_modified_segment(i, has_test)
                 elif has_test:

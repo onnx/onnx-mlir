@@ -216,9 +216,17 @@ void NNPAAccelerator::conversionTargetONNXToKrnl(
       mlir::ConversionTarget::DynamicLegalityCallbackFn(
           [](mlir::Operation *op) -> std::optional<bool> {
             auto kindAttr = op->getAttrOfType<mlir::StringAttr>("kind");
-            if (!kindAttr)
-              return true; // no kind — not a ZHigh fused op, legal
-            return !kindAttr.getValue().starts_with("zhigh.");
+            if (kindAttr && kindAttr.getValue().starts_with("zhigh."))
+              return false; // ZHigh-specific kinds must be lowered here.
+            // Not a ZHigh fused op: defer (std::nullopt) to the normal
+            // legality/pattern rules for this pass instead of claiming it's
+            // already legal. Returning `true` here would stop the driver
+            // from applying the other registered patterns (e.g.
+            // FusedSplitOpGatherOpPattern / FusedOpInlineFallback) to the op
+            // itself, while it still independently descends into and
+            // converts the ops nested in its region -- corrupting the fused
+            // op's body/terminator.
+            return std::nullopt;
           }));
 }
 

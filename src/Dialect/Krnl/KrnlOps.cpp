@@ -724,6 +724,48 @@ void KrnlBlockOp::build(::OpBuilder &odsBuilder,
       odsBuilder.getI64IntegerAttr(odsTileSize));
 }
 
+LogicalResult KrnlBlockOp::verify() {
+  if (getLoop().getDefiningOp<KrnlCollapseOp>())
+    return emitOpError("cannot block a loop produced by krnl.collapse");
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// KrnlUnrollOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult KrnlUnrollOp::verify() {
+  if (getLoop().getDefiningOp<KrnlCollapseOp>())
+    return emitOpError("cannot unroll a loop produced by krnl.collapse");
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// KrnlCollapseOp
+//===----------------------------------------------------------------------===//
+
+void KrnlCollapseOp::build(::OpBuilder &odsBuilder,
+    ::mlir::OperationState &odsState, ValueRange odsLoops) {
+  assert(odsLoops.size() >= 2 && "collapse needs 2 or more loops");
+  build(odsBuilder, odsState, krnl::LoopType::get(odsBuilder.getContext()),
+      odsLoops);
+}
+
+LogicalResult KrnlCollapseOp::verify() {
+  if (getLoops().size() < 2)
+    return emitOpError("expects 2 or more loops to collapse");
+  // Restrictions of the first version: neither blocked nor already-collapsed
+  // loops may be collapsed. Both are meaningful extensions, but they need the
+  // trip counts of operands that are not plain original loop dimensions.
+  for (Value loop : getLoops()) {
+    if (loop.getDefiningOp<KrnlBlockOp>())
+      return emitOpError("cannot collapse a loop produced by krnl.block");
+    if (loop.getDefiningOp<KrnlCollapseOp>())
+      return emitOpError("cannot collapse a loop produced by krnl.collapse");
+  }
+  return success();
+}
+
 //===----------------------------------------------------------------------===//
 // KrnlPermuteOp
 //===----------------------------------------------------------------------===//
@@ -750,12 +792,63 @@ void KrnlPermuteOp::build(::OpBuilder &odsBuilder,
 // KrnlGetInductionVariableValueOp
 //===----------------------------------------------------------------------===//
 
+// Number of induction variable values a loop reference contributes in
+// per-dimension mode: one per originally collapsed dimension for a
+// krnl.collapse result, one for any other loop reference. In fusedIndex mode
+// every reference contributes exactly one, so this is not consulted.
+//
+// A single step back is enough: krnl.block and krnl.collapse are the only ops
+// turning a loop reference into another loop reference, and both reject a
+// krnl.collapse operand, so nothing can legally sit in between.
+static int64_t getNumInductionVarValues(Value loop) {
+  if (auto collapseOp = loop.getDefiningOp<KrnlCollapseOp>())
+    return collapseOp.getLoops().size();
+  return 1;
+}
+
+// Number of results this operation must have, given its operands and mode.
+static int64_t getExpectedNumInductionVarValues(
+    ValueRange loops, bool fusedIndex) {
+  if (fusedIndex)
+    return loops.size();
+  int64_t num = 0;
+  for (Value loop : loops)
+    num += getNumInductionVarValues(loop);
+  return num;
+}
+
 void KrnlGetInductionVariableValueOp::build(::OpBuilder &odsBuilder,
     ::mlir::OperationState &odsState, ValueRange odsLoops) {
-  int64_t rank = odsLoops.size();
-  SmallVector<Type, 6> types(rank, odsBuilder.getIndexType());
-  ArrayRef<NamedAttribute> noAttr({});
-  build(odsBuilder, odsState, types, odsLoops, noAttr);
+  build(odsBuilder, odsState, odsLoops, /*fusedIndex=*/false);
+}
+
+void KrnlGetInductionVariableValueOp::build(::OpBuilder &odsBuilder,
+    ::mlir::OperationState &odsState, ValueRange odsLoops, bool odsFusedIndex) {
+  int64_t numResults =
+      getExpectedNumInductionVarValues(odsLoops, odsFusedIndex);
+  SmallVector<Type, 6> types(numResults, odsBuilder.getIndexType());
+  SmallVector<NamedAttribute, 1> attrs;
+  if (odsFusedIndex)
+    attrs.emplace_back(odsBuilder.getNamedAttr(
+        getFusedIndexAttrName(odsState.name), odsBuilder.getUnitAttr()));
+  build(odsBuilder, odsState, types, odsLoops, attrs);
+}
+
+LogicalResult KrnlGetInductionVariableValueOp::verify() {
+  bool fusedIndex = getFusedIndex();
+  int64_t expected = getExpectedNumInductionVarValues(getLoops(), fusedIndex);
+  if (static_cast<int64_t>(getNumResults()) == expected)
+    return success();
+  InFlightDiagnostic diag = emitOpError("expects ")
+                            << expected << " results but has "
+                            << getNumResults() << "; ";
+  if (fusedIndex)
+    diag << "with 'fusedIndex' every loop reference yields exactly one index";
+  else
+    diag << "one index is yielded per original dimension, which is more than "
+            "one for a loop reference produced by krnl.collapse (use "
+            "'fusedIndex' to ask for its fused index instead)";
+  return diag;
 }
 
 //===----------------------------------------------------------------------===//
