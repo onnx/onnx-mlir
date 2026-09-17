@@ -37,6 +37,8 @@ namespace onnx_mlir {
 namespace zhigh {
 
 /// Get raw data from a dense attribute.
+/// On return, \p data contains the full raw bytes of \p attr_ — any prior
+/// contents are replaced, not appended.
 static void getRawData(ElementsAttr attr_, std::vector<char> &data) {
   ShapedType tensorType = mlir::cast<ShapedType>(attr_.getType());
   Type elemTy = tensorType.getElementType();
@@ -61,8 +63,14 @@ static void getRawData(ElementsAttr attr_, std::vector<char> &data) {
 
   ArrayRef<char> rawData = denseAttr.getRawData();
   if (denseAttr.isSplat()) {
-    // Broadcast the splat value.
-    for (int i = 0; i < numElements; i++)
+    // Broadcast the splat value. numElements is int64_t; use int64_t for the
+    // loop counter — a 32-bit signed counter wraps at INT_MAX and the wrapped
+    // negative value still satisfies i < numElements, causing an unbounded
+    // append loop. reserve() once to avoid O(numElements) reallocations;
+    // insert() then appends safely and throws std::length_error (rather than
+    // silently under-allocating) if the total size is unreasonable.
+    data.reserve(static_cast<size_t>(numElements) * rawData.size());
+    for (int64_t i = 0; i < numElements; i++)
       data.insert(data.end(), rawData.begin(), rawData.end());
   } else {
     data = rawData;
