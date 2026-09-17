@@ -43,6 +43,14 @@ func.func @test_compress_verifier_1(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor
 
 // -----
 
+func.func @test_eyelike_verifier_rank(%arg0 : tensor<5x5x5xf32>) -> tensor<*xf32> {
+  // expected-error @+1 {{'onnx.EyeLike' op Input should have a rank of two}}
+  %0 = "onnx.EyeLike"(%arg0) : (tensor<5x5x5xf32>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
 func.func @test_concat_verifier_1(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<5x5x3x32xf32>, %arg2 : tensor<5x5x5x32xf32>) -> tensor<*xf32> {
   // expected-error @+1 {{onnx.Concat: 'axis' value is 4, accepted range is [-4, 3]}}
   %1 = "onnx.Concat"(%arg0, %arg1, %arg2) { axis = 4 : si64} : (tensor<5x5x1x32xf32>, tensor<5x5x3x32xf32>, tensor<5x5x5x32xf32>)  -> tensor<*xf32>
