@@ -66,7 +66,7 @@ zdnn_status set_zdnn_status(zdnn_status status, const char *func_name,
 // Misc Macros
 // -----------------------------------------------------------------------------
 #define CEIL(a, b)                                                             \
-  static_cast<uint64_t>(((a) + (b)-1) / (b)) // positive numbers only
+  static_cast<uint64_t>(((a) + (b) - 1) / (b)) // positive numbers only
 #define MIN(a, b) (((a) > (b)) ? (b) : (a))
 #define MAX(a, b) (((a) < (b)) ? (b) : (a))
 #define BIT_SIZEOF(a) (sizeof(a) * 8)
@@ -270,11 +270,12 @@ void *malloc_aligned_4k(size_t size) {
 
   // Make sure size is reasonable and that adding extra_allocation won't wrap.
   // The original check "size > SIZE_MAX" is dead code: size_t can never exceed
-  // SIZE_MAX by definition. The real hazard is the malloc(size+extra_allocation)
-  // call below: if size lands within extra_allocation of SIZE_MAX, the addition
-  // wraps size_t back to a tiny value and malloc succeeds with a tiny block
-  // while the caller records the original near-SIZE_MAX size as buffer_size,
-  // causing subsequent writes (memset/transform_ztensor) to go far out of bounds.
+  // SIZE_MAX by definition. The real hazard is the
+  // malloc(size+extra_allocation) call below: if size lands within
+  // extra_allocation of SIZE_MAX, the addition wraps size_t back to a tiny
+  // value and malloc succeeds with a tiny block while the caller records the
+  // original near-SIZE_MAX size as buffer_size, causing subsequent writes
+  // (memset/transform_ztensor) to go far out of bounds.
   if (!size || size > SIZE_MAX - extra_allocation) {
     return NULL;
   }
@@ -373,20 +374,19 @@ uint64_t getsize_ztensor(const zdnn_tensor_desc *tfrmd_desc) {
   }
   // Guard the dim4*dim3*ceil(dim2/sticks)*ceil(dim1/cells)*4096 product against
   // uint64_t overflow. The per-dim and total-size caps that would otherwise
-  // bound these inputs are inside a #if 0 block (verify_transformed_descriptor),
-  // so attacker-controlled dims can wrap the product to a tiny value, causing
-  // malloc_aligned_4k to succeed with a tiny buffer that transform_ztensor then
-  // overruns. Return 0 on overflow so callers fail closed; malloc_aligned_4k's
-  // own existing !size check (Stickify.cpp:272) already handles this correctly.
+  // bound these inputs are inside a #if 0 block
+  // (verify_transformed_descriptor), so attacker-controlled dims can wrap the
+  // product to a tiny value, causing malloc_aligned_4k to succeed with a tiny
+  // buffer that transform_ztensor then overruns. Return 0 on overflow so
+  // callers fail closed; malloc_aligned_4k's own existing !size check
+  // (Stickify.cpp:272) already handles this correctly.
+  uint64_t stickPages = CEIL(number_of_sticks, AIU_STICKS_PER_PAGE);
+  uint64_t cellSticks = CEIL(tfrmd_desc->dim1, cells_per_stick);
   uint64_t size = static_cast<uint64_t>(tfrmd_desc->dim4);
   if (__builtin_mul_overflow(
           size, static_cast<uint64_t>(tfrmd_desc->dim3), &size) ||
-      __builtin_mul_overflow(
-          size, static_cast<uint64_t>(CEIL(number_of_sticks,
-                                          AIU_STICKS_PER_PAGE)), &size) ||
-      __builtin_mul_overflow(
-          size, static_cast<uint64_t>(CEIL(tfrmd_desc->dim1,
-                                          cells_per_stick)), &size) ||
+      __builtin_mul_overflow(size, stickPages, &size) ||
+      __builtin_mul_overflow(size, cellSticks, &size) ||
       __builtin_mul_overflow(
           size, static_cast<uint64_t>(AIU_PAGESIZE_IN_BYTES), &size)) {
     return 0;
@@ -917,7 +917,7 @@ zdnn_status transform_ztensor(const void *in_buf, zdnn_ztensor *ztensor) {
             // process each C-stick (i.e., every 64 elements or whatever
             // left in dim1)
             for (uint32_t e1x = 0; e1x < ztensor->transformed_desc->dim1;
-                 e1x += AIU_2BYTE_CELLS_PER_STICK) {
+                e1x += AIU_2BYTE_CELLS_PER_STICK) {
               // Prefetch to L1 newest offset to write that HW wouldn't
               // know about
 #if defined(__MVS__)
@@ -1105,7 +1105,7 @@ zdnn_status transform_ztensor(const void *in_buf, zdnn_ztensor *ztensor) {
           // process each K-stick (i.e., every 64 elements or whatever
           // left in dim1)
           for (uint32_t e1x = 0; e1x < ztensor->transformed_desc->dim1;
-               e1x += AIU_2BYTE_CELLS_PER_STICK) {
+              e1x += AIU_2BYTE_CELLS_PER_STICK) {
             // Prefetch (read) the next input buffer to be used. The HW should
             // "notice" our sequential accesses and continue them, so we won't
             // need to aggressively prefetch here.
@@ -1243,7 +1243,7 @@ zdnn_status transform_bidir_weight_ztensor(
       uint64_t out_offset_w = output_offset;
 
       for (uint32_t e1x = 0; e1x < ztensor->transformed_desc->dim1;
-           e1x += AIU_2BYTE_CELLS_PER_STICK) {
+          e1x += AIU_2BYTE_CELLS_PER_STICK) {
 #if defined(__MVS__)
         __dcbtst(reinterpret_cast<void *>(
             reinterpret_cast<uintptr_t>(ztensor->buffer) + output_offset));
@@ -1336,8 +1336,8 @@ zdnn_status stickify(zdnn_ztensor *ztensor, ...) {
    */
   uint64_t required_size = getsize_ztensor(ztensor->transformed_desc);
   if (!ztensor->buffer ||
-      reinterpret_cast<uintptr_t>(ztensor->buffer) & 0xFFF ||
-      !required_size || ztensor->buffer_size < required_size) {
+      reinterpret_cast<uintptr_t>(ztensor->buffer) & 0xFFF || !required_size ||
+      ztensor->buffer_size < required_size) {
     return ZDNN_INVALID_BUFFER;
   }
 
@@ -1580,7 +1580,7 @@ zdnn_status transform_quantized_weights_ztensor_element_wise(
 
       // W, sticks are processed in pairs
       for (uint32_t e2x = 0; e2x < output->transformed_desc->dim2;
-           e2x = e2x + 2) {
+          e2x = e2x + 2) {
 
         // used for pushing out_offset from w to w+1 (i.e., +
         // AIU_BYTES_PER_STICK)
@@ -1598,8 +1598,8 @@ zdnn_status transform_quantized_weights_ztensor_element_wise(
         // this C loop takes care of the full VECPERM_MAX_INT8_ENTRIES-entries
         // groups
         for (uint32_t i = 0;
-             i < output->transformed_desc->dim1 / VECPERM_MAX_INT8_ENTRIES;
-             i++) {
+            i < output->transformed_desc->dim1 / VECPERM_MAX_INT8_ENTRIES;
+            i++) {
           ((int8_t *)output->buffer + output_offset)[0] = stick1[0];
           ((int8_t *)output->buffer + output_offset)[1] = stick2[0];
           ((int8_t *)output->buffer + output_offset)[2] = stick1[1];
@@ -1635,8 +1635,8 @@ zdnn_status transform_quantized_weights_ztensor_element_wise(
 
         // takes care of the leftover c entries
         for (uint32_t i = 0;
-             i < output->transformed_desc->dim1 % VECPERM_MAX_INT8_ENTRIES;
-             i++) {
+            i < output->transformed_desc->dim1 % VECPERM_MAX_INT8_ENTRIES;
+            i++) {
           ((int8_t *)output->buffer + output_offset)[0] = stick1[i];
           ((int8_t *)output->buffer + output_offset)[1] = stick2[i];
 
