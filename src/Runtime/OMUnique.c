@@ -67,12 +67,14 @@ static void sliceTablePrint(sliceTable *table) {
       switch (table->dataType) {
       case ONNX_TYPE_INT64:
       case ONNX_TYPE_UINT64:
-        printf("%ld,", ((int64_t *)(table->sliceDataPtr))
-                           [i * table->numberOfElementsInSlice + j]);
+        printf("%ld,",
+            ((int64_t *)(table
+                    ->sliceDataPtr))[i * table->numberOfElementsInSlice + j]);
         break;
       case ONNX_TYPE_FLOAT:
-        printf("%f,", ((float *)(table->sliceDataPtr))
-                          [i * table->numberOfElementsInSlice + j]);
+        printf("%f,",
+            ((float *)(table
+                    ->sliceDataPtr))[i * table->numberOfElementsInSlice + j]);
         break;
       default:
         printf("XX, ");
@@ -374,8 +376,8 @@ void omTensorUnique(OMTensor *totalTensor, OMTensor *Y, OMTensor *indices,
     // manage the inputTensor as flatten one
     uint64_t elementNum = 1;
     for (int64_t i = 0; i < inputRank; i++) {
-      if (__builtin_mul_overflow(elementNum, (uint64_t)inputShape[i],
-              &elementNum)) {
+      if (__builtin_mul_overflow(
+              elementNum, (uint64_t)inputShape[i], &elementNum)) {
         *totalPtr = 0;
         return;
       }
@@ -413,7 +415,8 @@ void omTensorUnique(OMTensor *totalTensor, OMTensor *Y, OMTensor *indices,
         return;
       }
     }
-    // Guard the three-way product: numOfElementsInSlice * numOfSlices * dataSize
+    // Guard the three-way product: numOfElementsInSlice * numOfSlices *
+    // dataSize
     uint64_t sliceDataBytes;
     if (__builtin_mul_overflow(
             numOfElementsInSlice, (uint64_t)numOfSlices, &sliceDataBytes) ||
@@ -429,7 +432,8 @@ void omTensorUnique(OMTensor *totalTensor, OMTensor *Y, OMTensor *indices,
       indicesPtr = tmpIndicesPtr;
     }
     uint64_t sliceElemBytes;
-    if (__builtin_mul_overflow(numOfElementsInSlice, dataSize, &sliceElemBytes)) {
+    if (__builtin_mul_overflow(
+            numOfElementsInSlice, dataSize, &sliceElemBytes)) {
       if (YPtr == NULL)
         free(sliceDataPtr);
       free(tmpIndicesPtr);
@@ -450,10 +454,10 @@ void omTensorUnique(OMTensor *totalTensor, OMTensor *Y, OMTensor *indices,
         (uint64_t)numOfSlices, sliceDataPtr, (uint64_t *)indicesPtr,
         (uint64_t *)inverseIndicesPtr, (uint64_t *)countsPtr);
     for (int64_t idxInSliceAxis = 0; idxInSliceAxis < numOfSlices;
-         idxInSliceAxis++) {
+        idxInSliceAxis++) {
       getSliceData(inputTensor, sliceAxis, idxInSliceAxis, sliceData);
-      if (sliceTableRegister(&sliceTable, sliceData, (uint64_t)idxInSliceAxis) ==
-          0) {
+      if (sliceTableRegister(
+              &sliceTable, sliceData, (uint64_t)idxInSliceAxis) == 0) {
         count++;
       }
     }
