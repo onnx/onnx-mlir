@@ -76,6 +76,7 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/Sequence/Sequence.cpp
   ONNXOps/Sequence/SplitToSequence.cpp
   ONNXOps/Tensor/ArgMinMax.cpp
+  ONNXOps/Tensor/Col2Im.cpp
   ONNXOps/Tensor/Compress.cpp
   ONNXOps/Tensor/Concat.cpp
   ONNXOps/Tensor/ConcatFromSequence.cpp

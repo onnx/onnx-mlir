@@ -392,6 +392,7 @@ OpsWithVerifier = [
     "Cast",
     "CastLike",
     "CategoryMapper",
+    "Col2Im",
     "Compress",
     "Concat",
     "ConcatFromSequence",
