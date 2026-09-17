@@ -78,26 +78,6 @@ public:
   using DimScaleRelationMapT =
       llvm::DenseMap<DimT, llvm::SmallVector<DimScaleRelation, 4>>;
 
-  // Represents the symbolic computation of an inferred dimension in a reshape.
-  // For reshape with -1, the inferred dimension equals:
-  // (product of input dims) / (product of known output dims)
-  struct InferredDimComputation {
-    DimT inferredDim;                          // The output dimension.
-    llvm::SmallVector<DimT, 4> numeratorDims;  // Input dimensions (numerator).
-    llvm::SmallVector<DimT, 4> denominatorDims; // Known output dims (denominator).
-    int64_t numeratorConstant = 1;             // Constant factor in numerator.
-    int64_t denominatorConstant = 1;           // Constant factor in denominator.
-
-    InferredDimComputation() = default;
-
-    // Normalize by canceling common factors and sorting.
-    void normalize();
-
-    // Check if two computations are equivalent.
-    bool isEquivalentTo(const InferredDimComputation &other,
-                        const DimAnalysis &analysis) const;
-  };
-
   // The symbolic name of a dynamic dimension of a function argument/result,
   // together with where it came from. The origin is used to deterministically
   // elect a single name when a group contains several named dimensions:
@@ -304,17 +284,6 @@ private:
   /// then dim_p == dim_q.
   void propagateScaleRelations();
 
-  /// Analyze a reshape operation to detect inferred dimensions (marked with -1).
-  /// Returns the symbolic computation if an inferred dimension is found.
-  std::optional<InferredDimComputation> analyzeReshapeInferredDim(
-      mlir::Operation *reshapeOp) const;
-
-  /// Collect all inferred dimension computations from reshape operations.
-  void collectInferredDimensions();
-
-  /// Group dimensions that have equivalent inferred computations.
-  void groupInferredDimensions();
-
 private:
   int64_t setCounter = 0;
   int64_t numOfDynamicDims = 0;
@@ -329,8 +298,6 @@ private:
   mutable DimRelationMapT dimRelations;
   /// Mapping from dimensions to their scale relationships.
   mutable DimScaleRelationMapT dimScaleRelations;
-  /// Inferred dimension computations from reshape operations.
-  mutable llvm::SmallVector<InferredDimComputation, 8> inferredDimComputations;
   /// Names of the dynamic dimensions of function arguments/results. Filled in
   /// while building the internal mappings for them.
   llvm::SmallDenseMap<DimT, DimNameInfo, 4> dimNameMap;
