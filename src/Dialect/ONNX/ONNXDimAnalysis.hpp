@@ -15,6 +15,11 @@
 #ifndef ONNX_MLIR_ONNX_DIM_ANALYSIS_H
 #define ONNX_MLIR_ONNX_DIM_ANALYSIS_H
 
+#include <map>
+#include <optional>
+#include <string>
+#include <tuple>
+
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/Value.h"
@@ -51,6 +56,32 @@ public:
   // Map from a dimension to its related dimensions with offsets.
   using DimRelationMapT =
       llvm::DenseMap<DimT, llvm::SmallVector<DimRelation, 4>>;
+
+  // The symbolic name of a dynamic dimension of a function argument/result,
+  // together with where it came from. The origin is used to deterministically
+  // elect a single name when a group contains several named dimensions:
+  // `onnx.dim_params` names win over synthesized ones, then the lowest
+  // (argPos, dimPos) wins. Names seeded by function results have `argPos` past
+  // the last argument so that they sort after all arguments.
+  struct DimNameInfo {
+    std::string name;
+    bool fromDimParam;
+    unsigned argPos;
+    unsigned dimPos;
+
+    DimNameInfo() : name(), fromDimParam(false), argPos(0), dimPos(0) {}
+    DimNameInfo(
+        std::string name, bool fromDimParam, unsigned argPos, unsigned dimPos)
+        : name(std::move(name)), fromDimParam(fromDimParam), argPos(argPos),
+          dimPos(dimPos) {}
+
+    // Returns true if this name is a better candidate than `other`.
+    bool isBetterThan(const DimNameInfo &other) const {
+      if (fromDimParam != other.fromDimParam)
+        return fromDimParam;
+      return std::tie(argPos, dimPos) < std::tie(other.argPos, other.dimPos);
+    }
+  };
 
 public:
   /// Create a new analysis for all values in a module.
@@ -115,6 +146,18 @@ public:
   /// Note that: broadcasting direction is important.
   bool broadcastLastDim(mlir::Value tensor1, mlir::Value tensor2) const;
 
+  /// Returns the symbolic name of a dynamic dimension, e.g. "batch_size", if
+  /// one is known. Names come from function arguments: the `onnx.dim_params`
+  /// attribute when present, otherwise synthesized from the argument's
+  /// `onnx.name` or position (e.g. "X_1", "arg0_0"). A dimension inherits the
+  /// name of any dimension proven equal to it, so dimensions of intermediate
+  /// tensors are named too. That inheritance requires `analyze()` to have run.
+  /// Negative axis is interpreted as index from the innermost dimension.
+  /// Returns std::nullopt for a static dimension, an out of bound axis, or a
+  /// dimension not related to any named one.
+  std::optional<std::string> getDimName(
+      mlir::Value tensor, int64_t dimAxis) const;
+
   /// Returns the offset if tensor1[dimAxis1] + offset == tensor2[dimAxis2].
   /// Returns std::nullopt if no offset relationship is found.
   /// Negative axis is interpreted as index from the innermost dimension.
@@ -174,6 +217,18 @@ private:
   void getONNXDimParams(std::map<unsigned, std::string> &indexParamMap,
       mlir::ArrayAttr argResAttr, unsigned index);
 
+  /// Returns the ID of the set that contains `d`, or std::nullopt if `d` does
+  /// not belong to any set. This is a lookup in `dimSetIDMap`, so it only
+  /// answers once `buildSetNames` has indexed the sets.
+  std::optional<uint64_t> getSetID(const DimT &d) const;
+
+  /// Index the sets of same dynamic dimensions for name lookup: map each
+  /// dimension to the ID of the set that contains it, and elect one name per
+  /// set from the names of its members. Must be called once the sets are final,
+  /// i.e. at the end of `analyze()`, because a dimension moves from one set to
+  /// another, and set IDs disappear, while sets are being merged.
+  void buildSetNames();
+
   /// Propagate offset relationships based on equality relationships.
   /// If dim_s == dim_t and dim_p = dim_s + k and dim_q = dim_t + k,
   /// then dim_p == dim_q.
@@ -191,6 +246,15 @@ private:
   const llvm::SmallPtrSet<mlir::Operation *, 32> targetOps;
   /// Mapping from dimensions to their offset relationships.
   mutable DimRelationMapT dimRelations;
+  /// Names of the dynamic dimensions of function arguments/results. Filled in
+  /// while building the internal mappings for them.
+  llvm::SmallDenseMap<DimT, DimNameInfo, 4> dimNameMap;
+  /// The ID of the set each dynamic dimension belongs to, the reverse of
+  /// `dimSetMap`. Built at the end of `analyze()`.
+  llvm::SmallDenseMap<DimT, uint64_t, 4> dimSetIDMap;
+  /// The name of each set of same dynamic dimensions, if any. Built at the end
+  /// of `analyze()`.
+  llvm::SmallDenseMap<uint64_t, std::string, 4> setNameMap;
 };
 
 /// Scoped dimension analysis that only analyzes operations within a limited

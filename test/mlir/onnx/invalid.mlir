@@ -43,6 +43,14 @@ func.func @test_compress_verifier_1(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor
 
 // -----
 
+func.func @test_eyelike_verifier_rank(%arg0 : tensor<5x5x5xf32>) -> tensor<*xf32> {
+  // expected-error @+1 {{'onnx.EyeLike' op Input should have a rank of two}}
+  %0 = "onnx.EyeLike"(%arg0) : (tensor<5x5x5xf32>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
 func.func @test_concat_verifier_1(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<5x5x3x32xf32>, %arg2 : tensor<5x5x5x32xf32>) -> tensor<*xf32> {
   // expected-error @+1 {{onnx.Concat: 'axis' value is 4, accepted range is [-4, 3]}}
   %1 = "onnx.Concat"(%arg0, %arg1, %arg2) { axis = 4 : si64} : (tensor<5x5x1x32xf32>, tensor<5x5x3x32xf32>, tensor<5x5x5x32xf32>)  -> tensor<*xf32>
@@ -476,10 +484,10 @@ func.func @test_scatterelements_verifier_3(%arg0 : tensor<5x5x1x32xf32>, %arg1 :
 
 // -----
 
-func.func @test_scatterelements_verifier_4(%arg0 : tensor<3xf32>, %arg1 : tensor<3xf32>) -> tensor<*xf32> {
+func.func @test_scatterelements_verifier_4(%arg0 : tensor<3xf32>, %arg1 : tensor<1xf32>) -> tensor<*xf32> {
   // expected-error @+2 {{onnx.ScatterElements: 'indices' value is 3, accepted range is [-3, 2]}}
   %indices = "onnx.Constant"() {value = dense<[3]> : tensor<1xi64>} : () -> tensor<1xi64>
-  %1 = "onnx.ScatterElements"(%arg0, %indices, %arg1) {axis = 0 : si64} : (tensor<3xf32>, tensor<1xi64>, tensor<3xf32>)  -> tensor<*xf32>
+  %1 = "onnx.ScatterElements"(%arg0, %indices, %arg1) {axis = 0 : si64} : (tensor<3xf32>, tensor<1xi64>, tensor<1xf32>)  -> tensor<*xf32>
   "onnx.Return"(%1) : (tensor<*xf32>) -> ()
 }
 
