@@ -71,7 +71,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
 | **Erf** |9 - * | | |
 | **Exp** |6 - * | | |
 | **Expand** |8 - * |Input `shape` must have static shape. | |
-| **EyeLike** |none | | | |
+| **EyeLike** |22 - * | | |
 | **FeatureVectorizer** |none | | | |
 | **Flatten** |6 - * |Does not support int4 and uint4. | |
 | **Floor** |6 - * | | |
