@@ -2,7 +2,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-------------------- Det.cpp - ONNX Operations ------------------------===//
+//===-------------------- Det.cpp - ONNX Operations
+//------------------------===//
 //
 // This file provides definition of ONNX dialect Det operation.
 //

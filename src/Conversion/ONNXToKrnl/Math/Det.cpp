@@ -212,37 +212,35 @@ struct ONNXDetOpLowering : public OpConversionPattern<ONNXDetOp> {
                 // pivot is zero the matrix is singular, the determinant is
                 // already zero, and dividing by the pivot must be avoided.
                 Value pivotNonZero = create.math.neq(pivotElem, zeroVal);
-                create.scf.ifThenElse(
-                    pivotNonZero, [&](const SCFBuilder &createSCF) {
-                      MultiDialectBuilder<KrnlBuilder, MathBuilder, SCFBuilder>
-                          create(createSCF);
-                      Value kPlus1b = create.math.add(k, one);
-                      create.scf.forLoop(kPlus1b, M, 1,
-                          [&](const SCFBuilder &createSCF, ValueRange iv) {
-                            MultiDialectBuilder<KrnlBuilder, MathBuilder,
-                                SCFBuilder>
-                                create(createSCF);
-                            Value i = iv[0];
-                            Value ik =
-                                create.krnl.load(scratch, ValueRange{i, k});
-                            Value factor = create.math.div(ik, pivotElem);
-                            create.scf.forLoop(k, M, 1,
-                                [&](const SCFBuilder &createSCF,
-                                    ValueRange jv) {
-                                  MultiDialectBuilder<KrnlBuilder, MathBuilder>
-                                      create(createSCF);
-                                  Value j = jv[0];
-                                  Value kj = create.krnl.load(
-                                      scratch, ValueRange{k, j});
-                                  Value ijVal = create.krnl.load(
-                                      scratch, ValueRange{i, j});
-                                  Value newVal = create.math.sub(
-                                      ijVal, create.math.mul(factor, kj));
-                                  create.krnl.store(
-                                      newVal, scratch, ValueRange{i, j});
-                                });
-                          });
-                    });
+                create.scf.ifThenElse(pivotNonZero, [&](const SCFBuilder
+                                                            &createSCF) {
+                  MultiDialectBuilder<KrnlBuilder, MathBuilder, SCFBuilder>
+                      create(createSCF);
+                  Value kPlus1b = create.math.add(k, one);
+                  create.scf.forLoop(kPlus1b, M, 1,
+                      [&](const SCFBuilder &createSCF, ValueRange iv) {
+                        MultiDialectBuilder<KrnlBuilder, MathBuilder,
+                            SCFBuilder>
+                            create(createSCF);
+                        Value i = iv[0];
+                        Value ik = create.krnl.load(scratch, ValueRange{i, k});
+                        Value factor = create.math.div(ik, pivotElem);
+                        create.scf.forLoop(k, M, 1,
+                            [&](const SCFBuilder &createSCF, ValueRange jv) {
+                              MultiDialectBuilder<KrnlBuilder, MathBuilder>
+                                  create(createSCF);
+                              Value j = jv[0];
+                              Value kj =
+                                  create.krnl.load(scratch, ValueRange{k, j});
+                              Value ijVal =
+                                  create.krnl.load(scratch, ValueRange{i, j});
+                              Value newVal = create.math.sub(
+                                  ijVal, create.math.mul(factor, kj));
+                              create.krnl.store(
+                                  newVal, scratch, ValueRange{i, j});
+                            });
+                      });
+                });
 
                 scf::YieldOp::create(kBuilder, kLoc, ValueRange{detAfterPivot});
               });
