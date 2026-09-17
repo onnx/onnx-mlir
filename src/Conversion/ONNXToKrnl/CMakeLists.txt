@@ -17,6 +17,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   ControlFlow/Yield.cpp
   ConvertONNXToKrnl.cpp
   ML/CategoryMapper.cpp
+  Math/Attention.cpp
   Math/CumSum.cpp
   Math/DFT.cpp
   Math/Elementwise.cpp
@@ -63,6 +64,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   Tensor/DepthToSpace.cpp
   Tensor/Dim.cpp
   Tensor/Expand.cpp
+  Tensor/EyeLike.cpp
   Tensor/Flatten.cpp
   Tensor/Gather.cpp
   Tensor/GatherElements.cpp
