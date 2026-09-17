@@ -276,6 +276,15 @@ WideNum asWideNum(double n, mlir::Type elemType);
 /// Checks whether a constant tensor's elements are all equal to a given scalar.
 bool isConstOf(mlir::Value constValue, double n);
 
+/// For a binary op comparing a float-element-type operand against an
+/// integer-element-type operand that is a constant equal to 0 (the only
+/// integer literal value guaranteed to be exactly representable, bit for
+/// bit, in every float type onnx-mlir supports): returns the index (0 or 1)
+/// of the integer-literal operand. Returns std::nullopt for any other
+/// combination of operand types, including when both already match.
+std::optional<unsigned> getFloatVsIntegerZeroLiteralOperand(
+    mlir::Operation *op);
+
 mlir::Type convertONNXTypeToMLIRType(
     mlir::Builder &builder, onnx::TensorProto_DataType onnxType);
 
@@ -305,10 +314,16 @@ bool hasIntegerPowerExponent(mlir::ONNXPowOp *op, int64_t &exponentValue);
 // Support for dim operations.
 //===----------------------------------------------------------------------===//
 
-/// If the value val has only one use and that use is of type OP, return that
-/// op. Otherwise return null.
+/// If the value val has only one use and that use is of operation type OP,
+/// return that op. Otherwise return null.
 template <typename OP>
-mlir::Operation *usedOnlyBy(mlir::Value val);
+mlir::Operation *usedOnlyByOpType(mlir::Value val);
+
+/// Typed sibling of usedOnlyByOpType(): return the single user of val,
+/// already cast to OP, or null if val does not have exactly one use of that
+/// operation type.
+template <typename OP>
+OP singleUserOfOpType(mlir::Value val);
 
 /// Check the defining operation of a value.
 template <typename OP>
