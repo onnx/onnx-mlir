@@ -1647,3 +1647,17 @@ bool isSuitableForZDNN<ONNXDequantizeLinearOp>(
   llvm_unreachable("Not used");
   return false;
 }
+
+/// Check legality for ONNXAttentionOp.
+template <>
+bool isSuitableForZDNN<ONNXAttentionOp>(
+    ONNXAttentionOp op, const DimAnalysis *dimAnalysis) {
+  // This rule uses the function template
+  // `addDynamicallyLegalOpFor` to define legality using a custom lambda
+  // function instead of `isSuitableForZDNN`. Hence, the legality here should
+  // not be used/called. This legality is here to complete the function
+  // template `addDynamicallyLegalOpFor` so that it's not failed when building
+  // the compiler.
+  llvm_unreachable("Not used");
+  return false;
+}
