@@ -110,14 +110,16 @@ struct ONNXUpsampleAndPadOpLowering
 
     ValueRange loopDef = create.krnl.defineLoops(rank);
 
-    // Parallelize the outermost 2 loops if enabled and rank >= 2.
+    // Parallelize the outermost 2 loops if enabled and rank >= 2. Plan holds
+    // the whole nest: the window stops at 2, so the same ref is chosen either
+    // way.
+    auto plan = KrnlParallelPlan::noCollapse(
+        loopDef, /*first*/ 0, /*last excl*/ 2, /*cost*/ {8});
     if (enableParallel && rank >= 2) {
-      SmallVector<Value, 2> outerLoops = {loopDef[0], loopDef[1]};
-      tryCreateKrnlParallel(create.krnl, op, "upsample and pad", outerLoops,
-          lbs, ubs, 0, 2, {}, /*min iter for going parallel*/ 8);
+      plan.tryCreateParallel(create.krnl, op, "upsample and pad", lbs, ubs);
     }
 
-    create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
+    create.krnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, ubs,
         [&](const KrnlBuilder &createKrnl, ValueRange inputLoopInd) {
           // Compute output indices.
           SmallVector<IndexExpr, 4> outputLoopInd;
