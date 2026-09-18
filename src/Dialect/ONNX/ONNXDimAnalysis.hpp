@@ -274,6 +274,20 @@ private:
   /// another, and set IDs disappear, while sets are being merged.
   void buildSetNames();
 
+
+  /// Helper template function to propagate relationships (offset or scale) based
+  /// on equality relationships.
+  /// If dim_s == dim_t and dim_p = dim_s op k and dim_q = dim_t op k,
+  /// then dim_p == dim_q (where op is either + for offset or * for scale).
+  template <typename RelationType, typename RelationMapType, typename KeyType>
+  void propagateRelations(RelationMapType &relationMap,
+      const char *relationName,
+      std::function<KeyType(const RelationType &)> getKey,
+      std::function<void(DimT, const KeyType &, DimT, RelationMapType &)>
+          addRelation,
+      std::function<void(const KeyType &, llvm::raw_ostream &)> debugPrintKey);
+
+
   /// Propagate offset relationships based on equality relationships.
   /// If dim_s == dim_t and dim_p = dim_s + k and dim_q = dim_t + k,
   /// then dim_p == dim_q.
