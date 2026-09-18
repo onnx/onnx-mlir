@@ -206,3 +206,54 @@ func.func @no_fold_blocked() -> tensor<4xui8> {
 
 // CHECK-LABEL: @no_fold_blocked
 // CHECK: onnx.QuantizeLinear
+
+// -----
+
+// A duplicated DequantizeLinear of the same requantize output feeding a Concat
+// (Const MatMul -> Q -> {DQ, DQ} -> Concat) is still a constant island: the two
+// DQs are siblings of the same constant, not an activation, so the whole thing
+// folds. [[1,2],[3,4]] . [[.5,1],[1.5,2]] = [[3.5,5],[7.5,11]]; concat with self.
+func.func @fold_matmul_dup_dq_concat() -> tensor<2x4xf32> {
+  %a = onnx.Constant dense<[[2, 4], [6, 8]]> : tensor<2x2xui8>
+  %b = onnx.Constant dense<[[1, 2], [3, 4]]> : tensor<2x2xui8>
+  %s = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %z = onnx.Constant dense<0> : tensor<ui8>
+  %adq = "onnx.DequantizeLinear"(%a, %s, %z) {axis = 0 : si64, block_size = 0 : si64} : (tensor<2x2xui8>, tensor<f32>, tensor<ui8>) -> tensor<2x2xf32>
+  %bdq = "onnx.DequantizeLinear"(%b, %s, %z) {axis = 0 : si64, block_size = 0 : si64} : (tensor<2x2xui8>, tensor<f32>, tensor<ui8>) -> tensor<2x2xf32>
+  %mm = "onnx.MatMul"(%adq, %bdq) : (tensor<2x2xf32>, tensor<2x2xf32>) -> tensor<2x2xf32>
+  %q = "onnx.QuantizeLinear"(%mm, %s, %z) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<2x2xf32>, tensor<f32>, tensor<ui8>) -> tensor<2x2xui8>
+  %d1 = "onnx.DequantizeLinear"(%q, %s, %z) {axis = 1 : si64, block_size = 0 : si64} : (tensor<2x2xui8>, tensor<f32>, tensor<ui8>) -> tensor<2x2xf32>
+  %d2 = "onnx.DequantizeLinear"(%q, %s, %z) {axis = 1 : si64, block_size = 0 : si64} : (tensor<2x2xui8>, tensor<f32>, tensor<ui8>) -> tensor<2x2xf32>
+  %cat = "onnx.Concat"(%d1, %d2) {axis = 1 : si64} : (tensor<2x2xf32>, tensor<2x2xf32>) -> tensor<2x4xf32>
+  return %cat : tensor<2x4xf32>
+}
+
+// CHECK-LABEL: @fold_matmul_dup_dq_concat
+// CHECK-NOT: onnx.MatMul
+// CHECK-NOT: onnx.Concat
+// CHECK: onnx.Constant dense<{{\[}}[3.500000e+00, 5.000000e+00, 3.500000e+00, 5.000000e+00], [7.500000e+00, 1.100000e+01, 7.500000e+00, 1.100000e+01]]> : tensor<2x4xf32>
+
+// -----
+
+// Constant compute (Cos) whose result is requantized before flowing into an
+// activation: the QuantizeLinear terminates the constant island because genuine
+// compute produced its input, so Cos and the inner Q/DQ fold to a quantized
+// constant feeding Mul(const, activation) -- the rotary sin/cos pattern.
+func.func @fold_compute_before_requantize_into_activation(%act: tensor<3xf32>) -> tensor<3xf32> {
+  %xq = onnx.Constant dense<[1, 2, 3]> : tensor<3xui8>
+  %scale = onnx.Constant dense<5.000000e-01> : tensor<f32>
+  %zp = onnx.Constant dense<0> : tensor<ui8>
+  %dq = "onnx.DequantizeLinear"(%xq, %scale, %zp) {axis = 1 : si64, block_size = 0 : si64} : (tensor<3xui8>, tensor<f32>, tensor<ui8>) -> tensor<3xf32>
+  %cos = "onnx.Cos"(%dq) : (tensor<3xf32>) -> tensor<3xf32>
+  %q = "onnx.QuantizeLinear"(%cos, %scale, %zp) {axis = 1 : si64, block_size = 0 : si64, output_dtype = 0 : si64, saturate = 1 : si64} : (tensor<3xf32>, tensor<f32>, tensor<ui8>) -> tensor<3xui8>
+  %dq2 = "onnx.DequantizeLinear"(%q, %scale, %zp) {axis = 1 : si64, block_size = 0 : si64} : (tensor<3xui8>, tensor<f32>, tensor<ui8>) -> tensor<3xf32>
+  %mul = "onnx.Mul"(%dq2, %act) : (tensor<3xf32>, tensor<3xf32>) -> tensor<3xf32>
+  return %mul : tensor<3xf32>
+}
+
+// CHECK-LABEL: @fold_compute_before_requantize_into_activation
+// CHECK-NOT: onnx.Cos
+// CHECK-NOT: onnx.QuantizeLinear
+// CHECK: onnx.Constant dense<[2, 1, 0]> : tensor<3xui8>
+// CHECK: onnx.DequantizeLinear
+// CHECK: onnx.Mul

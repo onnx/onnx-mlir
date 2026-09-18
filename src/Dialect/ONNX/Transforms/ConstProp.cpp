@@ -2285,73 +2285,44 @@ public:
   }
 };
 
-// True if `v` is a constant, or a DequantizeLinear of a constant.
-static bool isConstantOrDequantizeOfConstant(Value v) {
-  if (getDenseOrDisposableConstLikeElements(v))
-    return true;
-  auto dq = v.getDefiningOp<ONNXDequantizeLinearOp>();
-  if (!dq)
-    return false;
-  if (!getDenseOrDisposableConstLikeElements(dq.getX()) ||
-      !getDenseOrDisposableConstLikeElements(dq.getXScale()))
-    return false;
-  Value zp = dq.getXZeroPoint();
-  return isNoneValue(zp) || getDenseOrDisposableConstLikeElements(zp);
-}
-
-// Pure shape/movement ops that carry a value through a re-quantization boundary
-// unchanged, so a constant flowing through them is still the same constant.
+// Pure shape/movement ops that pass a value through unchanged, so a constant
+// flowing through them is still the same constant.
 static bool isValuePreservingMovementOp(Operation *op) {
   return isa<ONNXTransposeOp, ONNXReshapeOp, ONNXSqueezeOp, ONNXUnsqueezeOp,
       ONNXFlattenOp, ONNXSliceOp, ONNXGatherOp>(op);
 }
 
-// Following `value` through movement ops, true if it reaches an op that also
-// takes a non-constant operand (real activation compute consuming it).
-static bool feedsNonConstantConsumer(Value value) {
-  for (Operation *user : value.getUsers()) {
-    if (isValuePreservingMovementOp(user)) {
-      for (Value result : user->getResults())
-        if (feedsNonConstantConsumer(result))
-          return true;
-      continue;
+// True if `v` is produced from constants only, as opposed to a runtime
+// activation. Memoized; a block argument is an activation.
+static bool tracesToConstant(Value v, llvm::DenseMap<Operation *, bool> &memo) {
+  if (getDenseOrDisposableConstLikeElements(v))
+    return true;
+  Operation *def = v.getDefiningOp();
+  if (!def)
+    return false;
+  auto it = memo.find(def);
+  if (it != memo.end())
+    return it->second;
+  memo[def] = true; // optimistic for shared/cyclic paths (graph is a DAG)
+  bool result = true;
+  for (Value operand : def->getOperands())
+    if (!isNoneValue(operand) && !tracesToConstant(operand, memo)) {
+      result = false;
+      break;
     }
-    for (Value operand : user->getOperands()) {
-      if (operand == value || isNoneValue(operand))
-        continue;
-      if (!isConstantOrDequantizeOfConstant(operand))
-        return true;
-    }
-  }
-  return false;
+  memo[def] = result;
+  return result;
 }
 
-// True if `requantized` (a QuantizeLinear result) is a weight requantize
-// boundary: following it through movement ops to a DequantizeLinear, and that
-// DQ's result on through movement ops, reaches an op with a non-constant
-// operand -- rather than the end of a purely-constant island.
-static bool requantizeFeedsNonConstantConsumer(Value requantized) {
-  for (Operation *user : requantized.getUsers()) {
-    if (isValuePreservingMovementOp(user)) {
-      for (Value result : user->getResults())
-        if (requantizeFeedsNonConstantConsumer(result))
-          return true;
-      continue;
-    }
-    auto dq = dyn_cast<ONNXDequantizeLinearOp>(user);
-    if (!dq || feedsNonConstantConsumer(dq.getY()))
-      return true;
-  }
-  return false;
-}
-
-// True if `value` is only consumed by constant computation (no op with a
-// non-constant operand), so it is safe to dequantize.
-static bool onlyFeedsConstantIsland(Value value) {
+// True if `value` is only consumed by constant computation, so it is safe to
+// dequantize. `sawCompute` records whether a genuine value-transforming op (not
+// a movement op or a (de)quantize) has already produced `value`: a
+// QuantizeLinear then ends the island, its output being a fresh quantized
+// constant; a bare requantize may be a weight boundary and is walked through.
+static bool onlyFeedsConstantIsland(Value value, bool sawCompute = false) {
   for (Operation *user : value.getUsers()) {
     if (auto q = dyn_cast<ONNXQuantizeLinearOp>(user)) {
-      // A QuantizeLinear ends the island unless it is a weight requantize.
-      if (requantizeFeedsNonConstantConsumer(q.getY()))
+      if (!sawCompute && !onlyFeedsConstantIsland(q.getY()))
         return false;
       continue;
     }
@@ -2360,11 +2331,14 @@ static bool onlyFeedsConstantIsland(Value value) {
     for (Value operand : user->getOperands()) {
       if (operand == value || isNoneValue(operand))
         continue;
-      if (!isConstantOrDequantizeOfConstant(operand))
+      llvm::DenseMap<Operation *, bool> memo;
+      if (!tracesToConstant(operand, memo))
         return false;
     }
+    bool userIsCompute = !isValuePreservingMovementOp(user) &&
+                         !isa<ONNXDequantizeLinearOp>(user);
     for (Value result : user->getResults())
-      if (!onlyFeedsConstantIsland(result))
+      if (!onlyFeedsConstantIsland(result, sawCompute || userIsCompute))
         return false;
   }
   return true;
@@ -2373,8 +2347,8 @@ static bool onlyFeedsConstantIsland(Value value) {
 // Fold DequantizeLinear on constants to `(x - x_zero_point) * x_scale`, the
 // inverse of ConstFoldQuantizeLinearOnConst, gated by
 // enable-dequant-const-fold. Per-tensor and per-axis are handled; blocked
-// quantization is out of scope. Confined to constant islands
-// (onlyFeedsConstantIsland) so quantized weights are not dequantized.
+// quantization is out of scope. Confined to constant islands so quantized
+// weights are not dequantized.
 class ConstFoldDequantizeLinearOnConst
     : public OpRewritePattern<ONNXDequantizeLinearOp> {
 public:
