@@ -60,9 +60,9 @@ public:
   // Represents a relationship: dim1 * scale1 == dim2 * scale2.
   struct DimScaleRelation {
     DimT dim1;
-    int64_t scale1;  // dim1 * scale1
+    int64_t scale1; // dim1 * scale1
     DimT dim2;
-    int64_t scale2;  // dim2 * scale2
+    int64_t scale2; // dim2 * scale2
 
     DimScaleRelation(DimT d1, int64_t s1, DimT d2, int64_t s2)
         : dim1(d1), scale1(s1), dim2(d2), scale2(s2) {}
@@ -191,13 +191,12 @@ public:
   bool sameDimWithOffset(mlir::Value tensor1, int64_t dimAxis1, int64_t offset1,
       mlir::Value tensor2, int64_t dimAxis2, int64_t offset2) const;
 
-  /// Returns the scale factors if tensor1[dimAxis1] * scale1 == tensor2[dimAxis2] * scale2.
-  /// Returns std::nullopt if no scale relationship is found.
-  /// Similar to getDimOffset() for offset relationships.
-  /// Negative axis is interpreted as index from the innermost dimension.
-  std::optional<std::pair<int64_t, int64_t>> getDimScale(
-      mlir::Value tensor1, int64_t dimAxis1,
-      mlir::Value tensor2, int64_t dimAxis2) const;
+  /// Returns the scale factors if tensor1[dimAxis1] * scale1 ==
+  /// tensor2[dimAxis2] * scale2. Returns std::nullopt if no scale relationship
+  /// is found. Similar to getDimOffset() for offset relationships. Negative
+  /// axis is interpreted as index from the innermost dimension.
+  std::optional<std::pair<int64_t, int64_t>> getDimScale(mlir::Value tensor1,
+      int64_t dimAxis1, mlir::Value tensor2, int64_t dimAxis2) const;
 
   /// Test if dim1 * scale1 == dim2 * scale2.
   /// Similar to sameDimWithOffset() for offset relationships.
@@ -274,11 +273,10 @@ private:
   /// another, and set IDs disappear, while sets are being merged.
   void buildSetNames();
 
-
-  /// Helper template function to propagate relationships (offset or scale) based
-  /// on equality relationships.
-  /// If dim_s == dim_t and dim_p = dim_s op k and dim_q = dim_t op k,
-  /// then dim_p == dim_q (where op is either + for offset or * for scale).
+  /// Helper template function to propagate relationships (offset or scale)
+  /// based on equality relationships. If dim_s == dim_t and dim_p = dim_s op k
+  /// and dim_q = dim_t op k, then dim_p == dim_q (where op is either + for
+  /// offset or * for scale).
   template <typename RelationType, typename RelationMapType, typename KeyType>
   void propagateRelations(RelationMapType &relationMap,
       const char *relationName,
@@ -286,7 +284,6 @@ private:
       std::function<void(DimT, const KeyType &, DimT, RelationMapType &)>
           addRelation,
       std::function<void(const KeyType &, llvm::raw_ostream &)> debugPrintKey);
-
 
   /// Propagate offset relationships based on equality relationships.
   /// If dim_s == dim_t and dim_p = dim_s + k and dim_q = dim_t + k,
