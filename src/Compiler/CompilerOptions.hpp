@@ -158,6 +158,10 @@ extern std::string ONNXOpStats;                               // onnx-mlir only
 extern int onnxOpTransformThreshold;                          // onnx-mlir only
 extern bool onnxOpTransformReport;                            // onnx-mlir only
 extern bool enableParallel;                                   // onnx-mlir only
+extern bool enableCollapse;                                   // onnx-mlir only
+extern int64_t collapseMinParTripCountFloor;                  // common for both
+extern int64_t collapseMinAmortWork;                          // common for both
+extern int64_t collapseMaxForkCount;                          // common for both
 extern bool disableSimdOption;                                // onnx-mlir only
 extern bool enableFastMathOption;                             // onnx-mlir only
 extern bool disableRecomposeOption;                           // onnx-mlir only
