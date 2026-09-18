@@ -1336,91 +1336,73 @@ void DimAnalysis::analyzeShapeConcatForScaling(
   if (!concat)
     return;
 
-  // Check if this is a reshape with -1 (inferred dimension).
-  bool hasInferredDim = false;
-  int64_t inferredPos = -1;
-  int64_t pos = 0;
-  for (Value elem : concat.getInputs()) {
-    if (auto c = resolveThroughFusedOp(elem).getDefiningOp<ONNXConstantOp>()) {
-      int64_t val = getScalarValue<int64_t>(c);
-      if (val == -1) {
-        hasInferredDim = true;
-        inferredPos = pos;
-        break;
-      }
-    }
-    pos++;
-  }
-
-  if (!hasInferredDim) {
-    LLVM_DEBUG(llvm::dbgs() << "  [analyzeShapeConcatForScaling] Has NO"
-                               "inferred dim. Early return.\n");
-    return;
-  }
-
-  if ((int64_t)outputDimIndex != inferredPos) {
-    LLVM_DEBUG(
-        llvm::dbgs()
-        << "  [analyzeShapeConcatForScaling] NOT Found inferred dim at pos "
-        << inferredPos << " for output dim " << outputDimIndex << "\n");
-    return;
-  }
-
-  // If this is the inferred dimension, compute implicit scale from reshape
-  // semantics.
-  LLVM_DEBUG(llvm::dbgs()
-             << "  [analyzeShapeConcatForScaling] Found inferred dim at pos "
-             << inferredPos << " for output dim " << outputDimIndex << "\n");
-  // Get the reshape operation.
-  ONNXReshapeOp reshape = outputDim.first.getDefiningOp<ONNXReshapeOp>();
-  if (!reshape) {
-    LLVM_DEBUG(llvm::dbgs() << "  [analyzeShapeConcatForScaling] Early "
-                               "return: not a reshape op\n");
-    return;
-  }
-
-  Value input = reshape.getData();
-  auto inputType = mlir::cast<ShapedType>(input.getType());
-  LLVM_DEBUG(llvm::dbgs() << "  [analyzeShapeConcatForScaling] Input: " << input
-                          << ", rank: " << inputType.getRank() << "\n");
-
-  // Identify which input dimensions pass through to output (via Dim ops in
-  // shape).
-  llvm::DenseSet<int64_t> passThroughInputAxes;
-  pos = 0;
-  for (Value elem : concat.getInputs()) {
-    if (pos++ == inferredPos)
-      continue;
-
+  // Helper: Extract DimOp from a value, unwrapping Squeeze if present.
+  auto extractDimOp = [this](Value elem) -> ONNXDimOp {
     Value dimValue = resolveThroughFusedOp(elem);
     if (auto squeezeOp = dimValue.getDefiningOp<ONNXSqueezeOp>())
       dimValue = squeezeOp.getData();
-    if (auto dimOp = dimValue.getDefiningOp<ONNXDimOp>()) {
-      // Check if this Dim refers to a dimension that is equivalent to any input
-      // dimension. Use sameDim to check equivalence, not just direct equality.
-      int64_t dimOpAxis = dimOp.getAxis();
-      auto dimOpDataType = mlir::cast<ShapedType>(dimOp.getData().getType());
-      if (dimOpAxis < 0)
-        dimOpAxis += dimOpDataType.getRank();
+    return dimValue.getDefiningOp<ONNXDimOp>();
+  };
+
+  // Helper: Normalize axis to positive value.
+  auto normalizeAxis = [](int64_t axis, int64_t rank) -> int64_t {
+    return axis < 0 ? axis + rank : axis;
+  };
+
+  // Find the inferred dimension (-1) position.
+  auto inputs = concat.getInputs();
+  int64_t inferredPos = -1;
+  for (size_t i = 0; i < inputs.size(); ++i) {
+    if (auto c =
+            resolveThroughFusedOp(inputs[i]).getDefiningOp<ONNXConstantOp>()) {
+      if (getScalarValue<int64_t>(c) == -1) {
+        inferredPos = i;
+        break;
+      }
+    }
+  }
+
+  if (inferredPos < 0 || static_cast<int64_t>(outputDimIndex) != inferredPos) {
+    LLVM_DEBUG(llvm::dbgs()
+               << "  [analyzeShapeConcatForScaling] "
+               << (inferredPos < 0 ? "No inferred dim" : "Mismatch") << "\n");
+    return;
+  }
+
+  // Get the reshape operation and input.
+  ONNXReshapeOp reshape = outputDim.first.getDefiningOp<ONNXReshapeOp>();
+  if (!reshape)
+    return;
+
+  Value input = reshape.getData();
+  auto inputType = mlir::cast<ShapedType>(input.getType());
+  LLVM_DEBUG(llvm::dbgs() << "  [analyzeShapeConcatForScaling] Input rank: "
+                          << inputType.getRank() << "\n");
+
+  // Identify pass-through input dimensions (those referenced by Dim ops).
+  llvm::DenseSet<int64_t> passThroughInputAxes;
+  for (size_t i = 0; i < inputs.size(); ++i) {
+    if ((int64_t)i == inferredPos)
+      continue;
+
+    if (auto dimOp = extractDimOp(inputs[i])) {
+      int64_t dimOpAxis = normalizeAxis(dimOp.getAxis(),
+          mlir::cast<ShapedType>(dimOp.getData().getType()).getRank());
 
       for (int64_t inputAxis = 0; inputAxis < inputType.getRank();
            ++inputAxis) {
         if (sameDim(dimOp.getData(), dimOpAxis, input, inputAxis)) {
           passThroughInputAxes.insert(inputAxis);
           LLVM_DEBUG(llvm::dbgs()
-                     << "  [analyzeShapeConcatForScaling] Pass-through axis: "
-                     << inputAxis << " (via sameDim with " << dimOp.getData()
-                     << "[" << dimOpAxis << "])\n");
+                     << "  [analyzeShapeConcatForScaling] "
+                     << "Pass-through axis: " << inputAxis << "\n");
           break;
         }
       }
     }
   }
-  LLVM_DEBUG(llvm::dbgs()
-             << "  [analyzeShapeConcatForScaling] passThroughInputAxes.size()="
-             << passThroughInputAxes.size() << "\n");
 
-  // Compute scale from non-pass-through dimensions.
+  // Compute input static product and collect dynamic dimensions.
   int64_t inputStaticProduct = 1;
   llvm::SmallVector<DimT, 4> inputDynDims;
   for (int64_t i = 0; i < inputType.getRank(); ++i) {
@@ -1433,53 +1415,38 @@ void DimAnalysis::analyzeShapeConcatForScaling(
     }
   }
 
-  // Output static product from non-inferred, non-pass-through dims.
+  // Compute output static product from non-inferred, non-pass-through dims.
   int64_t outputStaticProduct = 1;
-  pos = 0;
-  for (Value elem : concat.getInputs()) {
-    if (pos++ == inferredPos)
+  for (size_t i = 0; i < inputs.size(); ++i) {
+    if ((int64_t)i == inferredPos)
       continue;
 
-    // Skip if this is a pass-through Dim (already identified above).
-    Value dimValue = resolveThroughFusedOp(elem);
-    if (auto squeezeOp = dimValue.getDefiningOp<ONNXSqueezeOp>())
-      dimValue = squeezeOp.getData();
-    if (auto dimOp = dimValue.getDefiningOp<ONNXDimOp>()) {
-      // Check if this Dim refers to a pass-through input dimension.
-      int64_t dimAxis = dimOp.getAxis();
-      auto dimDataType = mlir::cast<ShapedType>(dimOp.getData().getType());
-      if (dimAxis < 0)
-        dimAxis += dimDataType.getRank();
-
-      bool isPassThrough = false;
-      for (int64_t i = 0; i < inputType.getRank(); ++i) {
-        if (passThroughInputAxes.contains(i) &&
-            sameDim(dimOp.getData(), dimAxis, input, i)) {
-          isPassThrough = true;
-          break;
-        }
-      }
+    // Skip pass-through Dim ops.
+    if (auto dimOp = extractDimOp(inputs[i])) {
+      int64_t dimAxis = normalizeAxis(dimOp.getAxis(),
+          mlir::cast<ShapedType>(dimOp.getData().getType()).getRank());
+      bool isPassThrough =
+          llvm::any_of(passThroughInputAxes, [&](int64_t axis) {
+            return sameDim(dimOp.getData(), dimAxis, input, axis);
+          });
       if (isPassThrough)
         continue;
     }
 
-    if (auto c = resolveThroughFusedOp(elem).getDefiningOp<ONNXConstantOp>()) {
-      int64_t val = getScalarValue<int64_t>(c);
-      outputStaticProduct *= val;
+    // Multiply by constant values.
+    if (auto c =
+            resolveThroughFusedOp(inputs[i]).getDefiningOp<ONNXConstantOp>()) {
+      outputStaticProduct *= getScalarValue<int64_t>(c);
     }
   }
 
-  // Detect scale relationships for dynamic input dims that contribute to the
-  // inferred dimension. These are the dims NOT in passThroughInputAxes.
+  // Detect and record scale relationships.
   if (inputStaticProduct > outputStaticProduct &&
       inputStaticProduct % outputStaticProduct == 0) {
     int64_t scale = inputStaticProduct / outputStaticProduct;
 
-    // Find which dynamic input dims contribute to the inferred dimension.
-    // These are the ones NOT in passThroughInputAxes.
     for (const DimT &dynDim : inputDynDims) {
       if (!passThroughInputAxes.contains(dynDim.second)) {
-        // This dynamic dimension contributes to the inferred dimension.
         dimScaleRelations[dynDim].emplace_back(dynDim, scale, outputDim, 1);
         LLVM_DEBUG(llvm::dbgs()
                    << "  - [Reshape -1] dim(" << dynDim.first << ", "
@@ -1489,7 +1456,6 @@ void DimAnalysis::analyzeShapeConcatForScaling(
     }
   }
 }
-
 
 // Propagate relationships (offset or scale) based on equality relationships.
 //
@@ -1509,9 +1475,8 @@ void DimAnalysis::analyzeShapeConcatForScaling(
 //            dim_b \op 5 == target_x (propagated)
 //
 // Phase 2: Infer new equalities from matching relationships
-//   If multiple dimensions in a set have the same relationship to different targets,
-//   those targets must be equal.
-//   Example:
+//   If multiple dimensions in a set have the same relationship to different
+//   targets, those targets must be equal. Example:
 //     Given: dim_a == dim_b (in same set)
 //            dim_a \op 5 == target_x
 //            dim_b \op 5 == target_y
@@ -1616,7 +1581,6 @@ void DimAnalysis::propagateRelations(RelationMapType &relationMap,
     mergeDimSets();
   }
 }
-
 
 void DimAnalysis::propagateScaleRelations() {
   propagateRelations<DimScaleRelation, DimScaleRelationMapT,
