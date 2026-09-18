@@ -9795,6 +9795,7 @@ def ONNXTensorScatterOp:ONNX_Op<"TensorScatter",
       return sh;
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXTfIdfVectorizerOp:ONNX_Op<"TfIdfVectorizer",
