@@ -16,6 +16,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   ControlFlow/Yield.cpp
   ConvertONNXToKrnl.cpp
   ML/CategoryMapper.cpp
+  Math/Attention.cpp
   Math/CumSum.cpp
   Math/DFT.cpp
   Math/Elementwise.cpp
