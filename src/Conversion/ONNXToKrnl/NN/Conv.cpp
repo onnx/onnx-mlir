@@ -218,11 +218,12 @@ struct ONNXConvOpLowering : public OpConversionPattern<ONNXConvOp> {
     };
 
     ValueRange outerLoops = create.krnl.defineLoops(3);
+    auto plan =
+        KrnlParallelPlan::noCollapse(outerLoops, /*first*/ 0, /*last excl*/ 1);
     if (enableParallel)
-      tryCreateKrnlParallel(
-          create.krnl, op, "conv", outerLoops, outerLbs, outerUbs, 0, 1);
-    create.krnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs,
-        [&](const KrnlBuilder &create, ValueRange outerIndices) {
+      plan.tryCreateParallel(create.krnl, op, "conv", outerLbs, outerUbs);
+    create.krnl.iterateIE(outerLoops, plan.optimizedLoopDef(), outerLbs,
+        outerUbs, [&](const KrnlBuilder &create, ValueRange outerIndices) {
           bodyFunction(outerIndices);
         });
   }

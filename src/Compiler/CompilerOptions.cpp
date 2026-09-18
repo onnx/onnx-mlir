@@ -90,6 +90,10 @@ std::string ONNXOpStats;                               // onnx-mlir only
 int onnxOpTransformThreshold;                          // onnx-mlir only
 bool onnxOpTransformReport;                            // onnx-mlir only
 bool enableParallel;                                   // onnx-mlir only
+bool enableCollapse;                                   // onnx-mlir only
+int64_t collapseMinParTripCountFloor;                  // common for both
+int64_t collapseMinAmortWork;                          // common for both
+int64_t collapseMaxForkCount;                          // common for both
 bool disableSimdOption;                                // onnx-mlir only
 bool enableFastMathOption;                             // onnx-mlir only
 bool disableRecomposeOption;                           // onnx-mlir only
@@ -694,6 +698,47 @@ static llvm::cl::opt<bool, true> enableParallelOpt("parallel",
                    "Set to 'true' if you want to enable parallelization."),
     llvm::cl::location(enableParallel), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
+
+// hi alex: not sure we want/need these specific options; leave them for now for
+// debugging.
+
+static llvm::cl::opt<bool, true> enableCollapseOpt("enable-collapse",
+    llvm::cl::desc(
+        "Enable collapsing several loop levels into one parallel region\n"
+        "(default=false). Only has an effect together with --parallel."),
+    llvm::cl::location(enableCollapse), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
+
+// Overrides for the target-derived parallel cost model constants; see
+// src/Dialect/Mlir/ParallelMachineSupport.hpp for what each one means. A
+// negative value, the default, means "use the target's own value". These are
+// common to both drivers on purpose: the lit tests that pin down a collapse
+// decision run under onnx-mlir-opt, which sees only the common and opt
+// categories.
+static llvm::cl::opt<int64_t, true> collapseMinParTripCountFloorOpt(
+    "collapse-min-par-trip-count-floor",
+    llvm::cl::desc(
+        "Floor on the fused loop trip count worth a parallel region\n"
+        "(default=-1, meaning use the target's own value)."),
+    llvm::cl::location(collapseMinParTripCountFloor), llvm::cl::init(-1),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<int64_t, true> collapseMinAmortWorkOpt(
+    "collapse-min-amort-work",
+    llvm::cl::desc(
+        "Smallest number of elements one fused iteration must cover for\n"
+        "an index rematerialization chain to stay amortized (default=-1,\n"
+        "meaning use the target's own value)."),
+    llvm::cl::location(collapseMinAmortWork), llvm::cl::init(-1),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<int64_t, true> collapseMaxForkCountOpt(
+    "collapse-max-fork-count",
+    llvm::cl::desc(
+        "Largest statically known fork count accepted without penalty\n"
+        "(default=-1, meaning use the target's own value)."),
+    llvm::cl::location(collapseMaxForkCount), llvm::cl::init(-1),
+    llvm::cl::cat(OnnxMlirCommonOptions));
 
 static llvm::cl::opt<bool, true> disableSimdOptionOpt("disable-simd",
     llvm::cl::desc("Disable SIMD optimizations (default=false). Set to `true` "
