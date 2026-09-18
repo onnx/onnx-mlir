@@ -6,9 +6,13 @@
 //
 // Copyright 2026 The IBM Research Authors.
 //
-// This file contains C++ code to create exec commands. This file should include
-// no dependences to ONNX-MLIR / MLIR / LLVM files.
+// This file contains C++ code to create exec commands.
 //
+//===----------------------------------------------------------------------===//
+// LLVM-FREE FILE -- DO NOT ADD LLVM / MLIR / ONNX-MLIR COMPILER DEPENDENCES.
+//
+// Part of the lightweight onnx-mlir build used for the pip-installable
+// packages (om_pyrt). Any LLVM/MLIR reference here will break those packages.
 //===----------------------------------------------------------------------===//
 
 #include "src/Compiler/Command.hpp"

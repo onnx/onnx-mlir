@@ -162,6 +162,11 @@ set_property(SOURCE CompilerUtils.cpp APPEND PROPERTY COMPILE_DEFINITIONS ${DEFI
 # This library only add MLIR/LLVM independent code that is used both in
 # onnx-mlir compiler as well as the OMCompile. The file listed
 # here must remain MLIR/LLVM free.
+#
+# WARNING: OMCommandUtils and OMCompile are MIRRORED in OMPyRt.cmake for the
+# lightweight, LLVM-free build behind the pip-installable om_pyrt package.
+# Adding or removing a source here does NOT update it: edit OMPyRt.cmake too.
+# See docs/BuildPyRuntimeLight.md.
  
 add_onnx_mlir_library(OMCommandUtils
   Command.cpp

@@ -11,6 +11,11 @@
 // This file contains C implementation of OMTopK.
 //
 //===----------------------------------------------------------------------===//
+// LLVM-FREE FILE -- DO NOT ADD LLVM / MLIR / ONNX-MLIR COMPILER DEPENDENCES.
+//
+// Part of the lightweight onnx-mlir build used for the pip-installable
+// packages (om_pyrt). Any LLVM/MLIR reference here will break those packages.
+//===----------------------------------------------------------------------===//
 
 // Include the header to get definitions for OMTensor,
 // and the prototypes for getCompareFunction() and omTensorSort().
