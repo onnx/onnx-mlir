@@ -173,7 +173,10 @@ simd_legend = (
 sig_legend = "comma separated list of shapes with inputs followed by results"
 
 # ==PAR-REPORT==, onnx.Mul-par, Mul_28, elementwise variadic not simdized, 0, -1
-par_legend = "message, loop nest (0 outermost), loop trip count (-1 runtime)"
+par_legend = (
+    "message, parallel loop level (-1 none; 0 outermost), "
+    "parallel loop trip count (0 none; -1 runtime; collapsed groups report the product)"
+)
 
 # ==PERF-REPORT==, ..., "before" | "after", time since last call, absolute time
 perf_legend = "(after|before), time for op(s), time since start(s)"
