@@ -1045,3 +1045,123 @@ func.func @test_dim_name_through_reshape(%arg0: tensor<?x5x?xf32> {onnx.dim_para
 
 }
 
+
+
+// -----
+
+// Test scale relationship detection through Reshape with -1 (inferred dimension)
+// Pattern: Reshape with Concat shape containing Dim operations and -1
+func.func @test_dim_scale_reshape(%arg0: tensor<?x12x?x64xf32> {onnx.dim_params = "0:B,2:S"}, %arg1: tensor<?x12x64x?xf32> {onnx.dim_params = "0:B,3:S"}) -> (tensor<?x?x64xf32>, tensor<?x64x?xf32>) {
+  %0 = onnx.Constant dense<64> : tensor<1xi64>
+  %2 = onnx.Constant dense<-1> : tensor<1xi64>
+  %219 = "onnx.Dim"(%arg0) <{axis = 2 : si64}> : (tensor<?x12x?x64xf32>) -> tensor<1xi64>
+
+  %281 = "onnx.Concat"(%2, %219, %0) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+  %282 = "onnx.Reshape"(%arg0, %281) <{allowzero = 0 : si64}> : (tensor<?x12x?x64xf32>, tensor<3xi64>) -> tensor<?x?x64xf32>
+
+  %283 = "onnx.Concat"(%2, %0, %219) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+  %284 = "onnx.Reshape"(%arg1, %283) <{allowzero = 0 : si64}> : (tensor<?x12x64x?xf32>, tensor<3xi64>) -> tensor<?x64x?xf32>
+
+  return %282, %284: tensor<?x?x64xf32>, tensor<?x64x?xf32>
+
+// CHECK-LABEL:  func.func @test_dim_scale_reshape
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x12x?x64xf32> {onnx.dim_params = "0:B,2:S"}, [[PARAM_1_:%.+]]: tensor<?x12x64x?xf32> {onnx.dim_params = "0:B,3:S"}) -> (tensor<?x?x64xf32>, tensor<?x64x?xf32>) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<-1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<64> : tensor<1xi64>
+// CHECK-DAG:       "onnx.DimGroup"([[PARAM_1_]]) <{axis = 3 : si64, group_id = [[GROUP_S_:.*]] : si64, group_name = "S"}> : (tensor<?x12x64x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[PARAM_1_]]) <{axis = 0 : si64, group_id = [[GROUP_B_:.*]] : si64, group_name = "B"}> : (tensor<?x12x64x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) <{axis = 0 : si64, group_id = [[GROUP_B_]] : si64, group_name = "B"}> : (tensor<?x12x?x64xf32>) -> ()
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Dim"([[PARAM_0_]]) <{axis = 2 : si64}> : (tensor<?x12x?x64xf32>) -> tensor<1xi64>
+// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) <{axis = 2 : si64, group_id = [[GROUP_S_]] : si64, group_name = "S"}> : (tensor<?x12x?x64xf32>) -> ()
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Concat"([[VAR_0_]], [[VAR_2_]], [[VAR_1_]]) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_3_]]) <{allowzero = 0 : si64}> : (tensor<?x12x?x64xf32>, tensor<3xi64>) -> tensor<?x?x64xf32>
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_4_]]) <{axis = 1 : si64, group_id = [[GROUP_S_]] : si64, group_name = "S"}> : (tensor<?x?x64xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_4_]]) <{axis = 0 : si64, group_id = [[GROUP_SCALE_:.*]] : si64}> : (tensor<?x?x64xf32>) -> ()
+// CHECK:           [[VAR_5_:%.+]] = "onnx.Concat"([[VAR_0_]], [[VAR_1_]], [[VAR_2_]]) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+// CHECK:           [[VAR_6_:%.+]] = "onnx.Reshape"([[PARAM_1_]], [[VAR_5_]]) <{allowzero = 0 : si64}> : (tensor<?x12x64x?xf32>, tensor<3xi64>) -> tensor<?x64x?xf32>
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_6_]]) <{axis = 2 : si64, group_id = [[GROUP_S_]] : si64, group_name = "S"}> : (tensor<?x64x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_6_]]) <{axis = 0 : si64, group_id = [[GROUP_SCALE_]] : si64}> : (tensor<?x64x?xf32>) -> ()
+// CHECK:           return [[VAR_4_]], [[VAR_6_]] : tensor<?x?x64xf32>, tensor<?x64x?xf32>
+// CHECK:         }
+}
+
+// -----
+
+// Test complex MatMul pattern with Transpose, Reshape, Expand operations
+// Simpler test for dimension scaling with Add operation
+func.func @test_dim_scale_add(%arg0: tensor<?x?x12x64xf32> {onnx.dim_params = "0:B,1:S"}, %arg1: tensor<?x1x?x?xf32> {onnx.dim_params = "0:B,2:S,3:S"}) -> tensor<?x?x?xf32> {
+  %0 = onnx.Constant dense<-1> : tensor<1xi64>
+  %1 = onnx.Constant dense<12> : tensor<1xi64>
+  %2 = onnx.Constant dense<64> : tensor<1xi64>
+  %3 = "onnx.Dim"(%arg0) <{axis = 1 : si64}> : (tensor<?x?x12x64xf32>) -> tensor<1xi64>
+  %4 = "onnx.Concat"(%0, %3, %2) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+  %5 = "onnx.Transpose"(%arg0) <{perm = [0, 2, 1, 3]}> : (tensor<?x?x12x64xf32>) -> tensor<?x12x?x64xf32>
+  %6 = "onnx.Reshape"(%5, %4) <{allowzero = 0 : si64}> : (tensor<?x12x?x64xf32>, tensor<3xi64>) -> tensor<?x?x64xf32>
+  %7 = "onnx.Transpose"(%arg0) <{perm = [0, 2, 3, 1]}> : (tensor<?x?x12x64xf32>) -> tensor<?x12x64x?xf32>
+  %8 = "onnx.Concat"(%0, %2, %3) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+  %9 = "onnx.Reshape"(%7, %8) <{allowzero = 0 : si64}> : (tensor<?x12x64x?xf32>, tensor<3xi64>) -> tensor<?x64x?xf32>
+  %10 = "onnx.MatMul"(%6, %9) : (tensor<?x?x64xf32>, tensor<?x64x?xf32>) -> tensor<?x?x?xf32>
+  %11 = "onnx.Dim"(%arg0) <{axis = 0 : si64}> : (tensor<?x?x12x64xf32>) -> tensor<1xi64>
+  %12 = "onnx.Concat"(%11, %1, %3, %3) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
+  %13 = "onnx.Expand"(%arg1, %12) : (tensor<?x1x?x?xf32>, tensor<4xi64>) -> tensor<?x12x?x?xf32>
+  %14 = "onnx.Dim"(%13) <{axis = 2 : si64}> : (tensor<?x12x?x?xf32>) -> tensor<1xi64>
+  %15 = "onnx.Dim"(%13) <{axis = 3 : si64}> : (tensor<?x12x?x?xf32>) -> tensor<1xi64>
+  %16 = "onnx.Concat"(%0, %14, %15) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+  %17 = "onnx.Reshape"(%13, %16) <{allowzero = 0 : si64}> : (tensor<?x12x?x?xf32>, tensor<3xi64>) -> tensor<?x?x?xf32>
+  %18 = "onnx.Add"(%10, %17) : (tensor<?x?x?xf32>, tensor<?x?x?xf32>) -> tensor<?x?x?xf32>
+  %19 = "onnx.Softmax"(%18) <{axis = -1 : si64}> : (tensor<?x?x?xf32>) -> tensor<?x?x?xf32>
+  return %19 : tensor<?x?x?xf32>
+
+// CHECK-LABEL:  func.func @test_dim_scale_add
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x12x64xf32> {onnx.dim_params = "0:B,1:S"}, [[PARAM_1_:%.+]]: tensor<?x1x?x?xf32> {onnx.dim_params = "0:B,2:S,3:S"}) -> tensor<?x?x?xf32> {
+// CHECK-DAG:       [[VAR_c64_:%.+]] = onnx.Constant dense<64> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_c12_:%.+]] = onnx.Constant dense<12> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_c_minus1_:%.+]] = onnx.Constant dense<-1> : tensor<1xi64>
+// CHECK-DAG:       "onnx.DimGroup"([[PARAM_1_]]) <{axis = 3 : si64, group_id = [[GROUP_S_:.*]] : si64, group_name = "S"}> : (tensor<?x1x?x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[PARAM_1_]]) <{axis = 2 : si64, group_id = [[GROUP_S_]] : si64, group_name = "S"}> : (tensor<?x1x?x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) <{axis = 1 : si64, group_id = [[GROUP_S_]] : si64, group_name = "S"}> : (tensor<?x?x12x64xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) <{axis = 0 : si64, group_id = [[GROUP_B_:.*]] : si64, group_name = "B"}> : (tensor<?x?x12x64xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[PARAM_1_]]) <{axis = 0 : si64, group_id = [[GROUP_B_]] : si64, group_name = "B"}> : (tensor<?x1x?x?xf32>) -> ()
+// CHECK-DAG:       [[VAR_d_s_:%.+]] = "onnx.Dim"([[PARAM_0_]]) <{axis = 1 : si64}> : (tensor<?x?x12x64xf32>) -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_shape_3d_1_:%.+]] = "onnx.Concat"([[VAR_c_minus1_]], [[VAR_d_s_]], [[VAR_c64_]]) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+// CHECK-DAG:       [[VAR_transposed_1_:%.+]] = "onnx.Transpose"([[PARAM_0_]]) <{perm = [0, 2, 1, 3]}> : (tensor<?x?x12x64xf32>) -> tensor<?x12x?x64xf32>
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_transposed_1_]]) <{axis = 2 : si64, group_id = [[GROUP_S_]] : si64, group_name = "S"}> : (tensor<?x12x?x64xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_transposed_1_]]) <{axis = 0 : si64, group_id = [[GROUP_B_]] : si64, group_name = "B"}> : (tensor<?x12x?x64xf32>) -> ()
+// CHECK-DAG:       [[VAR_reshaped_1_:%.+]] = "onnx.Reshape"([[VAR_transposed_1_]], [[VAR_shape_3d_1_]]) <{allowzero = 0 : si64}> : (tensor<?x12x?x64xf32>, tensor<3xi64>) -> tensor<?x?x64xf32>
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_reshaped_1_]]) <{axis = 1 : si64, group_id = [[GROUP_S_]] : si64, group_name = "S"}> : (tensor<?x?x64xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_reshaped_1_]]) <{axis = 0 : si64, group_id = [[GROUP_SCALE_:.*]] : si64}> : (tensor<?x?x64xf32>) -> ()
+// CHECK-DAG:       [[VAR_transposed_2_:%.+]] = "onnx.Transpose"([[PARAM_0_]]) <{perm = [0, 2, 3, 1]}> : (tensor<?x?x12x64xf32>) -> tensor<?x12x64x?xf32>
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_transposed_2_]]) <{axis = 3 : si64, group_id = [[GROUP_S_]] : si64, group_name = "S"}> : (tensor<?x12x64x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_transposed_2_]]) <{axis = 0 : si64, group_id = [[GROUP_B_]] : si64, group_name = "B"}> : (tensor<?x12x64x?xf32>) -> ()
+// CHECK-DAG:       [[VAR_shape_3d_2_:%.+]] = "onnx.Concat"([[VAR_c_minus1_]], [[VAR_c64_]], [[VAR_d_s_]]) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+// CHECK-DAG:       [[VAR_reshaped_2_:%.+]] = "onnx.Reshape"([[VAR_transposed_2_]], [[VAR_shape_3d_2_]]) <{allowzero = 0 : si64}> : (tensor<?x12x64x?xf32>, tensor<3xi64>) -> tensor<?x64x?xf32>
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_reshaped_2_]]) <{axis = 2 : si64, group_id = [[GROUP_S_]] : si64, group_name = "S"}> : (tensor<?x64x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_reshaped_2_]]) <{axis = 0 : si64, group_id = [[GROUP_SCALE_]] : si64}> : (tensor<?x64x?xf32>) -> ()
+// CHECK-DAG:       [[VAR_matmul_:%.+]] = "onnx.MatMul"([[VAR_reshaped_1_]], [[VAR_reshaped_2_]]) : (tensor<?x?x64xf32>, tensor<?x64x?xf32>) -> tensor<?x?x?xf32>
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_matmul_]]) <{axis = 1 : si64, group_id = [[GROUP_S_]] : si64, group_name = "S"}> : (tensor<?x?x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_matmul_]]) <{axis = 2 : si64, group_id = [[GROUP_S_]] : si64, group_name = "S"}> : (tensor<?x?x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_matmul_]]) <{axis = 0 : si64, group_id = [[GROUP_SCALE_]] : si64}> : (tensor<?x?x?xf32>) -> ()
+// CHECK-DAG:       [[VAR_d_b_:%.+]] = "onnx.Dim"([[PARAM_0_]]) <{axis = 0 : si64}> : (tensor<?x?x12x64xf32>) -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_shape_4d_:%.+]] = "onnx.Concat"([[VAR_d_b_]], [[VAR_c12_]], [[VAR_d_s_]], [[VAR_d_s_]]) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
+// CHECK-DAG:       [[VAR_expanded_:%.+]] = "onnx.Expand"([[PARAM_1_]], [[VAR_shape_4d_]]) : (tensor<?x1x?x?xf32>, tensor<4xi64>) -> tensor<?x12x?x?xf32>
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_expanded_]]) <{axis = 2 : si64, group_id = [[GROUP_S_]] : si64, group_name = "S"}> : (tensor<?x12x?x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_expanded_]]) <{axis = 0 : si64, group_id = [[GROUP_B_]] : si64, group_name = "B"}> : (tensor<?x12x?x?xf32>) -> ()
+// CHECK-DAG:       [[VAR_d2_exp_:%.+]] = "onnx.Dim"([[VAR_expanded_]]) <{axis = 2 : si64}> : (tensor<?x12x?x?xf32>) -> tensor<1xi64>
+// CHECK-DAG:       [[VAR_d3_exp_:%.+]] = "onnx.Dim"([[VAR_expanded_]]) <{axis = 3 : si64}> : (tensor<?x12x?x?xf32>) -> tensor<1xi64>
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_expanded_]]) <{axis = 3 : si64, group_id = [[GROUP_S_]] : si64, group_name = "S"}> : (tensor<?x12x?x?xf32>) -> ()
+// CHECK-DAG:       [[VAR_shape_3d_final_:%.+]] = "onnx.Concat"([[VAR_c_minus1_]], [[VAR_d2_exp_]], [[VAR_d3_exp_]]) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+// CHECK-DAG:       [[VAR_reshaped_expand_:%.+]] = "onnx.Reshape"([[VAR_expanded_]], [[VAR_shape_3d_final_]]) <{allowzero = 0 : si64}> : (tensor<?x12x?x?xf32>, tensor<3xi64>) -> tensor<?x?x?xf32>
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_reshaped_expand_]]) <{axis = 1 : si64, group_id = [[GROUP_S_]] : si64, group_name = "S"}> : (tensor<?x?x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_reshaped_expand_]]) <{axis = 2 : si64, group_id = [[GROUP_S_]] : si64, group_name = "S"}> : (tensor<?x?x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_reshaped_expand_]]) <{axis = 0 : si64, group_id = [[GROUP_SCALE_]] : si64}> : (tensor<?x?x?xf32>) -> ()
+// CHECK-DAG:       [[VAR_add_:%.+]] = "onnx.Add"([[VAR_matmul_]], [[VAR_reshaped_expand_]]) : (tensor<?x?x?xf32>, tensor<?x?x?xf32>) -> tensor<?x?x?xf32>
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_add_]]) <{axis = 1 : si64, group_id = [[GROUP_S_]] : si64, group_name = "S"}> : (tensor<?x?x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_add_]]) <{axis = 2 : si64, group_id = [[GROUP_S_]] : si64, group_name = "S"}> : (tensor<?x?x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_add_]]) <{axis = 0 : si64, group_id = [[GROUP_SCALE_]] : si64}> : (tensor<?x?x?xf32>) -> ()
+// CHECK-DAG:       [[VAR_softmax_:%.+]] = "onnx.Softmax"([[VAR_add_]]) <{axis = -1 : si64}> : (tensor<?x?x?xf32>) -> tensor<?x?x?xf32>
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_softmax_]]) <{axis = 1 : si64, group_id = [[GROUP_S_]] : si64, group_name = "S"}> : (tensor<?x?x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_softmax_]]) <{axis = 2 : si64, group_id = [[GROUP_S_]] : si64, group_name = "S"}> : (tensor<?x?x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_softmax_]]) <{axis = 0 : si64, group_id = [[GROUP_SCALE_]] : si64}> : (tensor<?x?x?xf32>) -> ()
+// CHECK:           return [[VAR_softmax_]] : tensor<?x?x?xf32>
+// CHECK:         }
+}
