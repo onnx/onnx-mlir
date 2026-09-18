@@ -1,0 +1,29 @@
+// RUN: not onnx-mlir --EmitONNXBasic --printIR %s 2>&1 | FileCheck %s
+
+// Tests that a model-local function which directly calls itself (self-recursion)
+// is rejected with a clear diagnostic instead of overflowing the C++ call stack
+// with a SIGSEGV.
+//
+// The legitimate two-level non-cyclic case is tested separately in
+// functiontest_nestedcall.onnxtext and must remain unaffected.
+
+<
+ir_version: 8,
+opset_import: [ "" : 16, "local" : 1 ]
+>
+agraph (float[N] x) => (float[N] y)
+{
+    y = local.selfcall (x)
+}
+
+<
+opset_import: [ "" : 16, "local" : 1],
+domain: "local"
+>
+selfcall (lx) => (ly) {
+    // This node invokes the same function we are currently expanding —
+    // a direct self-reference that must be caught as a cycle.
+    ly = local.selfcall (lx)
+}
+
+// CHECK: model-local function 'local:selfcall' is directly or indirectly recursive
