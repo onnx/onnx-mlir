@@ -1604,8 +1604,8 @@ void DimAnalysis::analyze() {
     return;
 
   // Clear previous analysis results for offset and scale relationships.
-  // dimRelations.clear();
-  // dimScaleRelations.clear();
+  dimRelations.clear();
+  dimScaleRelations.clear();
 
   // Build sets of the same dynamic dimensions and merge them until a fixed
   // point where there is no update on each set.
