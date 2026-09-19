@@ -350,7 +350,8 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXRangeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXEyeLikeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXResizeOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXNonZeroOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXNonZeroOpPattern(
+      patterns, typeConverter, ctx, enableSIMD, enableParallel);
   populateLoweringONNXReverseSequenceOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXExpandOpPattern(patterns, typeConverter, ctx, enableParallel, enableCollapse);
   populateLoweringONNXOneHotOpPattern(patterns, typeConverter, ctx);
