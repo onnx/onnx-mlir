@@ -62,6 +62,7 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/Math/RandomUniformLike.cpp
   ONNXOps/Math/Reduction.cpp
   ONNXOps/Math/Scatter.cpp
+  ONNXOps/Math/TensorScatter.cpp
   ONNXOps/Math/TopK.cpp
   ONNXOps/NN/Conv.cpp
   ONNXOps/NN/Dropout.cpp
