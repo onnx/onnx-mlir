@@ -36,8 +36,10 @@ READ_CHUNK_SIZE = 1024 * 1024
 BASE_BRANCH = "main"
 
 DOCKER_API_TIMEOUT = 3600
-DOCKER_DIST_MANIFEST = "application/vnd.docker.distribution.manifest.v2+json"
-DOCKER_DIST_MANIFEST_LIST = "application/vnd.docker.distribution.manifest.list.v2+json"
+
+# Update to ghcr.io mediaType
+DOCKER_DIST_MANIFEST = "application/vnd.oci.image.manifest.v1+json"
+DOCKER_DIST_MANIFEST_LIST = "application/vnd.oci.image.index.v1+json"
 
 cpu_arch = os.getenv("CPU_ARCH")
 docker_pushpull_rwlock = os.getenv("DOCKER_PUSHPULL_RWLOCK")
