@@ -60,7 +60,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
 | **DeformConv** |none | | | |
 | **DepthToSpace** |13 - * | | |
 | **DequantizeLinear** |10 - * |Only support for per-tensor or layer dequantization. No support for per-axis dequantization. Does not support int4 and uint4. | |
-| **Det** |none | | | |
+| **Det** |22 - * |Does not support bfloat16. | |
 | **DictVectorizer** |none | | | |
 | **Div** |6 - * |No support for short integers. | |
 | **Dropout** |6 - * |Does not support masked and training. | |

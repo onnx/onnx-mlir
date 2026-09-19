@@ -649,6 +649,18 @@ struct ONNXRoiAlignOpShapeHelper : public ONNXOpShapeHelper {
 };
 
 //===----------------------------------------------------------------------===//
+// Det Op
+//===----------------------------------------------------------------------===//
+
+struct ONNXDetOpShapeHelper : public ONNXOpShapeHelper {
+  ONNXDetOpShapeHelper(mlir::Operation *op, mlir::ValueRange operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
+  virtual ~ONNXDetOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+};
+
+//===----------------------------------------------------------------------===//
 // Arg Min/Max Op
 //===----------------------------------------------------------------------===//
 
