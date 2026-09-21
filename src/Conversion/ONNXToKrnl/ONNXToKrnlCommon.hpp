@@ -35,6 +35,7 @@
 
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/OptionUtils.hpp"
+#include "src/Conversion/ONNXToKrnl/KrnlParallelPlan.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
@@ -330,10 +331,14 @@ public:
 // Functions to add lowering patterns for frontend operations.
 //===----------------------------------------------------------------------===//
 
-// For all ONNX operations.
+// For all ONNX operations. Kept in sync with the definition by hand: it had
+// drifted by three parameters before enableCollapse was added, which is
+// possible because the only caller is in the defining file, so a stale
+// declaration here is never diagnosed.
 void populateONNXToKrnlConversionPattern(mlir::RewritePatternSet &,
-    mlir::TypeConverter &, mlir::MLIRContext *, bool enableTiling,
-    bool enableParallel, bool enableFastMath);
+    mlir::TypeConverter &, mlir::MLIRContext *, DimAnalysis *,
+    bool enableTiling, bool enableSIMD, bool enableParallel,
+    bool enableCollapse, bool enableFastMath, std::string opsForCall);
 
 // `ControlFlow` directory methods:
 void populateLoweringONNXIfOpPattern(
@@ -388,6 +393,8 @@ void populateLoweringONNXReductionOpPattern(mlir::RewritePatternSet &,
     bool enableParallel);
 void populateLoweringONNXSoftmaxOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
+void populateLoweringONNXAttentionOpPattern(
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXTopKOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXTriluOpPattern(
@@ -458,9 +465,11 @@ void populateLoweringONNXUnsqueezeOpPattern(
 void populateLoweringONNXUnsqueezeV11OpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXTransposeOpPattern(mlir::RewritePatternSet &,
-    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel,
+    bool enableCollapse);
 void populateLoweringONNXGatherOpPattern(mlir::RewritePatternSet &,
-    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel,
+    bool enableCollapse);
 void populateLoweringONNXGatherElementsOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXGatherNDOpPattern(
@@ -482,7 +491,8 @@ void populateLoweringONNXConstantOfShapeOpPattern(
 void populateLoweringONNXConstantOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXConcatOpPattern(mlir::RewritePatternSet &,
-    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel,
+    bool enableCollapse);
 void populateLoweringONNXConcatShapeTransposeOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXDepthToSpaceOpPattern(
@@ -496,7 +506,8 @@ void populateLoweringONNXScatterNDOpPattern(
 void populateLoweringONNXShapeOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXSliceOpPattern(mlir::RewritePatternSet &,
-    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel,
+    bool enableCollapse);
 // onnx.Fused(kind="simd-split-op-gather") -- see
 // src/Dialect/ONNX/Transforms/ONNXFusionOpHelper.hpp.
 void populateLoweringONNXFusedSplitOpGatherOpPattern(mlir::RewritePatternSet &,
@@ -518,12 +529,14 @@ void populateLoweringONNXFlattenOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXResizeOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
-void populateLoweringONNXNonZeroOpPattern(
-    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXNonZeroOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableSIMD,
+    bool enableParallel);
 void populateLoweringONNXReverseSequenceOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXExpandOpPattern(mlir::RewritePatternSet &,
-    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel,
+    bool enableCollapse);
 void populateLoweringONNXOneHotOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXCompressOpPattern(
@@ -531,7 +544,8 @@ void populateLoweringONNXCompressOpPattern(
 void populateLoweringONNXPrintSignaturePattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXLayoutTransformOpPattern(mlir::RewritePatternSet &,
-    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel,
+    bool enableCollapse);
 void populateLoweringONNXUniqueOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXIm2ColOpPattern(mlir::RewritePatternSet &,
@@ -759,29 +773,13 @@ bool hasNonIdentityLayout(mlir::ValueRange operands);
 // Support functions for parallel region.
 //===----------------------------------------------------------------------===//
 
-// Return the outermost loop within [firstDim, lastDim) for which (ub-lb) >=
-// minSize. Runtime dimensions are assumed to satisfy the size requirement by
-// definition. If found one, it is parDim and the function returns true.
-bool findSuitableParallelDimension(mlir::ArrayRef<IndexExpr> lb,
-    mlir::ArrayRef<IndexExpr> ub, int64_t firstInclusiveDim,
-    int64_t lastExclusiveDim, int64_t &parDim, int64_t minSize = 4);
-
-// Try to find a suitable loop index for parallelism (parId), where
-// parId >= firstInclusiveDim && parId < exlusiveDim && parId is not in
-// exclusiveDim && tripCount(parId) >= minSize when tripCount can be determined
-// at compile time.
-//
-// If found, emit krnl.parallel op for parId and return parId.
-// Otherwise, do nothing and return -1.
-//
-// When `createKrnlParallel` is set to false, only parID is returned without
-// creating krnl.parallel.
-int64_t tryCreateKrnlParallel(const onnx_mlir::KrnlBuilder &createKrnl,
-    mlir::Operation *op, std::string msg, const mlir::ValueRange &loopDef,
-    mlir::ArrayRef<IndexExpr> lbs, mlir::ArrayRef<IndexExpr> ubs,
-    int64_t firstInclusiveDim = 0, int64_t lastExclusiveDim = 2,
-    mlir::ArrayRef<int64_t> exclusiveDims = {}, int64_t minSize = 4,
-    bool createKrnlParallel = true);
+// The decision procedure (decideKrnlParallel), the plan that carries its answer
+// to the krnl.iterate that consumes it (KrnlParallelPlan) and the two entry
+// points onto them all live in KrnlParallelPlan.hpp, included above. They are
+// declared there rather than here because the decision is a self-contained
+// piece of reasoning about loop levels, trip counts and region cost, with one
+// dependency on this file -- onnxToKrnlParallelReport, below -- and none on the
+// rest of it.
 
 //===----------------------------------------------------------------------===//
 // Support functions for determining simd unrolling.
