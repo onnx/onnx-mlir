@@ -254,8 +254,9 @@ def remove_dependent_containers(image):
             container_info = docker_api.inspect_container(container["Id"])
             logging.info("Removing     Id:%s", container["Id"])
             logging.info("   Image %s", container_info["Image"])
-            logging.info("     Cmd %s", str(container_info["Config"]["Cmd"]))
-            logging.info("  Labels %s", str(container_info["Config"]["Labels"]))
+            # use .get in case the key doesn't exist which will return None
+            logging.info("     Cmd %s", container_info["Config"].get("Cmd"))
+            logging.info("  Labels %s", container_info["Config"].get("Labels"))
             docker_api.remove_container(container["Id"], v=True, force=True)
         except Exception as e:
             logging.exception(e)
@@ -269,12 +270,14 @@ def remove_docker_images(images):
         try:
             image_info = docker_api.inspect_image(image)
             logging.info("Removing %s", image)
-            logging.info("RepoTags %s", str(image_info["RepoTags"]))
-            logging.info("     Cmd %s", str(image_info["Config"]["Cmd"]))
-            logging.info("  Labels %s", str(image_info["Config"]["Labels"]))
+            logging.info("RepoTags %s", image_info["RepoTags"])
+            # use .get in case the key doesn't exist which will return None
+            logging.info("     Cmd %s", image_info["Config"].get("Cmd"))
+            logging.info("  Labels %s", image_info["Config"].get("Labels"))
             docker_api.remove_image(image, force=True)
         except Exception as e:
             logging.exception(e)
+            logging.info("errors ignored while removing images")
 
 
 def remove_dangling_images(build):
