@@ -1086,11 +1086,17 @@ Value MathBuilder::cast(Type destType, Value src) const {
         return castToUnsigned(src, srcElemWidth);
       // Different bit width.
       Value dest = src;
-      if (bitExtend)
-        dest = arith::ExtSIOp::create(b(), loc(), destType, src);
-      if (bitTrunc)
+      if (bitExtend) {
+        Type castElemType = b().getIntegerType(destElemWidth);
+        Type castType = getTypeWithVector(destType, castElemType);
+        dest = arith::ExtSIOp::create(b(), loc(), castType, src);
+      }
+      if (bitTrunc) {
         // TosaToLinalg use a clipping algo
-        dest = arith::TruncIOp::create(b(), loc(), destType, src);
+        Type castElemType = b().getIntegerType(destElemWidth);
+        Type castType = getTypeWithVector(destType, castElemType);
+        dest = arith::TruncIOp::create(b(), loc(), castType, src);
+      }
       if (destIsIndex)
         return arith::IndexCastOp::create(b(), loc(), b().getIndexType(), dest);
       if (destElemType.isUnsignedInteger()) {
