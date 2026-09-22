@@ -262,7 +262,7 @@ def PadV2Pattern : Pat<
   (ONNXPadV2Op $x, $modeAttr, $padsAttr, $valueAttr),
   (ONNXPadOp $x, (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $padsAttr)),
      (ONNXConstantOpFromDenseAttr
-        (createDenseArrayAttrFromSingleFloatAttr $x, $valueAttr))),
+        (createDenseArrayAttrFromSingleFloatAttr $x, $valueAttr)),
      (CreateNoneValue),
      $modeAttr)
 >;
