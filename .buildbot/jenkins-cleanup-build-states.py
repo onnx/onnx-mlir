@@ -67,17 +67,8 @@ def cleanup_docker_images(
             image_full = image_repo1 + image_repo2 + ":" + image_tag
             images.append(image_full)
 
-    for image in images:
-        # Remove the docker images associated with the pull request number
-        try:
-            image_info = docker_api.inspect_image(image)
-            logging.info("Removing %s", image)
-            logging.info("RepoTags %s", str(image_info["RepoTags"]))
-            logging.info("     Cmd %s", str(image_info["Config"]["Cmd"]))
-            logging.info("  Labels %s", str(image_info["Config"]["Labels"]))
-            docker_api.remove_image(image, force=True)
-        except Exception as e:
-            logging.exception(e)
+    # Remove the docker images associated with the pull request number
+    remove_docker_images(images)
 
 
 def main():
