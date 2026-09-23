@@ -30,7 +30,6 @@
 #include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/Mlir/IndexExprBuilder.hpp"
 #include "src/Support/Arrays.hpp"
-#include "llvm/Support/Endian.h"
 
 using namespace mlir;
 
@@ -44,17 +43,10 @@ APFloat getFloatValue(ElementsAttr elementsAttr, Type elType, uint64_t i) {
   // which doesn't support getValues<APFloat>().
   if (auto resource = dyn_cast<DenseUI8ResourceElementsAttr>(elementsAttr)) {
     ArrayRef<uint8_t> array = resource.tryGetAsArrayRef().value();
-    if (elType.isF32()) {
-      float val = llvm::support::endian::read<float, llvm::endianness::little>(
-          array.data() + i * sizeof(float));
-      return APFloat(val);
-    }
-    if (elType.isF64()) {
-      double val =
-          llvm::support::endian::read<double, llvm::endianness::little>(
-              array.data() + i * sizeof(double));
-      return APFloat(val);
-    }
+    if (elType.isF32())
+      return APFloat(onnx_mlir::castArrayRef<float>(array)[i]);
+    if (elType.isF64())
+      return APFloat(onnx_mlir::castArrayRef<double>(array)[i]);
     llvm_unreachable("Unexpected float type");
   }
   return elementsAttr.getValues<APFloat>()[i];
@@ -66,18 +58,12 @@ APInt getIntValue(ElementsAttr elementsAttr, Type elType, uint64_t i) {
   if (auto resource = dyn_cast<DenseUI8ResourceElementsAttr>(elementsAttr)) {
     ArrayRef<uint8_t> array = resource.tryGetAsArrayRef().value();
     bool isSigned = true;
-    if (elType.isInteger(16)) {
-      int16_t val = llvm::support::endian::read16le(array.data() + i * 2);
-      return APInt(16, val, isSigned);
-    }
-    if (elType.isInteger(32)) {
-      int32_t val = llvm::support::endian::read32le(array.data() + i * 4);
-      return APInt(32, val, isSigned);
-    }
-    if (elType.isInteger(64)) {
-      int64_t val = llvm::support::endian::read64le(array.data() + i * 8);
-      return APInt(64, val, isSigned);
-    }
+    if (elType.isInteger(16))
+      return APInt(16, onnx_mlir::castArrayRef<int16_t>(array)[i], isSigned);
+    if (elType.isInteger(32))
+      return APInt(32, onnx_mlir::castArrayRef<int32_t>(array)[i], isSigned);
+    if (elType.isInteger(64))
+      return APInt(64, onnx_mlir::castArrayRef<int64_t>(array)[i], isSigned);
     llvm_unreachable("Unexpected int type");
   }
   return elementsAttr.getValues<APInt>()[i];
