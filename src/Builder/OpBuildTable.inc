@@ -201,6 +201,7 @@ op_dialect_version_map_["Sub"] = {14};
 op_dialect_version_map_["Sum"] = {13};
 op_dialect_version_map_["Tan"] = {22};
 op_dialect_version_map_["Tanh"] = {13};
+op_dialect_version_map_["TensorScatter"] = {24};
 op_dialect_version_map_["TfIdfVectorizer"] = {9};
 op_dialect_version_map_["ThresholdedRelu"] = {22};
 op_dialect_version_map_["Tile"] = {13};
@@ -631,6 +632,8 @@ import_handler_map_["Tan"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXTanOp>;
 import_handler_map_["Tanh"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXTanhOp>;
+import_handler_map_["TensorScatter"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXTensorScatterOp>;
 import_handler_map_["TfIdfVectorizer"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXTfIdfVectorizerOp>;
 import_handler_map_["ThresholdedRelu"] = 

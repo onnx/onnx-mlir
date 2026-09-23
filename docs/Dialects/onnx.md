@@ -11024,6 +11024,67 @@ Effects: `MemoryEffects::Effect{}`
 
 
 
+### `onnx.TensorScatter` (ONNXTensorScatterOp)
+
+_ONNX TensorScatter operation_
+
+TensorScatter is a generic tensor update operation, motivated by the requirements for KV cache updates for Attention
+ops commonly found in LLMs. It is a functional operation that models an in-place update to a KV cache buffer.
+
+The past and present cache tensors have the same shape (batch_size, D1, D2, ..., max_sequence_length, ..., Dn), with
+the sequence dimension (indicated by the `axis` attribute) being max_sequence_length, so the sizes of these tensors do
+not need to grow between iterations. The `update` tensor's shape only differs from the cache tensors in the sequence
+dimension: (batch_size, D1, D2, ..., sequence_length, ..., Dn), where sequence_length <= max_sequence_length.
+
+The optional `write_indices` input indicates the write index for each sample in the batch, assumed to be zero
+if not provided. When the `mode` attribute is set to \"circular\", the write index is modulo max_sequence_length.
+The operation can be described using the following pseudocode:
+
+```
+for prefix_idx in np.ndindex(past_cache.shape[:axis]):
+    batch_idx = prefix_idx[0]
+    for sequence_idx in range(sequence_length):
+        cache_idx = (*prefix_idx, write_indices[batch_idx] + sequence_idx)
+        if mode == \"circular\":
+            cache_idx = tuple(np.mod(np.asarray(cache_idx), max_sequence_length))
+        update_idx = (*prefix_idx, sequence_idx)
+        present_cache[cache_idx] = update[update_idx]
+```
+
+During the prefill phase of attention, only the first two inputs are needed. During the decode phase, `write_indices`
+is also needed so that the incoming key or value update can be appended after the last valid token for each sample
+in the batch.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>axis</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>mode</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `past_cache` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values or tensor of f4E2M1FN type values or tensor of f8E8M0FNU type values |
+| `update` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values or tensor of f4E2M1FN type values or tensor of f8E8M0FNU type values |
+| `write_indices` | tensor of 64-bit signless integer values or none type |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `present_cache` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values or tensor of f4E2M1FN type values or tensor of f8E8M0FNU type values |
+
+
+
 ### `onnx.TfIdfVectorizer` (ONNXTfIdfVectorizerOp)
 
 _ONNX TfIdfVectorizer operation_
