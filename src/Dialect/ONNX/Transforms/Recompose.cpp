@@ -1074,6 +1074,20 @@ struct RecomposeAttentionFromMatMulPattern
   }
 };
 
+// Find a function argument whose "onnx.name" attribute equals `name`, or a
+// null Value if there is none.
+static Value findFuncArgByName(func::FuncOp funcOp, StringRef name) {
+  for (unsigned i = 0; i < funcOp.getNumArguments(); ++i) {
+    DictionaryAttr argDict = funcOp.getArgAttrDict(i);
+    auto nameAttr = argDict ? mlir::dyn_cast_or_null<StringAttr>(
+                                   argDict.get("onnx.name"))
+                             : nullptr;
+    if (nameAttr && nameAttr.getValue() == name)
+      return funcOp.getArgument(i);
+  }
+  return nullptr;
+}
+
 // Recompose Concat(past_cache, update) into onnx.TensorScatter, for decoder
 // models where one operand is known to be a KV-cache function argument.
 // Gated by --model-type=decoder (see getRecomposeONNXToONNXPatterns).
@@ -1113,29 +1127,50 @@ struct RecomposeConcatToTensorScatterPattern
             concatOp, "update is larger than past_cache along axis");
     }
 
+    Location loc = concatOp.getLoc();
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+
+    // write_indices: prefer a function argument named "cache_position",
+    // used directly as write_indices. Otherwise, when the enclosing
+    // function's 3rd argument is named "position_ids" (shape
+    // (batch, sequence)), use position_ids[:, 0] -- the position of the
+    // first new token, i.e. the write offset into the cache, one per batch
+    // entry. Otherwise fall back to none(), i.e. write at index 0 (prefill
+    // semantics).
+    Value writeIndices = create.onnx.none();
     auto funcOp = concatOp->getParentOfType<func::FuncOp>();
-    if (!funcOp || funcOp.getNumArguments() < 3)
-      return rewriter.notifyMatchFailure(concatOp,
-          "enclosing function has no 3rd argument for write_indices");
+    if (Value cachePosition =
+            funcOp ? findFuncArgByName(funcOp, "cache_position") : nullptr) {
+      writeIndices = cachePosition;
+    } else if (funcOp && funcOp.getNumArguments() > 2) {
+      DictionaryAttr argDict = funcOp.getArgAttrDict(2);
+      auto nameAttr = argDict ? mlir::dyn_cast_or_null<StringAttr>(
+                                     argDict.get("onnx.name"))
+                               : nullptr;
+      if (nameAttr && nameAttr.getValue() == "position_ids") {
+        Value positionIds = funcOp.getArgument(2);
+        auto positionIdsType =
+            mlir::dyn_cast<ShapedType>(positionIds.getType());
+        if (positionIdsType && positionIdsType.hasRank() &&
+            positionIdsType.getRank() == 2) {
+          Type elemType = positionIdsType.getElementType();
+          int64_t batchSize = positionIdsType.getShape()[0];
+          Value startsVal = create.onnx.constantInt64({0});
+          Value endsVal = create.onnx.constantInt64({1});
+          Value axesVal = create.onnx.constantInt64({1});
+          Value stepsVal = create.onnx.constantInt64({1});
+          auto slicedType = RankedTensorType::get({batchSize, 1}, elemType);
+          Value sliced = create.onnx.slice(
+              slicedType, positionIds, startsVal, endsVal, axesVal, stepsVal);
+          auto squeezedType = RankedTensorType::get({batchSize}, elemType);
+          writeIndices = create.onnx.squeeze(squeezedType, sliced, axesVal);
+        }
+      }
+    }
 
-    // write_indices: use the 3rd function argument ("position_ids"), which
-    // gives the write offset of the new tokens into the cache. Alternative:
-    // create.onnx.none() would write at index 0 (prefill semantics).
-    ArrayAttr argAttrs = funcOp.getArgAttrsAttr();
-    DictionaryAttr argDict = argAttrs && argAttrs.size() > 2
-                                  ? mlir::dyn_cast<DictionaryAttr>(argAttrs[2])
-                                  : nullptr;
-    auto nameAttr = argDict ? mlir::dyn_cast_or_null<StringAttr>(
-                                   argDict.get("onnx.name"))
-                             : nullptr;
-    if (!nameAttr || nameAttr.getValue() != "position_ids")
-      return rewriter.notifyMatchFailure(
-          concatOp, "3rd function argument is not named 'position_ids'");
-    Value writeIndices = funcOp.getArgument(2);
-
-    auto tensorScatterOp = ONNXTensorScatterOp::create(rewriter,
-        concatOp.getLoc(), pastCache.getType(), pastCache, update,
-        writeIndices, concatOp.getAxisAttr(), rewriter.getStringAttr("linear"));
+    auto tensorScatterOp = ONNXTensorScatterOp::create(rewriter, loc,
+        pastCache.getType(), pastCache, update, writeIndices,
+        concatOp.getAxisAttr(), rewriter.getStringAttr("linear"));
     rewriter.replaceOp(concatOp, tensorScatterOp.getResult());
     return success();
   }

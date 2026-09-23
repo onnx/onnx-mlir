@@ -550,11 +550,12 @@ func.func @test_attention_dynamic_batch(%Q: tensor<?x8x16x32xf32>, %K: tensor<?x
 // Decoder KV cache: Concat(past_key, new_key) is recomposed into
 // onnx.TensorScatter, gated by --model-type=decoder. `%past_key` is a
 // function argument (the KV-cache buffer), `%new_key` is not (it is produced
-// by an op), and the function's 3rd argument is named "position_ids", which
-// is used as write_indices. Not recognized by default or with
-// --enable-attention-op-construct.
+// by an op), and the function's 3rd argument is named "position_ids"
+// (shape (batch, sequence)): write_indices is built as position_ids[:, 0],
+// the write offset of the first new token, one per batch entry. Not
+// recognized by default or with --enable-attention-op-construct.
 
-func.func @test_decoder_kv_cache(%past_key: tensor<2x4x?x16xf32>, %attention_mask: tensor<2x1x1x8xf32>, %position_ids: tensor<2xi64> {onnx.name = "position_ids"}, %new_key_raw: tensor<2x4x?x16xf32>) -> tensor<2x4x?x16xf32> {
+func.func @test_decoder_kv_cache(%past_key: tensor<2x4x?x16xf32>, %attention_mask: tensor<2x1x1x8xf32>, %position_ids: tensor<2x?xi64> {onnx.name = "position_ids"}, %new_key_raw: tensor<2x4x?x16xf32>) -> tensor<2x4x?x16xf32> {
   %new_key = "onnx.Relu"(%new_key_raw) : (tensor<2x4x?x16xf32>) -> tensor<2x4x?x16xf32>
   %present_key = "onnx.Concat"(%past_key, %new_key) {axis = 2 : si64} : (tensor<2x4x?x16xf32>, tensor<2x4x?x16xf32>) -> tensor<2x4x?x16xf32>
   return %present_key : tensor<2x4x?x16xf32>
@@ -572,31 +573,72 @@ func.func @test_decoder_kv_cache(%past_key: tensor<2x4x?x16xf32>, %attention_mas
 
 // mlir2FileCheck.py
 // DECODER-LABEL:  func.func @test_decoder_kv_cache
-// DECODER-SAME:   ([[PARAM_0_:%.+]]: tensor<2x4x?x16xf32>, [[PARAM_1_:%.+]]: tensor<2x1x1x8xf32>, [[PARAM_2_:%.+]]: tensor<2xi64> {onnx.name = "position_ids"}, [[PARAM_3_:%.+]]: tensor<2x4x?x16xf32>) -> tensor<2x4x?x16xf32> {
+// DECODER-SAME:   ([[PARAM_0_:%.+]]: tensor<2x4x?x16xf32>, [[PARAM_1_:%.+]]: tensor<2x1x1x8xf32>, [[PARAM_2_:%.+]]: tensor<2x?xi64> {onnx.name = "position_ids"}, [[PARAM_3_:%.+]]: tensor<2x4x?x16xf32>) -> tensor<2x4x?x16xf32> {
+// DECODER-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
+// DECODER-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<0> : tensor<1xi64>
+// DECODER:           [[VAR_2_:%.+]] = "onnx.Relu"([[PARAM_3_]]) : (tensor<2x4x?x16xf32>) -> tensor<2x4x?x16xf32>
+// DECODER:           [[VAR_3_:%.+]] = "onnx.Slice"([[PARAM_2_]], [[VAR_1_]], [[VAR_0_]], [[VAR_0_]], [[VAR_0_]]) : (tensor<2x?xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<2x1xi64>
+// DECODER:           [[VAR_4_:%.+]] = "onnx.Squeeze"([[VAR_3_]], [[VAR_0_]]) : (tensor<2x1xi64>, tensor<1xi64>) -> tensor<2xi64>
+// DECODER:           [[VAR_5_:%.+]] = "onnx.TensorScatter"([[PARAM_0_]], [[VAR_2_]], [[VAR_4_]]) <{axis = 2 : si64, mode = "linear"}> : (tensor<2x4x?x16xf32>, tensor<2x4x?x16xf32>, tensor<2xi64>) -> tensor<2x4x?x16xf32>
+// DECODER:           return [[VAR_5_]] : tensor<2x4x?x16xf32>
+// DECODER:         }
+}
+
+// -----
+
+// Decoder KV cache with a "cache_position" argument: it is used directly as
+// write_indices (taking priority over "position_ids", which is present here
+// too but must not be used). Not recognized by default or with
+// --enable-attention-op-construct.
+
+func.func @test_decoder_kv_cache_cache_position(%past_key: tensor<2x4x?x16xf32>, %cache_position: tensor<2xi64> {onnx.name = "cache_position"}, %position_ids: tensor<2x?xi64> {onnx.name = "position_ids"}, %new_key_raw: tensor<2x4x?x16xf32>) -> tensor<2x4x?x16xf32> {
+  %new_key = "onnx.Relu"(%new_key_raw) : (tensor<2x4x?x16xf32>) -> tensor<2x4x?x16xf32>
+  %present_key = "onnx.Concat"(%past_key, %new_key) {axis = 2 : si64} : (tensor<2x4x?x16xf32>, tensor<2x4x?x16xf32>) -> tensor<2x4x?x16xf32>
+  return %present_key : tensor<2x4x?x16xf32>
+
+// Left unchanged by default and with --enable-attention-op-construct.
+// CHECK-LABEL:  func.func @test_decoder_kv_cache_cache_position
+// CHECK-NOT:       "onnx.TensorScatter"
+// CHECK:           "onnx.Concat"
+// CHECK:         }
+
+// ATTENTION-LABEL:  func.func @test_decoder_kv_cache_cache_position
+// ATTENTION-NOT:       "onnx.TensorScatter"
+// ATTENTION:           "onnx.Concat"
+// ATTENTION:         }
+
+// mlir2FileCheck.py
+// DECODER-LABEL:  func.func @test_decoder_kv_cache_cache_position
+// DECODER-SAME:   ([[PARAM_0_:%.+]]: tensor<2x4x?x16xf32>, [[PARAM_1_:%.+]]: tensor<2xi64> {onnx.name = "cache_position"}, [[PARAM_2_:%.+]]: tensor<2x?xi64> {onnx.name = "position_ids"}, [[PARAM_3_:%.+]]: tensor<2x4x?x16xf32>) -> tensor<2x4x?x16xf32> {
 // DECODER:           [[VAR_0_:%.+]] = "onnx.Relu"([[PARAM_3_]]) : (tensor<2x4x?x16xf32>) -> tensor<2x4x?x16xf32>
-// DECODER:           [[VAR_1_:%.+]] = "onnx.TensorScatter"([[PARAM_0_]], [[VAR_0_]], [[PARAM_2_]]) <{axis = 2 : si64, mode = "linear"}> : (tensor<2x4x?x16xf32>, tensor<2x4x?x16xf32>, tensor<2xi64>) -> tensor<2x4x?x16xf32>
+// DECODER:           [[VAR_1_:%.+]] = "onnx.TensorScatter"([[PARAM_0_]], [[VAR_0_]], [[PARAM_1_]]) <{axis = 2 : si64, mode = "linear"}> : (tensor<2x4x?x16xf32>, tensor<2x4x?x16xf32>, tensor<2xi64>) -> tensor<2x4x?x16xf32>
 // DECODER:           return [[VAR_1_]] : tensor<2x4x?x16xf32>
 // DECODER:         }
 }
 
 // -----
 
-// Decoder KV cache, negative case: the function's 3rd argument is not named
-// "position_ids", so the assumption used to find write_indices does not
-// hold and the Concat must be left unchanged, even with --model-type=decoder.
+// Decoder KV cache, fallback case: the function's 3rd argument is not named
+// "position_ids", so the assumption used to derive write_indices does not
+// hold. The Concat is still recomposed into onnx.TensorScatter, but with
+// write_indices = none() (write at index 0, i.e. prefill semantics).
 
-func.func @test_decoder_kv_cache_no_position_ids(%past_key: tensor<2x4x?x16xf32>, %attention_mask: tensor<2x1x1x8xf32>, %token_type_ids: tensor<2xi64>, %new_key_raw: tensor<2x4x?x16xf32>) -> tensor<2x4x?x16xf32> {
+func.func @test_decoder_kv_cache_no_position_ids(%past_key: tensor<2x4x?x16xf32>, %attention_mask: tensor<2x1x1x8xf32>, %token_type_ids: tensor<2x?xi64>, %new_key_raw: tensor<2x4x?x16xf32>) -> tensor<2x4x?x16xf32> {
   %new_key = "onnx.Relu"(%new_key_raw) : (tensor<2x4x?x16xf32>) -> tensor<2x4x?x16xf32>
   %present_key = "onnx.Concat"(%past_key, %new_key) {axis = 2 : si64} : (tensor<2x4x?x16xf32>, tensor<2x4x?x16xf32>) -> tensor<2x4x?x16xf32>
   return %present_key : tensor<2x4x?x16xf32>
 
+// Left unchanged by default and with --enable-attention-op-construct.
 // CHECK-LABEL:  func.func @test_decoder_kv_cache_no_position_ids
 // CHECK-NOT:       "onnx.TensorScatter"
 // CHECK:           "onnx.Concat"
 // CHECK:         }
 
+// mlir2FileCheck.py
 // DECODER-LABEL:  func.func @test_decoder_kv_cache_no_position_ids
-// DECODER-NOT:       "onnx.TensorScatter"
-// DECODER:           "onnx.Concat"
+// DECODER:           [[VAR_0_:%.+]] = "onnx.Relu"({{.*}}) : (tensor<2x4x?x16xf32>) -> tensor<2x4x?x16xf32>
+// DECODER:           [[VAR_1_:%.+]] = "onnx.NoValue"() : () -> none
+// DECODER:           [[VAR_2_:%.+]] = "onnx.TensorScatter"({{.*}}, [[VAR_0_]], [[VAR_1_]]) <{axis = 2 : si64, mode = "linear"}> : (tensor<2x4x?x16xf32>, tensor<2x4x?x16xf32>, none) -> tensor<2x4x?x16xf32>
+// DECODER:           return [[VAR_2_]] : tensor<2x4x?x16xf32>
 // DECODER:         }
 }
