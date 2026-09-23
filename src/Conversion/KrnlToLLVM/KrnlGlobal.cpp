@@ -19,6 +19,7 @@
 #include "mlir/IR/DialectResourceBlobManager.h"
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/Endian.h"
 #include "llvm/Support/FileSystem.h"
 
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
@@ -141,6 +142,21 @@ private:
     // Check data size.
     uint64_t sizeInBytes = computeSizeInBytes(krnlGlobalOp);
     assert(((uint64_t)rawData.size() == sizeInBytes) && "Data size mismatch.");
+
+    // DenseResourceElementsAttr blobs originate from ONNX protobuf raw_data
+    // which is always little-endian. On big-endian machines the LLVM global
+    // will be read by native-endian load instructions, so swap the bytes here.
+    SmallVector<char> swappedData;
+    if (llvm::endianness::native != llvm::endianness::little) {
+      auto memRefTy = mlir::cast<MemRefType>(
+          krnlGlobalOp.getOperation()->getResult(0).getType());
+      swappedData.resize(rawData.size());
+      DenseIntOrFPElementsAttr::convertEndianOfArrayRefForBEmachine(rawData,
+          swappedData,
+          RankedTensorType::get(
+              memRefTy.getShape(), memRefTy.getElementType()));
+      rawData = swappedData;
+    }
 
     StringRef data(rawData.data(), rawData.size());
     StringAttr llvmStringAttr = StringAttr::get(context, data);
