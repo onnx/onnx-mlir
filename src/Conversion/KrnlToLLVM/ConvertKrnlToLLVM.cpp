@@ -550,10 +550,29 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
   // So every constants must be correctly aligned. Pads are added if necessary.
   llvm::sys::fs::remove(filepath);
   std::ofstream outfile(filepath, std::ios::app | std::ios::binary);
+  bool needsByteSwap = llvm::endianness::native != llvm::endianness::little;
   uint64_t totalConstSize = 0;
   for (int64_t i = globalOfInterest.size() - 1; i >= 0; --i) {
     KrnlGlobalOp op = globalOfInterest[i];
     ArrayRef<char> rawData = getRawData(op);
+
+    // On big-endian machines, DenseResourceElementsAttr blobs store data in
+    // little-endian byte order (as received from the ONNX protobuf raw_data
+    // field). The runtime uses mmap'd file bytes as native-endian, so we must
+    // convert to native endian before writing.
+    // DenseElementsAttr stores data in native endian, so no swap is needed.
+    SmallVector<char> swappedData;
+    if (needsByteSwap &&
+        mlir::isa<DenseResourceElementsAttr>(op.getValue().value())) {
+      auto memRefTy =
+          mlir::cast<MemRefType>(op.getOperation()->getResult(0).getType());
+      swappedData.resize(rawData.size());
+      DenseIntOrFPElementsAttr::convertEndianOfArrayRefForBEmachine(rawData,
+          swappedData,
+          RankedTensorType::get(
+              memRefTy.getShape(), memRefTy.getElementType()));
+      rawData = swappedData;
+    }
 
     // Get alignment.
     int64_t alignment = -1;
