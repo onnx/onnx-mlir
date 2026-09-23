@@ -159,6 +159,21 @@ LogicalResult ONNXGlobalAveragePoolOp::inferShapes(
 // GlobalLpPool
 //===----------------------------------------------------------------------===//
 
+LogicalResult ONNXGlobalLpPoolOp::verify() {
+  int64_t p = getP();
+  if (p < 1)
+    return emitOpError("p must be >= 1, got ") << p;
+
+  if (auto xType = mlir::dyn_cast<ShapedType>(getX().getType())) {
+    if (xType.hasRank() && xType.getRank() < 3)
+      return emitOpError(
+                 "input must have rank >= 3 (batch, channel, and at least one "
+                 "spatial dimension), got rank ")
+             << xType.getRank();
+  }
+  return success();
+}
+
 LogicalResult ONNXGlobalLpPoolOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   if (!hasShapeAndRank(getX()))

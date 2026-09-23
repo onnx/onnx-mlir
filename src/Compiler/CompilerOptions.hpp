@@ -183,12 +183,12 @@ extern ProfileIRs profileIRWithSig;                           // onnx-mlir only
 extern OptReport optReport;                                   // onnx-mlir only
 extern bool enableTiming;                                     // onnx-mlir only
 extern bool enableBoundCheck;                                 // onnx-mlir only
-extern bool debugTestCompilerOpt;                             // onnx-mlir only
-extern bool useLinalgPath;                                    // onnx-mlir only
-extern bool enableDebugInfo;                                  // onnx-mlir only
-extern std::string configFile;                                // onnx-mlir only
-extern std::string saveConfigFile;                            // onnx-mlir only
-extern bool appendDecodingStrategy;                           // onnx-mlir only
+extern bool debugTestCompilerOpt;   // onnx-mlir & onnx-mlir-opt
+extern bool useLinalgPath;          // onnx-mlir only
+extern bool enableDebugInfo;        // onnx-mlir only
+extern std::string configFile;      // onnx-mlir only
+extern std::string saveConfigFile;  // onnx-mlir only
+extern bool appendDecodingStrategy; // onnx-mlir only
 
 extern bool split_input_file;          // onnx-mlir-opt only
 extern bool verify_diagnostics;        // onnx-mlir-opt only
