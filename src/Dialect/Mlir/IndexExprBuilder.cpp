@@ -27,10 +27,10 @@
 #include "mlir/IR/Value.h"
 #include "mlir/Support/LogicalResult.h"
 
-#include "llvm/Support/Endian.h"
 #include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/Mlir/IndexExprBuilder.hpp"
 #include "src/Support/Arrays.hpp"
+#include "llvm/Support/Endian.h"
 
 using namespace mlir;
 
@@ -50,8 +50,9 @@ APFloat getFloatValue(ElementsAttr elementsAttr, Type elType, uint64_t i) {
       return APFloat(val);
     }
     if (elType.isF64()) {
-      double val = llvm::support::endian::read<double, llvm::endianness::little>(
-          array.data() + i * sizeof(double));
+      double val =
+          llvm::support::endian::read<double, llvm::endianness::little>(
+              array.data() + i * sizeof(double));
       return APFloat(val);
     }
     llvm_unreachable("Unexpected float type");

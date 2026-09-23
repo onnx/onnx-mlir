@@ -572,17 +572,7 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
 
     op.setOffsetAttr(b.getI64IntegerAttr(totalConstSize));
     op.removeValueAttr();
-
-    if (llvm::endianness::native != llvm::endianness::little) {
-      auto memRefTy = mlir::cast<MemRefType>(op.getOperation()->getResult(0).getType());
-      SmallVector<char> swappedData(rawData.size());
-      DenseIntOrFPElementsAttr::convertEndianOfArrayRefForBEmachine(
-          rawData, swappedData,
-          RankedTensorType::get(memRefTy.getShape(), memRefTy.getElementType()));
-      outfile.write(swappedData.data(), swappedData.size());
-    } else {
-      outfile.write(rawData.data(), rawData.size());
-    }
+    outfile.write(rawData.data(), rawData.size());
     totalConstSize += rawData.size();
   }
 
