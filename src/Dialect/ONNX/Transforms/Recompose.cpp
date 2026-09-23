@@ -1079,9 +1079,9 @@ struct RecomposeAttentionFromMatMulPattern
 static Value findFuncArgByName(func::FuncOp funcOp, StringRef name) {
   for (unsigned i = 0; i < funcOp.getNumArguments(); ++i) {
     DictionaryAttr argDict = funcOp.getArgAttrDict(i);
-    auto nameAttr = argDict ? mlir::dyn_cast_or_null<StringAttr>(
-                                   argDict.get("onnx.name"))
-                             : nullptr;
+    auto nameAttr =
+        argDict ? mlir::dyn_cast_or_null<StringAttr>(argDict.get("onnx.name"))
+                : nullptr;
     if (nameAttr && nameAttr.getValue() == name)
       return funcOp.getArgument(i);
   }
@@ -1144,9 +1144,9 @@ struct RecomposeConcatToTensorScatterPattern
       writeIndices = cachePosition;
     } else if (funcOp && funcOp.getNumArguments() > 2) {
       DictionaryAttr argDict = funcOp.getArgAttrDict(2);
-      auto nameAttr = argDict ? mlir::dyn_cast_or_null<StringAttr>(
-                                     argDict.get("onnx.name"))
-                               : nullptr;
+      auto nameAttr =
+          argDict ? mlir::dyn_cast_or_null<StringAttr>(argDict.get("onnx.name"))
+                  : nullptr;
       if (nameAttr && nameAttr.getValue() == "position_ids") {
         Value positionIds = funcOp.getArgument(2);
         auto positionIdsType =
