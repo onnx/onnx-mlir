@@ -288,10 +288,10 @@ static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
       return;
     }
     // Check for overflow of outputSize * output_size[i].
-    if (outputSize > INT64_MAX / output_size[i]) {
-      if (scale_factor_OMT != NULL)
+    if (outputSize > outputCap / output_size[i]) {
+      if (output_size_OMT == NULL)
         free(output_size);
-      else
+      if (scale_factor_OMT == NULL)
         free(scale_factor);
       return;
     }
