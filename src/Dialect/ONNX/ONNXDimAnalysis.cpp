@@ -1108,19 +1108,19 @@ std::optional<int64_t> DimAnalysis::getDimOffset(
   DimT dim1(tensor1, (uint64_t)dimAxis1);
   DimT dim2(tensor2, (uint64_t)dimAxis2);
 
-  if (auto it = dimRelations.find(dim1); it != dimRelations.end()) {
-    for (const DimRelation &rel : it->second) {
+  if (auto it = dimOffsetRelations.find(dim1); it != dimOffsetRelations.end()) {
+    for (const DimOffsetRelation &rel : it->second) {
       if (rel.dim2 == dim2) {
-        return rel.getRelativeOffset();
+        return rel.getNormalizedFactors().first;
       }
     }
   }
 
   // Check reverse direction: dim2 -> dim1.
-  if (auto it = dimRelations.find(dim2); it != dimRelations.end()) {
-    for (const DimRelation &rel : it->second) {
+  if (auto it = dimOffsetRelations.find(dim2); it != dimOffsetRelations.end()) {
+    for (const DimOffsetRelation &rel : it->second) {
       if (rel.dim2 == dim1) {
-        return -rel.getRelativeOffset();
+        return -rel.getNormalizedFactors().first;
       }
     }
   }
@@ -1171,21 +1171,59 @@ void DimAnalysis::dump() const {
   }
 }
 
-void DimAnalysis::dumpOffsetRelations() const {
-  llvm::outs() << "\nOffset relationships (" << dimRelations.size()
-               << " dimensions with offsets):\n";
-  for (auto &entry : dimRelations) {
+bool DimAnalysis::addOffsetRelation(
+    DimT dim, const DimOffsetRelation &rel) const {
+  auto &relations = dimOffsetRelations[dim];
+  // Check if relation already exists to avoid duplicates.
+  for (const DimOffsetRelation &existing : relations) {
+    if (existing == rel)
+      return false; // Already exists, not added.
+  }
+  relations.emplace_back(rel);
+  return true; // Successfully added.
+}
+
+bool DimAnalysis::addScaleRelation(
+    DimT dim, const DimScaleRelation &rel) const {
+  auto &relations = dimScaleRelations[dim];
+  // Check if relation already exists to avoid duplicates.
+  for (const DimScaleRelation &existing : relations) {
+    if (existing == rel)
+      return false; // Already exists, not added.
+  }
+  relations.emplace_back(rel);
+  return true; // Successfully added.
+}
+
+template <typename RelationType, typename RelationMapType>
+void DimAnalysis::dumpRelations(const RelationMapType &relationMap,
+    const char *relationName, const char *opSymbol) const {
+  llvm::outs() << "\n"
+               << relationName << " relationships (" << relationMap.size()
+               << " dimensions with " << relationName << "s):\n";
+  for (auto &entry : relationMap) {
     DimT dim = entry.first;
     const auto &relations = entry.second;
     llvm::outs() << "\n- Dim(" << dim.first << ", " << dim.second << ") has "
-                 << relations.size() << " offset relation(s):\n";
-    for (const DimRelation &rel : relations) {
+                 << relations.size() << " " << relationName
+                 << " relation(s):\n";
+    for (const RelationType &rel : relations) {
+      auto [f1, f2] = rel.getNormalizedFactors();
       llvm::outs() << "  - Dim(" << rel.dim1.first << ", " << rel.dim1.second
-                   << ") + " << rel.offset1 << " == Dim(" << rel.dim2.first
-                   << ", " << rel.dim2.second << ") + " << rel.offset2
-                   << " (relative offset: " << rel.getRelativeOffset() << ")\n";
+                   << ") " << opSymbol << " " << rel.factor1 << " == Dim("
+                   << rel.dim2.first << ", " << rel.dim2.second << ") "
+                   << opSymbol << " " << rel.factor2 << " (normalized: " << f1
+                   << ":" << f2 << ")\n";
     }
   }
+}
+
+void DimAnalysis::dumpOffsetRelations() const {
+  dumpRelations<DimOffsetRelation>(dimOffsetRelations, "offset", "+");
+}
+
+void DimAnalysis::dumpScaleRelations() const {
+  dumpRelations<DimScaleRelation>(dimScaleRelations, "scale", "*");
 }
 
 void DimAnalysis::getONNXDimParams(
@@ -1265,24 +1303,6 @@ bool DimAnalysis::sameDimWithScale(Value tensor1, int64_t dimAxis1,
   return false;
 }
 
-void DimAnalysis::dumpScaleRelations() const {
-  llvm::outs() << "\nScale relationships (" << dimScaleRelations.size()
-               << " dimensions with scales):\n";
-  for (auto &entry : dimScaleRelations) {
-    DimT dim = entry.first;
-    const auto &relations = entry.second;
-    llvm::outs() << "\n- Dim(" << dim.first << ", " << dim.second << ") has "
-                 << relations.size() << " scale relation(s):\n";
-    for (const DimScaleRelation &rel : relations) {
-      auto [s1, s2] = rel.getNormalizedScales();
-      llvm::outs() << "  - Dim(" << rel.dim1.first << ", " << rel.dim1.second
-                   << ") * " << rel.scale1 << " == Dim(" << rel.dim2.first
-                   << ", " << rel.dim2.second << ") * " << rel.scale2
-                   << " (normalized: " << s1 << ":" << s2 << ")\n";
-    }
-  }
-}
-
 void DimAnalysis::visitDimForScales(DimT &dim) const {
   Value tensor = dim.first;
   uint64_t dimIndex = dim.second;
@@ -1321,7 +1341,7 @@ void DimAnalysis::visitDimForScales(DimT &dim) const {
     for (int64_t i = 0; i < operandType.getRank(); ++i) {
       if (sameDim(operand, i, tensor, dimIndex)) {
         DimT inputDim(operand, i);
-        dimScaleRelations[inputDim].emplace_back(inputDim, 1, dim, 1);
+        addScaleRelation(inputDim, DimScaleRelation(inputDim, 1, dim, 1));
         LLVM_DEBUG(llvm::dbgs() << "  - [General] dim(" << operand << ", " << i
                                 << ") * 1 == dim(" << tensor << ", " << dimIndex
                                 << ") * 1\n");
@@ -1447,7 +1467,7 @@ void DimAnalysis::analyzeShapeConcatForScaling(
 
     for (const DimT &dynDim : inputDynDims) {
       if (!passThroughInputAxes.contains(dynDim.second)) {
-        dimScaleRelations[dynDim].emplace_back(dynDim, scale, outputDim, 1);
+        addScaleRelation(dynDim, DimScaleRelation(dynDim, scale, outputDim, 1));
         LLVM_DEBUG(llvm::dbgs()
                    << "  - [Reshape -1] dim(" << dynDim.first << ", "
                    << dynDim.second << ") * " << scale << " == dim("
@@ -1483,13 +1503,9 @@ void DimAnalysis::analyzeShapeConcatForScaling(
 //     Infer: target_x == target_y (new equality)
 //
 // Termination: Algorithm stops when no updates occur in a full iteration.
-template <typename RelationType, typename RelationMapType, typename KeyType>
-void DimAnalysis::propagateRelations(RelationMapType &relationMap,
-    const char *relationName,
-    std::function<KeyType(const RelationType &)> getKey,
-    std::function<void(DimT, const KeyType &, DimT, RelationMapType &)>
-        addRelation,
-    std::function<void(const KeyType &, llvm::raw_ostream &)> debugPrintKey) {
+template <typename RelationType, typename RelationMapType>
+void DimAnalysis::propagateRelations(
+    RelationMapType &relationMap, const char *relationName) {
   LLVM_DEBUG(llvm::dbgs() << "\nPropagating " << relationName
                           << " relationships...\n");
 
@@ -1503,7 +1519,7 @@ void DimAnalysis::propagateRelations(RelationMapType &relationMap,
         continue;
 
       // Collect unique keys and their targets.
-      llvm::DenseMap<KeyType, DimT> keyToTarget;
+      llvm::DenseMap<std::pair<int64_t, int64_t>, DimT> keyToTarget;
       llvm::DenseSet<DimT> dimsWithRelations;
 
       for (auto &dim : dimSet) {
@@ -1513,7 +1529,7 @@ void DimAnalysis::propagateRelations(RelationMapType &relationMap,
 
         dimsWithRelations.insert(dim);
         for (const RelationType &rel : relIt->second) {
-          KeyType key = getKey(rel);
+          std::pair<int64_t, int64_t> key = rel.getNormalizedFactors();
           keyToTarget.try_emplace(key, rel.dim2);
         }
       }
@@ -1527,13 +1543,12 @@ void DimAnalysis::propagateRelations(RelationMapType &relationMap,
           continue; // Already has relations.
 
         for (auto &[key, target] : keyToTarget) {
-          addRelation(dim, key, target, relationMap);
+          relationMap[dim].emplace_back(dim, key.first, target, key.second);
           updated = true;
           LLVM_DEBUG({
             llvm::dbgs() << "  - Propagated: dim(" << dim.first << ", "
-                         << dim.second << ") ";
-            debugPrintKey(key, llvm::dbgs());
-            llvm::dbgs() << "\n";
+                         << dim.second << ") with factors (" << key.first
+                         << ", " << key.second << ")\n";
           });
         }
       }
@@ -1547,12 +1562,13 @@ void DimAnalysis::propagateRelations(RelationMapType &relationMap,
         continue;
 
       // Group targets by key.
-      llvm::DenseMap<KeyType, llvm::SmallVector<DimT, 2>> keyToTargets;
+      llvm::DenseMap<std::pair<int64_t, int64_t>, llvm::SmallVector<DimT, 2>>
+          keyToTargets;
       for (auto &dim : dimSet) {
         auto relIt = relationMap.find(dim);
         if (relIt != relationMap.end()) {
           for (const RelationType &rel : relIt->second) {
-            keyToTargets[getKey(rel)].push_back(rel.dim2);
+            keyToTargets[rel.getNormalizedFactors()].push_back(rel.dim2);
           }
         }
       }
@@ -1583,24 +1599,21 @@ void DimAnalysis::propagateRelations(RelationMapType &relationMap,
 }
 
 // Given: dim_a == dim_b (in same set)
+//        dim_a + k == target_x
+//        dim_b + k == target_y
+// Infer: target_x == target_y (new equality)
+void DimAnalysis::propagateOffsetRelations() {
+  propagateRelations<DimOffsetRelation, DimOffsetRelationMapT>(
+      dimOffsetRelations, "offset");
+}
+
+// Given: dim_a == dim_b (in same set)
 //        dim_a * k == target_x
 //        dim_b * k == target_y
 // Infer: target_x == target_y (new equality)
 void DimAnalysis::propagateScaleRelations() {
-  propagateRelations<DimScaleRelation, DimScaleRelationMapT,
-      std::pair<int64_t, int64_t>>(
-      dimScaleRelations, "scale",
-      // getKey: extract normalized scales.
-      [](const DimScaleRelation &rel) { return rel.getNormalizedScales(); },
-      // addRelation: add a new scale relation.
-      [](DimT dim, const std::pair<int64_t, int64_t> &scales, DimT target,
-          DimScaleRelationMapT &map) {
-        map[dim].emplace_back(dim, scales.first, target, scales.second);
-      },
-      // debugPrintKey: print scale for debugging.
-      [](const std::pair<int64_t, int64_t> &scales, llvm::raw_ostream &os) {
-        os << "* " << scales.first << " == dim(...) * " << scales.second;
-      });
+  propagateRelations<DimScaleRelation, DimScaleRelationMapT>(
+      dimScaleRelations, "scale");
 }
 
 void DimAnalysis::analyze() {
@@ -1608,7 +1621,7 @@ void DimAnalysis::analyze() {
     return;
 
   // Clear previous analysis results for offset and scale relationships.
-  dimRelations.clear();
+  dimOffsetRelations.clear();
   dimScaleRelations.clear();
 
   // Build sets of the same dynamic dimensions and merge them until a fixed
@@ -1639,7 +1652,7 @@ void DimAnalysis::analyze() {
                    << dimSetMap.size() << "\n");
 
   LLVM_DEBUG(llvm::dbgs() << "\nOffset analysis complete. Found "
-                          << dimRelations.size()
+                          << dimOffsetRelations.size()
                           << " dimensions with offset relationships.\n");
 
   LLVM_DEBUG(llvm::dbgs() << "\nScale analysis complete. Found "
@@ -1972,25 +1985,6 @@ void DimAnalysis::visitDim(
   }
 }
 
-// Given: dim_a == dim_b (in same set)
-//        dim_a + k == target_x
-//        dim_b + k == target_y
-// Infer: target_x == target_y (new equality)
-void DimAnalysis::propagateOffsetRelations() {
-  propagateRelations<DimRelation, DimRelationMapT, int64_t>(
-      dimRelations, "offset",
-      // getKey: extract relative offset.
-      [](const DimRelation &rel) { return rel.getRelativeOffset(); },
-      // addRelation: add a new offset relation.
-      [](DimT dim, const int64_t &offset, DimT target, DimRelationMapT &map) {
-        map[dim].emplace_back(dim, offset, target, 0);
-      },
-      // debugPrintKey: print offset for debugging.
-      [](const int64_t &offset, llvm::raw_ostream &os) {
-        os << "+ " << offset;
-      });
-}
-
 void DimAnalysis::visitDimForOffsets(DimT &dim) const {
   Value tensor = dim.first;
   uint64_t dimIndex = dim.second;
@@ -2019,7 +2013,7 @@ void DimAnalysis::visitDimForOffsets(DimT &dim) const {
             resolveThroughFusedOp(B).getDefiningOp<ONNXConstantOp>()) {
       int64_t offset = getScalarValue<int64_t>(constOp);
       DimT inputDim(A, dimIndex);
-      dimRelations[inputDim].emplace_back(inputDim, offset, dim, 0);
+      addOffsetRelation(inputDim, DimOffsetRelation(inputDim, offset, dim, 0));
       LLVM_DEBUG(llvm::dbgs() << "  - [Add] dim(" << A << ", " << dimIndex
                               << ") + " << offset << "\n");
       return;
@@ -2027,7 +2021,7 @@ void DimAnalysis::visitDimForOffsets(DimT &dim) const {
                    resolveThroughFusedOp(A).getDefiningOp<ONNXConstantOp>()) {
       int64_t offset = getScalarValue<int64_t>(constOp);
       DimT inputDim(B, dimIndex);
-      dimRelations[inputDim].emplace_back(inputDim, offset, dim, 0);
+      addOffsetRelation(inputDim, DimOffsetRelation(inputDim, offset, dim, 0));
       LLVM_DEBUG(llvm::dbgs() << "  - [Add] dim(" << B << ", " << dimIndex
                               << ") + " << offset << "\n");
       return;
@@ -2057,7 +2051,8 @@ void DimAnalysis::visitDimForOffsets(DimT &dim) const {
 
       if (dynamicInput && totalStaticSize > 0) {
         DimT inputDim(dynamicInput, axis);
-        dimRelations[inputDim].emplace_back(inputDim, totalStaticSize, dim, 0);
+        addOffsetRelation(
+            inputDim, DimOffsetRelation(inputDim, totalStaticSize, dim, 0));
         LLVM_DEBUG(llvm::dbgs() << "  - [Concat] dim(" << dynamicInput << ", "
                                 << axis << ") + " << totalStaticSize << "\n");
       }
@@ -2090,7 +2085,8 @@ void DimAnalysis::visitDimForOffsets(DimT &dim) const {
                 dimValue = squeezeOp.getData();
               if (auto dimOp = dimValue.getDefiningOp<ONNXDimOp>()) {
                 DimT sourceDim(dimOp.getData(), dimOp.getAxis());
-                dimRelations[sourceDim].emplace_back(sourceDim, offset, dim, 0);
+                addOffsetRelation(
+                    sourceDim, DimOffsetRelation(sourceDim, offset, dim, 0));
                 LLVM_DEBUG(llvm::dbgs()
                            << "  - [Expand] dim(" << sourceDim.first << ", "
                            << sourceDim.second << ") + " << offset << "\n");
@@ -2103,7 +2099,8 @@ void DimAnalysis::visitDimForOffsets(DimT &dim) const {
                 dimValue = squeezeOp.getData();
               if (auto dimOp = dimValue.getDefiningOp<ONNXDimOp>()) {
                 DimT sourceDim(dimOp.getData(), dimOp.getAxis());
-                dimRelations[sourceDim].emplace_back(sourceDim, offset, dim, 0);
+                addOffsetRelation(
+                    sourceDim, DimOffsetRelation(sourceDim, offset, dim, 0));
                 LLVM_DEBUG(llvm::dbgs()
                            << "  - [Expand] dim(" << sourceDim.first << ", "
                            << sourceDim.second << ") + " << offset << "\n");
@@ -2132,7 +2129,7 @@ void DimAnalysis::visitDimForOffsets(DimT &dim) const {
     for (int64_t i = 0; i < operandType.getRank(); ++i) {
       if (sameDim(operand, i, tensor, dimIndex)) {
         DimT inputDim(operand, i);
-        dimRelations[inputDim].emplace_back(inputDim, 0, dim, 0);
+        addOffsetRelation(inputDim, DimOffsetRelation(inputDim, 0, dim, 0));
         LLVM_DEBUG(llvm::dbgs()
                    << "  - [General] dim(" << operand << ", " << i
                    << ") == dim(" << tensor << ", " << dimIndex << ")\n");

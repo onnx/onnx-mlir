@@ -39,40 +39,73 @@ public:
   // analysis.
   using DimSetMapT = llvm::SmallDenseMap<uint64_t, DimSetT, 4>;
 
-  // Represents a relationship: dim1 + offset1 == dim2 + offset2.
+  // Base struct for dimension relationships: dim1 op factor1 == dim2 op
+  // factor2.
   struct DimRelation {
     DimT dim1;
-    int64_t offset1;
+    int64_t factor1;
     DimT dim2;
-    int64_t offset2;
+    int64_t factor2;
 
-    DimRelation(DimT d1, int64_t o1, DimT d2, int64_t o2)
-        : dim1(d1), offset1(o1), dim2(d2), offset2(o2) {}
+    DimRelation(DimT d1, int64_t f1, DimT d2, int64_t f2)
+        : dim1(d1), factor1(f1), dim2(d2), factor2(f2) {}
 
-    // Normalized form: dim1 + (offset1 - offset2) == dim2.
-    int64_t getRelativeOffset() const { return offset1 - offset2; }
+    virtual ~DimRelation() = default;
+
+    // Returns normalized factors as a pair.
+    virtual std::pair<int64_t, int64_t> getNormalizedFactors() const = 0;
+
+    // Equality operator for deduplication.
+    virtual bool operator==(const DimRelation &other) const {
+      return dim1 == other.dim1 && factor1 == other.factor1 &&
+             dim2 == other.dim2 && factor2 == other.factor2;
+    }
   };
 
-  // Map from a dimension to its related dimensions with offsets.
-  using DimRelationMapT =
-      llvm::DenseMap<DimT, llvm::SmallVector<DimRelation, 4>>;
+  // Represents an offset relationship: dim1 + offset1 == dim2 + offset2.
+  struct DimOffsetRelation : public DimRelation {
+    DimOffsetRelation(DimT d1, int64_t o1, DimT d2, int64_t o2)
+        : DimRelation(d1, o1, d2, o2) {}
 
-  // Represents a relationship: dim1 * scale1 == dim2 * scale2.
-  struct DimScaleRelation {
-    DimT dim1;
-    int64_t scale1; // dim1 * scale1
-    DimT dim2;
-    int64_t scale2; // dim2 * scale2
+    // Normalized form: dim1 + (offset1 - offset2) == dim2.
+    int64_t getRelativeOffset() const { return factor1 - factor2; }
 
+    // Returns normalized factors: (relative_offset, 0).
+    std::pair<int64_t, int64_t> getNormalizedFactors() const override {
+      return {getRelativeOffset(), 0};
+    }
+
+    // Equality operator for deduplication.
+    bool operator==(const DimRelation &other) const override {
+      return DimRelation::operator==(other);
+    }
+  };
+
+  // Represents a scale relationship: dim1 * scale1 == dim2 * scale2.
+  struct DimScaleRelation : public DimRelation {
     DimScaleRelation(DimT d1, int64_t s1, DimT d2, int64_t s2)
-        : dim1(d1), scale1(s1), dim2(d2), scale2(s2) {}
+        : DimRelation(d1, s1, d2, s2) {}
 
     // Normalized form: dim1 * (scale1/gcd) == dim2 * (scale2/gcd).
     std::pair<int64_t, int64_t> getNormalizedScales() const {
-      int64_t g = std::gcd(scale1, scale2);
-      return {scale1 / g, scale2 / g};
+      int64_t g = std::gcd(factor1, factor2);
+      return {factor1 / g, factor2 / g};
+    }
+
+    // Returns normalized factors: (scale1/gcd, scale2/gcd).
+    std::pair<int64_t, int64_t> getNormalizedFactors() const override {
+      return getNormalizedScales();
+    }
+
+    // Equality operator for deduplication.
+    bool operator==(const DimRelation &other) const override {
+      return DimRelation::operator==(other);
     }
   };
+
+  // Map from a dimension to its related dimensions with offsets.
+  using DimOffsetRelationMapT =
+      llvm::DenseMap<DimT, llvm::SmallVector<DimOffsetRelation, 4>>;
 
   // Map from a dimension to its related dimensions with scale factors.
   using DimScaleRelationMapT =
@@ -277,13 +310,9 @@ private:
   /// based on equality relationships. If dim_s == dim_t and dim_p = dim_s op k
   /// and dim_q = dim_t op k, then dim_p == dim_q (where op is either + for
   /// offset or * for scale).
-  template <typename RelationType, typename RelationMapType, typename KeyType>
-  void propagateRelations(RelationMapType &relationMap,
-      const char *relationName,
-      std::function<KeyType(const RelationType &)> getKey,
-      std::function<void(DimT, const KeyType &, DimT, RelationMapType &)>
-          addRelation,
-      std::function<void(const KeyType &, llvm::raw_ostream &)> debugPrintKey);
+  template <typename RelationType, typename RelationMapType>
+  void propagateRelations(
+      RelationMapType &relationMap, const char *relationName);
 
   /// Propagate offset relationships based on equality relationships.
   /// If dim_s == dim_t and dim_p = dim_s + k and dim_q = dim_t + k,
@@ -294,6 +323,19 @@ private:
   /// If dim_s == dim_t and dim_p = dim_s * k and dim_q = dim_t * k,
   /// then dim_p == dim_q.
   void propagateScaleRelations();
+
+  /// Helper to add an offset relation with deduplication.
+  /// Returns true if the relation was added, false if it already existed.
+  bool addOffsetRelation(DimT dim, const DimOffsetRelation &rel) const;
+
+  /// Helper to add a scale relation with deduplication.
+  /// Returns true if the relation was added, false if it already existed.
+  bool addScaleRelation(DimT dim, const DimScaleRelation &rel) const;
+
+  /// Helper template to dump relationship information.
+  template <typename RelationType, typename RelationMapType>
+  void dumpRelations(const RelationMapType &relationMap,
+      const char *relationName, const char *opSymbol) const;
 
 private:
   int64_t setCounter = 0;
@@ -306,7 +348,7 @@ private:
   /// upwardLevel scope (when constructed with Operation* and upwardLevel).
   const llvm::SmallPtrSet<mlir::Operation *, 32> targetOps;
   /// Mapping from dimensions to their offset relationships.
-  mutable DimRelationMapT dimRelations;
+  mutable DimOffsetRelationMapT dimOffsetRelations;
   /// Mapping from dimensions to their scale relationships.
   mutable DimScaleRelationMapT dimScaleRelations;
   /// Names of the dynamic dimensions of function arguments/results. Filled in
