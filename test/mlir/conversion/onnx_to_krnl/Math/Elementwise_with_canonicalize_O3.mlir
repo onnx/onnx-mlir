@@ -118,9 +118,8 @@ func.func @round(%arg0: tensor<15xf32>) -> tensor<*xf32> {
 // CHECK-DAG:           [[VAR_11_:%.+]]:4 = vector.to_elements [[VAR_6_]] : vector<4xf32>
 // CHECK-DAG:           [[VAR_12_:%.+]]:4 = vector.to_elements [[VAR_8_]] : vector<4xf32>
 // CHECK:               [[VAR_13_:%.+]]:4 = vector.to_elements [[VAR_10_]] : vector<4xf32>
-// CHECK:               [[VAR_14_:%.+]] = vector.from_elements [[VAR_11_]]#0, [[VAR_11_]]#1, [[VAR_11_]]#2, [[VAR_11_]]#3, [[VAR_12_]]#0, [[VAR_12_]]#1, [[VAR_12_]]#2, [[VAR_12_]]#3, [[VAR_13_]]#0, [[VAR_13_]]#1, [[VAR_13_]]#2, [[VAR_13_]]#3 : vector<3x4xf32>
-// CHECK:               [[VAR_15_:%.+]] = vector.shape_cast [[VAR_14_]] : vector<3x4xf32> to vector<12xf32>
-// CHECK:               vector.store [[VAR_15_]], [[VAR_view_]]{{.}}[[VAR_2_]]{{.}} : memref<15xf32>, vector<12xf32>
+// CHECK:               [[VAR_14_:%.+]] = vector.from_elements [[VAR_11_]]#0, [[VAR_11_]]#1, [[VAR_11_]]#2, [[VAR_11_]]#3, [[VAR_12_]]#0, [[VAR_12_]]#1, [[VAR_12_]]#2, [[VAR_12_]]#3, [[VAR_13_]]#0, [[VAR_13_]]#1, [[VAR_13_]]#2, [[VAR_13_]]#3 : vector<12xf32>
+// CHECK:               vector.store [[VAR_14_]], [[VAR_view_]]{{.}}[[VAR_2_]]{{.}} : memref<15xf32>, vector<12xf32>
 // CHECK:             }
 // CHECK:             [[LOOP_1_:%.+]] = krnl.define_loops 1
 // CHECK:             krnl.iterate([[LOOP_1_]]) with ([[LOOP_1_]] -> [[I_1_:%.+]] = 12 to 15){
@@ -198,9 +197,8 @@ func.func private @test_round_multiple16(%arg0 : tensor<?x32xf32>) -> tensor<*xf
 // CHECK-DAG:           [[VAR_27_:%.+]]:4 = vector.to_elements [[VAR_17_]] : vector<4xf32>
 // CHECK-DAG:           [[VAR_28_:%.+]]:4 = vector.to_elements [[VAR_19_]] : vector<4xf32>
 // CHECK:               [[VAR_29_:%.+]]:4 = vector.to_elements [[VAR_21_]] : vector<4xf32>
-// CHECK:               [[VAR_30_:%.+]] = vector.from_elements [[VAR_22_]]#0, [[VAR_22_]]#1, [[VAR_22_]]#2, [[VAR_22_]]#3, [[VAR_23_]]#0, [[VAR_23_]]#1, [[VAR_23_]]#2, [[VAR_23_]]#3, [[VAR_24_]]#0, [[VAR_24_]]#1, [[VAR_24_]]#2, [[VAR_24_]]#3, [[VAR_25_]]#0, [[VAR_25_]]#1, [[VAR_25_]]#2, [[VAR_25_]]#3, [[VAR_26_]]#0, [[VAR_26_]]#1, [[VAR_26_]]#2, [[VAR_26_]]#3, [[VAR_27_]]#0, [[VAR_27_]]#1, [[VAR_27_]]#2, [[VAR_27_]]#3, [[VAR_28_]]#0, [[VAR_28_]]#1, [[VAR_28_]]#2, [[VAR_28_]]#3, [[VAR_29_]]#0, [[VAR_29_]]#1, [[VAR_29_]]#2, [[VAR_29_]]#3 : vector<8x4xf32>
-// CHECK:               [[VAR_31_:%.+]] = vector.shape_cast [[VAR_30_]] : vector<8x4xf32> to vector<32xf32>
-// CHECK:               vector.store [[VAR_31_]], [[VAR_reshape_3_]]{{.}}[[VAR_3_]]{{.}} : memref<?xf32>, vector<32xf32>
+// CHECK:               [[VAR_30_:%.+]] = vector.from_elements [[VAR_22_]]#0, [[VAR_22_]]#1, [[VAR_22_]]#2, [[VAR_22_]]#3, [[VAR_23_]]#0, [[VAR_23_]]#1, [[VAR_23_]]#2, [[VAR_23_]]#3, [[VAR_24_]]#0, [[VAR_24_]]#1, [[VAR_24_]]#2, [[VAR_24_]]#3, [[VAR_25_]]#0, [[VAR_25_]]#1, [[VAR_25_]]#2, [[VAR_25_]]#3, [[VAR_26_]]#0, [[VAR_26_]]#1, [[VAR_26_]]#2, [[VAR_26_]]#3, [[VAR_27_]]#0, [[VAR_27_]]#1, [[VAR_27_]]#2, [[VAR_27_]]#3, [[VAR_28_]]#0, [[VAR_28_]]#1, [[VAR_28_]]#2, [[VAR_28_]]#3, [[VAR_29_]]#0, [[VAR_29_]]#1, [[VAR_29_]]#2, [[VAR_29_]]#3 : vector<32xf32>
+// CHECK:               vector.store [[VAR_30_]], [[VAR_reshape_3_]]{{.}}[[VAR_3_]]{{.}} : memref<?xf32>, vector<32xf32>
 // CHECK:             }
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<?x32xf32>
@@ -1979,14 +1977,14 @@ func.func private @test_celu(%arg0 : tensor<?x3x224x224xf32>) -> tensor<?x3x224x
 // CHECK-DAG:     [[CST_0_:%.+]] = arith.constant 0 : index
 // CHECK:         [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x3x224x224xf32>
 
-// CHECK:         [[RES_ALLOC_:%.+]] = memref.alloc([[VAR_dim_]]) {alignment = 16 : i64} : memref<?x3x224x224xf32>
+// CHECK:         [[RES_ALLOC_:%.+]] = memref.alloc([[VAR_dim_]]) alignment = 16 : memref<?x3x224x224xf32>
 // CHECK-DAG:     [[VAR_dim_1_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x3x224x224xf32>
 // CHECK-DAG:     [[VAR_0_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_dim_1_]]
-// CHECK-DAG:     [[RESHAPE_ALLOC_:%.+]] = memref.alloc() {alignment = 16 : i64} : memref<1xindex>
+// CHECK-DAG:     [[RESHAPE_ALLOC_:%.+]] = memref.alloc() alignment = 16 : memref<1xindex>
 // CHECK:         affine.store [[VAR_0_]], [[RESHAPE_ALLOC_]][0] : memref<1xindex>
 // CHECK-DAG:     [[VAR_RESHAPE_:%.+]] = memref.reshape [[PARAM_0_]]([[RESHAPE_ALLOC_]]) : (memref<?x3x224x224xf32>, memref<1xindex>) -> memref<?xf32>
 // CHECK-DAG:     [[VAR_1_:%.+]] = affine.apply [[MAP_0_]](){{.}}[[VAR_dim_]]
-// CHECK-DAG:     [[RESHAPE_ALLOC_2_:%.+]] = memref.alloc() {alignment = 16 : i64} : memref<1xindex>
+// CHECK-DAG:     [[RESHAPE_ALLOC_2_:%.+]] = memref.alloc() alignment = 16 : memref<1xindex>
 // CHECK:         affine.store [[VAR_1_]], [[RESHAPE_ALLOC_2_]][0] : memref<1xindex>
 // CHECK:         [[VAR_RESHAPE_4_:%.+]] = memref.reshape [[RES_ALLOC_]]([[RESHAPE_ALLOC_2_]]) : (memref<?x3x224x224xf32>, memref<1xindex>) -> memref<?xf32>
 // CHECK:         krnl.iterate() with (){
@@ -3226,9 +3224,8 @@ func.func @test_binarizer(%arg0 : tensor<64x128xf32>) -> tensor<*xf32> {
 // CHECK:               [[VAR_1_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
 // CHECK:               [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_1_]]{{.}} : memref<8192xf32>, vector<32xf32>
 // CHECK:               [[VAR_3_:%.+]] = arith.cmpf ogt, [[LOAD_VAR_reshape_MEM_]], [[VAR_cst_]] : vector<32xf32>
-// CHECK:               [[VAR_4_:%.+]] = arith.extui [[VAR_3_]] : vector<32xi1> to vector<32xi32>
-// CHECK:               [[VAR_5_:%.+]] = arith.sitofp [[VAR_4_]] : vector<32xi32> to vector<32xf32>
-// CHECK:               vector.store [[VAR_5_]], [[VAR_reshape_2_]]{{.}}[[VAR_1_]]{{.}} : memref<8192xf32>, vector<32xf32>
+// CHECK:               [[VAR_4_:%.+]] = arith.uitofp [[VAR_3_]] : vector<32xi1> to vector<32xf32>
+// CHECK:               vector.store [[VAR_4_]], [[VAR_reshape_2_]]{{.}}[[VAR_1_]]{{.}} : memref<8192xf32>, vector<32xf32>
 // CHECK:             }
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<64x128xf32>
