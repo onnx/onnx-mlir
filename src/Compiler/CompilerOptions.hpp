@@ -158,6 +158,10 @@ extern std::string ONNXOpStats;                               // onnx-mlir only
 extern int onnxOpTransformThreshold;                          // onnx-mlir only
 extern bool onnxOpTransformReport;                            // onnx-mlir only
 extern bool enableParallel;                                   // onnx-mlir only
+extern bool enableCollapse;                                   // onnx-mlir only
+extern int64_t collapseMinParTripCountFloor;                  // common for both
+extern int64_t collapseMinAmortWork;                          // common for both
+extern int64_t collapseMaxForkCount;                          // common for both
 extern bool disableSimdOption;                                // onnx-mlir only
 extern bool enableFastMathOption;                             // onnx-mlir only
 extern bool disableRecomposeOption;                           // onnx-mlir only
@@ -179,12 +183,12 @@ extern ProfileIRs profileIRWithSig;                           // onnx-mlir only
 extern OptReport optReport;                                   // onnx-mlir only
 extern bool enableTiming;                                     // onnx-mlir only
 extern bool enableBoundCheck;                                 // onnx-mlir only
-extern bool debugTestCompilerOpt;                             // onnx-mlir only
-extern bool useLinalgPath;                                    // onnx-mlir only
-extern bool enableDebugInfo;                                  // onnx-mlir only
-extern std::string configFile;                                // onnx-mlir only
-extern std::string saveConfigFile;                            // onnx-mlir only
-extern bool appendDecodingStrategy;                           // onnx-mlir only
+extern bool debugTestCompilerOpt;   // onnx-mlir & onnx-mlir-opt
+extern bool useLinalgPath;          // onnx-mlir only
+extern bool enableDebugInfo;        // onnx-mlir only
+extern std::string configFile;      // onnx-mlir only
+extern std::string saveConfigFile;  // onnx-mlir only
+extern bool appendDecodingStrategy; // onnx-mlir only
 
 extern bool split_input_file;          // onnx-mlir-opt only
 extern bool verify_diagnostics;        // onnx-mlir-opt only

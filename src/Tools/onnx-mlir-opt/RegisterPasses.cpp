@@ -132,13 +132,17 @@ void registerOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createExpandAttentionMaskPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return krnl::createConvertKrnlToAffinePass();
   });
 
   mlir::registerPass([optLevel]() -> std::unique_ptr<mlir::Pass> {
     return createLowerToKrnlPass(/*enableTiling*/ optLevel >= 3,
         /*enableSIMD, should consider disableSimdOption*/ optLevel >= 3,
-        /*enableParallel*/ false,
+        /*enableParallel*/ false, /*enableCollapse*/ false,
         /*enableFastMath*/ false, /*default is still off*/
         /*opsForCall*/ "");
   });

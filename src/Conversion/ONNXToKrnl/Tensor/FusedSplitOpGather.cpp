@@ -192,14 +192,14 @@ struct ONNXFusedSplitOpGatherLowering
       SmallVector<IndexExpr, 4> ubs;
       for (int64_t d = 0; d < rank - 1; ++d)
         ubs.emplace_back(create.krnlIE.getShapeAsDim(dataMemref, d));
+      int64_t maxId = std::min(rank - 1, (int64_t)2);
+      auto plan = KrnlParallelPlan::noCollapse(
+          loopDef, /*first*/ 0, /*last excl*/ maxId, /*cost*/ {4});
       if (enableParallel) {
-        int64_t maxId = std::min(rank - 1, (int64_t)2);
-        tryCreateKrnlParallel(create.krnl, fusedOp.getOperation(),
-            "simd-split-op-gather fused outer loop", loopDef, lbs, ubs, 0,
-            maxId, {}, /*min iter for going parallel*/ 4,
-            /*createKrnlParallel=*/true);
+        plan.tryCreateParallel(create.krnl, fusedOp.getOperation(),
+            "simd-split-op-gather fused outer loop", lbs, ubs);
       }
-      create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
+      create.krnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, ubs,
           [&](const KrnlBuilder &, ValueRange outerInd) {
             emitCodeForHalf(outerInd, /*start=*/0, lenLow,
                 fusion.outputOffsetForSplitLow, opLowNode, externalLowMemref,

@@ -135,12 +135,18 @@ llvm::cl::opt<bool> nnpaDisableShapeRestriction(
     llvm::cl::desc("Disable shape restriction checks for operations with "
                    "dynamic shapes. When enabled, the compiler assumes that "
                    "dynamic shapes will satisfy NNPA constraints at runtime. "
-                   "Default is false"),
+                   "Helpful for Convolutions. Default is false"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
 
 llvm::cl::opt<bool> nnpaDisableHugePageMalloc("nnpa-disable-hugepage-malloc",
     llvm::cl::desc("Disable replacement of malloc with OMHugePageMalloc. "
                    "Default is false"),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<bool> nnpaDisableExpandAttentionMask(
+    "nnpa-disable-expand-attention-mask",
+    llvm::cl::desc("Disable expansion of attention masks for broadcasting Add "
+                   "operations. Default is false"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
 } // namespace onnx_mlir
