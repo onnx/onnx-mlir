@@ -87,6 +87,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   Tensor/SpaceToDepth.cpp
   Tensor/Split.cpp
   Tensor/Squeeze.cpp
+  Tensor/TensorScatter.cpp
   Tensor/Tile.cpp
   Tensor/Transpose.cpp
   Tensor/Unique.cpp
