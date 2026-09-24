@@ -279,14 +279,16 @@ private:
   void visitDim(DimT &dim, DimSetT &sameDims) const;
 
   /// Visit a dynamic dimension and find offset relationships.
-  void visitDimForOffsets(DimT &dim) const;
+  /// Sets updated to true if new relations are added.
+  void visitDimForOffsets(DimT &dim, bool &updated) const;
 
   /// Visit a dynamic dimension and find scale relationships.
-  void visitDimForScales(DimT &dim) const;
+  /// Sets updated to true if new relations are added.
+  void visitDimForScales(DimT &dim, bool &updated) const;
 
   /// Analyze reshape operation for scale relationships.
   void analyzeShapeConcatForScaling(mlir::Operation *concatOp, DimT &outputDim,
-      uint64_t outputDimIndex) const;
+      uint64_t outputDimIndex, bool &updated) const;
 
   /// Get onnx.dim_params value from a function argument/result and put it into
   /// a map.

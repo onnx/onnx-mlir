@@ -1303,7 +1303,7 @@ bool DimAnalysis::sameDimWithScale(Value tensor1, int64_t dimAxis1,
   return false;
 }
 
-void DimAnalysis::visitDimForScales(DimT &dim) const {
+void DimAnalysis::visitDimForScales(DimT &dim, bool &updated) const {
   Value tensor = dim.first;
   uint64_t dimIndex = dim.second;
 
@@ -1325,7 +1325,7 @@ void DimAnalysis::visitDimForScales(DimT &dim) const {
     if (auto concatOp = resolvedShape.getDefiningOp<ONNXConcatOp>()) {
       LLVM_DEBUG(llvm::dbgs() << "  [visitDimForScales] Found concat op, "
                                  "calling analyzeShapeConcatForScaling\n");
-      analyzeShapeConcatForScaling(concatOp, dim, dimIndex);
+      analyzeShapeConcatForScaling(concatOp, dim, dimIndex, updated);
     }
     return;
   }
@@ -1341,17 +1341,19 @@ void DimAnalysis::visitDimForScales(DimT &dim) const {
     for (int64_t i = 0; i < operandType.getRank(); ++i) {
       if (sameDim(operand, i, tensor, dimIndex)) {
         DimT inputDim(operand, i);
-        addScaleRelation(inputDim, DimScaleRelation(inputDim, 1, dim, 1));
-        LLVM_DEBUG(llvm::dbgs() << "  - [General] dim(" << operand << ", " << i
-                                << ") * 1 == dim(" << tensor << ", " << dimIndex
-                                << ") * 1\n");
+        if (addScaleRelation(inputDim, DimScaleRelation(inputDim, 1, dim, 1))) {
+          updated = true;
+          LLVM_DEBUG(llvm::dbgs() << "  - [General] dim(" << operand << ", "
+                                  << i << ") * 1 == dim(" << tensor << ", "
+                                  << dimIndex << ") * 1\n");
+        }
       }
     }
   }
 }
 
-void DimAnalysis::analyzeShapeConcatForScaling(
-    Operation *concatOp, DimT &outputDim, uint64_t outputDimIndex) const {
+void DimAnalysis::analyzeShapeConcatForScaling(Operation *concatOp,
+    DimT &outputDim, uint64_t outputDimIndex, bool &updated) const {
   auto concat = mlir::dyn_cast<ONNXConcatOp>(concatOp);
   if (!concat)
     return;
@@ -1467,11 +1469,14 @@ void DimAnalysis::analyzeShapeConcatForScaling(
 
     for (const DimT &dynDim : inputDynDims) {
       if (!passThroughInputAxes.contains(dynDim.second)) {
-        addScaleRelation(dynDim, DimScaleRelation(dynDim, scale, outputDim, 1));
-        LLVM_DEBUG(llvm::dbgs()
-                   << "  - [Reshape -1] dim(" << dynDim.first << ", "
-                   << dynDim.second << ") * " << scale << " == dim("
-                   << outputDim.first << ", " << outputDim.second << ")\n");
+        if (addScaleRelation(
+                dynDim, DimScaleRelation(dynDim, scale, outputDim, 1))) {
+          updated = true;
+          LLVM_DEBUG(llvm::dbgs()
+                     << "  - [Reshape -1] dim(" << dynDim.first << ", "
+                     << dynDim.second << ") * " << scale << " == dim("
+                     << outputDim.first << ", " << outputDim.second << ")\n");
+        }
       }
     }
   }
@@ -1669,11 +1674,14 @@ bool DimAnalysis::updateDimSets() {
     DimSetT &dimSet = entry.getSecond();
     // Explore new dims.
     DimSetT newSameDims;
+    bool localUpdated = false;
     for (auto &d : dimSet) {
       visitDim(d, newSameDims);
-      visitDimForOffsets(d);
-      visitDimForScales(d);
+      visitDimForOffsets(d, localUpdated);
+      visitDimForScales(d, localUpdated);
     }
+    if (localUpdated)
+      updated = true;
     // Update the dim set.
     for (auto &d : newSameDims) {
       if (!dimSet.contains(d)) {
@@ -1985,7 +1993,7 @@ void DimAnalysis::visitDim(
   }
 }
 
-void DimAnalysis::visitDimForOffsets(DimT &dim) const {
+void DimAnalysis::visitDimForOffsets(DimT &dim, bool &updated) const {
   Value tensor = dim.first;
   uint64_t dimIndex = dim.second;
 
@@ -2013,7 +2021,9 @@ void DimAnalysis::visitDimForOffsets(DimT &dim) const {
             resolveThroughFusedOp(B).getDefiningOp<ONNXConstantOp>()) {
       int64_t offset = getScalarValue<int64_t>(constOp);
       DimT inputDim(A, dimIndex);
-      addOffsetRelation(inputDim, DimOffsetRelation(inputDim, offset, dim, 0));
+      if (addOffsetRelation(
+              inputDim, DimOffsetRelation(inputDim, offset, dim, 0)))
+        updated = true;
       LLVM_DEBUG(llvm::dbgs() << "  - [Add] dim(" << A << ", " << dimIndex
                               << ") + " << offset << "\n");
       return;
@@ -2021,9 +2031,12 @@ void DimAnalysis::visitDimForOffsets(DimT &dim) const {
                    resolveThroughFusedOp(A).getDefiningOp<ONNXConstantOp>()) {
       int64_t offset = getScalarValue<int64_t>(constOp);
       DimT inputDim(B, dimIndex);
-      addOffsetRelation(inputDim, DimOffsetRelation(inputDim, offset, dim, 0));
-      LLVM_DEBUG(llvm::dbgs() << "  - [Add] dim(" << B << ", " << dimIndex
-                              << ") + " << offset << "\n");
+      if (addOffsetRelation(
+              inputDim, DimOffsetRelation(inputDim, offset, dim, 0))) {
+        updated = true;
+        LLVM_DEBUG(llvm::dbgs() << "  - [Add] dim(" << B << ", " << dimIndex
+                                << ") + " << offset << "\n");
+      }
       return;
     }
   }
@@ -2051,10 +2064,12 @@ void DimAnalysis::visitDimForOffsets(DimT &dim) const {
 
       if (dynamicInput && totalStaticSize > 0) {
         DimT inputDim(dynamicInput, axis);
-        addOffsetRelation(
-            inputDim, DimOffsetRelation(inputDim, totalStaticSize, dim, 0));
-        LLVM_DEBUG(llvm::dbgs() << "  - [Concat] dim(" << dynamicInput << ", "
-                                << axis << ") + " << totalStaticSize << "\n");
+        if (addOffsetRelation(inputDim,
+                DimOffsetRelation(inputDim, totalStaticSize, dim, 0))) {
+          updated = true;
+          LLVM_DEBUG(llvm::dbgs() << "  - [Concat] dim(" << dynamicInput << ", "
+                                  << axis << ") + " << totalStaticSize << "\n");
+        }
       }
       return;
     }
@@ -2085,11 +2100,13 @@ void DimAnalysis::visitDimForOffsets(DimT &dim) const {
                 dimValue = squeezeOp.getData();
               if (auto dimOp = dimValue.getDefiningOp<ONNXDimOp>()) {
                 DimT sourceDim(dimOp.getData(), dimOp.getAxis());
-                addOffsetRelation(
-                    sourceDim, DimOffsetRelation(sourceDim, offset, dim, 0));
-                LLVM_DEBUG(llvm::dbgs()
-                           << "  - [Expand] dim(" << sourceDim.first << ", "
-                           << sourceDim.second << ") + " << offset << "\n");
+                if (addOffsetRelation(sourceDim,
+                        DimOffsetRelation(sourceDim, offset, dim, 0))) {
+                  updated = true;
+                  LLVM_DEBUG(llvm::dbgs()
+                             << "  - [Expand] dim(" << sourceDim.first << ", "
+                             << sourceDim.second << ") + " << offset << "\n");
+                }
               }
             } else if (auto constOp =
                            dimValue.getDefiningOp<ONNXConstantOp>()) {
@@ -2099,11 +2116,13 @@ void DimAnalysis::visitDimForOffsets(DimT &dim) const {
                 dimValue = squeezeOp.getData();
               if (auto dimOp = dimValue.getDefiningOp<ONNXDimOp>()) {
                 DimT sourceDim(dimOp.getData(), dimOp.getAxis());
-                addOffsetRelation(
-                    sourceDim, DimOffsetRelation(sourceDim, offset, dim, 0));
-                LLVM_DEBUG(llvm::dbgs()
-                           << "  - [Expand] dim(" << sourceDim.first << ", "
-                           << sourceDim.second << ") + " << offset << "\n");
+                if (addOffsetRelation(sourceDim,
+                        DimOffsetRelation(sourceDim, offset, dim, 0))) {
+                  updated = true;
+                  LLVM_DEBUG(llvm::dbgs()
+                             << "  - [Expand] dim(" << sourceDim.first << ", "
+                             << sourceDim.second << ") + " << offset << "\n");
+                }
               }
             }
           }
@@ -2129,10 +2148,13 @@ void DimAnalysis::visitDimForOffsets(DimT &dim) const {
     for (int64_t i = 0; i < operandType.getRank(); ++i) {
       if (sameDim(operand, i, tensor, dimIndex)) {
         DimT inputDim(operand, i);
-        addOffsetRelation(inputDim, DimOffsetRelation(inputDim, 0, dim, 0));
-        LLVM_DEBUG(llvm::dbgs()
-                   << "  - [General] dim(" << operand << ", " << i
-                   << ") == dim(" << tensor << ", " << dimIndex << ")\n");
+        if (addOffsetRelation(
+                inputDim, DimOffsetRelation(inputDim, 0, dim, 0))) {
+          updated = true;
+          LLVM_DEBUG(llvm::dbgs()
+                     << "  - [General] dim(" << operand << ", " << i
+                     << ") == dim(" << tensor << ", " << dimIndex << ")\n");
+        }
       }
     }
   }
