@@ -1628,12 +1628,22 @@ void removeUnrelatedOptions(
   optCategories.push_back(&llvm::cl::getGeneralCategory());
   llvm::cl::HideUnrelatedOptions(optCategories);
 
+  // Collect options to remove in a separate pass before erasing.
+  //
+  // opt->removeArgument() erases the option from the same DenseMap that
+  // getRegisteredOptions() returns a reference to.  Calling it inside the
+  // range-for loop therefore invalidates the active iterator, which was
+  // silently tolerated by older LLVM but is now caught by the epoch-based
+  // iterator-debug assertions added in llvm-project ~43574226
+  // (LLVM_ENABLE_ABI_BREAKING_CHECKS / LLVM_ENABLE_ASSERTIONS=ON).
+  // Fix: snapshot the to-remove set first, then erase in a second loop.
+  llvm::SmallVector<llvm::cl::Option *, 32> toRemove;
   auto &optMap = llvm::cl::getRegisteredOptions();
-  for (auto n = optMap.begin(); n != optMap.end(); n++) {
-    llvm::cl::Option *opt = n->second;
+  for (auto &[name, opt] : optMap)
     if (opt->getOptionHiddenFlag() == llvm::cl::ReallyHidden)
-      opt->removeArgument();
-  }
+      toRemove.push_back(opt);
+  for (llvm::cl::Option *opt : toRemove)
+    opt->removeArgument();
 }
 
 // This function can be called after llvm::cl::ParseCommandLineOptions

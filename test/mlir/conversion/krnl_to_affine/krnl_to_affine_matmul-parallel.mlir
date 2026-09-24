@@ -8,7 +8,7 @@ func.func @krnl_matmul_par_perfect_blocks(%arg0: memref<1024x1024xf32> {onnx.nam
   %c0 = arith.constant 0 : index
   %cst = arith.constant 0.000000e+00 : f32
   %c1024 = arith.constant 1024 : index
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<1024x1024xf32>
+  %alloc = memref.alloc() alignment = 16 : memref<1024x1024xf32>
   krnl.memset %alloc, %cst : memref<1024x1024xf32>
   %0:3 = krnl.define_loops 3
   %loop_block, %loop_local = krnl.block %0#0 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
@@ -252,7 +252,7 @@ func.func @krnl_matmul_parallel_partial_blocks(%arg0: memref<127x255xf32> {onnx.
   %c127 = arith.constant 127 : index
   %c255 = arith.constant 255 : index
   %c63 = arith.constant 63 : index
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<127x63xf32>
+  %alloc = memref.alloc() alignment = 16 : memref<127x63xf32>
   krnl.memset %alloc, %cst : memref<127x63xf32>
   %0:3 = krnl.define_loops 3
   %loop_block, %loop_local = krnl.block %0#0 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)

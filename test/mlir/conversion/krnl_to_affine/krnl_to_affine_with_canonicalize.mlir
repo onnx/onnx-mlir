@@ -107,7 +107,7 @@ func.func @krnl_get_linear_offset_index_2(%arg0: memref<?x2x8x32x64xf32>, %arg1:
 
 #map = affine_map<(d0) -> (d0 + 64)>
 func.func @prefetch(%arg0: memref<256x512xf32>) -> memref<256x512xf32> attributes {input_names = ["x"], output_names = ["output"]} {
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<256x512xf32>
+  %alloc = memref.alloc() alignment = 16 : memref<256x512xf32>
   %0:2 = krnl.define_loops 2
   krnl.iterate(%0#0, %0#1) with (%0#0 -> %arg1 = 0 to 256, %0#1 -> %arg2 = 0 to 512){
     %1:2 = krnl.get_induction_var_value(%0#0, %0#1) : (!krnl.loop, !krnl.loop) -> (index, index)

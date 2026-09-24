@@ -54,11 +54,10 @@ func.func @test_variadic_elementwise_op_template_unknown_dims(%arg0: tensor<?x4x
 // CHECK-DAG:       [[VAR_dim_1_:%.+]] = memref.dim [[PARAM_1_]], [[CST_1_]] : memref<?x?x5xf32>
 // CHECK-DAG:       [[VAR_dim_2_:%.+]] = memref.dim [[PARAM_2_]], [[CST_0_]] : memref<?x1x5xf32>
 // CHECK:           [[VAR_0_:%.+]] = affine.max [[MAP_0_]](){{.}}[[VAR_dim_]], [[VAR_dim_]]_0]
-// CHECK:           [[VAR_1_:%.+]] = arith.cmpi sgt, [[VAR_dim_2_]], [[VAR_0_]] : index
-// CHECK:           [[VAR_2_:%.+]] = arith.select [[VAR_1_]], [[VAR_dim_2_]], [[VAR_0_]] : index
-// CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_2_]]) {{.*}}: memref<?x4x5xf32>
+// CHECK:           [[VAR_1_:%.+]] = arith.maxsi [[VAR_dim_2_]], [[VAR_0_]] : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_1_]]) {{.*}}: memref<?x4x5xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
-// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[MAP_1_]]([[VAR_dim_]], [[VAR_dim_]]_0, [[VAR_2_]]), [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 4, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 5){
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[MAP_1_]]([[VAR_dim_]], [[VAR_dim_]]_0, [[VAR_1_]]), [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 4, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 5){
 // CHECK-DAG:         [[VAR_4_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
 // CHECK-DAG:         [[VAR_5_:%.+]] = arith.cmpi sgt, [[VAR_dim_]], [[CST_1_]] : index
 // CHECK:             [[VAR_6_:%.+]] = arith.select [[VAR_5_]], [[VAR_4_]]#0, [[CST_0_]] : index
@@ -1694,9 +1693,8 @@ func.func @test_binarizer(%arg0 : tensor<64x128xf32>) -> tensor<*xf32> {
 // CHECK:             [[VAR_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
 // CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<64x128xf32>
 // CHECK:             [[VAR_3_:%.+]] = arith.cmpf ogt, [[LOAD_PARAM_0_MEM_]], [[CST_1_dot_000000_]] : f32
-// CHECK:             [[VAR_4_:%.+]] = arith.extui [[VAR_3_]] : i1 to i32
-// CHECK:             [[VAR_5_:%.+]] = arith.sitofp [[VAR_4_]] : i32 to f32
-// CHECK:             krnl.store [[VAR_5_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<64x128xf32>
+// CHECK:             [[VAR_4_:%.+]] = arith.uitofp [[VAR_3_]] : i1 to f32
+// CHECK:             krnl.store [[VAR_4_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<64x128xf32>
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<64x128xf32>
 // CHECK:         }

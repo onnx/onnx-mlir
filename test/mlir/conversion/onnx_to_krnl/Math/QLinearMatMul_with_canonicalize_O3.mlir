@@ -204,9 +204,8 @@ func.func @qlinearmatmul_i8_f32(%arg0: tensor<16x32xi8>, %arg1: tensor<1xf32>, %
 // CHECK-DAG:           [[VAR_38_:%.+]]:4 = vector.to_elements [[VAR_28_]] : vector<4xf32>
 // CHECK-DAG:           [[VAR_39_:%.+]]:4 = vector.to_elements [[VAR_30_]] : vector<4xf32>
 // CHECK:               [[VAR_40_:%.+]]:4 = vector.to_elements [[VAR_32_]] : vector<4xf32>
-// CHECK:               [[VAR_41_:%.+]] = vector.from_elements [[VAR_33_]]#0, [[VAR_33_]]#1, [[VAR_33_]]#2, [[VAR_33_]]#3, [[VAR_34_]]#0, [[VAR_34_]]#1, [[VAR_34_]]#2, [[VAR_34_]]#3, [[VAR_35_]]#0, [[VAR_35_]]#1, [[VAR_35_]]#2, [[VAR_35_]]#3, [[VAR_36_]]#0, [[VAR_36_]]#1, [[VAR_36_]]#2, [[VAR_36_]]#3, [[VAR_37_]]#0, [[VAR_37_]]#1, [[VAR_37_]]#2, [[VAR_37_]]#3, [[VAR_38_]]#0, [[VAR_38_]]#1, [[VAR_38_]]#2, [[VAR_38_]]#3, [[VAR_39_]]#0, [[VAR_39_]]#1, [[VAR_39_]]#2, [[VAR_39_]]#3, [[VAR_40_]]#0, [[VAR_40_]]#1, [[VAR_40_]]#2, [[VAR_40_]]#3 : vector<8x4xf32>
-// CHECK:               [[VAR_42_:%.+]] = vector.shape_cast [[VAR_41_]] : vector<8x4xf32> to vector<32xf32>
-// CHECK:               vector.store [[VAR_42_]], [[VAR_reshape_42_]]{{.}}[[VAR_14_6_]]{{.}} : memref<1024xf32>, vector<32xf32>
+// CHECK:               [[VAR_41_:%.+]] = vector.from_elements [[VAR_33_]]#0, [[VAR_33_]]#1, [[VAR_33_]]#2, [[VAR_33_]]#3, [[VAR_34_]]#0, [[VAR_34_]]#1, [[VAR_34_]]#2, [[VAR_34_]]#3, [[VAR_35_]]#0, [[VAR_35_]]#1, [[VAR_35_]]#2, [[VAR_35_]]#3, [[VAR_36_]]#0, [[VAR_36_]]#1, [[VAR_36_]]#2, [[VAR_36_]]#3, [[VAR_37_]]#0, [[VAR_37_]]#1, [[VAR_37_]]#2, [[VAR_37_]]#3, [[VAR_38_]]#0, [[VAR_38_]]#1, [[VAR_38_]]#2, [[VAR_38_]]#3, [[VAR_39_]]#0, [[VAR_39_]]#1, [[VAR_39_]]#2, [[VAR_39_]]#3, [[VAR_40_]]#0, [[VAR_40_]]#1, [[VAR_40_]]#2, [[VAR_40_]]#3 : vector<32xf32>
+// CHECK:               vector.store [[VAR_41_]], [[VAR_reshape_42_]]{{.}}[[VAR_14_6_]]{{.}} : memref<1024xf32>, vector<32xf32>
 // CHECK:             }
 // CHECK:           }
 // CHECK-DAG:       [[RES_27_:%.+]] = memref.alloc() {{.*}}: memref<16x64xi32>
@@ -649,9 +648,8 @@ func.func @qlinearmatmul_ui8_f32(%arg0: tensor<16x32xui8>, %arg1: tensor<1xf32>,
 // CHECK-DAG:           [[VAR_68_:%.+]]:4 = vector.to_elements [[VAR_58_]] : vector<4xf32>
 // CHECK-DAG:           [[VAR_69_:%.+]]:4 = vector.to_elements [[VAR_60_]] : vector<4xf32>
 // CHECK:               [[VAR_70_:%.+]]:4 = vector.to_elements [[VAR_62_]] : vector<4xf32>
-// CHECK:               [[VAR_71_:%.+]] = vector.from_elements [[VAR_63_]]#0, [[VAR_63_]]#1, [[VAR_63_]]#2, [[VAR_63_]]#3, [[VAR_64_]]#0, [[VAR_64_]]#1, [[VAR_64_]]#2, [[VAR_64_]]#3, [[VAR_65_]]#0, [[VAR_65_]]#1, [[VAR_65_]]#2, [[VAR_65_]]#3, [[VAR_66_]]#0, [[VAR_66_]]#1, [[VAR_66_]]#2, [[VAR_66_]]#3, [[VAR_67_]]#0, [[VAR_67_]]#1, [[VAR_67_]]#2, [[VAR_67_]]#3, [[VAR_68_]]#0, [[VAR_68_]]#1, [[VAR_68_]]#2, [[VAR_68_]]#3, [[VAR_69_]]#0, [[VAR_69_]]#1, [[VAR_69_]]#2, [[VAR_69_]]#3, [[VAR_70_]]#0, [[VAR_70_]]#1, [[VAR_70_]]#2, [[VAR_70_]]#3 : vector<8x4xf32>
-// CHECK:               [[VAR_72_:%.+]] = vector.shape_cast [[VAR_71_]] : vector<8x4xf32> to vector<32xf32>
-// CHECK:               vector.store [[VAR_72_]], [[VAR_reshape_81_]]{{.}}[[VAR_44_12_]]{{.}} : memref<1024xf32>, vector<32xf32>
+// CHECK:               [[VAR_71_:%.+]] = vector.from_elements [[VAR_63_]]#0, [[VAR_63_]]#1, [[VAR_63_]]#2, [[VAR_63_]]#3, [[VAR_64_]]#0, [[VAR_64_]]#1, [[VAR_64_]]#2, [[VAR_64_]]#3, [[VAR_65_]]#0, [[VAR_65_]]#1, [[VAR_65_]]#2, [[VAR_65_]]#3, [[VAR_66_]]#0, [[VAR_66_]]#1, [[VAR_66_]]#2, [[VAR_66_]]#3, [[VAR_67_]]#0, [[VAR_67_]]#1, [[VAR_67_]]#2, [[VAR_67_]]#3, [[VAR_68_]]#0, [[VAR_68_]]#1, [[VAR_68_]]#2, [[VAR_68_]]#3, [[VAR_69_]]#0, [[VAR_69_]]#1, [[VAR_69_]]#2, [[VAR_69_]]#3, [[VAR_70_]]#0, [[VAR_70_]]#1, [[VAR_70_]]#2, [[VAR_70_]]#3 : vector<32xf32>
+// CHECK:               vector.store [[VAR_71_]], [[VAR_reshape_81_]]{{.}}[[VAR_44_12_]]{{.}} : memref<1024xf32>, vector<32xf32>
 // CHECK:             }
 // CHECK:           }
 // CHECK-DAG:       [[RES_54_:%.+]] = memref.alloc() {{.*}}: memref<16x64xi32>

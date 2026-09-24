@@ -38,61 +38,138 @@ using namespace mlir;
 namespace onnx_mlir {
 namespace krnl {
 
-// Module-attribute key under which we cache a single DICompileUnit
-// for all instrument calls. Keeps the DWARF compile-unit count at one
-// per module rather than one per instrument call.
+// Module-attribute key under which we cache a single DICompileUnit for all
+// instrument calls in a module. Caching at module scope keeps the DWARF
+// compile-unit count at exactly one regardless of how many KrnlInstrumentOps
+// are lowered; multiple CUs in the same object confuse dsymutil and some
+// linkers.
 static constexpr llvm::StringLiteral kInstrumentCUAttrName =
     "onnx-mlir.instrument.cu";
 
-// Build (or look up) a DICompileUnit attribute hosted on the parent
-// module. Synthetic file/producer fields — they're never opened, just
-// referenced by the DISubprograms we attach to each instrument call.
+// Build (or look up) a DICompileUnit attribute hosted on the parent module.
+// All fields are synthetic — the file is never opened; only the presence and
+// shape of the attributes matter to the debug-info pipeline.
 //
-// The DIFile must have BOTH a normal-looking filename AND a non-empty
-// directory. macOS ld21 silently skips writing an `N_OSO` debug-map
-// entry for any object whose CU has either an angle-bracket
-// "synthetic" filename (e.g. "<onnx-mlir-instrument>") or an empty
-// `DW_AT_comp_dir` — and without N_OSO, dsymutil drops the object's
-// DWARF entirely from the final `.dSYM`. The path is never opened, so
-// "/" works; only its presence and shape matter.
+// --- DIFile shape requirement (macOS / dsymutil) ---
+// The DIFile must carry BOTH a normal-looking filename AND a non-empty
+// directory string. macOS ld (ld64 / ld-prime) silently skips writing an
+// `N_OSO` debug-map entry for any object whose compile unit has either an
+// angle-bracket synthetic filename (e.g. "<onnx-mlir-instrument>") or an
+// empty `DW_AT_comp_dir`. Without an `N_OSO`, dsymutil cannot locate the
+// object file and drops its DWARF entirely from the final `.dSYM` bundle,
+// making the instrumentation invisible to Instruments.app and `llvm-dwarfdump`.
+// Using a plain name + "/" satisfies both constraints without requiring any
+// real file on disk.
+//
+// --- LLVM API break (llvm-project upgrade to ~43574226) ---
+// Prior to this upgrade, DICompileUnitAttr::get had a 9-argument convenience
+// overload whose first parameter was `MLIRContext *`:
+//
+//   DICompileUnitAttr::get(ctx, id, sourceLanguage/*unsigned*/, file,
+//                          producer, isOptimized, emissionKind,
+//                          nameTableKind, splitDebugFilename)
+//
+// That overload was removed. The new canonical form (matching what MLIR's own
+// DebugImporter uses internally) requires:
+//   1. An explicit `recId` (DistinctAttr — null for non-recursive types).
+//   2. An `isRecSelf` flag (false for non-recursive types).
+//   3. A `DISourceLanguageNameAttr` wrapper for the source language instead of
+//      a bare `unsigned` DW_LANG_* constant.
+//   4. An explicit `isDebugInfoForProfiling` bool (was defaulted before).
+//   5. An explicit `importedEntities` array (was defaulted before).
+//
+// The new full signature is:
+//   DICompileUnitAttr::get(ctx, recId, isRecSelf, id, sourceLanguage,
+//                          file, producer, isOptimized, emissionKind,
+//                          isDebugInfoForProfiling, nameTableKind,
+//                          splitDebugFilename, importedEntities)
+//
+// --- DISourceLanguageNameAttr (DWARF 6 source-language model) ---
+// DWARF 6 decouples the language identifier from its version and dialect into
+// a (name, version, dialect) triple. DISourceLanguageNameAttr::get takes:
+//   language  — the legacy DW_LANG_* integer (non-zero for DWARF ≤ 5 codes).
+//   name      — the DWARF 6 SourceLanguageName enum value (0 when using legacy).
+//   version   — optional DWARF 6 version; nullopt for legacy language codes.
+//   dialect   — optional DWARF 6 dialect; 0 for none.
+// For DW_LANG_C99 we are using the legacy code path: language=DW_LANG_C99,
+// name=0, version=nullopt, dialect=0.  C99 is chosen as a safe neutral
+// baseline — the CU is synthetic and the language tag does not affect
+// correctness or tool behaviour for our instrumentation use-case.
 static LLVM::DICompileUnitAttr getOrCreateInstrumentCU(ModuleOp module) {
   if (auto cached =
           module->getAttrOfType<LLVM::DICompileUnitAttr>(kInstrumentCUAttrName))
     return cached;
 
   MLIRContext *ctx = module.getContext();
+
+  // Synthetic file: plain name + root directory satisfies macOS ld's N_OSO
+  // heuristic (see block comment above). Never opened at runtime.
   auto fileAttr = LLVM::DIFileAttr::get(
       ctx, /*name=*/"onnx-mlir-instrument.mlir", /*directory=*/"/");
   auto producerAttr = StringAttr::get(ctx, "onnx-mlir");
+
+  // Wrap the legacy DW_LANG_C99 integer in the new DISourceLanguageNameAttr
+  // required by the updated DICompileUnitAttr::get API (see block comment).
+  // name=0 and dialect=0 select the DWARF ≤ 5 (legacy) code path; version is
+  // not applicable for legacy language codes.
+  auto sourceLangAttr = LLVM::DISourceLanguageNameAttr::get(
+      ctx, /*language=*/llvm::dwarf::DW_LANG_C99, /*name=*/0,
+      /*version=*/std::nullopt, /*dialect=*/0);
+
+  // recId=null / isRecSelf=false: this CU is not part of a recursive type
+  // chain. id=fresh DistinctAttr uniquely identifies this compile unit within
+  // the module. Full emission is needed so that DISubprograms we attach to
+  // instrument call sites are retained in the final object.
   auto cu = LLVM::DICompileUnitAttr::get(ctx,
-      DistinctAttr::create(UnitAttr::get(ctx)),
-      /*sourceLanguage=*/llvm::dwarf::DW_LANG_C99, fileAttr, producerAttr,
+      /*recId=*/DistinctAttr{}, /*isRecSelf=*/false,
+      /*id=*/DistinctAttr::create(UnitAttr::get(ctx)),
+      sourceLangAttr, fileAttr, producerAttr,
       /*isOptimized=*/true, LLVM::DIEmissionKind::Full,
-      LLVM::DINameTableKind::Default,
-      /*splitDebugFilename=*/StringAttr{});
+      /*isDebugInfoForProfiling=*/false, LLVM::DINameTableKind::Default,
+      /*splitDebugFilename=*/StringAttr{},
+      /*importedEntities=*/{});
   module->setAttr(kInstrumentCUAttrName, cu);
   return cu;
 }
 
-// Synthetic anchor for the inner of our FusedLoc<DISubprogramAttr>
-// wrappers. The MLIR→LLVM debug translator returns nullptr for any
-// inner loc that can't be turned into a `DILocation` — `UnknownLoc`
-// directly, but also `NameLoc` / `FusedLoc` whose chains bottom out
-// in `UnknownLoc`. When that fails, the parent `CallSiteLoc`
-// translation falls back to the caller's loc, dropping the inlined
-// `__omip:` scope from the `!dbg` and from the dSYM. ONNX imports
-// without preserved source locations (most production `.onnx`) hit
-// this path. The simplest robust shape is to always anchor with a
-// concrete `FileLineColLoc`; the line/col are unused — only the
-// scope carried by the surrounding FusedLoc matters for DWARF.
+// Return a concrete FileLineColLoc used as the inner anchor of every
+// FusedLocWith<DISubprogramAttr> we create (both for function-level and
+// call-site-level DISubprograms).
+//
+// Why a FileLineColLoc instead of UnknownLoc or NameLoc?
+// The MLIR→LLVM IR translator (mlir-translate / translateModuleToLLVMIR)
+// converts a FusedLocWith<DISubprogramAttr> by first converting its inner
+// location list to a DILocation.  It returns nullptr for any inner loc that
+// cannot be translated — this includes UnknownLoc directly, and also NameLoc
+// or FusedLoc chains that bottom out in UnknownLoc. When the inner
+// translation returns nullptr the parent CallSiteLoc translation falls back
+// to the caller's loc, silently dropping the inlined `__omip:` scope from
+// the resulting `!dbg` metadata and therefore from the .dSYM / DWARF output.
+//
+// Production .onnx files almost never carry preserved source locations, so
+// most KrnlInstrumentOps inherit UnknownLoc — which would trigger exactly
+// this fallback.  Using a concrete FileLineColLoc avoids the nullptr path.
+// The line/col values are 0 (unused); only the DISubprogram scope carried
+// by the surrounding FusedLoc matters for the DWARF DW_TAG_inlined_subroutine
+// DIE that tooling (addr2line, Instruments.app, profile-model.py) reads.
 static Location syntheticAnchorLoc(MLIRContext *ctx) {
   return FileLineColLoc::get(
       StringAttr::get(ctx, "onnx-mlir-instrument.mlir"), 0, 0);
 }
 
 // Build a fresh DISubprogramAttr for one OMInstrumentPoint call site.
-// `kind` is "begin" / "end" so begin and end calls get distinct DIEs
-// even though they share opName + nodeName.
+//
+// The subprogram name has the form `__omip:<opName>:<nodeName>`. The double-
+// colon prefix makes the symbol easy to grep / filter in dwarfdump output and
+// in profile-model.py while being safe for all DWARF consumers (it is just a
+// string). Each begin/end pair for the same op gets its own distinct
+// DistinctAttr id, so LLVM's DwarfDebug emits separate DW_TAG_inlined_subroutine
+// DIEs for them and addr2line can distinguish begin from end call sites.
+//
+// DISubprogramAttr::get still uses the pre-upgrade 13-argument convenience
+// overload that begins with `(MLIRContext*, DistinctAttr id, ...)` — that
+// overload was retained in the new LLVM. Only DICompileUnitAttr::get lost its
+// MLIRContext*-first form (see getOrCreateInstrumentCU).
 static LLVM::DISubprogramAttr buildInstrumentSubprogram(MLIRContext *ctx,
     LLVM::DICompileUnitAttr cuAttr, LLVM::DIFileAttr fileAttr, StringRef opName,
     StringRef nodeName) {
@@ -109,16 +186,22 @@ static LLVM::DISubprogramAttr buildInstrumentSubprogram(MLIRContext *ctx,
       srTypeAttr, /*retainedNodes=*/{}, /*annotations=*/{});
 }
 
-// Lazily attach a function-level DISubprogramAttr to `funcOp` and
-// return its location (which after attachment is a FusedLocWith
-// carrying the DISubprogram as metadata — the `!dbg` LLVM uses for
-// the function definition). Without this anchor, the inlined-
-// subroutine DIEs we attach later to call sites are orphans (no
-// parent function PC range to anchor against) and LLVM's DwarfDebug
-// pass silently drops them.
+// Lazily attach a function-level DISubprogramAttr to `funcOp` and return its
+// updated location.
 //
-// We cache by inspecting funcOp.getLoc(): if it's already a
-// FusedLocWith<DISubprogramAttr> we don't re-attach.
+// After attachment the function's location becomes a
+// FusedLocWith<DISubprogramAttr>. mlir-translate uses that to emit a
+// DW_TAG_subprogram DIE that covers the function's entire PC range, which
+// is the LLVM DwarfDebug requirement for any DW_TAG_inlined_subroutine DIE
+// that references this function as its DW_AT_abstract_origin parent.
+// Without this anchor each `__omip:` inline scope is an orphan — it has no
+// parent PC range to hang off — and LLVM's DwarfDebug pass silently drops
+// every inlined subroutine DIE from the output object.
+//
+// Caching: we inspect funcOp.getLoc() and skip re-attachment if it is already
+// a FusedLocWith<DISubprogramAttr>.  Multiple KrnlInstrumentOps inside the
+// same function therefore share a single function-level DISubprogram, which
+// is the correct DWARF shape.
 static Location getOrAttachFuncDISubprogram(
     LLVM::LLVMFuncOp funcOp, LLVM::DICompileUnitAttr cuAttr) {
   MLIRContext *ctx = funcOp.getContext();
@@ -141,17 +224,33 @@ static Location getOrAttachFuncDISubprogram(
   return funcLoc;
 }
 
-// Build the call instruction's location. We emit a CallSiteLoc whose
-// callee is anchored in a synthetic `__omip:<opName>:<nodeName>`
-// DISubprogram and whose caller is anchored in the enclosing
-// function's own DISubprogram. mlir-translate turns that pair into a
-// DILocation with `inlinedAt` pointing at the function-level
-// DILocation — which is exactly the shape LLVM's DwarfDebug pass
-// recognizes and emits as a DW_TAG_inlined_subroutine DIE with the
-// `__omip:` name. Any PC inside the call (and, more usefully, any
-// later sampled PC bracketed between consecutive begin/end inline
-// subroutines) is then resolvable via `addr2line --inlines` to the
-// originating ONNX op.
+// Build the MLIR location to stamp on the OMInstrumentPoint LLVM call op.
+//
+// The shape we produce is:
+//
+//   CallSiteLoc(
+//     callee = FusedLocWith<DISubprogramAttr>("__omip:<op>:<node>"),
+//     caller = FusedLocWith<DISubprogramAttr>(<enclosing-function>)
+//   )
+//
+// mlir-translate (translateModuleToLLVMIR) converts a CallSiteLoc into an
+// LLVM DILocation whose `inlinedAt` field points at the caller's DILocation.
+// LLVM's DwarfDebug pass then recognises that `inlinedAt` chain and emits a
+// DW_TAG_inlined_subroutine DIE named `__omip:<op>:<node>` inside the
+// enclosing function's DW_TAG_subprogram.
+//
+// The result is that any PC belonging to that call instruction (and, more
+// usefully, any PC sampled between consecutive begin/end instrument pairs) is
+// resolvable by external tooling:
+//   addr2line --inlines    — maps a PC to the `__omip:` inline scope
+//   llvm-dwarfdump --lookup — same, via DWARF lookup tables
+//   profile-model.py       — uses the `__omip:` name to attribute cycles to
+//                            the originating ONNX op without reading .rodata
+//                            strings or recovering register dataflow
+//
+// The synthetic name is chosen at lowering time, so it always reflects the
+// post-conversion op identity (e.g. `zhigh.MatMul` for ops that were
+// `onnx.MatMul` before the ZHigh conversion pass).
 static Location buildInstrumentMarkerLoc(MLIRContext *ctx,
     LLVM::LLVMFuncOp funcOp, ModuleOp module, Location originalLoc,
     StringRef opName, StringRef nodeName) {
@@ -205,7 +304,7 @@ public:
     const LLVMTypeConverter *typeConverter =
         static_cast<const LLVMTypeConverter *>(getTypeConverter());
 
-    // Get a symbol reference to the memcpy function, inserting it if necessary.
+    // Get (or lazily insert) the OMInstrumentPoint function declaration.
     ModuleOp parentModule = op->getParentOfType<ModuleOp>();
     auto instrumentRef = getOrInsertInstrument(rewriter, parentModule);
 
