@@ -1582,6 +1582,10 @@ void DimAnalysis::propagateRelations(RelationMapType &relationMap,
   }
 }
 
+// Given: dim_a == dim_b (in same set)
+//        dim_a * k == target_x
+//        dim_b * k == target_y
+// Infer: target_x == target_y (new equality)
 void DimAnalysis::propagateScaleRelations() {
   propagateRelations<DimScaleRelation, DimScaleRelationMapT,
       std::pair<int64_t, int64_t>>(
@@ -1615,60 +1619,32 @@ void DimAnalysis::analyze() {
     continued = updateDimSets();
 
     // Merge sets if there is update.
-    if (continued)
+    if (continued) {
       // Two sets with a common dimension will be merged into a single set
       // consisting of elements from each set.
       mergeDimSets();
+      // Infer $target_x == target_y$ if
+      // - $target_x = dim_a + k and target_y = dim_b + k$, and
+      // - $dim_a = dim_b$
+      propagateOffsetRelations();
+      // Infer $target_x == target_y$ if
+      // - $target_x = dim_a * k and target_y = dim_b * k$, and
+      // - $dim_a = dim_b$
+      propagateScaleRelations();
+    }
   }
 
   LLVM_DEBUG(
       llvm::dbgs() << "\nThe number of sets of same dynamic dims in the IR: "
                    << dimSetMap.size() << "\n");
 
-  // After establishing equality relationships, detect offset relationships.
-  LLVM_DEBUG(llvm::dbgs() << "\nDetecting offset relationships...\n");
-  for (auto &entry : dimSetMap) {
-    DimSetT &dimSet = entry.second;
-    for (auto &dim : dimSet) {
-      visitDimForOffsets(dim);
-    }
-  }
-
-  // Propagate offset relationships to infer new equalities.
-  propagateOffsetRelations();
-
   LLVM_DEBUG(llvm::dbgs() << "\nOffset analysis complete. Found "
                           << dimRelations.size()
                           << " dimensions with offset relationships.\n");
 
-  // After offset analysis, detect scale relationships.
-  LLVM_DEBUG(llvm::dbgs() << "\nDetecting scale relationships...\n");
-  for (auto &entry : dimSetMap) {
-    DimSetT &dimSet = entry.second;
-    for (auto &dim : dimSet) {
-      visitDimForScales(dim);
-    }
-  }
-
-  // Propagate scale relationships to infer new equalities.
-  propagateScaleRelations();
-
   LLVM_DEBUG(llvm::dbgs() << "\nScale analysis complete. Found "
                           << dimScaleRelations.size()
                           << " dimensions with scale relationships.\n");
-
-  // After scale propagation, run another round of equality analysis to pick up
-  // new equalities from operations whose inputs are now known to be equal.
-  LLVM_DEBUG(llvm::dbgs() << "\nRunning post-scale equality analysis...\n");
-  continued = true;
-  while (continued) {
-    continued = updateDimSets();
-    if (continued)
-      mergeDimSets();
-  }
-
-  LLVM_DEBUG(llvm::dbgs() << "\nFinal number of dimension sets: "
-                          << dimSetMap.size() << "\n");
 
   // Sets are final now, elect a name for each of them.
   buildSetNames();
@@ -1682,6 +1658,8 @@ bool DimAnalysis::updateDimSets() {
     DimSetT newSameDims;
     for (auto &d : dimSet) {
       visitDim(d, newSameDims);
+      visitDimForOffsets(d);
+      visitDimForScales(d);
     }
     // Update the dim set.
     for (auto &d : newSameDims) {
@@ -1994,33 +1972,10 @@ void DimAnalysis::visitDim(
   }
 }
 
-// Propagate offset relationships using a fixed-point iteration algorithm.
-//
-// Algorithm: Two-phase propagation that runs until no new information is found.
-//
-// Core Concept:
-//   If dim_a == dim_b (from equality analysis), and dim_a + k == target,
-//   then dim_b + k == target. Conversely, if dim_a + k == target1 and
-//   dim_b + k == target2, then target1 == target2.
-//
-// Phase 1: Share offsets among equal dimensions
-//   For each equality set, propagate offset relations to all members.
-//   Example:
-//     Given: dim_a == dim_b (in same set)
-//            dim_a + 5 == target_x
-//     After: dim_a + 5 == target_x
-//            dim_b + 5 == target_x (propagated)
-//
-// Phase 2: Infer new equalities from matching offsets
-//   If multiple dimensions in a set have the same offset to different targets,
-//   those targets must be equal.
-//   Example:
-//     Given: dim_a == dim_b (in same set)
-//            dim_a + 5 == target_x
-//            dim_b + 5 == target_y
-//     Infer: target_x == target_y (new equality)
-//
-// Termination: Algorithm stops when no updates occur in a full iteration.
+// Given: dim_a == dim_b (in same set)
+//        dim_a + k == target_x
+//        dim_b + k == target_y
+// Infer: target_x == target_y (new equality)
 void DimAnalysis::propagateOffsetRelations() {
   propagateRelations<DimRelation, DimRelationMapT, int64_t>(
       dimRelations, "offset",
