@@ -4020,12 +4020,16 @@ class EndiannessAwareExecutionSession(object):
         for idx in input_indices:
             input_node = self.model.graph.input[idx]
             tensor = inputs[idx]
-            # numpy_helper.from_array's tobytes_little_endian uses astype() to
-            # byteswap on BE machines, but this silently fails for numpy scalar
-            # types (np.float32, np.int32, etc.) on NumPy 2.x — astype returns
-            # native-endian bytes unchanged instead of LE. Wrapping in np.array()
-            # first promotes scalars to proper 0-d ndarrays where astype works.
-            tensor = numpy_helper.from_array(np.array(tensor), input_node.name)
+            # Some CONSTANT_INPUT test cases (e.g. constantofshape) supply a
+            # bare NumPy scalar (np.float32, np.int64, …) rather than an ndarray.
+            # numpy_helper.from_array's tobytes_little_endian calls astype() to
+            # byte-swap on BE machines, but astype() on a NumPy scalar (which is
+            # not an ndarray) silently returns native-endian bytes unchanged in
+            # NumPy 2.x, corrupting raw_data on s390x.  Normalise to a 0-d
+            # ndarray first so that astype() works correctly.
+            if not isinstance(tensor, np.ndarray):
+                tensor = np.asarray(tensor)
+            tensor = numpy_helper.from_array(tensor, input_node.name)
             self.model.graph.initializer.extend([tensor])
             inputs_to_remove.append(input_node)
         # Remove inputs that were turned to constants.
