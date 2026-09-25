@@ -1,4 +1,4 @@
-// RUN: cfg_file=$(dirname %s)/tensorinfo-config.json && onnx-mlir --EmitONNXIR --march=z17 --maccel=NNPA --config-file=$cfg_file --printIR %s | FileCheck %s
+// RUN: onnx-mlir --EmitONNXIR --march=z17 --maccel=NNPA --config-file=%S/tensorinfo-config.json --printIR %s | FileCheck %s
 
 // COM: for the tests in this file, see tensorinfo-config.json for conditions.
 // COM: tests are differentiated by onnx_node_name.
