@@ -87,6 +87,14 @@ namespace onnx_mlir {
 class SplitOpGatherFusionHelper : public onnx_mlir::FusionOpKindHelper {
 public:
   static constexpr llvm::StringLiteral kKind{"simd-split-op-gather"};
+  /// See the kMaxOpCount contract note in FusionOpHelper.hpp: sliceLow +
+  /// opLow? + sliceHigh + opHigh? + concat. Also anchored on ONNXConcatOp,
+  /// like NNPA's ConcatExpandStickFusionHelper -- the two never compete in
+  /// practice (this kind requires the concat axis to be the innermost dim;
+  /// that one requires it not to be), so this value is only needed to
+  /// satisfy FusedPatternForOpKind's compile-time contract, not for any
+  /// actual precedence concern.
+  static constexpr int kMaxOpCount = 5;
 
   // "Low"/"High" always name the two halves by their INPUT split identity
   // ([0,splitPoint) and [splitPoint,D), per `splitPoint` below) -- never by
