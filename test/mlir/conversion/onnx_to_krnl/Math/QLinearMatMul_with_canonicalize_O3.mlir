@@ -245,24 +245,46 @@ func.func @qlinearmatmul_i8_f32(%arg0: tensor<16x32xi8>, %arg1: tensor<1xf32>, %
 // CHECK:               vector.store [[VAR_18_4_]], [[VAR_reshape_52_]]{{.}}[[VAR_14_8_]]{{.}} : memref<1024xi32>, vector<32xi32>
 // CHECK:             }
 // CHECK:           }
-// CHECK-DAG:       [[RES_33_:%.+]] = memref.alloc() {{.*}}: memref<16x64xi8>
+// CHECK-DAG:       [[RES_33_:%.+]] = memref.alloc() {{.*}}: memref<16x64xi32>
 // CHECK-DAG:       [[RES_34_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK:           affine.store [[CST_1024_]], [[RES_34_]][0] : memref<1xindex>
 // CHECK-DAG:       [[VAR_reshape_55_:%.+]] = memref.reshape [[RES_30_]]([[RES_34_]]) : (memref<16x64xi32>, memref<1xindex>) -> memref<1024xi32>
 // CHECK-DAG:       [[RES_35_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK:           affine.store [[CST_1024_]], [[RES_35_]][0] : memref<1xindex>
-// CHECK:           [[VAR_reshape_57_:%.+]] = memref.reshape [[RES_33_]]([[RES_35_]]) : (memref<16x64xi8>, memref<1xindex>) -> memref<1024xi8>
+// CHECK:           [[VAR_reshape_57_:%.+]] = memref.reshape [[RES_33_]]([[RES_35_]]) : (memref<16x64xi32>, memref<1xindex>) -> memref<1024xi32>
 // CHECK:           krnl.iterate() with (){
 // CHECK:             [[LOOP_10_:%.+]] = krnl.define_loops 1
-// CHECK:             [[BLOCK_TILE__12_:%.+]], [[BLOCK_IN__12_:%.+]] = krnl.block [[LOOP_10_]] 128 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:             [[BLOCK_TILE__12_:%.+]], [[BLOCK_IN__12_:%.+]] = krnl.block [[LOOP_10_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
 // CHECK:             krnl.iterate([[BLOCK_TILE__12_]]) with ([[LOOP_10_]] -> [[I_12_:%.+]] = 0 to 1024){
 // CHECK:               [[VAR_14_9_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__12_]]) : (!krnl.loop) -> index
-// CHECK:               [[LOAD_VAR_reshape_MEM_1_1_1_1_1_:%.+]] = vector.load [[VAR_reshape_55_]]{{.}}[[VAR_14_9_]]{{.}} : memref<1024xi32>, vector<128xi32>
-// CHECK:               [[VAR_16_6_:%.+]] = arith.trunci [[LOAD_VAR_reshape_MEM_1_1_1_1_1_]] : vector<128xi32> to vector<128xi8>
-// CHECK:               vector.store [[VAR_16_6_]], [[VAR_reshape_57_]]{{.}}[[VAR_14_9_]]{{.}} : memref<1024xi8>, vector<128xi8>
+// CHECK-DAG:           [[LOAD_VAR_reshape_MEM_1_1_1_1_1_:%.+]] = vector.load [[VAR_reshape_55_]]{{.}}[[VAR_14_9_]]{{.}} : memref<1024xi32>, vector<32xi32>
+// CHECK-DAG:           [[LOAD_QMIN_O3_:%.+]] = krnl.load [[VAR_QMIN_O3_:%.+]][] : memref<i32>
+// CHECK-DAG:           [[LOAD_QMAX_O3_:%.+]] = krnl.load [[VAR_QMAX_O3_:%.+]][] : memref<i32>
+// CHECK:               [[VAR_BC_QMIN_:%.+]] = vector.broadcast [[LOAD_QMIN_O3_]] : i32 to vector<32xi32>
+// CHECK:               [[VAR_MAX_O3_:%.+]] = arith.maxsi [[VAR_BC_QMIN_]], [[LOAD_VAR_reshape_MEM_1_1_1_1_1_]] : vector<32xi32>
+// CHECK:               [[VAR_BC_QMAX_:%.+]] = vector.broadcast [[LOAD_QMAX_O3_]] : i32 to vector<32xi32>
+// CHECK:               [[VAR_MIN_O3_:%.+]] = arith.minsi [[VAR_BC_QMAX_]], [[VAR_MAX_O3_]] : vector<32xi32>
+// CHECK:               vector.store [[VAR_MIN_O3_]], [[VAR_reshape_57_]]{{.}}[[VAR_14_9_]]{{.}} : memref<1024xi32>, vector<32xi32>
 // CHECK:             }
 // CHECK:           }
-// CHECK:           return [[RES_33_]] : memref<16x64xi8>
+// CHECK-DAG:       [[RES_36_:%.+]] = memref.alloc() {{.*}}: memref<16x64xi8>
+// CHECK-DAG:       [[RES_37_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
+// CHECK:           affine.store [[CST_1024_]], [[RES_37_]][0] : memref<1xindex>
+// CHECK-DAG:       [[VAR_reshape_60_:%.+]] = memref.reshape [[RES_33_]]([[RES_37_]]) : (memref<16x64xi32>, memref<1xindex>) -> memref<1024xi32>
+// CHECK-DAG:       [[RES_38_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
+// CHECK:           affine.store [[CST_1024_]], [[RES_38_]][0] : memref<1xindex>
+// CHECK:           [[VAR_reshape_62_:%.+]] = memref.reshape [[RES_36_]]([[RES_38_]]) : (memref<16x64xi8>, memref<1xindex>) -> memref<1024xi8>
+// CHECK:           krnl.iterate() with (){
+// CHECK:             [[LOOP_11_:%.+]] = krnl.define_loops 1
+// CHECK:             [[BLOCK_TILE__13_:%.+]], [[BLOCK_IN__13_:%.+]] = krnl.block [[LOOP_11_]] 128 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// CHECK:             krnl.iterate([[BLOCK_TILE__13_]]) with ([[LOOP_11_]] -> [[I_13_:%.+]] = 0 to 1024){
+// CHECK:               [[VAR_14_10_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__13_]]) : (!krnl.loop) -> index
+// CHECK:               [[LOAD_VAR_reshape_MEM_1_1_1_1_2_:%.+]] = vector.load [[VAR_reshape_60_]]{{.}}[[VAR_14_10_]]{{.}} : memref<1024xi32>, vector<128xi32>
+// CHECK:               [[VAR_16_7_:%.+]] = arith.trunci [[LOAD_VAR_reshape_MEM_1_1_1_1_2_]] : vector<128xi32> to vector<128xi8>
+// CHECK:               vector.store [[VAR_16_7_]], [[VAR_reshape_62_]]{{.}}[[VAR_14_10_]]{{.}} : memref<1024xi8>, vector<128xi8>
+// CHECK:             }
+// CHECK:           }
+// CHECK:           return [[RES_36_]] : memref<16x64xi8>
 // CHECK:         }
 }
 
@@ -284,7 +306,8 @@ func.func @qlinearmatmul_ui8_f32(%arg0: tensor<16x32xui8>, %arg1: tensor<1xf32>,
 // CHECK-DAG:       [[CST_16_:%.+]] = arith.constant 16 : index
 // CHECK-DAG:       [[CST_32_:%.+]] = arith.constant 32 : index
 // CHECK-DAG:       [[CST_64_:%.+]] = arith.constant 64 : index
-// CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() <{name = "constant_{{[0-9]+}}", shape = [], value = dense<128> : tensor<i32>}> : () -> memref<i32>
+// CHECK-DAG:       [[VAR_QMIN_UI8_O3_:%.+]] = "krnl.global"() <{name = "constant_{{[0-9]+}}", shape = [], value = dense<0> : tensor<i32>}> : () -> memref<i32>
+// CHECK-DAG:       [[VAR_QMAX_UI8_O3_:%.+]] = "krnl.global"() <{name = "constant_{{[0-9]+}}", shape = [], value = dense<255> : tensor<i32>}> : () -> memref<i32>
 // CHECK-DAG:       [[VAR_1_:%.+]] = "krnl.global"() <{name = "constant_{{[0-9]+}}", shape = [], value = dense<128> : tensor<i16>}> : () -> memref<i16>
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<16x32xi16>
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
@@ -661,7 +684,7 @@ func.func @qlinearmatmul_ui8_f32(%arg0: tensor<16x32xui8>, %arg1: tensor<1xf32>,
 // CHECK:             krnl.iterate([[BLOCK_TILE__17_]]) with ([[LOOP_15_]] -> [[I_17_:%.+]] = 0 to 1024){
 // CHECK:               [[VAR_44_14_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__17_]]) : (!krnl.loop) -> index
 // CHECK-DAG:           [[LOAD_VAR_reshape_MEM_1_1_1_1_1_1_1_:%.+]] = vector.load [[VAR_reshape_89_]]{{.}}[[VAR_44_14_]]{{.}} : memref<1024xi32>, vector<32xi32>
-// CHECK-DAG:           [[VAR_46_9_:%.+]] = krnl.load [[RES_41_]]{{.}}[[CST_0_1_]]{{.}} : memref<1xi32>
+// CHECK-DAG:           [[VAR_46_9_:%.+]] = krnl.load [[RES_ZP_O3_:%.+]]{{.}}[[CST_0_1_]]{{.}} : memref<1xi32>
 // CHECK:               [[VAR_47_8_:%.+]] = vector.broadcast [[VAR_46_9_]] : i32 to vector<32xi32>
 // CHECK:               [[VAR_48_6_:%.+]] = arith.addi [[LOAD_VAR_reshape_MEM_1_1_1_1_1_1_1_]], [[VAR_47_8_]] : vector<32xi32>
 // CHECK:               vector.store [[VAR_48_6_]], [[VAR_reshape_91_]]{{.}}[[VAR_44_14_]]{{.}} : memref<1024xi32>, vector<32xi32>
@@ -680,19 +703,22 @@ func.func @qlinearmatmul_ui8_f32(%arg0: tensor<16x32xui8>, %arg1: tensor<1xf32>,
 // CHECK:             krnl.iterate([[BLOCK_TILE__18_]]) with ([[LOOP_16_]] -> [[I_18_:%.+]] = 0 to 1024){
 // CHECK:               [[VAR_44_15_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__18_]]) : (!krnl.loop) -> index
 // CHECK-DAG:           [[LOAD_VAR_reshape_MEM_1_1_1_1_1_1_1_1_:%.+]] = vector.load [[VAR_reshape_94_]]{{.}}[[VAR_44_15_]]{{.}} : memref<1024xi32>, vector<32xi32>
-// CHECK-DAG:           [[VAR_46_9_1_:%.+]] = krnl.load [[VAR_0_]][] : memref<i32>
-// CHECK:               [[VAR_47_9_:%.+]] = vector.broadcast [[VAR_46_9_1_]] : i32 to vector<32xi32>
-// CHECK:               [[VAR_48_7_:%.+]] = arith.addi [[LOAD_VAR_reshape_MEM_1_1_1_1_1_1_1_1_]], [[VAR_47_9_]] : vector<32xi32>
-// CHECK:               vector.store [[VAR_48_7_]], [[VAR_reshape_96_]]{{.}}[[VAR_44_15_]]{{.}} : memref<1024xi32>, vector<32xi32>
+// CHECK-DAG:           [[LOAD_QMIN_UI8_O3_2_:%.+]] = krnl.load [[VAR_QMIN_UI8_O3_]][] : memref<i32>
+// CHECK-DAG:           [[LOAD_QMAX_UI8_O3_2_:%.+]] = krnl.load [[VAR_QMAX_UI8_O3_]][] : memref<i32>
+// CHECK:               [[VAR_BC_QMIN_UI8_:%.+]] = vector.broadcast [[LOAD_QMIN_UI8_O3_2_]] : i32 to vector<32xi32>
+// CHECK:               [[VAR_MAX_UI8_O3_:%.+]] = arith.maxsi [[VAR_BC_QMIN_UI8_]], [[LOAD_VAR_reshape_MEM_1_1_1_1_1_1_1_1_]] : vector<32xi32>
+// CHECK:               [[VAR_BC_QMAX_UI8_:%.+]] = vector.broadcast [[LOAD_QMAX_UI8_O3_2_]] : i32 to vector<32xi32>
+// CHECK:               [[VAR_MIN_UI8_O3_:%.+]] = arith.minsi [[VAR_BC_QMAX_UI8_]], [[VAR_MAX_UI8_O3_]] : vector<32xi32>
+// CHECK:               vector.store [[VAR_MIN_UI8_O3_]], [[VAR_reshape_96_]]{{.}}[[VAR_44_15_]]{{.}} : memref<1024xi32>, vector<32xi32>
 // CHECK:             }
 // CHECK:           }
-// CHECK-DAG:       [[RES_63_:%.+]] = memref.alloc() {{.*}}: memref<16x64xi8>
+// CHECK-DAG:       [[RES_63_:%.+]] = memref.alloc() {{.*}}: memref<16x64xui8>
 // CHECK-DAG:       [[RES_64_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK:           affine.store [[CST_1024_]], [[RES_64_]][0] : memref<1xindex>
 // CHECK-DAG:       [[VAR_reshape_99_:%.+]] = memref.reshape [[RES_60_]]([[RES_64_]]) : (memref<16x64xi32>, memref<1xindex>) -> memref<1024xi32>
 // CHECK-DAG:       [[RES_65_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
 // CHECK:           affine.store [[CST_1024_]], [[RES_65_]][0] : memref<1xindex>
-// CHECK:           [[VAR_reshape_101_:%.+]] = memref.reshape [[RES_63_]]([[RES_65_]]) : (memref<16x64xi8>, memref<1xindex>) -> memref<1024xi8>
+// CHECK:           [[VAR_reshape_101_:%.+]] = memref.reshape [[RES_63_]]([[RES_65_]]) : (memref<16x64xui8>, memref<1xindex>) -> memref<1024xui8>
 // CHECK:           krnl.iterate() with (){
 // CHECK:             [[LOOP_17_:%.+]] = krnl.define_loops 1
 // CHECK:             [[BLOCK_TILE__19_:%.+]], [[BLOCK_IN__19_:%.+]] = krnl.block [[LOOP_17_]] 128 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
@@ -700,26 +726,10 @@ func.func @qlinearmatmul_ui8_f32(%arg0: tensor<16x32xui8>, %arg1: tensor<1xf32>,
 // CHECK:               [[VAR_44_16_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__19_]]) : (!krnl.loop) -> index
 // CHECK:               [[LOAD_VAR_reshape_MEM_1_1_1_1_1_1_1_1_:%.+]] = vector.load [[VAR_reshape_99_]]{{.}}[[VAR_44_16_]]{{.}} : memref<1024xi32>, vector<128xi32>
 // CHECK:               [[VAR_46_10_:%.+]] = arith.trunci [[LOAD_VAR_reshape_MEM_1_1_1_1_1_1_1_1_]] : vector<128xi32> to vector<128xi8>
-// CHECK:               vector.store [[VAR_46_10_]], [[VAR_reshape_101_]]{{.}}[[VAR_44_16_]]{{.}} : memref<1024xi8>, vector<128xi8>
+// CHECK:               [[VAR_46_11_:%.+]] = builtin.unrealized_conversion_cast [[VAR_46_10_]] : vector<128xi8> to vector<128xui8>
+// CHECK:               vector.store [[VAR_46_11_]], [[VAR_reshape_101_]]{{.}}[[VAR_44_16_]]{{.}} : memref<1024xui8>, vector<128xui8>
 // CHECK:             }
 // CHECK:           }
-// CHECK-DAG:       [[RES_66_:%.+]] = memref.alloc() {{.*}}: memref<16x64xui8>
-// CHECK-DAG:       [[RES_67_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK:           affine.store [[CST_1024_]], [[RES_67_]][0] : memref<1xindex>
-// CHECK-DAG:       [[VAR_reshape_104_:%.+]] = memref.reshape [[RES_63_]]([[RES_67_]]) : (memref<16x64xi8>, memref<1xindex>) -> memref<1024xi8>
-// CHECK-DAG:       [[RES_68_:%.+]] = memref.alloc() {{.*}}: memref<1xindex>
-// CHECK:           affine.store [[CST_1024_]], [[RES_68_]][0] : memref<1xindex>
-// CHECK:           [[VAR_reshape_106_:%.+]] = memref.reshape [[RES_66_]]([[RES_68_]]) : (memref<16x64xui8>, memref<1xindex>) -> memref<1024xui8>
-// CHECK:           krnl.iterate() with (){
-// CHECK:             [[LOOP_18_:%.+]] = krnl.define_loops 1
-// CHECK:             [[BLOCK_TILE__20_:%.+]], [[BLOCK_IN__20_:%.+]] = krnl.block [[LOOP_18_]] 128 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
-// CHECK:             krnl.iterate([[BLOCK_TILE__20_]]) with ([[LOOP_18_]] -> [[I_20_:%.+]] = 0 to 1024){
-// CHECK:               [[VAR_44_17_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__20_]]) : (!krnl.loop) -> index
-// CHECK:               [[LOAD_VAR_reshape_MEM_1_1_1_1_1_1_1_1_1_:%.+]] = vector.load [[VAR_reshape_104_]]{{.}}[[VAR_44_17_]]{{.}} : memref<1024xi8>, vector<128xi8>
-// CHECK:               [[VAR_46_11_:%.+]] = builtin.unrealized_conversion_cast [[LOAD_VAR_reshape_MEM_1_1_1_1_1_1_1_1_1_]] : vector<128xi8> to vector<128xui8>
-// CHECK:               vector.store [[VAR_46_11_]], [[VAR_reshape_106_]]{{.}}[[VAR_44_17_]]{{.}} : memref<1024xui8>, vector<128xui8>
-// CHECK:             }
-// CHECK:           }
-// CHECK:           return [[RES_66_]] : memref<16x64xui8>
+// CHECK:           return [[RES_63_]] : memref<16x64xui8>
 // CHECK:         }
 }
