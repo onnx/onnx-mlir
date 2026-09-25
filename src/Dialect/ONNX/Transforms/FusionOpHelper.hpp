@@ -199,6 +199,28 @@ protected:
   // FusedPatternForOpKind<AnchorOpType, FusionT> (see FusionOpBasePattern.hpp)
   // — omitting detectIfBeneficial fails to compile at that instantiation, not
   // here.  Must call isInsideFusedOp(startOp) first (see above).
+  //
+  // Every subclass must also define:
+  //
+  //   static constexpr int kMaxOpCount = <N>;
+  //
+  // the longest chain (every optional step included) this kind can ever
+  // match -- i.e. the maximum this->ops.size() can reach on a successful
+  // detectIfBeneficial(). Like detectIfBeneficial, this can't be declared
+  // here (it's a per-subclass compile-time constant, not something a base
+  // class can default); it is instead required at the same instantiation
+  // point, FusedPatternForOpKind<AnchorOpType, FusionT>, which uses it to
+  // seed this pattern's PatternBenefit. That only matters when two kinds
+  // anchor on the *same* op type (mlir::PatternApplicator ranks same-anchor
+  // candidates by benefit -- see mlir/lib/Rewrite/PatternApplicator.cpp).
+  // It does NOT resolve precedence between kinds anchored on *different* op
+  // types, e.g. one kind anchored on ONNXConcatOp whose chain could
+  // subsume another kind's chain anchored on an op partway through it
+  // (ONNXUnsqueezeOp, say): PatternBenefit never orders across anchor
+  // types, since candidates are looked up per anchor op name. That
+  // situation instead has to be resolved by running the longer-chain kind's
+  // pattern in its own, earlier applyPatternsGreedily phase -- see
+  // FusionOpStickUnstick.cpp for a concrete example and rationale.
 
   // TODO:  when detecting the pattern, we often require "ops" to have only one
   // use... which has worked so far. But if we detect a situation where there
