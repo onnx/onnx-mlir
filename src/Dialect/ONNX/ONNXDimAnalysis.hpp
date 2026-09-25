@@ -67,12 +67,9 @@ public:
     DimOffsetRelation(DimT d1, int64_t o1, DimT d2, int64_t o2)
         : DimRelation(d1, o1, d2, o2) {}
 
-    // Normalized form: dim1 + (offset1 - offset2) == dim2.
-    int64_t getRelativeOffset() const { return factor1 - factor2; }
-
-    // Returns normalized factors: (relative_offset, 0).
+    // Returns normalized factors: (offset1 - offset2, 0).
     std::pair<int64_t, int64_t> getNormalizedFactors() const override {
-      return {getRelativeOffset(), 0};
+      return {factor1 - factor2, 0};
     }
 
     // Equality operator for deduplication.
@@ -86,15 +83,10 @@ public:
     DimScaleRelation(DimT d1, int64_t s1, DimT d2, int64_t s2)
         : DimRelation(d1, s1, d2, s2) {}
 
-    // Normalized form: dim1 * (scale1/gcd) == dim2 * (scale2/gcd).
-    std::pair<int64_t, int64_t> getNormalizedScales() const {
-      int64_t g = std::gcd(factor1, factor2);
-      return {factor1 / g, factor2 / g};
-    }
-
     // Returns normalized factors: (scale1/gcd, scale2/gcd).
     std::pair<int64_t, int64_t> getNormalizedFactors() const override {
-      return getNormalizedScales();
+      int64_t g = std::gcd(factor1, factor2);
+      return {factor1 / g, factor2 / g};
     }
 
     // Equality operator for deduplication.

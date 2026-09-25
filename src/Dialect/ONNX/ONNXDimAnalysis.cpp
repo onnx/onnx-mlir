@@ -1044,6 +1044,7 @@ std::optional<uint64_t> DimAnalysis::getSetID(const DimT &d) const {
 void DimAnalysis::buildSetNames() {
   dimSetIDMap.clear();
   setNameMap.clear();
+  // Phase 1: elect one name per set from dimNameMap.
   for (auto &entry : dimSetMap) {
     uint64_t setID = entry.first;
     const DimNameInfo *best = nullptr;
@@ -1065,6 +1066,57 @@ void DimAnalysis::buildSetNames() {
     }
     if (best)
       setNameMap[setID] = best->name;
+  }
+
+  // Phase 2: derive names for unnamed sets via offset/scale relations.
+  // Iterate to a fixed point to handle chains (A -> B -> C).
+  //
+  // deriveName(base, f1, f2) builds the forward name: base + f1 applied to f2.
+  // The reverse direction swaps f1 and f2.
+  auto deriveOffsetName = [](const std::string &base, int64_t f1,
+                              int64_t /*f2*/) -> std::string {
+    if (f1 == 0)
+      return base;
+    if (f1 > 0)
+      return base + "+" + std::to_string(f1);
+    return base + "-" + std::to_string(-f1);
+  };
+
+  auto deriveScaleName = [](const std::string &base, int64_t s1,
+                             int64_t s2) -> std::string {
+    if (s1 == s2)
+      return base;
+    if (s2 == 1)
+      return base + "*" + std::to_string(s1);
+    if (s1 == 1)
+      return base + "/" + std::to_string(s2);
+    return base + "*" + std::to_string(s1) + "/" + std::to_string(s2);
+  };
+
+  // Propagate names through a relation map using deriveName.
+  auto propagateNames = [&](auto &relationMap, auto deriveName) {
+    for (auto &[keyDim, relations] : relationMap) {
+      for (auto &rel : relations) {
+        auto setID1 = getSetID(rel.dim1);
+        auto setID2 = getSetID(rel.dim2);
+        if (!setID1 || !setID2 || *setID1 == *setID2)
+          continue;
+        auto [f1, f2] = rel.getNormalizedFactors();
+        if (setNameMap.count(*setID1) && !setNameMap.count(*setID2)) {
+          setNameMap[*setID2] = deriveName(setNameMap[*setID1], f1, f2);
+          return true;
+        }
+        if (setNameMap.count(*setID2) && !setNameMap.count(*setID1)) {
+          setNameMap[*setID1] = deriveName(setNameMap[*setID2], f2, f1);
+          return true;
+        }
+      }
+    }
+    return false;
+  };
+
+  while (propagateNames(dimOffsetRelations, deriveOffsetName) ||
+         propagateNames(dimScaleRelations, deriveScaleName)) {
   }
 }
 
@@ -1272,7 +1324,7 @@ std::optional<std::pair<int64_t, int64_t>> DimAnalysis::getDimScale(
         for (const DimScaleRelation &rel2 : it2->second) {
           if (sameDim(rel1.dim2.first, rel1.dim2.second, rel2.dim2.first,
                   rel2.dim2.second)) {
-            return rel1.getNormalizedScales();
+            return rel1.getNormalizedFactors();
           }
         }
       }
@@ -1463,21 +1515,21 @@ void DimAnalysis::analyzeShapeConcatForScaling(Operation *concatOp,
   }
 
   // Detect and record scale relationships.
-  if (inputStaticProduct > outputStaticProduct &&
+  // Only valid when exactly one non-pass-through dynamic input dim exists;
+  // with multiple, the per-dim scale factor is ambiguous (the product of
+  // all dynamic dims is involved, not each individually).
+  if (inputDynDims.size() == 1 && inputStaticProduct > outputStaticProduct &&
       inputStaticProduct % outputStaticProduct == 0) {
     int64_t scale = inputStaticProduct / outputStaticProduct;
+    const DimT &dynDim = inputDynDims[0];
 
-    for (const DimT &dynDim : inputDynDims) {
-      if (!passThroughInputAxes.contains(dynDim.second)) {
-        if (addScaleRelation(
-                dynDim, DimScaleRelation(dynDim, scale, outputDim, 1))) {
-          updated = true;
-          LLVM_DEBUG(llvm::dbgs()
-                     << "  - [Reshape -1] dim(" << dynDim.first << ", "
-                     << dynDim.second << ") * " << scale << " == dim("
-                     << outputDim.first << ", " << outputDim.second << ")\n");
-        }
-      }
+    if (addScaleRelation(
+            dynDim, DimScaleRelation(dynDim, scale, outputDim, 1))) {
+      updated = true;
+      LLVM_DEBUG(llvm::dbgs()
+                 << "  - [Reshape -1] dim(" << dynDim.first << ", "
+                 << dynDim.second << ") * " << scale << " == dim("
+                 << outputDim.first << ", " << outputDim.second << ")\n");
     }
   }
 }
