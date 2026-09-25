@@ -1156,23 +1156,25 @@ std::optional<int64_t> DimAnalysis::getDimOffset(
   if (sameDim(tensor1, dimAxis1, tensor2, dimAxis2))
     return 0;
 
-  // Check offset relationships.
+  // Check offset relationships via common target.
+  // If dim1 + a == target and dim2 + b == target, then dim1 + a == dim2 + b,
+  // i.e. dim1 + (a - b) == dim2, so the offset is (a - b).
   DimT dim1(tensor1, (uint64_t)dimAxis1);
   DimT dim2(tensor2, (uint64_t)dimAxis2);
 
-  if (auto it = dimOffsetRelations.find(dim1); it != dimOffsetRelations.end()) {
-    for (const DimOffsetRelation &rel : it->second) {
-      if (rel.dim2 == dim2) {
-        return rel.getNormalizedFactors().first;
-      }
-    }
-  }
-
-  // Check reverse direction: dim2 -> dim1.
-  if (auto it = dimOffsetRelations.find(dim2); it != dimOffsetRelations.end()) {
-    for (const DimOffsetRelation &rel : it->second) {
-      if (rel.dim2 == dim1) {
-        return -rel.getNormalizedFactors().first;
+  if (auto it1 = dimOffsetRelations.find(dim1);
+      it1 != dimOffsetRelations.end()) {
+    for (const DimOffsetRelation &rel1 : it1->second) {
+      if (auto it2 = dimOffsetRelations.find(dim2);
+          it2 != dimOffsetRelations.end()) {
+        for (const DimOffsetRelation &rel2 : it2->second) {
+          if (sameDim(rel1.dim2.first, rel1.dim2.second, rel2.dim2.first,
+                  rel2.dim2.second)) {
+            auto [a, _a] = rel1.getNormalizedFactors();
+            auto [b, _b] = rel2.getNormalizedFactors();
+            return a - b;
+          }
+        }
       }
     }
   }
@@ -1317,6 +1319,9 @@ std::optional<std::pair<int64_t, int64_t>> DimAnalysis::getDimScale(
   DimT dim1(tensor1, (uint64_t)dimAxis1);
   DimT dim2(tensor2, (uint64_t)dimAxis2);
 
+  // Search for a common target via scale relations.
+  // If dim1 * f1 == target * f2 and dim2 * g1 == target * g2,
+  // then dim1 * (f1*g2) == dim2 * (g1*f2).
   if (auto it = dimScaleRelations.find(dim1); it != dimScaleRelations.end()) {
     for (const DimScaleRelation &rel1 : it->second) {
       if (auto it2 = dimScaleRelations.find(dim2);
@@ -1324,7 +1329,11 @@ std::optional<std::pair<int64_t, int64_t>> DimAnalysis::getDimScale(
         for (const DimScaleRelation &rel2 : it2->second) {
           if (sameDim(rel1.dim2.first, rel1.dim2.second, rel2.dim2.first,
                   rel2.dim2.second)) {
-            return rel1.getNormalizedFactors();
+            auto [f1, f2] = rel1.getNormalizedFactors();
+            auto [g1, g2] = rel2.getNormalizedFactors();
+            int64_t s1 = f1 * g2, s2 = g1 * f2;
+            int64_t g = std::gcd(s1, s2);
+            return std::make_pair(s1 / g, s2 / g);
           }
         }
       }
@@ -1575,31 +1584,31 @@ void DimAnalysis::propagateRelations(
       if (dimSet.empty())
         continue;
 
-      // Collect unique keys and their targets.
+      // Collect unique keys and one representative target per key.
       llvm::DenseMap<std::pair<int64_t, int64_t>, DimT> keyToTarget;
-      llvm::DenseSet<DimT> dimsWithRelations;
-
       for (auto &dim : dimSet) {
         auto relIt = relationMap.find(dim);
         if (relIt == relationMap.end())
           continue;
-
-        dimsWithRelations.insert(dim);
         for (const RelationType &rel : relIt->second) {
-          std::pair<int64_t, int64_t> key = rel.getNormalizedFactors();
-          keyToTarget.try_emplace(key, rel.dim2);
+          keyToTarget.try_emplace(rel.getNormalizedFactors(), rel.dim2);
         }
       }
 
-      // Propagate to dimensions missing these relations.
       if (keyToTarget.empty())
         continue;
 
+      // Propagate keys missing from individual dimensions.
       for (auto &dim : dimSet) {
-        if (dimsWithRelations.contains(dim))
-          continue; // Already has relations.
+        llvm::DenseSet<std::pair<int64_t, int64_t>> existingKeys;
+        if (auto relIt = relationMap.find(dim); relIt != relationMap.end()) {
+          for (const RelationType &rel : relIt->second)
+            existingKeys.insert(rel.getNormalizedFactors());
+        }
 
         for (auto &[key, target] : keyToTarget) {
+          if (existingKeys.contains(key))
+            continue;
           relationMap[dim].emplace_back(dim, key.first, target, key.second);
           updated = true;
           LLVM_DEBUG({

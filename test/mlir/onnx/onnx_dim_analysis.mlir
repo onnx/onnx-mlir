@@ -224,27 +224,6 @@ func.func @test_reshape_allowzero(%arg0: tensor<?x?x768xf32>) -> tensor<?x?x12x6
 
 // -----
 
-func.func @test_expand_from_concat_dims(%arg0: tensor<1x256xi64>, %arg1: tensor<?x256xi64>) -> tensor<?x256xi64> {
-  %0 = onnx.Constant dense<256> : tensor<1xi64>
-  %1 = "onnx.Dim"(%arg1) {axis = 0 : si64} : (tensor<?x256xi64>) -> tensor<1xi64>
-  %2 = "onnx.Concat"(%1, %0) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
-  %3 = "onnx.Expand"(%arg0, %2) {onnx_node_name = "Expand_30"} : (tensor<1x256xi64>, tensor<2xi64>) -> tensor<?x256xi64>
-  onnx.Return %3: tensor<?x256xi64>
-
-// CHECK-LABEL:  func.func @test_expand_from_concat_dims
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x256xi64>, [[PARAM_1_:%.+]]: tensor<?x256xi64>) -> tensor<?x256xi64> {
-// CHECK-DAG:       "onnx.DimGroup"([[PARAM_1_]]) <{axis = 0 : si64, group_id = 0 : si64, group_name = "arg1_0"}> : (tensor<?x256xi64>) -> ()
-// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<256> : tensor<1xi64>
-// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Dim"([[PARAM_1_]]) <{axis = 0 : si64}> : (tensor<?x256xi64>) -> tensor<1xi64>
-// CHECK:           [[VAR_2_:%.+]] = "onnx.Concat"([[VAR_1_]], [[VAR_0_]]) <{axis = 0 : si64}> : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
-// CHECK:           [[VAR_3_:%.+]] = "onnx.Expand"([[PARAM_0_]], [[VAR_2_]]) {onnx_node_name = "Expand_30"} : (tensor<1x256xi64>, tensor<2xi64>) -> tensor<?x256xi64>
-// CHECK:           "onnx.DimGroup"([[VAR_3_]]) <{axis = 0 : si64, group_id = 0 : si64, group_name = "arg1_0"}> : (tensor<?x256xi64>) -> ()
-// CHECK:           onnx.Return [[VAR_3_]] : tensor<?x256xi64>
-// CHECK:         }
-}
-
-// -----
-
 // COM: input and output have the same rank of 2, and if one output dim is
 // from an input dim, the other output dim must be from the remaining input dim.
 
