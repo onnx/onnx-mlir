@@ -559,7 +559,47 @@ This operator also covers the 3 following variants based on the number of heads:
 
 Attention bias to be added is calculated based on `attn_mask` input and `is_causal` attribute:
 1) `attn_mask`: A boolean mask where a value of `True` indicates that the element should take part in attention or a float mask of the same type as query, key, value that is added to the attention score.
-2) If `is_causal` is set to `1`, attention scores above the diagonal are masked out, regardless of the `attn_mask` input.
+2) If `is_causal` is set to `1`, causal masking is applied with bottom-right (offset-aware) alignment: query `i` attends key `j` iff `j <= i + offset`, as illustrated below.
+
+```
+  2D causal mask for Attention (PR onnx/onnx#8068)
+   S_q=4 queries, S_k=8 keys
+   Rule: query i attends key j iff j <= i + offset
+         offset = nonpad_kv_seqlen - S_q
+
+   nonpad_kv_seqlen=4, offset=4-4=0
+
+          k0  k1  k2  k3  k4  k5  k6  k7
+         +----+----+----+----+----+----+----+----+
+    q0   | ## |    |    |    |    |    |    |    |
+         +----+----+----+----+----+----+----+----+
+    q1   | ## | ## |    |    |    |    |    |    |
+         +----+----+----+----+----+----+----+----+
+    q2   | ## | ## | ## |    |    |    |    |    |
+         +----+----+----+----+----+----+----+----+
+    q3   | ## | ## | ## | ## |    |    |    |    |
+         +----+----+----+----+----+----+----+----+
+
+
+   nonpad_kv_seqlen=8, offset=8-4=4
+
+          k0  k1  k2  k3  k4  k5  k6  k7
+         +----+----+----+----+----+----+----+----+
+    q0   | ## | ## | ## | ## | ## |    |    |    |
+         +----+----+----+----+----+----+----+----+
+    q1   | ## | ## | ## | ## | ## | ## |    |    |
+         +----+----+----+----+----+----+----+----+
+    q2   | ## | ## | ## | ## | ## | ## | ## |    |
+         +----+----+----+----+----+----+----+----+
+    q3   | ## | ## | ## | ## | ## | ## | ## | ## |
+         +----+----+----+----+----+----+----+----+
+```
+
+With `nonpad_kv_seqlen=4` (offset=0), the mask is the standard lower-triangular. With `nonpad_kv_seqlen=8` (offset=4), the diagonal shifts right by 4, so each query sees the 4 additional valid cached keys.
+
+`offset` is the count of valid keys preceding the current query block: `offset = past_sequence_length` when `past_key` is provided; `offset = nonpad_kv_seqlen - q_sequence_length` (per batch) when an external cache is indicated by `nonpad_kv_seqlen` without `past_key`; `offset = 0` when neither is provided (the no-cache case, which reduces to the standard lower-triangular mask). When `offset < 0` (`nonpad_kv_seqlen < q_sequence_length`, i.e. more query tokens than cached keys) the leading query rows have an empty key set (no key satisfies `j <= i + offset`) and are fully masked. The causal frontier is computed independently of `attn_mask` and is then composed with it additively: a boolean `attn_mask` intersects the allowed set (its disallowed positions contribute `-inf` to the bias), while a float `attn_mask` is added to the attention scores rather than disabling positions. A fully-masked query row (no key attended, including the negative-offset leading rows) produces a zero output row, not `NaN`, for both `Y` and the mode-`3` `qk_matmul_output` debug output; the mode-`3` `qk_matmul_output` is emitted at the operator's output precision (`T1`).
+
+Errata (in-place behavioral correction, no opset bump): the reference implementation and backend tests were incorrect when `nonpad_kv_seqlen != q_sequence_length` (nonzero bottom-right offset, top-left instead of bottom-right causal alignment) and produced `NaN` for fully-masked rows; corrected in version 1.23. This fixed three behaviors described above: external-cache bottom-right causal alignment (`offset = nonpad_kv_seqlen - q_sequence_length`), zero (non-`NaN`) output for fully-masked rows including the mode-`3` `qk_matmul_output`, and the mode-`3` `qk_matmul_output` precision (`T1`).
 
 With respect to KV cache update, this operator allows the following two use cases:
 
@@ -588,9 +628,9 @@ Q*sqrt(scale) K*sqrt(scale) |
       |          |          |
       ---MatMul---          |
             |               |
- at_mask---Add              |
-            |               |
   softcap (if provided)     |
+            |               |
+ at_mask---Add              |
             |               |
          Softmax            |
             |               |
@@ -2697,14 +2737,17 @@ where the reduce-sum performs a summation over all the indices occurring in the 
 that do not occur in the output-term.
 
 The Einsum operator evaluates algebraic tensor operations on a sequence of tensors, using the Einstein summation
-convention. The equation string contains a comma-separated sequence of lower case letters. Each term corresponds to
-an operand tensor, and the characters within the terms correspond to operands dimensions.
+convention. The equation string contains a comma-separated sequence of lower case letters and/or upper case letters.
+Each term corresponds to an operand tensor, and the characters within the terms correspond to operands dimensions.
+Lower case letters and upper case letters are treated as distinct symbols, that is, \"a\" and \"A\" refer to different
+symbols.
 
 This sequence may be followed by \"->\" to separate the left and right hand side of the equation.
 If the equation contains \"->\" followed by the right-hand side, the explicit (not classical) form of the Einstein
 summation is performed, and the right-hand side indices indicate output tensor dimensions. In other cases,
-output indices are (implicitly) set to the alphabetically sorted sequence of indices appearing exactly once in the
-equation.
+output indices are (implicitly) set to the sequence of indices appearing exactly once in the equation, sorted in
+increasing order of their ASCII values (so that all upper case letters precede all lower case letters, e.g.,
+\"A\" < \"Z\" < \"a\" < \"z\").
 
 When a dimension character is repeated in the left-hand side, it represents summation along the dimension.
 
@@ -3533,13 +3576,13 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
 
 
 
@@ -6371,7 +6414,7 @@ Produces a one-hot tensor based on inputs.
     are specified as part of required input argument 'values', which is a two-element tensor of format
     [off_value, on_value]. The rank of the output tensor will be one greater than the rank of the
     input tensor. The additional dimension is for one-hot representation. The additional dimension will
-    be inserted at the position specified by 'axis'. If 'axis' is not specified then then additional
+    be inserted at the position specified by 'axis'. If 'axis' is not specified then the additional
     dimension will be inserted as the innermost dimension, i.e. axis=-1. The size of the additional
     dimension is specified by required scalar input 'depth'. The type of the output tensor is the same
     as the type of the 'values' input. Any entries in the 'indices' input tensor with values outside
@@ -6583,7 +6626,7 @@ _ONNX Pad operation_
 Given a tensor containing the data to be padded (`data`), a tensor containing the number of start and end pad values for axis (`pads`), (optionally) a `mode`, and (optionally) `constant_value`,
 a padded tensor (`output`) is generated.
 
-The three supported `modes` are (similar to corresponding modes supported by `numpy.pad`):
+The four supported `modes` are (similar to corresponding modes supported by `numpy.pad`):
 
 1) `constant`(default) - pads with a given constant value as specified by `constant_value` (which defaults to 0, empty string, or False)
 
@@ -7489,28 +7532,21 @@ Generate a tensor containing a sequence of numbers that begin at `start` and ext
 up to `limit` (exclusive).
 
 The number of elements in the output of range is computed as below:
-
 ```
 number_of_elements = max( ceil( (limit - start) / delta ) , 0 )
 ```
-
 The pseudocode determining the contents of the output is shown below:
-
 ```
 for(int i=0; i<number_of_elements; ++i) {
   output[i] =  start + (i * delta);
 }
 ```
-
-Example 1
-
+Example 1:
 ```
 Inputs: start = 3, limit = 9, delta = 3
 Output: [3, 6]
 ```
-
-Example 2
-
+Example 2:
 ```
 Inputs: start = 10, limit = 4, delta = -2
 Output: [10, 8, 6]
@@ -9519,7 +9555,7 @@ first (q-1) dimensions of updates.shape must match the first (q-1) dimensions of
 The remaining dimensions of `updates` correspond to the dimensions of the
 replacement-slice-values. Each replacement-slice-value is a (r-k) dimensional tensor,
 corresponding to the trailing (r-k) dimensions of `data`.  Thus, the shape of `updates`
-must equal indices.shape[0:q-1] ++ data.shape[k:r-1], where ++ denotes the concatenation
+must equal indices.shape[0:q-1] ++ data.shape[k:r], where ++ denotes the concatenation
 of shapes.
 
 The `output` is calculated via the following equation:
@@ -10173,16 +10209,16 @@ in `[0, ... r-1]` where `r = rank(input)` as follows:
 If `axes` are omitted, they are set to `[0, ..., r-1]`.
 If `steps` are omitted, they are set to `[1, ..., 1]` of length `len(starts)`
 
-The effective values are initialized as `start[i] = 0`, `ends[i] = dims[i]` where
+The effective values are initialized as `starts[i] = 0`, `ends[i] = dims[i]` where
 `dims` are the dimensions of `input` and `steps[i] = 1`.
 
 All negative elements of `axes` are made non-negative by adding `r` to them, where
 `r =rank(input)`.
 
 All negative values in `starts[i]` and `ends[i]` have `dims[axes[i]]` added to them,
-where `dims` are the dimensions of `input`. Then `start[axes[i]]` is the adjusted
-`starts[i]` is clamped into the range `[0, dims[axes[i]]]` for positive stepping
-and `[0, dims[axes[i]]-1]` for negative stepping.
+where `dims` are the dimensions of `input`. Then `starts[axes[i]]` is clamped to
+range `[0, dims[axes[i]]]` for positive stepping, or to range `[0, dims[axes[i]]-1]`
+for negative stepping.
 
 The clamping for the adjusted `ends[i]` depends on the sign of `steps[i]` and must
 accommodate copying 0 through `dims[axes[i]]` elements, so for positive stepping
@@ -10755,6 +10791,22 @@ _ONNX STFT operation_
 
 Computes the Short-time Fourier Transform of the signal.
 
+The STFT is computed by sliding a window of length `frame_length` over the signal with a
+step size of `frame_step`, computing a DFT of each windowed frame.
+
+The number of frames in the output is computed as:
+
+  `frames = floor((signal_length - frame_length) / frame_step) + 1`
+
+Constraints on inputs:
+- `frame_step` must be a scalar.
+- `frame_length` must be a scalar. When omitted and `window` is provided, `frame_length`
+  is inferred from `window.shape[0]`. When both `window` and `frame_length` are omitted,
+  `frame_length` defaults to `signal_length`.
+- `window` must be a 1-D tensor. When omitted, a rectangular (all-ones) window of length
+  `frame_length` is used. When both `window` and `frame_length` are provided, the length
+  of the `window` tensor must equal `frame_length`.
+
 Traits: `AlwaysSpeculatableImplTrait`
 
 Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
@@ -11024,6 +11076,68 @@ Effects: `MemoryEffects::Effect{}`
 
 
 
+### `onnx.TensorScatter` (ONNXTensorScatterOp)
+
+_ONNX TensorScatter operation_
+
+TensorScatter is a generic tensor update operation, motivated by the requirements for KV cache updates for Attention
+ops commonly found in LLMs. It is a functional operation that models an in-place update to a KV cache buffer.
+
+The past and present cache tensors have the same shape (batch_size, D1, D2, ..., max_sequence_length, ..., Dn), with
+the sequence dimension (indicated by the `axis` attribute) being max_sequence_length, so the sizes of these tensors do
+not need to grow between iterations. The `update` tensor's shape only differs from the cache tensors in the sequence
+dimension: (batch_size, D1, D2, ..., sequence_length, ..., Dn), where sequence_length <= max_sequence_length.
+
+The optional `write_indices` input indicates the write index for each sample in the batch, assumed to be zero
+if not provided. When the `mode` attribute is set to \"circular\", the write index is modulo max_sequence_length.
+The operation can be described using the following pseudocode:
+
+```
+for prefix_idx in np.ndindex(past_cache.shape[:axis]):
+    batch_idx = prefix_idx[0]
+    for sequence_idx in range(sequence_length):
+        cache_sequence_idx = write_indices[batch_idx] + sequence_idx
+        if mode == \"circular\":
+            cache_sequence_idx = cache_sequence_idx % max_sequence_length
+        cache_idx = (*prefix_idx, cache_sequence_idx)
+        update_idx = (*prefix_idx, sequence_idx)
+        present_cache[cache_idx] = update[update_idx]
+```
+
+During the prefill phase of attention, only the first two inputs are needed. During the decode phase, `write_indices`
+is also needed so that the incoming key or value update can be appended after the last valid token for each sample
+in the batch.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>axis</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>mode</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `past_cache` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values or tensor of f4E2M1FN type values or tensor of f8E8M0FNU type values |
+| `update` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values or tensor of f4E2M1FN type values or tensor of f8E8M0FNU type values |
+| `write_indices` | tensor of 64-bit signless integer values or none type |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `present_cache` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values or tensor of f4E2M1FN type values or tensor of f8E8M0FNU type values |
+
+
+
 ### `onnx.TfIdfVectorizer` (ONNXTfIdfVectorizerOp)
 
 _ONNX TfIdfVectorizer operation_
@@ -11211,15 +11325,21 @@ Effects: `MemoryEffects::Effect{}`
 _ONNX Transpose operation_
 
 Returns a transpose of the input tensor. (Similar to `numpy.transpose`).
-The optional attribute `perm` must be a permutation of the dimensions of
-the input tensor. Axis `i` of the output tensor corresponds to the axis
-`perm[i]` of the input tensor.
+The optional attribute `perm` specifies the permutation of the axes of the
+input tensor. `perm` must contain each axis index in `[0, n-1]` exactly once,
+so its length is equal to the rank `n` of the input tensor.
+
+Axis `i` of the output tensor corresponds to axis `perm[i]` of the input tensor.
+
+If the attribute is omitted, its default value is `(n-1, ..., 0)`, where `n`
+is the rank of the input tensor (that is, the dimensions are reversed).
+
 For example, when perm=(1, 0, 2), given an input tensor of shape (1, 2, 3),
 the output shape will be (2, 1, 3).
 When perm=(1, 2, 0), given an input tensor of shape (1, 2, 3),
 the output shape will be (2, 3, 1).
-If the attribute `perm` is omitted, its default value is `(n-1, ..., 0)`,
-where `n` is the rank of the input tensor.
+A 0-D or 1-D input is valid; in those cases the output has the same shape
+as the input.
 
 Traits: `AlwaysSpeculatableImplTrait`
 

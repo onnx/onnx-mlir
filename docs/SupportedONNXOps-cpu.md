@@ -3,11 +3,11 @@
 
 # Supported ONNX Operation for Target *cpu*.
 
-Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitations are listed when applicable. This documentation highlights the minimum and maximum opset versions that are fully supported by onnx-mlir and not the version changes.
+Onnx-mlir currently supports ONNX operations targeting up to opset 28. Limitations are listed when applicable. This documentation highlights the minimum and maximum opset versions that are fully supported by onnx-mlir and not the version changes.
 
 * Operations are defined by the [ONNX Standard](https://github.com/onnx/onnx/blob/main/docs/Operators.md).
 * **Supported Opsets** indicates the lowest and highest opset a model may have for onnx-mlir to support compiling a model with the operator.
-   * A * indicates onnx-mlir is compatible with the latest version of that operator available as of opset 22.
+   * A * indicates onnx-mlir is compatible with the latest version of that operator available as of opset 28.
 
 
 | Op |Supported Opsets (inclusive) |Limitations |Notes |
@@ -26,6 +26,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
 | **Asinh** |9 - * | | |
 | **Atan** |7 - * | | |
 | **Atanh** |9 - * | | |
+| **Attention** |none | | | |
 | **AveragePool** |6 - * | | |
 | **BatchNormalization** |6 - * |Training not supported. | |
 | **Bernoulli** |none | | | |
@@ -82,7 +83,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
 | **Gelu** |20 - * | | |
 | **Gemm** |6 - * | | |
 | **GlobalAveragePool** |6 - * | | |
-| **GlobalLpPool** |none | | | |
+| **GlobalLpPool** |2 - * | | |
 | **GlobalMaxPool** |6 - * | | |
 | **Gradient** |none | | | |
 | **Greater** |7 - * | | |
