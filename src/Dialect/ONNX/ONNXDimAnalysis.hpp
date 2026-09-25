@@ -4,7 +4,7 @@
 
 //===-------- ONNXDimAnalysis.hpp - ONNX Dimension Analysis ---------------===//
 //
-// Copyright 2022-2024 The IBM Research Authors.
+// Copyright 2022-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -300,23 +300,11 @@ private:
   /// another, and set IDs disappear, while sets are being merged.
   void buildSetNames();
 
-  /// Helper template function to propagate relationships (offset or scale)
-  /// based on equality relationships. If dim_s == dim_t and dim_p = dim_s op k
-  /// and dim_q = dim_t op k, then dim_p == dim_q (where op is either + for
-  /// offset or * for scale).
-  template <typename RelationType, typename RelationMapType>
-  void propagateRelations(
-      RelationMapType &relationMap, const char *relationName);
-
-  /// Propagate offset relationships based on equality relationships.
-  /// If dim_s == dim_t and dim_p = dim_s + k and dim_q = dim_t + k,
-  /// then dim_p == dim_q.
-  void propagateOffsetRelations();
-
-  /// Propagate scale relationships based on equality relationships.
-  /// If dim_s == dim_t and dim_p = dim_s * k and dim_q = dim_t * k,
-  /// then dim_p == dim_q.
-  void propagateScaleRelations();
+  /// Propagate offset and scale relationships in a single fixed-point loop.
+  /// Equalities discovered by one type immediately feed into the other.
+  /// If dim_s == dim_t and dim_p = dim_s op k and dim_q = dim_t op k,
+  /// then dim_p == dim_q (where op is + for offset or * for scale).
+  void propagateOffsetAndScaleRelations();
 
   /// Helper to add an offset relation with deduplication.
   /// Returns true if the relation was added, false if it already existed.
