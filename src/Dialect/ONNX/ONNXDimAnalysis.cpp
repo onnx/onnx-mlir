@@ -771,8 +771,9 @@ DimAnalysis::DimAnalysis(
 int64_t DimAnalysis::build(DimT d, int64_t setID) {
   bool isNew = !dimSetIDMap.contains(d);
   if (setID >= 0) {
+    // Caller requests this dim be placed in a specific set (e.g. dim_params
+    // grouping). Move the dim from its old set if it was already built.
     if (dimSetMap.contains(setID)) {
-      // If dim already belongs to a different set, remove it from the old set.
       if (auto it = dimSetIDMap.find(d);
           it != dimSetIDMap.end() && it->second != (uint64_t)setID) {
         uint64_t oldSetID = it->second;
@@ -787,7 +788,7 @@ int64_t DimAnalysis::build(DimT d, int64_t setID) {
                  << ") and insert it into the existing set " << setID << "\n");
     }
   } else {
-    // If the dim already belongs to a set, return that set ID.
+    // Caller requests a new set. If the dim already has one, reuse it.
     if (!isNew)
       return dimSetIDMap[d];
     setID = setCounter;
