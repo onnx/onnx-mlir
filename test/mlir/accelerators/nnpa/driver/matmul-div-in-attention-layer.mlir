@@ -1,7 +1,7 @@
 // RUN: onnx-mlir --march=z16 --maccel=NNPA --EmitMLIR --nnpa-enable-scalar-bcast-binary --printIR %s | FileCheck %s
 
 // Check whether the compiler can remove unstick/stick so that the output of zdnn matmul is passed directly to zdnn div.
-func.func @matmul_div(%arg0: tensor<?x12x?x64xf32>) -> tensor<?x?x?x?xf32> {
+func.func @matmul_div(%arg0: tensor<?x12x?x64xf32>) -> tensor<?x12x?x?xf32> {
   %scalar = onnx.Constant dense<8.000000e+00> : tensor<f32>
   %b = "onnx.Transpose"(%arg0) {perm = [0, 1, 3, 2]} : (tensor<?x12x?x64xf32>) -> tensor<?x12x64x?xf32>
   %m = "onnx.MatMul"(%arg0, %b) : (tensor<?x12x?x64xf32>, tensor<?x12x64x?xf32>) -> tensor<?x12x?x?xf32>

@@ -32,7 +32,7 @@
 // CHECK:           %[[CONSTANT_1:.*]] = arith.constant dense<8.57315738E+9> : vector<4xf32>
 // CHECK:           %[[CONSTANT_2:.*]] = arith.constant dense<2.000000e+00> : vector<4xf32>
 // CHECK:           %[[CONSTANT_3:.*]] = arith.constant 4 : index
-// CHECK:           %[[ALLOC_0:.*]] = memref.alloc() {alignment = 4096 : i64} : memref<24x8x64xf16, #[[$ATTR_0]]>
+// CHECK:           %[[ALLOC_0:.*]] = memref.alloc() alignment = 4096 : memref<24x8x64xf16, #[[$ATTR_0]]>
 // CHECK:           %[[REINTERPRET_CAST_0:.*]] = memref.reinterpret_cast %[[ALLOC_0]] to offset: [0], sizes: [2, 64], strides: [64, 1] : memref<24x8x64xf16, #[[$ATTR_0]]> to memref<2x64xf16>
 // CHECK:           %[[REINTERPRET_CAST_1:.*]] = memref.reinterpret_cast %[[ALLOC_0]] to offset: [0], sizes: [2, 64], strides: [64, 1] : memref<24x8x64xf16, #[[$ATTR_0]]> to memref<2x64xf16>
 // CHECK:           %[[REINTERPRET_CAST_2:.*]] = memref.reinterpret_cast %[[ALLOC_0]] to offset: [0], sizes: [2, 64], strides: [64, 1] : memref<24x8x64xf16, #[[$ATTR_0]]> to memref<2x64xf16>
@@ -251,7 +251,7 @@ func.func @concat_expand_stick_with_mul(%arg0: tensor<2x4x3x64xf32>, %arg1: tens
 // CHECK:           %[[CONSTANT_0:.*]] = arith.constant dense<-8.57315738E+9> : vector<4xf32>
 // CHECK:           %[[CONSTANT_1:.*]] = arith.constant dense<8.57315738E+9> : vector<4xf32>
 // CHECK:           %[[CONSTANT_2:.*]] = arith.constant 4 : index
-// CHECK:           %[[ALLOC_0:.*]] = memref.alloc() {alignment = 4096 : i64} : memref<24x8x64xf16, #[[$ATTR_14]]>
+// CHECK:           %[[ALLOC_0:.*]] = memref.alloc() alignment = 4096 : memref<24x8x64xf16, #[[$ATTR_14]]>
 // CHECK:           %[[REINTERPRET_CAST_0:.*]] = memref.reinterpret_cast %[[ALLOC_0]] to offset: [0], sizes: [2, 64], strides: [64, 1] : memref<24x8x64xf16, #[[$ATTR_14]]> to memref<2x64xf16>
 // CHECK:           %[[REINTERPRET_CAST_1:.*]] = memref.reinterpret_cast %[[ALLOC_0]] to offset: [0], sizes: [2, 64], strides: [64, 1] : memref<24x8x64xf16, #[[$ATTR_14]]> to memref<2x64xf16>
 // CHECK:           %[[REINTERPRET_CAST_2:.*]] = memref.reinterpret_cast %[[ALLOC_0]] to offset: [0], sizes: [2, 64], strides: [64, 1] : memref<24x8x64xf16, #[[$ATTR_14]]> to memref<2x64xf16>

@@ -1,4 +1,4 @@
-// RUN: cfg_file=$(dirname %s)/nodetype-nodename-config.json && save_cfg_file=$(dirname %s)/save-nnpa-cfg.json && onnx-mlir --EmitONNXIR --march=z17 --maccel=NNPA --config-file=$cfg_file --save-config-file=$save_cfg_file --printIR %s && cat $save_cfg_file | FileCheck %s && rm $save_cfg_file
+// RUN: onnx-mlir --EmitONNXIR --march=z17 --maccel=NNPA --config-file=%S/nodetype-nodename-config.json --save-config-file=%S/save-nnpa-cfg.json --printIR %s && cat %S/save-nnpa-cfg.json | FileCheck %s && rm %S/save-nnpa-cfg.json
 
 func.func @test_save_config_file(%arg0: tensor<?x?xf32>) -> tensor<?x?xf32> {
   %0 = "onnx.MatMul"(%arg0, %arg0) {onnx_node_name = "MatMul_0"} : (tensor<?x?xf32>, tensor<?x?xf32>) -> tensor<?x?xf32>

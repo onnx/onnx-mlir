@@ -52,7 +52,7 @@ func.func private @test_category_mapper_string_to_int64(%arg0: memref<2x2x!krnl.
   %c0_i32 = arith.constant 0 : i32
   %c-1_i64 = arith.constant -1 : i64
   %c3_i32 = arith.constant 3 : i32
-  %0 = memref.alloc() {alignment = 16 : i64} : memref<2x2xi64>
+  %0 = memref.alloc() alignment = 16 : memref<2x2xi64>
   %1 = "krnl.global"() {name = "G", shape = [3], value = dense<[1, 0, -3]> : tensor<3xi32>} : () -> memref<3xi32>
   %2 = "krnl.global"() {name = "V", shape = [3], value = dense<[1, 2, 0]> : tensor<3xi32>} : () -> memref<3xi32>
   %3 = "krnl.global"() {name = "cats_int64s", shape = [3], value = dense<[1, 2, 3]> : tensor<3xi64>} : () -> memref<3xi64>
@@ -134,7 +134,7 @@ func.func private @test_category_mapper_string_to_int64(%arg0: memref<2x2x!krnl.
 // Test CategorMapper lowering when the input is a list of int64_t.
 func.func private @test_category_mapper_int64_to_string(%arg0: memref<2x2xi64>) -> memref<2x2x!krnl.string> {
   %c3_i32 = arith.constant 3 : i32
-  %0 = memref.alloc() {alignment = 16 : i64} : memref<2x2x!krnl.string>
+  %0 = memref.alloc() alignment = 16 : memref<2x2x!krnl.string>
   %1 = "krnl.global"() {name = "G", shape = [3], value = dense<[-1, 1, 0]> : tensor<3xi32>} : () -> memref<3xi32>
   %2 = "krnl.global"() {name = "V", shape = [3], value = dense<[2, 1, 0]> : tensor<3xi32>} : () -> memref<3xi32>
   %3 = "krnl.global"() {name = "cats_int64s", shape = [3], value = dense<[1, 2, 3]> : tensor<3xi64>} : () -> memref<3xi64>

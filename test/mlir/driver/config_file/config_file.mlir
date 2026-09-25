@@ -1,8 +1,8 @@
-// RUN: out=$(dirname %s)/test1 && onnx-mlir -v %s -o $out| FileCheck --check-prefix=DEFAULT_CONFIG_FILE %s && rm ${out}.so
-// RUN: out=$(dirname %s)/test2 && onnx-mlir -v --config-file=$(dirname %s)/custom-omconfig.json %s -o $out| FileCheck --check-prefix=CUSTOM_CONFIG_FILE %s && rm ${out}.so
-// RUN: out=$(dirname %s)/test3 && onnx-mlir -v -O3 %s -o $out| FileCheck --check-prefix=OVERWRITE_CONFIG_FILE %s && rm ${out}.so
-// RUN: out=$(dirname %s)/test4 && onnx-mlir -v --config-file $(dirname %s)/custom-omconfig.json %s -o $out| FileCheck --check-prefix=PARSE_CONFIG_FILE_1 %s && rm ${out}.so
-// RUN: out=$(dirname %s)/test5 && onnx-mlir -v -config-file $(dirname %s)/custom-omconfig.json %s -o $out| FileCheck --check-prefix=PARSE_CONFIG_FILE_2 %s && rm ${out}.so
+// RUN: onnx-mlir -v %s -o %S/test1 | FileCheck --check-prefix=DEFAULT_CONFIG_FILE %s && rm %S/test1.so
+// RUN: onnx-mlir -v --config-file=%S/custom-omconfig.json %s -o %S/test2 | FileCheck --check-prefix=CUSTOM_CONFIG_FILE %s && rm %S/test2.so
+// RUN: onnx-mlir -v -O3 %s -o %S/test3 | FileCheck --check-prefix=OVERWRITE_CONFIG_FILE %s && rm %S/test3.so
+// RUN: onnx-mlir -v --config-file %S/custom-omconfig.json %s -o %S/test4 | FileCheck --check-prefix=PARSE_CONFIG_FILE_1 %s && rm %S/test4.so
+// RUN: onnx-mlir -v -config-file %S/custom-omconfig.json %s -o %S/test5 | FileCheck --check-prefix=PARSE_CONFIG_FILE_2 %s && rm %S/test5.so
 
 module {
   func.func @main_graph(%arg0: tensor<?x?x?xf32>) -> (tensor<?x?x?xf32>) {

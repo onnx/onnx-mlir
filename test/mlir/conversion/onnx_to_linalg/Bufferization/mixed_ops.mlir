@@ -18,7 +18,7 @@ func.func @test_full_pipeline(%arg0 : tensor<2x3xf32>, %arg1 : tensor<3x4xf32>, 
   // After full pipeline: MatMul is linalg.matmul (memref), Add is krnl.iterate (memref)
   // CHECK: linalg.fill
   // CHECK: linalg.matmul
-  // CHECK-SAME: ins({{.*}} : memref<2x3xf32{{.*}}>, memref<3x4xf32{{.*}}>) outs({{.*}} : memref<2x4xf32>)
+  // CHECK-SAME: ins({{.*}} : memref<2x3xf32{{.*}}>, memref<3x4xf32{{.*}}>) outs({{.*}} : memref<2x4xf32{{.*}}>)
   // CHECK: krnl.define_loops
   // CHECK: krnl.iterate
   // CHECK: krnl.load
