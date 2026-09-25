@@ -1238,8 +1238,8 @@ void ConstPropONNXToONNXPass::runOnOperation() {
         retOp.getOperandTypes().begin(), retOp.getOperandTypes().end());
     if (SmallVector<Type>(funcType.getResults().begin(),
             funcType.getResults().end()) != newResultTypes) {
-      function.setType(FunctionType::get(
-          context, funcType.getInputs(), newResultTypes));
+      function.setType(
+          FunctionType::get(context, funcType.getInputs(), newResultTypes));
     }
   });
 }

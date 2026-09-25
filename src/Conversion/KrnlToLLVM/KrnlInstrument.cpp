@@ -88,9 +88,9 @@ static constexpr llvm::StringLiteral kInstrumentCUAttrName =
 // DWARF 6 decouples the language identifier from its version and dialect into
 // a (name, version, dialect) triple. DISourceLanguageNameAttr::get takes:
 //   language  — the legacy DW_LANG_* integer (non-zero for DWARF ≤ 5 codes).
-//   name      — the DWARF 6 SourceLanguageName enum value (0 when using legacy).
-//   version   — optional DWARF 6 version; nullopt for legacy language codes.
-//   dialect   — optional DWARF 6 dialect; 0 for none.
+//   name      — the DWARF 6 SourceLanguageName enum value (0 when using
+//   legacy). version   — optional DWARF 6 version; nullopt for legacy language
+//   codes. dialect   — optional DWARF 6 dialect; 0 for none.
 // For DW_LANG_C99 we are using the legacy code path: language=DW_LANG_C99,
 // name=0, version=nullopt, dialect=0.  C99 is chosen as a safe neutral
 // baseline — the CU is synthetic and the language tag does not affect
@@ -112,8 +112,8 @@ static LLVM::DICompileUnitAttr getOrCreateInstrumentCU(ModuleOp module) {
   // required by the updated DICompileUnitAttr::get API (see block comment).
   // name=0 and dialect=0 select the DWARF ≤ 5 (legacy) code path; version is
   // not applicable for legacy language codes.
-  auto sourceLangAttr = LLVM::DISourceLanguageNameAttr::get(
-      ctx, /*language=*/llvm::dwarf::DW_LANG_C99, /*name=*/0,
+  auto sourceLangAttr = LLVM::DISourceLanguageNameAttr::get(ctx,
+      /*language=*/llvm::dwarf::DW_LANG_C99, /*name=*/0,
       /*version=*/std::nullopt, /*dialect=*/0);
 
   // recId=null / isRecSelf=false: this CU is not part of a recursive type
@@ -122,8 +122,8 @@ static LLVM::DICompileUnitAttr getOrCreateInstrumentCU(ModuleOp module) {
   // instrument call sites are retained in the final object.
   auto cu = LLVM::DICompileUnitAttr::get(ctx,
       /*recId=*/DistinctAttr{}, /*isRecSelf=*/false,
-      /*id=*/DistinctAttr::create(UnitAttr::get(ctx)),
-      sourceLangAttr, fileAttr, producerAttr,
+      /*id=*/DistinctAttr::create(UnitAttr::get(ctx)), sourceLangAttr, fileAttr,
+      producerAttr,
       /*isOptimized=*/true, LLVM::DIEmissionKind::Full,
       /*isDebugInfoForProfiling=*/false, LLVM::DINameTableKind::Default,
       /*splitDebugFilename=*/StringAttr{},
@@ -163,8 +163,9 @@ static Location syntheticAnchorLoc(MLIRContext *ctx) {
 // colon prefix makes the symbol easy to grep / filter in dwarfdump output and
 // in profile-model.py while being safe for all DWARF consumers (it is just a
 // string). Each begin/end pair for the same op gets its own distinct
-// DistinctAttr id, so LLVM's DwarfDebug emits separate DW_TAG_inlined_subroutine
-// DIEs for them and addr2line can distinguish begin from end call sites.
+// DistinctAttr id, so LLVM's DwarfDebug emits separate
+// DW_TAG_inlined_subroutine DIEs for them and addr2line can distinguish begin
+// from end call sites.
 //
 // DISubprogramAttr::get still uses the pre-upgrade 13-argument convenience
 // overload that begins with `(MLIRContext*, DistinctAttr id, ...)` — that
