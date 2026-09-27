@@ -308,7 +308,8 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXRandomUniformLikeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXLpNormalizationOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXLRNOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXQLinearMatMulOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXQLinearMatMulOpPattern(
+      patterns, typeConverter, ctx, enableSIMD, enableParallel);
   // ML
   populateLoweringONNXCategoryMapperOpPattern(patterns, typeConverter, ctx);
   // ObjectDetection

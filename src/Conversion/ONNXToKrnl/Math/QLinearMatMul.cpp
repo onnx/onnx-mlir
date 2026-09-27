@@ -26,14 +26,19 @@ namespace onnx_mlir {
 struct ONNXQLinearMatMulOpLowering
     : public OpConversionPattern<ONNXQLinearMatMulOp> {
 public:
-  ONNXQLinearMatMulOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : OpConversionPattern(typeConverter, ctx) {}
+  ONNXQLinearMatMulOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
+      bool enableSIMD, bool enableParallel)
+      : OpConversionPattern(typeConverter, ctx), enableSIMD(enableSIMD),
+        enableParallel(
+            enableParallel &&
+            OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps
+                .isEnabled(ONNXQLinearMatMulOp::getOperationName())) {}
 
   LogicalResult matchAndRewrite(ONNXQLinearMatMulOp qlmmOp,
       ONNXQLinearMatMulOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    using LocalDialectBuilder =
-        MultiDialectBuilder<IndexExprBuilderForKrnl, OnnxBuilder>;
+    using LocalDialectBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl,
+        OnnxBuilder, KrnlBuilder, MemRefBuilder, MathBuilder>;
     Operation *op = qlmmOp.getOperation();
     Location loc = ONNXLoc<ONNXQLinearMatMulOp>(op);
     LocalDialectBuilder create(rewriter, loc);
@@ -77,24 +82,6 @@ public:
     // Get shape.
     ONNXQLinearMatMulOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
-
-    // Quantization bounds for saturation.
-    Value qMin, qMax;
-    if (resElementType.isUnsignedInteger(8)) {
-      auto minAttr = DenseElementsAttr::get(
-          RankedTensorType::get({}, i32Ty), static_cast<int32_t>(0));
-      auto maxAttr = DenseElementsAttr::get(
-          RankedTensorType::get({}, i32Ty), static_cast<int32_t>(255));
-      qMin = create.onnx.constant(minAttr);
-      qMax = create.onnx.constant(maxAttr);
-    } else {
-      auto minAttr = DenseElementsAttr::get(
-          RankedTensorType::get({}, i32Ty), static_cast<int32_t>(-128));
-      auto maxAttr = DenseElementsAttr::get(
-          RankedTensorType::get({}, i32Ty), static_cast<int32_t>(127));
-      qMin = create.onnx.constant(minAttr);
-      qMax = create.onnx.constant(maxAttr);
-    }
 
     // Prepare input A.
     Value AI8 = create.onnx.getOrCastToI8(A);
@@ -140,28 +127,100 @@ public:
     // Saturate and add zero point.
     Value roundToEven = create.onnx.round(resF32);
     resI32 = create.onnx.cast(roundToEven, i32Ty);
-    if (resElementType.isUnsignedInteger(8)) {
-      // yZeroPoint was converted to i8 (centered around -128) by getOrCastToI8.
-      // Re-adjust yZeroPoint to uint8 (0..255) in i32 domain.
-      auto cst128Attr = DenseElementsAttr::get(
-          RankedTensorType::get({}, i32Ty), static_cast<int32_t>(128));
-      Value cst128 = create.onnx.constant(cst128Attr);
-      Value yZeroPointUI8_I32 = create.onnx.add(yZeroPointI32, cst128);
-      resI32 = create.onnx.add(resI32, yZeroPointUI8_I32);
-    } else {
-      resI32 = create.onnx.add(resI32, yZeroPointI32);
-    }
-    resI32 = create.onnx.clip(resI32, qMin, qMax);
-    Value res = create.onnx.cast(resI32, resElementType);
+    SmallVector<Value, 2> finalInputs = {
+        create.onnx.toMemref(resI32), create.onnx.toMemref(yZeroPointI32)};
+    ONNXBroadcastOpShapeHelper finalShape(op, finalInputs, &create.krnlIE);
+    finalShape.computeShapeAndAssertOnFailure();
+    DimsExpr outputDims = finalShape.getOutputDims();
+    int64_t rank = outputDims.size();
+    int64_t alignment = KrnlTypeConverter::getDefaultAllocAlignment(
+        qlmmOp.getResult().getType());
+    Value output =
+        create.mem.alignedAlloc(resMemRefType, outputDims, alignment);
+    bool isUnsigned = resElementType.isUnsignedInteger(8);
+    Value qMin = create.math.constant(i32Ty, isUnsigned ? 0 : -128);
+    Value qMax = create.math.constant(i32Ty, isUnsigned ? 255 : 127);
+    Value cst128 = isUnsigned ? create.math.constant(i32Ty, 128) : Value();
+    auto emitFinal = [&](const KrnlBuilder &kb, ArrayRef<Value> inputs,
+                         int64_t VL) {
+      MultiDialectBuilder<MathBuilder> inner(kb);
+      Value zeroPoint = inputs[1];
+      // Undo getOrCastToI8's unsigned re-centering in the i32 domain.
+      if (isUnsigned)
+        zeroPoint = inner.math.add(zeroPoint, cst128);
+      Value adjusted = inner.math.add(inputs[0], zeroPoint);
+      Value clipped = inner.math.clip(adjusted, qMin, qMax);
+      Type type =
+          VL > 1 ? VectorType::get({VL}, resElementType) : resElementType;
+      return inner.math.cast(type, clipped);
+    };
 
-    rewriter.replaceOp(op, {create.onnx.toMemref(res)});
+    int64_t VL = 1, simdTripCount = 0;
+    bool simdOnly = false;
+    int64_t collapsedLoops, literalSize;
+    IndexExpr dynamicSize;
+    if (enableSIMD && rank > 0 && !hasNonIdentityLayout(finalInputs) &&
+        finalShape.hasManageableBroadcastForInnerDims(
+            collapsedLoops, literalSize, dynamicSize, nullptr)) {
+      SmallVector<int64_t, 4> shape;
+      IndexExpr::getShape(outputDims, shape);
+      auto i32OutputType = MemRefType::get(shape, i32Ty);
+      GenOpMix mix = {{GenericOps::ArithmeticGop, isUnsigned ? 2 : 1},
+          {GenericOps::MinMaxGop, 2}, {GenericOps::ConversionGop, 1}};
+      VL = computeSuitableSimdUnrollFactor(i32OutputType,
+          /*collapsedInnermostLoops*/ 1, mix, /*canOverCompute*/ false,
+          simdTripCount, simdOnly);
+    }
+    onnxToKrnlSimdReport(op, VL > 1, VL > 1 ? VL : 0, simdTripCount,
+        "QLinearMatMul output adjustment and saturation");
+
+    int64_t loopRank = VL > 1 ? rank - 1 : rank;
+    ValueRange loops = create.krnl.defineLoops(loopRank);
+    DimsExpr lbs(loopRank, LitIE(0));
+    DimsExpr ubs(outputDims.begin(), outputDims.begin() + loopRank);
+    auto plan = KrnlParallelPlan::noCollapse(
+        loops, /*first*/ 0, /*last excl*/ std::min<int64_t>(2, loopRank));
+    if (enableParallel && loopRank > 0)
+      plan.tryCreateParallel(
+          create.krnl, op, "QLinearMatMul final output", lbs, ubs);
+    create.krnl.iterateIE(loops, plan.optimizedLoopDef(), lbs, ubs,
+        [&](const KrnlBuilder &kb, ValueRange indices) {
+          IndexExprScope innerScope(kb, finalShape.getScope());
+          DimsExpr outputAccess = DimListIE(indices);
+          if (VL > 1)
+            outputAccess.emplace_back(LitIE(0));
+          SmallVector<DimsExpr, 2> inputAccess;
+          for (int64_t i = 0; i < 2; ++i) {
+            DimsExpr access;
+            LogicalResult status = finalShape.getAccessExprs(finalInputs[i], i,
+                outputAccess, access, /*flattenedInnerDims*/ VL > 1);
+            assert(succeeded(status) && "Could not compute final input access");
+            inputAccess.emplace_back(access);
+          }
+          if (VL > 1) {
+            kb.simdIterateIE(LitIE(0), SymIE(outputDims.back()), VL, simdOnly,
+                /*useParallel*/ false, finalInputs, inputAccess, {output},
+                {outputAccess}, {emitFinal});
+          } else {
+            Value x = kb.loadIE(finalInputs[0], inputAccess[0]);
+            Value z = kb.loadIE(finalInputs[1], inputAccess[1]);
+            kb.storeIE(emitFinal(kb, {x, z}, 1), output, outputAccess);
+          }
+        });
+    rewriter.replaceOp(op, {output});
     return success();
   }
+
+private:
+  bool enableSIMD;
+  bool enableParallel;
 };
 
 void populateLoweringONNXQLinearMatMulOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx) {
-  patterns.insert<ONNXQLinearMatMulOpLowering>(typeConverter, ctx);
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableSIMD,
+    bool enableParallel) {
+  patterns.insert<ONNXQLinearMatMulOpLowering>(
+      typeConverter, ctx, enableSIMD, enableParallel);
 }
 
 } // namespace onnx_mlir
