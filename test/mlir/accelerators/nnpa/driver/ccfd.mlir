@@ -15,7 +15,6 @@
 // CHECK-DAG: krnl.global
 // CHECK-DAG: krnl.global
 // CHECK-DAG: krnl.global
-// CHECK-DAG: krnl.global
 // CHECK-DAG: memref.alloc
 // CHECK-DAG: memref.alloc
 // CHECK-DAG: krnl.global
@@ -26,7 +25,6 @@
 // CHECK-NOT: zlow.stick
 // CHECK-NOT: zlow.unstick
 // 
-// CHECK-DAG: krnl.global
 // CHECK-DAG: krnl.global
 // CHECK-DAG: krnl.global
 // CHECK-DAG: krnl.global

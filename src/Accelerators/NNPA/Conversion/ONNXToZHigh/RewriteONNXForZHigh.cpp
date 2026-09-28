@@ -912,9 +912,29 @@ public:
     if (!addOp)
       return false;
 
-    // Identify reshape operations for Add operands.
+    // Add operation is NOT broadcasting.
     Value addOperand1 = addOp.getA();
     Value addOperand2 = addOp.getB();
+    if (!dimAnalysis->sameShape(addOperand1, addOperand2))
+      return false;
+
+    // Validate Add result usage: only by this reshape and Dim operations.
+    bool hasReshapeUse = false;
+    for (Operation *user : input4D.getUsers()) {
+      if (auto reshapeUser = dyn_cast<ONNXReshapeOp>(user)) {
+        if (reshapeUser == reshape3Op.getOperation()) {
+          hasReshapeUse = true;
+          continue;
+        }
+      }
+      if (!isa<ONNXDimOp>(user))
+        return false;
+    }
+    if (!hasReshapeUse)
+      return false;
+
+    // Validate Add's inputs: from reshape 3D->4D.
+    // Identify reshape operations for Add operands.
     ONNXReshapeOp reshape1Op =
         !isa<BlockArgument>(addOperand1) && addOperand1.getDefiningOp()
             ? dyn_cast<ONNXReshapeOp>(addOperand1.getDefiningOp())
@@ -935,40 +955,6 @@ public:
                                : getRank(addOperand2.getType());
     if (!((rank1 == 3 && rank2 == 3) || (rank1 == 3 && rank2 == 4) ||
             (rank1 == 4 && rank2 == 3)))
-      return false;
-
-    // Validate no broadcasting: static dimensions must match.
-    auto type1 = mlir::cast<ShapedType>(addOperand1.getType());
-    auto type2 = mlir::cast<ShapedType>(addOperand2.getType());
-    if (type1.getRank() != type2.getRank())
-      return false;
-    for (int64_t i = 0; i < type1.getRank(); ++i) {
-      int64_t dim1 = type1.getDimSize(i);
-      int64_t dim2 = type2.getDimSize(i);
-      if (!ShapedType::isDynamic(dim1) && !ShapedType::isDynamic(dim2) &&
-          dim1 != dim2)
-        return false;
-    }
-
-    // Validate Add result usage: only by this reshape and Dim operations.
-    bool hasReshapeUse = false;
-    for (Operation *user : input4D.getUsers()) {
-      if (auto reshapeUser = dyn_cast<ONNXReshapeOp>(user)) {
-        if (reshapeUser == reshape3Op.getOperation()) {
-          hasReshapeUse = true;
-          continue;
-        }
-      }
-      if (!isa<ONNXDimOp>(user))
-        return false;
-    }
-    if (!hasReshapeUse)
-      return false;
-
-    // Validate single-use for reshape operands.
-    if (reshape1Op && !addOperand1.hasOneUse())
-      return false;
-    if (reshape2Op && !addOperand2.hasOneUse())
       return false;
 
     // For Case A (both 3D): validate output shape matches using DimAnalysis.
@@ -1025,8 +1011,6 @@ private:
     Value newAdd = create.onnx.add(input3D_1, input3D_2);
 
     // Replace the final reshape with the new Add result.
-    // The pattern rewriter will automatically handle cleanup of dead
-    // operations.
     rewriter.replaceOp(reshape3Op, newAdd);
 
     return success();
