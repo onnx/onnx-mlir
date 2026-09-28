@@ -62,6 +62,7 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/Math/RandomUniformLike.cpp
   ONNXOps/Math/Reduction.cpp
   ONNXOps/Math/Scatter.cpp
+  ONNXOps/Math/TensorScatter.cpp
   ONNXOps/Math/TopK.cpp
   ONNXOps/NN/Conv.cpp
   ONNXOps/NN/Dropout.cpp
@@ -116,7 +117,14 @@ add_onnx_mlir_library(OMONNXOps
   OMONNXCanonicalizeIncGen
   OMResultTypeInferenceOpInterfaceIncGen
   OMShapeInferenceOpInterfaceIncGen
+  # src/Pass/Passes.hpp includes tablegen'ed pass declarations from
+  # src/Transform/Passes.h.inc, src/Transform/PassesKrnl.h.inc and
+  # src/Dialect/ONNX/Transforms/Passes.h.inc. That header is pulled in
+  # (transitively) by most targets that link against OMONNXOps, so declare all
+  # three here to order their compiles after the corresponding tablegen runs.
   OMTransformsPassIncGen
+  OMTransformsKrnlPassIncGen
+  OMONNXTransformsPassIncGen
 
   LINK_LIBS PRIVATE
   OMDiagnostic

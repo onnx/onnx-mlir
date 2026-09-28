@@ -412,6 +412,7 @@ using ONNXSoftsignOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXSqrtOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXTanOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXTanhOpShapeHelper = ONNXUnaryOpShapeHelper;
+using ONNXTensorScatterOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXThresholdedReluOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXTriluOpShapeHelper = ONNXUnaryOpShapeHelper;
 // clang-format on

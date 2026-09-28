@@ -5,8 +5,12 @@ Useful for debugging shape inference: dynamic dimensions ("?") that the compiler
 has proven are equal show up as separate onnx.DimGroup ops elsewhere in the file,
 making it hard to tell at a glance which dims are related. This tool inlines that
 info directly into each tensor type, e.g. two dims sharing a group turn from
-tensor<?x?xf32> into tensor<d0xu0xf32, #onnx.dg<["d0", "u0"]>>, so it's clear
+tensor<?x?xf32> into tensor<?x?xf32, #onnx.dg<["d0", "u0"]>>, so it's clear
 right where the type is used that those dims are the same size.
+
+A dim whose group the analysis named, either after an onnx.dim_params entry or
+after the argument it comes from, uses that name instead of d0/u0, so it reads
+tensor<?x?xf32, #onnx.dg<["batch_size", "d0"]>>.
 
 Runs the onnx-dim-analysis pass on <input.mlir> to annotate dynamic dimensions
 with onnx.DimGroup ops, saving that intermediate as <input-name>-dg.mlir, then
@@ -44,52 +48,44 @@ from mlir_log_utils import (
     apply_comments,
 )
 
+# The attributes of an onnx.DimGroup op are read out of the property dict by name
+# so that their order, and any attribute added later, does not matter.
 DIMGROUP_RE = re.compile(
-    r'^\s*"onnx\.DimGroup"\((' + VALUE + r")\)\s*<\{axis\s*=\s*(-?\d+)\s*:\s*si64,"
-    r"\s*group_id\s*=\s*(-?\d+)\s*:\s*si64\}>\s*:\s*\([^()]*\)\s*->\s*\(\)\s*$"
+    r'^\s*"onnx\.DimGroup"\((' + VALUE + r")\)\s*<\{([^{}]*)\}>"
+    r"\s*:\s*\([^()]*\)\s*->\s*\(\)\s*$"
 )
-DIM_PARAMS_ARG_RE = re.compile(
-    r"("
-    + VALUE
-    + r")(?:/\d+)?\s*:\s*tensor<[^<>]*>\s*\{[^{}]*onnx\.dim_params\s*=\s*\"([^\"]*)\""
-)
+DIMGROUP_AXIS_RE = re.compile(r"\baxis\s*=\s*(-?\d+)\s*:\s*si64\b")
+DIMGROUP_ID_RE = re.compile(r"\bgroup_id\s*=\s*(-?\d+)\s*:\s*si64\b")
+DIMGROUP_NAME_RE = re.compile(r"\bgroup_name\s*=\s*\"([^\"]*)\"")
 RETURN_VALUES_RE = re.compile(
     r"onnx\.Return\s+(" + VALUE + r"(?:\s*,\s*" + VALUE + r")*)"
 )
 
 
 def parse_dimgroups(lines):
+    """Read the onnx.DimGroup ops emitted by the pass, returning a map from
+    (value, axis) to group id, and a map from group id to name. The name is the
+    op's optional group_name attribute, i.e. the name the analysis elected for
+    the group; it is absent for a group that has no known name."""
     axis_to_group = {}
+    name_of_group = {}
     for line in lines:
         m = DIMGROUP_RE.match(line)
-        if m:
-            axis_to_group[(strip_suffix(m.group(1)), int(m.group(2)))] = int(m.group(3))
-    return axis_to_group
-
-
-def parse_dim_params(lines):
-    dim_params = {}
-    for line in lines:
-        for m in DIM_PARAMS_ARG_RE.finditer(line):
-            value = strip_suffix(m.group(1))
-            for entry in m.group(2).split(","):
-                entry = entry.strip()
-                if ":" not in entry:
-                    continue
-                axis_str, name = entry.split(":", 1)
-                axis_str, name = axis_str.strip(), name.strip()
-                if axis_str.lstrip("-").isdigit() and name:
-                    dim_params[(value, int(axis_str))] = sanitize_ident(name)
-    return dim_params
-
-
-def build_name_map(axis_to_group, dim_params):
-    name_of_group = {}
-    for (value, axis), group in axis_to_group.items():
-        name = dim_params.get((value, axis))
-        if name and group not in name_of_group:
-            name_of_group[group] = name
-    return name_of_group
+        if not m:
+            continue
+        attrs = m.group(2)
+        axis_match = DIMGROUP_AXIS_RE.search(attrs)
+        group_match = DIMGROUP_ID_RE.search(attrs)
+        if not axis_match or not group_match:
+            continue
+        group = int(group_match.group(1))
+        axis_to_group[(strip_suffix(m.group(1)), int(axis_match.group(1)))] = group
+        name_match = DIMGROUP_NAME_RE.search(attrs)
+        if name_match and name_match.group(1) and group not in name_of_group:
+            # A group_name comes from onnx.dim_params or onnx.name, so it can hold
+            # characters not valid in the identifier the annotation puts in a type.
+            name_of_group[group] = sanitize_ident(name_match.group(1))
+    return axis_to_group, name_of_group
 
 
 def parse_return_values(lines):
@@ -245,9 +241,7 @@ def main():
     with open(dg_path) as f:
         lines = f.read().splitlines()
 
-    axis_to_group = parse_dimgroups(lines)
-    dim_params = parse_dim_params(lines)
-    name_of_group = build_name_map(axis_to_group, dim_params)
+    axis_to_group, name_of_group = parse_dimgroups(lines)
     return_values = parse_return_values(lines)
     ann = Annotator(axis_to_group, name_of_group)
 

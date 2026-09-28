@@ -72,6 +72,22 @@ def load_model_tests(kind):
             ],
             "Wrong size for the dimension 2 of the input 0: expect 5, but got 1",
         ),
+        (
+            "inconsistent_symbol_batch_size",
+            [
+                np.ones((4, 10)).astype("float32"),
+                np.ones((8, 10)).astype("float32"),
+            ],
+            "Inconsistent dimension for symbol 'batch_size' at dimension 0 of input 1: expect 4, but got 8",
+        ),
+        (
+            "mixed_symbol_and_minus_one",
+            [
+                np.ones((4, 5, 10)).astype("float32"),
+                np.ones((8, 5, 10)).astype("float32"),
+            ],
+            "Inconsistent dimension for symbol 'batch_size' at dimension 0 of input 1: expect 4, but got 8",
+        ),
     ]
 
     testcases = []
@@ -97,9 +113,36 @@ class AddModel:
     def model(name):
         node = helper.make_node("Add", inputs=["x1", "x2"], outputs=["y"])
 
-        x1 = helper.make_tensor_value_info("x1", TensorProto.FLOAT, [3, 4, 5])
-        x2 = helper.make_tensor_value_info("x2", TensorProto.FLOAT, ["unknown", 4, 5])
-        y = helper.make_tensor_value_info("y", TensorProto.FLOAT, [3, 4, 5])
+        # Use symbolic dimensions for the inconsistent_symbol test.
+        if name == "inconsistent_symbol_batch_size":
+            x1 = helper.make_tensor_value_info(
+                "x1", TensorProto.FLOAT, ["batch_size", 10]
+            )
+            x2 = helper.make_tensor_value_info(
+                "x2", TensorProto.FLOAT, ["batch_size", 10]
+            )
+            y = helper.make_tensor_value_info(
+                "y", TensorProto.FLOAT, ["batch_size", 10]
+            )
+        elif name == "mixed_symbol_and_minus_one":
+            # Mix symbolic dimension (batch_size) with static (5) and dynamic (unknown -> -1).
+            # x1 has static dim 5, x2 has dynamic dim "unknown" which becomes -1 in signature.
+            # Both share "batch_size" symbol which must match.
+            x1 = helper.make_tensor_value_info(
+                "x1", TensorProto.FLOAT, ["batch_size", 5, 10]
+            )
+            x2 = helper.make_tensor_value_info(
+                "x2", TensorProto.FLOAT, ["batch_size", "unknown", 10]
+            )
+            y = helper.make_tensor_value_info(
+                "y", TensorProto.FLOAT, ["batch_size", 5, 10]
+            )
+        else:
+            x1 = helper.make_tensor_value_info("x1", TensorProto.FLOAT, [3, 4, 5])
+            x2 = helper.make_tensor_value_info(
+                "x2", TensorProto.FLOAT, ["unknown", 4, 5]
+            )
+            y = helper.make_tensor_value_info("y", TensorProto.FLOAT, [3, 4, 5])
 
         # Create the graph (GraphProto)
         graph = helper.make_graph([node], "{}_{}".format("add", name), [x1, x2], [y])

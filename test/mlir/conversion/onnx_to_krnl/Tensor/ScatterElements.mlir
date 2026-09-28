@@ -46,3 +46,36 @@ func.func @test_scatter_elements1(%arg0: tensor<3x3xf32>, %arg1: tensor<3x2xi64>
 // CHECK-NEXT:      }
 // CHECK:           return [[RES1]], [[RES2]] : memref<3x3xf32>, memref<3x3xf32>
 }
+
+// -----
+
+// COM: Test ScatterElements with add reduction
+func.func @test_scatter_elements_add(%arg0: tensor<3x3xf32>, %arg1: tensor<3x2xi64>, %arg2: tensor<3x2xf32>) -> tensor<3x3xf32> {
+  %0 = "onnx.ScatterElements"(%arg0, %arg1, %arg2) {axis = 0 : si64, reduction = "add"} : (tensor<3x3xf32>, tensor<3x2xi64>, tensor<3x2xf32>) -> tensor<3x3xf32>
+  return %0 : tensor<3x3xf32>
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_scatter_elements_add
+// CHECK-SAME:   ([[PARAM_0:%.+]]: memref<3x3xf32>, [[PARAM_1:%.+]]: memref<3x2xi64>, [[PARAM_2:%.+]]: memref<3x2xf32>) -> memref<3x3xf32> {
+// CHECK-DAG:       [[CST_3:%.+]] = arith.constant 3 : index
+// CHECK-DAG:       [[RES:%.+]] = memref.alloc() {alignment = 16 : i64} : memref<3x3xf32>
+// CHECK-DAG:       [[CST_9:%.+]] = arith.constant 9 : i64
+// CHECK-DAG:       [[CST_0:%.+]] = arith.constant 0 : index
+// CHECK:           "krnl.memcpy"([[RES]], [[PARAM_0]], [[CST_9]], [[CST_0]], [[CST_0]]) : (memref<3x3xf32>, memref<3x3xf32>, i64, index, index) -> ()
+// CHECK-DAG:       [[LOOP_0:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[LOOP_0]]#0, [[LOOP_0]]#1) with ([[LOOP_0]]#0 -> [[I_0:%.+]] = 0 to 3, [[LOOP_0]]#1 -> [[I_1:%.+]] = 0 to 2){
+// CHECK:             [[IV:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0]]#0, [[LOOP_0]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK-DAG:         [[INDEX:%.+]] = krnl.load [[PARAM_1]]{{.}}[[IV]]#0, [[IV]]#1{{.}} : memref<3x2xi64>
+// CHECK-DAG:         [[UPDATE_VAL:%.+]] = krnl.load [[PARAM_2]]{{.}}[[IV]]#0, [[IV]]#1{{.}} : memref<3x2xf32>
+// CHECK:             [[CAST_INDEX:%.+]] = arith.index_cast [[INDEX]] : i64 to index
+// CHECK-DAG:         [[ZERO:%.+]] = arith.constant 0 : index
+// CHECK-DAG:         [[THREE:%.+]] = arith.constant 3 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:         [[CMP:%.+]] = arith.cmpi slt, [[CAST_INDEX]], [[ZERO]] : index
+// CHECK-DAG:         [[ADDI:%.+]] = arith.addi [[CAST_INDEX]], [[THREE]] : index
+// CHECK:             [[SEL:%.+]] = arith.select [[CMP]], [[ADDI]], [[CAST_INDEX]] : index
+// CHECK:             [[CURRENT:%.+]] = krnl.load [[RES]]{{.}}[[SEL]], [[IV]]#1{{.}} : memref<3x3xf32>
+// CHECK:             [[RESULT:%.+]] = arith.addf [[CURRENT]], [[UPDATE_VAL]] : f32
+// CHECK:             krnl.store [[RESULT]], [[RES]]{{.}}[[SEL]], [[IV]]#1{{.}} : memref<3x3xf32>
+// CHECK-NEXT:      }
+// CHECK:           return [[RES]] : memref<3x3xf32>
+}

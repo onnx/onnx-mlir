@@ -1064,6 +1064,23 @@ def get_test_models():
             DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {-1},
         },
+        # ==OP== EyeLike
+        # ==MIN== 22
+        "test_eyelike_without_dtype_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_eyelike_with_dtype_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_eyelike_populate_off_main_diagonal_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
         # ==OP== Flatten
         # ==MIN== 1
         # ==LIM== Does not support int4 and uint4.
@@ -4003,6 +4020,15 @@ class EndiannessAwareExecutionSession(object):
         for idx in input_indices:
             input_node = self.model.graph.input[idx]
             tensor = inputs[idx]
+            # Some CONSTANT_INPUT test cases (e.g. constantofshape) supply a
+            # bare NumPy scalar (np.float32, np.int64, …) rather than an ndarray.
+            # numpy_helper.from_array's tobytes_little_endian calls astype() to
+            # byte-swap on BE machines, but astype() on a NumPy scalar (which is
+            # not an ndarray) silently returns native-endian bytes unchanged in
+            # NumPy 2.x, corrupting raw_data on s390x.  Normalise to a 0-d
+            # ndarray first so that astype() works correctly.
+            if not isinstance(tensor, np.ndarray):
+                tensor = np.asarray(tensor)
             tensor = numpy_helper.from_array(tensor, input_node.name)
             self.model.graph.initializer.extend([tensor])
             inputs_to_remove.append(input_node)

@@ -2233,12 +2233,10 @@ struct ZHighToZLowDataConversionLowering
     DimsExpr lbs = {LitIE(0)};
     bool useParallel = false;
     if (enableParallel) {
-      int64_t parId = tryCreateKrnlParallel(create.krnl, op,
-          "dlf16-f32 conversion fully parallelized", {}, lbs,
-          flattenedOutputDims, 0, 1, {},
-          /*min iter for going parallel*/ 1024,
-          /*createKrnlParallel=*/false);
-      if (parId != -1)
+      auto plan = KrnlParallelPlan::noLoopRefs(
+          /*first*/ 0, /*last excl*/ 1, /*cost*/ {1024});
+      if (plan.findParallelDim(op, "dlf16-f32 conversion fully parallelized",
+              lbs, flattenedOutputDims) != NO_PAR_FOUND)
         useParallel = true;
     }
     onnxToKrnlSimdReport(op, /*successful*/ true, archVL,
@@ -2376,12 +2374,12 @@ struct ZHighToZLowExtendedLayoutTransformLowering
     ubs[loopRank - 1] = ubs[loopRank - 1].ceilDiv(64);
 
     // Handle parallelism here.
+    int maxId = std::min(loopRank - 1, (int64_t)2);
+    auto plan = KrnlParallelPlan::noCollapse(
+        loopDef, /*first*/ 0, /*last excl*/ maxId, /*cost*/ {4});
     if (enableParallel) {
-      int maxId = std::min(loopRank - 1, (int64_t)2);
-      tryCreateKrnlParallel(create.krnl, op,
-          "dlf16-f32 conversion fully parallelized", loopDef, lbs, ubs, 0,
-          maxId, {}, /*min iter for going parallel*/ 4,
-          /*createKrnlParallel=*/true);
+      plan.tryCreateParallel(
+          create.krnl, op, "dlf16-f32 conversion fully parallelized", lbs, ubs);
     }
 
     // Prepare support for conversion of dlf16 to 64, if needed.
@@ -2395,7 +2393,7 @@ struct ZHighToZLowExtendedLayoutTransformLowering
           /*write*/ false, true, disableSaturation);
       conversionSupportUSS.list = {inputUSS, outputUSS};
     }
-    create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
+    create.krnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, ubs,
         [&](const KrnlBuilder &ck, ValueRange indices) {
           // Process 64 values here at a time.
           MDBuilder create(ck);
@@ -2619,12 +2617,12 @@ struct ZHighToZLowFusedExtLayoutTransformLowering
     assert((int64_t)ubs.size() == loopRank && "missing ubs values");
     ubs[loopRank - 1] = ubs[loopRank - 1].ceilDiv(64);
 
+    int maxId = std::min(loopRank - 1, (int64_t)2);
+    auto plan = KrnlParallelPlan::noCollapse(
+        loopDef, /*first*/ 0, /*last excl*/ maxId, /*cost*/ {4});
     if (enableParallel) {
-      int maxId = std::min(loopRank - 1, (int64_t)2);
-      tryCreateKrnlParallel(create.krnl, op,
-          "dlf16-f32 conversion fully parallelized", loopDef, lbs, ubs, 0,
-          maxId, {}, /*min iter for going parallel*/ 4,
-          /*createKrnlParallel=*/true);
+      plan.tryCreateParallel(
+          create.krnl, op, "dlf16-f32 conversion fully parallelized", lbs, ubs);
     }
 
     UnifiedStickSupportList conversionSupportUSS;
@@ -2638,7 +2636,7 @@ struct ZHighToZLowFusedExtLayoutTransformLowering
       conversionSupportUSS.list = {inputUSS, outputUSS};
     }
 
-    create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
+    create.krnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, ubs,
         [&](const KrnlBuilder &ck, ValueRange indices) {
           MDBuilder create(ck);
           IndexExprScope outerScope(ck);
@@ -2765,11 +2763,20 @@ struct ZHighToZLowFusedExpandMulStickLowering
     : public FusedOpKindLowering<ExpandMulStickFusionHelper> {
   using Base = FusedOpKindLowering<ExpandMulStickFusionHelper>;
   using OpAdaptor = typename ONNXFusedOp::Adaptor;
+  bool enableParallel = false;
+  bool enableCollapse = false;
   bool disableSaturation = false;
 
-  ZHighToZLowFusedExpandMulStickLowering(
-      TypeConverter &typeConverter, MLIRContext *ctx, bool disableSaturation)
-      : Base(typeConverter, ctx), disableSaturation(disableSaturation) {}
+  ZHighToZLowFusedExpandMulStickLowering(TypeConverter &typeConverter,
+      MLIRContext *ctx, bool enableParallel, bool enableCollapse,
+      bool disableSaturation)
+      : Base(typeConverter, ctx), enableCollapse(enableCollapse),
+        disableSaturation(disableSaturation) {
+    this->enableParallel =
+        enableParallel &&
+        OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
+            ONNXFusedOp::getOperationName());
+  }
 
   FailureOr<SmallVector<Value>> lowerVerified(ONNXFusedOp fusedOp,
       OpAdaptor adaptor, ConversionPatternRewriter &rewriter,
@@ -2847,6 +2854,39 @@ struct ZHighToZLowFusedExpandMulStickLowering
     DimsExpr ubs = inputDims;
     ubs[loopRank - 1] = ubs[loopRank - 1].ceilDiv(64);
 
+    // The two windows are deliberately different widths, because they answer
+    // different questions.
+    //
+    // Collapse-safety reaches every level above the tiled one: the index map
+    // this nest applies (buildExpandMulStickOutputAF) is injective -- distinct
+    // input coordinates land on distinct output coordinates, and the N slots
+    // one input element fans out to are N distinct coordinates too -- so no
+    // two iterations write the same location and any run of levels may be
+    // fused. Claiming less than that would not be conservatism, it would be a
+    // false statement about the kernel that permanently hides the only wide
+    // level this nest has (the sequence length at level 2 for a
+    // [batch, kv-heads, seq, tiles] nest) from the cost model.
+    //
+    // Single-level parallelism is capped at the top two levels instead, as
+    // every other site does. That is a judgement and not a safety claim: a
+    // lone region on a deep level is entered an unknown number of times when
+    // anything above it is dynamic, which is the case this whole cost model
+    // exists to avoid. A group may still extend past level 1, because a group
+    // *starts* at the top and so is entered once.
+    //
+    // The tiled innermost level is in neither window: it is the SIMD span
+    // (dim/64 tiles of a 64-element convert), so it is both the narrowest
+    // level and the one worth keeping vectorizable and sequential.
+    //
+    // bodyCost is per iteration of that innermost level: one 64-element
+    // stick tile converted once and stored to N slots, so the "whole tile"
+    // digit.
+    KrnlParallelPlan plan(loopDef, enableCollapse,
+        /*parFirstInclusiveDim=*/0,
+        /*parLastExclusiveDim=*/std::min(loopRank - 1, (int64_t)2),
+        /*collapseLastExclusiveDim=*/loopRank - 1,
+        {.minTripCountForParallel = 4, .bodyCost = 1000});
+
     // USS list: 1 read (input) + N writes (same output tensor/alloc, N
     // distinct instances so each can carry its own beforeStickLoop offset).
     SmallVector<Value, 8> ussVals{inputTensor}, ussMemRefs{inputMemRef};
@@ -2869,7 +2909,14 @@ struct ZHighToZLowFusedExpandMulStickLowering
             ? create.math.constant(rewriter.getF32Type(), (double)mulScalar)
             : nullptr;
 
-    create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
+    // Emitted immediately before the iterate that consumes the plan, as every
+    // other collapse site does: a krnl.collapse substitutes refs, so the
+    // iterate must be handed optimizedLoopDef() and not the original list.
+    if (enableParallel)
+      plan.tryCreateParallel(
+          create.krnl, op, "expand-mul-stick fused loop", lbs, ubs);
+
+    create.krnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, ubs,
         [&](const KrnlBuilder &ck, ValueRange indices) {
           MDBuilder create(ck);
           IndexExprScope outerScope(ck);
@@ -2951,11 +2998,14 @@ struct ZHighToZLowFusedConcatExpandStickLowering
   using Base = FusedOpKindLowering<ConcatExpandStickFusionHelper>;
   using OpAdaptor = typename ONNXFusedOp::Adaptor;
   bool enableParallel = false;
+  bool enableCollapse = false;
   bool disableSaturation = false;
 
   ZHighToZLowFusedConcatExpandStickLowering(TypeConverter &typeConverter,
-      MLIRContext *ctx, bool enableParallel, bool disableSaturation)
-      : Base(typeConverter, ctx), disableSaturation(disableSaturation) {
+      MLIRContext *ctx, bool enableParallel, bool enableCollapse,
+      bool disableSaturation)
+      : Base(typeConverter, ctx), enableCollapse(enableCollapse),
+        disableSaturation(disableSaturation) {
     this->enableParallel =
         enableParallel &&
         OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
@@ -2969,10 +3019,15 @@ struct ZHighToZLowFusedConcatExpandStickLowering
   // also store the same (pre-conversion) F32 halves to the plain concat
   // result buffer, so that instance shares this tile's read with the
   // stickified writes instead of being re-read by a separate loop nest.
+  // scalarConst, when non-null, is the (once-created) constant for the
+  // 1-step stick tail's optional Mul -- applied to the read values right
+  // before the DLF16 conversion, after the concatWriteIdx store below, since
+  // Concat's own result must reflect concat semantics, not the later Mul.
+  // Null for the existing 2-step tail (which has no Mul step at all).
   void emitVectorizedConversion(const KrnlBuilder &ck2,
       IndexExprScope &midScope, int64_t readIdx, int64_t N,
       std::optional<int64_t> concatWriteIdx, UnifiedStickSupportList &uss,
-      bool effectiveDisableSaturation) const {
+      bool effectiveDisableSaturation, Value scalarConst) const {
     MDBuilder create(ck2);
     int64_t U = 4;
     int64_t totVL = U * UnifiedStickSupport::archVL;
@@ -2991,8 +3046,12 @@ struct ZHighToZLowFusedConcatExpandStickLowering
                   create.krnl, l, u, /*tempBufferMemRef=*/nullptr);
             }
             MultiDialectBuilder<MathBuilder, ZLowBuilder> mcreate(create.krnl);
+            Value highScaled =
+                scalarConst ? mcreate.math.mul(highIn, scalarConst) : highIn;
+            Value lowScaled =
+                scalarConst ? mcreate.math.mul(lowIn, scalarConst) : lowIn;
             Value dlf16 = mcreate.zlow.convertF32ToDLF16(
-                highIn, lowIn, effectiveDisableSaturation);
+                highScaled, lowScaled, effectiveDisableSaturation);
             for (int64_t n = 0; n < N; ++n)
               uss.list[2 + n].storeConvertedDLF16(create.krnl, dlf16, l, u);
           }
@@ -3008,7 +3067,7 @@ struct ZHighToZLowFusedConcatExpandStickLowering
       int64_t R, int64_t N, int64_t P, int64_t F, int64_t C, DimsExpr &midDims,
       std::optional<IndexExpr> axisAShift,
       std::optional<int64_t> concatWriteIdx, UnifiedStickSupportList &uss,
-      bool effectiveDisableSaturation) const {
+      bool effectiveDisableSaturation, Value scalarConst) const {
     MDBuilder create(ck2);
     IndexExprScope midScope(ck2);
     // outerIndices are Dim-kind index exprs bound to the outer loop's own
@@ -3048,7 +3107,7 @@ struct ZHighToZLowFusedConcatExpandStickLowering
     }
 
     emitVectorizedConversion(ck2, midScope, readIdx, N, concatWriteIdx, uss,
-        effectiveDisableSaturation);
+        effectiveDisableSaturation, scalarConst);
   }
 
   // Emit the tiled loop nest for one concat operand: iterate over its own
@@ -3062,7 +3121,7 @@ struct ZHighToZLowFusedConcatExpandStickLowering
       std::optional<IndexExpr> axisAShift, int64_t A, int64_t R, int64_t N,
       int64_t P, int64_t F, int64_t C, DimsExpr &midDims,
       std::optional<int64_t> concatWriteIdx, UnifiedStickSupportList &uss,
-      bool effectiveDisableSaturation) const {
+      bool effectiveDisableSaturation, Value scalarConst) const {
     MDBuilder create(ck);
     int64_t innerRank = R - A; // always >= 2, since A <= R - 2.
     ValueRange innerLoopDef = create.krnl.defineLoops(innerRank);
@@ -3076,7 +3135,7 @@ struct ZHighToZLowFusedConcatExpandStickLowering
         [&](const KrnlBuilder &ck2, ValueRange indices) {
           emitOperandLoopBody(ck2, indices, outerIndices, readIdx, innerRank, A,
               R, N, P, F, C, midDims, axisAShift, concatWriteIdx, uss,
-              effectiveDisableSaturation);
+              effectiveDisableSaturation, scalarConst);
         });
   }
 
@@ -3104,6 +3163,16 @@ struct ZHighToZLowFusedConcatExpandStickLowering
     int64_t F = fusion.reshapeFirstCollapsedDim;
     int64_t C = fusion.reshapeCollapsedCount;
     bool effectiveDisableSaturation = fusion.noSaturation || disableSaturation;
+    // A neutral (1.f) scalar means either the 2-step tail (no Mul step at
+    // all) or a 1-step stick tail whose source chain had no Mul op (mulScalar
+    // stays at its default then) -- skip the multiply entirely rather than
+    // emitting a multiply-by-one, exactly like
+    // ZHighToZLowFusedExpandMulStickLowering above.
+    bool hasMulScalar = fusion.mulScalar != 1.0f;
+    Value scalarConst = hasMulScalar
+                            ? create.math.constant(rewriter.getF32Type(),
+                                  (double)fusion.mulScalar)
+                            : nullptr;
 
     int64_t R = getRank(input1MemRef.getType()); // concat rank
     int64_t outputRank = getRank(outputTensor.getType());
@@ -3171,7 +3240,8 @@ struct ZHighToZLowFusedConcatExpandStickLowering
     assert((int64_t)outputDims.size() == outputRank && "output dims mismatch");
 
     // Allocate the output buffer: always a ZTensor (the chain always ends in
-    // ONNXLayoutTransformOp targeting a ZTensor).
+    // either an ONNXLayoutTransformOp or a ZHighStickOp targeting a ZTensor,
+    // depending on which tail the fusion matched).
     ZMemRefType zMemRefType =
         convertZTensorToMemRefType(outputTensor.getType());
     Value allocVal =
@@ -3210,33 +3280,53 @@ struct ZHighToZLowFusedConcatExpandStickLowering
       DimsExpr outerUbs;
       for (int64_t d = 0; d < A; ++d)
         outerUbs.emplace_back(concatDims[d]);
+      int64_t maxId = std::min(A, (int64_t)2);
+      // Collapse-eligible over the whole outer window. The levels in it are
+      // plain iteration dims of the concatenated space with no exclusions --
+      // the concat axis A and everything below it belong to the inner
+      // per-operand nests, not here -- and the body indexes them verbatim
+      // (see emitOperandLoopBody's readAF), so a fused index recovered by
+      // div/mod is exactly as valid as the original one.
+      //
+      // This is the granite shape the collapse work exists for: with the
+      // window left single-level the region lands on dim 0 alone, which is
+      // the dynamic batch, so at decode (batch 1) it forks a thread team
+      // around one iteration while dim 1 (the kv-head count) sits
+      // sequentially inside it.
+      //
+      // bodyCost is measured per iteration of the *innermost level of the
+      // bounds handed over*, i.e. one iteration of outer level A-1, and that
+      // is both operand loops in full: seq times 128/64 tiles times a
+      // 64-element convert fanned out to N stick writes. Far past the "whole
+      // tile" digit, so 1000 is the honest floor rather than an estimate.
+      KrnlParallelPlan plan(outerLoopDef, enableCollapse,
+          /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/maxId,
+          /*collapseLastExclusiveDim=*/maxId,
+          {.minTripCountForParallel = 4, .bodyCost = 1000});
       if (enableParallel) {
-        int64_t maxId = std::min(A, (int64_t)2);
-        tryCreateKrnlParallel(create.krnl, op,
-            "concat-expand-stick fused outer loop", outerLoopDef, outerLbs,
-            outerUbs, 0, maxId, {}, /*min iter for going parallel*/ 4,
-            /*createKrnlParallel=*/true);
+        plan.tryCreateParallel(create.krnl, op,
+            "concat-expand-stick fused outer loop", outerLbs, outerUbs);
       }
-      create.krnl.iterateIE(outerLoopDef, outerLoopDef, outerLbs, outerUbs,
-          [&](const KrnlBuilder &ck, ValueRange indices) {
+      create.krnl.iterateIE(outerLoopDef, plan.optimizedLoopDef(), outerLbs,
+          outerUbs, [&](const KrnlBuilder &ck, ValueRange indices) {
             MDBuilder create(ck);
             IndexExprScope outerScope(ck);
             DimsExpr outerIndices = DimListIE(indices);
             emitOperandLoop(ck, outerIndices, 0, input1Dims, std::nullopt, A, R,
                 N, P, F, C, midDims, concatWriteIdx, uss,
-                effectiveDisableSaturation);
+                effectiveDisableSaturation, scalarConst);
             emitOperandLoop(ck, outerIndices, 1, input2Dims,
                 DimIE(input1Dims[A]), A, R, N, P, F, C, midDims, concatWriteIdx,
-                uss, effectiveDisableSaturation);
+                uss, effectiveDisableSaturation, scalarConst);
           });
     } else {
       DimsExpr emptyOuter;
       emitOperandLoop(create.krnl, emptyOuter, 0, input1Dims, std::nullopt, A,
           R, N, P, F, C, midDims, concatWriteIdx, uss,
-          effectiveDisableSaturation);
+          effectiveDisableSaturation, scalarConst);
       emitOperandLoop(create.krnl, emptyOuter, 1, input2Dims,
           DimIE(input1Dims[A]), A, R, N, P, F, C, midDims, concatWriteIdx, uss,
-          effectiveDisableSaturation);
+          effectiveDisableSaturation, scalarConst);
     }
 
     if (!fusion.yieldConcatResult)
@@ -3250,7 +3340,7 @@ struct ZHighToZLowFusedConcatExpandStickLowering
 //===----------------------------------------------------------------------===//
 void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
     mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx, bool enableSIMD,
-    bool enableParallel, bool disableSaturation) {
+    bool enableParallel, bool enableCollapse, bool disableSaturation) {
   // Stickify and unstickify operations.
   patterns.insert<ZHighToZLowStickifiedConstantOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowStickOpLowering>(typeConverter, ctx);
@@ -3316,9 +3406,9 @@ void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
   patterns.insert<ZHighToZLowFusedExtLayoutTransformLowering>(
       typeConverter, ctx, enableParallel, disableSaturation);
   patterns.insert<ZHighToZLowFusedExpandMulStickLowering>(
-      typeConverter, ctx, disableSaturation);
+      typeConverter, ctx, enableParallel, enableCollapse, disableSaturation);
   patterns.insert<ZHighToZLowFusedConcatExpandStickLowering>(
-      typeConverter, ctx, enableParallel, disableSaturation);
+      typeConverter, ctx, enableParallel, enableCollapse, disableSaturation);
 }
 
 } // namespace zhigh

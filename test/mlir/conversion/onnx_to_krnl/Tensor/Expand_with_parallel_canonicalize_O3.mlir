@@ -33,3 +33,26 @@ func.func @expand_dyn(%arg0: tensor<1x8x1x?x64xf32>, %arg1: tensor<5xi64>) ->  t
 // CHECK:           return [[RES_]] : memref<1x8x4x?x64xf32>
 // CHECK:         }
 }
+
+// -----
+
+// A rank-0 output leaves no level to parallelize, so no region is created: the
+// plan holds no loop refs and must answer "no parallelism" rather than fail on
+// an empty optimized-loop list.
+func.func @test_parallel_expand_rank0_out(%arg0: tensor<f32>) -> tensor<f32> {
+  %s = onnx.Constant dense<[]> : tensor<0xi64>
+  %0 = "onnx.Expand"(%arg0, %s) : (tensor<f32>, tensor<0xi64>) -> tensor<f32>
+  return %0 : tensor<f32>
+
+// CHECK-LABEL:  func.func @test_parallel_expand_rank0_out
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<f32>) -> memref<f32> {
+// CHECK:           [[RES_:%.+]] = memref.alloc() : memref<f32>
+// CHECK:           krnl.define_loops 0
+// CHECK-NOT:       krnl.parallel
+// CHECK:           [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]][] : memref<f32>
+// CHECK:           krnl.iterate() with (){
+// CHECK:             krnl.store [[LOAD_PARAM_0_MEM_]], [[RES_]][] : memref<f32>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<f32>
+// CHECK:         }
+}

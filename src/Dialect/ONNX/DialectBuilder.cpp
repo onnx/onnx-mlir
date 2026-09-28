@@ -151,11 +151,15 @@ Value OnnxBuilder::dim(Value input, int axis) const {
   return createTypedOpAndInferShapes<ONNXDimOp>(resultType, input, axisAttr);
 }
 
-void OnnxBuilder::dimGroup(Value input, int axis, int groupID) const {
+void OnnxBuilder::dimGroup(
+    Value input, int axis, int groupID, StringRef groupName) const {
   IntegerAttr axisAttr = getSignedInt64Attr(axis);
   IntegerAttr groupIDAttr = getSignedInt64Attr(groupID);
+  StringAttr groupNameAttr =
+      groupName.empty() ? StringAttr() : b().getStringAttr(groupName);
   // No shape needed for this one I believe.
-  ONNXDimGroupOp::create(b(), loc(), input, axisAttr, groupIDAttr);
+  ONNXDimGroupOp::create(
+      b(), loc(), input, axisAttr, groupIDAttr, groupNameAttr);
 }
 
 Value OnnxBuilder::dequantizeLinear(

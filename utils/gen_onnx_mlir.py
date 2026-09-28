@@ -66,7 +66,7 @@ list_operation_version = args.list_operation_version
 
 # ==UPDATE_ONNX_VERSION_OPSET==
 # Look for tag above and update all references when upgrading the ONNX support within ONNX-MLIR.
-current_onnx_version = "1.21.0"
+current_onnx_version = "1.23.0"
 
 # Check the version of onnx package being used.
 if (
@@ -156,7 +156,7 @@ version_dict = {
     "Gelu": [20],
     "Gemm": [13],
     "GlobalAveragePool": [22],
-    "GlobalLpPool": [2],
+    "GlobalLpPool": [22],
     "GlobalMaxPool": [22],
     "Gradient": [1],
     "Greater": [13],
@@ -282,6 +282,7 @@ version_dict = {
     "Sum": [13],
     "Tan": [22],
     "Tanh": [13],
+    "TensorScatter": [24],
     "TfIdfVectorizer": [9],
     "ThresholdedRelu": [22],
     "Tile": [13],
@@ -340,6 +341,7 @@ OpsWithCanonicalizer = [
     "Dropout",
     "Equal",
     "GlobalAveragePool",
+    "GlobalLpPool",
     "GlobalMaxPool",
     "Greater",
     "GreaterOrEqual",
@@ -410,6 +412,7 @@ OpsWithVerifier = [
     "GatherElements",
     "GatherND",
     "Gelu",
+    "GlobalLpPool",
     "Greater",
     "GreaterOrEqual",
     "GridSample",
@@ -459,6 +462,7 @@ OpsWithVerifier = [
     "SplitToSequence",
     "Sub",
     "Sum",
+    "TensorScatter",
     "TopK",
     "Transpose",
     "Unique",
@@ -1108,6 +1112,8 @@ def parse_type_str(allowedType):
         "float8e4m3fnuz": "F8E4M3FNUZ",
         "float8e5m2": "F8E5M2",
         "float8e5m2fnuz": "F8E5M2FNUZ",
+        "float8e8m0": "F8E8M0FNU",
+        "float4e2m1": "F4E2M1FN",
         "complex64": "Complex<F32>",
         "complex128": "Complex<F64>",
         "string": "StringType",

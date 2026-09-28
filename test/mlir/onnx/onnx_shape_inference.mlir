@@ -3865,6 +3865,34 @@ func.func @test_scatterelements(%arg0: tensor<64x25600xf32>, %arg1: tensor<64x10
 // -----
 
 //===----------------------------------------------------------------------===//
+/// Test shape inference for TensorScatter.
+//===----------------------------------------------------------------------===//
+
+// COM: Static shapes: present_cache takes past_cache's shape unchanged.
+func.func @test_tensorscatter_static(%past_cache: tensor<2x4x8x16xf32>, %update: tensor<2x4x2x16xf32>, %write_indices: tensor<2xi64>) -> tensor<*xf32> {
+  %0 = "onnx.TensorScatter"(%past_cache, %update, %write_indices) {axis = -2 : si64, mode = "linear"} : (tensor<2x4x8x16xf32>, tensor<2x4x2x16xf32>, tensor<2xi64>) -> tensor<*xf32>
+  onnx.Return %0 : tensor<*xf32>
+
+  // CHECK-LABEL: func @test_tensorscatter_static
+  // CHECK: [[RES:%.+]] = "onnx.TensorScatter"(%arg0, %arg1, %arg2) <{axis = -2 : si64, mode = "linear"}> : (tensor<2x4x8x16xf32>, tensor<2x4x2x16xf32>, tensor<2xi64>) -> tensor<2x4x8x16xf32>
+  // CHECK: onnx.Return [[RES]] : tensor<2x4x8x16xf32>
+}
+
+// -----
+
+// COM: Dynamic batch dimension: present_cache still takes past_cache's shape.
+func.func @test_tensorscatter_dynamic(%past_cache: tensor<?x4x8x16xf32>, %update: tensor<?x4x2x16xf32>, %write_indices: tensor<?xi64>) -> tensor<*xf32> {
+  %0 = "onnx.TensorScatter"(%past_cache, %update, %write_indices) {axis = -2 : si64, mode = "circular"} : (tensor<?x4x8x16xf32>, tensor<?x4x2x16xf32>, tensor<?xi64>) -> tensor<*xf32>
+  onnx.Return %0 : tensor<*xf32>
+
+  // CHECK-LABEL: func @test_tensorscatter_dynamic
+  // CHECK: [[RES:%.+]] = "onnx.TensorScatter"(%arg0, %arg1, %arg2) <{axis = -2 : si64, mode = "circular"}> : (tensor<?x4x8x16xf32>, tensor<?x4x2x16xf32>, tensor<?xi64>) -> tensor<?x4x8x16xf32>
+  // CHECK: onnx.Return [[RES]] : tensor<?x4x8x16xf32>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
 /// Test shape inference for MaxRoiPool.
 //===----------------------------------------------------------------------===//
 func.func @test_maxroipool(%arg0: tensor<1x3x64x64xf32>, %arg1: tensor<1x5xf32>) -> tensor<*xf32> {

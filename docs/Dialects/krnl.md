@@ -460,10 +460,6 @@ The "krnl.define_loops" operation is used to define input loops,
 those are the for loops appearing in the input program that we
 intend to optimize.
 
-Interfaces: `NoMemoryEffect (MemoryEffectOpInterface)`
-
-Effects: `MemoryEffects::Effect{}`
-
 #### Results:
 
 | Result | Description |

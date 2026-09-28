@@ -68,7 +68,6 @@ public:
       return failure();
 
     // Common types.
-    Type i8Ty = rewriter.getI8Type();
     Type i32Ty = rewriter.getI32Type();
     Type f32Ty = rewriter.getF32Type();
     auto resMemRefType = dyn_cast<MemRefType>(
@@ -79,11 +78,22 @@ public:
     ONNXQLinearMatMulOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
-    Value cst128;
+    // Quantization bounds for saturation.
+    Value qMin, qMax;
     if (resElementType.isUnsignedInteger(8)) {
-      auto cst128Attr = DenseElementsAttr::get(
-          RankedTensorType::get({}, i32Ty), static_cast<int32_t>(128));
-      cst128 = create.onnx.constant(cst128Attr);
+      auto minAttr = DenseElementsAttr::get(
+          RankedTensorType::get({}, i32Ty), static_cast<int32_t>(0));
+      auto maxAttr = DenseElementsAttr::get(
+          RankedTensorType::get({}, i32Ty), static_cast<int32_t>(255));
+      qMin = create.onnx.constant(minAttr);
+      qMax = create.onnx.constant(maxAttr);
+    } else {
+      auto minAttr = DenseElementsAttr::get(
+          RankedTensorType::get({}, i32Ty), static_cast<int32_t>(-128));
+      auto maxAttr = DenseElementsAttr::get(
+          RankedTensorType::get({}, i32Ty), static_cast<int32_t>(127));
+      qMin = create.onnx.constant(minAttr);
+      qMax = create.onnx.constant(maxAttr);
     }
 
     // Prepare input A.
@@ -130,11 +140,18 @@ public:
     // Saturate and add zero point.
     Value roundToEven = create.onnx.round(resF32);
     resI32 = create.onnx.cast(roundToEven, i32Ty);
-    resI32 = create.onnx.add(resI32, yZeroPointI32);
     if (resElementType.isUnsignedInteger(8)) {
-      resI32 = create.onnx.add(resI32, cst128);
-      resI32 = create.onnx.cast(resI32, i8Ty);
+      // yZeroPoint was converted to i8 (centered around -128) by getOrCastToI8.
+      // Re-adjust yZeroPoint to uint8 (0..255) in i32 domain.
+      auto cst128Attr = DenseElementsAttr::get(
+          RankedTensorType::get({}, i32Ty), static_cast<int32_t>(128));
+      Value cst128 = create.onnx.constant(cst128Attr);
+      Value yZeroPointUI8_I32 = create.onnx.add(yZeroPointI32, cst128);
+      resI32 = create.onnx.add(resI32, yZeroPointUI8_I32);
+    } else {
+      resI32 = create.onnx.add(resI32, yZeroPointI32);
     }
+    resI32 = create.onnx.clip(resI32, qMin, qMax);
     Value res = create.onnx.cast(resI32, resElementType);
 
     rewriter.replaceOp(op, {create.onnx.toMemref(res)});

@@ -43,6 +43,14 @@ func.func @test_compress_verifier_1(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor
 
 // -----
 
+func.func @test_eyelike_verifier_rank(%arg0 : tensor<5x5x5xf32>) -> tensor<*xf32> {
+  // expected-error @+1 {{'onnx.EyeLike' op Input should have a rank of two}}
+  %0 = "onnx.EyeLike"(%arg0) : (tensor<5x5x5xf32>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
 func.func @test_concat_verifier_1(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<5x5x3x32xf32>, %arg2 : tensor<5x5x5x32xf32>) -> tensor<*xf32> {
   // expected-error @+1 {{onnx.Concat: 'axis' value is 4, accepted range is [-4, 3]}}
   %1 = "onnx.Concat"(%arg0, %arg1, %arg2) { axis = 4 : si64} : (tensor<5x5x1x32xf32>, tensor<5x5x3x32xf32>, tensor<5x5x5x32xf32>)  -> tensor<*xf32>
@@ -211,6 +219,14 @@ func.func @test_gatherElements_verifier_1(%data: tensor<2x2xf32>, %indices: tens
   // expected-error @+1 {{onnx.GatherElements: operand '<block argument> of type 'tensor<2xi64>' at index: 1' has rank 1, rank should be 2}}
   %1 = "onnx.GatherElements"(%data, %indices) { } : (tensor<2x2xf32>, tensor<2xi64>) -> tensor<*xf32>
   "onnx.Return"(%1) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func.func @test_global_lp_pool_verifier_p(%arg0: tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32> {
+  // expected-error @+1 {{'onnx.GlobalLpPool' op p must be >= 1, got 0}}
+  %0 = "onnx.GlobalLpPool"(%arg0) {p = 0 : si64} : (tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32>
+  "onnx.Return"(%0) : (tensor<1x3x1x1xf32>) -> ()
 }
 
 // -----
