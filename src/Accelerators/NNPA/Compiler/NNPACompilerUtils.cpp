@@ -131,8 +131,6 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
   // Remove onnx.Dim operations that refer to the same dynamid dimension.
   pm.addPass(onnx_mlir::createRemoveSameONNXDimPass());
-  pm.addPass(mlir::createCanonicalizerPass());
-  pm.addPass(mlir::createCSEPass());
 
   // There are more opportunities for const propagation once all zhigh ops were
   // generated.
