@@ -9,8 +9,11 @@
 //
 // This file contains C++ code to create exec commands.
 //
-// This file should not include any ONNX-MLIR / MLIR / LLVM dependences except
-// for onnx-mlir/include.
+//===----------------------------------------------------------------------===//
+// LLVM-FREE FILE -- DO NOT ADD LLVM / MLIR / ONNX-MLIR COMPILER DEPENDENCES.
+//
+// Part of the lightweight onnx-mlir build used for the pip-installable
+// packages (om_pyrt). Any LLVM/MLIR reference here will break those packages.
 //===----------------------------------------------------------------------===//
 
 #include "src/Compiler/CommandUtils.hpp"

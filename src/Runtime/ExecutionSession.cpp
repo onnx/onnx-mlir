@@ -12,6 +12,13 @@
 // programs interact with compiled binary model libraries.
 //
 //===----------------------------------------------------------------------===//
+// LLVM-FREE FILE ON NON-WINDOWS BUILDS -- DO NOT ADD LLVM / MLIR / ONNX-MLIR
+// COMPILER DEPENDENCES OUTSIDE A `_WIN32` GUARD.
+//
+// Part of the lightweight onnx-mlir build used for the pip-installable
+// packages (om_pyrt). The LLVM uses below are Windows-only (no dlopen there);
+// the non-Windows path must stay LLVM/MLIR-free or those packages break.
+//===----------------------------------------------------------------------===//
 
 #include <algorithm>
 #include <cctype>
