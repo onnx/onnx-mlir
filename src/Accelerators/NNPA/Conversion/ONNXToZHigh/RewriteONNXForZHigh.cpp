@@ -337,6 +337,49 @@ bool isLastTwoDimsPerm(ArrayAttr permAttr) {
           (last_second_dim.getInt() == size - 1));
 }
 
+// Check that the permutation array can be split into a permutation that keeps
+// the last dimension in place followed by a permutation of the last two
+// dimensions only, i.e. that the input's last dimension becomes the
+// second-to-last one. A permutation of the last two dimensions only is
+// excluded, as there is nothing to split.
+//
+// For example, perm = [0, 2, 3, 1] is [0, 2, 1, 3] followed by [0, 1, 3, 2].
+bool isSplittableIntoLastTwoDimsPerm(ArrayAttr permAttr) {
+  int64_t size = permAttr.size();
+  if (size < 3)
+    return false;
+  auto last_second_dim = dyn_cast<IntegerAttr>(permAttr[size - 2]);
+  if (!last_second_dim || last_second_dim.getInt() != size - 1)
+    return false;
+  return !isLastTwoDimsPerm(permAttr);
+}
+
+// Given a permutation array satisfying isSplittableIntoLastTwoDimsPerm, return
+// the permutation that keeps the last dimension in place, namely the original
+// one with its last two values swapped.
+ArrayAttr getKeepLastDimPerm(PatternRewriter &rewriter, ArrayAttr permAttr) {
+  int64_t size = permAttr.size();
+  SmallVector<int64_t, 4> perm;
+  for (int64_t i = 0; i < size; ++i)
+    perm.emplace_back(mlir::cast<IntegerAttr>(permAttr[i]).getInt());
+  std::swap(perm[size - 2], perm[size - 1]);
+  return rewriter.getI64ArrayAttr(perm);
+}
+
+// Check that neither N nor M of the N-D matmul (...xNxK) * (...xKxM) is a
+// static dimension exceeding the NNPA limitation for the 3-D matmul it is
+// rewritten into. A 3-D matmul exceeding it would be split by
+// SplitLargeMatMulPattern into sub-matmuls whose inputs are no longer a
+// transpose, which defeats a transpose-matmul rewrite.
+bool hasNoMatMulDimExceedingNNPALimit(Value A, Value B) {
+  ArrayRef<int64_t> aShape = getShape(A.getType());
+  ArrayRef<int64_t> bShape = getShape(B.getType());
+  int64_t N = aShape[aShape.size() - 2];
+  int64_t M = bShape[bShape.size() - 1];
+  return !(N != ShapedType::kDynamic && N > NNPAGetMaxForDim(1, 3)) &&
+         !(M != ShapedType::kDynamic && M > NNPAGetMaxForDim(2, 3));
+}
+
 /// This pattern is to split a large MatMul into smaller ones that fit into
 /// NNPA. Given (NxK) * (K*M), the pattern considers dimensions N and/or M to
 /// split, if N and/or M is greater than NNPAGetMaxForDim (MDIS).
