@@ -13,7 +13,12 @@ from lit.llvm.subst import ToolSubst
 # name: The name of this test suite.
 config.name = "Open Neural Network Frontend"
 
-config.test_format = lit.formats.ShTest(not llvm_config.use_lit_shell)
+# execute_external=True was removed in LLVM-23 (ShTest now always uses the
+# internal shell). The old idiom `not llvm_config.use_lit_shell` evaluated to
+# True when the lit shell was not forced on, which passed execute_external=True
+# and raised a ValueError on the new lit. Drop the argument entirely: False is
+# the only accepted value and is also the default.
+config.test_format = lit.formats.ShTest()
 
 # suffixes: A list of file extensions to treat as test files.
 config.suffixes = [".mlir", ".json", ".onnxtext"]

@@ -6,7 +6,7 @@
 func.func @eliminate_direct_stores() {
   %c3  = arith.constant 3  : i64
   %c32 = arith.constant 32 : i64
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<2xi64>
+  %alloc = memref.alloc() alignment = 16 : memref<2xi64>
   affine.store %c3,  %alloc[0] : memref<2xi64>
   affine.store %c32, %alloc[1] : memref<2xi64>
   return
@@ -22,7 +22,7 @@ func.func @eliminate_direct_stores() {
 func.func @eliminate_krnl_stores() {
   %c0 = arith.constant 0 : index
   %v  = arith.constant 42 : i64
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<1xi64>
+  %alloc = memref.alloc() alignment = 16 : memref<1xi64>
   krnl.store %v, %alloc[%c0] : memref<1xi64>
   return
 
@@ -39,7 +39,7 @@ func.func @eliminate_krnl_stores() {
 func.func @eliminate_loop_pattern() {
   %src = "krnl.global"() <{name = "shape_cst", shape = [1],
       value = dense<96> : tensor<1xi64>}> : () -> memref<1xi64>
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<1xi64>
+  %alloc = memref.alloc() alignment = 16 : memref<1xi64>
   affine.for %i = 0 to 1 {
     %v = affine.load %src[%i] : memref<1xi64>
     affine.store %v, %alloc[%i] : memref<1xi64>
@@ -62,7 +62,7 @@ func.func @eliminate_loop_with_intermediate_computation() {
   %src = "krnl.global"() <{name = "shape_cst2", shape = [1],
       value = dense<48> : tensor<1xi64>}> : () -> memref<1xi64>
   %c2  = arith.constant 2 : i64
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<1xi64>
+  %alloc = memref.alloc() alignment = 16 : memref<1xi64>
   affine.for %i = 0 to 1 {
     %v  = affine.load %src[%i] : memref<1xi64>
     %v2 = arith.muli %v, %c2 : i64
@@ -82,7 +82,7 @@ func.func @eliminate_loop_with_intermediate_computation() {
 // memref.dealloc is also cleaned up when the alloc is eliminated.
 func.func @eliminate_with_dealloc() {
   %v = arith.constant 7 : i64
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<1xi64>
+  %alloc = memref.alloc() alignment = 16 : memref<1xi64>
   affine.store %v, %alloc[0] : memref<1xi64>
   memref.dealloc %alloc : memref<1xi64>
   return
@@ -100,7 +100,7 @@ func.func @eliminate_with_dealloc() {
 // too, and the now-empty loop is removed.  The old hardcoded affine.load-only
 // path would have left the memref.load and the loop behind.
 func.func @generalized_memref_load_cleanup(%src: memref<1xi64>) {
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<1xi64>
+  %alloc = memref.alloc() alignment = 16 : memref<1xi64>
   %c0 = arith.constant 0 : index
   affine.for %i = 0 to 1 {
     %v = memref.load %src[%c0] : memref<1xi64>
@@ -123,8 +123,8 @@ func.func @generalized_memref_load_cleanup(%src: memref<1xi64>) {
 // incorrectly erased the loop.  The interface-based check sees the Write effect
 // on the live store and correctly preserves the loop.
 func.func @keep_loop_with_live_write(%arg0: i64) -> memref<1xi64> {
-  %dead = memref.alloc() {alignment = 16 : i64} : memref<1xi64>
-  %live = memref.alloc() {alignment = 16 : i64} : memref<1xi64>
+  %dead = memref.alloc() alignment = 16 : memref<1xi64>
+  %live = memref.alloc() alignment = 16 : memref<1xi64>
   affine.for %i = 0 to 1 {
     affine.store %arg0, %dead[0] : memref<1xi64>
     affine.store %arg0, %live[0] : memref<1xi64>
@@ -142,7 +142,7 @@ func.func @keep_loop_with_live_write(%arg0: i64) -> memref<1xi64> {
 // Alloc that is read from must NOT be eliminated.
 func.func @keep_when_loaded() -> i64 {
   %v = arith.constant 5 : i64
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<1xi64>
+  %alloc = memref.alloc() alignment = 16 : memref<1xi64>
   affine.store %v, %alloc[0] : memref<1xi64>
   %result = affine.load %alloc[0] : memref<1xi64>
   memref.dealloc %alloc : memref<1xi64>
@@ -159,7 +159,7 @@ func.func @keep_when_loaded() -> i64 {
 // Alloc that escapes via return must NOT be eliminated.
 func.func @keep_when_returned() -> memref<1xi64> {
   %v = arith.constant 9 : i64
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<1xi64>
+  %alloc = memref.alloc() alignment = 16 : memref<1xi64>
   affine.store %v, %alloc[0] : memref<1xi64>
   return %alloc : memref<1xi64>
 

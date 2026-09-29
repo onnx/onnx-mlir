@@ -20,7 +20,7 @@
 // a quoted mention inside prose splits the file mid-sentence.)
 
 func.func @collapse_base(%arg0: memref<10x20xf32> {onnx.name = "x"}) -> (memref<10x20xf32> {onnx.name = "y"}) {
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<10x20xf32>
+  %alloc = memref.alloc() alignment = 16 : memref<10x20xf32>
   %ii, %jj = krnl.define_loops 2
   krnl.iterate(%ii, %jj) with (%ii -> %i = 0 to 10, %jj -> %j = 0 to 20) {
     %a, %b = krnl.get_induction_var_value(%ii, %jj) : (!krnl.loop, !krnl.loop) -> (index, index)
@@ -39,7 +39,7 @@ func.func @collapse_base(%arg0: memref<10x20xf32> {onnx.name = "x"}) -> (memref<
 // -----
 
 func.func @collapse_then_parallel(%arg0: memref<10x20xf32> {onnx.name = "x"}) -> (memref<10x20xf32> {onnx.name = "y"}) {
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<10x20xf32>
+  %alloc = memref.alloc() alignment = 16 : memref<10x20xf32>
   %ii, %jj = krnl.define_loops 2
   krnl.iterate(%ii, %jj) with (%ii -> %i = 0 to 10, %jj -> %j = 0 to 20) {
     %a, %b = krnl.get_induction_var_value(%ii, %jj) : (!krnl.loop, !krnl.loop) -> (index, index)
@@ -58,7 +58,7 @@ func.func @collapse_then_parallel(%arg0: memref<10x20xf32> {onnx.name = "x"}) ->
 // -----
 
 func.func @collapse_then_permute(%arg0: memref<4x5x6xf32> {onnx.name = "x"}) -> (memref<4x5x6xf32> {onnx.name = "y"}) {
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<4x5x6xf32>
+  %alloc = memref.alloc() alignment = 16 : memref<4x5x6xf32>
   %ii, %jj, %kk = krnl.define_loops 3
   krnl.iterate(%ii, %jj, %kk) with (%ii -> %i = 0 to 4, %jj -> %j = 0 to 5, %kk -> %k = 0 to 6) {
     %a, %b, %c = krnl.get_induction_var_value(%ii, %jj, %kk) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
@@ -80,7 +80,7 @@ func.func @collapse_then_permute(%arg0: memref<4x5x6xf32> {onnx.name = "x"}) -> 
 // -----
 
 func.func @collapse_three_dims(%arg0: memref<4x5x6xf32> {onnx.name = "x"}) -> (memref<4x5x6xf32> {onnx.name = "y"}) {
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<4x5x6xf32>
+  %alloc = memref.alloc() alignment = 16 : memref<4x5x6xf32>
   %ii, %jj, %kk = krnl.define_loops 3
   krnl.iterate(%ii, %jj, %kk) with (%ii -> %i = 0 to 4, %jj -> %j = 0 to 5, %kk -> %k = 0 to 6) {
     %a, %b, %c = krnl.get_induction_var_value(%ii, %jj, %kk) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
@@ -103,7 +103,7 @@ func.func @collapse_three_dims(%arg0: memref<4x5x6xf32> {onnx.name = "x"}) -> (m
 
 func.func @collapse_lb_zero_via_constant(%arg0: memref<10x20xf32> {onnx.name = "x"}) -> (memref<10x20xf32> {onnx.name = "y"}) {
   %c0 = arith.constant 0 : index
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<10x20xf32>
+  %alloc = memref.alloc() alignment = 16 : memref<10x20xf32>
   %ii, %jj = krnl.define_loops 2
   krnl.iterate(%ii, %jj) with (%ii -> %i = %c0 to 10, %jj -> %j = %c0 to 20) {
     %a, %b = krnl.get_induction_var_value(%ii, %jj) : (!krnl.loop, !krnl.loop) -> (index, index)
@@ -122,7 +122,7 @@ func.func @collapse_lb_zero_via_constant(%arg0: memref<10x20xf32> {onnx.name = "
 // -----
 
 func.func @collapse_raw_fused_index(%arg0: memref<200xf32> {onnx.name = "x"}) -> (memref<200xf32> {onnx.name = "y"}) {
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<200xf32>
+  %alloc = memref.alloc() alignment = 16 : memref<200xf32>
   %ii, %jj = krnl.define_loops 2
   krnl.iterate(%ii, %jj) with (%ii -> %i = 0 to 10, %jj -> %j = 0 to 20) {
     %a, %b = krnl.get_induction_var_value(%ii, %jj) : (!krnl.loop, !krnl.loop) -> (index, index)
@@ -145,7 +145,7 @@ func.func @collapse_dynamic_dims(%arg0: memref<?x?xf32> {onnx.name = "x"}) -> (m
   %c1 = arith.constant 1 : index
   %d0 = memref.dim %arg0, %c0 : memref<?x?xf32>
   %d1 = memref.dim %arg0, %c1 : memref<?x?xf32>
-  %alloc = memref.alloc(%d0, %d1) {alignment = 16 : i64} : memref<?x?xf32>
+  %alloc = memref.alloc(%d0, %d1) alignment = 16 : memref<?x?xf32>
   %ii, %jj = krnl.define_loops 2
   krnl.iterate(%ii, %jj) with (%ii -> %i = 0 to %d0, %jj -> %j = 0 to %d1) {
     %a, %b = krnl.get_induction_var_value(%ii, %jj) : (!krnl.loop, !krnl.loop) -> (index, index)
@@ -165,7 +165,7 @@ func.func @collapse_dynamic_dims(%arg0: memref<?x?xf32> {onnx.name = "x"}) -> (m
 func.func @collapse_dynamic_and_static_dims(%arg0: memref<?x20xf32> {onnx.name = "x"}) -> (memref<?x20xf32> {onnx.name = "y"}) {
   %c0 = arith.constant 0 : index
   %d0 = memref.dim %arg0, %c0 : memref<?x20xf32>
-  %alloc = memref.alloc(%d0) {alignment = 16 : i64} : memref<?x20xf32>
+  %alloc = memref.alloc(%d0) alignment = 16 : memref<?x20xf32>
   %ii, %jj = krnl.define_loops 2
   krnl.iterate(%ii, %jj) with (%ii -> %i = 0 to %d0, %jj -> %j = 0 to 20) {
     %a, %b = krnl.get_induction_var_value(%ii, %jj) : (!krnl.loop, !krnl.loop) -> (index, index)
@@ -188,7 +188,7 @@ func.func @collapse_dynamic_then_parallel(%arg0: memref<?x?xf32> {onnx.name = "x
   %c1 = arith.constant 1 : index
   %d0 = memref.dim %arg0, %c0 : memref<?x?xf32>
   %d1 = memref.dim %arg0, %c1 : memref<?x?xf32>
-  %alloc = memref.alloc(%d0, %d1) {alignment = 16 : i64} : memref<?x?xf32>
+  %alloc = memref.alloc(%d0, %d1) alignment = 16 : memref<?x?xf32>
   %ii, %jj = krnl.define_loops 2
   krnl.iterate(%ii, %jj) with (%ii -> %i = 0 to %d0, %jj -> %j = 0 to %d1) {
     %a, %b = krnl.get_induction_var_value(%ii, %jj) : (!krnl.loop, !krnl.loop) -> (index, index)
@@ -206,7 +206,7 @@ func.func @collapse_dynamic_then_parallel(%arg0: memref<?x?xf32> {onnx.name = "x
 // -----
 
 func.func @collapse_two_sibling_groups(%arg0: memref<4x5x6x7xf32> {onnx.name = "x"}) -> (memref<4x5x6x7xf32> {onnx.name = "y"}) {
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<4x5x6x7xf32>
+  %alloc = memref.alloc() alignment = 16 : memref<4x5x6x7xf32>
   %ii, %jj, %kk, %ll = krnl.define_loops 4
   krnl.iterate(%ii, %jj, %kk, %ll) with (%ii -> %i = 0 to 4, %jj -> %j = 0 to 5, %kk -> %k = 0 to 6, %ll -> %l = 0 to 7) {
     %a, %b, %c, %d = krnl.get_induction_var_value(%ii, %jj, %kk, %ll) : (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index, index)
@@ -231,7 +231,7 @@ func.func @collapse_two_sibling_groups(%arg0: memref<4x5x6x7xf32> {onnx.name = "
 // -----
 
 func.func @collapse_two_groups_and_plain_loop(%arg0: memref<2x3x4x5x6x7xf32> {onnx.name = "x"}) -> (memref<2x3x4x5x6x7xf32> {onnx.name = "y"}) {
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<2x3x4x5x6x7xf32>
+  %alloc = memref.alloc() alignment = 16 : memref<2x3x4x5x6x7xf32>
   %d0, %d1, %d2, %d3, %d4, %d5 = krnl.define_loops 6
   krnl.iterate(%d0, %d1, %d2, %d3, %d4, %d5) with (%d0 -> %i0 = 0 to 2, %d1 -> %i1 = 0 to 3, %d2 -> %i2 = 0 to 4, %d3 -> %i3 = 0 to 5, %d4 -> %i4 = 0 to 6, %d5 -> %i5 = 0 to 7) {
     %a, %b, %c, %d, %e, %g = krnl.get_induction_var_value(%d0, %d1, %d2, %d3, %d4, %d5) : (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index, index, index, index)
@@ -262,7 +262,7 @@ func.func @collapse_two_groups_and_plain_loop(%arg0: memref<2x3x4x5x6x7xf32> {on
 // -----
 
 func.func @collapse_fused_index_two_groups(%arg0: memref<5040xf32> {onnx.name = "x"}) -> (memref<5040xf32> {onnx.name = "y"}) {
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<5040xf32>
+  %alloc = memref.alloc() alignment = 16 : memref<5040xf32>
   %d0, %d1, %d2, %d3, %d4, %d5 = krnl.define_loops 6
   krnl.iterate(%d0, %d1, %d2, %d3, %d4, %d5) with (%d0 -> %i0 = 0 to 2, %d1 -> %i1 = 0 to 3, %d2 -> %i2 = 0 to 4, %d3 -> %i3 = 0 to 5, %d4 -> %i4 = 0 to 6, %d5 -> %i5 = 0 to 7) {
     // The two fused indices the collapsed variant queries, derived by hand: %p is
@@ -295,7 +295,7 @@ func.func @collapse_fused_index_two_groups(%arg0: memref<5040xf32> {onnx.name = 
 // -----
 
 func.func @collapse_nested_iterate_outer(%arg0: memref<4x5x6x7xf32> {onnx.name = "x"}) -> (memref<4x5x6x7xf32> {onnx.name = "y"}) {
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<4x5x6x7xf32>
+  %alloc = memref.alloc() alignment = 16 : memref<4x5x6x7xf32>
   %ii, %jj, %kk, %ll = krnl.define_loops 4
   krnl.iterate(%ii, %jj) with (%ii -> %i = 0 to 4, %jj -> %j = 0 to 5) {
     %a, %b = krnl.get_induction_var_value(%ii, %jj) : (!krnl.loop, !krnl.loop) -> (index, index)
@@ -323,7 +323,7 @@ func.func @collapse_nested_iterate_outer(%arg0: memref<4x5x6x7xf32> {onnx.name =
 // -----
 
 func.func @collapse_nested_iterate_inner(%arg0: memref<4x5x6x7xf32> {onnx.name = "x"}) -> (memref<4x5x6x7xf32> {onnx.name = "y"}) {
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<4x5x6x7xf32>
+  %alloc = memref.alloc() alignment = 16 : memref<4x5x6x7xf32>
   %ii, %jj, %kk, %ll = krnl.define_loops 4
   krnl.iterate(%ii, %jj) with (%ii -> %i = 0 to 4, %jj -> %j = 0 to 5) {
     %a, %b = krnl.get_induction_var_value(%ii, %jj) : (!krnl.loop, !krnl.loop) -> (index, index)
@@ -351,7 +351,7 @@ func.func @collapse_nested_iterate_inner(%arg0: memref<4x5x6x7xf32> {onnx.name =
 // -----
 
 func.func @collapse_nested_iterate_both(%arg0: memref<4x5x6x7xf32> {onnx.name = "x"}) -> (memref<4x5x6x7xf32> {onnx.name = "y"}) {
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<4x5x6x7xf32>
+  %alloc = memref.alloc() alignment = 16 : memref<4x5x6x7xf32>
   %ii, %jj, %kk, %ll = krnl.define_loops 4
   krnl.iterate(%ii, %jj) with (%ii -> %i = 0 to 4, %jj -> %j = 0 to 5) {
     %a, %b = krnl.get_induction_var_value(%ii, %jj) : (!krnl.loop, !krnl.loop) -> (index, index)
@@ -387,7 +387,7 @@ func.func @collapse_nested_iterate_both_dynamic(%arg0: memref<?x?x?x?xf32> {onnx
   %d1 = memref.dim %arg0, %c1 : memref<?x?x?x?xf32>
   %d2 = memref.dim %arg0, %c2 : memref<?x?x?x?xf32>
   %d3 = memref.dim %arg0, %c3 : memref<?x?x?x?xf32>
-  %alloc = memref.alloc(%d0, %d1, %d2, %d3) {alignment = 16 : i64} : memref<?x?x?x?xf32>
+  %alloc = memref.alloc(%d0, %d1, %d2, %d3) alignment = 16 : memref<?x?x?x?xf32>
   %ii, %jj, %kk, %ll = krnl.define_loops 4
   krnl.iterate(%ii, %jj) with (%ii -> %i = 0 to %d0, %jj -> %j = 0 to %d1) {
     %a, %b = krnl.get_induction_var_value(%ii, %jj) : (!krnl.loop, !krnl.loop) -> (index, index)
@@ -412,7 +412,7 @@ func.func @collapse_nested_iterate_both_dynamic(%arg0: memref<?x?x?x?xf32> {onnx
 // -----
 
 func.func @collapse_nested_iterate_both_then_parallel(%arg0: memref<4x5x6x7xf32> {onnx.name = "x"}) -> (memref<4x5x6x7xf32> {onnx.name = "y"}) {
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<4x5x6x7xf32>
+  %alloc = memref.alloc() alignment = 16 : memref<4x5x6x7xf32>
   %ii, %jj, %kk, %ll = krnl.define_loops 4
   krnl.iterate(%ii, %jj) with (%ii -> %i = 0 to 4, %jj -> %j = 0 to 5) {
     %a, %b = krnl.get_induction_var_value(%ii, %jj) : (!krnl.loop, !krnl.loop) -> (index, index)

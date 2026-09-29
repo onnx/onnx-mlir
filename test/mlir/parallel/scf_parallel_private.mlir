@@ -7,14 +7,14 @@ func.func @add_with_par(%arg0: memref<16x8x128xf32>) -> (memref<16x8x128xf32>)  
   %c32 = arith.constant 32 : index
   %c0 = arith.constant 0 : index
   %c16384 = arith.constant 16384 : index
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<16x8x128xf32>
-  %alloc_0 = memref.alloc() {alignment = 16 : i64} : memref<1xindex>
+  %alloc = memref.alloc() alignment = 16 : memref<16x8x128xf32>
+  %alloc_0 = memref.alloc() alignment = 16 : memref<1xindex>
   memref.store %c16384, %alloc_0[%c0] : memref<1xindex>
   %reshape = memref.reshape %arg0(%alloc_0) : (memref<16x8x128xf32>, memref<1xindex>) -> memref<16384xf32>
-  %alloc_1 = memref.alloc() {alignment = 16 : i64} : memref<1xindex>
+  %alloc_1 = memref.alloc() alignment = 16 : memref<1xindex>
   memref.store %c16384, %alloc_1[%c0] : memref<1xindex>
   %reshape_2 = memref.reshape %arg0(%alloc_1) : (memref<16x8x128xf32>, memref<1xindex>) -> memref<16384xf32>
-  %alloc_3 = memref.alloc() {alignment = 16 : i64} : memref<1xindex>
+  %alloc_3 = memref.alloc() alignment = 16 : memref<1xindex>
   memref.store %c16384, %alloc_3[%c0] : memref<1xindex>
   %reshape_4 = memref.reshape %alloc(%alloc_3) : (memref<16x8x128xf32>, memref<1xindex>) -> memref<16384xf32>
   scf.parallel (%arg1) = (%c0) to (%c16384) step (%c32) {
