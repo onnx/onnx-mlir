@@ -9,7 +9,7 @@
 func.func @layernorm_4D_with_scale_bias(%arg0: tensor<2x64x32x8xf32>, %arg1: tensor<32x8xf32>, %arg2: tensor<32x8xf32>) -> tensor<*xf32> {
   %0 = "onnx.NoValue"() {value} : () -> none
   %Y, %Mean, %InvStdDev = "onnx.LayerNormalization"(%arg0, %arg1, %arg2) {axis = -2 : si64, epsilon = 9.99999974E-6 : f32, stash_type = 1 : si64} : (tensor<2x64x32x8xf32>, tensor<32x8xf32>, tensor<32x8xf32>) -> (tensor<*xf32>, tensor<*xf32>, tensor<*xf32>)
-  onnx.Return %Y : tensor<*xf32>
+  "func.return"(%Y) : (tensor<*xf32>) -> ()
 
 // mlir2FileCheck.py
 // CHECK-LABEL:  func.func @layernorm_4D_with_scale_bias
@@ -18,7 +18,7 @@ func.func @layernorm_4D_with_scale_bias(%arg0: tensor<2x64x32x8xf32>, %arg1: ten
 // CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to 128){
 // CHECK:             affine.for [[I_1_:%.+]] = 0 to 256 step 16 {
 // CHECK:             affine.for [[I_2_:%.+]] = 0 to 256 step 16 {
-// CHECK:           onnx.Return [[VAR_1_:%.+]] : tensor<2x64x32x8xf32>
+// CHECK:           return {{.*}} : memref<2x64x32x8xf32>
 }
 
 // -----
@@ -28,7 +28,7 @@ func.func @layernorm_4D_with_scale_bias(%arg0: tensor<2x64x32x8xf32>, %arg1: ten
 func.func @layernorm_4D_with_scale_bias_no_SIMD(%arg0: tensor<2x64x31x3xf32>, %arg1: tensor<31x3xf32>, %arg2: tensor<31x3xf32>) -> tensor<*xf32> {
   %0 = "onnx.NoValue"() {value} : () -> none
   %Y, %Mean, %InvStdDev = "onnx.LayerNormalization"(%arg0, %arg1, %arg2) {axis = -2 : si64, epsilon = 9.99999974E-6 : f32, stash_type = 1 : si64} : (tensor<2x64x31x3xf32>, tensor<31x3xf32>, tensor<31x3xf32>) -> (tensor<*xf32>, tensor<*xf32>, tensor<*xf32>)
-  onnx.Return %Y : tensor<*xf32>
+  "func.return"(%Y) : (tensor<*xf32>) -> ()
 
 // mlir2FileCheck.py
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0 + 1)>
@@ -439,7 +439,6 @@ func.func @layernorm_4D_with_scale_bias_no_SIMD(%arg0: tensor<2x64x31x3xf32>, %a
 // CHECK:             }
 // CHECK:           }
 // CHECK:           [[RES_41_:%.+]] = memref.alloc() {{.*}}: memref<2x64x31x3xf32>
-// CHECK-DAG:       [[VAR_6_:%.+]] = builtin.unrealized_conversion_cast [[RES_41_]] : memref<2x64x31x3xf32> to tensor<2x64x31x3xf32>
 // CHECK-DAG:       [[RES_42_:%.+]] = memref.alloc() {{.*}}: memref<3xindex>
 // CHECK:           affine.store [[CST_2_]], [[RES_42_]][0] : memref<3xindex>
 // CHECK:           affine.store [[CST_64_]], [[RES_42_]][1] : memref<3xindex>
@@ -475,7 +474,7 @@ func.func @layernorm_4D_with_scale_bias_no_SIMD(%arg0: tensor<2x64x31x3xf32>, %a
 // CHECK:               krnl.store [[LOAD_VAR_reshape_MEM_6_1_1_1_1_]], [[VAR_reshape_75_]]{{.}}[[VAR_8_5_]]#0, [[VAR_8_5_]]#1, [[VAR_11_12_]]{{.}} : memref<2x64x93xf32>
 // CHECK:             }
 // CHECK:           }
-// CHECK:           onnx.Return [[VAR_6_]] : tensor<2x64x31x3xf32>
+// CHECK:           return {{.*}} : memref<2x64x31x3xf32>
 // CHECK:         }
 }
 
@@ -485,7 +484,7 @@ func.func @layernorm_4D_with_scale_bias_no_SIMD(%arg0: tensor<2x64x31x3xf32>, %a
 func.func @layernorm_4D_with_scale_bias_with_high_dims(%arg0: tensor<2x64x32x8xf32>, %arg1: tensor<2x64x32x8xf32>, %arg2: tensor<64x32x8xf32>) -> tensor<*xf32> {
   %0 = "onnx.NoValue"() {value} : () -> none
   %Y, %Mean, %InvStdDev = "onnx.LayerNormalization"(%arg0, %arg1, %arg2) {axis = -2 : si64, epsilon = 9.99999974E-6 : f32, stash_type = 1 : si64} : (tensor<2x64x32x8xf32>, tensor<2x64x32x8xf32>, tensor<64x32x8xf32>) -> (tensor<*xf32>, tensor<*xf32>, tensor<*xf32>)
-  onnx.Return %Y : tensor<*xf32>
+  "func.return"(%Y) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func.func @layernorm_4D_with_scale_bias_with_high_dims
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<2x64x32x8xf32>, [[PARAM_1_:%.+]]: memref<2x64x32x8xf32>, [[PARAM_2_:%.+]]: memref<64x32x8xf32>) -> memref<2x64x32x8xf32> {
