@@ -11,7 +11,7 @@ func.func @krnl_matmul_seq_perfect_blocks(%arg0: memref<128x256xf32>, %arg1: mem
   %c128 = arith.constant 128 : index
   %c256 = arith.constant 256 : index
   %c512 = arith.constant 512 : index
-  %alloc = memref.alloc() {alignment = 128 : i64} : memref<128x512xf32>
+  %alloc = memref.alloc() alignment = 128 : memref<128x512xf32>
   krnl.memset %alloc, %cst : memref<128x512xf32>
   %0:3 = krnl.define_loops 3
   %loop_block, %loop_local = krnl.block %0#0 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
@@ -22,8 +22,8 @@ func.func @krnl_matmul_seq_perfect_blocks(%arg0: memref<128x256xf32>, %arg1: mem
   krnl.permute(%loop_block_2, %loop_block_4, %loop_local_5, %loop_block_6, %loop_local_7, %loop_block, %loop_block_0, %loop_local_1) [0, 3, 5, 1, 6, 2, 4, 7] : !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop
   krnl.iterate(%loop_block_2, %loop_block_6) with (%0#1 -> %arg2 = 0 to 512, %0#2 -> %arg3 = 0 to 256, %0#0 -> %arg4 = 0 to 128){
     %1:2 = krnl.get_induction_var_value(%loop_block_2, %loop_block_6) : (!krnl.loop, !krnl.loop) -> (index, index)
-    %alloc_8 = memref.alloc() {alignment = 128 : i64} : memref<32x256xf32>
-    %alloc_9 = memref.alloc() {alignment = 128 : i64} : memref<256x64xf32>
+    %alloc_8 = memref.alloc() alignment = 128 : memref<32x256xf32>
+    %alloc_9 = memref.alloc() alignment = 128 : memref<256x64xf32>
     krnl.copy_to_tile_buffer %alloc_9, %arg1[%1#1, %1#0], %cst {padToNext = [], tileSize = []} : memref<256x64xf32>, memref<256x512xf32>
     krnl.iterate(%loop_block) with (){
       %2 = krnl.get_induction_var_value(%loop_block) : (!krnl.loop) -> index
@@ -242,7 +242,7 @@ func.func @krnl_matmul_seq_partial_blocks(%arg0: memref<127x255xf32> {onnx.name 
   %c127 = arith.constant 127 : index
   %c255 = arith.constant 255 : index
   %c63 = arith.constant 63 : index
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<127x63xf32>
+  %alloc = memref.alloc() alignment = 16 : memref<127x63xf32>
   krnl.memset %alloc, %cst : memref<127x63xf32>
   %0:3 = krnl.define_loops 3
   %loop_block, %loop_local = krnl.block %0#0 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)

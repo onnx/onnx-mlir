@@ -5,7 +5,7 @@
 
 #map = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
 func.func @test_stick_expansion_with_sat(%arg0: memref<16x8x128xf32>) -> memref<16x8x128xf16, #map> {
-  %alloc = memref.alloc() {alignment = 4096 : i64} : memref<16x8x128xf16, #map>
+  %alloc = memref.alloc() alignment = 4096 : memref<16x8x128xf16, #map>
   "zlow.stick"(%arg0, %alloc) {layout = "3DS"} : (memref<16x8x128xf32>, memref<16x8x128xf16, #map>) -> ()
   return %alloc : memref<16x8x128xf16, #map>
 
@@ -100,7 +100,7 @@ func.func @test_stick_expansion_with_sat(%arg0: memref<16x8x128xf32>) -> memref<
 
 #map = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
 func.func @test_stick_expansion_without_sat(%arg0: memref<16x8x128xf32>) -> memref<16x8x128xf16, #map> {
-  %alloc = memref.alloc() {alignment = 4096 : i64} : memref<16x8x128xf16, #map>
+  %alloc = memref.alloc() alignment = 4096 : memref<16x8x128xf16, #map>
   "zlow.stick"(%arg0, %alloc) {layout = "3DS", no_saturation = -1 : si64} : (memref<16x8x128xf32>, memref<16x8x128xf16, #map>) -> ()
   return %alloc : memref<16x8x128xf16, #map>
 
@@ -175,7 +175,7 @@ func.func @test_stick_expansion_without_sat(%arg0: memref<16x8x128xf32>) -> memr
 
 #map = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
 func.func @test_unstick_expansion(%arg0: memref<16x8x128xf16, #map>) -> memref<16x8x128xf32> {
-  %alloc = memref.alloc() {alignment = 4096 : i64} : memref<16x8x128xf32>
+  %alloc = memref.alloc() alignment = 4096 : memref<16x8x128xf32>
   "zlow.unstick"(%arg0, %alloc) {layout = "3DS"} : (memref<16x8x128xf16, #map>, memref<16x8x128xf32>) -> ()
   return %alloc : memref<16x8x128xf32>
 
@@ -258,7 +258,7 @@ func.func @test_unstick_expansion(%arg0: memref<16x8x128xf16, #map>) -> memref<1
 
 #map = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
 func.func @test_unstick_expansion_127(%arg0: memref<16x8x127xf16, #map>) -> memref<16x8x127xf32> {
-  %alloc = memref.alloc() {alignment = 4096 : i64} : memref<16x8x127xf32>
+  %alloc = memref.alloc() alignment = 4096 : memref<16x8x127xf32>
   "zlow.unstick"(%arg0, %alloc) {layout = "3DS"} : (memref<16x8x127xf16, #map>, memref<16x8x127xf32>) -> ()
   return %alloc : memref<16x8x127xf32>
 
