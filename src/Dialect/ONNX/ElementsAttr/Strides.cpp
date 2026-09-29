@@ -15,6 +15,15 @@
 
 #include <algorithm>
 
+// SSE2 is part of the x86-64 ABI baseline (guaranteed present on every
+// x86-64 target, unlike AVX2/AVX-512), so this needs no runtime CPU-feature
+// dispatch. Every other target (e.g. AArch64, z/OS/s390x) keeps the portable
+// scalar path below unchanged.
+#if defined(__x86_64__) || defined(_M_X64)
+#define ONNX_MLIR_HAS_SSE2_BYTE_TRANSPOSE 1
+#include <emmintrin.h>
+#endif
+
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -187,6 +196,59 @@ SmallVector<uint64_t, 4> unflattenIndex(
 }
 
 namespace {
+
+#if ONNX_MLIR_HAS_SSE2_BYTE_TRANSPOSE
+// Transposes a 16x16 byte block: `src` points at column 0, with consecutive
+// columns `rows` bytes apart; `dst` points at row 0, with consecutive rows
+// `columns` bytes apart. Uses the standard SSE2 unpack "butterfly" network:
+// stages of unpacklo/unpackhi at doubling granularity (1, 2, 4, 8 bytes)
+// transpose the data, but leave the 16 result registers in riffle-shuffle
+// order rather than natural row order (a well-known property of this class
+// of network) -- `perm` below undoes that on the store.
+inline void transpose16x16Bytes(
+    const char *src, int64_t rows, char *dst, int64_t columns) {
+  __m128i in[16];
+  for (int c = 0; c < 16; ++c)
+    in[c] = _mm_loadu_si128(
+        reinterpret_cast<const __m128i *>(src + (int64_t)c * rows));
+
+  __m128i a[16];
+  for (int i = 0; i < 8; ++i) {
+    a[2 * i] = _mm_unpacklo_epi8(in[2 * i], in[2 * i + 1]);
+    a[2 * i + 1] = _mm_unpackhi_epi8(in[2 * i], in[2 * i + 1]);
+  }
+  __m128i b[16];
+  for (int i = 0; i < 4; ++i) {
+    b[4 * i + 0] = _mm_unpacklo_epi16(a[4 * i + 0], a[4 * i + 2]);
+    b[4 * i + 1] = _mm_unpackhi_epi16(a[4 * i + 0], a[4 * i + 2]);
+    b[4 * i + 2] = _mm_unpacklo_epi16(a[4 * i + 1], a[4 * i + 3]);
+    b[4 * i + 3] = _mm_unpackhi_epi16(a[4 * i + 1], a[4 * i + 3]);
+  }
+  __m128i c[16];
+  for (int i = 0; i < 2; ++i) {
+    c[8 * i + 0] = _mm_unpacklo_epi32(b[8 * i + 0], b[8 * i + 4]);
+    c[8 * i + 1] = _mm_unpackhi_epi32(b[8 * i + 0], b[8 * i + 4]);
+    c[8 * i + 2] = _mm_unpacklo_epi32(b[8 * i + 1], b[8 * i + 5]);
+    c[8 * i + 3] = _mm_unpackhi_epi32(b[8 * i + 1], b[8 * i + 5]);
+    c[8 * i + 4] = _mm_unpacklo_epi32(b[8 * i + 2], b[8 * i + 6]);
+    c[8 * i + 5] = _mm_unpackhi_epi32(b[8 * i + 2], b[8 * i + 6]);
+    c[8 * i + 6] = _mm_unpacklo_epi32(b[8 * i + 3], b[8 * i + 7]);
+    c[8 * i + 7] = _mm_unpackhi_epi32(b[8 * i + 3], b[8 * i + 7]);
+  }
+  __m128i d[16];
+  for (int i = 0; i < 8; ++i) {
+    d[i] = _mm_unpacklo_epi64(c[i], c[i + 8]);
+    d[i + 8] = _mm_unpackhi_epi64(c[i], c[i + 8]);
+  }
+  static constexpr int perm[16] = {
+      0, 2, 4, 6, 8, 10, 12, 14, 1, 3, 5, 7, 9, 11, 13, 15};
+  for (int slot = 0; slot < 16; ++slot)
+    _mm_storeu_si128(
+        reinterpret_cast<__m128i *>(dst + (int64_t)perm[slot] * columns),
+        d[slot]);
+}
+#endif // ONNX_MLIR_HAS_SSE2_BYTE_TRANSPOSE
+
 bool restrideByteMatrixTranspose(ArrayRef<int64_t> shape,
     ArrayRef<int64_t> srcStrides, ArrayRef<char> src,
     MutableArrayRef<char> dst) {
@@ -208,6 +270,26 @@ bool restrideByteMatrixTranspose(ArrayRef<int64_t> shape,
       dst.size() != src.size())
     return false;
 
+#if ONNX_MLIR_HAS_SSE2_BYTE_TRANSPOSE
+  // Tile size is the SSE2 register width (16 bytes): a hardware constant
+  // that applies uniformly to every shape, not a per-model tuned parameter.
+  constexpr int64_t tileSize = 16;
+  const int64_t rowTiledEnd = rows - (rows % tileSize);
+  const int64_t columnTiledEnd = columns - (columns % tileSize);
+  for (int64_t rowBase = 0; rowBase < rowTiledEnd; rowBase += tileSize)
+    for (int64_t columnBase = 0; columnBase < columnTiledEnd;
+        columnBase += tileSize)
+      transpose16x16Bytes(src.data() + columnBase * rows + rowBase, rows,
+          dst.data() + rowBase * columns + columnBase, columns);
+  // Ragged remainder: rows/columns not divisible by the tile size.
+  for (int64_t row = 0; row < rows; ++row)
+    for (int64_t column = (row < rowTiledEnd ? columnTiledEnd : 0);
+        column < columns; ++column)
+      dst[row * columns + column] = src[column * rows + row];
+  for (int64_t row = rowTiledEnd; row < rows; ++row)
+    for (int64_t column = 0; column < columnTiledEnd; ++column)
+      dst[row * columns + column] = src[column * rows + row];
+#else
   constexpr int64_t tileSize = 32;
   for (int64_t rowBase = 0; rowBase < rows; rowBase += tileSize) {
     const int64_t rowEnd = std::min(rowBase + tileSize, rows);
@@ -218,6 +300,7 @@ bool restrideByteMatrixTranspose(ArrayRef<int64_t> shape,
           dst[row * columns + column] = src[column * rows + row];
     }
   }
+#endif // ONNX_MLIR_HAS_SSE2_BYTE_TRANSPOSE
   return true;
 }
 

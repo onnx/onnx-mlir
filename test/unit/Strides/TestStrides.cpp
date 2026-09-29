@@ -61,8 +61,8 @@ public:
   int test_restrideArray_transpose() {
     std::cout << "test_restrideArray_transpose:" << std::endl;
     int failures = 0;
-    for (int64_t rows : {2, 7, 31, 32, 33, 65}) {
-      for (int64_t columns : {2, 13, 31, 32, 33, 129}) {
+    for (int64_t rows : {2, 7, 15, 16, 17, 31, 32, 33, 65}) {
+      for (int64_t columns : {2, 13, 15, 16, 17, 31, 32, 33, 129}) {
         failures += test_restrideArray<uint8_t>({rows, columns}, {1, rows});
         failures += test_restrideArray<int8_t>({rows, columns}, {1, rows});
         failures += test_restrideArray<uint8_t>(
