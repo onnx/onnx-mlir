@@ -185,9 +185,12 @@ func.func @transpose_qdq_diff_scale() -> tensor<2x1xui8> {
   return %q : tensor<2x1xui8>
 }
 
+// BypassShapeOpThroughDQ folds the Transpose into the constant, but the
+// mismatched Q/DQ pair must remain.
 // CHECK-LABEL: @transpose_qdq_diff_scale
+// CHECK: onnx.Constant dense<{{\[}}[10], [20]]> : tensor<2x1xui8>
 // CHECK: onnx.DequantizeLinear
-// CHECK: onnx.Transpose
+// CHECK-NOT: onnx.Transpose
 // CHECK: onnx.QuantizeLinear
 
 // -----
@@ -204,9 +207,12 @@ func.func @transpose_qdq_diff_zp() -> tensor<2x1xui8> {
   return %q : tensor<2x1xui8>
 }
 
+// BypassShapeOpThroughDQ folds the Transpose into the constant, but the
+// mismatched Q/DQ pair must remain.
 // CHECK-LABEL: @transpose_qdq_diff_zp
+// CHECK: onnx.Constant dense<{{\[}}[10], [20]]> : tensor<2x1xui8>
 // CHECK: onnx.DequantizeLinear
-// CHECK: onnx.Transpose
+// CHECK-NOT: onnx.Transpose
 // CHECK: onnx.QuantizeLinear
 
 // -----
@@ -239,10 +245,13 @@ func.func @transpose_qdq_multi_use() -> (tensor<2x1xui8>, tensor<2x1xf32>) {
   return %q, %t : tensor<2x1xui8>, tensor<2x1xf32>
 }
 
+// BypassShapeOpThroughDQ pushes the Transpose into the constant for both
+// users; with matching Q/DQ scales the Q result collapses back to the const.
 // CHECK-LABEL: @transpose_qdq_multi_use
+// CHECK: onnx.Constant dense<{{\[}}[10], [20]]> : tensor<2x1xui8>
 // CHECK: onnx.DequantizeLinear
-// CHECK: onnx.Transpose
-// CHECK: onnx.QuantizeLinear
+// CHECK-NOT: onnx.Transpose
+// CHECK-NOT: onnx.QuantizeLinear
 
 // -----
 
@@ -256,9 +265,12 @@ func.func @transpose_qdq_diff_types() -> tensor<2x1xi8> {
   return %q : tensor<2x1xi8>
 }
 
+// BypassShapeOpThroughDQ folds the Transpose into the constant, but the
+// type-changing Q/DQ pair must remain.
 // CHECK-LABEL: @transpose_qdq_diff_types
+// CHECK: onnx.Constant dense<{{\[}}[10], [20]]> : tensor<2x1xui8>
 // CHECK: onnx.DequantizeLinear
-// CHECK: onnx.Transpose
+// CHECK-NOT: onnx.Transpose
 // CHECK: onnx.QuantizeLinear
 
 // -----
@@ -289,7 +301,9 @@ func.func @transpose_no_q(%arg0: tensor<2x1xf32>) -> tensor<2x1xf32> {
   return %t : tensor<2x1xf32>
 }
 
+// BypassShapeOpThroughDQ pushes the Transpose into the constant.
 // CHECK-LABEL: @transpose_no_q
+// CHECK: onnx.Constant dense<{{\[}}[10], [20]]> : tensor<2x1xui8>
 // CHECK: onnx.DequantizeLinear
-// CHECK: onnx.Transpose
+// CHECK-NOT: onnx.Transpose
 // CHECK-NOT: onnx.QuantizeLinear
