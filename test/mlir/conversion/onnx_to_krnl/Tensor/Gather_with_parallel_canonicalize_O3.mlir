@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt -O3 --march=z16 --convert-onnx-to-krnl=enable-parallel --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt -O3 --march=z16 --convert-onnx-to-krnl="enable-parallel enable-collapse=false" --canonicalize %s -split-input-file | FileCheck %s
 
 // Parallel coverage for Gather, whose selection window is [0, outputRank) rather
 // than the [0, 2) most sites use. These cases pin down which level the search
