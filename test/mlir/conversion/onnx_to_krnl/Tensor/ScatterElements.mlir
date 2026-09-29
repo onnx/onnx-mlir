@@ -7,7 +7,7 @@ func.func @test_scatter_elements1(%arg0: tensor<3x3xf32>, %arg1: tensor<3x2xi64>
 // CHECK-LABEL:  @test_scatter_elements1
 // CHECK-SAME:   ([[PARAM_0:%.+]]: memref<3x3xf32>, [[PARAM_1:%.+]]: memref<3x2xi64>, [[PARAM_2:%.+]]: memref<3x2xf32>) -> (memref<3x3xf32>, memref<3x3xf32>) {
 // CHECK-DAG:       [[CST_3:%.+]] = arith.constant 3 : index
-// CHECK-DAG:       [[RES1:%.+]] = memref.alloc() {alignment = 16 : i64} : memref<3x3xf32>
+// CHECK-DAG:       [[RES1:%.+]] = memref.alloc() alignment = 16 : memref<3x3xf32>
 // CHECK-DAG:       [[CST_9:%.+]] = arith.constant 9 : i64
 // CHECK-DAG:       [[CST_0:%.+]] = arith.constant 0 : index
 // CHECK:           "krnl.memcpy"([[RES1]], %arg0, [[CST_9]], [[CST_0]], [[CST_0]]) : (memref<3x3xf32>, memref<3x3xf32>, i64, index, index) -> ()
@@ -26,7 +26,7 @@ func.func @test_scatter_elements1(%arg0: tensor<3x3xf32>, %arg1: tensor<3x2xi64>
 // CHECK:             krnl.store [[UPDATE_VAL]], [[RES1]]{{.}}[[SEL]], [[IV]]#1{{.}} : memref<3x3xf32>
 // CHECK-NEXT:      }
 //
-// CHECK-DAG:       [[RES2:%.+]] = memref.alloc() {alignment = 16 : i64} : memref<3x3xf32>
+// CHECK-DAG:       [[RES2:%.+]] = memref.alloc() alignment = 16 : memref<3x3xf32>
 // CHECK-DAG:       [[CST_9_1:%.+]] = arith.constant 9 : i64
 // CHECK-DAG:       [[CST_0_1:%.+]] = arith.constant 0 : index
 // CHECK:           "krnl.memcpy"([[RES2]], %arg0, [[CST_9_1]], [[CST_0_1]], [[CST_0_1]]) : (memref<3x3xf32>, memref<3x3xf32>, i64, index, index) -> ()
@@ -57,7 +57,7 @@ func.func @test_scatter_elements_add(%arg0: tensor<3x3xf32>, %arg1: tensor<3x2xi
 // CHECK-LABEL:  func.func @test_scatter_elements_add
 // CHECK-SAME:   ([[PARAM_0:%.+]]: memref<3x3xf32>, [[PARAM_1:%.+]]: memref<3x2xi64>, [[PARAM_2:%.+]]: memref<3x2xf32>) -> memref<3x3xf32> {
 // CHECK-DAG:       [[CST_3:%.+]] = arith.constant 3 : index
-// CHECK-DAG:       [[RES:%.+]] = memref.alloc() {alignment = 16 : i64} : memref<3x3xf32>
+// CHECK-DAG:       [[RES:%.+]] = memref.alloc() alignment = 16 : memref<3x3xf32>
 // CHECK-DAG:       [[CST_9:%.+]] = arith.constant 9 : i64
 // CHECK-DAG:       [[CST_0:%.+]] = arith.constant 0 : index
 // CHECK:           "krnl.memcpy"([[RES]], [[PARAM_0]], [[CST_9]], [[CST_0]], [[CST_0]]) : (memref<3x3xf32>, memref<3x3xf32>, i64, index, index) -> ()

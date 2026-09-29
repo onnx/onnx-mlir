@@ -166,13 +166,13 @@ func.func @test_pass_dims_through_slice(%arg0: tensor<?x256xi64>) -> (tensor<1xi
 
 // -----
 
-func.func @test_update_reshape_output_shape(%arg0: tensor<?x256xi64>, %arg1: tensor<?x256xi64>) -> (tensor<?x?x?xi64>) {
+func.func @test_update_reshape_output_shape(%arg0: tensor<?x256xi64>, %arg1: tensor<?x256xi64>) -> (tensor<?x1x256xi64>) {
   %0 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?x256xi64>) -> tensor<1xi64>
   %1 = onnx.Constant dense<1> : tensor<1xi64>
   %2 = onnx.Constant dense<256> : tensor<1xi64>
   %3 = "onnx.Concat"(%0, %1, %2) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
-  %4 = "onnx.Reshape"(%arg1, %3) : (tensor<?x256xi64>, tensor<3xi64>) -> tensor<?x?x?xi64>
-  onnx.Return %4 : tensor<?x?x?xi64>
+  %4 = "onnx.Reshape"(%arg1, %3) : (tensor<?x256xi64>, tensor<3xi64>) -> tensor<?x1x256xi64>
+  onnx.Return %4 : tensor<?x1x256xi64>
 
 // CHECK-LABEL:  func.func @test_update_reshape_output_shape
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x256xi64>, [[PARAM_1_:%.+]]: tensor<?x256xi64>) -> tensor<?x1x256xi64> {
@@ -187,13 +187,13 @@ func.func @test_update_reshape_output_shape(%arg0: tensor<?x256xi64>, %arg1: ten
 
 // -----
 
-func.func @test_update_constantofshape_output_shape(%arg0: tensor<?x256xi64>, %arg1: tensor<?x256xi64>) -> (tensor<?x?x?xi64>) {
+func.func @test_update_constantofshape_output_shape(%arg0: tensor<?x256xi64>, %arg1: tensor<?x256xi64>) -> (tensor<?x1x256xi64>) {
   %0 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?x256xi64>) -> tensor<1xi64>
   %1 = onnx.Constant dense<1> : tensor<1xi64>
   %2 = onnx.Constant dense<256> : tensor<1xi64>
   %3 = "onnx.Concat"(%0, %1, %2) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
-  %4 = "onnx.ConstantOfShape"(%3) {value = dense<1> : tensor<1xi64>} : (tensor<3xi64>) -> tensor<?x?x?xi64>
-  onnx.Return %4 : tensor<?x?x?xi64>
+  %4 = "onnx.ConstantOfShape"(%3) {value = dense<1> : tensor<1xi64>} : (tensor<3xi64>) -> tensor<?x1x256xi64>
+  onnx.Return %4 : tensor<?x1x256xi64>
 
 // CHECK-LABEL:  func.func @test_update_constantofshape_output_shape
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x256xi64>, [[PARAM_1_:%.+]]: tensor<?x256xi64>) -> tensor<?x1x256xi64> {
