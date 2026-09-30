@@ -655,8 +655,8 @@ static void scaleConstantsOfShapeAddMatMul(PatternRewriter &rewriter, Value K,
       onnxGemmOp.getBMutable().assign(ONNXOp::create(
           rewriter, onnxGemmOp.getLoc(), onnxGemmOp.getB().getType(), A, K));
       if (!isNoneValue(onnxGemmOp.getC()))
-        onnxGemmOp.getCMutable().assign(ONNXOp::create(rewriter,
-            onnxGemmOp.getLoc(), onnxGemmOp.getC().getType(), B, K));
+        onnxGemmOp.getCMutable().assign(ONNXOp::create(
+            rewriter, onnxGemmOp.getLoc(), onnxGemmOp.getC().getType(), B, K));
     });
   } else {
     auto onnxSubMatOp = mlir::cast<ONNXMatMulOp>(matmulOrGemmOp);

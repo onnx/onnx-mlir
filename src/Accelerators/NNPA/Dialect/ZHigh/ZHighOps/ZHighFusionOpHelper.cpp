@@ -161,8 +161,7 @@ static bool detectMergeReshape(
 /// \p current (either operand order) is an F32/I32/I64 scalar constant,
 /// std::nullopt otherwise. Used both for detection and to re-derive the
 /// scalar in verify().
-static std::optional<float> getScalarMulFactor(
-    ONNXMulOp mulOp, Value current) {
+static std::optional<float> getScalarMulFactor(ONNXMulOp mulOp, Value current) {
   ONNXConstantOp cst;
   if (!matchValueAndOp<ONNXConstantOp>(
           mulOp.getA(), mulOp.getB(), current, cst))
