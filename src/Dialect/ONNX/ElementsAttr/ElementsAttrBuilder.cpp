@@ -73,7 +73,8 @@ ElementsAttr ElementsAttrBuilder::fromMemoryBuffer(
   // Reject a buffer whose byte size doesn't match what the type's dims imply.
   // This catches malformed EXTERNAL TensorProto data on little-endian hosts
   // (and single-byte dtypes on any host) that bypass the createElmAttrFromArray
-  // chokepoint and reach here directly via createElementsAttrFromMemoryBuffer_LE.
+  // chokepoint and reach here directly via
+  // createElementsAttrFromMemoryBuffer_LE.
   const int64_t numElements = type.getNumElements();
   const size_t expectedBytes =
       static_cast<size_t>(numElements) * bytewidthOfBType(btype);

@@ -189,8 +189,7 @@ ElementsAttr createElmAttrFromArray(RankedTensorType tensorType,
   // the attribute (payload smaller than dims imply). Reject such tensors.
   const int64_t numElements = tensorType.getNumElements();
   if (numElements < 0 ||
-      static_cast<uint64_t>(numElements) !=
-          static_cast<uint64_t>(array.size()))
+      static_cast<uint64_t>(numElements) != static_cast<uint64_t>(array.size()))
     llvm::report_fatal_error(
         llvm::Twine("malformed TensorProto: data size (") +
         llvm::Twine(static_cast<uint64_t>(array.size())) +
