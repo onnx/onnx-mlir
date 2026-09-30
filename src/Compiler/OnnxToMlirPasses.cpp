@@ -104,8 +104,9 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
           /*expansionBound=*/-1, /*disabledPatterns=*/{""},
           /*constantPropIsDisabled=*/false);
       pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass(
-          opts.hybrid.qdqConstProp, opts.hybrid.quantConstFold,
-          /*maxLoopUnrollCount=*/64, opts.hybrid.dequantConstFold));
+          {.enableQDQ = opts.hybrid.qdqConstProp,
+              .enableQuantConstFold = opts.hybrid.quantConstFold,
+              .enableDequantConstFold = opts.hybrid.dequantConstFold}));
     }
   } else {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
@@ -120,8 +121,9 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::createLegalizeQuarkQuantizedOpsPass());
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass(
-        opts.hybrid.qdqConstProp, opts.hybrid.quantConstFold,
-        /*maxLoopUnrollCount=*/64, opts.hybrid.dequantConstFold));
+        {.enableQDQ = opts.hybrid.qdqConstProp,
+            .enableQuantConstFold = opts.hybrid.quantConstFold,
+            .enableDequantConstFold = opts.hybrid.dequantConstFold}));
     if (opts.onnxOpTransformThreshold > 0) {
       // Dynamic iterate in ONNXOpTransformPass
       pm.addPass(onnx_mlir::createONNXOpTransformPass(
@@ -134,8 +136,9 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
         pm.addPass(onnx_mlir::createCanonicalizeWithResultNamesPass());
         pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
         pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass(
-            opts.hybrid.qdqConstProp, opts.hybrid.quantConstFold,
-            /*maxLoopUnrollCount=*/64, opts.hybrid.dequantConstFold));
+            {.enableQDQ = opts.hybrid.qdqConstProp,
+                .enableQuantConstFold = opts.hybrid.quantConstFold,
+                .enableDequantConstFold = opts.hybrid.dequantConstFold}));
       }
     }
   }
@@ -147,7 +150,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
 
   // Canonicalizing Q-DQ related ops
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createQDQCanonicalizePass(
-      opts.enableRemoveBinary, opts.enableRemoveDqQAroundOp));
+      {.removeBinary = opts.enableRemoveBinary,
+          .removeQDQAroundOps = opts.enableRemoveDqQAroundOp}));
 
   // One more call to ONNX shape inference/canonicalization/... to update
   // shape if possible.

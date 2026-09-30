@@ -99,13 +99,6 @@ void populateQDQDataMovementCanonicalizationPatterns(
 void populateONNXPositiveAxisCanonicalizationPatterns(
     mlir::RewritePatternSet &patterns, mlir::PatternBenefit benefit = 1);
 
-std::unique_ptr<mlir::Pass> createConstPropONNXToONNXPass(
-    bool enableQDQ = false, bool enableQuantConstFold = false,
-    int64_t maxLoopUnrollCount = 64, bool enableDequantConstFold = false);
-
-std::unique_ptr<mlir::Pass> createQDQCanonicalizePass(bool removeBinary = false,
-    bool removeQDQAroundOps = false, int64_t maxRoundTripDiff = 0);
-
 std::unique_ptr<mlir::Pass> createFoldQuantizedBinary();
 
 /// Converts quantized Div / Mul by a scalar quantized constant into a

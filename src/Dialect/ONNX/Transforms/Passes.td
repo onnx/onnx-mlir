@@ -270,3 +270,38 @@ def XFEONNXOpsetVerifierPass
 def DedupDQsPass : Pass<"dedup-dqs", "::mlir::func::FuncOp"> {
   let summary = "Alternative to CSE, targets only DQ ops";
 }
+
+def ConstPropONNXToONNXPass : Pass<"constprop-onnx", "::mlir::func::FuncOp"> {
+  let summary = "ConstProp ONNX operations into composition of other ONNX operations.";
+  let options = [
+    Option<"enableQDQ", "enable-qdq", "bool", "false",
+           "Enable QDQ constant propagation.">,
+    Option<"enableQuantConstFold", "enable-quant-const-fold", "bool", "false",
+           "Enable constant folding of quantized operations.">,
+    Option<"enableDequantConstFold", "enable-dequant-const-fold", "bool", "false",
+           "Enable constant folding of dequantized operations.">,
+    Option<"maxLoopUnrollCount", "max-loop-unroll-count", "int64_t", "64",
+           "Maximum constant onnx.Loop trip count to unroll.">
+  ];
+}
+
+def ConvertToChannelLastPass
+    : Pass<"convert-to-channel-last", "::mlir::func::FuncOp"> {
+  let summary = "Convert ONNX operations to ChannelLast variants with transposes";
+  let options = [
+    ListOption<"whitelist", "whitelist", "std::string",
+               "ONNX operation names to convert, e.g. onnx.Conv. Converts every supported op when empty.">
+  ];
+}
+
+def QDQCanonicalizePass : Pass<"qdq-canonicalize", "::mlir::func::FuncOp"> {
+  let summary = "Canonicalize ONNX quantize and dequantize operations.";
+  let options = [
+    Option<"removeBinary", "remove-binary", "bool", "false",
+           "Remove redundant QDQ around binary operations.">,
+    Option<"removeQDQAroundOps", "remove-qdq-around-ops", "bool", "false",
+           "Remove redundant QDQ around operations.">,
+    Option<"maxRoundTripDiff", "max-round-trip-diff", "int64_t", "0",
+           "Maximum absolute difference allowed between an input integer and its DQ->Q output, checked over the full storage range. 0 requires bit-exact scale and zero-point; >0 tolerates near-equal parameters.">
+  ];
+}
