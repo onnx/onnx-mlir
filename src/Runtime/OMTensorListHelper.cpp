@@ -339,6 +339,15 @@ static bool parseSignatureInfo(
             s = s.substr(1);
             continue;
           }
+          // A symbolic dim (e.g. "batch_size") is dynamic; shapeInfo must
+          // supply its value.
+          if (s[0] == '"') {
+            std::string symbol;
+            if (!parseJsonStr(s, symbol))
+              return false;
+            entry.dims.push_back(-1);
+            continue;
+          }
           int64_t dim;
           if (!parseJsonInt(s, dim))
             return false;
@@ -363,7 +372,9 @@ static const char *omDataTypeToString(OM_DATA_TYPE type) {
 static bool parseInputSpecs(const char *inputSignatureStr,
     const char *shapeInfo, std::vector<SigEntry> &entries) {
   if (!parseSignatureInfo(inputSignatureStr, entries))
-    return false;
+    return reportFailure(std::string("parseInputSpecs: failed to parse input "
+                                     "signature '") +
+                         (inputSignatureStr ? inputSignatureStr : "") + "'");
 
   int inputNum = (int)entries.size();
   std::vector<std::vector<int64_t>> shapeOverrides;
