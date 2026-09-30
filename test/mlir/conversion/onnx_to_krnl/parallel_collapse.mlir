@@ -1,7 +1,7 @@
-// RUN: onnx-mlir-opt -O3 --convert-onnx-to-krnl="enable-parallel enable-collapse" --canonicalize %s -split-input-file | FileCheck %s
-// RUN: onnx-mlir-opt -O3 --convert-onnx-to-krnl=enable-parallel --canonicalize %s -split-input-file | FileCheck %s --check-prefix=NOCOLLAPSE
+// RUN: onnx-mlir-opt -O3 --convert-onnx-to-krnl=enable-parallel --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt -O3 --convert-onnx-to-krnl="enable-parallel enable-collapse=false" --canonicalize %s -split-input-file | FileCheck %s --check-prefix=NOCOLLAPSE
 
-// GROUND-ALL: -c="-O3 --parallel" -a="--enable-collapse"
+// GROUND-ALL: -c="-O3 --parallel" -r="--disable-collapse"
 
 // The collapse-aware parallel decision, one function per outcome it can reach.
 // The NOCOLLAPSE prefix is the same input with collapse off: what it pins is that
@@ -456,3 +456,35 @@ func.func @test_collapse_gather_static_moves_region(%arg0: tensor<2x2x64xf32>, %
 
 }
 
+// -----
+
+// A rank-0 nest: Gather declares its whole window collapse-eligible, but a
+// scalar output defines no loop at all, so there is nothing to fuse. The plan
+// must degrade to a no-collapse plan rather than assert (it used to abort with
+// "a collapse-eligible plan needs loop refs to fuse"), and the IR is the same
+// with collapse on or off.
+// GROUND-THIS: --lower-bound=int64:0 --upper-bound=int64:3
+func.func @test_collapse_gather_scalar(%arg0: tensor<4xi64>, %arg1: tensor<i64>) -> tensor<i64> {
+  %0 = "onnx.Gather"(%arg0, %arg1) {axis = 0 : si64} : (tensor<4xi64>, tensor<i64>) -> tensor<i64>
+  return %0 : tensor<i64>
+
+// CHECK-LABEL:  func.func @test_collapse_gather_scalar
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<4xi64>, [[PARAM_1_:%.+]]: memref<i64>) -> memref<i64> {
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[CST_4_:%.+]] = arith.constant 4 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() : memref<i64>
+// CHECK:           krnl.define_loops 0
+// CHECK-NOT:       krnl.collapse
+// CHECK-NOT:       krnl.parallel
+// CHECK:           krnl.iterate() with (){
+// CHECK:             [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]][] : memref<i64>
+// CHECK:             [[VAR_1_:%.+]] = arith.index_cast [[LOAD_PARAM_1_MEM_]] : i64 to index
+// CHECK-DAG:         [[VAR_2_:%.+]] = arith.cmpi slt, [[VAR_1_]], [[CST_0_]] : index
+// CHECK-DAG:         [[VAR_3_:%.+]] = arith.addi [[VAR_1_]], [[CST_4_]] : index
+// CHECK:             [[VAR_4_:%.+]] = arith.select [[VAR_2_]], [[VAR_3_]], [[VAR_1_]] : index
+// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_4_]]{{.}} : memref<4xi64>
+// CHECK:             krnl.store [[LOAD_PARAM_0_MEM_]], [[RES_]][] : memref<i64>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<i64>
+// CHECK:         }
+}
