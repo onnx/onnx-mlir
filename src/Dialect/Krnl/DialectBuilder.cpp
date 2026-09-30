@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/TypeSwitch.h"
+#include "llvm/Support/ErrorHandling.h"
 
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
@@ -187,8 +188,25 @@ void KrnlBuilder::unroll(Value loop) const {
   KrnlUnrollOp::create(b(), loc(), loop);
 }
 
+Value KrnlBuilder::collapse(ValueRange loops) const {
+  assert(!loops.empty() && "collapse needs at least one loop");
+  // Fusing one loop with nothing is the loop itself. Returning the ref instead
+  // of building a degenerate krnl.collapse keeps the IR identical to the
+  // uncollapsed case, and avoids consuming the ref for no benefit -- a
+  // collapsed operand may no longer be blocked, unrolled, permuted or queried.
+  if (loops.size() == 1)
+    return loops[0];
+  return KrnlCollapseOp::create(b(), loc(), loops).getResult();
+}
+
 ValueRange KrnlBuilder::getInductionVarValue(ValueRange loops) const {
   return KrnlGetInductionVariableValueOp::create(b(), loc(), loops)
+      .getResults();
+}
+
+ValueRange KrnlBuilder::getFusedInductionVarValue(ValueRange loops) const {
+  return KrnlGetInductionVariableValueOp::create(
+      b(), loc(), loops, /*fusedIndex=*/true)
       .getResults();
 }
 

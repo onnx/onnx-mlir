@@ -241,9 +241,48 @@ def process_line(i, line):
     elif re.match(r"\s+(func\.)?func", line) is not None:
         new_line = process_name(new_line, def_arg_pat, "PARAM", ":", 1)
         squash_before_fct = 0  # After function, disable squashing
+    # Special handling of a basic block signature, e.g.
+    #   ^bb0(%arg2: tensor<2x4x3x64xf32>, %arg3: tensor<2x4x5x64xf32>):
+    # Those arguments define everything the block goes on to use, but the line
+    # carries no "=", so neither the function-header case above nor the generic
+    # "%x =" case below sees them, and every later use in the block would refer to
+    # a variable that was never defined. This is what the region of an op like
+    # onnx.Fused looks like. A block with no arguments (`^bb1:`) has nothing to
+    # define and is left to fall through.
+    elif re.match(r"\s*\^[a-zA-Z0-9_]+\s*\(", line) is not None:
+        new_line = process_name(new_line, def_arg_pat, "REGION_ARG", ":", 1)
     # Special handling of loop iterations.
     elif re.match(r"\s+(\w+\.)?for", line) is not None:
         new_line = process_name(new_line, def_pat, "I", " =", 1)
+    # Special handling of affine.parallel/scf.parallel. Their induction variables
+    # sit in a parenthesized list *before* the "=", e.g.
+    #   affine.parallel (%arg1, %arg2) = (0, 0) to (10, 20)
+    # so the generic "%x =" definition pattern never sees them, and they would be
+    # emitted as uses of a variable that is never defined -- yielding a FileCheck
+    # "undefined variable" error. Name them like a for loop's, one per dimension.
+    # Only the induction variable list is rewritten, so the bounds that follow are
+    # left for the normal use-substitution to handle.
+    #
+    # The trailing "=" is what makes this an assignment of induction variables,
+    # and is required so that this does not also swallow krnl.parallel(%loop_ref),
+    # whose parenthesized operands are *uses* of loop references defined earlier.
+    elif (
+        parallel_match := re.match(
+            r"(\s*(?:\w+\.)?parallel\s*\()([^)]*)(\)\s*=.*)$", line
+        )
+    ) is not None:
+        head, iv_list, tail = parallel_match.groups()
+        new_ivs = []
+        for iv in iv_list.split(","):
+            iv_match = re.fullmatch(r"\s*%([a-zA-Z0-9][a-zA-Z0-9_\-]*)\s*", iv)
+            if iv_match is None:
+                # Not a plain induction variable; leave it untouched.
+                new_ivs.append(iv.strip())
+                continue
+            new_ivs.append(
+                record_name_def(iv_match.group(1), "", "I", "", 1, line, "%")
+            )
+        new_line = head + ", ".join(new_ivs) + tail
     elif re.search(r"krnl\.define_loops", line) is not None:
         new_line = process_name(new_line, def_qual_pat, "LOOP", " =", 1)
     elif re.match(r"\s+(\w+\.)?iterate", line) is not None:

@@ -1,4 +1,5 @@
 // RUN: onnx-mlir-opt --recompose-onnx --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --recompose-onnx --enable-attention-op-construct --canonicalize %s -split-input-file | FileCheck --check-prefix=ATTENTION %s
 
 // -----
 
@@ -419,3 +420,126 @@ func.func @test_gelu_erf_two_adds(%arg0: tensor<?x?x3072xf32>, %arg1: tensor<307
 // CHECK:           [[VAR_3_:%.+]] = "onnx.MatMul"([[VAR_2_]], [[PARAM_1_]]) : (tensor<?x?x3072xf32>, tensor<3072x768xf32>) -> tensor<?x?x768xf32>
 // CHECK:           return [[VAR_3_]] : tensor<?x?x768xf32>
 // CHECK:         }
+
+// -----
+
+// Attention: recompose is gated by --enable-attention-op-construct and does not
+// fire by default.
+//
+// Basic scaled dot product attention:
+//   softmax(MatMul(Q, Transpose(K)) / sqrt(d)) @ V
+
+func.func @test_attention_basic(%Q: tensor<1x8x16x32xf32>, %K: tensor<1x8x16x32xf32>, %V: tensor<1x8x16x32xf32>) -> tensor<1x8x16x32xf32> {
+  %scale = onnx.Constant dense<5.656854> : tensor<f32>
+  %kt = "onnx.Transpose"(%K) {perm = [0, 1, 3, 2]} : (tensor<1x8x16x32xf32>) -> tensor<1x8x32x16xf32>
+  %qk = "onnx.MatMul"(%Q, %kt) : (tensor<1x8x16x32xf32>, tensor<1x8x32x16xf32>) -> tensor<1x8x16x16xf32>
+  %scaled = "onnx.Div"(%qk, %scale) : (tensor<1x8x16x16xf32>, tensor<f32>) -> tensor<1x8x16x16xf32>
+  %probs = "onnx.Softmax"(%scaled) {axis = -1 : si64} : (tensor<1x8x16x16xf32>) -> tensor<1x8x16x16xf32>
+  %out = "onnx.MatMul"(%probs, %V) : (tensor<1x8x16x16xf32>, tensor<1x8x16x32xf32>) -> tensor<1x8x16x32xf32>
+  return %out : tensor<1x8x16x32xf32>
+
+// Left unchanged when --enable-attention-op-construct is not given.
+// CHECK-LABEL:  func.func @test_attention_basic
+// CHECK-NOT:       "onnx.Attention"
+// CHECK:           "onnx.MatMul"
+// CHECK:         }
+
+// mlir2FileCheck.py
+// ATTENTION-LABEL:  func.func @test_attention_basic
+// ATTENTION-SAME:   ([[PARAM_0_:%.+]]: tensor<1x8x16x32xf32>, [[PARAM_1_:%.+]]: tensor<1x8x16x32xf32>, [[PARAM_2_:%.+]]: tensor<1x8x16x32xf32>) -> tensor<1x8x16x32xf32> {
+// ATTENTION:           [[VAR_0_:%.+]] = "onnx.NoValue"() : () -> none
+// ATTENTION:           [[VAR_1_:%.+]] = "onnx.NoValue"() : () -> none
+// ATTENTION:           [[Y_:%.+]], [[VAR_present_key_:%.+]], [[VAR_present_value_:%.+]], [[VAR_qk_matmul_output_:%.+]] = "onnx.Attention"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[VAR_0_]], [[VAR_1_]], [[VAR_1_]], [[VAR_1_]]) <{is_causal = 0 : si64, qk_matmul_output_mode = 0 : si64, scale = 0.176776692 : f32, softcap = 0.000000e+00 : f32}> : (tensor<1x8x16x32xf32>, tensor<1x8x16x32xf32>, tensor<1x8x16x32xf32>, none, none, none, none) -> (tensor<1x8x16x32xf32>, none, none, none)
+// ATTENTION:           return [[Y_]] : tensor<1x8x16x32xf32>
+// ATTENTION:         }
+}
+
+// -----
+
+// Attention with an additive mask, and scaling done via Mul instead of Div.
+
+func.func @test_attention_with_mask(%Q: tensor<1x8x16x32xf32>, %K: tensor<1x8x16x32xf32>, %V: tensor<1x8x16x32xf32>, %mask: tensor<1x8x16x16xf32>) -> tensor<1x8x16x32xf32> {
+  %scale = onnx.Constant dense<0.176776692> : tensor<f32>
+  %kt = "onnx.Transpose"(%K) {perm = [0, 1, 3, 2]} : (tensor<1x8x16x32xf32>) -> tensor<1x8x32x16xf32>
+  %qk = "onnx.MatMul"(%Q, %kt) : (tensor<1x8x16x32xf32>, tensor<1x8x32x16xf32>) -> tensor<1x8x16x16xf32>
+  %scaled = "onnx.Mul"(%qk, %scale) : (tensor<1x8x16x16xf32>, tensor<f32>) -> tensor<1x8x16x16xf32>
+  %masked = "onnx.Add"(%scaled, %mask) : (tensor<1x8x16x16xf32>, tensor<1x8x16x16xf32>) -> tensor<1x8x16x16xf32>
+  %probs = "onnx.Softmax"(%masked) {axis = -1 : si64} : (tensor<1x8x16x16xf32>) -> tensor<1x8x16x16xf32>
+  %out = "onnx.MatMul"(%probs, %V) : (tensor<1x8x16x16xf32>, tensor<1x8x16x32xf32>) -> tensor<1x8x16x32xf32>
+  return %out : tensor<1x8x16x32xf32>
+
+// mlir2FileCheck.py
+// ATTENTION-LABEL:  func.func @test_attention_with_mask
+// ATTENTION-SAME:   ([[PARAM_0_:%.+]]: tensor<1x8x16x32xf32>, [[PARAM_1_:%.+]]: tensor<1x8x16x32xf32>, [[PARAM_2_:%.+]]: tensor<1x8x16x32xf32>, [[PARAM_3_:%.+]]: tensor<1x8x16x16xf32>) -> tensor<1x8x16x32xf32> {
+// ATTENTION:           [[VAR_0_:%.+]] = "onnx.NoValue"() : () -> none
+// ATTENTION:           [[Y_:%.+]], [[VAR_present_key_:%.+]], [[VAR_present_value_:%.+]], [[VAR_qk_matmul_output_:%.+]] = "onnx.Attention"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[VAR_0_]], [[VAR_0_]], [[VAR_0_]]) <{is_causal = 0 : si64, qk_matmul_output_mode = 0 : si64, scale = 0.176776692 : f32, softcap = 0.000000e+00 : f32}> : (tensor<1x8x16x32xf32>, tensor<1x8x16x32xf32>, tensor<1x8x16x32xf32>, tensor<1x8x16x16xf32>, none, none, none) -> (tensor<1x8x16x32xf32>, none, none, none)
+// ATTENTION:           return [[Y_]] : tensor<1x8x16x32xf32>
+// ATTENTION:         }
+}
+
+// -----
+
+// Not attention: K feeds MatMul directly, with no Transpose. Must not match,
+// even with --enable-attention-op-construct.
+
+func.func @test_not_attention_no_transpose(%Q: tensor<1x8x16x32xf32>, %Kt: tensor<1x8x32x16xf32>, %V: tensor<1x8x16x32xf32>) -> tensor<1x8x16x32xf32> {
+  %scale = onnx.Constant dense<5.656854> : tensor<f32>
+  %qk = "onnx.MatMul"(%Q, %Kt) : (tensor<1x8x16x32xf32>, tensor<1x8x32x16xf32>) -> tensor<1x8x16x16xf32>
+  %scaled = "onnx.Div"(%qk, %scale) : (tensor<1x8x16x16xf32>, tensor<f32>) -> tensor<1x8x16x16xf32>
+  %probs = "onnx.Softmax"(%scaled) {axis = -1 : si64} : (tensor<1x8x16x16xf32>) -> tensor<1x8x16x16xf32>
+  %out = "onnx.MatMul"(%probs, %V) : (tensor<1x8x16x16xf32>, tensor<1x8x16x32xf32>) -> tensor<1x8x16x32xf32>
+  return %out : tensor<1x8x16x32xf32>
+
+// ATTENTION-LABEL:  func.func @test_not_attention_no_transpose
+// ATTENTION-NOT:       "onnx.Attention"
+// ATTENTION:           "onnx.MatMul"
+// ATTENTION:         }
+}
+
+// -----
+
+// Not attention: Q and K/V have statically different, unequal batch dims (2
+// vs 4). onnx.Attention infers batch_size from Q alone, so folding here would
+// silently drop the shape mismatch the original MatMul ops made visible.
+// Must not match, even with --enable-attention-op-construct.
+
+func.func @test_not_attention_static_batch_mismatch(%Q: tensor<2x8x16x32xf32>, %K: tensor<4x8x16x32xf32>, %V: tensor<4x8x16x32xf32>) -> tensor<2x8x16x32xf32> {
+  %scale = onnx.Constant dense<5.656854> : tensor<f32>
+  %kt = "onnx.Transpose"(%K) {perm = [0, 1, 3, 2]} : (tensor<4x8x16x32xf32>) -> tensor<4x8x32x16xf32>
+  %qk = "onnx.MatMul"(%Q, %kt) : (tensor<2x8x16x32xf32>, tensor<4x8x32x16xf32>) -> tensor<2x8x16x16xf32>
+  %scaled = "onnx.Div"(%qk, %scale) : (tensor<2x8x16x16xf32>, tensor<f32>) -> tensor<2x8x16x16xf32>
+  %probs = "onnx.Softmax"(%scaled) {axis = -1 : si64} : (tensor<2x8x16x16xf32>) -> tensor<2x8x16x16xf32>
+  %out = "onnx.MatMul"(%probs, %V) : (tensor<2x8x16x16xf32>, tensor<4x8x16x32xf32>) -> tensor<2x8x16x32xf32>
+  return %out : tensor<2x8x16x32xf32>
+
+// ATTENTION-LABEL:  func.func @test_not_attention_static_batch_mismatch
+// ATTENTION-NOT:       "onnx.Attention"
+// ATTENTION:           "onnx.MatMul"
+// ATTENTION:         }
+}
+
+// -----
+
+// Attention: Q, K, V have dynamic batch dims. There is currently no analysis
+// available in the Recompose pass to confirm dynamic dimensions agree at
+// runtime (see TODO on isSameDim in Recompose.cpp), so they are assumed to
+// match; only a statically-known mismatch (see above) blocks the rewrite.
+
+func.func @test_attention_dynamic_batch(%Q: tensor<?x8x16x32xf32>, %K: tensor<?x8x16x32xf32>, %V: tensor<?x8x16x32xf32>) -> tensor<?x8x16x32xf32> {
+  %scale = onnx.Constant dense<5.656854> : tensor<f32>
+  %kt = "onnx.Transpose"(%K) {perm = [0, 1, 3, 2]} : (tensor<?x8x16x32xf32>) -> tensor<?x8x32x16xf32>
+  %qk = "onnx.MatMul"(%Q, %kt) : (tensor<?x8x16x32xf32>, tensor<?x8x32x16xf32>) -> tensor<?x8x16x16xf32>
+  %scaled = "onnx.Div"(%qk, %scale) : (tensor<?x8x16x16xf32>, tensor<f32>) -> tensor<?x8x16x16xf32>
+  %probs = "onnx.Softmax"(%scaled) {axis = -1 : si64} : (tensor<?x8x16x16xf32>) -> tensor<?x8x16x16xf32>
+  %out = "onnx.MatMul"(%probs, %V) : (tensor<?x8x16x16xf32>, tensor<?x8x16x32xf32>) -> tensor<?x8x16x32xf32>
+  return %out : tensor<?x8x16x32xf32>
+
+// mlir2FileCheck.py
+// ATTENTION-LABEL:  func.func @test_attention_dynamic_batch
+// ATTENTION-SAME:   ([[PARAM_0_:%.+]]: tensor<?x8x16x32xf32>, [[PARAM_1_:%.+]]: tensor<?x8x16x32xf32>, [[PARAM_2_:%.+]]: tensor<?x8x16x32xf32>) -> tensor<?x8x16x32xf32> {
+// ATTENTION:           [[VAR_0_:%.+]] = "onnx.NoValue"() : () -> none
+// ATTENTION:           [[VAR_1_:%.+]] = "onnx.NoValue"() : () -> none
+// ATTENTION:           [[Y_:%.+]], [[VAR_present_key_:%.+]], [[VAR_present_value_:%.+]], [[VAR_qk_matmul_output_:%.+]] = "onnx.Attention"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[VAR_0_]], [[VAR_1_]], [[VAR_1_]], [[VAR_1_]]) <{is_causal = 0 : si64, qk_matmul_output_mode = 0 : si64, scale = 0.176776692 : f32, softcap = 0.000000e+00 : f32}> : (tensor<?x8x16x32xf32>, tensor<?x8x16x32xf32>, tensor<?x8x16x32xf32>, none, none, none, none) -> (tensor<?x8x16x32xf32>, none, none, none)
+// ATTENTION:           return [[Y_]] : tensor<?x8x16x32xf32>
+// ATTENTION:         }
+}

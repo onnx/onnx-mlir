@@ -35,6 +35,7 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/Transforms/FusionOpBasePattern.hpp"
+#include "src/Dialect/ONNX/Transforms/FusionOpTransform.hpp"
 #include "src/Pass/Passes.hpp"
 
 #define DEBUG_TYPE "op-fusion"
@@ -683,7 +684,7 @@ public:
     // Look for a reshape split.
     resultVal = layoutTransform.getOutput();
     std::string msg;
-    Operation *reshapeSplitOp = usedOnlyBy<ONNXReshapeOp>(resultVal);
+    Operation *reshapeSplitOp = usedOnlyByOpType<ONNXReshapeOp>(resultVal);
     bool reshapeMayBeMerge = false;
     if (reshapeSplitOp) {
       ONNXReshapeOp reshapeSplit = mlir::cast<ONNXReshapeOp>(reshapeSplitOp);
@@ -700,7 +701,7 @@ public:
     if (!reshapeMayBeMerge) {
       // Check transpose if we got a split; if we may have potentially a merge,
       // we cannot accommodate a transpose.
-      transposeOp = usedOnlyBy<ONNXTransposeOp>(resultVal);
+      transposeOp = usedOnlyByOpType<ONNXTransposeOp>(resultVal);
       if (transposeOp) {
         ONNXTransposeOp transpose = mlir::cast<ONNXTransposeOp>(transposeOp);
         transposePattern = transpose.getPerm();
@@ -716,7 +717,7 @@ public:
 
     // Check reshape merge.
     bool terminateMatch = false;
-    Operation *reshapeMergeOp = usedOnlyBy<ONNXReshapeOp>(resultVal);
+    Operation *reshapeMergeOp = usedOnlyByOpType<ONNXReshapeOp>(resultVal);
     if (reshapeMergeOp) {
       ONNXReshapeOp reshapeMerge = mlir::cast<ONNXReshapeOp>(reshapeMergeOp);
       if (!locateReshapeMerge(reshapeMerge, reshapeMergeAxis, msg)) {
@@ -734,8 +735,9 @@ public:
     Operation *finalLayoutTransformOp = nullptr;
     Operation *dlf16To32Op = nullptr;
     if (!terminateMatch) {
-      finalLayoutTransformOp = usedOnlyBy<ONNXLayoutTransformOp>(resultVal);
-      dlf16To32Op = usedOnlyBy<ZHighDLF16ToF32Op>(resultVal);
+      finalLayoutTransformOp =
+          usedOnlyByOpType<ONNXLayoutTransformOp>(resultVal);
+      dlf16To32Op = usedOnlyByOpType<ZHighDLF16ToF32Op>(resultVal);
       if (finalLayoutTransformOp) {
         ONNXLayoutTransformOp finalLayoutTransform =
             mlir::cast<ONNXLayoutTransformOp>(finalLayoutTransformOp);
@@ -902,6 +904,36 @@ struct FusionOpStickUnstick
     dimAnalysis->analyze();
 
     ConversionTarget target(getContext());
+
+    // Phase ordering. ConcatExpandStickFusionHelper's chain (anchored on
+    // ONNXConcatOp) can subsume ExpandMulStickFusionHelper's chain entirely
+    // (a Concat heading the same Unsqueeze->Expand->Mul->Reshape->Stick
+    // tail that ExpandMulStickFusionHelper matches on its own). The two
+    // anchor on different op types, so mlir::PatternBenefit cannot express
+    // this precedence: PatternApplicator only ranks patterns that already
+    // compete for the *same* anchor op type (it looks candidates up by
+    // op->getName() -- see mlir/lib/Rewrite/PatternApplicator.cpp), and
+    // this pass's default (bottom-up) worklist traversal would otherwise
+    // let ExpandMulStickFusionHelper fire on the Unsqueeze before the
+    // Concat is ever visited, permanently losing the larger fusion
+    // opportunity (the chain ops get cloned into the new FusedOp body and
+    // the originals erased, so the Concat's Unsqueeze user is gone by the
+    // time it would be revisited). Instead, run
+    // FusedPatternsForConcatExpandStick to its own fixpoint first, in a
+    // separate applyPatternsGreedily call, so it always gets first crack at
+    // every ONNXConcatOp in the module before any other pattern can consume ops
+    // out from under it. See the kMaxOpCount contract note in
+    // FusionOpHelper.hpp and the doc comment on
+    // ConcatExpandStickFusionHelper::kMaxOpCount for the general rule this
+    // instantiates.
+    if (!disableFusedOpOption && !disableFusedOp) {
+      RewritePatternSet concatFirstPatterns(&getContext());
+      concatFirstPatterns.insert<FusedPatternsForConcatExpandStick>(
+          &getContext(), dimAnalysis);
+      if (failed(applyPatternsGreedily(module, std::move(concatFirstPatterns))))
+        return signalPassFailure();
+    }
+
     RewritePatternSet patterns(&getContext());
     patterns.insert<PatternsStartingFromUnstick>(&getContext(), dimAnalysis);
     patterns.insert<PatternsEndingWithStick>(&getContext(), dimAnalysis);
@@ -910,8 +942,13 @@ struct FusionOpStickUnstick
           &getContext(), dimAnalysis);
       patterns.insert<FusedPatternsForExpandMulStick>(
           &getContext(), dimAnalysis);
-      patterns.insert<FusedPatternsForConcatExpandStick>(
-          &getContext(), dimAnalysis);
+      // Merge in the general (non-accelerator-specific) fusion kinds here
+      // too, so NNPA builds only ever run one fusion pass, at the point
+      // this pass already forms fused ops (late, after most optimizations).
+      // See FusionOpTransform.hpp for the CPU-only counterpart, which this
+      // pass supersedes whenever NNPA is active (targetCPU is false then).
+      onnx_mlir::populateONNXFusionOpPatterns(
+          patterns, &getContext(), dimAnalysis);
     } else
       patterns.insert<PatternsForExtendedLayoutTransform>(
           &getContext(), dimAnalysis);

@@ -151,11 +151,15 @@ Value OnnxBuilder::dim(Value input, int axis) const {
   return createTypedOpAndInferShapes<ONNXDimOp>(resultType, input, axisAttr);
 }
 
-void OnnxBuilder::dimGroup(Value input, int axis, int groupID) const {
+void OnnxBuilder::dimGroup(
+    Value input, int axis, int groupID, StringRef groupName) const {
   IntegerAttr axisAttr = getSignedInt64Attr(axis);
   IntegerAttr groupIDAttr = getSignedInt64Attr(groupID);
+  StringAttr groupNameAttr =
+      groupName.empty() ? StringAttr() : b().getStringAttr(groupName);
   // No shape needed for this one I believe.
-  ONNXDimGroupOp::create(b(), loc(), input, axisAttr, groupIDAttr);
+  ONNXDimGroupOp::create(
+      b(), loc(), input, axisAttr, groupIDAttr, groupNameAttr);
 }
 
 Value OnnxBuilder::dequantizeLinear(
@@ -182,6 +186,24 @@ Value OnnxBuilder::equal(Value A, Value B) const {
 Value OnnxBuilder::expand(Type outputType, Value input, Value shape) const {
   return createOpAndInferShapes<ONNXExpandOp>(
       outputType, toTensor(input), toTensor(shape));
+}
+
+Value OnnxBuilder::attention(Type outputType, Value Q, Value K, Value V,
+    Value attnMask, FloatAttr scale) const {
+  Value noneVal = none();
+  Type noneType = noneVal.getType();
+  IntegerAttr isCausalAttr = getSignedInt64Attr(0);
+  IntegerAttr qkMatMulOutputModeAttr = getSignedInt64Attr(0);
+  FloatAttr softcapAttr = b().getF32FloatAttr(0.0);
+  ONNXAttentionOp attentionOp = createOpAndInferShapes<ONNXAttentionOp>(
+      /*Y type*/ toTensor(outputType), /*present_key*/ noneType,
+      /*present_value*/ noneType, /*qk_matmul_output*/ noneType, toTensor(Q),
+      toTensor(K), toTensor(V), toTensor(attnMask), /*past_key*/ noneVal,
+      /*past_value*/ noneVal, /*nonpad_kv_seqlen*/ noneVal, isCausalAttr,
+      /*kv_num_heads*/ nullptr, /*q_num_heads*/ nullptr, qkMatMulOutputModeAttr,
+      scale, softcapAttr,
+      /*softmax_precision*/ nullptr);
+  return attentionOp.getY();
 }
 
 Value OnnxBuilder::gelu(Value input, StringAttr approximateAttr) const {

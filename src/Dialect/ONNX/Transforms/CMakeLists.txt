@@ -8,9 +8,32 @@ add_onnx_mlir_pass(ONNXTransforms Passes ONNXTransforms)
 
 add_onnx_mlir_library(OMFusionOpHelper
   FusionOpHelper.cpp
+  DEPENDS
+  OMONNXTransformsPassIncGen
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  )
+
+add_onnx_mlir_library(OMONNXFusionOpHelper
+  ONNXFusionOpHelper.cpp
 
   LINK_LIBS PUBLIC
   OMONNXOps
+  OMFusionOpHelper
+  )
+
+add_onnx_mlir_library(OMFusionOpTransform
+  FusionOpTransform.cpp
+
+  DEPENDS
+  OMONNXTransformsPassIncGen
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  OMFusionOpHelper
+  OMONNXFusionOpHelper
+  OMCompilerOptions
+  MLIRPass
   )
 
 add_onnx_mlir_library(OMShapeInference
@@ -113,6 +136,20 @@ add_onnx_mlir_library(OMONNXSimplifyShapeRelatedOps
   MLIRFuncDialect
   MLIRPass
   MLIRTransforms
+  )
+
+add_onnx_mlir_library(OMExpandAttentionMask
+  ExpandAttentionMask.cpp
+
+  DEPENDS
+  OMONNXTransformsPassIncGen
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  OMBuilder
+  MLIRFuncDialect
+  MLIRPass
+  OMSupport
   )
 
 add_onnx_mlir_library(OMONNXStandardFuncReturnPass

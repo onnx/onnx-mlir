@@ -35,7 +35,7 @@ func.func @concat_expand_stick_basic(%arg0: tensor<2x4x3x64xf32>, %arg1: tensor<
     %8 = "onnx.Reshape"(%7, %1) <{allowzero = 0 : si64}> : (tensor<2x4x3x8x64xf16>, tensor<3xi64>) -> tensor<24x8x64xf16>
     %9 = "onnx.LayoutTransform"(%8) <{target_layout = #zhigh.layout<{dataLayout = "3DS"}>}> : (tensor<24x8x64xf16>) -> tensor<24x8x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
     onnx.Yield %9 : tensor<24x8x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-  }) {concatAxis = 2 : i64, expansionN = 3 : i64, finalLayout = "3DS", noSaturation = false, reshapeCollapsedCount = 3 : i64, reshapeFirstCollapsedDim = 0 : i64, unsqueezedPosition = 2 : i64, yieldConcatResult = false} : (tensor<2x4x3x64xf32>, tensor<2x4x5x64xf32>) -> tensor<24x8x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  }) {concatAxis = 2 : i64, expansionN = 3 : i64, finalLayout = "3DS", mulScalar = 1.000000e+00 : f32, noSaturation = false, reshapeCollapsedCount = 3 : i64, reshapeFirstCollapsedDim = 0 : i64, unsqueezedPosition = 2 : i64, yieldConcatResult = false} : (tensor<2x4x3x64xf32>, tensor<2x4x5x64xf32>) -> tensor<24x8x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
   return %0 : tensor<24x8x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
@@ -258,7 +258,7 @@ func.func @concat_expand_stick_no_saturation(%arg0: tensor<2x4x3x64xf32>, %arg1:
     %8 = "onnx.Reshape"(%7, %1) <{allowzero = 0 : si64}> : (tensor<2x4x3x8x64xf16>, tensor<3xi64>) -> tensor<24x8x64xf16>
     %9 = "onnx.LayoutTransform"(%8) <{target_layout = #zhigh.layout<{dataLayout = "3DS"}>}> : (tensor<24x8x64xf16>) -> tensor<24x8x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
     onnx.Yield %9 : tensor<24x8x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-  }) {concatAxis = 2 : i64, expansionN = 3 : i64, finalLayout = "3DS", noSaturation = true, reshapeCollapsedCount = 3 : i64, reshapeFirstCollapsedDim = 0 : i64, unsqueezedPosition = 2 : i64, yieldConcatResult = false} : (tensor<2x4x3x64xf32>, tensor<2x4x5x64xf32>) -> tensor<24x8x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  }) {concatAxis = 2 : i64, expansionN = 3 : i64, finalLayout = "3DS", mulScalar = 1.000000e+00 : f32, noSaturation = true, reshapeCollapsedCount = 3 : i64, reshapeFirstCollapsedDim = 0 : i64, unsqueezedPosition = 2 : i64, yieldConcatResult = false} : (tensor<2x4x3x64xf32>, tensor<2x4x5x64xf32>) -> tensor<24x8x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
   return %0 : tensor<24x8x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
@@ -434,7 +434,7 @@ func.func @concat_expand_stick_multi_output(%arg0: tensor<2x4x3x64xf32>, %arg1: 
     %8 = "onnx.Reshape"(%7, %1) <{allowzero = 0 : si64}> : (tensor<2x4x3x8x64xf16>, tensor<3xi64>) -> tensor<24x8x64xf16>
     %9 = "onnx.LayoutTransform"(%8) <{target_layout = #zhigh.layout<{dataLayout = "3DS"}>}> : (tensor<24x8x64xf16>) -> tensor<24x8x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>
     onnx.Yield %9, %4 : tensor<24x8x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<2x4x8x64xf32>
-  }) {concatAxis = 2 : i64, expansionN = 3 : i64, finalLayout = "3DS", noSaturation = false, reshapeCollapsedCount = 3 : i64, reshapeFirstCollapsedDim = 0 : i64, unsqueezedPosition = 2 : i64, yieldConcatResult = true} : (tensor<2x4x3x64xf32>, tensor<2x4x5x64xf32>) -> (tensor<24x8x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<2x4x8x64xf32>)
+  }) {concatAxis = 2 : i64, expansionN = 3 : i64, finalLayout = "3DS", mulScalar = 1.000000e+00 : f32, noSaturation = false, reshapeCollapsedCount = 3 : i64, reshapeFirstCollapsedDim = 0 : i64, unsqueezedPosition = 2 : i64, yieldConcatResult = true} : (tensor<2x4x3x64xf32>, tensor<2x4x5x64xf32>) -> (tensor<24x8x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<2x4x8x64xf32>)
   return %0#0, %0#1 : tensor<24x8x64xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<2x4x8x64xf32>
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
 // CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0) -> (d0 * 64)>
@@ -704,7 +704,7 @@ func.func @concat_expand_stick_layout_4d(%arg0: tensor<2x4x3x64xf32>, %arg1: ten
     %8 = "onnx.Reshape"(%7, %1) <{allowzero = 0 : si64}> : (tensor<2x3x4x8x64xf16>, tensor<4xi64>) -> tensor<6x4x8x64xf16>
     %9 = "onnx.LayoutTransform"(%8) <{target_layout = #zhigh.layout<{dataLayout = "4D"}>}> : (tensor<6x4x8x64xf16>) -> tensor<6x4x8x64xf16, #zhigh.layout<{dataLayout = "4D"}>>
     onnx.Yield %9 : tensor<6x4x8x64xf16, #zhigh.layout<{dataLayout = "4D"}>>
-  }) {concatAxis = 2 : i64, expansionN = 3 : i64, finalLayout = "4D", noSaturation = false, reshapeCollapsedCount = 2 : i64, reshapeFirstCollapsedDim = 0 : i64, unsqueezedPosition = 1 : i64, yieldConcatResult = false} : (tensor<2x4x3x64xf32>, tensor<2x4x5x64xf32>) -> tensor<6x4x8x64xf16, #zhigh.layout<{dataLayout = "4D"}>>
+  }) {concatAxis = 2 : i64, expansionN = 3 : i64, finalLayout = "4D", mulScalar = 1.000000e+00 : f32, noSaturation = false, reshapeCollapsedCount = 2 : i64, reshapeFirstCollapsedDim = 0 : i64, unsqueezedPosition = 1 : i64, yieldConcatResult = false} : (tensor<2x4x3x64xf32>, tensor<2x4x5x64xf32>) -> tensor<6x4x8x64xf16, #zhigh.layout<{dataLayout = "4D"}>>
   return %0 : tensor<6x4x8x64xf16, #zhigh.layout<{dataLayout = "4D"}>>
 
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1, d2, d3) -> (d0, d3 floordiv 64, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>

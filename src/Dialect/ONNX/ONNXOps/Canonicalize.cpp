@@ -450,6 +450,55 @@ public:
   }
 };
 
+// Rewrites a comparison op whose two operands have mismatched element
+// types because one of them is an integer literal equal to 0 being compared
+// against a float-typed operand (see getFloatVsIntegerZeroLiteralOperand for
+// why 0 specifically is safe to retype), by re-emitting that literal as a
+// constant of the other operand's float element type. This mismatched-type
+// shape is explicitly tolerated by the op's verifier (see
+// verifySameElementTypeForCompareOps in ElementwiseBroadcast.cpp) precisely
+// so that this pattern gets a chance to fix it up here.
+template <typename OP_TYPE>
+class CompareOpFloatVsIntegerZeroCastPattern
+    : public OpRewritePattern<OP_TYPE> {
+public:
+  using OpRewritePattern<OP_TYPE>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      OP_TYPE compareOp, PatternRewriter &rewriter) const override {
+    Operation *op = compareOp.getOperation();
+    std::optional<unsigned> literalIdx =
+        getFloatVsIntegerZeroLiteralOperand(op);
+    if (!literalIdx.has_value())
+      return failure();
+
+    Value literalOperand = op->getOperand(*literalIdx);
+    Value floatOperand = op->getOperand(1 - *literalIdx);
+    Type floatElemType =
+        mlir::cast<ShapedType>(floatOperand.getType()).getElementType();
+    ShapedType literalType = mlir::cast<ShapedType>(literalOperand.getType());
+    ShapedType newLiteralType =
+        mlir::cast<ShapedType>(literalType.clone(floatElemType));
+
+    OnnxBuilder createONNX(rewriter, op->getLoc());
+    Value newLiteral = createONNX.constant(DenseElementsAttr::get(
+        newLiteralType, rewriter.getFloatAttr(floatElemType, 0.0)));
+
+    SmallVector<Value, 2> newOperands(op->getOperands());
+    newOperands[*literalIdx] = newLiteral;
+    // Preserve the original (possibly dynamically-shaped) result type
+    // explicitly: OP_TYPE's (ValueRange, ArrayRef<NamedAttribute>) builder
+    // recomputes the result type by broadcasting the operand shapes and
+    // falls back to a fully unranked tensor whenever that broadcast isn't
+    // statically shaped, which would silently discard shape information
+    // the op already had (e.g. tensor<1x1x?x1xi1> would widen to
+    // tensor<*xi1>).
+    rewriter.replaceOpWithNewOp<OP_TYPE>(
+        op, op->getResultTypes(), newOperands, op->getAttrs());
+    return success();
+  }
+};
+
 // A pattern to turn
 //   `BinaryOp(Constant_X, ExpandOp(Constant_Y))`
 // into
@@ -1177,6 +1226,58 @@ public:
       break;
     }
     return updated ? success() : failure();
+  }
+};
+
+// =============================================================================
+// Rewrite pattern for GlobalLpPool
+// =============================================================================
+
+class GlobalLpPoolPattern : public OpRewritePattern<ONNXGlobalLpPoolOp> {
+public:
+  using OpRewritePattern<ONNXGlobalLpPoolOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXGlobalLpPoolOp poolOp, PatternRewriter &rewriter) const override {
+    Location loc = poolOp.getLoc();
+    Value X = poolOp.getX();
+    ShapedType xType = mlir::dyn_cast<ShapedType>(X.getType());
+    if (!xType || !xType.hasRank())
+      return failure();
+    int64_t rank = xType.getRank();
+    int64_t p = poolOp.getP();
+    Type elementType = xType.getElementType();
+    Type outputType = poolOp.getY().getType();
+
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+    SmallVector<int64_t, 4> axesVals;
+    for (int64_t i = 2; i < rank; ++i)
+      axesVals.emplace_back(i);
+    Value axes = create.onnx.constantInt64(axesVals);
+    Value absX = create.onnx.abs(X);
+
+    if (p == 1) {
+      Value result =
+          create.onnx.reduceSum(outputType, absX, axes, /*keepDims=*/true);
+      rewriter.replaceOp(poolOp, result);
+      return success();
+    }
+
+    Value pConst = create.onnx.constant(
+        DenseElementsAttr::get(RankedTensorType::get({}, elementType),
+            rewriter.getFloatAttr(elementType, static_cast<double>(p))));
+    Value powX = create.onnx.pow(absX, pConst);
+
+    Value sum =
+        create.onnx.reduceSum(outputType, powX, axes, /*keepDims=*/true);
+
+    Value invPConst = create.onnx.constant(
+        DenseElementsAttr::get(RankedTensorType::get({}, elementType),
+            rewriter.getFloatAttr(elementType, 1.0 / static_cast<double>(p))));
+    Value result = create.onnx.pow(sum, invPConst);
+
+    rewriter.replaceOp(poolOp, result);
+    return success();
   }
 };
 
@@ -2720,12 +2821,19 @@ void ONNXDimOp::getCanonicalizationPatterns(
 void ONNXEqualOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<BinaryOpBroadcastAxisPattern<ONNXEqualOp>>(context);
+  result.insert<CompareOpFloatVsIntegerZeroCastPattern<ONNXEqualOp>>(context);
 }
 
 /// on the ONNXGlobalAveragePoolOp.
 void ONNXGlobalAveragePoolOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<GlobalAveragePoolPattern>(context);
+}
+
+/// on the ONNXGlobalLpPoolOp.
+void ONNXGlobalLpPoolOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<GlobalLpPoolPattern>(context);
 }
 
 /// on the ONNXGlobalMaxPoolOp.
@@ -2738,6 +2846,14 @@ void ONNXGlobalMaxPoolOp::getCanonicalizationPatterns(
 void ONNXGreaterOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<BinaryOpBroadcastAxisPattern<ONNXGreaterOp>>(context);
+  result.insert<CompareOpFloatVsIntegerZeroCastPattern<ONNXGreaterOp>>(context);
+}
+
+/// on the ONNXGreaterOrEqualOp.
+void ONNXGreaterOrEqualOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<CompareOpFloatVsIntegerZeroCastPattern<ONNXGreaterOrEqualOp>>(
+      context);
 }
 
 /// on the ONNXGroupNormalizationOp and derivatives.
@@ -2782,6 +2898,14 @@ void ONNXLessOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<LessOpSameCastPattern>(context);
   results.insert<BinaryOpBroadcastAxisPattern<ONNXLessOp>>(context);
+  results.insert<CompareOpFloatVsIntegerZeroCastPattern<ONNXLessOp>>(context);
+}
+
+/// on the ONNXLessOrEqualOp.
+void ONNXLessOrEqualOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<CompareOpFloatVsIntegerZeroCastPattern<ONNXLessOrEqualOp>>(
+      context);
 }
 
 /// on the ONNXLoopOp.

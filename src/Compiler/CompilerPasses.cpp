@@ -43,6 +43,7 @@
 #include "src/Conversion/KrnlToLLVM/ConvertKrnlToLLVM.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/Mlir/ParallelMachineSupport.hpp"
 #include "src/Dialect/Mlir/VectorMachineSupport.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -67,6 +68,10 @@ void configurePasses() {
   }
   // Set global vector machine support.
   VectorMachineSupport::setGlobalVectorMachineSupport(march, mcpu, "");
+  // Set global parallel machine support. Takes the triple too: the cost of
+  // entering a parallel region depends on the OpenMP runtime, so two targets
+  // can differ here at an identical -march.
+  ParallelMachineSupport::setGlobalParallelMachineSupport(mtriple, march, mcpu);
   configureConstPropONNXToONNXPass(onnxConstPropRoundFPToInt,
       onnxConstPropExpansionBound, onnxConstPropDisablePatterns,
       disableConstantProp);
@@ -209,6 +214,18 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   if (!donotScrubDisposableElementsAttr)
     pm.addPass(createScrubDisposablePass());
 
+  // Fuse chains of ONNX operations into a single ONNXFusedOp (for kinds that
+  // are not accelerator-specific -- see ONNXFusionOpHelper.hpp). Keep this
+  // as late as possible, just before instrumentation, so other
+  // optimizations don't disturb the fused op once formed -- mirroring where
+  // NNPA's own fusion pass, FusionOpStickUnstick, sits relative to the end
+  // of its own pass-building function. Gated on targetCPU (false under any
+  // accelerator that merges these same patterns into its own fusion pass
+  // instead, e.g. NNPA's FusionOpStickUnstick) so exactly one fusion pass
+  // ever runs.
+  if (targetCPU && !disableFusedOp)
+    pm.addPass(onnx_mlir::createFusionOpTransformPass());
+
   // Set onnx_node_name if it is missing. Keep this pass at the end of this
   // function and just before instrumentation.
   pm.addPass(createSetONNXNodeNamePass());
@@ -308,6 +325,7 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
 
   pm.addPass(onnx_mlir::createLowerToKrnlPass(/*enableTiling*/ optLevel >= 3,
       /*enableSIMD*/ optLevel >= 3 && !disableSimdOption, enableParallel,
+      /*enableCollapse*/ enableParallel && !disableCollapse,
       /*enableFastMath*/ optLevel >= 3 && enableFastMathOption,
       /*opsToCall*/ opsForCall));
   // An additional pass of canonicalization is helpful because lowering

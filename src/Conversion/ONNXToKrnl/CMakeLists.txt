@@ -3,6 +3,7 @@
 # Please keep in alphabetical order.
 add_onnx_mlir_library(OMONNXToKrnl
   ConvertONNXToKrnl.cpp
+  KrnlParallelPlan.cpp
   ONNXToKrnlCommon.cpp
   PerfectHash.cpp
   Additional/Custom.cpp
@@ -16,6 +17,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   ControlFlow/Yield.cpp
   ConvertONNXToKrnl.cpp
   ML/CategoryMapper.cpp
+  Math/Attention.cpp
   Math/CumSum.cpp
   Math/DFT.cpp
   Math/Elementwise.cpp
@@ -54,6 +56,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   Sequence/SequenceInsert.cpp
   Sequence/SequenceLength.cpp
   Tensor/ArgMinMax.cpp
+  Tensor/Col2Im.cpp
   Tensor/Compress.cpp
   Tensor/Concat.cpp
   Tensor/ConcatShapeTranspose.cpp
@@ -62,6 +65,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   Tensor/DepthToSpace.cpp
   Tensor/Dim.cpp
   Tensor/Expand.cpp
+  Tensor/EyeLike.cpp
   Tensor/Flatten.cpp
   Tensor/Gather.cpp
   Tensor/GatherElements.cpp
@@ -80,6 +84,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   Tensor/Shape.cpp
   Tensor/Size.cpp
   Tensor/Slice.cpp
+  Tensor/FusedSplitOpGather.cpp
   Tensor/SpaceToDepth.cpp
   Tensor/Split.cpp
   Tensor/Squeeze.cpp
@@ -92,6 +97,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   OMAccelerator
   OMCompilerOptions
   OMFusionOpHelper
+  OMONNXFusionOpHelper
   OMONNXConversionCommon
   OMONNXOps
   OMSupport
