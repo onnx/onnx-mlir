@@ -1,5 +1,5 @@
-// RUN: onnx-mlir-opt --march=z16 --maccel=NNPA --convert-onnx-to-krnl="enable-parallel enable-collapse" --canonicalize %s -split-input-file | FileCheck %s
-// RUN: onnx-mlir-opt --march=z16 --maccel=NNPA --convert-onnx-to-krnl=enable-parallel --canonicalize %s -split-input-file | FileCheck %s --check-prefix=NOCOLLAPSE
+// RUN: onnx-mlir-opt --march=z16 --maccel=NNPA --convert-onnx-to-krnl=enable-parallel --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --march=z16 --maccel=NNPA --convert-onnx-to-krnl="enable-parallel enable-collapse=false" --canonicalize %s -split-input-file | FileCheck %s --check-prefix=NOCOLLAPSE
 
 // Collapse coverage for the retiled LayoutTransform fast path, the sibling of
 // test/mlir/conversion/onnx_to_krnl/parallel_collapse.mlir. It lives here rather
