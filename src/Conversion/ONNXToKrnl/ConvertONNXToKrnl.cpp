@@ -308,7 +308,8 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXRandomUniformLikeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXLpNormalizationOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXLRNOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXQLinearMatMulOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXQLinearMatMulOpPattern(
+      patterns, typeConverter, ctx, enableSIMD, enableParallel);
   // ML
   populateLoweringONNXCategoryMapperOpPattern(patterns, typeConverter, ctx);
   // ObjectDetection
@@ -449,9 +450,10 @@ public:
       llvm::cl::desc("Enable parallelization"), llvm::cl::init(false)};
   Option<bool> enableCollapse{*this, "enable-collapse",
       llvm::cl::desc(
-          "Enable collapsing several loop levels into one parallel "
-          "region; only has an effect together with enable-parallel"),
-      llvm::cl::init(false)};
+          "Enable collapsing several loop levels into one parallel region "
+          "(default=true). Collapse is only ever performed together with "
+          "enable-parallel; without it, this option has no effect"),
+      llvm::cl::init(true)};
   Option<bool> enableFastMath{*this, "enable-fast-math",
       llvm::cl::desc("Enable fast math optimizations"), llvm::cl::init(false)};
   Option<std::string> opsForCall{*this, "ops-for-call",
@@ -541,7 +543,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // Define patterns.
   populateONNXToKrnlConversionPattern(patterns, krnlTypeConverter,
       &getContext(), dimAnalysis, enableTiling, enableSIMD, enableParallel,
-      enableCollapse, enableFastMath, opsForCall);
+      enableParallel && enableCollapse, enableFastMath, opsForCall);
 
   // Rewrite patterns for accelerators.
   for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())

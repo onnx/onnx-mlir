@@ -236,7 +236,8 @@ void NNPAAccelerator::rewritePatternONNXToKrnl(
   onnx_mlir::zhigh::populateZHighToZLowConversionPattern(patterns,
       typeConverter, ctx,
       /*enableSIMD*/ OptimizationLevel >= 3 && !disableSimdOption,
-      enableParallel, enableCollapse, nnpaDisableSaturation);
+      enableParallel, /*enableCollapse*/ enableParallel && !disableCollapse,
+      nnpaDisableSaturation);
   onnx_mlir::zhigh::populateONNXWithNNPALayoutToKrnlConversionPattern(
       patterns, typeConverter, ctx, enableParallel, nnpaDisableSaturation);
 }
