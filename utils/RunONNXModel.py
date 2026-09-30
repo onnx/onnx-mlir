@@ -936,8 +936,8 @@ class InferenceSession:
                     session = self.session_wrapper(shared_lib_path, tag="None")
                 else:
                     session = self.session_wrapper(shared_lib_path)
-            except RuntimeError:
-                # The C++ layer already printed the specific error to stderr.
+            except RuntimeError as e:
+                print(f"error: {e}", file=sys.stderr)
                 sys.exit(1)
             end = time.perf_counter()
             print("  took ", end - start, " seconds.\n")
@@ -1014,8 +1014,8 @@ class InferenceSession:
                     seed=int(float(args.seed)),
                     verbose=True,
                 )
-            except RuntimeError:
-                # The C++ layer already printed the specific error to stderr.
+            except RuntimeError as e:
+                print(f"error: {e}", file=sys.stderr)
                 sys.exit(1)
 
         # Print the input if required.
@@ -1255,7 +1255,8 @@ class InferenceSession:
             start = time.perf_counter()
             try:
                 outs = self.run_inference()  # Using inputs from self.inputs.
-            except RuntimeError:
+            except RuntimeError as e:
+                print(f"error: {e}", file=sys.stderr)
                 sys.exit(1)
             end = time.perf_counter()
             print("  {} warmup: {} seconds".format(ordinal(i + 1), end - start))
@@ -1266,7 +1267,8 @@ class InferenceSession:
             start = time.perf_counter()
             try:
                 outs = self.run_inference()  # Using inputs from self.inputs.
-            except RuntimeError:
+            except RuntimeError as e:
+                print(f"error: {e}", file=sys.stderr)
                 sys.exit(1)
             end = time.perf_counter()
             elapsed = end - start
