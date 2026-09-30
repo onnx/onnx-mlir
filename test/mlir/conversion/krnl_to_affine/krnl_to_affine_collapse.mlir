@@ -27,7 +27,7 @@
 // Base case: collapse + iterate, with the per-dimension indices recovered by the
 // default mode of krnl.get_induction_var_value.
 func.func @collapse_base(%arg0: memref<10x20xf32> {onnx.name = "x"}) -> (memref<10x20xf32> {onnx.name = "y"}) {
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<10x20xf32>
+  %alloc = memref.alloc() alignment = 16 : memref<10x20xf32>
   %ii, %jj = krnl.define_loops 2
   %ff = krnl.collapse(%ii, %jj) : (!krnl.loop, !krnl.loop) -> !krnl.loop
   krnl.iterate(%ff) with (%ii -> %i = 0 to 10, %jj -> %j = 0 to 20) {
@@ -71,7 +71,7 @@ func.func @collapse_base(%arg0: memref<10x20xf32> {onnx.name = "x"}) -> (memref<
 
 // The primary motivating case: one affine.parallel over the fused range.
 func.func @collapse_then_parallel(%arg0: memref<10x20xf32> {onnx.name = "x"}) -> (memref<10x20xf32> {onnx.name = "y"}) {
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<10x20xf32>
+  %alloc = memref.alloc() alignment = 16 : memref<10x20xf32>
   %ii, %jj = krnl.define_loops 2
   %ff = krnl.collapse(%ii, %jj) : (!krnl.loop, !krnl.loop) -> !krnl.loop
   krnl.parallel(%ff) : !krnl.loop
@@ -114,7 +114,7 @@ func.func @collapse_then_parallel(%arg0: memref<10x20xf32> {onnx.name = "x"}) ->
 // Collapse composes with permute: the fused loop is permuted against an
 // unrelated third dimension.
 func.func @collapse_then_permute(%arg0: memref<4x5x6xf32> {onnx.name = "x"}) -> (memref<4x5x6xf32> {onnx.name = "y"}) {
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<4x5x6xf32>
+  %alloc = memref.alloc() alignment = 16 : memref<4x5x6xf32>
   %ii, %jj, %kk = krnl.define_loops 3
   %ff = krnl.collapse(%ii, %jj) : (!krnl.loop, !krnl.loop) -> !krnl.loop
   krnl.permute(%ff, %kk) [1, 0] : !krnl.loop, !krnl.loop
@@ -166,7 +166,7 @@ func.func @collapse_then_permute(%arg0: memref<4x5x6xf32> {onnx.name = "x"}) -> 
 // Three dimensions in one collapse: exercises the running-quotient chain past
 // the two-dimension case, where each index needs both a floordiv and a mod.
 func.func @collapse_three_dims(%arg0: memref<4x5x6xf32> {onnx.name = "x"}) -> (memref<4x5x6xf32> {onnx.name = "y"}) {
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<4x5x6xf32>
+  %alloc = memref.alloc() alignment = 16 : memref<4x5x6xf32>
   %ii, %jj, %kk = krnl.define_loops 3
   %ff = krnl.collapse(%ii, %jj, %kk) : (!krnl.loop, !krnl.loop, !krnl.loop) -> !krnl.loop
   krnl.iterate(%ff) with (%ii -> %i = 0 to 4, %jj -> %j = 0 to 5, %kk -> %k = 0 to 6) {
@@ -220,7 +220,7 @@ func.func @collapse_three_dims(%arg0: memref<4x5x6xf32> {onnx.name = "x"}) -> (m
 // zero test has to fold the bound rather than pattern-match how it was written.
 func.func @collapse_lb_zero_via_constant(%arg0: memref<10x20xf32> {onnx.name = "x"}) -> (memref<10x20xf32> {onnx.name = "y"}) {
   %c0 = arith.constant 0 : index
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<10x20xf32>
+  %alloc = memref.alloc() alignment = 16 : memref<10x20xf32>
   %ii, %jj = krnl.define_loops 2
   %ff = krnl.collapse(%ii, %jj) : (!krnl.loop, !krnl.loop) -> !krnl.loop
   krnl.iterate(%ff) with (%ii -> %i = %c0 to 10, %jj -> %j = %c0 to 20) {
@@ -267,7 +267,7 @@ func.func @collapse_lb_zero_via_constant(%arg0: memref<10x20xf32> {onnx.name = "
 // dimensions: the baseline computes %i * 20 + %j by hand and the two must agree
 // value-for-value.
 func.func @collapse_raw_fused_index(%arg0: memref<200xf32> {onnx.name = "x"}) -> (memref<200xf32> {onnx.name = "y"}) {
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<200xf32>
+  %alloc = memref.alloc() alignment = 16 : memref<200xf32>
   %ii, %jj = krnl.define_loops 2
   %ff = krnl.collapse(%ii, %jj) : (!krnl.loop, !krnl.loop) -> !krnl.loop
   krnl.iterate(%ff) with (%ii -> %i = 0 to 10, %jj -> %j = 0 to 20) {
@@ -307,7 +307,7 @@ func.func @collapse_dynamic_dims(%arg0: memref<?x?xf32> {onnx.name = "x"}) -> (m
   %c1 = arith.constant 1 : index
   %d0 = memref.dim %arg0, %c0 : memref<?x?xf32>
   %d1 = memref.dim %arg0, %c1 : memref<?x?xf32>
-  %alloc = memref.alloc(%d0, %d1) {alignment = 16 : i64} : memref<?x?xf32>
+  %alloc = memref.alloc(%d0, %d1) alignment = 16 : memref<?x?xf32>
   %ii, %jj = krnl.define_loops 2
   %ff = krnl.collapse(%ii, %jj) : (!krnl.loop, !krnl.loop) -> !krnl.loop
   krnl.iterate(%ff) with (%ii -> %i = 0 to %d0, %jj -> %j = 0 to %d1) {
@@ -356,7 +356,7 @@ func.func @collapse_dynamic_dims(%arg0: memref<?x?xf32> {onnx.name = "x"}) -> (m
 func.func @collapse_dynamic_and_static_dims(%arg0: memref<?x20xf32> {onnx.name = "x"}) -> (memref<?x20xf32> {onnx.name = "y"}) {
   %c0 = arith.constant 0 : index
   %d0 = memref.dim %arg0, %c0 : memref<?x20xf32>
-  %alloc = memref.alloc(%d0) {alignment = 16 : i64} : memref<?x20xf32>
+  %alloc = memref.alloc(%d0) alignment = 16 : memref<?x20xf32>
   %ii, %jj = krnl.define_loops 2
   %ff = krnl.collapse(%ii, %jj) : (!krnl.loop, !krnl.loop) -> !krnl.loop
   krnl.iterate(%ff) with (%ii -> %i = 0 to %d0, %jj -> %j = 0 to 20) {
@@ -406,7 +406,7 @@ func.func @collapse_dynamic_then_parallel(%arg0: memref<?x?xf32> {onnx.name = "x
   %c1 = arith.constant 1 : index
   %d0 = memref.dim %arg0, %c0 : memref<?x?xf32>
   %d1 = memref.dim %arg0, %c1 : memref<?x?xf32>
-  %alloc = memref.alloc(%d0, %d1) {alignment = 16 : i64} : memref<?x?xf32>
+  %alloc = memref.alloc(%d0, %d1) alignment = 16 : memref<?x?xf32>
   %ii, %jj = krnl.define_loops 2
   %ff = krnl.collapse(%ii, %jj) : (!krnl.loop, !krnl.loop) -> !krnl.loop
   krnl.parallel(%ff) : !krnl.loop
@@ -458,7 +458,7 @@ func.func @collapse_dynamic_then_parallel(%arg0: memref<?x?xf32> {onnx.name = "x
 // stops at -- unterminated, its block came out empty after coalescing and
 // LoopBodyMover walked off the end of it.
 func.func @collapse_two_sibling_groups(%arg0: memref<4x5x6x7xf32> {onnx.name = "x"}) -> (memref<4x5x6x7xf32> {onnx.name = "y"}) {
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<4x5x6x7xf32>
+  %alloc = memref.alloc() alignment = 16 : memref<4x5x6x7xf32>
   %ii, %jj, %kk, %ll = krnl.define_loops 4
   %f1 = krnl.collapse(%ii, %jj) : (!krnl.loop, !krnl.loop) -> !krnl.loop
   %f2 = krnl.collapse(%kk, %ll) : (!krnl.loop, !krnl.loop) -> !krnl.loop
@@ -540,7 +540,7 @@ func.func @collapse_two_sibling_groups(%arg0: memref<4x5x6x7xf32> {onnx.name = "
 //    than they did originally.
 //
 func.func @collapse_two_groups_and_plain_loop(%arg0: memref<2x3x4x5x6x7xf32> {onnx.name = "x"}) -> (memref<2x3x4x5x6x7xf32> {onnx.name = "y"}) {
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<2x3x4x5x6x7xf32>
+  %alloc = memref.alloc() alignment = 16 : memref<2x3x4x5x6x7xf32>
   %d0, %d1, %d2, %d3, %d4, %d5 = krnl.define_loops 6
   %f1 = krnl.collapse(%d0, %d1, %d2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> !krnl.loop
   %f2 = krnl.collapse(%d4, %d5) : (!krnl.loop, !krnl.loop) -> !krnl.loop
@@ -629,7 +629,7 @@ func.func @collapse_two_groups_and_plain_loop(%arg0: memref<2x3x4x5x6x7xf32> {on
 // row-major order of its own dimensions -- the extra baseline arithmetic below is
 // the substance of the comparison, not incidental difference.
 func.func @collapse_fused_index_two_groups(%arg0: memref<5040xf32> {onnx.name = "x"}) -> (memref<5040xf32> {onnx.name = "y"}) {
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<5040xf32>
+  %alloc = memref.alloc() alignment = 16 : memref<5040xf32>
   %d0, %d1, %d2, %d3, %d4, %d5 = krnl.define_loops 6
   %f1 = krnl.collapse(%d0, %d1, %d2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> !krnl.loop
   %f2 = krnl.collapse(%d4, %d5) : (!krnl.loop, !krnl.loop) -> !krnl.loop
@@ -694,7 +694,7 @@ func.func @collapse_fused_index_two_groups(%arg0: memref<5040xf32> {onnx.name = 
 // plain nest below in the baseline file loses its inner dimensions the same way,
 // which is why this shape is spelled with a single define_loops.
 func.func @collapse_nested_iterate_outer(%arg0: memref<4x5x6x7xf32> {onnx.name = "x"}) -> (memref<4x5x6x7xf32> {onnx.name = "y"}) {
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<4x5x6x7xf32>
+  %alloc = memref.alloc() alignment = 16 : memref<4x5x6x7xf32>
   %ii, %jj, %kk, %ll = krnl.define_loops 4
   %ff = krnl.collapse(%ii, %jj) : (!krnl.loop, !krnl.loop) -> !krnl.loop
   krnl.iterate(%ff) with (%ii -> %i = 0 to 4, %jj -> %j = 0 to 5) {
@@ -768,7 +768,7 @@ func.func @collapse_nested_iterate_outer(%arg0: memref<4x5x6x7xf32> {onnx.name =
 // feeds the inner nest; a prefix with a side effect would have been silently
 // reordered across the loop instead.
 func.func @collapse_nested_iterate_inner(%arg0: memref<4x5x6x7xf32> {onnx.name = "x"}) -> (memref<4x5x6x7xf32> {onnx.name = "y"}) {
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<4x5x6x7xf32>
+  %alloc = memref.alloc() alignment = 16 : memref<4x5x6x7xf32>
   %ii, %jj, %kk, %ll = krnl.define_loops 4
   %gg = krnl.collapse(%kk, %ll) : (!krnl.loop, !krnl.loop) -> !krnl.loop
   krnl.iterate(%ii, %jj) with (%ii -> %i = 0 to 4, %jj -> %j = 0 to 5) {
@@ -833,7 +833,7 @@ func.func @collapse_nested_iterate_inner(%arg0: memref<4x5x6x7xf32> {onnx.name =
 // recovery has to survive being moved into a body whose first operation is the
 // inner band's bound.
 func.func @collapse_nested_iterate_both(%arg0: memref<4x5x6x7xf32> {onnx.name = "x"}) -> (memref<4x5x6x7xf32> {onnx.name = "y"}) {
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<4x5x6x7xf32>
+  %alloc = memref.alloc() alignment = 16 : memref<4x5x6x7xf32>
   %ii, %jj, %kk, %ll = krnl.define_loops 4
   %ff = krnl.collapse(%ii, %jj) : (!krnl.loop, !krnl.loop) -> !krnl.loop
   %gg = krnl.collapse(%kk, %ll) : (!krnl.loop, !krnl.loop) -> !krnl.loop
@@ -910,7 +910,7 @@ func.func @collapse_nested_iterate_both_dynamic(%arg0: memref<?x?x?x?xf32> {onnx
   %d1 = memref.dim %arg0, %c1 : memref<?x?x?x?xf32>
   %d2 = memref.dim %arg0, %c2 : memref<?x?x?x?xf32>
   %d3 = memref.dim %arg0, %c3 : memref<?x?x?x?xf32>
-  %alloc = memref.alloc(%d0, %d1, %d2, %d3) {alignment = 16 : i64} : memref<?x?x?x?xf32>
+  %alloc = memref.alloc(%d0, %d1, %d2, %d3) alignment = 16 : memref<?x?x?x?xf32>
   %ii, %jj, %kk, %ll = krnl.define_loops 4
   %ff = krnl.collapse(%ii, %jj) : (!krnl.loop, !krnl.loop) -> !krnl.loop
   %gg = krnl.collapse(%kk, %ll) : (!krnl.loop, !krnl.loop) -> !krnl.loop
@@ -980,7 +980,7 @@ func.func @collapse_nested_iterate_both_dynamic(%arg0: memref<?x?x?x?xf32> {onnx
 // affine.parallel, so the body the mover has to fill belongs to a different op
 // than in the three static cases above.
 func.func @collapse_nested_iterate_both_then_parallel(%arg0: memref<4x5x6x7xf32> {onnx.name = "x"}) -> (memref<4x5x6x7xf32> {onnx.name = "y"}) {
-  %alloc = memref.alloc() {alignment = 16 : i64} : memref<4x5x6x7xf32>
+  %alloc = memref.alloc() alignment = 16 : memref<4x5x6x7xf32>
   %ii, %jj, %kk, %ll = krnl.define_loops 4
   %ff = krnl.collapse(%ii, %jj) : (!krnl.loop, !krnl.loop) -> !krnl.loop
   %gg = krnl.collapse(%kk, %ll) : (!krnl.loop, !krnl.loop) -> !krnl.loop

@@ -44,8 +44,13 @@ class FusedPatternForOpKind : public mlir::OpRewritePattern<AnchorOpType> {
   DimAnalysis *dimAnalysis;
 
 public:
+  // Benefit = FusionT::kMaxOpCount: only meaningful when another kind shares
+  // this same AnchorOpType (mlir::PatternApplicator ranks same-anchor
+  // candidates by benefit); it has no effect on precedence between kinds
+  // anchored on different op types -- see the kMaxOpCount contract note in
+  // FusionOpHelper.hpp.
   FusedPatternForOpKind(mlir::MLIRContext *context, DimAnalysis *dimAnalysis)
-      : mlir::OpRewritePattern<AnchorOpType>(context, 1),
+      : mlir::OpRewritePattern<AnchorOpType>(context, FusionT::kMaxOpCount),
         dimAnalysis(dimAnalysis) {}
 
   mlir::LogicalResult matchAndRewrite(

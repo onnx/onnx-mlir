@@ -4,7 +4,7 @@
 
 //====----- ONNXToKrnlCommon.cpp - ONNX dialects to Krnl lowering ---------===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -693,65 +693,6 @@ bool hasNonIdentityLayout(ValueRange operands) {
     if (hasNonIdentityLayout(val))
       return true;
   return false;
-}
-
-//===----------------------------------------------------------------------===//
-// Support functions for parallel region.
-//===----------------------------------------------------------------------===//
-
-// Return the outermost loop within [firstInclusiveDim, lastExclusiveDim) for
-// which (ub-lb) > minSize. Runtime dimensions are assumed to satisfy the size
-// requirement by definition. If found one, it is parDim and the function
-// returns true. Otherwise parDim is unchanged.
-
-bool findSuitableParallelDimension(ArrayRef<IndexExpr> lb,
-    ArrayRef<IndexExpr> ub, int64_t firstInclusiveDim, int64_t lastExclusiveDim,
-    int64_t &parDim, int64_t minSize) {
-  assert(lb.size() == ub.size() && "expected identical ranks for lb/ub");
-  if (firstInclusiveDim < 0)
-    firstInclusiveDim = 0;
-  if (lastExclusiveDim > static_cast<int64_t>(lb.size()))
-    lastExclusiveDim = lb.size();
-  for (int64_t i = firstInclusiveDim; i < lastExclusiveDim; ++i) {
-    IndexExpr tripCount = ub[i] - lb[i];
-    if (!tripCount.isLiteral()) {
-      // Got a dyn dim, assume will be large enough.
-      LLVM_DEBUG(llvm::dbgs() << "Pick dim " << i << " because ub is dyn\n");
-      parDim = i;
-      return true;
-    }
-    if (tripCount.getLiteral() >= minSize) {
-      // Got a literal dim with large enough trip count.
-      LLVM_DEBUG(llvm::dbgs()
-                 << "Pick dim " << i << " as " << tripCount.getLiteral()
-                 << " greater than " << minSize << "\n");
-      parDim = i;
-      return true;
-    }
-  }
-  return false;
-}
-
-int64_t tryCreateKrnlParallel(const KrnlBuilder &createKrnl, Operation *op,
-    std::string msg, const ValueRange &loopDef, ArrayRef<IndexExpr> lbs,
-    ArrayRef<IndexExpr> ubs, int64_t firstInclusiveDim,
-    int64_t lastExclusiveDim, ArrayRef<int64_t> exclusiveDims, int64_t minSize,
-    bool createKrnlParallel) {
-  int64_t parId = -1;
-  if (findSuitableParallelDimension(
-          lbs, ubs, firstInclusiveDim, lastExclusiveDim, parId, minSize)) {
-    if (!llvm::is_contained(exclusiveDims, parId)) {
-      if (createKrnlParallel) {
-        assert(parId <= (int64_t)loopDef.size() && "expected loop defs");
-        createKrnl.parallel(loopDef[parId]);
-      }
-      onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId], msg);
-      return parId;
-    }
-  }
-  onnxToKrnlParallelReport(
-      op, false, -1, -1, "no par dim with enough work in " + msg);
-  return -1;
 }
 
 //===----------------------------------------------------------------------===//

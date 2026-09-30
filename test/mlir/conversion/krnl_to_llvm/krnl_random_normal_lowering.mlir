@@ -1,7 +1,7 @@
 // RUN: onnx-mlir-opt -O3 --convert-krnl-to-affine --convert-krnl-to-llvm --canonicalize %s -split-input-file | FileCheck %s
 
 func.func @test_random_normal_lowering() -> memref<3x4x5xf32> {
-  %0 = memref.alloc() {alignment = 16 : i64} : memref<3x4x5xf32>
+  %0 = memref.alloc() alignment = 16 : memref<3x4x5xf32>
   %c60 = arith.constant 60 : index
   %cst = arith.constant 0.000000e+00 : f32
   %cst_0 = arith.constant 1.000000e+00 : f32
@@ -32,7 +32,7 @@ func.func @test_random_normal_dynamic_lowering(%arg0: memref<3x4x?x?xf32>) -> me
   %0 = memref.dim %arg0, %c2 : memref<3x4x?x?xf32>
   %c3 = arith.constant 3 : index
   %1 = memref.dim %arg0, %c3 : memref<3x4x?x?xf32>
-  %2 = memref.alloc(%0, %1) {alignment = 16 : i64} : memref<3x4x?x?xf32>
+  %2 = memref.alloc(%0, %1) alignment = 16 : memref<3x4x?x?xf32>
   %c12 = arith.constant 12 : index
   %c2_0 = arith.constant 2 : index
   %3 = memref.dim %arg0, %c2_0 : memref<3x4x?x?xf32>

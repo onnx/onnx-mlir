@@ -436,9 +436,10 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
           canOverCompute, simdLoopStaticTripCount, simdOnly);
   // Test if loop trip count is long enough for a parallel execution.
   if (enableParallel) {
-    if (tryCreateKrnlParallel(create.krnl, op, "simd reduction to one element",
-            {}, {lb}, {ub}, 0, 1, {}, 32 * totVL,
-            /*createKrnlParallel=*/false) == -1)
+    auto plan = KrnlParallelPlan::noLoopRefs(
+        /*first*/ 0, /*last excl*/ 1, /*cost*/ {32 * totVL});
+    if (plan.findParallelDim(op, "simd reduction to one element", {lb}, {ub}) ==
+        NO_PAR_FOUND)
       enableParallel = false;
   }
   if (!enableParallel) {
@@ -1003,9 +1004,9 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     // - One to do reduction, and
     // - One to compute mean (optional).
 
-    // Parallelism only if output is not a scalar.
-    if (outRank == 0)
-      enableParallel = false;
+    // No rank-0 guard needed. A scalar output is genuinely reachable here, and
+    // gives a rank-0 nest with no level to parallelize; tryCreateParallel
+    // answers that itself rather than needing to be held back.
 
     // 1. Define loops to initialize the result.
     Value identity = getIdentityValue<ONNXReductionOp>(
@@ -1053,10 +1054,12 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       SmallVector<IndexExpr, 4> lbs3(outRank, LitIE(0));
       SmallVector<IndexExpr, 4> ubs3;
       create.krnlIE.getShapeAsSymbols(alloc, ubs3);
+      auto plan = KrnlParallelPlan::noCollapse(
+          loop3Def, /*first*/ 0, /*last excl*/ 1, /*cost*/ {4});
       if (enableParallel)
-        tryCreateKrnlParallel(create.krnl, op, "reduction scalar mean",
-            loop3Def, lbs3, ubs3, 0, 1, {}, /*min iter for going parallel*/ 4);
-      create.krnl.iterateIE(loop3Def, loop3Def, lbs3, ubs3,
+        plan.tryCreateParallel(
+            create.krnl, op, "reduction scalar mean", lbs3, ubs3);
+      create.krnl.iterateIE(loop3Def, plan.optimizedLoopDef(), lbs3, ubs3,
           [&](const KrnlBuilder &kb, ValueRange loopInd) {
             MultiDialectBuilder<KrnlBuilder, MathBuilder> create(kb);
             Value loadData = create.krnl.load(alloc, loopInd);
@@ -1167,19 +1170,22 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     // should only be a 1 rank difference between the two.
     assert(flatOutRank == flatInRank - 1 && "wrong assumptions about dims");
 
-    // Parallelism only if output is not a scalar.
-    if (flatOutRank == 0)
-      enableParallel = false;
+    // No rank-0 guard needed, and rank 0 is in fact unreachable: horizontalSimd
+    // is set only when hNum < inRank, so at least one dim escapes reduction and
+    // flatOutRank >= 1. Harmless either way -- nothing here indexes off the
+    // innermost level, and tryCreateParallel answers a rank-0 nest itself.
 
     // Compute type of alloca a small temp vector.
     MemRefType tmpType = MemRefType::get({1, VL}, elementType);
     // Define loops for input dimensions, blocking the inner dim by VL
     ValueRange outLoopDef = create.krnl.defineLoops(flatOutRank);
     SmallVector<IndexExpr, 4> lbs(flatOutRank, LitIE(0));
+    auto plan = KrnlParallelPlan::noCollapse(
+        outLoopDef, /*first*/ 0, /*last excl*/ 1, /*cost*/ {128});
     if (enableParallel)
-      tryCreateKrnlParallel(create.krnl, op, "reduction h-simd", outLoopDef,
-          lbs, flatOutDims, 0, 1, {}, /*min iter for going parallel*/ 128);
-    create.krnl.iterateIE(outLoopDef, outLoopDef, lbs, flatOutDims,
+      plan.tryCreateParallel(
+          create.krnl, op, "reduction h-simd", lbs, flatOutDims);
+    create.krnl.iterateIE(outLoopDef, plan.optimizedLoopDef(), lbs, flatOutDims,
         [&](const KrnlBuilder &ck, ValueRange outLoopInd) {
           MDBuilder create(ck);
           // When parallel, will stay inside; otherwise will migrate out.
@@ -1301,12 +1307,17 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     // should only be a 1 rank difference between the two.
     assert(flatOutRank == flatInRank - 1 && "wrong assumptions about dims");
 
-    // Parallelism only if output is not a scalar.
-    if (flatOutRank == 0 && enableParallel) {
-      enableParallel = false;
-      onnxToKrnlParallelReport(
-          op, false, -1, 0, "zero flat out rank for reduction shuffle h-simd");
-    }
+    // No rank-0 guard needed, and rank 0 is unreachable: horizontalSimd is set
+    // only when hNum < inRank, so at least one dim escapes reduction and
+    // flatOutRank >= 1 whichever way keepdims falls. Unlike the non-shuffle
+    // scheme this one *requires* that, since it blocks the innermost output
+    // level: outLoopDef[flatOutRank - 1] below, and blockedOutLoopInd and
+    // flatOutDims at the same index inside the loop body, are all out of bounds
+    // at rank 0. Note the asserts above do not establish this -- they only
+    // restate assumptions, and vanish with NDEBUG.
+    // TODO inspect rank 0 cases for out of bound accesses: the guarantee that
+    // makes the three indexings above safe is made in another function, and is
+    // checked nowhere here.
 
     // Compute type of small temp vector.
     MemRefType tmpBlockedType = MemRefType::get({VL, VL}, elementType);
@@ -1320,12 +1331,14 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     optimizedOutLoopDef.emplace_back(blockedOutLoopDef[0]);
     // Iterate only over all but the inner loop of the flattened input.
     SmallVector<IndexExpr, 4> lbs(flatOutRank, LitIE(0));
+    // Innermost entry is a krnl.block result: can never collapse.
+    auto plan = KrnlParallelPlan::noCollapse(optimizedOutLoopDef, /*first*/ 0,
+        /*last excl*/ flatOutRank, /*cost*/ {8 * VL});
     if (enableParallel) {
-      tryCreateKrnlParallel(create.krnl, op, "reduction shuffle h-simd",
-          optimizedOutLoopDef, lbs, flatOutDims, 0, flatOutRank, {},
-          /*min iter for going parallel*/ 8 * VL);
+      plan.tryCreateParallel(
+          create.krnl, op, "reduction shuffle h-simd", lbs, flatOutDims);
     }
-    create.krnl.iterateIE(outLoopDef, optimizedOutLoopDef, lbs, flatOutDims,
+    create.krnl.iterateIE(outLoopDef, plan.optimizedLoopDef(), lbs, flatOutDims,
         [&](const KrnlBuilder &ck, ValueRange blockedOutLoopInd) {
           MDBuilder create(ck);
           // When parallel, will stay inside; otherwise will migrate out.

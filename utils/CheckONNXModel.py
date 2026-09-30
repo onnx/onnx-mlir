@@ -34,7 +34,10 @@
 #        = c            (if neither given -- t defaults to empty, same as r
 #                         does when -r is absent)
 # Reference and test must resolve to different options; the script errors out
-# otherwise, since there would be nothing to compare.
+# otherwise, since there would be nothing to compare. The exception is
+# --cache-ref-model and --cache-test-model naming two different folders: the
+# two compiled models are then whatever those folders hold, so they differ
+# regardless of the options given here (typically none at all).
 #
 # Script will fail if the values are not identical. Currently only the
 # "--verify-every-value" option is supported.
@@ -98,7 +101,9 @@ parser = argparse.ArgumentParser(
     "       = ref + a      (if -a given -- a delta on top of ref itself)\n"
     "       = c            (if neither given -- t defaults to empty)\n"
     "They must resolve to different options; there would otherwise be\n"
-    "nothing to compare. Use either -t or -a, not both.\n"
+    "nothing to compare -- unless --cache-ref-model and --cache-test-model\n"
+    "name two different folders, in which case the cached models are what\n"
+    "differs and no options are needed. Use either -t or -a, not both.\n"
     "See bin/onnx-mlir --help for the options themselves.",
     formatter_class=argparse.RawDescriptionHelpFormatter,
     # -h is added by hand below, so that it lands in the first group with
@@ -344,11 +349,22 @@ def main():
         ).strip()
     else:
         test_compile_args = args.compile_args
-    if set(ref_compile_args.split()) == set(test_compile_args.split()):
+    # Two different cached model folders are themselves the difference under
+    # test: each run loads whatever model its folder holds, so identical (and
+    # typically empty) option strings are expected rather than a mistake.
+    caches_differ = bool(
+        args.cache_ref_model
+        and args.cache_test_model
+        and os.path.realpath(args.cache_ref_model)
+        != os.path.realpath(args.cache_test_model)
+    )
+    same_options = set(ref_compile_args.split()) == set(test_compile_args.split())
+    if same_options and not caches_differ:
         print(
             "error: reference and test resolve to the same onnx-mlir options"
             " ({!r}) -- there is nothing to compare. Set -t/-a to genuinely"
-            " different options.".format(ref_compile_args)
+            " different options, or point --cache-ref-model and"
+            " --cache-test-model at two different folders.".format(ref_compile_args)
         )
         exit(1)
 

@@ -1132,9 +1132,19 @@ static LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     // Obtain the the reference the loop that needs to be parallelized
     for (Value loopRef : loopRefs) {
       // Value loopRef = parallelOp.getLoops()[0];
+      // A ref that no krnl.iterate listed among its optimized loops was never
+      // lowered, so nothing was recorded for it. Diagnose that instead of
+      // dereferencing the null operator[] would default-construct. The likely
+      // cause is a loop ref named here but left out of the iterate's optimized
+      // loop list -- for instance a krnl.collapse result that was emitted but
+      // never passed on.
+      auto it = loopRefToOp.find(loopRef);
+      if (it == loopRefToOp.end())
+        return parallelOp.emitOpError("parallelizes a loop reference that is "
+                                      "not an optimized loop of any "
+                                      "krnl.iterate");
       //  Obtain the lowered affine.forOp
-      AffineForOp loopToParallel =
-          llvm::cast<AffineForOp>(loopRefToOp[loopRef]);
+      AffineForOp loopToParallel = llvm::cast<AffineForOp>(it->second);
       OpBuilder opBuilder(loopToParallel);
 
       // Extract the metadata from the original affine.forOp and then create a

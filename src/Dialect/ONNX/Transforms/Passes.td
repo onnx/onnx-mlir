@@ -38,4 +38,20 @@ def AppendInstrumentedOutputsPass : Pass<"append-instrumented-outputs", "ModuleO
   }];
 }
 
+def ExpandAttentionMaskPass : Pass<"expand-attention-mask", "func::FuncOp"> {
+  let summary = "Expand attention mask tensors in MatMul-Add-Softmax patterns for NNPA.";
+  let description = [{
+    Identifies attention mask tensors in MatMul-Add-Softmax patterns where Add
+    performs broadcasting. Expands the mask once if:
+    1. Add is part of MatMul-Add-Softmax pattern
+    2. Mask is used in ≥8 such patterns (configurable)
+    3. All uses have same target shape (verified using DimAnalysis)
+    
+    Eliminates broadcasting in Add operations for NNPA compatibility.
+  }];
+  
+  let constructor = "onnx_mlir::createExpandAttentionMaskPass()";
+  let dependentDialects = ["mlir::func::FuncDialect", "mlir::ONNXDialect"];
+}
+
 #endif

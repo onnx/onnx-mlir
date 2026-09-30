@@ -610,6 +610,28 @@ def get_test_models():
         # "test_clip_default_int8_min_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
         # "test_clip_default_int8_max_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
         # "test_clip_default_int8_inbounds_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
+        # ==OP== Col2Im
+        # ==MIN== 18
+        "test_col2im_cpu": {
+            STATIC_SHAPE: {},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_col2im_strides_cpu": {
+            STATIC_SHAPE: {},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_col2im_pads_cpu": {
+            STATIC_SHAPE: {},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_col2im_dilations_cpu": {
+            STATIC_SHAPE: {},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_col2im_5d_cpu": {
+            STATIC_SHAPE: {},
+            CONSTANT_INPUT: {-1},
+        },
         # ==OP== Compress
         # ==MIN== 9
         "test_compress_0_cpu": {
@@ -4020,6 +4042,15 @@ class EndiannessAwareExecutionSession(object):
         for idx in input_indices:
             input_node = self.model.graph.input[idx]
             tensor = inputs[idx]
+            # Some CONSTANT_INPUT test cases (e.g. constantofshape) supply a
+            # bare NumPy scalar (np.float32, np.int64, …) rather than an ndarray.
+            # numpy_helper.from_array's tobytes_little_endian calls astype() to
+            # byte-swap on BE machines, but astype() on a NumPy scalar (which is
+            # not an ndarray) silently returns native-endian bytes unchanged in
+            # NumPy 2.x, corrupting raw_data on s390x.  Normalise to a 0-d
+            # ndarray first so that astype() works correctly.
+            if not isinstance(tensor, np.ndarray):
+                tensor = np.asarray(tensor)
             tensor = numpy_helper.from_array(tensor, input_node.name)
             self.model.graph.initializer.extend([tensor])
             inputs_to_remove.append(input_node)

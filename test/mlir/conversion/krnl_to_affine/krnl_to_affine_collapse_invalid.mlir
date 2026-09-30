@@ -110,3 +110,41 @@ func.func @permute_shares_operand_with_collapse() {
   }
   return
 }
+
+// -----
+
+// The forgotten handoff: a krnl.collapse is emitted and parallelized, but never
+// reaches the krnl.iterate's optimized loop list, so nothing ever fuses it and
+// no affine.for is recorded for it. Nothing above catches this -- resolveCollapseOps
+// only ever sees a collapse it found through an iterate -- so the diagnostic has
+// to come from krnl.parallel's own lookup.
+func.func @parallel_on_unconsumed_collapse(%arg0: memref<10x20xf32>) -> memref<10x20xf32> {
+  %alloc = memref.alloc() : memref<10x20xf32>
+  %ii, %jj = krnl.define_loops 2
+  %ff = krnl.collapse(%ii, %jj) : (!krnl.loop, !krnl.loop) -> !krnl.loop
+  // expected-error @+1 {{parallelizes a loop reference that is not an optimized loop of any krnl.iterate}}
+  krnl.parallel(%ff) : !krnl.loop
+  krnl.iterate(%ii, %jj) with (%ii -> %i = 0 to 10, %jj -> %j = 0 to 20) {
+    %v = krnl.load %arg0[%i, %j] : memref<10x20xf32>
+    krnl.store %v, %alloc[%i, %j] : memref<10x20xf32>
+  }
+  return %alloc : memref<10x20xf32>
+}
+
+// -----
+
+// The same lookup failure with no collapse anywhere, which is what shows the
+// hole is not collapse-specific: krnl.parallel on any loop reference absent from
+// every iterate's optimized loops used to dereference a null Operation*.
+func.func @parallel_on_unused_loop_ref(%arg0: memref<10xf32>) -> memref<10xf32> {
+  %alloc = memref.alloc() : memref<10xf32>
+  %ii = krnl.define_loops 1
+  %jj = krnl.define_loops 1
+  // expected-error @+1 {{parallelizes a loop reference that is not an optimized loop of any krnl.iterate}}
+  krnl.parallel(%jj) : !krnl.loop
+  krnl.iterate(%ii) with (%ii -> %i = 0 to 10) {
+    %v = krnl.load %arg0[%i] : memref<10xf32>
+    krnl.store %v, %alloc[%i] : memref<10xf32>
+  }
+  return %alloc : memref<10xf32>
+}

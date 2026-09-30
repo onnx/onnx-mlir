@@ -140,11 +140,17 @@ struct OMTensor {
                    // if and only if it owns it.
 };
 
-/* Helper function to compute the number of data elements */
+/* Helper function to compute the number of data elements.
+ * Returns -1 if any dimension is negative or if the product overflows
+ * int64_t. Zero dimensions are valid (empty tensor) and return 0. */
 static inline int64_t getNumElems(const int64_t *shape, int64_t rank) {
   int64_t numElem = 1;
-  for (int64_t i = 0; i < rank; i++)
-    numElem *= shape[i];
+  for (int64_t i = 0; i < rank; i++) {
+    if (shape[i] < 0)
+      return -1;
+    if (__builtin_mul_overflow(numElem, shape[i], &numElem))
+      return -1;
+  }
   return numElem;
 }
 
@@ -165,6 +171,16 @@ static inline int64_t computeElemOffset(
 // Create a OMTensor.
 OMTensor *omTensorCreate(
     void *data_ptr, const int64_t *shape, int64_t rank, OM_DATA_TYPE dtype) {
+  // Reject negative dimensions before computing strides. A negative shape[i]
+  // causes the stride loop below to produce a sign-flipped stride, which
+  // downstream element-offset arithmetic (computeElemOffset) trusts without
+  // re-checking, potentially writing at a large negative offset from the data
+  // pointer. This path is reachable via the JNI and Python bindings with no
+  // deviation from documented usage.
+  for (int64_t i = 0; i < rank; i++) {
+    if (shape[i] < 0)
+      return NULL;
+  }
   OMTensor *tensor = (OMTensor *)malloc(sizeof(OMTensor));
   if (!tensor)
     return NULL;
@@ -246,7 +262,15 @@ OMTensor *omTensorCreateEmpty(
   int64_t datasize = getDataTypeSize(dtype);
   if (datasize == 0)
     return NULL; /* Undefined types have 0 size storage.*/
-  if (((dataPtr = malloc(getNumElems(shape, rank) * datasize)) == NULL) ||
+  // Guard the numElems * datasize product. getNumElems returns -1 on a
+  // negative dimension or int64_t overflow; the subsequent size_t multiply
+  // could also overflow independently if numElems is very large.
+  int64_t numElems = getNumElems(shape, rank);
+  if (numElems < 0)
+    return NULL;
+  if ((uint64_t)numElems > SIZE_MAX / (uint64_t)datasize)
+    return NULL;
+  if (((dataPtr = malloc((size_t)numElems * (size_t)datasize)) == NULL) ||
       ((tensor = omTensorCreateWithOwnership(
             dataPtr, shape, rank, dtype, /*owning=*/true)) == NULL)) {
     free(dataPtr); // OK if dataPtr == NULL

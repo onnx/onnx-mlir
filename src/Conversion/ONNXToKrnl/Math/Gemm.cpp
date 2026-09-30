@@ -70,11 +70,12 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
     IndexExpr innerUb = shapeHelper.aDims[1];
     SmallVector<IndexExpr, 3> loopUbs{outerUb0, outerUb1, innerUb};
     // Outer loops.
+    auto plan = KrnlParallelPlan::noCollapse(
+        outerLoopDef, /*first*/ 0, /*last excl*/ 1, /*cost*/ {4});
     if (enableParallel)
-      tryCreateKrnlParallel(create.krnl, op, "generic GEMM on outer loop",
-          outerLoopDef, loopLbs, loopUbs, 0, 1, {},
-          /*min iter for going parallel*/ 4);
-    create.krnl.iterateIE(loopDef, outerLoopDef, loopLbs, loopUbs,
+      plan.tryCreateParallel(
+          create.krnl, op, "generic GEMM on outer loop", loopLbs, loopUbs);
+    create.krnl.iterateIE(loopDef, plan.optimizedLoopDef(), loopLbs, loopUbs,
         [&](const KrnlBuilder &createKrnl, ValueRange outerIndices) {
           MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
               createKrnl);
@@ -221,13 +222,16 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
       // (cache) ii1 jj1 kk1,    (reg) jj2, ii2,    (matmul) ii3, jj3, kk3
       create.krnl.permute({ii1, ii2, ii3, jj1, jj2, jj3, kk1, kk2},
           {/*i*/ 0, 4, 5, /*j*/ 1, 3, 6, /*k*/ 2, 7});
+      // Blocked/permuted refs can never collapse. Plan holds the iterate's own
+      // list; the window restricts the choice to the outermost ref.
+      auto plan = KrnlParallelPlan::noCollapse(
+          {ii1, jj1}, /*first*/ 0, /*last excl*/ 1, /*cost*/ {4 * iCacheTile});
       if (enableParallel)
-        tryCreateKrnlParallel(create.krnl, op, "GEMM tiled copy I parallel",
-            {ii1}, {zeroIE}, {I}, 0, 1, {},
-            /*min iter for going parallel*/ 4 * iCacheTile);
+        plan.tryCreateParallel(
+            create.krnl, op, "GEMM tiled copy I parallel", {zeroIE}, {I});
       // Compute: A[i, k] * b[k, j] -> R[i, j])
-      create.krnl.iterateIE({ii, jj, kk}, {ii1, jj1}, {zeroIE, zeroIE, zeroIE},
-          {I, J, K},
+      create.krnl.iterateIE({ii, jj, kk}, plan.optimizedLoopDef(),
+          {zeroIE, zeroIE, zeroIE}, {I, J, K},
           [&](const KrnlBuilder &createKrnl, ValueRange i1_j1_indices) {
             Value i1(i1_j1_indices[0]), j1(i1_j1_indices[1]);
             // If parallel, will stay inside, otherwise will migrate out.
@@ -276,16 +280,18 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
       // level is a j, then all the Ks, then all the Is.
       create.krnl.permute({jj1, jj2, jj3, kk1, kk2, ii1, ii2, ii3},
           {/*j*/ 0, 3, 5, /*k*/ 1, 6, /*i*/ 2, 4, 7});
+      // As above: blocked/permuted refs, plan over the iterate's list.
+      auto plan = KrnlParallelPlan::noCollapse(
+          {jj1, kk1}, /*first*/ 0, /*last excl*/ 1, /*cost*/ {4 * jCacheTile});
       if (enableParallel)
-        tryCreateKrnlParallel(create.krnl, op, "GEMM tiled no copy J parallel",
-            {jj1}, {zeroIE}, {J}, 0, 1, {},
-            /*min iter for going parallel*/ 4 * jCacheTile);
+        plan.tryCreateParallel(
+            create.krnl, op, "GEMM tiled no copy J parallel", {zeroIE}, {J});
       // Compute: A[i, k] * b[k, j] -> R[i, j])
       // Krnl Rule: must put all the iter bounds at once, but can only put the
       // "not currently used ones" like ii here last. Gave an error when ii was
       // listed first.
-      create.krnl.iterateIE({jj, kk, ii}, {jj1, kk1}, {zeroIE, zeroIE, zeroIE},
-          {J, K, I},
+      create.krnl.iterateIE({jj, kk, ii}, plan.optimizedLoopDef(),
+          {zeroIE, zeroIE, zeroIE}, {J, K, I},
           [&](const KrnlBuilder &createKrnl, ValueRange j1_k1_indices) {
             Value j1(j1_k1_indices[0]), k1(j1_k1_indices[1]);
             // If parallel, it will stay inside, otherwise it will migrate out.
@@ -329,12 +335,13 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
       return;
     }
     ValueRange outerLoops = create.krnl.defineLoops(2);
+    auto plan = KrnlParallelPlan::noCollapse(
+        outerLoops, /*first*/ 0, /*last excl*/ 1, /*cost*/ {16});
     if (enableParallel)
-      tryCreateKrnlParallel(create.krnl, op,
-          "outer loop on tiled Transposed Gemm", outerLoops, {zeroIE}, {I}, 0,
-          1, {}, /*min iter for going parallel*/ 16);
-    create.krnl.iterateIE(outerLoops, outerLoops, {zeroIE, zeroIE}, {I, J},
-        [&](const KrnlBuilder &createKrnl, ValueRange outerIndices) {
+      plan.tryCreateParallel(create.krnl, op,
+          "outer loop on tiled Transposed Gemm", {zeroIE}, {I});
+    create.krnl.iterateIE(outerLoops, plan.optimizedLoopDef(), {zeroIE, zeroIE},
+        {I, J}, [&](const KrnlBuilder &createKrnl, ValueRange outerIndices) {
           // Handle alpha/beta coefficients.
           Value res = createKrnl.load(R, outerIndices);
           MathBuilder createMath(createKrnl);

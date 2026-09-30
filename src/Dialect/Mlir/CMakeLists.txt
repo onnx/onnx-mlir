@@ -6,6 +6,7 @@ add_onnx_mlir_library(OMMlirDialects
   IndexExprBuilder.cpp
   DialectBuilder.cpp
   VectorMachineSupport.cpp
+  ParallelMachineSupport.cpp
 
   DEPENDS
   OMKrnlIncGen

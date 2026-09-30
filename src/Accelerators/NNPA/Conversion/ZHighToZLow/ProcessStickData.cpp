@@ -74,11 +74,15 @@ void emitDynamicQuantizationLinearMinMaxFromStickifiedInput(
   int64_t parId = 0;
   int64_t threadNum = 1;
   if (enableParallel) {
-    int64_t parId = tryCreateKrnlParallel(create.krnl, op,
-        "simd min/max for DQL in parallel", {}, lbs, ubs, 0, rank - 1, {},
-        /*min iter for going parallel*/ 8, /*createKrnlParallel=*/false);
-    if (parId == -1) {
+    // The window excludes the innermost level: E1 is iterated as sticks below,
+    // so splitting it across threads would cut a stick in two.
+    auto plan = KrnlParallelPlan::noLoopRefs(
+        /*first*/ 0, /*last excl*/ rank - 1, /*cost*/ {8});
+    parId =
+        plan.findParallelDim(op, "simd min/max for DQL in parallel", lbs, ubs);
+    if (parId == NO_PAR_FOUND) {
       enableParallel = false;
+      parId = 0; // Reset parId  to 0 for sequential.
     } else {
       threadNum = 8; // TODO use more flexible value.
     }
@@ -113,8 +117,10 @@ void emitDynamicQuantizationLinearMinMaxFromStickifiedInput(
 
   // Reduction into these temps.
   IndexExpr tNum = LitIE(threadNum);
+  // Explicitly parallel loop: tid, and lb/ub associated with this tid.
   create.krnl.forExplicitParallelLoopIE(lbs[parId], ubs[parId], tNum,
       [&](const KrnlBuilder &ck, ValueRange loopInd) {
+        // loopInd: threadId, lb, ub.
         IndexExprScope scope(ck);
         IndexExpr t = DimIE(loopInd[0]);
         DimsExpr currDims = DimListIE(dims);
@@ -230,10 +236,11 @@ static void IterateOverStickInputOutput(const KrnlBuilder &kb, Operation *op,
     // TODO: may want to check if ub of rank makes sense here.
     // Its ok here even to partition rank-1, included in (0..rank(, because
     // rank-1 is tiled. So we are still dealing with multiple of sticks.
-    parId = tryCreateKrnlParallel(create.krnl, op,
-        "compiler-generated stickify", {}, tiledLbs, tiledUbs, 0, rank, {},
-        /*min iter for going parallel*/ 8, /*createKrnlParallel=*/false);
-    if (parId == -1)
+    auto plan = KrnlParallelPlan::noLoopRefs(
+        /*first*/ 0, /*last excl*/ rank, /*cost*/ {8});
+    parId = plan.findParallelDim(
+        op, "compiler-generated stickify", tiledLbs, tiledUbs);
+    if (parId == NO_PAR_FOUND)
       enableParallel = false;
   }
 
@@ -653,17 +660,19 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
     create.krnl.blockAndPermute(loopDefs, {B}, outerOptLoops, innerOptLoops);
     // Handle Parallel
     bool useParallel = false;
+    // Parallelize one loop in [0, min(2, outer loop nums)). outerOptLoops comes
+    // from blockAndPermute, so its refs can never collapse.
+    int parRank = ubs.size();
+    if (parRank > 2)
+      parRank = 2;
+    auto plan = KrnlParallelPlan::noCollapse(
+        outerOptLoops, /*first*/ 0, /*last excl*/ parRank, /*cost*/ {4});
     if (enableParallel) {
-      // Parallelize one loop from 0 to (exclusively) min(2, outer loop nums).
-      int parRank = ubs.size();
-      if (parRank > 2)
-        parRank = 2;
       SmallVector<IndexExpr, 2> parLbs(parRank, LitIE(0));
       SmallVector<IndexExpr, 2> parUbs =
           firstFew<IndexExpr, 2>(ubs, parRank - 1 /*inclusive*/);
-      if (tryCreateKrnlParallel(create.krnl, op, "layer-norm", outerOptLoops,
-              parLbs, parUbs, 0, parRank, {}, 4,
-              /*createKrnlParallel=*/true) != -1)
+      if (plan.tryCreateParallel(
+              create.krnl, op, "layer-norm", parLbs, parUbs) != NO_PAR_FOUND)
         useParallel = true;
     }
 
@@ -677,7 +686,7 @@ struct FuzedStickUnstickGenericLayerNormaOpLowering
       redMemRef2 = create.mem.alignedAlloc(redType);
     }
 
-    create.krnl.iterateIE(loopDefs, outerOptLoops, lbs, ubs,
+    create.krnl.iterateIE(loopDefs, plan.optimizedLoopDef(), lbs, ubs,
         [&](const KrnlBuilder &ck, ValueRange outerLoopInd) {
           MDBuilder create(ck);
           IndexExprScope middleScope(ck);

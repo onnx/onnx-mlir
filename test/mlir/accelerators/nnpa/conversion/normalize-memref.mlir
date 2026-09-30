@@ -6,8 +6,8 @@
 
 func.func @test_zlow_relu_norm(%arg0: memref<129x65xf32>) -> memref<129x65xf32> {
   %0 = memref.alloc() : memref<129x65xf32>
-  %1 = memref.alloc() {alignment = 4096 : i64} : memref<129x65xf16, #map0>
-  %2 = memref.alloc() {alignment = 4096 : i64} : memref<129x65xf16, #map0>
+  %1 = memref.alloc() alignment = 4096 : memref<129x65xf16, #map0>
+  %2 = memref.alloc() alignment = 4096 : memref<129x65xf16, #map0>
   %shape = memref.alloc() : memref<2xi64>
   "zlow.stick"(%arg0, %2) : (memref<129x65xf32>, memref<129x65xf16, #map0>) -> ()
   "zlow.relu"(%2, %shape, %1) { layout = "2D" } : (memref<129x65xf16, #map0>, memref<2xi64>, memref<129x65xf16, #map0>) -> ()
@@ -18,8 +18,8 @@ func.func @test_zlow_relu_norm(%arg0: memref<129x65xf32>) -> memref<129x65xf32> 
 
   // CHECK-LABEL: test_zlow_relu_norm
   // CHECK: [[ALLOC1:%.+]] = memref.alloc() : memref<129x65xf32>
-  // CHECK: [[ALLOC2:%.+]] = memref.alloc() {alignment = 4096 : i64} : memref<1x2x1x5x32x64xf16>
-  // CHECK: [[ALLOC3:%.+]] = memref.alloc() {alignment = 4096 : i64} : memref<1x2x1x5x32x64xf16>
+  // CHECK: [[ALLOC2:%.+]] = memref.alloc() alignment = 4096 : memref<1x2x1x5x32x64xf16>
+  // CHECK: [[ALLOC3:%.+]] = memref.alloc() alignment = 4096 : memref<1x2x1x5x32x64xf16>
   // CHECK: [[SHAPE:%.+]] = memref.alloc() : memref<2xi64>
   // CHECK: "zlow.stick"(%arg0, [[ALLOC3]]) : (memref<129x65xf32>, memref<1x2x1x5x32x64xf16>) -> ()
   // CHECK: "zlow.relu"([[ALLOC3]], [[SHAPE]], [[ALLOC2]]) <{layout = "2D"}> : (memref<1x2x1x5x32x64xf16>, memref<2xi64>, memref<1x2x1x5x32x64xf16>) -> ()
@@ -45,37 +45,37 @@ func.func @test_stick_norm(%arg1d: memref<129xf32>, %arg2d: memref<129x65xf32>,
                       %arg3ds: memref<129x65x129xf32>, %arg4d: memref<129x65x129x65xf32>,
                       %argnchw: memref<129x65x129x65xf32>  ) -> () {
   // CHECK-NEXT: memref<1x3x1x1x32x64xf16>
-  %0 = memref.alloc() {alignment = 4096 : i64} : memref<129xf16, #map_1d>
+  %0 = memref.alloc() alignment = 4096 : memref<129xf16, #map_1d>
   // CHECK-NEXT: memref<1x3x1x1x32x64xf16>
   "zlow.stick"(%arg1d, %0) : (memref<129xf32>, memref<129xf16, #map_1d>) -> ()
 
   // CHECK-NEXT: memref<1x2x1x5x32x64xf16>
-  %1 = memref.alloc() {alignment = 4096 : i64} : memref<129x65xf16, #map_2d>
+  %1 = memref.alloc() alignment = 4096 : memref<129x65xf16, #map_2d>
   // CHECK-NEXT: memref<1x2x1x5x32x64xf16>
   "zlow.stick"(%arg2d, %1) : (memref<129x65xf32>, memref<129x65xf16, #map_2d>) -> ()
 
   // CHECK-NEXT: memref<129x2x1x1x32x64xf16>
-  %2 = memref.alloc() {alignment = 4096 : i64} : memref<129x65xf16, #map_2ds>
+  %2 = memref.alloc() alignment = 4096 : memref<129x65xf16, #map_2ds>
   // CHECK-NEXT: memref<129x2x1x1x32x64xf16>
   "zlow.stick"(%arg2ds, %2) : (memref<129x65xf32>, memref<129x65xf16, #map_2ds>) -> ()
 
   // CHECK-NEXT: memref<1x3x129x3x32x64xf16>
-  %3 = memref.alloc() {alignment = 4096 : i64} : memref<129x65x129xf16, #map_3d>
+  %3 = memref.alloc() alignment = 4096 : memref<129x65x129xf16, #map_3d>
   // CHECK-NEXT: memref<1x3x129x3x32x64xf16>
   "zlow.stick"(%arg3d, %3) : (memref<129x65x129xf32>, memref<129x65x129xf16, #map_3d>) -> ()
 
   // CHECK-NEXT: memref<129x3x1x3x32x64xf16>
-  %4 = memref.alloc() {alignment = 4096 : i64} : memref<129x65x129xf16, #map_3ds>
+  %4 = memref.alloc() alignment = 4096 : memref<129x65x129xf16, #map_3ds>
   // CHECK-NEXT: memref<129x3x1x3x32x64xf16>
   "zlow.stick"(%arg3ds, %4) : (memref<129x65x129xf32>, memref<129x65x129xf16, #map_3ds>) -> ()
 
   // CHECK-NEXT: memref<129x2x65x5x32x64xf16>
-  %5 = memref.alloc() {alignment = 4096 : i64} : memref<129x65x129x65xf16, #map_4d>
+  %5 = memref.alloc() alignment = 4096 : memref<129x65x129x65xf16, #map_4d>
   // CHECK-NEXT: memref<129x2x65x5x32x64xf16>
   "zlow.stick"(%arg4d, %5) : (memref<129x65x129x65xf32>, memref<129x65x129x65xf16, #map_4d>) -> ()
 
   // CHECK-NEXT: memref<129x3x65x3x32x64xf16>
-  %6 = memref.alloc() {alignment = 4096 : i64} : memref<129x65x129x65xf16, #map_nchw>
+  %6 = memref.alloc() alignment = 4096 : memref<129x65x129x65xf16, #map_nchw>
   // CHECK-NEXT: memref<129x3x65x3x32x64xf16>
   "zlow.stick"(%argnchw, %6) : (memref<129x65x129x65xf32>, memref<129x65x129x65xf16, #map_nchw>) -> ()
   return

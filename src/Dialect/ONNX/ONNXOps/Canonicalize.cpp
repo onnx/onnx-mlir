@@ -1230,6 +1230,58 @@ public:
 };
 
 // =============================================================================
+// Rewrite pattern for GlobalLpPool
+// =============================================================================
+
+class GlobalLpPoolPattern : public OpRewritePattern<ONNXGlobalLpPoolOp> {
+public:
+  using OpRewritePattern<ONNXGlobalLpPoolOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXGlobalLpPoolOp poolOp, PatternRewriter &rewriter) const override {
+    Location loc = poolOp.getLoc();
+    Value X = poolOp.getX();
+    ShapedType xType = mlir::dyn_cast<ShapedType>(X.getType());
+    if (!xType || !xType.hasRank())
+      return failure();
+    int64_t rank = xType.getRank();
+    int64_t p = poolOp.getP();
+    Type elementType = xType.getElementType();
+    Type outputType = poolOp.getY().getType();
+
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+    SmallVector<int64_t, 4> axesVals;
+    for (int64_t i = 2; i < rank; ++i)
+      axesVals.emplace_back(i);
+    Value axes = create.onnx.constantInt64(axesVals);
+    Value absX = create.onnx.abs(X);
+
+    if (p == 1) {
+      Value result =
+          create.onnx.reduceSum(outputType, absX, axes, /*keepDims=*/true);
+      rewriter.replaceOp(poolOp, result);
+      return success();
+    }
+
+    Value pConst = create.onnx.constant(
+        DenseElementsAttr::get(RankedTensorType::get({}, elementType),
+            rewriter.getFloatAttr(elementType, static_cast<double>(p))));
+    Value powX = create.onnx.pow(absX, pConst);
+
+    Value sum =
+        create.onnx.reduceSum(outputType, powX, axes, /*keepDims=*/true);
+
+    Value invPConst = create.onnx.constant(
+        DenseElementsAttr::get(RankedTensorType::get({}, elementType),
+            rewriter.getFloatAttr(elementType, 1.0 / static_cast<double>(p))));
+    Value result = create.onnx.pow(sum, invPConst);
+
+    rewriter.replaceOp(poolOp, result);
+    return success();
+  }
+};
+
+// =============================================================================
 // Rewrite pattern for Power
 // =============================================================================
 
@@ -2776,6 +2828,12 @@ void ONNXEqualOp::getCanonicalizationPatterns(
 void ONNXGlobalAveragePoolOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<GlobalAveragePoolPattern>(context);
+}
+
+/// on the ONNXGlobalLpPoolOp.
+void ONNXGlobalLpPoolOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<GlobalLpPoolPattern>(context);
 }
 
 /// on the ONNXGlobalMaxPoolOp.
