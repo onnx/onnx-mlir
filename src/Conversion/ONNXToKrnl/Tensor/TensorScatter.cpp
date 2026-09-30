@@ -53,7 +53,6 @@ struct ONNXTensorScatterOpLowering
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
     assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
-    //MemRefType outputMemRefType = mlir::cast<MemRefType>(convertedType);
 
     // Insert an allocation and deallocation for the result of this operation.
     IndexExprScope indexScope(create.krnl);
@@ -63,7 +62,6 @@ struct ONNXTensorScatterOpLowering
     // Step1: the output reuse the buffer of pastCache
     Value output = pastCache;
 
-    // Runtime check for out of bound can be added
     // Step2: scatter the 'update' values into the output.
     //   for idx in np.ndindex(update.shape):
     //     batch_idx = idx[0]
