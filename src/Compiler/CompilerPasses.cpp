@@ -426,12 +426,18 @@ void addLinalgToAffinePasses(mlir::PassManager &pm) {
   bufferization::BufferDeallocationPipelineOptions bufferDeallocOptions;
   mlir::bufferization::buildBufferDeallocationPipeline(
       funcPM, bufferDeallocOptions);
-  funcPM.addPass(mlir::bufferization::createOptimizeAllocationLivenessPass());
-  funcPM.addPass(mlir::createConvertBufferizationToMemRefPass());
+  // The ownership of the entry function inputs and outputs is managed by the
+  // runtime. Remove the clones of returned inputs added by the pipeline above.
+  // This is a module pass (it looks up krnl.entry_point), so the remaining
+  // function passes go into a new nested pass manager.
+  pm.addPass(onnx_mlir::createEliminateEntryArgClonePass());
+  auto &funcPM2 = pm.nest<func::FuncOp>();
+  funcPM2.addPass(mlir::bufferization::createOptimizeAllocationLivenessPass());
+  funcPM2.addPass(mlir::createConvertBufferizationToMemRefPass());
 
   // 3. Lower to Affine/SCF (after buffer management)
-  funcPM.addPass(mlir::createLowerAffinePass());
-  funcPM.addPass(mlir::createSCFToControlFlowPass());
+  funcPM2.addPass(mlir::createLowerAffinePass());
+  funcPM2.addPass(mlir::createSCFToControlFlowPass());
 }
 
 void addLinalgToLLVMPasses(mlir::PassManager &pm, std::string outputNameNoExt) {
@@ -532,6 +538,9 @@ void addKrnlToLLVMPasses(
   bufferization::BufferDeallocationPipelineOptions bufferDeallocOptions;
   mlir::bufferization::buildBufferDeallocationPipeline(
       pm, bufferDeallocOptions);
+  // The ownership of the entry function inputs and outputs is managed by the
+  // runtime. Remove the clones of returned inputs added by the pipeline above.
+  pm.addPass(onnx_mlir::createEliminateEntryArgClonePass());
   // This pass is necessary to move deallocation after the last user.
   pm.addPass(mlir::bufferization::createOptimizeAllocationLivenessPass());
   pm.addPass(mlir::createConvertBufferizationToMemRefPass());
