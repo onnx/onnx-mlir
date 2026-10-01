@@ -52,6 +52,11 @@
 using namespace mlir;
 using namespace onnx_mlir;
 
+namespace onnx_mlir {
+#define GEN_PASS_DEF_CONSTPROPONNXTOONNXPASS
+#include "src/Dialect/ONNX/Transforms/Passes.h.inc"
+} // namespace onnx_mlir
+
 namespace {
 
 //===----------------------------------------------------------------------===//
@@ -2674,39 +2679,10 @@ public:
 //===----------------------------------------------------------------------===//
 
 struct ConstPropONNXToONNXPass
-    : public PassWrapper<ConstPropONNXToONNXPass, OperationPass<func::FuncOp>> {
-  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ConstPropONNXToONNXPass)
+    : public onnx_mlir::impl::ConstPropONNXToONNXPassBase<
+          ConstPropONNXToONNXPass> {
+  using Base::Base;
 
-  Option<bool> enableQDQ{*this, "enable-qdq", llvm::cl::init(true)};
-
-  Option<bool> enableQuantConstFold{
-      *this, "enable-quant-const-fold", llvm::cl::init(false)};
-
-  Option<bool> enableDequantConstFold{
-      *this, "enable-dequant-const-fold", llvm::cl::init(false)};
-
-  Option<int64_t> maxLoopUnrollCount{*this, "max-loop-unroll-count",
-      llvm::cl::desc("Maximum constant onnx.Loop trip count to unroll."),
-      llvm::cl::init(64)};
-
-  ConstPropONNXToONNXPass(bool enableQDQ, bool enableQuantConstFold,
-      int64_t maxLoopUnrollCount, bool enableDequantConstFold) {
-    this->enableQDQ = enableQDQ;
-    this->enableQuantConstFold = enableQuantConstFold;
-    this->maxLoopUnrollCount = maxLoopUnrollCount;
-    this->enableDequantConstFold = enableDequantConstFold;
-  }
-
-  ConstPropONNXToONNXPass(const ConstPropONNXToONNXPass &other) {
-    copyOptionValuesFrom(&other);
-  }
-
-  StringRef getArgument() const override { return "constprop-onnx"; }
-
-  StringRef getDescription() const override {
-    return "ConstProp ONNX operations into composition of "
-           "other ONNX operations.";
-  }
   void runOnOperation() final;
 };
 
@@ -2768,14 +2744,4 @@ void onnx_mlir::configureConstPropONNXToONNXPass(bool roundFPToInt,
 
 void onnx_mlir::configureConstPropMaxTileFoldSize(int64_t maxTileFoldSize) {
   ConstPropONNXToONNXPassConfiguration::maxTileFoldSize = maxTileFoldSize;
-}
-
-/*!
- * Create a ConstPropONNX pass.
- */
-std::unique_ptr<mlir::Pass> onnx_mlir::createConstPropONNXToONNXPass(
-    bool enableQDQ, bool enableQuantConstFold, int64_t maxLoopUnrollCount,
-    bool enableDequantConstFold) {
-  return std::make_unique<ConstPropONNXToONNXPass>(enableQDQ,
-      enableQuantConstFold, maxLoopUnrollCount, enableDequantConstFold);
 }

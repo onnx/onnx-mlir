@@ -14,10 +14,14 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/Transforms/ResultNamesUpdater.hpp"
+#include "src/Pass/Passes.hpp"
 
 using namespace mlir;
 
 namespace onnx_mlir {
+
+#define GEN_PASS_DEF_QDQCANONICALIZEPASS
+#include "src/Dialect/ONNX/Transforms/Passes.h.inc"
 
 struct FoldQDQPattern : public OpRewritePattern<ONNXQuantizeLinearOp> {
   FoldQDQPattern(MLIRContext *context, int64_t maxRoundTripDiff = 0)
@@ -53,32 +57,9 @@ void getRemoveQDQAroundOpPatterns(
     RewritePatternSet &patterns, MLIRContext *context);
 
 class QDQCanonicalizePass
-    : public PassWrapper<QDQCanonicalizePass, OperationPass<func::FuncOp>> {
+    : public impl::QDQCanonicalizePassBase<QDQCanonicalizePass> {
 public:
-  Option<bool> removeBinary{*this, "remove-binary", llvm::cl::init(false)};
-  Option<bool> removeQDQAroundOps{
-      *this, "remove-qdq-around-ops", llvm::cl::init(false)};
-  Option<int64_t> maxRoundTripDiff{*this, "max-round-trip-diff",
-      llvm::cl::desc("Maximum absolute difference allowed between an input "
-                     "integer and its DQ->Q output, checked over the full "
-                     "storage range. 0 requires bit-exact scale and "
-                     "zero-point; >0 tolerates near-equal parameters."),
-      llvm::cl::init(0)};
-
-  StringRef getArgument() const override { return "qdq-canonicalize"; }
-
-  QDQCanonicalizePass(
-      bool removeBinary, bool removeQDQAroundOps, int64_t maxRoundTripDiff) {
-    this->removeBinary = removeBinary;
-    this->removeQDQAroundOps = removeQDQAroundOps;
-    this->maxRoundTripDiff = maxRoundTripDiff;
-  }
-
-  QDQCanonicalizePass(const QDQCanonicalizePass &pass)
-      : frozenPatterns(pass.frozenPatterns) {
-    copyOptionValuesFrom(&pass);
-  }
-
+  using Base::Base;
   LogicalResult initialize(MLIRContext *context) override {
     mlir::RewritePatternSet patterns(context);
     if (removeBinary)
@@ -100,11 +81,5 @@ public:
 private:
   FrozenRewritePatternSet frozenPatterns;
 };
-
-std::unique_ptr<mlir::Pass> createQDQCanonicalizePass(
-    bool removeBinary, bool removeQDQAroundOps, int64_t maxRoundTripDiff) {
-  return std::make_unique<QDQCanonicalizePass>(
-      removeBinary, removeQDQAroundOps, maxRoundTripDiff);
-}
 
 } // namespace onnx_mlir

@@ -52,6 +52,11 @@
 
 using namespace mlir;
 
+namespace onnx_mlir {
+#define GEN_PASS_DEF_CONVERTTOCHANNELLASTPASS
+#include "src/Dialect/ONNX/Transforms/Passes.h.inc"
+} // namespace onnx_mlir
+
 namespace {
 
 // Helper function to transfer onnx_node_name attribute from source to target op
@@ -1109,29 +1114,17 @@ struct GridSampleToChannelLastPattern
   }
 };
 
-struct ConvertToChannelLastPass : public PassWrapper<ConvertToChannelLastPass,
-                                      OperationPass<func::FuncOp>> {
-  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ConvertToChannelLastPass)
+struct ConvertToChannelLastPass
+    : public onnx_mlir::impl::ConvertToChannelLastPassBase<
+          ConvertToChannelLastPass> {
+  using Base::Base;
 
   ConvertToChannelLastPass() = default;
 
-  // Options are not copyable; Pass::clone() transfers their values separately.
-  ConvertToChannelLastPass(const ConvertToChannelLastPass &pass)
-      : PassWrapper(pass) {}
-
-  explicit ConvertToChannelLastPass(llvm::ArrayRef<std::string> whitelist) {
-    this->whitelist = whitelist;
-  }
-
-  StringRef getArgument() const override { return "convert-to-channel-last"; }
-
-  StringRef getDescription() const override {
-    return "Convert ONNX operations to ChannelLast variants with transposes";
-  }
-
-  ListOption<std::string> whitelist{*this, "whitelist",
-      llvm::cl::desc("ONNX operation names to convert, e.g. onnx.Conv. "
-                     "Converts every supported op when empty.")};
+  explicit ConvertToChannelLastPass(llvm::ArrayRef<std::string> whitelist)
+      : Base(onnx_mlir::ConvertToChannelLastPassOptions{
+            llvm::SmallVector<std::string>(
+                whitelist.begin(), whitelist.end())}) {}
 
   void getDependentDialects(DialectRegistry &registry) const override {
     registry.insert<ONNXDialect>();
@@ -1198,10 +1191,6 @@ struct ConvertToChannelLastPass : public PassWrapper<ConvertToChannelLastPass,
 } // namespace
 
 namespace onnx_mlir {
-
-std::unique_ptr<mlir::Pass> createConvertToChannelLastPass() {
-  return std::make_unique<ConvertToChannelLastPass>();
-}
 
 std::unique_ptr<mlir::Pass> createConvertToChannelLastPass(
     llvm::ArrayRef<std::string> whitelist) {
