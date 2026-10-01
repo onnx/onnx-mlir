@@ -1331,8 +1331,39 @@ private:
     const onnx::ShapeInferenceOptions &options = onnx::ShapeInferenceOptions();
 
     // Populates graph.value_info().
-    onnx::shape_inference::InferShapes(&graph, function_opset_map,
-        onnx::OpSchemaRegistry::Instance(), options, in_model_functions_);
+    // Wrap in a try/catch: onnx::shape_inference::InferShapes can throw
+    // onnx::InferenceError (via fail_shape_inference) when it detects a cycle
+    // in model-local function references while inferring shapes for the
+    // function body graph — specifically from
+    // ShapeInferenceImplBase::ProcessCall when the same FunctionProto is
+    // already on the active call stack. That happens before our own
+    // expandingModelFunctions_ guard is inserted (line ~1378), so without this
+    // catch the exception propagates uncaught, calls terminate(), and crashes
+    // the process instead of emitting a recoverable diagnostic.
+    // onnx::checker::ValidationError is also caught for safety: a newer ONNX
+    // version's check_function_call_cycles() may fire through a different
+    // InferShapes overload and throw ValidationError instead.
+    // Both are std::runtime_error subclasses.
+    try {
+      onnx::shape_inference::InferShapes(&graph, function_opset_map,
+          onnx::OpSchemaRegistry::Instance(), options, in_model_functions_);
+    } catch (const onnx::checker::ValidationError &e) {
+      emitError(UnknownLoc())
+          << "model-local function '" << node.domain() << ":" << node.op_type()
+          << "' is directly or indirectly recursive; "
+             "onnx-mlir does not support recursive model-local functions";
+      return;
+    } catch (const onnx::InferenceError &e) {
+      // InferenceError from shape inference may or may not be a recursion
+      // cycle. Emit a diagnostic and bail out — the caller will see a
+      // missing output value and report a compilation failure, which is
+      // better than terminate().
+      emitError(UnknownLoc())
+          << "model-local function '" << node.domain() << ":" << node.op_type()
+          << "' is directly or indirectly recursive; "
+             "onnx-mlir does not support recursive model-local functions";
+      return;
+    }
 
     // Save caller context, while generating function body.
     ModelLocalFunctionsMap callerModelFunctions;
@@ -1599,6 +1630,47 @@ private:
 
 } // namespace detail
 
+// Call onnx::checker::check_function_call_cycles to detect recursive
+// model-local functions, then run shape inference.  Returns false (with a
+// diagnostic on llvm::errs()) if a cycle is found; returns true on success.
+// Separating cycle detection from InferShapes lets us emit a controlled
+// "model-local function '...' is directly or indirectly recursive" message
+// instead of crashing with terminate() when InferShapes itself throws
+// onnx::checker::ValidationError.
+static bool checkAndInferShapes(onnx::ModelProto &model) {
+  if (model.functions_size() > 0) {
+    try {
+      onnx::checker::check_function_call_cycles(model);
+    } catch (const onnx::checker::ValidationError &e) {
+      // The ONNX message has the form:
+      //   "Cycle detected in model-local function references: <domain>::<name>
+      //    -> ... Model-local functions must not be recursive."
+      // Extract "domain::name", convert "::" → ":" for our diagnostic format.
+      std::string msg = e.what();
+      std::string funcId;
+      const std::string prefix = "function references: ";
+      auto pos = msg.find(prefix);
+      if (pos != std::string::npos) {
+        pos += prefix.size();
+        auto end = msg.find_first_of(" -.", pos);
+        funcId = msg.substr(
+            pos, end == std::string::npos ? std::string::npos : end - pos);
+        // ONNX uses "::" separator; our diagnostic uses ":".
+        auto sep = funcId.find("::");
+        if (sep != std::string::npos)
+          funcId.replace(sep, 2, ":");
+      }
+      llvm::errs() << "model-local function '" << funcId
+                   << "' is directly or indirectly recursive; "
+                      "onnx-mlir does not support recursive model-local "
+                      "functions\n";
+      return false;
+    }
+  }
+  onnx::shape_inference::InferShapes(model);
+  return true;
+}
+
 bool ImportFrontendModelInternal(onnx::ModelProto &model, MLIRContext &context,
     OwningOpRef<ModuleOp> &module, ImportOptions options) {
   int originVersion = CURRENT_ONNX_OPSET;
@@ -1668,12 +1740,16 @@ bool ImportFrontendModelInternal(onnx::ModelProto &model, MLIRContext &context,
 
     onnx::ModelProto convertModel =
         onnx::version_conversion::ConvertVersion(model, CURRENT_ONNX_OPSET);
-    if (options.useOnnxModelTypes)
-      onnx::shape_inference::InferShapes(convertModel);
+    if (options.useOnnxModelTypes) {
+      if (!checkAndInferShapes(convertModel))
+        return false;
+    }
     ImportFrontendModel(convertModel, context, module, options);
   } else {
-    if (options.useOnnxModelTypes)
-      onnx::shape_inference::InferShapes(model);
+    if (options.useOnnxModelTypes) {
+      if (!checkAndInferShapes(model))
+        return false;
+    }
     ImportFrontendModel(model, context, module, options);
   }
   return true;

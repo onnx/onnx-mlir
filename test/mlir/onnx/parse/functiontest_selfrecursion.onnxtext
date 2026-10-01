@@ -2,7 +2,9 @@
 
 // Tests that a model-local function which directly calls itself (self-recursion)
 // is rejected with a clear diagnostic instead of overflowing the C++ call stack
-// with a SIGSEGV.
+// with a SIGSEGV.  The cycle is now detected by check_function_call_cycles
+// before shape inference runs, so the reported function name is the entry point
+// of the cycle as determined by the ONNX checker's DFS order.
 //
 // The legitimate two-level non-cyclic case is tested separately in
 // functiontest_nestedcall.onnxtext and must remain unaffected.
@@ -26,4 +28,4 @@ selfcall (lx) => (ly) {
     ly = local.selfcall (lx)
 }
 
-// CHECK: model-local function 'local:selfcall' is directly or indirectly recursive
+// CHECK: model-local function '{{.*}}selfcall{{.*}}' is directly or indirectly recursive
