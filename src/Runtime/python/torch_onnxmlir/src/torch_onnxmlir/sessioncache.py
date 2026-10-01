@@ -11,8 +11,10 @@
 ################################################################################
 
 import os
+import hashlib
 import json
 import shutil
+import stat
 from pathlib import Path
 from dataclasses import dataclass
 from typing import Any
@@ -35,13 +37,48 @@ class CacheValue:
     example_inputs_indices: Any = None
 
 
+# Permissions for cache directories: owner-only rwx, no access for other users.
+# This prevents other local principals from planting a poisoned .so under a
+# valid cache-key directory. World-readable directories (the default umask
+# result) would allow a local attacker to write into the cache without any
+# privilege beyond filesystem access.
+_CACHE_DIR_MODE = 0o700
+
+
+def _sha256_file(path: str) -> str:
+    """Return the hex SHA-256 digest of the file at *path*."""
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _makedirs_secure(path: str) -> None:
+    """Create *path* with owner-only permissions (0o700).
+
+    os.makedirs(mode=...) does not re-apply the mode when the directory
+    already exists (exist_ok=True path).  We follow up with an explicit
+    os.chmod so that directories created by an older version of this code
+    (typically 0o755) are hardened on the first run after an upgrade.
+
+    Only chmods directories we own — os.chmod raises PermissionError if
+    the directory belongs to a different uid, which surfaces as a clear
+    error rather than a silent no-op.
+    """
+    os.makedirs(path, mode=_CACHE_DIR_MODE, exist_ok=True)
+    current_mode = stat.S_IMODE(os.stat(path).st_mode)
+    if current_mode != _CACHE_DIR_MODE:
+        os.chmod(path, _CACHE_DIR_MODE)
+
+
 def cache_dir() -> str:
     if config.cache_dir is not None:
         return config.cache_dir
     cache_dir = os.environ.get("TORCHONNXMLIR_CACHE_DIR")
     if cache_dir is None:
         os.environ["TORCHONNXMLIR_CACHE_DIR"] = cache_dir = default_cache_dir()
-    os.makedirs(cache_dir, exist_ok=True)
+    _makedirs_secure(cache_dir)
     return cache_dir
 
 
@@ -90,20 +127,46 @@ class SessionCache:
             if key not in dirnames:
                 continue
             model_dir = os.path.join(self.cache_path, key)
-            # Create an inference session.
-            model_so = os.path.join(model_dir, f"model.so")
-            if Path(model_so).exists():
-                sess = InferenceSession(model_so, tag=key)
-            else:
+            model_so = os.path.join(model_dir, "model.so")
+            if not Path(model_so).exists():
                 return None
-            # Load config file.
+
+            # Load config file before constructing InferenceSession so we can
+            # verify the stored artifact hash without loading potentially
+            # tampered code first.
             config_file = os.path.join(model_dir, OM_BACKEND_CONFIG_FILE)
             try:
                 with open(config_file, "r") as f:
-                    config = json.load(f)
+                    disk_config = json.load(f)
             except FileNotFoundError:
-                config = {}
-            inputs_indices = config["example_inputs_indices"] if config else []
+                disk_config = {}
+
+            # Integrity check: if the config carries stored hashes, verify the
+            # on-disk artifact bytes before dlopen-ing. A mismatch (or the
+            # absence of a stored hash, which covers config files written by a
+            # pre-fix version of this code) is treated as a cache miss so the
+            # caller falls through to recompile — not a hard error, to avoid
+            # breaking existing caches ungracefully.
+            stored_hashes = disk_config.get("artifact_hashes", {})
+            if stored_hashes:
+                for filename, expected_digest in stored_hashes.items():
+                    artifact_path = os.path.join(model_dir, filename)
+                    if not Path(artifact_path).exists():
+                        # Expected artifact is missing — treat as cache miss.
+                        return None
+                    if _sha256_file(artifact_path) != expected_digest:
+                        # Stored bytes do not match what was compiled — treat
+                        # as cache miss (triggers recompile in the caller).
+                        return None
+            else:
+                # No stored hash: config was written before integrity checking
+                # was added, or the config file was absent. Safer to
+                # recompile than to blindly load an unverified artifact.
+                return None
+
+            # Artifact verified — safe to load.
+            sess = InferenceSession(model_so, tag=key)
+            inputs_indices = disk_config.get("example_inputs_indices", [])
 
             # Construct a cache value.
             cache_value = CacheValue(
@@ -118,7 +181,7 @@ class SessionCache:
     def write_onnx_to_disk(self, key, src_dir):
         # Cache folder: create if it does not exist.
         dst_dir = os.path.join(self.cache_path, key)
-        os.makedirs(dst_dir, exist_ok=True)
+        _makedirs_secure(dst_dir)
         for filename in os.listdir(src_dir):
             if not filename.lower().endswith(tuple(ONNX_FILE_EXTS)):
                 continue
@@ -135,10 +198,10 @@ class SessionCache:
 
         # Cache folder: create if it does not exist.
         dst_dir = os.path.join(self.cache_path, key)
-        os.makedirs(dst_dir, exist_ok=True)
+        _makedirs_secure(dst_dir)
         # test_data_set folder: create if it does not exist.
         data_set_dir = os.path.join(dst_dir, "test_data_set")
-        os.makedirs(data_set_dir, exist_ok=True)
+        _makedirs_secure(data_set_dir)
         for i in range(len(tensors)):
             tensor_path = os.path.join(data_set_dir, f"{prefix}_{i}.npy")
             np.save(tensor_path, tensors[i])
@@ -147,10 +210,14 @@ class SessionCache:
     def write_to_disk(self, key, value: CacheValue):
         # Cache folder: create if it does not exist.
         dst_dir = os.path.join(self.cache_path, key)
-        os.makedirs(dst_dir, exist_ok=True)
-        # Write the compiled model (.so file).
+        _makedirs_secure(dst_dir)
+        # Write the compiled model (.so and .constants.bin files) and
+        # compute a SHA-256 hash of each artifact as it is copied. These
+        # hashes are stored in the config file so load_from_disk can verify
+        # the on-disk bytes before dlopen-ing them.
         compiled_model = value.sess.get_shared_lib_path()
         src_dir = Path(compiled_model).resolve().parent
+        artifact_hashes = {}
         for filename in os.listdir(src_dir):
             if not filename.lower().endswith(tuple(OM_COMPILED_FILE_EXTS)):
                 continue
@@ -158,22 +225,26 @@ class SessionCache:
             dst_file = os.path.join(dst_dir, filename)
             if os.path.isfile(src_file):
                 shutil.copy2(src_file, dst_file)
-        # Create a config json file.
+                artifact_hashes[filename] = _sha256_file(dst_file)
+        # Create a config json file (always written, even when
+        # example_inputs_indices is None, so artifact_hashes are persisted).
         example_inputs_indices = value.example_inputs_indices
-        if example_inputs_indices is not None:
-            config_file = os.path.join(dst_dir, OM_BACKEND_CONFIG_FILE)
-            json_data = json.dumps(
-                {
-                    "example_inputs_indices": example_inputs_indices,
-                    "compilation_info": value.sess.compilation_info(),
-                    "input_signature": value.sess.input_signature(),
-                    "output_signature": value.sess.output_signature(),
-                },
-                sort_keys=True,
-                indent=4,
-            )
-            with open(config_file, "w") as f:
-                f.write(json_data)
+        config_file = os.path.join(dst_dir, OM_BACKEND_CONFIG_FILE)
+        json_data = json.dumps(
+            {
+                "artifact_hashes": artifact_hashes,
+                "example_inputs_indices": example_inputs_indices
+                if example_inputs_indices is not None
+                else [],
+                "compilation_info": value.sess.compilation_info(),
+                "input_signature": value.sess.input_signature(),
+                "output_signature": value.sess.output_signature(),
+            },
+            sort_keys=True,
+            indent=4,
+        )
+        with open(config_file, "w") as f:
+            f.write(json_data)
 
     # Find the index of the victim entry.
     # If the cache is not full, get the next free entry.
