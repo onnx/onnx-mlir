@@ -1303,6 +1303,87 @@ func.func @gqa_local_window_size_zero_rejected(
 
 // -----
 
+func.func @gqa_causal_and_linear_cache_defaults_decompose(
+  %q: tensor<1x1x3072xf32>,
+  %k: tensor<1x1x1536xf32>,
+  %v: tensor<1x1x1536xf32>,
+  %past_k: tensor<1x16x256x96xf32>,
+  %past_v: tensor<1x16x256x96xf32>
+) -> (tensor<1x1x3072xf32>, tensor<1x16x257x96xf32>, tensor<1x16x257x96xf32>) {
+  %total_seqlen = "onnx.Constant"() {value = dense<257> : tensor<i32>} : () -> tensor<i32>
+  %seqlens = "onnx.Constant"() {value = dense<256> : tensor<1x1xi32>} : () -> tensor<1x1xi32>
+  %out, %present_k, %present_v = "onnx.Custom"(%q, %k, %v, %past_k, %past_v, %seqlens, %total_seqlen) {
+    causal = 1 : si64,
+    domain_name = "com.microsoft",
+    function_name = "GroupQueryAttention",
+    kv_num_heads = 16 : si64,
+    num_heads = 32 : si64,
+    sliding_window_cache = 0 : si64
+  } : (tensor<1x1x3072xf32>, tensor<1x1x1536xf32>, tensor<1x1x1536xf32>, tensor<1x16x256x96xf32>, tensor<1x16x256x96xf32>, tensor<1x1xi32>, tensor<i32>) -> (tensor<1x1x3072xf32>, tensor<1x16x257x96xf32>, tensor<1x16x257x96xf32>)
+  return %out, %present_k, %present_v : tensor<1x1x3072xf32>, tensor<1x16x257x96xf32>, tensor<1x16x257x96xf32>
+}
+
+// CHECK-LABEL: func.func @gqa_causal_and_linear_cache_defaults_decompose
+// CHECK-NOT:   "onnx.Custom"
+// CHECK:       %[[Y:.*]], %[[PK:.*]], %[[PV:.*]], %[[QK:.*]] = "onnx.Attention"
+// CHECK:       return %[[Y]], %[[PK]], %[[PV]] : tensor<1x1x3072xf32>, tensor<1x16x257x96xf32>, tensor<1x16x257x96xf32>
+
+// -----
+
+func.func @gqa_non_causal_rejected(
+  %q: tensor<1x1x3072xf32>,
+  %k: tensor<1x1x1536xf32>,
+  %v: tensor<1x1x1536xf32>,
+  %past_k: tensor<1x16x256x96xf32>,
+  %past_v: tensor<1x16x256x96xf32>
+) -> (tensor<1x1x3072xf32>, tensor<1x16x257x96xf32>, tensor<1x16x257x96xf32>) {
+  %total_seqlen = "onnx.Constant"() {value = dense<257> : tensor<i32>} : () -> tensor<i32>
+  %seqlens = "onnx.Constant"() {value = dense<256> : tensor<1x1xi32>} : () -> tensor<1x1xi32>
+  %out, %present_k, %present_v = "onnx.Custom"(%q, %k, %v, %past_k, %past_v, %seqlens, %total_seqlen) {
+    causal = 0 : si64,
+    domain_name = "com.microsoft",
+    function_name = "GroupQueryAttention",
+    kv_num_heads = 16 : si64,
+    num_heads = 32 : si64
+  } : (tensor<1x1x3072xf32>, tensor<1x1x1536xf32>, tensor<1x1x1536xf32>, tensor<1x16x256x96xf32>, tensor<1x16x256x96xf32>, tensor<1x1xi32>, tensor<i32>) -> (tensor<1x1x3072xf32>, tensor<1x16x257x96xf32>, tensor<1x16x257x96xf32>)
+  return %out, %present_k, %present_v : tensor<1x1x3072xf32>, tensor<1x16x257x96xf32>, tensor<1x16x257x96xf32>
+}
+
+// CHECK-LABEL: func.func @gqa_non_causal_rejected
+// CHECK-NOT:   "onnx.Attention"
+// CHECK:       %[[GQA:.*]]:3 = "onnx.Custom"
+// CHECK-SAME:      causal = 0 : si64
+// CHECK:       return %[[GQA]]#0, %[[GQA]]#1, %[[GQA]]#2 : tensor<1x1x3072xf32>, tensor<1x16x257x96xf32>, tensor<1x16x257x96xf32>
+
+// -----
+
+func.func @gqa_sliding_window_cache_rejected(
+  %q: tensor<1x1x3072xf32>,
+  %k: tensor<1x1x1536xf32>,
+  %v: tensor<1x1x1536xf32>,
+  %past_k: tensor<1x16x256x96xf32>,
+  %past_v: tensor<1x16x256x96xf32>
+) -> (tensor<1x1x3072xf32>, tensor<1x16x257x96xf32>, tensor<1x16x257x96xf32>) {
+  %total_seqlen = "onnx.Constant"() {value = dense<257> : tensor<i32>} : () -> tensor<i32>
+  %seqlens = "onnx.Constant"() {value = dense<256> : tensor<1x1xi32>} : () -> tensor<1x1xi32>
+  %out, %present_k, %present_v = "onnx.Custom"(%q, %k, %v, %past_k, %past_v, %seqlens, %total_seqlen) {
+    domain_name = "com.microsoft",
+    function_name = "GroupQueryAttention",
+    kv_num_heads = 16 : si64,
+    num_heads = 32 : si64,
+    sliding_window_cache = 1 : si64
+  } : (tensor<1x1x3072xf32>, tensor<1x1x1536xf32>, tensor<1x1x1536xf32>, tensor<1x16x256x96xf32>, tensor<1x16x256x96xf32>, tensor<1x1xi32>, tensor<i32>) -> (tensor<1x1x3072xf32>, tensor<1x16x257x96xf32>, tensor<1x16x257x96xf32>)
+  return %out, %present_k, %present_v : tensor<1x1x3072xf32>, tensor<1x16x257x96xf32>, tensor<1x16x257x96xf32>
+}
+
+// CHECK-LABEL: func.func @gqa_sliding_window_cache_rejected
+// CHECK-NOT:   "onnx.Attention"
+// CHECK:       %[[GQA:.*]]:3 = "onnx.Custom"
+// CHECK-SAME:      sliding_window_cache = 1 : si64
+// CHECK:       return %[[GQA]]#0, %[[GQA]]#1, %[[GQA]]#2 : tensor<1x1x3072xf32>, tensor<1x16x257x96xf32>, tensor<1x16x257x96xf32>
+
+// -----
+
 // preallocated mode has attention span of only 256, so this is accepted
 // compare with gqa_local_window_size_rejected
 // test also with runtime seqlens + total_seqlen

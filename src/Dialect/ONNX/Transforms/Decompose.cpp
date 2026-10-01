@@ -4075,6 +4075,35 @@ struct MicrosoftGroupQueryAttention : public CustomOpToOnnxOps {
     return success();
   }
 
+  // The additive mask built below always applies causal visibility, so only
+  // causal = 1 (the default) can be preserved.
+  static LogicalResult validateCausal(
+      ONNXCustomOp customOp, PatternRewriter &rewriter, Attribute attr) {
+    auto causal = dyn_cast<IntegerAttr>(attr);
+    if (!causal)
+      return rewriter.notifyMatchFailure(
+          customOp, "expected 'causal' attribute to be an integer");
+    if (causal.getSInt() != 1)
+      return rewriter.notifyMatchFailure(
+          customOp, "non-causal GroupQueryAttention is not supported");
+    return success();
+  }
+
+  // The present K/V rewrites and the mask address the cache linearly, slot i
+  // holding token i, so only sliding_window_cache = 0 (the default) can be
+  // preserved.
+  static LogicalResult validateSlidingWindowCache(
+      ONNXCustomOp customOp, PatternRewriter &rewriter, Attribute attr) {
+    auto slidingWindowCache = dyn_cast<IntegerAttr>(attr);
+    if (!slidingWindowCache)
+      return rewriter.notifyMatchFailure(customOp,
+          "expected 'sliding_window_cache' attribute to be an integer");
+    if (slidingWindowCache.getSInt() != 0)
+      return rewriter.notifyMatchFailure(customOp,
+          "sliding-window KV cache GroupQueryAttention is not supported");
+    return success();
+  }
+
   // Quantized cache attrs are recognized for diagnostics, but this lowering
   // only handles the non-quantized mode.
   static LogicalResult validateQuantType(
@@ -4112,15 +4141,17 @@ struct MicrosoftGroupQueryAttention : public CustomOpToOnnxOps {
   // restriction here; non-null validators enforce accepted no-op values or
   // reject variants this decomposition cannot preserve.
   inline static const llvm::StringMap<AttributeValidator>
-      groupQueryAttentionAttributeValidators{{"do_rotary", nullptr},
-          {"k_quant_type", validateQuantType},
+      groupQueryAttentionAttributeValidators{{"causal", validateCausal},
+          {"do_rotary", nullptr}, {"k_quant_type", validateQuantType},
           {"kv_cache_bit_width", validateKVCacheBitWidth},
           {"kv_num_heads", nullptr},
           {"local_window_size", validateLocalWindowSize},
           {"num_heads", nullptr}, {"qk_norm_epsilon", validateQKNormEpsilon},
           {"qk_output", nullptr}, {"rotary_interleaved", nullptr},
-          {"scale", nullptr}, {"smooth_softmax", validateSmoothSoftmax},
-          {"softcap", nullptr}, {"v_quant_type", validateQuantType}};
+          {"scale", nullptr},
+          {"sliding_window_cache", validateSlidingWindowCache},
+          {"smooth_softmax", validateSmoothSoftmax}, {"softcap", nullptr},
+          {"v_quant_type", validateQuantType}};
 
   // Reject unsupported semantic attrs so the rewrite does not silently drop
   // behavior, then run value validators for recognized attrs that need local
