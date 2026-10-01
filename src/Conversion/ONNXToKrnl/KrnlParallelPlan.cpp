@@ -52,7 +52,7 @@
 //
 // Two invariants live in the frame rather than in a policy, which is why the
 // frame is not swappable: flag-off IR is bit-identical because STEP 0 is the
-// frame's own code, and -enable-collapse cannot change a site that only asks
+// frame's own code, and enabling collapse cannot change a site that only asks
 // because the frame never reaches a policy when collapseLast < 0. A second
 // policy implements STEP 1/2/3 and nothing else.
 //
@@ -610,9 +610,11 @@ KrnlParallelPlan::KrnlParallelPlan(ValueRange loopDef, bool enableCollapse,
     int64_t collapseLastExclusiveDim, KrnlParallelCost cost,
     ArrayRef<int64_t> exclusiveDims)
     : KrnlParallelPlan(loopDef, parFirstInclusiveDim, parLastExclusiveDim,
-          // Without the flag this is exactly a noCollapse plan.
-          enableCollapse ? collapseLastExclusiveDim : -1, cost, exclusiveDims) {
-}
+          // Without the flag this is exactly a noCollapse plan. So is a
+          // rank-0 nest (e.g. a scalar Gather): with no level to fuse, the
+          // claim is vacuous, and the explicit constructor would reject it.
+          enableCollapse && !loopDef.empty() ? collapseLastExclusiveDim : -1,
+          cost, exclusiveDims) {}
 
 /*static*/ KrnlParallelPlan KrnlParallelPlan::noCollapse(ValueRange loopDef,
     int64_t parFirstInclusiveDim, int64_t parLastExclusiveDim,
