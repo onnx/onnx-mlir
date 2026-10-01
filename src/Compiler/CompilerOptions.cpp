@@ -98,7 +98,7 @@ bool disableSimdOption;                                // onnx-mlir only
 bool enableFastMathOption;                             // onnx-mlir only
 bool disableRecomposeOption;                           // onnx-mlir only
 bool enableAttentionOpConstruct;                       // common for both
-bool enableSplitMatMulBySlice;                         // common for both
+bool disableSplitMatMulBySlice;                        // common for both
 bool enableSimdDataLayout;                             // onnx-mlir only
 bool verifyInputTensors;                               // onnx-mlir only
 bool allowSorting;                                     // onnx-mlir only
@@ -349,13 +349,13 @@ static llvm::cl::opt<bool, true> enableAttentionOpConstructOpt(
     llvm::cl::location(enableAttentionOpConstruct), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
-static llvm::cl::opt<bool, true> enableSplitMatMulBySliceOpt(
-    "enable-split-matmul-by-slice",
-    llvm::cl::desc("Enable rewriting Slice(MatMul(X, W)) along the last axis, "
+static llvm::cl::opt<bool, true> disableSplitMatMulBySliceOpt(
+    "disable-split-matmul-by-slice",
+    llvm::cl::desc("Disable rewriting Slice(MatMul(X, W)) along the last axis, "
                    "where W is a constant, into MatMul(X, Slice(W)) so that "
                    "the slice is folded into the constant weights. Default is "
                    "false."),
-    llvm::cl::location(enableSplitMatMulBySlice), llvm::cl::init(false),
+    llvm::cl::location(disableSplitMatMulBySlice), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
 // Options for onnx-mlir only

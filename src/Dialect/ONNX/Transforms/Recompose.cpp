@@ -662,9 +662,21 @@ struct RecomposeQLinearMatMulFromQuantizeLinearPattern
 // The Slices of the constant are later folded by constant propagation. This
 // pattern is typical of gated MLPs (SwiGLU/GeGLU), where the gate and up
 // projections are emitted as a single MatMul followed by two Slices.
-// Requiring all users to be such Slices ensures no MatMul work is duplicated.
+// Requiring all users to be such Slices, whose widths add up to at most the
+// width of the original MatMul output, ensures no MatMul work is added: the
+// new MatMuls cost the sum of the Slice widths, the original one the full
+// width. Overlapping Slices thus only qualify when gaps make up for the
+// overlap.
+// Each Slice must also be at least minSliceWidth wide. This bounds the cost of
+// re-reading X once per new MatMul, and on NNPA the cost of padding each new
+// MatMul's last dimension to a multiple of 64 (at most 64/minSliceWidth extra
+// work).
+// Finally, the constant B must have no other user, so that it is replaced by
+// its slices instead of being kept alongside them.
 struct SplitMatMulBySlicePattern : public OpRewritePattern<ONNXMatMulOp> {
   using OpRewritePattern<ONNXMatMulOp>::OpRewritePattern;
+
+  static constexpr int64_t minSliceWidth = 256;
 
   LogicalResult matchAndRewrite(
       ONNXMatMulOp matmulOp, PatternRewriter &rewriter) const final {
@@ -686,6 +698,7 @@ struct SplitMatMulBySlicePattern : public OpRewritePattern<ONNXMatMulOp> {
     // Every user must be a Slice of Y along the last axis with step 1 and
     // constant bounds. Record the normalized [start, end) of each.
     SmallVector<std::tuple<ONNXSliceOp, int64_t, int64_t>> slices;
+    int64_t totalWidth = 0;
     for (Operation *user : Y.getUsers()) {
       auto sliceOp = mlir::dyn_cast<ONNXSliceOp>(user);
       if (!sliceOp || sliceOp.getData() != Y)
@@ -711,9 +724,22 @@ struct SplitMatMulBySlicePattern : public OpRewritePattern<ONNXMatMulOp> {
       };
       int64_t start = normalize(starts[0]);
       int64_t end = normalize(ends[0]);
-      if (start >= end)
-        return rewriter.notifyMatchFailure(matmulOp, "empty Slice");
+      if (end - start < minSliceWidth)
+        return rewriter.notifyMatchFailure(matmulOp, "Slice is too narrow");
       slices.emplace_back(sliceOp, start, end);
+      totalWidth += end - start;
+    }
+    if (totalWidth > N)
+      return rewriter.notifyMatchFailure(
+          matmulOp, "Slices overlap: splitting would add MatMul work");
+    // Tested last, so that the debug message below is only printed for
+    // MatMuls that would otherwise have been split.
+    if (!B.hasOneUse()) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "SplitMatMulBySlice: not splitting " << matmulOp.getLoc()
+                 << " because its constant B has other users\n");
+      return rewriter.notifyMatchFailure(
+          matmulOp, "B has other users: splitting would duplicate it");
     }
 
     onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
@@ -1213,7 +1239,7 @@ void onnx_mlir::getRecomposeONNXToONNXPatterns(
   patterns.insert<CombineParallelConv2DPattern>(context);
   if (enableAttentionOpConstruct)
     patterns.insert<RecomposeAttentionFromMatMulPattern>(context);
-  if (enableSplitMatMulBySlice)
+  if (!disableSplitMatMulBySlice)
     patterns.insert<SplitMatMulBySlicePattern>(context);
 }
 
