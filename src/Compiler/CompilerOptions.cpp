@@ -90,7 +90,7 @@ std::string ONNXOpStats;                               // onnx-mlir only
 int onnxOpTransformThreshold;                          // onnx-mlir only
 bool onnxOpTransformReport;                            // onnx-mlir only
 bool enableParallel;                                   // onnx-mlir only
-bool enableCollapse;                                   // onnx-mlir only
+bool disableCollapse;                                  // onnx-mlir only
 int64_t collapseMinParTripCountFloor;                  // common for both
 int64_t collapseMinAmortWork;                          // common for both
 int64_t collapseMaxForkCount;                          // common for both
@@ -699,14 +699,13 @@ static llvm::cl::opt<bool, true> enableParallelOpt("parallel",
     llvm::cl::location(enableParallel), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
-// hi alex: not sure we want/need these specific options; leave them for now for
-// debugging.
-
-static llvm::cl::opt<bool, true> enableCollapseOpt("enable-collapse",
+static llvm::cl::opt<bool, true> disableCollapseOpt("disable-collapse",
     llvm::cl::desc(
-        "Enable collapsing several loop levels into one parallel region\n"
-        "(default=false). Only has an effect together with --parallel."),
-    llvm::cl::location(enableCollapse), llvm::cl::init(false),
+        "Disable collapsing several loop levels into one parallel region\n"
+        "(default=false, i.e. collapse is enabled). Collapse is only ever\n"
+        "performed together with --parallel; without --parallel, this\n"
+        "option has no effect."),
+    llvm::cl::location(disableCollapse), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
 // Overrides for the target-derived parallel cost model constants; see

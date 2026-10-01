@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --march=z16 --maccel=NNPA --convert-onnx-to-krnl=enable-parallel --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --march=z16 --maccel=NNPA --convert-onnx-to-krnl="enable-parallel enable-collapse=false" --canonicalize %s -split-input-file | FileCheck %s
 
 // Parallel coverage for the retiled LayoutTransform fast path, which is the only
 // LayoutTransform path with a full-rank selection window ([0, rank), floor 8).
