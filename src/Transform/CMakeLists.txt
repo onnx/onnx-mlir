@@ -94,7 +94,6 @@ add_onnx_mlir_library(OMEliminateEntryArgClone
   EliminateEntryArgClone.cpp
 
   LINK_LIBS PUBLIC
-  OMKrnlOps
   MLIRBufferizationDialect
   MLIRFuncDialect
   MLIRMemRefDialect

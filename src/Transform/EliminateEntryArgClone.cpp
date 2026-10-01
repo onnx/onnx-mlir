@@ -24,11 +24,13 @@
 // input argument is wrapped in an OMTensor that does not own its buffer (see
 // shouldOwn in ConvertKrnlToLLVM.cpp).
 //
-// This pass removes such clones in functions referenced by krnl.entry_point,
-// when the clone result is only used by func.return. It must run after
-// bufferization::buildBufferDeallocationPipeline. Clones in other functions
-// are kept, since their callers deallocate the returned buffers. Clones of
-// returned krnl.global ops are kept as well, so that the output is writable.
+// This pass removes such clones in public functions, when the clone result is
+// only used by func.return. It must run after
+// bufferization::buildBufferDeallocationPipeline. In onnx-mlir, the public
+// functions are the entry functions, which are only called by the runtime.
+// Clones in private functions are kept, since their callers deallocate the
+// returned buffers. Clones of returned krnl.global ops are kept as well, so
+// that the output is writable.
 //
 //===----------------------------------------------------------------------===//
 
@@ -40,7 +42,6 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Debug.h"
 
-#include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
 
 #define DEBUG_TYPE "eliminate-entry-arg-clone"
@@ -63,7 +64,8 @@ bool isFuncArg(Value v, func::FuncOp func) {
 }
 
 class EliminateEntryArgClonePass
-    : public PassWrapper<EliminateEntryArgClonePass, OperationPass<ModuleOp>> {
+    : public PassWrapper<EliminateEntryArgClonePass,
+          OperationPass<func::FuncOp>> {
 public:
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(EliminateEntryArgClonePass)
 
@@ -79,39 +81,33 @@ public:
   }
 
   void runOnOperation() override {
-    ModuleOp module = getOperation();
+    func::FuncOp func = getOperation();
+    // Only the entry functions, which are the public ones, are called by the
+    // runtime.
+    if (!func.isPublic() || func.isExternal())
+      return;
 
-    SmallVector<func::FuncOp, 1> entryFuncs;
-    module.walk([&](KrnlEntryPointOp entryPointOp) {
-      auto funcRef = entryPointOp->getAttrOfType<SymbolRefAttr>(
-          KrnlEntryPointOp::getEntryPointFuncAttrName());
-      if (auto func = module.lookupSymbol<func::FuncOp>(funcRef))
-        entryFuncs.emplace_back(func);
+    SmallVector<bufferization::CloneOp> clones;
+    func.walk([&](bufferization::CloneOp cloneOp) {
+      Value result = cloneOp.getOutput();
+      if (result.hasOneUse() &&
+          isa<func::ReturnOp>(*result.getUsers().begin()) &&
+          isFuncArg(cloneOp.getInput(), func))
+        clones.emplace_back(cloneOp);
     });
 
-    for (func::FuncOp func : entryFuncs) {
-      SmallVector<bufferization::CloneOp> clones;
-      func.walk([&](bufferization::CloneOp cloneOp) {
-        Value result = cloneOp.getOutput();
-        if (result.hasOneUse() &&
-            isa<func::ReturnOp>(*result.getUsers().begin()) &&
-            isFuncArg(cloneOp.getInput(), func))
-          clones.emplace_back(cloneOp);
-      });
-
-      for (bufferization::CloneOp cloneOp : clones) {
-        LLVM_DEBUG(llvm::dbgs() << "Removing " << cloneOp << "\n");
-        Value input = cloneOp.getInput();
-        // A clone may also cast its input, e.g. from a static to a dynamic
-        // shape. Keep the result type with a memref.cast.
-        if (input.getType() != cloneOp.getType()) {
-          OpBuilder builder(cloneOp);
-          input = memref::CastOp::create(
-              builder, cloneOp.getLoc(), cloneOp.getType(), input);
-        }
-        cloneOp.getOutput().replaceAllUsesWith(input);
-        cloneOp.erase();
+    for (bufferization::CloneOp cloneOp : clones) {
+      LLVM_DEBUG(llvm::dbgs() << "Removing " << cloneOp << "\n");
+      Value input = cloneOp.getInput();
+      // A clone may also cast its input, e.g. from a static to a dynamic
+      // shape. Keep the result type with a memref.cast.
+      if (input.getType() != cloneOp.getType()) {
+        OpBuilder builder(cloneOp);
+        input = memref::CastOp::create(
+            builder, cloneOp.getLoc(), cloneOp.getType(), input);
       }
+      cloneOp.getOutput().replaceAllUsesWith(input);
+      cloneOp.erase();
     }
   }
 };
