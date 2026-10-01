@@ -465,6 +465,21 @@ OMTensorList *omtl_java_to_native(
     int64_t jni_rank = jomt_rank;
     int64_t jni_numElems = jomt_numElems;
 
+    /* Validate that dimensions are positive and buffer size matches declared shape */
+    int valid_shape = 1;
+    for (int64_t dim = 0; dim < jni_rank; dim++) {
+      if (jni_shape[dim] <= 0) {
+        valid_shape = 0;
+        break;
+      }
+    }
+    int64_t elemSize = getDataTypeSize(jni_dataType);
+    int64_t expectedBytes = jni_numElems * elemSize;
+    LIB_CALL(, valid_shape && (expectedBytes == jni_bufferSize), env,
+        japi->jecpt_cls,
+        "omt[%d]: buffer size mismatch or invalid shape (expected %ld, got %ld)",
+        i, expectedBytes, jni_bufferSize);
+
     /* Print debug info on what we got from the Java side */
     OMT_DEBUG(i, jni_numElems, jni_data, jni_shape, jni_strides, jni_dataType,
         jni_bufferSize, jni_rank, 0);
