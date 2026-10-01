@@ -1376,7 +1376,7 @@ private:
       // currently expanding so that any re-entrant call to ImportNode for the
       // same (domain, op_type) is caught before recursing again.
       expandingModelFunctions_.insert(modelLocalFunction);
-      auto cleanupExpanding = llvm::make_scope_exit(
+      auto cleanupExpanding = llvm::scope_exit(
           [&] { expandingModelFunctions_.erase(modelLocalFunction); });
 
       for (auto &fb_node : graph.node()) {
