@@ -528,22 +528,6 @@ public:
 //===----------------------------------------------------------------------===//
 // Patterns Layout Transform.
 
-bool hasStaticInnermostDimWithMod(Value val, int64_t mod) {
-  // First constraint for ZHighExtendedLayoutTransformOp
-  if (!hasShapeAndRank(val))
-    return false;
-  ShapedType type = mlir::cast<ShapedType>(val.getType());
-  auto shape = type.getShape();
-  int64_t rank = type.getRank();
-  if (rank == 0)
-    return false; // Is a scalar.
-  if (shape[rank - 1] == ShapedType::kDynamic)
-    return false; // Non-static.
-  if (mod > 1 && shape[rank - 1] % mod != 0)
-    return false; // Does not satisfy mod constraint.
-  return true;
-}
-
 bool doesTransposeLeaveInnermostInPlace(mlir::ArrayAttr &permute) {
   int64_t rank = ArrayAttrSize(permute);
   return ArrayAttrIntVal(permute, rank - 1) == rank - 1;
@@ -677,9 +661,9 @@ public:
             inputData, /*nhwc*/ false))
       return notifyFailure(
           layoutTransform, nullptr, "Compiler unsupported zTensor input");
-    if (!hasStaticInnermostDimWithMod(inputData, 64))
+    if (getExtendedLayoutTransformInnerTile(inputData.getType()) == 0)
       return notifyFailure(layoutTransform, nullptr,
-          "Compiler unsupported innermost dim (static, mod 64)");
+          "Compiler unsupported innermost dim (static, mod 64 or 32)");
 
     // Look for a reshape split.
     resultVal = layoutTransform.getOutput();

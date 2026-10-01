@@ -2320,6 +2320,11 @@ struct ZHighToZLowExtendedLayoutTransformLowering
     int64_t reshapeMergeAxis = layoutTransform.getReshapeMergeAxis();
     int64_t inputRank = getRank(inputVal.getType());
     int64_t outputRank = getRank(outputVal.getType());
+    // Innermost tile: full (64) or half (32) stick.
+    int64_t innerTile = getExtendedLayoutTransformInnerTile(
+        layoutTransform.getSource().getType());
+    if (innerTile == 0)
+      return rewriter.notifyMatchFailure(op, "unsupported innermost dim");
 
     // Compute output dims.
     ZHighExtendedLayoutTransformOpShapeHelper shapeHelper(
@@ -2370,8 +2375,8 @@ struct ZHighToZLowExtendedLayoutTransformLowering
       }
     }
     assert((int64_t)ubs.size() == loopRank && "missing ubs values");
-    // Inner dim is tiled by 64; guaranteed to be full tile.
-    ubs[loopRank - 1] = ubs[loopRank - 1].ceilDiv(64);
+    // Inner dim is tiled by innerTile; guaranteed to be full tile.
+    ubs[loopRank - 1] = ubs[loopRank - 1].ceilDiv(innerTile);
 
     // Handle parallelism here.
     int maxId = std::min(loopRank - 1, (int64_t)2);
@@ -2395,12 +2400,12 @@ struct ZHighToZLowExtendedLayoutTransformLowering
     }
     create.krnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, ubs,
         [&](const KrnlBuilder &ck, ValueRange indices) {
-          // Process 64 values here at a time.
+          // Process innerTile values here at a time.
           MDBuilder create(ck);
           IndexExprScope outerScope(ck);
           // Loop indices: iterate over the iteration space with split dim.
           DimsExpr loopIndices = DimListIE(indices);
-          loopIndices[loopRank - 1] = loopIndices[loopRank - 1] * 64;
+          loopIndices[loopRank - 1] = loopIndices[loopRank - 1] * innerTile;
 
           // Since we iterate over the split iterations; create input indices
           // merging the split dims.
@@ -2451,7 +2456,7 @@ struct ZHighToZLowExtendedLayoutTransformLowering
                 create.krnl.getLinearOffsetIndexIE(inputVal, inputAF);
             Value outputOffset =
                 create.krnl.getLinearOffsetIndexIE(allocVal, outputAF);
-            Value len = create.math.constant(rewriter.getI64Type(), 64);
+            Value len = create.math.constant(rewriter.getI64Type(), innerTile);
             create.krnl.memcpy(
                 allocVal, inputVal, len, outputOffset, inputOffset);
           } else {
@@ -2459,14 +2464,15 @@ struct ZHighToZLowExtendedLayoutTransformLowering
             conversionSupportUSS.list[1].beforeStickLoop(create.krnl, outputAF);
             int64_t U = 4;
             int64_t totVL = U * UnifiedStickSupport::archVL;
+            assert(innerTile % totVL == 0 && "tile not a multiple of totVL");
             // Function simply copy the single input to an output.
             UnifiedStickSupportList::IterateFctOver4xF32 fct =
                 [&](const KrnlBuilder &b,
                     mlir::SmallVectorImpl<Value> &inputOfF32Vals) {
                   return inputOfF32Vals[0];
                 };
-            create.krnl.forLoopIE(LitIE(0), LitIE(64), totVL, /*par*/ false,
-                [&](const KrnlBuilder kb, ValueRange loopInd) {
+            create.krnl.forLoopIE(LitIE(0), LitIE(innerTile), totVL,
+                /*par*/ false, [&](const KrnlBuilder kb, ValueRange loopInd) {
                   IndexExprScope innerScope(kb, &outerScope);
                   MDBuilder create(ck);
                   IndexExpr l = DimIE(loopInd[0]);
@@ -2530,6 +2536,11 @@ struct ZHighToZLowFusedExtLayoutTransformLowering
 
     int64_t inputRank = getRank(inputVal.getType());
     int64_t outputRank = getRank(outputVal.getType());
+    // Innermost tile: full (64) or half (32) stick.
+    int64_t innerTile =
+        getExtendedLayoutTransformInnerTile(fusedOp.getInputs()[0].getType());
+    if (innerTile == 0)
+      return rewriter.notifyMatchFailure(op, "unsupported innermost dim");
 
     // Compute all derived DimsExpr from the source memref (inputVal).
     // inputVal is already lowered to memref; outputVal and body op results are
@@ -2615,7 +2626,7 @@ struct ZHighToZLowFusedExtLayoutTransformLowering
       }
     }
     assert((int64_t)ubs.size() == loopRank && "missing ubs values");
-    ubs[loopRank - 1] = ubs[loopRank - 1].ceilDiv(64);
+    ubs[loopRank - 1] = ubs[loopRank - 1].ceilDiv(innerTile);
 
     int maxId = std::min(loopRank - 1, (int64_t)2);
     auto plan = KrnlParallelPlan::noCollapse(
@@ -2641,7 +2652,7 @@ struct ZHighToZLowFusedExtLayoutTransformLowering
           MDBuilder create(ck);
           IndexExprScope outerScope(ck);
           DimsExpr loopIndices = DimListIE(indices);
-          loopIndices[loopRank - 1] = loopIndices[loopRank - 1] * 64;
+          loopIndices[loopRank - 1] = loopIndices[loopRank - 1] * innerTile;
 
           // Input access function: merge split dims back.
           DimsExpr inputAF;
@@ -2686,7 +2697,7 @@ struct ZHighToZLowFusedExtLayoutTransformLowering
                 create.krnl.getLinearOffsetIndexIE(inputVal, inputAF);
             Value outputOffset =
                 create.krnl.getLinearOffsetIndexIE(allocVal, outputAF);
-            Value len = create.math.constant(rewriter.getI64Type(), 64);
+            Value len = create.math.constant(rewriter.getI64Type(), innerTile);
             create.krnl.memcpy(
                 allocVal, inputVal, len, outputOffset, inputOffset);
           } else {
@@ -2694,13 +2705,14 @@ struct ZHighToZLowFusedExtLayoutTransformLowering
             conversionSupportUSS.list[1].beforeStickLoop(create.krnl, outputAF);
             int64_t U = 4;
             int64_t totVL = U * UnifiedStickSupport::archVL;
+            assert(innerTile % totVL == 0 && "tile not a multiple of totVL");
             UnifiedStickSupportList::IterateFctOver4xF32 fct =
                 [&](const KrnlBuilder &b,
                     mlir::SmallVectorImpl<Value> &inputOfF32Vals) {
                   return inputOfF32Vals[0];
                 };
-            create.krnl.forLoopIE(LitIE(0), LitIE(64), totVL, /*par*/ false,
-                [&](const KrnlBuilder kb, ValueRange loopInd) {
+            create.krnl.forLoopIE(LitIE(0), LitIE(innerTile), totVL,
+                /*par*/ false, [&](const KrnlBuilder kb, ValueRange loopInd) {
                   IndexExprScope innerScope(kb, &outerScope);
                   MDBuilder create(ck);
                   IndexExpr l = DimIE(loopInd[0]);

@@ -191,8 +191,8 @@ bool ExtLayoutTransformFusionHelper::detectIfBeneficial(
   if (!supportedLayoutForCompilerGeneratedStickUnstick(
           inputData, /*nhwc=*/false))
     return returnFailure("zTensor layout not supported");
-  if (!hasStaticInnermostDimMod(inputData, 64))
-    return returnFailure("zTensor inner dim is not 0 mod 64");
+  if (getExtendedLayoutTransformInnerTile(inputData.getType()) == 0)
+    return returnFailure("zTensor inner dim is not 0 mod 64, or 32");
 
   ops.push_back(startOp.getOperation());
   Value current = startOp.getOutput();

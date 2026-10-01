@@ -102,3 +102,34 @@ func.func @pattern_extended_layout_transform_v3(%arg0: tensor<3x?x2048xf32>, %ar
 // CHECK-NOT:       "zhigh.ExtendedLayoutTransform"
 // CHECK:           }
 }
+
+// -----
+
+// Inner dim of 32 (half stick): heads of 32 are merged into the innermost dim
+// (12 x 32 -> 384), so each output stick is written as two half sticks.
+
+func.func @pattern_extended_layout_transform_32(%arg0: tensor<24x7x32xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<2x7x384xf16, #zhigh.layout<{dataLayout = "3DS"}>> {
+  %s1 = onnx.Constant dense<[2, 12, 7, 32]> : tensor<4xi64>
+  %s2 = onnx.Constant dense<[2, 7, 384]> : tensor<3xi64>
+  %0 = "onnx.LayoutTransform"(%arg0) : (tensor<24x7x32xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<24x7x32xf16>
+  %1 = "onnx.Reshape"(%0, %s1) {allowzero = 0 : si64} : (tensor<24x7x32xf16>, tensor<4xi64>) -> tensor<2x12x7x32xf16>
+  %2 = "onnx.Transpose"(%1) {perm = [0, 2, 1, 3]} : (tensor<2x12x7x32xf16>) -> tensor<2x7x12x32xf16>
+  %3 = "onnx.Reshape"(%2, %s2) {allowzero = 0 : si64} : (tensor<2x7x12x32xf16>, tensor<3xi64>) -> tensor<2x7x384xf16>
+  %4 = "onnx.LayoutTransform"(%3) {target_layout = #zhigh.layout<{dataLayout = "3DS"}>} : (tensor<2x7x384xf16>) -> tensor<2x7x384xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  return %4 : tensor<2x7x384xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+
+// CHECK-LABEL:  func.func @pattern_extended_layout_transform_32
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<24x7x32xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<2x7x384xf16, #zhigh.layout<{dataLayout = "3DS"}>> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Fused"([[PARAM_0_]]) <{kind = "zhigh.extended_layout_transform"}>
+// Verify the chain ops are inside the fused body:
+// CHECK:           "onnx.LayoutTransform"
+// CHECK:           "onnx.Reshape"{{.*}}-> tensor<2x12x7x32xf16>
+// CHECK:           "onnx.Transpose"
+// CHECK:           "onnx.Reshape"{{.*}}-> tensor<2x7x384xf16>
+// CHECK:           "onnx.LayoutTransform"{{.*}}-> tensor<2x7x384xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:           onnx.Yield
+// CHECK:           reshapeMergeAxis = 2 : i64, reshapeSplitAxis = 0 : i64, reshapeSplitFactor = 12 : i64, transposePattern = [0, 2, 1, 3]
+// CHECK:           return [[VAR_0_]] : tensor<2x7x384xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-NOT:       "zhigh.ExtendedLayoutTransform"
+// CHECK:           }
+}
