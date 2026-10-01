@@ -150,6 +150,15 @@ class SessionCache:
             stored_hashes = disk_config.get("artifact_hashes", {})
             if stored_hashes:
                 for filename, expected_digest in stored_hashes.items():
+                    # Reject path traversal keys (e.g. "../../outside/file").
+                    # os.path.join silently resolves them outside model_dir,
+                    # so _sha256_file would read an arbitrary file.  Keys we
+                    # write are always bare filenames with no directory part.
+                    if filename != os.path.basename(filename) or filename in (
+                        ".",
+                        "..",
+                    ):
+                        return None
                     artifact_path = os.path.join(model_dir, filename)
                     if not Path(artifact_path).exists():
                         # Expected artifact is missing — treat as cache miss.

@@ -188,6 +188,27 @@ class TestLoadFromDiskIntegrityCheck(unittest.TestCase):
         self.assertIsNone(result)
         mock_sess.assert_not_called()
 
+    def test_path_traversal_key_returns_none(self):
+        """A config with a path-traversal key must be a cache miss, not a file read."""
+        key = "traversal_key"
+        model_dir = self.tmp / key
+        model_dir.mkdir(mode=_CACHE_DIR_MODE, parents=True, exist_ok=True)
+        (model_dir / "model.so").write_bytes(b"some-so-bytes")
+        # Plant a config whose artifact_hashes key escapes the cache directory.
+        bad_config = {
+            "artifact_hashes": {"../outside/model.so": "not-a-real-hash"},
+            "example_inputs_indices": [],
+            "compilation_info": "",
+            "input_signature": "",
+            "output_signature": "",
+        }
+        with open(model_dir / OM_BACKEND_CONFIG_FILE, "w") as f:
+            json.dump(bad_config, f)
+        with patch("torch_onnxmlir.sessioncache.InferenceSession") as mock_sess:
+            result = self.sc.load_from_disk(key)
+        self.assertIsNone(result, "Path-traversal key must be a cache miss")
+        mock_sess.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
