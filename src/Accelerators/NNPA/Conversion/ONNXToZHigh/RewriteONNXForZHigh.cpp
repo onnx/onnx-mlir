@@ -77,19 +77,25 @@ Value reshapeTo3D(PatternRewriter &rewriter, Location loc, Value val) {
 }
 
 // Get a value that store the shape of the matmul result.
-Value getMatMulResultShape(
-    PatternRewriter &rewriter, Location loc, Value lhs, Value rhs) {
+// When lhsTransposed (resp. rhsTransposed) is true, lhs (resp. rhs) is the
+// input of a transpose of its last two dimensions, i.e. the matmul operand is
+// lhs^T (resp. rhs^T). Reading the shape from the transpose input rather than
+// from the transpose itself lets an original transpose op become dead once the
+// pattern using this helper has rewritten the matmul.
+Value getMatMulResultShape(PatternRewriter &rewriter, Location loc, Value lhs,
+    Value rhs, bool lhsTransposed, bool rhsTransposed) {
   MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
   int64_t lhsRank = getRank(lhs.getType());
   int64_t rhsRank = getRank(rhs.getType());
   assert((lhsRank >= 2 && rhsRank >= 2) && "Input rank must be >= 2");
-  // lhs shape: B1xB2x...xBkxMxN or MxN
-  // rhs shape: B1xB2x...xBkxNxP or NxP
+  // lhs shape: B1xB2x...xBkxMxN or MxN (B1xB2x...xBkxNxM or NxM if transposed)
+  // rhs shape: B1xB2x...xBkxNxP or NxP (B1xB2x...xBkxPxN or PxN if transposed)
 
   int64_t rank = std::max(lhsRank, rhsRank);
   Type rI64Type = RankedTensorType::get({rank}, rewriter.getI64Type());
   Type lhsRType = RankedTensorType::get({lhsRank}, rewriter.getI64Type());
   Type lhsR1Type = RankedTensorType::get({lhsRank - 1}, rewriter.getI64Type());
+  Type lhsR2Type = RankedTensorType::get({lhsRank - 2}, rewriter.getI64Type());
   Type rhsRType = RankedTensorType::get({rhsRank}, rewriter.getI64Type());
   Type rhsR2Type = RankedTensorType::get({rhsRank - 2}, rewriter.getI64Type());
   Type oneI64Type = RankedTensorType::get({1}, rewriter.getI64Type());
@@ -100,8 +106,15 @@ Value getMatMulResultShape(
   Value zero = create.onnx.constantInt64({0});
   Value one = create.onnx.constantInt64({1});
   Value lhsR1Const = create.onnx.constantInt64({lhsRank - 1});
-  Value rhsRConst = create.onnx.constantInt64({rhsRank});
-  Value rhsR1Const = create.onnx.constantInt64({rhsRank - 1});
+  Value lhsR2Const = create.onnx.constantInt64({lhsRank - 2});
+
+  // M is at lhsRank-2 (lhsRank-1 if lhs is transposed) in lhs shape, and P is
+  // at rhsRank-1 (rhsRank-2 if rhs is transposed) in rhs shape.
+  int64_t mIdx = lhsTransposed ? lhsRank - 1 : lhsRank - 2;
+  int64_t pIdx = rhsTransposed ? rhsRank - 2 : rhsRank - 1;
+  Value pVal =
+      create.onnx.slice(oneI64Type, rhsShape, create.onnx.constantInt64({pIdx}),
+          create.onnx.constantInt64({pIdx + 1}), zero, one);
 
   // if lhsRank >= rhsRank:
   //   - get B1xB2x...xBkxM from lhs shape, then append P from rhs shape.
@@ -109,21 +122,21 @@ Value getMatMulResultShape(
   //   - get B1xB2x...xBk from rhs shape, then append M from lhs and append P
   //   from rhs shape.
   Value shapeVal;
-  if (lhsRank >= rhsRank) {
+  if (lhsRank >= rhsRank && !lhsTransposed) {
     Value bmVal =
         create.onnx.slice(lhsR1Type, lhsShape, zero, lhsR1Const, zero, one);
-    Value pVal = create.onnx.slice(
-        oneI64Type, rhsShape, rhsR1Const, rhsRConst, zero, one);
     shapeVal = create.onnx.concat(rI64Type, ValueRange({bmVal, pVal}), 0);
   } else {
-    Value lhsR2Const = create.onnx.constantInt64({lhsRank - 2});
-    Value rhsR2Const = create.onnx.constantInt64({rhsRank - 2});
-    Value bVal =
-        create.onnx.slice(rhsR2Type, rhsShape, zero, rhsR2Const, zero, one);
-    Value mVal = create.onnx.slice(
-        oneI64Type, lhsShape, lhsR2Const, lhsR1Const, zero, one);
-    Value pVal = create.onnx.slice(
-        oneI64Type, rhsShape, rhsR1Const, rhsRConst, zero, one);
+    // B1xB2x...xBk is not contiguous with M in a transposed lhs, so it is
+    // sliced separately.
+    Value bVal = (lhsRank >= rhsRank)
+                     ? create.onnx.slice(
+                           lhsR2Type, lhsShape, zero, lhsR2Const, zero, one)
+                     : create.onnx.slice(rhsR2Type, rhsShape, zero,
+                           create.onnx.constantInt64({rhsRank - 2}), zero, one);
+    Value mVal = create.onnx.slice(oneI64Type, lhsShape,
+        create.onnx.constantInt64({mIdx}),
+        create.onnx.constantInt64({mIdx + 1}), zero, one);
     shapeVal = create.onnx.concat(rI64Type, ValueRange({bVal, mVal, pVal}), 0);
   }
   return shapeVal;

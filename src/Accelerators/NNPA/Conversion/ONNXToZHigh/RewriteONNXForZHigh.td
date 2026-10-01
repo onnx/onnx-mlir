@@ -190,7 +190,23 @@ def GetPerm3DLast: NativeCodeCall<
 >;
 
 def GetMatMulResultShape: NativeCodeCall<
-  "getMatMulResultShape($_builder, $_loc, $0, $1)"
+  "getMatMulResultShape($_builder, $_loc, $0, $1, false, false)"
+>;
+
+// Variants of GetMatMulResultShape for A^T * B, A * B^T, and A^T * B^T, where
+// the transposes are of the last two dimensions. They take the transpose
+// inputs, so that the original transposes are not kept alive just to provide
+// the result shape.
+def GetMatMulResultShapeTransA: NativeCodeCall<
+  "getMatMulResultShape($_builder, $_loc, $0, $1, true, false)"
+>;
+
+def GetMatMulResultShapeTransB: NativeCodeCall<
+  "getMatMulResultShape($_builder, $_loc, $0, $1, false, true)"
+>;
+
+def GetMatMulResultShapeTransATransB: NativeCodeCall<
+  "getMatMulResultShape($_builder, $_loc, $0, $1, true, true)"
 >;
 
 def GetMatMulResultType: NativeCodeCall<
@@ -222,7 +238,7 @@ def rewriteMatMulNDto3D_NonBroadcast_TransposeA: Pattern<
                      (returnType (GetTransposeResultType $t_input_a, $t_attr_a))),
                     (ReshapeTo3D:$b_r $b),
                     (returnType (GetMatMulResultType $a_r, $b_r))),
-                 (GetMatMulResultShape $t_a, $b),
+                 (GetMatMulResultShapeTransA $a, $b),
                  (GetZeroI64Attr))],
   [(IsCompatibleWithNNPALevelArch15),
    (HasRankGT<3> $a), (HasRankGT<3> $b),
@@ -239,7 +255,7 @@ def rewriteMatMulNDto3D_NonBroadcast_TransposeB: Pattern<
                     (ONNXTransposeOp:$b_r (ReshapeTo3D:$t_input_a $b), (GetPerm3DLast:$t_attr_b),
                      (returnType (GetTransposeResultType $t_input_a, $t_attr_b))),
                     (returnType (GetMatMulResultType $a_r, $b_r))),
-                 (GetMatMulResultShape $a, $t_b),
+                 (GetMatMulResultShapeTransB $a, $b),
                  (GetZeroI64Attr))],
   [(IsCompatibleWithNNPALevelArch15),
    (HasRankGT<3> $a),
@@ -274,7 +290,7 @@ def rewriteMatMulNDto3D_NonBroadcast_SplitTransposeB: Pattern<
                     (ONNXTransposeOp:$b_r (ReshapeTo3D:$t_input_b $b_k), (GetPerm3DLast:$t_attr_b),
                      (returnType (GetTransposeResultType $t_input_b, $t_attr_b))),
                     (returnType (GetMatMulResultType $a_r, $b_r))),
-                 (GetMatMulResultShape $a, $t_b),
+                 (GetMatMulResultShapeTransB $a, $b_k),
                  (GetZeroI64Attr))],
   [(IsCompatibleWithNNPALevelArch15),
    (HasRankGT<3> $a),
@@ -294,7 +310,7 @@ def rewriteMatMulNDto3D_NonBroadcast_TransposeA_TransposeB: Pattern<
                     (ONNXTransposeOp:$b_r (ReshapeTo3D:$t_input_b $b), (GetPerm3DLast:$t_attr_b),
                      (returnType (GetTransposeResultType $t_input_b, $t_attr_b))),
                     (returnType (GetMatMulResultType $a_r, $b_r))),
-                 (GetMatMulResultShape $t_a, $t_b),
+                 (GetMatMulResultShapeTransATransB $a, $b),
                  (GetZeroI64Attr))],
   [(IsCompatibleWithNNPALevelArch15),
    (HasRankGT<3> $a),
