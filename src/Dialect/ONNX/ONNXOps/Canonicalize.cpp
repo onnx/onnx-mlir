@@ -2306,10 +2306,18 @@ struct RecomposeConcatPattern : public OpRewritePattern<ONNXConcatOp> {
 
   // Helper function to check if an input is a mergeable Concat.
   static bool isMergeableConcat(Value input, int64_t axis) {
-    ONNXConcatOp concatOp = input.getDefiningOp<ONNXConcatOp>();
+    auto concatOp = input.getDefiningOp<ONNXConcatOp>();
     if (!concatOp)
       return false;
-    return (concatOp.getAxis() == axis) && (concatOp.getResult().hasOneUse());
+    if (concatOp.getAxis() != axis || !concatOp.getResult().hasOneUse())
+      return false;
+    // Do not flatten an inner concat whose operands are all dense constants:
+    // those groupings are intentionally created by
+    // GroupConsecutiveConstantConcatOperandsPattern and will later be
+    // constant-folded to a single constant operand.
+    if (llvm::all_of(concatOp.getOperands(), isDenseONNXConstant))
+      return false;
+    return true;
   }
 
   LogicalResult matchAndRewrite(
@@ -2747,6 +2755,55 @@ struct EliminateCarveOutAroundRotaryEmbeddingPattern
            "concat result type");
 
     rewriter.replaceOp(concatOp, newOut);
+    return success();
+  }
+};
+
+// Pull each run of two or more consecutive dense constants into its own Concat
+// so later const-prop can fold that run. Skips all-constant Concat ops (those
+// are already foldable as a whole).
+struct GroupConsecutiveConstantConcatOperandsPattern
+    : public OpRewritePattern<ONNXConcatOp> {
+  using OpRewritePattern<ONNXConcatOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXConcatOp concatOp, PatternRewriter &rewriter) const final {
+    ValueRange inputs = concatOp.getOperands();
+    if (llvm::all_of(inputs, isDenseONNXConstant))
+      return failure();
+
+    SmallVector<Value> newInputs;
+    bool grouped = false;
+    for (size_t i = 0, e = inputs.size(); i < e;) {
+      if (!isDenseONNXConstant(inputs[i])) {
+        newInputs.push_back(inputs[i]);
+        ++i;
+        continue;
+      }
+      size_t j = i + 1;
+      while (j < e && isDenseONNXConstant(inputs[j]))
+        ++j;
+      if (j - i >= 2) {
+        ValueRange run = inputs.slice(i, j - i);
+        auto elementType =
+            mlir::cast<ShapedType>(run.front().getType()).getElementType();
+        auto runTy = UnrankedTensorType::get(elementType);
+        auto inner = rewriter.create<ONNXConcatOp>(
+            concatOp.getLoc(), runTy, run, concatOp.getAxis());
+        inferShapes(inner);
+        newInputs.push_back(inner.getResult());
+        grouped = true;
+      } else {
+        newInputs.push_back(inputs[i]);
+      }
+      i = j;
+    }
+
+    if (!grouped)
+      return failure();
+
+    rewriter.replaceOpWithNewOp<ONNXConcatOp>(concatOp,
+        concatOp.getResult().getType(), newInputs, concatOp.getAxis());
     return success();
   }
 };
@@ -5060,6 +5117,7 @@ void ONNXConcatOp::getCanonicalizationPatterns(
   results.insert<RemoveEmptyConcatOperandsPattern>(context);
   results.insert<ConcatSingleOperandPattern>(context);
   results.insert<EliminateCarveOutAroundRotaryEmbeddingPattern>(context);
+  results.insert<GroupConsecutiveConstantConcatOperandsPattern>(context);
 }
 
 /// on the ONNXConvOp.
