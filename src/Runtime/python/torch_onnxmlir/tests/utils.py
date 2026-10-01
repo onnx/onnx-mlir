@@ -6,6 +6,7 @@
 #
 ################################################################################
 
+import os
 import unittest
 import tempfile
 import shutil
@@ -13,7 +14,9 @@ from pathlib import Path
 import torch_onnxmlir
 
 COMPILER_IMAGE_NAME = None
-COMPILER_PATH = "/workdir/onnx-mlir/build/Debug/bin/onnx-mlir"
+COMPILER_PATH = os.environ.get(
+    "COMPILER_PATH", "/workdir/onnx-mlir/build/Debug/bin/onnx-mlir"
+)
 
 
 class TorchOMTestCase(unittest.TestCase):

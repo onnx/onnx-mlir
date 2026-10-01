@@ -615,6 +615,212 @@ public:
   }
 };
 
+// Lower the AttentionOp into MatMul, Softmax and etc.
+// This lowering is needed when AttentionOp is not supported by zdnnx
+// The matchAndRewrite is the same as ONNXToKrnl except that the conversion
+// pattern is OpRewritePattern instead of OpConversion.
+// In RewriteONNXForZHigh, tensor is kept, not rewritten to memref.
+struct AttentionForZHighPattern : public OpRewritePattern<ONNXAttentionOp> {
+  using OpRewritePattern<ONNXAttentionOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXAttentionOp attentionOp, PatternRewriter &rewriter) const override {
+    Location loc = attentionOp.getLoc();
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+
+    auto adaptor = attentionOp;
+    Value Q = adaptor.getQ();
+    Value K = adaptor.getK();
+    Value V = adaptor.getV();
+    Value attnMask = adaptor.getAttnMask();
+    Value pastKey = adaptor.getPastKey();
+    Value pastValue = adaptor.getPastValue();
+    bool hasPastKey = !isNoneValue(pastKey);
+    bool hasPastValue = !isNoneValue(pastValue);
+
+    // Get input rank to determine if it's 3D or 4D
+    ShapedType qType = mlir::cast<ShapedType>(Q.getType());
+    int64_t inputRank = qType.getShape().size();
+    bool is3DInput = (inputRank == 3);
+    Type elementType = qType.getElementType();
+
+    Value Q_reshaped = Q;
+    Value K_reshaped = K;
+    Value V_reshaped = V;
+
+    if (is3DInput) {
+      // For 3D inputs, reshape to 4D for attention computation
+      auto qNumHeadsAttr = attentionOp.getQNumHeads();
+      int64_t qNumHeads = 1;
+      if (qNumHeadsAttr.has_value()) {
+        qNumHeads = qNumHeadsAttr.value();
+      }
+
+      ArrayRef<int64_t> qShape = qType.getShape();
+      int64_t batchSize = qShape[0];
+      int64_t qSeqLen = qShape[1];
+      int64_t qHiddenSize = qShape[2];
+
+      if (ShapedType::isDynamic(qHiddenSize)) {
+        return failure();
+      }
+
+      int64_t headSize = qHiddenSize / qNumHeads;
+
+      // Reshape Q: (B, S, H) -> (B, qNumHeads, S, H/qNumHeads)
+      SmallVector<int64_t> qNewShape = {
+          batchSize, qNumHeads, qSeqLen, headSize};
+      Type qNewType = RankedTensorType::get(qNewShape, elementType);
+      Value reshapeShapeQ = create.onnx.constantInt64(qNewShape);
+      Q_reshaped = create.onnx.reshape(qNewType, Q, reshapeShapeQ);
+
+      // Reshape K: (B, S', H) -> (B, qNumHeads, S', H/qNumHeads)
+      ShapedType kType = mlir::cast<ShapedType>(K.getType());
+      ArrayRef<int64_t> kShape = kType.getShape();
+      int64_t kSeqLen = kShape[1];
+      int64_t kHiddenSize = kShape[2];
+
+      if (ShapedType::isDynamic(kHiddenSize)) {
+        return failure();
+      }
+
+      SmallVector<int64_t> kNewShape = {
+          batchSize, qNumHeads, kSeqLen, kHiddenSize / qNumHeads};
+      Type kNewType = RankedTensorType::get(kNewShape, elementType);
+      Value reshapeShapeK = create.onnx.constantInt64(kNewShape);
+      K_reshaped = create.onnx.reshape(kNewType, K, reshapeShapeK);
+
+      // Reshape V: (B, S', V_H) -> (B, qNumHeads, S', V_H/qNumHeads)
+      ShapedType vType = mlir::cast<ShapedType>(V.getType());
+      ArrayRef<int64_t> vShape = vType.getShape();
+      int64_t vHiddenSize = vShape[2];
+
+      if (ShapedType::isDynamic(vHiddenSize)) {
+        return failure();
+      }
+
+      SmallVector<int64_t> vNewShape = {
+          batchSize, qNumHeads, kSeqLen, vHiddenSize / qNumHeads};
+      Type vNewType = RankedTensorType::get(vNewShape, elementType);
+      Value reshapeShapeV = create.onnx.constantInt64(vNewShape);
+      V_reshaped = create.onnx.reshape(vNewType, V, reshapeShapeV);
+    }
+
+    // Concatenate past_key with K if present
+    if (hasPastKey) {
+      ShapedType kShape = mlir::cast<ShapedType>(K_reshaped.getType());
+      ShapedType pastKeyShape = mlir::cast<ShapedType>(pastKey.getType());
+      int64_t newKSeqLen =
+          ShapedType::isDynamic(kShape.getShape()[2]) ||
+                  ShapedType::isDynamic(pastKeyShape.getShape()[2])
+              ? ShapedType::kDynamic
+              : (kShape.getShape()[2] + pastKeyShape.getShape()[2]);
+      SmallVector<int64_t> kConcatShape = {kShape.getShape()[0],
+          kShape.getShape()[1], newKSeqLen, kShape.getShape()[3]};
+      Type kConcatType = RankedTensorType::get(kConcatShape, elementType);
+      K_reshaped = create.onnx.concat(kConcatType, {pastKey, K_reshaped}, 2);
+    }
+
+    // Concatenate past_value with V if present
+    if (hasPastValue) {
+      ShapedType vShape = mlir::cast<ShapedType>(V_reshaped.getType());
+      ShapedType pastValueShape = mlir::cast<ShapedType>(pastValue.getType());
+      int64_t newVSeqLen =
+          ShapedType::isDynamic(vShape.getShape()[2]) ||
+                  ShapedType::isDynamic(pastValueShape.getShape()[2])
+              ? ShapedType::kDynamic
+              : (vShape.getShape()[2] + pastValueShape.getShape()[2]);
+      SmallVector<int64_t> vConcatShape = {vShape.getShape()[0],
+          vShape.getShape()[1], newVSeqLen, vShape.getShape()[3]};
+      Type vConcatType = RankedTensorType::get(vConcatShape, elementType);
+      V_reshaped = create.onnx.concat(vConcatType, {pastValue, V_reshaped}, 2);
+    }
+
+    // Step 1: Transpose K: (B, num_heads, seq_len, head_size) -> (B,
+    // num_heads, head_size, seq_len)
+    SmallVector<int64_t> kTransposePerm = {0, 1, 3, 2};
+    Value K_transposed = create.onnx.transposeInt64(K_reshaped, kTransposePerm);
+
+    // Step 2: MatMul(Q, K^T)
+    ShapedType qShape4D = mlir::cast<ShapedType>(Q_reshaped.getType());
+    ShapedType kTransposedShape =
+        mlir::cast<ShapedType>(K_transposed.getType());
+    SmallVector<int64_t> qkShape = {qShape4D.getShape()[0],
+        qShape4D.getShape()[1], qShape4D.getShape()[2],
+        kTransposedShape.getShape()[3]};
+    Type qkType = RankedTensorType::get(qkShape, elementType);
+    Value qk = create.onnx.matmul(qkType, Q_reshaped, K_transposed);
+
+    // Step 3: Apply scaling if needed
+    Value qk_scaled = qk;
+    auto scaleOpt = attentionOp.getScale();
+    if (scaleOpt) {
+      float scaleValue = scaleOpt->convertToFloat();
+      if (scaleValue != 1.0f) {
+        Value scaleConstant = create.onnx.constantFloat32({scaleValue});
+        qk_scaled = create.onnx.mul(qk, scaleConstant);
+      }
+    }
+
+    // Step 4: Add attention mask if present
+    Value qk_masked = qk_scaled;
+    if (!isNoneValue(attnMask)) {
+      qk_masked = create.onnx.add(qk_scaled, attnMask);
+    }
+
+    // Step 5: Apply softmax over the last axis
+    Value probs = ONNXSoftmaxOp::create(rewriter, loc, qk_masked.getType(),
+        qk_masked, rewriter.getI64IntegerAttr(-1));
+
+    // Step 6: MatMul(softmax(...), V)
+    ShapedType vShape4D = mlir::cast<ShapedType>(V_reshaped.getType());
+    SmallVector<int64_t> outputShape = {qShape4D.getShape()[0],
+        qShape4D.getShape()[1], qShape4D.getShape()[2], vShape4D.getShape()[3]};
+    Type outputType4D = RankedTensorType::get(outputShape, elementType);
+    Value result = create.onnx.matmul(outputType4D, probs, V_reshaped);
+
+    // Step 7: Reshape back to 3D if input was 3D
+    Value result_final = result;
+    if (is3DInput) {
+      ShapedType resultType = mlir::cast<ShapedType>(result.getType());
+      ArrayRef<int64_t> resultShape = resultType.getShape();
+      int64_t batchSize = resultShape[0];
+      int64_t numHeads = resultShape[1];
+      int64_t qSeqLen = resultShape[2];
+      int64_t headSize = resultShape[3];
+
+      SmallVector<int64_t> finalShape = {
+          batchSize, qSeqLen, numHeads * headSize};
+      Type finalType = RankedTensorType::get(finalShape, elementType);
+      Value reshapeShapeFinal = create.onnx.constantInt64(finalShape);
+      result_final = create.onnx.reshape(finalType, result, reshapeShapeFinal);
+    }
+
+    // Create the none value for optional outputs
+    Value noneVal = create.onnx.none();
+
+    // Replace all 4 outputs of the AttentionOp
+    SmallVector<Value, 4> replacementValues;
+    replacementValues.push_back(result_final); // Result 0: Y
+
+    // Result 1: present_key - return concatenated K if past_key was used, else
+    // none Note: K_reshaped is either the original K (if no past) or K
+    // concatenated with past_key (if past was used)
+    replacementValues.push_back(hasPastKey ? K_reshaped : noneVal);
+
+    // Result 2: present_value - return concatenated V if past_value was used,
+    // else none Note: V_reshaped is either the original V (if no past) or V
+    // concatenated with past_value (if past was used)
+    replacementValues.push_back(hasPastValue ? V_reshaped : noneVal);
+
+    // Result 3: qk_matmul_output - not computed in this lowering
+    replacementValues.push_back(noneVal);
+
+    rewriter.replaceOp(attentionOp, replacementValues);
+    return success();
+  }
+};
+
 /// This pattern is to replace `C = add/sub(A, B)` by `A` when B is a zero
 /// defined by Expand of scalar constant and C's shape is the same as A's
 /// shape. In other words, the output does not depend on the second operand.
@@ -671,6 +877,146 @@ public:
   }
 };
 
+/// Pattern to rewrite 4D Add to 3D by eliminating unnecessary reshapes.
+/// Matches: Reshape(3D->4D) -> Add -> Reshape(4D->3D)
+/// Rewrites to: Add on 3D tensors directly
+class Rewrite4DAddTo3DPattern : public OpRewritePattern<ONNXReshapeOp> {
+public:
+  DimAnalysis *dimAnalysis;
+
+  Rewrite4DAddTo3DPattern(MLIRContext *context, DimAnalysis *dimAnalysis)
+      : OpRewritePattern<ONNXReshapeOp>(context, 1001),
+        dimAnalysis(dimAnalysis) {}
+
+  LogicalResult matchAndRewrite(
+      ONNXReshapeOp reshape3Op, PatternRewriter &rewriter) const override {
+    if (!canBeRewritten(reshape3Op, dimAnalysis))
+      return failure();
+    return applyTransformation(reshape3Op, rewriter);
+  }
+
+  // Static helper for pattern matching.
+  // NOTE: Must be public to be called from addDynamicallyLegalOpFor lambda.
+  static bool canBeRewritten(
+      ONNXReshapeOp reshape3Op, const DimAnalysis *dimAnalysis) {
+    // Check if this is a 4D -> 3D reshape.
+    Value input4D = reshape3Op.getData();
+    if (getRank(input4D.getType()) != 4 ||
+        getRank(reshape3Op.getReshaped().getType()) != 3)
+      return false;
+
+    // Input must be from an Add operation (not a function argument).
+    if (isa<BlockArgument>(input4D))
+      return false;
+    auto addOp = dyn_cast<ONNXAddOp>(input4D.getDefiningOp());
+    if (!addOp)
+      return false;
+
+    // Add operation is NOT broadcasting.
+    Value addOperand1 = addOp.getA();
+    Value addOperand2 = addOp.getB();
+    if (!dimAnalysis->sameShape(addOperand1, addOperand2))
+      return false;
+
+    // Validate Add result usage: only by this reshape and Dim operations.
+    bool hasReshapeUse = false;
+    for (Operation *user : input4D.getUsers()) {
+      if (auto reshapeUser = dyn_cast<ONNXReshapeOp>(user)) {
+        if (reshapeUser == reshape3Op.getOperation()) {
+          hasReshapeUse = true;
+          continue;
+        }
+      }
+      if (!isa<ONNXDimOp>(user))
+        return false;
+    }
+    if (!hasReshapeUse)
+      return false;
+
+    // Validate Add's inputs: from reshape 3D->4D.
+    // Identify reshape operations for Add operands.
+    ONNXReshapeOp reshape1Op =
+        !isa<BlockArgument>(addOperand1) && addOperand1.getDefiningOp()
+            ? dyn_cast<ONNXReshapeOp>(addOperand1.getDefiningOp())
+            : nullptr;
+    ONNXReshapeOp reshape2Op =
+        !isa<BlockArgument>(addOperand2) && addOperand2.getDefiningOp()
+            ? dyn_cast<ONNXReshapeOp>(addOperand2.getDefiningOp())
+            : nullptr;
+
+    // At least one operand must be a 3D->4D reshape.
+    if (!reshape1Op && !reshape2Op)
+      return false;
+
+    // Validate operand ranks: either both 3D or one 3D and one 4D.
+    int64_t rank1 = reshape1Op ? getRank(reshape1Op.getData().getType())
+                               : getRank(addOperand1.getType());
+    int64_t rank2 = reshape2Op ? getRank(reshape2Op.getData().getType())
+                               : getRank(addOperand2.getType());
+    if (!((rank1 == 3 && rank2 == 3) || (rank1 == 3 && rank2 == 4) ||
+            (rank1 == 4 && rank2 == 3)))
+      return false;
+
+    // For Case A (both 3D): validate output shape matches using DimAnalysis.
+    if (rank1 == 3 && rank2 == 3 && dimAnalysis) {
+      Value input3D_1 = reshape1Op.getData();
+      Value input3D_2 = reshape2Op.getData();
+      if (!dimAnalysis->sameShape(input3D_1, reshape3Op.getReshaped()) ||
+          !dimAnalysis->sameShape(input3D_2, reshape3Op.getReshaped()))
+        return false;
+    }
+
+    return true;
+  }
+
+private:
+  // Apply the transformation.
+  LogicalResult applyTransformation(
+      ONNXReshapeOp reshape3Op, PatternRewriter &rewriter) const {
+    Location loc = reshape3Op.getLoc();
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+
+    // Get operations.
+    Value input4D = reshape3Op.getData();
+    auto addOp = cast<ONNXAddOp>(input4D.getDefiningOp());
+    Value addOperand1 = addOp.getA();
+    Value addOperand2 = addOp.getB();
+
+    // Get the 3D values for both operands.
+    // When one operand is already 3D and the other is 4D, reshape the 4D
+    // operand to match the 3D operand's shape to avoid broadcasting.
+    Value input3D_1, input3D_2;
+    auto reshape1Op =
+        dyn_cast_or_null<ONNXReshapeOp>(addOperand1.getDefiningOp());
+    auto reshape2Op =
+        dyn_cast_or_null<ONNXReshapeOp>(addOperand2.getDefiningOp());
+
+    if (reshape1Op && reshape2Op) {
+      // Case A: Both operands are from 3D->4D reshapes.
+      input3D_1 = reshape1Op.getData();
+      input3D_2 = reshape2Op.getData();
+    } else if (reshape1Op && !reshape2Op) {
+      // Case B: Operand 1 is 3D->4D reshape, operand 2 is already 4D.
+      // Reshape operand 2 by collapsing its first two dimensions.
+      input3D_1 = reshape1Op.getData();
+      input3D_2 = reshapeTo3D(rewriter, loc, addOperand2);
+    } else if (!reshape1Op && reshape2Op) {
+      // Case B: Operand 1 is already 4D, operand 2 is 3D->4D reshape.
+      // Reshape operand 1 by collapsing its first two dimensions.
+      input3D_2 = reshape2Op.getData();
+      input3D_1 = reshapeTo3D(rewriter, loc, addOperand1);
+    }
+
+    // Create new Add directly on 3D tensors with matching shapes.
+    Value newAdd = create.onnx.add(input3D_1, input3D_2);
+
+    // Replace the final reshape with the new Add result.
+    rewriter.replaceOp(reshape3Op, newAdd);
+
+    return success();
+  }
+};
+
 class RemoveReshapeWithIdentityPattern
     : public OpRewritePattern<ONNXReshapeOp> {
 public:
@@ -714,6 +1060,8 @@ void getRewriteONNXForZHighPatterns(RewritePatternSet &patterns,
       patterns.getContext(), dimAnalysis);
   patterns.insert<RemoveReshapeWithIdentityPattern>(
       patterns.getContext(), dimAnalysis);
+  patterns.insert<Rewrite4DAddTo3DPattern>(patterns.getContext(), dimAnalysis);
+  patterns.insert<AttentionForZHighPattern>(patterns.getContext());
 
   // Add Conv to Matmul decomposition pattern for Conv ops that cannot use NNPA.
   // This reuses the existing ConvToIm2ColPattern from Decompose.cpp.
@@ -1076,7 +1424,19 @@ void getRewriteONNXForZHighDynamicallyLegal(mlir::ConversionTarget *target,
         // Get rid of identity reshape here, as it impacts stick/unstick.
         // So all reshape are legal, unless it is an identity reshape, in
         // which case there is a rule here to remove it.
-        return !isIdentityReshape(op, dimAnalysis);
+        if (isIdentityReshape(op, dimAnalysis))
+          return false;
+        // Also check for 4D->3D Add pattern that can be rewritten.
+        if (Rewrite4DAddTo3DPattern::canBeRewritten(op, dimAnalysis))
+          return false;
+        return true;
+      });
+  addDynamicallyLegalOpFor<ONNXAttentionOp>(target, dimAnalysis,
+      [](ONNXAttentionOp op, const DimAnalysis *dimAnalysis) {
+        // AttentionOp can be simply lowered to onnx ops, to different
+        // optimized implementation. Will be controlled by option or
+        // performance model in future.
+        return false;
       });
 }
 
@@ -1126,6 +1486,7 @@ void RewriteONNXForZHighPass::runOnOperation() {
 
   // Single ONNX to ZHigh operation lowering.
   RewritePatternSet patterns(&getContext());
+
   onnx_mlir::getRewriteONNXForZHighPatterns(
       patterns, &dimAnalysis, this->enableConvToMatmul);
 

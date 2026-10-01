@@ -11,7 +11,7 @@ func.func @omploop_hoist_basic() {
   omp.parallel {
     omp.wsloop {
       omp.loop_nest (%arg3) : index = (%c0) to (%c512) step (%c4) {
-          %alloc_6 = memref.alloc() {alignment = 16 : i64} : memref<4x16xf32>
+          %alloc_6 = memref.alloc() alignment = 16 : memref<4x16xf32>
           memref.dealloc %alloc_6 : memref<4x16xf32>
         omp.yield
       }
@@ -50,8 +50,8 @@ func.func @omploop_hoist_multiple(%arg0 : memref<1x?x768xf32>) {
   omp.parallel {
     omp.wsloop {
       omp.loop_nest (%arg3) : index = (%c0) to (%dim) step (%c4) {
-          %alloc_6 = memref.alloc() {alignment = 16 : i64} : memref<4x16xf32>
-          %alloc_7 = memref.alloc() {alignment = 16 : i64} : memref<16xf32>
+          %alloc_6 = memref.alloc() alignment = 16 : memref<4x16xf32>
+          %alloc_7 = memref.alloc() alignment = 16 : memref<16xf32>
           memref.dealloc %alloc_7 : memref<16xf32>
           memref.dealloc %alloc_6 : memref<4x16xf32>
         omp.yield
@@ -174,7 +174,7 @@ func.func @omploop_hoist_check_dealloc() {
   omp.parallel {
     omp.wsloop {
       omp.loop_nest (%arg3) : index = (%c0) to (%c512) step (%c4) {
-          %alloc_6 = memref.alloc() {alignment = 16 : i64} : memref<4x16xf32>
+          %alloc_6 = memref.alloc() alignment = 16 : memref<4x16xf32>
           %3 = arith.cmpi slt, %c4, %c0 : index
           scf.if %3 {
             memref.dealloc %alloc_6 : memref<4x16xf32>
@@ -220,7 +220,7 @@ func.func @omploop_hoist_alloca() {
     omp.wsloop {
       omp.loop_nest (%arg3) : index = (%c0) to (%c512) step (%c4) {
         memref.alloca_scope {
-          %alloc_6 = memref.alloc() {alignment = 16 : i64} : memref<4x16xf32>
+          %alloc_6 = memref.alloc() alignment = 16 : memref<4x16xf32>
           memref.dealloc %alloc_6 : memref<4x16xf32>
         }
         omp.yield

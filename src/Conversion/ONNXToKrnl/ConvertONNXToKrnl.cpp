@@ -265,10 +265,15 @@ void populateLoweringONNXEntryPointOpPattern(
   patterns.insert<ONNXEntryPointLowering>(ctx);
 }
 
+// enableCollapse is forwarded only to those populate* functions whose pattern
+// hosts a call site that has been migrated to a collapse-eligible plan -- not
+// to every pattern that takes enableParallel. A site becomes collapse-eligible
+// by gaining the bool, so which patterns are listed below is the record of how
+// far the migration has come, and no other pattern is touched.
 void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx, DimAnalysis *dimAnalysis,
     bool enableTiling, bool enableSIMD, bool enableParallel,
-    bool enableFastMath, std::string opsForCall) {
+    bool enableCollapse, bool enableFastMath, std::string opsForCall) {
   // clang-format off
   // Type conversion for function signatures.
   // Call MLIR FuncOp signature conversion when result type is a ranked tensor.
@@ -291,6 +296,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXWindowOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXReductionOpPattern(patterns, typeConverter, ctx, enableSIMD, enableParallel);
   populateLoweringONNXSoftmaxOpPattern(patterns, typeConverter, ctx, enableParallel);
+  populateLoweringONNXAttentionOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXTopKOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXTriluOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXMatMulOpPattern(patterns, typeConverter, ctx, dimAnalysis, enableTiling, enableSIMD, enableParallel);
@@ -302,7 +308,8 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXRandomUniformLikeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXLpNormalizationOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXLRNOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXQLinearMatMulOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXQLinearMatMulOpPattern(
+      patterns, typeConverter, ctx, enableSIMD, enableParallel);
   // ML
   populateLoweringONNXCategoryMapperOpPattern(patterns, typeConverter, ctx);
   // ObjectDetection
@@ -317,22 +324,23 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXPadOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXUnsqueezeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXUnsqueezeV11OpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXTransposeOpPattern(patterns, typeConverter, ctx, enableParallel);
-  populateLoweringONNXGatherOpPattern(patterns, typeConverter, ctx, enableParallel);
+  populateLoweringONNXTransposeOpPattern(patterns, typeConverter, ctx, enableParallel, enableCollapse);
+  populateLoweringONNXGatherOpPattern(patterns, typeConverter, ctx, enableParallel, enableCollapse);
   populateLoweringONNXGatherElementsOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXGatherNDOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXIm2ColOpPattern(patterns, typeConverter, ctx, enableParallel);
   populateLoweringONNXIdentityOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXConstantOfShapeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXConstantOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXConcatOpPattern(patterns, typeConverter, ctx, enableParallel);
+  populateLoweringONNXConcatOpPattern(patterns, typeConverter, ctx, enableParallel, enableCollapse);
   populateLoweringONNXConcatShapeTransposeOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXCol2ImOpPattern(patterns, typeConverter, ctx, enableParallel);
   populateLoweringONNXDepthToSpaceOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXScatterElementsOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXScatterNDOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXSpaceToDepthOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXShapeOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXSliceOpPattern(patterns, typeConverter, ctx, enableParallel);
+  populateLoweringONNXSliceOpPattern(patterns, typeConverter, ctx, enableParallel, enableCollapse);
   populateLoweringONNXFusedSplitOpGatherOpPattern(patterns, typeConverter, ctx, enableSIMD, enableParallel);
   populateLoweringONNXSqueezeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXSqueezeV11OpPattern(patterns, typeConverter, ctx);
@@ -342,10 +350,12 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXTileOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXFlattenOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXRangeOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXEyeLikeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXResizeOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXNonZeroOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXNonZeroOpPattern(
+      patterns, typeConverter, ctx, enableSIMD, enableParallel);
   populateLoweringONNXReverseSequenceOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXExpandOpPattern(patterns, typeConverter, ctx, enableParallel);
+  populateLoweringONNXExpandOpPattern(patterns, typeConverter, ctx, enableParallel, enableCollapse);
   populateLoweringONNXOneHotOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXCompressOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXPrintSignaturePattern(patterns, typeConverter, ctx);
@@ -369,7 +379,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXEntryPointOpPattern(patterns, ctx);
   // Additional
   populateLoweringONNXCustomOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXLayoutTransformOpPattern(patterns, typeConverter, ctx, enableParallel);
+  populateLoweringONNXLayoutTransformOpPattern(patterns, typeConverter, ctx, enableParallel, enableCollapse);
   populateLoweringONNXShapeTransformOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXUpsampleAndPadOpPattern(patterns, typeConverter, ctx, enableParallel);
   // Safety net for ONNXFusedOp: inline any instance whose kind has no
@@ -401,12 +411,14 @@ struct FrontendToKrnlLoweringPass
   FrontendToKrnlLoweringPass(const FrontendToKrnlLoweringPass &pass)
       : PassWrapper<FrontendToKrnlLoweringPass, OperationPass<ModuleOp>>() {}
   FrontendToKrnlLoweringPass(bool enableTiling, bool enableSIMD,
-      bool enableParallel, bool enableFastMath, std::string opsForCall) {
+      bool enableParallel, bool enableCollapse, bool enableFastMath,
+      std::string opsForCall) {
     // Below, need explicit assignment to enable implicit conversion of bool to
     // Option<bool>.
     this->enableTiling = enableTiling;
     this->enableSIMD = enableSIMD;
     this->enableParallel = enableParallel;
+    this->enableCollapse = enableCollapse;
     this->enableFastMath = enableFastMath;
     this->opsForCall = opsForCall;
   }
@@ -436,6 +448,12 @@ public:
       llvm::cl::desc("Enable SIMD code gen"), llvm::cl::init(false)};
   Option<bool> enableParallel{*this, "enable-parallel",
       llvm::cl::desc("Enable parallelization"), llvm::cl::init(false)};
+  Option<bool> enableCollapse{*this, "enable-collapse",
+      llvm::cl::desc(
+          "Enable collapsing several loop levels into one parallel region "
+          "(default=true). Collapse is only ever performed together with "
+          "enable-parallel; without it, this option has no effect"),
+      llvm::cl::init(true)};
   Option<bool> enableFastMath{*this, "enable-fast-math",
       llvm::cl::desc("Enable fast math optimizations"), llvm::cl::init(false)};
   Option<std::string> opsForCall{*this, "ops-for-call",
@@ -525,7 +543,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // Define patterns.
   populateONNXToKrnlConversionPattern(patterns, krnlTypeConverter,
       &getContext(), dimAnalysis, enableTiling, enableSIMD, enableParallel,
-      enableFastMath, opsForCall);
+      enableParallel && enableCollapse, enableFastMath, opsForCall);
 
   // Rewrite patterns for accelerators.
   for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
@@ -545,9 +563,10 @@ std::unique_ptr<Pass> createLowerToKrnlPass() {
 }
 
 std::unique_ptr<Pass> createLowerToKrnlPass(bool enableTiling, bool enableSIMD,
-    bool enableParallel, bool enableFastMath, std::string opsForCall) {
-  return std::make_unique<FrontendToKrnlLoweringPass>(
-      enableTiling, enableSIMD, enableParallel, enableFastMath, opsForCall);
+    bool enableParallel, bool enableCollapse, bool enableFastMath,
+    std::string opsForCall) {
+  return std::make_unique<FrontendToKrnlLoweringPass>(enableTiling, enableSIMD,
+      enableParallel, enableCollapse, enableFastMath, opsForCall);
 }
 
 //===----------------------------------------------------------------------===//

@@ -90,6 +90,10 @@ std::string ONNXOpStats;                               // onnx-mlir only
 int onnxOpTransformThreshold;                          // onnx-mlir only
 bool onnxOpTransformReport;                            // onnx-mlir only
 bool enableParallel;                                   // onnx-mlir only
+bool disableCollapse;                                  // onnx-mlir only
+int64_t collapseMinParTripCountFloor;                  // common for both
+int64_t collapseMinAmortWork;                          // common for both
+int64_t collapseMaxForkCount;                          // common for both
 bool disableSimdOption;                                // onnx-mlir only
 bool enableFastMathOption;                             // onnx-mlir only
 bool disableRecomposeOption;                           // onnx-mlir only
@@ -695,6 +699,46 @@ static llvm::cl::opt<bool, true> enableParallelOpt("parallel",
     llvm::cl::location(enableParallel), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
+static llvm::cl::opt<bool, true> disableCollapseOpt("disable-collapse",
+    llvm::cl::desc(
+        "Disable collapsing several loop levels into one parallel region\n"
+        "(default=false, i.e. collapse is enabled). Collapse is only ever\n"
+        "performed together with --parallel; without --parallel, this\n"
+        "option has no effect."),
+    llvm::cl::location(disableCollapse), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
+
+// Overrides for the target-derived parallel cost model constants; see
+// src/Dialect/Mlir/ParallelMachineSupport.hpp for what each one means. A
+// negative value, the default, means "use the target's own value". These are
+// common to both drivers on purpose: the lit tests that pin down a collapse
+// decision run under onnx-mlir-opt, which sees only the common and opt
+// categories.
+static llvm::cl::opt<int64_t, true> collapseMinParTripCountFloorOpt(
+    "collapse-min-par-trip-count-floor",
+    llvm::cl::desc(
+        "Floor on the fused loop trip count worth a parallel region\n"
+        "(default=-1, meaning use the target's own value)."),
+    llvm::cl::location(collapseMinParTripCountFloor), llvm::cl::init(-1),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<int64_t, true> collapseMinAmortWorkOpt(
+    "collapse-min-amort-work",
+    llvm::cl::desc(
+        "Smallest number of elements one fused iteration must cover for\n"
+        "an index rematerialization chain to stay amortized (default=-1,\n"
+        "meaning use the target's own value)."),
+    llvm::cl::location(collapseMinAmortWork), llvm::cl::init(-1),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<int64_t, true> collapseMaxForkCountOpt(
+    "collapse-max-fork-count",
+    llvm::cl::desc(
+        "Largest statically known fork count accepted without penalty\n"
+        "(default=-1, meaning use the target's own value)."),
+    llvm::cl::location(collapseMaxForkCount), llvm::cl::init(-1),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
 static llvm::cl::opt<bool, true> disableSimdOptionOpt("disable-simd",
     llvm::cl::desc("Disable SIMD optimizations (default=false). Set to `true` "
                    "to disable SIMD at O3."),
@@ -953,8 +997,16 @@ llvm::cl::opt<bool, true> appendDecodingStrategyOpt{"append-decoding-strategy",
 
   onnx-mlir -test-compiler-opt
 */
-#if defined(_DEBUG)
+// Use the portable NDEBUG test rather than _DEBUG: _DEBUG is an MSVC-only
+// predefined macro (see the comment in src/Version/Version.cpp), so testing it
+// left this option unregistered on every gcc/clang build, Debug ones included.
+#if !defined(NDEBUG)
 
+// Registered in OnnxMlirCommonOptions, not OnnxMlirOptions, so that
+// onnx-mlir-opt also accepts it: onnx-mlir-opt keeps only the common and
+// opt-specific categories (see removeUnrelatedOptions in
+// src/Tools/onnx-mlir-opt/onnx-mlir-opt.cpp), and lit tests for a new
+// optimization run through onnx-mlir-opt.
 static llvm::cl::opt<bool, true> test_compiler_opt("test-compiler-opt",
     llvm::cl::desc(
         "Help compiler writers test a new (small) optimization. When false, "
@@ -966,7 +1018,7 @@ static llvm::cl::opt<bool, true> test_compiler_opt("test-compiler-opt",
         "Once the new opt works, it should not rely this option any more.\n"
         "Only defined in DEBUG build and default to false.\n"),
     llvm::cl::location(debugTestCompilerOpt), llvm::cl::init(false),
-    llvm::cl::cat(OnnxMlirOptions));
+    llvm::cl::cat(OnnxMlirCommonOptions));
 bool debugTestCompilerOpt;
 #else
 // Option only available in debug mode: disable when not in debug.
@@ -1575,12 +1627,22 @@ void removeUnrelatedOptions(
   optCategories.push_back(&llvm::cl::getGeneralCategory());
   llvm::cl::HideUnrelatedOptions(optCategories);
 
+  // Collect options to remove in a separate pass before erasing.
+  //
+  // opt->removeArgument() erases the option from the same DenseMap that
+  // getRegisteredOptions() returns a reference to.  Calling it inside the
+  // range-for loop therefore invalidates the active iterator, which was
+  // silently tolerated by older LLVM but is now caught by the epoch-based
+  // iterator-debug assertions added in llvm-project ~43574226
+  // (LLVM_ENABLE_ABI_BREAKING_CHECKS / LLVM_ENABLE_ASSERTIONS=ON).
+  // Fix: snapshot the to-remove set first, then erase in a second loop.
+  llvm::SmallVector<llvm::cl::Option *, 32> toRemove;
   auto &optMap = llvm::cl::getRegisteredOptions();
-  for (auto n = optMap.begin(); n != optMap.end(); n++) {
-    llvm::cl::Option *opt = n->second;
+  for (auto &[name, opt] : optMap)
     if (opt->getOptionHiddenFlag() == llvm::cl::ReallyHidden)
-      opt->removeArgument();
-  }
+      toRemove.push_back(opt);
+  for (llvm::cl::Option *opt : toRemove)
+    opt->removeArgument();
 }
 
 // This function can be called after llvm::cl::ParseCommandLineOptions

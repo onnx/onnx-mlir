@@ -111,7 +111,6 @@ LogicalResult ONNXScatterElementsOp::verify() {
       }
       for (IntegerAttr value : valueAttribute.getValues<IntegerAttr>()) {
         int64_t index = value.getInt();
-        printf("Value %lld %lld\n", dataDimAtAxis, index);
         if (index >= -dataDimAtAxis && index < dataDimAtAxis)
           continue;
 

@@ -28,11 +28,10 @@ func.func @test_gather_scalar(%arg0: tensor<4xi64>, %arg1: tensor<i64>) -> tenso
 // CHECK-DAG:         [[VAR_2_1_:%.+]] = arith.cmpi slt, [[VAR_1_1_]], [[CST_0_]] : index
 // CHECK-DAG:         [[VAR_3_1_:%.+]] = arith.addi [[VAR_1_1_]], [[CST_4_]] : index
 // CHECK:             [[VAR_4_1_:%.+]] = arith.select [[VAR_2_1_]], [[VAR_3_1_]], [[VAR_1_1_]] : index
-// CHECK:             [[VAR_5_:%.+]] = arith.cmpi slt, [[VAR_4_1_]], [[CST_0_]] : index
-// CHECK:             [[VAR_6_:%.+]] = arith.select [[VAR_5_]], [[CST_0_]], [[VAR_4_1_]] : index
-// CHECK:             [[VAR_7_:%.+]] = arith.cmpi sge, [[VAR_6_]], [[CST_4_]] : index
-// CHECK:             [[VAR_8_:%.+]] = arith.select [[VAR_7_]], [[CST_3_]], [[VAR_6_]] : index
-// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_8_]]{{.}} : memref<4xi64>
+// CHECK:             [[VAR_5_:%.+]] = arith.maxsi [[VAR_4_1_]], [[CST_0_]] : index
+// CHECK:             [[VAR_6_:%.+]] = arith.cmpi sge, [[VAR_5_]], [[CST_4_]] : index
+// CHECK:             [[VAR_7_:%.+]] = arith.select [[VAR_6_]], [[CST_3_]], [[VAR_5_]] : index
+// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_7_]]{{.}} : memref<4xi64>
 // CHECK:             krnl.store [[LOAD_PARAM_0_MEM_]], [[RES_]][] : memref<i64>
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<i64>
