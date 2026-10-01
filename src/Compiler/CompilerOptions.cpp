@@ -98,6 +98,7 @@ bool disableSimdOption;                                // onnx-mlir only
 bool enableFastMathOption;                             // onnx-mlir only
 bool disableRecomposeOption;                           // onnx-mlir only
 bool enableAttentionOpConstruct;                       // common for both
+std::string kvCache;                                   // common for both
 bool enableSimdDataLayout;                             // onnx-mlir only
 bool verifyInputTensors;                               // onnx-mlir only
 bool allowSorting;                                     // onnx-mlir only
@@ -346,6 +347,18 @@ static llvm::cl::opt<bool, true> enableAttentionOpConstructOpt(
                    "implement scaled dot product attention into a single "
                    "onnx.Attention op. Default is false."),
     llvm::cl::location(enableAttentionOpConstruct), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<std::string, true> kvCacheOpt("kv-cache",
+    llvm::cl::desc(
+        "Force how onnx.Attention is lowered with respect to its KV cache: "
+        "'fixed' forces the fixed-size-KV-cache lowering (K/V are the full "
+        "padded cache, sized via nonpad_kv_seqlen) and 'growing' forces the "
+        "original lowering (K/V grow via past_key/past_value concatenation). "
+        "Default is \"\", meaning the choice is inferred from each op's "
+        "operands (whether past_key/past_value/nonpad_kv_seqlen are given)."),
+    llvm::cl::value_desc("fixed|growing"),
+    llvm::cl::location(kvCache), llvm::cl::init(""),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
 // Options for onnx-mlir only
