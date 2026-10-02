@@ -48,10 +48,10 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  auto inputSignatureFunc = reinterpret_cast<signatureFuncType>(
-      dlsym(handle, "omInputSignature"));
-  auto outputSignatureFunc = reinterpret_cast<signatureFuncType>(
-      dlsym(handle, "omOutputSignature"));
+  auto inputSignatureFunc =
+      reinterpret_cast<signatureFuncType>(dlsym(handle, "omInputSignature"));
+  auto outputSignatureFunc =
+      reinterpret_cast<signatureFuncType>(dlsym(handle, "omOutputSignature"));
   auto compilationInfoFunc = reinterpret_cast<compilationInfoFuncType>(
       dlsym(handle, "omCompilationInfo"));
 
