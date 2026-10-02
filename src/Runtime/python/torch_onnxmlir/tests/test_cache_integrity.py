@@ -64,10 +64,14 @@ class TestCacheDirectoryPermissions(unittest.TestCase):
 
     def test_root_cache_dir_mode(self):
         from torch_onnxmlir.sessioncache import cache_dir
+
         path = cache_dir()
         mode = stat.S_IMODE(os.stat(path).st_mode)
-        self.assertEqual(mode, _CACHE_DIR_MODE,
-                         f"cache root created with {oct(mode)}, expected {oct(_CACHE_DIR_MODE)}")
+        self.assertEqual(
+            mode,
+            _CACHE_DIR_MODE,
+            f"cache root created with {oct(mode)}, expected {oct(_CACHE_DIR_MODE)}",
+        )
 
     def test_key_subdir_mode(self):
         """Subdirectory created by SessionCache.write_onnx_to_disk must be 0o700."""
@@ -80,10 +84,15 @@ class TestCacheDirectoryPermissions(unittest.TestCase):
             (Path(src_dir) / "model.onnx").write_bytes(b"fake-onnx")
             sc.write_onnx_to_disk(key, src_dir)
         key_dir = self.tmp / key
-        self.assertTrue(key_dir.exists(), "write_onnx_to_disk did not create the key subdir")
+        self.assertTrue(
+            key_dir.exists(), "write_onnx_to_disk did not create the key subdir"
+        )
         mode = stat.S_IMODE(os.stat(key_dir).st_mode)
-        self.assertEqual(mode, _CACHE_DIR_MODE,
-                         f"Key subdir created with {oct(mode)}, expected {oct(_CACHE_DIR_MODE)}")
+        self.assertEqual(
+            mode,
+            _CACHE_DIR_MODE,
+            f"Key subdir created with {oct(mode)}, expected {oct(_CACHE_DIR_MODE)}",
+        )
 
     def test_upgrade_hardens_existing_wide_open_dir(self):
         """A pre-existing 0o755 directory must be tightened to 0o700 on first use.
@@ -100,12 +109,18 @@ class TestCacheDirectoryPermissions(unittest.TestCase):
         """
         wide = self.tmp / "wide_dir"
         wide.mkdir(mode=0o755)  # simulates a pre-fix version creating this dir
-        self.assertEqual(stat.S_IMODE(os.stat(wide).st_mode), 0o755,
-                         "Precondition: directory should start at 0o755")
+        self.assertEqual(
+            stat.S_IMODE(os.stat(wide).st_mode),
+            0o755,
+            "Precondition: directory should start at 0o755",
+        )
         _makedirs_secure(str(wide))
         mode = stat.S_IMODE(os.stat(wide).st_mode)
-        self.assertEqual(mode, _CACHE_DIR_MODE,
-                         f"Existing 0o755 dir was not hardened: got {oct(mode)}")
+        self.assertEqual(
+            mode,
+            _CACHE_DIR_MODE,
+            f"Existing 0o755 dir was not hardened: got {oct(mode)}",
+        )
 
 
 class TestLoadFromDiskIntegrityCheck(unittest.TestCase):
@@ -149,8 +164,10 @@ class TestLoadFromDiskIntegrityCheck(unittest.TestCase):
         so_path.write_bytes(b"TAMPERED-PAYLOAD")
         with patch("torch_onnxmlir.sessioncache.InferenceSession") as mock_sess:
             result = self.sc.load_from_disk(key)
-        self.assertIsNone(result,
-                          "Tampered .so must produce a cache miss (None), not a loaded session")
+        self.assertIsNone(
+            result,
+            "Tampered .so must produce a cache miss (None), not a loaded session",
+        )
         mock_sess.assert_not_called()
 
     def test_no_hash_in_config_returns_none(self):
@@ -170,8 +187,9 @@ class TestLoadFromDiskIntegrityCheck(unittest.TestCase):
             json.dump(legacy_config, f)
         with patch("torch_onnxmlir.sessioncache.InferenceSession") as mock_sess:
             result = self.sc.load_from_disk(key)
-        self.assertIsNone(result,
-                          "Legacy config without artifact_hashes must be a cache miss")
+        self.assertIsNone(
+            result, "Legacy config without artifact_hashes must be a cache miss"
+        )
         mock_sess.assert_not_called()
 
     def test_missing_config_returns_none(self):
@@ -182,8 +200,7 @@ class TestLoadFromDiskIntegrityCheck(unittest.TestCase):
         (model_dir / "model.so").write_bytes(b"some-so-bytes")
         with patch("torch_onnxmlir.sessioncache.InferenceSession") as mock_sess:
             result = self.sc.load_from_disk(key)
-        self.assertIsNone(result,
-                          "Missing config must be a cache miss")
+        self.assertIsNone(result, "Missing config must be a cache miss")
         mock_sess.assert_not_called()
 
     def test_missing_model_so_returns_none(self):

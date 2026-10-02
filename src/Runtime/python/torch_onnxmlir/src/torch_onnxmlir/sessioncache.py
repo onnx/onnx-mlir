@@ -242,9 +242,9 @@ class SessionCache:
         json_data = json.dumps(
             {
                 "artifact_hashes": artifact_hashes,
-                "example_inputs_indices": example_inputs_indices
-                if example_inputs_indices is not None
-                else [],
+                "example_inputs_indices": (
+                    example_inputs_indices if example_inputs_indices is not None else []
+                ),
                 "compilation_info": value.sess.compilation_info(),
                 "input_signature": value.sess.input_signature(),
                 "output_signature": value.sess.output_signature(),
