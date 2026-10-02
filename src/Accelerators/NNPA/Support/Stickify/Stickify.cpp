@@ -17,6 +17,7 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -66,7 +67,7 @@ zdnn_status set_zdnn_status(zdnn_status status, const char *func_name,
 // Misc Macros
 // -----------------------------------------------------------------------------
 #define CEIL(a, b)                                                             \
-  static_cast<uint64_t>(((a) + (b)-1) / (b)) // positive numbers only
+  static_cast<uint64_t>(((a) + (b) - 1) / (b)) // positive numbers only
 #define MIN(a, b) (((a) > (b)) ? (b) : (a))
 #define MAX(a, b) (((a) < (b)) ? (b) : (a))
 #define BIT_SIZEOF(a) (sizeof(a) * 8)
@@ -160,13 +161,26 @@ static short get_data_layout_dims(zdnn_data_layouts layout) {
 }
 
 uint32_t get_rnn_concatenated_dim1(uint32_t val, zdnn_concat_info info) {
+  // Compute in uint64 to detect overflow before truncating back to uint32.
+  // PADDED(val)*num_gates can silently wrap uint32 when val is very large
+  // (~1 billion for LSTM, ~1.4 billion for GRU), producing a truncated dim1
+  // that is far smaller than the per-gate buffer the memset in stickify()
+  // later computes from the un-concatenated size.  (f031)
+  uint64_t padded = (uint64_t)PADDED(val);
+  uint64_t result;
   if (CONCAT_RNN_TYPE(info) == RNN_TYPE_LSTM) {
-    return PADDED(val) * 4;
+    result = padded * 4;
   } else if (CONCAT_RNN_TYPE(info) == RNN_TYPE_GRU) {
-    return PADDED(val) * 3;
+    result = padded * 3;
   } else {
     return val;
   }
+  if (result > UINT32_MAX) {
+    // Shape exceeds what a uint32 dim can represent; caller will propagate
+    // ZDNN_INVALID_SHAPE via generate_transformed_desc_concatenated.
+    return 0;
+  }
+  return (uint32_t)result;
 }
 
 uint32_t get_rnn_concatenated_dim2(uint32_t val, zdnn_concat_info info) {
@@ -917,7 +931,7 @@ zdnn_status transform_ztensor(const void *in_buf, zdnn_ztensor *ztensor) {
             // process each C-stick (i.e., every 64 elements or whatever
             // left in dim1)
             for (uint32_t e1x = 0; e1x < ztensor->transformed_desc->dim1;
-                 e1x += AIU_2BYTE_CELLS_PER_STICK) {
+                e1x += AIU_2BYTE_CELLS_PER_STICK) {
               // Prefetch to L1 newest offset to write that HW wouldn't
               // know about
 #if defined(__MVS__)
@@ -1105,7 +1119,7 @@ zdnn_status transform_ztensor(const void *in_buf, zdnn_ztensor *ztensor) {
           // process each K-stick (i.e., every 64 elements or whatever
           // left in dim1)
           for (uint32_t e1x = 0; e1x < ztensor->transformed_desc->dim1;
-               e1x += AIU_2BYTE_CELLS_PER_STICK) {
+              e1x += AIU_2BYTE_CELLS_PER_STICK) {
             // Prefetch (read) the next input buffer to be used. The HW should
             // "notice" our sequential accesses and continue them, so we won't
             // need to aggressively prefetch here.
@@ -1243,7 +1257,7 @@ zdnn_status transform_bidir_weight_ztensor(
       uint64_t out_offset_w = output_offset;
 
       for (uint32_t e1x = 0; e1x < ztensor->transformed_desc->dim1;
-           e1x += AIU_2BYTE_CELLS_PER_STICK) {
+          e1x += AIU_2BYTE_CELLS_PER_STICK) {
 #if defined(__MVS__)
         __dcbtst(reinterpret_cast<void *>(
             reinterpret_cast<uintptr_t>(ztensor->buffer) + output_offset));
@@ -1468,6 +1482,15 @@ zdnn_status stickify(zdnn_ztensor *ztensor, ...) {
       // temp) buffer for efficiency.
       size_t total_buffer_size =
           temp_ztensor.buffer_size * num_slices * num_gates;
+      // Defense-in-depth: verify the independently-computed total_buffer_size
+      // does not exceed the allocated buffer before zeroing.  A mismatch here
+      // means the concatenated dim1 (from get_rnn_concatenated_dim1) and the
+      // per-gate size (from temp_ztensor.buffer_size) have diverged — e.g.
+      // due to an integer overflow in get_rnn_concatenated_dim1.  (f031)
+      if (total_buffer_size > ztensor->buffer_size) {
+        status = ZDNN_INVALID_SHAPE;
+        break;
+      }
       memset(ztensor->buffer, 0, total_buffer_size);
 
       /* Loop sliced_gate_data array to stickify the input data. Because
@@ -1580,7 +1603,7 @@ zdnn_status transform_quantized_weights_ztensor_element_wise(
 
       // W, sticks are processed in pairs
       for (uint32_t e2x = 0; e2x < output->transformed_desc->dim2;
-           e2x = e2x + 2) {
+          e2x = e2x + 2) {
 
         // used for pushing out_offset from w to w+1 (i.e., +
         // AIU_BYTES_PER_STICK)
@@ -1598,8 +1621,8 @@ zdnn_status transform_quantized_weights_ztensor_element_wise(
         // this C loop takes care of the full VECPERM_MAX_INT8_ENTRIES-entries
         // groups
         for (uint32_t i = 0;
-             i < output->transformed_desc->dim1 / VECPERM_MAX_INT8_ENTRIES;
-             i++) {
+            i < output->transformed_desc->dim1 / VECPERM_MAX_INT8_ENTRIES;
+            i++) {
           ((int8_t *)output->buffer + output_offset)[0] = stick1[0];
           ((int8_t *)output->buffer + output_offset)[1] = stick2[0];
           ((int8_t *)output->buffer + output_offset)[2] = stick1[1];
@@ -1635,8 +1658,8 @@ zdnn_status transform_quantized_weights_ztensor_element_wise(
 
         // takes care of the leftover c entries
         for (uint32_t i = 0;
-             i < output->transformed_desc->dim1 % VECPERM_MAX_INT8_ENTRIES;
-             i++) {
+            i < output->transformed_desc->dim1 % VECPERM_MAX_INT8_ENTRIES;
+            i++) {
           ((int8_t *)output->buffer + output_offset)[0] = stick1[i];
           ((int8_t *)output->buffer + output_offset)[1] = stick2[i];
 
