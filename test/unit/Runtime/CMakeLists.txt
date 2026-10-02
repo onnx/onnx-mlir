@@ -20,3 +20,14 @@ add_unittest(OMTensorListHelperTest
   LINK_LIBS PRIVATE
   OMDebugRuntime
   )
+
+add_unittest(OMResizeTest
+  OMResizeTest.c
+
+  INCLUDE_DIRS PRIVATE
+  ${ONNX_MLIR_SRC_ROOT}/include
+
+  LINK_LIBS PRIVATE
+  cruntime
+  m
+  )
