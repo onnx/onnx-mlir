@@ -70,12 +70,20 @@ class TestCacheDirectoryPermissions(unittest.TestCase):
                          f"cache root created with {oct(mode)}, expected {oct(_CACHE_DIR_MODE)}")
 
     def test_key_subdir_mode(self):
+        """Subdirectory created by SessionCache.write_onnx_to_disk must be 0o700."""
         sc = SessionCache(capacity=3)
         key = "testkey_mode"
+        # Create a temporary source directory with a minimal .onnx file so
+        # write_onnx_to_disk has something to copy and actually creates the
+        # key subdirectory via _makedirs_secure.
+        with tempfile.TemporaryDirectory() as src_dir:
+            (Path(src_dir) / "model.onnx").write_bytes(b"fake-onnx")
+            sc.write_onnx_to_disk(key, src_dir)
         key_dir = self.tmp / key
-        key_dir.mkdir(mode=_CACHE_DIR_MODE, parents=True, exist_ok=True)
+        self.assertTrue(key_dir.exists(), "write_onnx_to_disk did not create the key subdir")
         mode = stat.S_IMODE(os.stat(key_dir).st_mode)
-        self.assertEqual(mode, _CACHE_DIR_MODE)
+        self.assertEqual(mode, _CACHE_DIR_MODE,
+                         f"Key subdir created with {oct(mode)}, expected {oct(_CACHE_DIR_MODE)}")
 
     def test_upgrade_hardens_existing_wide_open_dir(self):
         """A pre-existing 0o755 directory must be tightened to 0o700 on first use.
