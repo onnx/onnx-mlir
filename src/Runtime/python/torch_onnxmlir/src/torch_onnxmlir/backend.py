@@ -10,6 +10,7 @@
 #
 ################################################################################
 
+import hashlib
 import io
 import os
 import sys
@@ -208,6 +209,47 @@ class OMFxGraphHashDetails(FxGraphHashDetails):
         self.compile_options = compile_options
 
 
+def _stable_args_str(args) -> str:
+    """
+    Return a deterministic string representation of a node's args or kwargs so
+    that literal constants (ints, floats, strings, bools, None, tuples/lists of
+    those) are captured in the cache key.
+
+    torch.fx.Node and torch.SymInt arguments are represented by their stable
+    name / string form (object identity is not used).  torch.Tensor arguments
+    are represented by their metadata (shape + dtype), not their values, because
+    parameter *values* are captured separately via _tensor_sha256 on the
+    get_attr node — the same tensor should not be hashed twice.
+    """
+    if isinstance(args, dict):
+        items = sorted(args.items())
+        return "{" + ",".join(f"{k}:{_stable_args_str(v)}" for k, v in items) + "}"
+    if isinstance(args, (list, tuple)):
+        inner = ",".join(_stable_args_str(a) for a in args)
+        return f"[{inner}]" if isinstance(args, list) else f"({inner})"
+    if isinstance(args, torch.fx.Node):
+        return args.name
+    if isinstance(args, torch.SymInt):
+        return str(args)
+    if isinstance(args, torch.Tensor):
+        # Represent by shape+dtype only; full value hashed elsewhere for params.
+        return f"tensor({list(args.shape)},{args.dtype})"
+    # Primitives: int, float, str, bool, None, types.
+    return repr(args)
+
+
+def _tensor_sha256(t: torch.Tensor) -> str:
+    """
+    Return a hex SHA-256 digest of the raw tensor bytes.
+
+    Uses the contiguous byte representation so the digest is independent of
+    Python-side float formatting and is stable across platforms.
+    """
+    h = hashlib.sha256()
+    h.update(t.detach().contiguous().numpy().tobytes())
+    return h.hexdigest()
+
+
 def generate_hash_key(
     gm: torch.fx.GraphModule,
     example_inputs,
@@ -271,6 +313,13 @@ def generate_hash_key(
                 placeholder_counter += 1
             else:
                 node_info.append(f"{node.op}_{torch.typename(node.target)}")
+                # Include node args/kwargs so that literal constants embedded in
+                # calls (reshape dims, axis indices, scalar thresholds, etc.) are
+                # part of the key.  Two graphs with identical topology but different
+                # literal values must NOT collide (security: f026).
+                node_info.append(_stable_args_str(node.args))
+                if node.kwargs:
+                    node_info.append(_stable_args_str(node.kwargs))
                 # Append information from input nodes.
                 for inode in node._input_nodes.keys():
                     if inode.op == "get_attr":
@@ -279,16 +328,14 @@ def generate_hash_key(
                         except KeyError:
                             t = None
                         if t is not None and isinstance(t, torch.nn.Parameter):
-                            sample_values = [
-                                str(s)
-                                for s in t.reshape(-1)[
-                                    : config.sample_parameter_values_limit
-                                ].tolist()
-                            ]
-                            sample_str = ".".join(sample_values)
+                            # Hash the full parameter bytes instead of sampling a
+                            # few values.  Sampling only 3 values allows an
+                            # attacker who knows the model's topology and the first
+                            # three weight values to craft a colliding key (f026).
+                            param_hash = _tensor_sha256(t)
                         else:
-                            sample_str = "."
-                        node_info.append(f"{inode.name}.{sample_str}")
+                            param_hash = "."
+                        node_info.append(f"{inode.name}.{param_hash}")
                     else:
                         node_info.append(f"{inode.name}")
             graph_info.append(";".join(node_info))
