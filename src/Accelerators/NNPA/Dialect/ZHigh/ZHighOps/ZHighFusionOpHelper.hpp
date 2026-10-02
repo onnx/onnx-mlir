@@ -316,6 +316,71 @@ public:
   bool absorbShapeConcatOfDims() const override { return true; }
 };
 
+//===----------------------------------------------------------------------===//
+// MulAddStickFusionHelper
+//
+// Subclass for ONNXFusedOp(kind = "zhigh.mul-add-stick").
+//
+// Pattern (e.g. the rotary embedding (x * cos + rotate_half(x) * sin) * k):
+//  ONNXMulOp        A0 * A1 (required)
+//  ONNXMulOp        B0 * B1 (required)
+//                   Both F32, with the same shape as the join result. Each
+//                   operand is a non-constant F32 tensor that broadcasts to
+//                   that shape: its dims are either statically 1 or the same
+//                   as the matching (right-aligned) result dim.
+//  ONNXAddOp or     join: MulA + MulB, or MulA - MulB (required). Its
+//  ONNXSubOp        innermost dim D is static, with D == 32 or D % 64 == 0.
+//                   The two Muls are the walk-back hop from this anchor.
+//  ONNXMulOp        element-wise mul by scalar F32/I32/I64 const
+//                   (optional; when absent, mulScalar stays at its neutral
+//                    1.f default)
+//  ONNXReshapeOp    => rank 3; last dim unchanged; at most one run of
+//                   leading dims collapsed (required)
+//  ZHighStickOp     3D or 3DS layout (required)
+//
+// Left outside: the producers of the four Mul operands (in the rotary case,
+// a Squeeze, the rotate-half fused op, and multi-use cos/sin tables), and the
+// Reshape shape value.
+//
+// Unique-use invariant: the two Mul, join, scalar Mul, and Reshape results
+// each have exactly one use. The Stick result is not checked.
+//===----------------------------------------------------------------------===//
+
+class MulAddStickFusionHelper : public onnx_mlir::FusionOpKindHelper {
+public:
+  static constexpr llvm::StringLiteral kKind{"zhigh.mul-add-stick"};
+  /// See the kMaxOpCount contract note in FusionOpHelper.hpp: mul + mul +
+  /// add/sub + scalar mul + reshape + stick.
+  static constexpr int kMaxOpCount = 6;
+
+  bool isSub = false;    ///< join is MulA - MulB (Sub) instead of an Add
+  float mulScalar = 1.f; ///< scalar multiplier (F32; 1 = neutral)
+  int64_t reshapeFirstCollapsedDim =
+      -1; ///< first input dim in merge run (-1 = none)
+  int64_t reshapeCollapsedCount = 0; ///< # consecutive input dims merged into 1
+  std::optional<mlir::StringAttr> stickFormat; ///< "3D" or "3DS"
+
+  /// Detect and parameterize the mul-add-stick chain from its join op.
+  /// \p dimAnalysis must be non-null.
+  bool detectIfBeneficial(
+      const DimAnalysis *dimAnalysis, mlir::ONNXAddOp startOp);
+  bool detectIfBeneficial(
+      const DimAnalysis *dimAnalysis, mlir::ONNXSubOp startOp);
+
+  /// The Add / Sub join op, whose operands 0 and 1 are MulA and MulB. Only
+  /// valid once ops are populated and verified (lowering side).
+  mlir::Operation *getJoinOp() const { return ops[2]; }
+
+  llvm::StringRef getKind() const override { return kKind; }
+  void embedAttrs(mlir::ONNXFusedOp fusedOp) const override;
+  bool retrieveAttrs(mlir::ONNXFusedOp fusedOp) override;
+  bool verify() const override;
+
+private:
+  // Common code for both add and sub join ops.
+  bool detectFromJoin(const DimAnalysis *dimAnalysis, mlir::Operation *joinOp);
+};
+
 } // namespace zhigh
 } // namespace onnx_mlir
 

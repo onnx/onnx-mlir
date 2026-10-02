@@ -2739,6 +2739,26 @@ struct ZHighToZLowFusedExtLayoutTransformLowering
 // unsqueeze/expand/reshape tensors.
 //===----------------------------------------------------------------------===//
 
+// Apply a Reshape that merges the run of dims [F, F + C - 1] into one (F ==
+// -1: no merge). With \p indices null, maps the pre-reshape \p dims to the
+// reshaped dims; otherwise maps the pre-reshape \p indices (within \p dims) to
+// the reshaped indices, row major. Used both to size an output and to build its
+// access function, so the two cannot disagree.
+static DimsExpr collapseReshapeRun(
+    const DimsExpr &dims, const DimsExpr *indices, int64_t F, int64_t C) {
+  const DimsExpr &in = indices ? *indices : dims;
+  if (F == -1)
+    return in;
+  DimsExpr out(in.begin(), in.begin() + F);
+  IndexExpr merged = in[F];
+  for (int64_t k = 1; k < C; ++k)
+    merged =
+        indices ? merged * DimIE(dims[F + k]) + in[F + k] : merged * in[F + k];
+  out.emplace_back(merged);
+  out.append(in.begin() + F + C, in.end());
+  return out;
+}
+
 // Build the Rout-length output access function for expand-index n, given the
 // R-length loop indices over the original (pre-unsqueeze) iteration space.
 // midDims are the (R+1)-length conceptual unsqueeze+expand sizes: dims
@@ -2757,18 +2777,7 @@ static DimsExpr buildExpandMulStickOutputAF(DimsExpr &loopIndices, int64_t n,
     else
       midAF.emplace_back(loopIndices[d - 1]);
   }
-  if (F == -1)
-    return midAF;
-  DimsExpr outAF;
-  for (int64_t d = 0; d < F; ++d)
-    outAF.emplace_back(midAF[d]);
-  IndexExpr merged = midAF[F];
-  for (int64_t k = 1; k < C; ++k)
-    merged = merged * DimIE(midDims[F + k]) + midAF[F + k];
-  outAF.emplace_back(merged);
-  for (int64_t d = F + C; d <= inputRank; ++d)
-    outAF.emplace_back(midAF[d]);
-  return outAF;
+  return collapseReshapeRun(midDims, &midAF, F, C);
 }
 
 struct ZHighToZLowFusedExpandMulStickLowering
@@ -2834,19 +2843,8 @@ struct ZHighToZLowFusedExpandMulStickLowering
 
     // Step 2: apply the reshape's head-collapse to get the final output
     // dims, used for allocation.
-    DimsExpr outputDims;
-    if (F == -1) {
-      outputDims = midDims; // Rout == R + 1
-    } else {
-      for (int64_t d = 0; d < F; ++d)
-        outputDims.emplace_back(midDims[d]);
-      IndexExpr mergedSize = midDims[F];
-      for (int64_t k = 1; k < C; ++k)
-        mergedSize = mergedSize * midDims[F + k];
-      outputDims.emplace_back(mergedSize);
-      for (int64_t d = F + C; d <= inputRank; ++d)
-        outputDims.emplace_back(midDims[d]);
-    }
+    DimsExpr outputDims =
+        collapseReshapeRun(midDims, /*indices=*/nullptr, F, C);
     assert((int64_t)outputDims.size() == outputRank && "output dims mismatch");
 
     // Allocate the output buffer: always a ZTensor (the chain always ends in
@@ -3561,6 +3559,178 @@ struct ZHighToZLowFusedUnstickSplitHeadsLowering
 };
 
 //===----------------------------------------------------------------------===//
+// Lowering for kind "zhigh.mul-add-stick":
+//   (A0 * A1) +/- (B0 * B1) -> [* k] -> Reshape (rank 3) -> ZHighStick 3D/3DS
+//
+// Each of the four Mul operands is read once (broadcast ones, e.g. rotary
+// cos/sin tables, through their static size-1 dims), and the result is
+// computed, converted to dlf16, and stored once, without materializing any of
+// the F32 intermediate tensors. The loop nest is the join's rank R iteration
+// space, with its innermost dim D tiled by (half) sticks:
+//   out[collapse(i_0, .., i_{R-2}), i_{R-1}] =
+//       (A0 * A1 +/- B0 * B1)[i_0, .., i_{R-1}] * k
+// where collapse merges the Reshape's run [F, F + C - 1] (collapseReshapeRun).
+//===----------------------------------------------------------------------===//
+
+struct ZHighToZLowFusedMulAddStickLowering
+    : public FusedOpKindLowering<MulAddStickFusionHelper> {
+  using Base = FusedOpKindLowering<MulAddStickFusionHelper>;
+  using OpAdaptor = typename ONNXFusedOp::Adaptor;
+  bool enableParallel = false;
+  bool enableCollapse = false;
+  bool disableSaturation = false;
+
+  ZHighToZLowFusedMulAddStickLowering(TypeConverter &typeConverter,
+      MLIRContext *ctx, bool enableParallel, bool enableCollapse,
+      bool disableSaturation)
+      : Base(typeConverter, ctx), enableCollapse(enableCollapse),
+        disableSaturation(disableSaturation) {
+    this->enableParallel =
+        enableParallel &&
+        OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
+            ONNXFusedOp::getOperationName());
+  }
+
+  FailureOr<SmallVector<Value>> lowerVerified(ONNXFusedOp fusedOp,
+      OpAdaptor adaptor, ConversionPatternRewriter &rewriter,
+      MulAddStickFusionHelper &fusion) const override {
+    Location loc = fusedOp.getLoc();
+    MDBuilder create(rewriter, loc);
+    // Single function-level scope, same rationale as
+    // ZHighToZLowFusedExtLayoutTransformLowering above.
+    IndexExprScope funcScope(create.krnl);
+    Operation *op = fusedOp.getOperation();
+
+    // The four Mul operands, by role: A0, A1 (MulA) and B0, B1 (MulB), where
+    // the join computes MulA +/- MulB. They are block arguments of the
+    // (verified) body; their numbers give the matching fused op inputs. Any
+    // other input (e.g. a computed Reshape shape) is unused: the output dims
+    // follow from the operand dims and the params.
+    Operation *joinOp = fusion.getJoinOp();
+    auto mulA = joinOp->getOperand(0).getDefiningOp<ONNXMulOp>();
+    auto mulB = joinOp->getOperand(1).getDefiningOp<ONNXMulOp>();
+    SmallVector<Value, 4> operandTensors, operandMemRefs;
+    for (ONNXMulOp mulOp : {mulA, mulB}) {
+      for (Value v : {mulOp.getA(), mulOp.getB()}) {
+        auto arg = dyn_cast<BlockArgument>(v);
+        if (!arg)
+          return rewriter.notifyMatchFailure(op, "mul operand not an input");
+        operandTensors.emplace_back(fusedOp.getInputs()[arg.getArgNumber()]);
+        operandMemRefs.emplace_back(adaptor.getInputs()[arg.getArgNumber()]);
+      }
+    }
+    Value outputTensor = fusedOp.getOutputs()[0];
+
+    // Join dims (rank R): per dim, the size of any operand that is not
+    // statically 1 there (detection proved them all the same).
+    int64_t R = getRank(joinOp->getResult(0).getType());
+    DimsExpr joinDims;
+    for (int64_t o = 0; o < R; ++o) {
+      IndexExpr dim = LitIE(1);
+      for (Value m : operandMemRefs) {
+        int64_t i = o - (R - getRank(m.getType()));
+        if (i >= 0 && getShape(m.getType(), i) != 1) {
+          dim = create.krnlIE.getShapeAsDim(m, i);
+          break;
+        }
+      }
+      joinDims.emplace_back(dim);
+    }
+    int64_t F = fusion.reshapeFirstCollapsedDim;
+    int64_t C = fusion.reshapeCollapsedCount;
+    DimsExpr outputDims =
+        collapseReshapeRun(joinDims, /*indices=*/nullptr, F, C);
+
+    ZMemRefType zMemRefType =
+        convertZTensorToMemRefType(outputTensor.getType());
+    Value allocVal =
+        insertAllocForZMemRef(zMemRefType, outputDims, op, rewriter);
+
+    // Innermost dim D: one half stick (D == 32) or D / 64 whole sticks, each
+    // tile being U vectors of archVL values.
+    constexpr int64_t stickLen = UnifiedStickSupport::stickLen;
+    constexpr int64_t archVL = UnifiedStickSupport::archVL;
+    int64_t D = getShape(joinOp->getResult(0).getType(), -1);
+    int64_t tile = std::min(D, stickLen);
+    int64_t U = tile / archVL;
+    assert(tile % archVL == 0 && D % tile == 0 && "D == 32 or D % 64 == 0");
+
+    // Read references (A0, A1, B0, B1) and one write reference (the stick).
+    BitVector isReads(4, true), isWrites(4, false);
+    UnifiedStickSupportList readUSS(create.krnl, operandTensors, operandMemRefs,
+        isReads, isWrites, disableSaturation);
+    UnifiedStickSupport outputUSS(create.krnl, outputTensor, allocVal,
+        /*read*/ false, /*write*/ true, disableSaturation);
+    // A neutral (1.f) scalar means no scalar Mul (or a Mul by one): skip it.
+    bool hasMulScalar = fusion.mulScalar != 1.0f;
+    Value scalarConst = hasMulScalar
+                            ? create.math.constant(rewriter.getF32Type(),
+                                  (double)fusion.mulScalar)
+                            : nullptr;
+
+    // Loops (i_0, .., i_{R-3}, j, i_{R-2}) with j over the D / tile tiles:
+    // for a fixed tile, consecutive i_{R-2} write consecutive stick rows and
+    // read consecutive rows of the operands.
+    ValueRange loopDef = create.krnl.defineLoops(R);
+    DimsExpr lbs(R, LitIE(0));
+    DimsExpr ubs;
+    for (int64_t d = 0; d < R - 2; ++d)
+      ubs.emplace_back(joinDims[d]);
+    ubs.emplace_back(LitIE(D / tile));
+    ubs.emplace_back(joinDims[R - 2]);
+    // The index map is injective: distinct iterations write distinct output
+    // locations, so any run of levels may be collapsed (the tile itself is
+    // fully unrolled in the body, so no level is a SIMD span). Single-level
+    // parallelism stays on the top two levels, as in the other fused
+    // lowerings. bodyCost: one tile, with four reads and one write per value.
+    KrnlParallelPlan plan(loopDef, enableCollapse,
+        /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/2,
+        /*collapseLastExclusiveDim=*/R,
+        {.minTripCountForParallel = 4, .bodyCost = 5 * tile});
+    if (enableParallel)
+      plan.tryCreateParallel(
+          create.krnl, op, "mul-add-stick fused loop", lbs, ubs);
+
+    create.krnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, ubs,
+        [&](const KrnlBuilder &ck, ValueRange indices) {
+          MDBuilder create(ck);
+          IndexExprScope outerScope(ck);
+          DimsExpr loopIndices = DimListIE(indices);
+          // Join indices of the first value of the tile.
+          DimsExpr joinIndices(
+              loopIndices.begin(), loopIndices.begin() + R - 2);
+          joinIndices.emplace_back(loopIndices[R - 1]);
+          joinIndices.emplace_back(loopIndices[R - 2] * LitIE(tile));
+          readUSS.beforeStickLoop(create.krnl, joinIndices);
+          DimsExpr outputAF = collapseReshapeRun(joinDims, &joinIndices, F, C);
+          outputUSS.beforeStickLoop(create.krnl, outputAF);
+          IndexExpr lit0 = LitIE(0);
+          for (int64_t u = 0; u < U; ++u) {
+            readUSS.beforeCompute(create.krnl, lit0, u);
+            Value a0[2], a1[2], b0[2], b1[2];
+            readUSS.list[0].get4xF32Vals(a0[0], a0[1]);
+            readUSS.list[1].get4xF32Vals(a1[0], a1[1]);
+            readUSS.list[2].get4xF32Vals(b0[0], b0[1]);
+            readUSS.list[3].get4xF32Vals(b1[0], b1[1]);
+            Value res[2];
+            for (int64_t h = 0; h < 2; ++h) {
+              Value a = create.math.mul(a0[h], a1[h]);
+              Value b = create.math.mul(b0[h], b1[h]);
+              res[h] =
+                  fusion.isSub ? create.math.sub(a, b) : create.math.add(a, b);
+              if (hasMulScalar)
+                res[h] = create.math.mul(res[h], scalarConst);
+            }
+            outputUSS.set4xF32Vals(res[0], res[1]);
+            outputUSS.afterCompute(
+                create.krnl, lit0, u, /*tempBufferMemRef=*/nullptr);
+          }
+        });
+    return SmallVector<Value>{allocVal};
+  }
+};
+
+//===----------------------------------------------------------------------===//
 // Populate all the patterns.
 //===----------------------------------------------------------------------===//
 void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
@@ -3635,6 +3805,8 @@ void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
   patterns.insert<ZHighToZLowFusedConcatExpandStickLowering>(
       typeConverter, ctx, enableParallel, enableCollapse, disableSaturation);
   patterns.insert<ZHighToZLowFusedUnstickSplitHeadsLowering>(
+      typeConverter, ctx, enableParallel, enableCollapse, disableSaturation);
+  patterns.insert<ZHighToZLowFusedMulAddStickLowering>(
       typeConverter, ctx, enableParallel, enableCollapse, disableSaturation);
 }
 

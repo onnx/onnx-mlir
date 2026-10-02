@@ -852,6 +852,14 @@ using FusedPatternsForConcatExpandStick =
 using FusedPatternsForUnstickSplitHeads =
     FusedPatternForOpKind<ZHighUnstickOp, UnstickSplitHeadsFusionHelper>;
 
+// Anchors on the ONNXAddOp / ONNXSubOp join; MulAddStickFusionHelper walks
+// back to the two Muls feeding it, then forward through an optional scalar
+// Mul -> Reshape -> ZHighStickOp.
+using FusedPatternsForMulAddStick =
+    FusedPatternForOpKind<ONNXAddOp, MulAddStickFusionHelper>;
+using FusedPatternsForMulSubStick =
+    FusedPatternForOpKind<ONNXSubOp, MulAddStickFusionHelper>;
+
 //===----------------------------------------------------------------------===//
 // Pass.
 
@@ -936,6 +944,11 @@ struct FusionOpStickUnstick
       // unstick, this one a Reshape. Its benefit (kMaxOpCount) is also higher.
       patterns.insert<FusedPatternsForUnstickSplitHeads>(
           &getContext(), dimAnalysis);
+      // No other pattern anchors on Add / Sub. The required Reshape before
+      // the Stick also keeps PatternsEndingWithStick from fusing the chain's
+      // last compute op with the Stick first.
+      patterns.insert<FusedPatternsForMulAddStick>(&getContext(), dimAnalysis);
+      patterns.insert<FusedPatternsForMulSubStick>(&getContext(), dimAnalysis);
       // Merge in the general (non-accelerator-specific) fusion kinds here
       // too, so NNPA builds only ever run one fusion pass, at the point
       // this pass already forms fused ops (late, after most optimizations).
