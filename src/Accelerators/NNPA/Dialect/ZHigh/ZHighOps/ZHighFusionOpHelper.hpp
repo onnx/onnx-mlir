@@ -258,20 +258,39 @@ public:
 //  ONNXSplitOp      on the axis holding N, into N outputs of size 1
 //                   (required)
 //
-// The FusedOp has N results, one per Split result. The Squeeze ops that
-// usually follow each Split result are left outside: they lower to a
-// zero-copy memref.reinterpret_cast.
+// The FusedOp has N results, one per Split result. Each result has a mode:
+//  "f32"        the Split result itself, an F32 tensor (A', ..., 1, ..., D).
+//               The Squeeze ops that usually follow are left outside: they
+//               lower to a zero-copy memref.reinterpret_cast.
+//  "stick-3DS"  when the Split result's sole use is the chain
+//                 ONNXSqueezeOp    removes the unit N axis => (A, H, S, D)
+//                 ONNXReshapeOp    => (A * H, S, D): S and D unchanged
+//                 ZHighStickOp     3DS layout
+//               those three ops are pulled into the body and the result is
+//               the Stick's 3DS ZTensor. Its sticks are copied from the
+//               input sticks without a dlf16 -> f32 -> dlf16 round trip.
+//               Requires the transpose to order the dims as (A, H, N, S, D)
+//               or (A, N, H, S, D), so that the squeezed tensor is
+//               (A, H, S, D).
 //
 // Unique-use invariant: the Unstick, Reshape, and Transpose results each
-// have exactly one use. The Split results are not checked.
+// have exactly one use, and so do the Split result, Squeeze and Reshape of a
+// stick-3DS output. The f32 Split results are not checked.
 //===----------------------------------------------------------------------===//
 
 class UnstickSplitHeadsFusionHelper : public onnx_mlir::FusionOpKindHelper {
 public:
   static constexpr llvm::StringLiteral kKind{"zhigh.unstick-split-heads"};
   /// See the kMaxOpCount contract note in FusionOpHelper.hpp: unstick +
-  /// reshape + transpose + split.
-  static constexpr int kMaxOpCount = 4;
+  /// reshape + transpose + split, plus squeeze + reshape + stick per
+  /// stick-3DS output (3 for the QKV case). Only ranks this kind against
+  /// PatternsStartingFromUnstick, which it beats either way.
+  static constexpr int kMaxOpCount = 4 + 3 * 3;
+
+  /// Per-output mode, see the class comment.
+  enum class OutputMode { F32, Stick3DS };
+  static constexpr llvm::StringLiteral kModeF32{"f32"};
+  static constexpr llvm::StringLiteral kModeStick3DS{"stick-3DS"};
 
   int64_t numSplits = -1; ///< N: Split output count (reshape dim 2)
   int64_t numHeads = -1;  ///< H: reshape dim 3
@@ -279,6 +298,8 @@ public:
   /// Permutation of the optional Transpose (std::nullopt = identity).
   std::optional<mlir::ArrayAttr> transposePattern;
   int64_t splitAxis = -1; ///< Split axis, normalized, in the transposed dims
+  /// One mode per output (numSplits entries).
+  llvm::SmallVector<OutputMode, 4> outputModes;
 
   /// Detect and parameterize the unstick-split-heads chain.
   /// \p dimAnalysis must be non-null.
@@ -289,6 +310,10 @@ public:
   void embedAttrs(mlir::ONNXFusedOp fusedOp) const override;
   bool retrieveAttrs(mlir::ONNXFusedOp fusedOp) override;
   bool verify() const override;
+  /// The Reshape shape of a stick-3DS output is usually computed late in the
+  /// block (after the uses of the f32 outputs), so it must be cloned into the
+  /// body rather than become an input.
+  bool absorbShapeConcatOfDims() const override { return true; }
 };
 
 } // namespace zhigh

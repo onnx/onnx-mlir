@@ -1252,6 +1252,129 @@ static bool splitsIntoUnitSlices(ONNXSplitOp splitOp, int64_t N) {
   return llvm::all_of(sizes, [](int64_t s) { return s == 1; });
 }
 
+/// Return true if, once the unit N axis is squeezed out, the Split results
+/// are ordered (A, H, S, D), i.e. the reshaped dims (0, 3, 1, 4). Namely the
+/// dim 2 disappeared because it was squeezed out. Required by the stick-3DS
+/// outputs, whose sticks are rows of D values for (a * H + h, s).
+static bool splitHeadsSqueezedIsAHSD(
+    std::optional<ArrayAttr> transposePattern) {
+  if (!transposePattern.has_value())
+    return false;
+  SmallVector<int64_t, 4> order;
+  for (int64_t p = 0; p < kSplitHeadsRank; ++p) {
+    int64_t d = ArrayAttrIntVal(transposePattern, p);
+    if (d != kSplitHeadsNAxis)
+      order.emplace_back(d);
+  }
+  return order == SmallVector<int64_t, 4>{0, 3, 1, 4};
+}
+
+/// Return true if \p squeezeOp removes exactly the axis \p axis of its rank 5
+/// input.
+static bool squeezesOnlyAxis(ONNXSqueezeOp squeezeOp, int64_t axis) {
+  SmallVector<int64_t, 1> axes;
+  if (!getI64ValuesFromONNXConstantOp(squeezeOp.getAxes(), axes) ||
+      axes.size() != 1)
+    return false;
+  int64_t a = axes[0] < 0 ? axes[0] + kSplitHeadsRank : axes[0];
+  return a == axis;
+}
+
+/// The Squeeze -> Reshape -> 3DS Stick chain of a stick-3DS output.
+struct SplitHeadsStickTail {
+  ONNXSqueezeOp squeezeOp;
+  ONNXReshapeOp reshapeOp;
+  ZHighStickOp stickOp;
+};
+
+/// Return true if \p squeezeOp, \p reshapeOp and \p stickOp form the chain of
+/// a stick-3DS output, see the UnstickSplitHeadsFusionHelper class comment.
+/// The use counts are not checked. When \p dimAnalysis is null, the dynamic
+/// sequence dims are compared by the static shapes only (used by verify(),
+/// after detection already proved them equal).
+static bool isSplitHeadsStickTail(const DimAnalysis *dimAnalysis,
+    Value splitResult, ONNXSqueezeOp squeezeOp, ONNXReshapeOp reshapeOp,
+    ZHighStickOp stickOp, int64_t splitAxis, int64_t D) {
+  if (squeezeOp.getData() != splitResult ||
+      !squeezesOnlyAxis(squeezeOp, splitAxis))
+    return false;
+  Value squeezed = squeezeOp.getSqueezed();
+  if (!hasShapeAndRank(squeezed) || getRank(squeezed.getType()) != 4)
+    return false;
+  // (A, H, S, D) => (A * H, S, D): S and D unchanged. The total size is
+  // unchanged, so the merged dim is A * H.
+  if (reshapeOp.getData() != squeezed)
+    return false;
+  Value reshaped = reshapeOp.getReshaped();
+  if (!hasShapeAndRank(reshaped) || getRank(reshaped.getType()) != 3)
+    return false;
+  if (getShape(reshaped.getType(), 2) != D)
+    return false;
+  int64_t inS = getShape(squeezed.getType(), 2);
+  int64_t outS = getShape(reshaped.getType(), 1);
+  bool sameS = dimAnalysis && dimAnalysis->sameDim(squeezed, 2, reshaped, 1);
+  // Static fallback; in verify() (no DimAnalysis), a dynamic S that stays
+  // dynamic is accepted too.
+  if (!sameS)
+    sameS = inS == outS && (inS != ShapedType::kDynamic || !dimAnalysis);
+  if (!sameS)
+    return false;
+  if (stickOp.getIn() != reshaped || !isZTensor(stickOp.getOut().getType()))
+    return false;
+  return getZTensorLayout(stickOp.getOut().getType()) ==
+         ZTensorEncodingAttr::DataLayout::_3DS;
+}
+
+/// Match the stick-3DS chain of \p splitResult, each op being the single use
+/// of the previous value. Returns std::nullopt if there is none.
+static std::optional<SplitHeadsStickTail> matchSplitHeadsStickTail(
+    const DimAnalysis *dimAnalysis, Value splitResult, int64_t splitAxis,
+    int64_t D, Operation *startOp) {
+  auto squeezeOp = singleUserOfOpType<ONNXSqueezeOp>(splitResult);
+  if (!squeezeOp)
+    return std::nullopt;
+  auto reshapeOp = singleUserOfOpType<ONNXReshapeOp>(squeezeOp.getSqueezed());
+  if (!reshapeOp)
+    return std::nullopt;
+  auto stickOp = singleUserOfOpType<ZHighStickOp>(reshapeOp.getReshaped());
+  if (!stickOp)
+    return std::nullopt;
+  if (!isSplitHeadsStickTail(dimAnalysis, splitResult, squeezeOp, reshapeOp,
+          stickOp, splitAxis, D))
+    return std::nullopt;
+  // The reshape shape is cloned into the body when it is a constant or a
+  // Concat of constants and Dims (absorbShapeConcatOfDims()); the Dims, or
+  // a non-absorbable shape, become inputs. Require those inputs to be
+  // defined before the anchor, so that the stick-3DS output never makes the
+  // FusedOp placement infeasible: placement then has the same constraints as
+  // with all outputs in f32.
+  auto isConstant = [](Operation *def) {
+    return def->hasTrait<mlir::OpTrait::ConstantLike>() ||
+           isa<ONNXConstantOp>(def);
+  };
+  auto isEarly = [&](Value v) {
+    Operation *def = v.getDefiningOp();
+    if (!def || isConstant(def))
+      return true; // Block argument or constant.
+    return def->getBlock() == startOp->getBlock() &&
+           def->isBeforeInBlock(startOp);
+  };
+  Value shape = reshapeOp.getShape();
+  if (!isEarly(shape)) {
+    // Must be absorbed: a Concat of constants and early Dims.
+    auto concatOp = shape.getDefiningOp<ONNXConcatOp>();
+    if (!concatOp)
+      return std::nullopt;
+    for (Value operand : concatOp.getInputs()) {
+      Operation *def = operand.getDefiningOp();
+      if (!def || !(isConstant(def) || isa<ONNXDimOp>(def)) ||
+          !isEarly(operand))
+        return std::nullopt;
+    }
+  }
+  return SplitHeadsStickTail{squeezeOp, reshapeOp, stickOp};
+}
+
 bool UnstickSplitHeadsFusionHelper::detectIfBeneficial(
     const DimAnalysis *dimAnalysis, ZHighUnstickOp startOp) {
   assert(dimAnalysis && "unstick-split-heads requires a non-null DimAnalysis");
@@ -1270,6 +1393,7 @@ bool UnstickSplitHeadsFusionHelper::detectIfBeneficial(
   headDim = -1;
   transposePattern = std::nullopt;
   splitAxis = -1;
+  outputModes.clear();
 
   if (isInsideFusedOp(startOp))
     return returnFailure("already inside a fused op body");
@@ -1359,8 +1483,32 @@ bool UnstickSplitHeadsFusionHelper::detectIfBeneficial(
       return returnFailure("split result has no shape");
   splitAxis = axis;
   ops.push_back(splitOp.getOperation());
-  for (Value result : splitOp.getResults())
-    finalResults.push_back(result);
+
+  // ---- Step 5: per output, optional Squeeze -> Reshape -> 3DS Stick -------
+  // Tails are appended in the block order of their Stick, so that ops.back()
+  // is the latest chain op (default FusedOp insertion point).
+  SmallVector<SplitHeadsStickTail, 4> tails;
+  for (Value result : splitOp.getResults()) {
+    std::optional<SplitHeadsStickTail> tail;
+    if (splitHeadsSqueezedIsAHSD(transposePattern))
+      tail = matchSplitHeadsStickTail(dimAnalysis, result, axis, D, startOp);
+    if (tail.has_value()) {
+      outputModes.emplace_back(OutputMode::Stick3DS);
+      finalResults.push_back(tail->stickOp.getOut());
+      tails.emplace_back(*tail);
+    } else {
+      outputModes.emplace_back(OutputMode::F32);
+      finalResults.push_back(result);
+    }
+  }
+  llvm::sort(tails, [](SplitHeadsStickTail &a, SplitHeadsStickTail &b) {
+    return a.stickOp->isBeforeInBlock(b.stickOp);
+  });
+  for (SplitHeadsStickTail &tail : tails) {
+    ops.push_back(tail.squeezeOp.getOperation());
+    ops.push_back(tail.reshapeOp.getOperation());
+    ops.push_back(tail.stickOp.getOperation());
+  }
 
   // Always beneficial: replaces the unstick, transpose, and N split copy
   // loops by a single pass over the stickified data.
@@ -1376,6 +1524,10 @@ void UnstickSplitHeadsFusionHelper::embedAttrs(ONNXFusedOp fusedOp) const {
   fusedOp->setAttr("splitAxis", b.getI64IntegerAttr(splitAxis));
   if (transposePattern.has_value())
     fusedOp->setAttr("transposePattern", *transposePattern);
+  SmallVector<StringRef, 4> modes;
+  for (OutputMode mode : outputModes)
+    modes.emplace_back(mode == OutputMode::F32 ? kModeF32 : kModeStick3DS);
+  fusedOp->setAttr("outputModes", b.getStrArrayAttr(modes));
 }
 
 bool UnstickSplitHeadsFusionHelper::retrieveAttrs(ONNXFusedOp fusedOp) {
@@ -1394,6 +1546,21 @@ bool UnstickSplitHeadsFusionHelper::retrieveAttrs(ONNXFusedOp fusedOp) {
     return false;
   if (!getI64("splitAxis", splitAxis))
     return false;
+  outputModes.clear();
+  auto modes = fusedOp->getAttrOfType<ArrayAttr>("outputModes");
+  if (!modes)
+    return false;
+  for (Attribute attr : modes) {
+    auto mode = dyn_cast<StringAttr>(attr);
+    if (!mode)
+      return false;
+    if (mode.getValue() == kModeF32)
+      outputModes.emplace_back(OutputMode::F32);
+    else if (mode.getValue() == kModeStick3DS)
+      outputModes.emplace_back(OutputMode::Stick3DS);
+    else
+      return false;
+  }
   // Optional attr.
   if (auto attr = fusedOp->getAttrOfType<ArrayAttr>("transposePattern"))
     transposePattern = attr;
@@ -1407,8 +1574,13 @@ bool UnstickSplitHeadsFusionHelper::verify() const {
     LLVM_DEBUG(llvm::dbgs() << "unstick-split-heads verify: " << msg << "\n");
     return false;
   };
-  int64_t expected = transposePattern.has_value() ? 4 : 3;
-  if ((int64_t)ops.size() != expected)
+  if ((int64_t)outputModes.size() != numSplits)
+    return fail("output mode count mismatch");
+  int64_t numStickOutputs = llvm::count(outputModes, OutputMode::Stick3DS);
+  if (numStickOutputs > 0 && !splitHeadsSqueezedIsAHSD(transposePattern))
+    return fail("stick-3DS output needs (A, H, S, D) squeezed dims");
+  int64_t numChainOps = transposePattern.has_value() ? 4 : 3;
+  if ((int64_t)ops.size() != numChainOps + 3 * numStickOutputs)
     return fail("op count mismatch");
   if (numSplits < 2 || !supportedSplitHeadsDims(numHeads, headDim))
     return fail("unsupported N, H, or D");
@@ -1461,10 +1633,32 @@ bool UnstickSplitHeadsFusionHelper::verify() const {
     return fail("split axis mismatch");
   if (!splitsIntoUnitSlices(splitOp, numSplits))
     return fail("split sizes mismatch");
-  for (auto [result, yielded] :
-      llvm::zip_equal(splitOp.getResults(), finalResults))
-    if (result != yielded)
-      return fail("yielded values are not the Split results");
+
+  // The remaining ops are the stick-3DS tails, 3 ops each, in any order.
+  SmallVector<bool, 4> tailSeen(numSplits, false);
+  for (; idx < (int64_t)ops.size(); idx += 3) {
+    auto squeezeOp = dyn_cast<ONNXSqueezeOp>(ops[idx]);
+    auto reshapeOp = dyn_cast<ONNXReshapeOp>(ops[idx + 1]);
+    auto stickOp = dyn_cast<ZHighStickOp>(ops[idx + 2]);
+    if (!squeezeOp || !reshapeOp || !stickOp)
+      return fail("expected Squeeze -> Reshape -> Stick");
+    auto splitResult = dyn_cast<OpResult>(squeezeOp.getData());
+    if (!splitResult || splitResult.getOwner() != splitOp)
+      return fail("Squeeze does not consume a Split result");
+    int64_t k = splitResult.getResultNumber();
+    if (outputModes[k] != OutputMode::Stick3DS || tailSeen[k])
+      return fail("unexpected Squeeze -> Reshape -> Stick");
+    tailSeen[k] = true;
+    if (!isSplitHeadsStickTail(/*dimAnalysis=*/nullptr, splitResult, squeezeOp,
+            reshapeOp, stickOp, splitAxis, headDim))
+      return fail("Squeeze -> Reshape -> Stick shape mismatch");
+    if (finalResults[k] != stickOp.getOut())
+      return fail("yielded value is not the Stick result");
+  }
+  for (int64_t k = 0; k < numSplits; ++k)
+    if (outputModes[k] == OutputMode::F32 &&
+        finalResults[k] != splitOp.getResult(k))
+      return fail("yielded value is not the Split result");
   return true;
 }
 

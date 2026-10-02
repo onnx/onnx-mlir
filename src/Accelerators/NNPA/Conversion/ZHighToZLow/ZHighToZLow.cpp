@@ -3365,6 +3365,12 @@ struct ZHighToZLowFusedConcatExpandStickLowering
 // is read once and stored as two 32-value halves, each half to its own
 // output row.
 //
+// A stick-3DS output (Squeeze -> Reshape (A * H, S, D) -> 3DS Stick folded
+// in) is not converted: its rows (a * H + h, s) are D consecutive values of
+// one input row, so each chunk of min(D, 64) values is copied as dlf16 from
+// the input stick to the output stick. With D == 32, the upper half of each
+// output stick is left uninitialized, as by the Stick it replaces.
+//
 // By default the N outputs are written by the same loop nest (one parallel
 // region). --nnpa-unstick-split-heads-loop-per-output emits one loop nest per
 // output instead, for performance comparison.
@@ -3439,13 +3445,25 @@ struct ZHighToZLowFusedUnstickSplitHeadsLowering
     IndexExpr A = inputDims[0];
     IndexExpr S = inputDims[1];
 
-    // Output dims: (A, S, 1, H, D) through the transpose.
+    // F32 output dims: (A, S, 1, H, D) through the transpose.
     DimsExpr outputDims = mapReshapedToOutput(
         {A, S, LitIE(1), LitIE(H), LitIE(D)}, transposePattern);
+    // Stick-3DS output dims: (A * H, S, D).
+    DimsExpr stickOutputDims = {A * LitIE(H), S, LitIE(D)};
+    auto isStick = [&](int64_t k) {
+      return fusion.outputModes[k] ==
+             UnstickSplitHeadsFusionHelper::OutputMode::Stick3DS;
+    };
 
     SmallVector<Value> allocs;
     for (int64_t k = 0; k < N; ++k) {
       Type outputTensorType = fusedOp.getOutputs()[k].getType();
+      if (isStick(k)) {
+        ZMemRefType zMemRefType = convertZTensorToMemRefType(outputTensorType);
+        allocs.emplace_back(
+            insertAllocForZMemRef(zMemRefType, stickOutputDims, op, rewriter));
+        continue;
+      }
       Type convertedType = this->typeConverter->convertType(outputTensorType);
       assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
              "Failed to convert type to MemRefType");
@@ -3457,13 +3475,17 @@ struct ZHighToZLowFusedUnstickSplitHeadsLowering
     }
 
     // One read reference for the stickified input, one write reference per
-    // output (plain F32 memrefs).
+    // F32 output. Stick-3DS outputs use krnl.memcpy instead.
     UnifiedStickSupport inputUSS(create.krnl, inputTensor, inputMemRef,
         /*read*/ true, /*write*/ false, disableSaturation);
-    SmallVector<UnifiedStickSupport, 4> outputUSS;
+    SmallVector<std::optional<UnifiedStickSupport>, 4> outputUSS(N);
     for (int64_t k = 0; k < N; ++k)
-      outputUSS.emplace_back(create.krnl, fusedOp.getOutputs()[k], allocs[k],
-          /*read*/ false, /*write*/ true, disableSaturation);
+      if (!isStick(k))
+        outputUSS[k].emplace(create.krnl, fusedOp.getOutputs()[k], allocs[k],
+            /*read*/ false, /*write*/ true, disableSaturation);
+    // Values copied per memcpy for stick-3DS outputs: one head (D == 32) or
+    // one whole stick (D % 64 == 0).
+    int64_t copyLen = std::min(D, stickLen);
 
     // Emit one loop nest over (a, j, s) writing outputs [kFirst, kLast).
     auto emitLoopNest = [&](int64_t kFirst, int64_t kLast) {
@@ -3495,8 +3517,29 @@ struct ZHighToZLowFusedUnstickSplitHeadsLowering
             IndexExpr s = loopIndices[2];
             for (int64_t k = kFirst; k < kLast; ++k) {
               // Stick (j + k * sticksPerSlice) of row (a, s).
-              DimsExpr inputAF = {
-                  a, s, (j + LitIE(k * sticksPerSlice)) * LitIE(stickLen)};
+              IndexExpr inputCol =
+                  (j + LitIE(k * sticksPerSlice)) * LitIE(stickLen);
+              if (isStick(k)) {
+                Value len =
+                    create.math.constant(rewriter.getI64Type(), copyLen);
+                for (int64_t c = 0; c < stickLen / copyLen; ++c) {
+                  // Value e of slice k is at (h, d) of row (a, s); it goes to
+                  // row (a * H + h, s) of the stickified output.
+                  IndexExpr e = j * LitIE(stickLen) + LitIE(c * copyLen);
+                  IndexExpr h = e.floorDiv(D);
+                  IndexExpr d = e % D;
+                  DimsExpr inputAF = {a, s, inputCol + LitIE(c * copyLen)};
+                  DimsExpr outputAF = {a * LitIE(H) + h, s, d};
+                  Value inputOffset =
+                      create.krnl.getLinearOffsetIndexIE(inputMemRef, inputAF);
+                  Value outputOffset =
+                      create.krnl.getLinearOffsetIndexIE(allocs[k], outputAF);
+                  create.krnl.memcpy(
+                      allocs[k], inputMemRef, len, outputOffset, inputOffset);
+                }
+                continue;
+              }
+              DimsExpr inputAF = {a, s, inputCol};
               inputUSS.beforeStickLoop(create.krnl, inputAF);
               for (int64_t half = 0; half < 2; ++half) {
                 // Position of this half stick among the H * D values of
@@ -3506,14 +3549,14 @@ struct ZHighToZLowFusedUnstickSplitHeadsLowering
                 IndexExpr d = e % D;
                 DimsExpr outputAF = mapReshapedToOutput(
                     {a, s, LitIE(0), h, d}, transposePattern);
-                outputUSS[k].beforeStickLoop(create.krnl, outputAF);
+                outputUSS[k]->beforeStickLoop(create.krnl, outputAF);
                 for (int64_t u = 0; u < U; ++u) {
                   inputUSS.beforeCompute(
                       create.krnl, LitIE(half * halfStick), u);
                   Value highVal, lowVal;
                   inputUSS.get4xF32Vals(highVal, lowVal);
-                  outputUSS[k].set4xF32Vals(highVal, lowVal);
-                  outputUSS[k].afterCompute(
+                  outputUSS[k]->set4xF32Vals(highVal, lowVal);
+                  outputUSS[k]->afterCompute(
                       create.krnl, LitIE(0), u, /*tempBufferMemRef=*/nullptr);
                 }
               }

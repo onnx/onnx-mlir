@@ -184,6 +184,15 @@ protected:
   /// Returns false when the body no longer matches the stored parameters.
   virtual bool verify() const = 0;
 
+  // -- Optional subclass hook -------------------------------------------------
+
+  /// When true, a small i64 shape Concat whose operands are all constants or
+  /// onnx.Dim ops is cloned into the body (the Dim results become inputs)
+  /// instead of becoming an input itself. Use it when such a Concat is
+  /// defined too late in the block for the FusedOp to take it as an input.
+  /// Off by default, so that the input list of existing kinds is unchanged.
+  virtual bool absorbShapeConcatOfDims() const { return false; }
+
   // -- Additional subclass contract member (not a virtual) -------------------
   //
   // Every subclass must also define:
