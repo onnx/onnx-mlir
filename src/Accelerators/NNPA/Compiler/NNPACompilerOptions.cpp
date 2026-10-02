@@ -130,15 +130,6 @@ llvm::cl::opt<bool> nnpaDisableFusionOpStickUnstick(
                    " surrounding stick and unstick ops. Default is false"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
 
-llvm::cl::opt<bool> nnpaUnstickSplitHeadsLoopPerOutput(
-    "nnpa-unstick-split-heads-loop-per-output",
-    llvm::cl::desc("Lower each zhigh.unstick-split-heads fused op as one loop "
-                   "nest per output, instead of a single loop nest writing "
-                   "all outputs. For performance comparison. Default is "
-                   "false"),
-    llvm::cl::init(false), llvm::cl::Hidden,
-    llvm::cl::cat(OnnxMlirCommonOptions));
-
 llvm::cl::opt<bool> nnpaDisableShapeRestriction(
     "nnpa-disable-shape-restriction",
     llvm::cl::desc("Disable shape restriction checks for operations with "

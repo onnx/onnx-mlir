@@ -3371,9 +3371,7 @@ struct ZHighToZLowFusedConcatExpandStickLowering
 // the input stick to the output stick. With D == 32, the upper half of each
 // output stick is left uninitialized, as by the Stick it replaces.
 //
-// By default the N outputs are written by the same loop nest (one parallel
-// region). --nnpa-unstick-split-heads-loop-per-output emits one loop nest per
-// output instead, for performance comparison.
+// All N outputs are written by the same loop nest (one parallel region).
 //===----------------------------------------------------------------------===//
 
 struct ZHighToZLowFusedUnstickSplitHeadsLowering
@@ -3487,89 +3485,77 @@ struct ZHighToZLowFusedUnstickSplitHeadsLowering
     // one whole stick (D % 64 == 0).
     int64_t copyLen = std::min(D, stickLen);
 
-    // Emit one loop nest over (a, j, s) writing outputs [kFirst, kLast).
-    auto emitLoopNest = [&](int64_t kFirst, int64_t kLast) {
-      ValueRange loopDef = create.krnl.defineLoops(3);
-      DimsExpr lbs(3, LitIE(0));
-      DimsExpr ubs = {A, LitIE(sticksPerSlice), S};
-      // The index map is injective: distinct (a, j, s, k, half) write
-      // distinct locations, so any run of levels may be collapsed, including
-      // s (the conversion of the N sticks is unrolled inside the body, so s is
-      // not a SIMD span). Single-level parallelism stays on the top two
-      // levels, as in the other fused lowerings. bodyCost: one 64-element
-      // stick converted and copied per output written by this nest.
-      KrnlParallelPlan plan(loopDef, enableCollapse,
-          /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/2,
-          /*collapseLastExclusiveDim=*/3,
-          {.minTripCountForParallel = 4,
-              .bodyCost = stickLen * (kLast - kFirst)});
-      if (enableParallel)
-        plan.tryCreateParallel(
-            create.krnl, op, "unstick-split-heads fused loop", lbs, ubs);
+    // One loop nest over (a, j, s) writing all N outputs.
+    ValueRange loopDef = create.krnl.defineLoops(3);
+    DimsExpr lbs(3, LitIE(0));
+    DimsExpr ubs = {A, LitIE(sticksPerSlice), S};
+    // The index map is injective: distinct (a, j, s, k, half) write
+    // distinct locations, so any run of levels may be collapsed, including
+    // s (the conversion of the N sticks is unrolled inside the body, so s is
+    // not a SIMD span). Single-level parallelism stays on the top two
+    // levels, as in the other fused lowerings. bodyCost: one 64-element
+    // stick converted or copied per output.
+    KrnlParallelPlan plan(loopDef, enableCollapse,
+        /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/2,
+        /*collapseLastExclusiveDim=*/3,
+        {.minTripCountForParallel = 4, .bodyCost = stickLen * N});
+    if (enableParallel)
+      plan.tryCreateParallel(
+          create.krnl, op, "unstick-split-heads fused loop", lbs, ubs);
 
-      create.krnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, ubs,
-          [&](const KrnlBuilder &ck, ValueRange indices) {
-            MDBuilder create(ck);
-            IndexExprScope outerScope(ck);
-            DimsExpr loopIndices = DimListIE(indices);
-            IndexExpr a = loopIndices[0];
-            IndexExpr j = loopIndices[1];
-            IndexExpr s = loopIndices[2];
-            for (int64_t k = kFirst; k < kLast; ++k) {
-              // Stick (j + k * sticksPerSlice) of row (a, s).
-              IndexExpr inputCol =
-                  (j + LitIE(k * sticksPerSlice)) * LitIE(stickLen);
-              if (isStick(k)) {
-                Value len =
-                    create.math.constant(rewriter.getI64Type(), copyLen);
-                for (int64_t c = 0; c < stickLen / copyLen; ++c) {
-                  // Value e of slice k is at (h, d) of row (a, s); it goes to
-                  // row (a * H + h, s) of the stickified output.
-                  IndexExpr e = j * LitIE(stickLen) + LitIE(c * copyLen);
-                  IndexExpr h = e.floorDiv(D);
-                  IndexExpr d = e % D;
-                  DimsExpr inputAF = {a, s, inputCol + LitIE(c * copyLen)};
-                  DimsExpr outputAF = {a * LitIE(H) + h, s, d};
-                  Value inputOffset =
-                      create.krnl.getLinearOffsetIndexIE(inputMemRef, inputAF);
-                  Value outputOffset =
-                      create.krnl.getLinearOffsetIndexIE(allocs[k], outputAF);
-                  create.krnl.memcpy(
-                      allocs[k], inputMemRef, len, outputOffset, inputOffset);
-                }
-                continue;
-              }
-              DimsExpr inputAF = {a, s, inputCol};
-              inputUSS.beforeStickLoop(create.krnl, inputAF);
-              for (int64_t half = 0; half < 2; ++half) {
-                // Position of this half stick among the H * D values of
-                // slice k, and the (h, d) it starts at.
-                IndexExpr e = j * LitIE(stickLen) + LitIE(half * halfStick);
+    create.krnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, ubs,
+        [&](const KrnlBuilder &ck, ValueRange indices) {
+          MDBuilder create(ck);
+          IndexExprScope outerScope(ck);
+          DimsExpr loopIndices = DimListIE(indices);
+          IndexExpr a = loopIndices[0];
+          IndexExpr j = loopIndices[1];
+          IndexExpr s = loopIndices[2];
+          for (int64_t k = 0; k < N; ++k) {
+            // Stick (j + k * sticksPerSlice) of row (a, s).
+            IndexExpr inputCol =
+                (j + LitIE(k * sticksPerSlice)) * LitIE(stickLen);
+            if (isStick(k)) {
+              Value len = create.math.constant(rewriter.getI64Type(), copyLen);
+              for (int64_t c = 0; c < stickLen / copyLen; ++c) {
+                // Value e of slice k is at (h, d) of row (a, s); it goes to
+                // row (a * H + h, s) of the stickified output.
+                IndexExpr e = j * LitIE(stickLen) + LitIE(c * copyLen);
                 IndexExpr h = e.floorDiv(D);
                 IndexExpr d = e % D;
-                DimsExpr outputAF = mapReshapedToOutput(
-                    {a, s, LitIE(0), h, d}, transposePattern);
-                outputUSS[k]->beforeStickLoop(create.krnl, outputAF);
-                for (int64_t u = 0; u < U; ++u) {
-                  inputUSS.beforeCompute(
-                      create.krnl, LitIE(half * halfStick), u);
-                  Value highVal, lowVal;
-                  inputUSS.get4xF32Vals(highVal, lowVal);
-                  outputUSS[k]->set4xF32Vals(highVal, lowVal);
-                  outputUSS[k]->afterCompute(
-                      create.krnl, LitIE(0), u, /*tempBufferMemRef=*/nullptr);
-                }
+                DimsExpr inputAF = {a, s, inputCol + LitIE(c * copyLen)};
+                DimsExpr outputAF = {a * LitIE(H) + h, s, d};
+                Value inputOffset =
+                    create.krnl.getLinearOffsetIndexIE(inputMemRef, inputAF);
+                Value outputOffset =
+                    create.krnl.getLinearOffsetIndexIE(allocs[k], outputAF);
+                create.krnl.memcpy(
+                    allocs[k], inputMemRef, len, outputOffset, inputOffset);
+              }
+              continue;
+            }
+            DimsExpr inputAF = {a, s, inputCol};
+            inputUSS.beforeStickLoop(create.krnl, inputAF);
+            for (int64_t half = 0; half < 2; ++half) {
+              // Position of this half stick among the H * D values of
+              // slice k, and the (h, d) it starts at.
+              IndexExpr e = j * LitIE(stickLen) + LitIE(half * halfStick);
+              IndexExpr h = e.floorDiv(D);
+              IndexExpr d = e % D;
+              DimsExpr outputAF =
+                  mapReshapedToOutput({a, s, LitIE(0), h, d}, transposePattern);
+              outputUSS[k]->beforeStickLoop(create.krnl, outputAF);
+              for (int64_t u = 0; u < U; ++u) {
+                inputUSS.beforeCompute(create.krnl, LitIE(half * halfStick), u);
+                Value highVal, lowVal;
+                inputUSS.get4xF32Vals(highVal, lowVal);
+                outputUSS[k]->set4xF32Vals(highVal, lowVal);
+                outputUSS[k]->afterCompute(
+                    create.krnl, LitIE(0), u, /*tempBufferMemRef=*/nullptr);
               }
             }
-          });
-    };
-
-    if (nnpaUnstickSplitHeadsLoopPerOutput) {
-      for (int64_t k = 0; k < N; ++k)
-        emitLoopNest(k, k + 1);
-    } else {
-      emitLoopNest(0, N);
-    }
+          }
+        });
     return allocs;
   }
 };
