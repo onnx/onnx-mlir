@@ -847,7 +847,9 @@ public:
 //===----------------------------------------------------------------------===//
 
 // Anchors on ONNXLayoutTransformOp; ExtLayoutTransformFusionHelper walks
-// forward through the optional Reshape/Transpose/Reshape/LayoutTransform chain.
+// forward through the optional Reshape/Transpose/Reshape chain, ending in an
+// optional LayoutTransform, or in an optional DLF16ToF32 followed by an
+// optional scalar Mul.
 using FusedPatternsForExtendedLayoutTransform =
     FusedPatternForOpKind<ONNXLayoutTransformOp,
         ExtLayoutTransformFusionHelper>;
