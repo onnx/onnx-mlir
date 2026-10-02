@@ -21,13 +21,16 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 
-/* Pull in the private flag definitions (EQUAL_SPLIT_Ex etc.) */
-#include "src/Accelerators/NNPA/Runtime/zdnnx/zdnnx_private.h"
-/* Pull in the public structs and zdnnx_is_full_tile declaration */
-#include "src/Accelerators/NNPA/Runtime/zdnnx/zdnnx.h"
+/* zdnnx.h includes zdnn.h (resolved via NNPA_INCLUDE_PATH) and defines the
+ * public structs (zdnnx_split_info, zdnnx_tile, zdnnx_axis, bool etc.).
+ * It must be included before zdnnx_private.h which uses those types. */
+#include "zdnnx.h"
+/* zdnnx_private.h defines EQUAL_SPLIT_Ex flags and zdnnx_is_full_tile(). */
+#include "zdnnx_private.h"
 
 /* Forward declaration: zdnnx_is_full_tile is declared in zdnnx_private.h */
 

@@ -33,11 +33,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <inttypes.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 
-#include "src/Accelerators/NNPA/Runtime/zdnnx/zdnnx.h"
-#include "src/Accelerators/NNPA/Runtime/zdnnx/zdnnx_private.h"
+#include "zdnnx.h"
+#include "zdnnx_private.h"
 
 /* zdnnx_create_view requires a fully-initialized zdnn_ztensor with valid
  * descriptors.  We use zdnn_init_pre_transformed_desc /

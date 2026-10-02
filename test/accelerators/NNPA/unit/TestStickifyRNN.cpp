@@ -34,10 +34,10 @@
 #include <string.h>
 
 extern "C" {
-#include "build/Release/include/zdnn.h"
+#include "zdnn.h"
 }
 
-#include "src/Accelerators/NNPA/Support/Stickify/Stickify.hpp"
+#include "Accelerators/NNPA/Support/Stickify/Stickify.hpp"
 
 // ---------------------------------------------------------------------------
 // Helpers

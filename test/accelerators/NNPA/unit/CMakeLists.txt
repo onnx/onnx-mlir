@@ -23,16 +23,24 @@ function(add_nnpa_unittest test_name)
   set_tests_properties(${test_name} PROPERTIES LABELS unittest-nnpa)
 endfunction()
 
+# Common include paths used by NNPA unit tests.
+# Both variables are set in the top-level CMakeLists.txt and are globally visible:
+#   CMAKE_INCLUDE_OUTPUT_DIRECTORY — the per-config build include dir containing
+#                                    zdnn.h (same as NNPA_INCLUDE_PATH, but that
+#                                    var is scoped to the NNPA src subtree only)
+#   ONNX_MLIR_SRC_ROOT             — the repo root (onnx-mlir/)
+set(NNPA_ZDNNX_SRC_DIR
+    ${ONNX_MLIR_SRC_ROOT}/src/Accelerators/NNPA/Runtime/zdnnx)
+
 # ---------------------------------------------------------------------------
 # f032: zdnnx_is_full_tile() EQUAL_SPLIT flag inversion.
-# Exercises pure flag logic against hand-crafted structs; no hardware needed.
 # ---------------------------------------------------------------------------
 add_nnpa_unittest(TestZdnnxUtils
   TestZdnnxUtils.c
 
   INCLUDE_DIRS PRIVATE
-  ${ONNX_MLIR_SRC_ROOT}
-  ${NNPA_INCLUDE_PATH}
+  ${CMAKE_INCLUDE_OUTPUT_DIRECTORY}
+  ${NNPA_ZDNNX_SRC_DIR}
 
   LINK_LIBS PRIVATE
   RuntimeNNPA
@@ -46,8 +54,8 @@ add_nnpa_unittest(TestStickifyRNN
   TestStickifyRNN.cpp
 
   INCLUDE_DIRS PRIVATE
-  ${ONNX_MLIR_SRC_ROOT}
-  ${NNPA_INCLUDE_PATH}
+  ${CMAKE_INCLUDE_OUTPUT_DIRECTORY}
+  ${ONNX_MLIR_SRC_ROOT}/src
 
   LINK_LIBS PRIVATE
   OMStickify
@@ -55,15 +63,13 @@ add_nnpa_unittest(TestStickifyRNN
 
 # ---------------------------------------------------------------------------
 # f036: zdnnx_create_view() deep-copy / no-alias invariant.
-# Verifies the view's descriptor pointers point to caller-supplied storage
-# and that the original tensor's descriptors are not mutated.
 # ---------------------------------------------------------------------------
 add_nnpa_unittest(TestZdnnxCreateView
   TestZdnnxCreateView.c
 
   INCLUDE_DIRS PRIVATE
-  ${ONNX_MLIR_SRC_ROOT}
-  ${NNPA_INCLUDE_PATH}
+  ${CMAKE_INCLUDE_OUTPUT_DIRECTORY}
+  ${NNPA_ZDNNX_SRC_DIR}
 
   LINK_LIBS PRIVATE
   RuntimeNNPA
