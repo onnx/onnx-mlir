@@ -442,12 +442,32 @@ void FusionOpKindHelper::replaceAndErase(
   for (auto [idx, v] : llvm::enumerate(finalResults))
     outputMap[v] = idx;
 
+  // A chain op may have several results (e.g. onnx.Split), any subset of
+  // which can be yielded. Every yielded result is redirected to its FusedOp
+  // output; results that are not yielded must be dead by now (their only
+  // uses were later chain ops, already erased by this back-to-front walk).
   for (int i = (int)ops.size() - 1; i >= 0; --i) {
-    auto it = outputMap.find(ops[i]->getResult(0));
-    if (it != outputMap.end())
-      rewriter.replaceOp(ops[i], fusedOp.getOutputs()[it->second]);
-    else
-      rewriter.eraseOp(ops[i]);
+    Operation *op = ops[i];
+    SmallVector<Value> replacements;
+    bool allYielded = true;
+    for (Value result : op->getResults()) {
+      auto it = outputMap.find(result);
+      if (it == outputMap.end()) {
+        allYielded = false;
+        replacements.push_back(nullptr);
+      } else {
+        replacements.push_back(fusedOp.getOutputs()[it->second]);
+      }
+    }
+    if (allYielded) {
+      rewriter.replaceOp(op, replacements);
+      continue;
+    }
+    for (auto [result, replacement] :
+        llvm::zip_equal(op->getResults(), replacements))
+      if (replacement)
+        rewriter.replaceAllUsesWith(result, replacement);
+    rewriter.eraseOp(op);
   }
 }
 

@@ -243,6 +243,54 @@ public:
   bool verify() const override;
 };
 
+//===----------------------------------------------------------------------===//
+// UnstickSplitHeadsFusionHelper
+//
+// Subclass for ONNXFusedOp(kind = "zhigh.unstick-split-heads").
+//
+// Pattern (the attention "split fused QKV projection into heads" idiom):
+//  ZHighUnstickOp   3D or 3DS ZTensor (A, S, C) => F32 (required)
+//  ONNXReshapeOp    (A, S, C) => (A, S, N, H, D): dims A and S unchanged, C
+//                   split into static N * H * D, with D == 32 or D % 64 == 0,
+//                   and (H * D) % 64 == 0 (required)
+//  ONNXTransposeOp  any permutation keeping D last (optional; when absent,
+//                   transposePattern stays std::nullopt, i.e. identity)
+//  ONNXSplitOp      on the axis holding N, into N outputs of size 1
+//                   (required)
+//
+// The FusedOp has N results, one per Split result. The Squeeze ops that
+// usually follow each Split result are left outside: they lower to a
+// zero-copy memref.reinterpret_cast.
+//
+// Unique-use invariant: the Unstick, Reshape, and Transpose results each
+// have exactly one use. The Split results are not checked.
+//===----------------------------------------------------------------------===//
+
+class UnstickSplitHeadsFusionHelper : public onnx_mlir::FusionOpKindHelper {
+public:
+  static constexpr llvm::StringLiteral kKind{"zhigh.unstick-split-heads"};
+  /// See the kMaxOpCount contract note in FusionOpHelper.hpp: unstick +
+  /// reshape + transpose + split.
+  static constexpr int kMaxOpCount = 4;
+
+  int64_t numSplits = -1; ///< N: Split output count (reshape dim 2)
+  int64_t numHeads = -1;  ///< H: reshape dim 3
+  int64_t headDim = -1;   ///< D: reshape dim 4 (innermost)
+  /// Permutation of the optional Transpose (std::nullopt = identity).
+  std::optional<mlir::ArrayAttr> transposePattern;
+  int64_t splitAxis = -1; ///< Split axis, normalized, in the transposed dims
+
+  /// Detect and parameterize the unstick-split-heads chain.
+  /// \p dimAnalysis must be non-null.
+  bool detectIfBeneficial(
+      const DimAnalysis *dimAnalysis, ZHighUnstickOp startOp);
+
+  llvm::StringRef getKind() const override { return kKind; }
+  void embedAttrs(mlir::ONNXFusedOp fusedOp) const override;
+  bool retrieveAttrs(mlir::ONNXFusedOp fusedOp) override;
+  bool verify() const override;
+};
+
 } // namespace zhigh
 } // namespace onnx_mlir
 

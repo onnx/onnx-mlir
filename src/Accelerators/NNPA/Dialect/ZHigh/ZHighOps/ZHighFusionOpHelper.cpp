@@ -1204,5 +1204,269 @@ bool ConcatExpandStickFusionHelper::verify() const {
   return true;
 }
 
+//===----------------------------------------------------------------------===//
+// UnstickSplitHeadsFusionHelper
+//===----------------------------------------------------------------------===//
+
+// Rank of the reshaped (A, S, N, H, D) value, and the position of N in it.
+static constexpr int64_t kSplitHeadsRank = 5;
+static constexpr int64_t kSplitHeadsNAxis = 2;
+
+/// Return true when the head dim \p D and head count \p H can be processed in
+/// whole sticks: each of the N slices of the innermost dim (H * D elements)
+/// starts on a stick boundary, and every 64-element stick holds either two
+/// whole heads (D == 32) or a 64-aligned part of a single head (D % 64 == 0).
+static bool supportedSplitHeadsDims(int64_t H, int64_t D) {
+  if (H <= 0 || D <= 0)
+    return false;
+  if (D != 32 && D % 64 != 0)
+    return false;
+  return (H * D) % 64 == 0;
+}
+
+/// Position, after the optional transpose, of the reshaped N axis.
+static int64_t splitHeadsNAxisAfterTranspose(
+    std::optional<ArrayAttr> transposePattern) {
+  if (!transposePattern.has_value())
+    return kSplitHeadsNAxis;
+  for (int64_t p = 0; p < kSplitHeadsRank; ++p)
+    if (ArrayAttrIntVal(transposePattern, p) == kSplitHeadsNAxis)
+      return p;
+  return -1;
+}
+
+/// Return true if the Split \p splitOp cuts its input into \p N slices of
+/// size 1 along its axis: either no split operand (equal split) or a
+/// constant split operand made of N ones.
+static bool splitsIntoUnitSlices(ONNXSplitOp splitOp, int64_t N) {
+  if ((int64_t)splitOp.getNumResults() != N)
+    return false;
+  Value split = splitOp.getSplit();
+  if (isNoneValue(split))
+    return true;
+  SmallVector<int64_t, 4> sizes;
+  if (!getI64ValuesFromONNXConstantOp(split, sizes))
+    return false;
+  if ((int64_t)sizes.size() != N)
+    return false;
+  return llvm::all_of(sizes, [](int64_t s) { return s == 1; });
+}
+
+bool UnstickSplitHeadsFusionHelper::detectIfBeneficial(
+    const DimAnalysis *dimAnalysis, ZHighUnstickOp startOp) {
+  assert(dimAnalysis && "unstick-split-heads requires a non-null DimAnalysis");
+  auto returnFailure = [](llvm::StringRef msg) -> bool {
+    LLVM_DEBUG(llvm::dbgs()
+               << "  detectIfBeneficial unstick-split-heads failed: " << msg
+               << "\n");
+    return false;
+  };
+
+  // Reset all fields.
+  ops.clear();
+  finalResults.clear();
+  numSplits = -1;
+  numHeads = -1;
+  headDim = -1;
+  transposePattern = std::nullopt;
+  splitAxis = -1;
+
+  if (isInsideFusedOp(startOp))
+    return returnFailure("already inside a fused op body");
+
+  // ---- Step 1: Unstick of a 3D / 3DS ZTensor with a static innermost dim --
+  Value inputData = startOp.getIn();
+  if (!isZTensor(inputData.getType()))
+    return returnFailure("unstick input is not a zTensor");
+  ZTensorEncodingAttr::DataLayout layout =
+      getZTensorLayout(inputData.getType());
+  if (layout != ZTensorEncodingAttr::DataLayout::_3D &&
+      layout != ZTensorEncodingAttr::DataLayout::_3DS)
+    return returnFailure("unstick layout is not 3D or 3DS");
+  if (!supportedLayoutForCompilerGeneratedStickUnstick(
+          inputData, /*nhwc=*/false))
+    return returnFailure("zTensor layout not supported");
+  Value unstickedVal = startOp.getOut();
+  if (!hasShapeAndRank(unstickedVal) || getRank(unstickedVal.getType()) != 3)
+    return returnFailure("unstick result is not rank 3");
+  int64_t C = getShape(unstickedVal.getType(), 2);
+  if (C == ShapedType::kDynamic)
+    return returnFailure("innermost dim is dynamic");
+  ops.push_back(startOp.getOperation());
+
+  // ---- Step 2: Reshape (A, S, C) => (A, S, N, H, D) -------------------------
+  auto reshapeOp = singleUserOfOpType<ONNXReshapeOp>(unstickedVal);
+  if (!reshapeOp)
+    return returnFailure("unstick not single-used by a Reshape");
+  Value reshapedVal = reshapeOp.getReshaped();
+  if (!hasShapeAndRank(reshapedVal) ||
+      getRank(reshapedVal.getType()) != kSplitHeadsRank)
+    return returnFailure("reshape result is not rank 5");
+  // Leading dims A and S must be unchanged.
+  for (int64_t d = 0; d < 2; ++d) {
+    if (dimAnalysis->sameDim(unstickedVal, d, reshapedVal, d))
+      continue;
+    int64_t inDim = getShape(unstickedVal.getType(), d);
+    int64_t outDim = getShape(reshapedVal.getType(), d);
+    if (inDim == ShapedType::kDynamic || inDim != outDim)
+      return returnFailure("reshape changes a leading dim");
+  }
+  int64_t N = getShape(reshapedVal.getType(), 2);
+  int64_t H = getShape(reshapedVal.getType(), 3);
+  int64_t D = getShape(reshapedVal.getType(), 4);
+  if (N == ShapedType::kDynamic || H == ShapedType::kDynamic ||
+      D == ShapedType::kDynamic)
+    return returnFailure("reshape split factors are not static");
+  if (N < 2)
+    return returnFailure("fewer than 2 splits");
+  if (N * H * D != C)
+    return returnFailure("reshape does not split the innermost dim");
+  if (!supportedSplitHeadsDims(H, D))
+    return returnFailure("head dims not stick aligned");
+  numSplits = N;
+  numHeads = H;
+  headDim = D;
+  ops.push_back(reshapeOp.getOperation());
+  Value current = reshapedVal;
+
+  // ---- Step 3: optional Transpose keeping D last ---------------------------
+  if (auto transposeOp = singleUserOfOpType<ONNXTransposeOp>(current)) {
+    auto perm = transposeOp.getPerm();
+    if (!perm.has_value())
+      return returnFailure("default perm unsupported");
+    if ((int64_t)ArrayAttrSize(perm) != kSplitHeadsRank ||
+        !transposeKeepsLastDim(*perm))
+      return returnFailure("transpose moves the innermost dim");
+    transposePattern = perm;
+    ops.push_back(transposeOp.getOperation());
+    current = transposeOp.getTransposed();
+  }
+
+  // ---- Step 4: Split on the N axis into N unit slices ----------------------
+  auto splitOp = singleUserOfOpType<ONNXSplitOp>(current);
+  if (!splitOp || splitOp.getInput() != current)
+    return returnFailure("not single-used by a Split on its data input");
+  int64_t axis = splitOp.getAxis();
+  if (axis < 0)
+    axis += kSplitHeadsRank;
+  int64_t expectedAxis = splitHeadsNAxisAfterTranspose(transposePattern);
+  if (axis != expectedAxis)
+    return returnFailure("split axis is not the N axis");
+  if (!splitsIntoUnitSlices(splitOp, N))
+    return returnFailure("split is not N slices of size 1");
+  for (Value result : splitOp.getResults())
+    if (!hasShapeAndRank(result))
+      return returnFailure("split result has no shape");
+  splitAxis = axis;
+  ops.push_back(splitOp.getOperation());
+  for (Value result : splitOp.getResults())
+    finalResults.push_back(result);
+
+  // Always beneficial: replaces the unstick, transpose, and N split copy
+  // loops by a single pass over the stickified data.
+  LLVM_DEBUG(llvm::dbgs() << "  unstick-split-heads: successful\n");
+  return true;
+}
+
+void UnstickSplitHeadsFusionHelper::embedAttrs(ONNXFusedOp fusedOp) const {
+  Builder b(fusedOp->getContext());
+  fusedOp->setAttr("numSplits", b.getI64IntegerAttr(numSplits));
+  fusedOp->setAttr("numHeads", b.getI64IntegerAttr(numHeads));
+  fusedOp->setAttr("headDim", b.getI64IntegerAttr(headDim));
+  fusedOp->setAttr("splitAxis", b.getI64IntegerAttr(splitAxis));
+  if (transposePattern.has_value())
+    fusedOp->setAttr("transposePattern", *transposePattern);
+}
+
+bool UnstickSplitHeadsFusionHelper::retrieveAttrs(ONNXFusedOp fusedOp) {
+  auto getI64 = [&](StringRef name, int64_t &out) -> bool {
+    auto attr = fusedOp->getAttrOfType<IntegerAttr>(name);
+    if (!attr)
+      return false;
+    out = attr.getInt();
+    return true;
+  };
+  if (!getI64("numSplits", numSplits))
+    return false;
+  if (!getI64("numHeads", numHeads))
+    return false;
+  if (!getI64("headDim", headDim))
+    return false;
+  if (!getI64("splitAxis", splitAxis))
+    return false;
+  // Optional attr.
+  if (auto attr = fusedOp->getAttrOfType<ArrayAttr>("transposePattern"))
+    transposePattern = attr;
+  else
+    transposePattern = std::nullopt;
+  return true;
+}
+
+bool UnstickSplitHeadsFusionHelper::verify() const {
+  auto fail = [](llvm::StringRef msg) -> bool {
+    LLVM_DEBUG(llvm::dbgs() << "unstick-split-heads verify: " << msg << "\n");
+    return false;
+  };
+  int64_t expected = transposePattern.has_value() ? 4 : 3;
+  if ((int64_t)ops.size() != expected)
+    return fail("op count mismatch");
+  if (numSplits < 2 || !supportedSplitHeadsDims(numHeads, headDim))
+    return fail("unsupported N, H, or D");
+  if (splitAxis != splitHeadsNAxisAfterTranspose(transposePattern))
+    return fail("split axis does not hold N");
+  if ((int64_t)finalResults.size() != numSplits)
+    return fail("result count mismatch");
+
+  int64_t idx = 0;
+  auto unstickOp = dyn_cast<ZHighUnstickOp>(ops[idx++]);
+  if (!unstickOp)
+    return fail("expected Unstick");
+  ZTensorEncodingAttr::DataLayout layout =
+      getZTensorLayout(unstickOp.getIn().getType());
+  if (layout != ZTensorEncodingAttr::DataLayout::_3D &&
+      layout != ZTensorEncodingAttr::DataLayout::_3DS)
+    return fail("unstick layout is not 3D or 3DS");
+
+  auto reshapeOp = dyn_cast<ONNXReshapeOp>(ops[idx++]);
+  if (!reshapeOp || reshapeOp.getData() != unstickOp.getOut())
+    return fail("expected Reshape of the Unstick");
+  Type reshapedType = reshapeOp.getReshaped().getType();
+  if (getRank(reshapedType) != kSplitHeadsRank ||
+      getShape(reshapedType, 2) != numSplits ||
+      getShape(reshapedType, 3) != numHeads ||
+      getShape(reshapedType, 4) != headDim)
+    return fail("reshape shape mismatch");
+  if (getShape(unstickOp.getOut().getType(), 2) !=
+      numSplits * numHeads * headDim)
+    return fail("innermost dim mismatch");
+  Value current = reshapeOp.getReshaped();
+
+  if (transposePattern.has_value()) {
+    auto transposeOp = dyn_cast<ONNXTransposeOp>(ops[idx++]);
+    if (!transposeOp || transposeOp.getData() != current)
+      return fail("expected Transpose of the Reshape");
+    auto perm = transposeOp.getPerm();
+    if (!perm.has_value() || perm.value() != *transposePattern)
+      return fail("transpose perm mismatch");
+    current = transposeOp.getTransposed();
+  }
+
+  auto splitOp = dyn_cast<ONNXSplitOp>(ops[idx++]);
+  if (!splitOp || splitOp.getInput() != current)
+    return fail("expected Split of the chain");
+  int64_t axis = splitOp.getAxis();
+  if (axis < 0)
+    axis += kSplitHeadsRank;
+  if (axis != splitAxis)
+    return fail("split axis mismatch");
+  if (!splitsIntoUnitSlices(splitOp, numSplits))
+    return fail("split sizes mismatch");
+  for (auto [result, yielded] :
+      llvm::zip_equal(splitOp.getResults(), finalResults))
+    if (result != yielded)
+      return fail("yielded values are not the Split results");
+  return true;
+}
+
 } // namespace zhigh
 } // namespace onnx_mlir

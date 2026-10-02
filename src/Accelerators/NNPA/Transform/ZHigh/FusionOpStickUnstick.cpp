@@ -847,6 +847,11 @@ using FusedPatternsForExpandMulStick =
 using FusedPatternsForConcatExpandStick =
     FusedPatternForOpKind<ONNXConcatOp, ConcatExpandStickFusionHelper>;
 
+// Anchors on ZHighUnstickOp (head of the chain); UnstickSplitHeadsFusionHelper
+// walks forward through Reshape -> optional Transpose -> Split.
+using FusedPatternsForUnstickSplitHeads =
+    FusedPatternForOpKind<ZHighUnstickOp, UnstickSplitHeadsFusionHelper>;
+
 //===----------------------------------------------------------------------===//
 // Pass.
 
@@ -925,6 +930,11 @@ struct FusionOpStickUnstick
       patterns.insert<FusedPatternsForExtendedLayoutTransform>(
           &getContext(), dimAnalysis);
       patterns.insert<FusedPatternsForExpandMulStick>(
+          &getContext(), dimAnalysis);
+      // Anchored on ZHighUnstickOp, like PatternsStartingFromUnstick, but
+      // the two never compete: that one needs an elementwise consumer of the
+      // unstick, this one a Reshape. Its benefit (kMaxOpCount) is also higher.
+      patterns.insert<FusedPatternsForUnstickSplitHeads>(
           &getContext(), dimAnalysis);
       // Merge in the general (non-accelerator-specific) fusion kinds here
       // too, so NNPA builds only ever run one fusion pass, at the point
