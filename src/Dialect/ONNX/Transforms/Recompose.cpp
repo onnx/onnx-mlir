@@ -1074,6 +1074,108 @@ struct RecomposeAttentionFromMatMulPattern
   }
 };
 
+// Find a function argument whose "onnx.name" attribute equals `name`, or a
+// null Value if there is none.
+static Value findFuncArgByName(func::FuncOp funcOp, StringRef name) {
+  for (unsigned i = 0; i < funcOp.getNumArguments(); ++i) {
+    DictionaryAttr argDict = funcOp.getArgAttrDict(i);
+    auto nameAttr =
+        argDict ? mlir::dyn_cast_or_null<StringAttr>(argDict.get("onnx.name"))
+                : nullptr;
+    if (nameAttr && nameAttr.getValue() == name)
+      return funcOp.getArgument(i);
+  }
+  return nullptr;
+}
+
+// Recompose Concat(past_cache, update) into onnx.TensorScatter, for decoder
+// models where one operand is known to be a KV-cache function argument.
+// Gated by --model-type=decoder (see getRecomposeONNXToONNXPatterns).
+struct RecomposeConcatToTensorScatterPattern
+    : public OpRewritePattern<ONNXConcatOp> {
+  using OpRewritePattern<ONNXConcatOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXConcatOp concatOp, PatternRewriter &rewriter) const final {
+    using namespace onnx_mlir;
+    auto inputs = concatOp.getInputs();
+    if (inputs.size() != 2)
+      return rewriter.notifyMatchFailure(concatOp, "expected 2 inputs");
+
+    Value lhs = inputs[0], rhs = inputs[1];
+    bool lhsIsArg = mlir::isa<BlockArgument>(lhs);
+    bool rhsIsArg = mlir::isa<BlockArgument>(rhs);
+    if (lhsIsArg == rhsIsArg)
+      return rewriter.notifyMatchFailure(
+          concatOp, "expected exactly one operand to be a function argument");
+    Value pastCache = lhsIsArg ? lhs : rhs;
+    Value update = lhsIsArg ? rhs : lhs;
+
+    // Conservative shape check mirroring ONNXTensorScatterOp::verify(): when
+    // statically known, update's size along axis must not exceed
+    // past_cache's.
+    if (hasShapeAndRank(pastCache) && hasShapeAndRank(update)) {
+      auto pastType = mlir::cast<ShapedType>(pastCache.getType());
+      auto updateType = mlir::cast<ShapedType>(update.getType());
+      int64_t rank = pastType.getRank();
+      int64_t axis = onnx_mlir::getAxisInRange(concatOp.getAxis(), rank);
+      if (updateType.getRank() == rank &&
+          !ShapedType::isDynamic(pastType.getShape()[axis]) &&
+          !ShapedType::isDynamic(updateType.getShape()[axis]) &&
+          updateType.getShape()[axis] > pastType.getShape()[axis])
+        return rewriter.notifyMatchFailure(
+            concatOp, "update is larger than past_cache along axis");
+    }
+
+    Location loc = concatOp.getLoc();
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+
+    // write_indices: prefer a function argument named "cache_position",
+    // used directly as write_indices. Otherwise, when the enclosing
+    // function's 3rd argument is named "position_ids" (shape
+    // (batch, sequence)), use position_ids[:, 0] -- the position of the
+    // first new token, i.e. the write offset into the cache, one per batch
+    // entry. Otherwise fall back to none(), i.e. write at index 0 (prefill
+    // semantics).
+    Value writeIndices = create.onnx.none();
+    auto funcOp = concatOp->getParentOfType<func::FuncOp>();
+    if (Value cachePosition =
+            funcOp ? findFuncArgByName(funcOp, "cache_position") : nullptr) {
+      writeIndices = cachePosition;
+    } else if (funcOp && funcOp.getNumArguments() > 2) {
+      DictionaryAttr argDict = funcOp.getArgAttrDict(2);
+      auto nameAttr =
+          argDict ? mlir::dyn_cast_or_null<StringAttr>(argDict.get("onnx.name"))
+                  : nullptr;
+      if (nameAttr && nameAttr.getValue() == "position_ids") {
+        Value positionIds = funcOp.getArgument(2);
+        auto positionIdsType =
+            mlir::dyn_cast<ShapedType>(positionIds.getType());
+        if (positionIdsType && positionIdsType.hasRank() &&
+            positionIdsType.getRank() == 2) {
+          Type elemType = positionIdsType.getElementType();
+          int64_t batchSize = positionIdsType.getShape()[0];
+          Value startsVal = create.onnx.constantInt64({0});
+          Value endsVal = create.onnx.constantInt64({1});
+          Value axesVal = create.onnx.constantInt64({1});
+          Value stepsVal = create.onnx.constantInt64({1});
+          auto slicedType = RankedTensorType::get({batchSize, 1}, elemType);
+          Value sliced = create.onnx.slice(
+              slicedType, positionIds, startsVal, endsVal, axesVal, stepsVal);
+          auto squeezedType = RankedTensorType::get({batchSize}, elemType);
+          writeIndices = create.onnx.squeeze(squeezedType, sliced, axesVal);
+        }
+      }
+    }
+
+    auto tensorScatterOp = ONNXTensorScatterOp::create(rewriter, loc,
+        pastCache.getType(), pastCache, update, writeIndices,
+        concatOp.getAxisAttr(), rewriter.getStringAttr("linear"));
+    rewriter.replaceOp(concatOp, tensorScatterOp.getResult());
+    return success();
+  }
+};
+
 struct RecomposeONNXToONNXPass
     : public PassWrapper<RecomposeONNXToONNXPass, OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(RecomposeONNXToONNXPass)
@@ -1123,6 +1225,8 @@ void onnx_mlir::getRecomposeONNXToONNXPatterns(
   patterns.insert<CombineParallelConv2DPattern>(context);
   if (enableAttentionOpConstruct)
     patterns.insert<RecomposeAttentionFromMatMulPattern>(context);
+  if (modelType == "decoder")
+    patterns.insert<RecomposeConcatToTensorScatterPattern>(context);
 }
 
 /*!

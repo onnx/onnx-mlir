@@ -98,6 +98,7 @@ bool disableSimdOption;                                // onnx-mlir only
 bool enableFastMathOption;                             // onnx-mlir only
 bool disableRecomposeOption;                           // onnx-mlir only
 bool enableAttentionOpConstruct;                       // common for both
+std::string modelType;                                 // common for both
 bool enableSimdDataLayout;                             // onnx-mlir only
 bool verifyInputTensors;                               // onnx-mlir only
 bool allowSorting;                                     // onnx-mlir only
@@ -346,6 +347,13 @@ static llvm::cl::opt<bool, true> enableAttentionOpConstructOpt(
                    "implement scaled dot product attention into a single "
                    "onnx.Attention op. Default is false."),
     llvm::cl::location(enableAttentionOpConstruct), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<std::string, true> modelTypeOpt("model-type",
+    llvm::cl::desc("Specify the model type to enable model-type-specific "
+                   "recompositions, e.g. \"decoder\". Default is empty "
+                   "(no assumption)."),
+    llvm::cl::location(modelType), llvm::cl::init(""),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
 // Options for onnx-mlir only
