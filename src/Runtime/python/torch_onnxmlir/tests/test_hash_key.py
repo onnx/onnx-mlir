@@ -37,17 +37,73 @@ from torch_onnxmlir.backend import (
 )
 
 # ---------------------------------------------------------------------------
-# Minimal helpers to build symbolic FX graphs without a compiler
+# Minimal helpers to build FX graphs without a compiler
 # ---------------------------------------------------------------------------
 
-
-def _trace(model: nn.Module, *example_inputs):
-    """Return a symbolic FX GraphModule via torch.fx.symbolic_trace."""
-    return torch.fx.symbolic_trace(model)
+# Two graph-building helpers are provided because they exercise different code
+# paths in generate_hash_key:
+#
+# _make_gm_with_param(weight)
+#   Builds a GraphModule with explicit get_attr + call_function nodes — the
+#   same structure torch.compile (with prepare_freezing=1) produces.  This is
+#   what the production backend actually sees, and it is what exercises the
+#   parameter-hashing loop in generate_hash_key.
+#
+# _make_linear_model(weight)
+#   Builds a GraphModule via torch.fx.symbolic_trace.  symbolic_trace wraps
+#   nn.Linear as a single call_module node — the weight never surfaces as a
+#   get_attr node and is therefore invisible to the parameter-hashing loop.
+#   Tests using this helper verify graph-structure hashing (node names, ops)
+#   and document the known limitation: call_module graphs are not
+#   parameter-value-sensitive.
 
 
 def _compile_options():
     return {"compile_options": "-O3", "compiler_path": "/unused"}
+
+
+def _make_gm_with_param(weight: torch.Tensor) -> torch.fx.GraphModule:
+    """
+    Build a GraphModule with a get_attr node for *weight* feeding a
+    call_function node — the same structure torch.compile (prepare_freezing)
+    produces for a single-linear-layer model.
+
+    This is the correct helper for tests that verify parameter-value hashing.
+    """
+    gm = torch.fx.GraphModule({}, torch.fx.Graph())
+    gm.register_parameter("weight", nn.Parameter(weight.clone()))
+    with gm.graph.inserting_before(None):
+        x = gm.graph.placeholder("x")
+        w = gm.graph.get_attr("weight")
+        out = gm.graph.call_function(torch.nn.functional.linear, (x, w))
+        gm.graph.output(out)
+    gm.recompile()
+    return gm
+
+
+def _make_linear_model(weight: torch.Tensor) -> torch.fx.GraphModule:
+    """
+    Build a GraphModule via torch.fx.symbolic_trace for a single nn.Linear
+    layer with the given weight (no bias).
+
+    symbolic_trace produces a call_module node for nn.Linear — the weight
+    does NOT appear as a get_attr node.  Use this helper only for tests that
+    check graph-structure hashing, not parameter-value sensitivity.
+    """
+
+    class _LinearModel(nn.Module):
+        def __init__(self, w):
+            super().__init__()
+            self.linear = nn.Linear(w.shape[1], w.shape[0], bias=False)
+            with torch.no_grad():
+                self.linear.weight.copy_(w)
+
+        def forward(self, x):
+            return self.linear(x)
+
+    model = _LinearModel(weight)
+    model.eval()
+    return torch.fx.symbolic_trace(model)
 
 
 # ---------------------------------------------------------------------------
@@ -226,28 +282,13 @@ class TestHashKeyParameterValues(unittest.TestCase):
     """
     Two graphs that share the first N parameter values but differ beyond that
     must produce different cache keys (full-bytes hash, not sampled values).
+
+    Uses _make_gm_with_param() which builds a GraphModule with explicit
+    get_attr + call_function nodes — the same structure torch.compile produces
+    with prepare_freezing=1.  torch.fx.symbolic_trace must NOT be used here
+    because it produces call_module nodes that keep the weight opaque (no
+    get_attr node), making the parameter invisible to the hash loop.
     """
-
-    def _make_linear_model(self, weight: torch.Tensor) -> torch.fx.GraphModule:
-        """
-        Return a GraphModule for a single Linear layer with a given weight.
-        The bias is zero.  torch.fx.symbolic_trace captures the weight as a
-        get_attr + parameter node, exactly as the real backend sees it.
-        """
-
-        class LinearModel(nn.Module):
-            def __init__(self, w):
-                super().__init__()
-                self.linear = nn.Linear(w.shape[1], w.shape[0], bias=False)
-                with torch.no_grad():
-                    self.linear.weight.copy_(w)
-
-            def forward(self, x):
-                return self.linear(x)
-
-        model = LinearModel(weight)
-        model.eval()
-        return torch.fx.symbolic_trace(model)
 
     def _shared_prefix_weights(self):
         """
@@ -261,8 +302,8 @@ class TestHashKeyParameterValues(unittest.TestCase):
 
     def test_params_differing_beyond_first_3_produce_different_keys(self):
         w1, w2 = self._shared_prefix_weights()
-        gm1 = self._make_linear_model(w1)
-        gm2 = self._make_linear_model(w2)
+        gm1 = _make_gm_with_param(w1)
+        gm2 = _make_gm_with_param(w2)
         inputs = [torch.zeros(1, 5)]
         opts = _compile_options()
         k1 = generate_hash_key(gm1, inputs, opts)
@@ -277,8 +318,8 @@ class TestHashKeyParameterValues(unittest.TestCase):
     def test_identical_params_produce_same_key(self):
         """Sanity: identical weights produce the same key."""
         w = torch.rand(1, 5)
-        gm1 = self._make_linear_model(w.clone())
-        gm2 = self._make_linear_model(w.clone())
+        gm1 = _make_gm_with_param(w.clone())
+        gm2 = _make_gm_with_param(w.clone())
         inputs = [torch.zeros(1, 5)]
         opts = _compile_options()
         k1 = generate_hash_key(gm1, inputs, opts)
@@ -288,12 +329,84 @@ class TestHashKeyParameterValues(unittest.TestCase):
     def test_completely_different_params_differ(self):
         w1 = torch.zeros(1, 4)
         w2 = torch.ones(1, 4)
-        gm1 = self._make_linear_model(w1)
-        gm2 = self._make_linear_model(w2)
+        gm1 = _make_gm_with_param(w1)
+        gm2 = _make_gm_with_param(w2)
         inputs = [torch.zeros(1, 4)]
         opts = _compile_options()
         k1 = generate_hash_key(gm1, inputs, opts)
         k2 = generate_hash_key(gm2, inputs, opts)
+        self.assertNotEqual(k1, k2)
+
+
+# ---------------------------------------------------------------------------
+# Tests for generate_hash_key — call_module graphs (symbolic_trace)
+# ---------------------------------------------------------------------------
+
+
+class TestHashKeyCallModuleGraphs(unittest.TestCase):
+    """
+    Graphs produced by torch.fx.symbolic_trace use call_module nodes for
+    nn.Linear — the weight never appears as a get_attr node and is therefore
+    NOT captured by the parameter-hashing loop.
+
+    These tests document that behaviour: two call_module graphs with identical
+    structure but different weights produce the same key.  This is a known
+    limitation of symbolic_trace graphs; the production backend (torch.compile
+    with prepare_freezing=1) always produces get_attr graphs and is not
+    affected.
+    """
+
+    def test_same_structure_same_key_regardless_of_weights(self):
+        """
+        call_module graphs: identical structure → same key even if weights differ.
+        This is the expected (and documented) behaviour for symbolic_trace output.
+        """
+        w1 = torch.zeros(1, 4)
+        w2 = torch.ones(1, 4)
+        gm1 = _make_linear_model(w1)
+        gm2 = _make_linear_model(w2)
+        inputs = [torch.zeros(1, 4)]
+        opts = _compile_options()
+        k1 = generate_hash_key(gm1, inputs, opts)
+        k2 = generate_hash_key(gm2, inputs, opts)
+        # call_module graphs hash by structure only — weight difference is invisible.
+        self.assertEqual(
+            k1,
+            k2,
+            "call_module graphs with the same structure must produce the same "
+            "key regardless of weight values (parameter hashing only applies "
+            "to get_attr graphs produced by torch.compile)",
+        )
+
+    def test_different_op_name_different_key(self):
+        """
+        call_module graphs with a structurally different node sequence (different
+        call_module target name) must produce different keys.
+        """
+
+        class _ModelA(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.layer_a = nn.Linear(4, 4, bias=False)
+
+            def forward(self, x):
+                return self.layer_a(x)
+
+        class _ModelB(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.layer_b = nn.Linear(4, 4, bias=False)  # different attr name
+
+            def forward(self, x):
+                return self.layer_b(x)
+
+        gm1 = torch.fx.symbolic_trace(_ModelA())
+        gm2 = torch.fx.symbolic_trace(_ModelB())
+        inputs = [torch.zeros(1, 4)]
+        opts = _compile_options()
+        k1 = generate_hash_key(gm1, inputs, opts)
+        k2 = generate_hash_key(gm2, inputs, opts)
+        # Different call_module target names → different graph_str → different key.
         self.assertNotEqual(k1, k2)
 
 

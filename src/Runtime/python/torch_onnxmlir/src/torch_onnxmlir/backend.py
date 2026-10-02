@@ -323,9 +323,15 @@ def generate_hash_key(
                 # Append information from input nodes.
                 for inode in node._input_nodes.keys():
                     if inode.op == "get_attr":
+                        # gm._parameters only holds *direct* parameters of the
+                        # top-level GraphModule; nested parameters (e.g.
+                        # "linear.weight" from an nn.Linear sub-module) are not
+                        # present there.  Use get_parameter() which follows the
+                        # dotted path through sub-modules, falling back to None
+                        # for non-parameter get_attr targets (buffers, constants).
                         try:
-                            t = gm._parameters[inode.target]
-                        except KeyError:
+                            t = gm.get_parameter(inode.target)
+                        except AttributeError:
                             t = None
                         if t is not None and isinstance(t, torch.nn.Parameter):
                             # Hash the full parameter bytes instead of sampling a
