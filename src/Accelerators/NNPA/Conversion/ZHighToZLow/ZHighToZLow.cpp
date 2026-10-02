@@ -2636,6 +2636,15 @@ struct ZHighToZLowFusedExtLayoutTransformLowering
           create.krnl, op, "dlf16-f32 conversion fully parallelized", lbs, ubs);
     }
 
+    // A neutral (1.f) scalar means the source chain had no trailing Mul
+    // (only possible with dlf16ToF32); skip the multiply entirely rather than
+    // emitting a multiply-by-one.
+    bool hasMulScalar = dlf16ToF32 && fusion.mulScalar != 1.0f;
+    Value scalarConst = hasMulScalar
+                            ? create.math.constant(rewriter.getF32Type(),
+                                  (double)fusion.mulScalar)
+                            : nullptr;
+
     UnifiedStickSupportList conversionSupportUSS;
     if (dlf16ToF32) {
       assert(UnifiedStickSupport::stickLen == 64 &&
@@ -2706,10 +2715,15 @@ struct ZHighToZLowFusedExtLayoutTransformLowering
             int64_t U = 4;
             int64_t totVL = U * UnifiedStickSupport::archVL;
             assert(innerTile % totVL == 0 && "tile not a multiple of totVL");
+            // Copy the single input to the output, scaled by the optional
+            // trailing Mul's scalar.
             UnifiedStickSupportList::IterateFctOver4xF32 fct =
                 [&](const KrnlBuilder &b,
                     mlir::SmallVectorImpl<Value> &inputOfF32Vals) {
-                  return inputOfF32Vals[0];
+                  if (!hasMulScalar)
+                    return inputOfF32Vals[0];
+                  MathBuilder createMath(b);
+                  return createMath.mul(inputOfF32Vals[0], scalarConst);
                 };
             create.krnl.forLoopIE(LitIE(0), LitIE(innerTile), totVL,
                 /*par*/ false, [&](const KrnlBuilder kb, ValueRange loopInd) {

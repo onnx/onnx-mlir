@@ -61,14 +61,18 @@ namespace zhigh {
 //   ONNXReshapeOp    (optional)     merge two dims into one
 //   ONNXLayoutTransformOp  (opt.)   CPU => ZTensor          (step 5a)
 //     OR ZHighDLF16ToF32Op (opt.)   DLF16 => F32            (step 5b)
+//   ONNXMulOp        (optional)     element-wise mul by scalar F32/I32/I64
+//                                   const; only after step 5b, and must not
+//                                   broadcast (when absent, mulScalar stays
+//                                   at its neutral 1.f default)
 //===----------------------------------------------------------------------===//
 
 class ExtLayoutTransformFusionHelper : public onnx_mlir::FusionOpKindHelper {
 public:
   static constexpr llvm::StringLiteral kKind{"zhigh.extended_layout_transform"};
   /// See the kMaxOpCount contract note in FusionOpHelper.hpp: initial LT +
-  /// split-reshape + transpose + merge-reshape + final-LT/dlf16.
-  static constexpr int kMaxOpCount = 5;
+  /// split-reshape + transpose + merge-reshape + final-LT/dlf16 + mul.
+  static constexpr int kMaxOpCount = 6;
 
   // -- Kind-specific parameters (raw C++ values) -----------------------------
   int64_t reshapeSplitAxis = -1;  ///< axis split by step-2 Reshape (-1=absent)
@@ -77,6 +81,7 @@ public:
   std::optional<mlir::ArrayAttr> transposePattern; ///< perm of step-3 Transpose
   bool dlf16ToF32 = false; ///< true when step-5 is DLF16=>F32
   std::optional<mlir::StringAttr> finalLayout; ///< target layout for step-5a LT
+  float mulScalar = 1.f; ///< scalar multiplier after step-5b (1 = neutral)
 
   // -- Non-virtual public methods ---------------------------------------------
 
