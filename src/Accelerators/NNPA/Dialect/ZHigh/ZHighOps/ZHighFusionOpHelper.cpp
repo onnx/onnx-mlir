@@ -152,6 +152,51 @@ static bool detectMergeReshape(
 }
 
 //===----------------------------------------------------------------------===//
+// Scalar-Mul helpers -- shared by ExtLayoutTransformFusionHelper's optional
+// trailing Mul and by the optional Mul of the Expand -> Mul? -> Reshape ->
+// Stick tails.
+//===----------------------------------------------------------------------===//
+
+/// Return the scalar factor of \p mulOp when its operand other than
+/// \p current (either operand order) is an F32/I32/I64 scalar constant,
+/// std::nullopt otherwise. Used both for detection and to re-derive the
+/// scalar in verify().
+static std::optional<float> getScalarMulFactor(ONNXMulOp mulOp, Value current) {
+  ONNXConstantOp cst;
+  if (!matchValueAndOp<ONNXConstantOp>(
+          mulOp.getA(), mulOp.getB(), current, cst))
+    return std::nullopt;
+  // F32 path: reuse existing NNPA helper.
+  if (auto fa = getScalarF32AttrFromConstant(cst.getResult()))
+    return fa.getValue().convertToFloat();
+  // Integer path: fall back to getScalarValue (handles I32 / I64).
+  Type et = cast<ShapedType>(cst.getType()).getElementType();
+  if (et.isInteger(32) || et.isInteger(64))
+    return static_cast<float>(getScalarValue<double>(cst));
+  return std::nullopt;
+}
+
+/// If `current`'s single user is an ONNXMulOp by an F32/I32/I64 scalar
+/// constant (either operand order), sets `mulScalar` to that value and
+/// returns the ONNXMulOp. Otherwise returns null and leaves `mulScalar`
+/// untouched -- absence of a Mul is not a failure, just means the neutral
+/// (1.f) scalar applies; callers should keep matching against `current`
+/// unchanged in that case.
+static ONNXMulOp detectOptionalScalarMul(Value current, float &mulScalar) {
+  auto mulOp = singleUserOfOpType<ONNXMulOp>(current);
+  if (!mulOp)
+    return nullptr;
+  std::optional<float> sv = getScalarMulFactor(mulOp, current);
+  if (!sv) {
+    LLVM_DEBUG(llvm::dbgs() << "  detectOptionalScalarMul: other operand is "
+                               "not a F32/I32/I64 scalar constant\n");
+    return nullptr;
+  }
+  mulScalar = *sv;
+  return mulOp;
+}
+
+//===----------------------------------------------------------------------===//
 // ExtLayoutTransformFusionHelper — virtual method implementations
 //===----------------------------------------------------------------------===//
 
@@ -172,6 +217,7 @@ bool ExtLayoutTransformFusionHelper::detectIfBeneficial(
   transposePattern = std::nullopt;
   dlf16ToF32 = false;
   finalLayout = std::nullopt;
+  mulScalar = 1.f;
 
   LLVM_DEBUG({
     llvm::dbgs() << "Attempt to fuse op\n  ";
@@ -251,9 +297,24 @@ bool ExtLayoutTransformFusionHelper::detectIfBeneficial(
     current = dlf.getOut();
   }
 
+  // ---- Step 6: optional Mul by a scalar constant ------------------------
+  // Only after DLF16->F32, where the data is F32 and the lowering has a
+  // compute step to apply it. The Mul must not broadcast to a larger shape.
+  // When absent, mulScalar stays at its neutral 1.f default.
+  if (dlf16ToF32) {
+    float scalar = 1.f;
+    if (auto mulOp = detectOptionalScalarMul(current, scalar)) {
+      if (mulOp.getC().getType() == current.getType()) {
+        mulScalar = scalar;
+        ops.push_back(mulOp.getOperation());
+        current = mulOp.getC();
+      }
+    }
+  }
+
   finalResults.push_back(current);
 
-  // ---- Step 6: beneficial check ----------------------------------------
+  // ---- Step 7: beneficial check ----------------------------------------
   // Require at least: a transpose, OR a reshape together with a final LT/dlf16.
   bool hasTranspose = transposePattern.has_value();
   bool hasReshape = reshapeSplitAxis != -1 || reshapeMergeAxis != -1;
@@ -272,6 +333,8 @@ void ExtLayoutTransformFusionHelper::embedAttrs(ONNXFusedOp fusedOp) const {
       "reshapeSplitFactor", b.getI64IntegerAttr(reshapeSplitFactor));
   fusedOp->setAttr("reshapeMergeAxis", b.getI64IntegerAttr(reshapeMergeAxis));
   fusedOp->setAttr("dlf16ToF32", b.getBoolAttr(dlf16ToF32));
+  fusedOp->setAttr("mulScalar",
+      b.getFloatAttr(b.getF32Type(), static_cast<double>(mulScalar)));
   if (transposePattern.has_value())
     fusedOp->setAttr("transposePattern", *transposePattern);
   if (finalLayout.has_value())
@@ -297,6 +360,12 @@ bool ExtLayoutTransformFusionHelper::retrieveAttrs(ONNXFusedOp fusedOp) {
     return false;
   dlf16ToF32 = dlf.getValue();
   // Optional attrs.
+  // mulScalar defaults to its neutral value, so fused ops built before the
+  // attr existed (or hand-written without it) stay valid.
+  if (auto attr = fusedOp->getAttrOfType<FloatAttr>("mulScalar"))
+    mulScalar = attr.getValue().convertToFloat();
+  else
+    mulScalar = 1.f;
   if (auto attr = fusedOp->getAttrOfType<ArrayAttr>("transposePattern"))
     transposePattern = attr;
   else
@@ -320,9 +389,19 @@ bool ExtLayoutTransformFusionHelper::verify() const {
   if (dlf16ToF32 || finalLayout.has_value())
     ++expected;
 
+  // A trailing scalar Mul (only possible after DLF16ToF32) adds one op; it is
+  // not recorded by a dedicated attr, so infer it from the op count.
+  bool hasMul = dlf16ToF32 && (int64_t)ops.size() == expected + 1;
+  if (hasMul)
+    ++expected;
+
   if ((int64_t)ops.size() != expected) {
     LLVM_DEBUG(llvm::dbgs() << "ELT verify: op count " << ops.size()
                             << " != expected " << expected << "\n");
+    return false;
+  }
+  if (!hasMul && mulScalar != 1.f) {
+    LLVM_DEBUG(llvm::dbgs() << "ELT verify: mulScalar without Mul\n");
     return false;
   }
 
@@ -385,9 +464,23 @@ bool ExtLayoutTransformFusionHelper::verify() const {
 
   // Optional final step.
   if (dlf16ToF32) {
-    if (!dyn_cast<ZHighDLF16ToF32Op>(ops[idx++])) {
+    auto dlf = dyn_cast<ZHighDLF16ToF32Op>(ops[idx++]);
+    if (!dlf) {
       LLVM_DEBUG(llvm::dbgs() << "ELT verify: expected DLF16ToF32\n");
       return false;
+    }
+    // Optional scalar Mul: its constant must still yield mulScalar.
+    if (hasMul) {
+      auto mulOp = dyn_cast<ONNXMulOp>(ops[idx++]);
+      if (!mulOp) {
+        LLVM_DEBUG(llvm::dbgs() << "ELT verify: expected Mul\n");
+        return false;
+      }
+      std::optional<float> sv = getScalarMulFactor(mulOp, dlf.getOut());
+      if (!sv || *sv != mulScalar) {
+        LLVM_DEBUG(llvm::dbgs() << "ELT verify: Mul scalar mismatch\n");
+        return false;
+      }
     }
   } else if (finalLayout.has_value()) {
     auto lt = dyn_cast<ONNXLayoutTransformOp>(ops[idx++]);
@@ -518,46 +611,6 @@ static bool detectUpperCollapse(ONNXReshapeOp reshapeOp, int64_t P,
 // ConcatExpandStickFusionHelper's 1-step stick tail, which is structurally
 // identical from Expand onward.
 //===----------------------------------------------------------------------===//
-
-/// If `current`'s single user is an ONNXMulOp by an F32/I32/I64 scalar
-/// constant (either operand order), sets `mulScalar` to that value and
-/// returns the ONNXMulOp. Otherwise returns null and leaves `mulScalar`
-/// untouched -- absence of a Mul is not a failure, just means the neutral
-/// (1.f) scalar applies; callers should keep matching against `current`
-/// unchanged in that case.
-static ONNXMulOp detectOptionalScalarMul(Value current, float &mulScalar) {
-  auto mulOp = singleUserOfOpType<ONNXMulOp>(current);
-  if (!mulOp)
-    return nullptr;
-  // Identify the scalar operand (accept either argument order): the other
-  // operand must be a constant, since both extraction paths below require
-  // one.
-  ONNXConstantOp cst;
-  if (!matchValueAndOp<ONNXConstantOp>(
-          mulOp.getA(), mulOp.getB(), current, cst)) {
-    LLVM_DEBUG(llvm::dbgs() << "  detectOptionalScalarMul: scalar operand "
-                               "not found or not a constant\n");
-    return nullptr;
-  }
-
-  std::optional<float> sv = std::nullopt;
-  // F32 path: reuse existing NNPA helper.
-  if (auto fa = getScalarF32AttrFromConstant(cst.getResult()))
-    sv = fa.getValue().convertToFloat();
-  // Integer path: fall back to getScalarValue (handles I32 / I64).
-  else {
-    Type et = cast<ShapedType>(cst.getType()).getElementType();
-    if (et.isInteger(32) || et.isInteger(64))
-      sv = static_cast<float>(getScalarValue<double>(cst));
-  }
-  if (!sv) {
-    LLVM_DEBUG(llvm::dbgs() << "  detectOptionalScalarMul: scalar operand is "
-                               "not F32/I32/I64 constant\n");
-    return nullptr;
-  }
-  mulScalar = *sv;
-  return mulOp;
-}
 
 /// If `current`'s single user is a ZHighStickOp targeting a supported layout
 /// (3D, 3DS, or 4D), sets `stickFormat` and returns the ZHighStickOp.
