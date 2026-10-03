@@ -1078,7 +1078,9 @@ func.func @test_attention_fixed_kv_cache_causal(%Q: tensor<1x1x2x2xf32>, %K: ten
 // CHECK-DAG:       [[VAR_103_:%.+]] = "onnx.Reshape"([[VAR_92_]], [[VAR_102_]]) <{allowzero = 0 : si64}> : (tensor<1x2x2xf32>, tensor<4xi64>) -> tensor<1x1x2x2xf32>
 // CHECK-DAG:       [[VAR_104_:%.+]] = "onnx.NoValue"() : () -> none
 // CHECK:           return [[VAR_103_]] : tensor<1x1x2x2xf32>
-=======
+// CHECK:         }
+}
+
 // -----
 
 // COM: Z16 does not support transposed MatMul: do not split the permutation of

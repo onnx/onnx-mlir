@@ -351,15 +351,16 @@ static llvm::cl::opt<bool, true> enableAttentionOpConstructOpt(
 
 static llvm::cl::opt<std::string, true> kvCacheOpt("kv-cache",
     llvm::cl::desc(
-        "Force how onnx.Attention is lowered with respect to its KV cache: "
+        "Indicate the implementation of kv-cache in the model."
+        "The option will be used to guide recomposing TensorScatter and "
+        "Attention op, and check the pattern when Attention is lowered."
         "'fixed' forces the fixed-size-KV-cache lowering (K/V are the full "
         "padded cache, sized via nonpad_kv_seqlen) and 'growing' forces the "
         "original lowering (K/V grow via past_key/past_value concatenation). "
         "Default is \"\", meaning the choice is inferred from each op's "
         "operands (whether past_key/past_value/nonpad_kv_seqlen are given)."),
-    llvm::cl::value_desc("fixed|growing"),
-    llvm::cl::location(kvCache), llvm::cl::init(""),
-    llvm::cl::cat(OnnxMlirCommonOptions));
+    llvm::cl::value_desc("fixed|growing"), llvm::cl::location(kvCache),
+    llvm::cl::init(""), llvm::cl::cat(OnnxMlirCommonOptions));
 
 // Options for onnx-mlir only
 static llvm::cl::opt<EmissionTargetType, true> emissionTargetOpt(

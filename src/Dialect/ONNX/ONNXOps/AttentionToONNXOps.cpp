@@ -94,9 +94,9 @@ Value reshapeToMultiHead4D(MultiDialectBuilder<OnnxBuilder> &create, Value v,
 // (batch, seq, numHeads * headSize). Transpose back to (batch, seq,
 // numHeads, headSize) BEFORE flattening the trailing two dims with
 // Reshape, for the same reason as above.
-Value reshapeFromMultiHead4D(MultiDialectBuilder<OnnxBuilder> &create,
-    Value v, int64_t batchSize, int64_t seqLen, int64_t numHeads,
-    int64_t headSize, Type elementType) {
+Value reshapeFromMultiHead4D(MultiDialectBuilder<OnnxBuilder> &create, Value v,
+    int64_t batchSize, int64_t seqLen, int64_t numHeads, int64_t headSize,
+    Type elementType) {
   SmallVector<int64_t> perm = {0, 2, 1, 3};
   Value transposed = create.onnx.transposeInt64(v, perm);
   SmallVector<int64_t> finalShape = {batchSize, seqLen, numHeads * headSize};
@@ -130,8 +130,8 @@ Value createReshapedRange(MultiDialectBuilder<OnnxBuilder> &create,
 // (qSeqLen, kvSeqLen) mask is a compile-time constant -- no Less/Where ops
 // needed.
 Value createScalarOffsetCausalMaskConstant(
-    MultiDialectBuilder<OnnxBuilder> &create, Type elementType,
-    int64_t qSeqLen, int64_t kvSeqLen, int64_t offset) {
+    MultiDialectBuilder<OnnxBuilder> &create, Type elementType, int64_t qSeqLen,
+    int64_t kvSeqLen, int64_t offset) {
   auto floatType = mlir::cast<FloatType>(elementType);
   APFloat zeroF(0.0), negF(negMaskValueFor(elementType));
   bool losesInfo;
@@ -244,8 +244,7 @@ LogicalResult lowerFixedSizeKVCacheAttention(ONNXAttentionOp attentionOp,
   Value kvPositions =
       createReshapedRange(create, i64Type, kvSeqLen, {1, 1, 1, kvSeqLen});
 
-  Type nonpadReshapedType =
-      RankedTensorType::get({batchDim, 1, 1, 1}, i64Type);
+  Type nonpadReshapedType = RankedTensorType::get({batchDim, 1, 1, 1}, i64Type);
   Value nonpadReshapeShape = create.onnx.constantInt64({-1, 1, 1, 1});
   Value nonpadReshaped = create.onnx.reshape(
       nonpadReshapedType, nonpadKvSeqlen, nonpadReshapeShape);
@@ -258,8 +257,7 @@ LogicalResult lowerFixedSizeKVCacheAttention(ONNXAttentionOp attentionOp,
       RankedTensorType::get(paddingMaskShape, rewriter.getI1Type());
   Value validKv = ONNXLessOp::create(
       rewriter, loc, boolPaddingType, kvPositions, nonpadReshaped);
-  Type paddingMaskType =
-      RankedTensorType::get(paddingMaskShape, elementType);
+  Type paddingMaskType = RankedTensorType::get(paddingMaskShape, elementType);
   Value attnMaskFinal =
       create.onnx.where(paddingMaskType, validKv, zeroConst, negConst);
 
@@ -289,10 +287,9 @@ LogicalResult lowerFixedSizeKVCacheAttention(ONNXAttentionOp attentionOp,
     SmallVector<int64_t> causalMaskShape = {batchDim, 1, qSeqLen, kvSeqLen};
     Type boolCausalType =
         RankedTensorType::get(causalMaskShape, rewriter.getI1Type());
-    Value causalValid = ONNXLessOrEqualOp::create(
-        rewriter, loc, boolCausalType, diff, offset);
-    Type causalMaskType =
-        RankedTensorType::get(causalMaskShape, elementType);
+    Value causalValid =
+        ONNXLessOrEqualOp::create(rewriter, loc, boolCausalType, diff, offset);
+    Type causalMaskType = RankedTensorType::get(causalMaskShape, elementType);
     Value causalMask =
         create.onnx.where(causalMaskType, causalValid, zeroConst, negConst);
 
@@ -323,8 +320,9 @@ LogicalResult lowerFixedSizeKVCacheAttention(ONNXAttentionOp attentionOp,
 
   Value qk_masked = create.onnx.add(qk_scaled, attnMaskFinal);
 
-  Value probs = ONNXSoftmaxOp::create(rewriter, loc, qk_masked.getType(),
-      qk_masked, IntegerAttr::get(rewriter.getIntegerType(64, /*isSigned=*/true), -1));
+  Value probs =
+      ONNXSoftmaxOp::create(rewriter, loc, qk_masked.getType(), qk_masked,
+          IntegerAttr::get(rewriter.getIntegerType(64, /*isSigned=*/true), -1));
 
   ShapedType vShape4D = mlir::cast<ShapedType>(V_reshaped.getType());
   SmallVector<int64_t> outputShape = {qShape4D.getShape()[0],
@@ -432,12 +430,11 @@ LogicalResult lowerGrowingSizeKVCacheAttention(ONNXAttentionOp attentionOp,
   if (hasPastKey) {
     ShapedType kShape = mlir::cast<ShapedType>(K_reshaped.getType());
     ShapedType pastKeyShape = mlir::cast<ShapedType>(pastKey.getType());
-    int64_t newKSeqLen = ShapedType::isDynamic(kShape.getShape()[2]) ||
-                                  ShapedType::isDynamic(
-                                      pastKeyShape.getShape()[2])
-                              ? ShapedType::kDynamic
-                              : (kShape.getShape()[2] +
-                                    pastKeyShape.getShape()[2]);
+    int64_t newKSeqLen =
+        ShapedType::isDynamic(kShape.getShape()[2]) ||
+                ShapedType::isDynamic(pastKeyShape.getShape()[2])
+            ? ShapedType::kDynamic
+            : (kShape.getShape()[2] + pastKeyShape.getShape()[2]);
     SmallVector<int64_t> kConcatShape = {kShape.getShape()[0],
         kShape.getShape()[1], newKSeqLen, kShape.getShape()[3]};
     Type kConcatType = RankedTensorType::get(kConcatShape, elementType);
@@ -448,12 +445,11 @@ LogicalResult lowerGrowingSizeKVCacheAttention(ONNXAttentionOp attentionOp,
   if (hasPastValue) {
     ShapedType vShape = mlir::cast<ShapedType>(V_reshaped.getType());
     ShapedType pastValueShape = mlir::cast<ShapedType>(pastValue.getType());
-    int64_t newVSeqLen = ShapedType::isDynamic(vShape.getShape()[2]) ||
-                                  ShapedType::isDynamic(
-                                      pastValueShape.getShape()[2])
-                              ? ShapedType::kDynamic
-                              : (vShape.getShape()[2] +
-                                    pastValueShape.getShape()[2]);
+    int64_t newVSeqLen =
+        ShapedType::isDynamic(vShape.getShape()[2]) ||
+                ShapedType::isDynamic(pastValueShape.getShape()[2])
+            ? ShapedType::kDynamic
+            : (vShape.getShape()[2] + pastValueShape.getShape()[2]);
     SmallVector<int64_t> vConcatShape = {vShape.getShape()[0],
         vShape.getShape()[1], newVSeqLen, vShape.getShape()[3]};
     Type vConcatType = RankedTensorType::get(vConcatShape, elementType);
@@ -560,8 +556,9 @@ LogicalResult lowerGrowingSizeKVCacheAttention(ONNXAttentionOp attentionOp,
   }
 
   // Step 5: Apply softmax over the last axis
-  Value probs = ONNXSoftmaxOp::create(rewriter, loc, qk_masked.getType(),
-      qk_masked, IntegerAttr::get(rewriter.getIntegerType(64, /*isSigned=*/true), -1));
+  Value probs =
+      ONNXSoftmaxOp::create(rewriter, loc, qk_masked.getType(), qk_masked,
+          IntegerAttr::get(rewriter.getIntegerType(64, /*isSigned=*/true), -1));
 
   // Step 6: MatMul(softmax(...), V)
   ShapedType vShape4D = mlir::cast<ShapedType>(V_reshaped.getType());
@@ -676,7 +673,7 @@ LogicalResult lowerONNXAttentionOp(ONNXAttentionOp attentionOp, Value Q,
   // nonpad_kv_seqlen says how many leading positions per batch are valid.
   // attn_mask is always None in this pattern.
   bool isFixedPattern = isNoneValue(attnMask) && !hasPastKey && !hasPastValue &&
-                         !isNoneValue(nonpadKvSeqlen);
+                        !isNoneValue(nonpadKvSeqlen);
 
   // The --kv-cache option, when set, overrides the pattern-based choice
   // above. Default ("") means: use the pattern-based choice as-is.
@@ -684,15 +681,17 @@ LogicalResult lowerONNXAttentionOp(ONNXAttentionOp attentionOp, Value Q,
   if (!kvCache.empty()) {
     if (kvCache == "fixed") {
       if (!useFixed)
-        return attentionOp.emitOpError("Unaccepted --kv-cache option value '" +
-            kvCache + "'; since the input of the op is not for fixed cache");
+        return attentionOp.emitOpError(
+            "Unaccepted --kv-cache option value '" + kvCache +
+            "'; since the input of the op is not for fixed cache");
       // else: useFixed stays true, proceed.
     } else if (kvCache == "growing") {
       // Will have more implementation in future
       useFixed = false;
     } else {
       return attentionOp.emitOpError("invalid --kv-cache option value '" +
-          kvCache + "'; expected 'fixed' or 'growing'");
+                                     kvCache +
+                                     "'; expected 'fixed' or 'growing'");
     }
   }
 
