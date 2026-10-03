@@ -275,6 +275,140 @@ def get_test_models():
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
+        # ==OP== Attention
+        # ==MIN== 23
+        # ==LIM== Only supports q_num_heads == kv_num_heads (no GQA/MQA). Does not support softcap, a non-default qk_matmul_output_mode, or sliding/local-window attention. Does not support bfloat16 combined with is_causal, or an attn_mask whose kv dimension is shorter than K/V's actual (padded) sequence length. Of the op's three KV-cache input patterns, only "no cache" and "external cache" (K/V already the full cache, nonpad_kv_seqlen given) are supported; "cache update inside the op" (past_key/past_value given) is not.
+        "test_attention_3d_cpu": {STATIC_SHAPE: {}},
+        "test_attention_3d_attn_mask_cpu": {STATIC_SHAPE: {}},
+        "test_attention_3d_causal_cpu": {STATIC_SHAPE: {}},
+        "test_attention_3d_diff_heads_sizes_cpu": {STATIC_SHAPE: {}},
+        "test_attention_3d_diff_heads_sizes_attn_mask_cpu": {STATIC_SHAPE: {}},
+        "test_attention_3d_diff_heads_sizes_causal_cpu": {STATIC_SHAPE: {}},
+        "test_attention_3d_diff_heads_sizes_scaled_cpu": {STATIC_SHAPE: {}},
+        "test_attention_3d_scaled_cpu": {STATIC_SHAPE: {}},
+        "test_attention_3d_transpose_verification_cpu": {STATIC_SHAPE: {}},
+        # GQA/MQA (kv_num_heads != q_num_heads, or K/V's num_heads != Q's for
+        # already-4D inputs) is not implemented; the compiler rejects it with
+        # an explicit error rather than mis-lowering it.
+        # "test_attention_3d_gqa_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_3d_gqa_attn_mask_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_3d_gqa_causal_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_3d_gqa_scaled_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_3d_gqa_softcap_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_3d_gqa_with_past_and_present_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_3d_local_window_cpu": {STATIC_SHAPE: {}},
+        # softcap is not implemented; the compiler rejects a non-zero softcap
+        # with an explicit error rather than ignoring it.
+        # "test_attention_3d_diff_heads_sizes_softcap_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_3d_softcap_cpu": {STATIC_SHAPE: {}},
+        # qk_matmul_output_mode != 0 (debug QK^T output) is not implemented;
+        # the compiler rejects a non-zero mode with an explicit error. A used
+        # qk_matmul_output with the (default) mode 0 instead fails later,
+        # trying to legalize an onnx.NoValue in its place.
+        # "test_attention_3d_with_past_and_present_qk_matmul_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_3d_with_past_and_present_qk_matmul_bias_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_3d_with_past_and_present_qk_matmul_softmax_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_3d_with_past_and_present_qk_matmul_softcap_cpu": {STATIC_SHAPE: {}},
+        # The "cache update inside the op" input pattern (past_key/past_value
+        # given) crashes in a pre-existing bug, not yet root-caused/fixed.
+        # "test_attention_3d_with_past_and_present_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_3d_diff_heads_with_past_and_present_cpu": {STATIC_SHAPE: {}},
+        # bfloat16 combined with is_causal crashes in a framework-level gap
+        # (MathBuilder::constant has no bfloat16 case), unrelated to this op.
+        # "test_attention_3d_causal_bf16_cpu": {STATIC_SHAPE: {}},
+        "test_attention_4d_cpu": {STATIC_SHAPE: {}},
+        "test_attention_4d_attn_mask_cpu": {STATIC_SHAPE: {}},
+        "test_attention_4d_attn_mask_3d_cpu": {STATIC_SHAPE: {}},
+        "test_attention_4d_attn_mask_3d_causal_cpu": {STATIC_SHAPE: {}},
+        "test_attention_4d_attn_mask_4d_cpu": {STATIC_SHAPE: {}},
+        "test_attention_4d_attn_mask_4d_causal_cpu": {STATIC_SHAPE: {}},
+        "test_attention_4d_attn_mask_bool_cpu": {STATIC_SHAPE: {}},
+        "test_attention_4d_attn_mask_bool_4d_cpu": {STATIC_SHAPE: {}},
+        "test_attention_4d_causal_cpu": {STATIC_SHAPE: {}},
+        "test_attention_4d_causal_nonpad_batch_prefill_cpu": {STATIC_SHAPE: {}},
+        "test_attention_4d_causal_nonpad_continued_prefill_cpu": {STATIC_SHAPE: {}},
+        "test_attention_4d_diff_heads_sizes_cpu": {STATIC_SHAPE: {}},
+        "test_attention_4d_diff_heads_sizes_attn_mask_cpu": {STATIC_SHAPE: {}},
+        "test_attention_4d_diff_heads_sizes_causal_cpu": {STATIC_SHAPE: {}},
+        "test_attention_4d_diff_heads_sizes_scaled_cpu": {STATIC_SHAPE: {}},
+        "test_attention_4d_scaled_cpu": {STATIC_SHAPE: {}},
+        # GQA/MQA, see the comment above the 3d_gqa entries.
+        # "test_attention_4d_gqa_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_gqa_attn_mask_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_gqa_causal_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_gqa_causal_nonpad_decode_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_gqa_causal_nonpad_decode_fp16_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_gqa_scaled_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_gqa_softcap_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_gqa_with_past_and_present_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_gqa_with_past_and_present_fp16_cpu": {STATIC_SHAPE: {}},
+        # softcap, see the comment above the 3d_softcap entries.
+        # "test_attention_4d_diff_heads_sizes_softcap_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_softcap_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_softcap_neginf_mask_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_softcap_neginf_mask_poison_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_with_qk_matmul_softcap_cpu": {STATIC_SHAPE: {}},
+        # qk_matmul_output_mode, see the comment above the
+        # 3d_with_past_and_present_qk_matmul entries.
+        # "test_attention_4d_with_qk_matmul_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_with_qk_matmul_bias_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_with_qk_matmul_softmax_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_with_past_and_present_qk_matmul_bias_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_with_past_and_present_qk_matmul_bias_3d_mask_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_with_past_and_present_qk_matmul_bias_3d_mask_causal_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_with_past_and_present_qk_matmul_bias_4d_mask_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_with_past_and_present_qk_matmul_bias_4d_mask_causal_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_23_fullymasked_qk_matmul_output_mode3_zero_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_24_fullymasked_qk_matmul_output_mode3_zero_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_24_qk_matmul_output_mode3_softmax_precision_cpu": {STATIC_SHAPE: {}},
+        # attn_mask with a kv dimension shorter than K/V's actual (padded)
+        # sequence length, combined with nonpad_kv_seqlen, is not
+        # implemented; the compiler rejects it with an explicit error.
+        # "test_attention_4d_causal_padded_kv_bf16_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_padded_kv_bf16_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_diff_heads_mask4d_padded_kv_cpu": {STATIC_SHAPE: {}},
+        # "cache update inside the op" input pattern, see the comment above
+        # the 3d_with_past_and_present entries.
+        # "test_attention_4d_with_past_and_present_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_with_past_and_present_qk_matmul_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_causal_with_past_and_present_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_diff_heads_with_past_and_present_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_diff_heads_with_past_and_present_mask3d_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_diff_heads_with_past_and_present_mask4d_cpu": {STATIC_SHAPE: {}},
+        # bfloat16 combined with is_causal, see the comment above the
+        # 3d_causal_bf16 entry.
+        # "test_attention_4d_attn_mask_causal_bf16_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_causal_bf16_cpu": {STATIC_SHAPE: {}},
+        # float16 numeric mismatch (not yet root-caused).
+        # "test_attention_4d_causal_fp16_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_fp16_cpu": {STATIC_SHAPE: {}},
+        # attn_mask combined with is_causal and nonpad_kv_seqlen produces a
+        # numeric mismatch (the composition is not fully correct yet).
+        # "test_attention_4d_causal_nonpad_attn_mask_composition_cpu": {STATIC_SHAPE: {}},
+        # A negative causal offset (more query tokens than cached keys)
+        # should fully mask the leading query rows (spec-mandated zero
+        # output), but produces a numeric mismatch instead.
+        # "test_attention_4d_causal_nonpad_negative_offset_structural_empty_cpu": {STATIC_SHAPE: {}},
+        "test_attention_local_window_default_cpu": {STATIC_SHAPE: {}},
+        "test_attention_local_window_ext_cache_float16_mask_cpu": {STATIC_SHAPE: {}},
+        # Sliding/local-window attention (left/right window size) is not
+        # implemented: the window is silently ignored, producing wrong
+        # (unwindowed) results instead of an error.
+        # "test_attention_bidirectional_window_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_local_window_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_local_window_ext_cache_rank2_mask_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_local_window_ext_cache_rank3_head_mask_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_local_window_ext_cache_rank4_batch_mask_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_local_window_rank1_boolean_mask_cpu": {STATIC_SHAPE: {}},
+        # GQA/MQA, see the comment above the 3d_gqa entries.
+        # "test_attention_local_window_gqa_rank4_mask_cpu": {STATIC_SHAPE: {}},
+        # "cache update inside the op" input pattern, see the comment above
+        # the 3d_with_past_and_present entries.
+        # "test_attention_local_window_with_past_cpu": {STATIC_SHAPE: {}},
+        # Fully-masked rows (e.g. from a boolean mask) produce NaN instead of
+        # the spec-mandated zero output row.
+        # "test_attention_23_boolmask_fullymasked_row_nan_robustness_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_causal_boolmask_nan_robustness_cpu": {STATIC_SHAPE: {}},
         # ==OP== AveragePool
         # ==MIN== 1
         # TODO: original comment stated "same_upper/lower with dynamic padding-shapes not supported."

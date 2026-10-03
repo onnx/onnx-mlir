@@ -16,6 +16,8 @@
 
 #include "src/Dialect/ONNX/ONNXOps/AttentionToONNXOps.hpp"
 
+#include <cmath>
+
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
@@ -41,6 +43,68 @@ Value createScalarFloatConstant(
   return create.onnx.constant(DenseElementsAttr::get(tensorType, {f}));
 }
 
+// f16's max finite magnitude (~65504) is small enough that -1e9 would
+// overflow to -inf, which can turn into NaN once multiple masks are summed
+// and then passed through Softmax's max-subtraction stabilization on a
+// fully-masked row. Use a smaller-magnitude value for f16 to stay safely
+// finite through that arithmetic.
+double negMaskValueFor(Type elementType) {
+  return elementType.isF16() ? -1.0e4 : -1.0e9;
+}
+
+// Computes the effective multiplicative scale applied to Q@K^T: the `scale`
+// attribute if present, else the spec's documented default of
+// 1/sqrt(head_size) (head_size = Q's last dim after reshaping to 4D).
+// Returns false (and leaves `scaleValue` unset) if `scale` is absent and
+// head_size is not statically known, since the default can't be computed.
+bool getEffectiveScale(
+    ONNXAttentionOp attentionOp, ShapedType qShape4D, float &scaleValue) {
+  auto scaleOpt = attentionOp.getScale();
+  if (scaleOpt) {
+    scaleValue = scaleOpt->convertToFloat();
+    return true;
+  }
+  int64_t headSize = qShape4D.getShape()[3];
+  if (ShapedType::isDynamic(headSize))
+    return false;
+  scaleValue = 1.0f / std::sqrt(static_cast<float>(headSize));
+  return true;
+}
+
+// Reshape a (batch, seq, hidden) tensor into (batch, numHeads, seq,
+// headSize), per the spec: split hidden into (numHeads, headSize) as
+// trailing dims via Reshape to (batch, seq, numHeads, headSize), THEN move
+// numHeads before seq via Transpose([0, 2, 1, 3]). A single Reshape
+// straight to (batch, numHeads, seq, headSize) is NOT equivalent -- it
+// would reinterpret the flat buffer without moving any data, scrambling
+// which (seq, head) pair each element belongs to.
+Value reshapeToMultiHead4D(MultiDialectBuilder<OnnxBuilder> &create, Value v,
+    int64_t batchSize, int64_t seqLen, int64_t numHeads, int64_t headSize,
+    Type elementType) {
+  SmallVector<int64_t> intermediateShape = {
+      batchSize, seqLen, numHeads, headSize};
+  Type intermediateType = RankedTensorType::get(intermediateShape, elementType);
+  Value shapeConst = create.onnx.constantInt64(intermediateShape);
+  Value intermediate = create.onnx.reshape(intermediateType, v, shapeConst);
+  SmallVector<int64_t> perm = {0, 2, 1, 3};
+  return create.onnx.transposeInt64(intermediate, perm);
+}
+
+// Inverse of reshapeToMultiHead4D: (batch, numHeads, seq, headSize) ->
+// (batch, seq, numHeads * headSize). Transpose back to (batch, seq,
+// numHeads, headSize) BEFORE flattening the trailing two dims with
+// Reshape, for the same reason as above.
+Value reshapeFromMultiHead4D(MultiDialectBuilder<OnnxBuilder> &create,
+    Value v, int64_t batchSize, int64_t seqLen, int64_t numHeads,
+    int64_t headSize, Type elementType) {
+  SmallVector<int64_t> perm = {0, 2, 1, 3};
+  Value transposed = create.onnx.transposeInt64(v, perm);
+  SmallVector<int64_t> finalShape = {batchSize, seqLen, numHeads * headSize};
+  Type finalType = RankedTensorType::get(finalShape, elementType);
+  Value shapeConst = create.onnx.constantInt64(finalShape);
+  return create.onnx.reshape(finalType, transposed, shapeConst);
+}
+
 // Build a rank-1 int64 constant [0, 1, ..., n-1], then reshape it to
 // `shape` (which must have exactly n elements total). Used to build the
 // query/key position-index tensors used by the mask construction below.
@@ -53,6 +117,36 @@ Value createReshapedRange(MultiDialectBuilder<OnnxBuilder> &create,
   Type reshapedType = RankedTensorType::get(shape, i64Type);
   Value shapeConst = create.onnx.constantInt64(shape);
   return create.onnx.reshape(reshapedType, range1D, shapeConst);
+}
+
+// Build a (qSeqLen, kvSeqLen) additive causal-mask constant for the
+// "scalar offset" causal case used by lowerGrowingSizeKVCacheAttention:
+// query position i (0-indexed in the current Q chunk) may attend kv
+// position j (0-indexed in the full, already-concatenated K) iff
+// j <= i + offset, where offset is the number of KV positions that
+// preceded this Q chunk (0 with no past_key, or past_key's sequence length
+// when continuing a cache). Unlike lowerFixedSizeKVCacheAttention's causal
+// mask, offset here is the same for every batch element, so the whole
+// (qSeqLen, kvSeqLen) mask is a compile-time constant -- no Less/Where ops
+// needed.
+Value createScalarOffsetCausalMaskConstant(
+    MultiDialectBuilder<OnnxBuilder> &create, Type elementType,
+    int64_t qSeqLen, int64_t kvSeqLen, int64_t offset) {
+  auto floatType = mlir::cast<FloatType>(elementType);
+  APFloat zeroF(0.0), negF(negMaskValueFor(elementType));
+  bool losesInfo;
+  zeroF.convert(
+      floatType.getFloatSemantics(), APFloat::rmNearestTiesToEven, &losesInfo);
+  negF.convert(
+      floatType.getFloatSemantics(), APFloat::rmNearestTiesToEven, &losesInfo);
+  SmallVector<APFloat> vals;
+  vals.reserve(qSeqLen * kvSeqLen);
+  for (int64_t i = 0; i < qSeqLen; ++i)
+    for (int64_t j = 0; j < kvSeqLen; ++j)
+      vals.push_back(j <= i + offset ? zeroF : negF);
+  auto causalType = RankedTensorType::get({qSeqLen, kvSeqLen}, elementType);
+  return create.onnx.constant(
+      DenseElementsAttr::get(causalType, ArrayRef<APFloat>(vals)));
 }
 
 // Lower the "fixed-size KV cache" input pattern of onnx.Attention:
@@ -74,8 +168,12 @@ Value createReshapedRange(MultiDialectBuilder<OnnxBuilder> &create,
 //
 // Scope limits (not handled here, same as the generic path):
 // - kv_num_heads vs q_num_heads (GQA/MQA): reshapes K/V using q_num_heads,
-//   same simplification the generic path already makes.
-// - softcap, softmax_precision, qk_matmul_output_mode are ignored.
+//   same simplification the generic path already makes. Rejected with an
+//   explicit error by checkSupportedAttentionAttributes() below rather than
+//   silently mis-lowered when kv_num_heads != q_num_heads.
+// - softcap, softmax_precision, qk_matmul_output_mode: not implemented;
+//   also rejected with an explicit error by
+//   checkSupportedAttentionAttributes() when set to a non-default value.
 // - Requires K's sequence length (the fixed cache size) and Q's sequence
 //   length (the number of new query tokens) to be statically known;
 //   otherwise returns failure().
@@ -106,10 +204,8 @@ LogicalResult lowerFixedSizeKVCacheAttention(ONNXAttentionOp attentionOp,
       return failure();
     int64_t headSize = qHiddenSize / qNumHeads;
 
-    SmallVector<int64_t> qNewShape = {batchSize, qNumHeads, qSeqLen, headSize};
-    Type qNewType = RankedTensorType::get(qNewShape, elementType);
-    Value reshapeShapeQ = create.onnx.constantInt64(qNewShape);
-    Q_reshaped = create.onnx.reshape(qNewType, Q, reshapeShapeQ);
+    Q_reshaped = reshapeToMultiHead4D(
+        create, Q, batchSize, qSeqLen, qNumHeads, headSize, elementType);
 
     ShapedType kType = mlir::cast<ShapedType>(K.getType());
     ArrayRef<int64_t> kShape = kType.getShape();
@@ -117,22 +213,16 @@ LogicalResult lowerFixedSizeKVCacheAttention(ONNXAttentionOp attentionOp,
     int64_t kHiddenSize = kShape[2];
     if (ShapedType::isDynamic(kHiddenSize))
       return failure();
-    SmallVector<int64_t> kNewShape = {
-        batchSize, qNumHeads, kSeqLen, kHiddenSize / qNumHeads};
-    Type kNewType = RankedTensorType::get(kNewShape, elementType);
-    Value reshapeShapeK = create.onnx.constantInt64(kNewShape);
-    K_reshaped = create.onnx.reshape(kNewType, K, reshapeShapeK);
+    K_reshaped = reshapeToMultiHead4D(create, K, batchSize, kSeqLen, qNumHeads,
+        kHiddenSize / qNumHeads, elementType);
 
     ShapedType vType = mlir::cast<ShapedType>(V.getType());
     ArrayRef<int64_t> vShape = vType.getShape();
     int64_t vHiddenSize = vShape[2];
     if (ShapedType::isDynamic(vHiddenSize))
       return failure();
-    SmallVector<int64_t> vNewShape = {
-        batchSize, qNumHeads, kSeqLen, vHiddenSize / qNumHeads};
-    Type vNewType = RankedTensorType::get(vNewShape, elementType);
-    Value reshapeShapeV = create.onnx.constantInt64(vNewShape);
-    V_reshaped = create.onnx.reshape(vNewType, V, reshapeShapeV);
+    V_reshaped = reshapeToMultiHead4D(create, V, batchSize, kSeqLen, qNumHeads,
+        vHiddenSize / qNumHeads, elementType);
   }
 
   ShapedType qShape4D = mlir::cast<ShapedType>(Q_reshaped.getType());
@@ -146,14 +236,9 @@ LogicalResult lowerFixedSizeKVCacheAttention(ONNXAttentionOp attentionOp,
   if (ShapedType::isDynamic(kvSeqLen) || ShapedType::isDynamic(qSeqLen))
     return failure();
 
-  // f16's max finite magnitude (~65504) is small enough that -1e9 would
-  // overflow to -inf, which can turn into NaN once the causal and padding
-  // masks are summed and then passed through Softmax's max-subtraction
-  // stabilization on a fully-masked row. Use a smaller-magnitude value for
-  // f16 to stay safely finite through that arithmetic.
-  double negMaskValue = elementType.isF16() ? -1.0e4 : -1.0e9;
   Value zeroConst = createScalarFloatConstant(create, elementType, 0.0);
-  Value negConst = createScalarFloatConstant(create, elementType, negMaskValue);
+  Value negConst = createScalarFloatConstant(
+      create, elementType, negMaskValueFor(elementType));
 
   Type i64Type = rewriter.getI64Type();
   Value kvPositions =
@@ -227,13 +312,13 @@ LogicalResult lowerFixedSizeKVCacheAttention(ONNXAttentionOp attentionOp,
   Value qk = create.onnx.matmul(qkType, Q_reshaped, K_transposed);
 
   Value qk_scaled = qk;
-  auto scaleOpt = attentionOp.getScale();
-  if (scaleOpt) {
-    float scaleValue = scaleOpt->convertToFloat();
-    if (scaleValue != 1.0f) {
-      Value scaleConstant = create.onnx.constantFloat32({scaleValue});
-      qk_scaled = create.onnx.mul(qk, scaleConstant);
-    }
+  float scaleValue;
+  if (!getEffectiveScale(attentionOp, qShape4D, scaleValue))
+    return failure();
+  if (scaleValue != 1.0f) {
+    Value scaleConstant =
+        createScalarFloatConstant(create, elementType, scaleValue);
+    qk_scaled = create.onnx.mul(qk, scaleConstant);
   }
 
   Value qk_masked = create.onnx.add(qk_scaled, attnMaskFinal);
@@ -255,11 +340,8 @@ LogicalResult lowerFixedSizeKVCacheAttention(ONNXAttentionOp attentionOp,
     int64_t numHeads = resultShape[1];
     int64_t qSeqLenOut = resultShape[2];
     int64_t headSize = resultShape[3];
-    SmallVector<int64_t> finalShape = {
-        batchSize, qSeqLenOut, numHeads * headSize};
-    Type finalType = RankedTensorType::get(finalShape, elementType);
-    Value reshapeShapeFinal = create.onnx.constantInt64(finalShape);
-    result_final = create.onnx.reshape(finalType, result, reshapeShapeFinal);
+    result_final = reshapeFromMultiHead4D(
+        create, result, batchSize, qSeqLenOut, numHeads, headSize, elementType);
   }
 
   Value noneVal = create.onnx.none();
@@ -317,10 +399,8 @@ LogicalResult lowerGrowingSizeKVCacheAttention(ONNXAttentionOp attentionOp,
     int64_t headSize = qHiddenSize / qNumHeads;
 
     // Reshape Q: (B, S, H) -> (B, qNumHeads, S, H/qNumHeads)
-    SmallVector<int64_t> qNewShape = {batchSize, qNumHeads, qSeqLen, headSize};
-    Type qNewType = RankedTensorType::get(qNewShape, elementType);
-    Value reshapeShapeQ = create.onnx.constantInt64(qNewShape);
-    Q_reshaped = create.onnx.reshape(qNewType, Q, reshapeShapeQ);
+    Q_reshaped = reshapeToMultiHead4D(
+        create, Q, batchSize, qSeqLen, qNumHeads, headSize, elementType);
 
     // Reshape K: (B, S', H) -> (B, qNumHeads, S', H/qNumHeads)
     ShapedType kType = mlir::cast<ShapedType>(K.getType());
@@ -332,11 +412,8 @@ LogicalResult lowerGrowingSizeKVCacheAttention(ONNXAttentionOp attentionOp,
       return failure();
     }
 
-    SmallVector<int64_t> kNewShape = {
-        batchSize, qNumHeads, kSeqLen, kHiddenSize / qNumHeads};
-    Type kNewType = RankedTensorType::get(kNewShape, elementType);
-    Value reshapeShapeK = create.onnx.constantInt64(kNewShape);
-    K_reshaped = create.onnx.reshape(kNewType, K, reshapeShapeK);
+    K_reshaped = reshapeToMultiHead4D(create, K, batchSize, kSeqLen, qNumHeads,
+        kHiddenSize / qNumHeads, elementType);
 
     // Reshape V: (B, S', V_H) -> (B, qNumHeads, S', V_H/qNumHeads)
     ShapedType vType = mlir::cast<ShapedType>(V.getType());
@@ -347,11 +424,8 @@ LogicalResult lowerGrowingSizeKVCacheAttention(ONNXAttentionOp attentionOp,
       return failure();
     }
 
-    SmallVector<int64_t> vNewShape = {
-        batchSize, qNumHeads, kSeqLen, vHiddenSize / qNumHeads};
-    Type vNewType = RankedTensorType::get(vNewShape, elementType);
-    Value reshapeShapeV = create.onnx.constantInt64(vNewShape);
-    V_reshaped = create.onnx.reshape(vNewType, V, reshapeShapeV);
+    V_reshaped = reshapeToMultiHead4D(create, V, batchSize, kSeqLen, qNumHeads,
+        vHiddenSize / qNumHeads, elementType);
   }
 
   // Concatenate past_key with K if present
@@ -402,19 +476,87 @@ LogicalResult lowerGrowingSizeKVCacheAttention(ONNXAttentionOp attentionOp,
 
   // Step 3: Apply scaling if needed
   Value qk_scaled = qk;
-  auto scaleOpt = attentionOp.getScale();
-  if (scaleOpt) {
-    float scaleValue = scaleOpt->convertToFloat();
-    if (scaleValue != 1.0f) {
-      Value scaleConstant = create.onnx.constantFloat32({scaleValue});
-      qk_scaled = create.onnx.mul(qk, scaleConstant);
-    }
+  float scaleValue;
+  if (!getEffectiveScale(attentionOp, qShape4D, scaleValue))
+    return failure();
+  if (scaleValue != 1.0f) {
+    Value scaleConstant =
+        createScalarFloatConstant(create, elementType, scaleValue);
+    qk_scaled = create.onnx.mul(qk, scaleConstant);
   }
 
-  // Step 4: Add attention mask if present
+  // Step 4: Add attention mask if present, then a causal mask on top if
+  // is_causal is set (the two combine additively, matching the ONNX
+  // reference implementation).
   Value qk_masked = qk_scaled;
   if (!isNoneValue(attnMask)) {
-    qk_masked = create.onnx.add(qk_scaled, attnMask);
+    // attn_mask's kv dimension is allowed by the spec to be shorter than
+    // K/V's actual (padded) sequence length when nonpad_kv_seqlen is also
+    // given, which this function does not implement (only
+    // lowerFixedSizeKVCacheAttention above handles that case, where
+    // attn_mask itself is None). Reject the mismatch explicitly instead of
+    // letting the Add below hit a broadcast-shape assertion.
+    ShapedType attnMaskType = mlir::cast<ShapedType>(attnMask.getType());
+    int64_t maskKvLen = attnMaskType.getShape().back();
+    int64_t kvSeqLenForMask =
+        mlir::cast<ShapedType>(K_reshaped.getType()).getShape()[2];
+    if (!ShapedType::isDynamic(maskKvLen) &&
+        !ShapedType::isDynamic(kvSeqLenForMask) && maskKvLen != 1 &&
+        maskKvLen != kvSeqLenForMask)
+      return attentionOp.emitOpError(
+          "unsupported: attn_mask's kv dimension (" +
+          std::to_string(maskKvLen) +
+          ") does not match K/V's sequence length (" +
+          std::to_string(kvSeqLenForMask) +
+          "); a shorter attn_mask combined with nonpad_kv_seqlen is not "
+          "implemented");
+
+    // attn_mask is either a boolean mask (True = take part in attention) or
+    // a float bias of Q/K/V's element type added directly to the scores.
+    // Convert the boolean case to an additive bias; anything else (an
+    // integer type other than i1) is not implemented.
+    Value additiveMask = attnMask;
+    Type maskElemType = attnMaskType.getElementType();
+    if (maskElemType.isInteger(1)) {
+      Value zeroConst = createScalarFloatConstant(create, elementType, 0.0);
+      Value negConst = createScalarFloatConstant(
+          create, elementType, negMaskValueFor(elementType));
+      Type additiveMaskType =
+          RankedTensorType::get(attnMaskType.getShape(), elementType);
+      additiveMask =
+          create.onnx.where(additiveMaskType, attnMask, zeroConst, negConst);
+    } else if (maskElemType != elementType) {
+      return attentionOp.emitOpError(
+          "unsupported: attn_mask element type must be either i1 (boolean) "
+          "or the same float type as Q/K/V; other integer attn_mask types "
+          "are not implemented");
+    }
+    qk_masked = create.onnx.add(qk_scaled, additiveMask);
+  }
+  if (attentionOp.getIsCausal() != 0) {
+    // The causal frontier is anchored to the end of the (possibly
+    // past_key-extended) KV sequence: query i (0-indexed in this Q chunk)
+    // may attend kv position j (0-indexed in the full, post-concat K) iff
+    // j <= i + offset, where offset is the number of KV positions already
+    // in the cache before this chunk (0 with no past_key, else past_key's
+    // sequence length).
+    int64_t qSeqLenForCausal = qShape4D.getShape()[2];
+    int64_t kvSeqLenForCausal =
+        mlir::cast<ShapedType>(K_reshaped.getType()).getShape()[2];
+    if (ShapedType::isDynamic(qSeqLenForCausal) ||
+        ShapedType::isDynamic(kvSeqLenForCausal))
+      return failure();
+    int64_t offset = 0;
+    if (hasPastKey) {
+      int64_t pastKeySeqLen =
+          mlir::cast<ShapedType>(pastKey.getType()).getShape()[2];
+      if (ShapedType::isDynamic(pastKeySeqLen))
+        return failure();
+      offset = pastKeySeqLen;
+    }
+    Value causalMask = createScalarOffsetCausalMaskConstant(
+        create, elementType, qSeqLenForCausal, kvSeqLenForCausal, offset);
+    qk_masked = create.onnx.add(qk_masked, causalMask);
   }
 
   // Step 5: Apply softmax over the last axis
@@ -437,11 +579,8 @@ LogicalResult lowerGrowingSizeKVCacheAttention(ONNXAttentionOp attentionOp,
     int64_t numHeads = resultShape[1];
     int64_t qSeqLen = resultShape[2];
     int64_t headSize = resultShape[3];
-
-    SmallVector<int64_t> finalShape = {batchSize, qSeqLen, numHeads * headSize};
-    Type finalType = RankedTensorType::get(finalShape, elementType);
-    Value reshapeShapeFinal = create.onnx.constantInt64(finalShape);
-    result_final = create.onnx.reshape(finalType, result, reshapeShapeFinal);
+    result_final = reshapeFromMultiHead4D(
+        create, result, batchSize, qSeqLen, numHeads, headSize, elementType);
   }
 
   // Create the none value for optional outputs
@@ -468,11 +607,67 @@ LogicalResult lowerGrowingSizeKVCacheAttention(ONNXAttentionOp attentionOp,
   return success();
 }
 
+// Reject attribute combinations that neither lowering function above
+// correctly implements, instead of silently ignoring them and producing
+// wrong results. Both paths share these gaps (see the "Scope limits" note
+// on lowerFixedSizeKVCacheAttention above).
+LogicalResult checkSupportedAttentionAttributes(ONNXAttentionOp attentionOp) {
+  // GQA/MQA (kv_num_heads < q_num_heads): both lowering functions reshape
+  // K/V using q_num_heads, which is only correct when kv_num_heads equals
+  // q_num_heads (plain MHA).
+  auto kvNumHeadsAttr = attentionOp.getKvNumHeads();
+  if (kvNumHeadsAttr.has_value()) {
+    auto qNumHeadsAttr = attentionOp.getQNumHeads();
+    int64_t qNumHeads = qNumHeadsAttr.has_value() ? qNumHeadsAttr.value() : 1;
+    if (kvNumHeadsAttr.value() != qNumHeads)
+      return attentionOp.emitOpError(
+          "unsupported: kv_num_heads (" +
+          std::to_string(kvNumHeadsAttr.value()) + ") != q_num_heads (" +
+          std::to_string(qNumHeads) +
+          "); grouped/multi-query attention (GQA/MQA) is not implemented");
+  }
+
+  // For already-4D inputs there is no kv_num_heads/q_num_heads attribute to
+  // check: the head count is just dim 1 of Q/K's shape. Catch a GQA/MQA
+  // mismatch there too, instead of letting it reach a lowering that assumes
+  // Q and K share the same head count and crashes on the shape mismatch.
+  auto qType = mlir::dyn_cast<ShapedType>(attentionOp.getQ().getType());
+  auto kType = mlir::dyn_cast<ShapedType>(attentionOp.getK().getType());
+  if (qType && kType && qType.getRank() == 4 && kType.getRank() == 4) {
+    int64_t qHeads = qType.getShape()[1];
+    int64_t kHeads = kType.getShape()[1];
+    if (!ShapedType::isDynamic(qHeads) && !ShapedType::isDynamic(kHeads) &&
+        qHeads != kHeads)
+      return attentionOp.emitOpError(
+          "unsupported: K/V's num_heads (" + std::to_string(kHeads) +
+          ") != Q's num_heads (" + std::to_string(qHeads) +
+          "); grouped/multi-query attention (GQA/MQA) is not implemented");
+  }
+
+  if (attentionOp.getSoftcap().convertToFloat() != 0.0f)
+    return attentionOp.emitOpError(
+        "unsupported: non-zero softcap attribute is not implemented");
+
+  if (attentionOp.getQkMatmulOutputMode() != 0)
+    return attentionOp.emitOpError(
+        "unsupported: qk_matmul_output_mode != 0 is not implemented "
+        "(qk_matmul_output is never computed by this lowering)");
+
+  if (attentionOp.getSoftmaxPrecision().has_value())
+    return attentionOp.emitOpError(
+        "unsupported: softmax_precision attribute is not implemented");
+
+  return success();
+}
+
 } // namespace
 
 LogicalResult lowerONNXAttentionOp(ONNXAttentionOp attentionOp, Value Q,
     Value K, Value V, Value attnMask, Value pastKey, Value pastValue,
     Value nonpadKvSeqlen, PatternRewriter &rewriter) {
+  if (failed(checkSupportedAttentionAttributes(attentionOp)))
+    return failure();
+
   bool hasPastKey = !isNoneValue(pastKey);
   bool hasPastValue = !isNoneValue(pastValue);
 
@@ -488,8 +683,12 @@ LogicalResult lowerONNXAttentionOp(ONNXAttentionOp attentionOp, Value Q,
   bool useFixed = isFixedPattern;
   if (!kvCache.empty()) {
     if (kvCache == "fixed") {
-      useFixed = true;
+      if (!useFixed)
+        return attentionOp.emitOpError("Unaccepted --kv-cache option value '" +
+            kvCache + "'; since the input of the op is not for fixed cache");
+      // else: useFixed stays true, proceed.
     } else if (kvCache == "growing") {
+      // Will have more implementation in future
       useFixed = false;
     } else {
       return attentionOp.emitOpError("invalid --kv-cache option value '" +
