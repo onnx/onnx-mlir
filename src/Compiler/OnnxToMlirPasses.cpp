@@ -176,8 +176,25 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   pm.addPass(mlir::createSymbolDCEPass());
 
   // Replace every DisposableElementsAttr with DenseElementsAttr.
+  //
+  // AIESW-46865: pass closeAfter=false (default is true) -- scrub still runs
+  // exactly as before, materializing every constant to Dense in one blanket
+  // pass, so there's no regression to whatever non-weight-related cost the
+  // rest of this onnx-to-onnx pipeline has. The only change is that the
+  // DisposablePool isn't permanently closed afterward: DMAC's own later
+  // passes build zero-copy *views* of already-Dense weight data (e.g. the
+  // int4/uint4 hw_transpose tag step's reshape-only relabel) by wrapping it
+  // in a fresh DisposableElementsAttr -- but DisposablePool::createElementsAttr
+  // silently falls back to a real copy-via-DenseElementsAttr construction
+  // whenever the pool is inactive (see its "otherwise returns conversion to
+  // DenseElementsAttr" comment), which is exactly what closeAfter=true does
+  // right here. Measured: that fallback was duplicating every int4/uint4
+  // weight touched by the hw_transpose tag step, a dominant (single largest
+  // observed jump, ~12GB on one real model) and entirely avoidable
+  // contributor to DMAC frontend peak memory, once scrub has already made
+  // everything Dense by the time DMAC's own passes run.
   if (!donotScrubDisposableElementsAttr)
-    pm.addPass(createScrubDisposablePass());
+    pm.addPass(createScrubDisposablePass(/*closeAfter=*/false));
 
   // Set onnx_node_name if it is missing. Keep this pass at the end of this
   // function and just before instrumentation.

@@ -18,6 +18,7 @@
 #include "llvm/Support/Endian.h"
 
 #include <algorithm>
+#include <atomic>
 #include <string>
 
 using namespace onnx_mlir;
@@ -196,13 +197,31 @@ std::unique_ptr<llvm::MemoryBuffer> DisposableElementsAttr::parse(
   }
 }
 
+namespace {
+// AIESW-46865: see setPrintElisionThreshold's doc comment in the header.
+// -1 means "no override", preserving prior behavior exactly.
+std::atomic<int64_t> gPrintElisionThreshold{-1};
+}
+
+void DisposableElementsAttr::setPrintElisionThreshold(
+    int64_t elideLargerThanOrNegativeOne) {
+  gPrintElisionThreshold.store(elideLargerThanOrNegativeOne);
+}
+
 void DisposableElementsAttr::printWithoutType(AsmPrinter &printer) const {
   // It would be ideal if we could read the printer flags from printer instead
   // of constructing them here, because printer may have been constructed with
   // an override of elideLargeElementsAttrs which we cannot see here.
   // Oh well, at least OpPrintingFlags().shouldElideElementsAttr(ElementsAttr)
   // lets us respect the --mlir-elide-elementsattrs-if-larger command line flag.
-  static OpPrintingFlags printerFlags{};
+  //
+  // AIESW-46865: ...except when a caller has set an explicit override via
+  // setPrintElisionThreshold, in which case use that instead of the default
+  // (which never elides, since OpPrintingFlags{}'s threshold is unset).
+  OpPrintingFlags printerFlags;
+  int64_t threshold = gPrintElisionThreshold.load();
+  if (threshold >= 0)
+    printerFlags.elideLargeElementsAttrs(threshold);
   printer << getMnemonic() << "<" << getImpl()->id << ":";
   if (!printerFlags.shouldElideElementsAttr(*this)) {
     auto rawBytes = getRawBytes();
@@ -227,7 +246,11 @@ void DisposableElementsAttr::printWithoutType(AsmPrinter &printer) const {
 
 void DisposableElementsAttr::printAsDenseElementsAttr(
     AsmPrinter &printer) const {
-  static OpPrintingFlags printerFlags{};
+  // AIESW-46865: see printWithoutType above.
+  OpPrintingFlags printerFlags;
+  int64_t threshold = gPrintElisionThreshold.load();
+  if (threshold >= 0)
+    printerFlags.elideLargeElementsAttrs(threshold);
   if (isSplat() || !printerFlags.shouldElideElementsAttr(*this)) {
     // Take shortcut by first converting to DenseElementsAttr.
     // NOTE: This creates a copy which is never garbage collected. This is not
