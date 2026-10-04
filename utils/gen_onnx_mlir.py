@@ -499,6 +499,9 @@ OpsWithHelpers = {
 # Ops that declare MLIR ReifyRankedShapedTypeOpInterface (reifyResultShapes).
 OpsWithReifyResultShapes = {
     "Add",
+    "Div",
+    "Mul",
+    "Sub",
 }
 
 OpsWithResultTypeInference = [
