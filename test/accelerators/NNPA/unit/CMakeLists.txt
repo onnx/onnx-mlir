@@ -57,9 +57,12 @@ add_nnpa_unittest(TestStickifyRNN
   ${CMAKE_INCLUDE_OUTPUT_DIRECTORY}
   ${ONNX_MLIR_SRC_ROOT}/src
 
+  DEPENDS
+  libzdnn
+
   LINK_LIBS PRIVATE
   OMStickify
-  libzdnn
+  ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libzdnn.a
   )
 
 # ---------------------------------------------------------------------------
@@ -72,7 +75,10 @@ add_nnpa_unittest(TestZdnnxCreateView
   ${CMAKE_INCLUDE_OUTPUT_DIRECTORY}
   ${NNPA_ZDNNX_SRC_DIR}
 
+  DEPENDS
+  libzdnn
+
   LINK_LIBS PRIVATE
   RuntimeNNPA
-  libzdnn
+  ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libzdnn.a
   )
