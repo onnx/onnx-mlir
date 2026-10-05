@@ -528,22 +528,6 @@ public:
 //===----------------------------------------------------------------------===//
 // Patterns Layout Transform.
 
-bool hasStaticInnermostDimWithMod(Value val, int64_t mod) {
-  // First constraint for ZHighExtendedLayoutTransformOp
-  if (!hasShapeAndRank(val))
-    return false;
-  ShapedType type = mlir::cast<ShapedType>(val.getType());
-  auto shape = type.getShape();
-  int64_t rank = type.getRank();
-  if (rank == 0)
-    return false; // Is a scalar.
-  if (shape[rank - 1] == ShapedType::kDynamic)
-    return false; // Non-static.
-  if (mod > 1 && shape[rank - 1] % mod != 0)
-    return false; // Does not satisfy mod constraint.
-  return true;
-}
-
 bool doesTransposeLeaveInnermostInPlace(mlir::ArrayAttr &permute) {
   int64_t rank = ArrayAttrSize(permute);
   return ArrayAttrIntVal(permute, rank - 1) == rank - 1;
@@ -677,9 +661,9 @@ public:
             inputData, /*nhwc*/ false))
       return notifyFailure(
           layoutTransform, nullptr, "Compiler unsupported zTensor input");
-    if (!hasStaticInnermostDimWithMod(inputData, 64))
+    if (getExtendedLayoutTransformInnerTile(inputData.getType()) == 0)
       return notifyFailure(layoutTransform, nullptr,
-          "Compiler unsupported innermost dim (static, mod 64)");
+          "Compiler unsupported innermost dim (static, mod 64 or 32)");
 
     // Look for a reshape split.
     resultVal = layoutTransform.getOutput();
@@ -865,6 +849,19 @@ using FusedPatternsForExpandMulStick =
 using FusedPatternsForConcatExpandStick =
     FusedPatternForOpKind<ONNXConcatOp, ConcatExpandStickFusionHelper>;
 
+// Anchors on ZHighUnstickOp (head of the chain); UnstickSplitHeadsFusionHelper
+// walks forward through Reshape -> optional Transpose -> Split.
+using FusedPatternsForUnstickSplitHeads =
+    FusedPatternForOpKind<ZHighUnstickOp, UnstickSplitHeadsFusionHelper>;
+
+// Anchors on the ONNXAddOp / ONNXSubOp join; MulAddStickFusionHelper walks
+// back to the two Muls feeding it, then forward through an optional scalar
+// Mul -> Reshape -> ZHighStickOp.
+using FusedPatternsForMulAddStick =
+    FusedPatternForOpKind<ONNXAddOp, MulAddStickFusionHelper>;
+using FusedPatternsForMulSubStick =
+    FusedPatternForOpKind<ONNXSubOp, MulAddStickFusionHelper>;
+
 //===----------------------------------------------------------------------===//
 // Pass.
 
@@ -944,6 +941,16 @@ struct FusionOpStickUnstick
           &getContext(), dimAnalysis);
       patterns.insert<FusedPatternsForExpandMulStick>(
           &getContext(), dimAnalysis);
+      // Anchored on ZHighUnstickOp, like PatternsStartingFromUnstick, but
+      // the two never compete: that one needs an elementwise consumer of the
+      // unstick, this one a Reshape. Its benefit (kMaxOpCount) is also higher.
+      patterns.insert<FusedPatternsForUnstickSplitHeads>(
+          &getContext(), dimAnalysis);
+      // No other pattern anchors on Add / Sub. The required Reshape before
+      // the Stick also keeps PatternsEndingWithStick from fusing the chain's
+      // last compute op with the Stick first.
+      patterns.insert<FusedPatternsForMulAddStick>(&getContext(), dimAnalysis);
+      patterns.insert<FusedPatternsForMulSubStick>(&getContext(), dimAnalysis);
       // Merge in the general (non-accelerator-specific) fusion kinds here
       // too, so NNPA builds only ever run one fusion pass, at the point
       // this pass already forms fused ops (late, after most optimizations).
