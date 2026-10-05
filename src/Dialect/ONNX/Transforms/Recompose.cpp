@@ -649,6 +649,122 @@ struct RecomposeQLinearMatMulFromQuantizeLinearPattern
   }
 };
 
+// Rewrite a MatMul whose every user is a Slice along the last axis, and whose
+// B input is a constant, into one MatMul per Slice on a sliced copy of B:
+//
+//   %y = onnx.MatMul(%x, %w_const)
+//   %s0 = onnx.Slice(%y, start0, end0, axis=-1, step=1)
+//   %s1 = onnx.Slice(%y, start1, end1, axis=-1, step=1)
+// =>
+//   %s0 = onnx.MatMul(%x, onnx.Slice(%w_const, start0, end0, axis=-1, step=1))
+//   %s1 = onnx.MatMul(%x, onnx.Slice(%w_const, start1, end1, axis=-1, step=1))
+//
+// The Slices of the constant are later folded by constant propagation. This
+// pattern is typical of gated MLPs (SwiGLU/GeGLU), where the gate and up
+// projections are emitted as a single MatMul followed by two Slices.
+// Requiring all users to be such Slices, whose widths add up to at most the
+// width of the original MatMul output, ensures no MatMul work is added: the
+// new MatMuls cost the sum of the Slice widths, the original one the full
+// width. Overlapping Slices thus only qualify when gaps make up for the
+// overlap.
+// Each Slice must also be at least minSliceWidth wide. This bounds the cost of
+// re-reading X once per new MatMul, and on NNPA the cost of padding each new
+// MatMul's last dimension to a multiple of 64 (at most 64/minSliceWidth extra
+// work).
+// Finally, the constant B must have no other user, so that it is replaced by
+// its slices instead of being kept alongside them.
+struct SplitMatMulBySlicePattern : public OpRewritePattern<ONNXMatMulOp> {
+  using OpRewritePattern<ONNXMatMulOp>::OpRewritePattern;
+
+  static constexpr int64_t minSliceWidth = 256;
+
+  LogicalResult matchAndRewrite(
+      ONNXMatMulOp matmulOp, PatternRewriter &rewriter) const final {
+    Value A = matmulOp.getA();
+    Value B = matmulOp.getB();
+    Value Y = matmulOp.getY();
+    if (!onnx_mlir::isDenseONNXConstant(B))
+      return rewriter.notifyMatchFailure(matmulOp, "B is not a constant");
+    auto bType = mlir::dyn_cast<RankedTensorType>(B.getType());
+    auto yType = mlir::dyn_cast<RankedTensorType>(Y.getType());
+    if (!bType || !yType || !bType.hasStaticShape() || bType.getRank() < 2)
+      return rewriter.notifyMatchFailure(
+          matmulOp, "B must be static with rank >= 2, Y must be ranked");
+    int64_t yRank = yType.getRank();
+    int64_t N = bType.getShape().back();
+    if (Y.use_empty())
+      return rewriter.notifyMatchFailure(matmulOp, "no users");
+
+    // Every user must be a Slice of Y along the last axis with step 1 and
+    // constant bounds. Record the normalized [start, end) of each.
+    SmallVector<std::tuple<ONNXSliceOp, int64_t, int64_t>> slices;
+    int64_t totalWidth = 0;
+    for (Operation *user : Y.getUsers()) {
+      auto sliceOp = mlir::dyn_cast<ONNXSliceOp>(user);
+      if (!sliceOp || sliceOp.getData() != Y)
+        return rewriter.notifyMatchFailure(matmulOp, "user is not a Slice");
+      SmallVector<int64_t, 1> starts, ends, axes, steps;
+      if (!onnx_mlir::getI64ValuesFromONNXConstantOp(
+              sliceOp.getStarts(), starts) ||
+          !onnx_mlir::getI64ValuesFromONNXConstantOp(sliceOp.getEnds(), ends) ||
+          !onnx_mlir::getI64ValuesFromONNXConstantOp(sliceOp.getAxes(), axes) ||
+          !onnx_mlir::getI64ValuesFromONNXConstantOp(sliceOp.getSteps(), steps))
+        return rewriter.notifyMatchFailure(
+            matmulOp, "Slice parameters are not constants");
+      if (starts.size() != 1 || ends.size() != 1 || axes.size() != 1 ||
+          steps.size() != 1)
+        return rewriter.notifyMatchFailure(matmulOp, "Slice is not 1D");
+      if ((axes[0] != -1 && axes[0] != yRank - 1) || steps[0] != 1)
+        return rewriter.notifyMatchFailure(
+            matmulOp, "Slice is not on the last axis with step 1");
+      auto normalize = [N](int64_t v) {
+        if (v < 0)
+          v += N;
+        return std::clamp<int64_t>(v, 0, N);
+      };
+      int64_t start = normalize(starts[0]);
+      int64_t end = normalize(ends[0]);
+      if (end - start < minSliceWidth)
+        return rewriter.notifyMatchFailure(matmulOp, "Slice is too narrow");
+      slices.emplace_back(sliceOp, start, end);
+      totalWidth += end - start;
+    }
+    if (totalWidth > N)
+      return rewriter.notifyMatchFailure(
+          matmulOp, "Slices overlap: splitting would add MatMul work");
+    // Tested last, so that the debug message below is only printed for
+    // MatMuls that would otherwise have been split.
+    if (!B.hasOneUse()) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "SplitMatMulBySlice: not splitting " << matmulOp.getLoc()
+                 << " because its constant B has other users\n");
+      return rewriter.notifyMatchFailure(
+          matmulOp, "B has other users: splitting would duplicate it");
+    }
+
+    onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
+        rewriter, matmulOp.getLoc());
+    Value axisLast = create.onnx.constantInt64({-1});
+    Value stepOne = create.onnx.constantInt64({1});
+    for (auto [sliceOp, start, end] : slices) {
+      rewriter.setInsertionPoint(sliceOp);
+      SmallVector<int64_t> bShape(bType.getShape());
+      bShape.back() = end - start;
+      Type newBType = RankedTensorType::get(bShape, bType.getElementType());
+      Value newB =
+          create.onnx.slice(newBType, B, create.onnx.constantInt64({start}),
+              create.onnx.constantInt64({end}), axisLast, stepOne);
+      SmallVector<int64_t> yShape(yType.getShape());
+      yShape.back() = end - start;
+      Type newYType = RankedTensorType::get(yShape, yType.getElementType());
+      Value newY = create.onnx.matmul(newYType, A, newB);
+      rewriter.replaceOp(sliceOp, newY);
+    }
+    rewriter.eraseOp(matmulOp);
+    return success();
+  }
+};
+
 struct CombineParallelConv2DPattern : public OpRewritePattern<ONNXConvOp> {
   using OpRewritePattern<ONNXConvOp>::OpRewritePattern;
 
@@ -1123,6 +1239,8 @@ void onnx_mlir::getRecomposeONNXToONNXPatterns(
   patterns.insert<CombineParallelConv2DPattern>(context);
   if (enableAttentionOpConstruct)
     patterns.insert<RecomposeAttentionFromMatMulPattern>(context);
+  if (!disableSplitMatMulBySlice)
+    patterns.insert<SplitMatMulBySlicePattern>(context);
 }
 
 /*!
