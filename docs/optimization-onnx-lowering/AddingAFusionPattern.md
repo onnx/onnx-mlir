@@ -6,6 +6,9 @@ reorg (`FusionOpChain` → `FusionOpKindHelper`, `FusedOpKindPattern` →
 Supersedes `FusionOpChain.md` in this directory, which describes the
 pre-reorg names and layout.
 
+For a high-level description of the fusion kinds that exist today (ONNX and
+ZHigh), see [FusionOpPatterns.md](FusionOpPatterns.md).
+
 ## 1. What a fusion pattern is
 
 Some IR patterns are a short, linear chain of ops that is cheaper to
