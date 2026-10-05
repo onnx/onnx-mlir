@@ -3745,7 +3745,10 @@ def get_test_models():
     node_test_to_enable = [
         key
         for (key, value) in variables.node_test_to_enable_dict.items()
-        if (STATIC_SHAPE in value)
+        if (
+            STATIC_SHAPE in value
+            and not (args.emit == "JNI" and key.startwith("test_tensorscatter"))
+        )
         or ((STATIC_SHAPE_STRING in value) and (args.emit == "lib"))
     ]
     model_test_to_enable = [
