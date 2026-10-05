@@ -48,37 +48,44 @@ add_nnpa_unittest(TestZdnnxUtils
 
 # ---------------------------------------------------------------------------
 # f031: get_rnn_concatenated_dim1() uint32 overflow guard.
-# Tested via the public generate_transformed_desc_concatenated() API.
-# ---------------------------------------------------------------------------
-add_nnpa_unittest(TestStickifyRNN
-  TestStickifyRNN.cpp
-
-  INCLUDE_DIRS PRIVATE
-  ${CMAKE_INCLUDE_OUTPUT_DIRECTORY}
-  ${ONNX_MLIR_SRC_ROOT}/src
-
-  DEPENDS
-  libzdnn
-
-  LINK_LIBS PRIVATE
-  OMStickify
-  ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libzdnn.a
-  )
-
-# ---------------------------------------------------------------------------
 # f036: zdnnx_create_view() deep-copy / no-alias invariant.
+#
+# These tests call zdnn API functions (zdnn_init_pre_transformed_desc,
+# zdnn_generate_transformed_desc, zdnn_getsize_ztensor, etc.) which are
+# only compiled into libzdnn.a on s390x.  On other arches the libzdnn
+# custom target is a no-op (header-copy only), so libzdnn.a does not exist
+# and these tests cannot be linked.  Guard them s390x-only.
 # ---------------------------------------------------------------------------
-add_nnpa_unittest(TestZdnnxCreateView
-  TestZdnnxCreateView.c
+if (CMAKE_SYSTEM_PROCESSOR STREQUAL "s390x")
 
-  INCLUDE_DIRS PRIVATE
-  ${CMAKE_INCLUDE_OUTPUT_DIRECTORY}
-  ${NNPA_ZDNNX_SRC_DIR}
+  add_nnpa_unittest(TestStickifyRNN
+    TestStickifyRNN.cpp
 
-  DEPENDS
-  libzdnn
+    INCLUDE_DIRS PRIVATE
+    ${CMAKE_INCLUDE_OUTPUT_DIRECTORY}
+    ${ONNX_MLIR_SRC_ROOT}/src
 
-  LINK_LIBS PRIVATE
-  RuntimeNNPA
-  ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libzdnn.a
-  )
+    DEPENDS
+    libzdnn
+
+    LINK_LIBS PRIVATE
+    OMStickify
+    ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libzdnn.a
+    )
+
+  add_nnpa_unittest(TestZdnnxCreateView
+    TestZdnnxCreateView.c
+
+    INCLUDE_DIRS PRIVATE
+    ${CMAKE_INCLUDE_OUTPUT_DIRECTORY}
+    ${NNPA_ZDNNX_SRC_DIR}
+
+    DEPENDS
+    libzdnn
+
+    LINK_LIBS PRIVATE
+    RuntimeNNPA
+    ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libzdnn.a
+    )
+
+endif()
