@@ -50,7 +50,7 @@ private:
   DimAnalysis *dimAnalysis = nullptr;
 
   // Minimum uses threshold for mask expansion.
-  static constexpr unsigned minUses = 8;
+  static constexpr unsigned minUses = 4;
 
   // Analysis: collect eligible masks.
   void analyzeAttentionMasks();
