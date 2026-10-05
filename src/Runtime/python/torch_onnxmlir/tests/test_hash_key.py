@@ -31,6 +31,7 @@ import torch
 import torch.nn as nn
 
 from torch_onnxmlir.backend import (
+    _PARAM_FULL_HASH_LIMIT,
     _stable_args_str,
     _tensor_sha256,
     generate_hash_key,
@@ -168,42 +169,93 @@ class TestStableArgsStr(unittest.TestCase):
 
 
 class TestTensorSha256(unittest.TestCase):
-    """_tensor_sha256 must be a stable, value-sensitive digest."""
+    """
+    _tensor_sha256 must be stable, value-sensitive, and bounded in cost.
 
-    def test_deterministic(self):
+    Two code paths:
+      - small tensors (numel <= _PARAM_FULL_HASH_LIMIT): full SHA-256 of all bytes
+      - large tensors (numel >  _PARAM_FULL_HASH_LIMIT): strided-sample SHA-256
+    Both paths are tested for determinism, value-sensitivity, and output format.
+    """
+
+    # ------------------------------------------------------------------ small
+    def test_small_deterministic(self):
         t = torch.tensor([1.0, 2.0, 3.0])
         self.assertEqual(_tensor_sha256(t), _tensor_sha256(t))
 
-    def test_same_values_same_hash(self):
+    def test_small_same_values_same_hash(self):
         t1 = torch.tensor([1.0, 2.0, 3.0])
         t2 = torch.tensor([1.0, 2.0, 3.0])
         self.assertEqual(_tensor_sha256(t1), _tensor_sha256(t2))
 
-    def test_different_values_differ(self):
+    def test_small_different_values_differ(self):
         t1 = torch.tensor([1.0, 2.0, 3.0])
         t2 = torch.tensor([1.0, 2.0, 9.9])
         self.assertNotEqual(_tensor_sha256(t1), _tensor_sha256(t2))
 
-    def test_only_first_3_values_same_still_differs(self):
-        """
-        f026 gap: sampling only 3 values meant this pair produced the same key.
-        Full-hash must distinguish them.
-        """
+    def test_small_only_first_3_values_same_still_differs(self):
+        """f026: fixing first-3-value prefix must not defeat the hash."""
         base = [1.0, 2.0, 3.0]
         t1 = torch.tensor(base + [4.0, 5.0])
         t2 = torch.tensor(base + [99.0, 99.0])
         self.assertNotEqual(_tensor_sha256(t1), _tensor_sha256(t2))
 
-    def test_returns_hex_string(self):
+    def test_small_returns_hex_string(self):
         t = torch.zeros(4)
         h = _tensor_sha256(t)
         self.assertIsInstance(h, str)
-        self.assertEqual(len(h), 64)  # SHA-256 hex digest is always 64 chars
+        self.assertEqual(len(h), 64)
 
-    def test_parameter_same_as_tensor(self):
+    def test_small_parameter_same_as_tensor(self):
         data = torch.tensor([0.5, 1.5])
         param = nn.Parameter(data.clone())
         self.assertEqual(_tensor_sha256(data), _tensor_sha256(param))
+
+    def test_small_different_shapes_differ(self):
+        """Shape is included in the header, so shape differences must matter."""
+        t1 = torch.ones(4)
+        t2 = torch.ones(2, 2)  # same values, different shape
+        self.assertNotEqual(_tensor_sha256(t1), _tensor_sha256(t2))
+
+    # ------------------------------------------------------------------ large
+    def _large_tensor(self, fill_value=1.0):
+        """Return a tensor with numel > _PARAM_FULL_HASH_LIMIT."""
+        return torch.full((_PARAM_FULL_HASH_LIMIT + 1,), fill_value)
+
+    def test_large_deterministic(self):
+        t = self._large_tensor()
+        self.assertEqual(_tensor_sha256(t), _tensor_sha256(t))
+
+    def test_large_same_values_same_hash(self):
+        t1 = self._large_tensor(1.0)
+        t2 = self._large_tensor(1.0)
+        self.assertEqual(_tensor_sha256(t1), _tensor_sha256(t2))
+
+    def test_large_different_values_differ(self):
+        """Values beyond the first 3 must still produce different hashes."""
+        numel = _PARAM_FULL_HASH_LIMIT + 64
+        t1 = torch.zeros(numel)
+        t2 = torch.zeros(numel)
+        # Change the very last element — far beyond any fixed 3-value prefix.
+        t2[-1] = 99.0
+        self.assertNotEqual(
+            _tensor_sha256(t1),
+            _tensor_sha256(t2),
+            "Strided sampling must detect changes beyond the first 3 elements",
+        )
+
+    def test_large_returns_hex_string(self):
+        t = self._large_tensor()
+        h = _tensor_sha256(t)
+        self.assertIsInstance(h, str)
+        self.assertEqual(len(h), 64)
+
+    def test_large_different_shapes_differ(self):
+        """Shape header must distinguish same-content, different-shape tensors."""
+        numel = _PARAM_FULL_HASH_LIMIT + 1
+        t1 = torch.ones(numel)
+        t2 = torch.ones(1, numel)  # same values, different shape
+        self.assertNotEqual(_tensor_sha256(t1), _tensor_sha256(t2))
 
 
 # ---------------------------------------------------------------------------

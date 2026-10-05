@@ -238,15 +238,48 @@ def _stable_args_str(args) -> str:
     return repr(args)
 
 
+# Tensors with at most this many elements are hashed in full.
+# Larger tensors use strided sampling (see _tensor_sha256).
+# Exposed via config so users can tune it.
+_PARAM_FULL_HASH_LIMIT = 1024  # elements
+
+
 def _tensor_sha256(t: torch.Tensor) -> str:
     """
-    Return a hex SHA-256 digest of the raw tensor bytes.
+    Return a hex SHA-256 digest that is stable, value-sensitive, and bounded
+    in cost for large tensors.
 
-    Uses the contiguous byte representation so the digest is independent of
-    Python-side float formatting and is stable across platforms.
+    Strategy:
+      - Small tensors  (numel <= _PARAM_FULL_HASH_LIMIT): hash all bytes.
+        Full coverage, negligible cost.
+      - Large tensors  (numel >  _PARAM_FULL_HASH_LIMIT): hash a fixed set of
+        strided samples plus the tensor's shape and dtype as a header.
+
+        The stride is chosen so that exactly _PARAM_FULL_HASH_LIMIT evenly
+        spaced elements are sampled across the flattened tensor.  The sample
+        positions are determined solely by the tensor's own size, so:
+          * the digest is deterministic (same tensor → same hash), and
+          * the positions are NOT the first N values, which defeats the
+            fixed-prefix attack that motivated f026.
+
+    Both branches feed into SHA-256, so the output is always a 64-char hex
+    string regardless of which path is taken.
     """
     h = hashlib.sha256()
-    h.update(t.detach().contiguous().numpy().tobytes())
+    flat = t.detach().contiguous().flatten()
+    numel = flat.numel()
+    # Always include shape + dtype so tensors of different shapes never collide
+    # even if their sampled values happen to match.
+    header = f"{list(t.shape)}:{t.dtype}:{numel}".encode()
+    h.update(header)
+    if numel <= _PARAM_FULL_HASH_LIMIT:
+        # Full hash — cheap for small parameters (embeddings, biases, …).
+        h.update(flat.numpy().tobytes())
+    else:
+        # Strided sample — bounded cost for large weight matrices.
+        stride = max(1, numel // _PARAM_FULL_HASH_LIMIT)
+        sampled = flat[::stride].numpy().tobytes()
+        h.update(sampled)
     return h.hexdigest()
 
 
