@@ -56,7 +56,7 @@ add_nnpa_unittest(TestZdnnxUtils
 # custom target is a no-op (header-copy only), so libzdnn.a does not exist
 # and these tests cannot be linked.  Guard them s390x-only.
 # ---------------------------------------------------------------------------
-if (CMAKE_SYSTEM_PROCESSOR STREQUAL "s390x")
+if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "s390x")
 
   add_nnpa_unittest(TestStickifyRNN
     TestStickifyRNN.cpp
