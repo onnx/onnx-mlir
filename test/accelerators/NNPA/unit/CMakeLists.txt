@@ -59,6 +59,7 @@ add_nnpa_unittest(TestStickifyRNN
 
   LINK_LIBS PRIVATE
   OMStickify
+  libzdnn
   )
 
 # ---------------------------------------------------------------------------
@@ -73,4 +74,5 @@ add_nnpa_unittest(TestZdnnxCreateView
 
   LINK_LIBS PRIVATE
   RuntimeNNPA
+  libzdnn
   )
