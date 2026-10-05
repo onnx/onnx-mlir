@@ -284,6 +284,13 @@ Say you're adding a new kind, `"zhigh.my_pattern"`, anchored on
      it should fall back to `unFuse` rather than crash or mis-lower.
    - If you added a disable flag, test both settings.
 
+8. **Document the new kind** in [FusionOpPatterns.md](FusionOpPatterns.md).
+   Add a row to its summary table, and a section under §1 (ONNX) or §2
+   (ZHigh), with an anchor that the table row links to. The section gives
+   the chain diagram, the idiom it targets, the anchor op, the main matching
+   conditions, and what the lowering does. Also list the new tests in that
+   page's Tests section.
+
 ## 5. Common pitfalls
 
 - **Forgetting the `isInsideFusedOp` guard** → infinite rewrite loop, since

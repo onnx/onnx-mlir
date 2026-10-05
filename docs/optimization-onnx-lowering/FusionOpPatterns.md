@@ -9,6 +9,21 @@ To add a new kind, or for details on the infrastructure (`ONNXFusedOp`,
 `FusionOpKindHelper`, `FusedPatternForOpKind`, `FusedOpKindLowering`), see
 [AddingAFusionPattern.md](AddingAFusionPattern.md).
 
+## Summary
+
+The six fused kinds below are described in §1 (ONNX) and §2 (ZHigh). In the
+chains, `?` marks an optional op, *or* separates alternatives, and LT stands
+for LayoutTransform.
+
+| Kind | Anchor | Chain (short) | Inner dim | Typical source |
+|---|---|---|---|---|
+| [`simd-split-op-gather`](#simd-split-op-gather) (§1.1) | Concat | 2× (Slice → op?) → Concat | static | RoPE `rotate_half` |
+| [`zhigh.extended_layout_transform`](#zhigh-extended-layout-transform) (§2.1) | LayoutTransform | LT → Reshape? → Transpose? → Reshape? → (LT *or* DLF16ToF32 → Mul?) | %64 or 32 | head reshuffles between NNPA ops |
+| [`zhigh.expand-mul-stick`](#zhigh-expand-mul-stick) (§2.2) | Unsqueeze | Unsqueeze → Expand → Mul? → Reshape → Stick | %64 | GQA/MQA head repeat |
+| [`zhigh.concat-expand-stick`](#zhigh-concat-expand-stick) (§2.3) | Concat | Concat → Unsqueeze → F32ToDLF16? → Expand → Mul? → Reshape → (Stick *or* LT) | %64 | KV cache + GQA head repeat |
+| [`zhigh.unstick-split-heads`](#zhigh-unstick-split-heads) (§2.4) | Unstick | Unstick → Reshape → Transpose? → Split (→ Squeeze → Reshape → Stick) | D = 32 or %64 | fused QKV split into heads |
+| [`zhigh.mul-add-stick`](#zhigh-mul-add-stick) (§2.5) | Add / Sub | 2× Mul → (Add *or* Sub) → Mul? → Reshape → Stick | 32 or %64 | rotary embedding before attention |
+
 ## How fusion works
 
 Fusion happens in two steps:
@@ -50,6 +65,8 @@ Source files:
 - Helpers: `src/Dialect/ONNX/Transforms/ONNXFusionOpHelper.{hpp,cpp}`
 - Pattern registration: `src/Dialect/ONNX/Transforms/FusionOpTransform.cpp`
 - Lowering: `src/Conversion/ONNXToKrnl/Tensor/`
+
+<a id="simd-split-op-gather"></a>
 
 ### 1.1 `simd-split-op-gather`: RoPE `rotate_half`
 
@@ -105,14 +122,22 @@ Two shape conditions recur below:
   constant F32, I32 or I64 scalar, folded into the store. A typical use is
   attention scaling. When the Mul is absent, the lowering skips the multiply.
 
+<a id="zhigh-extended-layout-transform"></a>
+
 ### 2.1 `zhigh.extended_layout_transform`: re-layout of a zTensor *(32 ok)*
 
 ```
 LayoutTransform (zTensor → CPU)
-  → Reshape?   (split one dim into two)
-  → Transpose? (last dim stays last)
-  → Reshape?   (merge two dims into one)
-  → LayoutTransform (CPU → zTensor)  |  DLF16ToF32 → scalar Mul?
+        ↓
+Reshape?    (split one dim into two)
+        ↓
+Transpose?  (last dim stays last)
+        ↓
+Reshape?    (merge two dims into one)
+        │
+        ├── zTensor ending:  LayoutTransform (CPU → zTensor)
+        │   or
+        └── F32 ending:      DLF16ToF32 → scalar Mul?
 ```
 
 - **Idiom.** Attention head reshuffles between two NNPA ops: the transposes
@@ -136,6 +161,8 @@ LayoutTransform (zTensor → CPU)
 - **Fallback.** With `--disable-fused-op`, the same chain is rewritten into
   the composite op `zhigh.ExtendedLayoutTransform` instead.
 
+<a id="zhigh-expand-mul-stick"></a>
+
 ### 2.2 `zhigh.expand-mul-stick`: broadcast-then-stick
 
 ```
@@ -154,13 +181,20 @@ Unsqueeze (axis P) → Expand (dim P: 1 → N) → scalar Mul? → Reshape → S
   scaled and converted once, then stored to all `N` stickified locations it
   is broadcast to. The expanded tensor is never allocated.
 
+<a id="zhigh-concat-expand-stick"></a>
+
 ### 2.3 `zhigh.concat-expand-stick`: KV-cache concat + head repeat
 
 ```
-Concat (2 inputs, axis A, not innermost) → Unsqueeze (axis P ≤ A)
-  → [F32ToDLF16]? → Expand (dim P: 1 → N) → scalar Mul? → Reshape
-  → LayoutTransform (CPU → zTensor)   if F32ToDLF16 is present
-  | Stick (3D/3DS/4D)                 otherwise
+Concat (2 inputs, axis A, not innermost)
+        ↓
+Unsqueeze (axis P ≤ A)
+        │
+        ├── LT ending:     F32ToDLF16 → Expand (dim P: 1 → N) → Reshape
+        │                    → LayoutTransform (CPU → zTensor, 3D/3DS/4D)
+        │   or
+        └── Stick ending:  Expand (dim P: 1 → N) → scalar Mul? → Reshape
+                             → Stick (3D/3DS/4D)
 ```
 
 - **Idiom.** In a decoder, the new keys and values are concatenated to the
@@ -186,13 +220,25 @@ Concat (2 inputs, axis A, not innermost) → Unsqueeze (axis P ≤ A)
   in an earlier, separate round of the pass, so that §2.2 does not fuse that
   chain first.
 
+<a id="zhigh-unstick-split-heads"></a>
+
 ### 2.4 `zhigh.unstick-split-heads`: split fused QKV into heads *(32 ok)*
 
 ```
-Unstick (3D/3DS, (A,S,C)) → Reshape (A,S,N,H,D) → Transpose? (D stays last)
-  → Split (N outputs of size 1 along the N axis)
-       each output: f32
-                  | Squeeze → Reshape (A·H, S, D) → Stick 3DS   ("stick-3DS")
+Unstick (3D/3DS, (A,S,C))
+        ↓
+Reshape (A,S,N,H,D)
+        ↓
+Transpose?  (D stays last)
+        ↓
+Split (N outputs of size 1 along the N axis)
+        │
+        │   each of the N outputs, independently:
+        │
+        ├── "f32" mode:        output = the Split result (F32)
+        │   or
+        └── "stick-3DS" mode:  Squeeze → Reshape (A·H, S, D) → Stick (3DS)
+                               output = the Stick result (zTensor)
 ```
 
 - **Idiom.** A single QKV projection MatMul whose result is split into Q, K
@@ -223,12 +269,20 @@ Unstick (3D/3DS, (A,S,C)) → Reshape (A,S,N,H,D) → Transpose? (D stays last)
     the upper half of each output stick is left uninitialized, exactly as by
     the Stick it replaces.
 
+<a id="zhigh-mul-add-stick"></a>
+
 ### 2.5 `zhigh.mul-add-stick`: rotary embedding then stick *(32 ok)*
 
 ```
 Mul (A0·A1) ─┐
-             ├→ Add | Sub → scalar Mul? → Reshape (rank 3) → Stick (3D/3DS)
-Mul (B0·B1) ─┘
+             ├→ Add or Sub
+Mul (B0·B1) ─┘      │
+                    ↓
+               scalar Mul?
+                    ↓
+            Reshape (rank 3)
+                    ↓
+            Stick (3D / 3DS)
 ```
 
 - **Idiom.** Applying rotary embeddings to Q or K right before attention:
@@ -250,19 +304,6 @@ Mul (B0·B1) ─┘
   by full or half sticks. Each operand is read once, the expression is
   computed and converted to dlf16, and the result is stored straight into the
   stick. None of the four F32 intermediates is allocated.
-
----
-
-## Summary
-
-| Kind | Anchor | Chain (short) | Inner dim | Typical source |
-|---|---|---|---|---|
-| `simd-split-op-gather` | Concat | 2× (Slice → op?) → Concat | static | RoPE `rotate_half` |
-| `zhigh.extended_layout_transform` | LayoutTransform | LT → Reshape? → Transpose? → Reshape? → LT \| DLF16ToF32 → Mul? | %64 or 32 | head reshuffles between NNPA ops |
-| `zhigh.expand-mul-stick` | Unsqueeze | Unsqueeze → Expand → Mul? → Reshape → Stick | %64 | GQA/MQA head repeat |
-| `zhigh.concat-expand-stick` | Concat | Concat → Unsqueeze → F32ToDLF16? → Expand → Mul? → Reshape → Stick \| LT | %64 | KV cache + GQA head repeat |
-| `zhigh.unstick-split-heads` | Unstick | Unstick → Reshape → Transpose? → Split (→ Squeeze → Reshape → Stick) | D = 32 or %64 | fused QKV split into heads |
-| `zhigh.mul-add-stick` | Add / Sub | 2× Mul → Add\|Sub → Mul? → Reshape → Stick | 32 or %64 | rotary embedding before attention |
 
 ## Tests
 
