@@ -150,6 +150,7 @@ bool checkBranchOp(
 
 bool SplitOpGatherFusionHelper::detectIfBeneficial(
     const DimAnalysis *dimAnalysis, ONNXConcatOp startOp) {
+  assert(dimAnalysis && "simd-split-op-gather requires a non-null DimAnalysis");
   auto returnFailure = [](llvm::StringRef msg) -> bool {
     LLVM_DEBUG(llvm::dbgs()
                << "  detectIfBeneficial simd-split-op-gather: " << msg << "\n");
