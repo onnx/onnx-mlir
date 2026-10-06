@@ -568,9 +568,9 @@ public class OMTensor {
      * @return number of data elements in the data buffer
      */
     public long getNumElems() {
-        if (_shape.length == 0) return 1;
-        long n = _shape[0];
-        for (int i = 1; i < _shape.length; i++) n *= _shape[i];
+        if (_shape == null || _shape.length == 0) return 1;
+        long n = 1;
+        for (int i = 0; i < _shape.length; i++) n *= _shape[i];
         return n;
     }
 
@@ -582,8 +582,8 @@ public class OMTensor {
         if (shape == null)
             throw new IllegalArgumentException("shape cannot be null");
         for (int i = 0; i < shape.length; i++) {
-            if (shape[i] <= 0)
-                throw new IllegalArgumentException("shape dimension at index " + i + " must be positive, got " + shape[i]);
+            if (shape[i] < 0)
+                throw new IllegalArgumentException("shape dimension at index " + i + " cannot be negative, got " + shape[i]);
         }
     }
 
