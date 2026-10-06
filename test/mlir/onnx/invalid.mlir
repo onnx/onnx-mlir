@@ -868,3 +868,19 @@ func.func @test_less_or_equal_mismatched_types(%arg0: tensor<f32>, %arg1: tensor
   onnx.Return %0 : tensor<i1>
 }
 
+
+// -----
+
+func.func @test_transpose_perm_too_short(%arg0: tensor<4x3x2x1xf32>) -> tensor<*xf32> {
+  // expected-error @+1 {{Transpose op perm attribute has 2 elements but rank is 4}}
+  %0 = "onnx.Transpose"(%arg0) {perm = [0, 1]} : (tensor<4x3x2x1xf32>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func.func @test_transpose_perm_too_long(%arg0: tensor<2x3xf32>) -> tensor<*xf32> {
+  // expected-error @+1 {{Transpose op perm attribute has 4 elements but rank is 2}}
+  %0 = "onnx.Transpose"(%arg0) {perm = [1, 0, 0, 1]} : (tensor<2x3xf32>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}
