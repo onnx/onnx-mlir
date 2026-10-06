@@ -4,6 +4,14 @@
 # Otherwise, continue with default onnx-mlir project
 choose_build_target()
 
+# WARNING: the four targets in this file are MIRRORED in the shadow CMake files
+# used by the lightweight, LLVM-free builds: OMPyRt.cmake (OMTensorUtils,
+# OMDebugRuntime, OMExecutionSession) and OMCRuntime.cmake (cruntime). Those
+# builds never run find_package(MLIR) and back the pip-installable om_pyrt
+# package. Adding or removing a source here does NOT update them: edit the
+# matching shadow file too, and keep every file it lists LLVM/MLIR free.
+# See docs/BuildPyRuntimeLight.md.
+
 add_subdirectory(jni)
 add_subdirectory(omp)
 add_subdirectory(python)

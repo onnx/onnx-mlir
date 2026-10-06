@@ -12,6 +12,11 @@
 // structures and helper functions.
 //
 //===----------------------------------------------------------------------===//
+// LLVM-FREE FILE -- DO NOT ADD LLVM / MLIR / ONNX-MLIR COMPILER DEPENDENCES.
+//
+// Part of the lightweight onnx-mlir build used for the pip-installable
+// packages (om_pyrt). Any LLVM/MLIR reference here will break those packages.
+//===----------------------------------------------------------------------===//
 
 #if defined(__APPLE__) || defined(__MVS__)
 #include <stdlib.h>
