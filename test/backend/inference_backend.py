@@ -390,7 +390,10 @@ def get_test_models():
         # output), but produces a numeric mismatch instead.
         # "test_attention_4d_causal_nonpad_negative_offset_structural_empty_cpu": {STATIC_SHAPE: {}},
         "test_attention_local_window_default_cpu": {STATIC_SHAPE: {}},
-        "test_attention_local_window_ext_cache_float16_mask_cpu": {STATIC_SHAPE: {}},
+        "test_attention_local_window_ext_cache_float16_mask_cpu": {
+            STATIC_SHAPE: {},
+            FLOAT16: {},
+        },
         # Sliding/local-window attention (left/right window size) is not
         # implemented: the window is silently ignored, producing wrong
         # (unwindowed) results instead of an error.
