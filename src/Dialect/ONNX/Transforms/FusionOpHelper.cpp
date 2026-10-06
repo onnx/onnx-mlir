@@ -87,20 +87,39 @@ bool isShapeConcatDependentOnChain(
   return false;
 }
 
+// Opt-in (FusionOpKindHelper::absorbShapeConcatOfDims()): a small i64 shape
+// Concat built only from constants and onnx.Dim results, wherever the Dims
+// come from. Single hop like the above: the Dims themselves are absorbed
+// only if isDimOfChainProduced(), and otherwise become inputs.
+bool isShapeConcatOfDims(Operation *op) {
+  auto concatOp = dyn_cast<ONNXConcatOp>(op);
+  if (!concatOp)
+    return false;
+  if (!isSmallI64ShapeTensor(concatOp.getConcatResult().getType()))
+    return false;
+  return llvm::all_of(concatOp.getInputs(), [](Value operand) {
+    Operation *operandDef = operand.getDefiningOp();
+    return operandDef && (operandDef->hasTrait<mlir::OpTrait::ConstantLike>() ||
+                             mlir::isa<ONNXConstantOp, ONNXDimOp>(operandDef));
+  });
+}
+
 // True for anything createFusedOp()/computeInputsAndInsertionPoint() clone
 // into the body rather than expose as an external input: constants (as
-// before), plus the two shape-metadata shapes above.
+// before), plus the two shape-metadata shapes above, plus the opt-in one.
 //
 // TODO: at some times, we may want to consider simple shape arithmetic (e.g. a
 // small Add or Mul) to be cheap enough to clone into the body as well.  If so,
 // add a new isAbsorbableShapeArithmetic() helper and call it here (and in the
 // retrieval-side isAbsorbedPlumbing() too, so that the two sides never disagree
 // on what counts as plumbing).
-bool isAbsorbable(Operation *op, const DenseSet<Value> &chainProduced) {
+bool isAbsorbable(Operation *op, const DenseSet<Value> &chainProduced,
+    bool absorbShapeConcatOfDims) {
   return op->hasTrait<mlir::OpTrait::ConstantLike>() ||
          mlir::isa<ONNXNoneOp, ONNXConstantOp>(op) ||
          isDimOfChainProduced(op, chainProduced) ||
-         isShapeConcatDependentOnChain(op, chainProduced);
+         isShapeConcatDependentOnChain(op, chainProduced) ||
+         (absorbShapeConcatOfDims && isShapeConcatOfDims(op));
 }
 
 // Retrieval-side counterpart of isAbsorbable(): recognizes the same
@@ -194,7 +213,7 @@ bool FusionOpKindHelper::computeInputsAndInsertionPoint() {
       fusedInputs.push_back(v);
       return;
     }
-    if (isAbsorbable(defOp, chainProduced)) {
+    if (isAbsorbable(defOp, chainProduced, absorbShapeConcatOfDims())) {
       // Recursively collect the absorbed op's own inputs (e.g. a
       // constant's initializer, or a Dim's data operand) so that they are
       // also cloned inside the body rather than threaded through as
@@ -414,7 +433,7 @@ ONNXFusedOp FusionOpKindHelper::createFusedOp(
     Operation *defOp = v.getDefiningOp();
     if (!defOp)
       return;
-    assert(isAbsorbable(defOp, chainProduced) &&
+    assert(isAbsorbable(defOp, chainProduced, absorbShapeConcatOfDims()) &&
            "non-absorbable external value not collected in pre-scan");
     for (Value operand : defOp->getOperands())
       ensureInBody(operand);
@@ -442,12 +461,32 @@ void FusionOpKindHelper::replaceAndErase(
   for (auto [idx, v] : llvm::enumerate(finalResults))
     outputMap[v] = idx;
 
+  // A chain op may have several results (e.g. onnx.Split), any subset of
+  // which can be yielded. Every yielded result is redirected to its FusedOp
+  // output; results that are not yielded must be dead by now (their only
+  // uses were later chain ops, already erased by this back-to-front walk).
   for (int i = (int)ops.size() - 1; i >= 0; --i) {
-    auto it = outputMap.find(ops[i]->getResult(0));
-    if (it != outputMap.end())
-      rewriter.replaceOp(ops[i], fusedOp.getOutputs()[it->second]);
-    else
-      rewriter.eraseOp(ops[i]);
+    Operation *op = ops[i];
+    SmallVector<Value> replacements;
+    bool allYielded = true;
+    for (Value result : op->getResults()) {
+      auto it = outputMap.find(result);
+      if (it == outputMap.end()) {
+        allYielded = false;
+        replacements.push_back(nullptr);
+      } else {
+        replacements.push_back(fusedOp.getOutputs()[it->second]);
+      }
+    }
+    if (allYielded) {
+      rewriter.replaceOp(op, replacements);
+      continue;
+    }
+    for (auto [result, replacement] :
+        llvm::zip_equal(op->getResults(), replacements))
+      if (replacement)
+        rewriter.replaceAllUsesWith(result, replacement);
+    rewriter.eraseOp(op);
   }
 }
 
