@@ -2,7 +2,7 @@
 
 // -----
 
-// COM: Test case 1: Single attention layer - no expansion (< 8 threshold)
+// COM: Test case 1: Single attention layer - no expansion (< 4 threshold)
 // CHECK-LABEL: @test_single_layer_no_expand
 func.func @test_single_layer_no_expand(%arg0: tensor<1x12x?x64xf32>, 
                                        %arg1: tensor<1x12x64x?xf32>,
@@ -82,41 +82,25 @@ func.func @test_8_layers_expand(%arg0: tensor<1x12x?x64xf32>,
 
 // -----
 
-// COM: Test case 3: 7 layers - no expansion (< 8 threshold)
-// CHECK-LABEL: @test_7_layers_no_expand
-func.func @test_7_layers_no_expand(%arg0: tensor<1x12x?x64xf32>, 
+// COM: Test case 3: 3 layers - no expansion (< 4 threshold)
+// CHECK-LABEL: @test_3_layers_no_expand
+func.func @test_3_layers_no_expand(%arg0: tensor<1x12x?x64xf32>,
                                    %arg1: tensor<1x12x64x?xf32>,
                                    %arg2: tensor<1x1x?x?xf32>) -> tensor<1x12x?x?xf32> {
   // CHECK-NOT: onnx.Expand
   %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<1x12x?x64xf32>, tensor<1x12x64x?xf32>) -> tensor<1x12x?x?xf32>
   %1 = "onnx.Add"(%0, %arg2) : (tensor<1x12x?x?xf32>, tensor<1x1x?x?xf32>) -> tensor<1x12x?x?xf32>
   %2 = "onnx.Softmax"(%1) {axis = -1 : si64} : (tensor<1x12x?x?xf32>) -> tensor<1x12x?x?xf32>
-  
+
   %3 = "onnx.MatMul"(%arg0, %arg1) : (tensor<1x12x?x64xf32>, tensor<1x12x64x?xf32>) -> tensor<1x12x?x?xf32>
   %4 = "onnx.Add"(%3, %arg2) : (tensor<1x12x?x?xf32>, tensor<1x1x?x?xf32>) -> tensor<1x12x?x?xf32>
   %5 = "onnx.Softmax"(%4) {axis = -1 : si64} : (tensor<1x12x?x?xf32>) -> tensor<1x12x?x?xf32>
-  
+
   %6 = "onnx.MatMul"(%arg0, %arg1) : (tensor<1x12x?x64xf32>, tensor<1x12x64x?xf32>) -> tensor<1x12x?x?xf32>
   %7 = "onnx.Add"(%6, %arg2) : (tensor<1x12x?x?xf32>, tensor<1x1x?x?xf32>) -> tensor<1x12x?x?xf32>
   %8 = "onnx.Softmax"(%7) {axis = -1 : si64} : (tensor<1x12x?x?xf32>) -> tensor<1x12x?x?xf32>
-  
-  %9 = "onnx.MatMul"(%arg0, %arg1) : (tensor<1x12x?x64xf32>, tensor<1x12x64x?xf32>) -> tensor<1x12x?x?xf32>
-  %10 = "onnx.Add"(%9, %arg2) : (tensor<1x12x?x?xf32>, tensor<1x1x?x?xf32>) -> tensor<1x12x?x?xf32>
-  %11 = "onnx.Softmax"(%10) {axis = -1 : si64} : (tensor<1x12x?x?xf32>) -> tensor<1x12x?x?xf32>
-  
-  %12 = "onnx.MatMul"(%arg0, %arg1) : (tensor<1x12x?x64xf32>, tensor<1x12x64x?xf32>) -> tensor<1x12x?x?xf32>
-  %13 = "onnx.Add"(%12, %arg2) : (tensor<1x12x?x?xf32>, tensor<1x1x?x?xf32>) -> tensor<1x12x?x?xf32>
-  %14 = "onnx.Softmax"(%13) {axis = -1 : si64} : (tensor<1x12x?x?xf32>) -> tensor<1x12x?x?xf32>
-  
-  %15 = "onnx.MatMul"(%arg0, %arg1) : (tensor<1x12x?x64xf32>, tensor<1x12x64x?xf32>) -> tensor<1x12x?x?xf32>
-  %16 = "onnx.Add"(%15, %arg2) : (tensor<1x12x?x?xf32>, tensor<1x1x?x?xf32>) -> tensor<1x12x?x?xf32>
-  %17 = "onnx.Softmax"(%16) {axis = -1 : si64} : (tensor<1x12x?x?xf32>) -> tensor<1x12x?x?xf32>
-  
-  %18 = "onnx.MatMul"(%arg0, %arg1) : (tensor<1x12x?x64xf32>, tensor<1x12x64x?xf32>) -> tensor<1x12x?x?xf32>
-  %19 = "onnx.Add"(%18, %arg2) : (tensor<1x12x?x?xf32>, tensor<1x1x?x?xf32>) -> tensor<1x12x?x?xf32>
-  %20 = "onnx.Softmax"(%19) {axis = -1 : si64} : (tensor<1x12x?x?xf32>) -> tensor<1x12x?x?xf32>
-  
-  return %20 : tensor<1x12x?x?xf32>
+
+  return %8 : tensor<1x12x?x?xf32>
 }
 
 // -----

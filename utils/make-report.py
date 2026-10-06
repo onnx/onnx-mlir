@@ -141,7 +141,9 @@ compile_info_str = ""
 
 # Basic pattern for reports: "==" <stat name> "==," <op name> "," <node name> ","
 def common_report_str(stat_name):
-    return r"^==" + stat_name + r"-REPORT==,\s*([0-9a-zA-Z\.\-]+)\s*,\s*([^,]*),\s*(.*)"
+    return (
+        r"^==" + stat_name + r"-REPORT==,\s*([0-9a-zA-Z_\.\-]+)\s*,\s*([^,]*),\s*(.*)"
+    )
 
 
 def match_start_report(line):

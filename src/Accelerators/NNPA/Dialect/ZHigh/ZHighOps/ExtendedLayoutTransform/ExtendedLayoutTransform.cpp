@@ -37,13 +37,15 @@ LogicalResult ZHighExtendedLayoutTransformOp::verify() {
   auto sourceShape = sourceType.getShape();
   int64_t sourceRank = sourceType.getRank();
 
-  // First constraint; innermost dim is a literal and mod 64. This constraint
-  // can be lifted but is kept at this time because it results in simple and
-  // efficient code; pattern is seen in key benchmarks.
+  // First constraint; innermost dim is a literal and mod 64, or exactly 32
+  // (half sticks). This constraint can be lifted but is kept at this time
+  // because it results in simple and efficient code; pattern is seen in key
+  // benchmarks.
   if (sourceShape[sourceRank - 1] == ShapedType::kDynamic)
     return emitOpError("Support only compiler constant innermost dim");
-  if (sourceShape[sourceRank - 1] % 64 != 0)
-    return emitOpError("Support only innermost dim that are multiple of 64");
+  if (getExtendedLayoutTransformInnerTile(sourceType) == 0)
+    return emitOpError(
+        "Support only innermost dim that are multiple of 64, or 32");
 
   // Second constraints: we should be able to handle z layout in software.
   if (isZTensor(sourceType) && !supportedLayoutForCompilerGeneratedStickUnstick(

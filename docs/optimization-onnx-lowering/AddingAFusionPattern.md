@@ -6,6 +6,9 @@ reorg (`FusionOpChain` → `FusionOpKindHelper`, `FusedOpKindPattern` →
 Supersedes `FusionOpChain.md` in this directory, which describes the
 pre-reorg names and layout.
 
+For a high-level description of the fusion kinds that exist today (ONNX and
+ZHigh), see [FusionOpPatterns.md](FusionOpPatterns.md).
+
 ## 1. What a fusion pattern is
 
 Some IR patterns are a short, linear chain of ops that is cheaper to
@@ -87,7 +90,7 @@ instantiated directly — always subclassed, once per fusion kind.
 | `getKind() const -> StringRef` | both | Returns the `kind` string constant for this pattern. |
 | `embedAttrs(fusedOp) const` | creation | Writes every parameter field to a named attr. **Only** function that writes attrs. |
 | `retrieveAttrs(fusedOp) -> bool` | lowering | Reads every attr back into the fields; `false` if any required attr is missing. **Only** function that reads attrs. |
-| `verify() const -> bool` | lowering | Cross-checks `ops` (from `retrieveOpsAndOutputValues`) against the fields (from `retrieveAttrs`) — catches a body silently altered by another pass after fusion. |
+| `verify() const -> bool` | lowering | Cross-checks `ops` (from `retrieveOpsAndOutputValues`) against the fields (from `retrieveAttrs`) — catches a body silently altered by another pass after fusion. Runs **without** `DimAnalysis`, so it does not re-prove dynamic-dim equalities; it trusts the proof made by `detectIfBeneficial` (see "Detect decides, verify re-checks" below). |
 
 **One additional, non-virtual contract member** (documented in
 `FusionOpHelper.hpp`, not enforceable as a real virtual because its
@@ -222,6 +225,19 @@ Say you're adding a new kind, `"zhigh.my_pattern"`, anchored on
    IR); `verify` re-derives the expected op count/types from the fields and
    checks `ops` still matches, emitting `LLVM_DEBUG` on mismatch.
 
+   **Detect decides, verify re-checks.** `detectIfBeneficial` always has a
+   non-null `DimAnalysis` and is the only place where the fusion's legality
+   is decided: any dynamic-dim equality the lowering relies on (no runtime
+   broadcast, a dim kept by a Reshape, ...) must be proven there with
+   `sameDim` / `sameShape` — a `?` on both sides is not a proof. `verify`
+   has no `DimAnalysis` at lowering time; it only guards against the pattern
+   being clobbered by an optimization between fusion and lowering, so it may
+   compare static shapes only and accept `?` vs `?`. A predicate shared by
+   both takes a `const DimAnalysis *`: non-null from detect (precise), null
+   from verify (static-only); document the null behavior at the helper. A
+   fused op not created by `detectIfBeneficial` (e.g. hand-written IR)
+   carries no proof and must itself keep those dims equal.
+
 5. **Register the creation pattern** in the `Transform` pass that owns
    `ONNXFooOp`'s matching (in `FusionOpStickUnstick.cpp`, alongside the
    existing two):
@@ -268,6 +284,13 @@ Say you're adding a new kind, `"zhigh.my_pattern"`, anchored on
      it should fall back to `unFuse` rather than crash or mis-lower.
    - If you added a disable flag, test both settings.
 
+8. **Document the new kind** in [FusionOpPatterns.md](FusionOpPatterns.md).
+   Add a row to its summary table, and a section under §1 (ONNX) or §2
+   (ZHigh), with an anchor that the table row links to. The section gives
+   the chain diagram, the idiom it targets, the anchor op, the main matching
+   conditions, and what the lowering does. Also list the new tests in that
+   page's Tests section.
+
 ## 5. Common pitfalls
 
 - **Forgetting the `isInsideFusedOp` guard** → infinite rewrite loop, since
@@ -275,12 +298,17 @@ Say you're adding a new kind, `"zhigh.my_pattern"`, anchored on
 - **`embedAttrs`/`retrieveAttrs` touching attrs outside those two methods**
   → breaks the "only two functions touch attrs" invariant that makes the
   attr set easy to audit for a given kind.
-- **`ops` not in chain order** → `fuse()`'s insertion-point choice
-  (`ops.back()`) and `replaceAndErase`'s back-to-front erase both assume
-  strict chain order for dominance; violating it can erase a still-used op.
+- **`ops` not in topological (block) order** → `fuse()`'s insertion-point
+  choice (`ops.back()`) and `replaceAndErase`'s back-to-front erase both
+  rely on it for dominance; violating it can erase a still-used op. A line
+  is the usual case; a DAG (e.g. two producers of a join op, as in
+  `zhigh.mul-add-stick`) is fine when pushed in block order.
 - **Registering your `FusedOpKindLowering<F>` at benefit 0 or below** →
   it can lose to `FusedOpInlineFallback` and your kind always inlines
   instead of using your optimized lowering. Use default/explicit benefit
   above 0.
-- **`DimAnalysis` null** — required non-null throughout; there's no
-  shape-comparison fallback path.
+- **`DimAnalysis` null in detection** — required non-null in
+  `detectIfBeneficial` (asserted there and in
+  `FusedPatternForOpKind::matchAndRewrite`); there's no shape-comparison
+  fallback path for detection. The only null-`DimAnalysis` path is
+  `verify()` (see "Detect decides, verify re-checks").
