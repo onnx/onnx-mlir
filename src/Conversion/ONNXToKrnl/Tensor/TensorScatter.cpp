@@ -21,8 +21,8 @@ namespace onnx_mlir {
 
 struct ONNXTensorScatterOpLowering
     : public OpConversionPattern<ONNXTensorScatterOp> {
-  ONNXTensorScatterOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
-      bool enableParallel)
+  ONNXTensorScatterOpLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
       : OpConversionPattern(typeConverter, ctx) {
     this->enableParallel =
         enableParallel &&
