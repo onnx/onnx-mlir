@@ -167,6 +167,7 @@ extern bool enableFastMathOption;                             // onnx-mlir only
 extern bool disableRecomposeOption;                           // onnx-mlir only
 extern bool enableAttentionOpConstruct;                       // common for both
 extern std::string kvCache;                                   // common for both
+extern bool disableSplitMatMulBySlice;                        // common for both
 extern bool enableSimdDataLayout;                             // onnx-mlir only
 extern bool verifyInputTensors;                               // onnx-mlir only
 extern bool allowSorting;                                     // onnx-mlir only

@@ -338,7 +338,8 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXDepthToSpaceOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXScatterElementsOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXScatterNDOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXTensorScatterOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXTensorScatterOpPattern(
+      patterns, typeConverter, ctx, enableParallel);
   populateLoweringONNXSpaceToDepthOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXShapeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXSliceOpPattern(patterns, typeConverter, ctx, enableParallel, enableCollapse);

@@ -133,6 +133,13 @@ bool supportedLayoutForCompilerGeneratedStickUnstick(
 bool supportedLayoutForCompilerGeneratedStickUnstick(
     mlir::StringAttr layout, bool includeNHWC = true);
 
+// Return the innermost tile size (number of values processed per iteration of
+// the innermost loop) used by the compiler generated ExtendedLayoutTransform
+// for a source of the given type: 64 (full stick) when the static innermost
+// dim is a multiple of 64, 32 (half stick) when the innermost dim is exactly
+// 32, and 0 when unsupported (dynamic, or any other static innermost dim).
+int64_t getExtendedLayoutTransformInnerTile(mlir::Type sourceType);
+
 } // namespace zhigh
 } // namespace onnx_mlir
 #endif

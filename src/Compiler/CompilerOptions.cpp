@@ -99,6 +99,7 @@ bool enableFastMathOption;                             // onnx-mlir only
 bool disableRecomposeOption;                           // onnx-mlir only
 bool enableAttentionOpConstruct;                       // common for both
 std::string kvCache;                                   // common for both
+bool disableSplitMatMulBySlice;                        // common for both
 bool enableSimdDataLayout;                             // onnx-mlir only
 bool verifyInputTensors;                               // onnx-mlir only
 bool allowSorting;                                     // onnx-mlir only
@@ -361,6 +362,15 @@ static llvm::cl::opt<std::string, true> kvCacheOpt("kv-cache",
         "operands (whether past_key/past_value/nonpad_kv_seqlen are given)."),
     llvm::cl::value_desc("fixed|growing"), llvm::cl::location(kvCache),
     llvm::cl::init(""), llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<bool, true> disableSplitMatMulBySliceOpt(
+    "disable-split-matmul-by-slice",
+    llvm::cl::desc("Disable rewriting Slice(MatMul(X, W)) along the last axis, "
+                   "where W is a constant, into MatMul(X, Slice(W)) so that "
+                   "the slice is folded into the constant weights. Default is "
+                   "false."),
+    llvm::cl::location(disableSplitMatMulBySlice), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirCommonOptions));
 
 // Options for onnx-mlir only
 static llvm::cl::opt<EmissionTargetType, true> emissionTargetOpt(
