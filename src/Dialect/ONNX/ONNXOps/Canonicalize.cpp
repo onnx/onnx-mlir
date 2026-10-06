@@ -636,6 +636,45 @@ public:
 // Transpose, etc.
 //
 // This pattern supports both division and multiplication by k.
+
+// Scale (Mul or Div by the scalar constant K) the constant operands A and B of
+// a `shape_transform(X*A + B)` matched by matchShapeAddMatMul, updating the
+// Gemm, or the MatMul and Add, in place. The caller then bypasses the original
+// Mul/Div.
+template <typename ONNXOp>
+static void scaleConstantsOfShapeAddMatMul(PatternRewriter &rewriter, Value K,
+    Value A, Value B, Operation *matmulOrGemmOp, Operation *addOp,
+    bool isGemm) {
+  // Move K up before MatMul/Gemm to make sure it is in the dominant region.
+  K.getDefiningOp()->moveBefore(matmulOrGemmOp);
+  if (isGemm) {
+    auto onnxGemmOp = cast<ONNXGemmOp>(matmulOrGemmOp);
+    // Update in place B and C of Gemm.
+    rewriter.modifyOpInPlace(onnxGemmOp, [&] {
+      rewriter.setInsertionPoint(onnxGemmOp);
+      onnxGemmOp.getBMutable().assign(ONNXOp::create(
+          rewriter, onnxGemmOp.getLoc(), onnxGemmOp.getB().getType(), A, K));
+      if (!isNoneValue(onnxGemmOp.getC()))
+        onnxGemmOp.getCMutable().assign(ONNXOp::create(
+            rewriter, onnxGemmOp.getLoc(), onnxGemmOp.getC().getType(), B, K));
+    });
+  } else {
+    auto onnxSubMatOp = mlir::cast<ONNXMatMulOp>(matmulOrGemmOp);
+    auto onnxAddOp = mlir::cast<ONNXAddOp>(addOp);
+    // Update in place MatMul and Add.
+    rewriter.modifyOpInPlace(onnxSubMatOp, [&] {
+      rewriter.setInsertionPoint(onnxSubMatOp);
+      onnxSubMatOp.getBMutable().assign(ONNXOp::create(rewriter,
+          onnxSubMatOp.getLoc(), onnxSubMatOp.getB().getType(), A, K));
+    });
+    rewriter.modifyOpInPlace(onnxAddOp, [&] {
+      rewriter.setInsertionPoint(onnxAddOp);
+      onnxAddOp.getBMutable().assign(ONNXOp::create(
+          rewriter, onnxAddOp.getLoc(), onnxAddOp.getB().getType(), B, K));
+    });
+  }
+}
+
 template <typename ONNXOp>
 struct PropagateConstantScalingInAttentionLayerPattern
     : public OpRewritePattern<ONNXOp> {
@@ -678,38 +717,80 @@ struct PropagateConstantScalingInAttentionLayerPattern
           "of Div/Mul");
 
     // Rewrite.
-    // Move K up before MatMul/Gemm to make sure it is in the dominant region.
-    K.getDefiningOp()->moveBefore(matmulOrGemmOp);
-    if (isGemm) {
-      auto onnxGemmOp = cast<ONNXGemmOp>(matmulOrGemmOp);
-      // Update in place B and C of Gemm.
-      rewriter.modifyOpInPlace(onnxGemmOp, [&] {
-        rewriter.setInsertionPoint(onnxGemmOp);
-        onnxGemmOp.getBMutable().assign(ONNXOp::create(
-            rewriter, onnxGemmOp.getLoc(), onnxGemmOp.getB().getType(), A, K));
-        if (!isNoneValue(onnxGemmOp.getC()))
-          onnxGemmOp.getCMutable().assign(ONNXOp::create(rewriter,
-              onnxGemmOp.getLoc(), onnxGemmOp.getC().getType(), B, K));
-      });
-    } else {
-      auto onnxSubMatOp = mlir::cast<ONNXMatMulOp>(matmulOrGemmOp);
-      auto onnxAddOp = mlir::cast<ONNXAddOp>(addOp);
-      // Update in place MatMul and Add.
-      rewriter.modifyOpInPlace(onnxSubMatOp, [&] {
-        rewriter.setInsertionPoint(onnxSubMatOp);
-        onnxSubMatOp.getBMutable().assign(ONNXOp::create(rewriter,
-            onnxSubMatOp.getLoc(), onnxSubMatOp.getB().getType(), A, K));
-      });
-      rewriter.modifyOpInPlace(onnxAddOp, [&] {
-        OnnxBuilder createONNX(rewriter, onnxAddOp.getLoc());
-        rewriter.setInsertionPoint(onnxAddOp);
-        onnxAddOp.getBMutable().assign(ONNXOp::create(
-            rewriter, onnxAddOp.getLoc(), onnxAddOp.getB().getType(), B, K));
-      });
-    }
+    scaleConstantsOfShapeAddMatMul<ONNXOp>(
+        rewriter, K, A, B, matmulOrGemmOp, addOp, isGemm);
 
     // Bypass Div/Mul.
     rewriter.replaceOp(genericOp, onnxMatMulOp.getY());
+    return success();
+  }
+};
+
+// This rewriting is to fold a scalar Div/Mul applied to one of the matrix
+// multiplication operands of a self-attention layer into the constants of
+// the layer that produces that operand, e.g. with Q and K scaled separately:
+// ```
+// (shape_transform(X1 * A1 + B1) * k) * (shape_transform(X2 * A2 + B2) * k)
+// ```
+// Each scaled operand is rewritten, independently, from
+// ```
+// shape_transform(X * A + B) * k
+// ```
+// into
+// ```
+// shape_transform(X * A*k + B*k)
+// ```
+// if A, B and k are constants, with the same definitions as for
+// PropagateConstantScalingInAttentionLayerPattern above (which handles a scale
+// applied to the MatMul result instead). A is required to have a single use,
+// so that the scaled copy of A does not duplicate a (large) weight tensor that
+// is shared with other ops.
+template <typename ONNXOp>
+struct PropagateConstantScalingIntoAttentionOperandPattern
+    : public OpRewritePattern<ONNXOp> {
+  using OpRewritePattern<ONNXOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXOp omOp, PatternRewriter &rewriter) const final {
+    Operation *genericOp = omOp.getOperation();
+    Value V = omOp.getA();
+    Value K = omOp.getB();
+    // Mul is commutative: also accept the scalar constant as first operand.
+    if (std::is_same<ONNXOp, ONNXMulOp>::value && isScalarConstantTensor(V))
+      std::swap(V, K);
+
+    // The second operand of Div/Mul is a scalar constant.
+    if (!isScalarConstantTensor(K))
+      return rewriter.notifyMatchFailure(
+          genericOp, "The second operand of Div/Mul is not a scalar constant");
+    // The scaling does not broadcast V to a larger shape.
+    if (V.getType() != omOp.getResult().getType())
+      return rewriter.notifyMatchFailure(
+          genericOp, "Div/Mul changes the type of the scaled value");
+    // A MatMul result is handled by
+    // PropagateConstantScalingInAttentionLayerPattern.
+    if (V.getDefiningOp<ONNXMatMulOp>())
+      return rewriter.notifyMatchFailure(
+          genericOp, "The scaled value is produced by MatMulOp");
+
+    // Match V = shape_transform(X*A + B).
+    Value A, B;
+    Operation *matmulOrGemmOp, *addOp;
+    bool isGemm;
+    if (!matchShapeAddMatMul(V, A, B, matmulOrGemmOp, addOp, isGemm))
+      return rewriter.notifyMatchFailure(genericOp,
+          "The scaled value is not a shape transform of a MatMul/Gemm with "
+          "constant weights");
+    if (!A.hasOneUse())
+      return rewriter.notifyMatchFailure(
+          genericOp, "The constant weights have more than one use");
+
+    // Rewrite.
+    scaleConstantsOfShapeAddMatMul<ONNXOp>(
+        rewriter, K, A, B, matmulOrGemmOp, addOp, isGemm);
+
+    // Bypass Div/Mul.
+    rewriter.replaceOp(genericOp, V);
     return success();
   }
 };
@@ -2800,6 +2881,8 @@ void ONNXDivOp::getCanonicalizationPatterns(
   result.insert<PropagateReshapeThroughBinaryOpPattern<ONNXDivOp>>(context);
   result.insert<PropagateConstantScalingInAttentionLayerPattern<ONNXDivOp>>(
       context);
+  result.insert<PropagateConstantScalingIntoAttentionOperandPattern<ONNXDivOp>>(
+      context);
   result.insert<FuseScalarDivMatMulPattern>(context);
 }
 
@@ -2947,6 +3030,9 @@ void ONNXMulOp::getCanonicalizationPatterns(
   results.insert<PropagateReshapeThroughBinaryOpPattern<ONNXMulOp>>(context);
   results.insert<PropagateConstantScalingInAttentionLayerPattern<ONNXMulOp>>(
       context);
+  results
+      .insert<PropagateConstantScalingIntoAttentionOperandPattern<ONNXMulOp>>(
+          context);
 }
 
 /// on the ONNXOrOp.
