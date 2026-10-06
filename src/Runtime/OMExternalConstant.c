@@ -201,6 +201,20 @@ bool omUnloadConstantData(void **constAddr, int64_t size) {
 /// \return 0 on success, 1 on failure.
 ///
 static int mallocAndReadFile(void **constAddr, int fd, int64_t fileSize) {
+  // Verify the file's actual size matches the compile-time baked size before
+  // loading. A mismatch means the sidecar has been truncated or substituted;
+  // fail closed rather than reading wrong or unbacked memory.
+  struct stat st;
+  if (fstat(fd, &st) != 0) {
+    fprintf(stderr, "Error while fstat: %s\n", strerror(errno));
+    return 1;
+  }
+  if (st.st_size != (off_t)fileSize) {
+    fprintf(stderr,
+        "Constants file size mismatch: expected %lld bytes, found %lld bytes\n",
+        (long long)fileSize, (long long)st.st_size);
+    return 1;
+  }
   // Large file - use malloc + chunked read with 4K alignment.
   // Allocate extra space to ensure 4K alignment.
   if (posix_memalign(
@@ -259,6 +273,21 @@ static int mallocAndReadFile(void **constAddr, int fd, int64_t fileSize) {
 /// This function is thread-safe.
 ///
 static int mmapAndReadFile(void **constAddr, int fd, int64_t fileSize) {
+  // Verify the file's actual size matches the compile-time baked size before
+  // mapping. A truncated file would cause SIGBUS on page access; a silently
+  // substituted same-size file is caught only by content hash (Tier 3); but a
+  // differently-sized replacement fails here cleanly.
+  struct stat st;
+  if (fstat(fd, &st) != 0) {
+    fprintf(stderr, "Error while fstat: %s\n", strerror(errno));
+    return 1;
+  }
+  if (st.st_size != (off_t)fileSize) {
+    fprintf(stderr,
+        "Constants file size mismatch: expected %lld bytes, found %lld bytes\n",
+        (long long)fileSize, (long long)st.st_size);
+    return 1;
+  }
 #ifdef __MVS__
   void *tempAddr = mmap(0, fileSize, PROT_READ, __MAP_MEGA, fd, 0);
 #else

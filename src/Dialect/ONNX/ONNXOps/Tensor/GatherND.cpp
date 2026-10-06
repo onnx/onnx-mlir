@@ -4,7 +4,7 @@
 
 //===------------------ GatherND.cpp - ONNX Operations --------------------===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -113,9 +113,11 @@ LogicalResult ONNXGatherNDOp::verify() {
   ArrayRef<int64_t> indicesShape = indicesType.getShape();
   int64_t indicesLastDim = indicesShape[indicesRank - 1];
 
-  // b must be smaller than min(rank(data), rank(indices).
+  // b must be non-negative and smaller than min(rank(data), rank(indices)).
+  // A negative b would cause an out-of-bounds read in dataShape[gatherAxis]
+  // below when gatherAxis = b + (flatIndex % indicesLastDim) goes negative.
   int64_t minDataAndIndicesRank = std::min(dataRank, indicesRank);
-  if (b >= minDataAndIndicesRank)
+  if (b < 0 || b >= minDataAndIndicesRank)
     return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
         *this->getOperation(), "batch_dims", b,
         onnx_mlir::Diagnostic::Range<int64_t>(0, minDataAndIndicesRank - 1));

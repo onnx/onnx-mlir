@@ -55,11 +55,27 @@ def find_compiler_path(image_name):
 # However, the OMExecutionSession is imported in a member function in current
 # implementation. ToFix later.
 class InferenceSession:
-    def __init__(self, model_path, **kwargs):
+    def __init__(self, model_path, allow_precompiled=False, **kwargs):
+        """Initialize an inference session from an ONNX/MLIR model or a
+        pre-compiled shared library.
+
+        Args:
+            model_path: Path to the model. Accepted suffixes:
+                .onnx / .mlir  — compile then load (normal path).
+                .so            — load directly without compilation. Requires
+                                 allow_precompiled=True (see WARNING below).
+            allow_precompiled (bool): Must be explicitly set to True to allow
+                loading a pre-compiled .so file directly via dlopen.
+                WARNING: Loading a .so bypasses compilation entirely and
+                executes native code with the caller's own privileges. Only
+                set this flag when the .so file path is fully trusted and the
+                directory it resides in is not writable by any other local
+                principal. Default: False.
+        """
         self.debug = False
         self.session = None
         self.output_dir = tempfile.TemporaryDirectory()
-        self.handleParameters(model_path, **kwargs)
+        self.handleParameters(model_path, allow_precompiled=allow_precompiled, **kwargs)
         if self.session is not None:
             return
         self.checkCompiler()
@@ -69,7 +85,7 @@ class InferenceSession:
     def __del__(self):
         del self.session
 
-    def handleParameters(self, model_path, **kwargs):
+    def handleParameters(self, model_path, allow_precompiled=False, **kwargs):
         if "debug" in kwargs.keys():
             self.debug = kwargs["debug"]
         if "compile_tag" in kwargs.keys():
@@ -83,6 +99,13 @@ class InferenceSession:
         elif model_path.endswith(".onnx"):
             self.model_suffix = ".onnx"
         elif model_path.endswith(".so"):
+            if not allow_precompiled:
+                raise ValueError(
+                    "Loading a pre-compiled .so directly executes native code "
+                    "and bypasses compilation entirely. Set allow_precompiled=True "
+                    "only when the .so path is fully trusted and the directory is "
+                    "not writable by any other local principal."
+                )
             self.compiled_model = os.path.abspath(model_path)
             self.session = self.getSession()
             return
