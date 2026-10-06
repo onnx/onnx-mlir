@@ -692,8 +692,6 @@ class FuseTransposeAndElementwiseUnaryWithTwoArgOpPattern<Op elmOp>:  Pat<
 
 def FuseTransposeAndAtanPattern :
     FuseTransposeAndElementwiseUnaryOpPattern<ONNXAtanOp>;
-def FuseTransposeAndCastPattern :
-    FuseTransposeAndElementwiseUnaryWithTwoArgOpPattern<ONNXCastOp>;
 def FuseTransposeAndCeilPattern :
     FuseTransposeAndElementwiseUnaryOpPattern<ONNXCeilOp>;
 def FuseTransposeAndCosPattern :
