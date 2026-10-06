@@ -3747,7 +3747,7 @@ def get_test_models():
         for (key, value) in variables.node_test_to_enable_dict.items()
         if (
             STATIC_SHAPE in value
-            and not (args.emit == "jni" and key.startwith("test_tensorscatter"))
+            and not (args.emit == "jni" and key.startswith("test_tensorscatter"))
         )
         or ((STATIC_SHAPE_STRING in value) and (args.emit == "lib"))
     ]

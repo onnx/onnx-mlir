@@ -21,9 +21,19 @@ namespace onnx_mlir {
 
 struct ONNXTensorScatterOpLowering
     : public OpConversionPattern<ONNXTensorScatterOp> {
-  ONNXTensorScatterOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : OpConversionPattern(typeConverter, ctx) {}
+  ONNXTensorScatterOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
+      bool enableParallel)
+      : OpConversionPattern(typeConverter, ctx) {
+    this->enableParallel =
+        enableParallel &&
+        OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
+            ONNXTensorScatterOp::getOperationName());
+  }
 
+private:
+  bool enableParallel = false;
+
+public:
   LogicalResult matchAndRewrite(ONNXTensorScatterOp tensorScatterOp,
       ONNXTensorScatterOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
@@ -73,7 +83,22 @@ struct ONNXTensorScatterOpLowering
     ValueRange loopDef = create.krnl.defineLoops(rank);
     DimsExpr lbs(rank, LitIE(0)), ubs;
     create.krnlIE.getShapeAsDims(update, ubs);
-    create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
+
+    // Enable parallelism if required. Every iteration writes a distinct
+    // output element (the access function is injective: for a fixed batch,
+    // the write position along 'axis' is a strictly increasing function of
+    // the loop index at 'axis', and every other dimension is copied as-is),
+    // and only reads from 'update' and 'write_indices', so the loop nest is
+    // safe to parallelize over any subset of its dimensions.
+    // bodyCost 1: one innermost iteration is a load, some index arithmetic,
+    // and a store.
+    KrnlParallelPlan plan = KrnlParallelPlan::noCollapse(loopDef,
+        /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/2,
+        {.minTripCountForParallel = 4, .bodyCost = 1});
+    if (enableParallel)
+      plan.tryCreateParallel(create.krnl, op, "tensor scatter", lbs, ubs);
+
+    create.krnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, ubs,
         [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
           // Insert code inside the loop.
           IndexExprScope innerLoopScope(createKrnl);
@@ -110,8 +135,9 @@ struct ONNXTensorScatterOpLowering
 };
 
 void populateLoweringONNXTensorScatterOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx) {
-  patterns.insert<ONNXTensorScatterOpLowering>(typeConverter, ctx);
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel) {
+  patterns.insert<ONNXTensorScatterOpLowering>(
+      typeConverter, ctx, enableParallel);
 }
 
 } // namespace onnx_mlir
