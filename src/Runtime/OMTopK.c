@@ -134,7 +134,8 @@ void omTensorTopK(OMTensor *orderTensor, const OMTensor *inputTensor,
   int64_t sort_elems = inputShape[axis];
   int64_t k = (int64_t)k_u64; // Use signed int
   // Clamp k to [0, sort_elems]: a negative or oversized K is not meaningful and
-  // would drive the partial-heapsort loop to index idx[negative] (OOB read/write).
+  // would drive the partial-heapsort loop to index idx[negative] (OOB
+  // read/write).
   if (k < 0 || k > sort_elems)
     k = sort_elems;
 
