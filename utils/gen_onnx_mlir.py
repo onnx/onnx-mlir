@@ -403,6 +403,7 @@ OpsWithVerifier = [
     "ConvTranspose",
     "DepthToSpace",
     "DequantizeLinear",
+    "Det",
     "Div",
     "Einsum",
     "Equal",
