@@ -263,13 +263,12 @@ static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
       scale_factor[i] = ((float)output_size[i]) / inputShape[i];
     }
   } else {
-    int64_t outputCap = omTensorGetNumElems(output_OMT);
     for (int i = 0; i < rank; i++) {
       // Validate scale_factor[i] is finite, positive, and within range
       // before the float -> int64_t cast.
       if (!isfinite(scale_factor[i]) || scale_factor[i] <= 0.0f ||
           (inputShape[i] > 0 &&
-              scale_factor[i] > (float)outputCap / (float)inputShape[i])) {
+              scale_factor[i] > (float)INT64_MAX / (float)inputShape[i])) {
         return;
       }
     }

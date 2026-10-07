@@ -12,7 +12,7 @@
 //
 // Focus areas:
 //  1. Normal functional paths: Resize_Scales / Resize_Size with nearest,
-//     linear, and cubic interpolation on small tensors.
+//     linear, and cubic interpolation on small tensors, including downsampling.
 //  2. Input validation tests (f-028):
 //     - NaN, Inf, negative, zero, or out-of-range scale factors are rejected
 //       before float->int64 cast.
@@ -137,6 +137,39 @@ static void testScalesLinear1D() {
   omTensorDestroy(scales);
   omTensorDestroy(output);
   printf("  PASS testScalesLinear1D\n");
+}
+
+/* -------------------------------------------------------------------------- */
+/* Normal path: Resize_Scales linear downsampling                             */
+/* -------------------------------------------------------------------------- */
+
+static void testScalesLinearDownsample() {
+  /*
+   * Input: 1x1x2x4 tensor [[[[1, 2, 3, 4], [5, 6, 7, 8]]]]
+   * scale: [1.0, 1.0, 0.6, 0.6] -> output shape 1x1x1x2
+   * Matches test_resize_downsample_scales_linear.
+   */
+  float inData[8] = {1.f, 2.f, 3.f, 4.f, 5.f, 6.f, 7.f, 8.f};
+  int64_t inShape[4] = {1, 1, 2, 4};
+  OMTensor *data = makeNDf(inData, inShape, 4);
+
+  float scaleData[4] = {1.f, 1.f, 0.6f, 0.6f};
+  OMTensor *scales = make1Df(scaleData, 4);
+
+  float outData[2];
+  memset(outData, 0, sizeof(outData));
+  int64_t outShape[4] = {1, 1, 1, 2};
+  OMTensor *output = makeNDf(outData, outShape, 4);
+
+  Resize_Scales(output, data, scales, "linear", "");
+
+  CHECK_NEAR(outData[0], 2.6666665f, 0.01f);
+  CHECK_NEAR(outData[1], 4.3333331f, 0.01f);
+
+  omTensorDestroy(data);
+  omTensorDestroy(scales);
+  omTensorDestroy(output);
+  printf("  PASS testScalesLinearDownsample\n");
 }
 
 /* -------------------------------------------------------------------------- */
@@ -364,6 +397,7 @@ int main(void) {
 
   testScalesNearest1D();
   testScalesLinear1D();
+  testScalesLinearDownsample();
   testSizeNearest1D();
   testSizeNonPositiveDimRejected();
   testScalesNonPositiveRejected();
