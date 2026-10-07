@@ -143,6 +143,13 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
   pm.addPass(mlir::createCanonicalizerPass());
 
+  // Fuse zhigh.MatMul + zhigh.Add + zhigh.Softmax into zhigh.MatMulAddSoftmax.
+  if (!nnpaDisableMatMulAddSoftmax) {
+    pm.addNestedPass<func::FuncOp>(
+        onnx_mlir::zhigh::createZHighMatMulAddSoftmaxFusionPass());
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
+  }
+
   // One more call to ONNX shape inference/canonicalization/... to update shape
   // if possible.
   if (enableONNXHybridPass) {

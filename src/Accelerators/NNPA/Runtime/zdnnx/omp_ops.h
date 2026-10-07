@@ -43,6 +43,10 @@ zdnn_status zdnnx_omp_binary_elementwise(const zdnn_ztensor *inputA,
 zdnn_status zdnnx_omp_softmax(const zdnn_ztensor *input, void *save_area,
     zdnn_softmax_act act_func, zdnn_ztensor *output);
 
+zdnn_status zdnnx_omp_matmul_add_softmax(const zdnn_ztensor *X,
+    const zdnn_ztensor *Y, const zdnn_ztensor *Z,
+    const zdnn_ztensor *bias, zdnn_ztensor *output);
+
 #endif // ZDNNX_WITH_OMP
 
 #endif // ZDNNX_OMP_OPS_H

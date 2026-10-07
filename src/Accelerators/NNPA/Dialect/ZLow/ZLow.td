@@ -240,6 +240,21 @@ def ZLowSoftmaxOp:ZLow_Op<"softmax", [MemRefsNormalizable,
                        StrAttr:$act_func);
 }
 
+def ZLowMatMulAddSoftmaxOp:ZLow_Op<"matmul_add_softmax", [MemRefsNormalizable,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
+  let summary = "ZLow fused MatMul + Add + Softmax operation";
+  let description = [{
+  ZLow operation to compute Softmax(MatMul(X, Y) + Z).
+  shape: memref<4xi64> = [s, m, n, p].
+  }];
+  let arguments = (ins ZMemRef:$X,
+                       ZMemRef:$Y,
+                       ZMemRef:$Z,
+                       ZMemRef:$Bias,
+                       MemRefOf<[I64]>:$shape,
+                       ZMemRef:$Out);
+}
+
 def ZLowSqrtOp:ZLow_Op<"sqrt", [MemRefsNormalizable]> {
   let summary = "ZLow sqrt operation";
   let description = [{

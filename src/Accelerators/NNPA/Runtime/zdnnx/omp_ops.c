@@ -644,4 +644,69 @@ zdnn_status zdnnx_omp_softmax(const zdnn_ztensor *input, void *save_area,
   return ZDNN_OK;
 }
 
+zdnn_status zdnnx_omp_matmul_add_softmax(const zdnn_ztensor *X,
+    const zdnn_ztensor *Y, const zdnn_ztensor *Z,
+    const zdnn_ztensor *bias, zdnn_ztensor *output) {
+#ifdef ZDNNX_DEBUG
+  printf("[OMP MatMulAddSoftmax]\n");
+#endif
+
+  // Split along E4 (batch) only, since the fused operation spans matmul+add+
+  // softmax which have different tiling requirements for other dims.
+  uint32_t num_threads_per_zaiu = zdnnx_get_min_num_threads_per_zaiu();
+  uint32_t num_tiles = zdnnx_get_num_zaiu_threads() *
+                       ((num_threads_per_zaiu > 2) ? 2 : num_threads_per_zaiu);
+  uint32_t ts_e4 =
+      zdnnx_get_transformed_dim_per_tile(X, num_tiles, E4);
+  uint32_t mdis_e4 = zdnnx_get_nnpa_max_dim_size(E4);
+  if (ts_e4 > mdis_e4)
+    ts_e4 = mdis_e4;
+
+  zdnnx_split_info si_x, si_y, si_z, si_bias, si_out;
+  zdnnx_prepare_split_info(
+      &si_x, X, ts_e4, 0, 0, 0, "MatMulAddSoftmax X");
+  zdnnx_prepare_split_info(
+      &si_y, Y, ts_e4, 0, 0, 0, "MatMulAddSoftmax Y");
+  zdnnx_prepare_split_info(
+      &si_z, Z, ts_e4, 0, 0, 0, "MatMulAddSoftmax Z");
+  zdnnx_prepare_split_info(
+      &si_bias, bias, ts_e4, 0, 0, 0, "MatMulAddSoftmax Bias");
+  zdnnx_prepare_split_info(
+      &si_out, output, ts_e4, 0, 0, 0, "MatMulAddSoftmax Out");
+
+  // No splitting, call the seq function.
+  if (zdnnx_has_one_tile(&si_x))
+    return zdnnx_seq_matmul_add_softmax(X, Y, Z, bias, output);
+
+  uint32_t num_tiles_e4 = zdnnx_get_num_tiles(&si_x, E4);
+#pragma omp parallel for num_threads(num_tiles)
+  for (uint32_t e4 = 0; e4 < num_tiles_e4; ++e4) {
+    zdnnx_tile tx, ty, tz, tbias, tout;
+    zdnnx_set_tile(&si_x, &tx, NULL, e4, 0, 0, 0);
+    zdnnx_set_tile(&si_y, &ty, NULL, e4, 0, 0, 0);
+    zdnnx_set_tile(&si_z, &tz, NULL, e4, 0, 0, 0);
+    zdnnx_set_tile(&si_bias, &tbias, NULL, e4, 0, 0, 0);
+    zdnnx_set_tile(&si_out, &tout, NULL, e4, 0, 0, 0);
+
+    zdnnx_copy_data_to_tile(&tx);
+    zdnnx_copy_data_to_tile(&ty);
+    zdnnx_copy_data_to_tile(&tz);
+    zdnnx_copy_data_to_tile(&tbias);
+
+    zdnn_status status = zdnnx_seq_matmul_add_softmax(
+        &tx.data, &ty.data, &tz.data, &tbias.data, &tout.data);
+    assert(status == ZDNN_OK);
+
+    zdnnx_copy_data_to_full(&tout);
+
+    zdnnx_free_tile_buffer(&tx);
+    zdnnx_free_tile_buffer(&ty);
+    zdnnx_free_tile_buffer(&tz);
+    zdnnx_free_tile_buffer(&tbias);
+    zdnnx_free_tile_buffer(&tout);
+  }
+
+  return ZDNN_OK;
+}
+
 #endif // ZDNNX_WITH_OMP

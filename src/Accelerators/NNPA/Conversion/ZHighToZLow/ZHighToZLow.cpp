@@ -1244,6 +1244,57 @@ struct ZHighToZLowSoftmaxOpLowering : public ConversionPattern {
 };
 
 //===----------------------------------------------------------------------===//
+// Lower ZHigh MatMulAddSoftmax to ZLow MatMulAddSoftmax
+//===----------------------------------------------------------------------===//
+struct ZHighToZLowMatMulAddSoftmaxOpLowering : public ConversionPattern {
+  ZHighToZLowMatMulAddSoftmaxOpLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(typeConverter,
+            ZHighMatMulAddSoftmaxOp::getOperationName(), 1, ctx) {}
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+    Location loc = op->getLoc();
+    ZHighMatMulAddSoftmaxOpAdaptor operandAdaptor(operands);
+
+    // Helper builders.
+    MultiDialectBuilder<IndexExprBuilderForKrnl> create(rewriter, loc);
+
+    // Compute shape.
+    ZHighMatMulAddSoftmaxOpShapeHelper shapeHelper(
+        op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
+
+    // Convert ZTensor type to MemRefType.
+    ZMemRefType zMemRefType =
+        convertZTensorToMemRefType(*op->result_type_begin());
+
+    // Allocate a buffer for the result MemRef.
+    Value alloc = insertAllocForZMemRef(
+        zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
+
+    // Get the original shape: {s, m, n, p}.
+    Value shapeMemRef =
+        insertShapeMemRefI64(rewriter, loc, shapeHelper.allOriginalDims);
+
+    // Create zero bias for the stacked matmul (2DS: {s, p}).
+    SmallVector<IndexExpr, 4> resDims, biasDims;
+    create.krnlIE.getShapeAsDims(alloc, resDims);
+    biasDims.emplace_back(resDims[0]);
+    biasDims.emplace_back(resDims[2]);
+    Value bias = insertAllocOrEmitZeroConstant(
+        biasDims, ZTensorEncodingAttr::DataLayout::_2DS, op, rewriter, loc);
+
+    // Emit zlow.matmul_add_softmax.
+    ZLowMatMulAddSoftmaxOp::create(rewriter, loc, operandAdaptor.getX(),
+        operandAdaptor.getY(), operandAdaptor.getZ(), bias, shapeMemRef,
+        alloc);
+    rewriter.replaceOp(op, alloc);
+    return success();
+  }
+};
+
+//===----------------------------------------------------------------------===//
 // Lower ZHigh MeanReduce2D to ZLow MeanReduce2D
 //===----------------------------------------------------------------------===//
 struct ZHighToZLowMeanReduce2DOpLowering : public ConversionPattern {
@@ -3791,6 +3842,7 @@ void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
   patterns.insert<ZHighToZLowMeanReduce2DOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowLeakyReluOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowMatMulOpLowering>(typeConverter, ctx);
+  patterns.insert<ZHighToZLowMatMulAddSoftmaxOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowLSTMOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowGRUOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowFixGRUYOpLowering>(typeConverter, ctx);

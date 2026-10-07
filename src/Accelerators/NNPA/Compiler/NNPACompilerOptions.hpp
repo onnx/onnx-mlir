@@ -80,6 +80,7 @@ extern llvm::cl::opt<bool> nnpaDisableFusionOpStickUnstick;
 extern llvm::cl::opt<bool> nnpaDisableShapeRestriction;
 extern llvm::cl::opt<bool> nnpaDisableHugePageMalloc;
 extern llvm::cl::opt<bool> nnpaDisableExpandAttentionMask;
+extern llvm::cl::opt<bool> nnpaDisableMatMulAddSoftmax;
 extern std::vector<NNPAQuantOptions> nnpaQuantDynamic;
 extern std::vector<std::string> nnpaQuantOpTypes;
 

@@ -82,6 +82,20 @@ struct ZHighMatMulOpShapeHelper : public ONNXOpShapeHelper {
 };
 
 //===----------------------------------------------------------------------===//
+// Shape helper for MatMulAddSoftmaxOp.
+//===----------------------------------------------------------------------===//
+
+struct ZHighMatMulAddSoftmaxOpShapeHelper : public ONNXOpShapeHelper {
+  ZHighMatMulAddSoftmaxOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands = {},
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
+  virtual ~ZHighMatMulAddSoftmaxOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+  DimsExpr allOriginalDims; // {s, m, n, p}
+};
+
+//===----------------------------------------------------------------------===//
 // Shape helper for QuantizedMatMulOp.
 //===----------------------------------------------------------------------===//
 

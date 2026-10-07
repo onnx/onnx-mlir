@@ -16,6 +16,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "seq_ops.h"
 #include "zdnnx.h"
@@ -514,4 +515,40 @@ zdnn_status zdnnx_seq_matmul(const zdnn_ztensor *input_a,
   zdnnx_free_buffer(tile_buff_c);
   zdnnx_free_buffer(tile_buff_y);
   return ZDNN_OK;
+}
+
+zdnn_status zdnnx_seq_matmul_add_softmax(const zdnn_ztensor *X,
+    const zdnn_ztensor *Y, const zdnn_ztensor *Z,
+    const zdnn_ztensor *bias, zdnn_ztensor *output) {
+#ifdef ZDNNX_DEBUG
+  printf("[MatMulAddSoftmax]\n");
+#endif
+
+  zdnn_status status;
+
+  // 1. MatMul: output = X * Y + bias. Write directly to output.
+  status = zdnn_matmul_op(X, Y, bias, MATMUL_OP_ADDITION, output);
+  if (status != ZDNN_OK)
+    return status;
+
+  // 2. Allocate inter for the add result.
+  zdnn_ztensor inter;
+  zdnn_tensor_desc inter_pre_desc = *output->pre_transformed_desc;
+  zdnn_tensor_desc inter_trans_desc = *output->transformed_desc;
+  zdnn_init_ztensor(&inter_pre_desc, &inter_trans_desc, &inter);
+  status = zdnn_allochelper_ztensor(&inter);
+  if (status != ZDNN_OK)
+    return status;
+
+  // 3. Add: inter = output + Z.
+  status = zdnn_add(output, Z, &inter);
+  if (status != ZDNN_OK) {
+    zdnn_free_ztensor_buffer(&inter);
+    return status;
+  }
+
+  // 4. Softmax: output = softmax(inter).
+  status = zdnn_softmax(&inter, NULL, SOFTMAX_ACT_NONE, output);
+  zdnn_free_ztensor_buffer(&inter);
+  return status;
 }

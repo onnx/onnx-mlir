@@ -637,6 +637,40 @@ def ZHighSoftmaxOp:ZHigh_Op<"Softmax", [Pure, SameOperandsAndResultLayout,
   }];
 }
 
+def ZHighMatMulAddSoftmaxOp:ZHigh_Op<"MatMulAddSoftmax", [Pure,
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ZHigh fused MatMul + Add + Softmax";
+  let description = [{
+    Computes Softmax(MatMul(X, Y) + Z) in a single fused operation.
+    X: [s, m, n] 3DS, Y: [s, n, p] 3DS, Z: [s, m, p] 3DS.
+    Output: [s, m, p] 3DS. Always stacked, no transpose, ACT_NONE.
+  }];
+  let arguments = (ins ZTensor_3DS:$X,
+                       ZTensor_3DS:$Y,
+                       ZTensor_3DS:$Z);
+  let results = (outs ZTensor_3DS:$Out);
+  let builders = [
+    OpBuilder<(ins "::mlir::Value":$X, "::mlir::Value":$Y,
+                   "::mlir::Value":$Z), [{
+      Type elementType = mlir::cast<ShapedType>(X.getType()).getElementType();
+      UnrankedTensorType resType = UnrankedTensorType::get(elementType);
+      build($_builder, $_state, resType, X, Y, Z);
+    }]>
+  ];
+  let hasVerifier = 1;
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighMatMulAddSoftmaxOp::getShapeHelper(
+        mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper,
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh =
+          new ZHighMatMulAddSoftmaxOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+}
+
 def ZHighSqrtOp:ZHigh_Op<"Sqrt", [Pure, SameOperandsAndResultLayout,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh Sqrt operation";

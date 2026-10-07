@@ -87,6 +87,18 @@ add_onnx_mlir_library(OMZHighScrubDisposable
   ${NNPA_INCLUDE_PATH}
   )
 
+add_onnx_mlir_library(OMZHighMatMulAddSoftmaxFusion
+  ZHighMatMulAddSoftmaxFusion.cpp
+
+  LINK_LIBS PUBLIC
+  MLIRRewrite
+  MLIRTransformUtils
+  OMZHighOps
+
+  ACCEL_INCLUDE_DIRS PRIVATE
+  ${NNPA_INCLUDE_PATH}
+  )
+
   add_onnx_mlir_library(OMFusionStickUnstick
   FusionOpStickUnstick.cpp
 

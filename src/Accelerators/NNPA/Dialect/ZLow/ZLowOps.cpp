@@ -188,6 +188,23 @@ void ZLowSoftmaxOp::getEffects(
       SideEffects::DefaultResource::get());
 }
 
+void ZLowMatMulAddSoftmaxOp::getEffects(
+    SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
+        &effects) {
+  effects.emplace_back(MemoryEffects::Write::get(), &getOutMutable(),
+      SideEffects::DefaultResource::get());
+  effects.emplace_back(MemoryEffects::Read::get(), &getXMutable(),
+      SideEffects::DefaultResource::get());
+  effects.emplace_back(MemoryEffects::Read::get(), &getYMutable(),
+      SideEffects::DefaultResource::get());
+  effects.emplace_back(MemoryEffects::Read::get(), &getZMutable(),
+      SideEffects::DefaultResource::get());
+  effects.emplace_back(MemoryEffects::Read::get(), &getBiasMutable(),
+      SideEffects::DefaultResource::get());
+  effects.emplace_back(MemoryEffects::Read::get(), &getShapeMutable(),
+      SideEffects::DefaultResource::get());
+}
+
 void ZLowMatMulOp::getEffects(
     SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
         &effects) {

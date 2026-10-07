@@ -149,4 +149,10 @@ llvm::cl::opt<bool> nnpaDisableExpandAttentionMask(
                    "operations. Default is false"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
+llvm::cl::opt<bool> nnpaDisableMatMulAddSoftmax(
+    "nnpa-disable-matmul-add-softmax",
+    llvm::cl::desc("Disable fusion of MatMul+Add+Softmax into a single fused "
+                   "op for NNPA. Default is false"),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
 } // namespace onnx_mlir
