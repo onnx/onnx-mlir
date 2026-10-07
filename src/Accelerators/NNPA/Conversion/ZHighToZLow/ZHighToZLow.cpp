@@ -1277,9 +1277,10 @@ struct ZHighToZLowMatMulAddSoftmaxOpLowering : public ConversionPattern {
     Value shapeMemRef =
         insertShapeMemRefI64(rewriter, loc, shapeHelper.allOriginalDims);
 
-    // Create zero bias for the stacked matmul (2DS: {s, p}).
-    SmallVector<IndexExpr, 4> resDims, biasDims;
+    // Create zero bias: 2DS {S, P}.
+    SmallVector<IndexExpr, 4> resDims;
     create.krnlIE.getShapeAsDims(alloc, resDims);
+    SmallVector<IndexExpr, 2> biasDims;
     biasDims.emplace_back(resDims[0]);
     biasDims.emplace_back(resDims[2]);
     Value bias = insertAllocOrEmitZeroConstant(

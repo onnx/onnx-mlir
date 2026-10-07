@@ -76,7 +76,7 @@ zdnn_status zdnnx_reduce(const zdnn_ztensor *input, void *save_area,
 
 // Fused operations
 zdnn_status zdnnx_matmul_add_softmax(const zdnn_ztensor *X,
-    const zdnn_ztensor *Y, const zdnn_ztensor *Z,
-    const zdnn_ztensor *bias, zdnn_ztensor *output);
+    const zdnn_ztensor *Y, const zdnn_ztensor *Z, const zdnn_ztensor *Bias,
+    zdnn_ztensor *output);
 
 #endif // ZDNNX_ZDNNX_OPS_H
