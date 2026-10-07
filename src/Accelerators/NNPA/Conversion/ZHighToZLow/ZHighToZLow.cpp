@@ -1286,9 +1286,13 @@ struct ZHighToZLowMatMulAddSoftmaxOpLowering : public ConversionPattern {
     Value bias = insertAllocOrEmitZeroConstant(
         biasDims, ZTensorEncodingAttr::DataLayout::_2DS, op, rewriter, loc);
 
+    // Allocate work buffer (same shape as output, used as intermediate).
+    Value work = insertAllocForZMemRef(
+        zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
+
     // Emit zlow.matmul_add_softmax.
     ZLowMatMulAddSoftmaxOp::create(rewriter, loc, operandAdaptor.getX(),
-        operandAdaptor.getY(), operandAdaptor.getZ(), bias, shapeMemRef,
+        operandAdaptor.getY(), operandAdaptor.getZ(), bias, work, shapeMemRef,
         alloc);
     rewriter.replaceOp(op, alloc);
     return success();

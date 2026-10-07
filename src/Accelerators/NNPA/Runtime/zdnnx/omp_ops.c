@@ -646,7 +646,7 @@ zdnn_status zdnnx_omp_softmax(const zdnn_ztensor *input, void *save_area,
 
 zdnn_status zdnnx_omp_matmul_add_softmax(const zdnn_ztensor *X,
     const zdnn_ztensor *Y, const zdnn_ztensor *Z, const zdnn_ztensor *Bias,
-    zdnn_ztensor *output) {
+    zdnn_ztensor *work, zdnn_ztensor *output) {
 #ifdef ZDNNX_DEBUG
   printf("[OMP MatMulAddSoftmax]\n");
 #endif
@@ -654,30 +654,32 @@ zdnn_status zdnnx_omp_matmul_add_softmax(const zdnn_ztensor *X,
   // Split along E4 with tile size 1 so each thread gets one batch element
   // (E4=1). This enables REUSE_FULL_BUFFER_D6 (zero-copy) and satisfies the
   // seq function's E4=1 contract.
-  zdnnx_split_info si_x, si_y, si_z, si_bias, si_out;
+  zdnnx_split_info si_x, si_y, si_z, si_bias, si_work, si_out;
   zdnnx_prepare_split_info(&si_x, X, 1, 0, 0, 0, "MatMulAddSoftmax X");
   zdnnx_prepare_split_info(&si_y, Y, 1, 0, 0, 0, "MatMulAddSoftmax Y");
   zdnnx_prepare_split_info(&si_z, Z, 1, 0, 0, 0, "MatMulAddSoftmax Z");
   zdnnx_prepare_split_info(&si_bias, Bias, 1, 0, 0, 0, "MatMulAddSoftmax Bias");
+  zdnnx_prepare_split_info(&si_work, work, 1, 0, 0, 0, "MatMulAddSoftmax Work");
   zdnnx_prepare_split_info(&si_out, output, 1, 0, 0, 0, "MatMulAddSoftmax Out");
 
   if (zdnnx_has_one_tile(&si_x))
-    return zdnnx_seq_matmul_add_softmax(X, Y, Z, Bias, output);
+    return zdnnx_seq_matmul_add_softmax(X, Y, Z, Bias, work, output);
 
   uint32_t BH = zdnnx_get_num_tiles(&si_x, E4);
   uint32_t num_threads = zdnnx_get_num_zaiu_threads();
 
 #pragma omp parallel for num_threads(num_threads)
   for (uint32_t b = 0; b < BH; ++b) {
-    zdnnx_tile tx, ty, tz, tbias, tout;
+    zdnnx_tile tx, ty, tz, tbias, twork, tout;
     zdnnx_set_tile(&si_x, &tx, NULL, b, 0, 0, 0);
     zdnnx_set_tile(&si_y, &ty, NULL, b, 0, 0, 0);
     zdnnx_set_tile(&si_z, &tz, NULL, b, 0, 0, 0);
     zdnnx_set_tile(&si_bias, &tbias, NULL, b, 0, 0, 0);
+    zdnnx_set_tile(&si_work, &twork, NULL, b, 0, 0, 0);
     zdnnx_set_tile(&si_out, &tout, NULL, b, 0, 0, 0);
 
     zdnn_status status = zdnnx_seq_matmul_add_softmax(
-        &tx.data, &ty.data, &tz.data, &tbias.data, &tout.data);
+        &tx.data, &ty.data, &tz.data, &tbias.data, &twork.data, &tout.data);
     assert(status == ZDNN_OK);
   }
 

@@ -251,6 +251,7 @@ def ZLowMatMulAddSoftmaxOp:ZLow_Op<"matmul_add_softmax", [MemRefsNormalizable,
                        ZMemRef:$Y,
                        ZMemRef:$Z,
                        ZMemRef:$Bias,
+                       ZMemRef:$Work,
                        MemRefOf<[I64]>:$shape,
                        ZMemRef:$Out);
 }

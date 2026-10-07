@@ -626,30 +626,20 @@ static zdnn_status create_2ds_zero_bias(uint32_t s, uint32_t n,
 // Small S: S <= 2048. Delegate to three sequential zdnn calls.
 static zdnn_status matmul_add_softmax_small_s(const zdnn_ztensor *X,
     const zdnn_ztensor *Y, const zdnn_ztensor *Z, const zdnn_ztensor *Bias,
-    zdnn_ztensor *output) {
+    zdnn_ztensor *work, zdnn_ztensor *output) {
 #ifdef ZDNNX_DEBUG
   printf("[MatMulAddSoftmax Small S]\n");
 #endif
 
-  // Allocate one intermediate for zdnn_add output.
-  zdnn_ztensor inter;
-  zdnn_tensor_desc inter_pre = *output->pre_transformed_desc;
-  zdnn_tensor_desc inter_trans = *output->transformed_desc;
-  zdnn_init_ztensor(&inter_pre, &inter_trans, &inter);
-  zdnn_status status = zdnn_allochelper_ztensor(&inter);
-  if (status != ZDNN_OK)
-    return status;
-
-  // MatMul: output = X * Y + 0 (reuse output buffer).
-  status = zdnn_matmul_op(X, Y, Bias, MATMUL_OP_ADDITION, output);
-  // Add: inter = output + Z.
+  // MatMul: work = X * Y + Bias.
+  zdnn_status status =
+      zdnn_matmul_op(X, Y, Bias, MATMUL_OP_ADDITION, work);
+  // Add: work = work + Z.
   if (status == ZDNN_OK)
-    status = zdnn_add(output, Z, &inter);
-  // Softmax: output = softmax(inter).
+    status = zdnn_add(work, Z, work);
+  // Softmax: output = softmax(work).
   if (status == ZDNN_OK)
-    status = zdnn_softmax(&inter, NULL, SOFTMAX_ACT_NONE, output);
-
-  zdnn_free_ztensor_buffer(&inter);
+    status = zdnn_softmax(work, NULL, SOFTMAX_ACT_NONE, output);
   return status;
 }
 
@@ -683,7 +673,7 @@ static zdnn_status matmul_add_softmax_small_s(const zdnn_ztensor *X,
 //
 static zdnn_status matmul_add_softmax_large_s(const zdnn_ztensor *X,
     const zdnn_ztensor *Y, const zdnn_ztensor *Z, const zdnn_ztensor *Bias,
-    zdnn_ztensor *output) {
+    zdnn_ztensor *work, zdnn_ztensor *output) {
 #ifdef ZDNNX_DEBUG
   printf("[MatMulAddSoftmax Large S]\n");
 #endif
@@ -914,13 +904,13 @@ static zdnn_status matmul_add_softmax_large_s(const zdnn_ztensor *X,
 
 zdnn_status zdnnx_seq_matmul_add_softmax(const zdnn_ztensor *X,
     const zdnn_ztensor *Y, const zdnn_ztensor *Z, const zdnn_ztensor *Bias,
-    zdnn_ztensor *output) {
+    zdnn_ztensor *work, zdnn_ztensor *output) {
 #ifdef ZDNNX_DEBUG
   printf("[MatMulAddSoftmax]\n");
 #endif
 
   uint32_t S = zdnnx_get_transformed_dim(X, E2);
   if (S <= 2048)
-    return matmul_add_softmax_small_s(X, Y, Z, Bias, output);
-  return matmul_add_softmax_large_s(X, Y, Z, Bias, output);
+    return matmul_add_softmax_small_s(X, Y, Z, Bias, work, output);
+  return matmul_add_softmax_large_s(X, Y, Z, Bias, work, output);
 }

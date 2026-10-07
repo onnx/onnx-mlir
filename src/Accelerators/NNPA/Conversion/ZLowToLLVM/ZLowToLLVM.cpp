@@ -1131,6 +1131,15 @@ public:
             /*layout=*/ZDNN_2DS, /*originalDims=*/{S, P},
             /*isTransformed=*/true);
 
+    // Work: 3DS {S, M, P} — same shape as output, reuse Z's descriptors.
+    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getWork());
+    ZTensor workZTensor = zTensorHelper.getZTensor(
+        /*preTransformedDescPtr=*/zZTensor.preTransformedDescPtr,
+        /*transformedDescPtr=*/zZTensor.transformedDescPtr,
+        /*bufferSize=*/zZTensor.bufferSize,
+        /*alignedBuffer=*/stickI8Ptr,
+        /*isTransformed=*/true);
+
     // Output: 3DS {S, M, P} — reuse Z's descriptors since same shape.
     stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getOut());
     ZTensor outZTensor = zTensorHelper.getZTensor(
@@ -1140,7 +1149,7 @@ public:
         /*alignedBuffer=*/stickI8Ptr,
         /*isTransformed=*/true);
 
-    // Call zdnnx_matmul_add_softmax(X, Y, Z, Bias, Out).
+    // Call zdnnx_matmul_add_softmax(X, Y, Z, Bias, Work, Out).
     callApi(rewriter, loc, module, apiRegistry,
         API::ZDNNX_MATMUL_ADD_SOFTMAX,
         {
@@ -1148,6 +1157,7 @@ public:
             toOpaquePtr(rewriter, loc, module, yZTensor.val),
             toOpaquePtr(rewriter, loc, module, zZTensor.val),
             toOpaquePtr(rewriter, loc, module, biasZTensor.val),
+            toOpaquePtr(rewriter, loc, module, workZTensor.val),
             toOpaquePtr(rewriter, loc, module, outZTensor.val),
         });
 

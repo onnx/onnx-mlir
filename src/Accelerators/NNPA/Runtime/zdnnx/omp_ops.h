@@ -45,7 +45,7 @@ zdnn_status zdnnx_omp_softmax(const zdnn_ztensor *input, void *save_area,
 
 zdnn_status zdnnx_omp_matmul_add_softmax(const zdnn_ztensor *X,
     const zdnn_ztensor *Y, const zdnn_ztensor *Z, const zdnn_ztensor *Bias,
-    zdnn_ztensor *output);
+    zdnn_ztensor *work, zdnn_ztensor *output);
 
 #endif // ZDNNX_WITH_OMP
 

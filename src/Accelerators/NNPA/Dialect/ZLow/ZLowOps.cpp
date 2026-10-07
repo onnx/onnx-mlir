@@ -201,6 +201,10 @@ void ZLowMatMulAddSoftmaxOp::getEffects(
       SideEffects::DefaultResource::get());
   effects.emplace_back(MemoryEffects::Read::get(), &getBiasMutable(),
       SideEffects::DefaultResource::get());
+  effects.emplace_back(MemoryEffects::Read::get(), &getWorkMutable(),
+      SideEffects::DefaultResource::get());
+  effects.emplace_back(MemoryEffects::Write::get(), &getWorkMutable(),
+      SideEffects::DefaultResource::get());
   effects.emplace_back(MemoryEffects::Read::get(), &getShapeMutable(),
       SideEffects::DefaultResource::get());
 }
