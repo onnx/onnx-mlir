@@ -871,6 +871,14 @@ func.func @test_less_or_equal_mismatched_types(%arg0: tensor<f32>, %arg1: tensor
 
 // -----
 
+func.func @test_det_bf16(%arg0: tensor<3x3xbf16>) -> tensor<bf16> {
+  // expected-error @+1 {{'onnx.Det' op only f16, f32 and f64 element types are supported for Det}}
+  %0 = "onnx.Det"(%arg0) : (tensor<3x3xbf16>) -> tensor<bf16>
+  onnx.Return %0 : tensor<bf16>
+}
+
+// -----
+
 func.func @test_transpose_perm_too_short(%arg0: tensor<4x3x2x1xf32>) -> tensor<*xf32> {
   // expected-error @+1 {{Transpose op perm attribute has 2 elements but rank is 4}}
   %0 = "onnx.Transpose"(%arg0) {perm = [0, 1]} : (tensor<4x3x2x1xf32>) -> tensor<*xf32>

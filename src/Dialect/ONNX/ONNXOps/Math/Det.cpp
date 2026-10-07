@@ -1,0 +1,73 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+//===------------------ Det.cpp - ONNX Operations -------------------------===//
+//
+// This file provides definition of ONNX dialect Det operation.
+//
+//===----------------------------------------------------------------------===//
+
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+
+using namespace mlir;
+using namespace mlir::OpTrait::util;
+using namespace onnx_mlir;
+
+namespace onnx_mlir {
+
+LogicalResult ONNXDetOpShapeHelper::computeShape() {
+  ONNXDetOpAdaptor operandAdaptor(operands);
+  Value X = operandAdaptor.getX();
+
+  int64_t rank = createIE->getShapedTypeRank(X);
+  if (rank < 2)
+    return op->emitError("Det: input tensor must have rank >= 2");
+
+  DimsExpr xDims;
+  createIE->getShapeAsDims(X, xDims);
+  IndexExpr rowDim = xDims[rank - 2];
+  IndexExpr colDim = xDims[rank - 1];
+  if (rowDim.isLiteral() && colDim.isLiteral() &&
+      rowDim.getLiteral() != colDim.getLiteral())
+    return op->emitError(
+        "Det: the innermost two dimensions must form a square matrix");
+
+  // Output shape is the input shape without its last two (square matrix)
+  // dimensions.
+  DimsExpr outputDims(xDims.begin(), xDims.begin() + (rank - 2));
+
+  setOutputDims(outputDims);
+  return success();
+}
+
+} // namespace onnx_mlir
+
+//===----------------------------------------------------------------------===//
+// Verify
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXDetOp::verify() {
+  if (!hasShapeAndRank(getX()))
+    return success();
+  Type elementType = mlir::cast<ShapedType>(getX().getType()).getElementType();
+  // BFloat16 is a FloatType, but it is not supported by the lowering.
+  if (!mlir::isa<FloatType>(elementType) || elementType.isBF16())
+    return emitOpError(
+        "only f16, f32 and f64 element types are supported for Det");
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// ONNXDetOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXDetOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  if (!hasShapeAndRank(getX()))
+    return success();
+
+  Type elementType = mlir::cast<ShapedType>(getX().getType()).getElementType();
+  ONNXDetOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
+}
