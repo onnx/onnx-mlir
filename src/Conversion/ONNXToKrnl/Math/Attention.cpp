@@ -19,7 +19,7 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Dialect/ONNX/ONNXOps/AttentionToONNXOps.hpp"
+#include "src/Dialect/ONNX/Transforms/AttentionToONNXOps.hpp"
 
 using namespace mlir;
 

@@ -22,7 +22,6 @@ add_onnx_mlir_library(OMONNXOps
   ONNXDialect.cpp
   ONNXDimAnalysis.cpp
   ONNXOps.cpp
-  ONNXOps/AttentionToONNXOps.cpp
   ONNXOps/OpHelper.cpp
   ONNXOps/Canonicalize.cpp
   ONNXOps/ShapeHelper.cpp

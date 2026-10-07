@@ -10,16 +10,9 @@
 //
 // Shared logic to decompose onnx.Attention into a sequence of basic ONNX ops
 // (Reshape, Transpose, MatMul, Softmax, Add, Mul, Less, Where, etc.). Used by
-// both the ONNXToKrnl conversion
-// (src/Conversion/ONNXToKrnl/Math/Attention.cpp) and the NNPA
-// RewriteONNXForZHigh fallback pattern
-// (src/Accelerators/NNPA/Conversion/ONNXToZHigh/RewriteONNXForZHigh.cpp), so
-// the decomposition logic itself is maintained in one place. Callers extract
-// their own operand Values (via a conversion adaptor, or directly from the
-// op) and delegate here; `rewriter` only needs to be a plain
-// `mlir::PatternRewriter`, which both `OpConversionPattern` and
-// `OpRewritePattern` call sites can supply (`ConversionPatternRewriter` is a
-// `PatternRewriter`).
+// ONNXToKrnl conversion, or Accelarator lowering.
+// This decompose can not be done in the onnx-decompose pass because
+// the decision is backend dependent.
 //
 //===----------------------------------------------------------------------===//
 

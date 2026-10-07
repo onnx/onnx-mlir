@@ -14,7 +14,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ONNXOps/AttentionToONNXOps.hpp"
+#include "src/Dialect/ONNX/Transforms/AttentionToONNXOps.hpp"
 
 #include <cmath>
 
@@ -678,20 +678,17 @@ LogicalResult lowerONNXAttentionOp(ONNXAttentionOp attentionOp, Value Q,
   // The --kv-cache option, when set, overrides the pattern-based choice
   // above. Default ("") means: use the pattern-based choice as-is.
   bool useFixed = isFixedPattern;
-  if (!kvCache.empty()) {
-    if (kvCache == "fixed") {
+  if (kvCache != KVCacheType::Undefined) {
+    if (kvCache == KVCacheType::Fixed) {
       if (!useFixed)
         return attentionOp.emitOpError(
-            "Unaccepted --kv-cache option value '" + kvCache +
-            "'; since the input of the op is not for fixed cache");
+            "Unaccepted --kv-cache option value; since the input of the op is not for fixed cache");
       // else: useFixed stays true, proceed.
-    } else if (kvCache == "growing") {
+    } else if (kvCache == KVCacheType::Grow) {
       // Will have more implementation in future
       useFixed = false;
     } else {
-      return attentionOp.emitOpError("invalid --kv-cache option value '" +
-                                     kvCache +
-                                     "'; expected 'fixed' or 'growing'");
+      return attentionOp.emitOpError("invalid --kv-cache option value; expected 'Fixed' or 'Grow'");
     }
   }
 
