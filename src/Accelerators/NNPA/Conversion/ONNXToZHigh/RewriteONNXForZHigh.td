@@ -190,7 +190,23 @@ def GetPerm3DLast: NativeCodeCall<
 >;
 
 def GetMatMulResultShape: NativeCodeCall<
-  "getMatMulResultShape($_builder, $_loc, $0, $1)"
+  "getMatMulResultShape($_builder, $_loc, $0, $1, false, false)"
+>;
+
+// Variants of GetMatMulResultShape for A^T * B, A * B^T, and A^T * B^T, where
+// the transposes are of the last two dimensions. They take the transpose
+// inputs, so that the original transposes are not kept alive just to provide
+// the result shape.
+def GetMatMulResultShapeTransA: NativeCodeCall<
+  "getMatMulResultShape($_builder, $_loc, $0, $1, true, false)"
+>;
+
+def GetMatMulResultShapeTransB: NativeCodeCall<
+  "getMatMulResultShape($_builder, $_loc, $0, $1, false, true)"
+>;
+
+def GetMatMulResultShapeTransATransB: NativeCodeCall<
+  "getMatMulResultShape($_builder, $_loc, $0, $1, true, true)"
 >;
 
 def GetMatMulResultType: NativeCodeCall<
@@ -222,7 +238,7 @@ def rewriteMatMulNDto3D_NonBroadcast_TransposeA: Pattern<
                      (returnType (GetTransposeResultType $t_input_a, $t_attr_a))),
                     (ReshapeTo3D:$b_r $b),
                     (returnType (GetMatMulResultType $a_r, $b_r))),
-                 (GetMatMulResultShape $t_a, $b),
+                 (GetMatMulResultShapeTransA $a, $b),
                  (GetZeroI64Attr))],
   [(IsCompatibleWithNNPALevelArch15),
    (HasRankGT<3> $a), (HasRankGT<3> $b),
@@ -239,12 +255,48 @@ def rewriteMatMulNDto3D_NonBroadcast_TransposeB: Pattern<
                     (ONNXTransposeOp:$b_r (ReshapeTo3D:$t_input_a $b), (GetPerm3DLast:$t_attr_b),
                      (returnType (GetTransposeResultType $t_input_a, $t_attr_b))),
                     (returnType (GetMatMulResultType $a_r, $b_r))),
-                 (GetMatMulResultShape $a, $t_b),
+                 (GetMatMulResultShapeTransB $a, $b),
                  (GetZeroI64Attr))],
   [(IsCompatibleWithNNPALevelArch15),
    (HasRankGT<3> $a),
    (HasRankGT<3> $b),
    (IsLastTwoDimsPerm:$perm)],
+  [],
+  (addBenefit 2)
+>;
+
+// Z Arch15 supports transposed MatMul. When B is transposed by a permutation
+// that moves its last dimension to the second-to-last position (e.g.
+// perm = [0, 2, 3, 1] for K^T in self-attention), split that permutation into
+// one keeping the last dimension in place (e.g. [0, 2, 1, 3]) followed by a
+// permutation of the last two dimensions only, and let the transposed MatMul
+// perform the latter. Rewrite into the same 3D pattern as above.
+def IsSplittableIntoLastTwoDimsPerm: Constraint<
+  CPred<"isSplittableIntoLastTwoDimsPerm($_self)">>;
+
+def GetKeepLastDimPerm: NativeCodeCall<
+  "getKeepLastDimPerm($_builder, $0)"
+>;
+
+def HasNoMatMulDimExceedingNNPALimit: Constraint<
+  CPred<"hasNoMatMulDimExceedingNNPALimit($0, $1)">>;
+
+def rewriteMatMulNDto3D_NonBroadcast_SplitTransposeB: Pattern<
+  (ONNXMatMulOp:$c $a, (ONNXTransposeOp:$t_b $b, $perm)),
+  [(ONNXTransposeOp:$b_k $b, (GetKeepLastDimPerm:$k_attr_b $perm),
+     (returnType (GetTransposeResultType $b, $k_attr_b))),
+   (ONNXReshapeOp (ONNXMatMulOp
+                    (ReshapeTo3D:$a_r $a),
+                    (ONNXTransposeOp:$b_r (ReshapeTo3D:$t_input_b $b_k), (GetPerm3DLast:$t_attr_b),
+                     (returnType (GetTransposeResultType $t_input_b, $t_attr_b))),
+                    (returnType (GetMatMulResultType $a_r, $b_r))),
+                 (GetMatMulResultShapeTransB $a, $b_k),
+                 (GetZeroI64Attr))],
+  [(IsCompatibleWithNNPALevelArch15),
+   (HasRankGT<3> $a),
+   (HasRankGT<3> $b),
+   (IsSplittableIntoLastTwoDimsPerm:$perm),
+   (HasNoMatMulDimExceedingNNPALimit $a, $t_b)],
   [],
   (addBenefit 2)
 >;
@@ -258,7 +310,7 @@ def rewriteMatMulNDto3D_NonBroadcast_TransposeA_TransposeB: Pattern<
                     (ONNXTransposeOp:$b_r (ReshapeTo3D:$t_input_b $b), (GetPerm3DLast:$t_attr_b),
                      (returnType (GetTransposeResultType $t_input_b, $t_attr_b))),
                     (returnType (GetMatMulResultType $a_r, $b_r))),
-                 (GetMatMulResultShape $t_a, $t_b),
+                 (GetMatMulResultShapeTransATransB $a, $b),
                  (GetZeroI64Attr))],
   [(IsCompatibleWithNNPALevelArch15),
    (HasRankGT<3> $a),

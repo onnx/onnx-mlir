@@ -24,6 +24,8 @@
 #ifndef ONNX_MLIR_FUSION_OP_BASE_PATTERN_H
 #define ONNX_MLIR_FUSION_OP_BASE_PATTERN_H
 
+#include <cassert>
+
 #include "mlir/IR/PatternMatch.h"
 
 #include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
@@ -55,6 +57,9 @@ public:
 
   mlir::LogicalResult matchAndRewrite(
       AnchorOpType anchorOp, mlir::PatternRewriter &rewriter) const override {
+    // Every detectIfBeneficial() relies on DimAnalysis to prove dynamic dims
+    // equal; verify() at lowering time trusts that proof (it has none).
+    assert(dimAnalysis && "fused op detection requires a non-null DimAnalysis");
     FusionT fusion;
     if (!fusion.detectIfBeneficial(dimAnalysis, anchorOp))
       return mlir::failure();

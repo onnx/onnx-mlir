@@ -327,7 +327,10 @@ def main():
 
     # Process common options.
     path = os.path.join(os.environ["ONNX_MLIR_HOME"], "..", "..", "utils")
-    cmd = path + "/RunONNXModel.py"
+    # Run RunONNXModel.py with this script's own interpreter rather than via
+    # its shebang, whose "python3" may be a different install that lacks onnx
+    # or does not match the Python version PyRuntimeC was built for.
+    cmd = [sys.executable, path + "/RunONNXModel.py"]
     model_str = "--model=" + args.model
     test_dir = "check-ref"
     if args.save_ref:
@@ -369,7 +372,7 @@ def main():
         exit(1)
 
     # Reference command.
-    ref_cmd = [cmd]
+    ref_cmd = list(cmd)
     # Compile options for reference. Omit entirely when empty (default) so
     # that, combined with --cache-ref-model, a cache hit is loaded as-is
     # instead of tripping RunONNXModel.py's saved-options mismatch check.
@@ -401,7 +404,7 @@ def main():
     ref_cmd += [model_str]
 
     # Test command.
-    test_cmd = [cmd]
+    test_cmd = list(cmd)
     # Compile options for test. Omit entirely when empty (default) so
     # that, combined with --cache-test-model, a cache hit is loaded as-is
     # instead of tripping RunONNXModel.py's saved-options mismatch check.

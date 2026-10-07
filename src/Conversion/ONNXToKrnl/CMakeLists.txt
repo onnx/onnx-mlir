@@ -20,6 +20,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   Math/Attention.cpp
   Math/CumSum.cpp
   Math/DFT.cpp
+  Math/Det.cpp
   Math/Elementwise.cpp
   Math/Gemm.cpp
   Math/Hardmax.cpp
@@ -88,6 +89,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   Tensor/SpaceToDepth.cpp
   Tensor/Split.cpp
   Tensor/Squeeze.cpp
+  Tensor/TensorScatter.cpp
   Tensor/Tile.cpp
   Tensor/Transpose.cpp
   Tensor/Unique.cpp
