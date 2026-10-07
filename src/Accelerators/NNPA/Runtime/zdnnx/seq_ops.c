@@ -523,6 +523,31 @@ static void free_ztensor_buf(zdnn_ztensor *zt) {
     zdnn_free_ztensor_buffer(zt);
 }
 
+static inline void prefetch_read(const void *ptr, uintptr_t offset) {
+#if defined(__MVS__)
+  __dcbt((void *)((uintptr_t)ptr + offset));
+#else
+  __builtin_prefetch((void *)((uintptr_t)ptr + offset), 0);
+#endif
+}
+
+static inline void prefetch_write(const void *ptr, uintptr_t offset) {
+#if defined(__MVS__)
+  __dcbtst((void *)((uintptr_t)ptr + offset));
+#else
+  __builtin_prefetch((void *)((uintptr_t)ptr + offset), 1);
+#endif
+}
+
+static inline void cache_flush(const void *ptr, uintptr_t offset) {
+#if defined(__MVS__)
+  __dcbf((void *)((uintptr_t)ptr + offset));
+#else
+  (void)ptr;
+  (void)offset;
+#endif
+}
+
 // Broadcast a column vector [1, S, 1] to a tile [1, S, T] in stickified space.
 // 3DS layout: (e4, e2, e1) -> (e4, ceil(e1/64), 1, ceil(e2/32), 32, 64).
 // Each stick row in the source has one DLFLOAT16 value at position 0.
@@ -539,13 +564,19 @@ static void broadcast_column_to_tile(
   char *dst = (char *)tile->buffer;
 
   for (uint32_t c = 0; c < num_stick_groups; c++) {
+    uint64_t group_offset = (uint64_t)c * 4096;
+    prefetch_read(src, group_offset);
     for (uint32_t r = 0; r < 32; r++) {
-      uint32_t offset = c * 4096 + r * 128;
+      uint64_t offset = group_offset + r * 128;
+      if (r + 1 < 32)
+        prefetch_read(src, offset + 128);
+      prefetch_write(dst, offset);
       uint16_t val;
       memcpy(&val, src + offset, sizeof(val));
       uint16_t *row = (uint16_t *)(dst + offset);
       for (uint32_t j = 0; j < 64; j++)
         row[j] = val;
+      cache_flush(dst, offset);
     }
   }
 
