@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
 
 #include "seq_ops.h"
 #include "zdnnx.h"
@@ -518,9 +519,33 @@ zdnn_status zdnnx_seq_matmul(const zdnn_ztensor *input_a,
   return ZDNN_OK;
 }
 
+#define HUGE_PAGE_SIZE (1024 * 1024)
+
+static void *huge_page_malloc(size_t size) {
+#if defined(__linux__) && defined(MADV_HUGEPAGE)
+  if (size == 0 || size < HUGE_PAGE_SIZE)
+    return malloc(size);
+  void *ptr = NULL;
+  if (posix_memalign(&ptr, HUGE_PAGE_SIZE, size) != 0)
+    return malloc(size);
+  madvise(ptr, size, MADV_HUGEPAGE);
+  return ptr;
+#else
+  return malloc(size);
+#endif
+}
+
 static void free_ztensor_buf(zdnn_ztensor *zt) {
   if (zt->buffer)
     zdnn_free_ztensor_buffer(zt);
+}
+
+static void free_ztensor_buf_hp(zdnn_ztensor *zt) {
+  if (zt->buffer) {
+    free(zt->buffer);
+    zt->buffer = NULL;
+    zt->buffer_size = 0;
+  }
 }
 
 static inline void prefetch_read(const void *ptr, uintptr_t offset) {
@@ -768,10 +793,22 @@ static zdnn_status matmul_add_softmax_large_s(const zdnn_ztensor *X,
     status = create_3ds_ztensor(
         1, S, 1, &tile_rowsum_zt, &trs_pre, &trs_trans, NULL);
 
-  // --- Create scratch_tile [1, S, T] ---
-  if (status == ZDNN_OK)
-    status =
-        create_3ds_ztensor(1, S, T, &scratch_tile, &sc_pre, &sc_trans, NULL);
+  // --- Create scratch_tile [1, S, T] with huge page allocation ---
+  if (status == ZDNN_OK) {
+    memset(&sc_pre, 0, sizeof(sc_pre));
+    memset(&sc_trans, 0, sizeof(sc_trans));
+    zdnn_init_pre_transformed_desc(ZDNN_3DS, FP32, &sc_pre, 1, S, T);
+    status = zdnn_generate_transformed_desc(&sc_pre, &sc_trans);
+    if (status == ZDNN_OK) {
+      zdnn_init_ztensor(&sc_pre, &sc_trans, &scratch_tile);
+      uint64_t buf_size = zdnn_getsize_ztensor(&sc_trans);
+      scratch_tile.buffer = huge_page_malloc(buf_size);
+      if (!scratch_tile.buffer)
+        status = ZDNN_ALLOCATION_FAILURE;
+      else
+        scratch_tile.buffer_size = buf_size;
+    }
+  }
 
   // --- Create zero bias for sum matmul: 2DS{1, 1} ---
   if (status == ZDNN_OK)
@@ -888,7 +925,7 @@ static zdnn_status matmul_add_softmax_large_s(const zdnn_ztensor *X,
 
   // --- Cleanup all resources ---
   free_ztensor_buf(&bias_1);
-  free_ztensor_buf(&scratch_tile);
+  free_ztensor_buf_hp(&scratch_tile);
   free_ztensor_buf(&tile_rowsum_zt);
   free_ztensor_buf(&correction_zt);
   free_ztensor_buf(&block_max_zt);
