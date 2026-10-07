@@ -28,6 +28,30 @@
 // Without this guard the rewrite pattern would fire repeatedly on the same
 // ops and the pass would diverge.
 //
+// -- DimAnalysis: detectIfBeneficial() decides, verify() only re-checks ------
+//
+// detectIfBeneficial() always receives a non-null DimAnalysis (asserted in
+// FusedPatternForOpKind::matchAndRewrite), and it is the ONLY place where the
+// legality of the fusion is decided. Whenever the lowering's correctness
+// depends on two dynamic dims being equal (e.g. no runtime broadcast, a dim
+// preserved by a Reshape), detection must prove it with DimAnalysis (sameDim
+// / sameShape); a "?" on both sides is not a proof.
+//
+// verify() runs at lowering time, without any DimAnalysis (and one built there
+// would see the body's block arguments as unrelated values anyway). Its job is
+// narrower: to confirm that the body still has the structure, and the params
+// still have the values, that detection recorded -- i.e. that no optimization
+// clobbered the pattern between fusion and lowering. It may therefore be more
+// lax on dynamic dims, comparing static shapes only and accepting "?" vs "?",
+// trusting the proof made at detection. Consequently, a fused op that was NOT
+// created by detectIfBeneficial() (e.g. hand-written IR) carries no such
+// proof, and must itself satisfy the dynamic-dim equalities.
+//
+// When a predicate is shared between detect and verify, give it a
+// `const DimAnalysis *` parameter: non-null from detect (precise), null from
+// verify (static-only, lax on dynamic dims). Document the null behavior at
+// the helper.
+//
 // -- Fusion pass (pattern creation) ------------------------------------------
 //
 //   MyFusion fusion;
@@ -154,8 +178,10 @@ protected:
   // FusedOpKindLowering, etc. -- goes through the methods above/below
   // instead), so subclass-only access is all that's needed.
 
-  /// Chain ops in chain order: ops[i]'s output feeds ops[i+1] as an input,
-  /// and ops.back() is the last op whose result becomes the FusedOp output.
+  /// Chain ops in topological (block) order: usually a line where ops[i]'s
+  /// output feeds ops[i+1], but a DAG is fine too (e.g. two producers of a
+  /// join op). ops.back() is the last op whose result becomes the FusedOp
+  /// output.
   llvm::SmallVector<mlir::Operation *> ops;
 
   /// Values yielded by the body, one per ONNXFusedOp result.
@@ -182,7 +208,20 @@ protected:
 
   /// Cross-check this->ops against the param fields read by retrieveAttrs().
   /// Returns false when the body no longer matches the stored parameters.
+  /// Runs without DimAnalysis: it guards against the pattern being clobbered
+  /// after fusion, not against an illegal fusion, and may accept dynamic dims
+  /// that detection proved equal (see "DimAnalysis: detectIfBeneficial()
+  /// decides, verify() only re-checks" above).
   virtual bool verify() const = 0;
+
+  // -- Optional subclass hook -------------------------------------------------
+
+  /// When true, a small i64 shape Concat whose operands are all constants or
+  /// onnx.Dim ops is cloned into the body (the Dim results become inputs)
+  /// instead of becoming an input itself. Use it when such a Concat is
+  /// defined too late in the block for the FusedOp to take it as an input.
+  /// Off by default, so that the input list of existing kinds is unchanged.
+  virtual bool absorbShapeConcatOfDims() const { return false; }
 
   // -- Additional subclass contract member (not a virtual) -------------------
   //
@@ -199,6 +238,9 @@ protected:
   // FusedPatternForOpKind<AnchorOpType, FusionT> (see FusionOpBasePattern.hpp)
   // — omitting detectIfBeneficial fails to compile at that instantiation, not
   // here.  Must call isInsideFusedOp(startOp) first (see above).
+  // dimAnalysis is never null; detection must use it to prove every
+  // dynamic-dim equality the lowering relies on, since verify() cannot (see
+  // "DimAnalysis: detectIfBeneficial() decides, verify() only re-checks").
   //
   // Every subclass must also define:
   //

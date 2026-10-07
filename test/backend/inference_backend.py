@@ -881,6 +881,19 @@ def get_test_models():
         # "test_dft_axis_opset19_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_dft_opset19_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_dft_inverse_opset19_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        # ==OP== Det
+        # ==MIN== 22
+        # ==LIM== Does not support bfloat16.
+        "test_det_2d_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_det_nd_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
         # ==OP== DepthToSpace
         # ==MIN== 13
         "test_depthtospace_example_cpu": {
@@ -3409,6 +3422,21 @@ def get_test_models():
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
+        # ==OP== TensorScatter
+        # ==MIN== 24
+        # Test with JNI failed, possibly because tensorscatter test cases return the function argument.
+        "test_tensorscatter_3d_cpu": {
+            STATIC_SHAPE: {},
+            NO_JNI: {},
+        },
+        "test_tensorscatter_circular_cpu": {
+            STATIC_SHAPE: {},
+            NO_JNI: {},
+        },
+        "test_tensorscatter_cpu": {
+            STATIC_SHAPE: {},
+            NO_JNI: {},
+        },
         # ==OP== ThresholdedRelu
         # ==MIN== 10
         "test_thresholdedrelu_cpu": {
@@ -3728,7 +3756,7 @@ def get_test_models():
     node_test_to_enable = [
         key
         for (key, value) in variables.node_test_to_enable_dict.items()
-        if (STATIC_SHAPE in value)
+        if (STATIC_SHAPE in value and not (args.emit == "jni" and NO_JNI in value))
         or ((STATIC_SHAPE_STRING in value) and (args.emit == "lib"))
     ]
     model_test_to_enable = [
