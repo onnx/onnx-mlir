@@ -603,20 +603,41 @@ static void broadcast_column_to_tile(
   tile->is_transformed = true;
 }
 
+// Free buffer and heap-allocated descriptors of an intermediate ztensor.
+static void free_ztensor(zdnn_ztensor *zt) {
+  free(zt->buffer);
+  free(zt->pre_transformed_desc);
+  free(zt->transformed_desc);
+}
+
 // Helper to create a 3DS ztensor, allocate buffer, and optionally stickify.
 static zdnn_status create_3ds_ztensor(uint32_t s, uint32_t m, uint32_t n,
-    zdnn_ztensor *zt, zdnn_tensor_desc *pre, zdnn_tensor_desc *trans,
-    float *fp32_data) {
+    zdnn_ztensor *zt, float *fp32_data) {
+  zdnn_tensor_desc *pre = malloc(sizeof(zdnn_tensor_desc));
+  zdnn_tensor_desc *trans = malloc(sizeof(zdnn_tensor_desc));
+  if (!pre || !trans) {
+    free(pre);
+    free(trans);
+    return ZDNN_ALLOCATION_FAILURE;
+  }
   memset(pre, 0, sizeof(*pre));
   memset(trans, 0, sizeof(*trans));
   zdnn_init_pre_transformed_desc(ZDNN_3DS, FP32, pre, s, m, n);
   zdnn_status rc = zdnn_generate_transformed_desc(pre, trans);
-  if (rc != ZDNN_OK)
+  if (rc != ZDNN_OK) {
+    free(pre);
+    free(trans);
     return rc;
+  }
   zdnn_init_ztensor(pre, trans, zt);
-  rc = zdnn_allochelper_ztensor(zt);
-  if (rc != ZDNN_OK)
-    return rc;
+  uint64_t buf_size = zdnn_getsize_ztensor(trans);
+  zt->buffer = huge_page_malloc_4k(buf_size);
+  if (!zt->buffer) {
+    free(pre);
+    free(trans);
+    return ZDNN_ALLOCATION_FAILURE;
+  }
+  zt->buffer_size = buf_size;
   if (fp32_data) {
     rc = zdnn_transform_ztensor(zt, fp32_data);
   } else {
@@ -626,19 +647,33 @@ static zdnn_status create_3ds_ztensor(uint32_t s, uint32_t m, uint32_t n,
   return rc;
 }
 
-// Helper to create a 2DS zero-bias ztensor using memset (no zdnn_transform).
 static zdnn_status create_2ds_zero_bias(uint32_t s, uint32_t n,
-    zdnn_ztensor *zt, zdnn_tensor_desc *pre, zdnn_tensor_desc *trans) {
+    zdnn_ztensor *zt) {
+  zdnn_tensor_desc *pre = malloc(sizeof(zdnn_tensor_desc));
+  zdnn_tensor_desc *trans = malloc(sizeof(zdnn_tensor_desc));
+  if (!pre || !trans) {
+    free(pre);
+    free(trans);
+    return ZDNN_ALLOCATION_FAILURE;
+  }
   memset(pre, 0, sizeof(*pre));
   memset(trans, 0, sizeof(*trans));
   zdnn_init_pre_transformed_desc(ZDNN_2DS, FP32, pre, s, n);
   zdnn_status rc = zdnn_generate_transformed_desc(pre, trans);
-  if (rc != ZDNN_OK)
+  if (rc != ZDNN_OK) {
+    free(pre);
+    free(trans);
     return rc;
+  }
   zdnn_init_ztensor(pre, trans, zt);
-  rc = zdnn_allochelper_ztensor(zt);
-  if (rc != ZDNN_OK)
-    return rc;
+  uint64_t buf_size = zdnn_getsize_ztensor(trans);
+  zt->buffer = huge_page_malloc_4k(buf_size);
+  if (!zt->buffer) {
+    free(pre);
+    free(trans);
+    return ZDNN_ALLOCATION_FAILURE;
+  }
+  zt->buffer_size = buf_size;
   memset(zt->buffer, 0, zt->buffer_size);
   zt->is_transformed = true;
   return ZDNN_OK;
@@ -674,16 +709,14 @@ static zdnn_status sdpa_3d_basic(const zdnn_ztensor *Q,
   uint32_t HV = zdnnx_get_transformed_dim(V, E1);
 
   zdnn_ztensor scores = {0}, probs = {0}, bias1 = {0}, bias2 = {0};
-  zdnn_tensor_desc sc_pre, sc_trans, pr_pre, pr_trans;
-  zdnn_tensor_desc b1_pre, b1_trans, b2_pre, b2_trans;
 
-  status = create_3ds_ztensor(B, S, SK, &scores, &sc_pre, &sc_trans, NULL);
+  status = create_3ds_ztensor(B, S, SK, &scores, NULL);
   if (status == ZDNN_OK)
-    status = create_3ds_ztensor(B, S, SK, &probs, &pr_pre, &pr_trans, NULL);
+    status = create_3ds_ztensor(B, S, SK, &probs, NULL);
   if (status == ZDNN_OK)
-    status = create_2ds_zero_bias(B, SK, &bias1, &b1_pre, &b1_trans);
+    status = create_2ds_zero_bias(B, SK, &bias1);
   if (status == ZDNN_OK)
-    status = create_2ds_zero_bias(B, HV, &bias2, &b2_pre, &b2_trans);
+    status = create_2ds_zero_bias(B, HV, &bias2);
 
   // scores = Q * KT + Mask
   if (status == ZDNN_OK)
@@ -694,15 +727,15 @@ static zdnn_status sdpa_3d_basic(const zdnn_ztensor *Q,
   // probs = softmax(scores); scores buffer is dead after this.
   if (status == ZDNN_OK)
     status = zdnn_softmax(&scores, NULL, SOFTMAX_ACT_NONE, &probs);
-  zdnnx_free_buffer(scores.buffer);
-  zdnnx_free_buffer(bias1.buffer);
+  free_ztensor(&scores);
+  free_ztensor(&bias1);
 
   // output = probs * V
   if (status == ZDNN_OK)
     status = zdnn_matmul_op(&probs, V, &bias2, MATMUL_OP_ADDITION, output);
 
-  zdnnx_free_buffer(bias2.buffer);
-  zdnnx_free_buffer(probs.buffer);
+  free_ztensor(&bias2);
+  free_ztensor(&probs);
   return status;
 }
 
@@ -785,13 +818,6 @@ static zdnn_status flash_attention(
   zdnn_ztensor correction_zt = {0}, tile_rowsum_zt = {0};
   zdnn_ztensor scratch_tile = {0}, p_tile = {0}, bias_qkt = {0}, bias_1 = {0};
   zdnn_ztensor o_acc = {0}, pv_tmp = {0}, bias_v = {0};
-  zdnn_tensor_desc ones_pre, ones_trans, oc_pre, oc_trans;
-  zdnn_tensor_desc max_row_pre, max_row_trans, sum_row_pre, sum_row_trans;
-  zdnn_tensor_desc om_pre, om_trans, bm_pre, bm_trans;
-  zdnn_tensor_desc cor_pre, cor_trans, trs_pre, trs_trans;
-  zdnn_tensor_desc sc_pre, sc_trans, pt_pre, pt_trans;
-  zdnn_tensor_desc bq_pre, bq_trans, b1_pre, b1_trans;
-  zdnn_tensor_desc oa_pre, oa_trans, pv_pre, pv_trans, bv_pre, bv_trans;
 
   uint32_t max_fp32_len = (S > T) ? S : T;
   fp32_buf = (float *)malloc(max_fp32_len * sizeof(float));
@@ -802,22 +828,19 @@ static zdnn_status flash_attention(
   if (status == ZDNN_OK) {
     for (uint32_t i = 0; i < T; i++)
       fp32_buf[i] = 1.0f;
-    status = create_3ds_ztensor(
-        1, T, 1, &ones_zt, &ones_pre, &ones_trans, fp32_buf);
+    status = create_3ds_ztensor(1, T, 1, &ones_zt, fp32_buf);
   }
   // ones_col [1, S, 1] for computing 1/D.
   if (status == ZDNN_OK) {
     for (uint32_t i = 0; i < S; i++)
       fp32_buf[i] = 1.0f;
-    status =
-        create_3ds_ztensor(1, S, 1, &ones_col_zt, &oc_pre, &oc_trans, fp32_buf);
+    status = create_3ds_ztensor(1, S, 1, &ones_col_zt, fp32_buf);
   }
   // Running max [1, S, 1] initialized to -65504.
   if (status == ZDNN_OK) {
     for (uint32_t i = 0; i < S; i++)
       fp32_buf[i] = -65504.0f;
-    status = create_3ds_ztensor(
-        1, S, 1, &max_row_zt, &max_row_pre, &max_row_trans, fp32_buf);
+    status = create_3ds_ztensor(1, S, 1, &max_row_zt, fp32_buf);
   }
   if (status == ZDNN_OK) {
     max_row_init_buf = malloc(max_row_zt.buffer_size);
@@ -827,79 +850,41 @@ static zdnn_status flash_attention(
       memcpy(max_row_init_buf, max_row_zt.buffer, max_row_zt.buffer_size);
   }
   // Running sum [1, S, 1] initialized to 0.
-  if (status == ZDNN_OK) {
-    status = create_3ds_ztensor(
-        1, S, 1, &sum_row_zt, &sum_row_pre, &sum_row_trans, NULL);
-    if (status == ZDNN_OK) {
-      memset(sum_row_zt.buffer, 0, sum_row_zt.buffer_size);
-      sum_row_zt.is_transformed = true;
-    }
-  }
+  if (status == ZDNN_OK)
+    status = create_3ds_ztensor(1, S, 1, &sum_row_zt, NULL);
 
   // Helper [1, S, 1] tensors (uninitialized, reused).
   if (status == ZDNN_OK)
-    status =
-        create_3ds_ztensor(1, S, 1, &old_max_zt, &om_pre, &om_trans, NULL);
+    status = create_3ds_ztensor(1, S, 1, &old_max_zt, NULL);
   if (status == ZDNN_OK)
-    status =
-        create_3ds_ztensor(1, S, 1, &block_max_zt, &bm_pre, &bm_trans, NULL);
+    status = create_3ds_ztensor(1, S, 1, &block_max_zt, NULL);
   if (status == ZDNN_OK)
-    status =
-        create_3ds_ztensor(1, S, 1, &correction_zt, &cor_pre, &cor_trans, NULL);
+    status = create_3ds_ztensor(1, S, 1, &correction_zt, NULL);
   if (status == ZDNN_OK)
-    status = create_3ds_ztensor(
-        1, S, 1, &tile_rowsum_zt, &trs_pre, &trs_trans, NULL);
+    status = create_3ds_ztensor(1, S, 1, &tile_rowsum_zt, NULL);
 
   // scratch_tile [1, S, T] — holds scores_c.
-  if (status == ZDNN_OK) {
-    memset(&sc_pre, 0, sizeof(sc_pre));
-    memset(&sc_trans, 0, sizeof(sc_trans));
-    zdnn_init_pre_transformed_desc(ZDNN_3DS, FP32, &sc_pre, 1, S, T);
-    status = zdnn_generate_transformed_desc(&sc_pre, &sc_trans);
-    if (status == ZDNN_OK) {
-      zdnn_init_ztensor(&sc_pre, &sc_trans, &scratch_tile);
-      uint64_t buf_size = zdnn_getsize_ztensor(&sc_trans);
-      scratch_tile.buffer = huge_page_malloc_4k(buf_size);
-      if (!scratch_tile.buffer)
-        status = ZDNN_ALLOCATION_FAILURE;
-      else
-        scratch_tile.buffer_size = buf_size;
-    }
-  }
+  if (status == ZDNN_OK)
+    status = create_3ds_ztensor(1, S, T, &scratch_tile, NULL);
   // p_tile [1, S, T] — holds P_c = exp(scores_c - max).
-  if (status == ZDNN_OK) {
-    memset(&pt_pre, 0, sizeof(pt_pre));
-    memset(&pt_trans, 0, sizeof(pt_trans));
-    zdnn_init_pre_transformed_desc(ZDNN_3DS, FP32, &pt_pre, 1, S, T);
-    status = zdnn_generate_transformed_desc(&pt_pre, &pt_trans);
-    if (status == ZDNN_OK) {
-      zdnn_init_ztensor(&pt_pre, &pt_trans, &p_tile);
-      uint64_t buf_size = zdnn_getsize_ztensor(&pt_trans);
-      p_tile.buffer = huge_page_malloc_4k(buf_size);
-      if (!p_tile.buffer)
-        status = ZDNN_ALLOCATION_FAILURE;
-      else
-        p_tile.buffer_size = buf_size;
-    }
-  }
+  if (status == ZDNN_OK)
+    status = create_3ds_ztensor(1, S, T, &p_tile, NULL);
 
   // Zero bias for Q*KT matmul: 2DS{1, T}, reused across all tiles.
   if (status == ZDNN_OK)
-    status = create_2ds_zero_bias(1, T, &bias_qkt, &bq_pre, &bq_trans);
+    status = create_2ds_zero_bias(1, T, &bias_qkt);
   // Zero bias for sum matmul: 2DS{1, 1}.
   if (status == ZDNN_OK)
-    status = create_2ds_zero_bias(1, 1, &bias_1, &b1_pre, &b1_trans);
+    status = create_2ds_zero_bias(1, 1, &bias_1);
   // Output accumulator O_acc [1, S, HV].
   if (status == ZDNN_OK)
-    status =
-        create_3ds_ztensor(1, S, HV, &o_acc, &oa_pre, &oa_trans, NULL);
+    status = create_3ds_ztensor(1, S, HV, &o_acc, NULL);
   // Temp buffer for P_c * V_c [1, S, HV].
   if (status == ZDNN_OK)
-    status =
-        create_3ds_ztensor(1, S, HV, &pv_tmp, &pv_pre, &pv_trans, NULL);
+    status = create_3ds_ztensor(1, S, HV, &pv_tmp, NULL);
   // Zero bias for P*V matmul: 2DS{1, HV}.
   if (status == ZDNN_OK)
-    status = create_2ds_zero_bias(1, HV, &bias_v, &bv_pre, &bv_trans);
+    status = create_2ds_zero_bias(1, HV, &bias_v);
 
   if (status == ZDNN_OK) {
     zdnnx_split_info si_q, si_kt, si_mask, si_v, si_out;
@@ -998,22 +983,22 @@ static zdnn_status flash_attention(
     }
   }
 
-  zdnnx_free_buffer(bias_v.buffer);
-  zdnnx_free_buffer(pv_tmp.buffer);
-  zdnnx_free_buffer(o_acc.buffer);
-  zdnnx_free_buffer(bias_1.buffer);
-  zdnnx_free_buffer(bias_qkt.buffer);
-  free(p_tile.buffer);
-  free(scratch_tile.buffer);
-  zdnnx_free_buffer(tile_rowsum_zt.buffer);
-  zdnnx_free_buffer(correction_zt.buffer);
-  zdnnx_free_buffer(block_max_zt.buffer);
-  zdnnx_free_buffer(old_max_zt.buffer);
-  zdnnx_free_buffer(sum_row_zt.buffer);
+  free_ztensor(&bias_v);
+  free_ztensor(&pv_tmp);
+  free_ztensor(&o_acc);
+  free_ztensor(&bias_1);
+  free_ztensor(&bias_qkt);
+  free_ztensor(&p_tile);
+  free_ztensor(&scratch_tile);
+  free_ztensor(&tile_rowsum_zt);
+  free_ztensor(&correction_zt);
+  free_ztensor(&block_max_zt);
+  free_ztensor(&old_max_zt);
+  free_ztensor(&sum_row_zt);
   free(max_row_init_buf);
-  zdnnx_free_buffer(max_row_zt.buffer);
-  zdnnx_free_buffer(ones_col_zt.buffer);
-  zdnnx_free_buffer(ones_zt.buffer);
+  free_ztensor(&max_row_zt);
+  free_ztensor(&ones_col_zt);
+  free_ztensor(&ones_zt);
   free(fp32_buf);
   return status;
 }

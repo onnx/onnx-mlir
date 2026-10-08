@@ -652,11 +652,11 @@ zdnn_status zdnnx_omp_sdpa_3d(const zdnn_ztensor *Q,
 #endif
 
   zdnnx_split_info si_q, si_kt, si_mask, si_v, si_out;
-  zdnnx_prepare_split_info(&si_q, Q, 1, 0, 0, 0, "MASM Q");
-  zdnnx_prepare_split_info(&si_kt, KT, 1, 0, 0, 0, "MASM KT");
-  zdnnx_prepare_split_info(&si_mask, Mask, 1, 0, 0, 0, "MASM Mask");
-  zdnnx_prepare_split_info(&si_v, V, 1, 0, 0, 0, "MASM V");
-  zdnnx_prepare_split_info(&si_out, output, 1, 0, 0, 0, "MASM Out");
+  zdnnx_prepare_split_info(&si_q, Q, 1, 0, 0, 0, "SDPA3D Q");
+  zdnnx_prepare_split_info(&si_kt, KT, 1, 0, 0, 0, "SDPA3D KT");
+  zdnnx_prepare_split_info(&si_mask, Mask, 1, 0, 0, 0, "SDPA3D Mask");
+  zdnnx_prepare_split_info(&si_v, V, 1, 0, 0, 0, "SDPA3D V");
+  zdnnx_prepare_split_info(&si_out, output, 1, 0, 0, 0, "SDPA3D Out");
 
   if (zdnnx_has_one_tile(&si_q))
     return zdnnx_seq_sdpa_3d(Q, KT, Mask, V, output);
