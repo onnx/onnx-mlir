@@ -4,7 +4,7 @@
 
 //===-- TestStickifyRNN.cpp - Unit tests for f031 RNN dim1 overflow -------===//
 //
-// Copyright 2025 The IBM Research Authors.
+// Copyright 2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -17,11 +17,11 @@
 // producing a heap overwrite.
 //
 // get_rnn_concatenated_dim1() is a file-scoped helper, so we test it
-// indirectly through generate_transformed_desc_concatenated() which is the
-// public wrapper that consumes its return value.  A truncated dim1 causes the
-// concatenated tfrmd_desc to compute a buffer size smaller than the per-gate
-// buffer -- we detect this by checking that the call returns ZDNN_INVALID_SHAPE
-// rather than silently succeeding with a dangerously small size.
+// indirectly through generate_transformed_desc_concatenated(), which now
+// propagates ZDNN_INVALID_SHAPE when get_rnn_concatenated_dim1() returns 0.
+// Test values are chosen so that PADDED(val)*gates truncates to a non-zero
+// uint32 in the old code (ZDNN_OK, no error) but overflows in the new code
+// (ZDNN_INVALID_SHAPE returned), making the tests a true regression sentinel.
 //
 // Normal (non-overflow) cases verify that the concatenated descriptor is
 // produced correctly for both LSTM (4 gates) and GRU (3 gates).
@@ -106,21 +106,24 @@ static int testGRUNormalCase() {
 // ---------------------------------------------------------------------------
 // LSTM overflow: val chosen so PADDED(val)*4 > UINT32_MAX.
 //
-// PADDED(val) = ceil(val/64)*64.  We need ceil(val/64)*64 * 4 > 2^32.
-// Smallest such val: ceil(val/64) >= 2^32/4/64 = 16777216 => val = 1073741824
-// (= 2^30).  Before the fix this wrapped to 0 and the function returned 0,
-// causing the concatenated descriptor to have dim1=0 and no downstream error.
-// After the fix get_rnn_concatenated_dim1 returns 0, and
-// generate_transformed_desc_concatenated propagates ZDNN_INVALID_SHAPE.
+// PADDED(val) = ceil(val/64)*64.  We need PADDED(val)*4 to both exceed 2^32
+// AND truncate to a non-zero uint32 so the test distinguishes old (no-fix)
+// from new (fixed) behavior.  val=2^30 gives PADDED*4=2^32 which truncates
+// to 0 even without the fix — unhelpful.
+//
+// val = 2^30 + 64 = 1073741888 gives PADDED*4 = 4294967552.
+//   Old code (uint32 multiply): truncates to 256 — non-zero, ZDNN_OK returned.
+//   New code (uint64 guard):    detects overflow, returns 0 sentinel, and
+//   generate_transformed_desc_concatenated returns ZDNN_INVALID_SHAPE.
 // ---------------------------------------------------------------------------
 static int testLSTMOverflowRejected() {
   zdnn_tensor_desc pre, tfrmd;
   memset(&pre, 0, sizeof(pre));
   memset(&tfrmd, 0, sizeof(tfrmd));
 
-  // val = 2^30; PADDED(2^30) = 2^30 (already 64-aligned);
-  // PADDED * 4 = 2^32 > UINT32_MAX => overflow.
-  const uint32_t overflow_val = 1073741824u; // 2^30
+  // PADDED(1073741888)*4 = 4294967552 > UINT32_MAX; truncates to 256 without
+  // fix (non-zero, would silently succeed), returns ZDNN_INVALID_SHAPE with fix.
+  const uint32_t overflow_val = 1073741888u; // 2^30 + 64
   set_info_pre_transformed_desc(
       &pre, ZDNN_2DS, ZDNN_DLFLOAT16, {1, (int64_t)overflow_val});
 
@@ -139,15 +142,20 @@ static int testLSTMOverflowRejected() {
 
 // ---------------------------------------------------------------------------
 // GRU overflow: PADDED(val)*3 > UINT32_MAX.
-// Smallest such val: ceil(val/64)*64 > 2^32/3 => padded > 1431655765 =>
-// ceil(val/64) >= 22369622 => val = 22369622*64 = 1431655808.
+//
+// val = 1431655808 = 22369622*64.  PADDED*3 = 4294967424 > UINT32_MAX.
+//   Old code (uint32 multiply): truncates to 128 — non-zero, ZDNN_OK returned.
+//   New code (uint64 guard):    detects overflow, returns 0 sentinel, and
+//   generate_transformed_desc_concatenated returns ZDNN_INVALID_SHAPE.
 // ---------------------------------------------------------------------------
 static int testGRUOverflowRejected() {
   zdnn_tensor_desc pre, tfrmd;
   memset(&pre, 0, sizeof(pre));
   memset(&tfrmd, 0, sizeof(tfrmd));
 
-  const uint32_t overflow_val = 1431655808u; // ceil(x/64)*64 * 3 > 2^32
+  // PADDED(1431655808)*3 = 4294967424 > UINT32_MAX; truncates to 128 without
+  // fix (non-zero, would silently succeed), returns ZDNN_INVALID_SHAPE with fix.
+  const uint32_t overflow_val = 1431655808u; // 22369622 * 64
   set_info_pre_transformed_desc(
       &pre, ZDNN_2DS, ZDNN_DLFLOAT16, {1, (int64_t)overflow_val});
 

@@ -4,7 +4,7 @@
 
 //===-- TestZdnnxUtils.c - Unit tests for zdnnx_is_full_tile (f032) -------===//
 //
-// Copyright 2025 The IBM Research Authors.
+// Copyright 2026 The IBM Research Authors.
 //
 // =============================================================================
 //

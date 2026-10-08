@@ -4,7 +4,7 @@
 
 //===------- stickify.cpp - Data Stickify ---------------------------------===//
 //
-// Copyright 2020-2024 The IBM Research Authors.
+// Copyright 2020-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -176,8 +176,8 @@ uint32_t get_rnn_concatenated_dim1(uint32_t val, zdnn_concat_info info) {
     return val;
   }
   if (result > UINT32_MAX) {
-    // Shape exceeds what a uint32 dim can represent; caller will propagate
-    // ZDNN_INVALID_SHAPE via generate_transformed_desc_concatenated.
+    // Shape exceeds what a uint32 dim can represent.  Returns 0 so that
+    // generate_transformed_desc_concatenated() can detect and reject it.
     return 0;
   }
   return (uint32_t)result;
@@ -737,6 +737,8 @@ zdnn_status generate_transformed_desc_concatenated(
       tfrmd_desc->dim3 = 1;
       tfrmd_desc->dim2 = 1;
       tfrmd_desc->dim1 = get_rnn_concatenated_dim1(pre_tfrmd_desc->dim1, info);
+      if (!tfrmd_desc->dim1)
+        return ZDNN_INVALID_SHAPE; // overflow in get_rnn_concatenated_dim1
     } else {
       return ZDNN_INVALID_LAYOUT;
     }
@@ -747,6 +749,8 @@ zdnn_status generate_transformed_desc_concatenated(
       tfrmd_desc->dim3 = 1;
       tfrmd_desc->dim2 = get_rnn_concatenated_dim2(pre_tfrmd_desc->dim2, info);
       tfrmd_desc->dim1 = get_rnn_concatenated_dim1(pre_tfrmd_desc->dim1, info);
+      if (!tfrmd_desc->dim1)
+        return ZDNN_INVALID_SHAPE; // overflow in get_rnn_concatenated_dim1
     } else {
       return ZDNN_INVALID_LAYOUT;
     }

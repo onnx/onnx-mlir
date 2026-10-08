@@ -36,11 +36,8 @@ bool zdnnx_is_full_tile(zdnnx_tile *tile) {
   bool full_tile = true;
   // Check last tiles.  EQUAL_SPLIT_Ex is SET when the last tile in axis Ex
   // has the same size as the regular tile (i.e., the split is equal and the
-  // last tile is full).  The original code tested "== 0", which inverted the
-  // check: an equal-split (full) last tile was reported as non-full, and an
-  // unequal (undersized) last tile was reported as full.  Fixed to "!= 0"
-  // so that a last tile is considered full iff the EQUAL_SPLIT flag is set.
-  // (f032)
+  // last tile is full).  A last tile is considered full iff the EQUAL_SPLIT
+  // flag is set.
   if (tile->indices[E4] == num_tiles[E4] - 1)
     full_tile &= ((split_info->flags & EQUAL_SPLIT_E4) != 0);
   if (tile->indices[E3] == num_tiles[E3] - 1)
