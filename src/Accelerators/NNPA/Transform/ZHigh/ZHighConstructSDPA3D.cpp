@@ -27,8 +27,7 @@ using namespace onnx_mlir::zhigh;
 
 namespace {
 
-struct ConstructSDPA3DPattern
-    : public OpRewritePattern<ZHighMatMulOp> {
+struct ConstructSDPA3DPattern : public OpRewritePattern<ZHighMatMulOp> {
   using OpRewritePattern<ZHighMatMulOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(
@@ -42,8 +41,7 @@ struct ConstructSDPA3DPattern
 
     // V (RHS of trailing MatMul) must be 3DS.
     Value V = trailingMatmul.getY();
-    if (getZTensorLayout(V.getType()) !=
-        ZTensorEncodingAttr::DataLayout::_3DS)
+    if (getZTensorLayout(V.getType()) != ZTensorEncodingAttr::DataLayout::_3DS)
       return failure();
 
     // LHS must come from a single-use Softmax (ACT_NONE).
@@ -82,32 +80,25 @@ struct ConstructSDPA3DPattern
     // All operands must be 3DS.
     Value Q = innerMatmul.getX();
     Value KT = innerMatmul.getY();
-    if (getZTensorLayout(Q.getType()) !=
-        ZTensorEncodingAttr::DataLayout::_3DS)
+    if (getZTensorLayout(Q.getType()) != ZTensorEncodingAttr::DataLayout::_3DS)
       return failure();
-    if (getZTensorLayout(KT.getType()) !=
-        ZTensorEncodingAttr::DataLayout::_3DS)
+    if (getZTensorLayout(KT.getType()) != ZTensorEncodingAttr::DataLayout::_3DS)
       return failure();
     if (getZTensorLayout(mask.getType()) !=
         ZTensorEncodingAttr::DataLayout::_3DS)
       return failure();
 
     // Replace the trailing MatMul with the fused op.
-    rewriter.replaceOpWithNewOp<ZHighSDPA3DOp>(
-        trailingMatmul, Q, KT, mask, V);
+    rewriter.replaceOpWithNewOp<ZHighSDPA3DOp>(trailingMatmul, Q, KT, mask, V);
     return success();
   }
 };
 
-struct ZHighConstructSDPA3DPass
-    : public PassWrapper<ZHighConstructSDPA3DPass,
-          OperationPass<func::FuncOp>> {
-  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(
-      ZHighConstructSDPA3DPass)
+struct ZHighConstructSDPA3DPass : public PassWrapper<ZHighConstructSDPA3DPass,
+                                      OperationPass<func::FuncOp>> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ZHighConstructSDPA3DPass)
 
-  StringRef getArgument() const override {
-    return "zhigh-construct-sdpa3d";
-  }
+  StringRef getArgument() const override { return "zhigh-construct-sdpa3d"; }
 
   StringRef getDescription() const override {
     return "Fuse MatMul(Softmax(MatMul(Q,KT)+Mask),V) into "

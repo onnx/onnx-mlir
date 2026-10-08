@@ -1247,10 +1247,9 @@ struct ZHighToZLowSoftmaxOpLowering : public ConversionPattern {
 // Lower ZHigh SDPA3D to ZLow SDPA3D
 //===----------------------------------------------------------------------===//
 struct ZHighToZLowSDPA3DOpLowering : public ConversionPattern {
-  ZHighToZLowSDPA3DOpLowering(
-      TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(typeConverter,
-            ZHighSDPA3DOp::getOperationName(), 1, ctx) {}
+  ZHighToZLowSDPA3DOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, ZHighSDPA3DOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -1261,8 +1260,7 @@ struct ZHighToZLowSDPA3DOpLowering : public ConversionPattern {
     MultiDialectBuilder<IndexExprBuilderForKrnl> create(rewriter, loc);
 
     // Compute shape.
-    ZHighSDPA3DOpShapeHelper shapeHelper(
-        op, operands, &create.krnlIE);
+    ZHighSDPA3DOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert ZTensor type to MemRefType.
@@ -1278,10 +1276,9 @@ struct ZHighToZLowSDPA3DOpLowering : public ConversionPattern {
         insertShapeMemRefI64(rewriter, loc, shapeHelper.allOriginalDims);
 
     // Emit zlow.sdpa3d.
-    ZLowSDPA3DOp::create(rewriter, loc,
-        operandAdaptor.getQ(), operandAdaptor.getKT(),
-        operandAdaptor.getMask(), operandAdaptor.getV(), shapeMemRef,
-        alloc);
+    ZLowSDPA3DOp::create(rewriter, loc, operandAdaptor.getQ(),
+        operandAdaptor.getKT(), operandAdaptor.getMask(), operandAdaptor.getV(),
+        shapeMemRef, alloc);
     rewriter.replaceOp(op, alloc);
     return success();
   }

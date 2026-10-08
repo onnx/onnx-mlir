@@ -226,14 +226,11 @@ zdnn_status zdnnx_sqrt(const zdnn_ztensor *input, zdnn_ztensor *output) {
   return status;
 }
 
-zdnn_status zdnnx_sdpa_3d(const zdnn_ztensor *Q,
-    const zdnn_ztensor *KT, const zdnn_ztensor *Mask, const zdnn_ztensor *V,
-    zdnn_ztensor *output) {
+zdnn_status zdnnx_sdpa_3d(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
+    const zdnn_ztensor *Mask, const zdnn_ztensor *V, zdnn_ztensor *output) {
   zdnn_status status;
-  ZDNNX_CALL_FUNC("SDPA3D",
-      zdnnx_seq_sdpa_3d,
-      zdnnx_omp_sdpa_3d,
-      Q, KT, Mask, V, output);
+  ZDNNX_CALL_FUNC(
+      "SDPA3D", zdnnx_seq_sdpa_3d, zdnnx_omp_sdpa_3d, Q, KT, Mask, V, output);
   ZDNNX_CHECK_STATUS(status, "zdnnx_sdpa_3d");
   return status;
 }

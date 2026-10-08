@@ -644,9 +644,8 @@ zdnn_status zdnnx_omp_softmax(const zdnn_ztensor *input, void *save_area,
   return ZDNN_OK;
 }
 
-zdnn_status zdnnx_omp_sdpa_3d(const zdnn_ztensor *Q,
-    const zdnn_ztensor *KT, const zdnn_ztensor *Mask, const zdnn_ztensor *V,
-    zdnn_ztensor *output) {
+zdnn_status zdnnx_omp_sdpa_3d(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
+    const zdnn_ztensor *Mask, const zdnn_ztensor *V, zdnn_ztensor *output) {
 #ifdef ZDNNX_DEBUG
   printf("[OMP SDPA3D]\n");
 #endif

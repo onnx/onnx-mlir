@@ -1077,8 +1077,7 @@ public:
   explicit ZLowSDPA3DLowering(MLIRContext *context,
       LLVMTypeConverter &lowering_, ApiRegistry apiRegistry)
       : ConvertToLLVMPattern(
-            ZLowSDPA3DOp::getOperationName(), context,
-            lowering_) {
+            ZLowSDPA3DOp::getOperationName(), context, lowering_) {
     this->apiRegistry = apiRegistry;
   }
 
@@ -1086,8 +1085,7 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
-    ZLowSDPA3DOp fusedOp =
-        mlir::cast<ZLowSDPA3DOp>(op);
+    ZLowSDPA3DOp fusedOp = mlir::cast<ZLowSDPA3DOp>(op);
 
     ZLowSDPA3DOpAdaptor operandAdaptor(operands);
     Type llvmElementTy = typeConverter->convertType(
@@ -1140,8 +1138,7 @@ public:
             /*isTransformed=*/true);
 
     // Call zdnnx_sdpa_3d runtime function.
-    callApi(rewriter, loc, module, apiRegistry,
-        API::ZDNNX_SDPA3D,
+    callApi(rewriter, loc, module, apiRegistry, API::ZDNNX_SDPA3D,
         {
             toOpaquePtr(rewriter, loc, module, qZTensor.val),
             toOpaquePtr(rewriter, loc, module, ktZTensor.val),
