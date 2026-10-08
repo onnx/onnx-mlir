@@ -240,12 +240,12 @@ def ZLowSoftmaxOp:ZLow_Op<"softmax", [MemRefsNormalizable,
                        StrAttr:$act_func);
 }
 
-def ZLowStandardAttentionOp:ZLow_Op<"standard_attention",
+def ZLowSDPA3DOp:ZLow_Op<"sdpa3d",
     [MemRefsNormalizable,
     DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
   let summary = "ZLow standard scaled dot-product attention (SDPA)";
   let description = [{
-  Lowered form of zhigh.StandardAttention.
+  Lowered form of zhigh.SDPA3D.
   Computes Output = Softmax(Q * KT + Mask) * V on stickified zTensors.
 
   Operands (all 3DS stickified memrefs):
@@ -253,7 +253,6 @@ def ZLowStandardAttentionOp:ZLow_Op<"standard_attention",
     KT:   [s, n, p]  — keys (already transposed)
     Mask: [s, m, p]  — additive attention mask
     V:    [s, p, q]  — values
-    Bias: [1, 1, p]  — broadcast bias added to Q*KT (2DS)
     Out:  [s, m, q]  — attention output
   shape: memref<5xi64> = [s, m, n, p, q].
   }];
@@ -261,7 +260,6 @@ def ZLowStandardAttentionOp:ZLow_Op<"standard_attention",
                        ZMemRef:$KT,
                        ZMemRef:$Mask,
                        ZMemRef:$V,
-                       ZMemRef:$Bias,
                        MemRefOf<[I64]>:$shape,
                        ZMemRef:$Out);
 }

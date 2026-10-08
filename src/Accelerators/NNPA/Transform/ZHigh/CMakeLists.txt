@@ -87,7 +87,7 @@ add_onnx_mlir_library(OMZHighScrubDisposable
   ${NNPA_INCLUDE_PATH}
   )
 
-add_onnx_mlir_library(OMZHighStandardAttentionFusion
+add_onnx_mlir_library(OMZHighConstructSDPA3D
   ZHighMatMulAddSoftmaxFusion.cpp
 
   LINK_LIBS PUBLIC

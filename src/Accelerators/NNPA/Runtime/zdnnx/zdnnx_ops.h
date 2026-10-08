@@ -75,8 +75,8 @@ zdnn_status zdnnx_reduce(const zdnn_ztensor *input, void *save_area,
     int op_type, zdnn_ztensor *output);
 
 // Fused operations
-zdnn_status zdnnx_standard_attention(const zdnn_ztensor *Q,
+zdnn_status zdnnx_sdpa_3d(const zdnn_ztensor *Q,
     const zdnn_ztensor *KT, const zdnn_ztensor *Mask, const zdnn_ztensor *V,
-    const zdnn_ztensor *Bias, zdnn_ztensor *output);
+    zdnn_ztensor *output);
 
 #endif // ZDNNX_ZDNNX_OPS_H

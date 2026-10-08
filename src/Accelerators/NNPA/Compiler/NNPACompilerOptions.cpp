@@ -149,8 +149,8 @@ llvm::cl::opt<bool> nnpaDisableExpandAttentionMask(
                    "operations. Default is false"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
-llvm::cl::opt<bool> nnpaDisableRecomposeStandardAttention(
-    "nnpa-disable-recompose-standard-attention",
+llvm::cl::opt<bool> nnpaDisableConstructSDPA3D(
+    "nnpa-disable-construct-sdpa-3d",
     llvm::cl::desc("Disable fusion of MatMul+Add+Softmax+MatMul (attention) "
                    "into a single fused op for NNPA. Default is false"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));

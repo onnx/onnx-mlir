@@ -43,9 +43,9 @@ zdnn_status zdnnx_omp_binary_elementwise(const zdnn_ztensor *inputA,
 zdnn_status zdnnx_omp_softmax(const zdnn_ztensor *input, void *save_area,
     zdnn_softmax_act act_func, zdnn_ztensor *output);
 
-zdnn_status zdnnx_omp_standard_attention(const zdnn_ztensor *Q,
+zdnn_status zdnnx_omp_sdpa_3d(const zdnn_ztensor *Q,
     const zdnn_ztensor *KT, const zdnn_ztensor *Mask, const zdnn_ztensor *V,
-    const zdnn_ztensor *Bias, zdnn_ztensor *output);
+    zdnn_ztensor *output);
 
 #endif // ZDNNX_WITH_OMP
 

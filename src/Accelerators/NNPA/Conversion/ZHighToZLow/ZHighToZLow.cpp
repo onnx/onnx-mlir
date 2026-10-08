@@ -1244,24 +1244,24 @@ struct ZHighToZLowSoftmaxOpLowering : public ConversionPattern {
 };
 
 //===----------------------------------------------------------------------===//
-// Lower ZHigh StandardAttention to ZLow StandardAttention
+// Lower ZHigh SDPA3D to ZLow SDPA3D
 //===----------------------------------------------------------------------===//
-struct ZHighToZLowStandardAttentionOpLowering : public ConversionPattern {
-  ZHighToZLowStandardAttentionOpLowering(
+struct ZHighToZLowSDPA3DOpLowering : public ConversionPattern {
+  ZHighToZLowSDPA3DOpLowering(
       TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(typeConverter,
-            ZHighStandardAttentionOp::getOperationName(), 1, ctx) {}
+            ZHighSDPA3DOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
-    ZHighStandardAttentionOpAdaptor operandAdaptor(operands);
+    ZHighSDPA3DOpAdaptor operandAdaptor(operands);
 
     // Helper builders.
     MultiDialectBuilder<IndexExprBuilderForKrnl> create(rewriter, loc);
 
     // Compute shape.
-    ZHighStandardAttentionOpShapeHelper shapeHelper(
+    ZHighSDPA3DOpShapeHelper shapeHelper(
         op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
@@ -1277,19 +1277,10 @@ struct ZHighToZLowStandardAttentionOpLowering : public ConversionPattern {
     Value shapeMemRef =
         insertShapeMemRefI64(rewriter, loc, shapeHelper.allOriginalDims);
 
-    // Create zero bias: 2DS {S, P} (for the internal Q*KT matmul).
-    IndexExpr S = shapeHelper.allOriginalDims[0];
-    IndexExpr P = shapeHelper.allOriginalDims[3];
-    SmallVector<IndexExpr, 2> biasDims;
-    biasDims.emplace_back(S);
-    biasDims.emplace_back(P);
-    Value bias = insertAllocOrEmitZeroConstant(
-        biasDims, ZTensorEncodingAttr::DataLayout::_2DS, op, rewriter, loc);
-
-    // Emit zlow.standard_attention.
-    ZLowStandardAttentionOp::create(rewriter, loc,
+    // Emit zlow.sdpa3d.
+    ZLowSDPA3DOp::create(rewriter, loc,
         operandAdaptor.getQ(), operandAdaptor.getKT(),
-        operandAdaptor.getMask(), operandAdaptor.getV(), bias, shapeMemRef,
+        operandAdaptor.getMask(), operandAdaptor.getV(), shapeMemRef,
         alloc);
     rewriter.replaceOp(op, alloc);
     return success();
@@ -3844,7 +3835,7 @@ void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
   patterns.insert<ZHighToZLowMeanReduce2DOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowLeakyReluOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowMatMulOpLowering>(typeConverter, ctx);
-  patterns.insert<ZHighToZLowStandardAttentionOpLowering>(typeConverter, ctx);
+  patterns.insert<ZHighToZLowSDPA3DOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowLSTMOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowGRUOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowFixGRUYOpLowering>(typeConverter, ctx);

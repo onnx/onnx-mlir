@@ -81,9 +81,8 @@ std::unique_ptr<mlir::Pass> createZHighRecomposeToStickUnstickPass();
 // Pass to fuse unstick -> suitable op -> stick (or subset of that).
 std::unique_ptr<mlir::Pass> createFusionOpStickUnstick();
 
-/// Pass to fuse MatMul(Softmax(MatMul(Q,KT)+Mask),V) into
-/// zhigh.StandardAttention.
-std::unique_ptr<mlir::Pass> createZHighStandardAttentionFusionPass();
+/// Pass to fuse MatMul(Softmax(MatMul(Q,KT)+Mask),V) into zhigh.SDPA3D.
+std::unique_ptr<mlir::Pass> createZHighConstructSDPA3DPass();
 
 } // end namespace zhigh
 

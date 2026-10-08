@@ -72,7 +72,7 @@ enum class API {
   ZDNN_BATCHNORM,
   ZDNN_LEAKY_RELU,
   // Fused operations.
-  ZDNNX_STANDARD_ATTENTION,
+  ZDNNX_SDPA3D,
   // Scalar operations.
   DLF16_TO_F32,
   F32_TO_DLF16,

@@ -637,7 +637,7 @@ def ZHighSoftmaxOp:ZHigh_Op<"Softmax", [Pure, SameOperandsAndResultLayout,
   }];
 }
 
-def ZHighStandardAttentionOp:ZHigh_Op<"StandardAttention", [Pure,
+def ZHighSDPA3DOp:ZHigh_Op<"SDPA3D", [Pure,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
     DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ZHigh standard scaled dot-product attention (SDPA)";
@@ -666,11 +666,11 @@ def ZHighStandardAttentionOp:ZHigh_Op<"StandardAttention", [Pure,
   ];
   let hasVerifier = 1;
   let extraClassDefinition = [{
-    onnx_mlir::ONNXOpShapeHelper * ZHighStandardAttentionOp::getShapeHelper(
+    onnx_mlir::ONNXOpShapeHelper * ZHighSDPA3DOp::getShapeHelper(
         mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper,
         onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
       onnx_mlir::ONNXOpShapeHelper *sh =
-          new ZHighStandardAttentionOpShapeHelper(op, oper, ieb, scope);
+          new ZHighSDPA3DOpShapeHelper(op, oper, ieb, scope);
       assert(sh && "failed to allocate shape helper");
       return sh;
     }

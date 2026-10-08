@@ -92,7 +92,7 @@ ApiRegistry RegisterAllApis(MLIRContext *context) {
     ApiSpec(API::ZDNN_MEANREDUCE2D, "zdnn_meanreduce2d", int32Ty, {opaquePtrTy, opaquePtrTy}, false),
     ApiSpec(API::ZDNN_BATCHNORM, "zdnn_batchnorm", int32Ty, {opaquePtrTy, opaquePtrTy, opaquePtrTy, opaquePtrTy}, false),
     // Fused operations
-    ApiSpec(API::ZDNNX_STANDARD_ATTENTION, "zdnnx_standard_attention", int32Ty, {opaquePtrTy, opaquePtrTy, opaquePtrTy, opaquePtrTy, opaquePtrTy, opaquePtrTy}, false),
+    ApiSpec(API::ZDNNX_SDPA3D, "zdnnx_sdpa_3d", int32Ty, {opaquePtrTy, opaquePtrTy, opaquePtrTy, opaquePtrTy, opaquePtrTy}, false),
     // Scalar operations
     // Note: these APIs are for testing purpose only.
     ApiSpec(API::DLF16_TO_F32, "cnvt_1_dlf16_to_fp32", float32Ty, {int16Ty}, false),

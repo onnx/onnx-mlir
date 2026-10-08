@@ -1072,12 +1072,12 @@ private:
   ApiRegistry apiRegistry;
 };
 
-class ZLowStandardAttentionLowering : public ConvertToLLVMPattern {
+class ZLowSDPA3DLowering : public ConvertToLLVMPattern {
 public:
-  explicit ZLowStandardAttentionLowering(MLIRContext *context,
+  explicit ZLowSDPA3DLowering(MLIRContext *context,
       LLVMTypeConverter &lowering_, ApiRegistry apiRegistry)
       : ConvertToLLVMPattern(
-            ZLowStandardAttentionOp::getOperationName(), context,
+            ZLowSDPA3DOp::getOperationName(), context,
             lowering_) {
     this->apiRegistry = apiRegistry;
   }
@@ -1086,10 +1086,10 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
-    ZLowStandardAttentionOp fusedOp =
-        mlir::cast<ZLowStandardAttentionOp>(op);
+    ZLowSDPA3DOp fusedOp =
+        mlir::cast<ZLowSDPA3DOp>(op);
 
-    ZLowStandardAttentionOpAdaptor operandAdaptor(operands);
+    ZLowSDPA3DOpAdaptor operandAdaptor(operands);
     Type llvmElementTy = typeConverter->convertType(
         mlir::cast<MemRefType>(fusedOp.getQ().getType()).getElementType());
 
@@ -1132,13 +1132,6 @@ public:
             /*layout=*/ZDNN_3DS, /*originalDims=*/{S, P, Q},
             /*isTransformed=*/true);
 
-    // Bias: 2DS {S, P}
-    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getBias());
-    ZTensor biasZTensor =
-        zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
-            /*layout=*/ZDNN_2DS, /*originalDims=*/{S, P},
-            /*isTransformed=*/true);
-
     // Output: 3DS {S, M, Q}
     stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getOut());
     ZTensor outZTensor =
@@ -1146,15 +1139,14 @@ public:
             /*layout=*/ZDNN_3DS, /*originalDims=*/{S, M, Q},
             /*isTransformed=*/true);
 
-    // Call zdnnx_standard_attention(Q, KT, Mask, V, Bias, Out).
+    // Call zdnnx_sdpa_3d runtime function.
     callApi(rewriter, loc, module, apiRegistry,
-        API::ZDNNX_STANDARD_ATTENTION,
+        API::ZDNNX_SDPA3D,
         {
             toOpaquePtr(rewriter, loc, module, qZTensor.val),
             toOpaquePtr(rewriter, loc, module, ktZTensor.val),
             toOpaquePtr(rewriter, loc, module, maskZTensor.val),
             toOpaquePtr(rewriter, loc, module, vZTensor.val),
-            toOpaquePtr(rewriter, loc, module, biasZTensor.val),
             toOpaquePtr(rewriter, loc, module, outZTensor.val),
         });
 
@@ -2664,7 +2656,7 @@ void populateZLowToLLVMConversionPattern(mlir::RewritePatternSet &patterns,
       ZLowGRULowering,
       // Other operations
       ZLowMatMulLowering,
-      ZLowStandardAttentionLowering,
+      ZLowSDPA3DLowering,
       ZLowQuantizedMatMulLowering,
       ZLowConv2DLowering,
       ZLowMeanReduce2DLowering,

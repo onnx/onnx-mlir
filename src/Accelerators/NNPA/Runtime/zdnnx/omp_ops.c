@@ -644,39 +644,37 @@ zdnn_status zdnnx_omp_softmax(const zdnn_ztensor *input, void *save_area,
   return ZDNN_OK;
 }
 
-zdnn_status zdnnx_omp_standard_attention(const zdnn_ztensor *Q,
+zdnn_status zdnnx_omp_sdpa_3d(const zdnn_ztensor *Q,
     const zdnn_ztensor *KT, const zdnn_ztensor *Mask, const zdnn_ztensor *V,
-    const zdnn_ztensor *Bias, zdnn_ztensor *output) {
+    zdnn_ztensor *output) {
 #ifdef ZDNNX_DEBUG
-  printf("[OMP MatMulAddSoftmaxMatMul]\n");
+  printf("[OMP SDPA3D]\n");
 #endif
 
-  zdnnx_split_info si_q, si_kt, si_mask, si_v, si_bias, si_out;
+  zdnnx_split_info si_q, si_kt, si_mask, si_v, si_out;
   zdnnx_prepare_split_info(&si_q, Q, 1, 0, 0, 0, "MASM Q");
   zdnnx_prepare_split_info(&si_kt, KT, 1, 0, 0, 0, "MASM KT");
   zdnnx_prepare_split_info(&si_mask, Mask, 1, 0, 0, 0, "MASM Mask");
   zdnnx_prepare_split_info(&si_v, V, 1, 0, 0, 0, "MASM V");
-  zdnnx_prepare_split_info(&si_bias, Bias, 1, 0, 0, 0, "MASM Bias");
   zdnnx_prepare_split_info(&si_out, output, 1, 0, 0, 0, "MASM Out");
 
   if (zdnnx_has_one_tile(&si_q))
-    return zdnnx_seq_standard_attention(Q, KT, Mask, V, Bias, output);
+    return zdnnx_seq_sdpa_3d(Q, KT, Mask, V, output);
 
   uint32_t BH = zdnnx_get_num_tiles(&si_q, E4);
   uint32_t num_threads = zdnnx_get_num_zaiu_threads();
 
 #pragma omp parallel for num_threads(num_threads)
   for (uint32_t b = 0; b < BH; ++b) {
-    zdnnx_tile tq, tkt, tmask, tv, tbias, tout;
+    zdnnx_tile tq, tkt, tmask, tv, tout;
     zdnnx_set_tile(&si_q, &tq, NULL, b, 0, 0, 0);
     zdnnx_set_tile(&si_kt, &tkt, NULL, b, 0, 0, 0);
     zdnnx_set_tile(&si_mask, &tmask, NULL, b, 0, 0, 0);
     zdnnx_set_tile(&si_v, &tv, NULL, b, 0, 0, 0);
-    zdnnx_set_tile(&si_bias, &tbias, NULL, b, 0, 0, 0);
     zdnnx_set_tile(&si_out, &tout, NULL, b, 0, 0, 0);
 
-    zdnn_status status = zdnnx_seq_standard_attention(
-        &tq.data, &tkt.data, &tmask.data, &tv.data, &tbias.data, &tout.data);
+    zdnn_status status = zdnnx_seq_sdpa_3d(
+        &tq.data, &tkt.data, &tmask.data, &tv.data, &tout.data);
     assert(status == ZDNN_OK);
   }
 
