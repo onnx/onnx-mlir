@@ -13,7 +13,9 @@
 //===----------------------------------------------------------------------===//
 
 #include <assert.h>
+#include <limits.h>
 #include <math.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -268,9 +270,42 @@ static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
     }
   }
 
+  // f014/f028 fix: validate each output dimension and check for integer
+  // overflow before using the product to size the allCoordinates allocation.
+  // A caller-supplied sizes/scales tensor can produce arbitrarily large
+  // output_size[i] values; the unchecked product wraps size_t down to a
+  // small value so malloc succeeds with an undersized buffer, then
+  // generate_coordinates writes past the end — a heap overflow.
+  int64_t outputCap = omTensorGetNumElems(output_OMT);
   int64_t outputSize = 1;
   for (int i = 0; i < rank; i++) {
+    if (output_size[i] <= 0) {
+      // Non-positive dimension: reject as invalid.
+      if (scale_factor_OMT != NULL)
+        free(output_size);
+      else
+        free(scale_factor);
+      return;
+    }
+    // Check for overflow of outputSize * output_size[i].
+    if (outputSize > outputCap / output_size[i]) {
+      if (output_size_OMT == NULL)
+        free(output_size);
+      if (scale_factor_OMT == NULL)
+        free(scale_factor);
+      return;
+    }
     outputSize *= output_size[i];
+  }
+  // Guard: computed product must not exceed the pre-allocated output buffer
+  // and must not overflow the malloc argument (outputSize * rank * sizeof).
+  if (outputSize > outputCap ||
+      rank > 0 && outputSize > (int64_t)(SIZE_MAX / sizeof(int64_t)) / rank) {
+    if (scale_factor_OMT != NULL)
+      free(output_size);
+    else
+      free(scale_factor);
+    return;
   }
   float *outputData = (float *)omTensorGetDataPtr(output_OMT);
 
