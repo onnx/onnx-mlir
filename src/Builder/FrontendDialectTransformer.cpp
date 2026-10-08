@@ -22,6 +22,8 @@
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "mlir/Support/FileUtilities.h"
+#include "llvm/ADT/ScopeExit.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/LineIterator.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -215,6 +217,11 @@ private:
   OpsetImportsMap opset_map_;
 
   ModelLocalFunctionsMap in_model_functions_;
+
+  // Set of model-local FunctionProto pointers currently being expanded.
+  // Used to detect direct and indirect (mutual) recursion and emit a
+  // diagnostic instead of overflowing the C++ call stack.
+  llvm::SmallPtrSet<const onnx::FunctionProto *, 4> expandingModelFunctions_;
 
   Location UnknownLoc() const { return UnknownLoc::get(&context_); }
 
@@ -1324,8 +1331,39 @@ private:
     const onnx::ShapeInferenceOptions &options = onnx::ShapeInferenceOptions();
 
     // Populates graph.value_info().
-    onnx::shape_inference::InferShapes(&graph, function_opset_map,
-        onnx::OpSchemaRegistry::Instance(), options, in_model_functions_);
+    // Wrap in a try/catch: onnx::shape_inference::InferShapes can throw
+    // onnx::InferenceError (via fail_shape_inference) when it detects a cycle
+    // in model-local function references while inferring shapes for the
+    // function body graph — specifically from
+    // ShapeInferenceImplBase::ProcessCall when the same FunctionProto is
+    // already on the active call stack. That happens before our own
+    // expandingModelFunctions_ guard is inserted (line ~1378), so without this
+    // catch the exception propagates uncaught, calls terminate(), and crashes
+    // the process instead of emitting a recoverable diagnostic.
+    // onnx::checker::ValidationError is also caught for safety: a newer ONNX
+    // version's check_function_call_cycles() may fire through a different
+    // InferShapes overload and throw ValidationError instead.
+    // Both are std::runtime_error subclasses.
+    try {
+      onnx::shape_inference::InferShapes(&graph, function_opset_map,
+          onnx::OpSchemaRegistry::Instance(), options, in_model_functions_);
+    } catch (const onnx::checker::ValidationError &e) {
+      emitError(UnknownLoc())
+          << "model-local function '" << node.domain() << ":" << node.op_type()
+          << "' is directly or indirectly recursive; "
+             "onnx-mlir does not support recursive model-local functions";
+      return;
+    } catch (const onnx::InferenceError &e) {
+      // InferenceError from shape inference may or may not be a recursion
+      // cycle. Emit a diagnostic and bail out — the caller will see a
+      // missing output value and report a compilation failure, which is
+      // better than terminate().
+      emitError(UnknownLoc())
+          << "model-local function '" << node.domain() << ":" << node.op_type()
+          << "' is directly or indirectly recursive; "
+             "onnx-mlir does not support recursive model-local functions";
+      return;
+    }
 
     // Save caller context, while generating function body.
     ModelLocalFunctionsMap callerModelFunctions;
@@ -1364,6 +1402,13 @@ private:
         Value value = i < node.input_size() ? inputs[i] : createNoneValue();
         BindOnnxName(name, value);
       }
+
+      // Guard against recursive model-local functions: mark this function as
+      // currently expanding so that any re-entrant call to ImportNode for the
+      // same (domain, op_type) is caught before recursing again.
+      expandingModelFunctions_.insert(modelLocalFunction);
+      auto cleanupExpanding = llvm::scope_exit(
+          [&] { expandingModelFunctions_.erase(modelLocalFunction); });
 
       for (auto &fb_node : graph.node()) {
         ImportNode(fb_node);
@@ -1439,6 +1484,18 @@ private:
     auto model_function = in_model_functions_.find(
         GetModelLocalFunctionsMapIdentifier(node.domain(), node.op_type()));
     if (model_function != in_model_functions_.end()) {
+      // Reject recursive model-local function calls (direct or indirect).
+      // ONNX model-local functions are required to be finite subgraphs;
+      // recursion is not part of the spec and would otherwise overflow the
+      // C++ call stack with a SIGSEGV instead of a recoverable diagnostic.
+      if (expandingModelFunctions_.count(model_function->second)) {
+        emitError(UnknownLoc())
+            << "model-local function '" << node.domain() << ":"
+            << node.op_type()
+            << "' is directly or indirectly recursive; "
+               "onnx-mlir does not support recursive model-local functions";
+        return;
+      }
       ImportFunctionCallNode(node, /*schema=*/nullptr, model_function->second);
       return;
     }
@@ -1573,6 +1630,76 @@ private:
 
 } // namespace detail
 
+// Detect cycles among model-local functions before calling InferShapes.
+// Older ONNX versions lack cycle detection in InferShapes and will crash
+// (stack overflow) on recursive functions.
+static bool checkFunctionCallCycles(
+    const onnx::ModelProto &model, std::string &cycleFuncId) {
+  ModelLocalFunctionsMap funcMap = GetModelLocalFunctions(model);
+  if (funcMap.empty())
+    return false;
+
+  // 0 = unvisited, 1 = visiting (on call stack), 2 = visited
+  std::unordered_map<std::string, int> visitState;
+
+  std::function<bool(const std::string &)> dfs =
+      [&](const std::string &id) -> bool {
+    visitState[id] = 1;
+    auto it = funcMap.find(id);
+    if (it != funcMap.end()) {
+      for (const auto &node : it->second->node()) {
+        std::string calleeId =
+            GetModelLocalFunctionsMapIdentifier(node.domain(), node.op_type());
+        if (funcMap.count(calleeId)) {
+          int state = visitState[calleeId];
+          if (state == 1) {
+            cycleFuncId = calleeId;
+            return true;
+          }
+          if (state == 0 && dfs(calleeId))
+            return true;
+        }
+      }
+    }
+    visitState[id] = 2;
+    return false;
+  };
+
+  for (const auto &entry : funcMap) {
+    if (visitState[entry.first] == 0) {
+      if (dfs(entry.first))
+        return true;
+    }
+  }
+  return false;
+}
+
+// Check for recursive model-local functions and run shape inference.
+// Returns false (with a diagnostic on llvm::errs()) if a cycle is found
+// or if shape inference fails; returns true on success.
+static bool checkAndInferShapes(onnx::ModelProto &model) {
+  if (model.functions_size() > 0) {
+    std::string cycleFuncId;
+    if (checkFunctionCallCycles(model, cycleFuncId)) {
+      llvm::errs() << "model-local function '" << cycleFuncId
+                   << "' is directly or indirectly recursive; "
+                      "onnx-mlir does not support recursive model-local "
+                      "functions\n";
+      return false;
+    }
+  }
+  try {
+    onnx::shape_inference::InferShapes(model);
+  } catch (const onnx::checker::ValidationError &e) {
+    llvm::errs() << "shape inference validation error: " << e.what() << "\n";
+    return false;
+  } catch (const onnx::InferenceError &e) {
+    llvm::errs() << "shape inference error: " << e.what() << "\n";
+    return false;
+  }
+  return true;
+}
+
 bool ImportFrontendModelInternal(onnx::ModelProto &model, MLIRContext &context,
     OwningOpRef<ModuleOp> &module, ImportOptions options) {
   int originVersion = CURRENT_ONNX_OPSET;
@@ -1642,12 +1769,16 @@ bool ImportFrontendModelInternal(onnx::ModelProto &model, MLIRContext &context,
 
     onnx::ModelProto convertModel =
         onnx::version_conversion::ConvertVersion(model, CURRENT_ONNX_OPSET);
-    if (options.useOnnxModelTypes)
-      onnx::shape_inference::InferShapes(convertModel);
+    if (options.useOnnxModelTypes) {
+      if (!checkAndInferShapes(convertModel))
+        return false;
+    }
     ImportFrontendModel(convertModel, context, module, options);
   } else {
-    if (options.useOnnxModelTypes)
-      onnx::shape_inference::InferShapes(model);
+    if (options.useOnnxModelTypes) {
+      if (!checkAndInferShapes(model))
+        return false;
+    }
     ImportFrontendModel(model, context, module, options);
   }
   return true;
