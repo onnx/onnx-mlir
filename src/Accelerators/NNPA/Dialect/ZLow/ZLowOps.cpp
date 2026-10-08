@@ -188,22 +188,20 @@ void ZLowSoftmaxOp::getEffects(
       SideEffects::DefaultResource::get());
 }
 
-void ZLowMatMulAddSoftmaxOp::getEffects(
+void ZLowMatMulAddSoftmaxMatMulOp::getEffects(
     SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
         &effects) {
   effects.emplace_back(MemoryEffects::Write::get(), &getOutMutable(),
       SideEffects::DefaultResource::get());
-  effects.emplace_back(MemoryEffects::Read::get(), &getXMutable(),
+  effects.emplace_back(MemoryEffects::Read::get(), &getQMutable(),
       SideEffects::DefaultResource::get());
-  effects.emplace_back(MemoryEffects::Read::get(), &getYMutable(),
+  effects.emplace_back(MemoryEffects::Read::get(), &getKTMutable(),
       SideEffects::DefaultResource::get());
-  effects.emplace_back(MemoryEffects::Read::get(), &getZMutable(),
+  effects.emplace_back(MemoryEffects::Read::get(), &getMaskMutable(),
+      SideEffects::DefaultResource::get());
+  effects.emplace_back(MemoryEffects::Read::get(), &getVMutable(),
       SideEffects::DefaultResource::get());
   effects.emplace_back(MemoryEffects::Read::get(), &getBiasMutable(),
-      SideEffects::DefaultResource::get());
-  effects.emplace_back(MemoryEffects::Read::get(), &getWorkMutable(),
-      SideEffects::DefaultResource::get());
-  effects.emplace_back(MemoryEffects::Write::get(), &getWorkMutable(),
       SideEffects::DefaultResource::get());
   effects.emplace_back(MemoryEffects::Read::get(), &getShapeMutable(),
       SideEffects::DefaultResource::get());

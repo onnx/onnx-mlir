@@ -1244,24 +1244,24 @@ struct ZHighToZLowSoftmaxOpLowering : public ConversionPattern {
 };
 
 //===----------------------------------------------------------------------===//
-// Lower ZHigh MatMulAddSoftmax to ZLow MatMulAddSoftmax
+// Lower ZHigh MatMulAddSoftmaxMatMul to ZLow MatMulAddSoftmaxMatMul
 //===----------------------------------------------------------------------===//
-struct ZHighToZLowMatMulAddSoftmaxOpLowering : public ConversionPattern {
-  ZHighToZLowMatMulAddSoftmaxOpLowering(
+struct ZHighToZLowMatMulAddSoftmaxMatMulOpLowering : public ConversionPattern {
+  ZHighToZLowMatMulAddSoftmaxMatMulOpLowering(
       TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(typeConverter,
-            ZHighMatMulAddSoftmaxOp::getOperationName(), 1, ctx) {}
+            ZHighMatMulAddSoftmaxMatMulOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
-    ZHighMatMulAddSoftmaxOpAdaptor operandAdaptor(operands);
+    ZHighMatMulAddSoftmaxMatMulOpAdaptor operandAdaptor(operands);
 
     // Helper builders.
     MultiDialectBuilder<IndexExprBuilderForKrnl> create(rewriter, loc);
 
     // Compute shape.
-    ZHighMatMulAddSoftmaxOpShapeHelper shapeHelper(
+    ZHighMatMulAddSoftmaxMatMulOpShapeHelper shapeHelper(
         op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
@@ -1269,30 +1269,27 @@ struct ZHighToZLowMatMulAddSoftmaxOpLowering : public ConversionPattern {
     ZMemRefType zMemRefType =
         convertZTensorToMemRefType(*op->result_type_begin());
 
-    // Allocate a buffer for the result MemRef.
+    // Allocate a buffer for the result MemRef: [s, m, q].
     Value alloc = insertAllocForZMemRef(
         zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
 
-    // Get the original shape: {s, m, n, p}.
+    // Get the original shape: {s, m, n, p, q}.
     Value shapeMemRef =
         insertShapeMemRefI64(rewriter, loc, shapeHelper.allOriginalDims);
 
-    // Create zero bias: 2DS {S, P}.
-    SmallVector<IndexExpr, 4> resDims;
-    create.krnlIE.getShapeAsDims(alloc, resDims);
+    // Create zero bias: 2DS {S, P} (for the internal Q*KT matmul).
+    IndexExpr S = shapeHelper.allOriginalDims[0];
+    IndexExpr P = shapeHelper.allOriginalDims[3];
     SmallVector<IndexExpr, 2> biasDims;
-    biasDims.emplace_back(resDims[0]);
-    biasDims.emplace_back(resDims[2]);
+    biasDims.emplace_back(S);
+    biasDims.emplace_back(P);
     Value bias = insertAllocOrEmitZeroConstant(
         biasDims, ZTensorEncodingAttr::DataLayout::_2DS, op, rewriter, loc);
 
-    // Allocate work buffer (same shape as output, used as intermediate).
-    Value work = insertAllocForZMemRef(
-        zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
-
-    // Emit zlow.matmul_add_softmax.
-    ZLowMatMulAddSoftmaxOp::create(rewriter, loc, operandAdaptor.getX(),
-        operandAdaptor.getY(), operandAdaptor.getZ(), bias, work, shapeMemRef,
+    // Emit zlow.matmul_add_softmax_matmul.
+    ZLowMatMulAddSoftmaxMatMulOp::create(rewriter, loc,
+        operandAdaptor.getQ(), operandAdaptor.getKT(),
+        operandAdaptor.getMask(), operandAdaptor.getV(), bias, shapeMemRef,
         alloc);
     rewriter.replaceOp(op, alloc);
     return success();
@@ -3847,7 +3844,7 @@ void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
   patterns.insert<ZHighToZLowMeanReduce2DOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowLeakyReluOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowMatMulOpLowering>(typeConverter, ctx);
-  patterns.insert<ZHighToZLowMatMulAddSoftmaxOpLowering>(typeConverter, ctx);
+  patterns.insert<ZHighToZLowMatMulAddSoftmaxMatMulOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowLSTMOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowGRUOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowFixGRUYOpLowering>(typeConverter, ctx);

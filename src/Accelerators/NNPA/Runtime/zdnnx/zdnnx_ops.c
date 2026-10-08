@@ -226,12 +226,14 @@ zdnn_status zdnnx_sqrt(const zdnn_ztensor *input, zdnn_ztensor *output) {
   return status;
 }
 
-zdnn_status zdnnx_matmul_add_softmax(const zdnn_ztensor *X,
-    const zdnn_ztensor *Y, const zdnn_ztensor *Z, const zdnn_ztensor *Bias,
-    zdnn_ztensor *work, zdnn_ztensor *output) {
+zdnn_status zdnnx_matmul_add_softmax_matmul(const zdnn_ztensor *Q,
+    const zdnn_ztensor *KT, const zdnn_ztensor *Mask, const zdnn_ztensor *V,
+    const zdnn_ztensor *Bias, zdnn_ztensor *output) {
   zdnn_status status;
-  ZDNNX_CALL_FUNC("MatMulAddSoftmax", zdnnx_seq_matmul_add_softmax,
-      zdnnx_omp_matmul_add_softmax, X, Y, Z, Bias, work, output);
-  ZDNNX_CHECK_STATUS(status, "zdnnx_matmul_add_softmax");
+  ZDNNX_CALL_FUNC("MatMulAddSoftmaxMatMul",
+      zdnnx_seq_matmul_add_softmax_matmul,
+      zdnnx_omp_matmul_add_softmax_matmul,
+      Q, KT, Mask, V, Bias, output);
+  ZDNNX_CHECK_STATUS(status, "zdnnx_matmul_add_softmax_matmul");
   return status;
 }

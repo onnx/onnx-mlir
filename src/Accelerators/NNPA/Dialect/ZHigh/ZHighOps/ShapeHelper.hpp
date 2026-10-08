@@ -82,17 +82,17 @@ struct ZHighMatMulOpShapeHelper : public ONNXOpShapeHelper {
 };
 
 //===----------------------------------------------------------------------===//
-// Shape helper for MatMulAddSoftmaxOp.
+// Shape helper for MatMulAddSoftmaxMatMulOp.
 //===----------------------------------------------------------------------===//
 
-struct ZHighMatMulAddSoftmaxOpShapeHelper : public ONNXOpShapeHelper {
-  ZHighMatMulAddSoftmaxOpShapeHelper(mlir::Operation *op,
+struct ZHighMatMulAddSoftmaxMatMulOpShapeHelper : public ONNXOpShapeHelper {
+  ZHighMatMulAddSoftmaxMatMulOpShapeHelper(mlir::Operation *op,
       mlir::ArrayRef<mlir::Value> operands = {},
       IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
       : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
-  virtual ~ZHighMatMulAddSoftmaxOpShapeHelper() {}
+  virtual ~ZHighMatMulAddSoftmaxMatMulOpShapeHelper() {}
   mlir::LogicalResult computeShape() final;
-  DimsExpr allOriginalDims; // {s, m, n, p}
+  DimsExpr allOriginalDims; // {s, m, n, p, q}
 };
 
 //===----------------------------------------------------------------------===//

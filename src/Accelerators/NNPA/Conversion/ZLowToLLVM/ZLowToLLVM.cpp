@@ -1072,12 +1072,13 @@ private:
   ApiRegistry apiRegistry;
 };
 
-class ZLowMatMulAddSoftmaxLowering : public ConvertToLLVMPattern {
+class ZLowMatMulAddSoftmaxMatMulLowering : public ConvertToLLVMPattern {
 public:
-  explicit ZLowMatMulAddSoftmaxLowering(MLIRContext *context,
+  explicit ZLowMatMulAddSoftmaxMatMulLowering(MLIRContext *context,
       LLVMTypeConverter &lowering_, ApiRegistry apiRegistry)
       : ConvertToLLVMPattern(
-            ZLowMatMulAddSoftmaxOp::getOperationName(), context, lowering_) {
+            ZLowMatMulAddSoftmaxMatMulOp::getOperationName(), context,
+            lowering_) {
     this->apiRegistry = apiRegistry;
   }
 
@@ -1085,12 +1086,12 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
-    ZLowMatMulAddSoftmaxOp fusedOp =
-        mlir::cast<ZLowMatMulAddSoftmaxOp>(op);
+    ZLowMatMulAddSoftmaxMatMulOp fusedOp =
+        mlir::cast<ZLowMatMulAddSoftmaxMatMulOp>(op);
 
-    ZLowMatMulAddSoftmaxOpAdaptor operandAdaptor(operands);
+    ZLowMatMulAddSoftmaxMatMulOpAdaptor operandAdaptor(operands);
     Type llvmElementTy = typeConverter->convertType(
-        mlir::cast<MemRefType>(fusedOp.getX().getType()).getElementType());
+        mlir::cast<MemRefType>(fusedOp.getQ().getType()).getElementType());
 
     ZTensorHelper zTensorHelper =
         ZTensorHelper(rewriter, loc, module, apiRegistry);
@@ -1098,30 +1099,37 @@ public:
     // Get zDNN data type.
     zdnn_data_types zDNNDataType = llvmTypeToZDNNType(llvmElementTy);
 
-    // Shape memref has 4 dims: {S, M, N, P}.
+    // Shape memref has 5 dims: {S, M, N, P, Q}.
     std::vector<Value> dims = getDimsFromShapeMemRefBySize(
-        rewriter, loc, module, operandAdaptor.getShape(), /*size=*/4);
-    Value S = dims[0], M = dims[1], N = dims[2], P = dims[3];
+        rewriter, loc, module, operandAdaptor.getShape(), /*size=*/5);
+    Value S = dims[0], M = dims[1], N = dims[2], P = dims[3], Q = dims[4];
 
-    // X: 3DS {S, M, N}
-    Value stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getX());
-    ZTensor xZTensor =
+    // Q: 3DS {S, M, N}
+    Value stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getQ());
+    ZTensor qZTensor =
         zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
             /*layout=*/ZDNN_3DS, /*originalDims=*/{S, M, N},
             /*isTransformed=*/true);
 
-    // Y: 3DS {S, N, P}
-    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getY());
-    ZTensor yZTensor =
+    // KT: 3DS {S, N, P}
+    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getKT());
+    ZTensor ktZTensor =
         zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
             /*layout=*/ZDNN_3DS, /*originalDims=*/{S, N, P},
             /*isTransformed=*/true);
 
-    // Z (mask): 3DS {S, M, P}
-    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getZ());
-    ZTensor zZTensor =
+    // Mask: 3DS {S, M, P}
+    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getMask());
+    ZTensor maskZTensor =
         zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
             /*layout=*/ZDNN_3DS, /*originalDims=*/{S, M, P},
+            /*isTransformed=*/true);
+
+    // V: 3DS {S, P, Q}
+    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getV());
+    ZTensor vZTensor =
+        zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
+            /*layout=*/ZDNN_3DS, /*originalDims=*/{S, P, Q},
             /*isTransformed=*/true);
 
     // Bias: 2DS {S, P}
@@ -1131,33 +1139,22 @@ public:
             /*layout=*/ZDNN_2DS, /*originalDims=*/{S, P},
             /*isTransformed=*/true);
 
-    // Work: 3DS {S, M, P} — same shape as output, reuse Z's descriptors.
-    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getWork());
-    ZTensor workZTensor = zTensorHelper.getZTensor(
-        /*preTransformedDescPtr=*/zZTensor.preTransformedDescPtr,
-        /*transformedDescPtr=*/zZTensor.transformedDescPtr,
-        /*bufferSize=*/zZTensor.bufferSize,
-        /*alignedBuffer=*/stickI8Ptr,
-        /*isTransformed=*/true);
-
-    // Output: 3DS {S, M, P} — reuse Z's descriptors since same shape.
+    // Output: 3DS {S, M, Q}
     stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getOut());
-    ZTensor outZTensor = zTensorHelper.getZTensor(
-        /*preTransformedDescPtr=*/zZTensor.preTransformedDescPtr,
-        /*transformedDescPtr=*/zZTensor.transformedDescPtr,
-        /*bufferSize=*/zZTensor.bufferSize,
-        /*alignedBuffer=*/stickI8Ptr,
-        /*isTransformed=*/true);
+    ZTensor outZTensor =
+        zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
+            /*layout=*/ZDNN_3DS, /*originalDims=*/{S, M, Q},
+            /*isTransformed=*/true);
 
-    // Call zdnnx_matmul_add_softmax(X, Y, Z, Bias, Work, Out).
+    // Call zdnnx_matmul_add_softmax_matmul(Q, KT, Mask, V, Bias, Out).
     callApi(rewriter, loc, module, apiRegistry,
-        API::ZDNNX_MATMUL_ADD_SOFTMAX,
+        API::ZDNNX_MATMUL_ADD_SOFTMAX_MATMUL,
         {
-            toOpaquePtr(rewriter, loc, module, xZTensor.val),
-            toOpaquePtr(rewriter, loc, module, yZTensor.val),
-            toOpaquePtr(rewriter, loc, module, zZTensor.val),
+            toOpaquePtr(rewriter, loc, module, qZTensor.val),
+            toOpaquePtr(rewriter, loc, module, ktZTensor.val),
+            toOpaquePtr(rewriter, loc, module, maskZTensor.val),
+            toOpaquePtr(rewriter, loc, module, vZTensor.val),
             toOpaquePtr(rewriter, loc, module, biasZTensor.val),
-            toOpaquePtr(rewriter, loc, module, workZTensor.val),
             toOpaquePtr(rewriter, loc, module, outZTensor.val),
         });
 
@@ -2667,7 +2664,7 @@ void populateZLowToLLVMConversionPattern(mlir::RewritePatternSet &patterns,
       ZLowGRULowering,
       // Other operations
       ZLowMatMulLowering,
-      ZLowMatMulAddSoftmaxLowering,
+      ZLowMatMulAddSoftmaxMatMulLowering,
       ZLowQuantizedMatMulLowering,
       ZLowConv2DLowering,
       ZLowMeanReduce2DLowering,
