@@ -198,7 +198,8 @@ bool omUnloadConstantData(void **constAddr, int64_t size) {
 /// substituted constants data.
 ///
 /// \param[in] fd File descriptor.
-/// \param[in] fileSize Expected size in bytes (baked into the .so at compile time).
+/// \param[in] fileSize Expected size in bytes (baked into the .so at compile
+/// time).
 ///
 /// \return 0 on success, 1 on failure.
 ///
