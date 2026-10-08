@@ -682,13 +682,15 @@ LogicalResult lowerONNXAttentionOp(ONNXAttentionOp attentionOp, Value Q,
     if (kvCache == KVCacheType::Fixed) {
       if (!useFixed)
         return attentionOp.emitOpError(
-            "Unaccepted --kv-cache option value; since the input of the op is not for fixed cache");
+            "Unaccepted --kv-cache option value; since the input of the op "
+	    "is not for fixed cache");
       // else: useFixed stays true, proceed.
     } else if (kvCache == KVCacheType::Grow) {
       // Will have more implementation in future
       useFixed = false;
     } else {
-      return attentionOp.emitOpError("invalid --kv-cache option value; expected 'Fixed' or 'Grow'");
+      return attentionOp.emitOpError(
+          "invalid --kv-cache option value; expected 'Fixed' or 'Grow'");
     }
   }
 
