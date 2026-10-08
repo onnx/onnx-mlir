@@ -151,6 +151,10 @@ std::unique_ptr<mlir::Pass> createElideConstGlobalValuePass();
 /// Pass for eliminating locally-allocated memrefs that are only written to.
 std::unique_ptr<mlir::Pass> createEliminateWriteOnlyAllocPass();
 
+/// Pass for removing bufferization.clone ops of entry function inputs that are
+/// returned, inserted by the buffer deallocation pipeline.
+std::unique_ptr<mlir::Pass> createEliminateEntryArgClonePass();
+
 namespace krnl {
 /// Pass for lowering frontend dialects to Krnl IR dialect.
 std::unique_ptr<mlir::Pass> createConvertKrnlToAffinePass();
