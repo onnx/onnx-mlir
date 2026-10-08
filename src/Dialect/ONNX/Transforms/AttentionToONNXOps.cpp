@@ -683,7 +683,7 @@ LogicalResult lowerONNXAttentionOp(ONNXAttentionOp attentionOp, Value Q,
       if (!useFixed)
         return attentionOp.emitOpError(
             "Unaccepted --kv-cache option value; since the input of the op "
-	    "is not for fixed cache");
+            "is not for fixed cache");
       // else: useFixed stays true, proceed.
     } else if (kvCache == KVCacheType::Grow) {
       // Will have more implementation in future
