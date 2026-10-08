@@ -1244,24 +1244,24 @@ struct ZHighToZLowSoftmaxOpLowering : public ConversionPattern {
 };
 
 //===----------------------------------------------------------------------===//
-// Lower ZHigh MatMulAddSoftmaxMatMul to ZLow MatMulAddSoftmaxMatMul
+// Lower ZHigh StandardAttention to ZLow StandardAttention
 //===----------------------------------------------------------------------===//
-struct ZHighToZLowMatMulAddSoftmaxMatMulOpLowering : public ConversionPattern {
-  ZHighToZLowMatMulAddSoftmaxMatMulOpLowering(
+struct ZHighToZLowStandardAttentionOpLowering : public ConversionPattern {
+  ZHighToZLowStandardAttentionOpLowering(
       TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(typeConverter,
-            ZHighMatMulAddSoftmaxMatMulOp::getOperationName(), 1, ctx) {}
+            ZHighStandardAttentionOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
-    ZHighMatMulAddSoftmaxMatMulOpAdaptor operandAdaptor(operands);
+    ZHighStandardAttentionOpAdaptor operandAdaptor(operands);
 
     // Helper builders.
     MultiDialectBuilder<IndexExprBuilderForKrnl> create(rewriter, loc);
 
     // Compute shape.
-    ZHighMatMulAddSoftmaxMatMulOpShapeHelper shapeHelper(
+    ZHighStandardAttentionOpShapeHelper shapeHelper(
         op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
@@ -1286,8 +1286,8 @@ struct ZHighToZLowMatMulAddSoftmaxMatMulOpLowering : public ConversionPattern {
     Value bias = insertAllocOrEmitZeroConstant(
         biasDims, ZTensorEncodingAttr::DataLayout::_2DS, op, rewriter, loc);
 
-    // Emit zlow.matmul_add_softmax_matmul.
-    ZLowMatMulAddSoftmaxMatMulOp::create(rewriter, loc,
+    // Emit zlow.standard_attention.
+    ZLowStandardAttentionOp::create(rewriter, loc,
         operandAdaptor.getQ(), operandAdaptor.getKT(),
         operandAdaptor.getMask(), operandAdaptor.getV(), bias, shapeMemRef,
         alloc);
@@ -3844,7 +3844,7 @@ void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
   patterns.insert<ZHighToZLowMeanReduce2DOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowLeakyReluOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowMatMulOpLowering>(typeConverter, ctx);
-  patterns.insert<ZHighToZLowMatMulAddSoftmaxMatMulOpLowering>(typeConverter, ctx);
+  patterns.insert<ZHighToZLowStandardAttentionOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowLSTMOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowGRUOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowFixGRUYOpLowering>(typeConverter, ctx);

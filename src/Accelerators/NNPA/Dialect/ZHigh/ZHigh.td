@@ -637,14 +637,19 @@ def ZHighSoftmaxOp:ZHigh_Op<"Softmax", [Pure, SameOperandsAndResultLayout,
   }];
 }
 
-def ZHighMatMulAddSoftmaxMatMulOp:ZHigh_Op<"MatMulAddSoftmaxMatMul", [Pure,
+def ZHighStandardAttentionOp:ZHigh_Op<"StandardAttention", [Pure,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
     DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
-  let summary = "ZHigh fused MatMul + Add + Softmax + MatMul (Attention)";
+  let summary = "ZHigh standard scaled dot-product attention (SDPA)";
   let description = [{
-    Computes MatMul(Softmax(MatMul(Q, KT) + Mask), V).
-    Q: [s, m, n] 3DS, KT: [s, n, p] 3DS, Mask: [s, m, p] 3DS, V: [s, p, q] 3DS.
-    Output: [s, m, q] 3DS. Always stacked, no transpose, ACT_NONE.
+    Fused standard attention: Output = Softmax(Q * KT + Mask) * V.
+
+    All operands use 3DS layout with a shared batch dimension s:
+      Q:    [s, m, n]  — queries
+      KT:   [s, n, p]  — keys (already transposed)
+      Mask: [s, m, p]  — additive attention mask
+      V:    [s, p, q]  — values
+      Out:  [s, m, q]  — attention output
   }];
   let arguments = (ins ZTensor_3DS:$Q,
                        ZTensor_3DS:$KT,
@@ -661,11 +666,11 @@ def ZHighMatMulAddSoftmaxMatMulOp:ZHigh_Op<"MatMulAddSoftmaxMatMul", [Pure,
   ];
   let hasVerifier = 1;
   let extraClassDefinition = [{
-    onnx_mlir::ONNXOpShapeHelper * ZHighMatMulAddSoftmaxMatMulOp::getShapeHelper(
+    onnx_mlir::ONNXOpShapeHelper * ZHighStandardAttentionOp::getShapeHelper(
         mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper,
         onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
       onnx_mlir::ONNXOpShapeHelper *sh =
-          new ZHighMatMulAddSoftmaxMatMulOpShapeHelper(op, oper, ieb, scope);
+          new ZHighStandardAttentionOpShapeHelper(op, oper, ieb, scope);
       assert(sh && "failed to allocate shape helper");
       return sh;
     }

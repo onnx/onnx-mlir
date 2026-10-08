@@ -72,7 +72,7 @@ enum class API {
   ZDNN_BATCHNORM,
   ZDNN_LEAKY_RELU,
   // Fused operations.
-  ZDNNX_MATMUL_ADD_SOFTMAX_MATMUL,
+  ZDNNX_STANDARD_ATTENTION,
   // Scalar operations.
   DLF16_TO_F32,
   F32_TO_DLF16,

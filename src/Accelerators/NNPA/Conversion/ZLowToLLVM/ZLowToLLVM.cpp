@@ -1072,12 +1072,12 @@ private:
   ApiRegistry apiRegistry;
 };
 
-class ZLowMatMulAddSoftmaxMatMulLowering : public ConvertToLLVMPattern {
+class ZLowStandardAttentionLowering : public ConvertToLLVMPattern {
 public:
-  explicit ZLowMatMulAddSoftmaxMatMulLowering(MLIRContext *context,
+  explicit ZLowStandardAttentionLowering(MLIRContext *context,
       LLVMTypeConverter &lowering_, ApiRegistry apiRegistry)
       : ConvertToLLVMPattern(
-            ZLowMatMulAddSoftmaxMatMulOp::getOperationName(), context,
+            ZLowStandardAttentionOp::getOperationName(), context,
             lowering_) {
     this->apiRegistry = apiRegistry;
   }
@@ -1086,10 +1086,10 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
     Location loc = op->getLoc();
-    ZLowMatMulAddSoftmaxMatMulOp fusedOp =
-        mlir::cast<ZLowMatMulAddSoftmaxMatMulOp>(op);
+    ZLowStandardAttentionOp fusedOp =
+        mlir::cast<ZLowStandardAttentionOp>(op);
 
-    ZLowMatMulAddSoftmaxMatMulOpAdaptor operandAdaptor(operands);
+    ZLowStandardAttentionOpAdaptor operandAdaptor(operands);
     Type llvmElementTy = typeConverter->convertType(
         mlir::cast<MemRefType>(fusedOp.getQ().getType()).getElementType());
 
@@ -1146,9 +1146,9 @@ public:
             /*layout=*/ZDNN_3DS, /*originalDims=*/{S, M, Q},
             /*isTransformed=*/true);
 
-    // Call zdnnx_matmul_add_softmax_matmul(Q, KT, Mask, V, Bias, Out).
+    // Call zdnnx_standard_attention(Q, KT, Mask, V, Bias, Out).
     callApi(rewriter, loc, module, apiRegistry,
-        API::ZDNNX_MATMUL_ADD_SOFTMAX_MATMUL,
+        API::ZDNNX_STANDARD_ATTENTION,
         {
             toOpaquePtr(rewriter, loc, module, qZTensor.val),
             toOpaquePtr(rewriter, loc, module, ktZTensor.val),
@@ -2664,7 +2664,7 @@ void populateZLowToLLVMConversionPattern(mlir::RewritePatternSet &patterns,
       ZLowGRULowering,
       // Other operations
       ZLowMatMulLowering,
-      ZLowMatMulAddSoftmaxMatMulLowering,
+      ZLowStandardAttentionLowering,
       ZLowQuantizedMatMulLowering,
       ZLowConv2DLowering,
       ZLowMeanReduce2DLowering,

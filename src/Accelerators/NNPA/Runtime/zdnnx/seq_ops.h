@@ -31,7 +31,7 @@ zdnn_status zdnnx_seq_matmul(const zdnn_ztensor *input_a,
     const zdnn_ztensor *input_b, const zdnn_ztensor *input_c, bool transpose_a,
     bool transpose_b, int op_type, zdnn_ztensor *output, bool is_bcast);
 
-zdnn_status zdnnx_seq_matmul_add_softmax_matmul(const zdnn_ztensor *Q,
+zdnn_status zdnnx_seq_standard_attention(const zdnn_ztensor *Q,
     const zdnn_ztensor *KT, const zdnn_ztensor *Mask, const zdnn_ztensor *V,
     const zdnn_ztensor *Bias, zdnn_ztensor *output);
 

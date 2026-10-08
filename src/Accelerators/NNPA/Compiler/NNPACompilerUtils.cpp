@@ -157,10 +157,10 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
   }
 
-  // Fuse MatMul(Softmax(MatMul+Add),V) into zhigh.MatMulAddSoftmaxMatMul.
-  if (!nnpaDisableMatMulAddSoftmaxMatMul) {
+  // Fuse MatMul(Softmax(MatMul+Add),V) into zhigh.StandardAttention.
+  if (!nnpaDisableRecomposeStandardAttention) {
     pm.addNestedPass<func::FuncOp>(
-        onnx_mlir::zhigh::createZHighMatMulAddSoftmaxMatMulFusionPass());
+        onnx_mlir::zhigh::createZHighStandardAttentionFusionPass());
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
   }
 

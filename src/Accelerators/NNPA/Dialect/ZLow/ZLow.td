@@ -240,12 +240,21 @@ def ZLowSoftmaxOp:ZLow_Op<"softmax", [MemRefsNormalizable,
                        StrAttr:$act_func);
 }
 
-def ZLowMatMulAddSoftmaxMatMulOp:ZLow_Op<"matmul_add_softmax_matmul",
+def ZLowStandardAttentionOp:ZLow_Op<"standard_attention",
     [MemRefsNormalizable,
     DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
-  let summary = "ZLow fused MatMul + Add + Softmax + MatMul operation";
+  let summary = "ZLow standard scaled dot-product attention (SDPA)";
   let description = [{
-  ZLow operation to compute MatMul(Softmax(MatMul(Q, KT) + Mask), V).
+  Lowered form of zhigh.StandardAttention.
+  Computes Output = Softmax(Q * KT + Mask) * V on stickified zTensors.
+
+  Operands (all 3DS stickified memrefs):
+    Q:    [s, m, n]  — queries
+    KT:   [s, n, p]  — keys (already transposed)
+    Mask: [s, m, p]  — additive attention mask
+    V:    [s, p, q]  — values
+    Bias: [1, 1, p]  — broadcast bias added to Q*KT (2DS)
+    Out:  [s, m, q]  — attention output
   shape: memref<5xi64> = [s, m, n, p, q].
   }];
   let arguments = (ins ZMemRef:$Q,

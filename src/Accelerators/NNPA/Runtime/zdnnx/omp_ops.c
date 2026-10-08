@@ -644,7 +644,7 @@ zdnn_status zdnnx_omp_softmax(const zdnn_ztensor *input, void *save_area,
   return ZDNN_OK;
 }
 
-zdnn_status zdnnx_omp_matmul_add_softmax_matmul(const zdnn_ztensor *Q,
+zdnn_status zdnnx_omp_standard_attention(const zdnn_ztensor *Q,
     const zdnn_ztensor *KT, const zdnn_ztensor *Mask, const zdnn_ztensor *V,
     const zdnn_ztensor *Bias, zdnn_ztensor *output) {
 #ifdef ZDNNX_DEBUG
@@ -660,7 +660,7 @@ zdnn_status zdnnx_omp_matmul_add_softmax_matmul(const zdnn_ztensor *Q,
   zdnnx_prepare_split_info(&si_out, output, 1, 0, 0, 0, "MASM Out");
 
   if (zdnnx_has_one_tile(&si_q))
-    return zdnnx_seq_matmul_add_softmax_matmul(Q, KT, Mask, V, Bias, output);
+    return zdnnx_seq_standard_attention(Q, KT, Mask, V, Bias, output);
 
   uint32_t BH = zdnnx_get_num_tiles(&si_q, E4);
   uint32_t num_threads = zdnnx_get_num_zaiu_threads();
@@ -675,7 +675,7 @@ zdnn_status zdnnx_omp_matmul_add_softmax_matmul(const zdnn_ztensor *Q,
     zdnnx_set_tile(&si_bias, &tbias, NULL, b, 0, 0, 0);
     zdnnx_set_tile(&si_out, &tout, NULL, b, 0, 0, 0);
 
-    zdnn_status status = zdnnx_seq_matmul_add_softmax_matmul(
+    zdnn_status status = zdnnx_seq_standard_attention(
         &tq.data, &tkt.data, &tmask.data, &tv.data, &tbias.data, &tout.data);
     assert(status == ZDNN_OK);
   }

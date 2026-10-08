@@ -82,8 +82,8 @@ std::unique_ptr<mlir::Pass> createZHighRecomposeToStickUnstickPass();
 std::unique_ptr<mlir::Pass> createFusionOpStickUnstick();
 
 /// Pass to fuse MatMul(Softmax(MatMul(Q,KT)+Mask),V) into
-/// zhigh.MatMulAddSoftmaxMatMul.
-std::unique_ptr<mlir::Pass> createZHighMatMulAddSoftmaxMatMulFusionPass();
+/// zhigh.StandardAttention.
+std::unique_ptr<mlir::Pass> createZHighStandardAttentionFusionPass();
 
 } // end namespace zhigh
 
