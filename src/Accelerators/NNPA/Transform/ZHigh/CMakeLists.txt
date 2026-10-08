@@ -88,7 +88,7 @@ add_onnx_mlir_library(OMZHighScrubDisposable
   )
 
 add_onnx_mlir_library(OMZHighConstructSDPA3D
-  ZHighMatMulAddSoftmaxFusion.cpp
+  ZHighConstructSDPA3D.cpp
 
   LINK_LIBS PUBLIC
   MLIRRewrite
