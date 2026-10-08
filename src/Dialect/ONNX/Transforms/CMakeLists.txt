@@ -76,6 +76,7 @@ add_onnx_mlir_library(OMInstrumentONNX
   )
 
 add_onnx_mlir_library(OMONNXRewrite
+  AttentionToONNXOps.cpp
   ConstProp.cpp
   ConvOpt.cpp
   Decompose.cpp
