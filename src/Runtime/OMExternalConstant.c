@@ -53,6 +53,7 @@ static bool checkEndianness(const char constPackIsLE) {
 }
 
 // Forward declarations for helper functions.
+static int verifyFileSize(int fd, int64_t fileSize);
 static int mallocAndReadFile(void **constAddr, int fd, int64_t fileSize);
 static int mmapAndReadFile(void **constAddr, int fd, int64_t fileSize);
 
@@ -192,18 +193,16 @@ bool omUnloadConstantData(void **constAddr, int64_t size) {
   return true;
 }
 
-/// Load constants from file into memory using malloc/read.
+/// Verify that the file size matches the compile-time baked expected size.
+/// Fails closed on fstat error or mismatch to prevent reading truncated or
+/// substituted constants data.
 ///
-/// \param[in] constAddr Returned address to a global variable in the IR.
 /// \param[in] fd File descriptor.
-/// \param[in] fileSize Size of the file in bytes.
+/// \param[in] fileSize Expected size in bytes (baked into the .so at compile time).
 ///
 /// \return 0 on success, 1 on failure.
 ///
-static int mallocAndReadFile(void **constAddr, int fd, int64_t fileSize) {
-  // Verify the file's actual size matches the compile-time baked size before
-  // loading. A mismatch means the sidecar has been truncated or substituted;
-  // fail closed rather than reading wrong or unbacked memory.
+static int verifyFileSize(int fd, int64_t fileSize) {
   struct stat st;
   if (fstat(fd, &st) != 0) {
     fprintf(stderr, "Error while fstat: %s\n", strerror(errno));
@@ -215,6 +214,20 @@ static int mallocAndReadFile(void **constAddr, int fd, int64_t fileSize) {
         (long long)fileSize, (long long)st.st_size);
     return 1;
   }
+  return 0;
+}
+
+/// Load constants from file into memory using malloc/read.
+///
+/// \param[in] constAddr Returned address to a global variable in the IR.
+/// \param[in] fd File descriptor.
+/// \param[in] fileSize Size of the file in bytes.
+///
+/// \return 0 on success, 1 on failure.
+///
+static int mallocAndReadFile(void **constAddr, int fd, int64_t fileSize) {
+  if (verifyFileSize(fd, fileSize))
+    return 1;
   // Large file - use malloc + chunked read with 4K alignment.
   // Allocate extra space to ensure 4K alignment.
   if (posix_memalign(
@@ -273,21 +286,8 @@ static int mallocAndReadFile(void **constAddr, int fd, int64_t fileSize) {
 /// This function is thread-safe.
 ///
 static int mmapAndReadFile(void **constAddr, int fd, int64_t fileSize) {
-  // Verify the file's actual size matches the compile-time baked size before
-  // mapping. A truncated file would cause SIGBUS on page access; a silently
-  // substituted same-size file is caught only by content hash (Tier 3); but a
-  // differently-sized replacement fails here cleanly.
-  struct stat st;
-  if (fstat(fd, &st) != 0) {
-    fprintf(stderr, "Error while fstat: %s\n", strerror(errno));
+  if (verifyFileSize(fd, fileSize))
     return 1;
-  }
-  if (st.st_size != (off_t)fileSize) {
-    fprintf(stderr,
-        "Constants file size mismatch: expected %lld bytes, found %lld bytes\n",
-        (long long)fileSize, (long long)st.st_size);
-    return 1;
-  }
 #ifdef __MVS__
   void *tempAddr = mmap(0, fileSize, PROT_READ, __MAP_MEGA, fd, 0);
 #else
