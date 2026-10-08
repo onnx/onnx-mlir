@@ -685,10 +685,10 @@ static zdnn_status create_2ds_zero_bias(uint32_t s, uint32_t n,
 //                HV=value_dim.
 //
 // Inputs (all 3DS stickified):
-//   Q      [B, S, H]   — queries
-//   KT     [B, H, SK]  — transposed keys
-//   Mask   [B, S, SK]  — attention mask (additive)
-//   V      [B, SK, HV] — values
+//   Q      [B, S, H]   -- queries
+//   KT     [B, H, SK]  -- transposed keys
+//   Mask   [B, S, SK]  -- attention mask (additive)
+//   V      [B, SK, HV] -- values
 // Output:
 //   output [B, S, HV]
 //
@@ -746,37 +746,40 @@ static zdnn_status sdpa_3d_basic(const zdnn_ztensor *Q,
 //                HV=value_dim, T=tile_size (SK is tiled into N_t tiles of T).
 //
 // Inputs (all 3DS stickified):
-//   Q      [B, S, H]   — queries
-//   KT     [B, H, SK]  — transposed keys
-//   Mask   [B, S, SK]  — attention mask (additive, -inf for masked positions)
-//   V      [B, SK, HV] — values
+//   Q      [B, S, H]   -- queries
+//   KT     [B, H, SK]  -- transposed keys
+//   Mask   [B, S, SK]  -- attention mask (additive, -inf for masked positions)
+//   V      [B, SK, HV] -- values
 // Output:
 //   output [B, S, HV]
 //
 // Computes exact attention without materializing the full [B, S, SK]
 // probability matrix. Instead, tiles KT/Mask/V along the key dimension
-// (SK → N_t tiles of size T) and maintains:
-//   M   [S,1]   — running row-wise max of scores (for numerical stability)
-//   D   [S,1]   — running row-wise sum of exp(scores - M)
-//   O   [S,HV]  — running weighted output accumulator
+// (SK = N_t * T) and maintains per batch element:
+//   M   [S,1]   -- running row-wise max of scores (for numerical stability)
+//   D   [S,1]   -- running row-wise sum of exp(scores - M)
+//   O   [S,HV]  -- running weighted output accumulator
 //
-// Per-tile update (tile c = 0..N_t-1):
-//   1. scores_c = Q * KT_c + Mask_c                    [S, T]
-//   2. M_new    = max(M_old, row_max(scores_c))        [S, 1]
-//   3. corr     = exp(M_old - M_new)                   [S, 1]
-//   4. D        = D * corr + row_sum(exp(scores_c - M_new))
-//   5. O        = O * corr + exp(scores_c - M_new) * V_c
+// For each tile c in 0..N_t-1, let KT[c], Mask[c], V[c] denote the c-th
+// tile of KT, Mask, V along the key dimension:
+//   1. scores   = Q * KT[c] + Mask[c]                  [S, T]
+//   2. new_max  = max(M, row_max(scores))               [S, 1]
+//   3. corr     = exp(M - new_max)                      [S, 1]
+//   4. M        = new_max
+//   5. D        = D * corr + row_sum(exp(scores - M))
+//   6. P        = exp(scores - M)                       [S, T]
+//   7. O        = O * corr + P * V[c]
 //
 // After all tiles:
-//   Output_b = O / D   (broadcast D across columns)
+//   output = O / D   (broadcast D across columns)
 //
 // Memory footprint (per batch element):
-//   scratch_tile [S,T]   — scores before softmax
-//   p_tile       [S,T]   — P_c = exp(scores - M) (separate buffer because
-//                           broadcast_column_to_tile overwrites its target)
-//   o_acc        [S,HV]  — output accumulator
-//   pv_tmp       [S,HV]  — scratch for P_c*V_c and broadcast temporaries
-//   + several    [S,1]   — M, D, old_max, block_max, correction, tile_rowsum
+//   scratch_tile [S,T]   -- scores before softmax
+//   p_tile       [S,T]   -- exp(scores - M), separate buffer because
+//                           broadcast_column_to_tile overwrites its target
+//   o_acc        [S,HV]  -- output accumulator
+//   pv_tmp       [S,HV]  -- scratch for P*V[c] and broadcast temporaries
+//   + several    [S,1]   -- M, D, old_max, block_max, correction, tile_rowsum
 static zdnn_status flash_attention(
     const zdnn_ztensor *Q, const zdnn_ztensor *KT, const zdnn_ztensor *Mask,
     const zdnn_ztensor *V, zdnn_ztensor *output) {
@@ -863,10 +866,10 @@ static zdnn_status flash_attention(
   if (status == ZDNN_OK)
     status = create_3ds_ztensor(1, S, 1, &tile_rowsum_zt, NULL);
 
-  // scratch_tile [1, S, T] — holds scores_c.
+  // scratch_tile [1, S, T] -- holds scores.
   if (status == ZDNN_OK)
     status = create_3ds_ztensor(1, S, T, &scratch_tile, NULL);
-  // p_tile [1, S, T] — holds P_c = exp(scores_c - max).
+  // p_tile [1, S, T] -- holds P = exp(scores - max).
   if (status == ZDNN_OK)
     status = create_3ds_ztensor(1, S, T, &p_tile, NULL);
 
@@ -876,10 +879,10 @@ static zdnn_status flash_attention(
   // Zero bias for sum matmul: 2DS{1, 1}.
   if (status == ZDNN_OK)
     status = create_2ds_zero_bias(1, 1, &bias_1);
-  // Output accumulator O_acc [1, S, HV].
+  // Output accumulator O [1, S, HV].
   if (status == ZDNN_OK)
     status = create_3ds_ztensor(1, S, HV, &o_acc, NULL);
-  // Temp buffer for P_c * V_c [1, S, HV].
+  // Temp buffer for P * V[c] [1, S, HV].
   if (status == ZDNN_OK)
     status = create_3ds_ztensor(1, S, HV, &pv_tmp, NULL);
   // Zero bias for P*V matmul: 2DS{1, HV}.
@@ -909,14 +912,14 @@ static zdnn_status flash_attention(
         zdnnx_set_tile(&si_mask, &tmask, NULL, b, 0, 0, c);
         zdnnx_set_tile(&si_v, &tv, NULL, b, 0, c, 0);
 
-        // 1. scores_c = Q * KT_c + Mask_c  [S, T]
+        // 1. scores = Q * KT[c] + Mask[c]  [S, T]
         status = zdnn_matmul_op(
             &tq.data, &tkt.data, &bias_qkt, MATMUL_OP_ADDITION,
             &scratch_tile);
         if (status == ZDNN_OK)
           status = zdnn_add(&scratch_tile, &tmask.data, &scratch_tile);
 
-        // 2. block_max = row-wise max of scores_c  [S, 1]
+        // 2. block_max = row-wise max of scores  [S, 1]
         if (status == ZDNN_OK)
           status = zdnn_reduce(
               &scratch_tile, NULL, REDUCE_OP_MAXIMUM, &block_max_zt);
@@ -929,7 +932,7 @@ static zdnn_status flash_attention(
           status = zdnn_max(&old_max_zt, &block_max_zt, &max_row_zt);
         }
 
-        // 4. correction = exp(M_{c-1} - M_c)  [S, 1]
+        // 4. correction = exp(old_max - new_max)  [S, 1]
         if (status == ZDNN_OK)
           status = zdnn_sub(&old_max_zt, &max_row_zt, &correction_zt);
         if (status == ZDNN_OK)
@@ -939,8 +942,8 @@ static zdnn_status flash_attention(
         if (status == ZDNN_OK)
           status = zdnn_mul(&sum_row_zt, &correction_zt, &sum_row_zt);
 
-        // 6. P_c = exp(scores_c - M_c)  [S, T]
-        //    Broadcast max into p_tile, then P_c = exp(scores - max).
+        // 6. P = exp(scores - M)  [S, T]
+        //    Broadcast max into p_tile, then P = exp(scores - max).
         if (status == ZDNN_OK)
           broadcast_column_to_tile(&max_row_zt, &p_tile);
         if (status == ZDNN_OK)
@@ -948,29 +951,29 @@ static zdnn_status flash_attention(
         if (status == ZDNN_OK)
           status = zdnn_exp(&p_tile, &p_tile);
 
-        // 7. D = D + row_sum(P_c)
+        // 7. D = D + row_sum(P)
         if (status == ZDNN_OK)
           status = zdnn_matmul_op(&p_tile, &ones_zt, &bias_1,
               MATMUL_OP_ADDITION, &tile_rowsum_zt);
         if (status == ZDNN_OK)
           status = zdnn_add(&sum_row_zt, &tile_rowsum_zt, &sum_row_zt);
 
-        // 8. O_acc = O_acc * correction + P_c * V_c
-        //    Rescale accumulator: O_acc *= correction (broadcast [S,1] → [S,QQ])
+        // 8. O = O * correction + P * V[c]
+        //    Rescale accumulator: O *= correction (broadcast [S,1] -> [S,HV])
         if (c > 0 && status == ZDNN_OK) {
           broadcast_column_to_tile(&correction_zt, &pv_tmp);
           status = zdnn_mul(&o_acc, &pv_tmp, &o_acc);
         }
-        //    pv_tmp = P_c * V_c  [S,T] × [T,QQ] → [S,QQ]
+        //    pv_tmp = P * V[c]   [S,T] x [T,HV] -> [S,HV]
         if (status == ZDNN_OK)
           status = zdnn_matmul_op(
               &p_tile, &tv.data, &bias_v, MATMUL_OP_ADDITION, &pv_tmp);
-        //    O_acc += pv_tmp
+        //    O += pv_tmp
         if (status == ZDNN_OK)
           status = zdnn_add(&o_acc, &pv_tmp, &o_acc);
       }
 
-      // Final normalization: O_acc = O_acc / D.
+      // Final normalization: output = O / D.
       //   inv_d = 1/D = ones_col / sum_row  [S, 1]
       if (status == ZDNN_OK)
         status = zdnn_div(&ones_col_zt, &sum_row_zt, &correction_zt);
