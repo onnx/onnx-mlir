@@ -90,6 +90,16 @@ add_onnx_mlir_library(OMEliminateWriteOnlyAlloc
   MLIRSideEffectInterfaces
   )
 
+add_onnx_mlir_library(OMEliminateEntryArgClone
+  EliminateEntryArgClone.cpp
+
+  LINK_LIBS PUBLIC
+  MLIRBufferizationDialect
+  MLIRFuncDialect
+  MLIRMemRefDialect
+  MLIRPass
+  )
+
 add_onnx_mlir_library(OMONNXCSEWithNodeName
   ONNXCSEWithNodeName.cpp
 

@@ -4,7 +4,7 @@
 
 //===------- stickify.cpp - Data Stickify ---------------------------------===//
 //
-// Copyright 2020-2024 The IBM Research Authors.
+// Copyright 2020-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -17,6 +17,7 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -160,13 +161,26 @@ static short get_data_layout_dims(zdnn_data_layouts layout) {
 }
 
 uint32_t get_rnn_concatenated_dim1(uint32_t val, zdnn_concat_info info) {
+  // Compute in uint64 to detect overflow before truncating back to uint32.
+  // PADDED(val)*num_gates can silently wrap uint32 when val is very large
+  // (~1 billion for LSTM, ~1.4 billion for GRU), producing a truncated dim1
+  // that is far smaller than the per-gate buffer the memset in stickify()
+  // later computes from the un-concatenated size.  (f031)
+  uint64_t padded = (uint64_t)PADDED(val);
+  uint64_t result;
   if (CONCAT_RNN_TYPE(info) == RNN_TYPE_LSTM) {
-    return PADDED(val) * 4;
+    result = padded * 4;
   } else if (CONCAT_RNN_TYPE(info) == RNN_TYPE_GRU) {
-    return PADDED(val) * 3;
+    result = padded * 3;
   } else {
     return val;
   }
+  if (result > UINT32_MAX) {
+    // Shape exceeds what a uint32 dim can represent.  Returns 0 so that
+    // generate_transformed_desc_concatenated() can detect and reject it.
+    return 0;
+  }
+  return (uint32_t)result;
 }
 
 uint32_t get_rnn_concatenated_dim2(uint32_t val, zdnn_concat_info info) {
@@ -723,6 +737,8 @@ zdnn_status generate_transformed_desc_concatenated(
       tfrmd_desc->dim3 = 1;
       tfrmd_desc->dim2 = 1;
       tfrmd_desc->dim1 = get_rnn_concatenated_dim1(pre_tfrmd_desc->dim1, info);
+      if (!tfrmd_desc->dim1)
+        return ZDNN_INVALID_SHAPE; // overflow in get_rnn_concatenated_dim1
     } else {
       return ZDNN_INVALID_LAYOUT;
     }
@@ -733,6 +749,8 @@ zdnn_status generate_transformed_desc_concatenated(
       tfrmd_desc->dim3 = 1;
       tfrmd_desc->dim2 = get_rnn_concatenated_dim2(pre_tfrmd_desc->dim2, info);
       tfrmd_desc->dim1 = get_rnn_concatenated_dim1(pre_tfrmd_desc->dim1, info);
+      if (!tfrmd_desc->dim1)
+        return ZDNN_INVALID_SHAPE; // overflow in get_rnn_concatenated_dim1
     } else {
       return ZDNN_INVALID_LAYOUT;
     }
@@ -1468,6 +1486,15 @@ zdnn_status stickify(zdnn_ztensor *ztensor, ...) {
       // temp) buffer for efficiency.
       size_t total_buffer_size =
           temp_ztensor.buffer_size * num_slices * num_gates;
+      // Defense-in-depth: verify the independently-computed total_buffer_size
+      // does not exceed the allocated buffer before zeroing.  A mismatch here
+      // means the concatenated dim1 (from get_rnn_concatenated_dim1) and the
+      // per-gate size (from temp_ztensor.buffer_size) have diverged — e.g.
+      // due to an integer overflow in get_rnn_concatenated_dim1.  (f031)
+      if (total_buffer_size > ztensor->buffer_size) {
+        status = ZDNN_INVALID_SHAPE;
+        break;
+      }
       memset(ztensor->buffer, 0, total_buffer_size);
 
       /* Loop sliced_gate_data array to stickify the input data. Because
