@@ -229,25 +229,25 @@ class InferenceSession:
         self.container_model_dirname = self.model_dirname
         self.container_output_dirname = self.output_dirname
 
-        # Construct compilation command
-        command_str = self.compiler_path
+        # Construct compilation command as a list to avoid argv injection via
+        # spaces in model_path or compile_options (f038: never concat+split).
+        cmd = [self.compiler_path]
 
         # Compiled library
         if self.compile_options != "":
-            command_str += " " + self.compile_options
+            cmd += self.compile_options.split()
 
-        command_str += " --tag=" + self.compile_tag
+        cmd.append("--tag=" + self.compile_tag)
 
-        command_str += " " + os.path.join(
-            self.container_model_dirname, self.model_basename
-        )
+        cmd.append(os.path.join(self.container_model_dirname, self.model_basename))
 
-        # print(command_str)
+        # Build a string form only for the container branch and error messages.
+        command_str = " ".join(cmd)
 
         # Logically, the model directory could be mounted as read only.
         # But wrong time error occurred with "r" mode
         if self.compiler_image_name is None:
-            subprocess.run(command_str.split(" "))
+            subprocess.run(cmd)
             self.container = None
         else:
             # ToFix: try detach=True?
