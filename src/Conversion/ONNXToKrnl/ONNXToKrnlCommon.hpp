@@ -186,6 +186,36 @@ mlir::Value allocOrReuse(MemRefBuilder &create, mlir::Operation *op,
     mlir::ValueRange generatedOperands, mlir::MemRefType outputMemRefType,
     DimsExprRef dims, int64_t alignment, int64_t VL = 0);
 
+/// Whether `op` may write its result into the buffer of its operand
+/// `operandIndex`, which then becomes the result, instead of copying it into a
+/// new buffer first. That is only correct when nothing can observe the old
+/// values of that buffer:
+///  - the operand has no user other than `op` (which also rules out another
+///    operand of `op` being a view of it),
+///  - it is produced in the same block as `op`, so that a loop body never
+///    overwrites a value defined outside it,
+///  - its buffer is a plain allocation of exactly `resultMemRefType`. This
+///    excludes function arguments (owned by the caller), constants (in
+///    read-only memory), and views or padded buffers whose memory may be
+///    shared with other values, and
+///  - that allocation belongs to the producer of the operand alone: a lowering
+///    that passes the buffer of one of its operands through as its result, such
+///    as Identity's, shares it with that operand, which other ops may read
+///    after `op`.
+bool canWriteInPlace(mlir::ConversionPatternRewriter &rewriter,
+    mlir::Operation *op, unsigned operandIndex,
+    mlir::MemRefType resultMemRefType);
+
+/// Copy all the elements of `src` into `dest`, both with an identity layout
+/// and the same number of elements. With enableParallel, a copy of at least
+/// minParallelMemcpyBytes is split into chunks of memcpyChunkBytes copied in
+/// parallel; for a dynamic size, that choice is made at runtime. Otherwise this
+/// is a single krnl.memcpy. `srcDims` are the dims of `src`, in the current
+/// IndexExprScope. `op` and `msg` name the site in the parallel report.
+void emitMemcpy(mlir::PatternRewriter &rewriter, mlir::Location loc,
+    mlir::Operation *op, mlir::Value dest, mlir::Value src, DimsExprRef srcDims,
+    bool enableParallel, const std::string &msg);
+
 //===----------------------------------------------------------------------===//
 // This is to get a scalar operation of a given type for a specific operation.
 //===----------------------------------------------------------------------===//
@@ -502,10 +532,12 @@ void populateLoweringONNXDepthToSpaceOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXSpaceToDepthOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
-void populateLoweringONNXScatterElementsOpPattern(
-    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
-void populateLoweringONNXScatterNDOpPattern(
-    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXScatterElementsOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel,
+    bool enableCollapse);
+void populateLoweringONNXScatterNDOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel,
+    bool enableCollapse);
 void populateLoweringONNXTensorScatterOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
 void populateLoweringONNXShapeOpPattern(
