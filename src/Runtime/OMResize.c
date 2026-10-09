@@ -13,7 +13,9 @@
 //===----------------------------------------------------------------------===//
 
 #include <assert.h>
+#include <limits.h>
 #include <math.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -261,6 +263,15 @@ static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
       scale_factor[i] = ((float)output_size[i]) / inputShape[i];
     }
   } else {
+    for (int i = 0; i < rank; i++) {
+      // Validate scale_factor[i] is finite, positive, and within range
+      // before the float -> int64_t cast.
+      if (!isfinite(scale_factor[i]) || scale_factor[i] <= 0.0f ||
+          (inputShape[i] > 0 &&
+              scale_factor[i] > (float)INT64_MAX / (float)inputShape[i])) {
+        return;
+      }
+    }
     output_size = (int64_t *)malloc(sizeof(int64_t) * rank);
     assert(output_size); // Error: "failed to allocate memory for output_size".
     for (int i = 0; i < rank; i++) {
@@ -268,9 +279,26 @@ static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
     }
   }
 
+  // Validate each output dimension and check for integer overflow
+  // before using the product to size the allCoordinates allocation.
+  int64_t outputCap = omTensorGetNumElems(output_OMT);
   int64_t outputSize = 1;
   for (int i = 0; i < rank; i++) {
+    if (output_size[i] <= 0) {
+      // Non-positive dimension: reject as invalid.
+      goto cleanup;
+    }
+    // Check for overflow of outputSize * output_size[i].
+    if (outputSize > outputCap / output_size[i]) {
+      goto cleanup;
+    }
     outputSize *= output_size[i];
+  }
+  // Guard: computed product must not exceed the pre-allocated output buffer
+  // and must not overflow the malloc argument (outputSize * rank * sizeof).
+  if (outputSize > outputCap ||
+      (rank > 0 && outputSize > (int64_t)(SIZE_MAX / sizeof(int64_t)) / rank)) {
+    goto cleanup;
   }
   float *outputData = (float *)omTensorGetDataPtr(output_OMT);
 
@@ -308,12 +336,14 @@ static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
     outputData[i] = r;
     free(Xs);
   }
+  free(allCoordinates);
+  free(coeffs_buffer);
+
+cleanup:
   if (output_size_OMT == NULL)
     free(output_size);
   if (scale_factor_OMT == NULL)
     free(scale_factor);
-  free(allCoordinates);
-  free(coeffs_buffer);
 }
 
 // The parameters that are not used are commented out.
