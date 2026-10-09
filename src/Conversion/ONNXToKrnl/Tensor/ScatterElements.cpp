@@ -21,8 +21,19 @@ namespace onnx_mlir {
 
 struct ONNXScatterElementsOpLowering
     : public OpConversionPattern<ONNXScatterElementsOp> {
-  ONNXScatterElementsOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : OpConversionPattern(typeConverter, ctx) {}
+  ONNXScatterElementsOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
+      bool enableParallel, bool enableCollapse)
+      : OpConversionPattern(typeConverter, ctx) {
+    this->enableParallel =
+        enableParallel &&
+        OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
+            ONNXScatterElementsOp::getOperationName());
+    // Not and-ed with this->enableParallel: see Slice.cpp for why the two bools
+    // stay independent.
+    this->enableCollapse = enableCollapse;
+  }
+  bool enableParallel = false;
+  bool enableCollapse = false;
 
   LogicalResult matchAndRewrite(ONNXScatterElementsOp scatterElementsOp,
       ONNXScatterElementsOpAdaptor adaptor,
@@ -60,15 +71,20 @@ struct ONNXScatterElementsOpLowering
     int64_t outputRank = outputMemRefType.getShape().size();
     assert(outputRank == dataRank && "Output rank not equal to data rank");
 
-    // Insert an allocation and deallocation for the result of this operation.
     IndexExprScope indexScope(create.krnl);
     DimsExpr dataDims;
     create.krnlIE.getShapeAsDims(data, dataDims);
-    Value output = create.mem.alignedAlloc(outputMemRefType, dataDims);
 
-    // Step1: copy the data array into the output array.
-    Value numOfElements = getDynamicMemRefSize(rewriter, loc, data);
-    create.krnl.memcpy(output, data, numOfElements);
+    // Step1: make `output` hold the values of `data`, either by scattering
+    // into the buffer of `data` itself, or by copying `data` into a new one.
+    Value output;
+    if (canWriteInPlace(rewriter, op, /*operandIndex=*/0, outputMemRefType)) {
+      output = data;
+    } else {
+      output = create.mem.alignedAlloc(outputMemRefType, dataDims);
+      emitMemcpy(rewriter, loc, op, output, data, dataDims, enableParallel,
+          "scatterElements copy");
+    }
 
     // Step2: scatter the updates array into the output array.
     //   index = indices[i][j]...[n]
@@ -78,7 +94,30 @@ struct ONNXScatterElementsOpLowering
     ValueRange loopDef = create.krnl.defineLoops(updatesRank);
     DimsExpr lbs(updatesRank, LitIE(0)), ubs;
     create.krnlIE.getShapeAsDims(updates, ubs);
-    create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
+    // Enable parallelism if required.
+    // An update at position p is stored at p with p[axis] replaced by its
+    // index, so two iterations that differ at any level other than `axis`
+    // store to distinct output elements. With reduction "none" the spec
+    // requires indices to have no duplicate entries, so iterations that differ
+    // only at `axis` store to distinct elements too, and the whole nest is
+    // order-independent. With a reduction, duplicate indices are allowed and
+    // iterations that differ only at `axis` may read-modify-write the same
+    // element, so the `axis` level is excluded: it then runs sequentially
+    // inside each parallel iteration, in its original order.
+    //
+    // bodyCost 10: one innermost iteration loads an index, optionally
+    // normalizes it with a compare and a select, loads the update, and stores
+    // through a non-affine access function.
+    SmallVector<int64_t, 1> exclusiveDims;
+    if (reduction != "none")
+      exclusiveDims.emplace_back(axis);
+    KrnlParallelPlan plan(loopDef, enableCollapse, /*parFirstInclusiveDim=*/0,
+        /*parLastExclusiveDim=*/updatesRank,
+        /*collapseLastExclusiveDim=*/updatesRank,
+        {.minTripCountForParallel = 4, .bodyCost = 10}, exclusiveDims);
+    if (enableParallel)
+      plan.tryCreateParallel(create.krnl, op, "scatterElements", lbs, ubs);
+    create.krnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, ubs,
         [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
           // Insert code inside the loop.
           IndexExprScope innerLoopScope(createKrnl);
@@ -131,8 +170,10 @@ struct ONNXScatterElementsOpLowering
 };
 
 void populateLoweringONNXScatterElementsOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx) {
-  patterns.insert<ONNXScatterElementsOpLowering>(typeConverter, ctx);
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel,
+    bool enableCollapse) {
+  patterns.insert<ONNXScatterElementsOpLowering>(
+      typeConverter, ctx, enableParallel, enableCollapse);
 }
 
 } // namespace onnx_mlir
