@@ -102,6 +102,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   OMONNXFusionOpHelper
   OMONNXConversionCommon
   OMONNXOps
+  OMONNXRewrite
   OMSupport
   OMOptionUtils
   MLIRFuncDialect
