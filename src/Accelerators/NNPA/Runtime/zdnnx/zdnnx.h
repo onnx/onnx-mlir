@@ -139,13 +139,24 @@ uint32_t zdnnx_get_transformed_dim_per_tile(
  *
  * Create a view of a ztensor by using a new shape and layout.
  *
- * @param input input ztensor
- * @param input_view view ztensor
- * @param view_shape 4D shape of the view ztensor
+ * The caller must supply independent descriptor storage (pre_desc, tfrmd_desc)
+ * that is NOT shared with the input's own descriptor objects.  The function
+ * deep-copies input's pre_transformed_desc into pre_desc, then updates the
+ * shape/layout fields and regenerates tfrmd_desc.  This ensures that writes
+ * to input_view's descriptors do not alias-mutate the original tensor's
+ * shape metadata (f036).
+ *
+ * @param input       input ztensor (not modified)
+ * @param input_view  output view ztensor (written)
+ * @param pre_desc    caller-supplied storage for the view's
+ * pre_transformed_desc
+ * @param tfrmd_desc  caller-supplied storage for the view's transformed_desc
+ * @param view_shape  4D shape of the view ztensor
  * @param view_layout zdnn layout of the view ztensor
  *
  */
 void zdnnx_create_view(const zdnn_ztensor *input, zdnn_ztensor *input_view,
+    zdnn_tensor_desc *pre_desc, zdnn_tensor_desc *tfrmd_desc,
     uint32_t *view_shape, zdnn_data_layouts view_layout);
 
 /**
