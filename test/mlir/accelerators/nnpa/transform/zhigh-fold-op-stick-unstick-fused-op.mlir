@@ -102,3 +102,201 @@ func.func @pattern_extended_layout_transform_v3(%arg0: tensor<3x?x2048xf32>, %ar
 // CHECK-NOT:       "zhigh.ExtendedLayoutTransform"
 // CHECK:           }
 }
+
+// -----
+
+// Inner dim of 32 (half stick): heads of 32 are merged into the innermost dim
+// (12 x 32 -> 384), so each output stick is written as two half sticks.
+
+func.func @pattern_extended_layout_transform_32(%arg0: tensor<24x7x32xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<2x7x384xf16, #zhigh.layout<{dataLayout = "3DS"}>> {
+  %s1 = onnx.Constant dense<[2, 12, 7, 32]> : tensor<4xi64>
+  %s2 = onnx.Constant dense<[2, 7, 384]> : tensor<3xi64>
+  %0 = "onnx.LayoutTransform"(%arg0) : (tensor<24x7x32xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<24x7x32xf16>
+  %1 = "onnx.Reshape"(%0, %s1) {allowzero = 0 : si64} : (tensor<24x7x32xf16>, tensor<4xi64>) -> tensor<2x12x7x32xf16>
+  %2 = "onnx.Transpose"(%1) {perm = [0, 2, 1, 3]} : (tensor<2x12x7x32xf16>) -> tensor<2x7x12x32xf16>
+  %3 = "onnx.Reshape"(%2, %s2) {allowzero = 0 : si64} : (tensor<2x7x12x32xf16>, tensor<3xi64>) -> tensor<2x7x384xf16>
+  %4 = "onnx.LayoutTransform"(%3) {target_layout = #zhigh.layout<{dataLayout = "3DS"}>} : (tensor<2x7x384xf16>) -> tensor<2x7x384xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  return %4 : tensor<2x7x384xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+
+// CHECK-LABEL:  func.func @pattern_extended_layout_transform_32
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<24x7x32xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<2x7x384xf16, #zhigh.layout<{dataLayout = "3DS"}>> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Fused"([[PARAM_0_]]) <{kind = "zhigh.extended_layout_transform"}>
+// Verify the chain ops are inside the fused body:
+// CHECK:           "onnx.LayoutTransform"
+// CHECK:           "onnx.Reshape"{{.*}}-> tensor<2x12x7x32xf16>
+// CHECK:           "onnx.Transpose"
+// CHECK:           "onnx.Reshape"{{.*}}-> tensor<2x7x384xf16>
+// CHECK:           "onnx.LayoutTransform"{{.*}}-> tensor<2x7x384xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:           onnx.Yield
+// CHECK:           reshapeMergeAxis = 2 : i64, reshapeSplitAxis = 0 : i64, reshapeSplitFactor = 12 : i64, transposePattern = [0, 2, 1, 3]
+// CHECK:           return [[VAR_0_]] : tensor<2x7x384xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-NOT:       "zhigh.ExtendedLayoutTransform"
+// CHECK:           }
+}
+
+// -----
+
+// layout reshape transpose DLF16ToF32 Mul -- the trailing Mul by a scalar
+// constant is absorbed into the fused op and recorded as mulScalar.
+
+func.func @pattern_extended_layout_transform_v3_mul(%arg0: tensor<3x?x2048xf32>, %arg2: tensor<2048x512xf32>) -> tensor<3x8x?x64xf32> {
+    %0 = "onnx.NoValue"() {value} : () -> none
+    %1 = onnx.Constant dense<3> : tensor<1xi64>
+    %2 = onnx.Constant dense<64> : tensor<1xi64>
+    %3 = onnx.Constant dense<-1> : tensor<1xi64>
+    %c = onnx.Constant dense<1.250000e-01> : tensor<1xf32>
+    %4 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<3x?x2048xf32>) -> tensor<1xi64>
+    %5 = "onnx.Concat"(%1, %4, %3, %2) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
+    %6 = "zhigh.Stick"(%arg0) {layout = "3DS"} : (tensor<3x?x2048xf32>) -> tensor<3x?x2048xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+    %7 = "zhigh.Stick"(%arg2) {layout = "2D"} : (tensor<2048x512xf32>) -> tensor<2048x512xf16, #zhigh.layout<{dataLayout = "2D"}>>
+    %8 = "zhigh.MatMul"(%6, %7, %0) {transposeA = 0 : si64, transposeB = 0 : si64} : (tensor<3x?x2048xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<2048x512xf16, #zhigh.layout<{dataLayout = "2D"}>>, none) -> tensor<3x?x512xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+    %9 = "onnx.LayoutTransform"(%8) : (tensor<3x?x512xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<3x?x512xf16>
+    %10 = "onnx.Reshape"(%9, %5) {allowzero = 0 : si64} : (tensor<3x?x512xf16>, tensor<4xi64>) -> tensor<3x?x8x64xf16>
+    %11 = "onnx.Transpose"(%10) {perm = [0, 2, 1, 3]} : (tensor<3x?x8x64xf16>) -> tensor<3x8x?x64xf16>
+    %12 = "zhigh.DLF16ToF32"(%11) : (tensor<3x8x?x64xf16>) -> tensor<3x8x?x64xf32>
+    %13 = "onnx.Mul"(%12, %c) : (tensor<3x8x?x64xf32>, tensor<1xf32>) -> tensor<3x8x?x64xf32>
+    return %13 : tensor<3x8x?x64xf32>
+
+// CHECK-LABEL:  func.func @pattern_extended_layout_transform_v3_mul
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Fused"({{.*}}) <{kind = "zhigh.extended_layout_transform"}>
+// CHECK:           "onnx.LayoutTransform"
+// CHECK:           "onnx.Reshape"{{.*}}-> tensor<3x?x8x64xf16>
+// CHECK:           "onnx.Transpose"
+// CHECK:           [[DLF_:%.+]] = "zhigh.DLF16ToF32"{{.*}}-> tensor<3x8x?x64xf32>
+// CHECK:           [[MUL_:%.+]] = "onnx.Mul"({{.*}}[[DLF_]]{{.*}})
+// CHECK:           onnx.Yield [[MUL_]] : tensor<3x8x?x64xf32>
+// CHECK:           }) {dlf16ToF32 = true, mulScalar = 1.250000e-01 : f32
+// CHECK:           return [[VAR_4_]] : tensor<3x8x?x64xf32>
+}
+
+// -----
+
+// Same as above, with the scalar constant as the first Mul operand.
+
+func.func @pattern_extended_layout_transform_v3_mul_cst_first(%arg0: tensor<3x?x2048xf32>, %arg2: tensor<2048x512xf32>) -> tensor<3x8x?x64xf32> {
+    %0 = "onnx.NoValue"() {value} : () -> none
+    %1 = onnx.Constant dense<3> : tensor<1xi64>
+    %2 = onnx.Constant dense<64> : tensor<1xi64>
+    %3 = onnx.Constant dense<-1> : tensor<1xi64>
+    %c = onnx.Constant dense<1.250000e-01> : tensor<1xf32>
+    %4 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<3x?x2048xf32>) -> tensor<1xi64>
+    %5 = "onnx.Concat"(%1, %4, %3, %2) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
+    %6 = "zhigh.Stick"(%arg0) {layout = "3DS"} : (tensor<3x?x2048xf32>) -> tensor<3x?x2048xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+    %7 = "zhigh.Stick"(%arg2) {layout = "2D"} : (tensor<2048x512xf32>) -> tensor<2048x512xf16, #zhigh.layout<{dataLayout = "2D"}>>
+    %8 = "zhigh.MatMul"(%6, %7, %0) {transposeA = 0 : si64, transposeB = 0 : si64} : (tensor<3x?x2048xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<2048x512xf16, #zhigh.layout<{dataLayout = "2D"}>>, none) -> tensor<3x?x512xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+    %9 = "onnx.LayoutTransform"(%8) : (tensor<3x?x512xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<3x?x512xf16>
+    %10 = "onnx.Reshape"(%9, %5) {allowzero = 0 : si64} : (tensor<3x?x512xf16>, tensor<4xi64>) -> tensor<3x?x8x64xf16>
+    %11 = "onnx.Transpose"(%10) {perm = [0, 2, 1, 3]} : (tensor<3x?x8x64xf16>) -> tensor<3x8x?x64xf16>
+    %12 = "zhigh.DLF16ToF32"(%11) : (tensor<3x8x?x64xf16>) -> tensor<3x8x?x64xf32>
+    %13 = "onnx.Mul"(%c, %12) : (tensor<1xf32>, tensor<3x8x?x64xf32>) -> tensor<3x8x?x64xf32>
+    return %13 : tensor<3x8x?x64xf32>
+
+// CHECK-LABEL:  func.func @pattern_extended_layout_transform_v3_mul_cst_first
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Fused"({{.*}}) <{kind = "zhigh.extended_layout_transform"}>
+// CHECK:           "onnx.LayoutTransform"
+// CHECK:           "onnx.Reshape"{{.*}}-> tensor<3x?x8x64xf16>
+// CHECK:           "onnx.Transpose"
+// CHECK:           [[DLF_:%.+]] = "zhigh.DLF16ToF32"{{.*}}-> tensor<3x8x?x64xf32>
+// CHECK:           [[MUL_:%.+]] = "onnx.Mul"({{.*}}[[DLF_]]{{.*}})
+// CHECK:           onnx.Yield [[MUL_]] : tensor<3x8x?x64xf32>
+// CHECK:           }) {dlf16ToF32 = true, mulScalar = 1.250000e-01 : f32
+// CHECK:           return [[VAR_4_]] : tensor<3x8x?x64xf32>
+}
+
+// -----
+
+// The DLF16ToF32 result has a second use, so the Mul is not absorbed and
+// mulScalar stays at its neutral 1.0.
+
+func.func @pattern_extended_layout_transform_v3_mul_two_uses(%arg0: tensor<3x?x2048xf32>, %arg2: tensor<2048x512xf32>) -> (tensor<3x8x?x64xf32>, tensor<3x8x?x64xf32>) {
+    %0 = "onnx.NoValue"() {value} : () -> none
+    %1 = onnx.Constant dense<3> : tensor<1xi64>
+    %2 = onnx.Constant dense<64> : tensor<1xi64>
+    %3 = onnx.Constant dense<-1> : tensor<1xi64>
+    %c = onnx.Constant dense<1.250000e-01> : tensor<1xf32>
+    %4 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<3x?x2048xf32>) -> tensor<1xi64>
+    %5 = "onnx.Concat"(%1, %4, %3, %2) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
+    %6 = "zhigh.Stick"(%arg0) {layout = "3DS"} : (tensor<3x?x2048xf32>) -> tensor<3x?x2048xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+    %7 = "zhigh.Stick"(%arg2) {layout = "2D"} : (tensor<2048x512xf32>) -> tensor<2048x512xf16, #zhigh.layout<{dataLayout = "2D"}>>
+    %8 = "zhigh.MatMul"(%6, %7, %0) {transposeA = 0 : si64, transposeB = 0 : si64} : (tensor<3x?x2048xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<2048x512xf16, #zhigh.layout<{dataLayout = "2D"}>>, none) -> tensor<3x?x512xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+    %9 = "onnx.LayoutTransform"(%8) : (tensor<3x?x512xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<3x?x512xf16>
+    %10 = "onnx.Reshape"(%9, %5) {allowzero = 0 : si64} : (tensor<3x?x512xf16>, tensor<4xi64>) -> tensor<3x?x8x64xf16>
+    %11 = "onnx.Transpose"(%10) {perm = [0, 2, 1, 3]} : (tensor<3x?x8x64xf16>) -> tensor<3x8x?x64xf16>
+    %12 = "zhigh.DLF16ToF32"(%11) : (tensor<3x8x?x64xf16>) -> tensor<3x8x?x64xf32>
+    %13 = "onnx.Mul"(%12, %c) : (tensor<3x8x?x64xf32>, tensor<1xf32>) -> tensor<3x8x?x64xf32>
+    return %12, %13 : tensor<3x8x?x64xf32>, tensor<3x8x?x64xf32>
+
+// CHECK-LABEL:  func.func @pattern_extended_layout_transform_v3_mul_two_uses
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Fused"({{.*}}) <{kind = "zhigh.extended_layout_transform"}>
+// CHECK:           [[DLF_:%.+]] = "zhigh.DLF16ToF32"{{.*}}-> tensor<3x8x?x64xf32>
+// CHECK-NOT:       "onnx.Mul"
+// CHECK:           onnx.Yield [[DLF_]] : tensor<3x8x?x64xf32>
+// CHECK:           }) {dlf16ToF32 = true, mulScalar = 1.000000e+00 : f32
+// CHECK:           [[MUL_:%.+]] = "onnx.Mul"([[VAR_4_]], {{.*}})
+// CHECK:           return [[VAR_4_]], [[MUL_]]
+}
+
+// -----
+
+// The Mul factor is not a constant, so the Mul is not absorbed.
+
+func.func @pattern_extended_layout_transform_v3_mul_non_const(%arg0: tensor<3x?x2048xf32>, %arg2: tensor<2048x512xf32>, %s: tensor<1xf32>) -> tensor<3x8x?x64xf32> {
+    %0 = "onnx.NoValue"() {value} : () -> none
+    %1 = onnx.Constant dense<3> : tensor<1xi64>
+    %2 = onnx.Constant dense<64> : tensor<1xi64>
+    %3 = onnx.Constant dense<-1> : tensor<1xi64>
+    %c = onnx.Constant dense<1.250000e-01> : tensor<1xf32>
+    %4 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<3x?x2048xf32>) -> tensor<1xi64>
+    %5 = "onnx.Concat"(%1, %4, %3, %2) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
+    %6 = "zhigh.Stick"(%arg0) {layout = "3DS"} : (tensor<3x?x2048xf32>) -> tensor<3x?x2048xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+    %7 = "zhigh.Stick"(%arg2) {layout = "2D"} : (tensor<2048x512xf32>) -> tensor<2048x512xf16, #zhigh.layout<{dataLayout = "2D"}>>
+    %8 = "zhigh.MatMul"(%6, %7, %0) {transposeA = 0 : si64, transposeB = 0 : si64} : (tensor<3x?x2048xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<2048x512xf16, #zhigh.layout<{dataLayout = "2D"}>>, none) -> tensor<3x?x512xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+    %9 = "onnx.LayoutTransform"(%8) : (tensor<3x?x512xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<3x?x512xf16>
+    %10 = "onnx.Reshape"(%9, %5) {allowzero = 0 : si64} : (tensor<3x?x512xf16>, tensor<4xi64>) -> tensor<3x?x8x64xf16>
+    %11 = "onnx.Transpose"(%10) {perm = [0, 2, 1, 3]} : (tensor<3x?x8x64xf16>) -> tensor<3x8x?x64xf16>
+    %12 = "zhigh.DLF16ToF32"(%11) : (tensor<3x8x?x64xf16>) -> tensor<3x8x?x64xf32>
+    %13 = "onnx.Mul"(%12, %s) : (tensor<3x8x?x64xf32>, tensor<1xf32>) -> tensor<3x8x?x64xf32>
+    return %13 : tensor<3x8x?x64xf32>
+
+// CHECK-LABEL:  func.func @pattern_extended_layout_transform_v3_mul_non_const
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Fused"({{.*}}) <{kind = "zhigh.extended_layout_transform"}>
+// CHECK:           [[DLF_:%.+]] = "zhigh.DLF16ToF32"{{.*}}-> tensor<3x8x?x64xf32>
+// CHECK-NOT:       "onnx.Mul"
+// CHECK:           onnx.Yield [[DLF_]] : tensor<3x8x?x64xf32>
+// CHECK:           }) {dlf16ToF32 = true, mulScalar = 1.000000e+00 : f32
+// CHECK:           [[MUL_:%.+]] = "onnx.Mul"([[VAR_4_]], {{.*}})
+// CHECK:           return [[MUL_]]
+}
+
+// -----
+
+// The scalar constant has a higher rank and broadcasts the Mul result to a
+// larger shape, so the Mul is not absorbed.
+
+func.func @pattern_extended_layout_transform_v3_mul_broadcast(%arg0: tensor<3x?x2048xf32>, %arg2: tensor<2048x512xf32>) -> tensor<1x3x8x?x64xf32> {
+    %0 = "onnx.NoValue"() {value} : () -> none
+    %1 = onnx.Constant dense<3> : tensor<1xi64>
+    %2 = onnx.Constant dense<64> : tensor<1xi64>
+    %3 = onnx.Constant dense<-1> : tensor<1xi64>
+    %c = onnx.Constant dense<1.250000e-01> : tensor<1x1x1x1x1xf32>
+    %4 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<3x?x2048xf32>) -> tensor<1xi64>
+    %5 = "onnx.Concat"(%1, %4, %3, %2) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
+    %6 = "zhigh.Stick"(%arg0) {layout = "3DS"} : (tensor<3x?x2048xf32>) -> tensor<3x?x2048xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+    %7 = "zhigh.Stick"(%arg2) {layout = "2D"} : (tensor<2048x512xf32>) -> tensor<2048x512xf16, #zhigh.layout<{dataLayout = "2D"}>>
+    %8 = "zhigh.MatMul"(%6, %7, %0) {transposeA = 0 : si64, transposeB = 0 : si64} : (tensor<3x?x2048xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<2048x512xf16, #zhigh.layout<{dataLayout = "2D"}>>, none) -> tensor<3x?x512xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+    %9 = "onnx.LayoutTransform"(%8) : (tensor<3x?x512xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<3x?x512xf16>
+    %10 = "onnx.Reshape"(%9, %5) {allowzero = 0 : si64} : (tensor<3x?x512xf16>, tensor<4xi64>) -> tensor<3x?x8x64xf16>
+    %11 = "onnx.Transpose"(%10) {perm = [0, 2, 1, 3]} : (tensor<3x?x8x64xf16>) -> tensor<3x8x?x64xf16>
+    %12 = "zhigh.DLF16ToF32"(%11) : (tensor<3x8x?x64xf16>) -> tensor<3x8x?x64xf32>
+    %13 = "onnx.Mul"(%12, %c) : (tensor<3x8x?x64xf32>, tensor<1x1x1x1x1xf32>) -> tensor<1x3x8x?x64xf32>
+    return %13 : tensor<1x3x8x?x64xf32>
+
+// CHECK-LABEL:  func.func @pattern_extended_layout_transform_v3_mul_broadcast
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Fused"({{.*}}) <{kind = "zhigh.extended_layout_transform"}>
+// CHECK:           [[DLF_:%.+]] = "zhigh.DLF16ToF32"{{.*}}-> tensor<3x8x?x64xf32>
+// CHECK-NOT:       "onnx.Mul"
+// CHECK:           onnx.Yield [[DLF_]] : tensor<3x8x?x64xf32>
+// CHECK:           }) {dlf16ToF32 = true, mulScalar = 1.000000e+00 : f32
+// CHECK:           [[MUL_:%.+]] = "onnx.Mul"([[VAR_4_]], {{.*}})
+// CHECK:           return [[MUL_]] : tensor<1x3x8x?x64xf32>
+}

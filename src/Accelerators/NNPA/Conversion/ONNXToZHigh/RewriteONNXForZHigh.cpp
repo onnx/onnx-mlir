@@ -38,6 +38,7 @@
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
+#include "src/Dialect/ONNX/Transforms/AttentionToONNXOps.hpp"
 #include "src/Dialect/ONNX/Transforms/Decompose.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
@@ -77,19 +78,25 @@ Value reshapeTo3D(PatternRewriter &rewriter, Location loc, Value val) {
 }
 
 // Get a value that store the shape of the matmul result.
-Value getMatMulResultShape(
-    PatternRewriter &rewriter, Location loc, Value lhs, Value rhs) {
+// When lhsTransposed (resp. rhsTransposed) is true, lhs (resp. rhs) is the
+// input of a transpose of its last two dimensions, i.e. the matmul operand is
+// lhs^T (resp. rhs^T). Reading the shape from the transpose input rather than
+// from the transpose itself lets an original transpose op become dead once the
+// pattern using this helper has rewritten the matmul.
+Value getMatMulResultShape(PatternRewriter &rewriter, Location loc, Value lhs,
+    Value rhs, bool lhsTransposed, bool rhsTransposed) {
   MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
   int64_t lhsRank = getRank(lhs.getType());
   int64_t rhsRank = getRank(rhs.getType());
   assert((lhsRank >= 2 && rhsRank >= 2) && "Input rank must be >= 2");
-  // lhs shape: B1xB2x...xBkxMxN or MxN
-  // rhs shape: B1xB2x...xBkxNxP or NxP
+  // lhs shape: B1xB2x...xBkxMxN or MxN (B1xB2x...xBkxNxM or NxM if transposed)
+  // rhs shape: B1xB2x...xBkxNxP or NxP (B1xB2x...xBkxPxN or PxN if transposed)
 
   int64_t rank = std::max(lhsRank, rhsRank);
   Type rI64Type = RankedTensorType::get({rank}, rewriter.getI64Type());
   Type lhsRType = RankedTensorType::get({lhsRank}, rewriter.getI64Type());
   Type lhsR1Type = RankedTensorType::get({lhsRank - 1}, rewriter.getI64Type());
+  Type lhsR2Type = RankedTensorType::get({lhsRank - 2}, rewriter.getI64Type());
   Type rhsRType = RankedTensorType::get({rhsRank}, rewriter.getI64Type());
   Type rhsR2Type = RankedTensorType::get({rhsRank - 2}, rewriter.getI64Type());
   Type oneI64Type = RankedTensorType::get({1}, rewriter.getI64Type());
@@ -100,8 +107,15 @@ Value getMatMulResultShape(
   Value zero = create.onnx.constantInt64({0});
   Value one = create.onnx.constantInt64({1});
   Value lhsR1Const = create.onnx.constantInt64({lhsRank - 1});
-  Value rhsRConst = create.onnx.constantInt64({rhsRank});
-  Value rhsR1Const = create.onnx.constantInt64({rhsRank - 1});
+  Value lhsR2Const = create.onnx.constantInt64({lhsRank - 2});
+
+  // M is at lhsRank-2 (lhsRank-1 if lhs is transposed) in lhs shape, and P is
+  // at rhsRank-1 (rhsRank-2 if rhs is transposed) in rhs shape.
+  int64_t mIdx = lhsTransposed ? lhsRank - 1 : lhsRank - 2;
+  int64_t pIdx = rhsTransposed ? rhsRank - 2 : rhsRank - 1;
+  Value pVal =
+      create.onnx.slice(oneI64Type, rhsShape, create.onnx.constantInt64({pIdx}),
+          create.onnx.constantInt64({pIdx + 1}), zero, one);
 
   // if lhsRank >= rhsRank:
   //   - get B1xB2x...xBkxM from lhs shape, then append P from rhs shape.
@@ -109,21 +123,21 @@ Value getMatMulResultShape(
   //   - get B1xB2x...xBk from rhs shape, then append M from lhs and append P
   //   from rhs shape.
   Value shapeVal;
-  if (lhsRank >= rhsRank) {
+  if (lhsRank >= rhsRank && !lhsTransposed) {
     Value bmVal =
         create.onnx.slice(lhsR1Type, lhsShape, zero, lhsR1Const, zero, one);
-    Value pVal = create.onnx.slice(
-        oneI64Type, rhsShape, rhsR1Const, rhsRConst, zero, one);
     shapeVal = create.onnx.concat(rI64Type, ValueRange({bmVal, pVal}), 0);
   } else {
-    Value lhsR2Const = create.onnx.constantInt64({lhsRank - 2});
-    Value rhsR2Const = create.onnx.constantInt64({rhsRank - 2});
-    Value bVal =
-        create.onnx.slice(rhsR2Type, rhsShape, zero, rhsR2Const, zero, one);
-    Value mVal = create.onnx.slice(
-        oneI64Type, lhsShape, lhsR2Const, lhsR1Const, zero, one);
-    Value pVal = create.onnx.slice(
-        oneI64Type, rhsShape, rhsR1Const, rhsRConst, zero, one);
+    // B1xB2x...xBk is not contiguous with M in a transposed lhs, so it is
+    // sliced separately.
+    Value bVal = (lhsRank >= rhsRank)
+                     ? create.onnx.slice(
+                           lhsR2Type, lhsShape, zero, lhsR2Const, zero, one)
+                     : create.onnx.slice(rhsR2Type, rhsShape, zero,
+                           create.onnx.constantInt64({rhsRank - 2}), zero, one);
+    Value mVal = create.onnx.slice(oneI64Type, lhsShape,
+        create.onnx.constantInt64({mIdx}),
+        create.onnx.constantInt64({mIdx + 1}), zero, one);
     shapeVal = create.onnx.concat(rI64Type, ValueRange({bVal, mVal, pVal}), 0);
   }
   return shapeVal;
@@ -335,6 +349,49 @@ bool isLastTwoDimsPerm(ArrayAttr permAttr) {
     return false;
   return ((last_dim.getInt() == size - 2) &&
           (last_second_dim.getInt() == size - 1));
+}
+
+// Check that the permutation array can be split into a permutation that keeps
+// the last dimension in place followed by a permutation of the last two
+// dimensions only, i.e. that the input's last dimension becomes the
+// second-to-last one. A permutation of the last two dimensions only is
+// excluded, as there is nothing to split.
+//
+// For example, perm = [0, 2, 3, 1] is [0, 2, 1, 3] followed by [0, 1, 3, 2].
+bool isSplittableIntoLastTwoDimsPerm(ArrayAttr permAttr) {
+  int64_t size = permAttr.size();
+  if (size < 3)
+    return false;
+  auto last_second_dim = dyn_cast<IntegerAttr>(permAttr[size - 2]);
+  if (!last_second_dim || last_second_dim.getInt() != size - 1)
+    return false;
+  return !isLastTwoDimsPerm(permAttr);
+}
+
+// Given a permutation array satisfying isSplittableIntoLastTwoDimsPerm, return
+// the permutation that keeps the last dimension in place, namely the original
+// one with its last two values swapped.
+ArrayAttr getKeepLastDimPerm(PatternRewriter &rewriter, ArrayAttr permAttr) {
+  int64_t size = permAttr.size();
+  SmallVector<int64_t, 4> perm;
+  for (int64_t i = 0; i < size; ++i)
+    perm.emplace_back(mlir::cast<IntegerAttr>(permAttr[i]).getInt());
+  std::swap(perm[size - 2], perm[size - 1]);
+  return rewriter.getI64ArrayAttr(perm);
+}
+
+// Check that neither N nor M of the N-D matmul (...xNxK) * (...xKxM) is a
+// static dimension exceeding the NNPA limitation for the 3-D matmul it is
+// rewritten into. A 3-D matmul exceeding it would be split by
+// SplitLargeMatMulPattern into sub-matmuls whose inputs are no longer a
+// transpose, which defeats a transpose-matmul rewrite.
+bool hasNoMatMulDimExceedingNNPALimit(Value A, Value B) {
+  ArrayRef<int64_t> aShape = getShape(A.getType());
+  ArrayRef<int64_t> bShape = getShape(B.getType());
+  int64_t N = aShape[aShape.size() - 2];
+  int64_t M = bShape[bShape.size() - 1];
+  return !(N != ShapedType::kDynamic && N > NNPAGetMaxForDim(1, 3)) &&
+         !(M != ShapedType::kDynamic && M > NNPAGetMaxForDim(2, 3));
 }
 
 /// This pattern is to split a large MatMul into smaller ones that fit into
@@ -616,208 +673,20 @@ public:
 };
 
 // Lower the AttentionOp into MatMul, Softmax and etc.
-// This lowering is needed when AttentionOp is not supported by zdnnx
-// The matchAndRewrite is the same as ONNXToKrnl except that the conversion
-// pattern is OpRewritePattern instead of OpConversion.
-// In RewriteONNXForZHigh, tensor is kept, not rewritten to memref.
+// This lowering is needed when AttentionOp is not supported by zdnnx.
+// The decomposition itself is shared with the ONNXToKrnl lowering (see
+// src/Dialect/ONNX/ONNXOps/AttentionToONNXOps.cpp); this pattern just
+// supplies a plain PatternRewriter (tensor is kept, not rewritten to
+// memref, unlike the ONNXToKrnl OpConversionPattern).
 struct AttentionForZHighPattern : public OpRewritePattern<ONNXAttentionOp> {
   using OpRewritePattern<ONNXAttentionOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(
       ONNXAttentionOp attentionOp, PatternRewriter &rewriter) const override {
-    Location loc = attentionOp.getLoc();
-    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
-
-    auto adaptor = attentionOp;
-    Value Q = adaptor.getQ();
-    Value K = adaptor.getK();
-    Value V = adaptor.getV();
-    Value attnMask = adaptor.getAttnMask();
-    Value pastKey = adaptor.getPastKey();
-    Value pastValue = adaptor.getPastValue();
-    bool hasPastKey = !isNoneValue(pastKey);
-    bool hasPastValue = !isNoneValue(pastValue);
-
-    // Get input rank to determine if it's 3D or 4D
-    ShapedType qType = mlir::cast<ShapedType>(Q.getType());
-    int64_t inputRank = qType.getShape().size();
-    bool is3DInput = (inputRank == 3);
-    Type elementType = qType.getElementType();
-
-    Value Q_reshaped = Q;
-    Value K_reshaped = K;
-    Value V_reshaped = V;
-
-    if (is3DInput) {
-      // For 3D inputs, reshape to 4D for attention computation
-      auto qNumHeadsAttr = attentionOp.getQNumHeads();
-      int64_t qNumHeads = 1;
-      if (qNumHeadsAttr.has_value()) {
-        qNumHeads = qNumHeadsAttr.value();
-      }
-
-      ArrayRef<int64_t> qShape = qType.getShape();
-      int64_t batchSize = qShape[0];
-      int64_t qSeqLen = qShape[1];
-      int64_t qHiddenSize = qShape[2];
-
-      if (ShapedType::isDynamic(qHiddenSize)) {
-        return failure();
-      }
-
-      int64_t headSize = qHiddenSize / qNumHeads;
-
-      // Reshape Q: (B, S, H) -> (B, qNumHeads, S, H/qNumHeads)
-      SmallVector<int64_t> qNewShape = {
-          batchSize, qNumHeads, qSeqLen, headSize};
-      Type qNewType = RankedTensorType::get(qNewShape, elementType);
-      Value reshapeShapeQ = create.onnx.constantInt64(qNewShape);
-      Q_reshaped = create.onnx.reshape(qNewType, Q, reshapeShapeQ);
-
-      // Reshape K: (B, S', H) -> (B, qNumHeads, S', H/qNumHeads)
-      ShapedType kType = mlir::cast<ShapedType>(K.getType());
-      ArrayRef<int64_t> kShape = kType.getShape();
-      int64_t kSeqLen = kShape[1];
-      int64_t kHiddenSize = kShape[2];
-
-      if (ShapedType::isDynamic(kHiddenSize)) {
-        return failure();
-      }
-
-      SmallVector<int64_t> kNewShape = {
-          batchSize, qNumHeads, kSeqLen, kHiddenSize / qNumHeads};
-      Type kNewType = RankedTensorType::get(kNewShape, elementType);
-      Value reshapeShapeK = create.onnx.constantInt64(kNewShape);
-      K_reshaped = create.onnx.reshape(kNewType, K, reshapeShapeK);
-
-      // Reshape V: (B, S', V_H) -> (B, qNumHeads, S', V_H/qNumHeads)
-      ShapedType vType = mlir::cast<ShapedType>(V.getType());
-      ArrayRef<int64_t> vShape = vType.getShape();
-      int64_t vHiddenSize = vShape[2];
-
-      if (ShapedType::isDynamic(vHiddenSize)) {
-        return failure();
-      }
-
-      SmallVector<int64_t> vNewShape = {
-          batchSize, qNumHeads, kSeqLen, vHiddenSize / qNumHeads};
-      Type vNewType = RankedTensorType::get(vNewShape, elementType);
-      Value reshapeShapeV = create.onnx.constantInt64(vNewShape);
-      V_reshaped = create.onnx.reshape(vNewType, V, reshapeShapeV);
-    }
-
-    // Concatenate past_key with K if present
-    if (hasPastKey) {
-      ShapedType kShape = mlir::cast<ShapedType>(K_reshaped.getType());
-      ShapedType pastKeyShape = mlir::cast<ShapedType>(pastKey.getType());
-      int64_t newKSeqLen =
-          ShapedType::isDynamic(kShape.getShape()[2]) ||
-                  ShapedType::isDynamic(pastKeyShape.getShape()[2])
-              ? ShapedType::kDynamic
-              : (kShape.getShape()[2] + pastKeyShape.getShape()[2]);
-      SmallVector<int64_t> kConcatShape = {kShape.getShape()[0],
-          kShape.getShape()[1], newKSeqLen, kShape.getShape()[3]};
-      Type kConcatType = RankedTensorType::get(kConcatShape, elementType);
-      K_reshaped = create.onnx.concat(kConcatType, {pastKey, K_reshaped}, 2);
-    }
-
-    // Concatenate past_value with V if present
-    if (hasPastValue) {
-      ShapedType vShape = mlir::cast<ShapedType>(V_reshaped.getType());
-      ShapedType pastValueShape = mlir::cast<ShapedType>(pastValue.getType());
-      int64_t newVSeqLen =
-          ShapedType::isDynamic(vShape.getShape()[2]) ||
-                  ShapedType::isDynamic(pastValueShape.getShape()[2])
-              ? ShapedType::kDynamic
-              : (vShape.getShape()[2] + pastValueShape.getShape()[2]);
-      SmallVector<int64_t> vConcatShape = {vShape.getShape()[0],
-          vShape.getShape()[1], newVSeqLen, vShape.getShape()[3]};
-      Type vConcatType = RankedTensorType::get(vConcatShape, elementType);
-      V_reshaped = create.onnx.concat(vConcatType, {pastValue, V_reshaped}, 2);
-    }
-
-    // Step 1: Transpose K: (B, num_heads, seq_len, head_size) -> (B,
-    // num_heads, head_size, seq_len)
-    SmallVector<int64_t> kTransposePerm = {0, 1, 3, 2};
-    Value K_transposed = create.onnx.transposeInt64(K_reshaped, kTransposePerm);
-
-    // Step 2: MatMul(Q, K^T)
-    ShapedType qShape4D = mlir::cast<ShapedType>(Q_reshaped.getType());
-    ShapedType kTransposedShape =
-        mlir::cast<ShapedType>(K_transposed.getType());
-    SmallVector<int64_t> qkShape = {qShape4D.getShape()[0],
-        qShape4D.getShape()[1], qShape4D.getShape()[2],
-        kTransposedShape.getShape()[3]};
-    Type qkType = RankedTensorType::get(qkShape, elementType);
-    Value qk = create.onnx.matmul(qkType, Q_reshaped, K_transposed);
-
-    // Step 3: Apply scaling if needed
-    Value qk_scaled = qk;
-    auto scaleOpt = attentionOp.getScale();
-    if (scaleOpt) {
-      float scaleValue = scaleOpt->convertToFloat();
-      if (scaleValue != 1.0f) {
-        Value scaleConstant = create.onnx.constantFloat32({scaleValue});
-        qk_scaled = create.onnx.mul(qk, scaleConstant);
-      }
-    }
-
-    // Step 4: Add attention mask if present
-    Value qk_masked = qk_scaled;
-    if (!isNoneValue(attnMask)) {
-      qk_masked = create.onnx.add(qk_scaled, attnMask);
-    }
-
-    // Step 5: Apply softmax over the last axis
-    Value probs = ONNXSoftmaxOp::create(rewriter, loc, qk_masked.getType(),
-        qk_masked, rewriter.getI64IntegerAttr(-1));
-
-    // Step 6: MatMul(softmax(...), V)
-    ShapedType vShape4D = mlir::cast<ShapedType>(V_reshaped.getType());
-    SmallVector<int64_t> outputShape = {qShape4D.getShape()[0],
-        qShape4D.getShape()[1], qShape4D.getShape()[2], vShape4D.getShape()[3]};
-    Type outputType4D = RankedTensorType::get(outputShape, elementType);
-    Value result = create.onnx.matmul(outputType4D, probs, V_reshaped);
-
-    // Step 7: Reshape back to 3D if input was 3D
-    Value result_final = result;
-    if (is3DInput) {
-      ShapedType resultType = mlir::cast<ShapedType>(result.getType());
-      ArrayRef<int64_t> resultShape = resultType.getShape();
-      int64_t batchSize = resultShape[0];
-      int64_t numHeads = resultShape[1];
-      int64_t qSeqLen = resultShape[2];
-      int64_t headSize = resultShape[3];
-
-      SmallVector<int64_t> finalShape = {
-          batchSize, qSeqLen, numHeads * headSize};
-      Type finalType = RankedTensorType::get(finalShape, elementType);
-      Value reshapeShapeFinal = create.onnx.constantInt64(finalShape);
-      result_final = create.onnx.reshape(finalType, result, reshapeShapeFinal);
-    }
-
-    // Create the none value for optional outputs
-    Value noneVal = create.onnx.none();
-
-    // Replace all 4 outputs of the AttentionOp
-    SmallVector<Value, 4> replacementValues;
-    replacementValues.push_back(result_final); // Result 0: Y
-
-    // Result 1: present_key - return concatenated K if past_key was used, else
-    // none Note: K_reshaped is either the original K (if no past) or K
-    // concatenated with past_key (if past was used)
-    replacementValues.push_back(hasPastKey ? K_reshaped : noneVal);
-
-    // Result 2: present_value - return concatenated V if past_value was used,
-    // else none Note: V_reshaped is either the original V (if no past) or V
-    // concatenated with past_value (if past was used)
-    replacementValues.push_back(hasPastValue ? V_reshaped : noneVal);
-
-    // Result 3: qk_matmul_output - not computed in this lowering
-    replacementValues.push_back(noneVal);
-
-    rewriter.replaceOp(attentionOp, replacementValues);
-    return success();
+    return lowerONNXAttentionOp(attentionOp, attentionOp.getQ(),
+        attentionOp.getK(), attentionOp.getV(), attentionOp.getAttnMask(),
+        attentionOp.getPastKey(), attentionOp.getPastValue(),
+        attentionOp.getNonpadKvSeqlen(), rewriter);
   }
 };
 
