@@ -2048,6 +2048,7 @@ def ONNXDetOp:ONNX_Op<"Det",
       return sh;
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXDivOp:ONNX_Op<"Div",

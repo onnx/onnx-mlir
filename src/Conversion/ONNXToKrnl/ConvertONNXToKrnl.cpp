@@ -290,6 +290,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   // Math
   populateLoweringONNXCumSumOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXDFTOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXDetOpPattern(patterns, typeConverter, ctx, enableParallel);
   populateLoweringONNXElementwiseOpPattern(patterns, typeConverter, ctx, dimAnalysis, enableSIMD, enableParallel);
   populateLoweringONNXGemmOpPattern(patterns, typeConverter, ctx, enableTiling, enableSIMD, enableParallel);
   populateLoweringONNXHardmaxOpPattern(patterns, typeConverter, ctx);
@@ -509,10 +510,16 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
     // other ONNX operations. The following operations are prevented from
     // being lowered further. See the comment in the declaration of
     // 'emitIntermediateIR' for more details.
+    target.addLegalOp<ONNXAddOp>();
+    target.addLegalOp<ONNXConcatOp>();
+    target.addLegalOp<ONNXConstantOp>();
+    target.addLegalOp<ONNXLessOrEqualOp>();
     target.addLegalOp<ONNXMatMulOp>();
     target.addLegalOp<ONNXReshapeOp>();
+    target.addLegalOp<ONNXSoftmaxOp>();
     target.addLegalOp<ONNXSplitV11Op>();
     target.addLegalOp<ONNXSqueezeV11Op>();
+    target.addLegalOp<ONNXSubOp>();
     target.addLegalOp<ONNXTransposeOp>();
   }
 
