@@ -2075,12 +2075,22 @@ struct RemoveDimZeroInputInConcatPattern
     if (indices.empty())
       return rewriter.notifyMatchFailure(
           concatOp, "No operand whose dim at axis is zero");
+    // Keep one operand when all of them have a zero dim at axis.
+    if (indices.size() == inputs.size())
+      indices.erase(indices.begin());
+    if (indices.empty())
+      return rewriter.notifyMatchFailure(
+          concatOp, "Only operand has a zero dim at axis");
 
-    // Rewrite: remove operands whose dim at axis is zero.
+    // Rewrite: remove operands whose dim at axis is zero. Erase from the back
+    // so that the remaining indices stay valid.
     rewriter.modifyOpInPlace(concatOp, [&]() {
-      for (int64_t idx : indices)
+      for (int64_t idx : llvm::reverse(indices))
         concatOp.getOperation()->eraseOperand(idx);
     });
+    if (concatOp.getOperands().size() == 1 &&
+        concatOp.getResult().getType() == concatOp.getOperands()[0].getType())
+      rewriter.replaceOp(concatOp, concatOp.getOperands()[0]);
     return success();
   }
 };
@@ -2109,9 +2119,10 @@ struct RemoveEmptyInputInConcatPattern : public OpRewritePattern<ONNXConcatOp> {
       return rewriter.notifyMatchFailure(
           concatOp, "No operand whose shape is <0xdtype>");
 
-    // Rewrite: remove operands whose shape is <0xdtype>.
+    // Rewrite: remove operands whose shape is <0xdtype>. Erase from the back
+    // so that the remaining indices stay valid.
     rewriter.modifyOpInPlace(concatOp, [&]() {
-      for (int64_t idx : indices)
+      for (int64_t idx : llvm::reverse(indices))
         concatOp.getOperation()->eraseOperand(idx);
     });
     if (concatOp.getOperands().size() == 1)
@@ -2734,6 +2745,46 @@ public:
   }
 };
 
+// Removes a split op whose outputs are all empty along the split axis but
+// one, which is then the same as the split input. The empty outputs must be
+// unused, e.g. after having been removed from the inputs of concat ops.
+struct RemoveNoOpSplitPattern : public OpRewritePattern<ONNXSplitOp> {
+  using OpRewritePattern<ONNXSplitOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXSplitOp splitOp, PatternRewriter &rewriter) const final {
+    Value input = splitOp.getInput();
+    if (!hasShapeAndRank(input))
+      return rewriter.notifyMatchFailure(splitOp, "Input has no rank");
+    int64_t rank = getRank(input.getType());
+    int64_t axis = splitOp.getAxis();
+    if (axis < 0)
+      axis += rank;
+
+    Value fullOutput = nullptr;
+    for (Value output : splitOp.getOutputs()) {
+      if (!hasShapeAndRank(output))
+        return rewriter.notifyMatchFailure(splitOp, "Output has no rank");
+      if (getShape(output.getType())[axis] == 0) {
+        if (!output.use_empty())
+          return rewriter.notifyMatchFailure(splitOp, "Empty output is used");
+        continue;
+      }
+      if (fullOutput)
+        return rewriter.notifyMatchFailure(
+            splitOp, "More than one non-empty output");
+      fullOutput = output;
+    }
+    if (!fullOutput || fullOutput.getType() != input.getType())
+      return rewriter.notifyMatchFailure(
+          splitOp, "No non-empty output with the input type");
+
+    rewriter.replaceAllUsesWith(fullOutput, input);
+    rewriter.eraseOp(splitOp);
+    return success();
+  }
+};
+
 // Pulls the specified op up through a split op.
 template <typename OpToPull>
 struct PullOpThroughSplitPattern : public OpRewritePattern<ONNXSplitOp> {
@@ -3118,7 +3169,7 @@ void ONNXSplitOp::getCanonicalizationPatterns(
   // ops. Having a trait for them would make this easier.
   results.insert<PullOpThroughSplitPattern<ONNXReluOp>>(context);
   results.insert<PullOpThroughSplitPattern<ONNXLeakyReluOp>>(context);
-  ;
+  results.insert<RemoveNoOpSplitPattern>(context);
 }
 
 /// on the ONNXSqueezeOp.

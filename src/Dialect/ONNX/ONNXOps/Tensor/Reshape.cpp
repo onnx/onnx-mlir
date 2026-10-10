@@ -136,6 +136,24 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
     }
   }
 
+  // Similarly, when allowzero == 0, a literal 0 in shape copies the data dim
+  // at the same index. Both can thus be ignored when computing the dim at
+  // position of -1. For example, with data of tensor<?x?x2560xf32> and shape
+  // of [0, 0, 40, -1], the dim at position of -1 is 2560/40, that is 64.
+  auto reshapeOp = mlir::dyn_cast<ONNXReshapeOp>(op);
+  if (reshapeOp && reshapeOp.getAllowzero() == 0 && hasShapeAndRank(data)) {
+    for (int64_t i = 0; i < std::min(outputRank, dataRank); ++i) {
+      IndexExpr dimShape = createIE->getIntFromArrayAsSymbol(shape, i);
+      if (!dimShape.isLiteral() || dimShape.getLiteral() != 0)
+        continue;
+      // Skip dims already ignored by the bijective mapping above.
+      if (outputIgnoredDims.count(i) || dataIgnoredDims.count(i))
+        continue;
+      outputIgnoredDims.insert(i);
+      dataIgnoredDims.insert(i);
+    }
+  }
+
   // Compute the total number of elements using the input data operand.
   // dataRank will be 0 if Data is unranked tensor.
   // The number of element will not be computed
