@@ -3,11 +3,11 @@
 
 # Supported ONNX Operation for Target *cpu*.
 
-Onnx-mlir currently supports ONNX operations targeting up to opset 28. Limitations are listed when applicable. This documentation highlights the minimum and maximum opset versions that are fully supported by onnx-mlir and not the version changes.
+Onnx-mlir currently supports ONNX operations targeting up to opset 24. Limitations are listed when applicable. This documentation highlights the minimum and maximum opset versions that are fully supported by onnx-mlir and not the version changes.
 
 * Operations are defined by the [ONNX Standard](https://github.com/onnx/onnx/blob/main/docs/Operators.md).
 * **Supported Opsets** indicates the lowest and highest opset a model may have for onnx-mlir to support compiling a model with the operator.
-   * A * indicates onnx-mlir is compatible with the latest version of that operator available as of opset 28.
+   * A * indicates onnx-mlir is compatible with the latest version of that operator available as of opset 24.
 
 
 | Op |Supported Opsets (inclusive) |Limitations |Notes |
@@ -26,7 +26,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 28. Limitatio
 | **Asinh** |9 - * | | |
 | **Atan** |7 - * | | |
 | **Atanh** |9 - * | | |
-| **Attention** |none | | | |
+| **Attention** |23 - * |Only supports q_num_heads == kv_num_heads (no GQA/MQA). Does not support softcap, a non-default qk_matmul_output_mode, or sliding/local-window attention. Does not support bfloat16 combined with is_causal, or an attn_mask whose kv dimension is shorter than K/V's actual (padded) sequence length. Of the op's three KV-cache input patterns, only "no cache" and "external cache" (K/V already the full cache, nonpad_kv_seqlen given) are supported; "cache update inside the op" (past_key/past_value given) is not. | |
 | **AveragePool** |6 - * | | |
 | **BatchNormalization** |6 - * |Training not supported. | |
 | **Bernoulli** |none | | | |
@@ -83,7 +83,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 28. Limitatio
 | **Gelu** |20 - * | | |
 | **Gemm** |6 - * | | |
 | **GlobalAveragePool** |6 - * | | |
-| **GlobalLpPool** |2 - * | | |
+| **GlobalLpPool** |none | | | |
 | **GlobalMaxPool** |6 - * | | |
 | **Gradient** |none | | | |
 | **Greater** |7 - * | | |
@@ -200,7 +200,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 28. Limitatio
 | **Softplus** |6 - * | | |
 | **Softsign** |6 - * | | |
 | **SpaceToDepth** |13 - * | |Example works, the other is imprecise. To investigate. |
-| **Split** |6 - * |Does not support static and dynamic shape, zero size splits. |Temporally removed due to changes in onnx 1.8.1. |
+| **Split** |6 - * | |Temporally removed due to changes in onnx 1.8.1. |
 | **SplitToSequence** |none | | | |
 | **Sqrt** |6 - * | | |
 | **Squeeze** |6 - * |Does not support static and dynamic shape. Does not support int4 and uint4. |Temporally removed due to changes in onnx 1.8.1. |
@@ -209,6 +209,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 28. Limitatio
 | **Sum** |6 - * | | |
 | **Tan** |7 - * | | |
 | **Tanh** |6 - * | | |
+| **TensorScatter** |24 - * | | |
 | **TfIdfVectorizer** |none | | | |
 | **ThresholdedRelu** |10 - * | | |
 | **Tile** |6 - * | | |

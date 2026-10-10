@@ -3461,7 +3461,6 @@ def get_test_models():
         },
         # ==OP== Split
         # ==MIN== 2
-        # ==LIM== Does not support static and dynamic shape, zero size splits.
         # ==TODO== Temporally removed due to changes in onnx 1.8.1
         # "test_split_equal_parts_1d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_split_variable_parts_1d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
