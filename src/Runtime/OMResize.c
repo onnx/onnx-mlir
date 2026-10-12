@@ -237,6 +237,14 @@ static void generate_coordinates(
   free(currentIter);
 }
 
+static void free_interpolated_tensors(OMTensor *output_size_OMT,
+    OMTensor *scale_factor_OMT, int64_t *output_size, float *scale_factor) {
+  if (output_size_OMT == NULL)
+    free(output_size);
+  if (scale_factor_OMT == NULL)
+    free(scale_factor);
+}
+
 static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
     int64_t mode, OMTensor *output_size_OMT, OMTensor *scale_factor_OMT,
     Coeff_Func_t get_coeffs, int coeffs_n, OMTensor *roi,
@@ -286,7 +294,9 @@ static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
   int64_t outputSize = 1;
   for (int i = 0; i < rank; i++) {
     if (output_size[i] <= 0 || outputSize > outputCap / output_size[i]) {
-      goto cleanup;
+      free_interpolated_tensors(
+          output_size_OMT, scale_factor_OMT, output_size, scale_factor);
+      return;
     }
     outputSize *= output_size[i];
   }
@@ -294,7 +304,9 @@ static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
   // and must not overflow the malloc argument (outputSize * rank * sizeof).
   if (outputSize > outputCap ||
       (rank > 0 && outputSize > (int64_t)(SIZE_MAX / sizeof(int64_t)) / rank)) {
-    goto cleanup;
+    free_interpolated_tensors(
+        output_size_OMT, scale_factor_OMT, output_size, scale_factor);
+    return;
   }
   float *outputData = (float *)omTensorGetDataPtr(output_OMT);
 
@@ -334,12 +346,8 @@ static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
   }
   free(allCoordinates);
   free(coeffs_buffer);
-
-cleanup:
-  if (output_size_OMT == NULL)
-    free(output_size);
-  if (scale_factor_OMT == NULL)
-    free(scale_factor);
+  free_interpolated_tensors(
+      output_size_OMT, scale_factor_OMT, output_size, scale_factor);
 }
 
 // The parameters that are not used are commented out.
