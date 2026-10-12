@@ -1,4 +1,4 @@
-//===------------ Identity.cpp - Lowering MatMul Op to Linalg -------------===//
+//===----------- Identity.cpp - Lowering Identity Op to Linalg ------------===//
 //
 // Copyright 2026 HighTec-EDV Systeme Gmbh Authors.
 //
