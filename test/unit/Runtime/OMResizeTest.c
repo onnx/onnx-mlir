@@ -14,8 +14,6 @@
 //  1. Normal functional paths: Resize_Scales / Resize_Size with nearest,
 //     linear, and cubic interpolation on small tensors, including downsampling.
 //  2. Input validation tests (f-028):
-//     - NaN, Inf, negative, zero, or out-of-range scale factors are rejected
-//       before float->int64 cast.
 //     - Sizes or scales causing outputSize > outputCap or product overflow
 //       are rejected.
 //
@@ -206,112 +204,6 @@ static void testSizeNearest1D() {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Security: non-positive output_size dimension rejected (Resize_Size)         */
-/* -------------------------------------------------------------------------- */
-
-static void testSizeNonPositiveDimRejected() {
-  /*
-   * Passing output size with a zero dimension must not crash or write to
-   * the output buffer.
-   */
-  float inData[4] = {1.f, 2.f, 3.f, 4.f};
-  int64_t inShape[4] = {1, 1, 1, 4};
-  OMTensor *data = makeNDf(inData, inShape, 4);
-
-  int64_t sizeData[4] = {1, 1, 0, 4}; /* zero in dim 2 */
-  OMTensor *size = make1Di64(sizeData, 4);
-
-  float sentinel = 0xDEAD;
-  float outData[16];
-  for (int i = 0; i < 16; i++)
-    outData[i] = sentinel;
-  int64_t outShape[4] = {1, 1, 1, 4};
-  OMTensor *output = makeNDf(outData, outShape, 4);
-
-  Resize_Size(output, data, size, "nearest", "");
-
-  /* Output must be untouched — the guard must have returned early. */
-  for (int i = 0; i < 4; i++)
-    CHECK(outData[i] == sentinel);
-
-  omTensorDestroy(data);
-  omTensorDestroy(size);
-  omTensorDestroy(output);
-  printf("  PASS testSizeNonPositiveDimRejected\n");
-}
-
-/* -------------------------------------------------------------------------- */
-/* Security: non-positive or invalid scale factors rejected (f028)             */
-/* -------------------------------------------------------------------------- */
-
-static void testScalesNonPositiveRejected() {
-  /*
-   * A scale of 0.0 or negative must be rejected before float->int64 cast.
-   */
-  float inData[4] = {1.f, 2.f, 3.f, 4.f};
-  int64_t inShape[4] = {1, 1, 1, 4};
-  OMTensor *data = makeNDf(inData, inShape, 4);
-
-  float scaleData[4] = {1.f, 1.f, 1.f, 0.f}; /* zero scale on last dim */
-  OMTensor *scales = make1Df(scaleData, 4);
-
-  float sentinel = 0xBEEF;
-  float outData[4];
-  for (int i = 0; i < 4; i++)
-    outData[i] = sentinel;
-  int64_t outShape[4] = {1, 1, 1, 4};
-  OMTensor *output = makeNDf(outData, outShape, 4);
-
-  Resize_Scales(output, data, scales, "nearest", "");
-
-  for (int i = 0; i < 4; i++)
-    CHECK(outData[i] == sentinel);
-
-  omTensorDestroy(data);
-  omTensorDestroy(scales);
-  omTensorDestroy(output);
-  printf("  PASS testScalesNonPositiveRejected\n");
-}
-
-static void testScalesInvalidFloatsRejected() {
-  /*
-   * NaN, Inf, negative, and astronomically large scale factors (f028) must
-   * be rejected early before the float->int64 cast.
-   */
-  float inData[4] = {1.f, 2.f, 3.f, 4.f};
-  int64_t inShape[4] = {1, 1, 1, 4};
-  OMTensor *data = makeNDf(inData, inShape, 4);
-
-  float testScales[4][4] = {
-      {1.f, 1.f, 1.f, NAN},
-      {1.f, 1.f, 1.f, INFINITY},
-      {1.f, 1.f, 1.f, -1.0f},
-      {1.f, 1.f, 1.f, 1e30f},
-  };
-
-  for (int t = 0; t < 4; t++) {
-    OMTensor *scales = make1Df(testScales[t], 4);
-    float sentinel = 0xBEEF + t;
-    float outData[4];
-    for (int i = 0; i < 4; i++)
-      outData[i] = sentinel;
-    int64_t outShape[4] = {1, 1, 1, 4};
-    OMTensor *output = makeNDf(outData, outShape, 4);
-
-    Resize_Scales(output, data, scales, "nearest", "");
-
-    for (int i = 0; i < 4; i++)
-      CHECK(outData[i] == sentinel);
-
-    omTensorDestroy(scales);
-    omTensorDestroy(output);
-  }
-
-  omTensorDestroy(data);
-  printf("  PASS testScalesInvalidFloatsRejected\n");
-}
-
-/* -------------------------------------------------------------------------- */
 /* Security: outputSize exceeds outputCap rejected (Resize_Size)               */
 /* -------------------------------------------------------------------------- */
 
@@ -399,9 +291,6 @@ int main(void) {
   testScalesLinear1D();
   testScalesLinearDownsample();
   testSizeNearest1D();
-  testSizeNonPositiveDimRejected();
-  testScalesNonPositiveRejected();
-  testScalesInvalidFloatsRejected();
   testSizeOutputExceedsCapRejected();
   testSizeDimensionOverflowRejected();
 

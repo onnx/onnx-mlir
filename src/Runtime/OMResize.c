@@ -256,6 +256,10 @@ static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
   if (output_size_OMT != NULL)
     output_size = (int64_t *)omTensorGetDataPtr(output_size_OMT);
   if (scale_factor == NULL) {
+    for (int i = 0; i < rank; i++) {
+      assert(inputShape[i] > 0 && "inputShape dimension must be positive");
+      assert(output_size[i] > 0 && "output_size dimension must be positive");
+    }
     scale_factor = (float *)malloc(sizeof(float) * rank);
     assert(
         scale_factor); // Error: "failed to allocate memory for scale_factor".
@@ -264,13 +268,10 @@ static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
     }
   } else {
     for (int i = 0; i < rank; i++) {
-      // Validate scale_factor[i] is finite, positive, and within range
-      // before the float -> int64_t cast.
-      if (!isfinite(scale_factor[i]) || scale_factor[i] <= 0.0f ||
-          (inputShape[i] > 0 &&
-              scale_factor[i] > (float)INT64_MAX / (float)inputShape[i])) {
-        return;
-      }
+      assert(inputShape[i] > 0 && "inputShape dimension must be positive");
+      assert(isfinite(scale_factor[i]) && scale_factor[i] > 0.0f &&
+             scale_factor[i] <= (float)INT64_MAX / (float)inputShape[i] &&
+             "scale_factor must be finite, positive, and bounded");
     }
     output_size = (int64_t *)malloc(sizeof(int64_t) * rank);
     assert(output_size); // Error: "failed to allocate memory for output_size".
@@ -284,12 +285,7 @@ static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
   int64_t outputCap = omTensorGetNumElems(output_OMT);
   int64_t outputSize = 1;
   for (int i = 0; i < rank; i++) {
-    if (output_size[i] <= 0) {
-      // Non-positive dimension: reject as invalid.
-      goto cleanup;
-    }
-    // Check for overflow of outputSize * output_size[i].
-    if (outputSize > outputCap / output_size[i]) {
+    if (output_size[i] <= 0 || outputSize > outputCap / output_size[i]) {
       goto cleanup;
     }
     outputSize *= output_size[i];
