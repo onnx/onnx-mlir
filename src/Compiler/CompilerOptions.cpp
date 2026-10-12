@@ -98,6 +98,7 @@ bool disableSimdOption;                                // onnx-mlir only
 bool enableFastMathOption;                             // onnx-mlir only
 bool disableRecomposeOption;                           // onnx-mlir only
 bool enableAttentionOpConstruct;                       // common for both
+KVCacheType kvCache;                                   // common for both
 bool disableSplitMatMulBySlice;                        // common for both
 bool enableSimdDataLayout;                             // onnx-mlir only
 bool verifyInputTensors;                               // onnx-mlir only
@@ -348,6 +349,23 @@ static llvm::cl::opt<bool, true> enableAttentionOpConstructOpt(
                    "onnx.Attention op. Default is false."),
     llvm::cl::location(enableAttentionOpConstruct), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<KVCacheType, true> kvCacheOpt("kv-cache",
+    llvm::cl::desc(
+        "Indicate the implementation of kv-cache in the model."
+        "The option will be used to guide recomposing TensorScatter and "
+        "Attention op, and check the pattern when Attention is lowered."
+        "'fixed' forces the fixed-size-KV-cache lowering (K/V are the full "
+        "padded cache, sized via nonpad_kv_seqlen) and 'growing' forces the "
+        "original lowering (K/V grow via past_key/past_value concatenation). "
+        "Default is \"\", meaning the choice is inferred from each op's "
+        "operands (whether past_key/past_value/nonpad_kv_seqlen are given)."),
+    llvm::cl::location(kvCache),
+    llvm::cl::values(
+        clEnumVal(Undefined, "No predefined kv-cache implementation"),
+        clEnumVal(Fixed, "Fixed size cache passed into the inference"),
+        clEnumVal(Grow, "Cache should grow with each step of the inference")),
+    llvm::cl::init(Undefined), llvm::cl::cat(OnnxMlirCommonOptions));
 
 static llvm::cl::opt<bool, true> disableSplitMatMulBySliceOpt(
     "disable-split-matmul-by-slice",

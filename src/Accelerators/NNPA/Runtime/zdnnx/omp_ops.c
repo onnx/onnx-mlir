@@ -383,6 +383,9 @@ zdnn_status zdnnx_omp_unary_elementwise(const zdnn_ztensor *input,
   // Reshape the input tensor by collapsing all dimensions into E4, so that we
   // have enough parallel works in any case and reuse is always possible.
   zdnn_ztensor input_view, output_view;
+  // Independent descriptor storage for each view (f036: deep-copy, no alias).
+  zdnn_tensor_desc input_view_pre_desc, input_view_tfrmd_desc;
+  zdnn_tensor_desc output_view_pre_desc, output_view_tfrmd_desc;
   if (isBigTensor && input_shape[E1] % 64 == 0 && input_shape[E2] % 32 == 0) {
     // Only collapse when E1 is a multiple of 64  and E2 is a multiple of 32 to
     // avoid accessing padding values. Otherwise zdnn will warn range violation.
@@ -396,8 +399,10 @@ zdnn_status zdnnx_omp_unary_elementwise(const zdnn_ztensor *input,
     view_shape[1] = 1;
     view_shape[2] = 32;
     view_shape[3] = 64;
-    zdnnx_create_view(input, &input_view, view_shape, view_layout);
-    zdnnx_create_view(output, &output_view, view_shape, view_layout);
+    zdnnx_create_view(input, &input_view, &input_view_pre_desc,
+        &input_view_tfrmd_desc, view_shape, view_layout);
+    zdnnx_create_view(output, &output_view, &output_view_pre_desc,
+        &output_view_tfrmd_desc, view_shape, view_layout);
   } else {
     // View is exactly same as the original tensor.
     input_view = *input;
@@ -475,6 +480,10 @@ zdnn_status zdnnx_omp_binary_elementwise(const zdnn_ztensor *input_a,
   // Reshape the input tensor by collapsing all dimensions into E4, so that we
   // have enough parallel works in any case and reuse is always possible.
   zdnn_ztensor input_a_view, input_b_view, output_view;
+  // Independent descriptor storage for each view (f036: deep-copy, no alias).
+  zdnn_tensor_desc input_a_view_pre_desc, input_a_view_tfrmd_desc;
+  zdnn_tensor_desc input_b_view_pre_desc, input_b_view_tfrmd_desc;
+  zdnn_tensor_desc output_view_pre_desc, output_view_tfrmd_desc;
   if (isBigTensor && input_shape[E1] % 64 == 0 && input_shape[E2] % 32 == 0) {
     // Only collapse when E1 is a multiple of 64  and E2 is a multiple of 32 to
     // avoid accessing padding values. Otherwise zdnn will warn range violation.
@@ -488,9 +497,12 @@ zdnn_status zdnnx_omp_binary_elementwise(const zdnn_ztensor *input_a,
     view_shape[1] = 1;
     view_shape[2] = 32;
     view_shape[3] = 64;
-    zdnnx_create_view(input_a, &input_a_view, view_shape, view_layout);
-    zdnnx_create_view(input_b, &input_b_view, view_shape, view_layout);
-    zdnnx_create_view(output, &output_view, view_shape, view_layout);
+    zdnnx_create_view(input_a, &input_a_view, &input_a_view_pre_desc,
+        &input_a_view_tfrmd_desc, view_shape, view_layout);
+    zdnnx_create_view(input_b, &input_b_view, &input_b_view_pre_desc,
+        &input_b_view_tfrmd_desc, view_shape, view_layout);
+    zdnnx_create_view(output, &output_view, &output_view_pre_desc,
+        &output_view_tfrmd_desc, view_shape, view_layout);
   } else {
     // View is exactly same as the original tensor.
     input_a_view = *input_a;

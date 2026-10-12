@@ -132,6 +132,7 @@ add_onnx_mlir_library(OMONNXOps
   OMDiagnostic
 
   LINK_LIBS PUBLIC
+  OMCompilerOptions
   OMMlirDialects
   OMMlirUtilities
   OMShapeHelperOpInterface
