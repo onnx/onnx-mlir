@@ -143,7 +143,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 28. Limitatio
 | **OptionalHasElement** |none | | | |
 | **Or** |7 - * | | |
 | **PRelu** |6 - * | | |
-| **Pad** |6 - * |axes input not supported. Does not support int4 and uint4. | |
+| **Pad** |6 - * |axes input must be constant after constant propagation. Does not support int4 and uint4. | |
 | **Pow** |7 - * |No support for power with integer types. | |
 | **QLinearConv** |none | | | |
 | **QLinearMatMul** |10 - * |Only support i8, ui8 and f32. | |

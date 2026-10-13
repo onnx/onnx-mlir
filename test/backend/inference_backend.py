@@ -2662,11 +2662,19 @@ def get_test_models():
         },
         # ==OP== Pad
         # ==MIN== 2
-        # ==LIM== axes input not supported. Does not support int4 and uint4.
+        # ==LIM== axes input must be constant after constant propagation. Does not support int4 and uint4.
         "test_constant_pad_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {-1},
+        },
+        # axes (input 3) is a graph input in these tests; only test it as a
+        # constant.
+        "test_constant_pad_axes_cpu": {
+            CONSTANT_INPUT: {3},
+        },
+        "test_constant_pad_negative_axes_cpu": {
+            CONSTANT_INPUT: {3},
         },
         "test_edge_pad_cpu": {
             STATIC_SHAPE: {},
@@ -2674,6 +2682,11 @@ def get_test_models():
             CONSTANT_INPUT: {-1},
         },
         "test_reflect_pad_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {0: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_wrap_pad_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {-1},
