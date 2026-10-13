@@ -27,6 +27,7 @@ typedef int make_iso_compilers_happy;
 
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #if defined(_WIN32)
@@ -46,6 +47,31 @@ void checkEndianness(const char constPackIsLE) {
                     "native to this current system.");
     exit(1);
   }
+}
+
+/// Verify that the file size matches the compile-time baked expected size.
+/// Fails closed on fstat error or mismatch to prevent reading truncated or
+/// substituted constants data.
+///
+/// \param[in] fd File descriptor.
+/// \param[in] fileSize Expected size in bytes (baked into the .so at compile
+/// time).
+///
+/// \return 0 on success, 1 on failure.
+///
+static int verifyFileSize(int fd, int64_t fileSize) {
+  struct stat st;
+  if (fstat(fd, &st) != 0) {
+    fprintf(stderr, "Error while fstat: %s\n", strerror(errno));
+    return 1;
+  }
+  if (st.st_size != (off_t)fileSize) {
+    fprintf(stderr,
+        "Constants file size mismatch: expected %lld bytes, found %lld bytes\n",
+        (long long)fileSize, (long long)st.st_size);
+    return 1;
+  }
+  return 0;
 }
 
 /// MMap data from a binary file into memory.
@@ -89,6 +115,13 @@ bool omMMapBinaryFile(
   int fd = open(filePath, O_RDONLY);
   if (fd < 0) {
     fprintf(stderr, "Error while opening %s: %s\n", filePath, strerror(errno));
+    if (basePath)
+      free(filePath);
+    return false;
+  }
+
+  if (verifyFileSize(fd, size)) {
+    close(fd);
     if (basePath)
       free(filePath);
     return false;
