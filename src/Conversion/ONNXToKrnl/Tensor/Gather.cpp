@@ -34,7 +34,7 @@ struct ONNXGatherOpLowering : public OpConversionPattern<ONNXGatherOp> {
     // stay independent.
     this->enableCollapse = enableCollapse;
   }
-  bool enableParallel;
+  bool enableParallel = false;
   bool enableCollapse = false;
 
   LogicalResult matchAndRewrite(ONNXGatherOp gatherOp,

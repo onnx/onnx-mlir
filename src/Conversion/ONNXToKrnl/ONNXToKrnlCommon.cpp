@@ -1066,4 +1066,93 @@ LogicalResult FusedOpInlineFallback::matchAndRewrite(
   return FusionOpKindHelper::unFuse(rewriter, fusedOp);
 }
 
+//===----------------------------------------------------------------------===//
+// Writing a result into the buffer of an operand.
+//===----------------------------------------------------------------------===//
+
+bool canWriteInPlace(ConversionPatternRewriter &rewriter, Operation *op,
+    unsigned operandIndex, MemRefType resultMemRefType) {
+  // Check the uses on the original operand: see allocOrReuse.
+  Value operand = op->getOperand(operandIndex);
+  if (!operand.hasOneUse())
+    return false;
+  Operation *producer = operand.getDefiningOp();
+  if (!producer || producer->getBlock() != op->getBlock())
+    return false;
+  Value buffer = rewriter.getRemappedValue(operand);
+  if (!buffer || !buffer.getDefiningOp<memref::AllocOp>() ||
+      buffer.getType() != resultMemRefType)
+    return false;
+  for (Value producerOperand : producer->getOperands())
+    if (rewriter.getRemappedValue(producerOperand) == buffer)
+      return false;
+  return true;
+}
+
+//===----------------------------------------------------------------------===//
+// Copy of a whole buffer, possibly in parallel.
+//===----------------------------------------------------------------------===//
+
+// A parallel copy is split into chunks of this many bytes, one memcpy each.
+static constexpr int64_t memcpyChunkBytes = 1 << 20;
+// Smallest copy, in bytes, worth a parallel region. Measured on an 18-thread
+// CPU: a parallel copy was slower at 1 MB and faster at 17 MB.
+static constexpr int64_t minParallelMemcpyBytes = 8 << 20;
+
+void emitMemcpy(PatternRewriter &rewriter, Location loc, Operation *op,
+    Value dest, Value src, DimsExprRef srcDims, bool enableParallel,
+    const std::string &msg) {
+  MultiDialectBuilder<KrnlBuilder, SCFBuilder> create(rewriter, loc);
+  Value numOfElements = getDynamicMemRefSize(rewriter, loc, src);
+  auto emitSerialCopy = [&](const KrnlBuilder &createKrnl) {
+    createKrnl.memcpy(dest, src, numOfElements);
+  };
+  if (!enableParallel) {
+    emitSerialCopy(create.krnl);
+    return;
+  }
+
+  IndexExpr numElems = LitIE(1);
+  for (const IndexExpr &dim : srcDims)
+    numElems = numElems * dim;
+  int64_t eltBytes =
+      getMemRefEltSizeInBytes(mlir::cast<MemRefType>(src.getType()));
+  int64_t chunkElems = std::max<int64_t>(1, memcpyChunkBytes / eltBytes);
+  IndexExpr numChunks = numElems.ceilDiv(chunkElems);
+  auto emitParallelCopy = [&](const KrnlBuilder &createKrnl) {
+    ValueRange loopDef = createKrnl.defineLoops(1);
+    DimsExpr lbs = {LitIE(0)}, ubs = {numChunks};
+    // bodyCost: one iteration copies a chunk of chunkElems elements.
+    auto plan = KrnlParallelPlan::noCollapse(loopDef,
+        /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/1,
+        {.minTripCountForParallel = 2, .bodyCost = chunkElems});
+    plan.tryCreateParallel(createKrnl, op, msg, lbs, ubs);
+    createKrnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, ubs,
+        [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
+          MultiDialectBuilder<KrnlBuilder, MathBuilder> create(createKrnl);
+          IndexExprScope chunkScope(createKrnl);
+          IndexExpr start = DimIE(loopInd[0]) * chunkElems;
+          IndexExpr len = IndexExpr::min(SymIE(numElems) - start, chunkElems);
+          Value lenI64 = create.math.cast(
+              createKrnl.getBuilder().getI64Type(), len.getValue());
+          create.krnl.memcpy(
+              dest, src, lenI64, start.getValue(), start.getValue());
+        });
+  };
+
+  int64_t minParallelElems = minParallelMemcpyBytes / eltBytes;
+  if (numElems.isLiteral()) {
+    if (numElems.getLiteral() >= minParallelElems)
+      emitParallelCopy(create.krnl);
+    else
+      emitSerialCopy(create.krnl);
+    return;
+  }
+  IndexExpr isLarge = numElems >= minParallelElems;
+  create.scf.ifThenElse(
+      isLarge.getValue(),
+      [&](const SCFBuilder &scf) { emitParallelCopy(KrnlBuilder(scf)); },
+      [&](const SCFBuilder &scf) { emitSerialCopy(KrnlBuilder(scf)); });
+}
+
 } // namespace onnx_mlir
