@@ -767,11 +767,11 @@ static zdnn_status sdpa_3d_basic(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
 //
 // Remaining tiles (c=1..N_t-1) -- online softmax update:
 //   1. scores   = Q * KT[c] + Mask[c]                  [S, T]
-//   2. new_max  = max(M, row_max(scores))               [S, 1]
-//   3. corr     = exp(M - new_max)                      [S, 1]
+//   2. new_max  = max(M, row_max(scores))              [S, 1]
+//   3. corr     = exp(M - new_max)                     [S, 1]
 //   4. M        = new_max
-//   5. D        = D * corr + row_sum(exp(scores - M))
-//   6. P        = exp(scores - M)                       [S, T]
+//   6. P        = exp(scores - new_max)                [S, T]
+//   5. D        = D * corr + row_sum(P)
 //   7. O        = O * corr + P * V[c]
 //
 // After all tiles:
@@ -787,35 +787,19 @@ static zdnn_status sdpa_3d_basic(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
 //   + several    [S,1]   -- M, D, old_max, correction
 static zdnn_status flash_attention(const zdnn_ztensor *Q,
     const zdnn_ztensor *KT, const zdnn_ztensor *Mask, const zdnn_ztensor *V,
-    zdnn_ztensor *output) {
+    uint32_t tile_size, zdnn_ztensor *output) {
 #ifdef ZDNNX_DEBUG
   printf("[SDPA3D Flash]\n");
 #endif
   zdnn_status status = ZDNN_OK;
   uint32_t S = zdnnx_get_transformed_dim(Q, E2);
-  uint32_t SK = zdnnx_get_transformed_dim(Mask, E1);
   uint32_t HV = zdnnx_get_transformed_dim(V, E1);
-  uint32_t B = zdnnx_get_transformed_dim(Q, E4);
-
-  // Choose tile size T: 2048 aligned to 64, must divide SK evenly.
-  uint32_t T = 2048;
-  uint32_t mdis_e1 = zdnnx_get_nnpa_max_dim_size(E1);
-  if (T > mdis_e1)
-    T = mdis_e1;
-  if (SK % T != 0) {
-    for (uint32_t t = T; t >= 64; t -= 64) {
-      if (SK % t == 0) {
-        T = t;
-        break;
-      }
-    }
-  }
-  uint32_t N_t = SK / T;
+  uint32_t T = (tile_size < S) ? tile_size : S;
 
 #ifdef ZDNNX_DEBUG
-  printf("[SDPA3D Flash] S=%u, SK=%u, T=%u, "
-         "N_t=%u, B=%u, HV=%u\n",
-      S, SK, T, N_t, B, HV);
+  uint32_t SK = zdnnx_get_transformed_dim(Mask, E1);
+  uint32_t B = zdnnx_get_transformed_dim(Q, E4);
+  printf("[SDPA3D Flash] S=%u, SK=%u, T=%u, B=%u, HV=%u\n", S, SK, T, B, HV);
 #endif
 
   float *fp32_buf = NULL;
@@ -826,12 +810,10 @@ static zdnn_status flash_attention(const zdnn_ztensor *Q,
   zdnn_ztensor scratch_tile = {0}, p_tile = {0}, bias_qkt = {0}, bias_1 = {0};
   zdnn_ztensor o_acc = {0}, pv_tmp = {0}, bias_v = {0};
 
-  uint32_t max_fp32_len = (S > T) ? S : T;
-  fp32_buf = (float *)malloc(max_fp32_len * sizeof(float));
+  // ones [1, T, 1] for row-sum matmul.
+  fp32_buf = (float *)malloc(T * sizeof(float));
   if (!fp32_buf)
     status = ZDNN_ALLOCATION_FAILURE;
-
-  // ones [1, T, 1] for row-sum matmul.
   if (status == ZDNN_OK) {
     for (uint32_t i = 0; i < T; i++)
       fp32_buf[i] = 1.0f;
@@ -884,9 +866,14 @@ static zdnn_status flash_attention(const zdnn_ztensor *Q,
     zdnnx_prepare_split_info(&si_v, V, 1, 0, T, 0, "Flash V");
     zdnnx_prepare_split_info(&si_out, output, 1, 0, 0, 0, "Flash Out");
 
+    uint32_t num_tiles_batch = zdnnx_get_num_tiles(&si_q, E4);
+    uint32_t num_tiles_sequence = zdnnx_get_num_tiles(&si_kt, E1);
+
+    bool has_tail_tile = !zdnnx_is_equal_split(&si_kt);
+
     zdnnx_tile tq, tkt, tmask, tv, tout;
 
-    for (uint32_t b = 0; b < B && status == ZDNN_OK; ++b) {
+    for (uint32_t b = 0; b < num_tiles_batch && status == ZDNN_OK; ++b) {
       zdnnx_set_tile(&si_q, &tq, NULL, b, 0, 0, 0);
 
       // -- First tile (c=0): no correction needed, write directly to
@@ -925,7 +912,34 @@ static zdnn_status flash_attention(const zdnn_ztensor *Q,
             &p_tile, &tv.data, &bias_v, MATMUL_OP_ADDITION, &o_acc);
 
       // -- Remaining tiles (c=1..N_t-1): full online softmax update.
-      for (uint32_t c = 1; c < N_t && status == ZDNN_OK; ++c) {
+      for (uint32_t c = 1; c < num_tiles_sequence && status == ZDNN_OK; ++c) {
+        // If the last tile is partial, allocate smaller intermediate buffers.
+        // - ones_zt [1, T, 1]
+        // - scratch_tile [1, S, T]
+        // - p_tile [1, S, T]
+        // - bias_qkt [1, T]
+        if ((c == num_tiles_sequence - 1) && has_tail_tile) {
+          // Free old buffers.
+          free_ztensor(&ones_zt);
+          free_ztensor(&scratch_tile);
+          free_ztensor(&bias_qkt);
+          uint32_t last_T = si_kt.last_tile_shape[E1];
+
+          // ones [1, T, 1] for row-sum matmul.
+          // Reuse fp32_buf that is larger than last_T.
+          if (status == ZDNN_OK)
+            status = create_3ds_ztensor(1, last_T, 1, &ones_zt, fp32_buf);
+          // scratch_tile [1, S, T] -- holds scores.
+          if (status == ZDNN_OK)
+            status = create_3ds_ztensor(1, S, last_T, &scratch_tile, NULL);
+          // p_tile [1, S, T] -- holds P = exp(scores - max).
+          if (status == ZDNN_OK)
+            status = create_3ds_ztensor(1, S, last_T, &p_tile, NULL);
+          // Zero bias for Q*KT matmul: 2DS{1, T}, reused across all tiles.
+          if (status == ZDNN_OK)
+            status = create_2ds_zero_bias(1, last_T, &bias_qkt);
+        }
+
         zdnnx_set_tile(&si_kt, &tkt, NULL, b, 0, 0, c);
         zdnnx_set_tile(&si_mask, &tmask, NULL, b, 0, 0, c);
         zdnnx_set_tile(&si_v, &tv, NULL, b, 0, c, 0);
@@ -1024,7 +1038,9 @@ zdnn_status zdnnx_seq_sdpa_3d(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
     use_basic = (getenv("ZDNNX_SDPA_3D_BASIC") != NULL);
 
   uint32_t S = zdnnx_get_transformed_dim(Q, E2);
-  if (use_basic || S <= 2048)
-    return sdpa_3d_basic(Q, KT, Mask, V, output);
-  return flash_attention(Q, KT, Mask, V, output);
+  uint32_t tile_size = 1024;
+  // if (use_basic || S <= tile_size)
+  //   return sdpa_3d_basic(Q, KT, Mask, V, output);
+  // Choose tile size T: aligned to 64, must divide SK evenly.
+  return flash_attention(Q, KT, Mask, V, /*tile_size*/ tile_size, output);
 }
