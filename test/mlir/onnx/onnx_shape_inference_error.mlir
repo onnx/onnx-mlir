@@ -127,3 +127,12 @@ func.func @test_det_non_square(%arg0 : tensor<2x3xf32>) -> tensor<*xf32> {
 }
 
 // -----
+
+func.func @test_split_sizes_do_not_sum_to_axis_dim(%arg0 : tensor<16x32x64xf32>) -> tensor<*xf32> {
+  %split = onnx.Constant dense<[2, 20]> : tensor<2xi64>
+  // expected-error @+3 {{Split sizes must sum up to the dimension at the split axis}}
+  // expected-error @+2 {{Failed to scan parameters successfully}}
+  // expected-error @+1 {{'onnx.Split' op shape inference failed}}
+  %0, %1 = "onnx.Split"(%arg0, %split) {axis = 1 : si64} : (tensor<16x32x64xf32>, tensor<2xi64>) -> (tensor<*xf32>, tensor<*xf32>)
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}

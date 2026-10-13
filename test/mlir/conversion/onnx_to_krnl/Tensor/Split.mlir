@@ -59,6 +59,38 @@ func.func private @test_split_variable(%arg0 : tensor<16x32x64xf32>) -> (tensor<
 
 // -----
 
+// Split values only known at runtime.
+func.func private @test_split_dynamic_sizes(%arg0 : tensor<16x32x64xf32>, %arg1 : tensor<2xi64>) -> (tensor<*xf32>, tensor<*xf32>) {
+  %0, %1 = "onnx.Split"(%arg0, %arg1) { axis = 1 : si64} : (tensor<16x32x64xf32>, tensor<2xi64>) -> (tensor<*xf32>, tensor<*xf32>)
+  "func.return"(%0, %1) : (tensor<*xf32>, tensor<*xf32>) -> ()
+
+  // CHECK-DAG: [[OFFSET_MAP:#.+]] = affine_map<(d0, d1)[s0] -> (d1 + s0)>
+  // CHECK-LABEL: @test_split_dynamic_sizes
+  // CHECK-SAME: ([[INPUT:%.+]]: memref<16x32x64xf32>, [[SPLIT:%.+]]: memref<2xi64>) -> (memref<16x?x64xf32>, memref<16x?x64xf32>)
+  // CHECK: [[LOAD_0:%.+]] = krnl.load [[SPLIT]]{{.}}%c0{{.}} : memref<2xi64>
+  // CHECK: [[SIZE_0:%.+]] = arith.index_cast [[LOAD_0]] : i64 to index
+  // CHECK: [[LOAD_1:%.+]] = krnl.load [[SPLIT]]{{.}}%c1{{.}} : memref<2xi64>
+  // CHECK: [[SIZE_1:%.+]] = arith.index_cast [[LOAD_1]] : i64 to index
+  // CHECK: [[RES_0:%.+]] = memref.alloc([[SIZE_0]]) {{.*}}: memref<16x?x64xf32>
+  // CHECK: [[RES_1:%.+]] = memref.alloc([[SIZE_1]]) {{.*}}: memref<16x?x64xf32>
+  // CHECK: [[DEF_LOOP_0:%.+]]:3 = krnl.define_loops 3
+  // CHECK: krnl.iterate({{.*}}) with ({{.*}} = 0 to 16, {{.*}} = 0 to {{.*}}([[SIZE_0]]), {{.*}} = 0 to 64){
+  // CHECK:   [[IV:%.+]]:3 = krnl.get_induction_var_value([[DEF_LOOP_0]]#0, [[DEF_LOOP_0]]#1, [[DEF_LOOP_0]]#2)
+  // CHECK:   [[LOAD_IN_0:%.+]] = krnl.load [[INPUT]]{{.}}[[IV]]#0, [[IV]]#1, [[IV]]#2{{.}} : memref<16x32x64xf32>
+  // CHECK:   krnl.store [[LOAD_IN_0]], [[RES_0]]{{.}}[[IV]]#0, [[IV]]#1, [[IV]]#2{{.}} : memref<16x?x64xf32>
+  // CHECK: }
+  // CHECK: [[DEF_LOOP_1:%.+]]:3 = krnl.define_loops 3
+  // CHECK: krnl.iterate({{.*}}) with ({{.*}} = 0 to 16, {{.*}} = 0 to {{.*}}([[SIZE_1]]), {{.*}} = 0 to 64){
+  // CHECK:   [[IV:%.+]]:3 = krnl.get_induction_var_value([[DEF_LOOP_1]]#0, [[DEF_LOOP_1]]#1, [[DEF_LOOP_1]]#2)
+  // CHECK:   [[INDEX:%.+]] = affine.apply [[OFFSET_MAP]]({{.*}}, [[IV]]#1){{.}}[[SIZE_0]]{{.}}
+  // CHECK:   [[LOAD_IN_1:%.+]] = krnl.load [[INPUT]]{{.}}[[IV]]#0, [[INDEX]], [[IV]]#2{{.}} : memref<16x32x64xf32>
+  // CHECK:   krnl.store [[LOAD_IN_1]], [[RES_1]]{{.}}[[IV]]#0, [[IV]]#1, [[IV]]#2{{.}} : memref<16x?x64xf32>
+  // CHECK: }
+  // CHECK: return [[RES_0]], [[RES_1]] : memref<16x?x64xf32>, memref<16x?x64xf32>
+}
+
+// -----
+
 func.func private @test_splitv11_equal(%arg0 : tensor<16x32x64xf32>) -> (tensor<*xf32>, tensor<*xf32>) {
   %0, %1 = "onnx.SplitV11"(%arg0) { axis = 0 : si64} : (tensor<16x32x64xf32>) -> (tensor<*xf32>, tensor<*xf32>)
   "func.return"(%0, %1) : (tensor<*xf32>, tensor<*xf32>) -> ()
