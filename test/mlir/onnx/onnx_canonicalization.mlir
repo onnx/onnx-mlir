@@ -2566,6 +2566,67 @@ func.func @test_split_leakyrelu_movement_different_alpha(%arg0: tensor<1x8x2xf32
 
 // -----
 
+// Split into the whole input and an empty output, which is only used by a
+// concat: both the split and the concat are removed.
+func.func @test_split_noop(%arg0: tensor<?x?x40x64xf32>, %arg1: tensor<?x?x40x64xf32>) -> (tensor<?x?x40x64xf32>, tensor<?x?x40x64xf32>) {
+  %cst = onnx.Constant dense<[64, 0]> : tensor<2xi64>
+  %0:2 = "onnx.Split"(%arg0, %cst) {axis = 3 : si64} : (tensor<?x?x40x64xf32>, tensor<2xi64>) -> (tensor<?x?x40x64xf32>, tensor<?x?x40x0xf32>)
+  %1 = "onnx.Concat"(%arg1, %0#1) {axis = 3 : si64} : (tensor<?x?x40x64xf32>, tensor<?x?x40x0xf32>) -> tensor<?x?x40x64xf32>
+  onnx.Return %0#0, %1 : tensor<?x?x40x64xf32>, tensor<?x?x40x64xf32>
+}
+// CHECK-LABEL:  func.func @test_split_noop
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x40x64xf32>, [[PARAM_1_:%.+]]: tensor<?x?x40x64xf32>)
+// CHECK-NOT:       onnx.Split
+// CHECK-NOT:       onnx.Concat
+// CHECK:           onnx.Return [[PARAM_0_]], [[PARAM_1_]] : tensor<?x?x40x64xf32>, tensor<?x?x40x64xf32>
+
+// -----
+
+func.func @test_split_noop_not_empty(%arg0: tensor<?x?x40x64xf32>) -> (tensor<?x?x40x32xf32>, tensor<?x?x40x32xf32>) {
+  %cst = onnx.Constant dense<[32, 32]> : tensor<2xi64>
+  %0:2 = "onnx.Split"(%arg0, %cst) {axis = 3 : si64} : (tensor<?x?x40x64xf32>, tensor<2xi64>) -> (tensor<?x?x40x32xf32>, tensor<?x?x40x32xf32>)
+  onnx.Return %0#0, %0#1 : tensor<?x?x40x32xf32>, tensor<?x?x40x32xf32>
+}
+// CHECK-LABEL:  func.func @test_split_noop_not_empty
+// CHECK:           "onnx.Split"
+
+// -----
+
+// Not removed since the empty output is still used.
+func.func @test_split_noop_empty_output_used(%arg0: tensor<?x?x40x64xf32>) -> (tensor<?x?x40x64xf32>, tensor<?x?x40x0xf32>) {
+  %cst = onnx.Constant dense<[64, 0]> : tensor<2xi64>
+  %0:2 = "onnx.Split"(%arg0, %cst) {axis = 3 : si64} : (tensor<?x?x40x64xf32>, tensor<2xi64>) -> (tensor<?x?x40x64xf32>, tensor<?x?x40x0xf32>)
+  onnx.Return %0#0, %0#1 : tensor<?x?x40x64xf32>, tensor<?x?x40x0xf32>
+}
+// CHECK-LABEL:  func.func @test_split_noop_empty_output_used
+// CHECK:           "onnx.Split"
+
+// -----
+
+// Two operands with a zero dim at axis are removed.
+func.func @test_concat_two_zero_dim_inputs(%arg0: tensor<2x0xf32>, %arg1: tensor<2x3xf32>, %arg2: tensor<2x0xf32>) -> tensor<2x3xf32> {
+  %0 = "onnx.Concat"(%arg0, %arg1, %arg2) {axis = 1 : si64} : (tensor<2x0xf32>, tensor<2x3xf32>, tensor<2x0xf32>) -> tensor<2x3xf32>
+  onnx.Return %0 : tensor<2x3xf32>
+}
+// CHECK-LABEL:  func.func @test_concat_two_zero_dim_inputs
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x0xf32>, [[PARAM_1_:%.+]]: tensor<2x3xf32>, [[PARAM_2_:%.+]]: tensor<2x0xf32>)
+// CHECK-NOT:       onnx.Concat
+// CHECK:           onnx.Return [[PARAM_1_]] : tensor<2x3xf32>
+
+// -----
+
+// One operand is kept when all of them have a zero dim at axis.
+func.func @test_concat_all_zero_dim_inputs(%arg0: tensor<2x0xf32>, %arg1: tensor<2x0xf32>) -> tensor<2x0xf32> {
+  %0 = "onnx.Concat"(%arg0, %arg1) {axis = 1 : si64} : (tensor<2x0xf32>, tensor<2x0xf32>) -> tensor<2x0xf32>
+  onnx.Return %0 : tensor<2x0xf32>
+}
+// CHECK-LABEL:  func.func @test_concat_all_zero_dim_inputs
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x0xf32>, [[PARAM_1_:%.+]]: tensor<2x0xf32>)
+// CHECK-NOT:       onnx.Concat
+// CHECK:           onnx.Return [[PARAM_0_]] : tensor<2x0xf32>
+
+// -----
+
 // Not rewriting since the operand in ConcatOp is neither DimOp nor ConstantOp.
 func.func @test_remove_where_equal_5(%arg0: tensor<?x?xi64>, %arg1: tensor<1xi64>, %arg2: tensor<1xi64>) -> tensor<2xi64> {
     %0 = onnx.Constant dense<-1> : tensor<2xi64>
