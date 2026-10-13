@@ -88,8 +88,8 @@ void populateLoweringONNXConvOpToLinalgPattern(
     mlir::MLIRContext *ctx, const std::string &linalgOps, bool useLinalgPath);
 
 // Tensor operations
-void populateLoweringONNXIdentityOpPattern(
-    mlir::RewritePatternSet &patterns, mlir::TypeConverter &typeConverter,
-    mlir::MLIRContext *ctx, const std::string &linalgOps, bool useLinalgPath);
+void populateLoweringONNXIdentityOpPattern(mlir::RewritePatternSet &patterns,
+    mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx,
+    const std::string &linalgOps, bool useLinalgPath);
 
 } // namespace onnx_mlir
