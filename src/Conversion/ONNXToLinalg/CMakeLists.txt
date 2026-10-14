@@ -8,6 +8,7 @@ add_onnx_mlir_library(OMONNXToLinalg
   ConvertONNXToLinalg.cpp
   Math/MatMul.cpp
   NN/Conv.cpp
+  Tensor/Reshape.cpp
   ONNXBufferizableOpInterface.cpp
 
   DEPENDS
