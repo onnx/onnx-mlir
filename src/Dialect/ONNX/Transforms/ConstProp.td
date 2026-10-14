@@ -1086,7 +1086,6 @@ def SliceofConst : NamedPat<"SliceofConst",
 // Patterns for Pad.
 //===----------------------------------------------------------------------===//
 
-// TODO: Support axes. For now it's required to be none.
 def PadOfConst : NamedPat<"PadOfConst",
     // From Pad (x, pads, constant_value, axes)
     (ONNXPadOp:$resOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_),
@@ -1095,7 +1094,7 @@ def PadOfConst : NamedPat<"PadOfConst",
     (CreatePadOfConst $resOp, $input, $constant_value),
     [(IsFromDenseONNXConstantOp:$pads),
      (IsFromDenseONNXConstantOpOrNone:$constant_value),
-     (IsNoneType:$axes),
+     (IsFromDenseONNXConstantOpOrNone:$axes),
      (EqualString<"constant"> $mode)]>;
 
 //===----------------------------------------------------------------------===//

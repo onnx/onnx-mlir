@@ -892,3 +892,76 @@ func.func @test_transpose_perm_too_long(%arg0: tensor<2x3xf32>) -> tensor<*xf32>
   %0 = "onnx.Transpose"(%arg0) {perm = [1, 0, 0, 1]} : (tensor<2x3xf32>) -> tensor<*xf32>
   "onnx.Return"(%0) : (tensor<*xf32>) -> ()
 }
+
+// -----
+
+func.func @test_pad_axes_out_of_range(%arg0: tensor<2x3xf32>) -> tensor<*xf32> {
+  %pads = onnx.Constant dense<[1, 1]> : tensor<2xi64>
+  %axes = onnx.Constant dense<[2]> : tensor<1xi64>
+  %none = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{'onnx.Pad' op axes[0] = 2 is out of range [-2, 1]}}
+  %0 = "onnx.Pad"(%arg0, %pads, %none, %axes) {mode = "constant"} : (tensor<2x3xf32>, tensor<2xi64>, none, tensor<1xi64>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func.func @test_pad_axes_repeated(%arg0: tensor<2x3xf32>) -> tensor<*xf32> {
+  %pads = onnx.Constant dense<[1, 1, 1, 1]> : tensor<4xi64>
+  %axes = onnx.Constant dense<[1, 1]> : tensor<2xi64>
+  %none = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{'onnx.Pad' op axes[1] repeats axis 1 of axes[0]}}
+  %0 = "onnx.Pad"(%arg0, %pads, %none, %axes) {mode = "constant"} : (tensor<2x3xf32>, tensor<4xi64>, none, tensor<2xi64>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func.func @test_pad_axes_repeated_negative(%arg0: tensor<2x3x4x5xf32>) -> tensor<*xf32> {
+  %pads = onnx.Constant dense<[1, 1, 1, 1]> : tensor<4xi64>
+  %axes = onnx.Constant dense<[1, -3]> : tensor<2xi64>
+  %none = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{'onnx.Pad' op axes[1] repeats axis 1 of axes[0]}}
+  %0 = "onnx.Pad"(%arg0, %pads, %none, %axes) {mode = "constant"} : (tensor<2x3x4x5xf32>, tensor<4xi64>, none, tensor<2xi64>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func.func @test_pad_axes_pads_size(%arg0: tensor<2x3xf32>) -> tensor<*xf32> {
+  %pads = onnx.Constant dense<[1, 1, 1, 1]> : tensor<4xi64>
+  %axes = onnx.Constant dense<[1]> : tensor<1xi64>
+  %none = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{'onnx.Pad' op pads must have 2 * 1 elements, one begin and one end per padded axis, got 4}}
+  %0 = "onnx.Pad"(%arg0, %pads, %none, %axes) {mode = "constant"} : (tensor<2x3xf32>, tensor<4xi64>, none, tensor<1xi64>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func.func @test_pad_unknown_mode(%arg0: tensor<2x3xf32>) -> tensor<*xf32> {
+  %pads = onnx.Constant dense<[1, 1, 1, 1]> : tensor<4xi64>
+  %none = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{'onnx.Pad' op mode must be one of constant, reflect, edge or wrap, got mirror}}
+  %0 = "onnx.Pad"(%arg0, %pads, %none, %none) {mode = "mirror"} : (tensor<2x3xf32>, tensor<4xi64>, none, none) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func.func @test_pad_pads_not_1d(%arg0: tensor<2x3xf32>, %pads: tensor<2x2xi64>) -> tensor<*xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{'onnx.Pad' op pads must be a 1-D tensor, got rank 2}}
+  %0 = "onnx.Pad"(%arg0, %pads, %none, %none) {mode = "constant"} : (tensor<2x3xf32>, tensor<2x2xi64>, none, none) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func.func @test_pad_axes_not_1d(%arg0: tensor<2x3xf32>, %axes: tensor<1x1xi64>) -> tensor<*xf32> {
+  %pads = onnx.Constant dense<[1, 1]> : tensor<2xi64>
+  %none = "onnx.NoValue"() {value} : () -> none
+  // expected-error @+1 {{'onnx.Pad' op axes must be a 1-D tensor, got rank 2}}
+  %0 = "onnx.Pad"(%arg0, %pads, %none, %axes) {mode = "constant"} : (tensor<2x3xf32>, tensor<2xi64>, none, tensor<1x1xi64>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}
