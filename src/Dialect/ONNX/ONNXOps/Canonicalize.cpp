@@ -707,6 +707,11 @@ struct PropagateConstantScalingInAttentionLayerPattern
     if (!onnxMatMulOp)
       return rewriter.notifyMatchFailure(genericOp,
           "The first operand of Div/Mul is not produced by MatMulOp");
+    // Scaling the constants scales every use of the MatMul result, so the
+    // Div/Mul must be its only user.
+    if (!lhsOMOp.hasOneUse())
+      return rewriter.notifyMatchFailure(
+          genericOp, "The MatMul result has more than one use");
     Value lhs = onnxMatMulOp.getA();
     Value rhs = onnxMatMulOp.getB();
     // The second operand of Div/Mul is a scalar constant.

@@ -724,15 +724,22 @@ struct SplitMatMulBySlicePattern : public OpRewritePattern<ONNXMatMulOp> {
     // output of a Split of Y, with the value it replaces.
     SmallVector<std::tuple<Value, int64_t, int64_t>> slices;
     if (auto splitOp = onnx_mlir::singleUserOfOpType<ONNXSplitOp>(Y)) {
-      // Single user is a Split along the last axis, with outputs of static
-      // width. Each output starts where the previous one ends.
+      // Single user is a Split of Y along the last axis, with outputs of
+      // static width. Each output starts where the previous one ends.
+      if (splitOp.getInput() != Y)
+        return rewriter.notifyMatchFailure(
+            matmulOp, "users are not Slices or a single Split");
       int64_t axis = splitOp.getAxis();
       if (axis != -1 && axis != yRank - 1)
         return rewriter.notifyMatchFailure(
             matmulOp, "Split is not on the last axis");
       int64_t start = 0;
       for (Value output : splitOp.getOutputs()) {
-        int64_t width = onnx_mlir::getShape(output.getType()).back();
+        auto outputType = mlir::dyn_cast<RankedTensorType>(output.getType());
+        if (!outputType || outputType.getRank() != yRank)
+          return rewriter.notifyMatchFailure(
+              matmulOp, "Split output is not ranked like the MatMul output");
+        int64_t width = outputType.getShape().back();
         if (ShapedType::isDynamic(width))
           return rewriter.notifyMatchFailure(
               matmulOp, "Split output width is not static");
@@ -1508,8 +1515,10 @@ void onnx_mlir::getRecomposeONNXToONNXPatterns(
   patterns.insert<RecomposeLayerNormFromMulPattern>(context);
   patterns.insert<RecomposeQLinearMatMulFromQuantizeLinearPattern>(context);
   patterns.insert<CombineParallelConv2DPattern>(context);
-  patterns.insert<UnbindSlicesToSplitPattern>(context);
-  patterns.insert<PullSqueezeTransposeThroughSplitPattern>(context);
+  if (!disableUnbindToSplit) {
+    patterns.insert<UnbindSlicesToSplitPattern>(context);
+    patterns.insert<PullSqueezeTransposeThroughSplitPattern>(context);
+  }
   if (enableAttentionOpConstruct)
     patterns.insert<RecomposeAttentionFromMatMulPattern>(context);
   if (!disableSplitMatMulBySlice)

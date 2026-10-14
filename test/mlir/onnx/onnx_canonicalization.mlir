@@ -3146,3 +3146,67 @@ func.func @test_div_on_attention_operand_no_bias(%arg0: tensor<?x?x768xf32>, %ar
 // CHECK:           onnx.Return [[VAR_7_]] : tensor<?x12x?x?xf32>
 // CHECK:         }
 }
+
+// -----
+
+// COM: Do not fold the scalar multiplication of Q*K^T into the constant weight
+// COM: and bias of the Q projection when the unscaled Q*K^T has another use:
+// COM: folding would scale that use too.
+func.func @test_mul_in_attention_multiple_uses(%arg0: tensor<?x?x768xf32>, %arg1: tensor<?x12x64x?xf32>) -> (tensor<?x12x?x?xf32>, tensor<?x12x?x?xf32>) {
+  %s = onnx.Constant dense<[0, 0, 12, 64]> : tensor<4xi64>
+  %w = onnx.Constant dense<2.560000e+02> : tensor<768x768xf32>
+  %c = onnx.Constant dense<0.125> : tensor<f32>
+  %b = onnx.Constant dense<1.280000e+02> : tensor<768xf32>
+  %m = "onnx.MatMul"(%arg0, %w) : (tensor<?x?x768xf32>, tensor<768x768xf32>) -> tensor<?x?x768xf32>
+  %0 = "onnx.Add"(%m, %b) : (tensor<?x?x768xf32>, tensor<768xf32>) -> tensor<?x?x768xf32>
+  %1 = "onnx.Reshape"(%0, %s) {allowzero = 0 : si64} : (tensor<?x?x768xf32>, tensor<4xi64>) -> tensor<?x?x12x64xf32>
+  %2 = "onnx.Transpose"(%1) {perm = [0, 2, 1, 3]} : (tensor<?x?x12x64xf32>) -> tensor<?x12x?x64xf32>
+  %3 = "onnx.MatMul"(%2, %arg1) : (tensor<?x12x?x64xf32>, tensor<?x12x64x?xf32>) -> tensor<?x12x?x?xf32>
+  %4 = "onnx.Mul"(%3, %c) : (tensor<?x12x?x?xf32>, tensor<f32>) -> tensor<?x12x?x?xf32>
+  onnx.Return %3, %4 : tensor<?x12x?x?xf32>, tensor<?x12x?x?xf32>
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_mul_in_attention_multiple_uses
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x768xf32>, [[PARAM_1_:%.+]]: tensor<?x12x64x?xf32>) -> (tensor<?x12x?x?xf32>, tensor<?x12x?x?xf32>) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[0, 0, 12, 64]> : tensor<4xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<2.560000e+02> : tensor<768x768xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<1.250000e-01> : tensor<f32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<1.280000e+02> : tensor<768xf32>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.MatMul"([[PARAM_0_]], [[VAR_1_]]) : (tensor<?x?x768xf32>, tensor<768x768xf32>) -> tensor<?x?x768xf32>
+// CHECK:           [[VAR_5_:%.+]] = "onnx.Add"([[VAR_4_]], [[VAR_3_]]) : (tensor<?x?x768xf32>, tensor<768xf32>) -> tensor<?x?x768xf32>
+// CHECK:           [[VAR_6_:%.+]] = "onnx.Reshape"([[VAR_5_]], [[VAR_0_]]) <{allowzero = 0 : si64}> : (tensor<?x?x768xf32>, tensor<4xi64>) -> tensor<?x?x12x64xf32>
+// CHECK:           [[VAR_7_:%.+]] = "onnx.Transpose"([[VAR_6_]]) <{perm = [0, 2, 1, 3]}> : (tensor<?x?x12x64xf32>) -> tensor<?x12x?x64xf32>
+// CHECK:           [[VAR_8_:%.+]] = "onnx.MatMul"([[VAR_7_]], [[PARAM_1_]]) : (tensor<?x12x?x64xf32>, tensor<?x12x64x?xf32>) -> tensor<?x12x?x?xf32>
+// CHECK:           [[VAR_9_:%.+]] = "onnx.Mul"([[VAR_8_]], [[VAR_2_]]) : (tensor<?x12x?x?xf32>, tensor<f32>) -> tensor<?x12x?x?xf32>
+// CHECK:           onnx.Return [[VAR_8_]], [[VAR_9_]] : tensor<?x12x?x?xf32>, tensor<?x12x?x?xf32>
+// CHECK:         }
+}
+
+// -----
+
+// COM: Same as above, for a bias-free projection.
+func.func @test_mul_in_attention_no_bias_multiple_uses(%arg0: tensor<?x?x768xf32>, %arg1: tensor<?x12x64x?xf32>) -> (tensor<?x12x?x?xf32>, tensor<?x12x?x?xf32>) {
+  %s = onnx.Constant dense<[0, 0, 12, 64]> : tensor<4xi64>
+  %w = onnx.Constant dense<2.560000e+02> : tensor<768x768xf32>
+  %c = onnx.Constant dense<0.125> : tensor<f32>
+  %0 = "onnx.MatMul"(%arg0, %w) : (tensor<?x?x768xf32>, tensor<768x768xf32>) -> tensor<?x?x768xf32>
+  %1 = "onnx.Reshape"(%0, %s) {allowzero = 0 : si64} : (tensor<?x?x768xf32>, tensor<4xi64>) -> tensor<?x?x12x64xf32>
+  %2 = "onnx.Transpose"(%1) {perm = [0, 2, 1, 3]} : (tensor<?x?x12x64xf32>) -> tensor<?x12x?x64xf32>
+  %3 = "onnx.MatMul"(%2, %arg1) : (tensor<?x12x?x64xf32>, tensor<?x12x64x?xf32>) -> tensor<?x12x?x?xf32>
+  %4 = "onnx.Mul"(%3, %c) : (tensor<?x12x?x?xf32>, tensor<f32>) -> tensor<?x12x?x?xf32>
+  onnx.Return %3, %4 : tensor<?x12x?x?xf32>, tensor<?x12x?x?xf32>
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_mul_in_attention_no_bias_multiple_uses
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x768xf32>, [[PARAM_1_:%.+]]: tensor<?x12x64x?xf32>) -> (tensor<?x12x?x?xf32>, tensor<?x12x?x?xf32>) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[0, 0, 12, 64]> : tensor<4xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<2.560000e+02> : tensor<768x768xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<1.250000e-01> : tensor<f32>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.MatMul"([[PARAM_0_]], [[VAR_1_]]) : (tensor<?x?x768xf32>, tensor<768x768xf32>) -> tensor<?x?x768xf32>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Reshape"([[VAR_3_]], [[VAR_0_]]) <{allowzero = 0 : si64}> : (tensor<?x?x768xf32>, tensor<4xi64>) -> tensor<?x?x12x64xf32>
+// CHECK:           [[VAR_5_:%.+]] = "onnx.Transpose"([[VAR_4_]]) <{perm = [0, 2, 1, 3]}> : (tensor<?x?x12x64xf32>) -> tensor<?x12x?x64xf32>
+// CHECK:           [[VAR_6_:%.+]] = "onnx.MatMul"([[VAR_5_]], [[PARAM_1_]]) : (tensor<?x12x?x64xf32>, tensor<?x12x64x?xf32>) -> tensor<?x12x?x?xf32>
+// CHECK:           [[VAR_7_:%.+]] = "onnx.Mul"([[VAR_6_]], [[VAR_2_]]) : (tensor<?x12x?x?xf32>, tensor<f32>) -> tensor<?x12x?x?xf32>
+// CHECK:           onnx.Return [[VAR_6_]], [[VAR_7_]] : tensor<?x12x?x?xf32>, tensor<?x12x?x?xf32>
+// CHECK:         }
+}
