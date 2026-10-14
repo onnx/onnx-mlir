@@ -1920,6 +1920,7 @@ def ONNXDeformConvOp:ONNX_Op<"DeformConv",
       return sh;
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXDepthToSpaceOp:ONNX_Op<"DepthToSpace",
