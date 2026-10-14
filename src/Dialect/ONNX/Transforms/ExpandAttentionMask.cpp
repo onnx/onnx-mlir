@@ -9,8 +9,8 @@
 // =============================================================================
 //
 // This file implements a pass to expand attention mask tensors in
-// MatMul-Add-Softmax patterns to eliminate broadcasting in Add operations
-// for NNPA compatibility.
+// MatMul-[Mul]-Add-Softmax patterns to eliminate broadcasting in Add and Mul
+// operations for NNPA compatibility. Mul is optional.
 //
 //===----------------------------------------------------------------------===//
 
@@ -44,11 +44,11 @@ namespace {
 // Structure to hold detected attention pattern information.
 struct AttentionPattern {
   ONNXMatMulOp matmulOp;
-  ONNXMulOp mulOp;           // Optional, can be nullptr.
+  ONNXMulOp mulOp; // Optional, can be nullptr.
   ONNXAddOp addOp;
   ONNXSoftmaxOp softmaxOp;
-  Value scaleOperand;        // For Mul (if present) - attention scale factor.
-  Value maskOperand;         // For Add.
+  Value scaleOperand; // For Mul (if present) - attention scale factor.
+  Value maskOperand;  // For Add.
   bool hasMul;
 };
 
@@ -73,7 +73,7 @@ private:
   // Detect attention pattern (MatMul-[Mul]-Add-Softmax).
   std::optional<AttentionPattern> detectAttentionPattern(
       ONNXAddOp addOp, DimAnalysis *dimAnalysis);
-  
+
   // Helper: Create expanded operand from source operand to target shape.
   Value createExpandedOperand(OpBuilder &builder, Location loc,
       Value operandToExpand, Value targetTensor);
@@ -114,20 +114,33 @@ std::optional<AttentionPattern> ExpandAttentionMaskPass::detectAttentionPattern(
   // Check for optional Mul operation using definedBy<> template.
   if (definedBy<ONNXMulOp>(firstOperand)) {
     ONNXMulOp mulOp = firstOperand.getDefiningOp<ONNXMulOp>();
-    Value scaleOperand = mulOp.getOperand(1);
 
-    // Use existing isScalarTensor helper to verify it's a scale factor.
-    if (!isScalarTensor(scaleOperand))
+    // Mul is commutative: find which operand is MatMul and which is scale.
+    Value mulOp0 = mulOp.getOperand(0);
+    Value mulOp1 = mulOp.getOperand(1);
+    Value matmulValue = nullptr;
+    Value scaleCandidate = nullptr;
+
+    if (definedBy<ONNXMatMulOp>(mulOp0)) {
+      matmulValue = mulOp0;
+      scaleCandidate = mulOp1;
+    } else if (definedBy<ONNXMatMulOp>(mulOp1)) {
+      matmulValue = mulOp1;
+      scaleCandidate = mulOp0;
+    }
+
+    if (matmulValue && scaleCandidate && isScalarTensor(scaleCandidate)) {
+      // Valid attention scaling pattern: MatMul * scalar_scale.
+      pattern.matmulOp = matmulValue.getDefiningOp<ONNXMatMulOp>();
+      pattern.mulOp = mulOp;
+      pattern.scaleOperand = scaleCandidate;
+      pattern.hasMul = true;
+    } else if (matmulValue) {
+      // Mul present but scale is not scalar — treat as MatMul->Add (mask only).
+      pattern.matmulOp = matmulValue.getDefiningOp<ONNXMatMulOp>();
+    } else {
       return std::nullopt;
-
-    // Check if Mul's first operand is from MatMul.
-    if (!definedBy<ONNXMatMulOp>(mulOp.getOperand(0)))
-      return std::nullopt;
-
-    pattern.matmulOp = mulOp.getOperand(0).getDefiningOp<ONNXMatMulOp>();
-    pattern.mulOp = mulOp;
-    pattern.scaleOperand = scaleOperand;
-    pattern.hasMul = true;
+    }
   } else if (definedBy<ONNXMatMulOp>(firstOperand)) {
     // Direct MatMul->Add pattern (no Mul).
     pattern.matmulOp = firstOperand.getDefiningOp<ONNXMatMulOp>();
@@ -264,11 +277,14 @@ void ExpandAttentionMaskPass::expandEligibleOperands() {
     Value targetTensor = firstPattern.matmulOp.getResult();
     Location loc = firstPattern.addOp.getLoc();
 
-    // Set insertion point before first Add operation.
-    builder.setInsertionPoint(firstPattern.addOp);
+    // Insert right after the first MatMul whose result the Dim ops reference.
+    // This dominates all Add ops in the patterns (MatMul feeds into Add),
+    // and the mask (a block arg or earlier constant) already dominates it.
+    builder.setInsertionPointAfter(firstPattern.matmulOp);
 
     // Create expanded mask using helper function.
-    Value expandedMask = createExpandedOperand(builder, loc, maskTensor, targetTensor);
+    Value expandedMask =
+        createExpandedOperand(builder, loc, maskTensor, targetTensor);
 
     // Replace mask operand in all Add operations.
     for (AttentionPattern &pattern : patterns) {
@@ -287,11 +303,12 @@ void ExpandAttentionMaskPass::expandEligibleOperands() {
     Value targetTensor = firstPattern.matmulOp.getResult();
     Location loc = firstPattern.mulOp.getLoc();
 
-    // Set insertion point before first Mul operation.
-    builder.setInsertionPoint(firstPattern.mulOp);
+    // Insert right after the first MatMul whose result the Dim ops reference.
+    builder.setInsertionPointAfter(firstPattern.matmulOp);
 
     // Create expanded scale using helper function.
-    Value expandedScale = createExpandedOperand(builder, loc, scaleTensor, targetTensor);
+    Value expandedScale =
+        createExpandedOperand(builder, loc, scaleTensor, targetTensor);
 
     // Replace scale operand in all Mul operations.
     for (AttentionPattern &pattern : patterns) {
@@ -302,6 +319,12 @@ void ExpandAttentionMaskPass::expandEligibleOperands() {
 
 void ExpandAttentionMaskPass::runOnOperation() {
   func::FuncOp funcOp = getOperation();
+
+  // Clear state from any prior invocation.
+  patternsByMask.clear();
+  patternsByScale.clear();
+  eligibleMasks.clear();
+  eligibleScales.clear();
 
   // Initialize DimAnalysis.
   ModuleOp module = funcOp->getParentOfType<ModuleOp>();

@@ -747,8 +747,8 @@ public:
 };
 
 /// Pattern to rewrite 4D Add to 3D by eliminating unnecessary reshapes.
-/// Matches: Reshape(3D->4D) -> Add -> Reshape(4D->3D)
-/// Rewrites to: Add on 3D tensors directly
+/// Matches: Reshape(3D->4D) -> [Mul] -> Add -> Reshape(4D->3D)
+/// Rewrites to: [Mul] -> Add on 3D tensors directly. Mul is optional.
 class Rewrite4DAddTo3DPattern : public OpRewritePattern<ONNXReshapeOp> {
 public:
   DimAnalysis *dimAnalysis;
@@ -791,14 +791,15 @@ public:
     auto lookThroughMul = [&dimAnalysis, &addOp](Value operand) -> Value {
       if (isa<BlockArgument>(operand) || !operand.getDefiningOp())
         return operand;
-      
+
       // Check if operand is from Mul.
       if (auto mulOp = dyn_cast<ONNXMulOp>(operand.getDefiningOp())) {
         // Mul operation should not be broadcasting.
         if (!dimAnalysis->sameShape(mulOp.getA(), mulOp.getB()))
           return operand; // Don't look through broadcasting Mul.
-        
-        // Validate Mul result usage: only by the Add operation and Dim operations.
+
+        // Validate Mul result usage: only by the Add operation and Dim
+        // operations.
         Value mulResult = mulOp.getResult();
         for (Operation *user : mulResult.getUsers()) {
           if (user == addOp.getOperation())
@@ -806,11 +807,15 @@ public:
           if (!isa<ONNXDimOp>(user))
             return operand; // Mul has other users, don't look through.
         }
-        
+
         // Look through Mul to find Reshape - prefer Reshape operand.
+        // If neither operand is a Reshape, fall through and return the
+        // original operand (the Mul result). The caller's validation will
+        // then treat it as a plain 4D tensor and reject if no Reshape exists
+        // on the other Add operand.
         Value mulA = mulOp.getA();
         Value mulB = mulOp.getB();
-        
+
         if (!isa<BlockArgument>(mulA) && mulA.getDefiningOp() &&
             isa<ONNXReshapeOp>(mulA.getDefiningOp())) {
           return mulA;
@@ -844,11 +849,13 @@ public:
     // Validate Add's inputs: from reshape 3D->4D (possibly through Mul).
     // Identify reshape operations for Add operands (after looking through Mul).
     ONNXReshapeOp reshape1Op =
-        !isa<BlockArgument>(reshapeOrTensor1) && reshapeOrTensor1.getDefiningOp()
+        !isa<BlockArgument>(reshapeOrTensor1) &&
+                reshapeOrTensor1.getDefiningOp()
             ? dyn_cast<ONNXReshapeOp>(reshapeOrTensor1.getDefiningOp())
             : nullptr;
     ONNXReshapeOp reshape2Op =
-        !isa<BlockArgument>(reshapeOrTensor2) && reshapeOrTensor2.getDefiningOp()
+        !isa<BlockArgument>(reshapeOrTensor2) &&
+                reshapeOrTensor2.getDefiningOp()
             ? dyn_cast<ONNXReshapeOp>(reshapeOrTensor2.getDefiningOp())
             : nullptr;
 
@@ -890,25 +897,27 @@ private:
     Value addOperand1 = addOp.getA();
     Value addOperand2 = addOp.getB();
 
-    // Helper lambda to process operand: extract 3D values and create 3D Mul if needed.
+    // Helper lambda to process operand: extract 3D values and create 3D Mul if
+    // needed.
     auto processOperand = [&](Value operand) -> Value {
       auto mulOp = dyn_cast_or_null<ONNXMulOp>(operand.getDefiningOp());
       if (!mulOp) {
         // No Mul: extract 3D from Reshape or reshape 4D to 3D.
-        if (auto reshapeOp = dyn_cast_or_null<ONNXReshapeOp>(operand.getDefiningOp()))
+        if (auto reshapeOp =
+                dyn_cast_or_null<ONNXReshapeOp>(operand.getDefiningOp()))
           return reshapeOp.getData();
         return reshapeTo3D(rewriter, loc, operand);
       }
-      
+
       // Has Mul: extract both operands to 3D and create 3D Mul.
       Value mulA = mulOp.getA();
       Value mulB = mulOp.getB();
-      Value mul3D_A = dyn_cast_or_null<ONNXReshapeOp>(mulA.getDefiningOp())
-                          ? cast<ONNXReshapeOp>(mulA.getDefiningOp()).getData()
-                          : reshapeTo3D(rewriter, loc, mulA);
-      Value mul3D_B = dyn_cast_or_null<ONNXReshapeOp>(mulB.getDefiningOp())
-                          ? cast<ONNXReshapeOp>(mulB.getDefiningOp()).getData()
-                          : reshapeTo3D(rewriter, loc, mulB);
+      auto reshA = dyn_cast_or_null<ONNXReshapeOp>(mulA.getDefiningOp());
+      auto reshB = dyn_cast_or_null<ONNXReshapeOp>(mulB.getDefiningOp());
+      Value mul3D_A =
+          reshA ? reshA.getData() : reshapeTo3D(rewriter, loc, mulA);
+      Value mul3D_B =
+          reshB ? reshB.getData() : reshapeTo3D(rewriter, loc, mulB);
       return create.onnx.mul(mul3D_A, mul3D_B);
     };
 
