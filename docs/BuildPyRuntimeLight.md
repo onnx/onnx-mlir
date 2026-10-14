@@ -6,16 +6,6 @@ The onnx-mlir compiler can compile an ONNX model into a shared library (`.so` fi
 
 Traditionally, PyRuntimeC is built alongside the onnx-mlir compiler, which requires building the entire llvm_project. This document describes a lightweight approach to build PyRuntimeC **without** requiring llvm_project or other onnx-mlir compiler components. This enables users to easily build the Python driver for model execution on different systems.
 
-### What Gets Built
-
-In lightweight mode, only the following components are built:
-- **OMTensorUtils** (`src/Runtime`)
-- **Python driver** (`src/Runtime/python`)
-- **Utility functions**
-- **third_party/pybind11**
-
-The lightweight PyRuntimeC build is controlled by the CMake option: `ONNX_MLIR_TARGET_TO_BUILD=OMPyRt`
-
 ## Prerequisites
 
 - CMake (version 3.15 or higher recommended)
@@ -23,11 +13,37 @@ The lightweight PyRuntimeC build is controlled by the CMake option: `ONNX_MLIR_T
 - C++ compiler with C++17 support
 - onnx-mlir source code (cloned from repository)
 
-## Building PyRuntimeC
+## Installing with pip
 
-Assuming you have cloned the onnx-mlir source code and are using a `build` directory for your normal onnx-mlir compiler build, you need to create a separate build directory for the lightweight PyRuntimeC build, for example build-light.
+The `om_pyrt` package can be built and installed in a single step using `pip install`. This automatically runs the CMake build for the lightweight PyRuntimeC and packages the result.
 
-### Build Steps
+### 1. Set Up Python Virtual Environment
+
+First, create and activate a Python virtual environment (recommended):
+
+```bash
+python -m venv path/to/store/your/venv
+source path/to/store/your/venv/bin/activate
+```
+
+### 2. Build and Install
+
+From the onnx-mlir source root:
+
+```bash
+git clone --recursive https://github.com/onnx/onnx-mlir.git
+cd onnx-mlir
+pip install .
+```
+
+This will:
+- Configure CMake with `-DONNX_MLIR_TARGET_TO_BUILD=OMPyRt`
+- Build the C++ extensions (PyRuntimeC, PyOMCompileC)
+- Install the `om_pyrt` Python package
+
+## Building with CMake (alternative)
+
+If you prefer to use CMake directly (e.g., for development or debugging), you can still build manually:
 
 1. **Create a new build directory:**
    ```bash
@@ -42,33 +58,16 @@ Assuming you have cloned the onnx-mlir source code and are using a `build` direc
    make
    ```
 
-## Installing PyRuntimeC
+3. **Create and install the package:**
+   ```bash
+   cmake --build . --target OMCreateOMPyRtPackage
+   pip install src/Runtime/python/om_pyrt
+   ```
 
-### 1. Set Up Python Virtual Environment
-
-First, create and activate a Python virtual environment (recommended):
-
-```bash
-python -m venv path/to/store/your/venv
-source path/to/store/your/venv/bin/activate
-```
-
-### 2. Build and Install the Package
-
-From the `build-light` directory, execute:
-
-```bash
-# Create the package
-cmake --build . --target OMCreateOMPyRtPackage
-
-# Install the package
-pip3 install src/Runtime/python/om_pyrt
-```
-
-Alternatively, for development mode (editable install):
-```bash
-pip3 install -e src/Runtime/python/om_pyrt
-```
+   Alternatively, for development mode (editable install):
+   ```bash
+   pip install -e src/Runtime/python/om_pyrt
+   ```
 
 ## Using PyRuntimeC
 
@@ -115,4 +114,15 @@ The driver is also used by `torch_onnxmlir`, which enables onnx-mlir to function
 
 - **CMake configuration fails**: Ensure you're using CMake 3.15 or higher
 - **Python package installation fails**: Verify your virtual environment is activated
-- **Import errors**: Confirm the package was installed successfully with `pip list | grep om_pyrt`%  
+- **Import errors**: Confirm the package was installed successfully with `pip list | grep om_pyrt`
+
+### Some details
+
+In lightweight mode, only the following components are built:
+- **OMTensorUtils** (`src/Runtime`)
+- **Python driver** (`src/Runtime/python`)
+- **Utility functions**
+- **third_party/pybind11**
+
+The lightweight PyRuntimeC build is controlled by the CMake option: `ONNX_MLIR_TARGET_TO_BUILD=OMPyRt`
+

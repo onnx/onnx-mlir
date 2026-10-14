@@ -1,0 +1,275 @@
+#!/usr/bin/env python3
+"""Fold onnx.DimGroup info into tensor types as a #onnx.dg<> encoding attribute.
+
+Useful for debugging shape inference: dynamic dimensions ("?") that the compiler
+has proven are equal show up as separate onnx.DimGroup ops elsewhere in the file,
+making it hard to tell at a glance which dims are related. This tool inlines that
+info directly into each tensor type, e.g. two dims sharing a group turn from
+tensor<?x?xf32> into tensor<?x?xf32, #onnx.dg<["d0", "u0"]>>, so it's clear
+right where the type is used that those dims are the same size.
+
+A dim whose group the analysis named, either after an onnx.dim_params entry or
+after the argument it comes from, uses that name instead of d0/u0, so it reads
+tensor<?x?xf32, #onnx.dg<["batch_size", "d0"]>>.
+
+Runs the onnx-dim-analysis pass on <input.mlir> to annotate dynamic dimensions
+with onnx.DimGroup ops, saving that intermediate as <input-name>-dg.mlir, then
+folds the group info into a #onnx.dg<> encoding attribute and writes the result
+to <input-name>-annotated.mlir.
+
+To generate a suitable input.mlir:
+  1) Run onnx-mlir with --EmitONNXIR or --EmitZHighIR to produce a .mlir file.
+  2) Pass that file to AnalyzeShape.py.
+
+Locating the onnx-mlir-opt binary:
+  Set ONNX_MLIR_HOME to the onnx-mlir build dir (e.g. path-to-onnx-mlir/build/Debug,
+  the parent folder containing bin/onnx-mlir-opt), or make sure onnx-mlir-opt is on PATH.
+"""
+
+import argparse
+import os
+import re
+import shutil
+import subprocess
+import sys
+
+from mlir_log_utils import (
+    clean_line,
+    VALUE,
+    Annotator,
+    strip_suffix,
+    sanitize_ident,
+    find_matching_close,
+    split_top_level,
+    handle_func_signature,
+    handle_generic_op,
+    handle_return,
+    handle_pretty_result,
+    apply_comments,
+)
+
+# The attributes of an onnx.DimGroup op are read out of the property dict by name
+# so that their order, and any attribute added later, does not matter.
+DIMGROUP_RE = re.compile(
+    r'^\s*"onnx\.DimGroup"\((' + VALUE + r")\)\s*<\{([^{}]*)\}>"
+    r"\s*:\s*\([^()]*\)\s*->\s*\(\)\s*$"
+)
+DIMGROUP_AXIS_RE = re.compile(r"\baxis\s*=\s*(-?\d+)\s*:\s*si64\b")
+DIMGROUP_ID_RE = re.compile(r"\bgroup_id\s*=\s*(-?\d+)\s*:\s*si64\b")
+DIMGROUP_NAME_RE = re.compile(r"\bgroup_name\s*=\s*\"([^\"]*)\"")
+RETURN_VALUES_RE = re.compile(
+    r"onnx\.Return\s+(" + VALUE + r"(?:\s*,\s*" + VALUE + r")*)"
+)
+
+
+def parse_dimgroups(lines):
+    """Read the onnx.DimGroup ops emitted by the pass, returning a map from
+    (value, axis) to group id, and a map from group id to name. The name is the
+    op's optional group_name attribute, i.e. the name the analysis elected for
+    the group; it is absent for a group that has no known name."""
+    axis_to_group = {}
+    name_of_group = {}
+    for line in lines:
+        m = DIMGROUP_RE.match(line)
+        if not m:
+            continue
+        attrs = m.group(2)
+        axis_match = DIMGROUP_AXIS_RE.search(attrs)
+        group_match = DIMGROUP_ID_RE.search(attrs)
+        if not axis_match or not group_match:
+            continue
+        group = int(group_match.group(1))
+        axis_to_group[(strip_suffix(m.group(1)), int(axis_match.group(1)))] = group
+        name_match = DIMGROUP_NAME_RE.search(attrs)
+        if name_match and name_match.group(1) and group not in name_of_group:
+            # A group_name comes from onnx.dim_params or onnx.name, so it can hold
+            # characters not valid in the identifier the annotation puts in a type.
+            name_of_group[group] = sanitize_ident(name_match.group(1))
+    return axis_to_group, name_of_group
+
+
+def parse_return_values(lines):
+    for line in lines:
+        m = RETURN_VALUES_RE.search(line)
+        if m:
+            return [strip_suffix(v.strip()) for v in split_top_level(m.group(1), ",")]
+    return []
+
+
+def total_elements_from_shape(dims):
+    total = 1
+    for d in dims:
+        if not re.fullmatch(r"-?\d+", d):
+            return None
+        total *= int(d)
+    return total
+
+
+def elements_after(line, pos):
+    m = re.match(r"\s*:\s*tensor<([^<>]*)>", line[pos:])
+    if not m:
+        return None
+    dims = m.group(1).split("x")[:-1]
+    return total_elements_from_shape(dims)
+
+
+def elide_long_constants(line):
+    out = []
+    i, n = 0, len(line)
+    while i < n:
+        idx_bracket = line.find("dense<[", i)
+        idx_hex = line.find('dense<"0x', i)
+        candidates = [v for v in (idx_bracket, idx_hex) if v != -1]
+        if not candidates:
+            out.append(line[i:])
+            break
+        idx = min(candidates)
+        out.append(line[i:idx])
+        if idx == idx_bracket:
+            open_idx = idx + len("dense<")
+            close_idx = find_matching_close(line, open_idx, "[", "]")
+            if close_idx == -1:
+                out.append(line[idx:])
+                break
+            gt_match = re.match(r"\s*>", line[close_idx + 1 :])
+            if not gt_match:
+                out.append(line[idx : close_idx + 1])
+                i = close_idx + 1
+                continue
+            gt_idx = close_idx + 1 + gt_match.end()
+            literal_inner = line[open_idx + 1 : close_idx]
+            count = (
+                0
+                if literal_inner.strip() == ""
+                else len(split_top_level(literal_inner, ","))
+            )
+            elements = elements_after(line, gt_idx)
+            elide = elements > 20 if elements is not None else count > 20
+        else:
+            quote_start = idx + len("dense<")
+            close_quote = line.find('"', quote_start + 1)
+            if close_quote == -1:
+                out.append(line[idx:])
+                break
+            gt_match = re.match(r"\s*>", line[close_quote + 1 :])
+            if not gt_match:
+                out.append(line[idx : close_quote + 1])
+                i = close_quote + 1
+                continue
+            gt_idx = close_quote + 1 + gt_match.end()
+            hex_str = line[quote_start + 1 : close_quote]
+            hex_digits = len(hex_str) - 2 if hex_str.startswith("0x") else len(hex_str)
+            elements = elements_after(line, gt_idx)
+            elide = elements > 20 if elements is not None else hex_digits > 40
+        out.append("dense_resource<__elided__>" if elide else line[idx:gt_idx])
+        i = gt_idx
+    return "".join(out)
+
+
+def find_onnx_mlir_opt():
+    exe_name = "onnx-mlir-opt.exe" if sys.platform == "win32" else "onnx-mlir-opt"
+
+    onnx_mlir_home = os.environ.get("ONNX_MLIR_HOME")
+    if onnx_mlir_home:
+        candidate = os.path.join(onnx_mlir_home, "bin", exe_name)
+        if os.path.isfile(candidate):
+            return candidate
+
+    path = shutil.which(exe_name)
+    if path:
+        return path
+
+    raise RuntimeError(
+        "Cannot find onnx-mlir-opt binary. Please either:\n"
+        " 1) Set environment variable ONNX_MLIR_HOME to the path to onnx-mlir\n"
+        "    (e.g., path-to-onnx-mlir/build/Debug, the parent folder containing bin, lib, etc)\n"
+        " 2) Add onnx-mlir-opt to your PATH"
+    )
+
+
+def uses_zhigh_dialect(input_path):
+    with open(input_path) as f:
+        return re.search(r"\bzhigh\.", f.read()) is not None
+
+
+def run_dim_group_annotation_pass(input_path, dg_path):
+    """Run the onnx-dim-analysis pass, which annotates dynamic dimensions with
+    onnx.DimGroup ops, and save the result to dg_path."""
+    onnx_mlir_opt = find_onnx_mlir_opt()
+    cmd = [onnx_mlir_opt, input_path, "--onnx-dim-analysis"]
+    if uses_zhigh_dialect(input_path):
+        cmd += ["--march=z17", "--maccel=NNPA"]
+    print("// started onnx-mlir-opt dependence analysis", file=sys.stderr)
+    with open(dg_path, "w") as out:
+        subprocess.run(cmd, stdout=out, check=True)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "input",
+        metavar="input.mlir",
+        help="mlir file to investigate (an isolated onnx/zhigh pass)",
+    )
+    parser.add_argument(
+        "-c",
+        "--comments",
+        action="store_true",
+        help="Add useful comments to the annotated listing: use-count for each def; "
+        "values for scalar constant (same transform as IsolatePass.py -c).",
+    )
+    parser.add_argument(
+        "-w",
+        "--wrap",
+        action="store_true",
+        help="Reformat long func signatures / ops / returns across multiple indented "
+        "lines when they exceed the line-length limit. Off by default: without this "
+        "flag, annotated lines are kept as single lines no matter how long.",
+    )
+    args = parser.parse_args()
+
+    base, _ = os.path.splitext(args.input)
+    dg_path = base + "-dg.mlir"
+    annotated_path = base + "-annotated.mlir"
+
+    run_dim_group_annotation_pass(args.input, dg_path)
+    print(f"Wrote {dg_path}", file=sys.stderr)
+
+    with open(dg_path) as f:
+        lines = f.read().splitlines()
+
+    axis_to_group, name_of_group = parse_dimgroups(lines)
+    return_values = parse_return_values(lines)
+    ann = Annotator(axis_to_group, name_of_group)
+
+    print("// started annotation", file=sys.stderr)
+    out_lines = [
+        "// -----// IR Dump After (anonymous namespace)::ONNXDimAnalysisPass (onnx-dim-analysis) //----- //"
+    ]
+    for line in lines:
+        if DIMGROUP_RE.match(line):
+            continue
+        line = clean_line(elide_long_constants(line))
+        new_line = (
+            handle_func_signature(line, ann, return_values, wrap=args.wrap)
+            or handle_generic_op(line, ann, wrap=args.wrap)
+            or handle_return(line, ann, wrap=args.wrap)
+            or handle_pretty_result(line, ann, wrap=args.wrap)
+            or line
+        )
+        out_lines.append(new_line)
+
+    text = "\n".join(out_lines) + "\n"
+    if args.comments:
+        text = apply_comments(text)
+
+    with open(annotated_path, "w") as f:
+        f.write(text)
+    print(f"Wrote {annotated_path}", file=sys.stderr)
+
+
+if __name__ == "__main__":
+    main()

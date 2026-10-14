@@ -17,6 +17,7 @@
 #include "mlir/IR/BuiltinAttributeInterfaces.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Endian.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
@@ -45,6 +46,9 @@ size_t parseOffsetOrLength(const std::string &value) {
 // Reads external data from file location specified in tensor proto.
 // The data is little endian encoded.
 // See https://github.com/onnx/onnx/blob/main/docs/ExternalData.md
+//
+// TODO: having a more friendly error reporting method than an assert or
+// unreachable would be a plus.
 std::unique_ptr<llvm::MemoryBuffer> readExternalData_LE(
     const std::string &externalDataDir, const onnx::TensorProto &tp) {
   std::string location;
@@ -62,6 +66,27 @@ std::unique_ptr<llvm::MemoryBuffer> readExternalData_LE(
     }
   }
   assert(!location.empty() && "missing external data location");
+
+  // ONNX external data spec
+  // (https://github.com/onnx/onnx/blob/main/docs/ExternalData.md): "file path
+  // relative to the filesystem directory where the ONNX protobuf model was
+  // stored" "Up-directory path components such as .. are disallowed and should
+  // be stripped when parsing."
+  if (llvm::sys::path::is_absolute(location)) {
+    llvm::errs() << "Error: external data location \"" << location
+                 << "\" must be a relative path.\n";
+    llvm_unreachable("external data location is an absolute path");
+  }
+  for (auto it = llvm::sys::path::begin(location),
+            end = llvm::sys::path::end(location);
+       it != end; ++it) {
+    if (*it == "..") {
+      llvm::errs() << "Error: external data location \"" << location
+                   << "\" contains up-directory component '..'.\n";
+      llvm_unreachable("external data location contains '..'");
+    }
+  }
+
   SmallVector<char> path(externalDataDir.begin(), externalDataDir.end());
   llvm::sys::path::append(path, location);
   std::string pathStr(path.data(), path.size());
@@ -156,6 +181,20 @@ ElementsAttr createElmAttrFromArray(RankedTensorType tensorType,
     const Range &array, const Transformation &transformation) {
   MLIRContext *ctx = tensorType.getContext();
   assert(tensorType.getElementType() == toMlirType<T>(ctx));
+  // The destination buffer allocated by fromArray()/fromRawBytes() is sized
+  // from tensorType.getNumElements(), while std::transform below writes
+  // array.size() elements. Both the dims and the data payload originate from
+  // an untrusted TensorProto, so a mismatch would cause a heap buffer
+  // overflow (payload larger than dims imply) or leave uninitialized bytes in
+  // the attribute (payload smaller than dims imply). Reject such tensors.
+  const int64_t numElements = tensorType.getNumElements();
+  if (numElements < 0 ||
+      static_cast<uint64_t>(numElements) != static_cast<uint64_t>(array.size()))
+    llvm::report_fatal_error(
+        llvm::Twine("malformed TensorProto: data size (") +
+        llvm::Twine(static_cast<uint64_t>(array.size())) +
+        llvm::Twine(") does not match element count from dims (") +
+        llvm::Twine(numElements) + llvm::Twine(")"));
   return OnnxElementsAttrBuilder(ctx).fromArray<T>(
       tensorType, [array, &transformation](MutableArrayRef<T> copy) {
         std::transform(array.begin(), array.end(), copy.data(), transformation);

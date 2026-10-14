@@ -3,7 +3,7 @@
 
 ##################### RunONNXModel.py #########################################
 #
-# Copyright 2019-2025 The IBM Research Authors.
+# Copyright 2019-2026 The IBM Research Authors.
 #
 ################################################################################
 #
@@ -133,7 +133,7 @@ parser.add_argument(
     "-m",
     "--model",
     type=lambda s: valid_onnx_input(s),
-    help="Path to an ONNX model (.onnx or .mlir).",
+    help="Path to an ONNX model (.onnx, .mlir, or .onnxtext).",
 )
 parser.add_argument(
     "--config-file",
@@ -255,6 +255,11 @@ parser.add_argument(
     metavar="PATH",
     type=str,
     help="Path to a folder to save the inputs and outputs in protobuf.",
+)
+parser.add_argument(
+    "--use-npy",
+    action="store_true",
+    help="Use .npy format instead of .pb format when reading/writing reference inputs/outputs.",
 )
 data_group = parser.add_mutually_exclusive_group()
 data_group.add_argument(
@@ -489,21 +494,27 @@ def get_names_in_signature(signature):
     return names
 
 
-def read_input_from_refs(num_inputs, load_ref_filename, is_load_ref):
+def read_input_from_refs(num_inputs, load_ref_filename, is_load_ref, use_npy=False):
     print("Reading inputs from {} ...".format(load_ref_filename))
     inputs = []
 
     if is_load_ref:
-        import onnx
-        from onnx import numpy_helper
+        if use_npy:
+            for i in range(num_inputs):
+                input_file = load_ref_filename + "/input_{}.npy".format(i)
+                input_np = np.load(input_file)
+                inputs += [input_np]
+        else:
+            import onnx
+            from onnx import numpy_helper
 
-        for i in range(num_inputs):
-            input_file = load_ref_filename + "/input_{}.pb".format(i)
-            input_ts = onnx.TensorProto()
-            with open(input_file, "rb") as f:
-                input_ts.ParseFromString(f.read())
-            input_np = numpy_helper.to_array(input_ts)
-            inputs += [input_np]
+            for i in range(num_inputs):
+                input_file = load_ref_filename + "/input_{}.pb".format(i)
+                input_ts = onnx.TensorProto()
+                with open(input_file, "rb") as f:
+                    input_ts.ParseFromString(f.read())
+                input_np = numpy_helper.to_array(input_ts)
+                inputs += [input_np]
     else:
         spec = importlib.util.spec_from_file_location("om_load_ref", load_ref_filename)
         module = importlib.util.module_from_spec(spec)
@@ -524,21 +535,27 @@ def read_input_from_refs(num_inputs, load_ref_filename, is_load_ref):
     return inputs
 
 
-def read_output_from_refs(num_outputs, load_ref_filename, is_load_ref):
+def read_output_from_refs(num_outputs, load_ref_filename, is_load_ref, use_npy=False):
     print("Reading reference outputs from {} ...".format(load_ref_filename))
     reference_output = []
 
     if is_load_ref:
-        import onnx
-        from onnx import numpy_helper
+        if use_npy:
+            for i in range(num_outputs):
+                output_file = load_ref_filename + "/output_{}.npy".format(i)
+                output_np = np.load(output_file)
+                reference_output += [output_np]
+        else:
+            import onnx
+            from onnx import numpy_helper
 
-        for i in range(num_outputs):
-            output_file = load_ref_filename + "/output_{}.pb".format(i)
-            output_ts = onnx.TensorProto()
-            with open(output_file, "rb") as f:
-                output_ts.ParseFromString(f.read())
-            output_np = numpy_helper.to_array(output_ts)
-            reference_output += [output_np]
+            for i in range(num_outputs):
+                output_file = load_ref_filename + "/output_{}.pb".format(i)
+                output_ts = onnx.TensorProto()
+                with open(output_file, "rb") as f:
+                    output_ts.ParseFromString(f.read())
+                output_np = numpy_helper.to_array(output_ts)
+                reference_output += [output_np]
     else:
         spec = importlib.util.spec_from_file_location(
             "om_load_ref_output", load_ref_filename
@@ -560,9 +577,18 @@ def read_output_from_refs(num_outputs, load_ref_filename, is_load_ref):
     return reference_output
 
 
-def verify_outs(actual_outs, ref_outs, atol, rtol):
+# Cap how many individual mismatches get printed for a single output tensor,
+# so that one badly-mismatched output doesn't flood stdout and hide the
+# status of the other outputs.
+MAX_ERRORS_TO_PRINT = 10
+
+
+def verify_outs(
+    actual_outs, ref_outs, atol, rtol, max_errors_to_print=MAX_ERRORS_TO_PRINT
+):
     total_elements = 0
     mismatched_elements = 0
+    printed_errors = 0
     for index, actual_val in np.ndenumerate(actual_outs):
         total_elements += 1
         ref_val = ref_outs[index]
@@ -575,19 +601,26 @@ def verify_outs(actual_outs, ref_outs, atol, rtol):
             if abs(actual_val - ref_val) <= diff:
                 continue
         mismatched_elements += 1
-        print(
-            "  at {}".format(index),
-            "mismatch {} (actual)".format(actual_val),
-            "vs {} (reference)".format(ref_val),
-        )
+        if printed_errors < max_errors_to_print:
+            print(
+                "  at {}".format(index),
+                "mismatch {} (actual)".format(actual_val),
+                "vs {} (reference)".format(ref_val),
+            )
+            printed_errors += 1
     if mismatched_elements == 0:
         print("  correct.\n")
-    else:
-        raise AssertionError(
-            "  got mismatched elements {}/{}, abort.\n".format(
-                mismatched_elements, total_elements
+        return True
+    if mismatched_elements > printed_errors:
+        print(
+            "  ... {} more mismatch(es) not shown.".format(
+                mismatched_elements - printed_errors
             )
         )
+    print(
+        "  got mismatched elements {}/{}.\n".format(mismatched_elements, total_elements)
+    )
+    return False
 
 
 def data_without_top_bottom_quartile(data, percent):
@@ -601,6 +634,20 @@ def data_without_top_bottom_quartile(data, percent):
 
 def cache_string(model_name, compile_option):
     return "model: " + model_name + "; compile option: " + compile_option
+
+
+def check_mlir_has_entry_point(mlir_path):
+    # A .mlir model with no "onnx.EntryPoint" compiles successfully but has no
+    # function to call at runtime, so it silently fails to run. Catch it early.
+    with open(mlir_path, "r") as f:
+        if "onnx.EntryPoint" not in f.read():
+            print(
+                'Invalid mlir model "'
+                + mlir_path
+                + '": missing "onnx.EntryPoint". The model would compile but '
+                "silently fail to run."
+            )
+            exit(1)
 
 
 ################################################################################
@@ -797,6 +844,8 @@ class InferenceSession:
                     input_model_path = args.model
             elif args.model.endswith(".mlir") or args.model.endswith(".onnxtext"):
                 input_model_path = args.model
+                if args.model.endswith(".mlir") and not args.compile_only:
+                    check_mlir_has_entry_point(args.model)
             else:
                 print(
                     "Invalid input model path. Must end with .onnx or .mlir or .onnxtext"
@@ -826,7 +875,7 @@ class InferenceSession:
                     log_file_name=compiler_log_file,
                 )
             except RuntimeError as e:
-                raise RuntimeError(f"Compilation failed: {e}")
+                raise RuntimeError(f"Compilation failed: {e}") from None
 
         end = time.perf_counter()
         print("  took ", end - start, " seconds.\n")
@@ -887,8 +936,8 @@ class InferenceSession:
                     session = self.session_wrapper(shared_lib_path, tag="None")
                 else:
                     session = self.session_wrapper(shared_lib_path)
-            except RuntimeError:
-                # The C++ layer already printed the specific error to stderr.
+            except RuntimeError as e:
+                print(f"error: {e}", file=sys.stderr)
                 sys.exit(1)
             end = time.perf_counter()
             print("  took ", end - start, " seconds.\n")
@@ -939,12 +988,18 @@ class InferenceSession:
         elif args.load_ref:
             # Get input from reference file.
             self.inputs = read_input_from_refs(
-                len(self.input_names), args.load_ref, is_load_ref=True
+                len(self.input_names),
+                args.load_ref,
+                is_load_ref=True,
+                use_npy=args.use_npy,
             )
         elif args.load_ref_from_numpy:
             # Get input from numpy.
             self.inputs = read_input_from_refs(
-                len(self.input_names), args.load_ref_from_numpy, is_load_ref=False
+                len(self.input_names),
+                args.load_ref_from_numpy,
+                is_load_ref=False,
+                use_npy=args.use_npy,
             )
         elif args.inputs_from_arrays:
             # Get input from array.
@@ -959,8 +1014,8 @@ class InferenceSession:
                     seed=int(float(args.seed)),
                     verbose=True,
                 )
-            except RuntimeError:
-                # The C++ layer already printed the specific error to stderr.
+            except RuntimeError as e:
+                print(f"error: {e}", file=sys.stderr)
                 sys.exit(1)
 
         # Print the input if required.
@@ -1006,21 +1061,32 @@ class InferenceSession:
 
         # Store the input and output if required.
         if args.save_ref:
-            from onnx import numpy_helper
-
             load_ref = args.save_ref
             if not os.path.exists(load_ref):
                 os.mkdir(load_ref)
-            for i in range(len(self.inputs)):
-                tensor = numpy_helper.from_array(self.inputs[i])
-                tensor_path = os.path.join(load_ref, "input_{}.pb".format(i))
-                with open(tensor_path, "wb") as f:
-                    f.write(tensor.SerializeToString())
-            for i in range(len(outs)):
-                tensor = numpy_helper.from_array(outs[i])
-                tensor_path = os.path.join(load_ref, "output_{}.pb".format(i))
-                with open(tensor_path, "wb") as f:
-                    f.write(tensor.SerializeToString())
+
+            if args.use_npy:
+                # Save as .npy files.
+                for i in range(len(self.inputs)):
+                    tensor_path = os.path.join(load_ref, "input_{}.npy".format(i))
+                    np.save(tensor_path, self.inputs[i])
+                for i in range(len(outs)):
+                    tensor_path = os.path.join(load_ref, "output_{}.npy".format(i))
+                    np.save(tensor_path, outs[i])
+            else:
+                # Save as .pb files.
+                from onnx import numpy_helper
+
+                for i in range(len(self.inputs)):
+                    tensor = numpy_helper.from_array(self.inputs[i])
+                    tensor_path = os.path.join(load_ref, "input_{}.pb".format(i))
+                    with open(tensor_path, "wb") as f:
+                        f.write(tensor.SerializeToString())
+                for i in range(len(outs)):
+                    tensor = numpy_helper.from_array(outs[i])
+                    tensor_path = os.path.join(load_ref, "output_{}.pb".format(i))
+                    with open(tensor_path, "wb") as f:
+                        f.write(tensor.SerializeToString())
 
         # Verify the output if required.
         if args.verify:
@@ -1041,21 +1107,28 @@ class InferenceSession:
                 # Reference output available in protobuf.
                 if args.load_ref:
                     ref_outs = read_output_from_refs(
-                        len(self.output_names), args.load_ref, is_load_ref=True
+                        len(self.output_names),
+                        args.load_ref,
+                        is_load_ref=True,
+                        use_npy=args.use_npy,
                     )
                 elif args.load_ref_from_numpy:
                     ref_outs = read_output_from_refs(
                         len(self.output_names),
                         args.load_ref_from_numpy,
                         is_load_ref=False,
+                        use_npy=args.use_npy,
                     )
             else:
                 print("Invalid verify option")
                 exit(1)
 
-            # Verify using softmax first.
+            # Verify using softmax first. Keep verifying the remaining outputs
+            # even if an earlier one is erroneous, so that every output's
+            # status is known instead of stopping on the first failure.
             if args.verify_with_softmax is not None:
                 axis = int(args.verify_with_softmax)
+                softmax_status = []
                 for i, name in enumerate(self.output_names):
                     print(
                         "Verifying using softmax along with "
@@ -1065,16 +1138,52 @@ class InferenceSession:
                     )
                     softmax_outs = softmax(outs[i], axis)
                     softmax_ref_outs = softmax(ref_outs[i], axis)
-                    verify_outs(softmax_outs, softmax_ref_outs, args.atol, args.rtol)
+                    is_correct = verify_outs(
+                        softmax_outs, softmax_ref_outs, args.atol, args.rtol
+                    )
+                    softmax_status.append((name, is_correct))
 
-            # For each output tensor, compare every value.
+                # Only print the summary (and stay silent otherwise) when at
+                # least one output is erroneous.
+                if not all(is_correct for _, is_correct in softmax_status):
+                    print(
+                        "Summary of softmax verification for {} output(s):".format(
+                            len(softmax_status)
+                        )
+                    )
+                    for name, is_correct in softmax_status:
+                        status = "correct" if is_correct else "ERRONEOUS"
+                        print("  {}: {}".format(name, status))
+                    print()
+                    exit(1)
+
+            # For each output tensor, compare every value. Keep verifying the
+            # remaining outputs even if an earlier one is erroneous, so that
+            # every output's status is known instead of aborting on the first
+            # failure.
             if args.verify_every_value:
+                output_status = []
                 for i, name in enumerate(self.output_names):
                     print(
                         "Verifying value of {}:{}".format(name, list(outs[i].shape)),
                         "using atol={}, rtol={} ...".format(args.atol, args.rtol),
                     )
-                    verify_outs(outs[i], ref_outs[i], args.atol, args.rtol)
+                    is_correct = verify_outs(outs[i], ref_outs[i], args.atol, args.rtol)
+                    output_status.append((name, is_correct))
+
+                # Only print the summary (and stay silent otherwise) when at
+                # least one output is erroneous.
+                if not all(is_correct for _, is_correct in output_status):
+                    print(
+                        "Summary of value verification for {} output(s):".format(
+                            len(output_status)
+                        )
+                    )
+                    for name, is_correct in output_status:
+                        status = "correct" if is_correct else "ERRONEOUS"
+                        print("  {}: {}".format(name, status))
+                    print()
+                    exit(1)
 
     """
     Perform a short analysis of time spent in the model.
@@ -1134,13 +1243,20 @@ class InferenceSession:
                 else os.path.join(os.getcwd(), args.write_runtime_log)
             )
             print("  Runtime log is dumped into {}".format(log_file))
+            # The runtime instrumentation opens this file in append mode, so
+            # remove any stale log from a previous run to avoid mixing it in.
+            try:
+                os.remove(log_file)
+            except FileNotFoundError:
+                pass
             os.environ["ONNX_MLIR_INSTRUMENT_FILE"] = log_file
 
         for i in range(args.warmup):
             start = time.perf_counter()
             try:
                 outs = self.run_inference()  # Using inputs from self.inputs.
-            except RuntimeError:
+            except RuntimeError as e:
+                print(f"error: {e}", file=sys.stderr)
                 sys.exit(1)
             end = time.perf_counter()
             print("  {} warmup: {} seconds".format(ordinal(i + 1), end - start))
@@ -1151,7 +1267,8 @@ class InferenceSession:
             start = time.perf_counter()
             try:
                 outs = self.run_inference()  # Using inputs from self.inputs.
-            except RuntimeError:
+            except RuntimeError as e:
+                print(f"error: {e}", file=sys.stderr)
                 sys.exit(1)
             end = time.perf_counter()
             elapsed = end - start
@@ -1217,7 +1334,11 @@ def main():
     session_wrapper = import_driver()
     # Create inference session and perform a performance run test, which load,
     # compute, and possibly verify data.
-    session = InferenceSession(session_wrapper=session_wrapper)
+    try:
+        session = InferenceSession(session_wrapper=session_wrapper)
+    except RuntimeError as e:
+        print(f"error: {e}")
+        sys.exit(1)
     return session.run_performance_test()
 
 

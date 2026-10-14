@@ -13,4 +13,45 @@ def AppendDecodingStrategyPass : Pass<"append-decoding-strategy", "ModuleOp"> {
   }];
 }
 
+def FusionOpTransformPass : Pass<"fusion-op-transform", "ModuleOp"> {
+  let summary = "Fuse chains of ONNX operations into a single ONNXFusedOp (non-accelerator-specific kinds)";
+  let description = [{
+    Detects and replaces chains of ONNX operations with a single ONNXFusedOp,
+    for fusion kinds that are not accelerator-specific -- see
+    src/Dialect/ONNX/Transforms/ONNXFusionOpHelper.hpp for the
+    FusionOpKindHelper subclasses this pass registers. A no-op whenever this
+    pass isn't scheduled at all, which is the case under any accelerator
+    (e.g. NNPA) that instead merges these same patterns into its own, later
+    fusion pass -- see src/Compiler/CompilerPasses.cpp's `targetCPU` gate.
+  }];
+}
+
+def AppendInstrumentedOutputsPass : Pass<"append-instrumented-outputs", "ModuleOp"> {
+  let summary = "append tensors matched by onnx_node_name as extra outputs of the entry function(s)";
+  let description = [{
+    This pass appends selected intermediate tensors, matched by onnx_node_name
+    using the same "REGEX[:inN+outN]" syntax as --instrument-onnx-node, as extra
+    outputs of each entry function. Unlike --instrument-onnx-node (which prints
+    matched tensors as "==SIG-REPORT==" text at runtime), this lets tooling built
+    around comparing model outputs (e.g. utils/RunONNXModel.py's
+    --save-ref/--verify=ref) diff them directly, with no log parsing required.
+  }];
+}
+
+def ExpandAttentionMaskPass : Pass<"expand-attention-mask", "func::FuncOp"> {
+  let summary = "Expand attention mask tensors in MatMul-Add-Softmax patterns for NNPA.";
+  let description = [{
+    Identifies attention mask tensors in MatMul-Add-Softmax patterns where Add
+    performs broadcasting. Expands the mask once if:
+    1. Add is part of MatMul-Add-Softmax pattern
+    2. Mask is used in ≥8 such patterns (configurable)
+    3. All uses have same target shape (verified using DimAnalysis)
+    
+    Eliminates broadcasting in Add operations for NNPA compatibility.
+  }];
+  
+  let constructor = "onnx_mlir::createExpandAttentionMaskPass()";
+  let dependentDialects = ["mlir::func::FuncDialect", "mlir::ONNXDialect"];
+}
+
 #endif

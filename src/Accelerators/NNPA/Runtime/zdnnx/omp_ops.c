@@ -94,9 +94,6 @@ static inline zdnn_status compute_tile_sizes_for_matmul(
   // - If A exceeds MDIS, it is tiled. In this case, threads for the outter loop
   // for A tiles are spread over multiple zAIUs and all threads for the inner
   // loop for B tiles share the same zAIU.
-  //
-  // In all cases, use `OMP_PLACES` to specify zAIUs so that threads are spread
-  // over multiple zAIUs.
   uint32_t mdis_e1 = zdnnx_get_nnpa_max_dim_size(E1);
   uint32_t mdis_e2 = zdnnx_get_nnpa_max_dim_size(E2);
   uint32_t num_zaiu_threads = zdnnx_get_num_zaiu_threads();
@@ -168,7 +165,9 @@ zdnn_status zdnnx_omp_matmul(const zdnn_ztensor *input_a,
     const zdnn_ztensor *input_b, const zdnn_ztensor *input_c, bool transpose_a,
     bool transpose_b, int op_type, zdnn_ztensor *output, bool is_bcast) {
 #ifdef ZDNNX_DEBUG
-  printf("[OMP MatMul]\n");
+  printf("[OMP MatMul, tranpsose_a: %s, tranpsose_b: %s, is_bcast: %s]\n",
+      transpose_a ? "true" : "false", transpose_b ? "true" : "false",
+      is_bcast ? "true" : "false");
 #endif
   // MatMul types in zdnn:
   // - unstacked: A (2D),  B (2D),  C (1D),  Y (2D)
@@ -187,6 +186,16 @@ zdnn_status zdnnx_omp_matmul(const zdnn_ztensor *input_a,
       input_c, &ts_e4, &ts_e2, &ts_e1, &split_bs_only, &split_m, &split_n);
   if (ts_status != ZDNN_OK)
     return ts_status;
+  // Do not split E2 if A is transposed.
+  if (transpose_a) {
+    ts_e2 = 0;
+    split_m = false;
+  }
+  // Do not split E1 if B is transposed.
+  if (transpose_b) {
+    ts_e1 = 0;
+    split_n = false;
+  }
 
   zdnnx_split_info si_a, si_b, si_c, si_y;
   zdnnx_prepare_split_info(&si_a, input_a, ts_e4, 0, ts_e2, 0, "MatMul A");
@@ -374,6 +383,9 @@ zdnn_status zdnnx_omp_unary_elementwise(const zdnn_ztensor *input,
   // Reshape the input tensor by collapsing all dimensions into E4, so that we
   // have enough parallel works in any case and reuse is always possible.
   zdnn_ztensor input_view, output_view;
+  // Independent descriptor storage for each view (f036: deep-copy, no alias).
+  zdnn_tensor_desc input_view_pre_desc, input_view_tfrmd_desc;
+  zdnn_tensor_desc output_view_pre_desc, output_view_tfrmd_desc;
   if (isBigTensor && input_shape[E1] % 64 == 0 && input_shape[E2] % 32 == 0) {
     // Only collapse when E1 is a multiple of 64  and E2 is a multiple of 32 to
     // avoid accessing padding values. Otherwise zdnn will warn range violation.
@@ -387,8 +399,10 @@ zdnn_status zdnnx_omp_unary_elementwise(const zdnn_ztensor *input,
     view_shape[1] = 1;
     view_shape[2] = 32;
     view_shape[3] = 64;
-    zdnnx_create_view(input, &input_view, view_shape, view_layout);
-    zdnnx_create_view(output, &output_view, view_shape, view_layout);
+    zdnnx_create_view(input, &input_view, &input_view_pre_desc,
+        &input_view_tfrmd_desc, view_shape, view_layout);
+    zdnnx_create_view(output, &output_view, &output_view_pre_desc,
+        &output_view_tfrmd_desc, view_shape, view_layout);
   } else {
     // View is exactly same as the original tensor.
     input_view = *input;
@@ -466,6 +480,10 @@ zdnn_status zdnnx_omp_binary_elementwise(const zdnn_ztensor *input_a,
   // Reshape the input tensor by collapsing all dimensions into E4, so that we
   // have enough parallel works in any case and reuse is always possible.
   zdnn_ztensor input_a_view, input_b_view, output_view;
+  // Independent descriptor storage for each view (f036: deep-copy, no alias).
+  zdnn_tensor_desc input_a_view_pre_desc, input_a_view_tfrmd_desc;
+  zdnn_tensor_desc input_b_view_pre_desc, input_b_view_tfrmd_desc;
+  zdnn_tensor_desc output_view_pre_desc, output_view_tfrmd_desc;
   if (isBigTensor && input_shape[E1] % 64 == 0 && input_shape[E2] % 32 == 0) {
     // Only collapse when E1 is a multiple of 64  and E2 is a multiple of 32 to
     // avoid accessing padding values. Otherwise zdnn will warn range violation.
@@ -479,9 +497,12 @@ zdnn_status zdnnx_omp_binary_elementwise(const zdnn_ztensor *input_a,
     view_shape[1] = 1;
     view_shape[2] = 32;
     view_shape[3] = 64;
-    zdnnx_create_view(input_a, &input_a_view, view_shape, view_layout);
-    zdnnx_create_view(input_b, &input_b_view, view_shape, view_layout);
-    zdnnx_create_view(output, &output_view, view_shape, view_layout);
+    zdnnx_create_view(input_a, &input_a_view, &input_a_view_pre_desc,
+        &input_a_view_tfrmd_desc, view_shape, view_layout);
+    zdnnx_create_view(input_b, &input_b_view, &input_b_view_pre_desc,
+        &input_b_view_tfrmd_desc, view_shape, view_layout);
+    zdnnx_create_view(output, &output_view, &output_view_pre_desc,
+        &output_view_tfrmd_desc, view_shape, view_layout);
   } else {
     // View is exactly same as the original tensor.
     input_a_view = *input_a;

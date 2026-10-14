@@ -93,11 +93,12 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
     }
 
     // Parallelize the outermost 2 loops (N and first output spatial dimension).
+    auto plan = KrnlParallelPlan::noCollapse(
+        loopDef, /*first*/ 0, /*last excl*/ 2, /*cost*/ {16});
     if (enableParallel)
-      tryCreateKrnlParallel(create.krnl, op, "im2col simple", loopDef, lbs, ubs,
-          0, 2, {}, /*min iter for going parallel*/ 16);
+      plan.tryCreateParallel(create.krnl, op, "im2col simple", lbs, ubs);
 
-    create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
+    create.krnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, ubs,
         [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
           MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>
               create(createKrnl);
@@ -256,13 +257,13 @@ struct ONNXIm2ColOpLowering : public OpConversionPattern<ONNXIm2ColOp> {
     ValueRange outerLoopDef = create.krnl.defineLoops(1);
     DimsExpr lbs(1, LitIE(0));
     DimsExpr ubs(1, totalColumns);
+    auto plan = KrnlParallelPlan::noCollapse(
+        outerLoopDef, /*first*/ 0, /*last excl*/ 1, /*cost*/ {8});
     if (enableParallel) {
-      tryCreateKrnlParallel(create.krnl, op, "im2col outer loop parallelized",
-          outerLoopDef, lbs, ubs, 0, 1, {},
-          /*min iter for going parallel*/ 8,
-          /*createKrnlParallel=*/true);
+      plan.tryCreateParallel(
+          create.krnl, op, "im2col outer loop parallelized", lbs, ubs);
     }
-    create.krnl.iterateIE(outerLoopDef, outerLoopDef, lbs, ubs,
+    create.krnl.iterateIE(outerLoopDef, plan.optimizedLoopDef(), lbs, ubs,
         [&](const KrnlBuilder &createKrnl, ValueRange outerInd) {
           MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
               SCFBuilder>

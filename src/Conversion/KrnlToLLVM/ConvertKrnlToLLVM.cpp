@@ -220,6 +220,11 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   populateShapeToStandardConversionPatterns(patterns);
   populateVectorToLLVMConversionPatterns(typeConverter, patterns);
   memref::populateExpandOpsPatterns(patterns);
+  // Expand strided metadata (memref.subview with non-trivial strides) into
+  // explicit offset/stride arithmetic before the final LLVM lowering.
+  // Required when ProcessStickData emits subviews with strided result types
+  // (e.g. memref<4x8xf32> -> memref<1x8xf32, strided<[8,1]>>).
+  memref::populateExpandStridedMetadataPatterns(patterns);
   // Use polynomial approximation for math.{tanh, sin, cos and exp} for better
   // performance.
   populateMathPolynomialApproximationPatterns(patterns);

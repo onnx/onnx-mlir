@@ -418,7 +418,9 @@ zdnn_status zdnnx_seq_matmul(const zdnn_ztensor *input_a,
     const zdnn_ztensor *input_b, const zdnn_ztensor *input_c, bool transpose_a,
     bool transpose_b, int op_type, zdnn_ztensor *output, bool is_bcast) {
 #ifdef ZDNNX_DEBUG
-  printf("[MatMul]\n");
+  printf("[MatMul, tranpsose_a: %s, tranpsose_b: %s, is_bcast: %s]\n",
+      transpose_a ? "true" : "false", transpose_b ? "true" : "false",
+      is_bcast ? "true" : "false");
 #endif
 
   // MatMul types in zdnn:

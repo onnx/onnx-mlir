@@ -8,7 +8,7 @@ func.func @lowering_krnl_memset(%arg0: memref<1xi64>, %arg1: memref<1xi64>) -> (
   %i0 = arith.index_cast %0 : i64 to index
   %1 = affine.load %arg1[%cst_0] : memref<1xi64>
   %i1 = arith.index_cast %1 : i64 to index
-  %2 = memref.alloc(%i0, %i1) {alignment = 4096 : i64} : memref<?x?xf16, #map_2ds>
+  %2 = memref.alloc(%i0, %i1) alignment = 4096 : memref<?x?xf16, #map_2ds>
   // Set all elements including padding elements to 0.0.
   krnl.memset %2, %cst_f0 {delayed = true} : memref<?x?xf16, #map_2ds>
   // Set visible elements (non-padding elements) to 1.0

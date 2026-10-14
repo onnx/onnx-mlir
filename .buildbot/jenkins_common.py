@@ -36,8 +36,10 @@ READ_CHUNK_SIZE = 1024 * 1024
 BASE_BRANCH = "main"
 
 DOCKER_API_TIMEOUT = 3600
-DOCKER_DIST_MANIFEST = "application/vnd.docker.distribution.manifest.v2+json"
-DOCKER_DIST_MANIFEST_LIST = "application/vnd.docker.distribution.manifest.list.v2+json"
+
+# Update to ghcr.io mediaType
+DOCKER_DIST_MANIFEST = "application/vnd.oci.image.manifest.v1+json"
+DOCKER_DIST_MANIFEST_LIST = "application/vnd.oci.image.index.v1+json"
 
 cpu_arch = os.getenv("CPU_ARCH")
 docker_pushpull_rwlock = os.getenv("DOCKER_PUSHPULL_RWLOCK")
@@ -323,12 +325,30 @@ def remove_dependent_containers(image):
             container_info = docker_api.inspect_container(container["Id"])
             logging.info("Removing     Id:%s", container["Id"])
             logging.info("   Image %s", container_info["Image"])
-            logging.info("     Cmd %s", str(container_info["Config"]["Cmd"]))
-            logging.info("  Labels %s", str(container_info["Config"]["Labels"]))
+            # use .get in case the key doesn't exist which will return None
+            logging.info("     Cmd %s", container_info["Config"].get("Cmd"))
+            logging.info("  Labels %s", container_info["Config"].get("Labels"))
             docker_api.remove_container(container["Id"], v=True, force=True)
         except Exception as e:
             logging.exception(e)
             logging.info("errors ignored while removing dependent containers")
+
+
+def remove_docker_images(images):
+    """Remove all the images in the list."""
+
+    for image in images:
+        try:
+            image_info = docker_api.inspect_image(image)
+            logging.info("Removing %s", image)
+            logging.info("RepoTags %s", image_info["RepoTags"])
+            # use .get in case the key doesn't exist which will return None
+            logging.info("     Cmd %s", image_info["Config"].get("Cmd"))
+            logging.info("  Labels %s", image_info["Config"].get("Labels"))
+            docker_api.remove_image(image, force=True)
+        except Exception as e:
+            logging.exception(e)
+            logging.info("errors ignored while removing images")
 
 
 def post_pr_comment(url, msg, token):

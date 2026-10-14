@@ -1,0 +1,299 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+//===------------ FusionOpHelper.hpp - ONNXFusedOp builder base ----------===//
+//
+// Copyright 2026 The IBM Research Authors.
+//
+// =============================================================================
+//
+// FusionOpKindHelper is the generic base class for building and consuming
+// ONNXFusedOp regions.  It owns the op list and output values that every
+// fusion pattern populates, plus the three non-virtual template methods that
+// encode the canonical calling sequences for the fusion pass and the lowering
+// pass.
+//
+// -- Guard against infinite loops --------------------------------------------
+//
+// Fusion passes rewrite matched op chains into an ONNXFusedOp but do NOT
+// erase the original ops — they are moved into the FusedOp body instead.
+// Because the same pattern can therefore match the original ops a second time
+// (now living inside the body), every subclass detectIfBeneficial() override
+// MUST call the base-class helper as its very first check:
+//
+//   if (isInsideFusedOp(startOp))
+//     return false; // already inside a fused op body — skip to avoid loop
+//
+// Without this guard the rewrite pattern would fire repeatedly on the same
+// ops and the pass would diverge.
+//
+// -- DimAnalysis: detectIfBeneficial() decides, verify() only re-checks ------
+//
+// detectIfBeneficial() always receives a non-null DimAnalysis (asserted in
+// FusedPatternForOpKind::matchAndRewrite), and it is the ONLY place where the
+// legality of the fusion is decided. Whenever the lowering's correctness
+// depends on two dynamic dims being equal (e.g. no runtime broadcast, a dim
+// preserved by a Reshape), detection must prove it with DimAnalysis (sameDim
+// / sameShape); a "?" on both sides is not a proof.
+//
+// verify() runs at lowering time, without any DimAnalysis (and one built there
+// would see the body's block arguments as unrelated values anyway). Its job is
+// narrower: to confirm that the body still has the structure, and the params
+// still have the values, that detection recorded -- i.e. that no optimization
+// clobbered the pattern between fusion and lowering. It may therefore be more
+// lax on dynamic dims, comparing static shapes only and accepting "?" vs "?",
+// trusting the proof made at detection. Consequently, a fused op that was NOT
+// created by detectIfBeneficial() (e.g. hand-written IR) carries no such
+// proof, and must itself satisfy the dynamic-dim equalities.
+//
+// When a predicate is shared between detect and verify, give it a
+// `const DimAnalysis *` parameter: non-null from detect (precise), null from
+// verify (static-only, lax on dynamic dims). Document the null behavior at
+// the helper.
+//
+// -- Fusion pass (pattern creation) ------------------------------------------
+//
+//   MyFusion fusion;
+//   if (!fusion.detect(...))
+//     return failure();
+//   if (!fusion.computeInputsAndInsertionPoint())
+//     return failure(); // no valid single insertion point exists -- decline
+//
+//   fusion.fuse(rewriter, loc);
+//   // => uses the insertion point computeInputsAndInsertionPoint() found.
+//   // => private create(): builds body, embedAttrs() stores params as attrs.
+//   // => private replaceAndErase(): back-to-front.
+//
+// computeInputsAndInsertionPoint() is called automatically by
+// FusedPatternForOpKind::matchAndRewrite (FusionOpBasePattern.hpp) right
+// after detectIfBeneficial() succeeds -- subclasses do not need to call it
+// themselves. It exists as a separate step (rather than being folded into
+// fuse()) because it can fail: it is a pure query (no IR mutation) that
+// determines whether a single insertion point exists which is simultaneously
+// after every external input this->ops needs, and before every use -- outside
+// this->ops -- of every value in finalResults. Without this check, an
+// intermediate chain value with an outside use that itself (transitively)
+// feeds one of this->ops' own external inputs would make ops.back() an
+// unsafe insertion point -- the FusedOp's own input would end up depending on
+// its own not-yet-defined output. See FusionOpHelper.cpp for the algorithm.
+//
+// -- Lowering pass (code generation) -----------------------------------------
+//
+//   MyFusion fusion;
+//   fusion.retrieveOpsAndOutputValues(fusedOp);
+//   // => Walks the body block.
+//
+//   if (!fusion.verifyAndRetrieveAttrs(fusedOp))
+//     return rewriter.notifyMatchFailure(fusedOp, "pattern altered");
+//
+//===----------------------------------------------------------------------===//
+
+#ifndef ONNX_MLIR_FUSION_OP_HELPER_H
+#define ONNX_MLIR_FUSION_OP_HELPER_H
+
+#include "mlir/Support/LogicalResult.h"
+#include "llvm/ADT/SmallVector.h"
+
+namespace mlir {
+class Location;
+class Operation;
+class PatternRewriter;
+} // namespace mlir
+
+#include "src/Dialect/ONNX/ONNXOps.hpp"
+
+namespace onnx_mlir {
+
+//===----------------------------------------------------------------------===//
+// FusionOpKindHelper  - generic base, never instantiated directly.
+//===----------------------------------------------------------------------===//
+
+class FusionOpKindHelper {
+public:
+  virtual ~FusionOpKindHelper() = default;
+
+  // -- Non-virtual template methods (calling sequences) ----------------------
+  //
+  // Listed in the same order as the two calling sequences in the file header
+  // comment. computeInputsAndInsertionPoint() and fuse() (the fusion-pass
+  // pair) are called only from FusedPatternForOpKind::matchAndRewrite
+  // (FusionOpBasePattern.hpp) -- listed first, in call order.
+  // retrieveOpsAndOutputValues() and verifyAndRetrieveAttrs() (the
+  // lowering-pass pair) are called only from
+  // FusedOpKindLowering<FusionT>::matchAndRewrite (ONNXToKrnlCommon.hpp) --
+  // listed next, in call order. unFuse() is called from there too, plus
+  // directly by the generic FusedOpInlineFallback::matchAndRewrite
+  // (ONNXToKrnlCommon.cpp) for a kind with no dedicated lowering, so it
+  // comes last.
+
+  /// Pure query (no IR mutation): computes the FusedOp's external input list
+  /// and determines whether a single insertion point exists that is
+  /// simultaneously after every one of those inputs' definitions and before
+  /// every outside (non-chain) use of every value in finalResults. Stores the
+  /// input list and insertion point on success for fuse()/createFusedOp() to
+  /// reuse. Returns false -- meaning the match must be treated as a failure,
+  /// do not call fuse() -- when no such point exists. Must be called exactly
+  /// once, after this->ops and this->finalResults are fully populated (i.e.
+  /// after detectIfBeneficial() would otherwise return true) and before
+  /// fuse().
+  bool computeInputsAndInsertionPoint();
+
+  /// Build the FusedOp, replace the original chain ops with its outputs, and
+  /// erase the chain ops.  computeInputsAndInsertionPoint() must have already
+  /// been called successfully (it sets the rewriter insertion point
+  /// internally, at the anchor it found -- normally FusedPatternForOpKind
+  /// calls it automatically; see the file header comment).
+  mlir::ONNXFusedOp fuse(mlir::PatternRewriter &rewriter, mlir::Location loc);
+
+  /// Walk fusedOp.getBody().front(): collect non-YieldOp ops => this->ops and
+  /// YieldOp operands => this->finalResults.  Resets both fields on entry.
+  void retrieveOpsAndOutputValues(mlir::ONNXFusedOp fusedOp);
+
+  /// Template method: calls the virtual retrieveAttrs() then verify().
+  /// Returns false (and emits LLVM_DEBUG) on any failure.
+  /// this->ops must already be populated (call retrieveOpsAndOutputValues
+  /// first).
+  bool verifyAndRetrieveAttrs(mlir::ONNXFusedOp fusedOp);
+
+  /// Fallback: inline the FusedOp body back into the enclosing function.
+  /// Call this when a dedicated lowering cannot proceed (verify() failed,
+  /// or the kind has no lowering yet).  Uses the original pre-conversion
+  /// FusedOp inputs so that block-argument types are preserved; the caller's
+  /// PatternRewriter then converts the newly exposed ops in the same pass.
+  /// Always returns LogicalResult::success().
+  /// Static so that callers without a FusionOpKindHelper instance (e.g. the
+  /// generic FusedOpInlineFallback catch-all) can invoke it directly.
+  /// Per-kind lowerings that do have an instance can still call it as
+  /// fusion.unFuse(...) — calling a static method via an instance
+  /// is valid C++.
+  static mlir::LogicalResult unFuse(
+      mlir::PatternRewriter &rewriter, mlir::ONNXFusedOp fusedOp);
+
+protected:
+  // -- State populated by the base class, read by subclass overrides --------
+  //
+  // Not public: nothing outside this class hierarchy touches these fields
+  // directly (every external caller -- FusedPatternForOpKind,
+  // FusedOpKindLowering, etc. -- goes through the methods above/below
+  // instead), so subclass-only access is all that's needed.
+
+  /// Chain ops in topological (block) order: usually a line where ops[i]'s
+  /// output feeds ops[i+1], but a DAG is fine too (e.g. two producers of a
+  /// join op). ops.back() is the last op whose result becomes the FusedOp
+  /// output.
+  llvm::SmallVector<mlir::Operation *> ops;
+
+  /// Values yielded by the body, one per ONNXFusedOp result.
+  llvm::SmallVector<mlir::Value> finalResults;
+
+  // -- Helper for subclass detect methods ------------------------------------
+
+  /// Returns true when \p op is directly nested inside an ONNXFusedOp body.
+  /// Call this first in every detectIfBeneficial() override to avoid infinite
+  /// rewrite loops (see the "Guard against infinite loops" note above).
+  static bool isInsideFusedOp(mlir::Operation *op);
+
+  // -- Pure-virtual subclass contract ----------------------------------------
+
+  /// Returns the kind string that identifies this pattern on the ONNXFusedOp.
+  virtual llvm::StringRef getKind() const = 0;
+
+  /// Write all subclass param fields to named MLIR attributes on fusedOp.
+  virtual void embedAttrs(mlir::ONNXFusedOp fusedOp) const = 0;
+
+  /// Read all named MLIR attributes from fusedOp back into the subclass param
+  /// fields.  Returns false if any required attribute is absent.
+  virtual bool retrieveAttrs(mlir::ONNXFusedOp fusedOp) = 0;
+
+  /// Cross-check this->ops against the param fields read by retrieveAttrs().
+  /// Returns false when the body no longer matches the stored parameters.
+  /// Runs without DimAnalysis: it guards against the pattern being clobbered
+  /// after fusion, not against an illegal fusion, and may accept dynamic dims
+  /// that detection proved equal (see "DimAnalysis: detectIfBeneficial()
+  /// decides, verify() only re-checks" above).
+  virtual bool verify() const = 0;
+
+  // -- Optional subclass hook -------------------------------------------------
+
+  /// When true, a small i64 shape Concat whose operands are all constants or
+  /// onnx.Dim ops is cloned into the body (the Dim results become inputs)
+  /// instead of becoming an input itself. Use it when such a Concat is
+  /// defined too late in the block for the FusedOp to take it as an input.
+  /// Off by default, so that the input list of existing kinds is unchanged.
+  virtual bool absorbShapeConcatOfDims() const { return false; }
+
+  // -- Additional subclass contract member (not a virtual) -------------------
+  //
+  // Every subclass must also define:
+  //
+  //   bool detectIfBeneficial(const DimAnalysis *dimAnalysis, AnchorOpType
+  //   startOp);
+  //
+  // where AnchorOpType is the op the subclass anchors its match on (e.g.
+  // ONNXLayoutTransformOp, ONNXUnsqueezeOp).  It cannot be declared here as a
+  // virtual: AnchorOpType differs per subclass, and virtual dispatch requires
+  // a uniform signature across overrides.  Instead it is enforced at compile
+  // time wherever the subclass is plugged into a pattern, e.g.
+  // FusedPatternForOpKind<AnchorOpType, FusionT> (see FusionOpBasePattern.hpp)
+  // — omitting detectIfBeneficial fails to compile at that instantiation, not
+  // here.  Must call isInsideFusedOp(startOp) first (see above).
+  // dimAnalysis is never null; detection must use it to prove every
+  // dynamic-dim equality the lowering relies on, since verify() cannot (see
+  // "DimAnalysis: detectIfBeneficial() decides, verify() only re-checks").
+  //
+  // Every subclass must also define:
+  //
+  //   static constexpr int kMaxOpCount = <N>;
+  //
+  // the longest chain (every optional step included) this kind can ever
+  // match -- i.e. the maximum this->ops.size() can reach on a successful
+  // detectIfBeneficial(). Like detectIfBeneficial, this can't be declared
+  // here (it's a per-subclass compile-time constant, not something a base
+  // class can default); it is instead required at the same instantiation
+  // point, FusedPatternForOpKind<AnchorOpType, FusionT>, which uses it to
+  // seed this pattern's PatternBenefit. That only matters when two kinds
+  // anchor on the *same* op type (mlir::PatternApplicator ranks same-anchor
+  // candidates by benefit -- see mlir/lib/Rewrite/PatternApplicator.cpp).
+  // It does NOT resolve precedence between kinds anchored on *different* op
+  // types, e.g. one kind anchored on ONNXConcatOp whose chain could
+  // subsume another kind's chain anchored on an op partway through it
+  // (ONNXUnsqueezeOp, say): PatternBenefit never orders across anchor
+  // types, since candidates are looked up per anchor op name. That
+  // situation instead has to be resolved by running the longer-chain kind's
+  // pattern in its own, earlier applyPatternsGreedily phase -- see
+  // FusionOpStickUnstick.cpp for a concrete example and rationale.
+
+  // TODO:  when detecting the pattern, we often require "ops" to have only one
+  // use... which has worked so far. But if we detect a situation where there
+  // are multiple use, but only one uses the actual data and not dims for
+  // internal-only consumption, that could be allowed. May add this when we see
+  // a need.
+
+private:
+  // -- State populated by computeInputsAndInsertionPoint(), consumed by
+  // fuse()/createFusedOp(). Not meaningful until that call has returned true.
+  llvm::SmallVector<mlir::Value> fusedInputs;
+  mlir::Operation *insertionAnchor = nullptr;
+  // true: insert immediately after insertionAnchor (it is the latest
+  // external input's defining op). false: insert immediately before
+  // insertionAnchor (the old ops.back()-relative default, still valid
+  // whenever no outside use of a yielded value forces an earlier point).
+  bool insertAfterAnchor = false;
+
+  /// Build the ONNXFusedOp body — called by fuse().
+  mlir::ONNXFusedOp create(mlir::PatternRewriter &rewriter, mlir::Location loc);
+
+  /// Body-building implementation used by create().
+  mlir::ONNXFusedOp createFusedOp(mlir::PatternRewriter &rewriter,
+      mlir::Location loc, llvm::StringRef kind);
+
+  /// Replace output ops and erase internal ops — called by fuse(), after
+  /// create() returns.
+  void replaceAndErase(
+      mlir::PatternRewriter &rewriter, mlir::ONNXFusedOp fusedOp);
+};
+
+} // namespace onnx_mlir
+
+#endif // ONNX_MLIR_FUSION_OP_HELPER_H

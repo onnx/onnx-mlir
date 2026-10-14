@@ -47,9 +47,13 @@ add_onnx_mlir_library(OMInstrument
 
 add_onnx_mlir_library(BufferOMPLoopHoist
   BufferOMPLoopHoist.cpp
-  
+
   DEPENDS
   OMTransformsPassIncGen
+  # This target links no OM dialect library, so the other pass declarations
+  # included by src/Pass/Passes.hpp must be requested directly.
+  OMTransformsKrnlPassIncGen
+  OMONNXTransformsPassIncGen
 
   LINK_LIBS PUBLIC
   MLIRPass
@@ -73,6 +77,27 @@ add_onnx_mlir_library(OMWriteOpStatsToModuleAttribute
   MLIRPass
   MLIRFuncDialect
   MLIRTransforms
+  )
+
+add_onnx_mlir_library(OMEliminateWriteOnlyAlloc
+  EliminateWriteOnlyAlloc.cpp
+
+  LINK_LIBS PUBLIC
+  OMKrnlOps
+  MLIRAffineDialect
+  MLIRFuncDialect
+  MLIRMemRefDialect
+  MLIRSideEffectInterfaces
+  )
+
+add_onnx_mlir_library(OMEliminateEntryArgClone
+  EliminateEntryArgClone.cpp
+
+  LINK_LIBS PUBLIC
+  MLIRBufferizationDialect
+  MLIRFuncDialect
+  MLIRMemRefDialect
+  MLIRPass
   )
 
 add_onnx_mlir_library(OMONNXCSEWithNodeName

@@ -3,11 +3,11 @@
 
 # Supported ONNX Operation for Target *cpu*.
 
-Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitations are listed when applicable. This documentation highlights the minimum and maximum opset versions that are fully supported by onnx-mlir and not the version changes.
+Onnx-mlir currently supports ONNX operations targeting up to opset 24. Limitations are listed when applicable. This documentation highlights the minimum and maximum opset versions that are fully supported by onnx-mlir and not the version changes.
 
 * Operations are defined by the [ONNX Standard](https://github.com/onnx/onnx/blob/main/docs/Operators.md).
 * **Supported Opsets** indicates the lowest and highest opset a model may have for onnx-mlir to support compiling a model with the operator.
-   * A * indicates onnx-mlir is compatible with the latest version of that operator available as of opset 22.
+   * A * indicates onnx-mlir is compatible with the latest version of that operator available as of opset 24.
 
 
 | Op |Supported Opsets (inclusive) |Limitations |Notes |
@@ -26,6 +26,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
 | **Asinh** |9 - * | | |
 | **Atan** |7 - * | | |
 | **Atanh** |9 - * | | |
+| **Attention** |23 - * |Only supports q_num_heads == kv_num_heads (no GQA/MQA). Does not support softcap, a non-default qk_matmul_output_mode, or sliding/local-window attention. Does not support bfloat16 combined with is_causal, or an attn_mask whose kv dimension is shorter than K/V's actual (padded) sequence length. Of the op's three KV-cache input patterns, only "no cache" and "external cache" (K/V already the full cache, nonpad_kv_seqlen given) are supported; "cache update inside the op" (past_key/past_value given) is not. | |
 | **AveragePool** |6 - * | | |
 | **BatchNormalization** |6 - * |Training not supported. | |
 | **Bernoulli** |none | | | |
@@ -44,7 +45,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
 | **Celu** |12 - * | | |
 | **CenterCropPad** |none | | | |
 | **Clip** |6 - * |No support for short integers. | |
-| **Col2Im** |none | | | |
+| **Col2Im** |18 - * | | |
 | **Compress** |9 - * | | |
 | **Concat** |6 - * | | |
 | **ConcatFromSequence** |none | | | |
@@ -60,7 +61,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
 | **DeformConv** |none | | | |
 | **DepthToSpace** |13 - * | | |
 | **DequantizeLinear** |10 - * |Only support for per-tensor or layer dequantization. No support for per-axis dequantization. Does not support int4 and uint4. | |
-| **Det** |none | | | |
+| **Det** |22 - * |Does not support bfloat16. | |
 | **DictVectorizer** |none | | | |
 | **Div** |6 - * |No support for short integers. | |
 | **Dropout** |6 - * |Does not support masked and training. | |
@@ -71,7 +72,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
 | **Erf** |9 - * | | |
 | **Exp** |6 - * | | |
 | **Expand** |8 - * |Input `shape` must have static shape. | |
-| **EyeLike** |none | | | |
+| **EyeLike** |22 - * | | |
 | **FeatureVectorizer** |none | | | |
 | **Flatten** |6 - * |Does not support int4 and uint4. | |
 | **Floor** |6 - * | | |
@@ -199,7 +200,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
 | **Softplus** |6 - * | | |
 | **Softsign** |6 - * | | |
 | **SpaceToDepth** |13 - * | |Example works, the other is imprecise. To investigate. |
-| **Split** |6 - * |Does not support static and dynamic shape, zero size splits. |Temporally removed due to changes in onnx 1.8.1. |
+| **Split** |6 - * | |Temporally removed due to changes in onnx 1.8.1. |
 | **SplitToSequence** |none | | | |
 | **Sqrt** |6 - * | | |
 | **Squeeze** |6 - * |Does not support static and dynamic shape. Does not support int4 and uint4. |Temporally removed due to changes in onnx 1.8.1. |
@@ -208,6 +209,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 22. Limitatio
 | **Sum** |6 - * | | |
 | **Tan** |7 - * | | |
 | **Tanh** |6 - * | | |
+| **TensorScatter** |24 - * | | |
 | **TfIdfVectorizer** |none | | | |
 | **ThresholdedRelu** |10 - * | | |
 | **Tile** |6 - * | | |

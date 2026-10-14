@@ -82,9 +82,11 @@ def UpgradeGridSampleV16Mode :  NativeCodeCall<
 def CanSequenceAtBeReplaced :
    Constraint<CPred<"::onnx_mlir::canSequenceAtBeReplaced($_self)">, "check whether the SequenceAt can be replaced with split">;
 
-// Create a DenseElementsAttr from a single attribute.
-def createDenseArrayAttrFromSingleAttr
-    : NativeCodeCall<"::onnx_mlir::createDenseArrayAttr($_builder, $_builder.getArrayAttr($0))">;
+// Create a DenseElementsAttr from a single float attribute, converting the
+// value to the element type of the given tensor.
+def createDenseArrayAttrFromSingleFloatAttr
+    : NativeCodeCall<"::onnx_mlir::createDenseElementsAttrFromFloatAttr($_builder, "
+                     "mlir::cast<mlir::ShapedType>($0.getType()).getElementType(), $1)">;
 
 // Create a DenseElementsAttr from an ArrayAttr.
 def createDenseArrayAttr
@@ -259,7 +261,8 @@ def UpsampleV7Pattern : Pat<
 def PadV2Pattern : Pat<
   (ONNXPadV2Op $x, $modeAttr, $padsAttr, $valueAttr),
   (ONNXPadOp $x, (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $padsAttr)),
-     (ONNXConstantOpFromDenseAttr(createDenseArrayAttrFromSingleAttr $valueAttr)),
+     (ONNXConstantOpFromDenseAttr
+        (createDenseArrayAttrFromSingleFloatAttr $x, $valueAttr)),
      (CreateNoneValue),
      $modeAttr)
 >;

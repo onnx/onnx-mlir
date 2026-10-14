@@ -59,7 +59,8 @@ void ExecutionSession::signalHandler(int signum) {
 // Constructor, destructor, and init.
 
 ExecutionSession::ExecutionSession(const std::string &sharedLibPath,
-    const std::string &tag, const bool defaultEntryPoint) {
+    const std::string &tag, const bool defaultEntryPoint)
+    : sharedLibPath(sharedLibPath) {
   loadModel(sharedLibPath, tag, defaultEntryPoint);
 }
 
@@ -74,16 +75,21 @@ void ExecutionSession::loadModel(const std::string &sharedLibPath,
         "Execution session must be initialized once at most.");
 
   std::string tag = modelTag;
-  // Set OM_CONSTANT_PATH for loading constants from file if required.
-  // Do this before dlopen since OM_CONSTANT_PATH is used by constructors.
-  std::size_t found = sharedLibPath.find_last_of("/\\");
-  if (found != std::string::npos) {
-    std::string basePath = sharedLibPath.substr(0, found);
+
+  // If OM_CONSTANT_PATH is not set, set it for loading constants from file. Do
+  // this before dlopen since OM_CONSTANT_PATH is used by constructors.
+  bool setOMConstantPath = false;
+  if (!std::getenv("OM_CONSTANT_PATH")) {
+    std::size_t found = sharedLibPath.find_last_of("/\\");
+    if (found != std::string::npos) {
+      std::string basePath = sharedLibPath.substr(0, found);
 #if defined(_WIN32)
-    _putenv_s("OM_CONSTANT_PATH", basePath.c_str());
+      _putenv_s("OM_CONSTANT_PATH", basePath.c_str());
 #else
-    setenv("OM_CONSTANT_PATH", basePath.c_str(), /*overwrite=*/0);
+      setenv("OM_CONSTANT_PATH", basePath.c_str(), /*overwrite=*/0);
 #endif
+      setOMConstantPath = true;
+    }
   }
 
   // If there is no tag, use the model filename without extension as a tag.
@@ -128,9 +134,21 @@ void ExecutionSession::loadModel(const std::string &sharedLibPath,
     throw ExecutionSessionException(
         "Cannot open library: '" + sharedLibPath + "'.");
 #else
-  // Copy code from llvm/lib/Support/DynamicLibrary.cpp, especially the flags
-  // ToFix: copy the lock related code too.
-  _sharedLibraryHandle = dlopen(sharedLibPath.c_str(), RTLD_LAZY | RTLD_GLOBAL);
+  // ToFix: copy the lock related code from llvm/lib/Support/DynamicLibrary.cpp.
+  //
+  // Use RTLD_LOCAL, not RTLD_GLOBAL. Every compiled model .so statically embeds
+  // libcruntime.a (omTensorCreate, omInstrument, etc.) under identical,
+  // untagged symbol names (src/Runtime/CMakeLists.txt:14 -- "embedded in
+  // model.so to make model.so self-contained"). RTLD_GLOBAL promotes those
+  // symbols into the process-wide dynamic-linker scope, so a later model's lazy
+  // binding of e.g. omInstrument* resolves to the first model's copy instead of
+  // its own -- causing merged or empty --profile-ir reports when two
+  // instrumented models share a process, and a dlclose-UAF if the first session
+  // is destroyed while the second still holds bindings into its text. LLVM's
+  // DynamicLibrary.cpp uses RTLD_GLOBAL deliberately for JIT symbol resolution;
+  // that use case does not apply here -- all entry-point resolution uses
+  // explicit dlsym(handle, ...) against each model's own handle.
+  _sharedLibraryHandle = dlopen(sharedLibPath.c_str(), RTLD_LAZY | RTLD_LOCAL);
   if (!_sharedLibraryHandle)
     throw ExecutionSessionException(
         "Cannot open library: '" + sharedLibPath + "'.");
@@ -206,6 +224,15 @@ void ExecutionSession::loadModel(const std::string &sharedLibPath,
 
   // Successful completion of initialization.
   isInitialized = true;
+
+  // Unset OM_CONSTANT_PATH to avoid conflict with the load of another model.
+  if (setOMConstantPath) {
+#if defined(_WIN32)
+    _putenv_s("OM_CONSTANT_PATH", "");
+#else
+    unsetenv("OM_CONSTANT_PATH");
+#endif
+  }
 
   // Set default entry point if requested.
   if (defaultEntryPoint)
@@ -295,6 +322,10 @@ void ExecutionSession::printInstrumentation() {
   errno = 0; // No errors.
   if (_printInstrumentationFunc)
     _printInstrumentationFunc();
+}
+
+const std::string ExecutionSession::getSharedLibPath() const {
+  return sharedLibPath;
 }
 
 // =============================================================================

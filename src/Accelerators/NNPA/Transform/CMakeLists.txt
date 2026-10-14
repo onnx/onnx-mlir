@@ -12,6 +12,7 @@ add_onnx_mlir_library(OMFoldStdAlloc
   ${NNPA_BIN_ROOT}
    )
 
+
 add_onnx_mlir_library(OMReplaceMallocByHugePageMalloc
   ReplaceMallocByHugePageMalloc.cpp
 

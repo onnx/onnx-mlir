@@ -4,7 +4,7 @@
 
 //===---------- Passes.hpp - ONNX-MLIR Passes Definition ------------------===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -43,8 +43,14 @@ std::unique_ptr<mlir::Pass> createDecomposeONNXToONNXPass(
 std::unique_ptr<mlir::Pass> createRecomposeONNXToONNXPass(
     const std::string &target = "");
 
+// Pass for fusing chains of ONNX operations into a single ONNXFusedOp, for
+// kinds that are not accelerator-specific -- declared via TableGen, see
+// src/Dialect/ONNX/Transforms/Passes.td (FusionOpTransformPass) and
+// src/Dialect/ONNX/Transforms/ONNXFusionOpHelper.hpp.
+#define GEN_PASS_DECL_FUSIONOPTRANSFORMPASS
+#include "src/Dialect/ONNX/Transforms/Passes.h.inc"
+
 // Pass for appending a decoding strategy into the main graph.
-#define GEN_PASS_DECL_APPENDDECODINGSTRATEGYPASS
 std::unique_ptr<::mlir::Pass> createAppendDecodingStrategyPass();
 
 std::unique_ptr<mlir::Pass> createConvOptONNXToONNXPass(
@@ -87,6 +93,13 @@ std::unique_ptr<mlir::Pass> createInstrumentPass(
 std::unique_ptr<mlir::Pass> createInstrumentONNXSignaturePass(
     const std::string opPattern, const std::string nodePattern);
 
+/// Pass that appends tensors matched by onnx_node_name (same syntax as
+/// --instrument-onnx-node) as extra outputs of the entry function(s).
+// GEN_PASS_DEF method only adds default constructor only,
+// we add custom constructor with an explicit nodePattern argument.
+std::unique_ptr<mlir::Pass> createAppendInstrumentedOutputsPass(
+    const std::string nodePattern);
+
 /// Pass for simplifying shape-related ONNX operations.
 std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass();
 
@@ -110,11 +123,14 @@ std::unique_ptr<mlir::Pass> createONNXCSEWithNodeNamePass();
 /// Pass for verifying Onnx ops before lowering to Krnl
 std::unique_ptr<mlir::Pass> createONNXPreKrnlVerifyPass();
 
+/// Pass for expanding attention mask tensors in MatMul-Add-Softmax patterns.
+std::unique_ptr<mlir::Pass> createExpandAttentionMaskPass();
+
 /// Add pass for lowering to Krnl IR.
 std::unique_ptr<mlir::Pass> createLowerToKrnlPass();
 std::unique_ptr<mlir::Pass> createLowerToKrnlPass(bool enableTiling,
-    bool enableSIMD, bool enableParallel, bool enableFastMath,
-    std::string opsForCall);
+    bool enableSIMD, bool enableParallel, bool enableCollapse,
+    bool enableFastMath, std::string opsForCall);
 void configureOnnxToKrnlLoweringPass(bool reportOnParallel,
     bool parallelIsEnabled, std::string specificParallelOps, bool reportOnSimd,
     bool simdIsEnabled);
@@ -131,6 +147,13 @@ std::unique_ptr<mlir::Pass> createLowerToStablehloPass(bool enableUnroll);
 
 /// Pass for eliding the values of global Krnl operations.
 std::unique_ptr<mlir::Pass> createElideConstGlobalValuePass();
+
+/// Pass for eliminating locally-allocated memrefs that are only written to.
+std::unique_ptr<mlir::Pass> createEliminateWriteOnlyAllocPass();
+
+/// Pass for removing bufferization.clone ops of entry function inputs that are
+/// returned, inserted by the buffer deallocation pipeline.
+std::unique_ptr<mlir::Pass> createEliminateEntryArgClonePass();
 
 namespace krnl {
 /// Pass for lowering frontend dialects to Krnl IR dialect.

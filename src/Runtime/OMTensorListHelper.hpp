@@ -29,10 +29,15 @@ void omTensorListDestroyShallow(OMTensorList *list);
  * \brief Create an OMTensorList from a JSON input signature string.
  *
  * Parses the JSON signature returned by inputSignature() and creates one
- * OMTensor per entry. Shapes are taken from the signature; dynamic (negative)
- * dimensions are kept as-is unless overridden by shapeInfo. Data buffers are
- * filled with random values when valueInfo is provided, and left null
- * otherwise.
+ * OMTensor per entry. Shapes are taken from the signature. A dimension is
+ * dynamic when it is negative or a symbolic name (e.g. "batch_size", emitted
+ * for an ONNX dim_param); every dynamic dimension must be given a value by
+ * shapeInfo, or creation fails. Every tensor gets an allocated, filled data
+ * buffer: with the pattern from valueInfo when given, and with random values
+ * within the resolved bounds otherwise (string tensors hold random integers
+ * as decimal strings). Creation fails for a data type that random fill does
+ * not support (supported: bool, signed and unsigned ints, float16, float32,
+ * float64, string).
  *
  * Bound resolution follows a three-level priority (highest to lowest):
  *   1. Per-tensor explicit bounds set via valueInfo (min/max/val).
@@ -58,7 +63,8 @@ void omTensorListDestroyShallow(OMTensorList *list);
  *               a random count in [1, innerDim-1] for each row independently.
  *               Values >= innerDim are capped (all ones). Well suited for
  *               sequence-length and attention-mask inputs.
- *   Pass nullptr to leave data buffers null.
+ *   Pass nullptr to fill every tensor with random values within the bounds
+ *   from priorities 2 and 3.
  * @param defaultLowerBound Optional per-type lower bound overrides (priority
  * 2). Format: "typename:value, typename:value, ..." Supported type names: bool_
  * (or bool), int8, uint8, int16, uint16, int32, uint32, int64, uint64, float16,

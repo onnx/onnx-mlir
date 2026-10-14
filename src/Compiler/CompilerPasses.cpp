@@ -4,7 +4,7 @@
 
 //===------------------------- CompilerPasses.cpp -------------------------===//
 //
-// Copyright 2022-2024 The IBM Research Authors.
+// Copyright 2022-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -43,6 +43,7 @@
 #include "src/Conversion/KrnlToLLVM/ConvertKrnlToLLVM.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/Mlir/ParallelMachineSupport.hpp"
 #include "src/Dialect/Mlir/VectorMachineSupport.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -67,6 +68,10 @@ void configurePasses() {
   }
   // Set global vector machine support.
   VectorMachineSupport::setGlobalVectorMachineSupport(march, mcpu, "");
+  // Set global parallel machine support. Takes the triple too: the cost of
+  // entering a parallel region depends on the OpenMP runtime, so two targets
+  // can differ here at an identical -march.
+  ParallelMachineSupport::setGlobalParallelMachineSupport(mtriple, march, mcpu);
   configureConstPropONNXToONNXPass(onnxConstPropRoundFPToInt,
       onnxConstPropExpansionBound, onnxConstPropDisablePatterns,
       disableConstantProp);
@@ -209,9 +214,32 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU,
   if (!donotScrubDisposableElementsAttr)
     pm.addPass(createScrubDisposablePass());
 
+  // Fuse chains of ONNX operations into a single ONNXFusedOp (for kinds that
+  // are not accelerator-specific -- see ONNXFusionOpHelper.hpp). Keep this
+  // as late as possible, just before instrumentation, so other
+  // optimizations don't disturb the fused op once formed -- mirroring where
+  // NNPA's own fusion pass, FusionOpStickUnstick, sits relative to the end
+  // of its own pass-building function. Gated on targetCPU (false under any
+  // accelerator that merges these same patterns into its own fusion pass
+  // instead, e.g. NNPA's FusionOpStickUnstick) so exactly one fusion pass
+  // ever runs.
+  if (targetCPU && !disableFusedOp)
+    pm.addPass(onnx_mlir::createFusionOpTransformPass());
+
   // Set onnx_node_name if it is missing. Keep this pass at the end of this
   // function and just before instrumentation.
   pm.addPass(createSetONNXNodeNamePass());
+
+  // Append tensors selected by --instrument-onnx-node-return as extra
+  // outputs of the entry function(s). Not gated by
+  // hasSignatureInstrumentation/--instrument-stage: that machinery
+  // interlocks with the timing/memory instrumentation family, which is
+  // unrelated to this. Must run here too, so onnx_node_name values are
+  // final and the terminator is already func::ReturnOp (set above by
+  // createStandardFuncReturnPass()).
+  if (instrumentOnnxNodeReturn != "" && instrumentOnnxNodeReturn != "NONE")
+    pm.addPass(onnx_mlir::createAppendInstrumentedOutputsPass(
+        instrumentOnnxNodeReturn));
 
   // Add instrumentation for profiling/ signature for Onnx Ops. Keep this pass
   // at the end of this function.
@@ -297,6 +325,7 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
 
   pm.addPass(onnx_mlir::createLowerToKrnlPass(/*enableTiling*/ optLevel >= 3,
       /*enableSIMD*/ optLevel >= 3 && !disableSimdOption, enableParallel,
+      /*enableCollapse*/ enableParallel && !disableCollapse,
       /*enableFastMath*/ optLevel >= 3 && enableFastMathOption,
       /*opsToCall*/ opsForCall));
   // An additional pass of canonicalization is helpful because lowering
@@ -308,6 +337,11 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
 void addKrnlToAffinePasses(mlir::PassManager &pm) {
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::krnl::createConvertKrnlToAffinePass(enableParallel));
+  // Eliminate locally-allocated memrefs that are only written to (e.g.
+  // shape buffers from concat ops used for shape inference but not needed
+  // at runtime).
+  if (!disableEliminateWriteOnlyAlloc)
+    pm.addNestedPass<func::FuncOp>(createEliminateWriteOnlyAllocPass());
 }
 
 void addONNXToLinalgPasses(mlir::PassManager &pm) {
@@ -393,6 +427,9 @@ void addLinalgToAffinePasses(mlir::PassManager &pm) {
   bufferization::BufferDeallocationPipelineOptions bufferDeallocOptions;
   mlir::bufferization::buildBufferDeallocationPipeline(
       funcPM, bufferDeallocOptions);
+  // The ownership of the entry function inputs and outputs is managed by the
+  // runtime. Remove the clones of returned inputs added by the pipeline above.
+  funcPM.addPass(onnx_mlir::createEliminateEntryArgClonePass());
   funcPM.addPass(mlir::bufferization::createOptimizeAllocationLivenessPass());
   funcPM.addPass(mlir::createConvertBufferizationToMemRefPass());
 
@@ -499,6 +536,9 @@ void addKrnlToLLVMPasses(
   bufferization::BufferDeallocationPipelineOptions bufferDeallocOptions;
   mlir::bufferization::buildBufferDeallocationPipeline(
       pm, bufferDeallocOptions);
+  // The ownership of the entry function inputs and outputs is managed by the
+  // runtime. Remove the clones of returned inputs added by the pipeline above.
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createEliminateEntryArgClonePass());
   // This pass is necessary to move deallocation after the last user.
   pm.addPass(mlir::bufferization::createOptimizeAllocationLivenessPass());
   pm.addPass(mlir::createConvertBufferizationToMemRefPass());

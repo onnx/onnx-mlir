@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 # SPDX-License-Identifier: Apache-2.0
 
@@ -65,6 +65,7 @@ Parameters on inputs:
 
 Parameters to focus analysis:
   -f/--focus <regexp>: Focus only on ops that match the regexp pattern.
+                       Implies `-l 1` if a `-l` level was not otherwise given.
   -m/--min <num>:      Focus on operations with at least <num>% of exec time.
   --supported:         Focus only on ops that are supported. Namely, the report
                        will skip ops for which compile-time statistics list
@@ -140,7 +141,9 @@ compile_info_str = ""
 
 # Basic pattern for reports: "==" <stat name> "==," <op name> "," <node name> ","
 def common_report_str(stat_name):
-    return r"^==" + stat_name + r"-REPORT==,\s*([0-9a-zA-Z\.\-]+)\s*,\s*([^,]*),\s*(.*)"
+    return (
+        r"^==" + stat_name + r"-REPORT==,\s*([0-9a-zA-Z_\.\-]+)\s*,\s*([^,]*),\s*(.*)"
+    )
 
 
 def match_start_report(line):
@@ -172,7 +175,10 @@ simd_legend = (
 sig_legend = "comma separated list of shapes with inputs followed by results"
 
 # ==PAR-REPORT==, onnx.Mul-par, Mul_28, elementwise variadic not simdized, 0, -1
-par_legend = "message, loop nest (0 outermost), loop trip count (-1 runtime)"
+par_legend = (
+    "message, parallel loop level (-1 none; 0 outermost), "
+    "parallel loop trip count (0 none; -1 runtime; collapsed groups report the product)"
+)
 
 # ==PERF-REPORT==, ..., "before" | "after", time since last call, absolute time
 perf_legend = "(after|before), time for op(s), time since start(s)"
@@ -624,6 +630,35 @@ def make_report(stat_message):
                 plot_values = np.append(plot_values, t[1])
     print("Statistics end" + stat_details)
 
+    # Summarize CPU (onnx + zhigh Stick/Unstick) vs Zhigh time, only when
+    # there is at least one zhigh op in the report.
+    if has_timing:
+        cpu_time = 0.0
+        zhigh_time = 0.0
+        has_zhigh = False
+        for op in op_time_dict:
+            op_time = np.sum(op_time_dict[op])
+            if re.match(r"zhigh\.", op):
+                has_zhigh = True
+                if re.search(r".*Stick.*|.*Unstick.*", op):
+                    cpu_time += op_time
+                else:
+                    zhigh_time += op_time
+            elif re.match(r"onnx\.", op):
+                cpu_time += op_time
+        if has_zhigh:
+            print(
+                "Statistics summary: CPU time {:.7f}{} ({:.1f}% of tot), "
+                "Zhigh time {:.7f}{} ({:.1f}% of tot)".format(
+                    cpu_time * time_unit,
+                    unit_str,
+                    get_percent(cpu_time, tot_time),
+                    zhigh_time * time_unit,
+                    unit_str,
+                    get_percent(zhigh_time, tot_time),
+                )
+            )
+
     # Report spurious node name if any.
     if error_missing_time:
         print("> Timing information was missing for some of the nodes.")
@@ -752,12 +787,12 @@ def main(argv):
             elif re.match(r"\s*perf\s*", arg):
                 make_stats = "PERF"
                 make_legend = perf_legend
-            elif re.match(r"\s*sig?\s*", arg):
-                make_stats = "SIG"
-                make_legend = sig_legend
             elif re.match(r"\s*simd\s*", arg):
                 make_stats = "SIMD"
                 make_legend = simd_legend
+            elif re.match(r"\s*sig?\s*", arg):
+                make_stats = "SIG"
+                make_legend = sig_legend
             else:
                 print_usage("statistics options are 'par', 'perf', 'sig', or 'simd'")
         elif opt in ("--supported"):
@@ -795,7 +830,7 @@ def main(argv):
             # Default for perf only (no compile)
             make_stats = "PERF"
             make_legend = perf_legend
-    print("Analyse", make_stats)
+    print("Analyze", make_stats)
     # Default compile file for sig
     if make_stats != "PERF" and not compile_file_name:
         compile_file_name = runtime_file_name

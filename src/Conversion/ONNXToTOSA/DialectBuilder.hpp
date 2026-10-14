@@ -42,6 +42,7 @@ struct TosaBuilder : DialectBuilder {
   mlir::Value binaryOp(mlir::Value &lhs, mlir::Value &rhs);
   mlir::Value mul(mlir::Value &lhs, mlir::Value &rhs, int8_t shift = 0);
   mlir::Value intdiv(mlir::Value &lhs, mlir::Value &rhs);
+  mlir::Value select(mlir::Value &cond, mlir::Value &lhs, mlir::Value &rhs);
 
   mlir::Value transpose(mlir::Value &value, llvm::ArrayRef<int32_t> perm);
   mlir::Value slice(mlir::Value &inputConst, llvm::ArrayRef<int64_t> size,

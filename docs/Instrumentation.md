@@ -4,6 +4,14 @@
 
 Instrumentation is prototyped in onnx-mlir and can be used to debug runtime issue.
 
+**Note:** for performance testing, prefer compiling directly with the
+higher-level `--profile-ir`/`--profile-ir-with-sig` flags rather than the
+lower-level `--instrument-stage`/`--instrument-ops`/`--InstrumentBeforeOp`/etc.
+flags documented on this page — see [PerformanceTesting.md](PerformanceTesting.md).
+The flags below remain useful background, and for cases the higher-level
+flags don't cover (e.g. memory reporting, or instrumenting only a subset of
+ops), but are no longer used directly in the typical performance-testing workflow.
+
 ## Compile for instrumentation
 
 By default, instrumentation is turned off. You need to use following command line options to turn it on. The pass for instrumentation will be inserted in some stages by using `--instrument-stage` option. For example, when you specify `Onnx`, the instrumentation will be inserted after onnx-to-onnx conversion to get onnx-level profiling. The `--instrument-ops` option is an option to specify operations to be instrumented. You can use `onnx.Conv` for onnx Conv operations for example. Also, you can use asterisk such as `onnx.*` for all onnx operations, and specify two expressions with `,` such as `onnx.Conv,onnx.Add` for both Conv and Add operations. The `--InstrumentBeforeOp` and `--InstrumentAfterOp` are options to insert instrumentation before and/or after the specified operations. When you use `--instrument-ops=onnx.* --InstrumentBeforeOp --InstrumentAfterOp`, the instrumantation will be inserted before and after all onnx operations.
@@ -76,8 +84,7 @@ By providing certain env variable at runtime, you can disable reports from  inst
 
 Please note that the only way to enable instrumentation is to request it at compile time. If none of the detailed report (such as time and memory so far) is turned on at runtime, progress of instrument point will still be print out. This feature is thought to be useful as progress indicator. To fully disable any outputs requested at compile time, you must set `ONNX_MLIR_NO_INSTRUMENT`.
 
-To enable the printing of the instrumentation either in a file or on the standard output, one must invoke `omInstrumentPrint()` in the C/C++ interface or `print_instrumentation()` in the ExecutionSession/python interface after invoking the inference of a model. The `RunONNXModel.py` does perform this call for
-the normal (non-warmup) runs.
+To enable the printing of the instrumentation either in a file or on the standard output, one must invoke `omInstrumentPrint()` in the C/C++ interface or `print_instrumentation()` in the ExecutionSession/python interface after invoking the inference of a model. `RunONNXModel.py` performs this call after every inference run, including warmup runs (`-w`/`--warmup`), each producing its own `==START-REPORT==` block in the log; see [PerformanceTesting.md](PerformanceTesting.md) for how `make-report.py`'s own `-w` option is used to discard those warmup blocks when aggregating statistics.
 
 ## Used in gdb
 The function for instrument point is called `OMInstrumentPoint`. Breakpoint can be set inside this function to kind of step through onnx ops.

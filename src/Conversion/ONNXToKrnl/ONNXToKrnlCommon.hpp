@@ -33,7 +33,9 @@
 #include "llvm/ADT/Sequence.h"
 #include "llvm/ADT/TypeSwitch.h"
 
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/OptionUtils.hpp"
+#include "src/Conversion/ONNXToKrnl/KrnlParallelPlan.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
@@ -44,6 +46,7 @@
 #include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/ONNX/Transforms/FusionOpHelper.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/KrnlSupport.hpp"
 
@@ -182,6 +185,36 @@ std::pair<mlir::Value, mlir::Value> emitTopK(
 mlir::Value allocOrReuse(MemRefBuilder &create, mlir::Operation *op,
     mlir::ValueRange generatedOperands, mlir::MemRefType outputMemRefType,
     DimsExprRef dims, int64_t alignment, int64_t VL = 0);
+
+/// Whether `op` may write its result into the buffer of its operand
+/// `operandIndex`, which then becomes the result, instead of copying it into a
+/// new buffer first. That is only correct when nothing can observe the old
+/// values of that buffer:
+///  - the operand has no user other than `op` (which also rules out another
+///    operand of `op` being a view of it),
+///  - it is produced in the same block as `op`, so that a loop body never
+///    overwrites a value defined outside it,
+///  - its buffer is a plain allocation of exactly `resultMemRefType`. This
+///    excludes function arguments (owned by the caller), constants (in
+///    read-only memory), and views or padded buffers whose memory may be
+///    shared with other values, and
+///  - that allocation belongs to the producer of the operand alone: a lowering
+///    that passes the buffer of one of its operands through as its result, such
+///    as Identity's, shares it with that operand, which other ops may read
+///    after `op`.
+bool canWriteInPlace(mlir::ConversionPatternRewriter &rewriter,
+    mlir::Operation *op, unsigned operandIndex,
+    mlir::MemRefType resultMemRefType);
+
+/// Copy all the elements of `src` into `dest`, both with an identity layout
+/// and the same number of elements. With enableParallel, a copy of at least
+/// minParallelMemcpyBytes is split into chunks of memcpyChunkBytes copied in
+/// parallel; for a dynamic size, that choice is made at runtime. Otherwise this
+/// is a single krnl.memcpy. `srcDims` are the dims of `src`, in the current
+/// IndexExprScope. `op` and `msg` name the site in the parallel report.
+void emitMemcpy(mlir::PatternRewriter &rewriter, mlir::Location loc,
+    mlir::Operation *op, mlir::Value dest, mlir::Value src, DimsExprRef srcDims,
+    bool enableParallel, const std::string &msg);
 
 //===----------------------------------------------------------------------===//
 // This is to get a scalar operation of a given type for a specific operation.
@@ -328,10 +361,14 @@ public:
 // Functions to add lowering patterns for frontend operations.
 //===----------------------------------------------------------------------===//
 
-// For all ONNX operations.
+// For all ONNX operations. Kept in sync with the definition by hand: it had
+// drifted by three parameters before enableCollapse was added, which is
+// possible because the only caller is in the defining file, so a stale
+// declaration here is never diagnosed.
 void populateONNXToKrnlConversionPattern(mlir::RewritePatternSet &,
-    mlir::TypeConverter &, mlir::MLIRContext *, bool enableTiling,
-    bool enableParallel, bool enableFastMath);
+    mlir::TypeConverter &, mlir::MLIRContext *, DimAnalysis *,
+    bool enableTiling, bool enableSIMD, bool enableParallel,
+    bool enableCollapse, bool enableFastMath, std::string opsForCall);
 
 // `ControlFlow` directory methods:
 void populateLoweringONNXIfOpPattern(
@@ -350,6 +387,8 @@ void populateLoweringONNXCumSumOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXDFTOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXDetOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
 void populateLoweringONNXElementwiseOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, DimAnalysis *, bool enableSIMD,
     bool enableParallel);
@@ -371,8 +410,9 @@ void populateLoweringONNXMatMulIntegerOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXMeanVarianceNormalizationOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
-void populateLoweringONNXQLinearMatMulOpPattern(
-    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXQLinearMatMulOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableSIMD,
+    bool enableParallel);
 void populateLoweringONNXRandomNormalOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXRandomNormalLikeOpPattern(
@@ -386,6 +426,8 @@ void populateLoweringONNXReductionOpPattern(mlir::RewritePatternSet &,
     bool enableParallel);
 void populateLoweringONNXSoftmaxOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
+void populateLoweringONNXAttentionOpPattern(
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXTopKOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXTriluOpPattern(
@@ -456,9 +498,11 @@ void populateLoweringONNXUnsqueezeOpPattern(
 void populateLoweringONNXUnsqueezeV11OpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXTransposeOpPattern(mlir::RewritePatternSet &,
-    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel,
+    bool enableCollapse);
 void populateLoweringONNXGatherOpPattern(mlir::RewritePatternSet &,
-    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel,
+    bool enableCollapse);
 void populateLoweringONNXGatherElementsOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXGatherNDOpPattern(
@@ -469,6 +513,8 @@ void populateLoweringONNXPadOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXRangeOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXEyeLikeOpPattern(
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXReshapeOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, DimAnalysis *);
 void populateLoweringONNXIdentityOpPattern(
@@ -478,21 +524,34 @@ void populateLoweringONNXConstantOfShapeOpPattern(
 void populateLoweringONNXConstantOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXConcatOpPattern(mlir::RewritePatternSet &,
-    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel,
+    bool enableCollapse);
 void populateLoweringONNXConcatShapeTransposeOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXCol2ImOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
 void populateLoweringONNXDepthToSpaceOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXSpaceToDepthOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
-void populateLoweringONNXScatterElementsOpPattern(
-    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
-void populateLoweringONNXScatterNDOpPattern(
-    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXScatterElementsOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel,
+    bool enableCollapse);
+void populateLoweringONNXScatterNDOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel,
+    bool enableCollapse);
+void populateLoweringONNXTensorScatterOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
 void populateLoweringONNXShapeOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXSliceOpPattern(mlir::RewritePatternSet &,
-    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel,
+    bool enableCollapse);
+// onnx.Fused(kind="simd-split-op-gather") -- see
+// src/Dialect/ONNX/Transforms/ONNXFusionOpHelper.hpp.
+void populateLoweringONNXFusedSplitOpGatherOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableSIMD,
+    bool enableParallel);
 void populateLoweringONNXSqueezeOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXSqueezeV11OpPattern(
@@ -509,12 +568,14 @@ void populateLoweringONNXFlattenOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXResizeOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
-void populateLoweringONNXNonZeroOpPattern(
-    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXNonZeroOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableSIMD,
+    bool enableParallel);
 void populateLoweringONNXReverseSequenceOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXExpandOpPattern(mlir::RewritePatternSet &,
-    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel,
+    bool enableCollapse);
 void populateLoweringONNXOneHotOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXCompressOpPattern(
@@ -522,7 +583,8 @@ void populateLoweringONNXCompressOpPattern(
 void populateLoweringONNXPrintSignaturePattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXLayoutTransformOpPattern(mlir::RewritePatternSet &,
-    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel,
+    bool enableCollapse);
 void populateLoweringONNXUniqueOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXIm2ColOpPattern(mlir::RewritePatternSet &,
@@ -620,6 +682,102 @@ struct ONNXGenericOpToCall : public mlir::OpConversionPattern<OP_TYPE> {
 using ONNXConvOpToCall =
     ONNXGenericOpToCall<mlir::ONNXConvOp, ONNXConvOpShapeHelper>;
 
+//===----------------------------------------------------------------------===//
+// FusedOpKindLowering<FusionT>
+//
+// Template base for per-kind ONNXFusedOp lowering patterns.  Subclasses only
+// implement lowerVerified(), returning the Values (one per FusedOp result,
+// in order) that replace the FusedOp; the base handles kind dispatch,
+// retrieve/verify, the inline fallback, and (on success) dropping the body's
+// intra-region def-use edges and replacing the op.  Register one subclass
+// per FusedOp kind.
+//
+// Usage:
+//   struct MyLowering : public FusedOpKindLowering<MyFusion> {
+//     MyLowering(TypeConverter &tc, MLIRContext *ctx, ...)
+//         : FusedOpKindLowering(tc, ctx) { ... }
+//
+//     FailureOr<llvm::SmallVector<Value>> lowerVerified(ONNXFusedOp, OpAdaptor,
+//         ConversionPatternRewriter &, MyFusion &) const override { ... }
+//   };
+//===----------------------------------------------------------------------===//
+
+template <typename FusionT>
+struct FusedOpKindLowering
+    : public mlir::OpConversionPattern<mlir::ONNXFusedOp> {
+  using Base = mlir::OpConversionPattern<mlir::ONNXFusedOp>;
+  using OpAdaptor = typename mlir::ONNXFusedOp::Adaptor;
+
+  using Base::Base; // inherit TypeConverter + MLIRContext constructors
+
+  mlir::LogicalResult matchAndRewrite(mlir::ONNXFusedOp fusedOp,
+      OpAdaptor adaptor,
+      mlir::ConversionPatternRewriter &rewriter) const final {
+    FusionT fusion;
+    // Only handle our kind; return failure() so the correct per-kind pattern
+    // (or the benefit-0 catch-all) can process the op instead.
+    if (fusedOp.getKind() != FusionT::kKind)
+      return mlir::failure();
+    // Retrieve body ops and cross-check stored params.  If the body was
+    // altered by an optimisation pass, fall back to inline.
+    fusion.retrieveOpsAndOutputValues(fusedOp);
+    if (!fusion.verifyAndRetrieveAttrs(fusedOp))
+      // Failed, use the inline fallback to allow constituent ops to be
+      // lowered on their own.
+      return FusionOpKindHelper::unFuse(rewriter, fusedOp);
+
+    mlir::FailureOr<llvm::SmallVector<mlir::Value>> replacement =
+        lowerVerified(fusedOp, adaptor, rewriter, fusion);
+    if (mlir::failed(replacement))
+      return mlir::failure();
+
+    // Drop all intra-body def-use edges before handing the FusedOp to the
+    // conversion framework's deferred eraser.  Without this, the conversion
+    // framework (applyRewrites / EraseBlockRewrite::cleanup) may encounter
+    // ops that still appear to have uses when erased, triggering an
+    // assertion in eraseSingleOp even though the RegionKindInterface marks
+    // the body as a Graph region.  Dropping all result uses here makes every
+    // inner op use_empty() regardless of the order in which the eraser
+    // visits them.
+    for (mlir::Block &block : fusedOp.getBody())
+      for (mlir::Operation &innerOp : block)
+        innerOp.dropAllUses();
+
+    rewriter.replaceOp(fusedOp, *replacement);
+    return mlir::success();
+  }
+
+  /// Implement the actual lowering.  Called only when the kind matches and
+  /// verifyAndRetrieveAttrs() succeeded; fusion fields are fully populated.
+  /// Return the Values that replace the FusedOp's results, in the same
+  /// order as fusedOp.getOutputs() (most kinds have exactly one) — do not
+  /// call rewriter.replaceOp() or drop body uses; the base class does both.
+  virtual mlir::FailureOr<llvm::SmallVector<mlir::Value>> lowerVerified(
+      mlir::ONNXFusedOp fusedOp, OpAdaptor adaptor,
+      mlir::ConversionPatternRewriter &rewriter, FusionT &fusion) const = 0;
+};
+
+//===----------------------------------------------------------------------===//
+// FusedOpInlineFallback
+//
+// Register this at benefit=0 in every conversion pass that may see
+// ONNXFusedOp.  It inlines the body so that constituent ops can be lowered
+// by their own patterns within the same pass.
+//===----------------------------------------------------------------------===//
+
+struct FusedOpInlineFallback
+    : public mlir::OpConversionPattern<mlir::ONNXFusedOp> {
+  using OpAdaptor = typename mlir::ONNXFusedOp::Adaptor;
+
+  FusedOpInlineFallback(
+      mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx)
+      : mlir::OpConversionPattern<mlir::ONNXFusedOp>(
+            typeConverter, ctx, /*benefit=*/0) {}
+
+  mlir::LogicalResult matchAndRewrite(mlir::ONNXFusedOp fusedOp, OpAdaptor,
+      mlir::ConversionPatternRewriter &rewriter) const final;
+};
+
 /// This function returns the index in the list of alloc arguments of the
 /// dynamic dimension corresponding to `index` in the MemRef shape.
 /// As an example:
@@ -654,29 +812,13 @@ bool hasNonIdentityLayout(mlir::ValueRange operands);
 // Support functions for parallel region.
 //===----------------------------------------------------------------------===//
 
-// Return the outermost loop within [firstDim, lastDim) for which (ub-lb) >=
-// minSize. Runtime dimensions are assumed to satisfy the size requirement by
-// definition. If found one, it is parDim and the function returns true.
-bool findSuitableParallelDimension(mlir::ArrayRef<IndexExpr> lb,
-    mlir::ArrayRef<IndexExpr> ub, int64_t firstInclusiveDim,
-    int64_t lastExclusiveDim, int64_t &parDim, int64_t minSize = 4);
-
-// Try to find a suitable loop index for parallelism (parId), where
-// parId >= firstInclusiveDim && parId < exlusiveDim && parId is not in
-// exclusiveDim && tripCount(parId) >= minSize when tripCount can be determined
-// at compile time.
-//
-// If found, emit krnl.parallel op for parId and return parId.
-// Otherwise, do nothing and return -1.
-//
-// When `createKrnlParallel` is set to false, only parID is returned without
-// creating krnl.parallel.
-int64_t tryCreateKrnlParallel(const onnx_mlir::KrnlBuilder &createKrnl,
-    mlir::Operation *op, std::string msg, const mlir::ValueRange &loopDef,
-    mlir::ArrayRef<IndexExpr> lbs, mlir::ArrayRef<IndexExpr> ubs,
-    int64_t firstInclusiveDim = 0, int64_t lastExclusiveDim = 2,
-    mlir::ArrayRef<int64_t> exclusiveDims = {}, int64_t minSize = 4,
-    bool createKrnlParallel = true);
+// The decision procedure (decideKrnlParallel), the plan that carries its answer
+// to the krnl.iterate that consumes it (KrnlParallelPlan) and the two entry
+// points onto them all live in KrnlParallelPlan.hpp, included above. They are
+// declared there rather than here because the decision is a self-contained
+// piece of reasoning about loop levels, trip counts and region cost, with one
+// dependency on this file -- onnxToKrnlParallelReport, below -- and none on the
+// rest of it.
 
 //===----------------------------------------------------------------------===//
 // Support functions for determining simd unrolling.

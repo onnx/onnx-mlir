@@ -190,9 +190,10 @@ public:
     // shape and data type.
     if (verifyInputTensors) {
       llvm::StringRef inSigJSON;
-      std::tie(inSigJSON, std::ignore) = sigAttr.getValue().split('@');
-      emitVerificationCodeForInputTensors(
-          module, rewriter, loc, apiRegistry, omTensorInputs, inSigJSON);
+      llvm::StringRef outSigJSON;
+      std::tie(inSigJSON, outSigJSON) = sigAttr.getValue().split('@');
+      emitVerificationCodeForInputTensors(module, rewriter, loc, apiRegistry,
+          omTensorInputs, inSigJSON, outSigJSON);
       // Check input tensor dimension specified with option
       // shapeInformationUB and shapeInformationLB
       if (!shapeInformationUB.empty())
@@ -406,6 +407,52 @@ private:
     create.llvm.store(memRef, ptrToMemRef);
   }
 
+  // Helper function to extract symbols from a JSON signature.
+  void extractSymbolsFromJSON(StringRef sigJSON,
+      std::map<std::string, int> &symbolToIndexMap, int &symbolIndex) const {
+    auto JSONInput = llvm::json::parse(sigJSON.data());
+    if (!JSONInput)
+      return;
+
+    auto JSONArray = JSONInput->getAsArray();
+    if (!JSONArray)
+      return;
+
+    for (const auto &item : *JSONArray) {
+      auto JSONItem = item.getAsObject();
+      if (!JSONItem)
+        continue;
+
+      auto JSONDimArray = JSONItem->getArray("dims");
+      if (!JSONDimArray)
+        continue;
+
+      for (const auto &dimValue : *JSONDimArray) {
+        if (auto strValue = dimValue.getAsString()) {
+          std::string symbol = strValue.value().str();
+          // Add symbol if not already in map.
+          if (symbolToIndexMap.find(symbol) == symbolToIndexMap.end()) {
+            symbolToIndexMap[symbol] = symbolIndex++;
+          }
+        }
+      }
+    }
+  }
+
+  // Helper function to build a compile-time map of unique symbols.
+  // Returns a map from symbol name to array index.
+  std::map<std::string, int> buildSymbolToIndexMap(
+      StringRef inSigJSON, StringRef outSigJSON) const {
+    std::map<std::string, int> symbolToIndexMap;
+    int symbolIndex = 0;
+
+    // Extract symbols from input and output signatures.
+    extractSymbolsFromJSON(inSigJSON, symbolToIndexMap, symbolIndex);
+    extractSymbolsFromJSON(outSigJSON, symbolToIndexMap, symbolIndex);
+
+    return symbolToIndexMap;
+  }
+
   FlatSymbolRefAttr getOrInsertOMInitAccel(
       PatternRewriter &rewriter, ModuleOp module, StringRef accelName) const {
     MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
@@ -425,10 +472,78 @@ private:
         rewriter.getI64Type(), {rewriter.getI64Type()});
   }
 
+  // Helper function to emit error and return NULL.
+  void emitErrorAndReturnNull(ModuleOp &module, PatternRewriter &rewriter,
+      Location loc, MLIRContext *context, const std::string &errorMsg) const {
+    MultiDialectBuilder<KrnlBuilder, LLVMBuilder> create(rewriter, loc);
+    create.krnl.printf(StringRef(errorMsg));
+    krnl::emitErrNo(module, rewriter, loc, EINVAL);
+    create.llvm._return(create.llvm.null(getI8PointerType(context)));
+  }
+
+  // Helper function to generate runtime symbol verification code.
+  void emitSymbolConsistencyVerification(ModuleOp &module,
+      PatternRewriter &rewriter, Location loc,
+      const RuntimeAPIRegistry &apiRegistry,
+      const std::map<std::string, int> &symbolToIndexMap, Value actualDim,
+      const std::string &dimParam, int64_t dimIndex, int64_t inputIndex,
+      Value symbolValuesArray, MLIRContext *context) const {
+
+    MultiDialectBuilder<KrnlBuilder, LLVMBuilder> create(rewriter, loc);
+    Type int64Ty = rewriter.getI64Type();
+
+    // Get the compile-time index for this symbol.
+    int symbolIdx = symbolToIndexMap.at(dimParam);
+
+    // Load the stored value for this symbol.
+    Value storedValuePtr =
+        create.llvm.getElemPtr(getPointerType(context, int64Ty), int64Ty,
+            symbolValuesArray, ArrayRef<LLVM::GEPArg>{symbolIdx});
+    Value storedValue = create.llvm.load(int64Ty, storedValuePtr);
+
+    // Check if this is the first occurrence.
+    Value minusOne = create.llvm.constant(int64Ty, static_cast<int64_t>(-1));
+
+    create.llvm.ifThenElse(
+        [&](const LLVMBuilder &createLLVM) {
+          return createLLVM.icmp(
+              LLVM::ICmpPredicate::eq, storedValue, minusOne);
+        },
+        [&](const LLVMBuilder &createLLVM) {
+          createLLVM.store(actualDim, storedValuePtr);
+        });
+
+    // Check for inconsistency (not first occurrence and values don't match).
+    create.llvm.ifThenElse(
+        [&](const LLVMBuilder &createLLVM) {
+          Value notFirstOccurrence =
+              createLLVM.icmp(LLVM::ICmpPredicate::ne, storedValue, minusOne);
+          Value valuesMismatch =
+              createLLVM.icmp(LLVM::ICmpPredicate::ne, storedValue, actualDim);
+          return createLLVM.andi(notFirstOccurrence, valuesMismatch);
+        },
+        [&](const LLVMBuilder &createLLVM) {
+          MultiDialectBuilder<LLVMBuilder, KrnlBuilder> create(createLLVM);
+
+          // Build and print error message.
+          std::string msg = "Inconsistent dimension for symbol '" + dimParam +
+                            "' at dimension " + std::to_string(dimIndex) +
+                            " of input " + std::to_string(inputIndex) +
+                            ": expect ";
+          create.krnl.printf(
+              StringRef(msg), storedValue, rewriter.getI64Type(), false);
+          create.krnl.printf(
+              StringRef(", but got "), actualDim, rewriter.getI64Type(), true);
+
+          krnl::emitErrNo(module, rewriter, loc, EINVAL);
+          create.llvm._return(create.llvm.null(getI8PointerType(context)));
+        });
+  }
+
   void emitVerificationCodeForInputTensors(ModuleOp &module,
       PatternRewriter &rewriter, Location loc,
       const RuntimeAPIRegistry &apiRegistry, Value omTensorInputs,
-      StringRef inSigJSON) const {
+      StringRef inSigJSON, StringRef outSigJSON) const {
     MLIRContext *context = rewriter.getContext();
     MultiDialectBuilder<KrnlBuilder, LLVMBuilder> create(rewriter, loc);
     Type int64Ty = rewriter.getI64Type();
@@ -439,6 +554,30 @@ private:
     auto JSONArray = JSONInput->getAsArray();
     assert(JSONArray && "failed to parse json as array");
     int64_t inputNum = JSONArray->size();
+
+    // Build compile-time symbol-to-index map.
+    std::map<std::string, int> symbolToIndexMap =
+        buildSymbolToIndexMap(inSigJSON, outSigJSON);
+
+    // Allocate runtime array for symbol values (stack allocation, no leaks).
+    Value symbolValuesArray = nullptr;
+    if (!symbolToIndexMap.empty()) {
+      int64_t numSymbols = symbolToIndexMap.size();
+      Value numSymbolsVal = create.llvm.constant(int64Ty, numSymbols);
+
+      symbolValuesArray = create.llvm._alloca(getPointerType(context, int64Ty),
+          int64Ty, numSymbolsVal,
+          /*alignment=*/0);
+
+      // Initialize array to -1 (unset marker).
+      for (int i = 0; i < numSymbols; i++) {
+        Value indexVal = create.llvm.constant(int64Ty, static_cast<int64_t>(i));
+        Value elemPtr = create.llvm.getElemPtr(getPointerType(context, int64Ty),
+            int64Ty, symbolValuesArray, ArrayRef<LLVM::GEPArg>{i});
+        create.llvm.store(
+            create.llvm.constant(int64Ty, static_cast<int64_t>(-1)), elemPtr);
+      }
+    }
 
     // Verify the number of inputs.
     equalOrFailed(module, rewriter, loc,
@@ -497,44 +636,74 @@ private:
             int64Ty, create.llvm.getElemPtr(getPointerType(context, int64Ty),
                          int64Ty, sizesArrayPtr,
                          ArrayRef<LLVM::GEPArg>{static_cast<int32_t>(d)}));
-        // Get reference dimension size.
-        auto JSONDimValue = (*JSONDimArray)[d].getAsInteger();
-        assert(JSONDimValue && "failed to get value");
-        int64_t dim = JSONDimValue.value();
-        // Verify.
-        if (ShapedType::isDynamic(dim) || dim == -1) {
-          // In case that the reference dimension size is unknown, verify that
-          // the actual dimension size is a non-negative value.
-          create.llvm.ifThenElse(/*cond=*/
-              [&](const LLVMBuilder &createLLVM) {
-                Value zero =
-                    createLLVM.constant(int64Ty, static_cast<int64_t>(0));
-                return createLLVM.icmp(
-                    LLVM::ICmpPredicate::slt, actualDim, zero);
-              }, /*then=*/
-              [&](const LLVMBuilder &createLLVM) {
-                MultiDialectBuilder<LLVMBuilder, KrnlBuilder> create(
-                    createLLVM);
-                // Print an error message.
-                std::string msg = "Wrong size for the dimension " +
-                                  std::to_string(d) + " of the input " +
-                                  std::to_string(i) +
-                                  ": expect a non-negative value\n";
-                StringRef errorMsg(msg);
-                create.krnl.printf(errorMsg);
-                // Set errno.
-                krnl::emitErrNo(module, rewriter, loc, EINVAL);
-                // Return NULL.
-                create.llvm._return(
-                    create.llvm.null(getI8PointerType(context)));
-              });
+
+        // Get reference dimension value (can be integer or string).
+        auto JSONDimValue = (*JSONDimArray)[d];
+
+        // Try to get as integer first.
+        auto intValue = JSONDimValue.getAsInteger();
+        if (intValue) {
+          // Integer dimension value (static or -1 for dynamic).
+          int64_t dim = intValue.value();
+          // Verify.
+          if (ShapedType::isDynamic(dim) || dim == -1) {
+            // In case that the reference dimension size is unknown, verify that
+            // the actual dimension size is a non-negative value.
+            create.llvm.ifThenElse(/*cond=*/
+                [&](const LLVMBuilder &createLLVM) {
+                  Value zero =
+                      createLLVM.constant(int64Ty, static_cast<int64_t>(0));
+                  return createLLVM.icmp(
+                      LLVM::ICmpPredicate::slt, actualDim, zero);
+                }, /*then=*/
+                [&](const LLVMBuilder &createLLVM) {
+                  // Print an error message.
+                  std::string msg = "Wrong size for the dimension " +
+                                    std::to_string(d) + " of the input " +
+                                    std::to_string(i) +
+                                    ": expect a non-negative value\n";
+                  emitErrorAndReturnNull(module, rewriter, loc, context, msg);
+                });
+          } else {
+            Value referenceDim =
+                create.llvm.constant(int64Ty, static_cast<int64_t>(dim));
+            equalOrFailed(module, rewriter, loc, referenceDim, actualDim,
+                "Wrong size for the dimension " + std::to_string(d) +
+                    " of the input " + std::to_string(i) + ": expect " +
+                    std::to_string(dim) + ", but got ");
+          }
         } else {
-          Value referenceDim =
-              create.llvm.constant(int64Ty, static_cast<int64_t>(dim));
-          equalOrFailed(module, rewriter, loc, referenceDim, actualDim,
-              "Wrong size for the dimension " + std::to_string(d) +
-                  " of the input " + std::to_string(i) + ": expect " +
-                  std::to_string(dim) + ", but got ");
+          // Try to get as string (symbolic dimension).
+          auto strValue = JSONDimValue.getAsString();
+          if (strValue) {
+            // Symbolic dimension: verify non-negative only.
+            std::string dimParam = strValue.value().str();
+            create.llvm.ifThenElse(/*cond=*/
+                [&](const LLVMBuilder &createLLVM) {
+                  Value zero =
+                      createLLVM.constant(int64Ty, static_cast<int64_t>(0));
+                  return createLLVM.icmp(
+                      LLVM::ICmpPredicate::slt, actualDim, zero);
+                }, /*then=*/
+                [&](const LLVMBuilder &createLLVM) {
+                  // Print an error message with symbol name.
+                  std::string msg = "Wrong size for dimension " +
+                                    std::to_string(d) + " ('" + dimParam +
+                                    "') of input " + std::to_string(i) +
+                                    ": expect a non-negative value\n";
+                  emitErrorAndReturnNull(module, rewriter, loc, context, msg);
+                });
+
+            // Also verify consistency across tensors if we have a symbol table.
+            if (symbolValuesArray) {
+              emitSymbolConsistencyVerification(module, rewriter, loc,
+                  apiRegistry, symbolToIndexMap, actualDim, dimParam, d, i,
+                  symbolValuesArray, context);
+            }
+          } else {
+            // Neither integer nor string - this should not happen.
+            llvm_unreachable("dimension value is neither integer nor string");
+          }
         }
       }
     }

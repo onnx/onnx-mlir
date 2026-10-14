@@ -85,13 +85,21 @@ unsigned instrumentControlBits;                        // onnx-mlir only
 std::string parallelizeOps;                            // onnx-mlir only
 std::string instrumentSignatures;                      // onnx-mlir only
 std::string instrumentOnnxNode;                        // onnx-mlir only
+std::string instrumentOnnxNodeReturn;                  // onnx-mlir only
 std::string ONNXOpStats;                               // onnx-mlir only
 int onnxOpTransformThreshold;                          // onnx-mlir only
 bool onnxOpTransformReport;                            // onnx-mlir only
 bool enableParallel;                                   // onnx-mlir only
+bool disableCollapse;                                  // onnx-mlir only
+int64_t collapseMinParTripCountFloor;                  // common for both
+int64_t collapseMinAmortWork;                          // common for both
+int64_t collapseMaxForkCount;                          // common for both
 bool disableSimdOption;                                // onnx-mlir only
 bool enableFastMathOption;                             // onnx-mlir only
 bool disableRecomposeOption;                           // onnx-mlir only
+bool enableAttentionOpConstruct;                       // common for both
+KVCacheType kvCache;                                   // common for both
+bool disableSplitMatMulBySlice;                        // common for both
 bool enableSimdDataLayout;                             // onnx-mlir only
 bool verifyInputTensors;                               // onnx-mlir only
 bool allowSorting;                                     // onnx-mlir only
@@ -100,6 +108,8 @@ std::vector<std::string> reportHeapAfter;              // onnx-mlir only
 std::string modelTag;                                  // onnx-mlir only
 bool enableConvOptPass;                                // onnx-mlir only
 bool disableConvToMatmul;                              // onnx-mlir only
+bool disableFusedOp;                                   // common for both
+bool disableEliminateWriteOnlyAlloc;                   // common for both
 std::vector<std::string> replaceOpWithItsOperand;      // onnx-mlir only
 bool disableConstantProp;                              // onnx-mlir only
 bool disableCountIncludePad;                           // onnx-mlir only
@@ -331,6 +341,40 @@ static llvm::cl::opt<bool, true> disableRecomposeOptionOpt("disable-recompose",
     llvm::cl::desc("Disable recomposition of ONNX operations."),
     llvm::cl::location(disableRecomposeOption), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<bool, true> enableAttentionOpConstructOpt(
+    "enable-attention-op-construct",
+    llvm::cl::desc("Enable rewriting a sequence of basic ONNX ops that "
+                   "implement scaled dot product attention into a single "
+                   "onnx.Attention op. Default is false."),
+    llvm::cl::location(enableAttentionOpConstruct), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<KVCacheType, true> kvCacheOpt("kv-cache",
+    llvm::cl::desc(
+        "Indicate the implementation of kv-cache in the model."
+        "The option will be used to guide recomposing TensorScatter and "
+        "Attention op, and check the pattern when Attention is lowered."
+        "'fixed' forces the fixed-size-KV-cache lowering (K/V are the full "
+        "padded cache, sized via nonpad_kv_seqlen) and 'growing' forces the "
+        "original lowering (K/V grow via past_key/past_value concatenation). "
+        "Default is \"\", meaning the choice is inferred from each op's "
+        "operands (whether past_key/past_value/nonpad_kv_seqlen are given)."),
+    llvm::cl::location(kvCache),
+    llvm::cl::values(
+        clEnumVal(Undefined, "No predefined kv-cache implementation"),
+        clEnumVal(Fixed, "Fixed size cache passed into the inference"),
+        clEnumVal(Grow, "Cache should grow with each step of the inference")),
+    llvm::cl::init(Undefined), llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<bool, true> disableSplitMatMulBySliceOpt(
+    "disable-split-matmul-by-slice",
+    llvm::cl::desc("Disable rewriting Slice(MatMul(X, W)) along the last axis, "
+                   "where W is a constant, into MatMul(X, Slice(W)) so that "
+                   "the slice is folded into the constant weights. Default is "
+                   "false."),
+    llvm::cl::location(disableSplitMatMulBySlice), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirCommonOptions));
 
 // Options for onnx-mlir only
 static llvm::cl::opt<EmissionTargetType, true> emissionTargetOpt(
@@ -610,14 +654,45 @@ static llvm::cl::opt<std::string, true> instrumentONNXNodeOpt(
         "namely, the type of onnx operation, such Add, Matmul, and etc.\n"
         "This option is able to pinpoint to a particular node.\n"
         "The instrument-onnx-node defines the pattern to select.\n"
-        "\"NONE\" for no instrument (default).\n"
-        "Except for the special values, the regexp is used for matching.\n"
-        "\"/layer1/MatMul, onnx.Add_0, ...\" for the multiple nodes.\n"
-        "Asterisk is also available. For example:\n"
-        "\"onnx.Add_*\" for all AddOp. This feature allows you to specify\n"
-        "part of the target of onnx_node_name, as long as it is long enough\n"
-        "to be unique.\n"),
+        "\"NONE\" (or an empty string) for no instrument (default).\n"
+        "Except for the special values, the pattern is matched against\n"
+        "onnx_node_name; use a comma to select multiple nodes, e.g.\n"
+        "\"/layer1/MatMul,onnx.Add_0\" selects those two exact nodes.\n"
+        "A '*' acts as a wildcard, e.g. \"onnx.Add_*\" matches every node\n"
+        "whose name starts with \"onnx.Add_\" -- useful since default\n"
+        "(auto-generated) node names for Add ops look like \"onnx.Add_0\",\n"
+        "\"onnx.Add_1\", etc. This lets you specify only as much of the\n"
+        "onnx_node_name as needed to be unique.\n"
+        "By default, all input and output tensors of a matched node are\n"
+        "printed. To print only a subset, append a ':' and a '+'-separated\n"
+        "list of 'inN'/'outN' selectors (0-based) after the node "
+        "name/pattern.\n"
+        "e.g. \"/layer1/MatMul:out0\" prints only output 0 of that node.\n"
+        "e.g. \"onnx.Add_*:in1+out0\" prints input 1 and output 0 of every\n"
+        "matched Add node.\n"
+        "Selectors are per comma-separated entry, so plain entries with no\n"
+        "':' suffix still print all tensors, e.g.\n"
+        "\"onnx.Add_0:out0, onnx.Sub_1\" prints only output 0 of Add_0, but\n"
+        "all operands/results of Sub_1.\n"),
     llvm::cl::location(instrumentOnnxNode), llvm::cl::init("NONE"),
+    llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<std::string, true> instrumentONNXNodeReturnOpt(
+    "instrument-onnx-node-return",
+    llvm::cl::desc(
+        "Append the input and output tensors of the specified operations\n"
+        "as extra outputs of the compiled model, instead of printing them.\n"
+        "Uses the exact same node-selection syntax as --instrument-onnx-node\n"
+        "(REGEX or REGEX:inN+outN selectors, comma-separated entries,\n"
+        "\"NONE\" or an empty string for none (default)); see\n"
+        "--instrument-onnx-node's description for the full syntax.\n"
+        "Unlike --instrument-onnx-node,\n"
+        "this lets you compare the selected tensors between two runs using,\n"
+        "for example, the utils/RunONNXModel.py's --save-ref/--verify=ref\n"
+        "--verify-every-value, instead of parsing printed signature logs.\n"
+        "Only tensors reachable at the top level of the entry function are\n"
+        "supported; a match inside a Loop/If/Scan body is not added.\n"),
+    llvm::cl::location(instrumentOnnxNodeReturn), llvm::cl::init("NONE"),
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<std::string, true> ONNXOpStatsOpt("onnx-op-stats",
@@ -651,6 +726,46 @@ static llvm::cl::opt<bool, true> enableParallelOpt("parallel",
                    "Set to 'true' if you want to enable parallelization."),
     llvm::cl::location(enableParallel), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<bool, true> disableCollapseOpt("disable-collapse",
+    llvm::cl::desc(
+        "Disable collapsing several loop levels into one parallel region\n"
+        "(default=false, i.e. collapse is enabled). Collapse is only ever\n"
+        "performed together with --parallel; without --parallel, this\n"
+        "option has no effect."),
+    llvm::cl::location(disableCollapse), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
+
+// Overrides for the target-derived parallel cost model constants; see
+// src/Dialect/Mlir/ParallelMachineSupport.hpp for what each one means. A
+// negative value, the default, means "use the target's own value". These are
+// common to both drivers on purpose: the lit tests that pin down a collapse
+// decision run under onnx-mlir-opt, which sees only the common and opt
+// categories.
+static llvm::cl::opt<int64_t, true> collapseMinParTripCountFloorOpt(
+    "collapse-min-par-trip-count-floor",
+    llvm::cl::desc(
+        "Floor on the fused loop trip count worth a parallel region\n"
+        "(default=-1, meaning use the target's own value)."),
+    llvm::cl::location(collapseMinParTripCountFloor), llvm::cl::init(-1),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<int64_t, true> collapseMinAmortWorkOpt(
+    "collapse-min-amort-work",
+    llvm::cl::desc(
+        "Smallest number of elements one fused iteration must cover for\n"
+        "an index rematerialization chain to stay amortized (default=-1,\n"
+        "meaning use the target's own value)."),
+    llvm::cl::location(collapseMinAmortWork), llvm::cl::init(-1),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<int64_t, true> collapseMaxForkCountOpt(
+    "collapse-max-fork-count",
+    llvm::cl::desc(
+        "Largest statically known fork count accepted without penalty\n"
+        "(default=-1, meaning use the target's own value)."),
+    llvm::cl::location(collapseMaxForkCount), llvm::cl::init(-1),
+    llvm::cl::cat(OnnxMlirCommonOptions));
 
 static llvm::cl::opt<bool, true> disableSimdOptionOpt("disable-simd",
     llvm::cl::desc("Disable SIMD optimizations (default=false). Set to `true` "
@@ -755,6 +870,21 @@ static llvm::cl::opt<std::string, true> modelTagOpt("tag",
 static llvm::cl::opt<bool, true> enableConvOptPassOpt("enable-conv-opt-pass",
     llvm::cl::desc("Enable the ConvOptPass. Default is true."),
     llvm::cl::location(enableConvOptPass), llvm::cl::init(true),
+    llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<bool, true> disableEliminateWriteOnlyAllocOpt(
+    "disable-eliminate-write-only-alloc",
+    llvm::cl::desc("Disable the EliminateWriteOnlyAllocPass that removes "
+                   "locally-allocated memrefs that are only written to. "
+                   "Default is false."),
+    llvm::cl::location(disableEliminateWriteOnlyAlloc), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<bool, true> disableFusedOpOpt("disable-fused-op",
+    llvm::cl::desc("Disable ONNXFusedOp (region-based) container for supported "
+                   "fusion patterns; fall back to hardcoded composite ops. "
+                   "Default is false (fused-op is on)."),
+    llvm::cl::location(disableFusedOp), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<bool, true> disableConvToMatmulOpt(
@@ -885,6 +1015,7 @@ llvm::cl::opt<bool, true> appendDecodingStrategyOpt{"append-decoding-strategy",
 
   #include "src/Compiler/CompilerOptions.hpp"
 
+  // use --test-compiler-opt to invoke the new optimization.
   if (debugTestCompilerOpt) {
     fprintf(stderr, "use new optimization\n");
     // invoke optimization.
@@ -894,8 +1025,16 @@ llvm::cl::opt<bool, true> appendDecodingStrategyOpt{"append-decoding-strategy",
 
   onnx-mlir -test-compiler-opt
 */
-#if defined(_DEBUG)
+// Use the portable NDEBUG test rather than _DEBUG: _DEBUG is an MSVC-only
+// predefined macro (see the comment in src/Version/Version.cpp), so testing it
+// left this option unregistered on every gcc/clang build, Debug ones included.
+#if !defined(NDEBUG)
 
+// Registered in OnnxMlirCommonOptions, not OnnxMlirOptions, so that
+// onnx-mlir-opt also accepts it: onnx-mlir-opt keeps only the common and
+// opt-specific categories (see removeUnrelatedOptions in
+// src/Tools/onnx-mlir-opt/onnx-mlir-opt.cpp), and lit tests for a new
+// optimization run through onnx-mlir-opt.
 static llvm::cl::opt<bool, true> test_compiler_opt("test-compiler-opt",
     llvm::cl::desc(
         "Help compiler writers test a new (small) optimization. When false, "
@@ -907,7 +1046,7 @@ static llvm::cl::opt<bool, true> test_compiler_opt("test-compiler-opt",
         "Once the new opt works, it should not rely this option any more.\n"
         "Only defined in DEBUG build and default to false.\n"),
     llvm::cl::location(debugTestCompilerOpt), llvm::cl::init(false),
-    llvm::cl::cat(OnnxMlirOptions));
+    llvm::cl::cat(OnnxMlirCommonOptions));
 bool debugTestCompilerOpt;
 #else
 // Option only available in debug mode: disable when not in debug.
@@ -1516,12 +1655,22 @@ void removeUnrelatedOptions(
   optCategories.push_back(&llvm::cl::getGeneralCategory());
   llvm::cl::HideUnrelatedOptions(optCategories);
 
+  // Collect options to remove in a separate pass before erasing.
+  //
+  // opt->removeArgument() erases the option from the same DenseMap that
+  // getRegisteredOptions() returns a reference to.  Calling it inside the
+  // range-for loop therefore invalidates the active iterator, which was
+  // silently tolerated by older LLVM but is now caught by the epoch-based
+  // iterator-debug assertions added in llvm-project ~43574226
+  // (LLVM_ENABLE_ABI_BREAKING_CHECKS / LLVM_ENABLE_ASSERTIONS=ON).
+  // Fix: snapshot the to-remove set first, then erase in a second loop.
+  llvm::SmallVector<llvm::cl::Option *, 32> toRemove;
   auto &optMap = llvm::cl::getRegisteredOptions();
-  for (auto n = optMap.begin(); n != optMap.end(); n++) {
-    llvm::cl::Option *opt = n->second;
+  for (auto &[name, opt] : optMap)
     if (opt->getOptionHiddenFlag() == llvm::cl::ReallyHidden)
-      opt->removeArgument();
-  }
+      toRemove.push_back(opt);
+  for (llvm::cl::Option *opt : toRemove)
+    opt->removeArgument();
 }
 
 // This function can be called after llvm::cl::ParseCommandLineOptions

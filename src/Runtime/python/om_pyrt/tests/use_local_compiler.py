@@ -21,11 +21,12 @@ import om_pyrt
 
 try:
     compile_session = om_pyrt.CompileSession(
-        compiler_path="/Users/chentong/Projects/onnx-mlir/build/Debug/bin/onnx-mlir"
+        # Example of using compiler in container
+        compiler_path="/workdir/onnx-mlir/build/Debug/bin/onnx-mlir"
     )
     compiled_model = compile_session.compile(model_file, "-O3")
 except Exception as e:
-    print("Fialed to compile")
+    print("Failed to compile")
     exit(-1)
 
 # Prepare input data
@@ -37,4 +38,3 @@ b = a + 4
 # Run inference
 sess = om_pyrt.InferenceSession(compiled_model)
 r = sess.run([a, b])
-print(r)

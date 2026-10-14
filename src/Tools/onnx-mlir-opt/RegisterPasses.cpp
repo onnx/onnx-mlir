@@ -80,6 +80,10 @@ void registerOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createFusionOpTransformPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createConvOptONNXToONNXPass();
   });
 
@@ -116,11 +120,19 @@ void registerOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createAppendInstrumentedOutputsPass("NONE");
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createSetONNXNodeNamePass();
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createONNXPreKrnlVerifyPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createExpandAttentionMaskPass();
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
@@ -130,7 +142,7 @@ void registerOMPasses(int optLevel) {
   mlir::registerPass([optLevel]() -> std::unique_ptr<mlir::Pass> {
     return createLowerToKrnlPass(/*enableTiling*/ optLevel >= 3,
         /*enableSIMD, should consider disableSimdOption*/ optLevel >= 3,
-        /*enableParallel*/ false,
+        /*enableParallel*/ false, /*enableCollapse*/ true,
         /*enableFastMath*/ false, /*default is still off*/
         /*opsForCall*/ "");
   });
@@ -153,6 +165,14 @@ void registerOMPasses(int optLevel) {
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return krnl::createConvertKrnlToLLVMPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createEliminateWriteOnlyAllocPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createEliminateEntryArgClonePass();
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {

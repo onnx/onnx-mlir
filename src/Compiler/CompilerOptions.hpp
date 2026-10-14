@@ -88,6 +88,13 @@ typedef enum {
   // clang-format on
 } OptReport;
 
+typedef enum {
+  // clang-format off
+  Undefined,
+  Fixed,
+  Grow
+} KVCacheType;
+
 extern const std::string modelSizeStr[];
 
 // Common options shared between onnx-mlir and onnx-mlir-opt.
@@ -114,6 +121,8 @@ extern bool enableONNXHybridPass;                             // common for both
 extern std::vector<std::string> functionsToDecompose;         // common for both
 extern std::string opsForCall;                                // common for both
 extern bool disableKrnlOpFusion;                              // common for both
+extern bool disableFusedOp;                                   // common for both
+extern bool disableEliminateWriteOnlyAlloc;                   // common for both
 extern bool disableQuantZeroPoint;                            // common for both
 extern bool enableKrnlBufferReuse;                            // common for both
 extern bool enableSafeCodeGen;                                // common for both
@@ -151,13 +160,21 @@ extern unsigned instrumentControlBits;                        // onnx-mlir only
 extern std::string parallelizeOps;                            // onnx-mlir only
 extern std::string instrumentSignatures;                      // onnx-mlir only
 extern std::string instrumentOnnxNode;                        // onnx-mlir only
+extern std::string instrumentOnnxNodeReturn;                  // onnx-mlir only
 extern std::string ONNXOpStats;                               // onnx-mlir only
 extern int onnxOpTransformThreshold;                          // onnx-mlir only
 extern bool onnxOpTransformReport;                            // onnx-mlir only
 extern bool enableParallel;                                   // onnx-mlir only
+extern bool disableCollapse;                                  // onnx-mlir only
+extern int64_t collapseMinParTripCountFloor;                  // common for both
+extern int64_t collapseMinAmortWork;                          // common for both
+extern int64_t collapseMaxForkCount;                          // common for both
 extern bool disableSimdOption;                                // onnx-mlir only
 extern bool enableFastMathOption;                             // onnx-mlir only
 extern bool disableRecomposeOption;                           // onnx-mlir only
+extern bool enableAttentionOpConstruct;                       // common for both
+extern KVCacheType kvCache;                                   // common for both
+extern bool disableSplitMatMulBySlice;                        // common for both
 extern bool enableSimdDataLayout;                             // onnx-mlir only
 extern bool verifyInputTensors;                               // onnx-mlir only
 extern bool allowSorting;                                     // onnx-mlir only
@@ -175,12 +192,12 @@ extern ProfileIRs profileIRWithSig;                           // onnx-mlir only
 extern OptReport optReport;                                   // onnx-mlir only
 extern bool enableTiming;                                     // onnx-mlir only
 extern bool enableBoundCheck;                                 // onnx-mlir only
-extern bool debugTestCompilerOpt;                             // onnx-mlir only
-extern bool useLinalgPath;                                    // onnx-mlir only
-extern bool enableDebugInfo;                                  // onnx-mlir only
-extern std::string configFile;                                // onnx-mlir only
-extern std::string saveConfigFile;                            // onnx-mlir only
-extern bool appendDecodingStrategy;                           // onnx-mlir only
+extern bool debugTestCompilerOpt;   // onnx-mlir & onnx-mlir-opt
+extern bool useLinalgPath;          // onnx-mlir only
+extern bool enableDebugInfo;        // onnx-mlir only
+extern std::string configFile;      // onnx-mlir only
+extern std::string saveConfigFile;  // onnx-mlir only
+extern bool appendDecodingStrategy; // onnx-mlir only
 
 extern bool split_input_file;          // onnx-mlir-opt only
 extern bool verify_diagnostics;        // onnx-mlir-opt only

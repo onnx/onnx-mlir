@@ -76,7 +76,7 @@ func.func @test_gather_nd_2(%arg0 : tensor<2x2x2xf32>, %arg1 : tensor<2x1x2xi64>
 // COM: Test GatherND with indices_shape[-1] < rank(data) - batch_dims
 func.func @test_gather_nd_4d_2d(%arg0: tensor<1x196x512xf32>, %arg1: tensor<1x1xi64>) -> (tensor<*xf32>) {
   %0 = "onnx.GatherND"(%arg0, %arg1) <{batch_dims = 0 : si64}> : (tensor<1x196x512xf32>, tensor<1x1xi64>) -> tensor<*xf32>
-  onnx.Return %0 : tensor<*xf32>
+  "func.return"(%0) : (tensor<*xf32>) -> ()
 
 // CHECK-LABEL:  func.func @test_gather_nd_4d_2d
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<1x196x512xf32>, [[PARAM_1_:%.+]]: memref<1x1xi64>) -> memref<1x196x512xf32> {
@@ -105,8 +105,7 @@ func.func @test_gather_nd_4d_2d(%arg0: tensor<1x196x512xf32>, %arg1: tensor<1x1x
 // CHECK:             }
 // CHECK:           }
 // CHECK:           [[VAR_reinterpret_cast_1_:%.+]] = memref.reinterpret_cast [[RES_]] to offset: [0], sizes: [1, 196, 512], strides: [100352, 512, 1] : memref<100352xf32> to memref<1x196x512xf32>
-// CHECK:           [[VAR_1_:%.+]] = builtin.unrealized_conversion_cast [[VAR_reinterpret_cast_1_]] : memref<1x196x512xf32> to tensor<1x196x512xf32>
-// CHECK:           onnx.Return [[VAR_1_]] : tensor<1x196x512xf32>
+// CHECK:           return [[VAR_reinterpret_cast_1_]] : memref<1x196x512xf32>
 // CHECK:         }
 }
 

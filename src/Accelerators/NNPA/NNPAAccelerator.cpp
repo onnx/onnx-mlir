@@ -4,7 +4,7 @@
 
 //===-------------------------- NNPAAccelerator.cpp -----------------------===//
 //
-// Copyright 2022-2025 The IBM Research Authors.
+// Copyright 2022-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -27,6 +27,7 @@
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Accelerators/NNPA/Support/NNPALimit.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "zdnn.h"
 
 #include <memory>
@@ -204,6 +205,29 @@ int64_t NNPAAccelerator::getDefaultAllocAlignment(
 void NNPAAccelerator::conversionTargetONNXToKrnl(
     mlir::ConversionTarget &target) const {
   target.addLegalDialect<zlow::ZLowDialect>();
+  // ONNXFusedOp instances with ZHigh-specific kinds must be lowered by
+  // ZHighToZLow patterns registered above.  All other kinds are left for
+  // other lowering passes (or are not yet supported).
+  // Use DynamicLegalityCallbackFn (Operation* overload) to avoid the
+  // cast<ONNXFusedOp> wrapper that MLIR generates for typed callbacks;
+  // that wrapper's debug-mode isa<> assertion can crash on ops in
+  // transitional states during conversion.
+  target.addDynamicallyLegalOp<mlir::ONNXFusedOp>(
+      mlir::ConversionTarget::DynamicLegalityCallbackFn(
+          [](mlir::Operation *op) -> std::optional<bool> {
+            auto kindAttr = op->getAttrOfType<mlir::StringAttr>("kind");
+            if (kindAttr && kindAttr.getValue().starts_with("zhigh."))
+              return false; // ZHigh-specific kinds must be lowered here.
+            // Not a ZHigh fused op: defer (std::nullopt) to the normal
+            // legality/pattern rules for this pass instead of claiming it's
+            // already legal. Returning `true` here would stop the driver
+            // from applying the other registered patterns (e.g.
+            // FusedSplitOpGatherOpPattern / FusedOpInlineFallback) to the op
+            // itself, while it still independently descends into and
+            // converts the ops nested in its region -- corrupting the fused
+            // op's body/terminator.
+            return std::nullopt;
+          }));
 }
 
 void NNPAAccelerator::rewritePatternONNXToKrnl(
@@ -212,7 +236,8 @@ void NNPAAccelerator::rewritePatternONNXToKrnl(
   onnx_mlir::zhigh::populateZHighToZLowConversionPattern(patterns,
       typeConverter, ctx,
       /*enableSIMD*/ OptimizationLevel >= 3 && !disableSimdOption,
-      enableParallel, nnpaDisableSaturation);
+      enableParallel, /*enableCollapse*/ enableParallel && !disableCollapse,
+      nnpaDisableSaturation);
   onnx_mlir::zhigh::populateONNXWithNNPALayoutToKrnlConversionPattern(
       patterns, typeConverter, ctx, enableParallel, nnpaDisableSaturation);
 }

@@ -24,8 +24,14 @@ using namespace onnx_mlir;
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXEyeLikeOp::verify() {
-  return verifyResultElementTypeEqualsDtypeWithFallBackToInputType(
-      *this, getDtype());
+  if (failed(verifyResultElementTypeEqualsDtypeWithFallBackToInputType(
+          *this, getDtype())))
+    return failure();
+
+  auto inputType = mlir::dyn_cast<ShapedType>(getInput().getType());
+  if (inputType && inputType.hasRank() && inputType.getRank() != 2)
+    return emitOpError("Input should have a rank of two");
+  return success();
 }
 
 //===----------------------------------------------------------------------===//

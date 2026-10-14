@@ -56,4 +56,32 @@ def DimUnstickRemovalPattern : Pat<
   [(TensorHasNoNHWCLayout $arg), (HasNNPAUse $arg)]
 >;
 
+// Create a DenseElementsAttr from a float attribute and an element type.
+def createDenseElementsAttrFromFloatAttr : NativeCodeCall<
+  "onnx_mlir::createDenseElementsAttrFromFloatAttr($_builder, mlir::cast<ShapedType>($0.getType()).getElementType(), $1)">;
+
+// Create a DenseElementsAttr with full static shape from unstick output type.
+def createDenseElementsAttrFromFloatAttrWithShape : NativeCodeCall<
+  "DenseElementsAttr::get(mlir::cast<ShapedType>($0.getType()), $1)">;
+
+// zhigh.Unstick (zhigh.StickifiedConstantOfShape $shape, $value_attr, $layout) with static shape
+// Generate ONNXConstantOp directly without ONNXExpandOp.
+def UnstickConstantOfShapeStaticPattern: Pat<
+  (ZHighUnstickOp:$unstick (ZHighStickifiedConstantOfShapeOp:$stick $shape, $value_attr, $layout)),
+  (ONNXConstantOpFromDenseAttr (createDenseElementsAttrFromFloatAttrWithShape $unstick, $value_attr)),
+  [(IsStaticShapeTensor $unstick)],
+  [],
+  (addBenefit 1)
+>;
+
+// zhigh.Unstick (zhigh.StickifiedConstantOfShape $shape, $value_attr, $layout) with dynamic shape
+// Generate ONNXExpandOp with scalar constant.
+def UnstickConstantOfShapePattern: Pat<
+  (ZHighUnstickOp:$unstick (ZHighStickifiedConstantOfShapeOp:$stick $shape, $value_attr, $layout)),
+  (ONNXExpandOp (ONNXConstantOpFromDenseAttr (createDenseElementsAttrFromFloatAttr $unstick, $value_attr)), $shape),
+  [],
+  [],
+  (addBenefit 0)
+>;
+
 #endif // UNSTICK_TD

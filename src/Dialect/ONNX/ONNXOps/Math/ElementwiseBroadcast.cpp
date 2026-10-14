@@ -64,6 +64,28 @@ static LogicalResult verifyShapeForBroadcastingOps(Operation *op) {
   return success();
 }
 
+// Verify that a comparison op's two operands share an element type. The only
+// tolerated exception is a float operand compared against an integer
+// literal equal to 0 (see getFloatVsIntegerZeroLiteralOperand): that shape
+// is left for the op's canonicalizer to fix up by re-typing the literal, so
+// the verifier must not reject it here, only genuinely unfixable mismatches.
+static LogicalResult verifySameElementTypeForCompareOps(Operation *op) {
+  if (!hasShapeAndRank(op))
+    return success();
+
+  Type lhsElemType = getElementType(op->getOperand(0).getType());
+  Type rhsElemType = getElementType(op->getOperand(1).getType());
+  if (lhsElemType == rhsElemType)
+    return success();
+
+  if (getFloatVsIntegerZeroLiteralOperand(op).has_value())
+    return success();
+
+  return op->emitOpError("expected operands to have the same element "
+                         "type, but got ")
+         << lhsElemType << " and " << rhsElemType;
+}
+
 // Handle shape inference for numpy style broadcasting operators.
 template <class OP_TYPE>
 static LogicalResult inferShapeForBroadcastingOps(
@@ -222,7 +244,9 @@ LogicalResult ONNXDivOp::reifyResultShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXEqualOp::verify() {
-  return verifyShapeForBroadcastingOps(getOperation());
+  if (failed(verifyShapeForBroadcastingOps(getOperation())))
+    return failure();
+  return verifySameElementTypeForCompareOps(getOperation());
 }
 
 LogicalResult ONNXEqualOp::inferShapes(
@@ -236,7 +260,9 @@ LogicalResult ONNXEqualOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXGreaterOp::verify() {
-  return verifyShapeForBroadcastingOps(getOperation());
+  if (failed(verifyShapeForBroadcastingOps(getOperation())))
+    return failure();
+  return verifySameElementTypeForCompareOps(getOperation());
 }
 
 LogicalResult ONNXGreaterOp::inferShapes(
@@ -250,7 +276,9 @@ LogicalResult ONNXGreaterOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXGreaterOrEqualOp::verify() {
-  return verifyShapeForBroadcastingOps(getOperation());
+  if (failed(verifyShapeForBroadcastingOps(getOperation())))
+    return failure();
+  return verifySameElementTypeForCompareOps(getOperation());
 }
 
 LogicalResult ONNXGreaterOrEqualOp::inferShapes(
@@ -265,7 +293,9 @@ LogicalResult ONNXGreaterOrEqualOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXLessOp::verify() {
-  return verifyShapeForBroadcastingOps(getOperation());
+  if (failed(verifyShapeForBroadcastingOps(getOperation())))
+    return failure();
+  return verifySameElementTypeForCompareOps(getOperation());
 }
 
 LogicalResult ONNXLessOp::inferShapes(
@@ -279,7 +309,9 @@ LogicalResult ONNXLessOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXLessOrEqualOp::verify() {
-  return verifyShapeForBroadcastingOps(getOperation());
+  if (failed(verifyShapeForBroadcastingOps(getOperation())))
+    return failure();
+  return verifySameElementTypeForCompareOps(getOperation());
 }
 
 LogicalResult ONNXLessOrEqualOp::inferShapes(

@@ -105,6 +105,22 @@ install(TARGETS PyRuntimeC
   DESTINATION lib
   )
 
+# Install targets for pip/scikit-build-core: place compiled extensions and
+# Python wrappers into the om_pyrt package layout so that "pip install ."
+# from the repo root produces a working wheel.
+if (SKBUILD)
+  install(TARGETS PyRuntimeC
+    LIBRARY DESTINATION om_pyrt/libs
+    COMPONENT om_pyrt
+  )
+  install(FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/PyRuntime.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/PyOMCompile.py
+    DESTINATION om_pyrt
+    COMPONENT om_pyrt
+  )
+endif()
+
 # Target to prepare om_pyrt package
 add_custom_target(OMCreateOMPyRtPackage
         COMMAND rm -rf ${CMAKE_CURRENT_BINARY_DIR}/om_pyrt
@@ -143,23 +159,6 @@ if (ONNX_MLIR_STANDALONE_DIR)
      )
 endif()
 
-# Target to prepare onnxmlir package
-file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/onnxmlir/src/onnxmlir/libs)
-
-add_custom_target(OMCreatePyRuntimePackage
-        COMMAND cp -r ${CMAKE_CURRENT_SOURCE_DIR}/onnxmlir ${CMAKE_CURRENT_BINARY_DIR}
-        COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/onnxmlirdocker.py ${CMAKE_CURRENT_BINARY_DIR}/onnxmlir/src/onnxmlir/
-        COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/PyRuntime.py ${CMAKE_CURRENT_BINARY_DIR}/onnxmlir/src/onnxmlir
-        COMMAND cp ${ONNX_MLIR_BIN_ROOT}/${CMAKE_BUILD_TYPE}/lib/PyRuntimeC.*.so ${CMAKE_CURRENT_BINARY_DIR}/onnxmlir/src/onnxmlir/libs
-        DEPENDS PyRuntimeC
-     )
-
-#if(ONNX_MLIR_ENABLE_PYRUNTIME_LIGHT)
-  # Since the compiler is not built when PYRUNTIME_LIGHT is enabled,
-  # PyCompileAndRuntime can not be simply built.
-  #  return()
-#endif()
-
 pybind11_add_module(PyOMCompileC PyOMCompile.cpp)
 target_compile_options(PyOMCompileC
   PRIVATE
@@ -175,4 +174,11 @@ llvm_update_compile_flags(PyOMCompileC)
 install(TARGETS PyOMCompileC
   DESTINATION lib
   )
+
+if (SKBUILD)
+  install(TARGETS PyOMCompileC
+    LIBRARY DESTINATION om_pyrt/libs
+    COMPONENT om_pyrt
+  )
+endif()
 

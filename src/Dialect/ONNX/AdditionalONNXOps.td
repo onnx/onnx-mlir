@@ -25,6 +25,7 @@
 //===----------------------------------------------------------------------===//
 
 include "mlir/Interfaces/CallInterfaces.td"
+include "mlir/IR/RegionKindInterface.td"
 include "mlir/IR/SymbolInterfaces.td"
 include "src/IR/AttrBase.td"
 
@@ -219,6 +220,11 @@ def ONNXDimGroupOp : ONNX_Op<"DimGroup"> {
     `group_id` identifies the group id of the dimension. It is non-negative.
     Value -1 for `group_id` means the dimension does not belong to any group.
 
+    `group_name` is the symbolic name of the group when it is known, either
+    from the `onnx.dim_params` attribute of a function argument/result or
+    synthesized from a function argument, e.g. `X_0` or `arg0_0`. It is absent
+    when the group has no known name.
+
     This operation is currently used in the pass `--onnx-dim-analysis`
     for testing the unknown dimension analysis class.
 
@@ -227,7 +233,8 @@ def ONNXDimGroupOp : ONNX_Op<"DimGroup"> {
 
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$data,
                        DefaultValuedAttr<SI64Attr, "0">:$axis,
-                       DefaultValuedAttr<SI64Attr, "-1">:$group_id);
+                       DefaultValuedAttr<SI64Attr, "-1">:$group_id,
+                       OptionalAttr<StrAttr>:$group_name);
 }
 
 //===----------------------------------------------------------------------===//
@@ -340,11 +347,71 @@ def ONNXPrintSignatureOp:ONNX_Op<"PrintSignature", []> {
     When print_data == 1, the data of the tensor will be printed. Otherwise, just shape.
     The argument input specifies the tensor to be printed. They could be a list
     of the inputs and outputs of an ONNX op.
+    The optional argument io_labels, when present and of the same length as
+    input, gives a per-tensor label (e.g. "in0", "out1") printed right before
+    that tensor's signature/data, so a caller-selected subset of a node's
+    operands/results can still be told apart in the printed output.
 
     This operation is not part of the standard and was added to assist onnx-mlir.
   }];
 
-  let arguments = (ins StrAttr:$op_name, SI64Attr:$print_data, Variadic<AnyTypeOf<[AnyTensor, NoneType]>>:$input);
+  let arguments = (ins StrAttr:$op_name, SI64Attr:$print_data,
+      OptionalAttr<StrArrayAttr>:$io_labels,
+      Variadic<AnyTypeOf<[AnyTensor, NoneType]>>:$input);
+}
+
+//===----------------------------------------------------------------------===//
+// ONNXFusedOp
+def ONNXFusedOp : ONNX_Op<"Fused", [
+    Pure,
+    IsolatedFromAbove,
+    DeclareOpInterfaceMethods<RegionKindInterface>,
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>,
+    OpInterface<"HasOnnxSubgraphOpInterface">]> {
+  let summary = "Fused ONNX operation container";
+  let description = [{
+    A container for a sequence of ONNX operations to be lowered jointly in one
+    custom code-generation step.  The `kind` attribute identifies the specific
+    fusion pattern so the lowering pass can dispatch to the right generator.
+
+    The body region is IsolatedFromAbove: all external tensor values must be
+    listed as `inputs` and are available inside as block arguments in the same
+    order.  Optional (NoneType) values are NOT threaded through `inputs`;
+    instead an ONNXNoneOp is created inside the body for each None operand.
+
+    Shape inference delegates to the contained operations: the greedy rewriter
+    visits every inner op and infers its output types; the YieldOp terminator
+    then drives re-inference of the FusedOp's own result types.
+
+    This operation is not part of the ONNX standard and was added to assist
+    onnx-mlir.
+  }];
+  let arguments = (ins
+      StrAttr:$kind,
+      Variadic<AnyType>:$inputs);
+  let results = (outs
+      Variadic<AnyType>:$outputs);
+  let regions = (region SizedRegion<1>:$body);
+
+  let extraClassDeclaration = [{
+    int64_t getSubgraphRegionIdx(const std::string &name) {
+      if (name == "body") return 0;
+      llvm_unreachable("unknown subgraph name for ONNXFusedOp");
+    }
+  }];
+
+  let hasVerifier = 1;
+
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper *ONNXFusedOp::getShapeHelper(
+        mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper,
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      auto *sh = new onnx_mlir::ONNXFusedOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 //===----------------------------------------------------------------------===//

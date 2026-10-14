@@ -9,8 +9,17 @@
 # Test case to compile a model with compiler container
 ################################################################################
 
-# Local model file
 from pathlib import Path
+import argparse
+
+parser = argparse.ArgumentParser(description="Flags to run the test")
+parser.add_argument(
+    "--image",
+    type=str,
+    default="ghcr.io/onnxmlir/onnx-mlir-dev:s390x",
+    help="compiler docker image",
+)
+args = parser.parse_args()
 
 script_dir = Path(__file__).resolve().parent
 model_file = str(script_dir / "test_add.mlir")
@@ -22,13 +31,10 @@ import om_pyrt
 
 try:
     compile_session = om_pyrt.CompileSession(
-        compiler_image="ghcr.io/onnxmlir/onnx-mlir-dev:s390x",
-        compiler_path="/workdir/onnx-mlir/build/Debug/bin/onnx-mlir",
+        compiler_image=args.image,
+        compiler_path="onnx-mlir",
     )
-
-    compiled_model = compile_session.compile(
-        model_file, "-O3", reuse_compiled_model=True
-    )
+    compiled_model = compile_session.compile(model_file, "-O3")
 except Exception as e:
     print("Failed to compile")
     exit(-1)
