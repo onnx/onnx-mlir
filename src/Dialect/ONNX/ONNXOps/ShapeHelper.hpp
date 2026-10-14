@@ -614,7 +614,13 @@ struct ONNXPadOpShapeHelper : public ONNXOpShapeHelper {
       : ONNXOpShapeHelper(op, operands, ieBuilder, scope), pads() {}
   virtual ~ONNXPadOpShapeHelper() {}
   mlir::LogicalResult computeShape() final;
-  // Additional data for PadOp.
+  // Get the axes padded by the `pads` operand, in `pads` order, as given by
+  // the `axes` operand (all the axes of `data` when absent). An axis is a
+  // literal when its value is known, possibly negative, and a non-literal
+  // otherwise. Fails when the number of axes is not static.
+  mlir::LogicalResult getPadAxes(llvm::SmallVectorImpl<IndexExpr> &axes);
+  // Additional data for PadOp: begin pads then end pads, one per axis of
+  // `data`.
   llvm::SmallVector<IndexExpr, 4> pads;
 };
 

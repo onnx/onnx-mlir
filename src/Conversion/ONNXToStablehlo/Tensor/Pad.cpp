@@ -34,7 +34,6 @@ struct ONNXPadOpLoweringToStablehlo : public ConversionPattern {
     ONNXPadOpAdaptor operandAdaptor(operands, padOp);
     Value data = operandAdaptor.getData();
     Value constantValue = operandAdaptor.getConstantValue();
-    Value pads = operandAdaptor.getPads();
     StringRef padMode = operandAdaptor.getMode();
 
     if (!padMode.equals_insensitive("constant"))
@@ -60,21 +59,20 @@ struct ONNXPadOpLoweringToStablehlo : public ConversionPattern {
     SmallVector<int64_t> edgePaddingLowVec(rank, 0);
     SmallVector<int64_t> edgePaddingHighVec(rank, 0);
     SmallVector<int64_t> interiorPaddingVec(rank, 0);
-    if (auto valueAttribute = getElementAttributeFromConstValue(pads)) {
-      // If `pads` are constants, read them."
-      int64_t idx = 0;
-      for (IntegerAttr value : valueAttribute.getValues<IntegerAttr>()) {
-        int64_t padValue = value.getInt();
-        if (padValue < 0)
-          return failure();
-        if (idx < rank)
-          edgePaddingLowVec[idx] = padValue;
-        else
-          edgePaddingHighVec[idx - rank] = padValue;
-        idx++;
-      }
-    } else {
-      assert(false && "Pads must be known at compile time");
+    // Get pads per axis of `data` via the shape helper, which accounts for
+    // `axes`; it fails when some axes are not known.
+    ONNXPadOpShapeHelper shapeHelper(op, {});
+    if (failed(shapeHelper.computeShape()))
+      return rewriter.notifyMatchFailure(op, "Pad axes are not all known");
+    for (int64_t i = 0; i < rank; ++i) {
+      IndexExpr padBegin = shapeHelper.pads[i];
+      IndexExpr padEnd = shapeHelper.pads[i + rank];
+      assert(padBegin.isLiteral() && padEnd.isLiteral() &&
+             "Pads must be known at compile time");
+      if (padBegin.getLiteral() < 0 || padEnd.getLiteral() < 0)
+        return failure();
+      edgePaddingLowVec[i] = padBegin.getLiteral();
+      edgePaddingHighVec[i] = padEnd.getLiteral();
     }
 
     mlir::DenseI64ArrayAttr edgePaddingLow =
