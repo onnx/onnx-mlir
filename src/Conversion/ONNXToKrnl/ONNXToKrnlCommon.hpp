@@ -451,6 +451,8 @@ void populateLoweringONNXPoolingOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXGridSampleOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
+void populateLoweringONNXDeformConvOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
 
 // `ObjectDetection` directory methods:
 void populateLoweringONNXNonMaxSuppressionOpPattern(

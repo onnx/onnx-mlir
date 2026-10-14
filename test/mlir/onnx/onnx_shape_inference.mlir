@@ -4537,3 +4537,47 @@ func.func @test_random_uniform_static_bf16() -> tensor<*xbf16> {
 }
 
 //===----------------------------------------------------------------------===//
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Test shape inference for DeformConv. The output shape follows the same
+/// formula as Conv; `offset` and `mask` only alter the sampling locations.
+//===----------------------------------------------------------------------===//
+
+func.func @test_deform_conv_no_bias_no_mask(%arg0 : tensor<1x1x3x3xf32>, %arg1 : tensor<1x1x2x2xf32>, %arg2 : tensor<1x8x4x4xf32>) -> tensor<*xf32> {
+  %cst = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.DeformConv"(%arg0, %arg1, %arg2, %cst, %cst) {kernel_shape = [2, 2], pads = [1, 1, 1, 1]} : (tensor<1x1x3x3xf32>, tensor<1x1x2x2xf32>, tensor<1x8x4x4xf32>, none, none) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_deform_conv_no_bias_no_mask
+  // CHECK: [[RES:%.+]] = "onnx.DeformConv"({{.*}}) {{.*}} -> tensor<1x1x4x4xf32>
+  // CHECK: onnx.Return [[RES]] : tensor<1x1x4x4xf32>
+}
+
+// -----
+
+/// group, offset_group, strides and dilations.
+
+func.func @test_deform_conv_groups(%arg0 : tensor<1x4x8x8xf32>, %arg1 : tensor<6x2x3x3xf32>, %arg2 : tensor<1x36x3x3xf32>, %arg3 : tensor<6xf32>, %arg4 : tensor<1x18x3x3xf32>) -> tensor<*xf32> {
+  %0 = "onnx.DeformConv"(%arg0, %arg1, %arg2, %arg3, %arg4) {group = 2 : si64, offset_group = 2 : si64, kernel_shape = [3, 3], strides = [2, 2]} : (tensor<1x4x8x8xf32>, tensor<6x2x3x3xf32>, tensor<1x36x3x3xf32>, tensor<6xf32>, tensor<1x18x3x3xf32>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_deform_conv_groups
+  // CHECK: [[RES:%.+]] = "onnx.DeformConv"({{.*}}) {{.*}} -> tensor<1x6x3x3xf32>
+  // CHECK: onnx.Return [[RES]] : tensor<1x6x3x3xf32>
+}
+
+// -----
+
+/// Unknown batch and spatial dimensions.
+
+func.func @test_deform_conv_unknown_dims(%arg0 : tensor<?x1x?x?xf32>, %arg1 : tensor<5x1x2x2xf32>, %arg2 : tensor<?x8x?x?xf32>) -> tensor<*xf32> {
+  %cst = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.DeformConv"(%arg0, %arg1, %arg2, %cst, %cst) : (tensor<?x1x?x?xf32>, tensor<5x1x2x2xf32>, tensor<?x8x?x?xf32>, none, none) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_deform_conv_unknown_dims
+  // CHECK: [[RES:%.+]] = "onnx.DeformConv"({{.*}}) {{.*}} -> tensor<?x5x?x?xf32>
+  // CHECK: onnx.Return [[RES]] : tensor<?x5x?x?xf32>
+}
