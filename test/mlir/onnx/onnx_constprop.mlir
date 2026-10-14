@@ -2008,6 +2008,43 @@ func.func @test_pad_rank0() -> tensor<*xf32> {
 
 // -----
 
+func.func @test_pad_axes() -> tensor<*xf32> {
+  %data = onnx.Constant dense<[[1.0, 1.2], [2.3, 3.4], [4.5, 5.7]]> : tensor<3x2xf32>
+  %pads = onnx.Constant dense<[2, 0]> : tensor<2xi64>
+  %axes = onnx.Constant dense<[-1]> : tensor<1xi64>
+  %non = "onnx.NoValue"() {value} : () -> none
+  %1 = "onnx.Pad"(%data, %pads, %non, %axes) { mode = "constant" } : (tensor<3x2xf32>, tensor<2xi64>, none, tensor<1xi64>) -> tensor<*xf32>
+  onnx.Return %1 : tensor<*xf32>
+
+// CHECK-LABEL:  func.func @test_pad_axes
+// CHECK-SAME:   () -> tensor<3x4xf32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<{{.}}[0.000000e+00, 0.000000e+00, 1.000000e+00, 1.200000e+00], [0.000000e+00, 0.000000e+00, 2.300000e+00, 3.400000e+00], [0.000000e+00, 0.000000e+00, 4.500000e+00, 5.700000e+00]{{.}}> : tensor<3x4xf32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<3x4xf32>
+// CHECK:         }
+}
+
+// -----
+
+// Scrambled axes from a Concat of constants: pads = [b1, b0, e1, e0].
+func.func @test_pad_axes_concat_scrambled() -> tensor<*xf32> {
+  %data = onnx.Constant dense<[[1.0, 1.2], [2.3, 3.4], [4.5, 5.7]]> : tensor<3x2xf32>
+  %pads = onnx.Constant dense<[1, 0, 0, 1]> : tensor<4xi64>
+  %a1 = onnx.Constant dense<[1]> : tensor<1xi64>
+  %a0 = onnx.Constant dense<[0]> : tensor<1xi64>
+  %axes = "onnx.Concat"(%a1, %a0) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
+  %non = "onnx.NoValue"() {value} : () -> none
+  %1 = "onnx.Pad"(%data, %pads, %non, %axes) { mode = "constant" } : (tensor<3x2xf32>, tensor<4xi64>, none, tensor<2xi64>) -> tensor<*xf32>
+  onnx.Return %1 : tensor<*xf32>
+
+// CHECK-LABEL:  func.func @test_pad_axes_concat_scrambled
+// CHECK-SAME:   () -> tensor<4x3xf32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<{{.}}[0.000000e+00, 1.000000e+00, 1.200000e+00], [0.000000e+00, 2.300000e+00, 3.400000e+00], [0.000000e+00, 4.500000e+00, 5.700000e+00], [0.000000e+00, 0.000000e+00, 0.000000e+00]{{.}}> : tensor<4x3xf32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<4x3xf32>
+// CHECK:         }
+}
+
+// -----
+
 func.func @test_pad_empty() -> tensor<*xf16> {
   %data = onnx.Constant dense<[[], []]> : tensor<2x0xf16>
   %pads = onnx.Constant dense<[0, 1, 1, 0]> : tensor<4xi64>
