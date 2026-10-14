@@ -92,4 +92,8 @@ void populateLoweringONNXIdentityOpPattern(mlir::RewritePatternSet &patterns,
     mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx,
     const std::string &linalgOps, bool useLinalgPath);
 
+void populateLoweringONNXReshapeOpPattern(mlir::RewritePatternSet &patterns,
+    mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx,
+    const std::string &linalgOps, bool useLinalgPath);
+
 } // namespace onnx_mlir

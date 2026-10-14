@@ -57,6 +57,8 @@ struct ConvertONNXToLinalgPass
         patterns, typeConverter, context, linalgOps, useLinalgPath);
     populateLoweringONNXIdentityOpPattern(
         patterns, typeConverter, context, linalgOps, useLinalgPath);
+    populateLoweringONNXReshapeOpPattern(
+        patterns, typeConverter, context, linalgOps, useLinalgPath);
 
     // Apply patterns greedily
     GreedyRewriteConfig config;
