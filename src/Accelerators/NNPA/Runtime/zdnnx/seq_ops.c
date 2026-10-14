@@ -619,8 +619,6 @@ static zdnn_status create_3ds_ztensor(
     free(trans);
     return ZDNN_ALLOCATION_FAILURE;
   }
-  memset(pre, 0, sizeof(*pre));
-  memset(trans, 0, sizeof(*trans));
   zdnn_init_pre_transformed_desc(ZDNN_3DS, FP32, pre, s, m, n);
   zdnn_status rc = zdnn_generate_transformed_desc(pre, trans);
   if (rc != ZDNN_OK) {
@@ -640,7 +638,6 @@ static zdnn_status create_3ds_ztensor(
   if (fp32_data) {
     rc = zdnn_transform_ztensor(zt, fp32_data);
   } else {
-    memset(zt->buffer, 0, zt->buffer_size);
     zt->is_transformed = true;
   }
   return rc;
@@ -655,8 +652,6 @@ static zdnn_status create_2ds_zero_bias(
     free(trans);
     return ZDNN_ALLOCATION_FAILURE;
   }
-  memset(pre, 0, sizeof(*pre));
-  memset(trans, 0, sizeof(*trans));
   zdnn_init_pre_transformed_desc(ZDNN_2DS, FP32, pre, s, n);
   zdnn_status rc = zdnn_generate_transformed_desc(pre, trans);
   if (rc != ZDNN_OK) {
@@ -708,32 +703,34 @@ static zdnn_status sdpa_3d_basic(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
 
   zdnn_ztensor scores = {0}, probs = {0}, bias1 = {0}, bias2 = {0};
 
+  // scores = Q * KT
   status = create_3ds_ztensor(B, S, SK, &scores, NULL);
-  if (status == ZDNN_OK)
-    status = create_3ds_ztensor(B, S, SK, &probs, NULL);
   if (status == ZDNN_OK)
     status = create_2ds_zero_bias(B, SK, &bias1);
   if (status == ZDNN_OK)
-    status = create_2ds_zero_bias(B, HV, &bias2);
-
-  // scores = Q * KT + Mask
-  if (status == ZDNN_OK)
-    status = zdnn_matmul_op(Q, KT, &bias1, MATMUL_OP_ADDITION, &scores);
-  if (status == ZDNN_OK)
-    status = zdnn_add(&scores, Mask, &scores);
-
-  // probs = softmax(scores); scores buffer is dead after this.
-  if (status == ZDNN_OK)
-    status = zdnn_softmax(&scores, NULL, SOFTMAX_ACT_NONE, &probs);
-  free_ztensor(&scores);
+    status = zdnnx_matmul_op(Q, KT, &bias1, MATMUL_OP_ADDITION, &scores);
   free_ztensor(&bias1);
+
+  // masks = scores + Mask
+  if (status == ZDNN_OK)
+    status = zdnnx_add(&scores, Mask, &scores);
+
+  // probs = softmax(scores);
+  if (status == ZDNN_OK)
+    status = create_3ds_ztensor(B, S, SK, &probs, NULL);
+
+  if (status == ZDNN_OK)
+    status = zdnnx_softmax(&scores, NULL, SOFTMAX_ACT_NONE, &probs);
+  free_ztensor(&scores);
 
   // output = probs * V
   if (status == ZDNN_OK)
-    status = zdnn_matmul_op(&probs, V, &bias2, MATMUL_OP_ADDITION, output);
-
+    status = create_2ds_zero_bias(B, HV, &bias2);
+  if (status == ZDNN_OK)
+    status = zdnnx_matmul_op(&probs, V, &bias2, MATMUL_OP_ADDITION, output);
   free_ztensor(&bias2);
   free_ztensor(&probs);
+
   return status;
 }
 
@@ -746,8 +743,8 @@ static zdnn_status sdpa_3d_basic(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
 // Inputs (all 3DS stickified):
 //   Q      [B, S, H]   -- queries
 //   KT     [B, H, SK]  -- transposed keys
-//   Mask   [B, S, SK]  -- attention mask (additive, -inf for masked positions)
-//   V      [B, SK, HV] -- values
+//   Mask   [B, S, SK]  -- attention mask (additive, -inf for masked
+//   positions) V      [B, SK, HV] -- values
 // Output:
 //   output [B, S, HV]
 //
@@ -819,17 +816,16 @@ static zdnn_status flash_attention(const zdnn_ztensor *Q,
       fp32_buf[i] = 1.0f;
     status = create_3ds_ztensor(1, T, 1, &ones_zt, fp32_buf);
   }
-  // Running max [1, S, 1] -- initialized per batch in the first tile.
+  // Helper [1, S, 1] tensors (reused across tiles).
+  // Running max [1, S, 1]
   if (status == ZDNN_OK)
     status = create_3ds_ztensor(1, S, 1, &max_row_zt, NULL);
-  // Running sum [1, S, 1] initialized to 0.
+  // Running sum [1, S, 1]
   if (status == ZDNN_OK)
     status = create_3ds_ztensor(1, S, 1, &sum_row_zt, NULL);
-
-  // Helper [1, S, 1] tensors (reused across tiles).
-  // block_max_zt is also reused as tile_rowsum (non-overlapping lifetimes).
   if (status == ZDNN_OK)
     status = create_3ds_ztensor(1, S, 1, &old_max_zt, NULL);
+  // block_max_zt is also reused as tile_rowsum (non-overlapping lifetimes).
   if (status == ZDNN_OK)
     status = create_3ds_ztensor(1, S, 1, &block_max_zt, NULL);
   if (status == ZDNN_OK)
@@ -1039,8 +1035,8 @@ zdnn_status zdnnx_seq_sdpa_3d(const zdnn_ztensor *Q, const zdnn_ztensor *KT,
 
   uint32_t S = zdnnx_get_transformed_dim(Q, E2);
   uint32_t tile_size = 1024;
-  // if (use_basic || S <= tile_size)
-  //   return sdpa_3d_basic(Q, KT, Mask, V, output);
-  // Choose tile size T: aligned to 64, must divide SK evenly.
+  if (use_basic || S <= tile_size)
+    return sdpa_3d_basic(Q, KT, Mask, V, output);
+  // Choose tile size T: aligned to 64.
   return flash_attention(Q, KT, Mask, V, /*tile_size*/ tile_size, output);
 }
