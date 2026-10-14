@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----------- ONNXRewrite.cpp - ONNX High Level Optimizer --------------===//
+//===----------- Canonicalize.cpp - ONNX High Level Optimizer -------------===//
 //
 // Copyright 2019-2026 The IBM Research Authors.
 //
@@ -891,8 +891,7 @@ struct PropagateConstantScalingIntoMatMulOperandsPattern
     // result.
     auto lhsType = mlir::dyn_cast<RankedTensorType>(lhs.getType());
     auto rhsType = mlir::dyn_cast<RankedTensorType>(rhs.getType());
-    if (!lhsType || !rhsType || lhsType.getRank() < 2 ||
-        rhsType.getRank() < 2)
+    if (!lhsType || !rhsType || lhsType.getRank() < 2 || rhsType.getRank() < 2)
       return rewriter.notifyMatchFailure(
           genericOp, "The MatMul operands are not ranked matrices");
     int64_t D = lhsType.getShape().back();
@@ -3226,9 +3225,8 @@ void ONNXMulOp::getCanonicalizationPatterns(
   results
       .insert<PropagateConstantScalingIntoAttentionOperandPattern<ONNXMulOp>>(
           context);
-  results
-      .insert<PropagateConstantScalingIntoMatMulOperandsPattern<ONNXMulOp>>(
-          context);
+  results.insert<PropagateConstantScalingIntoMatMulOperandsPattern<ONNXMulOp>>(
+      context);
 }
 
 /// on the ONNXOrOp.
