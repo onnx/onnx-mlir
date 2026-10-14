@@ -2,7 +2,7 @@
 
 //===-- AdditionalONNXOps.td -- ONNX Dialect Additional Ops  -*- tablegen -===//
 //
-// Copyright 2019-2023 The IBM Research Authors
+// Copyright 2019-2026 The IBM Research Authors
 //
 // =============================================================================
 //
@@ -25,6 +25,7 @@
 //===----------------------------------------------------------------------===//
 
 include "mlir/Interfaces/CallInterfaces.td"
+include "mlir/IR/RegionKindInterface.td"
 include "mlir/IR/SymbolInterfaces.td"
 include "src/IR/AttrBase.td"
 
@@ -219,6 +220,11 @@ def ONNXDimGroupOp : ONNX_Op<"DimGroup"> {
     `group_id` identifies the group id of the dimension. It is non-negative.
     Value -1 for `group_id` means the dimension does not belong to any group.
 
+    `group_name` is the symbolic name of the group when it is known, either
+    from the `onnx.dim_params` attribute of a function argument/result or
+    synthesized from a function argument, e.g. `X_0` or `arg0_0`. It is absent
+    when the group has no known name.
+
     This operation is currently used in the pass `--onnx-dim-analysis`
     for testing the unknown dimension analysis class.
 
@@ -227,7 +233,8 @@ def ONNXDimGroupOp : ONNX_Op<"DimGroup"> {
 
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$data,
                        DefaultValuedAttr<SI64Attr, "0">:$axis,
-                       DefaultValuedAttr<SI64Attr, "-1">:$group_id);
+                       DefaultValuedAttr<SI64Attr, "-1">:$group_id,
+                       OptionalAttr<StrAttr>:$group_name);
 }
 
 //===----------------------------------------------------------------------===//
@@ -340,11 +347,71 @@ def ONNXPrintSignatureOp:ONNX_Op<"PrintSignature", []> {
     When print_data == 1, the data of the tensor will be printed. Otherwise, just shape.
     The argument input specifies the tensor to be printed. They could be a list
     of the inputs and outputs of an ONNX op.
+    The optional argument io_labels, when present and of the same length as
+    input, gives a per-tensor label (e.g. "in0", "out1") printed right before
+    that tensor's signature/data, so a caller-selected subset of a node's
+    operands/results can still be told apart in the printed output.
 
     This operation is not part of the standard and was added to assist onnx-mlir.
   }];
 
-  let arguments = (ins StrAttr:$op_name, SI64Attr:$print_data, Variadic<AnyTypeOf<[AnyTensor, NoneType]>>:$input);
+  let arguments = (ins StrAttr:$op_name, SI64Attr:$print_data,
+      OptionalAttr<StrArrayAttr>:$io_labels,
+      Variadic<AnyTypeOf<[AnyTensor, NoneType]>>:$input);
+}
+
+//===----------------------------------------------------------------------===//
+// ONNXFusedOp
+def ONNXFusedOp : ONNX_Op<"Fused", [
+    Pure,
+    IsolatedFromAbove,
+    DeclareOpInterfaceMethods<RegionKindInterface>,
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>,
+    OpInterface<"HasOnnxSubgraphOpInterface">]> {
+  let summary = "Fused ONNX operation container";
+  let description = [{
+    A container for a sequence of ONNX operations to be lowered jointly in one
+    custom code-generation step.  The `kind` attribute identifies the specific
+    fusion pattern so the lowering pass can dispatch to the right generator.
+
+    The body region is IsolatedFromAbove: all external tensor values must be
+    listed as `inputs` and are available inside as block arguments in the same
+    order.  Optional (NoneType) values are NOT threaded through `inputs`;
+    instead an ONNXNoneOp is created inside the body for each None operand.
+
+    Shape inference delegates to the contained operations: the greedy rewriter
+    visits every inner op and infers its output types; the YieldOp terminator
+    then drives re-inference of the FusedOp's own result types.
+
+    This operation is not part of the ONNX standard and was added to assist
+    onnx-mlir.
+  }];
+  let arguments = (ins
+      StrAttr:$kind,
+      Variadic<AnyType>:$inputs);
+  let results = (outs
+      Variadic<AnyType>:$outputs);
+  let regions = (region SizedRegion<1>:$body);
+
+  let extraClassDeclaration = [{
+    int64_t getSubgraphRegionIdx(const std::string &name) {
+      if (name == "body") return 0;
+      llvm_unreachable("unknown subgraph name for ONNXFusedOp");
+    }
+  }];
+
+  let hasVerifier = 1;
+
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper *ONNXFusedOp::getShapeHelper(
+        mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper,
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      auto *sh = new onnx_mlir::ONNXFusedOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 //===----------------------------------------------------------------------===//
@@ -646,3 +713,155 @@ def ONNXRMSLayerNormalizationOp:ONNX_Op<"RMSLayerNormalization",
   }];
   let hasVerifier = 1;
 }
+
+//===----------------------------------------------------------------------===//
+// ONNXUpsampleAndPadOp
+def ONNXUpsampleAndPadOp : ONNX_Op<"UpsampleAndPad",
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+   DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let hasCanonicalizer = 1;
+  let summary = "ONNX UpsampleAndPad operation";
+  let description = [{
+    This operation performs upsampling followed by padding on an n-dimensional tensor.
+
+    Given an input tensor X of rank n, strides of size k, and pads of size 2*k,
+    the operation proceeds in two steps:
+
+    1. Upsampling: For each of the innermost k dimensions, insert zeros between
+       elements according to the stride values. The upsampled size for dimension i is:
+       upsampled_size[i] = (input_size[i] - 1) * strides[i] + 1
+
+    2. Padding: Apply constant padding (value=0) to the upsampled result.
+       The first k elements of pads specify the beginning padding, and the last k
+       elements specify the ending padding for each of the innermost k dimensions.
+
+    Example for 2D case with X=(N,C,H,W) and strides=(sH,sW):
+      H_up = (H - 1) * sH + 1
+      W_up = (W - 1) * sW + 1
+      x_up[:, :, ::sH, ::sW] = x  (with zeros elsewhere)
+      output = pad(x_up, pads)
+    Optional attributes:
+    - strides: If not specified, defaults to all 1s (no upsampling).
+    - pads: If not specified, defaults to all 0s (no padding).
+
+    Constraints:
+    - k <= n (number of stride dimensions must not exceed input rank)
+    - pads must have size 2*k
+    - All stride values must be positive
+
+    This operation is not part of the standard and was added to assist onnx-mlir.
+  }];
+
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>,
+                                   TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>,
+                                   TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>,
+                                   TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X,
+                       OptionalAttr<I64ArrayAttr>:$strides,
+                       OptionalAttr<I64ArrayAttr>:$pads);
+
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>,
+                                  TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>,
+                                  TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>,
+                                  TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output);
+
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {30};
+    }
+  }];
+
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ONNXUpsampleAndPadOp::getShapeHelper(mlir::Operation *op,
+        llvm::ArrayRef<mlir::Value> oper,
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXUpsampleAndPadOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+
+  let hasVerifier = 1;
+}
+//===----------------------------------------------------------------------===//
+// ONNXIm2ColOp
+def ONNXIm2ColOp: ONNX_Op<"Im2Col",
+    [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+     DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ONNX Im2Col operation for convolution via matrix multiplication";
+  let description = [{
+    Transforms N-dimensional convolution input into column format to enable
+    convolution via matrix multiplication.
+    
+    For input X: [N, CI, D1, D2, ..., DN]
+    With kernel: [K1, K2, ..., KN]
+    And output spatial dims: [O1, O2, ..., ON]
+    
+    Output shape: [N, CI * K1 * K2 * ... * KN, O1 * O2 * ... * ON]
+                   ↑  ↑                             ↑
+                 batch flattened receptive field    flattened output positions
+    
+    For each batch n and output position q, output[n, :, q] contains the
+    flattened receptive field ordered as:
+    [c0_k0...kN, c1_k0...kN, ..., cCI_k0...kN]
+    where c is the channel index and k0...kN are kernel spatial indices.
+  
+    This layout matches the common lowering pattern where weights are reshaped
+    to [CO, CI * K1 * ... * KN], Im2Col(X)[n] is viewed as
+    [CI * K1 * ... * KN, O1 * ... * ON], and convolution is computed as a
+    matrix multiplication for each batch.
+    
+    Parameters match ONNX Conv operation (excluding group):
+    - auto_pad: Padding strategy (NOTSET, SAME_UPPER, SAME_LOWER, VALID).
+                Default is NOTSET.
+    - dilations: Dilation values for each spatial dimension.
+                 Default is 1 for each spatial dimension.
+    - kernel_shape: Size of convolution kernel (required).
+    - pads: Padding for each spatial dimension. Format is [x1_begin, x2_begin, ..., x1_end, x2_end, ...]
+            where n is the number of spatial dimensions. Total length is 2*n.
+            Default is 0 for all dimensions.
+    - strides: Stride values for each spatial dimension.
+               Default is 1 for each spatial dimension.
+    
+    This operation is not part of the standard and was added to assist onnx-mlir.
+  }];
+
+  let arguments = (ins 
+    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X,
+    DefaultValuedStrAttr<StrAttr, "NOTSET">:$auto_pad,
+    OptionalAttr<I64ArrayAttr>:$dilations,
+    I64ArrayAttr:$kernel_shape,
+    OptionalAttr<I64ArrayAttr>:$pads,
+    OptionalAttr<I64ArrayAttr>:$strides
+  );
+  
+  let results = (outs 
+    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$output
+  );
+
+  let hasVerifier = 1;
+
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() { return 1; }
+    static int getNumberOfResults() { return 1; }
+    static std::vector<int> getTypeMap() { return {30}; }
+  }];
+
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ONNXIm2ColOp::getShapeHelper(
+        mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper,
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = 
+          new onnx_mlir::ONNXIm2ColOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "Failed to allocate shape helper.");
+      return sh;
+    }
+  }];
+}
+
+

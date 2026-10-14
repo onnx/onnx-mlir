@@ -3,7 +3,7 @@
 
 ##################### RunONNXModel.py #########################################
 #
-# Copyright 2019-2025 The IBM Research Authors.
+# Copyright 2019-2026 The IBM Research Authors.
 #
 ################################################################################
 #
@@ -38,24 +38,52 @@ VERBOSE = os.environ.get("VERBOSE", False)
 def import_driver():
     global ONNX_MLIR, args
     try:
+        # TODO: do we still use this?
         from onnxmlir import InferenceSession as SessionWrapper
 
         args.use_onnxmlir = True
     except ImportError:
         args.use_onnxmlir = False
-        if not os.environ.get("ONNX_MLIR_HOME", None):
-            raise RuntimeError(
-                "To use native compiler, set environment variable ONNX_MLIR_HOME to the path to onnx-mlir."
-                " Typical example is `path-to-onnx-mlir/build/Debug, which is the parent folder containing the bin, lib, and etc for the compiler."
-            )
+
         ONNX_MLIR_EXENAME = "onnx-mlir.exe" if sys.platform == "win32" else "onnx-mlir"
-        ONNX_MLIR = os.path.join(os.environ["ONNX_MLIR_HOME"], "bin", ONNX_MLIR_EXENAME)
+        ONNX_MLIR = None
+        RUNTIME_DIR = None
+
+        # TODO: would we want to eliminate ONNX_MLIR_HOME?
+        # Strategy 1: Use ONNX_MLIR_HOME environment variable if set
+        if os.environ.get("ONNX_MLIR_HOME", None):
+            onnx_mlir_home = os.environ["ONNX_MLIR_HOME"]
+            ONNX_MLIR = os.path.join(onnx_mlir_home, "bin", ONNX_MLIR_EXENAME)
+            RUNTIME_DIR = os.path.join(onnx_mlir_home, "lib")
+
+        # Strategy 2: Search PATH for onnx-mlir binary
+        # shutil.which() searches all directories in the PATH environment variable
+        if ONNX_MLIR is None or not os.path.isfile(ONNX_MLIR):
+            onnx_mlir_path = shutil.which(ONNX_MLIR_EXENAME)
+            if onnx_mlir_path:
+                # Resolve symbolic links to find the actual binary location
+                onnx_mlir_path = os.path.realpath(onnx_mlir_path)
+                ONNX_MLIR = onnx_mlir_path
+                # Assume runtime lib is in ../lib relative to bin directory
+                # e.g., if binary is /usr/local/bin/onnx-mlir, lib is /usr/local/lib
+                bin_dir = os.path.dirname(onnx_mlir_path)
+                RUNTIME_DIR = os.path.join(os.path.dirname(bin_dir), "lib")
+
+        # If still not found, raise error
+        if ONNX_MLIR is None or not os.path.isfile(ONNX_MLIR):
+            raise RuntimeError(
+                "Cannot find onnx-mlir binary. Please either:\n"
+                " 1) Set environment variable ONNX_MLIR_HOME to the path to onnx-mlir\n"
+                "    (e.g., path-to-onnx-mlir/build/Debug, the parent folder containing bin, lib, etc)\n"
+                " 2) Add onnx-mlir to your PATH (e.g., export PATH=/path/to/onnx-mlir/bin:$PATH)\n"
+                " 3) Install onnx-mlir to a standard location that is already in PATH"
+            )
+
         # Include runtime directory in python paths, so PyRuntime can be imported.
-        RUNTIME_DIR = os.path.join(os.environ["ONNX_MLIR_HOME"], "lib")
-        sys.path.append(RUNTIME_DIR)
+        if RUNTIME_DIR and os.path.isdir(RUNTIME_DIR):
+            sys.path.append(RUNTIME_DIR)
 
         # Check and import Onnx Mlir Execution session / python interface.
-
         try:
             from PyRuntime import OMExecutionSession as SessionWrapper
         except ImportError:
@@ -105,7 +133,7 @@ parser.add_argument(
     "-m",
     "--model",
     type=lambda s: valid_onnx_input(s),
-    help="Path to an ONNX model (.onnx or .mlir).",
+    help="Path to an ONNX model (.onnx, .mlir, or .onnxtext).",
 )
 parser.add_argument(
     "--config-file",
@@ -135,6 +163,11 @@ parser.add_argument(
     "--print-signatures",
     action="store_true",
     help="Print out the input and output signatures of the model.",
+)
+parser.add_argument(
+    "--print-compilation-info",
+    action="store_true",
+    help="Print out the compilation info stored in the compiled model.",
 )
 parser.add_argument(
     "--save-onnx",
@@ -182,7 +215,6 @@ parser.add_argument(
     help="Options passed to onnxmlir. Used with --use-onnxmlir",
 )
 
-
 lib_group = parser.add_mutually_exclusive_group()
 lib_group.add_argument(
     "--save-model",
@@ -223,6 +255,11 @@ parser.add_argument(
     metavar="PATH",
     type=str,
     help="Path to a folder to save the inputs and outputs in protobuf.",
+)
+parser.add_argument(
+    "--use-npy",
+    action="store_true",
+    help="Use .npy format instead of .pb format when reading/writing reference inputs/outputs.",
 )
 data_group = parser.add_mutually_exclusive_group()
 data_group.add_argument(
@@ -266,6 +303,26 @@ parser.add_argument(
     " E.g. --upper-bound=int64:10,float32:0.2,uint8:9."
     " Supported types are bool, uint8, int8, uint16, int16, uint32, int32,"
     " uint64, int64, float16, float32, float64.",
+)
+parser.add_argument(
+    "--input-value",
+    type=str,
+    help="Per-input data fill specification, overriding --lower-bound/--upper-bound"
+    " for individual tensors."
+    " Format: INPUT_ID:spec1 spec2 ..., INPUT_ID:spec, ..."
+    " where INPUT_ID is an integer >= 0, a range (e.g. 2-5), or -1 for all inputs,"
+    " and each spec is one of:"
+    " min<num> (lower bound for random fill),"
+    " max<num> (upper bound for random fill),"
+    " val<num> (constant fill, equivalent to min=max=num),"
+    " soz<num> (sequence-of-ones-then-zeros along the innermost dimension:"
+    " <num> leading ones per row followed by zeros;"
+    " use soz-1 to pick a random count in [1, innerDim-1] for each row independently;"
+    " values >= innerDim are capped to all ones;"
+    " well suited for sequence-length and attention-mask inputs)."
+    " E.g. --input-value=0:min-1.0max1.0,1:val0 sets input 0 to random in [-1,1]"
+    " and input 1 to all zeros."
+    " Per-input specs take priority over --lower-bound and --upper-bound.",
 )
 parser.add_argument(
     "-w",
@@ -335,7 +392,6 @@ def verify_arg():
 # Support functions for RunONNXModel functionality.
 # Functions are free of args (all needed parameters are passed to the function).
 
-
 # A type mapping from MLIR to Numpy.
 MLIR_TYPE_TO_NP_TYPE = {
     "f64": np.dtype("float64"),
@@ -399,19 +455,6 @@ def softmax(x, axis_value):
     return np.exp(x) / np.sum(np.exp(x), axis=axis_value, keepdims=True)
 
 
-def execute_commands(cmds):
-    if VERBOSE:
-        print(cmds)
-    out = subprocess.Popen(cmds, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    stdout, stderr = out.communicate()
-    msg = stderr.decode("utf-8") + stdout.decode("utf-8")
-    if out.returncode == -signal.SIGSEGV:
-        return (False, "Segfault")
-    if out.returncode != 0:
-        return (False, msg)
-    return (True, msg)
-
-
 def extend_model_output(model, intermediate_outputs):
     # Run shape inference to make sure we have valid tensor value infos for all
     # intermediate tensors available
@@ -451,21 +494,27 @@ def get_names_in_signature(signature):
     return names
 
 
-def read_input_from_refs(num_inputs, load_ref_filename, is_load_ref):
+def read_input_from_refs(num_inputs, load_ref_filename, is_load_ref, use_npy=False):
     print("Reading inputs from {} ...".format(load_ref_filename))
     inputs = []
 
     if is_load_ref:
-        import onnx
-        from onnx import numpy_helper
+        if use_npy:
+            for i in range(num_inputs):
+                input_file = load_ref_filename + "/input_{}.npy".format(i)
+                input_np = np.load(input_file)
+                inputs += [input_np]
+        else:
+            import onnx
+            from onnx import numpy_helper
 
-        for i in range(num_inputs):
-            input_file = load_ref_filename + "/input_{}.pb".format(i)
-            input_ts = onnx.TensorProto()
-            with open(input_file, "rb") as f:
-                input_ts.ParseFromString(f.read())
-            input_np = numpy_helper.to_array(input_ts)
-            inputs += [input_np]
+            for i in range(num_inputs):
+                input_file = load_ref_filename + "/input_{}.pb".format(i)
+                input_ts = onnx.TensorProto()
+                with open(input_file, "rb") as f:
+                    input_ts.ParseFromString(f.read())
+                input_np = numpy_helper.to_array(input_ts)
+                inputs += [input_np]
     else:
         spec = importlib.util.spec_from_file_location("om_load_ref", load_ref_filename)
         module = importlib.util.module_from_spec(spec)
@@ -486,21 +535,27 @@ def read_input_from_refs(num_inputs, load_ref_filename, is_load_ref):
     return inputs
 
 
-def read_output_from_refs(num_outputs, load_ref_filename, is_load_ref):
+def read_output_from_refs(num_outputs, load_ref_filename, is_load_ref, use_npy=False):
     print("Reading reference outputs from {} ...".format(load_ref_filename))
     reference_output = []
 
     if is_load_ref:
-        import onnx
-        from onnx import numpy_helper
+        if use_npy:
+            for i in range(num_outputs):
+                output_file = load_ref_filename + "/output_{}.npy".format(i)
+                output_np = np.load(output_file)
+                reference_output += [output_np]
+        else:
+            import onnx
+            from onnx import numpy_helper
 
-        for i in range(num_outputs):
-            output_file = load_ref_filename + "/output_{}.pb".format(i)
-            output_ts = onnx.TensorProto()
-            with open(output_file, "rb") as f:
-                output_ts.ParseFromString(f.read())
-            output_np = numpy_helper.to_array(output_ts)
-            reference_output += [output_np]
+            for i in range(num_outputs):
+                output_file = load_ref_filename + "/output_{}.pb".format(i)
+                output_ts = onnx.TensorProto()
+                with open(output_file, "rb") as f:
+                    output_ts.ParseFromString(f.read())
+                output_np = numpy_helper.to_array(output_ts)
+                reference_output += [output_np]
     else:
         spec = importlib.util.spec_from_file_location(
             "om_load_ref_output", load_ref_filename
@@ -522,143 +577,18 @@ def read_output_from_refs(num_outputs, load_ref_filename, is_load_ref):
     return reference_output
 
 
-def generate_random_input(input_signature, shape_info, seed, lower_bound, upper_bound):
-    # Load random values: first get shape info, where shape_info in the form of
-    # 'input_index:d1xd2, input_index:d1xd2'
-    input_shapes = {}
-    if shape_info:
-        for input_shape in shape_info.strip().split(","):
-            input_index_shape = input_shape.split(":")
-            input_index = input_index_shape[0]
-            assert not (input_index in input_shapes), "Duplicate input indices"
-            dims = [int(d) for d in input_index_shape[1].split("x")]
-            input_shapes[int(input_index)] = dims
-
-    # Then fill shapes with random numbers.
-    # Numpy expect an int, tolerate int/float strings.
-    curr_seed = int(float(seed))
-    print("Generating random inputs using seed", curr_seed, "...")
-    # Generate random data as input.
-    inputs = []
-
-    # Load the input signature.
-    signature = json.loads(input_signature)
-
-    np.random.seed(curr_seed)
-    for i, sig in enumerate(signature):
-        # Get shape.
-        explicit_shape = []
-        for d, dim in enumerate(sig["dims"]):
-            if dim >= 0:
-                explicit_shape.append(dim)
-                continue
-            if i in input_shapes:
-                if d < len(input_shapes[i]):
-                    explicit_shape.append(input_shapes[i][d])
-                else:
-                    print(
-                        "The {} dim".format(ordinal(d + 1)),
-                        "of the {} input is unknown.".format(ordinal(i + 1)),
-                        "Use --shape-info to set.",
-                    )
-                    print(" - The input signature: ", sig)
-                    exit(1)
-            else:
-                print(
-                    "The shape of the {} input".format(ordinal(i + 1)),
-                    "is unknown. Use --shape-info to set.",
-                )
-                print(" - The input signature: ", sig)
-                exit(1)
-        # Get element type.
-        elem_type = sig["type"]
-        np_elem_type = MLIR_TYPE_TO_NP_TYPE[elem_type]
-
-        # Set a range for random values.
-        custom_lb = {}
-        custom_ub = {}
-        # Get user's range if any.
-        if lower_bound:
-            for type_lbs in lower_bound.strip().split(","):
-                type_lb = type_lbs.split(":")
-                assert not (type_lb[0] in custom_lb), "Duplicate types"
-                custom_lb[type_lb[0]] = type_lb[1]
-        if upper_bound:
-            for type_ubs in upper_bound.strip().split(","):
-                type_ub = type_ubs.split(":")
-                assert not (type_ub[0] in custom_ub), "Duplicate types"
-                custom_ub[type_ub[0]] = type_ub[1]
-        DEFAULT_LB.update(custom_lb)
-        DEFAULT_UB.update(custom_ub)
-
-        lb = ub = 0
-        random_element_type = np_elem_type
-        if np.issubdtype(np_elem_type, np.dtype(bool).type):
-            # For some reason, random.uniform with lb/ub to 0/1 resulted in 1 only.
-            lb = int(DEFAULT_LB["bool"])
-            ub = int(DEFAULT_UB["bool"])
-            random_element_type = np.dtype("int32")
-        elif np.issubdtype(np_elem_type, np.uint8):
-            lb = int(DEFAULT_LB["uint8"])
-            ub = int(DEFAULT_UB["uint8"])
-        elif np.issubdtype(np_elem_type, np.uint16):
-            lb = int(DEFAULT_LB["uint16"])
-            ub = int(DEFAULT_UB["uint16"])
-        elif np.issubdtype(np_elem_type, np.uint32):
-            lb = int(DEFAULT_LB["uint32"])
-            ub = int(DEFAULT_UB["uint32"])
-        elif np.issubdtype(np_elem_type, np.uint64):
-            lb = int(DEFAULT_LB["uint64"])
-            ub = int(DEFAULT_UB["uint64"])
-        elif np.issubdtype(np_elem_type, np.int8):
-            lb = int(DEFAULT_LB["int8"])
-            ub = int(DEFAULT_UB["int8"])
-        elif np.issubdtype(np_elem_type, np.int16):
-            lb = int(DEFAULT_LB["int16"])
-            ub = int(DEFAULT_UB["int16"])
-        elif np.issubdtype(np_elem_type, np.int32):
-            lb = int(DEFAULT_LB["int32"])
-            ub = int(DEFAULT_UB["int32"])
-        elif np.issubdtype(np_elem_type, np.int64):
-            lb = int(DEFAULT_LB["int64"])
-            ub = int(DEFAULT_UB["int64"])
-        elif np.issubdtype(np_elem_type, np.float64):
-            lb = float(DEFAULT_LB["float64"])
-            ub = float(DEFAULT_UB["float64"])
-        elif np.issubdtype(np_elem_type, np.float32):
-            lb = float(DEFAULT_LB["float32"])
-            ub = float(DEFAULT_UB["float32"])
-        elif np.issubdtype(np_elem_type, np.float16):
-            lb = float(DEFAULT_LB["float16"])
-            ub = float(DEFAULT_UB["float16"])
-        elif np.issubdtype(np_elem_type, np.str_):
-            lb = 0
-            ub = 64
-            random_element_type = np.dtype("int32")
-        else:
-            raise AssertionError("Unsupported element type")
-        rinput = np.random.uniform(lb, ub, explicit_shape).astype(random_element_type)
-        # For boolean, transform range into True/False using greater_equal
-        if np.issubdtype(np_elem_type, np.dtype(bool).type):
-            rinput = np.greater_equal(rinput, [0])
-        elif np.issubdtype(np_elem_type, np.str_):
-            rinput = np.array(rinput, dtype=np.str_)
-            # rinput = np.array(["ab", "defg"], dtype=np.str_)
-            rinput = np.array(rinput, dtype=object)
-        print(
-            "  - {} input's shape {}, element type {}.".format(
-                ordinal(i + 1), rinput.shape, np_elem_type
-            ),
-            "Value ranges [{}, {}]".format(lb, ub),
-        )
-        inputs.append(rinput)
-    print("  done.\n")
-    return inputs
+# Cap how many individual mismatches get printed for a single output tensor,
+# so that one badly-mismatched output doesn't flood stdout and hide the
+# status of the other outputs.
+MAX_ERRORS_TO_PRINT = 10
 
 
-def verify_outs(actual_outs, ref_outs, atol, rtol):
+def verify_outs(
+    actual_outs, ref_outs, atol, rtol, max_errors_to_print=MAX_ERRORS_TO_PRINT
+):
     total_elements = 0
     mismatched_elements = 0
+    printed_errors = 0
     for index, actual_val in np.ndenumerate(actual_outs):
         total_elements += 1
         ref_val = ref_outs[index]
@@ -671,19 +601,26 @@ def verify_outs(actual_outs, ref_outs, atol, rtol):
             if abs(actual_val - ref_val) <= diff:
                 continue
         mismatched_elements += 1
-        print(
-            "  at {}".format(index),
-            "mismatch {} (actual)".format(actual_val),
-            "vs {} (reference)".format(ref_val),
-        )
+        if printed_errors < max_errors_to_print:
+            print(
+                "  at {}".format(index),
+                "mismatch {} (actual)".format(actual_val),
+                "vs {} (reference)".format(ref_val),
+            )
+            printed_errors += 1
     if mismatched_elements == 0:
         print("  correct.\n")
-    else:
-        raise AssertionError(
-            "  got mismatched elements {}/{}, abort.\n".format(
-                mismatched_elements, total_elements
+        return True
+    if mismatched_elements > printed_errors:
+        print(
+            "  ... {} more mismatch(es) not shown.".format(
+                mismatched_elements - printed_errors
             )
         )
+    print(
+        "  got mismatched elements {}/{}.\n".format(mismatched_elements, total_elements)
+    )
+    return False
 
 
 def data_without_top_bottom_quartile(data, percent):
@@ -697,6 +634,20 @@ def data_without_top_bottom_quartile(data, percent):
 
 def cache_string(model_name, compile_option):
     return "model: " + model_name + "; compile option: " + compile_option
+
+
+def check_mlir_has_entry_point(mlir_path):
+    # A .mlir model with no "onnx.EntryPoint" compiles successfully but has no
+    # function to call at runtime, so it silently fails to run. Catch it early.
+    with open(mlir_path, "r") as f:
+        if "onnx.EntryPoint" not in f.read():
+            print(
+                'Invalid mlir model "'
+                + mlir_path
+                + '": missing "onnx.EntryPoint". The model would compile but '
+                "silently fail to run."
+            )
+            exit(1)
 
 
 ################################################################################
@@ -822,6 +773,7 @@ class InferenceSession:
         start = time.perf_counter()
         self.model_dir = self.temp_dir.name
         output_path = os.path.join(self.model_dir, self.default_model_name)
+        compiler_log_file = ""
         # When use onnxmlir package, use different wrapper class no matter the
         # model is compiled or not.
         if args.use_onnxmlir:
@@ -892,35 +844,39 @@ class InferenceSession:
                     input_model_path = args.model
             elif args.model.endswith(".mlir") or args.model.endswith(".onnxtext"):
                 input_model_path = args.model
+                if args.model.endswith(".mlir") and not args.compile_only:
+                    check_mlir_has_entry_point(args.model)
             else:
                 print(
                     "Invalid input model path. Must end with .onnx or .mlir or .onnxtext"
                 )
                 exit(1)
 
+            # Import the compiler session.
+            try:
+                from PyOMCompile import OMCompile
+            except ImportError:
+                raise RuntimeError("Set PyOMCompile in your python env.")
             # Prepare compiler arguments.
-            command_str = [ONNX_MLIR]
-            if args.compile_args:
-                command_str += args.compile_args.split()
-            command_str += [input_model_path]
-            command_str += ["-o", output_path]
-
-            # Compile the model.
-            start = time.perf_counter()
-            ok, msg = execute_commands(command_str)
-            # Dump the compilation log into a file.
             if args.write_compile_log:
-                log_file = (
+                compiler_log_file = (
                     args.write_compile_log
                     if args.write_compile_log.startswith("/")
                     else os.path.join(os.getcwd(), args.write_compile_log)
                 )
-                print("  Compilation log is dumped into {}".format(log_file))
-                with open(log_file, "w") as f:
-                    f.write(msg)
-            if not ok:
-                print(msg)
-                exit(1)
+                print("  Compilation log is dumped into {}".format(compiler_log_file))
+            # Invoke the compiler.
+            start = time.perf_counter()
+            try:
+                compilerSession = OMCompile()
+                compiler = compilerSession.compile(
+                    input_model_path,
+                    args.compile_args + " -o " + output_path,
+                    log_file_name=compiler_log_file,
+                )
+            except RuntimeError as e:
+                raise RuntimeError(f"Compilation failed: {e}") from None
+
         end = time.perf_counter()
         print("  took ", end - start, " seconds.\n")
 
@@ -948,19 +904,19 @@ class InferenceSession:
                 self.model_dir, f"{self.default_model_name}.constants.bin"
             )
             if os.path.exists(constants_file_path):
-                print("Saving the constants file to", args.save_model, "\n")
+                print("Saving the constants file to", args.save_model)
                 shutil.copy2(constants_file_path, args.save_model)
-            # Compilation log.
-            log_file_path = os.path.join(args.save_model, "compile.log")
-            with open(log_file_path, "w") as f:
-                print("Saving the compilation log to", args.save_model, "\n")
-                f.write(msg)
+            # Saving the compiler log file, if any.
+            if compiler_log_file and os.path.exists(compiler_log_file):
+                print("Saving the log file file to", args.save_model)
+                shutil.copy2(compiler_log_file, args.save_model)
+            # Saving compiler options.
             compiler_option_file_path = os.path.join(
                 args.save_model, "compiler_option.txt"
             )
             expected_string = cache_string(args.model, args.compile_args)
             with open(compiler_option_file_path, "w") as ff:
-                print("Saving the compilation options to", args.save_model, "\n")
+                print("Saving the compilation options to", args.save_model)
                 ff.write(expected_string)
 
         # Exit if only compiling the model.
@@ -975,10 +931,14 @@ class InferenceSession:
                 print(f"Input model {shared_lib_path} does not exist")
                 exit(0)
             print("Loading the compiled model ...")
-            if args.load_model:
-                session = self.session_wrapper(shared_lib_path, tag="None")
-            else:
-                session = self.session_wrapper(shared_lib_path)
+            try:
+                if args.load_model:
+                    session = self.session_wrapper(shared_lib_path, tag="None")
+                else:
+                    session = self.session_wrapper(shared_lib_path)
+            except RuntimeError as e:
+                print(f"error: {e}", file=sys.stderr)
+                sys.exit(1)
             end = time.perf_counter()
             print("  took ", end - start, " seconds.\n")
             self.session = session
@@ -992,6 +952,11 @@ class InferenceSession:
         if args.print_signatures:
             print("Model's input signature: ", input_signature.strip())
             print("Model's output signature: ", output_signature.strip())
+        if args.print_compilation_info:
+            print(
+                "Compilation info stored in the compiled model: ",
+                self.session.compilation_info().strip(),
+            )
 
         # Let onnx-mlir know where to find the constants file.
         os.environ["OM_CONSTANT_PATH"] = self.model_dir
@@ -1023,24 +988,35 @@ class InferenceSession:
         elif args.load_ref:
             # Get input from reference file.
             self.inputs = read_input_from_refs(
-                len(self.input_names), args.load_ref, is_load_ref=True
+                len(self.input_names),
+                args.load_ref,
+                is_load_ref=True,
+                use_npy=args.use_npy,
             )
         elif args.load_ref_from_numpy:
             # Get input from numpy.
             self.inputs = read_input_from_refs(
-                len(self.input_names), args.load_ref_from_numpy, is_load_ref=False
+                len(self.input_names),
+                args.load_ref_from_numpy,
+                is_load_ref=False,
+                use_npy=args.use_npy,
             )
         elif args.inputs_from_arrays:
             # Get input from array.
             self.inputs = args.inputs_from_arrays
         else:
-            self.inputs = generate_random_input(
-                self.session.input_signature(),
-                args.shape_info,
-                args.seed,
-                args.lower_bound,
-                args.upper_bound,
-            )
+            try:
+                self.inputs = self.session.fill_input_debug(
+                    shape_info=args.shape_info or "",
+                    value_info=args.input_value or "",
+                    default_lower_bound=args.lower_bound or "",
+                    default_upper_bound=args.upper_bound or "",
+                    seed=int(float(args.seed)),
+                    verbose=True,
+                )
+            except RuntimeError as e:
+                print(f"error: {e}", file=sys.stderr)
+                sys.exit(1)
 
         # Print the input if required.
         if args.print_input:
@@ -1085,21 +1061,32 @@ class InferenceSession:
 
         # Store the input and output if required.
         if args.save_ref:
-            from onnx import numpy_helper
-
             load_ref = args.save_ref
             if not os.path.exists(load_ref):
                 os.mkdir(load_ref)
-            for i in range(len(self.inputs)):
-                tensor = numpy_helper.from_array(self.inputs[i])
-                tensor_path = os.path.join(load_ref, "input_{}.pb".format(i))
-                with open(tensor_path, "wb") as f:
-                    f.write(tensor.SerializeToString())
-            for i in range(len(outs)):
-                tensor = numpy_helper.from_array(outs[i])
-                tensor_path = os.path.join(load_ref, "output_{}.pb".format(i))
-                with open(tensor_path, "wb") as f:
-                    f.write(tensor.SerializeToString())
+
+            if args.use_npy:
+                # Save as .npy files.
+                for i in range(len(self.inputs)):
+                    tensor_path = os.path.join(load_ref, "input_{}.npy".format(i))
+                    np.save(tensor_path, self.inputs[i])
+                for i in range(len(outs)):
+                    tensor_path = os.path.join(load_ref, "output_{}.npy".format(i))
+                    np.save(tensor_path, outs[i])
+            else:
+                # Save as .pb files.
+                from onnx import numpy_helper
+
+                for i in range(len(self.inputs)):
+                    tensor = numpy_helper.from_array(self.inputs[i])
+                    tensor_path = os.path.join(load_ref, "input_{}.pb".format(i))
+                    with open(tensor_path, "wb") as f:
+                        f.write(tensor.SerializeToString())
+                for i in range(len(outs)):
+                    tensor = numpy_helper.from_array(outs[i])
+                    tensor_path = os.path.join(load_ref, "output_{}.pb".format(i))
+                    with open(tensor_path, "wb") as f:
+                        f.write(tensor.SerializeToString())
 
         # Verify the output if required.
         if args.verify:
@@ -1120,21 +1107,28 @@ class InferenceSession:
                 # Reference output available in protobuf.
                 if args.load_ref:
                     ref_outs = read_output_from_refs(
-                        len(self.output_names), args.load_ref, is_load_ref=True
+                        len(self.output_names),
+                        args.load_ref,
+                        is_load_ref=True,
+                        use_npy=args.use_npy,
                     )
                 elif args.load_ref_from_numpy:
                     ref_outs = read_output_from_refs(
                         len(self.output_names),
                         args.load_ref_from_numpy,
                         is_load_ref=False,
+                        use_npy=args.use_npy,
                     )
             else:
                 print("Invalid verify option")
                 exit(1)
 
-            # Verify using softmax first.
+            # Verify using softmax first. Keep verifying the remaining outputs
+            # even if an earlier one is erroneous, so that every output's
+            # status is known instead of stopping on the first failure.
             if args.verify_with_softmax is not None:
                 axis = int(args.verify_with_softmax)
+                softmax_status = []
                 for i, name in enumerate(self.output_names):
                     print(
                         "Verifying using softmax along with "
@@ -1144,16 +1138,52 @@ class InferenceSession:
                     )
                     softmax_outs = softmax(outs[i], axis)
                     softmax_ref_outs = softmax(ref_outs[i], axis)
-                    verify_outs(softmax_outs, softmax_ref_outs, args.atol, args.rtol)
+                    is_correct = verify_outs(
+                        softmax_outs, softmax_ref_outs, args.atol, args.rtol
+                    )
+                    softmax_status.append((name, is_correct))
 
-            # For each output tensor, compare every value.
+                # Only print the summary (and stay silent otherwise) when at
+                # least one output is erroneous.
+                if not all(is_correct for _, is_correct in softmax_status):
+                    print(
+                        "Summary of softmax verification for {} output(s):".format(
+                            len(softmax_status)
+                        )
+                    )
+                    for name, is_correct in softmax_status:
+                        status = "correct" if is_correct else "ERRONEOUS"
+                        print("  {}: {}".format(name, status))
+                    print()
+                    exit(1)
+
+            # For each output tensor, compare every value. Keep verifying the
+            # remaining outputs even if an earlier one is erroneous, so that
+            # every output's status is known instead of aborting on the first
+            # failure.
             if args.verify_every_value:
+                output_status = []
                 for i, name in enumerate(self.output_names):
                     print(
                         "Verifying value of {}:{}".format(name, list(outs[i].shape)),
                         "using atol={}, rtol={} ...".format(args.atol, args.rtol),
                     )
-                    verify_outs(outs[i], ref_outs[i], args.atol, args.rtol)
+                    is_correct = verify_outs(outs[i], ref_outs[i], args.atol, args.rtol)
+                    output_status.append((name, is_correct))
+
+                # Only print the summary (and stay silent otherwise) when at
+                # least one output is erroneous.
+                if not all(is_correct for _, is_correct in output_status):
+                    print(
+                        "Summary of value verification for {} output(s):".format(
+                            len(output_status)
+                        )
+                    )
+                    for name, is_correct in output_status:
+                        status = "correct" if is_correct else "ERRONEOUS"
+                        print("  {}: {}".format(name, status))
+                    print()
+                    exit(1)
 
     """
     Perform a short analysis of time spent in the model.
@@ -1213,11 +1243,21 @@ class InferenceSession:
                 else os.path.join(os.getcwd(), args.write_runtime_log)
             )
             print("  Runtime log is dumped into {}".format(log_file))
+            # The runtime instrumentation opens this file in append mode, so
+            # remove any stale log from a previous run to avoid mixing it in.
+            try:
+                os.remove(log_file)
+            except FileNotFoundError:
+                pass
             os.environ["ONNX_MLIR_INSTRUMENT_FILE"] = log_file
 
         for i in range(args.warmup):
             start = time.perf_counter()
-            outs = self.run_inference()  # Using inputs from self.inputs.
+            try:
+                outs = self.run_inference()  # Using inputs from self.inputs.
+            except RuntimeError as e:
+                print(f"error: {e}", file=sys.stderr)
+                sys.exit(1)
             end = time.perf_counter()
             print("  {} warmup: {} seconds".format(ordinal(i + 1), end - start))
             self.print_instrumentation()
@@ -1225,7 +1265,11 @@ class InferenceSession:
         perf_results = []
         for i in range(args.n_iteration):
             start = time.perf_counter()
-            outs = self.run_inference()  # Using inputs from self.inputs.
+            try:
+                outs = self.run_inference()  # Using inputs from self.inputs.
+            except RuntimeError as e:
+                print(f"error: {e}", file=sys.stderr)
+                sys.exit(1)
             end = time.perf_counter()
             elapsed = end - start
             perf_results += [elapsed]
@@ -1290,7 +1334,11 @@ def main():
     session_wrapper = import_driver()
     # Create inference session and perform a performance run test, which load,
     # compute, and possibly verify data.
-    session = InferenceSession(session_wrapper=session_wrapper)
+    try:
+        session = InferenceSession(session_wrapper=session_wrapper)
+    except RuntimeError as e:
+        print(f"error: {e}")
+        sys.exit(1)
     return session.run_performance_test()
 
 

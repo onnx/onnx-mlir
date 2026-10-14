@@ -14,6 +14,7 @@
 
 #include <assert.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -415,29 +416,50 @@ uint32_t zdnnx_get_transformed_dim_per_tile(
   return 0;
 }
 
+// zdnnx_create_view stores the view's descriptor objects in the caller-supplied
+// pre_desc / tfrmd_desc storage.  This avoids aliasing the input's own
+// descriptor objects: a plain struct copy (*input_view = *input) would copy
+// only the descriptor *pointers*, causing subsequent writes through
+// input_view->pre_transformed_desc to silently overwrite the caller's original
+// tensor's shape metadata in place (f036).
 void zdnnx_create_view(const zdnn_ztensor *input, zdnn_ztensor *input_view,
+    zdnn_tensor_desc *pre_desc, zdnn_tensor_desc *tfrmd_desc,
     uint32_t *view_shape, zdnn_data_layouts view_layout) {
-  // Initialize the view with the original info from the input.
+  // Shallow-copy the ztensor struct (copies buffer pointer, buffer_size, etc.)
+  // then immediately redirect the descriptor pointers to caller-supplied
+  // storage so that mutations below do not touch input's own descriptors.
   *input_view = *input;
+  input_view->pre_transformed_desc = pre_desc;
+  input_view->transformed_desc = tfrmd_desc;
 
-  // Update dim sizes in the pre_transformed_desc.
-  input_view->pre_transformed_desc->dim4 = view_shape[E4];
-  input_view->pre_transformed_desc->dim3 = view_shape[E3];
-  input_view->pre_transformed_desc->dim2 = view_shape[E2];
-  input_view->pre_transformed_desc->dim1 = view_shape[E1];
-  // Update layout in the pre_transformed_desc.
-  input_view->pre_transformed_desc->layout = view_layout;
+  // Deep-copy the input's pre-transformed descriptor, then overwrite the
+  // shape fields that the view changes.
+  *pre_desc = *input->pre_transformed_desc;
+  pre_desc->dim4 = view_shape[E4];
+  pre_desc->dim3 = view_shape[E3];
+  pre_desc->dim2 = view_shape[E2];
+  pre_desc->dim1 = view_shape[E1];
+  pre_desc->layout = view_layout;
 
-  // Update the view's transformed desc for the updated pre_transformed_desc.
-  zdnn_status status = zdnn_generate_transformed_desc(
-      input_view->pre_transformed_desc, input_view->transformed_desc);
-  assert((status == ZDNN_OK) && "Failed to generate a transformed desc.");
-  (void)status; // Prevent unused warning when assert is disabled.
+  // Regenerate the transformed descriptor from the updated pre-transformed one.
+  zdnn_status status =
+      zdnn_generate_transformed_desc(pre_desc, input_view->transformed_desc);
+  if (status != ZDNN_OK) {
+    fprintf(stderr,
+        "zdnnx_create_view: zdnn_generate_transformed_desc failed (%d)\n",
+        (int)status);
+    abort();
+  }
 
-  // Verify the buffer size.
+  // Verify the view preserves the total buffer size.
   uint64_t bufferSize = zdnn_getsize_ztensor(input_view->transformed_desc);
-  assert(bufferSize == input->buffer_size && "Invalid ztensor view");
-  (void)bufferSize; // Prevent unused warning when assert is disabled.
+  if (bufferSize != input->buffer_size) {
+    fprintf(stderr,
+        "zdnnx_create_view: view buffer size %" PRIu64
+        " != input buffer size %" PRIu64 "\n",
+        bufferSize, input->buffer_size);
+    abort();
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -515,9 +537,11 @@ bool zdnnx_prepare_split_info(zdnnx_split_info *split_info,
         (tile_size_e2 % AIU_STICKS_PER_PAGE != 0)) {
       tile_shape[E2] =
           CEIL(tile_size_e2, AIU_STICKS_PER_PAGE) * AIU_STICKS_PER_PAGE;
+#ifdef ZDNNX_DEBUG
       printf("Warning: TileSize for E2 (%d) is not multiple of %d. Adjust to "
              "%d.\n",
           tile_size_e2, AIU_STICKS_PER_PAGE, tile_shape[E2]);
+#endif
     } else {
       tile_shape[E2] = tile_size_e2;
     }
@@ -529,9 +553,11 @@ bool zdnnx_prepare_split_info(zdnnx_split_info *split_info,
         (tile_size_e1 % AIU_2BYTE_CELLS_PER_STICK != 0)) {
       tile_shape[E1] = CEIL(tile_size_e1, AIU_2BYTE_CELLS_PER_STICK) *
                        AIU_2BYTE_CELLS_PER_STICK;
+#ifdef ZDNNX_DEBUG
       printf("Warning: TileSize for E1 (%d) is not multiple of %d. Adjust to "
              "%d.\n",
           tile_size_e1, AIU_2BYTE_CELLS_PER_STICK, tile_shape[E1]);
+#endif
     } else {
       tile_shape[E1] = tile_size_e1;
     }
@@ -621,7 +647,7 @@ bool zdnnx_prepare_split_info(zdnnx_split_info *split_info,
     split_info->flags |= REUSE_FULL_BUFFER;
 
   // No split since copying int8 is not supported yet.
-  if (full_ztensor->transformed_desc->type != ZDNN_BINARY_INT8 &&
+  if (full_ztensor->transformed_desc->type == ZDNN_BINARY_INT8 &&
       !reuse_full_buffer) {
     // Prepare to quit now.
     num_tiles[E4] = 1;

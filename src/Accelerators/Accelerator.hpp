@@ -88,6 +88,11 @@ public:
   /// Version number format: 0x[major][minor][patch]
   virtual uint64_t getVersionNumber() const = 0;
 
+  /// Returns a JSON object string with compile-time accelerator information
+  /// (target level, required library version, etc.). Returns empty string if
+  /// no information is available. Override in each accelerator subclass.
+  virtual std::string getAccelCompileInfo() const { return ""; }
+
   //===--------------------------------------------------------------------===//
   // Hooks for onnx-mlir driver
   //===--------------------------------------------------------------------===//

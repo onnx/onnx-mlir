@@ -4,7 +4,7 @@
 
 //===-------------------------- NNPACompilerUtils.cpp ---------------------===//
 //
-// Copyright 2022-2025 The IBM Research Authors.
+// Copyright 2022-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -27,11 +27,13 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
 
 #include "src/Accelerators/NNPA/Compiler/NNPACompilerOptions.hpp"
 #include "src/Accelerators/NNPA/Compiler/NNPACompilerUtils.hpp"
+#include "src/Accelerators/NNPA/Compiler/NNPAPlacementReporter.hpp"
 #include "src/Accelerators/NNPA/Compiler/ZHighDisposableGarbageCollector.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
@@ -98,7 +100,8 @@ void configurePassesNNPA() {
     }
   }
   // Set the proper instrumentation stage before we add any passes.
-  if (profileIR == onnx_mlir::ProfileIRs::ZHigh)
+  if (profileIR == onnx_mlir::ProfileIRs::ZHigh ||
+      profileIRWithSig == onnx_mlir::ProfileIRs::ZHigh)
     instrumentStage = onnx_mlir::InstrumentStages::ZHigh;
 
   configureONNXToZHighLoweringPass(optReport == OptReport::NNPAUnsupportedOps,
@@ -106,10 +109,18 @@ void configurePassesNNPA() {
 }
 
 void addONNXToZHighPasses(mlir::PassManager &pm) {
+  // Determine if Conv to Im2Col+MatMul decomposition should be enabled.
+  bool enableConvToMatmul = !disableConvToMatmul;
+
+  // Expand attention masks BEFORE the loop (if not disabled).
+  // This pass uses DimAnalysis which is expensive, so run it only once.
+  if (!nnpaDisableExpandAttentionMask)
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createExpandAttentionMaskPass());
+
   for (unsigned i = 0; i < 3; i++) {
     // Repeat this process so that shape-related ops such as Shape, Expand,
     // Gather generated during RewriteONNXForZHigh will become constants.
-    pm.addPass(onnx_mlir::createRewriteONNXForZHighPass());
+    pm.addPass(onnx_mlir::createRewriteONNXForZHighPass(enableConvToMatmul));
     // Simplify shape-related ops, including ShapeOp-to-DimOp replacement,
     // constant propagation, shape inference and canonicalize.
     pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass());
@@ -138,7 +149,8 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
     // For starters only illustrating the new hybrid pass by replacing 3 passes
     // here. The plan is to replace most of the passes in addONNXToMLIRPasses.
     pm.addNestedPass<func::FuncOp>(
-        onnx_mlir::createONNXHybridTransformPass(!disableRecomposeOption));
+        onnx_mlir::createONNXHybridTransformPass(!disableRecomposeOption,
+            /* enableConvToMatmul done in RewriteONNXForZHigh */ false));
   } else {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
     pm.addPass(mlir::createCanonicalizerPass());
@@ -183,13 +195,17 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
   // Replace every DisposableElementsAttr with DenseElementsAttr.
   pm.addPass(onnx_mlir::zhigh::createZHighScrubDisposablePass());
 
-  // NOTE: Cannot have a pass of shape analysis after this pass as we add
-  // "non-standard" mixtures of types into operations, for example with "add(f16
-  // in stickified format, f23) -> f32". Shape inferences & verification
-  // requires all of the types to be identical, so we need to execute this pass
-  // JUST before lowering to KRNL/ZLow.
+  // Fuse stick/unstick into ONNX operations such as ONNX Add, Sub, etc.
+  // By fusion, the inputs and outputs of the ONNX operations might have type of
+  // f16.
   if (!nnpaDisableFusionOpStickUnstick)
     pm.addPass(onnx_mlir::zhigh::createFusionOpStickUnstick());
+
+  // Last shape inference to make sure all ops have good shapes.
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
+
+  // Remove common sub-expressions.
+  pm.addPass(onnx_mlir::createONNXCSEWithNodeNamePass());
 
   // Profiling ZHighIR.
   unsigned instrumentActions = instrumentControlBits;
@@ -249,24 +265,24 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
 
   // Override pass configurations.
   configurePasses();
-  // Empty the save json config file if it exists.
-  if (!nnpaSaveConfigFile.empty()) {
-    std::error_code EC;
-    llvm::raw_fd_ostream OS(nnpaSaveConfigFile, EC, llvm::sys::fs::OF_None);
-    OS.close();
-  }
 
   // LLVM_DEBUG(llvm::dbgs() << "Adding NNPA passes" << std::endl;);
   if (emissionTarget >= EmitONNXIR) {
     pm.addInstrumentation(
         std::make_unique<onnx_mlir::zhigh::ZHighDisposableGarbageCollector>(
             pm.getContext()));
-    addONNXToMLIRPasses(pm, /*target CPU*/ maccel.empty(),
+    addONNXToMLIRPasses(pm, /*target CPU*/ targetNoAccelerators(),
         /*donotScrubDisposableElementsAttr*/ true);
-    pm.addPass(onnx_mlir::createDevicePlacementPass(
-        nnpaLoadConfigFile, nnpaSaveConfigFile, nnpaPlacementHeuristic));
-    pm.addPass(onnx_mlir::createQuantOpSelectionPass(
-        nnpaLoadConfigFile, nnpaSaveConfigFile));
+    pm.addPass(onnx_mlir::createDevicePlacementPass(nnpaPlacementHeuristic));
+    pm.addPass(onnx_mlir::createQuantOpSelectionPass());
+    // Save the current config to a file if required.
+    if (!saveConfigFile.empty()) {
+      // Empty the save json config file if it exists.
+      std::error_code EC;
+      llvm::raw_fd_ostream OS(saveConfigFile, EC, llvm::sys::fs::OF_None);
+      OS.close();
+      pm.addPass(onnx_mlir::createGenerateConfigFilePass(saveConfigFile));
+    }
   }
 
   if (emissionTarget >= EmitMLIR) {
@@ -289,6 +305,12 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
         optLevel = OptLevel::O2;
       else if (optStr == "-O3")
         optLevel = OptLevel::O3;
+      // Add instrumentation to print NNPA placement information before
+      // convert-onnx-to-krnl. Currently reports ONNX operations that will run
+      // on CPU (not accelerated by NNPA).
+      pm.addInstrumentation(
+          std::make_unique<onnx_mlir::zhigh::NNPAPlacementReporter>(
+              pm.getContext()));
       // Lower ONNX to Krnl, ZHigh to ZLow.
       addONNXToKrnlPasses(pm, optLevel, /*enableCSE*/ true, ONNXOpStats);
       // Optimizations at ZLow that needs affine map in MemRef.
@@ -332,9 +354,13 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
     }
   }
 
-  if (emissionTarget >= EmitLLVMIR)
+  if (emissionTarget >= EmitLLVMIR) {
     // Lower the remaining Krnl and all ZLow ops to LLVM dialect.
     addKrnlToLLVMPasses(pm, outputNameNoExt, /*enableCSE=*/true);
+    // Replace malloc with OMHugePageMalloc for better performance on Z.
+    if (!nnpaDisableHugePageMalloc)
+      pm.addPass(onnx_mlir::createReplaceMallocByHugePageMallocPass());
+  }
 }
 
 } // namespace onnx_mlir

@@ -74,6 +74,24 @@ APInt getIntValue(ElementsAttr elementsAttr, Type elType, uint64_t i) {
 namespace onnx_mlir {
 
 //===----------------------------------------------------------------------===//
+// IndexExprBuilderWithProvider
+//===----------------------------------------------------------------------===//
+
+mlir::ElementsAttr IndexExprBuilderWithProvider::getConst(mlir::Value value) {
+  return valueProvider.getConst(value);
+}
+
+mlir::Value IndexExprBuilderWithProvider::getVal(
+    mlir::Value intArrayVal, uint64_t i) {
+  return valueProvider.getVal(intArrayVal, i);
+}
+
+mlir::Value IndexExprBuilderWithProvider::getShapeVal(
+    mlir::Value tensorOrMemrefValue, uint64_t i) {
+  return valueProvider.getShapeVal(tensorOrMemrefValue, i);
+}
+
+//===----------------------------------------------------------------------===//
 // IndexExprBuilder
 //===----------------------------------------------------------------------===//
 

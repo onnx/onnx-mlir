@@ -465,6 +465,23 @@ OMTensorList *omtl_java_to_native(
     int64_t jni_rank = jomt_rank;
     int64_t jni_numElems = jomt_numElems;
 
+    /* Validate that dimensions are non-negative and buffer size matches
+     * declared shape */
+    int valid_shape = 1;
+    for (int64_t dim = 0; dim < jni_rank; dim++) {
+      if (jni_shape[dim] < 0) {
+        valid_shape = 0;
+        break;
+      }
+    }
+    int64_t elemSize = getDataTypeSize(jni_dataType);
+    int64_t expectedBytes = jni_numElems * elemSize;
+    LIB_CALL(, valid_shape && (expectedBytes == jni_bufferSize), env,
+        japi->jecpt_cls,
+        "omt[%d]: buffer size mismatch or invalid shape (expected %ld, got "
+        "%ld)",
+        i, expectedBytes, jni_bufferSize);
+
     /* Print debug info on what we got from the Java side */
     OMT_DEBUG(i, jni_numElems, jni_data, jni_shape, jni_strides, jni_dataType,
         jni_bufferSize, jni_rank, 0);
@@ -760,7 +777,7 @@ Java_com_ibm_onnxmlir_OMModel_query_1entry_1points(JNIEnv *env, jclass cls) {
   for (int64_t i = 0; i < neps; i++) {
     char ep[32];
     int num_chars_written = sprintf(ep, "ep[%lld]", (long long)i);
-    assert(num_chars_written >= 0 && "sprintf write error to ep");
+    assert(num_chars_written >= 0); // Error: "sprintf write error to ep".
     HEX_DEBUG(ep, jni_eps[i], strlen(jni_eps[i]));
     LOG_PRINTF(LOG_DEBUG, "ep[%d](%ld):%s", i, strlen(jni_eps[i]), jni_eps[i]);
 
@@ -911,4 +928,43 @@ JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_output_1signature_1jni(
 #endif
 
   return java_osig;
+}
+
+JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_compilation_1info_1jni(
+    JNIEnv *env, jclass cls) {
+
+  log_init();
+
+  /* Find and initialize Java Exception class */
+  JNI_TYPE_VAR_CALL(env, jclass, jecpt_cls,
+      (*env)->FindClass(env, jnistr[CLS_JAVA_LANG_EXCEPTION]),
+      jecpt_cls != NULL, NULL, "Class java/lang/Exception not found");
+
+  /* Call model compilation info API */
+  CHECK_CALL(const char *, jni_cinfo, omCompilationInfo(), jni_cinfo != NULL,
+      "jni_cinfo=%p", jni_cinfo);
+
+  /* Compilation info in hex and string format for debugging */
+  HEX_DEBUG("cinfo", jni_cinfo, strlen(jni_cinfo));
+  LOG_PRINTF(LOG_DEBUG, "cinfo(%d):%s", strlen(jni_cinfo), jni_cinfo);
+
+  /* On z/OS, convert compilation info in EBCDIC to ASCII */
+#ifdef __MVS__
+  CHECK_CALL(char *, infoptr, __e2a(jni_cinfo), infoptr != NULL, "infoptr=%p",
+      infoptr);
+#else
+  const char *infoptr = jni_cinfo;
+#endif
+
+  /* Convert to Java String object */
+  JNI_TYPE_VAR_CALL(env, jstring, java_cinfo,
+      (*env)->NewStringUTF(env, infoptr), java_cinfo != NULL, jecpt_cls,
+      "java_cinfo=%p", java_cinfo);
+
+  /* On z/OS, free the ASCII compilation info no longer needed */
+#ifdef __MVS__
+  free(infoptr);
+#endif
+
+  return java_cinfo;
 }

@@ -4,7 +4,7 @@
 
 //===------- ExecutionSession.cpp - ExecutionSession Implementation -------===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -33,20 +33,64 @@
 
 #include "ExecutionSession.hpp"
 #include "OMTensorListHelper.hpp"
+#include "src/Runtime/OMTensorHelper.hpp"
 
 namespace onnx_mlir {
+
+#if !defined(_WIN32)
+// =============================================================================
+// Static member initialization for signal handling (POSIX only)
+
+std::jmp_buf ExecutionSession::signalJumpBuffer;
+volatile sig_atomic_t ExecutionSession::signalCaught = 0;
+volatile sig_atomic_t ExecutionSession::signalNumber = 0;
+
+// =============================================================================
+// Signal handler (POSIX only)
+
+void ExecutionSession::signalHandler(int signum) {
+  signalCaught = 1;
+  signalNumber = signum;
+  std::longjmp(signalJumpBuffer, signum);
+}
+#endif
+
 // =============================================================================
 // Constructor, destructor, and init.
 
-ExecutionSession::ExecutionSession(
-    std::string sharedLibPath, std::string tag, bool defaultEntryPoint) {
-  Init(sharedLibPath, tag, defaultEntryPoint);
+ExecutionSession::ExecutionSession(const std::string &sharedLibPath,
+    const std::string &tag, const bool defaultEntryPoint)
+    : sharedLibPath(sharedLibPath) {
+  loadModel(sharedLibPath, tag, defaultEntryPoint);
 }
 
-void ExecutionSession::Init(
-    std::string sharedLibPath, std::string tag, bool defaultEntryPoint) {
+// Errors: If dlopen returns null, it means error. Technically, if dlsym returns
+// null, it is not necessarily an error (in corner cases); but for us it would
+// be because we expect all our symbols to be defined to non-null.
+
+void ExecutionSession::loadModel(const std::string &sharedLibPath,
+    const std::string &modelTag, const bool defaultEntryPoint) {
   if (isInitialized)
-    throw std::runtime_error(reportInitError());
+    throw ExecutionSessionException(
+        "Execution session must be initialized once at most.");
+
+  std::string tag = modelTag;
+
+  // If OM_CONSTANT_PATH is not set, set it for loading constants from file. Do
+  // this before dlopen since OM_CONSTANT_PATH is used by constructors.
+  bool setOMConstantPath = false;
+  if (!std::getenv("OM_CONSTANT_PATH")) {
+    std::size_t found = sharedLibPath.find_last_of("/\\");
+    if (found != std::string::npos) {
+      std::string basePath = sharedLibPath.substr(0, found);
+#if defined(_WIN32)
+      _putenv_s("OM_CONSTANT_PATH", basePath.c_str());
+#else
+      setenv("OM_CONSTANT_PATH", basePath.c_str(), /*overwrite=*/0);
+#endif
+      setOMConstantPath = true;
+    }
+  }
 
   // If there is no tag, use the model filename without extension as a tag.
   if (tag == "") {
@@ -87,13 +131,27 @@ void ExecutionSession::Init(
   _sharedLibraryHandle =
       llvm::sys::DynamicLibrary::getLibrary(sharedLibPath.c_str());
   if (!_sharedLibraryHandle.isValid())
-    throw std::runtime_error(reportLibraryOpeningError(sharedLibPath));
+    throw ExecutionSessionException(
+        "Cannot open library: '" + sharedLibPath + "'.");
 #else
-  // Copy code from llvm/lib/Support/DynamicLibrary.cpp, especially the flags
-  // ToFix: copy the lock related code too.
-  _sharedLibraryHandle = dlopen(sharedLibPath.c_str(), RTLD_LAZY | RTLD_GLOBAL);
+  // ToFix: copy the lock related code from llvm/lib/Support/DynamicLibrary.cpp.
+  //
+  // Use RTLD_LOCAL, not RTLD_GLOBAL. Every compiled model .so statically embeds
+  // libcruntime.a (omTensorCreate, omInstrument, etc.) under identical,
+  // untagged symbol names (src/Runtime/CMakeLists.txt:14 -- "embedded in
+  // model.so to make model.so self-contained"). RTLD_GLOBAL promotes those
+  // symbols into the process-wide dynamic-linker scope, so a later model's lazy
+  // binding of e.g. omInstrument* resolves to the first model's copy instead of
+  // its own -- causing merged or empty --profile-ir reports when two
+  // instrumented models share a process, and a dlclose-UAF if the first session
+  // is destroyed while the second still holds bindings into its text. LLVM's
+  // DynamicLibrary.cpp uses RTLD_GLOBAL deliberately for JIT symbol resolution;
+  // that use case does not apply here -- all entry-point resolution uses
+  // explicit dlsym(handle, ...) against each model's own handle.
+  _sharedLibraryHandle = dlopen(sharedLibPath.c_str(), RTLD_LAZY | RTLD_LOCAL);
   if (!_sharedLibraryHandle)
-    throw std::runtime_error(reportLibraryOpeningError(sharedLibPath));
+    throw ExecutionSessionException(
+        "Cannot open library: '" + sharedLibPath + "'.");
 #endif
 
   std::string queryEntryPointsNameWithTag = _queryEntryPointsName + lowDashTag;
@@ -107,8 +165,8 @@ void ExecutionSession::Init(
 #endif
 
   if (!_queryEntryPointsFunc)
-    throw std::runtime_error(
-        reportSymbolLoadingError(queryEntryPointsNameWithTag));
+    throw ExecutionSessionException(
+        "Cannot load symbol: '" + queryEntryPointsNameWithTag + "'.");
 
   std::string inputSignatureNameWithTag = _inputSignatureName + lowDashTag;
 #if defined(_WIN32)
@@ -120,8 +178,8 @@ void ExecutionSession::Init(
       dlsym(_sharedLibraryHandle, inputSignatureNameWithTag.c_str()));
 #endif
   if (!_inputSignatureFunc)
-    throw std::runtime_error(
-        reportSymbolLoadingError(inputSignatureNameWithTag));
+    throw ExecutionSessionException(
+        "Cannot load symbol: '" + inputSignatureNameWithTag + "'.");
 
   std::string outputSignatureNameWithTag = _outputSignatureName + lowDashTag;
 #if defined(_WIN32)
@@ -133,8 +191,18 @@ void ExecutionSession::Init(
       dlsym(_sharedLibraryHandle, outputSignatureNameWithTag.c_str()));
 #endif
   if (!_outputSignatureFunc)
-    throw std::runtime_error(
-        reportSymbolLoadingError(outputSignatureNameWithTag));
+    throw ExecutionSessionException(
+        "Cannot load symbol: '" + outputSignatureNameWithTag + "'.");
+
+  std::string compilationInfoNameWithTag = _compilationInfoName + lowDashTag;
+#if defined(_WIN32)
+  _compilationInfoFunc = reinterpret_cast<compilationInfoFuncType>(
+      _sharedLibraryHandle.getAddressOfSymbol(
+          compilationInfoNameWithTag.c_str()));
+#else
+  _compilationInfoFunc = reinterpret_cast<compilationInfoFuncType>(
+      dlsym(_sharedLibraryHandle, compilationInfoNameWithTag.c_str()));
+#endif
 
 #if defined(_WIN32)
   _printInstrumentationFunc = reinterpret_cast<printInstrumentationFuncType>(
@@ -144,23 +212,27 @@ void ExecutionSession::Init(
   _printInstrumentationFunc = reinterpret_cast<printInstrumentationFuncType>(
       dlsym(_sharedLibraryHandle, _printInstrumentationName.c_str()));
 #endif
-  if (!_printInstrumentationFunc)
-    throw std::runtime_error(
-        reportSymbolLoadingError(_printInstrumentationName));
-
-  // Set OM_CONSTANT_PATH for loading constants from file if required.
-  std::size_t found = sharedLibPath.find_last_of("/\\");
-  if (found != std::string::npos) {
-    std::string basePath = sharedLibPath.substr(0, found);
-#if defined(_WIN32)
-    _putenv_s("OM_CONSTANT_PATH", basePath.c_str());
-#else
-    setenv("OM_CONSTANT_PATH", basePath.c_str(), /*overwrite=*/0);
-#endif
+  if (!_printInstrumentationFunc) {
+    // Silently ignore
+    if (silentlyIgnoreMissingPrintInstrumentationFunc) {
+      _printInstrumentationFunc = nullptr;
+    } else {
+      throw ExecutionSessionException(
+          "Cannot load symbol: '" + _printInstrumentationName + "'.");
+    }
   }
 
   // Successful completion of initialization.
   isInitialized = true;
+
+  // Unset OM_CONSTANT_PATH to avoid conflict with the load of another model.
+  if (setOMConstantPath) {
+#if defined(_WIN32)
+    _putenv_s("OM_CONSTANT_PATH", "");
+#else
+    unsetenv("OM_CONSTANT_PATH");
+#endif
+  }
 
   // Set default entry point if requested.
   if (defaultEntryPoint)
@@ -185,14 +257,16 @@ ExecutionSession::~ExecutionSession() {
 const std::string *ExecutionSession::queryEntryPoints(
     int64_t *numOfEntryPoints) const {
   if (!isInitialized)
-    throw std::runtime_error(reportInitError());
+    throw ExecutionSessionException(
+        "Execution session must be initialized once.");
   return reinterpret_cast<const std::string *>(
       _queryEntryPointsFunc(numOfEntryPoints));
 }
 
 void ExecutionSession::setEntryPoint(const std::string &entryPointName) {
   if (!isInitialized)
-    throw std::runtime_error(reportInitError());
+    throw ExecutionSessionException(
+        "Execution session must be initialized once.");
 #if defined(_WIN32)
   _entryPointFunc = reinterpret_cast<entryPointFuncType>(
       _sharedLibraryHandle.getAddressOfSymbol(entryPointName.c_str()));
@@ -201,45 +275,85 @@ void ExecutionSession::setEntryPoint(const std::string &entryPointName) {
       dlsym(_sharedLibraryHandle, entryPointName.c_str()));
 #endif
   if (!_entryPointFunc)
-    throw std::runtime_error(reportSymbolLoadingError(entryPointName));
+    throw ExecutionSessionException(
+        "Cannot load symbol: '" + entryPointName + "'.");
   _entryPointName = entryPointName;
   errno = 0; // No errors.
 }
 
 const std::string ExecutionSession::inputSignature() const {
   if (!isInitialized)
-    throw std::runtime_error(reportInitError());
+    throw ExecutionSessionException(
+        "Execution session must be initialized once.");
   if (!_entryPointFunc)
-    throw std::runtime_error(reportUndefinedEntryPointIn("signature"));
+    throw ExecutionSessionException(
+        "Must set an entry point (e.g. run_main_graph) before calling "
+        "signature function.");
   errno = 0; // No errors.
   return _inputSignatureFunc(_entryPointName.c_str());
 }
 
 const std::string ExecutionSession::outputSignature() const {
   if (!isInitialized)
-    throw std::runtime_error(reportInitError());
+    throw ExecutionSessionException(
+        "Execution session must be initialized once.");
   if (!_entryPointFunc)
-    throw std::runtime_error(reportUndefinedEntryPointIn("signature"));
+    throw ExecutionSessionException(
+        "Must set an entry point (e.g. run_main_graph) before calling "
+        "signature function.");
   errno = 0; // No errors.
   return _outputSignatureFunc(_entryPointName.c_str());
 }
 
+const std::string ExecutionSession::compilationInfo() const {
+  if (!isInitialized)
+    throw ExecutionSessionException(
+        "Execution session must be initialized once.");
+  errno = 0; // No errors.
+  if (!_compilationInfoFunc)
+    return "{}";
+  return _compilationInfoFunc();
+}
+
 void ExecutionSession::printInstrumentation() {
   if (!isInitialized)
-    throw std::runtime_error(reportInitError());
+    throw ExecutionSessionException(
+        "Execution session must be initialized once.");
   errno = 0; // No errors.
-  return _printInstrumentationFunc();
+  if (_printInstrumentationFunc)
+    _printInstrumentationFunc();
+}
+
+const std::string ExecutionSession::getSharedLibPath() const {
+  return sharedLibPath;
 }
 
 // =============================================================================
 // Run.
 
+// When executing a graph (e.g. run_main_graph, function referenced as
+// _entryPointFunc), we may encounter the following runtime errors (returned by
+// errno). Error is first signaled by _entryPointFunc returning null.
+//
+// EPERM (accelerator compatibility check).
+//
+// May call functions in OMExternalConstant.c, which in turn calls
+// malloc/open/map who can generate errno.
+//
+// Operations in src/Runtime/OM*.c (which may be called by _entryPointFunc)
+// generates asserts. In Posix (Linux and MacOS), abort triggers a SIGABRT that
+// can be caught by a "sigaction(SIGABRT, &sa, NULL)" installed handler. They
+// also have malloc that can generate errno.
+
 std::vector<OMTensorUniquePtr> ExecutionSession::run(
     std::vector<OMTensorUniquePtr> ins) {
   if (!isInitialized)
-    throw std::runtime_error(reportInitError());
+    throw ExecutionSessionException(
+        "Execution session must be initialized once.");
   if (!_entryPointFunc)
-    throw std::runtime_error(reportUndefinedEntryPointIn("run"));
+    throw ExecutionSessionException(
+        "Must set an entry point (e.g. run_main_graph) before calling run "
+        "function.");
 
   std::vector<OMTensor *> omts;
   for (const auto &inOmt : ins)
@@ -248,6 +362,7 @@ std::vector<OMTensorUniquePtr> ExecutionSession::run(
       omTensorListCreate(omts.data(), static_cast<int64_t>(omts.size()));
 
   // Run inference.
+  errno = 0; // Clear errno.
   auto *wrappedOutput = _entryPointFunc(wrappedInput);
 
   // We created a wrapper for the input list, but the input list does not really
@@ -256,7 +371,7 @@ std::vector<OMTensorUniquePtr> ExecutionSession::run(
   // OMTensors.
   omTensorListDestroyShallow(wrappedInput);
   if (!wrappedOutput)
-    throw std::runtime_error(reportErrnoError());
+    throw ExecutionSessionException(reportErrnoError());
 
   std::vector<OMTensorUniquePtr> outs;
   for (int64_t i = 0; i < omTensorListGetSize(wrappedOutput); i++) {
@@ -269,75 +384,166 @@ std::vector<OMTensorUniquePtr> ExecutionSession::run(
   // OMTensorUniquePtr. So we need to simply deallocate the list structure
   // without touching the OMTensors.
   omTensorListDestroyShallow(wrappedOutput);
+
+  // Print instrumentation.
+  if (_printInstrumentationFunc)
+    _printInstrumentationFunc();
+
   errno = 0; // No errors.
   return outs;
 }
 
-// Run using public interface. Explicit calls are needed to free tensor & tensor
-// lists.
-OMTensorList *ExecutionSession::run(OMTensorList *input) {
+// =============================================================================
+// Common run method implementation.
+
+OMTensorList *ExecutionSession::runImplementation(
+    OMTensorList *input, bool useSignalHandler) {
   if (!isInitialized)
-    throw std::runtime_error(reportInitError());
+    throw ExecutionSessionException(
+        "Execution session must be initialized once.");
   if (!_entryPointFunc)
-    throw std::runtime_error(reportUndefinedEntryPointIn("run"));
+    throw ExecutionSessionException(
+        "Must set an entry point (e.g. run_main_graph) before calling run "
+        "function.");
+
+  OMTensorList *output;
+#if defined(_WIN32)
+  // Run with signal is not supported under Windows, ignore.
+  output = runWithoutSignalHandler(input);
+#else
+  if (useSignalHandler)
+    output = runWithSignalHandler(input);
+  else
+    output = runWithoutSignalHandler(input);
+#endif
+
+  // Print instrumentation.
+  if (_printInstrumentationFunc)
+    _printInstrumentationFunc();
+
+  // Return results from the inference.
+  return output;
+}
+
+// =============================================================================
+// Implementation of run public interfaces
+
+OMTensorList *ExecutionSession::runWithoutSignalHandler(OMTensorList *input) {
 
   // Run inference.
+  errno = 0; // Clear errno.
   OMTensorList *output = _entryPointFunc(input);
   if (!output)
-    throw std::runtime_error(reportErrnoError());
+    throw ExecutionSessionException(reportErrnoError());
+
   errno = 0; // No errors.
   return output;
+}
+
+// Run with signal handling to catch crashes (POSIX only).
+OMTensorList *ExecutionSession::runWithSignalHandler(OMTensorList *input) {
+#if defined(_WIN32)
+  assert(false && "unsupported call");
+  return nullptr;
+#else
+  // Save old signal handlers
+  struct sigaction oldSigsegv, oldSigbus, oldSigfpe, oldSigill;
+  struct sigaction newAction;
+
+  // Setup new signal handler
+  newAction.sa_handler = signalHandler;
+  sigemptyset(&newAction.sa_mask);
+  newAction.sa_flags = 0;
+
+  // Install signal handlers for the signals we want to catch
+  sigaction(SIGSEGV, &newAction, &oldSigsegv);
+  sigaction(SIGBUS, &newAction, &oldSigbus);
+  sigaction(SIGFPE, &newAction, &oldSigfpe);
+  sigaction(SIGILL, &newAction, &oldSigill);
+  sigaction(SIGABRT, &newAction, &oldSigill);
+
+  // Reset signal state
+  signalCaught = 0;
+  signalNumber = 0;
+
+  OMTensorList *output = nullptr;
+
+  // Set up the jump point for signal handler
+  int signum = setjmp(signalJumpBuffer);
+
+  if (signum == 0) {
+    // First time through - run the inference
+    errno = 0; // Clear errno.
+    output = _entryPointFunc(input);
+
+    // Restore old signal handlers
+    sigaction(SIGSEGV, &oldSigsegv, nullptr);
+    sigaction(SIGBUS, &oldSigbus, nullptr);
+    sigaction(SIGFPE, &oldSigfpe, nullptr);
+    sigaction(SIGILL, &oldSigill, nullptr);
+    sigaction(SIGABRT, &oldSigill, nullptr);
+    // Throw error if nullptr output (list expected in successful executions).
+    if (!output)
+      throw ExecutionSessionException(reportErrnoError());
+    // No errors, clear potential errno and return output list.
+    errno = 0;
+    return output;
+  } else {
+    // We got here via longjmp from signal handler
+    // Restore old signal handlers
+    sigaction(SIGSEGV, &oldSigsegv, nullptr);
+    sigaction(SIGBUS, &oldSigbus, nullptr);
+    sigaction(SIGFPE, &oldSigfpe, nullptr);
+    sigaction(SIGILL, &oldSigill, nullptr);
+    // Set errno to the signal number for error reporting
+    errno = signum;
+    throw ExecutionSessionException(reportErrnoError(/*from signal*/ true));
+  }
+#endif // if(_WIN32)
+}
+
+// =============================================================================
+// Public run methods.
+
+OMTensorList *ExecutionSession::run(OMTensorList *input) {
+  return runImplementation(input, /*signal handler*/ false);
+}
+
+OMTensorList *ExecutionSession::runDebug(
+    OMTensorList *input, bool useSignalHandler) {
+  return runImplementation(input, useSignalHandler);
+}
+
+OMTensorList *ExecutionSession::fillInputDebug(const char *shapeInfo,
+    const char *valueInfo, const char *defaultLowerBound,
+    const char *defaultUpperBound, int seed, bool verbose) {
+  if (seed >= 0)
+    omDefineSeed((unsigned int)seed, /*hasSeedValue=*/1);
+  OMTensorList *inputs =
+      omTensorListCreateFromInputSignature(inputSignature().c_str(), shapeInfo,
+          valueInfo, defaultLowerBound, defaultUpperBound, verbose);
+  if (!inputs)
+    throw ExecutionSessionException(
+        "fillInputDebug: failed to create input list");
+  return inputs;
 }
 
 // =============================================================================
 // Error reporting
 
-std::string ExecutionSession::reportInitError() const {
-  errno = EFAULT; // Bad Address.
+std::string ExecutionSession::reportErrnoError(bool fromSignal) const {
   std::stringstream errStr;
-  errStr << "Execution session must be initialized once." << std::endl;
-  return errStr.str();
-}
-
-std::string ExecutionSession::reportLibraryOpeningError(
-    const std::string &libraryName) const {
-  errno = EFAULT; // Bad Address.
-  std::stringstream errStr;
-  errStr << "Cannot open library: '" << libraryName << "'." << std::endl;
-  return errStr.str();
-}
-
-std::string ExecutionSession::reportSymbolLoadingError(
-    const std::string &symbolName) const {
-  errno = EFAULT; // Bad Address.
-  std::stringstream errStr;
-  errStr << "Cannot load symbol: '" << symbolName << "'." << std::endl;
-  return errStr.str();
-}
-
-std::string ExecutionSession::reportUndefinedEntryPointIn(
-    const std::string &functionName) const {
-  errno = EINVAL; // Invalid argument.
-  std::stringstream errStr;
-  errStr << "Must set an entry point (e.g. run_main_graph) before calling "
-         << functionName << " function." << std::endl;
-  return errStr.str();
-}
-
-std::string ExecutionSession::reportErrnoError() const {
-  std::string errMessageStr = std::string(strerror(errno));
-  std::stringstream errStr;
-  errStr << "Runtime error during inference returning with ERRNO code '"
-         << errMessageStr << "'." << std::endl;
-  return errStr.str();
-}
-
-std::string ExecutionSession::reportCompilerError(
-    const std::string &errorMessage) const {
-  errno = EFAULT; // Bad Address.
-  std::stringstream errStr;
-  errStr << "Compiler failed with error message '" << errorMessage << "'."
-         << std::endl;
+  if (fromSignal) {
+    // errno contains the signal number when fromSignal is true
+    std::string signalStr = std::string(strsignal(errno));
+    errStr << "Runtime error during inference caught signal " << errno << ", '"
+           << signalStr << "'." << std::endl;
+  } else {
+    // errno contains a standard error code
+    std::string errMessageStr = std::string(strerror(errno));
+    errStr << "Runtime error during inference returning with ERRNO " << errno
+           << ", '" << errMessageStr << "'." << std::endl;
+  }
   return errStr.str();
 }
 

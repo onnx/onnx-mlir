@@ -58,6 +58,11 @@ def GetLayout : NativeCodeCall<
       "::onnx_mlir::zhigh::getZTensorLayout($0.getType()))"
 >;
 
+def GetLayoutFromZTensorEncoding : NativeCodeCall<
+  "::onnx_mlir::zhigh::convertZTensorDataLayoutToStringAttr($_builder, "
+      "(mlir::dyn_cast<ZTensorEncodingAttr>($0)).getDataLayout())"
+>;
+
 def NoOneIsOfNHWCLayout: Constraint<
   CPred<"!::onnx_mlir::zhigh::oneIsOfLayout($0.getType(), $1.getType(), "
         "::onnx_mlir::zhigh::ZTensorEncodingAttr::DataLayout::NHWC)">,
@@ -78,6 +83,10 @@ def NoOneIsOf2DSLayout: Constraint<
 
 def GetEncodingAttr : NativeCodeCall<
   "::onnx_mlir::zhigh::getZTensorEncoding($0.getType())"
+>;
+
+def CreateZTensorEncodingAttr: NativeCodeCall<
+  "::onnx_mlir::zhigh::createZTensorEncodingAttr($_builder.getContext(), $0)"
 >;
 
 def GetMinusBcastConst : NativeCodeCall<
@@ -147,6 +156,11 @@ def Is2DLayout : Constraint<
 def Is3DSLayout : Constraint<
   CPred<"::onnx_mlir::is3DSLayout($0)">,
   "Is 3DS layout"
+>;
+
+def IsNHWCLayout : Constraint<
+  CPred<"::onnx_mlir::isNHWCLayout($0)">,
+  "Is NHWC layout"
 >;
 
 def IsNotNHWCLayout : Constraint<
@@ -243,6 +257,10 @@ def GetAxisNHWC : NativeCodeCall<
   "::onnx_mlir::zhigh::getAxisNHWC($0)"
 >;
 
+def GetAxisNCHW : NativeCodeCall<
+  "::onnx_mlir::zhigh::getAxisNCHW($0)"
+>;
+
 def NoneIntegerAttr: NativeCodeCall<"IntegerAttr()">;
 
 def GetDefaultSaturation : NativeCodeCall<
@@ -286,5 +304,12 @@ def IsCompatibleWithNNPALevelArch15: Constraint<
   CPred<"isCompatibleWithNNPALevel(NNPALevel::M15)">,
   "Input level is compatible with NNPA level"
 >;
+
+def IsScalarConstantTensor: Constraint<
+    CPred<"onnx_mlir::isScalarConstantTensor($0)">,
+    "Is a scalar constant ">;
+
+def GetScalarF32AttrFromConstant :
+        NativeCodeCall<"onnx_mlir::zhigh::getScalarF32AttrFromConstant($0)">;
 
 #endif // OP_HELPER

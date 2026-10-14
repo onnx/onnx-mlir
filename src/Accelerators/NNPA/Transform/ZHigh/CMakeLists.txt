@@ -94,6 +94,8 @@ add_onnx_mlir_library(OMZHighScrubDisposable
   libzdnn
 
   LINK_LIBS PUBLIC
+  OMFusionOpHelper
+  OMFusionOpTransform
   OMONNXOps
   OMONNXToZHigh
   OMRewriteONNXForZHigh

@@ -66,7 +66,7 @@ list_operation_version = args.list_operation_version
 
 # ==UPDATE_ONNX_VERSION_OPSET==
 # Look for tag above and update all references when upgrading the ONNX support within ONNX-MLIR.
-current_onnx_version = "1.17.0"
+current_onnx_version = "1.23.0"
 
 # Check the version of onnx package being used.
 if (
@@ -99,6 +99,7 @@ version_dict = {
     "Asinh": [22],
     "Atan": [22],
     "Atanh": [22],
+    "Attention": [24],
     "AveragePool": [22],
     "BatchNormalization": [15],
     "Bernoulli": [22],
@@ -155,7 +156,7 @@ version_dict = {
     "Gelu": [20],
     "Gemm": [13],
     "GlobalAveragePool": [22],
-    "GlobalLpPool": [2],
+    "GlobalLpPool": [22],
     "GlobalMaxPool": [22],
     "Gradient": [1],
     "Greater": [13],
@@ -281,6 +282,7 @@ version_dict = {
     "Sum": [13],
     "Tan": [22],
     "Tanh": [13],
+    "TensorScatter": [24],
     "TfIdfVectorizer": [9],
     "ThresholdedRelu": [22],
     "Tile": [13],
@@ -339,16 +341,20 @@ OpsWithCanonicalizer = [
     "Dropout",
     "Equal",
     "GlobalAveragePool",
+    "GlobalLpPool",
     "GlobalMaxPool",
     "Greater",
+    "GreaterOrEqual",
     "GroupNormalization",
     "GroupNormalizationV18",
     "GRU",
     "Identity",
     "InstanceNormalization",
     "Less",
+    "LessOrEqual",
     "Loop",
     "LSTM",
+    "MatMul",
     "Mul",
     "Or",
     "Pow",
@@ -378,6 +384,7 @@ OpsWithVerifier = [
     "And",
     "ArgMax",
     "ArgMin",
+    "Attention",
     "AveragePool",
     "Bernoulli",
     "BitShift",
@@ -387,6 +394,7 @@ OpsWithVerifier = [
     "Cast",
     "CastLike",
     "CategoryMapper",
+    "Col2Im",
     "Compress",
     "Concat",
     "ConcatFromSequence",
@@ -395,6 +403,7 @@ OpsWithVerifier = [
     "ConvTranspose",
     "DepthToSpace",
     "DequantizeLinear",
+    "Det",
     "Div",
     "Einsum",
     "Equal",
@@ -405,6 +414,7 @@ OpsWithVerifier = [
     "GatherElements",
     "GatherND",
     "Gelu",
+    "GlobalLpPool",
     "Greater",
     "GreaterOrEqual",
     "GridSample",
@@ -417,6 +427,7 @@ OpsWithVerifier = [
     "Less",
     "LessOrEqual",
     "LogSoftmax",
+    "LpNormalization",
     "Max",
     "MatMulInteger",
     "Mean",
@@ -447,11 +458,13 @@ OpsWithVerifier = [
     "SequenceEmpty",
     "SequenceInsert",
     "Shape",
+    "Softmax",
     "SpaceToDepth",
     "Split",
     "SplitToSequence",
     "Sub",
     "Sum",
+    "TensorScatter",
     "TopK",
     "Transpose",
     "Unique",
@@ -484,6 +497,11 @@ OpsWithHelpers = {
 # Type inference are usually done with the type string for Op definition.
 # This dictionary provides special code for type inference for some Ops.
 # The type inference is used only in Builder before constant canonicalization.
+# Ops that declare MLIR ReifyRankedShapedTypeOpInterface (reifyResultShapes).
+OpsWithReifyResultShapes = {
+    "Add",
+}
+
 OpsWithResultTypeInference = [
     "Bernoulli",
     "Constant",
@@ -1096,6 +1114,8 @@ def parse_type_str(allowedType):
         "float8e4m3fnuz": "F8E4M3FNUZ",
         "float8e5m2": "F8E5M2",
         "float8e5m2fnuz": "F8E5M2FNUZ",
+        "float8e8m0": "F8E8M0FNU",
+        "float4e2m1": "F4E2M1FN",
         "complex64": "Complex<F32>",
         "complex128": "Complex<F64>",
         "string": "StringType",
@@ -1215,6 +1235,11 @@ def gen_op_def(schema, with_version=False):
     # Error will be report if these operations are encountered at runtime.
     traits.append("DeclareOpInterfaceMethods<ShapeInferenceOpInterface>")
     traits.append("DeclareOpInterfaceMethods<ShapeHelperOpInterface>")
+    if opName in OpsWithReifyResultShapes:
+        traits.append(
+            "DeclareOpInterfaceMethods<ReifyRankedShapedTypeOpInterface, "
+            '["reifyResultShapes"]>'
+        )
     if opName in OpsWithResultTypeInference:
         traits.append("DeclareOpInterfaceMethods<ResultTypeInferenceOpInterface>")
     if len(regions):

@@ -4,7 +4,7 @@
 
 //===------- stickify.cpp - Data Stickify ---------------------------------===//
 //
-// Copyright 2020-2024 The IBM Research Authors.
+// Copyright 2020-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -17,6 +17,7 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -160,13 +161,26 @@ static short get_data_layout_dims(zdnn_data_layouts layout) {
 }
 
 uint32_t get_rnn_concatenated_dim1(uint32_t val, zdnn_concat_info info) {
+  // Compute in uint64 to detect overflow before truncating back to uint32.
+  // PADDED(val)*num_gates can silently wrap uint32 when val is very large
+  // (~1 billion for LSTM, ~1.4 billion for GRU), producing a truncated dim1
+  // that is far smaller than the per-gate buffer the memset in stickify()
+  // later computes from the un-concatenated size.  (f031)
+  uint64_t padded = (uint64_t)PADDED(val);
+  uint64_t result;
   if (CONCAT_RNN_TYPE(info) == RNN_TYPE_LSTM) {
-    return PADDED(val) * 4;
+    result = padded * 4;
   } else if (CONCAT_RNN_TYPE(info) == RNN_TYPE_GRU) {
-    return PADDED(val) * 3;
+    result = padded * 3;
   } else {
     return val;
   }
+  if (result > UINT32_MAX) {
+    // Shape exceeds what a uint32 dim can represent.  Returns 0 so that
+    // generate_transformed_desc_concatenated() can detect and reject it.
+    return 0;
+  }
+  return (uint32_t)result;
 }
 
 uint32_t get_rnn_concatenated_dim2(uint32_t val, zdnn_concat_info info) {
@@ -268,8 +282,15 @@ void *malloc_aligned_4k(size_t size) {
   unsigned short extra_allocation =
       (AIU_PAGESIZE_IN_BYTES - 1) + sizeof(void *);
 
-  // make sure size is reasonable
-  if (!size || size > SIZE_MAX) {
+  // Make sure size is reasonable and that adding extra_allocation won't wrap.
+  // The original check "size > SIZE_MAX" is dead code: size_t can never exceed
+  // SIZE_MAX by definition. The real hazard is the
+  // malloc(size+extra_allocation) call below: if size lands within
+  // extra_allocation of SIZE_MAX, the addition wraps size_t back to a tiny
+  // value and malloc succeeds with a tiny block while the caller records the
+  // original near-SIZE_MAX size as buffer_size, causing subsequent writes
+  // (memset/transform_ztensor) to go far out of bounds.
+  if (!size || size > SIZE_MAX - extra_allocation) {
     return NULL;
   }
 
@@ -365,9 +386,26 @@ uint64_t getsize_ztensor(const zdnn_tensor_desc *tfrmd_desc) {
     cells_per_stick = AIU_2BYTE_CELLS_PER_STICK;
     number_of_sticks = tfrmd_desc->dim2;
   }
-  return static_cast<uint64_t>(tfrmd_desc->dim4) * tfrmd_desc->dim3 *
-         CEIL(number_of_sticks, AIU_STICKS_PER_PAGE) *
-         CEIL(tfrmd_desc->dim1, cells_per_stick) * AIU_PAGESIZE_IN_BYTES;
+  // Guard the dim4*dim3*ceil(dim2/sticks)*ceil(dim1/cells)*4096 product against
+  // uint64_t overflow. The per-dim and total-size caps that would otherwise
+  // bound these inputs are inside a #if 0 block
+  // (verify_transformed_descriptor), so attacker-controlled dims can wrap the
+  // product to a tiny value, causing malloc_aligned_4k to succeed with a tiny
+  // buffer that transform_ztensor then overruns. Return 0 on overflow so
+  // callers fail closed; malloc_aligned_4k's own existing !size check
+  // (Stickify.cpp:272) already handles this correctly.
+  uint64_t stickPages = CEIL(number_of_sticks, AIU_STICKS_PER_PAGE);
+  uint64_t cellSticks = CEIL(tfrmd_desc->dim1, cells_per_stick);
+  uint64_t size = static_cast<uint64_t>(tfrmd_desc->dim4);
+  if (__builtin_mul_overflow(
+          size, static_cast<uint64_t>(tfrmd_desc->dim3), &size) ||
+      __builtin_mul_overflow(size, stickPages, &size) ||
+      __builtin_mul_overflow(size, cellSticks, &size) ||
+      __builtin_mul_overflow(
+          size, static_cast<uint64_t>(AIU_PAGESIZE_IN_BYTES), &size)) {
+    return 0;
+  }
+  return size;
 }
 
 zdnn_status allochelper_ztensor_alloc(zdnn_ztensor *ztensor) {
@@ -488,39 +526,38 @@ zdnn_status verify_transformed_descriptor(const zdnn_tensor_desc *tfrmd_desc) {
     return ZDNN_INVALID_TYPE;
   }
 
-  /* ToFix: the nnpa_query_result is not set up with onnx-mlir
-   * Temporarily commented out.
-   * Refer to issue #3034
+  /* Note: nnpa_query_result is not set up in onnx-mlir (issue #3034), so we
+   * cannot call zdnn_get_max_for_dim() / zdnn_get_nnpa_max_tensor_size().
+   * Instead, validate against the compile-time architectural limits from
+   * NNPALimit.hpp so that zero/oversized dims cannot reach the allocator.
+   * This re-enables validation that was wrapped in #if 0 since 2025-01-08
+   * (commit 86dbaf0470) as a workaround for the missing nnpa_query_result
+   * initialization. The zero-dim and total-size checks below are the only
+   * guards anywhere in the pipeline for those two conditions; the per-dim
+   * max check provides defence-in-depth alongside the legality gate in
+   * ONNXToZHighCommon.hpp's addDynamicallyLegalOpFor().
    */
-
-#if 0
   const uint32_t *dims_ptr = &(tfrmd_desc->dim4);
 
-  // is the dimension above the limit or zero?
-  // transformed layout uses all dim* entries, so we'll check them all
+  // Reject zero dims and dims exceeding the compile-time architectural limit.
+  // transformed layout uses all dim* entries, so we'll check them all.
   for (int i = 0; i < ZDNN_MAX_DIMS; i++) {
-    if (!dims_ptr[i] || dims_ptr[i] > NNPAGetMaxForDim(i, ZDNN_MAX_DIMS)) {
+    if (!dims_ptr[i]) {
       return ZDNN_INVALID_SHAPE;
     }
-   if (dims_ptr[i] > zdnn_get_max_for_dim(ZDNN_MAX_DIMS - i)) {
-
-      if (!zdnn_get_max_for_dim(ZDNN_MAX_DIMS - i)) {
-        return ZDNN_UNSUPPORTED_AIU_EXCEPTION;
-      } else {
-        return ZDNN_STATUS(
-            ZDNN_INVALID_SHAPE,
-            "Invalid shape for dim%d. (reason: dimension value %d exceeds %d)",
-            ZDNN_MAX_DIMS - i, dims_ptr[i],
-            zdnn_get_max_for_dim(ZDNN_MAX_DIMS - i));
-      }
+    int64_t maxDim = NNPAGetMaxForDim(i, ZDNN_MAX_DIMS);
+    if (maxDim > 0 && static_cast<int64_t>(dims_ptr[i]) > maxDim) {
+      return ZDNN_STATUS(ZDNN_INVALID_SHAPE,
+          "Invalid shape for dim%d. (reason: dimension value %d exceeds %d)",
+          ZDNN_MAX_DIMS - i, (int)dims_ptr[i], (int)maxDim);
     }
   }
 
-  // is stick area size above the limit?
-  if (getsize_ztensor(tfrmd_desc) > zdnn_get_nnpa_max_tensor_size()) {
+  // Reject if total stick-area size exceeds the compile-time architectural max.
+  if (getsize_ztensor(tfrmd_desc) >
+      static_cast<uint64_t>(NNPA_MAXIMUM_TENSOR_SIZE)) {
     return ZDNN_INVALID_SHAPE;
   }
-#endif
 
   return ZDNN_STATUS_OK;
 }
@@ -668,11 +705,8 @@ zdnn_status generate_quantized_transformed_desc(
     tfrmd_desc->format = ZDNN_FORMAT_4DWEIGHTS;
     tfrmd_desc->type = ZDNN_BINARY_INT8;
     return ZDNN_STATUS_OK;
-  default:
-    return ZDNN_INVALID_TRANSFORM_TYPE;
-    // return ZDNN_STATUS(ZDNN_INVALID_TRANSFORM_TYPE,
-    //                    "Invalid transform type: %d", transform_type);
   }
+  return ZDNN_INVALID_TRANSFORM_TYPE;
 }
 
 zdnn_status generate_transformed_desc_concatenated(
@@ -703,6 +737,8 @@ zdnn_status generate_transformed_desc_concatenated(
       tfrmd_desc->dim3 = 1;
       tfrmd_desc->dim2 = 1;
       tfrmd_desc->dim1 = get_rnn_concatenated_dim1(pre_tfrmd_desc->dim1, info);
+      if (!tfrmd_desc->dim1)
+        return ZDNN_INVALID_SHAPE; // overflow in get_rnn_concatenated_dim1
     } else {
       return ZDNN_INVALID_LAYOUT;
     }
@@ -713,6 +749,8 @@ zdnn_status generate_transformed_desc_concatenated(
       tfrmd_desc->dim3 = 1;
       tfrmd_desc->dim2 = get_rnn_concatenated_dim2(pre_tfrmd_desc->dim2, info);
       tfrmd_desc->dim1 = get_rnn_concatenated_dim1(pre_tfrmd_desc->dim1, info);
+      if (!tfrmd_desc->dim1)
+        return ZDNN_INVALID_SHAPE; // overflow in get_rnn_concatenated_dim1
     } else {
       return ZDNN_INVALID_LAYOUT;
     }
@@ -1314,9 +1352,10 @@ zdnn_status stickify(zdnn_ztensor *ztensor, ...) {
    * b) buffer does not start on a 4k boundary
    * c) buffer_size is smaller than what's needed
    */
+  uint64_t required_size = getsize_ztensor(ztensor->transformed_desc);
   if (!ztensor->buffer ||
-      reinterpret_cast<uintptr_t>(ztensor->buffer) & 0xFFF ||
-      ztensor->buffer_size < getsize_ztensor(ztensor->transformed_desc)) {
+      reinterpret_cast<uintptr_t>(ztensor->buffer) & 0xFFF || !required_size ||
+      ztensor->buffer_size < required_size) {
     return ZDNN_INVALID_BUFFER;
   }
 
@@ -1447,6 +1486,15 @@ zdnn_status stickify(zdnn_ztensor *ztensor, ...) {
       // temp) buffer for efficiency.
       size_t total_buffer_size =
           temp_ztensor.buffer_size * num_slices * num_gates;
+      // Defense-in-depth: verify the independently-computed total_buffer_size
+      // does not exceed the allocated buffer before zeroing.  A mismatch here
+      // means the concatenated dim1 (from get_rnn_concatenated_dim1) and the
+      // per-gate size (from temp_ztensor.buffer_size) have diverged — e.g.
+      // due to an integer overflow in get_rnn_concatenated_dim1.  (f031)
+      if (total_buffer_size > ztensor->buffer_size) {
+        status = ZDNN_INVALID_SHAPE;
+        break;
+      }
       memset(ztensor->buffer, 0, total_buffer_size);
 
       /* Loop sliced_gate_data array to stickify the input data. Because
@@ -1568,8 +1616,9 @@ zdnn_status transform_quantized_weights_ztensor_element_wise(
         // true when dim2 is odd number and we're at the last w
         bool no_stick2 = ((output->transformed_desc->dim2 - e2x) == 1);
 
-        int8_t *stick1 = (int8_t *)in_buf + input_offset;
-        int8_t *stick2 = no_stick2 ? stick1
+        const int8_t *stick1 = (const int8_t *)in_buf + input_offset;
+        const int8_t *stick2 = no_stick2
+                                   ? stick1
                                    // duplicate stick1 entries if no stick2
                                    : stick1 + output->transformed_desc->dim1;
 

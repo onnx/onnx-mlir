@@ -15,7 +15,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Interfaces/InferTypeOpInterface.h"
+
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/ONNX/ReifyIndexExprValueProvider.hpp"
 
 using namespace mlir;
 using namespace mlir::OpTrait::util;
@@ -60,6 +64,28 @@ static LogicalResult verifyShapeForBroadcastingOps(Operation *op) {
   return success();
 }
 
+// Verify that a comparison op's two operands share an element type. The only
+// tolerated exception is a float operand compared against an integer
+// literal equal to 0 (see getFloatVsIntegerZeroLiteralOperand): that shape
+// is left for the op's canonicalizer to fix up by re-typing the literal, so
+// the verifier must not reject it here, only genuinely unfixable mismatches.
+static LogicalResult verifySameElementTypeForCompareOps(Operation *op) {
+  if (!hasShapeAndRank(op))
+    return success();
+
+  Type lhsElemType = getElementType(op->getOperand(0).getType());
+  Type rhsElemType = getElementType(op->getOperand(1).getType());
+  if (lhsElemType == rhsElemType)
+    return success();
+
+  if (getFloatVsIntegerZeroLiteralOperand(op).has_value())
+    return success();
+
+  return op->emitOpError("expected operands to have the same element "
+                         "type, but got ")
+         << lhsElemType << " and " << rhsElemType;
+}
+
 // Handle shape inference for numpy style broadcasting operators.
 template <class OP_TYPE>
 static LogicalResult inferShapeForBroadcastingOps(
@@ -74,9 +100,11 @@ static LogicalResult inferShapeForBroadcastingOps(
     return success();
   }
 
+  ShapedType resultType =
+      mlir::cast<ShapedType>(op.getOperation()->getResult(0).getType());
+  // ElementType should be from the output.
   if (!elementType)
-    elementType =
-        mlir::cast<ShapedType>(op.getOperand(0).getType()).getElementType();
+    elementType = resultType.getElementType();
   ONNXBroadcastOpShapeHelper shapeHelper(op.getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
@@ -94,6 +122,32 @@ LogicalResult ONNXAddOp::verify() {
 LogicalResult ONNXAddOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return inferShapeForBroadcastingOps<ONNXAddOp>(*this);
+}
+
+LogicalResult ONNXAddOp::reifyResultShapes(
+    OpBuilder &builder, ReifiedRankedShapedTypeDims &reifiedReturnShapes) {
+  auto rankedOutTy = dyn_cast<RankedTensorType>(getResult().getType());
+  if (!rankedOutTy)
+    return failure();
+
+  Location loc = getLoc();
+  DialectBuilder db(builder, loc);
+  ReifyIndexExprValueProvider valueProvider(db);
+  IndexExprBuilderWithProvider createIE(db, valueProvider);
+  IndexExprScope scope(&builder, loc);
+  ONNXBroadcastOpShapeHelper shapeHelper(
+      getOperation(), getOperands(), &createIE, &scope);
+  if (failed(shapeHelper.computeShape()))
+    return failure();
+
+  SmallVector<OpFoldResult, 4> foldedDims;
+  IndexExpr::getOpOrFoldResults(shapeHelper.getOutputDims(0), foldedDims);
+  if (foldedDims.size() != static_cast<size_t>(rankedOutTy.getRank()))
+    return failure();
+
+  reifiedReturnShapes.clear();
+  reifiedReturnShapes.emplace_back(std::move(foldedDims));
+  return success();
 }
 
 //===----------------------------------------------------------------------===//
@@ -179,7 +233,9 @@ LogicalResult ONNXDivOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXEqualOp::verify() {
-  return verifyShapeForBroadcastingOps(getOperation());
+  if (failed(verifyShapeForBroadcastingOps(getOperation())))
+    return failure();
+  return verifySameElementTypeForCompareOps(getOperation());
 }
 
 LogicalResult ONNXEqualOp::inferShapes(
@@ -193,7 +249,9 @@ LogicalResult ONNXEqualOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXGreaterOp::verify() {
-  return verifyShapeForBroadcastingOps(getOperation());
+  if (failed(verifyShapeForBroadcastingOps(getOperation())))
+    return failure();
+  return verifySameElementTypeForCompareOps(getOperation());
 }
 
 LogicalResult ONNXGreaterOp::inferShapes(
@@ -207,7 +265,9 @@ LogicalResult ONNXGreaterOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXGreaterOrEqualOp::verify() {
-  return verifyShapeForBroadcastingOps(getOperation());
+  if (failed(verifyShapeForBroadcastingOps(getOperation())))
+    return failure();
+  return verifySameElementTypeForCompareOps(getOperation());
 }
 
 LogicalResult ONNXGreaterOrEqualOp::inferShapes(
@@ -222,7 +282,9 @@ LogicalResult ONNXGreaterOrEqualOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXLessOp::verify() {
-  return verifyShapeForBroadcastingOps(getOperation());
+  if (failed(verifyShapeForBroadcastingOps(getOperation())))
+    return failure();
+  return verifySameElementTypeForCompareOps(getOperation());
 }
 
 LogicalResult ONNXLessOp::inferShapes(
@@ -236,7 +298,9 @@ LogicalResult ONNXLessOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXLessOrEqualOp::verify() {
-  return verifyShapeForBroadcastingOps(getOperation());
+  if (failed(verifyShapeForBroadcastingOps(getOperation())))
+    return failure();
+  return verifySameElementTypeForCompareOps(getOperation());
 }
 
 LogicalResult ONNXLessOrEqualOp::inferShapes(

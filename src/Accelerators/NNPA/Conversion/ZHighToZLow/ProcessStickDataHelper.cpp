@@ -47,6 +47,11 @@ void UnifiedStickSupport::init(KrnlBuilder &kb, mlir::Value originalVal,
   this->isWrite = isWrite;
   this->disableSaturation = disableSaturation;
   assert((isRead || isWrite) && "must be at least read or write");
+
+  // No further initialization if data is none.
+  if (isNoneValue(this->memRef))
+    return;
+
   // Classify: get info and classify.
   Type originalType = originalVal.getType();
   auto originalShape = getShape(originalType);
@@ -85,6 +90,10 @@ void UnifiedStickSupport::beforeStickLoop(
   // Initialize data that will hold data and stick offsets.
   stickOffset = nullptr;
   highVal = lowVal = nullptr;
+  if (isNoneValue(memRef)) {
+    highVal = lowVal = memRef;
+    return;
+  }
   // Handling for broadcast or stick
   if (isBroadcast) {
     IndexExpr lit0 = LitIE(0);
@@ -197,6 +206,16 @@ void UnifiedStickSupport::afterCompute(KrnlBuilder &kb,
     Value lowOffset = create.math.constantIndex(archVL / 2);
     create.vec.storeIE(lowVal, currMemref, accessFct, {lowOffset});
   }
+}
+
+void UnifiedStickSupport::storeConvertedDLF16(KrnlBuilder &kb, Value dlf16Vec,
+    IndexExpr offsetWithinStick, int64_t offsetWithinVector) {
+  assert(isWrite && isStick && !isBroadcast && !isBuffer &&
+         "storeConvertedDLF16 only valid for a plain stick write reference");
+  MultiDialectBuilder<VectorBuilder> create(kb);
+  IndexExpr currOffset = offsetWithinStick + (archVL * offsetWithinVector);
+  DimsExpr accessFct = {DimIE(stickOffset), currOffset};
+  create.vec.storeIE(dlf16Vec, memRef, accessFct);
 }
 
 void UnifiedStickSupport::get4xF32Vals(Value &highVal, Value &lowVal) {

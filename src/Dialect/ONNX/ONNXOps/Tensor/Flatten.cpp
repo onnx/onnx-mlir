@@ -34,7 +34,7 @@ LogicalResult ONNXFlattenOpShapeHelper::computeShape() {
   ArrayRef<int64_t> inputShape = inputType.getShape();
   int64_t inputRank = inputType.getRank();
   int64_t axis = flattenOp.getAxis();
-  assert(axis >= -inputRank && axis < inputRank && "Invalid inputRank");
+  assert(axis >= -inputRank && axis <= inputRank && "Invalid inputRank");
 
   // Negative axis means values are counted from the opposite side.
   if (axis < 0)

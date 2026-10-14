@@ -4,7 +4,7 @@
 
 //===---------------- Transpose.cpp - Lowering Transpose Op ---------------===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -26,14 +26,18 @@ struct ONNXTransposeOpLowering : public OpConversionPattern<ONNXTransposeOp> {
   using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
       MemRefBuilder, MathBuilder>;
   bool enableParallel = false;
+  bool enableCollapse = false;
 
-  ONNXTransposeOpLowering(
-      TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
+  ONNXTransposeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
+      bool enableParallel, bool enableCollapse)
       : OpConversionPattern(typeConverter, ctx) {
     this->enableParallel =
         enableParallel &&
         OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
             ONNXTransposeOp::getOperationName());
+    // Not and-ed with this->enableParallel: see Slice.cpp for why the two bools
+    // stay independent.
+    this->enableCollapse = enableCollapse;
   }
 
   LogicalResult matchAndRewrite(ONNXTransposeOp transposeOp,
@@ -81,8 +85,10 @@ struct ONNXTransposeOpLowering : public OpConversionPattern<ONNXTransposeOp> {
     int numLastDims =
         unchangedInnerDimensions(inMemRefType, outMemRefType, permAttr);
     if (numLastDims > 0) {
-      blockTranspose(
-          op, data, alloc, permAttr, &create, numLastDims, enableParallel);
+      // Only the block path is collapse-eligible;
+      // scalarTransposeOverOutputs blocks and unrolls its innermost level.
+      blockTranspose(op, data, alloc, permAttr, &create, numLastDims,
+          enableParallel, enableCollapse);
     } else {
       scalarTransposeOverOutputs(
           op, data, alloc, permAttr, &create, enableParallel);
@@ -153,11 +159,12 @@ private:
     create->krnlIE.getShapeAsDims(inputMemRef, ubs);
 
     // Enable parallelism if required.
+    auto plan = KrnlParallelPlan::noCollapse(
+        loopDef, /*first*/ 0, /*last excl*/ 2, /*cost*/ {8});
     if (enableParallel)
-      tryCreateKrnlParallel(
-          create->krnl, op, "scalar transpose", loopDef, lbs, ubs, 0, 2, {}, 8);
+      plan.tryCreateParallel(create->krnl, op, "scalar transpose", lbs, ubs);
 
-    create->krnl.iterateIE(loopDef, loopDef, lbs, ubs,
+    create->krnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, ubs,
         [&](const KrnlBuilder &createKrnl, ValueRange loadIndices) {
           // Compute the loadIndices used by the store operation.
           SmallVector<IndexExpr, 4> storeIndices;
@@ -180,11 +187,15 @@ private:
     SmallVector<IndexExpr, 4> ubs;
     create->krnlIE.getShapeAsDims(outputMemRef, ubs);
 
-    int64_t parId = -1;
+    // May block and unroll loopDef[rank-1] below, so it can never collapse; the
+    // list handed to the iterate starts from the plan's and is rewritten below.
+    auto plan = KrnlParallelPlan::noCollapse(
+        loopDef, /*first*/ 0, /*last excl*/ 2, /*cost*/ {8});
+    int64_t parId = NO_PAR_FOUND;
     if (enableParallel) {
       // TODO: consider flattening the outer dims, or along inner dims.
-      parId = tryCreateKrnlParallel(
-          create->krnl, op, "scalar transpose", loopDef, lbs, ubs, 0, 2, {}, 8);
+      parId = plan.tryCreateParallel(
+          create->krnl, op, "scalar transpose", lbs, ubs);
     }
     // Compute the reverse permute pattern, so that we know what the inputs
     // indices should be given the output indices.
@@ -202,7 +213,7 @@ private:
       reversePermute.emplace_back(inputIndex);
     }
 
-    SmallVector<Value, 4> optimizedLoopDef = loopDef;
+    SmallVector<Value, 4> optimizedLoopDef = plan.optimizedLoopDef();
     // Test for easy unrolling for the innermost store dimension.
     const int64_t unroll = 8;
     int64_t uDim = rank - 1;
@@ -234,7 +245,7 @@ private:
   // dimensions.
   void blockTranspose(Operation *op, Value inputMemRef, Value outputMemRef,
       std::optional<ArrayAttr> permAttr, MDBuilder *create, int numLastDims,
-      bool enableParallel) const {
+      bool enableParallel, bool enableCollapse) const {
     Type i64Ty = create->math.getBuilder().getI64Type();
     MemRefType inMemRefType = mlir::cast<MemRefType>(inputMemRef.getType());
     uint64_t rank = inMemRefType.getRank();
@@ -278,16 +289,31 @@ private:
     // Main loop defined over the outer-most dimensions.
     ValueRange loopDef = create->krnl.defineLoops(outerRank);
     SmallVector<IndexExpr, 4> lbs(outerRank, LitIE(0));
+    // The collapse claim is the whole search window: permAttr is a bijection so
+    // the destination blocks are disjoint, source and destination are distinct
+    // memrefs, and the nest carries no recipe and no iterArgs -- the same
+    // argument the comment below makes for a single level, which composes
+    // across levels.
+    //
+    // bodyCost is the block length: one innermost iteration here copies
+    // elemsToCopy elements, so that many work units, not the one a scalar body
+    // would cost. Declaring it is what lets a group be judged against the work
+    // it is amortized over. It only ever feeds the policy --
+    // STEP 0, and so the flag-off path, reads minTripCountForParallel alone.
+    KrnlParallelPlan plan(loopDef, enableCollapse, /*parFirstInclusiveDim=*/0,
+        /*parLastExclusiveDim=*/2, /*collapseLastExclusiveDim=*/2,
+        {.minTripCountForParallel = 8,
+            .bodyCost =
+                elemsToCopy.isLiteral() ? elemsToCopy.getLiteral() : 1});
     if (enableParallel) {
       // Because we are doing block copying, there is no risk that the
       // parallelized dimension result in systematic false sharing of the
       // destination tensor. No precautions are needed here.
-      // Note that if there is only 1 dim, lastExclusiveDim is automatically
-      // reduced to 1 in the tryCreateKrnlParallel call.
-      tryCreateKrnlParallel(create->krnl, op, "block transpose", loopDef, lbs,
-          inUBs, 0, 2, {}, 8);
+      // Note that if there is only 1 dim, parLastExclusiveDim is automatically
+      // reduced to 1 in the decision.
+      plan.tryCreateParallel(create->krnl, op, "block transpose", lbs, inUBs);
     }
-    create->krnl.iterateIE(loopDef, loopDef, lbs, inUBs,
+    create->krnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, inUBs,
         [&](const KrnlBuilder &createKrnl, ValueRange indices) {
           MultiDialectBuilder<MathBuilder, KrnlBuilder> create(createKrnl);
           IndexExprScope loopScope(createKrnl);
@@ -311,8 +337,10 @@ private:
 };
 
 void populateLoweringONNXTransposeOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel) {
-  patterns.insert<ONNXTransposeOpLowering>(typeConverter, ctx, enableParallel);
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel,
+    bool enableCollapse) {
+  patterns.insert<ONNXTransposeOpLowering>(
+      typeConverter, ctx, enableParallel, enableCollapse);
 }
 
 } // namespace onnx_mlir

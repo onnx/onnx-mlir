@@ -34,19 +34,38 @@ int main(int argc, char *argv[]) {
 
   llvm::cl::SetVersionPrinter(getVersionPrinter);
 
-  // Remove unrelated options except common ones and the onnx-mlir options
+  // Remove unrelated options except common ones and the onnx-mlir options.
   removeUnrelatedOptions({&OnnxMlirCommonOptions, &OnnxMlirOptions});
 
-  if (!parseCustomEnvFlagsCommandLineOption(argc, argv, &llvm::errs()) ||
-      !llvm::cl::ParseCommandLineOptions(argc, argv,
+  // Load options from a file given by --config-file.
+  // If --config-file is not used, looking for omconfig.json in the same folder
+  // as the input file.
+  std::vector<std::string> extraArgs;
+  loadCompileOptionsFromConfig(argc, argv, extraArgs);
+
+  // Contruct a list of all options.
+  std::vector<const char *> allArgs;
+  // onnx-mlir program.
+  allArgs.emplace_back(argv[0]);
+  // Options from the config file.
+  for (const auto &arg : extraArgs)
+    allArgs.emplace_back(arg.c_str());
+  // CLI options will overwrite the ones in the config file.
+  for (int i = 1; i < argc; ++i)
+    allArgs.emplace_back(argv[i]);
+
+  if (!parseCustomEnvFlagsCommandLineOption(
+          allArgs.size(), allArgs.data(), &llvm::errs()) ||
+      !llvm::cl::ParseCommandLineOptions(allArgs.size(), allArgs.data(),
           getVendorName() + " - A modular optimizer driver\n", &llvm::errs(),
           nullptr, customEnvFlags.c_str())) {
     llvm::errs() << "Failed to parse options\n";
-    return 1;
+    return OnnxMlirCompilerErrorCodes::InvalidCompilerOptions;
   }
+
   initCompilerConfig();
 
-  // Timing manager reporting enabled via "--enable-timing" compiler flag
+  // Timing manager reporting enabled via "--enable-timing" compiler flag.
   timingManager.setEnabled(enableTiming);
   rootTimingScope = timingManager.getRootScope();
   auto setupTiming = rootTimingScope.nest("[onnx-mlir] Loading Dialects");
@@ -105,8 +124,41 @@ int main(int argc, char *argv[]) {
   if (rc != 0) {
     if (!errorMessage.empty())
       llvm::errs() << errorMessage << "\n";
-    return 1;
+    return rc;
   }
+  // Store compile options in a module attribute.
+  std::string allArgsStr = "";
+  for (uint64_t i = 1; i < allArgs.size(); ++i) {
+    std::string arg(allArgs[i]);
+    // Sanitize paths: replace absolute/relative paths with just the filename.
+    // Handle options with values (e.g., --option=value or --option value).
+    size_t equalPos = arg.find('=');
+    if (equalPos != std::string::npos) {
+      // Option with value: --option=value.
+      std::string optionPart = arg.substr(0, equalPos + 1);
+      std::string valuePart = arg.substr(equalPos + 1);
+      // Check if value part contains path separators.
+      if (valuePart.find('/') != std::string::npos ||
+          valuePart.find('\\') != std::string::npos) {
+        std::filesystem::path valuePath(valuePart);
+        valuePart = valuePath.filename().string();
+      }
+      arg = optionPart + valuePart;
+    } else if (arg.find('/') != std::string::npos ||
+               arg.find('\\') != std::string::npos) {
+      // Standalone path argument.
+      std::filesystem::path argPath(arg);
+      arg = argPath.filename().string();
+    }
+    if (!allArgsStr.empty())
+      allArgsStr += " ";
+    allArgsStr += arg;
+  }
+  module.get()->setAttr(
+      "onnx-mlir.compile_options", mlir::StringAttr::get(&context, allArgsStr));
+  // Store compiler version information.
+  module.get()->setAttr("onnx-mlir.compiler_version",
+      mlir::StringAttr::get(&context, getOnnxMlirCommitVersion()));
   inputFileTiming.stop();
   return compileModule(module, context, outputBaseName, emissionTarget);
 }

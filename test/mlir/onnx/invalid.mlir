@@ -43,6 +43,14 @@ func.func @test_compress_verifier_1(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor
 
 // -----
 
+func.func @test_eyelike_verifier_rank(%arg0 : tensor<5x5x5xf32>) -> tensor<*xf32> {
+  // expected-error @+1 {{'onnx.EyeLike' op Input should have a rank of two}}
+  %0 = "onnx.EyeLike"(%arg0) : (tensor<5x5x5xf32>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
 func.func @test_concat_verifier_1(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<5x5x3x32xf32>, %arg2 : tensor<5x5x5x32xf32>) -> tensor<*xf32> {
   // expected-error @+1 {{onnx.Concat: 'axis' value is 4, accepted range is [-4, 3]}}
   %1 = "onnx.Concat"(%arg0, %arg1, %arg2) { axis = 4 : si64} : (tensor<5x5x1x32xf32>, tensor<5x5x3x32xf32>, tensor<5x5x5x32xf32>)  -> tensor<*xf32>
@@ -211,6 +219,14 @@ func.func @test_gatherElements_verifier_1(%data: tensor<2x2xf32>, %indices: tens
   // expected-error @+1 {{onnx.GatherElements: operand '<block argument> of type 'tensor<2xi64>' at index: 1' has rank 1, rank should be 2}}
   %1 = "onnx.GatherElements"(%data, %indices) { } : (tensor<2x2xf32>, tensor<2xi64>) -> tensor<*xf32>
   "onnx.Return"(%1) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func.func @test_global_lp_pool_verifier_p(%arg0: tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32> {
+  // expected-error @+1 {{'onnx.GlobalLpPool' op p must be >= 1, got 0}}
+  %0 = "onnx.GlobalLpPool"(%arg0) {p = 0 : si64} : (tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32>
+  "onnx.Return"(%0) : (tensor<1x3x1x1xf32>) -> ()
 }
 
 // -----
@@ -476,10 +492,10 @@ func.func @test_scatterelements_verifier_3(%arg0 : tensor<5x5x1x32xf32>, %arg1 :
 
 // -----
 
-func.func @test_scatterelements_verifier_4(%arg0 : tensor<3xf32>, %arg1 : tensor<3xf32>) -> tensor<*xf32> {
+func.func @test_scatterelements_verifier_4(%arg0 : tensor<3xf32>, %arg1 : tensor<1xf32>) -> tensor<*xf32> {
   // expected-error @+2 {{onnx.ScatterElements: 'indices' value is 3, accepted range is [-3, 2]}}
   %indices = "onnx.Constant"() {value = dense<[3]> : tensor<1xi64>} : () -> tensor<1xi64>
-  %1 = "onnx.ScatterElements"(%arg0, %indices, %arg1) {axis = 0 : si64} : (tensor<3xf32>, tensor<1xi64>, tensor<3xf32>)  -> tensor<*xf32>
+  %1 = "onnx.ScatterElements"(%arg0, %indices, %arg1) {axis = 0 : si64} : (tensor<3xf32>, tensor<1xi64>, tensor<1xf32>)  -> tensor<*xf32>
   "onnx.Return"(%1) : (tensor<*xf32>) -> ()
 }
 
@@ -747,7 +763,7 @@ func.func @test_grid_sample_align_corners(%arg0: tensor<2x1x4x4xf32>, %arg1: ten
 // -----
 
 func.func @test_grid_sample_mode(%arg0: tensor<2x1x4x4xf32>, %arg1: tensor<2x6x6x2xf32>) -> tensor<*xf32> {
-  // expected-error @+1 {{'onnx.GridSample' op mode needs to be linear, nearest or cubic}}
+  // expected-error @+1 {{'onnx.GridSample' op mode needs to be linear, bilinear, trilinear, nearest or cubic}}
   %0 = "onnx.GridSample"(%arg0, %arg1) {align_corners = 1 : si64, mode = "sampling", padding_mode = "border"} : (tensor<2x1x4x4xf32>, tensor<2x6x6x2xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 }
@@ -777,6 +793,7 @@ func.func @test_bernoulli_wrong_dtype(%arg0 : tensor<8x8xf16>) -> tensor<*xf32> 
 }
 
 // -----
+
 func.func @test_cast_wrong_dtype(%arg0 : tensor<8x8xf16>) -> tensor<*xf32> {
   // expected-error @+1 {{'onnx.Cast' op element type does not match the 'to' attribute}}
   %1 = "onnx.Cast"(%arg0) {to = f16} : (tensor<8x8xf16>) -> tensor<*xf32>
@@ -784,6 +801,7 @@ func.func @test_cast_wrong_dtype(%arg0 : tensor<8x8xf16>) -> tensor<*xf32> {
 }
 
 // -----
+
 func.func @test_cast_like_wrong_dtype(%arg0 : tensor<8x8xf16>) -> tensor<*xf32> {
   // expected-error @+1 {{'onnx.CastLike' op element type does not match the 'target types' operands element type}}
   %1 = "onnx.CastLike"(%arg0, %arg0) : (tensor<8x8xf16>, tensor<8x8xf16>) -> tensor<*xf32>
@@ -791,6 +809,7 @@ func.func @test_cast_like_wrong_dtype(%arg0 : tensor<8x8xf16>) -> tensor<*xf32> 
 }
 
 // -----
+
 func.func @test_eyelike_wrong_dtype(%arg0 : tensor<8x8xi32>) -> tensor<*xf32> {
   // expected-error @+1 {{'onnx.EyeLike' op result element type f32 does not match the expected type f16}}
   %1 = "onnx.EyeLike"(%arg0) {dtype = 10 : si64} : (tensor<8x8xi32>) -> tensor<*xf32>
@@ -798,6 +817,7 @@ func.func @test_eyelike_wrong_dtype(%arg0 : tensor<8x8xi32>) -> tensor<*xf32> {
 }
 
 // -----
+
 func.func @test_random_normal_wrong_dtype() -> tensor<*xf16> {
   // expected-error @+1 {{'onnx.RandomNormal' op result element type f16 does not match the dtype f32}}
   %0 = "onnx.RandomNormal"() {shape = [3, 4, 5], dtype = 1 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : () -> tensor<*xf16>
@@ -805,6 +825,7 @@ func.func @test_random_normal_wrong_dtype() -> tensor<*xf16> {
 }
 
 // -----
+
 func.func @test_random_normal_like_wrong_dtype(%arg0: tensor<1x1x28x28xf32>) -> tensor<*xf16> {
   // expected-error @+1 {{'onnx.RandomNormalLike' op result element type f16 does not match the expected type f32}}
   %0 = "onnx.RandomNormalLike"(%arg0) {dtype = 1 : si64, mean = 0.0 :f32, scale = 1.0 : f32, seed = 2.0 : f32} : (tensor<1x1x28x28xf32>) -> tensor<*xf16>
@@ -812,6 +833,7 @@ func.func @test_random_normal_like_wrong_dtype(%arg0: tensor<1x1x28x28xf32>) -> 
 }
 
 // -----
+
 func.func @test_random_uniform_wrong_dtype() -> tensor<*xf16> {
   // expected-error @+1 {{'onnx.RandomUniform' op result element type f16 does not match the dtype f32}}
   %0 = "onnx.RandomUniform"() {shape = [3, 4, 5], dtype = 1 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : () -> tensor<*xf16>
@@ -819,7 +841,54 @@ func.func @test_random_uniform_wrong_dtype() -> tensor<*xf16> {
 }
 
 // -----
+
 func.func @test_random_normal_like_wrong_dtype(%arg0: tensor<1x1x28x28xf32>) -> tensor<*xf16> {
   // expected-error @+1 {{'onnx.RandomUniformLike' op result element type f16 does not match the expected type f32}}
   %0 = "onnx.RandomUniformLike"(%arg0) {dtype = 1 : si64, high = 1.000000e+00 : f32, low = 0.000000e+00 : f32, seed = 2.000000e+00 : f32} : (tensor<1x1x28x28xf32>) -> tensor<*xf16>
-  "onnx.Return"(%0) : (tensor<*xf16>) -> ()}
+  "onnx.Return"(%0) : (tensor<*xf16>) -> ()
+}
+
+// -----
+
+// A mismatched-dtype comparison not covered by the float-vs-integer-zero-
+// literal exception (non-zero literal here) must be rejected by the
+// verifier, not silently accepted only to abort deep in ONNXToKrnl lowering.
+func.func @test_greater_or_equal_mismatched_types(%arg0: tensor<f32>) -> tensor<i1> {
+  %0 = onnx.Constant dense<1> : tensor<i64>
+  // expected-error @+1 {{'onnx.GreaterOrEqual' op expected operands to have the same element type, but got 'f32' and 'i64'}}
+  %1 = "onnx.GreaterOrEqual"(%arg0, %0) : (tensor<f32>, tensor<i64>) -> tensor<i1>
+  onnx.Return %1 : tensor<i1>
+}
+
+// -----
+
+func.func @test_less_or_equal_mismatched_types(%arg0: tensor<f32>, %arg1: tensor<i64>) -> tensor<i1> {
+  // expected-error @+1 {{'onnx.LessOrEqual' op expected operands to have the same element type, but got 'f32' and 'i64'}}
+  %0 = "onnx.LessOrEqual"(%arg0, %arg1) : (tensor<f32>, tensor<i64>) -> tensor<i1>
+  onnx.Return %0 : tensor<i1>
+}
+
+
+// -----
+
+func.func @test_det_bf16(%arg0: tensor<3x3xbf16>) -> tensor<bf16> {
+  // expected-error @+1 {{'onnx.Det' op only f16, f32 and f64 element types are supported for Det}}
+  %0 = "onnx.Det"(%arg0) : (tensor<3x3xbf16>) -> tensor<bf16>
+  onnx.Return %0 : tensor<bf16>
+}
+
+// -----
+
+func.func @test_transpose_perm_too_short(%arg0: tensor<4x3x2x1xf32>) -> tensor<*xf32> {
+  // expected-error @+1 {{Transpose op perm attribute has 2 elements but rank is 4}}
+  %0 = "onnx.Transpose"(%arg0) {perm = [0, 1]} : (tensor<4x3x2x1xf32>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func.func @test_transpose_perm_too_long(%arg0: tensor<2x3xf32>) -> tensor<*xf32> {
+  // expected-error @+1 {{Transpose op perm attribute has 4 elements but rank is 2}}
+  %0 = "onnx.Transpose"(%arg0) {perm = [1, 0, 0, 1]} : (tensor<2x3xf32>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+}

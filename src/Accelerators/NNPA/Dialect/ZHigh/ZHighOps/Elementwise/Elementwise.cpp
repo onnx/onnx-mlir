@@ -23,7 +23,8 @@ namespace zhigh {
 // AddOp
 LogicalResult ZHighAddOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return inferShapeForUnaryOps(this->getOperation());
+  return inferShapeForUnaryOps(this->getOperation(),
+      getZTensorEncoding(this->getOperation()->getOperand(0).getType()));
 }
 
 //===----------------------------------------------------------------------===//
@@ -31,7 +32,8 @@ LogicalResult ZHighAddOp::inferShapes(
 
 LogicalResult ZHighSubOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return inferShapeForUnaryOps(this->getOperation());
+  return inferShapeForUnaryOps(this->getOperation(),
+      getZTensorEncoding(this->getOperation()->getOperand(0).getType()));
 }
 
 //===----------------------------------------------------------------------===//
@@ -39,7 +41,8 @@ LogicalResult ZHighSubOp::inferShapes(
 
 LogicalResult ZHighMulOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return inferShapeForUnaryOps(this->getOperation());
+  return inferShapeForUnaryOps(this->getOperation(),
+      getZTensorEncoding(this->getOperation()->getOperand(0).getType()));
 }
 
 //===----------------------------------------------------------------------===//
@@ -47,7 +50,8 @@ LogicalResult ZHighMulOp::inferShapes(
 
 LogicalResult ZHighDivOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return inferShapeForUnaryOps(this->getOperation());
+  return inferShapeForUnaryOps(this->getOperation(),
+      getZTensorEncoding(this->getOperation()->getOperand(0).getType()));
 }
 
 //===----------------------------------------------------------------------===//
@@ -55,7 +59,8 @@ LogicalResult ZHighDivOp::inferShapes(
 
 LogicalResult ZHighMinOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return inferShapeForUnaryOps(this->getOperation());
+  return inferShapeForUnaryOps(this->getOperation(),
+      getZTensorEncoding(getOperation()->getOperand(0).getType()));
 }
 
 //===----------------------------------------------------------------------===//
@@ -63,7 +68,8 @@ LogicalResult ZHighMinOp::inferShapes(
 
 LogicalResult ZHighMaxOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return inferShapeForUnaryOps(this->getOperation());
+  return inferShapeForUnaryOps(this->getOperation(),
+      getZTensorEncoding(this->getOperation()->getOperand(0).getType()));
 }
 
 //===----------------------------------------------------------------------===//
@@ -71,7 +77,8 @@ LogicalResult ZHighMaxOp::inferShapes(
 
 LogicalResult ZHighLogOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return inferShapeForUnaryOps(this->getOperation());
+  return inferShapeForUnaryOps(this->getOperation(),
+      getZTensorEncoding(this->getOperation()->getOperand(0).getType()));
 }
 
 //===----------------------------------------------------------------------===//
@@ -79,7 +86,8 @@ LogicalResult ZHighLogOp::inferShapes(
 
 LogicalResult ZHighExpOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return inferShapeForUnaryOps(this->getOperation());
+  return inferShapeForUnaryOps(this->getOperation(),
+      getZTensorEncoding(this->getOperation()->getOperand(0).getType()));
 }
 
 //===----------------------------------------------------------------------===//
@@ -87,7 +95,8 @@ LogicalResult ZHighExpOp::inferShapes(
 
 LogicalResult ZHighInvSqrtOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForUnaryOps(this->getOperation());
+  return inferShapeForUnaryOps(this->getOperation(),
+      getZTensorEncoding(this->getOperation()->getOperand(0).getType()));
 }
 
 //===----------------------------------------------------------------------===//
@@ -95,7 +104,8 @@ LogicalResult ZHighInvSqrtOp::inferShapes(
 
 LogicalResult ZHighLeakyReluOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForUnaryOps(this->getOperation());
+  return inferShapeForUnaryOps(this->getOperation(),
+      getZTensorEncoding(this->getOperation()->getOperand(0).getType()));
 }
 
 //===----------------------------------------------------------------------===//
@@ -103,7 +113,8 @@ LogicalResult ZHighLeakyReluOp::inferShapes(
 
 LogicalResult ZHighReluOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return inferShapeForUnaryOps(this->getOperation());
+  return inferShapeForUnaryOps(this->getOperation(),
+      getZTensorEncoding(this->getOperation()->getOperand(0).getType()));
 }
 
 //===----------------------------------------------------------------------===//
@@ -111,7 +122,8 @@ LogicalResult ZHighReluOp::inferShapes(
 
 LogicalResult ZHighGeluOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForUnaryOps(this->getOperation());
+  return inferShapeForUnaryOps(this->getOperation(),
+      getZTensorEncoding(this->getOperation()->getOperand(0).getType()));
 }
 
 //===----------------------------------------------------------------------===//
@@ -119,7 +131,8 @@ LogicalResult ZHighGeluOp::inferShapes(
 
 LogicalResult ZHighTanhOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return inferShapeForUnaryOps(this->getOperation());
+  return inferShapeForUnaryOps(this->getOperation(),
+      getZTensorEncoding(this->getOperation()->getOperand(0).getType()));
 }
 
 //===----------------------------------------------------------------------===//
@@ -127,7 +140,8 @@ LogicalResult ZHighTanhOp::inferShapes(
 
 LogicalResult ZHighSigmoidOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return inferShapeForUnaryOps(this->getOperation());
+  return inferShapeForUnaryOps(this->getOperation(),
+      getZTensorEncoding(this->getOperation()->getOperand(0).getType()));
 }
 
 //===----------------------------------------------------------------------===//
@@ -135,7 +149,8 @@ LogicalResult ZHighSigmoidOp::inferShapes(
 
 LogicalResult ZHighSqrtOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return inferShapeForUnaryOps(this->getOperation());
+  return inferShapeForUnaryOps(this->getOperation(),
+      getZTensorEncoding(this->getOperation()->getOperand(0).getType()));
 }
 
 } // namespace zhigh

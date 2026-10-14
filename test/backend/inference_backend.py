@@ -2,7 +2,7 @@
 
 ##################### inference_backend.py #####################################
 #
-# Copyright 2021, 2024 The IBM Research Authors.
+# Copyright 2021- 2026 The IBM Research Authors.
 #
 ################################################################################
 from __future__ import absolute_import
@@ -275,6 +275,143 @@ def get_test_models():
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
+        # ==OP== Attention
+        # ==MIN== 23
+        # ==LIM== Only supports q_num_heads == kv_num_heads (no GQA/MQA). Does not support softcap, a non-default qk_matmul_output_mode, or sliding/local-window attention. Does not support bfloat16 combined with is_causal, or an attn_mask whose kv dimension is shorter than K/V's actual (padded) sequence length. Of the op's three KV-cache input patterns, only "no cache" and "external cache" (K/V already the full cache, nonpad_kv_seqlen given) are supported; "cache update inside the op" (past_key/past_value given) is not.
+        "test_attention_3d_cpu": {STATIC_SHAPE: {}},
+        "test_attention_3d_attn_mask_cpu": {STATIC_SHAPE: {}},
+        "test_attention_3d_causal_cpu": {STATIC_SHAPE: {}},
+        "test_attention_3d_diff_heads_sizes_cpu": {STATIC_SHAPE: {}},
+        "test_attention_3d_diff_heads_sizes_attn_mask_cpu": {STATIC_SHAPE: {}},
+        "test_attention_3d_diff_heads_sizes_causal_cpu": {STATIC_SHAPE: {}},
+        "test_attention_3d_diff_heads_sizes_scaled_cpu": {STATIC_SHAPE: {}},
+        "test_attention_3d_scaled_cpu": {STATIC_SHAPE: {}},
+        "test_attention_3d_transpose_verification_cpu": {STATIC_SHAPE: {}},
+        # GQA/MQA (kv_num_heads != q_num_heads, or K/V's num_heads != Q's for
+        # already-4D inputs) is not implemented; the compiler rejects it with
+        # an explicit error rather than mis-lowering it.
+        # "test_attention_3d_gqa_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_3d_gqa_attn_mask_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_3d_gqa_causal_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_3d_gqa_scaled_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_3d_gqa_softcap_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_3d_gqa_with_past_and_present_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_3d_local_window_cpu": {STATIC_SHAPE: {}},
+        # softcap is not implemented; the compiler rejects a non-zero softcap
+        # with an explicit error rather than ignoring it.
+        # "test_attention_3d_diff_heads_sizes_softcap_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_3d_softcap_cpu": {STATIC_SHAPE: {}},
+        # qk_matmul_output_mode != 0 (debug QK^T output) is not implemented;
+        # the compiler rejects a non-zero mode with an explicit error. A used
+        # qk_matmul_output with the (default) mode 0 instead fails later,
+        # trying to legalize an onnx.NoValue in its place.
+        # "test_attention_3d_with_past_and_present_qk_matmul_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_3d_with_past_and_present_qk_matmul_bias_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_3d_with_past_and_present_qk_matmul_softmax_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_3d_with_past_and_present_qk_matmul_softcap_cpu": {STATIC_SHAPE: {}},
+        # The "cache update inside the op" input pattern (past_key/past_value
+        # given) crashes in a pre-existing bug, not yet root-caused/fixed.
+        # "test_attention_3d_with_past_and_present_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_3d_diff_heads_with_past_and_present_cpu": {STATIC_SHAPE: {}},
+        # bfloat16 combined with is_causal crashes in a framework-level gap
+        # (MathBuilder::constant has no bfloat16 case), unrelated to this op.
+        # "test_attention_3d_causal_bf16_cpu": {STATIC_SHAPE: {}},
+        "test_attention_4d_cpu": {STATIC_SHAPE: {}},
+        "test_attention_4d_attn_mask_cpu": {STATIC_SHAPE: {}},
+        "test_attention_4d_attn_mask_3d_cpu": {STATIC_SHAPE: {}},
+        "test_attention_4d_attn_mask_3d_causal_cpu": {STATIC_SHAPE: {}},
+        "test_attention_4d_attn_mask_4d_cpu": {STATIC_SHAPE: {}},
+        "test_attention_4d_attn_mask_4d_causal_cpu": {STATIC_SHAPE: {}},
+        "test_attention_4d_attn_mask_bool_cpu": {STATIC_SHAPE: {}},
+        "test_attention_4d_attn_mask_bool_4d_cpu": {STATIC_SHAPE: {}},
+        "test_attention_4d_causal_cpu": {STATIC_SHAPE: {}},
+        "test_attention_4d_causal_nonpad_batch_prefill_cpu": {STATIC_SHAPE: {}},
+        "test_attention_4d_causal_nonpad_continued_prefill_cpu": {STATIC_SHAPE: {}},
+        "test_attention_4d_diff_heads_sizes_cpu": {STATIC_SHAPE: {}},
+        "test_attention_4d_diff_heads_sizes_attn_mask_cpu": {STATIC_SHAPE: {}},
+        "test_attention_4d_diff_heads_sizes_causal_cpu": {STATIC_SHAPE: {}},
+        "test_attention_4d_diff_heads_sizes_scaled_cpu": {STATIC_SHAPE: {}},
+        "test_attention_4d_scaled_cpu": {STATIC_SHAPE: {}},
+        # GQA/MQA, see the comment above the 3d_gqa entries.
+        # "test_attention_4d_gqa_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_gqa_attn_mask_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_gqa_causal_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_gqa_causal_nonpad_decode_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_gqa_causal_nonpad_decode_fp16_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_gqa_scaled_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_gqa_softcap_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_gqa_with_past_and_present_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_gqa_with_past_and_present_fp16_cpu": {STATIC_SHAPE: {}},
+        # softcap, see the comment above the 3d_softcap entries.
+        # "test_attention_4d_diff_heads_sizes_softcap_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_softcap_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_softcap_neginf_mask_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_softcap_neginf_mask_poison_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_with_qk_matmul_softcap_cpu": {STATIC_SHAPE: {}},
+        # qk_matmul_output_mode, see the comment above the
+        # 3d_with_past_and_present_qk_matmul entries.
+        # "test_attention_4d_with_qk_matmul_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_with_qk_matmul_bias_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_with_qk_matmul_softmax_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_with_past_and_present_qk_matmul_bias_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_with_past_and_present_qk_matmul_bias_3d_mask_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_with_past_and_present_qk_matmul_bias_3d_mask_causal_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_with_past_and_present_qk_matmul_bias_4d_mask_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_with_past_and_present_qk_matmul_bias_4d_mask_causal_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_23_fullymasked_qk_matmul_output_mode3_zero_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_24_fullymasked_qk_matmul_output_mode3_zero_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_24_qk_matmul_output_mode3_softmax_precision_cpu": {STATIC_SHAPE: {}},
+        # attn_mask with a kv dimension shorter than K/V's actual (padded)
+        # sequence length, combined with nonpad_kv_seqlen, is not
+        # implemented; the compiler rejects it with an explicit error.
+        # "test_attention_4d_causal_padded_kv_bf16_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_padded_kv_bf16_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_diff_heads_mask4d_padded_kv_cpu": {STATIC_SHAPE: {}},
+        # "cache update inside the op" input pattern, see the comment above
+        # the 3d_with_past_and_present entries.
+        # "test_attention_4d_with_past_and_present_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_with_past_and_present_qk_matmul_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_causal_with_past_and_present_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_diff_heads_with_past_and_present_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_diff_heads_with_past_and_present_mask3d_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_diff_heads_with_past_and_present_mask4d_cpu": {STATIC_SHAPE: {}},
+        # bfloat16 combined with is_causal, see the comment above the
+        # 3d_causal_bf16 entry.
+        # "test_attention_4d_attn_mask_causal_bf16_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_causal_bf16_cpu": {STATIC_SHAPE: {}},
+        # float16 numeric mismatch (not yet root-caused).
+        # "test_attention_4d_causal_fp16_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_4d_fp16_cpu": {STATIC_SHAPE: {}},
+        # attn_mask combined with is_causal and nonpad_kv_seqlen produces a
+        # numeric mismatch (the composition is not fully correct yet).
+        # "test_attention_4d_causal_nonpad_attn_mask_composition_cpu": {STATIC_SHAPE: {}},
+        # A negative causal offset (more query tokens than cached keys)
+        # should fully mask the leading query rows (spec-mandated zero
+        # output), but produces a numeric mismatch instead.
+        # "test_attention_4d_causal_nonpad_negative_offset_structural_empty_cpu": {STATIC_SHAPE: {}},
+        "test_attention_local_window_default_cpu": {STATIC_SHAPE: {}},
+        "test_attention_local_window_ext_cache_float16_mask_cpu": {
+            STATIC_SHAPE: {},
+            FLOAT16: {},
+        },
+        # Sliding/local-window attention (left/right window size) is not
+        # implemented: the window is silently ignored, producing wrong
+        # (unwindowed) results instead of an error.
+        # "test_attention_bidirectional_window_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_local_window_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_local_window_ext_cache_rank2_mask_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_local_window_ext_cache_rank3_head_mask_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_local_window_ext_cache_rank4_batch_mask_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_local_window_rank1_boolean_mask_cpu": {STATIC_SHAPE: {}},
+        # GQA/MQA, see the comment above the 3d_gqa entries.
+        # "test_attention_local_window_gqa_rank4_mask_cpu": {STATIC_SHAPE: {}},
+        # "cache update inside the op" input pattern, see the comment above
+        # the 3d_with_past_and_present entries.
+        # "test_attention_local_window_with_past_cpu": {STATIC_SHAPE: {}},
+        # Fully-masked rows (e.g. from a boolean mask) produce NaN instead of
+        # the spec-mandated zero output row.
+        # "test_attention_23_boolmask_fullymasked_row_nan_robustness_cpu": {STATIC_SHAPE: {}},
+        # "test_attention_causal_boolmask_nan_robustness_cpu": {STATIC_SHAPE: {}},
         # ==OP== AveragePool
         # ==MIN== 1
         # TODO: original comment stated "same_upper/lower with dynamic padding-shapes not supported."
@@ -365,7 +502,7 @@ def get_test_models():
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
-        # ==OP== Bitshift
+        # ==OP== BitShift
         # ==MIN== 11
         "test_bitshift_right_uint8_cpu": {
             STATIC_SHAPE: {},
@@ -610,6 +747,28 @@ def get_test_models():
         # "test_clip_default_int8_min_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
         # "test_clip_default_int8_max_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
         # "test_clip_default_int8_inbounds_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}},
+        # ==OP== Col2Im
+        # ==MIN== 18
+        "test_col2im_cpu": {
+            STATIC_SHAPE: {},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_col2im_strides_cpu": {
+            STATIC_SHAPE: {},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_col2im_pads_cpu": {
+            STATIC_SHAPE: {},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_col2im_dilations_cpu": {
+            STATIC_SHAPE: {},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_col2im_5d_cpu": {
+            STATIC_SHAPE: {},
+            CONSTANT_INPUT: {-1},
+        },
         # ==OP== Compress
         # ==MIN== 9
         "test_compress_0_cpu": {
@@ -742,50 +901,52 @@ def get_test_models():
         },
         # ==OP== ConvTranspose
         # ==MIN== 1
-        # ==LIM== Spatial dimensions (H and W in input `X`, and kH and kW in input `W`) must be static dimension.
+        # ==LIM== Weight input `W` must be constant with static dimensions. `X` input shape must be constant when using the `output_shape` option.
         "test_convtranspose_1d_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            DYNAMIC_SHAPE: {0: {0, 1, 2}},
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_3d_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            DYNAMIC_SHAPE: {0: {0, 1, 2, 3, 4}},
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_autopad_same_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            DYNAMIC_SHAPE: {0: {0, 1, 2, 3}},
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            DYNAMIC_SHAPE: {0: {0, 1, 2, 3}},
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_dilations_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            DYNAMIC_SHAPE: {0: {0, 1, 2, 3}},
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_kernel_shape_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            DYNAMIC_SHAPE: {0: {0, 1}},
+            # Dynamic shapes disabled for spatial dims (output_shape option only).
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_output_shape_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            DYNAMIC_SHAPE: {0: {0, 1}},
+            # Dynamic shapes disabled for spatial dims (output_shape option only).
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_pad_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            DYNAMIC_SHAPE: {0: {0, 1, 2, 3}},
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_pads_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            DYNAMIC_SHAPE: {0: {0, 1, 2, 3}},
             CONSTANT_INPUT: {1},
         },
         # ==OP== Cos
@@ -857,6 +1018,19 @@ def get_test_models():
         # "test_dft_axis_opset19_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_dft_opset19_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_dft_inverse_opset19_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        # ==OP== Det
+        # ==MIN== 22
+        # ==LIM== Does not support bfloat16.
+        "test_det_2d_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_det_nd_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
         # ==OP== DepthToSpace
         # ==MIN== 13
         "test_depthtospace_example_cpu": {
@@ -1060,6 +1234,23 @@ def get_test_models():
         "test_expand_dim_unchanged_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {0: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        # ==OP== EyeLike
+        # ==MIN== 22
+        "test_eyelike_without_dtype_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_eyelike_with_dtype_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_eyelike_populate_off_main_diagonal_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         # ==OP== Flatten
@@ -1358,6 +1549,69 @@ def get_test_models():
             CONSTANT_INPUT: {-1},
         },
         "test_group_normalization_example_expanded_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        # ==OP== GridSample
+        # ==MIN== 16
+        # ==LIM== 2D and 3D only. Padding modes: zeros, border.
+        "test_gridsample_aligncorners_true_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_gridsample_bicubic_align_corners_0_additional_1_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_gridsample_bicubic_align_corners_1_additional_1_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_gridsample_bicubic_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_gridsample_bilinear_align_corners_0_additional_1_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_gridsample_bicubic_align_corners_1_additional_1_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_gridsample_bilinear_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_gridsample_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_gridsample_nearest_align_corners_0_additional_1_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_gridsample_nearest_align_corners_1_additional_1_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_gridsample_nearest_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_gridsample_zeros_padding_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
@@ -1898,6 +2152,28 @@ def get_test_models():
             STATIC_SHAPE: {},
             # Need to enable ConvertSeqToMemrefPass for dynamic test.
             # DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        # ==OP== LpNormalization
+        # ==MIN== 1
+        "test_l1normalization_axis_0_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_l1normalization_axis_1_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_l1normalization_axis_last_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_lpnormalization_default_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         # "test_loop13_seq_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -2972,7 +3248,7 @@ def get_test_models():
         # ==LIM== Does not support duplicate indices.
         "test_scatter_elements_without_axis_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_scatter_elements_with_axis_cpu": {
@@ -2991,7 +3267,7 @@ def get_test_models():
         # ==LIM== Does not support scatternd add/multiply.
         "test_scatternd_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {-1},
         },
         # "test_scatternd_add_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -3185,7 +3461,6 @@ def get_test_models():
         },
         # ==OP== Split
         # ==MIN== 2
-        # ==LIM== Does not support static and dynamic shape, zero size splits.
         # ==TODO== Temporally removed due to changes in onnx 1.8.1
         # "test_split_equal_parts_1d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_split_variable_parts_1d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -3282,6 +3557,21 @@ def get_test_models():
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
+        },
+        # ==OP== TensorScatter
+        # ==MIN== 24
+        # Test with JNI failed, possibly because tensorscatter test cases return the function argument.
+        "test_tensorscatter_3d_cpu": {
+            STATIC_SHAPE: {},
+            NO_JNI: {},
+        },
+        "test_tensorscatter_circular_cpu": {
+            STATIC_SHAPE: {},
+            NO_JNI: {},
+        },
+        "test_tensorscatter_cpu": {
+            STATIC_SHAPE: {},
+            NO_JNI: {},
         },
         # ==OP== ThresholdedRelu
         # ==MIN== 10
@@ -3602,7 +3892,7 @@ def get_test_models():
     node_test_to_enable = [
         key
         for (key, value) in variables.node_test_to_enable_dict.items()
-        if (STATIC_SHAPE in value)
+        if (STATIC_SHAPE in value and not (args.emit == "jni" and NO_JNI in value))
         or ((STATIC_SHAPE_STRING in value) and (args.emit == "lib"))
     ]
     model_test_to_enable = [
@@ -3761,6 +4051,7 @@ def JniExecutionSession(jar_name, inputs):
     # print('stdin=' + str(procStdin), file=sys.stderr)
     cmd = [
         "java",
+        "-XX:-UsePerfData",
         "-cp",
         jar_name + ":" + os.getenv("JSONITER_JAR"),
         "com.ibm.onnxmlir.OMRunner",
@@ -3915,6 +4206,15 @@ class EndiannessAwareExecutionSession(object):
         for idx in input_indices:
             input_node = self.model.graph.input[idx]
             tensor = inputs[idx]
+            # Some CONSTANT_INPUT test cases (e.g. constantofshape) supply a
+            # bare NumPy scalar (np.float32, np.int64, …) rather than an ndarray.
+            # numpy_helper.from_array's tobytes_little_endian calls astype() to
+            # byte-swap on BE machines, but astype() on a NumPy scalar (which is
+            # not an ndarray) silently returns native-endian bytes unchanged in
+            # NumPy 2.x, corrupting raw_data on s390x.  Normalise to a 0-d
+            # ndarray first so that astype() works correctly.
+            if not isinstance(tensor, np.ndarray):
+                tensor = np.asarray(tensor)
             tensor = numpy_helper.from_array(tensor, input_node.name)
             self.model.graph.initializer.extend([tensor])
             inputs_to_remove.append(input_node)

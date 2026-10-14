@@ -42,8 +42,8 @@ def HasOneUse : Constraint<CPred<"$_self.hasOneUse()">, "op has exactly one use"
 // Not support NHWC layout since the stick does transpose internally. We can
 // introduce transpose explicitly, but need to evaluate its overhead.
 def RecomposeToStickPattern: Pat<
-  (ONNXLayoutTransformOp (ZHighF32ToDLF16Op $input, $noSaturation), $layout),
-  (ZHighStickOp $input, $layout, $noSaturation),
+  (ONNXLayoutTransformOp (ZHighF32ToDLF16Op $input, $noSaturation), $encoding_layout),
+  (ZHighStickOp $input, (GetLayoutFromZTensorEncoding $encoding_layout), $noSaturation),
   []
 >;
 

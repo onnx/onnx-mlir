@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 # SPDX-License-Identifier: Apache-2.0
 
@@ -32,14 +32,16 @@ import subprocess
 
 def print_usage():
     print("Translate mlir format from stdin/input file to a suitable FileCheck format.")
-    print("mlir2FileCheck [-cdh] [-a <arg arrays>] [-d <dict>] [-m <model file>")
+    print(
+        "mlir2FileCheck [-cdh] [-a <arg arrays>] [-d <dict>] [-m <model file>] [-p <prefix>]"
+    )
     print("  -a,--args <array>: Rename function arguments using a json array,")
     print('                     such as \'["A", "B", "C"] for 1st, 2nd, & 3rd args.\'.')
     print(
-        "  -c,--check       : Run FileCheck on output, to verify that the output is good."
+        "  -c,--check         : Run FileCheck on output, to verify that the output is good."
     )
     print(
-        "  -d,--debug       : Rename for easier debugging of code, disable FileCheck format."
+        "  -d,--debug         : Rename for easier debugging of code, disable FileCheck format."
     )
     print("  -h,--help        : Print help.")
     print("  -i,--input <input file name>: read input from this file instead of stdin.")
@@ -48,6 +50,7 @@ def print_usage():
     )
     print("  -n,--names <dict>: Rename variables using a json dictionary")
     print('                     such as \'{"cst": "ZERO"}\' to rename cst to ZERO.')
+    print("  -p,--prefix <prefix>: Set the FileCheck prefix (default: CHECK).")
     sys.exit()
 
 
@@ -71,7 +74,9 @@ def process_def_use_chains(line):
         return
     # Has a def, add to def set.
     curr_def = definition.group(1)
-    use_qual_pat = re.compile(r"%([a-zA-Z0-9][a-zA-Z0-9_\-]*)(:\d+)?")
+    use_qual_pat = re.compile(
+        r"%([a-zA-Z0-9][a-zA-Z0-9_\-]*?)(:\d+)?(?=[^a-zA-Z0-9_\-]|$)"
+    )
     uses = use_qual_pat.findall(line)
     for u in uses:
         # Var u is and array with var [name, qualifier]. Look at name only.
@@ -190,13 +195,15 @@ def process_name(
 # Drive the processing of the current line.
 def process_line(i, line):
     global debug, check, squash_before_fct, prepare_name_dict, name_dict, refcount_dict
-    global line_color, curr_parallel_color, is_new_function_stuff
+    global line_color, curr_parallel_color, is_new_function_stuff, prefix
     def_arg_pat = re.compile(r"%([a-zA-Z0-9][a-zA-Z0-9_\-]*)():")
     def_qual_pat = re.compile(r"%([a-zA-Z0-9][a-zA-Z0-9_\-]*)(:\d+)?\s+=")
     def_pat = re.compile(r"%([a-zA-Z0-9][a-zA-Z0-9_\-]*)()\s+=")
     def_map_pat = re.compile(r"#([a-zA-Z0-9][a-zA-Z0-9_\-]*)()\s+=")
     def_op_pat = re.compile(r"=\s+(?:\w+\.)?(\w+)")
-    use_qual_pat = re.compile(r"%([a-zA-Z0-9][a-zA-Z0-9_\-]*)(:\d+)?")
+    use_qual_pat = re.compile(
+        r"%([a-zA-Z0-9][a-zA-Z0-9_\-]*?)(:\d+)?(?=[^a-zA-Z0-9_\-]|$)"
+    )
     use_map_qual_pat = re.compile(r"#([a-zA-Z0-9][a-zA-Z0-9_\-]*)()\(")
     # Has a new function?
     if (
@@ -234,9 +241,48 @@ def process_line(i, line):
     elif re.match(r"\s+(func\.)?func", line) is not None:
         new_line = process_name(new_line, def_arg_pat, "PARAM", ":", 1)
         squash_before_fct = 0  # After function, disable squashing
+    # Special handling of a basic block signature, e.g.
+    #   ^bb0(%arg2: tensor<2x4x3x64xf32>, %arg3: tensor<2x4x5x64xf32>):
+    # Those arguments define everything the block goes on to use, but the line
+    # carries no "=", so neither the function-header case above nor the generic
+    # "%x =" case below sees them, and every later use in the block would refer to
+    # a variable that was never defined. This is what the region of an op like
+    # onnx.Fused looks like. A block with no arguments (`^bb1:`) has nothing to
+    # define and is left to fall through.
+    elif re.match(r"\s*\^[a-zA-Z0-9_]+\s*\(", line) is not None:
+        new_line = process_name(new_line, def_arg_pat, "REGION_ARG", ":", 1)
     # Special handling of loop iterations.
     elif re.match(r"\s+(\w+\.)?for", line) is not None:
         new_line = process_name(new_line, def_pat, "I", " =", 1)
+    # Special handling of affine.parallel/scf.parallel. Their induction variables
+    # sit in a parenthesized list *before* the "=", e.g.
+    #   affine.parallel (%arg1, %arg2) = (0, 0) to (10, 20)
+    # so the generic "%x =" definition pattern never sees them, and they would be
+    # emitted as uses of a variable that is never defined -- yielding a FileCheck
+    # "undefined variable" error. Name them like a for loop's, one per dimension.
+    # Only the induction variable list is rewritten, so the bounds that follow are
+    # left for the normal use-substitution to handle.
+    #
+    # The trailing "=" is what makes this an assignment of induction variables,
+    # and is required so that this does not also swallow krnl.parallel(%loop_ref),
+    # whose parenthesized operands are *uses* of loop references defined earlier.
+    elif (
+        parallel_match := re.match(
+            r"(\s*(?:\w+\.)?parallel\s*\()([^)]*)(\)\s*=.*)$", line
+        )
+    ) is not None:
+        head, iv_list, tail = parallel_match.groups()
+        new_ivs = []
+        for iv in iv_list.split(","):
+            iv_match = re.fullmatch(r"\s*%([a-zA-Z0-9][a-zA-Z0-9_\-]*)\s*", iv)
+            if iv_match is None:
+                # Not a plain induction variable; leave it untouched.
+                new_ivs.append(iv.strip())
+                continue
+            new_ivs.append(
+                record_name_def(iv_match.group(1), "", "I", "", 1, line, "%")
+            )
+        new_line = head + ", ".join(new_ivs) + tail
     elif re.search(r"krnl\.define_loops", line) is not None:
         new_line = process_name(new_line, def_qual_pat, "LOOP", " =", 1)
     elif re.match(r"\s+(\w+\.)?iterate", line) is not None:
@@ -285,7 +331,10 @@ def process_line(i, line):
 
     # Process uses and map use.
     uses = use_qual_pat.findall(new_line)
-    for u in uses:
+    # Sort by name length (descending) to replace longer names first.
+    # This prevents %1 from being replaced inside %13, %14, etc.
+    uses_sorted = sorted(set(uses), key=lambda x: len(x[0]), reverse=True)
+    for u in uses_sorted:
         name, num = u
         x = use_name(name, num, "")
         y = translate_use_name(name, num, "")
@@ -319,31 +368,31 @@ def process_line(i, line):
     # change [[-1 -> *[-1
     new_line = re.sub(r"\[\[\s*-\s*(\d)", r"{{.}}[-\g<1>", new_line)
     # change a]] -> 1]*
-    new_line = re.sub(r"(\d)\s*\]\]", "\g<1>]{{.}}", new_line)
+    new_line = re.sub(r"(\d)\s*\]\]", r"\g<1>]{{.}}", new_line)
     if re.match(r"\s+(func\.)?func", line) is not None:
         # Split function line into 2 lines. Should make private optional
         new_line = re.sub(
             r"(\s+)((func\.)?func(\s+private)?\s+@[\w]+)\s*(\(.*)",
-            r"// CHECK-LABEL:\1\2\n// CHECK-SAME: \1\5",
+            rf"// {prefix}-LABEL:\1\2\n// {prefix}-SAME: \1\5",
             new_line,
         )
         print(new_line)
     elif squash_before_fct != 1:
         if line_color[i] == curr_parallel_color or has_affine_map_def:
             # This line is in an established parallel region
-            print("// CHECK-DAG:  ", new_line)
+            print(f"// {prefix}-DAG:  ", new_line)
         elif line_color[i] == line_color[i + 1]:
             # This line starts a parallel region, check if this break a parallel region.
             if curr_parallel_color != -1:
                 # Previous lines were also part of a parallel region.
                 # Need to separate them.
-                print("// CHECK-NOT: separator of consecutive DAGs")
+                print(f"// {prefix}-NOT: separator of consecutive DAGs")
             curr_parallel_color = line_color[i]
-            print("// CHECK-DAG:  ", new_line)
+            print(f"// {prefix}-DAG:  ", new_line)
         else:
             # No parallel region, set the color to undefined
             curr_parallel_color = -1
-            print("// CHECK:      ", new_line)
+            print(f"// {prefix}:      ", new_line)
 
 
 ################################################################################
@@ -351,21 +400,31 @@ def process_line(i, line):
 
 
 def main(argv):
-    global debug, check, squash_before_fct
+    global debug, check, squash_before_fct, prefix
     global def_set, line_color, curr_color, curr_parallel_color, is_new_function_stuff
     debug = 0
     check = 0
     model = ""
     has_model = 0
     squash_before_fct = 0
+    prefix = "CHECK"
     input_command = "mlir2FileCheck.py"
     input_file_name = ""
 
     try:
         opts, args = getopt.getopt(
             argv,
-            "hdca:n:m:i:",
-            ["help", "debug", "check", "args=", "names=", "model=", "input="],
+            "hdca:n:m:i:p:",
+            [
+                "help",
+                "debug",
+                "check",
+                "args=",
+                "names=",
+                "model=",
+                "input=",
+                "prefix=",
+            ],
         )
     except getopt.GetoptError:
         print_usage()
@@ -425,6 +484,9 @@ def main(argv):
         elif opt in ("-i", "--input"):
             # Do not add this option to the list of parameters recorded.
             input_file_name = arg
+        elif opt in ("-p", "--prefix"):
+            input_command += " -p '" + arg + "'"
+            prefix = arg
 
     if len(args) > 0:
         print("command does not use arguments without options: ", args)

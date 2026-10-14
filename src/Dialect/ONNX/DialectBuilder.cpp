@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/IR/TypeUtilities.h"
 
 #include "src/Dialect/Mlir/IndexExpr.hpp"
@@ -47,6 +48,12 @@ Value OnnxBuilder::add(Value A, Value B) const {
              mlir::cast<ShapedType>(B.getType()).getElementType()) &&
          "A and B must have the same element type");
   return createOpAndInferShapes<ONNXAddOp>(toTensor(A), toTensor(B));
+}
+
+Value OnnxBuilder::argMax(Type outputType, Value input, int64_t axis,
+    int64_t keepDims, int64_t selectLastIndex) const {
+  return createTypedOpAndInferShapes<ONNXArgMaxOp>(
+      outputType, input, axis, keepDims, selectLastIndex);
 }
 
 Value OnnxBuilder::cast(Type outputType, Value input, IntegerAttr saturate,
@@ -144,11 +151,15 @@ Value OnnxBuilder::dim(Value input, int axis) const {
   return createTypedOpAndInferShapes<ONNXDimOp>(resultType, input, axisAttr);
 }
 
-void OnnxBuilder::dimGroup(Value input, int axis, int groupID) const {
+void OnnxBuilder::dimGroup(
+    Value input, int axis, int groupID, StringRef groupName) const {
   IntegerAttr axisAttr = getSignedInt64Attr(axis);
   IntegerAttr groupIDAttr = getSignedInt64Attr(groupID);
+  StringAttr groupNameAttr =
+      groupName.empty() ? StringAttr() : b().getStringAttr(groupName);
   // No shape needed for this one I believe.
-  ONNXDimGroupOp::create(b(), loc(), input, axisAttr, groupIDAttr);
+  ONNXDimGroupOp::create(
+      b(), loc(), input, axisAttr, groupIDAttr, groupNameAttr);
 }
 
 Value OnnxBuilder::dequantizeLinear(
@@ -165,9 +176,34 @@ Value OnnxBuilder::div(Value A, Value B) const {
   return createOpAndInferShapes<ONNXDivOp>(toTensor(A), toTensor(B));
 }
 
+Value OnnxBuilder::equal(Value A, Value B) const {
+  assert((mlir::cast<ShapedType>(A.getType()).getElementType() ==
+             mlir::cast<ShapedType>(B.getType()).getElementType()) &&
+         "A and B must have the same element type");
+  return createOpAndInferShapes<ONNXEqualOp>(toTensor(A), toTensor(B));
+}
+
 Value OnnxBuilder::expand(Type outputType, Value input, Value shape) const {
   return createOpAndInferShapes<ONNXExpandOp>(
       outputType, toTensor(input), toTensor(shape));
+}
+
+Value OnnxBuilder::attention(Type outputType, Value Q, Value K, Value V,
+    Value attnMask, FloatAttr scale) const {
+  Value noneVal = none();
+  Type noneType = noneVal.getType();
+  IntegerAttr isCausalAttr = getSignedInt64Attr(0);
+  IntegerAttr qkMatMulOutputModeAttr = getSignedInt64Attr(0);
+  FloatAttr softcapAttr = b().getF32FloatAttr(0.0);
+  ONNXAttentionOp attentionOp = createOpAndInferShapes<ONNXAttentionOp>(
+      /*Y type*/ toTensor(outputType), /*present_key*/ noneType,
+      /*present_value*/ noneType, /*qk_matmul_output*/ noneType, toTensor(Q),
+      toTensor(K), toTensor(V), toTensor(attnMask), /*past_key*/ noneVal,
+      /*past_value*/ noneVal, /*nonpad_kv_seqlen*/ noneVal, isCausalAttr,
+      /*kv_num_heads*/ nullptr, /*q_num_heads*/ nullptr, qkMatMulOutputModeAttr,
+      scale, softcapAttr,
+      /*softmax_precision*/ nullptr);
+  return attentionOp.getY();
 }
 
 Value OnnxBuilder::gelu(Value input, StringAttr approximateAttr) const {
@@ -293,6 +329,22 @@ Value OnnxBuilder::padZero(Value input, Value pads) const {
 
 Value OnnxBuilder::pow(Value input, Value exp) const {
   return createOpAndInferShapes<ONNXPowOp>(toTensor(input), toTensor(exp));
+}
+
+Value OnnxBuilder::reduceL1(Type outputType, Value data, Value axes,
+    bool keepDims, bool noop_with_empty_axes) const {
+  int64_t i_keepDims = keepDims; // 0 if false, 1 if true
+  int64_t i_noop_with_empty_axes = noop_with_empty_axes; // ditto
+  return createTypedOpAndInferShapes<ONNXReduceL1Op>(toTensor(outputType),
+      toTensor(data), toTensor(axes), i_keepDims, i_noop_with_empty_axes);
+}
+
+Value OnnxBuilder::reduceL2(Type outputType, Value data, Value axes,
+    bool keepDims, bool noop_with_empty_axes) const {
+  int64_t i_keepDims = keepDims; // 0 if false, 1 if true
+  int64_t i_noop_with_empty_axes = noop_with_empty_axes; // ditto
+  return createTypedOpAndInferShapes<ONNXReduceL2Op>(toTensor(outputType),
+      toTensor(data), toTensor(axes), i_keepDims, i_noop_with_empty_axes);
 }
 
 Value OnnxBuilder::reduceMax(Type outputType, Value data, Value axes,

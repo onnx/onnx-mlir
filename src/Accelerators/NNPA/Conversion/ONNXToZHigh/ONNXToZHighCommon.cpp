@@ -73,20 +73,6 @@ ValueRange splitAlongAxis(
   return splits;
 }
 
-bool isF32ScalarConstantTensor(Value v) {
-  if (!isScalarConstantTensor(v))
-    return false;
-  auto t = mlir::dyn_cast<ShapedType>(v.getType());
-  return t.getElementType().isF32();
-}
-
-FloatAttr getScalarF32AttrFromConstant(Value v) {
-  if (!isF32ScalarConstantTensor(v))
-    return nullptr;
-  ElementsAttr constElements = getElementAttributeFromONNXValue(v);
-  return constElements.getSplatValue<FloatAttr>();
-}
-
 Value getDynShape(Location loc, PatternRewriter &rewriter, Value x) {
   if (!hasShapeAndRank(x))
     llvm_unreachable("The input must have shape and rank");

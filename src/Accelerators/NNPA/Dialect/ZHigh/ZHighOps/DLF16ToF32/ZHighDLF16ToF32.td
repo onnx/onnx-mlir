@@ -44,44 +44,6 @@ def ConversionRemovalPattern : Pat<
   (replaceWithValue $arg)
 >;
 
-// Delay zhigh.DLF16ToF32 as long as possible, and finally it can be cancelled
-// when it meets zhigh.F32ToDLF16.
-def DelayDLF16ToF32ViaReshapePattern : Pat<
-  (ONNXReshapeOp:$res (ZHighDLF16ToF32Op $arg), $shape, $allowZero),
-  (ZHighDLF16ToF32Op (ONNXReshapeOp $arg, $shape, $allowZero,
-                                    (returnType (GetTypeInDLF16 $res))))
->;
-
-def DelayDLF16ToF32ViaTransposePattern : Pat<
-  (ONNXTransposeOp:$res (ZHighDLF16ToF32Op $arg), $perm),
-  (ZHighDLF16ToF32Op (ONNXTransposeOp $arg, $perm,
-                                      (returnType (GetTypeInDLF16 $res))))
->;
-
-def DelayDLF16ToF32ViaExpandPattern : Pat<
-  (ONNXExpandOp:$res (ZHighDLF16ToF32Op $arg), $shape),
-  (ZHighDLF16ToF32Op (ONNXExpandOp $arg, $shape,
-                                      (returnType (GetTypeInDLF16 $res))))
->;
-
-def DelayDLF16ToF32ViaSlicePattern : Pat<
-  (ONNXSliceOp:$res (ZHighDLF16ToF32Op $arg), $starts, $ends, $axes, $steps),
-  (ZHighDLF16ToF32Op (ONNXSliceOp $arg, $starts, $ends, $axes, $steps,
-                                      (returnType (GetTypeInDLF16 $res))))
->;
-
-def DelayDLF16ToF32ViaSqueezePattern : Pat<
-  (ONNXSqueezeOp:$res (ZHighDLF16ToF32Op $arg), $axes),
-  (ZHighDLF16ToF32Op (ONNXSqueezeOp $arg, $axes,
-                                    (returnType (GetTypeInDLF16 $res))))
->;
-
-def DelayDLF16ToF32ViaUnsqueezePattern : Pat<
-  (ONNXUnsqueezeOp:$res (ZHighDLF16ToF32Op $arg), $axes),
-  (ZHighDLF16ToF32Op (ONNXUnsqueezeOp $arg, $axes,
-                                      (returnType (GetTypeInDLF16 $res))))
->;
-
 // onnx.Dim (zhigh.DLF16ToF32(%X)) = onnx.Dim %X
 def DimDLF16ToF32RemovalPattern : Pat<
   (ONNXDimOp (ZHighDLF16ToF32Op $arg), $axis),

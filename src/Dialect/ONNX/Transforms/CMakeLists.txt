@@ -4,6 +4,38 @@ add_onnx_mlir_rewriter(Decompose)
 add_onnx_mlir_rewriter(ConstProp)
 add_onnx_mlir_rewriter(ConvOpt)
 
+add_onnx_mlir_pass(ONNXTransforms Passes ONNXTransforms)
+
+add_onnx_mlir_library(OMFusionOpHelper
+  FusionOpHelper.cpp
+  DEPENDS
+  OMONNXTransformsPassIncGen
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  )
+
+add_onnx_mlir_library(OMONNXFusionOpHelper
+  ONNXFusionOpHelper.cpp
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  OMFusionOpHelper
+  )
+
+add_onnx_mlir_library(OMFusionOpTransform
+  FusionOpTransform.cpp
+
+  DEPENDS
+  OMONNXTransformsPassIncGen
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  OMFusionOpHelper
+  OMONNXFusionOpHelper
+  OMCompilerOptions
+  MLIRPass
+  )
+
 add_onnx_mlir_library(OMShapeInference
   ShapeInference.cpp
 
@@ -15,17 +47,23 @@ add_onnx_mlir_library(OMShapeInference
 
 add_onnx_mlir_library(OMShapeInferencePass
   ShapeInferencePass.cpp
+  TestReifyResultShapesPass.cpp
 
   LINK_LIBS PUBLIC
   OMONNXOps
   OMShapeInferenceOpInterface
   MLIRFuncDialect
+  MLIRInferTypeOpInterface
   MLIRPass
   OMShapeInference
   )
 
 add_onnx_mlir_library(OMInstrumentONNX
   InstrumentONNXSignaturePass.cpp
+  AppendInstrumentedOutputsPass.cpp
+
+  DEPENDS
+  OMONNXTransformsPassIncGen
 
   INCLUDE_DIRS PUBLIC
   ${ONNX_MLIR_SRC_ROOT}/include
@@ -38,6 +76,7 @@ add_onnx_mlir_library(OMInstrumentONNX
   )
 
 add_onnx_mlir_library(OMONNXRewrite
+  AttentionToONNXOps.cpp
   ConstProp.cpp
   ConvOpt.cpp
   Decompose.cpp
@@ -100,6 +139,20 @@ add_onnx_mlir_library(OMONNXSimplifyShapeRelatedOps
   MLIRTransforms
   )
 
+add_onnx_mlir_library(OMExpandAttentionMask
+  ExpandAttentionMask.cpp
+
+  DEPENDS
+  OMONNXTransformsPassIncGen
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  OMBuilder
+  MLIRFuncDialect
+  MLIRPass
+  OMSupport
+  )
+
 add_onnx_mlir_library(OMONNXStandardFuncReturnPass
   StandardFuncReturnPass.cpp
 
@@ -126,6 +179,17 @@ add_onnx_mlir_library(OMRemoveSameONNXDim
 
   INCLUDE_DIRS PUBLIC
   ${ONNX_MLIR_SRC_ROOT}/include
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  MLIRPass
+  )
+
+add_onnx_mlir_library(OMAppendDecodingStrategy
+  AppendDecodingStrategy.cpp
+
+  DEPENDS
+  OMONNXTransformsPassIncGen
 
   LINK_LIBS PUBLIC
   OMONNXOps

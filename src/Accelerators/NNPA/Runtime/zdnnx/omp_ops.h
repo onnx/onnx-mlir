@@ -25,8 +25,8 @@
 uint32_t zdnnx_get_num_zaiu_threads();
 
 zdnn_status zdnnx_omp_matmul(const zdnn_ztensor *input_a,
-    const zdnn_ztensor *input_b, const zdnn_ztensor *input_c, int op_type,
-    zdnn_ztensor *output, bool is_bcast);
+    const zdnn_ztensor *input_b, const zdnn_ztensor *input_c, bool transpose_a,
+    bool transpose_b, int op_type, zdnn_ztensor *output, bool is_bcast);
 
 zdnn_status zdnnx_omp_quantized_matmul(const zdnn_ztensor *input_a,
     const zdnn_ztensor *input_b, const zdnn_ztensor *input_c,

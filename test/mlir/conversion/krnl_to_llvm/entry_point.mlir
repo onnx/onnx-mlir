@@ -78,6 +78,7 @@ module {
   func.func private @first_entry(%arg0: memref<10xf32>) -> memref<10xf32> {
     return %arg0 : memref<10xf32>
   }
+
   func.func private @second_entry(%arg0: memref<10xf32>) -> memref<10xf32> {
     return %arg0 : memref<10xf32>
   }

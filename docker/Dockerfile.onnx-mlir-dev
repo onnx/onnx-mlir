@@ -1,3 +1,4 @@
+# This dockerfile is built using Ubuntu:noble image.
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE} AS onnx-mlir-dev-test
 
@@ -16,49 +17,26 @@ COPY . onnx-mlir
 # Setup onnx
 RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
     && cd ${ONNX_ROOT} \
-    #
-    # Require patching until upstreamed
-    #
-    && sed -i -e 's/target_link_libraries(onnx PUBLIC onnx_proto)/target_link_libraries(onnx PUBLIC onnx_proto PUBLIC ${protobuf_ABSL_USED_TARGETS})/g' \
-           -e '/absl::log_initialize/a \
-          absl::log_internal_check_op\
-          absl::log_internal_message\
-          absl::log_internal_nullguard' CMakeLists.txt \
-    #
     # To avoid the "externally managed environment" error on ubuntu,
     # use --prefix=/usr to install into /usr/local/lib (default is
-    # /usr/lib)
-    # ubi9 doesn't have this problem and --prefix=/usr will install
-    # into /usr/lib64 (default is /usr/lib)
+    # /usr/lib), which is needed in this image.
     #
     # Must specify --no-build-isolation to avoid protoc-gen-mypy.py
     # segfault on s390x
-    #
     && CC=clang CXX=clang++ CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib" \
-       python3 -m pip install . --prefix=/usr --no-build-isolation
+       pip3 install . --prefix=/usr --no-build-isolation
 
 ARG NPROC=4
 ARG ACCEL=NNPA
 ARG TEST_NOFLOAT16
 ARG TEST_MARCH
 
-# Build PyRuntime Light test for s390x only
-# Current test is just for build. Package creation and test run may come later.
-RUN if [ "$(uname -m)" = "s390x" ]; then \
-      cd ${WORK_DIR}/onnx-mlir && \
-      rm -rf build-light && mkdir -p build-light && cd build-light && \
-      cmake -DCMAKE_BUILD_TYPE=Debug \
-            -DONNX_MLIR_TARGET_TO_BUILD=OMPyInfer .. && \
-      cmake --build . --parallel ${NPROC} && \
-      cd .. && rm -rf build-light; \
-    fi
-
 RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
     && ONNX_MLIR_ROOT=${WORK_DIR}/onnx-mlir \
 # Build onnx-mlir and run tests
     && cd ${ONNX_MLIR_ROOT} \
     && rm -rf build && mkdir -p build && cd build \
-# NNPA acclerator is built on all archs to enable lit tests
+# NNPA accelerator is built on all archs to enable lit tests
 # (dependent libzdnn is built on s390x only)
     && CC=clang CXX=clang++ \
        cmake -DMLIR_DIR=${LLVM_PROJECT_ROOT}/build/lib/cmake/mlir \
@@ -77,6 +55,8 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
        fi \
     && make -j${NPROC} \
     && make -j${NPROC} LIT_OPTS=-v check-onnx-lit \
+# Add onnx-mlir to PATH for subsequent make commands
+    && export PATH="${ONNX_MLIR_ROOT}/build/Debug/bin:${PATH}" \
 # FLOAT16 backend tests only work on ppc64le platform at the moment
     && TEST_NOFLOAT16=${TEST_NOFLOAT16:-$([ "$(uname -m)" = "s390x" ] && echo true || \
                                          ([ "$(uname -m)" = "x86_64" ] &&  echo true || \
@@ -109,6 +89,32 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
     && pip3 install -q joblib --prefix=/usr \
     && rm -rf /tmp/*
 
+# Build Python Inference Driver, om_pyrt.
+# Test to use the recently built compiler locally
+RUN if [ "$(uname -m)" = "s390x" ]; then \
+      cd ${WORK_DIR}/onnx-mlir && \
+      rm -rf build-light && mkdir -p build-light && cd build-light && \
+      cmake -DCMAKE_BUILD_TYPE=Debug \
+            -DONNX_MLIR_TARGET_TO_BUILD=OMPyRt .. && \
+      cmake --build . --parallel ${NPROC} --target OMCreateOMPyRtPackage && \
+      pip3 install hatchling --prefix=/usr && \
+      pip3 install src/Runtime/python/om_pyrt --prefix=/usr --no-build-isolation && \
+      cd src/Runtime/python/om_pyrt/tests && \
+      python use_local_compiler.py && \
+      cd .. && rm -rf build-light; \
+    fi
+
+# Build torch_onnxmlir and test it.
+RUN if [ "$(uname -m)" = "s390x" ]; then \
+      pip3 install onnxscript==0.5.7 --prefix=/usr && \
+      pip3 install torch==2.10.0+cpu -f https://download.pytorch.org/whl/torch/ --prefix=/usr && \
+      pip3 install --ignore-installed transformers==5.8.0 --prefix=/usr && \
+      cd ${WORK_DIR}/onnx-mlir/src/Runtime/python/torch_onnxmlir && \
+      pip3 install . --prefix=/usr && \
+      cd tests && mkdir build && cd build && cmake .. && ctest -j${NPROC} --output-on-failure && \
+      cd .. && rm -rf build; \
+    fi
+
 # Copy from onnx-mlir-dev-test to squash removed source layer and
 # remove dependency on base image (onnx-mlir-llvm-static)
 FROM scratch
@@ -129,5 +135,9 @@ LABEL onnx_mlir_pr_number=${ONNX_MLIR_PR_NUMBER}
 LABEL onnx_mlir_pr_number2=${ONNX_MLIR_PR_NUMBER2}
 
 COPY --from=onnx-mlir-dev-test / /
+
+# Add onnx-mlir build directory to PATH for interactive use
+ENV PATH="/workdir/onnx-mlir/build/Debug/bin:${PATH}"
+
 CMD [ "/bin/bash" ]
 LABEL onnx_mlir_successfully_built=yes

@@ -294,7 +294,19 @@ OM_EXTERNAL_VISIBILITY void omTensorSetDataType(
     OMTensor *tensor, OM_DATA_TYPE dataType);
 
 /* Helper function to get the ONNX data type size in bytes */
+
+/* Note that this function does really support sub-byte quantities
+ * like int4, unit4 and smaller, as we are returning here byte size
+ * quantities. Eventually, we need to transform this (and the associated
+ * OM_DATA_TYPE_SIZE) to return bit sizes so as to better represent such data
+ * sizes. It also forces all functions in this library to either up-convert
+ * sub-byte size to byte size values to process them.
+ *
+ */
 static inline int64_t getDataTypeSize(OM_DATA_TYPE dataType) {
+  /* Prevent out of bound access to OM_DATA_TYPE_SIZE */
+  if ((int)dataType < 0 || (int)dataType > ONNX_TYPE_LAST)
+    return OM_DATA_TYPE_SIZE[ONNX_TYPE_UNDEFINED];
   return OM_DATA_TYPE_SIZE[dataType];
 }
 

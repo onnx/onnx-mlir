@@ -43,7 +43,6 @@ mod = AddModel()
 
 # Compile the model using onnxmlir backend in the torch_onnxmlir package.
 om_option = {
-    "compiler_image_name": None,
     "compile_options": "-O3",
     "compiler_path": "/workdir/onnx-mlir/build/Debug/bin/onnx-mlir",
 }
@@ -59,17 +58,142 @@ For more information about `torch.compile`, see its [document](https://docs.pyto
 
 ## Caching the exported models and compiled libraries
 
-To avoid recompling models, the backend caches compiled models in the folder `${HOME}/.cache`. Users can change the cache folder by setting an environment variable, i.e, `TORCHONNXMLIR_CACHE_DIR=path_to_cache_folder`.
+To avoid recompiling models, the backend caches compiled models in the folder `${HOME}/.cache/torch_onnxmlir`.
+
+Users can change the cache folder in two ways:
+
+1. **Using environment variable**:
+   ```bash
+   export TORCHONNXMLIR_CACHE_DIR=/path/to/cache_folder
+   ```
+
+2. **Using config in Python**:
+   ```python
+   import torch_onnxmlir
+   torch_onnxmlir.config.cache_dir = "/path/to/cache_folder"
+   ```
+
+### Security note on the disk cache
+
+The cache directory is created with permissions `0o700` (owner read/write/execute only) so other local users cannot read or tamper with compiled artifacts.
+
+Each cached `.so` (and `.constants.bin`, if present) has a SHA-256 hash stored alongside it at compile time. On reload, `load_from_disk` recomputes the hash before calling `dlopen` and treats any mismatch as a cache miss — the model is recompiled rather than the tampered file being loaded.
+
+**The cache directory must not be shared with other local users or processes.** If you redirect the cache via `TORCHONNXMLIR_CACHE_DIR` or `torch_onnxmlir.config.cache_dir`, ensure the target path is private to the account running inference. Pointing multiple workers at a shared, world-writable location bypasses the hash check's protection by allowing an attacker to replace the `.so` and update the stored hash atomically.
+
+Existing cache entries written by a version of `torch_onnxmlir` that predates this integrity check carry no stored hash. Those entries are treated as cache misses and recompiled automatically on the next run.
+
+You can view the current cache directory using the explain() feature:
+```python
+import torch_onnxmlir
+torch_onnxmlir.config.enable_explain = True
+# ... run your model ...
+print(torch_onnxmlir.explain())  # Shows "Cache Directory: ..." in output
+```
+
+To clean the cache and save disk space:
+```bash
+rm -rf ~/.cache/torch_onnxmlir
+```
+
+## Performance Analysis with explain()
+
+The `explain()` feature provides insights into compilation and inference performance, helping you understand cache efficiency and identify bottlenecks.
+
+### Basic Usage
+
+Use the context manager for automatic metrics collection:
+
+```python
+import torch_onnxmlir
+
+# Basic usage - metrics collected automatically
+with torch_onnxmlir.explain_context() as metrics:
+    output = compiled_model(input)
+    print(metrics)  # Print formatted metrics
+
+# Access metrics data programmatically
+with torch_onnxmlir.explain_context(format="dict") as metrics:
+    output = compiled_model(input)
+    data = metrics.data
+    print(f"Cache hits: {data['summary']['total_cache_hits']}")
+    print(f"Total inferences: {data['summary']['total_inference_calls']}")
+
+# Table format with custom sorting
+with torch_onnxmlir.explain_context(format="table", sort_by="calls") as metrics:
+    output = compiled_model(input)
+    print(metrics)  # Prints formatted table
+
+# Automatic export to file (simplifies logging)
+with torch_onnxmlir.explain_context(format="json", export_to="metrics.json") as metrics:
+    output = compiled_model(input)
+    # Metrics automatically saved to metrics.json on exit
+
+# Export with nested directories (auto-created)
+with torch_onnxmlir.explain_context(export_to="logs/experiment1/metrics.json") as metrics:
+    output = compiled_model(input)
+    # Creates logs/experiment1/ directory if it doesn't exist
+```
+
+### Example Output
+
+```
+================================================================================
+TORCH_ONNXMLIR PERFORMANCE METRICS
+================================================================================
+
+Unique Graphs: 1
+Total Inference Calls: 10
+Cache Hit Rate: 9/10 (90.0%)
+Eager Fallbacks: 0
+
+Per-Graph Statistics (sorted by Total Time):
+--------------------------------------------------------------------------------
++------------------+-------+------+------------+-------------------+----------+-------+
+| Graph ID         | Calls | Hits | Compile(s) | Avg Inference(ms) | Total(s) | %     |
++==================+=======+======+============+===================+==========+=======+
+| model_hash_abc...| 10    | 9    | 1.234      | 5.20              | 1.286    | 100%  |
++------------------+-------+------+------------+-------------------+----------+-------+
+```
 
 ## Installation
 
+The package torch_onnxmlir depends on the package `om_pyrt`. Follow the instruction [here](https://github.com/onnx/onnx-mlir/tree/main/src/Runtime/python/om_pyrt) to install `om_pyrt`. 
+
 ### Install from local directory
 ```bash
-$ cd onnx-mlir/build
-$ cmake --build . --target OMCreateTorchONNXMLIRPackage
-$ pip3 install -e src/Runtime/python/torch_onnxmlir
+$ git clone --recursive https://github.com/onnx/onnx-mlir.git
+$ cd onnx-mlir
+$ pip install -e src/Runtime/python/torch_onnxmlir
 ```
 
-### Install from repo
-After the package is uploaded to pip server, you can install with 'pip3 install torch_onnxmlir`
+### Install from pip repository
+After the package is uploaded to pip server, you can install with `pip install torch_onnxmlir`.
 
+## Run tests
+
+By default, the tests use a local compiler specified in `utils.py`:
+```
+COMPILER_IMAGE_NAME = None
+COMPILER_PATH = "/workdir/onnx-mlir/build/Debug/bin/onnx-mlir"
+```
+
+If using a remote compiler from a docker image, please change the two above variables.
+
+### Run all tests
+
+The folder `tests` contains many testcases to verify if the package works well or not.
+These are steps to run tests:
+```bash
+$ cd tests
+$ mkdir build
+$ cd build
+$ cmake ..
+$ ctest -j 8
+```
+
+### Run a single test
+- Use pytest to run a single test. For example,
+```bash
+$ python -m pytest test_add.py
+```

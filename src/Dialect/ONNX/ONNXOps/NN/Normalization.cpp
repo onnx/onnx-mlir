@@ -309,10 +309,10 @@ LogicalResult ONNXLayerNormalizationOp::inferShapes(
   if (!hasShapeAndRank(getX()) || !hasShapeAndRank(getScale()) ||
       (!isNoneValue(getB()) && !hasShapeAndRank(getB())))
     return success();
-  Type commonType =
-      mlir::cast<RankedTensorType>(getX().getType()).getElementType();
+  ShapedType resultType =
+      mlir::cast<ShapedType>(getOperation()->getResult(0).getType());
   ONNXLayerNormalizationOpShapeHelper shapeHelper(getOperation(), {});
-  return shapeHelper.computeShapeAndUpdateType(commonType);
+  return shapeHelper.computeShapeAndUpdateType(resultType.getElementType());
 }
 
 //===----------------------------------------------------------------------===//
@@ -330,8 +330,8 @@ LogicalResult ONNXRMSLayerNormalizationOp::inferShapes(
   if (!hasShapeAndRank(getX()) || !hasShapeAndRank(getScale()) ||
       (!isNoneValue(getB()) && !hasShapeAndRank(getB())))
     return success();
-  Type commonType =
-      mlir::cast<RankedTensorType>(getX().getType()).getElementType();
+  ShapedType resultType =
+      mlir::cast<ShapedType>(getOperation()->getResult(0).getType());
   ONNXRMSLayerNormalizationOpShapeHelper shapeHelper(getOperation(), {});
-  return shapeHelper.computeShapeAndUpdateType(commonType);
+  return shapeHelper.computeShapeAndUpdateType(resultType.getElementType());
 }

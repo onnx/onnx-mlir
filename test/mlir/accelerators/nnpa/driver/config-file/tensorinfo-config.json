@@ -1,0 +1,612 @@
+{
+  "nnpa_ops_config": [
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "onnx_node_name": "test_input_rank_eq_1",
+          "inputs": {
+            "0": {
+              "rank": "2"
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "onnx_node_name": "test_input_rank_eq_2",
+          "inputs": {
+            "0": {
+              "rank": "==2"
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "onnx_node_name": "test_input_rank_lt",
+          "inputs": {
+            "0": {
+              "rank": "<3"
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "onnx_node_name": "test_input_rank_lt_eq",
+          "inputs": {
+            "0": {
+              "rank": "<=2"
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "onnx_node_name": "test_input_rank_gt",
+          "inputs": {
+            "0": {
+              "rank": ">1"
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "onnx_node_name": "test_input_rank_gt_eq",
+          "inputs": {
+            "0": {
+              "rank": ">=2"
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "onnx_node_name": "test_input_rank_not_eq",
+          "inputs": {
+            "0": {
+              "rank": "!=3"
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "onnx_node_name": "test_input_rank_modulo",
+          "inputs": {
+            "0": {
+              "rank": "%2==0"
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "onnx_node_name": "test_input_type",
+          "inputs": {
+            "0": {
+              "type": "f32"
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "onnx_node_name": "test_input_dim_eq_1",
+          "inputs": {
+            "0": {
+              "dims": {"0":"8"}
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "onnx_node_name": "test_input_dim_eq_2",
+          "inputs": {
+            "0": {
+              "dims": {"0":"==8"}
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "onnx_node_name": "test_input_dim_lt",
+          "inputs": {
+            "0": {
+              "dims": {"0":"<9"}
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "onnx_node_name": "test_input_dim_lt_eq",
+          "inputs": {
+            "0": {
+              "dims": {"0":"<=8"}
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "onnx_node_name": "test_input_dim_gt",
+          "inputs": {
+            "0": {
+              "dims": {"0":">7"}
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "onnx_node_name": "test_input_dim_gt_eq",
+          "inputs": {
+            "0": {
+              "dims": {"0":">=8"}
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "onnx_node_name": "test_input_dim_not_eq",
+          "inputs": {
+            "0": {
+              "dims": {"0":"!=7"}
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "onnx_node_name": "test_input_dim_modulo",
+          "inputs": {
+            "0": {
+              "dims": {"1":"%64==0"}
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "onnx_node_name": "test_input_dim_negative",
+          "inputs": {
+            "0": {
+              "dims": {"-1":"%64==0"}
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "onnx_node_name": "test_input_id_negative",
+          "inputs": {
+            "-1": {
+              "dims": {"0":"8"}
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "onnx_node_name": "test_output_rank_eq_1",
+          "outputs": {
+            "0": {
+              "rank": "2"
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "onnx_node_name": "test_output_rank_eq_2",
+          "outputs": {
+            "0": {
+              "rank": "==2"
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "onnx_node_name": "test_output_rank_lt",
+          "outputs": {
+            "0": {
+              "rank": "<3"
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "onnx_node_name": "test_output_rank_lt_eq",
+          "outputs": {
+            "0": {
+              "rank": "<=2"
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "onnx_node_name": "test_output_rank_gt",
+          "outputs": {
+            "0": {
+              "rank": ">1"
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "onnx_node_name": "test_output_rank_gt_eq",
+          "outputs": {
+            "0": {
+              "rank": ">=2"
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "onnx_node_name": "test_output_rank_not_eq",
+          "outputs": {
+            "0": {
+              "rank": "!=3"
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "onnx_node_name": "test_output_rank_modulo",
+          "outputs": {
+            "0": {
+              "rank": "%2==0"
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "onnx_node_name": "test_output_type",
+          "outputs": {
+            "0": {
+              "type": "f32"
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "onnx_node_name": "test_output_dim_eq_1",
+          "outputs": {
+            "0": {
+              "dims": {"0":"8"}
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "onnx_node_name": "test_output_dim_eq_2",
+          "outputs": {
+            "0": {
+              "dims": {"0":"==8"}
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "onnx_node_name": "test_output_dim_lt",
+          "outputs": {
+            "0": {
+              "dims": {"0":"<9"}
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "onnx_node_name": "test_output_dim_lt_eq",
+          "outputs": {
+            "0": {
+              "dims": {"0":"<=8"}
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "onnx_node_name": "test_output_dim_gt",
+          "outputs": {
+            "0": {
+              "dims": {"0":">7"}
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "onnx_node_name": "test_output_dim_gt_eq",
+          "outputs": {
+            "0": {
+              "dims": {"0":">=8"}
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "onnx_node_name": "test_output_dim_not_eq",
+          "outputs": {
+            "0": {
+              "dims": {"0":"!=7"}
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "onnx_node_name": "test_output_dim_modulo",
+          "outputs": {
+            "0": {
+              "dims": {"1":"%64==0"}
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "onnx_node_name": "test_output_dim_negative",
+          "outputs": {
+            "0": {
+              "dims": {"-1":"%64==0"}
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Relu",
+          "onnx_node_name": "test_output_id_negative",
+          "outputs": {
+            "-1": {
+              "dims": {"0":"8"}
+            }
+          }
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    }
+  ]
+}

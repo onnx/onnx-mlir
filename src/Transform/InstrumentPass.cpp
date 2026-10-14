@@ -36,17 +36,21 @@
 #include "src/Pass/Passes.hpp"
 
 using namespace mlir;
+using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
 #define GEN_PASS_DEF_INSTRUMENTPASS
 #include "src/Transform/Passes.h.inc"
+} // namespace onnx_mlir
 
+namespace {
 /*!
  * This pass insert KrnlInstrumentOp before and after each ops
  */
 
-class InstrumentPass : public impl::InstrumentPassBase<InstrumentPass> {
+class InstrumentPass
+    : public onnx_mlir::impl::InstrumentPassBase<InstrumentPass> {
 
 public:
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(InstrumentPass)
@@ -75,7 +79,7 @@ public:
 
   InstrumentPass() : allowedOps(/*emptyIsNone*/ true){};
   InstrumentPass(const InstrumentPass &pass)
-      : impl::InstrumentPassBase<InstrumentPass>(),
+      : onnx_mlir::impl::InstrumentPassBase<InstrumentPass>(),
         allowedOps(/*emptyIsNone*/ true) {}
   InstrumentPass(const std::string &ops, unsigned actions)
       : allowedOps(/*emptyIsNone*/ true) {
@@ -95,16 +99,10 @@ public:
 
   StringRef getDescription() const override { return "instrument on ops."; }
 
-  // merge all action options into a bitset
-  // used to create tags for instrumentation ops
-  uint64_t actions() const {
+  // Base tag: time/memory report flags only, no before/after position bits.
+  uint64_t reportFlagsTag() const {
     int64_t tag;
-
     INIT_INSTRUMENT(tag);
-    if (instrumentBefore)
-      SET_INSTRUMENT_BEFORE_OP(tag);
-    if (instrumentAfter)
-      SET_INSTRUMENT_AFTER_OP(tag);
     if (reportTime)
       SET_INSTRUMENT_REPORT_TIME(tag);
     if (reportMemory)
@@ -112,15 +110,17 @@ public:
     return tag;
   }
 
+  uint64_t initTag() const { return reportFlagsTag(); }
+
   uint64_t beforeTag() const {
-    int64_t tag = actions();
-    CLEAR_INSTRUMENT_AFTER_OP(tag);
+    int64_t tag = reportFlagsTag();
+    SET_INSTRUMENT_BEFORE_OP(tag);
     return tag;
   }
 
   uint64_t afterTag() const {
-    int64_t tag = actions();
-    CLEAR_INSTRUMENT_BEFORE_OP(tag);
+    int64_t tag = reportFlagsTag();
+    SET_INSTRUMENT_AFTER_OP(tag);
     return tag;
   }
 
@@ -131,67 +131,66 @@ public:
     allowedOps.setRegexString(instrumentOps);
     bool hasInitializedRuntime = false;
 
-    // Iterate on the operations nested in this function
-    getOperation().walk([&](mlir::Operation *op) -> WalkResult {
-      // Do not profile operations that return a None value (e.g. onnx.NoValue).
-      // Somehow such none-returned operations cause messy output, For example,
-      // with --profile-ir=ZHigh for the mnist-12 model, it mixed version error
-      // with profiling info.
-      // ```
-      // #  0) before zlow.stickModel is running on hardware that is not
-      // compatible with the zDNN library that this model was compiled for
-      // (version num %llu.%llu.%llu). Please check that the model is running on
-      // hardware with an integrated accelerator for AI (z16 +) that supports
-      // the required zDNN library version.
-      // ```
-      std::string opName = op->getName().getStringRef().str();
-      Location loc = op->getLoc();
-      OpBuilder opBuilder(op);
+    // Pre-order walk so we can skip ONNXFusedOp bodies with WalkResult::skip().
+    getOperation().walk<mlir::WalkOrder::PreOrder>(
+        [&](mlir::Operation *op) -> WalkResult {
+          // Do not profile operations that return a None value (e.g.
+          // onnx.NoValue). Somehow such none-returned operations cause messy
+          // output, For example, with --profile-ir=ZHigh for the mnist-12
+          // model, it mixed version error with profiling info.
+          // ```
+          // #  0) before zlow.stickModel is running on hardware that is not
+          // compatible with the zDNN library that this model was compiled for
+          // (version num %llu.%llu.%llu). Please check that the model is
+          // running on hardware with an integrated accelerator for AI (z16 +)
+          // that supports the required zDNN library version.
+          // ```
+          Location loc = op->getLoc();
+          OpBuilder opBuilder(op);
 
-      if (op->getNumResults() == 1 && isa<NoneType>(op->getResult(0).getType()))
-        return WalkResult::advance();
-      // Skip other instrument ops.
-      if (isa<KrnlInstrumentOp>(op) || isa<ONNXPrintSignatureOp>(op))
-        return WalkResult::advance();
+          if (op->getNumResults() == 1 &&
+              isa<NoneType>(op->getResult(0).getType()))
+            return WalkResult::advance();
+          // Skip other instrument ops.
+          if (isa<KrnlInstrumentOp>(op) || isa<KrnlInstrumentInitOp>(op) ||
+              isa<ONNXPrintSignatureOp>(op))
+            return WalkResult::advance();
 
-      if (allowedOps.isEnabled(opName)) {
-        if (instrumentBefore) {
-          uint64_t tag = beforeTag();
-          if (!hasInitializedRuntime) {
-            SET_INSTRUMENT_INIT(tag);
-            hasInitializedRuntime = true;
+          // ONNXFusedOp uses "onnx.fused.<kind>" as its profiling name and must
+          // not recurse into the body (body ops are an internal lowering
+          // detail). All other ops use their dialect name.  Both cases share
+          // the same emit logic; only the name and the post-instrument walk
+          // result differ.
+          bool isFused = isa<ONNXFusedOp>(op);
+          std::string instrName = onnx_mlir::getProfilingName(op);
+
+          if (allowedOps.isEnabled(instrName)) {
+            std::string nodeName = onnx_mlir::getNodeNameInPresenceOfOpt(op);
+            auto emitInstrument = [&](OpBuilder &b, uint64_t tag) {
+              if (!hasInitializedRuntime) {
+                mlir::KrnlInstrumentInitOp::create(b, loc, initTag());
+                hasInitializedRuntime = true;
+              }
+              mlir::KrnlInstrumentOp::create(b, loc, instrName, nodeName, tag);
+            };
+            if (instrumentBefore)
+              emitInstrument(opBuilder, beforeTag());
+            // Can not insert after Op (e.g. ONNXYieldOp) with IsTerminator
+            // trait.
+            if (instrumentAfter && !op->hasTrait<OpTrait::IsTerminator>()) {
+              opBuilder.setInsertionPointAfter(op);
+              emitInstrument(opBuilder, afterTag());
+            }
           }
-          mlir::KrnlInstrumentOp::create(opBuilder, loc, op, tag);
-        }
-
-        // Can not insert after Op (e.g. ONNXYieldOP) with IsTerminator Trait
-        if (instrumentAfter && !op->hasTrait<OpTrait::IsTerminator>()) {
-          opBuilder.setInsertionPointAfter(op);
-          uint64_t tag = afterTag();
-          if (!hasInitializedRuntime) {
-            SET_INSTRUMENT_INIT(tag);
-            hasInitializedRuntime = true;
-          }
-          mlir::KrnlInstrumentOp::create(opBuilder, loc, op, tag);
-        }
-      }
-      return WalkResult::advance();
-    });
+          // Skip FusedOp bodies; advance normally for all other ops.
+          return isFused ? WalkResult::skip() : WalkResult::advance();
+        });
   }
 };
-} // namespace onnx_mlir
 
-/*!
- * Create an instrumentation pass.
- */
+} // namespace
+
 namespace onnx_mlir {
-// Below is defined by GEN_PASS_DEF in onnx_mlir namespace
-/*
-std::unique_ptr<mlir::Pass> createInstrument() {
-  return std::make_unique<InstrumentPass>();
-}
-*/
-
 std::unique_ptr<mlir::Pass> createInstrumentPass(
     const std::string &ops, unsigned actions) {
   return std::make_unique<InstrumentPass>(ops, actions);

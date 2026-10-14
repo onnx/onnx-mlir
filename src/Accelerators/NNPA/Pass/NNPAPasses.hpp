@@ -4,7 +4,7 @@
 
 //===---------- NNPAPasses.hpp - NNPA Passes Definition ------------------===//
 //
-// Copyright 2019-2025 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -25,6 +25,8 @@ namespace onnx_mlir {
 /// Add pass for device placement.
 std::unique_ptr<mlir::Pass> createDevicePlacementPass();
 std::unique_ptr<mlir::Pass> createDevicePlacementPass(
+    NNPAPlacementHeuristic placementHeuristic);
+std::unique_ptr<mlir::Pass> createDevicePlacementPass(
     std::string loadConfigFile, std::string saveConfigFile,
     NNPAPlacementHeuristic placementHeuristic);
 
@@ -32,6 +34,11 @@ std::unique_ptr<mlir::Pass> createDevicePlacementPass(
 std::unique_ptr<mlir::Pass> createQuantOpSelectionPass();
 std::unique_ptr<mlir::Pass> createQuantOpSelectionPass(
     std::string loadConfigFile, std::string saveConfigFile);
+
+/// Add pass for generating configuration file from IR.
+std::unique_ptr<mlir::Pass> createGenerateConfigFilePass();
+std::unique_ptr<mlir::Pass> createGenerateConfigFilePass(
+    std::string outputConfigFile);
 
 /// Add pass for lowering ONNX ops to ZHigh ops.
 std::unique_ptr<mlir::Pass> createONNXToZHighPass();
@@ -41,12 +48,17 @@ void configureONNXToZHighLoweringPass(bool reportOnNNPAUnsupportedOps,
 
 /// Add pass for rewriting ONNX ops for ZHigh.
 std::unique_ptr<mlir::Pass> createRewriteONNXForZHighPass();
+std::unique_ptr<mlir::Pass> createRewriteONNXForZHighPass(
+    bool enableConvToMatmul);
 
 /// Add pass for re-construct ONNX ops from ZHigh ops.
 std::unique_ptr<mlir::Pass> createZHighToONNXPass();
 
 /// Pass for folding std.alloc.
 std::unique_ptr<mlir::Pass> createFoldStdAllocPass();
+
+/// Pass for replacing malloc with omHugePageMalloc.
+std::unique_ptr<mlir::Pass> createReplaceMallocByHugePageMallocPass();
 
 namespace zhigh {
 

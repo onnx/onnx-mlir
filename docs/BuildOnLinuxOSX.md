@@ -15,7 +15,7 @@ Firstly, install MLIR (as a part of LLVM-Project):
 ``` bash
 git clone -n https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX-MLIR.
-cd llvm-project && git checkout 0c2701fe7fa002e1befc5f86c268a7964f96d286 && cd ..
+cd llvm-project && git checkout 43574226b712f94de17f07392a64282ac8ddab23 && cd ..
 ```
 
 [same-as-file]: <> ({"ref": "utils/build-mlir.sh", "skip-ref": 2})
@@ -30,7 +30,6 @@ cmake -G Ninja ../llvm \
    -DCMAKE_BUILD_TYPE=Release \
    -DLLVM_ENABLE_ASSERTIONS=ON \
    -DLLVM_ENABLE_RTTI=ON \
-   -DENABLE_LIBOMPTARGET=OFF \
    -DLLVM_ENABLE_LIBEDIT=OFF
 
 cmake --build . -- ${MAKEFLAGS}

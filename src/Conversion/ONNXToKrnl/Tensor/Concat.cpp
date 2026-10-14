@@ -4,7 +4,7 @@
 
 //===---------------- Concat.cpp - Lowering Concat Op -------------------===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -23,16 +23,20 @@ using namespace mlir;
 namespace onnx_mlir {
 
 struct ONNXConcatOpLowering : public OpConversionPattern<ONNXConcatOp> {
-  ONNXConcatOpLowering(
-      TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
+  ONNXConcatOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
+      bool enableParallel, bool enableCollapse)
       : OpConversionPattern(typeConverter, ctx) {
     this->enableParallel =
         enableParallel &&
         OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
             ONNXConcatOp::getOperationName());
+    // Not and-ed with this->enableParallel: see Slice.cpp for why the two bools
+    // stay independent.
+    this->enableCollapse = enableCollapse;
   }
 
   bool enableParallel = false;
+  bool enableCollapse = false;
 
   LogicalResult matchAndRewrite(ONNXConcatOp concatOp,
       ONNXConcatOpAdaptor adaptor,
@@ -85,22 +89,35 @@ struct ONNXConcatOpLowering : public OpConversionPattern<ONNXConcatOp> {
       // Create loop.
       ValueRange loopDef = create.krnl.defineLoops(rank);
       SmallVector<IndexExpr, 4> lbs(rank, LitIE(0));
-      SmallVector<IndexExpr, 4> ubs;
-      create.krnlIE.getShapeAsDims(operands[i], ubs);
-      // For each input, only the dimension 'axis' is different
-      // Explore parallelism at the first two outermost dimensions and give up
-      // if the found dimension is 'axis'.
-      commonUB[axis] = ubs[axis];
+      // For each input, only the dimension 'axis' is different, so all the
+      // other dims keep the output's (possibly literal, and shared) values.
+      IndexExpr axisDim = create.krnlIE.getShapeAsDim(operands[i], axis);
+      commonUB[axis] = axisDim;
 
-      // Enable parallelism if required. Do not parallel on the axis dimension.
+      // Explore the first two outermost dims, giving up if the found one is
+      // 'axis'. Plan is per-input like loopDef, so no ref leaks between inputs
+      // and the destructor's consumed-check fires once per input.
+      //
+      // The collapse claim is the whole window minus 'axis', which is what the
+      // exclusion already expresses: away from 'axis' every input element lands
+      // at one output element, so the levels are individually parallel and safe
+      // to fuse. When 'axis' is 0 or 1 the exclusion leaves no run of two
+      // adjacent safe levels, so the frame quick-exits to STEP 0 and the IR is
+      // unchanged -- collapse only ever engages here for axis >= 2.
+      // bodyCost 1: one innermost iteration is a load and a store, plus an
+      // offset add on the axis level.
+      KrnlParallelPlan plan(loopDef, enableCollapse,
+          /*parFirstInclusiveDim=*/0, /*parLastExclusiveDim=*/2,
+          /*collapseLastExclusiveDim=*/2,
+          {.minTripCountForParallel = 4, .bodyCost = 1},
+          /*excl dims*/ {axis});
       if (enableParallel)
-        tryCreateKrnlParallel(
-            create.krnl, op, "concat", loopDef, lbs, ubs, 0, 2, {axis});
+        plan.tryCreateParallel(create.krnl, op, "concat", lbs, commonUB);
 
-      create.krnl.iterateIE(loopDef, loopDef, lbs, commonUB,
+      create.krnl.iterateIE(loopDef, plan.optimizedLoopDef(), lbs, commonUB,
           [&](const KrnlBuilder &createKrnl, ValueRange loopInd) {
             // Indices for the read and write.
-            SmallVector<Value, 4> readIndices, writeIndices;
+            SmallVector<Value, 4> writeIndices;
             for (unsigned int r = 0; r < rank; ++r) {
               if (r != axis || i == 0)
                 writeIndices.emplace_back(loopInd[r]);
@@ -116,8 +133,7 @@ struct ONNXConcatOpLowering : public OpConversionPattern<ONNXConcatOp> {
             Value loadData = createKrnl.load(operands[i], loopInd);
             createKrnl.store(loadData, alloc, writeIndices);
           });
-      accumulatedOffset =
-          accumulatedOffset + create.krnlIE.getShapeAsDim(operands[i], axis);
+      accumulatedOffset = accumulatedOffset + axisDim;
     }
     rewriter.replaceOp(op, alloc);
     onnxToKrnlSimdReport(op);
@@ -126,8 +142,10 @@ struct ONNXConcatOpLowering : public OpConversionPattern<ONNXConcatOp> {
 };
 
 void populateLoweringONNXConcatOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel) {
-  patterns.insert<ONNXConcatOpLowering>(typeConverter, ctx, enableParallel);
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel,
+    bool enableCollapse) {
+  patterns.insert<ONNXConcatOpLowering>(
+      typeConverter, ctx, enableParallel, enableCollapse);
 }
 
 } // namespace onnx_mlir

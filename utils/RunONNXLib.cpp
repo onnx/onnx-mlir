@@ -4,36 +4,34 @@
 
 //===----------------- RunONNXLib.cpp  ------------------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 /*
-  This file help run a onnx model as simply as possible for testing.
-  Compile as follows in the onnx-mlir build subdirectory. The tool is built as
-  follows. For dynamically loaded models:
+  This file helps run an onnx model as simply as possible for testing.
+  Build it with utils/build-run-onnx-lib.sh. Set ONNX_MLIR_HOME to your
+  onnx-mlir build's HOME dir (e.g. onnx-mlir/build/Debug, same
+  convention as RunONNXModel.py) to run the build script from any
+  directory; the binary is placed under $ONNX_MLIR_HOME/bin (so under
+  Debug or Release depending on which HOME you point at), and the
+  script prints the exact path when it's done. Without ONNX_MLIR_HOME,
+  the script must be run from the onnx-mlir/build subdirectory and
+  defaults to Debug/bin.
 
-cd onnx-mlir/build
-sh ../utils/build-run-onnx-lib.sh
-Debug/bin/run-onnx-lib test/backend/test_add/test_add.so
+  For dynamically loaded models (default): model.so is passed on the
+  command line at runtime, so one binary can drive any model.
 
-  For statically loaded models:
+    sh <onnx-mlir>/utils/build-run-onnx-lib.sh
+    <bin-dir>/run-onnx-lib test/backend/test_add/test_add.so
 
-cd onnx-mlir/build
-sh ../utils/build-run-onnx-lib.sh test/backend/test_add/test_add.so
+  For statically loaded models: the model is linked directly into the
+  executable. Prefer this form when debugging crashes or memory issues
+  (e.g. under valgrind) -- a statically-linked binary is much easier to
+  work with, since there's no dlopen/dlsym indirection to step through
+  and no separate .so to keep track of.
 
-  On linux you run with:
-
-Debug/bin/run-onnx-lib
-
-  On Mac it is best to run in the directory where the model was built, e.g.,
-
-cd test/backend
-../../Debug/bin/run-onnx-lib
-
-  if test_add.so was built in test/backend with:
-
-../..Debug/bin/onnx-mlir --EmitLib test_add/test_add.onnx
-
+    sh <onnx-mlir>/utils/build-run-onnx-lib.sh test/backend/test_add/test_add.so
+    <bin-dir>/run-onnx-lib
 
   See printUsage() below for usage of the program.
 */
@@ -59,10 +57,12 @@ auto printUsage = [](auto &out, const char *name) {
   path to the local directory is also prepended.
 
   Options:
-    -d | -dim json-array
-         Provide a json array to provide the value of every
-         runtime dimensions in the input signature of the
-         entry function. E.g. -d "[7, 2048]".)""";
+    -s STR | --shape-info STR
+         Shape overrides for dynamic input dimensions.
+         Format: INPUT_ID:D1xD2x...xDn, ... where INPUT_ID is an
+         integer >= 0, a range (e.g. 2-5), or -1 for all inputs.
+         A dim value of -1 keeps the value from the signature.
+         E.g. --shape-info 0:1x10x20,1:7x5x3)""";
 #if !LOAD_MODEL_STATICALLY
   out << R"""(
     -e name | --entry-point name
@@ -70,6 +70,26 @@ auto printUsage = [](auto &out, const char *name) {
          Default is "run_main_graph".)""";
 #endif
   out << R"""(
+    -i STR | --input-value STR
+         Per-input data fill specification, overriding --lower-bound /
+         --upper-bound for individual tensors.  Format:
+           INPUT_ID:spec1 spec2 ..., ...
+         where each spec is one of:
+           min<num>  lower bound for random fill
+           max<num>  upper bound for random fill
+           val<num>  constant fill (equivalent to min=max=num)
+         E.g. --input-value 0:min-1.0max1.0,1:val0
+    -l STR | --lower-bound STR
+         Per-type default lower bound for random fill.
+         Format: typename:value, typename:value, ...
+         Supported types: bool, int8, uint8, int16, uint16, int32, uint32,
+           int64, uint64, float16, float32, float64.
+         E.g. --lower-bound int64:-10,float32:-0.2
+    -u STR | --upper-bound STR
+         Per-type default upper bound for random fill.  Same format.
+         E.g. --upper-bound int64:10,float32:0.2
+    -k NUM | --seed NUM
+         Seed for the random number generator.  Default: 42.
     -h | --help
          Print help message.
     -n NUM | --iterations NUM
@@ -77,26 +97,27 @@ auto printUsage = [](auto &out, const char *name) {
     -m NUM | --meas NUM
          Measure the kernel execution time NUM times.
     -r | -reuse true|false
-         Reuse input data, default on
+         Reuse input data, default on.
     -v | --verbose
-         Print the shape of the inputs and outputs.
+         Print the shape and value range of the inputs.
 
   )""";
 };
 
 #include <algorithm>
 #include <assert.h>
+#include <cmath>
+#include <cstring>
 #include <dlfcn.h>
 #include <getopt.h>
 #include <iostream>
 #include <string>
 #include <vector>
 
-// Json reader & LLVM support.
-#include "llvm/Support/JSON.h"
-
 // Include ONNX-MLIR Runtime support.
 #include "OnnxMlirRuntime.h"
+#include "src/Runtime/OMTensorHelper.hpp"
+#include "src/Runtime/OMTensorListHelper.hpp"
 
 using namespace std;
 
@@ -108,56 +129,57 @@ using namespace std;
 // Data structure to hold measurement times (in microseconds).
 vector<uint64_t> timeLogInMicroSec;
 
-// Interface definitions
+// =============================================================================
+// Interface definitions — entry point and signature functions differ between
+// static and DLL builds; tensor creation/destruction use the runtime directly.
+
 extern "C" OMTensorList *run_main_graph(OMTensorList *);
 extern "C" const char *omInputSignature(const char *);
 extern "C" const char *omOutputSignature(const char *);
-extern "C" OMTensor *omTensorCreateWithOwnership(
-    void *, const int64_t *, int64_t, OM_DATA_TYPE, int64_t);
-extern "C" OMTensorList *TensorListCreate(OMTensor **, int);
-extern "C" void omTensorListDestroy(OMTensorList *list);
-// DLL definitions
-OMTensorList *(*dll_run_main_graph)(OMTensorList *);
-const char *(*dll_omInputSignature)(const char *);
-const char *(*dll_omOutputSignature)(const char *);
-OMTensor *(*dll_omTensorCreateWithOwnership)(
-    void *, int64_t *, int64_t, OM_DATA_TYPE, int64_t);
-OMTensorList *(*dll_omTensorListCreate)(OMTensor **, int);
-void (*dll_omTensorListDestroy)(OMTensorList *);
+extern "C" const char *omCompilationInfo(void);
 
 #if LOAD_MODEL_STATICALLY
 #define RUN_MAIN_GRAPH run_main_graph
 #define OM_INPUT_SIGNATURE omInputSignature
 #define OM_OUTPUT_SIGNATURE omOutputSignature
-#define OM_TENSOR_CREATE omTensorCreateWithOwnership
-#define OM_TENSOR_LIST_CREATE omTensorListCreate
-#define OM_TENSOR_LIST_DESTROY omTensorListDestroy
-#define OPTIONS "hn:m:vd:r:"
+#define OM_COMPILATION_INFO omCompilationInfo
+#define OPTIONS "hs:i:l:u:k:n:m:vr:"
 #else
+OMTensorList *(*dll_run_main_graph)(OMTensorList *);
+const char *(*dll_omInputSignature)(const char *);
+const char *(*dll_omOutputSignature)(const char *);
+const char *(*dll_omCompilationInfo)(void);
 #define RUN_MAIN_GRAPH dll_run_main_graph
 #define OM_INPUT_SIGNATURE dll_omInputSignature
 #define OM_OUTPUT_SIGNATURE dll_omOutputSignature
-#define OM_TENSOR_CREATE dll_omTensorCreateWithOwnership
-#define OM_TENSOR_LIST_CREATE dll_omTensorListCreate
-#define OM_TENSOR_LIST_DESTROY dll_omTensorListDestroy
-#define OPTIONS "e:hn:m:vd:r:"
+#define OM_COMPILATION_INFO dll_omCompilationInfo
+#define OPTIONS "e:hs:i:l:u:k:n:m:vr:"
 #endif
 
-// Global variables to record what we should do in this run.
+// =============================================================================
+// Global options — identical for static and DLL builds.
+
 static int sIterations = 1;
 static bool verbose = false;
 static bool reuseInput = true;
 static bool measureExecTime = false;
-static vector<int64_t> dimKnownAtRuntime;
+static string entryPointName("run_main_graph");
+static string shapeInfo;
+static string inputValue;
+static string lowerBound;
+static string upperBound;
+static int seed = 42;
+
+// =============================================================================
 
 void usage(const char *name) {
   printUsage(cout, name);
   exit(1);
 }
 
-void loadDLL(string name, string entryPointName) {
-  cout << "Load model file " << name << " with entry point " << entryPointName
-       << endl;
+#if !LOAD_MODEL_STATICALLY
+void loadDLL(const string &name, const string &epName) {
+  cout << "Load model file " << name << " with entry point " << epName << endl;
   void *handle = dlopen(name.c_str(), RTLD_LAZY);
   if (!handle) {
     string qualifiedName = "./" + name;
@@ -165,10 +187,10 @@ void loadDLL(string name, string entryPointName) {
          << endl;
     handle = dlopen(qualifiedName.c_str(), RTLD_LAZY);
   }
-  assert(handle && "Error loading the model's dll file; you may have provide a "
-                   "fully qualified path");
-  dll_run_main_graph = (OMTensorList * (*)(OMTensorList *))
-      dlsym(handle, entryPointName.c_str());
+  assert(handle && "Error loading the model's dll file; provide a fully "
+                   "qualified path if needed");
+  dll_run_main_graph =
+      (OMTensorList * (*)(OMTensorList *)) dlsym(handle, epName.c_str());
   assert(!dlerror() && "failed to load entry point");
   dll_omInputSignature =
       (const char *(*)(const char *))dlsym(handle, "omInputSignature");
@@ -176,32 +198,27 @@ void loadDLL(string name, string entryPointName) {
   dll_omOutputSignature =
       (const char *(*)(const char *))dlsym(handle, "omOutputSignature");
   assert(!dlerror() && "failed to load omOutputSignature");
-  dll_omTensorCreateWithOwnership =
-      (OMTensor * (*)(void *, int64_t *, int64_t, OM_DATA_TYPE, int64_t))
-          dlsym(handle, "omTensorCreateWithOwnership");
-  assert(!dlerror() && "failed to load omTensorCreateWithOwnership");
-  dll_omTensorListCreate = (OMTensorList * (*)(OMTensor **, int))
-      dlsym(handle, "omTensorListCreate");
-  assert(!dlerror() && "failed to load omTensorListCreate");
-  dll_omTensorListDestroy =
-      (void (*)(OMTensorList *))dlsym(handle, "omTensorListDestroy");
-  assert(!dlerror() && "failed to load omTensorListDestroy");
+  dll_omCompilationInfo =
+      (const char *(*)(void))dlsym(handle, "omCompilationInfo");
+  assert(!dlerror() && "failed to load omCompilationInfo");
 }
+#endif
 
-// Parse input arguments.
+// =============================================================================
+// Argument parsing — identical options for static and DLL builds.
+
 void parseArgs(int argc, char **argv) {
-  dimKnownAtRuntime.clear();
   int c;
-  string entryPointName("run_main_graph");
   static struct option long_options[] = {
-      {"dim", required_argument, 0, 'd'},         // dimensions.
-      {"entry-point", required_argument, 0, 'e'}, // Entry point.
-      {"help", no_argument, 0, 'h'},              // Help.
-      {"iterations", required_argument, 0, 'n'},  // Number of iterations.
-      {"meas", required_argument, 0, 'm'},        // Measurement of time.
-      {"reuse", required_argument, 0, 'r'},       // cached input.
-      {"verbose", no_argument, 0, 'v'},           // Verbose.
-      {0, 0, 0, 0}};
+      {"shape-info", required_argument, 0, 's'},
+      {"input-value", required_argument, 0, 'i'},
+      {"lower-bound", required_argument, 0, 'l'},
+      {"upper-bound", required_argument, 0, 'u'},
+      {"seed", required_argument, 0, 'k'},
+      {"entry-point", required_argument, 0, 'e'}, {"help", no_argument, 0, 'h'},
+      {"iterations", required_argument, 0, 'n'},
+      {"meas", required_argument, 0, 'm'}, {"reuse", required_argument, 0, 'r'},
+      {"verbose", no_argument, 0, 'v'}, {0, 0, 0, 0}};
 
   while (true) {
     int index = 0;
@@ -211,24 +228,25 @@ void parseArgs(int argc, char **argv) {
     switch (c) {
     case 0:
       break;
-    case 'd': {
-      // Read json array for undefined values.
-      dimKnownAtRuntime.clear();
-      auto JSONInput = llvm::json::parse(optarg);
-      assert(JSONInput && "failed to parse json");
-      auto JSONArray = JSONInput->getAsArray();
-      assert(JSONArray && "failed to parse json as array");
-      int inputNum = JSONArray->size();
-      for (int i = 0; i < inputNum; ++i) {
-        auto JSONDimValue = (*JSONArray)[i].getAsInteger();
-        assert(JSONDimValue && "failed to get value");
-        int64_t dim = JSONDimValue.value();
-        dimKnownAtRuntime.push_back(dim);
-      }
+    case 's':
+      shapeInfo = optarg;
       break;
-    }
+    case 'i':
+      inputValue = optarg;
+      break;
+    case 'l':
+      lowerBound = optarg;
+      break;
+    case 'u':
+      upperBound = optarg;
+      break;
+    case 'k':
+      seed = atoi(optarg);
+      break;
     case 'e':
+#if !LOAD_MODEL_STATICALLY
       entryPointName = optarg;
+#endif
       break;
     case 'n':
       sIterations = atoi(optarg);
@@ -249,7 +267,7 @@ void parseArgs(int argc, char **argv) {
         reuseInput = false;
         printf("> Do not reuse input data\n");
       } else {
-        printf("  reuse parameter expect true/false argument\n");
+        printf("  reuse parameter expects true/false argument\n");
         usage(argv[0]);
       }
       break;
@@ -260,11 +278,9 @@ void parseArgs(int argc, char **argv) {
       usage(argv[0]);
     }
   }
-  // Make sure that iterations are positive.
   if (sIterations < 1)
     sIterations = 1;
 
-// Process the DLL.
 #if LOAD_MODEL_STATICALLY
   if (optind < argc) {
     cout << "Error: model.so was compiled in, cannot provide one now" << endl;
@@ -275,8 +291,7 @@ void parseArgs(int argc, char **argv) {
     cout << "Error: need one model.so dynamic library" << endl;
     usage(argv[0]);
   } else if (optind + 1 == argc) {
-    string name = argv[optind];
-    loadDLL(name, entryPointName);
+    loadDLL(argv[optind], entryPointName);
   } else {
     cout << "Error: handle only one model.so dynamic library at a time" << endl;
     usage(argv[0]);
@@ -284,163 +299,23 @@ void parseArgs(int argc, char **argv) {
 #endif
 }
 
-/**
- * \brief Create and initialize an OMTensorList from the signature of a model
- *
- * This function parse the signature of a ONNX compiled network, attached to the
- * binary via a .so and will scan the JSON signature for its input. For each
- * input in turn, it create a tensor of the proper type and shape. Data will be
- * either initialized (if dataPtrList is provided), allocated (if dataPtrList is
- * null and dataAlloc is set to true), or will otherwise be left empty. In case
- * of errors, a null pointer returned.
- *
- *
- * @param dataPtrList Pointer to a list of data pointers of the right size, as
- * determined by the signature.
- * @param allocData When no dataPtrList is provided, the this boolean variable
- * determine if data is to be allocated or not, using the sizes determined by
- * the signature.
- * @param trace If true, provide a printout of the signatures (input and
- * output).
- * @return pointer to the TensorList just created, or null on error.
- */
-OMTensorList *omTensorListCreateFromInputSignature(
-    void **dataPtrList, bool dataAlloc, bool trace, bool silent) {
-  string entryPointName("run_main_graph");
-  const char *sigIn = OM_INPUT_SIGNATURE(entryPointName.c_str());
-  if (trace) {
-    cout << "Model Input Signature " << (sigIn ? sigIn : "(empty)") << endl;
-    const char *sigOut = OM_OUTPUT_SIGNATURE(entryPointName.c_str());
-    cout << "Output signature: " << (sigOut ? sigOut : "(empty)") << endl;
-  }
-  if (!sigIn)
-    return nullptr;
+// =============================================================================
+// Timing support.
 
-  // Create inputs.
-  auto JSONInput = llvm::json::parse(sigIn);
-  assert(JSONInput && "failed to parse json");
-  auto JSONArray = JSONInput->getAsArray();
-  assert(JSONArray && "failed to parse json as array");
-
-  // Allocate array of inputs.
-  int inputNum = JSONArray->size();
-  assert(inputNum >= 0 && inputNum < 100 && "out of bound number of inputs");
-
-  OMTensor *inputTensors[inputNum];
-
-  int dimKnownAtRuntimeIndex = 0;
-  for (int i = 0; i < inputNum; ++i) {
-    auto JSONItem = (*JSONArray)[i].getAsObject();
-    auto JSONItemType = JSONItem->getString("type");
-    assert(JSONItemType && "failed to get type");
-    auto type = JSONItemType.value();
-    auto JSONDimArray = JSONItem->getArray("dims");
-    int rank = JSONDimArray->size();
-    assert(rank > 0 && rank < 100 && "rank is out bound");
-    // Gather shape.
-    int64_t shape[100];
-    size_t size = 1;
-    for (int d = 0; d < rank; ++d) {
-      auto JSONDimValue = (*JSONDimArray)[d].getAsInteger();
-      assert(JSONDimValue && "failed to get value");
-      int64_t dim = JSONDimValue.value();
-      if (dim < 0) {
-        // we have a runtime value
-        if (dimKnownAtRuntimeIndex >= dimKnownAtRuntime.size()) {
-          printf("Error: there are runtime dim for which we have no value; "
-                 "provide values using the -d option\n");
-          usage("run-onnx-lib");
-        }
-        dim = dimKnownAtRuntime[dimKnownAtRuntimeIndex++];
-        if (!silent || verbose) {
-          printf("  Tensor %d, dim %d: use provided RT value %lld\n", i, d,
-              (long long)dim);
-        }
-      }
-      shape[d] = dim;
-      size *= dim;
-    }
-    // Create a randomly initialized tensor of the right shape.
-    OMTensor *tensor = nullptr;
-    if (type.compare("float") == 0 || type.compare("f32") == 0 ||
-        type.compare("i32") == 0) {
-      // Treat floats/f32 and i32 alike as they take the same memory footprint.
-      float *data = nullptr;
-      if (dataPtrList) {
-        data = (float *)dataPtrList[i];
-      } else if (dataAlloc) {
-        data = (float *)malloc(size * sizeof(float));
-        assert(data && "failed to allocate data");
-      }
-      tensor = OM_TENSOR_CREATE(data, shape, rank, ONNX_TYPE_FLOAT, true);
-    } else if (type.compare("double") == 0 || type.compare("f64") == 0 ||
-               type.compare("i64") == 0) {
-      // Treat floats/f64 and i64 alike as they take the same memory footprint.
-      double *data = nullptr;
-      if (dataPtrList) {
-        data = (double *)dataPtrList[i];
-      } else if (dataAlloc) {
-        data = (double *)malloc(size * sizeof(double));
-        assert(data && "failed to allocate data");
-      }
-      tensor = OM_TENSOR_CREATE(data, shape, rank, ONNX_TYPE_DOUBLE, true);
-    } else if (type.compare("string") == 0) {
-      // Add the handling of string type. "string" is the type in function
-      // signature.
-      char **data = nullptr;
-      if (dataPtrList) {
-        data = (char **)dataPtrList[i];
-      } else if (dataAlloc) {
-        data = (char **)malloc(size * sizeof(char *));
-        assert(data && "failed to allocate data");
-        // Need to initialize the pointer for string
-        // The complexity is to free the space for string when the OMTensor
-        // is destroyed. Change in the OMTensor is needed.
-        // For test purpose, just assign a pointer of the static string
-        // example_str. Should be replaced with random initialization for
-        // string type (omTensorCreateWithRandomData)
-        static char example_str[] = "randomstr";
-        for (size_t j = 0; j < size; j++) {
-          data[j] = example_str;
-        }
-      }
-      tensor = OM_TENSOR_CREATE(data, shape, rank, ONNX_TYPE_DOUBLE, true);
-    }
-
-    assert(tensor && "add support for the desired type");
-    // Add tensor to list.
-    inputTensors[i] = tensor;
-    if (trace) {
-      cout << "Input " << i << ": tensor of " << type.str() << " with shape ";
-      for (int d = 0; d < rank; ++d)
-        cout << shape[d] << " ";
-      cout << "and " << size << " elements" << endl;
-    }
-  }
-  return OM_TENSOR_LIST_CREATE(inputTensors, inputNum);
-}
-
-// Data structures for timing info.
 #ifdef _WIN32
 #else
 struct timeval startTime, stopTime, result;
 #endif
 
-// Process start time.
 #ifdef _WIN32
 inline void processStartTime() {}
+inline void processStopTime() {}
 #else
 inline void processStartTime() {
   if (!measureExecTime)
     return;
   gettimeofday(&startTime, NULL);
 }
-#endif
-
-// Process stop time, store result in log.
-#ifdef _WIN32
-inline void processStopTime() {}
-#else
 inline void processStopTime() {
   if (!measureExecTime)
     return;
@@ -452,7 +327,6 @@ inline void processStopTime() {
 }
 #endif
 
-// Print timing info, removing shortest/longest measured time.
 void printTime(double avg, double std, double factor, string unit) {
   int s = timeLogInMicroSec.size();
   int m = s / 2;
@@ -479,43 +353,68 @@ void displayTime() {
            ((double)timeLogInMicroSec[i] - avg);
   std = sqrt(std / s);
   printTime(avg, std, 1, "micro-second");
-  if (avg >= 1e3) {
+  if (avg >= 1e3)
     printTime(avg, std, 1e3, "milli-second");
-  }
-  if (avg >= 1e6) {
+  if (avg >= 1e6)
     printTime(avg, std, 1e6, "second");
-  }
 }
 
-// Perform generation of input, run, measure time,...
+// =============================================================================
+
 int main(int argc, char **argv) {
-  // Init args.
   parseArgs(argc, argv);
-  // Init inputs.
-  OMTensorList *tensorListIn =
-      omTensorListCreateFromInputSignature(nullptr, true, verbose, false);
-  assert(tensorListIn && "failed to scan signature");
-  // Call the compiled onnx model function.
+
+  // Get input signature from the model.
+  const char *sigIn = OM_INPUT_SIGNATURE(entryPointName.c_str());
+  if (!sigIn) {
+    cerr << "Error: failed to get input signature for entry point '"
+         << entryPointName << "'" << endl;
+    return 1;
+  }
+  if (verbose) {
+    cout << "Model Input Signature: " << sigIn << endl;
+    const char *sigOut = OM_OUTPUT_SIGNATURE(entryPointName.c_str());
+    cout << "Model Output Signature: " << (sigOut ? sigOut : "(empty)") << endl;
+  }
+
+  // Seed the RNG for reproducibility.
+  omDefineSeed((unsigned int)seed, /*hasSeedValue=*/1);
+
+  // Create input tensors with random data from the model's signature.
+  // Always verbose so the shape and value range of each input is printed.
+  OMTensorList *tensorListIn = omTensorListCreateFromInputSignature(sigIn,
+      shapeInfo.empty() ? nullptr : shapeInfo.c_str(),
+      inputValue.empty() ? nullptr : inputValue.c_str(),
+      lowerBound.empty() ? nullptr : lowerBound.c_str(),
+      upperBound.empty() ? nullptr : upperBound.c_str(),
+      /*verbose=*/true);
+  if (!tensorListIn) {
+    cerr << "Error: failed to create input tensors from signature" << endl;
+    return 1;
+  }
+
   cout << "Start computing " << sIterations << " iterations" << endl;
   for (int i = 0; i < sIterations; ++i) {
-    OMTensorList *tensorListOut = nullptr;
     processStartTime();
-    tensorListOut = RUN_MAIN_GRAPH(tensorListIn);
+    OMTensorList *tensorListOut = RUN_MAIN_GRAPH(tensorListIn);
     processStopTime();
     if (tensorListOut)
-      OM_TENSOR_LIST_DESTROY(tensorListOut);
+      omTensorListDestroy(tensorListOut);
     if (i > 0 && i % 10 == 0)
       cout << "  computed " << i << " iterations" << endl;
     if (!reuseInput) {
-      OM_TENSOR_LIST_DESTROY(tensorListIn);
-      tensorListIn =
-          omTensorListCreateFromInputSignature(nullptr, true, false, true);
+      omTensorListDestroy(tensorListIn);
+      tensorListIn = omTensorListCreateFromInputSignature(sigIn,
+          shapeInfo.empty() ? nullptr : shapeInfo.c_str(),
+          inputValue.empty() ? nullptr : inputValue.c_str(),
+          lowerBound.empty() ? nullptr : lowerBound.c_str(),
+          upperBound.empty() ? nullptr : upperBound.c_str(),
+          /*verbose=*/false);
     }
   }
   cout << "Finish computing " << sIterations << " iterations" << endl;
   displayTime();
 
-  // Cleanup.
-  OM_TENSOR_LIST_DESTROY(tensorListIn);
+  omTensorListDestroy(tensorListIn);
   return 0;
 }

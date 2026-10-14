@@ -292,6 +292,14 @@ struct MemRefBuilder final : DialectBuilder {
   // Same as above, but does not track of dynamic size.
   static bool getStaticMemSize(
       mlir::MemRefType type, int64_t &staticSize, int64_t range = 1000);
+  // Given an element type and IndexExpression list of dimensions (static or
+  // dynamic), compute the resulting type. When a shape element is static, it
+  // uses that literal directly in the type; otherwise shape iskDynamic. This
+  // can then be used in any of the alloc functions below. For example.
+  //
+  // MemRefType type = getType(dims, elementType)
+  // memref::AllocOp alloc = alloc(type, dims);
+  mlir::MemRefType getType(DimsExprRef shape, mlir::Type elementType);
 
   // Alloc for static shapes without alignment.
   mlir::memref::AllocOp alloc(mlir::MemRefType type) const;
@@ -777,6 +785,16 @@ struct LLVMBuilder final : DialectBuilder {
   mlir::LLVM::GlobalOp globalOp(mlir::Type resultType, bool isConstant,
       mlir::LLVM::Linkage, llvm::StringRef name, mlir::Attribute attr,
       uint64_t alignment = 0, bool uniqueName = true) const;
+
+  // GlobalCtorsOp
+  void globalCtors(mlir::ArrayRef<mlir::Attribute> ctors,
+      mlir::ArrayRef<int32_t> priorities,
+      mlir::ArrayRef<mlir::Attribute> data) const;
+
+  // GlobalDtorsOp
+  void globalDtors(mlir::ArrayRef<mlir::Attribute> dtors,
+      mlir::ArrayRef<int32_t> priorities,
+      mlir::ArrayRef<mlir::Attribute> data) const;
 
   // ICmpOp
   mlir::Value icmp(

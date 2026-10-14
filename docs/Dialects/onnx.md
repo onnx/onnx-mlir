@@ -27,6 +27,7 @@ Effects: `MemoryEffects::Effect{}`
 | `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
 
 
+
 ### `onnx.Acos` (ONNXAcosOp)
 
 _ONNX Acos operation_
@@ -52,6 +53,7 @@ Effects: `MemoryEffects::Effect{}`
 | `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
 
 
+
 ### `onnx.Acosh` (ONNXAcoshOp)
 
 _ONNX Acosh operation_
@@ -75,6 +77,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
 
 
 ### `onnx.Adagrad` (ONNXAdagradOp)
@@ -160,6 +163,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `outputs` | variadic of tensor of 32-bit float values or tensor of 64-bit float values |
+
 
 
 ### `onnx.Adam` (ONNXAdamOp)
@@ -260,6 +264,7 @@ Effects: `MemoryEffects::Effect{}`
 | `outputs` | variadic of tensor of 32-bit float values or tensor of 64-bit float values |
 
 
+
 ### `onnx.Add` (ONNXAddOp)
 
 _ONNX Add operation_
@@ -272,7 +277,7 @@ This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; fo
 
 Traits: `AlwaysSpeculatableImplTrait`
 
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ReifyRankedShapedTypeOpInterface`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
 Effects: `MemoryEffects::Effect{}`
 
@@ -288,6 +293,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `C` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
 
 
 ### `onnx.And` (ONNXAndOp)
@@ -317,6 +323,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `C` | tensor of 1-bit signless integer values |
+
 
 
 ### `onnx.ArgMax` (ONNXArgMaxOp)
@@ -359,6 +366,7 @@ Effects: `MemoryEffects::Effect{}`
 | `reduced` | tensor of 64-bit signless integer values |
 
 
+
 ### `onnx.ArgMin` (ONNXArgMinOp)
 
 _ONNX ArgMin operation_
@@ -399,6 +407,7 @@ Effects: `MemoryEffects::Effect{}`
 | `reduced` | tensor of 64-bit signless integer values |
 
 
+
 ### `onnx.ArrayFeatureExtractor` (ONNXArrayFeatureExtractorOp)
 
 _ONNX ArrayFeatureExtractor operation_
@@ -426,6 +435,7 @@ Effects: `MemoryEffects::Effect{}`
 | `Z` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 64-bit signless integer values or tensor of 32-bit signless integer values or tensor of string type values |
 
 
+
 ### `onnx.Asin` (ONNXAsinOp)
 
 _ONNX Asin operation_
@@ -449,6 +459,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
 
 
 ### `onnx.Asinh` (ONNXAsinhOp)
@@ -476,6 +487,7 @@ Effects: `MemoryEffects::Effect{}`
 | `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
 
 
+
 ### `onnx.Atan` (ONNXAtanOp)
 
 _ONNX Atan operation_
@@ -501,6 +513,7 @@ Effects: `MemoryEffects::Effect{}`
 | `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
 
 
+
 ### `onnx.Atanh` (ONNXAtanhOp)
 
 _ONNX Atanh operation_
@@ -524,6 +537,149 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
+
+
+### `onnx.Attention` (ONNXAttentionOp)
+
+_ONNX Attention operation_
+
+Computes scaled dot product attention on query, key and value tensors, using an optional attention mask if passed.
+
+This operator covers self and cross variants of the attention operation based on sequence lengths of K, Q and V.
+
+For self attention, `kv_sequence_length` equals to `q_sequence_length`.
+
+For cross attention, query and key might have different lengths.
+
+This operator also covers the 3 following variants based on the number of heads:
+1) Multi-headed Attention (MHA): Described in the paper https://arxiv.org/pdf/1706.03762, `q_num_heads = kv_num_heads`.
+2) Group-query Attention (GQA): Described in the paper https://arxiv.org/pdf/2305.13245, `q_num_heads > kv_num_heads`, `q_num_heads % kv_num_heads == 0`.
+3) Multi-query Attention (MQA): Described in the paper https://arxiv.org/pdf/1911.02150, `q_num_heads > kv_num_heads`, `kv_num_heads=1`.
+
+Attention bias to be added is calculated based on `attn_mask` input and `is_causal` attribute:
+1) `attn_mask`: A boolean mask where a value of `True` indicates that the element should take part in attention or a float mask of the same type as query, key, value that is added to the attention score.
+2) If `is_causal` is set to `1`, causal masking is applied with bottom-right (offset-aware) alignment: query `i` attends key `j` iff `j <= i + offset`, as illustrated below.
+
+```
+  2D causal mask for Attention (PR onnx/onnx#8068)
+   S_q=4 queries, S_k=8 keys
+   Rule: query i attends key j iff j <= i + offset
+         offset = nonpad_kv_seqlen - S_q
+
+   nonpad_kv_seqlen=4, offset=4-4=0
+
+          k0  k1  k2  k3  k4  k5  k6  k7
+         +----+----+----+----+----+----+----+----+
+    q0   | ## |    |    |    |    |    |    |    |
+         +----+----+----+----+----+----+----+----+
+    q1   | ## | ## |    |    |    |    |    |    |
+         +----+----+----+----+----+----+----+----+
+    q2   | ## | ## | ## |    |    |    |    |    |
+         +----+----+----+----+----+----+----+----+
+    q3   | ## | ## | ## | ## |    |    |    |    |
+         +----+----+----+----+----+----+----+----+
+
+
+   nonpad_kv_seqlen=8, offset=8-4=4
+
+          k0  k1  k2  k3  k4  k5  k6  k7
+         +----+----+----+----+----+----+----+----+
+    q0   | ## | ## | ## | ## | ## |    |    |    |
+         +----+----+----+----+----+----+----+----+
+    q1   | ## | ## | ## | ## | ## | ## |    |    |
+         +----+----+----+----+----+----+----+----+
+    q2   | ## | ## | ## | ## | ## | ## | ## |    |
+         +----+----+----+----+----+----+----+----+
+    q3   | ## | ## | ## | ## | ## | ## | ## | ## |
+         +----+----+----+----+----+----+----+----+
+```
+
+With `nonpad_kv_seqlen=4` (offset=0), the mask is the standard lower-triangular. With `nonpad_kv_seqlen=8` (offset=4), the diagonal shifts right by 4, so each query sees the 4 additional valid cached keys.
+
+`offset` is the count of valid keys preceding the current query block: `offset = past_sequence_length` when `past_key` is provided; `offset = nonpad_kv_seqlen - q_sequence_length` (per batch) when an external cache is indicated by `nonpad_kv_seqlen` without `past_key`; `offset = 0` when neither is provided (the no-cache case, which reduces to the standard lower-triangular mask). When `offset < 0` (`nonpad_kv_seqlen < q_sequence_length`, i.e. more query tokens than cached keys) the leading query rows have an empty key set (no key satisfies `j <= i + offset`) and are fully masked. The causal frontier is computed independently of `attn_mask` and is then composed with it additively: a boolean `attn_mask` intersects the allowed set (its disallowed positions contribute `-inf` to the bias), while a float `attn_mask` is added to the attention scores rather than disabling positions. A fully-masked query row (no key attended, including the negative-offset leading rows) produces a zero output row, not `NaN`, for both `Y` and the mode-`3` `qk_matmul_output` debug output; the mode-`3` `qk_matmul_output` is emitted at the operator's output precision (`T1`).
+
+Errata (in-place behavioral correction, no opset bump): the reference implementation and backend tests were incorrect when `nonpad_kv_seqlen != q_sequence_length` (nonzero bottom-right offset, top-left instead of bottom-right causal alignment) and produced `NaN` for fully-masked rows; corrected in version 1.23. This fixed three behaviors described above: external-cache bottom-right causal alignment (`offset = nonpad_kv_seqlen - q_sequence_length`), zero (non-`NaN`) output for fully-masked rows including the mode-`3` `qk_matmul_output`, and the mode-`3` `qk_matmul_output` precision (`T1`).
+
+With respect to KV cache update, this operator allows the following two use cases:
+
+1) Cache update happens inside the Attention operator. In this case, the `K` and `V` inputs contain only the incoming
+tokens for the current autoregressive step, and the four optional inputs/outputs past and present key and value are
+all needed. The Attention op performs a Concat operation on the past and incoming key and value to form the present
+key and value, respectively. Note that this only works correctly for the special case where the past key and value
+do not contain padded tokens.
+2) Cache update happens outside the Attention operator (for example, through the `TensorScatter` operator). In this
+case, the `K` and `V` inputs correspond to the entire cache tensor, so the four optional inputs/outputs past and
+present key and value should not be used. An additional input `nonpad_kv_seqlen` of shape (batch_size,) may be
+provided to indicate the number of non-padding tokens in each sample of the batch to save unnecessary computation.
+Here, the kv_sequence dimension of `attn_mask` can be shorter than `K` and `V`, but still needs to be at least as long
+as the maximum value of `nonpad_kv_seqlen`.
+
+Both past and present state key/values are optional. They shall be used together, and not allowed to use only one of them.
+The following pattern is applied to the Q, K and V inputs after appropriate reshaping of K and V inputs based on sequence lengths and num heads provided:
+
+```
+  The following pattern is applied by this operator:
+      Q          K          V
+      |          |          |
+Q*sqrt(scale) K*sqrt(scale) |
+      |          |          |
+      |       Transpose     |
+      |          |          |
+      ---MatMul---          |
+            |               |
+  softcap (if provided)     |
+            |               |
+ at_mask---Add              |
+            |               |
+         Softmax            |
+            |               |
+            -----MatMul------
+                   |
+                   Y
+```
+
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>is_causal</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>kv_num_heads</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>q_num_heads</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>qk_matmul_output_mode</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>scale</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
+<tr><td><code>softcap</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
+<tr><td><code>softmax_precision</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `Q` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `K` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `V` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `attn_mask` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 1-bit signless integer values or none type |
+| `past_key` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
+| `past_value` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
+| `nonpad_kv_seqlen` | tensor of 64-bit signless integer values or none type |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `present_key` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
+| `present_value` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
+| `qk_matmul_output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
+
 
 
 ### `onnx.AveragePool` (ONNXAveragePoolOp)
@@ -594,57 +750,6 @@ Effects: `MemoryEffects::Effect{}`
 | :----: | ----------- |
 | `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
 
-
-### `onnx.BatchNormalizationInferenceMode` (ONNXBatchNormalizationInferenceModeOp)
-
-_ONNX BatchNormalization operation in test mode_
-
-Carries out batch normalization as described in the paper
-https://arxiv.org/abs/1502.03167. Depending on the mode it is being run,
-there are multiple cases for the number of outputs, which we list below:
-
-Output case #1: Y, mean, var, saved_mean, saved_var (training mode)
-Output case #2: Y (test mode)"
-
-For previous (depreciated) non-spatial cases, implementors are suggested
-to flatten the input shape to (N x C*D1*D2 ..*Dn) before a BatchNormalization Op.
-This operator has **optional** inputs/outputs. See [the doc](IR.md)
-for more details about the representation of optional arguments.
-An empty string may be used in the place of an actual argument's name to
-indicate a missing argument. Trailing optional arguments (those not followed
-by an argument that is present) may also be simply omitted.
-
-This operation is not part of the standard and was added to assist onnx-mlir.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>epsilon</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
-<tr><td><code>momentum</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `X` | memref of any type values or tensor of any type values |
-| `scale` | memref of any type values or tensor of any type values |
-| `B` | memref of any type values or tensor of any type values |
-| `mean` | memref of any type values or tensor of any type values |
-| `var` | memref of any type values or tensor of any type values |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `o_Y` | memref of any type values or tensor of any type values |
 
 
 ### `onnx.BatchNormalization` (ONNXBatchNormalizationOp)
@@ -725,6 +830,60 @@ Effects: `MemoryEffects::Effect{}`
 | `running_var` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or none type |
 
 
+
+### `onnx.BatchNormalizationInferenceMode` (ONNXBatchNormalizationInferenceModeOp)
+
+_ONNX BatchNormalization operation in test mode_
+
+Carries out batch normalization as described in the paper
+https://arxiv.org/abs/1502.03167. Depending on the mode it is being run,
+there are multiple cases for the number of outputs, which we list below:
+
+Output case #1: Y, mean, var, saved_mean, saved_var (training mode)
+Output case #2: Y (test mode)"
+
+For previous (depreciated) non-spatial cases, implementors are suggested
+to flatten the input shape to (N x C*D1*D2 ..*Dn) before a BatchNormalization Op.
+This operator has **optional** inputs/outputs. See [the doc](IR.md)
+for more details about the representation of optional arguments.
+An empty string may be used in the place of an actual argument's name to
+indicate a missing argument. Trailing optional arguments (those not followed
+by an argument that is present) may also be simply omitted.
+
+This operation is not part of the standard and was added to assist onnx-mlir.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>epsilon</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
+<tr><td><code>momentum</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `X` | memref of any type values or tensor of any type values |
+| `scale` | memref of any type values or tensor of any type values |
+| `B` | memref of any type values or tensor of any type values |
+| `mean` | memref of any type values or tensor of any type values |
+| `var` | memref of any type values or tensor of any type values |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `o_Y` | memref of any type values or tensor of any type values |
+
+
+
 ### `onnx.Bernoulli` (ONNXBernoulliOp)
 
 _ONNX Bernoulli operation_
@@ -763,6 +922,7 @@ Effects: `MemoryEffects::Effect{}`
 | `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 1-bit signless integer values |
 
 
+
 ### `onnx.Binarizer` (ONNXBinarizerOp)
 
 _ONNX Binarizer operation_
@@ -793,6 +953,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `Y` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 64-bit signless integer values or tensor of 32-bit signless integer values |
+
 
 
 ### `onnx.BitShift` (ONNXBitShiftOp)
@@ -839,6 +1000,7 @@ Effects: `MemoryEffects::Effect{}`
 | `Z` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values |
 
 
+
 ### `onnx.BitwiseAnd` (ONNXBitwiseAndOp)
 
 _ONNX BitwiseAnd operation_
@@ -868,6 +1030,7 @@ Effects: `MemoryEffects::Effect{}`
 | `C` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
 
 
+
 ### `onnx.BitwiseNot` (ONNXBitwiseNotOp)
 
 _ONNX BitwiseNot operation_
@@ -891,6 +1054,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
+
 
 
 ### `onnx.BitwiseOr` (ONNXBitwiseOrOp)
@@ -922,6 +1086,7 @@ Effects: `MemoryEffects::Effect{}`
 | `C` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
 
 
+
 ### `onnx.BitwiseXor` (ONNXBitwiseXorOp)
 
 _ONNX BitwiseXor operation_
@@ -949,6 +1114,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `C` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
+
 
 
 ### `onnx.BlackmanWindow` (ONNXBlackmanWindowOp)
@@ -983,76 +1149,6 @@ Effects: `MemoryEffects::Effect{}`
 | :----: | ----------- |
 | `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
 
-
-### `onnx.CastLike` (ONNXCastLikeOp)
-
-_ONNX CastLike operation_
-
-The operator casts the elements of a given input tensor (the first input) to
-the same data type as the elements of the second input tensor.
-See documentation of the Cast operator for further details.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ResultTypeInferenceOpInterface`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>saturate</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 1-bit signless integer values or tensor of string type values or tensor of bfloat16 type values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values |
-| `target_type` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 1-bit signless integer values or tensor of string type values or tensor of bfloat16 type values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 1-bit signless integer values or tensor of string type values or tensor of bfloat16 type values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values |
-
-
-### `onnx.CastMap` (ONNXCastMapOp)
-
-_ONNX CastMap operation_
-
-Converts a map to a tensor.<br>The map key must be an int64 and the values will be ordered
-    in ascending order based on this key.<br>The operator supports dense packing or sparse packing.
-    If using sparse packing, the key cannot exceed the max_map-1 value.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>cast_to</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
-<tr><td><code>map_form</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
-<tr><td><code>max_map</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `X` | tuple with any combination of 64-bit signless integer or string type values or tuple with any combination of 64-bit signless integer or 32-bit float values |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `Y` | tensor of string type values or tensor of 32-bit float values or tensor of 64-bit signless integer values |
 
 
 ### `onnx.Cast` (ONNXCastOp)
@@ -1101,28 +1197,31 @@ deep models. By default the conversion of a float *x* obeys
 to the following rules. `[x]` means the value rounded to
 the target mantissa width.
 
-| x | E4M3FN | E4M3FNUZ | E5M2 | E5M2FNUZ |
-|------|----|----|----|----|
-| 0 | 0 | 0 | 0 | 0 |
-|-0 | -0 | 0 | -0 | 0 |
-| NaN | NaN | NaN | NaN | NaN |
-| +/- Inf | +/- FLT_MAX | NaN | FLT_MAX | NaN |
-| [x] > FLT_MAX | FLT_MAX | FLT_MAX | FLT_MAX | FLT_MAX |
-| [x] < -FLT_MAX | -FLT_MAX | -FLT_MAX | -FLT_MAX | -FLT_MAX |
-| else | RNE | RNE | RNE | RNE |
+| x                 | E4M3FN   | E4M3FNUZ | E5M2     | E5M2FNUZ |
+| ----------------- | -------- | -------- | -------- | -------- |
+| 0                 | 0        | 0        | 0        | 0        |
+| -0                | -0       | 0        | -0       | 0        |
+| NaN               | NaN      | NaN      | NaN      | NaN      |
+| Inf               | FLT_MAX  | NaN      | FLT_MAX  | NaN      |
+| -Inf              | -FLT_MAX | NaN      | -FLT_MAX | NaN      |
+| \[x\] > FLT_MAX   | FLT_MAX  | FLT_MAX  | FLT_MAX  | FLT_MAX  |
+| \[x\] \< -FLT_MAX | -FLT_MAX | -FLT_MAX | -FLT_MAX | -FLT_MAX |
+| else              | RNE      | RNE      | RNE      | RNE      |
 
 The behavior changes if the parameter 'saturate' is set to False.
 The rules then become:
 
-| x | E4M3FN | E4M3FNUZ | E5M2 | E5M2FNUZ |
-|------|----|----|----|----|
-| 0 | 0 | 0 | 0 | 0 |
-|-0 | -0 | 0 | -0 | 0 |
-| NaN | NaN | NaN | NaN | NaN |
-| +/- Inf | NaN | NaN | +/- Inf | NaN |
-| [x] > FLT_MAX | NaN | NaN | Inf | NaN |
-| [x] < -FLT_MAX | NaN | NaN | -Inf | NaN |
-| else | RNE | RNE | RNE | RNE |
+| x                 | E4M3FN | E4M3FNUZ | E5M2 | E5M2FNUZ |
+| ----------------- | ------ | -------- | ---- | -------- |
+| 0                 | 0      | 0        | 0    | 0        |
+| -0                | -0     | 0        | -0   | 0        |
+| NaN               | NaN    | NaN      | NaN  | NaN      |
+| -NaN              | -NaN   | NaN      | -NaN | NaN      |
+| Inf               | NaN    | NaN      | Inf  | NaN      |
+| -Inf              | -NaN   | NaN      | -Inf | NaN      |
+| \[x\] > FLT_MAX   | NaN    | NaN      | Inf  | NaN      |
+| \[x\] \< -FLT_MAX | NaN    | NaN      | -Inf | NaN      |
+| else              | RNE    | RNE      | RNE  | RNE      |
 
 Traits: `AlwaysSpeculatableImplTrait`
 
@@ -1149,6 +1248,80 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 1-bit signless integer values or tensor of string type values or tensor of bfloat16 type values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values |
+
+
+
+### `onnx.CastLike` (ONNXCastLikeOp)
+
+_ONNX CastLike operation_
+
+The operator casts the elements of a given input tensor (the first input) to
+the same data type as the elements of the second input tensor.
+See documentation of the Cast operator for further details.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ResultTypeInferenceOpInterface`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>saturate</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 1-bit signless integer values or tensor of string type values or tensor of bfloat16 type values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values |
+| `target_type` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 1-bit signless integer values or tensor of string type values or tensor of bfloat16 type values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 1-bit signless integer values or tensor of string type values or tensor of bfloat16 type values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values |
+
+
+
+### `onnx.CastMap` (ONNXCastMapOp)
+
+_ONNX CastMap operation_
+
+Converts a map to a tensor.<br>The map key must be an int64 and the values will be ordered
+    in ascending order based on this key.<br>The operator supports dense packing or sparse packing.
+    If using sparse packing, the key cannot exceed the max_map-1 value.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>cast_to</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+<tr><td><code>map_form</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+<tr><td><code>max_map</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `X` | tuple with any combination of 64-bit signless integer or string type values or tuple with any combination of 64-bit signless integer or 32-bit float values |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `Y` | tensor of string type values or tensor of 32-bit float values or tensor of 64-bit signless integer values |
+
 
 
 ### `onnx.CategoryMapper` (ONNXCategoryMapperOp)
@@ -1193,6 +1366,7 @@ Effects: `MemoryEffects::Effect{}`
 | `Y` | tensor of string type values or tensor of 64-bit signless integer values |
 
 
+
 ### `onnx.Ceil` (ONNXCeilOp)
 
 _ONNX Ceil operation_
@@ -1218,6 +1392,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
 
 
 ### `onnx.Celu` (ONNXCeluOp)
@@ -1258,18 +1433,25 @@ Effects: `MemoryEffects::Effect{}`
 | `Y` | tensor of 32-bit float values |
 
 
+
 ### `onnx.CenterCropPad` (ONNXCenterCropPadOp)
 
 _ONNX CenterCropPad operation_
 
 Center crop or pad an input to given dimensions.
 
-The crop/pad dimensions can be specified for a subset of the `axes`. Non-specified dimensions will not be
-cropped or padded.
+The crop/pad dimensions can be specified for a subset of the `axes`; unspecified dimensions will remain unchanged.
 
-If the input dimensions are bigger than the crop shape, a centered cropping window is extracted from the input.
-If the input dimensions are smaller than the crop shape, the input is padded on each side equally,
-so that the input is centered in the output.
+If the input dimensions are larger than the target crop dimensions, a centered cropping window will be extracted
+from the input. The starting value for the cropping window is rounded down, which means that if the difference
+between the input shape and the crop shape is odd, the cropping window will be shifted half a pixel to the left
+of the input center.
+
+If the input dimensions are smaller than the target crop dimensions, the input will be padded equally on both sides
+to center it in the output. In cases where the total number of padding pixels is odd, an additional pixel will be
+added to the right side.
+
+The padding value used is zero.
 
 Traits: `AlwaysSpeculatableImplTrait`
 
@@ -1298,6 +1480,7 @@ Effects: `MemoryEffects::Effect{}`
 | `output_data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
 
 
+
 ### `onnx.Clip` (ONNXClipOp)
 
 _ONNX Clip operation_
@@ -1305,6 +1488,8 @@ _ONNX Clip operation_
 Clip operator limits the given input within an interval. The interval is
 specified by the inputs 'min' and 'max'. They default to
 numeric_limits::lowest() and numeric_limits::max(), respectively.
+When 'min' is greater than 'max', the clip operator sets all the 'input' values to
+the value of 'max'. Thus, this is equivalent to 'Min(max, Max(input, min))'.
 
 Traits: `AlwaysSpeculatableImplTrait`
 
@@ -1325,6 +1510,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
 
 
 ### `onnx.ClipV11` (ONNXClipV11Op)
@@ -1356,6 +1542,7 @@ Effects: `MemoryEffects::Effect{}`
 | `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
 
 
+
 ### `onnx.ClipV12` (ONNXClipV12Op)
 
 _ONNX Clip operation_
@@ -1383,6 +1570,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
 
 
 ### `onnx.ClipV6` (ONNXClipV6Op)
@@ -1418,6 +1606,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
 
 
 ### `onnx.Col2Im` (ONNXCol2ImOp)
@@ -1465,6 +1654,7 @@ Effects: `MemoryEffects::Effect{}`
 | `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
 
 
+
 ### `onnx.Compress` (ONNXCompressOp)
 
 _ONNX Compress operation_
@@ -1499,6 +1689,40 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+
+
+
+### `onnx.Concat` (ONNXConcatOp)
+
+_ONNX Concat operation_
+
+Concatenate a list of tensors into a single tensor. All input tensors must have the same shape, except for the dimension size of the axis to concatenate on.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>axis</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `inputs` | variadic of tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `concat_result` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+
 
 
 ### `onnx.ConcatFromSequence` (ONNXConcatFromSequenceOp)
@@ -1536,37 +1760,6 @@ Effects: `MemoryEffects::Effect{}`
 | :----: | ----------- |
 | `concat_result` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
 
-
-### `onnx.Concat` (ONNXConcatOp)
-
-_ONNX Concat operation_
-
-Concatenate a list of tensors into a single tensor. All input tensors must have the same shape, except for the dimension size of the axis to concatenate on.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>axis</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `inputs` | variadic of tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `concat_result` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
 
 
 ### `onnx.ConcatShapeTranspose` (ONNXConcatShapeTransposeOp)
@@ -1610,37 +1803,6 @@ Effects: `MemoryEffects::Effect{}`
 | `transposed` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
 
 
-### `onnx.ConstantOfShape` (ONNXConstantOfShapeOp)
-
-_ONNX ConstantOfShape operation_
-
-Generate a tensor with given value and shape.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ResultTypeInferenceOpInterface`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>value</code></td><td>::mlir::Attribute</td><td>any attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `input` | tensor of 64-bit signless integer values |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 1-bit signless integer values or tensor of bfloat16 type values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values |
-
 
 ### `onnx.Constant` (ONNXConstantOp)
 
@@ -1674,6 +1836,81 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values |
+
+
+
+### `onnx.ConstantOfShape` (ONNXConstantOfShapeOp)
+
+_ONNX ConstantOfShape operation_
+
+Generate a tensor with given value and shape.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ResultTypeInferenceOpInterface`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>value</code></td><td>::mlir::Attribute</td><td>any attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `input` | tensor of 64-bit signless integer values |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 1-bit signless integer values or tensor of bfloat16 type values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values |
+
+
+
+### `onnx.Conv` (ONNXConvOp)
+
+_ONNX Conv operation_
+
+The convolution operator consumes an input tensor and a filter, and
+computes the output.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>auto_pad</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+<tr><td><code>dilations</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+<tr><td><code>group</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>kernel_shape</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+<tr><td><code>pads</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+<tr><td><code>strides</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `W` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `B` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
 
 
 ### `onnx.ConvInteger` (ONNXConvIntegerOp)
@@ -1716,45 +1953,6 @@ Effects: `MemoryEffects::Effect{}`
 | :----: | ----------- |
 | `y` | tensor of 32-bit signless integer values |
 
-
-### `onnx.Conv` (ONNXConvOp)
-
-_ONNX Conv operation_
-
-The convolution operator consumes an input tensor and a filter, and
-computes the output.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>auto_pad</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
-<tr><td><code>dilations</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
-<tr><td><code>group</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-<tr><td><code>kernel_shape</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
-<tr><td><code>pads</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
-<tr><td><code>strides</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `W` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `B` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
 
 
 ### `onnx.ConvTranspose` (ONNXConvTransposeOp)
@@ -1811,6 +2009,7 @@ Effects: `MemoryEffects::Effect{}`
 | `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
 
 
+
 ### `onnx.Cos` (ONNXCosOp)
 
 _ONNX Cos operation_
@@ -1836,6 +2035,7 @@ Effects: `MemoryEffects::Effect{}`
 | `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
 
 
+
 ### `onnx.Cosh` (ONNXCoshOp)
 
 _ONNX Cosh operation_
@@ -1859,6 +2059,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
 
 
 ### `onnx.CumSum` (ONNXCumSumOp)
@@ -1912,6 +2113,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `y` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
 
 
 ### `onnx.Custom` (ONNXCustomOp)
@@ -1999,91 +2201,6 @@ Effects: `MemoryEffects::Effect{}`
 | `outputs` | variadic of tensor of any type values or memref of any type values or none type |
 
 
-### `onnx.DFT` (ONNXDFTOp)
-
-_ONNX DFT operation_
-
-Computes the discrete Fourier Transform (DFT) of the input.
-
-Assuming the input has shape `[M, N]`, where `N` is the dimension over which the
-DFT is computed and `M` denotes the conceptual \"all other dimensions,\"
-the DFT `y[m, k]` of shape `[M, N]` is defined as
-
-$$y[m, k] = \sum_{n=0}^{N-1} e^{-2 \pi j \frac{k n}{N} } x[m, n] ,$$
-
-and the inverse transform is defined as
-
-$$x[m, n] = \frac{1}{N} \sum_{k=0}^{N-1} e^{2 \pi j \frac{k n}{N} } y[m, k] ,$$
-
-where $j$ is the imaginary unit.
-
-The actual shape of the output is specified in the \"output\" section.
-
-Reference: https://docs.scipy.org/doc/scipy/tutorial/fft.html
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>inverse</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-<tr><td><code>onesided</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `input` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `dft_length` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or none type |
-| `axis` | tensor of 64-bit signless integer values or none type |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-
-
-### `onnx.DFTV17` (ONNXDFTV17Op)
-
-_ONNX DFT operation_
-
-Computes the discrete Fourier transform of input.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>axis</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-<tr><td><code>inverse</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-<tr><td><code>onesided</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `dft_length` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or none type |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-
 
 ### `onnx.DeformConv` (ONNXDeformConvOp)
 
@@ -2125,6 +2242,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
 
 
 ### `onnx.DepthToSpace` (ONNXDepthToSpaceOp)
@@ -2182,6 +2300,7 @@ Effects: `MemoryEffects::Effect{}`
 | `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
 
 
+
 ### `onnx.DequantizeLinear` (ONNXDequantizeLinearOp)
 
 _ONNX DequantizeLinear operation_
@@ -2222,6 +2341,7 @@ Effects: `MemoryEffects::Effect{}`
 | `y` | tensor of 32-bit float values or tensor of 16-bit float values or tensor of bfloat16 type values |
 
 
+
 ### `onnx.Det` (ONNXDetOp)
 
 _ONNX Det operation_
@@ -2249,6 +2369,95 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
+
+
+### `onnx.DFT` (ONNXDFTOp)
+
+_ONNX DFT operation_
+
+Computes the discrete Fourier Transform (DFT) of the input.
+
+Assuming the input has shape `[M, N]`, where `N` is the dimension over which the
+DFT is computed and `M` denotes the conceptual \"all other dimensions,\"
+the DFT `y[m, k]` of shape `[M, N]` is defined as
+
+$$y[m, k] = \sum_{n=0}^{N-1} e^{-2 \pi j \frac{k n}{N} } x[m, n] ,$$
+
+and the inverse transform is defined as
+
+$$x[m, n] = \frac{1}{N} \sum_{k=0}^{N-1} e^{2 \pi j \frac{k n}{N} } y[m, k] ,$$
+
+where $j$ is the imaginary unit.
+
+The actual shape of the output is specified in the \"output\" section.
+
+Reference: https://docs.scipy.org/doc/scipy/tutorial/fft.html
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>inverse</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>onesided</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `input` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `dft_length` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or none type |
+| `axis` | tensor of 64-bit signless integer values or none type |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
+
+
+### `onnx.DFTV17` (ONNXDFTV17Op)
+
+_ONNX DFT operation_
+
+Computes the discrete Fourier transform of input.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>axis</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>inverse</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>onesided</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `dft_length` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or none type |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
 
 
 ### `onnx.DictVectorizer` (ONNXDictVectorizerOp)
@@ -2295,42 +2504,6 @@ Effects: `MemoryEffects::Effect{}`
 | `Y` | tensor of 64-bit signless integer values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values |
 
 
-### `onnx.DimGroup` (ONNXDimGroupOp)
-
-_ONNX dimension group operation._
-
-This operation is to link a compile-time unknown dimension of a Tensor
-to a group id. Two dimensions that have the same group id are expected
-to be equal at runtime.
-
-```
-"onnx.DimGroup"(%tensor) {axis = 0 : si64, group_id = 1: si64} : (tensor<?x3x5xf32>) -> ()
-```
-
-`axis` identifies the dimension position in the tensor.
-
-`group_id` identifies the group id of the dimension. It is non-negative.
-Value -1 for `group_id` means the dimension does not belong to any group.
-
-This operation is currently used in the pass `--onnx-dim-analysis`
-for testing the unknown dimension analysis class.
-
-This operation is not part of the standard and was added to assist onnx-mlir.
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>axis</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-<tr><td><code>group_id</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-
 
 ### `onnx.Dim` (ONNXDimOp)
 
@@ -2372,6 +2545,51 @@ Effects: `MemoryEffects::Effect{}`
 | `dim` | tensor of 64-bit signless integer values |
 
 
+
+### `onnx.DimGroup` (ONNXDimGroupOp)
+
+_ONNX dimension group operation._
+
+This operation is to link a compile-time unknown dimension of a Tensor
+to a group id. Two dimensions that have the same group id are expected
+to be equal at runtime.
+
+```
+"onnx.DimGroup"(%tensor) {axis = 0 : si64, group_id = 1: si64} : (tensor<?x3x5xf32>) -> ()
+```
+
+`axis` identifies the dimension position in the tensor.
+
+`group_id` identifies the group id of the dimension. It is non-negative.
+Value -1 for `group_id` means the dimension does not belong to any group.
+
+`group_name` is the symbolic name of the group when it is known, either
+from the `onnx.dim_params` attribute of a function argument/result or
+synthesized from a function argument, e.g. `X_0` or `arg0_0`. It is absent
+when the group has no known name.
+
+This operation is currently used in the pass `--onnx-dim-analysis`
+for testing the unknown dimension analysis class.
+
+This operation is not part of the standard and was added to assist onnx-mlir.
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>axis</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>group_id</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>group_name</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+
+
+
 ### `onnx.Div` (ONNXDivOp)
 
 _ONNX Div operation_
@@ -2380,6 +2598,7 @@ Performs element-wise binary division (with Numpy-style broadcasting support).
 
 This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md).
 
+For integer inputs, the result is computed using truncating division (rounding toward zero).
 (Opset 14 change): Extend supported types to include uint8, int8, uint16, and int16.
 
 Traits: `AlwaysSpeculatableImplTrait`
@@ -2400,6 +2619,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `C` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
 
 
 ### `onnx.Dropout` (ONNXDropoutOp)
@@ -2448,6 +2668,7 @@ Effects: `MemoryEffects::Effect{}`
 | `mask` | tensor of 1-bit signless integer values or none type |
 
 
+
 ### `onnx.DynamicQuantizeLinear` (ONNXDynamicQuantizeLinearOp)
 
 _ONNX DynamicQuantizeLinear operation_
@@ -2465,7 +2686,7 @@ y_scale = (maximum(0, max(x)) - minimum(0, min(x))) / (qmax - qmin)
 Zero point is calculated as:
 ```
 intermediate_zero_point = qmin - min(x)/y_scale
-y_zero_point = cast(round(saturate(itermediate_zero_point)))
+y_zero_point = cast(round(saturate(intermediate_zero_point)))
 ```
 
 * where qmax and qmin are max and min values for quantization range .i.e [0, 255] in case of uint8
@@ -2501,6 +2722,7 @@ Effects: `MemoryEffects::Effect{}`
 | `y_zero_point` | tensor of 8-bit unsigned integer values |
 
 
+
 ### `onnx.Einsum` (ONNXEinsumOp)
 
 _ONNX Einsum operation_
@@ -2515,14 +2737,17 @@ where the reduce-sum performs a summation over all the indices occurring in the 
 that do not occur in the output-term.
 
 The Einsum operator evaluates algebraic tensor operations on a sequence of tensors, using the Einstein summation
-convention. The equation string contains a comma-separated sequence of lower case letters. Each term corresponds to
-an operand tensor, and the characters within the terms correspond to operands dimensions.
+convention. The equation string contains a comma-separated sequence of lower case letters and/or upper case letters.
+Each term corresponds to an operand tensor, and the characters within the terms correspond to operands dimensions.
+Lower case letters and upper case letters are treated as distinct symbols, that is, \"a\" and \"A\" refer to different
+symbols.
 
 This sequence may be followed by \"->\" to separate the left and right hand side of the equation.
 If the equation contains \"->\" followed by the right-hand side, the explicit (not classical) form of the Einstein
 summation is performed, and the right-hand side indices indicate output tensor dimensions. In other cases,
-output indices are (implicitly) set to the alphabetically sorted sequence of indices appearing exactly once in the
-equation.
+output indices are (implicitly) set to the sequence of indices appearing exactly once in the equation, sorted in
+increasing order of their ASCII values (so that all upper case letters precede all lower case letters, e.g.,
+\"A\" < \"Z\" < \"a\" < \"z\").
 
 When a dimension character is repeated in the left-hand side, it represents summation along the dimension.
 
@@ -2555,6 +2780,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `Output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
 
 
 ### `onnx.Elu` (ONNXEluOp)
@@ -2592,6 +2818,7 @@ Effects: `MemoryEffects::Effect{}`
 | `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
 
 
+
 ### `onnx.EntryPoint` (ONNXEntryPointOp)
 
 _Indicate ONNX entry point_
@@ -2606,6 +2833,7 @@ This operation is not part of the standard and was added to assist onnx-mlir.
 <tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
 <tr><td><code>func</code></td><td>::mlir::SymbolRefAttr</td><td>symbol reference attribute</td></tr>
 </table>
+
 
 
 ### `onnx.Equal` (ONNXEqualOp)
@@ -2637,6 +2865,7 @@ Effects: `MemoryEffects::Effect{}`
 | `C` | tensor of 1-bit signless integer values |
 
 
+
 ### `onnx.Erf` (ONNXErfOp)
 
 _ONNX Erf operation_
@@ -2653,13 +2882,14 @@ Effects: `MemoryEffects::Effect{}`
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `input` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
 
 
 ### `onnx.Exp` (ONNXExpOp)
@@ -2685,6 +2915,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
 
 
 ### `onnx.Expand` (ONNXExpandOp)
@@ -2718,6 +2949,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+
 
 
 ### `onnx.EyeLike` (ONNXEyeLikeOp)
@@ -2759,6 +2991,7 @@ Effects: `MemoryEffects::Effect{}`
 | `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 1-bit signless integer values |
 
 
+
 ### `onnx.FeatureVectorizer` (ONNXFeatureVectorizerOp)
 
 _ONNX FeatureVectorizer operation_
@@ -2792,6 +3025,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `Y` | tensor of 32-bit float values |
+
 
 
 ### `onnx.Flatten` (ONNXFlattenOp)
@@ -2828,6 +3062,7 @@ Effects: `MemoryEffects::Effect{}`
 | `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values |
 
 
+
 ### `onnx.Floor` (ONNXFloorOp)
 
 _ONNX Floor operation_
@@ -2855,57 +3090,121 @@ Effects: `MemoryEffects::Effect{}`
 | `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
 
 
-### `onnx.GRU` (ONNXGRUOp)
 
-_ONNX GRU operation_
+### `onnx.Fused` (ONNXFusedOp)
 
-Computes an one-layer GRU. This operator is usually supported via some custom
-implementation such as CuDNN.
+_Fused ONNX operation container_
 
-Notations:
+A container for a sequence of ONNX operations to be lowered jointly in one
+custom code-generation step.  The `kind` attribute identifies the specific
+fusion pattern so the lowering pass can dispatch to the right generator.
 
-* `X` - input tensor
-* `z` - update gate
-* `r` - reset gate
-* `h` - hidden gate
-* `t` - time step (t-1 means previous time step)
-* `W[zrh]` - W parameter weight matrix for update, reset, and hidden gates
-* `R[zrh]` - R recurrence weight matrix for update, reset, and hidden gates
-* `Wb[zrh]` - W bias vectors for update, reset, and hidden gates
-* `Rb[zrh]` - R bias vectors for update, reset, and hidden gates
-* `WB[zrh]` - W parameter weight matrix for backward update, reset, and hidden gates
-* `RB[zrh]` - R recurrence weight matrix for backward update, reset, and hidden gates
-* `WBb[zrh]` - W bias vectors for backward update, reset, and hidden gates
-* `RBb[zrh]` - R bias vectors for backward update, reset, and hidden gates
-* `H` - Hidden state
-* `num_directions` - 2 if direction == bidirectional else 1
+The body region is IsolatedFromAbove: all external tensor values must be
+listed as `inputs` and are available inside as block arguments in the same
+order.  Optional (NoneType) values are NOT threaded through `inputs`;
+instead an ONNXNoneOp is created inside the body for each None operand.
 
-Activation functions:
+Shape inference delegates to the contained operations: the greedy rewriter
+visits every inner op and infers its output types; the YieldOp terminator
+then drives re-inference of the FusedOp's own result types.
 
-* Relu(x)                - max(0, x)
-* Tanh(x)                - (1 - e^{-2x})/(1 + e^{-2x})
-* Sigmoid(x)             - 1/(1 + e^{-x})
+This operation is not part of the ONNX standard and was added to assist
+onnx-mlir.
 
-NOTE:
-  Below are optional
+Traits: `AlwaysSpeculatableImplTrait`, `IsolatedFromAbove`
 
-* Affine(x)              - alpha * x + beta
-* LeakyRelu(x)           - x if x >= 0 else alpha * x
-* ThresholdedRelu(x)     - x if x >= alpha else 0
-* ScaledTanh(x)          - alpha * Tanh(beta * x)
-* HardSigmoid(x)         - min(max(alpha * x + beta, 0), 1)
-* Elu(x)                 - x if x >= 0 else alpha * (e^x - 1)
-* Softsign(x)            - x/(1 + |x|)
-* Softplus(x)            - log(1 + e^x)
+Interfaces: `ConditionallySpeculatable`, `HasOnnxSubgraphOpInterface`, `NoMemoryEffect (MemoryEffectOpInterface)`, `RegionKindInterface`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
-Equations (Default: f=Sigmoid, g=Tanh):
+Effects: `MemoryEffects::Effect{}`
 
-* zt = f(Xt*(Wz^T) + Ht-1*(Rz^T) + Wbz + Rbz)
-* rt = f(Xt*(Wr^T) + Ht-1*(Rr^T) + Wbr + Rbr)
-* ht = g(Xt*(Wh^T) + (rt (.) Ht-1)*(Rh^T) + Rbh + Wbh) # default, when linear_before_reset = 0
-* ht = g(Xt*(Wh^T) + (rt (.) (Ht-1*(Rh^T) + Rbh)) + Wbh) # when linear_before_reset != 0
-* Ht = (1 - zt) (.) ht + zt (.) Ht-1
-This operator has **optional** inputs/outputs. See [the doc](IR.md) for more details about the representation of optional arguments. An empty string may be used in the place of an actual argument's name to indicate a missing argument. Trailing optional arguments (those not followed by an argument that is present) may also be simply omitted.
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>kind</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `inputs` | variadic of any type |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `outputs` | variadic of any type |
+
+
+
+### `onnx.Gather` (ONNXGatherOp)
+
+_ONNX Gather operation_
+
+Given `data` tensor of rank r >= 1, and `indices` tensor of rank q, gather
+entries of the axis dimension of `data` (by default outer-most one as axis=0) indexed by `indices`, and concatenates
+them in an output tensor of rank q + (r - 1).
+
+It is an indexing operation that indexes into the input `data` along a single (specified) axis.
+Each entry in `indices` produces a `r-1` dimensional slice of the input tensor.
+The entire operation produces, conceptually, a `q`-dimensional tensor of `r-1` dimensional slices,
+which is arranged into a `q + (r-1)`-dimensional tensor, with the `q` dimensions taking the
+place of the original `axis` that is being indexed into.
+
+The following few examples illustrate how `Gather` works for specific shapes of `data`,
+`indices`, and given value of `axis`:
+| data shape | indices shape | axis | output shape | output equation |
+| --- | --- | --- | --- | --- |
+| (P, Q) | ( )  (a scalar)   | 0 | (Q)       | output[q] = data[indices, q] |
+| (P, Q, R) | ( )  (a scalar)   | 1 | (P, R)       | output[p, r] = data[p, indices, r] |
+| (P, Q) | (R, S) | 0 | (R, S, Q) | output[r, s, q] = data[ [indices[r, s], q] |
+| (P, Q) | (R, S) | 1 | (P, R, S) | output[p, r, s] = data[ p, indices[r, s]] |
+
+More generally, if `axis = 0`, let `k = indices[i_{0}, ..., i_{q-1\}\]`
+then `output[i_{0}, ..., i_{q-1}, j_{0}, ..., j_{r-2\}\] = input[k , j_{0}, ..., j_{r-2\}\]`:
+
+```
+data = [
+    [1.0, 1.2],
+    [2.3, 3.4],
+    [4.5, 5.7],
+]
+indices = [
+    [0, 1],
+    [1, 2],
+]
+output = [
+    [
+        [1.0, 1.2],
+        [2.3, 3.4],
+    ],
+    [
+        [2.3, 3.4],
+        [4.5, 5.7],
+    ],
+]
+```
+
+If `axis = 1`, let `k = indices[i_{0}, ..., i_{q-1\}\]`
+then `output[j_{0}, i_{0}, ..., i_{q-1}, j_{1}, ..., j_{r-2\}\] = input[j_{0}, k, j_{1}, ..., j_{r-2\}\]`:
+
+```
+data = [
+    [1.0, 1.2, 1.9],
+    [2.3, 3.4, 3.9],
+    [4.5, 5.7, 5.9],
+]
+indices = [
+    [0, 2],
+]
+axis = 1,
+output = [
+        [[1.0, 1.9]],
+        [[2.3, 3.9]],
+        [[4.5, 5.9]],
+]
+```
 
 Traits: `AlwaysSpeculatableImplTrait`
 
@@ -2917,33 +3216,22 @@ Effects: `MemoryEffects::Effect{}`
 
 <table>
 <tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>activation_alpha</code></td><td>::mlir::ArrayAttr</td><td>32-bit float array attribute</td></tr>
-<tr><td><code>activation_beta</code></td><td>::mlir::ArrayAttr</td><td>32-bit float array attribute</td></tr>
-<tr><td><code>activations</code></td><td>::mlir::ArrayAttr</td><td>string array attribute</td></tr>
-<tr><td><code>clip</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
-<tr><td><code>direction</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
-<tr><td><code>hidden_size</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-<tr><td><code>layout</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-<tr><td><code>linear_before_reset</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>axis</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
 </table>
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `W` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `R` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `B` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
-| `sequence_lens` | tensor of 32-bit signless integer values or none type |
-| `initial_h` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
+| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `indices` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
-| `Y_h` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
+| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+
 
 
 ### `onnx.GatherElements` (ONNXGatherElementsOp)
@@ -3027,6 +3315,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+
 
 
 ### `onnx.GatherND` (ONNXGatherNDOp)
@@ -3145,85 +3434,6 @@ Effects: `MemoryEffects::Effect{}`
 | `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
 
 
-### `onnx.Gather` (ONNXGatherOp)
-
-_ONNX Gather operation_
-
-Given `data` tensor of rank r >= 1, and `indices` tensor of rank q, gather
-entries of the axis dimension of `data` (by default outer-most one as axis=0) indexed by `indices`, and concatenates
-them in an output tensor of rank q + (r - 1).
-
-If `axis = 0`, let `k = indices[i_{0}, ..., i_{q-1\}\]`
-then `output[i_{0}, ..., i_{q-1}, j_{0}, ..., j_{r-2\}\] = input[k , j_{0}, ..., j_{r-2\}\]`:
-
-```
-data = [
-    [1.0, 1.2],
-    [2.3, 3.4],
-    [4.5, 5.7],
-]
-indices = [
-    [0, 1],
-    [1, 2],
-]
-output = [
-    [
-        [1.0, 1.2],
-        [2.3, 3.4],
-    ],
-    [
-        [2.3, 3.4],
-        [4.5, 5.7],
-    ],
-]
-```
-
-If `axis = 1`, let `k = indices[i_{0}, ..., i_{q-1\}\]`
-then `output[j_{0}, i_{0}, ..., i_{q-1}, j_{1}, ..., j_{r-2\}\] = input[j_{0}, k, j_{1}, ..., j_{r-2\}\]`:
-
-```
-data = [
-    [1.0, 1.2, 1.9],
-    [2.3, 3.4, 3.9],
-    [4.5, 5.7, 5.9],
-]
-indices = [
-    [0, 2],
-]
-axis = 1,
-output = [
-        [[1.0, 1.9]],
-        [[2.3, 3.9]],
-        [[4.5, 5.9]],
-]
-```
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>axis</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-| `indices` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-
 
 ### `onnx.Gelu` (ONNXGeluOp)
 
@@ -3261,6 +3471,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
 
 
 ### `onnx.Gemm` (ONNXGemmOp)
@@ -3311,6 +3522,7 @@ Effects: `MemoryEffects::Effect{}`
 | `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values |
 
 
+
 ### `onnx.GlobalAveragePool` (ONNXGlobalAveragePoolOp)
 
 _ONNX GlobalAveragePool operation_
@@ -3336,6 +3548,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
 
 
 ### `onnx.GlobalLpPool` (ONNXGlobalLpPoolOp)
@@ -3372,6 +3585,7 @@ Effects: `MemoryEffects::Effect{}`
 | `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
 
 
+
 ### `onnx.GlobalMaxPool` (ONNXGlobalMaxPoolOp)
 
 _ONNX GlobalMaxPool operation_
@@ -3397,6 +3611,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
 
 
 ### `onnx.Gradient` (ONNXGradientOp)
@@ -3555,6 +3770,7 @@ Effects: `MemoryEffects::Effect{}`
 | `Outputs` | variadic of tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
 
 
+
 ### `onnx.Greater` (ONNXGreaterOp)
 
 _ONNX Greater operation_
@@ -3584,6 +3800,7 @@ Effects: `MemoryEffects::Effect{}`
 | `C` | tensor of 1-bit signless integer values |
 
 
+
 ### `onnx.GreaterOrEqual` (ONNXGreaterOrEqualOp)
 
 _ONNX GreaterOrEqual operation_
@@ -3611,6 +3828,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `C` | tensor of 1-bit signless integer values |
+
 
 
 ### `onnx.GridSample` (ONNXGridSampleOp)
@@ -3665,6 +3883,7 @@ Effects: `MemoryEffects::Effect{}`
 | `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
 
 
+
 ### `onnx.GridSampleV16` (ONNXGridSampleV16Op)
 
 _ONNX GridSample operation_
@@ -3712,6 +3931,7 @@ Effects: `MemoryEffects::Effect{}`
 | `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
 
 
+
 ### `onnx.GroupNormalization` (ONNXGroupNormalizationOp)
 
 _ONNX GroupNormalization operation_
@@ -3724,7 +3944,7 @@ This operator transforms input according to
 y = scale * (x - mean) / sqrt(variance + epsilon) + bias,
 ```
 where the mean and variance are computed per instance per group of channels, and
-`scale` and `bias` should be specified for each group of channels. The number of
+`scale` and `bias` should be specified for each channel. The number of
 groups `num_groups` should be divisible by the number of channels so that there are
 an equal number of channels per group.
 
@@ -3768,6 +3988,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
 
 
 ### `onnx.GroupNormalizationV18` (ONNXGroupNormalizationV18Op)
@@ -3819,6 +4040,99 @@ Effects: `MemoryEffects::Effect{}`
 | `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
 
 
+
+### `onnx.GRU` (ONNXGRUOp)
+
+_ONNX GRU operation_
+
+Computes an one-layer GRU. This operator is usually supported via some custom
+implementation such as CuDNN.
+
+Notations:
+
+* `X` - input tensor
+* `z` - update gate
+* `r` - reset gate
+* `h` - hidden gate
+* `t` - time step (t-1 means previous time step)
+* `W[zrh]` - W parameter weight matrix for update, reset, and hidden gates
+* `R[zrh]` - R recurrence weight matrix for update, reset, and hidden gates
+* `Wb[zrh]` - W bias vectors for update, reset, and hidden gates
+* `Rb[zrh]` - R bias vectors for update, reset, and hidden gates
+* `WB[zrh]` - W parameter weight matrix for backward update, reset, and hidden gates
+* `RB[zrh]` - R recurrence weight matrix for backward update, reset, and hidden gates
+* `WBb[zrh]` - W bias vectors for backward update, reset, and hidden gates
+* `RBb[zrh]` - R bias vectors for backward update, reset, and hidden gates
+* `H` - Hidden state
+* `num_directions` - 2 if direction == bidirectional else 1
+
+Activation functions:
+
+* Relu(x)                - max(0, x)
+* Tanh(x)                - (1 - e^{-2x})/(1 + e^{-2x})
+* Sigmoid(x)             - 1/(1 + e^{-x})
+
+NOTE:
+  Below are optional
+
+* Affine(x)              - alpha * x + beta
+* LeakyRelu(x)           - x if x >= 0 else alpha * x
+* ThresholdedRelu(x)     - x if x >= alpha else 0
+* ScaledTanh(x)          - alpha * Tanh(beta * x)
+* HardSigmoid(x)         - min(max(alpha * x + beta, 0), 1)
+* Elu(x)                 - x if x >= 0 else alpha * (e^x - 1)
+* Softsign(x)            - x/(1 + |x|)
+* Softplus(x)            - log(1 + e^x)
+
+Equations (Default: f=Sigmoid, g=Tanh):
+
+* zt = f(Xt*(Wz^T) + Ht-1*(Rz^T) + Wbz + Rbz)
+* rt = f(Xt*(Wr^T) + Ht-1*(Rr^T) + Wbr + Rbr)
+* ht = g(Xt*(Wh^T) + (rt (.) Ht-1)*(Rh^T) + Rbh + Wbh) # default, when linear_before_reset = 0
+* ht = g(Xt*(Wh^T) + (rt (.) (Ht-1*(Rh^T) + Rbh)) + Wbh) # when linear_before_reset != 0
+* Ht = (1 - zt) (.) ht + zt (.) Ht-1
+This operator has **optional** inputs/outputs. See [the doc](IR.md) for more details about the representation of optional arguments. An empty string may be used in the place of an actual argument's name to indicate a missing argument. Trailing optional arguments (those not followed by an argument that is present) may also be simply omitted.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>activation_alpha</code></td><td>::mlir::ArrayAttr</td><td>32-bit float array attribute</td></tr>
+<tr><td><code>activation_beta</code></td><td>::mlir::ArrayAttr</td><td>32-bit float array attribute</td></tr>
+<tr><td><code>activations</code></td><td>::mlir::ArrayAttr</td><td>string array attribute</td></tr>
+<tr><td><code>clip</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
+<tr><td><code>direction</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+<tr><td><code>hidden_size</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>layout</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>linear_before_reset</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `W` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `R` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `B` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
+| `sequence_lens` | tensor of 32-bit signless integer values or none type |
+| `initial_h` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
+| `Y_h` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
+
+
+
 ### `onnx.HammingWindow` (ONNXHammingWindowOp)
 
 _ONNX HammingWindow operation_
@@ -3850,6 +4164,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
 
 
 ### `onnx.HannWindow` (ONNXHannWindowOp)
@@ -3884,67 +4199,6 @@ Effects: `MemoryEffects::Effect{}`
 | :----: | ----------- |
 | `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
 
-
-### `onnx.HardSigmoid` (ONNXHardSigmoidOp)
-
-_ONNX HardSigmoid operation_
-
-HardSigmoid takes one input data (Tensor<T>) and produces one output data
-(Tensor<T>) where the HardSigmoid function, y = max(0, min(1, alpha * x + beta)),
-is applied to the tensor elementwise.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>alpha</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
-<tr><td><code>beta</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-
-
-### `onnx.HardSwish` (ONNXHardSwishOp)
-
-_ONNX HardSwish operation_
-
-HardSwish takes one input data (Tensor<T>) and produces one output data (Tensor<T>) where
-the HardSwish function, y = x * max(0, min(1, alpha * x + beta)) = x * HardSigmoid<alpha, beta>(x),
-where alpha = 1/6 and beta = 0.5, is applied to the tensor elementwise.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
 
 
 ### `onnx.Hardmax` (ONNXHardmaxOp)
@@ -3985,6 +4239,71 @@ Effects: `MemoryEffects::Effect{}`
 | `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
 
 
+
+### `onnx.HardSigmoid` (ONNXHardSigmoidOp)
+
+_ONNX HardSigmoid operation_
+
+HardSigmoid takes one input data (Tensor<T>) and produces one output data
+(Tensor<T>) where the HardSigmoid function, y = max(0, min(1, alpha * x + beta)),
+is applied to the tensor elementwise.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>alpha</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
+<tr><td><code>beta</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
+
+
+### `onnx.HardSwish` (ONNXHardSwishOp)
+
+_ONNX HardSwish operation_
+
+HardSwish takes one input data (Tensor<T>) and produces one output data (Tensor<T>) where
+the HardSwish function, y = x * max(0, min(1, alpha * x + beta)) = x * HardSigmoid<alpha, beta>(x),
+where alpha = 1/6 and beta = 0.5, is applied to the tensor elementwise.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
+
+
 ### `onnx.Identity` (ONNXIdentityOp)
 
 _ONNX Identity operation_
@@ -4010,6 +4329,7 @@ Effects: `MemoryEffects::Effect{}`
 | `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values or SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values or OptType of SeqType of tensor of 8-bit unsigned integer values values values or OptType of SeqType of tensor of 16-bit unsigned integer values values values or OptType of SeqType of tensor of 32-bit unsigned integer values values values or OptType of SeqType of tensor of 64-bit unsigned integer values values values or OptType of SeqType of tensor of 8-bit signless integer values values values or OptType of SeqType of tensor of 16-bit signless integer values values values or OptType of SeqType of tensor of 32-bit signless integer values values values or OptType of SeqType of tensor of 64-bit signless integer values values values or OptType of SeqType of tensor of 16-bit float values values values or OptType of SeqType of tensor of 32-bit float values values values or OptType of SeqType of tensor of 64-bit float values values values or OptType of SeqType of tensor of string type values values values or OptType of SeqType of tensor of 1-bit signless integer values values values or OptType of SeqType of tensor of complex type with 32-bit float elements values values values or OptType of SeqType of tensor of complex type with 64-bit float elements values values values or OptType of tensor of 8-bit unsigned integer values values or OptType of tensor of 16-bit unsigned integer values values or OptType of tensor of 32-bit unsigned integer values values or OptType of tensor of 64-bit unsigned integer values values or OptType of tensor of 8-bit signless integer values values or OptType of tensor of 16-bit signless integer values values or OptType of tensor of 32-bit signless integer values values or OptType of tensor of 64-bit signless integer values values or OptType of tensor of 16-bit float values values or OptType of tensor of 32-bit float values values or OptType of tensor of 64-bit float values values or OptType of tensor of string type values values or OptType of tensor of 1-bit signless integer values values or OptType of tensor of complex type with 32-bit float elements values values or OptType of tensor of complex type with 64-bit float elements values values |
 
 
+
 ### `onnx.If` (ONNXIfOp)
 
 _ONNX If operation_
@@ -4033,6 +4353,77 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `outputs` | variadic of tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values or SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of bfloat16 type values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values or SeqType of tensor of f8E4M3FN type values values or SeqType of tensor of f8E4M3FNUZ type values values or SeqType of tensor of f8E5M2 type values values or SeqType of tensor of f8E5M2FNUZ type values values or SeqType of tensor of 4-bit unsigned integer values values or SeqType of tensor of 4-bit signless integer values values or OptType of SeqType of tensor of 8-bit unsigned integer values values values or OptType of SeqType of tensor of 16-bit unsigned integer values values values or OptType of SeqType of tensor of 32-bit unsigned integer values values values or OptType of SeqType of tensor of 64-bit unsigned integer values values values or OptType of SeqType of tensor of 8-bit signless integer values values values or OptType of SeqType of tensor of 16-bit signless integer values values values or OptType of SeqType of tensor of 32-bit signless integer values values values or OptType of SeqType of tensor of 64-bit signless integer values values values or OptType of SeqType of tensor of bfloat16 type values values values or OptType of SeqType of tensor of 16-bit float values values values or OptType of SeqType of tensor of 32-bit float values values values or OptType of SeqType of tensor of 64-bit float values values values or OptType of SeqType of tensor of string type values values values or OptType of SeqType of tensor of 1-bit signless integer values values values or OptType of SeqType of tensor of complex type with 32-bit float elements values values values or OptType of SeqType of tensor of complex type with 64-bit float elements values values values or OptType of tensor of 8-bit unsigned integer values values or OptType of tensor of 16-bit unsigned integer values values or OptType of tensor of 32-bit unsigned integer values values or OptType of tensor of 64-bit unsigned integer values values or OptType of tensor of 8-bit signless integer values values or OptType of tensor of 16-bit signless integer values values or OptType of tensor of 32-bit signless integer values values or OptType of tensor of 64-bit signless integer values values or OptType of tensor of bfloat16 type values values or OptType of tensor of 16-bit float values values or OptType of tensor of 32-bit float values values or OptType of tensor of 64-bit float values values or OptType of tensor of string type values values or OptType of tensor of 1-bit signless integer values values or OptType of tensor of complex type with 32-bit float elements values values or OptType of tensor of complex type with 64-bit float elements values values or OptType of tensor of f8E4M3FN type values values or OptType of tensor of f8E4M3FNUZ type values values or OptType of tensor of f8E5M2 type values values or OptType of tensor of f8E5M2FNUZ type values values or OptType of tensor of 4-bit unsigned integer values values or OptType of tensor of 4-bit signless integer values values |
+
+
+
+### `onnx.Im2Col` (ONNXIm2ColOp)
+
+_ONNX Im2Col operation for convolution via matrix multiplication_
+
+Transforms N-dimensional convolution input into column format to enable
+convolution via matrix multiplication.
+
+For input X: [N, CI, D1, D2, ..., DN]
+With kernel: [K1, K2, ..., KN]
+And output spatial dims: [O1, O2, ..., ON]
+
+Output shape: [N, CI * K1 * K2 * ... * KN, O1 * O2 * ... * ON]
+               ↑  ↑                             ↑
+             batch flattened receptive field    flattened output positions
+
+For each batch n and output position q, output[n, :, q] contains the
+flattened receptive field ordered as:
+[c0_k0...kN, c1_k0...kN, ..., cCI_k0...kN]
+where c is the channel index and k0...kN are kernel spatial indices.
+
+This layout matches the common lowering pattern where weights are reshaped
+to [CO, CI * K1 * ... * KN], Im2Col(X)[n] is viewed as
+[CI * K1 * ... * KN, O1 * ... * ON], and convolution is computed as a
+matrix multiplication for each batch.
+
+Parameters match ONNX Conv operation (excluding group):
+- auto_pad: Padding strategy (NOTSET, SAME_UPPER, SAME_LOWER, VALID).
+            Default is NOTSET.
+- dilations: Dilation values for each spatial dimension.
+             Default is 1 for each spatial dimension.
+- kernel_shape: Size of convolution kernel (required).
+- pads: Padding for each spatial dimension. Format is [x1_begin, x2_begin, ..., x1_end, x2_end, ...]
+        where n is the number of spatial dimensions. Total length is 2*n.
+        Default is 0 for all dimensions.
+- strides: Stride values for each spatial dimension.
+           Default is 1 for each spatial dimension.
+
+This operation is not part of the standard and was added to assist onnx-mlir.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>auto_pad</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+<tr><td><code>dilations</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+<tr><td><code>kernel_shape</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+<tr><td><code>pads</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+<tr><td><code>strides</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
 
 
 ### `onnx.Imputer` (ONNXImputerOp)
@@ -4077,6 +4468,7 @@ Effects: `MemoryEffects::Effect{}`
 | `Y` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 64-bit signless integer values or tensor of 32-bit signless integer values |
 
 
+
 ### `onnx.InstanceNormalization` (ONNXInstanceNormalizationOp)
 
 _ONNX InstanceNormalization operation_
@@ -4116,6 +4508,7 @@ Effects: `MemoryEffects::Effect{}`
 | `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
 
 
+
 ### `onnx.IsInf` (ONNXIsInfOp)
 
 _ONNX IsInf operation_
@@ -4149,6 +4542,7 @@ Effects: `MemoryEffects::Effect{}`
 | `Y` | tensor of 1-bit signless integer values |
 
 
+
 ### `onnx.IsNaN` (ONNXIsNaNOp)
 
 _ONNX IsNaN operation_
@@ -4173,146 +4567,6 @@ Effects: `MemoryEffects::Effect{}`
 | :----: | ----------- |
 | `Y` | tensor of 1-bit signless integer values |
 
-
-### `onnx.LRN` (ONNXLRNOp)
-
-_ONNX LRN operation_
-
-Local Response Normalization proposed in the [AlexNet paper](https://papers.nips.cc/paper/4824-imagenet-classification-with-deep-convolutional-neural-networks.pdf).
-It normalizes over local input regions.
-The local region is defined across the channels. For an element `X[n, c, d1, ..., dk]` in a tensor
-of shape `(N x C x D1 x D2, ..., Dk)`, its region is
-`{X[n, i, d1, ..., dk] | max(0, c - floor((size - 1) / 2)) <= i <= min(C - 1, c + ceil((size - 1) / 2))}`.
-
-`square_sum[n, c, d1, ..., dk] = sum(X[n, i, d1, ..., dk] ^ 2)`,
-where `max(0, c - floor((size - 1) / 2)) <= i <= min(C - 1, c + ceil((size - 1) / 2))`.
-
-`Y[n, c, d1, ..., dk] = X[n, c, d1, ..., dk] / (bias + alpha / size * square_sum[n, c, d1, ..., dk] ) ^ beta`
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>alpha</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
-<tr><td><code>beta</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
-<tr><td><code>bias</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
-<tr><td><code>size</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-
-
-### `onnx.LSTM` (ONNXLSTMOp)
-
-_ONNX LSTM operation_
-
-Computes an one-layer LSTM. This operator is usually supported via some
-custom implementation such as CuDNN.
-
-Notations:
-
-* `X` - input tensor
-* `i` - input gate
-* `o` - output gate
-* `f` - forget gate
-* `c` - cell gate
-* `t` - time step (t-1 means previous time step)
-* `W[iofc]` - W parameter weight matrix for input, output, forget, and cell gates
-* `R[iofc]` - R recurrence weight matrix for input, output, forget, and cell gates
-* `Wb[iofc]` - W bias vectors for input, output, forget, and cell gates
-* `Rb[iofc]` - R bias vectors for input, output, forget, and cell gates
-* `P[iof]`  - P peephole weight vector for input, output, and forget gates
-* `WB[iofc]` - W parameter weight matrix for backward input, output, forget, and cell gates
-* `RB[iofc]` - R recurrence weight matrix for backward input, output, forget, and cell gates
-* `WBb[iofc]` - W bias vectors for backward input, output, forget, and cell gates
-* `RBb[iofc]` - R bias vectors for backward input, output, forget, and cell gates
-* `PB[iof]`  - P peephole weight vector for backward input, output, and forget gates
-* `H` - Hidden state
-* `num_directions` - 2 if direction == bidirectional else 1
-
-Activation functions:
-
-* Relu(x)                - max(0, x)
-* Tanh(x)                - (1 - e^{-2x})/(1 + e^{-2x})
-* Sigmoid(x)             - 1/(1 + e^{-x})
-
-NOTE: Below are optional
-
-* Affine(x)              - alpha*x + beta
-* LeakyRelu(x)           - x if x >= 0 else alpha * x
-* ThresholdedRelu(x)     - x if x >= alpha else 0
-* ScaledTanh(x)          - alpha*Tanh(beta*x)
-* HardSigmoid(x)         - min(max(alpha*x + beta, 0), 1)
-* Elu(x)                 - x if x >= 0 else alpha*(e^x - 1)
-* Softsign(x)            - x/(1 + |x|)
-* Softplus(x)            - log(1 + e^x)
-
-Equations (Default: f=Sigmoid, g=Tanh, h=Tanh):
-
-* it = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Pi (.) Ct-1 + Wbi + Rbi)
-* ft = f(Xt*(Wf^T) + Ht-1*(Rf^T) + Pf (.) Ct-1 + Wbf + Rbf)
-* ct = g(Xt*(Wc^T) + Ht-1*(Rc^T) + Wbc + Rbc)
-* Ct = ft (.) Ct-1 + it (.) ct
-* ot = f(Xt*(Wo^T) + Ht-1*(Ro^T) + Po (.) Ct + Wbo + Rbo)
-* Ht = ot (.) h(Ct)
-This operator has **optional** inputs/outputs. See [the doc](IR.md) for more details about the representation of optional arguments. An empty string may be used in the place of an actual argument's name to indicate a missing argument. Trailing optional arguments (those not followed by an argument that is present) may also be simply omitted.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>activation_alpha</code></td><td>::mlir::ArrayAttr</td><td>32-bit float array attribute</td></tr>
-<tr><td><code>activation_beta</code></td><td>::mlir::ArrayAttr</td><td>32-bit float array attribute</td></tr>
-<tr><td><code>activations</code></td><td>::mlir::ArrayAttr</td><td>string array attribute</td></tr>
-<tr><td><code>clip</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
-<tr><td><code>direction</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
-<tr><td><code>hidden_size</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-<tr><td><code>input_forget</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-<tr><td><code>layout</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `W` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `R` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `B` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
-| `sequence_lens` | tensor of 32-bit signless integer values or none type |
-| `initial_h` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
-| `initial_c` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
-| `P` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
-| `Y_h` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
-| `Y_c` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
 
 
 ### `onnx.LabelEncoder` (ONNXLabelEncoderOp)
@@ -4369,6 +4623,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `Y` | tensor of string type values or tensor of 64-bit signless integer values or tensor of 32-bit float values |
+
 
 
 ### `onnx.LayerNormalization` (ONNXLayerNormalizationOp)
@@ -4449,6 +4704,7 @@ Effects: `MemoryEffects::Effect{}`
 | `InvStdDev` | tensor of 32-bit float values or tensor of bfloat16 type values or none type |
 
 
+
 ### `onnx.LayoutTransform` (ONNXLayoutTransformOp)
 
 _An operation that transforms data between different layout formats_
@@ -4493,6 +4749,7 @@ Effects: `MemoryEffects::Effect{}`
 | `output` | tensor of 16-bit float or 32-bit float values |
 
 
+
 ### `onnx.LeakyRelu` (ONNXLeakyReluOp)
 
 _ONNX LeakyRelu operation_
@@ -4527,6 +4784,7 @@ Effects: `MemoryEffects::Effect{}`
 | `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
 
 
+
 ### `onnx.Less` (ONNXLessOp)
 
 _ONNX Less operation_
@@ -4556,6 +4814,7 @@ Effects: `MemoryEffects::Effect{}`
 | `C` | tensor of 1-bit signless integer values |
 
 
+
 ### `onnx.LessOrEqual` (ONNXLessOrEqualOp)
 
 _ONNX LessOrEqual operation_
@@ -4583,6 +4842,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `C` | tensor of 1-bit signless integer values |
+
 
 
 ### `onnx.LinearClassifier` (ONNXLinearClassifierOp)
@@ -4621,6 +4881,7 @@ Effects: `MemoryEffects::Effect{}`
 | :----: | ----------- |
 | `Y` | tensor of string type values or tensor of 64-bit signless integer values |
 | `Z` | tensor of 32-bit float values |
+
 
 
 ### `onnx.LinearRegressor` (ONNXLinearRegressorOp)
@@ -4663,6 +4924,7 @@ Effects: `MemoryEffects::Effect{}`
 | `Y` | tensor of 32-bit float values |
 
 
+
 ### `onnx.Log` (ONNXLogOp)
 
 _ONNX Log operation_
@@ -4686,6 +4948,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
 
 
 ### `onnx.LogSoftmax` (ONNXLogSoftmaxOp)
@@ -4724,6 +4987,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
 
 
 ### `onnx.Loop` (ONNXLoopOp)
@@ -4843,7 +5107,7 @@ There are several things of note in this code snippet:
 1) Values from the enclosing scope (i.e. variable \"a\" here) are in scope and can
    be referenced in the inputs of the loop.
 2) Any values computed in the loop body that needs to be used in a subsequent
-   iteration or after the loop are modelled using a pair of variables in the loop-body,
+   iteration or after the loop are modeled using a pair of variables in the loop-body,
    consisting of an input variable (eg., b_in) and an output variable (eg., b_out).
    These are referred to as loop-carried dependences. The loop operation node
    supplies the input value of the input variable for the first iteration, and
@@ -4887,11 +5151,15 @@ Effects: `MemoryEffects::Effect{}`
 | `v_final_and_scan_outputs` | variadic of tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values or SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of bfloat16 type values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values or SeqType of tensor of f8E4M3FN type values values or SeqType of tensor of f8E4M3FNUZ type values values or SeqType of tensor of f8E5M2 type values values or SeqType of tensor of f8E5M2FNUZ type values values or SeqType of tensor of 4-bit unsigned integer values values or SeqType of tensor of 4-bit signless integer values values or OptType of SeqType of tensor of 8-bit unsigned integer values values values or OptType of SeqType of tensor of 16-bit unsigned integer values values values or OptType of SeqType of tensor of 32-bit unsigned integer values values values or OptType of SeqType of tensor of 64-bit unsigned integer values values values or OptType of SeqType of tensor of 8-bit signless integer values values values or OptType of SeqType of tensor of 16-bit signless integer values values values or OptType of SeqType of tensor of 32-bit signless integer values values values or OptType of SeqType of tensor of 64-bit signless integer values values values or OptType of SeqType of tensor of bfloat16 type values values values or OptType of SeqType of tensor of 16-bit float values values values or OptType of SeqType of tensor of 32-bit float values values values or OptType of SeqType of tensor of 64-bit float values values values or OptType of SeqType of tensor of string type values values values or OptType of SeqType of tensor of 1-bit signless integer values values values or OptType of SeqType of tensor of complex type with 32-bit float elements values values values or OptType of SeqType of tensor of complex type with 64-bit float elements values values values or OptType of tensor of 8-bit unsigned integer values values or OptType of tensor of 16-bit unsigned integer values values or OptType of tensor of 32-bit unsigned integer values values or OptType of tensor of 64-bit unsigned integer values values or OptType of tensor of 8-bit signless integer values values or OptType of tensor of 16-bit signless integer values values or OptType of tensor of 32-bit signless integer values values or OptType of tensor of 64-bit signless integer values values or OptType of tensor of bfloat16 type values values or OptType of tensor of 16-bit float values values or OptType of tensor of 32-bit float values values or OptType of tensor of 64-bit float values values or OptType of tensor of string type values values or OptType of tensor of 1-bit signless integer values values or OptType of tensor of complex type with 32-bit float elements values values or OptType of tensor of complex type with 64-bit float elements values values or OptType of tensor of f8E4M3FN type values values or OptType of tensor of f8E4M3FNUZ type values values or OptType of tensor of f8E5M2 type values values or OptType of tensor of f8E5M2FNUZ type values values or OptType of tensor of 4-bit unsigned integer values values or OptType of tensor of 4-bit signless integer values values |
 
 
+
 ### `onnx.LpNormalization` (ONNXLpNormalizationOp)
 
 _ONNX LpNormalization operation_
 
 Given a matrix, apply Lp-normalization along the provided axis.
+The output is computed as: `output = input / Lp_norm(input, axis)`.
+When the Lp norm is zero (i.e., all elements along the axis are zero),
+the output is defined to be zero to avoid division by zero.
 
 Traits: `AlwaysSpeculatableImplTrait`
 
@@ -4918,6 +5186,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
 
 
 ### `onnx.LpPool` (ONNXLpPoolOp)
@@ -4980,6 +5249,177 @@ Effects: `MemoryEffects::Effect{}`
 | `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
 
 
+
+### `onnx.LRN` (ONNXLRNOp)
+
+_ONNX LRN operation_
+
+Local Response Normalization proposed in the [AlexNet paper](https://papers.nips.cc/paper/4824-imagenet-classification-with-deep-convolutional-neural-networks.pdf).
+It normalizes over local input regions.
+The local region is defined across the channels. For an element `X[n, c, d1, ..., dk]` in a tensor
+of shape `(N x C x D1 x D2, ..., Dk)`, its region is
+`{X[n, i, d1, ..., dk] | max(0, c - floor((size - 1) / 2)) <= i <= min(C - 1, c + ceil((size - 1) / 2))}`.
+
+`square_sum[n, c, d1, ..., dk] = sum(X[n, i, d1, ..., dk] ^ 2)`,
+where `max(0, c - floor((size - 1) / 2)) <= i <= min(C - 1, c + ceil((size - 1) / 2))`.
+
+`Y[n, c, d1, ..., dk] = X[n, c, d1, ..., dk] / (bias + alpha / size * square_sum[n, c, d1, ..., dk] ) ^ beta`
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>alpha</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
+<tr><td><code>beta</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
+<tr><td><code>bias</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
+<tr><td><code>size</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
+
+
+### `onnx.LSTM` (ONNXLSTMOp)
+
+_ONNX LSTM operation_
+
+Computes an one-layer LSTM. This operator is usually supported via some
+custom implementation such as CuDNN.
+
+Notations:
+
+* `X` - input tensor
+* `i` - input gate
+* `o` - output gate
+* `f` - forget gate
+* `c` - cell gate
+* `t` - time step (t-1 means previous time step)
+* `W[iofc]` - W parameter weight matrix for input, output, forget, and cell gates
+* `R[iofc]` - R recurrence weight matrix for input, output, forget, and cell gates
+* `Wb[iofc]` - W bias vectors for input, output, forget, and cell gates
+* `Rb[iofc]` - R bias vectors for input, output, forget, and cell gates
+* `P[iof]`  - P peephole weight vector for input, output, and forget gates
+* `WB[iofc]` - W parameter weight matrix for backward input, output, forget, and cell gates
+* `RB[iofc]` - R recurrence weight matrix for backward input, output, forget, and cell gates
+* `WBb[iofc]` - W bias vectors for backward input, output, forget, and cell gates
+* `RBb[iofc]` - R bias vectors for backward input, output, forget, and cell gates
+* `PB[iof]`  - P peephole weight vector for backward input, output, and forget gates
+* `H` - Hidden state
+* `num_directions` - 2 if direction == bidirectional else 1
+
+Activation functions:
+
+* Relu(x)                - max(0, x)
+* Tanh(x)                - (1 - e^{-2x})/(1 + e^{-2x})
+* Sigmoid(x)             - 1/(1 + e^{-x})
+
+NOTE: Below are optional
+
+* Affine(x)              - alpha*x + beta
+* LeakyRelu(x)           - x if x >= 0 else alpha * x
+* ThresholdedRelu(x)     - x if x >= alpha else 0
+* ScaledTanh(x)          - alpha*Tanh(beta*x)
+* HardSigmoid(x)         - min(max(alpha*x + beta, 0), 1)
+* Elu(x)                 - x if x >= 0 else alpha*(e^x - 1)
+* Softsign(x)            - x/(1 + |x|)
+* Softplus(x)            - log(1 + e^x)
+
+Equations (Default: f=Sigmoid, g=Tanh, h=Tanh):
+
+* it = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Pi (.) Ct-1 + Wbi + Rbi)
+* ft = f(Xt*(Wf^T) + Ht-1*(Rf^T) + Pf (.) Ct-1 + Wbf + Rbf)
+* ct = g(Xt*(Wc^T) + Ht-1*(Rc^T) + Wbc + Rbc)
+* Ct = ft (.) Ct-1 + it (.) ct
+* ot = f(Xt*(Wo^T) + Ht-1*(Ro^T) + Po (.) Ct + Wbo + Rbo)
+* Ht = ot (.) h(Ct)
+This operator has **optional** inputs/outputs. See [the doc](IR.md) for more details about the representation of optional arguments. An empty string may be used in the place of an actual argument's name to indicate a missing argument. Trailing optional arguments (those not followed by an argument that is present) may also be simply omitted.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>activation_alpha</code></td><td>::mlir::ArrayAttr</td><td>32-bit float array attribute</td></tr>
+<tr><td><code>activation_beta</code></td><td>::mlir::ArrayAttr</td><td>32-bit float array attribute</td></tr>
+<tr><td><code>activations</code></td><td>::mlir::ArrayAttr</td><td>string array attribute</td></tr>
+<tr><td><code>clip</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
+<tr><td><code>direction</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+<tr><td><code>hidden_size</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>input_forget</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>layout</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `W` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `R` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `B` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
+| `sequence_lens` | tensor of 32-bit signless integer values or none type |
+| `initial_h` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
+| `initial_c` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
+| `P` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
+| `Y_h` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
+| `Y_c` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
+
+
+
+### `onnx.MatMul` (ONNXMatMulOp)
+
+_ONNX MatMul operation_
+
+Matrix product that behaves like [numpy.matmul](https://numpy.org/doc/stable/reference/generated/numpy.matmul.html).
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `A` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values |
+| `B` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values |
+
+
+
 ### `onnx.MatMulInteger` (ONNXMatMulIntegerOp)
 
 _ONNX MatMulInteger operation_
@@ -5009,31 +5449,6 @@ Effects: `MemoryEffects::Effect{}`
 | `Y` | tensor of 32-bit signless integer values |
 
 
-### `onnx.MatMul` (ONNXMatMulOp)
-
-_ONNX MatMul operation_
-
-Matrix product that behaves like [numpy.matmul](https://numpy.org/doc/stable/reference/generated/numpy.matmul.html).
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `A` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values |
-| `B` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values |
-
 
 ### `onnx.Max` (ONNXMaxOp)
 
@@ -5060,6 +5475,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `max` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
 
 
 ### `onnx.MaxPool` (ONNXMaxPoolOp)
@@ -5132,6 +5548,7 @@ Effects: `MemoryEffects::Effect{}`
 | `Indices` | tensor of 64-bit signless integer values or none type |
 
 
+
 ### `onnx.MaxPoolSingleOut` (ONNXMaxPoolSingleOutOp)
 
 _ONNX MaxPool operation with a single output._
@@ -5173,6 +5590,7 @@ Effects: `MemoryEffects::Effect{}`
 | `o_Y` | memref of any type values or tensor of any type values |
 
 
+
 ### `onnx.MaxRoiPool` (ONNXMaxRoiPoolOp)
 
 _ONNX MaxRoiPool operation_
@@ -5207,6 +5625,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
 
 
 ### `onnx.MaxUnpool` (ONNXMaxUnpoolOp)
@@ -5262,6 +5681,7 @@ Effects: `MemoryEffects::Effect{}`
 | `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
 
 
+
 ### `onnx.Mean` (ONNXMeanOp)
 
 _ONNX Mean operation_
@@ -5287,6 +5707,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `mean` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
 
 
 ### `onnx.MeanVarianceNormalization` (ONNXMeanVarianceNormalizationOp)
@@ -5320,6 +5741,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
 
 
 ### `onnx.MelWeightMatrix` (ONNXMelWeightMatrixOp)
@@ -5365,6 +5787,7 @@ Effects: `MemoryEffects::Effect{}`
 | `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
 
 
+
 ### `onnx.Min` (ONNXMinOp)
 
 _ONNX Min operation_
@@ -5390,6 +5813,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `min` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
 
 
 ### `onnx.Mish` (ONNXMishOp)
@@ -5423,23 +5847,28 @@ Effects: `MemoryEffects::Effect{}`
 | `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
 
 
+
 ### `onnx.Mod` (ONNXModOp)
 
 _ONNX Mod operation_
 
-Performs element-wise binary modulus (with Numpy-style broadcasting support).
-  The sign of the remainder is the same as that of the Divisor.
+Performs an element-wise binary modulo operation.
+The semantics and supported data types depend on the value of the `fmod` attribute which must be `0` (default), or `1`.
 
-  Mod operator can also behave like C fmod() or numpy.fmod. In this case, the sign of the remainder however, will be the same as the Dividend
-  (in contrast to integer mod). To force a behavior like numpy.fmod() an 'fmod' Attribute is provided.
-  This attribute is set to 0 by default causing the behavior to be like integer mod.
-  Setting this attribute to 1 causes the remainder to be calculated similar to that of numpy.fmod().
+If the `fmod` attribute is set to `0`, `T` is constrained to integer data types and the semantics follow that of the Python `%`-operator.
+The sign of the result is that of the divisor.
 
-  If the input type is floating point, then `fmod` attribute must be set to 1.
+If `fmod` is set to `1`, the behavior of this operator follows that of the `fmod` function in C and `T` is constrained to floating point data types.
+The result of this operator is the remainder of the division operation `x / y` where `x` and `y` are respective elements of `A` and `B`. The result is exactly the value `x - n * y`, where `n` is `x / y` with its fractional part truncated.
+The returned value has the same sign as `x` (except if `x` is `-0`) and is less or equal to `|y|` in magnitude.
+The following special cases apply when `fmod` is set to `1`:
+- If `x` is `-0` and `y` is greater than zero, either `+0` or `-0` may be returned.
+- If `x` is `±∞` and `y` is not `NaN`, `NaN` is returned.
+- If `y` is `±0` and `x` is not `NaN`, `NaN` should be returned.
+- If `y` is `±∞` and `x` is finite, `x` is returned.
+- If either argument is `NaN`, `NaN` is returned.
 
-  In case of dividend being zero, the results will be platform dependent.
-
-  This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md).
+This operator supports **multidirectional (i.e., NumPy-style) broadcasting**; for more details please check [the doc](Broadcasting.md).
 
 Traits: `AlwaysSpeculatableImplTrait`
 
@@ -5466,6 +5895,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `C` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
 
 
 ### `onnx.Momentum` (ONNXMomentumOp)
@@ -5564,6 +5994,7 @@ Effects: `MemoryEffects::Effect{}`
 | `outputs` | variadic of tensor of 32-bit float values or tensor of 64-bit float values |
 
 
+
 ### `onnx.Mul` (ONNXMulOp)
 
 _ONNX Mul operation_
@@ -5592,6 +6023,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `C` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
 
 
 ### `onnx.Multinomial` (ONNXMultinomialOp)
@@ -5629,6 +6061,7 @@ Effects: `MemoryEffects::Effect{}`
 | `output` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
 
 
+
 ### `onnx.Neg` (ONNXNegOp)
 
 _ONNX Neg operation_
@@ -5654,6 +6087,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `Y` | tensor of 32-bit float values or tensor of 32-bit signless integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
 
 
 ### `onnx.NegativeLogLikelihoodLoss` (ONNXNegativeLogLikelihoodLossOp)
@@ -5791,12 +6225,14 @@ Effects: `MemoryEffects::Effect{}`
 | `loss` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
 
 
+
 ### `onnx.NonMaxSuppression` (ONNXNonMaxSuppressionOp)
 
 _ONNX NonMaxSuppression operation_
 
 Filter out boxes that have high intersection-over-union (IOU) overlap with previously selected boxes.
 Bounding boxes with score less than score_threshold are removed. Bounding box format is indicated by attribute center_point_box.
+Boxes are suppressed if their IOU with a previously selected box is strictly greater than iou_threshold (i.e., boxes with IOU exactly equal to the threshold are kept).
 Note that this algorithm is agnostic to where the origin is in the coordinate system and more generally is invariant to
 orthogonal transformations and translations of the coordinate system; thus translating or reflections of the coordinate system
 result in the same boxes being selected by the algorithm.
@@ -5833,6 +6269,7 @@ Effects: `MemoryEffects::Effect{}`
 | `selected_indices` | tensor of 64-bit signless integer values |
 
 
+
 ### `onnx.NonZero` (ONNXNonZeroOp)
 
 _ONNX NonZero operation_
@@ -5861,40 +6298,6 @@ Effects: `MemoryEffects::Effect{}`
 | :----: | ----------- |
 | `Y` | tensor of 64-bit signless integer values |
 
-
-### `onnx.NoValue` (ONNXNoneOp)
-
-_An operation representing the absence of a value._
-
-This operation can be used to represent the absence of a value. It is typically
-used as an argument to operators that have optional parameters.
-
-Example:
-```MLIR
-  %cst = "onnx.NoValue"() {value} : () -> none
-  %0, %1 = "onnx.Split"(%arg0, %cst) { axis=1 : si64 } : (tensor<?xf32>, none) -> (tensor<*xf32>, tensor<*xf32>)
-```
-
-This operation is not part of the standard and was added to assist onnx-mlir.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>value</code></td><td>::mlir::UnitAttr</td><td>unit attribute</td></tr>
-</table>
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `none_val` | none type |
 
 
 ### `onnx.Normalizer` (ONNXNormalizerOp)
@@ -5938,6 +6341,7 @@ Effects: `MemoryEffects::Effect{}`
 | `Y` | tensor of 32-bit float values |
 
 
+
 ### `onnx.Not` (ONNXNotOp)
 
 _ONNX Not operation_
@@ -5961,6 +6365,96 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `Y` | tensor of 1-bit signless integer values |
+
+
+
+### `onnx.NoValue` (ONNXNoneOp)
+
+_An operation representing the absence of a value._
+
+This operation can be used to represent the absence of a value. It is typically
+used as an argument to operators that have optional parameters.
+
+Example:
+```MLIR
+  %cst = "onnx.NoValue"() {value} : () -> none
+  %0, %1 = "onnx.Split"(%arg0, %cst) { axis=1 : si64 } : (tensor<?xf32>, none) -> (tensor<*xf32>, tensor<*xf32>)
+```
+
+This operation is not part of the standard and was added to assist onnx-mlir.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `InferTypeOpInterface`, `NoMemoryEffect (MemoryEffectOpInterface)`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>value</code></td><td>::mlir::UnitAttr</td><td>unit attribute</td></tr>
+</table>
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `none_val` | none type |
+
+
+
+### `onnx.OneHot` (ONNXOneHotOp)
+
+_ONNX OneHot operation_
+
+Produces a one-hot tensor based on inputs.
+    The locations represented by the index values in the 'indices' input tensor will have 'on_value'
+    and the other locations will have 'off_value' in the output tensor, where 'on_value' and 'off_value'
+    are specified as part of required input argument 'values', which is a two-element tensor of format
+    [off_value, on_value]. The rank of the output tensor will be one greater than the rank of the
+    input tensor. The additional dimension is for one-hot representation. The additional dimension will
+    be inserted at the position specified by 'axis'. If 'axis' is not specified then the additional
+    dimension will be inserted as the innermost dimension, i.e. axis=-1. The size of the additional
+    dimension is specified by required scalar input 'depth'. The type of the output tensor is the same
+    as the type of the 'values' input. Any entries in the 'indices' input tensor with values outside
+    the range [-depth, depth-1] will result in one-hot representation with all 'off_value' values in the
+    output tensor.
+
+    when axis = 0:
+    output[input[i, j, k], i, j, k] = 1 for all i, j, k and 0 otherwise.
+
+    when axis = -1:
+    output[i, j, k, input[i, j, k]] = 1 for all i, j, k and 0 otherwise.
+
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>axis</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `indices` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `depth` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `values` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+
 
 
 ### `onnx.OneHotEncoder` (ONNXOneHotEncoderOp)
@@ -6004,111 +6498,6 @@ Effects: `MemoryEffects::Effect{}`
 | `Y` | tensor of 32-bit float values |
 
 
-### `onnx.OneHot` (ONNXOneHotOp)
-
-_ONNX OneHot operation_
-
-Produces a one-hot tensor based on inputs.
-    The locations represented by the index values in the 'indices' input tensor will have 'on_value'
-    and the other locations will have 'off_value' in the output tensor, where 'on_value' and 'off_value'
-    are specified as part of required input argument 'values', which is a two-element tensor of format
-    [off_value, on_value]. The rank of the output tensor will be one greater than the rank of the
-    input tensor. The additional dimension is for one-hot representation. The additional dimension will
-    be inserted at the position specified by 'axis'. If 'axis' is not specified then then additional
-    dimension will be inserted as the innermost dimension, i.e. axis=-1. The size of the additional
-    dimension is specified by required scalar input 'depth'. The type of the output tensor is the same
-    as the type of the 'values' input. Any entries in the 'indices' input tensor with values outside
-    the range [-depth, depth-1] will result in one-hot representation with all 'off_value' values in the
-    output tensor.
-
-    when axis = 0:
-    output[input[i, j, k], i, j, k] = 1 for all i, j, k and 0 otherwise.
-
-    when axis = -1:
-    output[i, j, k, input[i, j, k]] = 1 for all i, j, k and 0 otherwise.
-
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>axis</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `indices` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `depth` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `values` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-
-
-### `onnx.OptionalGetElement` (ONNXOptionalGetElementOp)
-
-_ONNX OptionalGetElement operation_
-
-If the input is a tensor or sequence type, it returns the input.
-If the input is an optional type, it outputs the element in the input.
-It is an error if the input is an empty optional-type (i.e. does not have an element) and the behavior is undefined in this case.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `input` | OptType of SeqType of tensor of 8-bit unsigned integer values values values or OptType of SeqType of tensor of 16-bit unsigned integer values values values or OptType of SeqType of tensor of 32-bit unsigned integer values values values or OptType of SeqType of tensor of 64-bit unsigned integer values values values or OptType of SeqType of tensor of 8-bit signless integer values values values or OptType of SeqType of tensor of 16-bit signless integer values values values or OptType of SeqType of tensor of 32-bit signless integer values values values or OptType of SeqType of tensor of 64-bit signless integer values values values or OptType of SeqType of tensor of 16-bit float values values values or OptType of SeqType of tensor of 32-bit float values values values or OptType of SeqType of tensor of 64-bit float values values values or OptType of SeqType of tensor of string type values values values or OptType of SeqType of tensor of 1-bit signless integer values values values or OptType of SeqType of tensor of complex type with 32-bit float elements values values values or OptType of SeqType of tensor of complex type with 64-bit float elements values values values or OptType of tensor of 8-bit unsigned integer values values or OptType of tensor of 16-bit unsigned integer values values or OptType of tensor of 32-bit unsigned integer values values or OptType of tensor of 64-bit unsigned integer values values or OptType of tensor of 8-bit signless integer values values or OptType of tensor of 16-bit signless integer values values or OptType of tensor of 32-bit signless integer values values or OptType of tensor of 64-bit signless integer values values or OptType of tensor of 16-bit float values values or OptType of tensor of 32-bit float values values or OptType of tensor of 64-bit float values values or OptType of tensor of string type values values or OptType of tensor of 1-bit signless integer values values or OptType of tensor of complex type with 32-bit float elements values values or OptType of tensor of complex type with 64-bit float elements values values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values |
-
-
-### `onnx.OptionalHasElement` (ONNXOptionalHasElementOp)
-
-_ONNX OptionalHasElement operation_
-
-Returns true if (1) the input is an optional-type and contains an element,
-or, (2) the input is a tensor or sequence type.
-If the input is not provided or is an empty optional-type, this op returns false.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `input` | OptType of SeqType of tensor of 8-bit unsigned integer values values values or OptType of SeqType of tensor of 16-bit unsigned integer values values values or OptType of SeqType of tensor of 32-bit unsigned integer values values values or OptType of SeqType of tensor of 64-bit unsigned integer values values values or OptType of SeqType of tensor of 8-bit signless integer values values values or OptType of SeqType of tensor of 16-bit signless integer values values values or OptType of SeqType of tensor of 32-bit signless integer values values values or OptType of SeqType of tensor of 64-bit signless integer values values values or OptType of SeqType of tensor of 16-bit float values values values or OptType of SeqType of tensor of 32-bit float values values values or OptType of SeqType of tensor of 64-bit float values values values or OptType of SeqType of tensor of string type values values values or OptType of SeqType of tensor of 1-bit signless integer values values values or OptType of SeqType of tensor of complex type with 32-bit float elements values values values or OptType of SeqType of tensor of complex type with 64-bit float elements values values values or OptType of tensor of 8-bit unsigned integer values values or OptType of tensor of 16-bit unsigned integer values values or OptType of tensor of 32-bit unsigned integer values values or OptType of tensor of 64-bit unsigned integer values values or OptType of tensor of 8-bit signless integer values values or OptType of tensor of 16-bit signless integer values values or OptType of tensor of 32-bit signless integer values values or OptType of tensor of 64-bit signless integer values values or OptType of tensor of 16-bit float values values or OptType of tensor of 32-bit float values values or OptType of tensor of 64-bit float values values or OptType of tensor of string type values values or OptType of tensor of 1-bit signless integer values values or OptType of tensor of complex type with 32-bit float elements values values or OptType of tensor of complex type with 64-bit float elements values values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values or none type |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `output` | tensor of 1-bit signless integer values |
-
 
 ### `onnx.Optional` (ONNXOptionalOp)
 
@@ -6143,6 +6532,63 @@ Effects: `MemoryEffects::Effect{}`
 | `output` | OptType of SeqType of tensor of 8-bit unsigned integer values values values or OptType of SeqType of tensor of 16-bit unsigned integer values values values or OptType of SeqType of tensor of 32-bit unsigned integer values values values or OptType of SeqType of tensor of 64-bit unsigned integer values values values or OptType of SeqType of tensor of 8-bit signless integer values values values or OptType of SeqType of tensor of 16-bit signless integer values values values or OptType of SeqType of tensor of 32-bit signless integer values values values or OptType of SeqType of tensor of 64-bit signless integer values values values or OptType of SeqType of tensor of 16-bit float values values values or OptType of SeqType of tensor of 32-bit float values values values or OptType of SeqType of tensor of 64-bit float values values values or OptType of SeqType of tensor of string type values values values or OptType of SeqType of tensor of 1-bit signless integer values values values or OptType of SeqType of tensor of complex type with 32-bit float elements values values values or OptType of SeqType of tensor of complex type with 64-bit float elements values values values or OptType of tensor of 8-bit unsigned integer values values or OptType of tensor of 16-bit unsigned integer values values or OptType of tensor of 32-bit unsigned integer values values or OptType of tensor of 64-bit unsigned integer values values or OptType of tensor of 8-bit signless integer values values or OptType of tensor of 16-bit signless integer values values or OptType of tensor of 32-bit signless integer values values or OptType of tensor of 64-bit signless integer values values or OptType of tensor of 16-bit float values values or OptType of tensor of 32-bit float values values or OptType of tensor of 64-bit float values values or OptType of tensor of string type values values or OptType of tensor of 1-bit signless integer values values or OptType of tensor of complex type with 32-bit float elements values values or OptType of tensor of complex type with 64-bit float elements values values |
 
 
+
+### `onnx.OptionalGetElement` (ONNXOptionalGetElementOp)
+
+_ONNX OptionalGetElement operation_
+
+If the input is a tensor or sequence type, it returns the input.
+If the input is an optional type, it outputs the element in the input.
+It is an error if the input is an empty optional-type (i.e. does not have an element) and the behavior is undefined in this case.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `input` | OptType of SeqType of tensor of 8-bit unsigned integer values values values or OptType of SeqType of tensor of 16-bit unsigned integer values values values or OptType of SeqType of tensor of 32-bit unsigned integer values values values or OptType of SeqType of tensor of 64-bit unsigned integer values values values or OptType of SeqType of tensor of 8-bit signless integer values values values or OptType of SeqType of tensor of 16-bit signless integer values values values or OptType of SeqType of tensor of 32-bit signless integer values values values or OptType of SeqType of tensor of 64-bit signless integer values values values or OptType of SeqType of tensor of 16-bit float values values values or OptType of SeqType of tensor of 32-bit float values values values or OptType of SeqType of tensor of 64-bit float values values values or OptType of SeqType of tensor of string type values values values or OptType of SeqType of tensor of 1-bit signless integer values values values or OptType of SeqType of tensor of complex type with 32-bit float elements values values values or OptType of SeqType of tensor of complex type with 64-bit float elements values values values or OptType of tensor of 8-bit unsigned integer values values or OptType of tensor of 16-bit unsigned integer values values or OptType of tensor of 32-bit unsigned integer values values or OptType of tensor of 64-bit unsigned integer values values or OptType of tensor of 8-bit signless integer values values or OptType of tensor of 16-bit signless integer values values or OptType of tensor of 32-bit signless integer values values or OptType of tensor of 64-bit signless integer values values or OptType of tensor of 16-bit float values values or OptType of tensor of 32-bit float values values or OptType of tensor of 64-bit float values values or OptType of tensor of string type values values or OptType of tensor of 1-bit signless integer values values or OptType of tensor of complex type with 32-bit float elements values values or OptType of tensor of complex type with 64-bit float elements values values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values |
+
+
+
+### `onnx.OptionalHasElement` (ONNXOptionalHasElementOp)
+
+_ONNX OptionalHasElement operation_
+
+Returns true if (1) the input is an optional-type and contains an element,
+or, (2) the input is a tensor or sequence type.
+If the input is not provided or is an empty optional-type, this op returns false.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `input` | OptType of SeqType of tensor of 8-bit unsigned integer values values values or OptType of SeqType of tensor of 16-bit unsigned integer values values values or OptType of SeqType of tensor of 32-bit unsigned integer values values values or OptType of SeqType of tensor of 64-bit unsigned integer values values values or OptType of SeqType of tensor of 8-bit signless integer values values values or OptType of SeqType of tensor of 16-bit signless integer values values values or OptType of SeqType of tensor of 32-bit signless integer values values values or OptType of SeqType of tensor of 64-bit signless integer values values values or OptType of SeqType of tensor of 16-bit float values values values or OptType of SeqType of tensor of 32-bit float values values values or OptType of SeqType of tensor of 64-bit float values values values or OptType of SeqType of tensor of string type values values values or OptType of SeqType of tensor of 1-bit signless integer values values values or OptType of SeqType of tensor of complex type with 32-bit float elements values values values or OptType of SeqType of tensor of complex type with 64-bit float elements values values values or OptType of tensor of 8-bit unsigned integer values values or OptType of tensor of 16-bit unsigned integer values values or OptType of tensor of 32-bit unsigned integer values values or OptType of tensor of 64-bit unsigned integer values values or OptType of tensor of 8-bit signless integer values values or OptType of tensor of 16-bit signless integer values values or OptType of tensor of 32-bit signless integer values values or OptType of tensor of 64-bit signless integer values values or OptType of tensor of 16-bit float values values or OptType of tensor of 32-bit float values values or OptType of tensor of 64-bit float values values or OptType of tensor of string type values values or OptType of tensor of 1-bit signless integer values values or OptType of tensor of complex type with 32-bit float elements values values or OptType of tensor of complex type with 64-bit float elements values values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values or none type |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | tensor of 1-bit signless integer values |
+
+
+
 ### `onnx.Or` (ONNXOrOp)
 
 _ONNX Or operation_
@@ -6172,34 +6618,6 @@ Effects: `MemoryEffects::Effect{}`
 | `C` | tensor of 1-bit signless integer values |
 
 
-### `onnx.PRelu` (ONNXPReluOp)
-
-_ONNX PRelu operation_
-
-PRelu takes input data (Tensor<T>) and slope tensor as input, and produces one
-output data (Tensor<T>) where the function `f(x) = slope * x for x < 0`,
-`f(x) = x for x >= 0`., is applied to the data tensor elementwise.
-This operator supports **unidirectional broadcasting** (tensor slope should be unidirectional broadcastable to input tensor X); for more details please check [the doc](Broadcasting.md).
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
-| `slope` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
-
 
 ### `onnx.Pad` (ONNXPadOp)
 
@@ -6208,7 +6626,7 @@ _ONNX Pad operation_
 Given a tensor containing the data to be padded (`data`), a tensor containing the number of start and end pad values for axis (`pads`), (optionally) a `mode`, and (optionally) `constant_value`,
 a padded tensor (`output`) is generated.
 
-The three supported `modes` are (similar to corresponding modes supported by `numpy.pad`):
+The four supported `modes` are (similar to corresponding modes supported by `numpy.pad`):
 
 1) `constant`(default) - pads with a given constant value as specified by `constant_value` (which defaults to 0, empty string, or False)
 
@@ -6335,6 +6753,7 @@ Effects: `MemoryEffects::Effect{}`
 | `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values |
 
 
+
 ### `onnx.PadV11` (ONNXPadV11Op)
 
 _ONNX Pad operation_
@@ -6443,6 +6862,7 @@ Effects: `MemoryEffects::Effect{}`
 | `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
 
 
+
 ### `onnx.PadV13` (ONNXPadV13Op)
 
 _ONNX Pad operation_
@@ -6549,6 +6969,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+
 
 
 ### `onnx.PadV18` (ONNXPadV18Op)
@@ -6660,6 +7081,7 @@ Effects: `MemoryEffects::Effect{}`
 | `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
 
 
+
 ### `onnx.PadV2` (ONNXPadV2Op)
 
 _ONNX Pad operation_
@@ -6709,6 +7131,7 @@ Effects: `MemoryEffects::Effect{}`
 | `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
 
 
+
 ### `onnx.Pow` (ONNXPowOp)
 
 _ONNX Pow operation_
@@ -6738,6 +7161,37 @@ Effects: `MemoryEffects::Effect{}`
 | `Z` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
 
 
+
+### `onnx.PRelu` (ONNXPReluOp)
+
+_ONNX PRelu operation_
+
+PRelu takes input data (Tensor<T>) and slope tensor as input, and produces one
+output data (Tensor<T>) where the function `f(x) = slope * x for x < 0`,
+`f(x) = x for x >= 0`., is applied to the data tensor elementwise.
+This operator supports **unidirectional broadcasting** (tensor slope should be unidirectional broadcastable to input tensor X); for more details please check [the doc](Broadcasting.md).
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `X` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
+| `slope` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
+
+
+
 ### `onnx.PrintSignature` (ONNXPrintSignatureOp)
 
 _ONNX Op to print type signature or data of its input operands_
@@ -6750,6 +7204,10 @@ The argument print_data control whether the data of the tensors to be printed.
 When print_data == 1, the data of the tensor will be printed. Otherwise, just shape.
 The argument input specifies the tensor to be printed. They could be a list
 of the inputs and outputs of an ONNX op.
+The optional argument io_labels, when present and of the same length as
+input, gives a per-tensor label (e.g. "in0", "out1") printed right before
+that tensor's signature/data, so a caller-selected subset of a node's
+operands/results can still be told apart in the printed output.
 
 This operation is not part of the standard and was added to assist onnx-mlir.
 
@@ -6759,6 +7217,7 @@ This operation is not part of the standard and was added to assist onnx-mlir.
 <tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
 <tr><td><code>op_name</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
 <tr><td><code>print_data</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>io_labels</code></td><td>::mlir::ArrayAttr</td><td>string array attribute</td></tr>
 </table>
 
 #### Operands:
@@ -6766,6 +7225,7 @@ This operation is not part of the standard and was added to assist onnx-mlir.
 | Operand | Description |
 | :-----: | ----------- |
 | `input` | variadic of tensor of any type values or none type |
+
 
 
 ### `onnx.QLinearConv` (ONNXQLinearConvOp)
@@ -6819,6 +7279,7 @@ Effects: `MemoryEffects::Effect{}`
 | `y` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values |
 
 
+
 ### `onnx.QLinearMatMul` (ONNXQLinearMatMulOp)
 
 _ONNX QLinearMatMul operation_
@@ -6859,6 +7320,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `y` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values |
+
 
 
 ### `onnx.QuantizeLinear` (ONNXQuantizeLinearOp)
@@ -6902,6 +7364,1551 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `y` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values |
+
+
+
+### `onnx.RandomNormal` (ONNXRandomNormalOp)
+
+_ONNX RandomNormal operation_
+
+Generate a tensor with random values drawn from a normal distribution. The shape
+of the tensor is specified by the `shape` argument and the parameter of the normal distribution
+specified by `mean` and `scale`.
+
+The data type is specified by the 'dtype' argument. The 'dtype' argument must
+be one of the data types specified in the 'DataType' enum field in the
+TensorProto message.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ResultTypeInferenceOpInterface`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>dtype</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>mean</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
+<tr><td><code>scale</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
+<tr><td><code>seed</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
+<tr><td><code>shape</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+</table>
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
+
+
+### `onnx.RandomNormalLike` (ONNXRandomNormalLikeOp)
+
+_ONNX RandomNormalLike operation_
+
+Generate a tensor with random values drawn from a normal distribution.
+The shape of the output tensor is copied from the shape of the input tensor,
+and the parameters of the normal distribution are specified by `mean` and `scale`.
+
+The data type is specified by the 'dtype' argument, or copied from the input tensor if not provided.
+The 'dtype' argument must be one of the data types specified in the 'DataType' enum field in the
+TensorProto message, and be valid as an output type.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ResultTypeInferenceOpInterface`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>dtype</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>mean</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
+<tr><td><code>scale</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
+<tr><td><code>seed</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
+
+
+### `onnx.RandomUniform` (ONNXRandomUniformOp)
+
+_ONNX RandomUniform operation_
+
+Generate a tensor with random values drawn from a uniform distribution. The shape
+of the tensor is specified by the `shape` argument and the range by `low` and `high`.
+
+The data type is specified by the 'dtype' argument. The 'dtype' argument must
+be one of the data types specified in the 'DataType' enum field in the
+TensorProto message.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ResultTypeInferenceOpInterface`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>dtype</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>high</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
+<tr><td><code>low</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
+<tr><td><code>seed</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
+<tr><td><code>shape</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+</table>
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
+
+
+### `onnx.RandomUniformLike` (ONNXRandomUniformLikeOp)
+
+_ONNX RandomUniformLike operation_
+
+Generate a tensor with random values drawn from a uniform distribution.
+The shape of the output tensor is copied from the shape of the input tensor,
+and the parameters of the uniform distribution are specified by `low` and `high`.
+
+The data type is specified by the 'dtype' argument, or copied from the input tensor if not provided.
+The 'dtype' argument must be one of the data types specified in the 'DataType' enum field in the
+TensorProto message and be valid as an output type.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ResultTypeInferenceOpInterface`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>dtype</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>high</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
+<tr><td><code>low</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
+<tr><td><code>seed</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
+
+
+### `onnx.Range` (ONNXRangeOp)
+
+_ONNX Range operation_
+
+Generate a tensor containing a sequence of numbers that begin at `start` and extends by increments of `delta`
+up to `limit` (exclusive).
+
+The number of elements in the output of range is computed as below:
+```
+number_of_elements = max( ceil( (limit - start) / delta ) , 0 )
+```
+The pseudocode determining the contents of the output is shown below:
+```
+for(int i=0; i<number_of_elements; ++i) {
+  output[i] =  start + (i * delta);
+}
+```
+Example 1:
+```
+Inputs: start = 3, limit = 9, delta = 3
+Output: [3, 6]
+```
+Example 2:
+```
+Inputs: start = 10, limit = 4, delta = -2
+Output: [10, 8, 6]
+```
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `start` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
+| `limit` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
+| `delta` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
+
+
+
+### `onnx.Reciprocal` (ONNXReciprocalOp)
+
+_ONNX Reciprocal operation_
+
+Reciprocal takes one input data (Tensor<T>) and produces one output data
+(Tensor<T>) where the reciprocal is, y = 1/x, is applied to
+the tensor elementwise.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
+
+
+### `onnx.ReduceL1` (ONNXReduceL1Op)
+
+_ONNX ReduceL1 operation_
+
+Computes the L1 norm of the input tensor's elements along the provided axes. The resulting
+tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
+the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
+valid. Reduction over an empty set of values yields 0.
+
+
+The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
+to `False` instead of `True`.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>noop_with_empty_axes</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `axes` | tensor of 64-bit signless integer values or none type |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
+
+
+### `onnx.ReduceL1V13` (ONNXReduceL1V13Op)
+
+_ONNX ReduceL1 operation_
+
+Computes the L1 norm of the input tensor's elements along the provided axes. The resulting
+tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
+the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
+valid. Reduction over an empty set of values yields 0.
+
+
+The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
+to `False` instead of `True`.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>axes</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
+
+
+### `onnx.ReduceL2` (ONNXReduceL2Op)
+
+_ONNX ReduceL2 operation_
+
+Computes the L2 norm of the input tensor's elements along the provided axes. The resulting
+tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
+the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
+valid. Reduction over an empty set of values yields 0.
+
+
+The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
+to `False` instead of `True`.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>noop_with_empty_axes</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `axes` | tensor of 64-bit signless integer values or none type |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
+
+
+### `onnx.ReduceL2V13` (ONNXReduceL2V13Op)
+
+_ONNX ReduceL2 operation_
+
+Computes the L2 norm of the input tensor's elements along the provided axes. The resulting
+tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
+the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
+valid. Reduction over an empty set of values yields 0.
+
+
+The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
+to `False` instead of `True`.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>axes</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
+
+
+### `onnx.ReduceLogSum` (ONNXReduceLogSumOp)
+
+_ONNX ReduceLogSum operation_
+
+Computes the log sum of the input tensor's elements along the provided axes. The resulting
+tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
+the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
+valid. Reduction over an empty set of values yields minus infinity (if supported by the datatype) or undefined otherwise.
+
+
+The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
+to `False` instead of `True`.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>noop_with_empty_axes</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `axes` | tensor of 64-bit signless integer values or none type |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
+
+
+### `onnx.ReduceLogSumExp` (ONNXReduceLogSumExpOp)
+
+_ONNX ReduceLogSumExp operation_
+
+Computes the log sum exponent of the input tensor's elements along the provided axes. The resulting
+tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
+the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
+valid. Reduction over an empty set of values yields minus infinity (if supported by the datatype) or undefined otherwise.
+
+
+The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
+to `False` instead of `True`.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>noop_with_empty_axes</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `axes` | tensor of 64-bit signless integer values or none type |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
+
+
+### `onnx.ReduceLogSumExpV13` (ONNXReduceLogSumExpV13Op)
+
+_ONNX ReduceLogSumExp operation_
+
+Computes the log sum exponent of the input tensor's elements along the provided axes. The resulting
+tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
+the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
+valid. Reduction over an empty set of values yields minus infinity (if supported by the datatype) or undefined otherwise.
+
+
+The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
+to `False` instead of `True`.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>axes</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
+
+
+### `onnx.ReduceLogSumV13` (ONNXReduceLogSumV13Op)
+
+_ONNX ReduceLogSum operation_
+
+Computes the log sum of the input tensor's elements along the provided axes. The resulting
+tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
+the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
+valid. Reduction over an empty set of values yields minus infinity (if supported by the datatype) or undefined otherwise.
+
+
+The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
+to `False` instead of `True`.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>axes</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
+
+
+### `onnx.ReduceMax` (ONNXReduceMaxOp)
+
+_ONNX ReduceMax operation_
+
+Computes the max of the input tensor's elements along the provided axes. The resulting
+tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
+the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
+valid. Reduction over an empty set of values yields minus infinity (if supported by the datatype) or the minimum value of the data type otherwise.
+
+
+If the input data type is Boolean, the comparison should consider `False < True`.
+
+The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
+to `False` instead of `True`.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>noop_with_empty_axes</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 1-bit signless integer values |
+| `axes` | tensor of 64-bit signless integer values or none type |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 1-bit signless integer values |
+
+
+
+### `onnx.ReduceMaxV13` (ONNXReduceMaxV13Op)
+
+_ONNX ReduceMax operation_
+
+Computes the max of the input tensor's elements along the provided axes. The resulting
+tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
+the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
+valid. Reduction over an empty set of values yields minus infinity (if supported by the datatype) or the minimum value of the data type otherwise.
+
+
+The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
+to `False` instead of `True`.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>axes</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values |
+
+
+
+### `onnx.ReduceMaxV18` (ONNXReduceMaxV18Op)
+
+_ONNX ReduceMax operation_
+
+Computes the max of the input tensor's elements along the provided axes. The resulting
+tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
+the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
+valid. Reduction over an empty set of values yields minus infinity (if supported by the datatype) or the minimum value of the data type otherwise.
+
+
+The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
+to `False` instead of `True`.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>noop_with_empty_axes</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values |
+| `axes` | tensor of 64-bit signless integer values or none type |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values |
+
+
+
+### `onnx.ReduceMean` (ONNXReduceMeanOp)
+
+_ONNX ReduceMean operation_
+
+Computes the mean of the input tensor's elements along the provided axes. The resulting
+tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
+the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
+valid. Reduction over an empty set of values yields undefined.
+
+
+The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
+to `False` instead of `True`.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>noop_with_empty_axes</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `axes` | tensor of 64-bit signless integer values or none type |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
+
+
+### `onnx.ReduceMeanV13` (ONNXReduceMeanV13Op)
+
+_ONNX ReduceMean operation_
+
+Computes the mean of the input tensor's elements along the provided axes. The resulting
+tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
+the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
+valid. Reduction over an empty set of values yields undefined.
+
+
+The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
+to `False` instead of `True`.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>axes</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
+
+
+### `onnx.ReduceMin` (ONNXReduceMinOp)
+
+_ONNX ReduceMin operation_
+
+Computes the min of the input tensor's elements along the provided axes. The resulting
+tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
+the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
+valid. Reduction over an empty set of values yields plus infinity (if supported by the datatype) or the maximum value of the data type otherwise.
+
+
+If the input data type is Boolean, the comparison should consider `False < True`.
+
+The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
+to `False` instead of `True`.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>noop_with_empty_axes</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 1-bit signless integer values |
+| `axes` | tensor of 64-bit signless integer values or none type |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 1-bit signless integer values |
+
+
+
+### `onnx.ReduceMinV13` (ONNXReduceMinV13Op)
+
+_ONNX ReduceMin operation_
+
+Computes the min of the input tensor's elements along the provided axes. The resulting
+tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
+the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
+valid. Reduction over an empty set of values yields plus infinity (if supported by the datatype) or the maximum value of the data type otherwise.
+
+
+The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
+to `False` instead of `True`.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>axes</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values |
+
+
+
+### `onnx.ReduceMinV18` (ONNXReduceMinV18Op)
+
+_ONNX ReduceMin operation_
+
+Computes the min of the input tensor's elements along the provided axes. The resulting
+tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
+the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
+valid. Reduction over an empty set of values yields plus infinity (if supported by the datatype) or the maximum value of the data type otherwise.
+
+
+The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
+to `False` instead of `True`.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>noop_with_empty_axes</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values |
+| `axes` | tensor of 64-bit signless integer values or none type |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values |
+
+
+
+### `onnx.ReduceProd` (ONNXReduceProdOp)
+
+_ONNX ReduceProd operation_
+
+Computes the product of the input tensor's elements along the provided axes. The resulting
+tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
+the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
+valid. Reduction over an empty set of values yields 1.
+
+
+The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
+to `False` instead of `True`.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>noop_with_empty_axes</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `axes` | tensor of 64-bit signless integer values or none type |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
+
+
+### `onnx.ReduceProdV13` (ONNXReduceProdV13Op)
+
+_ONNX ReduceProd operation_
+
+Computes the product of the input tensor's elements along the provided axes. The resulting
+tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
+the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
+valid. Reduction over an empty set of values yields 1.
+
+
+The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
+to `False` instead of `True`.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>axes</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
+
+
+### `onnx.ReduceSum` (ONNXReduceSumOp)
+
+_ONNX ReduceSum operation_
+
+Computes the sum of the input tensor's elements along the provided axes. The resulting
+tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
+the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
+valid. Reduction over an empty set of values yields 0.
+
+
+The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
+to `False` instead of `True`.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>noop_with_empty_axes</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `axes` | tensor of 64-bit signless integer values or none type |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
+
+
+### `onnx.ReduceSumSquare` (ONNXReduceSumSquareOp)
+
+_ONNX ReduceSumSquare operation_
+
+Computes the sum square of the input tensor's elements along the provided axes. The resulting
+tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
+the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
+valid. Reduction over an empty set of values yields 0.
+
+
+The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
+to `False` instead of `True`.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>noop_with_empty_axes</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `axes` | tensor of 64-bit signless integer values or none type |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
+
+
+### `onnx.ReduceSumSquareV13` (ONNXReduceSumSquareV13Op)
+
+_ONNX ReduceSumSquare operation_
+
+Computes the sum square of the input tensor's elements along the provided axes. The resulting
+tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
+the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
+valid. Reduction over an empty set of values yields 0.
+
+
+The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
+to `False` instead of `True`.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>axes</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
+
+
+### `onnx.ReduceSumV11` (ONNXReduceSumV11Op)
+
+_ONNX ReduceSum operation_
+
+Computes the sum of the input tensor's element along the provided axes. The resulting
+tensor has the same rank as the input if keepdims equals 1. If keepdims equal 0, then
+the resulted tensor have the reduced dimension pruned.
+
+The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
+False instead of True.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>axes</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
+
+
+### `onnx.Relu` (ONNXReluOp)
+
+_ONNX Relu operation_
+
+Relu takes one input data (Tensor<T>) and produces one output data
+(Tensor<T>) where the rectified linear function, y = max(0, x), is applied to
+the tensor elementwise.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `X` | tensor of 32-bit float values or tensor of 32-bit signless integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `Y` | tensor of 32-bit float values or tensor of 32-bit signless integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
+
+
+### `onnx.Reshape` (ONNXReshapeOp)
+
+_ONNX Reshape operation_
+
+Reshape the input tensor similar to numpy.reshape.
+First input is the data tensor, second input is a shape tensor which specifies the output shape. It outputs the reshaped tensor.
+At most one dimension of the new shape can be -1. In this case, the value is
+inferred from the size of the tensor and the remaining dimensions. A dimension
+could also be 0, in which case the actual dimension value is unchanged (i.e. taken
+from the input tensor). If 'allowzero' is set, and the new shape includes 0, the
+dimension will be set explicitly to zero (i.e. not taken from input tensor).
+Shape (second input) could be an empty shape, which means converting to a scalar.
+The input tensor's shape and the output tensor's shape are required to have the same number of elements.
+
+If the attribute 'allowzero' is set, it is invalid for the specified shape to
+contain both a zero value and -1, as the value of the dimension corresponding
+to -1 cannot be determined uniquely.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>allowzero</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values |
+| `shape` | tensor of 64-bit signless integer values |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `reshaped` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values |
+
+
+
+### `onnx.Resize` (ONNXResizeOp)
+
+_ONNX Resize operation_
+
+Resize the input tensor. In general, it calculates every value in the output tensor as a weighted average of neighborhood (a.k.a. sampling locations) in the input tensor.
+Each dimension value of the output tensor is:
+```
+output_dimension = floor(input_dimension * (roi_end - roi_start) * scale)
+```
+if input \\"sizes\\" is not specified.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>antialias</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>axes</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+<tr><td><code>coordinate_transformation_mode</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+<tr><td><code>cubic_coeff_a</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
+<tr><td><code>exclude_outside</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>extrapolation_value</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
+<tr><td><code>keep_aspect_ratio_policy</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+<tr><td><code>mode</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+<tr><td><code>nearest_mode</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `roi` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
+| `scales` | tensor of 32-bit float values or none type |
+| `sizes` | tensor of 64-bit signless integer values or none type |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+
+
+
+### `onnx.ResizeV10` (ONNXResizeV10Op)
+
+_ONNX Resize operation_
+
+Resize the input tensor.
+Each dimension value of the output tensor is:
+  output_dimension = floor(input_dimension * scale).
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>mode</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `scales` | tensor of 32-bit float values |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+
+
+
+### `onnx.ResizeV11` (ONNXResizeV11Op)
+
+_ONNX Resize operation_
+
+Resize the input tensor. In general, it calculates every value in the output tensor as a weighted average of neighborhood (a.k.a. sampling locations) in the input tensor.
+Each dimension value of the output tensor is:
+  output_dimension = floor(input_dimension * (roi_end - roi_start) * scale) if input \\"sizes\\" is not specified.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>coordinate_transformation_mode</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+<tr><td><code>cubic_coeff_a</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
+<tr><td><code>exclude_outside</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>extrapolation_value</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
+<tr><td><code>mode</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+<tr><td><code>nearest_mode</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `roi` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+| `scales` | tensor of 32-bit float values |
+| `sizes` | tensor of 64-bit signless integer values or none type |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+
+
+
+### `onnx.ResizeV13` (ONNXResizeV13Op)
+
+_ONNX Resize operation_
+
+Resize the input tensor. In general, it calculates every value in the output tensor as a weighted average of neighborhood (a.k.a. sampling locations) in the input tensor.
+Each dimension value of the output tensor is:
+  output_dimension = floor(input_dimension * (roi_end - roi_start) * scale) if input \\"sizes\\" is not specified.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>coordinate_transformation_mode</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+<tr><td><code>cubic_coeff_a</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
+<tr><td><code>exclude_outside</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>extrapolation_value</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
+<tr><td><code>mode</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+<tr><td><code>nearest_mode</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `roi` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
+| `scales` | tensor of 32-bit float values or none type |
+| `sizes` | tensor of 64-bit signless integer values or none type |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+
+
+
+### `onnx.ResizeV18` (ONNXResizeV18Op)
+
+_ONNX Resize operation_
+
+Resize the input tensor. In general, it calculates every value in the output tensor as a weighted average of neighborhood (a.k.a. sampling locations) in the input tensor.
+Each dimension value of the output tensor is: <br/>
+  `output_dimension = floor(input_dimension * (roi_end - roi_start) * scale)` <br/>
+if input \\"sizes\\" is not specified.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>antialias</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>axes</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+<tr><td><code>coordinate_transformation_mode</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+<tr><td><code>cubic_coeff_a</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
+<tr><td><code>exclude_outside</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>extrapolation_value</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
+<tr><td><code>keep_aspect_ratio_policy</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+<tr><td><code>mode</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+<tr><td><code>nearest_mode</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `roi` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
+| `scales` | tensor of 32-bit float values or none type |
+| `sizes` | tensor of 64-bit signless integer values or none type |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+
+
+
+### `onnx.Return` (ONNXReturnOp)
+
+_Function return operation_
+
+Syntax:
+
+```
+operation ::= `onnx.Return` attr-dict ($operands^ `:` type($operands))?
+```
+
+The `onnx.Return` operation represents a return operation within a function.
+The operation takes variable number of operands and produces no results.
+The operand number and types must match the signature of the function
+that contains the operation, with the exception that shaped types may have
+more specific shapes than the function signature result types, which allows
+rewrites of defining ops of operands to make their result shapes more specific.
+This operation terminates a func::FuncOp in the ONNX dialect and is replaced
+by func::ReturnOp in StandardFuncReturnPass before lowering to Krnl or other
+dialects.
+
+Traits: `AlwaysSpeculatableImplTrait`, `HasParent<func::FuncOp>`, `ReturnLike`, `Terminator`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `RegionBranchTerminatorOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `operands` | variadic of any type |
+
+
+
+### `onnx.ReverseSequence` (ONNXReverseSequenceOp)
+
+_ONNX ReverseSequence operation_
+
+Reverse batch of sequences having different lengths specified by `sequence_lens`.
+
+For each slice i iterating on batch axis, the operator reverses the first sequence_lens[i] elements on time axis,
+and copies elements whose index's beyond sequence_lens[i] to the output. So the output slice i contains reversed
+sequences on the first sequence_lens[i] elements, then have original values copied for the other elements.
+
+Example 1:
+  input = [[0.0, 4.0, 8.0,  12.0],
+           [1.0, 5.0, 9.0,  13.0],
+           [2.0, 6.0, 10.0, 14.0],
+           [3.0, 7.0, 11.0, 15.0]]
+  sequence_lens = [4, 3, 2, 1]
+  time_axis = 0
+  batch_axis = 1
+
+  output = [[3.0, 6.0, 9.0,  12.0],
+            [2.0, 5.0, 8.0,  13.0],
+            [1.0, 4.0, 10.0, 14.0],
+            [0.0, 7.0, 11.0, 15.0]]
+
+Example 2:
+  input = [[0.0,  1.0,  2.0,  3.0 ],
+           [4.0,  5.0,  6.0,  7.0 ],
+           [8.0,  9.0,  10.0, 11.0],
+           [12.0, 13.0, 14.0, 15.0]]
+  sequence_lens = [1, 2, 3, 4]
+  time_axis = 1
+  batch_axis = 0
+
+  output = [[0.0,  1.0,  2.0,  3.0 ],
+            [5.0,  4.0,  6.0,  7.0 ],
+            [10.0, 9.0,  8.0,  11.0],
+            [15.0, 14.0, 13.0, 12.0]]
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>batch_axis</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>time_axis</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `sequence_lens` | tensor of 64-bit signless integer values |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+
 
 
 ### `onnx.RMSLayerNormalization` (ONNXRMSLayerNormalizationOp)
@@ -6975,6 +8982,7 @@ Effects: `MemoryEffects::Effect{}`
 | :----: | ----------- |
 | `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
 | `InvStdDev` | tensor of 32-bit float values or tensor of bfloat16 type values or none type |
+
 
 
 ### `onnx.RNN` (ONNXRNNOp)
@@ -7060,1519 +9068,6 @@ Effects: `MemoryEffects::Effect{}`
 | `Y_h` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
 
 
-### `onnx.RandomNormalLike` (ONNXRandomNormalLikeOp)
-
-_ONNX RandomNormalLike operation_
-
-Generate a tensor with random values drawn from a normal distribution.
-The shape of the output tensor is copied from the shape of the input tensor,
-and the parameters of the normal distribution are specified by `mean` and `scale`.
-
-The data type is specified by the 'dtype' argument, or copied from the input tensor if not provided.
-The 'dtype' argument must be one of the data types specified in the 'DataType' enum field in the
-TensorProto message, and be valid as an output type.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ResultTypeInferenceOpInterface`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>dtype</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-<tr><td><code>mean</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
-<tr><td><code>scale</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
-<tr><td><code>seed</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-
-
-### `onnx.RandomNormal` (ONNXRandomNormalOp)
-
-_ONNX RandomNormal operation_
-
-Generate a tensor with random values drawn from a normal distribution. The shape
-of the tensor is specified by the `shape` argument and the parameter of the normal distribution
-specified by `mean` and `scale`.
-
-The data type is specified by the 'dtype' argument. The 'dtype' argument must
-be one of the data types specified in the 'DataType' enum field in the
-TensorProto message.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ResultTypeInferenceOpInterface`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>dtype</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-<tr><td><code>mean</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
-<tr><td><code>scale</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
-<tr><td><code>seed</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
-<tr><td><code>shape</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
-</table>
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-
-
-### `onnx.RandomUniformLike` (ONNXRandomUniformLikeOp)
-
-_ONNX RandomUniformLike operation_
-
-Generate a tensor with random values drawn from a uniform distribution.
-The shape of the output tensor is copied from the shape of the input tensor,
-and the parameters of the uniform distribution are specified by `low` and `high`.
-
-The data type is specified by the 'dtype' argument, or copied from the input tensor if not provided.
-The 'dtype' argument must be one of the data types specified in the 'DataType' enum field in the
-TensorProto message and be valid as an output type.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ResultTypeInferenceOpInterface`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>dtype</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-<tr><td><code>high</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
-<tr><td><code>low</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
-<tr><td><code>seed</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-
-
-### `onnx.RandomUniform` (ONNXRandomUniformOp)
-
-_ONNX RandomUniform operation_
-
-Generate a tensor with random values drawn from a uniform distribution. The shape
-of the tensor is specified by the `shape` argument and the range by `low` and `high`.
-
-The data type is specified by the 'dtype' argument. The 'dtype' argument must
-be one of the data types specified in the 'DataType' enum field in the
-TensorProto message.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ResultTypeInferenceOpInterface`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>dtype</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-<tr><td><code>high</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
-<tr><td><code>low</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
-<tr><td><code>seed</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
-<tr><td><code>shape</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
-</table>
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-
-
-### `onnx.Range` (ONNXRangeOp)
-
-_ONNX Range operation_
-
-Generate a tensor containing a sequence of numbers that begin at `start` and extends by increments of `delta`
-up to `limit` (exclusive).
-
-The number of elements in the output of range is computed as below:
-
-```
-number_of_elements = max( ceil( (limit - start) / delta ) , 0 )
-```
-
-The pseudocode determining the contents of the output is shown below:
-
-```
-for(int i=0; i<number_of_elements; ++i) {
-  output[i] =  start + (i * delta);
-}
-```
-
-Example 1
-
-```
-Inputs: start = 3, limit = 9, delta = 3
-Output: [3, 6]
-```
-
-Example 2
-
-```
-Inputs: start = 10, limit = 4, delta = -2
-Output: [10, 8, 6]
-```
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `start` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
-| `limit` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
-| `delta` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `output` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
-
-
-### `onnx.Reciprocal` (ONNXReciprocalOp)
-
-_ONNX Reciprocal operation_
-
-Reciprocal takes one input data (Tensor<T>) and produces one output data
-(Tensor<T>) where the reciprocal is, y = 1/x, is applied to
-the tensor elementwise.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-
-
-### `onnx.ReduceL1` (ONNXReduceL1Op)
-
-_ONNX ReduceL1 operation_
-
-Computes the L1 norm of the input tensor's elements along the provided axes. The resulting
-tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
-the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
-valid. Reduction over an empty set of values yields 0.
-
-
-The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
-to `False` instead of `True`.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-<tr><td><code>noop_with_empty_axes</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `axes` | tensor of 64-bit signless integer values or none type |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-
-
-### `onnx.ReduceL1V13` (ONNXReduceL1V13Op)
-
-_ONNX ReduceL1 operation_
-
-Computes the L1 norm of the input tensor's elements along the provided axes. The resulting
-tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
-the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
-valid. Reduction over an empty set of values yields 0.
-
-
-The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
-to `False` instead of `True`.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>axes</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
-<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-
-
-### `onnx.ReduceL2` (ONNXReduceL2Op)
-
-_ONNX ReduceL2 operation_
-
-Computes the L2 norm of the input tensor's elements along the provided axes. The resulting
-tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
-the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
-valid. Reduction over an empty set of values yields 0.
-
-
-The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
-to `False` instead of `True`.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-<tr><td><code>noop_with_empty_axes</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `axes` | tensor of 64-bit signless integer values or none type |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-
-
-### `onnx.ReduceL2V13` (ONNXReduceL2V13Op)
-
-_ONNX ReduceL2 operation_
-
-Computes the L2 norm of the input tensor's elements along the provided axes. The resulting
-tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
-the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
-valid. Reduction over an empty set of values yields 0.
-
-
-The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
-to `False` instead of `True`.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>axes</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
-<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-
-
-### `onnx.ReduceLogSumExp` (ONNXReduceLogSumExpOp)
-
-_ONNX ReduceLogSumExp operation_
-
-Computes the log sum exponent of the input tensor's elements along the provided axes. The resulting
-tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
-the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
-valid. Reduction over an empty set of values yields minus infinity (if supported by the datatype) or undefined otherwise.
-
-
-The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
-to `False` instead of `True`.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-<tr><td><code>noop_with_empty_axes</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `axes` | tensor of 64-bit signless integer values or none type |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-
-
-### `onnx.ReduceLogSumExpV13` (ONNXReduceLogSumExpV13Op)
-
-_ONNX ReduceLogSumExp operation_
-
-Computes the log sum exponent of the input tensor's elements along the provided axes. The resulting
-tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
-the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
-valid. Reduction over an empty set of values yields minus infinity (if supported by the datatype) or undefined otherwise.
-
-
-The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
-to `False` instead of `True`.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>axes</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
-<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-
-
-### `onnx.ReduceLogSum` (ONNXReduceLogSumOp)
-
-_ONNX ReduceLogSum operation_
-
-Computes the log sum of the input tensor's elements along the provided axes. The resulting
-tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
-the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
-valid. Reduction over an empty set of values yields minus infinity (if supported by the datatype) or undefined otherwise.
-
-
-The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
-to `False` instead of `True`.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-<tr><td><code>noop_with_empty_axes</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `axes` | tensor of 64-bit signless integer values or none type |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-
-
-### `onnx.ReduceLogSumV13` (ONNXReduceLogSumV13Op)
-
-_ONNX ReduceLogSum operation_
-
-Computes the log sum of the input tensor's elements along the provided axes. The resulting
-tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
-the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
-valid. Reduction over an empty set of values yields minus infinity (if supported by the datatype) or undefined otherwise.
-
-
-The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
-to `False` instead of `True`.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>axes</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
-<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-
-
-### `onnx.ReduceMax` (ONNXReduceMaxOp)
-
-_ONNX ReduceMax operation_
-
-Computes the max of the input tensor's elements along the provided axes. The resulting
-tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
-the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
-valid. Reduction over an empty set of values yields minus infinity (if supported by the datatype) or the minimum value of the data type otherwise.
-
-
-If the input data type is Boolean, the comparison should consider `False < True`.
-
-The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
-to `False` instead of `True`.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-<tr><td><code>noop_with_empty_axes</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 1-bit signless integer values |
-| `axes` | tensor of 64-bit signless integer values or none type |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 1-bit signless integer values |
-
-
-### `onnx.ReduceMaxV13` (ONNXReduceMaxV13Op)
-
-_ONNX ReduceMax operation_
-
-Computes the max of the input tensor's elements along the provided axes. The resulting
-tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
-the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
-valid. Reduction over an empty set of values yields minus infinity (if supported by the datatype) or the minimum value of the data type otherwise.
-
-
-The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
-to `False` instead of `True`.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>axes</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
-<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values |
-
-
-### `onnx.ReduceMaxV18` (ONNXReduceMaxV18Op)
-
-_ONNX ReduceMax operation_
-
-Computes the max of the input tensor's elements along the provided axes. The resulting
-tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
-the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
-valid. Reduction over an empty set of values yields minus infinity (if supported by the datatype) or the minimum value of the data type otherwise.
-
-
-The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
-to `False` instead of `True`.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-<tr><td><code>noop_with_empty_axes</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values |
-| `axes` | tensor of 64-bit signless integer values or none type |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values |
-
-
-### `onnx.ReduceMean` (ONNXReduceMeanOp)
-
-_ONNX ReduceMean operation_
-
-Computes the mean of the input tensor's elements along the provided axes. The resulting
-tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
-the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
-valid. Reduction over an empty set of values yields undefined.
-
-
-The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
-to `False` instead of `True`.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-<tr><td><code>noop_with_empty_axes</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `axes` | tensor of 64-bit signless integer values or none type |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-
-
-### `onnx.ReduceMeanV13` (ONNXReduceMeanV13Op)
-
-_ONNX ReduceMean operation_
-
-Computes the mean of the input tensor's elements along the provided axes. The resulting
-tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
-the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
-valid. Reduction over an empty set of values yields undefined.
-
-
-The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
-to `False` instead of `True`.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>axes</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
-<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-
-
-### `onnx.ReduceMin` (ONNXReduceMinOp)
-
-_ONNX ReduceMin operation_
-
-Computes the min of the input tensor's elements along the provided axes. The resulting
-tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
-the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
-valid. Reduction over an empty set of values yields plus infinity (if supported by the datatype) or the maximum value of the data type otherwise.
-
-
-If the input data type is Boolean, the comparison should consider `False < True`.
-
-The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
-to `False` instead of `True`.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-<tr><td><code>noop_with_empty_axes</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 1-bit signless integer values |
-| `axes` | tensor of 64-bit signless integer values or none type |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 1-bit signless integer values |
-
-
-### `onnx.ReduceMinV13` (ONNXReduceMinV13Op)
-
-_ONNX ReduceMin operation_
-
-Computes the min of the input tensor's elements along the provided axes. The resulting
-tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
-the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
-valid. Reduction over an empty set of values yields plus infinity (if supported by the datatype) or the maximum value of the data type otherwise.
-
-
-The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
-to `False` instead of `True`.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>axes</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
-<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values |
-
-
-### `onnx.ReduceMinV18` (ONNXReduceMinV18Op)
-
-_ONNX ReduceMin operation_
-
-Computes the min of the input tensor's elements along the provided axes. The resulting
-tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
-the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
-valid. Reduction over an empty set of values yields plus infinity (if supported by the datatype) or the maximum value of the data type otherwise.
-
-
-The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
-to `False` instead of `True`.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-<tr><td><code>noop_with_empty_axes</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values |
-| `axes` | tensor of 64-bit signless integer values or none type |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or tensor of 8-bit unsigned integer values or tensor of 8-bit signless integer values |
-
-
-### `onnx.ReduceProd` (ONNXReduceProdOp)
-
-_ONNX ReduceProd operation_
-
-Computes the product of the input tensor's elements along the provided axes. The resulting
-tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
-the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
-valid. Reduction over an empty set of values yields 1.
-
-
-The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
-to `False` instead of `True`.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-<tr><td><code>noop_with_empty_axes</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `axes` | tensor of 64-bit signless integer values or none type |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-
-
-### `onnx.ReduceProdV13` (ONNXReduceProdV13Op)
-
-_ONNX ReduceProd operation_
-
-Computes the product of the input tensor's elements along the provided axes. The resulting
-tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
-the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
-valid. Reduction over an empty set of values yields 1.
-
-
-The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
-to `False` instead of `True`.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>axes</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
-<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-
-
-### `onnx.ReduceSum` (ONNXReduceSumOp)
-
-_ONNX ReduceSum operation_
-
-Computes the sum of the input tensor's elements along the provided axes. The resulting
-tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
-the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
-valid. Reduction over an empty set of values yields 0.
-
-
-The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
-to `False` instead of `True`.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-<tr><td><code>noop_with_empty_axes</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `axes` | tensor of 64-bit signless integer values or none type |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-
-
-### `onnx.ReduceSumSquare` (ONNXReduceSumSquareOp)
-
-_ONNX ReduceSumSquare operation_
-
-Computes the sum square of the input tensor's elements along the provided axes. The resulting
-tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
-the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
-valid. Reduction over an empty set of values yields 0.
-
-
-The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
-to `False` instead of `True`.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-<tr><td><code>noop_with_empty_axes</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `axes` | tensor of 64-bit signless integer values or none type |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-
-
-### `onnx.ReduceSumSquareV13` (ONNXReduceSumSquareV13Op)
-
-_ONNX ReduceSumSquare operation_
-
-Computes the sum square of the input tensor's elements along the provided axes. The resulting
-tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
-the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
-valid. Reduction over an empty set of values yields 0.
-
-
-The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
-to `False` instead of `True`.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>axes</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
-<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-
-
-### `onnx.ReduceSumV11` (ONNXReduceSumV11Op)
-
-_ONNX ReduceSum operation_
-
-Computes the sum of the input tensor's element along the provided axes. The resulting
-tensor has the same rank as the input if keepdims equals 1. If keepdims equal 0, then
-the resulted tensor have the reduced dimension pruned.
-
-The above behavior is similar to numpy, with the exception that numpy defaults keepdims to
-False instead of True.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>axes</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
-<tr><td><code>keepdims</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-
-
-### `onnx.Relu` (ONNXReluOp)
-
-_ONNX Relu operation_
-
-Relu takes one input data (Tensor<T>) and produces one output data
-(Tensor<T>) where the rectified linear function, y = max(0, x), is applied to
-the tensor elementwise.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `X` | tensor of 32-bit float values or tensor of 32-bit signless integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `Y` | tensor of 32-bit float values or tensor of 32-bit signless integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-
-
-### `onnx.Reshape` (ONNXReshapeOp)
-
-_ONNX Reshape operation_
-
-Reshape the input tensor similar to numpy.reshape.
-First input is the data tensor, second input is a shape tensor which specifies the output shape. It outputs the reshaped tensor.
-At most one dimension of the new shape can be -1. In this case, the value is
-inferred from the size of the tensor and the remaining dimensions. A dimension
-could also be 0, in which case the actual dimension value is unchanged (i.e. taken
-from the input tensor). If 'allowzero' is set, and the new shape includes 0, the
-dimension will be set explicitly to zero (i.e. not taken from input tensor).
-Shape (second input) could be an empty shape, which means converting to a scalar.
-The input tensor's shape and the output tensor's shape are required to have the same number of elements.
-
-If the attribute 'allowzero' is set, it is invalid for the specified shape to
-contain both a zero value and -1, as the value of the dimension corresponding
-to -1 cannot be determined uniquely.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>allowzero</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values |
-| `shape` | tensor of 64-bit signless integer values |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `reshaped` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values |
-
-
-### `onnx.Resize` (ONNXResizeOp)
-
-_ONNX Resize operation_
-
-Resize the input tensor. In general, it calculates every value in the output tensor as a weighted average of neighborhood (a.k.a. sampling locations) in the input tensor.
-Each dimension value of the output tensor is:
-```
-output_dimension = floor(input_dimension * (roi_end - roi_start) * scale)
-```
-if input \\"sizes\\" is not specified.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>antialias</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-<tr><td><code>axes</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
-<tr><td><code>coordinate_transformation_mode</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
-<tr><td><code>cubic_coeff_a</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
-<tr><td><code>exclude_outside</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-<tr><td><code>extrapolation_value</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
-<tr><td><code>keep_aspect_ratio_policy</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
-<tr><td><code>mode</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
-<tr><td><code>nearest_mode</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-| `roi` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
-| `scales` | tensor of 32-bit float values or none type |
-| `sizes` | tensor of 64-bit signless integer values or none type |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-
-
-### `onnx.ResizeV10` (ONNXResizeV10Op)
-
-_ONNX Resize operation_
-
-Resize the input tensor.
-Each dimension value of the output tensor is:
-  output_dimension = floor(input_dimension * scale).
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>mode</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-| `scales` | tensor of 32-bit float values |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-
-
-### `onnx.ResizeV11` (ONNXResizeV11Op)
-
-_ONNX Resize operation_
-
-Resize the input tensor. In general, it calculates every value in the output tensor as a weighted average of neighborhood (a.k.a. sampling locations) in the input tensor.
-Each dimension value of the output tensor is:
-  output_dimension = floor(input_dimension * (roi_end - roi_start) * scale) if input \\"sizes\\" is not specified.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>coordinate_transformation_mode</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
-<tr><td><code>cubic_coeff_a</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
-<tr><td><code>exclude_outside</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-<tr><td><code>extrapolation_value</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
-<tr><td><code>mode</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
-<tr><td><code>nearest_mode</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-| `roi` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
-| `scales` | tensor of 32-bit float values |
-| `sizes` | tensor of 64-bit signless integer values or none type |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-
-
-### `onnx.ResizeV13` (ONNXResizeV13Op)
-
-_ONNX Resize operation_
-
-Resize the input tensor. In general, it calculates every value in the output tensor as a weighted average of neighborhood (a.k.a. sampling locations) in the input tensor.
-Each dimension value of the output tensor is:
-  output_dimension = floor(input_dimension * (roi_end - roi_start) * scale) if input \\"sizes\\" is not specified.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>coordinate_transformation_mode</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
-<tr><td><code>cubic_coeff_a</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
-<tr><td><code>exclude_outside</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-<tr><td><code>extrapolation_value</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
-<tr><td><code>mode</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
-<tr><td><code>nearest_mode</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-| `roi` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
-| `scales` | tensor of 32-bit float values or none type |
-| `sizes` | tensor of 64-bit signless integer values or none type |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-
-
-### `onnx.ResizeV18` (ONNXResizeV18Op)
-
-_ONNX Resize operation_
-
-Resize the input tensor. In general, it calculates every value in the output tensor as a weighted average of neighborhood (a.k.a. sampling locations) in the input tensor.
-Each dimension value of the output tensor is: <br/>
-  `output_dimension = floor(input_dimension * (roi_end - roi_start) * scale)` <br/>
-if input \\"sizes\\" is not specified.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>antialias</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-<tr><td><code>axes</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
-<tr><td><code>coordinate_transformation_mode</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
-<tr><td><code>cubic_coeff_a</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
-<tr><td><code>exclude_outside</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-<tr><td><code>extrapolation_value</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
-<tr><td><code>keep_aspect_ratio_policy</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
-<tr><td><code>mode</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
-<tr><td><code>nearest_mode</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-| `roi` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type |
-| `scales` | tensor of 32-bit float values or none type |
-| `sizes` | tensor of 64-bit signless integer values or none type |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-
-
-### `onnx.Return` (ONNXReturnOp)
-
-_Function return operation_
-
-Syntax:
-
-```
-operation ::= `onnx.Return` attr-dict ($operands^ `:` type($operands))?
-```
-
-The `onnx.Return` operation represents a return operation within a function.
-The operation takes variable number of operands and produces no results.
-The operand number and types must match the signature of the function
-that contains the operation, with the exception that shaped types may have
-more specific shapes than the function signature result types, which allows
-rewrites of defining ops of operands to make their result shapes more specific.
-This operation terminates a func::FuncOp in the ONNX dialect and is replaced
-by func::ReturnOp in StandardFuncReturnPass before lowering to Krnl or other
-dialects.
-
-Traits: `AlwaysSpeculatableImplTrait`, `HasParent<func::FuncOp>`, `ReturnLike`, `Terminator`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `RegionBranchTerminatorOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `operands` | variadic of any type |
-
-
-### `onnx.ReverseSequence` (ONNXReverseSequenceOp)
-
-_ONNX ReverseSequence operation_
-
-Reverse batch of sequences having different lengths specified by `sequence_lens`.
-
-For each slice i iterating on batch axis, the operator reverses the first sequence_lens[i] elements on time axis,
-and copies elements whose index's beyond sequence_lens[i] to the output. So the output slice i contains reversed
-sequences on the first sequence_lens[i] elements, then have original values copied for the other elements.
-
-Example 1:
-  input = [[0.0, 4.0, 8.0,  12.0],
-           [1.0, 5.0, 9.0,  13.0],
-           [2.0, 6.0, 10.0, 14.0],
-           [3.0, 7.0, 11.0, 15.0]]
-  sequence_lens = [4, 3, 2, 1]
-  time_axis = 0
-  batch_axis = 1
-
-  output = [[3.0, 6.0, 9.0,  12.0],
-            [2.0, 5.0, 8.0,  13.0],
-            [1.0, 4.0, 10.0, 14.0],
-            [0.0, 7.0, 11.0, 15.0]]
-
-Example 2:
-  input = [[0.0,  1.0,  2.0,  3.0 ],
-           [4.0,  5.0,  6.0,  7.0 ],
-           [8.0,  9.0,  10.0, 11.0],
-           [12.0, 13.0, 14.0, 15.0]]
-  sequence_lens = [1, 2, 3, 4]
-  time_axis = 1
-  batch_axis = 0
-
-  output = [[0.0,  1.0,  2.0,  3.0 ],
-            [5.0,  4.0,  6.0,  7.0 ],
-            [10.0, 9.0,  8.0,  11.0],
-            [15.0, 14.0, 13.0, 12.0]]
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>batch_axis</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-<tr><td><code>time_axis</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-| `sequence_lens` | tensor of 64-bit signless integer values |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-
 
 ### `onnx.RoiAlign` (ONNXRoiAlignOp)
 
@@ -8623,6 +9118,7 @@ Effects: `MemoryEffects::Effect{}`
 | `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
 
 
+
 ### `onnx.Round` (ONNXRoundOp)
 
 _ONNX Round operation_
@@ -8661,122 +9157,6 @@ Effects: `MemoryEffects::Effect{}`
 | `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
 
 
-### `onnx.STFT` (ONNXSTFTOp)
-
-_ONNX STFT operation_
-
-Computes the Short-time Fourier Transform of the signal.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>onesided</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `signal` | tensor of 32-bit float values or tensor of 16-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-| `frame_step` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
-| `window` | tensor of 32-bit float values or tensor of 16-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or none type |
-| `frame_length` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or none type |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `output` | tensor of 32-bit float values or tensor of 16-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-
-
-### `onnx.SVMClassifier` (ONNXSVMClassifierOp)
-
-_ONNX SVMClassifier operation_
-
-Support Vector Machine classifier
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>classlabels_ints</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
-<tr><td><code>classlabels_strings</code></td><td>::mlir::ArrayAttr</td><td>string array attribute</td></tr>
-<tr><td><code>coefficients</code></td><td>::mlir::ArrayAttr</td><td>32-bit float array attribute</td></tr>
-<tr><td><code>kernel_params</code></td><td>::mlir::ArrayAttr</td><td>32-bit float array attribute</td></tr>
-<tr><td><code>kernel_type</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
-<tr><td><code>post_transform</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
-<tr><td><code>prob_a</code></td><td>::mlir::ArrayAttr</td><td>32-bit float array attribute</td></tr>
-<tr><td><code>prob_b</code></td><td>::mlir::ArrayAttr</td><td>32-bit float array attribute</td></tr>
-<tr><td><code>rho</code></td><td>::mlir::ArrayAttr</td><td>32-bit float array attribute</td></tr>
-<tr><td><code>support_vectors</code></td><td>::mlir::ArrayAttr</td><td>32-bit float array attribute</td></tr>
-<tr><td><code>vectors_per_class</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `X` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 64-bit signless integer values or tensor of 32-bit signless integer values |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `Y` | tensor of string type values or tensor of 64-bit signless integer values |
-| `Z` | tensor of 32-bit float values |
-
-
-### `onnx.SVMRegressor` (ONNXSVMRegressorOp)
-
-_ONNX SVMRegressor operation_
-
-Support Vector Machine regression prediction and one-class SVM anomaly detection.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>coefficients</code></td><td>::mlir::ArrayAttr</td><td>32-bit float array attribute</td></tr>
-<tr><td><code>kernel_params</code></td><td>::mlir::ArrayAttr</td><td>32-bit float array attribute</td></tr>
-<tr><td><code>kernel_type</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
-<tr><td><code>n_supports</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-<tr><td><code>one_class</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-<tr><td><code>post_transform</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
-<tr><td><code>rho</code></td><td>::mlir::ArrayAttr</td><td>32-bit float array attribute</td></tr>
-<tr><td><code>support_vectors</code></td><td>::mlir::ArrayAttr</td><td>32-bit float array attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `X` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 64-bit signless integer values or tensor of 32-bit signless integer values |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `Y` | tensor of 32-bit float values |
-
 
 ### `onnx.Scaler` (ONNXScalerOp)
 
@@ -8809,6 +9189,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `Y` | tensor of 32-bit float values |
+
 
 
 ### `onnx.Scan` (ONNXScanOp)
@@ -8967,6 +9348,94 @@ Effects: `MemoryEffects::Effect{}`
 | `final_state_and_scan_outputs` | variadic of tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values |
 
 
+
+### `onnx.Scatter` (ONNXScatterOp)
+
+_ONNX Scatter operation_
+
+This operator is deprecated. Please use ScatterElements, which provides the same functionality.
+
+Scatter takes three inputs `data`, `updates`, and `indices` of the same
+rank r >= 1 and an optional attribute axis that identifies an axis of `data`
+(by default, the outer-most axis, that is axis 0). The output of the operation
+is produced by creating a copy of the input `data`, and then updating its value
+to values specified by `updates` at specific index positions specified by
+`indices`. Its output shape is the same as the shape of `data`.
+
+For each entry in `updates`, the target index in `data` is obtained by combining
+the corresponding entry in `indices` with the index of the entry itself: the
+index-value for dimension = axis is obtained from the value of the corresponding
+entry in `indices` and the index-value for dimension != axis is obtained from the
+index of the entry itself.
+
+For instance, in a 2-D tensor case, the update corresponding to the [i][j] entry
+is performed as below:
+```
+  output[indices[i][j]][j] = updates[i][j] if axis = 0,
+  output[i][indices[i][j]] = updates[i][j] if axis = 1,
+```
+
+This operator is the inverse of GatherElements. It is similar to Torch's Scatter operation.
+
+Example 1:
+```
+  data = [
+      [0.0, 0.0, 0.0],
+      [0.0, 0.0, 0.0],
+      [0.0, 0.0, 0.0],
+  ]
+  indices = [
+      [1, 0, 2],
+      [0, 2, 1],
+  ]
+  updates = [
+      [1.0, 1.1, 1.2],
+      [2.0, 2.1, 2.2],
+  ]
+  output = [
+      [2.0, 1.1, 0.0]
+      [1.0, 0.0, 2.2]
+      [0.0, 2.1, 1.2]
+  ]
+```
+Example 2:
+```
+  data = [[1.0, 2.0, 3.0, 4.0, 5.0]]
+  indices = [[1, 3]]
+  updates = [[1.1, 2.1]]
+  axis = 1
+  output = [[1.0, 1.1, 3.0, 2.1, 5.0]]
+```
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>axis</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+| `indices` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
+| `updates` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+
+
+
 ### `onnx.ScatterElements` (ONNXScatterElementsOp)
 
 _ONNX ScatterElements operation_
@@ -9063,6 +9532,7 @@ Effects: `MemoryEffects::Effect{}`
 | `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
 
 
+
 ### `onnx.ScatterND` (ONNXScatterNDOp)
 
 _ONNX ScatterND operation_
@@ -9085,7 +9555,7 @@ first (q-1) dimensions of updates.shape must match the first (q-1) dimensions of
 The remaining dimensions of `updates` correspond to the dimensions of the
 replacement-slice-values. Each replacement-slice-value is a (r-k) dimensional tensor,
 corresponding to the trailing (r-k) dimensions of `data`.  Thus, the shape of `updates`
-must equal indices.shape[0:q-1] ++ data.shape[k:r-1], where ++ denotes the concatenation
+must equal indices.shape[0:q-1] ++ data.shape[k:r], where ++ denotes the concatenation
 of shapes.
 
 The `output` is calculated via the following equation:
@@ -9094,7 +9564,7 @@ The `output` is calculated via the following equation:
 output = np.copy(data)
 update_indices = indices.shape[:-1]
 for idx in np.ndindex(update_indices):
-    output[indices[idx]] = updates[idx]
+    output[tuple(indices[idx])] = updates[idx]
 ```
 
 The order of iteration in the above loop is not specified.
@@ -9111,7 +9581,7 @@ When `reduction` is set to some reduction function `f`, `output` is calculated a
 output = np.copy(data)
 update_indices = indices.shape[:-1]
 for idx in np.ndindex(update_indices):
-    output[indices[idx]] = f(output[indices[idx]], updates[idx])
+    output[tuple(indices[idx])] = f(output[tuple(indices[idx])], updates[idx])
 ```
 
 where the `f` is `+`, `*`, `max` or `min` as specified.
@@ -9171,91 +9641,6 @@ Effects: `MemoryEffects::Effect{}`
 | `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
 
 
-### `onnx.Scatter` (ONNXScatterOp)
-
-_ONNX Scatter operation_
-
-This operator is deprecated. Please use ScatterElements, which provides the same functionality.
-
-Scatter takes three inputs `data`, `updates`, and `indices` of the same
-rank r >= 1 and an optional attribute axis that identifies an axis of `data`
-(by default, the outer-most axis, that is axis 0). The output of the operation
-is produced by creating a copy of the input `data`, and then updating its value
-to values specified by `updates` at specific index positions specified by
-`indices`. Its output shape is the same as the shape of `data`.
-
-For each entry in `updates`, the target index in `data` is obtained by combining
-the corresponding entry in `indices` with the index of the entry itself: the
-index-value for dimension = axis is obtained from the value of the corresponding
-entry in `indices` and the index-value for dimension != axis is obtained from the
-index of the entry itself.
-
-For instance, in a 2-D tensor case, the update corresponding to the [i][j] entry
-is performed as below:
-```
-  output[indices[i][j]][j] = updates[i][j] if axis = 0,
-  output[i][indices[i][j]] = updates[i][j] if axis = 1,
-```
-
-This operator is the inverse of GatherElements. It is similar to Torch's Scatter operation.
-
-Example 1:
-```
-  data = [
-      [0.0, 0.0, 0.0],
-      [0.0, 0.0, 0.0],
-      [0.0, 0.0, 0.0],
-  ]
-  indices = [
-      [1, 0, 2],
-      [0, 2, 1],
-  ]
-  updates = [
-      [1.0, 1.1, 1.2],
-      [2.0, 2.1, 2.2],
-  ]
-  output = [
-      [2.0, 1.1, 0.0]
-      [1.0, 0.0, 2.2]
-      [0.0, 2.1, 1.2]
-  ]
-```
-Example 2:
-```
-  data = [[1.0, 2.0, 3.0, 4.0, 5.0]]
-  indices = [[1, 3]]
-  updates = [[1.1, 2.1]]
-  axis = 1
-  output = [[1.0, 1.1, 3.0, 2.1, 5.0]]
-```
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>axis</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-| `indices` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
-| `updates` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
-
 
 ### `onnx.Selu` (ONNXSeluOp)
 
@@ -9293,6 +9678,7 @@ Effects: `MemoryEffects::Effect{}`
 | `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
 
 
+
 ### `onnx.SequenceAt` (ONNXSequenceAtOp)
 
 _ONNX SequenceAt operation_
@@ -9321,6 +9707,7 @@ Effects: `MemoryEffects::Effect{}`
 | `tensor` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
 
 
+
 ### `onnx.SequenceConstruct` (ONNXSequenceConstructOp)
 
 _ONNX SequenceConstruct operation_
@@ -9347,6 +9734,7 @@ Effects: `MemoryEffects::Effect{}`
 | `output_sequence` | SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values |
 
 
+
 ### `onnx.SequenceEmpty` (ONNXSequenceEmptyOp)
 
 _ONNX SequenceEmpty operation_
@@ -9371,6 +9759,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `output` | SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values |
+
 
 
 ### `onnx.SequenceErase` (ONNXSequenceEraseOp)
@@ -9400,6 +9789,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `output_sequence` | SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values |
+
 
 
 ### `onnx.SequenceInsert` (ONNXSequenceInsertOp)
@@ -9433,6 +9823,7 @@ Effects: `MemoryEffects::Effect{}`
 | `output_sequence` | SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values |
 
 
+
 ### `onnx.SequenceLength` (ONNXSequenceLengthOp)
 
 _ONNX SequenceLength operation_
@@ -9456,6 +9847,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `length` | tensor of 64-bit signless integer values |
+
 
 
 ### `onnx.SequenceMap` (ONNXSequenceMapOp)
@@ -9497,6 +9889,7 @@ Effects: `MemoryEffects::Effect{}`
 | `out_sequence` | variadic of SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values |
 
 
+
 ### `onnx.Shape` (ONNXShapeOp)
 
 _ONNX Shape operation_
@@ -9507,11 +9900,11 @@ If start axis is omitted, the slice starts from axis 0.
 The end axis, if specified, is exclusive (and the returned value will not include the size of that axis).
 If the end axis is omitted, the axes upto the last one will be included.
 Negative axes indicate counting back from the last axis.
-Note that axes will be clamped to the range [0, r-1], where r is the
+Note that axes will be clamped to the range [0, r], where r is the
 rank of the input tensor if they are out-of-range (after adding r in the case of
 negative axis). Thus, specifying any end value > r is equivalent to specifying an end
 value of r, and specifying any start value < -r is equivalent to specifying a start
-value of 0.
+value of 0. If start > end, the result will be an empty shape.
 
 Examples:
 
@@ -9565,6 +9958,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `shape` | tensor of 64-bit signless integer values |
+
 
 
 ### `onnx.ShapeTransform` (ONNXShapeTransformOp)
@@ -9628,6 +10022,7 @@ Effects: `MemoryEffects::Effect{}`
 | `output` | tensor of 32-bit float values |
 
 
+
 ### `onnx.Shrink` (ONNXShrinkOp)
 
 _ONNX Shrink operation_
@@ -9664,6 +10059,7 @@ Effects: `MemoryEffects::Effect{}`
 | `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
 
 
+
 ### `onnx.Sigmoid` (ONNXSigmoidOp)
 
 _ONNX Sigmoid operation_
@@ -9689,6 +10085,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
 
 
 ### `onnx.Sign` (ONNXSignOp)
@@ -9717,6 +10114,7 @@ Effects: `MemoryEffects::Effect{}`
 | `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
 
 
+
 ### `onnx.Sin` (ONNXSinOp)
 
 _ONNX Sin operation_
@@ -9740,6 +10138,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
 
 
 ### `onnx.Sinh` (ONNXSinhOp)
@@ -9767,6 +10166,7 @@ Effects: `MemoryEffects::Effect{}`
 | `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
 
 
+
 ### `onnx.Size` (ONNXSizeOp)
 
 _ONNX Size operation_
@@ -9792,6 +10192,7 @@ Effects: `MemoryEffects::Effect{}`
 | `size` | tensor of 64-bit signless integer values |
 
 
+
 ### `onnx.Slice` (ONNXSliceOp)
 
 _ONNX Slice operation_
@@ -9808,16 +10209,16 @@ in `[0, ... r-1]` where `r = rank(input)` as follows:
 If `axes` are omitted, they are set to `[0, ..., r-1]`.
 If `steps` are omitted, they are set to `[1, ..., 1]` of length `len(starts)`
 
-The effective values are initialized as `start[i] = 0`, `ends[i] = dims[i]` where
+The effective values are initialized as `starts[i] = 0`, `ends[i] = dims[i]` where
 `dims` are the dimensions of `input` and `steps[i] = 1`.
 
 All negative elements of `axes` are made non-negative by adding `r` to them, where
 `r =rank(input)`.
 
 All negative values in `starts[i]` and `ends[i]` have `dims[axes[i]]` added to them,
-where `dims` are the dimensions of `input`. Then `start[axes[i]]` is the adjusted
-`starts[i]` is clamped into the range `[0, dims[axes[i]]]` for positive stepping
-and `[0, dims[axes[i]]-1]` for negative stepping.
+where `dims` are the dimensions of `input`. Then `starts[axes[i]]` is clamped to
+range `[0, dims[axes[i]]]` for positive stepping, or to range `[0, dims[axes[i]]-1]`
+for negative stepping.
 
 The clamping for the adjusted `ends[i]` depends on the sign of `steps[i]` and must
 accommodate copying 0 through `dims[axes[i]]` elements, so for positive stepping
@@ -9880,6 +10281,46 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+
+
+
+### `onnx.Softmax` (ONNXSoftmaxOp)
+
+_ONNX Softmax operation_
+
+The operator computes the normalized exponential values for the given input:
+
+ Softmax(input, axis) = Exp(input) / ReduceSum(Exp(input), axis=axis, keepdims=1) 
+
+The \"axis\" attribute indicates the dimension along which Softmax
+will be performed. The output tensor has the same shape
+and contains the Softmax values of the corresponding input.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>axis</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
 
 
 ### `onnx.SoftmaxCrossEntropyLoss` (ONNXSoftmaxCrossEntropyLossOp)
@@ -9957,43 +10398,6 @@ Effects: `MemoryEffects::Effect{}`
 | `log_prob` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or none type |
 
 
-### `onnx.Softmax` (ONNXSoftmaxOp)
-
-_ONNX Softmax operation_
-
-The operator computes the normalized exponential values for the given input:
-
- Softmax(input, axis) = Exp(input) / ReduceSum(Exp(input), axis=axis, keepdims=1) 
-
-The \"axis\" attribute indicates the dimension along which Softmax
-will be performed. The output tensor has the same shape
-and contains the Softmax values of the corresponding input.
-
-Traits: `AlwaysSpeculatableImplTrait`
-
-Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
-
-Effects: `MemoryEffects::Effect{}`
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>axis</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
-
 
 ### `onnx.SoftmaxV11` (ONNXSoftmaxV11Op)
 
@@ -10040,6 +10444,7 @@ Effects: `MemoryEffects::Effect{}`
 | `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
 
 
+
 ### `onnx.Softplus` (ONNXSoftplusOp)
 
 _ONNX Softplus operation_
@@ -10067,6 +10472,7 @@ Effects: `MemoryEffects::Effect{}`
 | `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
 
 
+
 ### `onnx.Softsign` (ONNXSoftsignOp)
 
 _ONNX Softsign operation_
@@ -10090,6 +10496,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
 
 
 ### `onnx.SpaceToDepth` (ONNXSpaceToDepthOp)
@@ -10124,6 +10531,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+
 
 
 ### `onnx.Split` (ONNXSplitOp)
@@ -10162,6 +10570,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `outputs` | variadic of tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+
 
 
 ### `onnx.SplitToSequence` (ONNXSplitToSequenceOp)
@@ -10209,6 +10618,7 @@ Effects: `MemoryEffects::Effect{}`
 | `output_sequence` | SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values |
 
 
+
 ### `onnx.SplitV11` (ONNXSplitV11Op)
 
 _ONNX Split operation_
@@ -10242,6 +10652,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `outputs` | variadic of tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+
 
 
 ### `onnx.SplitV13` (ONNXSplitV13Op)
@@ -10279,6 +10690,7 @@ Effects: `MemoryEffects::Effect{}`
 | `outputs` | variadic of tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
 
 
+
 ### `onnx.Sqrt` (ONNXSqrtOp)
 
 _ONNX Sqrt operation_
@@ -10304,6 +10716,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
 
 
 ### `onnx.Squeeze` (ONNXSqueezeOp)
@@ -10333,6 +10746,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `squeezed` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values |
+
 
 
 ### `onnx.SqueezeV11` (ONNXSqueezeV11Op)
@@ -10368,6 +10782,59 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `squeezed` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+
+
+
+### `onnx.STFT` (ONNXSTFTOp)
+
+_ONNX STFT operation_
+
+Computes the Short-time Fourier Transform of the signal.
+
+The STFT is computed by sliding a window of length `frame_length` over the signal with a
+step size of `frame_step`, computing a DFT of each windowed frame.
+
+The number of frames in the output is computed as:
+
+  `frames = floor((signal_length - frame_length) / frame_step) + 1`
+
+Constraints on inputs:
+- `frame_step` must be a scalar.
+- `frame_length` must be a scalar. When omitted and `window` is provided, `frame_length`
+  is inferred from `window.shape[0]`. When both `window` and `frame_length` are omitted,
+  `frame_length` defaults to `signal_length`.
+- `window` must be a 1-D tensor. When omitted, a rectangular (all-ones) window of length
+  `frame_length` is used. When both `window` and `frame_length` are provided, the length
+  of the `window` tensor must equal `frame_length`.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>onesided</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `signal` | tensor of 32-bit float values or tensor of 16-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+| `frame_step` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values |
+| `window` | tensor of 32-bit float values or tensor of 16-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or none type |
+| `frame_length` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or none type |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | tensor of 32-bit float values or tensor of 16-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
+
 
 
 ### `onnx.StringNormalizer` (ONNXStringNormalizerOp)
@@ -10413,6 +10880,7 @@ Effects: `MemoryEffects::Effect{}`
 | `Y` | tensor of string type values |
 
 
+
 ### `onnx.Sub` (ONNXSubOp)
 
 _ONNX Sub operation_
@@ -10443,6 +10911,7 @@ Effects: `MemoryEffects::Effect{}`
 | `C` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
 
 
+
 ### `onnx.Sum` (ONNXSumOp)
 
 _ONNX Sum operation_
@@ -10470,6 +10939,91 @@ Effects: `MemoryEffects::Effect{}`
 | `sum` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values |
 
 
+
+### `onnx.SVMClassifier` (ONNXSVMClassifierOp)
+
+_ONNX SVMClassifier operation_
+
+Support Vector Machine classifier
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>classlabels_ints</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+<tr><td><code>classlabels_strings</code></td><td>::mlir::ArrayAttr</td><td>string array attribute</td></tr>
+<tr><td><code>coefficients</code></td><td>::mlir::ArrayAttr</td><td>32-bit float array attribute</td></tr>
+<tr><td><code>kernel_params</code></td><td>::mlir::ArrayAttr</td><td>32-bit float array attribute</td></tr>
+<tr><td><code>kernel_type</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+<tr><td><code>post_transform</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+<tr><td><code>prob_a</code></td><td>::mlir::ArrayAttr</td><td>32-bit float array attribute</td></tr>
+<tr><td><code>prob_b</code></td><td>::mlir::ArrayAttr</td><td>32-bit float array attribute</td></tr>
+<tr><td><code>rho</code></td><td>::mlir::ArrayAttr</td><td>32-bit float array attribute</td></tr>
+<tr><td><code>support_vectors</code></td><td>::mlir::ArrayAttr</td><td>32-bit float array attribute</td></tr>
+<tr><td><code>vectors_per_class</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `X` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 64-bit signless integer values or tensor of 32-bit signless integer values |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `Y` | tensor of string type values or tensor of 64-bit signless integer values |
+| `Z` | tensor of 32-bit float values |
+
+
+
+### `onnx.SVMRegressor` (ONNXSVMRegressorOp)
+
+_ONNX SVMRegressor operation_
+
+Support Vector Machine regression prediction and one-class SVM anomaly detection.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>coefficients</code></td><td>::mlir::ArrayAttr</td><td>32-bit float array attribute</td></tr>
+<tr><td><code>kernel_params</code></td><td>::mlir::ArrayAttr</td><td>32-bit float array attribute</td></tr>
+<tr><td><code>kernel_type</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+<tr><td><code>n_supports</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>one_class</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>post_transform</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+<tr><td><code>rho</code></td><td>::mlir::ArrayAttr</td><td>32-bit float array attribute</td></tr>
+<tr><td><code>support_vectors</code></td><td>::mlir::ArrayAttr</td><td>32-bit float array attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `X` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 64-bit signless integer values or tensor of 32-bit signless integer values |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `Y` | tensor of 32-bit float values |
+
+
+
 ### `onnx.Tan` (ONNXTanOp)
 
 _ONNX Tan operation_
@@ -10495,6 +11049,7 @@ Effects: `MemoryEffects::Effect{}`
 | `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
 
 
+
 ### `onnx.Tanh` (ONNXTanhOp)
 
 _ONNX Tanh operation_
@@ -10518,6 +11073,69 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
+
+
+### `onnx.TensorScatter` (ONNXTensorScatterOp)
+
+_ONNX TensorScatter operation_
+
+TensorScatter is a generic tensor update operation, motivated by the requirements for KV cache updates for Attention
+ops commonly found in LLMs. It is a functional operation that models an in-place update to a KV cache buffer.
+
+The past and present cache tensors have the same shape (batch_size, D1, D2, ..., max_sequence_length, ..., Dn), with
+the sequence dimension (indicated by the `axis` attribute) being max_sequence_length, so the sizes of these tensors do
+not need to grow between iterations. The `update` tensor's shape only differs from the cache tensors in the sequence
+dimension: (batch_size, D1, D2, ..., sequence_length, ..., Dn), where sequence_length <= max_sequence_length.
+
+The optional `write_indices` input indicates the write index for each sample in the batch, assumed to be zero
+if not provided. When the `mode` attribute is set to \"circular\", the write index is modulo max_sequence_length.
+The operation can be described using the following pseudocode:
+
+```
+for prefix_idx in np.ndindex(past_cache.shape[:axis]):
+    batch_idx = prefix_idx[0]
+    for sequence_idx in range(sequence_length):
+        cache_sequence_idx = write_indices[batch_idx] + sequence_idx
+        if mode == \"circular\":
+            cache_sequence_idx = cache_sequence_idx % max_sequence_length
+        cache_idx = (*prefix_idx, cache_sequence_idx)
+        update_idx = (*prefix_idx, sequence_idx)
+        present_cache[cache_idx] = update[update_idx]
+```
+
+During the prefill phase of attention, only the first two inputs are needed. During the decode phase, `write_indices`
+is also needed so that the incoming key or value update can be appended after the last valid token for each sample
+in the batch.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>axis</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>mode</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `past_cache` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values or tensor of f4E2M1FN type values or tensor of f8E8M0FNU type values |
+| `update` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values or tensor of f4E2M1FN type values or tensor of f8E8M0FNU type values |
+| `write_indices` | tensor of 64-bit signless integer values or none type |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `present_cache` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values or tensor of f4E2M1FN type values or tensor of f8E8M0FNU type values |
+
 
 
 ### `onnx.TfIdfVectorizer` (ONNXTfIdfVectorizerOp)
@@ -10586,6 +11204,7 @@ Effects: `MemoryEffects::Effect{}`
 | `Y` | tensor of 32-bit float values |
 
 
+
 ### `onnx.ThresholdedRelu` (ONNXThresholdedReluOp)
 
 _ONNX ThresholdedRelu operation_
@@ -10620,6 +11239,7 @@ Effects: `MemoryEffects::Effect{}`
 | `Y` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
 
 
+
 ### `onnx.Tile` (ONNXTileOp)
 
 _ONNX Tile operation_
@@ -10646,6 +11266,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+
 
 
 ### `onnx.TopK` (ONNXTopKOp)
@@ -10698,13 +11319,27 @@ Effects: `MemoryEffects::Effect{}`
 | `Indices` | tensor of 64-bit signless integer values |
 
 
+
 ### `onnx.Transpose` (ONNXTransposeOp)
 
 _ONNX Transpose operation_
 
-Transpose the input tensor similar to numpy.transpose. For example, when
-perm=(1, 0, 2), given an input tensor of shape (1, 2, 3), the output shape
-will be (2, 1, 3).
+Returns a transpose of the input tensor. (Similar to `numpy.transpose`).
+The optional attribute `perm` specifies the permutation of the axes of the
+input tensor. `perm` must contain each axis index in `[0, n-1]` exactly once,
+so its length is equal to the rank `n` of the input tensor.
+
+Axis `i` of the output tensor corresponds to axis `perm[i]` of the input tensor.
+
+If the attribute is omitted, its default value is `(n-1, ..., 0)`, where `n`
+is the rank of the input tensor (that is, the dimensions are reversed).
+
+For example, when perm=(1, 0, 2), given an input tensor of shape (1, 2, 3),
+the output shape will be (2, 1, 3).
+When perm=(1, 2, 0), given an input tensor of shape (1, 2, 3),
+the output shape will be (2, 3, 1).
+A 0-D or 1-D input is valid; in those cases the output has the same shape
+as the input.
 
 Traits: `AlwaysSpeculatableImplTrait`
 
@@ -10730,6 +11365,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `transposed` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values |
+
 
 
 ### `onnx.TreeEnsembleClassifier` (ONNXTreeEnsembleClassifierOp)
@@ -10789,6 +11425,7 @@ Effects: `MemoryEffects::Effect{}`
 | `Z` | tensor of 32-bit float values |
 
 
+
 ### `onnx.TreeEnsembleRegressor` (ONNXTreeEnsembleRegressorOp)
 
 _ONNX TreeEnsembleRegressor operation_
@@ -10846,6 +11483,7 @@ Effects: `MemoryEffects::Effect{}`
 | `Y` | tensor of 32-bit float values |
 
 
+
 ### `onnx.Trilu` (ONNXTriluOp)
 
 _ONNX Trilu operation_
@@ -10888,6 +11526,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+
 
 
 ### `onnx.Unique` (ONNXUniqueOp)
@@ -11022,6 +11661,7 @@ Effects: `MemoryEffects::Effect{}`
 | `counts` | tensor of 64-bit signless integer values or none type |
 
 
+
 ### `onnx.Unsqueeze` (ONNXUnsqueezeOp)
 
 _ONNX Unsqueeze operation_
@@ -11055,6 +11695,7 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `expanded` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or tensor of 4-bit unsigned integer values or tensor of 4-bit signless integer values |
+
 
 
 ### `onnx.UnsqueezeV11` (ONNXUnsqueezeV11Op)
@@ -11100,6 +11741,7 @@ Effects: `MemoryEffects::Effect{}`
 | `expanded` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
 
 
+
 ### `onnx.Upsample` (ONNXUpsampleOp)
 
 _ONNX Upsample operation_
@@ -11133,6 +11775,68 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
+
+
+
+### `onnx.UpsampleAndPad` (ONNXUpsampleAndPadOp)
+
+_ONNX UpsampleAndPad operation_
+
+This operation performs upsampling followed by padding on an n-dimensional tensor.
+
+Given an input tensor X of rank n, strides of size k, and pads of size 2*k,
+the operation proceeds in two steps:
+
+1. Upsampling: For each of the innermost k dimensions, insert zeros between
+   elements according to the stride values. The upsampled size for dimension i is:
+   upsampled_size[i] = (input_size[i] - 1) * strides[i] + 1
+
+2. Padding: Apply constant padding (value=0) to the upsampled result.
+   The first k elements of pads specify the beginning padding, and the last k
+   elements specify the ending padding for each of the innermost k dimensions.
+
+Example for 2D case with X=(N,C,H,W) and strides=(sH,sW):
+  H_up = (H - 1) * sH + 1
+  W_up = (W - 1) * sW + 1
+  x_up[:, :, ::sH, ::sW] = x  (with zeros elsewhere)
+  output = pad(x_up, pads)
+Optional attributes:
+- strides: If not specified, defaults to all 1s (no upsampling).
+- pads: If not specified, defaults to all 0s (no padding).
+
+Constraints:
+- k <= n (number of stride dimensions must not exceed input rank)
+- pads must have size 2*k
+- All stride values must be positive
+
+This operation is not part of the standard and was added to assist onnx-mlir.
+
+Traits: `AlwaysSpeculatableImplTrait`
+
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>strides</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+<tr><td><code>pads</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values |
+
 
 
 ### `onnx.UpsampleV7` (ONNXUpsampleV7Op)
@@ -11170,6 +11874,7 @@ Effects: `MemoryEffects::Effect{}`
 | `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
 
 
+
 ### `onnx.Where` (ONNXWhereOp)
 
 _ONNX Where operation_
@@ -11202,6 +11907,7 @@ Effects: `MemoryEffects::Effect{}`
 | `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values |
 
 
+
 ### `onnx.Xor` (ONNXXorOp)
 
 _ONNX Xor operation_
@@ -11231,6 +11937,7 @@ Effects: `MemoryEffects::Effect{}`
 | `C` | tensor of 1-bit signless integer values |
 
 
+
 ### `onnx.Yield` (ONNXYieldOp)
 
 _ONNX yield operation_
@@ -11258,6 +11965,7 @@ Effects: `MemoryEffects::Effect{}`
 | Operand | Description |
 | :-----: | ----------- |
 | `operands` | variadic of any type |
+
 
 
 ### `onnx.ZipMap` (ONNXZipMapOp)
@@ -11294,4 +12002,5 @@ Effects: `MemoryEffects::Effect{}`
 | Result | Description |
 | :----: | ----------- |
 | `Z` | SeqType of tuple with any combination of string type or 32-bit float values values or SeqType of tuple with any combination of 64-bit signless integer or 32-bit float values values |
+
 

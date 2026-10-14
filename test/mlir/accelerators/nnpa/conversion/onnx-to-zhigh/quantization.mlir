@@ -11,7 +11,7 @@ func.func @test_correctness_of_symmetric_quant_for_weight(%arg0: tensor<?x?x200x
 // CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<2.750000e+02> : tensor<1xf32>
 // CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<{{.}}[0], [30], [-3], [-18], [11], [1], [-8], [-1], [1], [-20], [-16], [-6], [1], [-76], [-2], [-13], [-9], [7], [42], [-23], [-1], [-9], [-6], [9], [-6], [5], [67], [28], [-7], [1], [8], [-4], [-25], [-5], [12], [-5], [15], [4], [-6], [97], [-17], [-40], [52], [6], [-3], [76], [8], [15], [-29], [-1], [-2], [26], [0], [-10], [9], [8], [-16], [-5], [1], [-5], [-58], [-20], [-3], [0], [-4], [10], [-11], [-3], [23], [8], [25], [63], [-21], [7], [3], [0], [-19], [-5], [1], [-2], [86], [-39], [1], [57], [6], [-3], [1], [2], [3], [20], [-15], [11], [-8], [14], [49], [-9], [-48], [-7], [1], [22], [9], [-52], [-17], [10], [-11], [-1], [-125], [-3], [-6], [11], [10], [18], [127], [3], [-9], [-8], [-6], [-4], [-18], [-11], [-24], [4], [29], [-24], [-25], [6], [8], [-25], [45], [-15], [23], [22], [-24], [-17], [4], [73], [-3], [-8], [-11], [1], [9], [7], [17], [-17], [-1], [16], [14], [-8], [8], [-1], [14], [-2], [-6], [-8], [-16], [-14], [13], [10], [1], [55], [-3], [25], [0], [-2], [-6], [-7], [-11], [12], [8], [-13], [-7], [-1], [75], [10], [-19], [1], [-6], [-7], [-28], [4], [-45], [-7], [-4], [-4], [-8], [-36], [9], [-29], [1], [34], [24], [11], [-62], [22], [42], [-7], [-6], [18], [-28], [-3]{{.}}> : tensor<200x1xi8>
 // CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<57.61623> : tensor<f32>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.NoValue"() : () -> none
 // CHECK-DAG:       [[VAR_4_:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<f32>
 // CHECK-DAG:       [[VAR_5_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<f32>
 // CHECK:           [[VAR_Out_:%.+]], [[VAR_RecScale_:%.+]], [[VAR_Offset_:%.+]] = "zhigh.QuantizedStick"([[PARAM_0_]], [[VAR_3_]], [[VAR_3_]]) <{layout = "3DS", quantized_type = "DLFLOAT16", sym_mode = 0 : i64}> : (tensor<?x?x200xf32>, none, none) -> (tensor<?x?x200xf16, #zhigh.layout<{dataLayout = "3DS", quantizedType = "DLFLOAT16"}>>, tensor<f32>, tensor<f32>)
@@ -30,7 +30,7 @@ func.func @test_correctness_of_symmetric_quant_for_activation_and_weight(%arg0: 
 // SYMSYMI8-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x200xf32>) -> tensor<?x?x1xf32> {
 // SYMSYMI8-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<{{.}}[0], [30], [-3], [-18], [11], [1], [-8], [-1], [1], [-20], [-16], [-6], [1], [-76], [-2], [-13], [-9], [7], [42], [-23], [-1], [-9], [-6], [9], [-6], [5], [67], [28], [-7], [1], [8], [-4], [-25], [-5], [12], [-5], [15], [4], [-6], [97], [-17], [-40], [52], [6], [-3], [76], [8], [15], [-29], [-1], [-2], [26], [0], [-10], [9], [8], [-16], [-5], [1], [-5], [-58], [-20], [-3], [0], [-4], [10], [-11], [-3], [23], [8], [25], [63], [-21], [7], [3], [0], [-19], [-5], [1], [-2], [86], [-39], [1], [57], [6], [-3], [1], [2], [3], [20], [-15], [11], [-8], [14], [49], [-9], [-48], [-7], [1], [22], [9], [-52], [-17], [10], [-11], [-1], [-125], [-3], [-6], [11], [10], [18], [127], [3], [-9], [-8], [-6], [-4], [-18], [-11], [-24], [4], [29], [-24], [-25], [6], [8], [-25], [45], [-15], [23], [22], [-24], [-17], [4], [73], [-3], [-8], [-11], [1], [9], [7], [17], [-17], [-1], [16], [14], [-8], [8], [-1], [14], [-2], [-6], [-8], [-16], [-14], [13], [10], [1], [55], [-3], [25], [0], [-2], [-6], [-7], [-11], [12], [8], [-13], [-7], [-1], [75], [10], [-19], [1], [-6], [-7], [-28], [4], [-45], [-7], [-4], [-4], [-8], [-36], [9], [-29], [1], [34], [24], [11], [-62], [22], [42], [-7], [-6], [18], [-28], [-3]{{.}}> : tensor<200x1xi8>
 // SYMSYMI8-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<57.61623> : tensor<f32>
-// SYMSYMI8-DAG:       [[VAR_2_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// SYMSYMI8-DAG:       [[VAR_2_:%.+]] = "onnx.NoValue"() : () -> none
 // SYMSYMI8-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<f32>
 // SYMSYMI8-DAG:       [[VAR_4_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<f32>
 // SYMSYMI8:           [[VAR_Out_:%.+]], [[VAR_RecScale_:%.+]], [[VAR_Offset_:%.+]] = "zhigh.QuantizedStick"([[PARAM_0_]], [[VAR_2_]], [[VAR_2_]]) <{layout = "3DS", quantized_type = "DLFLOAT16", sym_mode = 1 : i64}> : (tensor<?x?x200xf32>, none, none) -> (tensor<?x?x200xf16, #zhigh.layout<{dataLayout = "3DS", quantizedType = "DLFLOAT16"}>>, tensor<f32>, tensor<f32>)
@@ -53,7 +53,7 @@ func.func @test_matmul(%arg0: tensor<?x?x200xf32>) -> tensor<?x?x1xf32> {
 // CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<-2.540000e+04> : tensor<1xf32>
 // CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<-127> : tensor<200x1xi8>
 // CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<17686.584> : tensor<f32>
-// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.NoValue"() : () -> none
 // CHECK-DAG:       [[VAR_4_:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<f32>
 // CHECK-DAG:       [[VAR_5_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<f32>
 // CHECK:           [[VAR_Out_:%.+]], [[VAR_RecScale_:%.+]], [[VAR_Offset_:%.+]] = "zhigh.QuantizedStick"([[PARAM_0_]], [[VAR_3_]], [[VAR_3_]]) <{layout = "3DS", quantized_type = "DLFLOAT16", sym_mode = 0 : i64}> : (tensor<?x?x200xf32>, none, none) -> (tensor<?x?x200xf16, #zhigh.layout<{dataLayout = "3DS", quantizedType = "DLFLOAT16"}>>, tensor<f32>, tensor<f32>)
@@ -85,7 +85,7 @@ func.func @test_matmul_add(%arg0: tensor<?x?x200xf32>) -> tensor<?x?x10xf32> {
 // CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<-127> : tensor<200x10xi8>
 // CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<17686.584> : tensor<f32>
 // CHECK-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<-0.00718058366> : tensor<10xf32>
-// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.NoValue"() : () -> none
 // CHECK-DAG:       [[VAR_5_:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<f32>
 // CHECK-DAG:       [[VAR_6_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<f32>
 // CHECK:           [[VAR_Out_:%.+]], [[VAR_RecScale_:%.+]], [[VAR_Offset_:%.+]] = "zhigh.QuantizedStick"([[PARAM_0_]], [[VAR_4_]], [[VAR_4_]]) <{layout = "3DS", quantized_type = "DLFLOAT16", sym_mode = 0 : i64}> : (tensor<?x?x200xf32>, none, none) -> (tensor<?x?x200xf16, #zhigh.layout<{dataLayout = "3DS", quantizedType = "DLFLOAT16"}>>, tensor<f32>, tensor<f32>)
@@ -118,7 +118,7 @@ func.func @test_gemm(%arg0: tensor<?x200xf32>) -> tensor<?x10xf32> {
 // CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<-127> : tensor<200x10xi8>
 // CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<17686.584> : tensor<f32>
 // CHECK-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<-0.00718058366> : tensor<10xf32>
-// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.NoValue"() : () -> none
 // CHECK-DAG:       [[VAR_5_:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<f32>
 // CHECK-DAG:       [[VAR_6_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<f32>
 // CHECK:           [[VAR_Out_:%.+]], [[VAR_RecScale_:%.+]], [[VAR_Offset_:%.+]] = "zhigh.QuantizedStick"([[PARAM_0_]], [[VAR_4_]], [[VAR_4_]]) <{layout = "2D", quantized_type = "DLFLOAT16", sym_mode = 0 : i64}> : (tensor<?x200xf32>, none, none) -> (tensor<?x200xf16, #zhigh.layout<{dataLayout = "2D", quantizedType = "DLFLOAT16"}>>, tensor<f32>, tensor<f32>)

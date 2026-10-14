@@ -4,7 +4,7 @@
 
 //===---------- OpHelper.hpp - Helper functions for ONNX dialects ---------===//
 //
-// Copyright 2019-2025 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -78,6 +78,10 @@ mlir::Type convertTensorTypeToTensorTypeWithEncoding(
 
 /// Return true if the tensor is a ONNX tensor (having ONNXTensorEncodingAttr).
 bool isONNXTensor(const mlir::Type type);
+
+/// Get a tensor encoding attribute from a type.
+/// Returns null-attribute if there is no encoding.
+mlir::Attribute getTensorEncoding(mlir::Type type);
 
 /// Get a ONNX tensor encoding attribute from a type.Returns null-attribute for
 /// any type without an encoding.
@@ -205,14 +209,6 @@ bool getI64ValuesFromONNXConstantOp(
 // Note: It's ok to inline the isa<NoneType> test and not call this function.
 inline bool isNoneValue(mlir::Value value);
 
-// Test if the operation is a data movement ONNX operation that just shuffles
-// elements without any computation.
-bool isDataMovementONNXOp(mlir::Operation *op);
-
-// Test if the operation is a view ONNX operation that just changes the shape
-// withou data copying.
-bool isViewONNXOp(mlir::Operation *op);
-
 //===----------------------------------------------------------------------===//
 // Support for transpose patterns.
 //===----------------------------------------------------------------------===//
@@ -224,6 +220,10 @@ mlir::ArrayAttr CombinedTransposePattern(mlir::PatternRewriter &rewriter,
 /// Test if the permute pattern correspond to an identity pattern.
 /// Identity patterns are {0, 1, 2, ... , rank -1}.
 bool IsIdentityPermuteVector(mlir::ArrayAttr permAttr);
+
+/// Test if the permute pattern only swaps the last two dimensions, i.e.
+/// perm = {0, 1, ..., rank-3, rank-1, rank-2}.
+bool isTransposeSwappingLastTwoDims(mlir::ArrayAttr permAttr);
 
 //===----------------------------------------------------------------------===//
 // Support for Rewrite.
@@ -249,6 +249,20 @@ mlir::ArrayAttr createArrayAttrFromConstantOp(mlir::ONNXConstantOp constOp);
 // Check whether a value is produced by a dense ONNXConstantOp.
 bool isDenseONNXConstant(mlir::Value result);
 
+// Check whether an ArrayAttr contains all ones.
+bool hasAllOnesInArrayAttr(mlir::ArrayAttr arrayAttr);
+
+// Check whether an ArrayAttr contains all zeros.
+bool hasAllZerosInArrayAttr(mlir::ArrayAttr arrayAttr);
+
+// Check whether an ArrayAttr contains non-zero values.
+bool hasNonZeroInArrayAttr(mlir::ArrayAttr arrayAttr);
+
+// Create full pads array for all dimensions by prepending zeros for outer
+// dimensions.
+mlir::DenseElementsAttr createFullPadsForAllDims(
+    mlir::PatternRewriter &rewriter, mlir::Value input, mlir::ArrayAttr pads);
+
 // Get scalar value when it is a constant.
 template <typename RESULT_TYPE>
 RESULT_TYPE getScalarValue(mlir::ElementsAttr denseAttr, mlir::Type type);
@@ -261,6 +275,15 @@ WideNum asWideNum(double n, mlir::Type elemType);
 
 /// Checks whether a constant tensor's elements are all equal to a given scalar.
 bool isConstOf(mlir::Value constValue, double n);
+
+/// For a binary op comparing a float-element-type operand against an
+/// integer-element-type operand that is a constant equal to 0 (the only
+/// integer literal value guaranteed to be exactly representable, bit for
+/// bit, in every float type onnx-mlir supports): returns the index (0 or 1)
+/// of the integer-literal operand. Returns std::nullopt for any other
+/// combination of operand types, including when both already match.
+std::optional<unsigned> getFloatVsIntegerZeroLiteralOperand(
+    mlir::Operation *op);
 
 mlir::Type convertONNXTypeToMLIRType(
     mlir::Builder &builder, onnx::TensorProto_DataType onnxType);
@@ -291,10 +314,16 @@ bool hasIntegerPowerExponent(mlir::ONNXPowOp *op, int64_t &exponentValue);
 // Support for dim operations.
 //===----------------------------------------------------------------------===//
 
-/// If the value val has only one use and that use is of type OP, return that
-/// op. Otherwise return null.
+/// If the value val has only one use and that use is of operation type OP,
+/// return that op. Otherwise return null.
 template <typename OP>
-mlir::Operation *usedOnlyBy(mlir::Value val);
+mlir::Operation *usedOnlyByOpType(mlir::Value val);
+
+/// Typed sibling of usedOnlyByOpType(): return the single user of val,
+/// already cast to OP, or null if val does not have exactly one use of that
+/// operation type.
+template <typename OP>
+OP singleUserOfOpType(mlir::Value val);
 
 /// Check the defining operation of a value.
 template <typename OP>
@@ -410,6 +439,12 @@ bool isIdentityReshape(mlir::Value input, mlir::Value output,
 
 std::string getNodeNameInPresenceOfOpt(
     mlir::Operation *op, bool useFileLine = true);
+
+/// For an ONNXFusedOp, returns the profiling name "onnx.fused.<kind>".
+/// For any other op, returns the MLIR dialect op name (e.g. "onnx.Add").
+/// Use this name for both KrnlInstrumentOp and ONNXPrintSignatureOp so that
+/// profiling tools always see a consistent, human-readable identifier.
+std::string getProfilingName(mlir::Operation *op);
 
 //===----------------------------------------------------------------------===//
 // Support for DenseElementsAttr.

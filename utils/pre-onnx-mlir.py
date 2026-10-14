@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 This script is intended to display, verify or convert an onnx model.
 With option -v or --VERBOSE, the model will be displayed on output
@@ -40,7 +41,7 @@ if args.no_convert:
 # ==UPDATE_ONNX_VERSION_OPSET==
 # Look for tag above and update all references when upgrading the ONNX support within ONNX-MLIR.
 # To update all occurrence of the current ONNX opset, please grep "CURRENT_ONNX_OPSET" and update all locations accordingly.
-current_onnx_opset = 22
+current_onnx_opset = 28
 
 converted_model = version_converter.convert_version(original_model, current_onnx_opset)
 

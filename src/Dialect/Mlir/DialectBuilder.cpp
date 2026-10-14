@@ -1086,11 +1086,17 @@ Value MathBuilder::cast(Type destType, Value src) const {
         return castToUnsigned(src, srcElemWidth);
       // Different bit width.
       Value dest = src;
-      if (bitExtend)
-        dest = arith::ExtSIOp::create(b(), loc(), destType, src);
-      if (bitTrunc)
+      if (bitExtend) {
+        Type castElemType = b().getIntegerType(destElemWidth);
+        Type castType = getTypeWithVector(destType, castElemType);
+        dest = arith::ExtSIOp::create(b(), loc(), castType, src);
+      }
+      if (bitTrunc) {
         // TosaToLinalg use a clipping algo
-        dest = arith::TruncIOp::create(b(), loc(), destType, src);
+        Type castElemType = b().getIntegerType(destElemWidth);
+        Type castType = getTypeWithVector(destType, castElemType);
+        dest = arith::TruncIOp::create(b(), loc(), castType, src);
+      }
       if (destIsIndex)
         return arith::IndexCastOp::create(b(), loc(), b().getIndexType(), dest);
       if (destElemType.isUnsignedInteger()) {
@@ -1233,6 +1239,22 @@ void MemRefBuilder::storeIE(Value val, Value memref,
       *this, val, memref, indices, offsets);
 }
 
+//===----------------------------------------------------------------------===//
+// Compute type and dyn symbols for alloc functions.
+
+mlir::MemRefType MemRefBuilder::getType(DimsExprRef shape, Type elementType) {
+  int64_t rank = shape.size();
+  llvm::SmallVector<int64_t, 6> typeShape;
+  for (int64_t i = 0; i < rank; ++i) {
+    if (shape[i].isLiteral())
+      // Use literal directly in type.
+      typeShape.emplace_back(shape[i].getLiteral());
+    else
+      // Else we have a dynamic value.
+      typeShape.emplace_back(ShapedType::kDynamic);
+  }
+  return MemRefType::get(typeShape, elementType);
+}
 //===----------------------------------------------------------------------===//
 // Alloc functions without alignment.
 
@@ -2244,7 +2266,37 @@ void LLVMBuilder::br(ArrayRef<Value> destOperands, Block *destBlock) const {
 
 void LLVMBuilder::handleVarArgCall(LLVM::CallOp &callOp,
     ArrayRef<Type> resultTypes, ArrayRef<Value> inputs) const {
-  // Define result type (void or 1).
+  // var_callee_type must carry the callee's *declared* function type
+  // (fixed parameters only, plus the variadic marker) — not the full
+  // argument list of this particular call site.
+  //
+  // Prior to llvm-project ~43574226, MLIR did not enforce this: var_callee_type
+  // was informational and any LLVMFunctionType was accepted. The new
+  // verifyCallOpInterface + getArgOperandsImpl strictly uses
+  // var_callee_type->getNumParams() to determine which operands are
+  // "argument operands" (forwarded to callee params) vs. "variadic operands".
+  // If var_callee_type lists N fixed params, getArgOperands() returns
+  // take_front(N), and verifyCallOpInterface checks that against
+  // funcType.getParams().size() (from the symbol declaration). Passing
+  // the full call-site types (e.g., void(ptr, i64, ...)) for a callee
+  // declared as void(ptr, ...) would cause N=2 vs. 1 → "expected 1, got 2".
+  //
+  // Fix: look up the callee's LLVMFuncOp in the nearest parent module and
+  // use its declared function type as var_callee_type. That is exactly what
+  // MLIR's own CallOp builders do via getCallOpVarCalleeType().
+  if (auto calleeName = callOp.getCallee()) {
+    auto module = callOp->getParentOfType<ModuleOp>();
+    if (module) {
+      if (auto func = module.lookupSymbol<LLVM::LLVMFuncOp>(*calleeName)) {
+        callOp.setVarCalleeType(func.getFunctionType());
+        return;
+      }
+    }
+  }
+  // Fallback (symbol not yet in the module, e.g. forward reference): build
+  // var_callee_type from resultTypes only — no fixed params beyond the result.
+  // This preserves the old best-effort behaviour while being less wrong than
+  // including all input types as fixed params.
   Type resultType;
   if (resultTypes.size() == 0 || isa<LLVM::LLVMVoidType>(resultTypes[0])) {
     MLIRContext *ctx = b().getContext();
@@ -2252,12 +2304,8 @@ void LLVMBuilder::handleVarArgCall(LLVM::CallOp &callOp,
   } else {
     resultType = resultTypes[0];
   }
-  // Define input types.
-  llvm::SmallVector<Type, 4> inputTypes;
-  for (int64_t i = 0; i < (int64_t)inputs.size(); ++i)
-    inputTypes.emplace_back(inputs[i].getType());
   auto typeSignature =
-      LLVM::LLVMFunctionType::get(resultType, inputTypes, /*is var arg*/ true);
+      LLVM::LLVMFunctionType::get(resultType, {}, /*is var arg*/ true);
   callOp.setVarCalleeType(typeSignature);
 }
 
@@ -2419,6 +2467,32 @@ LLVM::GlobalOp LLVMBuilder::globalOp(Type resultType, bool isConstant,
   ModuleOp module = gop.getOperation()->getParentOfType<ModuleOp>();
   gop.setName(LLVMBuilder::SymbolPostfix(module, name.str()));
   return gop;
+}
+
+void LLVMBuilder::globalCtors(ArrayRef<Attribute> ctors,
+    ArrayRef<int32_t> priorities, ArrayRef<Attribute> data) const {
+  MLIRContext *context = b().getContext();
+
+  // Create the array attributes.
+  ArrayAttr ctorsAttr = ArrayAttr::get(context, ctors);
+  ArrayAttr prioritiesAttr = b().getI32ArrayAttr(priorities);
+  ArrayAttr dataAttr = ArrayAttr::get(context, data);
+
+  // Create the global constructors operation.
+  LLVM::GlobalCtorsOp::create(b(), loc(), ctorsAttr, prioritiesAttr, dataAttr);
+}
+
+void LLVMBuilder::globalDtors(ArrayRef<Attribute> ctors,
+    ArrayRef<int32_t> priorities, ArrayRef<Attribute> data) const {
+  MLIRContext *context = b().getContext();
+
+  // Create the array attributes.
+  ArrayAttr dtorsAttr = ArrayAttr::get(context, ctors);
+  ArrayAttr prioritiesAttr = b().getI32ArrayAttr(priorities);
+  ArrayAttr dataAttr = ArrayAttr::get(context, data);
+
+  // Create the global destructors operation.
+  LLVM::GlobalDtorsOp::create(b(), loc(), dtorsAttr, prioritiesAttr, dataAttr);
 }
 
 Value LLVMBuilder::icmp(LLVM::ICmpPredicate cond, Value lhs, Value rhs) const {

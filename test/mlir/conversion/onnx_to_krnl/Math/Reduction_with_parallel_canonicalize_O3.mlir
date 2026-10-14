@@ -38,25 +38,24 @@ func.func @test_reduce_all_to_scalar(%arg0: tensor<?x64x?xf32>) -> tensor<*xf32>
 // CHECK:             [[VAR_7_:%.+]] = krnl.get_induction_var_value([[LOOP_0_]]) : (!krnl.loop) -> index
 // CHECK:             [[VAR_8_:%.+]] = arith.muli [[VAR_7_]], [[VAR_2_]] : index
 // CHECK:             [[VAR_9_:%.+]] = arith.addi [[VAR_8_]], [[VAR_2_]] : index
-// CHECK:             [[VAR_10_:%.+]] = arith.cmpi slt, [[VAR_1_]], [[VAR_9_]] : index
-// CHECK-DAG:         [[VAR_11_:%.+]] = arith.select [[VAR_10_]], [[VAR_1_]], [[VAR_9_]] : index
-// CHECK-DAG:         [[VAR_12_:%.+]] = affine.apply [[MAP_1_]]([[VAR_7_]])
-// CHECK:             vector.store [[VAR_cst_0_]], [[RES_1_]]{{.}}[[VAR_12_]]{{.}} : memref<256xf32>, vector<32xf32>
-// CHECK:             [[VAR_13_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_11_]]{{.}}
-// CHECK:             scf.for [[I_1_:%.+]] = [[VAR_8_]] to [[VAR_13_]] step [[CST_32_]] {
+// CHECK:             [[VAR_10_:%.+]] = arith.minsi [[VAR_1_]], [[VAR_9_]] : index
+// CHECK-DAG:         [[VAR_11_:%.+]] = affine.apply [[MAP_1_]]([[VAR_7_]])
+// CHECK:             vector.store [[VAR_cst_0_]], [[RES_1_]]{{.}}[[VAR_11_]]{{.}} : memref<256xf32>, vector<32xf32>
+// CHECK:             [[VAR_12_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_10_]]{{.}}
+// CHECK:             scf.for [[I_1_:%.+]] = [[VAR_8_]] to [[VAR_12_]] step [[CST_32_]] {
 // CHECK-DAG:           [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[I_1_]]{{.}} : memref<?xf32>, vector<32xf32>
-// CHECK-DAG:           [[LOAD_RES_1_MEM_:%.+]] = vector.load [[RES_1_]]{{.}}[[VAR_12_]]{{.}} : memref<256xf32>, vector<32xf32>
+// CHECK-DAG:           [[LOAD_RES_1_MEM_:%.+]] = vector.load [[RES_1_]]{{.}}[[VAR_11_]]{{.}} : memref<256xf32>, vector<32xf32>
 // CHECK:               [[VAR_19_:%.+]] = arith.maxnumf [[LOAD_RES_1_MEM_]], [[LOAD_VAR_reshape_MEM_]] : vector<32xf32>
-// CHECK:               vector.store [[VAR_19_]], [[RES_1_]]{{.}}[[VAR_12_]]{{.}} : memref<256xf32>, vector<32xf32>
+// CHECK:               vector.store [[VAR_19_]], [[RES_1_]]{{.}}[[VAR_11_]]{{.}} : memref<256xf32>, vector<32xf32>
 // CHECK:             }
-// CHECK:             [[VAR_14_:%.+]] = affine.apply [[MAP_3_]](){{.}}[[VAR_11_]], [[VAR_8_]]{{.}}
-// CHECK:             scf.for [[I_2_:%.+]] = [[VAR_14_]] to [[VAR_11_]] step [[CST_1_]] {
+// CHECK:             [[VAR_13_:%.+]] = affine.apply [[MAP_3_]](){{.}}[[VAR_10_]], [[VAR_8_]]{{.}}
+// CHECK:             scf.for [[I_2_:%.+]] = [[VAR_13_]] to [[VAR_10_]] step [[CST_1_]] {
 // CHECK-DAG:           [[LOAD_VAR_reshape_MEM_1_:%.+]] = memref.load [[VAR_reshape_]]{{.}}[[I_2_]]{{.}} : memref<?xf32>
-// CHECK-DAG:           [[LOAD_RES_1_MEM_1_:%.+]] = memref.load [[RES_1_]]{{.}}[[VAR_12_]]{{.}} : memref<256xf32>
+// CHECK-DAG:           [[LOAD_RES_1_MEM_1_:%.+]] = memref.load [[RES_1_]]{{.}}[[VAR_11_]]{{.}} : memref<256xf32>
 // CHECK:               [[VAR_19_1_:%.+]] = arith.maxnumf [[LOAD_RES_1_MEM_1_]], [[LOAD_VAR_reshape_MEM_1_]] : f32
-// CHECK:               memref.store [[VAR_19_1_]], [[RES_1_]]{{.}}[[VAR_12_]]{{.}} : memref<256xf32>
+// CHECK:               memref.store [[VAR_19_1_]], [[RES_1_]]{{.}}[[VAR_11_]]{{.}} : memref<256xf32>
 // CHECK:             }
-// CHECK:             [[LOAD_RES_1_MEM_2_:%.+]] = vector.load [[RES_1_]]{{.}}[[VAR_12_]]{{.}} : memref<256xf32>, vector<32xf32>
+// CHECK:             [[LOAD_RES_1_MEM_2_:%.+]] = vector.load [[RES_1_]]{{.}}[[VAR_11_]]{{.}} : memref<256xf32>, vector<32xf32>
 // CHECK:             [[VAR_16_:%.+]] = vector.reduction <maxnumf>, [[LOAD_RES_1_MEM_2_]] : vector<32xf32> into f32
 // CHECK:             memref.store [[VAR_16_]], [[RES_2_]]{{.}}[[VAR_7_]]{{.}} : memref<8xf32>
 // CHECK:           }

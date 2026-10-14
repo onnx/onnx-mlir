@@ -139,9 +139,12 @@ LogicalResult ZHighStickOp::inferShapes(
 void ZHighStickOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<NoneTypeStickRemovalPattern>(context);
+  results.insert<DimStickRemovalPattern>(context);
+  results.insert<DimStickNHWCRemovalPattern>(context);
   results.insert<StickUnstickSameLayoutRemovalPattern>(context);
   results.insert<StickUnstickDiffLayoutRemovalPattern>(context);
   results.insert<Stick3DSSqueezeUnstick4DSPattern>(context);
+  results.insert<StickExpandConstantPattern>(context);
   results.insert<ReplaceONNXLeakyReluPattern>(context);
   results.insert<ReplaceONNXSoftplusPattern>(context);
   results.insert<ReplaceONNXReciprocalSqrtPattern>(context);

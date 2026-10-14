@@ -3,7 +3,7 @@
 if(OMP_SUPPORTED)
   set(OMP_TOPDIR ${CMAKE_CURRENT_BINARY_DIR})
   set_directory_properties(PROPERTIES EP_BASE ${OMP_TOPDIR})
-  set(OPENMP_SOURCE_DIR ${LLVM_BUILD_MAIN_SRC_DIR}/../openmp)
+  set(OPENMP_SOURCE_DIR ${LLVM_BUILD_MAIN_SRC_DIR}/../runtimes)
 
   include(ExternalProject)
   ExternalProject_Add(OMomp
@@ -21,7 +21,8 @@ if(OMP_SUPPORTED)
                              cmake -G Ninja -S ${OPENMP_SOURCE_DIR} \
                                 -B ${OMP_TOPDIR}/openmp-build \
                                 -DCMAKE_BUILD_TYPE=Release \
-                                -DLIBOMP_ENABLE_SHARED=OFF"
+                                -DLIBOMP_ENABLE_SHARED=OFF \
+                                -DLLVM_ENABLE_RUNTIMES=openmp"
 
     BUILD_COMMAND sh -c "cmake --build ${OMP_TOPDIR}/openmp-build --target omp"
     INSTALL_COMMAND ""
@@ -29,9 +30,9 @@ if(OMP_SUPPORTED)
 
   add_custom_target(ompruntime
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            ${OMP_TOPDIR}/openmp-build/runtime/src/libomp.a ${ONNX_MLIR_LIBRARY_PATH}/libompruntime.a
+            ${OMP_TOPDIR}/openmp-build/openmp/runtime/src/libomp.a ${ONNX_MLIR_LIBRARY_PATH}/libompruntime.a
     DEPENDS OMomp
-    BYPRODUCTS ${OMP_TOPDIR}/openmp-build/runtime/src/libomp.a
+    BYPRODUCTS ${OMP_TOPDIR}/openmp-build/openmp/runtime/src/libomp.a
   )
 
   install(FILES ${ONNX_MLIR_LIBRARY_PATH}/libompruntime.a DESTINATION lib)

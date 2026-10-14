@@ -4,7 +4,7 @@
 
 //==============-- ConvModel.cpp - Building Conv Models for tests -===========//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -125,10 +125,10 @@ bool Conv2DLibBuilder::build() {
 bool Conv2DLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   constexpr int num = 2;
   OMTensor *list[num];
-  list[0] = omTensorCreateWithRandomData<float>(
-      {N, CIn, H, W}, dataRangeLB, dataRangeUB);
-  list[1] = omTensorCreateWithRandomData<float>(
-      {COut, CIn, kH, kW}, dataRangeLB, dataRangeUB);
+  list[0] = omTensorCreateWithRandomData(
+      {N, CIn, H, W}, ONNX_TYPE_FLOAT, dataRangeLB, dataRangeUB);
+  list[1] = omTensorCreateWithRandomData(
+      {COut, CIn, kH, kW}, ONNX_TYPE_FLOAT, dataRangeLB, dataRangeUB);
   inputs = omTensorListCreate(list, num);
   return inputs && list[0] && list[1];
 }

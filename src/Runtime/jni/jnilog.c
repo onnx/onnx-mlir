@@ -166,7 +166,7 @@ void log_printf(int level, const char *file, const char *func, int line,
   if (time(&now) == -1 || (tm = localtime(&now)) == NULL ||
       strftime(buf, sizeof(buf), "[%F %T %z]", tm) == 0) {
     num_chars_written = sprintf(buf, "[-]");
-    assert(num_chars_written >= 0 && "sprintf write error to buf");
+    assert(num_chars_written >= 0); // Error: "sprintf write error to buf".
   }
 
   /* Output thread ID, log level, file name, function number, and line number.
@@ -178,7 +178,7 @@ void log_printf(int level, const char *file, const char *func, int line,
   num_chars_written = snprintf(buf + strlen(buf), LOG_MAX_LEN - strlen(buf),
       "[%016lx][%s]%s:%s:%d ", *(unsigned long *)&tid, log_level_name[level],
       get_filename(file), func, line);
-  assert(num_chars_written >= 0 && "snprintf write error to buf");
+  assert(num_chars_written >= 0); // Error: "snprintf write error to buf".
 
   /* Output actual log data */
   /* Definition of vsnprintf:
@@ -203,19 +203,19 @@ void log_printf(int level, const char *file, const char *func, int line,
     As an added security, we added an assert to make sure that quantity is
     positive.
   */
-  assert(LOG_MAX_LEN >= strlen(buf) && "error in vsnprintf length");
+  assert(LOG_MAX_LEN >= strlen(buf)); // Error: "error in vsnprintf length".
 
   va_list log_data;
   va_start(log_data, fmt);
   num_chars_written =
       vsnprintf(buf + strlen(buf), LOG_MAX_LEN - strlen(buf), fmt, log_data);
-  assert(num_chars_written >= 0 && "vsnprintf write error to buf");
+  assert(num_chars_written >= 0); // Error: "vsnprintf write error to buf".
   va_end(log_data);
 
   /* Add new line */
   num_chars_written =
       snprintf(buf + strlen(buf), LOG_MAX_LEN - strlen(buf), "\n");
-  assert(num_chars_written >= 0 && "snprintf write error to buf");
+  assert(num_chars_written >= 0); // Error: "snprintf write error to buf".
 
   /* Write out and flush the output buffer */
   FILE *fp = get_log_fp();
@@ -248,9 +248,9 @@ static FILE *get_log_file_by_name(char *name) {
       pthread_t tid = get_threadid();
       int num_chars_written = snprintf(
           tname, strlen(name) + 32, "%s.%016lx", name, *(unsigned long *)&tid);
-      assert(num_chars_written >= 0 && "snprintf write error to tname");
+      assert(num_chars_written >= 0); // Error: "snprintf write error to tname".
       fp = fopen(tname, "w");
-      assert(fp != NULL && "fopen error on tname");
+      assert(fp != NULL); // Error: "fopen error on tname".
       free(tname);
     }
   }

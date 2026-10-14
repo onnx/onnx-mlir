@@ -25,6 +25,7 @@
 #include <onnx-mlir/Runtime/OMEntryPoint.h>
 #include <onnx-mlir/Runtime/OMInstrument.h>
 #include <onnx-mlir/Runtime/OMSignature.h>
+#include <onnx-mlir/Runtime/OMCompilationInfo.h>
 #include <onnx-mlir/Runtime/OMTensor.h>
 #include <onnx-mlir/Runtime/OMTensorList.h>
 

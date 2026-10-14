@@ -1,4 +1,4 @@
-// RUN: cfg_file=$(dirname %s)/save-cfg.json && onnx-mlir-opt --device-placement=save-config-file=$cfg_file --march=z16 --maccel=NNPA --split-input-file %s && cat $cfg_file | FileCheck %s && rm $cfg_file
+// RUN: onnx-mlir-opt --device-placement=save-config-file=%S/save-cfg.json --march=z16 --maccel=NNPA --split-input-file %s && cat %S/save-cfg.json | FileCheck %s && rm %S/save-cfg.json
 
 func.func @test_save_config_file(%arg0: tensor<?x?x?xf32>) -> tensor<?x?x?xf32> {
   %0 = "onnx.Relu"(%arg0) {onnx_node_name = "Relu_0"} : (tensor<?x?x?xf32>) -> tensor<?x?x?xf32>
@@ -9,26 +9,50 @@ func.func @test_save_config_file(%arg0: tensor<?x?x?xf32>) -> tensor<?x?x?xf32> 
 
 // CHECK-LABEL test_save_config_file
 // CHECK: {
-// CHECK:   "device_placement": [
+// CHECK:   "nnpa_ops_config": [
 // CHECK:     {
-// CHECK:       "device": "nnpa",
-// CHECK:       "node_type": "onnx.Relu",
-// CHECK:       "onnx_node_name": "Relu_0"
+// CHECK:       "pattern": {
+// CHECK:         "match": {
+// CHECK:           "node_type": "onnx.Relu",
+// CHECK:           "onnx_node_name": "Relu_0"
+// CHECK:         },
+// CHECK:         "rewrite": {
+// CHECK:           "device": "nnpa"
+// CHECK:         }
+// CHECK:       }
 // CHECK:     },
 // CHECK:     {
-// CHECK:       "device": "cpu",
-// CHECK:       "node_type": "onnx.Relu",
-// CHECK:       "onnx_node_name": "Relu_1"
+// CHECK:       "pattern": {
+// CHECK:         "match": {
+// CHECK:           "node_type": "onnx.Relu",
+// CHECK:           "onnx_node_name": "Relu_1"
+// CHECK:         },
+// CHECK:         "rewrite": {
+// CHECK:           "device": "cpu"
+// CHECK:         }
+// CHECK:       }
 // CHECK:     },
 // CHECK:     {
-// CHECK:       "device": "nnpa",
-// CHECK:       "node_type": "onnx.Relu",
-// CHECK:       "onnx_node_name": "Relu_2"
+// CHECK:       "pattern": {
+// CHECK:         "match": {
+// CHECK:           "node_type": "onnx.Relu",
+// CHECK:           "onnx_node_name": "Relu_2"
+// CHECK:         },
+// CHECK:         "rewrite": {
+// CHECK:           "device": "nnpa"
+// CHECK:         }
+// CHECK:       }
 // CHECK:     },
 // CHECK:     {
-// CHECK:       "device": "nnpa",
-// CHECK:       "node_type": "onnx.Sigmoid",
-// CHECK:       "onnx_node_name": "Sigmoid_0"
+// CHECK:       "pattern": {
+// CHECK:         "match": {
+// CHECK:           "node_type": "onnx.Sigmoid",
+// CHECK:           "onnx_node_name": "Sigmoid_0"
+// CHECK:         },
+// CHECK:         "rewrite": {
+// CHECK:           "device": "nnpa"
+// CHECK:         }
+// CHECK:       }
 // CHECK:     }
 // CHECK:   ]
 // CHECK: }

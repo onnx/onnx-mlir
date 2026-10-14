@@ -94,7 +94,6 @@ func.func @test_default_averagepool_strides_nonunifpad_ceil(%arg0 : tensor<5x5x3
 // CHECK:           return [[VAR_3_]] : tensor<5x5x15x16xf32>
 // CHECK:         }
 
-
 // -----
 
 func.func @test_default_averagepool_autopad_valid(%arg0 : tensor<5x5x16x13xf32>) -> tensor<5x5x14x11xf32> {

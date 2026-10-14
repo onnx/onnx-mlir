@@ -22,6 +22,7 @@
 #include <stdlib.h>
 
 #include "omp_ops.h"
+#include "seq_ops.h"
 #include "zdnnx.h"
 #include "zdnnx_ops.h"
 
@@ -93,9 +94,6 @@ static inline zdnn_status compute_tile_sizes_for_matmul(
   // - If A exceeds MDIS, it is tiled. In this case, threads for the outter loop
   // for A tiles are spread over multiple zAIUs and all threads for the inner
   // loop for B tiles share the same zAIU.
-  //
-  // In all cases, use `OMP_PLACES` to specify zAIUs so that threads are spread
-  // over multiple zAIUs.
   uint32_t mdis_e1 = zdnnx_get_nnpa_max_dim_size(E1);
   uint32_t mdis_e2 = zdnnx_get_nnpa_max_dim_size(E2);
   uint32_t num_zaiu_threads = zdnnx_get_num_zaiu_threads();
@@ -163,19 +161,14 @@ static inline zdnn_status compute_tile_sizes_for_matmul(
   return ZDNN_OK;
 }
 
-static inline zdnn_status call_zdnn_matmul_op(const zdnn_ztensor *input_a,
-    const zdnn_ztensor *input_b, const zdnn_ztensor *input_c, int op_type,
-    zdnn_ztensor *output, bool is_bcast) {
-  if (is_bcast)
-    return zdnn_matmul_bcast_op(
-        input_a, input_b, input_c, (zdnn_matmul_bcast_ops)op_type, output);
-  return zdnn_matmul_op(
-      input_a, input_b, input_c, (zdnn_matmul_ops)op_type, output);
-}
-
 zdnn_status zdnnx_omp_matmul(const zdnn_ztensor *input_a,
-    const zdnn_ztensor *input_b, const zdnn_ztensor *input_c, int op_type,
-    zdnn_ztensor *output, bool is_bcast) {
+    const zdnn_ztensor *input_b, const zdnn_ztensor *input_c, bool transpose_a,
+    bool transpose_b, int op_type, zdnn_ztensor *output, bool is_bcast) {
+#ifdef ZDNNX_DEBUG
+  printf("[OMP MatMul, tranpsose_a: %s, tranpsose_b: %s, is_bcast: %s]\n",
+      transpose_a ? "true" : "false", transpose_b ? "true" : "false",
+      is_bcast ? "true" : "false");
+#endif
   // MatMul types in zdnn:
   // - unstacked: A (2D),  B (2D),  C (1D),  Y (2D)
   // - stacked  : A (3DS), B (3DS), C (2DS), Y (3DS)
@@ -193,6 +186,16 @@ zdnn_status zdnnx_omp_matmul(const zdnn_ztensor *input_a,
       input_c, &ts_e4, &ts_e2, &ts_e1, &split_bs_only, &split_m, &split_n);
   if (ts_status != ZDNN_OK)
     return ts_status;
+  // Do not split E2 if A is transposed.
+  if (transpose_a) {
+    ts_e2 = 0;
+    split_m = false;
+  }
+  // Do not split E1 if B is transposed.
+  if (transpose_b) {
+    ts_e1 = 0;
+    split_n = false;
+  }
 
   zdnnx_split_info si_a, si_b, si_c, si_y;
   zdnnx_prepare_split_info(&si_a, input_a, ts_e4, 0, ts_e2, 0, "MatMul A");
@@ -205,8 +208,8 @@ zdnn_status zdnnx_omp_matmul(const zdnn_ztensor *input_a,
 #ifdef ZDNNX_DEBUG
     printf("[MatMul] calling the original zdnn matmul.\n");
 #endif
-    zdnn_status status = call_zdnn_matmul_op(
-        input_a, input_b, input_c, op_type, output, is_bcast);
+    zdnn_status status = zdnnx_seq_matmul(input_a, input_b, input_c,
+        transpose_a, transpose_b, op_type, output, is_bcast);
     return status;
   }
 
@@ -244,8 +247,8 @@ zdnn_status zdnnx_omp_matmul(const zdnn_ztensor *input_a,
         zdnnx_set_tile(&si_y, &ty, NULL, bs, 0, m, n);
 
         /* Operation */
-        zdnn_status status = call_zdnn_matmul_op(
-            &ta.data, &tb.data, &tc.data, op_type, &ty.data, is_bcast);
+        zdnn_status status = zdnnx_seq_matmul(&ta.data, &tb.data, &tc.data,
+            transpose_a, transpose_b, op_type, &ty.data, is_bcast);
         assert(status == ZDNN_OK);
 
         /* Copy the output tile at (0, 0, m, n) to the full output. */
@@ -380,6 +383,9 @@ zdnn_status zdnnx_omp_unary_elementwise(const zdnn_ztensor *input,
   // Reshape the input tensor by collapsing all dimensions into E4, so that we
   // have enough parallel works in any case and reuse is always possible.
   zdnn_ztensor input_view, output_view;
+  // Independent descriptor storage for each view (f036: deep-copy, no alias).
+  zdnn_tensor_desc input_view_pre_desc, input_view_tfrmd_desc;
+  zdnn_tensor_desc output_view_pre_desc, output_view_tfrmd_desc;
   if (isBigTensor && input_shape[E1] % 64 == 0 && input_shape[E2] % 32 == 0) {
     // Only collapse when E1 is a multiple of 64  and E2 is a multiple of 32 to
     // avoid accessing padding values. Otherwise zdnn will warn range violation.
@@ -393,8 +399,10 @@ zdnn_status zdnnx_omp_unary_elementwise(const zdnn_ztensor *input,
     view_shape[1] = 1;
     view_shape[2] = 32;
     view_shape[3] = 64;
-    zdnnx_create_view(input, &input_view, view_shape, view_layout);
-    zdnnx_create_view(output, &output_view, view_shape, view_layout);
+    zdnnx_create_view(input, &input_view, &input_view_pre_desc,
+        &input_view_tfrmd_desc, view_shape, view_layout);
+    zdnnx_create_view(output, &output_view, &output_view_pre_desc,
+        &output_view_tfrmd_desc, view_shape, view_layout);
   } else {
     // View is exactly same as the original tensor.
     input_view = *input;
@@ -422,28 +430,8 @@ zdnn_status zdnnx_omp_unary_elementwise(const zdnn_ztensor *input,
       &si_y, &output_view, ts_e4, ts_e3, ts_e2, ts_e1, "UnaryElementwise Y");
 
   // No splitting, call the zdnn op without any changes.
-  if (zdnnx_has_one_tile(&si_x)) {
-    zdnn_status status;
-    if (op_type == ZDNNX_EXP_OP)
-      status = zdnn_exp(input, output);
-    else if (op_type == ZDNNX_GELU_OP)
-      status = zdnn_gelu(input, output);
-    else if (op_type == ZDNNX_INVSQRT_OP)
-      status = zdnn_invsqrt(input, *(const float *)scalar_input, output);
-    else if (op_type == ZDNNX_LOG_OP)
-      status = zdnn_log(input, output);
-    else if (op_type == ZDNNX_RELU_OP)
-      status = zdnn_relu(input, scalar_input, output);
-    else if (op_type == ZDNNX_SIGMOID_OP)
-      status = zdnn_sigmoid(input, output);
-    else if (op_type == ZDNNX_SQRT_OP)
-      status = zdnn_sqrt(input, output);
-    else if (op_type == ZDNNX_TANH_OP)
-      status = zdnn_tanh(input, output);
-    else
-      status = ZDNN_UNAVAILABLE_FUNCTION;
-    return status;
-  }
+  if (zdnnx_has_one_tile(&si_x))
+    return zdnnx_seq_unary_elementwise(input, scalar_input, output, op_type);
 
   // Call zdnn op on each tile.
   uint32_t num_tiles_e4 = zdnnx_get_num_tiles(&si_x, E4);
@@ -461,24 +449,8 @@ zdnn_status zdnnx_omp_unary_elementwise(const zdnn_ztensor *input,
           zdnnx_set_tile(&si_y, &ty, NULL, e4, e3, e2, e1);
           zdnnx_copy_data_to_tile(&tx);
 
-          if (op_type == ZDNNX_EXP_OP)
-            zdnn_exp(&tx.data, &ty.data);
-          else if (op_type == ZDNNX_GELU_OP)
-            zdnn_gelu(&tx.data, &ty.data);
-          else if (op_type == ZDNNX_INVSQRT_OP)
-            zdnn_invsqrt(&tx.data, *(const float *)scalar_input, &ty.data);
-          else if (op_type == ZDNNX_LOG_OP)
-            zdnn_log(&tx.data, &ty.data);
-          else if (op_type == ZDNNX_RELU_OP)
-            zdnn_relu(&tx.data, scalar_input, &ty.data);
-          else if (op_type == ZDNNX_SIGMOID_OP)
-            zdnn_sigmoid(&tx.data, &ty.data);
-          else if (op_type == ZDNNX_SQRT_OP)
-            zdnn_sqrt(&tx.data, &ty.data);
-          else if (op_type == ZDNNX_TANH_OP)
-            zdnn_tanh(&tx.data, &ty.data);
-          else
-            printf("[zdnnx] Not found the zdnn function type %d\n", op_type);
+          zdnnx_seq_unary_elementwise(
+              &tx.data, scalar_input, &ty.data, op_type);
 
           zdnnx_copy_data_to_full(&ty);
 
@@ -508,6 +480,10 @@ zdnn_status zdnnx_omp_binary_elementwise(const zdnn_ztensor *input_a,
   // Reshape the input tensor by collapsing all dimensions into E4, so that we
   // have enough parallel works in any case and reuse is always possible.
   zdnn_ztensor input_a_view, input_b_view, output_view;
+  // Independent descriptor storage for each view (f036: deep-copy, no alias).
+  zdnn_tensor_desc input_a_view_pre_desc, input_a_view_tfrmd_desc;
+  zdnn_tensor_desc input_b_view_pre_desc, input_b_view_tfrmd_desc;
+  zdnn_tensor_desc output_view_pre_desc, output_view_tfrmd_desc;
   if (isBigTensor && input_shape[E1] % 64 == 0 && input_shape[E2] % 32 == 0) {
     // Only collapse when E1 is a multiple of 64  and E2 is a multiple of 32 to
     // avoid accessing padding values. Otherwise zdnn will warn range violation.
@@ -521,9 +497,12 @@ zdnn_status zdnnx_omp_binary_elementwise(const zdnn_ztensor *input_a,
     view_shape[1] = 1;
     view_shape[2] = 32;
     view_shape[3] = 64;
-    zdnnx_create_view(input_a, &input_a_view, view_shape, view_layout);
-    zdnnx_create_view(input_b, &input_b_view, view_shape, view_layout);
-    zdnnx_create_view(output, &output_view, view_shape, view_layout);
+    zdnnx_create_view(input_a, &input_a_view, &input_a_view_pre_desc,
+        &input_a_view_tfrmd_desc, view_shape, view_layout);
+    zdnnx_create_view(input_b, &input_b_view, &input_b_view_pre_desc,
+        &input_b_view_tfrmd_desc, view_shape, view_layout);
+    zdnnx_create_view(output, &output_view, &output_view_pre_desc,
+        &output_view_tfrmd_desc, view_shape, view_layout);
   } else {
     // View is exactly same as the original tensor.
     input_a_view = *input_a;
@@ -554,24 +533,8 @@ zdnn_status zdnnx_omp_binary_elementwise(const zdnn_ztensor *input_a,
       &si_y, &output_view, ts_e4, ts_e3, ts_e2, ts_e1, "BinaryElementwise Y");
 
   // No splitting, call the zdnn op without any changes.
-  if (zdnnx_has_one_tile(&si_a)) {
-    zdnn_status status;
-    if (op_type == ZDNNX_ADD_OP)
-      status = zdnn_add(input_a, input_b, output);
-    else if (op_type == ZDNNX_SUB_OP)
-      status = zdnn_sub(input_a, input_b, output);
-    else if (op_type == ZDNNX_MUL_OP)
-      status = zdnn_mul(input_a, input_b, output);
-    else if (op_type == ZDNNX_DIV_OP)
-      status = zdnn_div(input_a, input_b, output);
-    else if (op_type == ZDNNX_MAX_OP)
-      status = zdnn_max(input_a, input_b, output);
-    else if (op_type == ZDNNX_MIN_OP)
-      status = zdnn_min(input_a, input_b, output);
-    else
-      status = ZDNN_UNAVAILABLE_FUNCTION;
-    return status;
-  }
+  if (zdnnx_has_one_tile(&si_a))
+    return zdnnx_seq_binary_elementwise(input_a, input_b, output, op_type);
 
   // Call zdnn op on each tile.
   uint32_t num_tiles_e4 = zdnnx_get_num_tiles(&si_a, E4);
@@ -593,20 +556,7 @@ zdnn_status zdnnx_omp_binary_elementwise(const zdnn_ztensor *input_a,
           zdnnx_copy_data_to_tile(&ta);
           zdnnx_copy_data_to_tile(&tb);
 
-          if (op_type == ZDNNX_ADD_OP)
-            zdnn_add(&ta.data, &tb.data, &ty.data);
-          else if (op_type == ZDNNX_SUB_OP)
-            zdnn_sub(&ta.data, &tb.data, &ty.data);
-          else if (op_type == ZDNNX_MUL_OP)
-            zdnn_mul(&ta.data, &tb.data, &ty.data);
-          else if (op_type == ZDNNX_DIV_OP)
-            zdnn_div(&ta.data, &tb.data, &ty.data);
-          else if (op_type == ZDNNX_MAX_OP)
-            zdnn_max(&ta.data, &tb.data, &ty.data);
-          else if (op_type == ZDNNX_MIN_OP)
-            zdnn_min(&ta.data, &tb.data, &ty.data);
-          else
-            printf("[zdnnx] Not found the zdnn function type %d\n", op_type);
+          zdnnx_seq_binary_elementwise(&ta.data, &tb.data, &ty.data, op_type);
 
           zdnnx_copy_data_to_full(&ty);
 
@@ -677,7 +627,7 @@ zdnn_status zdnnx_omp_softmax(const zdnn_ztensor *input, void *save_area,
 
   // No splitting, call the zdnn softmax without any changes.
   if (zdnnx_has_one_tile(&si_x))
-    return zdnn_softmax(input, save_area, act_func, output);
+    return zdnnx_seq_softmax(input, save_area, act_func, output);
 
   // Call zdnn_softmax on each tile. Not use save_area.
   // TODO: could we reuse save_area in particular in the parallel scenario?
@@ -693,7 +643,8 @@ zdnn_status zdnnx_omp_softmax(const zdnn_ztensor *input, void *save_area,
       zdnnx_set_tile(&si_y, &ty, NULL, e4, 0, e2, 0);
 
       zdnnx_copy_data_to_tile(&tx);
-      zdnn_status status = zdnn_softmax(&tx.data, NULL, act_func, &ty.data);
+      zdnn_status status =
+          zdnnx_seq_softmax(&tx.data, NULL, act_func, &ty.data);
       assert(status == ZDNN_OK);
       zdnnx_copy_data_to_full(&ty);
 

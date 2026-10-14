@@ -4,7 +4,7 @@
 
 //===============-- PerfElementwise.cpp - Simple performance tests -==========//
 //
-// Copyright 2023 The IBM Research Authors.
+// Copyright 2023-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -18,7 +18,6 @@
 
 #include <benchmark/benchmark.h>
 
-#include "include/OnnxMlirCompiler.h"
 #include "test/modellib/ModelLib.hpp"
 #include "test/perf/PerfHelper.hpp"
 

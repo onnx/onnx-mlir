@@ -47,6 +47,10 @@ struct OnnxBuilder : DialectBuilder {
   // ONNXAddOp
   mlir::Value add(mlir::Value A, mlir::Value B) const;
 
+  // ONNXArgMax
+  mlir::Value argMax(mlir::Type outputType, mlir::Value input, int64_t axis,
+      int64_t keepDims, int64_t selectLastIndex) const;
+
   // ONNXCastOp
   mlir::Value cast(mlir::Type outputType, mlir::Value input,
       mlir::IntegerAttr saturate, mlir::TypeAttr to,
@@ -88,8 +92,16 @@ struct OnnxBuilder : DialectBuilder {
   // ONNXDimOp
   mlir::Value dim(mlir::Value input, int axis) const;
 
-  // ONNXDimGroupOp
-  void dimGroup(mlir::Value input, int axis, int groupID) const;
+  // ONNXDimGroupOp. An empty groupName means the group has no name.
+  void dimGroup(mlir::Value input, int axis, int groupID,
+      mlir::StringRef groupName = "") const;
+
+  mlir::Value equal(mlir::Value A, mlir::Value B) const;
+
+  // ONNXAttentionOp, version with one output only (Y), no past/present KV
+  // cache, and no causal masking.
+  mlir::Value attention(mlir::Type outputType, mlir::Value Q, mlir::Value K,
+      mlir::Value V, mlir::Value attnMask, mlir::FloatAttr scale) const;
 
   // ONNXExpandOp
   mlir::Value expand(
@@ -143,6 +155,16 @@ struct OnnxBuilder : DialectBuilder {
       mlir::Value constantValue, std::string mode = "constant") const;
   // Zero padding
   mlir::Value padZero(mlir::Value input, mlir::Value pads) const;
+
+  // ONNXReduceL1Op
+  mlir::Value reduceL1(mlir::Type outputType, mlir::Value data,
+      mlir::Value axes, bool keepDims = true,
+      bool noop_with_empty_axes = false) const;
+
+  // ONNXReduceL2Op
+  mlir::Value reduceL2(mlir::Type outputType, mlir::Value data,
+      mlir::Value axes, bool keepDims = true,
+      bool noop_with_empty_axes = false) const;
 
   // ONNXReduceMaxOp
   mlir::Value reduceMax(mlir::Type outputType, mlir::Value data,

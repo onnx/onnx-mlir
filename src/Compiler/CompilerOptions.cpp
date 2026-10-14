@@ -4,7 +4,7 @@
 
 //===------------------------ CompilerOptions.cpp -------------------------===//
 //
-// Copyright 2022-2025 The IBM Research Authors.
+// Copyright 2022-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,13 +12,18 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/TargetParser/Host.h"
+
+#include <filesystem>
+#include <sstream>
 
 #include "ExternalUtil.hpp"
 #include "onnx-mlir/Compiler/OMCompilerRuntimeTypes.h"
 #include "onnx-mlir/Compiler/OMCompilerTypes.h"
 #include "src/Compiler/CompilerOptions.hpp"
+#include "src/Compiler/JsonConfigObject.hpp"
 
 #define DEBUG_TYPE "compiler_options"
 
@@ -52,12 +57,14 @@ uint64_t compilationNumThreads;                        // common for both
 std::vector<std::string> decomposeOpsInONNX;           // common for both
 std::string shapeInformationUB;                        // common for both
 std::string shapeInformationLB;                        // common for both
+std::string linalgOps;                                 // common for both
 EmissionTargetType emissionTarget;                     // onnx-mlir only
 bool invokeOnnxVersionConverter;                       // onnx-mlir only
 bool preserveLocations;                                // onnx-mlir only
 bool printIR;                                          // onnx-mlir only
 int printONNXBasicIR;                                  // onnx-mlir only
 bool doNotEmitFullMLIRCode;                            // onnx-mlir only
+bool omitCompileInfo;                                  // onnx-mlir only
 bool preserveBitcode;                                  // onnx-mlir only
 bool preserveLLVMIR;                                   // onnx-mlir only
 bool preserveMLIR;                                     // onnx-mlir only
@@ -78,13 +85,21 @@ unsigned instrumentControlBits;                        // onnx-mlir only
 std::string parallelizeOps;                            // onnx-mlir only
 std::string instrumentSignatures;                      // onnx-mlir only
 std::string instrumentOnnxNode;                        // onnx-mlir only
+std::string instrumentOnnxNodeReturn;                  // onnx-mlir only
 std::string ONNXOpStats;                               // onnx-mlir only
 int onnxOpTransformThreshold;                          // onnx-mlir only
 bool onnxOpTransformReport;                            // onnx-mlir only
 bool enableParallel;                                   // onnx-mlir only
+bool disableCollapse;                                  // onnx-mlir only
+int64_t collapseMinParTripCountFloor;                  // common for both
+int64_t collapseMinAmortWork;                          // common for both
+int64_t collapseMaxForkCount;                          // common for both
 bool disableSimdOption;                                // onnx-mlir only
 bool enableFastMathOption;                             // onnx-mlir only
 bool disableRecomposeOption;                           // onnx-mlir only
+bool enableAttentionOpConstruct;                       // common for both
+KVCacheType kvCache;                                   // common for both
+bool disableSplitMatMulBySlice;                        // common for both
 bool enableSimdDataLayout;                             // onnx-mlir only
 bool verifyInputTensors;                               // onnx-mlir only
 bool allowSorting;                                     // onnx-mlir only
@@ -92,8 +107,12 @@ std::vector<std::string> reportHeapBefore;             // onnx-mlir only
 std::vector<std::string> reportHeapAfter;              // onnx-mlir only
 std::string modelTag;                                  // onnx-mlir only
 bool enableConvOptPass;                                // onnx-mlir only
+bool disableConvToMatmul;                              // onnx-mlir only
+bool disableFusedOp;                                   // common for both
+bool disableEliminateWriteOnlyAlloc;                   // common for both
 std::vector<std::string> replaceOpWithItsOperand;      // onnx-mlir only
 bool disableConstantProp;                              // onnx-mlir only
+bool disableCountIncludePad;                           // onnx-mlir only
 std::vector<std::string> extraLibPaths;                // onnx-mlir only
 std::vector<std::string> extraLibs;                    // onnx-mlir only
 ProfileIRs profileIR;                                  // onnx-mlir only
@@ -101,13 +120,15 @@ ProfileIRs profileIRWithSig;                           // onnx-mlir only
 OptReport optReport;                                   // onnx-mlir only
 bool enableTiming;                                     // onnx-mlir only
 bool enableBoundCheck;                                 // onnx-mlir only
+bool useLinalgPath;                                    // onnx-mlir only
+bool enableDebugInfo;                                  // onnx-mlir only
+std::string configFile;                                // onnx-mlir only
+std::string saveConfigFile;                            // onnx-mlir only
+bool appendDecodingStrategy;                           // onnx-mlir only
 bool split_input_file;                                 // onnx-mlir-opt only
 bool verify_diagnostics;                               // onnx-mlir-opt only
 bool verify_passes;                                    // onnx-mlir-opt only
 bool allowUnregisteredDialects;                        // onnx-mlir-opt only
-
-bool useLinalgPath;    // onnx-mlir only
-std::string linalgOps; // common for both onnx-mlir and onnx-mlir-opt
 
 // Category for common options shared between onnx-mlir and onnx-mlir-opt.
 llvm::cl::OptionCategory OnnxMlirCommonOptions("common options",
@@ -321,6 +342,40 @@ static llvm::cl::opt<bool, true> disableRecomposeOptionOpt("disable-recompose",
     llvm::cl::location(disableRecomposeOption), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
+static llvm::cl::opt<bool, true> enableAttentionOpConstructOpt(
+    "enable-attention-op-construct",
+    llvm::cl::desc("Enable rewriting a sequence of basic ONNX ops that "
+                   "implement scaled dot product attention into a single "
+                   "onnx.Attention op. Default is false."),
+    llvm::cl::location(enableAttentionOpConstruct), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<KVCacheType, true> kvCacheOpt("kv-cache",
+    llvm::cl::desc(
+        "Indicate the implementation of kv-cache in the model."
+        "The option will be used to guide recomposing TensorScatter and "
+        "Attention op, and check the pattern when Attention is lowered."
+        "'fixed' forces the fixed-size-KV-cache lowering (K/V are the full "
+        "padded cache, sized via nonpad_kv_seqlen) and 'growing' forces the "
+        "original lowering (K/V grow via past_key/past_value concatenation). "
+        "Default is \"\", meaning the choice is inferred from each op's "
+        "operands (whether past_key/past_value/nonpad_kv_seqlen are given)."),
+    llvm::cl::location(kvCache),
+    llvm::cl::values(
+        clEnumVal(Undefined, "No predefined kv-cache implementation"),
+        clEnumVal(Fixed, "Fixed size cache passed into the inference"),
+        clEnumVal(Grow, "Cache should grow with each step of the inference")),
+    llvm::cl::init(Undefined), llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<bool, true> disableSplitMatMulBySliceOpt(
+    "disable-split-matmul-by-slice",
+    llvm::cl::desc("Disable rewriting Slice(MatMul(X, W)) along the last axis, "
+                   "where W is a constant, into MatMul(X, Slice(W)) so that "
+                   "the slice is folded into the constant weights. Default is "
+                   "false."),
+    llvm::cl::location(disableSplitMatMulBySlice), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
 // Options for onnx-mlir only
 static llvm::cl::opt<EmissionTargetType, true> emissionTargetOpt(
     llvm::cl::desc("Choose target to emit:"),
@@ -375,6 +430,13 @@ static llvm::cl::opt<bool, true> doNotEmitFullMLIRCodeOpt(
         "(<name>.tmp). Need to be used with emitting MLIR options such as "
         "--EmitONNXIR and --EmitMLIR."),
     llvm::cl::location(doNotEmitFullMLIRCode), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<bool, true> omitCompileInfoOpt("omit-compile-info",
+    llvm::cl::desc("Do not embed compilation information such as compiler "
+                   "version, compile options, and ONNX operation statistics "
+                   "into the generated shared library."),
+    llvm::cl::location(omitCompileInfo), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<bool, true> preserveBitcodeOpt("preserveBitcode",
@@ -592,14 +654,45 @@ static llvm::cl::opt<std::string, true> instrumentONNXNodeOpt(
         "namely, the type of onnx operation, such Add, Matmul, and etc.\n"
         "This option is able to pinpoint to a particular node.\n"
         "The instrument-onnx-node defines the pattern to select.\n"
-        "\"NONE\" for no instrument (default).\n"
-        "Except for the special values, the regexp is used for matching.\n"
-        "\"/layer1/MatMul, onnx.Add_0, ...\" for the multiple nodes.\n"
-        "Asterisk is also available. For example:\n"
-        "\"onnx.Add_*\" for all AddOp. This feature allows you to specify\n"
-        "part of the target of onnx_node_name, as long as it is long enough\n"
-        "to be unique.\n"),
+        "\"NONE\" (or an empty string) for no instrument (default).\n"
+        "Except for the special values, the pattern is matched against\n"
+        "onnx_node_name; use a comma to select multiple nodes, e.g.\n"
+        "\"/layer1/MatMul,onnx.Add_0\" selects those two exact nodes.\n"
+        "A '*' acts as a wildcard, e.g. \"onnx.Add_*\" matches every node\n"
+        "whose name starts with \"onnx.Add_\" -- useful since default\n"
+        "(auto-generated) node names for Add ops look like \"onnx.Add_0\",\n"
+        "\"onnx.Add_1\", etc. This lets you specify only as much of the\n"
+        "onnx_node_name as needed to be unique.\n"
+        "By default, all input and output tensors of a matched node are\n"
+        "printed. To print only a subset, append a ':' and a '+'-separated\n"
+        "list of 'inN'/'outN' selectors (0-based) after the node "
+        "name/pattern.\n"
+        "e.g. \"/layer1/MatMul:out0\" prints only output 0 of that node.\n"
+        "e.g. \"onnx.Add_*:in1+out0\" prints input 1 and output 0 of every\n"
+        "matched Add node.\n"
+        "Selectors are per comma-separated entry, so plain entries with no\n"
+        "':' suffix still print all tensors, e.g.\n"
+        "\"onnx.Add_0:out0, onnx.Sub_1\" prints only output 0 of Add_0, but\n"
+        "all operands/results of Sub_1.\n"),
     llvm::cl::location(instrumentOnnxNode), llvm::cl::init("NONE"),
+    llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<std::string, true> instrumentONNXNodeReturnOpt(
+    "instrument-onnx-node-return",
+    llvm::cl::desc(
+        "Append the input and output tensors of the specified operations\n"
+        "as extra outputs of the compiled model, instead of printing them.\n"
+        "Uses the exact same node-selection syntax as --instrument-onnx-node\n"
+        "(REGEX or REGEX:inN+outN selectors, comma-separated entries,\n"
+        "\"NONE\" or an empty string for none (default)); see\n"
+        "--instrument-onnx-node's description for the full syntax.\n"
+        "Unlike --instrument-onnx-node,\n"
+        "this lets you compare the selected tensors between two runs using,\n"
+        "for example, the utils/RunONNXModel.py's --save-ref/--verify=ref\n"
+        "--verify-every-value, instead of parsing printed signature logs.\n"
+        "Only tensors reachable at the top level of the entry function are\n"
+        "supported; a match inside a Loop/If/Scan body is not added.\n"),
+    llvm::cl::location(instrumentOnnxNodeReturn), llvm::cl::init("NONE"),
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<std::string, true> ONNXOpStatsOpt("onnx-op-stats",
@@ -633,6 +726,46 @@ static llvm::cl::opt<bool, true> enableParallelOpt("parallel",
                    "Set to 'true' if you want to enable parallelization."),
     llvm::cl::location(enableParallel), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<bool, true> disableCollapseOpt("disable-collapse",
+    llvm::cl::desc(
+        "Disable collapsing several loop levels into one parallel region\n"
+        "(default=false, i.e. collapse is enabled). Collapse is only ever\n"
+        "performed together with --parallel; without --parallel, this\n"
+        "option has no effect."),
+    llvm::cl::location(disableCollapse), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
+
+// Overrides for the target-derived parallel cost model constants; see
+// src/Dialect/Mlir/ParallelMachineSupport.hpp for what each one means. A
+// negative value, the default, means "use the target's own value". These are
+// common to both drivers on purpose: the lit tests that pin down a collapse
+// decision run under onnx-mlir-opt, which sees only the common and opt
+// categories.
+static llvm::cl::opt<int64_t, true> collapseMinParTripCountFloorOpt(
+    "collapse-min-par-trip-count-floor",
+    llvm::cl::desc(
+        "Floor on the fused loop trip count worth a parallel region\n"
+        "(default=-1, meaning use the target's own value)."),
+    llvm::cl::location(collapseMinParTripCountFloor), llvm::cl::init(-1),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<int64_t, true> collapseMinAmortWorkOpt(
+    "collapse-min-amort-work",
+    llvm::cl::desc(
+        "Smallest number of elements one fused iteration must cover for\n"
+        "an index rematerialization chain to stay amortized (default=-1,\n"
+        "meaning use the target's own value)."),
+    llvm::cl::location(collapseMinAmortWork), llvm::cl::init(-1),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<int64_t, true> collapseMaxForkCountOpt(
+    "collapse-max-fork-count",
+    llvm::cl::desc(
+        "Largest statically known fork count accepted without penalty\n"
+        "(default=-1, meaning use the target's own value)."),
+    llvm::cl::location(collapseMaxForkCount), llvm::cl::init(-1),
+    llvm::cl::cat(OnnxMlirCommonOptions));
 
 static llvm::cl::opt<bool, true> disableSimdOptionOpt("disable-simd",
     llvm::cl::desc("Disable SIMD optimizations (default=false). Set to `true` "
@@ -674,6 +807,14 @@ static llvm::cl::opt<bool, true> verifyInputTensorsOpt("verifyInputTensors",
 static llvm::cl::opt<bool, true> useLinalgPathOpt("use-linalg-path",
     llvm::cl::desc("Use Linalg lowering path instead of Krnl (default=false)."),
     llvm::cl::location(useLinalgPath), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<bool, true> enableDebugInfoOpt("enable-debug-info",
+    llvm::cl::desc(
+        "Add the debug information to .so file. Such information can be used "
+        "by gdb. If the input is .onnx file, please also use --preserveMLIR "
+        "flag. Check docs/Testing.md for details"),
+    llvm::cl::location(enableDebugInfo), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<std::string, true> linalgOpsOpt("linalg-ops",
@@ -731,6 +872,28 @@ static llvm::cl::opt<bool, true> enableConvOptPassOpt("enable-conv-opt-pass",
     llvm::cl::location(enableConvOptPass), llvm::cl::init(true),
     llvm::cl::cat(OnnxMlirOptions));
 
+static llvm::cl::opt<bool, true> disableEliminateWriteOnlyAllocOpt(
+    "disable-eliminate-write-only-alloc",
+    llvm::cl::desc("Disable the EliminateWriteOnlyAllocPass that removes "
+                   "locally-allocated memrefs that are only written to. "
+                   "Default is false."),
+    llvm::cl::location(disableEliminateWriteOnlyAlloc), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<bool, true> disableFusedOpOpt("disable-fused-op",
+    llvm::cl::desc("Disable ONNXFusedOp (region-based) container for supported "
+                   "fusion patterns; fall back to hardcoded composite ops. "
+                   "Default is false (fused-op is on)."),
+    llvm::cl::location(disableFusedOp), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<bool, true> disableConvToMatmulOpt(
+    "disable-conv-to-matmul",
+    llvm::cl::desc(
+        "Disable Conv to Im2Col+MatMul decomposition. Default is false."),
+    llvm::cl::location(disableConvToMatmul), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
+
 static llvm::cl::list<std::string, std::vector<std::string>>
     replaceOpWithItsOperandOpt("replace-op-with-its-operand",
         llvm::cl::desc(
@@ -747,6 +910,16 @@ static llvm::cl::opt<bool, true> disableConstantPropOpt("disable-constant-prop",
     llvm::cl::desc("Disable Constant Propagation (default is false).\n"
                    "Set to 'true' to disable Constant Propagation."),
     llvm::cl::location(disableConstantProp), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<bool, true> disableiCountIncludePadOpt(
+    "disable-count-include-pad",
+    llvm::cl::desc(
+        "Force count_include_pad = 0 for AveragePool (default is false). The "
+        "default implementation of onnx-mlir conforms to the document of onnx "
+        "and pytorch, and passed the backend test. But the implementation of "
+        "torch and onnxruntime always behave as count_include_pad=0"),
+    llvm::cl::location(disableCountIncludePad), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
 static llvm::cl::opt<uint64_t, true> compilation_num_threads("j",
@@ -770,6 +943,19 @@ static llvm::cl::list<std::string, std::vector<std::string>> extraLibsOpt("l",
                    "Each lib can be specified with one extra-libs."),
     llvm::cl::location(extraLibs), llvm::cl::Prefix,
     llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<std::string, true> configFileOpt("config-file",
+    llvm::cl::desc("Path to JSON configuration file with compile options and "
+                   "other settings.\nIf not specified, looks for omconfig.json "
+                   "in the same directory as the input model."),
+    llvm::cl::value_desc("path"), llvm::cl::location(configFile),
+    llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<std::string, true> saveConfigFileOpt("save-config-file",
+    llvm::cl::desc("Save configuration such as device placement and "
+                   "quantization operations to a JSON file."),
+    llvm::cl::value_desc("path"), llvm::cl::location(saveConfigFile),
+    llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<ProfileIRs, true> profileIROpt("profile-ir",
     llvm::cl::desc("Profile operations in an IR (timing only):"),
@@ -813,11 +999,23 @@ static llvm::cl::opt<bool, true> enable_bound_check("enable-bound-check",
     llvm::cl::location(enableBoundCheck), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
+llvm::cl::opt<bool, true> appendDecodingStrategyOpt{"append-decoding-strategy",
+    llvm::cl::desc(
+        "Append decoding strategies to the model. Used for decoder models. If "
+        "enabled, the 1st output of the original model must have the shape of "
+        "[batch_size, sequence_length, vocaburary_size] of either static or "
+        "dynamic dimensions and the 1st output is replaced by a tensor whose "
+        "shape is [batch_size, 1] and element type is i64. Currenlty support "
+        "greedy streategy only."),
+    llvm::cl::location(appendDecodingStrategy), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions)};
+
 /*
   How to use the optional optimization for testing.
 
   #include "src/Compiler/CompilerOptions.hpp"
 
+  // use --test-compiler-opt to invoke the new optimization.
   if (debugTestCompilerOpt) {
     fprintf(stderr, "use new optimization\n");
     // invoke optimization.
@@ -827,8 +1025,16 @@ static llvm::cl::opt<bool, true> enable_bound_check("enable-bound-check",
 
   onnx-mlir -test-compiler-opt
 */
-#if defined(_DEBUG)
+// Use the portable NDEBUG test rather than _DEBUG: _DEBUG is an MSVC-only
+// predefined macro (see the comment in src/Version/Version.cpp), so testing it
+// left this option unregistered on every gcc/clang build, Debug ones included.
+#if !defined(NDEBUG)
 
+// Registered in OnnxMlirCommonOptions, not OnnxMlirOptions, so that
+// onnx-mlir-opt also accepts it: onnx-mlir-opt keeps only the common and
+// opt-specific categories (see removeUnrelatedOptions in
+// src/Tools/onnx-mlir-opt/onnx-mlir-opt.cpp), and lit tests for a new
+// optimization run through onnx-mlir-opt.
 static llvm::cl::opt<bool, true> test_compiler_opt("test-compiler-opt",
     llvm::cl::desc(
         "Help compiler writers test a new (small) optimization. When false, "
@@ -840,7 +1046,7 @@ static llvm::cl::opt<bool, true> test_compiler_opt("test-compiler-opt",
         "Once the new opt works, it should not rely this option any more.\n"
         "Only defined in DEBUG build and default to false.\n"),
     llvm::cl::location(debugTestCompilerOpt), llvm::cl::init(false),
-    llvm::cl::cat(OnnxMlirOptions));
+    llvm::cl::cat(OnnxMlirCommonOptions));
 bool debugTestCompilerOpt;
 #else
 // Option only available in debug mode: disable when not in debug.
@@ -1090,6 +1296,13 @@ std::string getTargetAccel() {
   if (!accelCount)
     ss << "--maccel=NONE";
   return ss.str();
+}
+
+bool targetNoAccelerators() {
+  // Cannot simply use maccel.empty() because maccel = {NONE} is valid and means
+  // no accelerator too.
+  return llvm::none_of(
+      maccel, [](auto a) { return a != accel::Accelerator::Kind::NONE; });
 }
 
 // Support for Optimization level.
@@ -1442,13 +1655,22 @@ void removeUnrelatedOptions(
   optCategories.push_back(&llvm::cl::getGeneralCategory());
   llvm::cl::HideUnrelatedOptions(optCategories);
 
-  llvm::StringMap<llvm::cl::Option *> &optMap =
-      llvm::cl::getRegisteredOptions();
-  for (auto n = optMap.begin(); n != optMap.end(); n++) {
-    llvm::cl::Option *opt = n->getValue();
+  // Collect options to remove in a separate pass before erasing.
+  //
+  // opt->removeArgument() erases the option from the same DenseMap that
+  // getRegisteredOptions() returns a reference to.  Calling it inside the
+  // range-for loop therefore invalidates the active iterator, which was
+  // silently tolerated by older LLVM but is now caught by the epoch-based
+  // iterator-debug assertions added in llvm-project ~43574226
+  // (LLVM_ENABLE_ABI_BREAKING_CHECKS / LLVM_ENABLE_ASSERTIONS=ON).
+  // Fix: snapshot the to-remove set first, then erase in a second loop.
+  llvm::SmallVector<llvm::cl::Option *, 32> toRemove;
+  auto &optMap = llvm::cl::getRegisteredOptions();
+  for (auto &[name, opt] : optMap)
     if (opt->getOptionHiddenFlag() == llvm::cl::ReallyHidden)
-      opt->removeArgument();
-  }
+      toRemove.push_back(opt);
+  for (llvm::cl::Option *opt : toRemove)
+    opt->removeArgument();
 }
 
 // This function can be called after llvm::cl::ParseCommandLineOptions
@@ -1520,6 +1742,76 @@ bool hasSignatureInstrumentation(InstrumentStages targetInstrumentationStage) {
   // Now check if we are signature instrumenting anything.
   return (instrumentSignatures != "" && instrumentSignatures != "NONE") ||
          (instrumentOnnxNode != "" && instrumentOnnxNode != "NONE");
+}
+
+// Load options from a file given by --config-file.
+// If --config-file is not used, looking for omconfig.json in the same folder
+// as the input file.
+bool loadCompileOptionsFromConfig(
+    int argc, const char *const *argv, std::vector<std::string> &extraArgs) {
+  // Get  the input filename.
+  std::string inputFileVar = "";
+  for (int i = 1; i < argc; ++i) {
+    std::string arg(argv[i]);
+    if (arg.size() > 1 && arg[0] == '-')
+      continue;
+    // First positional argument becomes the input file name.
+    if (inputFileVar.empty()) {
+      inputFileVar = arg;
+      // There is only one positional argument. Break here.
+      break;
+    }
+  }
+
+  // VerboseOutput is not yet set, so scan ourselves.
+  bool verbose = false;
+
+  // Get the config-file value.
+  std::string configFileVar = "";
+  for (int i = 1; i < argc; ++i) {
+    std::string arg(argv[i]);
+    if (arg.find("--config-file=") == 0) {
+      configFileVar = arg.substr(strlen("--config-file="));
+    } else if (arg.find("--config-file") == 0 && i + 1 < argc) {
+      configFileVar = argv[++i];
+    } else if (arg.find("-config-file=") == 0) {
+      configFileVar = arg.substr(strlen("-config-file="));
+    } else if (arg.find("-config-file") == 0 && i + 1 < argc) {
+      configFileVar = argv[++i];
+    } else if (arg.compare("-v") == 0) {
+      verbose = true;
+    }
+  }
+
+  // Construct the config file path.
+  std::filesystem::path inputPath(inputFileVar);
+  std::filesystem::path defaultConfigPath =
+      inputPath.parent_path() / "omconfig.json";
+  std::string configPath =
+      configFileVar.empty() ? defaultConfigPath.string() : configFileVar;
+  if (!std::filesystem::exists(configPath)) {
+    if (verbose && !configFileVar.empty()) {
+      // Only warn if user explicitly specified a config file.
+      llvm::errs() << "Warning: Config file not found: " << configPath << "\n";
+    }
+    return false;
+  }
+
+  if (verbose)
+    printf("Config file: %s\n", configPath.c_str());
+
+  // Use JsonConfigObject to load and parse the config file.
+  JsonConfigObject &globalConfig = getGlobalOMConfig();
+  if (!globalConfig.loadFromFile(configPath)) {
+    if (verbose) {
+      llvm::errs() << "Warning: Failed to load config file: " << configPath
+                   << "\n";
+    }
+    return false;
+  }
+
+  // Extract compile options if present.
+  return globalConfig.getCompileOptions(extraArgs);
 }
 
 } // namespace onnx_mlir

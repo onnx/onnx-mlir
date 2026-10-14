@@ -113,15 +113,19 @@ mlir::ValueRange splitAlongAxis(
     onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> &create,
     mlir::Value X, int64_t axis);
 
-// Check if a value is a constant tensor of a single f32 value or not.
-bool isF32ScalarConstantTensor(mlir::Value v);
-
-// Get FloatAttr from a constant tensor of a single f32 value.
-mlir::FloatAttr getScalarF32AttrFromConstant(mlir::Value v);
-
 // Emit ONNX Concat to store the shape of the input x.
 mlir::Value getDynShape(
     mlir::Location loc, mlir::PatternRewriter &rewriter, mlir::Value x);
+
+// Generic helper function to check if any operation has device attribute set to
+// CPU
+inline bool isMarkedForCPU(mlir::Operation *op) {
+  if (!op)
+    return false;
+  mlir::StringAttr device =
+      op->getAttrOfType<mlir::StringAttr>(DEVICE_ATTRIBUTE);
+  return device && device.getValue().equals_insensitive(CPU_DEVICE);
+}
 
 } // namespace onnx_mlir
 #endif

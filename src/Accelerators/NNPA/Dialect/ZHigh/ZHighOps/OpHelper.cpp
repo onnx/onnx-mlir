@@ -201,11 +201,24 @@ ZTensorEncodingAttr::DataLayout getZTensorLayout(Type type) {
   return ZTensorEncodingAttr::DataLayout::UNDEFINED;
 }
 
+StringAttr getZTensorLayoutAttr(
+    OpBuilder &builder, ZTensorEncodingAttr encoding) {
+  return convertZTensorDataLayoutToStringAttr(
+      builder, encoding.getDataLayout());
+}
+
 StringAttr getZTensorLayoutAttr(OpBuilder &builder, Type type) {
   ZTensorEncodingAttr::DataLayout layout = getZTensorLayout(type);
   if (layout != ZTensorEncodingAttr::DataLayout::UNDEFINED)
     return convertZTensorDataLayoutToStringAttr(builder, layout);
   return nullptr;
+}
+
+ZTensorEncodingAttr createZTensorEncodingAttr(
+    MLIRContext *ctx, StringAttr layout) {
+  ZTensorEncodingAttr::DataLayout dataLayout =
+      convertStringAttrToZTensorDataLayout(layout);
+  return ZTensorEncodingAttr::get(ctx, dataLayout);
 }
 
 ZTensorEncodingAttr::QuantizedType getZTensorQuantizedType(Type type) {
@@ -242,6 +255,20 @@ Value getConstantOfType(
     llvm_unreachable("Unsupport type");
   MultiDialectBuilder<OnnxBuilder> create(builder, loc);
   return create.onnx.constant(denseAttr);
+}
+
+bool isF32ScalarConstantTensor(Value v) {
+  if (!isScalarConstantTensor(v))
+    return false;
+  auto t = mlir::dyn_cast<ShapedType>(v.getType());
+  return t.getElementType().isF32();
+}
+
+FloatAttr getScalarF32AttrFromConstant(Value v) {
+  if (!isF32ScalarConstantTensor(v))
+    return nullptr;
+  ElementsAttr constElements = onnx_mlir::getElementAttributeFromONNXValue(v);
+  return constElements.getSplatValue<FloatAttr>();
 }
 
 bool oneIsOfLayout(Type t1, Type t2,
@@ -595,6 +622,9 @@ bool isShapeDimMultipleOf(Value val, int64_t index, int64_t multipleVal) {
 
 IntegerAttr getAxisNHWC(IntegerAttr axisNCHWAttr) {
   int64_t axisNCHW = axisNCHWAttr.getSInt();
+  // Normalize negative axes for 4D tensors (allow -1, -2, ...)
+  if (axisNCHW < 0)
+    axisNCHW += 4;
   int64_t axisNHWC;
   switch (axisNCHW) {
   case 0: // N
@@ -613,6 +643,31 @@ IntegerAttr getAxisNHWC(IntegerAttr axisNCHWAttr) {
     axisNHWC = axisNCHW;
   }
   return IntegerAttr::get(axisNCHWAttr.getType(), axisNHWC);
+}
+
+IntegerAttr getAxisNCHW(IntegerAttr axisNHWCAttr) {
+  int64_t axisNHWC = axisNHWCAttr.getSInt();
+  // Normalize negative axes for 4D tensors (allow -1, -2, ...)
+  if (axisNHWC < 0)
+    axisNHWC += 4;
+  int64_t axisNCHW;
+  switch (axisNHWC) {
+  case 0: // N
+    axisNCHW = 0;
+    break;
+  case 1: // H
+    axisNCHW = 2;
+    break;
+  case 2: // W
+    axisNCHW = 3;
+    break;
+  case 3: // C
+    axisNCHW = 1;
+    break;
+  default:
+    axisNCHW = axisNHWC;
+  }
+  return IntegerAttr::get(axisNHWCAttr.getType(), axisNCHW);
 }
 
 //===----------------------------------------------------------------------===//
@@ -659,6 +714,25 @@ bool supportedLayoutForCompilerGeneratedStickUnstick(
          layout.getValue().equals_insensitive("3DS") ||
          layout.getValue().equals_insensitive("2D") ||
          (includeNHWC && layout.getValue().equals_insensitive("NHWC"));
+}
+
+int64_t getExtendedLayoutTransformInnerTile(mlir::Type sourceType) {
+  auto shapedType = mlir::dyn_cast<ShapedType>(sourceType);
+  if (!shapedType || !shapedType.hasRank() || shapedType.getRank() == 0)
+    return 0;
+  int64_t innermost = shapedType.getShape()[shapedType.getRank() - 1];
+  if (innermost == ShapedType::kDynamic)
+    return 0;
+  if (innermost % 64 == 0)
+    return 64; // Full sticks.
+  // A half stick is only supported when the innermost dim is exactly 32, so
+  // that every source half stick starts at offset 0 within its stick (the
+  // dlf16 to f32 conversion code does not support mid-stick reads). The output
+  // may start mid-stick (e.g. when merging heads of 32 into the innermost
+  // dim); it is addressed through the layout map or as a CPU memref.
+  if (innermost == 32)
+    return 32;
+  return 0;
 }
 
 } // namespace zhigh

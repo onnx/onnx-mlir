@@ -42,7 +42,7 @@ public:
   }
 };
 
-template <typename ONNXOpT, typename TosaOpT>
+template <typename ONNXOpT, typename TosaOpT, bool SwapOperands = false>
 class ONNXBinaryElementwiseOpLoweringToTOSA
     : public OpConversionPattern<ONNXOpT> {
 public:
@@ -86,8 +86,133 @@ public:
       }
     }
 
+    if (SwapOperands)
+      std::swap(lhs, rhs);
+
     rewriter.replaceOpWithNewOp<TosaOpT>(op, op.getType(), lhs, rhs);
 
+    return success();
+  }
+};
+
+class ONNXSinOpLoweringToTOSA : public OpConversionPattern<ONNXSinOp> {
+public:
+  using OpConversionPattern<ONNXSinOp>::OpConversionPattern;
+  using OpAdaptor = typename ONNXSinOp::Adaptor;
+  LogicalResult matchAndRewrite(ONNXSinOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+    rewriter.replaceOpWithNewOp<mlir::tosa::SinOp>(
+        op, op.getType(), adaptor.getInput());
+    return success();
+  }
+};
+
+class ONNXCosOpLoweringToTOSA : public OpConversionPattern<ONNXCosOp> {
+public:
+  using OpConversionPattern<ONNXCosOp>::OpConversionPattern;
+  using OpAdaptor = typename ONNXCosOp::Adaptor;
+  LogicalResult matchAndRewrite(ONNXCosOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+    rewriter.replaceOpWithNewOp<mlir::tosa::CosOp>(
+        op, op.getType(), adaptor.getInput());
+    return success();
+  }
+};
+
+class ONNXExpOpLoweringToTOSA : public OpConversionPattern<ONNXExpOp> {
+public:
+  using OpConversionPattern<ONNXExpOp>::OpConversionPattern;
+  using OpAdaptor = typename ONNXExpOp::Adaptor;
+  LogicalResult matchAndRewrite(ONNXExpOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+
+    auto scalarType = getElementTypeOrSelf(adaptor.getInput());
+    if (!isTOSAFloat(scalarType))
+      return rewriter.notifyMatchFailure(
+          op, "`tosa.exp` only supports float types");
+
+    rewriter.replaceOpWithNewOp<mlir::tosa::ExpOp>(
+        op, op.getType(), adaptor.getInput());
+    return success();
+  }
+};
+
+class ONNXGeluOpLoweringToTOSA : public OpConversionPattern<ONNXGeluOp> {
+public:
+  using OpConversionPattern<ONNXGeluOp>::OpConversionPattern;
+  using OpAdaptor = typename ONNXGeluOp::Adaptor;
+  LogicalResult matchAndRewrite(ONNXGeluOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+    Location loc = op->getLoc();
+    Value x = adaptor.getX();
+
+    auto inputType = mlir::dyn_cast<RankedTensorType>(x.getType());
+    if (!inputType)
+      return rewriter.notifyMatchFailure(op, "input must be a ranked tensor");
+    auto elementType = mlir::dyn_cast<FloatType>(inputType.getElementType());
+    if (!elementType)
+      return rewriter.notifyMatchFailure(
+          op, "tosa.gelu lowering only supports float types");
+
+    TosaBuilder tosaBuilder(rewriter, loc);
+    StringRef approximate = adaptor.getApproximate();
+    ArrayRef<int64_t> shape = inputType.getShape();
+    Value half = tosaBuilder.getSplattedConst(0.5, shape, elementType);
+    Value one = tosaBuilder.getSplattedConst(1.0, shape, elementType);
+
+    Value inner;
+    if (approximate == "none") {
+      // y = 0.5 * x * (1 + erf(x / sqrt(2)))
+      Value invSqrt2 = tosaBuilder.getSplattedConst(
+          0.70710678118654752440, shape, elementType);
+      Value scaled = tosaBuilder.mul(x, invSqrt2);
+      inner = tosaBuilder.erf(scaled);
+    } else if (approximate == "tanh") {
+      // y = 0.5 * x * (1 + tanh(sqrt(2/pi) * (x + 0.044715 * x^3)))
+      Value coeff = tosaBuilder.getSplattedConst(0.044715, shape, elementType);
+      Value sqrt2OverPi = tosaBuilder.getSplattedConst(
+          0.79788456080286535588, shape, elementType);
+      Value xSquared = tosaBuilder.mul(x, x);
+      Value xCubed = tosaBuilder.mul(xSquared, x);
+      Value coeffXCubed = tosaBuilder.mul(coeff, xCubed);
+      Value sum = tosaBuilder.binaryOp<mlir::tosa::AddOp>(x, coeffXCubed);
+      Value scaled = tosaBuilder.mul(sqrt2OverPi, sum);
+      inner = tosaBuilder.tanh(scaled);
+    } else {
+      return rewriter.notifyMatchFailure(
+          op, "unsupported 'approximate' attribute value");
+    }
+
+    Value addOne = tosaBuilder.binaryOp<mlir::tosa::AddOp>(inner, one);
+    Value mulX = tosaBuilder.mul(x, addOne);
+    Value result = tosaBuilder.mul(mulX, half);
+    rewriter.replaceOp(op, result);
+    return success();
+  }
+};
+
+class ONNXErfOpLoweringToTOSA : public OpConversionPattern<ONNXErfOp> {
+public:
+  using OpConversionPattern<ONNXErfOp>::OpConversionPattern;
+  using OpAdaptor = typename ONNXErfOp::Adaptor;
+  LogicalResult matchAndRewrite(ONNXErfOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+    TosaBuilder tosaBuilder(rewriter, op->getLoc());
+    Value input = adaptor.getInput();
+    rewriter.replaceOp(op, tosaBuilder.erf(input));
+    return success();
+  }
+};
+
+class ONNXTanhOpLoweringToTOSA : public OpConversionPattern<ONNXTanhOp> {
+public:
+  using OpConversionPattern<ONNXTanhOp>::OpConversionPattern;
+  using OpAdaptor = typename ONNXTanhOp::Adaptor;
+  LogicalResult matchAndRewrite(ONNXTanhOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+    TosaBuilder tosaBuilder(rewriter, op->getLoc());
+    Value input = adaptor.getInput();
+    rewriter.replaceOp(op, tosaBuilder.tanh(input));
     return success();
   }
 };
@@ -140,6 +265,134 @@ public:
   }
 };
 
+class ONNXSqrtOpLoweringToTOSA : public OpConversionPattern<ONNXSqrtOp> {
+public:
+  using OpConversionPattern<ONNXSqrtOp>::OpConversionPattern;
+  using OpAdaptor = typename ONNXSqrtOp::Adaptor;
+  LogicalResult matchAndRewrite(ONNXSqrtOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+
+    auto scalarType = getElementTypeOrSelf(adaptor.getX());
+    if (!isTOSAFloat(scalarType))
+      return rewriter.notifyMatchFailure(
+          op, "TOSA sqrt lowering only supports float types");
+
+    // TOSA has no dedicated sqrt op; decompose as sqrt(x) = pow(x, 0.5).
+    auto inputType = mlir::cast<ShapedType>(adaptor.getX().getType());
+    llvm::SmallVector<int64_t> constShape(inputType.getRank(), 1);
+    auto constType = RankedTensorType::get(constShape, scalarType);
+    auto constAttr = DenseElementsAttr::get(constType, 0.5f);
+    Value halfConst = mlir::tosa::ConstOp::create(
+        rewriter, op->getLoc(), constType, constAttr);
+    rewriter.replaceOpWithNewOp<mlir::tosa::PowOp>(
+        op, op.getType(), adaptor.getX(), halfConst);
+    return success();
+  }
+};
+
+class ONNXSigmoidOpLoweringToTOSA : public OpConversionPattern<ONNXSigmoidOp> {
+public:
+  using OpConversionPattern<ONNXSigmoidOp>::OpConversionPattern;
+  using OpAdaptor = typename ONNXSigmoidOp::Adaptor;
+  LogicalResult matchAndRewrite(ONNXSigmoidOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+
+    auto scalarType = getElementTypeOrSelf(adaptor.getX());
+    if (!isTOSAFloat(scalarType))
+      return rewriter.notifyMatchFailure(
+          op, "`tosa.sigmoid` only supports float types");
+
+    rewriter.replaceOpWithNewOp<mlir::tosa::SigmoidOp>(
+        op, op.getType(), adaptor.getX());
+    return success();
+  }
+};
+
+// Extract a scalar ElementsAttr from a value defined either by
+// onnx.Constant (before conversion) or tosa.const (after conversion).
+static ElementsAttr getScalarConstantElementsAttr(Value v) {
+  if (auto onnxConst =
+          mlir::dyn_cast_or_null<ONNXConstantOp>(v.getDefiningOp()))
+    return mlir::dyn_cast_or_null<ElementsAttr>(onnxConst.getValueAttr());
+  if (auto tosaConst =
+          mlir::dyn_cast_or_null<mlir::tosa::ConstOp>(v.getDefiningOp()))
+    return tosaConst.getValues();
+  return nullptr;
+}
+
+class ONNXClipOpLoweringToTOSA : public OpConversionPattern<ONNXClipOp> {
+public:
+  using OpConversionPattern::OpConversionPattern;
+  LogicalResult matchAndRewrite(ONNXClipOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+    Value input = adaptor.getInput();
+    Value min = adaptor.getMin();
+    Value max = adaptor.getMax();
+
+    auto inputType = mlir::dyn_cast<TensorType>(input.getType());
+    if (!inputType)
+      return rewriter.notifyMatchFailure(op, "Tosa only supports TensorTypes");
+    Type elementType = inputType.getElementType();
+    if (!elementType.isIntOrFloat())
+      return rewriter.notifyMatchFailure(
+          op, "only int and float types are supported");
+
+    Attribute minAttr;
+    Attribute maxAttr;
+
+    if (auto floatType = mlir::dyn_cast<FloatType>(elementType)) {
+      const llvm::fltSemantics &semantics = floatType.getFloatSemantics();
+      APFloat minVal = APFloat::getLargest(semantics, /*Negative=*/true);
+      APFloat maxVal = APFloat::getLargest(semantics, /*Negative=*/false);
+
+      if (!isNoneValue(min)) {
+        ElementsAttr minElems = getScalarConstantElementsAttr(min);
+        if (!minElems)
+          return rewriter.notifyMatchFailure(
+              op, "min must be a constant for tosa.clamp");
+        minVal = *minElems.getValues<APFloat>().begin();
+      }
+      if (!isNoneValue(max)) {
+        ElementsAttr maxElems = getScalarConstantElementsAttr(max);
+        if (!maxElems)
+          return rewriter.notifyMatchFailure(
+              op, "max must be a constant for tosa.clamp");
+        maxVal = *maxElems.getValues<APFloat>().begin();
+      }
+      minAttr = rewriter.getFloatAttr(elementType, minVal);
+      maxAttr = rewriter.getFloatAttr(elementType, maxVal);
+    } else {
+      auto intType = mlir::cast<IntegerType>(elementType);
+      unsigned width = intType.getWidth();
+      APInt minVal = intType.isUnsigned() ? APInt::getMinValue(width)
+                                          : APInt::getSignedMinValue(width);
+      APInt maxVal = intType.isUnsigned() ? APInt::getMaxValue(width)
+                                          : APInt::getSignedMaxValue(width);
+
+      if (!isNoneValue(min)) {
+        ElementsAttr minElems = getScalarConstantElementsAttr(min);
+        if (!minElems)
+          return rewriter.notifyMatchFailure(
+              op, "min must be a constant for tosa.clamp");
+        minVal = *minElems.getValues<APInt>().begin();
+      }
+      if (!isNoneValue(max)) {
+        ElementsAttr maxElems = getScalarConstantElementsAttr(max);
+        if (!maxElems)
+          return rewriter.notifyMatchFailure(
+              op, "max must be a constant for tosa.clamp");
+        maxVal = *maxElems.getValues<APInt>().begin();
+      }
+      minAttr = rewriter.getIntegerAttr(elementType, minVal);
+      maxAttr = rewriter.getIntegerAttr(elementType, maxVal);
+    }
+
+    rewriter.replaceOpWithNewOp<mlir::tosa::ClampOp>(
+        op, op.getType(), input, minAttr, maxAttr);
+    return success();
+  }
+};
+
 class ONNXDivOpLoweringToTOSA : public OpConversionPattern<ONNXDivOp> {
 public:
   using OpConversionPattern::OpConversionPattern;
@@ -167,6 +420,34 @@ public:
   }
 };
 
+class ONNXWhereOpLoweringToTOSA : public OpConversionPattern<ONNXWhereOp> {
+public:
+  using OpConversionPattern::OpConversionPattern;
+  LogicalResult matchAndRewrite(ONNXWhereOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+    Value cond = adaptor.getCondition();
+    Value lhs = adaptor.getX();
+    Value rhs = adaptor.getY();
+
+    auto condType = mlir::dyn_cast<TensorType>(cond.getType());
+    auto lhsType = mlir::dyn_cast<TensorType>(lhs.getType());
+    auto rhsType = mlir::dyn_cast<TensorType>(rhs.getType());
+    auto resultType = mlir::dyn_cast<TensorType>(op.getResult().getType());
+    if (!condType || !lhsType || !rhsType || !resultType)
+      return rewriter.notifyMatchFailure(op, "Tosa only supports TensorTypes");
+
+    Type resultElementType = resultType.getElementType();
+    if (!resultElementType.isIntOrFloat())
+      return rewriter.notifyMatchFailure(
+          op, "only int and float are supported");
+
+    TosaBuilder tosaBuilder(rewriter, op->getLoc());
+    Value selectOp = tosaBuilder.select(cond, lhs, rhs);
+    rewriter.replaceOp(op, {selectOp});
+    return success();
+  }
+};
+
 } // namespace
 
 void populateLoweringONNXElementwiseOpToTOSAPattern(ConversionTarget &target,
@@ -175,8 +456,21 @@ void populateLoweringONNXElementwiseOpToTOSAPattern(ConversionTarget &target,
   patterns.insert<ONNXElementwiseUnaryOpLoweringToTOSA<ONNXNegOp>,
       ONNXBinaryElementwiseOpLoweringToTOSA<ONNXAddOp, mlir::tosa::AddOp>,
       ONNXBinaryElementwiseOpLoweringToTOSA<ONNXSubOp, mlir::tosa::SubOp>,
-      ONNXFloorOpLoweringToTOSA, ONNXReluOpLoweringToTOSA,
-      ONNXDivOpLoweringToTOSA>(typeConverter, ctx);
+      ONNXBinaryElementwiseOpLoweringToTOSA<ONNXEqualOp, mlir::tosa::EqualOp>,
+      ONNXBinaryElementwiseOpLoweringToTOSA<ONNXGreaterOp,
+          mlir::tosa::GreaterOp>,
+      ONNXBinaryElementwiseOpLoweringToTOSA<ONNXGreaterOrEqualOp,
+          mlir::tosa::GreaterEqualOp>,
+      ONNXBinaryElementwiseOpLoweringToTOSA<ONNXLessOp, mlir::tosa::GreaterOp,
+          /*SwapOperands=*/true>,
+      ONNXBinaryElementwiseOpLoweringToTOSA<ONNXLessOrEqualOp,
+          mlir::tosa::GreaterEqualOp, /*SwapOperands=*/true>,
+      ONNXSinOpLoweringToTOSA, ONNXCosOpLoweringToTOSA, ONNXExpOpLoweringToTOSA,
+      ONNXErfOpLoweringToTOSA, ONNXTanhOpLoweringToTOSA,
+      ONNXGeluOpLoweringToTOSA, ONNXFloorOpLoweringToTOSA,
+      ONNXReluOpLoweringToTOSA, ONNXSigmoidOpLoweringToTOSA,
+      ONNXSqrtOpLoweringToTOSA, ONNXClipOpLoweringToTOSA,
+      ONNXDivOpLoweringToTOSA, ONNXWhereOpLoweringToTOSA>(typeConverter, ctx);
 }
 
 } // namespace onnx_mlir

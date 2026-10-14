@@ -4,7 +4,7 @@
 
 //===------- ONNXOpsHelper.cpp - Helper functions for ONNX dialects -------===//
 //
-// Copyright 2019-2025 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -83,6 +83,12 @@ bool isONNXTensor(const Type type) {
     if (mlir::dyn_cast_or_null<ONNXTensorEncodingAttr>(ttp.getEncoding()))
       return true;
   return false;
+}
+
+Attribute getTensorEncoding(Type type) {
+  if (auto ttp = mlir::dyn_cast<RankedTensorType>(type))
+    return mlir::dyn_cast_or_null<Attribute>(ttp.getEncoding());
+  return nullptr;
 }
 
 ONNXTensorEncodingAttr getONNXTensorEncoding(Type type) {
@@ -407,15 +413,6 @@ bool getI64ValuesFromONNXConstantOp(
   return true;
 }
 
-bool isDataMovementONNXOp(Operation *op) {
-  return isa<ONNXReshapeOp, ONNXTransposeOp, ONNXSqueezeOp, ONNXUnsqueezeOp,
-      ONNXSliceOp, ONNXExpandOp>(op);
-}
-
-bool isViewONNXOp(Operation *op) {
-  return isa<ONNXReshapeOp, ONNXSqueezeOp, ONNXUnsqueezeOp>(op);
-}
-
 //===----------------------------------------------------------------------===//
 // Support for transpose patterns.
 //===----------------------------------------------------------------------===//
@@ -449,6 +446,22 @@ bool IsIdentityPermuteVector(ArrayAttr permAttr) {
     if (mlir::cast<IntegerAttr>(permVal).getInt() != currentIndex++)
       return false;
   return true;
+}
+
+/// Test if the permute pattern only swaps the last two dimensions, i.e.
+/// perm = {0, 1, ..., rank-3, rank-1, rank-2}.
+bool isTransposeSwappingLastTwoDims(ArrayAttr permAttr) {
+  if (!permAttr)
+    return false;
+  auto perm = permAttr.getValue();
+  int64_t rank = static_cast<int64_t>(perm.size());
+  if (rank < 2)
+    return false;
+  for (int64_t i = 0; i < rank - 2; ++i)
+    if (mlir::cast<IntegerAttr>(perm[i]).getInt() != i)
+      return false;
+  return mlir::cast<IntegerAttr>(perm[rank - 2]).getInt() == rank - 1 &&
+         mlir::cast<IntegerAttr>(perm[rank - 1]).getInt() == rank - 2;
 }
 
 //===----------------------------------------------------------------------===//
@@ -618,6 +631,28 @@ bool isConstOf(Value constValue, double n) {
   return ElementsAttrBuilder::allEqual(constElements, w);
 }
 
+std::optional<unsigned> getFloatVsIntegerZeroLiteralOperand(Operation *op) {
+  assert(op->getNumOperands() == 2 && "expected a binary op");
+  auto elementTypeOf = [](Value v) -> Type {
+    auto shapedType = mlir::dyn_cast<ShapedType>(v.getType());
+    return shapedType ? shapedType.getElementType() : v.getType();
+  };
+  auto isNonBoolInteger = [](Type t) {
+    return mlir::isa<IntegerType>(t) && !t.isInteger(1);
+  };
+  for (unsigned literalIdx = 0; literalIdx < 2; ++literalIdx) {
+    unsigned floatIdx = 1 - literalIdx;
+    Value literalOperand = op->getOperand(literalIdx);
+    Value floatOperand = op->getOperand(floatIdx);
+    Type literalElemType = elementTypeOf(literalOperand);
+    Type floatElemType = elementTypeOf(floatOperand);
+    if (isNonBoolInteger(literalElemType) &&
+        mlir::isa<FloatType>(floatElemType) && isConstOf(literalOperand, 0.0))
+      return literalIdx;
+  }
+  return std::nullopt;
+}
+
 // Convert type to MLIR type.
 // A complete list of types can be found in:
 // <onnx-mlir-build-folder>/third_party/onnx/onnx/onnx.pb.h
@@ -666,6 +701,11 @@ Type convertONNXTypeToMLIRType(
   case onnx::TensorProto_DataType::TensorProto_DataType_UINT4:
     return builder.getIntegerType(/*width=*/4, false);
 
+  // Newer ONNX enum values that are not yet supported by onnx-mlir.
+  case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT4E2M1:
+  case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT8E8M0:
+  case onnx::TensorProto_DataType::TensorProto_DataType_UINT2:
+  case onnx::TensorProto_DataType::TensorProto_DataType_INT2:
   case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX64:
   case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX128:
   case onnx::TensorProto_DataType::TensorProto_DataType_UNDEFINED:
@@ -802,6 +842,67 @@ Type getMLIRTypeFromDtypeDefaultingToF32(
       builder, static_cast<onnx::TensorProto_DataType>(*dtype));
 }
 
+bool hasAllOnesInArrayAttr(ArrayAttr arrayAttr) {
+  // Treat null/missing attribute as default (all ones for strides).
+  if (!arrayAttr)
+    return true;
+  return llvm::all_of(arrayAttr.getAsRange<IntegerAttr>(),
+      [](IntegerAttr intAttr) { return (intAttr.getInt() == 1); });
+}
+
+bool hasAllZerosInArrayAttr(ArrayAttr arrayAttr) {
+  // Treat null/missing attribute as default (all zeros for pads).
+  if (!arrayAttr)
+    return true;
+  return llvm::all_of(arrayAttr.getAsRange<IntegerAttr>(),
+      [](IntegerAttr intAttr) { return (intAttr.getInt() == 0); });
+}
+
+bool hasNonZeroInArrayAttr(ArrayAttr arrayAttr) {
+  // Treat null/missing attribute as default (all zeros), so no non-zero values.
+  if (!arrayAttr)
+    return false;
+  return llvm::any_of(arrayAttr.getAsRange<IntegerAttr>(),
+      [](IntegerAttr intAttr) { return (intAttr.getInt() != 0); });
+}
+
+DenseElementsAttr createFullPadsForAllDims(
+    PatternRewriter &rewriter, Value input, ArrayAttr pads) {
+  auto inputType = mlir::cast<ShapedType>(input.getType());
+  int64_t rank = inputType.getRank();
+  int64_t k = pads.size() / 2;
+
+  // Create full pads array: prepend zeros for the first (rank-k) dimensions,
+  // then add the actual pads for the innermost k dimensions.
+  SmallVector<int64_t, 8> fullPads;
+
+  // Add zeros for the first (rank-k) dimensions (both begin and end).
+  for (int64_t i = 0; i < rank - k; ++i) {
+    fullPads.push_back(0);
+  }
+
+  // Add the actual begin pads for the innermost k dimensions.
+  for (int64_t i = 0; i < k; ++i) {
+    auto intAttr = mlir::cast<IntegerAttr>(pads.getValue()[i]);
+    fullPads.push_back(intAttr.getInt());
+  }
+
+  // Add zeros for the end padding of the first (rank-k) dimensions.
+  for (int64_t i = 0; i < rank - k; ++i) {
+    fullPads.push_back(0);
+  }
+
+  // Add the actual end pads for the innermost k dimensions.
+  for (int64_t i = k; i < (int64_t)pads.size(); ++i) {
+    auto intAttr = mlir::cast<IntegerAttr>(pads.getValue()[i]);
+    fullPads.push_back(intAttr.getInt());
+  }
+
+  auto padsType =
+      RankedTensorType::get({(int64_t)fullPads.size()}, rewriter.getI64Type());
+  return DenseElementsAttr::get(padsType, ArrayRef<int64_t>(fullPads));
+}
+
 bool isScalarTensor(Value v) {
   return (hasShapeAndRank(v) &&
           ((getRank(v.getType()) == 0) ||
@@ -854,8 +955,8 @@ bool isIdentityReshape(
     return false;
 
   // Check if same shape in the sense that both dimensions at the same index
-  // must be both static or dynamic. Otherwise, written rules may fail with the
-  // following error due to shape mismatched:
+  // must be both static or dynamic. Otherwise, written rules may fail with
+  // the following error due to shape mismatched:
   // ```
   // error: failed to materialize conversion for result #0 of operation
   // 'onnx.Reshape' that remained live after conversion
@@ -863,9 +964,9 @@ bool isIdentityReshape(
   if (inputShape != outputShape)
     return false;
 
-  // Reshape is an identity if at least (N-1) out of N dimensions are equal. We
-  // don't need to care about the different dimension, it is maybe because of
-  // DimAnalysis failed to handle it.
+  // Reshape is an identity if at least (N-1) out of N dimensions are equal.
+  // We don't need to care about the different dimension, it is maybe because
+  // of DimAnalysis failed to handle it.
   int nSameDims = 0;
   for (int64_t i = 0; i < inputRank; ++i) {
     if (inputShape[i] != ShapedType::kDynamic &&
@@ -893,6 +994,12 @@ bool isIdentityReshape(
 //===----------------------------------------------------------------------===//
 // Support for location.
 //===----------------------------------------------------------------------===//
+
+std::string getProfilingName(Operation *op) {
+  if (auto fusedOp = mlir::dyn_cast<ONNXFusedOp>(op))
+    return "onnx.fused." + fusedOp.getKind().str();
+  return op->getName().getStringRef().str();
+}
 
 // We may try to relate the node names generated by the instrumentation
 // with the node names printed by opt-report. Thus it is key to keep the

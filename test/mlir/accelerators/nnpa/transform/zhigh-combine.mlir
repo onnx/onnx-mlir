@@ -18,6 +18,7 @@ func.func @remove_stick_and_unstick_same_layout(%arg0 : tensor<10x10xf32>) -> te
   // CHECK: zhigh.Relu
   // CHECK: zhigh.Unstick
 }
+
 // -----
 
 func.func @remove_stick_only(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
@@ -84,6 +85,7 @@ func.func @donot_replace_stick_and_unstick_by_layout_transform(%arg0 : tensor<5x
   // CHECK: zhigh.Relu
   // CHECK: zhigh.Unstick
 }
+
 // -----
 
 // Remove Stick with NoneType input.
@@ -305,7 +307,7 @@ func.func @test_dlf16_to_f32(%arg0: tensor<1x3x5x?xf16, #zhigh.layout<{dataLayou
   %0 = "onnx.LayoutTransform"(%arg0) : (tensor<1x3x5x?xf16, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<1x3x5x?xf16>
   %1 = "zhigh.DLF16ToF32"(%0) : (tensor<1x3x5x?xf16>) -> tensor<1x3x5x?xf32>
   %2 = "zhigh.F32ToDLF16"(%1) : (tensor<1x3x5x?xf32>) -> tensor<1x3x5x?xf16>
-  %3 = "onnx.LayoutTransform"(%2) {target_layout = "4D"} : (tensor<1x3x5x?xf16>) -> tensor<1x3x5x?xf16, #zhigh.layout<{dataLayout = "4D"}>>
+  %3 = "onnx.LayoutTransform"(%2) {target_layout = #zhigh.layout<{dataLayout = "4D"}>} : (tensor<1x3x5x?xf16>) -> tensor<1x3x5x?xf16, #zhigh.layout<{dataLayout = "4D"}>>
   onnx.Return %3 : tensor<1x3x5x?xf16, #zhigh.layout<{dataLayout = "4D"}>>
 
 // CHECK-LABEL:  func.func @test_dlf16_to_f32
@@ -318,18 +320,42 @@ func.func @test_dlf16_to_f32(%arg0: tensor<1x3x5x?xf16, #zhigh.layout<{dataLayou
 
 // COM: DLF16ToF32 is delayed and pushed down through Reshape and Transpose,
 // and it is removed when combined with F32ToDLF16.
-func.func @test_delay_dlf16_to_f32(%arg0: tensor<1x3x5x?xf16>, %arg1: tensor<3xi64>) -> tensor<5x3x?xf16> {
+func.func @test_delay_dlf16_to_f32(%arg0: tensor<1x3x5x?xf16>, %arg1: tensor<3xi64>, %arg2: tensor<7xi64>) -> tensor<35x?xf16> {
   %1 = "zhigh.DLF16ToF32"(%arg0) : (tensor<1x3x5x?xf16>) -> tensor<1x3x5x?xf32>
   %2 = "onnx.Reshape"(%1, %arg1) {allowzero = 0 : si64} : (tensor<1x3x5x?xf32>, tensor<3xi64>) -> tensor<3x5x?xf32>
   %3 = "onnx.Transpose"(%2) {perm = [1, 0, 2]} : (tensor<3x5x?xf32>) -> tensor<5x3x?xf32>
-  %4 = "zhigh.F32ToDLF16"(%3) : (tensor<5x3x?xf32>) -> tensor<5x3x?xf16>
-  onnx.Return %4 : tensor<5x3x?xf16>
+  %4 = "onnx.Gather"(%3, %arg2) <{axis = 1 : si64}> : (tensor<5x3x?xf32>, tensor<7xi64>) -> tensor<5x7x?xf32>
+  %5 = "onnx.Flatten"(%4) {axis = 1 : si64} : (tensor<5x7x?xf32>) -> tensor<35x?xf32>
+  %6 = "zhigh.F32ToDLF16"(%5) : (tensor<35x?xf32>) -> tensor<35x?xf16>
+  onnx.Return %6 : tensor<35x?xf16>
 
 // CHECK-LABEL:  func.func @test_delay_dlf16_to_f32
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x5x?xf16>, [[PARAM_1_:%.+]]: tensor<3xi64>) -> tensor<5x3x?xf16> {
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x5x?xf16>, [[PARAM_1_:%.+]]: tensor<3xi64>, [[PARAM_2_:%.+]]: tensor<7xi64>) -> tensor<35x?xf16> {
 // CHECK:           [[VAR_0_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[PARAM_1_]]) <{allowzero = 0 : si64}> : (tensor<1x3x5x?xf16>, tensor<3xi64>) -> tensor<3x5x?xf16>
 // CHECK:           [[VAR_1_:%.+]] = "onnx.Transpose"([[VAR_0_]]) <{perm = [1, 0, 2]}> : (tensor<3x5x?xf16>) -> tensor<5x3x?xf16>
-// CHECK:           onnx.Return [[VAR_1_]] : tensor<5x3x?xf16>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Gather"([[VAR_1_]], [[PARAM_2_]]) <{axis = 1 : si64}> : (tensor<5x3x?xf16>, tensor<7xi64>) -> tensor<5x7x?xf16>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Flatten"([[VAR_2_]]) <{axis = 1 : si64}> : (tensor<5x7x?xf16>) -> tensor<35x?xf16>
+// CHECK:           onnx.Return [[VAR_3_]] : tensor<35x?xf16>
+// CHECK:         }
+}
+
+// -----
+
+// COM: DLF16ToF32 is delayed and pushed down through Split that has multiple outputs,
+// and it is removed when combined with F32ToDLF16.
+func.func @test_delay_dlf16_to_f32_multiple_outputs(%arg0: tensor<2x?xf16>) -> (tensor<1x?xf16>, tensor<1x?xf16>) {
+  %cst = "onnx.NoValue"() {value} : () -> none
+  %1 = "zhigh.DLF16ToF32"(%arg0) : (tensor<2x?xf16>) -> tensor<2x?xf32>
+  %2, %3 = "onnx.Split"(%1, %cst) { axis = 0 : si64} : (tensor<2x?xf32>, none) -> (tensor<1x?xf32>, tensor<1x?xf32>)
+  %4 = "zhigh.F32ToDLF16"(%2) : (tensor<1x?xf32>) -> tensor<1x?xf16>
+  %5 = "zhigh.F32ToDLF16"(%3) : (tensor<1x?xf32>) -> tensor<1x?xf16>
+  onnx.Return %4, %5 : tensor<1x?xf16>, tensor<1x?xf16>
+
+// CHECK-LABEL:  func.func @test_delay_dlf16_to_f32_multiple_outputs
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x?xf16>) -> (tensor<1x?xf16>, tensor<1x?xf16>) {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK:           [[VAR_1_:%.+]]:2 = "onnx.Split"([[PARAM_0_]], [[VAR_0_]]) <{axis = 0 : si64}> : (tensor<2x?xf16>, none) -> (tensor<1x?xf16>, tensor<1x?xf16>)
+// CHECK:           onnx.Return [[VAR_1_]]#0, [[VAR_1_]]#1 : tensor<1x?xf16>, tensor<1x?xf16>
 // CHECK:         }
 }
 
@@ -563,5 +589,185 @@ func.func @replace_unstick_squeeze_stick_dynamic(%arg0: tensor<?x1x?x200xf16, #z
 // CHECK:           [[VAR_4_:%.+]] = "zhigh.Reshape"([[PARAM_0_]], [[VAR_3_]]) <{layout = "3DS"}> : (tensor<?x1x?x200xf16, #zhigh.layout<{dataLayout = "4DS"}>>, tensor<3xi64>) -> tensor<?x?x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 // CHECK:           return [[VAR_4_]] : tensor<?x?x200xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 // CHECK:         }
+}
+
+// -----
+
+// Replace ZHighStick(ONNXExpand(constant_scalar, shape)) with ZHighStickifiedConstantOfShape.
+func.func @replace_stick_expand_constant(%arg0: tensor<3xi64>) -> tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>> {
+  %0 = onnx.Constant dense<1.5> : tensor<f32>
+  %1 = "onnx.Expand"(%0, %arg0) : (tensor<f32>, tensor<3xi64>) -> tensor<?x?x?xf32>
+  %2 = "zhigh.Stick"(%1) {layout = "3DS"} : (tensor<?x?x?xf32>) -> tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  return %2 : tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+
+// CHECK-LABEL:  func.func @replace_stick_expand_constant
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3xi64>) -> tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>> {
+// CHECK:           [[VAR_0_:%.+]] = "zhigh.StickifiedConstantOfShape"([[PARAM_0_]]) <{layout = "3DS", value = 1.500000e+00 : f32}> : (tensor<3xi64>) -> tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:           return [[VAR_0_]] : tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:         }
+}
+
+
+// -----
+
+// COM: UnstickConstantOfShapePattern - Basic Pattern with 3DS Layout.
+func.func @unstick_stickified_constant_3ds_mixed_dims(%arg0: tensor<3xi64>) -> tensor<4x?x16xf32> {
+  %0 = "zhigh.StickifiedConstantOfShape"(%arg0) {value = 1.0 : f32, layout = "3DS"} 
+       : (tensor<3xi64>) -> tensor<4x?x16xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  %1 = "zhigh.Unstick"(%0) : (tensor<4x?x16xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<4x?x16xf32>
+  return %1 : tensor<4x?x16xf32>
+
+// CHECK-LABEL: func.func @unstick_stickified_constant_3ds_mixed_dims
+// CHECK-NOT: zhigh.StickifiedConstantOfShape
+// CHECK-NOT: zhigh.Unstick
+// CHECK: [[CONST:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<1xf32>
+// CHECK: [[EXPAND:%.+]] = "onnx.Expand"([[CONST]], %arg0)
+// CHECK: return [[EXPAND]]
+}
+
+// -----
+
+// COM: UnstickConstantOfShapePattern - Basic Pattern with 3DS Layout - Multiple uses of StickifiedConstantOfShape.
+func.func @unstick_stickified_constant_3ds_mixed_dims_multiple_uses(%arg0: tensor<3xi64>) -> (tensor<4x?x16xf32>, tensor<4x?x16xf16, #zhigh.layout<{dataLayout = "3DS"}>>) {
+  %0 = "zhigh.StickifiedConstantOfShape"(%arg0) {value = 1.0 : f32, layout = "3DS"}
+       : (tensor<3xi64>) -> tensor<4x?x16xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  %1 = "zhigh.Unstick"(%0) : (tensor<4x?x16xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<4x?x16xf32>
+  %2 = "zhigh.Relu"(%0) : (tensor<4x?x16xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> (tensor<4x?x16xf16, #zhigh.layout<{dataLayout = "3DS"}>>)
+  return %1, %2 : tensor<4x?x16xf32>, tensor<4x?x16xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+
+// CHECK-LABEL:  func.func @unstick_stickified_constant_3ds_mixed_dims_multiple_uses
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3xi64>) -> (tensor<4x?x16xf32>, tensor<4x?x16xf16, #zhigh.layout<{dataLayout = "3DS"}>>) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<1xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.StickifiedConstantOfShape"([[PARAM_0_]]) <{layout = "3DS", value = 1.000000e+00 : f32}> : (tensor<3xi64>) -> tensor<4x?x16xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Expand"([[VAR_0_]], [[PARAM_0_]]) : (tensor<1xf32>, tensor<3xi64>) -> tensor<4x?x16xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Relu"([[VAR_1_]]) : (tensor<4x?x16xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<4x?x16xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:           return [[VAR_2_]], [[VAR_3_]] : tensor<4x?x16xf32>, tensor<4x?x16xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+// CHECK:         }
+}
+
+// -----
+
+// COM: UnstickConstantOfShapePattern - Pattern with NHWC Layout.
+func.func @unstick_stickified_constant_nhwc_mixed(%arg0: tensor<4xi64>) -> tensor<2x64x?x?xf32> {
+  %0 = "zhigh.StickifiedConstantOfShape"(%arg0) {value = -1.0 : f32, layout = "NHWC"} 
+       : (tensor<4xi64>) -> tensor<2x?x?x64xf16, #zhigh.layout<{dataLayout = "NHWC"}>>
+  %1 = "zhigh.Unstick"(%0) : (tensor<2x?x?x64xf16, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<2x64x?x?xf32>
+  return %1 : tensor<2x64x?x?xf32>
+
+// CHECK-LABEL: func.func @unstick_stickified_constant_nhwc_mixed
+// CHECK-NOT: zhigh.StickifiedConstantOfShape
+// CHECK-NOT: zhigh.Unstick
+// CHECK: [[CONST:%.+]] = onnx.Constant dense<-1.000000e+00> : tensor<1xf32>
+// CHECK: [[EXPAND:%.+]] = "onnx.Expand"([[CONST]], %arg0)
+// CHECK: return [[EXPAND]]
+}
+
+// -----
+
+// COM: UnstickConstantOfShapeStaticPattern - 3DS Layout with All Static Dimensions.
+func.func @unstick_stickified_constant_static_3ds() -> tensor<4x8x16xf32> {
+  %shape = onnx.Constant dense<[4, 8, 16]> : tensor<3xi64>
+  %0 = "zhigh.StickifiedConstantOfShape"(%shape) {value = 2.5 : f32, layout = "3DS"} 
+       : (tensor<3xi64>) -> tensor<4x8x16xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  %1 = "zhigh.Unstick"(%0) : (tensor<4x8x16xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<4x8x16xf32>
+  return %1 : tensor<4x8x16xf32>
+
+// CHECK-LABEL: func.func @unstick_stickified_constant_static_3ds
+// CHECK-NOT: zhigh.StickifiedConstantOfShape
+// CHECK-NOT: zhigh.Unstick
+// CHECK-NOT: onnx.Expand
+// CHECK: onnx.Constant dense<2.500000e+00> : tensor<4x8x16xf32>
+}
+
+// -----
+
+// COM: UnstickConstantOfShapeStaticPattern - NHWC Layout with All Static Dimensions.
+func.func @unstick_stickified_constant_static_nhwc() -> tensor<2x64x32x16xf32> {
+  %shape = onnx.Constant dense<[2, 64, 32, 16]> : tensor<4xi64>
+  %0 = "zhigh.StickifiedConstantOfShape"(%shape) {value = -1.5 : f32, layout = "NHWC"} 
+       : (tensor<4xi64>) -> tensor<2x32x16x64xf16, #zhigh.layout<{dataLayout = "NHWC"}>>
+  %1 = "zhigh.Unstick"(%0) : (tensor<2x32x16x64xf16, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<2x64x32x16xf32>
+  return %1 : tensor<2x64x32x16xf32>
+
+// CHECK-LABEL: func.func @unstick_stickified_constant_static_nhwc
+// CHECK-NOT: zhigh.StickifiedConstantOfShape
+// CHECK-NOT: zhigh.Unstick
+// CHECK-NOT: onnx.Expand
+// CHECK: onnx.Constant dense<-1.500000e+00> : tensor<2x64x32x16xf32>
+}
+
+// -----
+
+// COM: DimStickRemovalPattern - Dim on Stick with 3DS Layout - Axis 0.
+func.func @dim_stick_3ds_axis0(%arg0: tensor<4x?x16xf32>) -> tensor<1xi64> {
+  %0 = "zhigh.Stick"(%arg0) {layout = "3DS"} : (tensor<4x?x16xf32>) -> tensor<4x?x16xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  %1 = "onnx.Dim"(%0) {axis = 0 : si64} : (tensor<4x?x16xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<1xi64>
+  return %1 : tensor<1xi64>
+
+// CHECK-LABEL: func.func @dim_stick_3ds_axis0
+// CHECK-NOT: zhigh.Stick
+// CHECK: onnx.Constant dense<4> : tensor<1xi64>
+}
+
+// -----
+
+// COM: DimStickRemovalPattern - Dim on Stick with 3DS Layout - Axis 1.
+func.func @dim_stick_3ds_axis1(%arg0: tensor<4x?x16xf32>) -> tensor<1xi64> {
+  %0 = "zhigh.Stick"(%arg0) {layout = "3DS"} : (tensor<4x?x16xf32>) -> tensor<4x?x16xf16, #zhigh.layout<{dataLayout = "3DS"}>>
+  %1 = "onnx.Dim"(%0) {axis = 1 : si64} : (tensor<4x?x16xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<1xi64>
+  return %1 : tensor<1xi64>
+
+// CHECK-LABEL: func.func @dim_stick_3ds_axis1
+// CHECK: "onnx.Dim"(%arg0) <{axis = 1 : si64}>
+}
+
+// -----
+
+// COM: DimStickNHWCRemovalPattern - Dim on Stick with NHWC Layout - Axis 0 (N→N).
+func.func @dim_stick_nhwc_axis0(%arg0: tensor<2x64x?x?xf32>) -> tensor<1xi64> {
+  %0 = "zhigh.Stick"(%arg0) {layout = "NHWC"} : (tensor<2x64x?x?xf32>) -> tensor<2x?x?x64xf16, #zhigh.layout<{dataLayout = "NHWC"}>>
+  %1 = "onnx.Dim"(%0) {axis = 0 : si64} : (tensor<2x?x?x64xf16, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<1xi64>
+  return %1 : tensor<1xi64>
+
+// CHECK-LABEL: func.func @dim_stick_nhwc_axis0
+// CHECK-NOT: zhigh.Stick
+// CHECK: onnx.Constant dense<2> : tensor<1xi64>
+}
+
+// -----
+
+// COM: DimStickNHWCRemovalPattern - Dim on Stick with NHWC Layout - Axis 1 (H→H, NHWC axis 1 → NCHW axis 2).
+func.func @dim_stick_nhwc_axis1(%arg0: tensor<2x64x?x?xf32>) -> tensor<1xi64> {
+  %0 = "zhigh.Stick"(%arg0) {layout = "NHWC"} : (tensor<2x64x?x?xf32>) -> tensor<2x?x?x64xf16, #zhigh.layout<{dataLayout = "NHWC"}>>
+  %1 = "onnx.Dim"(%0) {axis = 1 : si64} : (tensor<2x?x?x64xf16, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<1xi64>
+  return %1 : tensor<1xi64>
+
+// CHECK-LABEL: func.func @dim_stick_nhwc_axis1
+// CHECK: "onnx.Dim"(%arg0) <{axis = 2 : si64}>
+}
+
+// -----
+
+// COM: DimStickNHWCRemovalPattern - Dim on Stick with NHWC Layout - Axis 2 (W→W, NHWC axis 2 → NCHW axis 3).
+func.func @dim_stick_nhwc_axis2(%arg0: tensor<2x64x?x?xf32>) -> tensor<1xi64> {
+  %0 = "zhigh.Stick"(%arg0) {layout = "NHWC"} : (tensor<2x64x?x?xf32>) -> tensor<2x?x?x64xf16, #zhigh.layout<{dataLayout = "NHWC"}>>
+  %1 = "onnx.Dim"(%0) {axis = 2 : si64} : (tensor<2x?x?x64xf16, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<1xi64>
+  return %1 : tensor<1xi64>
+
+// CHECK-LABEL: func.func @dim_stick_nhwc_axis2
+// CHECK: "onnx.Dim"(%arg0) <{axis = 3 : si64}>
+}
+
+// -----
+
+// COM: DimStickNHWCRemovalPattern - Dim on Stick with NHWC Layout - Axis 3 (C→C, NHWC axis 3 → NCHW axis 1).
+func.func @dim_stick_nhwc_axis3(%arg0: tensor<2x64x?x?xf32>) -> tensor<1xi64> {
+  %0 = "zhigh.Stick"(%arg0) {layout = "NHWC"} : (tensor<2x64x?x?xf32>) -> tensor<2x?x?x64xf16, #zhigh.layout<{dataLayout = "NHWC"}>>
+  %1 = "onnx.Dim"(%0) {axis = 3 : si64} : (tensor<2x?x?x64xf16, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<1xi64>
+  return %1 : tensor<1xi64>
+
+// CHECK-LABEL: func.func @dim_stick_nhwc_axis3
+// CHECK: onnx.Constant dense<64> : tensor<1xi64>
 }
 

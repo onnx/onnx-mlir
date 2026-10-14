@@ -61,21 +61,6 @@ llvm::cl::opt<bool> nnpaEnableScalarBcastBinary(
                    "Currently only enable ONNXDiv. Default is false."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
 
-llvm::cl::opt<std::string> nnpaLoadConfigFile{"nnpa-load-config-file",
-    llvm::cl::desc(
-        "Load NNPA configuration such as device placement, quantization "
-        "operations from a JSON file. To have a template for the JSON file, "
-        "use "
-        "--nnpa-save-config-file=cfg.json.\nNote that we can use regex for "
-        "string values in the JSON file to match operations.\nThe compiler "
-        "uses ECMAScript regular expressions for matching."),
-    llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions)};
-
-llvm::cl::opt<std::string> nnpaSaveConfigFile{"nnpa-save-config-file",
-    llvm::cl::desc("Save NNPA configuration such as device placement and "
-                   "quantization operations to a JSON file."),
-    llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions)};
-
 llvm::cl::opt<NNPAPlacementHeuristic> nnpaPlacementHeuristic{
     "nnpa-placement-heuristic",
     llvm::cl::desc(
@@ -144,5 +129,24 @@ llvm::cl::opt<bool> nnpaDisableFusionOpStickUnstick(
     llvm::cl::desc("Disable fusion of eligible operations with "
                    " surrounding stick and unstick ops. Default is false"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
+
+llvm::cl::opt<bool> nnpaDisableShapeRestriction(
+    "nnpa-disable-shape-restriction",
+    llvm::cl::desc("Disable shape restriction checks for operations with "
+                   "dynamic shapes. When enabled, the compiler assumes that "
+                   "dynamic shapes will satisfy NNPA constraints at runtime. "
+                   "Helpful for Convolutions. Default is false"),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
+
+llvm::cl::opt<bool> nnpaDisableHugePageMalloc("nnpa-disable-hugepage-malloc",
+    llvm::cl::desc("Disable replacement of malloc with OMHugePageMalloc. "
+                   "Default is false"),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<bool> nnpaDisableExpandAttentionMask(
+    "nnpa-disable-expand-attention-mask",
+    llvm::cl::desc("Disable expansion of attention masks for broadcasting Add "
+                   "operations. Default is false"),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
 } // namespace onnx_mlir

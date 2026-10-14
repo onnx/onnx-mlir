@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --march=z16 --maccel=NNPA --shape-inference --convert-onnx-to-zhigh %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --march=z16 --maccel=NNPA --shape-inference --nnpa-disable-shape-restriction --convert-onnx-to-zhigh %s -split-input-file | FileCheck %s
 
 func.func @maxpool_should_lower_to_zhigh_padtype_valid(%arg0: tensor<1x3x32x32xf32>) -> tensor<*xf32> {
   %0 = "onnx.MaxPoolSingleOut"(%arg0) {auto_pad = "NOTSET", dilations = [1, 1], kernel_shape = [2, 2], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<1x3x32x32xf32>) -> tensor<*xf32>
@@ -89,6 +89,7 @@ func.func @averagepool_should_lower_to_zhigh_same_upper(%arg0: tensor<1x3x32x32x
 }
 
 // -----
+
 // COM: Pooling in zDNN only support 4D input (MaxPool1D and MaxPool3D not suported)
 // CHECK-LABEL:  func @test_pool_not_lowered_pool1d
 func.func @test_pool_not_lowered_pool1d(%arg0: tensor<1x3x32xf32>) -> (tensor<1x3x31xf32>, tensor<1x3x31xf32>) {
@@ -102,6 +103,7 @@ func.func @test_pool_not_lowered_pool1d(%arg0: tensor<1x3x32xf32>) -> (tensor<1x
 }
 
 // -----
+
 // COM: Pooling in zDNN only support 4D input (MaxPool1D and MaxPool3D not suported)
 // CHECK-LABEL:  func @test_pool_not_lowered_pool3d
 func.func @test_pool_not_lowered_pool3d(%arg0: tensor<1x3x32x32x32xf32>) -> (tensor<1x3x31x31x31xf32>, tensor<1x3x31x31x31xf32>) {
@@ -277,5 +279,19 @@ func.func @test_exceed_limit_maxpool(%arg0: tensor<32769x3x32x32xf32>) -> tensor
   return %0 : tensor<*xf32>
 
 // CHECK-LABEL:  func @test_exceed_limit_maxpool
+// CHECK:        "onnx.MaxPoolSingleOut"
+}
+
+// -----
+
+/// COM: Test for input tensor size limitation.
+/// COM: Not lowered when dimensin size exceeds 1024
+/// COM:  reference to issue #3493
+
+func.func @test_exceed_input_limit_maxpool(%arg0: tensor<1x32x1216x832xf32>) -> tensor<*xf32> {
+%0 = "onnx.MaxPoolSingleOut"(%arg0) <{auto_pad = "NOTSET", ceil_mode = 0 : si64, kernel_shape = [2, 2], storage_order = 0 : si64, strides = [2, 2]}> : (tensor<1x32x1216x832xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+
+// CHECK-LABEL:  func @test_exceed_input_limit_maxpool
 // CHECK:        "onnx.MaxPoolSingleOut"
 }

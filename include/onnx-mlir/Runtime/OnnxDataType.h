@@ -2,9 +2,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---------------------- DataType.h - ONNX DataTypes -------------------===//
+//===------------------ OnnxDataType.h - ONNX DataTypes -------------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -26,10 +26,10 @@
 #endif
 
 enum OM_DATA_TYPE {
-#define OM_TYPE_METADATA_DEF(ENUM_NAME, ENUM_VAL, DTYPE_SIZE, DTYPE_NAME)      \
+#define OM_TYPE_METADATA_DEF(                                                  \
+    ENUM_NAME, ENUM_VAL, DTYPE_SIZE, DTYPE_NAME, MLIR_NAME, NUMPY_NAME)        \
   ENUM_NAME = ENUM_VAL,
 #include "OnnxDataTypeMetaData.inc"
-
 #undef OM_TYPE_METADATA_DEF
 };
 

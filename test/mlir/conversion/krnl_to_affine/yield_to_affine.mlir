@@ -114,8 +114,6 @@ func.func @yield2(%arg0: memref<10x10xf32>, %arg1: memref<10x?xf32>) -> memref<1
 	// CHECK:    memref.store [[Add3]], %arg0[%c0, %c0] : memref<10x10xf32>
 }
 
-
-
 // -----
 
 // yield in outer iterate only.
@@ -154,7 +152,6 @@ func.func @outer(%arg0: memref<3x4xf32>, %arg1: memref<4x3xf32> ) -> (memref<3x3
 	// CHECK:      affine.yield [[For1]] : f32
 }
 
-
 // -----
 
 // yield in inner iterate only.
@@ -187,7 +184,6 @@ func.func @inner(%arg0: memref<3x4xf32>, %arg1: memref<4x3xf32> ) -> (memref<3x3
 	// CHECK:          affine.yield [[Add]] : f32
 	// CHECK:        affine.store [[For2]], %alloc[%arg2, %arg3] : memref<3x3xf32>
 }
-
 
 // -----
 

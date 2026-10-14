@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: Apache-2.0
+
+[build-system]
+requires = ["scikit-build-core", "pybind11"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "om_pyrt"
+version = "1.0.0"
+authors = [
+  { name="Tong Chen", email="chentong@us.ibm.com" },
+  { name="Sunny Anand", email="sunny.anand79@ibm.com" },
+]
+description = "Python driver to run inference on onnx model compiled with onnx-mlir"
+readme = "src/Runtime/python/om_pyrt/README.md"
+requires-python = ">=3.9"
+license = "Apache-2.0"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: POSIX :: Linux",
+]
+
+dependencies = [
+    "numpy"
+]
+
+[project.urls]
+Homepage = "https://github.com/onnx/onnx-mlir"
+Issues = "https://github.com/onnx/onnx-mlir/issues"
+
+[tool.scikit-build]
+cmake.args = ["-DONNX_MLIR_TARGET_TO_BUILD=OMPyRt"]
+wheel.packages = ["src/Runtime/python/om_pyrt/src/om_pyrt"]
+install.components = ["om_pyrt"]

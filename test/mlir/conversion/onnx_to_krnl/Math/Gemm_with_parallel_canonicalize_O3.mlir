@@ -3,6 +3,7 @@
 // With enable-parallel, a krnl.parallel should be created, which takes a loop (to be parallelized)
 // as input. The krnl.parallel should be the last operator before krnl.iterate, since the lowering
 // needs to interpret krnl.block, krnl.permute, krnl.unroll first.
+
 // -----
 
 // Test parallelization of GEMM, disabled because too small

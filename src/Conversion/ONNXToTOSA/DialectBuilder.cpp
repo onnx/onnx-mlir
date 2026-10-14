@@ -119,9 +119,17 @@ Value TosaBuilder::getConst(ArrayRef<float> vec, ArrayRef<int64_t> shape) {
   return constOp;
 }
 
-Value TosaBuilder::getSplattedConst(float val, llvm::ArrayRef<int64_t> shape) {
-  auto constType = tosa::reduceAxisToOne(shape, rewriter().getF32Type());
-  auto constAttr = DenseElementsAttr::get(constType, val);
+Value TosaBuilder::getSplattedConst(
+    float val, llvm::ArrayRef<int64_t> shape, Type elementType) {
+  if (!elementType)
+    elementType = rewriter().getF32Type();
+  auto floatType = mlir::cast<FloatType>(elementType);
+  APFloat apVal(val);
+  bool losesInfo = false;
+  apVal.convert(
+      floatType.getFloatSemantics(), APFloat::rmNearestTiesToEven, &losesInfo);
+  auto constType = tosa::reduceAxisToOne(shape, elementType);
+  auto constAttr = DenseElementsAttr::get(constType, apVal);
 
   auto constOp =
       mlir::tosa::ConstOp::create(rewriter(), loc(), constType, constAttr);
@@ -211,12 +219,45 @@ Value TosaBuilder::intdiv(Value &lhs, Value &rhs) {
       rewriter(), loc(), newValueType, lhs, rhs);
 }
 
+Value TosaBuilder::select(Value &cond, Value &lhs, Value &rhs) {
+  if (needsRankBroadcast({cond, lhs, rhs})) {
+    llvm::SmallVector<Value, 4> valueVec = equalizeRanks({cond, lhs, rhs});
+    cond = valueVec[0];
+    lhs = valueVec[1];
+    rhs = valueVec[2];
+  }
+  auto lhsType = mlir::cast<ShapedType>(lhs.getType());
+  Type newValueType = RankedTensorType::get(
+      llvm::SmallVector<int64_t, 4>(lhsType.getRank(), ShapedType::kDynamic),
+      lhsType.getElementType());
+  return tosa::CreateOpAndInfer<mlir::tosa::SelectOp>(
+      rewriter(), loc(), newValueType, cond, lhs, rhs);
+}
+
 Value TosaBuilder::reciprocal(Value &input) {
   auto inputType = mlir::cast<ShapedType>(input.getType());
   Type newValueType = RankedTensorType::get(
       llvm::SmallVector<int64_t, 4>(inputType.getRank(), ShapedType::kDynamic),
       inputType.getElementType());
   return tosa::CreateOpAndInfer<mlir::tosa::ReciprocalOp>(
+      rewriter(), loc(), newValueType, input);
+}
+
+Value TosaBuilder::erf(Value &input) {
+  auto inputType = mlir::cast<ShapedType>(input.getType());
+  Type newValueType = RankedTensorType::get(
+      llvm::SmallVector<int64_t, 4>(inputType.getRank(), ShapedType::kDynamic),
+      inputType.getElementType());
+  return tosa::CreateOpAndInfer<mlir::tosa::ErfOp>(
+      rewriter(), loc(), newValueType, input);
+}
+
+Value TosaBuilder::tanh(Value &input) {
+  auto inputType = mlir::cast<ShapedType>(input.getType());
+  Type newValueType = RankedTensorType::get(
+      llvm::SmallVector<int64_t, 4>(inputType.getRank(), ShapedType::kDynamic),
+      inputType.getElementType());
+  return tosa::CreateOpAndInfer<mlir::tosa::TanhOp>(
       rewriter(), loc(), newValueType, input);
 }
 

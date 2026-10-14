@@ -59,6 +59,14 @@ ZTensorEncodingAttr::DataLayout getZTensorLayout(mlir::Type type);
 mlir::StringAttr getZTensorLayoutAttr(
     mlir::OpBuilder &builder, mlir::Type type);
 
+/// Get the layout attribute from an encoding.
+mlir::StringAttr getZTensorLayoutAttr(
+    mlir::OpBuilder &builder, ZTensorEncodingAttr encoding);
+
+// Create a ZTensorEncodingAttr from a layout string.
+ZTensorEncodingAttr createZTensorEncodingAttr(
+    mlir::MLIRContext *ctx, mlir::StringAttr layout);
+
 /// Get the quantized type of a ztensor.
 ZTensorEncodingAttr::QuantizedType getZTensorQuantizedType(mlir::Type type);
 
@@ -69,6 +77,12 @@ mlir::Value getMinusBcastConst(mlir::OpBuilder &builder, mlir::Location loc,
 // Get a constant tensor of given value and type.
 mlir::Value getConstantOfType(
     mlir::OpBuilder &builder, mlir::Location loc, mlir::Type type, float val);
+
+// Check if a value is a constant tensor of a single f32 value or not.
+bool isF32ScalarConstantTensor(mlir::Value v);
+
+// Get FloatAttr from a constant tensor of a single f32 value.
+mlir::FloatAttr getScalarF32AttrFromConstant(mlir::Value v);
 
 /// True if at least one of the types is `layout`.
 bool oneIsOfLayout(
@@ -103,6 +117,8 @@ bool isTransposePermutationEqualTo(
 bool isShapeDimMultipleOf(mlir::Value val, int64_t index, int64_t multipleVal);
 /// Get an axis for NHWC layout given an axis for NCHW layout.
 mlir::IntegerAttr getAxisNHWC(mlir::IntegerAttr axisNCHWAttr);
+/// Get an axis for NCHW layout given an axis for NHWC layout.
+mlir::IntegerAttr getAxisNCHW(mlir::IntegerAttr axisNHWCAttr);
 
 /// Check if the value has NNPA users (or is consumed by an NNPA op).
 bool hasNNPAUse(mlir::Value v);
@@ -116,6 +132,13 @@ bool supportedLayoutForCompilerGeneratedStickUnstick(
     mlir::Value val, bool includeNHWC = true);
 bool supportedLayoutForCompilerGeneratedStickUnstick(
     mlir::StringAttr layout, bool includeNHWC = true);
+
+// Return the innermost tile size (number of values processed per iteration of
+// the innermost loop) used by the compiler generated ExtendedLayoutTransform
+// for a source of the given type: 64 (full stick) when the static innermost
+// dim is a multiple of 64, 32 (half stick) when the innermost dim is exactly
+// 32, and 0 when unsupported (dynamic, or any other static innermost dim).
+int64_t getExtendedLayoutTransformInnerTile(mlir::Type sourceType);
 
 } // namespace zhigh
 } // namespace onnx_mlir

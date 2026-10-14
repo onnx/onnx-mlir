@@ -75,7 +75,28 @@ struct KrnlBuilder : public DialectBuilder {
           &outerLoops, /* first unblocked loops, then blocked loops */
       mlir::SmallVector<mlir::Value, 4> &innerLoops); /* inner blocked loops */
   void unroll(mlir::Value loop) const;
+  // Fuse N original loop refs (outer-to-inner) into a single loop ref whose
+  // trip count is the product of theirs. Loops must be step-1 with a constant
+  // lower bound of 0, and must not be derived from block or collapse.
+  //
+  // A single loop is an identity: the ref is returned unchanged and no
+  // krnl.collapse is created. That lets a caller drive this from a list of
+  // dimension groups without special-casing groups of one.
+  mlir::Value collapse(mlir::ValueRange loops) const;
+  // One index per original dimension, so a loop ref produced by collapse()
+  // yields all of its collapsed dimensions' indices. A body written against
+  // this reads the same whether or not the nest was collapsed.
   mlir::ValueRange getInductionVarValue(mlir::ValueRange loops) const;
+  // One index per loop ref: for a ref produced by collapse(), its single fused
+  // (linear) index, emitting no division. Use when a linearized access is what
+  // the body wants.
+  mlir::ValueRange getFusedInductionVarValue(mlir::ValueRange loops) const;
+  // Parallelize the given loop refs. Passing more than one loop ref of the
+  // same loop nest is not recommended: each is parallelized independently,
+  // giving one nested affine.parallel per ref instead of a single parallel
+  // region over their combined iteration space, and numThreads/procBind then
+  // apply to the first (outermost) ref only. Prefer collapse() over the
+  // dimensions, then parallelize the single fused loop ref.
   void parallel(mlir::ValueRange loops) const;
   void parallel(mlir::ValueRange loops, mlir::Value numThreads,
       mlir::StringAttr procBind) const;

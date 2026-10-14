@@ -59,6 +59,22 @@ def StickUnstickDiffLayoutRemovalPattern : Pat<
    (NoOneIsOf1DLayout $arg, $stick), (NoOneIsOf2DSLayout $arg, $stick)]
 >;
 
+// onnx.Dim (zhigh.Stick (%X)) = onnx.Dim %X
+// For non-NHWC layout.
+def DimStickRemovalPattern : Pat<
+  (ONNXDimOp (ZHighStickOp $arg, $layout, $_), $axis),
+  (ONNXDimOp $arg, $axis),
+  [(IsNotNHWCLayout $layout)]
+>;
+
+// onnx.Dim (zhigh.Stick (%X)) = onnx.Dim %X
+// For NHWC layout.
+def DimStickNHWCRemovalPattern: Pat<
+  (ONNXDimOp (ZHighStickOp $arg, $layout, $_), $axis),
+  (ONNXDimOp $arg, (GetAxisNCHW $axis)),
+  [(IsNHWCLayout $layout)]
+>;
+
 // The pattern
 //   zhigh.Stick (onnx.LeakyRelu (zhigh.Unstick (%X)))
 // can be replaced by
@@ -337,6 +353,16 @@ def Stick3DSSqueezeUnstick4DSPattern: Pat<
    (TensorHas3DSLayout $stick), // Output is 3DS.
    (IsConstOf<1> $axes),        // squeeze at axis 1.
   ]
+>;
+
+// Pattern to rewrite
+// ZHighStick (ONNXExpand $constant_scalar, $shape), $layout
+// into
+// ZHighStickifiedConstantOfShapeOp $shape, $scalarAttr, $layout
+def StickExpandConstantPattern : Pat<
+  (ZHighStickOp (ONNXExpandOp $constant_scalar, $shape), $layout, $_),
+  (ZHighStickifiedConstantOfShapeOp $shape, (GetScalarF32AttrFromConstant $constant_scalar), $layout),
+  [(IsScalarConstantTensor $constant_scalar)]
 >;
 
 #endif // STICK_TD

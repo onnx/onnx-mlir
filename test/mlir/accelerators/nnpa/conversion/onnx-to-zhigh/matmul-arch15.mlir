@@ -10,7 +10,7 @@ func.func @test_onnx_to_matmul_unstacked(%arg0 : tensor<4x8xf32>, %arg1 : tensor
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<4x8xf32>, [[PARAM_1_:%.+]]: tensor<8x16xf32>) -> tensor<4x16xf32> {
 // CHECK-DAG:       [[VAR_0_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) <{layout = "2D"}> : (tensor<4x8xf32>) -> tensor<4x8xf16, #zhigh.layout<{dataLayout = "2D"}>>
 // CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) <{layout = "2D"}> : (tensor<8x16xf32>) -> tensor<8x16xf16, #zhigh.layout<{dataLayout = "2D"}>>
-// CHECK-DAG:       [[VAR_cst_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK-DAG:       [[VAR_cst_:%.+]] = "onnx.NoValue"() : () -> none
 // CHECK:           [[VAR_2_:%.+]] = "zhigh.MatMul"([[VAR_0_]], [[VAR_1_]], [[VAR_cst_]]) <{transposeA = 0 : si64, transposeB = 0 : si64}> : (tensor<4x8xf16, #zhigh.layout<{dataLayout = "2D"}>>, tensor<8x16xf16, #zhigh.layout<{dataLayout = "2D"}>>, none) -> tensor<*xf16>
 // CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) : (tensor<*xf16>) -> tensor<4x16xf32>
 // CHECK:           return [[VAR_3_]] : tensor<4x16xf32>
@@ -27,7 +27,7 @@ func.func @test_onnx_to_matmul_stacked(%arg0 : tensor<100x4x8xf32>, %arg1 : tens
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<100x4x8xf32>, [[PARAM_1_:%.+]]: tensor<100x8x16xf32>) -> tensor<100x4x16xf32> {
 // CHECK-DAG:       [[VAR_0_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) <{layout = "3DS"}> : (tensor<100x4x8xf32>) -> tensor<100x4x8xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 // CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) <{layout = "3DS"}> : (tensor<100x8x16xf32>) -> tensor<100x8x16xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-// CHECK-DAG:       [[VAR_cst_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK-DAG:       [[VAR_cst_:%.+]] = "onnx.NoValue"() : () -> none
 // CHECK:           [[VAR_2_:%.+]] = "zhigh.MatMul"([[VAR_0_]], [[VAR_1_]], [[VAR_cst_]]) <{transposeA = 0 : si64, transposeB = 0 : si64}> : (tensor<100x4x8xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<100x8x16xf16, #zhigh.layout<{dataLayout = "3DS"}>>, none) -> tensor<*xf16>
 // CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) : (tensor<*xf16>) -> tensor<100x4x16xf32>
 // CHECK:           return [[VAR_3_]] : tensor<100x4x16xf32>
@@ -44,7 +44,7 @@ func.func @test_onnx_to_matmul_bcast1(%arg0 : tensor<4x8xf32>, %arg1 : tensor<10
 // mlir2FileCheck.py
 // CHECK-LABEL:  func.func @test_onnx_to_matmul_bcast1
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<4x8xf32>, [[PARAM_1_:%.+]]: tensor<100x8x16xf32>) -> tensor<100x4x16xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() : () -> none
 // CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) <{layout = "2D"}> : (tensor<4x8xf32>) -> tensor<4x8xf16, #zhigh.layout<{dataLayout = "2D"}>>
 // CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) <{layout = "3DS"}> : (tensor<100x8x16xf32>) -> tensor<100x8x16xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 // CHECK:           [[VAR_3_:%.+]] = "zhigh.MatMul"([[VAR_1_]], [[VAR_2_]], [[VAR_0_]]) <{transposeA = 0 : si64, transposeB = 0 : si64}> : (tensor<4x8xf16, #zhigh.layout<{dataLayout = "2D"}>>, tensor<100x8x16xf16, #zhigh.layout<{dataLayout = "3DS"}>>, none) -> tensor<*xf16>
@@ -63,7 +63,7 @@ func.func @test_onnx_to_matmul_bcast23(%arg0 : tensor<100x4x8xf32>, %arg1 : tens
 // mlir2FileCheck.py
 // CHECK-LABEL:  func.func @test_onnx_to_matmul_bcast23
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<100x4x8xf32>, [[PARAM_1_:%.+]]: tensor<8x16xf32>) -> tensor<100x4x16xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() : () -> none
 // CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) <{layout = "3DS"}> : (tensor<100x4x8xf32>) -> tensor<100x4x8xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 // CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) <{layout = "2D"}> : (tensor<8x16xf32>) -> tensor<8x16xf16, #zhigh.layout<{dataLayout = "2D"}>>
 // CHECK:           [[VAR_3_:%.+]] = "zhigh.MatMul"([[VAR_1_]], [[VAR_2_]], [[VAR_0_]]) <{transposeA = 0 : si64, transposeB = 0 : si64}> : (tensor<100x4x8xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<8x16xf16, #zhigh.layout<{dataLayout = "2D"}>>, none) -> tensor<*xf16>
@@ -108,7 +108,7 @@ func.func @test_onnx_to_matmul_add_unstacked_fail(%arg0 : tensor<4x8xf32>, %arg1
 // mlir2FileCheck.py
 // CHECK-LABEL:  func.func @test_onnx_to_matmul_add_unstacked_fail
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<4x8xf32>, [[PARAM_1_:%.+]]: tensor<8x16xf32>) -> tensor<4x16xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() : () -> none
 // CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<4x16xf32>
 // CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) <{layout = "2D"}> : (tensor<4x8xf32>) -> tensor<4x8xf16, #zhigh.layout<{dataLayout = "2D"}>>
 // CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) <{layout = "2D"}> : (tensor<8x16xf32>) -> tensor<8x16xf16, #zhigh.layout<{dataLayout = "2D"}>>
@@ -159,7 +159,7 @@ func.func @test_onnx_to_matmul_add_stacked_failed(%arg0 : tensor<100x4x8xf32>, %
 // mlir2FileCheck.py
 // CHECK-LABEL:  func.func @test_onnx_to_matmul_add_stacked_failed
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<100x4x8xf32>, [[PARAM_1_:%.+]]: tensor<100x8x16xf32>) -> tensor<100x4x16xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() : () -> none
 // CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<100x4x16xf32>
 // CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) <{layout = "3DS"}> : (tensor<100x4x8xf32>) -> tensor<100x4x8xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 // CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) <{layout = "3DS"}> : (tensor<100x8x16xf32>) -> tensor<100x8x16xf16, #zhigh.layout<{dataLayout = "3DS"}>>
@@ -208,7 +208,7 @@ func.func @test_onnx_to_matmul_add_bcast1_fail(%arg0 : tensor<4x8xf32>, %arg1 : 
 // mlir2FileCheck.py
 // CHECK-LABEL:  func.func @test_onnx_to_matmul_add_bcast1_fail
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<4x8xf32>, [[PARAM_1_:%.+]]: tensor<100x8x16xf32>) -> tensor<100x4x16xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() : () -> none
 // CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<100x4x16xf32>
 // CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) <{layout = "2D"}> : (tensor<4x8xf32>) -> tensor<4x8xf16, #zhigh.layout<{dataLayout = "2D"}>>
 // CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) <{layout = "3DS"}> : (tensor<100x8x16xf32>) -> tensor<100x8x16xf16, #zhigh.layout<{dataLayout = "3DS"}>>
@@ -257,7 +257,7 @@ func.func @test_onnx_to_matmul_add_bcast23_fail(%arg0 : tensor<100x4x8xf32>, %ar
 // mlir2FileCheck.py
 // CHECK-LABEL:  func.func @test_onnx_to_matmul_add_bcast23_fail
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<100x4x8xf32>, [[PARAM_1_:%.+]]: tensor<8x16xf32>) -> tensor<100x4x16xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() : () -> none
 // CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<100x4x16xf32>
 // CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) <{layout = "3DS"}> : (tensor<100x4x8xf32>) -> tensor<100x4x8xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 // CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) <{layout = "2D"}> : (tensor<8x16xf32>) -> tensor<8x16xf16, #zhigh.layout<{dataLayout = "2D"}>>
@@ -286,7 +286,7 @@ func.func @test_onnx_transposea_matmul_to_zhigh(%arg0 : tensor<8x4xf32>, %arg1 :
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<8x4xf32>, [[PARAM_1_:%.+]]: tensor<8x4xf32>) -> tensor<4x4xf32> {
 // CHECK-DAG:       [[VAR_0_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) <{layout = "2D"}> : (tensor<8x4xf32>) -> tensor<8x4xf16, #zhigh.layout<{dataLayout = "2D"}>>
 // CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) <{layout = "2D"}> : (tensor<8x4xf32>) -> tensor<8x4xf16, #zhigh.layout<{dataLayout = "2D"}>>
-// CHECK-DAG:       [[VAR_cst_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK-DAG:       [[VAR_cst_:%.+]] = "onnx.NoValue"() : () -> none
 // CHECK:           [[VAR_2_:%.+]] = "zhigh.MatMul"([[VAR_0_]], [[VAR_1_]], [[VAR_cst_]]) <{transposeA = 1 : si64, transposeB = 0 : si64}> : (tensor<8x4xf16, #zhigh.layout<{dataLayout = "2D"}>>, tensor<8x4xf16, #zhigh.layout<{dataLayout = "2D"}>>, none) -> tensor<4x4xf16, #zhigh.layout<{dataLayout = "2D"}>>
 // CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) : (tensor<4x4xf16, #zhigh.layout<{dataLayout = "2D"}>>) -> tensor<4x4xf32>
 // CHECK:           return [[VAR_3_]] : tensor<4x4xf32>
@@ -303,7 +303,7 @@ func.func @test_onnx_transposeb_matmul_to_zhigh(%arg0 : tensor<4x8xf32>, %arg1 :
 // mlir2FileCheck.py
 // CHECK-LABEL:  func.func @test_onnx_transposeb_matmul_to_zhigh
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<4x8xf32>, [[PARAM_1_:%.+]]: tensor<4x8xf32>) -> tensor<4x4xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() : () -> none
 // CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) <{layout = "2D"}> : (tensor<4x8xf32>) -> tensor<4x8xf16, #zhigh.layout<{dataLayout = "2D"}>>
 // CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) <{layout = "2D"}> : (tensor<4x8xf32>) -> tensor<4x8xf16, #zhigh.layout<{dataLayout = "2D"}>>
 // CHECK:           [[VAR_3_:%.+]] = "zhigh.MatMul"([[VAR_1_]], [[VAR_2_]], [[VAR_0_]]) <{transposeA = 0 : si64, transposeB = 1 : si64}> : (tensor<4x8xf16, #zhigh.layout<{dataLayout = "2D"}>>, tensor<4x8xf16, #zhigh.layout<{dataLayout = "2D"}>>, none) -> tensor<4x4xf16, #zhigh.layout<{dataLayout = "2D"}>>
@@ -323,7 +323,7 @@ func.func @test_onnx_transposeab_matmul_to_zhigh(%arg0 : tensor<4x8xf32>, %arg1 
 // mlir2FileCheck.py
 // CHECK-LABEL:  func.func @test_onnx_transposeab_matmul_to_zhigh
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<4x8xf32>, [[PARAM_1_:%.+]]: tensor<16x4xf32>) -> tensor<8x16xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() : () -> none
 // CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) <{layout = "2D"}> : (tensor<4x8xf32>) -> tensor<4x8xf16, #zhigh.layout<{dataLayout = "2D"}>>
 // CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) <{layout = "2D"}> : (tensor<16x4xf32>) -> tensor<16x4xf16, #zhigh.layout<{dataLayout = "2D"}>>
 // CHECK:           [[VAR_3_:%.+]] = "zhigh.MatMul"([[VAR_1_]], [[VAR_2_]], [[VAR_0_]]) <{transposeA = 1 : si64, transposeB = 1 : si64}> : (tensor<4x8xf16, #zhigh.layout<{dataLayout = "2D"}>>, tensor<16x4xf16, #zhigh.layout<{dataLayout = "2D"}>>, none) -> tensor<8x16xf16, #zhigh.layout<{dataLayout = "2D"}>>
@@ -358,7 +358,7 @@ func.func @test_onnx_to_transposeb_matmul_to_zhigh_3d(%arg0 : tensor<100x4x8xf32
 // mlir2FileCheck.py
 // CHECK-LABEL:  func.func @test_onnx_to_transposeb_matmul_to_zhigh_3d
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<100x4x8xf32>, [[PARAM_1_:%.+]]: tensor<100x16x8xf32>) -> tensor<100x4x16xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() : () -> none
 // CHECK-DAG:       [[VAR_1_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) <{layout = "3DS"}> : (tensor<100x4x8xf32>) -> tensor<100x4x8xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 // CHECK-DAG:       [[VAR_2_:%.+]] = "zhigh.Stick"([[PARAM_1_]]) <{layout = "3DS"}> : (tensor<100x16x8xf32>) -> tensor<100x16x8xf16, #zhigh.layout<{dataLayout = "3DS"}>>
 // CHECK:           [[VAR_3_:%.+]] = "zhigh.MatMul"([[VAR_1_]], [[VAR_2_]], [[VAR_0_]]) <{transposeA = 0 : si64, transposeB = 1 : si64}> : (tensor<100x4x8xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<100x16x8xf16, #zhigh.layout<{dataLayout = "3DS"}>>, none) -> tensor<100x4x16xf16, #zhigh.layout<{dataLayout = "3DS"}>>

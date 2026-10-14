@@ -37,6 +37,7 @@ CMakePresets.json
 
 # Filesystem
 .DS_Store
+*.so.dSYM/
 
 # Nested build directory
 /build*

@@ -87,15 +87,16 @@ void IterateOverStickInputData(const BUILDER &b, mlir::Operation *op,
   bool hasOnly8 = E1.isLiteral() && (E1.getLiteral() % archVL == 0);
 
   // Parallel... Should not be turned on when parallelized in the outside.
-  int64_t parId = 0;
+  int64_t parId = 0; // parID only used when enableParallel remains true.
   if (enableParallel) {
     // TODO: may want to check if ub of rank makes sense here.
     // Its ok here even to partition rank-1, included in (0..rank(, because
     // rank-1 is tiled. So we are still dealing with multiple of sticks.
-    parId = tryCreateKrnlParallel(create.krnl, op,
-        "compiler-generated stickify", {}, tiledLbs, tiledUbs, 0, rank, {},
-        /*min iter for going parallel*/ 8, /*createKrnlParallel=*/false);
-    if (parId == -1)
+    auto plan = KrnlParallelPlan::noLoopRefs(
+        /*first*/ 0, /*last excl*/ rank, /*cost*/ {8});
+    parId = plan.findParallelDim(
+        op, "compiler-generated stickify", tiledLbs, tiledUbs);
+    if (parId == NO_PAR_FOUND)
       enableParallel = false;
   }
 
@@ -173,8 +174,8 @@ void IterateOverStickInputData(const BUILDER &b, mlir::Operation *op,
                           create.vec.loadIE(vecF16Type, inputAsSticks,
                               {SymIE(inputStickOffset), l + (u * archVL)});
                       auto convertOp =
-                              zlow::ZLowConvertDLF16ToF32VectorOp::create(b.getBuilder(), 
-                                  b.getLoc(), vecOfF16);
+                          zlow::ZLowConvertDLF16ToF32VectorOp::create(
+                              b.getBuilder(), b.getLoc(), vecOfF16);
                       vecOfF32Vals.emplace_back(convertOp.getResult(0));
                       vecOfF32Vals.emplace_back(convertOp.getResult(1));
                     }
@@ -211,8 +212,8 @@ void IterateOverStickInputData(const BUILDER &b, mlir::Operation *op,
                           inputAsSticks, {SymIE(inputStickOffset), l});
                       // Convert back to f32.
                       auto convertOp =
-                              zlow::ZLowConvertDLF16ToF32VectorOp::create(b.getBuilder(), 
-                                  b.getLoc(), vecOfF16);
+                          zlow::ZLowConvertDLF16ToF32VectorOp::create(
+                              b.getBuilder(), b.getLoc(), vecOfF16);
                       vecOfF32Vals.emplace_back(convertOp.getResult(0));
                       vecOfF32Vals.emplace_back(convertOp.getResult(1));
                       processVectorOfF32Vals(
@@ -226,9 +227,8 @@ void IterateOverStickInputData(const BUILDER &b, mlir::Operation *op,
                 mlir::Value vecOfF16 = create.vec.loadIE(vecF16Type,
                     inputAsSticks, {SymIE(inputStickOffset), lastL});
                 // Convert back to f32.
-                auto convertOp =
-                    zlow::ZLowConvertDLF16ToF32VectorOp::create(b.getBuilder(), 
-                        b.getLoc(), vecOfF16);
+                auto convertOp = zlow::ZLowConvertDLF16ToF32VectorOp::create(
+                    b.getBuilder(), b.getLoc(), vecOfF16);
                 mlir::Value vecF32H = convertOp.getResult(0);
                 mlir::Value vecF32L = convertOp.getResult(1);
                 // Save into archVL value buffer.

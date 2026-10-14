@@ -3,7 +3,7 @@
 
 ####################### IsolatePass.py #########################################
 #
-# Copyright 2025 The IBM Research Authors.
+# Copyright 2025-2026 The IBM Research Authors.
 #
 ################################################################################
 #
@@ -15,7 +15,8 @@
 import argparse
 import os
 import re
-from collections import Counter
+
+from mlir_log_utils import clean_line, apply_comments, apply_wrap
 
 # Global variables.
 
@@ -26,13 +27,17 @@ pass_listing = []
 pass_name_to_id = {}
 # Map the id to the pass name that represented it.
 id_to_pass_name = []
-# Max length of a single line. If there are very long constants, truncate them.
-max_line_length = 800
 debug = 0
 
 
 def get_args():
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "input_pos",
+        nargs="?",
+        help="Same as -i/--input, provided as a positional argument.",
+        metavar="NAME",
+    )
     parser.add_argument(
         "-i",
         "--input",
@@ -74,6 +79,13 @@ def get_args():
         action="store_true",
         help="Add useful comments to the printed listing: use-count for each def; values for scalar constant.",
     )
+    parser.add_argument(
+        "-w",
+        "--wrap",
+        action="store_true",
+        help="Reformat long func signatures / ops / returns across multiple indented "
+        "lines when they exceed the line-length limit (same transform as AnalyzeShape.py).",
+    )
     return parser.parse_args()
 
 
@@ -98,18 +110,10 @@ def extract_ir_pass_name(text):
         return None
 
 
-def process_line(str, length=max_line_length):
-    # Cap length.
-    if len(str) > length:
-        str = str[:length]
-    # Remove end of line,
+def process_line(str):
     if str.endswith("\n"):
         str = str[:-1]
-    # Ensure even number of '"".
-    if str.count('"') % 2 == 1:
-        # Add '"'.
-        str += '"'
-    return str + "\n"
+    return clean_line(str) + "\n"
 
 
 def scan_listing(filename, print_list_name):
@@ -145,6 +149,26 @@ def scan_listing(filename, print_list_name):
                     current_name = pass_name
                     current_listing = []
                 current_listing.append(process_line(line))
+            # Flush the last pass listing (no subsequent header to trigger it).
+            if current_name and current_listing:
+                id = len(pass_listing)
+                pass_listing.append("".join(current_listing))
+                id_to_pass_name.append(current_name)
+                if current_name in pass_name_to_id:
+                    pass_name_to_id[current_name].append(id)
+                else:
+                    pass_name_to_id[current_name] = [id]
+                if print_list_name:
+                    print(f"{id}: {current_name}")
+            elif not pass_listing and current_listing:
+                # No IR Dump After header was ever found in the file. Treat
+                # the whole content as a single unnamed pass so that "-n 0"
+                # (with no -p) still works on plain, headerless MLIR files.
+                id = len(pass_listing)
+                pass_listing.append("".join(current_listing))
+                id_to_pass_name.append("")
+                if print_list_name:
+                    print(f"{id}: (no pass header found)")
     except FileNotFoundError:
         print(f"Error: The file '{filename}' was not found.")
         raise
@@ -192,202 +216,6 @@ def locate_pass(name, num):
 
 
 ###########################################################
-# Optionally annotate each def by its number of uses
-
-# Matches SSA values like %0, %res_12, %xyz.$tmp
-SSA_RE = re.compile(r"%[A-Za-z0-9_.$]+")
-
-
-def split_lhs_rhs_strip_comment(line: str):
-    """Return (lhs, rhs) after stripping '//' comments.
-    If '=' not present, lhs == '' and rhs == (comment-stripped line).
-    """
-    # Drop '//' comments
-    line = line.split("//", 1)[0]
-    if "=" not in line:
-        return "", line
-    lhs, rhs = line.split("=", 1)
-    return lhs, rhs
-
-
-def split_comment(line: str):
-    """Split a line into (code, comment) where comment includes the leading '//' if present."""
-    if "//" in line:
-        code, comment = line.split("//", 1)
-        return code, "//" + comment
-    return line, ""
-
-
-def collect_outputs(mlir_text: str):
-    """Collect names defined on the LHS of '=' (i.e., operation results)."""
-    outputs = set()
-    for line in mlir_text.splitlines():
-        lhs, _ = split_lhs_rhs_strip_comment(line)
-        if lhs:
-            for name in SSA_RE.findall(lhs):
-                outputs.add(name)
-    return outputs
-
-
-def count_output_uses(mlir_text: str):
-    """Return a dict { '%name': use_count } for every SSA defined as '%x = ...'.
-
-    Counts only RHS occurrences (and lines without '=') so definitions aren't counted.
-    Includes outputs with 0 uses.
-    """
-    outputs = collect_outputs(mlir_text)
-    counts = Counter({name: 0 for name in outputs})
-    for line in mlir_text.splitlines():
-        lhs, rhs = split_lhs_rhs_strip_comment(line)
-        # Count only the RHS (or the whole line if there's no '=')
-        scan = rhs  # rhs already equals full line when lhs == ''
-        for name in SSA_RE.findall(scan):
-            if name in outputs:
-                counts[name] += 1
-    return dict(counts)
-
-
-def annotate_mlir_with_use_counts(mlir_text: str, use_counts: dict[str, int]) -> str:
-    """
-    Return a new MLIR text where each SSA result defined on a line is annotated as '%x/N'
-    on the LHS of '=', where N is the use count from `use_counts`.
-
-    Non-definition lines are left unchanged. Comments are preserved.
-    """
-    out_lines = []
-    for line in mlir_text.splitlines():
-        code, comment = split_comment(line)
-        if "=" not in code:
-            # Not a definition line—pass through unchanged
-            out_lines.append(line)
-            continue
-        lhs, rhs = code.split("=", 1)
-
-        # Replace each SSA name in the LHS with '%name/N'
-        def _add_count(m: re.Match) -> str:
-            name = m.group(0)
-            return f"{name}/{use_counts.get(name, 0)}"
-
-        annotated_lhs = SSA_RE.sub(_add_count, lhs)
-        # Reassemble, preserving spacing and comments
-        new_line = f"{annotated_lhs}={rhs}{comment}"
-        out_lines.append(new_line)
-    # Preserve trailing newline behavior similar to input
-    return "\n".join(out_lines) + ("\n" if mlir_text.endswith("\n") else "")
-
-
-###########################################################
-# Optionally annotate each use of a constant by its value.
-
-DENSE_PAYLOAD_RE = re.compile(r"dense<([^>]+)>\s*:\s*tensor<([^>]+)>", re.IGNORECASE)
-
-
-def is_rank0_or_size1_tensor(type_inner: str) -> bool:
-    """
-    Given the inner part of tensor<...> (i.e., what's inside the angle brackets),
-    return True if it is a rank-0 tensor (just a type like 'f32'/'i64') or a
-    rank-1 size-1 tensor (e.g., '1xf32', '1xi64').
-    """
-    inner = type_inner.strip()
-    # Rank-0: just a scalar type token, no 'x'
-    if "x" not in inner and "[" not in inner and "]" not in inner:
-        return True
-    # Rank-1 size-1: '1x<type>'
-    m = re.match(r"^\s*1x([A-Za-z0-9_<>:?$\-\[\]]+)\s*$", inner)
-    return m is not None
-
-
-def extract_onnx_dense_scalar(rhs: str) -> str | None:
-    """
-    Return the scalar-like value string if RHS contains:
-      onnx.Constant ... dense<...> : tensor<...>
-    and the tensor type is rank-0 or rank-1 size-1.
-    Otherwise return None.
-    """
-    m = DENSE_PAYLOAD_RE.search(rhs)
-    if not m:
-        return None
-    payload = m.group(1).strip()  # e.g., '64', '1.0', '[1, -1, 12, 64]'
-    tensor_inner = m.group(2).strip()  # e.g., '1xi64', 'f32', '4xi64'
-    if not is_rank0_or_size1_tensor(tensor_inner):
-        return None
-    # Reject vector/array payloads like '[1, -1, 12, 64]'
-    if payload.startswith("[") and payload.endswith("]"):
-        return None
-    return payload
-
-
-def collect_onnx_dense_scalar_constants(mlir_text: str) -> dict[str, str]:
-    """
-    Collect { '%name': '<value>' } for onnx.Constant with dense<...> payloads
-    when the type is rank-0 or size-1 tensor.
-    """
-    const_vals: dict[str, str] = {}
-    for line in mlir_text.splitlines():
-        lhs, rhs = split_lhs_rhs_strip_comment(line)
-        if not lhs:
-            continue
-        # Quick pre filter for 'onnx.Constant' and 'dense<'
-        if "onnx.Constant" not in rhs or "dense<" not in rhs:
-            continue
-        value = extract_onnx_dense_scalar(rhs)
-        if value is None:
-            continue
-        for name in SSA_RE.findall(lhs):
-            const_vals[name] = value
-    return const_vals
-
-
-def _annotate_scalar_constant_uses_in_code_segment(
-    code: str, const_vals: dict[str, str]
-) -> str:
-    """Append '/<value>' to each SSA *use* that is a scalar constant."""
-
-    def repl(m: re.Match) -> str:
-        name = m.group(0)
-        if name in const_vals:
-            return f"{name}={const_vals[name]}"
-        return name
-
-    return SSA_RE.sub(repl, code)
-
-
-def annotate_constant_uses_with_values(mlir_text: str) -> str:
-    """
-    Annotate each *use* of a constant discovered by collect_onnx_dense_scalar_constants
-    by appending '/<value>' after the SSA name.
-
-    - LHS (definitions) are not modified.
-    - RHS (and lines without '=') get '%c' -> '%c/<value>' for constants.
-    - Comments are preserved.
-    """
-    const_vals = collect_onnx_dense_scalar_constants(mlir_text)
-
-    out_lines = []
-    for line in mlir_text.splitlines():
-        code, comment = split_comment(line)
-
-        if "=" in code:
-            lhs, rhs = code.split("=", 1)
-            # Do NOT change LHS (definitions); only annotate RHS uses
-            annotated_rhs = _annotate_scalar_constant_uses_in_code_segment(
-                rhs, const_vals
-            )
-            new_line = f"{lhs}={annotated_rhs}{comment}"
-            out_lines.append(new_line)
-        else:
-            # No definition; annotate whole line for constant uses
-            annotated = (
-                _annotate_scalar_constant_uses_in_code_segment(code, const_vals)
-                + comment
-            )
-            out_lines.append(annotated)
-
-    # Preserve trailing newline behavior similar to input
-    return "\n".join(out_lines) + ("\n" if mlir_text.endswith("\n") else "")
-
-
-###########################################################
 # Print the pass that the user is interested in.
 
 
@@ -415,7 +243,18 @@ def print_pass(filename, id, after, pass_name=None):
     if id < 0 or id >= len(pass_listing):
         print(f"Out of bound id {id}, should be in [0..{len(pass_listing)}) range.")
         exit(1)
-    message = f"// Printing pass with id {id}"
+    # Expand to the full block of consecutive same-named passes so that
+    # function-level passes (which emit one header per function) are shown
+    # together rather than in isolation.
+    target_name = id_to_pass_name[id]
+    start_id = id
+    while start_id > 0 and id_to_pass_name[start_id - 1] == target_name:
+        start_id -= 1
+    end_id = id
+    while end_id + 1 < len(pass_listing) and id_to_pass_name[end_id + 1] == target_name:
+        end_id += 1
+    id_range = f"{start_id}" if start_id == end_id else f"{start_id}..{end_id}"
+    message = f"// Printing pass with id {id_range}"
     if pass_name:
         if n != 0:
             if n > 0:
@@ -426,16 +265,21 @@ def print_pass(filename, id, after, pass_name=None):
             message += f" with name {pass_name}"
     message += f' from file "{filename}".'
     # Actual printing
-    mlir_text = pass_listing[id]
+    mlir_text = "".join(pass_listing[i] for i in range(start_id, end_id + 1))
+    # -w must run before -c: -c appends "/N" and "=value" suffixes onto SSA
+    # names, which then fail the head regexes -w's dispatchers use to
+    # recognize generic ops / returns, silently skipping their wrap.
+    if args.wrap:
+        mlir_text = apply_wrap(mlir_text)
     if args.comments:
-        use_counts = count_output_uses(mlir_text)
-        mlir_text = annotate_mlir_with_use_counts(mlir_text, use_counts)
-        mlir_text = annotate_constant_uses_with_values(mlir_text)
+        mlir_text = apply_comments(mlir_text)
     print(f"{message}\n\n", mlir_text, f"\n\n{message}")
 
 
 # Process arguments
 args = get_args()
+if args.input == None:
+    args.input = args.input_pos
 if args.input == None:
     usage("missing file name")
 if args.pass_name == None and args.num == None:

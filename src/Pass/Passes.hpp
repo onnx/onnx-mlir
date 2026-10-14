@@ -4,7 +4,7 @@
 
 //===---------- Passes.hpp - ONNX-MLIR Passes Definition ------------------===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2026 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -39,9 +39,19 @@ std::unique_ptr<mlir::Pass> createONNXOpTransformPass(int threshold,
 
 /// Pass for rewriting inside frontend dialect.
 std::unique_ptr<mlir::Pass> createDecomposeONNXToONNXPass(
-    const std::string &target = "");
+    const std::string &target = "", bool enableConvToMatmul = true);
 std::unique_ptr<mlir::Pass> createRecomposeONNXToONNXPass(
     const std::string &target = "");
+
+// Pass for fusing chains of ONNX operations into a single ONNXFusedOp, for
+// kinds that are not accelerator-specific -- declared via TableGen, see
+// src/Dialect/ONNX/Transforms/Passes.td (FusionOpTransformPass) and
+// src/Dialect/ONNX/Transforms/ONNXFusionOpHelper.hpp.
+#define GEN_PASS_DECL_FUSIONOPTRANSFORMPASS
+#include "src/Dialect/ONNX/Transforms/Passes.h.inc"
+
+// Pass for appending a decoding strategy into the main graph.
+std::unique_ptr<::mlir::Pass> createAppendDecodingStrategyPass();
 
 std::unique_ptr<mlir::Pass> createConvOptONNXToONNXPass(
     bool enableSimdDataLayoutOpt = false);
@@ -52,6 +62,10 @@ std::unique_ptr<mlir::Pass> createReplaceOpWithItsOperandPass(
 std::unique_ptr<mlir::Pass> createRemoveSameONNXDimPass();
 
 std::unique_ptr<mlir::Pass> createShapeInferencePass();
+
+/// Test-only: reify ranked result shapes for ONNX ops that implement the
+/// interface (used by lit tests).
+std::unique_ptr<mlir::Pass> createTestONNXReifyResultShapesPass();
 
 // To configure ConstPropONNXToONNXPass at program start.
 void configureConstPropONNXToONNXPass(bool roundFPToInt, int expansionBound,
@@ -70,10 +84,21 @@ std::unique_ptr<mlir::Pass> createInstrumentPass(
 #define GEN_PASS_DECL_INSTRUMENTCLEANUPPASS
 #include "src/Transform/Passes.h.inc"
 
+/// Pass for writing operation statistics to a module attribute.
+#define GEN_PASS_DECL_WRITEOPSTATSTOMODULEATTRIBUTEPASS
+#include "src/Transform/Passes.h.inc"
+
 /// Passes for instrumenting the ONNX ops to print their operand type
 /// signatures at runtime.
 std::unique_ptr<mlir::Pass> createInstrumentONNXSignaturePass(
     const std::string opPattern, const std::string nodePattern);
+
+/// Pass that appends tensors matched by onnx_node_name (same syntax as
+/// --instrument-onnx-node) as extra outputs of the entry function(s).
+// GEN_PASS_DEF method only adds default constructor only,
+// we add custom constructor with an explicit nodePattern argument.
+std::unique_ptr<mlir::Pass> createAppendInstrumentedOutputsPass(
+    const std::string nodePattern);
 
 /// Pass for simplifying shape-related ONNX operations.
 std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass();
@@ -84,7 +109,7 @@ std::unique_ptr<mlir::Pass> createStandardFuncReturnPass();
 /// Pass that combines multiple ONNX dialect transformations,
 /// including shape inference.
 std::unique_ptr<mlir::Pass> createONNXHybridTransformPass(
-    bool enableRecomposition);
+    bool enableRecomposition, bool enableConvToMatmul);
 
 /// Pass for analyzing unknown dimension in ONNX operations.
 std::unique_ptr<mlir::Pass> createONNXDimAnalysisPass();
@@ -92,14 +117,20 @@ std::unique_ptr<mlir::Pass> createONNXDimAnalysisPass();
 /// Pass for setting onnx_node_name attribute if absent.
 std::unique_ptr<mlir::Pass> createSetONNXNodeNamePass();
 
+/// Pass for CSE on ONNX operations preserving node names.
+std::unique_ptr<mlir::Pass> createONNXCSEWithNodeNamePass();
+
 /// Pass for verifying Onnx ops before lowering to Krnl
 std::unique_ptr<mlir::Pass> createONNXPreKrnlVerifyPass();
+
+/// Pass for expanding attention mask tensors in MatMul-Add-Softmax patterns.
+std::unique_ptr<mlir::Pass> createExpandAttentionMaskPass();
 
 /// Add pass for lowering to Krnl IR.
 std::unique_ptr<mlir::Pass> createLowerToKrnlPass();
 std::unique_ptr<mlir::Pass> createLowerToKrnlPass(bool enableTiling,
-    bool enableSIMD, bool enableParallel, bool enableFastMath,
-    std::string opsForCall);
+    bool enableSIMD, bool enableParallel, bool enableCollapse,
+    bool enableFastMath, std::string opsForCall);
 void configureOnnxToKrnlLoweringPass(bool reportOnParallel,
     bool parallelIsEnabled, std::string specificParallelOps, bool reportOnSimd,
     bool simdIsEnabled);
@@ -116,6 +147,13 @@ std::unique_ptr<mlir::Pass> createLowerToStablehloPass(bool enableUnroll);
 
 /// Pass for eliding the values of global Krnl operations.
 std::unique_ptr<mlir::Pass> createElideConstGlobalValuePass();
+
+/// Pass for eliminating locally-allocated memrefs that are only written to.
+std::unique_ptr<mlir::Pass> createEliminateWriteOnlyAllocPass();
+
+/// Pass for removing bufferization.clone ops of entry function inputs that are
+/// returned, inserted by the buffer deallocation pipeline.
+std::unique_ptr<mlir::Pass> createEliminateEntryArgClonePass();
 
 namespace krnl {
 /// Pass for lowering frontend dialects to Krnl IR dialect.
@@ -135,7 +173,7 @@ std::unique_ptr<mlir::Pass> createConvertKrnlToLLVMPass();
 std::unique_ptr<mlir::Pass> createConvertKrnlToLLVMPass(bool verifyInputTensors,
     bool useLRODATA, bool storeConstantsToFile,
     float constantsToFileSingleThreshold, float constantsToFileTotalThreshold,
-    std::string outputNameNoExt, bool enableParallel);
+    bool omitCompileInfo, std::string outputNameNoExt, bool enableParallel);
 
 } // namespace krnl
 
@@ -149,7 +187,7 @@ std::unique_ptr<mlir::Pass> createConvertONNXToLinalg(
 
 // Get the function that creates the pass for pass manager.
 // This function has the name of createPassName(), created from Passes.td.
-// For buffer omploop hoisting pass, it is crateBufferOMPLoopHoisting()
+// For buffer omploop hoisting pass, it is createBufferOMPLoopHoisting()
 // This function is the only globally visible function for the pass, and
 // is defined at the end of the pass implementation file.
 #define GEN_PASS_DECL_BUFFEROMPLOOPHOISTINGPASS

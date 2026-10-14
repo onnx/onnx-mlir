@@ -176,13 +176,14 @@ void emitInstForSoftmax<ONNXSoftmaxV11Op>(ConversionPatternRewriter &rewriter,
     SmallVector<IndexExpr, 4> outerUbs;
     for (int i = 0; i < axis; ++i)
       outerUbs.emplace_back(create.krnlIE.getShapeAsDim(input, i));
+    auto plan =
+        KrnlParallelPlan::noCollapse(outerLoops, /*first*/ 0, /*last excl*/ 1);
     if (enableParallel) {
       assert(axis > 0 && "bad assumption");
-      tryCreateKrnlParallel(
-          create.krnl, op, "softmax v1", outerLoops, outerLbs, outerUbs, 0, 1);
+      plan.tryCreateParallel(create.krnl, op, "softmax v1", outerLbs, outerUbs);
     }
-    create.krnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs,
-        [&](const KrnlBuilder &ck, ValueRange outerIndices) {
+    create.krnl.iterateIE(outerLoops, plan.optimizedLoopDef(), outerLbs,
+        outerUbs, [&](const KrnlBuilder &ck, ValueRange outerIndices) {
           MultiDialectBuilder<MemRefBuilder, KrnlBuilder,
               IndexExprBuilderForKrnl>
               create(ck);
@@ -216,9 +217,9 @@ void emitInstForSoftmax<ONNXSoftmaxOp>(ConversionPatternRewriter &rewriter,
   IndexExprScope ieScope(create.krnl);
   LiteralIndexExpr zeroIE(0);
 
-  // Parallel only if output is not a scalar.
-  if (rank - 1 == 0)
-    enableParallel = false;
+  // No rank-0 guard needed for the outer nest, and it is unreachable: a rank-1
+  // input forces axis == 0, and the caller already withholds parallelism there.
+  // Were it reachable, tryCreateParallel answers a rank-0 nest itself.
 
   // Outer loops iterate over all dimensions except axis.
   ValueRange outerLoops = create.krnl.defineLoops(rank - 1);
@@ -228,12 +229,13 @@ void emitInstForSoftmax<ONNXSoftmaxOp>(ConversionPatternRewriter &rewriter,
     if (i != axis)
       outerUbs.emplace_back(create.krnlIE.getShapeAsDim(input, i));
 
+  auto plan =
+      KrnlParallelPlan::noCollapse(outerLoops, /*first*/ 0, /*last excl*/ 1);
   if (enableParallel)
-    tryCreateKrnlParallel(
-        create.krnl, op, "softmax", outerLoops, outerLbs, outerUbs, 0, 1);
+    plan.tryCreateParallel(create.krnl, op, "softmax", outerLbs, outerUbs);
 
   // Emit outer loops.
-  create.krnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs,
+  create.krnl.iterateIE(outerLoops, plan.optimizedLoopDef(), outerLbs, outerUbs,
       [&](const KrnlBuilder &ck, ValueRange outerIndices) {
         MultiDialectBuilder<MemRefBuilder, KrnlBuilder, IndexExprBuilderForKrnl>
             create(ck);

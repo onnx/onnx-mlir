@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 # SPDX-License-Identifier: Apache-2.0
 
@@ -29,6 +29,7 @@
 
 import sys
 import getopt
+import json
 import re
 import numpy as np
 
@@ -64,6 +65,7 @@ Parameters on inputs:
 
 Parameters to focus analysis:
   -f/--focus <regexp>: Focus only on ops that match the regexp pattern.
+                       Implies `-l 1` if a `-l` level was not otherwise given.
   -m/--min <num>:      Focus on operations with at least <num>% of exec time.
   --supported:         Focus only on ops that are supported. Namely, the report
                        will skip ops for which compile-time statistics list
@@ -133,14 +135,37 @@ plot_names = np.array([])
 plot_values = np.array([])
 plot_x_axis = "time"
 
+# Compilation info from ==COMPILE-INFO-REPORT== (empty string if absent).
+compile_info_str = ""
+
 
 # Basic pattern for reports: "==" <stat name> "==," <op name> "," <node name> ","
 def common_report_str(stat_name):
-    return r"^==" + stat_name + r"-REPORT==,\s*([0-9a-zA-Z\.\-]+)\s*,\s*([^,]*),\s*(.*)"
+    return (
+        r"^==" + stat_name + r"-REPORT==,\s*([0-9a-zA-Z_\.\-]+)\s*,\s*([^,]*),\s*(.*)"
+    )
 
 
 def match_start_report(line):
     return re.match(r"==START-REPORT==", line)
+
+
+def match_compile_info_report(line):
+    m = re.match(r"==COMPILE-INFO-REPORT==,\s*(.*)", line)
+    return m[1].strip() if m else None
+
+
+def collect_multiline_json(first_fragment, file_iter):
+    depth = first_fragment.count("{") - first_fragment.count("}")
+    lines = [first_fragment]
+    while depth > 0:
+        cont = next(file_iter, None)
+        if cont is None:
+            break
+        cont = cont.rstrip()
+        lines.append(cont)
+        depth += cont.count("{") - cont.count("}")
+    return "\n".join(lines)
 
 
 # ==SIMD-REPORT==, ..., <explanations>, <VL>, <simd-trip-count>
@@ -150,7 +175,10 @@ simd_legend = (
 sig_legend = "comma separated list of shapes with inputs followed by results"
 
 # ==PAR-REPORT==, onnx.Mul-par, Mul_28, elementwise variadic not simdized, 0, -1
-par_legend = "message, loop nest (0 outermost), loop trip count (-1 runtime)"
+par_legend = (
+    "message, parallel loop level (-1 none; 0 outermost), "
+    "parallel loop trip count (0 none; -1 runtime; collapsed groups report the product)"
+)
 
 # ==PERF-REPORT==, ..., "before" | "after", time since last call, absolute time
 perf_legend = "(after|before), time for op(s), time since start(s)"
@@ -302,7 +330,7 @@ def get_secondary_key(node_name, details):
 
 def parse_file_for_stat(file_name, stat_name):
     global node_time_dict, node_time_used
-    global report_level, has_timing
+    global report_level, has_timing, compile_info_str
 
     try:
         file = open(file_name, "r")
@@ -320,6 +348,12 @@ def parse_file_for_stat(file_name, stat_name):
             start_count += 1
             if start_count >= 2:
                 break
+
+        # Capture compile info if present (JSON may span multiple lines).
+        info = match_compile_info_report(line)
+        if info is not None and not compile_info_str:
+            compile_info_str = collect_multiline_json(info, file)
+            continue
 
         # Parse line.
         has_stat, op, node_name, details = parse_line(
@@ -349,7 +383,7 @@ def parse_file_for_stat(file_name, stat_name):
 
 def parse_file_for_perf(file_name, stat_name, warmup_num=0):
     global node_time_dict, tot_time
-    global verbose, has_timing, reporting
+    global verbose, has_timing, reporting, compile_info_str
 
     try:
         file = open(file_name, "r")
@@ -382,6 +416,12 @@ def parse_file_for_perf(file_name, stat_name, warmup_num=0):
             if match_start_report(line):
                 has_start = True
                 break  # On to the next measurement.
+
+            # Capture compile info if present (JSON may span multiple lines).
+            info = match_compile_info_report(line)
+            if info is not None and not compile_info_str:
+                compile_info_str = collect_multiline_json(info, file)
+                continue
 
             # Parse line.
             has_stat, op, node_name, details = parse_line(line, report_str, True)
@@ -478,6 +518,7 @@ def make_report(stat_message):
     global op_time_dict, op_detail_time_dict, tot_time
     global has_timing, time_unit, error_missing_time, reporting
     global report_level, supported_only, verbose, min_percent_reporting
+    global compile_info_str
     global sorting_preference
     global plot_names, plot_values, plot_x_axis
 
@@ -589,6 +630,35 @@ def make_report(stat_message):
                 plot_values = np.append(plot_values, t[1])
     print("Statistics end" + stat_details)
 
+    # Summarize CPU (onnx + zhigh Stick/Unstick) vs Zhigh time, only when
+    # there is at least one zhigh op in the report.
+    if has_timing:
+        cpu_time = 0.0
+        zhigh_time = 0.0
+        has_zhigh = False
+        for op in op_time_dict:
+            op_time = np.sum(op_time_dict[op])
+            if re.match(r"zhigh\.", op):
+                has_zhigh = True
+                if re.search(r".*Stick.*|.*Unstick.*", op):
+                    cpu_time += op_time
+                else:
+                    zhigh_time += op_time
+            elif re.match(r"onnx\.", op):
+                cpu_time += op_time
+        if has_zhigh:
+            print(
+                "Statistics summary: CPU time {:.7f}{} ({:.1f}% of tot), "
+                "Zhigh time {:.7f}{} ({:.1f}% of tot)".format(
+                    cpu_time * time_unit,
+                    unit_str,
+                    get_percent(cpu_time, tot_time),
+                    zhigh_time * time_unit,
+                    unit_str,
+                    get_percent(zhigh_time, tot_time),
+                )
+            )
+
     # Report spurious node name if any.
     if error_missing_time:
         print("> Timing information was missing for some of the nodes.")
@@ -597,6 +667,19 @@ def make_report(stat_message):
 
 ################################################################################
 # Print plot.
+
+
+def print_compile_info():
+    if not compile_info_str:
+        return
+    try:
+        info = json.loads(compile_info_str)
+        print("  compiler_version:", info.get("compiler_version", ""))
+        print("  compile_options: ", info.get("compile_options", ""))
+        for name, accel_info in info.get("accelerators", {}).items():
+            print("  accelerator", name + ":", accel_info)
+    except json.JSONDecodeError:
+        print("Compile info:", compile_info_str)
 
 
 def output_plot(runtime_file_name, plot_file_name):
@@ -704,12 +787,12 @@ def main(argv):
             elif re.match(r"\s*perf\s*", arg):
                 make_stats = "PERF"
                 make_legend = perf_legend
-            elif re.match(r"\s*sig?\s*", arg):
-                make_stats = "SIG"
-                make_legend = sig_legend
             elif re.match(r"\s*simd\s*", arg):
                 make_stats = "SIMD"
                 make_legend = simd_legend
+            elif re.match(r"\s*sig?\s*", arg):
+                make_stats = "SIG"
+                make_legend = sig_legend
             else:
                 print_usage("statistics options are 'par', 'perf', 'sig', or 'simd'")
         elif opt in ("--supported"):
@@ -747,7 +830,7 @@ def main(argv):
             # Default for perf only (no compile)
             make_stats = "PERF"
             make_legend = perf_legend
-    print("Analyse", make_stats)
+    print("Analyze", make_stats)
     # Default compile file for sig
     if make_stats != "PERF" and not compile_file_name:
         compile_file_name = runtime_file_name
@@ -767,15 +850,18 @@ def main(argv):
             + compile_file_name
             + '"'
         )
+        print_compile_info()
         make_report(make_legend)
     elif compile_file_name:
         parse_file_for_stat(compile_file_name, make_stats)
         print('Report using compile file "' + compile_file_name + '"')
+        print_compile_info()
         make_report(make_legend)
     elif runtime_file_name:
         parse_file_for_perf(runtime_file_name, "PERF", warmup_num)
         parse_file_for_stat(runtime_file_name, "PERF")
         print('Report using runtime file "' + runtime_file_name + '"')
+        print_compile_info()
         make_report(make_legend)
     else:
         print_usage("Command requires an input file name (compile/runtime or both).\n")

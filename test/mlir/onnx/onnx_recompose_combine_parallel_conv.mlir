@@ -1,4 +1,6 @@
-// RUN: onnx-mlir  --useOnnxModelTypes=false --EmitONNXIR --printIR %s | FileCheck %s
+// RUN: onnx-mlir  --useOnnxModelTypes=false --disable-conv-to-matmul --EmitONNXIR --printIR %s | FileCheck %s
+
+// -----
 
 func.func @test_conv_concat_simple(%arg0: tensor<1x1x512x512xf32>) -> tensor<1x64x512x512xf32> {
   %0 = onnx.Constant dense<0.00999999977> : tensor<32x1x3x3xf32>
@@ -19,8 +21,9 @@ func.func @test_conv_concat_simple(%arg0: tensor<1x1x512x512xf32>) -> tensor<1x6
   // CHECK:     [[VAR_2_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[VAR_0_]], [[VAR_1_]])
   // CHECK-SAME:     : (tensor<1x1x512x512xf32>, tensor<64x1x3x3xf32>, tensor<64xf32>) -> tensor<1x64x512x512xf32>
   // CHECK-NEXT:     return [[VAR_2_]] : tensor<1x64x512x512xf32>
-
 }
+
+// -----
 
 func.func @test_conv_concat_complex(%arg0: tensor<1x1x512x512xf32>) -> tensor<1x192x512x512xf32> {
   %0 = onnx.Constant dense<0.00999999977> : tensor<32x1x3x3xf32>
@@ -53,9 +56,9 @@ func.func @test_conv_concat_complex(%arg0: tensor<1x1x512x512xf32>) -> tensor<1x
   // CHECK:     [[VAR_2_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[VAR_0_]], [[VAR_1_]])
   // CHECK-SAME:     : (tensor<1x1x512x512xf32>, tensor<192x1x3x3xf32>, tensor<192xf32>) -> tensor<1x192x512x512xf32>
   // CHECK-NEXT:     return [[VAR_2_]] : tensor<1x192x512x512xf32>
-
 }
 
+// -----
 
 func.func @test_conv_concat_fail(%arg0: tensor<1x3x64x64xf32>) -> tensor<1x64x66x66xf32> {
   %0 = onnx.Constant dense<0.00999999977> : tensor<16x3x1x1xf32>
@@ -82,8 +85,9 @@ func.func @test_conv_concat_fail(%arg0: tensor<1x3x64x64xf32>) -> tensor<1x64x66
   // CHECK-SAME:     : (tensor<1x3x64x64xf32>, tensor<32x3x5x5xf32>, none) -> tensor<1x32x66x66xf32>
   // CHECK:     [[VAR_6_:%.+]] = "onnx.Concat"([[VAR_3_]], [[VAR_4_]], [[VAR_5_]])
   // CHECK-NEXT:     return [[VAR_6_]] : tensor<1x64x66x66xf32>
-
 }
+
+// -----
 
 func.func @test_combine_conv_split(%arg0: tensor<1x1x512x512xf32>) -> tensor<1x96x512x512xf32> {
   %0 = onnx.Constant dense<0.00999999976> : tensor<32x1x3x3xf32>
@@ -114,8 +118,9 @@ func.func @test_combine_conv_split(%arg0: tensor<1x1x512x512xf32>) -> tensor<1x9
 // CHECK: [[VAR_5_:%.+]] = "onnx.Tanh"([[VAR_2_]]#0) {onnx_node_name = "Tanh_3"} : (tensor<1x32x512x512xf32>) -> tensor<1x32x512x512xf32>
 // CHECK: [[FINAL_OUT:%.+]] = "onnx.Concat"([[VAR_3_]], [[VAR_4_]], [[VAR_5_]]) <{axis = 1 : si64}> {onnx_node_name = "onnx.Concat_4_7"} : (tensor<1x32x512x512xf32>, tensor<1x32x512x512xf32>, tensor<1x32x512x512xf32>) -> tensor<1x96x512x512xf32>
 // CHECK: return [[FINAL_OUT]] : tensor<1x96x512x512xf32>
-
 }
+
+// -----
 
 func.func @test_conv_concat_dependency(%arg0: tensor<1x1x512x512xf32>) -> tensor<1x64x512x512xf32> {
   %0 = onnx.Constant dense<0.00999999977> : tensor<32x1x3x3xf32>
@@ -143,6 +148,8 @@ func.func @test_conv_concat_dependency(%arg0: tensor<1x1x512x512xf32>) -> tensor
 // CHECK:         }
 }
 
+// -----
+
 func.func @test_conv_concat_not_static_shape(%arg0: tensor<1x1x512x512xf32>, %0: tensor<*xf32>) -> tensor<1x64x512x512xf32> {
   %1 = onnx.Constant dense<0.00999999977> : tensor<32xf32>
   %2 = onnx.Constant dense<0.00999999977> : tensor<32x1x3x3xf32>
@@ -163,6 +170,7 @@ func.func @test_conv_concat_not_static_shape(%arg0: tensor<1x1x512x512xf32>, %0:
 // CHECK:         }
 }
 
+// -----
 
 func.func @complex_and_bias_none(%arg0: tensor<1x16x160x256xf32>, %wts0: tensor<7x16x3x3xf32>, %wts1: tensor<7x16x3x3xf32>, %wts2: tensor<7x16x3x3xf32>, %wts3: tensor<7x16x3x3xf32>) -> (tensor<1x7x320x512xf32>) {
     %0 = onnx.Constant dense<[1, 7, 320, 512]> : tensor<4xi64>
@@ -207,6 +215,4 @@ func.func @complex_and_bias_none(%arg0: tensor<1x16x160x256xf32>, %wts0: tensor<
 // CHECK:           [[VAR_17_:%.+]] = "onnx.Reshape"([[VAR_16_]], [[VAR_1_]]) <{allowzero = 0 : si64}> {onnx_node_name = "onnx.Reshape_28"} : (tensor<1x7x160x2x512xf32>, tensor<4xi64>) -> tensor<1x7x320x512xf32>
 // CHECK:           return [[VAR_17_]] : tensor<1x7x320x512xf32>
 // CHECK:         }
-
 }
-

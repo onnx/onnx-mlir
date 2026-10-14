@@ -6,7 +6,7 @@ func.func @qlinearmatmul_i8_f32(%arg0: tensor<2x4xi8> {onnx.name = "a"}, %arg1: 
 
 // CHECK-LABEL:  func.func @qlinearmatmul_i8_f32
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x4xi8> {onnx.name = "a"}, [[PARAM_1_:%.+]]: tensor<f32> {onnx.name = "a_scale"}, [[PARAM_2_:%.+]]: tensor<i8> {onnx.name = "a_zero_point"}, [[PARAM_3_:%.+]]: tensor<4x3xi8> {onnx.name = "b"}, [[PARAM_4_:%.+]]: tensor<f32> {onnx.name = "b_scale"}, [[PARAM_5_:%.+]]: tensor<i8> {onnx.name = "b_zero_point"}, [[PARAM_6_:%.+]]: tensor<f32> {onnx.name = "y_scale"}, [[PARAM_7_:%.+]]: tensor<i8> {onnx.name = "y_zero_point"}) -> (tensor<2x3xi8> {onnx.name = "y"}) {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() : () -> none
 // CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Reciprocal"([[PARAM_1_]]) : (tensor<f32>) -> tensor<f32>
 // CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Cast"([[PARAM_2_]]) <{saturate = 1 : si64, to = f32}> : (tensor<i8>) -> tensor<f32>
 // CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Reciprocal"([[PARAM_4_]]) : (tensor<f32>) -> tensor<f32>
@@ -31,7 +31,7 @@ func.func @qlinearmatmul_ui8_f32(%arg0: tensor<2x4xui8> {onnx.name = "a"}, %arg1
 // CHECK-LABEL:  func.func @qlinearmatmul_ui8_f32
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x4xui8> {onnx.name = "a"}, [[PARAM_1_:%.+]]: tensor<f32> {onnx.name = "a_scale"}, [[PARAM_2_:%.+]]: tensor<ui8> {onnx.name = "a_zero_point"}, [[PARAM_3_:%.+]]: tensor<4x3xui8> {onnx.name = "b"}, [[PARAM_4_:%.+]]: tensor<f32> {onnx.name = "b_scale"}, [[PARAM_5_:%.+]]: tensor<ui8> {onnx.name = "b_zero_point"}, [[PARAM_6_:%.+]]: tensor<f32> {onnx.name = "y_scale"}, [[PARAM_7_:%.+]]: tensor<ui8> {onnx.name = "y_zero_point"}) -> (tensor<2x3xui8> {onnx.name = "y"}) {
 // CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<128> : tensor<i16>
-// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.NoValue"() : () -> none
 // CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Cast"([[PARAM_0_]]) <{saturate = 1 : si64, to = i16}> : (tensor<2x4xui8>) -> tensor<2x4xi16>
 // CHECK:           [[VAR_3_:%.+]] = "onnx.Sub"([[VAR_2_]], [[VAR_0_]]) : (tensor<2x4xi16>, tensor<i16>) -> tensor<2x4xi16>
 // CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Cast"([[VAR_3_]]) <{saturate = 1 : si64, to = i8}> : (tensor<2x4xi16>) -> tensor<2x4xi8>

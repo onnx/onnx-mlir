@@ -312,10 +312,12 @@ public:
     assert(totVL <= 64 && "bad unroll");
 
     // Parallel...
+    auto plan = KrnlParallelPlan::noCollapse(
+        loopDefs, /*first*/ 0, /*last excl*/ rank, /*cost*/ {8});
     if (enableParallel) {
       // TODO: may want to check if ub of rank makes sense here.
-      tryCreateKrnlParallel(create.krnl, op, "compiler-generated stickify",
-          loopDefs, lbs, ubs, 0, rank, {}, /*min iter for going parallel*/ 8);
+      plan.tryCreateParallel(
+          create.krnl, op, "compiler-generated stickify", lbs, ubs);
     }
 
     // Compute max tiles. It is actually not easy to compute the max number
@@ -327,7 +329,7 @@ public:
     Value allocAsTx64 = create.mem.reinterpretCast(alloc, reallocTileDims);
 
     // Outer loop (E1 iterates over tiles of 64 elements).
-    create.krnl.iterateIE(loopDefs, loopDefs, lbs, ubs,
+    create.krnl.iterateIE(loopDefs, plan.optimizedLoopDef(), lbs, ubs,
         [&](const KrnlBuilder &b, ValueRange loopInd) {
           MDBuilder create(b);
           IndexExprScope outerScope(create.krnl, &allocScope);

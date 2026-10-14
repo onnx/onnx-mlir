@@ -1,0 +1,35 @@
+{
+  "nnpa_ops_config": [
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.Sigmoid"
+        },
+        "rewrite": {
+          "device": "cpu"
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.MatMul",
+          "onnx_node_name": "MatMul_1"
+        },
+        "rewrite": {
+          "quantize": true
+        }
+      }
+    },
+    {
+      "pattern": {
+        "match": {
+          "node_type": "onnx.MatMul"
+        },
+        "rewrite": {
+          "quantize": false
+        }
+      }
+    }
+  ]
+}

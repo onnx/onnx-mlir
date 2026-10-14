@@ -40,8 +40,24 @@ else()
   add_definitions(${LLVM_DEFINITIONS})
 endif()
 
-set(BUILD_SHARED_LIBS ${LLVM_ENABLE_SHARED_LIBS} CACHE BOOL "" FORCE)
-message(STATUS "BUILD_SHARED_LIBS        : " ${BUILD_SHARED_LIBS})
+# Allow standalone build to override LLVM's shared libs setting
+if(ONNX_MLIR_BUILD_STANDALONE)
+  # Verify LLVM was built with -DLLVM_BUILD_LLVM_DYLIB=OFF and -DLLVM_LINK_LLVM_DYLIB=OFF
+  # by checking if the libLLVM shared library exists
+  if(EXISTS "${LLVM_LIBRARY_DIR}/libLLVM${CMAKE_SHARED_LIBRARY_SUFFIX}")
+    message(FATAL_ERROR
+      "ONNX_MLIR_BUILD_STANDALONE=ON requires LLVM built without shared dylib.\n"
+      "Found: ${LLVM_LIBRARY_DIR}/libLLVM${CMAKE_SHARED_LIBRARY_SUFFIX}\n"
+      "Please rebuild LLVM with:\n"
+      "  -DLLVM_BUILD_LLVM_DYLIB=OFF\n"
+      "  -DLLVM_LINK_LLVM_DYLIB=OFF")
+  endif()
+  set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+  message(STATUS "BUILD_SHARED_LIBS        : ${BUILD_SHARED_LIBS} (forced OFF for standalone build)")
+else()
+  set(BUILD_SHARED_LIBS ${LLVM_ENABLE_SHARED_LIBS} CACHE BOOL "" FORCE)
+  message(STATUS "BUILD_SHARED_LIBS        : ${BUILD_SHARED_LIBS}")
+endif()
 
 # onnx uses exceptions, so we need to make sure that LLVM_REQUIRES_EH is set to ON, so that
 # the functions from HandleLLVMOptions and AddLLVM don't disable exceptions.
@@ -71,7 +87,7 @@ message(STATUS "CMAKE_INSTALL_PREFIX     : " ${CMAKE_INSTALL_PREFIX})
 function(add_onnx_mlir_dialect_doc dialect dialect_tablegen_file)
   # Generate Dialect Documentation
   set(LLVM_TARGET_DEFINITIONS ${dialect_tablegen_file})
-  tablegen(MLIR ${dialect}.md -gen-op-doc "-I${ONNX_MLIR_SRC_ROOT}")
+  tablegen(MLIR ${dialect}.md -gen-op-doc "-I${ONNX_MLIR_SRC_ROOT}" "-dialect=${dialect}")
   set(GEN_DOC_FILE ${ONNX_MLIR_SRC_ROOT}/docs/Dialects/${dialect}.md)
   add_custom_command(
           OUTPUT ${GEN_DOC_FILE}
@@ -136,6 +152,14 @@ function(add_onnx_mlir_interface interface)
   mlir_tablegen(${interface}.hpp.inc -gen-op-interface-decls)
   mlir_tablegen(${interface}.cpp.inc -gen-op-interface-defs)
   add_public_tablegen_target(OM${interface}IncGen)
+endfunction()
+
+function(add_onnx_mlir_pass NAME TD_FILE PREFIX)
+  set(LLVM_TARGET_DEFINITIONS ${TD_FILE}.td)
+  mlir_tablegen(${TD_FILE}.h.inc -gen-pass-decls -name ${NAME})
+  mlir_tablegen(${PREFIX}.capi.h.inc -gen-pass-capi-header --prefix ${PREFIX})
+  mlir_tablegen(${PREFIX}.capi.cpp.inc -gen-pass-capi-impl --prefix ${PREFIX})
+  add_public_tablegen_target(OM${NAME}PassIncGen)
 endfunction()
 
 # add_onnx_mlir_library(name sources...

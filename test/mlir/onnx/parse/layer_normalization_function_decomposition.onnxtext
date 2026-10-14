@@ -10,7 +10,7 @@ agraph (float[12,3,5] X, float[5] S) => (float[12,3,5] LN) {
 }
 // CHECK-LABEL:  func.func @main_graph
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<12x3x5xf32> {onnx.name = "X"}, [[PARAM_1_:%.+]]: tensor<5xf32> {onnx.name = "S"}) -> (tensor<12x3x5xf32> {onnx.name = "LN"}) {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() : () -> none
 // CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<9.99999974E-6> : tensor<f32>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Cast"([[VAR_1_]]) <{saturate = 1 : si64, to = f32}> : (tensor<f32>) -> tensor<f32>
@@ -19,8 +19,8 @@ agraph (float[12,3,5] X, float[5] S) => (float[12,3,5] LN) {
 // CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Size"([[VAR_3_]]) : (tensor<3xi64>) -> tensor<i64>
 // CHECK-DAG:       [[VAR_5_:%.+]] = onnx.Constant dense<0> : tensor<1xi64>
 // CHECK-DAG:       [[VAR_6_:%.+]] = onnx.Constant dense<-1> : tensor<1xi64>
-// CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
-// CHECK-DAG:       [[VAR_8_:%.+]] = "onnx.NoValue"() <{value}> : () -> none
+// CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.NoValue"() : () -> none
+// CHECK-DAG:       [[VAR_8_:%.+]] = "onnx.NoValue"() : () -> none
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_9_:%.+]] = "onnx.Slice"([[VAR_3_]], [[VAR_5_]], [[VAR_6_]], [[VAR_7_]], [[VAR_8_]]) : (tensor<3xi64>, tensor<1xi64>, tensor<1xi64>, none, none) -> tensor<2xi64>
 // CHECK-DAG:       [[VAR_10_:%.+]] = "onnx.Neg"([[VAR_6_]]) : (tensor<1xi64>) -> tensor<1xi64>
