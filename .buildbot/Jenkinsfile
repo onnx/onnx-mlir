@@ -45,7 +45,7 @@ def call() {
        */
 
       /* Docker related env vars */
-      DOCKER_PUSHPULL_RWLOCK = "/var/lock/jenkins-pipeline-${GITHUB_REPO_NAME}-${GITHUB_PR_BASEREF}.lock"
+      DOCKER_PUSHPULL_RWLOCK = "/var/lock/jenkins/jenkins-pipeline-${GITHUB_REPO_NAME}-${GITHUB_PR_BASEREF}.lock"
       DOCKER_DAEMON_SOCKET = 'unix://var/run/docker.sock'
       DOCKER_REGISTRY_TOKEN_ACCESS = 'true'
       /* Settings for docker.io */
