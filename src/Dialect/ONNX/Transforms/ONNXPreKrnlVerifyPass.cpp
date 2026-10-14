@@ -23,6 +23,8 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/TypeUtilities.hpp"
@@ -53,7 +55,7 @@ public:
     // Iterate on the operations
     for (Operation &op : funcBody.getOps()) {
       if (isa<mlir::ONNXDialect>(op.getDialect())) {
-        if (failed(verifyRanked(op)))
+        if (failed(verifyRanked(op)) || failed(verifyPadAxes(op)))
           signalPassFailure();
       }
     }
@@ -83,6 +85,24 @@ private:
         }
       }
     }
+    return success();
+  }
+
+  // Pad axes must all be known by now: they are needed to tell which axes
+  // grow, and no constant propagation happens after this point.
+  static LogicalResult verifyPadAxes(Operation &op) {
+    ONNXPadOp padOp = llvm::dyn_cast<ONNXPadOp>(op);
+    if (!padOp || onnx_mlir::isNoneValue(padOp.getAxes()))
+      return success();
+    onnx_mlir::ONNXPadOpShapeHelper shapeHelper(&op, {});
+    llvm::SmallVector<onnx_mlir::IndexExpr, 4> axes;
+    if (failed(shapeHelper.getPadAxes(axes)))
+      return op.emitError("Pad axes must have a static number of elements");
+    for (uint64_t k = 0; k < axes.size(); ++k)
+      if (!axes[k].isLiteral())
+        return op.emitError("Pad axes must be compile-time constants after "
+                            "constant propagation; axes[")
+               << k << "] is not";
     return success();
   }
 };
