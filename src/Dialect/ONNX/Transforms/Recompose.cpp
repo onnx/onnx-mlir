@@ -649,8 +649,29 @@ struct RecomposeQLinearMatMulFromQuantizeLinearPattern
   }
 };
 
-// Rewrite a MatMul whose every user is a Slice along the last axis, and whose
-// B input is a constant, into one MatMul per Slice on a sliced copy of B:
+// Reads a constant 1D Slice parameter set (starts, ends, axes, steps), each of
+// a single element. Returns false if any is not a constant or not of size 1.
+static bool getConstantSliceParams(ONNXSliceOp sliceOp, int64_t &start,
+    int64_t &end, int64_t &axis, int64_t &step) {
+  SmallVector<int64_t, 1> starts, ends, axes, steps;
+  if (!onnx_mlir::getI64ValuesFromONNXConstantOp(sliceOp.getStarts(), starts) ||
+      !onnx_mlir::getI64ValuesFromONNXConstantOp(sliceOp.getEnds(), ends) ||
+      !onnx_mlir::getI64ValuesFromONNXConstantOp(sliceOp.getAxes(), axes) ||
+      !onnx_mlir::getI64ValuesFromONNXConstantOp(sliceOp.getSteps(), steps))
+    return false;
+  if (starts.size() != 1 || ends.size() != 1 || axes.size() != 1 ||
+      steps.size() != 1)
+    return false;
+  start = starts[0];
+  end = ends[0];
+  axis = axes[0];
+  step = steps[0];
+  return true;
+}
+
+// Rewrite a MatMul whose B input is a constant, and whose users are either all
+// Slices along the last axis or a single Split along the last axis, into one
+// MatMul per Slice or Split output on a sliced copy of B:
 //
 //   %y = onnx.MatMul(%x, %w_const)
 //   %s0 = onnx.Slice(%y, start0, end0, axis=-1, step=1)
@@ -659,14 +680,18 @@ struct RecomposeQLinearMatMulFromQuantizeLinearPattern
 //   %s0 = onnx.MatMul(%x, onnx.Slice(%w_const, start0, end0, axis=-1, step=1))
 //   %s1 = onnx.MatMul(%x, onnx.Slice(%w_const, start1, end1, axis=-1, step=1))
 //
+// A Split is handled as one Slice per output, each output starting where the
+// previous one ends, with the (static) width of its type; unused Split outputs
+// are dropped.
 // The Slices of the constant are later folded by constant propagation. This
 // pattern is typical of gated MLPs (SwiGLU/GeGLU), where the gate and up
-// projections are emitted as a single MatMul followed by two Slices.
-// Requiring all users to be such Slices, whose widths add up to at most the
-// width of the original MatMul output, ensures no MatMul work is added: the
-// new MatMuls cost the sum of the Slice widths, the original one the full
-// width. Overlapping Slices thus only qualify when gaps make up for the
-// overlap.
+// projections are emitted as a single MatMul followed by two Slices or by a
+// two-output Split.
+// Requiring all users to be such Slices (or one Split), whose widths add up to
+// at most the width of the original MatMul output, ensures no MatMul work is
+// added: the new MatMuls cost the sum of the Slice widths, the original one
+// the full width. Overlapping Slices thus only qualify when gaps make up for
+// the overlap.
 // Each Slice must also be at least minSliceWidth wide. This bounds the cost of
 // re-reading X once per new MatMul, and on NNPA the cost of padding each new
 // MatMul's last dimension to a multiple of 64 (at most 64/minSliceWidth extra
@@ -695,38 +720,54 @@ struct SplitMatMulBySlicePattern : public OpRewritePattern<ONNXMatMulOp> {
     if (Y.use_empty())
       return rewriter.notifyMatchFailure(matmulOp, "no users");
 
-    // Every user must be a Slice of Y along the last axis with step 1 and
-    // constant bounds. Record the normalized [start, end) of each.
-    SmallVector<std::tuple<ONNXSliceOp, int64_t, int64_t>> slices;
-    int64_t totalWidth = 0;
-    for (Operation *user : Y.getUsers()) {
-      auto sliceOp = mlir::dyn_cast<ONNXSliceOp>(user);
-      if (!sliceOp || sliceOp.getData() != Y)
-        return rewriter.notifyMatchFailure(matmulOp, "user is not a Slice");
-      SmallVector<int64_t, 1> starts, ends, axes, steps;
-      if (!onnx_mlir::getI64ValuesFromONNXConstantOp(
-              sliceOp.getStarts(), starts) ||
-          !onnx_mlir::getI64ValuesFromONNXConstantOp(sliceOp.getEnds(), ends) ||
-          !onnx_mlir::getI64ValuesFromONNXConstantOp(sliceOp.getAxes(), axes) ||
-          !onnx_mlir::getI64ValuesFromONNXConstantOp(sliceOp.getSteps(), steps))
+    // Record the normalized [start, end) of each Slice of Y, or of each used
+    // output of a Split of Y, with the value it replaces.
+    SmallVector<std::tuple<Value, int64_t, int64_t>> slices;
+    if (auto splitOp = onnx_mlir::singleUserOfOpType<ONNXSplitOp>(Y)) {
+      // Single user is a Split along the last axis, with outputs of static
+      // width. Each output starts where the previous one ends.
+      int64_t axis = splitOp.getAxis();
+      if (axis != -1 && axis != yRank - 1)
         return rewriter.notifyMatchFailure(
-            matmulOp, "Slice parameters are not constants");
-      if (starts.size() != 1 || ends.size() != 1 || axes.size() != 1 ||
-          steps.size() != 1)
-        return rewriter.notifyMatchFailure(matmulOp, "Slice is not 1D");
-      if ((axes[0] != -1 && axes[0] != yRank - 1) || steps[0] != 1)
-        return rewriter.notifyMatchFailure(
-            matmulOp, "Slice is not on the last axis with step 1");
+            matmulOp, "Split is not on the last axis");
+      int64_t start = 0;
+      for (Value output : splitOp.getOutputs()) {
+        int64_t width = onnx_mlir::getShape(output.getType()).back();
+        if (ShapedType::isDynamic(width))
+          return rewriter.notifyMatchFailure(
+              matmulOp, "Split output width is not static");
+        if (!output.use_empty())
+          slices.emplace_back(output, start, start + width);
+        start += width;
+      }
+    } else {
+      // Every user is a Slice of Y along the last axis with step 1 and
+      // constant bounds.
       auto normalize = [N](int64_t v) {
         if (v < 0)
           v += N;
         return std::clamp<int64_t>(v, 0, N);
       };
-      int64_t start = normalize(starts[0]);
-      int64_t end = normalize(ends[0]);
+      for (Operation *user : Y.getUsers()) {
+        auto sliceOp = mlir::dyn_cast<ONNXSliceOp>(user);
+        if (!sliceOp || sliceOp.getData() != Y)
+          return rewriter.notifyMatchFailure(
+              matmulOp, "users are not Slices or a single Split");
+        int64_t start, end, axis, step;
+        if (!getConstantSliceParams(sliceOp, start, end, axis, step))
+          return rewriter.notifyMatchFailure(
+              matmulOp, "Slice parameters are not 1D constants");
+        if ((axis != -1 && axis != yRank - 1) || step != 1)
+          return rewriter.notifyMatchFailure(
+              matmulOp, "Slice is not on the last axis with step 1");
+        slices.emplace_back(
+            sliceOp.getOutput(), normalize(start), normalize(end));
+      }
+    }
+    int64_t totalWidth = 0;
+    for (auto [slice, start, end] : slices) {
       if (end - start < minSliceWidth)
         return rewriter.notifyMatchFailure(matmulOp, "Slice is too narrow");
-      slices.emplace_back(sliceOp, start, end);
       totalWidth += end - start;
     }
     if (totalWidth > N)
@@ -746,8 +787,8 @@ struct SplitMatMulBySlicePattern : public OpRewritePattern<ONNXMatMulOp> {
         rewriter, matmulOp.getLoc());
     Value axisLast = create.onnx.constantInt64({-1});
     Value stepOne = create.onnx.constantInt64({1});
-    for (auto [sliceOp, start, end] : slices) {
-      rewriter.setInsertionPoint(sliceOp);
+    for (auto [slice, start, end] : slices) {
+      rewriter.setInsertionPoint(slice.getDefiningOp());
       SmallVector<int64_t> bShape(bType.getShape());
       bShape.back() = end - start;
       Type newBType = RankedTensorType::get(bShape, bType.getElementType());
@@ -758,9 +799,239 @@ struct SplitMatMulBySlicePattern : public OpRewritePattern<ONNXMatMulOp> {
       yShape.back() = end - start;
       Type newYType = RankedTensorType::get(yShape, yType.getElementType());
       Value newY = create.onnx.matmul(newYType, A, newB);
-      rewriter.replaceOp(sliceOp, newY);
+      rewriter.replaceAllUsesWith(slice, newY);
     }
+    SmallVector<Operation *> users(Y.getUsers());
+    for (Operation *user : users)
+      rewriter.eraseOp(user);
     rewriter.eraseOp(matmulOp);
+    return success();
+  }
+};
+
+// Returns true if squeezeOp squeezes exactly the (normalized) axis `axis`.
+static bool squeezesOnlyAxis(ONNXSqueezeOp squeezeOp, int64_t axis) {
+  SmallVector<int64_t, 1> axes;
+  if (!onnx_mlir::getI64ValuesFromONNXConstantOp(squeezeOp.getAxes(), axes) ||
+      axes.size() != 1)
+    return false;
+  int64_t rank = onnx_mlir::getRank(squeezeOp.getData().getType());
+  int64_t a = axes[0] < 0 ? axes[0] + rank : axes[0];
+  return a == axis;
+}
+
+// The `unbind` idiom exported by PyTorch: N unit-width Slices that tile an
+// axis of size N, each followed by a Squeeze of that axis, become one Split
+// into N unit slices. The Squeezes are kept.
+//
+//   %s_i = Slice(%x, start=i, end=i+1, axis=a, step=1)     for i in 0..N-1
+//   %y_i = Squeeze(%s_i, a)
+// =>
+//   %s_0..%s_N-1 = Split(%x, split=[1]*N, axis=a)
+//   %y_i = Squeeze(%s_i, a)
+//
+// Only the unbind idiom is matched (not every set of Slices tiling an axis),
+// so as to leave alone Slices of a MatMul output that SplitMatMulBySlicePattern
+// handles better.
+struct UnbindSlicesToSplitPattern : public OpRewritePattern<ONNXSliceOp> {
+  using OpRewritePattern<ONNXSliceOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXSliceOp sliceOp, PatternRewriter &rewriter) const final {
+    Value data = sliceOp.getData();
+    if (!onnx_mlir::hasShapeAndRank(data))
+      return rewriter.notifyMatchFailure(sliceOp, "data has no rank");
+    auto dataType = mlir::cast<ShapedType>(data.getType());
+    int64_t rank = dataType.getRank();
+
+    int64_t start, end, axis, step;
+    if (!getConstantSliceParams(sliceOp, start, end, axis, step))
+      return rewriter.notifyMatchFailure(sliceOp, "non-constant parameters");
+    if (axis < 0)
+      axis += rank;
+    if (axis < 0 || axis >= rank || dataType.isDynamicDim(axis))
+      return rewriter.notifyMatchFailure(sliceOp, "bad or dynamic axis");
+    int64_t N = dataType.getDimSize(axis);
+    if (N < 2)
+      return rewriter.notifyMatchFailure(sliceOp, "axis too small");
+
+    // Collect the unit-width, step 1 Slices on `axis`, per position. Other
+    // users of `data` (other ops, or Slices of another axis or width) are
+    // left alone: they just keep reading `data`.
+    SmallVector<SmallVector<ONNXSliceOp, 1>> candidates(N);
+    for (Operation *user : data.getUsers()) {
+      auto other = mlir::dyn_cast<ONNXSliceOp>(user);
+      if (!other || other.getData() != data)
+        continue;
+      int64_t s, e, a, st;
+      if (!getConstantSliceParams(other, s, e, a, st))
+        continue;
+      if (a < 0)
+        a += rank;
+      if (a != axis || st != 1)
+        continue;
+      if (s < 0)
+        s += N;
+      if (e < 0)
+        e += N;
+      e = std::clamp<int64_t>(e, 0, N);
+      if (s < 0 || s >= N || e - s != 1)
+        continue;
+      candidates[s].emplace_back(other);
+    }
+    // Every position needs a Slice, else the Split would copy a slice that
+    // nobody reads. One Slice per position must be squeezed along the axis
+    // (and by nothing else), which is what makes this the unbind idiom.
+    SmallVector<ONNXSliceOp> slices;
+    for (ArrayRef<ONNXSliceOp> position : candidates) {
+      ONNXSliceOp squeezed;
+      for (ONNXSliceOp slice : position) {
+        auto squeezeOp =
+            onnx_mlir::singleUserOfOpType<ONNXSqueezeOp>(slice.getResult());
+        if (squeezeOp && squeezesOnlyAxis(squeezeOp, axis)) {
+          squeezed = slice;
+          break;
+        }
+      }
+      if (!squeezed)
+        return rewriter.notifyMatchFailure(
+            sliceOp, "a position has no Slice squeezed on the axis");
+      slices.emplace_back(squeezed);
+    }
+
+    SmallVector<Type> resultTypes;
+    for (ONNXSliceOp slice : slices)
+      resultTypes.push_back(slice.getResult().getType());
+
+    // The Split replaces all of these Slices, so it must come before the first
+    // of them, to dominate every user. They all read `data`, so `data` does
+    // too.
+    Operation *first = nullptr;
+    for (int64_t i = 0; i < N; ++i)
+      for (ONNXSliceOp slice : candidates[i]) {
+        if (slice.getResult().getType() != resultTypes[i])
+          continue;
+        if (!first || slice->getBlock() != first->getBlock()) {
+          if (first)
+            return rewriter.notifyMatchFailure(slice, "Slices in other blocks");
+          first = slice;
+        } else if (slice->isBeforeInBlock(first)) {
+          first = slice;
+        }
+      }
+    rewriter.setInsertionPoint(first);
+    onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
+        rewriter, first->getLoc());
+    Value splitSizes =
+        create.onnx.constantInt64(SmallVector<int64_t>(N, /*unit*/ 1));
+    ValueRange splits =
+        create.onnx.split(TypeRange(resultTypes), data, splitSizes, axis);
+    // Replace the chosen Slice of each position, and any duplicate of it.
+    for (int64_t i = 0; i < N; ++i)
+      for (ONNXSliceOp slice : candidates[i])
+        if (slice.getResult().getType() == resultTypes[i])
+          rewriter.replaceOp(slice, splits[i]);
+    return success();
+  }
+};
+
+// Hoists a common Transpose above a Split whose results are each squeezed
+// along the split axis:
+//
+//   %s_i = Split(%x, axis=a)          (every %s_i has size 1 along a)
+//   %q_i = Squeeze(%s_i, a)
+//   %y_i = Transpose(%q_i, perm)      (same perm for all i)
+// =>
+//   %t = Transpose(%x, perm')
+//   %s_i = Split(%t, axis=a)
+//   %y_i = Squeeze(%s_i, a)
+//
+// where perm' is perm with the split axis `a` inserted at output position a.
+// This puts the transpose directly after the producer, e.g. a Reshape of a
+// fused QKV projection, ahead of the Split. The result is the layout
+// Reshape -> Transpose -> Split -> Squeeze that NNPA's unstick-split-heads
+// fusion recognizes.
+struct PullSqueezeTransposeThroughSplitPattern
+    : public OpRewritePattern<ONNXSplitOp> {
+  using OpRewritePattern<ONNXSplitOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXSplitOp splitOp, PatternRewriter &rewriter) const final {
+    Value input = splitOp.getInput();
+    if (!onnx_mlir::hasShapeAndRank(input))
+      return rewriter.notifyMatchFailure(splitOp, "input has no rank");
+    auto inputType = mlir::cast<ShapedType>(input.getType());
+    int64_t rank = inputType.getRank();
+    int64_t axis = splitOp.getAxis();
+    if (axis < 0)
+      axis += rank;
+    // An equal split (no split operand, possibly num_outputs) is not rebuilt.
+    if (onnx_mlir::isNoneValue(splitOp.getSplit()))
+      return rewriter.notifyMatchFailure(splitOp, "no explicit split sizes");
+
+    SmallVector<ONNXSqueezeOp> squeezes;
+    SmallVector<ONNXTransposeOp> transposes;
+    SmallVector<int64_t> perm; // The squeezed (rank - 1) permutation.
+    for (Value result : splitOp.getResults()) {
+      if (!onnx_mlir::hasShapeAndRank(result) ||
+          mlir::cast<ShapedType>(result.getType()).getDimSize(axis) != 1)
+        return rewriter.notifyMatchFailure(splitOp, "split result not unit");
+      auto squeezeOp = onnx_mlir::singleUserOfOpType<ONNXSqueezeOp>(result);
+      if (!squeezeOp || !squeezesOnlyAxis(squeezeOp, axis))
+        return rewriter.notifyMatchFailure(splitOp, "not squeezed on axis");
+      auto transposeOp =
+          onnx_mlir::singleUserOfOpType<ONNXTransposeOp>(squeezeOp.getResult());
+      if (!transposeOp || !transposeOp.getPerm().has_value())
+        return rewriter.notifyMatchFailure(splitOp, "no explicit Transpose");
+      SmallVector<int64_t> p;
+      onnx_mlir::ArrayAttrIntVals(*transposeOp.getPerm(), p);
+      if (perm.empty())
+        perm = p;
+      else if (p != perm)
+        return rewriter.notifyMatchFailure(splitOp, "different perms");
+      squeezes.push_back(squeezeOp);
+      transposes.push_back(transposeOp);
+    }
+    if (static_cast<int64_t>(perm.size()) != rank - 1)
+      return rewriter.notifyMatchFailure(splitOp, "perm rank mismatch");
+
+    // Rank `rank` permutation that keeps the split axis in place and applies
+    // `perm` to the other dims: output j reads input dim perm'[j].
+    auto widen = [&](int64_t d) { return d < axis ? d : d + 1; };
+    SmallVector<int64_t> widePerm;
+    for (int64_t j = 0; j < rank; ++j) {
+      if (j == axis)
+        widePerm.push_back(axis);
+      else
+        widePerm.push_back(widen(perm[j < axis ? j : j - 1]));
+    }
+    auto permuteShape = [&](ShapedType type) {
+      SmallVector<int64_t> shape;
+      for (int64_t j = 0; j < rank; ++j)
+        shape.push_back(type.getDimSize(widePerm[j]));
+      return shape;
+    };
+
+    onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
+        rewriter, splitOp.getLoc());
+    Type elementType = inputType.getElementType();
+    Value transposed = create.onnx.transpose(
+        RankedTensorType::get(permuteShape(inputType), elementType), input,
+        rewriter.getI64ArrayAttr(widePerm));
+    SmallVector<Type> resultTypes;
+    for (Value result : splitOp.getResults())
+      resultTypes.push_back(RankedTensorType::get(
+          permuteShape(mlir::cast<ShapedType>(result.getType())), elementType));
+    ValueRange newSplits = create.onnx.split(
+        TypeRange(resultTypes), transposed, splitOp.getSplit(), axis);
+    Value axes = create.onnx.constantInt64({axis});
+    for (auto [i, transposeOp] : llvm::enumerate(transposes)) {
+      Value newSqueeze = create.onnx.squeeze(
+          transposeOp.getResult().getType(), newSplits[i], axes);
+      rewriter.replaceOp(transposeOp, newSqueeze);
+      rewriter.eraseOp(squeezes[i]);
+    }
+    rewriter.eraseOp(splitOp);
     return success();
   }
 };
@@ -1237,6 +1508,8 @@ void onnx_mlir::getRecomposeONNXToONNXPatterns(
   patterns.insert<RecomposeLayerNormFromMulPattern>(context);
   patterns.insert<RecomposeQLinearMatMulFromQuantizeLinearPattern>(context);
   patterns.insert<CombineParallelConv2DPattern>(context);
+  patterns.insert<UnbindSlicesToSplitPattern>(context);
+  patterns.insert<PullSqueezeTransposeThroughSplitPattern>(context);
   if (enableAttentionOpConstruct)
     patterns.insert<RecomposeAttentionFromMatMulPattern>(context);
   if (!disableSplitMatMulBySlice)
