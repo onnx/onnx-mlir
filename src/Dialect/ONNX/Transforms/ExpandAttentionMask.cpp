@@ -9,8 +9,8 @@
 // =============================================================================
 //
 // This file implements a pass to expand attention mask tensors in
-// MatMul-Add-Softmax patterns to eliminate broadcasting in Add operations
-// for NNPA compatibility.
+// MatMul-[Mul]-Add-Softmax patterns to eliminate broadcasting in Add and Mul
+// operations for NNPA compatibility. Mul is optional.
 //
 //===----------------------------------------------------------------------===//
 
@@ -26,6 +26,7 @@
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
@@ -40,6 +41,17 @@ namespace onnx_mlir {
 
 namespace {
 
+// Structure to hold detected attention pattern information.
+struct AttentionPattern {
+  ONNXMatMulOp matmulOp;
+  ONNXMulOp mulOp; // Optional, can be nullptr.
+  ONNXAddOp addOp;
+  ONNXSoftmaxOp softmaxOp;
+  Value scaleOperand; // For Mul (if present) - attention scale factor.
+  Value maskOperand;  // For Add.
+  bool hasMul;
+};
+
 struct ExpandAttentionMaskPass
     : public impl::ExpandAttentionMaskPassBase<ExpandAttentionMaskPass> {
   using ExpandAttentionMaskPassBase::ExpandAttentionMaskPassBase;
@@ -52,21 +64,28 @@ private:
   // Minimum uses threshold for mask expansion.
   static constexpr unsigned minUses = 4;
 
-  // Analysis: collect eligible masks.
+  // Analysis: collect eligible masks and scales.
   void analyzeAttentionMasks();
 
-  // Transformation: expand eligible masks.
-  void expandEligibleMasks();
+  // Transformation: expand eligible masks and scales.
+  void expandEligibleOperands();
 
-  // Check if Add is in MatMul-Add-Softmax pattern with broadcasting.
-  bool isAttentionMaskAdd(ONNXAddOp addOp, DimAnalysis *dimAnalysis);
+  // Detect attention pattern (MatMul-[Mul]-Add-Softmax).
+  std::optional<AttentionPattern> detectAttentionPattern(
+      ONNXAddOp addOp, DimAnalysis *dimAnalysis);
+
+  // Helper: Create expanded operand from source operand to target shape.
+  Value createExpandedOperand(OpBuilder &builder, Location loc,
+      Value operandToExpand, Value targetTensor);
 
   // Data structures.
-  DenseMap<Value, SmallVector<ONNXAddOp>> maskUsageMap;
+  DenseMap<Value, SmallVector<AttentionPattern>> patternsByMask;
+  DenseMap<Value, SmallVector<AttentionPattern>> patternsByScale;
   DenseSet<Value> eligibleMasks;
+  DenseSet<Value> eligibleScales;
 };
 
-bool ExpandAttentionMaskPass::isAttentionMaskAdd(
+std::optional<AttentionPattern> ExpandAttentionMaskPass::detectAttentionPattern(
     ONNXAddOp addOp, DimAnalysis *dimAnalysis) {
   // Fast path: check types first (cheapest check).
   auto firstType =
@@ -75,63 +94,139 @@ bool ExpandAttentionMaskPass::isAttentionMaskAdd(
       mlir::dyn_cast<RankedTensorType>(addOp.getOperand(1).getType());
 
   if (!firstType || !secondType)
-    return false;
+    return std::nullopt;
 
   // Quick check: if shapes are identical, no broadcasting.
-  // Use DimAnalysis::sameShape() to handle both static and dynamic dimensions.
   Value firstOperand = addOp.getOperand(0);
   Value secondOperand = addOp.getOperand(1);
 
   if (dimAnalysis->sameShape(firstOperand, secondOperand))
-    return false; // No broadcasting.
+    return std::nullopt; // No broadcasting.
 
-  // Check pattern: MatMul -> Add -> Softmax.
-  Operation *definingOp = firstOperand.getDefiningOp();
-  if (!definingOp || !isa<ONNXMatMulOp>(definingOp))
-    return false;
+  // Initialize pattern structure.
+  AttentionPattern pattern;
+  pattern.addOp = addOp;
+  pattern.maskOperand = secondOperand;
+  pattern.hasMul = false;
+  pattern.mulOp = nullptr;
+  pattern.scaleOperand = nullptr;
 
-  // Check if output consumed by Softmax.
-  Value result = addOp.getResult();
-  for (Operation *user : result.getUsers()) {
-    if (isa<ONNXSoftmaxOp>(user))
-      return true;
+  // Check for optional Mul operation using definedBy<> template.
+  if (definedBy<ONNXMulOp>(firstOperand)) {
+    ONNXMulOp mulOp = firstOperand.getDefiningOp<ONNXMulOp>();
+
+    // Mul is commutative: find which operand is MatMul and which is scale.
+    Value mulOp0 = mulOp.getOperand(0);
+    Value mulOp1 = mulOp.getOperand(1);
+    Value matmulValue = nullptr;
+    Value scaleCandidate = nullptr;
+
+    if (definedBy<ONNXMatMulOp>(mulOp0)) {
+      matmulValue = mulOp0;
+      scaleCandidate = mulOp1;
+    } else if (definedBy<ONNXMatMulOp>(mulOp1)) {
+      matmulValue = mulOp1;
+      scaleCandidate = mulOp0;
+    }
+
+    if (matmulValue && scaleCandidate && isScalarTensor(scaleCandidate)) {
+      // Valid attention scaling pattern: MatMul * scalar_scale.
+      pattern.matmulOp = matmulValue.getDefiningOp<ONNXMatMulOp>();
+      pattern.mulOp = mulOp;
+      pattern.scaleOperand = scaleCandidate;
+      pattern.hasMul = true;
+    } else if (matmulValue) {
+      // Mul present but scale is not scalar — treat as MatMul->Add (mask only).
+      pattern.matmulOp = matmulValue.getDefiningOp<ONNXMatMulOp>();
+    } else {
+      return std::nullopt;
+    }
+  } else if (definedBy<ONNXMatMulOp>(firstOperand)) {
+    // Direct MatMul->Add pattern (no Mul).
+    pattern.matmulOp = firstOperand.getDefiningOp<ONNXMatMulOp>();
+  } else {
+    return std::nullopt;
   }
 
-  return false;
+  // Check if Add output is consumed by Softmax.
+  Value result = addOp.getResult();
+  for (Operation *user : result.getUsers()) {
+    if (auto softmaxOp = dyn_cast<ONNXSoftmaxOp>(user)) {
+      pattern.softmaxOp = softmaxOp;
+      return pattern;
+    }
+  }
+
+  return std::nullopt;
+}
+
+Value ExpandAttentionMaskPass::createExpandedOperand(OpBuilder &builder,
+    Location loc, Value operandToExpand, Value targetTensor) {
+  OnnxBuilder onnxBuilder(builder, loc);
+  auto targetType = cast<RankedTensorType>(targetTensor.getType());
+  ArrayRef<int64_t> targetShape = targetType.getShape();
+
+  // Build shape tensor dynamically.
+  SmallVector<Value> shapeParts;
+  for (size_t i = 0; i < targetShape.size(); ++i) {
+    if (ShapedType::isDynamic(targetShape[i])) {
+      // Dynamic dimension - use onnxBuilder.dim().
+      Value dimVal = onnxBuilder.dim(targetTensor, i);
+      shapeParts.push_back(dimVal);
+    } else {
+      // Static dimension - use onnxBuilder.constant().
+      Value constVal =
+          onnxBuilder.constant(builder.getI64TensorAttr({targetShape[i]}));
+      shapeParts.push_back(constVal);
+    }
+  }
+
+  RankedTensorType shapeType = RankedTensorType::get(
+      {static_cast<int64_t>(targetShape.size())}, builder.getI64Type());
+  Value shapeValue = onnxBuilder.concat(shapeType, shapeParts, /*axis=*/0);
+
+  // Create and return expanded operand.
+  return onnxBuilder.expand(targetType, operandToExpand, shapeValue);
 }
 
 void ExpandAttentionMaskPass::analyzeAttentionMasks() {
   func::FuncOp funcOp = getOperation();
 
-  // Step 1: Collect all attention mask Add operations (single pass).
+  // Step 1: Collect all attention patterns (single pass).
   funcOp.walk([&](ONNXAddOp addOp) {
-    if (!isAttentionMaskAdd(addOp, dimAnalysis))
+    auto pattern = detectAttentionPattern(addOp, dimAnalysis);
+    if (!pattern)
       return;
 
-    // Get the mask (second operand being broadcast).
-    Value maskTensor = addOp.getOperand(1);
-    maskUsageMap[maskTensor].push_back(addOp);
+    // Track mask operand.
+    Value mask = pattern->maskOperand;
+    patternsByMask[mask].push_back(*pattern);
+
+    // Track scale operand if Mul present.
+    if (pattern->hasMul) {
+      Value scale = pattern->scaleOperand;
+      patternsByScale[scale].push_back(*pattern);
+    }
   });
 
-  // Step 2: Determine eligibility (efficient filtering).
-  for (auto &entry : maskUsageMap) {
+  // Step 2: Determine eligibility for masks.
+  for (auto &entry : patternsByMask) {
     Value maskTensor = entry.first;
-    SmallVector<ONNXAddOp> &uses = entry.second;
+    SmallVector<AttentionPattern> &patterns = entry.second;
 
     // Check minimum usage threshold.
-    if (uses.size() < minUses)
+    if (patterns.size() < minUses)
       continue;
 
-    // Check shape consistency using DimAnalysis (optimized).
-    // All Add operations should have same first operand shape.
+    // Check shape consistency using DimAnalysis.
+    // All patterns should have same MatMul output shape.
     bool allSame = true;
-    Value firstAddOperand = uses[0].getOperand(0);
+    Value firstMatMulOutput = patterns[0].matmulOp.getResult();
 
-    for (size_t i = 1; i < uses.size(); ++i) {
-      Value currentAddOperand = uses[i].getOperand(0);
+    for (size_t i = 1; i < patterns.size(); ++i) {
+      Value currentMatMulOutput = patterns[i].matmulOp.getResult();
 
-      // Use DimAnalysis::sameShape() - handles both static and dynamic dims.
-      if (!dimAnalysis->sameShape(firstAddOperand, currentAddOperand)) {
+      if (!dimAnalysis->sameShape(firstMatMulOutput, currentMatMulOutput)) {
         allSame = false;
         break;
       }
@@ -140,63 +235,96 @@ void ExpandAttentionMaskPass::analyzeAttentionMasks() {
     if (allSame)
       eligibleMasks.insert(maskTensor);
   }
-}
 
-void ExpandAttentionMaskPass::expandEligibleMasks() {
-  OpBuilder builder(&getContext());
+  // Step 3: Determine eligibility for scales.
+  for (auto &entry : patternsByScale) {
+    Value scaleTensor = entry.first;
+    SmallVector<AttentionPattern> &patterns = entry.second;
 
-  for (Value maskTensor : eligibleMasks) {
-    SmallVector<ONNXAddOp> &uses = maskUsageMap[maskTensor];
-    if (uses.empty())
+    // Check minimum usage threshold.
+    if (patterns.size() < minUses)
       continue;
 
-    // Get target shape from first use.
-    ONNXAddOp firstAdd = uses[0];
-    Value targetTensor = firstAdd.getOperand(0);
-    Location loc = firstAdd.getLoc();
+    // Check shape consistency.
+    bool allSame = true;
+    Value firstMatMulOutput = patterns[0].matmulOp.getResult();
 
-    // Build shape tensor dynamically using OnnxBuilder.
-    builder.setInsertionPoint(firstAdd);
-    OnnxBuilder onnxBuilder(builder, loc);
+    for (size_t i = 1; i < patterns.size(); ++i) {
+      Value currentMatMulOutput = patterns[i].matmulOp.getResult();
 
-    auto targetType = mlir::dyn_cast<RankedTensorType>(targetTensor.getType());
-    if (!targetType)
-      continue;
-    ArrayRef<int64_t> targetShape = targetType.getShape();
-
-    SmallVector<Value> shapeParts;
-    for (size_t i = 0; i < targetShape.size(); ++i) {
-      if (targetShape[i] >= 0) {
-        // Static dimension: create constant.
-        Value constVal =
-            onnxBuilder.constant(builder.getI64TensorAttr({targetShape[i]}));
-        shapeParts.push_back(constVal);
-      } else {
-        // Dynamic dimension: use onnx.Dim.
-        Value dimVal = onnxBuilder.dim(targetTensor, i);
-        shapeParts.push_back(dimVal);
+      if (!dimAnalysis->sameShape(firstMatMulOutput, currentMatMulOutput)) {
+        allSame = false;
+        break;
       }
     }
 
-    // Concatenate shape parts to build shape tensor.
-    // Determine output type for concat: tensor<NxI64> where N is rank.
-    RankedTensorType shapeType = RankedTensorType::get(
-        {static_cast<int64_t>(targetShape.size())}, builder.getI64Type());
-    Value shapeValue = onnxBuilder.concat(shapeType, shapeParts, /*axis=*/0);
+    if (allSame)
+      eligibleScales.insert(scaleTensor);
+  }
+}
 
-    // Create Expand operation.
-    // Output type is same as target type.
-    Value expandedMask = onnxBuilder.expand(targetType, maskTensor, shapeValue);
+void ExpandAttentionMaskPass::expandEligibleOperands() {
+  OpBuilder builder(&getContext());
 
-    // Replace all uses in Add operations.
-    for (ONNXAddOp addOp : uses) {
-      addOp.setOperand(1, expandedMask);
+  // Expand eligible masks.
+  for (Value maskTensor : eligibleMasks) {
+    SmallVector<AttentionPattern> &patterns = patternsByMask[maskTensor];
+    if (patterns.empty())
+      continue;
+
+    // Get target shape from first pattern's MatMul output.
+    AttentionPattern &firstPattern = patterns[0];
+    Value targetTensor = firstPattern.matmulOp.getResult();
+    Location loc = firstPattern.addOp.getLoc();
+
+    // Insert right after the first MatMul whose result the Dim ops reference.
+    // This dominates all Add ops in the patterns (MatMul feeds into Add),
+    // and the mask (a block arg or earlier constant) already dominates it.
+    builder.setInsertionPointAfter(firstPattern.matmulOp);
+
+    // Create expanded mask using helper function.
+    Value expandedMask =
+        createExpandedOperand(builder, loc, maskTensor, targetTensor);
+
+    // Replace mask operand in all Add operations.
+    for (AttentionPattern &pattern : patterns) {
+      pattern.addOp.setOperand(1, expandedMask);
+    }
+  }
+
+  // Expand eligible scales.
+  for (Value scaleTensor : eligibleScales) {
+    SmallVector<AttentionPattern> &patterns = patternsByScale[scaleTensor];
+    if (patterns.empty())
+      continue;
+
+    // Get target shape from first pattern's MatMul output.
+    AttentionPattern &firstPattern = patterns[0];
+    Value targetTensor = firstPattern.matmulOp.getResult();
+    Location loc = firstPattern.mulOp.getLoc();
+
+    // Insert right after the first MatMul whose result the Dim ops reference.
+    builder.setInsertionPointAfter(firstPattern.matmulOp);
+
+    // Create expanded scale using helper function.
+    Value expandedScale =
+        createExpandedOperand(builder, loc, scaleTensor, targetTensor);
+
+    // Replace scale operand in all Mul operations.
+    for (AttentionPattern &pattern : patterns) {
+      pattern.mulOp.setOperand(1, expandedScale);
     }
   }
 }
 
 void ExpandAttentionMaskPass::runOnOperation() {
   func::FuncOp funcOp = getOperation();
+
+  // Clear state from any prior invocation.
+  patternsByMask.clear();
+  patternsByScale.clear();
+  eligibleMasks.clear();
+  eligibleScales.clear();
 
   // Initialize DimAnalysis.
   ModuleOp module = funcOp->getParentOfType<ModuleOp>();
@@ -207,12 +335,12 @@ void ExpandAttentionMaskPass::runOnOperation() {
   // Run analysis phase.
   analyzeAttentionMasks();
 
-  // Early exit if no eligible masks.
-  if (eligibleMasks.empty())
+  // Early exit if no eligible masks or scales.
+  if (eligibleMasks.empty() && eligibleScales.empty())
     return;
 
   // Run transformation phase.
-  expandEligibleMasks();
+  expandEligibleOperands();
 }
 
 } // namespace
