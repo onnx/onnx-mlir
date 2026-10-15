@@ -1404,7 +1404,7 @@ private:
       // currently expanding so that any re-entrant call to ImportNode for the
       // same (domain, op_type) is caught before recursing again.
       expandingModelFunctions_.insert(modelLocalFunction);
-      auto cleanupExpanding = llvm::scope_exit(
+      auto cleanupExpanding = llvm::make_scope_exit(
           [&] { expandingModelFunctions_.erase(modelLocalFunction); });
 
       for (auto &fb_node : graph.node()) {
@@ -1622,43 +1622,19 @@ private:
 } // namespace detail
 
 // Call onnx::checker::check_function_call_cycles to detect recursive
-// model-local functions, then run shape inference.  Returns false (with a
-// diagnostic on llvm::errs()) if a cycle is found; returns true on success.
-// Separating cycle detection from InferShapes lets us emit a controlled
-// "model-local function '...' is directly or indirectly recursive" message
-// instead of crashing with terminate() when InferShapes itself throws
-// onnx::checker::ValidationError.
+// Run shape inference with exception handling. Returns false (with a
+// diagnostic on llvm::errs()) if shape inference fails or detects recursive
+// model-local functions; returns true on success.
 static bool checkAndInferShapes(onnx::ModelProto &model) {
-  if (model.functions_size() > 0) {
-    try {
-      onnx::checker::check_function_call_cycles(model);
-    } catch (const onnx::checker::ValidationError &e) {
-      // The ONNX message has the form:
-      //   "Cycle detected in model-local function references: <domain>::<name>
-      //    -> ... Model-local functions must not be recursive."
-      // Extract "domain::name", convert "::" → ":" for our diagnostic format.
-      std::string msg = e.what();
-      std::string funcId;
-      const std::string prefix = "function references: ";
-      auto pos = msg.find(prefix);
-      if (pos != std::string::npos) {
-        pos += prefix.size();
-        auto end = msg.find_first_of(" -.", pos);
-        funcId = msg.substr(
-            pos, end == std::string::npos ? std::string::npos : end - pos);
-        // ONNX uses "::" separator; our diagnostic uses ":".
-        auto sep = funcId.find("::");
-        if (sep != std::string::npos)
-          funcId.replace(sep, 2, ":");
-      }
-      llvm::errs() << "model-local function '" << funcId
-                   << "' is directly or indirectly recursive; "
-                      "onnx-mlir does not support recursive model-local "
-                      "functions\n";
-      return false;
-    }
+  try {
+    onnx::shape_inference::InferShapes(model);
+  } catch (const onnx::checker::ValidationError &e) {
+    llvm::errs() << "shape inference validation error: " << e.what() << "\n";
+    return false;
+  } catch (const onnx::InferenceError &e) {
+    llvm::errs() << "shape inference error: " << e.what() << "\n";
+    return false;
   }
-  onnx::shape_inference::InferShapes(model);
   return true;
 }
 
