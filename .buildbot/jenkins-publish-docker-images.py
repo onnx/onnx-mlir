@@ -120,12 +120,12 @@ def get_pr_data(url, token):
         data = resp.json()
         return {
             "mergeable_state": data.get("mergeable_state", "unknown"),
-            "head_repo_full_name": (data.get("head") or {}).get(
-                "repo", {}
-            ).get("full_name"),
-            "base_repo_full_name": (data.get("base") or {}).get(
-                "repo", {}
-            ).get("full_name"),
+            "head_repo_full_name": (data.get("head") or {})
+            .get("repo", {})
+            .get("full_name"),
+            "base_repo_full_name": (data.get("base") or {})
+            .get("repo", {})
+            .get("full_name"),
         }
     except Exception as e:
         logging.exception(e)
