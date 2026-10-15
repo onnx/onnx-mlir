@@ -169,8 +169,14 @@ node {
         set_build_name(&quot;${x_github_event}&quot;)
 
         try {
-            /* User triggering the event is not one of the admins */
-            if (GITHUB_REPO_ADMINS.indexOf(GITHUB_PR_SENDER) &lt; 0) {
+            /* User triggering the event is not one of the admins.
+             * Use exact-token membership: tokenize on ',' then check contains()
+             * so that a GitHub username which is a substring of an admin name
+             * cannot pass the gate (f002 fix).
+             * e.g. "alice,bob,carol" and "alice, bob, carol" both work.
+             */
+            def adminList = GITHUB_REPO_ADMINS.tokenize(',').collect { it.trim() }
+            if (!adminList.contains(GITHUB_PR_SENDER)) {
                 /* Just post the comment once */
                 if (CPU_ARCH == &apos;s390x&apos;)
                     post_pr_comment(&quot;${GITHUB_PR_COMMENT_URL}&quot;,
@@ -473,6 +479,11 @@ def checkout_pr_source(url, remote, refspec, branch, recursive) {
     ])
 }
 </script>
+    <!-- sandbox remains false: the outer script uses new Date(), Math.min(),
+         and .format() which are rejected by the Jenkins sandbox whitelist.
+         The security gate is instead the exact-token admin check above (f002)
+         and the fact that this outer script itself is maintained in the
+         protected repo, not sourced from the PR head. -->
     <sandbox>false</sandbox>
   </definition>
   <triggers/>
