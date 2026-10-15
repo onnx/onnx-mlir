@@ -83,6 +83,12 @@ Type getReturnTypeForMaxPool2D(Value input) {
   return UnrankedTensorType::get(inputType.getElementType());
 }
 
+// Get a type with the shape of `shapeVal` and the element type of `elemVal`.
+Type getShapeOfFirstWithElementTypeOfSecond(Value shapeVal, Value elemVal) {
+  return mlir::cast<ShapedType>(shapeVal.getType())
+      .clone(getElementType(elemVal.getType()));
+}
+
 bool isNotConvProducer(mlir::Value val) {
   if (auto defOp = val.getDefiningOp()) {
     return !llvm::isa<mlir::ONNXConvOp>(defOp);

@@ -444,6 +444,33 @@ func.func @test_transpose_besides_hardsigmoid_fusion(%arg0: tensor<10x11x12x13xf
 
 // -----
 
+// Check the combining of two transposes besides a Cast op that changes the element type. The fused Cast must keep its f32 result element type (issue #3684).
+//
+// CHECK-LABEL: func @test_transpose_besides_cast_fusion(%arg0: tensor<1x1x124x40xf16>) -> tensor<1x40x1x124xf32> {
+func.func @test_transpose_besides_cast_fusion(%arg0: tensor<1x1x124x40xf16>) -> tensor<1x40x1x124xf32> {
+  %0 = "onnx.Transpose"(%arg0) {perm = [0, 1, 3, 2]} : (tensor<1x1x124x40xf16>) -> tensor<1x1x40x124xf16>
+  %1 = "onnx.Cast"(%0) {saturate = 1 : si64, to = f32} : (tensor<1x1x40x124xf16>) -> tensor<1x1x40x124xf32>
+  %2 = "onnx.Transpose"(%1) {perm = [0, 2, 1, 3]} : (tensor<1x1x40x124xf32>) -> tensor<1x40x1x124xf32>
+  // CHECK-NEXT: [[CAST:%.+]] = "onnx.Cast"(%arg0) <{saturate = 1 : si64, to = f32}> : (tensor<1x1x124x40xf16>) -> tensor<1x1x124x40xf32>
+  // CHECK-NEXT: %{{.*}} = "onnx.Transpose"([[CAST]]) <{perm = [0, 3, 1, 2]}> : (tensor<1x1x124x40xf32>) -> tensor<1x40x1x124xf32>
+  "onnx.Return"(%2) : (tensor<1x40x1x124xf32>) -> ()
+}
+
+// -----
+
+// Check the combining of two transposes besides an IsNaN op, whose result element type differs from its input's.
+//
+// CHECK-LABEL: func @test_transpose_besides_isnan_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xi1> {
+func.func @test_transpose_besides_isnan_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xi1> {
+  %0 = "onnx.Transpose"(%arg0) {perm = [0, 3, 1, 2]} : (tensor<10x11x12x13xf32>) -> tensor<10x13x11x12xf32>
+  %1 = "onnx.IsNaN"(%0) : (tensor<10x13x11x12xf32>) -> tensor<10x13x11x12xi1>
+  %2 = "onnx.Transpose"(%1) {perm = [0, 2, 3, 1]} : (tensor<10x13x11x12xi1>) -> tensor<10x11x12x13xi1>
+  // CHECK-NEXT: %{{.*}} = "onnx.IsNaN"(%arg0) : (tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xi1>
+  "onnx.Return"(%2) : (tensor<10x11x12x13xi1>) -> ()
+}
+
+// -----
+
 // Check the combining of reshape into a simple reshape.
 // CHECK-LABEL: func @test_reshape_fusion1(%arg0: tensor<10x11x12x13xf32>) -> tensor<8x15x13x11xf32> {
 func.func @test_reshape_fusion1(%arg0: tensor<10x11x12x13xf32>) -> tensor<8x15x13x11xf32> {
