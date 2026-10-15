@@ -175,6 +175,7 @@ extern bool disableRecomposeOption;                           // onnx-mlir only
 extern bool enableAttentionOpConstruct;                       // common for both
 extern KVCacheType kvCache;                                   // common for both
 extern bool disableSplitMatMulBySlice;                        // common for both
+extern bool disableUnbindToSplit;                             // common for both
 extern bool enableSimdDataLayout;                             // onnx-mlir only
 extern bool verifyInputTensors;                               // onnx-mlir only
 extern bool allowSorting;                                     // onnx-mlir only
