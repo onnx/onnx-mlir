@@ -325,6 +325,11 @@ mlir::Operation *usedOnlyByOpType(mlir::Value val);
 template <typename OP>
 OP singleUserOfOpType(mlir::Value val);
 
+/// Return true if all ops are in the same block (vacuously true when empty).
+/// Required before ordering ops with isBeforeInBlock(), and by rewrites that
+/// must not move work into or out of a nested region (e.g. a Loop body).
+bool areInSameBlock(llvm::ArrayRef<mlir::Operation *> ops);
+
 /// Check the defining operation of a value.
 template <typename OP>
 bool definedBy(mlir::Value v);
