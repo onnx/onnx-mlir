@@ -1625,7 +1625,8 @@ private:
 } // namespace detail
 
 // Check if model-local functions contain recursive cycles. Returns false
-// (with a diagnostic on llvm::errs()) if a cycle is found; returns true on success.
+// (with a diagnostic on llvm::errs()) if a cycle is found; returns true on
+// success.
 static bool checkFunctionCallCycles(const onnx::ModelProto &model) {
   if (model.functions_size() == 0)
     return true;
