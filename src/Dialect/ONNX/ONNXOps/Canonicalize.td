@@ -669,26 +669,40 @@ def FuseTransposePattern:  Pat<
   // Transpose with combined pattern.
   (ONNXTransposeOp $v, (CreateCombinedTransposedPattern $p1, $p2))>;
 
+// Type with the shape of $0 and the element type of $1. The rewritten elmOp
+// takes its shape from the un-transposed input, but must keep its original
+// result element type, which differs from the input's for ops such as Cast
+// and IsNaN.
+def GetShapeOfFirstWithElementTypeOfSecond: NativeCodeCall<
+  "onnx_mlir::getShapeOfFirstWithElementTypeOfSecond($0, $1)"
+>;
+
 class FuseTransposeAndElementwiseUnaryOpPattern<Op elmOp>:  Pat<
   // Transpose of elmOp on a transpose.
-  (ONNXTransposeOp (elmOp (ONNXTransposeOp $v, $p1)), $p2),
+  (ONNXTransposeOp (elmOp:$res (ONNXTransposeOp $v, $p1)), $p2),
   // elmOp on Transpose with combined pattern.
-  (ONNXTransposeOp (elmOp $v, (returnType $v)),
-                   (CreateCombinedTransposedPattern $p1, $p2))>;
+  (ONNXTransposeOp
+      (elmOp $v,
+          (returnType (GetShapeOfFirstWithElementTypeOfSecond $v, $res))),
+      (CreateCombinedTransposedPattern $p1, $p2))>;
 
 class FuseTransposeAndElementwiseUnaryWithOneArgOpPattern<Op elmOp>:  Pat<
   // Transpose of elmOp on a transpose.
-  (ONNXTransposeOp (elmOp (ONNXTransposeOp $v, $p1), $arg1), $p2),
+  (ONNXTransposeOp (elmOp:$res (ONNXTransposeOp $v, $p1), $arg1), $p2),
   // elmOp on Transpose with combined pattern.
-  (ONNXTransposeOp (elmOp $v, $arg1, (returnType $v)),
-                   (CreateCombinedTransposedPattern $p1, $p2))>;
+  (ONNXTransposeOp
+      (elmOp $v, $arg1,
+          (returnType (GetShapeOfFirstWithElementTypeOfSecond $v, $res))),
+      (CreateCombinedTransposedPattern $p1, $p2))>;
 
 class FuseTransposeAndElementwiseUnaryWithTwoArgOpPattern<Op elmOp>:  Pat<
   // Transpose of elmOp on a transpose.
-  (ONNXTransposeOp (elmOp (ONNXTransposeOp $v, $p1), $arg1, $arg2), $p2),
+  (ONNXTransposeOp (elmOp:$res (ONNXTransposeOp $v, $p1), $arg1, $arg2), $p2),
   // elmOp on Transpose with combined pattern.
-  (ONNXTransposeOp (elmOp $v, $arg1, $arg2, (returnType $v)),
-                   (CreateCombinedTransposedPattern $p1, $p2))>;
+  (ONNXTransposeOp
+      (elmOp $v, $arg1, $arg2,
+          (returnType (GetShapeOfFirstWithElementTypeOfSecond $v, $res))),
+      (CreateCombinedTransposedPattern $p1, $p2))>;
 
 def FuseTransposeAndAtanPattern :
     FuseTransposeAndElementwiseUnaryOpPattern<ONNXAtanOp>;
